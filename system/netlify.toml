@@ -1,0 +1,84 @@
+[build]
+  publish = "public"
+[functions]
+  node_bundler = "esbuild"
+[functions.index]
+  included_files = ["public/aesthetic.computer/disks/**/*.mjs",
+                    "public/aesthetic.computer/dep/**/*.mjs",
+                    "public/aesthetic.computer/systems/**/*.mjs",
+                    "public/aesthetic.computer/lib/**/*.mjs"]
+[functions.presigned-upload-url]
+  external_node_modules = ["nanoid", "@aws-sdk-client-s3", "@aws-sdk/s3-request-presigner"]
+[functions.thumbnail]
+  external_node_modules = ["chrome-aws-lambda"]
+[functions.session]
+  external_node_modules = ["got", "redis"]
+[functions.reload]
+  external_node_modules = ["got", "redis"]
+[dev]
+  NODE_ENV = "development"
+  publish = "public/"
+  #framework = "#static"
+  command = "npm run spaces-dev-netlify"
+  targetPort = 8111
+  #port = 8888
+  autoLaunch = false
+[dev.https]
+  certFile = "../ssl-dev/localhost.pem"
+  keyFile = "../ssl-dev/localhost-key.pem"
+[context.production]
+  NODE_ENV= "production"
+[[headers]]
+  # Define which paths this specific [[headers]] block will cover.
+  for = "/*"
+[headers.values]
+  Access-Control-Allow-Origin = "*"
+  # These headers are required in order for SharedArrayBuffer to be enabled.
+  # Currently used by ffmpeg.wasm. 22.08.06.11.01
+  # Cross-Origin-Embedder-Policy = "require-corp"
+  Cross-Origin-Embedder-Policy = "require-corp"
+  Cross-Origin-Opener-Policy = "same-origin"
+  # Cross-Origin-Resource-Policy = "cross-origin"
+  Vary = "*"
+[[redirects]]
+  from = "https://www.4esthetic.com/*"
+  to = "https://aesthetic.computer/:splat"
+  status = 301
+  force = true
+[[redirects]]
+  from = "https://4esthetic.com/*"
+  to = "https://aesthetic.computer/:splat"
+  status = 301
+  force = true
+[[redirects]]
+  from = "https://wand.ac"
+  to = "https://aesthetic.computer/wand"
+  status = 301
+  force = true
+[[redirects]]
+  from = "https://prompt.ac/*"
+  to = "https://aesthetic.computer/:splat"
+  status = 301
+  force = true
+[[redirects]]
+  from = "/thumbnail/*"
+  to = "/.netlify/builders/thumbnail"
+  status = 200
+[[redirects]]
+  from = "/session/*"
+  to = "/.netlify/functions/session"
+  status = 200
+[[redirects]]
+  from = "/reload/*"
+  to = "/.netlify/functions/reload"
+  status = 200
+[[redirects]]
+  from = "/presigned-upload-url/*"
+  to = "/.netlify/functions/presigned-upload-url"
+  status = 200
+  force = true
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/builders/index"
+  status = 200
+  force = false

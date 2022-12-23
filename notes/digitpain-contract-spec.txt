@@ -1,0 +1,52 @@
+🎃 DIGITPAIN: *New* Smart Contract Thoughts
+
+Giving the future of my painting practice quite a bit of thought tonight... 🌙
+
+I'd like to focus mainly on collaborative digital painting where me and my
+friends can make pictures together in our own way. I can credit them in my
+metadata and add or remove wallet addresses as I please when minting each token,
+in order to do splits based on agreed percentages.
+
+Many of the works in RDP are collaborative and this is where I saw my practice
+was headed, back when I was in the midst of that period from 2016-2019.
+
+***5 BRIEF CONCEPTUAL POINTS***
+
+1. I see these new paintings getting both produced and credited in novel ways.
+
+2. I want to to experiment with different methods of collaboration.
+
+3. I think about these paintings as if they were Hollywood films.
+
+  The collab credits for a group figurative painting might look like:
+
+    HEAD: DIGITPAIN     `The painter who plotted the head
+    BODY: JULIA         `and the body
+    BACKGROUND: ARTUR   `with mountains,
+    WILDLIFE: ALEX      `foliage, and animals.
+
+    GLAZE: SAGE         `Shader code for the surface to be lit.
+    FRAME: NICK         `3D Substrate for texture mapping the image on.
+
+4. One might eventually require a crew of 40 people!
+
+5. But usually my "squad" will be small.
+
+So I think that means I need a contract with lots of flexibility in terms of
+supporting different splits per token.
+
+1️⃣ Features
+* Every DIGITPAIN that gets minted can have tailored / bespoke splits.
+* People should be able to mint right off the website DIGITPAIN.COM.
+  - I'll do the frontend UI and backend, but may need a bit of a hand with the
+    web3 integration.
+
+2️⃣ Questions
+* Can I loop in holders of my previous tokens on a per mint basis?
+* Such as...
+  - Giving a small percentage of every new painting's revenue to holders of
+    previous work: (Radical Digital Painting, Tumpin, Ten Minute Painting)
+  - Reserving work for holders of a specific token in a collection.
+  - What else?
+
+2022.05.07.01.18 (Still thinking...)

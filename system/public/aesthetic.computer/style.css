@@ -1,0 +1,216 @@
+@import "type/webfonts/berkeley-mono-variable.css";
+@import "type/webfonts/ywft-processing-regular.css";
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  background-color: rgb(32, 32, 32);
+  touch-action: none;
+  overflow: hidden;
+  margin: 0;
+  cursor: none;
+  /*display: flex;*/
+  height: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-text-size-adjust: none;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body.embed {
+  background-color: transparent;
+}
+
+body.native-cursor {
+  cursor: auto;
+  /* touch-action: none; */
+  /* TODO: Did this break anything with zooming? 22.09.04.23.33 */
+}
+
+/* body.native-cursor canvas[data-type="ui"] { opacity: 0 !important; } */
+
+canvas {
+  touch-action: none;
+}
+
+input,
+form {
+  pointer-events: none;
+}
+
+#aesthetic-computer {
+  position: relative;
+  overflow: hidden;
+}
+
+#aesthetic-computer.hidden {
+  opacity: 0;
+}
+
+#content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 4;
+  pointer-events: all;
+  touch-action: manipulation;
+  display: flex;
+}
+
+#recordings {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  pointer-events: all;
+  touch-action: manipulation;
+  background: gray;
+}
+
+/* Picture in Picture */
+
+/*
+#pip-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  pointer-events: none;
+  touch-action: none;
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+#pip {
+  pointer-events: all;
+  touch-action: manipulation;
+  border: none;
+  width: 80%;
+  height: 80%;
+  margin: auto;
+}
+*/
+
+/*font-family: 'Berkeley Mono Variable', monospace;*/
+/*
+#modal {
+  font-variation-settings: 'wght' 120;
+  font-family: 'YWFTProcessing-Regular', monospace;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  width: 100%;
+  height: 100%;
+  color: rgb(128, 128, 128);
+  backdrop-filter: saturate(0);
+  display: none;
+}
+
+#modal.on { display: flex; }
+
+#modal #bumper {
+  margin: 1em auto auto 1em;
+  background: rgb(0, 0, 0, 0.25);
+  padding: 1.15em 1em 1em 1em;
+}
+*/
+
+canvas {
+  pointer-events: none;
+  image-rendering: pixelated;
+  z-index: 1;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/*
+canvas[data-type="ui"],
+canvas[data-type="glaze"],
+canvas[data-type="3d"] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+*/
+
+canvas[data-type="freeze"] {
+  pointer-events: none;
+}
+
+canvas[data-type="glaze"] {
+  /*transition: 0.5s opacity;*/
+}
+
+canvas[data-type="glaze"] {
+  z-index: 2;
+}
+
+canvas[data-type="freeze"] {
+  z-index: 3;
+}
+
+canvas[data-type="freeze"] {
+  position: fixed;
+}
+
+canvas[data-type="ui"] {
+  z-index: 6;
+  filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.5));
+  transform: rotateX(0.01deg);
+  /* Make sure we are using the GPU compositor. */
+  /* display: none; */
+}
+
+canvas[data-type="3d"] {
+  z-index: 0;
+  /* width: 100% !important; */
+  /* height: 100% !important; */
+  opacity: 0;
+}
+
+canvas[data-type="3d"].visible {
+  opacity: 1;
+}
+
+#VRButton {
+  position: absolute;
+  bottom: 0.5em;
+  right: 0.5em;
+  cursor: none;
+  font-family: YWFTProcessing-Regular, sans serif;
+  /* font-family: Berkeley Mono Variable, sans serif; */
+  padding: 0 0.15em;
+  line-height: 100%;
+  border: 0.05em solid rgb(200, 0, 0);
+  color: rgb(200, 0, 0);
+  background: none;
+  font-size: 2.5em;
+  z-index: 5;
+}
+
+#VRButton:hover {
+  border: 0.05em solid rgb(0, 200, 200);
+  color: rgb(0, 200, 200);
+  background: rgb(23, 2, 99, 0.25);
+}
+
+#VRButton:focus {
+  outline: none;
+  box-shadow: none;
+}

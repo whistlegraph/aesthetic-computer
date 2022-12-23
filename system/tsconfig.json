@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "es2019",
+    "checkJs": false,
+    "baseUrl": "./public",
+    "allowJs": true,
+    "declaration":true,
+    "emitDeclarationOnly": true,
+    "outDir": "./types",
+    "declarationMap": true
+  },
+  "typeAcquisition": {
+    "disableFilenameBasedTypeAcquisition": true
+  },
+  "exclude": [
+    "node_modules"
+  ]
+}
