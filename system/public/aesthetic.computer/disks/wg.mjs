@@ -453,7 +453,13 @@ function boot({
   dom: { html },
   net: { waitForPreload },
   resize,
+  debug,
 }) {
+  // Add assetPath here.
+  const assetPath = debug
+    ? "/assets/whistlegraph"
+    : "https://assets.aesthetic.computer/whistlegraph";
+
   resize({ gap: 0 });
   waitForPreload();
   cursor("native");
@@ -470,9 +476,9 @@ function boot({
 
   const playButton = `
     <div id="card-play">
-      <img src="/aesthetic.computer/disks/whistlegraph/play-circle.svg" />
+      <img src="${assetPath}/play-circle.svg" />
       <img
-        src="/aesthetic.computer/disks/whistlegraph/play-triangle.svg"
+        src="${assetPath}play-triangle.svg"
       />
     </div>
   `;
@@ -551,10 +557,7 @@ function boot({
               preload="auto"
               playsinline
               disablepictureinpicture
-              src="/aesthetic.computer/disks/whistlegraph/${wg}/${wg}-${
-        video.slug
-      }.mp4"
-            ></video>
+              src="${assetPath}/${wg}/${wg}-${video.slug}.mp4"></video>
             <div class="card-cover"></div>
             <div
               class="card-outline"
@@ -565,8 +568,6 @@ function boot({
         </div>
       `;
     });
-
-
   }
 
   // TODO: [] These can be considered legacy now, where "music-2-whistlegraph-2" above represents a mode generic model. 22.12.21.18.22
@@ -589,7 +590,7 @@ function boot({
             preload="auto"
             playsinline
             disablepictureinpicture
-            src="/aesthetic.computer/disks/whistlegraph/${wg}/${wg}-tt-compilation.mp4"
+            src="${assetPath}/${wg}/${wg}-tt-compilation.mp4"
             type="video/mp4"
           ></video>
           <div class="card-cover"></div>
@@ -616,7 +617,7 @@ function boot({
           style="background: ${whistlegraph.score.color}; box-shadow: ${whistlegraph.score.boxShadow};">
           <img
             class="card-content"
-            src="/aesthetic.computer/disks/whistlegraph/${wg}/${wg}-score.png"
+            src="${assetPath}/${wg}/${wg}-score.png"
           />
           <div
             class="card-outline"
@@ -646,19 +647,14 @@ function boot({
             preload="auto"
             playsinline
             disablepictureinpicture
-            src="/aesthetic.computer/disks/whistlegraph/${wg}/${wg}-web.mp4"
+            src="${assetPath}/${wg}/${wg}-web.mp4"
           ></video>
           <div class="card-cover"></div>
           <div
             class="card-outline"
             style="border-color: ${whistlegraph.video.highlight}"
           ></div>
-          <div id="card-play">
-            <img src="/aesthetic.computer/disks/whistlegraph/play-circle.svg" />
-            <img
-              src="/aesthetic.computer/disks/whistlegraph/play-triangle.svg"
-            />
-          </div>
+          ${playButton}
         </div>
       </div>
     `;
@@ -672,11 +668,7 @@ function boot({
           id="spinner"
           style="filter: brightness(0.9) drop-shadow(0 0 1vmin ${whistlegraph.glow})"
         >
-          <img
-            width="1000"
-            height="1000"
-            src="/aesthetic.computer/disks/whistlegraph/${wg}/${wg}.webp"
-          />
+          <img width="1000" height="1000" src="${assetPath}/${wg}/${wg}.webp" />
           <canvas width="1000" height="1000" id="spinner-canvas"></canvas>
         </div>
       </div>
