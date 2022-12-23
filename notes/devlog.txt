@@ -1,0 +1,96 @@
+🧪 Dev Log
+Practical and conceptual notes weaved together.
+
+🕸️ W3C Proposals To Watch:
+- https://www.w3.org/TR/mediacapture-fromelement
+
+☁️ Ideas
+- Maybe aesthetic.computer is more of an interface project
+  or search engine or *branded* prompt than it is a creative
+  platform?
+
+- Large scale re-organization:
+  - Every piece is a set of functions.
+  - Functions are like "plug-ins" to aesthetic.computer.
+  - They enable certain device features like the ability to make a sound or
+    display an image.
+  - Code modules / libraries in aesthetic.computer are loaded based on the
+    functions the piece uses.
+  - New functionality can always be added and improved upon, and new global APIs
+    can be created with this architecture in mind.
+  ✨ Perhaps there is more power in smaller APIs than there is in larger APIs?
+
+❓ Questions
+- How does aesthetic.computer relate to urbit?
+
+- What would editing lisp-like syntax feel like in VS code / my own
+  browser editor?
+
+🧑‍💻 Text Editor / Shell Notes
+- [] Install / try the new embedded neovim extension for VSCode.
+- [] https://github.com/ggandor/leap.nvim
+- [] Start a blog or journal of some kind - that is sourced from
+     this repository?
+- [] Add hybrid bindings to fish: https://github.com/fish-shell/fish-shell/blob/master/share/functions/fish_hybrid_key_bindings.fish
+
+💻 Docs
+
+ -> How to Deploy & Mint Contracts
+  - (Replace NETWORK with either: `local`, `rinkeby`, `ropsten` or `mainnet`)
+  - `cd` into `ethereum-lwge` directory
+  - (`local` only) Start running in a separate terminal:
+    `npm run NETWORK:node`
+  - In a terminal: `npm run NETWORK:balance` 
+  - In a terminal: `npm run NETWORK:deploy` 
+  - Copy the address after "💚 Deployed to:"
+  - `npm run NETWORK:verify -- [PASTED ADDRESS]` to add the source to etherscan.
+  - `npm run NETWORK:mint -- [PASTED ADDRESS]`
+
+-> Meta Quest Remote Debugging (Manual Setup):
+   https://developer.oculus.com/documentation/web/browser-remote-debugging/
+   (All commands can be entered in order except on Windows / WSL2 setups)
+
+  1 ❯ adb devices 
+      List of devices attached
+      1WMHHA62V22187	device
+    
+  2 ❯ adb shell ip route (also run in Windows?) (This is for websockets...)
+      192.168.1.0/24 dev wlan0 proto kernel scope link src 192.168.1.31 
+    
+  3 ❯ adb tcpip 5555 (run in Windows)
+      restarting in TCP mode port: 5555
+    
+  4 ❯ adb connect 192.168.1.31:5555 (run in WSL2)
+      connected to 192.168.1.31:5555
+
+  * On Windows with WSL2 some of these steps need to be duplicated across OS's.
+    - See also: https://stackoverflow.com/questions/60166965/adb-device-list-empty-using-wsl2
+
+-> GitHub Codespaces (Manual Setup):
+  A. Clone my dotfiles repo and install chezmoi via the chezmoi/dotfiles install.sh script.
+  B. For running the frontend:
+    1. install git lfs to get media files: `git lfs install; git lfs pull`
+    2. `cd` into `system` and then `npm install`
+    3. login to netlify via `npx netlify login` and link the site with `npx netlify link`
+    4. now you can `cd -` and then run `npm run code`
+       to start the frontend, fully simulating the netlify production environment
+       (with exception to the automatic https tunneling via nginx in the codespaces container)
+  (Outdated) C. For running the server backend:
+    1. `cd` into `server` and then `npm install`
+    2.  add `NODE_ENV=development` to a `.env` file in `server`
+    3.  Note: websockets (wss) cannot be port forwarded by codespaces atm 
+
+-> Local Server (Notes):
+  Use `fnm` (https://github.com/Schniz/fnm) and the .node-version file under
+  `system` to manage node versions (currently the project is on lts/gallium [16])
+
+22.07.26.20.19
+
+***Recently Done***
+
+* Start over with my dotfiles
+  - [x] Get my dotfiles working (especially get fish running) in github codespaces.
+  - [x] Wipe dotfiles repository.
+  - [x] Start a fresh set from this codespace that simply symlinks a few things,
+      like my fish settings, and installs anything I need via an install.sh script.
+  - [x] Follow along here: https://bea.stollnitz.com/blog/codespaces-terminal

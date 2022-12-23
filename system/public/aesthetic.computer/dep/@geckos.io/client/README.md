@@ -1,0 +1,50 @@
+<a href="http://geckos.io">
+<img src="https://github.com/geckosio/geckos.io/raw/master/readme/logo-256.png" alt="logo" width="128">
+</a>
+
+# @geckos.io/client
+
+[![NPM version](https://img.shields.io/npm/v/@geckos.io/client.svg?style=flat-square)](https://www.npmjs.com/package/@geckos.io/client)
+[![Downloads](https://img.shields.io/npm/dm/@geckos.io/client.svg?style=flat-square)](https://www.npmjs.com/package/@geckos.io/client)
+![Node version](https://img.shields.io/node/v/@geckos.io/client.svg?style=flat-square)
+[![Minified bundle](https://img.shields.io/github/size/geckosio/geckos.io/bundles/latest/geckos.io-client.latest.min.js.svg?label=minified%20bundle&style=flat-square)](https://github.com/geckosio/geckos.io/tree/master/bundles)
+![Snyk Vulnerabilities for GitHub Repo (Specific Manifest)](https://img.shields.io/snyk/vulnerabilities/github/geckosio/geckos.io/packages/client/package.json.svg?style=flat-square)
+![NPM](https://img.shields.io/npm/l/@geckos.io/client.svg?style=flat-square)
+[![Codecov](https://img.shields.io/codecov/c/github/geckosio/geckos.io?logo=codecov&style=flat-square)](https://codecov.io/gh/geckosio/geckos.io)
+[![ES Modules Badge](https://img.shields.io/badge/Node.js-ES%20Modules-F7DF1E?style=flat-square)](https://github.com/yandeu/yandeu/blob/main/posts/2020-05-28-esm-for-nodejs.md)
+
+Real-time client/server communication over UDP using **WebRTC** and **Node.js**.
+
+This framework fits perfectly with your next **HTML5 real-time multiplayer games** or chat app.
+
+Read the [documentation](https://github.com/geckosio/geckos.io) for more information.
+
+## Install
+
+```console
+npm install @geckos.io/client
+```
+
+## Use
+
+```js
+import geckos from '@geckos.io/client'
+
+// or add a minified version to your index.html file
+// https://github.com/geckosio/geckos.io/tree/master/bundles/versions
+
+const channel = geckos()
+
+channel.onConnect(error => {
+  if (error) {
+    console.error(error.message)
+    return
+  }
+
+  channel.on('chat message', data => {
+    console.log(`You got the message ${data}`)
+  })
+
+  channel.emit('chat message', 'a short message sent to the server')
+})
+```

@@ -1,0 +1,102 @@
+*** Freaky Flowers Page Interview ***
+
+1. Please introduce yourself and your work in three or fewer sentences
+  - Hi my name is Jeffrey Alan Scudder and I'm an artist who makes software and loves to draw. Freaky Flowers was made
+    in my own software called "Wand", running in my own computing environment, aesthetic.computer! I believe that computing
+    interfaces should be design to fulfill the human spirit, which is why I've focused on
+    hands-on artmaking tools and media inventions throughout my career. I create art in order
+    to fund and sustain this mission, and also to express my inner feelings, which... otherwise come out so rarely.
+
+2. 4 things we should know about your collection
+  - Every Freaky Flower starts off with your average Chromie Squiggle. Then, I completely freak out! (In a controlled, formalistic sense.) 
+  - Some pieces contain red banner messages from me personally. These comprise aesthetic.computer's mission statement at the moment.
+  - Each work was recorded at my home in Ashland, OR, switching between a Meta Quest Pro and a Meta Quest 2 in order to
+    draw continously without waiting for batteries to charge.
+  - There is a puzzle inside of this series. The answer is a seed phrase. The grail is Token 0! 
+
+3. Speak a little to the evolution of your collection from start to finish
+  - Images come easy with me. When I need to make a bunch of watercolors or
+    fill a skecthbook that is no problem. I can draw forever. Programming is very hard though.  
+    I try to do the most difficult things in my life because I believe those things
+    will advance my field as a whole. As a painter who learned to program... my journey
+    has been one of sacrificing the joy of endlessly drawing with ease, for the pain
+    of advancing the tools of my trade. The images, jokes, feelings and references
+    within Freaky Flowers flowed out like a breath of air, but the tooling was hard to swallow.
+    I barely slept once I started drawing, because I felt so accomplished
+    that my tool was finally working. (When I was little I would fantasize about being a Jedi
+    and the journey of constructing my own lightsaber.)
+
+4. Where does the uniqueness of your work show up for your viewers? for yourself?
+  - I have thought about this more and more over the years of receiving comments on my drawings. In short,
+    my hand is very well practiced. I have created, observed, and produced endless amounts of gestures in my life. 
+    I love to find and make beautiful marks. I do that in my whistlegraphs, my digital paintings...
+    I do that in my code with the keys I type, and I did that in "Wand" on my headset with Freaky Flowers just the same.
+    In college I would always tell myself to just draw more pictures than anyone
+    else because I believed that the longterm investment would produce a unique hand.  
+
+5. Can you share some of your inspiration for this collection? Was it always that
+   or did you find some of that inspiration through the creative process?
+   - I always find my inspiration in the creative process. I never have any idea what the content
+     of my work will wrap itself in. Usually it begins with tools. Here's what happens: I'll buy a sketchbook
+     and a set of crayons, or a fountain pen... or a Wacom tablet. (In this case, it was a Meta headset.)
+     I'll start using that tool and fall in love with it so much that I decide to "develop" something
+     conceptual on top of that. These inventions come from my love of interacting with things, performing,
+     and playing with affordances. The computer has always fascinated me because if you are willing to 
+     do something incredibly difficult (learning to code well) then you gain a type of power
+     as an artist that in my opinion puts you into an entirely new plane of aesthetic understanding and agency.
+
+6. What are some of the benefits (tangible and / or intangible) holders get by owning a piece of your collection?
+  - Freaky Flowers are standard, untextured triangular meshes (models) that collectors can keep far into the future of spatial computing.
+  - Each one is also a simple durational recording, which can be played back at different rates and even reinterpreted in future software editions (amazing for preservation).
+  - They can be viewed on collector's VR headsets, or in their browsers.
+  - You can quickly access a Freaky Flower at any time by visiting aesthetic.computer and typing "freaky-flower #" (or "ff #").
+  - You can take stills or save the mesh (GLB) file and speed up or slow down the recording all from within each piece!
+  - The entire "Freaky Flowers" project can be watched in order persistently, starting from Token 0. This allows viewers
+    to ambiently experience the entire collection in one setting from any visual angle! 
+
+7. Can you speak a little to the rarity traits of your pieces and how you came up with those variations?
+  - I wanted to be fun and playful with my rarity traits, but I didn't want to be unrealistic so I chose cultural idioms.
+  - Many Freaky Flowers have no labels, but some are simply "Basic", whereas others might be "Base".
+  - One of them is so incredibly cute that it is considered a "Master" "UWU".
+  - Others are tragically "Dead" and some are unfortunately just an "Error".
+  - Some attributes are PURELY :) formal, like "Zebra", "RGB", "Wireframe" and "No Clip".
+  - Look for the "Clue" attribute. It's an easy doorway to the puzzle!
+  - Token 128 is an "Ultimate" "Squiggle Destroyer". It is guaranteed to completely destroy any Chromie Squiggle in any future auction. 
+
+8. One thing people might be surprised by about what went into creating this?
+  - Haha so I finished my code in a frenzy after a few endless workdays, took one shower, and had visions of an NFT collection that was, autographic, typographic, and full of gestural energy.
+  - In the same shower I realized how miopic that autobiographic interest was and so I thought of a trojan horse style shell of an internet aesthetic I could
+    use to entertain audiences who are familiar with NFTs while still embedding my personal message that is both serious and (almost 100%) sincere. 
+
+9. Go-to playlist / song while you’re working
+  The visual moods of Freaky Flowers have been acoustically tuned by:
+  
+  - Brian and Roger Eno (Mixing Colours) 
+  - Lemon Demon - Cabinet Man
+  - Yung Goth (Top Algorithmic Tracks)
+  - Megabyte (Powerplay)
+  - PC Music, Vols 1-3 (Mostly Volume 2, mostly Broken Flowers on repeat!)
+
+  The music I listen to while actually making pictures is usually a tool to get me into
+  a certain character... get my hand and vision working a certain way.
+
+10. What’s something unique or surprising about you (as a person / artist) that readers might not know?
+  - I actually took a pretty serious break from writing software based artwork for the last few years to create Whistlegraph, which
+    is a TikTok account and company I own with my two partners Camille and Alex. We've been pretty successful at making
+    both a cultural and educational impact using the most basic of tools and a LOT of playful engineering and creativity. 
+
+11. Share a fun fact (outside of your collection) that would make readers smile.
+  - I am planning to use Freaky Flowers as part of my next Y Combinator application, which I've still never gotten into even though
+    Paul Graham wrote that seminal Hackers and Painters essay and I have been a daily HN reader for over 10 years now! Just wanna be noticed here.
+
+12. Who is someone famous, living or historical, that you would love to see collect your work, why?
+  - I am still a relatively new market artist. I don't have desires in terms of who my collectors are and am very happy
+    that many artists who have believed in and helped grow this freaky flower of a practice I have into existence
+    are now also in the market and have collected my work to continue to support me. I hope that my work can now reach
+    outside my art circles into the corners of Silicon Valley where my message will have the biggest impact and I can
+    find deeper support for my inventions. 
+
+13. Any special rituals while you were creating your collection? Music you listened to, beverage of choice? 
+  - In order to finish this collection and complete my software I survived on a hacked psycho-somatic reward system consisting
+    mainly of a large feast every 24 hours decorated by Noble coffee pour-overs (around the corner from my house)
+    short hits of THC between commits, and TONS of glasses of water from my charcoal Berkey filter which sits right next to my PC!

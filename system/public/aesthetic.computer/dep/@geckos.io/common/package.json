@@ -1,0 +1,34 @@
+{
+  "name": "@geckos.io/common",
+  "version": "2.2.3",
+  "description": "The common module for @geckos.io/server and @geckos.io/client.",
+  "main": "lib",
+  "type": "module",
+  "author": "Yannick Deubel (https://github.com/yandeu)",
+  "license": "BSD-3-Clause",
+  "keywords": [
+    "@geckos.io"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/geckosio/geckos.io.git",
+    "directory": "packages/common"
+  },
+  "bugs": {
+    "url": "https://github.com/geckosio/geckos.io/issues"
+  },
+  "homepage": "http://geckos.io",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@yandeu/events": "0.0.5"
+  },
+  "funding": {
+    "url": "https://github.com/sponsors/yandeu"
+  }
+}

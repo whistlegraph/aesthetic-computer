@@ -1,0 +1,1 @@
+{"version":3,"file":"peerConnection.d.ts","sourceRoot":"","sources":["../../src/wrtc/peerConnection.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,SAAS,EAAE,MAAM,gCAAgC,CAAA;AAC1D,OAAO,wBAAwB,MAAM,yBAAyB,CAAA;AAG9D,MAAM,CAAC,OAAO,OAAO,cAAc;IACjC,WAAW,EAAG,cAAc,CAAA;IAC5B,EAAE,EAAE,SAAS,CAAA;IACb,mBAAmB,EAAG,iBAAiB,CAAA;IAEjC,OAAO,CAAC,kBAAkB,EAAE,wBAAwB;;;;;;;CAuB3D"}
