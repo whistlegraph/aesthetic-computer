@@ -45,12 +45,13 @@ Welcome to...
 🌟 Projects In Progress (PIP) 🌟
 
 *** New Repo / Asset Management ***
-  - [-] Deploy to production in a new Netlify site that copies over all
-       the environment flags and doesn't enable Large Media!
   - [-] Hook up whistlegraph assets to assets.aesthetic.computer
        and place behind a dev flag for local dev.
-  - [] Any "font" includes should work the same way... this could be tricky.
+  - [x] Deploy to production in a new Netlify site that copies over all
+       the environment flags and doesn't enable Large Media!
   + Later
+  - [] Any "font" includes should work the same way... this could be tricky,
+       also not pressing.
   - [] Digitpain assets are also affected, to their references would
        need to be rewritten in the future.
 
