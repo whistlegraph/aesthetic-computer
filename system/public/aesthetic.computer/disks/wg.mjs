@@ -8,7 +8,7 @@
 /* #region 🏁 todo
 - [-] Add in Charlie's intro video along with the poster image for the "score?" 
 - [] Keep git lfs and netlify lm in place for the time being so videos are tracked.
-- [] Move all wg video assets to an S3 bucket, behind a dev flag that loads them
+- [-] Move all wg video assets to an S3 bucket, behind a dev flag that loads them
      locally...
      (Or if they work in production still then use a local web server again?)
   - [🟡] Write special html code for custom cards for the video / separate out.
@@ -456,7 +456,7 @@ function boot({
   debug,
 }) {
   // Add assetPath here.
-  const assetPath = debug
+  const assetPath = !debug
     ? "/assets/whistlegraph"
     : "https://assets.aesthetic.computer/whistlegraph";
 
@@ -476,10 +476,8 @@ function boot({
 
   const playButton = `
     <div id="card-play">
-      <img src="${assetPath}/play-circle.svg" />
-      <img
-        src="${assetPath}play-triangle.svg"
-      />
+      <img src="${assetPath}/play-circle.svg" crossorigin="anonymous">
+      <img src="${assetPath}/play-triangle.svg" crossorigin="anonymous">
     </div>
   `;
 
@@ -557,7 +555,7 @@ function boot({
               preload="auto"
               playsinline
               disablepictureinpicture
-              src="${assetPath}/${wg}/${wg}-${video.slug}.mp4"></video>
+              src="${assetPath}/${wg}/${wg}-${video.slug}.mp4" crossorigin="anonymous"></video>
             <div class="card-cover"></div>
             <div
               class="card-outline"
@@ -591,6 +589,7 @@ function boot({
             playsinline
             disablepictureinpicture
             src="${assetPath}/${wg}/${wg}-tt-compilation.mp4"
+            crossorigin="anonymous"
             type="video/mp4"
           ></video>
           <div class="card-cover"></div>
@@ -618,7 +617,7 @@ function boot({
           <img
             class="card-content"
             src="${assetPath}/${wg}/${wg}-score.png"
-          />
+            crossorigin="anonymous">
           <div
             class="card-outline"
             style="border-color: ${whistlegraph.score.highlight}"
@@ -648,6 +647,7 @@ function boot({
             playsinline
             disablepictureinpicture
             src="${assetPath}/${wg}/${wg}-web.mp4"
+            crossorigin="anonymous"
           ></video>
           <div class="card-cover"></div>
           <div
@@ -668,7 +668,7 @@ function boot({
           id="spinner"
           style="filter: brightness(0.9) drop-shadow(0 0 1vmin ${whistlegraph.glow})"
         >
-          <img width="1000" height="1000" src="${assetPath}/${wg}/${wg}.webp" />
+          <img width="1000" height="1000" src="${assetPath}/${wg}/${wg}.webp" crossorigin="anonymous">
           <canvas width="1000" height="1000" id="spinner-canvas"></canvas>
         </div>
       </div>
