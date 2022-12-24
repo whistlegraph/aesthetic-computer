@@ -2,27 +2,40 @@ Welcome to...
 
   🧩 AESTHETIC.COMPUTER 🧩
 
-  A general interface / computer toy / art machine that...
+  A computing environment that...
 
-  - Runs "pieces" instead of "apps" or "programs".
+  (Technical Summary)
   - Works in updated web browsers on all major devices, including VR headsets! 
-  - Comes with a processing-inspired API that's fun to learn
-    and write interactive, audio-visual pieces for in JavaScript. 
-  - Defaults to an accessible resolution and pixel density, great for learning
-    and counting pixels with.
+  - Runs "pieces" instead of "apps" or "programs".
+  - Pieces are written in a proce55ing-inspired API that's fun to learn and fast
+    to code in.
+  - Screen defaults to an accessibly low resolution, great for learning
+    and counting pixels with, but technically agnostic. (Choose your aesthetic!)
+  - Batteries included with system tools and toys that emphasize creative activities
+    with media content output.
+    - Painting (line, smear, rect, @maya/tuesday, sparkle, [spray, pull])
+    - Musicking (metronome, melody, tracker, microphone, bleep, bgm)
+    - Sculpting (wand, ff)
+    - Writing (prompt, play)
+    - Video Recording (...)
+  - Tools can be creatively strung together to form adaptive sequenced workflows
+    for media creation, like Unix.
 
-  (More technical)
+  (More Tech)
   - Threaded logic, audio, and rendering.
     - Low overhead hypervisor that runs one piece at a time.
       (similar to a disk based operating system)
     - Pieces can transition from one to another (instantly) without refreshing
       the page or losing context. 
-    - Pieces can load remotely off any `https://` url and link to other pieces.
-      (This is broken right now...)
-    - Pieces that stick to software-rendering are guaranteed accurate results on
-      future runtimes.
+    - Pieces can load remotely off any `https://` url so applications can be
+      distributed over a network.
+    - 2D/3D Software renderer for spatial display of programs as planes.
+    - 3D WebGL renderer for VR.
 
-🐞 Annoying Bugs & Regressions (Some dev only.)
+
+😀 TODO 😆
+
+🐞 Annoying Bugs & Regressions
   + API
   - [] Research the use of "requestProvider.js.map" and work it into `index.js`.
   - [] Rename $api.upload to $api.open? or $api.importFile? 
@@ -36,44 +49,32 @@ Welcome to...
   + Dev Only
   - [] Get ssh working in VS Code on windows via WSL: https://stackoverflow.com/questions/60150466/can-i-ssh-from-wsl-in-visual-studio-code
   - [] `npm run code` does not work offline, due to netlify relying on online conectivity.
-  + Done
-  - [x] Add `debug` as an import for the API.
-  - [x] Fix pen data being erased on click.
-  - [x] Fix Firefox not working.
-  - [x] Fix `@sage/@sage/@sage/@sage/hello_line` on development refresh.
 
 🌟 Projects In Progress (PIP) 🌟
 
-*** New Repo / Asset Management ***
-  - [-] Hook up whistlegraph assets to assets.aesthetic.computer
-       and place behind a dev flag for local dev.
-  - [x] Deploy to production in a new Netlify site that copies over all
-       the environment flags and doesn't enable Large Media!
-  + Later
-  - [] Any "font" includes should work the same way... this could be tricky,
-       also not pressing.
-  - [] Digitpain assets are also affected, to their references would
-       need to be rewritten in the future.
-
 *** Project Order ***
- - [] Explore SDF Sculpting for Hamzhat
- - [] Use and look at: https://stephaneginier.com/archive/editSDF
-
- - [-] Add glyphs to sparkle brush.
-  - [-] Spin up sparkle brush prototype.
- - [] Add support for camera brush.
- - [] Fix image download function.
-
- - [-] Write visualizer for whistlegraph album. (m2w2)
- ---
- - [😀] Finish basic version of `play`.
+ - [-] Write micropage for the whistlegraph album. (m2w2)
+ - [] Make camera based whistlegraph recorder that makes use of the album tracks.
+ - [] Make VSCode extension / back-seat document API (maya).
+ - [😀] Use `play` for a simple diary program / ring poem situation /
+        "performative poetry" engine. 
  - [] Mintable Paintings
   - [] Finish all Brushes todos: https://www.notion.so/aesthetic-computer/aesthetic-computer-hq-97376f353dbd4503970910777d6c7241
+    - [] @mollysoda sequence
+      - [-] Add glyphs to sparkle brush.
+        - [-] Spin up sparkle brush prototype.
+      - [] Add support for camera brush.
   - [] Get smart contract launched. See "Mintable Paintings" below.
  - [] Finish Freaky Flowers client
   - [] Hook up multiplayer presence. 
- - [] Re-deploy / re-invoke `socket.js` server to test geckos udp.
+  - [] Get nice UI
+ - [] Homepage Menu
+  + Later
+  - [] Re-deploy / re-invoke `socket.js` server to test geckos udp.
+  - [] Explore SDF Sculpting for Hamzhat
+    - [] Use and look at: https://stephaneginier.com/archive/editSDF
  + Done
+ - [x] Fix image download function.
  - [x] Get developer live reload working again.
   - [x] Deploy and test everything to see if it works. 
   - [x] Add a post request edge function called "reload". 
@@ -99,6 +100,17 @@ Welcome to...
  - [x] Add a database / hosted DB.
     - [x] Digital Ocean
     - [x] Redis
+
+*** New Repo / Asset Management ***
+  - [x] Hook up whistlegraph assets to assets.aesthetic.computer
+       and place behind a dev flag for local dev.
+  - [x] Deploy to production in a new Netlify site that copies over all
+       the environment flags and doesn't enable Large Media!
+  + Later
+  - [] Any "font" includes should work the same way... this could be tricky,
+       also not pressing.
+  - [] Digitpain assets are also affected, to their references would
+       need to be rewritten in the future.
 
 *** BGM ***
  - [] Make a cool default visualizer for bgm.
