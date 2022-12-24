@@ -1,8 +1,8 @@
-Welcome to...
+🐚 Welcome to...
 
   🧩 AESTHETIC.COMPUTER 🧩
 
-  A computing environment that...
+  A *new* computing environment that...
 
   (Technical Summary)
   - Works in updated web browsers on all major devices, including VR headsets! 
@@ -31,7 +31,6 @@ Welcome to...
       distributed over a network.
     - 2D/3D Software renderer for spatial display of programs as planes.
     - 3D WebGL renderer for VR.
-
 
 😀 TODO 😆
 

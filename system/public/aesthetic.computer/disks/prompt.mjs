@@ -32,7 +32,7 @@ const scheme = {
 };
 
 const motd =
-  `January: Freaky Flowers                         ` +
+  `February: Freaky Flowers                        ` +
   `                                                ` +
   `                                                ` +
   `mail@aesthetic.computer                         `;

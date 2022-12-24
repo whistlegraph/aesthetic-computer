@@ -1,46 +1,40 @@
 // Blank, 22.10.03.15.13 
+// Every new piece has to start somewhere...
 
-// Dear Piecemaker,
+/* #region 🤝 Read Me 
 
-// 🤸 Welcome to aesthetic.computer!
+Dear Piecemaker,
 
-// There aren't really any docs right now,
-// but you can `console.log($api);` or throw in
-// a `debugger` statement anywhere in a function
-// to explore what's available.
+🤸 Welcome to aesthetic.computer!
 
-// But what's even faster than that is to just ask 
-// me directly how to access and control the features
-// you're interested in using for a piece.
+There aren't really any docs right now,
+but you can `console.log($api);` or throw in
+a `debugger` statement anywhere in a function
+to explore what's available.
 
-// Run this piece by typing `@piecemaker/blank`
-// on aesthetic.computer or 4esthetic.com for short!
+But what's even faster than that is to just ask 
+me directly how to access and control the features
+you're interested in using for a piece.
 
-// And debug in the dev console!
+Run this piece by typing `@piecemaker/blank`
+on aesthetic.computer or 4esthetic.com for short!
 
-// Jeffrey (me@jas.life / digitpain#2262 / @digitpain)
+And debug in the dev console!
+
+Jeffrey (me@jas.life / digitpain#2262 / @digitpain)
+
+#endregion */
 
 
 // 🥾 Boot (Runs once before first paint and sim)
-function boot({ resize, wipe, ink, line, pan }) {
-  resize(128, 127);
-  wipe(255, 0, 0);
+function boot() {
 }
 
-let x = 0;
-
 // 🎨 Paint (Executes every display frame)
-function paint({ink, line, pan, unpan, pen}) {
-  x += 0.1;
-  ink();
-  pan(pen.x, pen.y);
-  line(0, 0, 50, 50);
-  line(0, 50, 50, 0);
-  unpan();
+function paint() {
 }
 
 /*
-
 // ✒ Act (Runs once per user interaction)
 function act({ event }) {
   // Respond to user input here.
@@ -66,5 +60,3 @@ function leave($api) {
 // ...
 
 export { boot, paint }
-
-//export { boot, sim, paint, act, beat, leave };
