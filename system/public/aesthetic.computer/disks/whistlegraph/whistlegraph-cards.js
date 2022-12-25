@@ -61,13 +61,16 @@ deck.addEventListener("pointermove", (e) => {
   if (!e.isPrimary || multipleTouches === true) return;
   // if (e.pointerType === "mouse") deck.classList.remove("no-cursor");
   const card = deck.querySelector(".card-view.active .card");
-  if (document.elementFromPoint(e.clientX, e.clientY) === card) {
+  const cardNext = card.querySelector(".card-next");
+  const target = document.elementFromPoint(e.clientX, e.clientY);
+  if (target === card || target === cardNext) {
     if (
       e.pointerType === "mouse" &&
       activated === false &&
       pointerDown === false
-    )
+    ) {
       card.classList.add("hover");
+    }
   } else if (card) {
     card.classList.remove("touch");
     card.classList.remove("hover");
@@ -106,8 +109,10 @@ deck.addEventListener("pointerdown", (e) => {
   if (!e.isPrimary) return;
   pointerDown = true;
   const card = deck.querySelector(".card-view.active .card");
+  const cardNext = card.querySelector(".card-next");
+  const target = document.elementFromPoint(e.clientX, e.clientY);
   if (
-    document.elementFromPoint(e.clientX, e.clientY) === card &&
+    (target === card || target === cardNext) &&
     card.classList.contains("animating") === false &&
     card.classList.contains("touch") === false
   ) {
@@ -133,8 +138,9 @@ deck.addEventListener("pointerup", (e) => {
 
   // Cancel if we didn't click on the actual card.
   const activeCard = activeView.querySelector(".card");
+  const activeCardNext = activeCard.querySelector(".card-next");
   const target = document.elementFromPoint(e.clientX, e.clientY);
-  if (target !== activeCard) return;
+  if (target !== activeCard && target !== activeCardNext) return;
 
   // Make sure the card is still active based on the pointer events.
   if (activated === false) return;
@@ -313,7 +319,6 @@ deck.addEventListener("pointerup", (e) => {
           nextCard.addEventListener(
             "transitionend",
             () => {
-              console.log("NEXT CARD VIEW", nextCardView);
               nextCardView.classList.add("active");
               nextCard.style.transition = "";
             },
@@ -362,6 +367,7 @@ deck.addEventListener("pointerup", (e) => {
 function frame() {
   cardViews.forEach((cardView) => {
     const card = cardView.querySelector(".card");
+    // const cardNext = card.querySelector(".card-next");
     const cardContent = card.querySelector(".card-content");
 
     const longestSide = min(deck.clientWidth, deck.clientHeight);
@@ -371,6 +377,7 @@ function frame() {
     const outerRadiusSetting = cardView.dataset.outerRadius;
 
     card.style.borderRadius = margin * outerRadiusSetting + "px";
+    // if (cardNext) cardNext.style.borderRadius = card.style.borderRadius;
     cardContent.style.borderRadius = margin * innerRadiusSetting + "px";
 
     const border = floor(margin * borderSetting);

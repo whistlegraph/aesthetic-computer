@@ -14,10 +14,11 @@
   - Batteries included with system tools and toys that emphasize creative activities
     with media content output.
     - Painting (line, smear, rect, @maya/tuesday, sparkle, [spray, pull])
-    - Musicking (metronome, melody, tracker, microphone, bleep, bgm)
-    - Sculpting (wand, ff)
+    - Musicking (metronome, melody, tracker, microphone, bleep)
+    - Sculpting (wand)
     - Writing (prompt, play)
-    - Video Recording (...)
+    - Shooting (...)
+    - Viewing & Listening (wg, ff, bgm)
   - Tools can be creatively strung together to form adaptive sequenced workflows
     for media creation, like Unix.
 
