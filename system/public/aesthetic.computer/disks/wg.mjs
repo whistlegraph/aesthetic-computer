@@ -6,16 +6,22 @@
 // whistlegraphs.
 
 /* #region 🏁 todo
-- [-] Add in Charlie's intro video along with the poster image for the "score?" 
-- [] Keep git lfs and netlify lm in place for the time being so videos are tracked.
-- [-] Move all wg video assets to an S3 bucket, behind a dev flag that loads them
+- [] Add some special html link content for the interactive card. 
+  - [] Just link to the pre-save page for now!
+  - [] Use a custom font from the assets folder / bucket, defined in 
+       the CSS here or globally?
+- [] Embed the Spotify album and the SoundCloud?
+- [] Choose card colors.
++ Done
+- [x] Add in Charlie's intro video along with the poster image for the "score?" 
+- [x] Move all wg video assets to an S3 bucket, behind a dev flag that loads them
      locally...
      (Or if they work in production still then use a local web server again?)
-  - [🟡] Write special html code for custom cards for the video / separate out.
+  - [x] Write special html code for custom cards for the video / separate out.
        from the old data.
-    - [-] Randomize spinner for m2w2. 
+    - [x] Make spinner for m2w2. 
   - [x] Re-encode and add video 'music-2-whistlegraph-2-intro-web'
-- [] Template a "link" card type that links somewhere else
+- [x] Template an "interactive" card type that links somewhere else
       and has a button that isn't the whole card so you can move from
       one to the other.
 #endregion */
@@ -412,9 +418,20 @@ const music2Whistlegraph2 = {
   activities: [
     {
       ratio: "3x2",
+      type: "iframe",
       url: "https://open.spotify.com/embed/album/579pQc7XBrVrVnV360zrAU?utm_source=generator",
-      // url: "https://aesthetic.computer",
-      // url: "https://localhost:8888",
+      border: 0.25,
+      outerRadius: 0.25,
+      innerRadius: 0.15,
+      color: "rgb(20, 20, 40)",
+      boxShadow: "0.25vmin 0.25vmin 4vmin rgba(255, 10, 10, 0.7)",
+      highlight: "rgba(80, 80, 80, 1)",
+    },
+  ],
+  images: [
+    {
+      ratio: "605x961",
+      slug: "poster",
       border: 0.25,
       outerRadius: 0.25,
       innerRadius: 0.15,
@@ -456,7 +473,7 @@ function boot({
   debug,
 }) {
   // Add assetPath here.
-  const assetPath = !debug
+  const assetPath = debug
     ? "/assets/whistlegraph"
     : "https://assets.aesthetic.computer/whistlegraph";
 
@@ -508,7 +525,47 @@ function boot({
   //       Only the top card can be "active".
 
   if (wg === "music-2-whistlegraph-2") {
+    let zIndex = 0;
+
+    whistlegraph.images?.forEach((card, index) => {
+      cardsMarkup += `
+      <div
+        class="card-view"
+        data-type="image"
+        data-outer-radius="${card.outerRadius}"
+        data-inner-radius="${card.innerRadius}"
+        data-border-setting="${card.border}"
+        style="z-index: 1"
+      >
+        <div class="card" data-type="image" data-ratio="${card.ratio}"
+          style="background: ${card.color}; box-shadow: ${card.boxShadow};">
+          <img
+            class="card-content"
+            src="${assetPath}/${wg}/${wg}-${card.slug}.webp"
+            crossorigin="anonymous">
+          <div
+            class="card-outline"
+            style="border-color: ${card.highlight}"
+          ></div>
+        </div>
+      </div>
+    `;
+      zIndex += 1;
+    });
+
     whistlegraph.activities?.forEach((card, index) => {
+      let markup;
+      if (card.type === "iframe") {
+        markup = `
+          <iframe class="card-content" width="100%" height="100%"
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+          loading="lazy" src="${card.url}"></iframe>
+          <div class="card-next" style="background: ${card.color};">
+            <img src="${assetPath}/next-arrow.svg" crossorigin="anonymous">
+          </div>
+        `;
+      }
+
       cardsMarkup += `
         <div
           class="card-view"
@@ -516,16 +573,10 @@ function boot({
           data-outer-radius="${card.outerRadius}"
           data-inner-radius="${card.innerRadius}"
           data-border-setting="${card.border}"
-          style="z-index: 0">
+          style="z-index: ${zIndex}">
           <div class="card" data-type="interactive" data-ratio="${card.ratio}"
            style="background: ${card.color}; box-shadow: ${card.boxShadow};">
-            <iframe
-              class="card-content"
-              width="100%"
-              height="100%"
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-              loading="lazy"
-              src="${card.url}"></iframe>
+            ${markup}
             <div class="card-cover"></div>
             <div
               class="card-outline"
@@ -534,6 +585,7 @@ function boot({
           </div>
         </div>
       `;
+      zIndex += 1;
     });
 
     whistlegraph.videos?.forEach((video, index) => {
@@ -544,7 +596,7 @@ function boot({
           data-outer-radius="${video.outerRadius}"
           data-inner-radius="${video.innerRadius}"
           data-border-setting="${video.border}"
-          style="z-index: 1"
+          style="z-index: ${zIndex}"
         >
           <div class="card" data-type="video" data-ratio="${video.ratio}"
            style="background: ${video.color}; box-shadow: ${video.boxShadow};">
@@ -555,7 +607,9 @@ function boot({
               preload="auto"
               playsinline
               disablepictureinpicture
-              src="${assetPath}/${wg}/${wg}-${video.slug}.mp4" crossorigin="anonymous"></video>
+              src="${assetPath}/${wg}/${wg}-${
+        video.slug
+      }.mp4" crossorigin="anonymous"></video>
             <div class="card-cover"></div>
             <div
               class="card-outline"
@@ -565,6 +619,7 @@ function boot({
           </div>
         </div>
       `;
+      zIndex += 1;
     });
   }
 
@@ -668,7 +723,12 @@ function boot({
           id="spinner"
           style="filter: brightness(0.9) drop-shadow(0 0 1vmin ${whistlegraph.glow})"
         >
-          <img width="1000" height="1000" src="${assetPath}/${wg}/${wg}.webp" crossorigin="anonymous">
+          <img
+            width="1000"
+            height="1000"
+            src="${assetPath}/${wg}/${wg}.webp"
+            crossorigin="anonymous"
+          />
           <canvas width="1000" height="1000" id="spinner-canvas"></canvas>
         </div>
       </div>
@@ -793,7 +853,9 @@ function boot({
       .card-view.active .card.running {
         cursor: alias;
       }
-      .card-view.active .card[data-type="score"] {
+
+      .card-view.active .card[data-type="score"],
+      .card-view.active .card[data-type="image"] {
         cursor: alias;
       }
 
@@ -849,7 +911,8 @@ function boot({
         height: calc(100% + 1vmin);
       }
 
-      .card[data-type="score"].touch .card-outline {
+      .card[data-type="score"].touch .card-outline,
+      .card[data-type="image"].touch .card-outline {
         border-width: 0.75vmin;
         top: -0.375vmin;
         left: -0.375vmin;
@@ -901,11 +964,34 @@ function boot({
       }
 
       /* Contents inside each card */
-      .card-view[data-type="score"] .card img {
+      .card-view[data-type="score"] .card img,
+      .card-view[data-type="image"] .card img {
         box-sizing: border-box;
         object-fit: cover;
         margin: auto;
         pointer-events: none;
+      }
+
+      .card-next {
+        --divisor: 1.5;
+        position: absolute;
+        bottom: calc(2vmin / var(--divisor));
+        right: calc(2vmin / var(--divisor));
+        width: calc(15vmin / var(--divisor));
+        height: calc(15vmin / var(--divisor));
+        border-radius: calc(3vmin / var(--divisor)) 0 0 0;
+      }
+
+      .card-next img {
+        pointer-events: none;
+        width: 100%;
+        margin-top: 0.25vmin;
+        margin-left: 0.25vmin;
+        transform: scale(1.07);
+      }
+
+      .card.touch .card-next img {
+        transform: scale(1);
       }
     </style>
   `;
