@@ -358,11 +358,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       });
 
       // Prevent canvas touchstart events from triggering magnifying glass on
-      // iOS Safari.
+      // iOS Safari, unless a link is pressed.
       wrapper.addEventListener(
         "touchstart",
         function (event) {
-          event.preventDefault();
+          if (event.target.tagName !== "A") event.preventDefault();
         },
         false
       );
@@ -1435,8 +1435,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "store:retrieve") {
       if (content.method === "local") {
         const data = JSON.parse(localStorage.getItem(content.key));
-        if (debug)
-          console.log("📦 Retrieved local data:", content.key, data);
+        if (debug) console.log("📦 Retrieved local data:", content.key, data);
         send({
           type: "store:retrieved",
           content: data,
