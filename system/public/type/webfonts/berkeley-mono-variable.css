@@ -1,0 +1,15 @@
+@font-face {
+	font-family: 'Berkeley Mono Variable';
+	src: url('BerkeleyMonoVariable-Regular.woff2') format('woff2'),
+	     url('BerkeleyMonoVariable-Regular.woff') format('woff');
+	font-weight: normal;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Berkeley Mono Variable';
+	src: url('BerkeleyMonoVariable-Italic.woff2') format('woff2'),
+	url('BerkeleyMonoVariable-Italic.woff') format('woff');
+	font-weight: normal;
+	font-style: italic;
+}

@@ -396,11 +396,11 @@ const whatsInsideYourHeart = {
 const music2Whistlegraph2 = {
   title: "Music 2 Whistlegraph 2",
   byline: "Composed by Charlie Kamin-Allen ⋅ December 22, 2022",
-  glow: "rgba(0, 50, 245, 1)",
-  fuzz: 5n,
+  glow: "rgba(50, 50, 255, 1)",
+  fuzz: 8n,
   bg: {
-    tint: [100, 100, 200], // rgb
-    tintAmount: 0.65,
+    tint: [100, 100, 250], // rgb
+    tintAmount: 0.8,
     pixelSaturation: 1,
   },
   videos: [
@@ -410,21 +410,61 @@ const music2Whistlegraph2 = {
       border: 0.25,
       outerRadius: 0.25,
       innerRadius: 0.15,
-      color: "rgb(20, 20, 40)",
-      boxShadow: "0.25vmin 0.25vmin 4vmin rgba(255, 10, 10, 0.7)",
+      color: "rgb(20, 20, 60)",
+      boxShadow: "0.25vmin 0.25vmin 4vmin rgba(50, 10, 255, 0.7)",
       highlight: "rgba(80, 80, 80, 1)",
     },
   ],
   activities: [
     {
       ratio: "3x2",
-      type: "iframe",
-      url: "https://open.spotify.com/embed/album/579pQc7XBrVrVnV360zrAU?utm_source=generator",
+      type: "html", // or "iframe"
+      markup: `
+      <div id="wg-card-listen-now">
+        <h1 id="wg-card-listen-now-links">
+          <a target="_blank" href="https://distrokid.com/hyperfollow/whistlegraph/music-2-whistlegraph-2">Songs</a>
+          <br>
+          <a target="_blank" href="https://shop.whistlegraph.com">Aesthetic CDs</a>
+        </h1>
+      </div>
+      <style>
+      #wg-card-listen-now {
+        width: 100%;
+        height: 100%;
+        display: flex;
+      }
+      #wg-card-listen-now-links {
+        margin: auto;
+        text-align: center;
+        line-height: 18vmin;
+        font-size: 10vmin;
+      }
+      #wg-card-listen-now-links a {
+        color: rgb(0, 125, 0);
+        display: inline-block;
+        margin: auto;
+        font-family: YWFTProcessing-Regular, sans-serif;
+      }
+      #wg-card-listen-now-links a:hover {
+        filter: brightness(1.2);
+      }
+      #wg-card-listen-now-links a:active {
+        filter: brightness(1.3);
+        transform: scale(1.05);
+      }
+      </style>
+      `,
+      // url: "https://open.spotify.com/embed/album/579pQc7XBrVrVnV360zrAU?utm_source=generator",
+      backgroundColor:
+        "linear-gradient(rgba(166, 233, 133, 0.8), rgba(166, 233, 133, 0.8))",
+      backgroundImageSlug: "spines",
+      bgImageSize: "100%",
+      bgImagePosition: "50% 50%",
       border: 0.25,
       outerRadius: 0.25,
       innerRadius: 0.15,
       color: "rgb(20, 20, 40)",
-      boxShadow: "0.25vmin 0.25vmin 4vmin rgba(255, 10, 10, 0.7)",
+      boxShadow: "0.25vmin 0.25vmin 4vmin rgba(30, 200, 10, 0.7)",
       highlight: "rgba(80, 80, 80, 1)",
     },
   ],
@@ -435,8 +475,8 @@ const music2Whistlegraph2 = {
       border: 0.25,
       outerRadius: 0.25,
       innerRadius: 0.15,
-      color: "rgb(20, 20, 40)",
-      boxShadow: "0.25vmin 0.25vmin 4vmin rgba(255, 10, 10, 0.7)",
+      color: "rgb(40, 20, 30)",
+      boxShadow: "0.25vmin 0.25vmin 4vmin rgba(255, 10, 200, 0.7)",
       highlight: "rgba(80, 80, 80, 1)",
     },
   ],
@@ -463,6 +503,14 @@ const defaultWhistlegraph = anyKey(whistlegraphs);
 let whistlegraph;
 let fuzzy = false;
 
+export function meta({ params }) {
+  const { whistlegraph } = parse(params);
+  return {
+    title: whistlegraph.title,
+    desc: whistlegraph?.byline,
+  };
+}
+
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({
   cursor,
@@ -482,12 +530,9 @@ function boot({
   cursor("native");
 
   // Decide what whistlegraph to use either directly or via `shortcuts`.
-  let wg = params[0];
-  if (whistlegraphs[wg] === undefined)
-    wg = shortcuts[wg] || defaultWhistlegraph;
-  whistlegraph = whistlegraphs[wg] || defaultWhistlegraph;
-
-  // meta({ title: whistlegraph.title });
+  const parsed = parse(params);
+  const wg = parsed.wg;
+  whistlegraph = parsed.whistlegraph;
 
   let cardsMarkup = "";
 
@@ -553,6 +598,12 @@ function boot({
       zIndex += 1;
     });
 
+    const cardNextMarkup = (color) => `
+      <div class="card-next" style="background: ${color};">
+        <img src="${assetPath}/next-arrow.svg" crossorigin="anonymous">
+      </div>
+    `;
+
     whistlegraph.activities?.forEach((card, index) => {
       let markup;
       if (card.type === "iframe") {
@@ -560,9 +611,19 @@ function boot({
           <iframe class="card-content" width="100%" height="100%"
           allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
           loading="lazy" src="${card.url}"></iframe>
-          <div class="card-next" style="background: ${card.color};">
-            <img src="${assetPath}/next-arrow.svg" crossorigin="anonymous">
-          </div>
+          ${cardNextMarkup(card.color)}
+        `;
+      } else if (card.type === "html") {
+        markup = `
+        <div class="card-content interactive-content"
+         width="100%" height="100%" style="background: ${
+           card.backgroundColor
+         }, url(${assetPath}/${wg}/${wg}-${card.backgroundImageSlug}.webp) ${
+          card.bgImagePosition
+        } / ${card.bgImageSize} no-repeat;">
+          ${card.markup}
+        </div>
+        ${cardNextMarkup(card.color)}
         `;
       }
 
@@ -850,6 +911,7 @@ function boot({
       .card-view.active .card {
         cursor: pointer;
       }
+
       .card-view.active .card.running {
         cursor: alias;
       }
@@ -961,6 +1023,12 @@ function boot({
 
       iframe.card-content {
         border: none;
+        pointer-events: all;
+      }
+
+      .card-content.interactive-content {
+        pointer-events: all;
+        cursor: default;
       }
 
       /* Contents inside each card */
@@ -1021,15 +1089,11 @@ function act({ event: e, net: { preloaded } }) {
 export { boot, sim, paint, act };
 
 // 📚 Library (Useful classes & functions used throughout the piece)
-// ...
 
-/*
-// 🧮 Sim(ulate) (Runs once per logic frame (120fps locked)).
-function sim($api) {}
-
-// 💗 Beat (Runs once per bpm)
-function beat($api) {}
-
-// ✒ Act (Runs once per user interaction)
-// function act({ event }) { }
-*/
+function parse(params) {
+  const out = { wg: params[0] };
+  if (whistlegraphs[out.wg] === undefined)
+    out.wg = shortcuts[out.wg] || defaultWhistlegraph;
+  out.whistlegraph = whistlegraphs[out.wg] || defaultWhistlegraph;
+  return out;
+}

@@ -4,9 +4,9 @@ import { parse, slug } from "./lib/parse.mjs";
 let debug;
 
 window.preloaded = false; // This gets set to true either automatically or
-                             // manually by a disk. It's used by the thumbnail
-                             // system to know when to take screenshots of each
-                             // piece.
+// manually by a disk. It's used by the thumbnail
+// system to know when to take screenshots of each
+// piece.
 
 // Check for the debug constant in index.html which overrides all defaults.
 if (window.acDEBUG === true || window.acDEBUG === false) {
@@ -21,7 +21,6 @@ if (window.acDEBUG === true || window.acDEBUG === false) {
 // Check to see if we have a "#debug" hash.
 if (window.location.hash === "#debug") debug = true;
 if (window.location.hash === "#nodebug") debug = false;
-
 
 window.acDEBUG = debug; // Set window.acDEBUG again just in case any code relies
 // on it down the line. Should it need to? 22.07.15.00.21
@@ -57,9 +56,7 @@ if (debug)
   );
 */
 
-const parsed = parse(
-  slug(window.location.href) || window.acSTARTING_PIECE
-);
+const parsed = parse(slug(window.location.href) || window.acSTARTING_PIECE);
 
 const bpm = 120; // Set the starting bpm. Is this still necessary?
 

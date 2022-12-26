@@ -49,19 +49,23 @@ loadingScreen.addEventListener(
 );
 
 // 1️⃣ Input Events
-// Hover states for cards when using only a mouse, and active statesfor mouse
+// Hover states for cards when using only a mouse, and active states for mouse
 // and touch.
 
 deck.addEventListener("click", (event) => {
-  event.preventDefault();
-  event.stopPropagation();
+  if (!event.target.closest(".card-content.interactive-content")) {
+    // Prevent default clicks on the deck if we are not inside of
+    // an interactive card.
+    event.preventDefault();
+    event.stopPropagation();
+  }
 });
 
 deck.addEventListener("pointermove", (e) => {
   if (!e.isPrimary || multipleTouches === true) return;
   // if (e.pointerType === "mouse") deck.classList.remove("no-cursor");
   const card = deck.querySelector(".card-view.active .card");
-  const cardNext = card.querySelector(".card-next");
+  const cardNext = card?.querySelector(".card-next");
   const target = document.elementFromPoint(e.clientX, e.clientY);
   if (target === card || target === cardNext) {
     if (
