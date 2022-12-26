@@ -19,6 +19,7 @@
 - [] Make a better / nicer "resize" event / hide play button and next buttons
      on resize. 
 + Done
+- [x] Fix touch-screen link tapping.
 - [x] Parse metadata on the server.
 - [x] Add some special html link content for the interactive card. 
   - [x] Just link to the pre-save page for Music.
@@ -635,7 +636,7 @@ function boot({
           <img
            crossorigin="anonymous"
            style="position: absolute; top: 0; left: 0; object-fit: cover;
-                  width: 100%; height: 100%; opacity: 0.15;"
+                  width: 100%; height: 100%; opacity: 0.25;"
            class='card-content-background-image' src="${assetPath}/${wg}/${wg}-${
           card.backgroundImageSlug
         }.webp">
