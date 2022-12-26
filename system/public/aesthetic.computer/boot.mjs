@@ -11,7 +11,10 @@ window.preloaded = false; // This gets set to true either automatically or
 // Check for the debug constant in index.html which overrides all defaults.
 if (window.acDEBUG === true || window.acDEBUG === false) {
   debug = window.acDEBUG;
-} else if (window.location.hostname === "aesthetic.computer") {
+} else if (
+  window.location.hostname === "aesthetic.computer" ||
+  window.location.hostname === "m2w2.whistlegraph.com"
+) {
   debug = false; // Turn debugging off by default in production.
 } else {
   debug = true; // Turn debuging on by default everywhere else.
