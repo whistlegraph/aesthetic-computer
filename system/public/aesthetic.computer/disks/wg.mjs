@@ -6,7 +6,14 @@
 // whistlegraphs.
 
 /* #region 🏁 todo
++ Near
+- [] Add more album related cards like a visualizer, or lyrics, the recorder,
+     and hit content or TikToks made with the beats.
 + Future
+- [] Clean up markup code / think about a potential rewrite of the card
+     engine... possibly in a nice, dynamically loaded front-end thing,
+     that loads all css externally so that crossorigin="anonymous" can be set
+     on the link tag.
 - [] Make a better / nicer "resize" event / hide play button and next buttons
      on resize. 
 + Done
