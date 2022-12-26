@@ -53,10 +53,14 @@
 🌟 Projects In Progress (PIP) 🌟
 
 *** Project Order ***
- - [-] Write micropage for the whistlegraph album. (m2w2)
- - [] Make camera based whistlegraph recorder that makes use of the album tracks.
+ - [📹] Make camera based whistlegraph recorder tool that makes use of the album tracks.
+ - [-] Make a rough prototype as a simple html file using ChatGPT.
+  - [] See how well it works... and how many features like zooming
+       and switching camera input could be added easily.
+  - [] Add it to the API and make a `wgr` disk. 
+  - [] Set up doodads like file hosting and stamping on videos.
  - [] Make VSCode extension / back-seat document API (maya).
- - [😀] Use `play` for a simple diary program / ring poem situation /
+ - [] Use `play` for a simple diary program / ring poem situation /
         "performative poetry" engine. 
  - [] Mintable Paintings
   - [] Finish all Brushes todos: https://www.notion.so/aesthetic-computer/aesthetic-computer-hq-97376f353dbd4503970910777d6c7241
@@ -74,6 +78,7 @@
   - [] Explore SDF Sculpting for Hamzhat
     - [] Use and look at: https://stephaneginier.com/archive/editSDF
  + Done
+ - [x] Write micropage for the whistlegraph album. (m2w2)
  - [x] Fix image download function.
  - [x] Get developer live reload working again.
   - [x] Deploy and test everything to see if it works. 
@@ -101,16 +106,10 @@
     - [x] Digital Ocean
     - [x] Redis
 
-*** New Repo / Asset Management ***
-  - [x] Hook up whistlegraph assets to assets.aesthetic.computer
-       and place behind a dev flag for local dev.
-  - [x] Deploy to production in a new Netlify site that copies over all
-       the environment flags and doesn't enable Large Media!
-  + Later
-  - [] Any "font" includes should work the same way... this could be tricky,
-       also not pressing.
-  - [] Digitpain assets are also affected, to their references would
-       need to be rewritten in the future.
+*** Collaborations / Externally Hosted Pieces ***
+ - [] Should subdomains like `m2w2.whistlegraph.com` just rewrite their url by
+      default? Or maybe if you jump to the prompt? I guess it kind of
+      depends on how localStorage or other origin specific features work...
 
 *** BGM ***
  - [] Make a cool default visualizer for bgm.
@@ -434,6 +433,18 @@
   - [] Document each step so that I can script adding new users in the future.
  - [] Figure out how to best automate the addition of a new developer... 
  - [] Why isn't artur's ssh key working?
+
+*** New Repo / Asset Management ***
+  - [x] Hook up whistlegraph assets to assets.aesthetic.computer
+       and place behind a dev flag for local dev.
+  - [x] Deploy to production in a new Netlify site that copies over all
+       the environment flags and doesn't enable Large Media!
+  - [x] Any "font" includes should work the same way... this could be tricky,
+       also not pressing.
+  + Later
+  - [] Digitpain assets are also affected, to their references would
+       need to be rewritten in the future.
+
 
 *** Sage Session TODOs ***
  - [] make sure color attributes work for QUADS.
