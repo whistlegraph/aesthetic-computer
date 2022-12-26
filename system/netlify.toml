@@ -56,6 +56,11 @@
   status = 301
   force = true
 [[redirects]]
+  from = "https://m2w2.whistlegraph.com"
+  to = "https://aesthetic.computer/wg~m2w2"
+  status = 200
+  force = false
+[[redirects]]
   from = "https://prompt.ac/*"
   to = "https://aesthetic.computer/:splat"
   status = 301
