@@ -1,5 +1,5 @@
-@import "type/webfonts/berkeley-mono-variable.css";
-@import "type/webfonts/ywft-processing-regular.css";
+@import "/type/webfonts/berkeley-mono-variable.css";
+@import "/type/webfonts/ywft-processing-regular.css";
 
 :root {
   color-scheme: dark;
@@ -193,7 +193,7 @@ canvas[data-type="3d"].visible {
   bottom: 0.5em;
   right: 0.5em;
   cursor: none;
-  font-family: YWFTProcessing-Regular, sans serif;
+  font-family: YWFTProcessing-Regular, sans-serif;
   /* font-family: Berkeley Mono Variable, sans serif; */
   padding: 0 0.15em;
   line-height: 100%;

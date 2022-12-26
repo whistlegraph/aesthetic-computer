@@ -58,10 +58,12 @@ async function fun(event, context) {
       // Locally hosted piece.
       try {
         // Just whitelist freaky-flowers for now 22.11.28.13.36.
+        // Also whitelist wg 22.12.25.20.28
         if (
           !parsed.text.startsWith("requestProvider.js.map") &&
           (parsed.text.startsWith("ff") ||
-            parsed.text.startsWith("freaky-flowers"))
+            parsed.text.startsWith("freaky-flowers") ||
+            parsed.text.startsWith("wg"))
         ) {
           // desc = (await import(`../../public/${parsed.path}.mjs`)).desc;
           const m = await import(`../../public/${parsed.path}.mjs`);
