@@ -47,6 +47,11 @@ if (window.location.pathname.length > 1) {
 
 // Set first input text to the default starting piece, which can be set in
 // index.html via `window.acSTARTING_PIECE` or default to `prompt`.
+
+// Or it can be set by a custom host...
+if (location.hostname === "m2w2.whistlegraph.com")
+  window.acSTARTING_PIECE = "wg~m2w2";
+
 if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";
 
 // Boot the machine with the specified root piece, or a #piece route if one
