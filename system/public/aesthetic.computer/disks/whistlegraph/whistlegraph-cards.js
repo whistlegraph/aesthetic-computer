@@ -374,6 +374,10 @@ function frame() {
     // const cardNext = card.querySelector(".card-next");
     const cardContent = card.querySelector(".card-content");
 
+    const cardContentBackgroundImage = cardContent.querySelector(
+      ".card-content-background-image"
+    );
+
     const longestSide = min(deck.clientWidth, deck.clientHeight);
     const margin = floor(longestSide * 0.17); // Of the page.
     const borderSetting = cardView.dataset.borderSetting;
@@ -381,7 +385,9 @@ function frame() {
     const outerRadiusSetting = cardView.dataset.outerRadius;
 
     card.style.borderRadius = margin * outerRadiusSetting + "px";
-    // if (cardNext) cardNext.style.borderRadius = card.style.borderRadius;
+    if (cardContentBackgroundImage) {
+      cardContentBackgroundImage.style.borderRadius = card.style.borderRadius;
+    }
     cardContent.style.borderRadius = margin * innerRadiusSetting + "px";
 
     const border = floor(margin * borderSetting);
