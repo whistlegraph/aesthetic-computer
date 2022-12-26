@@ -37,6 +37,7 @@
 
 🐞 Annoying Bugs & Regressions
   + API
+  - [] Check `wg` and `ff` and other disks including the prompt in the Intagram in-app browser!
   - [] Research the use of "requestProvider.js.map" and work it into `index.js`.
   - [] Rename $api.upload to $api.open? or $api.importFile? 
   + In Production
