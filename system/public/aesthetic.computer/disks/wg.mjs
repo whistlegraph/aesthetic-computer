@@ -10,6 +10,7 @@
 - [] Make a better / nicer "resize" event / hide play button and next buttons
      on resize. 
 + Done
+- [x] Parse metadata on the server.
 - [x] Add some special html link content for the interactive card. 
   - [x] Just link to the pre-save page for Music.
   - [x] Use a custom font from the assets folder / bucket, defined in 
@@ -506,6 +507,7 @@ const defaultWhistlegraph = anyKey(whistlegraphs);
 let whistlegraph;
 let fuzzy = false;
 
+// 💁 Metadata (Placed in the head and parsed on the server)
 export function meta({ params }) {
   const { whistlegraph } = parse(params);
   return {
