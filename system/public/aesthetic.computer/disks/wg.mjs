@@ -7,6 +7,10 @@
 
 /* #region 🏁 todo
 + Near
+- [] Update the url parameter on card-switch similar to freaky-flowers
+     so that way you can jump out to another page and then return...
+     Or! Make sure to resume video after suspend if opening a tab and returning?
+     (Test on iOS)
 - [🟡] Write an s3cmd script to rsync the assets directory with the bucket,
      so manual copying and Dropbox can be avoided!
 - [] Add more album related cards like a visualizer, or lyrics, the recorder,
@@ -436,9 +440,9 @@ const music2Whistlegraph2 = {
       markup: `
       <div id="wg-card-listen-now" style="position: absolute; z-index: 1;">
         <h1 id="wg-card-listen-now-links">
-          <a target="_blank" href="https://distrokid.com/hyperfollow/whistlegraph/music-2-whistlegraph-2">Songs</a>
+          <a href="https://distrokid.com/hyperfollow/whistlegraph/music-2-whistlegraph-2">Songs</a>
           <br>
-          <a target="_blank" href="https://shop.whistlegraph.com">Aesthetic CDs</a>
+          <a href="https://shop.whistlegraph.com">Aesthetic CDs</a>
         </h1>
       </div>
       <style>
