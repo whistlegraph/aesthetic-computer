@@ -6,13 +6,16 @@
 // whistlegraphs.
 
 /* #region 🏁 todo
-- [] Add some special html link content for the interactive card. 
-  - [] Just link to the pre-save page for now!
-  - [] Use a custom font from the assets folder / bucket, defined in 
-       the CSS here or globally?
-- [] Embed the Spotify album and the SoundCloud?
-- [] Choose card colors.
++ Future
+- [] Make a better / nicer "resize" event / hide play button and next buttons
+     on resize. 
 + Done
+- [x] Add some special html link content for the interactive card. 
+  - [x] Just link to the pre-save page for Music.
+  - [x] Use a custom font from the assets folder / bucket, defined in 
+       the CSS here or globally?
+- [x] Also link to the Aesthetic CDs. 
+- [x] Choose card colors.
 - [x] Add in Charlie's intro video along with the poster image for the "score?" 
 - [x] Move all wg video assets to an S3 bucket, behind a dev flag that loads them
      locally...
@@ -1051,6 +1054,7 @@ function boot({
       }
 
       .card-next img {
+        position: absolute;
         pointer-events: none;
         width: 100%;
         margin-top: 0.25vmin;
