@@ -7,6 +7,8 @@
 
 /* #region 🏁 todo
 + Near
+- [🟡] Write an s3cmd script to rsync the assets directory with the bucket,
+     so manual copying and Dropbox can be avoided!
 - [] Add more album related cards like a visualizer, or lyrics, the recorder,
      and hit content or TikToks made with the beats.
 + Future
