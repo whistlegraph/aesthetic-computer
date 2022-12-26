@@ -9,7 +9,6 @@ import { createClient } from "redis";
 
 const dev = process.env.NETLIFY_DEV;
 const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
-const jamSocketToken = process.env.JAMSOCKET_ACCESS_TOKEN;
 
 async function fun(event, context) {
   let status;

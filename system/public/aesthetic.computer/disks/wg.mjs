@@ -424,7 +424,7 @@ const music2Whistlegraph2 = {
       ratio: "3x2",
       type: "html", // or "iframe"
       markup: `
-      <div id="wg-card-listen-now">
+      <div id="wg-card-listen-now" style="position: absolute; z-index: 1;">
         <h1 id="wg-card-listen-now-links">
           <a target="_blank" href="https://distrokid.com/hyperfollow/whistlegraph/music-2-whistlegraph-2">Songs</a>
           <br>
@@ -444,7 +444,7 @@ const music2Whistlegraph2 = {
         font-size: 10vmin;
       }
       #wg-card-listen-now-links a {
-        color: rgb(0, 125, 0);
+        color: rgb(0, 100, 0);
         display: inline-block;
         margin: auto;
         font-family: YWFTProcessing-Regular, sans-serif;
@@ -526,7 +526,7 @@ function boot({
   debug,
 }) {
   // Add assetPath here.
-  const assetPath = debug
+  const assetPath = !debug
     ? "/assets/whistlegraph"
     : "https://assets.aesthetic.computer/whistlegraph";
 
@@ -604,7 +604,7 @@ function boot({
     });
 
     const cardNextMarkup = (color) => `
-      <div class="card-next" style="background: ${color};">
+      <div class="card-next" style="background: ${color}; z-index: 2;">
         <img src="${assetPath}/next-arrow.svg" crossorigin="anonymous">
       </div>
     `;
@@ -621,12 +621,15 @@ function boot({
       } else if (card.type === "html") {
         markup = `
         <div class="card-content interactive-content"
-         width="100%" height="100%" style="background: ${
-           card.backgroundColor
-         }, url(${assetPath}/${wg}/${wg}-${card.backgroundImageSlug}.webp) ${
-          card.bgImagePosition
-        } / ${card.bgImageSize} no-repeat;">
+         width="100%" height="100%" style="background: ${card.backgroundColor}">
           ${card.markup}
+          <img
+           crossorigin="anonymous"
+           style="position: absolute; top: 0; left: 0; object-fit: cover;
+                  width: 100%; height: 100%; opacity: 0.15;"
+           class='card-content-background-image' src="${assetPath}/${wg}/${wg}-${
+          card.backgroundImageSlug
+        }.webp">
         </div>
         ${cardNextMarkup(card.color)}
         `;
