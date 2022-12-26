@@ -535,7 +535,7 @@ function boot({
   debug,
 }) {
   // Add assetPath here.
-  const assetPath = !debug
+  const assetPath = debug
     ? "/assets/whistlegraph"
     : "https://assets.aesthetic.computer/whistlegraph";
 
