@@ -932,6 +932,9 @@ async function load(parsed, fromHistory = false, alias = false) {
   // 🅱️ Load the piece.
   // TODO: What happens if source is undefined?
   // const moduleLoadTime = performance.now();
+
+  send({ type: "alert-popup:instagram", content: fullUrl });
+
   const module = await import(fullUrl).catch((err) => {
     console.error(`😡 "${path}" load failure:`, err);
     send({ type: "alert-popup:instagram", content: JSON.stringify(err) });
@@ -941,11 +944,9 @@ async function load(parsed, fromHistory = false, alias = false) {
 
   if (module === undefined) {
     loading = false;
-   send({ type: "alert-popup:instagram", content: "module undefined" });
     return;
   }
 
- send({ type: "alert-popup:instagram", content: fullUrl });
 
   const forceProd = false; // For testing production servers in development.
 
