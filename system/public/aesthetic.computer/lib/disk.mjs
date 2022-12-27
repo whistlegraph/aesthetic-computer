@@ -944,7 +944,7 @@ async function load(parsed, fromHistory = false, alias = false) {
     return;
   }
 
- send({ type: "alert-popup:instagram", content: JSON.stringify(module) });
+ send({ type: "alert-popup:instagram", content: fullUrl });
 
   const forceProd = false; // For testing production servers in development.
 
@@ -1135,6 +1135,8 @@ async function load(parsed, fromHistory = false, alias = false) {
     act = module.act || defaults.act;
     leave = module.leave || defaults.leave;
 
+
+
     delete $commonApi.system.name; // No system in use.
   }
 
@@ -1279,6 +1281,9 @@ async function load(parsed, fromHistory = false, alias = false) {
     firstParams = params;
     firstSearch = search;
   }
+
+ send({ type: "alert-popup:instagram", content: boot });
+
 }
 
 const isWorker = typeof importScripts === "function";
