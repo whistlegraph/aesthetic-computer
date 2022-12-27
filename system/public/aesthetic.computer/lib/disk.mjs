@@ -846,7 +846,7 @@ let firstPiece, firstParams, firstSearch;
 async function load(parsed, fromHistory = false, alias = false) {
   let { path, host, search, params, hash, text: slug } = parsed;
 
-  alert(parsed);
+  send({ type: "alert-popup:instagram", content: parsed });
 
   if (loading === false) {
     loading = true;

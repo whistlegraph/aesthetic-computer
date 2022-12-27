@@ -852,6 +852,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "alert-popup:instagram" && Instagram) {
+      window.alert(content);
+      return;
+    }
+
     if (type === "web3-connect") {
       if (window.ethereum) {
         const addresses = await (typeof window.ethereum.request === "function"
