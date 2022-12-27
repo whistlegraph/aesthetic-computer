@@ -31,8 +31,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   window.acCONTENT_EVENTS = [];
 
   let pen, keyboard;
-  let frameCount = 0;
-  let timePassed = 0;
+  // let frameCount = 0;
+  // let timePassed = 0;
   let now = 0;
 
   let diskSupervisor;
@@ -756,7 +756,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (frameAlreadyRequested) return;
 
     frameAlreadyRequested = true;
-    frameCount += 1;
+    // frameCount += 1;
 
     // TODO: 📏 Measure performance of frame: test with different resolutions.
 
@@ -1152,6 +1152,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           function (needsRender, updateTimes, nowUpdate) {
             // TODO: How can I get the pen data into the disk and back
             //       to Three.JS as fast as possible? 22.10.26.23.25
+            // console.log(nowUpdate);
 
             diskSupervisor.requestFrame?.(needsRender, updateTimes, nowUpdate);
 
@@ -2036,7 +2037,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       if (glaze.on) {
-        Glaze.render(timePassed, pen.normalizedPosition(canvasRect));
+        Glaze.render(now, pen.normalizedPosition(canvasRect));
       } else {
         Glaze.off();
       }
@@ -2059,7 +2060,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       pen.render(uiCtx, canvasRect); // ️ 🐭 Draw the cursor.
 
       if (content.loading === true) {
-        UI.spinner(uiCtx, timePassed);
+        UI.spinner(uiCtx, now);
       }
 
       if (debug && frameCached && content.loading !== true) UI.cached(uiCtx); // Pause icon.
