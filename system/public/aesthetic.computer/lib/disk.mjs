@@ -941,6 +941,7 @@ async function load(parsed, fromHistory = false, alias = false) {
 
   if (module === undefined) {
     loading = false;
+   send({ type: "alert-popup:instagram", content: "module undefined" });
     return;
   }
 
@@ -1136,6 +1137,7 @@ async function load(parsed, fromHistory = false, alias = false) {
     leave = module.leave || defaults.leave;
 
 
+   send({ type: "alert-popup:instagram", content: "hi" });
 
     delete $commonApi.system.name; // No system in use.
   }
@@ -1282,7 +1284,6 @@ async function load(parsed, fromHistory = false, alias = false) {
     firstSearch = search;
   }
 
- send({ type: "alert-popup:instagram", content: boot });
 
 }
 
