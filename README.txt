@@ -1313,10 +1313,16 @@
  and knowledge of javascript. if you're interested in learning how to do any of
  this, visit https://discord.gg/digitpain and i'll help you out - jeffrey 2022.04.24.05.05
 
-Make sure `git` and `git-lfs` is installed, (you can do that through `homebrew`) and then get set up for development:
-  0. Check `ssl-dev/readme.txt` to generate SSL certificates before running locally for all features to work.
-  1. `cd` into `server` and run `npm install` and `npm run dev` to start the socket server. (optional)
-  2. `cd` into `system` and run `npm install` and `npm run dev` to start the web server. (required)
+Make sure `git` and is installed, (you can do that through `homebrew`) and then get set up for development:
+  0. Also install `fnm` the node version manager.
+  1. Check `ssl-dev/readme.txt` to generate and add local SSL certificates.
+  2. `npm install` from the project directory.
+  3. `cd` into `server-session` and `npm install` as well.
+  4. Get added to the Netlify project as a collaborator.
+  5. `cd` into `system` and run `npx netlify login` and then `npx netlify link`
+  6. Now run `npm run code` and in another shell `npm run server:session`.
+  7. Visit `https://localhost:8888` to view the running site! 
+  8. If you need local copies of the site's rich media `assets` then ask Jeffrey and you can slurp them from S3.
 
 🧩 Making a new included piece.
 - Run `npm run new-piece -- name-of-your-piece` 
