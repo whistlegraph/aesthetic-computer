@@ -846,7 +846,7 @@ let firstPiece, firstParams, firstSearch;
 async function load(parsed, fromHistory = false, alias = false) {
   let { path, host, search, params, hash, text: slug } = parsed;
 
-  send({ type: "alert-popup:instagram", content: parsed });
+  send({ type: "alert-popup:instagram", content: JSON.stringify(parsed) });
 
   if (loading === false) {
     loading = true;
@@ -934,6 +934,7 @@ async function load(parsed, fromHistory = false, alias = false) {
   // const moduleLoadTime = performance.now();
   const module = await import(fullUrl).catch((err) => {
     console.error(`😡 "${path}" load failure:`, err);
+    send({ type: "alert-popup:instagram", content: JSON.stringify(err) });
     loadFailure = err;
   });
   // console.log(performance.now() - moduleLoadTime, module);
@@ -942,6 +943,8 @@ async function load(parsed, fromHistory = false, alias = false) {
     loading = false;
     return;
   }
+
+ send({ type: "alert-popup:instagram", content: JSON.stringify(module) });
 
   const forceProd = false; // For testing production servers in development.
 
