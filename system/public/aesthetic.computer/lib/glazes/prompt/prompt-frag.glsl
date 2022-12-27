@@ -14,6 +14,8 @@ uniform vec2 iResolution;
 uniform int fogIterations;
 uniform int shadowIterations;
 
+uniform int freezeGrain;
+
 const bool colorMode = true;
 
 uniform float focalLength;
@@ -162,7 +164,7 @@ void main()
     vec2 uv = v_texc * 2. - vec2(1.);
 
     vec3 ro = vec3(0., 0., cameraDistance);
-    vec3 rd = normalize(vec3(uv, focalLength));
+    vec3 rd = normalize(vec3(uv, 1.0));
 
     float nearIntersectionDist = zPlaneIntersect(ro, rd, -volumeRadius);
     float farIntersectionDist = zPlaneIntersect(ro, rd, volumeRadius);
@@ -172,8 +174,14 @@ void main()
     vec3 volAbs = vec3(1.);
     vec3 pos = ro + rd * nearIntersectionDist;
     vec3 previousPos, stepAbs, stepCol;
-    float headStartCam = random(iResolution.x * v_texc + iTime);
-    float headStartShadow = random(iResolution.x * v_texc - iTime);
+
+    float offset = iTime;
+    if (freezeGrain != 0)
+    {
+        offset = 0.0;
+    }
+    float headStartCam = random(iResolution.x * v_texc + offset);
+    float headStartShadow = random(iResolution.x * v_texc - offset);
 
     for (int i = 1; i < fogIterations + 1; i++)
     {

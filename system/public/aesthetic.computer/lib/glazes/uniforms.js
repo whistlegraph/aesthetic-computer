@@ -15,6 +15,7 @@ uniforms.digitpain0 = {
 uniforms.prompt = {
   "1i:fogIterations": 20,
   "1i:shadowIterations": 5,
+  "1i:freezeGrain": 1,
   "1f:focalLength": 1,
   "1f:screenScale": 1,
   "1f:shadowRange": 1,
