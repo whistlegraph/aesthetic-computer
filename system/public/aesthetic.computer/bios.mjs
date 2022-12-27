@@ -676,6 +676,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Rewire things a bit if workers with modules are not supported (Firefox).
     worker.onerror = async (err) => {
+      alert(err);
       if (
         err.message ===
         "SyntaxError: import declarations may only appear at top level of a module"
