@@ -107,6 +107,8 @@
     - [x] Digital Ocean
     - [x] Redis
 
+*** User --> Developer Pathway ***
+
 *** Collaborations / Externally Hosted Pieces ***
  - [] Should subdomains like `m2w2.whistlegraph.com` just rewrite their url by
       default? Or maybe if you jump to the prompt? I guess it kind of
@@ -114,6 +116,11 @@
 
 *** BGM ***
  - [] Make a cool default visualizer for bgm.
+  - [] Use phase analysis / both stereo tracks to produce a form.
+    (Check existing chatGPT thread to explore traditional methods)
+  - [] Make it a 3d representation in the rasterizer with CamDoll controls.
+  - [] Implement spatialization of the audio in relation to the position of the
+       viewer.
  - [] Global volume / play + pause controls too?
  - [] READ Audio properties (Will do for bgm)
    - [] Amplitude within frequency range function. (Cropped amplitude)
