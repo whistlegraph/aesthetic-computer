@@ -885,6 +885,7 @@ async function load(parsed, fromHistory = false, alias = false) {
   }
 
   console.log("🧩", path, "🌐", host);
+  send({ type: "alert-popup:instagram", content: JSON.stringify({path, host, ROOT_PIECE, firstPiece, params}) });
 
   let fullUrl = location.protocol + "//" + host + "/" + path + ".mjs";
 
