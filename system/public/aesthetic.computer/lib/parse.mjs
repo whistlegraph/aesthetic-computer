@@ -83,7 +83,8 @@ function slug(url) {
     .replace(/^http(s?):\/\//i, "")
     .replace(window.location.hostname + ":" + window.location.port + "/", "")
     .replace(window.location.hostname + "/", "")
-    .split("#")[0]; // Remove any hash.
+    .split("#")[0] // Remove any hash.
+    .split("?")[0]; // Remove any search param.
 }
 
 // Generates some metadata fields that are shared both on the client and server.
