@@ -3,6 +3,8 @@
 // sending it a sequence starting with the current piece.
 
 /* #region 🏁 todo
+ - [] Show a special webp for the "random" url.
+ - [] Abe's Chrome browser showed half filled triangles... why was that?
 #endregion */
 
 // #region 🧮 data
@@ -790,8 +792,8 @@ const tokenColors = [
 // #endregion
 
 // 🥾 Boot (Runs once before first paint and sim)
-export function boot({ wipe, params, jump, store }) {
-  const i = tokenID(params);
+export function boot({ wipe, params, jump, store, num }) {
+  const i = tokenID({params, num});
 
   const headers = (id) => {
     console.log(
@@ -840,22 +842,35 @@ const baseURL = "https://wand.aesthetic.computer";
 const handle = "digitpain";
 
 // Retrieve or generate a token index, given this piece's parameter list.
-export function tokenID(params) {
-  const param1 = parseInt(params[0]);
-  return param1 >= 0 && param1 < tokens.length
-    ? param1
-    : randInt(tokens.length - 1);
+export function tokenID($) {
+  const canRandomize = $.num ? true : false; // Return -1 if there is no randomization function (on server)
+  console.log(canRandomize)
+  const randomToken = canRandomize ? $.num.randInt(tokens.length - 1) : -1;
+  const param1 = parseInt($.params[0]);
+  return param1 >= 0 && param1 < tokens.length ? param1 : randomToken;
 }
 
 // Generates metadata fields for this piece.
 // (Run by the server.)
-export function meta({ params }) {
-  const i = tokenID(params);
-  return {
-    // Note: high res png's are also stored, but webps are for Open Graph. 22.11.28.13.13
-    image_url: `${baseURL}/ff${i}-${tokens[i]}-still-${handle}.webp`,
-    title: tokenTitlesAndDescriptions[i][0],
-    desc: tokenTitlesAndDescriptions[i][1],
-    // https://wand.aesthetic.computer/ff1-2022.11.20.11.42.50-still-digitpain.png
-  };
+export function meta({ params, num }) {
+  const i = tokenID({ params, num });
+  let out;
+  if (i === -1) {
+    out = {
+      // Note: high res png's are also stored, but webps are for Open Graph. 22.11.28.13.13
+      image_url: `${baseURL}/ff${i}-${0}-still-${handle}.webp`,
+      title: "Random", 
+      desc: "Shows a random Freaky Flower!" 
+      // https://wand.aesthetic.computer/ff1-2022.11.20.11.42.50-still-digitpain.png
+    };
+  } else {
+    out = {
+      // Note: high res png's are also stored, but webps are for Open Graph. 22.11.28.13.13
+      image_url: `${baseURL}/ff${i}-${tokens[i]}-still-${handle}.webp`,
+      title: tokenTitlesAndDescriptions[i][0],
+      desc: tokenTitlesAndDescriptions[i][1],
+      // https://wand.aesthetic.computer/ff1-2022.11.20.11.42.50-still-digitpain.png
+    };
+  }
+  return out;
 }

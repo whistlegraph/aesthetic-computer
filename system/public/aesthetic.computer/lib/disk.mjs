@@ -977,7 +977,7 @@ async function load(parsed, fromHistory = false, alias = false) {
     const { title, desc, ogImage, twitterImage } = metadata(
       "aesthetic.computer",
       slug,
-      module.meta?.(parsed)
+      module.meta?.({...parsed, num: $commonApi.num}) // Adding the num API here is a little hacky, but needed for Freaky Flowers random metadata generation. 22.12.27  
     );
 
     meta = {
