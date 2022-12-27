@@ -856,12 +856,11 @@ async function load(parsed, fromHistory = false, alias = false) {
     return;
   }
 
-  if (path)
-    if (debug) {
-      console.log("🟡 Development");
-    } else {
-      // console.log("🟢 Production");
-    }
+  if (debug) {
+    console.log("🟡 Development");
+  } else {
+    // console.log("🟢 Production");
+  }
 
   if (host === "") {
     host = originalHost;
@@ -885,7 +884,10 @@ async function load(parsed, fromHistory = false, alias = false) {
   }
 
   console.log("🧩", path, "🌐", host);
-  send({ type: "alert-popup:instagram", content: JSON.stringify({path, host, ROOT_PIECE, firstPiece, params}) });
+  send({
+    type: "alert-popup:instagram",
+    content: JSON.stringify({ path, host, ROOT_PIECE, firstPiece, params }),
+  });
 
   let fullUrl = location.protocol + "//" + host + "/" + path + ".mjs";
 
@@ -947,7 +949,6 @@ async function load(parsed, fromHistory = false, alias = false) {
     loading = false;
     return;
   }
-
 
   const forceProd = false; // For testing production servers in development.
 
@@ -1138,8 +1139,7 @@ async function load(parsed, fromHistory = false, alias = false) {
     act = module.act || defaults.act;
     leave = module.leave || defaults.leave;
 
-
-   send({ type: "alert-popup:instagram", content: "hi" });
+    send({ type: "alert-popup:instagram", content: "hi" });
 
     delete $commonApi.system.name; // No system in use.
   }
@@ -1285,8 +1285,6 @@ async function load(parsed, fromHistory = false, alias = false) {
     firstParams = params;
     firstSearch = search;
   }
-
-
 }
 
 const isWorker = typeof importScripts === "function";
