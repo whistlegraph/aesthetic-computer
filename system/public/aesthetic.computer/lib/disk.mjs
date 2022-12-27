@@ -846,6 +846,8 @@ let firstPiece, firstParams, firstSearch;
 async function load(parsed, fromHistory = false, alias = false) {
   let { path, host, search, params, hash, text: slug } = parsed;
 
+  alert(parsed);
+
   if (loading === false) {
     loading = true;
   } else {
