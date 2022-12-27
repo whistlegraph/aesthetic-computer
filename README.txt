@@ -37,7 +37,6 @@
 
 🐞 Annoying Bugs & Regressions
   + API
-  - [] Check `wg` and `ff` and other disks including the prompt in the Intagram in-app browser!
   - [] Research the use of "requestProvider.js.map" and work it into `index.js`.
   - [] Rename $api.upload to $api.open? or $api.importFile? 
   + In Production
@@ -50,6 +49,8 @@
   + Dev Only
   - [] Get ssh working in VS Code on windows via WSL: https://stackoverflow.com/questions/60150466/can-i-ssh-from-wsl-in-visual-studio-code
   - [] `npm run code` does not work offline, due to netlify relying on online conectivity.
+  + Done
+  - [x] Check `wg` and `ff` and other disks including the prompt in the Instagram in-app browser!
 
 🌟 Projects In Progress (PIP) 🌟
 

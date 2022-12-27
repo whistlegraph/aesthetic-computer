@@ -1,6 +1,5 @@
 import { boot } from "./bios.mjs";
 import { parse, slug } from "./lib/parse.mjs";
-import { Instagram } from "./lib/platform.mjs";
 
 let debug;
 
@@ -66,8 +65,6 @@ if (debug)
 */
 
 const parsed = parse(slug(window.location.href) || window.acSTARTING_PIECE);
-
-if (Instagram) window.alert(JSON.stringify(parsed));
 
 const bpm = 120; // Set the starting bpm. Is this still necessary?
 

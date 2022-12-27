@@ -846,8 +846,6 @@ let firstPiece, firstParams, firstSearch;
 async function load(parsed, fromHistory = false, alias = false) {
   let { path, host, search, params, hash, text: slug } = parsed;
 
-  send({ type: "alert-popup:instagram", content: JSON.stringify(parsed) });
-
   if (loading === false) {
     loading = true;
   } else {
@@ -884,10 +882,6 @@ async function load(parsed, fromHistory = false, alias = false) {
   }
 
   console.log("🧩", path, "🌐", host);
-  send({
-    type: "alert-popup:instagram",
-    content: JSON.stringify({ path, host, ROOT_PIECE, firstPiece, params }),
-  });
 
   let fullUrl = location.protocol + "//" + host + "/" + path + ".mjs";
 
@@ -936,11 +930,8 @@ async function load(parsed, fromHistory = false, alias = false) {
   // TODO: What happens if source is undefined?
   // const moduleLoadTime = performance.now();
 
-  send({ type: "alert-popup:instagram", content: fullUrl });
-
   const module = await import(fullUrl).catch((err) => {
     console.error(`😡 "${path}" load failure:`, err);
-    send({ type: "alert-popup:instagram", content: JSON.stringify(err) });
     loadFailure = err;
   });
   // console.log(performance.now() - moduleLoadTime, module);
@@ -1138,8 +1129,6 @@ async function load(parsed, fromHistory = false, alias = false) {
     beat = module.beat || defaults.beat;
     act = module.act || defaults.act;
     leave = module.leave || defaults.leave;
-
-    send({ type: "alert-popup:instagram", content: "hi" });
 
     delete $commonApi.system.name; // No system in use.
   }
