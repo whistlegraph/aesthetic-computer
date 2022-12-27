@@ -21,76 +21,81 @@
 // Jeffrey (me@jas.life / digitpain#2262 / @digitpain)
 
 // 🥾 Boot (Runs once before first paint and sim)
-function boot({ resize, wipe, ink, line, pan, html }) {
-  resize(128, 127);
+function boot({ resize, wipe, ink, line, pan, dom: { html } }) {
   wipe(255, 0, 0);
 
   html`
-    <audio id="audio" src="https://example.com/audio.mp3" controls></audio>
+    <audio
+      id="audio"
+      src="https://upload.wikimedia.org/wikipedia/commons/4/4e/BWV_543-fugue.ogg"
+      controls
+      crossorigin="anonymous"
+    ></audio>
     <button id="record">Start Recording</button>
     <div id="zoom">
-      <button id="zoom-in">+</button> 5 <button id="zoom-out">-</button>
+      <button id="zoom-in">+</button>
+      <button id="zoom-out">-</button>
     </div>
+    <video id="preview"></video>
     <script>
-      navigator.mediaDevices
-        .getUserMedia({ audio: true, video: true })
-        .then(function (stream) {
-          var audio = document.getElementById("audio");
-          audio.play();
-          var audioStream = audio.captureStream();
-          var combinedStream = new MediaStream([
-            stream.getAudioTracks()[0],
-            stream.getVideoTracks()[0],
-            audioStream.getAudioTracks()[0],
-          ]);
-          var track = combinedStream.getVideoTracks()[0];
-          var recorder = new MediaRecorder(combinedStream);
-          var recordButton = document.getElementById("record");
-          recordButton.addEventListener("click", function () {
-            recorder.start();
-            recordButton.style.display = "none";
-            setTimeout(function () {
-              recorder.stop();
-            }, 15000);
-          });
-          var zoomIn = document.getElementById("zoom-in");
-          zoomIn.addEventListener("touchstart", function () {
-            track.applyConstraints({
-              advanced: [{ zoom: track.getConstraints().zoom.max }],
-            });
-          });
-          zoomIn.addEventListener("touchend", function () {
-            track.applyConstraints({
-              advanced: [{ zoom: track.getConstraints().zoom.min }],
-            });
-          });
-          var zoomOut = document.getElementById("zoom-out");
-          zoomOut.addEventListener("touchstart", function () {
-            track.applyConstraints({
-              advanced: [{ zoom: track.getConstraints().zoom.min }],
-            });
-          });
-          zoomOut.addEventListener("touchend", function () {
-            track.applyConstraints({
-              advanced: [{ zoom: track.getConstraints().zoom.max }],
-            });
-          });
-        });
+           navigator.mediaDevices
+             .getUserMedia({ audio: true, video: true })
+             .then(function (stream) {
+               var audio = document.getElementById("audio");
+               audio.play();
+               var audioStream = audio.captureStream();
+               var combinedStream = new MediaStream([
+                 stream.getAudioTracks()[0],
+                 stream.getVideoTracks()[0],
+                 audioStream.getAudioTracks()[0],
+               ]);
+               var track = combinedStream.getVideoTracks()[0];
+               var recorder = new MediaRecorder(combinedStream);
+               var recordButton = document.getElementById("record");
+               recordButton.addEventListener("click", function () {
+                 recorder.start();
+                 recordButton.style.display = "none";
+                 setTimeout(function () {
+                   recorder.stop();
+                 }, 15000);
+               });
+               var zoomIn = document.getElementById("zoom-in");
+               zoomIn.addEventListener("touchstart", function () {
+                 track.applyConstraints({
+                   advanced: [{ zoom: track.getConstraints().zoom.max }],
+                 });
+               });
+               zoomIn.addEventListener("touchend", function () {
+                 track.applyConstraints({
+                   advanced: [{ zoom: track.getConstraints().zoom.min }],
+                 });
+               });
+               var zoomOut = document.getElementById("zoom-out");
+               zoomOut.addEventListener("touchstart", function () {
+                 track.applyConstraints({
+                   advanced: [{ zoom: track.getConstraints().zoom.min }],
+                 });
+               });
+               zoomOut.addEventListener("touchend", function () {
+                 track.applyConstraints({
+                   advanced: [{ zoom: track.getConstraints().zoom.max }],
+                 });
+               });
+               var preview = document.getElementById("preview");
+               recorder.addEventListener("stop", function () {
+                 preview.srcObject = new MediaStream([
+                   combinedStream.getAudioTracks()[0],
+                   combinedStream.getVideoTracks()[0],
+                 ]);
+                 preview.play();
+               });
+             });
     </script>
   `;
 }
 
-let x = 0;
-
 // 🎨 Paint (Executes every display frame)
-function paint({ ink, line, pan, unpan, pen }) {
-  x += 0.1;
-  ink();
-  pan(pen.x, pen.y);
-  line(0, 0, 50, 50);
-  line(0, 50, 50, 0);
-  unpan();
-}
+function paint({ ink, line, pan, unpan, pen }) {}
 
 /*
 
