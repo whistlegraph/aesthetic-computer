@@ -25,7 +25,9 @@ const panTranslation = { x: 0, y: 0 }; // For 2d shifting using `pan` and `unpan
 const skips = [];
 
 let debug = false;
-export function setDebug(newDebug) { debug = newDebug; }
+export function setDebug(newDebug) {
+  debug = newDebug;
+}
 
 // 1. Configuration & State
 function makeBuffer(width, height, fillProcess, painting) {
@@ -418,6 +420,49 @@ function line() {
   }
 }
 
+// Takes an array of pixel coords `{x, y}` and filters out L shapes.
+// Note: It checks the previous, current, and next pixel and requires a minimum
+//        set of 3 before it removes anything.
+// Draws a regular `line` if only two pixels are provided.
+// Transcribed from: https://rickyhan.com/jekyll/update/2018/11/22/pixel-art-algorithm-pixel-perfect.html
+function pixelPerfectPolyline(points) {
+  if (points.length < 2) return; // Require 2 or more points.
+
+  const pixels = [];
+
+  let last = points[0];
+  points.forEach((cur) => {
+    // Compute bresen pixels, filtering out duplicates.
+    // (Basically a poly bresenham function.)
+    bresenham(last.x, last.y, cur.x, cur.y).forEach((p, i) => {
+      if (i > 0 || pixels.length < 2) pixels.push(p);
+    });
+    last = cur;
+  });
+
+  const filtered = [];
+  let c = 0;
+
+  while (c < pixels.length) {
+    if (
+      c > 0 &&
+      c + 1 < pixels.length &&
+      (pixels[c - 1].x === pixels[c].x || pixels[c - 1].y === pixels[c].y) && // check left and up
+      (pixels[c + 1].x === pixels[c].x || pixels[c + 1].y === pixels[c].y) && // check right and down
+      pixels[c - 1].x !== pixels[c + 1].x && // check left and right of prev and next
+      pixels[c - 1].y !== pixels[c + 1].y
+    ) {
+      // check top and bottom of prev and next
+      c += 1;
+    }
+    filtered.push(pixels[c]);
+    c += 1;
+  }
+
+  filtered.forEach((pixel) => point(pixel)); // Paint each filtered pixel.
+}
+
+// Draws a line from a point at a distance... with an angle in degrees.
 function lineAngle(x1, y1, dist, degrees) {
   const x2 = x1 + dist * Math.cos(radians(degrees));
   const y2 = y1 + dist * Math.sin(radians(degrees));
@@ -527,15 +572,198 @@ function circle(
   }
 }
 
-// Draws a series of lines without overlapping / overdrawing points.
+// Draws a series of 1px lines without overlapping / overdrawing points.
 function poly(coords) {
   let last = coords[0];
-  coords.forEach((current, i) => {
-    if (i < coords.length - 1) skip(current);
-    line(last, current);
+  coords.forEach((cur, i) => {
+    if (i < coords.length - 1) skip(cur);
+    line(last, cur);
     skip(null);
-    last = current;
+    last = cur;
   });
+}
+
+// Draws a series of #px thick lines, without overdraw.
+function pline(coords, thickness) {
+  if (coords.length === 1) {
+    // Just draw a circle here...
+    console.log("circle...");
+    return;
+  }
+
+  const pixels = [];
+
+  let last = coords[0]; // Keep the first element.
+
+  coords.forEach((cur, i) => {
+    if (i === 0) return; // Skip the first point, it's already the last.
+    // 1️⃣ Draw an inner core line...
+    pixels.push(...bresenham(last.x, last.y, cur.x, cur.y));
+
+    // 2️⃣ Draw two points on either side of last and cur using the line dir.
+    // Convert last and cur to vec2.
+    const l = [last.x, last.y],
+      c = [cur.x, cur.y];
+
+    // Get the line direction and rotate it by 90 degrees.
+    const dir = vec2.normalize([], vec2.subtract([], c, l));
+    const rotated = vec2.rotate([], dir, [0, 0], Math.PI / 2);
+
+    // Calculate the points for the parallel lines
+    const offset1 = vec2.scale([], rotated, thickness / 2);
+    const offset2 = vec2.scale([], rotated, -thickness / 2);
+
+    // The former set (only needed at the start).
+    const lp1 = vec2.add([], l, offset1);
+    const lp2 = vec2.add([], l, offset2);
+
+    if (i === 1) {
+      pixels.push({ x: lp1[0], y: lp1[1] }, { x: lp2[0], y: lp2[1] });
+    }
+
+    // The current set.
+    const cp1 = vec2.add([], c, offset1);
+    const cp2 = vec2.add([], c, offset2);
+    pixels.push({ x: cp1[0], y: cp1[1] }, { x: cp2[0], y: cp2[1] });
+
+    // Define the vertices of the triangles using the x and y coordinates of the vec2s
+    const tri1 = [lp1, lp2, cp1];
+    const tri2 = [lp2, cp1, cp2];
+
+    // console.log(tri1, i);
+    pixels.push(rasterizeTriangle(tri1));
+
+    // TODO: Build two triangles from the last 4 points (quad).
+
+    last = cur; // Update the last point.
+  });
+
+  pixels.forEach((p) => point(p));
+}
+
+// Quickly fills a triangle given an array of three {x, y} coordinates.
+function rasterizeTriangle(tri) {
+  // Initialize the scan buffer with the vertices of the triangle
+  const scanBuffer = [...tri];
+
+  // Sort the vertices of the triangle by y coordinate
+  scanBuffer.sort((a, b) => a[1] - b[1]);
+
+  // Initialize the array of points
+  const points = [];
+
+  // Compute the bounding box of the triangle
+  const minY = Math.floor(Math.min(tri[0][1], tri[1][1], tri[2][1]));
+  const maxY = Math.floor(Math.max(tri[0][1], tri[1][1], tri[2][1]));
+
+  // console.log(minY - maxY + 1);
+  // console.log("keys", Array(maxY - minY + 1).keys());
+
+  // For each scanline y within the bounding box of the triangle
+  for (const y of Array(maxY - minY + 1).keys()) {
+    // Find the intersection points of the scanline with the edges of the triangle
+    const intersections = [];
+    for (const [i, p1] of tri.entries()) {
+      const p2 = tri[(i + 1) % 3];
+      if ((p1[1] <= y && y < p2[1]) || (p2[1] <= y && y < p1[1])) {
+        const t = (y - p1[1]) / (p2[1] - p1[1]);
+        intersections.push([p1[0] + t * (p2[0] - p1[0]), y]);
+      }
+    }
+
+    // Sort the intersection points by x coordinate
+    intersections.sort((a, b) => a[0] - b[0]);
+
+    // Fill in the pixels between the intersection points in the scan buffer
+    for (const [i, p1] of intersections.entries()) {
+      const p2 = intersections[i + 1];
+      for (const x of Array(Math.ceil(p2[0]) - Math.ceil(p1[0])).keys()) {
+        points.push([Math.ceil(p1[0]) + x, y]);
+      }
+    }
+  }
+
+  return points;
+}
+
+/*
+function rasterizeTriangle(tri) {
+  // Initialize the scan buffer with the vertices of the triangle
+  const scanBuffer = tri;
+
+  //debugger;
+
+  // Sort the vertices of the triangle by y coordinate
+  scanBuffer.sort((a, b) => a.y - b.y);
+
+  // Initialize the array of points
+  const points = [];
+
+  // Compute the bounding box of the triangle
+  const minY = Math.min(tri[0].y, tri[1].y, tri[2].y);
+  const maxY = Math.max(tri[0].y, tri[1].y, tri[2].y);
+
+  console.log(tri, minY, maxY)
+
+  // For each scanline y within the bounding box of the triangle
+  for (const y of Array(maxY - minY + 1).keys()) {
+    // Find the intersection points of the scanline with the edges of the triangle
+    const intersections = [];
+    for (const [i, p1] of tri.entries()) {
+      const p2 = tri[(i + 1) % 3];
+      if ((p1.y <= y && y < p2.y) || (p2.y <= y && y < p1.y)) {
+        const t = (y - p1.y) / (p2.y - p1.y);
+        intersections.push({
+          x: p1.x + t * (p2.x - p1.x),
+          y: y,
+          // Interpolate the values of the vertices at the intersection point
+          color: mix(p1.color, p2.color, t),
+        });
+      }
+    }
+
+    // Sort the intersection points by x coordinate
+    intersections.sort((a, b) => a.x - b.x);
+
+    // Fill in the pixels between the intersection points in the scan buffer
+    for (const [i, p1] of intersections.entries()) {
+      const p2 = intersections[i + 1];
+      for (const x of Array(Math.ceil(p2.x) - Math.ceil(p1.x)).keys()) {
+        points.push({ x: Math.ceil(p1.x) + x, y: y, color: p1.color });
+      }
+    }
+  }
+
+  return points;
+}
+*/
+
+
+// Returns an array of pixels, similar to `bresenham` but
+// with line thickness and end-caps added.
+function getQuadPoints(x0, y0, x1, y1, thickness) {
+  // Calculate the length and angle of the line
+  const length = Math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2);
+  const angle = Math.atan2(y1 - y0, x1 - x0);
+
+  // Calculate the coordinates of the four points
+  const points = [];
+  for (let i = 0; i < 4; i++) {
+    const sign1 = i < 2 ? 1 : -1;
+    const sign2 = i % 2 === 0 ? 1 : -1;
+    const x =
+      x0 +
+      (sign1 * Math.cos(angle) * thickness) / 2 +
+      (sign2 * Math.cos(angle + Math.PI / 2) * thickness) / 2;
+    const y =
+      y0 +
+      (sign1 * Math.sin(angle) * thickness) / 2 +
+      (sign2 * Math.sin(angle + Math.PI / 2) * thickness) / 2;
+    points.push({ x, y });
+  }
+
+  // Return the array of points
+  return points;
 }
 
 /**
@@ -904,6 +1132,8 @@ export {
   copy,
   paste,
   line,
+  pline,
+  pixelPerfectPolyline,
   lineAngle,
   circle,
   poly,
@@ -1008,7 +1238,7 @@ class Camera {
 
   // Returns the rotation of the camera in radians.
   get rot() {
-    return [this.#rotX, this.#rotY, this.#rotZ]
+    return [this.#rotX, this.#rotY, this.#rotZ];
   }
 
   set x(n = 0) {
@@ -1227,7 +1457,7 @@ class Form {
 
   limiter = 0; // Only enabled on CPU rendered `line` at the moment. 22.11.06.18.19
 
-  uid;// = nanoid(4); // An id to keep across threads. Takes ~4 milliseconds. 😢
+  uid; // = nanoid(4); // An id to keep across threads. Takes ~4 milliseconds. 😢
 
   tag; // Gets sent to the GPU as a named / marked tag.
 
@@ -1350,7 +1580,7 @@ class Form {
     //formId += 1;
   }
 
-  // Clears vertex and index attributes to prepare for replacement geometry. 
+  // Clears vertex and index attributes to prepare for replacement geometry.
   clear() {
     this.uvs = [];
     this.vertices = [];
@@ -1362,7 +1592,7 @@ class Form {
   // How close we are to being beyond the max points allotted by the GPU for
   // buffer geometries.
   maxProgress() {
-    return (this.vertices.length / (this.MAX_POINTS + 1));
+    return this.vertices.length / (this.MAX_POINTS + 1);
   }
 
   addPoints(attributes, indices) {
@@ -1385,7 +1615,13 @@ class Form {
     if (pointsAvailable < incomingLength) {
       end = pointsAvailable;
       maxedOut = true;
-      if (debug) console.warn("Max. cutoff in GPU form!", this, incomingLength, pointsAvailable);
+      if (debug)
+        console.warn(
+          "Max. cutoff in GPU form!",
+          this,
+          incomingLength,
+          pointsAvailable
+        );
     }
 
     // Create new vertices from incoming positions.

@@ -159,7 +159,7 @@ function act({
 
         lastPoint = p;
         // Filter out "L" shapes from interpolated points.
-        const filteredPoints = pixelPerfect(points);
+        const filteredPoints = pixelPerfectLine(points);
         // console.log("☑️Filtered:", filteredPoints.slice());
 
         filteredPoints.forEach((p, i) => {
@@ -208,15 +208,12 @@ function point(e) {
   return (({ x, y, pressure }) => ({ x, y, pressure }))(e);
 }
 
-/**
- *  Takes an array of pixel coordinates {x, y} and filters out L shapes.
- *
- *  Note: It checks the previous, current, and next pixel and requires a minimum
- *        set of 3 before it removes anything.
- *
- *  Transcribed from: https://rickyhan.com/jekyll/update/2018/11/22/pixel-art-algorithm-pixel-perfect.html
- */
-function pixelPerfect(pixels) {
+// ⚠️ This has now been moved to `graph` 22.12.28.12.54
+// Takes an array of pixel coordinates {x, y} and filters out L shapes.
+// Note: It checks the previous, current, and next pixel and requires a minimum
+//        set of 3 before it removes anything.
+// Transcribed from: https://rickyhan.com/jekyll/update/2018/11/22/pixel-art-algorithm-pixel-perfect.html
+function pixelPerfectLine(pixels) {
   if (pixels.length === 1 || pixels.length === 0) {
     return pixels; // Return the inputs if the length is 0 or 1.
   }

@@ -1,109 +1,119 @@
-// Blank, 22.10.03.15.13
+// Whistlegraph Recorder, 22.12.27.19.30
+// A simple, 2D tool for recording whistlegraphs.
 
-// Dear Piecemaker,
+/* #region 🏁 todo
+  - [-] Add line drawing with pan, zoom, and thickness support.
+    - [] Fill in each quad once 4 points are added.
+      - [] Use triangles?
+    - [] Draw triangulated / filled end-caps.
+    - [-] Support thickness.
+    - [x] Add two parallel points for each coordinate at a time,
+          starting from the second.
+    - [x] Show a live preview.
+    - [x] Add pixel-perfect single lines in a display list / abstracted graph.
+  - [] Add microphone input. 
+  - [] Add audio and video recording. 
+    - [] Record video
+    - [] with microphone
+    - [] Add background beat (via parameter?)
+    - [] Finish video saving UI.
+  - [] Make the background cool and grainy / animated a bit.
+#endregion */
 
-// 🤸 Welcome to aesthetic.computer!
+class Gesture {
+  $; // API
+  points = []; // Each point contains `{x, y, pressure}` data.
+  thickness = 24;
 
-// There aren't really any docs right now,
-// but you can `console.log($api);` or throw in
-// a `debugger` statement anywhere in a function
-// to explore what's available.
+  constructor($, point) {
+    this.$ = $;
+    this.add(point);
+  }
 
-// But what's even faster than that is to just ask
-// me directly how to access and control the features
-// you're interested in using for a piece.
+  add(next) {
+    const last = this.points[this.points.length - 1] || next;
+    if (
+      this.points.length === 0 ||
+      this.$.num.dist(next.x, next.y, last.x, last.y) > this.thickness
+    ) {
+      this.points.push(next);
+    }
+  }
+}
 
-// Run this piece by typing `@piecemaker/blank`
-// on aesthetic.computer or 4esthetic.com for short!
+class Whistlegraph {
+  $; // API
+  gestures = [];
+  gestureIndex = -1;
 
-// And debug in the dev console!
+  constructor($) {
+    this.$ = $;
+  }
 
-// Jeffrey (me@jas.life / digitpain#2262 / @digitpain)
+  touch(x, y, pressure) {
+    this.gestures.push(new Gesture(this.$, { x, y, pressure }));
+    this.gestureIndex = this.gestures.length - 1;
+  }
+
+  draw(x, y, pressure) {
+    // TODO: Get distance between last points...
+    this.gestures[this.gestureIndex].add({ x, y, pressure });
+  }
+
+  preview($, next) {
+    const g = this.gestures[this.gestureIndex];
+    const cur = g.points[g.points.length - 1];
+    const segment = [cur, next];
+    $.ink([200, 0, 0]);
+    if (g.thickness === 1) $.pppline(segment);
+    else $.pline(segment, g.thickness);
+  }
+
+  paint($) {
+    this.gestures.forEach((g, index) => {
+      const color = index === this.gestureIndex ? [128, 0, 0] : [64, 64, 64];
+      $.ink(color);
+      if (g.thickness === 1) $.pppline(g.points);
+      else $.pline(g.points, g.thickness);
+    });
+  }
+}
+
+let wg;
 
 // 🥾 Boot (Runs once before first paint and sim)
-function boot({ resize, wipe, ink, line, pan, dom: { html } }) {
-  wipe(255, 0, 0);
-
-  html`
-    <audio
-      id="audio"
-      src="https://upload.wikimedia.org/wikipedia/commons/4/4e/BWV_543-fugue.ogg"
-      controls
-      crossorigin="anonymous"
-    ></audio>
-    <button id="record">Start Recording</button>
-    <div id="zoom">
-      <button id="zoom-in">+</button>
-      <button id="zoom-out">-</button>
-    </div>
-    <video id="preview"></video>
-    <script>
-           navigator.mediaDevices
-             .getUserMedia({ audio: true, video: true })
-             .then(function (stream) {
-               var audio = document.getElementById("audio");
-               audio.play();
-               var audioStream = audio.captureStream();
-               var combinedStream = new MediaStream([
-                 stream.getAudioTracks()[0],
-                 stream.getVideoTracks()[0],
-                 audioStream.getAudioTracks()[0],
-               ]);
-               var track = combinedStream.getVideoTracks()[0];
-               var recorder = new MediaRecorder(combinedStream);
-               var recordButton = document.getElementById("record");
-               recordButton.addEventListener("click", function () {
-                 recorder.start();
-                 recordButton.style.display = "none";
-                 setTimeout(function () {
-                   recorder.stop();
-                 }, 15000);
-               });
-               var zoomIn = document.getElementById("zoom-in");
-               zoomIn.addEventListener("touchstart", function () {
-                 track.applyConstraints({
-                   advanced: [{ zoom: track.getConstraints().zoom.max }],
-                 });
-               });
-               zoomIn.addEventListener("touchend", function () {
-                 track.applyConstraints({
-                   advanced: [{ zoom: track.getConstraints().zoom.min }],
-                 });
-               });
-               var zoomOut = document.getElementById("zoom-out");
-               zoomOut.addEventListener("touchstart", function () {
-                 track.applyConstraints({
-                   advanced: [{ zoom: track.getConstraints().zoom.min }],
-                 });
-               });
-               zoomOut.addEventListener("touchend", function () {
-                 track.applyConstraints({
-                   advanced: [{ zoom: track.getConstraints().zoom.max }],
-                 });
-               });
-               var preview = document.getElementById("preview");
-               recorder.addEventListener("stop", function () {
-                 preview.srcObject = new MediaStream([
-                   combinedStream.getAudioTracks()[0],
-                   combinedStream.getVideoTracks()[0],
-                 ]);
-                 preview.play();
-               });
-             });
-    </script>
-  `;
+function boot($) {
+  $.wipe(255, 0, 0);
+  wg = new Whistlegraph($);
 }
 
 // 🎨 Paint (Executes every display frame)
-function paint({ ink, line, pan, unpan, pen }) {}
-
-/*
+function paint($) {
+  const { wipe, pen } = $;
+  wipe(127);
+  if (pen?.drawing) {
+    wg.preview($, { x: pen.x, y: pen.y, pressure: pen.pressure });
+  }
+  wg.paint($);
+}
 
 // ✒ Act (Runs once per user interaction)
-function act({ event }) {
+function act({ event: e }) {
+  // Primary pointer
+  if (e.is("touch:1")) {
+    wg.touch(e.x, e.y, e.pressure);
+  }
+
+  if (e.is("draw:1")) {
+    wg.draw(e.x, e.y, e.pressure);
+  }
+
+  //if (e.is("lift:1")) {}
+
   // Respond to user input here.
 }
 
+/*
 // 🧮 Sim(ulate) (Runs once per logic frame (120fps locked)).
 function sim($api) {
   // Crunch numbers outside of rendering here.
@@ -121,8 +131,4 @@ function leave($api) {
 */
 
 // 📚 Library (Useful functions used throughout the piece)
-// ...
-
-export { boot, paint };
-
-//export { boot, sim, paint, act, beat, leave };
+export { boot, paint, act };

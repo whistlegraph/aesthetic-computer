@@ -55,10 +55,7 @@
 🌟 Projects In Progress (PIP) 🌟
 
 *** Project Order ***
- - [📹] Make camera based whistlegraph recorder tool that makes use of the album tracks.
- - [-] Make a rough prototype as a simple html file using ChatGPT.
-  - [] See how well it works... and how many features like zooming
-       and switching camera input could be added easily.
+ - [📹] Make screen-based whistlegraph recorder tool that makes use of the album tracks.
   - [] Add it to the API and make a `wgr` disk. 
   - [] Set up doodads like file hosting and stamping on videos.
  - [] Make VSCode extension / back-seat document API (maya).
