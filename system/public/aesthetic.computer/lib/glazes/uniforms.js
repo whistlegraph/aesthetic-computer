@@ -12,6 +12,8 @@ uniforms.digitpain0 = {
 };
 
 // Used for the `prompt` piece.
+// TODO: - [] When 1f:radialBlurAmount is set to 0 there is an xy offset.
+//       (Reproduce by visiting `line` then going back to prompt with `)
 uniforms.prompt = {
   "1i:fogIterations": 20,
   "1i:shadowIterations": 5,
@@ -26,7 +28,7 @@ uniforms.prompt = {
   "1f:outerDensity": 10.1,
   "1f:anisotropy": -0.123,
   "1f:lightPower": 8,
-  "1f:radialBlurAmount": 0, // from 0-1 (or more or less if insane)
+  "1f:radialBlurAmount": 0.0, // from 0-1 (or more or less if insane)
   "3f:lightColor": [1, 1, 1], // r, g, b
   "3f:lightDirection": [-1, -1, -0.05], // x, y, z
   "3f:bgColor": [0.084, 0.0533, 0.078], // r, g, b,
