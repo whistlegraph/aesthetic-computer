@@ -665,8 +665,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Always use workers if they are supported, except for
   // when we are in VR (MetaBrowser).
 
-  const workersEnabled = true;
-  //const workersEnabled = false;
+  // const workersEnabled = true;
+  const workersEnabled = false;
 
   //if (workersEnabled) {
   if (!MetaBrowser && workersEnabled) {
