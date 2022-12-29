@@ -26,6 +26,7 @@ uniforms.prompt = {
   "1f:outerDensity": 10.1,
   "1f:anisotropy": -0.123,
   "1f:lightPower": 4,
+  "1f:radialBlurAmount": 1.0, // from 0-1 (or more or less if insane)
   "3f:lightColor": [1, 1, 1], // r, g, b
   "3f:lightDirection": [-1, -1, -0.05], // x, y, z
   "3f:bgColor": [0.084, 0.0533, 0.078], // r, g, b,

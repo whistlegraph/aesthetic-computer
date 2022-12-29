@@ -28,6 +28,7 @@ uniform float innerDensity;
 uniform float outerDensity;
 uniform float anisotropy;
 uniform float lightPower;
+uniform float radialBlurAmount;
 uniform vec3 lightDirection;
 uniform vec3 bgColor;
 uniform vec3 lightColor;
@@ -98,7 +99,7 @@ float hgPhase(vec3 dirIn, vec3 dirOut)
 
 vec2 worldToDensityMap(vec2 coords)
 {
-    return .5 * (screenScale/-cameraDistance) * coords - vec2(.5);
+    return .5 * (screenScale/-cameraDistance) * coords / vec2(iResolution.x / iResolution.y, 1.0) - vec2(.5);
 }
 
 vec4 getColor(vec3 pos)
@@ -162,13 +163,14 @@ void main()
 {
     normLightDirection = normalize(lightDirection);
     vec2 uv = v_texc * 2. - vec2(1.);
-
+    uv.x *= iResolution.x / iResolution.y;
+    
     vec3 ro = vec3(0., 0., cameraDistance);
     vec3 rd = normalize(vec3(uv, 1.0));
 
     float nearIntersectionDist = zPlaneIntersect(ro, rd, -volumeRadius);
     float farIntersectionDist = zPlaneIntersect(ro, rd, volumeRadius);
-    float traceDist = abs(nearIntersectionDist - farIntersectionDist);
+    float traceDist = abs(nearIntersectionDist - farIntersectionDist) + volumeRadius;
 
     vec3 volCol = vec3(0.);
     vec3 volAbs = vec3(1.);
@@ -180,17 +182,20 @@ void main()
     {
         offset = 0.0;
     }
-    float headStartCam = random(iResolution.x * v_texc + offset);
-    float headStartShadow = random(iResolution.x * v_texc - offset);
+    float headStartCam = random(iResolution.x * v_texc - offset);
+    float headStartShadow = random(iResolution.x * v_texc + offset);
 
-    for (int i = 1; i < fogIterations + 1; i++)
+    vec3 refractionDir = mix(vec3(0, 0, 1), rd, radialBlurAmount);
+
+    for (int i = 0; i < fogIterations; i++)
     {
         previousPos = pos;
-        pos = ro + rd * (float(i)+headStartCam) / float(fogIterations) * traceDist + rd * nearIntersectionDist;
+        pos = ro + rd * nearIntersectionDist;
+        pos += traceDist * refractionDir * (float(i)+headStartCam) / float(fogIterations);
         vec4 colorValue = getColor(pos);
         stepAbs = exp(-colorValue.w * length(pos - previousPos) * colorValue.xyz);
         stepCol = vec3(1.) - stepAbs;
-        volCol += stepCol * volAbs * directLight(pos, rd, headStartShadow);
+        volCol += stepCol * volAbs * directLight(pos, refractionDir, headStartShadow);
         volAbs *= stepAbs;
     }
 
