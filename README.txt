@@ -105,8 +105,6 @@
     - [x] Digital Ocean
     - [x] Redis
 
-*** User --> Developer Pathway ***
-
 *** "pose" - Hand-Tracked Body Pose Piece ***
   - [] Handtracked WebXR.
   - [] ThreeJS heirarchy of manipulatable.
