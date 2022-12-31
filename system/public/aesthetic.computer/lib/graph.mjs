@@ -630,10 +630,10 @@ function pline(coords, thickness) {
     const tri1 = [lp1, lp2, cp1];
     const tri2 = [lp2, cp1, cp2];
 
-    // console.log(tri1, i);
-    pixels.push(rasterizeTriangle(tri1));
-
-    // TODO: Build two triangles from the last 4 points (quad).
+    // TODO: Rasterize both tri1 and tri2 into the pixel array... or
+    //       write a density function of some kind that uses seeded randomness...
+    console.log(rasterizeTriangle(tri1))
+    pixels.push(...rasterizeTriangle(tri1))
 
     last = cur; // Update the last point.
   });
@@ -641,130 +641,85 @@ function pline(coords, thickness) {
   pixels.forEach((p) => point(p));
 }
 
-// Quickly fills a triangle given an array of three {x, y} coordinates.
-function rasterizeTriangle(tri) {
-  // Initialize the scan buffer with the vertices of the triangle
-  const scanBuffer = [...tri];
-
-  // Sort the vertices of the triangle by y coordinate
-  scanBuffer.sort((a, b) => a[1] - b[1]);
-
-  // Initialize the array of points
-  const points = [];
-
-  // Compute the bounding box of the triangle
-  const minY = Math.floor(Math.min(tri[0][1], tri[1][1], tri[2][1]));
-  const maxY = Math.floor(Math.max(tri[0][1], tri[1][1], tri[2][1]));
-
-  // console.log(minY - maxY + 1);
-  // console.log("keys", Array(maxY - minY + 1).keys());
-
-  // For each scanline y within the bounding box of the triangle
-  for (const y of Array(maxY - minY + 1).keys()) {
-    // Find the intersection points of the scanline with the edges of the triangle
-    const intersections = [];
-    for (const [i, p1] of tri.entries()) {
-      const p2 = tri[(i + 1) % 3];
-      if ((p1[1] <= y && y < p2[1]) || (p2[1] <= y && y < p1[1])) {
-        const t = (y - p1[1]) / (p2[1] - p1[1]);
-        intersections.push([p1[0] + t * (p2[0] - p1[0]), y]);
-      }
-    }
-
-    // Sort the intersection points by x coordinate
-    intersections.sort((a, b) => a[0] - b[0]);
-
-    // Fill in the pixels between the intersection points in the scan buffer
-    for (const [i, p1] of intersections.entries()) {
-      const p2 = intersections[i + 1];
-      for (const x of Array(Math.ceil(p2[0]) - Math.ceil(p1[0])).keys()) {
-        points.push([Math.ceil(p1[0]) + x, y]);
-      }
-    }
-  }
-
-  return points;
-}
-
 /*
-function rasterizeTriangle(tri) {
-  // Initialize the scan buffer with the vertices of the triangle
-  const scanBuffer = tri;
+// Sort triangle vertices into clockwise order.
+function sortVerticesClockwise(vertices) {
+  // Define a reference point for the triangle as the centroid.
+  const centroid = vertices
+    .reduce((acc, vertex) => [acc[0] + vertex[0], acc[1] + vertex[1]], [0, 0])
+    .map((coord) => coord / 3);
 
-  //debugger;
-
-  // Sort the vertices of the triangle by y coordinate
-  scanBuffer.sort((a, b) => a.y - b.y);
-
-  // Initialize the array of points
-  const points = [];
-
-  // Compute the bounding box of the triangle
-  const minY = Math.min(tri[0].y, tri[1].y, tri[2].y);
-  const maxY = Math.max(tri[0].y, tri[1].y, tri[2].y);
-
-  console.log(tri, minY, maxY)
-
-  // For each scanline y within the bounding box of the triangle
-  for (const y of Array(maxY - minY + 1).keys()) {
-    // Find the intersection points of the scanline with the edges of the triangle
-    const intersections = [];
-    for (const [i, p1] of tri.entries()) {
-      const p2 = tri[(i + 1) % 3];
-      if ((p1.y <= y && y < p2.y) || (p2.y <= y && y < p1.y)) {
-        const t = (y - p1.y) / (p2.y - p1.y);
-        intersections.push({
-          x: p1.x + t * (p2.x - p1.x),
-          y: y,
-          // Interpolate the values of the vertices at the intersection point
-          color: mix(p1.color, p2.color, t),
-        });
-      }
-    }
-
-    // Sort the intersection points by x coordinate
-    intersections.sort((a, b) => a.x - b.x);
-
-    // Fill in the pixels between the intersection points in the scan buffer
-    for (const [i, p1] of intersections.entries()) {
-      const p2 = intersections[i + 1];
-      for (const x of Array(Math.ceil(p2.x) - Math.ceil(p1.x)).keys()) {
-        points.push({ x: Math.ceil(p1.x) + x, y: y, color: p1.color });
-      }
-    }
-  }
-
-  return points;
+  // Sort the vertices by the angles between the reference point and the vertices in ascending order.
+  return vertices
+    .slice()
+    .sort(
+      (a, b) =>
+        Math.atan2(a[1] - centroid[1], a[0] - centroid[0]) -
+        Math.atan2(b[1] - centroid[1], b[0] - centroid[0])
+    );
 }
 */
 
+/*
+function rasterizeTriangle(vertices) {
+  // Sort the vertices of the triangle into clockwise order.
+  const sortedVertices = sortVerticesClockwise(vertices);
 
-// Returns an array of pixels, similar to `bresenham` but
-// with line thickness and end-caps added.
-function getQuadPoints(x0, y0, x1, y1, thickness) {
-  // Calculate the length and angle of the line
-  const length = Math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2);
-  const angle = Math.atan2(y1 - y0, x1 - x0);
+  // Initialize an empty pixel array and a set of active edges.
+  const pixels = [];
+  const activeEdges = new Set();
 
-  // Calculate the coordinates of the four points
-  const points = [];
-  for (let i = 0; i < 4; i++) {
-    const sign1 = i < 2 ? 1 : -1;
-    const sign2 = i % 2 === 0 ? 1 : -1;
-    const x =
-      x0 +
-      (sign1 * Math.cos(angle) * thickness) / 2 +
-      (sign2 * Math.cos(angle + Math.PI / 2) * thickness) / 2;
-    const y =
-      y0 +
-      (sign1 * Math.sin(angle) * thickness) / 2 +
-      (sign2 * Math.sin(angle + Math.PI / 2) * thickness) / 2;
-    points.push({ x, y });
+  // Initialize the current y coordinate to the y coordinate of the top vertex.
+  let y = sortedVertices[0][1];
+
+  // Starting at the top vertex and moving downward, iterate over the scanlines that intersect the triangle.
+  while (y <= sortedVertices[2][1]) {
+    // Add the active edges that intersect the current scanline to the pixel array.
+    for (const vertex of activeEdges) {
+      //pixels.push([vertex[0], y]);
+      pixels.push({x: vertex[0], y});
+    }
+
+    // Update the set of active edges.
+    for (let i = 0; i < 3; i++) {
+      const vertex = sortedVertices[i];
+      if (vertex[1] === y) {
+        // If the current vertex is on the current scanline, add or remove the corresponding vertex from the set of active edges.
+        if (i === 0 || i === 2) {
+          activeEdges.delete(
+            vertex[0] < sortedVertices[1][0]
+              ? sortedVertices[2]
+              : sortedVertices[0]
+          );
+        } else {
+          activeEdges.add(
+            vertex[0] < sortedVertices[1][0]
+              ? sortedVertices[0]
+              : sortedVertices[2]
+          );
+        }
+      } else if (vertex[1] > y) {
+        // If the current vertex is below the current scanline, add or update the corresponding vertex in the set of active edges.
+        const edgeVertex =
+          vertex[0] < sortedVertices[1][0]
+            ? sortedVertices[0]
+            : sortedVertices[2];
+        if (activeEdges.has(edgeVertex)) {
+          activeEdges.delete(edgeVertex);
+        } else {
+          activeEdges.add(edgeVertex);
+        }
+      }
+    }
+
+    // Increment the current y coordinate.
+    y++;
   }
 
-  // Return the array of points
-  return points;
+  // Return the pixel array.
+  return pixels;
 }
+*/
 
 /**
  * Bresenham's Line Algorithm
