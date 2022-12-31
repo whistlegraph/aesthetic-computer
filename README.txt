@@ -114,6 +114,7 @@
     - [] A. Mujoco compiled to WASM.
       - [] Wouldn't have to change much, somebody may have already compiled to WASM.
     - [] B. Or ammo.js which gets us networking. 
+      - [] https://rawcdn.githack.com/kripken/ammo.js/99d0ec0b1e26d7ccc13e013caba8e8a5c98d953b/examples/webgl_demo_softbody_rope/index.html
 
 *** Collaborations / Externally Hosted Pieces ***
  - [] Should subdomains like `m2w2.whistlegraph.com` just rewrite their url by
