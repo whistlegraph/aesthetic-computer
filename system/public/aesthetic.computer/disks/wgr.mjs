@@ -2,6 +2,7 @@
 // A simple, 2D tool for recording whistlegraphs.
 
 /* #region 🏁 todo
+  - [] Lines break / crash at the top of the screen...
   - [-] Add line drawing with pan, zoom, and thickness support.
     - [] Fill in each quad once 4 points are added.
       - [] Use triangles?
