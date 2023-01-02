@@ -173,7 +173,6 @@ function skip(...args) {
 function point(...args) {
   let x, y;
 
-
   if (args.length === 1) {
     x = args[0].x;
     y = args[0].y;
@@ -599,21 +598,22 @@ function poly(coords) {
  - [x] Triangle rasterization of segment.
 */
 
-
 // TODO: Add colors to each coord...
-function pline(coords, thickness) {
 
+function pline(coords, thickness) {
+  // 1️⃣ Generate geometry.
   if (coords.length === 1) {
-    console.log("TODO: Draw a full circle");
+    // console.log("TODO: Draw a full circle");
     return;
   }
+
+  let points = [], lines = [], tris = []; // Rasters
 
   let lpar; // Store last parallel points / prepopulate if supplied.
   const pix = []; // Make a pixel buffer / array.
   let last = coords[0]; // Keep the first element.
   coords.forEach((cur, i) => {
     if (i === 0) return; // Skip the first point, it's already the last.
-    pix.push(...bresenham(last.x, last.y, cur.x, cur.y)); // 1️⃣ Core line...
 
     // 2️⃣ Two points on both sides of last and cur via line dir.
     const l = [last.x, last.y],
@@ -639,18 +639,30 @@ function pline(coords, thickness) {
 
     [l1, l2, c1, c2].forEach((v) => vec2.floor(v, v)); // Floor everything.
 
-    if (i === 1) pix.push({ x: l1[0], y: l1[1] }, { x: l2[0], y: l2[1] });
-
-    pix.push({ x: c1[0], y: c1[1] }, { x: c2[0], y: c2[1] }); // Add points.
+    // 2️⃣ Plotting
     [
       [l1, l2, c1],
       [l2, c1, c2],
-    ].forEach((t) => fillTri(t, pix)); // Fill quad.
+    ].forEach((t) => fillTri(t, tris)); // Fill quad.
+
+    lines.push(...bresenham(last.x, last.y, cur.x, cur.y)); // 1️⃣ Core line...
+    if (i === 1) points.push({ x: l1[0], y: l1[1] }, { x: l2[0], y: l2[1] });
+    points.push({ x: c1[0], y: c1[1] }, { x: c2[0], y: c2[1] }); // Add points.
+
+    color(...cur.color);
+    tris.forEach(p => point(p));
+    tris.length = 0;
+
     last = cur; // Update the last point.
-    lpar = [c1, c2];
+    lpar = [c1, c2]; // ... and last parrallel points.
   });
 
-  pix.forEach((p) => point(p));
+  // 3️⃣ Painting
+  color(0, 255, 0);
+  points.forEach(p => point(p));
+  color(0, 0, 255);
+  lines.forEach(p => point(p));
+
 
   return lpar;
 }
