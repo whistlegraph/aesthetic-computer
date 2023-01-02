@@ -188,6 +188,7 @@ function point(...args) {
   x += panTranslation.x;
   y += panTranslation.y;
   // TODO: Eventually add rotation and scale etc.
+
   plot(x, y);
 }
 
@@ -584,138 +585,114 @@ function poly(coords) {
 }
 
 // Rasterize an Npx thick line with rounded end-caps.
-// TODO: - [-] Triangle rasterization of segment.
-//       - [] Rounded half-circle endcaps. 
-//       - [] Filled circle if coords.length === 1.
-//       - [] Test performance.
-//       + Later
-//       - [] Texture / special FX.
+/*
+ - [] Render a third triangle from mid point to last point to next quad
+      point?
+ - [] Rounded half-circle endcaps.
+ - [] Filled circle if coords.length === 1.
+ - [] Optimize performance.
+   - [] Run the profiler.
+ + Later
+ - [] Texture / special FX.
+ + Done
+ - [x] Triangle rasterization of segment.
+*/
+
 function pline(coords, thickness) {
   if (coords.length === 1) {
     console.log("TODO: Draw a full circle");
     return;
   }
 
-  const pixels = [];
-
+  const pix = []; // Make a pixel buffer / array.
   let last = coords[0]; // Keep the first element.
-
+  let lpar; // Store last parallel points.
   coords.forEach((cur, i) => {
     if (i === 0) return; // Skip the first point, it's already the last.
-    pixels.push(...bresenham(last.x, last.y, cur.x, cur.y)); // 1️⃣ Core line...
+    pix.push(...bresenham(last.x, last.y, cur.x, cur.y)); // 1️⃣ Core line...
 
     // 2️⃣ Two points on both sides of last and cur via line dir.
     const l = [last.x, last.y],
       c = [cur.x, cur.y]; // Convert last and cur to vec2.
 
     const dir = vec2.normalize([], vec2.subtract([], c, l)); // Line direction.
-    const rotated = vec2.rotate([], dir, [0, 0], Math.PI / 2); // Rotated by 90d
 
-    const offset1 = vec2.scale([], rotated, thickness / 2); // Parallel offsets.
-    const offset2 = vec2.scale([], rotated, -thickness / 2);
+    const rot = vec2.rotate([], dir, [0, 0], Math.PI / 2); // Rotated by 90d
 
-    const l1 = vec2.add([], l, offset1); // Compute both sets of points.
-    const l2 = vec2.add([], l, offset2);
+    // TODO: ⚠️ Past points only need to be rotated if i === 1, otherwise read
+    //          from previous two points.
+
+    const offset1 = vec2.scale([], rot, thickness / 2); // Parallel offsets.
+    const offset2 = vec2.scale([], rot, -thickness / 2);
+
+    let l1, l2;
+    if (i === 1) {
+      l1 = vec2.add([], l, offset1); // Compute both sets of points.
+      l2 = vec2.add([], l, offset2);
+      lpar = [l1, l2];
+    } else {
+      [l1, l2] = lpar;
+    }
+
     const c1 = vec2.add([], c, offset1);
     const c2 = vec2.add([], c, offset2);
 
-    if (i === 1) pixels.push({ x: l1[0], y: l1[1] }, { x: l2[0], y: l2[1] });
-    pixels.push({ x: c1[0], y: c1[1] }, { x: c2[0], y: c2[1] }); 
+    [l1, l2, c1, c2].forEach((v) => vec2.floor(v, v)); // Floor everything.
 
-    const tri1 = [l1, l2, c1]; // Build two triangles from the 4 points. 
-    const tri2 = [l2, c1, c2];
-
-    // Draw both triangles.
-    // TODO: Rasterize both tri1 and tri2 into the pixel array... or
-    //       write a density function of some kind that uses seeded randomness...
-    console.log(rasterizeTriangle(tri1));
-    pixels.push(...rasterizeTriangle(tri1));
-
+    if (i === 1) pix.push({ x: l1[0], y: l1[1] }, { x: l2[0], y: l2[1] });
+    pix.push({ x: c1[0], y: c1[1] }, { x: c2[0], y: c2[1] }); // Add points.
+    [
+      [l1, l2, c1],
+      [l2, c1, c2],
+    ].forEach((t) => fillTri(t, pix)); // Fill quad.
     last = cur; // Update the last point.
+    lpar = [c1, c2];
   });
 
-  pixels.forEach((p) => point(p));
+  pix.forEach((p) => point(p));
 }
 
-/*
-// Sort triangle vertices into clockwise order.
-function sortVerticesClockwise(vertices) {
-  // Define a reference point for the triangle as the centroid.
-  const centroid = vertices
-    .reduce((acc, vertex) => [acc[0] + vertex[0], acc[1] + vertex[1]], [0, 0])
-    .map((coord) => coord / 3);
+// 🔺 Rasterizes a tri. See also: https://www.youtube.com/watch?v=SbB5taqJsS4
+function fillTri(v3, pix) {
+  const scan = []; // Scan buffer of left->right down Y axis.
+  const [min, mid, max] = v3.sort((va, vb) => va[1] - vb[1]); // Sort Y.
 
-  // Sort the vertices by the angles between the reference point and the vertices in ascending order.
-  return vertices
-    .slice()
-    .sort(
-      (a, b) =>
-        Math.atan2(a[1] - centroid[1], a[0] - centroid[0]) -
-        Math.atan2(b[1] - centroid[1], b[0] - centroid[0])
-    );
-}
-*/
+  const v1 = [max[0] - min[0], max[1] - min[1]], // Area / cross-product.
+    v2 = [mid[0] - min[0], mid[1] - min[1]],
+    cp = v1[0] * v2[1] - v2[0] * v1[1];
 
-/*
-function rasterizeTriangle(vertices) {
-  // Sort the vertices of the triangle into clockwise order.
-  const sortedVertices = sortVerticesClockwise(vertices);
+  const handedness = cp > 0 ? 1 : cp < 0 ? 0 : -1; // O->L, 1->R, -1->️🚫
 
-  // Initialize an empty pixel array and a set of active edges.
-  const pixels = [];
-  const activeEdges = new Set();
+  // Scan across each edge.
+  [
+    [min, max, 0 + handedness], // Min and Max for each edge with handedness.
+    [min, mid, 1 - handedness],
+    [mid, max, 1 - handedness],
+  ].forEach(function scanEdge(v) {
+    const yStart = v[0][Y],
+      yEnd = v[1][Y],
+      xStart = v[0][X],
+      xEnd = v[1][X];
 
-  // Initialize the current y coordinate to the y coordinate of the top vertex.
-  let y = sortedVertices[0][1];
+    const yDist = yEnd - yStart;
+    const xDist = xEnd - xStart;
+    if (yDist <= 0) return; // Don't convert if we have no columns.
+    const xStep = xDist / yDist;
 
-  // Starting at the top vertex and moving downward, iterate over the scanlines that intersect the triangle.
-  while (y <= sortedVertices[2][1]) {
-    // Add the active edges that intersect the current scanline to the pixel array.
-    for (const vertex of activeEdges) {
-      //pixels.push([vertex[0], y]);
-      pixels.push({x: vertex[0], y});
+    let x = xStart;
+    for (let y = yStart; y < yEnd; y += 1) {
+      scan[y * 2 + v[2]] = floor(x);
+      x += xStep;
     }
+  });
 
-    // Update the set of active edges.
-    for (let i = 0; i < 3; i++) {
-      const vertex = sortedVertices[i];
-      if (vertex[1] === y) {
-        // If the current vertex is on the current scanline, add or remove the corresponding vertex from the set of active edges.
-        if (i === 0 || i === 2) {
-          activeEdges.delete(
-            vertex[0] < sortedVertices[1][0]
-              ? sortedVertices[2]
-              : sortedVertices[0]
-          );
-        } else {
-          activeEdges.add(
-            vertex[0] < sortedVertices[1][0]
-              ? sortedVertices[0]
-              : sortedVertices[2]
-          );
-        }
-      } else if (vertex[1] > y) {
-        // If the current vertex is below the current scanline, add or update the corresponding vertex in the set of active edges.
-        const edgeVertex =
-          vertex[0] < sortedVertices[1][0]
-            ? sortedVertices[0]
-            : sortedVertices[2];
-        if (activeEdges.has(edgeVertex)) {
-          activeEdges.delete(edgeVertex);
-        } else {
-          activeEdges.add(edgeVertex);
-        }
-      }
+  // Rasterize all by scanning horizontally.
+  for (let y = min[Y]; y < max[Y]; y += 1) {
+    for (let x = scan[y * 2]; x < scan[y * 2 + 1]; x += 1) {
+      pix.push({ x, y });
     }
-
-    // Increment the current y coordinate.
-    y++;
   }
-
-  // Return the pixel array.
-  return pixels;
 }
-*/
 
 /**
  * Bresenham's Line Algorithm

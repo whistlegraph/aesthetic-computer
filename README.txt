@@ -54,13 +54,20 @@
 
 🌟 Projects In Progress (PIP) 🌟
 
+*** Dev ***
+- [] Switch from prettier to something else...
+  - [] Standard...
+  - [] ESLint...
+  - [] Do research?
+
 *** Project Order ***
  - [📹] Make screen-based whistlegraph recorder tool that makes use of the album tracks.
   - [] Add it to the API and make a `wgr` disk. 
   - [] Set up doodads like file hosting and stamping on videos.
 - [] Make VSCode extension / back-seat document API (maya).
 - [] ✏️ Diary
-  - [] `play` -> `diary` for a simple diary tool / "performative poetry" piece. 
+  - [] A simple diary tool / "performative poetry" piece. 
+    - [] Write entries which playback in realtime to show the typing, like recei-ving a DM. See:  
   - [] Set up *User Account* system. 
     - [] Set up passwordless email authorization.
     - [] `name username` will set a user's name to whatever they like if there
