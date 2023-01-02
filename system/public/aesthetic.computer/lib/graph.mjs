@@ -583,11 +583,16 @@ function poly(coords) {
   });
 }
 
-// Draws a series of #px thick lines, without overdraw.
+// Rasterize an Npx thick line with rounded end-caps.
+// TODO: - [-] Triangle rasterization of segment.
+//       - [] Rounded half-circle endcaps. 
+//       - [] Filled circle if coords.length === 1.
+//       - [] Test performance.
+//       + Later
+//       - [] Texture / special FX.
 function pline(coords, thickness) {
   if (coords.length === 1) {
-    // Just draw a circle here...
-    console.log("circle...");
+    console.log("TODO: Draw a full circle");
     return;
   }
 
@@ -597,43 +602,34 @@ function pline(coords, thickness) {
 
   coords.forEach((cur, i) => {
     if (i === 0) return; // Skip the first point, it's already the last.
-    // 1️⃣ Draw an inner core line...
-    pixels.push(...bresenham(last.x, last.y, cur.x, cur.y));
+    pixels.push(...bresenham(last.x, last.y, cur.x, cur.y)); // 1️⃣ Core line...
 
-    // 2️⃣ Draw two points on either side of last and cur using the line dir.
-    // Convert last and cur to vec2.
+    // 2️⃣ Two points on both sides of last and cur via line dir.
     const l = [last.x, last.y],
-      c = [cur.x, cur.y];
+      c = [cur.x, cur.y]; // Convert last and cur to vec2.
 
-    // Get the line direction and rotate it by 90 degrees.
-    const dir = vec2.normalize([], vec2.subtract([], c, l));
-    const rotated = vec2.rotate([], dir, [0, 0], Math.PI / 2);
+    const dir = vec2.normalize([], vec2.subtract([], c, l)); // Line direction.
+    const rotated = vec2.rotate([], dir, [0, 0], Math.PI / 2); // Rotated by 90d
 
-    // Calculate the points for the parallel lines
-    const offset1 = vec2.scale([], rotated, thickness / 2);
+    const offset1 = vec2.scale([], rotated, thickness / 2); // Parallel offsets.
     const offset2 = vec2.scale([], rotated, -thickness / 2);
 
-    // The former set (only needed at the start).
-    const lp1 = vec2.add([], l, offset1);
-    const lp2 = vec2.add([], l, offset2);
+    const l1 = vec2.add([], l, offset1); // Compute both sets of points.
+    const l2 = vec2.add([], l, offset2);
+    const c1 = vec2.add([], c, offset1);
+    const c2 = vec2.add([], c, offset2);
 
-    if (i === 1) {
-      pixels.push({ x: lp1[0], y: lp1[1] }, { x: lp2[0], y: lp2[1] });
-    }
+    if (i === 1) pixels.push({ x: l1[0], y: l1[1] }, { x: l2[0], y: l2[1] });
+    pixels.push({ x: c1[0], y: c1[1] }, { x: c2[0], y: c2[1] }); 
 
-    // The current set.
-    const cp1 = vec2.add([], c, offset1);
-    const cp2 = vec2.add([], c, offset2);
-    pixels.push({ x: cp1[0], y: cp1[1] }, { x: cp2[0], y: cp2[1] });
+    const tri1 = [l1, l2, c1]; // Build two triangles from the 4 points. 
+    const tri2 = [l2, c1, c2];
 
-    // Define the vertices of the triangles using the x and y coordinates of the vec2s
-    const tri1 = [lp1, lp2, cp1];
-    const tri2 = [lp2, cp1, cp2];
-
+    // Draw both triangles.
     // TODO: Rasterize both tri1 and tri2 into the pixel array... or
     //       write a density function of some kind that uses seeded randomness...
-    console.log(rasterizeTriangle(tri1))
-    pixels.push(...rasterizeTriangle(tri1))
+    console.log(rasterizeTriangle(tri1));
+    pixels.push(...rasterizeTriangle(tri1));
 
     last = cur; // Update the last point.
   });
