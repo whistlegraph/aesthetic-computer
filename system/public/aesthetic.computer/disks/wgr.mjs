@@ -58,7 +58,12 @@ class Whistlegraph {
 
   draw(x, y, pressure) {
     // TODO: Get distance between last points...
-    this.gestures[this.gestureIndex].add({ x, y, pressure });
+    this.gestures[this.gestureIndex].add({
+      x,
+      y,
+      pressure,
+      color: this.$.num.randIntArr(255, 3),
+    });
   }
 
   /*
@@ -102,7 +107,12 @@ function paint($) {
   const { wipe, pen } = $;
   wipe(127);
   let next = pen?.drawing
-    ? { x: pen.x, y: pen.y, pressure: pen.pressure }
+    ? {
+        x: pen.x,
+        y: pen.y,
+        pressure: pen.pressure,
+        color: $.num.randIntArr(255, 3),
+      }
     : undefined;
   wg.paint($, next);
 }
