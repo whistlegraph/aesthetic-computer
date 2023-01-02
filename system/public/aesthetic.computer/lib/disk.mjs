@@ -723,7 +723,6 @@ const $paintApiUnwrapped = {
 };
 
 let formsSent = {}; // TODO: This should be cleared more often...
-let paintFormsResolution;
 
 // TODO: Eventually restructure this a bit. 2021.12.16.16.0
 //       Should global state like color and transform be stored here?
