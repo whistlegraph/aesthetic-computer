@@ -58,10 +58,35 @@
  - [📹] Make screen-based whistlegraph recorder tool that makes use of the album tracks.
   - [] Add it to the API and make a `wgr` disk. 
   - [] Set up doodads like file hosting and stamping on videos.
- - [] Make VSCode extension / back-seat document API (maya).
- - [] Use `play` for a simple diary program / ring poem situation /
-        "performative poetry" engine. 
- - [] Mintable Paintings
+- [] Make VSCode extension / back-seat document API (maya).
+- [] ✏️ Diary
+  - [] `play` -> `diary` for a simple diary tool / "performative poetry" piece. 
+  - [] Set up *User Account* system. 
+    - [] Set up passwordless email authorization.
+    - [] `name username` will set a user's name to whatever they like if there
+         is no existing conflict
+      - [] Require confirmation from user via a button press or tap.
+  - [] Typing `diary` makes a new entry in your default diary.
+  - [] Every entry of every user has a URL and a timestamp.
+  - [] Every diary of every user has a URL.
+  - [] A user can make multiple labeled diaries via `diary secrets` 
+    - [] This will start a new entry in a labeled diary and make that diary
+         if it doesn't already exist.
+  🔐 Privacy
+    - [] Private diaries just show a lock with a shortcut to log the user in.
+    - [] Diaries can be marked `private` or public.
+    - [] Entries can be moved from one diary to another. (Migrated or made private or public)
+    - [] `@user diary` should read the most recent entry by default. 
+    - [] Entering an entry into a private diary should be encrypted and 
+         unreadable by aesthetic.computer.
+         - [] Moving an entry into a private diary will encrypt it.
+         - [] aesthetic.computer will not track public diary entries were made
+              private, and not cache the moved files, to maintain user privacy.
+         - [] A blockchain / wallet might be required for this...
+         - [] A user could potentially sell "keys" to their diary, so that
+              diaries can be semi-public / exclusive to a set number of
+              readers.
+ - [] 🎨 Paintings
   - [] Finish all Brushes todos: https://www.notion.so/aesthetic-computer/aesthetic-computer-hq-97376f353dbd4503970910777d6c7241
     - [] @mollysoda sequence
       - [-] Add glyphs to sparkle brush.
@@ -71,11 +96,7 @@
  - [] Finish Freaky Flowers client
   - [] Hook up multiplayer presence. 
   - [] Get nice UI
- - [] Homepage Menu
-  + Later
-  - [] Re-deploy / re-invoke `socket.js` server to test geckos udp.
-  - [] Explore SDF Sculpting for Hamzhat
-    - [] Use and look at: https://stephaneginier.com/archive/editSDF
+ 
  + Done
  - [x] Write micropage for the whistlegraph album. (m2w2)
  - [x] Fix image download function.
