@@ -24,7 +24,7 @@
 class Gesture {
   $; // API
   points = []; // Each point contains `{x, y, pressure}` data.
-  thickness = 24;
+  thickness = 32;
 
   constructor($, point) {
     this.$ = $;
