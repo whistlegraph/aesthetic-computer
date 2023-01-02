@@ -173,6 +173,7 @@ function skip(...args) {
 function point(...args) {
   let x, y;
 
+
   if (args.length === 1) {
     x = args[0].x;
     y = args[0].y;
@@ -598,15 +599,18 @@ function poly(coords) {
  - [x] Triangle rasterization of segment.
 */
 
+
+// TODO: Add colors to each coord...
 function pline(coords, thickness) {
+
   if (coords.length === 1) {
     console.log("TODO: Draw a full circle");
     return;
   }
 
+  let lpar; // Store last parallel points / prepopulate if supplied.
   const pix = []; // Make a pixel buffer / array.
   let last = coords[0]; // Keep the first element.
-  let lpar; // Store last parallel points.
   coords.forEach((cur, i) => {
     if (i === 0) return; // Skip the first point, it's already the last.
     pix.push(...bresenham(last.x, last.y, cur.x, cur.y)); // 1️⃣ Core line...
@@ -616,17 +620,16 @@ function pline(coords, thickness) {
       c = [cur.x, cur.y]; // Convert last and cur to vec2.
 
     const dir = vec2.normalize([], vec2.subtract([], c, l)); // Line direction.
-
     const rot = vec2.rotate([], dir, [0, 0], Math.PI / 2); // Rotated by 90d
-
-    // TODO: ⚠️ Past points only need to be rotated if i === 1, otherwise read
-    //          from previous two points.
 
     const offset1 = vec2.scale([], rot, thickness / 2); // Parallel offsets.
     const offset2 = vec2.scale([], rot, -thickness / 2);
 
+    const c1 = vec2.add([], c, offset1);
+    const c2 = vec2.add([], c, offset2);
+
     let l1, l2;
-    if (i === 1) {
+    if (!lpar) {
       l1 = vec2.add([], l, offset1); // Compute both sets of points.
       l2 = vec2.add([], l, offset2);
       lpar = [l1, l2];
@@ -634,12 +637,10 @@ function pline(coords, thickness) {
       [l1, l2] = lpar;
     }
 
-    const c1 = vec2.add([], c, offset1);
-    const c2 = vec2.add([], c, offset2);
-
     [l1, l2, c1, c2].forEach((v) => vec2.floor(v, v)); // Floor everything.
 
     if (i === 1) pix.push({ x: l1[0], y: l1[1] }, { x: l2[0], y: l2[1] });
+
     pix.push({ x: c1[0], y: c1[1] }, { x: c2[0], y: c2[1] }); // Add points.
     [
       [l1, l2, c1],
@@ -650,6 +651,8 @@ function pline(coords, thickness) {
   });
 
   pix.forEach((p) => point(p));
+
+  return lpar;
 }
 
 // 🔺 Rasterizes a tri. See also: https://www.youtube.com/watch?v=SbB5taqJsS4

@@ -61,6 +61,7 @@ class Whistlegraph {
     this.gestures[this.gestureIndex].add({ x, y, pressure });
   }
 
+  /*
   preview($, next) {
     const g = this.gestures[this.gestureIndex];
     const cur = g.points[g.points.length - 1];
@@ -69,13 +70,21 @@ class Whistlegraph {
     if (g.thickness === 1) $.pppline(segment);
     else $.pline(segment, g.thickness);
   }
+  */
 
-  paint($) {
+  // ⚠️ Add an optional color into each point as a third element.
+  //    If no color exists then default to the ink color!
+
+  paint($, next) {
     this.gestures.forEach((g, index) => {
       const color = index === this.gestureIndex ? [128, 0, 0] : [64, 64, 64];
       $.ink(color);
-      if (g.thickness === 1) $.pppline(g.points);
-      else $.pline(g.points, g.thickness);
+      const points =
+        next && this.gestureIndex === index ? [...g.points, next] : g.points;
+      if (g.thickness === 1) $.pppline(points);
+      else {
+        $.pline(points, g.thickness);
+      }
     });
   }
 }
@@ -92,10 +101,10 @@ function boot($) {
 function paint($) {
   const { wipe, pen } = $;
   wipe(127);
-  if (pen?.drawing) {
-    wg.preview($, { x: pen.x, y: pen.y, pressure: pen.pressure });
-  }
-  wg.paint($);
+  let next = pen?.drawing
+    ? { x: pen.x, y: pen.y, pressure: pen.pressure }
+    : undefined;
+  wg.paint($, next);
 }
 
 // ✒ Act (Runs once per user interaction)
