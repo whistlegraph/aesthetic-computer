@@ -65,6 +65,12 @@
   - [] Add it to the API and make a `wgr` disk. 
   - [] Set up doodads like file hosting and stamping on videos.
 - [] Make VSCode extension / back-seat document API (maya).
+- [] Home Screen / Better Nav
+  - [] Upon leaving the prompt, a tappable ghost of the active
+       command (with generated params) appears in the top left corner.
+       - [] Tap the word to return to the prompt and leave the command as is.
+       - [] Swipe the word in any direction to erase the command
+            and return to the prompt. 
 - [] ✏️ Diary
   - [] A simple diary tool / "performative poetry" piece. 
     - [] Write entries which playback in realtime to show the typing, like recei-ving a DM. See:  
@@ -93,12 +99,14 @@
          - [] A user could potentially sell "keys" to their diary, so that
               diaries can be semi-public / exclusive to a set number of
               readers.
+ - [] Add ability to make a system-wide recording?
  - [] 🎨 Paintings
   - [] Finish all Brushes todos: https://www.notion.so/aesthetic-computer/aesthetic-computer-hq-97376f353dbd4503970910777d6c7241
     - [] @mollysoda sequence
       - [-] Add glyphs to sparkle brush.
         - [-] Spin up sparkle brush prototype.
       - [] Add support for camera brush.
+    - [] Add DALLE2 / Image2Image API for generating / transforming stuff easily.
   - [] Get smart contract launched. See "Mintable Paintings" below.
  - [] Finish Freaky Flowers client
   - [] Hook up multiplayer presence. 
