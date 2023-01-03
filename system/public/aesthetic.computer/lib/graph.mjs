@@ -20,6 +20,7 @@ const { abs, sign, ceil, floor, sin, cos, tan, min, max } = Math;
 
 let width, height, pixels;
 const depthBuffer = [];
+const writeBuffer = [];
 const c = [255, 255, 255, 255];
 const panTranslation = { x: 0, y: 0 }; // For 2d shifting using `pan` and `unpan`.
 const skips = [];
@@ -99,6 +100,7 @@ export {
   setBuffer,
   changePixels,
   depthBuffer,
+  writeBuffer,
   color,
   pixel,
 };
@@ -128,15 +130,18 @@ function clear() {
  * (2) (x, y)
  */
 // Where a pixel is a region in which we draw from the upper left corner. (2D)
-function plot() {
-  let x, y;
-  arguments.length === 1 ? ([x, y] = arguments[0]) : ([x, y] = arguments);
 
+function plot(x, y) {
   x = floor(x);
   y = floor(y);
 
   // Skip pixels that are offscreen and/or found in the `skips` list.
-  if (x < 0 || x >= width || y < 0 || y >= height) return;
+  //if (x < 0 || x >= width || y < 0 || y >= height) return;
+  if (x < 0) return;
+  if (x >= width) return;
+  if (y < 0) return;
+  if (y >= height) return;
+
   for (const s of skips) if (x === s.x && y === s.y) return;
 
   // Plot our pixel.
@@ -598,31 +603,29 @@ function poly(coords) {
  - [x] Triangle rasterization of segment.
 */
 
-// TODO: Add colors to each coord...
-
-function pline(coords, thickness) {
+function pline(coords, thickness, shader) {
   // 1️⃣ Generate geometry.
-  if (coords.length === 1) {
-    // console.log("TODO: Draw a full circle");
-    return;
-  }
+  if (coords.length < 2) return; // Require at least two coordinates.
 
-  let points = [],
+  let points = [], // Raster grids.
     lines = [],
-    tris = []; // Rasters
+    tris = [];
+
+  // Draw from front to back.
+
+  let last = coords[coords.length - 1]; // Keep the last drawn element.
 
   let lpar; // Store last parallel points / prepopulate if supplied.
-  const pix = []; // Make a pixel buffer / array.
-  let last = coords[0]; // Keep the first element.
   let ldir;
-  coords.forEach((cur, i) => {
-    if (i === 0) return; // Skip the first point, it's already the last.
+
+  for (let i = coords.length - 2; i >= 0; i -= 1) {
+    const cur = coords[i];
 
     // 2️⃣ Two points on both sides of last and cur via line dir.
-    const l = [last.x, last.y],
-      c = [cur.x, cur.y]; // Convert last and cur to vec2.
+    const lp = [last.x, last.y],
+      cp = [cur.x, cur.y]; // Convert last and cur to vec2.
 
-    const dir = vec2.normalize([], vec2.subtract([], c, l)); // Line direction.
+    const dir = vec2.normalize([], vec2.subtract([], cp, lp)); // Line direction.
     if (!ldir) ldir = dir;
 
     const rot = vec2.rotate([], dir, [0, 0], Math.PI / 2); // Rotated by 90d
@@ -630,13 +633,13 @@ function pline(coords, thickness) {
     const offset1 = vec2.scale([], rot, thickness / 2); // Parallel offsets.
     const offset2 = vec2.scale([], rot, -thickness / 2);
 
-    let c1 = vec2.add([], c, offset1);
-    let c2 = vec2.add([], c, offset2);
+    let c1 = vec2.add([], cp, offset1);
+    let c2 = vec2.add([], cp, offset2);
 
     let l1, l2;
     if (!lpar) {
-      l1 = vec2.add([], l, offset1); // Compute both sets of points.
-      l2 = vec2.add([], l, offset2);
+      l1 = vec2.add([], lp, offset1); // Compute both sets of points.
+      l2 = vec2.add([], lp, offset2);
       lpar = [l1, l2];
     } else {
       [l1, l2] = lpar;
@@ -648,11 +651,11 @@ function pline(coords, thickness) {
 
     const dot = vec2.dot(dir, ldir); // Get the dot product of cur and last dir.
 
-    let tris;
+    let trig; // Triangle geometry.
 
     if (dot > 0) {
       // Vertex order for forward direction.
-      tris = [
+      trig = [
         [l1, l2, c1],
         [l2, c1, c2],
       ];
@@ -660,7 +663,7 @@ function pline(coords, thickness) {
       lines.push(...bresenham(...l2, ...c2)); // Par line 2
     } else {
       // Vertex order for backward direction.
-      tris = [
+      trig = [
         [l2, c1, l1],
         [l1, c2, c1],
       ];
@@ -668,36 +671,49 @@ function pline(coords, thickness) {
       lines.push(...bresenham(...l1, ...c2)); // Par line 2
     }
 
-    tris.forEach((t) => fillTri(t, tris)); // Fill quad.
-
-    // lines.push(...bresenham(last.x, last.y, cur.x, cur.y)); // 1️⃣ Core line...
-
-
-    // console.log(dir);
-
-    // console.log(dir, ldir);
+    trig.forEach((t) => {
+      fillTri(t, tris);
+    }); // Fill quad.
 
     ldir = dir;
-    // const dirNormal = vec2.scale([], vec2.normalize([], vec2.sub([], c1, l1)), 16);
-    // lines.push(...bresenham(...l, ...vec2.add([], l, dirNormal)));
-    lines.push(...bresenham(...l, ...c));
+    lines.push(...bresenham(...lp, ...cp));
 
-    if (i === 1) points.push({ x: l1[0], y: l1[1] }, { x: l2[0], y: l2[1] });
+    if (i === coords.length - 2)
+      points.push({ x: l1[0], y: l1[1] }, { x: l2[0], y: l2[1] });
     points.push({ x: c1[0], y: c1[1] }, { x: c2[0], y: c2[1] }); // Add points.
 
-    color(...cur.color);
-    tris.forEach((p) => point(p));
+    // Paint each triangle.
+    if (cur.color) color(...cur.color);
+    tris.forEach((p) => {
+      if (p.x < 0) return;
+      if (p.x >= width) return; 
+      if (p.y < 0) return;
+      if (p.y >= height) return; 
+      const n = p.y * width + p.x;
+
+      if (writeBuffer[n] === 0) {
+        writeBuffer[n] = 1; // Remember this point in a writeBuffer.
+
+        // 🪄 Pixel Shader
+        if (shader) shader(p, c, cur.color); // Send x, y color & base.
+        //                                      Shader can edit color or p.
+
+        point(p); // Render a point.
+      }
+    });
     tris.length = 0;
 
     last = cur; // Update the last point.
-    lpar = [c1, c2]; // ... and last parrallel points.
-  });
+    lpar = [c1, c2]; // ... and last parallel points.
+  }
 
   // 3️⃣ Painting
-  color(0, 255, 0);
-  points.forEach((p) => point(p));
-  color(0, 0, 255);
-  lines.forEach((p) => point(p));
+
+  // color(0, 255, 0); // Paint vertex points.
+  // points.forEach((p) => point(p));
+
+  // color(0, 0, 255); // Paint wireframe lines.
+  // lines.forEach((p) => point(p));
 
   return lpar;
 }

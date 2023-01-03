@@ -233,6 +233,7 @@ const $commonApi = {
     even: num.even,
     odd: num.odd,
     clamp: num.clamp,
+    rand: num.rand,
     randInt: num.randInt,
     randIntArr: num.randIntArr,
     randIntRange: num.randIntRange,
@@ -1061,6 +1062,8 @@ async function load(parsed, fromHistory = false, alias = false) {
     // Reset / recreate the depth buffer. (This is only used for the 3D software renderer in `graph`)
     // graph.depthBuffer.length = screen.width * screen.height;
     // graph.depthBuffer.fill(Number.MAX_VALUE);
+    // graph.writeBuffer.length = screen.width * screen.height;
+    // graph.writeBuffer.fill(Number.MAX_VALUE);
 
     screen.pixels = new Uint8ClampedArray(screen.width * screen.height * 4);
     screen.pixels.fill(255);
@@ -2022,13 +2025,18 @@ async function makeFrame({ data: { type, content } }) {
         // TODO: Add the depth buffer back here.
         // Reset the depth buffer.
         // TODO: I feel like this is causing a memory leak...
-        graph.depthBuffer.length = screen.width * screen.height;
-        graph.depthBuffer.fill(Number.MAX_VALUE);
+        // graph.depthBuffer.length = screen.width * screen.height;
+        // graph.depthBuffer.fill(Number.MAX_VALUE);
+
+        graph.writeBuffer.length = screen.width * screen.height;
+
+        graph.writeBuffer.fill(0);
       }
 
       // TODO: Disable the depth buffer for now... it doesn't need to be
       //       regenerated on every frame.
-      graph.depthBuffer.fill(Number.MAX_VALUE); // Clear depthbuffer.
+      // graph.depthBuffer.fill(Number.MAX_VALUE); // Clear depthbuffer.
+      graph.writeBuffer.fill(0); // Clear writebuffer.
 
       $api.screen = screen;
       $api.screen.center = [screen.width / 2, screen.height / 2];

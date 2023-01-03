@@ -25,6 +25,11 @@ export function byteInterval17(i16) {
   return Math.min(i16 * 16, 255);
 }
 
+// Return a random float from 0->1.
+export function rand() {
+  return Math.random();
+}
+
 // Generates an integer from 0-n (inclusive)
 export function randInt(n) {
   return Math.floor(Math.random() * (n + 1));
