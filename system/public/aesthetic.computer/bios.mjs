@@ -7,6 +7,7 @@ import { Keyboard } from "./lib/keyboard.mjs";
 import * as UI from "./lib/ui.mjs";
 import * as Glaze from "./lib/glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
+import { capitalize } from "./lib/text.mjs";
 import { dist } from "./lib/num.mjs";
 import { parse, slug } from "./lib/parse.mjs";
 import * as Store from "./lib/store.mjs";
@@ -2356,8 +2357,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Then it puts that into a new video tag and starts playing it,
   // sending the disk the thread frames as they update.
-  function receivedVideo({ type, options }) {
-    console.log("🎥", type, options);
+  async function receivedVideo({ type, options }) {
+    console.log("🎥", capitalize(type), options);
 
     if (type === "camera") {
       // TODO: Give video and canvas a unique identifier that
@@ -2376,7 +2377,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       buffer.width = options.width || 1280;
       buffer.height = options.height || 720;
 
-      const bufferCtx = buffer.getContext("2d");
+      const bufferCtx = buffer.getContext("2d", { willReadFrequently: true });
 
       wrapper.appendChild(video);
       wrapper.appendChild(buffer);
@@ -2390,21 +2391,45 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       buffer.style = `position: absolute;
                       opacity: 0;`;
 
-      navigator.mediaDevices
-        .getUserMedia({
-          video: { width: { min: 1280 }, height: { min: 720 } },
+      // List the user's potential video devices. (Front & Back Camera)
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoInputDevices = devices.filter(
+          (device) => device.kind === "videoinput"
+        );
+        if (debug)
+          console.log(
+            "🎥 Available constraints: ",
+            navigator.mediaDevices.getSupportedConstraints()
+          );
+        if (debug)
+          console.log("🎥 Available video devices: ", videoInputDevices);
+      } catch (error) {
+        console.log(error.name + ": " + error.message);
+      }
+
+      // Grab video stream from the user, using the requested width and height.
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { exact: options.width },
+            height: { exact: options.height },
+            frameRate: { ideal: 60 }
+          },
           audio: false,
-        })
-        .then((stream) => {
-          video.srcObject = stream;
-          video.play();
-          process();
-        })
-        .catch((err) => {
-          console.log(err);
         });
 
+        video.srcObject = stream;
+        video.play();
+        process();
+      } catch (err) {
+        console.log(err);
+      }
+
       function process() {
+
+        // TODO: Video effects / filter kernels could be added here...
+
         bufferCtx.drawImage(
           video,
           0,

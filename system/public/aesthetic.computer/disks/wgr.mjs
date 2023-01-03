@@ -90,6 +90,7 @@ class Whistlegraph {
 
   draw(x, y, pressure) {
     this.genColor();
+    // this.baseColor = this.$.num.randIntArr(255, 3);
     this.gestures[this.gestureIndex].add({
       x,
       y,
@@ -147,7 +148,7 @@ class Whistlegraph {
   }
 
   genColor() {
-    this.currentColor = this.baseColor.map((c) => this.$.wiggle(c, 0.1, 3));
+    this.currentColor = this.baseColor.map((c) => this.$.wiggle(c, 0.2, 3));
   }
 }
 
@@ -155,7 +156,7 @@ let wg;
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot($) {
-  $.glaze({on: true});
+  // $.glaze({on: true});
   $.wipe($.num.randIntArr(128, 3));
   wg = new Whistlegraph($);
 }

@@ -15,7 +15,7 @@ import { headers } from "./console-headers.mjs";
 
 export const noWorker = { onMessage: undefined, postMessage: undefined };
 
-const { abs, cos, sin } = Math;
+const { abs, cos, sin, floor } = Math;
 
 let ROOT_PIECE = "prompt"; // This gets set straight from the host html file for the ac.
 let debug = false; // This can be overwritten on boot.
@@ -979,7 +979,7 @@ async function load(parsed, fromHistory = false, alias = false) {
     const { title, desc, ogImage, twitterImage } = metadata(
       "aesthetic.computer",
       slug,
-      module.meta?.({...parsed, num: $commonApi.num}) // Adding the num API here is a little hacky, but needed for Freaky Flowers random metadata generation. 22.12.27  
+      module.meta?.({ ...parsed, num: $commonApi.num }) // Adding the num API here is a little hacky, but needed for Freaky Flowers random metadata generation. 22.12.27
     );
 
     meta = {
@@ -2054,12 +2054,27 @@ async function makeFrame({ data: { type, content } }) {
        * @param {object} options - *unimplemented* { src, width, height }
        */
       $api.video = function (type, options) {
-        // Options could eventually be { src, width, height }
+        // TODO: Options could eventually be { src, width, height }
+        // const vid = video("youtube-link");
+        // const vid = video("tiktok:@whistlegraph");
+        // https://codepen.io/oceangermanique/pen/LqaPgO
         send({ type: "video", content: { type, options } });
 
         // Return an object that can grab whatever the most recent frame of
         // video was.
-        return function videoFrame() {
+        return function videoFrame(shader) {
+          if (activeVideo) {
+            const { width, height, pixels } = activeVideo;
+
+            if (shader) {
+              for (let i = 0; i < pixels.length; i += 4) {
+                const c = pixels.subarray(i, i + 4);
+                const p = { x: (i / 4) % width, y: floor(i / 4 / width) };
+                shader(p, c);
+              }
+            }
+          }
+
           return activeVideo;
         };
       };
