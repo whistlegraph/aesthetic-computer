@@ -71,6 +71,7 @@ function paint({
   }
 }
 
+// TODO: How to get this to not override everything?
 function act({ event }) {
   if (event.is("lift")) sampled = false;
 }
