@@ -7,11 +7,10 @@ import { Keyboard } from "./lib/keyboard.mjs";
 import * as UI from "./lib/ui.mjs";
 import * as Glaze from "./lib/glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
-import { capitalize } from "./lib/text.mjs";
 import { dist } from "./lib/num.mjs";
 import { parse, slug } from "./lib/parse.mjs";
 import * as Store from "./lib/store.mjs";
-import { Desktop, MetaBrowser, Instagram } from "./lib/platform.mjs";
+import { Desktop, MetaBrowser, Instagram, iOS } from "./lib/platform.mjs";
 import { headers } from "./lib/console-headers.mjs";
 
 const { assign } = Object;
@@ -2357,14 +2356,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Then it puts that into a new video tag and starts playing it,
   // sending the disk the thread frames as they update.
+
+  let videoResize; // Holds a function defined after initialization.
   async function receivedVideo({ type, options }) {
-    console.log("🎥", capitalize(type), options);
+    // if (debug) console.log("🎥 Type:", type, options);
+
+    if (type === "camera:update") videoResize?.(options);
 
     if (type === "camera") {
       // TODO: Give video and canvas a unique identifier that
       //       will create a link in the worker so that frame updates
       //       for multiple videos can be routed simultaneously.
       const video = document.createElement("video");
+
+      // Camera properties.
+      let facingMode = "user",
+        zoom = 1;
+
+      video.id = "camera-feed";
+      video.autoplay = true; // Allow video footage play automatically.
+      video.setAttribute("playsinline", ""); // Only for iOS.
+      video.setAttribute("muted", ""); // Don't include audio with video.
+
       const buffer = document.createElement("canvas");
       let animationRequest;
 
@@ -2385,8 +2398,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       video.style = `position: absolute;
                      top: 0;
                      left: 0;
-                     width: 300px;
-                     opacity: 0;`;
+                     opacity: 0;
+                     width: 300px;`;
 
       buffer.style = `position: absolute;
                       opacity: 0;`;
@@ -2397,52 +2410,128 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const videoInputDevices = devices.filter(
           (device) => device.kind === "videoinput"
         );
-        if (debug)
-          console.log(
-            "🎥 Available constraints: ",
-            navigator.mediaDevices.getSupportedConstraints()
-          );
-        if (debug)
-          console.log("🎥 Available video devices: ", videoInputDevices);
+        // if (debug)
+        //   console.log(
+        //     "🎥 Available constraints: ",
+        //     navigator.mediaDevices.getSupportedConstraints()
+        //   );
+        // if (debug)
+        //   console.log("🎥 Available video devices: ", videoInputDevices);
       } catch (error) {
         console.log(error.name + ": " + error.message);
       }
 
-      // Grab video stream from the user, using the requested width and height.
+      // Swap width and height on iOS. (Implementation default differences.)
+      // Set a height / width aspect ratio on iOS because
+      // of implementation differences.
+      if (iOS) {
+        const temp = options.width;
+        options.width = options.height;
+        options.height = temp;
+      }
+
       try {
+        // Grab video from the user using a requested width and height based
+        // on the frame size.
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            width: { exact: options.width },
-            height: { exact: options.height },
-            frameRate: { ideal: 60 }
+            facingMode,
+            // Double the ideal resolution so there is a bit of downscaling
+            // which makes for a sharper over-all image.
+            width: { ideal: options.width * 2 },
+            height: { ideal: options.height * 2 },
+            frameRate: { ideal: 60 },
           },
           audio: false,
         });
 
         video.srcObject = stream;
-        video.play();
+        const videoTrack = stream.getVideoTracks()[0];
+
+        // Update the global facingMode in case it's different from
+        // what was requested.
+        facingMode = videoTrack.getConstraints().facingMode;
+
+        video.addEventListener(
+          "loadedmetadata",
+          () => {
+            video.play();
+
+            if (debug)
+              console.log(
+                "🎥 Resolution:",
+                buffer.width,
+                buffer.height
+              );
+          },
+          { once: true }
+        );
+
+        videoResize = async function ({ width, height }) {
+          cancelAnimationFrame(getAnimationRequest());
+
+          try {
+            if (iOS) {
+              const temp = width;
+              width = height;
+              height = temp;
+            }
+
+            video.srcObject = null; // Refresh the video `srcObject`.
+
+            await videoTrack.applyConstraints({
+              width: { ideal: width * 2 },
+              height: { ideal: height * 2 },
+            });
+
+            video.srcObject = stream;
+
+            video.addEventListener(
+              "loadedmetadata",
+              () => {
+                buffer.width = width;
+                buffer.height = height;
+                process();
+                if (debug)
+                  console.log(
+                    "🎥 Resolution:",
+                    buffer.width,
+                    buffer.height
+                  );
+              },
+              { once: true }
+            );
+          } catch (error) {
+            process();
+            if (debug) console.warn("🎥 Resolution update failed.");
+          }
+        };
+
         process();
       } catch (err) {
         console.log(err);
       }
 
       function process() {
-
         // TODO: Video effects / filter kernels could be added here...
 
-        bufferCtx.drawImage(
-          video,
-          0,
-          0,
-          bufferCtx.canvas.width,
-          bufferCtx.canvas.height
-        );
+        // zoom += 0.001;
+
+        if (facingMode === "user") {
+          bufferCtx.translate(buffer.width / 2, buffer.height / 2);
+          bufferCtx.scale(-zoom, zoom);
+          bufferCtx.translate(-buffer.width / 2, -buffer.height / 2);
+        }
+
+        bufferCtx.drawImage(video, 0, 0, buffer.width, buffer.height);
+
+        bufferCtx.resetTransform();
 
         const pixels = bufferCtx.getImageData(
           0,
           0,
-          buffer.clientWidth,
-          buffer.clientHeight
+          buffer.width,
+          buffer.height
         );
 
         send(

@@ -41,4 +41,4 @@ export function act({ event: e }) {
   }
 }
 
-export const system = "nopaint";
+export const system = "nopaint:dont-paint-on-leave";

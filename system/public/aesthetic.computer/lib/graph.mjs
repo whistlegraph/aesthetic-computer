@@ -265,6 +265,8 @@ function copyRow(destX, destY, srcX, srcY, src) {
 // TODO: Some of these routes are incompatible. 22.10.01.11.57
 // TODO: Replace with more generic algorithm?
 function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
+  if (!from) return;
+
   if (scale !== 1) {
     grid(
       {
@@ -686,9 +688,9 @@ function pline(coords, thickness, shader) {
     if (cur.color) color(...cur.color);
     tris.forEach((p) => {
       if (p.x < 0) return;
-      if (p.x >= width) return; 
+      if (p.x >= width) return;
       if (p.y < 0) return;
-      if (p.y >= height) return; 
+      if (p.y >= height) return;
       const n = p.y * width + p.x;
 
       if (writeBuffer[n] === 0) {

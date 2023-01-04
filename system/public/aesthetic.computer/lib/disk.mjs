@@ -64,7 +64,8 @@ const nopaint = {
       paste(sys.painting);
     }
   },
-  leave: function leave({ store, system }) {
+  leave: function leave({ store, system, page }) {
+    if (NPdontPaintOnLeave === false) page(system.painting).paste(screen);
     store["painting"] = system.painting;
     store.persist("painting", "local:db");
   },
@@ -188,8 +189,11 @@ let loadFailure;
 
 // TODO: Eventually add a wiggle bank so all wiggles are indexed
 //       and start at random angles.
-let wiggler = 0;
+// let wiggler = 0;
 let wiggleAngle = 0;
+
+// TODO; Change this to true and update all brushes.
+let NPdontPaintOnLeave = false;
 
 // For every function to access.
 const $commonApi = {
@@ -1108,7 +1112,8 @@ async function load(parsed, fromHistory = false, alias = false) {
   // TODO: Add the rest of the $api to "leave" ... refactor API. 22.08.22.07.34
   if (firstLoad === false) {
     try {
-      leave({ store, screen, system: $commonApi.system }); // Trigger leave.
+      leave({ ...painting.api, store, screen, system: $commonApi.system }); // Trigger leave.
+      painting.paint(true);
     } catch (e) {
       console.warn("👋 Leave failure...", e);
     }
@@ -1116,9 +1121,15 @@ async function load(parsed, fromHistory = false, alias = false) {
 
   // Artificially imposed loading by at least 1/4 sec.
   // Redefine the default event functions if they exist in the module.
-  if (module.system === "nopaint") {
+  if (module.system?.startsWith("nopaint")) {
     // If there is no painting is in ram, then grab it from the local store,
     // or generate one.
+
+    if (module.system.split(":")[1] === "dont-paint-on-leave") {
+      NPdontPaintOnLeave = true;
+    } else {
+      NPdontPaintOnLeave = false;
+    }
 
     boot = module.boot || nopaint.boot;
     sim = module.sim || defaults.sim;
@@ -1156,6 +1167,8 @@ async function load(parsed, fromHistory = false, alias = false) {
   $commonApi.query = search;
   $commonApi.params = params || [];
   $commonApi.load = load;
+
+  if (screen) screen.created = true; // Reset screen to created if it exists.
 
   // A wrapper for `load(parse(...))`
   // Make it `ahistorical` to prevent a url change.
@@ -1997,6 +2010,8 @@ async function makeFrame({ data: { type, content } }) {
         screen.width !== content.width ||
         screen.height !== content.height
       ) {
+        const hasScreen = screen !== undefined;
+
         screen = {
           pixels:
             pixels || new Uint8ClampedArray(content.width * content.height * 4),
@@ -2021,6 +2036,8 @@ async function makeFrame({ data: { type, content } }) {
             };
           },
         };
+
+        screen[hasScreen ? "resized" : "created"] = true; // Screen change type.
 
         // TODO: Add the depth buffer back here.
         // Reset the depth buffer.
@@ -2050,7 +2067,7 @@ async function makeFrame({ data: { type, content } }) {
       /**
        * @function video
        * @descrption Make a live video feed. Returns an object that links to current frame.
-       * @param {string} type
+       * @param {string} type - "camera" or "camera-update" or see below. 💡
        * @param {object} options - *unimplemented* { src, width, height }
        */
       $api.video = function (type, options) {
@@ -2058,13 +2075,15 @@ async function makeFrame({ data: { type, content } }) {
         // const vid = video("youtube-link");
         // const vid = video("tiktok:@whistlegraph");
         // https://codepen.io/oceangermanique/pen/LqaPgO
+        if (type === "camera:update") activeVideo = null;
+
         send({ type: "video", content: { type, options } });
 
         // Return an object that can grab whatever the most recent frame of
         // video was.
         return function videoFrame(shader) {
           if (activeVideo) {
-            const { width, height, pixels } = activeVideo;
+            const { width, pixels } = activeVideo;
 
             if (shader) {
               for (let i = 0; i < pixels.length; i += 4) {
@@ -2163,6 +2182,9 @@ async function makeFrame({ data: { type, content } }) {
         // console.log("!! Painted", paintCount, performance.now());
 
         if (paintOut) dirtyBox = paintOut;
+
+        delete screen.resized; // Remove status from screen after painting. 
+        delete screen.created;
 
         //console.log("bake")
         //send({ type: "3d-bake" });
