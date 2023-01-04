@@ -2230,8 +2230,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         can = document.createElement("canvas");
         const ctx = can.getContext("2d");
-        can.width = img.width;
-        can.height = img.height;
+
+        if (modifiers?.cropToScreen) {
+          can.width = screen.width;
+          can.height = screen.height;
+        } else {
+          can.width = img.width;
+          can.height = img.height;
+        }
+
         ctx.putImageData(imageData, 0, 0);
 
         // Scale or modify the image as needed.
