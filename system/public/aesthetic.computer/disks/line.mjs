@@ -11,4 +11,4 @@ export function paint({ pen, params, system, page, screen }) {
   }
 }
 
-export const system = "nopaint";
+export const system = "nopaint:dont-paint-on-leave";

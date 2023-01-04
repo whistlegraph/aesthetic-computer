@@ -106,19 +106,14 @@
       - [] Add support for camera brush.
       - [-] Add glyphs to sparkle brush.
         - [-] Spin up sparkle brush prototype.
-
       - [] @mollysoda posts an instagram story of a finished camera pic with stuff drawn on 
-
         "Activity"
         {
         - [] Title Screen
           - [] Loose layout for (Instruction, Camera, Icon, Sparkle, Pull, Text, Save)
-
         - [] Camera 
-
         - [] Icon (preset palettes with preset graphics, similar to text changing words)
           - [] Rename sparkle to icon.
-
         + Tonight
         - [] "Sparkle" by Maya
           - [] Jeffrey asks Maya about doing sparkle.
@@ -129,11 +124,8 @@
         - [] "Save" / "Download" / "Done"
           - [] Well... where do you put it?
         }
-
       - [] there is a call to action where viewers can swipe up
       - [] once they swipe up there shoud be like a "title" screen
-
-
     - [] Add DALLE2 / Image2Image API for generating / transforming stuff easily.
   - [] Get smart contract launched. See "Mintable Paintings" below.
  - [] Finish Freaky Flowers client

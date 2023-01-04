@@ -77,7 +77,7 @@ function act({ event }) {
 
 export { paint, act };
 
-export const system = "nopaint";
+export const system = "nopaint:dont-paint-on-leave";
 
 // 📚 Library (Useful functions used throughout the piece)
 

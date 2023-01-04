@@ -214,3 +214,10 @@ canvas[data-type="3d"].visible {
   outline: none;
   box-shadow: none;
 }
+
+#camera-feed {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+}
