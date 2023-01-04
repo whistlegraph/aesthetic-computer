@@ -3,10 +3,11 @@
 
 /* #region 🏁 todo
   - [] Add piece API for updating zoom level and switching between
-        Front and Rear cameras / updating constraints.
+       Front and Rear cameras / updating constraints.
   - [] If user doesn't accept camera, then we send the back to prompt with
      an error message of some kind.
-  - [] Camera needs a "title" screen if camera isn't already enabled.
+  - [] Camera needs a "splash" screen that draws an X or ? if camera
+       isn't already enabled.
 + Later
   - [] See `bios.mjs:2431` for GPU style video effects.
 + Done

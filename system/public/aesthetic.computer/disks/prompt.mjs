@@ -72,7 +72,7 @@ function boot($) {
       if (text === "dl" || text === "download") {
         if (store["painting"]) {
           download(`painting-${num.timestamp()}.png`, store["painting"], {
-            scale: 4,
+            scale: 6,
           });
           // Show a green flash if we succesfully download the file.
           flashColor = [0, 255, 0];

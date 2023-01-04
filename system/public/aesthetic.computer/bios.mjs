@@ -2226,7 +2226,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Encode a pixel buffer as a png.
         // See also: https://stackoverflow.com/questions/11112321/how-to-save-canvas-as-png-image
         const img = data;
-        //console.log(img)
         const imageData = new ImageData(img.pixels, img.width, img.height);
 
         can = document.createElement("canvas");
@@ -2235,7 +2234,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         can.height = img.height;
         ctx.putImageData(imageData, 0, 0);
 
-        // Scale the image as needed.
+        // Scale or modify the image as needed.
         if (
           (modifiers?.scale !== 1 && modifiers?.scale > 0) ||
           modifiers?.flipY
@@ -2247,22 +2246,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           can2.width = can.width * scale;
           can2.height = can.height * scale;
           ctx2.imageSmoothingEnabled = false;
-          if (flipY) ctx2.scale(1, -1);
-          ctx2.drawImage(can, 0, 0, can2.width, -can2.height);
+          if (flipY) {
+            ctx2.scale(1, -1);
+            ctx2.drawImage(can, 0, 0, can2.width, -can2.height);
+          } else {
+            ctx2.drawImage(can, 0, 0, can2.width, can2.height);
+          }
           can = can2;
-        }
-      } else {
-        if (modifiers?.scale !== 1 && modifiers?.scale > 0) {
-          const can2 = document.createElement("canvas");
-          const ctx2 = can2.getContext("2d");
-          can2.width = data.width * modifiers.scale;
-          can2.height = data.height * modifiers.scale;
-          ctx2.imageSmoothingEnabled = false;
-          ctx2.drawImage(data, 0, 0, can2.width, can2.height);
-
-          can = can2;
-        } else {
-          can = data;
         }
       }
 
@@ -2458,11 +2448,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             video.play();
 
             if (debug)
-              console.log(
-                "🎥 Resolution:",
-                buffer.width,
-                buffer.height
-              );
+              console.log("🎥 Resolution:", buffer.width, buffer.height);
           },
           { once: true }
         );
@@ -2493,11 +2479,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 buffer.height = height;
                 process();
                 if (debug)
-                  console.log(
-                    "🎥 Resolution:",
-                    buffer.width,
-                    buffer.height
-                  );
+                  console.log("🎥 Resolution:", buffer.width, buffer.height);
               },
               { once: true }
             );
