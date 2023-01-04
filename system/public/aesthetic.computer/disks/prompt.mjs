@@ -58,7 +58,7 @@ function boot($) {
     store,
     connect,
     bgm,
-    needsPaint
+    needsPaint,
   } = $;
 
   glaze({ on: true }); // TODO: Every glaze triggers `frame` in `disk`, this could be optimized. 2022.04.24.04.25
@@ -73,6 +73,7 @@ function boot($) {
         if (store["painting"]) {
           download(`painting-${num.timestamp()}.png`, store["painting"], {
             scale: 6,
+            cropToScreen: true,
           });
           // Show a green flash if we succesfully download the file.
           flashColor = [0, 255, 0];

@@ -56,7 +56,10 @@ const nopaint = {
     store,
   }) {
     if (e.is("keyboard:down:enter")) {
-      download(`painting-${num.timestamp()}.png`, sys.painting, { scale: 6 });
+      download(`painting-${num.timestamp()}.png`, sys.painting, {
+        scale: 6,
+        cropToScreen: true,
+      });
     }
 
     if (e.is("reframed")) {
@@ -1201,9 +1204,7 @@ async function load(parsed, fromHistory = false, alias = false) {
   // Add download event to trigger a file download from the main thread.
   $commonApi.download = (filename, data, modifiers) => {
     send({ type: "download", content: { filename, data, modifiers } });
-  }
-
-
+  };
 
   // * Preload *
   // Add preload to the boot api.
@@ -2186,7 +2187,7 @@ async function makeFrame({ data: { type, content } }) {
 
         if (paintOut) dirtyBox = paintOut;
 
-        delete screen.resized; // Remove status from screen after painting. 
+        delete screen.resized; // Remove status from screen after painting.
         delete screen.created;
 
         //console.log("bake")
