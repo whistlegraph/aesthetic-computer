@@ -132,6 +132,10 @@ function paint({
     .ink(colors.gridOutline)
     .box(g.scaled, "outline");
 
+  // Draw a box on the "center" of the grid.
+  console.log(g.middle())
+  ink(255, 0, 0, 64).box(...g.middle(), g.scale);
+
   // Add text on the top...
   ink(
     randIntRange(200, 250),

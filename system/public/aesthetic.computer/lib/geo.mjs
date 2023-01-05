@@ -209,9 +209,12 @@ export class Grid {
     return gridSquare;
   }
 
-  // Returns display coordinates from local, untransformed ones.
+  // Returns floored display coordinates from local, untransformed ones.
   get(x, y) {
-    return [this.box.x + x * this.scale, this.box.y + y * this.scale];
+    return [
+      floor(this.box.x + x * this.scale),
+      floor(this.box.y + y * this.scale),
+    ];
   }
 
   // Yields the grid's transformed bounding box according to `scale`.
@@ -222,6 +225,11 @@ export class Grid {
       this.box.w * this.scale,
       this.box.h * this.scale
     );
+  }
+
+  // Yields the projected "center" x, y point of the whole grid.
+  middle() {
+    return this.get(floor(this.box.w / 2), floor(this.box.h / 2));
   }
 
   center(x, y) {

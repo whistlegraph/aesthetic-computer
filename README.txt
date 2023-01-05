@@ -102,8 +102,11 @@
  - [] Add ability to make a system-wide recording?
  - [] 🎨 Paintings
   - [] Finish all Brushes todos: https://www.notion.so/aesthetic-computer/aesthetic-computer-hq-97376f353dbd4503970910777d6c7241
+    *** Molly Soda Moods ***
     - [] @mollysoda sequence
-      - [] Add support for camera brush.
+      - [x] Add support for camera brush.
+      - [] Rename sparkle -> icon
+      - [] Pull / Move
       - [-] Add glyphs to sparkle brush.
         - [-] Spin up sparkle brush prototype.
       - [] @mollysoda posts an instagram story of a finished camera pic with stuff drawn on 
@@ -118,7 +121,6 @@
         - [] "Sparkle" by Maya
           - [] Jeffrey asks Maya about doing sparkle.
         + Later
-        - [] Pull / Move
         - [] Text 
           - [] Have a bank of changing words
         - [] "Save" / "Download" / "Done"
