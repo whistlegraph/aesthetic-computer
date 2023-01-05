@@ -11,6 +11,8 @@
   external_node_modules = ["nanoid", "@aws-sdk-client-s3", "@aws-sdk/s3-request-presigner"]
 [functions.thumbnail]
   external_node_modules = ["chrome-aws-lambda"]
+[functions.auth]
+  external_node_modules = ["@netlify/identity-client"]
 [functions.session]
   external_node_modules = ["got", "redis"]
 [functions.reload]
@@ -74,6 +76,10 @@
   status = 200
 [[redirects]]
   from = "/reload/*"
+  to = "/.netlify/functions/reload"
+  status = 200
+[[redirects]]
+  from = "/auth"
   to = "/.netlify/functions/reload"
   status = 200
 [[redirects]]
