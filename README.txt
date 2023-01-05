@@ -61,6 +61,7 @@
   - [] Do research?
 
 *** Project Order ***
+ - [😀] Passwordless login.
  - [📹] Make screen-based whistlegraph recorder tool that makes use of the album tracks.
   - [] Add it to the API and make a `wgr` disk. 
   - [] Set up doodads like file hosting and stamping on videos.
