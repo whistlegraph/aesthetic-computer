@@ -69,7 +69,32 @@ function boot($) {
     scheme[dark ? "dark" : "light"],
     // 🍎 Process commands...
     async (text) => {
-      if (text === "dl" || text === "download") {
+      if (text.startsWith("login")) {
+
+        const email = text.split(" ")[1];
+
+        console.log('Email:', email); // TODO: Properly check email formatting.
+
+        // TODO: Add "login" to API flow.
+        // TODO: User enters email address
+        // TODO: Log the user in...
+        /*
+        async function login(email) {
+          const response = await fetch("/auth", {
+            method: "POST",
+            body: JSON.stringify({ email }),
+            headers: { "Content-Type": "application/json" },
+          });
+          if (response.ok) {
+            console.log("Passwordless login link sent!");
+          } else {
+            console.error("Error sending passwordless login link");
+          }
+        }
+        */
+
+
+      } else if (text === "dl" || text === "download") {
         if (store["painting"]) {
           download(`painting-${num.timestamp()}.png`, store["painting"], {
             scale: 6,
