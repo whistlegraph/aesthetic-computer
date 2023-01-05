@@ -179,9 +179,17 @@ function point(...args) {
   let x, y;
 
   if (args.length === 1) {
-    x = args[0].x;
-    y = args[0].y;
-  } else if (args.length === 2) {
+    if (args[0].length >= 2) {
+      // Array
+      x = args[0][0];
+      y = args[0][1];
+    } else {
+      // Object
+      x = args[0].x;
+      y = args[0].y;
+    }
+  } else if (args.length >= 2) {
+    // Multiple arguments
     x = args[0];
     y = args[1];
   } else {
@@ -195,6 +203,33 @@ function point(...args) {
   // TODO: Eventually add rotation and scale etc.
 
   plot(x, y);
+}
+
+// Run a callback function to shade, then plot an array of pixel coordinates.
+// This runs within `pline` and `pixelPerfectPolyline`.
+function shadePixels(points, shader, shaderArgs = []) {
+  points.forEach((p) => {
+    // TODO: - [] Send current pixel under p? This can be used for cool position
+    //            reading color effects. 23.01.05.01.23
+
+    shader.position(p); // Compute position.
+
+    p.x = floor(p.x); // Floor position and check bounds.
+    p.y = floor(p.y);
+    if (p.x < 0) return;
+    if (p.x >= width) return;
+    if (p.y < 0) return;
+    if (p.y >= height) return;
+    const n = p.y * width + p.x;
+
+    if (writeBuffer[n] === 0) {
+      writeBuffer[n] = 1; // Remember this point in the frame's writeBuffer.
+      // 🪄 Pixel Shader
+      const i = floor((p.x + p.y * width) * 4); // Get current pixel under p.
+      const pixel = pixels.subarray(i, i + 4);
+      shader.color({ x: p.x, y: p.y }, pixel, c); // Modify color.
+    }
+  }); // Paint each filtered pixel.
 }
 
 // TODO: Implement panTranslation for primitives other than line?
@@ -433,7 +468,7 @@ function line() {
 //        set of 3 before it removes anything.
 // Draws a regular `line` if only two pixels are provided.
 // Transcribed from: https://rickyhan.com/jekyll/update/2018/11/22/pixel-art-algorithm-pixel-perfect.html
-function pixelPerfectPolyline(points) {
+function pixelPerfectPolyline(points, shader) {
   if (points.length < 2) return; // Require 2 or more points.
 
   const pixels = [];
@@ -467,7 +502,11 @@ function pixelPerfectPolyline(points) {
     c += 1;
   }
 
-  filtered.forEach((pixel) => point(pixel)); // Paint each filtered pixel.
+  if (shader) {
+    shadePixels(filtered, shader);
+  } else {
+    filtered.forEach((p) => point(p));
+  }
 }
 
 // Draws a line from a point at a distance... with an angle in degrees.
@@ -591,20 +630,21 @@ function poly(coords) {
   });
 }
 
-// Rasterize an Npx thick line with rounded end-caps.
-/*
+// Rasterize an Npx thick poly line with rounded end-caps.
+/* TODO
+ + Later
+ - [] Perhaps if thickness === 1 then this can be combined with
+     `pixelPerfectPolyline` ?
  - [] Render a third triangle from mid point to last point to next quad
       point?
  - [] Rounded half-circle endcaps.
  - [] Filled circle if coords.length === 1.
- - [] Optimize performance.
-   - [] Run the profiler.
- + Later
  - [] Texture / special FX.
  + Done
  - [x] Triangle rasterization of segment.
+ - [x] Optimize performance.
+   - [x] Run the profiler.
 */
-
 function pline(coords, thickness, shader) {
   // 1️⃣ Generate geometry.
   if (coords.length < 2) return; // Require at least two coordinates.
@@ -613,12 +653,11 @@ function pline(coords, thickness, shader) {
     lines = [],
     tris = [];
 
-  // Draw from front to back.
+  // 🎴 Draw everything from front to back!
 
   let last = coords[coords.length - 1]; // Keep the last drawn element.
 
-  let lpar; // Store last parallel points / prepopulate if supplied.
-  let ldir;
+  let lpar, ldir; // Store last parallel points / prepopulate if supplied.
 
   for (let i = coords.length - 2; i >= 0; i -= 1) {
     const cur = coords[i];
@@ -686,23 +725,13 @@ function pline(coords, thickness, shader) {
 
     // Paint each triangle.
     if (cur.color) color(...cur.color);
-    tris.forEach((p) => {
-      if (p.x < 0) return;
-      if (p.x >= width) return;
-      if (p.y < 0) return;
-      if (p.y >= height) return;
-      const n = p.y * width + p.x;
 
-      if (writeBuffer[n] === 0) {
-        writeBuffer[n] = 1; // Remember this point in a writeBuffer.
+    if (shader) {
+      shadePixels(tris, shader, [cur.color]);
+    } else {
+      tris.forEach((p) => point(p));
+    }
 
-        // 🪄 Pixel Shader
-        if (shader) shader(p, c, cur.color); // Send x, y color & base.
-        //                                      Shader can edit color or p.
-
-        point(p); // Render a point.
-      }
-    });
     tris.length = 0;
 
     last = cur; // Update the last point.

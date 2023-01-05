@@ -329,9 +329,10 @@ export function pointFrom(x, y, angle, dist) {
   return [x + dist * cos(radians(angle)), y + dist * sin(radians(angle))];
 }
 
-// Follows a point.
+// Follows a point over time.
 // TODO: Also keep track of a target rotation?
-
+// Usage:
+// const race = new Race();
 export class Race {
   pos;
   step;
@@ -347,6 +348,15 @@ export class Race {
     this.speed = opts.speed || 20;
     this.step = opts.step || 0.005;
     if (opts.quantized) this.quantizer = new Quantizer({ step: this.step });
+  }
+
+  // Should also reset.
+  start(point) {
+    this.quantizer?.start(point);
+    this.pos = vec4.clone(point);
+    this.goal = vec4.clone(point);
+    this.last = vec4.clone(point);
+    this.dist = 0;
   }
 
   to(point) {
@@ -389,13 +399,6 @@ export class Race {
     }
 
     return out;
-  }
-
-  // Should also reset.
-  start(point) {
-    this.quantizer?.start(point);
-    this.pos = vec4.clone(point);
-    this.last = vec4.clone(point);
   }
 }
 
