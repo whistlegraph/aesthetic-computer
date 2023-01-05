@@ -5,7 +5,7 @@
   + ⏰ Now
   - [📗] Pan (space bar or two finger drag)
   - [] Zoom (shift or two finger pinch changes relative thickness)
-    - [] Implement 1zoomFromPoint(n)` with positive or negative n.
+    - [] Implement zoomFromPoint(n)` with positive or negative n.
       - [] Changes relative thickness.
     - [] Add input events that trigger it.
       - [] What about two keyboard shortcuts also? 
@@ -30,6 +30,8 @@
       - But this would make sense to add in `line`.
     - [] Add "stroke" curve / spline to smooth the input data.
     - [] Store data in user account if someone is logged in.
+    - [] Rename `wgr` -> `whistlegraph` and remap `wg` to "learn whistlegraph",
+         or something like that.
   - 🛑 Launch 1
   + Done
     - [x] Abstract pixel shaders into 'position' and 'color' shaders. 
