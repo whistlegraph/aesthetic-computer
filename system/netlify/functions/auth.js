@@ -11,7 +11,8 @@ import {
 
 async function fun (event) {
 
-  // *** Email Passwordless Authentication Link ***
+  // *** Passwordless Authentication ***
+  // Send an email to the user.
   if (event.httpMethod === "POST" && event.path === "/auth") {
     try {
       const body = JSON.parse(event.body);
@@ -31,6 +32,7 @@ async function fun (event) {
   }
 
   // *** Logging In *** 
+  // Via query string parameter from emailed link above.
   if (event.httpMethod === "GET" && event.path === "/auth") {
     try {
       const recoveryToken = event.queryStringParameters.recovery_token;
@@ -48,4 +50,4 @@ async function fun (event) {
   }
 }
 
-exports.handler = fun;
+export const handler = fun;
