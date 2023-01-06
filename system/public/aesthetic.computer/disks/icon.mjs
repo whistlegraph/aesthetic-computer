@@ -1,18 +1,23 @@
 // Icon, 22.12.19.07.28
-// Add icons to an image, with graphics by Molly Soda.
+// Add vector glyph icons to an image, with graphics by Molly Soda.
 
 /* #region 🏁 todo
- - [-] Two finger placement for rotation and scale.
-- [] How can Amalia login...
-  - [] Make plots and associate them with letters or dump them.
-  - [] Browse, delete, and tag or rename them.
-- [-] Load in glyphs.
-- [-] Add drawing support. 
-- [] Add keyboard key support.
-- [] Add Amalia's actual test files and hook up to keys.
-- [] Randomize color?
-- [] Set up plots bucket on digital ocean?
+- [-] Two finger placement for rotation and scale.
+  - [] Re-loop / restart to stay in the flow?
+- [] Make a little freehand drawing editor called `freeplot` or `graph`.
+     (Plot is not good enough for these doodles.)
+- [] Add command line parameters to specify glyphs...
+  - [] `icon @mollysoda glyph-name`
++ Later
+  - [] How can Amalia login...
+    - [] Make plots and associate them with letters or dump them.
+      - [] Set up plots bucket on digital ocean?
+    - [] Browse, delete, and tag or rename them.
 + Done
+  - [x] Randomize color.
+  - [x] Add Amalia's actual test files.
+  - [x] Load in glyphs.
+  - [x] Add drawing support. 
   - [x] First tap is zooming in and out with an icon.
   - [x] Second is an adjustment loop.
   - [x] Rename sparkles directories to icon.
