@@ -664,9 +664,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // 🔥 Optionally use workers or not.
   // Always use workers if they are supported, except for
   // when we are in VR (MetaBrowser).
-
-  // const workersEnabled = true;
-  const workersEnabled = false;
+  const workersEnabled = true;
 
   //if (workersEnabled) {
   if (!MetaBrowser && workersEnabled) {
@@ -698,6 +696,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (debug && worker.postMessage) console.log("🟢 Worker");
 
     send = (e, shared) => worker.postMessage(e, shared);
+
     worker.onmessage = onMessage;
   } else {
     // B. No Worker Mode
@@ -779,6 +778,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Transferrable objects
     const transferrableObjects = [screen.pixels.buffer];
+    //const transferrableObjects = [];
 
     // TODO: Eventually make frequencyData transferrable?
     // if (frequencyData) {
@@ -2532,7 +2532,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               pixels: pixels.data,
             },
           },
-          [pixels.data]
+          [pixels.data.buffer]
         );
 
         animationRequest = requestAnimationFrame(process);

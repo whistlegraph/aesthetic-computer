@@ -114,7 +114,7 @@
         "Activity"
         {
         - [] Title Screen
-          - [] Loose layout for (Instruction, Camera, Icon, Sparkle, Pull, Text, Save)
+          - [] Loose layout for (Instruction, Icon, Sparkle, Pull, Text, Save)
         - [] Camera 
         - [] Icon (preset palettes with preset graphics, similar to text changing words)
           - [] Rename sparkle to icon.
