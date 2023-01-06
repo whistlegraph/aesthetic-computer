@@ -1958,16 +1958,6 @@ async function makeFrame({ data: { type, content } }) {
           ) {
             // Load prompt if the backtic is pressed.
             $api.load(parse("prompt"));
-            /*
-            $api.load({
-              host: location.hostname,
-              path: "aesthetic.computer/disks/prompt",
-              params: [],
-              search: "",
-              hash: "",
-              text: "/",
-            });
-            */
           }
 
           // [Ctrl + X]
@@ -2230,9 +2220,7 @@ async function makeFrame({ data: { type, content } }) {
 
       if (sendData.pixels?.byteLength === 0) sendData.pixels = undefined;
 
-      maybeLeave(); // Run the piece's "leave" function which will trigger
-                    // a new load before sending off the final frame.
-
+      maybeLeave();
       send({ type: "render", content: sendData }, [sendData.pixels]);
 
       // Flush the `signals` after sending.
@@ -2240,10 +2228,10 @@ async function makeFrame({ data: { type, content } }) {
       if (cursorCode) cursorCode = undefined;
     } else {
       // Send update (sim).
-      // TODO: How necessary is this - does any info ever need to actually
-      //       get sent?
-
       maybeLeave();
+
+      // TODO: How necessary is this - does any info ever need to actually
+      //       get sent? 23.01.06.16.02
       send(
         {
           type: "update",
@@ -2270,6 +2258,8 @@ async function makeFrame({ data: { type, content } }) {
 
 // 📚 Utilities
 
+// Run the piece's "leave" function which will trigger
+// a new load before sending off the final frame.
 function maybeLeave() {
   // 🚪 Leave (Skips act and sim and paint...)
   if (leaving) {

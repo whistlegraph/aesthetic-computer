@@ -2,10 +2,7 @@
 // Add icons to an image, with graphics by Molly Soda.
 
 /* #region 🏁 todo
- - First tap is zooming in and out with an icon.
- - Second is an adjustment loop.
-  - Optional two finger placement for rotation and scale.
-  - 
+ - [-] Two finger placement for rotation and scale.
 - [] How can Amalia login...
   - [] Make plots and associate them with letters or dump them.
   - [] Browse, delete, and tag or rename them.
@@ -16,7 +13,9 @@
 - [] Randomize color?
 - [] Set up plots bucket on digital ocean?
 + Done
-- [x] Rename sparkles directories to icon.
+  - [x] First tap is zooming in and out with an icon.
+  - [x] Second is an adjustment loop.
+  - [x] Rename sparkles directories to icon.
 #endregion */
 
 import { Typeface } from "../lib/type.mjs";
