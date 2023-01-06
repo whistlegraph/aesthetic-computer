@@ -1996,8 +1996,6 @@ async function makeFrame({ data: { type, content } }) {
       ) {
         const hasScreen = screen !== undefined;
 
-        console.log("HAS SCREEN:", hasScreen);
-
         screen = {
           pixels:
             pixels || new Uint8ClampedArray(content.width * content.height * 4),
