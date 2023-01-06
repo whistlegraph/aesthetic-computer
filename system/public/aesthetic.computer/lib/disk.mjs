@@ -10,7 +10,7 @@ import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket
 //import { UDP } from "./udp.mjs"; // TODO: Eventually expand to `net.Socket`
 import { notArray } from "./helpers.mjs";
 const { round } = Math;
-import { nopaint_adjust } from "../systems/nopaint.mjs";
+import { nopaint_boot, nopaint_act } from "../systems/nopaint.mjs";
 import { headers } from "./console-headers.mjs";
 
 export const noWorker = { onMessage: undefined, postMessage: undefined };
@@ -40,35 +40,20 @@ const defaults = {
 // Inheritable via `export const system = "nopaint"` from any piece.
 // Boilerplate for a distributed raster editor.
 const nopaint = {
-  boot: function boot({ paste, painting, store, screen, system: sys }) {
-    //if (!screen.load("painting")) wipe(64); // Load painting or wipe to gray.
-    nopaint_adjust(screen, sys, painting, store);
-    paste(sys.painting);
+  boot: function boot($) {
+    $.system.nopaint.boot($);
   },
-  act: function act({
-    event: e,
-    system: sys,
-    painting,
-    download,
-    paste,
-    num,
-    screen,
-    store,
-  }) {
-    if (e.is("keyboard:down:enter")) {
-      download(`painting-${num.timestamp()}.png`, sys.painting, {
-        scale: 6,
-        cropToScreen: true,
-      });
+  act: function act($) {
+    $.system.nopaint.act($);
+  },
+  leave: function leave({ store, system, page, screen }) {
+    // Why is screen empty here?
+    if (NPdontPaintOnLeave === false) {
+      page(system.painting).paste(screen);
+      painting.paint();
+      page(screen);
     }
 
-    if (e.is("reframed")) {
-      nopaint_adjust(screen, sys, painting, store);
-      paste(sys.painting);
-    }
-  },
-  leave: function leave({ store, system, page }) {
-    if (NPdontPaintOnLeave === false) page(system.painting).paste(screen);
     store["painting"] = system.painting;
     store.persist("painting", "local:db");
   },
@@ -80,6 +65,9 @@ let paint = defaults.paint;
 let beat = defaults.beat;
 let act = defaults.act;
 let leave = defaults.leave;
+
+let leaving = false;
+let leaveLoad; // A callback for loading the next disk after leaving.
 
 let currentPath,
   currentHost,
@@ -210,7 +198,9 @@ const $commonApi = {
     stop: () => send({ type: "bgm-stop" }),
     data: {},
   },
-  system: {},
+  system: {
+    nopaint: { boot: nopaint_boot, act: nopaint_act },
+  },
   connect: () => {
     const p = new Promise((resolve, reject) => {
       web3Response = { resolve, reject };
@@ -916,8 +906,7 @@ async function load(parsed, fromHistory = false, alias = false) {
       send({ type: "refresh" }); // Refresh the browser.
     } else if (piece === "*" || piece === undefined || currentText === piece) {
       console.log("💾️ Reloading piece...", piece);
-      // Reload the disk.
-      load(
+      $commonApi.load(
         {
           path: currentPath,
           host: currentHost,
@@ -1112,16 +1101,6 @@ async function load(parsed, fromHistory = false, alias = false) {
     send({ type: "preload-ready", content: true }); // Tell the browser that all preloading is done.
   };
 
-  // TODO: Add the rest of the $api to "leave" ... refactor API. 22.08.22.07.34
-  if (firstLoad === false) {
-    try {
-      leave({ ...painting.api, store, screen, system: $commonApi.system }); // Trigger leave.
-      painting.paint(true);
-    } catch (e) {
-      console.warn("👋 Leave failure...", e);
-    }
-  }
-
   // Artificially imposed loading by at least 1/4 sec.
   // Redefine the default event functions if they exist in the module.
   if (module.system?.startsWith("nopaint")) {
@@ -1169,7 +1148,15 @@ async function load(parsed, fromHistory = false, alias = false) {
   $commonApi.slug = slug;
   $commonApi.query = search;
   $commonApi.params = params || [];
-  $commonApi.load = load;
+
+  $commonApi.load = function () {
+    // Load a piece, wrapping it in a leave function so a final frame
+    // plays back.
+    leaving = true;
+    leaveLoad = () => {
+      load(...arguments);
+    };
+  };
 
   if (screen) screen.created = true; // Reset screen to created if it exists.
 
@@ -1663,13 +1650,15 @@ async function makeFrame({ data: { type, content } }) {
   // 2. Frame
   // This is where each...
   if (type === "frame") {
-    // Take hold of a previously transferred screen buffer.
+    // Take hold of a previously worker transferrable screen buffer
+    //  and re-assign it.
     let pixels;
     if (content.pixels) {
-      //console.log(screen, content.pixels)
       pixels = new Uint8ClampedArray(content.pixels);
       if (screen) screen.pixels = pixels;
     }
+
+    // TODO: Check to see if we have been marked to leave the disk.
 
     // Globalize any background music data, retrievable via bgm.data
     $commonApi.bgm.data = {
@@ -1990,7 +1979,7 @@ async function makeFrame({ data: { type, content } }) {
       });
     }
 
-    // 🖼 Render // Two sends (Move one send up eventually? -- 2021.11.27.17.20)
+    // 🖼 Paint & Render // Two sends (Move one send up eventually? -- 2021.11.27.17.20)
     if (content.needsRender) {
       const $api = {};
       Object.keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
@@ -2009,12 +1998,15 @@ async function makeFrame({ data: { type, content } }) {
       };
 
       // Make a screen buffer or resize it automatically if it doesn't exist.
+
       if (
         !screen ||
         screen.width !== content.width ||
         screen.height !== content.height
       ) {
         const hasScreen = screen !== undefined;
+
+        console.log("HAS SCREEN:", hasScreen);
 
         screen = {
           pixels:
@@ -2226,6 +2218,7 @@ async function makeFrame({ data: { type, content } }) {
           glazeAfterReframe = undefined;
         }
       }
+
       if (cursorCode) sendData.cursorCode = cursorCode;
 
       // Note: transferredPixels will be undefined when sendData === {}.
@@ -2237,6 +2230,9 @@ async function makeFrame({ data: { type, content } }) {
 
       if (sendData.pixels?.byteLength === 0) sendData.pixels = undefined;
 
+      maybeLeave(); // Run the piece's "leave" function which will trigger
+                    // a new load before sending off the final frame.
+
       send({ type: "render", content: sendData }, [sendData.pixels]);
 
       // Flush the `signals` after sending.
@@ -2246,6 +2242,8 @@ async function makeFrame({ data: { type, content } }) {
       // Send update (sim).
       // TODO: How necessary is this - does any info ever need to actually
       //       get sent?
+
+      maybeLeave();
       send(
         {
           type: "update",
@@ -2271,6 +2269,19 @@ async function makeFrame({ data: { type, content } }) {
 }
 
 // 📚 Utilities
+
+function maybeLeave() {
+  // 🚪 Leave (Skips act and sim and paint...)
+  if (leaving) {
+    try {
+      leave({ ...painting.api, store, screen, system: $commonApi.system }); // Trigger leave.
+    } catch (e) {
+      console.warn("👋 Leave failure...", e);
+    }
+    leaveLoad?.();
+    leaving = false;
+  }
+}
 
 // Default template string behavior: https://stackoverflow.com/a/64298689/8146077
 function defaultTemplateStringProcessor(strings, ...vars) {

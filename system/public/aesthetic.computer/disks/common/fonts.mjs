@@ -97,7 +97,7 @@ export const font1 = {
   "|": "symbols/vertical line - 2022.1.11.18.07.22",
 };
 
-export const sparkles = {
+export const icons = {
   a: "lowercase/A",
   e: "lowercase/E",
   i: "lowercase/I",
