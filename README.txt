@@ -37,6 +37,7 @@
 
 🐞 Annoying Bugs & Regressions
   + API
+  - [] Painting doesn't fully reset when resizing.
   - [] Research the use of "requestProvider.js.map" and work it into `index.js`.
   - [] Rename $api.upload to $api.open? or $api.importFile? 
   + In Production
@@ -60,11 +61,44 @@
   - [] ESLint...
   - [] Do research?
 
-*** ***
+*** Harrison Idea ***
+- NO command.
+  - no! - painting reset
+
+(Vector / Raster Foreground / Frame based Instrument)
++ Now
+  - [] RGB Black line tool (with thickness).
+  - [] RGBA Fill bucket.
+  - [] Frame is transparent.
+  - [] Safe zones.
++ Later
+  - [] Arrow keys to jump between states. 
+  - [] Hold to pause
+
+- Dolls - (Record Character)
+- Character 1 (Left)
+  - Blob
+- Character 2 (Right)
+  - Blob
+- Single background for both.
+- Third thing (Subject of dialogue).
+- Duration that fits the vibe. 
+- Vocal Effects?
+
+- [] Hole / fill tool  
+  Goop Bomber
+  - Random hole appears on the painting.
+  - Little creature comes out with mouth ma ma ma ma.
+  - Random bomb appears elsewhere on the canvas.
+  - Bomberman style fuse.
+  - Bomb makes a splatter.
+  - Creature reacts.
+  - Creature returns.
+
+*** (Sage Notes) Particle / GOL ***
  - [] Color rule correlation
   - [] Equation in red so when things collide the color gets red.
   - [] Dominant force.
-
   16 particles
     {x, y, z}
   each particle can emit a sound
