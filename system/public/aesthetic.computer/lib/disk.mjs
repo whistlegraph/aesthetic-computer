@@ -191,6 +191,7 @@ const $commonApi = {
   // Trigger background music.
   // Eventually add an "@" style parameter similar to what a stamp system would have.
   send,
+  history: [], // Populated when a disk loads and sets the former piece.
   bgm: {
     set: function (trackNumber) {
       send({ type: "bgm-change", content: { trackNumber } });
@@ -1130,11 +1131,12 @@ async function load(parsed, fromHistory = false, alias = false) {
     delete $commonApi.system.name; // No system in use.
   }
 
+  // ♻️ Reset global state for this piece.
   paintCount = 0n;
   simCount = 0n;
   booted = false;
   initialSim = true;
-  activeVideo = null; // reset activeVideo
+  activeVideo = null;
   bitmapPromises = {};
   noPaint = false;
   formsSent = {}; // Clear 3D list for GPU.
@@ -1143,6 +1145,16 @@ async function load(parsed, fromHistory = false, alias = false) {
   currentSearch = search;
   currentParams = params;
   currentHash = hash;
+
+  // Push last piece to a history list, skipping prompt and repeats.
+  if (
+    currentText &&
+    currentText !== "prompt" &&
+    currentText !== $commonApi.history[$commonApi.history.length - 1]
+  ) {
+    $commonApi.history.push(currentText);
+  }
+
   currentText = slug;
 
   $commonApi.slug = slug;

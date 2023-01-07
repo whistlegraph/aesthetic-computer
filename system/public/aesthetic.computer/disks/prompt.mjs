@@ -59,6 +59,7 @@ function boot($) {
     connect,
     bgm,
     needsPaint,
+    history,
   } = $;
 
   glaze({ on: true }); // TODO: Every glaze triggers `frame` in `disk`, this could be optimized. 2022.04.24.04.25
@@ -70,10 +71,9 @@ function boot($) {
     // 🍎 Process commands...
     async (text) => {
       if (text.startsWith("login")) {
-
         const email = text.split(" ")[1];
 
-        console.log('Email:', email); // TODO: Properly check email formatting.
+        console.log("Email:", email); // TODO: Properly check email formatting.
 
         // TODO: Add "login" to API flow.
         // TODO: User enters email address
@@ -92,8 +92,6 @@ function boot($) {
           }
         }
         */
-
-
       } else if (text === "dl" || text === "download") {
         if (store["painting"]) {
           download(`painting-${num.timestamp()}.png`, store["painting"], {
@@ -214,7 +212,7 @@ function sim($) {
 
 // 🎨 Paint (Runs once per display refresh rate)
 function paint($) {
-  const { screen, wipe, ink, paste, store, dark } = $;
+  const { screen, wipe, ink, history, paste, store, dark } = $;
 
   const pal = scheme[dark ? "dark" : "light"];
   if (input) input.pal = pal; // Update text input palette.
@@ -227,6 +225,31 @@ function paint($) {
   }
 
   const glyphsLoaded = input?.paint($); // Paint the text input.
+
+  // Paint last command if needed.
+  // TODO: This could be a much shorter call...
+
+  let historyTexts;
+
+  if (history.length === 0) {
+    historyTexts = ["aesthetic.computer"];
+  } else {
+    historyTexts = history.map((h) => h.replaceAll("~", " "));
+  }
+
+  historyTexts.reverse().forEach((t, i) => {
+    const ii = i + 1;
+    const yMargin = i === 0 ? 0 : 2;
+    ink(140, 90, 235, (80 / ii)).printLine(
+      t,
+      input?.typeface.glyphs,
+      6,
+      (screen.height - 6 * 3 * ii - 6) - yMargin,
+      6,
+      2,
+      0
+    );
+  });
 
   // Trigger a red or green screen flash with a timer.
   if (flashShow) ink(flashColor).box(0, 0, screen.width, screen.height);

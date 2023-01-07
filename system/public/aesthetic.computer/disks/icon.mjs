@@ -3,6 +3,7 @@
 
 /* #region 🏁 todo
 - [-] Two finger placement for rotation and scale.
+  - [] Use angle: `draw(drawing, x, y, scale = 1, angle = 0)`
   - [] Re-loop / restart to stay in the flow?
 - [] Make a little freehand drawing editor called `freeplot` or `graph`.
      (Plot is not good enough for these doodles.)
@@ -50,7 +51,8 @@ function paint({
   system,
   paste,
   pen,
-  num: { randIntRange, randInt },
+  num: { randIntArr },
+  help: { choose },
   ink,
 }) {
   if (pen?.drawing) {
@@ -60,25 +62,26 @@ function paint({
       glyphScale = 1 + abs(sin(0.05 * scaleTimer)) * 4;
       scaleTimer += 1;
       // glyphPos = { x: randInt(screen.width), y: randInt(screen.height) };
-      glyphPos = {x: pen.x, y: pen.y};
+      glyphPos = { x: pen.x, y: pen.y };
     }
 
-    ink(
-      randIntRange(200, 250),
-      randIntRange(200, 250),
-      randIntRange(200, 250),
-      150
-    ).printLine(
-      glyphs[glyphIndex],
-      typeface.glyphs,
-      // pen.x - (glyphSize * glyphScale) / 2,
-      // pen.y - (glyphSize * glyphScale) / 2,
-      glyphPos.x - (glyphSize * glyphScale) / 2,
-      glyphPos.y - (glyphSize * glyphScale) / 2,
-      6,
-      glyphScale,
-      0
+    const pos = {
+      x: glyphPos.x - (glyphSize * glyphScale) / 2,
+      y: glyphPos.y - (glyphSize * glyphScale) / 2,
+    };
+
+    const g = typeface.glyphs[glyphs[glyphIndex]];
+
+    // Shadow
+    ink(...randIntArr(16, 3), 20).draw(
+      g,
+      pos.x + choose(-2, 2, -1, 1),
+      pos.y + choose(-2, 2, -1, 1),
+      glyphScale
     );
+
+    // Icon
+    ink(...randIntArr(255, 3), 255).draw(g, pos.x, pos.y, glyphScale);
   }
 }
 
@@ -107,7 +110,7 @@ function act($) {
     if (mode === 0) {
       scaleTimer = 0;
       mode = 1;
-    } 
+    }
   }
 }
 
