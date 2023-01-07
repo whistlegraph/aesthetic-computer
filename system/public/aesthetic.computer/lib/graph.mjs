@@ -1101,6 +1101,7 @@ function printLine(
   scale = 1,
   xOffset = 0
 ) {
+  if (!text) return;
   [...text.toString()].forEach((char, i) => {
     draw(font[char], startX + width * scale * i + xOffset, startY, scale);
   });
