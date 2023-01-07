@@ -3,10 +3,12 @@
 
 /* #region 🏁 todo
   + ⏰ Now
-  - [📗] Pan (space bar or two finger drag)
+  - [] Make each line a different color.
+  - [] Make each line a different stroke option.
   - [] Zoom (shift or two finger pinch changes relative thickness)
-    - [] Implement zoomFromPoint(n)` with positive or negative n.
+    - [🟠] Implement zoomFromPoint(n)` with positive or negative n.
       - [] Changes relative thickness.
+    // TODO: How to improve zooming and also add rotating to the keyboard?
     - [] Add input events that trigger it.
       - [] What about two keyboard shortcuts also? 
       - [] Will trackpad zoom work? 
@@ -34,6 +36,7 @@
          or something like that.
   - 🛑 Launch 1
   + Done
+    - [x] Pan (space bar or two finger drag)
     - [x] Abstract pixel shaders into 'position' and 'color' shaders. 
     - [x] pppline should get shader support as well!
     - [x] pppline needs to be able to draw back to front.
@@ -53,36 +56,46 @@
 
 const { floor } = Math;
 
-let wg;
-
-// TODO: Create secondary stroke buffer which clears on resize?
+let wg, bg;
+let ALT = false;
+let SHIFT = false;
+const pan = { x: 0, y: 0 };
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot($) {
   const { num, help, wipe } = $;
   // $.glaze({on: true});
-  wipe(num.randIntArr(128, 3));
+  bg = num.randIntArr(128, 3);
+  wipe(bg);
   wg = new Whistlegraph($, help.choose(1, 2));
 }
 
 // 🎨 Paint (Executes every display frame)
 function paint($) {
+  if (ALT || SHIFT) $.wipe(bg);
   wg.paint($);
 }
 
 // ✒ Act (Runs once per user interaction)
-function act({ event: e }) {
-  if (e.is("touch:1")) wg.touch(e.x, e.y, e.pressure); // Primary 🤙
-  if (e.is("draw:1")) wg.draw(e.x, e.y, e.pressure);
+function act({ event: e, pen, num: { p2 } }) {
+  // ⌨️ Keyboard
+  if (e.is("keyboard:down:alt")) ALT = true; // Panning ➡️
+  if (e.is("keyboard:up:alt")) ALT = false;
+  if (ALT && e.delta) p2.inc(wg.pan, e.delta);
+
+  if (e.is("keyboard:down:shift")) SHIFT = true; // Zooming  🔭️
+  if (e.is("keyboard:up:shift")) SHIFT = false;
+
+  // TODO: How to improve zooming and also add rotating to the keyboard?
+  if (SHIFT && e.delta) p2.inc(wg.zoom, p2.mul(e.delta, {x: 0.001, y: 0.001}));
+
+  // 🖐️ Touch + Mouse 🖱️
+  if (e.is("touch:1")) wg.touch(e); // Primary 🤙
+  if (e.is("draw:1")) wg.draw(e);
   if (e.is("lift:1")) wg.lift();
 }
 
 /*
-// 🧮 Sim(ulate) (Runs once per logic frame (120fps locked)).
-function sim($api) {
-  // Crunch numbers outside of rendering here.
-}
-
 // 💗 Beat (Runs once per bpm, starting when the audio engine is activated.)
 function beat($api) {
   // Make sound here.
@@ -130,31 +143,44 @@ class Whistlegraph {
   currentColor;
   thickness;
 
+  pan = { x: 0, y: 0 };
+  zoom = { x: 1, y: 1 };
+
   constructor($, thickness = 2) {
     this.$ = $;
     this.baseColor = $.num.randIntArr(255, 3);
     this.thickness = thickness;
   }
 
-  touch(x, y, pressure) {
+  project(p) {
+    p = this.$.num.p2.mul(p, this.zoom); // Zoom
+    return this.$.num.p2.add(p, this.pan); // Pan
+  }
+
+  unproject(p) {
+    p = this.$.num.p2.sub(p, this.pan); // Unpan
+    return this.$.num.p2.div(p, this.zoom); // Unzoom
+  }
+
+  touch({ x, y, pressure }) {
     this.baseColor = this.$.num.randIntArr(255, 3);
     this.genColor();
+
     this.gestures.push(
       new Gesture(
         this.$,
-        { x, y, pressure, color: this.currentColor },
+        { ...this.unproject({ x, y }), pressure, color: this.currentColor },
         this.thickness
       )
     );
     this.gestureIndex = this.gestures.length - 1;
   }
 
-  draw(x, y, pressure) {
+  draw({ x, y, pressure }) {
     this.genColor();
     // this.baseColor = this.$.num.randIntArr(255, 3);
     this.gestures[this.gestureIndex].add({
-      x,
-      y,
+      ...this.unproject({ x, y }),
       pressure,
       color: this.currentColor,
     });
@@ -174,8 +200,7 @@ class Whistlegraph {
 
     const next = $.pen?.drawing
       ? {
-          x: $.pen.x,
-          y: $.pen.y,
+          ...this.unproject($.pen),
           pressure: $.pen.pressure,
           color: wg.currentColor,
         }
@@ -183,10 +208,16 @@ class Whistlegraph {
 
     for (let i = this.gestures.length - 1; i >= 0; i -= 1) {
       const g = this.gestures[i];
-      const color = i === this.gestureIndex ? [128, 0, 0] : [64, 64, 64];
-      $.ink(color);
-      const points =
-        next && this.gestureIndex === i ? [...g.points, next] : g.points;
+
+      // const color = i === this.gestureIndex ? [128, 0, 0] : [64, 64, 64];
+      $.ink(this.baseColor);
+
+      // Collect and view-transform all geometry for a given gesture.
+      const points = (
+        next && this.gestureIndex === i ? [...g.points, next] : g.points
+      ).map((p) => this.project(p)); // Transform every point.
+
+      // Render each gesture.
       if (g.thickness === 1)
         $.pppline(points, {
           position: (pos) => {

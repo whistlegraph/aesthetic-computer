@@ -60,6 +60,16 @@
   - [] ESLint...
   - [] Do research?
 
+*** ***
+ - [] Color rule correlation
+  - [] Equation in red so when things collide the color gets red.
+  - [] Dominant force.
+
+  16 particles
+    {x, y, z}
+  each particle can emit a sound
+  override a particle position
+
 *** Project Order ***
  - [😀] Passwordless login.
  - [📹] Make screen-based whistlegraph recorder tool that makes use of the album tracks.
@@ -163,6 +173,9 @@
  - [x] Add a database / hosted DB.
     - [x] Digital Ocean
     - [x] Redis
+
+*** lorecore ***
+  - [] ...
 
 *** "pose" - Hand-Tracked Body Pose Piece ***
   - [] Handtracked WebXR.
