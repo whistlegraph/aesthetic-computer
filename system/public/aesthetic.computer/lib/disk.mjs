@@ -244,6 +244,7 @@ const $commonApi = {
     map: num.map,
     Track: num.Track,
     timestamp: num.timestamp,
+    p2: num.p2,
     vec2: num.vec2,
     vec3: num.vec3,
     vec4: num.vec4,

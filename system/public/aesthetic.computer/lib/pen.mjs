@@ -184,12 +184,12 @@ export class Pen {
       pointer.untransformedPosition = { x: e.x, y: e.y };
       pointer.pressure = reportPressure(e);
 
-      const delta = {
-        x: pointer.x - pointer.px || 0,
-        y: pointer.y - pointer.py || 0,
-      };
+      // const delta = {
+      //   x: pointer.x - pointer.px || 0,
+      //   y: pointer.y - pointer.py || 0,
+      // };
 
-      pointer.delta = delta;
+      // pointer.delta = delta;
 
       if (pointer.drawing) {
         const penDragAmount = {
@@ -324,12 +324,11 @@ export class Pen {
   #event(name, pointer) {
     const pen = this;
 
-    // 💁
-    // Two separate deltas are calculated for pointers.
-    // One for internal use within each pointer (for using pens)
-    // And another for the `act` event system which gets consumed differently.
-
-    const delta = {
+    // 💁 Calculate pointer delta based on the pointer's lastEvent so it
+    //    can be cleared for each subsequent event.
+    //    This is different from px and py, which do not reset and keep
+    //    track of the last position.
+    pointer.delta = {
       x: pointer.x - pointer.lastEventX || 0,
       y: pointer.y - pointer.lastEventY || 0,
     };
@@ -347,15 +346,13 @@ export class Pen {
       y: pointer.y,
       px: pointer.px,
       py: pointer.py,
-      delta: delta,
+      delta: pointer.delta,
       pressure: pointer.pressure,
       drag: pointer.dragBox,
       penChanged: this.changedInPiece,
     });
 
     // Assign data to individual pointer.
-    //pointer.px = pointer.x;
-    //pointer.py = pointer.y;
     pointer.lastEventX = pointer.x;
     pointer.lastEventY = pointer.y;
   }

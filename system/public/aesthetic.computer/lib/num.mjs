@@ -10,6 +10,50 @@ export { vec2, vec3, vec4, mat3, mat4, quat };
 
 const { round, min, max, sqrt } = Math;
 
+// Utilities for modifying {x, y} points.
+export const p2 = {
+  // Mutably add P->in to P->out.
+  inc: function (pout, pin) {
+    pout.x += pin.x;
+    pout.y += pin.y;
+    return pout;
+  },
+  // Mutably scale P->out by P->in.
+  scl: function (pout, pin) {
+    pout.x *= pin.x;
+    pout.y *= pin.y;
+    return pout;
+  },
+  // Immutably add pA + pB.
+  add: function (pA, pB) {
+    return {
+      x: pA.x + pB.x,
+      y: pA.y + pB.y,
+    };
+  },
+  // Immutably sub pA - pB.
+  sub: function (pA, pB) {
+    return {
+      x: pA.x - pB.x,
+      y: pA.y - pB.y,
+    };
+  },
+  // Immutably multiply pA * pB.
+  mul: function (pA, pB) {
+    return {
+      x: pA.x * pB.x,
+      y: pA.y * pB.y,
+    };
+  },
+  // Immutably divide pA / pB.
+  div: function (pA, pB) {
+    return {
+      x: pA.x / pB.x,
+      y: pA.y / pB.y,
+    };
+  },
+};
+
 // Returns true if the number is even, and false otherwise.
 export function even(n) {
   return n % 2 === 0;
