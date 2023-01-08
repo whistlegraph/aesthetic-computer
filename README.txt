@@ -61,6 +61,14 @@
   - [] ESLint...
   - [] Do research?
 
+*** Sotce ***
+- [] Visit a url. 
+- [] Logging in.
+- [] Type in words and press enter.
+- [] Hit a done button to play back the words.
+- [] Get back resulting URL
+- [] Share that URL / Screen Record / Still Image
+
 *** Harrison Idea ***
 - NO command.
   - no! - painting reset

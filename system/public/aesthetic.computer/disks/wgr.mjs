@@ -3,8 +3,6 @@
 
 /* #region 🏁 todo
   + ⏰ Now
-  - [] Make each line a different color.
-  - [] Make each line a different stroke option.
   - [] Zoom (shift or two finger pinch changes relative thickness)
     - [🟠] Implement zoomFromPoint(n)` with positive or negative n.
       - [] Changes relative thickness.
@@ -12,6 +10,8 @@
     - [] Add input events that trigger it.
       - [] What about two keyboard shortcuts also? 
       - [] Will trackpad zoom work? 
+  - [] Make each line a different color.
+  - [] Make each line a different stroke option.
   - [] Add microphone input. 
   - [] Make the background cool and grainy / animated a bit.
   - [] Add audio and video recording. 
@@ -46,7 +46,10 @@
     - [x] Add two parallel points for each coordinate at a time,
           starting from the second.
     - [x] Show a live preview.
-    - [x] Add pixel-perfect single lines in a display list / abstracted graph.
+    - [x] Add pixel-perfect single lin- [] RGB Black line tool (with thickness).
+- [] RGBA Fill bucket.
+- [] Frame is transparent.
+- [] Safe zones.es in a display list / abstracted graph.
     - [x] Lines break / crash at the top of the screen...
   + Post-launch
     - [] Add button to switch inks.
@@ -70,69 +73,39 @@ function boot($) {
   wg = new Whistlegraph($, help.choose(1, 2));
 }
 
-// 🎨 Paint (Executes every display frame)
+// 🎨 Paint
 function paint($) {
   if (ALT || SHIFT) $.wipe(bg);
   wg.paint($);
+  // $.ink(255, 255, 0, 128).box(wg.anchor.x, wg.anchor.y, 8, "out*center");
+}
+
+// 🧮 Sim(ulate)
+function sim({ num: { mat3, p2 }, pen, screen }) {
+  if (pen) {
+    if (SHIFT) wg.zoom({ x: 1.001, y: 1.001 });
+    if (ALT) wg.anchor({x: pen.x, y: pen.y});
+  }
 }
 
 // ✒ Act (Runs once per user interaction)
 function act({ event: e, pen, num: { p2 } }) {
-  // ⌨️ Keyboard
   if (e.is("keyboard:down:alt")) ALT = true; // Panning ➡️
   if (e.is("keyboard:up:alt")) ALT = false;
-  if (ALT && e.delta) p2.inc(wg.pan, e.delta);
+  if (ALT && e.delta) wg.move(e.delta);
+  // if (SHIFT && e.device === "mouse") wg.anchor = { x: e.x, y: e.y };
 
   if (e.is("keyboard:down:shift")) SHIFT = true; // Zooming  🔭️
   if (e.is("keyboard:up:shift")) SHIFT = false;
 
-  // TODO: How to improve zooming and also add rotating to the keyboard?
-  if (SHIFT && e.delta) p2.inc(wg.zoom, p2.mul(e.delta, {x: 0.001, y: 0.001}));
-
-  // 🖐️ Touch + Mouse 🖱️
-  if (e.is("touch:1")) wg.touch(e); // Primary 🤙
+  if (e.is("touch:1")) wg.touch(e); // Drawing 🤙
   if (e.is("draw:1")) wg.draw(e);
   if (e.is("lift:1")) wg.lift();
 }
 
-/*
-// 💗 Beat (Runs once per bpm, starting when the audio engine is activated.)
-function beat($api) {
-  // Make sound here.
-}
-
-// 👋 Leave (Runs once before the piece is unloaded)
-function leave($api) {
-  // Pass data to the next piece here.
-}
-*/
-
-export { boot, paint, act };
+export { boot, paint, act, sim };
 
 // 📚 Library (Useful functions used throughout the piece)
-
-// Keeps track of gesture geometry which every `Whistlegraph` has a list of.
-class Gesture {
-  $; // API
-  points = []; // Each point contains `{x, y, pressure}` data.
-  thickness;
-
-  constructor($, point, thickness = 2) {
-    this.$ = $;
-    this.add(point);
-    this.thickness = thickness;
-  }
-
-  add(next) {
-    const last = this.points[this.points.length - 1] || next;
-    if (
-      this.points.length === 0 ||
-      this.$.num.dist(next.x, next.y, last.x, last.y) > this.thickness / 2
-    ) {
-      this.points.push(next);
-    }
-  }
-}
 
 // A composition of gestures.
 class Whistlegraph {
@@ -143,23 +116,86 @@ class Whistlegraph {
   currentColor;
   thickness;
 
+  matrix;
   pan = { x: 0, y: 0 };
-  zoom = { x: 1, y: 1 };
+
+  scale = { x: 1, y: 1 };
+  // scale = { x: 1.2, y: 1.2 };
+
+  anchorPoint = { x: 0, y: 0 };
+  oldAnchor = { x: 0, y: 0 };
+
+  lastScale = { x: 1, y: 1 };
 
   constructor($, thickness = 2) {
     this.$ = $;
     this.baseColor = $.num.randIntArr(255, 3);
     this.thickness = thickness;
+    this.matrix = $.num.mat3.create();
   }
 
+  // Pans around the view
+  move(p) {
+    this.$.num.p2.inc(this.pan, p);
+  }
+
+  anchor(p) {
+    const {
+      num: { vec2, mat3 },
+    } = this.$;
+
+    // const m = mat3.create();
+    // mat3.translate(m, m, [-this.oldAnchor.x, -this.anchorPoint.y]); // Pan
+    // mat3.scale(m, m, [1 / this.scale.x, 1 / this.scale.y]); // Scale
+    // const na = vec2.transformMat3(vec2.create(), [p.x, p.y], m);
+    // this.anchorPoint = {x: na[0], y: na[1]};
+
+    this.anchorPoint = {x: p.x, y: p.y};
+
+    //  this.pan = {
+    //   x: this.pan.x + (this.anchorPoint.x - this.oldAnchor.x),
+    //   y: this.pan.y + (this.anchorPoint.y - this.oldAnchor.y),
+    // };
+
+    this.oldAnchor = { x: this.anchorPoint.x, y: this.anchorPoint.y };
+  }
+
+  zoom(amt, p) {
+    this.lastScale = { x: this.scale.x, y: this.scale.y };
+    const newScale = this.$.num.p2.mul(this.scale, {
+      x: amt.x || amt,
+      y: amt.y || amt,
+    });
+
+    this.scale = newScale;
+  }
+
+  // -> Projects a whistlegraph point onto the screen. (local to global)
   project(p) {
-    p = this.$.num.p2.mul(p, this.zoom); // Zoom
-    return this.$.num.p2.add(p, this.pan); // Pan
+    const {
+      num: { vec2, mat3 },
+    } = this.$;
+    const m = mat3.create(); // Identity
+    mat3.translate(m, m, [this.anchorPoint.x, this.anchorPoint.y]); // Unanchor
+    mat3.scale(m, m, [this.scale.x, this.scale.y]); // Scale
+    mat3.translate(m, m, [-this.anchorPoint.x, -this.anchorPoint.y]); // Anchor
+    mat3.translate(m, m, [this.pan.x, this.pan.y]); // Pan
+    const tp = vec2.transformMat3(vec2.create(), [p.x, p.y], m);
+    return { x: tp[0], y: tp[1] };
   }
 
+  // <- Unprojects a screen location into whistlegraph view. (global to local)
   unproject(p) {
-    p = this.$.num.p2.sub(p, this.pan); // Unpan
-    return this.$.num.p2.div(p, this.zoom); // Unzoom
+    const {
+      num: { vec2, mat3 },
+    } = this.$;
+    const m = mat3.create(); // Identity
+    mat3.translate(m, m, [-this.pan.x, -this.pan.y]); // Pan
+    mat3.translate(m, m, [this.anchorPoint.x, this.anchorPoint.y]); // Unanchor
+    mat3.scale(m, m, [1 / this.scale.x, 1 / this.scale.y]); // Scale
+    mat3.translate(m, m, [-this.anchorPoint.x, -this.anchorPoint.y]); // Anchor
+    const tp = vec2.transformMat3(vec2.create(), [p.x, p.y], m);
+    return { x: tp[0], y: tp[1] };
   }
 
   touch({ x, y, pressure }) {
@@ -273,5 +309,28 @@ class Whistlegraph {
 
   genColor() {
     this.currentColor = this.baseColor.map((c) => this.$.wiggle(c, 0.2, 3));
+  }
+}
+
+// Keeps track of gesture geometry which every `Whistlegraph` has a list of.
+class Gesture {
+  $; // API
+  points = []; // Each point contains `{x, y, pressure}` data.
+  thickness;
+
+  constructor($, point, thickness = 2) {
+    this.$ = $;
+    this.add(point);
+    this.thickness = thickness;
+  }
+
+  add(next) {
+    const last = this.points[this.points.length - 1] || next;
+    if (
+      this.points.length === 0 ||
+      this.$.num.dist(next.x, next.y, last.x, last.y) > this.thickness / 2
+    ) {
+      this.points.push(next);
+    }
   }
 }
