@@ -22,6 +22,8 @@ class Pointer {
   px;
   py;
   delta;
+  #dpx;
+  #dpy;
   pressure;
   device;
   pointerId;
@@ -33,8 +35,19 @@ class Pointer {
   penDragStartPos;
   dragBox;
   // These are only used to calculate the liminal event delta.
-  lastEventX;
-  lastEventY;
+
+  // Helpers for computing delta. 
+  saveDelta() {
+    this.delta = {
+      x: this.x - this.#dpx,
+      y: this.y - this.#dpy,
+    };
+  }
+
+  saveDeltaP() {
+    this.#dpx = this.x;
+    this.#dpy = this.y;
+  }
 }
 
 export class Pen {
@@ -164,6 +177,7 @@ export class Pen {
         assign(pointer, point(e.x, e.y));
         pointer.px = pointer.x;
         pointer.py = pointer.y;
+        pointer.saveDeltaP();
         pointer.untransformedPosition = { x: e.x, y: e.y };
         pointer.pressure = reportPressure(e);
         pointer.button = e.button; // Should this be deprecated? 22.11.07.22.13
@@ -175,21 +189,12 @@ export class Pen {
         pen.pointers[e.pointerId] = pointer;
       }
 
-      // console.log("BXY:", e.x, e.y);
-
       assign(pointer, point(e.x, e.y));
-
-      // console.log("AXY:", pointer.x, pointer.y);
 
       pointer.untransformedPosition = { x: e.x, y: e.y };
       pointer.pressure = reportPressure(e);
 
-      // const delta = {
-      //   x: pointer.x - pointer.px || 0,
-      //   y: pointer.y - pointer.py || 0,
-      // };
-
-      // pointer.delta = delta;
+      pointer.saveDelta();
 
       if (pointer.drawing) {
         const penDragAmount = {
@@ -208,6 +213,8 @@ export class Pen {
       } else {
         pointerMoveEvent("move", pointer);
       }
+
+      pointer.saveDeltaP();
 
       // TODO: This could be renamed? 22.09.30.10.56
       pen.changedInPiece = true; //delta.x !== 0 || delta.y !== 0;
@@ -296,8 +303,10 @@ export class Pen {
   // TODO: Fix pointer delta issues.
   updatePastPositions() {
     for (const pointer in this.pointers) {
-      this.pointers[pointer].px = this.pointers[pointer].x;
-      this.pointers[pointer].py = this.pointers[pointer].y;
+      const p = this.pointers[pointer];
+      p.px = p.x;
+      p.py = p.y;
+      p.delta = { x: 0, y: 0 };
     }
   }
 
@@ -326,12 +335,9 @@ export class Pen {
 
     // 💁 Calculate pointer delta based on the pointer's lastEvent so it
     //    can be cleared for each subsequent event.
+
     //    This is different from px and py, which do not reset and keep
     //    track of the last position.
-    pointer.delta = {
-      x: pointer.x - pointer.lastEventX || 0,
-      y: pointer.y - pointer.lastEventY || 0,
-    };
 
     pen.events.push({
       name,
@@ -353,8 +359,6 @@ export class Pen {
     });
 
     // Assign data to individual pointer.
-    pointer.lastEventX = pointer.x;
-    pointer.lastEventY = pointer.y;
   }
 
   render(ctx, bouRect) {

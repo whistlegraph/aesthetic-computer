@@ -8,7 +8,15 @@ function nopaint_boot({ paste, screen, system, painting, store }) {
   paste(system.painting);
 }
 
-function nopaint_act({ event: e, download, screen, system, painting, store }) {
+function nopaint_act({
+  event: e,
+  download,
+  paste,
+  screen,
+  system,
+  painting,
+  store,
+}) {
   if (e.is("keyboard:down:enter")) {
     download(`painting-${num.timestamp()}.png`, system.painting, {
       scale: 6,

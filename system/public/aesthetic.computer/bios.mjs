@@ -937,11 +937,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (content.pieceCount === 0) {
         // Pen (also handles touch & pointer events)
         pen = new Pen((x, y) => {
-          // console.log("cr", canvasRect, "pw", projectedWidth, "sw", screen.width)
-          return {
+          const p =  {
             x: floor(((x - canvasRect.x) / projectedWidth) * screen.width),
             y: floor(((y - canvasRect.y) / projectedHeight) * screen.height),
           };
+          return p;
         });
 
         // ⌨️ Keyboard
