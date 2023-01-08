@@ -83,8 +83,8 @@ function paint($) {
 // 🧮 Sim(ulate)
 function sim({ num: { mat3, p2 }, pen, screen }) {
   if (pen) {
-    if (SHIFT) wg.zoom({ x: 1.001, y: 1.001 });
     if (ALT) wg.anchor({x: pen.x, y: pen.y});
+    if (SHIFT) wg.zoom({ x: 1.001, y: 1.001 });
   }
 }
 
@@ -115,16 +115,13 @@ class Whistlegraph {
   baseColor;
   currentColor;
   thickness;
-
   matrix;
-  pan = { x: 0, y: 0 };
 
+  pan = { x: 0, y: 0 };
   scale = { x: 1, y: 1 };
-  // scale = { x: 1.2, y: 1.2 };
 
   anchorPoint = { x: 0, y: 0 };
   oldAnchor = { x: 0, y: 0 };
-
   lastScale = { x: 1, y: 1 };
 
   constructor($, thickness = 2) {
@@ -134,30 +131,35 @@ class Whistlegraph {
     this.matrix = $.num.mat3.create();
   }
 
-  // Pans around the view
+  // Pans around the view by a screen-coordinate amount.
   move(p) {
-    this.$.num.p2.inc(this.pan, p);
+    const pp = this.$.num.p2.mul(p, { x: 1 / this.scale.x, y: 1 / this.scale.y });
+    this.$.num.p2.inc(this.pan, pp);
   }
 
   anchor(p) {
     const {
       num: { vec2, mat3 },
     } = this.$;
+    // const newScreenAnchor = {x: p.x, y: p.y};
+    // const newWorldAnchor = this.unproject(newScreenAnchor);
 
-    // const m = mat3.create();
-    // mat3.translate(m, m, [-this.oldAnchor.x, -this.anchorPoint.y]); // Pan
-    // mat3.scale(m, m, [1 / this.scale.x, 1 / this.scale.y]); // Scale
-    // const na = vec2.transformMat3(vec2.create(), [p.x, p.y], m);
-    // this.anchorPoint = {x: na[0], y: na[1]};
+    const newScreenAnchor = { x: p.x, y: p.y };
+    const newWorldAnchor = this.unproject(newScreenAnchor);
 
-    this.anchorPoint = {x: p.x, y: p.y};
+    const anchorDiff = {
+      x: this.anchorPoint.x - newWorldAnchor.x,
+      y: this.anchorPoint.y - newWorldAnchor.y,
+    };
 
-    //  this.pan = {
-    //   x: this.pan.x + (this.anchorPoint.x - this.oldAnchor.x),
-    //   y: this.pan.y + (this.anchorPoint.y - this.oldAnchor.y),
-    // };
+    // const sd = this.$.num.p2.mul(anchorDiff, { x: this.scale.x, y: this.scale.y });
 
-    this.oldAnchor = { x: this.anchorPoint.x, y: this.anchorPoint.y };
+    // this.pan = {
+    //     x: this.pan.x - sd.x,
+    //     y: this.pan.y - sd.y,
+    //  };
+
+    this.anchorPoint = newWorldAnchor;
   }
 
   zoom(amt, p) {
@@ -170,7 +172,7 @@ class Whistlegraph {
     this.scale = newScale;
   }
 
-  // -> Projects a whistlegraph point onto the screen. (local to global)
+  // -> Projects a whistlegraph point onto the screen. (world to screen)
   project(p) {
     const {
       num: { vec2, mat3 },
@@ -178,13 +180,14 @@ class Whistlegraph {
     const m = mat3.create(); // Identity
     mat3.translate(m, m, [this.anchorPoint.x, this.anchorPoint.y]); // Unanchor
     mat3.scale(m, m, [this.scale.x, this.scale.y]); // Scale
+    // TODO: Rotate
     mat3.translate(m, m, [-this.anchorPoint.x, -this.anchorPoint.y]); // Anchor
     mat3.translate(m, m, [this.pan.x, this.pan.y]); // Pan
     const tp = vec2.transformMat3(vec2.create(), [p.x, p.y], m);
     return { x: tp[0], y: tp[1] };
   }
 
-  // <- Unprojects a screen location into whistlegraph view. (global to local)
+  // <- Unprojects a screen location into whistlegraph view. (screen to world)
   unproject(p) {
     const {
       num: { vec2, mat3 },
@@ -193,6 +196,7 @@ class Whistlegraph {
     mat3.translate(m, m, [-this.pan.x, -this.pan.y]); // Pan
     mat3.translate(m, m, [this.anchorPoint.x, this.anchorPoint.y]); // Unanchor
     mat3.scale(m, m, [1 / this.scale.x, 1 / this.scale.y]); // Scale
+    // TODO: Rotate
     mat3.translate(m, m, [-this.anchorPoint.x, -this.anchorPoint.y]); // Anchor
     const tp = vec2.transformMat3(vec2.create(), [p.x, p.y], m);
     return { x: tp[0], y: tp[1] };
