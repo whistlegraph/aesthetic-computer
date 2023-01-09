@@ -3,13 +3,9 @@
 
 /* #region 🏁 todo
   + ⏰ Now
-  - [] Zoom (shift or two finger pinch changes relative thickness)
-    - [🟠] Implement zoomFromPoint(n)` with positive or negative n.
-      - [] Changes relative thickness.
-    // TODO: How to improve zooming and also add rotating to the keyboard?
-    - [] Add input events that trigger it.
-      - [] What about two keyboard shortcuts also? 
-      - [] Will trackpad zoom work? 
+  - [🧡] Zoom should change relative thickness.
+  - [] Add background colors to line / return a bounding box from a print?
+    - [] Draw background colors under each letter.
   - [] Make each line a different color.
   - [] Make each line a different stroke option.
   - [] Add microphone input. 
@@ -36,6 +32,11 @@
          or something like that.
   - 🛑 Launch 1
   + Done
+    - [x] How to improve zooming and also add rotating to the keyboard?
+    - [x] Add input events that trigger it.
+      - [x] What about two keyboard shortcuts also? 
+    - [x] Rotation
+    - [x] Implement zoomFromPoint(n)` with positive or negative n.
     - [x] Pan (space bar or two finger drag)
     - [x] Abstract pixel shaders into 'position' and 'color' shaders. 
     - [x] pppline should get shader support as well!
@@ -57,34 +58,70 @@
       - [] Rounded end-caps in pline? // Merge pline and pppline?
 #endregion */
 
+import { Typeface } from "../lib/type.mjs";
+
 const { floor } = Math;
 
-let wg, bg;
-let ALT = false;
-let SHIFT = false;
-const pan = { x: 0, y: 0 };
+let wg, bg; // Whistlegraph foreground and background.
+let tf; // Typeface for text overlay.
+let ALT = false, // Keyboard modifiers.
+  SHIFT = false,
+  Q = false,
+  E = false,
+  CTRL = false;
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot($) {
-  const { num, help, wipe } = $;
-  // $.glaze({on: true});
-  bg = num.randIntArr(128, 3);
-  wipe(bg);
-  wg = new Whistlegraph($, help.choose(1, 2));
+  const { num, help, wipe, net } = $;
+  $.glaze({ on: true }); // Add post-processing by @mxsage.
+  bg = num.randIntArr(128, 3); // Random background color.
+  wg = new Whistlegraph($, help.choose(1, 2)); // Whistlegraph with thickness.
+  tf = new Typeface(net.preload); // Load `font-1`...
+  wipe(bg); // Clear backbuffer.
 }
 
 // 🎨 Paint
 function paint($) {
-  if (ALT || SHIFT) $.wipe(bg);
+  if (ALT || SHIFT || CTRL || Q || E) $.wipe(bg);
+
   wg.paint($);
   // $.ink(255, 255, 0, 128).box(wg.anchor.x, wg.anchor.y, 8, "out*center");
+
+  // 🐛 Debug values.
+  // $.wipe(bg);
+  $.ink(140, 90, 235, 250);
+  // Measure some printable parameters.
+  [
+    ["penx", $.pen?.x],
+    ["peny", $.pen?.y],
+    ["panx", wg.pan.x],
+    ["pany", wg.pan.y],
+    ["ancx", wg.anchorPoint.x],
+    ["ancy", wg.anchorPoint.y],
+    ["sclx", wg.scale.x],
+    ["scly", wg.scale.y],
+    [" rot", wg.rotation],
+  ]
+    .map((v) => {
+      v[1] = Number(v[1].toFixed(2));
+      return v;
+    })
+    .forEach((line, i) => tf.print($, i, `${line[0]}: ${line[1]}`));
 }
 
 // 🧮 Sim(ulate)
 function sim({ num: { mat3, p2 }, pen, screen }) {
   if (pen) {
-    if (ALT) wg.anchor({x: pen.x, y: pen.y});
-    if (SHIFT) wg.zoom({ x: 1.001, y: 1.001 });
+    if (SHIFT || CTRL) {
+      const zoom = CTRL ? 0.999 : 1.001;
+      wg.anchor(pen);
+      wg.zoom({ x: zoom, y: zoom });
+    }
+  }
+
+  if (Q || E) {
+    wg.anchor(pen);
+    wg.rotate(Q ? -0.01 : 0.01); // Rotate left or right.
   }
 }
 
@@ -92,11 +129,19 @@ function sim({ num: { mat3, p2 }, pen, screen }) {
 function act({ event: e, pen, num: { p2 } }) {
   if (e.is("keyboard:down:alt")) ALT = true; // Panning ➡️
   if (e.is("keyboard:up:alt")) ALT = false;
+
   if (ALT && e.delta) wg.move(e.delta);
   // if (SHIFT && e.device === "mouse") wg.anchor = { x: e.x, y: e.y };
 
-  if (e.is("keyboard:down:shift")) SHIFT = true; // Zooming  🔭️
+  if (e.is("keyboard:down:q")) Q = true; // Rotating left... ↩️
+  if (e.is("keyboard:up:q")) Q = false;
+  if (e.is("keyboard:down:e")) E = true; // and right.
+  if (e.is("keyboard:up:e")) E = false;
+
+  if (e.is("keyboard:down:shift")) SHIFT = true; // Zooming in... 🔭️
   if (e.is("keyboard:up:shift")) SHIFT = false;
+  if (e.is("keyboard:down:control")) CTRL = true; // and out.
+  if (e.is("keyboard:up:control")) CTRL = false;
 
   if (e.is("touch:1")) wg.touch(e); // Drawing 🤙
   if (e.is("draw:1")) wg.draw(e);
@@ -123,6 +168,7 @@ class Whistlegraph {
   anchorPoint = { x: 0, y: 0 };
   oldAnchor = { x: 0, y: 0 };
   lastScale = { x: 1, y: 1 };
+  rotation = 0;
 
   constructor($, thickness = 2) {
     this.$ = $;
@@ -132,34 +178,35 @@ class Whistlegraph {
   }
 
   // Pans around the view by a screen-coordinate amount.
+  // TODO: - [] I could shorten these transformations by using a matrix. 23.01.09.04.01
+  //            (Or by converting to worldPos first?)
   move(p) {
-    const pp = this.$.num.p2.mul(p, { x: 1 / this.scale.x, y: 1 / this.scale.y });
-    this.$.num.p2.inc(this.pan, pp);
+    const rp = {
+      x: p.x * Math.cos(-this.rotation) - p.y * Math.sin(-this.rotation),
+      y: p.x * Math.sin(-this.rotation) + p.y * Math.cos(-this.rotation),
+    };
+
+    const sp = this.$.num.p2.mul(rp, {
+      x: 1 / this.scale.x,
+      y: 1 / this.scale.y,
+    });
+
+    this.$.num.p2.inc(this.pan, sp);
+  }
+
+  rotate(angle) {
+    this.rotation += angle;
   }
 
   anchor(p) {
-    const {
-      num: { vec2, mat3 },
-    } = this.$;
-    // const newScreenAnchor = {x: p.x, y: p.y};
-    // const newWorldAnchor = this.unproject(newScreenAnchor);
-
     const newScreenAnchor = { x: p.x, y: p.y };
-    const newWorldAnchor = this.unproject(newScreenAnchor);
-
+    // Get difference between old and new screen anchor.
     const anchorDiff = {
-      x: this.anchorPoint.x - newWorldAnchor.x,
-      y: this.anchorPoint.y - newWorldAnchor.y,
+      x: floor(this.anchorPoint.x - newScreenAnchor.x),
+      y: floor(this.anchorPoint.y - newScreenAnchor.y),
     };
-
-    // const sd = this.$.num.p2.mul(anchorDiff, { x: this.scale.x, y: this.scale.y });
-
-    // this.pan = {
-    //     x: this.pan.x - sd.x,
-    //     y: this.pan.y - sd.y,
-    //  };
-
-    this.anchorPoint = newWorldAnchor;
+    this.move(anchorDiff); // Pan it while taking account rotation and scale.
+    this.anchorPoint = newScreenAnchor; // Update anchorPoint.
   }
 
   zoom(amt, p) {
@@ -180,8 +227,7 @@ class Whistlegraph {
     const m = mat3.create(); // Identity
     mat3.translate(m, m, [this.anchorPoint.x, this.anchorPoint.y]); // Unanchor
     mat3.scale(m, m, [this.scale.x, this.scale.y]); // Scale
-    // TODO: Rotate
-    mat3.translate(m, m, [-this.anchorPoint.x, -this.anchorPoint.y]); // Anchor
+    mat3.rotate(m, m, this.rotation); // Rotate
     mat3.translate(m, m, [this.pan.x, this.pan.y]); // Pan
     const tp = vec2.transformMat3(vec2.create(), [p.x, p.y], m);
     return { x: tp[0], y: tp[1] };
@@ -194,7 +240,7 @@ class Whistlegraph {
     } = this.$;
     const m = mat3.create(); // Identity
     mat3.translate(m, m, [-this.pan.x, -this.pan.y]); // Pan
-    mat3.translate(m, m, [this.anchorPoint.x, this.anchorPoint.y]); // Unanchor
+    mat3.rotate(m, m, -this.rotation); // Rotate
     mat3.scale(m, m, [1 / this.scale.x, 1 / this.scale.y]); // Scale
     // TODO: Rotate
     mat3.translate(m, m, [-this.anchorPoint.x, -this.anchorPoint.y]); // Anchor

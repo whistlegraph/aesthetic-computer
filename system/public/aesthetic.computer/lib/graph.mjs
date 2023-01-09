@@ -1097,13 +1097,13 @@ function printLine(
   font,
   startX,
   startY,
-  width = 6,
+  blockWidth = 6,
   scale = 1,
   xOffset = 0
 ) {
   if (!text) return;
   [...text.toString()].forEach((char, i) => {
-    draw(font[char], startX + width * scale * i + xOffset, startY, scale);
+    draw(font[char], startX + blockWidth * scale * i + xOffset, startY, scale);
   });
 }
 
