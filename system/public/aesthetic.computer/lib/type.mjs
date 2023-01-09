@@ -17,7 +17,7 @@ class Typeface {
   data;
   glyphs = {};
 
-  constructor($preload, data, name = "font-1") {
+  constructor($preload, data = font1, name = "font-1") {
     this.data = data;
     entries(data).forEach(([glyph, location]) => {
       $preload(
@@ -26,6 +26,17 @@ class Typeface {
         this.glyphs[glyph] = res;
       });
     });
+  }
+
+  print($, lineNumber, text) {
+    // TODO: Pass printLine params through / make a state machine.
+    const font = this.glyphs;
+    const blockHeight = 9;
+    const x = 0;
+    const y = lineNumber * blockHeight;
+    const blockWidth = 6;
+    const scale = 1;
+    $.printLine(text, font, x, y, blockWidth, scale);
   }
 }
 
@@ -160,8 +171,7 @@ class TextInput {
           const history = (await store.retrieve(key)) || [""];
           this.text = history[this.historyDepth];
           this.historyDepth -= 1;
-          if (this.historyDepth < 0)
-            this.historyDepth = history.length - 1;
+          if (this.historyDepth < 0) this.historyDepth = history.length - 1;
         }
       }
       this.blink?.flip(true);
