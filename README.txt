@@ -69,6 +69,22 @@
 - [] Get back resulting URL
 - [] Share that URL / Screen Record / Still Image
 
+*** Ingo ***
+- [] Jeffrey sets up VScode plugin!
+- [] `bst` (Bouncy Square Pattern World)
+  - [] Jeffrey will explore: Sketchmachine.net style auto-expanding blingee buffer.
+- [] *** Ingo + Harrison coder cohort micro projects. *** 
+  - [] Ingo learns API etc along with Harrison.
+- [] *** Dollmath ***
+  - [] Character creator software combined with character operation software.
+  - [] From premade assets with a protocol to remote control.
+    - [] "Dollmath" refers to a notational system for defining / understanding
+         the structure of each character given number of frames per each part.
+    - [] Useful for avatar type, useful for fun puppet / finger puppet videos...
+         VTuber style calling, etc.
+- [] Re: Avatars: "Dropped" or "Rare" or discoverable parts, similar to early Ultima Online PVP / permadeath.
+- [] *dolls* video recorder - larger project w/ harrison
+
 *** Harrison Idea ***
 - NO command.
   - no! - painting reset
@@ -113,11 +129,11 @@
   override a particle position
 
 *** Project Order ***
- - [😀] Passwordless login.
  - [📹] Make screen-based whistlegraph recorder tool that makes use of the album tracks.
   - [] Add it to the API and make a `wgr` disk. 
   - [] Set up doodads like file hosting and stamping on videos.
 - [] Make VSCode extension / back-seat document API (maya).
+ - [😀] Passwordless login.
 - [] Home Screen / Better Nav
   - [] Upon leaving the prompt, a tappable ghost of the active
        command (with generated params) appears in the top left corner.
