@@ -4,12 +4,10 @@
 /* #region 🏁 todo
   + ⏰ Now
   - [🧡] Zoom should change relative thickness.
-  - [] Add background colors to line / return a bounding box from a print?
-    - [] Draw background colors under each letter.
-  - [] Make each line a different color.
-  - [] Make each line a different stroke option.
+  - [] Get zoom working on iOS.
+  - [] Make each new gesture a different color.
+  - [] Make each new line a different stroke thickness.
   - [] Add microphone input. 
-  - [] Make the background cool and grainy / animated a bit.
   - [] Add audio and video recording. 
     - [] Record video
       - [] This will be done with `wgr seconds` in addition to a countdown timer.
@@ -21,7 +19,18 @@
     - [] Finish video saving UI.
       - [] Store to temporary online bucket and allow
            user to download / show code. 
+
+  - [] Make the background cool and grainy / animated a bit.
+  - [] (Post Wednesday) Whistlegraph Stamp
+    - [] Two SVGs layered over. 
+    - [] Wobbling
+    - [] Global video completed counter.
+    - [] Don't delete videos that get stored. 
+    - [] "pre-launch / early"  
   + Later
+    - [] Add background colors to log lines / return a bounding box from a print?
+      - [] Draw background colors under each letter.
+    - [] User accounts along with full data storage and client player.
     - [] Parameterize some ink / thickness options in the CLI.
     - [] Does there need to be a secondary buffer for the current stroke...
       - Not if the strokes stay fuzzy!
