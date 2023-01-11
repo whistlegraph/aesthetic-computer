@@ -55,84 +55,18 @@
 
 🌟 Projects In Progress (PIP) 🌟
 
-*** Dev ***
-- [] Switch from prettier to something else...
-  - [] Standard...
-  - [] ESLint...
-  - [] Do research?
-
-*** Sotce ***
-- [] Visit a url. 
-- [] Logging in.
-- [] Type in words and press enter.
-- [] Hit a done button to play back the words.
-- [] Get back resulting URL
-- [] Share that URL / Screen Record / Still Image
-
-*** Ingo ***
-- [] Jeffrey sets up VScode plugin!
-- [] `bst` (Bouncy Square Pattern World)
-  - [] Jeffrey will explore: Sketchmachine.net style auto-expanding blingee buffer.
-- [] *** Ingo + Harrison coder cohort micro projects. *** 
-  - [] Ingo learns API etc along with Harrison.
-- [] *** Dollmath ***
-  - [] Character creator software combined with character operation software.
-  - [] From premade assets with a protocol to remote control.
-    - [] "Dollmath" refers to a notational system for defining / understanding
-         the structure of each character given number of frames per each part.
-    - [] Useful for avatar type, useful for fun puppet / finger puppet videos...
-         VTuber style calling, etc.
-- [] Re: Avatars: "Dropped" or "Rare" or discoverable parts, similar to early Ultima Online PVP / permadeath.
-- [] *dolls* video recorder - larger project w/ harrison
-
-*** Harrison Idea ***
-- NO command.
-  - no! - painting reset
-
-(Vector / Raster Foreground / Frame based Instrument)
-+ Now
-  - [] RGB Black line tool (with thickness).
-  - [] RGBA Fill bucket.
-  - [] Frame is transparent.
-  - [] Safe zones.
-+ Later
-  - [] Arrow keys to jump between states. 
-  - [] Hold to pause
-
-- Dolls - (Record Character)
-- Character 1 (Left)
-  - Blob
-- Character 2 (Right)
-  - Blob
-- Single background for both.
-- Third thing (Subject of dialogue).
-- Duration that fits the vibe. 
-- Vocal Effects?
-
-- [] Hole / fill tool  
-  Goop Bomber
-  - Random hole appears on the painting.
-  - Little creature comes out with mouth ma ma ma ma.
-  - Random bomb appears elsewhere on the canvas.
-  - Bomberman style fuse.
-  - Bomb makes a splatter.
-  - Creature reacts.
-  - Creature returns.
-
-*** (Sage Notes) Particle / GOL ***
- - [] Color rule correlation
-  - [] Equation in red so when things collide the color gets red.
-  - [] Dominant force.
-  16 particles
-    {x, y, z}
-  each particle can emit a sound
-  override a particle position
+*** VS Code Extension ***
 
 *** Project Order ***
+- [] Make VSCode extension / back-seat document API (maya).
+  - [🟡] Modify disk load to accept new source code. 
+  + Done
+  - [x] Wire up extension to a backend route that pubs to a redis channel. 
+  - [x] Get icon made for extension (@ingo) 
+  - [x] Start work on VSCode extension. 
  - [📹] Make screen-based whistlegraph recorder tool that makes use of the album tracks.
   - [] Add it to the API and make a `wgr` disk. 
   - [] Set up doodads like file hosting and stamping on videos.
-- [] Make VSCode extension / back-seat document API (maya).
  - [😀] Passwordless login.
 - [] Home Screen / Better Nav
   - [] Upon leaving the prompt, a tappable ghost of the active
@@ -234,6 +168,80 @@
 
 *** lorecore ***
   - [] ...
+
+*** Dev ***
+- [] Switch from prettier to something else...
+  - [] Standard...
+  - [] ESLint...
+  - [] Do research?
+
+*** Sotce ***
+- [] Visit a url. 
+- [] Logging in.
+- [] Type in words and press enter.
+- [] Hit a done button to play back the words.
+- [] Get back resulting URL
+- [] Share that URL / Screen Record / Still Image
+
+*** Ingo ***
+- [] Jeffrey sets up VScode plugin!
+- [] `bst` (Bouncy Square Pattern World)
+  - [] Jeffrey will explore: Sketchmachine.net style auto-expanding blingee buffer.
+- [] *** Ingo + Harrison coder cohort micro projects. *** 
+  - [] Ingo learns API etc along with Harrison.
+- [] *** Dollmath ***
+  - [] Character creator software combined with character operation software.
+  - [] From premade assets with a protocol to remote control.
+    - [] "Dollmath" refers to a notational system for defining / understanding
+         the structure of each character given number of frames per each part.
+    - [] Useful for avatar type, useful for fun puppet / finger puppet videos...
+         VTuber style calling, etc.
+- [] Re: Avatars: "Dropped" or "Rare" or discoverable parts, similar to early Ultima Online PVP / permadeath.
+- [] *dolls* video recorder - larger project w/ harrison
+
+*** Harrison Idea ***
+- NO command.
+  - no! - painting reset
+
+(Vector / Raster Foreground / Frame based Instrument)
++ Now
+  - [] RGB Black line tool (with thickness).
+  - [] RGBA Fill bucket.
+  - [] Frame is transparent.
+  - [] Safe zones.
++ Later
+  - [] Arrow keys to jump between states. 
+  - [] Hold to pause
+
+- Dolls - (Record Character)
+- Character 1 (Left)
+  - Blob
+- Character 2 (Right)
+  - Blob
+- Single background for both.
+- Third thing (Subject of dialogue).
+- Duration that fits the vibe. 
+- Vocal Effects?
+
+- [] Hole / fill tool  
+  Goop Bomber
+  - Random hole appears on the painting.
+  - Little creature comes out with mouth ma ma ma ma.
+  - Random bomb appears elsewhere on the canvas.
+  - Bomberman style fuse.
+  - Bomb makes a splatter.
+  - Creature reacts.
+  - Creature returns.
+
+*** (Sage Notes) Particle / GOL ***
+ - [] Color rule correlation
+  - [] Equation in red so when things collide the color gets red.
+  - [] Dominant force.
+  16 particles
+    {x, y, z}
+  each particle can emit a sound
+  override a particle position
+
 
 *** "pose" - Hand-Tracked Body Pose Piece ***
   - [] Handtracked WebXR.

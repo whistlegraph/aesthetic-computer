@@ -1,0 +1,62 @@
+{
+  "name": "aesthetic-computer-code",
+  "displayName": "aesthetic.computer",
+  "author": "Jeffrey Alan Scudder",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.74.2"
+  },
+  "scripts": {
+    "reload": "npm run build; npm run install;",
+    "build": "vsce package",
+    "install:ext": "code --install-extension aesthetic-computer-code-1.0.0.vsix",
+    "publish": "vsce publish"
+  },
+  "description": "An extension for loading and running aesthetic.computer pieces in VS Code.",
+  "main": "./extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "aestheticComputer.runPiece",
+        "title": "Aesthetic Computer: Run Piece ➡️"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "piece",
+          "title": "Aesthetic Computer",
+          "icon": "resources/aesthetic-computer.svg"
+        }
+      ]
+    },
+    "views": {
+      "piece": [
+        {
+          "id": "piece",
+          "name": "Piece"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "piece",
+        "contents": "With any file open, push... \n[Run Piece ➡️](command:aestheticComputer.runPiece)"
+      }
+    ]
+  },
+  "license": "None",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/digitpain/aesthetic-computer.git"
+  },
+  "devDependencies": {
+    "@types/node-fetch": "^2.6.2",
+    "@types/vscode": "^1.74.0",
+    "vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  }
+}

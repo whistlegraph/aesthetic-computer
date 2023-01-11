@@ -845,6 +845,9 @@ let firstLoad = true;
 let firstPiece, firstParams, firstSearch;
 
 async function load(parsed, fromHistory = false, alias = false) {
+
+  // TODO: How to add parsed parameters here and load source code...
+
   let { path, host, search, params, hash, text: slug } = parsed;
 
   if (loading === false) {
@@ -902,10 +905,12 @@ async function load(parsed, fromHistory = false, alias = false) {
   $commonApi.debug = debug;
 
   // Add reload to the common api.
-  $commonApi.reload = ({ piece }) => {
+  $commonApi.reload = ({ piece, code }) => {
     if (piece === "*refresh*") {
       console.log("💥️ Restarting system...");
       send({ type: "refresh" }); // Refresh the browser.
+    } else if (piece === "code") {
+      $commonApi.load({...parse("code"), source: code}); // Load source code.
     } else if (piece === "*" || piece === undefined || currentText === piece) {
       console.log("💾️ Reloading piece...", piece);
       $commonApi.load(
@@ -929,6 +934,23 @@ async function load(parsed, fromHistory = false, alias = false) {
   // 🅱️ Load the piece.
   // TODO: What happens if source is undefined?
   // const moduleLoadTime = performance.now();
+
+  if (parsed.source) {
+    const blob = new Blob([parsed.source], { type: "application/javascript" });
+    const url = URL.createObjectURL(blob);
+    // Perhaps the disk files need to be cached in a CDN and then destroyed
+    // after a certain time?
+
+    // Or they need to be tied to a user account already...
+
+    // const module = importScripts(url);
+    // const m = await importScripts(url);
+    // debugger;
+
+    // use the imported module
+    //import { sayHello } from "./script.js";
+    //sayHello();
+  }
 
   const module = await import(fullUrl).catch((err) => {
     console.error(`😡 "${path}" load failure:`, err);

@@ -80,7 +80,11 @@
   status = 200
 [[redirects]]
   from = "/auth"
-  to = "/.netlify/functions/reload"
+  to = "/.netlify/functions/auth"
+  status = 200
+[[redirects]]
+  from = "/run"
+  to = "/.netlify/functions/run"
   status = 200
 [[redirects]]
   from = "/presigned-upload-url/*"

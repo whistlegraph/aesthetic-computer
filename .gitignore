@@ -2,6 +2,9 @@
 system/public/assets/*/
 !system/public/assets/*/readme.txt
 
+# built vscode extension packages
+vscode-extension/*.vsix
+
 # NPM
 node_modules/
 
