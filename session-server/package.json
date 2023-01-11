@@ -16,6 +16,7 @@
   "author": "Jeffrey Alan Scudder",
   "dependencies": {
     "chokidar": "^3.5.3",
+    "dotenv": "^16.0.3",
     "fastify": "^4.10.2",
     "ip": "^1.1.8",
     "jamsocket": "^0.4.5",

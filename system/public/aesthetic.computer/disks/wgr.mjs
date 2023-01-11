@@ -19,7 +19,6 @@
     - [] Finish video saving UI.
       - [] Store to temporary online bucket and allow
            user to download / show code. 
-
   - [] Make the background cool and grainy / animated a bit.
   - [] (Post Wednesday) Whistlegraph Stamp
     - [] Two SVGs layered over. 

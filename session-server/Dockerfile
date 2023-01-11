@@ -1,5 +1,6 @@
 FROM node:lts-gallium
 WORKDIR /app
+COPY .env .
 COPY session.mjs .
 COPY package.json .
 COPY package-lock.json .

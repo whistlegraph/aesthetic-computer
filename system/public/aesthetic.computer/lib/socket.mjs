@@ -99,11 +99,15 @@ export class Socket {
       }
       this.kill();
       reload(c);
-    } else {
-      if (type === "left")
-        console.log(
-          `📡 ${content.id} has left. Connections open: ${content.count}`
-        );
+    } else if (type === "code") {
+      // console.log(id, type, content);
+      if (id === "development") {
+        reload?.({ piece: "code", code: content });
+      }
+    } else if (type === "left") {
+      console.log(
+        `📡 ${content.id} has left. Connections open: ${content.count}`
+      );
       receive?.(id, type, content); // Finally send the message to the client.
     }
   }
