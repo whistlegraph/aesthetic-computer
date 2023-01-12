@@ -152,6 +152,10 @@ function act({ event: e, pen, num: { p2 }, help }) {
   if (e.is("keyboard:down:control")) CTRL = true; // and out.
   if (e.is("keyboard:up:control")) CTRL = false;
 
+  if (e.is("draw:2")) {
+    console.log(e.pens);
+  }
+
   if (e.is("touch:1")) {
     //wg.touch({ ...e, thickness: help.choose(1, 2, 4, 8, 16) }); // Drawing 🤙
     wg.touch({ ...e, thickness: help.choose(1) }); // Drawing 🤙
