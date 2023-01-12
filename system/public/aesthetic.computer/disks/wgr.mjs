@@ -72,6 +72,10 @@ import { Typeface } from "../lib/type.mjs";
 const { floor, max } = Math;
 
 let wg, bg; // Whistlegraph foreground and background.
+
+let debug = true;
+let debugMids = []; // Midpoints of multi-touch.
+
 let tf; // Typeface for text overlay.
 let ALT = false, // Keyboard modifiers.
   SHIFT = false,
@@ -91,12 +95,17 @@ function boot($) {
 
 // 🎨 Paint
 function paint($) {
-  if (ALT || SHIFT || CTRL || Q || E) $.wipe(bg);
+  if (ALT || SHIFT || CTRL || Q || E || $.pens?.().length > 1) $.wipe(bg);
 
   wg.paint($);
   // $.ink(255, 255, 0, 128).box(wg.anchor.x, wg.anchor.y, 8, "out*center");
 
-  // 🐛 Debug values.
+  // 🐛 Debug
+  if (!debug) return;
+  // Graphics
+  debugMids.forEach((m) => $.ink(255, 0, 0).box(m.x, m.y, 9, "fill*center"));
+
+  // Printed Values
   // $.wipe(bg);
   $.ink(140, 90, 235, 250);
   // Measure some printable parameters.
@@ -119,7 +128,7 @@ function paint($) {
 }
 
 // 🧮 Sim(ulate)
-function sim({ num: { mat3, p2 }, pen, screen }) {
+function sim({ num: { mat3, p2 }, pen, pens, screen }) {
   if (pen) {
     if (SHIFT || CTRL) {
       const zoom = CTRL ? 0.999 : 1.001;
@@ -128,19 +137,33 @@ function sim({ num: { mat3, p2 }, pen, screen }) {
     }
   }
 
+  if (pens) {
+    // console.log(pens(1), pens(2));
+  }
+
   if (Q || E) {
     wg.anchor(pen);
     wg.rotate(Q ? -0.01 : 0.01); // Rotate left or right.
   }
 }
 
+let graphing = false;
+let lastTwoTouch;
+
 // ✒ Act (Runs once per user interaction)
-function act({ event: e, pen, num: { p2 }, help }) {
+function act($) {
+  const {
+    event: e,
+    pen,
+    pens,
+    num: { p2 },
+    help,
+  } = $;
+  // Keyboard Navigation
+
   if (e.is("keyboard:down:alt")) ALT = true; // Panning ➡️
   if (e.is("keyboard:up:alt")) ALT = false;
-
   if (ALT && e.delta) wg.move(e.delta);
-  // if (SHIFT && e.device === "mouse") wg.anchor = { x: e.x, y: e.y };
 
   if (e.is("keyboard:down:q")) Q = true; // Rotating left... ↩️
   if (e.is("keyboard:up:q")) Q = false;
@@ -152,22 +175,58 @@ function act({ event: e, pen, num: { p2 }, help }) {
   if (e.is("keyboard:down:control")) CTRL = true; // and out.
   if (e.is("keyboard:up:control")) CTRL = false;
 
-  if (e.is("draw:2")) {
-    console.log(e.pens);
+  // Touch Navigation
+
+  if (e.is("touch:2")) {
+    graphing = false;
+    lastTwoTouch = twoTouch($);
+    // wg.anchor(p2.floor(lastTwoTouch.mid)); // Set anchor to center of twoTouch.
   }
 
+  if (pen?.multipen) {
+    const newTwoTouch = twoTouch($);
+
+    // TODO: Prevent anchor from sliding.
+
+    // wg.anchor(p2.floor(newTwoTouch.mid)); // Set anchor to center point of twoTouch.
+    wg.move(p2.sub(newTwoTouch.mid, lastTwoTouch.mid)); // Pan by delta of last tT.
+
+    if (debug) debugMids = [newTwoTouch.mid, lastTwoTouch.mid]; // Debug mid points.
+
+    // TODO: Get delta of two finger turn to calculate angle difference.
+    // TODO: Get distance difference to calculate zoom difference.
+
+    lastTwoTouch = newTwoTouch;
+  }
+
+  // Graphing
+
   if (e.is("touch:1")) {
+    graphing = true;
     //wg.touch({ ...e, thickness: help.choose(1, 2, 4, 8, 16) }); // Drawing 🤙
     wg.touch({ ...e, thickness: help.choose(1) }); // Drawing 🤙
   }
 
-  if (e.is("draw:1")) wg.draw(e);
-  if (e.is("lift:1")) wg.lift();
+  if (e.is("draw:1") && graphing) wg.draw(e);
+
+  if (e.is("lift:1") && graphing) {
+    graphing = false;
+    wg.lift();
+  }
 }
 
 export { boot, paint, act, sim };
 
 // 📚 Library (Useful functions used throughout the piece)
+function twoTouch({ pens, num: { p2 } }) {
+  const a = pens(1),
+    b = Object.keys(pens(2)).length > 0 ? pens(2) : pens(1);
+  return {
+    mid: p2.mid(a, b),
+    dist: p2.dist(a, b),
+    rot: p2.angle(a, b),
+  };
+}
 
 // A composition of gestures.
 class Whistlegraph {
@@ -302,15 +361,17 @@ class Whistlegraph {
     const {
       help: { choose },
       num: { clamp, lerp, randInt, rand },
+      pen,
     } = $;
 
-    const next = $.pen?.drawing
-      ? {
-          ...this.unproject($.pen),
-          pressure: $.pen.pressure,
-          color: wg.currentColor,
-        }
-      : undefined;
+    const next =
+      pen?.drawing && !pen.multipen
+        ? {
+            ...this.unproject(pen),
+            pressure: pen.pressure,
+            color: wg.currentColor,
+          }
+        : undefined;
 
     for (let i = this.gestures.length - 1; i >= 0; i -= 1) {
       const g = this.gestures[i];
