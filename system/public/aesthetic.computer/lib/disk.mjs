@@ -1740,8 +1740,9 @@ async function makeFrame({ data: { type, content } }) {
         //       allocation here because it keeps the whole API around?
         //       Re-test this when pointers is not empty! 22.11.12.20.02
         const pointers = content.pen.pointers;
+        const pointersKeys = Object.keys(content.pen.pointers);
 
-        if (content.pen.pointers.length > 0) {
+        if (pointersKeys.length > 0) {
           $commonApi.pens = function (n) {
             if (n === undefined) {
               return Object.values(pointers).reduce((arr, value) => {
@@ -1751,6 +1752,8 @@ async function makeFrame({ data: { type, content } }) {
             }
             return help.findKeyAndValue(pointers, "pointerIndex", n - 1) || {};
           };
+
+          if (pointersKeys.length > 1 && primaryPointer) primaryPointer.multipen = true; // Set a flag for multipen activity on main pen API object.
         }
 
         $commonApi.pen = primaryPointer; // || { x: undefined, y: undefined };
