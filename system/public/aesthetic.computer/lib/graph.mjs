@@ -227,7 +227,7 @@ function shadePixels(points, shader, shaderArgs = []) {
       // 🪄 Pixel Shader
       const i = floor((p.x + p.y * width) * 4); // Get current pixel under p.
       const pixel = pixels.subarray(i, i + 4);
-      shader.color({ x: p.x, y: p.y }, pixel, c); // Modify color.
+      shader.color({ x: p.x, y: p.y }, pixel, c, p.color); // Modify color.
     }
   }); // Paint each filtered pixel.
 }
@@ -474,11 +474,14 @@ function pixelPerfectPolyline(points, shader) {
   const pixels = [];
 
   let last = points[0];
+
   points.forEach((cur) => {
     // Compute bresen pixels, filtering out duplicates.
     // (Basically a poly bresenham function.)
     bresenham(last.x, last.y, cur.x, cur.y).forEach((p, i) => {
-      if (i > 0 || pixels.length < 2) pixels.push(p);
+      if (i > 0 || pixels.length < 2) {
+        pixels.push({ ...p, color: cur.color }); // Add color for each pixel.
+      }
     });
     last = cur;
   });

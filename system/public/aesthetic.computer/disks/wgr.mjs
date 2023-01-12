@@ -3,10 +3,7 @@
 
 /* #region 🏁 todo
   + ⏰ Now
-  - [🧡] Zoom should change relative thickness.
-  - [] Get zoom working on iOS.
-  - [] Make each new gesture a different color.
-  - [] Make each new line a different stroke thickness.
+  - [😇] Get zoom working on iOS.
   - [] Add microphone input. 
   - [] Add audio and video recording. 
     - [] Record video
@@ -40,6 +37,10 @@
          or something like that.
   - 🛑 Launch 1
   + Done
+    - [x] Add polychrome stroke support.
+    - [x] Make each new gesture a different color.
+    - [x] Make each new line a different stroke thickness.
+    - [x] Zoom should change relative thickness.
     - [x] How to improve zooming and also add rotating to the keyboard?
     - [x] Add input events that trigger it.
       - [x] What about two keyboard shortcuts also? 
@@ -68,7 +69,7 @@
 
 import { Typeface } from "../lib/type.mjs";
 
-const { floor } = Math;
+const { floor, max } = Math;
 
 let wg, bg; // Whistlegraph foreground and background.
 let tf; // Typeface for text overlay.
@@ -111,7 +112,7 @@ function paint($) {
     [" rot", wg.rotation],
   ]
     .map((v) => {
-      v[1] = Number(v[1].toFixed(2));
+      if (v[1]) v[1] = Number(v[1].toFixed(2));
       return v;
     })
     .forEach((line, i) => tf.print($, i, `${line[0]}: ${line[1]}`));
@@ -134,7 +135,7 @@ function sim({ num: { mat3, p2 }, pen, screen }) {
 }
 
 // ✒ Act (Runs once per user interaction)
-function act({ event: e, pen, num: { p2 } }) {
+function act({ event: e, pen, num: { p2 }, help }) {
   if (e.is("keyboard:down:alt")) ALT = true; // Panning ➡️
   if (e.is("keyboard:up:alt")) ALT = false;
 
@@ -151,7 +152,11 @@ function act({ event: e, pen, num: { p2 } }) {
   if (e.is("keyboard:down:control")) CTRL = true; // and out.
   if (e.is("keyboard:up:control")) CTRL = false;
 
-  if (e.is("touch:1")) wg.touch(e); // Drawing 🤙
+  if (e.is("touch:1")) {
+    //wg.touch({ ...e, thickness: help.choose(1, 2, 4, 8, 16) }); // Drawing 🤙
+    wg.touch({ ...e, thickness: help.choose(1) }); // Drawing 🤙
+  }
+
   if (e.is("draw:1")) wg.draw(e);
   if (e.is("lift:1")) wg.lift();
 }
@@ -228,6 +233,7 @@ class Whistlegraph {
   }
 
   // -> Projects a whistlegraph point onto the screen. (world to screen)
+  // Whistlegraph points / vertices contain data like: {x, y, pressure, color}
   project(p) {
     const {
       num: { vec2, mat3 },
@@ -238,7 +244,9 @@ class Whistlegraph {
     mat3.rotate(m, m, this.rotation); // Rotate
     mat3.translate(m, m, [this.pan.x, this.pan.y]); // Pan
     const tp = vec2.transformMat3(vec2.create(), [p.x, p.y], m);
-    return { x: tp[0], y: tp[1] };
+    p.x = tp[0];
+    p.y = tp[1];
+    return p;
   }
 
   // <- Unprojects a screen location into whistlegraph view. (screen to world)
@@ -250,13 +258,12 @@ class Whistlegraph {
     mat3.translate(m, m, [-this.pan.x, -this.pan.y]); // Pan
     mat3.rotate(m, m, -this.rotation); // Rotate
     mat3.scale(m, m, [1 / this.scale.x, 1 / this.scale.y]); // Scale
-    // TODO: Rotate
     mat3.translate(m, m, [-this.anchorPoint.x, -this.anchorPoint.y]); // Anchor
     const tp = vec2.transformMat3(vec2.create(), [p.x, p.y], m);
     return { x: tp[0], y: tp[1] };
   }
 
-  touch({ x, y, pressure }) {
+  touch({ x, y, pressure, thickness = this.thickness }) {
     this.baseColor = this.$.num.randIntArr(255, 3);
     this.genColor();
 
@@ -264,15 +271,16 @@ class Whistlegraph {
       new Gesture(
         this.$,
         { ...this.unproject({ x, y }), pressure, color: this.currentColor },
-        this.thickness
+        thickness
       )
     );
     this.gestureIndex = this.gestures.length - 1;
   }
 
   draw({ x, y, pressure }) {
+    this.baseColor = this.$.num.randIntArr(255, 3);
     this.genColor();
-    // this.baseColor = this.$.num.randIntArr(255, 3);
+
     this.gestures[this.gestureIndex].add({
       ...this.unproject({ x, y }),
       pressure,
@@ -304,15 +312,19 @@ class Whistlegraph {
       const g = this.gestures[i];
 
       // const color = i === this.gestureIndex ? [128, 0, 0] : [64, 64, 64];
-      $.ink(this.baseColor);
+      // $.ink(this.baseColor);
 
       // Collect and view-transform all geometry for a given gesture.
       const points = (
         next && this.gestureIndex === i ? [...g.points, next] : g.points
-      ).map((p) => this.project(p)); // Transform every point.
+      ).map((p) => this.project({ ...p })); // Transform a copy of every point.
+
+      // $.ink(g.color); // Set default color using the first point of every gesture.
+
+      const scaledThickness = max(1, floor(g.thickness * wg.scale.x)); // Scale line thickness.
 
       // Render each gesture.
-      if (g.thickness === 1)
+      if (scaledThickness === 1) {
         $.pppline(points, {
           position: (pos) => {
             // 🩰 Spread
@@ -321,21 +333,21 @@ class Whistlegraph {
             pos.x = pos.x + choose(-r1, r1) * rand();
             pos.y = pos.y + choose(-r2, r2) * rand();
           },
-          color: (pos, pix, col) => {
+          color: (pos, pix, col, vcol) => {
             // ✨ Sparkles
             if (Math.random() > 0.96) {
               pix[0] = randInt(255);
               pix[1] = randInt(255);
               pix[2] = randInt(255);
             } else {
-              pix[0] = col[0];
-              pix[1] = col[1];
-              pix[2] = col[2];
+              pix[0] = vcol[0];
+              pix[1] = vcol[1];
+              pix[2] = vcol[2];
             }
           },
         });
-      else {
-        $.pline(points, g.thickness, {
+      } else {
+        $.pline(points, scaledThickness, {
           position: (pos) => {
             // 🩰 Spread
             const r1 = randInt(4);
@@ -344,17 +356,18 @@ class Whistlegraph {
             pos.y = pos.y + choose(-r2, r2) * rand();
           },
           color: (pos, pix, col) => {
-            // 📊 Axis Gradient
+            // // 📊 Axis Gradient
             const axes = ["y", "y", "x"];
             for (let i = 0; i < 3; i += 1) {
               pix[i] = clamp(
-                lerp(col[i], pos[axes[i]], 0.5) + choose(-1, 1),
+                lerp(col[i], pos[axes[i]], 0.3) + choose(-1, 1),
                 0,
                 255 / (rand() * 2.2)
               );
             }
+
             // ✨ Sparkles
-            if (Math.random() > 0.96) {
+            if (Math.random() > 0.46) {
               pix[0] = lerp(col[0], randInt(255), rand() / 2);
               pix[1] = lerp(col[1], randInt(255), rand() / 2);
               pix[2] = lerp(col[2], randInt(255), rand() / 2);
@@ -373,13 +386,14 @@ class Whistlegraph {
 // Keeps track of gesture geometry which every `Whistlegraph` has a list of.
 class Gesture {
   $; // API
-  points = []; // Each point contains `{x, y, pressure}` data.
+  points = []; // Each point contains `{x, y, pressure, color}` data.
   thickness;
 
   constructor($, point, thickness = 2) {
     this.$ = $;
     this.add(point);
     this.thickness = thickness;
+    this.color = point.color; // Gesture color to the color of the first point.
   }
 
   add(next) {
