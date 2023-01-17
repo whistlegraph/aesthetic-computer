@@ -18,7 +18,7 @@
 [functions.reload]
   external_node_modules = ["got", "redis"]
 [functions.sotce-diary]
-  external_node_modules = ["got", "crypto"]
+  external_node_modules = ["got", "crypto", "patreon"]
 [dev]
   NODE_ENV = "development"
   publish = "public/"
