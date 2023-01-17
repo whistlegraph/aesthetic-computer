@@ -24,7 +24,6 @@ async function fun(event, context) {
     return {
       statusCode: 200,
       headers: {
-        "Access-Control-Allow-Origin": "*",
         "Content-Type": "text/html",
       },
       body: `
@@ -59,6 +58,7 @@ async function fun(event, context) {
   return {
     statusCode: 307,
     headers: {
+      "Access-Control-Allow-Origin": "*",
       Location: `https://www.patreon.com/oauth2/authorize?response_type=code&client_id=${client}&redirect_uri=${redirect}&scope=users&state=${crypto
         .randomBytes(32)
         .toString("hex")}`,
