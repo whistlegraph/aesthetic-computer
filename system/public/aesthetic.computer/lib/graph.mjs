@@ -581,12 +581,7 @@ function line3d(a, b, lineColor, gradients) {
   color(...saveColor); // Restore color.
 }
 
-// Draws a 1px aliased circle: http://rosettacode.org/wiki/Bitmap/Midpoint_circle_algorithm#C
-function circle(
-  x0 = randIntRange(0, width),
-  y0 = randIntRange(0, height),
-  radius
-) {
+function circle(x0, y0, radius, filled = false) {
   x0 = floor(x0);
   y0 = floor(y0);
   radius = floor(radius);
@@ -620,7 +615,64 @@ function circle(
     plot(x0 + y, y0 - x);
     plot(x0 - y, y0 - x);
   }
+  if (filled) {
+    console.log("Draw a filled circle!");
+    // Flood fill algorithm
+    //floodFill(x0, y0);
+  }
 }
+
+/*
+function floodFill(x, y) {
+  if (getPixelColor(x, y) !== "black") return;
+  setPixelColor(x, y, "white");
+  floodFill(x + 1, y);
+  floodFill(x - 1, y);
+  floodFill(x, y + 1);
+  floodFill(x, y - 1);
+}
+*/
+
+// Draws a 1px aliased circle: http://rosettacode.org/wiki/Bitmap/Midpoint_circle_algorithm#C
+// function circle(
+//   x0 = randIntRange(0, width),
+//   y0 = randIntRange(0, height),
+//   radius
+// ) {
+//   x0 = floor(x0);
+//   y0 = floor(y0);
+//   radius = floor(radius);
+
+//   let f = 1 - radius,
+//     ddF_x = 0,
+//     ddF_y = -2 * radius,
+//     x = 0,
+//     y = radius;
+
+//   plot(x0, y0 + radius);
+//   plot(x0, y0 - radius);
+//   plot(x0 + radius, y0);
+//   plot(x0 - radius, y0);
+
+//   while (x < y) {
+//     if (f >= 0) {
+//       y -= 1;
+//       ddF_y += 2;
+//       f += ddF_y;
+//     }
+//     x += 1;
+//     ddF_x += 2;
+//     f += ddF_x + 1;
+//     plot(x0 + x, y0 + y);
+//     plot(x0 - x, y0 + y);
+//     plot(x0 + x, y0 - y);
+//     plot(x0 - x, y0 - y);
+//     plot(x0 + y, y0 + x);
+//     plot(x0 - y, y0 + x);
+//     plot(x0 + y, y0 - x);
+//     plot(x0 - y, y0 - x);
+//   }
+// }
 
 // Draws a series of 1px lines without overlapping / overdrawing points.
 function poly(coords) {
