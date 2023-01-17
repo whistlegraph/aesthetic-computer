@@ -3,7 +3,7 @@
 
 /* #region 🏁 todo
   + ⏰ Now
-  - [😇] Get zoom working on iOS.
+  - [😇] Get pan, rotate, and multitouch zoom working on iOS.
   - [] Add microphone input. 
   - [] Add audio and video recording. 
     - [] Record video
@@ -69,7 +69,7 @@
 
 import { Typeface } from "../lib/type.mjs";
 
-const { floor, max } = Math;
+const { floor, max, sin, cos } = Math;
 
 let wg, bg; // Whistlegraph foreground and background.
 
@@ -180,19 +180,18 @@ function act($) {
   if (e.is("touch:2")) {
     graphing = false;
     lastTwoTouch = twoTouch($);
-    // wg.anchor(p2.floor(lastTwoTouch.mid)); // Set anchor to center of twoTouch.
+    console.log(lastTwoTouch);
+    wg.anchor(p2.floor(lastTwoTouch.mid)); // Set anchor to center of twoTouch.
+    if (debug) debugMids = [wg.anchorPoint]; // Debug mid points.
   }
 
-  if (pen?.multipen) {
+  if ((e.is("draw:1") || e.is("draw:2")) && pen?.multipen) {
     const newTwoTouch = twoTouch($);
 
     // TODO: Prevent anchor from sliding.
-
     // wg.anchor(p2.floor(newTwoTouch.mid)); // Set anchor to center point of twoTouch.
-    wg.move(p2.sub(newTwoTouch.mid, lastTwoTouch.mid)); // Pan by delta of last tT.
-
-    if (debug) debugMids = [newTwoTouch.mid, lastTwoTouch.mid]; // Debug mid points.
-
+    // wg.move(p2.sub(newTwoTouch.mid, lastTwoTouch.mid)); // Pan by delta of last tT.
+    // if (debug) debugMids = [wg.anchorPoint]; // Debug mid points.
     // TODO: Get delta of two finger turn to calculate angle difference.
     // TODO: Get distance difference to calculate zoom difference.
 
@@ -219,8 +218,9 @@ export { boot, paint, act, sim };
 
 // 📚 Library (Useful functions used throughout the piece)
 function twoTouch({ pens, num: { p2 } }) {
+  debugger;
   const a = pens(1),
-    b = Object.keys(pens(2)).length > 0 ? pens(2) : pens(1);
+    b = Object.keys(pens()).length > 0 ? pens(2) : pens(1);
   return {
     mid: p2.mid(a, b),
     dist: p2.dist(a, b),
@@ -258,8 +258,8 @@ class Whistlegraph {
   //            (Or by converting to worldPos first?)
   move(p) {
     const rp = {
-      x: p.x * Math.cos(-this.rotation) - p.y * Math.sin(-this.rotation),
-      y: p.x * Math.sin(-this.rotation) + p.y * Math.cos(-this.rotation),
+      x: p.x * cos(-this.rotation) - p.y * sin(-this.rotation),
+      y: p.x * sin(-this.rotation) + p.y * cos(-this.rotation),
     };
 
     const sp = this.$.num.p2.mul(rp, {
