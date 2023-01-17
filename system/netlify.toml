@@ -17,7 +17,7 @@
   external_node_modules = ["got", "redis"]
 [functions.reload]
   external_node_modules = ["got", "redis"]
-[functions.sotce-diary]
+[functions.sotce-blog]
   external_node_modules = ["got", "crypto", "patreon"]
 [dev]
   NODE_ENV = "development"
@@ -65,7 +65,12 @@
   force = false
 [[redirects]]
   from = "https://sotce.aesthetic.computer"
-  to = "https://aesthetic.computer/sotce-diary"
+  to = "https://aesthetic.computer/sotce-blog"
+  status = 200
+  force = false
+[[redirects]]
+  from = "https://blog.sotce.com"
+  to = "https://aesthetic.computer/sotce-blog"
   status = 200
   force = false
 [[redirects]]
@@ -86,8 +91,8 @@
   to = "/.netlify/functions/reload"
   status = 200
 [[redirects]]
-  from = "/sotce-diary/*"
-  to = "/.netlify/functions/sotce-diary"
+  from = "/sotce-blog/*"
+  to = "/.netlify/functions/sotce-blog"
   status = 200
 [[redirects]]
   from = "/auth"
