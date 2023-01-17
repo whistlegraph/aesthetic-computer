@@ -17,6 +17,8 @@
   external_node_modules = ["got", "redis"]
 [functions.reload]
   external_node_modules = ["got", "redis"]
+[functions.sotce-diary]
+  external_node_modules = ["got", "crypto"]
 [dev]
   NODE_ENV = "development"
   publish = "public/"
@@ -62,6 +64,11 @@
   status = 200
   force = false
 [[redirects]]
+  from = "https://sotce.aesthetic.computer"
+  to = "https://aesthetic.computer/sotce-diary"
+  status = 200
+  force = false
+[[redirects]]
   from = "https://prompt.ac/*"
   to = "https://aesthetic.computer/:splat"
   status = 301
@@ -77,6 +84,10 @@
 [[redirects]]
   from = "/reload/*"
   to = "/.netlify/functions/reload"
+  status = 200
+[[redirects]]
+  from = "/sotce-diary/*"
+  to = "/.netlify/functions/sotce-diary"
   status = 200
 [[redirects]]
   from = "/auth"
