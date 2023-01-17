@@ -36,15 +36,17 @@ async function fun(event, context) {
 
       const patreonOAuthClient = patreonOAuth(client, secret);
 
+      let tokensResponse;
 
       try {
-        const tokensResponse = await patreonOAuthClient.getTokens(
+        tokensResponse = await patreonOAuthClient.getTokens(
           code,
           redirect
         );
         console.log("Tokens...", tokensResponse);
       } catch (err) {
-        // TODO: Show an access desnied page?
+        // TODO: Show an access denied page?
+        //       Is this what happens if the user doesn't allow?
         console.error("Error!");
         return {
           statusCode: 500,
@@ -52,7 +54,7 @@ async function fun(event, context) {
         }
       }
 
-      const accessToken = tokensResponse.access_token;
+      const accessToken = tokensResponse?.access_token;
 
       // const tokens = await patreonAPI.exchangeCodeForToken(code, redirect);
       // const accessToken = tokens.access_token;
