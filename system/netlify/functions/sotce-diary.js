@@ -16,7 +16,7 @@ async function fun(event, context) {
   const host = dev ? "localhost" : "sotce.aesthetic.computer";
   const origin = dev
     ? "https://localhost:8888/sotce-diary"
-    : "sotce.aesthetic.computer";
+    : "https://sotce.aesthetic.computer";
   const redirect = "https://sotce.aesthetic.computer"; // This also needs to be set on the Patreon developer account.
 
   // 1. Return an entry page if it's a GET.
