@@ -28,12 +28,16 @@ Note: Add the below to a Tumblr theme to activate the gate.
     width: 100vw;
     height: 100vh;
   }
+  body.curtain header,
+  body.curtain footer,
+  body.curtain div.content {
+    display: none;
+  }
   </style>
   <script>
+    document.body.classList.add("curtain");
     window.addEventListener('message', function (e) {
-      // Get the sent data
-      const data = e.data;
-      console.log("Message...", data);
+      if (e.data === "sotceBlogReveal") document.body.classList.remove("curtain");
     });
   </script>
 #endregion */
@@ -69,8 +73,6 @@ async function fun(event, context) {
         <head>
           <script>
             function openPopup() {
-              const popup = window.open("${loginUrl}", "Patreon Login", "width=400, height=650");
-
               // Center the popup in the current window.
               const parentWidth = window.innerWidth;
               const parentHeight = window.innerHeight;
@@ -79,7 +81,8 @@ async function fun(event, context) {
               const screenHeight = window.screen.availHeight;
               const left = parentLeft + (parentWidth - 400) / 2;
               const top = parentTop + (screenHeight - 650) / 2;
-              popup.moveTo(left, top);
+
+              const popup = window.open("${loginUrl}", "Patreon Login", "width=400, height=650, left=${left}, top=${top}");
 
               const hasSotceBlogAccess = localStorage.setItem("${storageItem}", false);
               window.addEventListener("storage", function (event) {
