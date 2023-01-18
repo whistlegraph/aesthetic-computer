@@ -179,8 +179,13 @@ function act($) {
 
   if (e.is("touch:2")) {
     graphing = false;
+
+    console.log(pens());
+
     lastTwoTouch = twoTouch($);
+
     console.log(lastTwoTouch);
+
     wg.anchor(p2.floor(lastTwoTouch.mid)); // Set anchor to center of twoTouch.
     if (debug) debugMids = [wg.anchorPoint]; // Debug mid points.
   }
@@ -218,9 +223,8 @@ export { boot, paint, act, sim };
 
 // 📚 Library (Useful functions used throughout the piece)
 function twoTouch({ pens, num: { p2 } }) {
-  debugger;
   const a = pens(1),
-    b = Object.keys(pens()).length > 0 ? pens(2) : pens(1);
+    b = Object.keys(pens()).length > 1 ? pens(2) : pens(1);
   return {
     mid: p2.mid(a, b),
     dist: p2.dist(a, b),
