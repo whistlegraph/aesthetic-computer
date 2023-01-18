@@ -3,14 +3,13 @@
 // Patreon dev docs: https://www.patreon.com/portal
 
 /* #region todo 📓 
- - [-] Create a session and hook it up to the Tumblr somehow?
- - [] Make sure it is not annoying / can take multiple page hits.
-  - [] (Only expire after a certain timestamp)
- - [] Make it cute and put it into production.
- - [] Show an access denied page?
-      Is this what happens if the user doesn't allow?
- - [] What if they are not logged into patreon?
+ - [-] Make it cute and put it into production.
 + Done
+ - [x] Test on a phone. 
+ - [x] What if they are not logged into Patreon?
+ - [x] Create a session and hook it up to the Tumblr somehow?
+ - [x] Make sure it is not annoying / can take multiple page hits.
+  - [x] (Only expire after a certain timestamp)
  - [x] Hook up to blog.sotce.com.
  - [x] Write the logic that detects whether a user is sotce or a subscriber. 
 #endregion */
