@@ -156,12 +156,12 @@ async function fun(event, context) {
         script = `
         <script>
           const hasSotceBlogAccess = localStorage.setItem("${storageItem}", true);
-          //window.close();
+          window.close();
         </script>`;
       } else {
         script = `
         <script>
-        //window.close();
+        window.close();
         </script>`;
       }
 
