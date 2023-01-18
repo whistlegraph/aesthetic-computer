@@ -84,7 +84,7 @@ async function fun(event, context) {
               const hasSotceBlogAccess = localStorage.setItem("${storageItem}", false);
               window.addEventListener("storage", function (event) {
                 if (event.key === "${storageItem}" && Boolean(event.newValue) === true) {
-                  window.parent.postMessage(message, 'sotceBlogReveal');
+                  window.parent.postMessage("sotceBlogReveal", '*');
                   document.body.classList.remove("gate");
                 }
               });
