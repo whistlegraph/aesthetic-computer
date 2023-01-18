@@ -82,7 +82,7 @@ async function fun(event, context) {
               const left = parentLeft + (parentWidth - 400) / 2;
               const top = parentTop + (screenHeight - 650) / 2;
 
-              const popup = window.open("${loginUrl}", "Patreon Login", "width=400, height=650, left=${left}, top=${top}");
+              const popup = window.open("${loginUrl}", "Patreon Login", \`width=400, height=650, left=\${left}, top=\${top}\`);
 
               const hasSotceBlogAccess = localStorage.setItem("${storageItem}", false);
               window.addEventListener("storage", function (event) {
