@@ -17,7 +17,7 @@
 
 /* region docs 📚
 Note: Add the below to a Tumblr theme to activate the gate.
-  <iframe src="https://blog.sotce.com" id="sotce-gate closed"></iframe> 
+  <iframe src="https://blog.sotce.com" id="sotce-gate"></iframe> 
   <style>
   #sotce-gate {
     border: none;
@@ -38,11 +38,17 @@ Note: Add the below to a Tumblr theme to activate the gate.
     document.body.classList.add("curtain");
 
     window.addEventListener('message', function (e) {
-      if (e.data === "sotceBlogReveal") document.body.classList.remove("curtain");
+      if (e.data === "sotceBlogReveal") {
+        localStorage.setItem(
+          "hasSotceBlogAccess",
+          JSON.stringify({value: true, timestamp: new Date().getTime()})
+        );
+        document.body.classList.remove("curtain");
+      } 
     });
 
     const currentTime = new Date().getTime();
-    const data = JSON.parse(localStorage.getItem("sotceBlogReveal"));
+    const data = JSON.parse(localStorage.getItem("hasSotceBlogAccess"));
     const sotceGate = document.querySelector("#sotce-gate");
 
     if (data && currentTime - data.timestamp < 24*60*60*1000) {
@@ -98,7 +104,7 @@ async function fun(event, context) {
               const top = parentTop + (screenHeight - 650) / 2;
 
               const popup = window.open("${loginUrl}", "Patreon Authorization", \`width=400, height=650, left=\${left}, top=\${top}\`);
-              // const hasSotceBlogAccess = localStorage.setItem("${storageItem}", false);
+              const hasSotceBlogAccess = localStorage.setItem("${storageItem}", false);
 
               window.addEventListener("storage", function (event) {
                 if (event.key === "${storageItem}" && Boolean(event.newValue) === true) {
@@ -231,10 +237,7 @@ async function fun(event, context) {
         blogBody = `
           ${event.queryStringParameters.code}
           <script>
-            localStorage.setItem(
-              "${storageItem}",
-              JSON.stringify({value: ${hasBlogAccess}, timestamp: new Date().getTime()})
-            );
+            const hasSotceBlogAccess = localStorage.setItem("${storageItem}", true);
             window.close();
           </script>
         `; // Just show a totally empty body that sets the storage
