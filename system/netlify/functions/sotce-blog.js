@@ -1,10 +1,11 @@
-// Sotce Blog
+// Sotce Blog, 2023.01.17.21.58
 // Allows sotce to give Patreon subscribers access to her blog (Tumblr).
 // Patreon dev docs: https://www.patreon.com/portal
 
 /* #region todo 📓 
- - [-] Make it cute and put it into production.
+ - [] Explain to sotce a little more in detail how it works / loop holes etc.
 + Done
+ - [x] Make it cute and put it into production.
  - [x] Test on a phone. 
  - [x] What if they are not logged into Patreon?
  - [x] Create a session and hook it up to the Tumblr somehow?
@@ -15,7 +16,7 @@
 #endregion */
 
 /* region docs 📚
-Note: Add the below to a Tumblr theme to activate the gate.
+Note: Add the below to a Tumblr theme to activate the gate on that site.
   <iframe src="https://blog.sotce.com" id="sotce-gate"></iframe> 
   <style>
   #sotce-gate {
@@ -154,7 +155,6 @@ async function fun(event, context) {
     if (!code) {
       // Show the normal gate screen or a closed window if we came from
       // the patreon pop-up and no code was yielded (denied permission).
-
       return {
         statusCode: 200,
         headers: {
@@ -165,7 +165,6 @@ async function fun(event, context) {
             ? gateBody
             : "<script>window.close();</script>",
       };
-
       // B. If the code parameter is present, exchange it for an access token
     } else if (code) {
       const { got } = await import("got"); // Import the "got" http library.
