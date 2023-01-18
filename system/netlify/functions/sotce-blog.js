@@ -4,9 +4,38 @@
 
 /* #region todo 📓 
  - [-] Create a session and hook it up to the Tumblr somehow?
+ - [] Make sure it is not annoying / can take multiple page hits.
+  - [] (Only expire after a certain timestamp)
+ - [] Make it cute and put it into production.
+ - [] Show an access denied page?
+      Is this what happens if the user doesn't allow?
+ - [] What if they are not logged into patreon?
 + Done
  - [x] Hook up to blog.sotce.com.
  - [x] Write the logic that detects whether a user is sotce or a subscriber. 
+#endregion */
+
+/* region docs 📚
+Note: Add the below to a Tumblr theme to activate the gate.
+  <iframe src="https://blog.sotce.com" id="sotce-gate"></iframe> 
+  <style>
+  #sotce-gate {
+    border: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    width: 100vw;
+    height: 100vh;
+  }
+  </style>
+  <script>
+    window.addEventListener('message', function (e) {
+      // Get the sent data
+      const data = e.data;
+      console.log("Message...", data);
+    });
+  </script>
 #endregion */
 
 const dev = process.env.NETLIFY_DEV;
@@ -55,7 +84,7 @@ async function fun(event, context) {
               const hasSotceBlogAccess = localStorage.setItem("${storageItem}", false);
               window.addEventListener("storage", function (event) {
                 if (event.key === "${storageItem}" && Boolean(event.newValue) === true) {
-                  console.log("Access Granted!");
+                  window.parent.postMessage(message, 'sotceBlogReveal');
                   document.body.classList.remove("gate");
                 }
               });
@@ -63,7 +92,7 @@ async function fun(event, context) {
           </script>
           <style>
             body.gate { background: white; }
-            body:not(.gate) * { display: none; pointer-events: none; user-select: none; }
+            body:not(.gate) * { display: none; }
             body:not(.gate) { background: transparent; }
             button {
               font-family: Helvetica, Arial, sans-serif;
@@ -73,18 +102,23 @@ async function fun(event, context) {
               cursor: pointer;
             }
             button:hover {
-              font-size: 9vmin;
+              transform: scale(1.2);
             }
             button:active {
-              font-size: 8.5vmin;
+              transform: scale(1.1);
             }
             body { display: flex; }
-            #wrapper { margin: auto; }
+            #wrapper { margin: auto; display: flex; flex-direction: column; user-select: none; }
+            #enter { padding-bottom: 2vmin; }
+            #doorway {
+              max-width: 50vmin;
+            }
           </style>
         </head>
         <body class="gate">
           <div id="wrapper">
-            <button onclick="openPopup()">enter</button>
+            <button id="enter" onclick="openPopup()">enter</button>
+            <img id="doorway" crossorigin="anonymous" src="https://sotce-media.aesthetic.computer/apple.jpg">
           </div>
         </body>
       </html>
@@ -164,10 +198,7 @@ async function fun(event, context) {
           (membership?.currently_entitled_amount_cents >= 300 &&
             membership?.patron_status === "active_patron");
       } catch (err) {
-        // TODO: - [] Show an access denied page?
-        //            Is this what happens if the user doesn't allow?
-        // TODO: - [] What if they are not logged into patreon?
-
+        // Should this error be handled better?
         return {
           headers: {
             "Content-Type": "application/json",
