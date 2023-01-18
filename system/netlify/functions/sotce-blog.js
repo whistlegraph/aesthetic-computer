@@ -17,7 +17,7 @@
 
 /* region docs 📚
 Note: Add the below to a Tumblr theme to activate the gate.
-  <iframe src="https://blog.sotce.com" id="sotce-gate"></iframe> 
+  <iframe src="https://blog.sotce.com" id="sotce-gate closed"></iframe> 
   <style>
   #sotce-gate {
     border: none;
@@ -36,9 +36,24 @@ Note: Add the below to a Tumblr theme to activate the gate.
   </style>
   <script>
     document.body.classList.add("curtain");
+
     window.addEventListener('message', function (e) {
       if (e.data === "sotceBlogReveal") document.body.classList.remove("curtain");
     });
+
+    const currentTime = new Date().getTime();
+    const data = JSON.parse(localStorage.getItem("sotceBlogReveal"));
+    const sotceGate = document.querySelector("#sotce-gate");
+
+    if (data && currentTime - data.timestamp < 24*60*60*1000) {
+      // Data is still valid. Remove sotceGate and curtain.
+      console.log("Welcome!");
+      sotceGate.remove();
+      document.body.classList.remove("curtain");
+    } else {
+      // Data has expired. Keep things closed.
+      console.log("Please authorize through Patreon...");
+    }
   </script>
 #endregion */
 
@@ -82,9 +97,9 @@ async function fun(event, context) {
               const left = parentLeft + (parentWidth - 400) / 2;
               const top = parentTop + (screenHeight - 650) / 2;
 
-              const popup = window.open("${loginUrl}", "Patreon Login", \`width=400, height=650, left=\${left}, top=\${top}\`);
+              const popup = window.open("${loginUrl}", "Patreon Authorization", \`width=400, height=650, left=\${left}, top=\${top}\`);
+              // const hasSotceBlogAccess = localStorage.setItem("${storageItem}", false);
 
-              const hasSotceBlogAccess = localStorage.setItem("${storageItem}", false);
               window.addEventListener("storage", function (event) {
                 if (event.key === "${storageItem}" && Boolean(event.newValue) === true) {
                   window.parent.postMessage("sotceBlogReveal", '*');
@@ -131,7 +146,6 @@ async function fun(event, context) {
 
     // A. If there is no code yet, then return a gated button.
     if (!code) {
-
       // Show the normal gate screen or a closed window if we came from
       // the patreon pop-up and no code was yielded (denied permission).
 
@@ -217,7 +231,10 @@ async function fun(event, context) {
         blogBody = `
           ${event.queryStringParameters.code}
           <script>
-            localStorage.setItem("${storageItem}", ${hasBlogAccess});
+            localStorage.setItem(
+              "${storageItem}",
+              JSON.stringify({value: ${hasBlogAccess}, timestamp: new Date().getTime()})
+            );
             window.close();
           </script>
         `; // Just show a totally empty body that sets the storage
