@@ -22,6 +22,8 @@ async function fun(event, context) {
   const redirect = dev
     ? "https://localhost:8888/sotce-blog"
     : `https://${vanity}`;
+
+  const storageItem = "hasSotceBlogAccess";
   // Both values above also must be set (space separated) in the
   // Patreon developer account's client redirect URI field.
 
@@ -36,33 +38,79 @@ async function fun(event, context) {
     const gateBody = `
       <html>
         <head>
+          <script>
+            function openPopup() {
+              const popup = window.open("${loginUrl}", "Patreon Login", "width=400, height=650");
+
+              // Center the popup in the current window.
+              const parentWidth = window.innerWidth;
+              const parentHeight = window.innerHeight;
+              const parentLeft = window.screenX;
+              const parentTop = window.screen.availTop;
+              const screenHeight = window.screen.availHeight;
+              const left = parentLeft + (parentWidth - 400) / 2;
+              const top = parentTop + (screenHeight - 650) / 2;
+              popup.moveTo(left, top);
+
+              const hasSotceBlogAccess = localStorage.setItem("${storageItem}", false);
+              window.addEventListener("storage", function (event) {
+                if (event.key === "${storageItem}" && Boolean(event.newValue) === true) {
+                  console.log("Access Granted!");
+                  document.body.classList.remove("gate");
+                }
+              });
+            }
+          </script>
           <style>
-            body {
-              margin: 0;
-              padding: 1em;
-              background: gray;
-              display: flex;
+            body.gate { background: white; }
+            body:not(.gate) * { display: none; pointer-events: none; user-select: none; }
+            body:not(.gate) { background: transparent; }
+            button {
+              font-family: Helvetica, Arial, sans-serif;
+              border: none;
+              background: none;
+              font-size: 8vmin;
+              cursor: pointer;
             }
-            h1 {
-              font-family: helvetica, arial, sans-serif;
-              font-weight: normal;
+            button:hover {
+              font-size: 9vmin;
             }
-            #wrapper {
-              margin: auto;
+            button:active {
+              font-size: 8.5vmin;
             }
+            body { display: flex; }
+            #wrapper { margin: auto; }
           </style>
         </head>
-        <body>
+        <body class="gate">
           <div id="wrapper">
-            <h1><a href="${loginUrl}">enter</a></h1>
+            <button onclick="openPopup()">enter</button>
           </div>
         </body>
       </html>
     `;
 
-    // If the code parameter is present, exchange it for an access token
     const code = event.queryStringParameters.code;
-    if (code) {
+
+    // A. If there is no code yet, then return a gated button.
+    if (!code) {
+
+      // Show the normal gate screen or a closed window if we came from
+      // the patreon pop-up and no code was yielded (denied permission).
+
+      return {
+        statusCode: 200,
+        headers: {
+          "Content-Type": "text/html",
+        },
+        body:
+          event.headers.referer !== "https://www.patreon.com/"
+            ? gateBody
+            : "<script>window.close();</script>",
+      };
+
+      // B. If the code parameter is present, exchange it for an access token
+    } else if (code) {
       const { got } = await import("got"); // Import the "got" http library.
 
       let hasBlogAccess = false;
@@ -129,15 +177,20 @@ async function fun(event, context) {
         };
       }
 
-      // Return a json response that determines the user's access level.
-
       let blogBody;
 
       if (hasBlogAccess) {
-        blogBody = ``; // Just show a totally empty body.
+        blogBody = `
+          ${event.queryStringParameters.code}
+          <script>
+            localStorage.setItem("${storageItem}", ${hasBlogAccess});
+            window.close();
+          </script>
+        `; // Just show a totally empty body that sets the storage
+        // and closes the window.
       } else {
-        // Rejected case... maybe do a redirect here or what...
-        blogBody = gateBody;
+        // Rejected case... maybe do a redirect here or something...
+        blogBody = `<script>window.close();</script>`;
       }
 
       return {
@@ -148,14 +201,6 @@ async function fun(event, context) {
         body: blogBody,
       };
     }
-
-    return {
-      statusCode: 200,
-      headers: {
-        "Content-Type": "text/html",
-      },
-      body: gateBody,
-    };
   } else {
     return {
       statusCode: 405,
