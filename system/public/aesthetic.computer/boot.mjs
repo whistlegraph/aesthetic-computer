@@ -28,6 +28,9 @@ if (window.location.hash === "#nodebug") debug = false;
 window.acDEBUG = debug; // Set window.acDEBUG again just in case any code relies
 // on it down the line. Should it need to? 22.07.15.00.21
 
+localStorage.acDEBUG = debug; // Also save debug to localStorage for contexts
+                              // without window access.
+
 // If IPFS Exporting is revisited, then the below code should be rewritten
 // and probably moved into `lib/parse.js`. 22.07.15.00.14
 

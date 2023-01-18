@@ -809,6 +809,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       transferrableObjects
     );
 
+    // if (Object.keys(pen.pointers).length > 1) {
+    //   console.log(pen.events, pen.pointers);
+    // }
+
     // Clear any pasted text.
     pastedText = undefined;
 

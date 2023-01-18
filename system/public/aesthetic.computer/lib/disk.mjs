@@ -845,7 +845,6 @@ let firstLoad = true;
 let firstPiece, firstParams, firstSearch;
 
 async function load(parsed, fromHistory = false, alias = false) {
-
   // TODO: How to add parsed parameters here and load source code...
 
   let { path, host, search, params, hash, text: slug } = parsed;
@@ -910,7 +909,7 @@ async function load(parsed, fromHistory = false, alias = false) {
       console.log("💥️ Restarting system...");
       send({ type: "refresh" }); // Refresh the browser.
     } else if (piece === "code") {
-      $commonApi.load({...parse("code"), source: code}); // Load source code.
+      $commonApi.load({ ...parse("code"), source: code }); // Load source code.
     } else if (piece === "*" || piece === undefined || currentText === piece) {
       console.log("💾️ Reloading piece...", piece);
       $commonApi.load(
@@ -1740,21 +1739,26 @@ async function makeFrame({ data: { type, content } }) {
         //       allocation here because it keeps the whole API around?
         //       Re-test this when pointers is not empty! 22.11.12.20.02
         const pointers = content.pen.pointers;
-        const pointersKeys = Object.keys(content.pen.pointers);
+        const pointersKeys = Object.keys(pointers);
 
-        if (pointersKeys.length > 0) {
-          $commonApi.pens = function (n) {
-            if (n === undefined) {
-              return Object.values(pointers).reduce((arr, value) => {
-                arr[value.pointerIndex] = value;
-                return arr;
-              }, []);
-            }
-            return help.findKeyAndValue(pointers, "pointerIndex", n - 1) || {};
-          };
+        $commonApi.pens = function (n) {
+          if (n === undefined) {
+            const out = Object.values(pointers).reduce((arr, value) => {
+              arr[value.pointerIndex] = value;
+              return arr;
+            }, []);
 
-          if (pointersKeys.length > 1 && primaryPointer) primaryPointer.multipen = true; // Set a flag for multipen activity on main pen API object.
-        }
+            // Check to see if this is being too reduced / are
+            // there less pens than are being input?
+            console.log(out.length, Object.values(pointers).length);
+
+            return out;
+          }
+          return help.findKeyAndValue(pointers, "pointerIndex", n - 1) || {};
+        };
+
+        if (pointersKeys.length > 1 && primaryPointer)
+          primaryPointer.multipen = true; // Set a flag for multipen activity on main pen API object.
 
         $commonApi.pen = primaryPointer; // || { x: undefined, y: undefined };
       }

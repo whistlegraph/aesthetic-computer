@@ -90,6 +90,7 @@ async function fun(event, context) {
     const loginUrl = `https://www.patreon.com/oauth2/authorize?response_type=code&client_id=${client}&redirect_uri=${redirect}&state=${state}&scope=${scope}`;
 
     const gateBody = `
+      <!DOCTYPE html>
       <html>
         <head>
           <script>
@@ -132,7 +133,7 @@ async function fun(event, context) {
             button:active {
               transform: scale(1.1);
             }
-            body { display: flex; }
+            body { display: flex; height: 100vh; overflow: hidden; }
             #wrapper { margin: auto; display: flex; flex-direction: column; user-select: none; }
             #enter { padding-bottom: 2vmin; }
             #doorway {
@@ -149,6 +150,45 @@ async function fun(event, context) {
       </html>
     `;
 
+    const closer = (status) => {
+      let script;
+      if (status === "success") {
+        script = `
+        <script>
+          const hasSotceBlogAccess = localStorage.setItem("${storageItem}", true);
+          window.close();
+        </script>`;
+      } else {
+        script = `<script>window.close();</script>`;
+      }
+
+      return `
+      <html>
+        <head>
+          <style>
+            body {
+              font-family: Helvetica, Arial, sans-serif;
+              display: flex;
+              margin: none;
+              height: 100vh;
+              overflow: hidden;
+            }
+            h3 {
+              font-weight: normal;
+              margin: auto;
+            }
+            .${status} {
+              color: ${status === "success" ? "green" : "red"};
+            }
+          </style>
+        </head>
+        <body>
+          <h3 class=${status}>you may now close me</h3>
+          ${script}
+        </body>
+      </html>`;
+    };
+
     const code = event.queryStringParameters.code;
 
     // A. If there is no code yet, then return a gated button.
@@ -163,7 +203,7 @@ async function fun(event, context) {
         body:
           event.headers.referer !== "https://www.patreon.com/"
             ? gateBody
-            : "<script>window.close();</script>",
+            : closer("failure"),
       };
       // B. If the code parameter is present, exchange it for an access token
     } else if (code) {
@@ -233,17 +273,11 @@ async function fun(event, context) {
       let blogBody;
 
       if (hasBlogAccess) {
-        blogBody = `
-          ${event.queryStringParameters.code}
-          <script>
-            const hasSotceBlogAccess = localStorage.setItem("${storageItem}", true);
-            window.close();
-          </script>
-        `; // Just show a totally empty body that sets the storage
+        blogBody = closer("success"); // Just show a totally empty body that sets the storage
         // and closes the window.
       } else {
-        // Rejected case... maybe do a redirect here or something...
-        blogBody = `<script>window.close();</script>`;
+        // Rejected case...
+        blogBody = `<script> window.close(); </script>`;
       }
 
       return {
