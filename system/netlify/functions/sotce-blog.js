@@ -120,6 +120,7 @@ async function fun(event, context) {
             body:not(.gate) { background: transparent; }
             button {
               font-family: Helvetica, Arial, sans-serif;
+              color: black;
               border: none;
               background: none;
               font-size: 8vmin;
