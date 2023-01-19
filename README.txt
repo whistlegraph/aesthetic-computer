@@ -61,6 +61,9 @@
   - [] ESLint...
   - [] Do research?
 
+*** Maya ***
+  - [] Notes on sparkle brush
+
 *** Sotce ***
 - [] Visit a url. 
 - [] Logging in.
