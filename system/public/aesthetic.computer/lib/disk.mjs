@@ -1700,6 +1700,45 @@ async function makeFrame({ data: { type, content } }) {
       sample: content.audioMusicSampleData,
     };
 
+    // Pens
+    if (content.pen) {
+      const primaryPointer = help.findKeyAndValue(
+        content.pen.pointers,
+        "isPrimary",
+        true
+      );
+
+      // Returns all [pens] if n is undefined, or can return a specific pen by 1 based index.
+      // [pens] are sorted by `pointerIndex`
+
+      // TODO: Including "help.findKeyAndValue" seems to bring a lot of
+      //       allocation here because it keeps the whole API around?
+      //       Re-test this when pointers is not empty! 22.11.12.20.02
+      const pointers = content.pen.pointers;
+      const pointersValues = Object.values(pointers);
+
+      const pens = pointersValues.reduce((arr, value) => {
+        arr[value.pointerIndex] = value;
+        return arr;
+      }, []);
+
+      // if (pens.length > 0 && debug)
+      //   console.log("Pens:", pens, content.pen.events);
+
+      $commonApi.pens = function (n) {
+        if (n === undefined) return pens;
+        return help.findKeyAndValue(pointers, "pointerIndex", n - 1) || {};
+      };
+
+      if (pointersValues.length > 1 && primaryPointer)
+        primaryPointer.multipen = true; // Set a flag for multipen activity on main pen API object.
+
+      $commonApi.pen = primaryPointer; // || { x: undefined, y: undefined };
+    }
+
+    // 🕶️ VR Pen
+    $commonApi.pen3d = content.pen3d?.pen;
+
     // Act & Sim (Occurs after first boot and paint.)
     if (booted && paintCount > 0n) {
       const $api = {};
@@ -1725,51 +1764,10 @@ async function makeFrame({ data: { type, content } }) {
 
       $api.cursor = (code) => (cursorCode = code);
 
-      if (content.pen) {
-        const primaryPointer = help.findKeyAndValue(
-          content.pen.pointers,
-          "isPrimary",
-          true
-        );
-
-        // Returns all [pens] if n is undefined, or can return a specific pen by 1 based index.
-        // [pens] are sorted by `pointerIndex`
-
-        // TODO: Including "help.findKeyAndValue" seems to bring a lot of
-        //       allocation here because it keeps the whole API around?
-        //       Re-test this when pointers is not empty! 22.11.12.20.02
-        const pointers = content.pen.pointers;
-        const pointersKeys = Object.keys(pointers);
-
-        $commonApi.pens = function (n) {
-          if (n === undefined) {
-            const out = Object.values(pointers).reduce((arr, value) => {
-              arr[value.pointerIndex] = value;
-              return arr;
-            }, []);
-
-            // Check to see if this is being too reduced / are
-            // there less pens than are being input?
-            console.log(out.length, Object.values(pointers).length);
-
-            return out;
-          }
-          return help.findKeyAndValue(pointers, "pointerIndex", n - 1) || {};
-        };
-
-        if (pointersKeys.length > 1 && primaryPointer)
-          primaryPointer.multipen = true; // Set a flag for multipen activity on main pen API object.
-
-        $commonApi.pen = primaryPointer; // || { x: undefined, y: undefined };
-      }
-
       // 🤖 Sim // no send
       $api.seconds = function (s) {
         return s * 120; // TODO: Get 120 dynamically from the Loop setting. 2022.01.13.23.28
       };
-
-      // 🕶️ VR Pen
-      $commonApi.pen3d = content.pen3d?.pen;
 
       // TODO: A booted check could be higher up the chain here?
       // Or this could just move. 22.10.11.01.31

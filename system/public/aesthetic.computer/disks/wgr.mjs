@@ -180,18 +180,17 @@ function act($) {
   if (e.is("touch:2")) {
     graphing = false;
 
-    console.log(pens());
+    console.log("act-touch-2", pens());
 
     lastTwoTouch = twoTouch($);
-
-    console.log(lastTwoTouch);
+    // console.log(lastTwoTouch);
 
     wg.anchor(p2.floor(lastTwoTouch.mid)); // Set anchor to center of twoTouch.
     if (debug) debugMids = [wg.anchorPoint]; // Debug mid points.
   }
 
   if ((e.is("draw:1") || e.is("draw:2")) && pen?.multipen) {
-    const newTwoTouch = twoTouch($);
+    //const newTwoTouch = twoTouch($);
 
     // TODO: Prevent anchor from sliding.
     // wg.anchor(p2.floor(newTwoTouch.mid)); // Set anchor to center point of twoTouch.
@@ -200,7 +199,7 @@ function act($) {
     // TODO: Get delta of two finger turn to calculate angle difference.
     // TODO: Get distance difference to calculate zoom difference.
 
-    lastTwoTouch = newTwoTouch;
+    //lastTwoTouch = newTwoTouch;
   }
 
   // Graphing
