@@ -14,10 +14,15 @@
  - [x] Read through: https://redis.io/docs/data-types
 #endregion */
 
+// Add redis pub/sub here...
+
 import Fastify from "fastify";
 import { WebSocket, WebSocketServer } from "ws";
 import ip from "ip";
 import chokidar from "chokidar";
+
+import { createClient } from "redis";
+const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
 
 const dev = process.env.NODE_ENV === "development";
 const fastify = Fastify({ logger: true });
@@ -29,6 +34,20 @@ const info = {
   url: process.env.SPAWNER_URL,
   service: process.env.SPAWNER_SERVICE,
 };
+
+// *** Start Up a REDIS Client ***
+const client = !dev
+  ? createClient({ url: redisConnectionString })
+  : createClient();
+client.on("error", (err) => console.log("🔴 Redis client error!", err));
+await client.connect();
+
+console.log("client", redisConnectionString);
+
+await client.subscribe("code", (message) => {
+  console.log(message); // 'message'
+  everyone(pack("code", message, "development"));
+});
 
 fastify.get("/", async () => {
   return { msg: "Hello aesthetic.computer!" };

@@ -7,8 +7,7 @@ import * as vec3 from "../dep/gl-matrix/vec3.mjs";
 import * as vec4 from "../dep/gl-matrix/vec4.mjs";
 
 export { vec2, vec3, vec4, mat3, mat4, quat };
-
-const { round, min, max, sqrt } = Math;
+const { round, floor, min, max, sqrt, pow, atan2 } = Math;
 
 // Utilities for modifying {x, y} points.
 export const p2 = {
@@ -51,6 +50,22 @@ export const p2 = {
       x: pA.x / pB.x,
       y: pA.y / pB.y,
     };
+  },
+  mid: function (pA, pB) {
+    return {
+      x: (pA.x + pB.x) / 2,
+      y: (pA.y + pB.y) / 2,
+    };
+  },
+  dist: function (pA, pB) {
+    // Note: There is also a more generic distance function in `num`.
+    return sqrt(pow(pB.x - pA.x, 2) + pow(pB.y - pA.y, 2));
+  },
+  angle: function (pA, pB) {
+    return atan2(pB.y - pA.y, pB.x - pA.x);
+  },
+  floor: function (p) {
+    return { x: floor(p.x), y: floor(p.y) };
   },
 };
 

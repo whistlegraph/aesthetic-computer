@@ -14,7 +14,7 @@ import { Point } from "./geo.mjs";
 
 const { assign } = Object;
 const { round } = Math;
-const debug = window.acDEBUG;
+const debug = Boolean(localStorage.acDEBUG);
 
 class Pointer {
   x;
@@ -243,7 +243,7 @@ export class Pen {
       if (e.pointerType !== "mouse") pen.penCursor = false;
 
       // Delete pointer only if we are using touch.
-      if (e.pointerType === "touch") delete pen.pointers[e.pointerId];
+      if (e.pointerType === "touch") delete this.pointers[e.pointerId];
 
       if (debug)
         console.log("Removed pointer by ID:", e.pointerId, this.pointers);

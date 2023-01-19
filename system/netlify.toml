@@ -17,6 +17,8 @@
   external_node_modules = ["got", "redis"]
 [functions.reload]
   external_node_modules = ["got", "redis"]
+[functions.sotce-blog]
+  external_node_modules = ["got", "crypto", "patreon"]
 [dev]
   NODE_ENV = "development"
   publish = "public/"
@@ -62,6 +64,16 @@
   status = 200
   force = false
 [[redirects]]
+  from = "https://sotce.aesthetic.computer"
+  to = "https://aesthetic.computer/sotce-blog"
+  status = 200
+  force = false
+[[redirects]]
+  from = "https://blog.sotce.com"
+  to = "https://aesthetic.computer/sotce-blog"
+  status = 200
+  force = false
+[[redirects]]
   from = "https://prompt.ac/*"
   to = "https://aesthetic.computer/:splat"
   status = 301
@@ -79,8 +91,16 @@
   to = "/.netlify/functions/reload"
   status = 200
 [[redirects]]
+  from = "/sotce-blog/*"
+  to = "/.netlify/functions/sotce-blog"
+  status = 200
+[[redirects]]
   from = "/auth"
-  to = "/.netlify/functions/reload"
+  to = "/.netlify/functions/auth"
+  status = 200
+[[redirects]]
+  from = "/run"
+  to = "/.netlify/functions/run"
   status = 200
 [[redirects]]
   from = "/presigned-upload-url/*"

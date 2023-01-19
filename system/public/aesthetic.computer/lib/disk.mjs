@@ -845,6 +845,8 @@ let firstLoad = true;
 let firstPiece, firstParams, firstSearch;
 
 async function load(parsed, fromHistory = false, alias = false) {
+  // TODO: How to add parsed parameters here and load source code...
+
   let { path, host, search, params, hash, text: slug } = parsed;
 
   if (loading === false) {
@@ -902,10 +904,12 @@ async function load(parsed, fromHistory = false, alias = false) {
   $commonApi.debug = debug;
 
   // Add reload to the common api.
-  $commonApi.reload = ({ piece }) => {
+  $commonApi.reload = ({ piece, code }) => {
     if (piece === "*refresh*") {
       console.log("💥️ Restarting system...");
       send({ type: "refresh" }); // Refresh the browser.
+    } else if (piece === "code") {
+      $commonApi.load({ ...parse("code"), source: code }); // Load source code.
     } else if (piece === "*" || piece === undefined || currentText === piece) {
       console.log("💾️ Reloading piece...", piece);
       $commonApi.load(
@@ -929,6 +933,23 @@ async function load(parsed, fromHistory = false, alias = false) {
   // 🅱️ Load the piece.
   // TODO: What happens if source is undefined?
   // const moduleLoadTime = performance.now();
+
+  if (parsed.source) {
+    const blob = new Blob([parsed.source], { type: "application/javascript" });
+    const url = URL.createObjectURL(blob);
+    // Perhaps the disk files need to be cached in a CDN and then destroyed
+    // after a certain time?
+
+    // Or they need to be tied to a user account already...
+
+    // const module = importScripts(url);
+    // const m = await importScripts(url);
+    // debugger;
+
+    // use the imported module
+    //import { sayHello } from "./script.js";
+    //sayHello();
+  }
 
   const module = await import(fullUrl).catch((err) => {
     console.error(`😡 "${path}" load failure:`, err);
@@ -1718,18 +1739,26 @@ async function makeFrame({ data: { type, content } }) {
         //       allocation here because it keeps the whole API around?
         //       Re-test this when pointers is not empty! 22.11.12.20.02
         const pointers = content.pen.pointers;
+        const pointersKeys = Object.keys(pointers);
 
-        if (content.pen.pointers.length > 0) {
-          $commonApi.pens = function (n) {
-            if (n === undefined) {
-              return Object.values(pointers).reduce((arr, value) => {
-                arr[value.pointerIndex] = value;
-                return arr;
-              }, []);
-            }
-            return help.findKeyAndValue(pointers, "pointerIndex", n - 1) || {};
-          };
-        }
+        $commonApi.pens = function (n) {
+          if (n === undefined) {
+            const out = Object.values(pointers).reduce((arr, value) => {
+              arr[value.pointerIndex] = value;
+              return arr;
+            }, []);
+
+            // Check to see if this is being too reduced / are
+            // there less pens than are being input?
+            console.log(out.length, Object.values(pointers).length);
+
+            return out;
+          }
+          return help.findKeyAndValue(pointers, "pointerIndex", n - 1) || {};
+        };
+
+        if (pointersKeys.length > 1 && primaryPointer)
+          primaryPointer.multipen = true; // Set a flag for multipen activity on main pen API object.
 
         $commonApi.pen = primaryPointer; // || { x: undefined, y: undefined };
       }
