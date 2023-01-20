@@ -1,4 +1,12 @@
-// 👩‍💻 Disk (Jockey) aka the tape / piece player?
+// 🧩 Disk (Piece)
+// Manages a piece and the transitions between pieces like a
+// hypervisor or shell.
+
+/* #region 🏁 todo
+ + Later
+ - [] Re-implement `inkrn`. 
+#endregion */
+
 import * as graph from "./graph.mjs";
 import * as num from "./num.mjs";
 import * as geo from "./geo.mjs";
@@ -272,6 +280,7 @@ const $commonApi = {
   },
   help: {
     choose: help.choose,
+    flip: help.flip,
     repeat: help.repeat,
     every: help.every,
     any: help.any,
@@ -686,6 +695,7 @@ const $paintApiUnwrapped = {
   page: graph.setBuffer,
   edit: graph.changePixels, // Edit pixels by pasing a callback.
   ink, // Color
+  // inkrn: () => graph.c.slice(), // Get current inkColor.
   // 2D
   wipe: function () {
     ink(...arguments);
@@ -1691,8 +1701,6 @@ async function makeFrame({ data: { type, content } }) {
       pixels = new Uint8ClampedArray(content.pixels);
       if (screen) screen.pixels = pixels;
     }
-
-    // TODO: Check to see if we have been marked to leave the disk.
 
     // Globalize any background music data, retrievable via bgm.data
     $commonApi.bgm.data = {

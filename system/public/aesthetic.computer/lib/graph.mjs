@@ -102,6 +102,7 @@ export {
   depthBuffer,
   writeBuffer,
   color,
+  c, // currentColor
   pixel,
 };
 
