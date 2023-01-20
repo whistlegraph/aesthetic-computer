@@ -3,10 +3,7 @@
 
 /* #region 🏁 todo
   + ⏰ Now
-  - [😇] Get two finger pan, zoom, and rotate working on iOS.
-    - [🍎] Zoom
-    - [] Rotate
-    - [x] Pan
+  - [🆒] Don't render any mark segments that are completely offscreen! 
   - [] Add microphone input. 
   - [] Add audio and video recording. 
     - [] Record video
@@ -38,6 +35,10 @@
          or something like that.
   - 🛑 Launch 1
   + Done
+    - [😇] Get two finger pan, zoom, and rotate working on iOS.
+      - [x] Rotate
+      - [x] Zoom
+      - [x] Pan
     - [x] Multiple fields / values in a single line.
     - [x] Better output of text / printed values.
     - [x] Add background colors to log lines / return a bounding box from a print?
@@ -108,7 +109,8 @@ function paint($) {
   // 🐛 Debug
   if (!debug) return;
   // Graphics
-  debugMids.forEach((m) => $.ink(255, 0, 0).box(m.x, m.y, 9, "fill*center"));
+  // Anchor...
+  // debugMids.forEach((m) => $.ink(255, 0, 0).box(m.x, m.y, 9, "fill*center"));
 
   // Printed Values
   // TODO: - [] Allow multiple values on a single row...
@@ -141,7 +143,6 @@ function sim({ num: { mat3, p2 }, pen, pens, screen }) {
   if (Q || E) wg.rotate(Q ? -0.01 : 0.01); // Rotate
 }
 
-let graphing = false;
 let lastTwoTouch;
 
 // ✒ Act (Runs once per user interaction)
@@ -153,8 +154,8 @@ function act($) {
     num: { p2 },
     help,
   } = $;
-  // Keyboard Navigation
-
+  // 🪐 Navigation (Zoom, Scale & Rotate)
+  // Keyboard
   if (e.is("keyboard:down:alt")) ALT = true; // Panning ➡️
   if (e.is("keyboard:up:alt")) ALT = false;
   if (ALT && e.delta) {
@@ -172,46 +173,41 @@ function act($) {
   if (e.is("keyboard:down:control")) CTRL = true; // and out.
   if (e.is("keyboard:up:control")) CTRL = false;
 
-  // Touch Navigation
-
+  // Touch
   if (e.is("touch:2")) {
-    graphing = false;
+    if (wg.graphing) {
+      // End graphing if necessary when a two finger gesture starts.
+      wg.graphing = false;
+      wg.lift();
+    }
     lastTwoTouch = twoTouch($);
     wg.anchor(p2.floor(lastTwoTouch.mid)); // Set anchor to center of twoTouch.
   }
 
   if ((e.is("draw:1") || e.is("draw:2")) && pen?.multipen) {
     const newTwoTouch = twoTouch($);
-
-    // Re-anchor.
     wg.anchor(p2.floor(newTwoTouch.mid)); // Set anchor to center point of twoTouch.
-
-    // Pan
-    if (lastTwoTouch) wg.move(p2.sub(newTwoTouch.mid, lastTwoTouch.mid)); // Pan by delta of last tT.
-
-    // Rotate
-    // TODO: Get delta of two finger turn to calculate angle difference.
-
-    // Scale
-    // TODO: Get distance difference to calculate zoom difference.
-
+    if (lastTwoTouch) {
+      wg.zoom(newTwoTouch.dist / lastTwoTouch.dist); // Zoom
+      wg.rotate(newTwoTouch.rot - lastTwoTouch.rot); // Rotate
+      wg.move(p2.sub(newTwoTouch.mid, lastTwoTouch.mid)); // Pan by delta of last tT.
+    }
     lastTwoTouch = newTwoTouch;
   }
 
   if (e.is("lift") && pens().length < 2) lastTwoTouch = null; // Reset twoTouch history.
 
-  // Graphing
-
+  // ✏️ Graphing
   if (e.is("touch:1")) {
-    graphing = true;
+    wg.graphing = true;
     wg.touch({ ...e, thickness: help.choose(1, 2, 4, 8, 16) }); // Drawing 🤙
     // wg.touch({ ...e, thickness: help.choose(1) }); // Drawing 🤙
   }
 
-  if (e.is("draw:1") && graphing) wg.draw(e);
+  if (e.is("draw:1") && wg.graphing) wg.draw(e);
 
-  if (e.is("lift:1") && graphing) {
-    graphing = false;
+  if (e.is("lift:1") && wg.graphing) {
+    wg.graphing = false;
     wg.lift();
   }
 }
@@ -238,6 +234,7 @@ class Whistlegraph {
   currentColor;
   thickness;
   matrix;
+  graphing = false; // Keeps track of whether we are making a gesture or not.
 
   pan = { x: 0, y: 0 };
   scale = { x: 1, y: 1 };
@@ -283,6 +280,7 @@ class Whistlegraph {
   }
 
   // Zoom in uniformly via `amt` or separately with `{x: amt, y: amt}`.
+  // amt is zeroed at 1.
   zoom(amt) {
     this.lastScale = { x: this.scale.x, y: this.scale.y };
     const newScale = this.$.num.p2.mul(this.scale, {
@@ -367,14 +365,14 @@ class Whistlegraph {
       pen,
     } = $;
 
-    const next =
-      pen?.drawing && !pen.multipen
-        ? {
-            ...this.unproject(pen),
-            pressure: pen.pressure,
-            color: wg.currentColor,
-          }
-        : undefined;
+    // TODO: Just use "graphing" here and move it into Whistlegraph.
+    const next = this.graphing
+      ? {
+          ...this.unproject(pen),
+          pressure: pen.pressure,
+          color: wg.currentColor,
+        }
+      : undefined;
 
     for (let i = this.gestures.length - 1; i >= 0; i -= 1) {
       const g = this.gestures[i];

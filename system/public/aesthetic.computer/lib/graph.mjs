@@ -688,6 +688,7 @@ function poly(coords) {
 
 // Rasterize an Npx thick poly line with rounded end-caps.
 /* TODO
+ - [😇] Clip coords to inside of the screen.
  + Later
  - [] Perhaps if thickness === 1 then this can be combined with
      `pixelPerfectPolyline` ?
@@ -704,6 +705,18 @@ function poly(coords) {
 function pline(coords, thickness, shader) {
   // 1️⃣ Generate geometry.
   if (coords.length < 2) return; // Require at least two coordinates.
+
+  // TODO: Check to make sure that at least one of the coordinates is on the screen (inside of width / height)
+  // TODO: Skip offscreen segments within coords...
+
+  // let offscreenCoords = 0;
+  // coords.forEach(c => {
+  //   if ((c.x > width || c.x < 0) &&
+  //       (c.y > height || c.y < 0)) {
+  //         offscreenCoords += 1;
+  //       }
+  // });
+  // if (offscreenCoords > 0)
 
   let points = [], // Raster grids.
     lines = [],
