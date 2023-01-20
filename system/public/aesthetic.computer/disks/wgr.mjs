@@ -139,7 +139,7 @@ function paint($) {
 // 🧮 Sim(ulate)
 function sim({ num: { mat3, p2 }, pen, pens, screen }) {
   if (pen && (SHIFT || CTRL || ALT || Q || E)) wg.anchor(pen); // Anchor
-  if (SHIFT || CTRL) wg.zoom(CTRL ? 0.999 : 1.001); // Zoom
+  if (SHIFT || CTRL) wg.zoom(CTRL ? 0.998 : 1.002); // Zoom
   if (Q || E) wg.rotate(Q ? -0.02 : 0.02); // Rotate
 }
 
