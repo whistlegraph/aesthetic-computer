@@ -136,6 +136,7 @@ export class Pen {
 
         pointer.px = pointer.x;
         pointer.py = pointer.y;
+        pointer.saveDeltaP();
 
         pointer.untransformedPosition = { x: e.x, y: e.y };
         pointer.pressure = reportPressure(e);
@@ -245,8 +246,8 @@ export class Pen {
       // Delete pointer only if we are using touch.
       if (e.pointerType === "touch") delete this.pointers[e.pointerId];
 
-      if (debug)
-        console.log("Removed pointer by ID:", e.pointerId, this.pointers);
+      // if (debug)
+        // console.log("Removed pointer by ID:", e.pointerId, this.pointers);
     });
 
     // Mousewheel
