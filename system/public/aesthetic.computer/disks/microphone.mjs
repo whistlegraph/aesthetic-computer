@@ -51,10 +51,10 @@ function paint({
 function sim({ dom: { html, css, javascript }, signal, rec: { printProgress } }) {
   mic?.poll(); // Query for updated amplitude and waveform data.
 
-  //if (printProgress === 1 && !printFinished) {
-    //signal("microphone:transcoding-complete");
-    //printFinished = true;
-  //}
+  // if (printProgress === 1 && !printFinished) {
+  //   signal("microphone:transcoding-complete");
+  //   printFinished = true;
+  // }
 
   if (mic && interfaceDisabled) {
     interfaceDisabled = false;
@@ -151,9 +151,7 @@ function act({
 
   if (e.is("signal") && e.signal.includes("recordings:close")) {
     console.log("closed!");
-
     // TODO: How to reset the record button so another recording can get made?
-
   }
 
   // if (e.is("signal")) console.log(e.signal); // 🔔 Print all signals.

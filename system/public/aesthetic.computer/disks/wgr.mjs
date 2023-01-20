@@ -3,18 +3,12 @@
 
 /* #region 🏁 todo
   + ⏰ Now
-  - [🎤] Add microphone input. 
-  - [] Add audio and video recording. 
-    - [] Record video
-      - [] This will be done with `wgr seconds` in addition to a countdown timer.
-        - [] If no seconds are entered, then no video recording occurs and
-             a practice state is assumed!
-    - [] With microphone.
-    - [] Add background beat / music?
-      - [] (via parameter #2)
-    - [] Finish video saving UI.
-      - [] Store to temporary online bucket and allow
-           user to download / show code. 
+  - [] Prevent stroke from continuing once recording ends.
+  - [] Finish video saving UI.
+    - [] Store to temporary online bucket and allow
+         user to download / show code. 
+  - [] Add background beat / music?
+    - [] (via parameter #2)
   - [] Make the background cool and grainy / animated a bit.
   - [] (Post Wednesday) Whistlegraph Stamp
     - [] Two SVGs layered over. 
@@ -23,6 +17,9 @@
     - [] Don't delete videos that get stored. 
     - [] "pre-launch / early"  
   + Later
+    - [] This will be done with `wgr seconds` in addition to a countdown timer.
+      - [] If no seconds are entered, then no video recording occurs and
+            a practice state is assumed!
     - [] User accounts along with full data storage and client player.
     - [] Parameterize some ink / thickness options in the CLI.
     - [] Does there need to be a secondary buffer for the current stroke...
@@ -34,6 +31,10 @@
          or something like that.
   - 🛑 Launch 1
   + Done
+    - [x] Add microphone input. 
+    - [x] Add audio and video recording. 
+      - [x] Record video
+      - [x] With microphone.
     - [x] Don't render any mark segments that are completely offscreen! 
     - [x] Get two finger pan, zoom, and rotate working on iOS.
       - [x] Rotate
@@ -78,6 +79,15 @@ import { Typeface } from "../lib/type.mjs";
 const { floor, max, sin, cos } = Math;
 
 let wg, bg; // Whistlegraph foreground and background.
+let mic,
+  rec = false; // Microphone & recording flag.
+let recStart;
+let recProgress = 0;
+const recDuration = 6;
+
+let bop = false;
+
+let lastTwoTouch;
 
 let debug = true;
 let debugMids = []; // Midpoints of multi-touch.
@@ -101,49 +111,100 @@ function boot($) {
 
 // 🎨 Paint
 function paint($) {
-  if (ALT || SHIFT || CTRL || Q || E || $.pens?.().length > 1) $.wipe(bg);
+  const {
+    wipe,
+    pens,
+    ink,
+    rec: { printProgress },
+    screen: { width, height },
+  } = $;
+
+  if (ALT || SHIFT || CTRL || Q || E || pens?.().length > 1) wipe(bg);
+
+  // Waveform & Amplitude Line
+  if (mic?.waveform.length > 0 && mic?.amplitude !== undefined) {
+    const xStep = width / mic.waveform.length + 1;
+    const yMid = height / 2,
+      yMax = yMid;
+    ink(255, 0, 0, 128).poly(
+      mic.waveform.map((v, i) => [i * xStep, yMid + v * yMax])
+    );
+  }
 
   wg.paint($);
   // $.ink(255, 255, 0, 128).box(wg.anchor.x, wg.anchor.y, 8, "out*center");
 
   // 🐛 Debug
-  if (!debug) return;
-  // Graphics
-  // Anchor...
-  // debugMids.forEach((m) => $.ink(255, 0, 0).box(m.x, m.y, 9, "fill*center"));
+  if (debug && printProgress === 0) {
+    // Graphics
+    // Anchor...
+    // debugMids.forEach((m) => $.ink(255, 0, 0).box(m.x, m.y, 9, "fill*center"));
 
-  // Printed Values
-  // TODO: - [] Allow multiple values on a single row...
+    // Printed Values
+    // TODO: - [] Allow multiple values on a single row...
 
-  $.ink(140, 90, 0);
-  // Measure some printable parameters.
-  // Define a label to the left, and a value or set of values on the right.
-  [
-    ["pen", [$.pen?.x || 0, $.pen?.y || 0]],
-    ["pan", [floor(wg.pan.x), floor(wg.pan.y)]],
-    ["anc", [wg.anchorPoint.x, wg.anchorPoint.y]],
-    ["scl", wg.scale.x], // Only need to log one scale if using uniform.
-    ["rot", wg.rotation],
-  ]
-    .map((v) => {
-      // 🖊️ Log the value or set of values as a padded & formatted string.
-      v[1] = typeof v[1] === "number" ? [v[1]] : v[1];
-      const values = v[1].map((v) => v.toFixed(2));
-      // TODO: Add column formatted numbers here...
-      v[1] = values.join(", "); // Concatenate values with ", "
-      return v;
-    })
-    .forEach((line, i) => tf.print($, i, `${line[0]}: ${line[1]}`, bg));
+    $.ink(140, 90, 0);
+    // Measure some printable parameters.
+    // Define a label to the left, and a value or set of values on the right.
+    [
+      ["pen", [$.pen?.x || 0, $.pen?.y || 0]],
+      ["pan", [floor(wg.pan.x), floor(wg.pan.y)]],
+      ["anc", [wg.anchorPoint.x, wg.anchorPoint.y]],
+      ["scl", wg.scale.x], // Only need to log one scale if using uniform.
+      ["rot", wg.rotation],
+    ]
+      .map((v) => {
+        // 🖊️ Log the value or set of values as a padded & formatted string.
+        v[1] = typeof v[1] === "number" ? [v[1]] : v[1];
+        const values = v[1].map((v) => v.toFixed(2));
+        // TODO: Add column formatted numbers here...
+        v[1] = values.join(", "); // Concatenate values with ", "
+        return v;
+      })
+      .forEach((line, i) =>
+        tf.print($, { x: 3, y: 5 }, i, `${line[0]}: ${line[1]}`, bg)
+      );
+  }
+
+  ink(0).box(0, 0, width, 3);
+
+  // Draw progress bar for video recording.
+  // TODO: How can this skip the recording?
+  if (recProgress > 0) ink(255, 0, 0).box(0, 0, recProgress * width, 3);
+
+  // Draw progress bar for video rendering.
+  if (printProgress > 0) {
+    //ink(0, 0, 0, 32).box(0, 0, width, height);
+    ink(128, 64, 0).box(0, 0, printProgress * width, 3);
+  }
 }
 
 // 🧮 Sim(ulate)
-function sim({ num: { mat3, p2 }, pen, pens, screen }) {
+function sim({
+  num: { mat3, p2 },
+  pen,
+  pens,
+  screen,
+  rec: { cut, print },
+  sound: { time },
+}) {
+  // Navigation
   if (pen && (SHIFT || CTRL || ALT || Q || E)) wg.anchor(pen); // Anchor
   if (SHIFT || CTRL) wg.zoom(CTRL ? 0.998 : 1.002); // Zoom
   if (Q || E) wg.rotate(Q ? -0.02 : 0.02); // Rotate
-}
 
-let lastTwoTouch;
+  // AV Recording
+  mic?.poll(); // Query for updated amplitude and waveform data.
+  if (rec === true) {
+    recProgress = (time - recStart) / recDuration;
+    if (recProgress >= 1) {
+      cut();
+      print();
+      recProgress = 0;
+      rec = false;
+    }
+  }
+}
 
 // ✒ Act (Runs once per user interaction)
 function act($) {
@@ -151,9 +212,44 @@ function act($) {
     event: e,
     pen,
     pens,
+    rec: { rolling, cut, print, printProgress },
     num: { p2 },
+    sound: { time },
     help,
   } = $;
+
+  // if (!mic) return; // Disable all events until the microphone is working.
+  if (printProgress > 0) return; // Prevent any interaction when a video is rendering.
+
+  // Recording
+  if (e.is("keyboard:down:enter")) {
+    if (rec === false) {
+      rolling("video");
+      rec = true;
+    } else {
+      cut();
+      print();
+      rec = false;
+    }
+  }
+
+  // When a recording panel closes...
+  if (e.is("signal") && e.signal.includes("recordings:close")) {
+    console.log("closed!");
+    // Restart recording...
+    // TODO: Make another recording.
+    bop = true;
+
+    // Reset WG
+    wg.gestures.length = 0;
+    wg.gestureIndex = 0;
+
+    rolling("video");
+    recStart = time;
+    rec = true;
+    // TODO: How to reset the record button so another recording can get made?
+  }
+
   // 🪐 Navigation (Zoom, Scale & Rotate)
   // Keyboard
   if (e.is("keyboard:down:alt")) ALT = true; // Panning ➡️
@@ -212,7 +308,38 @@ function act($) {
   }
 }
 
-export { boot, paint, act, sim };
+// 💗 Beat
+function beat({ sound: { microphone, square, time }, rec: { rolling } }) {
+  if (!mic) {
+    mic = microphone.connect(); // Connect the microphone.
+    rolling("video"); // Start recording immediately.
+    recStart = time;
+    rec = true;
+    square({
+      tone: 50,
+      beats: 1 / 8,
+      attack: 0.01,
+      decay: 0.1,
+      volume: 1,
+      pan: 0,
+    });
+  }
+
+  if (bop) {
+    square({
+      tone: 50,
+      beats: 1 / 8,
+      attack: 0.01,
+      decay: 0.1,
+      volume: 1,
+      pan: 0,
+    });
+    bop = false;
+  }
+
+}
+
+export { boot, paint, beat, act, sim };
 
 // 📚 Library (Useful functions used throughout the piece)
 function twoTouch({ pens, num: { p2 } }) {
