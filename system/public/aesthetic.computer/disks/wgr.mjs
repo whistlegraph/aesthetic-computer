@@ -3,7 +3,7 @@
 
 /* #region 🏁 todo
   + ⏰ Now
-  - [-] Add microphone input. 
+  - [🎤] Add microphone input. 
   - [] Add audio and video recording. 
     - [] Record video
       - [] This will be done with `wgr seconds` in addition to a countdown timer.
