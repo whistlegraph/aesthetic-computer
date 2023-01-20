@@ -200,8 +200,8 @@ function act($) {
   // ✏️ Graphing
   if (e.is("touch:1")) {
     wg.graphing = true;
-    wg.touch({ ...e, thickness: help.choose(1, 2, 4, 8, 16) }); // Drawing 🤙
-    // wg.touch({ ...e, thickness: help.choose(1) }); // Drawing 🤙
+    // wg.touch({ ...e, thickness: help.choose(1, 2, 4, 8, 16) }); // Drawing 🤙
+    wg.touch({ ...e, thickness: help.choose(1) }); // Drawing 🤙
   }
 
   if (e.is("draw:1") && wg.graphing) wg.draw(e);
