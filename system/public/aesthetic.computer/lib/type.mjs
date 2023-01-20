@@ -34,13 +34,13 @@ class Typeface {
     });
   }
 
-  print($, lineNumber, text, bg = null) {
+  print($, pos = {x: 0, y: 0}, lineNumber, text, bg = null) {
     // TODO: Pass printLine params through / make a state machine.
     const font = this.glyphs;
     const lineHeightGap = 2;
     const blockHeight = (this.data.glyphHeight || 9) + lineHeightGap;
-    const x = 0;
-    const y = lineNumber * blockHeight;
+    const x = pos.x;
+    const y = pos.y + lineNumber * blockHeight;
     const blockWidth = 6;
     const scale = 1;
 

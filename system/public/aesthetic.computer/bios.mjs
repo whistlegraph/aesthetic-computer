@@ -941,7 +941,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (content.pieceCount === 0) {
         // Pen (also handles touch & pointer events)
         pen = new Pen((x, y) => {
-          const p =  {
+          const p = {
             x: floor(((x - canvasRect.x) / projectedWidth) * screen.width),
             y: floor(((y - canvasRect.y) / projectedHeight) * screen.height),
           };
@@ -1763,26 +1763,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const recordings = wrapper.querySelector("#recordings");
 
         if (recordings) {
-          recordings.append(el);
+          const recordingsWrapper = recordings.querySelector(
+            "#recordings-wrapper"
+          );
+          recordingsWrapper.append(el);
         } else {
           const recordingsEl = document.createElement("div");
           recordingsEl.id = "recordings";
 
-          // Add video element.
-          recordingsEl.append(el);
+          const recordingsWrapper = document.createElement("div");
+          recordingsWrapper.id = "recordings-wrapper";
+
+          recordingsEl.append(recordingsWrapper); // Add wrapper.
+          recordingsWrapper.append(el); // Add video element.
 
           // Add download link.
           const download = document.createElement("a");
           download.href = el.src;
-          download.innerText = "Download Video";
+          download.innerText = "DOWNLOAD VIDEO";
           download.download = "test.mp4";
-          recordingsEl.append(download);
+          recordingsWrapper.append(download);
 
           // Add close button.
           const close = document.createElement("div");
-          close.innerText = "CLOSE";
+          close.innerText = "AGAIN"; // "CLOSE"
           close.id = "recordings-close";
-          recordingsEl.append(close);
+          recordingsWrapper.append(close);
 
           close.onpointerdown = () => {
             recordingsEl.remove();
