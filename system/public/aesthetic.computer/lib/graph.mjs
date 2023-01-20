@@ -482,12 +482,20 @@ function pixelPerfectPolyline(points, shader) {
   if (points.length < 2) return; // Require 2 or more points.
 
   const pixels = [];
-
   let last = points[0];
 
   points.forEach((cur) => {
+    // Clip offscreen segments.
+    const xMin = min(last.x, cur.x);
+    const xMax = max(last.x, cur.x);
+    const yMin = min(last.y, cur.y);
+    const yMax = max(last.y, cur.y);
+    if (xMin >= width || xMax < 0 || yMin >= height || yMax < 0) {
+      last = cur;
+      return;
+    }
+
     // Compute bresen pixels, filtering out duplicates.
-    // (Basically a poly bresenham function.)
     bresenham(last.x, last.y, cur.x, cur.y).forEach((p, i) => {
       if (i > 0 || pixels.length < 2) {
         pixels.push({ ...p, color: cur.color }); // Add color for each pixel.
