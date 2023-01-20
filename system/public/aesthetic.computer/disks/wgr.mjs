@@ -3,8 +3,7 @@
 
 /* #region 🏁 todo
   + ⏰ Now
-  - [🆒] Don't render any mark segments that are completely offscreen! 
-  - [] Add microphone input. 
+  - [-] Add microphone input. 
   - [] Add audio and video recording. 
     - [] Record video
       - [] This will be done with `wgr seconds` in addition to a countdown timer.
@@ -35,7 +34,8 @@
          or something like that.
   - 🛑 Launch 1
   + Done
-    - [😇] Get two finger pan, zoom, and rotate working on iOS.
+    - [x] Don't render any mark segments that are completely offscreen! 
+    - [x] Get two finger pan, zoom, and rotate working on iOS.
       - [x] Rotate
       - [x] Zoom
       - [x] Pan
@@ -200,8 +200,8 @@ function act($) {
   // ✏️ Graphing
   if (e.is("touch:1")) {
     wg.graphing = true;
-    // wg.touch({ ...e, thickness: help.choose(1, 2, 4, 8, 16) }); // Drawing 🤙
-    wg.touch({ ...e, thickness: help.choose(1) }); // Drawing 🤙
+    wg.touch({ ...e, thickness: help.choose(1, 2, 4, 8, 16) }); // Drawing 🤙
+    // wg.touch({ ...e, thickness: help.choose(1) }); // Drawing 🤙
   }
 
   if (e.is("draw:1") && wg.graphing) wg.draw(e);
