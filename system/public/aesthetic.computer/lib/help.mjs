@@ -5,6 +5,11 @@ export function choose() {
   return arguments[num.randInt(arguments.length - 1)];
 }
 
+// Flip a coin, returning true or false. 
+export function flip() {
+  return choose(true, false);
+}
+
 // Set every property of an object to a certain value.
 export function every(obj, value) {
   Object.keys(obj).forEach((k) => (obj[k] = value));

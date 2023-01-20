@@ -3,7 +3,10 @@
 
 /* #region 🏁 todo
   + ⏰ Now
-  - [😇] Get pan, rotate, and multitouch zoom working on iOS.
+  - [😇] Get two finger pan, zoom, and rotate working on iOS.
+    - [🍎] Zoom
+    - [] Rotate
+    - [x] Pan
   - [] Add microphone input. 
   - [] Add audio and video recording. 
     - [] Record video
@@ -24,8 +27,6 @@
     - [] Don't delete videos that get stored. 
     - [] "pre-launch / early"  
   + Later
-    - [] Add background colors to log lines / return a bounding box from a print?
-      - [] Draw background colors under each letter.
     - [] User accounts along with full data storage and client player.
     - [] Parameterize some ink / thickness options in the CLI.
     - [] Does there need to be a secondary buffer for the current stroke...
@@ -37,6 +38,10 @@
          or something like that.
   - 🛑 Launch 1
   + Done
+    - [x] Multiple fields / values in a single line.
+    - [x] Better output of text / printed values.
+    - [x] Add background colors to log lines / return a bounding box from a print?
+      - [x] Draw background colors under each letter.
     - [x] Add polychrome stroke support.
     - [x] Make each new gesture a different color.
     - [x] Make each new line a different stroke thickness.
@@ -106,45 +111,34 @@ function paint($) {
   debugMids.forEach((m) => $.ink(255, 0, 0).box(m.x, m.y, 9, "fill*center"));
 
   // Printed Values
-  // $.wipe(bg);
-  $.ink(140, 90, 235, 250);
+  // TODO: - [] Allow multiple values on a single row...
+
+  $.ink(140, 90, 0);
   // Measure some printable parameters.
+  // Define a label to the left, and a value or set of values on the right.
   [
-    ["penx", $.pen?.x],
-    ["peny", $.pen?.y],
-    ["panx", wg.pan.x],
-    ["pany", wg.pan.y],
-    ["ancx", wg.anchorPoint.x],
-    ["ancy", wg.anchorPoint.y],
-    ["sclx", wg.scale.x],
-    ["scly", wg.scale.y],
-    [" rot", wg.rotation],
+    ["pen", [$.pen?.x || 0, $.pen?.y || 0]],
+    ["pan", [floor(wg.pan.x), floor(wg.pan.y)]],
+    ["anc", [wg.anchorPoint.x, wg.anchorPoint.y]],
+    ["scl", wg.scale.x], // Only need to log one scale if using uniform.
+    ["rot", wg.rotation],
   ]
     .map((v) => {
-      if (v[1]) v[1] = Number(v[1].toFixed(2));
+      // 🖊️ Log the value or set of values as a padded & formatted string.
+      v[1] = typeof v[1] === "number" ? [v[1]] : v[1];
+      const values = v[1].map((v) => v.toFixed(2));
+      // TODO: Add column formatted numbers here...
+      v[1] = values.join(", "); // Concatenate values with ", "
       return v;
     })
-    .forEach((line, i) => tf.print($, i, `${line[0]}: ${line[1]}`));
+    .forEach((line, i) => tf.print($, i, `${line[0]}: ${line[1]}`, bg));
 }
 
 // 🧮 Sim(ulate)
 function sim({ num: { mat3, p2 }, pen, pens, screen }) {
-  if (pen) {
-    if (SHIFT || CTRL) {
-      const zoom = CTRL ? 0.999 : 1.001;
-      wg.anchor(pen);
-      wg.zoom({ x: zoom, y: zoom });
-    }
-  }
-
-  if (pens) {
-    // console.log(pens(1), pens(2));
-  }
-
-  if (Q || E) {
-    wg.anchor(pen);
-    wg.rotate(Q ? -0.01 : 0.01); // Rotate left or right.
-  }
+  if (pen && (SHIFT || CTRL || ALT || Q || E)) wg.anchor(pen); // Anchor
+  if (SHIFT || CTRL) wg.zoom(CTRL ? 0.999 : 1.001); // Zoom
+  if (Q || E) wg.rotate(Q ? -0.01 : 0.01); // Rotate
 }
 
 let graphing = false;
@@ -163,7 +157,10 @@ function act($) {
 
   if (e.is("keyboard:down:alt")) ALT = true; // Panning ➡️
   if (e.is("keyboard:up:alt")) ALT = false;
-  if (ALT && e.delta) wg.move(e.delta);
+  if (ALT && e.delta) {
+    wg.anchor(pen);
+    wg.move(e.delta);
+  }
 
   if (e.is("keyboard:down:q")) Q = true; // Rotating left... ↩️
   if (e.is("keyboard:up:q")) Q = false;
@@ -179,35 +176,36 @@ function act($) {
 
   if (e.is("touch:2")) {
     graphing = false;
-
-    console.log("act-touch-2", pens());
-
     lastTwoTouch = twoTouch($);
-    // console.log(lastTwoTouch);
-
     wg.anchor(p2.floor(lastTwoTouch.mid)); // Set anchor to center of twoTouch.
-    if (debug) debugMids = [wg.anchorPoint]; // Debug mid points.
   }
 
   if ((e.is("draw:1") || e.is("draw:2")) && pen?.multipen) {
-    //const newTwoTouch = twoTouch($);
+    const newTwoTouch = twoTouch($);
 
-    // TODO: Prevent anchor from sliding.
-    // wg.anchor(p2.floor(newTwoTouch.mid)); // Set anchor to center point of twoTouch.
-    // wg.move(p2.sub(newTwoTouch.mid, lastTwoTouch.mid)); // Pan by delta of last tT.
-    // if (debug) debugMids = [wg.anchorPoint]; // Debug mid points.
+    // Re-anchor.
+    wg.anchor(p2.floor(newTwoTouch.mid)); // Set anchor to center point of twoTouch.
+
+    // Pan
+    if (lastTwoTouch) wg.move(p2.sub(newTwoTouch.mid, lastTwoTouch.mid)); // Pan by delta of last tT.
+
+    // Rotate
     // TODO: Get delta of two finger turn to calculate angle difference.
+
+    // Scale
     // TODO: Get distance difference to calculate zoom difference.
 
-    //lastTwoTouch = newTwoTouch;
+    lastTwoTouch = newTwoTouch;
   }
+
+  if (e.is("lift") && pens().length < 2) lastTwoTouch = null; // Reset twoTouch history.
 
   // Graphing
 
   if (e.is("touch:1")) {
     graphing = true;
-    //wg.touch({ ...e, thickness: help.choose(1, 2, 4, 8, 16) }); // Drawing 🤙
-    wg.touch({ ...e, thickness: help.choose(1) }); // Drawing 🤙
+    wg.touch({ ...e, thickness: help.choose(1, 2, 4, 8, 16) }); // Drawing 🤙
+    // wg.touch({ ...e, thickness: help.choose(1) }); // Drawing 🤙
   }
 
   if (e.is("draw:1") && graphing) wg.draw(e);
@@ -256,21 +254,15 @@ class Whistlegraph {
     this.matrix = $.num.mat3.create();
   }
 
-  // Pans around the view by a screen-coordinate amount.
+  // Pans around the view by a screen-coordinate amount, taking rotation and
+  // scale into account.
   // TODO: - [] I could shorten these transformations by using a matrix. 23.01.09.04.01
   //            (Or by converting to worldPos first?)
   move(p) {
-    const rp = {
-      x: p.x * cos(-this.rotation) - p.y * sin(-this.rotation),
-      y: p.x * sin(-this.rotation) + p.y * cos(-this.rotation),
-    };
-
-    const sp = this.$.num.p2.mul(rp, {
-      x: 1 / this.scale.x,
-      y: 1 / this.scale.y,
-    });
-
-    this.$.num.p2.inc(this.pan, sp);
+    const p2 = this.$.num.p2;
+    const rp = p2.rot(p, -this.rotation);
+    const sp = p2.mul(rp, p2.div(1, this.scale));
+    p2.inc(this.pan, sp);
   }
 
   rotate(angle) {
@@ -286,9 +278,12 @@ class Whistlegraph {
     };
     this.move(anchorDiff); // Pan it while taking account rotation and scale.
     this.anchorPoint = newScreenAnchor; // Update anchorPoint.
+
+    if (debug) debugMids = [this.anchorPoint]; // Debug draw anchorPoint.
   }
 
-  zoom(amt, p) {
+  // Zoom in uniformly via `amt` or separately with `{x: amt, y: amt}`.
+  zoom(amt) {
     this.lastScale = { x: this.scale.x, y: this.scale.y };
     const newScale = this.$.num.p2.mul(this.scale, {
       x: amt.x || amt,
@@ -343,11 +338,16 @@ class Whistlegraph {
     this.gestureIndex = this.gestures.length - 1;
   }
 
+  // TODO: Think more about how color relates to gestures in this code.
   draw({ x, y, pressure }) {
-    this.baseColor = this.$.num.randIntArr(255, 3);
+    const g = this.gestures[this.gestureIndex];
+
+    // Randomize the segment color if this gesture is polychrome.
+    if (g.polychrome) this.baseColor = this.$.num.randIntArr(255, 3);
+
     this.genColor();
 
-    this.gestures[this.gestureIndex].add({
+    g.add({
       ...this.unproject({ x, y }),
       pressure,
       color: this.currentColor,
@@ -460,8 +460,11 @@ class Gesture {
   constructor($, point, thickness = 2) {
     this.$ = $;
     this.add(point);
+
+    // Note: Each of these properties are kind of like metadata on the gesture.
     this.thickness = thickness;
     this.color = point.color; // Gesture color to the color of the first point.
+    this.polychrome = $.help.flip(); // Whether to recolor segements randomly.
   }
 
   add(next) {

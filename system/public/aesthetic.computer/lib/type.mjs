@@ -2,6 +2,9 @@
 // Abstraction for typography and text input.
 
 /* #region 🏁 todo
+ - [] Add different colors to "print" / storing the ink color / writing
+      a backdrop somehow... maybe using layer?
+ + Later
  - [] Make history on message input optional?
  - [] Gracefully allow for multiple instances of TextInput in a single piece? 
  - [] Add tab auto-completion feature that can be side-loaded with contextual
@@ -20,6 +23,9 @@ class Typeface {
   constructor($preload, data = font1, name = "font-1") {
     this.data = data;
     entries(data).forEach(([glyph, location]) => {
+      // 1. Ignore any keys with a "glyph" prefix because these are settings.
+      if (glyph.startsWith("glyph")) return;
+      // 2. Load all other keys / glyphs over the network.
       $preload(
         `aesthetic.computer/disks/drawings/${name}/${location}.json`
       ).then((res) => {
@@ -28,15 +34,22 @@ class Typeface {
     });
   }
 
-  print($, lineNumber, text) {
+  print($, lineNumber, text, bg = null) {
     // TODO: Pass printLine params through / make a state machine.
     const font = this.glyphs;
-    const blockHeight = 9;
+    const lineHeightGap = 2;
+    const blockHeight = (this.data.glyphHeight || 9) + lineHeightGap;
     const x = 0;
     const y = lineNumber * blockHeight;
     const blockWidth = 6;
     const scale = 1;
-    $.printLine(text, font, x, y, blockWidth, scale);
+
+    // Background
+    if (bg !== null) {
+      $.ink(bg).box(x, y, blockWidth * scale * text.length, blockHeight);
+    }
+
+    $.ink(255).printLine(text, font, x, y, blockWidth, scale); // Text
   }
 }
 
