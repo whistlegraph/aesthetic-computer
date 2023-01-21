@@ -829,6 +829,7 @@ let glazeAfterReframe;
 class Microphone {
   amplitude = 0;
   waveform = [];
+  connected = false; // Flips to true on a callback message from `bios`.
 
   // Note: can send `{monitor: true}` in `options` for audio feedback.
   connect(options) {
@@ -1394,7 +1395,10 @@ class Content {
 //       frame.
 // TODO: Make simple needsPaint example.
 // TODO: Try to remove as many API calls from here as possible.
-const signals = [];
+
+const signals = []; // Easy messages from embedded DOM content.
+const actAlerts = []; // Messages that get put into act and cleared after
+// every frame.
 let reframed = false;
 async function makeFrame({ data: { type, content } }) {
   if (type === "init-from-bios") {
@@ -1590,6 +1594,18 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "microphone-waveform") {
     microphone.waveform = content;
+    return;
+  }
+
+  if (type === "microphone-connect:success") {
+    microphone.connected = true;
+    actAlerts.push("microphone-connect:success");
+    return;
+  }
+
+  if (type === "microphone-connect:failure") {
+    microphone.connected = false;
+    actAlerts.push("microphone-connect:failure");
     return;
   }
 
@@ -1803,7 +1819,7 @@ async function makeFrame({ data: { type, content } }) {
         }
       }
 
-      // 📻 Signalling
+      // 📻 Signaling
       $api.signal = (content) => {
         send({ type: "signal", content });
       };
@@ -2015,6 +2031,21 @@ async function makeFrame({ data: { type, content } }) {
           }
         }
       });
+
+      // *** Act Alerts *** (Custom events defined in here.)
+      actAlerts.forEach((name) => {
+        const data = {
+          name,
+          is: (e) => e === name,
+        };
+        $api.event = data;
+        try {
+          act($api);
+        } catch (e) {
+          console.warn("️ ✒ Act failure...", e);
+        }
+      });
+      actAlerts.length = 0; // Clear act alerts.
     }
 
     // 🖼 Paint & Render // Two sends (Move one send up eventually? -- 2021.11.27.17.20)

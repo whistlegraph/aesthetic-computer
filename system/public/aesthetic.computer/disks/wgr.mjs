@@ -3,7 +3,6 @@
 
 /* #region 🏁 todo
   + ⏰ Now
-  - [] Prevent stroke from continuing once recording ends.
   - [] Finish video saving UI.
     - [] Store to temporary online bucket and allow
          user to download / show code. 
@@ -31,6 +30,8 @@
          or something like that.
   - 🛑 Launch 1
   + Done
+    - [x] Wait until the microphone actually is connected before starting a recording
+    - [x] Prevent stroke from continuing once recording ends.
     - [x] Add microphone input. 
     - [x] Add audio and video recording. 
       - [x] Record video
@@ -195,9 +196,12 @@ function sim({
 
   // AV Recording
   mic?.poll(); // Query for updated amplitude and waveform data.
+
+  // Advance recording timer and finish recording if necessary.
   if (rec === true) {
     recProgress = (time - recStart) / recDuration;
     if (recProgress >= 1) {
+      wg.lift(); // Stop any active gesture.
       cut();
       print();
       recProgress = 0;
@@ -231,6 +235,18 @@ function act($) {
       print();
       rec = false;
     }
+  }
+
+  if (e.is("microphone-connect:success")) {
+    console.log("🔴 Microphone connected! Starting a recording...");
+    rolling("video"); // Start recording immediately.
+    recStart = time;
+    rec = true;
+    bop = true;
+  }
+
+  if (e.is("microphone-connect:failure")) {
+    console.log("🟡 Microphone failed to connect.");
   }
 
   // When a recording panel closes...
@@ -271,11 +287,7 @@ function act($) {
 
   // Touch
   if (e.is("touch:2")) {
-    if (wg.graphing) {
-      // End graphing if necessary when a two finger gesture starts.
-      wg.graphing = false;
-      wg.lift();
-    }
+    wg.lift(); // Stop any active gesture.
     lastTwoTouch = twoTouch($);
     wg.anchor(p2.floor(lastTwoTouch.mid)); // Set anchor to center of twoTouch.
   }
@@ -295,34 +307,18 @@ function act($) {
 
   // ✏️ Graphing
   if (e.is("touch:1")) {
-    wg.graphing = true;
     wg.touch({ ...e, thickness: help.choose(1, 2, 4, 8, 16) }); // Drawing 🤙
     // wg.touch({ ...e, thickness: help.choose(1) }); // Drawing 🤙
   }
 
-  if (e.is("draw:1") && wg.graphing) wg.draw(e);
-
-  if (e.is("lift:1") && wg.graphing) {
-    wg.graphing = false;
-    wg.lift();
-  }
+  if (e.is("draw:1")) wg.draw(e);
+  if (e.is("lift:1")) wg.lift();
 }
 
 // 💗 Beat
 function beat({ sound: { microphone, square, time }, rec: { rolling } }) {
   if (!mic) {
     mic = microphone.connect(); // Connect the microphone.
-    rolling("video"); // Start recording immediately.
-    recStart = time;
-    rec = true;
-    square({
-      tone: 50,
-      beats: 1 / 8,
-      attack: 0.01,
-      decay: 0.1,
-      volume: 1,
-      pan: 0,
-    });
   }
 
   if (bop) {
@@ -336,7 +332,6 @@ function beat({ sound: { microphone, square, time }, rec: { rolling } }) {
     });
     bop = false;
   }
-
 }
 
 export { boot, paint, beat, act, sim };
@@ -450,6 +445,8 @@ class Whistlegraph {
   }
 
   touch({ x, y, pressure, thickness = this.thickness }) {
+    this.graphing = true;
+
     this.baseColor = this.$.num.randIntArr(255, 3);
     this.genColor();
 
@@ -465,6 +462,8 @@ class Whistlegraph {
 
   // TODO: Think more about how color relates to gestures in this code.
   draw({ x, y, pressure }) {
+    if (!this.graphing) return;
+
     const g = this.gestures[this.gestureIndex];
 
     // Randomize the segment color if this gesture is polychrome.
@@ -480,6 +479,9 @@ class Whistlegraph {
   }
 
   lift() {
+    if (!this.graphing) return;
+
+    this.graphing = false;
     // Remove gesture on lift if there is only one point.
     const g = this.gestures[this.gestureIndex];
     if (g.points.length === 1) this.gestures.splice(this.gestureIndex);

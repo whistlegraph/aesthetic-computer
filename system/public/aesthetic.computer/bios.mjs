@@ -499,14 +499,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     attachMicrophone = async (data) => {
       if (debug) console.log("🎙 Microphone:", data);
 
-      const micStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          latency: 0,
-          noiseSuppression: false,
-          autoGainControl: false,
-        },
-      });
+      let micStream;
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            latency: 0,
+            noiseSuppression: false,
+            autoGainControl: false,
+          },
+        });
+      } catch (err) {
+        if (debug) console.warn("🎙 Microphone disabled:", err);
+      }
+
+      if (!micStream) {
+        send({ type: "microphone-connect:failure" });
+        return;
+      }
 
       const micNode = new MediaStreamAudioSourceNode(audioContext, {
         mediaStream: micStream,
@@ -563,6 +573,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         micStream.getTracks().forEach((t) => t.stop());
         if (debug) console.log("🎙💀 Microphone:", "Detached");
       };
+
+      // Send a message back to `disk` saying the microphone is connected.
+      send({ type: "microphone-connect:success" });
     };
 
     // Sound Synthesis Processor
