@@ -41,11 +41,10 @@ const client = !dev
   : createClient();
 client.on("error", (err) => console.log("🔴 Redis client error!", err));
 await client.connect();
-
-console.log("client", redisConnectionString);
+// console.log("client", redisConnectionString);
 
 await client.subscribe("code", (message) => {
-  console.log(message); // 'message'
+  // console.log(message); // 'message'
   everyone(pack("code", message, "development"));
 });
 
