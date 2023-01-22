@@ -1,20 +1,41 @@
 // Whistlegraph Recorder, 22.12.27.19.30
-// A simple, 2D tool for recording whistlegraphs.
+// Editor: A simple, 2D tool for recording whistlegraphs.
 
 /* #region 🏁 todo
   + ⏰ Now
-  - [] Finish video saving UI.
-    - [] Store to temporary online bucket and allow
-         user to download / show code. 
+  - [] Finish video saving UI
+    - *** Separate Piece Method / Player + Exporter ***
+    - [-] Sketch title piece.  
+      2 Input / `wgr` Piece
+        + Now
+          - [] add `mode` to the cli
+          - [] `practice` and `record:seconds`
+          - [] Button on top right for stopping a recording.
+          - [] Save / hold data on completion, then jump to `video` piece for
+               optional video exporting and hook into the upload of data
+               on export, stamping the video with a unique ID (URL).
+      3 Output / `video`.
+      - [] Sketch output piece.
+        - [] Factor out / modify the old video overlay UI thing to only work
+             in this piece.
+        - [] Add a "loop" and a "home" (back to title) button.
+        - [] Take advantage of the dead time / transcoding time.
+          - [] Show a little game or helpful hint. (💡 @alex)
+        - [] Only transcode upon tapping export.
+
+      - CANCELLED *** Option A: Overlay Method ***
+        - [] Show a system-wide pop-over. 
+    - [] Store to temporary online bucket and allow user to download / show code. 
+         (Does this already happen?)
   - [] Add background beat / music?
     - [] (via parameter #2)
   - [] Make the background cool and grainy / animated a bit.
   - [] (Post Wednesday) Whistlegraph Stamp
-    - [] Two SVGs layered over. 
+    - [] Two SVGs layered over.
     - [] Wobbling
     - [] Global video completed counter.
-    - [] Don't delete videos that get stored. 
-    - [] "pre-launch / early"  
+    - [] Don't delete videos that get stored.
+    - [] "pre-launch / early" 
   + Later
     - [] This will be done with `wgr seconds` in addition to a countdown timer.
       - [] If no seconds are entered, then no video recording occurs and

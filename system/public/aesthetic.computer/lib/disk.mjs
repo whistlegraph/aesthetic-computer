@@ -21,6 +21,9 @@ const { round } = Math;
 import { nopaint_boot, nopaint_act } from "../systems/nopaint.mjs";
 import { headers } from "./console-headers.mjs";
 
+import { Typeface } from "../lib/type.mjs";
+let tf; // Typeface global.
+
 export const noWorker = { onMessage: undefined, postMessage: undefined };
 
 const { abs, cos, sin, floor } = Math;
@@ -701,6 +704,10 @@ const $paintApiUnwrapped = {
     ink(...arguments);
     graph.clear();
   },
+  // Prints a line of text using the default / current global font.
+  write: function($, x, y, text, bg) {
+    tf.print($, { x, y }, 0, text, bg);
+  },
   copy: graph.copy,
   paste: graph.paste,
   plot: function () {
@@ -1301,6 +1308,10 @@ async function load(parsed, fromHistory = false, alias = false) {
       });
     }
   };
+
+  // Load typeface if it hasn't been yet.
+  // (This only has to happen when the first piece loads.)
+  if (!tf) tf = new Typeface($commonApi.net.preload);
 
   cursorCode = "precise";
 
