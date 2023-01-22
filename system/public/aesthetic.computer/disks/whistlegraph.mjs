@@ -14,13 +14,15 @@
 #endregion */
 
 function boot($) {
-  const { wipe, write, net } = $;
+  const { wipe, write } = $;
   wipe(0, 0, 200);
 
   // 🍦
   // - [] Write should await load the typeface behind the scenes
   //      if it hasn't been loaded yet, and there should
   //      also be a default typeface in place.
+  // - [] Remove the need for "$" in write by passing it inside the
+  //      implementation within `disk` somehow.
   write($, 0, 0, "Whistlegraph Recorder", [200, 0, 0, 16]);
 }
 
