@@ -107,7 +107,7 @@ function boot($) {
         flashShow = true;
         input.text = "";
         needsPaint();
-      } else if (text === "painting:reset") {
+      } else if (text === "painting:reset" || text === "no!") {
         const deleted = await store.delete("painting", "local:db");
 
         if (deleted) {
