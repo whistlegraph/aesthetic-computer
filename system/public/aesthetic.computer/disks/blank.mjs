@@ -28,7 +28,8 @@ Jeffrey (me@jas.life / digitpain#2262 / @digitpain)
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot($) {
-  $.wipe(255, 0, 0);
+  $.wipe(0, 255, 0);
+  $.ink(0).line(0, 0, $.screen.width, $.screen.height)
 }
 
 // 🎨 Paint (Executes every display frame)
