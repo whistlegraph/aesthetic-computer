@@ -1,4 +1,12 @@
-// 👩‍💻 Disk (Jockey) aka the tape / piece player?
+// 🧩 Disk (Piece)
+// Manages a piece and the transitions between pieces like a
+// hypervisor or shell.
+
+/* #region 🏁 todo
+ + Later
+ - [] Re-implement `inkrn`. 
+#endregion */
+
 import * as graph from "./graph.mjs";
 import * as num from "./num.mjs";
 import * as geo from "./geo.mjs";
@@ -12,6 +20,9 @@ import { notArray } from "./helpers.mjs";
 const { round } = Math;
 import { nopaint_boot, nopaint_act } from "../systems/nopaint.mjs";
 import { headers } from "./console-headers.mjs";
+
+import { Typeface } from "../lib/type.mjs";
+let tf; // Typeface global.
 
 export const noWorker = { onMessage: undefined, postMessage: undefined };
 
@@ -272,6 +283,7 @@ const $commonApi = {
   },
   help: {
     choose: help.choose,
+    flip: help.flip,
     repeat: help.repeat,
     every: help.every,
     any: help.any,
@@ -686,10 +698,15 @@ const $paintApiUnwrapped = {
   page: graph.setBuffer,
   edit: graph.changePixels, // Edit pixels by pasing a callback.
   ink, // Color
+  // inkrn: () => graph.c.slice(), // Get current inkColor.
   // 2D
   wipe: function () {
     ink(...arguments);
     graph.clear();
+  },
+  // Prints a line of text using the default / current global font.
+  write: function($, x, y, text, bg) {
+    tf.print($, { x, y }, 0, text, bg);
   },
   copy: graph.copy,
   paste: graph.paste,
@@ -819,6 +836,7 @@ let glazeAfterReframe;
 class Microphone {
   amplitude = 0;
   waveform = [];
+  connected = false; // Flips to true on a callback message from `bios`.
 
   // Note: can send `{monitor: true}` in `options` for audio feedback.
   connect(options) {
@@ -1291,6 +1309,10 @@ async function load(parsed, fromHistory = false, alias = false) {
     }
   };
 
+  // Load typeface if it hasn't been yet.
+  // (This only has to happen when the first piece loads.)
+  if (!tf) tf = new Typeface($commonApi.net.preload);
+
   cursorCode = "precise";
 
   send({
@@ -1384,7 +1406,10 @@ class Content {
 //       frame.
 // TODO: Make simple needsPaint example.
 // TODO: Try to remove as many API calls from here as possible.
-const signals = [];
+
+const signals = []; // Easy messages from embedded DOM content.
+const actAlerts = []; // Messages that get put into act and cleared after
+// every frame.
 let reframed = false;
 async function makeFrame({ data: { type, content } }) {
   if (type === "init-from-bios") {
@@ -1583,6 +1608,18 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "microphone-connect:success") {
+    microphone.connected = true;
+    actAlerts.push("microphone-connect:success");
+    return;
+  }
+
+  if (type === "microphone-connect:failure") {
+    microphone.connected = false;
+    actAlerts.push("microphone-connect:failure");
+    return;
+  }
+
   // 1a. Import // One send (returns afterwards)
   // Here we are receiving file data from main thread that was requested
   // by $api.upload 😱. We check to see if the upload promise exists and then
@@ -1692,13 +1729,50 @@ async function makeFrame({ data: { type, content } }) {
       if (screen) screen.pixels = pixels;
     }
 
-    // TODO: Check to see if we have been marked to leave the disk.
-
     // Globalize any background music data, retrievable via bgm.data
     $commonApi.bgm.data = {
       amplitude: content.audioMusicAmplitude,
       sample: content.audioMusicSampleData,
     };
+
+    // Pens
+    if (content.pen) {
+      const primaryPointer = help.findKeyAndValue(
+        content.pen.pointers,
+        "isPrimary",
+        true
+      );
+
+      // Returns all [pens] if n is undefined, or can return a specific pen by 1 based index.
+      // [pens] are sorted by `pointerIndex`
+
+      // TODO: Including "help.findKeyAndValue" seems to bring a lot of
+      //       allocation here because it keeps the whole API around?
+      //       Re-test this when pointers is not empty! 22.11.12.20.02
+      const pointers = content.pen.pointers;
+      const pointersValues = Object.values(pointers);
+
+      const pens = pointersValues.reduce((arr, value) => {
+        arr[value.pointerIndex] = value;
+        return arr;
+      }, []);
+
+      // if (pens.length > 0 && debug)
+      //   console.log("Pens:", pens, content.pen.events);
+
+      $commonApi.pens = function (n) {
+        if (n === undefined) return pens;
+        return help.findKeyAndValue(pointers, "pointerIndex", n - 1) || {};
+      };
+
+      if (pointersValues.length > 1 && primaryPointer)
+        primaryPointer.multipen = true; // Set a flag for multipen activity on main pen API object.
+
+      $commonApi.pen = primaryPointer; // || { x: undefined, y: undefined };
+    }
+
+    // 🕶️ VR Pen
+    $commonApi.pen3d = content.pen3d?.pen;
 
     // Act & Sim (Occurs after first boot and paint.)
     if (booted && paintCount > 0n) {
@@ -1725,51 +1799,10 @@ async function makeFrame({ data: { type, content } }) {
 
       $api.cursor = (code) => (cursorCode = code);
 
-      if (content.pen) {
-        const primaryPointer = help.findKeyAndValue(
-          content.pen.pointers,
-          "isPrimary",
-          true
-        );
-
-        // Returns all [pens] if n is undefined, or can return a specific pen by 1 based index.
-        // [pens] are sorted by `pointerIndex`
-
-        // TODO: Including "help.findKeyAndValue" seems to bring a lot of
-        //       allocation here because it keeps the whole API around?
-        //       Re-test this when pointers is not empty! 22.11.12.20.02
-        const pointers = content.pen.pointers;
-        const pointersKeys = Object.keys(pointers);
-
-        $commonApi.pens = function (n) {
-          if (n === undefined) {
-            const out = Object.values(pointers).reduce((arr, value) => {
-              arr[value.pointerIndex] = value;
-              return arr;
-            }, []);
-
-            // Check to see if this is being too reduced / are
-            // there less pens than are being input?
-            console.log(out.length, Object.values(pointers).length);
-
-            return out;
-          }
-          return help.findKeyAndValue(pointers, "pointerIndex", n - 1) || {};
-        };
-
-        if (pointersKeys.length > 1 && primaryPointer)
-          primaryPointer.multipen = true; // Set a flag for multipen activity on main pen API object.
-
-        $commonApi.pen = primaryPointer; // || { x: undefined, y: undefined };
-      }
-
       // 🤖 Sim // no send
       $api.seconds = function (s) {
         return s * 120; // TODO: Get 120 dynamically from the Loop setting. 2022.01.13.23.28
       };
-
-      // 🕶️ VR Pen
-      $commonApi.pen3d = content.pen3d?.pen;
 
       // TODO: A booted check could be higher up the chain here?
       // Or this could just move. 22.10.11.01.31
@@ -1797,7 +1830,7 @@ async function makeFrame({ data: { type, content } }) {
         }
       }
 
-      // 📻 Signalling
+      // 📻 Signaling
       $api.signal = (content) => {
         send({ type: "signal", content });
       };
@@ -2009,6 +2042,21 @@ async function makeFrame({ data: { type, content } }) {
           }
         }
       });
+
+      // *** Act Alerts *** (Custom events defined in here.)
+      actAlerts.forEach((name) => {
+        const data = {
+          name,
+          is: (e) => e === name,
+        };
+        $api.event = data;
+        try {
+          act($api);
+        } catch (e) {
+          console.warn("️ ✒ Act failure...", e);
+        }
+      });
+      actAlerts.length = 0; // Clear act alerts.
     }
 
     // 🖼 Paint & Render // Two sends (Move one send up eventually? -- 2021.11.27.17.20)

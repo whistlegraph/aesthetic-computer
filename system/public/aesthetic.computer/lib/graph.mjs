@@ -102,6 +102,7 @@ export {
   depthBuffer,
   writeBuffer,
   color,
+  c, // currentColor
   pixel,
 };
 
@@ -211,15 +212,24 @@ function shadePixels(points, shader, shaderArgs = []) {
   points.forEach((p) => {
     // TODO: - [] Send current pixel under p? This can be used for cool position
     //            reading color effects. 23.01.05.01.23
-
-    shader.position(p); // Compute position.
-
-    p.x = floor(p.x); // Floor position and check bounds.
-    p.y = floor(p.y);
+  
+    // Clip
     if (p.x < 0) return;
     if (p.x >= width) return;
     if (p.y < 0) return;
     if (p.y >= height) return;
+
+    shader.position(p); // Compute position.
+
+    // Clip again
+    if (p.x < 0) return;
+    if (p.x >= width) return;
+    if (p.y < 0) return;
+    if (p.y >= height) return;
+
+    p.x = floor(p.x); // Floor position and check bounds.
+    p.y = floor(p.y);
+
     const n = p.y * width + p.x;
 
     if (writeBuffer[n] === 0) {
@@ -472,12 +482,20 @@ function pixelPerfectPolyline(points, shader) {
   if (points.length < 2) return; // Require 2 or more points.
 
   const pixels = [];
-
   let last = points[0];
 
   points.forEach((cur) => {
+    // Clip offscreen segments.
+    const xMin = min(last.x, cur.x);
+    const xMax = max(last.x, cur.x);
+    const yMin = min(last.y, cur.y);
+    const yMax = max(last.y, cur.y);
+    if (xMin >= width || xMax < 0 || yMin >= height || yMax < 0) {
+      last = cur;
+      return;
+    }
+
     // Compute bresen pixels, filtering out duplicates.
-    // (Basically a poly bresenham function.)
     bresenham(last.x, last.y, cur.x, cur.y).forEach((p, i) => {
       if (i > 0 || pixels.length < 2) {
         pixels.push({ ...p, color: cur.color }); // Add color for each pixel.
@@ -687,6 +705,7 @@ function poly(coords) {
 
 // Rasterize an Npx thick poly line with rounded end-caps.
 /* TODO
+ - [😇] Clip coords to inside of the screen.
  + Later
  - [] Perhaps if thickness === 1 then this can be combined with
      `pixelPerfectPolyline` ?
@@ -717,7 +736,7 @@ function pline(coords, thickness, shader) {
   for (let i = coords.length - 2; i >= 0; i -= 1) {
     const cur = coords[i];
 
-    // 2️⃣ Two points on both sides of last and cur via line dir.
+    // 1. Two points on both sides of last and cur via line dir.
     const lp = [last.x, last.y],
       cp = [cur.x, cur.y]; // Convert last and cur to vec2.
 
@@ -743,7 +762,10 @@ function pline(coords, thickness, shader) {
 
     [l1, l2, c1, c2].forEach((v) => vec2.floor(v, v)); // Floor everything.
 
-    // 2️⃣ Plotting
+    last = cur; // Update the last point.
+    lpar = [c1, c2]; // ... and last parallel points.
+
+    // 2. Plotting
 
     const dot = vec2.dot(dir, ldir); // Get the dot product of cur and last dir.
 
@@ -767,15 +789,31 @@ function pline(coords, thickness, shader) {
       lines.push(...bresenham(...l1, ...c2)); // Par line 2
     }
 
-    trig.forEach((t) => {
-      fillTri(t, tris);
-    }); // Fill quad.
+    // Partial outside clipping.
+    // const clippedTris = trig.filter((triangle) =>
+    //   triangle.every(
+    //     (v) => v[0] >= 0 && v[0] < width && v[1] >= 0 && v[1] < height
+    //   )
+    // );
+
+    // Full outside clipping.
+    // Clip triangles that are *fully* offscreen.
+    const clippedTris = trig.filter(
+      (triangle) =>
+        triangle.some(
+          (v) => v[0] >= 0 && v[0] < width && v[1] >= 0 && v[1] < height
+        )
+    );
+
+    clippedTris.forEach((tri) => fillTri(tri, tris)); // Fill quad.
+    //trig.forEach((t) => fillTri(t, tris)); // Fill quad.
 
     ldir = dir;
     lines.push(...bresenham(...lp, ...cp));
 
     if (i === coords.length - 2)
       points.push({ x: l1[0], y: l1[1] }, { x: l2[0], y: l2[1] });
+
     points.push({ x: c1[0], y: c1[1] }, { x: c2[0], y: c2[1] }); // Add points.
 
     // Paint each triangle.
@@ -788,9 +826,6 @@ function pline(coords, thickness, shader) {
     }
 
     tris.length = 0;
-
-    last = cur; // Update the last point.
-    lpar = [c1, c2]; // ... and last parallel points.
   }
 
   // 3️⃣ Painting

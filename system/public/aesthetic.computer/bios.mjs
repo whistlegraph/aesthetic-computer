@@ -499,14 +499,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     attachMicrophone = async (data) => {
       if (debug) console.log("🎙 Microphone:", data);
 
-      const micStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          latency: 0,
-          noiseSuppression: false,
-          autoGainControl: false,
-        },
-      });
+      let micStream;
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            latency: 0,
+            noiseSuppression: false,
+            autoGainControl: false,
+          },
+        });
+      } catch (err) {
+        if (debug) console.warn("🎙 Microphone disabled:", err);
+      }
+
+      if (!micStream) {
+        send({ type: "microphone-connect:failure" });
+        return;
+      }
 
       const micNode = new MediaStreamAudioSourceNode(audioContext, {
         mediaStream: micStream,
@@ -563,6 +573,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         micStream.getTracks().forEach((t) => t.stop());
         if (debug) console.log("🎙💀 Microphone:", "Detached");
       };
+
+      // Send a message back to `disk` saying the microphone is connected.
+      send({ type: "microphone-connect:success" });
     };
 
     // Sound Synthesis Processor
@@ -941,7 +954,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (content.pieceCount === 0) {
         // Pen (also handles touch & pointer events)
         pen = new Pen((x, y) => {
-          const p =  {
+          const p = {
             x: floor(((x - canvasRect.x) / projectedWidth) * screen.width),
             y: floor(((y - canvasRect.y) / projectedHeight) * screen.height),
           };
@@ -1763,26 +1776,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const recordings = wrapper.querySelector("#recordings");
 
         if (recordings) {
-          recordings.append(el);
+          const recordingsWrapper = recordings.querySelector(
+            "#recordings-wrapper"
+          );
+          recordingsWrapper.append(el);
         } else {
           const recordingsEl = document.createElement("div");
           recordingsEl.id = "recordings";
 
-          // Add video element.
-          recordingsEl.append(el);
+          const recordingsWrapper = document.createElement("div");
+          recordingsWrapper.id = "recordings-wrapper";
+
+          recordingsEl.append(recordingsWrapper); // Add wrapper.
+          recordingsWrapper.append(el); // Add video element.
 
           // Add download link.
           const download = document.createElement("a");
           download.href = el.src;
-          download.innerText = "Download Video";
+          download.innerText = "DOWNLOAD VIDEO";
           download.download = "test.mp4";
-          recordingsEl.append(download);
+          recordingsWrapper.append(download);
 
           // Add close button.
           const close = document.createElement("div");
-          close.innerText = "CLOSE";
+          close.innerText = "AGAIN"; // "CLOSE"
           close.id = "recordings-close";
-          recordingsEl.append(close);
+          recordingsWrapper.append(close);
 
           close.onpointerdown = () => {
             recordingsEl.remove();

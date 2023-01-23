@@ -7,7 +7,7 @@ import * as vec3 from "../dep/gl-matrix/vec3.mjs";
 import * as vec4 from "../dep/gl-matrix/vec4.mjs";
 
 export { vec2, vec3, vec4, mat3, mat4, quat };
-const { round, floor, min, max, sqrt, pow, atan2 } = Math;
+const { round, floor, min, max, sqrt, pow, atan2, sin, cos } = Math;
 
 // Utilities for modifying {x, y} points.
 export const p2 = {
@@ -37,6 +37,13 @@ export const p2 = {
       y: pA.y - pB.y,
     };
   },
+  // Immutably multiply p by angle in radians.
+  rot(p, angle) {
+    return {
+      x: p.x * cos(angle) - p.y * sin(angle),
+      y: p.x * sin(angle) + p.y * cos(angle),
+    };
+  },
   // Immutably multiply pA * pB.
   mul: function (pA, pB) {
     return {
@@ -45,7 +52,10 @@ export const p2 = {
     };
   },
   // Immutably divide pA / pB.
+  // If pA is a single number then this function expands it to an `{x, y}`.
+  // Note: Other library functions here could do the same. 2023.1.19 
   div: function (pA, pB) {
+    if (typeof pA === "number") pA = {x: pA, y: pA};
     return {
       x: pA.x / pB.x,
       y: pA.y / pB.y,
