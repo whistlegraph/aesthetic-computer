@@ -25,7 +25,7 @@
 #endregion */
 
 let sparkleBuffer = [];
-let sparkleMode = 0;
+let sparkleMode = 1;
 
 // painting:reset to reset
 // no!
