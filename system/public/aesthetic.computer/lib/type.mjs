@@ -18,20 +18,30 @@ const { keys, entries } = Object;
 // Preloads and holds the glyphs for a system typeface.
 class Typeface {
   data;
+  name;
   glyphs = {};
+  //loaded = false;
 
-  constructor($preload, data = font1, name = "font-1") {
+  constructor(data = font1, name = "font-1") {
     this.data = data;
-    entries(data).forEach(([glyph, location]) => {
-      // 1. Ignore any keys with a "glyph" prefix because these are settings.
-      if (glyph.startsWith("glyph")) return;
+    this.name = name;
+  }
+
+  async load($preload) {
+    // 1. Ignore any keys with a "glyph" prefix because these are settings.
+    const glyphsToLoad = entries(this.data).filter(([g, loc]) => !g.startsWith("glyph"));
+    const promises = glyphsToLoad.map(([glyph, location], i) => {
       // 2. Load all other keys / glyphs over the network.
-      $preload(
-        `aesthetic.computer/disks/drawings/${name}/${location}.json`
+      return $preload(
+        `aesthetic.computer/disks/drawings/${this.name}/${location}.json`
       ).then((res) => {
         this.glyphs[glyph] = res;
       });
     });
+
+    // Wait for all the promises to resolve before returning
+    await Promise.all(promises);
+    return this;
   }
 
   print($, pos = {x: 0, y: 0}, lineNumber, text, bg = null) {
@@ -44,12 +54,14 @@ class Typeface {
     const blockWidth = 6;
     const scale = 1;
 
+    const rn = $.inkrn; // Remember the current ink color.
+
     // Background
     if (bg !== null) {
       $.ink(bg).box(x, y, blockWidth * scale * text.length, blockHeight);
     }
 
-    $.ink(255).printLine(text, font, x, y, blockWidth, scale); // Text
+    $.ink(rn).printLine(text, font, x, y, blockWidth, scale); // Text
   }
 }
 
@@ -69,8 +81,16 @@ class TextInput {
 
   historyDepth = 0;
 
+  // Add support for loading from preloaded system typeface.
   constructor($, text = "", palette, processCommand, font = font1) {
-    this.typeface = new Typeface($.net.preload, font);
+    // Load typeface, preventing double loading of the system default.
+    if ($.typeface?.data !== font) {
+      this.typeface = new Typeface(font); // Load custom typeface.
+      this.typeface.load($.net.preload);
+    } else {
+      this.typeface = $.typeface; // Set to system typeface.
+    }
+
     this.text = text;
     this.startingInput = this.text;
     this.pal = palette || {

@@ -43,7 +43,8 @@ let mode = 0; // 0 for instantiating, 1 for placing.
 // 🥾
 function boot($) {
   $.system.nopaint.boot($); // Inherit boot functionality.
-  typeface = new Typeface($.net.preload, icons, "icons");
+  typeface = new Typeface(icons, "icons");
+  typeface.load($.net.preload);
 }
 
 // 🎨 Paint (Executes every display frame)

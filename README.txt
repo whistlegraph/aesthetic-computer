@@ -58,15 +58,15 @@
 *** VS Code Extension ***
 
 *** Project Order ***
+- [📹] Make screen-based whistlegraph recorder tool that makes use of the album tracks.
+  - [] Add it to the API and make a `wgr` disk. 
+  - [] Set up doodads like file hosting and stamping on videos.
 - [] Make VSCode extension / back-seat document API (maya).
   - [🟡] Modify disk load to accept new source code. 
   + Done
   - [x] Wire up extension to a backend route that pubs to a redis channel. 
   - [x] Get icon made for extension (@ingo) 
   - [x] Start work on VSCode extension. 
- - [📹] Make screen-based whistlegraph recorder tool that makes use of the album tracks.
-  - [] Add it to the API and make a `wgr` disk. 
-  - [] Set up doodads like file hosting and stamping on videos.
  - [😀] Passwordless login.
 - [] Home Screen / Better Nav
   - [] Upon leaving the prompt, a tappable ghost of the active
