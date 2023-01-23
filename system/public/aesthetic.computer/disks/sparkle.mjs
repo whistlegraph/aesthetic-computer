@@ -7,7 +7,7 @@
 // If `params` is empty then ink's RGBA will be randomized.
 
 let sparkleBuffer = [];
-let sparkleMode = 0;
+let sparkleMode = 1;
 
 // painting:reset to reset
 // no!
