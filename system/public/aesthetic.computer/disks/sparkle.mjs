@@ -1,10 +1,28 @@
-// Brush, 22.09.19.12.44
+// Sparkle, 22.09.19.12.44
+// A sparkle emitter brush by @maya and @jeffrey.
 
-// ATTENTION:
-// Both literal hex values like the ones below... or strings will work now! - Jeffrey
-
-// ðŸŽ¨
-// If `params` is empty then ink's RGBA will be randomized.
+/* #region 🏁 todo
+  + ⏰ Now
+  - [] @maya Extract / dump sparkleMode 1 code into `shiny`. 
+      (It doesn't have to work)
+  - [] @maya think 2-3 possible `params` / try implementing them and using them
+       from the `prompt`.
+  + Later
+  - Session 1
+  - [] @jeffrey + maya: code clean-up (rip out / retire code we aren't using) 
+  - [] @jeffrey + maya: turtle graphics / directional movement on sparkles
+  - Session 2
+  - [] @jeffrey + maya: make shadows under the sparkles to show distance
+                        from the surface? (psuedo 3d)
+  - Session 3
+  - [] @jeffrey + maya: read pixels under the existing image to influence
+                        sparkle behavior 
+  - [] Other symbols / mix of different shapes other than hearts?
+  - [] Each symbol uses its own palette.
+  - [] Revisit the abandoned brush: `shiny`.
+  + Done
+  - [x] Find a good general sparkle behavior.
+#endregion */
 
 let sparkleBuffer = [];
 let sparkleMode = 0;
@@ -13,9 +31,18 @@ let sparkleMode = 0;
 // no!
 export function paint($api) {
   //debugger;
-  let { pen, ink, circle, params, system, paste, page, screen, num: { randInt: r } } = $api;
+  let {
+    pen,
+    ink,
+    circle,
+    params,
+    system,
+    paste,
+    page,
+    screen,
+    num: { randInt: r },
+  } = $api;
   // console.log($api);
-
 
   // maya's color palettes
   let apple = [0x545665, 0xdcc0cf, 0xf4f4f4, 0xfcf3f4, 0xf4f4df];
@@ -43,13 +70,21 @@ export function paint($api) {
 
   let cardigan = ["#966a54", "#58855c", "#fa91a4", "#fc5484", "#c27c73"];
 
-  let kiko = ['#f995d0', '#ffffff', '#e0cad5', '#b98586', '#171719', '#dec0c5', '#6b5e68']
+  let kiko = [
+    "#f995d0",
+    "#ffffff",
+    "#e0cad5",
+    "#b98586",
+    "#171719",
+    "#dec0c5",
+    "#6b5e68",
+  ];
 
-  let strawberry = ['#efc0c1', '#f5423a', '#bdc9b8', '#ffffff'];
+  let strawberry = ["#efc0c1", "#f5423a", "#bdc9b8", "#ffffff"];
 
   // let mollyHeartColors = ['#ffa1c8', '#ff0801', '#ffffff', '#03fd00'];
-  let mollyHeartColors = ['#ffa1c8', '#ff0801', '#e0cad5', '#ffffff'];
-  let mollyStarColors = ['#ce8bac', '#faed93', '#faed93', '#f8dc9c'];
+  let mollyHeartColors = ["#ffa1c8", "#ff0801", "#e0cad5", "#ffffff"];
+  let mollyStarColors = ["#ce8bac", "#faed93", "#faed93", "#f8dc9c"];
 
   const mycolors = [
     [150, 106, 84],
@@ -65,7 +100,7 @@ export function paint($api) {
     [244, 244, 223],
     [132, 100, 156],
   ];
-  paste(system.painting); // 👮 Why is this not saving on live reload!
+  paste(system.painting);
 
   if (pen?.drawing) {
     // @maya/brush 255 16
@@ -86,7 +121,6 @@ export function paint($api) {
     // Make collection of objects
   }
 
-
   // Define the number of points on the star
   const numPoints = 5;
 
@@ -103,8 +137,8 @@ export function paint($api) {
 
   const calculateCoords = (xPos, yPos, radius, angle) => {
     return {
-      x: xPos + radius * Math.cos((angle - 90) * Math.PI / 180),
-      y: yPos + radius * Math.sin((angle - 90) * Math.PI / 180)
+      x: xPos + radius * Math.cos(((angle - 90) * Math.PI) / 180),
+      y: yPos + radius * Math.sin(((angle - 90) * Math.PI) / 180),
     };
   };
 
@@ -121,21 +155,25 @@ export function paint($api) {
       circle(currentX, currentY, size);
       circle(currentX - size * 2, currentY - size * 2, currentSparkle.size);
       circle(currentX + size * 2, currentY - size * 2, currentSparkle.size);
-
     } else if (sparkleMode == 1) {
-
       let currentX = sparkleBuffer[s].position.x;
       let currentY = sparkleBuffer[s].position.y;
 
       if (sparkleBuffer[s].flash && sparkleBuffer[s].flashing > 0) {
-        ink(255)
-        let sparkleOffset = -2 * currentSparkle.size + (Math.random() * currentSparkle.size * 4);
+        ink(255);
+        let sparkleOffset =
+          -2 * currentSparkle.size + Math.random() * currentSparkle.size * 4;
         circle(currentX, currentY + sparkleOffset, 1);
       }
 
       for (let i = 0; i < numPoints; i++) {
         // Calculate the x and y coordinates of the current point
-        const coords = calculateCoords(currentX, currentY, currentSparkle.size, angle * i);
+        const coords = calculateCoords(
+          currentX,
+          currentY,
+          currentSparkle.size,
+          angle * i
+        );
         const innerRadius = currentSparkle.size * 0.5;
 
         // Draw a circle at the current point
@@ -143,29 +181,30 @@ export function paint($api) {
         let starOffset = 10;
         // let starOffset = 10;
         if (sparkleBuffer[s].flash && sparkleBuffer[s].flashing > 0) {
-          ink(255)
+          ink(255);
         } else {
-          ink(sparkleBuffer[s].color)
+          ink(sparkleBuffer[s].color);
         }
         // ink(sparkleBuffer[s].color)
 
         circle(coords.x, coords.y, starCircleSize);
 
         // Calculate the x and y coordinates of the point halfway between the current point and the next point
-        const coords2 = calculateCoords(currentX, currentY, innerRadius, angle * (i + 0.5));
+        const coords2 = calculateCoords(
+          currentX,
+          currentY,
+          innerRadius,
+          angle * (i + 0.5)
+        );
         // Draw a circle at the midpoint
         // console.log(sparkleBuffer[s].color);
         circle(coords2.x, coords2.y, starCircleSize);
       }
     }
-
-
-
   }
 }
 
 export function sim() {
-
   if (sparkleMode == 0) {
     for (let s = 0; s < sparkleBuffer.length; s++) {
       // Loop through the number of points on the star
@@ -176,11 +215,11 @@ export function sim() {
       currentSparkle.position.x += starOffsetX;
       currentSparkle.position.y += starOffsetY;
 
-      if (currentSparkle.state == 'active') {
+      if (currentSparkle.state == "active") {
         if (Math.random() > 0.9999) {
-          currentSparkle.state = 'falling';
+          currentSparkle.state = "falling";
         }
-      } else if (currentSparkle.state == 'falling') {
+      } else if (currentSparkle.state == "falling") {
         currentSparkle.fallState += 1;
       }
     }
@@ -198,8 +237,6 @@ export function sim() {
       } else if (currentSparkle.flash && currentSparkle.flashing <= -10) {
         currentSparkle.flashing = 10;
       }
-
-
 
       // console.log(currentSparkle.color);
       // if (currentSparkle.state == 'active') {
@@ -223,7 +260,7 @@ export function sim() {
 function sparkleFactory(pen, color, size) {
   let position = {
     x: pen.x,
-    y: pen.y
+    y: pen.y,
   };
 
   let flash = false;
@@ -238,10 +275,9 @@ function sparkleFactory(pen, color, size) {
     size,
     flash,
     flashing: 10,
-    state: 'active',
-    fallState: 0
-  }
-
+    state: "active",
+    fallState: 0,
+  };
 }
 
 export const system = "nopaint"; // Uses a template for all the other functions.
