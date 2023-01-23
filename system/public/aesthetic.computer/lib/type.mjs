@@ -2,13 +2,14 @@
 // Abstraction for typography and text input.
 
 /* #region 🏁 todo
- - [] Add different colors to "print" / storing the ink color / writing
-      a backdrop somehow... maybe using layer?
  + Later
  - [] Make history on message input optional?
  - [] Gracefully allow for multiple instances of TextInput in a single piece? 
  - [] Add tab auto-completion feature that can be side-loaded with contextual
       data based on where the text module is used.
+ + Done
+ - [x] Add different colors to "print" / storing the ink color / writing
+      a backdrop somehow... maybe using layer?
 #endregion */
 
 import { font1 } from "../disks/common/fonts.mjs";
