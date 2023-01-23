@@ -33,19 +33,24 @@ let debug = false; // This can be overwritten on boot.
 
 const defaults = {
   boot: ($) => {
-    $.cursor("native");
+    // TODO: This should always fire...
+    console.log("boot");
+    // $.cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
   paint: ($) => {
     // TODO: Make this a boot choice via the index.html file?
     //$.noise16DIGITPAIN();
-    //$.noiseTinted([20, 20, 20], 0.8, 0.7);
+    $.noiseTinted([20, 20, 20], 0.8, 0.7);
     //$.wipe(0, 0, 0);
   },
   beat: () => false, // Runs every bpm.
   act: () => false, // All user interaction.
   leave: () => false, // Before unload.
 };
+
+let loadAfterPreamble = null;
+let hotSwap = null;
 
 // 🔎 NoPaint
 // Inheritable via `export const system = "nopaint"` from any piece.
@@ -705,7 +710,7 @@ const $paintApiUnwrapped = {
     graph.clear();
   },
   // Prints a line of text using the default / current global font.
-  write: function($, x, y, text, bg) {
+  write: function ($, x, y, text, bg) {
     tf.print($, { x, y }, 0, text, bg);
   },
   copy: graph.copy,
@@ -863,8 +868,6 @@ let firstLoad = true;
 let firstPiece, firstParams, firstSearch;
 
 async function load(parsed, fromHistory = false, alias = false) {
-  // TODO: How to add parsed parameters here and load source code...
-
   let { path, host, search, params, hash, text: slug } = parsed;
 
   if (loading === false) {
@@ -973,6 +976,7 @@ async function load(parsed, fromHistory = false, alias = false) {
     console.error(`😡 "${path}" load failure:`, err);
     loadFailure = err;
   });
+
   // console.log(performance.now() - moduleLoadTime, module);
 
   if (module === undefined) {
@@ -1142,85 +1146,6 @@ async function load(parsed, fromHistory = false, alias = false) {
     send({ type: "preload-ready", content: true }); // Tell the browser that all preloading is done.
   };
 
-  // Artificially imposed loading by at least 1/4 sec.
-  // Redefine the default event functions if they exist in the module.
-  if (module.system?.startsWith("nopaint")) {
-    // If there is no painting is in ram, then grab it from the local store,
-    // or generate one.
-
-    if (module.system.split(":")[1] === "dont-paint-on-leave") {
-      NPdontPaintOnLeave = true;
-    } else {
-      NPdontPaintOnLeave = false;
-    }
-
-    boot = module.boot || nopaint.boot;
-    sim = module.sim || defaults.sim;
-    paint = module.paint || defaults.paint;
-    beat = module.beat || defaults.beat;
-    act = module.act || nopaint.act;
-    leave = module.leave || nopaint.leave;
-  } else {
-    boot = module.boot || defaults.boot;
-    sim = module.sim || defaults.sim;
-    paint = module.paint || defaults.paint;
-    beat = module.beat || defaults.beat;
-    act = module.act || defaults.act;
-    leave = module.leave || defaults.leave;
-
-    delete $commonApi.system.name; // No system in use.
-  }
-
-  // ♻️ Reset global state for this piece.
-  paintCount = 0n;
-  simCount = 0n;
-  booted = false;
-  initialSim = true;
-  activeVideo = null;
-  bitmapPromises = {};
-  noPaint = false;
-  formsSent = {}; // Clear 3D list for GPU.
-  currentPath = path;
-  currentHost = host;
-  currentSearch = search;
-  currentParams = params;
-  currentHash = hash;
-
-  // Push last piece to a history list, skipping prompt and repeats.
-  if (
-    currentText &&
-    currentText !== "prompt" &&
-    currentText !== $commonApi.history[$commonApi.history.length - 1]
-  ) {
-    $commonApi.history.push(currentText);
-  }
-
-  currentText = slug;
-
-  $commonApi.slug = slug;
-  $commonApi.query = search;
-  $commonApi.params = params || [];
-
-  $commonApi.load = function () {
-    // Load a piece, wrapping it in a leave function so a final frame
-    // plays back.
-    leaving = true;
-    leaveLoad = () => {
-      load(...arguments);
-    };
-  };
-
-  if (screen) screen.created = true; // Reset screen to created if it exists.
-
-  // A wrapper for `load(parse(...))`
-  // Make it `ahistorical` to prevent a url change.
-  // Make it an `alias` to prevent a metadata change for writing landing or
-  // router pieces such as `freaky-flowers` -> `wand`. 22.11.23.16.29
-  $commonApi.jump = function jump(to, ahistorical = false, alias = false) {
-    load(parse(to), ahistorical, alias);
-  };
-
-  $commonApi.pieceCount += 1;
   $commonApi.content = new Content();
 
   $commonApi.dom = {};
@@ -1309,11 +1234,100 @@ async function load(parsed, fromHistory = false, alias = false) {
     }
   };
 
+  $commonApi.slug = slug;
+  $commonApi.query = search;
+  $commonApi.params = params || [];
+
+  $commonApi.load = function () {
+    // Load a piece, wrapping it in a leave function so a final frame
+    // plays back.
+    leaving = true;
+    leaveLoad = () => {
+      load(...arguments);
+    };
+  };
+
+  // A wrapper for `load(parse(...))`
+  // Make it `ahistorical` to prevent a url change.
+  // Make it an `alias` to prevent a metadata change for writing landing or
+  // router pieces such as `freaky-flowers` -> `wand`. 22.11.23.16.29
+  $commonApi.jump = function jump(to, ahistorical = false, alias = false) {
+    load(parse(to), ahistorical, alias);
+  };
+
+  $commonApi.pieceCount += 1;
+
   // Load typeface if it hasn't been yet.
   // (This only has to happen when the first piece loads.)
-  if (!tf) tf = new Typeface($commonApi.net.preload);
+  if (!tf) tf = await new Typeface().load($commonApi.net.preload);
+  $commonApi.typeface = tf; // Expose a preloaded typeface globally.
 
-  cursorCode = "precise";
+  // This function actually hotSwaps out the piece via a callback from `bios` once fully loaded via the `loading-complete` message.
+  hotSwap = () => {
+    if (module.system?.startsWith("nopaint")) {
+      // If there is no painting is in ram, then grab it from the local store,
+      // or generate one.
+
+      if (module.system.split(":")[1] === "dont-paint-on-leave") {
+        NPdontPaintOnLeave = true;
+      } else {
+        NPdontPaintOnLeave = false;
+      }
+
+      boot = module.boot || nopaint.boot;
+      sim = module.sim || defaults.sim;
+      paint = module.paint || defaults.paint;
+      beat = module.beat || defaults.beat;
+      act = module.act || nopaint.act;
+      leave = module.leave || nopaint.leave;
+    } else {
+      boot = module.boot || defaults.boot;
+      sim = module.sim || defaults.sim;
+      paint = module.paint || defaults.paint;
+      beat = module.beat || defaults.beat;
+      act = module.act || defaults.act;
+      leave = module.leave || defaults.leave;
+
+      delete $commonApi.system.name; // No system in use.
+    }
+
+    // ♻️ Reset global state for this piece.
+    paintCount = 0n;
+    simCount = 0n;
+    booted = false;
+    initialSim = true;
+    activeVideo = null;
+    bitmapPromises = {};
+    noPaint = false;
+    formsSent = {}; // Clear 3D list for GPU.
+    currentPath = path;
+    currentHost = host;
+    currentSearch = search;
+    currentParams = params;
+    currentHash = hash;
+
+    // Push last piece to a history list, skipping prompt and repeats.
+    if (
+      currentText &&
+      currentText !== "prompt" &&
+      currentText !== $commonApi.history[$commonApi.history.length - 1]
+    ) {
+      $commonApi.history.push(currentText);
+    }
+
+    currentText = slug;
+
+    if (screen) screen.created = true; // Reset screen to created if it exists.
+
+    cursorCode = "precise"; // Set default cursor.
+
+    if (firstLoad === true) {
+      firstLoad = false;
+      firstPiece = path;
+      firstParams = params;
+      firstSearch = search;
+    }
+  };
 
   send({
     type: "disk-loaded",
@@ -1331,13 +1345,6 @@ async function load(parsed, fromHistory = false, alias = false) {
       // noBeat: beat === defaults.beat,
     },
   });
-
-  if (firstLoad === true) {
-    firstLoad = false;
-    firstPiece = path;
-    firstParams = params;
-    firstSearch = search;
-  }
 }
 
 const isWorker = typeof importScripts === "function";
@@ -1417,12 +1424,16 @@ async function makeFrame({ data: { type, content } }) {
     graph.setDebug(content.debug);
     ROOT_PIECE = content.rootPiece;
     originalHost = content.parsed.host;
-    load(content.parsed);
+    loadAfterPreamble = () => {
+      loadAfterPreamble = null;
+      load(content.parsed); // Load after some of the default frames run.
+    };
     return;
   }
 
   if (type === "loading-complete") {
     loading = false;
+    hotSwap?.(); // Actually swap out the piece functions and reset the state.
     return;
   }
 
@@ -1719,10 +1730,10 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   // 2. Frame
-  // This is where each...
+  // Where each piece action (boot, sim, paint, etc...) is run.
   if (type === "frame") {
     // Take hold of a previously worker transferrable screen buffer
-    //  and re-assign it.
+    // and re-assign it.
     let pixels;
     if (content.pixels) {
       pixels = new Uint8ClampedArray(content.pixels);
@@ -1806,7 +1817,8 @@ async function makeFrame({ data: { type, content } }) {
 
       // TODO: A booted check could be higher up the chain here?
       // Or this could just move. 22.10.11.01.31
-      if (loading === false && booted) {
+      // if (loading === false && booted) {
+      if (booted) {
         if (initialSim) {
           simCount += 1n;
           $api.simCount = simCount;
@@ -2197,7 +2209,8 @@ async function makeFrame({ data: { type, content } }) {
       // Right now, in `line` there is a paintCount check to work around this.
       // 22.09.19.20.45
 
-      if (paintCount === 0n && loading === false) {
+      //if (paintCount === 0n && loading === false) {
+      if (paintCount === 0n) {
         inFocus = content.inFocus; // Inherit our starting focus from host window.
         // Read current dark mode.
 
@@ -2234,7 +2247,8 @@ async function makeFrame({ data: { type, content } }) {
       let dirtyBox;
 
       // Attempt a paint.
-      if (noPaint === false && booted && loading === false) {
+      //if (noPaint === false && booted && loading === false) {
+      if (noPaint === false && booted) {
         let paintOut;
 
         try {
@@ -2252,8 +2266,6 @@ async function makeFrame({ data: { type, content } }) {
         painting.paint(true);
         painted = true;
         paintCount = paintCount + 1n;
-
-        // console.log("!! Painted", paintCount, performance.now());
 
         if (paintOut) dirtyBox = paintOut;
 
@@ -2329,6 +2341,9 @@ async function makeFrame({ data: { type, content } }) {
       );
     }
 
+    // Wait 8 frames of the default piece before loading the next piece.
+    if (paintCount > 8n) loadAfterPreamble?.(); // Start loading after the first disk if necessary.
+
     // ***Frame State Reset***
     // Reset video transcoding / print progress.
     if ($commonApi.rec.printProgress === 1) $commonApi.rec.printProgress = 0;
@@ -2343,6 +2358,9 @@ async function makeFrame({ data: { type, content } }) {
     //performance.clearMeasures();
   }
 }
+
+// 5. Start a render loop on a minimal api so the defaults end up bein run.
+send({ type: "disk-defaults-loaded" });
 
 // 📚 Utilities
 

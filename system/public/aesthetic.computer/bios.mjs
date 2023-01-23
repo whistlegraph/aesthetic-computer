@@ -946,320 +946,319 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    if (type === "disk-loaded") {
-      currentPiece = content.path;
-      currentPieceHasTextInput = false;
+    if (type === "disk-defaults-loaded") {
+      // Pen (also handles touch & pointer events)
+      pen = new Pen((x, y) => {
+        const p = {
+          x: floor(((x - canvasRect.x) / projectedWidth) * screen.width),
+          y: floor(((y - canvasRect.y) / projectedHeight) * screen.height),
+        };
+        return p;
+      });
 
-      // Initialize some global stuff after the first piece loads.
-      if (content.pieceCount === 0) {
-        // Pen (also handles touch & pointer events)
-        pen = new Pen((x, y) => {
-          const p = {
-            x: floor(((x - canvasRect.x) / projectedWidth) * screen.width),
-            y: floor(((y - canvasRect.y) / projectedHeight) * screen.height),
-          };
-          return p;
+      // ⌨️ Keyboard
+      keyboard = new Keyboard(() => currentPiece);
+      {
+        /**
+         * Insert a hidden input element that is used to toggle the software
+         * keyboard on touchscreen devices like iPhones and iPads.
+         * *Only works in "disks/prompt".
+         */
+        const input = document.createElement("input");
+        const form = document.createElement("form");
+        form.id = "software-keyboard-input-form";
+        form.style.opacity = 0;
+        input.style.width = 0;
+        input.style.height = 0;
+        input.style.position = "absolute";
+
+        input.id = "software-keyboard-input";
+        input.type = "text";
+        input.autocapitalize = "none";
+        input.autocomplete = "off";
+        input.style.opacity = 0;
+        input.style.width = 0;
+        input.style.height = 0;
+
+        input.value = "_";
+
+        form.append(input);
+        wrapper.append(form);
+
+        keyboard.input = input;
+
+        form.addEventListener("submit", (e) => {
+          // Generate a keyboard event if the form was submitted.
+          // (Enter keypressed.)
+          keyboard.events.push({
+            name: "keyboard:down:enter",
+            key: "Enter",
+            repeat: false,
+            shift: false,
+            alt: false,
+            ctrl: false,
+          });
+
+          e.preventDefault();
         });
 
-        // ⌨️ Keyboard
-        keyboard = new Keyboard(() => currentPiece);
-        {
-          /**
-           * Insert a hidden input element that is used to toggle the software
-           * keyboard on touchscreen devices like iPhones and iPads.
-           * *Only works in "disks/prompt".
-           */
-          const input = document.createElement("input");
-          const form = document.createElement("form");
-          form.id = "software-keyboard-input-form";
-          form.style.opacity = 0;
-          input.style.width = 0;
-          input.style.height = 0;
-          input.style.position = "absolute";
+        input.addEventListener("input", (e) => {
+          let input = e.data;
 
-          input.id = "software-keyboard-input";
-          input.type = "text";
-          input.autocapitalize = "none";
-          input.autocomplete = "off";
-          input.style.opacity = 0;
-          input.style.width = 0;
-          input.style.height = 0;
+          const pressedKeys = [];
 
-          input.value = "_";
+          if (e.inputType === "deleteContentBackward") {
+            pressedKeys.push("Backspace");
+          } else if (
+            ["insertText", "insertCompositionText"].includes(e.inputType)
+          ) {
+            // Sanitize input if it arrives in chunks... like if it was dictated.
+            // This is still basic, and is usable in the Meta Quest Browser. 22.10.24.17.07
+            let sanitizedInput = input;
+            if (input.length > 1) {
+              sanitizedInput = input
+                .trim()
+                .toLowerCase()
+                .replace(",", "")
+                .replace(".", "");
+              console.log("👄 Spoken / pasted input:", sanitizedInput);
+            }
 
-          form.append(input);
-          wrapper.append(form);
+            [...sanitizedInput].forEach((chr) => pressedKeys.push(chr));
+          }
 
-          keyboard.input = input;
-
-          form.addEventListener("submit", (e) => {
-            // Generate a keyboard event if the form was submitted.
-            // (Enter keypressed.)
+          pressedKeys.forEach((pk) => {
             keyboard.events.push({
-              name: "keyboard:down:enter",
-              key: "Enter",
+              name: "keyboard:down:" + pk.toLowerCase(),
+              key: pk,
               repeat: false,
               shift: false,
               alt: false,
               ctrl: false,
             });
-
-            e.preventDefault();
           });
 
-          input.addEventListener("input", (e) => {
-            let input = e.data;
-
-            const pressedKeys = [];
-
-            if (e.inputType === "deleteContentBackward") {
-              pressedKeys.push("Backspace");
-            } else if (
-              ["insertText", "insertCompositionText"].includes(e.inputType)
-            ) {
-              // Sanitize input if it arrives in chunks... like if it was dictated.
-              // This is still basic, and is usable in the Meta Quest Browser. 22.10.24.17.07
-              let sanitizedInput = input;
-              if (input.length > 1) {
-                sanitizedInput = input
-                  .trim()
-                  .toLowerCase()
-                  .replace(",", "")
-                  .replace(".", "");
-                console.log("👄 Spoken / pasted input:", sanitizedInput);
-              }
-
-              [...sanitizedInput].forEach((chr) => pressedKeys.push(chr));
-            }
-
-            pressedKeys.forEach((pk) => {
-              keyboard.events.push({
-                name: "keyboard:down:" + pk.toLowerCase(),
-                key: pk,
-                repeat: false,
-                shift: false,
-                alt: false,
-                ctrl: false,
-              });
-            });
-
-            if (input === "Backspace") {
-              e.target.value = e.target.value.slice(0, -1);
-            } else {
-              e.target.value += input;
-            }
-          });
-
-          let touching = false;
-          let keyboardOpen = false;
-
-          // TODO: The input element could be created and added to the DOM here
-          //       if it didn't already exist?
-          window.addEventListener("touchstart", () => (touching = true));
-
-          window.addEventListener("focusout", (e) => {
-            if (keyboardOpen) {
-              keyboard.events.push({ name: "keyboard:close" });
-              keyboardOpen = false;
-            }
-          });
-
-          // Make a pointer "tap" gesture with an `inTime` window of 250ms to
-          // trigger the keyboard on all browsers.
-          let down = false;
-          // let downPos;
-          let inTime = false;
-
-          window.addEventListener("pointerdown", (e) => {
-            if (currentPieceHasTextInput) {
-              down = true;
-              // downPos = { x: e.x, y: e.y };
-              inTime = true;
-              setTimeout(() => (inTime = false), 500);
-              e.preventDefault();
-            }
-          });
-
-          window.addEventListener("pointerup", (e) => {
-            if (
-              down &&
-              // dist(downPos.x, downPos.y, e.x, e.y) < 32 && // Distance threshold for opening keyboard.
-              inTime &&
-              currentPieceHasTextInput
-              // Refactoring the above could allow iframes to capture keyboard events.
-              // via sending things from input... 22.10.24.17.16, 2022.04.07.02.10
-            ) {
-              if (document.activeElement === input) {
-                input.blur();
-              } else {
-                input.focus();
-              }
-
-              if (touching) {
-                touching = false;
-                keyboard.events.push({ name: "keyboard:open" });
-                keyboardOpen = true;
-              }
-              down = false;
-              e.preventDefault();
-            }
-          });
-
-          input.addEventListener("focus", (e) => {
-            keyboard.events.push({ name: "typing-input-ready" });
-          });
-        }
-
-        // Turn off all layers onbeforeunload. (Prevents a white flicker in chrome.)
-        window.addEventListener("beforeunload", (e) => {
-          send({ type: "before-unload" });
-          wrapper.remove();
-        });
-
-        // 🌒 Detect light or dark mode.
-        // See also: https://flaviocopes.com/javascript-detect-dark-mode,
-        //           https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme
-
-        if (
-          window.matchMedia &&
-          window.matchMedia("(prefers-color-scheme: dark)").matches
-        ) {
-          send({ type: "dark-mode", content: { enabled: true } });
-        }
-
-        window
-          .matchMedia("(prefers-color-scheme: dark)")
-          .addEventListener("change", (event) => {
-            if (event.matches) {
-              send({ type: "dark-mode", content: { enabled: true } });
-            } else {
-              send({ type: "dark-mode", content: { enabled: false } });
-            }
-          });
-
-        // 📋 User pasting of content.
-        window.addEventListener("paste", (event) => {
-          pastedText = event.clipboardData.getData("text/plain");
-        });
-
-        // 🖥️ Display
-        frame(resolution?.width, resolution?.height);
-
-        // 🔊 Sound
-        // TODO: Disable sound engine entirely... unless it is enabled by a disk. 2022.04.07.03.33
-        // Only start this after a user-interaction to prevent warnings.
-        window.addEventListener(
-          "pointerdown",
-          function down() {
-            startSound();
-          },
-          { once: true }
-        );
-
-        diskSupervisor = { requestBeat, requestFrame };
-
-        // ➰ Core Loops for User Input, Music, Object Updates, and Rendering
-        Loop.start(
-          () => {
-            // TODO: What is this now?
-            // pen.poll();
-            // TODO: Key.input();
-            // TODO: Voice.input();
-          },
-          function (needsRender, updateTimes, nowUpdate) {
-            // TODO: How can I get the pen data into the disk and back
-            //       to Three.JS as fast as possible? 22.10.26.23.25
-            // console.log(nowUpdate);
-
-            diskSupervisor.requestFrame?.(needsRender, updateTimes, nowUpdate);
-
-            if (ThreeD?.status.alive === true && ThreeDBakeQueue.length > 0) {
-              ThreeD.collectGarbage();
-              // Bake all forms, while keeping track of baked forms, and any form that is missing after the queue ends needs to be cleared.
-              const touchedForms = [];
-              ThreeDBakeQueue.forEach((baker) => touchedForms.push(...baker()));
-              ThreeD.checkForRemovedForms(touchedForms);
-              ThreeDBakeQueue.length = 0;
-              ThreeD?.render();
-            }
+          if (input === "Backspace") {
+            e.target.value = e.target.value.slice(0, -1);
+          } else {
+            e.target.value += input;
           }
-        );
-      } else {
-        // Unload some already initialized stuff if this wasn't the first load.
-
-        // Remove any attached microphone.
-        detachMicrophone?.();
-
-        // Reset preloading.
-        window.waitForPreload = false;
-        window.preloaded = false;
-
-        // Clear any 3D content.
-        ThreeD?.clear();
-
-        // Kill the 3D engine.
-        ThreeD?.kill();
-
-        // Clear any DOM content that was added by a piece.
-        contentFrame?.remove(); // Remove the contentFrame if it exists.
-        contentFrame = undefined;
-        // Remove any event listeners added by the content frame.
-        window?.acCONTENT_EVENTS.forEach((e) => e());
-        window.acCONTENT_EVENTS = []; // And clear all events from the list.
-
-        // Remove existing video tags.
-        videos.forEach(({ video, buffer, getAnimationRequest }) => {
-          console.log("🎥 Removing:", video, buffer, getAnimationRequest());
-          video.remove();
-          buffer.remove();
-          cancelAnimationFrame(getAnimationRequest());
         });
-        // Note: Any other disk state cleanup that needs to take place on unload
-        //       should happen here.
 
-        // Reset the framing to a system default when unloading a disk if using
-        // a customized resolution.
-        // TODO: Do disks with custom resolutions need to be reset
-        //       if they are being reloaded?
+        let touching = false;
+        let keyboardOpen = false;
 
-        if (fixedWidth && fixedHeight) {
-          freezeFrame = true;
-          freezeFrameGlaze = glaze.on;
+        // TODO: The input element could be created and added to the DOM here
+        //       if it didn't already exist?
+        window.addEventListener("touchstart", () => (touching = true));
 
-          freezeFrameCan.width = imageData.width;
-          freezeFrameCan.height = imageData.height;
+        window.addEventListener("focusout", (e) => {
+          if (keyboardOpen) {
+            keyboard.events.push({ name: "keyboard:close" });
+            keyboardOpen = false;
+          }
+        });
 
-          fixedWidth = undefined;
-          fixedHeight = undefined;
-          needsReframe = true;
-        }
+        // Make a pointer "tap" gesture with an `inTime` window of 250ms to
+        // trigger the keyboard on all browsers.
+        let down = false;
+        // let downPos;
+        let inTime = false;
 
-        if (lastGap !== 0) {
-          // lastGap = 0; No longer needed... 22.10.04.15.28
-          freezeFrame = true;
-          freezeFrameCan.width = imageData.width;
-          freezeFrameCan.height = imageData.height;
-          needsReframe = true;
-        }
+        window.addEventListener("pointerdown", (e) => {
+          if (currentPieceHasTextInput) {
+            down = true;
+            // downPos = { x: e.x, y: e.y };
+            inTime = true;
+            setTimeout(() => (inTime = false), 500);
+            e.preventDefault();
+          }
+        });
 
-        // Turn off glaze.
-        glaze.on = false;
+        window.addEventListener("pointerup", (e) => {
+          if (
+            down &&
+            // dist(downPos.x, downPos.y, e.x, e.y) < 32 && // Distance threshold for opening keyboard.
+            inTime &&
+            currentPieceHasTextInput
+            // Refactoring the above could allow iframes to capture keyboard events.
+            // via sending things from input... 22.10.24.17.16, 2022.04.07.02.10
+          ) {
+            if (document.activeElement === input) {
+              input.blur();
+            } else {
+              input.focus();
+            }
 
-        canvas.style.removeProperty("opacity");
+            if (touching) {
+              touching = false;
+              keyboard.events.push({ name: "keyboard:open" });
+              keyboardOpen = true;
+            }
+            down = false;
+            e.preventDefault();
+          }
+        });
 
-        // Clear pen events.
-        pen.events.length = 0;
-
-        // Clear keyboard events.
-        keyboard.events.length = 0;
-
-        // Clear when events.
-        whens = {};
-
-        // Close (defocus) software keyboard if we are NOT on the prompt.
-        document.querySelector("#software-keyboard-input")?.blur();
-        keyboard.events.push({ name: "keyboard:close" });
+        input.addEventListener("focus", (e) => {
+          keyboard.events.push({ name: "typing-input-ready" });
+        });
       }
+
+      // Turn off all layers onbeforeunload. (Prevents a white flicker in chrome.)
+      window.addEventListener("beforeunload", (e) => {
+        send({ type: "before-unload" });
+        wrapper.remove();
+      });
+
+      // 🌒 Detect light or dark mode.
+      // See also: https://flaviocopes.com/javascript-detect-dark-mode,
+      //           https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme
+
+      if (
+        window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches
+      ) {
+        send({ type: "dark-mode", content: { enabled: true } });
+      }
+
+      window
+        .matchMedia("(prefers-color-scheme: dark)")
+        .addEventListener("change", (event) => {
+          if (event.matches) {
+            send({ type: "dark-mode", content: { enabled: true } });
+          } else {
+            send({ type: "dark-mode", content: { enabled: false } });
+          }
+        });
+
+      // 📋 User pasting of content.
+      window.addEventListener("paste", (event) => {
+        pastedText = event.clipboardData.getData("text/plain");
+      });
+
+      // 🖥️ Display
+      frame(resolution?.width, resolution?.height);
+
+      // 🔊 Sound
+      // TODO: Disable sound engine entirely... unless it is enabled by a disk. 2022.04.07.03.33
+      // Only start this after a user-interaction to prevent warnings.
+      window.addEventListener(
+        "pointerdown",
+        function down() {
+          startSound();
+        },
+        { once: true }
+      );
+
+      diskSupervisor = { requestBeat, requestFrame };
+
+      // ➰ Core Loops for User Input, Music, Object Updates, and Rendering
+      Loop.start(
+        () => {
+          // TODO: What is this now?
+          // pen.poll();
+          // TODO: Key.input();
+          // TODO: Voice.input();
+        },
+        function (needsRender, updateTimes, nowUpdate) {
+          // TODO: How can I get the pen data into the disk and back
+          //       to Three.JS as fast as possible? 22.10.26.23.25
+          // console.log(nowUpdate);
+          diskSupervisor.requestFrame?.(needsRender, updateTimes, nowUpdate);
+
+          if (ThreeD?.status.alive === true && ThreeDBakeQueue.length > 0) {
+            ThreeD.collectGarbage();
+            // Bake all forms, while keeping track of baked forms, and any form that is missing after the queue ends needs to be cleared.
+            const touchedForms = [];
+            ThreeDBakeQueue.forEach((baker) => touchedForms.push(...baker()));
+            ThreeD.checkForRemovedForms(touchedForms);
+            ThreeDBakeQueue.length = 0;
+            ThreeD?.render();
+          }
+        }
+      );
+    }
+
+    if (type === "disk-loaded") {
+      currentPiece = content.path;
+      currentPieceHasTextInput = false;
+
+      // Initialize some global stuff after the first piece loads.
+      // Unload some already initialized stuff if this wasn't the first load.
+
+      // Remove any attached microphone.
+      detachMicrophone?.();
+
+      // Reset preloading.
+      window.waitForPreload = false;
+      window.preloaded = false;
+
+      // Clear any 3D content.
+      ThreeD?.clear();
+
+      // Kill the 3D engine.
+      ThreeD?.kill();
+
+      // Clear any DOM content that was added by a piece.
+      contentFrame?.remove(); // Remove the contentFrame if it exists.
+      contentFrame = undefined;
+      // Remove any event listeners added by the content frame.
+      window?.acCONTENT_EVENTS.forEach((e) => e());
+      window.acCONTENT_EVENTS = []; // And clear all events from the list.
+
+      // Remove existing video tags.
+      videos.forEach(({ video, buffer, getAnimationRequest }) => {
+        console.log("🎥 Removing:", video, buffer, getAnimationRequest());
+        video.remove();
+        buffer.remove();
+        cancelAnimationFrame(getAnimationRequest());
+      });
+      // Note: Any other disk state cleanup that needs to take place on unload
+      //       should happen here.
+
+      // Reset the framing to a system default when unloading a disk if using
+      // a customized resolution.
+      // TODO: Do disks with custom resolutions need to be reset
+      //       if they are being reloaded?
+
+      if (fixedWidth && fixedHeight) {
+        freezeFrame = true;
+        freezeFrameGlaze = glaze.on;
+
+        freezeFrameCan.width = imageData.width;
+        freezeFrameCan.height = imageData.height;
+
+        fixedWidth = undefined;
+        fixedHeight = undefined;
+        needsReframe = true;
+      }
+
+      if (lastGap !== 0) {
+        // lastGap = 0; No longer needed... 22.10.04.15.28
+        freezeFrame = true;
+        freezeFrameCan.width = imageData.width;
+        freezeFrameCan.height = imageData.height;
+        needsReframe = true;
+      }
+
+      // Turn off glaze.
+      glaze.on = false;
+
+      canvas.style.removeProperty("opacity");
+
+      // Clear pen events.
+      pen.events.length = 0;
+
+      // Clear keyboard events.
+      keyboard.events.length = 0;
+
+      // Clear when events.
+      whens = {};
+
+      // Close (defocus) software keyboard if we are NOT on the prompt.
+      document.querySelector("#software-keyboard-input")?.blur();
+      keyboard.events.push({ name: "keyboard:close" });
 
       setMetatags(content.meta);
 
@@ -2082,7 +2081,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       pen.render(uiCtx, canvasRect); // ️ 🐭 Draw the cursor.
 
-      if (content.loading === true) {
+      // Show the spinner on any piece other than the first.
+      if (content.loading === true && currentPiece !== null) {
         UI.spinner(uiCtx, now);
       }
 
