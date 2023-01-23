@@ -74,7 +74,8 @@ function boot({
   screen,
   needsPaint,
 }) {
-  typeface = new Typeface(preload, font1);
+  typeface = new Typeface(font1);
+  typeface.load(preload);
   // cursor("tiny"); // TODO: Why doesn't cursor tiny work here? 22.11.01.16.59
   resize(96, 96); // It might have to do with this resize call?
 
