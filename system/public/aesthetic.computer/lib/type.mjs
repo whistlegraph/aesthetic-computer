@@ -54,12 +54,14 @@ class Typeface {
     const blockWidth = 6;
     const scale = 1;
 
+    const rn = $.inkrn; // Remember the current ink color.
+
     // Background
     if (bg !== null) {
       $.ink(bg).box(x, y, blockWidth * scale * text.length, blockHeight);
     }
 
-    $.ink(255).printLine(text, font, x, y, blockWidth, scale); // Text
+    $.ink(rn).printLine(text, font, x, y, blockWidth, scale); // Text
   }
 }
 

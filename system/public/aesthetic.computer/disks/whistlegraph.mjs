@@ -3,26 +3,23 @@
 
 /* #region 🏁 todo
   + ⏰ Now
-  - [-] Add text: *Whistlegraph Recorder*
-    - [🌓] Import type...
   - [] Add button: "Practice" -> `wgr`
   - [] Add button: "Record" -> `wgr:15 params` (15 seconds, eventually configurable)
   + Later
   - [] Button to a feed of latest posts / recordings.
   - [] Drawing tool / background configuration / theme.
   - [] Sound selection.
+  + Done
+  - [x] Add inkrn.
+  - [x] Add text: *Whistlegraph Recorder*
+    - [x] Import type...
 #endregion */
 
-function boot($) {
-  const { wipe, write } = $;
-  wipe(0, 0, 200);
-  // - [-] Remove the need for "$" in write by passing it inside the
-  //       implementation within `disk` somehow.
-  write($, 0, 0, "Whistlegraph Recorder", [200, 0, 0, 16]);
+function boot({ wipe }) {
+  wipe(0, 0, 200).ink(255, 255, 0, 255).write(0, 0, "Whistlegraph Recorder", [0, 0, 0, 255]);
 }
 
 function paint($) {
-  //$.write($, 0, 0, "Whistlegraph Recorder", [200, 0, 0, 16]);
 }
 
 function act() {}

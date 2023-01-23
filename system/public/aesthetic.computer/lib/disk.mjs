@@ -710,8 +710,8 @@ const $paintApiUnwrapped = {
     graph.clear();
   },
   // Prints a line of text using the default / current global font.
-  write: function ($, x, y, text, bg) {
-    tf.print($, { x, y }, 0, text, bg);
+  write: function (x, y, text, bg) {
+    tf.print(painting.api, { x, y }, 0, text, bg);
   },
   copy: graph.copy,
   paste: graph.paste,
@@ -764,14 +764,17 @@ class Painting {
       if (typeof $paintApiUnwrapped[k] === "function") {
         // Wrap and then transfer to #api.
         p.api[k] = function () {
-          if (notArray(p.#layers[p.#layer])) p.#layers[p.#layer] = [];
-          // deferred action called as paint() below.
+          // Keep track of global state, like ink, via `inkrn`.
+          if (k === "ink") p.api.inkrn = [...arguments].flat();
+
+          // Create layer if necessary.
+          if (notArray(p.#layers[p.#layer])) p.#layers[p.#layer] = []; 
+          // Add each deferred paint api function to the layer, to be run
+          // all at once in `paint` on each frame update. 
           p.#layers[p.#layer].push(() => {
             $paintApiUnwrapped[k](...arguments);
+            // await $paintApiUnwrapped[k](...arguments);
           });
-          // p.#layers[p.#layer].push(async () => {
-          //   await $paintApiUnwrapped[k](...arguments);
-          // });
           return p.api;
         };
       }
