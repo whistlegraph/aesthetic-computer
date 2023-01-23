@@ -5,14 +5,20 @@
 
 // ðŸŽ¨
 // If `params` is empty then ink's RGBA will be randomized.
+
+let sparkleBuffer = [];
+let sparkleMode = 0;
+
+// painting:reset to reset
+// no!
 export function paint($api) {
   //debugger;
-  let { pen, params, system, page, screen, num: { randInt: r } } = $api;
-  console.log($api);
-  console.log('hellooooo');
+  let { pen, ink, circle, params, system, paste, page, screen, num: { randInt: r } } = $api;
+  // console.log($api);
+
+
   // maya's color palettes
   let apple = [0x545665, 0xdcc0cf, 0xf4f4f4, 0xfcf3f4, 0xf4f4df];
-
   let polly = [0xda5748, 0x744864, 0x72242a, 0x5f3f47, 0x302c4d];
 
   let nussbaum = [
@@ -37,6 +43,14 @@ export function paint($api) {
 
   let cardigan = ["#966a54", "#58855c", "#fa91a4", "#fc5484", "#c27c73"];
 
+  let kiko = ['#f995d0', '#ffffff', '#e0cad5', '#b98586', '#171719', '#dec0c5', '#6b5e68']
+
+  let strawberry = ['#efc0c1', '#f5423a', '#bdc9b8', '#ffffff'];
+
+  // let mollyHeartColors = ['#ffa1c8', '#ff0801', '#ffffff', '#03fd00'];
+  let mollyHeartColors = ['#ffa1c8', '#ff0801', '#e0cad5', '#ffffff'];
+  let mollyStarColors = ['#ce8bac', '#faed93', '#faed93', '#f8dc9c'];
+
   const mycolors = [
     [150, 106, 84],
     [88, 133, 92],
@@ -51,70 +65,183 @@ export function paint($api) {
     [244, 244, 223],
     [132, 100, 156],
   ];
+  paste(system.painting); // 👮 Why is this not saving on live reload!
 
-  if (pen.drawing) {
+  if (pen?.drawing) {
     // @maya/brush 255 16
     // params = params.map((str) => parseInt(str));
+    let chosenColorIndex = r(mollyHeartColors.length - 1);
+    let chosenColor = mollyHeartColors[chosenColorIndex];
 
-    const chosenColor = apple[r(apple.length)];
-    // const radius = r(22);
+    // chosenColor = '#ffffff';
 
-    // // Drawing to the user's painting.
-    // page(system.painting)
-    //   .ink(chosenColor)
-    //   .circle(pen.x, pen.y, radius);
-
-    // // Drawing the same thing to the screen buffer.
-    // page(screen)
-    //   .ink(chosenColor)
-    //   .circle(pen.x, pen.y, radius);
-
-    // Define the number of points on the star
-    const numPoints = 5;
-
-    // Define the radius of the star (distance from center to a vertex)
-    const radius = r(22);
-
-    // Define the inner radius (distance from center to a point halfway between two vertices)
-    const innerRadius = radius * 0.5;
-
-    // Calculate the angle between each point on the star (360 degrees divided by the number of points)
-    const angle = 360 / numPoints;
-
-    // Define a function to calculate the x and y coordinates of a point on the star
-    const calculateCoords = (radius, angle) => {
-      return {
-        x: pen.x + radius * Math.cos((angle - 90) * Math.PI / 180),
-        y: pen.y + radius * Math.sin((angle - 90) * Math.PI / 180)
-      };
-    };
-
-    // Loop through the number of points on the star
-    for (let i = 0; i < numPoints; i++) {
-      // Calculate the x and y coordinates of the current point
-      const coords = calculateCoords(radius, angle * i);
-
-      // Draw a circle at the current point
-      page(system.painting)
-        .ink(chosenColor)
-        .circle(coords.x, coords.y, radius * 0.1);
-      page(screen)
-        .ink(chosenColor)
-        .circle(coords.x, coords.y, radius * 0.1);
-
-      // Calculate the x and y coordinates of the point halfway between the current point and the next point
-      const coords2 = calculateCoords(innerRadius, angle * (i + 0.5));
-
-      // Draw a circle at the midpoint
-      page(system.painting)
-        .ink(chosenColor)
-        .circle(coords2.x, coords2.y, radius * 0.1);
-      page(screen)
-        .ink(chosenColor)
-        .circle(coords2.x, coords2.y, radius * 0.1);
+    if (sparkleMode == 0) {
+      sparkleBuffer.push(sparkleFactory(pen, chosenColor, 1));
+    } else if (sparkleMode == 1) {
+      let chosenColorIndex = r(kiko.length - 1);
+      let chosenColor = kiko[chosenColorIndex];
+      sparkleBuffer.push(sparkleFactory(pen, chosenColor, 5));
     }
 
+    // Make collection of objects
   }
+
+
+  // Define the number of points on the star
+  const numPoints = 5;
+
+  // Define the radius of the star (distance from center to a vertex)
+  const radius = r(10);
+
+  // Define the inner radius (distance from center to a point halfway between two vertices)
+  const innerRadius = radius * 0.5;
+
+  // Calculate the angle between each point on the star (360 degrees divided by the number of points)
+  const angle = 360 / numPoints;
+
+  let starOffsetRange = 10;
+
+  const calculateCoords = (xPos, yPos, radius, angle) => {
+    return {
+      x: xPos + radius * Math.cos((angle - 90) * Math.PI / 180),
+      y: yPos + radius * Math.sin((angle - 90) * Math.PI / 180)
+    };
+  };
+
+  for (let s = 0; s < sparkleBuffer.length; s++) {
+    // Loop through the number of points on the star
+    let currentSparkle = sparkleBuffer[s];
+
+    if (sparkleMode == 0) {
+      let currentX = sparkleBuffer[s].position.x;
+      let currentY = sparkleBuffer[s].position.y + currentSparkle.fallState;
+      ink(sparkleBuffer[s].color);
+
+      let size = currentSparkle.size;
+      circle(currentX, currentY, size);
+      circle(currentX - size * 2, currentY - size * 2, currentSparkle.size);
+      circle(currentX + size * 2, currentY - size * 2, currentSparkle.size);
+
+    } else if (sparkleMode == 1) {
+
+      let currentX = sparkleBuffer[s].position.x;
+      let currentY = sparkleBuffer[s].position.y;
+
+      if (sparkleBuffer[s].flash && sparkleBuffer[s].flashing > 0) {
+        ink(255)
+        let sparkleOffset = -2 * currentSparkle.size + (Math.random() * currentSparkle.size * 4);
+        circle(currentX, currentY + sparkleOffset, 1);
+      }
+
+      for (let i = 0; i < numPoints; i++) {
+        // Calculate the x and y coordinates of the current point
+        const coords = calculateCoords(currentX, currentY, currentSparkle.size, angle * i);
+        const innerRadius = currentSparkle.size * 0.5;
+
+        // Draw a circle at the current point
+        let starCircleSize = 1;
+        let starOffset = 10;
+        // let starOffset = 10;
+        if (sparkleBuffer[s].flash && sparkleBuffer[s].flashing > 0) {
+          ink(255)
+        } else {
+          ink(sparkleBuffer[s].color)
+        }
+        // ink(sparkleBuffer[s].color)
+
+        circle(coords.x, coords.y, starCircleSize);
+
+        // Calculate the x and y coordinates of the point halfway between the current point and the next point
+        const coords2 = calculateCoords(currentX, currentY, innerRadius, angle * (i + 0.5));
+        // Draw a circle at the midpoint
+        // console.log(sparkleBuffer[s].color);
+        circle(coords2.x, coords2.y, starCircleSize);
+      }
+    }
+
+
+
+  }
+}
+
+export function sim() {
+
+  if (sparkleMode == 0) {
+    for (let s = 0; s < sparkleBuffer.length; s++) {
+      // Loop through the number of points on the star
+      let currentSparkle = sparkleBuffer[s];
+      let starOffsetX = -0.5 + Math.random() * 1;
+      let starOffsetY = -0.5 + Math.random() * 1;
+
+      currentSparkle.position.x += starOffsetX;
+      currentSparkle.position.y += starOffsetY;
+
+      if (currentSparkle.state == 'active') {
+        if (Math.random() > 0.9999) {
+          currentSparkle.state = 'falling';
+        }
+      } else if (currentSparkle.state == 'falling') {
+        currentSparkle.fallState += 1;
+      }
+    }
+  } else if (sparkleMode == 1) {
+    for (let s = 0; s < sparkleBuffer.length; s++) {
+      // Loop through the number of points on the star
+      let currentSparkle = sparkleBuffer[s];
+      // let starOffsetX = Math.random();
+      // let starOffsetY = Math.random() * 0.05;
+      // currentSparkle.position.x += starOffsetX;
+      // currentSparkle.position.y += starOffsetY;
+
+      if (currentSparkle.flash && currentSparkle.flashing > -10) {
+        currentSparkle.flashing--;
+      } else if (currentSparkle.flash && currentSparkle.flashing <= -10) {
+        currentSparkle.flashing = 10;
+      }
+
+
+
+      // console.log(currentSparkle.color);
+      // if (currentSparkle.state == 'active') {
+      //   if (Math.random() > 0.9999) {
+      //     currentSparkle.state = 'falling';
+      //   }
+      // } else if (currentSparkle.state == 'falling') {
+      //   // currentSparkle.fallState += 1;
+      // }
+    }
+  }
+
+  // Cascading series of states...
+
+  if (Math.random() > 0.99) {
+    // sparkleBuffer.shift();
+    // sparkleBuffer.length - 1, 1
+  }
+}
+
+function sparkleFactory(pen, color, size) {
+  let position = {
+    x: pen.x,
+    y: pen.y
+  };
+
+  let flash = false;
+
+  if (Math.random() > 0.5) {
+    flash = true;
+  }
+
+  return {
+    position,
+    color,
+    size,
+    flash,
+    flashing: 10,
+    state: 'active',
+    fallState: 0
+  }
+
 }
 
 export const system = "nopaint"; // Uses a template for all the other functions.
