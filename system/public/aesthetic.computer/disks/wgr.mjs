@@ -1,31 +1,45 @@
 // Whistlegraph Recorder, 22.12.27.19.30
-// A simple, 2D tool for recording whistlegraphs.
+// Editor: A simple, 2D tool for recording whistlegraphs.
 
 /* #region 🏁 todo
   + ⏰ Now
-  - [😇] Get pan, rotate, and multitouch zoom working on iOS.
-  - [] Add microphone input. 
-  - [] Add audio and video recording. 
-    - [] Record video
-      - [] This will be done with `wgr seconds` in addition to a countdown timer.
-        - [] If no seconds are entered, then no video recording occurs and
-             a practice state is assumed!
-    - [] With microphone.
-    - [] Add background beat / music?
-      - [] (via parameter #2)
-    - [] Finish video saving UI.
-      - [] Store to temporary online bucket and allow
-           user to download / show code. 
+  - [] Finish video saving UI
+    - *** Separate Piece Method / Player + Exporter ***
+    - [-] Sketch title piece.  
+      2 Input / `wgr` Piece
+        + Now
+          - [] add `mode` to the cli
+          - [] `practice` and `record:seconds`
+          - [] Button on top right for stopping a recording.
+          - [] Save / hold data on completion, then jump to `video` piece for
+               optional video exporting and hook into the upload of data
+               on export, stamping the video with a unique ID (URL).
+      3 Output / `video`.
+      - [] Sketch output piece.
+        - [] Factor out / modify the old video overlay UI thing to only work
+             in this piece.
+        - [] Add a "loop" and a "home" (back to title) button.
+        - [] Take advantage of the dead time / transcoding time.
+          - [] Show a little game or helpful hint. (💡 @alex)
+        - [] Only transcode upon tapping export.
+
+      - CANCELLED *** Option A: Overlay Method ***
+        - [] Show a system-wide pop-over. 
+    - [] Store to temporary online bucket and allow user to download / show code. 
+         (Does this already happen?)
+  - [] Add background beat / music?
+    - [] (via parameter #2)
   - [] Make the background cool and grainy / animated a bit.
   - [] (Post Wednesday) Whistlegraph Stamp
-    - [] Two SVGs layered over. 
+    - [] Two SVGs layered over.
     - [] Wobbling
     - [] Global video completed counter.
-    - [] Don't delete videos that get stored. 
-    - [] "pre-launch / early"  
+    - [] Don't delete videos that get stored.
+    - [] "pre-launch / early" 
   + Later
-    - [] Add background colors to log lines / return a bounding box from a print?
-      - [] Draw background colors under each letter.
+    - [] This will be done with `wgr seconds` in addition to a countdown timer.
+      - [] If no seconds are entered, then no video recording occurs and
+            a practice state is assumed!
     - [] User accounts along with full data storage and client player.
     - [] Parameterize some ink / thickness options in the CLI.
     - [] Does there need to be a secondary buffer for the current stroke...
@@ -37,6 +51,21 @@
          or something like that.
   - 🛑 Launch 1
   + Done
+    - [x] Wait until the microphone actually is connected before starting a recording
+    - [x] Prevent stroke from continuing once recording ends.
+    - [x] Add microphone input. 
+    - [x] Add audio and video recording. 
+      - [x] Record video
+      - [x] With microphone.
+    - [x] Don't render any mark segments that are completely offscreen! 
+    - [x] Get two finger pan, zoom, and rotate working on iOS.
+      - [x] Rotate
+      - [x] Zoom
+      - [x] Pan
+    - [x] Multiple fields / values in a single line.
+    - [x] Better output of text / printed values.
+    - [x] Add background colors to log lines / return a bounding box from a print?
+      - [x] Draw background colors under each letter.
     - [x] Add polychrome stroke support.
     - [x] Make each new gesture a different color.
     - [x] Make each new line a different stroke thickness.
@@ -72,6 +101,15 @@ import { Typeface } from "../lib/type.mjs";
 const { floor, max, sin, cos } = Math;
 
 let wg, bg; // Whistlegraph foreground and background.
+let mic,
+  rec = false; // Microphone & recording flag.
+let recStart;
+let recProgress = 0;
+const recDuration = 6;
+
+let bop = false;
+
+let lastTwoTouch;
 
 let debug = true;
 let debugMids = []; // Midpoints of multi-touch.
@@ -95,60 +133,103 @@ function boot($) {
 
 // 🎨 Paint
 function paint($) {
-  if (ALT || SHIFT || CTRL || Q || E || $.pens?.().length > 1) $.wipe(bg);
+  const {
+    wipe,
+    pens,
+    ink,
+    rec: { printProgress },
+    screen: { width, height },
+  } = $;
+
+  if (ALT || SHIFT || CTRL || Q || E || pens?.().length > 1) wipe(bg);
+
+  // Waveform & Amplitude Line
+  if (mic?.waveform.length > 0 && mic?.amplitude !== undefined) {
+    const xStep = width / mic.waveform.length + 1;
+    const yMid = height / 2,
+      yMax = yMid;
+    ink(255, 0, 0, 128).poly(
+      mic.waveform.map((v, i) => [i * xStep, yMid + v * yMax])
+    );
+  }
 
   wg.paint($);
   // $.ink(255, 255, 0, 128).box(wg.anchor.x, wg.anchor.y, 8, "out*center");
 
   // 🐛 Debug
-  if (!debug) return;
-  // Graphics
-  debugMids.forEach((m) => $.ink(255, 0, 0).box(m.x, m.y, 9, "fill*center"));
+  if (debug && printProgress === 0) {
+    // Graphics
+    // Anchor...
+    // debugMids.forEach((m) => $.ink(255, 0, 0).box(m.x, m.y, 9, "fill*center"));
 
-  // Printed Values
-  // $.wipe(bg);
-  $.ink(140, 90, 235, 250);
-  // Measure some printable parameters.
-  [
-    ["penx", $.pen?.x],
-    ["peny", $.pen?.y],
-    ["panx", wg.pan.x],
-    ["pany", wg.pan.y],
-    ["ancx", wg.anchorPoint.x],
-    ["ancy", wg.anchorPoint.y],
-    ["sclx", wg.scale.x],
-    ["scly", wg.scale.y],
-    [" rot", wg.rotation],
-  ]
-    .map((v) => {
-      if (v[1]) v[1] = Number(v[1].toFixed(2));
-      return v;
-    })
-    .forEach((line, i) => tf.print($, i, `${line[0]}: ${line[1]}`));
+    // Printed Values
+    // TODO: - [] Allow multiple values on a single row...
+
+    $.ink(140, 90, 0);
+    // Measure some printable parameters.
+    // Define a label to the left, and a value or set of values on the right.
+    [
+      ["pen", [$.pen?.x || 0, $.pen?.y || 0]],
+      ["pan", [floor(wg.pan.x), floor(wg.pan.y)]],
+      ["anc", [wg.anchorPoint.x, wg.anchorPoint.y]],
+      ["scl", wg.scale.x], // Only need to log one scale if using uniform.
+      ["rot", wg.rotation],
+    ]
+      .map((v) => {
+        // 🖊️ Log the value or set of values as a padded & formatted string.
+        v[1] = typeof v[1] === "number" ? [v[1]] : v[1];
+        const values = v[1].map((v) => v.toFixed(2));
+        // TODO: Add column formatted numbers here...
+        v[1] = values.join(", "); // Concatenate values with ", "
+        return v;
+      })
+      .forEach((line, i) =>
+        tf.print($, { x: 3, y: 5 }, i, `${line[0]}: ${line[1]}`, bg)
+      );
+  }
+
+  ink(0).box(0, 0, width, 3);
+
+  // Draw progress bar for video recording.
+  // TODO: How can this skip the recording?
+  if (recProgress > 0) ink(255, 0, 0).box(0, 0, recProgress * width, 3);
+
+  // Draw progress bar for video rendering.
+  if (printProgress > 0) {
+    //ink(0, 0, 0, 32).box(0, 0, width, height);
+    ink(128, 64, 0).box(0, 0, printProgress * width, 3);
+  }
 }
 
 // 🧮 Sim(ulate)
-function sim({ num: { mat3, p2 }, pen, pens, screen }) {
-  if (pen) {
-    if (SHIFT || CTRL) {
-      const zoom = CTRL ? 0.999 : 1.001;
-      wg.anchor(pen);
-      wg.zoom({ x: zoom, y: zoom });
+function sim({
+  num: { mat3, p2 },
+  pen,
+  pens,
+  screen,
+  rec: { cut, print },
+  sound: { time },
+}) {
+  // Navigation
+  if (pen && (SHIFT || CTRL || ALT || Q || E)) wg.anchor(pen); // Anchor
+  if (SHIFT || CTRL) wg.zoom(CTRL ? 0.998 : 1.002); // Zoom
+  if (Q || E) wg.rotate(Q ? -0.02 : 0.02); // Rotate
+
+  // AV Recording
+  mic?.poll(); // Query for updated amplitude and waveform data.
+
+  // Advance recording timer and finish recording if necessary.
+  if (rec === true) {
+    recProgress = (time - recStart) / recDuration;
+    if (recProgress >= 1) {
+      wg.lift(); // Stop any active gesture.
+      cut();
+      print();
+      recProgress = 0;
+      rec = false;
     }
   }
-
-  if (pens) {
-    // console.log(pens(1), pens(2));
-  }
-
-  if (Q || E) {
-    wg.anchor(pen);
-    wg.rotate(Q ? -0.01 : 0.01); // Rotate left or right.
-  }
 }
-
-let graphing = false;
-let lastTwoTouch;
 
 // ✒ Act (Runs once per user interaction)
 function act($) {
@@ -156,14 +237,64 @@ function act($) {
     event: e,
     pen,
     pens,
+    rec: { rolling, cut, print, printProgress },
     num: { p2 },
+    sound: { time },
     help,
   } = $;
-  // Keyboard Navigation
 
+  // if (!mic) return; // Disable all events until the microphone is working.
+  if (printProgress > 0) return; // Prevent any interaction when a video is rendering.
+
+  // Recording
+  if (e.is("keyboard:down:enter")) {
+    if (rec === false) {
+      rolling("video");
+      rec = true;
+    } else {
+      cut();
+      print();
+      rec = false;
+    }
+  }
+
+  if (e.is("microphone-connect:success")) {
+    console.log("🔴 Microphone connected! Starting a recording...");
+    rolling("video"); // Start recording immediately.
+    recStart = time;
+    rec = true;
+    bop = true;
+  }
+
+  if (e.is("microphone-connect:failure")) {
+    console.log("🟡 Microphone failed to connect.");
+  }
+
+  // When a recording panel closes...
+  if (e.is("signal") && e.signal.includes("recordings:close")) {
+    console.log("closed!");
+    // Restart recording...
+    // TODO: Make another recording.
+    bop = true;
+
+    // Reset WG
+    wg.gestures.length = 0;
+    wg.gestureIndex = 0;
+
+    rolling("video");
+    recStart = time;
+    rec = true;
+    // TODO: How to reset the record button so another recording can get made?
+  }
+
+  // 🪐 Navigation (Zoom, Scale & Rotate)
+  // Keyboard
   if (e.is("keyboard:down:alt")) ALT = true; // Panning ➡️
   if (e.is("keyboard:up:alt")) ALT = false;
-  if (ALT && e.delta) wg.move(e.delta);
+  if (ALT && e.delta) {
+    wg.anchor(pen);
+    wg.move(e.delta);
+  }
 
   if (e.is("keyboard:down:q")) Q = true; // Rotating left... ↩️
   if (e.is("keyboard:up:q")) Q = false;
@@ -175,51 +306,56 @@ function act($) {
   if (e.is("keyboard:down:control")) CTRL = true; // and out.
   if (e.is("keyboard:up:control")) CTRL = false;
 
-  // Touch Navigation
-
+  // Touch
   if (e.is("touch:2")) {
-    graphing = false;
-
-    console.log(pens());
-
+    wg.lift(); // Stop any active gesture.
     lastTwoTouch = twoTouch($);
-
-    console.log(lastTwoTouch);
-
     wg.anchor(p2.floor(lastTwoTouch.mid)); // Set anchor to center of twoTouch.
-    if (debug) debugMids = [wg.anchorPoint]; // Debug mid points.
   }
 
   if ((e.is("draw:1") || e.is("draw:2")) && pen?.multipen) {
     const newTwoTouch = twoTouch($);
-
-    // TODO: Prevent anchor from sliding.
-    // wg.anchor(p2.floor(newTwoTouch.mid)); // Set anchor to center point of twoTouch.
-    // wg.move(p2.sub(newTwoTouch.mid, lastTwoTouch.mid)); // Pan by delta of last tT.
-    // if (debug) debugMids = [wg.anchorPoint]; // Debug mid points.
-    // TODO: Get delta of two finger turn to calculate angle difference.
-    // TODO: Get distance difference to calculate zoom difference.
-
+    wg.anchor(p2.floor(newTwoTouch.mid)); // Set anchor to center point of twoTouch.
+    if (lastTwoTouch) {
+      wg.zoom(newTwoTouch.dist / lastTwoTouch.dist); // Zoom
+      wg.rotate(newTwoTouch.rot - lastTwoTouch.rot); // Rotate
+      wg.move(p2.sub(newTwoTouch.mid, lastTwoTouch.mid)); // Pan by delta of last tT.
+    }
     lastTwoTouch = newTwoTouch;
   }
 
-  // Graphing
+  if (e.is("lift") && pens().length < 2) lastTwoTouch = null; // Reset twoTouch history.
 
+  // ✏️ Graphing
   if (e.is("touch:1")) {
-    graphing = true;
-    //wg.touch({ ...e, thickness: help.choose(1, 2, 4, 8, 16) }); // Drawing 🤙
-    wg.touch({ ...e, thickness: help.choose(1) }); // Drawing 🤙
+    wg.touch({ ...e, thickness: help.choose(1, 2, 4, 8, 16) }); // Drawing 🤙
+    // wg.touch({ ...e, thickness: help.choose(1) }); // Drawing 🤙
   }
 
-  if (e.is("draw:1") && graphing) wg.draw(e);
+  if (e.is("draw:1")) wg.draw(e);
+  if (e.is("lift:1")) wg.lift();
+}
 
-  if (e.is("lift:1") && graphing) {
-    graphing = false;
-    wg.lift();
+// 💗 Beat
+function beat({ sound: { microphone, square, time }, rec: { rolling } }) {
+  if (!mic) {
+    mic = microphone.connect(); // Connect the microphone.
+  }
+
+  if (bop) {
+    square({
+      tone: 50,
+      beats: 1 / 8,
+      attack: 0.01,
+      decay: 0.1,
+      volume: 1,
+      pan: 0,
+    });
+    bop = false;
   }
 }
 
-export { boot, paint, act, sim };
+export { boot, paint, beat, act, sim };
 
 // 📚 Library (Useful functions used throughout the piece)
 function twoTouch({ pens, num: { p2 } }) {
@@ -241,6 +377,7 @@ class Whistlegraph {
   currentColor;
   thickness;
   matrix;
+  graphing = false; // Keeps track of whether we are making a gesture or not.
 
   pan = { x: 0, y: 0 };
   scale = { x: 1, y: 1 };
@@ -257,21 +394,15 @@ class Whistlegraph {
     this.matrix = $.num.mat3.create();
   }
 
-  // Pans around the view by a screen-coordinate amount.
+  // Pans around the view by a screen-coordinate amount, taking rotation and
+  // scale into account.
   // TODO: - [] I could shorten these transformations by using a matrix. 23.01.09.04.01
   //            (Or by converting to worldPos first?)
   move(p) {
-    const rp = {
-      x: p.x * cos(-this.rotation) - p.y * sin(-this.rotation),
-      y: p.x * sin(-this.rotation) + p.y * cos(-this.rotation),
-    };
-
-    const sp = this.$.num.p2.mul(rp, {
-      x: 1 / this.scale.x,
-      y: 1 / this.scale.y,
-    });
-
-    this.$.num.p2.inc(this.pan, sp);
+    const p2 = this.$.num.p2;
+    const rp = p2.rot(p, -this.rotation);
+    const sp = p2.mul(rp, p2.div(1, this.scale));
+    p2.inc(this.pan, sp);
   }
 
   rotate(angle) {
@@ -287,9 +418,13 @@ class Whistlegraph {
     };
     this.move(anchorDiff); // Pan it while taking account rotation and scale.
     this.anchorPoint = newScreenAnchor; // Update anchorPoint.
+
+    if (debug) debugMids = [this.anchorPoint]; // Debug draw anchorPoint.
   }
 
-  zoom(amt, p) {
+  // Zoom in uniformly via `amt` or separately with `{x: amt, y: amt}`.
+  // amt is zeroed at 1.
+  zoom(amt) {
     this.lastScale = { x: this.scale.x, y: this.scale.y };
     const newScale = this.$.num.p2.mul(this.scale, {
       x: amt.x || amt,
@@ -331,6 +466,8 @@ class Whistlegraph {
   }
 
   touch({ x, y, pressure, thickness = this.thickness }) {
+    this.graphing = true;
+
     this.baseColor = this.$.num.randIntArr(255, 3);
     this.genColor();
 
@@ -344,11 +481,18 @@ class Whistlegraph {
     this.gestureIndex = this.gestures.length - 1;
   }
 
+  // TODO: Think more about how color relates to gestures in this code.
   draw({ x, y, pressure }) {
-    this.baseColor = this.$.num.randIntArr(255, 3);
+    if (!this.graphing) return;
+
+    const g = this.gestures[this.gestureIndex];
+
+    // Randomize the segment color if this gesture is polychrome.
+    if (g.polychrome) this.baseColor = this.$.num.randIntArr(255, 3);
+
     this.genColor();
 
-    this.gestures[this.gestureIndex].add({
+    g.add({
       ...this.unproject({ x, y }),
       pressure,
       color: this.currentColor,
@@ -356,6 +500,9 @@ class Whistlegraph {
   }
 
   lift() {
+    if (!this.graphing) return;
+
+    this.graphing = false;
     // Remove gesture on lift if there is only one point.
     const g = this.gestures[this.gestureIndex];
     if (g.points.length === 1) this.gestures.splice(this.gestureIndex);
@@ -368,14 +515,14 @@ class Whistlegraph {
       pen,
     } = $;
 
-    const next =
-      pen?.drawing && !pen.multipen
-        ? {
-            ...this.unproject(pen),
-            pressure: pen.pressure,
-            color: wg.currentColor,
-          }
-        : undefined;
+    // TODO: Just use "graphing" here and move it into Whistlegraph.
+    const next = this.graphing
+      ? {
+          ...this.unproject(pen),
+          pressure: pen.pressure,
+          color: wg.currentColor,
+        }
+      : undefined;
 
     for (let i = this.gestures.length - 1; i >= 0; i -= 1) {
       const g = this.gestures[i];
@@ -461,8 +608,11 @@ class Gesture {
   constructor($, point, thickness = 2) {
     this.$ = $;
     this.add(point);
+
+    // Note: Each of these properties are kind of like metadata on the gesture.
     this.thickness = thickness;
     this.color = point.color; // Gesture color to the color of the first point.
+    this.polychrome = $.help.flip(); // Whether to recolor segements randomly.
   }
 
   add(next) {

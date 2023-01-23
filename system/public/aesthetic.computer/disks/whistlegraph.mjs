@@ -1,36 +1,38 @@
 // Whistlegraph, 2021.12.03.15.21
-// This is for recording lines with audio and playing them back for people.
+// Title: A simple, 2D tool for recording whistlegraphs.
 
-// TODO: Record and output a video file using audio video streams.
-// - Allow user to pick resolution (maybe via url at first?)
+/* #region 🏁 todo
+  + ⏰ Now
+  - [-] Add text: *Whistlegraph Recorder*
+    - [🌓] Import type...
+  - [] Add button: "Practice" -> `wgr`
+  - [] Add button: "Record" -> `wgr:15 params` (15 seconds, eventually configurable)
+  + Later
+  - [] Button to a feed of latest posts / recordings.
+  - [] Drawing tool / background configuration / theme.
+  - [] Sound selection.
+#endregion */
 
-// - Put every user into a multiplayer room so drawings can be shared.
+function boot($) {
+  const { wipe, write } = $;
+  wipe(0, 0, 200);
 
-// - Digitize lines and then save them with audio to a database so that
-//   recordings can be shared and eventually recomposed.
-
-// 🥾 Boot
-export function boot($api) {
-  // TODO: Runs only once!
+  // 🍦
+  // - [] Write should await load the typeface behind the scenes
+  //      if it hasn't been loaded yet, and there should
+  //      also be a default typeface in place.
+  // - [] Remove the need for "$" in write by passing it inside the
+  //      implementation within `disk` somehow.
+  write($, 0, 0, "Whistlegraph Recorder", [200, 0, 0, 16]);
 }
 
-// 🧮 Simulate
-export function sim($api) {
-  // TODO: Move a ball here!
+function paint($) {
+  $.write($, 0, 0, "Whistlegraph Recorder", [200, 0, 0, 16]);
 }
 
-// 🎨 Paint
-export function paint($api) {
-  const { color, clear, num } = $api;
+function act() {}
 
-  color(127, 127, 127);
-  clear();
-}
-
-// 💗 Beat
-export function beat($api) {
-  // TODO: Play a sound here!
-}
+export { boot, paint, act };
 
 // 📚 Library
 // ...
