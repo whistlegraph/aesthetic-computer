@@ -20,12 +20,29 @@ import Fastify from "fastify";
 import { WebSocket, WebSocketServer } from "ws";
 import ip from "ip";
 import chokidar from "chokidar";
+import fs from "fs";
 
 import { createClient } from "redis";
 const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
 
 const dev = process.env.NODE_ENV === "development";
-const fastify = Fastify({ logger: true });
+
+let fastify;
+
+if (dev) {
+  // Load local ssl certs in development mode.
+  fastify = Fastify({
+    https: {
+      // allowHTTP1: true,
+      key: fs.readFileSync("../ssl-dev/localhost-key.pem"),
+      cert: fs.readFileSync("../ssl-dev/localhost.pem"),
+    },
+    logger: true,
+  });
+} else {
+  fastify = Fastify({ logger: true }); // Still log in production. No reason not to?
+}
+
 const server = fastify.server;
 
 const info = {
@@ -62,7 +79,14 @@ fastify.post("/reload", async (req) => {
 // *** HTTP Server Initialization ***
 const start = async () => {
   try {
-    fastify.listen({ host: "0.0.0.0", port: info.port });
+    if (dev) {
+      fastify.listen({
+        host: "0.0.0.0",// ip.address(),
+        port: info.port,
+      });
+    } else {
+      fastify.listen({ host: "0.0.0.0", port: info.port });
+    }
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
@@ -79,23 +103,12 @@ const connections = {};
 let connectionId = 0; // TODO: Eventually replace with a username arrived at through
 //                             a client <-> server authentication function.
 
-if (dev) {
-  wss = new WebSocketServer({ server });
-  console.log(
-    `🤖 session.aesthetic.computer (Development) socket: ws://${ip.address()}:${
-      info.port
-    }`
-  );
-} else {
-  // And assume that in production we are already behind an https proxy.
-  wss = new WebSocketServer({ server });
-  //wss = new WebSocketServer({ port });
-  console.log(
-    `🤖 session.aesthetic.computer (Production) socket: wss://${ip.address()}:${
-      info.port
-    }`
-  );
-}
+wss = new WebSocketServer({ server });
+console.log(
+  `🤖 session.aesthetic.computer (${
+    dev ? "Development" : "Production"
+  }) socket: wss://${ip.address()}:${info.port}`
+);
 
 // Pack messages into a simple object protocol of `{type, content}`.
 function pack(type, content, id) {
@@ -169,7 +182,6 @@ wss.on("connection", (ws, req) => {
     clearInterval(interval);
   });
   */
-
 });
 
 // Sends a message to all connected clients.

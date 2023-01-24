@@ -23,7 +23,8 @@ async function fun(event, context) {
   let out,
     status = 200;
   if (dev && parseInt(event.queryStringParameters.forceProduction) !== 1) {
-    out = { url: "http://localhost:8889" };
+    const host = event.headers.host.split(":")[0];
+    out = { url: `http://${host}:8889` };
   } else {
 
     const { got } = await import("got");
