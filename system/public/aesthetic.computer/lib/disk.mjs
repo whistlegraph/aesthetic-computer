@@ -26,7 +26,7 @@ let tf; // Typeface global.
 
 export const noWorker = { onMessage: undefined, postMessage: undefined };
 
-const { abs, cos, sin, floor } = Math;
+const { sin, floor } = Math;
 
 let ROOT_PIECE = "prompt"; // This gets set straight from the host html file for the ac.
 let debug = false; // This can be overwritten on boot.
@@ -34,7 +34,6 @@ let debug = false; // This can be overwritten on boot.
 const defaults = {
   boot: ($) => {
     // TODO: This should always fire...
-    console.log("boot");
     // $.cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
@@ -998,7 +997,8 @@ async function load(parsed, fromHistory = false, alias = false) {
       new URL(sesh.url).host,
       (id, type, content) => receiver?.(id, type, content),
       $commonApi.reload,
-      debug === true && !forceProd ? "ws" : "wss"
+      "wss"
+      //debug === true && !forceProd && host.split(":")[0] === "localhost" ? "ws" : "wss"
     );
   }
 

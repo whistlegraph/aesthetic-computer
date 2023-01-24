@@ -62,6 +62,8 @@ class Button {
   disabled = false;
   icon;
 
+
+  // (x, y, width, height) or Box
   constructor() {
     if (arguments.length === 1) {
       // Assume we are passing in a box {x,y,w,h} object.

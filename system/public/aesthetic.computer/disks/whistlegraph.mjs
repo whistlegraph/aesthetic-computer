@@ -15,12 +15,18 @@
     - [x] Import type...
 #endregion */
 
-function boot({ wipe, ui: { Button } }) {
-  wipe(0, 0, 200).ink(255, 255, 0, 255).write(0, 0, "Whistlegraph Recorder", [0, 0, 0, 255]);
-  // open = new Button(gap, screen.height - gap - 2, btnW, 6);
+let practice;
+
+function boot({ wipe, ink, write, ui: { Button } }) {
+  // TODO: Chained paint functions do not respect inkrn.
+  wipe(0, 0, 200);
+  ink(255, 255, 0, 255);
+  write(0, 0, "Whistlegraph Recorder", [0, 0, 0, 255]);
+
+  practice = new Button({x: 10, y: 10, w: 20, h: 20});
+
   // B. 🌟 Open Button
-  // ink(colors.open).box(open.box, open.down ? "in" : "out"); // Border
-  // ink(colors.open).draw(plots.icon, open.box.x + 13, open.box.y + 6, 3, 180); // Icon
+  ink(255, 0, 0).box(practice.box, "in"); // Border
 }
 
 function paint($) {

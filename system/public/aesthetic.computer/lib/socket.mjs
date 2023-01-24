@@ -20,6 +20,7 @@ export class Socket {
   // Connects a WebSocket object and takes a handler for messages.
   connect(host, receive, reload, protocol = "wss") {
     try {
+      console.log(protocol, host);
       this.#ws = new WebSocket(`${protocol}://${host}`);
     } catch {
       console.warn("📡 Connection failed");

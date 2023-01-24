@@ -37,6 +37,7 @@
 
 🐞 Annoying Bugs & Regressions
   + API
+  - [] Fix `spray` multiplayer / socket messages not being sent regression.
   - [] Painting doesn't fully reset when resizing.
   - [] Research the use of "requestProvider.js.map" and work it into `index.js`.
   - [] Rename $api.upload to $api.open? or $api.importFile? 
@@ -55,12 +56,11 @@
 
 🌟 Projects In Progress (PIP) 🌟
 
-*** VS Code Extension ***
-
 *** Project Order ***
 - [📹] Make screen-based whistlegraph recorder tool that makes use of the album tracks.
   - [] Add it to the API and make a `wgr` disk. 
   - [] Set up doodads like file hosting and stamping on videos.
+*** VS Code Extension ***
 - [] Make VSCode extension / back-seat document API (maya).
   - [🟡] Modify disk load to accept new source code. 
   + Done
