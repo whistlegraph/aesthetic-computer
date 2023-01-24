@@ -123,7 +123,8 @@ let ALT = false, // Keyboard modifiers.
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot($) {
-  const { num, help, wipe, net } = $;
+  const { num, help, wipe, net, params } = $;
+
   $.glaze({ on: true }); // Add post-processing by @mxsage.
   bg = num.randIntArr(128, 3); // Random background color.
   wg = new Whistlegraph($, help.choose(1, 2)); // Whistlegraph with thickness.
@@ -337,8 +338,8 @@ function act($) {
 }
 
 // 💗 Beat
-function beat({ sound: { microphone, square, time }, rec: { rolling } }) {
-  if (!mic) {
+function beat({ sound: { microphone, square, time }, rec: { rolling }, params }) {
+  if (!mic && params[0] === "record") {
     mic = microphone.connect(); // Connect the microphone.
   }
 

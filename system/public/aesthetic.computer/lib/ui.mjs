@@ -62,7 +62,6 @@ class Button {
   disabled = false;
   icon;
 
-
   // (x, y, width, height) or Box
   constructor() {
     if (arguments.length === 1) {

@@ -37,6 +37,7 @@
 
 🐞 Annoying Bugs & Regressions
   + API
+  - [] Chained paint functions do not respect inkrn.
   - [] Fix `spray` multiplayer / socket messages not being sent regression.
   - [] Painting doesn't fully reset when resizing.
   - [] Research the use of "requestProvider.js.map" and work it into `index.js`.

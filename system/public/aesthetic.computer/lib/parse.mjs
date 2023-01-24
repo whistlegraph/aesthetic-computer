@@ -35,7 +35,8 @@ function parse(text, location = self?.location) {
   if (text.endsWith("/")) text = text.slice(0, -1);
 
   // 2. Tokenize on " " or "~".
-  const tokens = text.trim().split(/~| /);
+  text = text.replace(/ /g, "~");
+  const tokens = text.trim().split("~");
 
   // 3. Determine the host and path.
   let customHost = false;
