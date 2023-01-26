@@ -256,7 +256,7 @@ const tokenTitlesAndDescriptions = [
   ],
   [
     "Purple & Daze",
-    "Two stem-sharing friends face outwards in happiness and excitement. The Daisy is drooling and there is a drawing on the rainbow wall in the back.",
+    "Two stem-sharing friends face outwards in happiness and excitement. The daisy is drooling and there is a drawing on the rainbow wall in the back.",
   ],
   [
     "Broken Waypoint",
@@ -321,7 +321,7 @@ const tokenTitlesAndDescriptions = [
   ],
   [
     "Melter",
-    'A brightly colroed yellow flower on a red backdrop becomes gooey. Its stem is "painted" with various planes with a pink flower melting off the back.',
+    'A brightly colored yellow flower on a red backdrop becomes gooey. Its stem is "painted" with various planes with a pink flower melting off the back.',
   ],
   [
     "Shacked Shrieker",
@@ -341,7 +341,7 @@ const tokenTitlesAndDescriptions = [
   ],
   [
     "Dead Projection",
-    'This violntly dismembered, deconstructed flower projects an image of a dead face for the audience. The first "Dead" of the series.',
+    'This violently dismembered, deconstructed flower projects an image of a dead face for the audience. The first "Dead" of the series.',
   ],
   [
     "Chased",
@@ -393,7 +393,7 @@ const tokenTitlesAndDescriptions = [
   ],
   [
     "Senseless",
-    "A fairly simple freak with a magenta and mauve petals, losing all senses.",
+    "A fairly simple freak with magenta and mauve petals, losing all senses.",
   ],
   [
     "Halftime",
@@ -453,7 +453,7 @@ const tokenTitlesAndDescriptions = [
   ],
   [
     "Clipping",
-    'Geometry keeps intersecting itself in the stem of this flower with a flat projection. First "noclip" of the series.',
+    'Geometry keeps intersecting itself in the stem of this flower with a flat projection. Only "noclip" in the series.',
   ],
   [
     "Stood Up",
@@ -469,7 +469,7 @@ const tokenTitlesAndDescriptions = [
   ],
   [
     "Weeper",
-    "This mint-faced depressive has a beatiful magenta and cornflower blue stem, which grows from a river of is own tears.",
+    "This mint-faced depressive has a beautiful magenta and cornflower blue stem, which grows from a river of its own tears.",
   ],
   [
     "Pink Ricochet",
@@ -581,7 +581,7 @@ const tokenTitlesAndDescriptions = [
   ],
   [
     "Sinister Shape",
-    "A Devilishly floppy-petaled form leans in and smirks at the audience. Behind is a Red Message.",
+    "A devilishly floppy-petaled form leans in and smirks at the audience. Behind is a Red Message.",
   ],
   [
     "Rainbow Wing",
