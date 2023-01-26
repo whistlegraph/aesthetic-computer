@@ -3,14 +3,14 @@
 
 /* #region 🏁 todo
   + ⏰ Now
-  - [🌜] Fix ink color / inkrn regression.
-  - [] Move on to output page.
   + Later
   - [] Button to a feed of latest posts / recordings.
   - [] Drawing tool / background configuration / theme.
   - [] Sound selection.
   - [] Add duration to recording params.
   + Done
+  - [x] Move on to output page for video option.
+  - [x] Fix ink color / inkrn regression.
   - [x] Add button: "Practice" -> `wgr`
   - [x] Add button: "Record" -> `wgr:15 params` (15 seconds, eventually configurable)
   - [x] Add inkrn.
@@ -21,8 +21,7 @@
 let practice, record;
 
 function boot({ wipe, ink, write, ui: { Button } }) {
-  // TODO: Get the separate practice and record text colors working!
-
+  // Title
   wipe(0, 0, 200)
     .ink(255, 255, 0, 255)
     .write(0, 0, "Whistlegraph Recorder", [0, 0, 0, 255]);

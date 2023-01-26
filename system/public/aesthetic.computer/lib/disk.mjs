@@ -759,13 +759,17 @@ class Painting {
     // Filter for and then wrap every rendering behavior of $paintApi into a
     // system to be deferred in groups, using layer.
     // ⛓️ This wrapper also makes the paint API chainable.
+
+    function globals (k, args) {
+      if (k === "ink") p.api.inkrn = [...args].flat();
+      // TODO: 😅 Add other state globals like line thickness? 23.1.25 
+    }
+
     for (const k in $paintApiUnwrapped) {
       if (typeof $paintApiUnwrapped[k] === "function") {
         // Wrap and then transfer to #api.
         p.api[k] = function () {
-          // Keep track of global state, like ink, via `inkrn`.
-          if (k === "ink") p.api.inkrn = [...arguments].flat();
-
+          globals(k, arguments); // Keep track of global state, like ink, via `inkrn`.
           // Create layer if necessary.
           if (notArray(p.#layers[p.#layer])) p.#layers[p.#layer] = []; 
           // Add each deferred paint api function to the layer, to be run
@@ -773,6 +777,7 @@ class Painting {
           p.#layers[p.#layer].push(() => {
             $paintApiUnwrapped[k](...arguments);
             // await $paintApiUnwrapped[k](...arguments);
+            globals(k, arguments); // Update globals again on chainable calls. 
           });
           return p.api;
         };
