@@ -57,6 +57,11 @@
 
 🌟 Projects In Progress (PIP) 🌟
 
+*** Freaky Flowers Launch ***
+  - [] Make sure iframe mockup works: https://localhost:8888/sandboxed-iframe-mockup.html
+  - [] Review spreadsheet metadata: https://docs.google.com/spreadsheets/d/10aeN4WyTQ1UQUT9-IUbKFdoeEfkumqM6_8mvFs5dVq8/edit#gid=1052521247 
+  - [] Get client code working / speed up loading.
+
 *** Project Order ***
 - [📹] Make screen-based whistlegraph recorder tool that makes use of the album tracks.
   - [] Add it to the API and make a `wgr` disk. 
