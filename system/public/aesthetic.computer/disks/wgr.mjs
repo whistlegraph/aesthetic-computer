@@ -5,7 +5,11 @@
   + ⏰ Now
   - [] Finish video saving UI
     - *** Separate Piece Method / Player + Exporter ***
-    - [-] Sketch title piece.  
+
+      3 Output / `video`.
+      - [-] Sketch output piece.
+
+
       2 Input / `wgr` Piece
         + Now
           - [] add `mode` to the cli
@@ -14,14 +18,6 @@
           - [] Save / hold data on completion, then jump to `video` piece for
                optional video exporting and hook into the upload of data
                on export, stamping the video with a unique ID (URL).
-      3 Output / `video`.
-      - [] Sketch output piece.
-        - [] Factor out / modify the old video overlay UI thing to only work
-             in this piece.
-        - [] Add a "loop" and a "home" (back to title) button.
-        - [] Take advantage of the dead time / transcoding time.
-          - [] Show a little game or helpful hint. (💡 @alex)
-        - [] Only transcode upon tapping export.
 
       - CANCELLED *** Option A: Overlay Method ***
         - [] Show a system-wide pop-over. 
@@ -51,6 +47,7 @@
          or something like that.
   - 🛑 Launch 1
   + Done
+    - [x] Sketch title piece.  
     - [x] Wait until the microphone actually is connected before starting a recording
     - [x] Prevent stroke from continuing once recording ends.
     - [x] Add microphone input. 

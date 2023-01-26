@@ -58,6 +58,19 @@
 🌟 Projects In Progress (PIP) 🌟
 
 *** Freaky Flowers Launch ***
+
+  - All Pieces
+    - [] Every piece by default (unless it opts out) will show its name
+         and parameters in the top left corner, which will be clickable
+         and return to the prompt with that text filled in already. 
+  - Prompt 
+    - [] Do history stack different. (Smaller text)
+      - [] Skip what aliases lead to in the list.
+  - Freaky Flowers 
+    - [] Start spinning, at a high rate, (about 30seconds max timelapse) 
+    - [] Wand should be "thicker".
+    - [] Navigation buttons...
+
   - [] Make sure iframe mockup works: https://localhost:8888/sandboxed-iframe-mockup.html
   - [] Review spreadsheet metadata: https://docs.google.com/spreadsheets/d/10aeN4WyTQ1UQUT9-IUbKFdoeEfkumqM6_8mvFs5dVq8/edit#gid=1052521247 
   - [] Get client code working / speed up loading.
