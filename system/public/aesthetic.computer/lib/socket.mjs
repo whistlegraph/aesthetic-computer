@@ -97,7 +97,7 @@ export class Socket {
       } else {
         c = JSON.parse(content);
       }
-      this.kill();
+      // this.kill(); // Don't immmediately kill the socket on reload.
       reload(c);
     } else if (type === "code") {
       // console.log(id, type, content);
