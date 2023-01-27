@@ -37,10 +37,10 @@ const defaults = {
     // $.cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
-  paint: ($) => {
+  paint: ({ noiseTinted }) => {
     // TODO: Make this a boot choice via the index.html file?
     //$.noise16DIGITPAIN();
-    $.noiseTinted([20, 20, 20], 0.8, 0.7);
+    noiseTinted([20, 20, 20], 0.8, 0.7);
     //$.wipe(0, 0, 0);
   },
   beat: () => false, // Runs every bpm.
@@ -201,6 +201,30 @@ let wiggleAngle = 0;
 // TODO; Change this to true and update all brushes.
 let NPdontPaintOnLeave = false;
 
+// 🔴 Recorder
+class Recorder {
+  printProgress = 0;
+  printing = false; // Set by a callback from `bios`.
+  recording = false;
+
+  constructor() {}
+
+  rolling(opts) {
+    this.recording = true;
+    send({ type: "recorder-rolling", content: opts });
+  }
+
+  cut() {
+    this.recording = false;
+    send({ type: "recorder-cut" });
+  }
+
+  print() {
+    this.printing = true;
+    send({ type: "recorder-print" });
+  }
+}
+
 // For every function to access.
 const $commonApi = {
   // Trigger background music.
@@ -303,30 +327,6 @@ const $commonApi = {
   debug,
 };
 
-// 🔴 Recorder
-class Recorder {
-  printProgress = 0;
-  printing = false; // Set by a callback from `bios`.
-  recording = false;
-
-  constructor() {}
-
-  rolling(opts) {
-    this.recording = true;
-    send({ type: "recorder-rolling", content: opts });
-  }
-
-  cut() {
-    this.recording = false;
-    send({ type: "recorder-cut" });
-  }
-
-  print() {
-    this.printing = true;
-    send({ type: "recorder-print" });
-  }
-
-}
 
 // Spawn a session backend for a piece.
 async function session(slug, forceProduction = false) {
@@ -2277,6 +2277,13 @@ async function makeFrame({ data: { type, content } }) {
       // Note: Always marked false on a disk's first frame.
       let painted = false;
       let dirtyBox;
+
+      // Draw any Global UI / HUD.
+
+      // System info.
+      if (currentText?.split("~")[0] !== "prompt") {
+        $api.ink(0, 255, 255).write(6, 6, currentText?.replaceAll("~", " "));
+      }
 
       // Attempt a paint.
       //if (noPaint === false && booted && loading === false) {
