@@ -57,8 +57,13 @@
 
 🌟 Projects In Progress (PIP) 🌟
 
-*** Freaky Flowers Launch ***
+*** Painting w/ Signature for Yeche Lange***
+  - [] Add "signature" / title flag feature to `dl` command.
+  - [] Print out a No Paint style signature with timestamp.
+  - [] How quickly could I tie this to user accounts and make it permanent
+       rn? Could I do this all today?
 
+*** Freaky Flowers Launch ***
   - All Pieces
     - [-] Every piece by default (unless it opts out) will show its name
          and parameters in the top left corner, which will be clickable
