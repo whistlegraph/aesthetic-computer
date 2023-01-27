@@ -19,6 +19,7 @@ function boot({ wipe, ink, screen, rec }) {
 
   // 🟢 What's the best API here?
   rec.print();
+
   // TODO: How to know when we have started printing immediately?
 }
 

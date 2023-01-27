@@ -306,21 +306,26 @@ const $commonApi = {
 // 🔴 Recorder
 class Recorder {
   printProgress = 0;
-  printing = false;
+  printing = false; // Set by a callback from `bios`.
+  recording = false;
 
   constructor() {}
 
   rolling(opts) {
+    this.recording = true;
     send({ type: "recorder-rolling", content: opts });
   }
 
   cut() {
+    this.recording = false;
     send({ type: "recorder-cut" });
   }
 
   print() {
+    this.printing = true;
     send({ type: "recorder-print" });
   }
+
 }
 
 // Spawn a session backend for a piece.
