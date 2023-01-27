@@ -37,10 +37,10 @@ const defaults = {
     // $.cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
-  paint: ($) => {
+  paint: ({ noiseTinted }) => {
     // TODO: Make this a boot choice via the index.html file?
     //$.noise16DIGITPAIN();
-    $.noiseTinted([20, 20, 20], 0.8, 0.7);
+    noiseTinted([20, 20, 20], 0.8, 0.7);
     //$.wipe(0, 0, 0);
   },
   beat: () => false, // Runs every bpm.
@@ -201,6 +201,26 @@ let wiggleAngle = 0;
 // TODO; Change this to true and update all brushes.
 let NPdontPaintOnLeave = false;
 
+// 🔴 Recorder
+class Recorder {
+  printProgress = 0;
+  printing = false;
+
+  constructor() {}
+
+  rolling(opts) {
+    send({ type: "recorder-rolling", content: opts });
+  }
+
+  cut() {
+    send({ type: "recorder-cut" });
+  }
+
+  print() {
+    send({ type: "recorder-print" });
+  }
+}
+
 // For every function to access.
 const $commonApi = {
   // Trigger background music.
@@ -302,26 +322,6 @@ const $commonApi = {
   //                 Increments by 1 each time a new piece loads.
   debug,
 };
-
-// 🔴 Recorder
-class Recorder {
-  printProgress = 0;
-  printing = false;
-
-  constructor() {}
-
-  rolling(opts) {
-    send({ type: "recorder-rolling", content: opts });
-  }
-
-  cut() {
-    send({ type: "recorder-cut" });
-  }
-
-  print() {
-    send({ type: "recorder-print" });
-  }
-}
 
 // Spawn a session backend for a piece.
 async function session(slug, forceProduction = false) {
@@ -724,7 +724,7 @@ const $paintApiUnwrapped = {
   },
   // Prints a line of text using the default / current global font.
   write: function (x, y, text, bg) {
-    tf.print(painting.api, { x, y }, 0, text, bg);
+    tf?.print(painting.api, { x, y }, 0, text, bg); // Fail silent in preamble.
   },
   copy: graph.copy,
   paste: graph.paste,
@@ -2272,6 +2272,13 @@ async function makeFrame({ data: { type, content } }) {
       // Note: Always marked false on a disk's first frame.
       let painted = false;
       let dirtyBox;
+
+      // Draw any Global UI / HUD.
+
+      // System info.
+      if (currentText?.split("~")[0] !== "prompt") {
+        $api.ink(0, 255, 255).write(6, 6, currentText?.replaceAll("~", " "));
+      }
 
       // Attempt a paint.
       //if (noPaint === false && booted && loading === false) {

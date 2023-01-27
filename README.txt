@@ -37,7 +37,6 @@
 
 🐞 Annoying Bugs & Regressions
   + API
-  - [] Chained paint functions do not respect inkrn.
   - [] Fix `spray` multiplayer / socket messages not being sent regression.
   - [] Painting doesn't fully reset when resizing.
   - [] Research the use of "requestProvider.js.map" and work it into `index.js`.
@@ -53,6 +52,7 @@
   - [] Get ssh working in VS Code on windows via WSL: https://stackoverflow.com/questions/60150466/can-i-ssh-from-wsl-in-visual-studio-code
   - [] `npm run code` does not work offline, due to netlify relying on online conectivity.
   + Done
+  - [x] Chained paint functions do not respect inkrn.
   - [x] Check `wg` and `ff` and other disks including the prompt in the Instagram in-app browser!
 
 🌟 Projects In Progress (PIP) 🌟
@@ -65,15 +65,27 @@
          and return to the prompt with that text filled in already. 
   - Prompt 
     - [] Do history stack different. (Smaller text)
-      - [] Skip what aliases lead to in the list.
+      - [] Skip what aliases lead to in the history list.
+    - [] Add background music.
   - Freaky Flowers 
+    - [-] Make sure iframe mockup works: https://localhost:8888/sandboxed-iframe-mockup.html
+    - [] Write title / name of piece in center while loading...
     - [] Start spinning, at a high rate, (about 30seconds max timelapse) 
     - [] Wand should be "thicker".
-    - [] Navigation buttons...
-
-  - [] Make sure iframe mockup works: https://localhost:8888/sandboxed-iframe-mockup.html
-  - [] Review spreadsheet metadata: https://docs.google.com/spreadsheets/d/10aeN4WyTQ1UQUT9-IUbKFdoeEfkumqM6_8mvFs5dVq8/edit#gid=1052521247 
-  - [] Get client code working / speed up loading.
+    - [] Tap or two finger pinch to zoom and slow rotation.
+    - [] Let go to snap back. 
+    - [] [WALK] or [WANDER] button that shows keyboard shortcut overlays /
+         touch instructions. (Add chat here?)
+    - [] Add background music if it isn't already playing.
+    - [] Add arrows to top right to move between slides.
+      - [] (Speed up loading)
+    - [] Add glaze / lighting / mastering.
+   - WebVR Support
+     - [] Make wand render again.
+     - [] Loading a ff piece prevents drawing and restarts the
+          timelapse upon entering VR.
+  + Done
+  - [x] Review spreadsheet metadata: https://docs.google.com/spreadsheets/d/10aeN4WyTQ1UQUT9-IUbKFdoeEfkumqM6_8mvFs5dVq8/edit#gid=1052521247 
 
 *** Project Order ***
 - [📹] Make screen-based whistlegraph recorder tool that makes use of the album tracks.
