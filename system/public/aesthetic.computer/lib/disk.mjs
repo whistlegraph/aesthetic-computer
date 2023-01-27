@@ -294,20 +294,34 @@ const $commonApi = {
     each: help.each,
   },
   gizmo: { Hourglass: gizmo.Hourglass },
-  rec: {
-    rolling: (opts) => send({ type: "recorder-rolling", content: opts }),
-    cut: () => send({ type: "recorder-cut" }),
-    print: () => send({ type: "recorder-print" }),
-    printProgress: 0,
-  },
+  rec: new Recorder(),
   net: {},
   needsPaint: () => (noPaint = false), // TODO: Does "paint" needs this?
   store,
-
   pieceCount: -1, // Incs to 0 when the first piece (usually the prompt) loads.
   //                 Increments by 1 each time a new piece loads.
   debug,
 };
+
+// 🔴 Recorder
+class Recorder {
+  printProgress = 0;
+  printing = false;
+
+  constructor() {}
+
+  rolling(opts) {
+    send({ type: "recorder-rolling", content: opts });
+  }
+
+  cut() {
+    send({ type: "recorder-cut" });
+  }
+
+  print() {
+    send({ type: "recorder-print" });
+  }
+}
 
 // Spawn a session backend for a piece.
 async function session(slug, forceProduction = false) {
@@ -763,9 +777,9 @@ class Painting {
     // system to be deferred in groups, using layer.
     // ⛓️ This wrapper also makes the paint API chainable.
 
-    function globals (k, args) {
+    function globals(k, args) {
       if (k === "ink") p.inkrn = [...args].flat();
-      // TODO: 😅 Add other state globals like line thickness? 23.1.25 
+      // TODO: 😅 Add other state globals like line thickness? 23.1.25
     }
 
     for (const k in $paintApiUnwrapped) {
@@ -774,12 +788,12 @@ class Painting {
         p.api[k] = function () {
           globals(k, arguments); // Keep track of global state, like ink, via `inkrn`.
           // Create layer if necessary.
-          if (notArray(p.#layers[p.#layer])) p.#layers[p.#layer] = []; 
+          if (notArray(p.#layers[p.#layer])) p.#layers[p.#layer] = [];
           // Add each deferred paint api function to the layer, to be run
-          // all at once in `paint` on each frame update. 
+          // all at once in `paint` on each frame update.
           p.#layers[p.#layer].push(() => {
             $paintApiUnwrapped[k](...arguments);
-            globals(k, arguments); // Update globals again on chainable calls. 
+            globals(k, arguments); // Update globals again on chainable calls.
             // await $paintApiUnwrapped[k](...arguments);
           });
           return p.api;

@@ -1851,7 +1851,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "recorder-print") {
-      mediaRecorder?.stop();
+      mediaRecorder?.stop(); // Render a video if a recording exists.
       mediaRecorder = undefined;
       return;
     }

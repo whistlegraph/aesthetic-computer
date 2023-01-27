@@ -183,7 +183,7 @@ function paint($) {
         return v;
       })
       .forEach((line, i) =>
-        tf.print($, { x: 3, y: 5 }, i, `${line[0]}: ${line[1]}`, bg)
+        tf.print($, { x: 3, y: mode === "record" ? 5 : 2 }, i, `${line[0]}: ${line[1]}`, bg)
       );
   }
 
@@ -191,24 +191,11 @@ function paint($) {
 
   // Draw progress bar for video recording.
   // TODO: How can this skip the recording?
-  if (recProgress > 0) ink(255, 0, 0).box(0, 0, recProgress * width, 3);
-
-  // Draw progress bar for video rendering.
-  if (printProgress > 0) {
-    //ink(0, 0, 0, 32).box(0, 0, width, height);
-    ink(128, 64, 0).box(0, 0, printProgress * width, 3);
-  }
+  if (rec && recProgress > 0) ink(255, 0, 0).box(0, 0, recProgress * width, 3);
 }
 
 // 🧮 Sim(ulate)
-function sim({
-  num: { mat3, p2 },
-  pen,
-  pens,
-  screen,
-  rec: { cut, print },
-  sound: { time },
-}) {
+function sim({ pen, rec: { cut, print }, sound: { time }, jump }) {
   // Navigation
   if (pen && (SHIFT || CTRL || ALT || Q || E)) wg.anchor(pen); // Anchor
   if (SHIFT || CTRL) wg.zoom(CTRL ? 0.998 : 1.002); // Zoom
@@ -217,15 +204,17 @@ function sim({
   // AV Recording
   mic?.poll(); // Query for updated amplitude and waveform data.
 
-  // Advance recording timer and finish recording if necessary.
+  // 🔴 End recording when timer fires.
+  // TODO: Maybe this should be timed per frame as opposed to in seconds?
   if (rec === true) {
     recProgress = (time - recStart) / recDuration;
     if (recProgress >= 1) {
-      wg.lift(); // Stop any active gesture.
-      cut();
-      print();
       recProgress = 0;
       rec = false;
+
+      wg.lift(); // Stop any active gesture.
+      cut(); // Cut the recording here.
+      jump('video'); // Jump to the `video` piece for printing.
     }
   }
 }
@@ -236,7 +225,7 @@ function act($) {
     event: e,
     pen,
     pens,
-    rec: { rolling, cut, print, printProgress },
+    rec: { rolling, printProgress },
     num: { p2 },
     sound: { time },
     help,
@@ -245,20 +234,8 @@ function act($) {
   // if (!mic) return; // Disable all events until the microphone is working.
   if (printProgress > 0) return; // Prevent any interaction when a video is rendering.
 
-  // Recording
-  if (e.is("keyboard:down:enter")) {
-    if (rec === false) {
-      rolling("video");
-      rec = true;
-    } else {
-      cut();
-      print();
-      rec = false;
-    }
-  }
-
   if (e.is("microphone-connect:success")) {
-    console.log("🔴 Microphone connected! Starting a recording...");
+    console.log("🔴 Recording...");
     rolling("video"); // Start recording immediately.
     recStart = time;
     rec = true;
@@ -266,7 +243,7 @@ function act($) {
   }
 
   if (e.is("microphone-connect:failure")) {
-    console.log("🟡 Microphone failed to connect.");
+    console.warn("🟡 Microphone failed to connect. Rejected?");
   }
 
   // When a recording panel closes...
