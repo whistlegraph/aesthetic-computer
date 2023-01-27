@@ -60,9 +60,10 @@
 *** Freaky Flowers Launch ***
 
   - All Pieces
-    - [] Every piece by default (unless it opts out) will show its name
+    - [-] Every piece by default (unless it opts out) will show its name
          and parameters in the top left corner, which will be clickable
          and return to the prompt with that text filled in already. 
+         - [] Write readouts to separate "secret" buffer (see `HUD` in disk)
   - Prompt 
     - [] Do history stack different. (Smaller text)
       - [] Skip what aliases lead to in the history list.
