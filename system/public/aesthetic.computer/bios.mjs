@@ -1880,9 +1880,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             });
             el.src = URL.createObjectURL(blob);
             el.loop = true;
+
+            // Report the progress of this element back to the `disk`.
+            window.requestAnimationFrame(function update() {
+              // TODO: Reading el.currentTime seems a little delayed...
+              const content = el.currentTime / el.duration;
+
+              send({
+                type: "recorder:present-progress",
+                content,
+              });
+
+              if (underlayFrame) window.requestAnimationFrame(update);
+            });
+
             el.play();
-            // TODO: Report the progress of this element back to the `disk`.
-          }
+          };
 
           mediaRecorder.requestData();
 
