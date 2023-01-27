@@ -30,7 +30,9 @@ class Typeface {
 
   async load($preload) {
     // 1. Ignore any keys with a "glyph" prefix because these are settings.
-    const glyphsToLoad = entries(this.data).filter(([g, loc]) => !g.startsWith("glyph"));
+    const glyphsToLoad = entries(this.data).filter(
+      ([g, loc]) => !g.startsWith("glyph")
+    );
     const promises = glyphsToLoad.map(([glyph, location], i) => {
       // 2. Load all other keys / glyphs over the network.
       return $preload(
@@ -45,15 +47,27 @@ class Typeface {
     return this;
   }
 
-  print($, pos = {x: 0, y: 0}, lineNumber, text, bg = null) {
+  // TODO: Add ability to center text on its line.
+
+  print($, pos = { x: 0, y: 0 }, lineNumber, text, bg = null) {
     // TODO: Pass printLine params through / make a state machine.
     const font = this.glyphs;
     const lineHeightGap = 2;
-    const blockHeight = (this.data.glyphHeight || 9) + lineHeightGap;
-    const x = pos.x;
-    const y = pos.y + lineNumber * blockHeight;
-    const blockWidth = 6;
     const scale = 1;
+    const blockHeight = (this.data.glyphHeight || 9) * scale + lineHeightGap;
+    const blockWidth = 6 * scale;
+
+    // Set x, y position and override if centering is specified.
+    let x = pos.x || 0,
+      y = (pos.y || 0) + lineNumber * blockHeight;
+
+    pos.center = pos.center || "";
+    if (pos.center.includes("x")) {
+      x = $.screen.width / 2 - (text.length * blockWidth) / 2;
+    }
+    if (pos.center.includes("y")) {
+      y = $.screen.height / 2 - blockHeight / 2;
+    }
 
     const rn = $.inkrn(); // Remember the current ink color.
 
