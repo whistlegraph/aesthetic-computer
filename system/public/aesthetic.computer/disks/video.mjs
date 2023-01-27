@@ -34,7 +34,7 @@ function paint({
       .box(0, height / 2 - h / 2, printProgress * width, h);
   } else {
     // How to center the "No Video" text?
-    wipe(40, 0, 0).ink(180, 0, 0).write(2, 2, "No Video");
+    wipe(40, 0, 0).ink(180, 0, 0).write("No Video", {center: "xy"});
   }
 }
 

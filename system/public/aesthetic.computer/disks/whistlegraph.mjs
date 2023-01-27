@@ -24,21 +24,21 @@ function boot({ wipe, ink, write, ui: { Button } }) {
   // Title
   wipe(0, 0, 200)
     .ink(255, 255, 0, 255)
-    .write(0, 0, "Whistlegraph Recorder", [0, 0, 0, 255]);
+    .write("Whistlegraph Recorder", {x: 0, y: 0}, [0, 0, 0, 255]);
 
   // Practice Button
   practice = new Button({ x: 10, y: 20, w: 80, h: 20 });
   ink(0, 200, 0)
     .box(practice.box, "fill")
     .ink(200, 0, 0)
-    .write(practice.box.x, practice.box.y, "Practice", 127);
+    .write("Practice", practice.box, 127);
 
   // Record Button
   record = new Button({ x: 10, y: 50, w: 80, h: 20 });
   ink(255, 0, 0)
     .box(record.box, "fill")
     .ink(0, 0, 255)
-    .write(record.box.x, record.box.y, "Record", 127);
+    .write("Record", record.box, 127);
 }
 
 function paint($) {}

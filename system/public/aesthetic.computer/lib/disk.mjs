@@ -224,6 +224,8 @@ class Recorder {
   }
 }
 
+let $builtBootPaintApi;
+
 // For every function to access.
 const $commonApi = {
   // Trigger background music.
@@ -726,8 +728,12 @@ const $paintApiUnwrapped = {
     graph.clear();
   },
   // Prints a line of text using the default / current global font.
-  write: function (x, y, text, bg) {
-    tf?.print(painting.api, { x, y }, 0, text, bg); // Fail silently on preamble.
+  // Argument options:
+  // (4) x, y, text, bg (optional)
+  // (3) {x, y, center}, text, bg (optional)
+  write: function (text, pos, bg) {
+    if (!text) return; // Fail silently if no text.
+    tf?.print($builtBootPaintApi, pos, 0, text, bg); // Fail on preamble.
   },
   copy: graph.copy,
   paste: graph.paste,
@@ -2221,6 +2227,9 @@ async function makeFrame({ data: { type, content } }) {
         };
       };
 
+      $builtBootPaintApi = $api; // Save the dynamically built api for circular
+      //                            reference by functions like `write`.
+
       graph.setBuffer(screen);
 
       // TODO: Set bpm from boot.
@@ -2246,7 +2255,6 @@ async function makeFrame({ data: { type, content } }) {
       // Right now, in `line` there is a paintCount check to work around this.
       // 22.09.19.20.45
 
-      //if (paintCount === 0n && loading === false) {
       if (paintCount === 0n) {
         inFocus = content.inFocus; // Inherit our starting focus from host window.
         // Read current dark mode.
@@ -2287,7 +2295,9 @@ async function makeFrame({ data: { type, content } }) {
 
       // System info.
       if (currentText?.split("~")[0] !== "prompt") {
-        $api.ink(0, 255, 255).write(6, 6, currentText?.replaceAll("~", " "));
+        $api
+          .ink(0, 255, 255)
+          .write(currentText?.replaceAll("~", " "), { x: 6, y: 6 });
       }
 
       // Attempt a paint.
