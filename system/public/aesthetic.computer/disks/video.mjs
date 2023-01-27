@@ -3,22 +3,28 @@
 
 /* #region ✏️ todo
   + Now
-  - [-] Factor out / modify the old video overlay UI thing to only work here. 
+  - [🧡] Pressing "back" and then going "forward" should restart your recording,
+  - [] Fix recording visibility on iOS!
+  - [] Add a "home" / button.
+    - [] Transcode upon tapping export.
+      - [] Then transcode & upload and reveal download options, based on
+           device capability.
 
-    - [💚] Show preview of video immediately when the piece loads if a video
-          actually exists.
-
-         It can be shown in a special DOM layer and this piece can have a clear
-         backdrop with a few controls.
-
-  - [] Add a "loop" and a "home" (back to title) button.
-  - [] Take advantage of the dead time / transcoding time.
-  - [] Show a little game or helpful hint. (💡 @alex)
-  - [] Only transcode upon tapping export.
+  - [-] Factor out / comment or modify the old video overlay UI code.
   - [] Would I be able hold onto / store the recording similar to a painting
-       on the client? So that way refresh can work.
+       on the client? So that way refreshing the page can work...
   + Done
+  - [x] Show preview of video immediately when the piece loads if a video
+        actually exists.
+  - [x] It can be shown in a special DOM layer and this piece can have a clear
+        backdrop with a few controls.
   - [x] How to know when we have started printing immediately?
+  + Later
+  - [] Make multi-scene recordings by not stopping a recording on back / 
+       intentionally do multi-scene stuff, perhaps with different configurations
+       of images even according to a rhythm, with preloaded piece source code.
+  - [] Take advantage of the dead time / transcoding time.
+    - [] Show a little game or helpful hint. (💡 @alex)
 #endregion */
 
 // 🥾 Boot (Runs once before first paint and sim)
@@ -34,12 +40,13 @@ function boot({ wipe, ink, screen, rec }) {
 // 🎨 Paint (Executes every display frame)
 function paint({
   wipe,
-  rec: { printing, presenting, printProgress },
+  rec: { printing, presenting, printProgress, presentProgress },
   screen: { width, height },
 }) {
 
   if (presenting) {
     wipe(0, 0, 200, 40);
+    // ink(255).box(0, height - 4, width * presentProgress, height - 4); // Present a progress bar.
   } else if (printing) {
     const h = 16; // Paint a printing / transcoding progress bar.
     wipe(80, 0, 0)

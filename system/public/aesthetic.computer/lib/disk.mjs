@@ -205,6 +205,7 @@ let NPdontPaintOnLeave = false;
 // 🔴 Recorder
 class Recorder {
   printProgress = 0;
+  presentProgress = 0;
   printing = false; // Set by a callback from `bios`.
   recording = false; // "
   recorded = false; // "
@@ -1552,6 +1553,11 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "recorder:presented") {
     $commonApi.rec.presenting = true;
+    return;
+  }
+
+  if (type === "recorder:present-progress") {
+    $commonApi.rec.presentProgress = content;
     return;
   }
 

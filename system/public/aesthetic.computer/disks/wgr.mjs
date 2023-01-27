@@ -98,7 +98,7 @@ let mic,
   rec = false; // Microphone & recording flag.
 let recStart;
 let recProgress = 0;
-const recDuration = 6; // 6
+const recDuration = 2; // 6
 
 let bop = false;
 let mode = "practice";
