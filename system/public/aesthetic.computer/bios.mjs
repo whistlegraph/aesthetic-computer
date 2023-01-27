@@ -40,7 +40,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let currentPieceHasTextInput = false;
 
   // Media Recorder
-  let mediaRecorder; // See "recorder-rolling" below.
+  let mediaRecorder, mediaRecorderDataHandler; // See "recorder:rolling" below.
 
   // Clipboard
   let pastedText;
@@ -856,6 +856,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let pixelsDidChange = false; // TODO: Can this whole thing be removed? 2021.11.28.03.50
 
   let contentFrame;
+  let underlayFrame;
 
   const bakedCan = document.createElement("canvas", {
     willReadFrequently: true,
@@ -1203,6 +1204,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Clear any DOM content that was added by a piece.
       contentFrame?.remove(); // Remove the contentFrame if it exists.
       contentFrame = undefined;
+
+      underlayFrame?.remove(); // Remove the underlayFrame if it exists.
+      underlayFrame = undefined;
+
       // Remove any event listeners added by the content frame.
       window?.acCONTENT_EVENTS.forEach((e) => e());
       window.acCONTENT_EVENTS = []; // And clear all events from the list.
@@ -1577,7 +1582,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    if (type === "recorder-rolling") {
+    if (type === "recorder:rolling") {
       if (debug) console.log("🔴 Recorder: Rolling", content);
 
       if (mediaRecorder && mediaRecorder.state === "paused") {
@@ -1685,7 +1690,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       const chunks = []; // Store chunks of the recording.
-      mediaRecorder.ondataavailable = (evt) => chunks.push(evt.data);
+
+      mediaRecorder.ondataavailable = (evt) => {
+        chunks.push(evt.data);
+        mediaRecorderDataHandler?.(chunks);
+      };
 
       let recordingStartTime = 0;
       let recordingDuration;
@@ -1703,7 +1712,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         streamCanvasContext = undefined;
         resizeToStreamCanvas = null;
 
-        let blob = new Blob(chunks, {
+        const blob = new Blob(chunks, {
           type: options.mimeType,
         });
 
@@ -1729,7 +1738,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               }
               transcodeProgress = min(1, time / recordingDuration);
               send({
-                type: "transcode-progress",
+                type: "recorder:transcode-progress",
                 content: transcodeProgress,
               });
             },
@@ -1845,7 +1854,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    if (type === "recorder-cut") {
+    if (type === "recorder:cut") {
       if (!mediaRecorder) return;
       if (debug) console.log("✂️ Recorder: Cut");
       mediaRecorder.pause();
@@ -1853,7 +1862,55 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    if (type === "recorder-print") {
+    if (type === "recorder:present") {
+      // TODO: Add a DOM preview here.
+      if (mediaRecorder && mediaRecorder.state === "paused") {
+        const type = mediaRecorder.mimeType.split("/")[0];
+
+        if (type === "video") {
+          underlayFrame = document.createElement("div");
+          underlayFrame.id = "underlay";
+
+          const el = document.createElement(type); // "audio" or "video"
+
+          // Active recording...
+          mediaRecorderDataHandler = (chunks) => {
+            const blob = new Blob(chunks, {
+              type: mediaRecorder.mimeType,
+            });
+            el.src = URL.createObjectURL(blob);
+            el.loop = true;
+            el.play();
+            // TODO: Report the progress of this element back to the `disk`.
+          }
+
+          mediaRecorder.requestData();
+
+          // el.srcObject = mediaRecorder.stream; // Live feed.
+          // 🧠 Eventually this could be useful for live feedback? 23.01.27.16.59
+
+          underlayFrame.appendChild(el);
+
+          wrapper.appendChild(underlayFrame);
+
+          send({ type: "recorder:presented" });
+        }
+      }
+      return;
+    }
+
+    if (type === "recorder:unpresent") {
+      if (underlayFrame) {
+        const media = underlayFrame.querySelector("video, audio");
+        if (media?.src) URL.revokeObjectURL(media.src);
+
+        underlayFrame?.remove(); // Remove the underlayFrame if it exists.
+        underlayFrame = undefined;
+        send({ type: "recorder:unpresented" });
+      }
+    }
+
+    if (type === "recorder:print") {
       if (!mediaRecorder) return;
       mediaRecorder.stop(); // Render a video if a recording exists.
       mediaRecorder = undefined;
