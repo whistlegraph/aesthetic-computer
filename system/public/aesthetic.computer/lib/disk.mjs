@@ -84,6 +84,7 @@ let leave = defaults.leave;
 let leaving = false;
 let leaveLoad; // A callback for loading the next disk after leaving.
 
+let module; // Currently loaded piece module code.
 let currentPath,
   currentHost,
   currentSearch,
@@ -205,22 +206,20 @@ let NPdontPaintOnLeave = false;
 class Recorder {
   printProgress = 0;
   printing = false; // Set by a callback from `bios`.
-  recording = false;
+  recording = false; // Set by a callback from `bios`.
 
   constructor() {}
 
   rolling(opts) {
-    this.recording = true;
     send({ type: "recorder-rolling", content: opts });
   }
 
   cut() {
-    this.recording = false;
     send({ type: "recorder-cut" });
   }
 
   print() {
-    this.printing = true;
+    // this.printing = true; // Set by a callback.
     send({ type: "recorder-print" });
   }
 }
@@ -326,7 +325,6 @@ const $commonApi = {
   //                 Increments by 1 each time a new piece loads.
   debug,
 };
-
 
 // Spawn a session backend for a piece.
 async function session(slug, forceProduction = false) {
@@ -729,7 +727,7 @@ const $paintApiUnwrapped = {
   },
   // Prints a line of text using the default / current global font.
   write: function (x, y, text, bg) {
-    tf.print(painting.api, { x, y }, 0, text, bg);
+    tf?.print(painting.api, { x, y }, 0, text, bg); // Fail silently on preamble.
   },
   copy: graph.copy,
   paste: graph.paste,
@@ -896,40 +894,74 @@ const microphone = new Microphone();
 let originalHost;
 let lastHost; // = "disks.aesthetic.computer"; TODO: Add default host here.
 let firstLoad = true;
-let firstPiece, firstParams, firstSearch;
-
+let firstPiece, firstParams, firstSearch; // Why is this still here? 23.01.27.13.07
+//                                           Perhaps for bare ROOT_PIECE's that
+//                                           require params?
 async function load(parsed, fromHistory = false, alias = false) {
   let { path, host, search, params, hash, text: slug } = parsed;
 
-  if (loading === false) {
-    loading = true;
-  } else {
-    // TODO: Implement some kind of loading screen system here?
-    console.warn("Already loading another disk:", path);
+  loading === false ? (loading = true) : console.warn("Already loading:", path);
+  if (debug) console.log(debug ? "🟡 Development" : "🟢 Production");
+  if (host === "") host = originalHost;
+  loadFailure = undefined;
+  host = host.replace(/\/$/, ""); // Remove any trailing slash from host.
+  //                                 Note: This fixes a preview bug on teia.art. 2022.04.07.03.00
+
+  if (path === "") path = ROOT_PIECE; // Set bare path to what "/" maps to.
+  // if (path === firstPiece && params.length === 0) params = firstParams;
+
+  let fullUrl =
+    location.protocol + "//" + host + "/" + path + ".mjs" + "#" + Date.now();
+  // The hash `time` parameter busts the cache so that the environment is
+  // reset if a disk is re-entered while the system is running.
+  // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
+  if (debug) console.log("🕸", fullUrl);
+
+  // 🅱️ Load the piece.
+
+  // See if we already have source code to build a blobURL from.
+  if (parsed.source) {
+    // TODO: What happens if source is undefined?
+    const blob = new Blob([parsed.source], { type: "application/javascript" });
+    const url = URL.createObjectURL(blob);
+    // Perhaps the disk files need to be cached in a CDN and then destroyed
+    // after a certain time?
+
+    // Or they need to be tied to a user account already...
+
+    // const module = importScripts(url);
+    // const m = await importScripts(url);
+    // debugger;
+
+    // use the imported module
+    // import { sayHello } from "./script.js";
+    // sayHello();
+  }
+
+  try {
+    // const moduleLoadTime = performance.now();
+    // debugger;
+    module = await import(fullUrl);
+    // console.log("Module load time:", performance.now() - moduleLoadTime, module);
+  } catch (err) {
+    // 🧨 Continue with current module if one has already loaded.
+    console.error(`😡 "${path}" load failure:`, err);
+    loadFailure = err;
+    loading = false;
     return;
   }
 
-  if (debug) {
-    console.log("🟡 Development");
-  } else {
-    // console.log("🟢 Production");
+  // 🧨 Fail out if no module is found.
+  if (module === undefined) {
+    loading = false;
+    return;
   }
 
-  if (host === "") {
-    host = originalHost;
-  }
+  // 🧩 Piece has been loaded...
 
-  loadFailure = undefined;
-  host = host.replace(/\/$/, ""); // Remove any trailing slash from host. Note: This fixes a preview bug on teia.art. 2022.04.07.03.00
+  socket?.kill(); // Kill any already open socket from a previous disk.
   lastHost = host; // Memoize the host.
-  pieceHistoryIndex += fromHistory === true ? -1 : 1;
-
-  // Kill any existing socket that has remained open from a previous disk.
-  socket?.kill();
-
-  // Set the empty path to whatever the "/" route piece was.
-  if (path === "") path = ROOT_PIECE;
-  if (path === firstPiece && params.length === 0) params = firstParams;
+  pieceHistoryIndex += fromHistory === true ? -1 : 1; // Adjust the history.
 
   if (!debug && !firstLoad) {
     console.clear();
@@ -937,20 +969,6 @@ async function load(parsed, fromHistory = false, alias = false) {
   }
 
   console.log("🧩", path, "🌐", host);
-
-  let fullUrl = location.protocol + "//" + host + "/" + path + ".mjs";
-
-  // let fullUrl = "https://" + host + "/" + path + ".js";
-  // The hash `time` parameter busts the cache so that the environment is
-  // reset if a disk is re-entered while the system is running.
-  // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
-  fullUrl += "#" + Date.now();
-
-  if (debug) console.log("🕸", fullUrl);
-
-  // 🅰️ Start the socket server before we load the disk, in case of needing
-  // to reload remotely on failure.
-  let receiver; // Handles incoming messages from the socket.
 
   // Add debug to the common api.
   $commonApi.debug = debug;
@@ -980,46 +998,14 @@ async function load(parsed, fromHistory = false, alias = false) {
     }
   };
 
-  // 🧨
-
-  // 🅱️ Load the piece.
-  // TODO: What happens if source is undefined?
-  // const moduleLoadTime = performance.now();
-
-  if (parsed.source) {
-    const blob = new Blob([parsed.source], { type: "application/javascript" });
-    const url = URL.createObjectURL(blob);
-    // Perhaps the disk files need to be cached in a CDN and then destroyed
-    // after a certain time?
-
-    // Or they need to be tied to a user account already...
-
-    // const module = importScripts(url);
-    // const m = await importScripts(url);
-    // debugger;
-
-    // use the imported module
-    //import { sayHello } from "./script.js";
-    //sayHello();
-  }
-
-  const module = await import(fullUrl).catch((err) => {
-    console.error(`😡 "${path}" load failure:`, err);
-    loadFailure = err;
-  });
-
-  // console.log(performance.now() - moduleLoadTime, module);
-
-  if (module === undefined) {
-    loading = false;
-    return;
-  }
-
-  const forceProd = false; // For testing production servers in development.
+  // Start the socket server
+  // TODO: Before we load the disk, in case of needing to reload remotely on failure? 23.01.27.12.48
+  let receiver; // Handles incoming messages from the socket.
+  const forceProd = false; // For testing prod socket servers in development.
 
   socket = new Socket(debug);
 
-  // // Requests a session-backend and connects via websockets.
+  // Requests a session-backend and connects via websockets.
   async function startSocket() {
     const sesh = await session(slug, forceProd); // Grab a session backend for this piece.
     socket.connect(
@@ -1355,9 +1341,9 @@ async function load(parsed, fromHistory = false, alias = false) {
 
     if (firstLoad === true) {
       firstLoad = false;
-      firstPiece = path;
-      firstParams = params;
-      firstSearch = search;
+      // firstPiece = path;
+      // firstParams = params;
+      // firstSearch = search;
     }
   };
 
@@ -1520,13 +1506,32 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Media Recorder Events
+
   if (type === "transcode-progress") {
     if (debug) console.log("📼 Recorder: Transcoding", content);
     $commonApi.rec.printProgress = content;
-    if (content === 1)
+    if (content === 1) {
       send({ type: "signal", content: "recorder:transcoding-done" });
-    // TODO: Is this the best place for this signal to be sent?
-    //       Maybe it should go back in the BIOS? 22.08.19.13.44
+      $commonApi.rec.printing = false;
+      // TODO: Is this the best place for this signal to be sent?
+      //       Maybe it should go back in the BIOS? 22.08.19.13.44
+    }
+    return;
+  }
+
+  if (type === "recorder:rolling:started") {
+    $commonApi.rec.recording = true;
+    return;
+  }
+
+  if (type === "recorder:rolling:ended") {
+    $commonApi.rec.recording = false;
+    return;
+  }
+
+  if (type === "recorder:printing:started") {
+    $commonApi.rec.printing = true;
     return;
   }
 

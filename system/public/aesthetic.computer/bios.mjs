@@ -1695,7 +1695,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         recordingStartTime = performance.now();
       };
 
-      // 🗺️ mediaRecorder:Stop
+      // 🗺️ mediaRecorder:Stop (Recorder Printing)
       mediaRecorder.onstop = async function (evt) {
         recordingDuration = (performance.now() - recordingStartTime) / 1000;
 
@@ -1841,18 +1841,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       };
 
       mediaRecorder.start();
+      send({ type: "recorder:rolling:started" });
       return;
     }
 
     if (type === "recorder-cut") {
+      if (!mediaRecorder) return;
       if (debug) console.log("✂️ Recorder: Cut");
-      mediaRecorder?.pause();
+      mediaRecorder.pause();
+      send({ type: "recorder:rolling:ended" });
       return;
     }
 
     if (type === "recorder-print") {
-      mediaRecorder?.stop(); // Render a video if a recording exists.
+      if (!mediaRecorder) return;
+      mediaRecorder.stop(); // Render a video if a recording exists.
       mediaRecorder = undefined;
+      send({ type: "recorder:printing:started" });
       return;
     }
 
@@ -1941,7 +1946,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "disk-loaded-and-booted") {
       // Skip preload marker on default init piece, and toggle it if necessary.
-      if (currentPiece !== null && !window.waitForPreload) window.preloaded = true;
+      if (currentPiece !== null && !window.waitForPreload)
+        window.preloaded = true;
       if (debug) console.log("⏳ Preloaded:", window.preloaded ? "✅" : "❌");
       return;
     }

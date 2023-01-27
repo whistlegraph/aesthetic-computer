@@ -10,61 +10,38 @@
   - [] Show a little game or helpful hint. (💡 @alex)
   - [] Only transcode upon tapping export.
   + Done
+  - [x] How to know when we have started printing immediately?
 #endregion */
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({ wipe, ink, screen, rec }) {
   wipe(0, 255, 0);
   ink(0).line(0, 0, screen.width, screen.height);
-
-  // 🟢 What's the best API here?
-  rec.print();
-
-  // TODO: How to know when we have started printing immediately?
+  rec.print(); // Start printing a recording if it exists...
 }
 
 // 🎨 Paint (Executes every display frame)
-function paint({ wipe, rec: { printProgress }, screen: { width, height } }) {
- 
-  // if (rec.printing)
-  if (printProgress > 0) {
-    // Draw progress bar for video rendering.
+function paint({
+  wipe,
+  rec: { printing, printProgress },
+  screen: { width, height },
+}) {
+  if (printing) {
+    // Draw progress bar for printing...
     const h = 16;
     wipe(80, 0, 0)
       .ink(255, 0, 0)
       .box(0, height / 2 - h / 2, printProgress * width, h);
-
   } else {
-    wipe(40, 0, 0).ink(80, 0, 0).write(2, 2, "No Video");
+    // How to center the "No Video" text?
+    wipe(40, 0, 0).ink(180, 0, 0).write(2, 2, "No Video");
   }
 }
 
 // ✒ Act (Runs once per user interaction)
-function act({ event: e }) {
-  //if (e.is("recording:printing:started")) {
-    // 
-  //}
-}
+// function act({ event: e }) { }
 
-/*
-
-// 🧮 Sim(ulate) (Runs once per logic frame (120fps locked)).
-function sim($api) {
-  // Crunch numbers outside of rendering here.
-}
-
-// 💗 Beat (Runs once per bpm, starting when the audio engine is activated.)
-function beat($api) {
-  // Make sound here.
-}
-
-// 👋 Leave (Runs once before the piece is unloaded)
-function leave($api) {
-  // Pass data to the next piece here.
-}
-*/
+export { boot, paint };
 
 // 📚 Library (Useful functions used throughout the piece)
 // ...
-
-export { boot, paint };
