@@ -206,22 +206,29 @@ let NPdontPaintOnLeave = false;
 class Recorder {
   printProgress = 0;
   printing = false; // Set by a callback from `bios`.
-  recording = false; // Set by a callback from `bios`.
+  recording = false; // "
+  recorded = false; // "
+  presenting = false; // "
 
   constructor() {}
 
   rolling(opts) {
-    send({ type: "recorder-rolling", content: opts });
+    send({ type: "recorder:rolling", content: opts });
   }
 
   cut() {
-    send({ type: "recorder-cut" });
+    send({ type: "recorder:cut" });
   }
 
   print() {
-    // this.printing = true; // Set by a callback.
-    send({ type: "recorder-print" });
+    send({ type: "recorder:print" });
   }
+
+  present() {
+    send({ type: "recorder:present" });
+  }
+
+  // unpresent() {}
 }
 
 let $builtBootPaintApi;
@@ -1514,7 +1521,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // Media Recorder Events
 
-  if (type === "transcode-progress") {
+  if (type === "recorder:transcode-progress") {
     if (debug) console.log("📼 Recorder: Transcoding", content);
     $commonApi.rec.printProgress = content;
     if (content === 1) {
@@ -1533,11 +1540,23 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "recorder:rolling:ended") {
     $commonApi.rec.recording = false;
+
+    $commonApi.rec.recorded = true; // TODO: This needs to clear when a recording "empties".
     return;
   }
 
   if (type === "recorder:printing:started") {
     $commonApi.rec.printing = true;
+    return;
+  }
+
+  if (type === "recorder:presented") {
+    $commonApi.rec.presenting = true;
+    return;
+  }
+
+  if (type === "recorder:unpresented") {
+    $commonApi.rec.presenting = false;
     return;
   }
 

@@ -91,14 +91,14 @@
 
 import { Typeface } from "../lib/type.mjs";
 
-const { floor, max, sin, cos } = Math;
+const { floor, max } = Math;
 
 let wg, bg; // Whistlegraph foreground and background.
 let mic,
   rec = false; // Microphone & recording flag.
 let recStart;
 let recProgress = 0;
-const recDuration = 6;
+const recDuration = 6; // 6
 
 let bop = false;
 let mode = "practice";
@@ -118,7 +118,11 @@ let ALT = false, // Keyboard modifiers.
 // 🥾 Boot (Runs once before first paint and sim)
 function boot($) {
   const { num, help, wipe, net, params } = $;
+
   mode = params[0] || mode; // "practice" (default) or "record". (Parse params)
+  if (params[0] === "r") mode = "record"; // 🧠 Shortcuts make working faster.
+  if (params[0] === "p") mode = "practice";
+
   if (debug) {
     // Load debug typeface.
     tf = new Typeface();

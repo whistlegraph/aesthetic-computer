@@ -4,8 +4,10 @@
 /* #region ✏️ todo
   + Now
   - [-] Factor out / modify the old video overlay UI thing to only work here. 
-    - [] Show preview of video immediately when the piece loads if a video
-         actually exists.
+
+    - [💚] Show preview of video immediately when the piece loads if a video
+          actually exists.
+
          It can be shown in a special DOM layer and this piece can have a clear
          backdrop with a few controls.
 
@@ -13,6 +15,8 @@
   - [] Take advantage of the dead time / transcoding time.
   - [] Show a little game or helpful hint. (💡 @alex)
   - [] Only transcode upon tapping export.
+  - [] Would I be able hold onto / store the recording similar to a painting
+       on the client? So that way refresh can work.
   + Done
   - [x] How to know when we have started printing immediately?
 #endregion */
@@ -21,21 +25,28 @@
 function boot({ wipe, ink, screen, rec }) {
   wipe(0, 255, 0);
   ink(0).line(0, 0, screen.width, screen.height);
-  rec.print(); // Immediately start printing a recording if it exists...
+
+  // rec.print(); // Immediately start printing a recording if it exists.
+
+  rec.present(); // Visually present a recording if one exists.
 }
 
 // 🎨 Paint (Executes every display frame)
 function paint({
   wipe,
-  rec: { printing, printProgress },
+  rec: { printing, presenting, printProgress },
   screen: { width, height },
 }) {
-  if (printing) {
+
+  if (presenting) {
+    wipe(0, 0, 200, 40);
+  } else if (printing) {
     const h = 16; // Paint a printing / transcoding progress bar.
     wipe(80, 0, 0)
       .ink(255, 0, 0)
       .box(0, height / 2 - h / 2, printProgress * width, h);
   } else wipe(40, 0, 0).ink(180, 0, 0).write("No Video", { center: "xy" });
+
 }
 
 // ✒ Act (Runs once per user interaction)
