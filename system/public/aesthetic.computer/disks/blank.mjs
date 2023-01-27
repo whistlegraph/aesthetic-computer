@@ -25,7 +25,6 @@ Jeffrey (me@jas.life / digitpain#2262 / @digitpain)
 
 #endregion */
 
-
 // 🥾 Boot (Runs once before first paint and sim)
 function boot($) {
   $.wipe(0, 255, 0);

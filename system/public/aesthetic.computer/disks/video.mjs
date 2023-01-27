@@ -12,7 +12,6 @@
   + Done
 #endregion */
 
-
 // 🥾 Boot (Runs once before first paint and sim)
 function boot($) {
   $.wipe(0, 255, 0);

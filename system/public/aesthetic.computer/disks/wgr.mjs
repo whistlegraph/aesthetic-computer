@@ -5,11 +5,8 @@
   + ⏰ Now
   - [] Finish video saving UI
     - *** Separate Piece Method / Player + Exporter ***
-
       3 Output / `video`.
       - [-] Sketch output piece.
-
-
       2 Input / `wgr` Piece
         + Now
           - [] add `mode` to the cli
@@ -18,7 +15,6 @@
           - [] Save / hold data on completion, then jump to `video` piece for
                optional video exporting and hook into the upload of data
                on export, stamping the video with a unique ID (URL).
-
       - CANCELLED *** Option A: Overlay Method ***
         - [] Show a system-wide pop-over. 
     - [] Store to temporary online bucket and allow user to download / show code. 
@@ -105,6 +101,7 @@ let recProgress = 0;
 const recDuration = 6;
 
 let bop = false;
+let mode = "practice";
 
 let lastTwoTouch;
 
@@ -121,11 +118,15 @@ let ALT = false, // Keyboard modifiers.
 // 🥾 Boot (Runs once before first paint and sim)
 function boot($) {
   const { num, help, wipe, net, params } = $;
-
+  mode = params[0] || mode; // "practice" (default) or "record". (Parse params)
+  if (debug) {
+    // Load debug typeface.
+    tf = new Typeface();
+    tf.load(net.preload);
+  }
   $.glaze({ on: true }); // Add post-processing by @mxsage.
   bg = num.randIntArr(128, 3); // Random background color.
   wg = new Whistlegraph($, help.choose(1, 2)); // Whistlegraph with thickness.
-  tf = new Typeface(net.preload); // Load `font-1`...
   wipe(bg); // Clear backbuffer.
 }
 
@@ -135,6 +136,7 @@ function paint($) {
     wipe,
     pens,
     ink,
+    pen,
     rec: { printProgress },
     screen: { width, height },
   } = $;
@@ -157,17 +159,16 @@ function paint($) {
   // 🐛 Debug
   if (debug && printProgress === 0) {
     // Graphics
+
     // Anchor...
     // debugMids.forEach((m) => $.ink(255, 0, 0).box(m.x, m.y, 9, "fill*center"));
 
-    // Printed Values
-    // TODO: - [] Allow multiple values on a single row...
+    ink(40, 190, 0);
 
-    $.ink(140, 90, 0);
     // Measure some printable parameters.
     // Define a label to the left, and a value or set of values on the right.
     [
-      ["pen", [$.pen?.x || 0, $.pen?.y || 0]],
+      ["pen", [pen?.x || 0, pen?.y || 0]],
       ["pan", [floor(wg.pan.x), floor(wg.pan.y)]],
       ["anc", [wg.anchorPoint.x, wg.anchorPoint.y]],
       ["scl", wg.scale.x], // Only need to log one scale if using uniform.
@@ -186,7 +187,7 @@ function paint($) {
       );
   }
 
-  ink(0).box(0, 0, width, 3);
+  if (mode === "record") ink(0).box(0, 0, width, 3);
 
   // Draw progress bar for video recording.
   // TODO: How can this skip the recording?
@@ -335,11 +336,8 @@ function act($) {
 }
 
 // 💗 Beat
-function beat({ sound: { microphone, square, time }, rec: { rolling }, params }) {
-  if (!mic && params[0] === "record") {
-    mic = microphone.connect(); // Connect the microphone.
-  }
-
+function beat({ sound: { microphone, square, time }, rec: { rolling } }) {
+  if (!mic && mode === "record") mic = microphone.connect(); // Connect the mic.
   if (bop) {
     square({
       tone: 50,

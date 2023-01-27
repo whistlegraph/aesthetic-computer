@@ -55,7 +55,7 @@ class Typeface {
     const blockWidth = 6;
     const scale = 1;
 
-    const rn = $.inkrn; // Remember the current ink color.
+    const rn = $.inkrn(); // Remember the current ink color.
 
     // Background
     if (bg !== null) {

@@ -751,17 +751,20 @@ class Painting {
   #layers = [];
   #layer = 0;
   api = {};
+  inkrn;
 
   constructor() {
     Object.assign(this.api, $paintApi);
     const p = this;
+
+    p.inkrn = graph.c.slice(); // Init global state machine read-outs.
 
     // Filter for and then wrap every rendering behavior of $paintApi into a
     // system to be deferred in groups, using layer.
     // ⛓️ This wrapper also makes the paint API chainable.
 
     function globals (k, args) {
-      if (k === "ink") p.api.inkrn = [...args].flat();
+      if (k === "ink") p.inkrn = [...args].flat();
       // TODO: 😅 Add other state globals like line thickness? 23.1.25 
     }
 
@@ -776,8 +779,8 @@ class Painting {
           // all at once in `paint` on each frame update. 
           p.#layers[p.#layer].push(() => {
             $paintApiUnwrapped[k](...arguments);
-            // await $paintApiUnwrapped[k](...arguments);
             globals(k, arguments); // Update globals again on chainable calls. 
+            // await $paintApiUnwrapped[k](...arguments);
           });
           return p.api;
         };
@@ -793,6 +796,8 @@ class Painting {
     this.api.pixel = function () {
       return graph.pixel(...arguments);
     };
+
+    this.api.inkrn = () => this.inkrn; // Return current ink color.
 
     // Allows grouping & composing painting order using an AofA (Array of Arrays).
     // n: 0-n (Cannot be negative.)
