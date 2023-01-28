@@ -213,6 +213,10 @@ class Recorder {
 
   constructor() {}
 
+  slate() {
+    send({ type: "recorder:slate" });
+  }
+
   rolling(opts) {
     send({ type: "recorder:rolling", content: opts });
   }
