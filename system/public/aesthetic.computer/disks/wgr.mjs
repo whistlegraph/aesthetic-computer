@@ -229,7 +229,7 @@ function act($) {
     event: e,
     pen,
     pens,
-    rec: { rolling, printProgress },
+    rec: { slate, rolling, printProgress },
     num: { p2 },
     sound: { time },
     help,
@@ -240,6 +240,7 @@ function act($) {
 
   if (e.is("microphone-connect:success")) {
     console.log("🔴 Recording...");
+    slate();
     rolling("video"); // Start recording immediately.
     recStart = time;
     rec = true;
@@ -261,6 +262,7 @@ function act($) {
     wg.gestures.length = 0;
     wg.gestureIndex = 0;
 
+    slate();
     rolling("video");
     recStart = time;
     rec = true;

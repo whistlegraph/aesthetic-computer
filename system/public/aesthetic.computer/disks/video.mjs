@@ -3,8 +3,7 @@
 
 /* #region ✏️ todo
   + Now
-  - [🧡] Pressing "back" and then going "forward" should restart your recording,
-  - [] Fix recording visibility on iOS!
+  - [😀] Fix recording visibility on iOS!
   - [] Add a "home" / button.
     - [] Transcode upon tapping export.
       - [] Then transcode & upload and reveal download options, based on
@@ -14,6 +13,7 @@
   - [] Would I be able hold onto / store the recording similar to a painting
        on the client? So that way refreshing the page can work...
   + Done
+  - [x] Pressing "back" and then going "forward" should restart your recording,
   - [x] Show preview of video immediately when the piece loads if a video
         actually exists.
   - [x] It can be shown in a special DOM layer and this piece can have a clear

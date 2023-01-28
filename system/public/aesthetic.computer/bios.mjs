@@ -1931,6 +1931,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "recorder:slate") {
+      mediaRecorder = undefined;
+    }
+
     if (type === "load-bitmap") {
       fetch(content).then(async (response) => {
         if (!response.ok) {
