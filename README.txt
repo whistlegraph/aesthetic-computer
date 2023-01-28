@@ -59,7 +59,11 @@
 
 *** Painting w/ Signature for Yeche Lange***
   - [] Add "signature" / title flag feature to `dl` command.
-  - [] Print out a No Paint style signature with timestamp.
+    - `sign`
+      - [] Print out a signature with timestamp
+           that is NOT opaque and in the bottom left corner.
+  - `no`
+    - [] Undo a step.
   - [] How quickly could I tie this to user accounts and make it permanent
        rn? Could I do this all today?
 
