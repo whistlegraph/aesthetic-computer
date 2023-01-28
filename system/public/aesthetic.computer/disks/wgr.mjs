@@ -29,6 +29,8 @@
     - [] Don't delete videos that get stored.
     - [] "pre-launch / early" 
   + Later
+    - [] Speed up "..." on Get ready...? (Make it nice across all browsers)
+    - [] Make microphone deny behavior.
     - [] This will be done with `wgr seconds` in addition to a countdown timer.
       - [] If no seconds are entered, then no video recording occurs and
             a practice state is assumed!
@@ -94,11 +96,11 @@ import { Typeface } from "../lib/type.mjs";
 const { floor, max } = Math;
 
 let wg, bg; // Whistlegraph foreground and background.
-let mic,
-  rec = false; // Microphone & recording flag.
-let recStart;
-let recProgress = 0;
-const recDuration = 2; // 6
+let mic;
+let recStart,
+  recBGflip = false,
+  recProgress = 0;
+const recDuration = 6; // 6
 
 let bop = false;
 let mode = "practice";
@@ -117,7 +119,7 @@ let ALT = false, // Keyboard modifiers.
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot($) {
-  const { num, help, wipe, net, params } = $;
+  const { num, help, net, params } = $;
 
   mode = params[0] || mode; // "practice" (default) or "record". (Parse params)
   if (params[0] === "r") mode = "record"; // 🧠 Shortcuts make working faster.
@@ -131,7 +133,7 @@ function boot($) {
   $.glaze({ on: true }); // Add post-processing by @mxsage.
   bg = num.randIntArr(128, 3); // Random background color.
   wg = new Whistlegraph($, help.choose(1, 2)); // Whistlegraph with thickness.
-  wipe(bg); // Clear backbuffer.
+  // wipe(bg); // Clear backbuffer.
 }
 
 // 🎨 Paint
@@ -141,14 +143,46 @@ function paint($) {
     pens,
     ink,
     pen,
-    rec: { printProgress },
+    paintCount,
+    rec: { recording, recorded, printProgress },
+    sound,
     screen: { width, height },
+    help,
   } = $;
+
+  // Just draw grey before recording.
+  if (mode === "record" && !recording && !recorded) {
+    let text, i;
+    if (mic) {
+      i = 0;
+      text = "Get ready";
+      let suffix = "";
+      help.repeat(sound.time % 4, () => (suffix += "."));
+      text += suffix.padEnd(3, " ");
+    } else {
+      i = 64;
+      text = "Tap to Record";
+    }
+
+    wipe(127).ink(i).write(text, { center: "xy" });
+
+    return;
+  }
+
+  if (recorded) {
+    wipe(bg);
+    return;
+  }
+
+  if (recBGflip) {
+    wipe(bg); // Wipe the BG when starting a recording.
+    recBGflip = false;
+  }
 
   if (ALT || SHIFT || CTRL || Q || E || pens?.().length > 1) wipe(bg);
 
   // Waveform & Amplitude Line
-  if (mic?.waveform.length > 0 && mic?.amplitude !== undefined) {
+  if (recording && mic?.waveform.length > 0 && mic?.amplitude !== undefined) {
     const xStep = width / mic.waveform.length + 1;
     const yMid = height / 2,
       yMax = yMid;
@@ -159,6 +193,12 @@ function paint($) {
 
   wg.paint($);
   // $.ink(255, 255, 0, 128).box(wg.anchor.x, wg.anchor.y, 8, "out*center");
+
+  // Draw progress bar for video recording.
+  // TODO: How can this skip being present in the actual recording?
+  if (mode === "record") ink(0).box(0, 0, width, 3);
+  if (recording && recProgress > 0)
+    ink(255, 0, 0).box(0, 0, recProgress * width, 3);
 
   // 🐛 Debug
   if (debug && printProgress === 0) {
@@ -187,38 +227,44 @@ function paint($) {
         return v;
       })
       .forEach((line, i) =>
-        tf.print($, { x: 3, y: mode === "record" ? 5 : 2 }, i, `${line[0]}: ${line[1]}`, bg)
+        tf.print(
+          $,
+          { x: 3, y: mode === "record" ? 5 : 2 },
+          i,
+          `${line[0]}: ${line[1]}`,
+          bg
+        )
       );
   }
-
-  if (mode === "record") ink(0).box(0, 0, width, 3);
-
-  // Draw progress bar for video recording.
-  // TODO: How can this skip the recording?
-  if (rec && recProgress > 0) ink(255, 0, 0).box(0, 0, recProgress * width, 3);
 }
 
 // 🧮 Sim(ulate)
-function sim({ pen, rec: { cut, print }, sound: { time }, jump }) {
+function sim({ pen, rec: { cut, recording }, sound: { time }, jump }) {
   // Navigation
   if (pen && (SHIFT || CTRL || ALT || Q || E)) wg.anchor(pen); // Anchor
   if (SHIFT || CTRL) wg.zoom(CTRL ? 0.998 : 1.002); // Zoom
   if (Q || E) wg.rotate(Q ? -0.02 : 0.02); // Rotate
 
   // AV Recording
-  mic?.poll(); // Query for updated amplitude and waveform data.
+  mic?.poll(); // Query microphone for updated amplitude and waveform data.
 
-  // 🔴 End recording when timer fires.
   // TODO: Maybe this should be timed per frame as opposed to in seconds?
-  if (rec === true) {
-    recProgress = (time - recStart) / recDuration;
-    if (recProgress >= 1) {
-      recProgress = 0;
-      rec = false;
+  if (recording) {
+    if (isNaN(recStart)) {
+      recStart = time; // Start recording timer if there is none.
+      recBGflip = true;
+      bop = true;
+    } else {
+      // 🔴 End recording when timer fires.
+      recProgress = (time - recStart) / recDuration;
+      if (recProgress >= 1) {
+        wg.lift(); // Stop any active gesture.
 
-      wg.lift(); // Stop any active gesture.
-      cut(); // Cut the recording here.
-      jump('video'); // Jump to the `video` piece for printing.
+        recProgress = 0; // Reset progress.
+        recStart = undefined; // Reset start.
+        cut(); // Cut the recording here.
+        jump("video"); // Jump to the `video` piece for printing.
+      }
     }
   }
 }
@@ -229,9 +275,8 @@ function act($) {
     event: e,
     pen,
     pens,
-    rec: { slate, rolling, printProgress },
+    rec: { slate, rolling, recording, printProgress },
     num: { p2 },
-    sound: { time },
     help,
   } = $;
 
@@ -242,32 +287,15 @@ function act($) {
     console.log("🔴 Recording...");
     slate();
     rolling("video"); // Start recording immediately.
-    recStart = time;
-    rec = true;
-    bop = true;
   }
 
   if (e.is("microphone-connect:failure")) {
     console.warn("🟡 Microphone failed to connect. Rejected?");
+    // TODO: How to re-approve permission here in a cross-browser way?
+    // mic = null; // This causes a redirect loop.
   }
 
-  // When a recording panel closes...
-  if (e.is("signal") && e.signal.includes("recordings:close")) {
-    console.log("closed!");
-    // Restart recording...
-    // TODO: Make another recording.
-    bop = true;
-
-    // Reset WG
-    wg.gestures.length = 0;
-    wg.gestureIndex = 0;
-
-    slate();
-    rolling("video");
-    recStart = time;
-    rec = true;
-    // TODO: How to reset the record button so another recording can get made?
-  }
+  if (mode === "record" && !recording) return; // No interaction before record.
 
   // 🪐 Navigation (Zoom, Scale & Rotate)
   // Keyboard
@@ -319,12 +347,12 @@ function act($) {
 }
 
 // 💗 Beat
-function beat({ sound: { microphone, square, time }, rec: { rolling } }) {
+function beat({ sound: { microphone, square } }) {
   if (!mic && mode === "record") mic = microphone.connect(); // Connect the mic.
   if (bop) {
     square({
-      tone: 50,
-      beats: 1 / 8,
+      tone: 250,
+      beats: 1 / 16,
       attack: 0.01,
       decay: 0.1,
       volume: 1,

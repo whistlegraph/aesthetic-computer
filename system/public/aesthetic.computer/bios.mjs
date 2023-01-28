@@ -1583,8 +1583,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "recorder:rolling") {
-      if (debug) console.log("🔴 Recorder: Rolling", content);
-
       if (mediaRecorder && mediaRecorder.state === "paused") {
         mediaRecorder.resume();
         return;
@@ -1693,6 +1691,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       mediaRecorder.ondataavailable = (evt) => {
         chunks.push(evt.data);
+        console.log("Data", evt.data);
         mediaRecorderDataHandler?.(chunks);
       };
 
@@ -1702,6 +1701,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // 🗺️ mediaRecorder:Start
       mediaRecorder.onstart = function () {
         recordingStartTime = performance.now();
+        send({ type: "recorder:rolling:started", content });
+        if (debug) console.log("🔴 Recorder: Rolling", content);
       };
 
       // 🗺️ mediaRecorder:Stop (Recorder Printing)
@@ -1850,7 +1851,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       };
 
       mediaRecorder.start();
-      send({ type: "recorder:rolling:started" });
       return;
     }
 
@@ -1875,6 +1875,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           // Active recording...
           mediaRecorderDataHandler = (chunks) => {
+            // debugger;
             const blob = new Blob(chunks, {
               type: mediaRecorder.mimeType,
             });
@@ -1885,12 +1886,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             window.requestAnimationFrame(function update() {
               // TODO: Reading el.currentTime seems a little delayed...
               const content = el.currentTime / el.duration;
-
-              send({
-                type: "recorder:present-progress",
-                content,
-              });
-
+              send({ type: "recorder:present-progress", content });
               if (underlayFrame) window.requestAnimationFrame(update);
             });
 

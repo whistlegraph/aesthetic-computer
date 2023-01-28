@@ -1,5 +1,7 @@
 import * as num from "./num.mjs";
 
+const { floor } = Math;
+
 // Randomly returns one of the arguments.
 export function choose() {
   return arguments[num.randInt(arguments.length - 1)];
@@ -54,10 +56,10 @@ export function each(obj, fn) {
 }
 
 // Run a function `n` times, passing in `i` on each iteration
-// and returning an array of the results.
+// and returning an array of the results (like map).
 export function repeat(n, fn) {
   const reps = [];
-  for (let i = 0; i < n; i += 1) reps.push(fn(i));
+  for (let i = 0; i < floor(n); i += 1) reps.push(fn(i));
   return reps;
 }
 

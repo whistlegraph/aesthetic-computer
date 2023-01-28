@@ -4,11 +4,11 @@
 /* #region ✏️ todo
   + Now
   - [😀] Fix recording visibility on iOS!
+    - [] Unhandled Promise Rejection
   - [] Add a "home" / button.
     - [] Transcode upon tapping export.
       - [] Then transcode & upload and reveal download options, based on
            device capability.
-
   - [-] Factor out / comment or modify the old video overlay UI code.
   - [] Would I be able hold onto / store the recording similar to a painting
        on the client? So that way refreshing the page can work...
@@ -31,9 +31,7 @@
 function boot({ wipe, ink, screen, rec }) {
   wipe(0, 255, 0);
   ink(0).line(0, 0, screen.width, screen.height);
-
   // rec.print(); // Immediately start printing a recording if it exists.
-
   rec.present(); // Visually present a recording if one exists.
 }
 

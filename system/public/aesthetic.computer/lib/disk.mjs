@@ -2155,6 +2155,8 @@ async function makeFrame({ data: { type, content } }) {
 
       $api.paintCount = Number(paintCount);
 
+      $api.sound = { time: content.audioTime, bpm: content.audioBpm };
+
       $api.inFocus = content.inFocus;
 
       $api.glaze = function (content) {
