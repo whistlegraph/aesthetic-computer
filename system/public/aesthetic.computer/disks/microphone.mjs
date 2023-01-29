@@ -108,7 +108,7 @@ function sim({ dom: { html, css, javascript }, signal, rec: { printProgress } })
   }
 }
 
-function beat({ sound: { time, microphone }, content }) {
+function beat({ sound: { microphone } }) {
   if (!mic) mic = microphone.connect();
 }
 

@@ -202,7 +202,7 @@ let wiggleAngle = 0;
 // TODO; Change this to true and update all brushes.
 let NPdontPaintOnLeave = false;
 
-// 🔴 Recorder
+// 🔴 Recorder (Singleton)
 class Recorder {
   printProgress = 0;
   presentProgress = 0;
@@ -214,7 +214,8 @@ class Recorder {
   constructor() {}
 
   slate() {
-    send({ type: "recorder:slate" });
+    send({ type: "recorder:slate" }); // Kill the MediaRecorder instance.
+    $commonApi.rec.recorded = false; // Set this instance to false.
   }
 
   rolling(opts) {
@@ -1871,6 +1872,8 @@ async function makeFrame({ data: { type, content } }) {
       //Object.assign($api, painting.api);
 
       $api.inFocus = content.inFocus;
+
+      // console.log(content.audioTime); // Why does this freeze sometimes?
 
       $api.sound = { time: content.audioTime, bpm: content.audioBpm };
 

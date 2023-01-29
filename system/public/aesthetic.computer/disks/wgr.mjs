@@ -45,6 +45,7 @@
          or something like that.
   - 🛑 Launch 1
   + Done
+    - [x] Add loading animation ticker.
     - [x] Sketch title piece.  
     - [x] Wait until the microphone actually is connected before starting a recording
     - [x] Prevent stroke from continuing once recording ends.
@@ -101,6 +102,8 @@ let recStart,
   recBGflip = false,
   recProgress = 0;
 const recDuration = 6; // 6
+let progressTicker;
+let progressDots = 0;
 
 let bop = false;
 let mode = "practice";
@@ -119,21 +122,28 @@ let ALT = false, // Keyboard modifiers.
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot($) {
-  const { num, help, net, params } = $;
+  const { num, help, net, params, gizmo } = $;
 
   mode = params[0] || mode; // "practice" (default) or "record". (Parse params)
   if (params[0] === "r") mode = "record"; // 🧠 Shortcuts make working faster.
   if (params[0] === "p") mode = "practice";
+
+  progressTicker = new gizmo.Hourglass(30, {
+    completed: () => {
+      progressDots = (progressDots + 1) % 4;
+    },
+    autoFlip: true,
+  });
 
   if (debug) {
     // Load debug typeface.
     tf = new Typeface();
     tf.load(net.preload);
   }
-  $.glaze({ on: true }); // Add post-processing by @mxsage.
+  // $.glaze({ on: true }); // Add post-processing by @mxsage.
   bg = num.randIntArr(128, 3); // Random background color.
   wg = new Whistlegraph($, help.choose(1, 2)); // Whistlegraph with thickness.
-  // wipe(bg); // Clear backbuffer.
+  wipe(bg); // Clear backbuffer.
 }
 
 // 🎨 Paint
@@ -143,9 +153,7 @@ function paint($) {
     pens,
     ink,
     pen,
-    paintCount,
     rec: { recording, recorded, printProgress },
-    sound,
     screen: { width, height },
     help,
   } = $;
@@ -154,10 +162,10 @@ function paint($) {
   if (mode === "record" && !recording && !recorded) {
     let text, i;
     if (mic) {
-      i = 0;
+      i = 96;
       text = "Get ready";
       let suffix = "";
-      help.repeat(sound.time % 4, () => (suffix += "."));
+      help.repeat(progressDots, () => (suffix += "."));
       text += suffix.padEnd(3, " ");
     } else {
       i = 64;
@@ -239,11 +247,19 @@ function paint($) {
 }
 
 // 🧮 Sim(ulate)
-function sim({ pen, rec: { cut, recording }, sound: { time }, jump }) {
+function sim({
+  pen,
+  rec: { cut, recording, recorded },
+  sound: { time },
+  jump,
+}) {
   // Navigation
   if (pen && (SHIFT || CTRL || ALT || Q || E)) wg.anchor(pen); // Anchor
   if (SHIFT || CTRL) wg.zoom(CTRL ? 0.998 : 1.002); // Zoom
   if (Q || E) wg.rotate(Q ? -0.02 : 0.02); // Rotate
+
+  if (mode === "record" && !recording && !recorded && mic)
+    progressTicker.step();
 
   // AV Recording
   mic?.poll(); // Query microphone for updated amplitude and waveform data.
@@ -259,7 +275,6 @@ function sim({ pen, rec: { cut, recording }, sound: { time }, jump }) {
       recProgress = (time - recStart) / recDuration;
       if (recProgress >= 1) {
         wg.lift(); // Stop any active gesture.
-
         recProgress = 0; // Reset progress.
         recStart = undefined; // Reset start.
         cut(); // Cut the recording here.

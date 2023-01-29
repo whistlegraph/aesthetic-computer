@@ -3,6 +3,7 @@
 
 /* #region ✏️ todo
   + Now
+  - [--] Fix "microphone" in iOS!
   - [😀] Fix recording visibility on iOS!
     - [] Unhandled Promise Rejection
   - [] Add a "home" / button.
