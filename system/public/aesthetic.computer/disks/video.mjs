@@ -3,9 +3,8 @@
 
 /* #region ✏️ todo
   + Now
-  - [--] Fix "microphone" in iOS!
-  - [😀] Fix recording visibility on iOS!
-    - [] Unhandled Promise Rejection
+  - [] Fix audio video cut-off issues in recording.
+
   - [] Add a "home" / button.
     - [] Transcode upon tapping export.
       - [] Then transcode & upload and reveal download options, based on
@@ -14,6 +13,8 @@
   - [] Would I be able hold onto / store the recording similar to a painting
        on the client? So that way refreshing the page can work...
   + Done
+  - [x] Fix recording visibility on iOS!
+    - [x] Unhandled Promise Rejection
   - [x] Pressing "back" and then going "forward" should restart your recording,
   - [x] Show preview of video immediately when the piece loads if a video
         actually exists.
@@ -39,26 +40,39 @@ function boot({ wipe, ink, screen, rec }) {
 // 🎨 Paint (Executes every display frame)
 function paint({
   wipe,
-  rec: { printing, presenting, printProgress, presentProgress },
+  ink,
+  rec: { printing, presenting, playing, printProgress, presentProgress },
   screen: { width, height },
 }) {
-
   if (presenting) {
-    wipe(0, 0, 200, 40);
-    // ink(255).box(0, height - 4, width * presentProgress, height - 4); // Present a progress bar.
+    if (!playing) {
+      wipe(0, 100).ink(255, 200).write("TAP TO PLAY", { center: "xy " });
+    } else {
+      wipe(0, 0);
+      /*
+      ink(0, 255, 255, 200).box(
+        0,
+        height - 4,
+        width * presentProgress,
+        height - 4
+      ); // Present a progress bar.
+      */
+    }
   } else if (printing) {
     const h = 16; // Paint a printing / transcoding progress bar.
-    wipe(80, 0, 0)
+    wipe(80, 0, 0, 40)
       .ink(255, 0, 0)
       .box(0, height / 2 - h / 2, printProgress * width, h);
-  } else wipe(40, 0, 0).ink(180, 0, 0).write("No Video", { center: "xy" });
-
+  } else wipe(40, 0, 0).ink(180, 0, 0).write("NO VIDEO", { center: "xy" });
 }
 
 // ✒ Act (Runs once per user interaction)
-// function act({ event: e }) { }
+function act({ event: e, rec }) {
+  if (e.is("touch:1") && !rec.playing) rec.play();
+  if (e.is("touch:1") && rec.playing) rec.pause();
+}
 
-export { boot, paint };
+export { boot, paint, act };
 
 // 📚 Library (Useful functions used throughout the piece)
 // ...

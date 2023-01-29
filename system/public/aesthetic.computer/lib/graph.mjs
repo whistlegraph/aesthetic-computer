@@ -212,7 +212,7 @@ function shadePixels(points, shader, shaderArgs = []) {
   points.forEach((p) => {
     // TODO: - [] Send current pixel under p? This can be used for cool position
     //            reading color effects. 23.01.05.01.23
-  
+
     // Clip
     if (p.x < 0) return;
     if (p.x >= width) return;
@@ -798,11 +798,10 @@ function pline(coords, thickness, shader) {
 
     // Full outside clipping.
     // Clip triangles that are *fully* offscreen.
-    const clippedTris = trig.filter(
-      (triangle) =>
-        triangle.some(
-          (v) => v[0] >= 0 && v[0] < width && v[1] >= 0 && v[1] < height
-        )
+    const clippedTris = trig.filter((triangle) =>
+      triangle.some(
+        (v) => v[0] >= 0 && v[0] < width && v[1] >= 0 && v[1] < height
+      )
     );
 
     clippedTris.forEach((tri) => fillTri(tri, tris)); // Fill quad.
@@ -1006,6 +1005,8 @@ function box() {
   } else {
     //return console.error("Invalid box call.");
   }
+
+  if (w === 0 || h === 0 || isNaN(w) || isNaN(h)) return; // Silently quit if the box has no volume.
 
   // Random parameters if undefined.
   if (x === undefined) x = randInt(width);

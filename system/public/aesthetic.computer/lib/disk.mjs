@@ -210,6 +210,7 @@ class Recorder {
   recording = false; // "
   recorded = false; // "
   presenting = false; // "
+  playing = false; // "
 
   constructor() {}
 
@@ -232,6 +233,18 @@ class Recorder {
 
   present() {
     send({ type: "recorder:present" });
+  }
+
+  unpresent() {
+    send({ type: "recorder:unpresent" });
+  }
+
+  play() {
+    send({ type: "recorder:present:play" });
+  }
+
+  pause() {
+    send({ type: "recorder:present:pause" });
   }
 
   // unpresent() {}
@@ -1563,6 +1576,16 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "recorder:present-progress") {
     $commonApi.rec.presentProgress = content;
+    return;
+  }
+
+  if (type === "recorder:present-playing") {
+    $commonApi.rec.playing = true;
+    return;
+  }
+
+  if (type === "recorder:present-paused") {
+    $commonApi.rec.playing = false;
     return;
   }
 
