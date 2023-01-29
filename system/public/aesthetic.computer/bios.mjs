@@ -1880,6 +1880,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               type: mediaRecorder.mimeType,
             });
             el.src = URL.createObjectURL(blob);
+
+            // el.autoplay = true; // Allow video footage play automatically.
+            el.setAttribute("playsinline", ""); // Only for iOS.
+            el.setAttribute("muted", ""); // Don't include audio with video.
+
             el.loop = true;
 
             // Report the progress of this element back to the `disk`.
@@ -2441,6 +2446,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Connects the Microphone to the current audioContext.
   function receivedMicrophone(data = {}) {
+
     if (data.detach) {
       detachMicrophone?.();
     } else {
