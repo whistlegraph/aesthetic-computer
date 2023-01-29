@@ -479,7 +479,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       latencyHint: "interactive",
       // TODO: Eventually choose a good sample rate and/or make it settable via
       //       the current disk.
-      sampleRate: 44100,
+      // sampleRate: 44100,
       // sampleRate: 48000,
       // sampleRate: 96000,
       // sampleRate: 192000,
@@ -1860,8 +1860,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "recorder:cut") {
       if (!mediaRecorder) return;
       if (debug) console.log("✂️ Recorder: Cut");
-      mediaRecorder.pause();
-      send({ type: "recorder:rolling:ended" });
+      setTimeout(() => {
+        mediaRecorder.pause();
+        send({ type: "recorder:rolling:ended" });
+      }, 250);
       return;
     }
 

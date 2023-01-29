@@ -44,6 +44,8 @@
          or something like that.
   - 🛑 Launch 1
   + Done
+    - [x️‍] Fix audio video cut-off issues in recording.
+         (Added a small delay.)
     - [x] Add loading animation ticker.
     - [x] Sketch title piece.  
     - [x] Wait until the microphone actually is connected before starting a recording
@@ -99,7 +101,8 @@ let wg, bg; // Whistlegraph foreground and background.
 let mic;
 let recStart,
   recBGflip = false,
-  recProgress = 0;
+  recProgress = 0,
+  recCutting = false;
 const recDuration = 6; // 6
 let progressTicker;
 let progressDots = 0;
@@ -189,6 +192,7 @@ function paint($) {
   if (ALT || SHIFT || CTRL || Q || E || pens?.().length > 1) wipe(bg);
 
   // Waveform & Amplitude Line
+  /*
   if (recording && mic?.waveform.length > 0 && mic?.amplitude !== undefined) {
     const xStep = width / mic.waveform.length + 1;
     const yMid = height / 2,
@@ -197,6 +201,7 @@ function paint($) {
       mic.waveform.map((v, i) => [i * xStep, yMid + v * yMax])
     );
   }
+  */
 
   wg.paint($);
   // $.ink(255, 255, 0, 128).box(wg.anchor.x, wg.anchor.y, 8, "out*center");
@@ -272,12 +277,16 @@ function sim({
     } else {
       // 🔴 End recording when timer fires.
       recProgress = (time - recStart) / recDuration;
-      if (recProgress >= 1) {
+      if (!recCutting && recProgress >= 1) {
         wg.lift(); // Stop any active gesture.
-        recProgress = 0; // Reset progress.
-        recStart = undefined; // Reset start.
-        cut(); // Cut the recording here.
-        jump("video"); // Jump to the `video` piece for printing.
+        recCutting = true;
+        cut(() => {
+          recProgress = 0; // Reset progress.
+          recStart = undefined; // Reset start.
+          recCutting = false;
+          // Then once the cut is confirmed...
+          jump("video"); // Jump to the `video` piece for printing.
+        }); // Cut the recording here.
       }
     }
   }
@@ -585,12 +594,20 @@ class Whistlegraph {
         });
       } else {
         $.pline(points, scaledThickness, {
-          position: (pos) => {
+          position: (pos, progress) => {
             // 🩰 Spread
-            const r1 = randInt(4);
-            const r2 = randInt(4);
+
+            let spread = 4;
+            if (mic && i === this.gestureIndex && progress < 0.1)
+              spread = mic.amplitude * 10 * 8;
+
+            const r1 = randInt(spread);
+            const r2 = randInt(spread);
+
             pos.x = pos.x + choose(-r1, r1) * rand();
             pos.y = pos.y + choose(-r2, r2) * rand();
+
+            // Show some audio stuff here.
           },
           color: (pos, pix, col) => {
             // // 📊 Axis Gradient
@@ -608,6 +625,14 @@ class Whistlegraph {
               pix[0] = lerp(col[0], randInt(255), rand() / 2);
               pix[1] = lerp(col[1], randInt(255), rand() / 2);
               pix[2] = lerp(col[2], randInt(255), rand() / 2);
+            }
+
+            // Show some audio stuff here.
+            if (mic && i === this.gestureIndex) {
+              const amp = mic.amplitude * 10 * 255;
+              // pix[0] = (pix[0] + amp) / 2;
+              pix[1] = (pix[1] + amp) / 2;
+              pix[2] = (pix[2] + amp) / 2;
             }
           },
         });
