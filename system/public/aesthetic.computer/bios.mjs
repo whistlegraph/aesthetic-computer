@@ -856,7 +856,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let pixelsDidChange = false; // TODO: Can this whole thing be removed? 2021.11.28.03.50
 
   let contentFrame;
-  let underlayFrame;
+  let underlayFrame,
+    underlayVideo = {};
 
   const bakedCan = document.createElement("canvas", {
     willReadFrequently: true,
@@ -1628,7 +1629,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Currently always includes an audio track by default.
         options = {
           audioBitsPerSecond: 128000,
-          videoBitsPerSecond: 2500000,
+          // videoBitsPerSecond: 2500000,
+          videoBitsPerSecond: 5000000,
           mimeType,
         };
 
@@ -1640,17 +1642,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // TODO: Only set the streamCanvas here if it is below a certain
         //       resolution.
         streamCanvasContext = document.createElement("canvas").getContext("2d");
-        streamCanvasContext.imageSmoothingEnabled = false;
 
         // TODO: If we aren't using TikTok, then just find a good resolution / double
         // the pixels as needed. 22.08.11.03.38
-        // streamCanvasContext.canvas.width = canvas.width * 2;
-        // streamCanvasContext.canvas.height = canvas.height * 2;
+        streamCanvasContext.canvas.width = canvas.width * 4;
+        streamCanvasContext.canvas.height = canvas.height * 4;
+
+        // Must be set after resize.
+        streamCanvasContext.imageSmoothingEnabled = false;
 
         // Portrait Mode / TikTok (this is the default for recording)
         // This is hardcoded at 1080p for TikTok right now.
-        streamCanvasContext.canvas.width = 1080;
-        streamCanvasContext.canvas.height = 1920;
+        // streamCanvasContext.canvas.width = 1080;
+        // streamCanvasContext.canvas.height = 1920;
 
         // Draw into the streamCanvas buffer from the normal canvas,
         // Leaves black bars, resizing it to the frame of the streamCanvas.
@@ -1844,7 +1848,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           wrapper.append(recordingsEl);
         }
 
-        // TODO: Figure out what to do with these...
         el.play();
 
         if (debug) console.log("📼 Recorder: Printed");
@@ -1872,6 +1875,44 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           underlayFrame.id = "underlay";
 
           const el = document.createElement(type); // "audio" or "video"
+          el.autoplay = true; // Allow video footage play automatically.
+          el.setAttribute("playsinline", ""); // Only for iOS.
+          el.loop = true;
+          // el.setAttribute("muted", ""); // Only for iOS.
+          // el.volume = 0;
+          // el.controls = true;
+
+          el.addEventListener("play", () => {
+            send({ type: "recorder:present-playing" });
+          });
+
+          el.addEventListener("pause", () => {
+            send({ type: "recorder:present-paused" });
+          });
+
+          el.addEventListener("pointerdown", () => {
+            // TODO: This is hacky. Will do for now. 23.01.29.16.06
+            if (underlayVideo.needsPlay || el.paused) {
+              try {
+                el.play();
+              } catch (e) {
+                console.warn(e);
+              }
+              delete underlayVideo.needsPlay;
+            } else if (underlayVideo.needsPause) {
+              el.pause();
+              delete underlayVideo.needsPause;
+            }
+          });
+
+          // Try running everything through the audioContext even if
+          // the video is muted.
+          // if (audioContext) {
+          // const source = audioContext.createMediaElementSource(el);
+          // const gainNode = audioContext.createGain();
+          // source.connect(gainNode);
+          // source.connect(audioContext.destination);
+          // }
 
           // Active recording...
           mediaRecorderDataHandler = (chunks) => {
@@ -1879,23 +1920,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const blob = new Blob(chunks, {
               type: mediaRecorder.mimeType,
             });
+
             el.src = URL.createObjectURL(blob);
-
-            // el.autoplay = true; // Allow video footage play automatically.
-            el.setAttribute("playsinline", ""); // Only for iOS.
-            el.setAttribute("muted", ""); // Don't include audio with video.
-
-            el.loop = true;
 
             // Report the progress of this element back to the `disk`.
             window.requestAnimationFrame(function update() {
-              // TODO: Reading el.currentTime seems a little delayed...
+              // Note: Reading el.currentTime seems a little delayed...
+              //       and returns NaN early on.
               const content = el.currentTime / el.duration;
               send({ type: "recorder:present-progress", content });
               if (underlayFrame) window.requestAnimationFrame(update);
             });
 
-            el.play();
+            el.play(); // Attempt to play the video (won't work on mobile).
+            // Note: Video plays via recorder:present:play and pause events.
           };
 
           mediaRecorder.requestData();
@@ -1910,6 +1948,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           send({ type: "recorder:presented" });
         }
       }
+      return;
+    }
+
+    if (type === "recorder:present:play") {
+      underlayVideo.needsPlay = true;
+      return;
+    }
+
+    if (type === "recorder:present:pause") {
+      underlayVideo.needsPause = true;
       return;
     }
 
@@ -2446,7 +2494,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Connects the Microphone to the current audioContext.
   function receivedMicrophone(data = {}) {
-
     if (data.detach) {
       detachMicrophone?.();
     } else {

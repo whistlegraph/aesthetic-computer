@@ -9,18 +9,15 @@
       - [-] Sketch output piece.
       2 Input / `wgr` Piece
         + Now
-          - [] add `mode` to the cli
-          - [] `practice` and `record:seconds`
+          - [-] add `record:seconds`
           - [] Button on top right for stopping a recording.
-          - [] Save / hold data on completion, then jump to `video` piece for
+          - [x] add `mode` to the cli
+          - [x] Save / hold data on completion, then jump to `video` piece for
                optional video exporting and hook into the upload of data
                on export, stamping the video with a unique ID (URL).
-      - CANCELLED *** Option A: Overlay Method ***
-        - [] Show a system-wide pop-over. 
-    - [] Store to temporary online bucket and allow user to download / show code. 
-         (Does this already happen?)
-  - [] Add background beat / music?
-    - [] (via parameter #2)
+
+  - [] Allow user to download / show URL code. 
+
   - [] Make the background cool and grainy / animated a bit.
   - [] (Post Wednesday) Whistlegraph Stamp
     - [] Two SVGs layered over.
@@ -29,6 +26,8 @@
     - [] Don't delete videos that get stored.
     - [] "pre-launch / early" 
   + Later
+    - [] Add background beat / music?
+      - [] (via parameter #2)
     - [] Speed up "..." on Get ready...? (Make it nice across all browsers)
     - [] Make microphone deny behavior.
     - [] This will be done with `wgr seconds` in addition to a countdown timer.
@@ -163,13 +162,13 @@ function paint($) {
     let text, i;
     if (mic) {
       i = 96;
-      text = "Get ready";
+      text = "GET READY";
       let suffix = "";
       help.repeat(progressDots, () => (suffix += "."));
       text += suffix.padEnd(3, " ");
     } else {
       i = 64;
-      text = "Tap to Record";
+      text = "TAP TO RECORD";
     }
 
     wipe(127).ink(i).write(text, { center: "xy" });
