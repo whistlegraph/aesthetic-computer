@@ -219,7 +219,7 @@ function shadePixels(points, shader, shaderArgs = []) {
     if (p.y < 0) return;
     if (p.y >= height) return;
 
-    shader.position(p); // Compute position.
+    shader.position(p, ...shaderArgs); // Compute position.
 
     // Clip again
     if (p.x < 0) return;
@@ -819,7 +819,8 @@ function pline(coords, thickness, shader) {
     if (cur.color) color(...cur.color);
 
     if (shader) {
-      shadePixels(tris, shader, [cur.color]);
+      const progress = 1 - (i / (coords.length - 2));
+      shadePixels(tris, shader, [progress]);
     } else {
       tris.forEach((p) => point(p));
     }

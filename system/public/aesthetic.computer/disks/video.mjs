@@ -3,13 +3,13 @@
 
 /* #region ✏️ todo
   + Now
-  - [] Fix audio video cut-off issues in recording.
-
-  - [] Add a "home" / button.
+  - [] Add "export" button.
     - [] Transcode upon tapping export.
       - [] Then transcode & upload and reveal download options, based on
            device capability.
   - [-] Factor out / comment or modify the old video overlay UI code.
+  - [-] Add stamp on export.
+
   - [] Would I be able hold onto / store the recording similar to a painting
        on the client? So that way refreshing the page can work...
   + Done

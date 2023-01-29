@@ -211,6 +211,7 @@ class Recorder {
   recorded = false; // "
   presenting = false; // "
   playing = false; // "
+  cutCallback;
 
   constructor() {}
 
@@ -223,7 +224,8 @@ class Recorder {
     send({ type: "recorder:rolling", content: opts });
   }
 
-  cut() {
+  cut(cb) {
+    $commonApi.rec.cutCallback = cb;
     send({ type: "recorder:cut" });
   }
 
@@ -1559,8 +1561,8 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "recorder:rolling:ended") {
     $commonApi.rec.recording = false;
-
-    $commonApi.rec.recorded = true; // TODO: This needs to clear when a recording "empties".
+    $commonApi.rec.recorded = true; // Also cleared when a recording "slates".
+    $commonApi.rec.cutCallback?.();
     return;
   }
 
