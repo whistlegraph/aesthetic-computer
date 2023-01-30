@@ -2342,6 +2342,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", presignedUrl, true);
         xhr.setRequestHeader("Content-Type", MIME);
+        xhr.setRequestHeader("Content-Disposition", "attachment");
         xhr.setRequestHeader("x-amz-acl", "public-read");
 
         xhr.upload.addEventListener("progress", (event) => {
@@ -2351,7 +2352,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         xhr.onreadystatechange = function () {
           if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-
             send({
               type: callbackMessage,
               content: { result: "success", data: { slug } },
@@ -2362,8 +2362,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         };
 
         xhr.send(new Blob([data], { type: MIME }));
-
-
       })
       .catch((err) => {
         if (debug) console.log("⚠️ Failed to get presigned URL:", err);
@@ -2461,11 +2459,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       object = URL.createObjectURL(blob, { type: MIME });
     } else if (extension(filename) === "mp4") {
       // Use `data` from the global Media Recorder.
-      if (mediaRecorderBlob) object = URL.createObjectURL(mediaRecorderBlob);
+      if (mediaRecorderBlob) {
+        object = URL.createObjectURL(mediaRecorderBlob);
+      } else {
+        console.warn(
+          "🕸️ No local video available... Trying art bucket:",
+          filename
+        );
+        object = `https://art.aesthetic.computer/${filename}`;
+      }
     }
 
     const a = document.createElement("a");
     a.href = object;
+    a.target = "_blank";
     a.download = filename;
     a.click();
     URL.revokeObjectURL(a.href);

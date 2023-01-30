@@ -103,7 +103,7 @@ let recStart,
   recBGflip = false,
   recProgress = 0,
   recCutting = false;
-const recDuration = 3; // 6
+let recDuration = 6; // Parameterize this...
 let progressTicker;
 let progressDots = 0;
 
@@ -123,12 +123,17 @@ let ALT = false, // Keyboard modifiers.
   CTRL = false;
 
 // 🥾 Boot (Runs once before first paint and sim)
+// Params: mode: record or practice
+//         duration: record duration
 function boot($) {
-  const { num, help, wipe, net, params, gizmo } = $;
+  const { num, help, wipe, net, params, gizmo, rec } = $;
 
   mode = params[0] || mode; // "practice" (default) or "record". (Parse params)
   if (params[0] === "r") mode = "record"; // 🧠 Shortcuts make working faster.
   if (params[0] === "p") mode = "practice";
+  if (mode === "record") recDuration = parseInt(params[1]) || 6;
+
+  rec.slate(); // Clear any existing recording regardless of the mode.
 
   progressTicker = new gizmo.Hourglass(30, {
     completed: () => {
@@ -152,6 +157,7 @@ function boot($) {
 function paint($) {
   const {
     wipe,
+    noise16,
     pens,
     ink,
     pen,
@@ -169,12 +175,16 @@ function paint($) {
       let suffix = "";
       help.repeat(progressDots, () => (suffix += "."));
       text += suffix.padEnd(3, " ");
+
+      //wipe(127).ink(i).write(text, { center: "xy" });
+      noise16();
+
     } else {
       i = 64;
       text = "TAP TO RECORD";
+      wipe(127).ink(i).write(text, { center: "xy" });
     }
 
-    wipe(127).ink(i).write(text, { center: "xy" });
 
     return;
   }
@@ -241,7 +251,7 @@ function paint($) {
       .forEach((line, i) =>
         tf.print(
           $,
-          { x: 3, y: mode === "record" ? 5 : 2 },
+          { x: 6, y: mode === "record" ? 6 + 14 : 6 + 14 + 2 },
           i,
           `${line[0]}: ${line[1]}`,
           bg
@@ -308,7 +318,6 @@ function act($) {
 
   if (e.is("microphone-connect:success")) {
     console.log("🔴 Recording...");
-    slate();
     rolling("video"); // Start recording immediately.
   }
 

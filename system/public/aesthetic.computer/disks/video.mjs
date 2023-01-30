@@ -34,28 +34,34 @@
     - [] Show a little game or helpful hint. (💡 @alex)
 #endregion */
 
-let btn, label = "Download"; // "Export" | "Download" | "CODE" button.
+let btn, nobtn,
+  label = "Download"; // "Export" | "Download" | "CODE" button.
 let slug; // Stores a download code for prepending to locally downloaded videos.
+let isPrinting = false;
+let progressTicker, progressDots = 0;
 
 // 🥾 Boot (Runs once before first paint and sim)
-function boot({ wipe, rec }) {
+function boot({ wipe, rec, gizmo }) {
   wipe(0);
   rec.present(); // Visually present a recording right away if one exists.
+
+  progressTicker = new gizmo.Hourglass(30, {
+    completed: () => {
+      progressDots = (progressDots + 1) % 4;
+    },
+    autoFlip: true,
+  });
+
 }
 
 // 🎨 Paint (Executes every display frame)
 function paint({
   wipe,
+  num,
   ink,
   ui,
-  rec: {
-    printing,
-    presenting,
-    playing,
-    printProgress,
-    printed,
-    presentProgress,
-  },
+  help,
+  rec: { presenting, playing, printProgress, printed, presentProgress },
   screen: { width, height },
 }) {
   if (presenting) {
@@ -66,30 +72,52 @@ function paint({
       // ink(0, 255, 255, 200).box( 0, height - 4, width * presentProgress, height - 4); // Present a progress bar.
     }
 
-    // Draw the "Export" button.
-    if (!btn)
-      btn = new ui.Button({
-        x: width - 80 - 6,
-        y: height - 20 - 6,
-        w: 80,
-        h: 20,
-      });
-
-    if (printing) {
+    if (isPrinting) {
       const h = 16; // Paint a printing / transcoding progress bar.
-      wipe(80, 0, 0, 180)
+
+      let text = "PROCESSING";
+      let suffix = "";
+      help.repeat(progressDots, () => (suffix += "."));
+      text += suffix.padEnd(3, " ");
+
+      wipe(0, 0, 80, 180)
         .ink(0)
         .box(0, height / 2 - h / 2, width, h)
         .ink(255, 0, 0)
         .box(0, height / 2 - h / 2, printProgress * width, h)
         .ink(255, 200)
-        .write("Transcoding...", { center: "xy" });
+        .write(text, { center: "xy" });
     } else {
+
+      // Show "Cancel" / "No" button.
+
+      if (!nobtn)
+        nobtn = new ui.Button({
+          x: 6,
+          y: height - 20 - 6,
+          w: 40,
+          h: 20,
+        });
+      ink(200, 0, 0)
+        .box(nobtn.box, "fill")
+        .ink(100, 0, 0)
+        .write("RETRY", num.p2.add(nobtn.box, {x: 6, y: 4}), [0, 40]);
+
       // Show "Export" (Print) button to transcode and save a video.
+      // Draw the "Export" button.
+      if (!btn)
+        btn = new ui.Button({
+          x: width - 40 - 6,
+          y: height - 20 - 6,
+          w: 40,
+          h: 20,
+        });
       ink(0, 200, 0)
         .box(btn.box, "fill")
-        .ink(0, 80, 0)
-        .write("Done", btn.box, [0, 40]);
+        .ink(100, 255, 100)
+        .write("DONE", num.p2.add(btn.box, {x: 8, y: 4}), [0, 40]);
+
+
     }
   } else {
     // TODO: Put a little delay on here?
@@ -97,34 +125,41 @@ function paint({
   }
 }
 
+function sim () {
+  progressTicker.step();
+}
+
 // ✒ Act (Runs once per user interaction)
 function act({ event: e, rec, download, serverUpload: upload, num, jump }) {
   if (!rec.printing) {
     let noPrint = true;
+
+    // Retry
+    nobtn?.act(e, () => { jump(`whistlegraph`) });
+
     // Print (or download) a video.
     btn?.act(e, () => {
       if (rec.printed) {
-
-        let filename = `whistlegraph-${num.timestamp()}.mp4`;
-        download(filename); // Download the video locally.
-
       } else {
         // TODO: How do I keep track of network upload progress?
         //       Maybe with a callback?
-
         // Transcode and then upload.
+        isPrinting = true;
         rec.print(async () => {
+          let uploaded;
           try {
-            const uploaded = await upload(".mp4");
-            jump(`download ${uploaded.slug}`)
-
+            uploaded = await upload(".mp4");
           } catch (e) {
             console.error("Upload failed:", e);
+            uploaded = { slug: "local" };
           }
+          jump(`download ${uploaded.slug}`);
         });
         noPrint = false;
       }
     });
+
+
     if (noPrint) {
       if (e.is("touch:1") && !rec.playing) rec.play();
       if (e.is("touch:1") && rec.playing) rec.pause();
@@ -132,7 +167,7 @@ function act({ event: e, rec, download, serverUpload: upload, num, jump }) {
   }
 }
 
-export { boot, paint, act };
+export { boot, paint, sim, act };
 
 // 📚 Library (Useful functions used throughout the piece)
 // ...

@@ -3,6 +3,7 @@
 
 /* #region 🏁 todo
   + ⏰ Now
+  - [] Why isn't "learn" clearing the top left.
   + Later
   - [] Button to a feed of latest posts / recordings.
   - [] Drawing tool / background configuration / theme.
@@ -18,34 +19,49 @@
     - [x] Import type...
 #endregion */
 
-let practice, record;
+let practice, record, learn;
 
-function boot({ wipe, ink, write, ui: { Button } }) {
+function boot({ wipe, ink, write, num, ui: { Button } }) {
+  const y = 35;
+  const x = 4;
+
   // Title
   wipe(0, 0, 200)
     .ink(255, 255, 0, 255)
-    .write("Whistlegraph Recorder", {x: 0, y: 0}, [0, 0, 0, 255]);
+    .write("Whistlegraph Recorder", {x, y}, [0, 0, 0, 255]);
 
   // Practice Button
-  practice = new Button({ x: 10, y: 20, w: 80, h: 20 });
-  ink(0, 200, 0)
+  practice = new Button({ x: x + 10, y: y + 30, w: 80, h: 20 });
+  ink(0, 100, 0)
     .box(practice.box, "fill")
-    .ink(200, 0, 0)
-    .write("Practice", practice.box, 127);
+    .ink(0, 255, 0, 150)
+    .box(practice.box, "outline")
+    .ink(0, 200, 0)
+    .write("Practice", num.p2.add(practice.box, {x: 4, y: 4}), [0, 50, 0]);
 
   // Record Button
-  record = new Button({ x: 10, y: 50, w: 80, h: 20 });
+  record = new Button({ x: x + 10, y: y + 60, w: 80, h: 20 });
   ink(255, 0, 0)
     .box(record.box, "fill")
-    .ink(0, 0, 255)
-    .write("Record", record.box, 127);
+    .ink(255, 0, 0)
+    .write("Record", num.p2.add(record.box, {x: 4, y: 4}), [100, 0, 0]);
+
+  // Learn Button
+  learn = new Button({ x: x + 10, y: y + 90, w: 80, h: 20 });
+  ink(0, 100, 255)
+    .box(learn.box, "fill")
+    .ink(0, 200, 200)
+    .write("Learn", num.p2.add(learn.box, {x: 4, y: 4}), [0, 0, 50, 80]);
 }
 
-function paint($) {}
+function paint($) {
+  // return true;
+}
 
 function act({ event: e, jump }) {
   practice.act(e, () => jump("wgr practice"));
   record.act(e, () => jump("wgr record"));
+  learn.act(e, () => jump("wg"));
 }
 
 export { boot, paint, act };

@@ -219,8 +219,13 @@ class Recorder {
 
   slate() {
     send({ type: "recorder:slate" }); // Kill the MediaRecorder instance.
-    $commonApi.rec.recorded = false; // Reset this singleton.
-    $commonApi.rec.printed = false; // ""
+    // TODO: Should printing and playing also be set to false?
+    //$commonApi.rec.printing = false; // "
+
+    $commonApi.rec.recording = false; // Reset this singleton.
+    $commonApi.rec.recorded = false; // 
+    $commonApi.rec.printed = false; // "
+    $commonApi.rec.printProgress = 0; // "
   }
 
   rolling(opts) {
@@ -2363,7 +2368,8 @@ async function makeFrame({ data: { type, content } }) {
       // Draw any Global UI / HUD.
 
       // System info.
-      if (currentText?.split("~")[0] !== "prompt") {
+      const piece = currentText?.split("~")[0];
+      if (piece !== "prompt" && piece !== "video") {
         $api
           .ink(0, 255, 255)
           .write(currentText?.replaceAll("~", " "), { x: 6, y: 6 });
@@ -2469,7 +2475,6 @@ async function makeFrame({ data: { type, content } }) {
 
     // ***Frame State Reset***
     // Reset video transcoding / print progress.
-    if ($commonApi.rec.printProgress === 1) $commonApi.rec.printProgress = 0;
 
     //console.log(performance.now() - frameTime, "ms");
 
