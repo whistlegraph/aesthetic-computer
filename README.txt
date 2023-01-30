@@ -60,7 +60,7 @@
 *** Painting w/ Signature for Yeche Lange***
   - [] Add "signature" / title flag feature to `dl` command.
     - `sign`
-      - [] Print out a signature with timestamp
+      - [] Paste a signature with timestamp in the corner.
            that is NOT opaque and in the bottom left corner.
   - `no`
     - [] Undo a step.
@@ -98,9 +98,6 @@
   - [x] Review spreadsheet metadata: https://docs.google.com/spreadsheets/d/10aeN4WyTQ1UQUT9-IUbKFdoeEfkumqM6_8mvFs5dVq8/edit#gid=1052521247 
 
 *** Project Order ***
-- [📹] Make screen-based whistlegraph recorder tool that makes use of the album tracks.
-  - [] Add it to the API and make a `wgr` disk. 
-  - [] Set up doodads like file hosting and stamping on videos.
 *** VS Code Extension ***
 - [] Make VSCode extension / back-seat document API (maya).
   - [🟡] Modify disk load to accept new source code. 
@@ -179,6 +176,9 @@
   - [] Get nice UI
  
  + Done
+- [x] Prototype screen-based whistlegraph recorder tool.
+  - [x] Add it to the API and make a `wgr` disk. 
+  - [x] Set up doodads like file hosting.
  - [x] Write micropage for the whistlegraph album. (m2w2)
  - [x] Fix image download function.
  - [x] Get developer live reload working again.

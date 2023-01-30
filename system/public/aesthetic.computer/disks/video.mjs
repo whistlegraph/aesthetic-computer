@@ -3,21 +3,17 @@
 
 /* #region ✏️ todo
   + Now
-  - [x] Add "export" or "save" button.
-
-    - [x] Transcode upon tapping export.
-      - [] Reveal download options, based on
-           device capability.
-
-  - [😀] Factor out / comment or modify the old video overlay UI code.
-
-  - [] Add "fuzzy" intro instead of "Get ready..." or a delay or something.
-       (Test Pattern)
   - [-] Add stamp on export.
-
   - [] Would I be able hold onto / store the recording similar to a painting
        on the client? So that way refreshing the page can work...
   + Done
+  - [x] Add "fuzzy" intro instead of "Get ready..." or a delay or something.
+       (Test Pattern)
+  - [x] Add "export" or "save" button.
+    - [x] Transcode upon tapping export.
+      - [x] Reveal download options, based on
+           device capability.
+  - [x] Factor out / comment or modify the old video overlay UI code.
   - [x] Fix recording visibility on iOS!
     - [x] Unhandled Promise Rejection
   - [x] Pressing "back" and then going "forward" should restart your recording,

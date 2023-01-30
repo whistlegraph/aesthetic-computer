@@ -4,6 +4,11 @@
 /* #region 🏁 todo
   + ⏰ Now
   - [] Why isn't "learn" clearing the top left.
+    - [] It has to do with `boot` not clearing that top left part of the buffer.
+  - [⚠️] Fix record flow errors - quitting during playback then re-recording is
+       weird, especially on iOS.
+       (Can hear old audio playing, etc.)
+  - [] Clear todos in `video`, `download`, and `wgr`.   
   + Later
   - [] Button to a feed of latest posts / recordings.
   - [] Drawing tool / background configuration / theme.
@@ -54,7 +59,7 @@ function boot({ wipe, ink, write, num, ui: { Button } }) {
     .write("Learn", num.p2.add(learn.box, {x: 4, y: 4}), [0, 0, 50, 80]);
 }
 
-function paint($) {
+function paint() {
   // return true;
 }
 
