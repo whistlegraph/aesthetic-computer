@@ -158,8 +158,6 @@ function act($) {
     }
   }
 
-  console.log($);
-
   bleeps.forEach((bleep) => {
     bleep.button.act(event, {
       push: () => needsPaint(),
