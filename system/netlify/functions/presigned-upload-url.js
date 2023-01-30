@@ -109,15 +109,21 @@ export async function handler(event, context) {
     }
   }
 
+  // TODO: How Can I add contentdisposition here?
+
   const putObjectParams = {
     Bucket: client.bucket,
     Key: fileName,
     ContentType: mimeType,
     ACL: "public-read",
+    ContentDisposition: "attachment",
   };
 
   const command = new PutObjectCommand(putObjectParams);
-  const uploadURL = await getSignedUrl(client.s3, command, { expiresIn: 3600 });
+  const uploadURL = await getSignedUrl(client.s3, command, {
+    expiresIn: 3600,
+    ContentDisposition: "attachment",
+  });
 
   return {
     statusCode: 200,
