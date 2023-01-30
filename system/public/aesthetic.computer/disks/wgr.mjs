@@ -3,21 +3,7 @@
 
 /* #region 🏁 todo
   + ⏰ Now
-  - [] Finish video saving UI
-    - *** Separate Piece Method / Player + Exporter ***
-      3 Output / `video`.
-      - [-] Sketch output piece.
-      2 Input / `wgr` Piece
-        + Now
-          - [-] add `record:seconds`
-          - [] Button on top right for stopping a recording.
-          - [x] add `mode` to the cli
-          - [x] Save / hold data on completion, then jump to `video` piece for
-               optional video exporting and hook into the upload of data
-               on export, stamping the video with a unique ID (URL).
-
-  - [] Allow user to download / show URL code. 
-
+  - [] Button on top right for stopping a recording / ending early?
   - [] Make the background cool and grainy / animated a bit.
   - [] (Post Wednesday) Whistlegraph Stamp
     - [] Two SVGs layered over.
@@ -44,6 +30,18 @@
          or something like that.
   - 🛑 Launch 1
   + Done
+  - [x] Allow user to download / show URL code. 
+  - [x] Finish video saving UI
+    - *** Separate Piece Method / Player + Exporter ***
+      3 Output / `video`.
+      - [x] Sketch output piece.
+      2 Input / `wgr` Piece
+        + Now
+          - [x] add `record:seconds`
+          - [x] add `mode` to the cli
+          - [x] Save / hold data on completion, then jump to `video` piece for
+               optional video exporting and hook into the upload of data
+               on export, stamping the video with a unique ID (URL).
     - [x️‍] Fix audio video cut-off issues in recording.
          (Added a small delay.)
     - [x] Add loading animation ticker.
@@ -147,7 +145,7 @@ function boot($) {
     tf = new Typeface();
     tf.load(net.preload);
   }
-  // $.glaze({ on: true }); // Add post-processing by @mxsage.
+  $.glaze({ on: true }); // Add post-processing by @mxsage.
   bg = num.randIntArr(128, 3); // Random background color.
   wg = new Whistlegraph($, help.choose(1, 2)); // Whistlegraph with thickness.
   wipe(bg); // Clear backbuffer.
