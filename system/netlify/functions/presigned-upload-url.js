@@ -24,11 +24,6 @@
 
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-//import { customAlphabet } from "nanoid";
-
-//const alphabet =
-//  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-//const nanoid = customAlphabet(alphabet, 8);
 
 const s3 = new S3Client({
   endpoint: "https://" + process.env.ART_ENDPOINT,
@@ -49,10 +44,15 @@ const s3Wand = new S3Client({
 let client; // Will be assigned on each handler runs.
 
 export async function handler(event, context) {
+  const { customAlphabet } = await import("nanoid");
+
+  const alphabet =
+    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  const nanoid = customAlphabet(alphabet, 8);
+
   const extension = event.path.slice(1).split("/")[1];
   const name = event.path.slice(1).split("/")[2];
   const bucket = event.path.slice(1).split("/")[3];
-
 
   // TODO: This switch a little janky right now because I need
   //       authentication. 22.11.15.07.16
@@ -95,21 +95,19 @@ export async function handler(event, context) {
     };
   }
 
-  let loadCode = "#"; //nanoid();
+  let loadCode = nanoid();
   let fileName = name || loadCode + "." + extension;
 
   // Check to see if this code has already been uploaded to blockStorage and if it has,
   // generate a new code. (This should almost never repeat.) See also: https://zelark.github.io/nano-id-cc
   while ((await fileExists(fileName, bucket)) === true) {
     if (name) {
-      //fileName = `${nanoid()}-${name}`;
-      fileName = `#-${name}`;
+      fileName = `${nanoid()}-${name}`;
     } else {
-      loadCode = "#"; //nanoid();
+      loadCode = nanoid();
       fileName = loadCode + "." + extension;
     }
   }
-
 
   const putObjectParams = {
     Bucket: client.bucket,

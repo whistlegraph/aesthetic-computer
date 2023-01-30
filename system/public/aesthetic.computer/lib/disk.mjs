@@ -207,17 +207,20 @@ class Recorder {
   printProgress = 0;
   presentProgress = 0;
   printing = false; // Set by a callback from `bios`.
+  printed = false; // "
   recording = false; // "
   recorded = false; // "
   presenting = false; // "
   playing = false; // "
   cutCallback;
+  printCallback;
 
   constructor() {}
 
   slate() {
     send({ type: "recorder:slate" }); // Kill the MediaRecorder instance.
-    $commonApi.rec.recorded = false; // Set this instance to false.
+    $commonApi.rec.recorded = false; // Reset this singleton.
+    $commonApi.rec.printed = false; // ""
   }
 
   rolling(opts) {
@@ -229,7 +232,9 @@ class Recorder {
     send({ type: "recorder:cut" });
   }
 
-  print() {
+  print(cb) {
+    // $commonApi.rec.printing = true; // Set this to `true` right away.
+    $commonApi.rec.printCallback = cb;
     send({ type: "recorder:print" });
   }
 
@@ -248,8 +253,6 @@ class Recorder {
   pause() {
     send({ type: "recorder:present:pause" });
   }
-
-  // unpresent() {}
 }
 
 let $builtBootPaintApi;
@@ -1568,6 +1571,13 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "recorder:printing:started") {
     $commonApi.rec.printing = true;
+    return;
+  }
+
+  if (type === "recorder:printed") {
+    $commonApi.rec.printed = true;
+    $commonApi.rec.printCallback?.();
+    $commonApi.rec.printing = false;
     return;
   }
 
