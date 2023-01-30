@@ -40,7 +40,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let currentPieceHasTextInput = false;
 
   // Media Recorder
-  let mediaRecorder, mediaRecorderDataHandler; // See "recorder:rolling" below.
+  let mediaRecorder, mediaRecorderDataHandler, mediaRecorderBlob; // Holds the last generated recording.
 
   // Clipboard
   let pastedText;
@@ -1694,9 +1694,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const chunks = []; // Store chunks of the recording.
 
       mediaRecorder.ondataavailable = (evt) => {
-        chunks.push(evt.data);
-        console.log("Data", evt.data);
-        mediaRecorderDataHandler?.(chunks);
+        if (evt.data.size > 0) {
+          if (debug) console.log("🔴 Recorder: Data", evt.data);
+          chunks.push(evt.data);
+          mediaRecorderDataHandler?.(chunks);
+        }
       };
 
       let recordingStartTime = 0;
@@ -1717,13 +1719,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         streamCanvasContext = undefined;
         resizeToStreamCanvas = null;
 
-        const blob = new Blob(chunks, {
+        let blob = new Blob(chunks, {
           type: options.mimeType,
         });
 
         // Load FFmpeg so the recording can be transcribed to a proper video format.
         if (content === "video") {
-          // TODO: Check to see if encoding can be skipped? 22.08.11.03.41
+          if (options.mimeType === "video/mp4") {
+            console.warn("Encoding can be skipped!");
+            // TODO: Skip encoding.
+          }
 
           const { createFFmpeg, fetchFile } = await loadFFmpeg();
 
@@ -1774,83 +1779,70 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           const file = ffmpeg.FS("readFile", "output.mp4");
 
-          blob = new Blob([file.buffer], { type: "video/mp4" });
+          blob = new Blob([file.buffer], { type: "video/mp4" }); // Re-assign blob.
         }
 
-        // Make an appropriate element to store the recording.
-        const el = document.createElement(content); // "audio" or "video"
+        // Add the recording wrapper to the DOM, among other recordings that may exist.
+        // const recordings = wrapper.querySelector("#recordings");
+        //let recordingsWrapper;
 
-        el.width = 100;
+        //if (recordings) {
+        //  recordingsWrapper = recordings.querySelector("#recordings-wrapper");
+        //} else {
+        //  const recordingsEl = document.createElement("div");
+        //  recordingsEl.id = "recordings";
 
-        el.src = URL.createObjectURL(blob);
-        el.controls = true;
+        //  recordingsWrapper = document.createElement("div");
+        //  recordingsWrapper.id = "recordings-wrapper";
 
-        // Add the recording to the dom, among other recordings that may exist.
-        const recordings = wrapper.querySelector("#recordings");
+        //  recordingsEl.append(recordingsWrapper); // Add wrapper.
+        //  wrapper.append(recordingsEl); // Add recordings to DOM.
+        //}
 
-        if (recordings) {
-          const recordingsWrapper = recordings.querySelector(
-            "#recordings-wrapper"
-          );
-          recordingsWrapper.append(el);
-        } else {
-          const recordingsEl = document.createElement("div");
-          recordingsEl.id = "recordings";
+        // Add download link.
+        //const download = document.createElement("a");
+        //download.href = URL.createObjectURL(blob);
+        //download.innerText = "DOWNLOAD VIDEO";
+        //download.download = "test.mp4";
+        //mediaRecorderDownload = download;
+        //recordingsWrapper.append(download);
 
-          const recordingsWrapper = document.createElement("div");
-          recordingsWrapper.id = "recordings-wrapper";
+        // TODO: Clicking a button should trigger the download.
 
-          recordingsEl.append(recordingsWrapper); // Add wrapper.
-          recordingsWrapper.append(el); // Add video element.
+        // TODO: Add UI for downloading the file.
 
-          // Add download link.
-          const download = document.createElement("a");
-          download.href = el.src;
-          download.innerText = "DOWNLOAD VIDEO";
-          download.download = "test.mp4";
-          recordingsWrapper.append(download);
+        // 🕸️ Upload the video to a bucket...
+        // TODO: There needs to be a progress bar or spinner or button to
+        //       upload the video.
+        /*
+        fetch("/presigned-upload-url/" + "mp4")
+          .then(async (res) => {
+            const presignedUrl = (await res.json()).uploadURL;
+            if (debug) console.log("🔐 Presigned URL:", presignedUrl);
 
-          // Add close button.
-          const close = document.createElement("div");
-          close.innerText = "AGAIN"; // "CLOSE"
-          close.id = "recordings-close";
-          recordingsWrapper.append(close);
-
-          close.onpointerdown = () => {
-            recordingsEl.remove();
-            signal("recordings:close");
-          };
-
-          // TODO: There needs to be a progress bar or spinner or button to
-          //       upload the video.
-          fetch("/presigned-upload-url/" + "mp4")
-            .then(async (res) => {
-              const presignedUrl = (await res.json()).uploadURL;
-              if (debug) console.log("🔐 Presigned URL:", presignedUrl);
-
-              const response = await fetch(presignedUrl, {
-                method: "PUT",
-                headers: {
-                  "Content-Type": "video/mp4",
-                  "x-amz-acl": "public-read",
-                },
-                body: blob,
-              });
-
-              if (debug) console.log("📼 Video uploaded:", response);
-            })
-            .catch((err) => {
-              if (debug) console.log("⚠️ Failed to get presigned URL:", err);
+            const response = await fetch(presignedUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Type": "video/mp4",
+                "x-amz-acl": "public-read",
+              },
+              body: blob,
             });
 
-          // TODO: Add UI for downloading the file.
-
-          wrapper.append(recordingsEl);
-        }
-
-        el.play();
+            if (debug) console.log("📼 Video uploaded:", response);
+          })
+          .catch((err) => {
+            if (debug) console.log("⚠️ Failed to get presigned URL:", err);
+          });
+        */
 
         if (debug) console.log("📼 Recorder: Printed");
+
+        mediaRecorderBlob = blob;
+
+        send({ type: "recorder:printed" });
+        // TODO: Can send the download code back here...
+        // send({ type: "recorder:uploaded", code });
       };
 
       mediaRecorder.start();
@@ -1875,6 +1867,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (type === "video") {
           underlayFrame = document.createElement("div");
           underlayFrame.id = "underlay";
+          underlayVideo = {}; // Reset underlayVideo state.
 
           const el = document.createElement(type); // "audio" or "video"
           el.autoplay = true; // Allow video footage play automatically.
@@ -1886,15 +1879,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           el.addEventListener("play", () => {
             send({ type: "recorder:present-playing" });
+            underlayVideo.played = true;
           });
 
           el.addEventListener("pause", () => {
             send({ type: "recorder:present-paused" });
           });
 
-          el.addEventListener("pointerdown", () => {
-            // TODO: This is hacky. Will do for now. 23.01.29.16.06
-            if (underlayVideo.needsPlay || el.paused) {
+          el.addEventListener(
+            "pointerdown",
+            () => {
+              // Note: Just always leave this playing once it starts...
+              if (el.paused) el.play();
+              // TODO: This is hacky. Will do for now. 23.01.29.16.06
+              /*
+            if (underlayVideo.needsPlay || (el.paused && !underlayVideo.played)) {
               try {
                 el.play();
               } catch (e) {
@@ -1905,7 +1904,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               el.pause();
               delete underlayVideo.needsPause;
             }
-          });
+            */
+            },
+            { once: true }
+          );
 
           // Try running everything through the audioContext even if
           // the video is muted.
@@ -1918,7 +1920,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           // Active recording...
           mediaRecorderDataHandler = (chunks) => {
-            // debugger;
             const blob = new Blob(chunks, {
               type: mediaRecorder.mimeType,
             });
@@ -2282,7 +2283,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     { filename, data, bucket },
     callbackMessage = "upload"
   ) {
-    console.log("📤 Uploading globally: ", filename, typeof data);
+    console.log("📤 Uploading globally:", filename, typeof data || "...");
     const ext = extension(filename);
     let MIME = "application/octet-stream"; // Default content type.
 
@@ -2303,16 +2304,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (ext === "obj") MIME = "application/object";
     if (ext === "glb") MIME = "model/gltf-binary";
 
+    if (ext === "mp4") {
+      MIME = "video/mp4";
+      data = mediaRecorderBlob;
+    }
+
     let prefetchURL = "/presigned-upload-url/" + ext;
 
     if (bucket === "wand") prefetchURL += "/" + filename + "/" + bucket; // Add filename info.
 
+    //if (bucket === undefined) prefetchURL += "/" + filename; // "art" bucket.
+
     // Now send a request to the server...
     fetch(prefetchURL)
       .then(async (res) => {
-        const presignedUrl = (await res.json()).uploadURL;
+        const resData = await res.json();
+
+        const presignedUrl = resData.uploadURL;
+
+        // Probably the download code... maybe something else if a custom
+        // name is used.
+        const slug = new URL(presignedUrl).pathname.split("/")[2].split(".")[0];
+
         if (debug) console.log("🔐 Presigned URL:", presignedUrl);
 
+        /*
         const response = await fetch(presignedUrl, {
           method: "PUT",
           headers: {
@@ -2321,12 +2337,33 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           },
           body: new Blob([data], { type: MIME }),
         });
+        */
 
-        if (debug) console.log("✔️ File uploaded:", response);
-        send({
-          type: callbackMessage,
-          content: { result: "success", data: response },
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", presignedUrl, true);
+        xhr.setRequestHeader("Content-Type", MIME);
+        xhr.setRequestHeader("x-amz-acl", "public-read");
+
+        xhr.upload.addEventListener("progress", (event) => {
+          console.log(`Uploaded ${event.loaded} of ${event.total} bytes...`);
+          // TODO: Send some kind of progress callback message here...
         });
+
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+
+            send({
+              type: callbackMessage,
+              content: { result: "success", data: { slug } },
+            });
+
+            if (debug) console.log("✔️ File uploaded:", xhr.responseURL);
+          }
+        };
+
+        xhr.send(new Blob([data], { type: MIME }));
+
+
       })
       .catch((err) => {
         if (debug) console.log("⚠️ Failed to get presigned URL:", err);
@@ -2422,6 +2459,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         can.toBlob(resolve, MIME, 100)
       );
       object = URL.createObjectURL(blob, { type: MIME });
+    } else if (extension(filename) === "mp4") {
+      // Use `data` from the global Media Recorder.
+      if (mediaRecorderBlob) object = URL.createObjectURL(mediaRecorderBlob);
     }
 
     const a = document.createElement("a");

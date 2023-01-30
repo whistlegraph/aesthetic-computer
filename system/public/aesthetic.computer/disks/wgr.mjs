@@ -103,7 +103,7 @@ let recStart,
   recBGflip = false,
   recProgress = 0,
   recCutting = false;
-const recDuration = 6; // 6
+const recDuration = 3; // 6
 let progressTicker;
 let progressDots = 0;
 
@@ -124,7 +124,7 @@ let ALT = false, // Keyboard modifiers.
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot($) {
-  const { num, help, net, params, gizmo } = $;
+  const { num, help, wipe, net, params, gizmo } = $;
 
   mode = params[0] || mode; // "practice" (default) or "record". (Parse params)
   if (params[0] === "r") mode = "record"; // 🧠 Shortcuts make working faster.
