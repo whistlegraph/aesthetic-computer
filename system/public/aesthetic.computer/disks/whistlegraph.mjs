@@ -3,11 +3,11 @@
 
 /* #region 🏁 todo
   + ⏰ Now
-  - [] Why isn't "learn" clearing the top left.
-    - [] It has to do with `boot` not clearing that top left part of the buffer.
   - [⚠️] Fix record flow errors - quitting during playback then re-recording is
        weird, especially on iOS.
        (Can hear old audio playing, etc.)
+  - [] Why isn't "learn" clearing the top left.
+    - [] It has to do with `boot` not clearing that top left part of the buffer.
   - [] Clear todos in `video`, `download`, and `wgr`.   
   + Later
   - [] Button to a feed of latest posts / recordings.
