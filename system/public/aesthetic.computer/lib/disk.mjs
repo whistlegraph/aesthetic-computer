@@ -3,8 +3,6 @@
 // hypervisor or shell.
 
 /* #region 🏁 todo
- + Later
- - [] Re-implement `inkrn`. 
 #endregion */
 
 import * as graph from "./graph.mjs";
@@ -51,11 +49,14 @@ const defaults = {
 let loadAfterPreamble = null;
 let hotSwap = null;
 
+// let showHUD = true;
+
 // 🔎 NoPaint
 // Inheritable via `export const system = "nopaint"` from any piece.
 // Boilerplate for a distributed raster editor.
 const nopaint = {
   boot: function boot($) {
+    // showHUD = false;
     $.system.nopaint.boot($);
   },
   act: function act($) {
@@ -223,7 +224,7 @@ class Recorder {
     //$commonApi.rec.printing = false; // "
 
     $commonApi.rec.recording = false; // Reset this singleton.
-    $commonApi.rec.recorded = false; // 
+    $commonApi.rec.recorded = false; //
     $commonApi.rec.printed = false; // "
     $commonApi.rec.printProgress = 0; // "
   }
@@ -259,8 +260,6 @@ class Recorder {
     send({ type: "recorder:present:pause" });
   }
 }
-
-let $builtBootPaintApi;
 
 // For every function to access.
 const $commonApi = {
@@ -611,6 +610,7 @@ const $paintApi = {
 
 const formsToClear = [];
 let backgroundColor3D = [0, 0, 0, 255];
+let formsSent = {}; // TODO: This should be cleared more often...
 
 // `cpu: true` enabled software rendering
 function form(
@@ -769,7 +769,7 @@ const $paintApiUnwrapped = {
   // (3) {x, y, center}, text, bg (optional)
   write: function (text, pos, bg) {
     if (!text) return; // Fail silently if no text.
-    tf?.print($builtBootPaintApi, pos, 0, text, bg); // Fail on preamble.
+    tf?.print($activePaintApi, pos, 0, text, bg); // Fail on preamble.
   },
   copy: graph.copy,
   paste: graph.paste,
@@ -802,10 +802,11 @@ const $paintApiUnwrapped = {
   // glaze: ...
 };
 
-let formsSent = {}; // TODO: This should be cleared more often...
-
 // TODO: Eventually restructure this a bit. 2021.12.16.16.0
 //       Should global state like color and transform be stored here?
+
+let $activePaintApi;
+
 class Painting {
   #layers = [];
   #layer = 0;
@@ -824,6 +825,7 @@ class Painting {
 
     function globals(k, args) {
       if (k === "ink") p.inkrn = [...args].flat();
+      if (k === "write") $activePaintApi = p.api; // TODO: Does this have to happen here? Helps create circular references for some paint functions.
       // TODO: 😅 Add other state globals like line thickness? 23.1.25
     }
 
@@ -837,8 +839,8 @@ class Painting {
           // Add each deferred paint api function to the layer, to be run
           // all at once in `paint` on each frame update.
           p.#layers[p.#layer].push(() => {
-            $paintApiUnwrapped[k](...arguments);
             globals(k, arguments); // Update globals again on chainable calls.
+            $paintApiUnwrapped[k](...arguments);
             // await $paintApiUnwrapped[k](...arguments);
           });
           return p.api;
@@ -2301,9 +2303,6 @@ async function makeFrame({ data: { type, content } }) {
         };
       };
 
-      $builtBootPaintApi = $api; // Save the dynamically built api for circular
-      //                            reference by functions like `write`.
-
       graph.setBuffer(screen);
 
       // TODO: Set bpm from boot.
@@ -2365,16 +2364,6 @@ async function makeFrame({ data: { type, content } }) {
       let painted = false;
       let dirtyBox;
 
-      // Draw any Global UI / HUD.
-
-      // System info.
-      const piece = currentText?.split("~")[0];
-      if (piece !== "prompt" && piece !== "video") {
-        $api
-          .ink(0, 255, 255)
-          .write(currentText?.replaceAll("~", " "), { x: 6, y: 6 });
-      }
-
       // Attempt a paint.
       //if (noPaint === false && booted && loading === false) {
       if (noPaint === false && booted) {
@@ -2405,8 +2394,26 @@ async function makeFrame({ data: { type, content } }) {
         //send({ type: "3d-bake" });
       }
 
+      // Draw any Global UI / HUD in an overlay buffer that will get
+      // composited by the other thread.
+      // System info.
+      let label;
+      const piece = currentText?.split("~")[0];
+      if (piece !== undefined && piece !== "prompt" && piece !== "video") {
+        const w = currentText.length * 6;
+        const h = 10;
+        label = $api.painting(w, h, ({ ink }) => {
+          ink(0).write(currentText?.replaceAll("~", " "), {x: 1, y: 1});
+          ink(255, 200, 240).write(currentText?.replaceAll("~", " "));
+        });
+      }
+
       // Return frame data back to the main thread.
       let sendData = {};
+
+      // Attach a label buffer if necessary.
+      if (label) sendData.label = { x: 6, y: 6, img: label };
+
       let transferredPixels;
 
       // Check to see if we have a dirtyBox to render from.
@@ -2414,15 +2421,13 @@ async function makeFrame({ data: { type, content } }) {
 
       if (croppedBox?.w > 0 && croppedBox?.h > 0) {
         transferredPixels = dirtyBox.crop(screen);
-        sendData = {
-          pixels: transferredPixels,
-          dirtyBox: croppedBox,
-        };
+        sendData.pixels = transferredPixels;
+        sendData.dirtyBox = croppedBox;
       } else if (painted === true) {
         // TODO: Toggling this causes a flicker in `line`... but helps prompt. 2022.01.29.13.21
         // Otherwise render everything if we drew anything!
         transferredPixels = screen.pixels;
-        sendData = { pixels: transferredPixels };
+        sendData.pixels = transferredPixels;
       }
 
       // Optional messages to send.
@@ -2447,10 +2452,17 @@ async function makeFrame({ data: { type, content } }) {
         sendData.pixels = content.pixels;
       }
 
+      // new hud
+
       if (sendData.pixels?.byteLength === 0) sendData.pixels = undefined;
 
       maybeLeave();
-      send({ type: "render", content: sendData }, [sendData.pixels]);
+
+      let transferredObjects = [sendData.pixels];
+      if (sendData.label)
+        transferredObjects.push(sendData.label?.img.pixels.buffer);
+
+      send({ type: "render", content: sendData }, transferredObjects);
 
       // Flush the `signals` after sending.
       if (reframe) reframe = undefined;

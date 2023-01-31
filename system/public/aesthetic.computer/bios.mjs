@@ -2115,7 +2115,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (content.cursorCode) pen.setCursorCode(content.cursorCode);
 
-    // About the render if pixels don't match.
+    // Abort the render if pixels don't match.
     if (
       content.dirtyBox === undefined &&
       content.pixels?.length !== undefined &&
@@ -2173,21 +2173,46 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     pixelsDidChange = content.paintChanged || false;
 
+    // UI Overlay (Composite) Layer
+    let paintOverlay;
+    if (content.label) {
+      const overlay = new ImageData(
+        content.label.img.pixels,
+        content.label.img.width,
+        content.label.img.height
+      );
+
+      // TODO: This could be instantiated elsewhere if it's ever slow... similar to dirtyBoxBitmapCam's potential optimization above. 23.01.30.21.32
+      const overlayCan = document.createElement("canvas");
+      const octx = overlayCan.getContext("2d");
+      overlayCan.width = content.label.img.width;
+      overlayCan.height = content.label.img.height;
+      octx.imageSmoothingEnabled = false;
+      octx.putImageData(overlay, 0, 0);
+
+      paintOverlay = () => {
+        ctx.drawImage(overlayCan, content.label.x, content.label.y);
+      };
+    }
+
     function draw() {
       // 🅰️ Draw updated content from the piece.
 
       const db = content.dirtyBox;
       if (db) {
         ctx.drawImage(dirtyBoxBitmapCan, db.x, db.y);
+        paintOverlay?.();
         if (glaze.on) Glaze.update(dirtyBoxBitmapCan, db.x, db.y);
       } else if (pixelsDidChange) {
         ctx.putImageData(imageData, 0, 0); // Comment out for a `dirtyBox` visualization.
+        paintOverlay?.();
         if (glaze.on) {
           ThreeD?.pasteTo(glazeCompositeCtx);
           glazeCompositeCtx.drawImage(canvas, 0, 0);
           Glaze.update(glazeComposite);
           //Glaze.update(imageData);
         }
+
         // TODO: Is this actually updating with a blank image at first? How to prevent the glaze.clear flicker? 2022.6.8
       }
 

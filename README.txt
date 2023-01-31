@@ -58,12 +58,13 @@
 🌟 Projects In Progress (PIP) 🌟
 
 *** Painting w/ Signature for Yeche Lange***
-  - [] Add "signature" / title flag feature to `dl` command.
-    - `sign`
-      - [] Paste a signature with timestamp in the corner.
-           that is NOT opaque and in the bottom left corner.
+
+  - `line`
+    - [] Fix mix of colors / make pppline.
+
   - `no`
-    - [] Undo a step.
+    - [] Undo / redo a step.
+
   - [] How quickly could I tie this to user accounts and make it permanent
        rn? Could I do this all today?
 
@@ -95,6 +96,10 @@
      - [] Loading a ff piece prevents drawing and restarts the
           timelapse upon entering VR.
   + Done
+  - [x] Add "signature" / title flag feature to `dl` command.
+    - `sign`
+      - [x] Paste a signature with timestamp in the corner.
+            that is NOT opaque and in the bottom left corner.
   - [x] Review spreadsheet metadata: https://docs.google.com/spreadsheets/d/10aeN4WyTQ1UQUT9-IUbKFdoeEfkumqM6_8mvFs5dVq8/edit#gid=1052521247 
 
 *** Project Order ***

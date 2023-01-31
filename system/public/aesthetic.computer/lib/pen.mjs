@@ -240,6 +240,8 @@ export class Pen {
 
       pointer.drawing = false;
 
+      pointer.dragBox = undefined;
+
       pen.penCursor = true;
       if (e.pointerType !== "mouse") pen.penCursor = false;
 
