@@ -2,12 +2,15 @@
 // Inherits from the "nopaint" system, which predefines boot, act, and leave.
 
 /* #region 🏁 todo
-  - [-] Implement `pppline` over `line`.
-    - [wip] Add subtle race based line smoothing...
+  - [❤️‍🔥] Paste line automatically before stroke ends / optimize for longer
+       strokes, but keep pixel perfect algorithm...
   - [] Add line thickness...
+  + Done
+  - [x] Implement `pppline` over `line`.
+    - [x] Add subtle race based line smoothing...
 #endregion */
 
-const points = []; // Gesture data.
+let points = []; // Gesture data.
 let bake = false; // Flag for baking strokes to the painting.
 let pparams; // Processed parameters.
 let race;
@@ -25,27 +28,20 @@ function boot($) {
 
   // Set up line smoothing system.
 
-  const step = 20;
-  const speed = 8;
-  race = new $.geo.Race({ step, speed, quantized: false });
+  const step = 3;
+  const speed = 40;
+  race = new $.geo.Race({ step, speed, quantized: true });
 }
 
 // 🧮
 function sim({ num }) {
   const to = race.to();
-
   if (to?.out) {
-    // if (to?.out.length > 0) {
-    // const qp = to.out[1];
     const qp = to.out[1];
-    // console.log(to.out);
     let color;
     if (pparams.length === 0) color = num.randIntArr(255, 3);
     points.push({ x: qp[0], y: qp[1], color }); // Push last point.
-    // TODO: How can I find a preview point here?
   }
-
-  // console.log(race.pos);
 }
 
 // 🎨
@@ -58,7 +54,8 @@ function paint({ pen, ink, num, paste, page, system, screen }) {
   // Render an in-progress stroke.
   if (pen?.drawing) {
     paste(system.painting);
-    ink(pparams).pppline(points.slice(), {
+    // Draw the current gesture up to the current pen point.
+    ink(pparams).pppline([...points.slice(), pen], {
       color: (pos, pix, col, vcol) => {
         // ✨ Randomly add some sparkles.
         if (false /*Math.random() > 0.90*/) {
@@ -70,8 +67,14 @@ function paint({ pen, ink, num, paste, page, system, screen }) {
         }
       },
     });
+
+    //if (points.length > 3) {
+    //  bake = true;
+    //  points = points.slice(-1);
+    //}
+
     // Visualize race dot.
-    if (race.pos) ink(255, 0, 0).box(race.pos[0] - 2, race.pos[1] - 2, 5);
+    // if (race.pos) ink(255, 0, 0).box(race.pos[0] - 2, race.pos[1] - 2, 5);
   }
 }
 
