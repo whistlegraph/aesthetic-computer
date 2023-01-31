@@ -236,6 +236,20 @@ export function isHexString(h) {
 
 // 🌈 Colors
 
+// Alpha blends two colors, mutating and returning `dst`.
+// Transcribed from C++: https://stackoverflow.com/a/12016968
+export function blend(dst, src, alphaIn = 1) {
+  if (src[3] === 0) return; // Return early if src is invalid.
+  if (src[3] === undefined) src[3] = 255; // Max alpha if it's not present.
+  const alpha = src[3] * alphaIn + 1;
+  const invAlpha = 256 - alpha;
+  dst[0] = (alpha * src[0] + invAlpha * dst[0]) >> 8;
+  dst[1] = (alpha * src[1] + invAlpha * dst[1]) >> 8;
+  dst[2] = (alpha * src[2] + invAlpha * dst[2]) >> 8;
+  dst[3] = dst[3] + alpha;
+  return dst;
+}
+
 // Lerp two RGBA arrays, skipping alpha and rounding the output.
 // (Assumes 0-255)
 export function shiftRGB(a, b, step, mode = "lerp", range = 255) {

@@ -108,7 +108,7 @@ function addUndoPainting(painting) {
 
   // Note: This could be extended to increase the size of the
   //       undo stack, and images could be diffed? 23.01.31.01.30
-  if (undoPaintings.length > 2) undoPaintings.unshift();
+  if (undoPaintings.length > 2) undoPaintings.shift();
 
   console.log("💩 Added undo painting...", undoPaintings.length);
 }
@@ -373,6 +373,7 @@ const $commonApi = {
     shiftRGB: num.shiftRGB,
     rgbToHexStr: num.rgbToHexStr,
     hexToRgb: num.hexToRgb,
+    blend: num.blend,
   },
   geo: {
     Box: geo.Box,

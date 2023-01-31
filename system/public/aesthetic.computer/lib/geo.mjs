@@ -360,6 +360,8 @@ export class Race {
 
   // Should also reset.
   start(point) {
+    if (point.length === 2) point.push(0, 0); // Make sure point is a vec4.
+
     this.quantizer?.start(point);
     this.pos = vec4.clone(point);
     this.goal = vec4.clone(point);
@@ -367,8 +369,11 @@ export class Race {
     this.dist = 0;
   }
 
-  to(point) {
+  to(point = this.goal) {
+    if (!point) return; // No goal.
+    if (point.length === 2) point.push(0, 0); // Make sure point is a vec4.
     this.goal = point;
+
     if (!this.pos) return false;
     let out;
 

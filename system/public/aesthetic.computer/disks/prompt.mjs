@@ -214,7 +214,7 @@ function boot($) {
         flashColor = [255, 0, 0];
       } else {
         // 🟠 Local and remote pieces...
-        load(parse(text.replaceAll(" ", "~"))); // Execute the current command.
+        load(parse(text)); // Execute the current command.
       }
     }
   );
