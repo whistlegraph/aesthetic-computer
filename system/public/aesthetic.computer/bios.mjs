@@ -12,6 +12,7 @@ import { parse, slug } from "./lib/parse.mjs";
 import * as Store from "./lib/store.mjs";
 import { Desktop, MetaBrowser, Instagram, iOS } from "./lib/platform.mjs";
 import { headers } from "./lib/console-headers.mjs";
+import { logs } from "./lib/logs.mjs";
 
 const { assign } = Object;
 const { round, floor, min, max } = Math;
@@ -187,7 +188,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Cache the current canvas if needed.
     if (freezeFrame && imageData && !document.body.contains(freezeFrameCan)) {
-      if (debug) {
+      if (debug && logs.frame) {
         console.log(
           "🥶 Freezing:",
           freezeFrame,
@@ -219,7 +220,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //       with Glaze.
 
       if (freezeFrameGlaze) {
-        console.log("Freeze glaze!");
         Glaze.freeze(ffCtx);
         // ffCtx.fillStyle = "lime";
         // ffCtx.fillRect(0, 0, ffCtx.canvas.width, ffCtx.canvas.height);
@@ -239,8 +239,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     const gapSize = gap * window.devicePixelRatio;
 
-    // console.log("INNER HEIGHT", window.innerHeight);
-
     let subdivisions = 1;
 
     if (width === undefined && height === undefined) {
@@ -259,13 +257,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       fixedHeight = height;
 
       const scale = min(window.innerWidth / width, window.innerHeight / height);
-      // console.log(window.innerWidth, window.innerHeight);
 
       projectedWidth = round(width * scale - gapSize);
       projectedHeight = round(height * scale - gapSize);
     }
 
-    if (debug)
+    if (debug && logs.frame)
       console.info(
         "🖼 Frame:",
         width,
@@ -1429,7 +1426,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Local Storage
       if (content.method === "local") {
         localStorage.setItem(content.key, JSON.stringify(content.data));
-        if (debug) console.log("📦 Persisted locally:", content, localStorage);
+        if (debug && logs.store) console.log("📦 Persisted locally:", content, localStorage);
       }
 
       // IndexedDB
@@ -1443,7 +1440,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         await Store.set(content.key, content.data);
         // const set = await Store.set(content.key, content.data);
         // const get = await Store.get(content.key);
-        if (debug) console.log("📦 Persisted on local:db:", content);
+        if (debug && logs.store) console.log("📦 Persisted on local:db:", content);
       }
 
       if (content.method === "remote:temporary") {
@@ -1463,7 +1460,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "store:retrieve") {
       if (content.method === "local") {
         const data = JSON.parse(localStorage.getItem(content.key));
-        if (debug) console.log("📦 Retrieved local data:", content.key, data);
+        if (debug && logs.store)
+          console.log("📦 Retrieved local data:", content.key, data);
         send({
           type: "store:retrieved",
           content: data,
@@ -1472,7 +1470,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       if (content.method === "local:db") {
         const retrievedContent = await Store.get(content.key);
-        if (debug)
+        if (debug && logs.store)
           console.log(
             "📦 Retrieved local:db data:",
             content.key,
@@ -1487,7 +1485,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Store: Delete
     if (type === "store:delete") {
       if (content.method === "local") {
-        if (debug) console.log("📦 Delete local data:", content.key);
+        if (debug && logs.store)
+          console.log("📦 Delete local data:", content.key);
         send({
           type: "store:deleted",
           content: true,
@@ -1507,7 +1506,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           deleted = false;
         }
 
-        if (debug)
+        if (debug && logs.store)
           console.log("📦 Delete local:db data:", content.key, deleted);
         send({
           type: "store:deleted",
@@ -2074,7 +2073,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Skip preload marker on default init piece, and toggle it if necessary.
       if (currentPiece !== null && !window.waitForPreload)
         window.preloaded = true;
-      if (debug) console.log("⏳ Preloaded:", window.preloaded ? "✅" : "❌");
+      if (debug && logs.loading) console.log("⏳ Preloaded:", window.preloaded ? "✅" : "❌");
       return;
     }
 

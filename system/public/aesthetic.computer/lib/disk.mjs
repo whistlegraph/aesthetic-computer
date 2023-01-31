@@ -18,6 +18,7 @@ import { notArray } from "./helpers.mjs";
 const { round } = Math;
 import { nopaint_boot, nopaint_act } from "../systems/nopaint.mjs";
 import { headers } from "./console-headers.mjs";
+import { logs } from "./logs.mjs";
 
 import { Typeface } from "../lib/type.mjs";
 let tf; // Typeface global.
@@ -66,14 +67,51 @@ const nopaint = {
     // Why is screen empty here?
     if (NPdontPaintOnLeave === false) {
       page(system.painting).paste(screen);
-      painting.paint();
+      painting.paint(); // TODO: Why is this here?
       page(screen);
     }
+
+    // TODO: Check to see if anything actually got painted... by doing
+    //       a diff on the pixels?
+    addUndoPainting(system.painting);
 
     store["painting"] = system.painting;
     store.persist("painting", "local:db");
   },
 };
+
+const undoPaintings = []; // Stores the last two paintings.
+
+function addUndoPainting(painting) {
+  const op = painting.pixels;
+  const pixels = new Uint8ClampedArray(op.length);
+  pixels.set(op);
+
+  if (undoPaintings.length > 0) {
+    const lastPainting = undoPaintings[0];
+
+    const eq = pixels.every(
+      (value, index) => value === lastPainting.pixels[index]
+    );
+
+    if (eq) {
+      console.log("💩 The undo stack was not changed:", undoPaintings.length);
+      return;
+    }
+  }
+
+  undoPaintings.push({
+    pixels,
+    width: painting.width,
+    height: painting.height,
+  });
+
+  // Note: This could be extended to increase the size of the
+  //       undo stack, and images could be diffed? 23.01.31.01.30
+  if (undoPaintings.length > 2) undoPaintings.unshift();
+
+  console.log("💩 Added undo painting...", undoPaintings.length);
+}
 
 let boot = defaults.boot;
 let sim = defaults.sim;
@@ -275,7 +313,11 @@ const $commonApi = {
     data: {},
   },
   system: {
-    nopaint: { boot: nopaint_boot, act: nopaint_act },
+    nopaint: {
+      boot: nopaint_boot,
+      act: nopaint_act,
+      undo: { paintings: undoPaintings },
+    },
   },
   connect: () => {
     const p = new Promise((resolve, reject) => {
@@ -374,7 +416,7 @@ async function session(slug, forceProduction = false) {
 
   const session = await req.json();
 
-  if (debug) console.log("🐕‍🦺 Session:", session.backend);
+  if (debug && logs.session) console.log("🐕‍🦺 Session:", session.backend);
 
   // Return the active session if the server knows it's "Ready", otherwise
   // wait for the one we requested to spin up before doing anything else.
@@ -2337,12 +2379,15 @@ async function makeFrame({ data: { type, content } }) {
 
         // System specific preloaders.
         //if ($commonApi?.system?.name === "nopaint" || currentText === "prompt") {
-        store["painting"] =
-          store["painting"] ||
-          (await store.retrieve("painting", "local:db")) ||
-          painting.api.painting(screen.width, screen.height, ($) => {
-            $.wipe(64);
-          });
+
+        if (!store["painting"]) {
+          store["painting"] =
+            (await store.retrieve("painting", "local:db")) ||
+            painting.api.painting(screen.width, screen.height, ($) => {
+              $.wipe(64);
+            });
+          addUndoPainting(store["painting"]);
+        }
 
         $commonApi.system.painting = store["painting"];
 
@@ -2403,7 +2448,7 @@ async function makeFrame({ data: { type, content } }) {
         const w = currentText.length * 6;
         const h = 10;
         label = $api.painting(w, h, ({ ink }) => {
-          ink(0).write(currentText?.replaceAll("~", " "), {x: 1, y: 1});
+          ink(0).write(currentText?.replaceAll("~", " "), { x: 1, y: 1 });
           ink(255, 200, 240).write(currentText?.replaceAll("~", " "));
         });
       }

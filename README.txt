@@ -58,15 +58,24 @@
 🌟 Projects In Progress (PIP) 🌟
 
 *** Painting w/ Signature for Yeche Lange***
-
   - `line`
-    - [] Fix mix of colors / make pppline.
-
+    - [] Fix color inconsistencies among screen and painting. 
+    - [] Add ? ? ? options with ? expansion?
+    - [] Add line thickness...
+      - [] Make pppline if thickness is 1
+  - `circle`
+    - Make a filled circle / oval command.
+  - `smear`
+    - [] Isolate smear more. 
+  - `pull`
+    - [] Make a new version of pull.
+  - User Accounts
+    - [] How quickly could I tie this to user accounts and make it permanent
+        rn? Could I do this all today?
+  + Done
   - `no`
-    - [] Undo / redo a step.
-
-  - [] How quickly could I tie this to user accounts and make it permanent
-       rn? Could I do this all today?
+    - [x] Undo / redo a step.
+    - [x] with multistep options
 
 *** Freaky Flowers Launch ***
   - All Pieces
@@ -101,6 +110,9 @@
       - [x] Paste a signature with timestamp in the corner.
             that is NOT opaque and in the bottom left corner.
   - [x] Review spreadsheet metadata: https://docs.google.com/spreadsheets/d/10aeN4WyTQ1UQUT9-IUbKFdoeEfkumqM6_8mvFs5dVq8/edit#gid=1052521247 
+
+*** Better Logging ***
+  - [x] Create a logs.mjs file that can enable / disable certain development log flags when working, such as disabling all "store" logs.
 
 *** Project Order ***
 *** VS Code Extension ***
