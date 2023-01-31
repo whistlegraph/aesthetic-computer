@@ -137,9 +137,9 @@ function boot($) {
           store.persist("painting", "local:db");
 
           needsPaint();
-          flashColor = [0, 0, 255]; // Blue for succesful undo.
+          flashColor = [0, 0, 255, 100]; // Blue for succesful undo.
         } else {
-          flashColor = [255, 0, 0]; // Red for failed undo.
+          flashColor = [255, 0, 0, 100]; // Red for failed undo.
         }
 
         flashPresent = true;
