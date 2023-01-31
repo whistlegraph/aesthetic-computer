@@ -60,7 +60,7 @@
 *** Painting w/ Signature for Yeche Lange***
   - `line`
     - [] Add line thickness...
-      - [] Make pppline if thickness is 1
+      - [x] Make pppline if thickness is 1
     - [x] Fix color inconsistencies among screen and painting. 
     - [x] Add ? ? ? options with ? expansion?
   - `circle`
