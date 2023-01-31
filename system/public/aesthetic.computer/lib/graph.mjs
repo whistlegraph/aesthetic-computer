@@ -153,7 +153,7 @@ function plot(x, y) {
     // No alpha blending, just copy.
     pixels.set(c, i);
   } else if (alpha !== 0) {
-    blend(c, pixels, 0, i);
+    blend(pixels, c, 0, i);
   }
 }
 
@@ -219,7 +219,7 @@ function shadePixels(points, shader, shaderArgs = []) {
     if (p.y < 0) return;
     if (p.y >= height) return;
 
-    shader.position(p, ...shaderArgs); // Compute position.
+    shader.position?.(p, ...shaderArgs); // Compute position.
 
     // Clip again
     if (p.x < 0) return;
@@ -237,6 +237,7 @@ function shadePixels(points, shader, shaderArgs = []) {
       // 🪄 Pixel Shader
       const i = floor((p.x + p.y * width) * 4); // Get current pixel under p.
       const pixel = pixels.subarray(i, i + 4);
+      // TODO: Put p.color into shaderArgs or some other automated thing?
       shader.color({ x: p.x, y: p.y }, pixel, c, p.color); // Modify color.
     }
   }); // Paint each filtered pixel.
@@ -278,7 +279,7 @@ function copy(destX, destY, srcX, srcY, src, alpha = 1.0) {
   const di = (destX + destY * width) * 4;
   const si = (srcX + srcY * src.width) * 4;
 
-  blend(src.pixels, pixels, si, di, alpha);
+  blend(pixels, src.pixels, si, di, alpha);
 }
 
 /*
@@ -361,13 +362,13 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
 
 //let stipple = 0;
 
-// A fast alpha blending function.
+// A fast alpha blending function that looks into a pixel array.
 // Transcribed from C++: https://stackoverflow.com/a/12016968
-function blend(src, dst, si, di, alphaIn = 1) {
+function blend(dst, src, si, di, alphaIn = 1) {
   //stipple += 1;
   //if (stipple < 4) { return; }
   //stipple = 0;
-  if (src[si + 3] === 0) return;
+  if (src[si + 3] === 0) return; // Return early if src is invalid.
   const alpha = src[si + 3] * alphaIn + 1;
   const invAlpha = 256 - alpha;
   dst[di] = (alpha * src[si + 0] + invAlpha * dst[di + 0]) >> 8;
@@ -411,7 +412,7 @@ function lineh(x0, x1, y) {
     }
   } else if (c[3] !== 0) {
     for (let i = startIndex; i <= endIndex; i += 4) {
-      blend(c, pixels, 0, i);
+      blend(pixels, c, 0, i);
     }
   }
 }

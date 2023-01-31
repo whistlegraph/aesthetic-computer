@@ -21,11 +21,19 @@
 function parse(text, location = self?.location) {
   let path, host, params, search, hash;
 
+  // -1. Clear any spaces.
+  text = text.trim();
+  text = text.replace(/ /g, "~"); // Replace all spaces with "~".
+
   // 0. Pull of any "hash" from text.
   [text, hash] = text.split("#");
 
-  // 1. Pull off any "search" from `text`.
-  [text, search] = text.split("?");
+  // 1. Pull off any "search" from `text`, ignoring any question mark
+  //    characters that were part of the piece slug.
+  let searchIndex = text.search(/[^~]\?[^~]/); // Filter out single question mark params.
+  if (searchIndex >= 0) {
+    [text, search] = text.split("?");
+  }
 
   // TODO: When to parse the search query string into a URLSearchParams object?
   //       https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
@@ -35,8 +43,7 @@ function parse(text, location = self?.location) {
   if (text.endsWith("/")) text = text.slice(0, -1);
 
   // 2. Tokenize on " " or "~".
-  text = text.replace(/ /g, "~");
-  const tokens = text.trim().split("~");
+  const tokens = text.split("~");
 
   // 3. Determine the host and path.
   let customHost = false;

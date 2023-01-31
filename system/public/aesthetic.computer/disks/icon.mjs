@@ -87,7 +87,7 @@ function paint({
 }
 
 function act($) {
-  $.system.nopaint.act($); // Inherit boot functionality.
+  $.system.nopaint.act($); // Inherit nopaint's act functionality.
   const {
     event: e,
     num: { randInt },

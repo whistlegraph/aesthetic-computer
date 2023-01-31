@@ -59,10 +59,10 @@
 
 *** Painting w/ Signature for Yeche Lange***
   - `line`
-    - [] Fix color inconsistencies among screen and painting. 
-    - [] Add ? ? ? options with ? expansion?
     - [] Add line thickness...
       - [] Make pppline if thickness is 1
+    - [x] Fix color inconsistencies among screen and painting. 
+    - [x] Add ? ? ? options with ? expansion?
   - `circle`
     - Make a filled circle / oval command.
   - `smear`
