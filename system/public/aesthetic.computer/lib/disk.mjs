@@ -867,7 +867,12 @@ class Painting {
 
     function globals(k, args) {
       if (k === "ink") p.inkrn = [...args].flat();
-      if (k === "write") $activePaintApi = p.api; // TODO: Does this have to happen here? Helps create circular references for some paint functions.
+
+      if (k === "write") {
+        $activePaintApi = p.api;
+        p.api.screen = screen; // This is kind of a hacky way to get screen into here.
+      } // TODO: Does this have to happen here? Helps create circular references for some paint functions.
+
       // TODO: 😅 Add other state globals like line thickness? 23.1.25
     }
 
@@ -2446,7 +2451,7 @@ async function makeFrame({ data: { type, content } }) {
       const piece = currentText?.split("~")[0];
       if (piece !== undefined && piece !== "prompt" && piece !== "video") {
         const w = currentText.length * 6;
-        const h = 10;
+        const h = 11;
         label = $api.painting(w, h, ({ ink }) => {
           ink(0).write(currentText?.replaceAll("~", " "), { x: 1, y: 1 });
           ink(255, 200, 240).write(currentText?.replaceAll("~", " "));
