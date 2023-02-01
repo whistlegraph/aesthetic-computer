@@ -20,6 +20,7 @@
 
 function parse(text, location = self?.location) {
   let path, host, params, search, hash;
+  // console.log("Parsing:", text);
 
   // -1. Clear any spaces.
   text = text.trim();
@@ -53,9 +54,14 @@ function parse(text, location = self?.location) {
     tokens[0] = tokens[0].substring(1);
   }
 
-  //const pieceMakerPath = ["niki", "artur", "sage", "reas"].every((value) => {
-  //  return tokens[0] === value;
-  //});
+  // TODO: Extract colon parameter...
+  let colonParam;
+  const colonSplit = tokens[0].split(":");
+
+  if (colonSplit.length > 0) {
+    tokens[0] = colonSplit[0];
+    colonParam = colonSplit[1];
+  }
 
   if (customHost) {
     [host, ...path] = tokens[0].split("/");
@@ -81,7 +87,7 @@ function parse(text, location = self?.location) {
   // 4. Get params. (Everything that comes after the path and host)
   params = tokens.slice(1);
 
-  return { host, path, params, search, hash, text };
+  return { host, path, colon: colonParam, params, search, hash, text };
 }
 
 // Cleans a url for feeding into `parse` as the text parameter.

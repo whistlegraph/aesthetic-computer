@@ -2,8 +2,13 @@
 // Inherits from the "nopaint" system, which predefines boot, act, and leave.
 
 /* #region 🏁 todo
-  - [] Add line thickness...
+  + Future
+  - [] Transform hold line before committing a gesture / making the next line?
+  - [] More optimized rendering / shader options. 
   + Done
+  - [x] Add line thickness.
+    - [x] Add a thick preview.
+    - [x] Or a colon parameter.
   - [x] Paste line automatically before stroke ends / optimize for longer
         strokes, but keep pixel perfect algorithm...
   - [x] Implement `pppline` over `line`.
@@ -14,6 +19,9 @@ let points = []; // Gesture data.
 let bake = false; // Flag for baking strokes to the painting.
 let pparams; // Processed parameters.
 let race;
+let thickness;
+
+const debug = false;
 
 // 🥾
 // If `params` is empty then ink's RGBA will be randomized every segment.
@@ -25,26 +33,32 @@ function boot($) {
     if (str === "?") return $.num.randInt(255);
     else return parseInt(str);
   });
+  thickness = parseInt($.colon) || 1; // Set line thickness with a colon param.
 
   // Set up line smoothing system.
-  const step = 3; // 3 pixel gaps max
-  const speed = 40;
+  let step, speed;
+  if (thickness === 1) {
+    step = 3;
+    speed = 40;
+  } else {
+    step = thickness / 4;
+    speed = 20;
+  }
+  // Ick: This should be refactored. 23.02.01.14.09
   race = new $.geo.Race({ step, speed, quantized: true });
 }
 
 // 🧮
 function sim({ num, pen }) {
-  // TODO: This is pretty ugly API retrofitting / un-ergonomic. 23.02.01.13.23
   if (pen?.drawing) {
     const to = race.to();
     if (to?.out) {
-      const qp = to.out[1];
+      // Ick: This is pretty ugly API retrofitting / un-ergonomic. 23.02.01.13.23
+      const qp = to.out[0];
       if (qp) addPoint(num, ...qp);
     }
   }
 }
-
-let previewLine;
 
 // 🎨
 function paint({ pen, ink, num, paste, page, system, screen }) {
@@ -53,35 +67,35 @@ function paint({ pen, ink, num, paste, page, system, screen }) {
     paste(screen);
     page(screen);
     bake = false;
-  } else {
   }
 
   // Render an in-progress stroke.
   if (pen?.drawing) {
     paste(system.painting);
-    // Draw the current gesture up to the current pen point.
-    ink(pparams).pppline([...points.slice()], {
-      color: (pos, pix, col, vcol) => {
-        // ✨ Randomly add some sparkles.
-        if (false /*Math.random() > 0.90*/) {
-          num.blend(pix, [...num.randIntArr(255, 3), col[3]]);
-        } else if (vcol) {
-          num.blend(pix, vcol); // Shade pixel based on vertex color.
-        } else if (col) {
-          num.blend(pix, col); // Shade pixel based on ink color.
-        }
-      },
-    });
 
-    // Preview line
-    if (points.length > 0) {
-      const lp = points[points.length - 1];
-      previewLine = [lp.x, lp.y, pen.x, pen.y];
-      ink(pparams).line(...previewLine);
+    const color = (pos, pix, col, vcol) => {
+      // ✨ Randomly add some sparkles.
+      if (false /*Math.random() > 0.90*/) {
+        num.blend(pix, [...num.randIntArr(255, 3), col[3]]);
+      } else if (vcol) {
+        num.blend(pix, vcol); // Shade pixel based on vertex color.
+      } else if (col) {
+        num.blend(pix, col); // Shade pixel based on ink color.
+      }
+    };
+
+    // Draw the current gesture up to the current pen point.
+    if (thickness === 1) {
+      ink(pparams).pppline([...points.slice(), pen], { color });
+    } else {
+      ink(pparams).pline([...points.slice(), pen], thickness, { color });
+      // TODO: How could I derive the preview points from this so that I can
+      //       cache the tail of a gesture periodically to a bitmap? Do I even
+      //       want this or would GPU offloading be even better here? 23.02.01.17.22
     }
 
-    // Visualize race dot.
-    // if (race.pos) ink(255, 0, 0).box(race.pos[0] - 2, race.pos[1] - 2, 5);
+    if (debug && race.pos)
+      ink(255, 0, 0).box(race.pos[0] - 2, race.pos[1] - 2, 5); // Graph race dot.
   }
 }
 
