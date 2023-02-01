@@ -95,10 +95,10 @@ import { Typeface } from "../lib/type.mjs";
 
 const { floor, max } = Math;
 
-let wg, bg; // Whistlegraph foreground and background.
+let wg, fg, bg; // Whistlegraph foreground and background.
 let mic;
 let recStart,
-  recBGflip = false,
+  needsWipe = false,
   recProgress = 0,
   recCutting = false;
 let recDuration = 6; // Parameterize this...
@@ -110,7 +110,7 @@ let mode = "practice";
 
 let lastTwoTouch;
 
-let debug = true;
+let debug = false;
 let debugMids = []; // Midpoints of multi-touch.
 
 let tf; // Typeface for text overlay.
@@ -146,8 +146,14 @@ function boot($) {
     tf.load(net.preload);
   }
   $.glaze({ on: true }); // Add post-processing by @mxsage.
-  bg = num.randIntArr(128, 3); // Random background color.
-  wg = new Whistlegraph($, help.choose(1, 2)); // Whistlegraph with thickness.
+  bg = num.randIntArr(64, 3); // Random background color.
+  fg = [
+    num.randIntRange(200, 255),
+    num.randIntRange(200, 255),
+    num.randIntRange(200, 255),
+  ]; // Random background color.
+  // wg = new Whistlegraph($, help.choose(1, 2)); // Whistlegraph with thickness.
+  wg = new Whistlegraph($, 2); // Whistlegraph with thickness.
   wipe(bg); // Clear backbuffer.
 }
 
@@ -176,13 +182,11 @@ function paint($) {
 
       //wipe(127).ink(i).write(text, { center: "xy" });
       noise16();
-
     } else {
       i = 64;
       text = "TAP TO RECORD";
       wipe(127).ink(i).write(text, { center: "xy" });
     }
-
 
     return;
   }
@@ -192,9 +196,9 @@ function paint($) {
     return;
   }
 
-  if (recBGflip) {
+  if (needsWipe) {
     wipe(bg); // Wipe the BG when starting a recording.
-    recBGflip = false;
+    needsWipe = false;
   }
 
   if (ALT || SHIFT || CTRL || Q || E || pens?.().length > 1) wipe(bg);
@@ -280,7 +284,7 @@ function sim({
   if (recording) {
     if (isNaN(recStart)) {
       recStart = time; // Start recording timer if there is none.
-      recBGflip = true;
+      needsWipe = true;
       bop = true;
     } else {
       // 🔴 End recording when timer fires.
@@ -368,12 +372,18 @@ function act($) {
 
   // ✏️ Graphing
   if (e.is("touch:1")) {
-    wg.touch({ ...e, thickness: help.choose(1, 2, 4, 8, 16) }); // Drawing 🤙
+    wg.touch({ ...e, thickness: 2 /*help.choose(1, 2, 4, 8, 16) */ }); // Drawing 🤙
     // wg.touch({ ...e, thickness: help.choose(1) }); // Drawing 🤙
   }
 
   if (e.is("draw:1")) wg.draw(e);
   if (e.is("lift:1")) wg.lift();
+
+  // 🛑 Clear all gestures.
+  if (e.is("keyboard:down:u")) {
+    wg.reset();
+    needsWipe = true;
+  }
 }
 
 // 💗 Beat
@@ -426,9 +436,16 @@ class Whistlegraph {
 
   constructor($, thickness = 2) {
     this.$ = $;
-    this.baseColor = $.num.randIntArr(255, 3);
+    this.baseColor = fg; //$.num.randIntArr(255, 3);
     this.thickness = thickness;
     this.matrix = $.num.mat3.create();
+  }
+
+  // Clears all gestures.
+  reset() {
+    this.graphing = false;
+    this.gestures = [];
+    this.gestureIndex = -1;
   }
 
   // Pans around the view by a screen-coordinate amount, taking rotation and
@@ -665,7 +682,7 @@ class Gesture {
     // Note: Each of these properties are kind of like metadata on the gesture.
     this.thickness = thickness;
     this.color = point.color; // Gesture color to the color of the first point.
-    this.polychrome = $.help.flip(); // Whether to recolor segements randomly.
+    this.polychrome = false; // $.help.flip(); // Whether to recolor segements randomly.
   }
 
   add(next) {
