@@ -58,21 +58,19 @@
 🌟 Projects In Progress (PIP) 🌟
 
 *** Painting w/ Signature for Yeche Lange***
+  - User Accounts
+    - [👨‍🦰] How quickly could I tie this to user accounts and make it permanent
+           rn? Could I do this all today?
+      - [-] Set up passwordless email authorization.
+      - [] `name username` will set a user's name to whatever they like if there
+          is no existing conflict
+        - [] Require confirmation from user via a button press or tap.
+  + Done
   - `line`
-    - [] Add line thickness...
+    - [x] Add line thickness...
       - [x] Make pppline if thickness is 1
     - [x] Fix color inconsistencies among screen and painting. 
     - [x] Add ? ? ? options with ? expansion?
-  - `circle`
-    - Make a filled circle / oval command.
-  - `smear`
-    - [] Isolate smear more. 
-  - `pull`
-    - [] Make a new version of pull.
-  - User Accounts
-    - [] How quickly could I tie this to user accounts and make it permanent
-        rn? Could I do this all today?
-  + Done
   - `no`
     - [x] Undo / redo a step.
     - [x] with multistep options
@@ -132,11 +130,6 @@
 - [] ✏️ Diary
   - [] A simple diary tool / "performative poetry" piece. 
     - [] Write entries which playback in realtime to show the typing, like recei-ving a DM. See:  
-  - [] Set up *User Account* system. 
-    - [] Set up passwordless email authorization.
-    - [] `name username` will set a user's name to whatever they like if there
-         is no existing conflict
-      - [] Require confirmation from user via a button press or tap.
   - [] Typing `diary` makes a new entry in your default diary.
   - [] Every entry of every user has a URL and a timestamp.
   - [] Every diary of every user has a URL.

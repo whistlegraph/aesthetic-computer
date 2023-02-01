@@ -12,7 +12,7 @@
 [functions.thumbnail]
   external_node_modules = ["chrome-aws-lambda"]
 [functions.auth]
-  external_node_modules = ["@netlify/identity-client"]
+  external_node_modules = ["gotrue-js"]
 [functions.session]
   external_node_modules = ["got", "redis"]
 [functions.reload]
