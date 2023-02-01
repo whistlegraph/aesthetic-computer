@@ -481,9 +481,13 @@ function line() {
 // Transcribed from: https://rickyhan.com/jekyll/update/2018/11/22/pixel-art-algorithm-pixel-perfect.html
 function pixelPerfectPolyline(points, shader) {
   if (points.length < 2) return; // Require 2 or more points.
-
   const pixels = [];
+  //points.reverse(); // Draw from front to back.
+
   let last = points[0];
+
+  // TODO: Draw everything front to back similar to pline? 23.02.01.13.12
+  //for (let i = coords.length - 2; i >= 0; i -= 1) {
 
   points.forEach((cur) => {
     // Clip offscreen segments.
@@ -499,7 +503,7 @@ function pixelPerfectPolyline(points, shader) {
     // Compute bresen pixels, filtering out duplicates.
     bresenham(last.x, last.y, cur.x, cur.y).forEach((p, i) => {
       if (i > 0 || pixels.length < 2) {
-        pixels.push({ ...p, color: cur.color }); // Add color for each pixel.
+        pixels.push({ ...p, color: last.color }); // Add color for each pixel.
       }
     });
     last = cur;
