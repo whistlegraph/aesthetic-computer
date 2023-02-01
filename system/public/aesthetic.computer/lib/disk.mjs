@@ -127,6 +127,7 @@ let module; // Currently loaded piece module code.
 let currentPath,
   currentHost,
   currentSearch,
+  currentColon,
   currentParams,
   currentHash,
   currentText;
@@ -990,7 +991,7 @@ let firstPiece, firstParams, firstSearch; // Why is this still here? 23.01.27.13
 //                                           Perhaps for bare ROOT_PIECE's that
 //                                           require params?
 async function load(parsed, fromHistory = false, alias = false) {
-  let { path, host, search, params, hash, text: slug } = parsed;
+  let { path, host, search, colon, params, hash, text: slug } = parsed;
 
   loading === false ? (loading = true) : console.warn("Already loading:", path);
   if (debug) console.log(debug ? "🟡 Development" : "🟢 Production");
@@ -1079,6 +1080,7 @@ async function load(parsed, fromHistory = false, alias = false) {
           path: currentPath,
           host: currentHost,
           search: currentSearch,
+          colon: currentColon,
           params: currentParams,
           hash: currentHash,
           text: currentText,
@@ -1347,6 +1349,7 @@ async function load(parsed, fromHistory = false, alias = false) {
   $commonApi.slug = slug;
   $commonApi.query = search;
   $commonApi.params = params || [];
+  $commonApi.colon = colon;
 
   $commonApi.load = function () {
     // Load a piece, wrapping it in a leave function so a final frame
@@ -1413,6 +1416,7 @@ async function load(parsed, fromHistory = false, alias = false) {
     currentPath = path;
     currentHost = host;
     currentSearch = search;
+    currentColon = colon;
     currentParams = params;
     currentHash = hash;
 
