@@ -58,13 +58,7 @@
 🌟 Projects In Progress (PIP) 🌟
 
 *** Painting w/ Signature for Yeche Lange***
-  - User Accounts
-    - [👨‍🦰] How quickly could I tie this to user accounts and make it permanent
-           rn? Could I do this all today?
-      - [-] Set up passwordless email authorization.
-      - [] `name username` will set a user's name to whatever they like if there
-          is no existing conflict
-        - [] Require confirmation from user via a button press or tap.
+  - [🚗] Make two or three works for Yeche.
   + Done
   - `line`
     - [x] Add line thickness...
@@ -127,6 +121,13 @@
        - [] Tap the word to return to the prompt and leave the command as is.
        - [] Swipe the word in any direction to erase the command
             and return to the prompt. 
+- [] User Accounts
+  - [👨‍🦰] How quickly could I tie this to user accounts and make it permanent
+          rn? Could I do this all today?
+    - [-] Set up passwordless email authorization.
+    - [] `name username` will set a user's name to whatever they like if there
+        is no existing conflict
+      - [] Require confirmation from user via a button press or tap.
 - [] ✏️ Diary
   - [] A simple diary tool / "performative poetry" piece. 
     - [] Write entries which playback in realtime to show the typing, like recei-ving a DM. See:  
