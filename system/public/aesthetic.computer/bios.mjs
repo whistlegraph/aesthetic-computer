@@ -674,7 +674,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // 🔥 Optionally use workers or not.
   // Always use workers if they are supported, except for
   // when we are in VR (MetaBrowser).
-  const workersEnabled = true;
+  const sandboxed = window.origin === "null";
+
+  // Disable workers if we are in a sandboxed iframe.
+  const workersEnabled = !sandboxed;
 
   //if (workersEnabled) {
   if (!MetaBrowser && workersEnabled) {
@@ -931,7 +934,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "rewrite-url-path") {
       const newPath = content.path;
-      history.replaceState("", document.title, newPath);
+      if (window.origin !== "null")
+        history.replaceState("", document.title, newPath);
       return;
     }
 
@@ -986,19 +990,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         keyboard.input = input;
 
-        form.addEventListener("submit", (e) => {
+        form.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            keyboard.events.push({
+              name: "keyboard:down:enter",
+              key: "Enter",
+              repeat: false,
+              shift: false,
+              alt: false,
+              ctrl: false,
+            });
+          }
           // Generate a keyboard event if the form was submitted.
           // (Enter keypressed.)
-          keyboard.events.push({
-            name: "keyboard:down:enter",
-            key: "Enter",
-            repeat: false,
-            shift: false,
-            alt: false,
-            ctrl: false,
-          });
+        });
 
+        form.addEventListener("submit", (e) => {
           e.preventDefault();
+          return false;
         });
 
         input.addEventListener("input", (e) => {
@@ -1287,7 +1297,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Emit a push state for the old disk if it was not the first. This is so
       // a user can use browser history to switch between disks.
       if (content.pieceCount > 0) {
-        if (content.fromHistory === false) {
+        if (content.fromHistory === false && window.origin !== "null") {
           history.pushState(
             "",
             document.title,
@@ -1296,8 +1306,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         // Replace the state if we are running an aliased `load` or `jump`.
-        // (THat doesn't avoids the history stack.)
-        if (content.fromHistory === true && content.alias === false) {
+        // (That doesn't avoids the history stack.)
+        // Note: History state changes do not work in a sandboxed iframe.
+        if (
+          content.fromHistory === true &&
+          content.alias === false &&
+          window.origin !== "null"
+        ) {
           history.replaceState(
             "",
             document.title,
@@ -1425,8 +1440,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "store:persist") {
       // Local Storage
       if (content.method === "local") {
-        localStorage.setItem(content.key, JSON.stringify(content.data));
-        if (debug && logs.store) console.log("📦 Persisted locally:", content, localStorage);
+        try {
+          localStorage.setItem(content.key, JSON.stringify(content.data));
+        } catch (e) {
+          // console.warn(e);
+        }
+
+        if (debug && logs.store)
+          console.log("📦 Persisted locally:", content, localStorage);
       }
 
       // IndexedDB
@@ -1440,7 +1461,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         await Store.set(content.key, content.data);
         // const set = await Store.set(content.key, content.data);
         // const get = await Store.get(content.key);
-        if (debug && logs.store) console.log("📦 Persisted on local:db:", content);
+        if (debug && logs.store)
+          console.log("📦 Persisted on local:db:", content);
       }
 
       if (content.method === "remote:temporary") {
@@ -1459,7 +1481,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Store: Retrieve
     if (type === "store:retrieve") {
       if (content.method === "local") {
-        const data = JSON.parse(localStorage.getItem(content.key));
+        let data;
+
+        try {
+          data = JSON.parse(localStorage.getItem(content.key));
+        } catch (err) {
+          // console.warn(err);
+          // Probably in a sandboxed environment here...
+        }
+
         if (debug && logs.store)
           console.log("📦 Retrieved local data:", content.key, data);
         send({
@@ -1495,7 +1525,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       if (content.method === "local:db") {
-        const hasKey = (await Store.keys()).includes(content.key);
+        const hasKey = (await Store.keys())?.includes(content.key);
         let deleted;
 
         if (hasKey) {
@@ -2073,7 +2103,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Skip preload marker on default init piece, and toggle it if necessary.
       if (currentPiece !== null && !window.waitForPreload)
         window.preloaded = true;
-      if (debug && logs.loading) console.log("⏳ Preloaded:", window.preloaded ? "✅" : "❌");
+      if (debug && logs.loading)
+        console.log("⏳ Preloaded:", window.preloaded ? "✅" : "❌");
       return;
     }
 

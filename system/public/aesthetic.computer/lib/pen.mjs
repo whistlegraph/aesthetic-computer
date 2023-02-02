@@ -14,7 +14,9 @@ import { Point } from "./geo.mjs";
 
 const { assign } = Object;
 const { round } = Math;
-const debug = Boolean(localStorage.acDEBUG);
+
+// debugger;
+const debug = Boolean(window.acDEBUG);
 
 class Pointer {
   x;
