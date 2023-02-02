@@ -94,7 +94,9 @@ async function fun(event, context) {
         <title>${title}</title>
         <script src="/aesthetic.computer/boot.mjs" type="module" defer></script>
         <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-        <link rel="stylesheet" href="/aesthetic.computer/style.css" />
+        <link rel="stylesheet" crossorigin="anonymous" href="/type/webfonts/berkeley-mono-variable.css" />
+        <link rel="stylesheet" crossorigin="anonymous" href="/type/webfonts/ywft-processing-regular.css" />
+        <link rel="stylesheet" crossorigin="anonymous" href="/aesthetic.computer/style.css" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <meta name="og:title" content="${title}" />
         <meta name="og:description" content="${desc}" />

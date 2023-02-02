@@ -57,7 +57,7 @@ class VRButton {
 
 		function showVRNotAllowed(exception) {
 			disableButton();
-			console.warn('Exception when trying to call xr.isSessionSupported', exception);
+			if (window.acDEBUG) console.warn('Exception when trying to call xr.isSessionSupported', exception);
 		}
 
 		if ('xr' in navigator) {

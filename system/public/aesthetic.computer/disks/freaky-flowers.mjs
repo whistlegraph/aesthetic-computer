@@ -844,7 +844,6 @@ const handle = "digitpain";
 // Retrieve or generate a token index, given this piece's parameter list.
 export function tokenID($) {
   const canRandomize = $.num ? true : false; // Return -1 if there is no randomization function (on server)
-  console.log(canRandomize)
   const randomToken = canRandomize ? $.num.randInt(tokens.length - 1) : -1;
   const param1 = parseInt($.params[0]);
   return param1 >= 0 && param1 < tokens.length ? param1 : randomToken;

@@ -57,31 +57,9 @@
 
 🌟 Projects In Progress (PIP) 🌟
 
-*** Painting w/ Signature for Yeche Lange***
-  - [🚗] Make two or three works for Yeche.
-  + Done
-  - `line`
-    - [x] Add line thickness...
-      - [x] Make pppline if thickness is 1
-    - [x] Fix color inconsistencies among screen and painting. 
-    - [x] Add ? ? ? options with ? expansion?
-  - `no`
-    - [x] Undo / redo a step.
-    - [x] with multistep options
-
 *** Freaky Flowers Launch ***
-  - All Pieces
-    - [-] Every piece by default (unless it opts out) will show its name
-         and parameters in the top left corner, which will be clickable
-         and return to the prompt with that text filled in already. 
-         - [] Write readouts to separate "secret" buffer (see `HUD` in disk)
-  - Prompt 
-    - [] Do history stack different. (Smaller text)
-      - [] Skip what aliases lead to in the history list.
-    - [] Add background music.
   - Freaky Flowers 
-    - [-] Make sure iframe mockup works: https://localhost:8888/sandboxed-iframe-mockup.html
-    - [] Write title / name of piece in center while loading...
+    - [😫] Write title / name of piece in center while loading...
     - [] Start spinning, at a high rate, (about 30seconds max timelapse) 
     - [] Wand should be "thicker".
     - [] Tap or two finger pinch to zoom and slow rotation.
@@ -96,12 +74,34 @@
      - [] Make wand render again.
      - [] Loading a ff piece prevents drawing and restarts the
           timelapse upon entering VR.
+  - Prompt 
+    - [] Do history stack different. (Smaller text)
+      - [] Skip what aliases lead to in the history list.
+    - [] Add background music.
   + Done
-  - [x] Add "signature" / title flag feature to `dl` command.
-    - `sign`
-      - [x] Paste a signature with timestamp in the corner.
-            that is NOT opaque and in the bottom left corner.
-  - [x] Review spreadsheet metadata: https://docs.google.com/spreadsheets/d/10aeN4WyTQ1UQUT9-IUbKFdoeEfkumqM6_8mvFs5dVq8/edit#gid=1052521247 
+    - [x] Make sure iframe mockup works for `ff`: https://localhost:8888/sandboxed-iframe-mockup.html
+    - All Pieces
+      - [x] Every piece by default (unless it opts out) will show its name
+          and parameters in the top left corner.
+      - [x] Write readouts to separate "secret" buffer (see `HUD` in disk)
+    - [x] Add "signature" / title flag feature to `dl` command.
+      - `sign`
+        - [x] Paste a signature with timestamp in the corner.
+              that is NOT opaque and in the bottom left corner.
+    - [x] Review spreadsheet metadata: https://docs.google.com/spreadsheets/d/10aeN4WyTQ1UQUT9-IUbKFdoeEfkumqM6_8mvFs5dVq8/edit#gid=1052521247 
+
+*** Painting w/ Signature for Yeche Lange***
+  - [🚗] Make two or three works for Yeche.
+  + Done
+  - `line`
+    - [x] Add line thickness...
+      - [x] Make pppline if thickness is 1
+    - [x] Fix color inconsistencies among screen and painting. 
+    - [x] Add ? ? ? options with ? expansion?
+  - `no`
+    - [x] Undo / redo a step.
+    - [x] with multistep options
+
 
 *** Better Logging ***
   - [x] Create a logs.mjs file that can enable / disable certain development log flags when working, such as disabling all "store" logs.

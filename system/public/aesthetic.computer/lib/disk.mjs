@@ -146,7 +146,7 @@ let noPaint = false;
 let storeRetrievalResolution, storeDeletionResolution;
 
 let socket;
-let pen = {};
+// let pen = {};
 
 // *** Dark Mode ***
 // Pass `true` or `false` to override or `default` to the system setting.
@@ -1015,8 +1015,8 @@ async function load(parsed, fromHistory = false, alias = false) {
   // See if we already have source code to build a blobURL from.
   if (parsed.source) {
     // TODO: What happens if source is undefined?
-    const blob = new Blob([parsed.source], { type: "application/javascript" });
-    const url = URL.createObjectURL(blob);
+    // const blob = new Blob([parsed.source], { type: "application/javascript" });
+    // const url = URL.createObjectURL(blob);
     // Perhaps the disk files need to be cached in a CDN and then destroyed
     // after a certain time?
 
@@ -1533,6 +1533,7 @@ const actAlerts = []; // Messages that get put into act and cleared after
 // every frame.
 let reframed = false;
 async function makeFrame({ data: { type, content } }) {
+
   if (type === "init-from-bios") {
     debug = content.debug;
     graph.setDebug(content.debug);
@@ -1542,6 +1543,7 @@ async function makeFrame({ data: { type, content } }) {
       loadAfterPreamble = null;
       load(content.parsed); // Load after some of the default frames run.
     };
+    send({ type: "disk-defaults-loaded" });
     return;
   }
 
@@ -2553,9 +2555,6 @@ async function makeFrame({ data: { type, content } }) {
     //performance.clearMeasures();
   }
 }
-
-// 5. Start a render loop on a minimal api so the defaults end up bein run.
-send({ type: "disk-defaults-loaded" });
 
 // 📚 Utilities
 
