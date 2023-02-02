@@ -164,12 +164,12 @@ void main()
     normLightDirection = normalize(lightDirection);
     vec2 uv = v_texc * 2. - vec2(1.);
     uv.x *= iResolution.x / iResolution.y;
-    
+
     vec3 ro = vec3(0., 0., cameraDistance);
     vec3 rd = normalize(vec3(uv, 1.0));
 
-    float nearIntersectionDist = zPlaneIntersect(ro, rd, -volumeRadius);
-    float farIntersectionDist = zPlaneIntersect(ro, rd, volumeRadius);
+    float nearIntersectionDist = zPlaneIntersect(ro, rd, 0.0);
+    float farIntersectionDist = zPlaneIntersect(ro, rd, volumeRadius * 2.0);
     float traceDist = abs(nearIntersectionDist - farIntersectionDist) + volumeRadius;
 
     vec3 volCol = vec3(0.);
