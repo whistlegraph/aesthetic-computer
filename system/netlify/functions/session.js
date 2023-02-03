@@ -26,7 +26,6 @@ async function fun(event, context) {
     const host = event.headers.host.split(":")[0];
     out = { url: `http://${host}:8889` };
   } else {
-
     const { got } = await import("got");
     const slug = event.path.replace("/session/", ""); // Take everything after the path.
     const jamSocketToken = process.env.JAMSOCKET_ACCESS_TOKEN;
@@ -35,7 +34,7 @@ async function fun(event, context) {
     // rep.header("Access-Control-Allow-Origin", corsOrigin);
 
     // 1. Check to see if we actually should make a backend.
-    if (slug.length === 0) {
+    if (slug.length === 1) {
       status = 500;
       out = { msg: "😇 Sorry. No backend could be spawned!" };
     }
@@ -83,6 +82,9 @@ async function fun(event, context) {
   return {
     statusCode: status,
     body: JSON.stringify(out),
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+    },
   };
 }
 

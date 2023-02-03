@@ -160,10 +160,11 @@ let demoWandFormOptions;
 let demo, player; // For recording a session and rewatching it in realtime.
 let lastPlayedFrames; // Keeps track of recently run through Player frames / demo frames.
 // (Useful for re-dumping / modifying demo data.)
+let loadDemoSwitch;
+let loadingDemoFile = false;
+let needsWipe = false;
 
-let lastWandPosition;
-let lastWandRotation;
-let loadDemo;
+let lastWandPosition, lastWandRotation;
 
 let beep, bop; // For making sounds when pieces begin and end.
 let ping, pong; // For making sounds when pieces upload or fail to upload.
@@ -222,12 +223,24 @@ function boot({
   params,
   debug: dbg,
   store,
+  hud: { label },
   net: { preload },
 }) {
   debug = dbg; // Set a global debug flag.
   // Assign some globals from the api.
   clamp = num.clamp;
   rr = num.randIntRange;
+
+  // Check to see if we have inherited any metadata from `freaky-flowers`.
+  // And then use that data in order to
+  if (store["freaky-flowers"]) {
+    const ff = store["freaky-flowers"];
+    const meta = ff.meta({ params: [ff.tokenID], num });
+    ff.headers(ff.tokenID); // Print any series headers.
+    // console.log(ff, meta);
+    label(`${meta.title} (ff ${ff.tokenID})`);
+    autoRotate = true;
+  }
 
   // Set starting colors.
   color = almostWhite();
@@ -306,7 +319,7 @@ function boot({
     if (speed === 0) speed = true;
     const handle = "digitpain";
     const recordingSlug = `${params[0]}-recording-${handle}`;
-    loadDemo = { slug: `${baseURL}/${recordingSlug}.json`, speed };
+    loadDemoSwitch = { slug: `${baseURL}/${recordingSlug}.json`, speed };
     stageOn = false;
     measuringCubeOn = false;
     originOn = false;
@@ -355,9 +368,10 @@ function sim({
   }
 
   // 📽️ Loading and triggering a demo once the graphics system is ready.
-  if (gpuReady && loadDemo) {
-    const { speed, slug } = loadDemo;
-    loadDemo = null;
+  if (gpuReady && loadDemoSwitch) {
+    const { speed, slug } = loadDemoSwitch;
+    loadDemoSwitch = null;
+    loadingDemoFile = true;
     preload(slug, false).then((data) => {
       // console.log(data);
 
@@ -373,6 +387,11 @@ function sim({
       console.log("🎞️ Loaded a wand file:", frames.length);
       // Play all frames back.
       player = new Player(frames, undefined, undefined, speed, waitForPreload);
+
+      if (speed !== true) {
+        loadingDemoFile = false; // Stop loading if we are incrementally playing back the file. Otherwise we will flag this in Player.
+        needsWipe = true;
+      }
     });
   }
 
@@ -838,7 +857,6 @@ function sim({
 
   player?.sim((frames) => {
     // Parse demo frames and act on them in order.
-
     // 🟢 Advance forward any player frames.
     frames.forEach((f) => {
       const type = f[1];
@@ -913,20 +931,6 @@ function sim({
         demoWandFormOptions = null;
         lastPlayedFrames = player.frames;
         player = null;
-
-        // Update the url if we are in a freaky-flowers piece...
-        if (store["freaky-flowers"]) {
-          const tokenID = store["freaky-flowers"].tokenID;
-          const hook = store["freaky-flowers"].hook;
-          let path = `${hook}~${tokenID}`;
-          path += params
-            .slice(1)
-            .map((p) => "~" + p)
-            .join("");
-          rewrite(path); // Update the path in the URL bar.
-          meta(store["freaky-flowers"].meta({ params: [tokenID] }));
-          store["freaky-flowers"].headers(tokenID); // Print any series headers.
-        }
 
         // #region relic-1
         // 📔 Some old scripts to automate making changes to demos and GLB files.
@@ -1004,7 +1008,7 @@ function sim({
   });
 }
 
-function paint({ form, Form, paintCount }) {
+function paint({ form, Form, paintCount, wipe, noise16 }) {
   // Flash the screen sometimes.
   if (flashes.length > 0) {
     if (currentFlash === undefined) currentFlash = 0;
@@ -1026,7 +1030,7 @@ function paint({ form, Form, paintCount }) {
     }
   }
 
-  //#region 🐛 Debugging drawing.
+  // #region 🐛 Debugging drawing.
   // Draw the path of the race.
   /*
   const racePositions = [];
@@ -1154,13 +1158,25 @@ function paint({ form, Form, paintCount }) {
     //   [trackerForm, diffPrevForm, diffForm, raceForm],
     //   camdoll.cam
     // );
-    //#endregion
   }
+  // #endregion
 
-  if (demoWandFormOptions)
+  // Demo playback.
+  // Create a demoWandForm if one is needed. TODO: Does this need to be in `paint`? 23.02.03.12.58
+  if (demoWandFormOptions) {
     demoWandForm = new Form(demoWandFormOptions, {
       rot: [0, tube.form.rotation[1], [0]],
     });
+  }
+
+  if (loadingDemoFile) {
+    noise16();
+  }
+
+  if (needsWipe) {
+    wipe(0, 0);
+    needsWipe = false;
+  }
 
   form(
     [
@@ -1785,7 +1801,7 @@ function advanceSeries(series, dir, stop) {
     function queueDemo(speed = 1) {
       const handle = "digitpain";
       const recordingSlug = `${prefixedTimestamp}-recording-${handle}`;
-      loadDemo = { slug: `${baseURL}/${recordingSlug}.json`, speed };
+      loadDemoSwitch = { slug: `${baseURL}/${recordingSlug}.json`, speed };
     }
     queueDemo(0);
   }
@@ -2798,13 +2814,12 @@ class Tube {
                   positions.push(this.lastPathP.shape[si + 1]);
                   positions.push(this.lastPathP.shape[si]);
 
-                  
-                    const n = calculateTriangleNormal(...positions.slice(-3));
-                    // vec3.negate(n, n);
-                    // const n = [0, -1, 0];
-                    normals.push(n, n, n);
-                    normals.push(n, n, n);
-                 // }
+                  const n = calculateTriangleNormal(...positions.slice(-3));
+                  // vec3.negate(n, n);
+                  // const n = [0, -1, 0];
+                  normals.push(n, n, n);
+                  normals.push(n, n, n);
+                  // }
 
                   colors.push(
                     this.vary(shade),
@@ -2819,7 +2834,7 @@ class Tube {
                   positions.push(pathP.shape[si + 1]);
 
                   {
-                  //  const n = calculateTriangleNormal(...positions.slice(-3));
+                    //  const n = calculateTriangleNormal(...positions.slice(-3));
                     // vec3.negate(n, n);
                     // const n = [0, -1, 0];
                     //normals.push(n, n, n);
@@ -2837,11 +2852,11 @@ class Tube {
                 positions.push(pathP.shape[si]);
                 positions.push(this.lastPathP.shape[si]);
 
-                  const n2 = calculateTriangleNormal(...positions.slice(-3));
-                  //vec3.negate(n, n);
-                  // const n = [0, -1, 0];
-                  normals.push(n2, n2, n2);
-                  normals.push(n2, n2, n2);
+                const n2 = calculateTriangleNormal(...positions.slice(-3));
+                //vec3.negate(n, n);
+                // const n = [0, -1, 0];
+                normals.push(n2, n2, n2);
+                normals.push(n2, n2, n2);
 
                 colors.push(
                   this.vary(shade),
@@ -2853,10 +2868,10 @@ class Tube {
                 positions.push(this.lastPathP.shape[si + 1]);
                 positions.push(pathP.shape[si + 1]);
 
-                  // const n = calculateTriangleNormal(...positions.slice(-3));
-                  // vec3.negate(n, n);
-                  // const n = [0, -1, 0];
-                  //normals.push(n2, n2, n2);
+                // const n = calculateTriangleNormal(...positions.slice(-3));
+                // vec3.negate(n, n);
+                // const n = [0, -1, 0];
+                //normals.push(n2, n2, n2);
 
                 colors.push(
                   this.vary(shade),
@@ -3718,15 +3733,16 @@ class Player {
     }
   }
 
-  sim(handler) {
+  sim(handler, simCount) {
     let thisFrame = this.frames[this.frameIndex];
 
     // Finish a demo if there are no frames left.
     if (!thisFrame) {
-      // console.log("🟡 Demo playback completed:", this.frameIndex);
+      console.log("🟡 Demo playback completed:", this.frameIndex);
       // Push a completed message with a negative frameCount to mark an ending.
       handler([[-1, "demo:complete"]]);
       this.waitForPreload?.();
+
       return;
     }
 
@@ -3735,7 +3751,34 @@ class Player {
       for (let f = this.frameIndex; f <= this.endAtLastIndex; f += 1) {
         this.collectedFrames.push(this.frames[f]);
       }
-      handler(this.collectedFrames, this.frameCount); // Run our action handler.
+
+      handler(this.collectedFrames); // Run our action handler.
+
+      loadingDemoFile = false;
+      needsWipe = true;
+
+      /*
+      const chunkSize = 100;
+      for (let i = 0; i < this.collectedFrames.length; i += chunkSize) {
+        const end = i + chunkSize;
+        const chunk = this.collectedFrames.slice(
+          i,
+          end >= this.collectedFrames.length ? this.collectedFrames.length : end
+        );
+        const isLastIteration = end >= this.collectedFrames.length;
+
+        // TODO: Stack these up so they run in order, instead of consecutively.
+        setTimeout(() => {
+          console.log(chunk.length);
+          handler(chunk);
+          if (isLastIteration) {
+            loadingDemoFile = false;
+            needsWipe = true;
+          } // Consider the sculpture fully loaded.
+        }, 150);
+      }
+      */
+
       this.collectedFrames = [];
       this.frameIndex = -1;
       return;
