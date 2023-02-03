@@ -58,10 +58,15 @@
 🌟 Projects In Progress (PIP) 🌟
 
 *** Freaky Flowers Launch ***
+
+  - OpenSea Test URL: https://testnets.opensea.io/assets/goerli/0x4FEa5E2a8C3bfc742B43b48FC4F2eA9913452B99/0
+  - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
+
   - Freaky Flowers 
     - [🍏] Get loading working much nicer both in playback mode and
            in "instant" mode with a visual progress indicator of some kind. 
     - [] What isn't being auto-rotated?
+      - [] It's the endcaps...
     - [] Wand should be "thicker".
     - [] Tap or two finger pinch to zoom and slow rotation.
     - [] Let go to snap back. 
