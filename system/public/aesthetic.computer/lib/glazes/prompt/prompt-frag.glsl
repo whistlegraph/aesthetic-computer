@@ -104,7 +104,7 @@ vec2 worldToDensityMap(vec2 coords)
 
 vec4 getColor(vec3 pos)
 {
-    if (abs(pos.z) > volumeRadius)
+    if (pos.z <= 0.0 && pos.z < -volumeRadius * 2.0)
     {
       return vec4(0.);
     }
@@ -134,8 +134,8 @@ vec3 directLight(vec3 pos, vec3 rd, float headStart)
     vec3 volAbs = vec3(1.);
     float stepDist;
 
-    float nearIntersectionDist = zPlaneIntersect(ro, normLightDirection, -volumeRadius);
-    float farIntersectionDist = zPlaneIntersect(ro, normLightDirection, volumeRadius);
+    float nearIntersectionDist = zPlaneIntersect(ro, normLightDirection, 0.0);
+    float farIntersectionDist = zPlaneIntersect(ro, normLightDirection, volumeRadius * 2.0);
 
     float traceDist = max(nearIntersectionDist, farIntersectionDist);
     traceDist = min(traceDist, shadowRange);
@@ -164,12 +164,12 @@ void main()
     normLightDirection = normalize(lightDirection);
     vec2 uv = v_texc * 2. - vec2(1.);
     uv.x *= iResolution.x / iResolution.y;
-    
+
     vec3 ro = vec3(0., 0., cameraDistance);
     vec3 rd = normalize(vec3(uv, 1.0));
 
-    float nearIntersectionDist = zPlaneIntersect(ro, rd, -volumeRadius);
-    float farIntersectionDist = zPlaneIntersect(ro, rd, volumeRadius);
+    float nearIntersectionDist = zPlaneIntersect(ro, rd, 0.0);
+    float farIntersectionDist = zPlaneIntersect(ro, rd, volumeRadius * 2.0);
     float traceDist = abs(nearIntersectionDist - farIntersectionDist) + volumeRadius;
 
     vec3 volCol = vec3(0.);
