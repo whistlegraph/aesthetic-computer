@@ -130,7 +130,8 @@ let currentPath,
   currentColon,
   currentParams,
   currentHash,
-  currentText;
+  currentText,
+  currentHUDText;
 let loading = false;
 let reframe;
 let screen;
@@ -145,8 +146,7 @@ let noPaint = false;
 
 let storeRetrievalResolution, storeDeletionResolution;
 
-let socket;
-// let pen = {};
+let socket, socketStartDelay;
 
 // *** Dark Mode ***
 // Pass `true` or `false` to override or `default` to the system setting.
@@ -418,7 +418,8 @@ async function session(slug, forceProduction = false) {
 
   const session = await req.json();
 
-  if (debug && logs.session) console.log("🐕‍🦺 Session:", session.backend);
+  if (debug && logs.session)
+    console.log(`🐕‍🦺 Session: ${slug} - ${session.backend || session.name}`);
 
   // Return the active session if the server knows it's "Ready", otherwise
   // wait for the one we requested to spin up before doing anything else.
@@ -1019,13 +1020,10 @@ async function load(parsed, fromHistory = false, alias = false) {
     // const url = URL.createObjectURL(blob);
     // Perhaps the disk files need to be cached in a CDN and then destroyed
     // after a certain time?
-
     // Or they need to be tied to a user account already...
-
     // const module = importScripts(url);
     // const m = await importScripts(url);
     // debugger;
-
     // use the imported module
     // import { sayHello } from "./script.js";
     // sayHello();
@@ -1052,7 +1050,6 @@ async function load(parsed, fromHistory = false, alias = false) {
 
   // 🧩 Piece has been loaded...
 
-  socket?.kill(); // Kill any already open socket from a previous disk.
   lastHost = host; // Memoize the host.
   pieceHistoryIndex += fromHistory === true ? -1 : 1; // Adjust the history.
 
@@ -1095,13 +1092,13 @@ async function load(parsed, fromHistory = false, alias = false) {
   // Start the socket server
   // TODO: Before we load the disk, in case of needing to reload remotely on failure? 23.01.27.12.48
   let receiver; // Handles incoming messages from the socket.
-  const forceProd = false; // For testing prod socket servers in development.
-
-  socket = new Socket(debug);
+  const forceProd = true; // For testing prod socket servers in development.
 
   // Requests a session-backend and connects via websockets.
   async function startSocket() {
     const sesh = await session(slug, forceProd); // Grab a session backend for this piece.
+    socket?.kill(); // Kill any already open socket from a previous disk.
+    socket = new Socket(debug); // Then redefine and make a new socket.
     socket.connect(
       new URL(sesh.url).host,
       (id, type, content) => receiver?.(id, type, content),
@@ -1111,7 +1108,10 @@ async function load(parsed, fromHistory = false, alias = false) {
     );
   }
 
-  startSocket();
+  // Delay session server by 1 second in order to prevent redundant connections
+  //  being opened pieces are quickly re-routing and jumping.
+  clearTimeout(socketStartDelay);
+  socketStartDelay = setTimeout(() => startSocket(), 500);
 
   $commonApi.net.socket = function (receive) {
     //console.log("📡 Mapping receiver.");
@@ -1121,6 +1121,8 @@ async function load(parsed, fromHistory = false, alias = false) {
 
   // This would also get the source code, in case meta-programming is needed.
   // const source = await (await fetch(fullUrl)).text();
+
+  if (!alias) currentHUDText = slug; // Update hud text if this is not an alias.
 
   // ***Client Metadata Fields***
   // Set default metadata fields for SEO and sharing,
@@ -1533,7 +1535,6 @@ const actAlerts = []; // Messages that get put into act and cleared after
 // every frame.
 let reframed = false;
 async function makeFrame({ data: { type, content } }) {
-
   if (type === "init-from-bios") {
     debug = content.debug;
     graph.setDebug(content.debug);
@@ -2455,13 +2456,13 @@ async function makeFrame({ data: { type, content } }) {
       // composited by the other thread.
       // System info.
       let label;
-      const piece = currentText?.split("~")[0];
+      const piece = currentHUDText?.split("~")[0];
       if (piece !== undefined && piece !== "prompt" && piece !== "video") {
-        const w = currentText.length * 6;
+        const w = currentHUDText.length * 6;
         const h = 11;
         label = $api.painting(w, h, ({ ink }) => {
-          ink(0).write(currentText?.replaceAll("~", " "), { x: 1, y: 1 });
-          ink(255, 200, 240).write(currentText?.replaceAll("~", " "));
+          ink(0).write(currentHUDText?.replaceAll("~", " "), { x: 1, y: 1 });
+          ink(255, 200, 240).write(currentHUDText?.replaceAll("~", " "));
         });
       }
 
