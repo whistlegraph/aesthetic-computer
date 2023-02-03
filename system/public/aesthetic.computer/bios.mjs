@@ -225,7 +225,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // ffCtx.fillRect(0, 0, ffCtx.canvas.width, ffCtx.canvas.height);
         freezeFrameGlaze = false;
       } else {
-        ffCtx.putImageData(imageData, 0, 0);
+        ffCtx.putImageData(imageData, 0, 0); // TODO: Fix source data detached error here.
       }
 
       if (!wrapper.contains(freezeFrameCan)) wrapper.append(freezeFrameCan);
@@ -2194,6 +2194,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // dbCtx.transferFromImageBitmap(dirtyBoxBitmap);
     } else if (content.paintChanged && content.pixels) {
       // 🅱️ Normal full-screen update.
+
       imageData = new ImageData(
         new Uint8ClampedArray(content.pixels),
         canvas.width,

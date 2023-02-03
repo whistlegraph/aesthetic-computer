@@ -60,6 +60,7 @@
 *** Freaky Flowers Launch ***
   - Freaky Flowers 
     - [😫] Write title / name of piece in center while loading...
+    
     - [] Start spinning, at a high rate, (about 30seconds max timelapse) 
     - [] Wand should be "thicker".
     - [] Tap or two finger pinch to zoom and slow rotation.
