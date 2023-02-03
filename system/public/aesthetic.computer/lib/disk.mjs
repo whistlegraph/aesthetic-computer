@@ -304,6 +304,7 @@ class Recorder {
 const $commonApi = {
   // Trigger background music.
   // Eventually add an "@" style parameter similar to what a stamp system would have.
+  hud: { label: (text) => (currentHUDText = text) },
   send,
   history: [], // Populated when a disk loads and sets the former piece.
   bgm: {
@@ -1108,10 +1109,10 @@ async function load(parsed, fromHistory = false, alias = false) {
     );
   }
 
-  // Delay session server by 1 second in order to prevent redundant connections
+  // Delay session server by .75 seconds in order to prevent redundant connections
   //  being opened pieces are quickly re-routing and jumping.
   clearTimeout(socketStartDelay);
-  socketStartDelay = setTimeout(() => startSocket(), 500);
+  socketStartDelay = setTimeout(() => startSocket(), 750);
 
   $commonApi.net.socket = function (receive) {
     //console.log("📡 Mapping receiver.");
@@ -1123,6 +1124,7 @@ async function load(parsed, fromHistory = false, alias = false) {
   // const source = await (await fetch(fullUrl)).text();
 
   if (!alias) currentHUDText = slug; // Update hud text if this is not an alias.
+  if (module.nohud) currentHUDText = undefined; // Don't use hud text if needed.
 
   // ***Client Metadata Fields***
   // Set default metadata fields for SEO and sharing,
@@ -1134,7 +1136,8 @@ async function load(parsed, fromHistory = false, alias = false) {
     const { title, desc, ogImage, twitterImage } = metadata(
       "aesthetic.computer",
       slug,
-      module.meta?.({ ...parsed, num: $commonApi.num }) // Adding the num API here is a little hacky, but needed for Freaky Flowers random metadata generation. 22.12.27
+      // Adding the num API here is a little hacky, but needed for Freaky Flowers random metadata generation. 22.12.27
+      module.meta?.({ ...parsed, num: $commonApi.num, store: $commonApi.store })
     );
 
     meta = {

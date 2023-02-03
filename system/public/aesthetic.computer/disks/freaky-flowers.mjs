@@ -793,7 +793,7 @@ const tokenColors = [
 
 // 🥾 Boot (Runs once before first paint and sim)
 export function boot({ wipe, params, jump, store, num }) {
-  const i = tokenID({params, num});
+  const i = tokenID({ params, num });
 
   const headers = (id) => {
     console.log(
@@ -820,7 +820,7 @@ export function boot({ wipe, params, jump, store, num }) {
   };
 
   store["freaky-flowers"] = { tokenID: i, tokens, headers, meta }; // Note: Storage could automatically
-  //                                                know the disk. 22.11.25.11.14
+  //                                                                        know the disk. 22.11.25.11.14
 
   if (store["ff"]) store["freaky-flowers"].hook = "ff";
   else store["freaky-flowers"].hook = "freaky-flowers";
@@ -858,8 +858,8 @@ export function meta({ params, num }) {
     out = {
       // Note: high res png's are also stored, but webps are for Open Graph. 22.11.28.13.13
       image_url: `${baseURL}/ff${i}-${0}-still-${handle}.webp`,
-      title: "Random", 
-      desc: "Shows a random Freaky Flower!" 
+      title: "Random",
+      desc: "Shows a random Freaky Flower!",
       // https://wand.aesthetic.computer/ff1-2022.11.20.11.42.50-still-digitpain.png
     };
   } else {
@@ -873,3 +873,5 @@ export function meta({ params, num }) {
   }
   return out;
 }
+
+export const nohud = true;
