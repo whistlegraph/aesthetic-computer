@@ -223,8 +223,7 @@ function boot({
   params,
   debug: dbg,
   store,
-  hud: { label },
-  net: { preload },
+  hud: { label }
 }) {
   debug = dbg; // Set a global debug flag.
   // Assign some globals from the api.
@@ -345,11 +344,7 @@ function sim({
   debug,
   gpuReady,
   gpu,
-  store,
-  params,
-  download,
-  meta,
-  net: { preload, waitForPreload, rewrite },
+  net: { preload, waitForPreload },
   num: {
     vec3,
     randIntRange: rr,
@@ -357,14 +352,18 @@ function sim({
     quat,
     vec4,
     mat3,
-    shiftRGB,
-    rgbToHexStr,
   },
 }) {
   // 😵‍💫 Spinning a sculpture around via `Tube`.
   if (autoRotate) {
-    tube.form.rotation[1] -= 0.05;
-    tube.form.gpuTransformed = true;
+    tube.form.rotation[1] += 0.02;
+    tube.triCapForm.rotation[1] = tube.capForm.rotation[1] =
+      tube.form.rotation[1];
+
+    tube.form.gpuTransformed =
+      tube.capForm.gpuTransformed =
+      tube.triCapForm.gpuTransformed =
+        true;
   }
 
   // 📽️ Loading and triggering a demo once the graphics system is ready.
@@ -373,8 +372,6 @@ function sim({
     loadDemoSwitch = null;
     loadingDemoFile = true;
     preload(slug, false).then((data) => {
-      // console.log(data);
-
       // Reset the tube here...
       tube.form.clear();
       tube.capForm.clear();
@@ -1008,7 +1005,7 @@ function sim({
   });
 }
 
-function paint({ form, Form, paintCount, wipe, noise16 }) {
+function paint({ form, Form, wipe, noise16 }) {
   // Flash the screen sometimes.
   if (flashes.length > 0) {
     if (currentFlash === undefined) currentFlash = 0;
@@ -1200,7 +1197,6 @@ function paint({ form, Form, paintCount, wipe, noise16 }) {
 
 function act({
   event: e,
-  pen,
   gpu,
   params,
   debug,
@@ -2580,8 +2576,6 @@ class Tube {
       [1, 1, 1],
       [0, 0, 0]
     );
-
-    // quat.normalize(rm, rm);
 
     this.shape.forEach((shapePos, i) => {
       const newShapePos = vec4.transformMat4(

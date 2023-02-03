@@ -65,8 +65,6 @@
   - Freaky Flowers 
     - [🍏] Get loading working much nicer both in playback mode and
            in "instant" mode with a visual progress indicator of some kind. 
-    - [] What isn't being auto-rotated?
-      - [] It's the endcaps...
     - [] Wand should be "thicker".
     - [] Tap or two finger pinch to zoom and slow rotation.
     - [] Let go to snap back. 
@@ -85,6 +83,8 @@
       - [] Skip what aliases lead to in the history list.
     - [] Add background music.
   + Done
+    - [x] What isn't being auto-rotated?
+        - [x] Capform
     - [x] Start spinning, at a high rate, (about 30seconds max timelapse) 
     - [x] Add ability to hide / customize hud text.
     - [x] Make sure iframe mockup works for `ff`: https://localhost:8888/sandboxed-iframe-mockup.html

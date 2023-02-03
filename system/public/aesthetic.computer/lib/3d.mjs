@@ -92,7 +92,6 @@ export function initialize(
   if (!NO_FOG)
     scene.fog = new THREE.Fog(new THREE.Color(0, 0, 0), FOG_NEAR, FOG_FAR); // More basic fog.
 
-
   hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 2.5);
   ambi = new THREE.AmbientLight(0xffffff, 1.0);
   scene.add(ambi);
@@ -1144,7 +1143,6 @@ export function handleEvent(event) {
       scene.remove(ambi);
       scene.add(hemi);
     }
-
   }
 
   if (event.type === "camera:mode-switch") {
@@ -1286,7 +1284,7 @@ export function handleEvent(event) {
   if (scene) {
     const form = scene.getObjectByUserDataProperty("aestheticID", event.uid);
     const painter = form.userData.ac_painter;
-    painter.moveTo(new THREE.Vector3(...event.to));
+    painter?.moveTo(new THREE.Vector3(...event.to));
   }
 }
 
