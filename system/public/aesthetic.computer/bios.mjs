@@ -758,7 +758,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   function requestFrame(needsRender, updateCount, nowUpdate) {
     now = nowUpdate;
 
-    if (needsReframe) {
+    if (needsRender && needsReframe) {
       // console.log("NEEDS REFRAME:", needsReframe)
       frame(undefined, undefined, lastGap);
       pen.retransformPosition();
