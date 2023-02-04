@@ -7,9 +7,7 @@
 #endregion */
 
 /* #region 🏁 todo
-+ January Launch 
- - [🟡] Generate final model assets for Unreal.
-
++ February Launch 
 *** 1️⃣ System ***
   *** Behavior ***
   - [] Make instant demo playback much, much faster.
@@ -17,35 +15,26 @@
   - [] Prevent users from viewing or moving outside a certain range.
   + Later
   - [] Auto jump from piece to piece / show an option?
-
   *** Networking ***
   - [] Integrate `oldwand` multiplayer architecture.
     - [] Read both pieces side by side.
     - [] Model each wand as a single skinny tube (with colored stripes).
         (Bring Tube geometry into Wand)
-
   *** UI ***
   - [] Switch shift and space in camdoll (space should move up).
-  - [] Show a full preview cursor while running a demo for demoWand? (Need a `demoWandCapForm`)
-  - [] Master the main materials and lights in the scene.
-    - [] Use G key to toggle lighting.
   - [] Implement final keyboard controls / desktop controls / also make a UI.
   - [] Implement final mobile controls.
-
 *** 2️⃣ Artwork Passes ***
   *** Metadata ***
-    - [] Proofread all titles and descriptions.
-    - [] Re-enable Twitter player? Check `index` and `bios` "twitter";
-      - [] https://developer. twitter.com/en/docs/twitter-for-websites/cards/overview/player-card
-    - [] Add metadata / attributes and tags from the Google Sheet to the JSON.
-      - [] Ask about the Google Sheet / json generation flow.
-
+    - [-] Re-enable Twitter player? Check `index` and `bios` "twitter";
+      - [-] https://developer. twitter.com/en/docs/twitter-for-websites/cards/overview/player-card
+    - [x] Proofread all titles and descriptions.
+    - [x] Add metadata / attributes and tags from the Google Sheet to the JSON.
+      - [x] Ask about the Google Sheet / json generation flow.
   *** Asset Generation ***
     - [] Record some turn-around animation GIFs.
-
   *** Camera ***
   - [] Reload last camera position on refresh... make sense for users too?
-
 + Later / Bonus / Next Release
 - [] What would happen if I just randomly started removing or vibrating sets of vertices after
      a piece loaded?
@@ -67,6 +56,10 @@
 - [] Change the top wand cursor position to something better. 
 - [] Re-enable thin line drawing.
 + Done
+- [x] Show a full preview cursor while running a demo for demoWand? (Need a `demoWandCapForm`)
+- [x] Master the main materials and lights in the scene.
+  - [x] Use G key to toggle lighting.
+- [x] Generate final model assets for Unreal.
 - [x] Create a "view wand timestamp" player that loads the model as a GLTF.
 - [x] Try out different export formats. (Using glb)
 - [x] Plug metadata into preview links.
