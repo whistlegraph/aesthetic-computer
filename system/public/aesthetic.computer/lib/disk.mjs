@@ -31,9 +31,9 @@ let ROOT_PIECE = "prompt"; // This gets set straight from the host html file for
 let debug = false; // This can be overwritten on boot.
 
 const defaults = {
-  boot: ($) => {
-    // TODO: This should always fire...
-    // $.cursor("native");
+  boot: ({ resize, cursor, screen: { width, height } }) => {
+    resize(width / 4, height / 4);
+    cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
   paint: ({ noiseTinted }) => {
@@ -961,6 +961,90 @@ $commonApi.flatten = function () {
 
 let glazeAfterReframe;
 
+// *** Resize ***
+// Accepts width, height and gap either as numbers or as
+// an object with those keys.
+//
+// Usage: resize(64);
+//        resize(320, 240);
+//        resize(display); // "display" is a global object whose width
+//                             and height matches the hardware display
+//                             hosting aesthetic.computer.
+$commonApi.resize = function (width, height = width, gap = 8) {
+  if (typeof width === "object") {
+    const props = width;
+    height = props.height;
+    width = props.width || props.height;
+    gap = props.gap === 0 ? 0 : props.gap || 8;
+  }
+
+  if (typeof width === "number" && typeof height === "number") {
+    width = round(width);
+    height = round(height);
+  }
+
+  // Don't do anything if there is no change and no gap update.
+  if (screen.width === width && screen.height === height && gap === undefined)
+    return;
+
+  // width = width || currentDisplay.innerWidth;
+  // height = height || currentDisplay.innerHeight;
+
+  // TODO: Paint anything that needs to be painted before resizing...
+  // TODO: Does this even work right now?
+  //debugger;
+  painting.paint();
+
+  if (width === undefined && height === undefined) {
+    // 1. Generate a new width and height.
+    width = round(currentDisplay.width / currentDisplay.subdivisions);
+    height = round(currentDisplay.height / currentDisplay.subdivisions);
+    // Build a reframe request that will be sent to the main thread, mirroring this.
+    reframe = {
+      width: undefined,
+      height: undefined,
+      gap,
+    };
+  } else {
+    // 2. Manually set the width and height.
+    reframe = { width, height, gap };
+  }
+
+  console.log(
+    "🖼 Reframe to:",
+    width,
+    height,
+    "from",
+    screen.width,
+    screen.height
+  );
+
+  // 3. Assign the generated or manual width and height.
+  const oldScreen = {
+    width: screen.width,
+    height: screen.height,
+    pixels: screen.pixels,
+  };
+
+  screen.width = width;
+  screen.height = height;
+
+  // Reset / recreate the depth buffer. (This is only used for the 3D software renderer in `graph`)
+  // graph.depthBuffer.length = screen.width * screen.height;
+  // graph.depthBuffer.fill(Number.MAX_VALUE);
+  // graph.writeBuffer.length = screen.width * screen.height;
+  // graph.writeBuffer.fill(Number.MAX_VALUE);
+
+  screen.pixels = new Uint8ClampedArray(screen.width * screen.height * 4);
+  screen.pixels.fill(255);
+
+  graph.setBuffer(screen);
+  graph.paste({
+    painting: oldScreen,
+    crop: new geo.Box(0, 0, oldScreen.width, oldScreen.height),
+  });
+};
+
 // Microphone State (Audio Input)
 class Microphone {
   amplitude = 0;
@@ -1154,85 +1238,6 @@ async function load(parsed, fromHistory = false, alias = false) {
   // Add meta to the common api so the data can be overridden as needed.
   $commonApi.meta = (data) => send({ type: "meta", content: data });
 
-  // *** Resize ***
-  // Accepts width, height and gap either as numbers or as
-  // an object with those keys.
-  //
-  // Usage: resize(64);
-  //        resize(320, 240);
-  //        resize(display); // "display" is a global object whose width
-  //                             and height matches the hardware display
-  //                             hosting aesthetic.computer.
-  $commonApi.resize = function (width, height = width, gap = 8) {
-    if (typeof width === "object") {
-      const props = width;
-      height = props.height;
-      width = props.width || props.height;
-      gap = props.gap === 0 ? 0 : props.gap || 8;
-    }
-
-    // Don't do anything if there is no change and no gap update.
-    if (screen.width === width && screen.height === height && gap === undefined)
-      return;
-
-    // width = width || currentDisplay.innerWidth;
-    // height = height || currentDisplay.innerHeight;
-
-    // TODO: Paint anything that needs to be painted before resizing...
-    // TODO: Does this even work right now?
-    //debugger;
-    painting.paint();
-
-    if (width === undefined && height === undefined) {
-      // 1. Generate a new width and height.
-      width = round(currentDisplay.width / currentDisplay.subdivisions);
-      height = round(currentDisplay.height / currentDisplay.subdivisions);
-      // Build a reframe request that will be sent to the main thread, mirroring this.
-      reframe = {
-        width: undefined,
-        height: undefined,
-        gap,
-      };
-    } else {
-      // 2. Manually set the width and height.
-      reframe = { width, height, gap };
-    }
-
-    console.log(
-      "🖼 Reframe to:",
-      width,
-      height,
-      "from",
-      screen.width,
-      screen.height
-    );
-
-    // 3. Assign the generated or manual width and height.
-    const oldScreen = {
-      width: screen.width,
-      height: screen.height,
-      pixels: screen.pixels,
-    };
-
-    screen.width = width;
-    screen.height = height;
-
-    // Reset / recreate the depth buffer. (This is only used for the 3D software renderer in `graph`)
-    // graph.depthBuffer.length = screen.width * screen.height;
-    // graph.depthBuffer.fill(Number.MAX_VALUE);
-    // graph.writeBuffer.length = screen.width * screen.height;
-    // graph.writeBuffer.fill(Number.MAX_VALUE);
-
-    screen.pixels = new Uint8ClampedArray(screen.width * screen.height * 4);
-    screen.pixels.fill(255);
-
-    graph.setBuffer(screen);
-    graph.paste({
-      painting: oldScreen,
-      crop: new geo.Box(0, 0, oldScreen.width, oldScreen.height),
-    });
-  };
-
   $commonApi.gap = function (newGap) {
     console.log("🟡 Gap has been deprecated. Use `resize` instead.");
   };
@@ -1301,17 +1306,13 @@ async function load(parsed, fromHistory = false, alias = false) {
 
   // TODO: Preload multiple files and load them into an assets folder with
   //       a complete handler. 2021.12.12.22.24
-  $commonApi.net.preload = function (path, parseJSON = true) {
+  $commonApi.net.preload = function (path, parseJSON = true, progressReport) {
     // console.log("Preload path:", path);
 
     const extension = path.split(".").pop();
 
-    //if (extension === "json") {
     // This is a hack for now. The only thing that should be encoded is the file slug.
-    if (!path.startsWith("https://")) {
-      path = encodeURIComponent(path);
-    }
-    //}
+    if (!path.startsWith("https://")) path = encodeURIComponent(path);
 
     try {
       const url = new URL(path);
@@ -1329,14 +1330,23 @@ async function load(parsed, fromHistory = false, alias = false) {
     // If we are loading a .json file then we can parse or not parse it here.
     if (extension === "json") {
       return new Promise((resolve, reject) => {
-        fetch(path)
-          .then(async (response) => {
-            if (!response.ok) {
-              reject(response.status);
-            } else return parseJSON ? response.json() : response.text();
-          })
-          .then((response) => resolve(response))
-          .catch(reject);
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", path, true);
+        xhr.onprogress = function (event) {
+          const progress = event.loaded / event.total;
+          if (debug && logs.download)
+            console.log(`💈 JSON Download: ${progress * 100}%`);
+          progressReport?.(progress);
+        };
+        xhr.onload = function () {
+          if (xhr.status === 200) {
+            resolve(parseJSON ? JSON.parse(xhr.response) : xhr.response);
+          } else {
+            reject(xhr.status);
+          }
+        };
+        xhr.onerror = reject;
+        xhr.send();
       });
     } else if (
       extension === "webp" ||
@@ -2460,7 +2470,12 @@ async function makeFrame({ data: { type, content } }) {
       // System info.
       let label;
       const piece = currentHUDText?.split("~")[0];
-      if (piece !== undefined && piece !== "prompt" && piece !== "video") {
+      if (
+        piece !== undefined &&
+        piece.length > 0 &&
+        piece !== "prompt" &&
+        piece !== "video"
+      ) {
         const w = currentHUDText.length * 6;
         const h = 11;
         label = $api.painting(w, h, ({ ink }) => {

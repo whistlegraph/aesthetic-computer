@@ -63,8 +63,6 @@
   - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
 
   - Freaky Flowers 
-    - [🍏] Get loading working much nicer both in playback mode and
-           in "instant" mode with a visual progress indicator of some kind. 
     - [] Wand should be "thicker".
     - [] Tap or two finger pinch to zoom and slow rotation.
     - [] Let go to snap back. 
@@ -83,6 +81,12 @@
       - [] Skip what aliases lead to in the history list.
     - [] Add background music.
   + Done
+    - [x] Get loading working much nicer both in playback mode and
+           in "instant" mode with a visual progress indicator of some kind. 
+    - [x] Fetch progress bar.
+      - [x] Don't show progress bar if things have already downloaded...
+    - [x] Put yellow spinner on special little delay.
+    - [x] Make intial boot fuzz a much lower resolution. 
     - [x] What isn't being auto-rotated?
         - [x] Capform
     - [x] Start spinning, at a high rate, (about 30seconds max timelapse) 
@@ -98,6 +102,9 @@
               that is NOT opaque and in the bottom left corner.
     - [x] Review spreadsheet metadata: https://docs.google.com/spreadsheets/d/10aeN4WyTQ1UQUT9-IUbKFdoeEfkumqM6_8mvFs5dVq8/edit#gid=1052521247 
 
+*** What is `fhell` ? ***
+  - [] I don't know yet...
+
 *** Painting w/ Signature for Yeche Lange***
   - [🚗] Make two or three works for Yeche.
   + Done
@@ -109,7 +116,6 @@
   - `no`
     - [x] Undo / redo a step.
     - [x] with multistep options
-
 
 *** Better Logging ***
   - [x] Create a logs.mjs file that can enable / disable certain development log flags when working, such as disabling all "store" logs.
