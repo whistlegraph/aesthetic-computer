@@ -109,7 +109,7 @@
 
 // #region 🗺️ global
 import { CamDoll } from "../lib/cam-doll.mjs";
-const { min, abs, max, cos, sin, floor, round } = Math;
+const { min, abs, max, cos, sin, floor, round, random } = Math;
 
 let debug; // Set in boot.
 let unreal = false; // Flip to true in case meshes need to be rendered for Unreal engine. Basically just prevents duplicate / two sided triangles.
@@ -127,6 +127,7 @@ let orthographic = false; // Only in GPU for now.
 let orthoZoom = 1; // Sent every frame when the camera is in orthographic mode.
 let orthoZoomDir = 0; // Sent every frame when the camera is in orthographic mode.
 let autoRotate = false; // Automatically rotate the Tube model.
+let autoRotateDir = 1; // Automatically rotate the Tube model.
 //let cubeHeight = 0.7; // floor of jeffrey
 // let cubeHeight = 1.5; // head of jeffrey
 let originOn = true;
@@ -160,9 +161,13 @@ let demoWandFormOptions;
 let demo, player; // For recording a session and rewatching it in realtime.
 let lastPlayedFrames; // Keeps track of recently run through Player frames / demo frames.
 // (Useful for re-dumping / modifying demo data.)
-let loadDemoSwitch;
-let loadingDemoFile = false;
-let needsWipe = false;
+let loadDemoSwitch,
+  loadDemoProgress = 0,
+  loadingDemoFile = false,
+  progressBarDelay = 0,
+  progressBarDelayMax = 6, // Frames to delay progress bar rendering by.
+  demoLabel;
+let needsWipe = null; // Flag that clears the buffer once on next paint.
 
 let lastWandPosition, lastWandRotation;
 
@@ -223,23 +228,15 @@ function boot({
   params,
   debug: dbg,
   store,
-  hud: { label }
+  cursor,
+  noise16DIGITPAIN,
+  // hud,
 }) {
   debug = dbg; // Set a global debug flag.
   // Assign some globals from the api.
   clamp = num.clamp;
   rr = num.randIntRange;
-
-  // Check to see if we have inherited any metadata from `freaky-flowers`.
-  // And then use that data in order to
-  if (store["freaky-flowers"]) {
-    const ff = store["freaky-flowers"];
-    const meta = ff.meta({ params: [ff.tokenID], num });
-    ff.headers(ff.tokenID); // Print any series headers.
-    // console.log(ff, meta);
-    label(`${meta.title} (ff ${ff.tokenID})`);
-    autoRotate = true;
-  }
+  // label = hud.label;
 
   // Set starting colors.
   color = almostWhite();
@@ -315,13 +312,13 @@ function boot({
   if (params[0]) {
     let speed = parseInt(params[1]);
     if (speed < 0 || isNaN(speed)) speed = 5; // Make it instant if speed is <= 0 or undefined.
-    if (speed === 0) speed = true;
     const handle = "digitpain";
     const recordingSlug = `${params[0]}-recording-${handle}`;
     loadDemoSwitch = { slug: `${baseURL}/${recordingSlug}.json`, speed };
     stageOn = false;
     measuringCubeOn = false;
     originOn = false;
+    cursor("native"); // Use a native cursor while the demo is loading.
     //wipe(0, 0, 0, 255); // Write a black background while loading.
   }
 
@@ -332,7 +329,8 @@ function boot({
     demo?.rec("wand:color", color);
   }
   tube = new Tube({ Form, num }, radius, sides, step, geometry, demo);
-  wipe(0, 0); // Clear the software buffer to make sure we see the gpu layer.
+  //wipe(0, 0); // Clear the software buffer to make sure we see the gpu layer.
+  noise16DIGITPAIN();
 }
 
 function sim({
@@ -344,19 +342,18 @@ function sim({
   debug,
   gpuReady,
   gpu,
-  net: { preload, waitForPreload },
-  num: {
-    vec3,
-    randIntRange: rr,
-    dist3d,
-    quat,
-    vec4,
-    mat3,
-  },
+  meta,
+  store,
+  params,
+  cursor,
+  hud,
+  help,
+  net: { rewrite, preload, waitForPreload },
+  num: { vec3, randIntRange: rr, dist3d, quat, vec4, mat3 },
 }) {
   // 😵‍💫 Spinning a sculpture around via `Tube`.
   if (autoRotate) {
-    tube.form.rotation[1] += 0.02;
+    tube.form.rotation[1] += 0.02 * autoRotateDir;
     tube.triCapForm.rotation[1] = tube.capForm.rotation[1] =
       tube.form.rotation[1];
 
@@ -371,7 +368,11 @@ function sim({
     const { speed, slug } = loadDemoSwitch;
     loadDemoSwitch = null;
     loadingDemoFile = true;
-    preload(slug, false).then((data) => {
+    progressBarDelay = 0;
+    loadDemoProgress = 0;
+    cursor("native");
+
+    preload(slug, false, (p) => (loadDemoProgress = p)).then((data) => {
       // Reset the tube here...
       tube.form.clear();
       tube.capForm.clear();
@@ -384,10 +385,43 @@ function sim({
       console.log("🎞️ Loaded a wand file:", frames.length);
       // Play all frames back.
       player = new Player(frames, undefined, undefined, speed, waitForPreload);
+      player.paused = true; // Pause to wait for progress bar to render out.
 
-      if (speed !== true) {
-        loadingDemoFile = false; // Stop loading if we are incrementally playing back the file. Otherwise we will flag this in Player.
-        needsWipe = true;
+      // Check to see if we have inherited any metadata from `freaky-flowers`.
+      // And then use that data in order to
+      if (store["freaky-flowers"]) {
+        const ff = store["freaky-flowers"];
+        const ffmeta = ff.meta({ params: [ff.tokenID], num });
+        const path =
+          `${ff.hook}~${ff.tokenID}` +
+          params
+            .slice(1)
+            .map((p) => "~" + p)
+            .join("");
+        rewrite(path);
+        meta(ffmeta); // Update page metadata.
+        ff.headers(ff.tokenID); // Print any series headers.
+
+        const label = `${ffmeta.title} (ff ${ff.tokenID})`;
+
+        // Update label depending on the speed...
+        if (speed === 0) {
+          demoLabel = () => {
+            needsWipe = [0, 0];
+            hud.label(label);
+            cursor("precise");
+            demoLabel = undefined;
+          }; // On `demo:complete`
+        } else {
+          demoLabel = () => {
+            hud.label(label); // Update label.
+            cursor("precise");
+            demoLabel = undefined;
+          };
+        }
+
+        autoRotate = true; // Rotate sculpture automatically.
+        autoRotateDir = help.choose(-1, 1);
       }
     });
   }
@@ -928,6 +962,7 @@ function sim({
         demoWandFormOptions = null;
         lastPlayedFrames = player.frames;
         player = null;
+        demoLabel?.();
 
         // #region relic-1
         // 📔 Some old scripts to automate making changes to demos and GLB files.
@@ -1005,7 +1040,16 @@ function sim({
   });
 }
 
-function paint({ form, Form, wipe, noise16 }) {
+function paint({
+  form,
+  ink,
+  hud,
+  Form,
+  wipe,
+  noiseTinted,
+  num,
+  screen: { width, height },
+}) {
   // Flash the screen sometimes.
   if (flashes.length > 0) {
     if (currentFlash === undefined) currentFlash = 0;
@@ -1167,12 +1211,27 @@ function paint({ form, Form, wipe, noise16 }) {
   }
 
   if (loadingDemoFile) {
-    noise16();
+    noiseTinted([127, 127, 127], 0.6, 0.7);
+    if (progressBarDelay < progressBarDelayMax) {
+      progressBarDelay += 1;
+    } else {
+      hud.label("Downloading..."); // TODO: Add a please wait?
+      ink(64).box(0, height - 8, loadDemoProgress * width, height - 8);
+      if (loadDemoProgress === 1 && player) {
+        player.paused = false;
+        loadingDemoFile = false; // Stop loading if we are incrementally playing back the file. Otherwise we will flag this in Player.
+        if (player.instant === 0) {
+          hud.label(`Reconstructing...`);
+        } else demoLabel?.();
+        needsWipe = player.instant === 0 ? num.randIntArr(128, 3) : [0, 0];
+      }
+    }
   }
 
+  // TODO: Put other types in here to draw cooler patterns? 23.02.03.22.30
   if (needsWipe) {
-    wipe(0, 0);
-    needsWipe = false;
+    wipe(...needsWipe);
+    needsWipe = null;
   }
 
   form(
@@ -3687,6 +3746,7 @@ class Player {
   collectedFrames = [];
   instant; // Play all frames back instantly after one sim call.
   waitForPreload;
+  paused = false;
 
   // loop;
 
@@ -3694,7 +3754,7 @@ class Player {
     frames,
     goUntilFirst = "tube:start",
     endAtLast = "room:color",
-    instant = false,
+    instant = 5,
     waitForPreload
   ) {
     this.frames = frames;
@@ -3728,6 +3788,8 @@ class Player {
   }
 
   sim(handler, simCount) {
+    if (this.paused) return; // Don't simulate anything while paused.
+
     let thisFrame = this.frames[this.frameIndex];
 
     // Finish a demo if there are no frames left.
@@ -3741,15 +3803,12 @@ class Player {
     }
 
     // Run through all the frames instantly then finish on next tick.
-    if (this.instant === true || this.instant === 0) {
+    if (this.instant === 0) {
       for (let f = this.frameIndex; f <= this.endAtLastIndex; f += 1) {
         this.collectedFrames.push(this.frames[f]);
       }
 
       handler(this.collectedFrames); // Run our action handler.
-
-      loadingDemoFile = false;
-      needsWipe = true;
 
       /*
       const chunkSize = 100;
@@ -3785,8 +3844,7 @@ class Player {
     }
 
     let multiplier = 1;
-    if (typeof this.instant === "number" && this.instant > 0)
-      multiplier = this.instant;
+    if (this.instant > 0) multiplier = this.instant;
 
     for (let i = 0; i < multiplier; i += 1) {
       // And push current frame plus others following it on the same tick.

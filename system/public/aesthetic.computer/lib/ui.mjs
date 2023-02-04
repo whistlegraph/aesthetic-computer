@@ -2,8 +2,20 @@ import { Box } from "./geo.mjs";
 import { radians } from "./num.mjs";
 const { round } = Math;
 
+const spinnerDelayMax = 8; // Skip a few frames of the spinner.
+let spinnerDelay = 0;
+
+function spinnerReset() {
+  spinnerDelay = 0;
+}
+
 // Loading icon.
 function spinner(ctx, timePassed) {
+  if (spinnerDelay < spinnerDelayMax) {
+    spinnerDelay += 1;
+    return;
+  }
+
   const gap = 20,
     s = 8;
 
@@ -38,8 +50,10 @@ function cached(ctx) {
   ctx.translate(round(gap / 2) + 6, round(gap / 2) + 4);
 
   // Bottom Left option.
-  ctx.translate(0, round((ctx.canvas.height / window.devicePixelRatio) - (s * 2) + 2));
-
+  ctx.translate(
+    0,
+    round(ctx.canvas.height / window.devicePixelRatio - s * 2 + 2)
+  );
 
   ctx.beginPath();
 
@@ -134,4 +148,4 @@ class Button {
   }
 }
 
-export { spinner, cached, Button };
+export { spinner, spinnerReset, cached, Button };

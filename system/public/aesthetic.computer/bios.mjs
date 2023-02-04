@@ -187,7 +187,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     lastGap = gap;
 
     // Cache the current canvas if needed.
-    if (freezeFrame && imageData && !document.body.contains(freezeFrameCan)) {
+    if (
+      freezeFrame &&
+      imageData?.data.length > 0 &&
+      !document.body.contains(freezeFrameCan)
+    ) {
       if (debug && logs.frame) {
         console.log(
           "🥶 Freezing:",
@@ -319,7 +323,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } * 100vh) - ${gapSize}px)`;
     */
 
-    if (imageData) ctx.putImageData(imageData, 0, 0);
+    if (imageData?.length > 0) ctx.putImageData(imageData, 0, 0);
 
     imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
@@ -759,7 +763,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     now = nowUpdate;
 
     if (needsRender && needsReframe) {
-      // console.log("NEEDS REFRAME:", needsReframe)
       frame(undefined, undefined, lastGap);
       pen.retransformPosition();
       frameAlreadyRequested = false;
@@ -1321,6 +1324,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
       }
 
+      UI.spinnerReset(); // Reset the timer on the yellow UI loading spinner.
       send({ type: "loading-complete" });
       return;
     }
@@ -2194,7 +2198,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // dbCtx.transferFromImageBitmap(dirtyBoxBitmap);
     } else if (content.paintChanged && content.pixels) {
       // 🅱️ Normal full-screen update.
-
       imageData = new ImageData(
         new Uint8ClampedArray(content.pixels),
         canvas.width,
