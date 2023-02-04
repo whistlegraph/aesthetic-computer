@@ -58,13 +58,13 @@
 🌟 Projects In Progress (PIP) 🌟
 
 *** Freaky Flowers Launch ***
-
   - OpenSea Test URL: https://testnets.opensea.io/assets/goerli/0x4FEa5E2a8C3bfc742B43b48FC4F2eA9913452B99/0
   - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
 
   - Freaky Flowers 
-    - [] Wand should be "thicker".
+    - [🍍] Wand should be "thicker".
     - [] Tap or two finger pinch to zoom and slow rotation.
+      - [] Or do some kind of lazy wand follow / rotate camera to wand situation.
     - [] Let go to snap back. 
     - [] [WALK] or [WANDER] button that shows keyboard shortcut overlays /
          touch instructions. (Add chat here?)
@@ -76,10 +76,12 @@
      - [] Make wand render again.
      - [] Loading a ff piece prevents drawing and restarts the
           timelapse upon entering VR.
+    - Media Export
+      - [] Create a rotating GIF / WebP (that even hooks into video) generator.
   - Prompt 
     - [] Do history stack different. (Smaller text)
       - [] Skip what aliases lead to in the history list.
-    - [] Add background music.
+    - [] Add background music to prompt also.
   + Done
     - [x] Get loading working much nicer both in playback mode and
            in "instant" mode with a visual progress indicator of some kind. 
