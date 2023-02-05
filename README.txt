@@ -62,6 +62,7 @@
   - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
 
   - Freaky Flowers 
+    - [😫] Clean out "dead" code.
     - [💮] Prevent keyboard shortcuts and other act events from running before
          fully loading / while loading / reconstructing.
     - [] Loading `instant` style should be chunked to avoid crashes
@@ -72,11 +73,10 @@
     - [] [WALK] or [WANDER] button that shows keyboard shortcut overlays /
          touch instructions. (Add chat here?)
     - [] Add background music if it isn't already playing.
-    - [] Add arrows to top right to move between slides.
       - [] (Speed up loading)
     - [] Add glaze / lighting / mastering.
    - WebVR Support
-     - [] Make wand render again.
+     - [] Make wand render again / get WebVR working.
      - [] Loading a ff piece prevents drawing and restarts the
           timelapse upon entering VR.
     - Media Export
@@ -85,6 +85,8 @@
     - [] Do history stack different. (Smaller text)
       - [] Skip what aliases lead to in the history list.
     - [] Add background music to prompt also.
+    - [] Create a "full playback" mode.
+    - [] Add arrows to top right to move between slides?
   + Done
     - [x] Show capForm "preview" in demo mode.
     - [x] Wand should be "thicker".
