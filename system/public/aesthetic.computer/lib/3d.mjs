@@ -844,13 +844,16 @@ export function bake({ cam, forms, color }, { width, height }, size) {
         const points = [];
         const pointColors = [];
         const pointNormals = [];
+        const hasNormals = form.geometry.attributes.normal !== undefined;
 
         for (let i = 0; i < formUpdate.vertices.length; i += 1) {
           points.push(new THREE.Vector3(...formUpdate.vertices[i].pos));
           pointColors.push(new THREE.Vector4(...formUpdate.vertices[i].color));
-          pointNormals.push(
-            new THREE.Vector3(...formUpdate.vertices[i].normal)
-          );
+          if (hasNormals) {
+            pointNormals.push(
+              new THREE.Vector3(...formUpdate.vertices[i].normal)
+            );
+          }
         }
 
         // Set custom properties on the form to keep track of where we are
@@ -870,7 +873,8 @@ export function bake({ cam, forms, color }, { width, height }, size) {
 
         const positions = form.geometry.attributes.position.array;
         const colors = form.geometry.attributes.color.array;
-        const normals = form.geometry.attributes.normal.array;
+        let normals;
+        if (hasNormals) normals = form.geometry.attributes.normal.array;
 
         for (let i = 0; i < points.length; i += 1) {
           const posStart = (form.userData.ac_lastLength + i) * 3;
@@ -878,9 +882,11 @@ export function bake({ cam, forms, color }, { width, height }, size) {
           positions[posStart + 1] = points[i].y;
           positions[posStart + 2] = points[i].z;
 
-          normals[posStart] = pointNormals[i].x;
-          normals[posStart + 1] = pointNormals[i].y;
-          normals[posStart + 2] = pointNormals[i].z;
+          if (hasNormals) {
+            normals[posStart] = pointNormals[i].x;
+            normals[posStart + 1] = pointNormals[i].y;
+            normals[posStart + 2] = pointNormals[i].z;
+          }
         }
 
         for (let i = 0; i < pointColors.length; i += 1) {
@@ -900,7 +906,7 @@ export function bake({ cam, forms, color }, { width, height }, size) {
 
         form.geometry.setDrawRange(0, form.userData.ac_length);
         form.geometry.attributes.position.needsUpdate = true;
-        form.geometry.attributes.normal.needsUpdate = true;
+        if (hasNormals) form.geometry.attributes.normal.needsUpdate = true;
         form.geometry.attributes.color.needsUpdate = true;
 
         //form.geometry.computeVertexNormals();

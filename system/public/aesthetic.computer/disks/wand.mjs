@@ -7,12 +7,15 @@
 #endregion */
 
 /* #region 🏁 todo
-+ February Launch 
++ February Launch  / Post-launch
+*** Asset Generation ***
+  - [] Record some turn-around animation GIFs.
 *** 1️⃣ System ***
   *** Behavior ***
   - [] Make instant demo playback much, much faster.
   - [] Add demo scrubbing.
   - [] Prevent users from viewing or moving outside a certain range.
+  - [] Record a "wand:gesture:start" event.
   + Later
   - [] Auto jump from piece to piece / show an option?
   *** Networking ***
@@ -21,7 +24,6 @@
     - [] Model each wand as a single skinny tube (with colored stripes).
         (Bring Tube geometry into Wand)
   *** UI ***
-  - [] Switch shift and space in camdoll (space should move up).
   - [] Implement final keyboard controls / desktop controls / also make a UI.
   - [] Implement final mobile controls.
 *** 2️⃣ Artwork Passes ***
@@ -31,8 +33,6 @@
     - [x] Proofread all titles and descriptions.
     - [x] Add metadata / attributes and tags from the Google Sheet to the JSON.
       - [x] Ask about the Google Sheet / json generation flow.
-  *** Asset Generation ***
-    - [] Record some turn-around animation GIFs.
   *** Camera ***
   - [] Reload last camera position on refresh... make sense for users too?
 + Later / Bonus / Next Release
@@ -56,6 +56,7 @@
 - [] Change the top wand cursor position to something better. 
 - [] Re-enable thin line drawing.
 + Done
+- [x] Switch shift and space in camdoll (space should move up).
 - [x] Show a full preview cursor while running a demo for demoWand? (Need a `demoWandCapForm`)
 - [x] Master the main materials and lights in the scene.
   - [x] Use G key to toggle lighting.
@@ -916,12 +917,21 @@ function sim({
           rotation: rot,
         };
 
-        // demoWandFormOptions = {
-        //   type: "line",
-        //   positions: [pos, np],
-        //   colors: [color, color],
-        //   keep: false,
-        // };
+        if (tube.lastPathP) {
+          const p = {
+            position: tube.lastPathP.pos,
+            direction: tube.lastPathP.direction,
+            rotation: tube.lastPathP.rotation,
+            color: tube.lastPathP.color,
+          };
+
+          tube.preview(p, {
+            position: pos,
+            rotation: rot,
+            color,
+          });
+        }
+
       } else if (type === "tube:start") {
         tube.start(
           {
@@ -963,7 +973,6 @@ function sim({
         tube.stop(true);
       } else if (type === "demo:complete") {
         // A "synthesized frame" with no other information to destroy our player.
-        // demoWandForm = null;
         demoWandTubeData = null;
         lastPlayedFrames = player.frames;
         player = null;
@@ -1208,14 +1217,10 @@ function paint({
   // #endregion
 
   // Demo playback / preview cursors.
-  // Create a demoWandForm if one is needed. TODO: Does this need to be in `paint`? 23.02.03.12.58
   if (demoWandTubeData) {
-    // demoWandForm = new Form(demoWandFormOptions, {
-    //   rot: [0, tube.form.rotation[1], [0]],
-    // });
 
     const tubeSides = 16;
-    const tubeRadius = 0.004;
+    const tubeRadius = 0.002;
 
     // Instantiate a Tube for the preview.
     demoWandTube = new Tube(
@@ -1358,6 +1363,8 @@ function act({
     } else {
       pong = true;
     }
+
+    // TODO: Record a wand:gesture:start event here. 23.02.04.22.13
   }
 
   // 🖱️ Start a gesture. (Screen)
@@ -2170,8 +2177,7 @@ class Tube {
 
   // Produces the `capForm` cursor.
   preview(p, nextPathP) {
-    // Don't show anything during demo playback.
-    if (player) return;
+    // if (player) return; // Don't show anything from the user during demo playback.
 
     // Don't show anything at a very tiny distance.
     if (nextPathP) {
@@ -2186,8 +2192,8 @@ class Tube {
 
     const pathP = this.#transformShape(this.#pathp({ ...p }));
 
+    // TODO: This wouldn't affect the demo playback... 23.02.04.21.11
     if (waving && this.gesture.length === 0) this.#cap(pathP, this.capForm);
-
     if (!waving) this.#cap(pathP, this.capForm);
 
     if (nextPathP) {
@@ -2336,6 +2342,7 @@ class Tube {
       this.demo?.rec("tube:stop");
 
     this.gesture.length = 0;
+    this.lastPathP = undefined;
   }
 
   // TODO: Fix this for sides...

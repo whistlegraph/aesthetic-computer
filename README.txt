@@ -62,7 +62,8 @@
   - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
 
   - Freaky Flowers 
-    - [😀] Show capFrom "preview" in demo mode.
+    - [💮] Prevent keyboard shortcuts and other act events from running before
+         fully loading / while loading / reconstructing.
     - [] Loading `instant` style should be chunked to avoid crashes
          on lower end hardware and also to enable "..." animation on "Reconstructing...".
     - [] Tap or two finger pinch to zoom and slow rotation.
@@ -85,6 +86,7 @@
       - [] Skip what aliases lead to in the history list.
     - [] Add background music to prompt also.
   + Done
+    - [x] Show capForm "preview" in demo mode.
     - [x] Wand should be "thicker".
     - [x] Get loading working much nicer both in playback mode and
            in "instant" mode with a visual progress indicator of some kind. 
