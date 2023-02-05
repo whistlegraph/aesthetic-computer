@@ -62,11 +62,6 @@
   - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
 
   - Freaky Flowers 
-    - [😫] Clean out "dead" code.
-    - [💮] Prevent keyboard shortcuts and other act events from running before
-         fully loading / while loading / reconstructing.
-    - [] Loading `instant` style should be chunked to avoid crashes
-         on lower end hardware and also to enable "..." animation on "Reconstructing...".
     - [] Tap or two finger pinch to zoom and slow rotation.
       - [] Or do some kind of lazy wand follow / rotate camera to wand situation.
     - [] Let go to snap back. 
@@ -88,6 +83,12 @@
     - [] Create a "full playback" mode.
     - [] Add arrows to top right to move between slides?
   + Done
+    - [x] Loading `instant` style should be chunked to avoid crashes
+         on lower end hardware and also to enable "..." animation on "Reconstructing...".
+    - [x] Show progress bar for Reconstructing.
+    - [x] Clean out "dead" code.
+    - [x] Prevent keyboard shortcuts and other act events from running before
+         fully loading / while loading / reconstructing.
     - [x] Show capForm "preview" in demo mode.
     - [x] Wand should be "thicker".
     - [x] Get loading working much nicer both in playback mode and
