@@ -114,9 +114,6 @@ let measuringCube; // A toggled cube for conforming a sculpture to a scale.
 let origin; // Some crossing lines to check the center of a sculpture.
 let measuringCubeOn = true;
 let cubeHeight = 1.45; // head of jeffrey
-// const camStartPos = [0, -cubeHeight, 0.9]; // A starting position for the camera,
-// //                                            used also for `direct` screenshot
-// //                                            taking.
 let orthographic = false; // Only in GPU for now.
 let orthoZoom = 1; // Sent every frame when the camera is in orthographic mode.
 let orthoZoomDir = 0; // Sent every frame when the camera is in orthographic mode.
@@ -138,9 +135,7 @@ let tube, // Circumscribe the spider's path with a form.
   minRadius = 0.001,
   maxSides = 12,
   minSides = 2, // Don't use 1 side for now.
-  stepRel = () => {
-    return radius * 1.01;
-  },
+  stepRel = () => radius * 1.01,
   step = stepRel(), // The length of each tube segment.
   capColor, // [255, 255, 255, 255] The currently selected tube end cap color.
   capVary = 0, // 2; How much to drift the colors for the cap.
@@ -150,18 +145,18 @@ let tube, // Circumscribe the spider's path with a form.
 //                         than `step` at the start of end of a stroke.
 let wandForm; // A live cursor.
 
-//let demoWandForm; // A ghost cursor for playback. Deprecated: 23.02.04.20.26
-let demoWandTube;
-let demoWandTubeData; // Also used for demoWandTube.
+let demoWandTube, demoWandTubeData; // Also used for demoWandTube.
 
 let demo, player; // For recording a session and rewatching it in realtime.
 let lastPlayedFrames; // Keeps track of recently run through Player frames / demo frames.
-// (Useful for re-dumping / modifying demo data.)
+//                       (Useful for re-dumping / modifying demo data.)
+let noact = false;
+
 let loadDemoSwitch,
   loadDemoProgress = 0,
   loadingDemoFile = false,
   progressBarDelay = 0,
-  progressBarDelayMax = 6, // Frames to delay progress bar rendering by.
+  progressBarDelayMax = 12, // Frames to delay progress bar rendering by.
   demoLabel;
 let needsWipe = null; // Flag that clears the buffer once on next paint.
 
@@ -173,7 +168,7 @@ let bap; // For randomPalette. 🌈
 let bip; // For demo playback.
 let beatCount = 0n; // TODO: This should really go into the main API at this point... 22.11.15.05.22
 
-let flashDuration = 10;
+let flashDuration = 10; // Screen flashes.
 let flashCount = 0;
 
 // 🏳️‍🌈Colors
@@ -209,6 +204,9 @@ let clamp, rr;
 const baseURL = "https://wand.aesthetic.computer";
 const bucket = "wand";
 
+let ellipsisTicker,
+  ellipsisDots = 3; // Downloading... & Reconstructing...
+
 // #endregion
 
 function boot({
@@ -218,26 +216,30 @@ function boot({
   QUAD,
   ORIGIN,
   CUBEL,
-  wipe,
   num,
   geo,
   params,
+  gizmo,
   debug: dbg,
-  store,
   cursor,
   noise16DIGITPAIN,
-  // hud,
 }) {
   debug = dbg; // Set a global debug flag.
   // Assign some globals from the api.
   clamp = num.clamp;
   rr = num.randIntRange;
-  // label = hud.label;
 
-  // Set starting colors.
-  color = almostWhite();
+  color = almostWhite(); // Set starting colors.
   capColor = color;
   background = almostBlack();
+
+  // Animated ellipsis for "Downloading..." & "Reconstructing..."
+  ellipsisTicker = new gizmo.Hourglass(30, {
+    completed: () => {
+      ellipsisDots = (ellipsisDots + 1) % 4;
+    },
+    autoFlip: true,
+  });
 
   palettes = {
     rgbwcmyk: [
@@ -347,6 +349,8 @@ function sim({
   net: { rewrite, preload, waitForPreload },
   num: { vec3, randIntRange: rr, dist3d, quat, vec4, mat3 },
 }) {
+  if (loadingDemoFile) ellipsisTicker.step(); // Animate loading ellipsis.
+
   // 😵‍💫 Spinning a sculpture around via `Tube`.
   if (autoRotate) {
     tube.form.rotation[1] += 0.02 * autoRotateDir;
@@ -367,18 +371,13 @@ function sim({
     const { speed, slug } = loadDemoSwitch;
     loadDemoSwitch = null;
     loadingDemoFile = true;
+    noact = true;
     progressBarDelay = 0;
     loadDemoProgress = 0;
     cursor("native");
 
     preload(slug, false, (p) => (loadDemoProgress = p)).then((data) => {
-      // Reset the tube here...
-      tube.form.clear();
-      tube.capForm.clear();
-      tube.triCapForm.clear();
-      tube.lineForm.clear();
-      tube.lastPathP = undefined;
-      tube.gesture = [];
+      tube.clear(); // Reset the tube geometry...
 
       const frames = parseDemoFrames(data);
       console.log("🎞️ Loaded a wand file:", frames.length);
@@ -465,15 +464,6 @@ function sim({
 
     // Measure number of vertices left.
     const length = (1 - tube.progress()) * 0.3;
-
-    let offsetAmount = radius * 1.25;
-
-    if (tube.sides === 1) {
-      offsetAmount = 0;
-    }
-
-    const offset = vec3.scale(vec3.create(), dir, offsetAmount);
-    // const offsetPos = vec3.add(vec3.create(), position, offset);
 
     wandForm = new Form(
       {
@@ -740,10 +730,8 @@ function sim({
     pen3d.pos.z !== 0
   ) {
     race.to([pen3d.pos.x, pen3d.pos.y, pen3d.pos.z, 1]);
-    //racePoints.push(race.pos); // For debugging.
   } else if (race.pos && pen && pen.x && pen.y) {
     race.to(camdoll.cam.ray(pen.x, pen.y, rayDist / 4, true));
-    //racePoints.push(race.pos); // For debugging.
   }
 
   if (waving) {
@@ -808,17 +796,6 @@ function sim({
           }
         } else if (tube.sides > 2) {
           // ♾️ Curvy / cut corner loops.
-          /*
-          if (d > step) {
-            const repeats = floor(d / step);
-            for (let i = 0; i < repeats; i += 1) {
-              spi.crawlTowards(race.pos, step, (i + 1) / repeats); // <- last parm is a tightness fit
-            }
-            tube.goto(spi.state, undefined, false, false); // Knot the tube just once.
-          }
-          */
-
-          //let posd = dist3d(position, race.pos);
           // This is basically magic. 🪄
           if (d > step) {
             let repeats = min(6, floor(d / step));
@@ -931,7 +908,6 @@ function sim({
             color,
           });
         }
-
       } else if (type === "tube:start") {
         tube.start(
           {
@@ -976,11 +952,14 @@ function sim({
         demoWandTubeData = null;
         lastPlayedFrames = player.frames;
         player = null;
+        noact = false; // Re-enable acts.
+        demoWandTube = null;
         demoLabel?.();
 
         // #region relic-1
         // 📔 Some old scripts to automate making changes to demos and GLB files.
         //    Leaving them here in case I need to do automation again!
+
         // Advance to next piece, save json, etc. etc.
         /*
         {
@@ -1012,7 +991,7 @@ function sim({
         */
 
         /*
-      // DEMOS
+        // DEMOS
         setTimeout(function () {
           {
             const ts = lastPlayedFrames[0][2]; // 0n, "piece:info", timestamp, author
@@ -1051,6 +1030,14 @@ function sim({
         // #endregion
       }
     });
+
+    if (player?.instant === 0) {
+      help.repeat(3, () => ellipsisTicker.step()); // Animate ellipsis.
+      let ellipsis = "";
+      help.repeat(ellipsisDots, () => (ellipsis += "."));
+      ellipsis = ellipsis.padEnd(3, " ");
+      hud.label(`Reconstructing${ellipsis}`);
+    }
   });
 }
 
@@ -1060,6 +1047,7 @@ function paint({
   hud,
   Form,
   wipe,
+  help,
   noiseTinted,
   num,
   screen: { width, height },
@@ -1181,57 +1169,43 @@ function paint({
       { color: [255, 0, 0, 255] },
       { scale: [1, 1, 1] }
     );
-    /*
 
-  // Draw some cursor measurement lines.
-  trackerForm = new Form(
-    {
-      type: "line",
-      positions: trackerPoints,
-      colors: trackerColors,
-      gradients: true,
-      keep: false,
-    },
-    { color: [255, 255, 255, 255] },
-    { scale: [1, 1, 1] }
-  );
-  */
     // Draw some cursor measurement lines.
-    // trackerForm = new Form(
-    //   {
-    //     type: "line",
-    //     positions: trackerPoints,
-    //     colors: trackerColors,
-    //     gradients: true,
-    //     keep: false,
-    //   },
-    //   { color: [255, 255, 255, 255] },
-    //   { scale: [1, 1, 1] }
-    // );
+    trackerForm = new Form(
+      {
+        type: "line",
+        positions: trackerPoints,
+        colors: trackerColors,
+        gradients: true,
+        keep: false,
+      },
+      { color: [255, 255, 255, 255] },
+      { scale: [1, 1, 1] }
+    );
 
-    // form(
-    //   [trackerForm, diffPrevForm, diffForm, raceForm],
-    //   camdoll.cam
-    // );
+    form([trackerForm, diffPrevForm, diffForm, raceForm], camdoll.cam);
   }
   // #endregion
 
   // Demo playback / preview cursors.
   if (demoWandTubeData) {
-
     const tubeSides = 16;
     const tubeRadius = 0.002;
 
     // Instantiate a Tube for the preview.
-    demoWandTube = new Tube(
-      { Form, num },
-      tubeRadius,
-      tubeSides,
-      step,
-      geometry,
-      undefined,
-      true // isWand
-    );
+    if (!demoWandTube) {
+      demoWandTube = new Tube(
+        { Form, num },
+        tubeRadius,
+        tubeSides,
+        step,
+        geometry,
+        undefined,
+        true // isWand
+      );
+    } else {
+      demoWandTube.clear();
+    }
 
     demoWandTube.start(
       {
@@ -1254,11 +1228,8 @@ function paint({
       false,
       false
     );
-    // TODO: Does the undefined have to be a capForm here? 23.02.04.16.12
-
     demoWandTube.stop(false);
 
-    //debugger;
     demoWandTube.form.rotation[1] =
       demoWandTube.triCapForm.rotation[1] =
       demoWandTube.capForm.rotation[1] =
@@ -1268,27 +1239,51 @@ function paint({
       demoWandTube.capForm.gpuTransformed =
       demoWandTube.triCapForm.gpuTransformed =
         true;
-
-    // TODO: Make sure I can set the MAX_POINTS on a tube form so I don't
-    //       completely fill the buffer just with a preview form.
   }
 
+  // Loading screen.
   if (loadingDemoFile) {
     noiseTinted([127, 127, 127], 0.6, 0.7);
     if (progressBarDelay < progressBarDelayMax) {
       progressBarDelay += 1;
     } else {
-      hud.label("Downloading..."); // TODO: Add a please wait?
+      if (loadDemoProgress < 1) {
+        let ellipsis = "";
+        help.repeat(ellipsisDots, () => (ellipsis += "."));
+        ellipsis = ellipsis.padEnd(3, " ");
+        if (loadDemoProgress < 1) hud.label(`Downloading${ellipsis}`);
+      }
       ink(64).box(0, height - 8, loadDemoProgress * width, height - 8);
       if (loadDemoProgress === 1 && player) {
         player.paused = false;
         loadingDemoFile = false; // Stop loading if we are incrementally playing back the file. Otherwise we will flag this in Player.
-        if (player.instant === 0) {
-          hud.label(`Reconstructing...`);
-        } else demoLabel?.();
+        if (player.instant !== 0) {
+          demoLabel?.();
+          noact = false;
+        }
         needsWipe = player.instant === 0 ? num.randIntArr(128, 3) : [0, 0];
       }
     }
+  }
+
+  // Loading bar for "Reconstructing..."
+  if (player?.instant === 0) {
+    ink(64, 0, 0).box(
+      0,
+      height - 8,
+      (player.frameIndex / (player.frames.length - 1)) * width,
+      height - 8
+    );
+  }
+
+  // Loading bar for Playback.
+  if (player) {
+    ink(0, 0, 0).box(
+      0,
+      height - 4,
+      (player.frameIndex / (player.frames.length - 1)) * width,
+      height - 4
+    );
   }
 
   // TODO: Put other types in here to draw cooler patterns? 23.02.03.22.30
@@ -1308,9 +1303,7 @@ function paint({
       demoWandTube?.form,
       demoWandTube?.capForm,
       demoWandTube?.triCapForm,
-      //demoWandTube.capForm,
       wandForm,
-      //demoWandForm,
     ],
     camdoll.cam,
     { background }
@@ -1332,6 +1325,8 @@ function act({
   num,
   store,
 }) {
+  if (noact) return; // Disable all acts if we are loading or reconstructing...
+
   const {
     quat,
     timestamp,
@@ -1341,6 +1336,8 @@ function act({
     shiftRGB,
     rgbToHexStr,
   } = num;
+
+  camdoll.act(e); // Wire up FPS style navigation events.
 
   // 🥽 Start a gesture. (Spatial)
   if (e.is("3d:touch:2")) {
@@ -1447,7 +1444,6 @@ function act({
         slug: screenshotSlug,
         format: "png",
         output: "local",
-        //camera: { position: [0, -cubeHeight, camStartPos[2]] },
         camera: {
           position: camdoll.cam.position,
           rotation: camdoll.cam.rotation,
@@ -1537,17 +1533,6 @@ function act({
     beep = true;
   }
 
-  /*
-  if (e.is("keyboard:down:i")) {
-    randomPaletteCount = randomPaletteCountMax;
-    randomPalette = true;
-  }
-  if (e.is("keyboard:up:i")) {
-    randomPaletteCount = randomPaletteCountMax;
-    randomPalette = false;
-  }
-  */
-
   // Toggle random color cycling.
   if (e.is("3d:lhand-trigger-down")) randomPalette = true;
   if (e.is("3d:lhand-trigger-up")) randomPalette = false;
@@ -1562,13 +1547,7 @@ function act({
     const ts = params[0] || timestamp();
     const handle = "digitpain"; // Hardcoded for now.
     const bg = rgbToHexStr(...background.slice(0, 3)).toUpperCase(); // Empty string for no `#` prefix.
-
-    let sculptureSlug = `${ts}-sculpture-${bg}-${handle}`;
-
-    // Prepend "ff#-" if a freakyFlowersToken has been loaded.
-    // if (store["freaky-flowers"]?.tokenID >= 0) {
-    //   sculptureSlug = `ff${store["freaky-flowers"].tokenID}-${sculptureSlug}`;
-    // }
+    const sculptureSlug = `${ts}-sculpture-${bg}-${handle}`;
 
     gpu
       .message({
@@ -1591,40 +1570,10 @@ function act({
       });
   }
 
-  // Remove / cancel a stroke.
-  // TODO...
-
   if (e.is("3d:rhand-button-b-down")) {
     advancePalette("blackredyellow");
     beep = true;
   }
-
-  // 🔴 Recording a new piece / start over.
-  // if (e.is("3d:rhand-button-b-down")) {
-  //   demo?.dump(); // Start fresh / clear any existing demo cache.
-
-  //   // Remove all vertices from the existing tube and reset tube state.
-  //   tube.form.clear();
-  //   tube.capForm.clear();
-  //   tube.triCapForm.clear();
-  //   tube.lineForm.clear();
-  //   tube.lastPathP = undefined;
-  //   tube.gesture = [];
-
-  //   demo?.rec("room:color", background); // Record the starting bg color in case the default ever changes.
-  //   demo?.rec("wand:color", color);
-
-  //   demo?.rec("tube:sides", tube.sides);
-  //   demo?.rec("tube:radius", tube.radius); // Grab the state of the current tube.
-  //   demo?.rec("tube:step", tube.step);
-
-  //   addFlash([255, 0, 0, 255]);
-
-  //   console.log("🪄 A new piece...");
-  //   beep = true;
-  // }
-
-  const saveMode = "server"; // The default for now. 22.11.15.05.32
 
   // Save an already loaded demo back to disk.
   if (e.alt && e.is("keyboard:down:m")) {
@@ -1667,8 +1616,6 @@ function act({
       return;
     }
 
-    // demo?.rec("room:color", background); // Always write a final room color!
-
     const ts = timestamp();
 
     console.log(
@@ -1701,6 +1648,7 @@ function act({
     demo.frames.unshift([0, "piece:info", ts, handle]);
 
     // Server saving.
+    const saveMode = "server"; // The default for now. 22.11.15.05.32
     if (saveMode === "server") {
       // Save demo JSON.
       serverUpload(`${recordingSlug}.json`, demo.frames, bucket)
@@ -1798,10 +1746,8 @@ function act({
       });
   }
 
-  camdoll.act(e); // Wire up FPS style navigation events.
-
   //#region 🐛 Debugging controls.
-  // Adjust model complexity. (Only works if geometry is non-buffered atm.)
+  // Adjust tube complexity.
   if (e.is("keyboard:down:k")) {
     sides += 1;
     limiter = 0;
@@ -2022,8 +1968,7 @@ function processNewColor(fg, bg) {
 }
 
 function advancePalette(pal) {
-  // Get palette and index.
-  let index = palettes.indices[pal];
+  let index = palettes.indices[pal]; // Get palette and index.
   const palette = palettes[pal];
 
   // Reset any palette index that isn't this one...
@@ -2041,8 +1986,7 @@ function advancePalette(pal) {
 
   processNewColor(fg, bg);
 
-  // Advance palette index forward, wrapping around.
-  index = (index + 1) % palette.length;
+  index = (index + 1) % palette.length; // Advance and wrap palette index.
   palettes.indices[pal] = index; // Update the global index.
 }
 
@@ -2104,19 +2048,17 @@ class Tube {
         type:
           this.geometry === "triangles" ? "triangle:buffered" : "line:buffered",
         keep: true,
-        //this.geometry === "triangles" ? "triangle" : "line", // Toggle this for testing full form updates.
-        //keep: false,
+        // Toggle this for testing full form updates.
+        // this.geometry === "triangles" ? "triangle" : "line",
+        // keep: false,
         gradients: false,
       },
-      //{ type: "line:buffered", gradients: false },
-      //{ tex: this.$.painting(2, 2, (g) => g.wipe(0, 0, 70)) },
       { color: [255, 255, 255, 255] }, // If vertices are passed then this number blends down.
       { scale: [1, 1, 1] },
     ];
 
     this.form = new $.Form(...formType); // Main form.
     this.form.tag = "sculpture"; // This tells the GPU what to export right now. 22.11.15.09.05
-    // this.form.gpuConvertColors = false;
 
     this.mat4Ident = $.num.mat4.create();
 
@@ -2129,47 +2071,15 @@ class Tube {
     formType[0].type = "triangle:buffered";
     this.triCapForm = new $.Form(...formType); // Tri cursor.
 
-    // console.log(this.lineForm, this.capForm, this.triCapForm, this.form);
-
-    // Enough for 5000 segments.
-    // each side has 6 vertices
-    // sides * 6
-    // each tube has 2 caps
-    // caps of sides of 3 have 3 vertices
-    // + 3 * 2
-    // caps of sides of 2 have ?
     this.#setVertexLimits();
 
     if (isWand === false) {
-      this.form.MAX_POINTS = 301000; // Make sure demos can't record beyond the alotted geometry. 22.11.25.11.44
+      this.form.MAX_POINTS = 301000; // Demos can't record beyond this alotted geometry. 22.11.25.11.44
       this.lineForm.MAX_POINTS = 101000;
     } else {
       this.form.MAX_POINTS = 3000; // Give wands a smaller range.
       this.lineForm.MAX_POINTS = 1000;
     }
-
-    // this.form.MAX_POINTS = 4096;
-    // (this.verticesPerSide + this.verticesPerCap * 2) *
-    // this.sides *
-    // segmentTotal; // Must be a multiple of two for "line".
-
-    // console.log("Maximum vertices set to: ", this.form.MAX_POINTS);
-
-    // TODO: 8192 should be plenty of a buffer for 1 segment without doing
-    //       this math for now. 22.11.16.05.39
-    /*
-    if (sides === 2 && this.capForm.primitive === "line") {
-      verticesPerSide = 6; // Double sided.
-      verticesPerCap = 2;
-      extra = 2;
-    }
-
-    if (sides > 2 && this.capForm.primitive === "line") {
-      verticesPerSide = 6; // Double sided.
-      verticesPerCap = 2 * sides + 2;
-      extra = 2;
-    }
-    */
 
     this.triCapForm.MAX_POINTS = 512; // TODO: Sometimes this maxes out on demo playback?
     this.capForm.MAX_POINTS = 8192; //extra + verticesPerSide + verticesPerCap * 2; // sides * 6 + 3 * 2; // This should be enough to cover our bases. The 4 is for 2 caps and a shaft.
@@ -2211,7 +2121,6 @@ class Tube {
 
         this.shape = cachedSegmentShape;
       } else {
-        //console.log(nextPathP);
         const npp = this.#transformShape(this.#pathp({ ...nextPathP }));
         this.#cap(npp, this.capForm, false);
       }
@@ -2253,10 +2162,7 @@ class Tube {
     this.radius = radius;
     this.step = step;
 
-    //if (this.sides === 1) this.sides = 0;
-
     // Create an initial position in the path and generate points in the shape.
-    // this.shape = this.#segmentShape(radius, sides); // Update radius and sides.
     const start = this.#pathp(p);
     this.lastPathP = start; // Store an inital lastPath.
 
@@ -2279,6 +2185,7 @@ class Tube {
     // Add new points to the path.
     // Extrude shape points from and in the direction of each path vertex.
     const pathp = this.#pathp(pathPoint);
+    if (!this.lastPathP) this.lastPathP = pathp; // In case it doesn't exist...
 
     this.#consumePath([this.#transformShape(pathp)], form);
 
@@ -2287,10 +2194,8 @@ class Tube {
       this.#cap(pathp, this.triCapForm, false);
     }
 
-    if (form !== this.capForm) {
-      // Don't update the last segment shape if we are only previewing.
-      this.lastSegmentShape = this.shape;
-    }
+    // Don't update the last segment shape if we are only previewing.
+    if (form !== this.capForm) this.lastSegmentShape = this.shape;
 
     if (pathp.color.length === 3) pathp.color.push(255); // Use RGBA for demo.
 
@@ -2314,8 +2219,7 @@ class Tube {
     this.triCapForm.clear();
 
     // Push anything we haven't stepped into onto the path.
-
-    // Optionally add start or end bits, drawn over or under our step size.
+    // (Optionally add start or end bits, drawn over or under our step size.)
     if (!fromDemo && graphPreview) {
       const d = dist3d(spi.state.position, race.pos);
       if (d > 0.01) {
@@ -2345,7 +2249,6 @@ class Tube {
     this.lastPathP = undefined;
   }
 
-  // TODO: Fix this for sides...
   progress() {
     // Return the number of "safe" full strokes (segments and caps) leftover,
     // depending on the number of sides.
@@ -2359,6 +2262,16 @@ class Tube {
         (form.MAX_POINTS -
           (this.verticesPerSide * this.sides + this.verticesPerCap * 2))
     );
+  }
+
+  // Clears out all the geometry from this Tube.
+  clear() {
+    this.form.clear();
+    this.capForm.clear();
+    this.triCapForm.clear();
+    this.lineForm.clear();
+    this.lastPathP = undefined;
+    this.gesture = [];
   }
 
   update({ sides, radius, step }) {
@@ -2378,7 +2291,6 @@ class Tube {
 
   #setVertexLimits() {
     if (this.form.primitive === "line") {
-      // TODO: This should be good enough? 22.11.17.05.23
       this.verticesPerSide = 6;
       this.verticesPerCap = this.sides * 3;
     }
@@ -2449,10 +2361,6 @@ class Tube {
     const positions = [];
     const colors = [];
     const normals = [];
-    // const tris =
-    //   form?.primitive !== "line" ||
-    //   (form === undefined && this.geometry === "triangles"); // This is a hack for wireframe capForms.
-    //if (this.sides === 1) return;
 
     let tris;
     if (form === undefined) {
@@ -2465,34 +2373,10 @@ class Tube {
 
     // 📐 Triangles
     if (tris) {
-      // 2️⃣ Two Sides
-      if (this.sides === 2) {
-        //if (ring) {
-        //  form.addPoints({
-        //    positions: [pathP.shape[1], pathP.shape[pathP.shape.length - 1]],
-        //    colors: [this.varyCap(shade), this.varyCap(shade)],
-        //  });
-        //}
-      }
-
       // 3️⃣ Three Sides
       if (this.sides === 3) {
         // Start cap.
         if (ring) {
-          // for (let i = 0; i < pathP.shape.length; i += 1) {
-          //   if (i > 1) {
-          //     form.addPoints({
-          //       positions: [pathP.shape[i]],
-          //       colors: [this.varyCap(shade)],
-          //     });
-          //   }
-          // }
-
-          // form.addPoints({
-          //   positions: [pathP.shape[1]],
-          //   //colors: [pathP.color],
-          //   colors: [this.varyCap(shade), this.varyCap(shade)],
-          // });
           positions.push(pathP.shape[1], pathP.shape[2], pathP.shape[3]);
           colors.push(
             this.varyCap(shade),
@@ -2540,7 +2424,6 @@ class Tube {
           this.varyCap(shade),
           this.varyCap(shade)
         );
-        // [255, 100, 0, 255], [255, 100, 0, 255],
       }
 
       // This is a general case now.
@@ -2579,9 +2462,6 @@ class Tube {
             this.varyCap(shade), // Inner color for a gradient.
             this.varyCap(shade),
             this.varyCap(shade)
-            // [255, 0, 0, 255],
-            // [255, 255, 0, 255],
-            // [0, 0, 255, 255],
           );
         } else {
           positions.push(
@@ -2745,7 +2625,6 @@ class Tube {
         // Recurse if the average of all three color channels is still
         // inside the vary range.
         if (averageDifference < tubeVary / 5) {
-          // console.log("recurse");
           return this.vary(color);
         }
 
@@ -2821,93 +2700,15 @@ class Tube {
 
       // Get normals for each vertex in the triangle based on the
       // direction from the center to the triangle face.
-
       function calculateTriangleNormal(a, b, c) {
-        /*
-        const ab = vec3.create();
-        vec3.subtract(ab, b, a); // calculate the edge vector from vertex a to vertex b
-        const tangent = vec3.normalize([], ab); // normalize the edge vector to get the tangent of the edge
-        const ac = vec3.create();
-        vec3.subtract(ac, c, a); // calculate the vector from the center of the triangle to the vertex
-        const normal = vec3.create();
-        vec3.cross(normal, tangent, ac); // take the cross product of the tangent and this vector to get the normal
-        vec3.normalize(normal, normal); // normalize the result
-        return normal;
-        */
-
-        // Import the vec3 class from the glMatrix library
-
-        // Calculate the two edges of the triangle
-        const e1 = vec3.subtract([], b, a);
+        const e1 = vec3.subtract([], b, a); // The two edges of the triangle.
         const e2 = vec3.subtract([], c, a);
-
-        // Use the cross product to calculate the normal for the triangle
-        const normal = vec3.normalize([], vec3.cross([], e1, e2));
-        return normal;
+        return vec3.normalize([], vec3.cross([], e1, e2)); // Cross product normal.
       }
-
-      function calculateStrip(vertices) {
-        /*
-        const normals = [];
-        // Calculate the normals for each triangle in the strip
-        for (let i = 0; i < triangleVertices.length; i += 3) {
-          const v1 = triangleVertices[i];
-          const v2 = triangleVertices[i + 1];
-          const v3 = triangleVertices[i + 2];
-
-          // Calculate the two edges of the triangle
-          const e1 = v2.clone().sub(v1);
-          const e2 = v3.clone().sub(v1);
-
-          // Use the cross product to calculate the normal for the triangle
-          const normal = e1.cross(e2).normalize();
-
-          // Add the normal to the sum for each vertex
-          vertexNormals[v1.index].add(normal);
-          vertexNormals[v2.index].add(normal);
-          vertexNormals[v3.index].add(normal);
-        }
-
-        // Normalize the sum of the normals for each vertex to get the angle weighted normal
-        for (let i = 0; i < vertexNormals.length; i++) {
-          vertexNormals[i].normalize();
-        }
-
-        // Set the normal attribute of each vertex to the angle weighted normal
-        for (let i = 0; i < triangleVertices.length; i++) {
-          triangleVertices[i].normal.copy(
-            vertexNormals[triangleVertices[i].index]
-          );
-        }
-        */
-      }
-
-      // // Draw a line from each vertex to it's shape[0].
-
-      // function norms(coreLine, triCen, vertices) {
-      //   const normals = [];
-      //   const normal = calculateTriangleNormal(...vertices);
-      //   normals.push(normal, normal, normal);
-      //   return normals;
-      // }
 
       function norm(core, edge) {
         // Get the normal from the rotatedPoint to the core.
         return vec3.normalize([], vec3.sub([], edge, core));
-      }
-
-      // function midPoint(a, b) {
-      //   return vec3.lerp([], a, b, 0.5);
-      // }
-
-      const coreLine = [this.lastPathP.shape[0], pathP.shape[0]];
-
-      function triCenter(a, b, c) {
-        const center = vec3.create();
-        vec3.add(center, a, b);
-        vec3.add(center, center, c);
-        vec3.scale(center, center, 1 / 3);
-        return center;
       }
 
       // ⚠️
@@ -3810,14 +3611,18 @@ class Demo {
 
 class Player {
   frames;
-  frameCount = 0n;
   frameIndex = 0;
+  simCount = 0n;
   endAtLastIndex;
   startAtFirstIndex;
   collectedFrames = [];
   instant; // Play all frames back instantly after one sim call.
   waitForPreload;
   paused = false;
+
+  #instantChunks = [];
+  #instantDelay = 0;
+  #instantDelayMax = 1;
 
   // loop;
 
@@ -3852,7 +3657,7 @@ class Player {
 
     while (this.frameIndex < this.startAtFirstIndex) {
       this.collectedFrames.push(thisFrame);
-      this.frameCount = thisFrame[0];
+      this.simCount = thisFrame[0];
       this.frameIndex += 1;
       thisFrame = frames[this.frameIndex];
     }
@@ -3869,48 +3674,59 @@ class Player {
       // Push a completed message with a negative frameCount to mark an ending.
       handler([[-1, "demo:complete"]]);
       this.waitForPreload?.();
-
       return;
     }
 
     // Run through all the frames instantly then finish on next tick.
     if (this.instant === 0) {
-      for (let f = this.frameIndex; f <= this.endAtLastIndex; f += 1) {
-        this.collectedFrames.push(this.frames[f]);
+      if (this.#instantChunks.length === 0) {
+        // Segment frames into temporal chunks that run on each sim tick.
+        // (Prevents lock-up)
+
+        // Handle first batch of frames up until startAtFirstIndex.
+        handler(this.collectedFrames);
+        this.collectedFrames = [];
+
+        for (let f = this.startAtFirstIndex; f <= this.endAtLastIndex; f += 1) {
+          this.collectedFrames.push(this.frames[f]);
+        }
+
+        const chunkSize = 500; // This seems reasonable. 23.02.05.15.00
+
+        for (let i = 0; i < this.collectedFrames.length; i += chunkSize) {
+          const end = i + chunkSize;
+          const lastChunk = end >= this.collectedFrames.length;
+          const chunk = this.collectedFrames.slice(
+            i,
+            lastChunk ? this.collectedFrames.length : end
+          );
+          this.#instantChunks.push(chunk);
+        }
+
+        this.collectedFrames = [];
       }
 
-      handler(this.collectedFrames); // Run our action handler.
-
-      /*
-      const chunkSize = 100;
-      for (let i = 0; i < this.collectedFrames.length; i += chunkSize) {
-        const end = i + chunkSize;
-        const chunk = this.collectedFrames.slice(
-          i,
-          end >= this.collectedFrames.length ? this.collectedFrames.length : end
-        );
-        const isLastIteration = end >= this.collectedFrames.length;
-
-        // TODO: Stack these up so they run in order, instead of consecutively.
-        setTimeout(() => {
-          console.log(chunk.length);
-          handler(chunk);
-          if (isLastIteration) {
-            loadingDemoFile = false;
-            needsWipe = true;
-          } // Consider the sculpture fully loaded.
-        }, 150);
+      if (this.#instantChunks.length > 0) {
+        // Give a few frames of speace between each chunk for animations
+        // and other things to complete.
+        if (this.#instantDelay >= this.#instantDelayMax) {
+          const chunk = this.#instantChunks.shift();
+          handler(chunk); // Run our action handler for this chunk.
+          this.frameIndex += chunk.length;
+          this.#instantDelay = 0;
+        } else {
+          this.#instantDelay += 1;
+        }
+      } else {
+        this.frameIndex = -1; // Call `demo:complete` when no chunks are left.
       }
-      */
 
-      this.collectedFrames = [];
-      this.frameIndex = -1;
       return;
     }
 
     // Or wait on a frame if needed... for realtime.
-    if (this.frameCount < thisFrame[0]) {
-      this.frameCount += 1n;
+    if (this.simCount < thisFrame[0]) {
+      this.simCount += 1n;
       return;
     }
 
@@ -3919,7 +3735,7 @@ class Player {
 
     for (let i = 0; i < multiplier; i += 1) {
       // And push current frame plus others following it on the same tick.
-      while (thisFrame && thisFrame[0] === this.frameCount) {
+      while (thisFrame && thisFrame[0] === this.simCount) {
         this.collectedFrames.push(thisFrame);
         if (thisFrame === this.frames[this.endAtLastIndex]) {
           this.frameIndex = -1; // Hit last frame.
@@ -3932,10 +3748,10 @@ class Player {
         thisFrame = this.frames[this.frameIndex];
       }
 
-      this.frameCount += 1n;
+      this.simCount += 1n;
     }
 
-    handler(this.collectedFrames, this.frameCount); // Run our action handler.
+    handler(this.collectedFrames, this.simCount); // Run our action handler.
     this.collectedFrames = [];
   }
 }

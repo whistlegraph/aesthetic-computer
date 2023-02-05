@@ -34,16 +34,16 @@ let btn, nobtn,
   label = "Download"; // "Export" | "Download" | "CODE" button.
 let slug; // Stores a download code for prepending to locally downloaded videos.
 let isPrinting = false;
-let progressTicker, progressDots = 0;
+let ellipsisTicker, ellipsisDots = 0;
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({ wipe, rec, gizmo }) {
   wipe(0);
   rec.present(); // Visually present a recording right away if one exists.
 
-  progressTicker = new gizmo.Hourglass(30, {
+  ellipsisTicker = new gizmo.Hourglass(30, {
     completed: () => {
-      progressDots = (progressDots + 1) % 4;
+      ellipsisDots = (ellipsisDots + 1) % 4;
     },
     autoFlip: true,
   });
@@ -72,9 +72,9 @@ function paint({
       const h = 16; // Paint a printing / transcoding progress bar.
 
       let text = "PROCESSING";
-      let suffix = "";
-      help.repeat(progressDots, () => (suffix += "."));
-      text += suffix.padEnd(3, " ");
+      let ellipsis = "";
+      help.repeat(ellipsisDots, () => (ellipsis += "."));
+      text += ellipsis.padEnd(3, " ");
 
       wipe(0, 0, 80, 180)
         .ink(0)
@@ -122,7 +122,7 @@ function paint({
 }
 
 function sim () {
-  progressTicker.step();
+  ellipsisTicker.step();
 }
 
 // ✒ Act (Runs once per user interaction)
