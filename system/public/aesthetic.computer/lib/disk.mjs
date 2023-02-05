@@ -32,7 +32,7 @@ let debug = false; // This can be overwritten on boot.
 
 const defaults = {
   boot: ({ resize, cursor, screen: { width, height } }) => {
-    resize(width / 4, height / 4);
+    // resize(width / 2, height / 2);
     cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.

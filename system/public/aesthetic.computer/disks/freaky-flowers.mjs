@@ -148,7 +148,7 @@ const tokenTitlesAndDescriptions = [
   ],
   [
     "First Freak",
-    'This is the first flower I drew once I got my software working and decided on a basic score. I signed the corner "ff" with a double-entendre pointing the two repeated consonants in my first name (Jeffrey) and the series title.',
+    'This is the first flower I drew once I got my software working and decided on a basic score. I signed the corner "ff" with a double-entendre pointing to the two repeated consonants in my first name (Jeffrey) and the series title.',
   ],
   [
     "Simple Screamer",
