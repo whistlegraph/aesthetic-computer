@@ -2126,7 +2126,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (!content) return;
 
     // This is a bit messy compared to what happens inside of content.reframe -> frame below. 22.10.27.02.05
-    if (content.pixels) {
+    if (content.pixels?.byteLength > 0) {
       screen.pixels = new Uint8ClampedArray(content.pixels);
       let width = screen.width;
       let height = screen.height;
