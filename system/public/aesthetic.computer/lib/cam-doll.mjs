@@ -34,8 +34,8 @@ export class CamDoll {
     if (this.#S) forward = this.sensitivity;
     if (this.#A) strafe = -this.sensitivity;
     if (this.#D) strafe = this.sensitivity;
-    if (this.#SPACE) updown = this.sensitivity;
-    if (this.#SHIFT) updown = -this.sensitivity;
+    if (this.#SPACE) updown = -this.sensitivity;
+    if (this.#SHIFT) updown = this.sensitivity;
 
     if (
       this.#W ||
