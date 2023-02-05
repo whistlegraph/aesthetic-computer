@@ -148,8 +148,10 @@ let tube, // Circumscribe the spider's path with a form.
   graphPreview = false; // Whether to render pieces of a tube smaller or greater
 //                         than `step` at the start of end of a stroke.
 let wandForm; // A live cursor.
-let demoWandForm; // A ghost cursor for playback.
-let demoWandFormOptions;
+
+//let demoWandForm; // A ghost cursor for playback. Deprecated: 23.02.04.20.26
+let demoWandTube;
+let demoWandTubeData; // Also used for demoWandTube.
 
 let demo, player; // For recording a session and rewatching it in realtime.
 let lastPlayedFrames; // Keeps track of recently run through Player frames / demo frames.
@@ -321,7 +323,7 @@ function boot({
     demo?.rec("room:color", background); // Record the starting bg color in case the default ever changes.
     demo?.rec("wand:color", color);
   }
-  tube = new Tube({ Form, num }, radius, sides, step, geometry, demo);
+  tube = new Tube({ Form, num }, radius, sides, step, geometry);
   //wipe(0, 0); // Clear the software buffer to make sure we see the gpu layer.
   noise16DIGITPAIN();
 }
@@ -354,6 +356,9 @@ function sim({
       tube.capForm.gpuTransformed =
       tube.triCapForm.gpuTransformed =
         true;
+
+    // if (demoWandTube) {
+    // }
   }
 
   // 📽️ Loading and triggering a demo once the graphics system is ready.
@@ -413,7 +418,7 @@ function sim({
           };
         }
 
-        autoRotate = true; // Rotate sculpture automatically.
+        autoRotate = false; // Rotate sculpture automatically.
         autoRotateDir = help.choose(-1, 1);
       }
     });
@@ -904,12 +909,19 @@ function sim({
         const rot = [f[di + 3], f[di + 4], f[di + 5], f[di + 6]];
         const pos2 = vec3.transformQuat(vec3.create(), [0, 0, 0.1], rot);
         const np = [...vec3.add(vec3.create(), pos, pos2), 1];
-        demoWandFormOptions = {
-          type: "line",
+
+        demoWandTubeData = {
           positions: [pos, np],
           colors: [color, color],
-          keep: false,
+          rotation: rot,
         };
+
+        // demoWandFormOptions = {
+        //   type: "line",
+        //   positions: [pos, np],
+        //   colors: [color, color],
+        //   keep: false,
+        // };
       } else if (type === "tube:start") {
         tube.start(
           {
@@ -951,8 +963,8 @@ function sim({
         tube.stop(true);
       } else if (type === "demo:complete") {
         // A "synthesized frame" with no other information to destroy our player.
-        demoWandForm = null;
-        demoWandFormOptions = null;
+        // demoWandForm = null;
+        demoWandTubeData = null;
         lastPlayedFrames = player.frames;
         player = null;
         demoLabel?.();
@@ -1195,12 +1207,65 @@ function paint({
   }
   // #endregion
 
-  // Demo playback.
+  // Demo playback / preview cursors.
   // Create a demoWandForm if one is needed. TODO: Does this need to be in `paint`? 23.02.03.12.58
-  if (demoWandFormOptions) {
-    demoWandForm = new Form(demoWandFormOptions, {
-      rot: [0, tube.form.rotation[1], [0]],
-    });
+  if (demoWandTubeData) {
+    // demoWandForm = new Form(demoWandFormOptions, {
+    //   rot: [0, tube.form.rotation[1], [0]],
+    // });
+
+    const tubeSides = 16;
+    const tubeRadius = 0.004;
+
+    // Instantiate a Tube for the preview.
+    demoWandTube = new Tube(
+      { Form, num },
+      tubeRadius,
+      tubeSides,
+      step,
+      geometry,
+      undefined,
+      true // isWand
+    );
+
+    demoWandTube.start(
+      {
+        position: demoWandTubeData.positions[0],
+        rotation: demoWandTubeData.rotation,
+        color: demoWandTubeData.colors[0],
+      },
+      tubeRadius,
+      tubeSides,
+      step
+    );
+
+    demoWandTube.goto(
+      {
+        position: demoWandTubeData.positions[1],
+        rotation: demoWandTubeData.rotation,
+        color: demoWandTubeData.colors[1],
+      },
+      undefined,
+      false,
+      false
+    );
+    // TODO: Does the undefined have to be a capForm here? 23.02.04.16.12
+
+    demoWandTube.stop(false);
+
+    //debugger;
+    demoWandTube.form.rotation[1] =
+      demoWandTube.triCapForm.rotation[1] =
+      demoWandTube.capForm.rotation[1] =
+        tube.form.rotation[1];
+
+    demoWandTube.form.gpuTransformed =
+      demoWandTube.capForm.gpuTransformed =
+      demoWandTube.triCapForm.gpuTransformed =
+        true;
+
+    // TODO: Make sure I can set the MAX_POINTS on a tube form so I don't
+    //       completely fill the buffer just with a preview form.
   }
 
   if (loadingDemoFile) {
@@ -1235,8 +1300,12 @@ function paint({
       tube.lineForm,
       tube.capForm,
       tube.triCapForm,
+      demoWandTube?.form,
+      demoWandTube?.capForm,
+      demoWandTube?.triCapForm,
+      //demoWandTube.capForm,
       wandForm,
-      demoWandForm,
+      //demoWandForm,
     ],
     camdoll.cam,
     { background }
@@ -1377,7 +1446,7 @@ function act({
           rotation: camdoll.cam.rotation,
         },
         // squareThumbnail: e.alt,
-        squareThumbnail: true,
+        squareThumbnail: false,
       },
     });
   }
@@ -2006,74 +2075,7 @@ class Tube {
   // Note: I could eventually add behavioral data into these vertices that
   //       animate things / turn on or off certain low level effects etc.
 
-  // TODO: Fix this for sides...
-  progress() {
-    // Return the number of "safe" full strokes (segments and caps) leftover,
-    // depending on the number of sides.
-    this.#setVertexLimits();
-
-    let form = this.sides !== 1 ? this.form : this.lineForm;
-
-    return min(
-      1,
-      form.vertices.length /
-        (form.MAX_POINTS -
-          (this.verticesPerSide * this.sides + this.verticesPerCap * 2))
-    );
-  }
-
-  update({ sides, radius, step }) {
-    this.step = step || this.step;
-    if (sides == undefined) {
-      this.radius = radius || this.radius;
-      this.shape = this.#segmentShape(this.radius, this.sides); // Set shape to start.
-    } else {
-      if (this.gesture.length > 0) this.stop();
-      this.sides = sides || this.sides;
-      this.radius = radius || this.radius;
-      this.#setVertexLimits();
-      this.shape = this.#segmentShape(this.radius, this.sides); // Set shape to start.
-      waving = false;
-    }
-  }
-
-  #setVertexLimits() {
-    if (this.form.primitive === "line") {
-      // TODO: This should be good enough? 22.11.17.05.23
-      this.verticesPerSide = 6;
-      this.verticesPerCap = this.sides * 3;
-    }
-
-    if (this.form.primitive === "triangle") {
-      // Just a line here.
-      if (this.sides === 1) {
-        this.verticesPerSide = 2; // Double sided.
-        this.verticesPerCap = 0; // No caps here.
-      }
-
-      if (this.sides === 2) {
-        this.verticesPerSide = 6; // Double sided.
-        this.verticesPerCap = 0; // No caps here.
-      }
-
-      if (this.sides === 3) {
-        this.verticesPerSide = 6;
-        this.verticesPerCap = 3; // No caps here.
-      }
-
-      if (this.sides === 4) {
-        this.verticesPerSide = 12;
-        this.verticesPerCap = 3; // No caps here.
-      }
-
-      if (this.sides > 4) {
-        this.verticesPerSide = 6 * this.sides;
-        this.verticesPerCap = 3 * this.sides; // No caps here.
-      }
-    }
-  }
-
-  constructor($, radius, sides, step, geometry, demo) {
+  constructor($, radius, sides, step, geometry, demo, isWand = false) {
     this.$ = $; // Hold onto the API.
     this.geometry = geometry; // Set the geometry type.
     this.radius = radius;
@@ -2123,20 +2125,21 @@ class Tube {
     // console.log(this.lineForm, this.capForm, this.triCapForm, this.form);
 
     // Enough for 5000 segments.
-
     // each side has 6 vertices
     // sides * 6
-
     // each tube has 2 caps
     // caps of sides of 3 have 3 vertices
     // + 3 * 2
-
     // caps of sides of 2 have ?
-
     this.#setVertexLimits();
 
-    this.form.MAX_POINTS = 301000; // Make sure demos can't record beyond the alotted geometry. 22.11.25.11.44
-    this.lineForm.MAX_POINTS = 101000;
+    if (isWand === false) {
+      this.form.MAX_POINTS = 301000; // Make sure demos can't record beyond the alotted geometry. 22.11.25.11.44
+      this.lineForm.MAX_POINTS = 101000;
+    } else {
+      this.form.MAX_POINTS = 3000; // Give wands a smaller range.
+      this.lineForm.MAX_POINTS = 1000;
+    }
 
     // this.form.MAX_POINTS = 4096;
     // (this.verticesPerSide + this.verticesPerCap * 2) *
@@ -2163,39 +2166,6 @@ class Tube {
 
     this.triCapForm.MAX_POINTS = 512; // TODO: Sometimes this maxes out on demo playback?
     this.capForm.MAX_POINTS = 8192; //extra + verticesPerSide + verticesPerCap * 2; // sides * 6 + 3 * 2; // This should be enough to cover our bases. The 4 is for 2 caps and a shaft.
-  }
-
-  // Creates an initial position, orientation and end cap geometry.
-  start(
-    p,
-    radius = this.radius,
-    sides = this.sides,
-    step = this.step,
-    fromDemo = false
-  ) {
-    this.sides = sides;
-    this.radius = radius;
-    this.step = step;
-
-    //if (this.sides === 1) this.sides = 0;
-
-    // Create an initial position in the path and generate points in the shape.
-    // this.shape = this.#segmentShape(radius, sides); // Update radius and sides.
-    const start = this.#pathp(p);
-    this.lastPathP = start; // Store an inital lastPath.
-
-    // Transform the first shape and add an end cap to the form.
-    this.#transformShape(start);
-    if (this.sides > 1) this.#cap(start, this.form);
-
-    // 🗒️ Note: Eventually this should be on the level of abstraction of a Wand, not a tool like Tube. 22.11.14.23.20
-    if (start.color.length === 3) start.color.push(255); // Use RGBA for demo.
-
-    if (fromDemo === false) {
-      const demoPos = start.pos.slice(0, 3);
-      demoPos[1] -= cubeHeight;
-      this.demo?.rec("tube:start", [...demoPos, ...start.rotation]);
-    }
   }
 
   // Produces the `capForm` cursor.
@@ -2265,6 +2235,39 @@ class Tube {
     }
   }
 
+  // Creates an initial position, orientation and end cap geometry.
+  start(
+    p,
+    radius = this.radius,
+    sides = this.sides,
+    step = this.step,
+    fromDemo = false
+  ) {
+    this.sides = sides;
+    this.radius = radius;
+    this.step = step;
+
+    //if (this.sides === 1) this.sides = 0;
+
+    // Create an initial position in the path and generate points in the shape.
+    // this.shape = this.#segmentShape(radius, sides); // Update radius and sides.
+    const start = this.#pathp(p);
+    this.lastPathP = start; // Store an inital lastPath.
+
+    // Transform the first shape and add an end cap to the form.
+    this.#transformShape(start);
+    if (this.sides > 1) this.#cap(start, this.form);
+
+    // 🗒️ Note: Eventually this should be on the level of abstraction of a Wand, not a tool like Tube. 22.11.14.23.20
+    if (start.color.length === 3) start.color.push(255); // Use RGBA for demo.
+
+    if (fromDemo === false) {
+      const demoPos = start.pos.slice(0, 3);
+      demoPos[1] -= cubeHeight;
+      this.demo?.rec("tube:start", [...demoPos, ...start.rotation]);
+    }
+  }
+
   // Adds additonal points as args in [position, rotation, color] format.
   goto(pathPoint, form, fromDemo = false, showCapForm = false) {
     // Add new points to the path.
@@ -2297,6 +2300,7 @@ class Tube {
     }
   }
 
+  // Ends a stroke / lift a gesture.
   stop(fromDemo = false) {
     const { dist3d } = this.$.num;
 
@@ -2332,6 +2336,73 @@ class Tube {
       this.demo?.rec("tube:stop");
 
     this.gesture.length = 0;
+  }
+
+  // TODO: Fix this for sides...
+  progress() {
+    // Return the number of "safe" full strokes (segments and caps) leftover,
+    // depending on the number of sides.
+    this.#setVertexLimits();
+
+    let form = this.sides !== 1 ? this.form : this.lineForm;
+
+    return min(
+      1,
+      form.vertices.length /
+        (form.MAX_POINTS -
+          (this.verticesPerSide * this.sides + this.verticesPerCap * 2))
+    );
+  }
+
+  update({ sides, radius, step }) {
+    this.step = step || this.step;
+    if (sides == undefined) {
+      this.radius = radius || this.radius;
+      this.shape = this.#segmentShape(this.radius, this.sides); // Set shape to start.
+    } else {
+      if (this.gesture.length > 0) this.stop();
+      this.sides = sides || this.sides;
+      this.radius = radius || this.radius;
+      this.#setVertexLimits();
+      this.shape = this.#segmentShape(this.radius, this.sides); // Set shape to start.
+      waving = false;
+    }
+  }
+
+  #setVertexLimits() {
+    if (this.form.primitive === "line") {
+      // TODO: This should be good enough? 22.11.17.05.23
+      this.verticesPerSide = 6;
+      this.verticesPerCap = this.sides * 3;
+    }
+
+    if (this.form.primitive === "triangle") {
+      // Just a line here.
+      if (this.sides === 1) {
+        this.verticesPerSide = 2; // Double sided.
+        this.verticesPerCap = 0; // No caps here.
+      }
+
+      if (this.sides === 2) {
+        this.verticesPerSide = 6; // Double sided.
+        this.verticesPerCap = 0; // No caps here.
+      }
+
+      if (this.sides === 3) {
+        this.verticesPerSide = 6;
+        this.verticesPerCap = 3; // No caps here.
+      }
+
+      if (this.sides === 4) {
+        this.verticesPerSide = 12;
+        this.verticesPerCap = 3; // No caps here.
+      }
+
+      if (this.sides > 4) {
+        this.verticesPerSide = 6 * this.sides;
+        this.verticesPerCap = 3 * this.sides; // No caps here.
+      }
+    }
   }
 
   // Takes a starting position, direction and length.

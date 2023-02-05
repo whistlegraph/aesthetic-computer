@@ -62,7 +62,9 @@
   - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
 
   - Freaky Flowers 
-    - [🍍] Wand should be "thicker".
+    - [😀] Show capFrom "preview" in demo mode.
+    - [] Loading `instant` style should be chunked to avoid crashes
+         on lower end hardware and also to enable "..." animation on "Reconstructing...".
     - [] Tap or two finger pinch to zoom and slow rotation.
       - [] Or do some kind of lazy wand follow / rotate camera to wand situation.
     - [] Let go to snap back. 
@@ -83,6 +85,7 @@
       - [] Skip what aliases lead to in the history list.
     - [] Add background music to prompt also.
   + Done
+    - [x] Wand should be "thicker".
     - [x] Get loading working much nicer both in playback mode and
            in "instant" mode with a visual progress indicator of some kind. 
     - [x] Fetch progress bar.
