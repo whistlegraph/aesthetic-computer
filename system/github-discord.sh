@@ -8,4 +8,4 @@ DISCORD_MESSAGE="[aesthetic.computer]($URL) · $COMMIT_MESSAGE 🖋️ [$SHORT_H
 FLAGS="--suppress-embeds" # Define the message flags
 
 # Send the POST request to the Discord webhook URL
-curl -H "Content-Type: application/json" -X POST -d "{\"content\":\"$MESSAGE\",\"flags\":$FLAGS}" $WEBHOOK_URL
+curl -H "Content-Type: application/json" -X POST -d "{\"content\":\"$DISCORD_MESSAGE\",\"flags\":$FLAGS}" $WEBHOOK_URL
