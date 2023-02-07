@@ -32,7 +32,7 @@ const scheme = {
 };
 
 const motd =
-  `February: Freaky Flowers                        ` +
+  `February 9: Freaky Flowers                      ` +
   `                                                ` +
   `                                                ` +
   `mail@aesthetic.computer                         `;
@@ -316,6 +316,13 @@ async function act($) {
   }
 }
 
-export { boot, sim, paint, act };
+function meta() {
+  return {
+    title: "prompt · aesthetic.computer",
+    desc: "Type a command to get started.",
+  };
+}
+
+export { boot, sim, paint, act, meta };
 
 // 📚 Library (Useful classes & functions used throughout the piece)
