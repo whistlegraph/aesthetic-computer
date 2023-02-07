@@ -85,6 +85,7 @@
     - [] Add arrows to top right to move between slides?
   + Done
     - [x] Add new Discord update script.
+      - See also: https://github.com/fieu/discord.sh
     - [x] Don't advance a playing demo if tabbed out.
     - [x] Make "preview" mesh rotate correctly (90deg on one axis?)
       - [x] Use `ff 2 1` as a test case.
