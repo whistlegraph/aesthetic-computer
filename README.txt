@@ -62,6 +62,8 @@
   - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
 
   - Freaky Flowers 
+    - [-] Don't advance a playing demo if tabbed out.
+    - [] Draw the full wand preview and include size changes.
     - [] Tap or two finger pinch to zoom and slow rotation.
       - [] Or do some kind of lazy wand follow / rotate camera to wand situation.
     - [] Let go to snap back. 
@@ -74,8 +76,6 @@
      - [] Make wand render again / get WebVR working.
      - [] Loading a ff piece prevents drawing and restarts the
           timelapse upon entering VR.
-    - Media Export
-      - [] Create a rotating GIF / WebP (that even hooks into video) generator.
   - Prompt 
     - [] Do history stack different. (Smaller text)
       - [] Skip what aliases lead to in the history list.
@@ -83,6 +83,9 @@
     - [] Create a "full playback" mode.
     - [] Add arrows to top right to move between slides?
   + Done
+    - [x] Make "preview" mesh rotate correctly (90deg on one axis?)
+      - [x] Use `ff 2 1` as a test case.
+    - [x] Don't cull the preview wand. 
     - [x] Loading `instant` style should be chunked to avoid crashes
          on lower end hardware and also to enable "..." animation on "Reconstructing...".
     - [x] Show progress bar for Reconstructing.

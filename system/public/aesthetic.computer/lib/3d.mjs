@@ -469,25 +469,12 @@ export function bake({ cam, forms, color }, { width, height }, size) {
       geometry.setAttribute("normal", normals);
       geometry.setAttribute("color", colors);
 
-      //////////
-
-      // Assume that 'geometry' is a BufferGeometry object that represents a mesh
-
-      /////////////////
-
       if (tex) {
         geometry.setAttribute(
           "uv",
           new THREE.BufferAttribute(new Float32Array(f.uvs), 2)
         );
       }
-
-      //geometry.setPositions(positions);
-      //geometry.setColors(colors);
-
-      //geometry = mergeVertices(geometry); // Combine vertices here.
-      //geometry.computeVertexNormals();
-      //debugger;
 
       const tri = new THREE.Mesh(geometry, material);
       tri.frustumCulled = false;
@@ -501,6 +488,14 @@ export function bake({ cam, forms, color }, { width, height }, size) {
 
       tri.userData.aestheticID = f.uid;
       if (f.tag) tri.userData.tag = f.tag;
+
+      // Exception for demo-wand tag. Make the object always on the top layer.
+      // (Overrides settings in the top of this clause.)
+      if (f.tag === "demo-wand") {
+        material.depthTest = false;
+        material.depthWrite = false;
+        material.fog = false;
+      }
 
       tri.translateX(f.position[0]);
       tri.translateY(f.position[1]);
