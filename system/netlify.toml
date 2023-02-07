@@ -1,5 +1,5 @@
 [build]
-  command = "./system/github-discord.sh"
+  command = "./github-discord.sh"
   publish = "public"
 [functions]
   node_bundler = "esbuild"
