@@ -348,7 +348,7 @@ function sim({
   hud,
   help,
   net: { rewrite, preload, waitForPreload },
-  num: { vec3, randIntRange: rr, dist3d, quat, vec4, mat3, radians },
+  num: { vec3, randIntRange: rr, dist3d, quat, vec4, mat3 },
 }) {
   if (loadingDemoFile) ellipsisTicker.step(); // Animate loading ellipsis.
 
@@ -882,16 +882,8 @@ function sim({
       } else if (type === "wand") {
         // ❔ tick, wand, PX, PY, PZ, QX, QY, QZ, QW
         const pos = [f[di], f[di + 1] + cubeHeight, f[di + 2], 1];
-
-        //let rot;
-        //if (tube.lastPathP) {
-        //  rot = [f[di + 3], f[di + 4], f[di + 5], f[di + 6]];
-        //}
-
         const rot = [f[di + 3], f[di + 4], f[di + 5], f[di + 6]];
-
         const pos2 = vec3.transformQuat(vec3.create(), [0, 0, 0.2], rot);
-
         const np = [...vec3.add(vec3.create(), pos, pos2), 1];
 
         demoWandTubeData = {
@@ -915,7 +907,6 @@ function sim({
             rotation: p.rotation,
             color,
           });
-
         }
       } else if (type === "tube:start") {
         tube.start(
@@ -2036,7 +2027,16 @@ class Tube {
   // Note: I could eventually add behavioral data into these vertices that
   //       animate things / turn on or off certain low level effects etc.
 
-  constructor($, radius, sides, step, geometry, demo, isWand = false, cursorGeometry = "line:buffered") {
+  constructor(
+    $,
+    radius,
+    sides,
+    step,
+    geometry,
+    demo,
+    isWand = false,
+    cursorGeometry = "line:buffered"
+  ) {
     this.$ = $; // Hold onto the API.
     this.geometry = geometry; // Set the geometry type.
     this.radius = radius;
@@ -2069,8 +2069,6 @@ class Tube {
 
     this.form = new $.Form(...formType); // Main form.
     this.form.tag = "sculpture"; // This tells the GPU what to export right now. 22.11.15.09.05
-
-
 
     this.mat4Ident = $.num.mat4.create();
 

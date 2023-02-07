@@ -1176,7 +1176,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         function (needsRender, updateTimes, nowUpdate) {
           // TODO: How can I get the pen data into the disk and back
           //       to Three.JS as fast as possible? 22.10.26.23.25
-          // console.log(nowUpdate);
           diskSupervisor.requestFrame?.(needsRender, updateTimes, nowUpdate);
 
           if (ThreeD?.status.alive === true && ThreeDBakeQueue.length > 0) {

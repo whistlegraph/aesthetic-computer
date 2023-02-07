@@ -386,29 +386,21 @@ export function bake({ cam, forms, color }, { width, height }, size) {
       } else {
         if (f.vertices[0]?.color) {
           material = new MaterialType();
-          // material = new THREE.MeshStandardMaterial();
         } else {
           // material = new THREE.MeshStandardMaterial({
           material = new MaterialType({
-            // material = new THREE.MeshStandardMaterial({
             color: rgbToHex(...(f.color || color)),
           });
         }
       }
 
-      //material.emissiveIntensity = 0;
-
       // TODO: ❤️‍🔥 I should be able to set this per form...
-
-      //material.side = THREE.DoubleSide; // Should this be true? It might disable
-      //                                   some triangles in my models but is
-      //                                   ultimately faster?
-
+      // material.side = THREE.DoubleSide;
       material.side = THREE.FrontSide;
 
       material.transparent = false;
       material.opacity = f.alpha;
-      material.depthWrite = true;
+      material.depthWrite = true; // Could be overridden below.
       material.depthTest = true;
 
       material.vertexColors = true;

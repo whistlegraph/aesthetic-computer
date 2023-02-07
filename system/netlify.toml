@@ -1,4 +1,5 @@
 [build]
+  command = "./netlify/github-discord.sh"
   publish = "public"
 [functions]
   node_bundler = "esbuild"

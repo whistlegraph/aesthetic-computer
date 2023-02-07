@@ -37,6 +37,7 @@
 
 🐞 Annoying Bugs & Regressions
   + API
+  - [] Fix painting rotate / resize cropping issue.
   - [] Fix `spray` multiplayer / socket messages not being sent regression.
   - [] Painting doesn't fully reset when resizing.
   - [] Research the use of "requestProvider.js.map" and work it into `index.js`.
@@ -62,7 +63,7 @@
   - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
 
   - Freaky Flowers 
-    - [-] Don't advance a playing demo if tabbed out.
+    - [] WebGL Layer and software Layer are off by 1 or a fraction of a pixel on iPhone. (Bottom)
     - [] Draw the full wand preview and include size changes.
     - [] Tap or two finger pinch to zoom and slow rotation.
       - [] Or do some kind of lazy wand follow / rotate camera to wand situation.
@@ -83,6 +84,8 @@
     - [] Create a "full playback" mode.
     - [] Add arrows to top right to move between slides?
   + Done
+    - [x] Add new Discord update script.
+    - [x] Don't advance a playing demo if tabbed out.
     - [x] Make "preview" mesh rotate correctly (90deg on one axis?)
       - [x] Use `ff 2 1` as a test case.
     - [x] Don't cull the preview wand. 
