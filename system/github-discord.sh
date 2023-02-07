@@ -4,7 +4,7 @@
 WEBHOOK_URL=$DISCORD_WEBHOOK_URL
 
 COMMIT_MESSAGE=$(git log -1 --pretty=%B)
-DISCORD_MESSAGE="💻 system updated to \`$COMMIT_REF\` - $COMMIT_MESSAGE - $URL"
+DISCORD_MESSAGE="$COMMIT_MESSAGE 🔗 [aesthetic.computer]($URL)"
 
 echo $DISCORD_MESSAGE
 echo $DISCORD_WEBHOOK_URL
