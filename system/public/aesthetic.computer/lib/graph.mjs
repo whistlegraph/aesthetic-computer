@@ -1583,6 +1583,7 @@ class Form {
   uid; // = nanoid(4); // An id to keep across threads. Takes ~4 milliseconds. 😢
 
   tag; // Gets sent to the GPU as a named / marked tag.
+       // Currently only available on `buffered` types in `3d.mjs` 23.02.07.09.46
 
   // Model
   vertices = [];

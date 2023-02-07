@@ -9,7 +9,8 @@
 /* #region 🏁 todo
 + February Launch  / Post-launch
 *** Asset Generation ***
-  - [] Record some turn-around animation GIFs.
+  - [] Automate the rendering of turn-around animation GIFs.
+     - [] Could this be done on a server?
 *** 1️⃣ System ***
   *** Behavior ***
   - [] Make instant demo playback much, much faster.
@@ -347,7 +348,7 @@ function sim({
   hud,
   help,
   net: { rewrite, preload, waitForPreload },
-  num: { vec3, randIntRange: rr, dist3d, quat, vec4, mat3 },
+  num: { vec3, randIntRange: rr, dist3d, quat, vec4, mat3, radians },
 }) {
   if (loadingDemoFile) ellipsisTicker.step(); // Animate loading ellipsis.
 
@@ -496,7 +497,6 @@ function sim({
       pen3d.rotation._w
     );
 
-    // TODO: Eventually add nicer preview here. 22.11.16.09.48
     if (spi === undefined) {
       spi = new Spider(
         { num, debug },
@@ -539,8 +539,6 @@ function sim({
 
     // Show a live preview of what will be drawn, with measurement lines
     // as needed.
-    // TODO: Move this into Spider.peekTowards method.
-
     {
       // This block is very similar to `crawlTowards` in `Spider`,
       // Except customized to make a preview. The functionality could
@@ -884,8 +882,16 @@ function sim({
       } else if (type === "wand") {
         // ❔ tick, wand, PX, PY, PZ, QX, QY, QZ, QW
         const pos = [f[di], f[di + 1] + cubeHeight, f[di + 2], 1];
+
+        //let rot;
+        //if (tube.lastPathP) {
+        //  rot = [f[di + 3], f[di + 4], f[di + 5], f[di + 6]];
+        //}
+
         const rot = [f[di + 3], f[di + 4], f[di + 5], f[di + 6]];
-        const pos2 = vec3.transformQuat(vec3.create(), [0, 0, 0.1], rot);
+
+        const pos2 = vec3.transformQuat(vec3.create(), [0, 0, 0.2], rot);
+
         const np = [...vec3.add(vec3.create(), pos, pos2), 1];
 
         demoWandTubeData = {
@@ -902,11 +908,14 @@ function sim({
             color: tube.lastPathP.color,
           };
 
+          // quat.rotateY(rot, rot, radians(90));
+
           tube.preview(p, {
             position: pos,
-            rotation: rot,
+            rotation: p.rotation,
             color,
           });
+
         }
       } else if (type === "tube:start") {
         tube.start(
@@ -1203,6 +1212,7 @@ function paint({
         undefined,
         true // isWand
       );
+      demoWandTube.form.tag = "demo-wand";
     } else {
       demoWandTube.clear();
     }
@@ -2026,7 +2036,7 @@ class Tube {
   // Note: I could eventually add behavioral data into these vertices that
   //       animate things / turn on or off certain low level effects etc.
 
-  constructor($, radius, sides, step, geometry, demo, isWand = false) {
+  constructor($, radius, sides, step, geometry, demo, isWand = false, cursorGeometry = "line:buffered") {
     this.$ = $; // Hold onto the API.
     this.geometry = geometry; // Set the geometry type.
     this.radius = radius;
@@ -2060,12 +2070,15 @@ class Tube {
     this.form = new $.Form(...formType); // Main form.
     this.form.tag = "sculpture"; // This tells the GPU what to export right now. 22.11.15.09.05
 
+
+
     this.mat4Ident = $.num.mat4.create();
 
-    formType[0].type = "line:buffered";
+    formType[0].type = "line:buffered"; // Change the formType.
     this.lineForm = new $.Form(...formType); // Single line form. (Sides of 1)
     this.lineForm.tag = "sculpture-line"; // This tells the GPU what to export right now. 22.11.15.09.05
 
+    formType[0].type = cursorGeometry; // Change the formType.
     this.capForm = new $.Form(...formType); // Cursor.
 
     formType[0].type = "triangle:buffered";
