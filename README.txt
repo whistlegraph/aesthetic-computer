@@ -63,6 +63,7 @@
   - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
 
   - Freaky Flowers 
+   - Planar Supporthttps://discord.com/developers/docs/resources/channel#message-object-message-flags 
     - [] WebGL Layer and software Layer are off by 1 or a fraction of a pixel on iPhone. (Bottom)
     - [] Draw the full wand preview and include size changes.
     - [] Tap or two finger pinch to zoom and slow rotation.
@@ -71,10 +72,9 @@
     - [] [WALK] or [WANDER] button that shows keyboard shortcut overlays /
          touch instructions. (Add chat here?)
     - [] Add background music if it isn't already playing.
-      - [] (Speed up loading)
     - [] Add glaze / lighting / mastering.
-   - WebVR Support
-     - [] Make wand render again / get WebVR working.
+   - Spatial Support
+     - [-] Make wand render again / get WebVR working.
      - [] Loading a ff piece prevents drawing and restarts the
           timelapse upon entering VR.
   - Prompt 

@@ -580,58 +580,59 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     };
 
     // Sound Synthesis Processor
-    (async () => {
-      await audioContext.audioWorklet.addModule(
-        "/aesthetic.computer/lib/speaker.mjs"
-      );
+    try {
+      (async () => {
+        await audioContext.audioWorklet.addModule(
+          "/aesthetic.computer/lib/speaker.mjs"
+        );
 
-      const soundProcessor = new AudioWorkletNode(
-        audioContext,
-        "sound-processor",
-        {
-          outputChannelCount: [2],
-          processorOptions: { bpm: sound.bpm, debug },
-        }
-      );
+        const soundProcessor = new AudioWorkletNode(
+          audioContext,
+          "sound-processor",
+          {
+            outputChannelCount: [2],
+            processorOptions: { bpm: sound.bpm, debug },
+          }
+        );
 
-      updateMetronome = function (newBPM) {
-        soundProcessor.port.postMessage({
-          type: "new-bpm",
-          data: newBPM,
-        });
-      };
+        updateMetronome = function (newBPM) {
+          soundProcessor.port.postMessage({
+            type: "new-bpm",
+            data: newBPM,
+          });
+        };
 
-      updateSquare = function (square) {
-        soundProcessor.port.postMessage({
-          type: "square",
-          data: square,
-        });
-      };
+        updateSquare = function (square) {
+          soundProcessor.port.postMessage({
+            type: "square",
+            data: square,
+          });
+        };
 
-      updateBubble = function (bubble) {
-        soundProcessor.port.postMessage({
-          type: "bubble",
-          data: bubble,
-        });
-      };
+        updateBubble = function (bubble) {
+          soundProcessor.port.postMessage({
+            type: "bubble",
+            data: bubble,
+          });
+        };
 
-      soundProcessor.port.onmessage = (e) => {
-        const time = e.data;
-        diskSupervisor.requestBeat?.(time);
-      };
+        soundProcessor.port.onmessage = (e) => {
+          const time = e.data;
+          diskSupervisor.requestBeat?.(time);
+        };
 
-      //soundProcessor.connect()
+        soundProcessor.connect(audioStreamDest); // Connect to the mediaStream.
 
-      // Connect soundProcessor to the mediaStream.
-      soundProcessor.connect(audioStreamDest);
+        soundProcessor.connect(audioContext.destination);
 
-      soundProcessor.connect(audioContext.destination);
+        audioContext.resume();
 
-      audioContext.resume();
-
-      modal.classList.remove("on");
-      bumper.innerText = "";
-    })();
+        modal.classList.remove("on");
+        bumper.innerText = "";
+      })();
+    } catch (e) {
+      coneole.log("Sound failed to initialize:", e);
+    }
 
     function enableAudioPlayback(skip = false) {
       if (backgroundMusicEl.paused && currentBackgroundTrack !== null) {
