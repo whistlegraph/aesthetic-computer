@@ -1,7 +1,5 @@
 // 🔁 Loop
 
-// TODO: Modify for VR.
-
 // These numbers define the budgeted frame-time (max) for CPU and Rendering.
 // The updates will repeat multiple times per frame, but rendering will only
 // ever happen once per display refresh.
@@ -49,6 +47,16 @@ function loop(now, XR = false) {
   if (!XR) window.requestAnimationFrame(loop);
 }
 
+// Reset simulation updates when the document resumes focus.
+// (Prevent simulations from stacking up and runnning at once when suspended)
+document.addEventListener("visibilitychange", function () {
+  if (!document.hidden) {
+    updateTime = 0;
+    lastNow = performance.now();
+  }
+});
+
+// Start the loop.
 function start(inputFun, updateAndRenderFun) {
   input = inputFun;
   updateAndRender = updateAndRenderFun;
@@ -56,6 +64,7 @@ function start(inputFun, updateAndRenderFun) {
   window.requestAnimationFrame(loop);
 }
 
+// Update the frame rate.
 function frameRate(n) {
   renderFps = n;
   renderRate = 1000 / renderFps;
