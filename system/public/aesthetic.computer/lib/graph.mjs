@@ -1693,7 +1693,12 @@ class Form {
 
     this.position = transform?.pos || [0, 0, 0];
     this.rotation = transform?.rot || [0, 0, 0];
-    this.scale = transform?.scale || [1, 1, 1];
+
+    if (typeof transform.scale === "number") {
+      this.scale = [transform.scale, transform.scale, transform.scale];
+    } else {
+      this.scale = transform?.scale || [1, 1, 1];
+    }
   }
 
   // TODO: This needs to support color (and eventually N vertex attributes).
