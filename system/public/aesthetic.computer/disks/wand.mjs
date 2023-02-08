@@ -401,7 +401,8 @@ function sim({
         meta(ffmeta); // Update page metadata.
         ff.headers(ff.tokenID); // Print any series headers.
 
-        const label = `${ffmeta.title} (ff ${ff.tokenID})`;
+        // const label = `${ffmeta.title} (ff ${ff.tokenID})`;
+        const label = `ff ${ff.tokenID}`;
 
         // Update label depending on the speed...
         if (speed === 0) {
@@ -883,7 +884,7 @@ function sim({
         // ❔ tick, wand, PX, PY, PZ, QX, QY, QZ, QW
         const pos = [f[di], f[di + 1] + cubeHeight, f[di + 2], 1];
         const rot = [f[di + 3], f[di + 4], f[di + 5], f[di + 6]];
-        const pos2 = vec3.transformQuat(vec3.create(), [0, 0, 0.2], rot);
+        const pos2 = vec3.transformQuat(vec3.create(), [0, 0, 0.15], rot);
         const np = [...vec3.add(vec3.create(), pos, pos2), 1];
 
         demoWandTubeData = {
@@ -892,28 +893,18 @@ function sim({
           rotation: rot,
         };
 
+        const previewPoints = [{ position: pos, rotation: rot, color }];
+
         if (tube.lastPathP) {
-          const p = {
+          previewPoints.unshift({
             position: tube.lastPathP.pos,
             direction: tube.lastPathP.direction,
             rotation: tube.lastPathP.rotation,
             color: tube.lastPathP.color,
-          };
-
-          // quat.rotateY(rot, rot, radians(90));
-
-          tube.preview(p, {
-            position: pos,
-            rotation: p.rotation,
-            color,
-          });
-        } else {
-          tube.preview({
-            position: pos,
-            rotation: p.rotation,
-            color,
           });
         }
+
+        tube.preview(...previewPoints); // Show a tube preview.
       } else if (type === "tube:start") {
         tube.start(
           {
@@ -1273,23 +1264,16 @@ function paint({
     }
   }
 
-  // Loading bar for "Reconstructing..."
-  if (player?.instant === 0) {
-    ink(64, 0, 0).box(
-      0,
-      height - 8,
-      (player.frameIndex / (player.frames.length - 1)) * width,
-      height - 8
-    );
-  }
-
-  // Loading bar for Playback.
+  // Loading bar for Playback & Reconstruction.
   if (player) {
-    ink(0, 0, 0).box(
+    const color = player?.instant ? [0] : [64, 0, 0];
+    const thickness = player?.instant ? 4 : 8;
+
+    ink(color).box(
       0,
-      height - 4,
+      height - thickness,
       (player.frameIndex / (player.frames.length - 1)) * width,
-      height - 4
+      height - thickness
     );
   }
 
