@@ -79,6 +79,7 @@
     - [] Add glaze / lighting / mastering.
   + Later
   - Prompt 
+    - [] Don't clear text on pressing return now.
     - [] Do history stack different. (Smaller text)
       - [] Skip what aliases lead to in the history list.
     - [] Add background music to prompt also.
