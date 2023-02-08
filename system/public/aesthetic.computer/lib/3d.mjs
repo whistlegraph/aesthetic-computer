@@ -1518,7 +1518,13 @@ export function render(now) {
   //console.log(scene, now)
   // TODO: If keeping the renderer alive between pieces, then make sure to
   //       top rendering! 22.10.14.13.05
-  if (scene && camera && renderer.getRenderTarget() === null) {
+
+  // console.log(now, scene, camera, renderer.getRenderTarget());
+
+  // if (scene && camera && renderer.getRenderTarget() === null) // Why was this renderTarget null check here?
+  // Note: It's null on desktop and mobile but in VR there is always a target.
+  if (scene && camera) {
+    //if (scene && camera && renderer.getRenderTarget() === null) {
     // CTO Rapter's line jiggling request:
 
     /*

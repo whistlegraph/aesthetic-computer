@@ -1,6 +1,3 @@
-/* @import "/type/webfonts/berkeley-mono-variable.css"; */
-/* @import "/type/webfonts/ywft-processing-regular.css"; */
-
 :root {
   color-scheme: dark;
 }
@@ -221,9 +218,11 @@ canvas[data-type="freeze"] {
   pointer-events: none;
 }
 
+/*
 canvas[data-type="glaze"] {
-  /*transition: 0.5s opacity;*/
+  transition: 0.5s opacity;
 }
+*/
 
 canvas[data-type="glaze"] {
   z-index: 2;
@@ -262,8 +261,7 @@ canvas[data-type="3d"].visible {
   right: 0.5em;
   cursor: none;
   font-family: YWFTProcessing-Regular, sans-serif;
-  /* font-family: Berkeley Mono Variable, sans serif; */
-  padding: 0 0.15em;
+  padding: 0.2em 0.2em 0.1em 0.18em;
   line-height: 100%;
   border: 0.05em solid rgb(200, 0, 0);
   color: rgb(200, 0, 0);
