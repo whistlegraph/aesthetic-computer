@@ -253,8 +253,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       subdivisions = ratio;
       width = round(window.innerWidth / subdivisions);
       height = round(window.innerHeight / subdivisions);
-      projectedWidth = width * subdivisions - gapSize;
-      projectedHeight = height * subdivisions - gapSize;
+      projectedWidth = round(width * subdivisions - gapSize);
+      projectedHeight = round(height * subdivisions - gapSize);
     } else {
       // Or do it manually if both width and height are defined.
       fixedWidth = width;
