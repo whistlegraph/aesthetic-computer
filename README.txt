@@ -63,9 +63,6 @@
   - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
 
   - Freaky Flowers 
-    - [-] Draw the full wand preview and include size changes!
-
-    - [🍊] WebGL Layer and software Layer are off by 1 or a fraction of a pixel on iPhone. (Bottom)
    - Planar Support
     - [] Tap or two finger pinch to zoom and slow rotation.
       - [] Or do some kind of lazy wand follow / rotate camera to wand situation.
@@ -86,6 +83,9 @@
     - [] Create a "full playback" mode.
     - [] Add arrows to top right to move between slides?
   + Done
+    - [?] WebGL Layer and software Layer are off by 1 or a fraction of a pixel on iPhone. (Bottom)
+    - [x] Fix double reconstructing loading bar code. 
+    - [x] Draw the full wand preview and include size changes!
     - [x] Add new Discord update script.
       - See also: https://github.com/fieu/discord.sh
     - [x] Don't advance a playing demo if tabbed out.
