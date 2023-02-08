@@ -64,10 +64,8 @@
 
   - Freaky Flowers 
    - Spatial Support
-     - [😀] Make wand render again / get WebVR working.
-     - [] Kill any errors.
-     - [] Loading a ff piece should drawing / start the
-          timelapse upon entering VR.
+    - [-] Loading a ff piece should drawing / start the
+        timelapse upon entering VR.
    - Planar Support
     - [] Tap or two finger pinch to zoom and slow rotation.
       - [] Or do some kind of lazy wand follow / rotate camera to wand situation.
@@ -86,6 +84,8 @@
     - [] Create a "full playback" mode.
     - [] Add arrows to top right to move between slides?
   + Done
+    - [x] Make wand render again / get WebVR working.
+    - [x] Kill any errors.
     - [x] Zoom out a proper distance based on aspect ratio. 
     - [x] WebGL Layer and software Layer are off by 1 or a fraction of a pixel on iPhone. (Bottom)
     - [x] Fix double reconstructing loading bar code. 

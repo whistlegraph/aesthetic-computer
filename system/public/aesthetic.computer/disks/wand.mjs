@@ -131,11 +131,11 @@ let race,
 let spi, // Follow it in even increments.
   color; // The current spider color read by the tube..
 let tube, // Circumscribe the spider's path with a form.
-  sides = 2, // Number of tube sides. 1 or 2 means flat.
+  sides = 1, // Number of tube sides. 1 or 2 means flat.
   radius = 0.004, // The width of the tube.
   minRadius = 0.001,
-  maxSides = 12,
-  minSides = 2, // Don't use 1 side for now.
+  maxSides = 12, // Max and minimum sides alotted to tube geo complexity.
+  minSides = 1,
   stepRel = () => radius * 1.01,
   step = stepRel(), // The length of each tube segment.
   capColor, // [255, 255, 255, 255] The currently selected tube end cap color.
@@ -224,6 +224,7 @@ function boot({
   debug: dbg,
   cursor,
   noise16DIGITPAIN,
+  wipe,
   screen: { width, height },
 }) {
   debug = dbg; // Set a global debug flag.
@@ -336,14 +337,16 @@ function boot({
   }
 
   // Start a demo recording (unless we are coming to watch only).
-  if (params[0]?.length === 0) {
+  if (!params[0]) {
     demo = new Demo(); // Start logging user interaction on demo frame 0.
     demo?.rec("room:color", background); // Record the starting bg color in case the default ever changes.
     demo?.rec("wand:color", color);
+    wipe(0, 0); // Clear the software buffer to make sure we see the gpu layer.
+  } else {
+    noise16DIGITPAIN(); // Show a smoke-screen to prepare for loading.
   }
+
   tube = new Tube({ Form, num }, radius, sides, step, geometry);
-  //wipe(0, 0); // Clear the software buffer to make sure we see the gpu layer.
-  noise16DIGITPAIN();
 }
 
 function sim({
@@ -1638,6 +1641,7 @@ function act({
     //       finish uploading in case they fail. 22.11.15.08.52
     //       (In my studio for now they probably won't fail...)
 
+    /*
     // Attempt to upload the piece to the server...
     const handle = "digitpain"; // Hardcoded for now.
 
@@ -1708,6 +1712,7 @@ function act({
       download(`${ts}-recording-${handle}.json`, demo.frames); // Save demo to json.
       // gpu.message({ type: "export-scene", content: { timestamp: ts } }); // Save scene to json.
     }
+    */
 
     demo?.dump(); // Start fresh / clear any existing demo cache.
 

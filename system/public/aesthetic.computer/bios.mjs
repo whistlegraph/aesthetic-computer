@@ -684,7 +684,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Disable workers if we are in a sandboxed iframe.
   const workersEnabled = !sandboxed;
 
-  //if (workersEnabled) {
+  // if (workersEnabled) {
   if (!MetaBrowser && workersEnabled) {
     const worker = new Worker(new URL(fullPath, window.location.href), {
       type: "module",
@@ -994,26 +994,30 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         keyboard.input = input;
 
-        form.addEventListener("keydown", (e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            keyboard.events.push({
-              name: "keyboard:down:enter",
-              key: "Enter",
-              repeat: false,
-              shift: false,
-              alt: false,
-              ctrl: false,
-            });
-          }
-          // Generate a keyboard event if the form was submitted.
-          // (Enter keypressed.)
-        });
+        // Generate an "Enter" keyboard event if the form was submitted.
+        // - Don't use the submit event if we are sandboxed though!
+        // - Which is required for the Meta Browser keyboard 23.02.08.12.30
+
+        const enterEvent = {
+          name: "keyboard:down:enter",
+          key: "Enter",
+          repeat: false,
+          shift: false,
+          alt: false,
+          ctrl: false,
+        };
 
         form.addEventListener("submit", (e) => {
           e.preventDefault();
-          return false;
+          if (!sandboxed) keyboard.events.push(enterEvent);
         });
+
+        if (sandboxed) {
+          form.addEventListener("keydown", (e) => {
+            e.preventDefault();
+            if (e.key === "Enter") keyboard.events.push(enterEvent);
+          });
+        }
 
         input.addEventListener("input", (e) => {
           let input = e.data;
@@ -1174,10 +1178,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // TODO: Key.input();
           // TODO: Voice.input();
         },
-        function (needsRender, updateTimes, nowUpdate) {
+        function (needsRender, updateTimes, now) {
           // TODO: How can I get the pen data into the disk and back
           //       to Three.JS as fast as possible? 22.10.26.23.25
-          diskSupervisor.requestFrame?.(needsRender, updateTimes, nowUpdate);
+          diskSupervisor.requestFrame?.(needsRender, updateTimes, now);
 
           if (ThreeD?.status.alive === true && ThreeDBakeQueue.length > 0) {
             ThreeD.collectGarbage();
@@ -1186,7 +1190,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             ThreeDBakeQueue.forEach((baker) => touchedForms.push(...baker()));
             ThreeD.checkForRemovedForms(touchedForms);
             ThreeDBakeQueue.length = 0;
-            ThreeD?.render();
+            ThreeD?.render(now);
           }
         }
       );
