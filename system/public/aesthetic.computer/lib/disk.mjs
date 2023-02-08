@@ -1375,12 +1375,23 @@ async function load(parsed, fromHistory = false, alias = false) {
     };
   };
 
+  // 💡 Eventually this could merge with net.web so there is one command
+  //    to either go to a piece within the system if one loads... or an entirely
+  //    different url somehow! 23.02.07.21.21
+
   // A wrapper for `load(parse(...))`
   // Make it `ahistorical` to prevent a url change.
   // Make it an `alias` to prevent a metadata change for writing landing or
   // router pieces such as `freaky-flowers` -> `wand`. 22.11.23.16.29
   $commonApi.jump = function jump(to, ahistorical = false, alias = false) {
-    load(parse(to), ahistorical, alias);
+    let url;
+    try {
+      url = new URL(to);
+    } catch (e) {
+      // Could not construct a valid url from the jump, so we will be
+      // running a local aesthetic.computer piece.
+    }
+    url ? $commonApi.net.web(to) : load(parse(to), ahistorical, alias);
   };
 
   $commonApi.pieceCount += 1;

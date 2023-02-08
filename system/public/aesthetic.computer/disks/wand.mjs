@@ -907,6 +907,12 @@ function sim({
             rotation: p.rotation,
             color,
           });
+        } else {
+          tube.preview({
+            position: pos,
+            rotation: p.rotation,
+            color,
+          });
         }
       } else if (type === "tube:start") {
         tube.start(

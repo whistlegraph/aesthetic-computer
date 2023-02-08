@@ -1,4 +1,3 @@
-// Prompt, 2021.11.28.03.13
 // A text based access-everything console.
 // Currently the aesthetic.computer home piece!
 
@@ -60,6 +59,7 @@ function boot($) {
     bgm,
     needsPaint,
     system,
+    jump,
     history,
   } = $;
 
@@ -122,7 +122,7 @@ function boot($) {
           store["painting"] = {
             width: p.width,
             height: p.height,
-            pixels
+            pixels,
           };
 
           // Swap mode.
@@ -132,7 +132,7 @@ function boot($) {
           paintings[1] = temp;
 
           // Rewind mode
-          //paintings.length -= 1; 
+          //paintings.length -= 1;
 
           store.persist("painting", "local:db");
 
@@ -144,7 +144,6 @@ function boot($) {
 
         flashPresent = true;
         flashShow = true;
-
       } else if (text === "painting:reset" || text === "no!") {
         const deleted = await store.delete("painting", "local:db");
         system.nopaint.undo.paintings.length = 0; // Reset undo stack.
@@ -212,6 +211,9 @@ function boot($) {
         flashPresent = true;
         flashShow = true;
         flashColor = [255, 0, 0];
+      } else if (text === "local") {
+        // Go to the localhost / assume a dev environment.
+        jump("https://localhost:8888");
       } else {
         // 🟠 Local and remote pieces...
         load(parse(text)); // Execute the current command.
@@ -279,11 +281,11 @@ function paint($) {
   historyTexts.reverse().forEach((t, i) => {
     const ii = i + 1;
     const yMargin = i === 0 ? 0 : 2;
-    ink(140, 90, 235, (80 / ii)).printLine(
+    ink(140, 90, 235, 80 / ii).printLine(
       t,
       input?.typeface.glyphs,
       6,
-      (screen.height - 6 * 3 * ii - 6) - yMargin,
+      screen.height - 6 * 3 * ii - 6 - yMargin,
       6,
       2,
       0

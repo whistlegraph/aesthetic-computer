@@ -63,9 +63,10 @@
   - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
 
   - Freaky Flowers 
-   - Planar Supporthttps://discord.com/developers/docs/resources/channel#message-object-message-flags 
-    - [] WebGL Layer and software Layer are off by 1 or a fraction of a pixel on iPhone. (Bottom)
-    - [] Draw the full wand preview and include size changes.
+    - [-] Draw the full wand preview and include size changes!
+
+    - [🍊] WebGL Layer and software Layer are off by 1 or a fraction of a pixel on iPhone. (Bottom)
+   - Planar Support
     - [] Tap or two finger pinch to zoom and slow rotation.
       - [] Or do some kind of lazy wand follow / rotate camera to wand situation.
     - [] Let go to snap back. 
@@ -77,6 +78,7 @@
      - [-] Make wand render again / get WebVR working.
      - [] Loading a ff piece prevents drawing and restarts the
           timelapse upon entering VR.
+  + Later
   - Prompt 
     - [] Do history stack different. (Smaller text)
       - [] Skip what aliases lead to in the history list.
