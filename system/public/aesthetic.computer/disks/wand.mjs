@@ -104,7 +104,7 @@
 
 // #region 🗺️ global
 import { CamDoll } from "../lib/cam-doll.mjs";
-const { min, abs, max, cos, sin, floor, round, random } = Math;
+const { min, abs, max, cos, sin, tan, atan, PI, floor, round, random } = Math;
 
 let debug; // Set in boot.
 let unreal = false; // Flip to true in case meshes need to be rendered for Unreal engine. Basically just prevents duplicate / two sided triangles.
@@ -224,6 +224,7 @@ function boot({
   debug: dbg,
   cursor,
   noise16DIGITPAIN,
+  screen: { width, height },
 }) {
   debug = dbg; // Set a global debug flag.
   // Assign some globals from the api.
@@ -281,11 +282,24 @@ function boot({
     },
   };
 
+  const aspectRatio = width / height;
+  const cubeSize = 0.7;
+  const fov = 80;
+  let z;
+
+  if (aspectRatio > 1) {
+    z = (cubeSize / tan(num.radians(fov * 0.5))) * 0.95; // Landscape
+  } else {
+    z = (cubeSize / tan(num.radians(fov * aspectRatio * 0.5))) * 0.8; // Portrait
+  }
+
   camdoll = new CamDoll(Camera, Dolly, {
-    z: 0.9,
+    fov,
+    z,
     y: cubeHeight,
     sensitivity: 0.00025 / 2,
-  }); // Camera controls.
+  });
+
   stage = new Form(
     QUAD,
     { color: [2, 2, 2, 255] },
@@ -296,7 +310,7 @@ function boot({
   measuringCube = new Form(
     CUBEL,
     { color: [255, 0, 0, 255] },
-    { pos: [0, cubeHeight, 0], rot: [0, 0, 0], scale: [0.7, 0.7, 0.7] }
+    { pos: [0, cubeHeight, 0], rot: [0, 0, 0], scale: cubeSize }
   );
 
   origin = new Form(ORIGIN, {
@@ -362,9 +376,6 @@ function sim({
       tube.capForm.gpuTransformed =
       tube.triCapForm.gpuTransformed =
         true;
-
-    // if (demoWandTube) {
-    // }
   }
 
   // 📽️ Loading and triggering a demo once the graphics system is ready.
@@ -946,11 +957,14 @@ function sim({
         tube.stop(true);
       } else if (type === "demo:complete") {
         // A "synthesized frame" with no other information to destroy our player.
-        demoWandTubeData = null;
         lastPlayedFrames = player.frames;
         player = null;
         noact = false; // Re-enable acts.
+        demoWandTubeData = null;
         demoWandTube = null;
+        tube.capForm.clear(); // Clear any preview cursors leftover.
+        tube.triCapForm.clear();
+
         demoLabel?.();
 
         // #region relic-1
@@ -1285,8 +1299,8 @@ function paint({
 
   form(
     [
-      //raceForm,
-      //spiderForm,
+      // raceForm,
+      // spiderForm,
       tube.form,
       tube.lineForm,
       tube.capForm,

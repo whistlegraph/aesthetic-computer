@@ -16,7 +16,7 @@ export class CamDoll {
   sensitivity;
 
   constructor(Camera, Dolly, opts) {
-    this.cam = new Camera(80, {
+    this.cam = new Camera(opts.fov || 80, {
       z: opts.z || 0,
       y: opts.y * -1 || -0.5,
       scale: [1, 1, 1],
