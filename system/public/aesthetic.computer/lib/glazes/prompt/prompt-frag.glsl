@@ -104,7 +104,8 @@ vec2 worldToDensityMap(vec2 coords)
 
 vec4 getColor(vec3 pos)
 {
-    if (pos.z <= 0.0 && pos.z < -volumeRadius * 2.0)
+    // if (pos.z <= 0.0 && pos.z < -volumeRadius * 2.0)
+    if (abs(pos.z) > volumeRadius * 1.0)
     {
       return vec4(0.);
     }
