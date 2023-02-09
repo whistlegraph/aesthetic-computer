@@ -58,32 +58,40 @@
 
 🌟 Projects In Progress (PIP) 🌟
 
+*** New Prompt QOL Updates ***
+  - [] Don't clear text on pressing return now.
+  - [] Do history stack different. (Smaller text)
+  - [] Skip what aliases lead to in the history list. (ff example)
+
 *** Freaky Flowers Launch ***
   - OpenSea Test URL: https://testnets.opensea.io/assets/goerli/0x4FEa5E2a8C3bfc742B43b48FC4F2eA9913452B99/0
   - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
 
-  - Freaky Flowers 
    - Planar Support
-    - [] Move progress bar up top with bottom border.
-    - [] Add a color param to `label` and feed wand color in.
-    - [] Tap or two finger pinch to zoom and slow rotation.
-      - [] Or do some kind of lazy wand follow / rotate camera to wand situation.
-      - [] Progress bar doesn't always seem to hit 100%.
-    - [] Let go to snap back. 
-    - [] [WALK] or [WANDER] button that shows keyboard shortcut overlays /
-         touch instructions. (Add chat here?)
-    - [] Add background music if it isn't already playing.
-    - [] Add better sound.
+    - Post-launch
+    - [] Write documentation for Discord.
+    - [] Don't reset progress bar on resize!
+   - Bonus
+    - [] Map sound to color. (Add better sound)
     - [] Add glaze / lighting / mastering.
+    - [] Add background music if it isn't already playing.
+    - [] Lazy wand follow / rotate camera to wand situation.
+      - Touch Screen Only
+      - [] Two finger pinch to zoom and slow rotation on a touch screen.
+        - [] Progress bar doesn't always seem to hit 100%.
+        - [] Let go to snap back. 
+      - [] [WANDER] button that shows keyboard shortcut overlays /
+          touch instructions. (Add chat here?)
   + Later
-  - Prompt 
-    - [] Don't clear text on pressing return now.
-    - [] Do history stack different. (Smaller text)
-      - [] Skip what aliases lead to in the history list.
-    - [] Add background music to prompt also.
-    - [] Create a "full playback" mode.
-    - [] Add arrows to top right to move between slides?
+      - [] Create a "full playback" mode to run all the pieces.
+      - [] Add arrows to top right to move between slides?
   + Done
+    - [x] Add a color param to `label` and feed wand color in with a lerp.
+    - [x] Make progress bar on top above label. 
+    - [x] Be in spin mode until a key is pressed.
+    - [x] Fix ` keyboard prompt typing bug.
+    - [x] Move sculpture back a tad. 
+    - [x] Eliminate gap borders while embedded / sandboxed? (Fix OpenSea black bars.)
     - [x] Fix preview segment rendering when size changes.
     - [x] Add a button in VR (and keyboard shortcut) to reset the timelapse
           without refreshing. 

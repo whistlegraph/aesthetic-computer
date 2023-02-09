@@ -1014,8 +1014,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         if (sandboxed) {
           form.addEventListener("keydown", (e) => {
-            e.preventDefault();
-            if (e.key === "Enter") keyboard.events.push(enterEvent);
+            if (e.key === "Enter") {
+              keyboard.events.push(enterEvent);
+              e.preventDefault();
+            }
           });
         }
 
@@ -1154,8 +1156,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         pastedText = event.clipboardData.getData("text/plain");
       });
 
-      // 🖥️ Display
-      frame(resolution?.width, resolution?.height);
+      // 🖥️ Display (Load the display, with 0 margin if sandboxed)
+      frame(resolution?.width, resolution?.height, sandboxed ? 0 : undefined);
 
       // 🔊 Sound
       // TODO: Disable sound engine entirely... unless it is enabled by a disk. 2022.04.07.03.33
