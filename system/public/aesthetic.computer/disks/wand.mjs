@@ -299,7 +299,7 @@ function boot({
   if (aspectRatio > 1) {
     z = (cubeSize / tan(num.radians(fov * 0.5))) * 0.95; // Landscape
   } else {
-    z = (cubeSize / tan(num.radians(fov * aspectRatio * 0.5))) * 0.85; // Portrait
+    z = (cubeSize / tan(num.radians(fov * aspectRatio * 0.5))) * 0.80; // Portrait
   }
 
   camdoll = new CamDoll(Camera, Dolly, {
