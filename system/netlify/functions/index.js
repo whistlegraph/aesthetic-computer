@@ -63,7 +63,9 @@ async function fun(event, context) {
           !parsed.text.startsWith("requestProvider.js.map") &&
           (parsed.text.startsWith("ff") ||
             parsed.text.startsWith("freaky-flowers") ||
-            parsed.text.startsWith("wg"))
+            parsed.text.startsWith("wg") ||
+            parsed.text.startsWith("prompt") ||
+            parsed.text === "")
         ) {
           // desc = (await import(`../../public/${parsed.path}.mjs`)).desc;
           const m = await import(`../../public/${parsed.path}.mjs`);
