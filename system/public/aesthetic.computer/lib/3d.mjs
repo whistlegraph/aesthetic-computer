@@ -665,7 +665,6 @@ export function bake({ cam, forms, color }, { width, height }, size) {
     if (f.type === "line:buffered") {
       let material;
 
-      // console.log(f.color, color);
       if (f.color) {
         // Only use a gloabl color if vertices don't have color.
         material = new THREE.LineBasicMaterial({

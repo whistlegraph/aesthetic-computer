@@ -64,9 +64,6 @@
   - [] Skip what aliases lead to in the history list. (ff example)
 
 *** Freaky Flowers Launch ***
-  - OpenSea Test URL: https://testnets.opensea.io/assets/goerli/0x4FEa5E2a8C3bfc742B43b48FC4F2eA9913452B99/0
-  - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
-   - [x] Overall aspect ratio fix.
    - Bonus
     - [] Map sound to color. (Add better sound)
     - [] Add glaze / lighting / mastering.
@@ -79,9 +76,14 @@
       - [] [WANDER] button that shows keyboard shortcut overlays /
           touch instructions. (Add chat here?)
   + Later
+      - [] Resize while reconstructing yields pixel buffer bugs in the console.
+      - [] Red lines of measurement cube sometimes start as black or faded.
       - [] Create a "full playback" mode to run all the pieces.
       - [] Add arrows to top right to move between slides?
   + Done
+    - OpenSea Test URL: https://testnets.opensea.io/assets/goerli/0x4FEa5E2a8C3bfc742B43b48FC4F2eA9913452B99/0
+    - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
+    - [x] Overall aspect ratio fix.
     - [x] Redraw full progress bar on resize!
     - [x] Write `ff` documentation on Discord.
     - [x] Better optimization for mobile vertical view.
