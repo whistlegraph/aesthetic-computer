@@ -7,12 +7,15 @@
 #endregion */
 
 /* #region 🏁 todo
-+ February Launch  / Post-launch
+  - [-] Performance testing / allocation test for demo playback, especially in VR.
+        (Make it real smooth)
 *** Asset Generation ***
   - [] Automate the rendering of turn-around animation GIFs.
      - [] Could this be done on a server?
 *** 1️⃣ System ***
   *** Behavior ***
+  - [] Decide on how to best end a demo playback / don't show wand when
+       demo finishes on a purely playback url? (Keep player alive?) 
   - [] Make instant demo playback much, much faster.
   - [] Add demo scrubbing.
   - [] Prevent users from viewing or moving outside a certain range.
@@ -921,7 +924,7 @@ function sim({
             rotation: tube.lastPathP.rotation,
             color: tube.lastPathP.color,
           });
-          tube.preview(...previewPoints); // Show a tube preview.
+          tube.playbackPreview(...previewPoints); // Show a tube preview.
         }
       } else if (type === "tube:start") {
         tube.start(
@@ -965,7 +968,7 @@ function sim({
       } else if (type === "demo:complete") {
         // A "synthesized frame" with no other information to destroy our player.
         lastPlayedFrames = player.frames;
-        player = null;
+        // player = null;
         playerProgLast = 0;
         setTimeout(() => {
           needsWipe = [0, 0];
@@ -1408,7 +1411,7 @@ function act({
   */
 
   // 🛑 Stop a gesture.
-  if (/*(e.is("lift") && e.button === 0) ||*/ e.is("3d:lift:2") && !playing) {
+  if (/*(e.is("lift") && e.button === 0) ||*/ e.is("3d:lift:2") && !player) {
     waving = false;
     if (e.is("3d:lift:2")) {
       tube.stop();
@@ -2123,10 +2126,33 @@ class Tube {
     this.capForm.MAX_POINTS = 8192; //extra + verticesPerSide + verticesPerCap * 2; // sides * 6 + 3 * 2; // This should be enough to cover our bases. The 4 is for 2 caps and a shaft.
   }
 
+  playbackPreview(lastP, p) {
+    this.capForm.clear();
+    this.triCapForm.clear();
+
+    // Cap the wand tip with a wireframe.
+    const pathP = this.#transformShape(this.#pathp({ ...p }));
+    this.#cap(pathP, this.capForm);
+
+    // Cap the end of the tube with a triangle using the cached shape.
+    const cachedSegmentShape = this.shape;
+    this.shape = this.lastSegmentShape;
+    const lpp = this.#transformShape(this.#pathp({ ...lastP }));
+    this.#cap(lpp, this.triCapForm, false);
+    this.shape = cachedSegmentShape;
+
+    // Draw the preview segment.
+    const cachedLastPathP = this.lastPathP;
+    const cachedGesture = this.gesture;
+    this.lastPathP = lpp;
+    this.gesture = [];
+    this.goto(p, this.capForm, true, false); // No preview, no demo.
+    this.gesture = cachedGesture;
+    this.lastPathP = cachedLastPathP;
+  }
+
   // Produces the `capForm` cursor.
   preview(p, nextPathP) {
-    // if (player) return; // Don't show anything from the user during demo playback.
-
     // Don't show anything at a very tiny distance.
     if (nextPathP) {
       const d = this.$.num.dist3d(p.position, nextPathP.position);
@@ -2134,7 +2160,7 @@ class Tube {
     }
 
     // Replace the current capForm shape values with transformed ones.
-    this.previewRotation = p.rotation;
+    this.previewRotation = p.rotation; // Remember preview rotation for segment cut off end bits.
     this.capForm.clear();
     this.triCapForm.clear();
 
