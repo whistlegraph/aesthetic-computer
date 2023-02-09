@@ -133,7 +133,8 @@ let currentPath,
   currentHash,
   currentText,
   currentHUDText,
-  currentHUDTextColor;
+  currentHUDTextColor,
+  currentHUDOffset;
 let loading = false;
 let reframe;
 let screen;
@@ -307,9 +308,10 @@ const $commonApi = {
   // Trigger background music.
   // Eventually add an "@" style parameter similar to what a stamp system would have.
   hud: {
-    label: (text, color) => {
+    label: (text, color, offset) => {
       currentHUDText = text;
       currentHUDTextColor = color;
+      currentHUDOffset = offset;
     },
   },
   send,
@@ -1217,6 +1219,8 @@ async function load(parsed, fromHistory = false, alias = false) {
 
   if (!alias) currentHUDText = slug; // Update hud text if this is not an alias.
   if (module.nohud) currentHUDText = undefined; // Don't use hud text if needed.
+  currentHUDOffset = undefined; // Always reset these to the defaults.
+  currentHUDTextColor = undefined;
 
   // ***Client Metadata Fields***
   // Set default metadata fields for SEO and sharing,
@@ -2501,7 +2505,7 @@ async function makeFrame({ data: { type, content } }) {
           ink(0).write(currentHUDText?.replaceAll("~", " "), { x: 1, y: 1 });
           let c;
           if (currentHUDTextColor) {
-            c = num.shiftRGB(currentHUDTextColor, [255, 255, 255], 0.8);
+            c = num.shiftRGB(currentHUDTextColor, [255, 255, 255], 0.75);
           } else {
             c = [255, 200, 240];
           }
@@ -2513,7 +2517,12 @@ async function makeFrame({ data: { type, content } }) {
       let sendData = {};
 
       // Attach a label buffer if necessary.
-      if (label) sendData.label = { x: 6, y: 6, img: label };
+      if (label)
+        sendData.label = {
+          x: currentHUDOffset?.x || 6,
+          y: currentHUDOffset?.y || 6,
+          img: label,
+        };
 
       let transferredPixels;
 

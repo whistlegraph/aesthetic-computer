@@ -86,6 +86,7 @@
       - [] Create a "full playback" mode to run all the pieces.
       - [] Add arrows to top right to move between slides?
   + Done
+    - [x] Custom label offset for `ff`.
     - [x] Add a color param to `label` and feed wand color in with a lerp.
     - [x] Make progress bar on top above label. 
     - [x] Be in spin mode until a key is pressed.
