@@ -1302,18 +1302,22 @@ function paint({
   // Loading bar for Playback & Reconstruction.
   if (player) {
     const p = player.progress;
-    let barColor = player.instant === 0 ? [64, 0, 0] : color;
+    let barColor = color;//player.instant === 0 ? [64, 0, 0] : color;
     const thickness = player.instant === 0 ? 8 : 2;
     const y = player.instant === 0 ? height - thickness : 0;
     const seg = floor((player.progress - playerProgLast) * width + 1);
-    ink(0).box(
-      floor(playerProgLast * width),
-      0,
-      width - floor(playerProgLast * width),
-      thickness
-    );
+
+    if (player.instant !== 0) {
+      ink(0).box(
+        floor(playerProgLast * width),
+        0,
+        width - floor(playerProgLast * width),
+        thickness
+      );
+      hud.label(label, barColor, { x: 4, y: 6 });
+    }
+
     ink(barColor).box(floor(playerProgLast * width), y, seg, thickness);
-    hud.label(label, barColor, { x: 4, y: 6 });
     // ink(num.randIntRange(100, 200)).box(0, y + thickness, playerProgLast * width + 1, 1);
     // ink(0).box(playerProgLast * width + 4, 0, 1, thickness);
     playerProgLast = p;
