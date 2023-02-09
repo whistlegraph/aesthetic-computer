@@ -306,7 +306,7 @@ function boot({
     fov,
     z,
     y: cubeHeight,
-    sensitivity: 0.00025 / 2,
+    sensitivity: 0.00045 / 2,
   });
 
   stage = new Form(

@@ -69,8 +69,8 @@
 
    - Planar Support
     - Post-launch
-    - [] Write documentation for Discord.
-    - [] Don't reset progress bar on resize!
+    - [-] Write `ff` documentation on Discord.
+    - [] Redraw full progress bar on resize!
    - Bonus
     - [] Map sound to color. (Add better sound)
     - [] Add glaze / lighting / mastering.
