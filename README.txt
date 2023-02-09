@@ -64,7 +64,7 @@
 
   - Freaky Flowers 
    - Spatial Support
-    - [x] Add a button in VR to reset the timelapse without refreshing. 
+    - [-] Performance testing.
    - Planar Support
     - [] Move progress bar up top with bottom border.
     - [] Add a color param to `label` and feed wand color in.
@@ -86,6 +86,8 @@
     - [] Create a "full playback" mode.
     - [] Add arrows to top right to move between slides?
   + Done
+    - [x] Add a button in VR (and keyboard shortcut) to reset the timelapse
+          without refreshing. 
     - [x] VR timelapse should default to 1x.
     - [x] Colored stripey progress.
     - [x] Wand should be hidden when a player is running.
