@@ -1311,7 +1311,7 @@ function paint({
       thickness
     );
     ink(barColor).box(floor(playerProgLast * width), y, seg, thickness);
-    hud.label(label, barColor);
+    hud.label(label, barColor, {x: 4, y: 6});
     // ink(num.randIntRange(100, 200)).box(0, y + thickness, playerProgLast * width + 1, 1);
     // ink(0).box(playerProgLast * width + 4, 0, 1, thickness);
     playerProgLast = p;
