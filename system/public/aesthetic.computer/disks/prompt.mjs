@@ -31,7 +31,7 @@ const scheme = {
 };
 
 const motd =
-  `February 9: Freaky Flowers                      ` +
+  `Enter 'ff' to explore Freaky Flowers.           ` +
   `                                                ` +
   `                                                ` +
   `mail@aesthetic.computer                         `;
