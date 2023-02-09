@@ -66,6 +66,7 @@
 *** Freaky Flowers Launch ***
   - OpenSea Test URL: https://testnets.opensea.io/assets/goerli/0x4FEa5E2a8C3bfc742B43b48FC4F2eA9913452B99/0
   - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
+   - [x] Overall aspect ratio fix.
    - Bonus
     - [] Map sound to color. (Add better sound)
     - [] Add glaze / lighting / mastering.
