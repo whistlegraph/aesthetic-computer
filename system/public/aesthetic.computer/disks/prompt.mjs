@@ -212,6 +212,9 @@ function boot($) {
         flashPresent = true;
         flashShow = true;
         flashColor = [255, 0, 0];
+      } else if (text === "help") {
+        // Go to the Discord for now if anyone types help.
+        jump("https://discord.gg/aesthetic-computer");
       } else if (text === "local") {
         // Go to the localhost / assume a dev environment.
         jump("https://localhost:8888");
