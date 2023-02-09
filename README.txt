@@ -69,7 +69,7 @@
 
    - Planar Support
     - Post-launch
-    - [] Redraw full progress bar on resize!
+    - [-] Redraw full progress bar on resize!
    - Bonus
     - [] Map sound to color. (Add better sound)
     - [] Add glaze / lighting / mastering.

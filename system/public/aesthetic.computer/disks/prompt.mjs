@@ -215,9 +215,10 @@ function boot($) {
       } else if (text === "help") {
         // Go to the Discord for now if anyone types help.
         jump("https://discord.gg/aesthetic-computer");
+      } else if (text === "prod") {
+        jump("https://aesthetic.computer"); // Visit the live site.
       } else if (text === "local") {
-        // Go to the localhost / assume a dev environment.
-        jump("https://localhost:8888");
+        jump("https://localhost:8888"); // Go to the local dev server.
       } else {
         // 🟠 Local and remote pieces...
         load(parse(text)); // Execute the current command.
