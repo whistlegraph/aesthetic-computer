@@ -257,6 +257,18 @@ export function bake({ cam, forms, color }, { width, height }, size) {
     if (!NO_FOG) scene.fog = new THREE.Fog(scene.background, FOG_NEAR, FOG_FAR);
   }
 
+  // Adjust fog for aspect ratio.
+  // (Kind of a hack for `ff` / vertical screen camera distance... 23.02.09.16.33)
+  const aspect = width / height;
+  if (aspect < 0.5) {
+    FOG_NEAR = 1.0;
+    FOG_FAR = 2.5;
+  } else {
+    FOG_NEAR = 0.9;
+    FOG_FAR = 1.19;
+  }
+  if (!NO_FOG) scene.fog = new THREE.Fog(scene.background, FOG_NEAR, FOG_FAR);
+
   // 🎥 Camera
   if (!vrSession) {
     camera.rotation.order = "YXZ"; // Set to match the software renderer.
