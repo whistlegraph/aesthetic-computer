@@ -1476,7 +1476,7 @@ function act({
   // Horizontal model rotation in orthographic camera or "spin" mode.
   if (e.is("draw") && (spin || camdoll.cam.type === "orthographic")) {
     //tube.form.rotation[1] -= e.delta.y / 3.5; // Up and down?
-    tube.form.rotation[1] += e.delta.x / 3.5; // Left and right.
+    tube.form.rotation[1] += e.delta.x / 1.5; // Left and right.
     tube.form.gpuTransformed = true;
   }
 
