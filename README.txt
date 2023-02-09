@@ -63,8 +63,6 @@
   - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
 
   - Freaky Flowers 
-   - Spatial Support
-    - [-] Performance testing.
    - Planar Support
     - [] Move progress bar up top with bottom border.
     - [] Add a color param to `label` and feed wand color in.
@@ -86,6 +84,7 @@
     - [] Create a "full playback" mode.
     - [] Add arrows to top right to move between slides?
   + Done
+    - [x] Fix preview segment rendering when size changes.
     - [x] Add a button in VR (and keyboard shortcut) to reset the timelapse
           without refreshing. 
     - [x] VR timelapse should default to 1x.
