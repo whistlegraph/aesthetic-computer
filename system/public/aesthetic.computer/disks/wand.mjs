@@ -295,16 +295,20 @@ function boot({
 
   const aspectRatio = width / height;
   const cubeSize = 0.7;
-  const fov = 80;
+  let fov = 80;
   let z;
 
-  if (aspectRatio > 1) {
-    z = (cubeSize / tan(num.radians(fov * 0.5))) * 0.95; // Landscape
-  } else if (aspectRatio === 1) {
-    z = (cubeSize / tan(num.radians(fov * aspectRatio * 0.5))) * 0.96; // Square
+  const shortSide = aspectRatio > 1 ? height : width;
+  const h = cubeSize / 2 / Math.tan((fov / 2) * (Math.PI / 180));
+  const w = h * aspectRatio;
+
+  if (aspectRatio >= 1) {
+    z = shortSide >= w ? h : w / aspectRatio;
   } else {
-    z = (cubeSize / tan(num.radians(fov * aspectRatio * 0.5))) * 0.65; // Portrait
+    z = shortSide >= h ? h / aspectRatio : w;
   }
+
+  z += (cubeSize / 2) * 1.1;
 
   camdoll = new CamDoll(Camera, Dolly, {
     fov,

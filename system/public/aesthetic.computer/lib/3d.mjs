@@ -260,7 +260,7 @@ export function bake({ cam, forms, color }, { width, height }, size) {
   // Adjust fog for aspect ratio.
   // (Kind of a hack for `ff` / vertical screen camera distance... 23.02.09.16.33)
   const aspect = width / height;
-  if (aspect < 0.6) {
+  if (aspect < 0.7) {
     FOG_NEAR = 1;
     FOG_FAR = 1.5;
   } else {
