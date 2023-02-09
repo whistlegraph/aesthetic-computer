@@ -11,6 +11,7 @@ import * as geo from "./geo.mjs";
 import * as gizmo from "./gizmo.mjs";
 import * as ui from "./ui.mjs";
 import * as help from "./help.mjs";
+import * as platform from "./platform.mjs";
 import { parse, metadata } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
 //import { UDP } from "./udp.mjs"; // TODO: Eventually expand to `net.Socket`
@@ -306,6 +307,7 @@ const $commonApi = {
   // Eventually add an "@" style parameter similar to what a stamp system would have.
   hud: { label: (text) => (currentHUDText = text) },
   send,
+  platform,
   history: [], // Populated when a disk loads and sets the former piece.
   bgm: {
     set: function (trackNumber) {

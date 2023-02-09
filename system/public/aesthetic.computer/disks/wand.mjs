@@ -104,6 +104,8 @@
 
 // #region 🗺️ global
 import { CamDoll } from "../lib/cam-doll.mjs";
+import { MetaBrowser } from "../lib/platform.mjs";
+
 const { min, abs, max, cos, sin, tan, atan, PI, floor, round, random } = Math;
 
 let debug; // Set in boot.
@@ -149,6 +151,7 @@ let wandForm; // A live cursor.
 let demoWandTube, demoWandTubeData; // Also used for demoWandTube.
 
 let demo, player; // For recording a session and rewatching it in realtime.
+let playerProgLast = 0;
 let lastPlayedFrames; // Keeps track of recently run through Player frames / demo frames.
 //                       (Useful for re-dumping / modifying demo data.)
 let noact = false;
@@ -747,7 +750,7 @@ function sim({
     race.to(camdoll.cam.ray(pen.x, pen.y, rayDist / 4, true));
   }
 
-  if (waving) {
+  if (waving && !player) {
     let d = dist3d(spi.state.position, race.pos);
     // 🕷️ Spider Jump 🕷️
     const step = tube.step;
@@ -907,18 +910,19 @@ function sim({
           rotation: rot,
         };
 
-        const previewPoints = [{ position: pos, rotation: rot, color }];
-
         if (tube.lastPathP) {
+          // Disable showing the wand preview form before the first block
+          // of a gesture gets added. (Stay surprising!) 23.02.08.19.28
+          const previewPoints = [{ position: pos, rotation: rot, color }];
+          previewPoints[0].rotation = tube.lastPathP.rotation;
           previewPoints.unshift({
             position: tube.lastPathP.pos,
             direction: tube.lastPathP.direction,
             rotation: tube.lastPathP.rotation,
             color: tube.lastPathP.color,
           });
+          tube.preview(...previewPoints); // Show a tube preview.
         }
-
-        tube.preview(...previewPoints); // Show a tube preview.
       } else if (type === "tube:start") {
         tube.start(
           {
@@ -962,6 +966,11 @@ function sim({
         // A "synthesized frame" with no other information to destroy our player.
         lastPlayedFrames = player.frames;
         player = null;
+        playerProgLast = 0;
+        setTimeout(() => {
+          needsWipe = [0, 0];
+          ping = true;
+        }, 250); // Wipe after a sec.
         noact = false; // Re-enable acts.
         demoWandTubeData = null;
         demoWandTube = null;
@@ -1283,15 +1292,19 @@ function paint({
 
   // Loading bar for Playback & Reconstruction.
   if (player) {
-    const color = player?.instant ? [0] : [64, 0, 0];
-    const thickness = player?.instant ? 4 : 8;
+    const p = player.progress;
+    let barColor = player.instant === 0 ? [64, 0, 0] : color;
+    const thickness = player.instant === 0 ? 8 : 4;
+    const seg = floor((player.progress - playerProgLast) * width + 1);
 
-    ink(color).box(
-      0,
+    ink(barColor).box(
+      floor(playerProgLast * width),
       height - thickness,
-      (player.frameIndex / (player.frames.length - 1)) * width,
+      seg,
       height - thickness
     );
+
+    playerProgLast = p;
   }
 
   // TODO: Put other types in here to draw cooler patterns? 23.02.03.22.30
@@ -1348,7 +1361,7 @@ function act({
   camdoll.act(e); // Wire up FPS style navigation events.
 
   // 🥽 Start a gesture. (Spatial)
-  if (e.is("3d:touch:2")) {
+  if (e.is("3d:touch:2") && !player) {
     const last = [e.lastPosition.x, e.lastPosition.y, e.lastPosition.z];
     const cur = [e.pos.x, e.pos.y, e.pos.z];
     const rot = quat.fromValues(
@@ -1386,7 +1399,7 @@ function act({
   */
 
   // 🛑 Stop a gesture.
-  if (/*(e.is("lift") && e.button === 0) ||*/ e.is("3d:lift:2")) {
+  if (/*(e.is("lift") && e.button === 0) ||*/ e.is("3d:lift:2") && !playing) {
     waving = false;
     if (e.is("3d:lift:2")) {
       tube.stop();
@@ -1426,12 +1439,10 @@ function act({
   if (e.is("keyboard:down:1")) autoRotate = !autoRotate;
 
   // Orthographic model rotation.
-  if (e.is("draw")) {
-    if (camdoll.cam.type === "orthographic") {
-      //tube.form.rotation[1] -= e.delta.y / 3.5; // Up and down?
-      tube.form.rotation[1] += e.delta.x / 3.5; // Left and right.
-      tube.form.gpuTransformed = true;
-    }
+  if (e.is("draw") && camdoll.cam.type === "orthographic") {
+    //tube.form.rotation[1] -= e.delta.y / 3.5; // Up and down?
+    tube.form.rotation[1] += e.delta.x / 3.5; // Left and right.
+    tube.form.gpuTransformed = true;
   }
 
   // Zoom in and out while in orthographic mode.
@@ -1465,7 +1476,7 @@ function act({
   // Left hand controller.
 
   // Radius
-  if (e.is("3d:rhand-axis-y")) {
+  if (e.is("3d:rhand-axis-y") && !player) {
     if (abs(e.value) > 0.01) {
       radius = clamp(radius + e.value * -0.00025, minRadius, 2);
       step = stepRel();
@@ -1476,7 +1487,7 @@ function act({
   }
 
   // Side Count
-  if (e.is("3d:rhand-trigger-secondary-down")) {
+  if (e.is("3d:rhand-trigger-secondary-down") && !player) {
     if (tube.gesture.length === 0) {
       ping = true;
       sides = min(maxSides, sides + 1);
@@ -1485,7 +1496,7 @@ function act({
     }
   }
 
-  if (e.is("3d:lhand-trigger-secondary-down")) {
+  if (e.is("3d:lhand-trigger-secondary-down") && !player) {
     if (tube.gesture.length === 0) {
       bop = true;
       sides = max(minSides, sides - 1);
@@ -1496,54 +1507,54 @@ function act({
 
   // 🗺️ COLOR:CONTROLS (all on left hand) 🎨
 
-  if (e.is("3d:lhand-button-thumb-down")) {
+  if (e.is("3d:lhand-button-thumb-down") && !player) {
     // Switch between a black and white foreground and background relationship.
     advancePalette("binary");
     beep = true;
   }
 
-  if (e.is("3d:lhand-button-y-down")) {
+  if (e.is("3d:lhand-button-y-down") && !player) {
     advancePalette("rgbwcmyk");
     beep = true;
     // breep = true; // Note: typo... but lol, breep should be a default sound... 😄
   }
 
-  if (e.is("3d:lhand-button-x-down")) {
+  if (e.is("3d:lhand-button-x-down") && !player) {
     advancePalette("roygbiv");
     beep = true;
   }
 
   // Brightness: increase +
-  if (e.is("3d:lhand-axis-y-up")) {
+  if (e.is("3d:lhand-axis-y-up") && !player) {
     // Lerp to an almost-white color.
     processNewColor(shiftRGB(color, almostWhite(), brightnessStep, "add"));
     beep = true;
   }
 
   // Brightness: decrease -
-  if (e.is("3d:lhand-axis-y-down")) {
+  if (e.is("3d:lhand-axis-y-down") && !player) {
     // Lerp to an almost-black color.
     processNewColor(shiftRGB(color, almostBlack(), brightnessStep, "subtract"));
     beep = true;
   }
 
   // Saturation: increase +
-  if (e.is("3d:lhand-axis-x-right")) {
+  if (e.is("3d:lhand-axis-x-right") && !player) {
     // Lerp to the most saturated version of the current color.
     processNewColor(shiftRGB(color, saturate(color, 1), saturationStep));
     beep = true;
   }
 
   // Saturation: decrease -
-  if (e.is("3d:lhand-axis-x-left")) {
+  if (e.is("3d:lhand-axis-x-left") && !player) {
     // Lerp to the most desaturated of the current color.
     processNewColor(shiftRGB(color, desaturate(color, 1), saturationStep));
     beep = true;
   }
 
   // Toggle random color cycling.
-  if (e.is("3d:lhand-trigger-down")) randomPalette = true;
-  if (e.is("3d:lhand-trigger-up")) randomPalette = false;
+  if (e.is("3d:lhand-trigger-down") && !player) randomPalette = true;
+  if (e.is("3d:lhand-trigger-up") && !player) randomPalette = false;
 
   if (e.alt && e.is("keyboard:down:]"))
     advanceSeries(store["freaky-flowers"], 1);
@@ -1551,7 +1562,7 @@ function act({
     advanceSeries(store["freaky-flowers"], -1);
 
   // Save scene data as a GLB.
-  if (e.is("keyboard:down:enter")) {
+  if (e.is("keyboard:down:enter") && !player) {
     const ts = params[0] || timestamp();
     const handle = "digitpain"; // Hardcoded for now.
     const bg = rgbToHexStr(...background.slice(0, 3)).toUpperCase(); // Empty string for no `#` prefix.
@@ -1578,7 +1589,7 @@ function act({
       });
   }
 
-  if (e.is("3d:rhand-button-b-down")) {
+  if (e.is("3d:rhand-button-b-down") && !player) {
     advancePalette("blackredyellow");
     beep = true;
   }
@@ -1612,7 +1623,7 @@ function act({
   }
 
   // 🛑 Finish a piece.
-  if (e.is("3d:rhand-button-thumb-down")) {
+  if (e.is("3d:rhand-button-thumb-down") && !player) {
     // Don't save empty pieces!
     if (
       tube.form.vertices.length === 0 &&
@@ -1758,22 +1769,22 @@ function act({
 
   //#region 🐛 Debugging controls.
   // Adjust tube complexity.
-  if (e.is("keyboard:down:k")) {
+  if (e.is("keyboard:down:k") && !player) {
     sides += 1;
     limiter = 0;
   }
 
-  if (e.is("keyboard:down:j")) {
+  if (e.is("keyboard:down:j") && !player) {
     sides = max(1, sides - 1);
     limiter = 0;
   }
 
-  if (e.is("wheel") && e.dir > 0 && tube) {
+  if (e.is("wheel") && e.dir > 0 && tube && !player) {
     limiter += 1;
     tube.form.limiter = limiter;
   }
 
-  if (e.is("wheel") && e.dir < 0 && tube) {
+  if (e.is("wheel") && e.dir < 0 && tube && !player) {
     limiter -= 1;
     if (limiter < 0) limiter = tube.form.vertices.length / 2;
     tube.form.limiter = limiter;
@@ -3650,7 +3661,7 @@ class Player {
     frames,
     goUntilFirst = "tube:start",
     endAtLast = "room:color",
-    instant = 5,
+    instant = platform.MetaBrowser ? 1 : 5, // Slower default in VR.
     waitForPreload
   ) {
     this.frames = frames;
@@ -3773,6 +3784,14 @@ class Player {
 
     handler(this.collectedFrames, this.simCount); // Run our action handler.
     this.collectedFrames = [];
+  }
+
+  get progress() {
+    const p =
+      (this.frameIndex - this.startAtFirstIndex) /
+      (this.endAtLastIndex - this.startAtFirstIndex - 3);
+    // Account for the metadata frames.
+    return p < 0 ? 1 : p; // Return 1 if not playing or complete.
   }
 }
 
