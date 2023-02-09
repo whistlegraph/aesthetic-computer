@@ -64,9 +64,10 @@
 
   - Freaky Flowers 
    - Spatial Support
-    - [-] Loading a ff piece should drawing / start the
-        timelapse upon entering VR.
+    - [x] Add a button in VR to reset the timelapse without refreshing. 
    - Planar Support
+    - [] Move progress bar up top with bottom border.
+    - [] Add a color param to `label` and feed wand color in.
     - [] Tap or two finger pinch to zoom and slow rotation.
       - [] Or do some kind of lazy wand follow / rotate camera to wand situation.
       - [] Progress bar doesn't always seem to hit 100%.
@@ -74,6 +75,7 @@
     - [] [WALK] or [WANDER] button that shows keyboard shortcut overlays /
          touch instructions. (Add chat here?)
     - [] Add background music if it isn't already playing.
+    - [] Add better sound.
     - [] Add glaze / lighting / mastering.
   + Later
   - Prompt 
@@ -84,6 +86,10 @@
     - [] Create a "full playback" mode.
     - [] Add arrows to top right to move between slides?
   + Done
+    - [x] VR timelapse should default to 1x.
+    - [x] Colored stripey progress.
+    - [x] Wand should be hidden when a player is running.
+    - [x] All controller buttons should be disabled when a player is running.
     - [x] Make wand render again / get WebVR working.
     - [x] Kill any errors.
     - [x] Zoom out a proper distance based on aspect ratio. 
