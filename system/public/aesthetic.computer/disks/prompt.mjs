@@ -31,7 +31,8 @@ const scheme = {
 };
 
 const motd =
-  `Enter 'ff' to explore Freaky Flowers.           ` +
+  `Try 'ff'                                        ` +
+  `     to view Freaky Flowers!                    ` +
   `                                                ` +
   `                                                ` +
   `mail@aesthetic.computer                         `;
