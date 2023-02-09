@@ -296,10 +296,22 @@ function boot({
   const fov = 80;
   let z;
 
+  // if (aspectRatio > 1) {
+  //   z = (cubeSize / tan(num.radians(fov * 0.5))) * 0.95; // Landscape
+  // } else if (aspectRatio < 1) {
+  //   z = (cubeSize / tan(num.radians(fov * aspectRatio * 0.5))) * 0.96; // Square
+  // } else if (aspectRatio === 1) {
+  //   z = (cubeSize / tan(num.radians(fov * aspectRatio * 0.5))) * 0.96; // Square
+  // }
+
   if (aspectRatio > 1) {
     z = (cubeSize / tan(num.radians(fov * 0.5))) * 0.95; // Landscape
+  } else if (aspectRatio === 1) {
+    z = (cubeSize / tan(num.radians(fov * aspectRatio * 0.5))) * 0.96; // Square
   } else {
-    z = (cubeSize / tan(num.radians(fov * aspectRatio * 0.5))) * 0.96; // Portrait
+    z = (cubeSize / tan(num.radians(fov * aspectRatio * 0.5))) * 0.65; // Portrait
+    // TODO: I should also try and reduce the fog on an iphone...
+    console.log(aspectRatio);
   }
 
   camdoll = new CamDoll(Camera, Dolly, {
@@ -1311,7 +1323,7 @@ function paint({
       thickness
     );
     ink(barColor).box(floor(playerProgLast * width), y, seg, thickness);
-    hud.label(label, barColor, {x: 4, y: 6});
+    hud.label(label, barColor, { x: 4, y: 6 });
     // ink(num.randIntRange(100, 200)).box(0, y + thickness, playerProgLast * width + 1, 1);
     // ink(0).box(playerProgLast * width + 4, 0, 1, thickness);
     playerProgLast = p;

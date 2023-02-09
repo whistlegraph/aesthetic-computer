@@ -69,7 +69,6 @@
 
    - Planar Support
     - Post-launch
-    - [-] Write `ff` documentation on Discord.
     - [] Redraw full progress bar on resize!
    - Bonus
     - [] Map sound to color. (Add better sound)
@@ -86,6 +85,8 @@
       - [] Create a "full playback" mode to run all the pieces.
       - [] Add arrows to top right to move between slides?
   + Done
+    - [x] Write `ff` documentation on Discord.
+    - [x] Better optimization for mobile vertical view.
     - [x] Custom label offset for `ff`.
     - [x] Add a color param to `label` and feed wand color in with a lerp.
     - [x] Make progress bar on top above label. 
