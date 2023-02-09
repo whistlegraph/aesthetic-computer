@@ -400,7 +400,7 @@ function sim({
       const frames = parseDemoFrames(data);
       console.log("🎞️ Loaded a wand file:", frames.length);
       // Play all frames back.
-      player = new Player(frames, undefined, undefined, speed, waitForPreload);
+      player = new Player(frames, speed, waitForPreload);
       player.paused = true; // Pause to wait for progress bar to render out.
 
       // Check to see if we have inherited any metadata from `freaky-flowers`.
@@ -476,7 +476,7 @@ function sim({
   // 🐭️ Live Cursor: generated from the controller position and direction.
   let position, lastPosition, rotation, controllerRotation, newNormal;
 
-  if (pen3d) {
+  if (pen3d && !player) {
     position = [pen3d.pos.x, pen3d.pos.y, pen3d.pos.z, 1];
     lastPosition = [pen3d.lastPos.x, pen3d.lastPos.y, pen3d.lastPos.z, 1];
     const dir = [pen3d.direction.x, pen3d.direction.y, pen3d.direction.z];
@@ -737,7 +737,6 @@ function sim({
 
   // 🏁 Move the race finish line to the current cursor position.
   // Compute an in-progress gesture.
-
   if (
     pen3d &&
     race.pos &&
@@ -885,8 +884,9 @@ function sim({
       const type = f[1];
       const di = 2;
       if (type === "piece:info") {
-        console.log("Artist:", f[di + 1]);
-        console.log("Timestamp:", f[di]);
+        console.log("🟢 Playing back...");
+        console.log("🙆 Artist:", f[di + 1]);
+        console.log("📆 Timestamp:", f[di]);
       } else if (type === "room:color") {
         // ❔ tick, room:color, R, G, B, A
         background = [f[di], f[di + 1], f[di + 2]];
@@ -974,6 +974,7 @@ function sim({
         noact = false; // Re-enable acts.
         demoWandTubeData = null;
         demoWandTube = null;
+
         tube.capForm.clear(); // Clear any preview cursors leftover.
         tube.triCapForm.clear();
 
@@ -1226,7 +1227,7 @@ function paint({
         undefined,
         true // isWand
       );
-      demoWandTube.form.tag = "demo-wand";
+      // demoWandTube.form.tag = "demo-wand"; // Disables wand occlusion.
     } else {
       demoWandTube.clear();
     }
@@ -1324,7 +1325,7 @@ function paint({
       demoWandTube?.form,
       demoWandTube?.capForm,
       demoWandTube?.triCapForm,
-      wandForm,
+      !player ? wandForm : null,
     ],
     camdoll.cam,
     { background }
@@ -1342,7 +1343,7 @@ function act({
   debug,
   upload,
   download,
-  serverUpload,
+  // serverUpload,
   num,
   store,
 }) {
@@ -1359,6 +1360,14 @@ function act({
   } = num;
 
   camdoll.act(e); // Wire up FPS style navigation events.
+
+  // Reset a running player from the start.
+  if (player && (e.is("keyboard:down:r") || e.is("3d:rhand-button-b-down"))) {
+    console.log("️⏱️ Starting over...");
+    tube.clear();
+    needsWipe = [0, 0];
+    player = new Player(player.frames, player.instant);
+  }
 
   // 🥽 Start a gesture. (Spatial)
   if (e.is("3d:touch:2") && !player) {
@@ -1757,9 +1766,7 @@ function act({
         // (L)oad or (P)lay back the demo file.
         player = new Player(
           frames,
-          undefined,
-          undefined,
-          e.is("keyboard:down:l") // If the "l" key is pressed then load all the demo frames instantly.
+          e.is("keyboard:down:l") ? 0 : 1 // If the "l" key is pressed then load all the demo frames instantly.
         );
       })
       .catch((err) => {
@@ -3659,10 +3666,10 @@ class Player {
 
   constructor(
     frames,
-    goUntilFirst = "tube:start",
-    endAtLast = "room:color",
     instant = platform.MetaBrowser ? 1 : 5, // Slower default in VR.
-    waitForPreload
+    waitForPreload,
+    goUntilFirst = "tube:start",
+    endAtLast = "room:color"
   ) {
     this.frames = frames;
     this.instant = instant;
@@ -3701,7 +3708,7 @@ class Player {
 
     // Finish a demo if there are no frames left.
     if (!thisFrame) {
-      console.log("🟡 Demo playback completed:", this.frameIndex);
+      console.log("🛑 Demo playback completed:", this.frameIndex);
       // Push a completed message with a negative frameCount to mark an ending.
       handler([[-1, "demo:complete"]]);
       this.waitForPreload?.();
