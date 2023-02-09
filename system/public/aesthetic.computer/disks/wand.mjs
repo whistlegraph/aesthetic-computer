@@ -296,22 +296,12 @@ function boot({
   const fov = 80;
   let z;
 
-  // if (aspectRatio > 1) {
-  //   z = (cubeSize / tan(num.radians(fov * 0.5))) * 0.95; // Landscape
-  // } else if (aspectRatio < 1) {
-  //   z = (cubeSize / tan(num.radians(fov * aspectRatio * 0.5))) * 0.96; // Square
-  // } else if (aspectRatio === 1) {
-  //   z = (cubeSize / tan(num.radians(fov * aspectRatio * 0.5))) * 0.96; // Square
-  // }
-
   if (aspectRatio > 1) {
     z = (cubeSize / tan(num.radians(fov * 0.5))) * 0.95; // Landscape
   } else if (aspectRatio === 1) {
     z = (cubeSize / tan(num.radians(fov * aspectRatio * 0.5))) * 0.96; // Square
   } else {
     z = (cubeSize / tan(num.radians(fov * aspectRatio * 0.5))) * 0.65; // Portrait
-    // TODO: I should also try and reduce the fog on an iphone...
-    console.log(aspectRatio);
   }
 
   camdoll = new CamDoll(Camera, Dolly, {
