@@ -109,8 +109,9 @@
 import { CamDoll } from "../lib/cam-doll.mjs";
 import { MetaBrowser } from "../lib/platform.mjs";
 
-const { min, abs, max, cos, sin, tan, atan, PI, floor, round, random } = Math;
+const { min, abs, max, cos, sin, tan, floor, round } = Math;
 
+let label;
 let debug; // Set in boot.
 let unreal = false; // Flip to true in case meshes need to be rendered for Unreal engine. Basically just prevents duplicate / two sided triangles.
 let camdoll, stage; // Camera and stage.
@@ -123,10 +124,11 @@ let cubeHeight = 1.45; // head of jeffrey
 let orthographic = false; // Only in GPU for now.
 let orthoZoom = 1; // Sent every frame when the camera is in orthographic mode.
 let orthoZoomDir = 0; // Sent every frame when the camera is in orthographic mode.
+let spin = true; // Interact in spin mode before a key is pressed.
 let autoRotate = false; // Automatically rotate the Tube model.
 let autoRotateDir = 1; // Automatically rotate the Tube model.
-//let cubeHeight = 0.7; // floor of jeffrey
-// let cubeHeight = 1.5; // head of jeffrey
+// let cubeHeight = 0.7; // floor of jeffrey-(6'1") Note: Store user's heights? 23.02.09.13.47
+// let cubeHeight = 1.5; // head of jeffrey-(6'1")
 let originOn = true;
 let background; // Background color for the 3D environment.
 let waving = false; // Whether we are making tubes or not.
@@ -297,7 +299,7 @@ function boot({
   if (aspectRatio > 1) {
     z = (cubeSize / tan(num.radians(fov * 0.5))) * 0.95; // Landscape
   } else {
-    z = (cubeSize / tan(num.radians(fov * aspectRatio * 0.5))) * 0.8; // Portrait
+    z = (cubeSize / tan(num.radians(fov * aspectRatio * 0.5))) * 0.85; // Portrait
   }
 
   camdoll = new CamDoll(Camera, Dolly, {
@@ -376,8 +378,9 @@ function sim({
   if (loadingDemoFile) ellipsisTicker.step(); // Animate loading ellipsis.
 
   // 😵‍💫 Spinning a sculpture around via `Tube`.
-  if (autoRotate) {
-    tube.form.rotation[1] += 0.02 * autoRotateDir;
+  if (autoRotate) tube.form.rotation[1] += 0.02 * autoRotateDir;
+
+  if (autoRotate || spin) {
     tube.triCapForm.rotation[1] = tube.capForm.rotation[1] =
       tube.form.rotation[1];
 
@@ -422,7 +425,7 @@ function sim({
         ff.headers(ff.tokenID); // Print any series headers.
 
         // const label = `${ffmeta.title} (ff ${ff.tokenID})`;
-        const label = `ff ${ff.tokenID}`;
+        label = `ff ${ff.tokenID}`; // Set the label globally.
 
         // Update label depending on the speed...
         if (speed === 0) {
@@ -968,7 +971,7 @@ function sim({
       } else if (type === "demo:complete") {
         // A "synthesized frame" with no other information to destroy our player.
         lastPlayedFrames = player.frames;
-        // player = null;
+        player = null;
         playerProgLast = 0;
         setTimeout(() => {
           needsWipe = [0, 0];
@@ -1298,16 +1301,19 @@ function paint({
   if (player) {
     const p = player.progress;
     let barColor = player.instant === 0 ? [64, 0, 0] : color;
-    const thickness = player.instant === 0 ? 8 : 4;
+    const thickness = player.instant === 0 ? 8 : 2;
+    const y = player.instant === 0 ? height - thickness : 0;
     const seg = floor((player.progress - playerProgLast) * width + 1);
-
-    ink(barColor).box(
+    ink(0).box(
       floor(playerProgLast * width),
-      height - thickness,
-      seg,
-      height - thickness
+      0,
+      width - floor(playerProgLast * width),
+      thickness
     );
-
+    ink(barColor).box(floor(playerProgLast * width), y, seg, thickness);
+    hud.label(label, barColor);
+    // ink(num.randIntRange(100, 200)).box(0, y + thickness, playerProgLast * width + 1, 1);
+    // ink(0).box(playerProgLast * width + 4, 0, 1, thickness);
     playerProgLast = p;
   }
 
@@ -1362,7 +1368,22 @@ function act({
     rgbToHexStr,
   } = num;
 
-  camdoll.act(e); // Wire up FPS style navigation events.
+  if (!spin) camdoll.act(e); // Wire up FPS style navigation events.
+  if (
+    spin === true &&
+    (e.is("keyboard:down:w") || e.is("keyboard:down:space"))
+  ) {
+    addFlash([0, 255, 0, 255]);
+
+    bap = true;
+    setTimeout(() => {
+      bop = true;
+      addFlash([0, 150, 0, 255]);
+    }, 150);
+
+    spin = false;
+    camdoll.act(e);
+  }
 
   // Reset a running player from the start.
   if (player && (e.is("keyboard:down:r") || e.is("3d:rhand-button-b-down"))) {
@@ -1450,8 +1471,8 @@ function act({
   // Automatic model rotation.
   if (e.is("keyboard:down:1")) autoRotate = !autoRotate;
 
-  // Orthographic model rotation.
-  if (e.is("draw") && camdoll.cam.type === "orthographic") {
+  // Horizontal model rotation in orthographic camera or "spin" mode.
+  if (e.is("draw") && (spin || camdoll.cam.type === "orthographic")) {
     //tube.form.rotation[1] -= e.delta.y / 3.5; // Up and down?
     tube.form.rotation[1] += e.delta.x / 3.5; // Left and right.
     tube.form.gpuTransformed = true;
@@ -3692,7 +3713,7 @@ class Player {
 
   constructor(
     frames,
-    instant = platform.MetaBrowser ? 1 : 5, // Slower default in VR.
+    instant = MetaBrowser ? 1 : 5, // Slower default in VR.
     waitForPreload,
     goUntilFirst = "tube:start",
     endAtLast = "room:color"

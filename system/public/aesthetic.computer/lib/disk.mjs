@@ -132,7 +132,8 @@ let currentPath,
   currentParams,
   currentHash,
   currentText,
-  currentHUDText;
+  currentHUDText,
+  currentHUDTextColor;
 let loading = false;
 let reframe;
 let screen;
@@ -305,7 +306,12 @@ class Recorder {
 const $commonApi = {
   // Trigger background music.
   // Eventually add an "@" style parameter similar to what a stamp system would have.
-  hud: { label: (text) => (currentHUDText = text) },
+  hud: {
+    label: (text, color) => {
+      currentHUDText = text;
+      currentHUDTextColor = color;
+    },
+  },
   send,
   platform,
   history: [], // Populated when a disk loads and sets the former piece.
@@ -2493,7 +2499,13 @@ async function makeFrame({ data: { type, content } }) {
         const h = 11;
         label = $api.painting(w, h, ({ ink }) => {
           ink(0).write(currentHUDText?.replaceAll("~", " "), { x: 1, y: 1 });
-          ink(255, 200, 240).write(currentHUDText?.replaceAll("~", " "));
+          let c;
+          if (currentHUDTextColor) {
+            c = num.shiftRGB(currentHUDTextColor, [255, 255, 255], 0.8);
+          } else {
+            c = [255, 200, 240];
+          }
+          ink(c).write(currentHUDText?.replaceAll("~", " "));
         });
       }
 
