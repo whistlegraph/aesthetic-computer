@@ -66,10 +66,6 @@
 *** Freaky Flowers Launch ***
   - OpenSea Test URL: https://testnets.opensea.io/assets/goerli/0x4FEa5E2a8C3bfc742B43b48FC4F2eA9913452B99/0
   - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
-
-   - Planar Support
-    - Post-launch
-    - [-] Redraw full progress bar on resize!
    - Bonus
     - [] Map sound to color. (Add better sound)
     - [] Add glaze / lighting / mastering.
@@ -85,6 +81,7 @@
       - [] Create a "full playback" mode to run all the pieces.
       - [] Add arrows to top right to move between slides?
   + Done
+    - [x] Redraw full progress bar on resize!
     - [x] Write `ff` documentation on Discord.
     - [x] Better optimization for mobile vertical view.
     - [x] Custom label offset for `ff`.

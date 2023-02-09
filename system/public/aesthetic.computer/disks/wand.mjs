@@ -157,6 +157,7 @@ let demoWandTube, demoWandTubeData; // Also used for demoWandTube.
 
 let demo, player; // For recording a session and rewatching it in realtime.
 let playerProgLast = 0;
+let playerBarSegs = [];
 let lastPlayedFrames; // Keeps track of recently run through Player frames / demo frames.
 //                       (Useful for re-dumping / modifying demo data.)
 let noact = false;
@@ -168,6 +169,7 @@ let loadDemoSwitch,
   progressBarDelayMax = 12, // Frames to delay progress bar rendering by.
   demoLabel;
 let needsWipe = null; // Flag that clears the buffer once on next paint.
+let reconstructingWipe;
 
 let lastWandPosition, lastWandRotation;
 
@@ -975,6 +977,7 @@ function sim({
         lastPlayedFrames = player.frames;
         player = null;
         playerProgLast = 0;
+        playerBarSegs = [];
         setTimeout(() => {
           needsWipe = [0, 0];
           ping = true;
@@ -1294,39 +1297,44 @@ function paint({
           demoLabel?.();
           noact = false;
         }
-        needsWipe = player.instant === 0 ? num.randIntArr(128, 3) : [0, 0];
+        reconstructingWipe = num.randIntArr(128, 3);
+        needsWipe = player.instant === 0 ? reconstructingWipe : [0, 0];
       }
     }
+  }
+
+  // TODO: Put other types in here to draw color patterns.
+  if (needsWipe) {
+    wipe(...needsWipe);
+    needsWipe = null;
   }
 
   // Loading bar for Playback & Reconstruction.
   if (player) {
     const p = player.progress;
-    let barColor = color;//player.instant === 0 ? [64, 0, 0] : color;
+    let barColor = color; //player.instant === 0 ? [64, 0, 0] : color;
     const thickness = player.instant === 0 ? 8 : 2;
     const y = player.instant === 0 ? height - thickness : 0;
-    const seg = floor((player.progress - playerProgLast) * width + 1);
 
     if (player.instant !== 0) {
-      ink(0).box(
-        floor(playerProgLast * width),
-        0,
-        width - floor(playerProgLast * width),
-        thickness
-      );
       hud.label(label, barColor, { x: 4, y: 6 });
     }
 
-    ink(barColor).box(floor(playerProgLast * width), y, seg, thickness);
-    // ink(num.randIntRange(100, 200)).box(0, y + thickness, playerProgLast * width + 1, 1);
-    // ink(0).box(playerProgLast * width + 4, 0, 1, thickness);
-    playerProgLast = p;
-  }
+    ink(0).box(0, y, width, thickness);
 
-  // TODO: Put other types in here to draw cooler patterns? 23.02.03.22.30
-  if (needsWipe) {
-    wipe(...needsWipe);
-    needsWipe = null;
+    // Push the segment to an array... then redraw everything in the array.
+    playerBarSegs.push([barColor, playerProgLast, 0, p, thickness]);
+
+    playerBarSegs.forEach((seg) =>
+      ink(seg[0]).box(
+        floor(seg[1] * width),
+        player.instant === 0 ? height - thickness : seg[2],
+        floor((seg[3] - seg[1]) * width + 1),
+        seg[4]
+      )
+    );
+
+    playerProgLast = p;
   }
 
   form(
@@ -1362,6 +1370,9 @@ function act({
   num,
   store,
 }) {
+  if (e.is("reframed") && player && player.instant === 0)
+    needsWipe = reconstructingWipe; // Keep solid color while reconstructing.
+
   if (noact) return; // Disable all acts if we are loading or reconstructing...
 
   const {
@@ -1396,6 +1407,7 @@ function act({
     console.log("️⏱️ Starting over...");
     tube.clear();
     needsWipe = [0, 0];
+    playerBarSegs = [];
     player = new Player(player.frames, player.instant);
   }
 
