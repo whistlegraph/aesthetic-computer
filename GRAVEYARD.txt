@@ -1,0 +1,271 @@
+🪦 Completed Tasks (dumped from `README.txt`)
+   23.02.10.14.41
+
+* 23.02.10.14.42 and Earlier
+
+***Live Reloading***
+  (Outdated)
+  - [] Fix live reloading for everyone / add some people to dev server.
+  - [] Disable nginx cache? https://ubiq.co/tech-blog/disable-nginx-cache
+
+*** Harrison Idea ***
+  - [x] NO command.
+  - [x] no! painting reset
+
+*** Misc ***
+- [x] Prototype screen-based whistlegraph recorder tool.
+  - [x] Add it to the API and make a `wgr` disk. 
+  - [x] Set up doodads like file hosting.
+ - [x] Write micropage for the whistlegraph album. (m2w2)
+ - [x] Fix image download function.
+ - [x] Get developer live reload working again.
+  - [x] Deploy and test everything to see if it works. 
+  - [x] Add a post request edge function called "reload". 
+ - [x] Wire up plot for Amalia.
+ - [x] Queue any sent socket messages to be sent once the socket
+      backend connects. 
+ - [x] Turn 'sb' -> 'play'... a *tiny* recordable chat program in X turns.
+ - [x] Retrofit `prompt` with the new abstraction in `type.mjs`
+ - [x] Clear any prompt specifics in bios.
+ - [x] Fix major segfault regression.
+ - [x] Abstract the text entry logic out of 'prompt'.
+ - [x] 🔐 Setup user system! (Ethereum)
+  - [x] Add user feedback for web3 connect.
+  - [x] Basic web3 integration.
+  - [x] Research auth methods.
+ - [x] BGM Protoype
+ - [x] Spin up session-server in sb.
+ - [x] Add a database / hosted DB.
+    - [x] Digital Ocean
+    - [x] Redis
+ - [x] Prototype BGM
+ - [x] Spin up session-server in sb.
+ - [x] Add a database / hosted DB.
+    - [x] Digital Ocean
+    - [x] Redis
+
+*** Freaky Flowers Launch ***
+  + Done
+    - [x] Fix OpenSea mobile iframe crop.
+      (Send OpenSea a Tweet: https://twitter.com/digitpain/status/1624129497980104704)
+    - OpenSea Test URL: https://testnets.opensea.io/assets/goerli/0x4FEa5E2a8C3bfc742B43b48FC4F2eA9913452B99/0
+    - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
+    - [x] Overall aspect ratio fix.
+    - [x] Redraw full progress bar on resize!
+    - [x] Write `ff` documentation on Discord.
+    - [x] Better optimization for mobile vertical view.
+    - [x] Custom label offset for `ff`.
+    - [x] Add a color param to `label` and feed wand color in with a lerp.
+    - [x] Make progress bar on top above label. 
+    - [x] Be in spin mode until a key is pressed.
+    - [x] Fix ` keyboard prompt typing bug.
+    - [x] Move sculpture back a tad. 
+    - [x] Eliminate gap borders while embedded / sandboxed? (Fix OpenSea black bars.)
+    - [x] Fix preview segment rendering when size changes.
+    - [x] Add a button in VR (and keyboard shortcut) to reset the timelapse
+          without refreshing. 
+    - [x] VR timelapse should default to 1x.
+    - [x] Colored stripey progress.
+    - [x] Wand should be hidden when a player is running.
+    - [x] All controller buttons should be disabled when a player is running.
+    - [x] Make wand render again / get WebVR working.
+    - [x] Kill any errors.
+    - [x] Zoom out a proper distance based on aspect ratio. 
+    - [x] WebGL Layer and software Layer are off by 1 or a fraction of a pixel on iPhone. (Bottom)
+    - [x] Fix double reconstructing loading bar code. 
+    - [x] Draw the full wand preview and include size changes!
+    - [x] Add new Discord update script.
+      - See also: https://github.com/fieu/discord.sh
+    - [x] Don't advance a playing demo if tabbed out.
+    - [x] Make "preview" mesh rotate correctly (90deg on one axis?)
+      - [x] Use `ff 2 1` as a test case.
+    - [x] Don't cull the preview wand. 
+    - [x] Loading `instant` style should be chunked to avoid crashes
+         on lower end hardware and also to enable "..." animation on "Reconstructing...".
+    - [x] Show progress bar for Reconstructing.
+    - [x] Clean out "dead" code.
+    - [x] Prevent keyboard shortcuts and other act events from running before
+         fully loading / while loading / reconstructing.
+    - [x] Show capForm "preview" in demo mode.
+    - [x] Wand should be "thicker".
+    - [x] Get loading working much nicer both in playback mode and
+           in "instant" mode with a visual progress indicator of some kind. 
+    - [x] Fetch progress bar.
+      - [x] Don't show progress bar if things have already downloaded...
+    - [x] Put yellow spinner on special little delay.
+    - [x] Make intial boot fuzz a much lower resolution. 
+    - [x] What isn't being auto-rotated?
+        - [x] Capform
+    - [x] Start spinning, at a high rate, (about 30seconds max timelapse) 
+    - [x] Add ability to hide / customize hud text.
+    - [x] Make sure iframe mockup works for `ff`: https://localhost:8888/sandboxed-iframe-mockup.html
+    - All Pieces
+      - [x] Every piece by default (unless it opts out) will show its name
+          and parameters in the top left corner.
+      - [x] Write readouts to separate "secret" buffer (see `HUD` in disk)
+    - [x] Add "signature" / title flag feature to `dl` command.
+      - `sign`
+        - [x] Paste a signature with timestamp in the corner.
+              that is NOT opaque and in the bottom left corner.
+    - [x] Review spreadsheet metadata: https://docs.google.com/spreadsheets/d/10aeN4WyTQ1UQUT9-IUbKFdoeEfkumqM6_8mvFs5dVq8/edit#gid=1052521247 
+
+*** Painting w/ Signature for Yeche Lange***
+  + Done
+  - [x] Make two or three works for Yeche.
+  - `line`
+    - [x] Add line thickness...
+      - [x] Make pppline if thickness is 1
+    - [x] Fix color inconsistencies among screen and painting. 
+    - [x] Add ? ? ? options with ? expansion?
+  - `no`
+    - [x] Undo / redo a step.
+    - [x] with multistep options
+
+*** Tracker ***
+  - [x] Fix buttons.
+
+*** Keyboard Input ***
+  - [x] Debug keyboard input on every device again.
+    - [x] Android
+    - [x] Meta (Seems good.) 22.11.03.23.34
+  + Done
+  - [x] Fix duplicate "Enter" event bug on desktop.
+
+*** Friendlier Developer Logs ***
+  - [x] Optimize the console.log output in production to be
+       more terse, and make common sense.
+
+***Android Day***
+  - [x] Fix keyboard controls not working (this should also fix Meta Quest 2).
+  + Done
+  - [x] Provision Android phone.
+
+*** Hex Support ***
+  - [x] Add hex support to color inputs.
+
+*** Bonus ***
+  - [x] Change `ap` -> `test`. (Rapter)
+  - [x] Detect dark mode and modify the prompt accordingly.
+
+*** 3D Renderering ***
+  + Done
+    - [x] Only load threejs if necessary.
+    - [x] Fix thread boundary conditions related to hot reloading.
+    - [x] Broken on load.
+      - [x] Fix `sim` being busted on quick reload.
+    - [x] Fix cursor transparency in 3dline.
+         (Make blend function take into account existing alpha.)
+    - [x] See if this is faster than the software renderer as-is?
+    - [x] Make sure picture ratios match up perfectly.
+    - [x] Get lines working.
+    - [x] Switch the / convert software rasterizer from left handed to right handed
+      rendering.
+      What worked on the software renderer side:
+       - Flip X and Z position of each vertex before transform.
+       - Flip X and Z rotation of each vertex before transform.
+       - Flip Y rotation of the camera before transform.
+       - Rotation matrix multiply order for camera: YXZ.
+       - Rotation matrix multiply order for vertices: XYZ.
+      + Future + Eventually I could look into using the exact same matrix data across both?
+    - [x] Get textures in there.
+    - [x] Enable all objects.
+    - [x] Optimize pixel array sending. (Had to make an extra layer)
+    - [x] Disable backface culling.
+    - [x] Make it so that "form" calls that take an array, render in 3js and return the pixels back.
+    - [x] A single "form" call should be able to send over multiple objects.
+
+ *** Resize (gap-density) ***
+   - [x] Add "scale" to "paste"
+   - [x] Cursor is janky when paint returns -> false.
+
+*** Prompt ***
+- [x] Use localStorage for command history.
+  - [x] Set up general localStorage system / API.
+  - [x] Maybe it could be built off of store?
+
+*** Pieces: Prompt ***
+ - [x] No more tildes for user paths...
+      Instead, use an '@' for usernames.
+      eg. sage/piece
+  - [x] Prompt
+  - [x] Index
+ - [x] Up arrow for previous command. 
+ - [x] Update MOTD. 
+
+*** Safari Day ***
+- [-] Thin lines appearing from `gap` and no gap in mobile Safari.
+- [x] Grey selection bubble appears in mobile Safari.
+- [x] Loading spinner not appearing in mobile Safari. 
+- [x] Fix iOS Safari page refresh bug. (Test on MacBook Pro)
+  (Needed `Vary: *` http header, to prevent Safari's cache from bugging out
+  on the SharedArrayBuffer / isolatedOrigin CORS headers.)
+
+***Tracker, Pull***
+- [x] Fix interface boxes.
+- [x] Make `boxes` test piece.
+
+***Meta***
+- [x] Add support for custom / locally generated thumbnail overrides.
+  - [x] Test override for some specific route... maybe blank?
+- [x] Serve a 404 page for anything else that breaks.
+  - [x] Right now it just crashes here: https://aesthetic.computer/okok
+  - [x] Right now it just is black here: https://aesthetic.computer/~niki/whatever
+- [x] Do the TOML routes actually matter? No.
+- [x] Get ~/niki/blank working again.
+- [x] Separate out / parse the text before loading a disk serverside so that
+      parameterized disks work again.
+- [x] Make them work on iOS
+- [x] Write a new netlify function that returns the proper html for every page,
+      so that prerendering can be turned off (get imessage previews working).
+- [x] Should og:image and twitter:image have file extensions?
+
+***L8 Night***
+- [x] Get a debugger working. 
+
+***2D Drawing Primitives for Niki***
+ - [x] line from point... at angle with distance
+ 
+***Routing & Twitter Cards***
+ - [X] Figure out how to get open-graph info and twitter cards working for all of a.c?
+      - [X] How should the og:images be made? Perhaps a special tool is needed or screenshots
+           can be taken automatically?
+      - [x] Set defaults if the info isn't there...
+- [x] Test Netlify pre-rendering to see if it functions.
+- [x] Use netlify's pre-rendering and (it's already turned on... and change the og:title)
+- [X] Enable Netlify pre-rendering.
+       - Validator: https://cards-dev.twitter.com/validator
+       - Prototype: https://glitch.com/edit/#!/pepper-efficacious-yellowhorn?path=index.html
+ - [X] Implement path based routing for pieces via netlify and on a local dev server.
+
+***User Pieces (niki.aesthetic.computer)***
+- [x] History breaks right now across domains, because some parsing goes through the `prompt`.
+  - [x] Make sure loading using the `tilde` key works across hosts.
+  - [x] Start remote routing from boot instead of only in prompt?
+      - [x] Make a `parse.js` library file that can be used in `prompt`, then `boot`.
+      - [x] Copy the code from prompt and replicate it in boot, then
+      - [x] follow the logic through to check for inconsistencies.
+      - [x] Remove `search` from `disk.js` load. (Deprecrate reading queryParams
+        at the disk level... they should only be reserved for system settings?)
+- [x] Also, the page can't refresh and the path gets rewritten improperly. 
+- [x] Get `niki.aesthetic.computer` running.
+- [x] Get a prototype of Niki's piece working that she can actually edit as the first user.
+
+***Server Re-organization***
+ - [x] Should the uploader be a serverless function? Yes!
+      (This would prevent the need for a load balancer if file uploading was a bottleneck.)
+      (Would it run locally?)
+ - [x] Set netlify environment variables for the digital ocean space.
+ - [x] How to run two server processes from one npm command?
+ - [x] Should the websocket server run as a separate process from the http api?
+ - [x] Should it run on a separate machine as of now?
+
+***Editor***
+- [-] Get socket server running under GitHub codespaces as well.
+  (wss:// is currently unsupported)
+- [x] Get the project working in GitHub codespaces.
+
+🐛 Completed Bugs & Regressions
+- [X] Check to see why custom thumbnails are broken for remote URL disks.
+- [X] `wg` disks no longer work 
+- [X] Kill any microphone (or video) connection after leaving a piece it's connected to.
+- [X] Routing: Check ~tilde~ key - don't push duplicate states in the history.
