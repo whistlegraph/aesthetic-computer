@@ -1,4 +1,3 @@
-🐚 Welcome to...
 
   🧩 AESTHETIC.COMPUTER 🧩
 
@@ -64,294 +63,156 @@
   - [] Don't clear text on pressing return now.
   - [] Do history stack different. (Smaller text)
   - [] Skip what aliases lead to in the history list. (ff example)
-  - [] Should be able to `no` a `no!`.
-
-*** Freaky Flowers Launch ***
-    - [] Fix OpenSea mobile iframe crop.
-   - Bonus
-    - [] Map sound to color. (Add better sound)
-    - [] Add glaze / lighting / mastering.
-    - [] Add background music if it isn't already playing.
-    - [] Lazy wand follow / rotate camera to wand situation.
-      - Touch Screen Only
-      - [] Two finger pinch to zoom and slow rotation on a touch screen.
-        - [] Progress bar doesn't always seem to hit 100%.
-        - [] Let go to snap back. 
-      - [] [WANDER] button that shows keyboard shortcut overlays /
-          touch instructions. (Add chat here?)
-  + Later
-      - [] Resize while reconstructing yields pixel buffer bugs in the console.
-      - [] Red lines of measurement cube sometimes start as black or faded.
-      - [] Create a "full playback" mode to run all the pieces.
-      - [] Add arrows to top right to move between slides?
-  + Done
-    - OpenSea Test URL: https://testnets.opensea.io/assets/goerli/0x4FEa5E2a8C3bfc742B43b48FC4F2eA9913452B99/0
-    - Wild Test URL; https://testing--wildxyz-market-4231.netlify.app/jeffrey-scudder/freaky-flowers/0/
-    - [x] Overall aspect ratio fix.
-    - [x] Redraw full progress bar on resize!
-    - [x] Write `ff` documentation on Discord.
-    - [x] Better optimization for mobile vertical view.
-    - [x] Custom label offset for `ff`.
-    - [x] Add a color param to `label` and feed wand color in with a lerp.
-    - [x] Make progress bar on top above label. 
-    - [x] Be in spin mode until a key is pressed.
-    - [x] Fix ` keyboard prompt typing bug.
-    - [x] Move sculpture back a tad. 
-    - [x] Eliminate gap borders while embedded / sandboxed? (Fix OpenSea black bars.)
-    - [x] Fix preview segment rendering when size changes.
-    - [x] Add a button in VR (and keyboard shortcut) to reset the timelapse
-          without refreshing. 
-    - [x] VR timelapse should default to 1x.
-    - [x] Colored stripey progress.
-    - [x] Wand should be hidden when a player is running.
-    - [x] All controller buttons should be disabled when a player is running.
-    - [x] Make wand render again / get WebVR working.
-    - [x] Kill any errors.
-    - [x] Zoom out a proper distance based on aspect ratio. 
-    - [x] WebGL Layer and software Layer are off by 1 or a fraction of a pixel on iPhone. (Bottom)
-    - [x] Fix double reconstructing loading bar code. 
-    - [x] Draw the full wand preview and include size changes!
-    - [x] Add new Discord update script.
-      - See also: https://github.com/fieu/discord.sh
-    - [x] Don't advance a playing demo if tabbed out.
-    - [x] Make "preview" mesh rotate correctly (90deg on one axis?)
-      - [x] Use `ff 2 1` as a test case.
-    - [x] Don't cull the preview wand. 
-    - [x] Loading `instant` style should be chunked to avoid crashes
-         on lower end hardware and also to enable "..." animation on "Reconstructing...".
-    - [x] Show progress bar for Reconstructing.
-    - [x] Clean out "dead" code.
-    - [x] Prevent keyboard shortcuts and other act events from running before
-         fully loading / while loading / reconstructing.
-    - [x] Show capForm "preview" in demo mode.
-    - [x] Wand should be "thicker".
-    - [x] Get loading working much nicer both in playback mode and
-           in "instant" mode with a visual progress indicator of some kind. 
-    - [x] Fetch progress bar.
-      - [x] Don't show progress bar if things have already downloaded...
-    - [x] Put yellow spinner on special little delay.
-    - [x] Make intial boot fuzz a much lower resolution. 
-    - [x] What isn't being auto-rotated?
-        - [x] Capform
-    - [x] Start spinning, at a high rate, (about 30seconds max timelapse) 
-    - [x] Add ability to hide / customize hud text.
-    - [x] Make sure iframe mockup works for `ff`: https://localhost:8888/sandboxed-iframe-mockup.html
-    - All Pieces
-      - [x] Every piece by default (unless it opts out) will show its name
-          and parameters in the top left corner.
-      - [x] Write readouts to separate "secret" buffer (see `HUD` in disk)
-    - [x] Add "signature" / title flag feature to `dl` command.
-      - `sign`
-        - [x] Paste a signature with timestamp in the corner.
-              that is NOT opaque and in the bottom left corner.
-    - [x] Review spreadsheet metadata: https://docs.google.com/spreadsheets/d/10aeN4WyTQ1UQUT9-IUbKFdoeEfkumqM6_8mvFs5dVq8/edit#gid=1052521247 
+  - [] Should be able to `no` a `no!` in other words `no!` should just
+       be a wipe!
 
 *** What is `fhell` ? ***
   - [] I don't know yet...
 
-*** Painting w/ Signature for Yeche Lange***
-  - [🚗] Make two or three works for Yeche.
-  + Done
-  - `line`
-    - [x] Add line thickness...
-      - [x] Make pppline if thickness is 1
-    - [x] Fix color inconsistencies among screen and painting. 
-    - [x] Add ? ? ? options with ? expansion?
-  - `no`
-    - [x] Undo / redo a step.
-    - [x] with multistep options
-
 *** Better Logging ***
   - [x] Create a logs.mjs file that can enable / disable certain development log flags when working, such as disabling all "store" logs.
 
-*** Project Order ***
 *** VS Code Extension ***
-- [] Make VSCode extension / back-seat document API (maya).
-  - [🟡] Modify disk load to accept new source code. 
-  + Done
-  - [x] Wire up extension to a backend route that pubs to a redis channel. 
-  - [x] Get icon made for extension (@ingo) 
-  - [x] Start work on VSCode extension. 
- - [😀] Passwordless login.
-- [] Home Screen / Better Nav
-  - [] Upon leaving the prompt, a tappable ghost of the active
-       command (with generated params) appears in the top left corner.
-       - [] Tap the word to return to the prompt and leave the command as is.
-       - [] Swipe the word in any direction to erase the command
-            and return to the prompt. 
-- [] User Accounts
-  - [👨‍🦰] How quickly could I tie this to user accounts and make it permanent
-          rn? Could I do this all today?
-    - [-] Set up passwordless email authorization.
-    - [] `name username` will set a user's name to whatever they like if there
-        is no existing conflict
-      - [] Require confirmation from user via a button press or tap.
-- [] ✏️ Diary
-  - [] A simple diary tool / "performative poetry" piece. 
-    - [] Write entries which playback in realtime to show the typing, like recei-ving a DM. See:  
-  - [] Typing `diary` makes a new entry in your default diary.
-  - [] Every entry of every user has a URL and a timestamp.
-  - [] Every diary of every user has a URL.
-  - [] A user can make multiple labeled diaries via `diary secrets` 
-    - [] This will start a new entry in a labeled diary and make that diary
-         if it doesn't already exist.
-  🔐 Privacy
-    - [] Private diaries just show a lock with a shortcut to log the user in.
-    - [] Diaries can be marked `private` or public.
-    - [] Entries can be moved from one diary to another. (Migrated or made private or public)
-    - [] `@user diary` should read the most recent entry by default. 
-    - [] Entering an entry into a private diary should be encrypted and 
-         unreadable by aesthetic.computer.
-         - [] Moving an entry into a private diary will encrypt it.
-         - [] aesthetic.computer will not track public diary entries were made
-              private, and not cache the moved files, to maintain user privacy.
-         - [] A blockchain / wallet might be required for this...
-         - [] A user could potentially sell "keys" to their diary, so that
-              diaries can be semi-public / exclusive to a set number of
-              readers.
- - [] Add ability to make a system-wide recording?
- - [] 🎨 Paintings
-  - [] Finish all Brushes todos: https://www.notion.so/aesthetic-computer/aesthetic-computer-hq-97376f353dbd4503970910777d6c7241
-    *** Molly Soda Moods ***
-    - [] @mollysoda sequence
-      - [x] Add support for camera brush.
-      - [] Rename sparkle -> icon
-      - [] Pull / Move
-      - [-] Add glyphs to sparkle brush.
-        - [-] Spin up sparkle brush prototype.
-      - [] @mollysoda posts an instagram story of a finished camera pic with stuff drawn on 
-        "Activity"
-        {
-        - [] Title Screen
-          - [] Loose layout for (Instruction, Icon, Sparkle, Pull, Text, Save)
-        - [] Camera 
-        - [] Icon (preset palettes with preset graphics, similar to text changing words)
-          - [] Rename sparkle to icon.
-        + Tonight
-        - [] "Sparkle" by Maya
-          - [] Jeffrey asks Maya about doing sparkle.
-        + Later
-        - [] Text 
-          - [] Have a bank of changing words
-        - [] "Save" / "Download" / "Done"
-          - [] Well... where do you put it?
-        }
-      - [] there is a call to action where viewers can swipe up
-      - [] once they swipe up there shoud be like a "title" screen
-    - [] Add DALLE2 / Image2Image API for generating / transforming stuff easily.
-  - [] Get smart contract launched. See "Mintable Paintings" below.
- - [] Finish Freaky Flowers client
-  - [] Hook up multiplayer presence. 
-  - [] Get nice UI
- 
- + Done
-- [x] Prototype screen-based whistlegraph recorder tool.
-  - [x] Add it to the API and make a `wgr` disk. 
-  - [x] Set up doodads like file hosting.
- - [x] Write micropage for the whistlegraph album. (m2w2)
- - [x] Fix image download function.
- - [x] Get developer live reload working again.
-  - [x] Deploy and test everything to see if it works. 
-  - [x] Add a post request edge function called "reload". 
- - [x] Wire up plot for Amalia.
- - [x] Queue any sent socket messages to be sent once the socket
-      backend connects. 
- - [x] Turn 'sb' -> 'play'... a *tiny* recordable chat program in X turns.
- - [x] Retrofit `prompt` with the new abstraction in `type.mjs`
- - [x] Clear any prompt specifics in bios.
- - [x] Fix major segfault regression.
- - [x] Abstract the text entry logic out of 'prompt'.
- - [x] 🔐 Setup user system! (Ethereum)
-  - [x] Add user feedback for web3 connect.
-  - [x] Basic web3 integration.
-  - [x] Research auth methods.
- - [x] BGM Protoype
- - [x] Spin up session-server in sb.
- - [x] Add a database / hosted DB.
-    - [x] Digital Ocean
-    - [x] Redis
- - [x] Prototype BGM
- - [x] Spin up session-server in sb.
- - [x] Add a database / hosted DB.
-    - [x] Digital Ocean
-    - [x] Redis
+  - [] Make VSCode extension / back-seat document API (maya).
+    - [🟡] Modify disk load to accept new source code. 
+    + Done
+    - [x] Wire up extension to a backend route that pubs to a redis channel. 
+    - [x] Get icon made for extension (@ingo) 
+    - [x] Start work on VSCode extension. 
+  - [😀] Passwordless login.
+  - [] Home Screen / Better Nav
+    - [] Upon leaving the prompt, a tappable ghost of the active
+        command (with generated params) appears in the top left corner.
+        - [] Tap the word to return to the prompt and leave the command as is.
+        - [] Swipe the word in any direction to erase the command
+              and return to the prompt. 
+  - [] User Accounts
+    - [👨‍🦰] How quickly could I tie this to user accounts and make it permanent
+            rn? Could I do this all today?
+      - [-] Set up passwordless email authorization.
+      - [] `name username` will set a user's name to whatever they like if there
+          is no existing conflict
+        - [] Require confirmation from user via a button press or tap.
+  - [] ✏️ Diary
+    - [] A simple diary tool / "performative poetry" piece. 
+      - [] Write entries which playback in realtime to show the typing, like recei-ving a DM. See:  
+    - [] Typing `diary` makes a new entry in your default diary.
+    - [] Every entry of every user has a URL and a timestamp.
+    - [] Every diary of every user has a URL.
+    - [] A user can make multiple labeled diaries via `diary secrets` 
+      - [] This will start a new entry in a labeled diary and make that diary
+          if it doesn't already exist.
+    🔐 Privacy
+      - [] Private diaries just show a lock with a shortcut to log the user in.
+      - [] Diaries can be marked `private` or public.
+      - [] Entries can be moved from one diary to another. (Migrated or made private or public)
+      - [] `@user diary` should read the most recent entry by default. 
+      - [] Entering an entry into a private diary should be encrypted and 
+          unreadable by aesthetic.computer.
+          - [] Moving an entry into a private diary will encrypt it.
+          - [] aesthetic.computer will not track public diary entries were made
+                private, and not cache the moved files, to maintain user privacy.
+          - [] A blockchain / wallet might be required for this...
+          - [] A user could potentially sell "keys" to their diary, so that
+                diaries can be semi-public / exclusive to a set number of
+                readers.
+  - [] Add ability to make a system-wide recording?
+  - [] 🎨 Paintings
+    - [] Finish all Brushes todos: https://www.notion.so/aesthetic-computer/aesthetic-computer-hq-97376f353dbd4503970910777d6c7241
+      *** Molly Soda Moods ***
+      - [] @mollysoda sequence
+        - [x] Add support for camera brush.
+        - [] Rename sparkle -> icon
+        - [] Pull / Move
+        - [-] Add glyphs to sparkle brush.
+          - [-] Spin up sparkle brush prototype.
+        - [] @mollysoda posts an instagram story of a finished camera pic with stuff drawn on 
+          "Activity"
+          {
+          - [] Title Screen
+            - [] Loose layout for (Instruction, Icon, Sparkle, Pull, Text, Save)
+          - [] Camera 
+          - [] Icon (preset palettes with preset graphics, similar to text changing words)
+            - [] Rename sparkle to icon.
+          + Tonight
+          - [] "Sparkle" by Maya
+            - [] Jeffrey asks Maya about doing sparkle.
+          + Later
+          - [] Text 
+            - [] Have a bank of changing words
+          - [] "Save" / "Download" / "Done"
+            - [] Well... where do you put it?
+          }
+        - [] there is a call to action where viewers can swipe up
+        - [] once they swipe up there shoud be like a "title" screen
+      - [] Add DALLE2 / Image2Image API for generating / transforming stuff easily.
+    - [] Get smart contract launched. See "Mintable Paintings" below.
+  - [] Finish Freaky Flowers client
+    - [] Hook up multiplayer presence. 
+    - [] Get nice UI
 
 *** lorecore ***
   - [] ...
 
 *** Dev ***
-- [] Switch from prettier to something else...
-  - [] Standard...
-  - [] ESLint...
-  - [] Do research?
+  - [] Switch from prettier to something else...
+    - [] Standard...
+    - [] ESLint...
+    - [] Do research?
 
 *** Sotce ***
-- [] Visit a url. 
-- [] Logging in.
-- [] Type in words and press enter.
-- [] Hit a done button to play back the words.
-- [] Get back resulting URL
-- [] Share that URL / Screen Record / Still Image
+  - [] Visit a url. 
+  - [] Logging in.
+  - [] Type in words and press enter.
+  - [] Hit a done button to play back the words.
+  - [] Get back resulting URL
+  - [] Share that URL / Screen Record / Still Image
 
 *** Ingo ***
-- [] Jeffrey sets up VScode plugin!
-- [] `bst` (Bouncy Square Pattern World)
-  - [] Jeffrey will explore: Sketchmachine.net style auto-expanding blingee buffer.
-- [] *** Ingo + Harrison coder cohort micro projects. *** 
-  - [] Ingo learns API etc along with Harrison.
-- [] *** Dollmath ***
-  - [] Character creator software combined with character operation software.
-  - [] From premade assets with a protocol to remote control.
-    - [] "Dollmath" refers to a notational system for defining / understanding
-         the structure of each character given number of frames per each part.
-    - [] Useful for avatar type, useful for fun puppet / finger puppet videos...
-         VTuber style calling, etc.
-- [] Re: Avatars: "Dropped" or "Rare" or discoverable parts, similar to early Ultima Online PVP / permadeath.
-- [] *dolls* video recorder - larger project w/ harrison
+  - [] Jeffrey sets up VScode plugin!
+  - [] `bst` (Bouncy Square Pattern World)
+    - [] Jeffrey will explore: Sketchmachine.net style auto-expanding blingee buffer.
+  - [] *** Ingo + Harrison coder cohort micro projects. *** 
+    - [] Ingo learns API etc along with Harrison.
+  - [] *** Dollmath ***
+    - [] Character creator software combined with character operation software.
+    - [] From premade assets with a protocol to remote control.
+      - [] "Dollmath" refers to a notational system for defining / understanding
+          the structure of each character given number of frames per each part.
+      - [] Useful for avatar type, useful for fun puppet / finger puppet videos...
+          VTuber style calling, etc.
+  - [] Re: Avatars: "Dropped" or "Rare" or discoverable parts, similar to early Ultima Online PVP / permadeath.
+  - [] *dolls* video recorder - larger project w/ harrison
 
-*** Harrison Idea ***
-- NO command.
-  - no! - painting reset
+*** Vector / Raster Foreground / Frame based Instrument ***
+  + Now
+    - [] RGB Black line tool (with thickness).
+    - [] RGBA Fill bucket.
+    - [] Frame is transparent.
+    - [] Safe zones.
+  + Later
+    - [] Arrow keys to jump between states. 
+    - [] Hold to pause
 
-(Vector / Raster Foreground / Frame based Instrument)
-+ Now
-  - [] RGB Black line tool (with thickness).
-  - [] RGBA Fill bucket.
-  - [] Frame is transparent.
-  - [] Safe zones.
-+ Later
-  - [] Arrow keys to jump between states. 
-  - [] Hold to pause
-
-- Dolls - (Record Character)
-- Character 1 (Left)
-  - Blob
-- Character 2 (Right)
-  - Blob
-- Single background for both.
-- Third thing (Subject of dialogue).
-- Duration that fits the vibe. 
-- Vocal Effects?
-
-- [] Hole / fill tool  
-  Goop Bomber
-  - Random hole appears on the painting.
-  - Little creature comes out with mouth ma ma ma ma.
-  - Random bomb appears elsewhere on the canvas.
-  - Bomberman style fuse.
-  - Bomb makes a splatter.
-  - Creature reacts.
-  - Creature returns.
+*** Hole / Fill Tool ***
+  - [] Hole / fill tool  
+    Goop Bomber
+    - Random hole appears on the painting.
+    - Little creature comes out with mouth ma ma ma ma.
+    - Random bomb appears elsewhere on the canvas.
+    - Bomberman style fuse.
+    - Bomb makes a splatter.
+    - Creature reacts.
+    - Creature returns.
 
 *** (Sage Notes) Particle / GOL ***
- - [] Color rule correlation
-  - [] Equation in red so when things collide the color gets red.
-  - [] Dominant force.
-  16 particles
-    {x, y, z}
-  each particle can emit a sound
-  override a particle position
-
+  - [] Color rule correlation
+   - [] Equation in red so when things collide the color gets red.
+   - [] Dominant force.
+   16 particles
+     {x, y, z}
+   each particle can emit a sound
+   override a particle position
 
 *** "pose" - Hand-Tracked Body Pose Piece ***
   - [] Handtracked WebXR.
@@ -366,9 +227,9 @@
       - [] https://lo-th.github.io/phy/index.html#ragdoll
 
 *** Collaborations / Externally Hosted Pieces ***
- - [] Should subdomains like `m2w2.whistlegraph.com` just rewrite their url by
-      default? Or maybe if you jump to the prompt? I guess it kind of
-      depends on how localStorage or other origin specific features work...
+  - [] Should subdomains like `m2w2.whistlegraph.com` just rewrite their url by
+       default? Or maybe if you jump to the prompt? I guess it kind of
+       depends on how localStorage or other origin specific features work...
 
 *** BGM ***
  - [] Make a cool default visualizer for bgm.
@@ -419,10 +280,6 @@
   - [] This can use ffmpeg behind the scenes in (almost) the same way I'm doing now...?
   - [] Just the software renderer for now? Or should I composite?
   - [] https://macr.ae/article/canvas-to-gif
-
-***Live Reloading***
-  - [] Fix live reloading for everyone / add some people to dev server.
-  - [] Disable nginx cache? https://ubiq.co/tech-blog/disable-nginx-cache
 
 *** Mintable Paintings (Screen Buffers) ***
   - [] 🅰️ Client
@@ -548,149 +405,15 @@
   - [] Disable this in debug / development mode.
 
 *** MUD ***
- - [] Make a multi-user dungeon chat / room system, designed for single session play.
-  * welkum 2 mud *
-  & there r 32 playrz ONLINE
-
-*** (Wand) ***
- + Now
-  - [] See `wand` todo section for pre-launch Freaky Flower items.
-  - [] Add / design / consider better touch controls. [F] [B] [W/L]
-  - [] Add circular buffer to wand lines (buffer-geometry) / infinite
-      wand with dissolving trail? Spectator mode.
- + Later
-  - [] Add audio to demo recording and playback.
-  - [] Shrink three.js filesize: https://github.com/mrdoob/three.js/issues/19148
-  - [] Fix keyboard hold and drag to symbol in Meta Quest software keyboard.
-  - [] Add user connected messages.
-  - [] Better mouse and keyboard controls.
-  - [] Automatically reload the socket server?
-    - [] Try and get web sockets working locally with SSL enabled (in general).
-    - [] Try to get websockets server locally connectable in Meta Quest browser.
-         https://github.com/nekocode/Websocket-Adb-Forward/blob/master/example-py-client/client.py
-  - [] Does each player bring their lines with them?
-       (This would make their presence very important.)
-  - [] Add a "room" system.
-    - [] Just start with one room but add an abstraction layer for it soon.
-    - [] Save buffered lines via store["remote"] to the remote room.
-         (Delete everything once all clients disconnect for a certain amount
-          of time.)
-      - [] Perhaps this can just use the system ram, then dump to S3 after
-           clients disconnect?
-  - [] How to hear someone else's audio stream? https://stackoverflow.com/a/61438244/8146077
-  - [] Jiggle every two vertices the same amount so each segment
-       drifts as one and maintains its integrity / add jiggle or break-apart
-       as a toggle.
-  - [] Add ability to delete lines / limit lines.
-  - [] 🎖️ Pass the Whistlegraph accessibility/latency threshold.
-    (Must work on a wide range of devices with various connections, and
-     be fast enough or communicable enough to work.)
-    - [] Sockets can always be a fallback.
-    - [] Will require UDP over WebRTC.
-    - [] Experiment with http/3 transport as well.
-  - [] Draw in 2D draw with the mouse and project out the lines.
-       - How to switch to an orthographic camera for this?
-  - [] Free camera mode / better camera controls on keyboard and mouse.
-  - [] Bring `microphone` amplitude into `3dline`. 
-       (Draw a linear wave form spatially)
-  - [] Bring in font rendering from the plotted system font.
-  - [] Touch controls.
-  - [] Add other tools other than line.
-  - [] Add a 3d prompt so you can change tools / be more active without going 2d.
-  - [] Updates on the 3D object pipeline.
-    - [] Also be able to delete stuff from the GPU scene.
- + Done
-  - [x] Line thickness.
-    - [x] https://codepen.io/garciahurtado/pen/WNVjog?editors=0010
-    - [x] Work on implementing: https://github.com/mrdoob/three.js/blob/master/examples/webgl_lines_fat.html
-    - [x] Tube geometry?
-    - [] Billboarded MeshLine?
-  - [x] Add CSV unreal exporter that follows this pattern:
-      ---,Vertices,Color
-      NewRow,"((X=10.000000,Y=20.000000,Z=-30.000000))","((B=0,G=0,R=201,A=0))"
-      NewRow_0,"((X=10.000000,Y=20.000000,Z=-30.000000))","((B=0,G=0,R=201,A=0))"
-  - [x] Replace Gl.lines with something cooler.
-  - [x] Clear console on new disk load. (Only in production.) 
-  - [x] Make workers optional / turn them back on. (but not for Meta Quest Browser).
-  - [x] Make buffers transferrable.
-  - [x] Reduce the latency of the pen information.
-  - [x] Retrieve the floor / head height information.
-  - [x] Make a "wand" / stick to draw with that comes off the VR controller. 
-  - [x] Draw a line in webXR.
-  - [x] Better output for Unreal Engine.
-  - [x] Android keyboard...
-  - [x] Save the buffered lines to indexedDB... and/or to the remote room?
-    - [x] Store and reload from indexedDB.
-    - [x] Save and load with ram storage.
-  - [🌞] Add WebXR session.
-    - [x] Use these demos.
-      - https://github.com/immersive-web/webxr-samples/blob/main/vr-barebones.html
-      - https://github.com/mrdoob/three.js/blob/master/examples/webxr_vr_paint.html
-      - https://github.com/mrdoob/three.js/blob/master/examples/js/misc/TubePainter.js
-    - [x] Future specs: https://immersive-web.github.io/raw-camera-access
-  - [no] Can the keyboard automatically open when returning back to the prompt? 
-    - (If it's not the first disk.) (All mobile platforms)
-  - [x] Don't kill the keyboard if the disk fails to load. (Meta Quest 2)
-  - [x] Get 3dline working on Firefox too.
-  - [x] Auto-expand buffer at the start of prompt.
-  - [x] Quickly going back and forth between 3dline and itself / prompt
-       will cause errors. 
-  - [x] Export an array of camera data from user, in addition to,
-       where each step / frame is not duplicated and has a time delay.
-  - [x] Add websocket support for other players and their lines.
-  - [x] Should `Race` lines be more quantized / regulated?
-  - [x] Synchronization error on 144hz displays with keep: false.
-    (Notes)
-    - The sim rate is locked at 120fps so on a 144hz display, we are gonna be
-      rendering multiple times per sim which means things like `keep: false`
-      will fail on Forms that are defined in sim. 
-    - Garbage cannot be collected after each render unless
-      the next sim has occurred... or we'll see flickering.
-    - And it cannot be collected after each sim, because the next render
-      may need it and sometimes sims only run once per frame, always before
-      a render.
-    - We can know if a render is first or a repeat since each sim.
-    - If a render is first, then we can collect any garbage from the last
-      frame before rendering.
-  - [x] Add final red tail preview to point on `lift`.
-  - [x] Add color and transparency to line.
-    - [x] Use default params to change the color on load.
-  - [x] Clean up smooth sim code.
-  - [x] Draw with left mouse button while looking with right. (via `pen`)
-  - [x] Density field idea / jiggle lines.
-  - [x] Add spline / smooth drawing support: https://threejs.org/docs/#api/en/extras/curves/CatmullRomCurve3
-    - [x] Add smooth sim. 
-    - [x] Tried and cancelled in favor of doing a lazy nezumi style physical sim in 3D.
-        (Better to filter the data on input)
-  - [x] Disable ThreeD when leaving a piece that loaded it.
-  - [x] Fix the deallocator.
-  - [x] Fix "tri's" turn update.
-  - [x] Fix "lines" no longer rendering.
-  - [x] Break line into separate marks.
-  - [x] Draw a line from the 3d cursor in 3d space.
-    - [x] Stream numbers to the GPU / don't send copies of vertices every frame?
-      - [x] Add identifiers to each Form.
-      - [x] Keep track of what identifiers got uploaded to the GPU so far
-           after each form call.
-      - [x] Only send new identifiers to the GPU.
-  - [x] Clean up the whole code and optimize the API for readability.
-  - [x] Make a good wasd / mouse fps camera.
-    - [x] Refactor existing controls to look nicer.
-    - [x] And basic touch-only controls.
-    - [x] Also add keyboard-only controls.
-  - [x] Add an X on the ground... and maybe a horizon?
-  - [x] Add triangle clipping.
-  - [x] Add line clipping.
-  - [x] Optimize screenMatrix.
-  - [x] Basic FPS Camera.
-  - [x] Make it all way faster?
-  - [x] Draw a bresenham line in 3d.
+  - [] Make a multi-user dungeon chat / room system, designed for single session play.
+   * welkum 2 mud *
+   & there r 32 playrz ONLINE
 
 ***Firefox Day***
- - [] The main cursor is not visible...
- + Done
- - [x] 3dline loading
- - [x] Smooth out everything.
+  - [] The main cursor is not visible...
+  + Done
+  - [x] 3dline loading
+  - [x] Smooth out everything.
 
 *** Developers ***
  - [] Move `maya` from glitch to ssh.
@@ -1280,154 +1003,6 @@
 
 * Recently ✅ Completed (RC) *
 
-*** Tracker ***
-  - [x] Fix buttons.
-
-*** Keyboard Input ***
-  - [x] Debug keyboard input on every device again.
-    - [x] Android
-    - [x] Meta (Seems good.) 22.11.03.23.34
-  + Done
-  - [x] Fix duplicate "Enter" event bug on desktop.
-
-*** Friendlier Developer Logs ***
-  - [x] Optimize the console.log output in production to be
-       more terse, and make common sense.
-
-***Android Day***
-  - [x] Fix keyboard controls not working (this should also fix Meta Quest 2).
-  + Done
-  - [x] Provision Android phone.
-
-*** Hex Support ***
-  - [x] Add hex support to color inputs.
-
-*** Bonus ***
-  - [x] Change `ap` -> `test`. (Rapter)
-  - [x] Detect dark mode and modify the prompt accordingly.
-
-*** 3D Renderering ***
-  + Done
-    - [x] Only load threejs if necessary.
-    - [x] Fix thread boundary conditions related to hot reloading.
-    - [x] Broken on load.
-      - [x] Fix `sim` being busted on quick reload.
-    - [x] Fix cursor transparency in 3dline.
-         (Make blend function take into account existing alpha.)
-    - [x] See if this is faster than the software renderer as-is?
-    - [x] Make sure picture ratios match up perfectly.
-    - [x] Get lines working.
-    - [x] Switch the / convert software rasterizer from left handed to right handed
-      rendering.
-      What worked on the software renderer side:
-       - Flip X and Z position of each vertex before transform.
-       - Flip X and Z rotation of each vertex before transform.
-       - Flip Y rotation of the camera before transform.
-       - Rotation matrix multiply order for camera: YXZ.
-       - Rotation matrix multiply order for vertices: XYZ.
-      + Future + Eventually I could look into using the exact same matrix data across both?
-    - [x] Get textures in there.
-    - [x] Enable all objects.
-    - [x] Optimize pixel array sending. (Had to make an extra layer)
-    - [x] Disable backface culling.
-    - [x] Make it so that "form" calls that take an array, render in 3js and return the pixels back.
-    - [x] A single "form" call should be able to send over multiple objects.
-
- *** Resize (gap-density) ***
-   - [x] Add "scale" to "paste"
-   - [x] Cursor is janky when paint returns -> false.
-
-*** Prompt ***
-- [x] Use localStorage for command history.
-  - [x] Set up general localStorage system / API.
-  - [x] Maybe it could be built off of store?
-
-*** Pieces: Prompt ***
- - [x] No more tildes for user paths...
-      Instead, use an '@' for usernames.
-      eg. sage/piece
-  - [x] Prompt
-  - [x] Index
- - [x] Up arrow for previous command. 
- - [x] Update MOTD. 
-
-*** Safari Day ***
-- [-] Thin lines appearing from `gap` and no gap in mobile Safari.
-- [x] Grey selection bubble appears in mobile Safari.
-- [x] Loading spinner not appearing in mobile Safari. 
-- [x] Fix iOS Safari page refresh bug. (Test on MacBook Pro)
-  (Needed `Vary: *` http header, to prevent Safari's cache from bugging out
-  on the SharedArrayBuffer / isolatedOrigin CORS headers.)
-
-***Tracker, Pull***
-- [x] Fix interface boxes.
-- [x] Make `boxes` test piece.
-
- ***Meta***
- - [x] Add support for custom / locally generated thumbnail overrides.
-   - [x] Test override for some specific route... maybe blank?
- - [x] Serve a 404 page for anything else that breaks.
-   - [x] Right now it just crashes here: https://aesthetic.computer/okok
-   - [x] Right now it just is black here: https://aesthetic.computer/~niki/whatever
- - [x] Do the TOML routes actually matter? No.
- - [x] Get ~/niki/blank working again.
- - [x] Separate out / parse the text before loading a disk serverside so that
-       parameterized disks work again.
- - [x] Make them work on iOS
- - [x] Write a new netlify function that returns the proper html for every page,
-       so that prerendering can be turned off (get imessage previews working).
- - [x] Should og:image and twitter:image have file extensions?
-
-***L8 Night***
-- [x] Get a debugger working. 
-
-***2D Drawing Primitives for Niki***
- - [x] line from point... at angle with distance
- 
-***Routing & Twitter Cards***
- - [X] Figure out how to get open-graph info and twitter cards working for all of a.c?
-      - [X] How should the og:images be made? Perhaps a special tool is needed or screenshots
-           can be taken automatically?
-      - [x] Set defaults if the info isn't there...
-- [x] Test Netlify pre-rendering to see if it functions.
-- [x] Use netlify's pre-rendering and (it's already turned on... and change the og:title)
-- [X] Enable Netlify pre-rendering.
-       - Validator: https://cards-dev.twitter.com/validator
-       - Prototype: https://glitch.com/edit/#!/pepper-efficacious-yellowhorn?path=index.html
- - [X] Implement path based routing for pieces via netlify and on a local dev server.
-
-***User Pieces (niki.aesthetic.computer)***
-- [x] History breaks right now across domains, because some parsing goes through the `prompt`.
-  - [x] Make sure loading using the `tilde` key works across hosts.
-  - [x] Start remote routing from boot instead of only in prompt?
-      - [x] Make a `parse.js` library file that can be used in `prompt`, then `boot`.
-      - [x] Copy the code from prompt and replicate it in boot, then
-      - [x] follow the logic through to check for inconsistencies.
-      - [x] Remove `search` from `disk.js` load. (Deprecrate reading queryParams
-        at the disk level... they should only be reserved for system settings?)
-- [x] Also, the page can't refresh and the path gets rewritten improperly. 
-- [x] Get `niki.aesthetic.computer` running.
-- [x] Get a prototype of Niki's piece working that she can actually edit as the first user.
-
-***Server Re-organization***
- - [x] Should the uploader be a serverless function? Yes!
-      (This would prevent the need for a load balancer if file uploading was a bottleneck.)
-      (Would it run locally?)
- - [x] Set netlify environment variables for the digital ocean space.
- - [x] How to run two server processes from one npm command?
- - [x] Should the websocket server run as a separate process from the http api?
- - [x] Should it run on a separate machine as of now?
-
-***Editor***
-- [-] Get socket server running under GitHub codespaces as well.
-  (wss:// is currently unsupported)
-- [x] Get the project working in GitHub codespaces.
-
-🐛 Completed Bugs & Regressions
-  - [X] Check to see why custom thumbnails are broken for remote URL disks.
-  - [X] `wg` disks no longer work 
-  - [X] Kill any microphone (or video) connection after leaving a piece it's connected to.
-  - [X] Routing: Check ~tilde~ key - don't push duplicate states in the history.
 
 
 ⏳ Investigate ⏳

@@ -7,13 +7,29 @@
 #endregion */
 
 /* #region 🏁 todo
-  - [-] Performance testing / allocation test for demo playback, especially in VR.
-        (Make it real smooth)
++ Now
+  - [🟡] Decide on a feature set for the next version / iteration.
+*** General Interest ***
+  - [] Map sound to color. (Add better sound)
+  - [] Performance testing / allocation test for demo playback,
+       especially in VR.
+  - [] Add glaze / lighting / mastering.
+  - [] Add background music if it isn't already playing.
+  - [] Lazy wand follow / rotate camera to wand situation.
+    - Touch Screen Only
+    - [] Two finger pinch to zoom and slow rotation on a touch screen.
+      - [] Progress bar doesn't always seem to hit 100%.
+      - [] Let go to snap back. 
+    - [] [WANDER] button that shows keyboard shortcut overlays /
+        touch instructions. (Add chat here?)
+  - [] Resize while reconstructing flower yields pixel buffer bugs in the console.
+  - [] Red lines of measurement cube sometimes start as black or faded.
+  - [] Create a "full playback" mode to run all the pieces.
+  - [] Add arrows to top right to move between slides?
 *** Asset Generation ***
   - [] Automate the rendering of turn-around animation GIFs.
      - [] Could this be done on a server?
-*** 1️⃣ System ***
-  *** Behavior ***
+*** Behavior ***
   - [] Decide on how to best end a demo playback / don't show wand when
        demo finishes on a purely playback url? (Keep player alive?) 
   - [] Make instant demo playback much, much faster.
@@ -22,83 +38,212 @@
   - [] Record a "wand:gesture:start" event.
   + Later
   - [] Auto jump from piece to piece / show an option?
-  *** Networking ***
+*** Networking ***
   - [] Integrate `oldwand` multiplayer architecture.
     - [] Read both pieces side by side.
     - [] Model each wand as a single skinny tube (with colored stripes).
         (Bring Tube geometry into Wand)
-  *** UI ***
+*** UI ***
   - [] Implement final keyboard controls / desktop controls / also make a UI.
   - [] Implement final mobile controls.
-*** 2️⃣ Artwork Passes ***
-  *** Metadata ***
-    - [-] Re-enable Twitter player? Check `index` and `bios` "twitter";
-      - [-] https://developer. twitter.com/en/docs/twitter-for-websites/cards/overview/player-card
-    - [x] Proofread all titles and descriptions.
-    - [x] Add metadata / attributes and tags from the Google Sheet to the JSON.
-      - [x] Ask about the Google Sheet / json generation flow.
-  *** Camera ***
+*** Metadata ***
+  - [-] Re-enable Twitter player? Check `index` and `bios` "twitter";
+    - [-] https://developer. twitter.com/en/docs/twitter-for-websites/cards/overview/player-card
+  - [x] Proofread all titles and descriptions.
+  - [x] Add metadata / attributes and tags from the Google Sheet to the JSON.
+    - [x] Ask about the Google Sheet / json generation flow.
+*** Camera ***
   - [] Reload last camera position on refresh... make sense for users too?
-+ Later / Bonus / Next Release
-- [] What would happen if I just randomly started removing or vibrating sets of vertices after
-     a piece loaded?
-- [] There should be an "inner" and "outer" triangulation option.
-      - [] Inner ONLY for complexity 1 and 2.
-      - [] Optional elsewhere.
-- [] Add a generic `turn` function to `Spider` for fun procedural stuff.
-- [] Make sure no demo can record beyond the alotted geometry MAX. See `Tube` MAX.
-- [] Upgrade demo format to support overloaded color parameters for
-      special / animated type colors.
-- [] Make a discord bot that pings the jeffrey channel for updated wand sculpture URLs /
-  - keep an automated list somewhere... maybe look at the S3 shell scripts?
-- [] Should each stroke be its own Tube in order to support different
-      geometry types? Yes if I wanna easily select and delete.
-  - Do we need that for demo recording? No...
-    - Would it be nice for the export data? Yes!
-    - Could it be added subsequently after the drawings are complete? Yes.
-    - (The files would load the same way.)
-- [] Change the top wand cursor position to something better. 
-- [] Re-enable thin line drawing.
+  + Later / Bonus / Next Release
+  - [] What would happen if I just randomly started removing or vibrating sets of vertices after
+      a piece loaded?
+  - [] There should be an "inner" and "outer" triangulation option.
+        - [] Inner ONLY for complexity 1 and 2.
+        - [] Optional elsewhere.
+  - [] Add a generic `turn` function to `Spider` for fun procedural stuff.
+  - [] Make sure no demo can record beyond the alotted geometry MAX. See `Tube` MAX.
+  - [] Upgrade demo format to support overloaded color parameters for
+        special / animated type colors.
+  - [] Make a discord bot that pings the jeffrey channel for updated wand sculpture URLs /
+    - keep an automated list somewhere... maybe look at the S3 shell scripts?
+  - [] Should each stroke be its own Tube in order to support different
+        geometry types? Yes if I wanna easily select and delete.
+    - Do we need that for demo recording? No...
+      - Would it be nice for the export data? Yes!
+      - Could it be added subsequently after the drawings are complete? Yes.
+      - (The files would load the same way.)
+  - [] Change the top wand cursor position to something better. 
+  - [] Re-enable thin line drawing.
+*** (Wand Future) ***
+  - [] Add / design / consider better touch controls. [F] [B] [W/L]
+  - [] Add circular buffer to wand lines (buffer-geometry) / infinite
+      wand with dissolving trail? Spectator mode.
+  - [] Add audio to demo recording and playback.
+  - [] Shrink three.js filesize: https://github.com/mrdoob/three.js/issues/19148
+  - [] Fix keyboard hold and drag to symbol in Meta Quest software keyboard.
+  - [] Add user connected messages.
+  - [] Better mouse and keyboard controls.
+  - [] Automatically reload the socket server?
+    - [] Try and get web sockets working locally with SSL enabled (in general).
+    - [] Try to get websockets server locally connectable in Meta Quest browser.
+         https://github.com/nekocode/Websocket-Adb-Forward/blob/master/example-py-client/client.py
+  - [] Does each player bring their lines with them?
+       (This would make their presence very important.)
+  - [] Add a "room" system.
+    - [] Just start with one room but add an abstraction layer for it soon.
+    - [] Save buffered lines via store["remote"] to the remote room.
+         (Delete everything once all clients disconnect for a certain amount
+          of time.)
+      - [] Perhaps this can just use the system ram, then dump to S3 after
+           clients disconnect?
+  - [] How to hear someone else's audio stream? https://stackoverflow.com/a/61438244/8146077
+  - [] Jiggle every two vertices the same amount so each segment
+       drifts as one and maintains its integrity / add jiggle or break-apart
+       as a toggle.
+  - [] Add ability to delete lines / limit lines.
+  - [] 🎖️ Pass the Whistlegraph accessibility/latency threshold.
+    (Must work on a wide range of devices with various connections, and
+     be fast enough or communicable enough to work.)
+    - [] Sockets can always be a fallback.
+    - [] Will require UDP over WebRTC.
+    - [] Experiment with http/3 transport as well.
+  - [] Draw in 2D draw with the mouse and project out the lines.
+       - How to switch to an orthographic camera for this?
+  - [] Free camera mode / better camera controls on keyboard and mouse.
+  - [] Bring `microphone` amplitude into `3dline`. 
+       (Draw a linear wave form spatially)
+  - [] Bring in font rendering from the plotted system font.
+  - [] Touch controls.
+  - [] Add other tools other than line.
+  - [] Add a 3d prompt so you can change tools / be more active without going 2d.
+  - [] Updates on the 3D object pipeline.
+    - [] Also be able to delete stuff from the GPU scene.
 + Done
-- [x] Switch shift and space in camdoll (space should move up).
-- [x] Show a full preview cursor while running a demo for demoWand? (Need a `demoWandCapForm`)
-- [x] Master the main materials and lights in the scene.
-  - [x] Use G key to toggle lighting.
-- [x] Generate final model assets for Unreal.
-- [x] Create a "view wand timestamp" player that loads the model as a GLTF.
-- [x] Try out different export formats. (Using glb)
-- [x] Plug metadata into preview links.
-- [x] Hook up screenshots as og:images in `thumbnail` / make a special case in index.js for freaky-flowers and ff urls...
-  - [-] Parse thumbnail parameters better / make it way faster? Eh...
-- [x‍] Take Final PNG screenshots of each work.
-- [x] Advancing a "freaky-flowers" token should advance its URL parameters.
-- [x] Generate a new GLB and JSON demo for every piece to replace each one,
-     prefixing them with their token ID.
-  - [x] Visit each piece in order, exporting a new (prefixed) demo from each.
-- [x] Produce much more accurate colors everywhere.
-- [x] Add screenshot button that works via WebGL for FF stills.
-   - [x] Orthographic camera?
-- [x] Pick final URL structure for FF.
-- [x] Get demos working.
-- [x] Send spec for Jens
-- [x] Send examples of drawings and file formats for barry.
-- [x] Disable any lame "test" keyboard controls.
-- [x] Push the viewer to the server.
-- [x] Add parameter support with a copy+paste timestamp shortcut to the prompt
-     for viewing the work.
-- [x] Add loading of JSON files via parameters in cadwand.
-- [x] Add a special line to the top of each demo file.
-- [x] Write final background color into the filename.
-- [x] Make 3 multiple properly oriented test sculptures without refreshing,
- - [x] Then check everything!
-  - [x] Playback
-  - [x] Check JSON
-  - [x] Filesize
- - [x] Orientation
- - [x] Color
- - [x] Add color palettes.
-- [x] What would it be like if I tried to rotate the form around it's center slowly...
-     in orthographic mode?
+  - [x] See `wand` todo section for pre-launch Freaky Flower items.
+  - [x] Line thickness.
+    - [x] https://codepen.io/garciahurtado/pen/WNVjog?editors=0010
+    - [x] Work on implementing: https://github.com/mrdoob/three.js/blob/master/examples/webgl_lines_fat.html
+    - [x] Tube geometry?
+    - [] Billboarded MeshLine?
+  - [x] Add CSV unreal exporter that follows this pattern:
+      ---,Vertices,Color
+      NewRow,"((X=10.000000,Y=20.000000,Z=-30.000000))","((B=0,G=0,R=201,A=0))"
+      NewRow_0,"((X=10.000000,Y=20.000000,Z=-30.000000))","((B=0,G=0,R=201,A=0))"
+  - [x] Replace Gl.lines with something cooler.
+  - [x] Clear console on new disk load. (Only in production.) 
+  - [x] Make workers optional / turn them back on. (but not for Meta Quest Browser).
+  - [x] Make buffers transferrable.
+  - [x] Reduce the latency of the pen information.
+  - [x] Retrieve the floor / head height information.
+  - [x] Make a "wand" / stick to draw with that comes off the VR controller. 
+  - [x] Draw a line in webXR.
+  - [x] Better output for Unreal Engine.
+  - [x] Android keyboard...
+  - [x] Save the buffered lines to indexedDB... and/or to the remote room?
+    - [x] Store and reload from indexedDB.
+    - [x] Save and load with ram storage.
+  - [🌞] Add WebXR session.
+    - [x] Use these demos.
+      - https://github.com/immersive-web/webxr-samples/blob/main/vr-barebones.html
+      - https://github.com/mrdoob/three.js/blob/master/examples/webxr_vr_paint.html
+      - https://github.com/mrdoob/three.js/blob/master/examples/js/misc/TubePainter.js
+    - [x] Future specs: https://immersive-web.github.io/raw-camera-access
+  - [no] Can the keyboard automatically open when returning back to the prompt? 
+    - (If it's not the first disk.) (All mobile platforms)
+  - [x] Don't kill the keyboard if the disk fails to load. (Meta Quest 2)
+  - [x] Get 3dline working on Firefox too.
+  - [x] Auto-expand buffer at the start of prompt.
+  - [x] Quickly going back and forth between 3dline and itself / prompt
+       will cause errors. 
+  - [x] Export an array of camera data from user, in addition to,
+       where each step / frame is not duplicated and has a time delay.
+  - [x] Add websocket support for other players and their lines.
+  - [x] Should `Race` lines be more quantized / regulated?
+  - [x] Synchronization error on 144hz displays with keep: false.
+    (Notes)
+    - The sim rate is locked at 120fps so on a 144hz display, we are gonna be
+      rendering multiple times per sim which means things like `keep: false`
+      will fail on Forms that are defined in sim. 
+    - Garbage cannot be collected after each render unless
+      the next sim has occurred... or we'll see flickering.
+    - And it cannot be collected after each sim, because the next render
+      may need it and sometimes sims only run once per frame, always before
+      a render.
+    - We can know if a render is first or a repeat since each sim.
+    - If a render is first, then we can collect any garbage from the last
+      frame before rendering.
+  - [x] Add final red tail preview to point on `lift`.
+  - [x] Add color and transparency to line.
+    - [x] Use default params to change the color on load.
+  - [x] Clean up smooth sim code.
+  - [x] Draw with left mouse button while looking with right. (via `pen`)
+  - [x] Density field idea / jiggle lines.
+  - [x] Add spline / smooth drawing support: https://threejs.org/docs/#api/en/extras/curves/CatmullRomCurve3
+    - [x] Add smooth sim. 
+    - [x] Tried and cancelled in favor of doing a lazy nezumi style physical sim in 3D.
+        (Better to filter the data on input)
+  - [x] Disable ThreeD when leaving a piece that loaded it.
+  - [x] Fix the deallocator.
+  - [x] Fix "tri's" turn update.
+  - [x] Fix "lines" no longer rendering.
+  - [x] Break line into separate marks.
+  - [x] Draw a line from the 3d cursor in 3d space.
+    - [x] Stream numbers to the GPU / don't send copies of vertices every frame?
+      - [x] Add identifiers to each Form.
+      - [x] Keep track of what identifiers got uploaded to the GPU so far
+           after each form call.
+      - [x] Only send new identifiers to the GPU.
+  - [x] Clean up the whole code and optimize the API for readability.
+  - [x] Make a good wasd / mouse fps camera.
+    - [x] Refactor existing controls to look nicer.
+    - [x] And basic touch-only controls.
+    - [x] Also add keyboard-only controls.
+  - [x] Add an X on the ground... and maybe a horizon?
+  - [x] Add triangle clipping.
+  - [x] Add line clipping.
+  - [x] Optimize screenMatrix.
+  - [x] Basic FPS Camera.
+  - [x] Make it all way faster?
+  - [x] Draw a bresenham line in 3d.
+  - [x] Switch shift and space in camdoll (space should move up).
+  - [x] Show a full preview cursor while running a demo for demoWand? (Need a `demoWandCapForm`)
+  - [x] Master the main materials and lights in the scene.
+    - [x] Use G key to toggle lighting.
+  - [x] Generate final model assets for Unreal.
+  - [x] Create a "view wand timestamp" player that loads the model as a GLTF.
+  - [x] Try out different export formats. (Using glb)
+  - [x] Plug metadata into preview links.
+  - [x] Hook up screenshots as og:images in `thumbnail` / make a special case in index.js for freaky-flowers and ff urls...
+    - [-] Parse thumbnail parameters better / make it way faster? Eh...
+  - [x‍] Take Final PNG screenshots of each work.
+  - [x] Advancing a "freaky-flowers" token should advance its URL parameters.
+  - [x] Generate a new GLB and JSON demo for every piece to replace each one,
+      prefixing them with their token ID.
+    - [x] Visit each piece in order, exporting a new (prefixed) demo from each.
+  - [x] Produce much more accurate colors everywhere.
+  - [x] Add screenshot button that works via WebGL for FF stills.
+    - [x] Orthographic camera?
+  - [x] Pick final URL structure for FF.
+  - [x] Get demos working.
+  - [x] Send spec for Jens
+  - [x] Send examples of drawings and file formats for barry.
+  - [x] Disable any lame "test" keyboard controls.
+  - [x] Push the viewer to the server.
+  - [x] Add parameter support with a copy+paste timestamp shortcut to the prompt
+      for viewing the work.
+  - [x] Add loading of JSON files via parameters in cadwand.
+  - [x] Add a special line to the top of each demo file.
+  - [x] Write final background color into the filename.
+  - [x] Make 3 multiple properly oriented test sculptures without refreshing,
+  - [x] Then check everything!
+    - [x] Playback
+    - [x] Check JSON
+    - [x] Filesize
+  - [x] Orientation
+  - [x] Color
+  - [x] Add color palettes.
+  - [x] What would it be like if I tried to rotate the form around it's center slowly...
+      in orthographic mode?
 #endregion */
 
 /* #region 🐕‍🦺 docs
