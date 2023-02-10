@@ -59,6 +59,7 @@ async function fun(event, context) {
       try {
         // Just whitelist freaky-flowers for now 22.11.28.13.36.
         // Also whitelist wg 22.12.25.20.28
+
         if (
           !parsed.text.startsWith("requestProvider.js.map") &&
           (parsed.text.startsWith("ff") ||
