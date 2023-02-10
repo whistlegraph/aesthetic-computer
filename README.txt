@@ -58,14 +58,16 @@
 
 🌟 Projects In Progress (PIP) 🌟
 
- - [🥬] Full readme re-org. Move TODOs into a different spot.
+- [🥬] Full readme re-org. Move TODOs into a different spot.
 
 *** New Prompt QOL Updates ***
   - [] Don't clear text on pressing return now.
   - [] Do history stack different. (Smaller text)
   - [] Skip what aliases lead to in the history list. (ff example)
+  - [] Should be able to `no` a `no!`.
 
 *** Freaky Flowers Launch ***
+    - [] Fix OpenSea mobile iframe crop.
    - Bonus
     - [] Map sound to color. (Add better sound)
     - [] Add glaze / lighting / mastering.
