@@ -58,6 +58,8 @@
 
 🌟 Projects In Progress (PIP) 🌟
 
+ - [🥬] Full readme re-org. Move TODOs into a different spot.
+
 *** New Prompt QOL Updates ***
   - [] Don't clear text on pressing return now.
   - [] Do history stack different. (Smaller text)
