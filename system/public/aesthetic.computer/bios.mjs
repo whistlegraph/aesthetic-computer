@@ -182,8 +182,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   function frame(width, height, gap = 8) {
-    // console.log("framing...", imageData);
-
     lastGap = gap;
 
     // Cache the current canvas if needed.
@@ -323,9 +321,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } * 100vh) - ${gapSize}px)`;
     */
 
-    if (imageData?.length > 0) ctx.putImageData(imageData, 0, 0);
-
-    imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    if (imageData?.length > 0) {
+      ctx.putImageData(imageData, 0, 0);
+    } else {
+      imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      // This will have zero alpha.
+    }
 
     assign(screen, { pixels: imageData.data, width, height });
 
@@ -2245,12 +2246,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (glaze.on) Glaze.update(dirtyBoxBitmapCan, db.x, db.y);
       } else if (pixelsDidChange) {
         ctx.putImageData(imageData, 0, 0); // Comment out for a `dirtyBox` visualization.
+
         paintOverlay?.();
+
         if (glaze.on) {
           ThreeD?.pasteTo(glazeCompositeCtx);
           glazeCompositeCtx.drawImage(canvas, 0, 0);
           Glaze.update(glazeComposite);
-          //Glaze.update(imageData);
         }
 
         // TODO: Is this actually updating with a blank image at first? How to prevent the glaze.clear flicker? 2022.6.8

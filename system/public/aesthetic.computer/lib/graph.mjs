@@ -383,10 +383,10 @@ function lineh(x0, x1, y) {
   x1 = floor(x1);
   y = floor(y);
 
-  if (y < 0 || y >= height) return;
+  if (y < 0 || y >= height || x0 >= width || x1 < 0) return;
 
-  x0 = clamp(x0, 0, width);
-  x1 = clamp(x1, 0, width);
+  x0 = clamp(x0, 0, width - 1);
+  x1 = clamp(x1, 0, width - 1);
 
   const firstIndex = (x0 + y * width) * 4;
   const secondIndex = (x1 + y * width) * 4;
@@ -824,7 +824,7 @@ function pline(coords, thickness, shader) {
     if (cur.color) color(...cur.color);
 
     if (shader) {
-      const progress = 1 - (i / (coords.length - 2));
+      const progress = 1 - i / (coords.length - 2);
       shadePixels(tris, shader, [progress]);
     } else {
       tris.forEach((p) => point(p));
@@ -955,7 +955,7 @@ function box() {
       y = arguments[0][1];
       w = arguments[0][2];
       h = arguments[0][3];
-    } else {
+    } else if (arguments[0]) {
       // Object {x, y, w, h}
       // Note: Also works with anything that has width and height properties.
       x = arguments[0].x || 0;
@@ -1583,7 +1583,7 @@ class Form {
   uid; // = nanoid(4); // An id to keep across threads. Takes ~4 milliseconds. 😢
 
   tag; // Gets sent to the GPU as a named / marked tag.
-       // Currently only available on `buffered` types in `3d.mjs` 23.02.07.09.46
+  // Currently only available on `buffered` types in `3d.mjs` 23.02.07.09.46
 
   // Model
   vertices = [];
