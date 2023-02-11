@@ -1049,30 +1049,74 @@ function box() {
   }
 }
 
-// TODO: The most efficient algorithm I could find for filling:
-//       https://gist.github.com/ideasman42/983738130f754ef58ffa66bcdbbab892
+// Accepts: (x, y, x, y, x, y, ...)
+//      Or: ([[x, y], [x, y], ...])
 function shape() {
-  if (arguments % 2 !== 0) {
-    // Split arguments into points.
-    let points = [];
+  let points;
+  if (arguments.length % 2 === 0) {
+    // Convert a flat list of coordinates into pairs.
+    points = [];
 
     for (let p = 0; p < arguments.length; p += 2) {
       points.push([arguments[p], arguments[p + 1]]);
     }
-
-    // Make lines from 1->2->3->...->1
-    // Draw white points for each.
-    points.forEach((p, i) => {
-      color(0, 255, 0, 100);
-      const lastPoint = i < points.length - 1 ? points[i + 1] : points[0];
-      line(...p, ...lastPoint);
-      color(255, 255, 255);
-      point(...p);
-    });
   } else {
-    console.error("Shape requires an even number of arguments: x,y,x,y...");
+    points = arguments[0]; // Assume array of pairs was passed.
+  }
+
+  fillShape(points); // Fill the shape in with the chosen color.
+
+  // Make lines from 1->2->3->...->1
+  // Draw white points for each.
+  // points.forEach((p, i) => {
+  //   color(0, 255, 0, 100);
+  //   const lastPoint = i < points.length - 1 ? points[i + 1] : points[0];
+  //   line(...p, ...lastPoint);
+  //   color(255, 255, 255);
+  //   point(...p);
+  // });
+}
+
+// Note: This may not be very fast. It was written by ChatGPT. 23.02.11.12.51
+// Note: The most efficient algorithm in C I could find as an alternate:
+//       https://gist.github.com/ideasman42/983738130f754ef58ffa66bcdbbab892
+// Fills a shape using the scan line algorithm, hitting every pixel via `point`.
+function fillShape(points) {
+  // Find the minimum and maximum y-coordinates of the points
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (let i = 0; i < points.length; i++) {
+    minY = min(minY, points[i][1]);
+    maxY = max(maxY, points[i][1]);
+  }
+
+  // For each scan line from minY to maxY
+  for (let y = minY; y <= maxY; y++) {
+    // Find the intersections of the scan line with the edges of the polygon
+    let intersections = [];
+    for (let i = 0; i < points.length; i++) {
+      let p1 = points[i];
+      let p2 = points[(i + 1) % points.length];
+      if ((p1[1] <= y && y < p2[1]) || (p2[1] <= y && y < p1[1])) {
+        let x = ((y - p1[1]) * (p2[0] - p1[0])) / (p2[1] - p1[1]) + p1[0];
+        intersections.push(x);
+      }
+    }
+
+    // Sort the intersections in increasing order
+    intersections.sort((a, b) => a - b);
+
+    // Fill in the pixels between each pair of intersections
+    for (let i = 0; i < intersections.length; i += 2) {
+      let x1 = floor(intersections[i]);
+      let x2 = ceil(intersections[i + 1]);
+      for (let x = x1; x < x2; x++) {
+        point(x, y);
+      }
+    }
   }
 }
+
 
 // Renders a square grid at x, y given cols, rows, and scale.
 // Buffer is optional, and if present will render the pixels at scale starting
