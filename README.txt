@@ -58,6 +58,8 @@
 
 🌟 Projects In Progress (PIP) 🌟
 
+ - [-] Make al.chemy.org / thePRBAT style "shape" brush at request of @artur.
+
  - [🥬] Full readme re-org. Move TODOs into a different spot.
 
 *** New Prompt QOL Updates ***
