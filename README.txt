@@ -36,7 +36,7 @@ Welcome to...
 😀 TODO 😆
 
 🐞 Annoying Bugs & Regressions 🪱
-  + API
+  - [] Apple Pencil is no longer working with brushes.
   - [] Fix painting rotate / resize cropping issue.
   - [] Fix `spray` multiplayer / socket messages not being sent regression.
   - [] Painting doesn't fully reset when resizing.
@@ -45,7 +45,7 @@ Welcome to...
   + In Production
   - [⏰] Firefox: Fix blank screen on boot.
   - [🍽️] Fix Firefox AudioWorklet Initialization Bug `Error: Module resolve hook not set`
-    - [] https://gist.github.com/lukaslihotzki/b50ccb61ff3a44b48fc4d5ed7e54303f
+  - [] https://gist.github.com/lukaslihotzki/b50ccb61ff3a44b48fc4d5ed7e54303f
   - [] Zooming in on the page a lot will make the margin too large
        and squash the main display.
   - [] The back button does not work in the Instagram in-app browser.
@@ -58,8 +58,17 @@ Welcome to...
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Ordinals Runtime ***
+  - [💚] Inscribe an initial ordinal. 
+    - [] Add pixel buffer support.
+    - [] Generate something cute out of only boxes.
+      - [] Add a simple bresenham line function w/ lineh from graph.
+      - [] Use it to draw text.
+    - [] How to write text in the corner... (Embed all the glyph data?)
+    - [x] Prototype a dynamic micro runtime of the piece API.
+
 *** Shape ***
-  - [💚] Finish prototype of filled `shape` tool.
+  - [-] Finish prototype of filled `shape` tool.
 
 *** New Prompt QOL Updates ***
   - [] Don't clear text on pressing return now.
