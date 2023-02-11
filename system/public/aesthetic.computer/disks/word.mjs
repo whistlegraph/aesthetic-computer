@@ -8,6 +8,7 @@
     - [] (Implement here then generalize for other brushes that parse
           color.) See `line` for an existing implementation.
   + Done
+    - [x] Word should start in a random place within width and height.
     - [x] Colored text with custom quoted messaged and specific scale. 
 #endregion */
 
@@ -30,7 +31,7 @@ const words = ["sad", "OK", "i'm so creative", "alright", "NEXT LEVEL"];
 // 🥾 Boot (Runs once before first paint and sim)
 function boot($) {
   $.system.nopaint.boot($); // Inherit boot functionality.
-  const { params, colon, help, screen } = $;
+  const { params, colon, help, screen, num } = $;
 
   // Parse all parameters.
   const sep = '"'; // The character to use as a separator.
@@ -84,8 +85,10 @@ function boot($) {
 
   size = parseInt(colon) || 1; // No 0, undefined or NaN.
 
-  x = screen.width / 2; // Default position is the center of the display.
-  y = screen.height / 2;
+  // x = screen.width / 2; // Default position is the center of the display.
+  // y = screen.height / 2;
+  x = num.randInt(screen.width);
+  y = num.randInt(screen.height);
 }
 
 // 🎨 Paint (Executes every display frame)
