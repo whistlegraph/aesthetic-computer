@@ -25,6 +25,7 @@ function parse(text, location = self?.location) {
   // -1. Clear any spaces.
   text = text.trim();
   text = text.replace(/ /g, "~"); // Replace all spaces with "~".
+  text = decodeURIComponent(text); // Decode any URL encoded characters.
 
   // 0. Pull of any "hash" from text.
   [text, hash] = text.split("#");

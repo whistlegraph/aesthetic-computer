@@ -1,4 +1,4 @@
-Welcome to...
+xelcome to...
 
   🧩 AESTHETIC.COMPUTER 🧩
 
@@ -58,17 +58,24 @@ Welcome to...
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Shape ***
-  - [😀] Finish prototype of filled `shape` tool.
+*** Ordinaries ***
+ + Now
+  - [-] Add label / figure out a good motif.
+ + Done
+  - [x] Inscribe a test ordinal. 
+
+*** '?' Params Generalization ***
+  - [🍏] Refreshing the page on question mark params should work...
+  - [] Colors (see `line`)
+  - [] Colon param "?" support.
 
 *** Ordinals Runtime ***
-  - [💚] Inscribe an initial ordinal. 
-    - [] Add pixel buffer support.
-    - [] Generate something cute out of only boxes.
-      - [] Add a simple bresenham line function w/ lineh from graph.
-      - [] Use it to draw text.
-    - [] How to write text in the corner... (Embed all the glyph data?)
-    - [x] Prototype a dynamic micro runtime of the piece API.
+  - [] Add pixel buffer support.
+  - [] Generate something cute out of only boxes.
+    - [] Add a simple bresenham line function w/ lineh from graph.
+    - [] Use it to draw text.
+  - [] How to write text in the corner... (Embed all the glyph data?)
+  - [x] Prototype a dynamic micro runtime of the piece API.
 
 *** New Prompt QOL Updates ***
   - [] Don't clear text on pressing return now.

@@ -15,6 +15,7 @@
 import { font1 } from "../disks/common/fonts.mjs";
 
 const { keys, entries } = Object;
+const undef = undefined;
 
 // Preloads and holds the glyphs for a system typeface.
 class Typeface {
@@ -49,34 +50,37 @@ class Typeface {
 
   // TODO: Add ability to center text on its line.
 
-  print($, pos = { x: 0, y: 0 }, lineNumber, text, bg = null) {
+  print($, pos = { x: undef, y: undef, size: 1 }, lineNumber, text, bg = null) {
     // TODO: Pass printLine params through / make a state machine.
     const font = this.glyphs;
     const lineHeightGap = 2;
-    const scale = 1;
-    const blockHeight = (this.data.glyphHeight || 9) * scale + lineHeightGap;
-    const blockWidth = 6 * scale;
+    const size = pos.size || 1;
+    const blockHeight = (this.data.glyphHeight || 9) * size + lineHeightGap;
+    const blockWidth = 6;
 
     // Set x, y position and override if centering is specified.
     let x = pos.x || 0,
       y = (pos.y || 0) + lineNumber * blockHeight;
 
     pos.center = pos.center || "";
+
     if (pos.center.includes("x")) {
-      x = $.screen.width / 2 - (text.length * blockWidth) / 2;
+      const hw = (text.length * blockWidth) / 2;
+      x = pos.x === undef ? $.screen.width / 2 - hw : x - hw;
     }
     if (pos.center.includes("y")) {
-      y = $.screen.height / 2 - blockHeight / 2;
+      const hh = blockHeight / 2;
+      y = pos.y === undef ? $.screen.height / 2 - hh : y - hh;
     }
 
     const rn = $.inkrn(); // Remember the current ink color.
 
     // Background
     if (bg !== null) {
-      $.ink(bg).box(x, y, blockWidth * scale * text.length, blockHeight);
+      $.ink(bg).box(x, y, blockWidth * size * text.length, blockHeight);
     }
 
-    $.ink(rn).printLine(text, font, x, y, blockWidth, scale); // Text
+    $.ink(rn).printLine(text, font, x, y, blockWidth, size); // Text
   }
 }
 
