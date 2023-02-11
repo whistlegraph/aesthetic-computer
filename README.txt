@@ -58,6 +58,9 @@ Welcome to...
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Shape ***
+  - [😀] Finish prototype of filled `shape` tool.
+
 *** Ordinals Runtime ***
   - [💚] Inscribe an initial ordinal. 
     - [] Add pixel buffer support.
@@ -66,9 +69,6 @@ Welcome to...
       - [] Use it to draw text.
     - [] How to write text in the corner... (Embed all the glyph data?)
     - [x] Prototype a dynamic micro runtime of the piece API.
-
-*** Shape ***
-  - [-] Finish prototype of filled `shape` tool.
 
 *** New Prompt QOL Updates ***
   - [] Don't clear text on pressing return now.

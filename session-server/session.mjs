@@ -198,7 +198,7 @@ if (dev) {
   chokidar
     .watch("../system/public/aesthetic.computer/disks")
     .on("all", (event, path) => {
-      // console.log("Disk:", event, path);
+      //console.log("Disk:", event, path);
       if (event === "change") everyone(pack("reload", { piece: "*" }, "local"));
     });
 
