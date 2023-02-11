@@ -125,6 +125,9 @@ let ALT = false, // Keyboard modifiers.
 //         duration: record duration
 function boot($) {
   const { num, help, wipe, net, params, gizmo, rec } = $;
+  $.glaze({ on: true }); // Add post-processing by @mxsage.
+
+  // Clears the pixel buffer for some lame reason?
 
   mode = params[0] || mode; // "practice" (default) or "record". (Parse params)
   if (params[0] === "r") mode = "record"; // 🧠 Shortcuts make working faster.
@@ -145,15 +148,13 @@ function boot($) {
     tf = new Typeface();
     tf.load(net.preload);
   }
-  $.glaze({ on: true }); // Add post-processing by @mxsage.
   bg = num.randIntArr(64, 3); // Random background color.
   fg = [
     num.randIntRange(200, 255),
     num.randIntRange(200, 255),
     num.randIntRange(200, 255),
   ]; // Random background color.
-  // wg = new Whistlegraph($, help.choose(1, 2)); // Whistlegraph with thickness.
-  wg = new Whistlegraph($, 2); // Whistlegraph with thickness.
+  wg = new Whistlegraph($, help.choose(1, 2, 4, 8, 16)); // Whistlegraph with thickness.
   wipe(bg); // Clear backbuffer.
 }
 
@@ -166,7 +167,7 @@ function paint($) {
     ink,
     pen,
     rec: { recording, recorded, printProgress },
-    screen: { width, height },
+    screen: { width, height, pixels },
     help,
   } = $;
 
@@ -216,6 +217,7 @@ function paint($) {
   */
 
   wg.paint($);
+
   // $.ink(255, 255, 0, 128).box(wg.anchor.x, wg.anchor.y, 8, "out*center");
 
   // Draw progress bar for video recording.
@@ -372,8 +374,7 @@ function act($) {
 
   // ✏️ Graphing
   if (e.is("touch:1")) {
-    wg.touch({ ...e, thickness: 2 /*help.choose(1, 2, 4, 8, 16) */ }); // Drawing 🤙
-    // wg.touch({ ...e, thickness: help.choose(1) }); // Drawing 🤙
+    wg.touch({ ...e, thickness: help.choose(1, 2, 4, 8, 16) }); // Drawing 🤙
   }
 
   if (e.is("draw:1")) wg.draw(e);
@@ -614,6 +615,7 @@ class Whistlegraph {
               pix[1] = vcol[1];
               pix[2] = vcol[2];
             }
+            pix[3] = 255;
           },
         });
       } else {
@@ -658,6 +660,8 @@ class Whistlegraph {
               pix[1] = (pix[1] + amp) / 2;
               pix[2] = (pix[2] + amp) / 2;
             }
+
+            pix[3] = 255;
           },
         });
       }

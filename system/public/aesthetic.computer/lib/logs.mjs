@@ -4,7 +4,7 @@
 
 export const logs = {
   store: false, // Storage (local, etc.)
-  frame: false, // Screen information / rendering framing.
+  frame: true, // Screen information / rendering framing.
   loading: false, // Preloading
   session: true, // Socket session.
   download: false, // Download progress, etc. (JSON)
