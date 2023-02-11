@@ -3,6 +3,133 @@
 
 * 23.02.10.14.42 and Earlier
 
+*** Better Logging ***
+  - [x] Create a logs.mjs file that can enable / disable certain development log flags when working, such as disabling all "store" logs.
+  
+* (Outdated) Bugs / Improvements
+  - Stop sending duplicate event data for "draw" and "touch" in `pen`.
+    - e.is("draw") && e.is("touch") should not send duplicate event {x, y} data
+  - Explore: removing: send({ type: "update", content: { didntRender: true, loading } });
+  From the bottom of `disk.js`.
+  - Add blockchain integration for identity: https://docs.moralis.io/introduction/readme
+  - Re-work the depth buffer (in the rasterizer) before making a simple 3D environment?
+  - Pass 'diskTime' global into the api.
+  - Add $api.sound.beatCount counter to `beat`.
+  - Add scriptProcessorNode fallback so audio can run within insecure contexts. (FigJam)
+  - Stop tracks in all mediaStreams: https://stackoverflow.com/a/12436772
+  (Video and Microphone)
+  - Refactor (screen.width -> screen.w & screen.height -> screen.h) across the board?
+    - To be more consistent with `graph.box`.
+  - Workers can be wrapped in this... https://benohead.com/blog/2017/12/06/cross-domain-cross-browser-web-workers/
+
+*** 🎃 DIGITPAIN ***
+ - [] Complete DIGITPAIN 0-5.
+ - [] Mint the work and have the contract made.
+ - [] Make a frame capture tool for generating webp images.
+ - [] Add the work to the JSON and release digitpain.com.
+ - [] Write a better static exporter script includes only the disks I want, plus resources.
+     - [] Automate DIGITPAIN (Teia) exports:
+            1. Clone `public` directory.
+            2. Remove any `.html` files that aren't `digitpain-ipfs-index.html`.
+            3. Process `digitpain-ipfs-index.html`, inserting info for a new mint.
+            4. Rename `digitpain-ipfs-index.html` to `index.html`.
+            3. Remove all files other than `/digitpain` and `digitpain0.js` from `disks/`.
+            4. Zip the contents so there is a zip file with one directory called `public`,
+               and rename it to `DIGITPAIN #.zip`.
+
+***Routing Longtail***
+  - [x] Do away with hashtag routes entirely.
+  - [x] Refactor ":" parameter encoding (see `wg`) into using classic url parameters.
+    - [x] Or just use one of these special characters: `. _ ~ -`
+  
+        aesthetic.computer/wg.fuzz
+        aesthetic.computer/wg_fuzz
+        aesthetic.computer/wg-fuzz
+        aesthetic.computer/wg~fuzz
+        aesthetic.computer/metronome~80~100
+  
+        aesthetic.computer/~niki/plot~40~50
+        aesthetic.computer/~niki/plot~40~50
+  
+        // Maybe the special characters could be default parameters, or represent
+        // types of some kind?
+  
+        Available domains:
+          - prompt.ac
+          - wgr.ac (whistlegraph recorder)
+          - wgl.ac (whistlegraph live)
+          - jas.ac (my new homepage)
+          - aesthetic.run
+          - aesthetic.codes
+          - aesthetic.cx
+
+*** (Outdated) 2D Whistlegraph Recorder *** (August 1st - Launch)
+  - [] Only record frames that are not part of the interface.
+    - [🟢] Make a DOM based button.
+      - [] Attach events to it... figure out the smartest way to have it connect to `function act`?
+      - [] Should I use a ShadowDOM for this or is it overkill...
+           - https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_shadow_DOM
+    OR ...
+    - [] Dump frames before painting the interface on top... via a pixel buffer
+         being sent over the worker.
+         (This might be slow)
+         (Could be useful eventually... to selectively record video of certain pixel buffers, or render frame by frame.)
+  - [] Record frames at a multiplied resolution over the original canvas.
+  - [] Complete ***Upload Server***
+  - [] Is there a way for a local install to still use codes? How would this be
+       proxied and tested? Maybe with an environment variable and a separate
+       upload server that has no expiration?
+  - [] Store the video on a camera roll in a mobile browser.
+  - [] Explore using the TikTok API Integration : https://developers.tiktok.com/apps
+   - This should allow users to save / post? their video directly to TikTok from the web.
+  - [] Two finger twist and zoom while recording... use vector data.
+  - [X] Make sure that the audio and video are synchronized across devices.
+       (Video seems delayed on iOS right now.)
+  - [X] Record and playback the user's voice in `microphone`.
+  - [X] Record the content of `microphone` as a video.
+  - [Commented Out] Add an "audio engine off" system overlay / call to action
+       that uses the DOM?
+       - [X] It should be removed... each program should handle this on its own...
+       - [X] Throw up the html if the audio engine is off and the beat function
+             has not been exported.
+       - [X] Add all the new Typefaces to CSS. (Berkeley Mono Variable, and Proce55ing)
+
+*** AV ***
+  - [x] Make sure that video encoding works on all platforms. 
+      - [x] Try implementing custom ffmpeg-core files
+      : https://github.com/ffmpegwasm/ffmpeg.wasm/issues/299
+  - [x] Add a "done" or "close" button to the recording UI / share sheet which
+          re-activates the UI.
+  - [x] Add a special UI for uploading the file / receiving a code...
+      so it's a choice?
+  - [x] Make the recording process re-entrant. (Don't reload ffmpeg each time?)  
+  - [x] Add a progress bar / interstitial that runs while the file is encoding,
+      preventing the user from being able to act.
+      - [x] Test the interaction.
+      - [x] Gray out the screen.
+  - [x] Make microphone recording button a bit nicer.
+  - [x] Add ffmpeg.wasm
+  - [x] Fix microphone record button.
+  - [x] Try to just upload the file directly here.
+  - [x] Write a netlify serverless function and call it from the microphone
+        piece... so the file can be uploaded.
+    - [x] Netlify Serverless Hello World
+    - https://www.netlify.com/blog/2021/07/29/how-to-process-multipart-form-data-with-a-netlify-function/
+
+*** Image Support ***
+  *** Save ***
+    - [x] Make it so that desktop uses the current "save-file" event route,
+          but mobile pops open a UI... 
+        - Should this UI be shared on all platforms?
+        Try web components here: https://developer.mozilla.org/en-US/docs/Web/Web_Components
+        - What does it mean to "save" an image?
+    - [x] Add API for system-wide saving of webp or png images (through nopaint).
+    - [x] Test image saving on different platforms.
+    - [x] Prototype image save function.
+  *** Load ***
+  - [x] From a URL into a buffer.
+  - [x] and then be able to paste it.
+
 ***Live Reloading***
   (Outdated)
   - [] Fix live reloading for everyone / add some people to dev server.
