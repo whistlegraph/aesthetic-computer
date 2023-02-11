@@ -1,3 +1,4 @@
+Welcome to...
 
   🧩 AESTHETIC.COMPUTER 🧩
 
@@ -57,8 +58,6 @@
 
 🌟 Projects In Progress (PIP) 🌟
 
-- [🥬] Full readme re-org. Move TODOs into a different spot.
-
 *** New Prompt QOL Updates ***
   - [] Don't clear text on pressing return now.
   - [] Do history stack different. (Smaller text)
@@ -68,9 +67,6 @@
 
 *** What is `fhell` ? ***
   - [] I don't know yet...
-
-*** Better Logging ***
-  - [x] Create a logs.mjs file that can enable / disable certain development log flags when working, such as disabling all "store" logs.
 
 *** VS Code Extension ***
   - [] Make VSCode extension / back-seat document API (maya).
@@ -416,10 +412,10 @@
   - [x] Smooth out everything.
 
 *** Developers ***
- - [] Move `maya` from glitch to ssh.
-  - [] Document each step so that I can script adding new users in the future.
- - [] Figure out how to best automate the addition of a new developer... 
- - [] Why isn't artur's ssh key working?
+  - [] Move `maya` from glitch to ssh.
+   - [] Document each step so that I can script adding new users in the future.
+  - [] Figure out how to best automate the addition of a new developer... 
+  - [] Why isn't artur's ssh key working?
 
 *** New Repo / Asset Management ***
   - [x] Hook up whistlegraph assets to assets.aesthetic.computer
@@ -432,20 +428,11 @@
   - [] Digitpain assets are also affected, to their references would
        need to be rewritten in the future.
 
-
-*** Sage Session TODOs ***
- - [] make sure color attributes work for QUADS.
- - [] flip the y on camera position initializer.
- - [] `Form` should scale and then rotate. See `Form.graph`.
- - [] `Form` should have a point / points option.
- - [] `point` primitive that is below forms. 
- - [] Make color vertices work in software3D.  
-
 *** i ***
  - [] Make `i` 2D multiplayer with UDP. 
 
 *** Ambient Presence ***
- - [] No matter what disk you're on... queue into the ambient presence of others. You should be able to meet others.
+  - [] No matter what disk you're on... queue into the ambient presence of others. You should be able to meet others.
 
 *** Palette ***
   - [] Create a basic palette that enables one finger drawing. 
@@ -454,8 +441,8 @@
   - [] Add "sign" and "mint" to palette as well.
 
 *** p1xelfool additions ***
- - [] Complete TODOS @p1xelgool/blank. 
- - [x] Add ability to directly manipulate the buffer again. (Via `edit`)
+  - [] Complete TODOS @p1xelgool/blank. 
+  - [x] Add ability to directly manipulate the buffer again. (Via `edit`)
 
 *** (`turtle` / `spider`) ***
   - [] Simplify and generalize the Spider out of Wand.
@@ -505,11 +492,8 @@
       4. The slider can message the piece with a new value. 
       5. The piece can return other data, like color, for the slider.
 
-*** Native Apps ***
-
 ***Walkie Talkie***
   - [] Maybe recordings / videos can be sent back and forth between two parties?
-
   - Research: https://capacitorjs.com
   - And/or continue to use my own shim?
 
@@ -523,11 +507,11 @@
   - [] Add better hex support to color via: https://stackoverflow.com/a/53936623/8146077
 
 ** Mood ***
- - [] Select a mood to change the default color palette.
- - [] Prototype this work in prompt.
- - [] A scheme map:
-      - [x] Dark / Light Moods (via prompt)
-      - [] Primary or major colors.
+  - [] Select a mood to change the default color palette.
+  - [] Prototype this work in prompt.
+  - [] A scheme map:
+       - [x] Dark / Light Moods (via prompt)
+       - [] Primary or major colors.
 
 *** Autopilot / ap ***
   - [] Consider how this could become the next nopaint?
@@ -588,140 +572,71 @@
    - [x] Set up a developers / "pieces" SSH server.
    - [x] Prototype live editing with SSH and live share?
 
-*** Image Support ***
-  *** Save ***
-    - [🔶] Make it so that desktop uses the current "save-file" event route,
-          but mobile pops open a UI... 
-        - Should this UI be shared on all platforms?
-        Try web components here: https://developer.mozilla.org/en-US/docs/Web/Web_Components
-        - What does it mean to "save" an image?
-    - [x] Add API for system-wide saving of webp or png images (through nopaint).
-    - [x] Test image saving on different platforms.
-    - [x] Prototype image save function.
-  *** Load ***
-  - [x] From a URL into a buffer.
-  - [x] and then be able to paste it.
-
 ***Audio + Video Storage (Microphone)***
- + Now
-  - [🔶] Make sure that video encoding works on all platforms. 
-      - [] Try implementing custom ffmpeg-core files
-      : https://github.com/ffmpegwasm/ffmpeg.wasm/issues/299
-  - [🌟] Add a "done" or "close" button to the recording UI / share sheet which
-         re-activates the UI.
-  - [] Add a special UI for uploading the file / receiving a code...
-      so it's a choice?
-  - [] Make the recording process re-entrant. (Don't reload ffmpeg each time?)  
   - [] Check to see if ffmpeg encoding can be skipped if the browser doesn't need to do it.
   - [] FFMPEG does not work offline: https://unpkg.com/@ffmpeg/core@0.10.0/dist/ffmpeg-core.js - https://github.com/ffmpegwasm/ffmpeg.wasm#why-it-doesnt-work-in-my-local-environment
-  + Later
-  - [] Add more pointerevents to make a better / final record button: https://developer.mozilla.org/en-US/docs/Web/API/Pointer_events
- + Done
-  - [x] Add a progress bar / interstitial that runs while the file is encoding,
-      preventing the user from being able to act.
-      - [x] Test the interaction.
-      - [x] Gray out the screen.
-  - [x] Make microphone recording button a bit nicer.
-  - [x] Add ffmpeg.wasm
-  - [x] Fix microphone record button.
-  - [x] Try to just upload the file directly here.
-  - [x] Write a netlify serverless function and call it from the microphone
-        piece... so the file can be uploaded.
-    - [x] Netlify Serverless Hello World
-    - https://www.netlify.com/blog/2021/07/29/how-to-process-multipart-form-data-with-a-netlify-function/
-
-***2D Whistlegraph Recorder*** (August 1st - Launch)
- - [] Only record frames that are not part of the interface.
-   - [🟢] Make a DOM based button.
-     - [] Attach events to it... figure out the smartest way to have it connect to `function act`?
-     - [] Should I use a ShadowDOM for this or is it overkill...
-          - https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_shadow_DOM
-   OR ...
-   - [] Dump frames before painting the interface on top... via a pixel buffer
-        being sent over the worker.
-        (This might be slow)
-        (Could be useful eventually... to selectively record video of certain pixel buffers, or render frame by frame.)
- - [] Record frames at a multiplied resolution over the original canvas.
- - [] Complete ***Upload Server***
- - [] Is there a way for a local install to still use codes? How would this be
-      proxied and tested? Maybe with an environment variable and a separate
-      upload server that has no expiration?
- - [] Store the video on a camera roll in a mobile browser.
- - [] Explore using the TikTok API Integration : https://developers.tiktok.com/apps
-  - This should allow users to save / post? their video directly to TikTok from the web.
- - [] Two finger twist and zoom while recording... use vector data.
- - [X] Make sure that the audio and video are synchronized across devices.
-      (Video seems delayed on iOS right now.)
- - [X] Record and playback the user's voice in `microphone`.
- - [X] Record the content of `microphone` as a video.
- - [Commented Out] Add an "audio engine off" system overlay / call to action
-      that uses the DOM?
-      - [X] It should be removed... each program should handle this on its own...
-      - [X] Throw up the html if the audio engine is off and the beat function
-            has not been exported.
-      - [X] Add all the new Typefaces to CSS. (Berkeley Mono Variable, and Proce55ing)
 
  ***Upload Server***
- [] 1. Show the media (video) in a div overlay with a "Retry" or "Done" button.
-   A. Retry - Removes the modal div and lets you re-record again.
-   B. Done - Allows you to download the file immediately (if possible),
-             and uploads it, giving you the code no matter what.
-                             (The code page layout could be shared here.)
-
- [] 2. After the file uploads...
-   A. You can also have the option to "Post" or "Publish?" which
-   will make the work available as part of an ever-growing collection.
-     - Idea: Posts are automatically minted to our wallet, but can optionally
-             be minted to a poster's wallet if they decide to connect.
-   B. Regardless, the file stored at the code will be deleted in 24 hours.
-     - [X] Setting expiration policies on DO spaces: https://www.howtogeek.com/devops/how-to-set-an-expiration-policy-on-digitalocean-spaces-buckets
-     - [X] Follow along with – https://www.digitalocean.com/community/tutorials/how-to-upload-a-file-to-object-storage-with-node-js
-                            - Using multipart-form-data
-          Using             - https://www.npmjs.com/package/fastify-multer
-          Get code via      - https://glitch.com/edit/#!/nopaint-server?path=server.js
-     - Inside of TikTok
-       - Tell the user their video is ready and they can visit
-         aesthetic.computer/CODE in a browser
-         to download their video, which expires after 5 minutes.
-
-         aesthetic.computer/microphone -> aesthetic.computer/dl.bn67gff5
-         aesthetic.computer/get.dfcx4
-
-         After recording in the microphone, you get this...
-
-         aesthetic.computer/mic -> aesthetic.codes/bn67gff5
-         ... or
-         aesthetic.computer/mic -> codes.ac/bn67gff5
-           (where codes.ac/bn67gff5 -> aesthetic.computer/codes.bn67gff5)
-           (and the resource is stored at -> bin.aesthetic.computer/bn67gff5.ext)
-                                             art.aesthetic.computer/...
-
-         A pop-up that shows a QR code / a code to enter into aesthetic.codes.
-         Upon visiting aesthetic.codes...
-     - iOS or Android Mobile Browser or Desktop Browser
-       - 1. Show a download button
-     - in a native iOS app
-       - let the user download the video immediately to their camera roll
-     - Where do recordings / files get stored? What is the userflow...
-       - Do they get stored at a special code, then users can
-         go to the website / open another window and mint from the code
-         or download it?
- - [] Look into categorizing uploaded objects with tags...
- https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-tagging.html
- - [] And making use of user defined metadata in s3.
-      These would be great for custom file properties likw
-      what piece was used to make the art / object and what git commit
-      of the project was used or something like that...
+   [] 1. Show the media (video) in a div overlay with a "Retry" or "Done" button.
+     A. Retry - Removes the modal div and lets you re-record again.
+     B. Done - Allows you to download the file immediately (if possible),
+               and uploads it, giving you the code no matter what.
+                               (The code page layout could be shared here.)
+  
+   [] 2. After the file uploads...
+     A. You can also have the option to "Post" or "Publish?" which
+     will make the work available as part of an ever-growing collection.
+       - Idea: Posts are automatically minted to our wallet, but can optionally
+               be minted to a poster's wallet if they decide to connect.
+     B. Regardless, the file stored at the code will be deleted in 24 hours.
+       - [X] Setting expiration policies on DO spaces: https://www.howtogeek.com/devops/how-to-set-an-expiration-policy-on-digitalocean-spaces-buckets
+       - [X] Follow along with – https://www.digitalocean.com/community/tutorials/how-to-upload-a-file-to-object-storage-with-node-js
+                              - Using multipart-form-data
+            Using             - https://www.npmjs.com/package/fastify-multer
+            Get code via      - https://glitch.com/edit/#!/nopaint-server?path=server.js
+       - Inside of TikTok
+         - Tell the user their video is ready and they can visit
+           aesthetic.computer/CODE in a browser
+           to download their video, which expires after 5 minutes.
+  
+           aesthetic.computer/microphone -> aesthetic.computer/dl.bn67gff5
+           aesthetic.computer/get.dfcx4
+  
+           After recording in the microphone, you get this...
+  
+           aesthetic.computer/mic -> aesthetic.codes/bn67gff5
+           ... or
+           aesthetic.computer/mic -> codes.ac/bn67gff5
+             (where codes.ac/bn67gff5 -> aesthetic.computer/codes.bn67gff5)
+             (and the resource is stored at -> bin.aesthetic.computer/bn67gff5.ext)
+                                               art.aesthetic.computer/...
+  
+           A pop-up that shows a QR code / a code to enter into aesthetic.codes.
+           Upon visiting aesthetic.codes...
+       - iOS or Android Mobile Browser or Desktop Browser
+         - 1. Show a download button
+       - in a native iOS app
+         - let the user download the video immediately to their camera roll
+       - Where do recordings / files get stored? What is the userflow...
+         - Do they get stored at a special code, then users can
+           go to the website / open another window and mint from the code
+           or download it?
+   - [] Look into categorizing uploaded objects with tags...
+   https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-tagging.html
+   - [] And making use of user defined metadata in s3.
+        These would be great for custom file properties likw
+        what piece was used to make the art / object and what git commit
+        of the project was used or something like that...
       
 *** Pieces: Run&Gun ***
-- [] Make a basic character with multi-platform controls.
-- [] Make a ground for them to run on back and forth.
-- [] Make something dangerous that can easily kill them. 
-- [] Add a timer.
-- [] Use screen.save and screen.load functionality for scorekeeping.
+ - [] Make a basic character with multi-platform controls.
+ - [] Make a ground for them to run on back and forth.
+ - [] Make something dangerous that can easily kill them. 
+ - [] Add a timer.
+ - [] Use screen.save and screen.load functionality for scorekeeping.
 
 *** Cool Debug Feature ***
-- [] Log / visualize all thread communicated messages.
+  - [] Log / visualize all thread communicated messages.
   - [] Add it to the definition of send, on both sides.
 
 *** MIDI / Analyzer Demo ***
@@ -729,27 +644,27 @@
   - [] Convert to midi notes and send out from the tab.
 
 ***Bleep***
- + Now
-  - [] Support more wave types in `lib/speaker`.
-    - [] Sine
-    - [] Triangle
-    - [x] Square
- + Later
-  - [] Add support for playing samples.
-  - [] Add the ability to play sound from other top level functions.
- + Complete
-  - [x] Test multi-touch support on a phone.
-  - [x] Add multi-touch support through bleep, via `pen`.
-    - [x] Add support to `bleep`.
-      - ui.mjs:69, bleep.mjs:162
-      - Sidenote: https://marketplace.visualstudio.com/items?itemName=alefragnani.Bookmarks
-    - [x] Write a `multipen` implementation example with a simple API.
-  - [x] Why does the board generate twice on first load.
-  - [x] Support roll-over after touch.
-  - [x] Hide cursor on finger action, but show it during mouse action.
-  - [x] Resize window support.
-  - [x] Make a basic bleep box that makes a tone when you tap on it.
-  - [x] Automatically generate bleep grids with a command line parameter for WxH.
+  + Now
+   - [] Support more wave types in `lib/speaker`.
+     - [] Sine
+     - [] Triangle
+     - [x] Square
+  + Later
+   - [] Add support for playing samples.
+   - [] Add the ability to play sound from other top level functions.
+  + Complete
+   - [x] Test multi-touch support on a phone.
+   - [x] Add multi-touch support through bleep, via `pen`.
+     - [x] Add support to `bleep`.
+       - ui.mjs:69, bleep.mjs:162
+       - Sidenote: https://marketplace.visualstudio.com/items?itemName=alefragnani.Bookmarks
+     - [x] Write a `multipen` implementation example with a simple API.
+   - [x] Why does the board generate twice on first load.
+   - [x] Support roll-over after touch.
+   - [x] Hide cursor on finger action, but show it during mouse action.
+   - [x] Resize window support.
+   - [x] Make a basic bleep box that makes a tone when you tap on it.
+   - [x] Automatically generate bleep grids with a command line parameter for WxH.
 
 ***Don't Go Upstairs***
   + Plans
@@ -910,36 +825,10 @@
   - Provision a machine that can actually execute `npx playwright install chrome`.
   - [] Optimize netlify function... switch to jpeg to see if it's any faster? 
 
-***Routing Longtail***
-- [] Do away with hashtag routes entirely.
-- [] Refactor ":" parameter encoding (see `wg`) into using classic url parameters.
-  - [] Or just use one of these special characters: `. _ ~ -`
-
-      aesthetic.computer/wg.fuzz
-      aesthetic.computer/wg_fuzz
-      aesthetic.computer/wg-fuzz
-      aesthetic.computer/wg~fuzz
-      aesthetic.computer/metronome~80~100
-
-      aesthetic.computer/~niki/plot~40~50
-      aesthetic.computer/~niki/plot~40~50
-
-      // Maybe the special characters could be default parameters, or represent
-      // types of some kind?
-
-      Available domains:
-        - prompt.ac
-        - wgr.ac (whistlegraph recorder)
-        - wgl.ac (whistlegraph live)
-        - jas.ac (my new homepage)
-        - aesthetic.run
-        - aesthetic.codes
-        - aesthetic.cx
-
-**Image Viewer / Media Viewer**
- - [] Write a great image-viewer that implements the `rdp` piece.
- - [] Also implement `tumpin`, `ten-minute-painting`, and `basedballz`.
- - [] Add my small series of Tezos 1of1s as well: `emokidpix` and `1bits`.
+***Image Viewer / Media Viewer**
+  - [] Write a great image-viewer that implements the `rdp` piece.
+  - [] Also implement `tumpin`, `ten-minute-painting`, and `basedballz`.
+  - [] Add my small series of Tezos 1of1s as well: `emokidpix` and `1bits`.
 
 ***Model Viewer***
  - [] Implement <model-viewer> for my 3d glb files so that when I share
@@ -948,38 +837,29 @@
       - https://modelviewer.dev/examples/twitter/generator.html
 
 🪟 Browser Quirks
- - [] Development server only: videos don't load in Firefox (tested on Windows). 2022.05.07.00.01
- - [] Make the cursor faster / match the speed of the native cursor.
+  - [] Development server only: videos don't load in Firefox (tested on Windows). 2022.05.07.00.01
+  - [] Make the cursor faster / match the speed of the native cursor.
 
-*** 🎃 DIGITPAIN ***
- - [] Complete DIGITPAIN 0-5.
- - [] Mint the work and have the contract made.
- - [] Make a frame capture tool for generating webp images.
- - [] Add the work to the JSON and release digitpain.com.
- - [] Write a better static exporter script includes only the disks I want, plus resources.
-     - [] Automate DIGITPAIN (Teia) exports:
-            1. Clone `public` directory.
-            2. Remove any `.html` files that aren't `digitpain-ipfs-index.html`.
-            3. Process `digitpain-ipfs-index.html`, inserting info for a new mint.
-            4. Rename `digitpain-ipfs-index.html` to `index.html`.
-            3. Remove all files other than `/digitpain` and `digitpain0.js` from `disks/`.
-            4. Zip the contents so there is a zip file with one directory called `public`,
-               and rename it to `DIGITPAIN #.zip`.
+***Transcribe the original Proce55ing typeface***
 
-🌟 Next In Line 🌟
- ***Transcribe the original Proce55ing typeface***
-
- ***Multi-player Drawing / Core Drawing***
+***Multi-player Drawing / Core Drawing***
   - [] Allow users to join / create rooms with codes (QR codes esp.)
   - [] Abstract `line` and `spline` into `nail`. See also: `gesture`.
   - [] Add sound to `nail`.
   - [] Use https://wicg.github.io/video-rvfc/ for video frame updates.
 
- ***No Paint***
+***No Paint***
   - [] Should the old nopaint.art be reachable from within aesthetic.computer
   - [] Should a new nopaint be built from scratch?
 
- ❤️Side Missions❤️
+
+***Sidelight***
+  - A light you can set the color off.
+  - Make it flicker.
+  - Have presets.
+  - Very useful for making videos with an extra device!
+
+❤️ Side Missions ❤️
   - [] Finish learning about Tezos, LIGO: https://academy.ligolang.org/pascal/chapter-types
   - [] Chalkboard / material simulation.
   - [] Try and get fullscreen on iOS / iPadOS again... maybe sideload the app shim?
@@ -999,142 +879,6 @@
        See also: https://web.dev/file-system-access
        And: https://googlechromelabs.github.io/text-editor
   - [] Make a VSCode extension that opens an official aesthetic.computer pane?
-
-
-* Recently ✅ Completed (RC) *
-
-
-
-⏳ Investigate ⏳
-
-* Bugs / Improvements
-
-  Stop sending duplicate event data for "draw" and "touch" in `pen`.
-    - e.is("draw") && e.is("touch") should not send duplicate event {x, y} data
-    
-  Explore: removing: send({ type: "update", content: { didntRender: true, loading } });
-  From the bottom of `disk.js`.
-
-  Add blockchain integration for identity: https://docs.moralis.io/introduction/readme
-  
-  Re-work the depth buffer (in the rasterizer) before making a simple 3D environment?
-
-  Pass 'diskTime' global into the api.
-
-  Add $api.sound.beatCount counter to `beat`.
-
-  Add scriptProcessorNode fallback so audio can run within insecure contexts. (FigJam)
-
-  Stop tracks in all mediaStreams: https://stackoverflow.com/a/12436772
-  (Video and Microphone)
-
-  Refactor (screen.width -> screen.w & screen.height -> screen.h) across the board?
-    - To be more consistent with `graph.box`.
-
-  Workers can be wrapped in this... https://benohead.com/blog/2017/12/06/cross-domain-cross-browser-web-workers/
-
-
-* Ideas
-
-  Sidelight
-    - A light you can set the color off.
-    - Make it flicker.
-    - Have presets.
-    - Very useful for making videos with an extra device!
-
-  Generative tone matrix.
-    - Make microtonal grids of different sizes that can be easily played on
-      any device. Use options to specify or control the parameters of the
-      instrument.
-    - Sliding your finger across notes is different from tapping.
-    - It should be easy to record a video and/or audio.
-
-  Rewrite my old Python `Diary` program.
-    - Mint diary entries.
-
-  Remake Shrub
-
-  Improve documentation.
-    - In console when the whole thing opens.
-    - Have a global keyboard shortcut to spit documentation to console... for each
-      function!
-    - Get jsDocs working: https://jsdoc.app/about-configuring-jsdoc.html
-
-  Make Shrub.
-
-  Development Improvements
-    Would the best way to produce a scripting language be by making a fully
-    curry-able system or some domain specific languages using `` then
-    combining them?
-    -- See here for a notation example of inline s-expressions: https://hag.codes
-
-    Could an editing session or new disk be started from the prompt? Maybe it
-    could load a GitHub codespace?
-
-    - How to make use of xterm.js? Could it be used for this project or not...
-
-  Implement drawing / gesture based disk launchers from the prompt.
-
-  Take over right click so no context menu shows up.
-
-  Ink types? ... can they be procedural using a buffer?
-
-  What would a build script for releasing a single disk or
-  stack of disks look like?
-
-    1. Make a new directory D for the build.
-    2. Copy a subset of /disks/public to D/disks
-    3. Copy index.html, style.css, boot-rolled.js and /computer to D.
-    4. Modify boot-rolled.js to start loading from the first listed disk.
-    5. Generate metadata.json for the work.
-    6. Zip and upload to fxHash or put whole directory into Pinata.
-    7. Test to make sure everything works.
-    8. Mint on a contract (or Cancel and remove files from IPFS).
-
-  What would a full system / suite release look like?
-
-    Using the build script with a set of chosen disks where the main
-    disk is a shell interface.
-
-    Document the API by generating the commands inside a disk and print
-    them to the console using keyboard shortcuts.
-
-    - [] Generate full API docs in the prompt disk.
-
-  Make my first generative disk / piece and mint it.
-    - Test it in Chrome / Safari / and Firefox.
-    - In larger multi-disk IPFS exports, a new root path must be defined other
-      than `prompt`. See disk.js `load` function.
-
-  Make a quick fullscreen button (make a new keyboard input module).
-
-  Fix Firefox: https://bugzilla.mozilla.org/show_bug.cgi?id=1247687
-
-  Add a new deployment scheme that actually allows my websocket server to
-  function... this might mean leaving behind Vercel or configuring it
-  for different directories in my repository, running separate server code
-  for sockets.
-
-  Add syntax notification of some kind for disk files, using a comment at
-  the top. This would eventually allow me to completely
-  change from JavaScript.
-
-  Add stochastic syntax / DSL for basic drawing?
-  Example: wipe.ink.line.line.line.ink("red").box;
-
-  What cryptocurrency / web3.js lib would I hook an editor up to
-  for minting, uploading edition data, etc?
-
-  Make a video-recording app that generates 3 letter codes? - to augment
-  my hand-written notes and pages.
-
-  Add ability to define the logical / simulation framerate.
-
-  Give myself the ability to automate testing of system using "robot".
-
-  Write a simple note taking program with saving and loading of drawings
-  and also recording and playback?
-
 
 🎃 SETUP 💾
 
