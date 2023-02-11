@@ -3,6 +3,13 @@
 
 * 23.02.10.14.42 and Earlier
 
+*** Type ***
+  - [x] Start up a `write` / `text` brush so I can print
+        text at various scales.
+
+*** Shape ***
+  - [x] Finish prototype of filled `shape` tool.
+
 *** Better Logging ***
   - [x] Create a logs.mjs file that can enable / disable certain development log flags when working, such as disabling all "store" logs.
   
