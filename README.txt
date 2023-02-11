@@ -35,7 +35,7 @@ Welcome to...
 
 😀 TODO 😆
 
-🐞 Annoying Bugs & Regressions
+🐞 Annoying Bugs & Regressions 🪱
   + API
   - [] Fix painting rotate / resize cropping issue.
   - [] Fix `spray` multiplayer / socket messages not being sent regression.
@@ -56,7 +56,10 @@ Welcome to...
   - [x] Chained paint functions do not respect inkrn.
   - [x] Check `wg` and `ff` and other disks including the prompt in the Instagram in-app browser!
 
-🌟 Projects In Progress (PIP) 🌟
+🌟 Projects in Progress (PIP) 🌟
+
+*** Shape ***
+  - [💚] Finish prototype of filled `shape` tool.
 
 *** New Prompt QOL Updates ***
   - [] Don't clear text on pressing return now.
