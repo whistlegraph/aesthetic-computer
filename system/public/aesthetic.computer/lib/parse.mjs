@@ -20,7 +20,6 @@
 
 function parse(text, location = self?.location) {
   let path, host, params, search, hash;
-  // console.log("Parsing:", text);
 
   // -1. Clear any spaces.
   text = text.trim();
@@ -32,9 +31,14 @@ function parse(text, location = self?.location) {
 
   // 1. Pull off any "search" from `text`, ignoring any question mark
   //    characters that were part of the piece slug.
+
+  // TODO: This does not keep the question marks on this string but it should... https://localhost:8888/line:5~?~?~?
+
   let searchIndex = text.search(/[^~]\?[^~]/); // Filter out single question mark params.
   if (searchIndex >= 0) {
-    [text, search] = text.split("?");
+    // [text, search] = text.split("?");
+    text = text.substring(0, searchIndex + 1);
+    search = text.substring(searchIndex + 1);
   }
 
   // TODO: When to parse the search query string into a URLSearchParams object?
@@ -98,8 +102,8 @@ function slug(url) {
     .replace(/^http(s?):\/\//i, "")
     .replace(window.location.hostname + ":" + window.location.port + "/", "")
     .replace(window.location.hostname + "/", "")
-    .split("#")[0] // Remove any hash.
-    .split("?")[0]; // Remove any search param.
+    .split("#")[0]; // Remove any hash.
+    // .split("?")[0]; // Remove any search param.
 }
 
 // Generates some metadata fields that are shared both on the client and server.

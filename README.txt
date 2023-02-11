@@ -65,9 +65,10 @@ xelcome to...
   - [x] Inscribe a test ordinal. 
 
 *** '?' Params Generalization ***
-  - [🍏] Refreshing the page on question mark params should work...
-  - [] Colors (see `line`)
-  - [] Colon param "?" support.
+   - [] Colors (see `line`)
+   - [] Colon param "?" support.
+  + Done
+   - [x] Refreshing the page on question mark params should work...
 
 *** Ordinals Runtime ***
   - [] Add pixel buffer support.
