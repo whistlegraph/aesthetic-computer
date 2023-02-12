@@ -58,6 +58,14 @@ Welcome to...
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** New Prompt QOL Updates ***
+  - [] Do history stack different. (Smaller text)
+  - [] Skip what aliases lead to in the history list. (ff example)
+  - [] Should be able to `no` a `no!` in other words `no!` should just
+  + Done
+  - [x] Don't clear text automatically on sending input. 
+       be a wipe!
+
 *** Ordinaries ***
  + Now
   - [-] Add label / figure out a good motif.
@@ -77,13 +85,6 @@ Welcome to...
     - [] Use it to draw text.
   - [] How to write text in the corner... (Embed all the glyph data?)
   - [x] Prototype a dynamic micro runtime of the piece API.
-
-*** New Prompt QOL Updates ***
-  - [] Don't clear text on pressing return now.
-  - [] Do history stack different. (Smaller text)
-  - [] Skip what aliases lead to in the history list. (ff example)
-  - [] Should be able to `no` a `no!` in other words `no!` should just
-       be a wipe!
 
 *** What is `fhell` ? ***
   - [] I don't know yet...
