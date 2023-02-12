@@ -14,7 +14,7 @@ import * as help from "./help.mjs";
 import * as platform from "./platform.mjs";
 import { parse, metadata } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
-//import { UDP } from "./udp.mjs"; // TODO: Eventually expand to `net.Socket`
+// import { UDP } from "./udp.mjs"; // TODO: Eventually expand to `net.Socket`
 import { notArray } from "./helpers.mjs";
 const { round } = Math;
 import { nopaint_boot, nopaint_act } from "../systems/nopaint.mjs";
@@ -65,19 +65,28 @@ const nopaint = {
     $.system.nopaint.act($);
   },
   leave: function leave({ store, system, page, screen }) {
-    // Why is screen empty here?
-    if (NPdontPaintOnLeave === false) {
-      page(system.painting).paste(screen);
-      painting.paint(); // TODO: Why is this here?
-      page(screen);
+    if (NPnoOnLeave === false) {
+      // ^ Flag set when reloading a brush without storing changes.
+      if (NPdontPaintOnLeave === false) {
+        page(system.painting).paste(screen);
+        painting.paint(); // TODO: Why is this here?
+        page(screen);
+      }
+
+      addUndoPainting(system.painting);
+      // TODO: Check to see if anything actually got painted... by doing
+      //       a diff on the pixels?
+
+      store["painting"] = system.painting;
+      store.persist("painting", "local:db");
+    } else {
+      const paintings = system.nopaint.undo.paintings;
+      page(system.painting)
+        .paste(paintings[paintings.length - 1])
+        .page(screen);
     }
 
-    // TODO: Check to see if anything actually got painted... by doing
-    //       a diff on the pixels?
-    addUndoPainting(system.painting);
-
-    store["painting"] = system.painting;
-    store.persist("painting", "local:db");
+    NPnoOnLeave = false;
   },
 };
 
@@ -244,6 +253,7 @@ let wiggleAngle = 0;
 
 // TODO; Change this to true and update all brushes.
 let NPdontPaintOnLeave = false;
+let NPnoOnLeave = false;
 
 // 🔴 Recorder (Singleton)
 class Recorder {
@@ -326,9 +336,10 @@ const $commonApi = {
   },
   system: {
     nopaint: {
-      boot: nopaint_boot,
+      boot: nopaint_boot, // TODO: Why are these in the commonApi? 23.02.12.14.26
       act: nopaint_act,
       undo: { paintings: undoPaintings },
+      abort: () => (NPnoOnLeave = true),
     },
   },
   connect: () => {
@@ -1159,7 +1170,7 @@ async function load(parsed, fromHistory = false, alias = false) {
   $commonApi.debug = debug;
 
   // Add reload to the common api.
-  $commonApi.reload = ({ piece, code }) => {
+  $commonApi.reload = ({ piece, code } = {}) => {
     if (piece === "*refresh*") {
       console.log("💥️ Restarting system...");
       send({ type: "refresh" }); // Refresh the browser.

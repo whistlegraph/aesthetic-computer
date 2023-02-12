@@ -3,6 +3,10 @@
 
 * 23.02.10.14.42 and Earlier
 
+*** No Paint QOL Shotcuts ***
+  - [x] 'n' Shortcut to paint and reload the same brush.
+  - [x] 'p' Shortcut to reload the same brush without painting. 
+
 *** Type ***
   - [x] Start up a `write` / `text` brush so I can print
         text at various scales.

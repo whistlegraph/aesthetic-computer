@@ -96,6 +96,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let needsReframe = false;
   let needsReappearance = false;
   let freezeFrame = false,
+    freezeFrameFrozen = false,
     freezeFrameGlaze = false;
 
   const screen = apiObject("pixels", "width", "height");
@@ -227,12 +228,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // ffCtx.fillRect(0, 0, ffCtx.canvas.width, ffCtx.canvas.height);
         freezeFrameGlaze = false;
       } else {
-        ffCtx.putImageData(imageData, 0, 0); // TODO: Fix source data detached error here.
+        ffCtx.drawImage(canvas, 0, 0);
+        // ffCtx.putImageData(imageData, 0, 0); // TODO: Fix source data detached error here.
       }
 
       if (!wrapper.contains(freezeFrameCan)) wrapper.append(freezeFrameCan);
       else freezeFrameCan.style.removeProperty("opacity");
       canvas.style.opacity = 0;
+      freezeFrameFrozen = true;
     }
 
     // Find the width and height of our default screen and native projection.
@@ -2311,7 +2314,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // console.log("Cached...");
     }
 
-    if (freezeFrame) {
+    // Hide the freezeFrame.
+    if (freezeFrame && freezeFrameFrozen) {
       if (glaze.on === false) {
         //canvas.style.removeProperty("opacity");
       }
@@ -2319,6 +2323,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       freezeFrameCan.remove();
       freezeFrame = false;
       freezeFrameGlaze = false;
+      freezeFrameFrozen = false;
     }
 
     if (glaze.on) {

@@ -1,4 +1,4 @@
-xelcome to...
+Welcome to...
 
   🧩 AESTHETIC.COMPUTER 🧩
 
@@ -58,15 +58,12 @@ xelcome to...
 
 🌟 Projects in Progress (PIP) 🌟
 
+
 *** Ordinaries ***
  + Now
   - [-] Add label / figure out a good motif.
  + Done
   - [x] Inscribe a test ordinal. 
-
-*** No Paint QOL Shotcuts ***
-  - [] Shortcut to paint and reload the same brush.
-  - [] Shortcut to reload the same brush without painting. 
 
 *** HUD ***
   - [] Tap hud word to go back or to prompt if history is null.
