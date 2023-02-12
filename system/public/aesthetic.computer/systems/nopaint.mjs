@@ -15,6 +15,7 @@ function nopaint_act({
   screen,
   system,
   painting,
+  loading,
   store,
   reload,
 }) {
@@ -32,13 +33,13 @@ function nopaint_act({
 
   // No and then reload the same brush / reload without storing
   // the painting.
-  if (e.is("keyboard:down:n")) {
+  if (e.is("keyboard:down:n") && !loading) {
     system.nopaint.abort();
     reload();
   }
 
   // Paint and then reload the same brush.
-  if (e.is("keyboard:down:p")) reload();
+  if (e.is("keyboard:down:p") && !loading) reload();
 }
 
 // 📚 Library
