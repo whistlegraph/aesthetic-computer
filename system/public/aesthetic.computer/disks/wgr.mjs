@@ -91,7 +91,7 @@
       - [] Rounded end-caps in pline? // Merge pline and pppline?
 #endregion */
 
-import { Typeface } from "../lib/type.mjs";
+import { Typeface } from "/aesthetic.computer/lib/type.mjs";
 
 const { floor, max } = Math;
 

@@ -58,17 +58,11 @@ Welcome to...
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** System ***
-  - [-] Don't reload off the network / cache if reloading.
-
 *** Ordinaries ***
  + Now
   - [-] Add label / figure out a good motif.
  + Done
   - [x] Inscribe a test ordinal. 
-
-*** HUD ***
-  - [] Tap hud word to go back or to prompt if history is null.
 
 *** '?' Params Generalization ***
    - [] Colors (see `line`)

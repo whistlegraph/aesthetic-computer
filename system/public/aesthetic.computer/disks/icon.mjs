@@ -24,8 +24,8 @@
   - [x] Rename sparkles directories to icon.
 #endregion */
 
-import { Typeface } from "../lib/type.mjs";
-import { icons } from "../disks/common/fonts.mjs";
+import { Typeface } from "/aesthetic.computer/lib/type.mjs";
+import { icons } from "/aesthetic.computer/disks/common/fonts.mjs";
 const { sin, abs } = Math;
 
 let typeface;

@@ -3,9 +3,9 @@
 
 // TODO: Request user for file if started with no parameters and no working data.
 
-import { colors, noteList, noteFrequencies } from "./common/music.mjs";
+import { colors, noteList, noteFrequencies } from "/aesthetic.computer/disks/common/music.mjs";
 
-import { font1 } from "./common/fonts.mjs";
+import { font1 } from "/aesthetic.computer/disks/common/fonts.mjs";
 let glyphs = {};
 
 const { abs, ceil } = Math;

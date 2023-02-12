@@ -144,6 +144,7 @@ let currentPath,
   currentBlobUrl,
   currentHUDText,
   currentHUDTextColor,
+  currentHUDButton,
   currentHUDOffset;
 let loading = false;
 let reframe;
@@ -1252,6 +1253,7 @@ async function load(parsed, fromHistory = false, alias = false) {
   if (module.nohud) currentHUDText = undefined; // Don't use hud text if needed.
   currentHUDOffset = undefined; // Always reset these to the defaults.
   currentHUDTextColor = undefined;
+  currentHUDButton = undefined;
 
   // ***Client Metadata Fields***
   // Set default metadata fields for SEO and sharing,
@@ -2218,6 +2220,25 @@ async function makeFrame({ data: { type, content } }) {
         $api.event = data;
         try {
           act($api);
+
+          // Always check to see if there was a tap on the corner.
+          const { event: e, jump } = $api;
+          let originalColor;
+
+          currentHUDButton?.act(e, {
+            down: () => {
+              originalColor = currentHUDTextColor;
+              currentHUDTextColor = [0, 255, 0];
+            },
+            push: () => {
+              pieceHistoryIndex > 0
+                ? send({ type: "back-to-piece" })
+                : jump("prompt");
+            },
+            cancel: () => {
+              currentHUDTextColor = originalColor; 
+            },
+          });
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
         }
@@ -2529,6 +2550,8 @@ async function makeFrame({ data: { type, content } }) {
       // System info.
       let label;
       const piece = currentHUDText?.split("~")[0];
+      const defo = 6; // Default offset
+
       if (
         piece !== undefined &&
         piece.length > 0 &&
@@ -2547,6 +2570,21 @@ async function makeFrame({ data: { type, content } }) {
           }
           ink(c).write(currentHUDText?.replaceAll("~", " "));
         });
+
+        currentHUDButton =
+          currentHUDButton ||
+          new $api.ui.Button({
+            x: 0,
+            y: 0,
+            w: w + (currentHUDOffset?.x || defo),
+            h: h + (currentHUDOffset?.y || defo),
+          });
+        // new $api.ui.Button({
+        //   x: currentHUDOffset?.y || defo,
+        //   y: currentHUDOffset?.y || defo,
+        //   w: w,
+        //   h,
+        // });
       }
 
       // Return frame data back to the main thread.
@@ -2555,8 +2593,8 @@ async function makeFrame({ data: { type, content } }) {
       // Attach a label buffer if necessary.
       if (label)
         sendData.label = {
-          x: currentHUDOffset?.x || 6,
-          y: currentHUDOffset?.y || 6,
+          x: currentHUDOffset?.x || defo,
+          y: currentHUDOffset?.y || defo,
           img: label,
         };
 

@@ -251,8 +251,8 @@
 */
 
 // #region 🗺️ global
-import { CamDoll } from "../lib/cam-doll.mjs";
-import { MetaBrowser } from "../lib/platform.mjs";
+import { CamDoll } from "/aesthetic.computer/lib/cam-doll.mjs";
+import { MetaBrowser } from "/aesthetic.computer/lib/platform.mjs";
 
 const { min, abs, max, cos, sin, tan, floor, round } = Math;
 
