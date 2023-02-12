@@ -1101,6 +1101,7 @@ async function load(parsed, fromHistory = false, alias = false) {
   let { path, host, search, colon, params, hash, text: slug } = parsed;
 
   loading === false ? (loading = true) : console.warn("Already loading:", path);
+
   if (debug) console.log(debug ? "🟡 Development" : "🟢 Production");
   if (host === "") host = originalHost;
   loadFailure = undefined;
@@ -1117,7 +1118,6 @@ async function load(parsed, fromHistory = false, alias = false) {
   // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
   if (debug) console.log("🕸", fullUrl);
 
-  // 🅱️ Load the piece.
 
   // See if we already have source code to build a blobURL from.
   if (parsed.source) {
@@ -1134,6 +1134,10 @@ async function load(parsed, fromHistory = false, alias = false) {
     // import { sayHello } from "./script.js";
     // sayHello();
   }
+
+  // 🅱️ Load the piece.
+
+  // TODO: Grab the source code
 
   try {
     // const moduleLoadTime = performance.now();
@@ -1956,6 +1960,10 @@ async function makeFrame({ data: { type, content } }) {
       pixels = new Uint8ClampedArray(content.pixels);
       if (screen) screen.pixels = pixels;
     }
+
+    // Add 'loading' status to $commonApi.
+    $commonApi.loading = loading; // Let the piece know if we are already
+    //                               loading another piece.
 
     // Globalize any background music data, retrievable via bgm.data
     $commonApi.bgm.data = {

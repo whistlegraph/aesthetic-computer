@@ -58,6 +58,8 @@ Welcome to...
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** System ***
+  - [-] Don't reload off the network / cache if reloading.
 
 *** Ordinaries ***
  + Now
