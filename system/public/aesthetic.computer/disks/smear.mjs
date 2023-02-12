@@ -72,8 +72,9 @@ function paint({
 }
 
 // TODO: How to get this to not override everything?
-function act({ event }) {
-  if (event.is("lift")) sampled = false;
+function act($) {
+  $.system.nopaint.act($); // Inherit nopaint's act functionality.
+  if ($.event.is("lift")) sampled = false;
 }
 
 export { paint, act };

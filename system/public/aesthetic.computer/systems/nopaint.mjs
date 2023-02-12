@@ -16,6 +16,7 @@ function nopaint_act({
   system,
   painting,
   store,
+  reload,
 }) {
   if (e.is("keyboard:down:enter")) {
     download(`painting-${num.timestamp()}.png`, system.painting, {
@@ -28,6 +29,16 @@ function nopaint_act({
     nopaint_adjust(screen, system, painting, store);
     paste(system.painting);
   }
+
+  // No and then reload the same brush / reload without storing
+  // the painting.
+  if (e.is("keyboard:down:n")) {
+    system.nopaint.abort();
+    reload();
+  }
+
+  // Paint and then reload the same brush.
+  if (e.is("keyboard:down:p")) reload();
 }
 
 // 📚 Library

@@ -3,11 +3,12 @@
 
 /* #region 🏁 todo
   + Second Version
-    + System
+  + System
     - [] Support question mark params on both colon and on color.
     - [] (Implement here then generalize for other brushes that parse
           color.) See `line` for an existing implementation.
   + Done
+    - [x] 🐛 Dragging is inconsistent. 
     - [x] Word should start in a random place within width and height.
     - [x] Colored text with custom quoted messaged and specific scale. 
 #endregion */
@@ -102,9 +103,10 @@ function paint({ params, pen, system, paste, ink, screen }) {
 // ✒ Act (Runs once per user interaction)
 function act($) {
   $.system.nopaint.act($); // Inherit nopaint's act functionality.
-  if ($.event.is("draw")) {
-    x += $.pen.delta.x;
-    y += $.pen.delta.y;
+  const { event: e } = $;
+  if (e.is("draw")) {
+    x += e.delta.x;
+    y += e.delta.y;
   }
 }
 
