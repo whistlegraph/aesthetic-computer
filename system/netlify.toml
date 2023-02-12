@@ -47,7 +47,9 @@
   for = "/*.mjs|/*.js"
   [headers.values]
     Access-Control-Allow-Origin = "*"
-    Content-Security-Policy = "script-src 'self';"
+    # Content-Security-Policy = "script-src 'self';"
+    # Content-Security-Policy = "script-src *;"
+    Content-Security-Policy = "script-src 'self' blob:;"
 [[redirects]]
   from = "https://www.4esthetic.com/*"
   to = "https://aesthetic.computer/:splat"

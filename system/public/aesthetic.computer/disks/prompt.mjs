@@ -10,10 +10,10 @@
       to make this work properly.
 #endregion */
 
-import { parse } from "../lib/parse.mjs";
-import { nopaint_adjust } from "../systems/nopaint.mjs";
-import { Desktop, MetaBrowser } from "../lib/platform.mjs";
-import { TextInput } from "../lib/type.mjs";
+import { parse } from "/aesthetic.computer/lib/parse.mjs";
+import { nopaint_adjust } from "/aesthetic.computer/systems/nopaint.mjs";
+import { Desktop, MetaBrowser } from "/aesthetic.computer/lib/platform.mjs";
+import { TextInput } from "/aesthetic.computer/lib/type.mjs";
 
 const scheme = {
   dark: {
