@@ -206,7 +206,7 @@ class TextInput {
 
           // 🍎 Process commands for a given context, passing the text input.
           this.processCommand?.(this.text);
-          this.text = "";
+          // this.text = "";
         }
 
         if (e.key === "Escape") this.text = "";
