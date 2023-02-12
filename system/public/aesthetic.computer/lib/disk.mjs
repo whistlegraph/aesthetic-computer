@@ -141,6 +141,7 @@ let currentPath,
   currentParams,
   currentHash,
   currentText,
+  currentBlobUrl,
   currentHUDText,
   currentHUDTextColor,
   currentHUDOffset;
@@ -1118,7 +1119,6 @@ async function load(parsed, fromHistory = false, alias = false) {
   // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
   if (debug) console.log("🕸", fullUrl);
 
-
   // See if we already have source code to build a blobURL from.
   if (parsed.source) {
     // TODO: What happens if source is undefined?
@@ -1136,14 +1136,24 @@ async function load(parsed, fromHistory = false, alias = false) {
   }
 
   // 🅱️ Load the piece.
-
-  // TODO: Grab the source code
-
+  // const moduleLoadTime = performance.now();
+  let blobUrl;
   try {
-    // const moduleLoadTime = performance.now();
-    // debugger;
-    module = await import(fullUrl);
-    // console.log("Module load time:", performance.now() - moduleLoadTime, module);
+    if (slug === currentText) {
+      // If this is a reload then just try and load the same blobUrl as before.
+      blobUrl = currentBlobUrl;
+    } else {
+      const response = await fetch(fullUrl);
+      const sourceCode = await response.text();
+      const updatedCode = sourceCode.replace(
+        /\/aesthetic.computer/g,
+        location.protocol + "//" + host + "/aesthetic.computer"
+      ); // Parse out
+      const blob = new Blob([updatedCode], { type: "application/javascript" });
+      blobUrl = URL.createObjectURL(blob);
+    }
+
+    module = await import(blobUrl);
   } catch (err) {
     // 🧨 Continue with current module if one has already loaded.
     console.error(`😡 "${path}" load failure:`, err);
@@ -1151,6 +1161,7 @@ async function load(parsed, fromHistory = false, alias = false) {
     loading = false;
     return;
   }
+  // console.log("Module load time:", performance.now() - moduleLoadTime, module);
 
   // 🧨 Fail out if no module is found.
   if (module === undefined) {
@@ -1175,6 +1186,11 @@ async function load(parsed, fromHistory = false, alias = false) {
 
   // Add reload to the common api.
   $commonApi.reload = ({ piece, code } = {}) => {
+    if (loading) {
+      console.log("🟡 A piece is already loading.");
+      return;
+    }
+
     if (piece === "*refresh*") {
       console.log("💥️ Restarting system...");
       send({ type: "refresh" }); // Refresh the browser.
@@ -1483,6 +1499,7 @@ async function load(parsed, fromHistory = false, alias = false) {
     }
 
     currentText = slug;
+    currentBlobUrl = blobUrl;
 
     if (screen) screen.created = true; // Reset screen to created if it exists.
 
