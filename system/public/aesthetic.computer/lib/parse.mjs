@@ -32,14 +32,21 @@ function parse(text, location = self?.location) {
   // 1. Pull off any "search" from `text`, ignoring any question mark
   //    characters that were part of the piece slug.
 
-  // TODO: This does not keep the question marks on this string but it should... https://localhost:8888/line:5~?~?~?
+  if (text[0] === "?") {
+    // Special case for empty path with a search param.
+    search = text;
+    text = window?.acSTARTING_PIECE || "prompt";
+  } else {
+    // TODO: This does not keep the question marks on this string but it should... https://localhost:8888/line:5~?~?~?
 
-  let searchIndex = text.search(/[^~]\?[^~]/); // Filter out single question mark params.
-  if (searchIndex >= 0) {
-    // [text, search] = text.split("?");
-    text = text.substring(0, searchIndex + 1);
-    search = text.substring(searchIndex + 1);
+    let searchIndex = text.search(/[^~]\?[^~]/); // Filter out single question mark params.
+    if (searchIndex >= 0) {
+      // [text, search] = text.split("?");
+      text = text.substring(0, searchIndex + 1);
+      search = text.substring(searchIndex + 1);
+    }
   }
+
 
   // TODO: When to parse the search query string into a URLSearchParams object?
   //       https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
