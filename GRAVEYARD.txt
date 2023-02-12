@@ -3,6 +3,12 @@
 
 * 23.02.10.14.42 and Earlier
 
+*** HUD ***
+  - [x] Tap hud word to go back or to prompt if history is null.
+
+*** System ***
+  - [x] Don't reload off the network / cache if reloading.
+
 *** No Paint QOL Shotcuts ***
   - [x] 'n' Shortcut to paint and reload the same brush.
   - [x] 'p' Shortcut to reload the same brush without painting. 

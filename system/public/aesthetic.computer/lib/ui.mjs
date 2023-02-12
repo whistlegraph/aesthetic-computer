@@ -102,19 +102,15 @@ class Button {
     }
 
     // 3. Push: Trigger the button if we push it.
-    if (e.is("lift:any")) {
-      let event;
+    if (e.is("lift:any") && this.down) {
       if (
-        ((pens.length > 0 && this.box.onlyContains(e.pointer - 1, pens)) ||
-          this.box.contains(e)) &&
-        this.down
+        (pens.length > 0 && this.box.onlyContains(e.pointer - 1, pens)) ||
+        this.box.contains(e)
       ) {
-        event = "push";
-        callbacks[event]?.();
+        callbacks["push"]?.();
         this.down = false;
-      } else if (!this.box.contains(e) && this.box.containsNone(pens)) {
-        event = "cancel"; // TODO: Is this necessary now that we have rollout? 22.08.29.23.11
-        callbacks[event]?.();
+      } else if (this.box.containsNone(pens) || !this.box.contains(e)) {
+        callbacks["cancel"]?.();
         this.down = false;
       }
     }
