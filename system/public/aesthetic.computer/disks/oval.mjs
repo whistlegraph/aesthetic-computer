@@ -33,6 +33,7 @@ function paint({ params, pen, paste, screen, system, ink, page }) {
         radiusY,
         filled
       );
+
     }
   }
 }

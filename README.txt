@@ -58,9 +58,6 @@ Welcome to...
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Circle Brush ***
-  - [-] Filled circle
-
 *** Fig Brush ***
   - [] Make a pill-like stick figure that can be placed on the surface.
 
