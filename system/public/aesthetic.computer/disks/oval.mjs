@@ -14,7 +14,7 @@ const filled = true;
 let bake = false;
 
 // 🎨 Paint (Executes every display frame)
-function paint({ params, pen, paste, screen, system, ink, page }) {
+function paint({ params, pen, paste, screen, system, ink, page, num }) {
   if (bake) {
     page(system.painting).paste(screen).page(screen);
     bake = false;
@@ -26,14 +26,18 @@ function paint({ params, pen, paste, screen, system, ink, page }) {
       // const radiusCicle = num.p2.dist(pen, pen.dragBox);
       const radiusX = pen.dragBox.w;
       const radiusY = pen.dragBox.h;
-      ink(params.map((str) => parseInt(str))).oval(
-        pen.dragBox.x,
-        pen.dragBox.y,
-        radiusX,
-        radiusY,
-        filled
-      );
 
+      // Parse color params with dashed ranges such as 200-255.
+      const color = params.map((str) => {
+        if (str.match(/^\d+-\d+$/)) {
+          const range = str.split("-");
+          return num.randIntRange(parseInt(range[0]), parseInt(range[1]));
+        } else {
+          return parseInt(str);
+        }
+      });
+
+      ink(color).oval(pen.dragBox.x, pen.dragBox.y, radiusX, radiusY, filled);
     }
   }
 }

@@ -1145,8 +1145,6 @@ function shape() {
     argPoints = arguments;
   }
 
-  // debugger;
-
   if (!Array.isArray(argPoints[0])) {
     // Assume a flat list of coordinates to convert into pairs.
     points = [];
