@@ -58,6 +58,9 @@ Welcome to...
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Val ***
+  - [] A valentines day palette / workflow.
+
 *** Fig Brush ***
   - [] Make a pill-like stick figure that can be placed on the surface.
 
