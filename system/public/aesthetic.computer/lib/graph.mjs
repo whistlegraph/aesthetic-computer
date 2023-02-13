@@ -1142,7 +1142,7 @@ function shape() {
     argPoints = arguments[0].points;
     filled = arguments[0].filled;
   } else {
-    argPoints = arguments;
+    argPoints = arguments[0];
   }
 
   if (!Array.isArray(argPoints[0])) {
