@@ -8,7 +8,6 @@ import {
   even,
   radians,
   lerp,
-  map,
   randIntRange,
   clamp,
 } from "./num.mjs";
@@ -16,7 +15,7 @@ import {
 import { repeat } from "./help.mjs";
 import { nanoid } from "../dep/nanoid/nanoid.js";
 
-const { abs, sign, ceil, floor, sin, cos, tan, min, max } = Math;
+const { abs, sign, ceil, floor, sin, cos, tan, min, max, round, sqrt } = Math;
 
 let width, height, pixels;
 const depthBuffer = [];
@@ -604,7 +603,12 @@ function line3d(a, b, lineColor, gradients) {
   color(...saveColor); // Restore color.
 }
 
+// TODO: Implement a nice filled option here...
+//       Something pixel-perfect with the outline... like a flood?
 function circle(x0, y0, radius, filled = false) {
+  //oval(x0, y0, radius, radius, filled);
+
+  // Circle
   x0 = floor(x0);
   y0 = floor(y0);
   radius = floor(radius);
@@ -638,13 +642,129 @@ function circle(x0, y0, radius, filled = false) {
     plot(x0 + y, y0 - x);
     plot(x0 - y, y0 - x);
   }
-  if (filled) {
-    console.log("Draw a filled circle!");
-    // Flood fill algorithm
-    //floodFill(x0, y0);
-  }
 }
 
+// TODO: Generate sampled points around a circle then use
+function oval(x0, y0, radiusX, radiusY, filled = false) {
+  const points = generateEllipsePoints(x0, y0, radiusX, radiusY);
+  shape({ points, filled });
+}
+
+function generateEllipsePoints(x0, y0, radiusX, radiusY, precision = 10) {
+  let points = [];
+  for (let i = 0; i < 360; i += precision) {
+    let angle = (Math.PI / 180) * i;
+    let x = x0 + radiusX * Math.cos(angle);
+    let y = y0 + radiusY * Math.sin(angle);
+    points.push([x, y]);
+  }
+  return points;
+}
+
+/*
+function oval(x0, y0, radiusX, radiusY = radiusX, filled = false) {
+  x0 = floor(x0);
+  y0 = floor(y0);
+  radiusX = floor(radiusX);
+  radiusY = floor(radiusY);
+
+  if (radiusX === radiusY) {
+    // Circle
+    const radius = radiusX;
+
+    let f = 1 - radius,
+      ddF_x = 0,
+      ddF_y = -2 * radius,
+      x = 0,
+      y = radius;
+
+    plot(x0, y0 + radius);
+    plot(x0, y0 - radius);
+    plot(x0 + radius, y0);
+    plot(x0 - radius, y0);
+
+    while (x < y) {
+      if (f >= 0) {
+        y -= 1;
+        ddF_y += 2;
+        f += ddF_y;
+      }
+      x += 1;
+      ddF_x += 2;
+      f += ddF_x + 1;
+      plot(x0 + x, y0 + y);
+      plot(x0 - x, y0 + y);
+      plot(x0 + x, y0 - y);
+      plot(x0 - x, y0 - y);
+      plot(x0 + y, y0 + x);
+      plot(x0 - y, y0 + x);
+      plot(x0 + y, y0 - x);
+      plot(x0 - y, y0 - x);
+    }
+
+    if (filled) {
+      let x1 = 0;
+      let y1 = radius;
+      let d = 3 - 2 * radius;
+      while (y1 >= x1) {
+        line(x0 - x1, y0 - y1, x0 + x1, y0 - y1);
+        line(x0 - x1, y0 + y1, x0 + x1, y0 + y1);
+        line(x0 - y1, y0 - x1, x0 + y1, y0 - x1);
+        line(x0 - y1, y0 + x1, x0 + y1, y0 + x1);
+        if (d < 0) {
+          d = d + 4 * x1 + 6;
+        } else {
+          d = d + 4 * (x1 - y1) + 10;
+          y1--;
+        }
+        x1++;
+      }
+    }
+  } else {
+    // Oval
+    if (filled) {
+      // Midpoint Ellipse Fill Algorithm
+      let x = 0;
+      let y = radiusY;
+      let d =
+        (radiusX * radiusX) / 4 + (radiusY * radiusY) / 4 - radiusX * radiusY;
+
+      while (radiusX * radiusX * y >= radiusY * radiusY * x) {
+        plot(x0 + x, y0 + y);
+        plot(x0 - x, y0 + y);
+        plot(x0 + x, y0 - y);
+        plot(x0 - x, y0 - y);
+
+        if (d >= 0) {
+          d -= radiusY * radiusY * (2 * x + 3);
+          x++;
+        }
+
+        d += radiusX * radiusX * (2 * y - 2) + radiusY * radiusY;
+        y--;
+      }
+
+      d = (radiusY * radiusY) / 4 + (radiusX * radiusX) / 4 - radiusY * radiusX;
+      while (y >= 0) {
+        plot(x0 + x, y0 + y);
+        plot(x0 - x, y0 + y);
+        plot(x0 + x, y0 - y);
+        plot(x0 - x, y0 - y);
+
+        if (d >= 0) {
+          d -= radiusX * radiusX * (2 * y - 3);
+          y--;
+        }
+
+        d += radiusY * radiusY * (2 * x + 2) + radiusX * radiusX;
+        x++;
+      }
+    }
+  }
+}
+*/
+
+// TODO: Actually implement some kind of floodFill?
 /*
 function floodFill(x, y) {
   if (getPixelColor(x, y) !== "black") return;
@@ -655,47 +775,6 @@ function floodFill(x, y) {
   floodFill(x, y - 1);
 }
 */
-
-// Draws a 1px aliased circle: http://rosettacode.org/wiki/Bitmap/Midpoint_circle_algorithm#C
-// function circle(
-//   x0 = randIntRange(0, width),
-//   y0 = randIntRange(0, height),
-//   radius
-// ) {
-//   x0 = floor(x0);
-//   y0 = floor(y0);
-//   radius = floor(radius);
-
-//   let f = 1 - radius,
-//     ddF_x = 0,
-//     ddF_y = -2 * radius,
-//     x = 0,
-//     y = radius;
-
-//   plot(x0, y0 + radius);
-//   plot(x0, y0 - radius);
-//   plot(x0 + radius, y0);
-//   plot(x0 - radius, y0);
-
-//   while (x < y) {
-//     if (f >= 0) {
-//       y -= 1;
-//       ddF_y += 2;
-//       f += ddF_y;
-//     }
-//     x += 1;
-//     ddF_x += 2;
-//     f += ddF_x + 1;
-//     plot(x0 + x, y0 + y);
-//     plot(x0 - x, y0 + y);
-//     plot(x0 + x, y0 - y);
-//     plot(x0 - x, y0 - y);
-//     plot(x0 + y, y0 + x);
-//     plot(x0 - y, y0 + x);
-//     plot(x0 + y, y0 - x);
-//     plot(x0 - y, y0 - x);
-//   }
-// }
 
 // Draws a series of 1px lines without overlapping / overdrawing points.
 function poly(coords) {
@@ -1049,32 +1128,47 @@ function box() {
   }
 }
 
+// Rasterizes an outlined or filled shape from pairs of points.
 // Accepts: (x, y, x, y, x, y, ...)
 //      Or: ([[x, y], [x, y], ...])
+//      Or: { points: ", filled: false }
 function shape() {
+  let argPoints;
   let points;
-  if (arguments.length % 2 === 0) {
-    // Convert a flat list of coordinates into pairs.
-    points = [];
+  let filled = true;
 
-    for (let p = 0; p < arguments.length; p += 2) {
-      points.push([arguments[p], arguments[p + 1]]);
-    }
+  if (arguments.length === 1) {
+    // Assume an object {points, filled}
+    argPoints = arguments[0].points;
+    filled = arguments[0].filled;
   } else {
-    points = arguments[0]; // Assume array of pairs was passed.
+    argPoints = arguments;
   }
 
-  fillShape(points); // Fill the shape in with the chosen color.
+  if (!Array.isArray(argPoints[0])) {
+    // Assume a flat list of coordinates to convert into pairs.
+    points = [];
 
-  // Make lines from 1->2->3->...->1
-  // Draw white points for each.
-  // points.forEach((p, i) => {
-  //   color(0, 255, 0, 100);
-  //   const lastPoint = i < points.length - 1 ? points[i + 1] : points[0];
-  //   line(...p, ...lastPoint);
-  //   color(255, 255, 255);
-  //   point(...p);
-  // });
+    for (let p = 0; p < argPoints.length; p += 2) {
+      points.push([argPoints[p], argPoints[p + 1]]);
+    }
+  } else {
+    points = argPoints; // Assume array of pairs was passed.
+  }
+
+  if (filled) {
+    fillShape(points); // Fill the shape in with the chosen color.
+  } else {
+    // Make lines from 1->2->3->...->1
+    // Draw white points for each.
+    points.forEach((p, i) => {
+      //color(0, 255, 0, 100);
+      const lastPoint = i < points.length - 1 ? points[i + 1] : points[0];
+      line(...p, ...lastPoint);
+      //color(255, 255, 255);
+      //point(...p);
+    });
+  }
 }
 
 // Note: This may not be very fast. It was written by ChatGPT. 23.02.11.12.51
@@ -1116,7 +1210,6 @@ function fillShape(points) {
     }
   }
 }
-
 
 // Renders a square grid at x, y given cols, rows, and scale.
 // Buffer is optional, and if present will render the pixels at scale starting
@@ -1303,6 +1396,7 @@ export {
   pixelPerfectPolyline,
   lineAngle,
   circle,
+  oval,
   poly,
   bresenham, // This function is under "abstract" because it doesn't render.
   box,

@@ -58,6 +58,18 @@ Welcome to...
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Circle Brush ***
+  - [-] Filled circle
+
+*** Fig Brush ***
+  - [] Make a pill-like stick figure that can be placed on the surface.
+
+*** Ordinaries ***
+ + Now
+  - [-] Add label / figure out a good motif.
+ + Done
+  - [x] Inscribe a test ordinal. 
+
 *** New Prompt QOL Updates ***
   - [] Do history stack different. (Smaller text)
   - [] Skip what aliases lead to in the history list. (ff example)
@@ -65,12 +77,6 @@ Welcome to...
   + Done
   - [x] Don't clear text automatically on sending input. 
        be a wipe!
-
-*** Ordinaries ***
- + Now
-  - [-] Add label / figure out a good motif.
- + Done
-  - [x] Inscribe a test ordinal. 
 
 *** '?' Params Generalization ***
    - [] Colors (see `line`)
