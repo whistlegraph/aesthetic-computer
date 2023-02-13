@@ -3,6 +3,9 @@
 
 * 23.02.10.14.42 and Earlier
 
+*** Oval Brush ***
+  - [x] Filled circle
+
 *** HUD ***
   - [x] Tap hud word to go back or to prompt if history is null.
 

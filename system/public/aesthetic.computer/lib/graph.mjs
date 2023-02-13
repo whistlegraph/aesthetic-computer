@@ -1137,13 +1137,15 @@ function shape() {
   let points;
   let filled = true;
 
-  if (arguments.length === 1) {
+  if (arguments.length === 1 && !Array.isArray(arguments[0])) {
     // Assume an object {points, filled}
     argPoints = arguments[0].points;
     filled = arguments[0].filled;
   } else {
     argPoints = arguments;
   }
+
+  // debugger;
 
   if (!Array.isArray(argPoints[0])) {
     // Assume a flat list of coordinates to convert into pairs.
