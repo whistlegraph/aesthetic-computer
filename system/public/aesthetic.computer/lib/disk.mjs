@@ -854,6 +854,7 @@ const $paintApiUnwrapped = {
   lineAngle: graph.lineAngle,
   pline: graph.pline,
   pppline: graph.pixelPerfectPolyline,
+  oval: graph.oval,
   circle: graph.circle,
   poly: graph.poly,
   box: graph.box,

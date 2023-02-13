@@ -93,7 +93,7 @@ function boot($) {
 }
 
 // 🎨 Paint (Executes every display frame)
-function paint({ params, pen, system, paste, ink, screen }) {
+function paint({ system, paste, ink }) {
   const shadow = 1;
   paste(system.painting);
   ink(0, 50).write(text, { x: x + shadow, y: y + shadow, center: "xy", size });

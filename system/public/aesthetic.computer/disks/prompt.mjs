@@ -145,6 +145,7 @@ function boot($) {
 
         flashPresent = true;
         flashShow = true;
+        input.text = "";
       } else if (text === "painting:reset" || text === "no!") {
         const deleted = await store.delete("painting", "local:db");
         system.nopaint.undo.paintings.length = 0; // Reset undo stack.
