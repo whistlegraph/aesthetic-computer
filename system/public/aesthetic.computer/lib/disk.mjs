@@ -1148,7 +1148,7 @@ async function load(parsed, fromHistory = false, alias = false) {
       const response = await fetch(fullUrl);
       const sourceCode = await response.text();
       const updatedCode = sourceCode.replace(
-        /\/aesthetic.computer/g,
+        /\/aesthetic\.computer/g,
         location.protocol + "//" + host + "/aesthetic.computer"
       ); // Parse out
       const blob = new Blob([updatedCode], { type: "application/javascript" });
@@ -1431,11 +1431,13 @@ async function load(parsed, fromHistory = false, alias = false) {
   // router pieces such as `freaky-flowers` -> `wand`. 22.11.23.16.29
   $commonApi.jump = function jump(to, ahistorical = false, alias = false) {
     let url;
-    try {
-      url = new URL(to);
-    } catch (e) {
-      // Could not construct a valid url from the jump, so we will be
-      // running a local aesthetic.computer piece.
+    if (to.startsWith("http")) {
+      try {
+        url = new URL(to);
+      } catch (e) {
+        // Could not construct a valid url from the jump, so we will be
+        // running a local aesthetic.computer piece.
+      }
     }
     url ? $commonApi.net.web(to) : load(parse(to), ahistorical, alias);
   };
@@ -2237,7 +2239,7 @@ async function makeFrame({ data: { type, content } }) {
                 : jump("prompt");
             },
             cancel: () => {
-              currentHUDTextColor = originalColor; 
+              currentHUDTextColor = originalColor;
             },
           });
         } catch (e) {
