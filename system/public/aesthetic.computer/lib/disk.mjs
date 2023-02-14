@@ -412,6 +412,7 @@ const $commonApi = {
   },
   ui: {
     Button: ui.Button,
+    TextButton: ui.TextButton,
   },
   help: {
     choose: help.choose,
