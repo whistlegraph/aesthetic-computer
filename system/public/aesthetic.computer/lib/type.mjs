@@ -50,13 +50,21 @@ class Typeface {
 
   // TODO: Add ability to center text on its line.
 
-  print($, pos = { x: undef, y: undef, size: 1 }, lineNumber, text, bg = null) {
+  print(
+    $,
+    pos = { x: undef, y: undef, size: 1, thickness: 1, rotation: 0 },
+    lineNumber,
+    text,
+    bg = null
+  ) {
     // TODO: Pass printLine params through / make a state machine.
     const font = this.glyphs;
     const lineHeightGap = 2;
     const size = pos.size || 1;
     const blockHeight = (this.data.glyphHeight || 9) * size + lineHeightGap;
     const blockWidth = 6;
+    const thickness = pos.thickness || 1;
+    const rotation = pos.rotation || 0;
 
     // Set x, y position and override if centering is specified.
     let x = pos.x || 0,
@@ -80,7 +88,17 @@ class Typeface {
       $.ink(bg).box(x, y, blockWidth * size * text.length, blockHeight);
     }
 
-    $.ink(rn).printLine(text, font, x, y, blockWidth, size); // Text
+    $.ink(rn).printLine(
+      text,
+      font,
+      x,
+      y,
+      blockWidth,
+      size,
+      0,
+      thickness,
+      rotation
+    ); // Text
   }
 }
 

@@ -59,7 +59,16 @@ Welcome to...
 🌟 Projects in Progress (PIP) 🌟
 
 *** Val ***
-  - [] A valentines day palette / workflow.
+  - [💗] A valentines day palette / workflow.
+
+*** no! ***
+  - [] `no!` should take a color parameter.
+  - [] Should be able to `no` a `no!`
+
+*** Ranges ***
+  - [] Abstract the randomization of ranged integers across
+       every brush with integer params.
+  - [] How does this work with '?' ?
 
 *** Fig Brush ***
   - [] Make a pill-like stick figure that can be placed on the surface.

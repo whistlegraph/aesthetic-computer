@@ -47,7 +47,6 @@ function parse(text, location = self?.location) {
     }
   }
 
-
   // TODO: When to parse the search query string into a URLSearchParams object?
   //       https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
 
@@ -72,7 +71,7 @@ function parse(text, location = self?.location) {
 
   if (colonSplit.length > 0) {
     tokens[0] = colonSplit[0];
-    colonParam = colonSplit[1];
+    colonParam = colonSplit.slice(1);
   }
 
   if (customHost) {
@@ -110,7 +109,7 @@ function slug(url) {
     .replace(window.location.hostname + ":" + window.location.port + "/", "")
     .replace(window.location.hostname + "/", "")
     .split("#")[0]; // Remove any hash.
-    // .split("?")[0]; // Remove any search param.
+  // .split("?")[0]; // Remove any search param.
 }
 
 // Generates some metadata fields that are shared both on the client and server.
