@@ -1190,7 +1190,8 @@ async function load(parsed, fromHistory = false, alias = false) {
       const updatedCode = sourceCode.replace(
         /\/aesthetic\.computer/g,
         location.protocol + "//" + host + "/aesthetic.computer"
-      ); // Parse out
+      ); // Make "/aesthetic.computer" imports absolute.
+
       const blob = new Blob([updatedCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);
     }
