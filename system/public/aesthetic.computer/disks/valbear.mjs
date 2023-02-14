@@ -265,7 +265,9 @@ function act(
   grass.act(e, () => jump(`rect 0 ${rr(100, 200)} 0`));
   sky.act(e, () => jump(`rect 150 ${rr(100, 150)} ${rr(200, 255)}`));
   smear.act(e, () => jump(`smear ${rr(4, 32)}`));
-  body.act(e, () => jump("oval 150-200 60-100 10-40 230-255"));
+  body.act(e, () => {
+    help.flip() ? jump("oval 150-200 60-100 10-40 230-255") : jump("oval");
+  });
   lines.act(e, () => jump(`line:${rr(1, 4)} ? ? ?`));
 
   heart.act(e, () =>
