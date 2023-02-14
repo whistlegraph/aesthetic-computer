@@ -2,9 +2,8 @@
 // Make your valentine a card with a cute bear!
 
 /* #region 🚴 TODO 
-  + Cleanup
-  - [] Abstract 'no' and 'no!' code so it's not redundant.
   + Done
+  - [x] Abstract 'no' and 'no!' so it's not redundant with the prompt.
   - [x] Abstract basic button code so it's not redundant.
   - [x] Add every button / wire up all the actions!
   - [x] Add meta function!
@@ -212,55 +211,16 @@ function act(
 
   download.btn.act(e, () => {
     if (store["painting"]) {
-      dl(`valentine-${timestamp()}.png`, store["painting"], {
+      dl(`valbear-${timestamp()}.png`, store["painting"], {
         scale: 6,
         cropToScreen: true,
       });
     }
   });
 
-  undo.btn.act(e, () => {
-    // Ripped straight from prompt!
-    const paintings = system.nopaint.undo.paintings;
-
-    if (paintings.length > 1) {
-      // Copy over the old picture here...
-      const p = paintings[paintings.length - 2];
-      const op = p.pixels;
-      const pixels = new Uint8ClampedArray(op.length);
-      pixels.set(op);
-
-      store["painting"] = {
-        width: p.width,
-        height: p.height,
-        pixels,
-      };
-
-      // Swap mode.
-      // 'no' should swap...
-      const temp = paintings[0];
-      paintings[0] = paintings[1];
-      paintings[1] = temp;
-
-      // Rewind mode
-      //paintings.length -= 1;
-
-      store.persist("painting", "local:db");
-
-      system.painting = store["painting"];
-      needsPaint();
-    }
-  });
-
-  reset.btn.act(e, async () => {
-    await store.delete("painting", "local:db");
-    system.nopaint.undo.paintings.length = 0; // Reset undo stack.
-
-    system.painting = null;
-
-    needsPaint();
-  });
-
+  const api = { system, store, needsPaint };
+  undo.btn.act(e, () => system.nopaint.no(api));
+  reset.btn.act(e, async () => system.nopaint.noBang(api));
   discord.btn.act(e, () => jump("https://discord.gg/aesthetic-computer"));
 }
 

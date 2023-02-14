@@ -341,6 +341,45 @@ const $commonApi = {
       boot: nopaint_boot, // TODO: Why are these in the commonApi? 23.02.12.14.26
       act: nopaint_act,
       undo: { paintings: undoPaintings },
+      no: ({ system, store, needsPaint }) => {
+        // Ripped straight from prompt!
+        const paintings = system.nopaint.undo.paintings;
+
+        if (paintings.length > 1) {
+          // Copy over the old picture here...
+          const p = paintings[paintings.length - 2];
+          const op = p.pixels;
+          const pixels = new Uint8ClampedArray(op.length);
+          pixels.set(op);
+
+          store["painting"] = {
+            width: p.width,
+            height: p.height,
+            pixels,
+          };
+
+          // Swap mode.
+          // 'no' should swap...
+          const temp = paintings[0];
+          paintings[0] = paintings[1];
+          paintings[1] = temp;
+
+          // Rewind mode
+          //paintings.length -= 1;
+
+          store.persist("painting", "local:db");
+
+          system.painting = store["painting"];
+          needsPaint();
+        }
+      },
+      noBang: async ({ system, store, needsPaint }) => {
+        const deleted = await store.delete("painting", "local:db");
+        system.nopaint.undo.paintings.length = 0; // Reset undo stack.
+        system.painting = null;
+        needsPaint();
+        return deleted;
+      },
       abort: () => (NPnoOnLeave = true),
     },
   },
