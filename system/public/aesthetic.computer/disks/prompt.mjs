@@ -32,7 +32,12 @@ const scheme = {
 
 const motd =
   `Try 'ff'                                        ` +
-  `     to view Freaky Flowers!                    ` +
+  `     to see Freaky Flowers                      ` +
+  `                                                ` +
+  ` Or 'valbear'                                   ` +
+  `     to make a Valentine                        ` +
+  `                                                ` +
+  ` Or 'help' to learn more!                       ` +
   `                                                ` +
   `                                                ` +
   `mail@aesthetic.computer                         `;
