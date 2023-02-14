@@ -256,7 +256,8 @@ function act(
     needsPaint,
     event: e,
     jump,
-    num: { randIntRange: rr },
+    num: { randIntRange: rr, timestamp },
+    download: dl,
     help,
   },
   num
@@ -265,7 +266,7 @@ function act(
   sky.act(e, () => jump(`rect 150 ${rr(100, 150)} ${rr(200, 255)}`));
   smear.act(e, () => jump(`smear ${rr(4, 32)}`));
   body.act(e, () => jump("oval 150-200 60-100 10-40 230-255"));
-  lines.act(e, () => jump(`line:${rr(1, 3)} ? ? ?`));
+  lines.act(e, () => jump(`line:${rr(1, 4)} ? ? ?`));
 
   heart.act(e, () =>
     jump(`shape ${rr(100, 255)} 0 ${rr(20, 255)}, ${(rr, 200, 255)}`)
@@ -295,7 +296,7 @@ function act(
 
   download.act(e, () => {
     if (store["painting"]) {
-      download(`valentine-${num.timestamp()}.png`, store["painting"], {
+      dl(`valentine-${timestamp()}.png`, store["painting"], {
         scale: 6,
         cropToScreen: true,
       });
@@ -330,7 +331,7 @@ function act(
 
       store.persist("painting", "local:db");
 
-      system.painting = stpre["painting"];
+      system.painting = store["painting"];
       needsPaint();
     }
   });
