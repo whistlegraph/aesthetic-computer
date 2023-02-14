@@ -3,6 +3,9 @@
 
 * 23.02.10.14.42 and Earlier
 
+*** Text Thickness **
+  - [x] Add basic `thickness` to word.
+
 *** Oval Brush ***
   - [x] Filled circle
 

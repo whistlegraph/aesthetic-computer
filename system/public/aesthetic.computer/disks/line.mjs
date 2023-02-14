@@ -33,7 +33,7 @@ function boot($) {
     if (str === "?") return $.num.randInt(255);
     else return parseInt(str);
   });
-  thickness = parseInt($.colon) || 1; // Set line thickness with a colon param.
+  thickness = parseInt($.colon[0]) || 1; // Set line thickness with a colon param.
 
   // Set up line smoothing system.
   let step, speed;
