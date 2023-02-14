@@ -194,7 +194,7 @@ function boot($) {
         // Go to the Discord for now if anyone types help.
         jump("https://discord.gg/aesthetic-computer");
       } else if (text === "prod") {
-        jump("https://aesthetic.computer"); // Visit the live site.
+        jump("https://prompt.ac"); // Visit the live site.
       } else if (text === "local") {
         jump("https://localhost:8888"); // Go to the local dev server.
       } else {

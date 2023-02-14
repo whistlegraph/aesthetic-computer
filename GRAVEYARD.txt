@@ -3,6 +3,13 @@
 
 * 23.02.10.14.42 and Earlier
 
+*** Wipe ***
+  - [x] Make a `wipe` brush to clear the screen and encourage this over `no!`
+        which clears the store in the local:db and eliminates the undo stack.
+
+*** Val ***
+  - [x] A valentines day palette / workflow.
+
 *** Text Thickness **
   - [x] Add basic `thickness` to word.
 
