@@ -952,7 +952,12 @@ Make sure `git` and is installed, (you can do that through `homebrew`) and then 
   5. `cd` into `system` and run `npx netlify login` and then `npx netlify link`
   6. Now run `npm run code` and in another shell `npm run server:session`.
   7. Visit `https://localhost:8888` to view the running site! 
-  8. If you need local copies of the site's rich media `assets` then ask Jeffrey and you can slurp them from S3.
+  8. If you need local copies of the site's rich media `assets` then ask Jeffrey
+     and you can slurp them from S3 so you can run the below.
+
+Static Assets
+  0. Squadmates can use `npm run assets:sync` after configuring `aws-cli` with
+     the aesthetic.computer storage keys provided by Jeffrey.
 
 Redis
   0. You may need to install `redis` to get the live reload working properly
