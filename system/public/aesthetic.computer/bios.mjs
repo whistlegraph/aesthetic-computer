@@ -873,6 +873,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+  
+    // Authenticate a user.
+    if (type === "login") {
+      window.acLOGIN?.();
+      return;
+    }
+
+    if (type === "logout") {
+      window.acLOGOUT?.();
+      return;
+    }
+
     // *** Route to different functions if this change is not a full frame update.
     if (type === "load-failure" && MetaBrowser) {
       document.querySelector("#software-keyboard-input")?.blur();
@@ -884,6 +896,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     //   return;
     // }
 
+    // Connect to an ethereum wallet extension.
     if (type === "web3-connect") {
       if (window.ethereum) {
         const addresses = await (typeof window.ethereum.request === "function"

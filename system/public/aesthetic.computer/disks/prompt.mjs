@@ -65,6 +65,7 @@ function boot($) {
     bgm,
     needsPaint,
     system,
+    net,
     jump,
     history,
   } = $;
@@ -77,29 +78,7 @@ function boot($) {
     scheme[dark ? "dark" : "light"],
     // 🍎 Process commands...
     async (text) => {
-      if (text.startsWith("login")) {
-        const email = text.split(" ")[1];
-
-        console.log("Email:", email); // TODO: Properly check email formatting.
-
-        // TODO: Add "login" to API flow.
-        // TODO: User enters email address
-        // TODO: Log the user in...
-        /*
-        async function login(email) {
-          const response = await fetch("/auth", {
-            method: "POST",
-            body: JSON.stringify({ email }),
-            headers: { "Content-Type": "application/json" },
-          });
-          if (response.ok) {
-            console.log("Passwordless login link sent!");
-          } else {
-            console.error("Error sending passwordless login link");
-          }
-        }
-        */
-      } else if (text === "dl" || text === "download") {
+      if (text === "dl" || text === "download") {
         if (store["painting"]) {
           download(`painting-${num.timestamp()}.png`, store["painting"], {
             scale: 6,
@@ -114,6 +93,18 @@ function boot($) {
         flashShow = true;
         input.text = "";
         needsPaint();
+      } else if (text === "login") {
+        net.login();
+        flashColor = [255, 255, 0, 100]; // Yellow
+        flashPresent = true;
+        flashShow = true;
+        input.text = "";
+      } else if (text === "logout") {
+        net.logout();
+        flashColor = [255, 255, 0, 100]; // Yellow
+        flashPresent = true;
+        flashShow = true;
+        input.text = "";
       } else if (text === "no") {
         system.nopaint.no({ system, store, needsPaint });
         if (system.nopaint.undo.paintings.length > 1) {
