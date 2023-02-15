@@ -62,6 +62,10 @@ Welcome to...
   - [] Load and play a sample from assets when a button is pressed inside a `sample` piece.
     - [] Check the `bgm` implementation in `bios`.
 
+*** Auth0 Integration ***
+  - [] Set up auth0 sign-up via https://manage.auth0.com.
+  - [] Signup on passwordless authentication via email only.
+
 *** CPU Navigable 2D Painting ***
   - [] Add support for painting to be a `fixed` resolution.
   - [] Use "crop" brush.
