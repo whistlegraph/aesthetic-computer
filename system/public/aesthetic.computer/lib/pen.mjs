@@ -284,6 +284,7 @@ export class Pen {
     });
 
     function reportPressure(e) {
+      // TODO: Re-enable pressure.
       /*
       let pressure;
       // If the device is a trackpad (probably on a MacBook and in Safari)
@@ -302,6 +303,7 @@ export class Pen {
       }
       return pressure;
       */
+
       return 1;
     }
 
