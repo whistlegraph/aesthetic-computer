@@ -1,5 +1,5 @@
 import { Box } from "./geo.mjs";
-import { radians } from "./num.mjs";
+import { radians, p2 } from "./num.mjs";
 const { round } = Math;
 
 const spinnerDelayMax = 8; // Skip a few frames of the spinner.
@@ -144,4 +144,38 @@ class Button {
   }
 }
 
-export { spinner, spinnerReset, cached, Button };
+class TextButton {
+  txt;
+  btn;
+
+  #cw = 6;
+  #gap = 4;
+  #g2 = this.#gap * 2;
+  #offset = { x: this.#gap, y: this.#gap };
+  #h = 19;
+
+  constructor(text, pos) {
+    this.txt = text;
+    const w = text.length * this.#cw + this.#g2;
+    this.btn = new Button({ x: pos.x, y: pos.y, w, h: this.#h });
+  }
+
+  paint(
+    $,
+    scheme = [
+      [0, 100, 0],
+      [0, 255, 0, 150],
+      [0, 200, 0],
+      [0, 50, 0],
+    ]
+  ) {
+    $.ink(scheme[0])
+      .box(this.btn.box, "fill")
+      .ink(scheme[1])
+      .box(this.btn.box, "outline")
+      .ink(scheme[2])
+      .write(this.txt, p2.add(this.btn.box, this.#offset), scheme[3]);
+  }
+}
+
+export { spinner, spinnerReset, cached, Button, TextButton };

@@ -32,7 +32,12 @@ const scheme = {
 
 const motd =
   `Try 'ff'                                        ` +
-  `     to view Freaky Flowers!                    ` +
+  `     to see Freaky Flowers                      ` +
+  `                                                ` +
+  ` Or 'valbear'                                   ` +
+  `     to make a Valentine                        ` +
+  `                                                ` +
+  ` Or 'help' to learn more!                       ` +
   `                                                ` +
   `                                                ` +
   `mail@aesthetic.computer                         `;
@@ -110,44 +115,17 @@ function boot($) {
         input.text = "";
         needsPaint();
       } else if (text === "no") {
-        // TODO: Undo / flip the last painting step.
-        const paintings = system.nopaint.undo.paintings;
-
-        if (paintings.length > 1) {
-          // Copy over the old picture here...
-          const p = paintings[paintings.length - 2];
-          const op = p.pixels;
-          const pixels = new Uint8ClampedArray(op.length);
-          pixels.set(op);
-
-          store["painting"] = {
-            width: p.width,
-            height: p.height,
-            pixels,
-          };
-
-          // Swap mode.
-          // 'no' should swap...
-          const temp = paintings[0];
-          paintings[0] = paintings[1];
-          paintings[1] = temp;
-
-          // Rewind mode
-          //paintings.length -= 1;
-
-          store.persist("painting", "local:db");
-
-          needsPaint();
+        system.nopaint.no({ system, store, needsPaint });
+        if (system.nopaint.undo.paintings.length > 1) {
           flashColor = [0, 0, 255, 100]; // Blue for succesful undo.
         } else {
           flashColor = [255, 0, 0, 100]; // Red for failed undo.
         }
-
         flashPresent = true;
         flashShow = true;
+        input.text = "";
       } else if (text === "painting:reset" || text === "no!") {
-        const deleted = await store.delete("painting", "local:db");
-        system.nopaint.undo.paintings.length = 0; // Reset undo stack.
+        const deleted = system.nopaint.noBang({ system, store, needsPaint });
 
         if (deleted) {
           flashColor = [0, 0, 255]; // Blue for succesful deletion.
@@ -216,7 +194,7 @@ function boot($) {
         // Go to the Discord for now if anyone types help.
         jump("https://discord.gg/aesthetic-computer");
       } else if (text === "prod") {
-        jump("https://aesthetic.computer"); // Visit the live site.
+        jump("https://prompt.ac"); // Visit the live site.
       } else if (text === "local") {
         jump("https://localhost:8888"); // Go to the local dev server.
       } else {

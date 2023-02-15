@@ -8,7 +8,6 @@ import {
   even,
   radians,
   lerp,
-  map,
   randIntRange,
   clamp,
 } from "./num.mjs";
@@ -16,7 +15,7 @@ import {
 import { repeat } from "./help.mjs";
 import { nanoid } from "../dep/nanoid/nanoid.js";
 
-const { abs, sign, ceil, floor, sin, cos, tan, min, max } = Math;
+const { abs, sign, ceil, floor, sin, cos, min, max, PI } = Math;
 
 let width, height, pixels;
 const depthBuffer = [];
@@ -604,7 +603,15 @@ function line3d(a, b, lineColor, gradients) {
   color(...saveColor); // Restore color.
 }
 
+// TODO: Implement a nice filled option here...
+//       Something pixel-perfect with the outline... like a flood?
 function circle(x0, y0, radius, filled = false) {
+  if (filled) {
+    oval(x0, y0, radius, radius, filled);
+    return;
+  }
+
+  // Circle
   x0 = floor(x0);
   y0 = floor(y0);
   radius = floor(radius);
@@ -615,10 +622,10 @@ function circle(x0, y0, radius, filled = false) {
     x = 0,
     y = radius;
 
-  plot(x0, y0 + radius);
-  plot(x0, y0 - radius);
-  plot(x0 + radius, y0);
-  plot(x0 - radius, y0);
+  point(x0, y0 + radius);
+  point(x0, y0 - radius);
+  point(x0 + radius, y0);
+  point(x0 - radius, y0);
 
   while (x < y) {
     if (f >= 0) {
@@ -629,22 +636,38 @@ function circle(x0, y0, radius, filled = false) {
     x += 1;
     ddF_x += 2;
     f += ddF_x + 1;
-    plot(x0 + x, y0 + y);
-    plot(x0 - x, y0 + y);
-    plot(x0 + x, y0 - y);
-    plot(x0 - x, y0 - y);
-    plot(x0 + y, y0 + x);
-    plot(x0 - y, y0 + x);
-    plot(x0 + y, y0 - x);
-    plot(x0 - y, y0 - x);
-  }
-  if (filled) {
-    console.log("Draw a filled circle!");
-    // Flood fill algorithm
-    //floodFill(x0, y0);
+    point(x0 + x, y0 + y);
+    point(x0 - x, y0 + y);
+    point(x0 + x, y0 - y);
+    point(x0 - x, y0 - y);
+    point(x0 + y, y0 + x);
+    point(x0 - y, y0 + x);
+    point(x0 + y, y0 - x);
+    point(x0 - y, y0 - x);
   }
 }
 
+// TODO: Generate sampled points around a circle then use
+function oval(x0, y0, radiusX, radiusY, filled = false) {
+  const points = generateEllipsePoints(x0, y0, radiusX, radiusY);
+  shape({ points, filled });
+}
+
+// TODO: How can I relate precision to the circumference and avoid this little
+//       sharp point on the top?
+// TODO: This function can have radians etc. / be more terse. 23.02.13.19.42
+function generateEllipsePoints(x0, y0, radiusX, radiusY, precision = 20) {
+  const points = [];
+  for (let i = 0; i < 360; i += precision) {
+    const angle = radians(i);
+    const x = x0 + radiusX * cos(angle);
+    const y = y0 + radiusY * sin(angle);
+    points.push([x, y]);
+  }
+  return points;
+}
+
+// TODO: Actually implement some kind of floodFill?
 /*
 function floodFill(x, y) {
   if (getPixelColor(x, y) !== "black") return;
@@ -655,47 +678,6 @@ function floodFill(x, y) {
   floodFill(x, y - 1);
 }
 */
-
-// Draws a 1px aliased circle: http://rosettacode.org/wiki/Bitmap/Midpoint_circle_algorithm#C
-// function circle(
-//   x0 = randIntRange(0, width),
-//   y0 = randIntRange(0, height),
-//   radius
-// ) {
-//   x0 = floor(x0);
-//   y0 = floor(y0);
-//   radius = floor(radius);
-
-//   let f = 1 - radius,
-//     ddF_x = 0,
-//     ddF_y = -2 * radius,
-//     x = 0,
-//     y = radius;
-
-//   plot(x0, y0 + radius);
-//   plot(x0, y0 - radius);
-//   plot(x0 + radius, y0);
-//   plot(x0 - radius, y0);
-
-//   while (x < y) {
-//     if (f >= 0) {
-//       y -= 1;
-//       ddF_y += 2;
-//       f += ddF_y;
-//     }
-//     x += 1;
-//     ddF_x += 2;
-//     f += ddF_x + 1;
-//     plot(x0 + x, y0 + y);
-//     plot(x0 - x, y0 + y);
-//     plot(x0 + x, y0 - y);
-//     plot(x0 - x, y0 - y);
-//     plot(x0 + y, y0 + x);
-//     plot(x0 - y, y0 + x);
-//     plot(x0 + y, y0 - x);
-//     plot(x0 - y, y0 - x);
-//   }
-// }
 
 // Draws a series of 1px lines without overlapping / overdrawing points.
 function poly(coords) {
@@ -767,9 +749,6 @@ function pline(coords, thickness, shader) {
 
     [l1, l2, c1, c2].forEach((v) => vec2.floor(v, v)); // Floor everything.
 
-    last = cur; // Update the last point.
-    lpar = [c1, c2]; // ... and last parallel points.
-
     // 2. Plotting
 
     const dot = vec2.dot(dir, ldir); // Get the dot product of cur and last dir.
@@ -803,10 +782,14 @@ function pline(coords, thickness, shader) {
 
     // Full outside clipping.
     // Clip triangles that are *fully* offscreen.
+    // Take into account panning here...
     const clippedTris = trig.filter((triangle) =>
-      triangle.some(
-        (v) => v[0] >= 0 && v[0] < width && v[1] >= 0 && v[1] < height
-      )
+      triangle.some((v) => {
+        const tv = v.slice();
+        tv[0] += panTranslation.x;
+        tv[1] += panTranslation.y;
+        return tv[0] >= 0 && tv[0] < width && tv[1] >= 0 && tv[1] < height;
+      })
     );
 
     clippedTris.forEach((tri) => fillTri(tri, tris)); // Fill quad.
@@ -831,6 +814,9 @@ function pline(coords, thickness, shader) {
     }
 
     tris.length = 0;
+
+    last = cur; // Update the last point.
+    lpar = [c1, c2]; // ... and last parallel points.
   }
 
   // 3️⃣ Painting
@@ -1049,32 +1035,47 @@ function box() {
   }
 }
 
+// Rasterizes an outlined or filled shape from pairs of points.
 // Accepts: (x, y, x, y, x, y, ...)
 //      Or: ([[x, y], [x, y], ...])
+//      Or: { points: ", filled: false }
 function shape() {
+  let argPoints;
   let points;
-  if (arguments.length % 2 === 0) {
-    // Convert a flat list of coordinates into pairs.
-    points = [];
+  let filled = true;
 
-    for (let p = 0; p < arguments.length; p += 2) {
-      points.push([arguments[p], arguments[p + 1]]);
-    }
+  if (arguments.length === 1 && !Array.isArray(arguments[0])) {
+    // Assume an object {points, filled}
+    argPoints = arguments[0].points;
+    filled = arguments[0].filled;
   } else {
-    points = arguments[0]; // Assume array of pairs was passed.
+    argPoints = arguments[0];
   }
 
-  fillShape(points); // Fill the shape in with the chosen color.
+  if (!Array.isArray(argPoints[0])) {
+    // Assume a flat list of coordinates to convert into pairs.
+    points = [];
 
-  // Make lines from 1->2->3->...->1
-  // Draw white points for each.
-  // points.forEach((p, i) => {
-  //   color(0, 255, 0, 100);
-  //   const lastPoint = i < points.length - 1 ? points[i + 1] : points[0];
-  //   line(...p, ...lastPoint);
-  //   color(255, 255, 255);
-  //   point(...p);
-  // });
+    for (let p = 0; p < argPoints.length; p += 2) {
+      points.push([argPoints[p], argPoints[p + 1]]);
+    }
+  } else {
+    points = argPoints; // Assume array of pairs was passed.
+  }
+
+  if (filled) {
+    fillShape(points); // Fill the shape in with the chosen color.
+  } else {
+    // Make lines from 1->2->3->...->1
+    // Draw white points for each.
+    points.forEach((p, i) => {
+      //color(0, 255, 0, 100);
+      const lastPoint = i < points.length - 1 ? points[i + 1] : points[0];
+      line(...p, ...lastPoint);
+      //color(255, 255, 255);
+      //point(...p);
+    });
+  }
 }
 
 // Note: This may not be very fast. It was written by ChatGPT. 23.02.11.12.51
@@ -1116,7 +1117,6 @@ function fillShape(points) {
     }
   }
 }
-
 
 // Renders a square grid at x, y given cols, rows, and scale.
 // Buffer is optional, and if present will render the pixels at scale starting
@@ -1195,7 +1195,7 @@ function grid(
 // Loading & rendering stored drawings. TODO: Store this on another layer of
 //                                            abstraction? 2021.12.13.22.04
 // Silently fails if `drawing` is left `undefined`.
-function draw(drawing, x, y, scale = 1, angle = 0) {
+function draw(drawing, x, y, scale = 1, angle = 0, thickness = 1) {
   if (drawing === undefined) return;
 
   // TODO: Eventually make this the call: rotatePoint(args[0], args[1], 0, 0);
@@ -1204,24 +1204,55 @@ function draw(drawing, x, y, scale = 1, angle = 0) {
   const c = cos(angle);
 
   pan(x, y);
-  drawing.commands.forEach(({ name, args }) => {
-    args = args.map((a) => a * scale); // TODO: Add scale in addition to pan.
+
+  // 🍎 Build a poly line out of subsequent points sharing start & end points.
+  // 🧠 And plot other commands.
+  const gesture = []; // Keep track of continuous lines.
+
+  function paintGesture() {
+    // Draw each gesture path and then kill it.
+    thickness === 1 ? poly(gesture) : pline(gesture, thickness);
+    gesture.length = 0;
+  }
+
+  drawing.commands.forEach(({ name, args }, i) => {
+    args = args.map((a) => a * scale);
 
     if (name === "line") {
       let x1 = args[0]; // x1
       let y1 = args[1]; // y1
-
       let x2 = args[2]; // x2
       let y2 = args[3]; // y2
-
       let nx1 = x1 * c - y1 * s;
       let ny1 = x1 * s + y1 * c;
-
       let nx2 = x2 * c - y2 * s;
       let ny2 = x2 * s + y2 * c;
 
-      line(nx1, ny1, nx2, ny2);
-    } else if (name === "point") point(...args);
+      if (thickness === 1) {
+        gesture.push([nx1, ny1], [nx2, ny2]);
+      } else {
+        gesture.push({ x: nx1, y: ny1 }, { x: nx2, y: ny2 });
+      }
+
+      const nextCommand = drawing.commands[i + 1];
+      if (nextCommand && nextCommand.name === "line") {
+        const nextArgs = nextCommand.args.map((a) => a * scale);
+        if (args[2] !== nextArgs[0] || args[3] !== nextArgs[1]) {
+          // If the last point of cur line and 1st point of next line are diff.
+          // Then we can paint!
+          paintGesture();
+        } else {
+          // Otherwise we should pop off the last point to avoid repeats.
+          gesture.pop();
+        }
+      } else {
+        paintGesture();
+      }
+    } else if (name === "point") {
+      thickness === 1
+        ? point(...args)
+        : circle(args[0], args[1], thickness / 2, true);
+    }
   });
   unpan();
 }
@@ -1240,11 +1271,20 @@ function printLine(
   startY,
   blockWidth = 6,
   scale = 1,
-  xOffset = 0
+  xOffset = 0,
+  thickness = 1,
+  rotation = 0
 ) {
   if (!text) return;
   [...text.toString()].forEach((char, i) => {
-    draw(font[char], startX + blockWidth * scale * i + xOffset, startY, scale);
+    draw(
+      font[char],
+      startX + blockWidth * scale * i + xOffset,
+      startY,
+      scale,
+      rotation,
+      thickness
+    );
   });
 }
 
@@ -1303,6 +1343,7 @@ export {
   pixelPerfectPolyline,
   lineAngle,
   circle,
+  oval,
   poly,
   bresenham, // This function is under "abstract" because it doesn't render.
   box,

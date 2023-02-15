@@ -3,6 +3,7 @@
 
 /* #region 🏁 todo
   + Future
+  - [] Better freehand smoothing across the board.
   - [] Transform hold line before committing a gesture / making the next line?
   - [] More optimized rendering / shader options. 
   + Done
@@ -33,7 +34,7 @@ function boot($) {
     if (str === "?") return $.num.randInt(255);
     else return parseInt(str);
   });
-  thickness = parseInt($.colon) || 1; // Set line thickness with a colon param.
+  thickness = parseInt($.colon[0]) || 1; // Set line thickness with a colon param.
 
   // Set up line smoothing system.
   let step, speed;
@@ -42,7 +43,7 @@ function boot($) {
     speed = 40;
   } else {
     step = thickness / 4;
-    speed = 20;
+    speed = 30;
   }
   // Ick: This should be refactored. 23.02.01.14.09
   race = new $.geo.Race({ step, speed, quantized: true });
