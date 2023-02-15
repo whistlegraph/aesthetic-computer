@@ -27,6 +27,8 @@ Practical and conceptual notes weaved together.
   browser editor?
 
 🧑‍💻 Text Editor / Shell Notes
+- [] nvim guide: https://www.youtube.com/watch?v=0moS8UHupGc&t=7s 
+                 https://www.youtube.com/watch?v=stqUbv-5u2s
 - [] How would I make my own org-mode style editor with this feature? https://stackoverflow.com/questions/25161792/emacs-org-mode-how-can-i-fold-everything-but-the-current-headline
 - [] Install / try the new embedded neovim extension for VSCode.
 - [] https://github.com/ggandor/leap.nvim
