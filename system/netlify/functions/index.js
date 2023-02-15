@@ -96,7 +96,7 @@ async function fun(event, context) {
       <head>
         <meta charset="utf-8">
         <title>${title}</title>
-        <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+        <link rel="icon" crossorigin="anonymous" href="https://assets.aesthetic.computer/images/favicon.png" type="image/png">
         <link rel="stylesheet" crossorigin="anonymous" href="/type/webfonts/berkeley-mono-variable.css" />
         <link rel="stylesheet" crossorigin="anonymous" href="/type/webfonts/ywft-processing-regular.css" />
         <link rel="stylesheet" crossorigin="anonymous" href="/aesthetic.computer/style.css" />
