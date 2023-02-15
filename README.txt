@@ -58,6 +58,34 @@ Welcome to...
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Sound Effects Support ***
+  - [] Load and play a sample from assets when a button is pressed inside a `sample` piece.
+    - [] Check the `bgm` implementation in `bios`.
+
+*** CPU Navigable 2D Painting ***
+  - [] Add support for painting to be a `fixed` resolution.
+  - [] Use "crop" brush.
+
+*** GPU Based 2D Painting ***
+  - [] Make a brush that only directly writes to the system.painting.
+  - [] (Behind a flag.) Render the system.painting as a texture on the GPU, using 3D.js.
+  - [] Keep the painting inside an abstraction that can calculate and send its transforms to the GPU (via Form?)
+    - [] Basically I just need an orthographic camera with a quad... but I also wanna do the auto-tiling which means
+         transforming texture coordinates on a full-screen quad with texture repeat instead of the quad itself.
+    - [] And then this whole thing could be rotated in 3D, with bumpmapping, etc / have shaders applied.
+    - [] Brushes can choose to opt-in to this 3D display or stick with the less navigable 2D display.
+
+*** Ordinaries ***
+  + Now
+   - [-] Add label / figure out a good motif.
+  + Done
+   - [x] Inscribe a test ordinal. 
+
+*** Graphics Optimizations & Performance ***
+  - [] Fix screen-squash zoom bug.
+  - [] Make canvas UI cursor faster.
+  - [] Remove smoothing from line / come up with an alternative thickness.
+
 *** Ranges & Color Parameters ***
   - [🟡] Make a helper to parse color parameters.
     - [] Abstract the randomization of ranged integers across
@@ -65,14 +93,11 @@ Welcome to...
     - [] How does this work with '?' ?
     - [] Add named colors / support all HTML compatible color names?
 
+*** Pressure / Apple Pencil + Stylus Support ***
+  - [] Debug Apple Pencil on actual hardware.
+
 *** Fig Brush ***
   - [] Make a pill-like stick figure that can be placed on the surface.
-
-*** Ordinaries ***
- + Now
-  - [-] Add label / figure out a good motif.
- + Done
-  - [x] Inscribe a test ordinal. 
 
 *** New Prompt QOL Updates ***
   - [] Do history stack different. (Smaller text)
