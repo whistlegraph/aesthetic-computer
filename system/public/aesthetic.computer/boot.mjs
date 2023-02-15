@@ -28,8 +28,37 @@ if (window.location.hash === "#nodebug") debug = false;
 window.acDEBUG = debug; // Set window.acDEBUG again just in case any code relies
 // on it down the line. Should it need to? 22.07.15.00.21
 
-// localStorage.acDEBUG = debug; // Also save debug to localStorage for contexts
-                              // without window access.
+// 1. Identity / authentication
+auth0
+  .createAuth0Client({
+    domain: "dev-f284dv7mszobx6q7.us.auth0.com",
+    clientId: "YWAyjmqmjU59wQS40h84MN0oqSyBombr",
+    authorizationParams: {
+      redirect_uri: window.location.origin,
+    },
+  })
+  .then(async (auth0Client) => {
+    // Handle any redirect from a logout or login via auth0.
+    if (
+      location.search.includes("state=") &&
+      (location.search.includes("code=") || location.search.includes("error="))
+    ) {
+      await auth0Client.handleRedirectCallback();
+      window.history.replaceState({}, document.title, "/");
+    }
+
+    // Define system login and logout functions.
+    window.acLOGIN = auth0Client.loginWithRedirect;
+    window.acLOGOUT = auth0Client.logout;
+
+    const isAuthenticated = await auth0Client.isAuthenticated();
+    const userProfile = await auth0Client.getUser();
+
+    if (debug && isAuthenticated)
+      console.log("User authenticated!", userProfile);
+  });
+
+// 2. Boot the aesthetic.computer system.
 
 // If IPFS Exporting is revisited, then the below code should be rewritten
 // and probably moved into `lib/parse.js`. 22.07.15.00.14
@@ -47,6 +76,7 @@ if (window.location.pathname.length > 1) {
   host += pathSegments.join("/");
 }
 */
+
 
 // Set first input text to the default starting piece, which can be set in
 // index.html via `window.acSTARTING_PIECE` or default to `prompt`.

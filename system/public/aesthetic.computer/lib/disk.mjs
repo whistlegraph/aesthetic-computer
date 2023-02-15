@@ -462,7 +462,10 @@ const $commonApi = {
   },
   gizmo: { Hourglass: gizmo.Hourglass },
   rec: new Recorder(),
-  net: {},
+  net: {
+    login: () => send({ type: "login" }),
+    logout: () => send({ type: "logout" }),
+  },
   needsPaint: () => (noPaint = false), // TODO: Does "paint" needs this?
   store,
   pieceCount: -1, // Incs to 0 when the first piece (usually the prompt) loads.
