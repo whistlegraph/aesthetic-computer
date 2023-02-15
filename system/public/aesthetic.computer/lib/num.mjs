@@ -7,7 +7,7 @@ import * as vec3 from "../dep/gl-matrix/vec3.mjs";
 import * as vec4 from "../dep/gl-matrix/vec4.mjs";
 
 export { vec2, vec3, vec4, mat3, mat4, quat };
-const { round, floor, min, max, sqrt, pow, atan2, sin, cos } = Math;
+const { round, floor, random, PI, min, max, sqrt, pow, atan2, sin, cos } = Math;
 
 // Utilities for modifying {x, y} points.
 export const p2 = {
@@ -91,17 +91,17 @@ export function odd(n) {
 // Accepts integer from 0–16
 // Yields 17 different values between 0–255.
 export function byteInterval17(i16) {
-  return Math.min(i16 * 16, 255);
+  return min(i16 * 16, 255);
 }
 
 // Return a random float from 0->1.
 export function rand() {
-  return Math.random();
+  return random();
 }
 
 // Generates an integer from 0-n (inclusive)
 export function randInt(n) {
-  return Math.floor(Math.random() * (n + 1));
+  return floor(random() * (n + 1));
 }
 
 // Generates an array of random integers from 0-n (inclusive)
@@ -160,16 +160,16 @@ export function dist3d(p1, p2) {
 
 // Converts degrees to radians.
 export function radians(deg) {
-  return deg * (Math.PI / 180);
+  return deg * (PI / 180);
 }
 
 export function degrees(rad) {
-  return rad * (180 / Math.PI);
+  return rad * (180 / PI);
 }
 
 // Keeps a value between min and max.
-export function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
+export function clamp(value, low, high) {
+  return min(max(value, low), high);
 }
 
 // Slides a number between a and by a normalized amount.
@@ -212,8 +212,8 @@ export class Track {
 
   step(progress) {
     if (this.#quantize) {
-      const index = Math.min(
-        Math.floor(progress * this.#values.length),
+      const index = min(
+        floor(progress * this.#values.length),
         this.#values.length - 1
       );
       this.#result(this.#values[index]);

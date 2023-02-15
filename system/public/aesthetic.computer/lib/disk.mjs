@@ -37,11 +37,10 @@ const defaults = {
     cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
-  paint: ({ noiseTinted }) => {
+  paint: ({ noise16Aesthetic }) => {
     // TODO: Make this a boot choice via the index.html file?
-    //$.noise16DIGITPAIN();
-    noiseTinted([20, 20, 20], 0.8, 0.7);
-    //$.wipe(0, 0, 0);
+    noise16Aesthetic();
+    //noiseTinted([20, 20, 20], 0.8, 0.7);
   },
   beat: () => false, // Runs every bpm.
   act: () => false, // All user interaction.
@@ -908,6 +907,7 @@ const $paintApiUnwrapped = {
   skip: graph.skip,
   noise16: graph.noise16,
   noise16DIGITPAIN: graph.noise16DIGITPAIN,
+  noise16Aesthetic: graph.noise16Aesthetic,
   noiseTinted: graph.noiseTinted,
   // glaze: ...
 };

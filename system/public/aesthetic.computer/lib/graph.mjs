@@ -1306,6 +1306,15 @@ function noise16DIGITPAIN() {
   }
 }
 
+function noise16Aesthetic() {
+  for (let i = 0; i < pixels.length; i += 4) {
+    pixels[i] = byteInterval17(randInt(16)) * 0.4; // r
+    pixels[i + 1] = byteInterval17(randInt(16)) * 0.15; // g
+    pixels[i + 2] = byteInterval17(randInt(16)) * 0.8; // b
+    pixels[i + 3] = 255; // a
+  }
+}
+
 function noiseTinted(tint, amount, saturation) {
   // console.log("Tinting:", tint, amount, saturation);
   for (let i = 0; i < pixels.length; i += 4) {
@@ -1351,6 +1360,7 @@ export {
   grid,
   draw,
   noise16,
+  noise16Aesthetic,
   noise16DIGITPAIN,
   noiseTinted,
   printLine,
