@@ -89,14 +89,13 @@ async function fun(event, context) {
     slug,
     meta
   );
-
+  
   const html = `
     <!DOCTYPE html>
     <html>
       <head>
         <meta charset="utf-8">
         <title>${title}</title>
-        <script src="/aesthetic.computer/boot.mjs" type="module" defer></script>
         <link rel="icon" href="data:;base64,iVBORw0KGgo=">
         <link rel="stylesheet" crossorigin="anonymous" href="/type/webfonts/berkeley-mono-variable.css" />
         <link rel="stylesheet" crossorigin="anonymous" href="/type/webfonts/ywft-processing-regular.css" />
@@ -109,6 +108,8 @@ async function fun(event, context) {
         <meta name="twitter:title" content="${title}" />
         <meta name="twitter:site" content="aesthetic.computer" />
         <meta name="twitter:image" content="${twitterImage}"/>
+        <script src="/aesthetic.computer/boot.mjs" type="module" defer></script>
+        <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
       </head>
       <body class="native-cursor">
       <script>
