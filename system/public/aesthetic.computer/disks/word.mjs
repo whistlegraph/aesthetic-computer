@@ -4,10 +4,14 @@
 /* #region 🏁 todo
   + Second Version
   + System
+    - [] Improve line thickness code / consider growing from
+         a structure / outlining the skeleton as a post process
+         rather than using pline?
     - [] Support question mark params on both colon and on color.
     - [] (Implement here then generalize for other brushes that parse
           color.) See `line` for an existing implementation.
   + Done
+    - [x] Add thickness as a secondary colon parameter / colon param 2.
     - [x] 🐛 Dragging is inconsistent. 
     - [x] Word should start in a random place within width and height.
     - [x] Colored text with custom quoted messaged and specific scale. 
@@ -26,6 +30,7 @@
 #endregion */
 
 let text, size, color, x, y;
+let thickness = 1;
 
 const words = ["sad", "OK", "i'm so creative", "alright", "NEXT LEVEL"];
 
@@ -84,7 +89,8 @@ function boot($) {
     text = help.choose(...words);
   }
 
-  size = parseInt(colon) || 1; // No 0, undefined or NaN.
+  size = parseInt(colon[0]) || 1; // No 0, undefined or NaN.
+  thickness = parseInt(colon[1]) || thickness;
 
   // x = screen.width / 2; // Default position is the center of the display.
   // y = screen.height / 2;
@@ -93,11 +99,18 @@ function boot($) {
 }
 
 // 🎨 Paint (Executes every display frame)
-function paint({ params, pen, system, paste, ink, screen }) {
+function paint({ system, paste, ink }) {
   const shadow = 1;
   paste(system.painting);
-  ink(0, 50).write(text, { x: x + shadow, y: y + shadow, center: "xy", size });
-  ink(color).write(text, { x, y, center: "xy", size });
+  ink(0, 50).write(text, {
+    x: x + shadow,
+    y: y + shadow,
+    center: "xy",
+    size,
+    thickness,
+    rotation: 0,
+  });
+  ink(color).write(text, { x, y, center: "xy", size, thickness, rotation: 0 });
 }
 
 // ✒ Act (Runs once per user interaction)

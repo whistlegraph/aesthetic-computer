@@ -341,6 +341,45 @@ const $commonApi = {
       boot: nopaint_boot, // TODO: Why are these in the commonApi? 23.02.12.14.26
       act: nopaint_act,
       undo: { paintings: undoPaintings },
+      no: ({ system, store, needsPaint }) => {
+        // Ripped straight from prompt!
+        const paintings = system.nopaint.undo.paintings;
+
+        if (paintings.length > 1) {
+          // Copy over the old picture here...
+          const p = paintings[paintings.length - 2];
+          const op = p.pixels;
+          const pixels = new Uint8ClampedArray(op.length);
+          pixels.set(op);
+
+          store["painting"] = {
+            width: p.width,
+            height: p.height,
+            pixels,
+          };
+
+          // Swap mode.
+          // 'no' should swap...
+          const temp = paintings[0];
+          paintings[0] = paintings[1];
+          paintings[1] = temp;
+
+          // Rewind mode
+          //paintings.length -= 1;
+
+          store.persist("painting", "local:db");
+
+          system.painting = store["painting"];
+          needsPaint();
+        }
+      },
+      noBang: async ({ system, store, needsPaint }) => {
+        const deleted = await store.delete("painting", "local:db");
+        system.nopaint.undo.paintings.length = 0; // Reset undo stack.
+        system.painting = null;
+        needsPaint();
+        return deleted;
+      },
       abort: () => (NPnoOnLeave = true),
     },
   },
@@ -412,6 +451,7 @@ const $commonApi = {
   },
   ui: {
     Button: ui.Button,
+    TextButton: ui.TextButton,
   },
   help: {
     choose: help.choose,
@@ -854,6 +894,7 @@ const $paintApiUnwrapped = {
   lineAngle: graph.lineAngle,
   pline: graph.pline,
   pppline: graph.pixelPerfectPolyline,
+  oval: graph.oval,
   circle: graph.circle,
   poly: graph.poly,
   box: graph.box,
@@ -1147,9 +1188,10 @@ async function load(parsed, fromHistory = false, alias = false) {
       const response = await fetch(fullUrl);
       const sourceCode = await response.text();
       const updatedCode = sourceCode.replace(
-        /\/aesthetic.computer/g,
+        /\/aesthetic\.computer/g,
         location.protocol + "//" + host + "/aesthetic.computer"
-      ); // Parse out
+      ); // Make "/aesthetic.computer" imports absolute.
+
       const blob = new Blob([updatedCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);
     }
@@ -1430,11 +1472,13 @@ async function load(parsed, fromHistory = false, alias = false) {
   // router pieces such as `freaky-flowers` -> `wand`. 22.11.23.16.29
   $commonApi.jump = function jump(to, ahistorical = false, alias = false) {
     let url;
-    try {
-      url = new URL(to);
-    } catch (e) {
-      // Could not construct a valid url from the jump, so we will be
-      // running a local aesthetic.computer piece.
+    if (to.startsWith("http")) {
+      try {
+        url = new URL(to);
+      } catch (e) {
+        // Could not construct a valid url from the jump, so we will be
+        // running a local aesthetic.computer piece.
+      }
     }
     url ? $commonApi.net.web(to) : load(parse(to), ahistorical, alias);
   };
@@ -2236,7 +2280,7 @@ async function makeFrame({ data: { type, content } }) {
                 : jump("prompt");
             },
             cancel: () => {
-              currentHUDTextColor = originalColor; 
+              currentHUDTextColor = originalColor;
             },
           });
         } catch (e) {

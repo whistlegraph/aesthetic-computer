@@ -284,6 +284,7 @@ export class Pen {
     });
 
     function reportPressure(e) {
+      /*
       let pressure;
       // If the device is a trackpad (probably on a MacBook and in Safari)
       if (forceTouchEnabled) {
@@ -300,6 +301,8 @@ export class Pen {
         if (pen.device === "mouse") pressure = 1;
       }
       return pressure;
+      */
+      return 1;
     }
 
     return pen;
