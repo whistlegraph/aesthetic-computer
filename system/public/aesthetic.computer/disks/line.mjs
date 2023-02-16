@@ -105,13 +105,13 @@ function act($) {
   $.system.nopaint.act($); // Inherit nopaint's act functionality.
   const { event: e, pen, num } = $;
 
-  if (e.is("touch:1")) {
+  if (e.is("touch:1") && pen) {
     points.length = 0;
     race.start([pen.x, pen.y]);
     addPoint(num, pen.x, pen.y);
   }
 
-  if (e.is("draw:1")) race.goal = [pen.x, pen.y];
+  if (e.is("draw:1") && pen) race.goal = [pen.x, pen.y];
   if (e.is("lift:1")) bake = true;
 }
 

@@ -62,9 +62,6 @@ Welcome to...
   - [] Load and play a sample from assets when a button is pressed inside a `sample` piece.
     - [] Check the `bgm` implementation in `bios`.
 
-*** Pressure / Apple Pencil + Stylus Support ***
-  - [] Debug Apple Pencil on actual hardware.
-
 *** Auth0 Integration ***
   - [-] Add verification link handler / require input code.
   - [] Protect a server route.

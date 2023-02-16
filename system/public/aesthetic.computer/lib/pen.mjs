@@ -38,7 +38,7 @@ class Pointer {
   dragBox;
   // These are only used to calculate the liminal event delta.
 
-  // Helpers for computing delta. 
+  // Helpers for computing delta.
   saveDelta() {
     this.delta = {
       x: this.x - this.#dpx,
@@ -142,9 +142,8 @@ export class Pen {
 
         pointer.untransformedPosition = { x: e.x, y: e.y };
         pointer.pressure = reportPressure(e);
-        //pointer.down = true;
-        //console.log("pointerdown", pointer.down);
         pointer.drawing = true;
+        console.log("pointer drawing", pointer.drawing);
         pointer.button = e.button; // Should this be deprecated? 22.11.07.22.13
         pointer.buttons = [e.button];
 
@@ -236,6 +235,7 @@ export class Pen {
     // ***Lift***
     window.addEventListener("pointerup", (e) => {
       const pointer = pen.pointers[e.pointerId];
+
       if (!pointer) return;
 
       if (pointer.drawing) pen.#event("lift", pointer);
@@ -248,7 +248,8 @@ export class Pen {
       if (e.pointerType !== "mouse") pen.penCursor = false;
 
       // Delete pointer only if we are using touch.
-      if (e.pointerType === "touch") delete this.pointers[e.pointerId];
+      if (e.pointerType === "touch" || e.pointerType === "pen")
+        delete this.pointers[e.pointerId];
 
       // if (debug)
         // console.log("Removed pointer by ID:", e.pointerId, this.pointers);
