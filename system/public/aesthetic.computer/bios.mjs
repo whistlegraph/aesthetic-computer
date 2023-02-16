@@ -873,10 +873,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
-  
-    // Authenticate a user.
+    // Authenticate / signup or login a user.
     if (type === "login") {
-      window.acLOGIN?.();
+      window.acLOGIN?.(content.email);
+      return;
+    }
+
+    if (type === "verify") {
+      window.acVERIFY?.(content.email, content.code);
       return;
     }
 

@@ -28,14 +28,57 @@ if (window.location.hash === "#nodebug") debug = false;
 window.acDEBUG = debug; // Set window.acDEBUG again just in case any code relies
 // on it down the line. Should it need to? 22.07.15.00.21
 
-// 1. Identity / authentication
+// 1. Identity / authentication (auth0)
+const clientID = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
+const webAuth = new auth0.WebAuth({
+  clientID,
+  domain: "aesthetic.us.auth0.com",
+  redirectUri: window.location.origin,
+  responseType: "token id_token",
+});
+
+window.acLOGIN = (email) => {
+  webAuth.passwordlessStart(
+    { connection: "email", send: "code", email },
+    function (err, res) {
+      console.log("🔐 Auth:", err, res);
+    }
+  );
+};
+
+window.acLOGOUT = () => {
+  webAuth.logout({ returnTo: window.location.origin, clientID, }); }
+
+
+window.acVERIFY = (email, verificationCode) => {
+  webAuth.passwordlessLogin(
+    { connection: "email", email, verificationCode },
+    function (err, res) {
+      console.log("🔐 Auth:", err, res);
+    }
+  );
+
+  webAuth.parseHash({ hash: window.location.hash }, function (err, authResult) {
+    if (err) return console.log(err);
+    if (debug) console.log("🔐 Hash:", hash);
+
+    webAuth.client.userInfo(authResult.accessToken, function (err, user) {
+      if (debug) console.log("🔐 User:", user);
+      // Now you have the user's information
+    });
+  });
+};
+
+// Auth Method One
+/*
+const authorizationParams = {
+  redirect_uri: window.location.origin,
+};
 auth0
   .createAuth0Client({
-    domain: "dev-f284dv7mszobx6q7.us.auth0.com",
-    clientId: "YWAyjmqmjU59wQS40h84MN0oqSyBombr",
-    authorizationParams: {
-      redirect_uri: window.location.origin,
-    },
+    domain: "auth0.aesthetic.computer",
+    clientId: "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt",
+    authorizationParams,
   })
   .then(async (auth0Client) => {
     // Handle any redirect from a logout or login via auth0.
@@ -48,8 +91,8 @@ auth0
     }
 
     // Define system login and logout functions.
-    window.acLOGIN = auth0Client.loginWithRedirect;
-    window.acLOGOUT = auth0Client.logout;
+    window.acLOGIN = () => auth0Client.loginWithRedirect();
+    window.acLOGOUT = () => auth0Client.logout();
 
     const isAuthenticated = await auth0Client.isAuthenticated();
     const userProfile = await auth0Client.getUser();
@@ -57,6 +100,7 @@ auth0
     if (debug && isAuthenticated)
       console.log("User authenticated!", userProfile);
   });
+ */
 
 // 2. Boot the aesthetic.computer system.
 
@@ -76,7 +120,6 @@ if (window.location.pathname.length > 1) {
   host += pathSegments.join("/");
 }
 */
-
 
 // Set first input text to the default starting piece, which can be set in
 // index.html via `window.acSTARTING_PIECE` or default to `prompt`.

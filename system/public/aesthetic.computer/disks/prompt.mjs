@@ -78,6 +78,11 @@ function boot($) {
     scheme[dark ? "dark" : "light"],
     // 🍎 Process commands...
     async (text) => {
+      // Roughly parse out the text (could also do a full `parse` here.)
+      const tokens = text.split(" ");
+      const slug = tokens[0]; // Note: Includes colon params.
+      const params = tokens.slice(1);
+
       if (text === "dl" || text === "download") {
         if (store["painting"]) {
           download(`painting-${num.timestamp()}.png`, store["painting"], {
@@ -93,13 +98,18 @@ function boot($) {
         flashShow = true;
         input.text = "";
         needsPaint();
-      } else if (text === "login") {
-        net.login();
-        flashColor = [255, 255, 0, 100]; // Yellow
+      } else if (slug === "login" || slug === "hi") {
+        const email = params[0];
+        if (email) {
+          net.login({ email });
+          flashColor = [255, 255, 0, 100]; // Yellow
+        } else {
+          flashColor = [255, 0, 0, 100]; // Yellow
+        }
         flashPresent = true;
         flashShow = true;
         input.text = "";
-      } else if (text === "logout") {
+      } else if (text === "logout" || text === "bye") {
         net.logout();
         flashColor = [255, 255, 0, 100]; // Yellow
         flashPresent = true;
