@@ -463,7 +463,8 @@ const $commonApi = {
   gizmo: { Hourglass: gizmo.Hourglass },
   rec: new Recorder(),
   net: {
-    login: () => send({ type: "login" }),
+    login: (content) => send({ type: "login", content }), // { email }
+    verify: (content) => send({ type: "verify", content }), // { email, code }
     logout: () => send({ type: "logout" }),
   },
   needsPaint: () => (noPaint = false), // TODO: Does "paint" needs this?

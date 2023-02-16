@@ -62,9 +62,22 @@ Welcome to...
   - [] Load and play a sample from assets when a button is pressed inside a `sample` piece.
     - [] Check the `bgm` implementation in `bios`.
 
+*** Pressure / Apple Pencil + Stylus Support ***
+  - [] Debug Apple Pencil on actual hardware.
+
 *** Auth0 Integration ***
-  - [] Set up auth0 sign-up via https://manage.auth0.com.
-  - [] Signup on passwordless authentication via email only.
+  - [-] Add verification link handler / require input code.
+  - [] Protect a server route.
+  - [] Custom emails.
+    - [] Auto-fill a code through a link / provide a link to activate?
+  - [] How to link email and phone to the same account?
+  + Done
+  - [x] SMS Support via Twilio.
+  - [x] Signup on passwordless authentication via email only.
+    - [x] https://auth0.com/docs/libraries/auth0js#webauth-crossoriginverification-
+  - [x] Test in production and on local.
+  - [x] Set up auth0 sign-up via https://manage.auth0.com.
+  - [x] Add login and logout handlers.
 
 *** CPU Navigable 2D Painting ***
   - [] Add support for painting to be a `fixed` resolution.
@@ -96,9 +109,6 @@ Welcome to...
         every brush with integer params.
     - [] How does this work with '?' ?
     - [] Add named colors / support all HTML compatible color names?
-
-*** Pressure / Apple Pencil + Stylus Support ***
-  - [] Debug Apple Pencil on actual hardware.
 
 *** Fig Brush ***
   - [] Make a pill-like stick figure that can be placed on the surface.

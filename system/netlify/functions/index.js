@@ -96,7 +96,7 @@ async function fun(event, context) {
       <head>
         <meta charset="utf-8">
         <title>${title}</title>
-        <link rel="icon" crossorigin="anonymous" href="https://assets.aesthetic.computer/images/favicon.png" type="image/png">
+        <link rel="icon" href="https://assets.aesthetic.computer/images/favicon.png" type="image/png">
         <link rel="stylesheet" crossorigin="anonymous" href="/type/webfonts/berkeley-mono-variable.css" />
         <link rel="stylesheet" crossorigin="anonymous" href="/type/webfonts/ywft-processing-regular.css" />
         <link rel="stylesheet" crossorigin="anonymous" href="/aesthetic.computer/style.css" />
@@ -108,7 +108,7 @@ async function fun(event, context) {
         <meta name="twitter:title" content="${title}" />
         <meta name="twitter:site" content="aesthetic.computer" />
         <meta name="twitter:image" content="${twitterImage}"/>
-        <script crossorigin="anonymous" src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
+        <script crossorigin="anonymous" src="https://cdn.auth0.com/js/auth0/9.18/auth0.min.js"></script>
         <script src="/aesthetic.computer/boot.mjs" type="module" defer></script>
       </head>
       <body class="native-cursor">
