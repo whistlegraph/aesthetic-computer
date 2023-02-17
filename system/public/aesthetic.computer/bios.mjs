@@ -858,8 +858,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     keyboard.events.length = 0;
   }
 
-  let frameResolution;
-
   let frameCached = false;
   let pixelsDidChange = false; // TODO: Can this whole thing be removed? 2021.11.28.03.50
 
@@ -867,20 +865,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let underlayFrame,
     underlayVideo = {};
 
-  const bakedCan = document.createElement("canvas", {
-    willReadFrequently: true,
-  });
+  //const bakedCan = document.createElement("canvas", {
+  //  willReadFrequently: true,
+  //});
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
     // Authenticate / signup or login a user.
     if (type === "login") {
-      window.acLOGIN?.(content.email);
-      return;
-    }
-
-    if (type === "verify") {
-      window.acVERIFY?.(content.email, content.code);
+      window.acLOGIN?.();
       return;
     }
 

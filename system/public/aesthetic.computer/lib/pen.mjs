@@ -15,7 +15,6 @@ import { Point } from "./geo.mjs";
 const { assign } = Object;
 const { round } = Math;
 
-// debugger;
 const debug = Boolean(window.acDEBUG);
 
 class Pointer {
@@ -143,7 +142,6 @@ export class Pen {
         pointer.untransformedPosition = { x: e.x, y: e.y };
         pointer.pressure = reportPressure(e);
         pointer.drawing = true;
-        console.log("pointer drawing", pointer.drawing);
         pointer.button = e.button; // Should this be deprecated? 22.11.07.22.13
         pointer.buttons = [e.button];
 
