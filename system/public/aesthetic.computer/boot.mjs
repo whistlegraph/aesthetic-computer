@@ -1,5 +1,10 @@
+// `aesthetic.computer` Bootstrap, 23.02.16.19.23
+// Included as a <script> tag to boot the system on a webpage. (Loads `bios`)
+
 import { boot } from "./bios.mjs";
 import { parse, slug } from "./lib/parse.mjs";
+
+// 0. Environment Configuration
 
 let debug;
 
@@ -28,80 +33,58 @@ if (window.location.hash === "#nodebug") debug = false;
 window.acDEBUG = debug; // Set window.acDEBUG again just in case any code relies
 // on it down the line. Should it need to? 22.07.15.00.21
 
-// 1. Identity / authentication (auth0)
-const clientID = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
-const webAuth = new auth0.WebAuth({
-  clientID,
-  domain: "aesthetic.us.auth0.com",
-  redirectUri: window.location.origin,
-  responseType: "token id_token",
-});
-
-window.acLOGIN = (email) => {
-  webAuth.passwordlessStart(
-    { connection: "email", send: "code", email },
-    function (err, res) {
-      console.log("🔐 Auth:", err, res);
-    }
-  );
-};
-
-window.acLOGOUT = () => {
-  webAuth.logout({ returnTo: window.location.origin, clientID, }); }
-
-
-window.acVERIFY = (email, verificationCode) => {
-  webAuth.passwordlessLogin(
-    { connection: "email", email, verificationCode },
-    function (err, res) {
-      console.log("🔐 Auth:", err, res);
-    }
-  );
-
-  webAuth.parseHash({ hash: window.location.hash }, function (err, authResult) {
-    if (err) return console.log(err);
-    if (debug) console.log("🔐 Hash:", hash);
-
-    webAuth.client.userInfo(authResult.accessToken, function (err, user) {
-      if (debug) console.log("🔐 User:", user);
-      // Now you have the user's information
-    });
-  });
-};
-
-// Auth Method One
-/*
-const authorizationParams = {
-  redirect_uri: window.location.origin,
-};
+// #region 🔐 Auth0: Universal Login & Authentication
+const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
 auth0
   .createAuth0Client({
-    domain: "auth0.aesthetic.computer",
-    clientId: "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt",
-    authorizationParams,
+    domain: "https://auth0.aesthetic.computer",
+    clientId,
+    cacheLocation: "localstorage",
+    useRefreshTokens: true,
+    authorizationParams: {
+      redirect_uri: window.location.origin,
+    },
   })
   .then(async (auth0Client) => {
-    // Handle any redirect from a logout or login via auth0.
+    // Assumes a button with id "login" in the DOM
     if (
       location.search.includes("state=") &&
       (location.search.includes("code=") || location.search.includes("error="))
     ) {
-      await auth0Client.handleRedirectCallback();
+      try {
+        await auth0Client.handleRedirectCallback();
+      } catch (e) {
+        console.error("🔐", e);
+      }
       window.history.replaceState({}, document.title, "/");
     }
 
-    // Define system login and logout functions.
-    window.acLOGIN = () => auth0Client.loginWithRedirect();
-    window.acLOGOUT = () => auth0Client.logout();
-
     const isAuthenticated = await auth0Client.isAuthenticated();
-    const userProfile = await auth0Client.getUser();
 
-    if (debug && isAuthenticated)
-      console.log("User authenticated!", userProfile);
+    window.acLOGIN = async () => auth0Client.loginWithRedirect();
+
+    window.acLOGOUT = () => {
+      if (isAuthenticated) {
+        console.log("🔐 Logging out...");
+        auth0Client.logout({
+          logoutParams: {
+            returnTo: window.location.origin,
+          },
+        });
+      } else {
+        console.log("🔐 Already logged out!");
+      }
+    };
+
+    if (isAuthenticated) {
+      const userProfile = await auth0Client.getUser();
+      console.log("🔐 Logged in:", userProfile);
+      // TODO: Put userProfile information / user.name into the prompt MOTD!
+    }
   });
- */
+// #endregion
 
+// 🥾
 // 2. Boot the aesthetic.computer system.
 
 // If IPFS Exporting is revisited, then the below code should be rewritten

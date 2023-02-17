@@ -108,8 +108,8 @@ async function fun(event, context) {
         <meta name="twitter:title" content="${title}" />
         <meta name="twitter:site" content="aesthetic.computer" />
         <meta name="twitter:image" content="${twitterImage}"/>
-        <script crossorigin="anonymous" src="https://cdn.auth0.com/js/auth0/9.18/auth0.min.js"></script>
-        <script src="/aesthetic.computer/boot.mjs" type="module" defer></script>
+        <script crossorigin="anonymous" src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
+        <script crossorigin="anonymous" src="/aesthetic.computer/boot.mjs" type="module" defer></script>
       </head>
       <body class="native-cursor">
       <script>
@@ -122,13 +122,6 @@ async function fun(event, context) {
     statusCode: 200,
     headers: {
       "Content-Type": "text/html",
-      // These headers are required in order for SharedArrayBuffer to be enabled.
-      // Currently used by ffmpeg.wasm. 22.08.06.11.01
-      "Access-Control-Allow-Origin": "*",
-      "Cross-Origin-Embedder-Policy": "require-corp",
-      "Cross-Origin-Opener-Policy": "same-origin",
-      // "Cross-Origin-Resource-Policy": "cross-origin", // for aframe. 22.10.04.21.35
-      Vary: "*",
     },
     body: html,
     ttl: 60,

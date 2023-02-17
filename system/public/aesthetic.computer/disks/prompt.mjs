@@ -99,13 +99,8 @@ function boot($) {
         input.text = "";
         needsPaint();
       } else if (slug === "login" || slug === "hi") {
-        const email = params[0];
-        if (email) {
-          net.login({ email });
-          flashColor = [255, 255, 0, 100]; // Yellow
-        } else {
-          flashColor = [255, 0, 0, 100]; // Yellow
-        }
+        net.login();
+        flashColor = [255, 255, 0, 100]; // Yellow
         flashPresent = true;
         flashShow = true;
         input.text = "";

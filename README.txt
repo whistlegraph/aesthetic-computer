@@ -63,7 +63,8 @@ Welcome to...
     - [] Check the `bgm` implementation in `bios`.
 
 *** Auth0 Integration ***
-  - [-] Add verification link handler / require input code.
+  - [-] Put user information into the `prompt` MOTD!
+    - [] Move auth into the bios.
   - [] Protect a server route.
   - [] Custom emails.
     - [] Auto-fill a code through a link / provide a link to activate?

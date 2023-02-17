@@ -39,17 +39,18 @@
     Access-Control-Allow-Origin = "*"
     # These headers are required in order for SharedArrayBuffer to be enabled.
     # Currently used by ffmpeg.wasm. 22.08.06.11.01
+    # Cross-Origin-Embedder-Policy: "require-corp"
+    # Cross-Origin-Opener-Policy: "same-origin"
+    # Cross-Origin-Embedder-Policy = "cross-origin"
+    # Cross-Origin-Opener-Policy = "same-origin"
     Cross-Origin-Embedder-Policy = "require-corp"
     Cross-Origin-Opener-Policy = "same-origin"
-    # Cross-Origin-Resource-Policy = "cross-origin"
-    Vary = "*"
 [[headers]]
   for = "/*.mjs|/*.js"
   [headers.values]
     Access-Control-Allow-Origin = "*"
-    # Content-Security-Policy = "script-src 'self';"
-    # Content-Security-Policy = "script-src *;"
     Content-Security-Policy = "script-src 'self' blob:;"
+    Vary = "*"
 [[redirects]]
   from = "https://www.4esthetic.com/*"
   to = "https://aesthetic.computer/:splat"
