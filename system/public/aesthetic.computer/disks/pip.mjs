@@ -21,7 +21,7 @@ function boot($api) {
   // or should system.painting always be available?
 
   painting = $api.painting(256, 256, p => p.noise16())
-  $api.system = { painting };
+  $api.system.painting = painting;
   line.boot?.($api);
   rect.boot?.($api);
 }

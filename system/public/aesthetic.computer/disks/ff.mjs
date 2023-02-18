@@ -9,4 +9,4 @@ export function boot({ params, jump, store }) {
   jump(`freaky-flowers` + params.map((p) => `~` + p).join(""), true, false);
 }
 
-export { meta } from "/aesthetic.computer/disks/freaky-flowers.mjs";
+export { meta } from "../disks/freaky-flowers.mjs";

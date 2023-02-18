@@ -5,7 +5,7 @@
 // - [] Add Camdoll
 //      import { CamDoll } from "../lib/cam-doll.mjs";
 
-import { font1 } from "./common/fonts.mjs";
+import { font1 } from "./common/fonts.mjs"; // This import will probably break now. 23.02.18.13.00 
 import { MetaBrowser, iOS } from "../lib/platform.mjs";
 
 const { entries, keys } = Object;
