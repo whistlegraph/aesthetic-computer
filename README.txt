@@ -58,12 +58,17 @@ Welcome to...
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** @rcrdlbl ***
+  - [] auth0 login screen
+  - [] moving $api calls around in `disk`
+  - [] making some brushes
+
 *** Sound Effects Support ***
   - [] Load and play a sample from assets when a button is pressed inside a `sample` piece.
     - [] Check the `bgm` implementation in `bios`.
 
 *** Auth0 Integration ***
-  - [-] Put user information into the `prompt` MOTD!
+  - [🟡] Put user information into the `prompt` MOTD!
     - [] Move auth into the bios.
   - [] Protect a server route.
   - [] Custom emails.
