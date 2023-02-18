@@ -19,6 +19,8 @@ async function fun(event, context) {
 
   const parsed = parse(slug, { hostname: event.headers["host"] });
 
+  debugger;
+
   if (process.env.CONTEXT === "dev") console.log(slug, parsed);
 
   // Remote host.
@@ -69,7 +71,6 @@ async function fun(event, context) {
             parsed.text.startsWith("valbear") ||
             parsed.text === "")
         ) {
-          // desc = (await import(`../../public/${parsed.path}.mjs`)).desc;
           const m = await import(`../../public/${parsed.path}.mjs`);
           meta = m.meta?.(parsed); // Parse any special piece metadata if it exists.
         }
@@ -89,7 +90,7 @@ async function fun(event, context) {
     slug,
     meta
   );
-  
+
   const html = `
     <!DOCTYPE html>
     <html>

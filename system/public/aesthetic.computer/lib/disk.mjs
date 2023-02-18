@@ -1167,20 +1167,8 @@ async function load(parsed, fromHistory = false, alias = false) {
   if (debug) console.log("🕸", fullUrl);
 
   // See if we already have source code to build a blobURL from.
-  if (parsed.source) {
-    // TODO: What happens if source is undefined?
-    // const blob = new Blob([parsed.source], { type: "application/javascript" });
-    // const url = URL.createObjectURL(blob);
-    // Perhaps the disk files need to be cached in a CDN and then destroyed
-    // after a certain time?
-    // Or they need to be tied to a user account already...
-    // const module = importScripts(url);
-    // const m = await importScripts(url);
-    // debugger;
-    // use the imported module
-    // import { sayHello } from "./script.js";
-    // sayHello();
-  }
+  // if (parsed.source) {
+  // }
 
   // 🅱️ Load the piece.
   // const moduleLoadTime = performance.now();
@@ -1192,10 +1180,25 @@ async function load(parsed, fromHistory = false, alias = false) {
     } else {
       const response = await fetch(fullUrl);
       const sourceCode = await response.text();
-      const updatedCode = sourceCode.replace(
-        /\/aesthetic\.computer/g,
-        location.protocol + "//" + host + "/aesthetic.computer"
-      ); // Make "/aesthetic.computer" imports absolute.
+
+      const twoDots =
+        /^(import|export) {([^{}]*?)} from ["'](\.\.\/|\.\.|\.\/)(.*?)["'];?/gm;
+      const oneDot =
+        /^(import|export) \* as ([^ ]+) from ["']\.?\/(.*?)["'];?/gm;
+
+      let updatedCode = sourceCode.replace(twoDots, (match, p1, p2, p3, p4) => {
+        let url = `${location.protocol}//${host}/aesthetic.computer${
+          p3 === "./" ? "/disks" : ""
+        }/${p4.replace(/\.\.\//g, "")}`;
+        return `${p1} { ${p2} } from "${url}";`;
+      });
+
+      updatedCode = updatedCode.replace(oneDot, (match, p1, p2, p3) => {
+        let url = `${location.protocol}//${host}/aesthetic.computer${
+          p3.startsWith("disks/") ? "" : "/disks"
+        }/${p3.replace(/^disks\//, "")}`;
+        return `${p1} * as ${p2} from "${url}";`;
+      });
 
       const blob = new Blob([updatedCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);

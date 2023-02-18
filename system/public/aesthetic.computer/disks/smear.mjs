@@ -32,7 +32,7 @@ function paint({
 
   paste(system.painting);
 
-  if (pen.drawing) {
+  if (pen?.drawing) {
     // Crop the back buffer to the radius of the circle.
     if (sampled === false) {
       if (samples.length > 64) samples.length = 64; // Chop some samples.
