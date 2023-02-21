@@ -30,18 +30,6 @@ const scheme = {
   },
 };
 
-const motd =
-  `Try 'ff'                                        ` +
-  `     to see Freaky Flowers                      ` +
-  `                                                ` +
-  ` Or 'valbear'                                   ` +
-  `     to make a Valentine                        ` +
-  `                                                ` +
-  ` Or 'help' to learn more!                       ` +
-  `                                                ` +
-  `                                                ` +
-  `mail@aesthetic.computer                         `;
-
 let input;
 
 // Error / feedback flash on command entry.
@@ -67,10 +55,40 @@ function boot($) {
     system,
     net,
     jump,
-    history,
+    user,
   } = $;
 
   glaze({ on: true }); // TODO: Every glaze triggers `frame` in `disk`, this could be optimized. 2022.04.24.04.25
+
+  console.log("User", user);
+
+  let motd =
+    `Try 'ff'                                        ` +
+    `     to see Freaky Flowers                      ` +
+    `                                                ` +
+    ` Or 'valbear'                                   ` +
+    `     to make a Valentine                        ` +
+    `                                                ` +
+    ` Or 'help' to learn more!                       ` +
+    `                                                ` +
+    `                                                ` +
+    `mail@aesthetic.computer                         `;
+
+  if (user) {
+    motd = `You are logged in!                              ` + motd;
+
+    const motdWidth = 80; // fixed width for the motd
+
+
+    const username = "JohnDoe"; // example username
+
+    if (user) {
+      const paddedMotd = motd.padStart(motdWidth);
+      motd = `You are logged in as ${username}!${paddedMotd.slice(motdWidth)}`;
+    }
+
+    // TODO: Add a username `user` and pad this number of spaces.
+  }
 
   input = new TextInput(
     $,

@@ -91,10 +91,9 @@ function paint({ wipe, ink, circle, screen, pen, num, line }) {
 }
 
 // ✒ Act (Runs once per user interaction)
-function act({ event }) {
-  if (event.is("touch")) {
-    faceSize += 2;
-  }
+function act({ event: e, jump }) {
+  // if (e.is("touch")) faceSize += 2;
+  if (e.is("touch")) jump('camera');
 }
 
 /*

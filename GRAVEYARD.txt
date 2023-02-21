@@ -3,6 +3,22 @@
 
 * 23.02.10.14.42 and Earlier
 
+      *** Molly Soda Moods ***
+        - [x] Add support for camera brush.
+        - [x] Rename sparkle -> icon
+        - [x] Add glyphs to icon brush.
+          - [x] Spin up icon brush prototype.
+          "Activity"
+          {
+          - [x] Title Screen
+          - [x] Camera 
+          - [x] Icon (preset palettes with preset graphics, similar to text changing words)
+            - [x] Rename sparkle to icon.
+          + Tonight
+          - [x] "Sparkle" by Maya
+            - [x] Jeffrey asks Maya about doing sparkle.
+          + Later
+
 *** Pressure / Apple Pencil + Stylus Support ***
   - [x] Debug Apple Pencil on actual hardware.
 
