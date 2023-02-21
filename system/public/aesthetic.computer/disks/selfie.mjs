@@ -152,7 +152,7 @@ function act(
 
   download.btn.act(e, () => {
     if (store["painting"]) {
-      dl(`ordsy-${timestamp()}.png`, store["painting"], {
+      dl(`selfie-${timestamp()}.png`, store["painting"], {
         scale: 2,
         cropToScreen: true,
       });
