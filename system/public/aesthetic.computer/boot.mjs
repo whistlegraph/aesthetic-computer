@@ -34,54 +34,57 @@ window.acDEBUG = debug; // Set window.acDEBUG again just in case any code relies
 // on it down the line. Should it need to? 22.07.15.00.21
 
 // #region 🔐 Auth0: Universal Login & Authentication
-const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
-auth0
-  .createAuth0Client({
-    domain: "https://auth0.aesthetic.computer",
-    clientId,
-    cacheLocation: "localstorage",
-    useRefreshTokens: true,
-    authorizationParams: {
-      redirect_uri: window.location.origin,
-    },
-  })
-  .then(async (auth0Client) => {
-    // Assumes a button with id "login" in the DOM
-    if (
-      location.search.includes("state=") &&
-      (location.search.includes("code=") || location.search.includes("error="))
-    ) {
-      try {
-        await auth0Client.handleRedirectCallback();
-      } catch (e) {
-        console.error("🔐", e);
+/*
+  const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
+  auth0
+    .createAuth0Client({
+      domain: "https://auth0.aesthetic.computer",
+      clientId,
+      cacheLocation: "localstorage",
+      useRefreshTokens: true,
+      authorizationParams: {
+        redirect_uri: window.location.origin,
+      },
+    })
+    .then(async (auth0Client) => {
+      // Assumes a button with id "login" in the DOM
+      if (
+        location.search.includes("state=") &&
+        (location.search.includes("code=") ||
+          location.search.includes("error="))
+      ) {
+        try {
+          await auth0Client.handleRedirectCallback();
+        } catch (e) {
+          console.error("🔐", e);
+        }
+        window.history.replaceState({}, document.title, "/");
       }
-      window.history.replaceState({}, document.title, "/");
-    }
 
-    const isAuthenticated = await auth0Client.isAuthenticated();
+      const isAuthenticated = await auth0Client.isAuthenticated();
 
-    window.acLOGIN = async () => auth0Client.loginWithRedirect();
+      window.acLOGIN = async () => auth0Client.loginWithRedirect();
 
-    window.acLOGOUT = () => {
+      window.acLOGOUT = () => {
+        if (isAuthenticated) {
+          console.log("🔐 Logging out...");
+          auth0Client.logout({
+            logoutParams: {
+              returnTo: window.location.origin,
+            },
+          });
+        } else {
+          console.log("🔐 Already logged out!");
+        }
+      };
+
       if (isAuthenticated) {
-        console.log("🔐 Logging out...");
-        auth0Client.logout({
-          logoutParams: {
-            returnTo: window.location.origin,
-          },
-        });
-      } else {
-        console.log("🔐 Already logged out!");
+        const userProfile = await auth0Client.getUser();
+        console.log("🔐 Logged in:", userProfile);
+        window.acUSER = userProfile; // Will get passed to the first message by the piece runner.
       }
-    };
-
-    if (isAuthenticated) {
-      const userProfile = await auth0Client.getUser();
-      console.log("🔐 Logged in:", userProfile);
-      // TODO: Put userProfile information / user.name into the prompt MOTD!
-    }
-  });
+    });
+    */
 // #endregion
 
 // 🥾

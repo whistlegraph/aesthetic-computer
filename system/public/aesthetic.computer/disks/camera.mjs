@@ -22,11 +22,15 @@
 
 let vid;
 
+let advance;
+
 // 🎨 Paint (Runs once per display refresh rate)
 export function paint({
   wipe,
   paste,
   video,
+  ui,
+  ink,
   screen: { created, resized, width, height },
   num: { randIntRange, clamp, rand },
 }) {
@@ -52,6 +56,18 @@ export function paint({
   });
 
   paste(frame); // Paste the video to the main buffer.
+
+  // User interface
+  // advance = new ui.TextButton("Decorate", { x: width - 70, y: height - 32 });
+  // advance.paint({ ink });
+}
+
+export function act($) {
+  $.system.nopaint.act($); // Inherit nopaint's act functionality.
+  const { event: e, jump } = $;
+
+  if (e.is("touch")) { jump(`selfie`); }
+  //advance.btn.act(e, () => jump(`selfie`));
 }
 
 export const system = "nopaint";

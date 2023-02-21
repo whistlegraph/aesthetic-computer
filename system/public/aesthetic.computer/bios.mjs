@@ -673,6 +673,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       parsed,
       debug,
       rootPiece: window.acSTARTING_PIECE,
+      user: window.acUSER,
     },
   };
 

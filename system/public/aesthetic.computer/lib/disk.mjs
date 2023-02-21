@@ -29,6 +29,7 @@ export const noWorker = { onMessage: undefined, postMessage: undefined };
 const { sin, floor } = Math;
 
 let ROOT_PIECE = "prompt"; // This gets set straight from the host html file for the ac.
+let USER; // A holder for the logged in user. (Defined in `boot`)
 let debug = false; // This can be overwritten on boot.
 
 const defaults = {
@@ -1488,7 +1489,12 @@ async function load(parsed, fromHistory = false, alias = false) {
         // running a local aesthetic.computer piece.
       }
     }
-    url ? $commonApi.net.web(to) : load(parse(to), ahistorical, alias);
+
+    leaving = true;
+
+    url
+      ? $commonApi.net.web(to)
+      : (leaveLoad = () => load(parse(to), ahistorical, alias));
   };
 
   $commonApi.pieceCount += 1;
@@ -1661,6 +1667,8 @@ async function makeFrame({ data: { type, content } }) {
     debug = content.debug;
     graph.setDebug(content.debug);
     ROOT_PIECE = content.rootPiece;
+    USER = content.user;
+    $commonApi.user = USER;
     originalHost = content.parsed.host;
     loadAfterPreamble = () => {
       loadAfterPreamble = null;
