@@ -58,20 +58,6 @@ Welcome to...
 
 🌟 Projects in Progress (PIP) 🌟
 
-** Mood ***
-  - [] Select a mood to change the default color palette.
-  - [] Prototype this work in prompt.
-  - [] A scheme map:
-       - [x] Dark / Light Moods (via prompt)
-       - [] Primary or major colors.
-
-*** Selfie ***
-
-*** Launch ***
-    - [] @mollysoda posts an instagram story of a finished camera pic with stuff drawn on 
-    - [] there is a call to action where viewers can swipe up
-    - [] once they swipe up there shoud be like a "title" screen
-
 *** Auth0 Integration ***
   - [🟡] Put user information into the `prompt` MOTD!
     - [] Move auth into the bios.
@@ -87,6 +73,17 @@ Welcome to...
   - [x] Test in production and on local.
   - [x] Set up auth0 sign-up via https://manage.auth0.com.
   - [x] Add login and logout handlers.
+
+** Mood ***
+  - [] Select a mood to change the default color palette.
+  - [] Prototype this work in prompt.
+  - [] A scheme map:
+       - [x] Dark / Light Moods (via prompt)
+       - [] Primary or major colors.
+*** Launch ***
+    - [] @mollysoda posts an instagram story of a finished camera pic with stuff drawn on 
+    - [] there is a call to action where viewers can swipe up
+    - [] once they swipe up there shoud be like a "title" screen
 
 *** Sound Effects Support ***
   - [] Load and play a sample from assets when a button is pressed inside a `sample` piece.

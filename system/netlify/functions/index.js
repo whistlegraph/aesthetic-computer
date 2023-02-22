@@ -8,8 +8,8 @@ import { URLSearchParams } from "url";
 import { parse, metadata } from "../../public/aesthetic.computer/lib/parse.mjs";
 
 async function fun(event, context) {
-  if (process.env.CONTEXT === "dev")
-    console.log("Node version:", process.version);
+  const dev = process.env.CONTEXT === "dev";
+  if (dev) console.log("Node version:", process.version);
 
   // TODO: Return a 500 or 404 for everything that does not exist...
   //       - [] Like for example if the below import fails...
@@ -91,13 +91,15 @@ async function fun(event, context) {
     meta
   );
 
+  const assetURI = dev ? "/assets/" : "https://assets.aesthetic.computer/";
+
   const html = `
     <!DOCTYPE html>
     <html>
       <head>
         <meta charset="utf-8">
         <title>${title}</title>
-        <link rel="icon" href="https://assets.aesthetic.computer/images/favicon.png" type="image/png">
+        <link rel="icon" href="${assetURI}images/favicon.png" type="image/png">
         <link rel="stylesheet" crossorigin="anonymous" href="/type/webfonts/berkeley-mono-variable.css" />
         <link rel="stylesheet" crossorigin="anonymous" href="/type/webfonts/ywft-processing-regular.css" />
         <link rel="stylesheet" crossorigin="anonymous" href="/aesthetic.computer/style.css" />
