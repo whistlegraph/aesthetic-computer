@@ -939,7 +939,7 @@ Welcome to...
  this, visit https://discord.gg/digitpain and i'll help you out - jeffrey 2022.04.24.05.05
 
 Make sure `git` and is installed, (you can do that through `homebrew`) and then get set up for development:
-  0. Also install `fnm` the node version manager.
+  0. Also install `fnm` the node version manager. (and add environtment variables to your shell: https://github.com/Schniz/fnm#shell-setup)
   1. Check `ssl-dev/readme.txt` to generate and add local SSL certificates.
   2. `npm install` from the project directory.
   3. `cd` into `session-server` and `npm install` as well.
