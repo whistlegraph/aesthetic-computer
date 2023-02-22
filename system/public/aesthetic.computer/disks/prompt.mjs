@@ -72,11 +72,7 @@ function boot($) {
     `                                                ` +
     `mail@aesthetic.computer                         `;
 
-  if (user) {
-    const motdWidth = 48;
-    const paddedMotd = motd.padStart(motdWidth);
-    motd += `You are logged in as ${username}!${paddedMotd.slice(motdWidth)}`;
-  }
+  if (user) motd = `Welcome, ${user.name}!`.padEnd(48) + ' '.padEnd(48) + motd;
 
   input = new TextInput(
     $,
