@@ -185,10 +185,12 @@ function act($) {
 }
 
 let beatCount = 0n;
+let defaultBPM
 
 // 💗 Beat (Runs once per bpm, starting when the audio engine is activated.)
 function beat($api) {
   if (beatCount === 0n) {
+    defaultBPM = $api.sound.bpm();
     $api.sound.bpm(3600); // Set bpm to 3600 ~ 60fps
   }
   bleeps.forEach((bleep) => bleep.beep($api));
@@ -196,7 +198,10 @@ function beat($api) {
 }
 
 // 🏃 Leave (Runs once while the piece is being exited)
-function leave($api) {}
+function leave($api) {
+  // TODO: reset BPM to default on leave
+  // $api.sound.bpm(defaultBPM)
+}
 
 // 📚 Library (Useful classes & functions used throughout the piece)
 // ...

@@ -92,6 +92,8 @@ Welcome to...
   - [] auth0 login screen
   - [] moving $api calls around in `disk`
   - [] making some brushes
+  - [] make `bleep` reset BPM to default on exiting
+    - [] @digitpain make BPM settable in the leave function
 
 *** CPU Navigable 2D Painting ***
   - [] Add support for painting to be a `fixed` resolution.
