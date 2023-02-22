@@ -59,14 +59,13 @@ Welcome to...
 🌟 Projects in Progress (PIP) 🌟
 
 *** Auth0 Integration ***
-  - [🟡] Put user information into the `prompt` MOTD!
-    - [] Move auth into the bios.
-  - [] Protect a server route.
-    - []
+  - [-] Protect a server route.
+    - [] https://auth0.com/docs/quickstart/spa/vanillajs/02-calling-an-api
   - [] Custom emails.
     - [] Auto-fill a code through a link / provide a link to activate?
   - [] How to link email and phone to the same account?
   + Done
+  - [🟡] Put user information into the `prompt` MOTD!
   - [x] SMS Support via Twilio.
   - [x] Signup on passwordless authentication via email only.
     - [x] https://auth0.com/docs/libraries/auth0js#webauth-crossoriginverification-
