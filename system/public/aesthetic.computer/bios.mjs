@@ -2392,14 +2392,41 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       data = mediaRecorderBlob;
     }
 
+    if (ext === "png") {
+      MIME = "image/png";
+      data = await bufferToBlob(data, MIME); // Could be adding modifiers here...
+    }
+
     let prefetchURL = "/presigned-upload-url/" + ext;
 
     if (bucket === "wand") prefetchURL += "/" + filename + "/" + bucket; // Add filename info.
 
-    //if (bucket === undefined) prefetchURL += "/" + filename; // "art" bucket.
+    // if (bucket === undefined) prefetchURL += "/" + filename; // "art" bucket.
+    // 📓 This is handled on the server if an empty bucket is sent.
+
+    // Authorization: Check to see if we will use a user or a guest bucket.
+    let token;
+    const headers = {};
+    try {
+      token = await window.auth0Client.getTokenSilently();
+      console.log("🔐 Authorized");
+    } catch (err) {
+      if (debug) console.log("🔐️ ❌ Unauthorized");
+    }
+
+    if (token) {
+      bucket = "user";
+      headers.Authorization = `Bearer ${token}`;
+      // TODO: Also update the filename here to prepend "@user" ?
+      //       Or should each user have a directory or something?
+      //       What's the actual best option?
+      prefetchURL += "/" + filename + "/" + bucket; // Add filename info.
+    }
+
+    // TODO: If there is a token
 
     // Now send a request to the server...
-    fetch(prefetchURL)
+    fetch(prefetchURL, { headers })
       .then(async (res) => {
         const resData = await res.json();
 
@@ -2407,20 +2434,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Probably the download code... maybe something else if a custom
         // name is used.
-        const slug = new URL(presignedUrl).pathname.split("/")[2].split(".")[0];
+        const filename = new URL(presignedUrl).pathname.split("/")[2];
+        const slug = filename.substring(0, filename.lastIndexOf("."));
 
         if (debug) console.log("🔐 Presigned URL:", presignedUrl);
-
-        /*
-        const response = await fetch(presignedUrl, {
-          method: "PUT",
-          headers: {
-            "Content-Type": MIME,
-            "x-amz-acl": "public-read",
-          },
-          body: new Blob([data], { type: MIME }),
-        });
-        */
 
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", presignedUrl, true);
@@ -2488,57 +2505,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       extension(filename) === "png" ||
       extension(filename) === "webp"
     ) {
-      // PNG
-      MIME = "image/png";
+      MIME = "image/png"; // PNG
+
       if (extension(filename) === "webp") {
         MIME = "image/webp";
       }
 
-      let can;
-      if (data.pixels) {
-        // Encode a pixel buffer as a png.
-        // See also: https://stackoverflow.com/questions/11112321/how-to-save-canvas-as-png-image
-        const img = data;
-        const imageData = new ImageData(img.pixels, img.width, img.height);
-
-        can = document.createElement("canvas");
-        const ctx = can.getContext("2d");
-
-        if (modifiers?.cropToScreen) {
-          can.width = screen.width;
-          can.height = screen.height;
-        } else {
-          can.width = img.width;
-          can.height = img.height;
-        }
-
-        ctx.putImageData(imageData, 0, 0);
-
-        // Scale or modify the image as needed.
-        if (
-          (modifiers?.scale !== 1 && modifiers?.scale > 0) ||
-          modifiers?.flipY
-        ) {
-          const scale = modifiers?.scale || 1;
-          const flipY = modifiers?.flipY;
-          const can2 = document.createElement("canvas");
-          const ctx2 = can2.getContext("2d");
-          can2.width = can.width * scale;
-          can2.height = can.height * scale;
-          ctx2.imageSmoothingEnabled = false;
-          if (flipY) {
-            ctx2.scale(1, -1);
-            ctx2.drawImage(can, 0, 0, can2.width, -can2.height);
-          } else {
-            ctx2.drawImage(can, 0, 0, can2.width, can2.height);
-          }
-          can = can2;
-        }
-      }
-
-      const blob = await new Promise((resolve) =>
-        can.toBlob(resolve, MIME, 100)
-      );
+      const blob = await bufferToBlob(data, MIME, modifiers);
       object = URL.createObjectURL(blob, { type: MIME });
     } else if (extension(filename) === "mp4") {
       // Use `data` from the global Media Recorder.
@@ -2570,6 +2543,51 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     //container.append(iframe);
     //wrapper.append(container);
+  }
+
+  // Used above in `receivedUpload` and `receivedDownload` to generate image files.
+  async function bufferToBlob(data, MIME, modifiers) {
+    let can;
+
+    // Encode a pixel buffer as a png.
+    // See also: https://stackoverflow.com/questions/11112321/how-to-save-canvas-as-png-image
+    const img = data;
+    const imageData = new ImageData(img.pixels, img.width, img.height);
+
+    can = document.createElement("canvas");
+    const ctx = can.getContext("2d");
+
+    if (modifiers?.cropToScreen) {
+      can.width = screen.width;
+      can.height = screen.height;
+    } else {
+      can.width = img.width;
+      can.height = img.height;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+
+    // Scale or modify the image as needed.
+    if ((modifiers?.scale !== 1 && modifiers?.scale > 0) || modifiers?.flipY) {
+      const scale = modifiers?.scale || 1;
+      const flipY = modifiers?.flipY;
+      const can2 = document.createElement("canvas");
+      const ctx2 = can2.getContext("2d");
+      can2.width = can.width * scale;
+      can2.height = can.height * scale;
+      ctx2.imageSmoothingEnabled = false;
+      if (flipY) {
+        ctx2.scale(1, -1);
+        ctx2.drawImage(can, 0, 0, can2.width, -can2.height);
+      } else {
+        ctx2.drawImage(can, 0, 0, can2.width, can2.height);
+      }
+      can = can2;
+    }
+
+    const blob = await new Promise((resolve) => can.toBlob(resolve, MIME, 100));
+
+    return blob;
   }
 
   // Opens a file chooser that is filtered by a given extension / mimetype list.

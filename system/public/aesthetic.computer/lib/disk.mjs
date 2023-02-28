@@ -1973,7 +1973,7 @@ async function makeFrame({ data: { type, content } }) {
     if (content.result === "success") {
       serverUpload?.resolve(content.data);
     } else if (content.result === "error") {
-      console.error("File failed to load:", content.data);
+      console.error("File failed to load:", content);
       serverUpload?.reject(content.data);
     }
     serverUpload = undefined;
@@ -2089,6 +2089,24 @@ async function makeFrame({ data: { type, content } }) {
     // 🕶️ VR Pen
     $commonApi.pen3d = content.pen3d?.pen;
 
+    // Add upload event to allow the main thread to open a file chooser.
+    // type: Accepts N mimetypes or file extensions as comma separated string.
+    // Usage: upload(".jpg").then((data) => ( ... )).catch((err) => ( ... ));
+    $commonApi.sideload = (type) => {
+      send({ type: "import", content: type });
+      return new Promise((resolve, reject) => {
+        fileImport = { resolve, reject };
+      });
+    };
+
+    // ***Actually*** upload a file to the server.
+    $commonApi.upload = (filename, data, bucket) => {
+      send({ type: "upload", content: { filename, data, bucket } });
+      return new Promise((resolve, reject) => {
+        serverUpload = { resolve, reject };
+      });
+    };
+
     // Act & Sim (Occurs after first boot and paint.)
     if (booted && paintCount > 0n) {
       const $api = {};
@@ -2151,24 +2169,6 @@ async function makeFrame({ data: { type, content } }) {
       // 📻 Signaling
       $api.signal = (content) => {
         send({ type: "signal", content });
-      };
-
-      // Add upload event to allow the main thread to open a file chooser.
-      // type: Accepts N mimetypes or file extensions as comma separated string.
-      // Usage: upload(".jpg").then((data) => ( ... )).catch((err) => ( ... ));
-      $api.upload = (type) => {
-        send({ type: "import", content: type });
-        return new Promise((resolve, reject) => {
-          fileImport = { resolve, reject };
-        });
-      };
-
-      // ***Actually*** upload a file to the server.
-      $api.serverUpload = (filename, data, bucket) => {
-        send({ type: "upload", content: { filename, data, bucket } });
-        return new Promise((resolve, reject) => {
-          serverUpload = { resolve, reject };
-        });
       };
 
       // 🌟 Act
