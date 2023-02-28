@@ -33,6 +33,8 @@ if (window.location.hash === "#nodebug") debug = false;
 window.acDEBUG = debug; // Set window.acDEBUG again just in case any code relies
 // on it down the line. Should it need to? 22.07.15.00.21
 
+
+
 // #region 🔐 Auth0: Universal Login & Authentication
 const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
 const auth0Client = await window.auth0?.createAuth0Client({
@@ -44,6 +46,9 @@ const auth0Client = await window.auth0?.createAuth0Client({
     redirect_uri: window.location.origin,
   },
 });
+
+window.auth0Client = auth0Client;
+
 //  .then(async (auth0Client) => {
 // Assumes a button with id "login" in the DOM
 if (
