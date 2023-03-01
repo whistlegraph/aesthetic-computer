@@ -36,6 +36,7 @@ Welcome to...
 😀 TODO 😆
 
 🐞 Annoying Bugs & Regressions 🪱
+  - [] Fix Freaky Flowers opensea regression.
   - [] Apple Pencil is no longer working with brushes.
   - [] Fix painting rotate / resize cropping issue.
   - [] Fix `spray` multiplayer / socket messages not being sent regression.
