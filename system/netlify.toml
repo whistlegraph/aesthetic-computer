@@ -9,11 +9,9 @@
                     "public/aesthetic.computer/systems/**/*.mjs",
                     "public/aesthetic.computer/lib/**/*.mjs"]
 [functions.presigned-upload-url]
-  external_node_modules = ["nanoid", "@aws-sdk-client-s3", "@aws-sdk/s3-request-presigner"]
+  external_node_modules = ["got", "nanoid", "@aws-sdk-client-s3", "@aws-sdk/s3-request-presigner"]
 [functions.thumbnail]
   external_node_modules = ["chrome-aws-lambda"]
-[functions.auth]
-  external_node_modules = ["gotrue-js"]
 [functions.session]
   external_node_modules = ["got", "redis"]
 [functions.reload]

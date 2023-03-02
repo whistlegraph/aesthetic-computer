@@ -214,7 +214,7 @@ function paint({
 }
 
 // ✒ Act (Runs once per user interaction)
-function act({ event: e, download, upload, num: { timestamp }, needsPaint }) {
+function act({ event: e, download, sideload, num: { timestamp }, needsPaint }) {
 
   // Undo a step!
   if (e.is("keyboard:down:u")) {

@@ -1513,9 +1513,9 @@ function act({
   gpu,
   params,
   debug,
-  upload,
+  sideload,
   download,
-  // serverUpload,
+  // serverUpload, // TODO: This has been renamed to upload.
   num,
   store,
 }) {
@@ -1949,7 +1949,7 @@ function act({
 
   // 📥 Load a local wand demo file instantly with `l` or in realtime with `p`.
   if (e.is("keyboard:down:p") || e.is("keyboard:down:l")) {
-    upload(".json")
+    sideload(".json")
       .then((data) => {
         const frames = parseDemoFrames(data);
         console.log("🎞️ Loaded a wand file:", frames);
