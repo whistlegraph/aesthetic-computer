@@ -175,8 +175,12 @@
           email: email,
           connection: databaseConnection
         }, function(err) {
-          if (err) console.log(err);
-          button.disabled = false;
+          if (err) {
+            displayError(err)
+            button.disabled = false;
+          } else {
+            button.innerHTML = "Check your email!"
+          };
         })
       }
 
