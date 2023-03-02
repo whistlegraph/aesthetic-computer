@@ -58,8 +58,15 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Uploaded Paintings ***
+  - [] Also add a `ul` progress bar.
+  - [] After `ul` send a message back to the user of what the code was
+       or how to access their material... maybe via the `download` piece?
+
 *** `paintings` command should grab a list of all paintings by a user sorted
                 in order?
+  - [] Deletable paintings.
+  - [] Painting feed.
 
 *** CPU Navigable 2D Painting ***
   - [🟢] Add support for painting to be a `fixed` resolution.
