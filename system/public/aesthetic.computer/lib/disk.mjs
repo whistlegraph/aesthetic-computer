@@ -2093,18 +2093,21 @@ async function makeFrame({ data: { type, content } }) {
     // type: Accepts N mimetypes or file extensions as comma separated string.
     // Usage: upload(".jpg").then((data) => ( ... )).catch((err) => ( ... ));
     $commonApi.sideload = (type) => {
-      send({ type: "import", content: type });
-      return new Promise((resolve, reject) => {
+      const prom = new Promise((resolve, reject) => {
         fileImport = { resolve, reject };
       });
+      send({ type: "import", content: type });
+      return prom;
     };
 
     // ***Actually*** upload a file to the server.
     $commonApi.upload = (filename, data, bucket) => {
-      send({ type: "upload", content: { filename, data, bucket } });
-      return new Promise((resolve, reject) => {
+      const prom = new Promise((resolve, reject) => {
         serverUpload = { resolve, reject };
       });
+
+      send({ type: "upload", content: { filename, data, bucket } });
+      return prom;
     };
 
     // Act & Sim (Occurs after first boot and paint.)

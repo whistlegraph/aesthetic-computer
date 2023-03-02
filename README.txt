@@ -36,7 +36,6 @@ Welcome to...
 😀 TODO 😆
 
 🐞 Annoying Bugs & Regressions 🪱
-  - [] Fix Freaky Flowers opensea regression.
   - [] Apple Pencil is no longer working with brushes.
   - [] Fix painting rotate / resize cropping issue.
   - [] Fix `spray` multiplayer / socket messages not being sent regression.
@@ -54,16 +53,15 @@ Welcome to...
   - [] Get ssh working in VS Code on windows via WSL: https://stackoverflow.com/questions/60150466/can-i-ssh-from-wsl-in-visual-studio-code
   - [] `npm run code` does not work offline, due to netlify relying on online conectivity.
   + Done
+  - [x] Fix Freaky Flowers opensea regression.
   - [x] Chained paint functions do not respect inkrn.
   - [x] Check `wg` and `ff` and other disks including the prompt in the Instagram in-app browser!
 
 🌟 Projects in Progress (PIP) 🌟
 
 *** Auth0 Integration ***
+  - [] Offline failure red flash.
   - [💚] Custom painting filenames / listings or subdirectories for users.
-  - [] Custom emails.
-    - [] Auto-fill a code through a link / provide a link to activate?
-  - [] How to link email and phone to the same account?
   + Done
   - [x] Protect a server route.
     - [x] https://auth0.com/docs/quickstart/spa/vanillajs/02-calling-an-api
@@ -76,7 +74,27 @@ Welcome to...
   - [x] Set up auth0 sign-up via https://manage.auth0.com.
   - [x] Add login and logout handlers.
 
+*** Authorization Emails ***
+  - [] Custom email templates...
+       https://www.figma.com/file/2uw2Y2pAGMLFIi2XTpJy6w/login-page-notes?node-id=0%3A1&t=dmJ8wmL6IEd2CUwX-0
+
+*** CPU Navigable 2D Painting ***
+  - [] Add support for painting to be a `fixed` resolution.
+    - [] Use "crop" brush or `resize` command for this?
+  - [] Add `pan` support.
+
+*** Ordsies ***
+  + Now
+   - [-] Add label / figure out a good motif.
+  + Done
+   - [x] Inscribe a test ordinal. 
+
+*** Prompt ***
+  - [] Always show whether we are connected to the internet or not.
+
 ** Mood ***
+  - [] One mood per day, assigned?
+       Notify users via email or a notification somehow?
   - [] Select a mood to change the default color palette.
   - [] Prototype this work in prompt.
   - [] A scheme map:
@@ -96,10 +114,6 @@ Welcome to...
   - [] moving $api calls around in `disk`
   - [] making some brushes
 
-*** CPU Navigable 2D Painting ***
-  - [] Add support for painting to be a `fixed` resolution.
-  - [] Use "crop" brush.
-
 *** GPU Based 2D Painting ***
   - [] Make a brush that only directly writes to the system.painting.
   - [] (Behind a flag.) Render the system.painting as a texture on the GPU, using 3D.js.
@@ -108,12 +122,6 @@ Welcome to...
          transforming texture coordinates on a full-screen quad with texture repeat instead of the quad itself.
     - [] And then this whole thing could be rotated in 3D, with bumpmapping, etc / have shaders applied.
     - [] Brushes can choose to opt-in to this 3D display or stick with the less navigable 2D display.
-
-*** Ordinaries ***
-  + Now
-   - [-] Add label / figure out a good motif.
-  + Done
-   - [x] Inscribe a test ordinal. 
 
 *** Graphics Optimizations & Performance ***
   - [] Fix screen-squash zoom bug.

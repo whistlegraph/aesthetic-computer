@@ -2461,7 +2461,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         };
 
+        //try {}
         xhr.send(new Blob([data], { type: MIME }));
+
       })
       .catch((err) => {
         if (debug) console.log("⚠️ Failed to get presigned URL:", err);
