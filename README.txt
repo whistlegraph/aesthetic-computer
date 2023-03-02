@@ -60,9 +60,9 @@ Welcome to...
 🌟 Projects in Progress (PIP) 🌟
 
 *** Auth0 Integration ***
-  - [] Offline failure red flash.
   - [💚] Custom painting filenames / listings or subdirectories for users.
   + Done
+  - [x] Offline failure red flash.
   - [x] Protect a server route.
     - [x] https://auth0.com/docs/quickstart/spa/vanillajs/02-calling-an-api
     - [x] Call the API

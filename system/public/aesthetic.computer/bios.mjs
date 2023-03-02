@@ -2423,7 +2423,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       prefetchURL += "/" + filename + "/" + bucket; // Add filename info.
     }
 
-    // TODO: If there is a token
+    function error(err) {
+      send({
+        type: callbackMessage,
+        content: { result: "error", data: err },
+      });
+    }
 
     // Now send a request to the server...
     fetch(prefetchURL, { headers })
@@ -2450,6 +2455,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // TODO: Send some kind of progress callback message here...
         });
 
+        // Browser is online, send the request
+        xhr.onerror = error; 
+
         xhr.onreadystatechange = function () {
           if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
             send({
@@ -2461,16 +2469,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         };
 
-        //try {}
-        xhr.send(new Blob([data], { type: MIME }));
-
+        try {
+          xhr.send(new Blob([data], { type: MIME }));
+        } catch (err) {
+          error(err);
+        }
       })
       .catch((err) => {
         if (debug) console.log("⚠️ Failed to get presigned URL:", err);
-        send({
-          type: callbackMessage,
-          content: { result: "error", data: err },
-        });
+        error(err);
       });
   }
 
