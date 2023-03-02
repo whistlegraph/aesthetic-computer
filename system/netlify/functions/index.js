@@ -19,8 +19,6 @@ async function fun(event, context) {
 
   const parsed = parse(slug, { hostname: event.headers["host"] });
 
-  debugger;
-
   if (process.env.CONTEXT === "dev") console.log(slug, parsed);
 
   // Remote host.

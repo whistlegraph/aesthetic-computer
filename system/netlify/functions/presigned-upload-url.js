@@ -12,7 +12,7 @@
 
 // TODO
 
-// - [] Show the media file experation date to the user.
+// - [] Show the media file expiration date to the user.
 // - [] Visiting aesthetic.computer/art~code will show the
 //      file in a viewer.
 // - [x] Upload the file using this presigned url, via the client.
@@ -41,6 +41,14 @@ const s3Wand = new S3Client({
   },
 });
 
+const s3User = new S3Client({
+  endpoint: "https://" + process.env.USER_ENDPOINT,
+  credentials: {
+    accessKeyId: process.env.ART_KEY,
+    secretAccessKey: process.env.ART_SECRET,
+  },
+});
+
 let client; // Will be assigned on each handler runs.
 
 export async function handler(event, context) {
@@ -56,9 +64,49 @@ export async function handler(event, context) {
 
   // TODO: This switch a little janky right now because I need
   //       authentication. 22.11.15.07.16
-  if (bucket === "wand")
+  if (bucket === "wand") {
     client = { s3: s3Wand, bucket: process.env.WAND_SPACE_NAME };
-  else client = { s3, bucket: process.env.ART_SPACE_NAME }; // Assume "art".
+  } else if (bucket === "user") {
+    client = { s3: s3User, bucket: process.env.USER_SPACE_NAME };
+
+    try {
+      const { got } = await import("got");
+      const token = event.headers.authorization.split(" ")[1];
+      const secret = process.env.AUTH0_SECRET;
+      const audience = "https://aesthetic.computer/api";
+      const issuer = "https://aesthetic.us.auth0.com/";
+
+      // Send the access token to the /userinfo endpoint to obtain user information
+      const response = await got("https://auth0.aesthetic.computer/userinfo", {
+        headers: {
+          // Authorization: `Bearer ${token}`,
+          Authorization: event.headers.authorization,
+        },
+        responseType: "json",
+      });
+
+      const sub = response.body.sub;
+      const name = response.body.name;
+      const email = response.body.email;
+
+      // Do something with the username and email...
+      // Upload to the user bucket, showing authorization.
+
+      // 🟡
+      // TODO: Sort this user's file into a specific folder for the bucket?
+      debugger;
+
+    } catch (err) {
+      // TODO: 🔴 Should I just use the guest bucket here?
+      // Fail if the user is not logged in.
+      return {
+        statusCode: 401,
+        body: "Authorization failure...",
+      };
+    }
+  } else {
+    client = { s3, bucket: process.env.ART_SPACE_NAME }; // Assume the unauthorized, temporary "art" bucket.
+  }
 
   let mimeType;
 
@@ -116,13 +164,16 @@ export async function handler(event, context) {
     Key: fileName,
     ContentType: mimeType,
     ACL: "public-read",
-    ContentDisposition: "attachment",
+    // ContentDisposition: "attachment",
+    ContentDisposition: "inline",
   };
 
   const command = new PutObjectCommand(putObjectParams);
+
   const uploadURL = await getSignedUrl(client.s3, command, {
     expiresIn: 3600,
-    ContentDisposition: "attachment",
+    // ContentDisposition: "attachment",
+    ContentDisposition: "inline",
   });
 
   return {

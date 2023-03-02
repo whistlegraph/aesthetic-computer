@@ -56,6 +56,7 @@ function boot($) {
     net,
     jump,
     user,
+    upload,
   } = $;
 
   glaze({ on: true }); // TODO: Every glaze triggers `frame` in `disk`, this could be optimized. 2022.04.24.04.25
@@ -72,7 +73,7 @@ function boot($) {
     `                                                ` +
     `mail@aesthetic.computer                         `;
 
-  if (user) motd = `Welcome, ${user.name}!`.padEnd(48) + ' '.padEnd(48) + motd;
+  if (user) motd = `Welcome, ${user.name}!`.padEnd(48) + " ".padEnd(48) + motd;
 
   input = new TextInput(
     $,
@@ -85,7 +86,27 @@ function boot($) {
       const slug = tokens[0]; // Note: Includes colon params.
       const params = tokens.slice(1);
 
-      if (text === "dl" || text === "download") {
+      function flash(clear = true) {
+        flashPresent = true;
+        flashShow = true;
+        if (clear) input.text = "";
+      }
+
+      if (text === "ul" || (text === "upload" && store["painting"])) {
+        const filename = `painting-${num.timestamp()}.png`;
+        upload(filename, store["painting"])
+          .then((data) => {
+            // console.log("JSON Upload success:", data);
+            console.log("🪄 Painting uploaded:", filename, data);
+            flashColor = [0, 255, 0];
+            flash();
+          })
+          .catch((err) => {
+            console.error("🪄 Painting upload failed:", err);
+            flashColor = [255, 0, 0];
+            flash();
+          });
+      } else if (text === "dl" || text === "download") {
         if (store["painting"]) {
           download(`painting-${num.timestamp()}.png`, store["painting"], {
             scale: 6,
@@ -96,22 +117,16 @@ function boot($) {
         } else {
           flashColor = [255, 0, 0]; // Show a red flash otherwise.
         }
-        flashPresent = true;
-        flashShow = true;
-        input.text = "";
-        needsPaint();
+        flash();
+        // needsPaint();
       } else if (slug === "login" || slug === "hi") {
         net.login();
         flashColor = [255, 255, 0, 100]; // Yellow
-        flashPresent = true;
-        flashShow = true;
-        input.text = "";
+        flash();
       } else if (text === "logout" || text === "bye") {
         net.logout();
         flashColor = [255, 255, 0, 100]; // Yellow
-        flashPresent = true;
-        flashShow = true;
-        input.text = "";
+        flash();
       } else if (text === "no") {
         system.nopaint.no({ system, store, needsPaint });
         if (system.nopaint.undo.paintings.length > 1) {
@@ -119,9 +134,7 @@ function boot($) {
         } else {
           flashColor = [255, 0, 0, 100]; // Red for failed undo.
         }
-        flashPresent = true;
-        flashShow = true;
-        input.text = "";
+        flash();
       } else if (text === "painting:reset" || text === "no!") {
         const deleted = system.nopaint.noBang({ system, store, needsPaint });
 
@@ -131,9 +144,7 @@ function boot($) {
           flashColor = [255, 0, 0]; // Red if delete failed.
         }
 
-        flashPresent = true;
-        flashShow = true;
-        input.text = "";
+        flash();
         needsPaint();
       } else if (text === "3dline:reset") {
         const deleted = await store.delete("3dline:drawing", "local:db");
@@ -144,9 +155,7 @@ function boot($) {
           flashColor = [255, 0, 0]; // Red if delete failed.
         }
 
-        flashPresent = true;
-        flashShow = true;
-        input.text = "";
+        flash();
         needsPaint();
       } else if (text === "dark" || text === "dark:reset") {
         if (text === "dark:reset") {
@@ -163,9 +172,7 @@ function boot($) {
             flashColor = [255, 255, 255]; // White for dark mode disabled.
           }
         }
-        flashPresent = true;
-        flashShow = true;
-        input.text = "";
+        flash();
       } else if (text.startsWith("2022")) {
         load(parse("wand~" + text)); // Execute the current command.
       } else if (text === "connect") {
@@ -175,18 +182,15 @@ function boot($) {
           identity = await connect(); // Web3 connect.
           store["identity"] = identity; // Store the identity.
           store.persist("identity"); // ... and persist it!
-          flashPresent = true;
-          flashShow = true;
+          flash(false);
           flashColor = [0, 255, 0];
         } catch (e) {
-          flashPresent = true;
-          flashShow = true;
+          flash(false);
           flashColor = [255, 0, 0];
         }
       } else if (text === "bgm stop") {
         bgm.stop();
-        flashPresent = true;
-        flashShow = true;
+        flash(false);
         flashColor = [255, 0, 0];
       } else if (text === "help") {
         // Go to the Discord for now if anyone types help.

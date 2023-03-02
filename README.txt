@@ -36,6 +36,7 @@ Welcome to...
 😀 TODO 😆
 
 🐞 Annoying Bugs & Regressions 🪱
+  - [] Fix Freaky Flowers opensea regression.
   - [] Apple Pencil is no longer working with brushes.
   - [] Fix painting rotate / resize cropping issue.
   - [] Fix `spray` multiplayer / socket messages not being sent regression.
@@ -59,12 +60,14 @@ Welcome to...
 🌟 Projects in Progress (PIP) 🌟
 
 *** Auth0 Integration ***
-  - [-] Protect a server route.
-    - [] https://auth0.com/docs/quickstart/spa/vanillajs/02-calling-an-api
+  - [💚] Custom painting filenames / listings or subdirectories for users.
   - [] Custom emails.
     - [] Auto-fill a code through a link / provide a link to activate?
   - [] How to link email and phone to the same account?
   + Done
+  - [x] Protect a server route.
+    - [x] https://auth0.com/docs/quickstart/spa/vanillajs/02-calling-an-api
+    - [x] Call the API
   - [🟡] Put user information into the `prompt` MOTD!
   - [x] SMS Support via Twilio.
   - [x] Signup on passwordless authentication via email only.
