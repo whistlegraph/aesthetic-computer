@@ -1,0 +1,7 @@
+This folder contains a template file for the auth0 login page.
+
+- you can edit this locally, then:
+- log into manage.auth0.com
+- in the sidebar, click **Branding** > **Universal Login**
+- scroll to "advanced options" and select "login"
+- paste the template into the box
