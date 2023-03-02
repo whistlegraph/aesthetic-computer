@@ -1,4 +1,3 @@
-Welcome to...
 
   🧩 AESTHETIC.COMPUTER 🧩
 
@@ -59,27 +58,11 @@ Welcome to...
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Auth0 Integration ***
-  - [💚] Custom painting filenames / listings or subdirectories for users.
-  + Done
-  - [x] Offline failure red flash.
-  - [x] Protect a server route.
-    - [x] https://auth0.com/docs/quickstart/spa/vanillajs/02-calling-an-api
-    - [x] Call the API
-  - [🟡] Put user information into the `prompt` MOTD!
-  - [x] SMS Support via Twilio.
-  - [x] Signup on passwordless authentication via email only.
-    - [x] https://auth0.com/docs/libraries/auth0js#webauth-crossoriginverification-
-  - [x] Test in production and on local.
-  - [x] Set up auth0 sign-up via https://manage.auth0.com.
-  - [x] Add login and logout handlers.
-
-*** Authorization Emails ***
-  - [] Custom email templates...
-       https://www.figma.com/file/2uw2Y2pAGMLFIi2XTpJy6w/login-page-notes?node-id=0%3A1&t=dmJ8wmL6IEd2CUwX-0
+*** `paintings` command should grab a list of all paintings by a user sorted
+                in order?
 
 *** CPU Navigable 2D Painting ***
-  - [] Add support for painting to be a `fixed` resolution.
+  - [🟢] Add support for painting to be a `fixed` resolution.
     - [] Use "crop" brush or `resize` command for this?
   - [] Add `pan` support.
 
@@ -92,7 +75,19 @@ Welcome to...
 *** Prompt ***
   - [] Always show whether we are connected to the internet or not.
 
-** Mood ***
+*** @rcrdlbl ***
+  - [🟢] auth0 login screen
+  - [] moving $api calls around in `disk`
+  - [] making some brushes
+  - [] make `bleep` reset BPM to default on exiting
+    - [] @digitpain make BPM settable in the leave function
+
+*** Authorization Emails *** (@rcrdlbl)
+  (See `auth0` directory)
+  - [] Custom email templates...
+       https://www.figma.com/file/2uw2Y2pAGMLFIi2XTpJy6w/login-page-notes?node-id=0%3A1&t=dmJ8wmL6IEd2CUwX-0
+
+*** Mood ***
   - [] One mood per day, assigned?
        Notify users via email or a notification somehow?
   - [] Select a mood to change the default color palette.
@@ -100,21 +95,14 @@ Welcome to...
   - [] A scheme map:
        - [x] Dark / Light Moods (via prompt)
        - [] Primary or major colors.
-*** Launch ***
-    - [] @mollysoda posts an instagram story of a finished camera pic with stuff drawn on 
-    - [] there is a call to action where viewers can swipe up
-    - [] once they swipe up there shoud be like a "title" screen
+  *** Launch ***
+      - [] @mollysoda posts an instagram story of a finished camera pic with stuff drawn on 
+      - [] there is a call to action where viewers can swipe up
+      - [] once they swipe up there shoud be like a "title" screen
 
 *** Sound Effects Support ***
   - [] Load and play a sample from assets when a button is pressed inside a `sample` piece.
     - [] Check the `bgm` implementation in `bios`.
-
-*** @rcrdlbl ***
-  - [] auth0 login screen
-  - [] moving $api calls around in `disk`
-  - [] making some brushes
-  - [] make `bleep` reset BPM to default on exiting
-    - [] @digitpain make BPM settable in the leave function
 
 *** GPU Based 2D Painting ***
   - [] Make a brush that only directly writes to the system.painting.

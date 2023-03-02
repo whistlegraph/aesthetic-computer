@@ -2417,9 +2417,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (token) {
       bucket = "user";
       headers.Authorization = `Bearer ${token}`;
+
       // TODO: Also update the filename here to prepend "@user" ?
       //       Or should each user have a directory or something?
       //       What's the actual best option?
+
       prefetchURL += "/" + filename + "/" + bucket; // Add filename info.
     }
 

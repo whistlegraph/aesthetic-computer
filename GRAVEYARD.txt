@@ -3,21 +3,36 @@
 
 * 23.02.10.14.42 and Earlier
 
-      *** Molly Soda Moods ***
-        - [x] Add support for camera brush.
-        - [x] Rename sparkle -> icon
-        - [x] Add glyphs to icon brush.
-          - [x] Spin up icon brush prototype.
-          "Activity"
-          {
-          - [x] Title Screen
-          - [x] Camera 
-          - [x] Icon (preset palettes with preset graphics, similar to text changing words)
-            - [x] Rename sparkle to icon.
-          + Tonight
-          - [x] "Sparkle" by Maya
-            - [x] Jeffrey asks Maya about doing sparkle.
-          + Later
+*** Auth0 Integration ***
+  + Done
+  - [x] Custom painting filenames / listings or subdirectories for users.
+  - [x] Offline failure red flash.
+  - [x] Protect a server route.
+    - [x] https://auth0.com/docs/quickstart/spa/vanillajs/02-calling-an-api
+    - [x] Call the API
+  - [🟡] Put user information into the `prompt` MOTD!
+  - [x] SMS Support via Twilio.
+  - [x] Signup on passwordless authentication via email only.
+    - [x] https://auth0.com/docs/libraries/auth0js#webauth-crossoriginverification-
+  - [x] Test in production and on local.
+  - [x] Set up auth0 sign-up via https://manage.auth0.com.
+  - [x] Add login and logout handlers.
+
+*** Molly Soda Moods ***
+  - [x] Add support for camera brush.
+  - [x] Rename sparkle -> icon
+  - [x] Add glyphs to icon brush.
+    - [x] Spin up icon brush prototype.
+    "Activity"
+    {
+    - [x] Title Screen
+    - [x] Camera 
+    - [x] Icon (preset palettes with preset graphics, similar to text changing words)
+      - [x] Rename sparkle to icon.
+    + Tonight
+    - [x] "Sparkle" by Maya
+      - [x] Jeffrey asks Maya about doing sparkle.
+    + Later
 
 *** Pressure / Apple Pencil + Stylus Support ***
   - [x] Debug Apple Pencil on actual hardware.
