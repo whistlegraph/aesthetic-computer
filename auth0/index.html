@@ -5,36 +5,31 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
   <title>login · aesthetic.computer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/tachyons@4.12.0/css/tachyons.min.css"/>
 </head>
   <style>
+    @font-face {
+      font-family: "ProggyClean";
+      src: url("https://assets.aesthetic.computer/type%2Fwebfonts%2FProggyClean.ttf") format("truetype")
+    }
+
+
     body, html {
       height: 100%;
-      background-color: #f9f9f9;
+      font-family: "ProggyClean", sans-serif;
+      background-color: rgb(70, 50, 100);
     }
 
-    .login-container {
-      position: relative;
-      height: 100%;
+    .pink-red {
+      color: rgb(200, 30, 100);
     }
 
-    .login-box {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      padding: 15px;
-      background-color: #fff;
-      box-shadow: 0px 5px 5px #ccc;
-      border-radius: 5px;
-      border-top: 1px solid #e9e9e9;
+    .pink-cursor {
+      caret-color: rgb(200, 30, 100);
     }
 
-    .login-header {
-      text-align: center;
-    }
-
-    .login-header img {
-      width: 75px;
+    #btn-reset {
+      display: none;
     }
 
     #error-message {
@@ -44,49 +39,47 @@
   </style>
 <body>
   <div class="login-container">
-    <div class="col-xs-12 col-sm-4 col-sm-offset-4 login-box">
-      <div class="login-header">
+    <div class="col-xs-12 col-sm-4 col-sm-offset-4 login-box pa4">
+      <!-- <div class="login-header">
         <img src="https://cdn.auth0.com/styleguide/1.0.0/img/badge.svg"/>
         <h3>Welcome</h3>
         <h5>PLEASE LOG IN</h5>
-      </div>
-      <div id="error-message" class="alert alert-danger"></div>
+      </div> -->
+      <div id="error-message" class=" b f3  pink-red">Errorrrrrrr</div>
       <form onsubmit="return false;" method="post">
         <div class="form-group">
-         <label for="name">Email</label>
           <input
             type="email"
-            class="form-control"
+            class="form-control pink-cursor input-reset near-white f4 bg-transparent bw0 mb2 ml1"
             id="email"
             placeholder="Enter your email">
         </div>
         <div class="form-group">
-          <label for="name">Password</label>
           <input
             type="password"
-            class="form-control"
+            class="form-control pink-cursor input-reset near-white f4 bg-transparent bw0 mb2 ml1"
             id="password"
             placeholder="Enter your password">
         </div>
         <div class="captcha-container form-group"></div>
         <button
-          type="submit"
-          id="btn-login"
-          class="btn btn-primary btn-block">
-            Log In
+          type="button"
+          id="btn-reset"
+          class="f3 link dim b bg-transparent white pointer pink-red bw0">
+            Reset Password?
         </button>
+        <br>
         <button
           type="button"
           id="btn-signup"
-          class="btn btn-default btn-block">
-            Sign Up
+          class="f3 link dim b bg-transparent white pointer bw0">
+            I'm New
         </button>
-        <hr>
         <button
-          type="button"
-          id="btn-google"
-          class="btn btn-default btn-danger btn-block">
-            Log In with Google
+          type="submit"
+          id="btn-login"
+          class="f3 link dim b bg-transparent green pointer bw0">
+            Log In
         </button>
       </form>
     </div>
@@ -148,7 +141,10 @@
           password: password,
           captcha: captcha.getValue()
         }, function(err) {
-          if (err) displayError(err);
+          if (err) {
+            showResetBtn()
+            displayError(err)
+          };
           button.disabled = false;
         });
       }
@@ -170,12 +166,27 @@
         });
       }
 
-      function loginWithGoogle() {
-        webAuth.authorize({
-          connection: 'google-oauth2'
+      function resetPw() {
+        var button = this;
+        var email = document.getElementById('email').value;
+
+        button.disabled = true;
+        webAuth.changePassword({
+          email: email,
+          connection: databaseConnection
         }, function(err) {
-          if (err) displayError(err);
-        });
+          if (err) {
+            displayError(err)
+            button.disabled = false;
+          } else {
+            button.innerHTML = "Check your email!"
+          };
+        })
+      }
+
+      function showResetBtn() {
+        var button = document.getElementById('btn-reset');
+        button.style.display = 'block';
       }
 
       function displayError(err) {
@@ -186,7 +197,7 @@
       }
 
       document.getElementById('btn-login').addEventListener('click', login);
-      document.getElementById('btn-google').addEventListener('click', loginWithGoogle);
+      document.getElementById('btn-reset').addEventListener('click', resetPw);
       document.getElementById('btn-signup').addEventListener('click', signup);
     });
   </script>
