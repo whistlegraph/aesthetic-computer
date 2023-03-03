@@ -58,6 +58,26 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Authorization Emails *** (@rcrdlbl)
+  (See `auth0` directory)
+  - [] Login Screen
+    - [] Remove bold from the button typography and the error messages.
+    - [] Text input and button typography must match.
+    - [] Match relative placement of form fields to the `prompt` text on
+         the a.c homepage. 
+    - [] Style the borders / padding of the text input fields to be less visible.
+      - [] Make sure the type lines buttons.
+    - [] "I'm New" -> "New Account" and place the buttons vertically.
+         (Use the `valbear` screen as a visual / aesthetic guide)
+      - [] Try a border on just the Log In button, or both buttons?
+  - [] Custom email templates...
+    - [] Replace `Welcome Email` and `Change Password` email templates with 
+         simple text options.
+          auth0 Dashboard -> Branding -> Email Templates
+  + Done
+       https://www.figma.com/file/2uw2Y2pAGMLFIi2XTpJy6w/login-page-notes?node-id=0%3A1&t=dmJ8wmL6IEd2CUwX-0
+  - [x] Set up a mail service provider. @jeffrey
+
 *** Uploaded Paintings ***
   - [] Also add a `ul` progress bar.
   - [] After `ul` send a message back to the user of what the code was
@@ -84,15 +104,12 @@
 
 *** @rcrdlbl ***
   - [🟢] auth0 login screen
+    - [] 
+
   - [] moving $api calls around in `disk`
   - [] making some brushes
   - [] make `bleep` reset BPM to default on exiting
     - [] @digitpain make BPM settable in the leave function
-
-*** Authorization Emails *** (@rcrdlbl)
-  (See `auth0` directory)
-  - [] Custom email templates...
-       https://www.figma.com/file/2uw2Y2pAGMLFIi2XTpJy6w/login-page-notes?node-id=0%3A1&t=dmJ8wmL6IEd2CUwX-0
 
 *** Mood ***
   - [] One mood per day, assigned?
