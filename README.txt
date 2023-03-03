@@ -79,7 +79,8 @@
   - [x] Set up a mail service provider. @jeffrey
 
 *** Uploaded Paintings ***
-  - [] After `ul` send a message back to the user of what the code was
+  - [🟢] Modify `download` to accept a painting and offer special link.
+  - [x] After `ul` send a message back to the user of what the code was
        or how to access their material... maybe via the `download` piece?
   - [x] Also add a `ul` progress bar.
 

@@ -93,14 +93,20 @@ function boot($) {
         if (clear) input.text = "";
       }
 
-      if ((text === "ul" || text === "upload") && store["painting"]) {
+      if (
+        navigator.onLine &&
+        (text === "ul" || text === "upload") &&
+        store["painting"]
+      ) {
         const filename = `painting-${num.timestamp()}.png`;
+        uploadProgress = -1; // Trigger progress bar rendering.
         upload(filename, store["painting"], (p) => (uploadProgress = p))
           .then((data) => {
             // console.log("JSON Upload success:", data);
             console.log("🪄 Painting uploaded:", filename, data);
             flashColor = [0, 255, 0];
             flash();
+            jump(`download ${data.slug}`);
           })
           .catch((err) => {
             console.error("🪄 Painting upload failed:", err);
@@ -278,9 +284,11 @@ function paint($) {
     );
   });
 
-  if (uploadProgress > 0) {
+  if (uploadProgress > 0 || uploadProgress === -1) {
     ink(0).box(1, 1, screen.width - 2, 2);
-    ink(scheme.dark.block).box(1, 1, (screen.width - 1) * uploadProgress, 2);
+    if (uploadProgress > 0) {
+      ink(scheme.dark.block).box(1, 1, (screen.width - 2) * uploadProgress, 2);
+    }
   }
 
   // Trigger a red or green screen flash with a timer.

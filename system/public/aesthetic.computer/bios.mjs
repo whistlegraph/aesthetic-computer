@@ -2441,7 +2441,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Probably the download code... maybe something else if a custom
         // name is used.
-        const filename = new URL(presignedUrl).pathname.split("/")[2];
+        const filename = new URL(presignedUrl).pathname.split("/").pop();
         const slug = filename.substring(0, filename.lastIndexOf("."));
 
         if (debug) console.log("🔐 Presigned URL:", presignedUrl);
