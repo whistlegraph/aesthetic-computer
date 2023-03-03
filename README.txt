@@ -79,9 +79,9 @@
   - [x] Set up a mail service provider. @jeffrey
 
 *** Uploaded Paintings ***
-  - [] Also add a `ul` progress bar.
   - [] After `ul` send a message back to the user of what the code was
        or how to access their material... maybe via the `download` piece?
+  - [x] Also add a `ul` progress bar.
 
 *** `paintings` command should grab a list of all paintings by a user sorted
                 in order?
@@ -89,7 +89,7 @@
   - [] Painting feed.
 
 *** CPU Navigable 2D Painting ***
-  - [🟢] Add support for painting to be a `fixed` resolution.
+  - [🟡] Add support for painting to be a `fixed` resolution.
     - [] Use "crop" brush or `resize` command for this?
   - [] Add `pan` support.
 
@@ -104,8 +104,6 @@
 
 *** @rcrdlbl ***
   - [🟢] auth0 login screen
-    - [] 
-
   - [] moving $api calls around in `disk`
   - [] making some brushes
   - [] make `bleep` reset BPM to default on exiting

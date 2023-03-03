@@ -37,6 +37,7 @@ let flash;
 let flashShow = false;
 let flashColor = [];
 let flashPresent = false;
+let uploadProgress = 0; // If not zero, then draw a progress bar.
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot($) {
@@ -92,9 +93,9 @@ function boot($) {
         if (clear) input.text = "";
       }
 
-      if (text === "ul" || (text === "upload" && store["painting"])) {
+      if ((text === "ul" || text === "upload") && store["painting"]) {
         const filename = `painting-${num.timestamp()}.png`;
-        upload(filename, store["painting"])
+        upload(filename, store["painting"], (p) => (uploadProgress = p))
           .then((data) => {
             // console.log("JSON Upload success:", data);
             console.log("🪄 Painting uploaded:", filename, data);
@@ -276,6 +277,11 @@ function paint($) {
       0
     );
   });
+
+  if (uploadProgress > 0) {
+    ink(0).box(1, 1, screen.width - 2, 2);
+    ink(scheme.dark.block).box(1, 1, (screen.width - 1) * uploadProgress, 2);
+  }
 
   // Trigger a red or green screen flash with a timer.
   if (flashShow) ink(flashColor).box(0, 0, screen.width, screen.height);

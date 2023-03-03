@@ -2454,11 +2454,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         xhr.upload.addEventListener("progress", (event) => {
           console.log(`Uploaded ${event.loaded} of ${event.total} bytes...`);
-          // TODO: Send some kind of progress callback message here...
+          send({
+            type: "upload:progress",
+            content: event.loaded / event.total,
+          }); // Send a progress callback.
         });
 
         // Browser is online, send the request
-        xhr.onerror = error; 
+        xhr.onerror = error;
 
         xhr.onreadystatechange = function () {
           if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {

@@ -239,6 +239,7 @@ let fileImport;
 let serverUpload;
 let gpuResponse;
 let web3Response;
+let serverUploadProgressReporter;
 
 // Other
 let activeVideo; // TODO: Eventually this can be a bank to store video textures.
@@ -1684,6 +1685,11 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "upload:progress") {
+    serverUploadProgressReporter?.(content); // Report file upload progress if needed.
+    return;
+  }
+
   if (type === "before-unload") {
     // This has to be synchronous (no workers) to work, and is also often unreliable.
     // I should not design around using this event, other than perhaps
@@ -1976,6 +1982,7 @@ async function makeFrame({ data: { type, content } }) {
       console.error("File failed to load:", content);
       serverUpload?.reject(content.data);
     }
+    serverUploadProgressReporter?.(0);
     serverUpload = undefined;
     return;
   }
@@ -2101,11 +2108,12 @@ async function makeFrame({ data: { type, content } }) {
     };
 
     // ***Actually*** upload a file to the server.
-    $commonApi.upload = (filename, data, bucket) => {
+    $commonApi.upload = (filename, data, progress, bucket) => {
       const prom = new Promise((resolve, reject) => {
         serverUpload = { resolve, reject };
       });
 
+      serverUploadProgressReporter = progress;
       send({ type: "upload", content: { filename, data, bucket } });
       return prom;
     };
