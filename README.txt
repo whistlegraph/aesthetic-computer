@@ -61,6 +61,7 @@
 *** Authorization Emails *** (@rcrdlbl)
   (See `auth0` directory)
   - [] Login Screen
+    - [] Can we style auto-fill highlighting?
     - [] Remove bold from the button typography and the error messages.
     - [] Text input and button typography must match.
     - [] Match relative placement of form fields to the `prompt` text on
