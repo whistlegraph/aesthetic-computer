@@ -72,8 +72,8 @@
     - [X] "I'm New" -> "New Account" and place the buttons vertically.
          (Use the `valbear` screen as a visual / aesthetic guide)
       - [x] Try a border on just the Log In button, or both buttons?
-  - [] Custom email templates...
-    - [] Replace `Welcome Email` and `Change Password` email templates with 
+  - [X] Custom email templates...
+    - [X] Replace `Welcome Email` and `Change Password` email templates with 
          simple text options.
           auth0 Dashboard -> Branding -> Email Templates
   + Done
