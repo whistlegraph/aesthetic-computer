@@ -6,6 +6,11 @@ This folder contains a template file for the auth0 login page.
 - scroll to "advanced options" and select "login"
 - paste the template into the box
 
+For email templates:
+From: `aesthetic.computer <mail@aesthetic.computer>`
+Subject: varies depending on email
+Redirect to: `{{ application.callback_domain }}`
+
 RGB Values for input:
 ```
 bg: [70, 50, 100],
