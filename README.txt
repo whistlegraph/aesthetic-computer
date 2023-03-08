@@ -61,9 +61,11 @@
 *** Authorization Emails *** (@rcrdlbl)
   (See `auth0` directory)
   - [X] Login Screen
-    - [x] Remove bold from the button typography and the error messages.
-    - [x] Text input and button typography must match.
-    - [x] Match relative placement of form fields to the `prompt` text on
+    - [x] Can we style auto-fill highlighting?
+      - answer: no. see https://developer.mozilla.org/en-US/docs/Web/CSS/:autofill
+    - [X] Remove bold from the button typography and the error messages.
+    - [X] Text input and button typography must match.
+    - [X] Match relative placement of form fields to the `prompt` text on
          the a.c homepage. 
     - [X] Style the borders / padding of the text input fields to be less visible.
       - [X] Make sure the type lines up with the buttons.
