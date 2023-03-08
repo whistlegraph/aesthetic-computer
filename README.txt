@@ -60,16 +60,16 @@
 
 *** Authorization Emails *** (@rcrdlbl)
   (See `auth0` directory)
-  - [] Login Screen
-    - [] Remove bold from the button typography and the error messages.
-    - [] Text input and button typography must match.
-    - [] Match relative placement of form fields to the `prompt` text on
+  - [X] Login Screen
+    - [x] Remove bold from the button typography and the error messages.
+    - [x] Text input and button typography must match.
+    - [x] Match relative placement of form fields to the `prompt` text on
          the a.c homepage. 
-    - [] Style the borders / padding of the text input fields to be less visible.
-      - [] Make sure the type lines buttons.
-    - [] "I'm New" -> "New Account" and place the buttons vertically.
+    - [X] Style the borders / padding of the text input fields to be less visible.
+      - [X] Make sure the type lines up with the buttons.
+    - [X] "I'm New" -> "New Account" and place the buttons vertically.
          (Use the `valbear` screen as a visual / aesthetic guide)
-      - [] Try a border on just the Log In button, or both buttons?
+      - [x] Try a border on just the Log In button, or both buttons?
   - [] Custom email templates...
     - [] Replace `Welcome Email` and `Change Password` email templates with 
          simple text options.
