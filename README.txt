@@ -58,6 +58,10 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Peter Hand: HOOK Screening ***
+  - [-] Make a prescribed 2x2 Bleep that can be triggered by the audience
+       and run by 4 players.
+
 *** Authorization Emails / Login *** (@rcrdlbl)
   (See `auth0` directory)
   - [] Add a full screen background iframe for `https://aesthetic.computer/login-pattern` behind the html. @rcrdlbl

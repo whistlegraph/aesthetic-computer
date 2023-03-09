@@ -44,7 +44,6 @@ function buildBleeps($) {
   const {
     geo: { Grid, Box },
     screen,
-    num,
   } = $;
 
   const gridRatio = gridHeight / gridWidth;
@@ -138,54 +137,45 @@ let anyBleepDowned = false;
 
 // ✒ Act (Runs once per user interaction)
 function act($) {
-  const {
-    event,
-    needsPaint,
-    cursor,
-    pens
-  } = $;
+  const { event, needsPaint, cursor, pens } = $;
 
   // Disable the cursor for touch input, and re-enable it if a mouse is used.
   event.device === "touch" ? cursor("none") : cursor("precise");
 
-  if (event.is("reframed")) {
-    buildBleeps($);
-    // Loop over bleeps and reposition them.
-    for (let x = 0; x < grid.box.w; x += 1) {
-      for (let y = 0; y < grid.box.h; y += 1) {
-        const i = x + y * grid.box.w;
-      }
-    }
-  }
+  if (event.is("reframed")) buildBleeps($);
 
   bleeps.forEach((bleep) => {
-    bleep.button.act(event, {
-      push: () => needsPaint(),
-      down: () => {
-        anyBleepDowned = true;
-        bleep.needsBleep = true;
-        needsPaint();
+    bleep.button.act(
+      event,
+      {
+        push: () => needsPaint(),
+        down: () => {
+          anyBleepDowned = true;
+          bleep.needsBleep = true;
+          needsPaint();
+        },
+        rollover: () => {
+          if (!anyBleepDowned) return;
+          bleep.button.down = true;
+          bleep.needsBleep = true;
+          needsPaint();
+        },
+        rollout: () => {
+          bleep.button.down = false;
+          needsPaint();
+        },
+        cancel: () => {
+          anyBleepDowned = false;
+          needsPaint();
+        },
       },
-      rollover: () => {
-        if (!anyBleepDowned) return;
-        bleep.button.down = true;
-        bleep.needsBleep = true;
-        needsPaint();
-      },
-      rollout: () => {
-        bleep.button.down = false;
-        needsPaint();
-      },
-      cancel: () => {
-        anyBleepDowned = false;
-        needsPaint();
-      },
-    }, pens?.()); // Passing pens here enables multi-touch support for ui buttons.
+      pens?.()
+    ); // Passing pens here enables multi-touch support for ui buttons.
   });
 }
 
-let beatCount = 0n;
-let defaultBPM
+let beatCount = 0n,
+  defaultBPM;
 
 // 💗 Beat (Runs once per bpm, starting when the audio engine is activated.)
 function beat($api) {
