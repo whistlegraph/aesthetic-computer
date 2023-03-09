@@ -59,8 +59,17 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Peter Hand: HOOK Screening ***
-  - [-] Make a prescribed 2x2 Bleep that can be triggered by the audience
-       and run by 4 players.
+  - [x] Make a phand hook screening page / menu page with the bleep option, and
+        some drawing tools with image upload?
+        - [😫] Choose drawing tools.
+        - [?] Upload
+        - [x] Basic page: `phand`.
+        - [x] Bleep link
+  - [] You can always view your last uploaded painting by visiting
+       aesthetic.computer/email
+  + Done
+  - [x] Make a prescribed 4x1 Bleep that can be triggered by the audience
+        and run by 4 players.
 
 *** Authorization Emails / Login *** (@rcrdlbl)
   (See `auth0` directory)
