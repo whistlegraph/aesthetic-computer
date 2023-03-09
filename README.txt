@@ -58,8 +58,11 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Authorization Emails *** (@rcrdlbl)
+*** Authorization Emails / Login *** (@rcrdlbl)
   (See `auth0` directory)
+  - [] Add a full screen background iframe for `https://aesthetic.computer/login-pattern` behind the html. @rcrdlbl
+  + Done
+  - [x] Add fuzzy backdrop (`login-pattern`).
   - [X] Login Screen
     - [x] Can we style auto-fill highlighting?
       - answer: no. see https://developer.mozilla.org/en-US/docs/Web/CSS/:autofill
@@ -76,7 +79,6 @@
     - [X] Replace `Welcome Email` and `Change Password` email templates with 
          simple text options.
           auth0 Dashboard -> Branding -> Email Templates
-  + Done
        https://www.figma.com/file/2uw2Y2pAGMLFIi2XTpJy6w/login-page-notes?node-id=0%3A1&t=dmJ8wmL6IEd2CUwX-0
   - [x] Set up a mail service provider. @jeffrey
 
