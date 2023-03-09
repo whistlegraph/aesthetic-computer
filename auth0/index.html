@@ -54,6 +54,10 @@
       display: none;
     }
 
+    .active-dim:active {
+      opacity: 0.75;
+    }
+
     #error-message {
       display: none;
       white-space: break-spaces;
@@ -89,7 +93,7 @@
             type="button"
             tabindex="0"
             id="btn-reset"
-            class="f3 ba bw1 pa1 mb2 red-inner-border b--dark-red link dim bg-red white pointer bw0">
+            class="active-dim f3 ba bw1 pa1 mb2 red-inner-border b--dark-red link bg-red white pointer bw0">
               Reset Password?
           </button>
           <br>
@@ -97,14 +101,14 @@
             type="button"
             tabindex="0"
             id="btn-signup"
-            class="f3 ba bw1 pa1 b--white moon-gray-inner-border bg-silver link dim white pointer bw0">
+            class="active-dim f3 ba bw1 pa1 b--white moon-gray-inner-border bg-silver link white pointer bw0">
               New Account
           </button>
           <button
             type="submit"
             tabindex="0"
             id="btn-login"
-            class="f3 ba bw1 pa1 b--green green-inner-border bg-dark-green link dim green pointer bw0">
+            class="active-dim f3 ba bw1 pa1 b--green green-inner-border bg-dark-green link green pointer bw0">
               Log In
           </button>
         </div>
