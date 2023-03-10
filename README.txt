@@ -73,7 +73,7 @@
 
 *** Authorization Emails / Login *** (@rcrdlbl)
   (See `auth0` directory)
-  - [] Add a full screen background iframe for `https://aesthetic.computer/login-pattern` behind the html. @rcrdlbl
+  - [x] Add a full screen background iframe for `https://aesthetic.computer/login-pattern` behind the html. @rcrdlbl
   + Done
   - [x] Add fuzzy backdrop (`login-pattern`).
   - [X] Login Screen
