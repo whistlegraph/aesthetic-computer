@@ -6,13 +6,13 @@
 
 // 🥾
 function boot({ hud, fps, cursor }) {
-  cursor("none");
-  hud.label(); // Clear any label.
+  cursor("none"); // No blue cursor.
+  hud.label(); // Clear any corner label.
 }
 
 // 🎨
-function paint({ noise16Aesthetic, screen }) {
-  noise16Aesthetic().ink(0, 100).box(0, 0, screen.width, screen.height);
+function paint({ noise16Aesthetic, screen: { width, height } }) {
+  noise16Aesthetic().ink(0, 100).box(0, 0, width, height);
 }
 
 export { boot, paint };

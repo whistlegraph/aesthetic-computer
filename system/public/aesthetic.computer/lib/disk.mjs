@@ -141,7 +141,7 @@ let currentPath,
   currentParams,
   currentHash,
   currentText,
-  currentBlobUrl,
+  currentCode,
   currentHUDText,
   currentHUDTextColor,
   currentHUDButton,
@@ -1174,21 +1174,23 @@ async function load(parsed, fromHistory = false, alias = false) {
 
   // 🅱️ Load the piece.
   // const moduleLoadTime = performance.now();
-  let blobUrl;
+  let blobUrl, sourceCode;
   try {
     if (slug === currentText) {
-      // If this is a reload then just try and load the same blobUrl as before.
-      blobUrl = currentBlobUrl;
+      // If this is a reload then just create a new blobURL off the old source.
+      const blob = new Blob([currentCode], { type: "application/javascript" });
+      blobUrl = URL.createObjectURL(blob);
+      sourceCode = currentCode;
     } else {
       const response = await fetch(fullUrl);
-      const sourceCode = await response.text();
+      const source = await response.text();
 
       const twoDots =
         /^(import|export) {([^{}]*?)} from ["'](\.\.\/|\.\.|\.\/)(.*?)["'];?/gm;
       const oneDot =
         /^(import|export) \* as ([^ ]+) from ["']\.?\/(.*?)["'];?/gm;
 
-      let updatedCode = sourceCode.replace(twoDots, (match, p1, p2, p3, p4) => {
+      let updatedCode = source.replace(twoDots, (match, p1, p2, p3, p4) => {
         let url = `${location.protocol}//${host}/aesthetic.computer${
           p3 === "./" ? "/disks" : ""
         }/${p4.replace(/\.\.\//g, "")}`;
@@ -1204,9 +1206,11 @@ async function load(parsed, fromHistory = false, alias = false) {
 
       const blob = new Blob([updatedCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);
+      sourceCode = updatedCode;
     }
 
     module = await import(blobUrl);
+    console.log(module);
   } catch (err) {
     // 🧨 Continue with current module if one has already loaded.
     console.error(`😡 "${path}" load failure:`, err);
@@ -1560,7 +1564,7 @@ async function load(parsed, fromHistory = false, alias = false) {
     }
 
     currentText = slug;
-    currentBlobUrl = blobUrl;
+    currentCode = sourceCode;
 
     if (screen) screen.created = true; // Reset screen to created if it exists.
 
