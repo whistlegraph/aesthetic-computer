@@ -35,6 +35,7 @@ let input;
 // Error / feedback flash on command entry.
 let flash;
 let flashShow = false;
+let flashMessage;
 let flashColor = [];
 let flashPresent = false;
 let uploadProgress = 0; // If not zero, then draw a progress bar.
@@ -87,32 +88,26 @@ function boot($) {
       const slug = tokens[0]; // Note: Includes colon params.
       const params = tokens.slice(1);
 
-      function flash(clear = true) {
-        flashPresent = true;
-        flashShow = true;
-        if (clear) input.text = "";
-      }
-
-      if (
-        navigator.onLine &&
-        (text === "ul" || text === "upload") &&
-        store["painting"]
-      ) {
-        const filename = `painting-${num.timestamp()}.png`;
-        uploadProgress = -1; // Trigger progress bar rendering.
-        upload(filename, store["painting"], (p) => (uploadProgress = p))
-          .then((data) => {
-            // console.log("JSON Upload success:", data);
-            console.log("🪄 Painting uploaded:", filename, data);
-            flashColor = [0, 255, 0];
-            flash();
-            jump(`download ${data.slug}`);
-          })
-          .catch((err) => {
-            console.error("🪄 Painting upload failed:", err);
-            flashColor = [255, 0, 0];
-            flash();
-          });
+      if ((text === "ul" || text === "upload") && store["painting"]) {
+        if (!navigator.onLine) {
+          flashColor = [255, 0, 0];
+          makeFlash($, true, "OFFLINE");
+        } else {
+          const filename = `painting-${num.timestamp()}.png`;
+          uploadProgress = -1; // Trigger progress bar rendering.
+          upload(filename, store["painting"], (p) => (uploadProgress = p))
+            .then((data) => {
+              console.log("🪄 Painting uploaded:", filename, data);
+              flashColor = [0, 255, 0];
+              makeFlash($);
+              jump(`download:painting ${data.slug}`);
+            })
+            .catch((err) => {
+              console.error("🪄 Painting upload failed:", err);
+              flashColor = [255, 0, 0];
+              makeFlash($);
+            });
+        }
       } else if (text === "dl" || text === "download") {
         if (store["painting"]) {
           download(`painting-${num.timestamp()}.png`, store["painting"], {
@@ -124,16 +119,16 @@ function boot($) {
         } else {
           flashColor = [255, 0, 0]; // Show a red flash otherwise.
         }
-        flash();
+        makeFlash($);
         // needsPaint();
       } else if (slug === "login" || slug === "hi") {
         net.login();
         flashColor = [255, 255, 0, 100]; // Yellow
-        flash();
+        makeFlash($);
       } else if (text === "logout" || text === "bye") {
         net.logout();
         flashColor = [255, 255, 0, 100]; // Yellow
-        flash();
+        makeFlash($);
       } else if (text === "no") {
         system.nopaint.no({ system, store, needsPaint });
         if (system.nopaint.undo.paintings.length > 1) {
@@ -141,7 +136,7 @@ function boot($) {
         } else {
           flashColor = [255, 0, 0, 100]; // Red for failed undo.
         }
-        flash();
+        makeFlash($);
       } else if (text === "painting:reset" || text === "no!") {
         const deleted = system.nopaint.noBang({ system, store, needsPaint });
 
@@ -151,7 +146,7 @@ function boot($) {
           flashColor = [255, 0, 0]; // Red if delete failed.
         }
 
-        flash();
+        makeFlash($);
         needsPaint();
       } else if (text === "3dline:reset") {
         const deleted = await store.delete("3dline:drawing", "local:db");
@@ -162,7 +157,7 @@ function boot($) {
           flashColor = [255, 0, 0]; // Red if delete failed.
         }
 
-        flash();
+        makeFlash($);
         needsPaint();
       } else if (text === "dark" || text === "dark:reset") {
         if (text === "dark:reset") {
@@ -179,7 +174,7 @@ function boot($) {
             flashColor = [255, 255, 255]; // White for dark mode disabled.
           }
         }
-        flash();
+        makeFlash($);
       } else if (text.startsWith("2022")) {
         load(parse("wand~" + text)); // Execute the current command.
       } else if (text === "connect") {
@@ -189,15 +184,15 @@ function boot($) {
           identity = await connect(); // Web3 connect.
           store["identity"] = identity; // Store the identity.
           store.persist("identity"); // ... and persist it!
-          flash(false);
+          makeFlash($, false);
           flashColor = [0, 255, 0];
         } catch (e) {
-          flash(false);
+          makeFlash($, false);
           flashColor = [255, 0, 0];
         }
       } else if (text === "bgm stop") {
         bgm.stop();
-        flash(false);
+        makeFlash($, false);
         flashColor = [255, 0, 0];
       } else if (text === "help") {
         // Go to the Discord for now if anyone types help.
@@ -222,30 +217,15 @@ function boot($) {
 
 // 🧮 Sim(ulate) (Runs once per logic frame (120fps locked)).
 function sim($) {
-  const {
-    seconds,
-    needsPaint,
-    gizmo: { Hourglass },
-  } = $;
+  const { needsPaint } = $;
   input?.sim($);
-
-  flash =
-    flash ||
-    new Hourglass(seconds(0.1), {
-      flipped: () => {
-        flashShow = false;
-        flashPresent = false;
-        needsPaint();
-      },
-      autoFlip: true,
-    });
 
   if (flashPresent) flash.step();
 }
 
 // 🎨 Paint (Runs once per display refresh rate)
 function paint($) {
-  const { screen, wipe, ink, history, paste, store, dark } = $;
+  const { screen, wipe, ink, history, paste, store, dark, write } = $;
 
   const pal = scheme[dark ? "dark" : "light"];
   if (input) input.pal = pal; // Update text input palette.
@@ -292,7 +272,10 @@ function paint($) {
   }
 
   // Trigger a red or green screen flash with a timer.
-  if (flashShow) ink(flashColor).box(0, 0, screen.width, screen.height);
+  if (flashShow) {
+    ink(flashColor).box(0, 0, screen.width, screen.height);
+    if (flashMessage) ink(255).write(flashMessage, { x: 5, y: 4, size: 2 });
+  }
 
   return glyphsLoaded;
 }
@@ -309,9 +292,9 @@ async function act($) {
   input?.act($);
 
   if (e.is("load-error")) {
-    flashPresent = true;
-    flashShow = true;
+    makeFlash($);
     flashColor = [255, 0, 0];
+
     if (MetaBrowser) input.canType = false;
     needsPaint();
   }
@@ -327,3 +310,21 @@ function meta() {
 export { boot, sim, paint, act, meta };
 
 // 📚 Library (Useful classes & functions used throughout the piece)
+
+function makeFlash($, clear = true, message) {
+  flash = new $.gizmo.Hourglass($.seconds(message ? 0.25 : 0.1), {
+    flipped: () => {
+      flashShow = false;
+      flashPresent = false;
+      flashMessage = undefined;
+      flash = undefined;
+      $.needsPaint();
+    },
+    autoFlip: true,
+  });
+
+  flashPresent = true;
+  flashShow = true;
+  flashMessage = message;
+  if (clear) input.text = "";
+}

@@ -1,4 +1,3 @@
-
   🧩 AESTHETIC.COMPUTER 🧩
 
   A *new* computing environment that...
@@ -57,43 +56,6 @@
   - [x] Check `wg` and `ff` and other disks including the prompt in the Instagram in-app browser!
 
 🌟 Projects in Progress (PIP) 🌟
-
-*** Peter Hand: HOOK Screening ***
-  - [x] Make a phand hook screening page / menu page with the bleep option, and
-        some drawing tools with image upload?
-        - [😫] Choose drawing tools.
-        - [?] Upload
-        - [x] Basic page: `phand`.
-        - [x] Bleep link
-  - [] You can always view your last uploaded painting by visiting
-       aesthetic.computer/email
-  + Done
-  - [x] Make a prescribed 4x1 Bleep that can be triggered by the audience
-        and run by 4 players.
-
-*** Authorization Emails / Login *** (@rcrdlbl)
-  (See `auth0` directory)
-  - [x] Add a full screen background iframe for `https://aesthetic.computer/login-pattern` behind the html. @rcrdlbl
-  + Done
-  - [x] Add fuzzy backdrop (`login-pattern`).
-  - [X] Login Screen
-    - [x] Can we style auto-fill highlighting?
-      - answer: no. see https://developer.mozilla.org/en-US/docs/Web/CSS/:autofill
-    - [X] Remove bold from the button typography and the error messages.
-    - [X] Text input and button typography must match.
-    - [X] Match relative placement of form fields to the `prompt` text on
-         the a.c homepage. 
-    - [X] Style the borders / padding of the text input fields to be less visible.
-      - [X] Make sure the type lines up with the buttons.
-    - [X] "I'm New" -> "New Account" and place the buttons vertically.
-         (Use the `valbear` screen as a visual / aesthetic guide)
-      - [x] Try a border on just the Log In button, or both buttons?
-  - [X] Custom email templates...
-    - [X] Replace `Welcome Email` and `Change Password` email templates with 
-         simple text options.
-          auth0 Dashboard -> Branding -> Email Templates
-       https://www.figma.com/file/2uw2Y2pAGMLFIi2XTpJy6w/login-page-notes?node-id=0%3A1&t=dmJ8wmL6IEd2CUwX-0
-  - [x] Set up a mail service provider. @jeffrey
 
 *** Uploaded Paintings ***
   - [🟢] Modify `download` to accept a painting and offer special link.

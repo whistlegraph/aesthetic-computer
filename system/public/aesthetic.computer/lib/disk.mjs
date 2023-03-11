@@ -2122,6 +2122,11 @@ async function makeFrame({ data: { type, content } }) {
       return prom;
     };
 
+    // 🤖 Sim // no send
+    $commonApi.seconds = function (s) {
+      return s * 120; // TODO: Get 120 dynamically from the Loop setting. 2022.01.13.23.28
+    };
+
     // Act & Sim (Occurs after first boot and paint.)
     if (booted && paintCount > 0n) {
       const $api = {};
@@ -2148,11 +2153,6 @@ async function makeFrame({ data: { type, content } }) {
       };
 
       $api.cursor = (code) => (cursorCode = code);
-
-      // 🤖 Sim // no send
-      $api.seconds = function (s) {
-        return s * 120; // TODO: Get 120 dynamically from the Loop setting. 2022.01.13.23.28
-      };
 
       // TODO: A booted check could be higher up the chain here?
       // Or this could just move. 22.10.11.01.31

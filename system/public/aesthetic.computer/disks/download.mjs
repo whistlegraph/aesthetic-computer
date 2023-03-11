@@ -17,10 +17,20 @@ let btn;
 let homebtn;
 
 // 🥾 Boot (Runs once before first paint and sim)
-function boot() {}
+function boot({ hud }) {
+  hud.label();
+}
 
 // 🎨 Paint (Executes every display frame)
-function paint({ ink, wipe, num, params, ui, screen: { width, height } }) {
+function paint({
+  ink,
+  wipe,
+  num,
+  params,
+  colon,
+  ui,
+  screen: { width, height },
+}) {
   wipe(0, 0, 128); // Background
 
   // Buttons
@@ -48,22 +58,16 @@ function paint({ ink, wipe, num, params, ui, screen: { width, height } }) {
     .ink(40, 40, 0)
     .write("GO AGAIN", num.p2.add(homebtn.box, { x: 4 + 2, y: 5 }), [0, 20]);
 
+  let text = "YOUR WHISTLEGRAPH IS READY :)";
+  if (colon === "painting") text = "YOUR PAINTING IS READY :)";
+
   // Title
-  ink(255, 0, 100, 200).write("YOUR WHISTLEGRAPH IS READY :)", {
-    center: "x",
-    y: height / 2 - 90,
-  });
-  ink(0, 100, 255, 200).write("YOUR WHISTLEGRAPH IS READY :", {
-    center: "x",
-    y: height / 2 - 92,
-  });
-  ink(100, 255, 0, 200).write("YOUR WHISTLEGRAPH IS READY", {
-    center: "x",
-    y: height / 2 - 91,
-  });
+  ink(255, 0, 100, 200).write(text, { center: "x", y: height / 2 - 90 });
+  ink(0, 100, 255, 200).write(text, { center: "x", y: height / 2 - 92 });
+  ink(100, 255, 0, 200).write(text, { center: "x", y: height / 2 - 91 });
 
   // Instructions
-  ink(255, 200).write("TAP CODE TO DOWNLOAD", {
+  ink(255, 200).write("TAP SLUG TO DOWNLOAD", {
     center: "x",
     y: height / 2 - 28,
   });
