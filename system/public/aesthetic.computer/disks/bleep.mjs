@@ -117,7 +117,7 @@ function buildBleeps($, bespokes) {
     });
   } else {
     grid.each((x, y, i) => {
-      bleeps.push(new Bleep($, [...grid.get(x, y), grid.scale], bespokes[i]));
+      bleeps.push(new Bleep($, [...grid.get(x, y), grid.scale], bespokes?.[i]));
     });
   }
 }
@@ -156,6 +156,8 @@ function boot($) {
       gridHeight = parseInt(split[1]) || gridHeight;
       buildBleeps($);
     }
+  } else {
+    buildBleeps($);
   }
 }
 

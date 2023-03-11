@@ -25,7 +25,7 @@ function paint({ wipe, system, ink, ui: { TextButton: TB }, screen }) {
   ink(20, 200)
     .box(0, 0, screen.width, screen.height)
     .ink(0, 0, 200, 255)
-    .write("Watch HOOK", { x, y }, [200, 150]);
+    .write("HOOK Screening, March 10", { x, y }, [0, 255]);
 
   // Buttons
   let ys = 20;
@@ -53,7 +53,7 @@ function paint({ wipe, system, ink, ui: { TextButton: TB }, screen }) {
 
   ys += 54;
 
-  ink(255, 255, 0, 100).write("(try each, when prompted)", {
+  ink(255, 255, 0, 100).write("(turn off mute switch)", {
     x: xs + 4,
     y: ys - 2,
   });
@@ -62,12 +62,13 @@ function paint({ wipe, system, ink, ui: { TextButton: TB }, screen }) {
   ink(255, 255, 0, 100).line(0, ys + by, screen.width, ys + by);
 
   // Download
-  download = new TB("Download", { x: x + xs, y: y + ys });
-  download.paint({ ink }, [[40], [180], [200], [20]]);
+  //download = new TB("Download", { x: x + xs, y: y + ys });
+  //download.paint({ ink }, [[40], [180], [200], [20]]);
 
-  ys += 28;
+  // ys += 28;
 
   // Undo
+  /*
   undo = new TB("Undo", { x: x + xs, y: y + ys });
   undo.paint({ ink }, [
     [20, 0, 0],
@@ -87,8 +88,9 @@ function paint({ wipe, system, ink, ui: { TextButton: TB }, screen }) {
     [200, 0, 0],
     [20, 0, 0],
   ]);
+  */
 
-  ys += 28;
+  // ys += 28;
 
   // Help
   discord = new TB("Help", { x: x + xs, y: y + ys });
