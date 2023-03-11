@@ -13,11 +13,9 @@
       src: url("https://assets.aesthetic.computer/type%2Fwebfonts%2FProggyClean.ttf") format("truetype")
     }
 
-
     body, html {
       height: 100%;
       font-family: "ProggyClean", sans-serif;
-      background-color: rgb(70, 50, 100);
     }
 
     .pink-red {
@@ -58,6 +56,14 @@
       opacity: 0.75;
     }
 
+    .form-control:focus::placeholder {
+      opacity: 0.5;
+    }
+
+    .z--100 {
+      z-index: -100;
+    }
+
     button:disabled {
       opacity: 0.75;
     }
@@ -68,8 +74,11 @@
     }
   </style>
 <body>
-  <div class="login-container">
-    <div class="col-xs-12 col-sm-4 col-sm-offset-4 login-box pa3">
+  <div>
+    <iframe src="https://aesthetic.computer/login-pattern" frameborder="0" class="fixed top z--100 w-100 h-100"></iframe>
+  </div>
+  <div class="login-container z-3">
+    <div class="col-xs-12 col-sm-4 col-sm-offset-4 login-box pl2 pt3">
       <!-- <div class="login-header">
         <img src="https://cdn.auth0.com/styleguide/1.0.0/img/badge.svg"/>
         <h3>Welcome</h3>
@@ -80,7 +89,7 @@
         <div class="form-group">
           <input
             type="email"
-            class="form-control pink-cursor input-reset near-white f3 bg-transparent bw0 mb2 ml1"
+            class="form-control pink-cursor input-reset near-white f3 bg-transparent bw0 mb3 ml1"
             id="email"
             placeholder="Enter your email">
         </div>
@@ -112,7 +121,7 @@
             type="submit"
             tabindex="0"
             id="btn-login"
-            class="active-dim f3 ba bw1 pa1 b--green green-inner-border bg-dark-green link green pointer bw0">
+            class="active-dim ml2 f3 ba bw1 pa1 b--green green-inner-border bg-dark-green link green pointer bw0">
               Log In
           </button>
         </div>
