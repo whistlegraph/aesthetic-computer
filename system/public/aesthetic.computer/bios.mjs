@@ -2488,8 +2488,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Reads the extension off of filename to determine the mimetype and then
   // handles the data accordingly and downloads the file in the browser.
+  // Downloads both cached files via `data` and network stored files for
+  // users and guests.
   async function receivedDownload({ filename, data, modifiers }) {
-    console.log("💾 Downloading locally:", filename, typeof data);
+    console.log("💾 Downloading:", filename, typeof data);
 
     let object;
     let MIME = "application/octet-stream"; // Default content type.
@@ -2573,9 +2575,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     a.href = object;
     a.target = "_blank";
     a.download = filename;
-    a.onclick = (e) => {
-      e.preventDefault();
-    };
+    // a.onclick = (e) => {
+    //   e.preventDefault();
+    // };
     a.click();
     URL.revokeObjectURL(a.href);
 

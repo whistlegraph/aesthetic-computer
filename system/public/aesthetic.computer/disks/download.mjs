@@ -4,11 +4,12 @@
 
 /* #region 📝 TODO 
   + Now
-  - [🧡] Switching on file type / downloading user files vs anon files.
+  - [😫] How can I check the expiration date of the file via S3?
+    - [] And display it to a user?
   + Later
-  - [😫] How can I check the expiration date of the file?
   - [] Should I check to see if the file exists also?
   + Done
+  - [x] Switching on file type / downloading user files vs anon files.
   - [x] Add download button with code. 
   - [x] Use a local download if it's available, otherwise try
        and grab the remote file.
