@@ -57,12 +57,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Uploaded Paintings ***
-  - [🟢] Modify `download` to accept a painting and offer special link.
-  - [x] After `ul` send a message back to the user of what the code was
-       or how to access their material... maybe via the `download` piece?
-  - [x] Also add a `ul` progress bar.
-
 *** `paintings` command should grab a list of all paintings by a user sorted
                 in order?
   - [] Deletable paintings.

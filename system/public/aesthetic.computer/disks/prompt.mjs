@@ -100,7 +100,7 @@ function boot($) {
               console.log("🪄 Painting uploaded:", filename, data);
               flashColor = [0, 255, 0];
               makeFlash($);
-              jump(`download:painting ${data.slug}`);
+              jump(`download:painting ${user.email}/${data.slug}`);
             })
             .catch((err) => {
               console.error("🪄 Painting upload failed:", err);

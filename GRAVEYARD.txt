@@ -3,6 +3,13 @@
 
 * 23.02.10.14.42 and Earlier
 
+*** User Uploaded Paintings ***
+  - [x] Test download links on desktop and mobile: https://localhost:8888/download:painting~me@jas.life/painting-2023.3.12.13.02.14
+  - [x] Modify `download` to accept a painting and offer special link.
+  - [x] After `ul` send a message back to the user of what the code was
+       or how to access their material... maybe via the `download` piece?
+  - [x] Also add a `ul` progress bar.
+
 *** Peter Hand: HOOK Screening ***
   - [x] Make a phand hook screening page / menu page with the bleep option, and
         some drawing tools with image upload?

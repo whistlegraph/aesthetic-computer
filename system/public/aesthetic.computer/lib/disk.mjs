@@ -1210,7 +1210,6 @@ async function load(parsed, fromHistory = false, alias = false) {
     }
 
     module = await import(blobUrl);
-    console.log(module);
   } catch (err) {
     // 🧨 Continue with current module if one has already loaded.
     console.error(`😡 "${path}" load failure:`, err);
@@ -1500,6 +1499,15 @@ async function load(parsed, fromHistory = false, alias = false) {
     url
       ? $commonApi.net.web(to)
       : (leaveLoad = () => load(parse(to), ahistorical, alias));
+  };
+
+  // Go back to the previous piece, or to the prompt if there is no history.
+  $commonApi.back = () => {
+    if (pieceHistoryIndex > 0) {
+      send({ type: "back-to-piece" });
+    } else {
+      $commonApi.jump("prompt");
+    }
   };
 
   $commonApi.pieceCount += 1;

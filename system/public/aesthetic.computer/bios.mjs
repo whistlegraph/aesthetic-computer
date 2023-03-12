@@ -2501,6 +2501,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       extension(filename) === "json" ||
       extension(filename) === "gltf"
     ) {
+      // ✍️ Text + 3D
       // JSON
       MIME = "application/json";
       // GLTF
@@ -2519,15 +2520,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       extension(filename) === "png" ||
       extension(filename) === "webp"
     ) {
+      // 🖼️ Images
       MIME = "image/png"; // PNG
 
       if (extension(filename) === "webp") {
         MIME = "image/webp";
       }
 
-      const blob = await bufferToBlob(data, MIME, modifiers);
-      object = URL.createObjectURL(blob, { type: MIME });
+      if (data) {
+        // Download locally if data is provided.
+        const blob = await bufferToBlob(data, MIME, modifiers);
+        object = URL.createObjectURL(blob, { type: MIME });
+      } else {
+        // Or from the storage network.
+
+        // Check to see if filename has user handle data.
+        const [email, slug] = filename.split("/");
+        object =
+          email && slug
+            ? `https://user.aesthetic.computer/${email}/${slug}`
+            : `https://art.aesthetic.computer/${filename}`;
+      }
     } else if (extension(filename) === "mp4") {
+      // 🎥 Video
       // Use `data` from the global Media Recorder.
       if (mediaRecorderBlob) {
         object = URL.createObjectURL(mediaRecorderBlob);
@@ -2540,10 +2555,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
+    // Download the blob in the background if it doesn't exist?
+    // TODO: This would need a progress bar...
+    /*
+    if (!object.startsWith("blob:")) {
+      try {
+        const response = await fetch(object);
+        const blob = await response.blob();
+        object = URL.createObjectURL(blob);
+      } catch (error) {
+        console.error(`📉 Failed to download: ${error}`);
+      }
+    }
+    */
+
     const a = document.createElement("a");
     a.href = object;
     a.target = "_blank";
     a.download = filename;
+    a.onclick = (e) => {
+      e.preventDefault();
+    };
     a.click();
     URL.revokeObjectURL(a.href);
 
