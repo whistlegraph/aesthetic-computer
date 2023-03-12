@@ -57,11 +57,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `paintings` command should grab a list of all paintings by a user sorted
-                in order?
-  - [] Deletable paintings.
-  - [] Painting feed.
-
 *** CPU Navigable 2D Painting ***
   - [🟡] Add support for painting to be a `fixed` resolution.
     - [] Use "crop" brush or `resize` command for this?
@@ -72,16 +67,27 @@
    - [-] Add label / figure out a good motif.
   + Done
    - [x] Inscribe a test ordinal. 
+*** Error Log / `errors` ***
+  - [] Log all mistyped commands with a score count and display them in order.
+    - [] I could just use redis for this...
+      - [] That could actually make it LIVE!
+
+*** `paintings` command should grab a list of all paintings by a user sorted
+                in order?
+  - [] Deletable paintings.
+  - [] Painting feed.
 
 *** Prompt ***
   - [] Always show whether we are connected to the internet or not.
 
 *** @rcrdlbl ***
-  - [🟢] auth0 login screen
+  - [🧡] IRL meetup
   - [] moving $api calls around in `disk`
   - [] making some brushes
   - [] make `bleep` reset BPM to default on exiting
     - [] @digitpain make BPM settable in the leave function
+  + Done
+  - [x] auth0 login screen
 
 *** Mood ***
   - [] One mood per day, assigned?
