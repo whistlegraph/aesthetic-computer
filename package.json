@@ -10,7 +10,7 @@
     "new-piece": "f() { cd system/public/aesthetic.computer/disks; cp blank.mjs $1.mjs; };f",
     "reload-piece": "curl -X POST -H \"Content-Type: application/json\" -d '{\"piece\": \"@digitpain/hello\"}' http://localhost:8082/reload",
     "server:socket": "cd socket-server; npm run server",
-    "assets:sync": "aws s3 sync s3://assets.aesthetic.computer system/public/assets",
+    "assets:sync": "aws s3 sync s3://assets.aesthetic.computer system/public/assets --region sfo3.digitaloceanspaces.com",
     "server:session": "cd session-server; npm run dev",
     "server:session:build": "cd session-server; npm run build",
     "server:session:deploy": "cd session-server; npm run deploy",
