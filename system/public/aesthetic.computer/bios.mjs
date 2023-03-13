@@ -2417,13 +2417,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (token) {
       bucket = "user";
       headers.Authorization = `Bearer ${token}`;
+
       // TODO: Also update the filename here to prepend "@user" ?
       //       Or should each user have a directory or something?
       //       What's the actual best option?
+
       prefetchURL += "/" + filename + "/" + bucket; // Add filename info.
     }
 
-    // TODO: If there is a token
+    function error(err) {
+      send({
+        type: callbackMessage,
+        content: { result: "error", data: err },
+      });
+    }
 
     // Now send a request to the server...
     fetch(prefetchURL, { headers })
@@ -2434,7 +2441,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Probably the download code... maybe something else if a custom
         // name is used.
-        const filename = new URL(presignedUrl).pathname.split("/")[2];
+        const filename = new URL(presignedUrl).pathname.split("/").pop();
         const slug = filename.substring(0, filename.lastIndexOf("."));
 
         if (debug) console.log("🔐 Presigned URL:", presignedUrl);
@@ -2447,8 +2454,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         xhr.upload.addEventListener("progress", (event) => {
           console.log(`Uploaded ${event.loaded} of ${event.total} bytes...`);
-          // TODO: Send some kind of progress callback message here...
+          send({
+            type: "upload:progress",
+            content: event.loaded / event.total,
+          }); // Send a progress callback.
         });
+
+        // Browser is online, send the request
+        xhr.onerror = error;
 
         xhr.onreadystatechange = function () {
           if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
@@ -2461,21 +2474,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         };
 
-        xhr.send(new Blob([data], { type: MIME }));
+        try {
+          xhr.send(new Blob([data], { type: MIME }));
+        } catch (err) {
+          error(err);
+        }
       })
       .catch((err) => {
         if (debug) console.log("⚠️ Failed to get presigned URL:", err);
-        send({
-          type: callbackMessage,
-          content: { result: "error", data: err },
-        });
+        error(err);
       });
   }
 
   // Reads the extension off of filename to determine the mimetype and then
   // handles the data accordingly and downloads the file in the browser.
+  // Downloads both cached files via `data` and network stored files for
+  // users and guests.
   async function receivedDownload({ filename, data, modifiers }) {
-    console.log("💾 Downloading locally:", filename, typeof data);
+    console.log("💾 Downloading:", filename, typeof data);
 
     let object;
     let MIME = "application/octet-stream"; // Default content type.
@@ -2487,6 +2503,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       extension(filename) === "json" ||
       extension(filename) === "gltf"
     ) {
+      // ✍️ Text + 3D
       // JSON
       MIME = "application/json";
       // GLTF
@@ -2505,15 +2522,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       extension(filename) === "png" ||
       extension(filename) === "webp"
     ) {
+      // 🖼️ Images
       MIME = "image/png"; // PNG
 
       if (extension(filename) === "webp") {
         MIME = "image/webp";
       }
 
-      const blob = await bufferToBlob(data, MIME, modifiers);
-      object = URL.createObjectURL(blob, { type: MIME });
+      if (data) {
+        // Download locally if data is provided.
+        const blob = await bufferToBlob(data, MIME, modifiers);
+        object = URL.createObjectURL(blob, { type: MIME });
+      } else {
+        // Or from the storage network.
+
+        // Check to see if filename has user handle data.
+        const [email, slug] = filename.split("/");
+        object =
+          email && slug
+            ? `https://user.aesthetic.computer/${email}/${slug}`
+            : `https://art.aesthetic.computer/${filename}`;
+      }
     } else if (extension(filename) === "mp4") {
+      // 🎥 Video
       // Use `data` from the global Media Recorder.
       if (mediaRecorderBlob) {
         object = URL.createObjectURL(mediaRecorderBlob);
@@ -2526,10 +2557,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
+    // Download the blob in the background if it doesn't exist?
+    // TODO: This would need a progress bar...
+    /*
+    if (!object.startsWith("blob:")) {
+      try {
+        const response = await fetch(object);
+        const blob = await response.blob();
+        object = URL.createObjectURL(blob);
+      } catch (error) {
+        console.error(`📉 Failed to download: ${error}`);
+      }
+    }
+    */
+
     const a = document.createElement("a");
     a.href = object;
     a.target = "_blank";
     a.download = filename;
+    // a.onclick = (e) => {
+    //   e.preventDefault();
+    // };
     a.click();
     URL.revokeObjectURL(a.href);
 

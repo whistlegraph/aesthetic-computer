@@ -4,94 +4,126 @@
 
 /* #region 📝 TODO 
   + Now
-  - [😫] How can I check the expiration date of the file?
+  - [😫] How can I check the expiration date of the file via S3?
+    - [] And display it to a user?
+  + Later
   - [] Should I check to see if the file exists also?
   + Done
-  - [-] Add download button with code. 
-  - [-] Use a local download if it's available, otherwise try
+  - [x] Switching on file type / downloading user files vs anon files.
+  - [x] Add download button with code. 
+  - [x] Use a local download if it's available, otherwise try
        and grab the remote file.
-  + Later
 #endregion */
 
 let btn;
 let homebtn;
 
 // 🥾 Boot (Runs once before first paint and sim)
-function boot() {}
+function boot({ hud }) {
+  hud.label();
+}
 
 // 🎨 Paint (Executes every display frame)
-function paint({ ink, wipe, num, params, ui, screen: { width, height } }) {
+function paint({
+  ink,
+  wipe,
+  num,
+  params,
+  colon,
+  ui,
+  screen: { width, height },
+}) {
   wipe(0, 0, 128); // Background
+
+  const slug = params[0].split("/").pop(); // Remove any username from slug.
+  const sw = slug.length * 6 + 12;
 
   // Buttons
   btn = new ui.Button({
-    x: width / 2 - 40,
+    x: width / 2 - sw / 2,
     y: height / 2 - 10,
-    w: 80,
+    w: sw,
     h: 20,
   });
 
   ink(0, 200, 0)
     .box(btn.box, "fill")
     .ink(0, 80, 0)
-    .write(params[0], num.p2.add(btn.box, { x: 4 + 12, y: 4 }), [0, 40]);
+    .write(slug, num.p2.add(btn.box, { x: 6, y: 4 }), [0, 40]);
+
+  let retryText = "GO AGAIN";
+  if (colon[0] === "painting") retryText = "RETURN";
+
+  const w = retryText.length * 6 + 12;
 
   homebtn = new ui.Button({
-    x: width - 60 - 6,
+    x: width - w - 6,
     y: height - 20 - 6,
-    w: 60,
+    w,
     h: 20,
   });
 
   ink(200, 200, 0)
     .box(homebtn.box, "fill")
     .ink(40, 40, 0)
-    .write("GO AGAIN", num.p2.add(homebtn.box, { x: 4 + 2, y: 5 }), [0, 20]);
+    .write(retryText, num.p2.add(homebtn.box, { x: 4 + 2, y: 5 }), [0, 20]);
+
+  let text = "YOUR WHISTLEGRAPH IS READY :)";
+  if (colon[0] === "painting") text = "YOUR PAINTING IS READY :)";
 
   // Title
-  ink(255, 0, 100, 200).write("YOUR WHISTLEGRAPH IS READY :)", {
-    center: "x",
-    y: height / 2 - 90,
-  });
-  ink(0, 100, 255, 200).write("YOUR WHISTLEGRAPH IS READY :", {
-    center: "x",
-    y: height / 2 - 92,
-  });
-  ink(100, 255, 0, 200).write("YOUR WHISTLEGRAPH IS READY", {
-    center: "x",
-    y: height / 2 - 91,
-  });
+  ink(255, 0, 100, 200).write(text, { center: "x", y: height / 2 - 90 });
+  ink(0, 100, 255, 200).write(text, { center: "x", y: height / 2 - 92 });
+  ink(100, 255, 0, 200).write(text, { center: "x", y: height / 2 - 91 });
 
   // Instructions
-  ink(255, 200).write("TAP CODE TO DOWNLOAD", {
+  ink(255, 200).write("TAP SLUG TO DOWNLOAD", {
     center: "x",
     y: height / 2 - 28,
   });
-  ink(255, 200).write("SCREENSHOT & ENTER AT PROMPT", {
+
+  const lineHeight = 12;
+  const sy = height / 2 + 18;
+
+  ink(255, 200).write("OR", { center: "x", y: sy });
+
+  ink(255, 200).write("SCREENSHOT & TYPE @ PROMPT", {
     center: "x",
-    y: height / 2 + 20,
+    y: sy + lineHeight,
   });
-  ink(255, 200).write("OR COPY THIS URL", { center: "x", y: height / 2 + 35 });
+
+  ink(255, 200).write("/ COPY THIS URL", {
+    center: "x",
+    y: sy + lineHeight * 2,
+  });
 
   return false;
 }
 
 // ✒ Act (Runs once per user interaction)
-function act({ event: e, num, download, rec, params, jump }) {
+function act({ event: e, num, download, colon, rec, params, jump, back }) {
   // Respond to user input here.
   btn?.act(e, () => {
+    const slug = params[0];
+
     if (rec.printed) {
       // Local download...
       let filename = `whistlegraph-${num.timestamp()}.mp4`;
       download(filename); // Download the video locally.
-    } else {
+    } else if (slug.length > 0) {
       // Network download based on params.
-      // TODO: Hardcoded to video for now. 23.01.29.23.53
-      if (params[0].length > 0) download(params[0] + ".mp4");
+      if (colon[0] === "painting") {
+        // Do a network download here...
+        download(slug + ".png");
+      } else {
+        download(slug + ".mp4");
+      }
     }
   });
 
-  homebtn?.act(e, () => jump("whistlegraph"));
+  homebtn?.act(e, () => {
+    colon[0] === "painting" ? back() : jump("whistlegraph");
+  });
 }
 
 export { boot, paint, act };

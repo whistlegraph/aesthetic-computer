@@ -62,6 +62,9 @@ export async function handler(event, context) {
   const name = event.path.slice(1).split("/")[2];
   const bucket = event.path.slice(1).split("/")[3];
 
+  let expiring = true;
+  let subdirectory; // Sorted by user if necessary.
+
   // TODO: This switch a little janky right now because I need
   //       authentication. 22.11.15.07.16
   if (bucket === "wand") {
@@ -85,17 +88,11 @@ export async function handler(event, context) {
         responseType: "json",
       });
 
-      const sub = response.body.sub;
-      const name = response.body.name;
+      // const sub = response.body.sub;
+      // const username = response.body.name;
       const email = response.body.email;
-
-      // Do something with the username and email...
-      // Upload to the user bucket, showing authorization.
-
-      // 🟡
-      // TODO: Sort this user's file into a specific folder for the bucket?
-      debugger;
-
+      expiring = false; // Set the file not to expire.
+      subdirectory = email; // Sort this object into a user directory.
     } catch (err) {
       // TODO: 🔴 Should I just use the guest bucket here?
       // Fail if the user is not logged in.
@@ -109,30 +106,12 @@ export async function handler(event, context) {
   }
 
   let mimeType;
-
-  if (extension === "png") {
-    mimeType = "image/png";
-  }
-
-  if (extension === "mp4") {
-    mimeType = "video/mp4";
-  }
-
-  if (extension === "json") {
-    mimeType = "application/json";
-  }
-
-  if (extension === "gltf") {
-    mimeType = "model/gltf+json";
-  }
-
-  if (extension === "glb") {
-    mimeType = "model/gltf-binary";
-  }
-
-  if (extension === "obj") {
-    mimeType = "application/object";
-  }
+  if (extension === "png") mimeType = "image/png";
+  if (extension === "mp4") mimeType = "video/mp4";
+  if (extension === "json") mimeType = "application/json";
+  if (extension === "gltf") mimeType = "model/gltf+json";
+  if (extension === "glb") mimeType = "model/gltf-binary";
+  if (extension === "obj") mimeType = "application/object";
 
   if (!mimeType) {
     return {
@@ -157,24 +136,22 @@ export async function handler(event, context) {
     }
   }
 
-  // TODO: How Can I add contentdisposition here?
+  if (subdirectory) fileName = subdirectory + "/" + fileName;
 
   const putObjectParams = {
     Bucket: client.bucket,
     Key: fileName,
     ContentType: mimeType,
     ACL: "public-read",
-    // ContentDisposition: "attachment",
-    ContentDisposition: "inline",
+    ContentDisposition: "attachment",
+    // ContentDisposition: "inline", // For some reason this yields CORS errors. 23.03.02.15.58
   };
 
   const command = new PutObjectCommand(putObjectParams);
+  const uploadOptions = { ContentDisposition: "attachment" };
 
-  const uploadURL = await getSignedUrl(client.s3, command, {
-    expiresIn: 3600,
-    // ContentDisposition: "attachment",
-    ContentDisposition: "inline",
-  });
+  if (expiring) uploadOptions.expiresIn = 3600; // Set to expiring if we are in an anonymous bucket / not a logged in user.
+  const uploadURL = await getSignedUrl(client.s3, command, uploadOptions);
 
   return {
     statusCode: 200,

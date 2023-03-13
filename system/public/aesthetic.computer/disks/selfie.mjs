@@ -166,7 +166,7 @@ function act(
 }
 
 function meta() {
-  return { desc: 'Palette for making a black + white "ordsy" picture.' };
+  return { desc: 'Palette for decorating a mood selfie.' };
 }
 
 // 📚 Library (Useful functions used throughout the piece)

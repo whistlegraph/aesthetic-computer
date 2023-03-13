@@ -3,21 +3,80 @@
 
 * 23.02.10.14.42 and Earlier
 
-      *** Molly Soda Moods ***
-        - [x] Add support for camera brush.
-        - [x] Rename sparkle -> icon
-        - [x] Add glyphs to icon brush.
-          - [x] Spin up icon brush prototype.
-          "Activity"
-          {
-          - [x] Title Screen
-          - [x] Camera 
-          - [x] Icon (preset palettes with preset graphics, similar to text changing words)
-            - [x] Rename sparkle to icon.
-          + Tonight
-          - [x] "Sparkle" by Maya
-            - [x] Jeffrey asks Maya about doing sparkle.
-          + Later
+*** User Uploaded Paintings ***
+  - [x] Test download links on desktop and mobile: https://localhost:8888/download:painting~me@jas.life/painting-2023.3.12.13.02.14
+  - [x] Modify `download` to accept a painting and offer special link.
+  - [x] After `ul` send a message back to the user of what the code was
+       or how to access their material... maybe via the `download` piece?
+  - [x] Also add a `ul` progress bar.
+
+*** Peter Hand: HOOK Screening ***
+  - [x] Make a phand hook screening page / menu page with the bleep option, and
+        some drawing tools with image upload?
+        - [😫] Choose drawing tools.
+        - [?] Upload
+        - [x] Basic page: `phand`.
+        - [x] Bleep link
+  - [] You can always view your last uploaded painting by visiting
+       aesthetic.computer/email
+  + Done
+  - [x] Make a prescribed 4x1 Bleep that can be triggered by the audience
+        and run by 4 players.
+
+*** Authorization Emails / Login *** (@rcrdlbl)
+  (See `auth0` directory)
+  - [x] Add a full screen background iframe for `https://aesthetic.computer/login-pattern` behind the html. @rcrdlbl
+  + Done
+  - [x] Add fuzzy backdrop (`login-pattern`).
+  - [X] Login Screen
+    - [x] Can we style auto-fill highlighting?
+      - answer: no. see https://developer.mozilla.org/en-US/docs/Web/CSS/:autofill
+    - [X] Remove bold from the button typography and the error messages.
+    - [X] Text input and button typography must match.
+    - [X] Match relative placement of form fields to the `prompt` text on
+         the a.c homepage. 
+    - [X] Style the borders / padding of the text input fields to be less visible.
+      - [X] Make sure the type lines up with the buttons.
+    - [X] "I'm New" -> "New Account" and place the buttons vertically.
+         (Use the `valbear` screen as a visual / aesthetic guide)
+      - [x] Try a border on just the Log In button, or both buttons?
+  - [X] Custom email templates...
+    - [X] Replace `Welcome Email` and `Change Password` email templates with 
+         simple text options.
+          auth0 Dashboard -> Branding -> Email Templates
+       https://www.figma.com/file/2uw2Y2pAGMLFIi2XTpJy6w/login-page-notes?node-id=0%3A1&t=dmJ8wmL6IEd2CUwX-0
+  - [x] Set up a mail service provider. @jeffrey
+
+*** Auth0 Integration ***
+  + Done
+  - [x] Custom painting filenames / listings or subdirectories for users.
+  - [x] Offline failure red flash.
+  - [x] Protect a server route.
+    - [x] https://auth0.com/docs/quickstart/spa/vanillajs/02-calling-an-api
+    - [x] Call the API
+  - [🟡] Put user information into the `prompt` MOTD!
+  - [x] SMS Support via Twilio.
+  - [x] Signup on passwordless authentication via email only.
+    - [x] https://auth0.com/docs/libraries/auth0js#webauth-crossoriginverification-
+  - [x] Test in production and on local.
+  - [x] Set up auth0 sign-up via https://manage.auth0.com.
+  - [x] Add login and logout handlers.
+
+*** Molly Soda Moods ***
+  - [x] Add support for camera brush.
+  - [x] Rename sparkle -> icon
+  - [x] Add glyphs to icon brush.
+    - [x] Spin up icon brush prototype.
+    "Activity"
+    {
+    - [x] Title Screen
+    - [x] Camera 
+    - [x] Icon (preset palettes with preset graphics, similar to text changing words)
+      - [x] Rename sparkle to icon.
+    + Tonight
+    - [x] "Sparkle" by Maya
+      - [x] Jeffrey asks Maya about doing sparkle.
+    + Later
 
 *** Pressure / Apple Pencil + Stylus Support ***
   - [x] Debug Apple Pencil on actual hardware.

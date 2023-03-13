@@ -1871,7 +1871,7 @@ function act({
     const saveMode = "server"; // The default for now. 22.11.15.05.32
     if (saveMode === "server") {
       // Save demo JSON.
-      serverUpload(`${recordingSlug}.json`, demo.frames, bucket)
+      serverUpload(`${recordingSlug}.json`, demo.frames, () => (), bucket)
         .then((data) => {
           // console.log("JSON Upload success:", data);
           console.log(

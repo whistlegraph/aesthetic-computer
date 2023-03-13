@@ -35,7 +35,7 @@ window.acDEBUG = debug; // Set window.acDEBUG again just in case any code relies
 
 const sandboxed = window.origin === "null";
 
-if (!sandboxed) {
+if (!sandboxed && window.auth0) {
   // #region 🔐 Auth0: Universal Login & Authentication
   const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
   const auth0Client = await window.auth0?.createAuth0Client({

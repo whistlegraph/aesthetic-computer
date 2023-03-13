@@ -141,7 +141,7 @@ let currentPath,
   currentParams,
   currentHash,
   currentText,
-  currentBlobUrl,
+  currentCode,
   currentHUDText,
   currentHUDTextColor,
   currentHUDButton,
@@ -239,6 +239,7 @@ let fileImport;
 let serverUpload;
 let gpuResponse;
 let web3Response;
+let serverUploadProgressReporter;
 
 // Other
 let activeVideo; // TODO: Eventually this can be a bank to store video textures.
@@ -1173,21 +1174,23 @@ async function load(parsed, fromHistory = false, alias = false) {
 
   // 🅱️ Load the piece.
   // const moduleLoadTime = performance.now();
-  let blobUrl;
+  let blobUrl, sourceCode;
   try {
     if (slug === currentText) {
-      // If this is a reload then just try and load the same blobUrl as before.
-      blobUrl = currentBlobUrl;
+      // If this is a reload then just create a new blobURL off the old source.
+      const blob = new Blob([currentCode], { type: "application/javascript" });
+      blobUrl = URL.createObjectURL(blob);
+      sourceCode = currentCode;
     } else {
       const response = await fetch(fullUrl);
-      const sourceCode = await response.text();
+      const source = await response.text();
 
       const twoDots =
         /^(import|export) {([^{}]*?)} from ["'](\.\.\/|\.\.|\.\/)(.*?)["'];?/gm;
       const oneDot =
         /^(import|export) \* as ([^ ]+) from ["']\.?\/(.*?)["'];?/gm;
 
-      let updatedCode = sourceCode.replace(twoDots, (match, p1, p2, p3, p4) => {
+      let updatedCode = source.replace(twoDots, (match, p1, p2, p3, p4) => {
         let url = `${location.protocol}//${host}/aesthetic.computer${
           p3 === "./" ? "/disks" : ""
         }/${p4.replace(/\.\.\//g, "")}`;
@@ -1203,6 +1206,7 @@ async function load(parsed, fromHistory = false, alias = false) {
 
       const blob = new Blob([updatedCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);
+      sourceCode = updatedCode;
     }
 
     module = await import(blobUrl);
@@ -1497,6 +1501,15 @@ async function load(parsed, fromHistory = false, alias = false) {
       : (leaveLoad = () => load(parse(to), ahistorical, alias));
   };
 
+  // Go back to the previous piece, or to the prompt if there is no history.
+  $commonApi.back = () => {
+    if (pieceHistoryIndex > 0) {
+      send({ type: "back-to-piece" });
+    } else {
+      $commonApi.jump("prompt");
+    }
+  };
+
   $commonApi.pieceCount += 1;
 
   // Load typeface if it hasn't been yet.
@@ -1559,7 +1572,7 @@ async function load(parsed, fromHistory = false, alias = false) {
     }
 
     currentText = slug;
-    currentBlobUrl = blobUrl;
+    currentCode = sourceCode;
 
     if (screen) screen.created = true; // Reset screen to created if it exists.
 
@@ -1681,6 +1694,11 @@ async function makeFrame({ data: { type, content } }) {
   if (type === "loading-complete") {
     loading = false;
     hotSwap?.(); // Actually swap out the piece functions and reset the state.
+    return;
+  }
+
+  if (type === "upload:progress") {
+    serverUploadProgressReporter?.(content); // Report file upload progress if needed.
     return;
   }
 
@@ -1976,6 +1994,7 @@ async function makeFrame({ data: { type, content } }) {
       console.error("File failed to load:", content);
       serverUpload?.reject(content.data);
     }
+    serverUploadProgressReporter?.(0);
     serverUpload = undefined;
     return;
   }
@@ -2093,18 +2112,27 @@ async function makeFrame({ data: { type, content } }) {
     // type: Accepts N mimetypes or file extensions as comma separated string.
     // Usage: upload(".jpg").then((data) => ( ... )).catch((err) => ( ... ));
     $commonApi.sideload = (type) => {
-      send({ type: "import", content: type });
-      return new Promise((resolve, reject) => {
+      const prom = new Promise((resolve, reject) => {
         fileImport = { resolve, reject };
       });
+      send({ type: "import", content: type });
+      return prom;
     };
 
     // ***Actually*** upload a file to the server.
-    $commonApi.upload = (filename, data, bucket) => {
-      send({ type: "upload", content: { filename, data, bucket } });
-      return new Promise((resolve, reject) => {
+    $commonApi.upload = (filename, data, progress, bucket) => {
+      const prom = new Promise((resolve, reject) => {
         serverUpload = { resolve, reject };
       });
+
+      serverUploadProgressReporter = progress;
+      send({ type: "upload", content: { filename, data, bucket } });
+      return prom;
+    };
+
+    // 🤖 Sim // no send
+    $commonApi.seconds = function (s) {
+      return s * 120; // TODO: Get 120 dynamically from the Loop setting. 2022.01.13.23.28
     };
 
     // Act & Sim (Occurs after first boot and paint.)
@@ -2133,11 +2161,6 @@ async function makeFrame({ data: { type, content } }) {
       };
 
       $api.cursor = (code) => (cursorCode = code);
-
-      // 🤖 Sim // no send
-      $api.seconds = function (s) {
-        return s * 120; // TODO: Get 120 dynamically from the Loop setting. 2022.01.13.23.28
-      };
 
       // TODO: A booted check could be higher up the chain here?
       // Or this could just move. 22.10.11.01.31
