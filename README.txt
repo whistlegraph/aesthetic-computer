@@ -61,6 +61,8 @@
   - [🟡] Add support for painting to be a `fixed` resolution.
     - [] Use "crop" brush or `resize` command for this?
   - [] Add `pan` support.
+  + Done
+  - [x] Make a minimal `bits` brush.
 
 *** Ordsies ***
   + Now
