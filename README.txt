@@ -57,10 +57,19 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** CPU Navigable 2D Painting ***
+*** CPU Resizable & Navigable 2D Painting ***
   - [🟡] Add support for painting to be a `fixed` resolution.
-    - [] Use "crop" brush or `resize` command for this?
-  - [] Add `pan` support.
+    - Path: 
+      - *** How to gracefully handle implementation for existing brushes? ***
+      - [] Add command for setting a constant resolution, which avoids
+        - [] Use "crop" brush or `resize` command for this?
+          any resize hooks on the painting. 
+      - [] Also render a checkerboard backdrop or 1px border for showing the
+           edge of the painting.
+      - [] All brush pixels need to be offset by the panned painting buffer
+        while rendering.
+      - [] Use `bits` as a case study.
+    - [] Add `pan` support.
   + Done
   - [x] Make a minimal `bits` brush.
 
