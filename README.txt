@@ -57,6 +57,34 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Tape & Tapes ***
+  `tape`
+  - [] Type `tape` and start an audio recording. 
+  - [] Recorded segments work with `no` and are built up on the `prompt`.
+    - [] `no` removes / cuts a segment of a tape
+  - [] Tapes can be `upload`ed and `download`ed just like paintings.
+    - [] They can be stored (on server) as audio segments or single recordings
+         with timestamp data.
+  - [] Tapes can be played back using `play` or `tape:play`.
+  - [] `tape` has custom parameters to control effects.
+  `tapes`
+  - [] View a list of all of a user's tapes / manage tapes.
+    - [] Possible to add to the current tape / embedded recorder inside of
+         `tapes` ? (Alex's dream workflow...)
+
+*** Album / Kit / Pack / Collection / Grouping / Account ***
+  - A meta structure for organizing curated media types like `painting`
+    or `tape` or `diary` or `whistlegraph` and playing them back in a
+    consumable playlist like format.
+  - [] Decide on a name. 
+  - [] Implement commands for curating, something akin to TikTok's playlist
+       feature where there is a 'current album' and you can add media
+       to the current one upon visiting it via `paintings` or `tapes` etc.
+
+*** Painting Viewier ***
+  - [] Painting viewer page... what is the command?
+  - [] `look` or `examine` or `view`
+
 *** CPU Resizable & Navigable 2D Painting ***
   - [🟡] Add support for painting to be a `fixed` resolution.
     - Path: 
