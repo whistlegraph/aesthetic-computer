@@ -61,9 +61,9 @@
   - [🟡] Add support for painting to be a `fixed` resolution.
     - Path: 
       - *** How to gracefully handle implementation for existing brushes? ***
-      - [🟢] Center the rendering of the painting.
-      - [] Also render a checkerboard backdrop or 1px border for showing the
+      - [💚] Render a checkerboard backdrop or 1px border for showing the
            edge of the painting.
+      - [] Center the rendering of the painting.
       - [] All brush pixels need to be offset by the panned painting buffer
         while rendering.
       - [] Use `bits` as a case study.

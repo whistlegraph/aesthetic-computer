@@ -15,13 +15,28 @@
 // 🎨 Paint (Executes every display frame)
 function paint({
   pen,
-  ink,
-  screen: { width, height },
+  wipe,
+  system,
+  page,
+  paste,
+  screen,
   num: { randIntRange: rr },
 }) {
   if (pen?.drawing) {
-    const d = 32;
-    ink().box(pen.x + rr(-d, d), pen.y + rr(-d, d), rr(1, 9), "fill*center");
+
+    wipe(127); // Is this necessary? 🟠
+
+    const x = screen.width / 2 - system.painting.width / 2
+    const y = screen.height / 2 - system.painting.height / 2
+
+    paste(system.painting, x, y);
+
+    const d = 32,
+      s = rr(1, 4);
+    page(system.painting)
+      .ink()
+      .box(pen.x + rr(-d, d), pen.y + rr(-d, d), s, "fill*center")
+      .page(screen);
   }
 }
 
