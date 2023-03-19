@@ -2569,12 +2569,17 @@ async function makeFrame({ data: { type, content } }) {
         // System specific preloaders.
         //if ($commonApi?.system?.name === "nopaint" || currentText === "prompt") {
 
+        // Create a new painting if one doesn't already exist.
         if (!store["painting"]) {
           store["painting"] =
             (await store.retrieve("painting", "local:db")) ||
             painting.api.painting(screen.width, screen.height, ($) => {
               $.wipe(64);
             });
+          store["painting:resolution-lock"] = await store.retrieve(
+            "painting:resolution-lock",
+            "local:db"
+          );
           addUndoPainting(store["painting"]);
         }
 

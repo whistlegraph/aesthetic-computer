@@ -43,17 +43,24 @@ function nopaint_act({
 }
 
 // 📚 Library
-// Also used in `prompt`.
-function nopaint_adjust(screen, sys, painting, store) {
-  if (
-    screen.width > sys.painting.width ||
-    screen.height > sys.painting.height
-  ) {
-    sys.painting = painting(screen.width, screen.height, (p) => {
-      p.wipe(64).paste(sys.painting);
-    });
-    store["painting"] = sys.painting;
-  }
+// Adjust painting resolution dynamically to match the screen,
+// or provide a custom one.
+// (Also used in `prompt`.)
+function nopaint_adjust(screen, sys, painting, store, size = null) {
+  if (!size && store["painting:resolution-lock"] === true) return;
+
+  const width = size?.w || screen.width;
+  const height = size?.h || screen.height;
+  sys.painting = painting(width, height, (p) => {
+    p.wipe(64).paste(sys.painting);
+  });
+  store["painting"] = sys.painting;
+
+  // Set a flag to prevent auto-resize.
+  if (size) {
+    store["painting:resolution-lock"] = true;
+    store.persist("painting:resolution-lock", "local:db");
+  } 
 }
 
 export { nopaint_boot, nopaint_act, nopaint_adjust };

@@ -55,6 +55,8 @@ function boot($) {
     bgm,
     needsPaint,
     system,
+    screen,
+    painting,
     net,
     jump,
     user,
@@ -67,10 +69,10 @@ function boot($) {
     `Try 'ff'                                        ` +
     `     to see Freaky Flowers                      ` +
     `                                                ` +
-    ` Or 'valbear'                                   ` +
-    `     to make a Valentine                        ` +
+    ` Or 'shape'                                     ` +
+    `     to make freehand shapes                    ` +
     `                                                ` +
-    ` Or 'help' to learn more!                       ` +
+    ` Or 'help' to join Discord!                     ` +
     `                                                ` +
     `                                                ` +
     `mail@aesthetic.computer                         `;
@@ -109,6 +111,18 @@ function boot($) {
               makeFlash($);
             });
         }
+      } else if (slug === "resize" || slug === "res") {
+        // Resize the active painting if one exists, or make one at this
+        // size if it doesn't.
+        const w = params[0],
+          h = params[1] || h;
+        if (isNaN(w)) {
+          flashColor = [255, 0, 0];
+        } else {
+          nopaint_adjust(screen, system, painting, store, { w, h });
+          flashColor = [0, 255, 0];
+        }
+        makeFlash($);
       } else if (text === "dl" || text === "download") {
         if (store["painting"]) {
           download(`painting-${num.timestamp()}.png`, store["painting"], {
@@ -121,7 +135,6 @@ function boot($) {
           flashColor = [255, 0, 0]; // Show a red flash otherwise.
         }
         makeFlash($);
-        // needsPaint();
       } else if (slug === "login" || slug === "hi") {
         net.login();
         flashColor = [255, 255, 0, 100]; // Yellow

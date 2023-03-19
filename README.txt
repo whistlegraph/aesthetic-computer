@@ -57,6 +57,23 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** CPU Resizable & Navigable 2D Painting ***
+  - [🟡] Add support for painting to be a `fixed` resolution.
+    - Path: 
+      - *** How to gracefully handle implementation for existing brushes? ***
+      - [🟢] Center the rendering of the painting.
+      - [] Also render a checkerboard backdrop or 1px border for showing the
+           edge of the painting.
+      - [] All brush pixels need to be offset by the panned painting buffer
+        while rendering.
+      - [] Use `bits` as a case study.
+    - [] Add `pan` support.
+  + Done
+  - [x] Add command for setting a constant resolution, which avoids
+        any resize hooks on the painting. 
+    - [x] Use "crop" brush or `resize` command for this?
+  - [x] Make a minimal `bits` brush.
+
 *** Tape & Tapes ***
   `tape`
   - [] Type `tape` and start an audio recording. 
@@ -84,22 +101,6 @@
 *** Painting Viewier ***
   - [] Painting viewer page... what is the command?
   - [] `look` or `examine` or `view`
-
-*** CPU Resizable & Navigable 2D Painting ***
-  - [🟡] Add support for painting to be a `fixed` resolution.
-    - Path: 
-      - *** How to gracefully handle implementation for existing brushes? ***
-      - [] Add command for setting a constant resolution, which avoids
-        - [] Use "crop" brush or `resize` command for this?
-          any resize hooks on the painting. 
-      - [] Also render a checkerboard backdrop or 1px border for showing the
-           edge of the painting.
-      - [] All brush pixels need to be offset by the panned painting buffer
-        while rendering.
-      - [] Use `bits` as a case study.
-    - [] Add `pan` support.
-  + Done
-  - [x] Make a minimal `bits` brush.
 
 *** Ordsies ***
   + Now
