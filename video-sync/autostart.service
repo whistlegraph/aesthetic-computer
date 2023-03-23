@@ -1,0 +1,8 @@
+[Unit]
+Description=Autostart
+
+[Service]
+ExecStart=/home/georgica/aesthetic.computer/video-sync/autostart.sh
+
+[Install]
+WantedBy=multi-user.target
