@@ -1,5 +1,20 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Screenplay Video Sync</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      overflow: hidden;
+      cursor: none;
+    }
+  </style>
+</head>
+
 <body>
-  <video id="video" preload muted src="/boot/screenplay.mp4"
+  <video id="video" muted src="/boot/screenplay.mp4"
     style="width: 100%; height: 100%; object-fit: fill;"></video>
   <script>
     const video = document.getElementById('video');
