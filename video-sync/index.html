@@ -1,46 +1,34 @@
-<!DOCTYPE html>
-<html>
-
-<head>
-  <title>Screenplay Video Sync</title>
-  <style>
-    body {
-      margin: 0;
-      background: black;
-      overflow: hidden;
-      cursor: none;
-    }
-  </style>
-</head>
-
 <body>
-  <video id="video" muted src="/boot/screenplay.mp4"
+  <video id="video" preload muted src="/boot/screenplay.mp4"
     style="width: 100%; height: 100%; object-fit: fill;"></video>
   <script>
-    // Parse the URL to get query parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    // Check if the "ip" query parameter is present
-    const ip = urlParams.get('ip');
-    // Set the WebSocket URL based on the presence of the "ip" parameter
-    const wsUrl = ip ? `ws://${ip}:8080` : 'ws://localhost:8080';
-
-    const ws = new WebSocket(wsUrl);
     const video = document.getElementById('video');
 
-    ws.onmessage = (event) => {
-      if (event.data === 'play') {
-        video.play();
-      } else if (event.data === 'restart') {
-        video.currentTime = 0;
-        video.play();
-      }
-    };
+    // Add an event listener for the 'loadedmetadata' event
+    video.addEventListener('loadedmetadata', () => {
+      // Parse the URL to get query parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      // Check if the "ip" query parameter is present
+      const ip = urlParams.get('ip');
+      // Set the WebSocket URL based on the presence of the "ip" parameter
+      const wsUrl = ip ? `ws://${ip}:8080` : 'ws://localhost:8080';
 
-    ws.onopen = () => { ws.send('start'); };
+      const ws = new WebSocket(wsUrl);
 
-    video.addEventListener('ended', () => {
-      ws.send('restart');
-      ended = true;
+      ws.onmessage = (event) => {
+        if (event.data === 'play') {
+          video.play();
+        } else if (event.data === 'restart') {
+          video.currentTime = 0;
+          video.play();
+        }
+      };
+
+      ws.onopen = () => { ws.send('start'); };
+
+      video.addEventListener('ended', () => {
+        ws.send('restart');
+      });
     });
   </script>
 </body>
