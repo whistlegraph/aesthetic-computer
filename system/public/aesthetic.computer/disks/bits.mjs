@@ -8,10 +8,6 @@
   - [x] Make basic colored speck functionality.
 #endregion */
 
-// 🥾 Boot (Runs once before first paint and sim)
-// function boot({ wipe, ink, screen }) {
-// }
-
 // 🎨 Paint (Executes every display frame)
 function paint({
   pen,
@@ -23,12 +19,9 @@ function paint({
   num: { randIntRange: rr },
 }) {
   if (pen?.drawing) {
-
-    wipe(127); // Is this necessary? 🟠
-
+    wipe(0, 0, 200); // Is this necessary? 🟠
     const x = screen.width / 2 - system.painting.width / 2
     const y = screen.height / 2 - system.painting.height / 2
-
     paste(system.painting, x, y);
 
     const d = 32,

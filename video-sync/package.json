@@ -1,0 +1,13 @@
+{
+  "name": "video-sync",
+  "version": "1.0.0",
+  "description": "A simple video player with synchronized playback between two Raspberry Pi 2s",
+  "main": "server.js",
+  "dependencies": {
+    "ws": "^8.4.0"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "Jeffrey Alan Scudder"
+}

@@ -239,13 +239,15 @@ function sim($) {
 
 // 🎨 Paint (Runs once per display refresh rate)
 function paint($) {
-  const { screen, wipe, ink, history, paste, store, dark, write } = $;
+  const { screen, wipe, ink, history, paste, system, store, dark, write } = $;
 
   const pal = scheme[dark ? "dark" : "light"];
   if (input) input.pal = pal; // Update text input palette.
 
   if (store["painting"]) {
-    paste(store["painting"]);
+    const x = screen.width / 2 - system.painting.width / 2
+    const y = screen.height / 2 - system.painting.height / 2
+    paste(system.painting, x, y);
     ink(...pal.bg, 127).box(screen); // Backdrop
   } else {
     wipe(...pal.bg);

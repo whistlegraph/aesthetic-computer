@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Video Player</title>
+</head>
+
+<body>
+  <video id="video" autoplay loop
+    style="width: 100%; height: 100%; object-fit: fill;"></video>
+  <script>
+    const ws = new WebSocket('ws://localhost:8080');
+
+    ws.onopen = () => {
+      // Send a message to the server to synchronize the video playback
+      ws.send('play');
+    };
+
+    const video = document.getElementById('video');
+    video.src = 'http://localhost:8000/video.mp4';
+  </script>
+</body>
+
+</html>

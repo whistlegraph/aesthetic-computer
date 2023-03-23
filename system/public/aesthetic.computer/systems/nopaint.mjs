@@ -3,10 +3,15 @@
 
 // Used when defining a custom piece functions in a nopaint system brush to
 // inherit common behavior.
-function nopaint_boot({ paste, screen, system, painting, store }) {
+function nopaint_boot({ wipe, paste, screen, system, painting, store }) {
   nopaint_adjust(screen, system, painting, store);
-  paste(system.painting);
+
+  wipe(0, 0, 200);
+  const x = screen.width / 2 - system.painting.width / 2
+  const y = screen.height / 2 - system.painting.height / 2
+  paste(system.painting, x, y);
 }
+
 
 function nopaint_act({
   event: e,
