@@ -2,8 +2,9 @@
 
 # Installation:
 # sudo chmod 755 autostart.sh
-# sudo cp autostart.service /etc/systemd/system/
-# sudo systemctl enable autostart.service
+# sudo cp autostart.desktop ~/.config/autostart/
+#                           (may have to make this dir)
+# reboot!
 
 node /home/georgica/aesthetic.computer/video-sync/server.js &
 sleep 3

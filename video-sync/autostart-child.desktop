@@ -1,0 +1,4 @@
+[Desktop Entry]
+Type=Application
+Exec=/home/georgica/aesthetic.computer/video-sync/autostart-child.sh
+Name=Play Video

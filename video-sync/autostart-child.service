@@ -1,9 +1,0 @@
-[Unit]
-Description=Autostart Child
-
-[Service]
-User=georgica
-ExecStart=/home/georgica/aesthetic.computer/video-sync/autostart-child.sh
-
-[Install]
-WantedBy=multi-user.target
