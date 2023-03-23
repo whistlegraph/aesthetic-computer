@@ -2,6 +2,7 @@
 Description=Autostart
 
 [Service]
+User=georgica
 ExecStart=/home/georgica/aesthetic.computer/video-sync/autostart.sh
 
 [Install]
