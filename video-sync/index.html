@@ -3,10 +3,16 @@
 
 <head>
   <title>Screenplay Video Sync</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+    }
+  </style>
 </head>
 
 <body>
-  <video id="video"
+  <video id="video" src="/boot/screenplay.mp4"
     style="width: 100%; height: 100%; object-fit: fill;"></video>
   <script>
     // This will always point to the master machine when connected with a RJ45 / CAT5 cable.
@@ -15,7 +21,6 @@
 
     ws.onmessage = (event) => {
       if (event.data === 'play') {
-        video.src = '/boot/screenplay.mp4';
         video.play();
       } else if (event.data === 'restart') {
         video.currentTime = 0;
