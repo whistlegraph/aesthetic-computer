@@ -20,7 +20,7 @@
     const video = document.getElementById('video');
 
     // Add an event listener for the 'loadedmetadata' event
-    video.addEventListener('loadedmetadata', () => {
+    video.addEventListener('canplaythrough', () => {
       // Parse the URL to get query parameters
       const urlParams = new URLSearchParams(window.location.search);
       // Check if the "ip" query parameter is present
