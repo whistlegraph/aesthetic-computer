@@ -40,6 +40,7 @@ wss.on("connection", (ws) => {
   clients.push(ws);
 
   ws.on("message", (message) => {
+    console.log(message, clients.length);
     if (message === "start" && clients.length > 1) {
       // Make sure this isn't the first connected client, and then
       // if this is the first client to start the video,
