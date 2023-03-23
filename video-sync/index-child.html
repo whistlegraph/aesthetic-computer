@@ -21,7 +21,7 @@
 
     // Add an event listener for the 'canplaythrough' event
     video.addEventListener('canplaythrough', () => {
-      const ws = new WebSocket('ws://localhost:8080');
+      const ws = new WebSocket('ws://192.168.1.1:8080');
 
       ws.onmessage = (event) => {
         if (event.data === 'play') {
