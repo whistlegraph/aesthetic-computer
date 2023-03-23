@@ -40,8 +40,9 @@ wss.on("connection", (ws) => {
   clients.push(ws);
 
   ws.on("message", (message) => {
-    console.log(message, clients.length);
-    if (message === "start" && clients.length > 1) {
+    const msg = message.toString();
+    console.log(msg, clients.length);
+    if (msg === "start" && clients.length > 1) {
       // Make sure this isn't the first connected client, and then
       // if this is the first client to start the video,
       // broadcast a 'play' message to all clients.
@@ -53,7 +54,7 @@ wss.on("connection", (ws) => {
           }
         });
       }
-    } else if (message === "restart" && canRestart) {
+    } else if (msg === "restart" && canRestart) {
       // Broadcast a 'restart' message to all clients to trigger the video playback to start over
       clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
