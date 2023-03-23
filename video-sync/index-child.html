@@ -2,7 +2,7 @@
 <html>
 
 <head>
-  <title>Screenplay Video Sync</title>
+  <title>Screenplay - video-sync:child</title>
   <style>
     body {
       margin: 0;
@@ -18,11 +18,8 @@
     style="width: 100%; height: 100%; object-fit: fill;"></video>
   <script>
     const video = document.getElementById('video');
-
-    // Add an event listener for the 'canplaythrough' event
     video.addEventListener('canplaythrough', () => {
       const ws = new WebSocket('ws://192.168.1.1:8080');
-
       ws.onmessage = (event) => {
         if (event.data === 'play') {
           video.play();
@@ -31,12 +28,8 @@
           video.play();
         }
       };
-
       ws.onopen = () => { ws.send('start'); };
-
-      video.addEventListener('ended', () => {
-        ws.send('restart');
-      });
+      video.addEventListener('ended', () => { ws.send('restart'); });
     });
   </script>
 </body>

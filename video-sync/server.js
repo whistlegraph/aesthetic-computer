@@ -1,44 +1,14 @@
-// const http = require("http");
-// const fs = require("fs");
+// Server
+
 const WebSocket = require("ws");
 
-// const server = http.createServer((req, res) => {
-//   if (req.url === "/") {
-//     // Serve the HTML page
-//     fs.readFile("index.html", (err, data) => {
-//       if (err) {
-//         res.writeHead(500);
-//         res.end("Error loading index.html");
-//         return;
-//       }
-//       res.writeHead(200, { "Content-Type": "text/html" });
-//       res.end(data);
-//     });
-//     //} else if (req.url === "/video.mp4") {
-//     // Serve the video file from the RPI boot partition.
-//     //const stream = fs.createReadStream("/boot/screenplay.mp4");
-//     //res.writeHead(200, { "Content-Type": "video/mp4" });
-//     //stream.pipe(res);
-//   } else {
-//     // 404 error
-//     res.writeHead(404);
-//     res.end("Page not found");
-//   }
-// });
-
-// server.listen(8000, () => {
-//   console.log("Server running on port 8000");
-// });
-
 const wss = new WebSocket.Server({ port: 8080 });
-
 let clients = [];
 let playing = false;
 let canRestart = true;
 
 wss.on("connection", (ws) => {
   clients.push(ws);
-
   ws.on("message", (message) => {
     const msg = message.toString();
     console.log(msg, clients.length);
@@ -55,20 +25,18 @@ wss.on("connection", (ws) => {
         });
       }
     } else if (msg === "restart" && canRestart) {
-      // Broadcast a 'restart' message to all clients to trigger the video playback to start over
+      // Broadcast a 'restart' message to all clients to trigger
+      // the video playback to start over
       clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send("restart");
-        }
+        if (client.readyState === WebSocket.OPEN) client.send("restart");
       });
-
       canRestart = false;
-      setTimeout(() => canRestart = true, 500); // Prevent double restarts by adding a .5 second buffer.
+      // Prevent double restarts by adding a .5 second buffer.
+      setTimeout(() => (canRestart = true), 500);
     }
   });
 
   ws.on("close", () => {
-    // Remove the client from the list of clients when the connection is closed.
-    clients = clients.filter((client) => client !== ws);
+    clients = clients.filter((client) => client !== ws); // Remove on close.
   });
 });
