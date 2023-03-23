@@ -6,4 +6,4 @@
 #                                 (may have to make this dir)
 # reboot!
 
-chromium-browser --kiosk '/home/georgica/aesthetic.computer/video-sync/index-child.html' 
+chromium-browser --disable-pinch --kiosk '/home/georgica/aesthetic.computer/video-sync/index-child.html' 

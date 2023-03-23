@@ -8,4 +8,4 @@
 
 node /home/georgica/aesthetic.computer/video-sync/server.js &
 sleep 3
-chromium-browser --kiosk /home/georgica/aesthetic.computer/video-sync/index.html 
+chromium-browser --disable-pinch --kiosk /home/georgica/aesthetic.computer/video-sync/index.html 
