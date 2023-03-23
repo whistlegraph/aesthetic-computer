@@ -2,22 +2,33 @@
 <html>
 
 <head>
-  <title>Video Player</title>
+  <title>Screenplay Video Sync</title>
 </head>
 
 <body>
-  <video id="video" autoplay loop
+  <video id="video"
     style="width: 100%; height: 100%; object-fit: fill;"></video>
   <script>
-    const ws = new WebSocket('ws://localhost:8080');
+    // This will always point to the master machine when connected with a RJ45 / CAT5 cable.
+    const ws = new WebSocket('ws://192.168.1.1:8080');
+    const video = document.getElementById('video');
 
-    ws.onopen = () => {
-      // Send a message to the server to synchronize the video playback
-      ws.send('play');
+    ws.onmessage = (event) => {
+      if (event.data === 'play') {
+        video.src = '/boot/screenplay.mp4';
+        video.play();
+      } else if (event.data === 'restart') {
+        video.currentTime = 0;
+        video.play();
+      }
     };
 
-    const video = document.getElementById('video');
-    video.src = 'http://localhost:8000/video.mp4';
+    ws.onopen = () => { ws.send('start'); };
+
+    video.addEventListener('ended', () => {
+      ws.send('restart');
+      ended = true;
+    });
   </script>
 </body>
 
