@@ -73,6 +73,22 @@
         any resize hooks on the painting. 
     - [x] Use "crop" brush or `resize` command for this?
   - [x] Make a minimal `bits` brush.
+  
+*** Ordsies ***
+  + Now
+   - [-] Add label / figure out a good motif.
+  + Done
+   - [x] Inscribe a test ordinal. 
+*** Error Log / `errors` ***
+  - [] Log all mistyped commands with a score count and display them in order.
+    - [] I could just use redis for this...
+      - [] That could actually make it LIVE!
+
+*** `paintings` command should grab a list of all paintings by a user sorted
+                in order?
+  - [] Deletable paintings.
+  - [] Painting feed.
+
 
 *** Tape & Tapes ***
   `tape`
@@ -101,21 +117,6 @@
 *** Painting Viewier ***
   - [] Painting viewer page... what is the command?
   - [] `look` or `examine` or `view`
-
-*** Ordsies ***
-  + Now
-   - [-] Add label / figure out a good motif.
-  + Done
-   - [x] Inscribe a test ordinal. 
-*** Error Log / `errors` ***
-  - [] Log all mistyped commands with a score count and display them in order.
-    - [] I could just use redis for this...
-      - [] That could actually make it LIVE!
-
-*** `paintings` command should grab a list of all paintings by a user sorted
-                in order?
-  - [] Deletable paintings.
-  - [] Painting feed.
 
 *** Prompt ***
   - [] Always show whether we are connected to the internet or not.

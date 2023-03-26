@@ -376,6 +376,8 @@ const $commonApi = {
       },
       noBang: async ({ system, store, needsPaint }) => {
         const deleted = await store.delete("painting", "local:db");
+        const metadataDeleted = await store.delete("painting:resolution-lock", "local:db");
+
         system.nopaint.undo.paintings.length = 0; // Reset undo stack.
         system.painting = null;
         needsPaint();
