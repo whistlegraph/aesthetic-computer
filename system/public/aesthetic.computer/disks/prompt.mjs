@@ -66,14 +66,21 @@ function boot($) {
   glaze({ on: true }); // TODO: Every glaze triggers `frame` in `disk`, this could be optimized. 2022.04.24.04.25
 
   let motd =
-    `Try 'ff'                                        ` +
-    `     to see Freaky Flowers                      ` +
+    `Try typing:                                     ` +
     `                                                ` +
-    ` Or 'shape'                                     ` +
-    `     to make freehand shapes                    ` +
+    ` 'ff'                                           ` +
+    `  to see Freaky Flowers                         ` +
     `                                                ` +
-    ` Or 'help' to join Discord!                     ` +
+    ` 'shape'                                        ` +
+    `  to paint freehand shapes                      ` +
     `                                                ` +
+    ` 'bleep'                                        ` +
+    `  to play microtones                            ` +
+    `                                                ` +
+    `Or...                                           ` +
+    `                                                ` +
+    ` 'help'                                         ` +
+    `  to learn more!                                ` +
     `                                                ` +
     `mail@aesthetic.computer                         `;
 
