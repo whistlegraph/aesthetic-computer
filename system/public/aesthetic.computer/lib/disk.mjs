@@ -57,6 +57,7 @@ let hotSwap = null;
 // Inheritable via `export const system = "nopaint"` from any piece.
 // Boilerplate for a distributed raster editor.
 const nopaint = {
+  pan: { x: 0, y: 0 }, // The current position / offset of the painting view.
   boot: function boot($) {
     // showHUD = false;
     $.system.nopaint.boot($);
@@ -66,20 +67,26 @@ const nopaint = {
   },
   leave: function leave({ store, system, page, screen }) {
     if (NPnoOnLeave === false) {
-      // ^ Flag set when reloading a brush without storing changes.
+      // ^ This is set when reloading a brush without storing changes. (`N` key)
       if (NPdontPaintOnLeave === false) {
-        page(system.painting).paste(screen);
+        // Bake any changes into the existing painting using the screen buffer.
+
+        const p = system.nopaint.pan; // Offset by the current pan position.
+        console.log(p);
+        page(system.painting).paste(screen, -p.x, -p.y); // TODO: Why the + 1 offset here...
         painting.paint(); // TODO: Why is this here?
         page(screen);
       }
 
       addUndoPainting(system.painting);
-      // TODO: Check to see if anything actually got painted... by doing
-      //       a diff on the pixels?
+
+      // Idea: Check to see if anything actually got painted by doing a diff on
+      //       the pixels?
 
       store["painting"] = system.painting;
       store.persist("painting", "local:db");
     } else {
+      // Restore a painting if `no`ing.
       const paintings = system.nopaint.undo.paintings;
       page(system.painting)
         .paste(paintings[paintings.length - 1])
@@ -374,9 +381,22 @@ const $commonApi = {
           needsPaint();
         }
       },
+      // Helper to display the existing painting on the screen, with an
+      // optional pan amount.
+      display: ({ system, screen, paste }, nx, ny) => {
+        const x = nx || floor(screen.width / 2 - system.painting.width / 2);
+        const y = ny || floor(screen.height / 2 - system.painting.height / 2);
+        system.nopaint.pan = { x, y }; // Store the pan value.
+        paste(system.painting, x, y);
+        return { x, y };
+      },
+      // Kill an existing painting.
       noBang: async ({ system, store, needsPaint }) => {
         const deleted = await store.delete("painting", "local:db");
-        const metadataDeleted = await store.delete("painting:resolution-lock", "local:db");
+        const metadataDeleted = await store.delete(
+          "painting:resolution-lock",
+          "local:db"
+        );
 
         system.nopaint.undo.paintings.length = 0; // Reset undo stack.
         system.painting = null;

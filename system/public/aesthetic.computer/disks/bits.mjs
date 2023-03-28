@@ -19,16 +19,16 @@ function paint({
   num: { randIntRange: rr },
 }) {
   if (pen?.drawing) {
-    wipe(0, 0, 200); // Is this necessary? 🟠
-    const x = screen.width / 2 - system.painting.width / 2
-    const y = screen.height / 2 - system.painting.height / 2
-    paste(system.painting, x, y);
+    wipe(64); // Add a backdrop...
+    const { x, y } = system.nopaint.display({ screen, system, paste });
 
-    const d = 32,
-      s = rr(1, 4);
+    const d = 8,
+      s = rr(1, 3);
     page(system.painting)
+      .pan(pen.x - x, pen.y - y)
       .ink()
-      .box(pen.x + rr(-d, d), pen.y + rr(-d, d), s, "fill*center")
+      .box(rr(-d, d) - x, rr(-d, d) - y, s, "fill*center")
+      .unpan()
       .page(screen);
   }
 }

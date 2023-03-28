@@ -7,11 +7,8 @@ function nopaint_boot({ wipe, paste, screen, system, painting, store }) {
   nopaint_adjust(screen, system, painting, store);
 
   wipe(0, 0, 200);
-  const x = screen.width / 2 - system.painting.width / 2
-  const y = screen.height / 2 - system.painting.height / 2
-  paste(system.painting, x, y);
+  system.nopaint.display({ screen, system, paste }); // Display the picture.
 }
-
 
 function nopaint_act({
   event: e,
@@ -65,7 +62,7 @@ function nopaint_adjust(screen, sys, painting, store, size = null) {
   if (size) {
     store["painting:resolution-lock"] = true;
     store.persist("painting:resolution-lock", "local:db");
-  } 
+  }
 }
 
 export { nopaint_boot, nopaint_act, nopaint_adjust };

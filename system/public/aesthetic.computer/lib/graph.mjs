@@ -1011,9 +1011,12 @@ function box() {
   if (mode.endsWith(BOX_CENTER)) {
     x -= w / 2;
     y -= h / 2;
-
     mode = mode.slice(0, -BOX_CENTER.length); // Remove it.
   }
+
+  // Apply any global pan translations.
+  x += panTranslation.x;
+  y += panTranslation.y;
 
   if (mode === "outline" || mode === "out") {
     line(x - 1, y - 1, x + w, y - 1); // Top

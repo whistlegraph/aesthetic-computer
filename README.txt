@@ -36,6 +36,7 @@
 🐞 Annoying Bugs & Regressions 🪱
   - [] Apple Pencil is no longer working with brushes.
   - [] Fix painting rotate / resize cropping issue.
+    - [] Check this in Brave browser as well.
   - [] Fix `spray` multiplayer / socket messages not being sent regression.
   - [] Painting doesn't fully reset when resizing.
   - [] Research the use of "requestProvider.js.map" and work it into `index.js`.
@@ -61,9 +62,9 @@
   - [🟡] Add support for painting to be a `fixed` resolution.
     - Path: 
       - *** How to gracefully handle implementation for existing brushes? ***
-      - [💚] Render a checkerboard backdrop or 1px border for showing the
-           edge of the painting.
-      - [] Center the rendering of the painting.
+      - [💚] Render a backdrop or 1px border showing the
+             edge of the painting.
+      - [-] Center the rendering of the painting.
       - [] All brush pixels need to be offset by the panned painting buffer
         while rendering.
       - [] Use `bits` as a case study.
@@ -73,7 +74,7 @@
         any resize hooks on the painting. 
     - [x] Use "crop" brush or `resize` command for this?
   - [x] Make a minimal `bits` brush.
-  
+
 *** Ordsies ***
   + Now
    - [-] Add label / figure out a good motif.
