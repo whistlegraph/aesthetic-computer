@@ -34,6 +34,7 @@
 😀 TODO 😆
 
 🐞 Annoying Bugs & Regressions 🪱
+  - [] Favicon Cors fix (generate the icon / use a data uri)
   - [] Apple Pencil is no longer working with brushes.
   - [] Fix painting rotate / resize cropping issue.
     - [] Check this in Brave browser as well.
