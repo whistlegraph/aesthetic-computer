@@ -34,6 +34,7 @@
 😀 TODO 😆
 
 🐞 Annoying Bugs & Regressions 🪱
+  - [] Video download `local` fix.
   - [] Favicon Cors fix (generate the icon / use a data uri)
   - [] Apple Pencil is no longer working with brushes.
   - [] Fix painting rotate / resize cropping issue.
