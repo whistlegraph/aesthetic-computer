@@ -60,6 +60,9 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Funding / Grant Opportunities ***
+ - [] March 31 - https://airtable.com/shrTxrWvAZZfGLoiQ
+
 *** CPU Resizable & Navigable 2D Painting ***
   - [🟡] Add support for painting to be a `fixed` resolution.
     - Path: 
