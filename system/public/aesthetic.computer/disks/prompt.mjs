@@ -251,7 +251,6 @@ function paint($) {
 
   if (store["painting"]) {
     system.nopaint.present(api); // Render the painting.
-
     ink(...pal.bg, 127).box(screen); // Backdrop
   } else {
     wipe(...pal.bg);
@@ -297,7 +296,8 @@ function paint($) {
     if (flashMessage) ink(255).write(flashMessage, { x: 5, y: 4, size: 2 });
   }
 
-  return glyphsLoaded;
+  // return glyphsLoaded;
+  return false;
 }
 
 // ✒ Act (Runs once per user interaction, after boot.)

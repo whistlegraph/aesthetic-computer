@@ -383,14 +383,37 @@ const $commonApi = {
       },
       // Helper to display the existing painting on the screen, with an
       // optional pan amount, that returns an adjusted pen pointer as `brush`.
-      present: ({ system, screen, wipe, paste, pen }, nx, ny) => {
-        const x = nx || floor(screen.width / 2 - system.painting.width / 2);
-        const y = ny || floor(screen.height / 2 - system.painting.height / 2);
+      present: ({ system, screen, wipe, paste, pen }, tx, ty) => {
+
+        // Center the picture if no translation is supplied.
+        const x = tx || floor(screen.width / 2 - system.painting.width / 2);
+        const y = ty || floor(screen.height / 2 - system.painting.height / 2);
+
         system.nopaint.pan = { x, y }; // Store the pan value.
-        wipe(32)
-          .paste(system.painting, x, y)
-          .ink(128)
-          .box(x, y, system.painting.width, system.painting.height, "outline");
+
+        const fullbleed =
+           x === 0 &&
+           y === 0 &&
+           screen.width <= system.painting.width &&
+           screen.height <= system.painting.height;
+
+        if (fullbleed) {
+          // If we are not panned and the painting fills the screen.
+          paste(system.painting);
+        } else {
+          // If we are panned or the painting is a custom resolution.
+          wipe(32)
+            .paste(system.painting, x, y)
+            .ink(128)
+            .box(
+              x,
+              y,
+              system.painting.width,
+              system.painting.height,
+              "outline"
+            );
+        }
+
         return {
           x,
           y,

@@ -64,7 +64,7 @@
  - [] March 31 - https://airtable.com/shrTxrWvAZZfGLoiQ
 
 *** CPU Resizable & Navigable 2D Painting ***
-  - [-] Add gestural `pan` support
+  - [😀] Add gestural `pan` support
     - [] Hold down `space` key to pan.
     - [] Two finger touch to pan.
   - *** How to gracefully handle implementation for existing brushes? ***
