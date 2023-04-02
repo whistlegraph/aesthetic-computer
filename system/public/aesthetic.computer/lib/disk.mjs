@@ -382,22 +382,25 @@ const $commonApi = {
         }
       },
       // Helper to display the existing painting on the screen, with an
-      // optional pan amount.
-      display: ({ system, screen, paste }, nx, ny) => {
+      // optional pan amount, that returns an adjusted pen pointer as `brush`.
+      present: ({ system, screen, wipe, paste, pen }, nx, ny) => {
         const x = nx || floor(screen.width / 2 - system.painting.width / 2);
         const y = ny || floor(screen.height / 2 - system.painting.height / 2);
         system.nopaint.pan = { x, y }; // Store the pan value.
-        paste(system.painting, x, y);
-        return { x, y };
+        wipe(32)
+          .paste(system.painting, x, y)
+          .ink(128)
+          .box(x, y, system.painting.width, system.painting.height, "outline");
+        return {
+          x,
+          y,
+          brush: { x: (pen?.x || 0) - x, y: (pen?.y || 0) - y },
+        };
       },
       // Kill an existing painting.
       noBang: async ({ system, store, needsPaint }) => {
         const deleted = await store.delete("painting", "local:db");
-        const metadataDeleted = await store.delete(
-          "painting:resolution-lock",
-          "local:db"
-        );
-
+        await store.delete("painting:resolution-lock", "local:db");
         system.nopaint.undo.paintings.length = 0; // Reset undo stack.
         system.painting = null;
         needsPaint();
@@ -1169,7 +1172,12 @@ let firstLoad = true;
 let firstPiece, firstParams, firstSearch; // Why is this still here? 23.01.27.13.07
 //                                           Perhaps for bare ROOT_PIECE's that
 //                                           require params?
-async function load(parsed, fromHistory = false, alias = false) {
+async function load(
+  parsed,
+  fromHistory = false,
+  alias = false,
+  devReload = false
+) {
   let { path, host, search, colon, params, hash, text: slug } = parsed;
 
   loading === false ? (loading = true) : console.warn("Already loading:", path);
@@ -1198,8 +1206,9 @@ async function load(parsed, fromHistory = false, alias = false) {
   // const moduleLoadTime = performance.now();
   let blobUrl, sourceCode;
   try {
-    if (slug === currentText) {
-      // If this is a reload then just create a new blobURL off the old source.
+    if (slug === currentText && !devReload) {
+      // If this is a reload (with no source change) then just create a new
+      // blobURL off the old source.
       const blob = new Blob([currentCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);
       sourceCode = currentCode;
@@ -1276,6 +1285,7 @@ async function load(parsed, fromHistory = false, alias = false) {
       $commonApi.load({ ...parse("code"), source: code }); // Load source code.
     } else if (piece === "*" || piece === undefined || currentText === piece) {
       console.log("💾️ Reloading piece...", piece);
+      const devReload = true;
       $commonApi.load(
         {
           path: currentPath,
@@ -1288,7 +1298,8 @@ async function load(parsed, fromHistory = false, alias = false) {
         },
         // Use the existing contextual values when live-reloading in debug mode.
         fromHistory,
-        alias
+        alias,
+        devReload
       );
     }
   };
@@ -1869,6 +1880,7 @@ async function makeFrame({ data: { type, content } }) {
     const $api = {};
     Object.assign($api, $commonApi);
     $api.graph = painting.api; // TODO: Should this eventually be removed?
+    $api.api = $api; // Add a reference to the whole API.
 
     $api.sound = {
       time: content.time,
@@ -2165,6 +2177,7 @@ async function makeFrame({ data: { type, content } }) {
       Object.keys(painting.api).forEach(
         (key) => ($api[key] = painting.api[key])
       );
+      $api.api = $api; // Add a reference to the whole API.
 
       //Object.assign($api, $commonApi);
       //Object.assign($api, $updateApi);
@@ -2448,6 +2461,8 @@ async function makeFrame({ data: { type, content } }) {
       Object.keys(painting.api).forEach(
         (key) => ($api[key] = painting.api[key])
       );
+      $api.api = $api; // Add a reference to the whole API.
+
       // Object.assign($api, $commonApi);
       // Object.assign($api, painting.api);
 

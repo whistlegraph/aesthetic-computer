@@ -122,7 +122,7 @@ function boot($) {
         // Resize the active painting if one exists, or make one at this
         // size if it doesn't.
         const w = params[0],
-          h = params[1] || h;
+          h = params[0] || w;
         if (isNaN(w)) {
           flashColor = [255, 0, 0];
         } else {
@@ -238,20 +238,19 @@ function boot($) {
 
 // 🧮 Sim(ulate) (Runs once per logic frame (120fps locked)).
 function sim($) {
-  const { needsPaint } = $;
   input?.sim($);
   if (flashPresent) flash.step();
 }
 
 // 🎨 Paint (Runs once per display refresh rate)
 function paint($) {
-  const { screen, wipe, ink, history, paste, system, store, dark } = $;
+  const { screen, wipe, ink, history, api, system, store, dark } = $;
 
   const pal = scheme[dark ? "dark" : "light"];
   if (input) input.pal = pal; // Update text input palette.
 
   if (store["painting"]) {
-    system.nopaint.display({ screen, system, paste }); // Render the painting.
+    system.nopaint.present(api); // Render the painting.
 
     ink(...pal.bg, 127).box(screen); // Backdrop
   } else {

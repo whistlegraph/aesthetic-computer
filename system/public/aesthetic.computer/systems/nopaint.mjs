@@ -3,23 +3,21 @@
 
 // Used when defining a custom piece functions in a nopaint system brush to
 // inherit common behavior.
-function nopaint_boot({ wipe, paste, screen, system, painting, store }) {
+function nopaint_boot({ api, screen, system, painting, store }) {
   nopaint_adjust(screen, system, painting, store);
-
-  wipe(0, 0, 200);
-  system.nopaint.display({ screen, system, paste }); // Display the picture.
+  system.nopaint.present(api);
 }
 
 function nopaint_act({
   event: e,
   download,
-  paste,
   screen,
   system,
   painting,
   loading,
   store,
   reload,
+  api,
 }) {
   if (e.is("keyboard:down:enter")) {
     download(`painting-${num.timestamp()}.png`, system.painting, {
@@ -30,7 +28,7 @@ function nopaint_act({
 
   if (e.is("reframed")) {
     nopaint_adjust(screen, system, painting, store);
-    paste(system.painting);
+    system.nopaint.present(api);
   }
 
   // No and then reload the same brush / reload without storing

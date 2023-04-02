@@ -1015,8 +1015,8 @@ function box() {
   }
 
   // Apply any global pan translations.
-  x += panTranslation.x;
-  y += panTranslation.y;
+  // x += panTranslation.x; // Note: Already processed in `line`.
+  // y += panTranslation.y;
 
   if (mode === "outline" || mode === "out") {
     line(x - 1, y - 1, x + w, y - 1); // Top

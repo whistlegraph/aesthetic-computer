@@ -64,17 +64,27 @@
  - [] March 31 - https://airtable.com/shrTxrWvAZZfGLoiQ
 
 *** CPU Resizable & Navigable 2D Painting ***
-  - [🟡] Add support for painting to be a `fixed` resolution.
-    - Path: 
-      - *** How to gracefully handle implementation for existing brushes? ***
-      - [💚] Render a backdrop or 1px border showing the
-             edge of the painting.
-      - [-] Center the rendering of the painting.
-      - [] All brush pixels need to be offset by the panned painting buffer
-        while rendering.
-      - [] Use `bits` as a case study.
-    - [] Add `pan` support.
+  - [-] Add gestural `pan` support
+    - [] Hold down `space` key to pan.
+    - [] Two finger touch to pan.
+  - *** How to gracefully handle implementation for existing brushes? ***
+    - [] Work out a final API that makes sense for every brush by implementing,
+         in order...
+    - [] `rect`
+    - [] `oval`
+    - [] `line`
+    - [] `smear`
+    - [] `camera`
+    - [] `icon`
   + Done
+  - [x] Resizing the window should re-present the painting properly.
+  - [x] Add support for painting to be a `fixed` resolution.
+  - [x] Render a backdrop with 1px border showing the
+          edge of the painting.
+  - [x] All brush pixels need to be offset by the panned painting buffer
+    while rendering.
+  - [x] Use `bits` as a case study.
+  - [x] Center the rendering of the painting.
   - [x] Add command for setting a constant resolution, which avoids
         any resize hooks on the painting. 
     - [x] Use "crop" brush or `resize` command for this?

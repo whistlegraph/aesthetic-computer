@@ -1,40 +1,29 @@
 // Bits, 23.03.14.13.46
 // A simple confetti / speck`ing brush.
+// (Created for testing `resize` and adding spatial navigation to the
+//  nopaint system api)
 
 /* #region ✅ TODO 
-  - [🟡] Make it work with a resized painting.
-
+  - [x] Clean up the api so it's replicable across other brushes...
   + Done
   - [x] Make basic colored speck functionality.
+  - [x] Make it work with a resized painting.
 #endregion */
 
 // 🎨 Paint (Executes every display frame)
-function paint({
-  pen,
-  wipe,
-  system,
-  page,
-  paste,
-  screen,
-  num: { randIntRange: rr },
-}) {
+function paint({ system, pen, page, screen, api, num: { randIntRange: rr } }) {
   if (pen?.drawing) {
-    wipe(64); // Add a backdrop...
-    const { x, y } = system.nopaint.display({ screen, system, paste });
-
-    const d = 8,
+    const { brush } = system.nopaint.present(api),
+      d = 8,
       s = rr(1, 3);
+
     page(system.painting)
-      .pan(pen.x - x, pen.y - y)
       .ink()
-      .box(rr(-d, d) - x, rr(-d, d) - y, s, "fill*center")
-      .unpan()
+      .box(brush.x + rr(-d, d), brush.y + rr(-d, d), s, "fill*center")
       .page(screen);
   }
 }
 
 // 📚 Library (Useful functions used throughout the piece)
-// ...
-
 export const system = "nopaint";
 export { paint };
