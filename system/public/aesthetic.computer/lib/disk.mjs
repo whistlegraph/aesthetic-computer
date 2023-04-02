@@ -381,21 +381,32 @@ const $commonApi = {
           needsPaint();
         }
       },
+      pan: { x: 0, y: 0 },
+      translation: { x: 0, y: 0 },
+      translate: ({ system }, x, y) => {
+        system.nopaint.translation.x += x;
+        system.nopaint.translation.y += y;
+      },
       // Helper to display the existing painting on the screen, with an
       // optional pan amount, that returns an adjusted pen pointer as `brush`.
       present: ({ system, screen, wipe, paste, pen }, tx, ty) => {
-
         // Center the picture if no translation is supplied.
-        const x = tx || floor(screen.width / 2 - system.painting.width / 2);
-        const y = ty || floor(screen.height / 2 - system.painting.height / 2);
+        const x =
+          tx ||
+          floor(screen.width / 2 - system.painting.width / 2) +
+            system.nopaint.translation.x;
+        const y =
+          ty ||
+          floor(screen.height / 2 - system.painting.height / 2) +
+            system.nopaint.translation.y;
 
         system.nopaint.pan = { x, y }; // Store the pan value.
 
         const fullbleed =
-           x === 0 &&
-           y === 0 &&
-           screen.width <= system.painting.width &&
-           screen.height <= system.painting.height;
+          x === 0 &&
+          y === 0 &&
+          screen.width <= system.painting.width &&
+          screen.height <= system.painting.height;
 
         if (fullbleed) {
           // If we are not panned and the painting fills the screen.
@@ -2636,10 +2647,12 @@ async function makeFrame({ data: { type, content } }) {
             painting.api.painting(screen.width, screen.height, ($) => {
               $.wipe(64);
             });
+
           store["painting:resolution-lock"] = await store.retrieve(
             "painting:resolution-lock",
             "local:db"
           );
+
           addUndoPainting(store["painting"]);
         }
 

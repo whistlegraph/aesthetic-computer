@@ -8,6 +8,8 @@ function nopaint_boot({ api, screen, system, painting, store }) {
   system.nopaint.present(api);
 }
 
+let panning = false;
+
 function nopaint_act({
   event: e,
   download,
@@ -17,6 +19,7 @@ function nopaint_act({
   loading,
   store,
   reload,
+  needsPaint,
   api,
 }) {
   if (e.is("keyboard:down:enter")) {
@@ -25,6 +28,18 @@ function nopaint_act({
       cropToScreen: true,
     });
   }
+
+  // Panning (held 'alt' key or two finger drag)
+  if (e.is("move") && panning) {
+    system.nopaint.translate(api, e.delta.x, e.delta.y);
+    system.nopaint.present(api);
+  }
+
+  if (e.is("keyboard:down:alt")) panning = true;
+  if (e.is("keyboard:up:alt")) panning = false;
+
+  if (e.is("touch:2")) panning = true; // Alter color when 2nd pen is down.
+  if (e.is("lift:2")) panning = false; // And again when it's lifted.
 
   if (e.is("reframed")) {
     nopaint_adjust(screen, system, painting, store);

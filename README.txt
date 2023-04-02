@@ -64,9 +64,9 @@
  - [] March 31 - https://airtable.com/shrTxrWvAZZfGLoiQ
 
 *** CPU Resizable & Navigable 2D Painting ***
-  - [😀] Add gestural `pan` support
-    - [] Hold down `space` key to pan.
-    - [] Two finger touch to pan.
+  - [-] Keep `pan` position on reload?
+  - [] Refactor translation code to eventually add and store rotation, zoom,
+        etc.
   - *** How to gracefully handle implementation for existing brushes? ***
     - [] Work out a final API that makes sense for every brush by implementing,
          in order...
@@ -77,6 +77,10 @@
     - [] `camera`
     - [] `icon`
   + Done
+  - [x] Add gestural `pan` support
+    - [x] Hold down `space` key to pan.
+    - [x] Add to nopaint act.
+    - [x] Two finger touch to pan.
   - [x] Resizing the window should re-present the painting properly.
   - [x] Add support for painting to be a `fixed` resolution.
   - [x] Render a backdrop with 1px border showing the
