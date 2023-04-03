@@ -65,8 +65,11 @@
  - [] March 31 - https://airtable.com/shrTxrWvAZZfGLoiQ
 
 *** CPU Resizable & Navigable 2D Painting ***
+  - [-] Test on mobile.
   - [] Refactor translation code to eventually add and store rotation, zoom,
-        etc.
+       etc.
+    - [] Add software zoom.
+    - [] Add software rotation.
   - *** How to gracefully handle implementation for existing brushes? ***
     - [] Work out a final API that makes sense for every brush by implementing,
          in order...
