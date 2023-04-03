@@ -71,8 +71,7 @@ const nopaint = {
       if (NPdontPaintOnLeave === false) {
         // Bake any changes into the existing painting using the screen buffer.
 
-        const p = system.nopaint.pan; // Offset by the current pan position.
-        console.log(p);
+        const p = system.nopaint.translation; // Offset by the pan position.
         page(system.painting).paste(screen, -p.x, -p.y); // TODO: Why the + 1 offset here...
         painting.paint(); // TODO: Why is this here?
         page(screen);
@@ -385,26 +384,32 @@ const $commonApi = {
           needsPaint();
         }
       },
-      pan: { x: 0, y: 0 },
+      // Center the picture within the screen.
+      setTransform: ({ system: sys, screen }) => {
+        sys.nopaint.translation.x = floor(
+          screen.width / 2 - sys.painting.width / 2
+        );
+        sys.nopaint.translation.y = floor(
+          screen.height / 2 - sys.painting.height / 2
+        );
+      },
       translation: { x: 0, y: 0 },
       translate: ({ system }, x, y) => {
         system.nopaint.translation.x += x;
         system.nopaint.translation.y += y;
       },
+      brush: { x: 0, y: 0},
+      updateBrush: ({ pen, system }) => {
+        const { x, y } = system.nopaint.translation;
+        system.nopaint.brush = { x: (pen?.x || 0) - x, y: (pen?.y || 0) - y };
+      },
       // Helper to display the existing painting on the screen, with an
       // optional pan amount, that returns an adjusted pen pointer as `brush`.
-      present: ({ system, screen, wipe, paste, pen }, tx, ty) => {
-        // Center the picture if no translation is supplied.
-        const x =
-          tx ||
-          floor(screen.width / 2 - system.painting.width / 2) +
-            system.nopaint.translation.x;
-        const y =
-          ty ||
-          floor(screen.height / 2 - system.painting.height / 2) +
-            system.nopaint.translation.y;
+      present: ({ system, screen, wipe, paste }, tx, ty) => {
+        const x = tx || system.nopaint.translation.x;
+        const y = ty || system.nopaint.translation.y;
 
-        system.nopaint.pan = { x, y }; // Store the pan value.
+        system.nopaint.translation = { x, y };
 
         const fullbleed =
           x === 0 &&
@@ -431,8 +436,8 @@ const $commonApi = {
 
         return {
           x,
-          y,
-          brush: { x: (pen?.x || 0) - x, y: (pen?.y || 0) - y },
+          y, //,
+          //brush: { x: (pen?.x || 0) - x, y: (pen?.y || 0) - y },
         };
       },
       // Kill an existing painting.
@@ -441,7 +446,7 @@ const $commonApi = {
         await store.delete("painting:resolution-lock", "local:db");
         await store.delete("painting:transform", "local:db");
         system.nopaint.undo.paintings.length = 0; // Reset undo stack.
-        system.nopaint.translation = { x: 0, y: 0 }; // Reset transform.
+        system.nopaint.setTransform({ system, screen }); // Reset transform.
         system.painting = null;
         needsPaint();
         return deleted;

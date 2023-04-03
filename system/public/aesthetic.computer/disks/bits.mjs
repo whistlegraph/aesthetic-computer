@@ -5,6 +5,7 @@
 
 /* #region ✅ TODO 
   + Done
+  - [x] Finalize bits api so it can move to `rect`.
   - [x] Clean up the api so it's replicable across other brushes.
   - [x] Make basic colored speck functionality.
   - [x] Make it work with a resized painting.
@@ -12,7 +13,7 @@
 
 // 🎨 Paint (Executes every display frame)
 function paint({
-  system,
+  system: sys,
   colon,
   pen,
   page,
@@ -21,15 +22,16 @@ function paint({
   num: { randIntRange: rr },
 }) {
   if (pen?.drawing) {
-    if (colon[0] === "shake")
-      system.nopaint.translate(api, rr(-1, 1), rr(-1, 1)); // 📳 Shakey bits!
-    const { brush } = system.nopaint.present(api),
+    // 📳 Shakey bits!
+    if (colon[0] === "shake") sys.nopaint.translate(api, rr(-1, 1), rr(-1, 1));
+    const brush = sys.nopaint.brush, // Should this data be automagic?
       d = 8,
       s = rr(1, 3);
-    page(system.painting)
+    page(sys.painting)
       .ink()
       .box(brush.x + rr(-d, d), brush.y + rr(-d, d), s, "fill*center")
       .page(screen);
+    sys.nopaint.present(api);
   }
 }
 

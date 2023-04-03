@@ -61,25 +61,32 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Funding / Grant Opportunities ***
- - [] March 31 - https://airtable.com/shrTxrWvAZZfGLoiQ
+*** N and P Shortcut ***
+  - [] Do not work across all brushes.
+  - [] Should probably not have a screen flicker.
 
 *** CPU Resizable & Navigable 2D Painting ***
   - [-] Test on mobile.
+    - [] Work out a final API that makes sense for every brush by implementing,
+         in order...
+      - [🟠] `rect`
+      - [] `oval`
+      - [] `line`
+      - [] `smear`
+      - [] `camera`
+      - [] `icon`
+      + Done
+      - [x] `bits`
+  + Later
   - [] Refactor translation code to eventually add and store rotation, zoom,
        etc.
     - [] Add software zoom.
     - [] Add software rotation.
-  - *** How to gracefully handle implementation for existing brushes? ***
-    - [] Work out a final API that makes sense for every brush by implementing,
-         in order...
-    - [] `rect`
-    - [] `oval`
-    - [] `line`
-    - [] `smear`
-    - [] `camera`
-    - [] `icon`
   + Done
+  - [x] Why does holding alt continue the drawing / why is there a frame
+        delay after pen?.drawing?   
+        - [x] system.nopaint.present return data needs to be decoupled from
+            rendering
   - [x] Keep `pan` position on reload?
   - [x] Add gestural `pan` support
     - [x] Hold down `space` key to pan.

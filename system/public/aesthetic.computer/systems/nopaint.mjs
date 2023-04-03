@@ -39,6 +39,8 @@ function nopaint_act({
     system.nopaint.present(api);
   }
 
+  if (e.is("move") || e.is("draw")) system.nopaint.updateBrush(api);
+
   if (e.is("keyboard:down:alt") || e.is("touch:2")) panning = true;
 
   if (e.is("keyboard:up:alt") || e.is("lift:2")) {
@@ -88,6 +90,7 @@ function nopaint_adjust(screen, sys, painting, store, size = null) {
     store.persist("painting:resolution-lock", "local:db");
     store.persist("painting", "local:db"); // Also persist the painting.
     sys.nopaint.translation = { x: 0, y: 0 }; // Reset the transform.
+    sys.nopaint.setTransform({ system: sys, screen }); // Reset transform.
     storeTransform(store, sys);
   }
 }

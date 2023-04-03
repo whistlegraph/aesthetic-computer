@@ -1,4 +1,5 @@
 // A text based access-everything console.
+
 // Currently the aesthetic.computer home piece!
 
 /* #region 🏁 todo
@@ -159,7 +160,12 @@ function boot($) {
         }
         makeFlash($);
       } else if (text === "painting:reset" || text === "no!") {
-        const deleted = system.nopaint.noBang({ system, store, needsPaint });
+        const deleted = system.nopaint.noBang({
+          system,
+          store,
+          screen,
+          needsPaint,
+        });
 
         if (deleted) {
           flashColor = [0, 0, 255]; // Blue for succesful deletion.
