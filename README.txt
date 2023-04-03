@@ -63,7 +63,9 @@
 
 *** N and P Shortcut ***
   - [] Do not work across all brushes.
-  - [] Should probably not have a screen flicker.
+  - [] Should probably not have a screen flicker / when does this happen?
+  - [] Prevent mouse flicker on `n` and `p`.
+  - [] Should they return the user back to the prompt?
 
 *** CPU Resizable & Navigable 2D Painting ***
   - [-] Test on mobile.
@@ -75,6 +77,8 @@
       - [] `smear`
       - [] `camera`
       - [] `icon`
+      - [] `word`
+      - [] `sign`
       + Done
       - [x] `bits`
   + Later
