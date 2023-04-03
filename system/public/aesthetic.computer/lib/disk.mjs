@@ -398,10 +398,21 @@ const $commonApi = {
         system.nopaint.translation.x += x;
         system.nopaint.translation.y += y;
       },
-      brush: { x: 0, y: 0},
+      brush: { x: 0, y: 0 },
       updateBrush: ({ pen, system }) => {
         const { x, y } = system.nopaint.translation;
-        system.nopaint.brush = { x: (pen?.x || 0) - x, y: (pen?.y || 0) - y };
+
+        const pos = { x: (pen?.x || 0) - x, y: (pen?.y || 0) - y };
+
+        // Transform the original dragBox
+        const dragBox = {
+          x: pen?.dragBox?.x - x,
+          y: pen?.dragBox?.y - y,
+          w: pen?.dragBox?.w,
+          h: pen?.dragBox?.h,
+        };
+
+        system.nopaint.brush = { x: pos.x, y: pos.y, dragBox };
       },
       // Helper to display the existing painting on the screen, with an
       // optional pan amount, that returns an adjusted pen pointer as `brush`.

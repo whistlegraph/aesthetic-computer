@@ -2,8 +2,8 @@
 // Inherits from the "nopaint" system, which predefines boot, act, and leave.
 
 /* #region ✅ TODO 
-  - [] Add support for panned navigation.
   + Done
+  - [x] Add support for panned navigation.
   - [x] Add `n` and `p` support.
 #endregion */
 
@@ -12,11 +12,11 @@ let rect;
 
 // 🎨
 export function paint({
+  api,
   params,
   pen,
-  paste,
   ink,
-  system,
+  system: sys,
   screen,
   page,
   geo: { Box },
@@ -24,22 +24,21 @@ export function paint({
   const color = params.map((str) => parseInt(str));
 
   if (rect && needsBake) {
-    page(system.painting);
-    ink(color).box(rect);
-    page(screen);
+    const brush = sys.nopaint.brush;
+    page(sys.painting)
+      .ink(color)
+      .box(Box.copy(brush.dragBox).abs.crop(0, 0, screen.width, screen.height))
+      .page(screen);
     needsBake = false;
     rect = null;
+    sys.nopaint.present(api); // Display the painting on the screen.
   }
 
   if (pen?.drawing && pen.dragBox) {
-    paste(system.painting);
+    sys.nopaint.present(api); // Display the painting on the screen.
     rect = Box.copy(pen.dragBox).abs.crop(0, 0, screen.width, screen.height);
     ink(color).box(rect);
-  } else {
-    paste(system.painting);
   }
-
-
 }
 
 export function act({ event: e, system, api }) {

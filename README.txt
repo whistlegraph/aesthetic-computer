@@ -68,11 +68,10 @@
   - [] Should they return the user back to the prompt?
 
 *** CPU Resizable & Navigable 2D Painting ***
-  - [-] Test on mobile.
+  - [🔴] Test on mobile.
     - [] Work out a final API that makes sense for every brush by implementing,
          in order...
-      - [🟠] `rect`
-      - [] `oval`
+      - [🟠] `oval`
       - [] `line`
       - [] `smear`
       - [] `camera`
@@ -81,6 +80,7 @@
       - [] `sign`
       + Done
       - [x] `bits`
+      - [x] `rect`
   + Later
   - [] Refactor translation code to eventually add and store rotation, zoom,
        etc.
