@@ -34,6 +34,7 @@
 😀 TODO 😆
 
 🐞 Annoying Bugs & Regressions 🪱
+  - [] `n` and `p` keyboard shortcut do not ignore history / break navigation
   - [] Video download `local` fix.
   - [] Favicon Cors fix (generate the icon / use a data uri)
   - [] Apple Pencil is no longer working with brushes.
@@ -64,7 +65,6 @@
  - [] March 31 - https://airtable.com/shrTxrWvAZZfGLoiQ
 
 *** CPU Resizable & Navigable 2D Painting ***
-  - [-] Keep `pan` position on reload?
   - [] Refactor translation code to eventually add and store rotation, zoom,
         etc.
   - *** How to gracefully handle implementation for existing brushes? ***
@@ -77,6 +77,7 @@
     - [] `camera`
     - [] `icon`
   + Done
+  - [x] Keep `pan` position on reload?
   - [x] Add gestural `pan` support
     - [x] Hold down `space` key to pan.
     - [x] Add to nopaint act.

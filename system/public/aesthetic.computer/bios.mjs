@@ -688,6 +688,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Disable workers if we are in a sandboxed iframe.
   const workersEnabled = !sandboxed;
+  // const workersEnabled = false;
 
   // if (workersEnabled) {
   if (!MetaBrowser && workersEnabled) {

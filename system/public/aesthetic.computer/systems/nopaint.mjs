@@ -19,7 +19,6 @@ function nopaint_act({
   loading,
   store,
   reload,
-  needsPaint,
   api,
 }) {
   if (e.is("keyboard:down:enter")) {
@@ -35,11 +34,14 @@ function nopaint_act({
     system.nopaint.present(api);
   }
 
-  if (e.is("keyboard:down:alt")) panning = true;
-  if (e.is("keyboard:up:alt")) panning = false;
+  if (e.is("keyboard:down:alt") || e.is("touch:2")) panning = true;
 
-  if (e.is("touch:2")) panning = true; // Alter color when 2nd pen is down.
-  if (e.is("lift:2")) panning = false; // And again when it's lifted.
+  if (e.is("keyboard:up:alt") || e.is("lift:2")) {
+    panning = false;
+    // Store the translation after completion. 
+    store["painting:transform"] = { translation: system.nopaint.translation };
+    store.persist("painting:transform", "local:db");
+  }
 
   if (e.is("reframed")) {
     nopaint_adjust(screen, system, painting, store);
@@ -63,6 +65,9 @@ function nopaint_act({
 // (Also used in `prompt`.)
 function nopaint_adjust(screen, sys, painting, store, size = null) {
   if (!size && store["painting:resolution-lock"] === true) return;
+
+  if (sys.nopaint.translation.x !== 0 || sys.nopaint.translation.y !== 0)
+    return; // Never auto-resize if we are panned.
 
   const width = size?.w || screen.width;
   const height = size?.h || screen.height;

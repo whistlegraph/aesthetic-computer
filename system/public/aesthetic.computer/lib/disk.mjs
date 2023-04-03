@@ -83,8 +83,12 @@ const nopaint = {
       // Idea: Check to see if anything actually got painted by doing a diff on
       //       the pixels?
 
-      store["painting"] = system.painting;
+      store["painting"] = system.painting; // Remember the painting data.
       store.persist("painting", "local:db");
+
+      // And its transform.
+      store["painting:transform"] = { translation: system.nopaint.translation };
+      store.persist("painting:transform", "local:db");
     } else {
       // Restore a painting if `no`ing.
       const paintings = system.nopaint.undo.paintings;
@@ -435,7 +439,9 @@ const $commonApi = {
       noBang: async ({ system, store, needsPaint }) => {
         const deleted = await store.delete("painting", "local:db");
         await store.delete("painting:resolution-lock", "local:db");
+        await store.delete("painting:transform", "local:db");
         system.nopaint.undo.paintings.length = 0; // Reset undo stack.
+        system.nopaint.translation = { x: 0, y: 0 }; // Reset transform.
         system.painting = null;
         needsPaint();
         return deleted;
@@ -2653,10 +2659,19 @@ async function makeFrame({ data: { type, content } }) {
             "local:db"
           );
 
+          store["painting:transform"] = await store.retrieve(
+            "painting:transform",
+            "local:db"
+          );
+
           addUndoPainting(store["painting"]);
         }
 
-        $commonApi.system.painting = store["painting"];
+        const sys = $commonApi.system;
+        sys.painting = store["painting"];
+
+        sys.nopaint.translation =
+          store["painting:transform"]?.translation || sys.nopaint.translation;
 
         try {
           boot($api);
