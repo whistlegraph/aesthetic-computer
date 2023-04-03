@@ -34,7 +34,6 @@
 😀 TODO 😆
 
 🐞 Annoying Bugs & Regressions 🪱
-  - [] `n` and `p` keyboard shortcut do not ignore history / break navigation
   - [] Video download `local` fix.
   - [] Favicon Cors fix (generate the icon / use a data uri)
   - [] Apple Pencil is no longer working with brushes.
@@ -55,6 +54,7 @@
   - [] Get ssh working in VS Code on windows via WSL: https://stackoverflow.com/questions/60150466/can-i-ssh-from-wsl-in-visual-studio-code
   - [] `npm run code` does not work offline, due to netlify relying on online conectivity.
   + Done
+  - [x] `n` and `p` keyboard shortcut do not ignore history / break navigation
   - [x] Fix Freaky Flowers opensea regression.
   - [x] Chained paint functions do not respect inkrn.
   - [x] Check `wg` and `ff` and other disks including the prompt in the Instagram in-app browser!

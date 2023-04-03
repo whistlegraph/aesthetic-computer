@@ -5,7 +5,7 @@
 
 /* #region ✅ TODO 
   + Done
-  - [x] Clean up the api so it's replicable across other brushes...
+  - [x] Clean up the api so it's replicable across other brushes.
   - [x] Make basic colored speck functionality.
   - [x] Make it work with a resized painting.
 #endregion */

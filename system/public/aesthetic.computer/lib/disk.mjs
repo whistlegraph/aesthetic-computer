@@ -1322,6 +1322,8 @@ async function load(
       console.log("💥️ Restarting system...");
       send({ type: "refresh" }); // Refresh the browser.
     } else if (piece === "code") {
+      // Note: This is used for live development via the socket server.
+      console.log(code, "💾️ Reloading code...");
       $commonApi.load({ ...parse("code"), source: code }); // Load source code.
     } else if (piece === "*" || piece === undefined || currentText === piece) {
       console.log("💾️ Reloading piece...", piece);
@@ -1337,7 +1339,7 @@ async function load(
           text: currentText,
         },
         // Use the existing contextual values when live-reloading in debug mode.
-        fromHistory,
+        true, // (fromHistory) ... never add any reload to the history stack
         alias,
         devReload
       );
