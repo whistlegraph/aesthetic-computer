@@ -67,6 +67,19 @@
   - [] Prevent mouse flicker on `n` and `p`.
   - [] Should they return the user back to the prompt?
 
+*** Generic Image / Photo Uploader ***
+  - Data entry process
+   - [] 1. go to ac and type `pic`
+   - [] 2. add from camera roll or take photo
+   - [] 3. receive code upon upload
+   - [] 4. write code on drawing/sticker for drawing
+- Viewing process
+   - [] 1. visit ac and type `code` to view the image
+
+*** evolve ***
+  - [] Transform a painting from one state to another using ML.
+       (https://chat.openai.com/chat/1c0e4f20-7cb5-441f-a7e4-7b77fb55135d)
+
 *** CPU Resizable & Navigable 2D Painting ***
   - [🔴] Test on mobile.
     - [] Work out a final API that makes sense for every brush by implementing,
