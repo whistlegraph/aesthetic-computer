@@ -71,7 +71,8 @@
   - [🔴] Test on mobile.
     - [] Work out a final API that makes sense for every brush by implementing,
          in order...
-      - [🟠] `oval`
+      - [🟢] `oval`
+        - [-] Add some fancy oval features / smooth the pan api.
       - [] `line`
       - [] `smear`
       - [] `camera`
