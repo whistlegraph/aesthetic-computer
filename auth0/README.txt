@@ -18,11 +18,3 @@ block: [200, 30, 100]
 ```
 
 to create password reset link bind the changePassword function to a link/button
-
-todo:
- - make typography and colors match on reset PW page and login page
- - inputs
- - style error messages
- - remove labels and use placeholder text as label for inputs
- - signup should say "I'm New"
- - email templates stripped to plaintext
