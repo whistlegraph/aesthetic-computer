@@ -688,6 +688,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Disable workers if we are in a sandboxed iframe.
   const workersEnabled = !sandboxed;
+  // const workersEnabled = false;
 
   // if (workersEnabled) {
   if (!MetaBrowser && workersEnabled) {
@@ -1897,6 +1898,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         send({ type: "recorder:printed" });
         // TODO: Can send the download code back here...
         // send({ type: "recorder:uploaded", code });
+
+        mediaRecorder = undefined; // ❌ Trash the recorder.
       };
 
       mediaRecorder.start();
@@ -2032,13 +2035,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "recorder:print") {
       if (!mediaRecorder) return;
       mediaRecorder.stop(); // Render a video if a recording exists.
-      mediaRecorder = undefined;
+      // mediaRecorder = undefined;
       send({ type: "recorder:printing:started" });
       return;
     }
 
     if (type === "recorder:slate") {
-      mediaRecorder = undefined;
+      // mediaRecorder = undefined;
     }
 
     if (type === "load-bitmap") {

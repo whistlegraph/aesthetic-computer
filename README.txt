@@ -34,8 +34,11 @@
 😀 TODO 😆
 
 🐞 Annoying Bugs & Regressions 🪱
+  - [] Video download `local` fix.
+  - [] Favicon Cors fix (generate the icon / use a data uri)
   - [] Apple Pencil is no longer working with brushes.
   - [] Fix painting rotate / resize cropping issue.
+    - [] Check this in Brave browser as well.
   - [] Fix `spray` multiplayer / socket messages not being sent regression.
   - [] Painting doesn't fully reset when resizing.
   - [] Research the use of "requestProvider.js.map" and work it into `index.js`.
@@ -51,28 +54,90 @@
   - [] Get ssh working in VS Code on windows via WSL: https://stackoverflow.com/questions/60150466/can-i-ssh-from-wsl-in-visual-studio-code
   - [] `npm run code` does not work offline, due to netlify relying on online conectivity.
   + Done
+  - [x] `n` and `p` keyboard shortcut do not ignore history / break navigation
   - [x] Fix Freaky Flowers opensea regression.
   - [x] Chained paint functions do not respect inkrn.
   - [x] Check `wg` and `ff` and other disks including the prompt in the Instagram in-app browser!
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** N and P Shortcut ***
+  - [] Do not work across all brushes.
+  - [] Should probably not have a screen flicker / when does this happen?
+  - [] Prevent mouse flicker on `n` and `p`.
+  - [] Should they return the user back to the prompt?
+
+*** Generic Image / Photo Uploader ***
+  - Data entry process
+   - [] 1. go to ac and type `pic`
+   - [] 2. add from camera roll or take photo
+   - [] 3. receive code upon upload
+   - [] 4. write code on drawing/sticker for drawing
+- Viewing process
+   - [] 1. visit ac and type `code` to view the image
+
+*** evolve ***
+  - [] Transform a painting from one state to another using ML.
+       (https://chat.openai.com/chat/1c0e4f20-7cb5-441f-a7e4-7b77fb55135d)
+
 *** CPU Resizable & Navigable 2D Painting ***
-  - [🟡] Add support for painting to be a `fixed` resolution.
-    - Path: 
-      - *** How to gracefully handle implementation for existing brushes? ***
-      - [💚] Render a checkerboard backdrop or 1px border for showing the
-           edge of the painting.
-      - [] Center the rendering of the painting.
-      - [] All brush pixels need to be offset by the panned painting buffer
-        while rendering.
-      - [] Use `bits` as a case study.
-    - [] Add `pan` support.
+  - [🔴] Test on mobile.
+    - [] Work out a final API that makes sense for every brush by implementing,
+         in order...
+      - [🟢] `oval`
+        - [-] Add some fancy oval features / smooth the pan api.
+      - [] `line`
+      - [] `smear`
+      - [] `camera`
+      - [] `icon`
+      - [] `word`
+      - [] `sign`
+      + Done
+      - [x] `bits`
+      - [x] `rect`
+  + Later
+  - [] Refactor translation code to eventually add and store rotation, zoom,
+       etc.
+    - [] Add software zoom.
+    - [] Add software rotation.
   + Done
+  - [x] Why does holding alt continue the drawing / why is there a frame
+        delay after pen?.drawing?   
+        - [x] system.nopaint.present return data needs to be decoupled from
+            rendering
+  - [x] Keep `pan` position on reload?
+  - [x] Add gestural `pan` support
+    - [x] Hold down `space` key to pan.
+    - [x] Add to nopaint act.
+    - [x] Two finger touch to pan.
+  - [x] Resizing the window should re-present the painting properly.
+  - [x] Add support for painting to be a `fixed` resolution.
+  - [x] Render a backdrop with 1px border showing the
+          edge of the painting.
+  - [x] All brush pixels need to be offset by the panned painting buffer
+    while rendering.
+  - [x] Use `bits` as a case study.
+  - [x] Center the rendering of the painting.
   - [x] Add command for setting a constant resolution, which avoids
         any resize hooks on the painting. 
     - [x] Use "crop" brush or `resize` command for this?
   - [x] Make a minimal `bits` brush.
+
+*** Ordsies ***
+  + Now
+   - [-] Add label / figure out a good motif.
+  + Done
+   - [x] Inscribe a test ordinal. 
+*** Error Log / `errors` ***
+  - [] Log all mistyped commands with a score count and display them in order.
+    - [] I could just use redis for this...
+      - [] That could actually make it LIVE!
+
+*** `paintings` command should grab a list of all paintings by a user sorted
+                in order?
+  - [] Deletable paintings.
+  - [] Painting feed.
+
 
 *** Tape & Tapes ***
   `tape`
@@ -101,21 +166,6 @@
 *** Painting Viewier ***
   - [] Painting viewer page... what is the command?
   - [] `look` or `examine` or `view`
-
-*** Ordsies ***
-  + Now
-   - [-] Add label / figure out a good motif.
-  + Done
-   - [x] Inscribe a test ordinal. 
-*** Error Log / `errors` ***
-  - [] Log all mistyped commands with a score count and display them in order.
-    - [] I could just use redis for this...
-      - [] That could actually make it LIVE!
-
-*** `paintings` command should grab a list of all paintings by a user sorted
-                in order?
-  - [] Deletable paintings.
-  - [] Painting feed.
 
 *** Prompt ***
   - [] Always show whether we are connected to the internet or not.

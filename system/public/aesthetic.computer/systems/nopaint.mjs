@@ -3,26 +3,28 @@
 
 // Used when defining a custom piece functions in a nopaint system brush to
 // inherit common behavior.
-function nopaint_boot({ wipe, paste, screen, system, painting, store }) {
+function nopaint_boot({ api, screen, system, painting, store }) {
   nopaint_adjust(screen, system, painting, store);
-
-  wipe(0, 0, 200);
-  const x = screen.width / 2 - system.painting.width / 2
-  const y = screen.height / 2 - system.painting.height / 2
-  paste(system.painting, x, y);
+  system.nopaint.present(api);
 }
 
+let panning = false;
+
+function storeTransform(store, sys) {
+  store["painting:transform"] = { translation: sys.nopaint.translation };
+  store.persist("painting:transform", "local:db");
+}
 
 function nopaint_act({
   event: e,
   download,
-  paste,
   screen,
   system,
   painting,
   loading,
   store,
   reload,
+  api,
 }) {
   if (e.is("keyboard:down:enter")) {
     download(`painting-${num.timestamp()}.png`, system.painting, {
@@ -31,9 +33,24 @@ function nopaint_act({
     });
   }
 
+  // Panning (held 'alt' key or two finger drag)
+  if (e.is("move") && panning) {
+    system.nopaint.translate(api, e.delta.x, e.delta.y);
+    system.nopaint.present(api);
+  }
+
+  if (e.is("move") || e.is("draw")) system.nopaint.updateBrush(api);
+
+  if (e.is("keyboard:down:alt") || e.is("touch:2")) panning = true;
+
+  if (e.is("keyboard:up:alt") || e.is("lift:2")) {
+    panning = false;
+    storeTransform(store, system); // Store the translation after completion.
+  }
+
   if (e.is("reframed")) {
     nopaint_adjust(screen, system, painting, store);
-    paste(system.painting);
+    system.nopaint.present(api);
   }
 
   // No and then reload the same brush / reload without storing
@@ -49,10 +66,16 @@ function nopaint_act({
 
 // 📚 Library
 // Adjust painting resolution dynamically to match the screen,
-// or provide a custom one.
+// or provide a custom resolution.
 // (Also used in `prompt`.)
 function nopaint_adjust(screen, sys, painting, store, size = null) {
   if (!size && store["painting:resolution-lock"] === true) return;
+
+  if (
+    !size &&
+    (sys.nopaint.translation.x !== 0 || sys.nopaint.translation.y !== 0)
+  )
+    return; // Never auto-resize if we are panned.
 
   const width = size?.w || screen.width;
   const height = size?.h || screen.height;
@@ -65,7 +88,11 @@ function nopaint_adjust(screen, sys, painting, store, size = null) {
   if (size) {
     store["painting:resolution-lock"] = true;
     store.persist("painting:resolution-lock", "local:db");
-  } 
+    store.persist("painting", "local:db"); // Also persist the painting.
+    sys.nopaint.translation = { x: 0, y: 0 }; // Reset the transform.
+    sys.nopaint.setTransform({ system: sys, screen }); // Reset transform.
+    storeTransform(store, sys);
+  }
 }
 
 export { nopaint_boot, nopaint_act, nopaint_adjust };

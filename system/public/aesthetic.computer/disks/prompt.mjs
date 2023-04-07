@@ -1,4 +1,5 @@
 // A text based access-everything console.
+
 // Currently the aesthetic.computer home piece!
 
 /* #region 🏁 todo
@@ -66,14 +67,21 @@ function boot($) {
   glaze({ on: true }); // TODO: Every glaze triggers `frame` in `disk`, this could be optimized. 2022.04.24.04.25
 
   let motd =
-    `Try 'ff'                                        ` +
-    `     to see Freaky Flowers                      ` +
+    `Try typing:                                     ` +
     `                                                ` +
-    ` Or 'shape'                                     ` +
-    `     to make freehand shapes                    ` +
+    ` 'ff'                                           ` +
+    `  to see Freaky Flowers                         ` +
     `                                                ` +
-    ` Or 'help' to join Discord!                     ` +
+    ` 'shape'                                        ` +
+    `  to paint freehand shapes                      ` +
     `                                                ` +
+    ` 'bleep'                                        ` +
+    `  to play microtones                            ` +
+    `                                                ` +
+    `Or...                                           ` +
+    `                                                ` +
+    ` 'help'                                         ` +
+    `  to learn more!                                ` +
     `                                                ` +
     `mail@aesthetic.computer                         `;
 
@@ -115,7 +123,7 @@ function boot($) {
         // Resize the active painting if one exists, or make one at this
         // size if it doesn't.
         const w = params[0],
-          h = params[1] || h;
+          h = params[0] || w;
         if (isNaN(w)) {
           flashColor = [255, 0, 0];
         } else {
@@ -152,7 +160,12 @@ function boot($) {
         }
         makeFlash($);
       } else if (text === "painting:reset" || text === "no!") {
-        const deleted = system.nopaint.noBang({ system, store, needsPaint });
+        const deleted = system.nopaint.noBang({
+          system,
+          store,
+          screen,
+          needsPaint,
+        });
 
         if (deleted) {
           flashColor = [0, 0, 255]; // Blue for succesful deletion.
@@ -231,23 +244,19 @@ function boot($) {
 
 // 🧮 Sim(ulate) (Runs once per logic frame (120fps locked)).
 function sim($) {
-  const { needsPaint } = $;
   input?.sim($);
-
   if (flashPresent) flash.step();
 }
 
 // 🎨 Paint (Runs once per display refresh rate)
 function paint($) {
-  const { screen, wipe, ink, history, paste, system, store, dark, write } = $;
+  const { screen, wipe, ink, history, api, system, store, dark } = $;
 
   const pal = scheme[dark ? "dark" : "light"];
   if (input) input.pal = pal; // Update text input palette.
 
   if (store["painting"]) {
-    const x = screen.width / 2 - system.painting.width / 2
-    const y = screen.height / 2 - system.painting.height / 2
-    paste(system.painting, x, y);
+    system.nopaint.present(api); // Render the painting.
     ink(...pal.bg, 127).box(screen); // Backdrop
   } else {
     wipe(...pal.bg);
@@ -293,7 +302,8 @@ function paint($) {
     if (flashMessage) ink(255).write(flashMessage, { x: 5, y: 4, size: 2 });
   }
 
-  return glyphsLoaded;
+  // return glyphsLoaded;
+  return false;
 }
 
 // ✒ Act (Runs once per user interaction, after boot.)

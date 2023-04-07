@@ -57,6 +57,7 @@ let hotSwap = null;
 // Inheritable via `export const system = "nopaint"` from any piece.
 // Boilerplate for a distributed raster editor.
 const nopaint = {
+  pan: { x: 0, y: 0 }, // The current position / offset of the painting view.
   boot: function boot($) {
     // showHUD = false;
     $.system.nopaint.boot($);
@@ -66,20 +67,29 @@ const nopaint = {
   },
   leave: function leave({ store, system, page, screen }) {
     if (NPnoOnLeave === false) {
-      // ^ Flag set when reloading a brush without storing changes.
+      // ^ This is set when reloading a brush without storing changes. (`N` key)
       if (NPdontPaintOnLeave === false) {
-        page(system.painting).paste(screen);
+        // Bake any changes into the existing painting using the screen buffer.
+
+        const p = system.nopaint.translation; // Offset by the pan position.
+        page(system.painting).paste(screen, -p.x, -p.y); // TODO: Why the + 1 offset here...
         painting.paint(); // TODO: Why is this here?
         page(screen);
       }
 
       addUndoPainting(system.painting);
-      // TODO: Check to see if anything actually got painted... by doing
-      //       a diff on the pixels?
 
-      store["painting"] = system.painting;
+      // Idea: Check to see if anything actually got painted by doing a diff on
+      //       the pixels?
+
+      store["painting"] = system.painting; // Remember the painting data.
       store.persist("painting", "local:db");
+
+      // And its transform.
+      store["painting:transform"] = { translation: system.nopaint.translation };
+      store.persist("painting:transform", "local:db");
     } else {
+      // Restore a painting if `no`ing.
       const paintings = system.nopaint.undo.paintings;
       page(system.painting)
         .paste(paintings[paintings.length - 1])
@@ -374,9 +384,80 @@ const $commonApi = {
           needsPaint();
         }
       },
+      // Center the picture within the screen.
+      setTransform: ({ system: sys, screen }) => {
+        sys.nopaint.translation.x = floor(
+          screen.width / 2 - sys.painting.width / 2
+        );
+        sys.nopaint.translation.y = floor(
+          screen.height / 2 - sys.painting.height / 2
+        );
+      },
+      translation: { x: 0, y: 0 },
+      translate: ({ system }, x, y) => {
+        system.nopaint.translation.x += x;
+        system.nopaint.translation.y += y;
+      },
+      brush: { x: 0, y: 0 },
+      updateBrush: ({ pen, system }) => {
+        const { x, y } = system.nopaint.translation;
+
+        const pos = { x: (pen?.x || 0) - x, y: (pen?.y || 0) - y };
+
+        // Transform the original dragBox
+        const dragBox = {
+          x: pen?.dragBox?.x - x,
+          y: pen?.dragBox?.y - y,
+          w: pen?.dragBox?.w,
+          h: pen?.dragBox?.h,
+        };
+
+        system.nopaint.brush = { x: pos.x, y: pos.y, dragBox };
+      },
+      // Helper to display the existing painting on the screen, with an
+      // optional pan amount, that returns an adjusted pen pointer as `brush`.
+      present: ({ system, screen, wipe, paste }, tx, ty) => {
+        const x = tx || system.nopaint.translation.x;
+        const y = ty || system.nopaint.translation.y;
+
+        system.nopaint.translation = { x, y };
+
+        const fullbleed =
+          x === 0 &&
+          y === 0 &&
+          screen.width <= system.painting.width &&
+          screen.height <= system.painting.height;
+
+        if (fullbleed) {
+          // If we are not panned and the painting fills the screen.
+          paste(system.painting);
+        } else {
+          // If we are panned or the painting is a custom resolution.
+          wipe(32)
+            .paste(system.painting, x, y)
+            .ink(128)
+            .box(
+              x,
+              y,
+              system.painting.width,
+              system.painting.height,
+              "outline"
+            );
+        }
+
+        return {
+          x,
+          y, //,
+          //brush: { x: (pen?.x || 0) - x, y: (pen?.y || 0) - y },
+        };
+      },
+      // Kill an existing painting.
       noBang: async ({ system, store, needsPaint }) => {
         const deleted = await store.delete("painting", "local:db");
+        await store.delete("painting:resolution-lock", "local:db");
+        await store.delete("painting:transform", "local:db");
         system.nopaint.undo.paintings.length = 0; // Reset undo stack.
+        system.nopaint.setTransform({ system, screen }); // Reset transform.
         system.painting = null;
         needsPaint();
         return deleted;
@@ -1147,7 +1228,12 @@ let firstLoad = true;
 let firstPiece, firstParams, firstSearch; // Why is this still here? 23.01.27.13.07
 //                                           Perhaps for bare ROOT_PIECE's that
 //                                           require params?
-async function load(parsed, fromHistory = false, alias = false) {
+async function load(
+  parsed,
+  fromHistory = false,
+  alias = false,
+  devReload = false
+) {
   let { path, host, search, colon, params, hash, text: slug } = parsed;
 
   loading === false ? (loading = true) : console.warn("Already loading:", path);
@@ -1176,8 +1262,9 @@ async function load(parsed, fromHistory = false, alias = false) {
   // const moduleLoadTime = performance.now();
   let blobUrl, sourceCode;
   try {
-    if (slug === currentText) {
-      // If this is a reload then just create a new blobURL off the old source.
+    if (slug === currentText && !devReload) {
+      // If this is a reload (with no source change) then just create a new
+      // blobURL off the old source.
       const blob = new Blob([currentCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);
       sourceCode = currentCode;
@@ -1251,9 +1338,12 @@ async function load(parsed, fromHistory = false, alias = false) {
       console.log("💥️ Restarting system...");
       send({ type: "refresh" }); // Refresh the browser.
     } else if (piece === "code") {
+      // Note: This is used for live development via the socket server.
+      console.log(code, "💾️ Reloading code...");
       $commonApi.load({ ...parse("code"), source: code }); // Load source code.
     } else if (piece === "*" || piece === undefined || currentText === piece) {
       console.log("💾️ Reloading piece...", piece);
+      const devReload = true;
       $commonApi.load(
         {
           path: currentPath,
@@ -1265,8 +1355,9 @@ async function load(parsed, fromHistory = false, alias = false) {
           text: currentText,
         },
         // Use the existing contextual values when live-reloading in debug mode.
-        fromHistory,
-        alias
+        true, // (fromHistory) ... never add any reload to the history stack
+        alias,
+        devReload
       );
     }
   };
@@ -1847,6 +1938,7 @@ async function makeFrame({ data: { type, content } }) {
     const $api = {};
     Object.assign($api, $commonApi);
     $api.graph = painting.api; // TODO: Should this eventually be removed?
+    $api.api = $api; // Add a reference to the whole API.
 
     $api.sound = {
       time: content.time,
@@ -2143,6 +2235,7 @@ async function makeFrame({ data: { type, content } }) {
       Object.keys(painting.api).forEach(
         (key) => ($api[key] = painting.api[key])
       );
+      $api.api = $api; // Add a reference to the whole API.
 
       //Object.assign($api, $commonApi);
       //Object.assign($api, $updateApi);
@@ -2426,6 +2519,8 @@ async function makeFrame({ data: { type, content } }) {
       Object.keys(painting.api).forEach(
         (key) => ($api[key] = painting.api[key])
       );
+      $api.api = $api; // Add a reference to the whole API.
+
       // Object.assign($api, $commonApi);
       // Object.assign($api, painting.api);
 
@@ -2576,14 +2671,25 @@ async function makeFrame({ data: { type, content } }) {
             painting.api.painting(screen.width, screen.height, ($) => {
               $.wipe(64);
             });
+
           store["painting:resolution-lock"] = await store.retrieve(
             "painting:resolution-lock",
             "local:db"
           );
+
+          store["painting:transform"] = await store.retrieve(
+            "painting:transform",
+            "local:db"
+          );
+
           addUndoPainting(store["painting"]);
         }
 
-        $commonApi.system.painting = store["painting"];
+        const sys = $commonApi.system;
+        sys.painting = store["painting"];
+
+        sys.nopaint.translation =
+          store["painting:transform"]?.translation || sys.nopaint.translation;
 
         try {
           boot($api);
