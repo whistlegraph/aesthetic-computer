@@ -224,6 +224,9 @@ function boot($) {
       } else if (text === "help") {
         // Go to the Discord for now if anyone types help.
         jump("https://discord.gg/aesthetic-computer");
+      } else if (text === "shillball" || text === "sb") {
+        // Shortcuts for Yeche's Shillball game. 
+        jump("https://galerie-yechelange.baby/ball");
       } else if (text === "prod") {
         jump("https://prompt.ac"); // Visit the live site.
       } else if (text === "local") {

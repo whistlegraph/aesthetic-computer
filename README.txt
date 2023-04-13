@@ -73,15 +73,25 @@
    - [] 2. add from camera roll or take photo
    - [] 3. receive code upon upload
    - [] 4. write code on drawing/sticker for drawing
-- Viewing process
-   - [] 1. visit ac and type `code` to view the image
+  - Viewing process
+    - [] 1. visit ac and type `code` to view the image
 
-*** evolve ***
+*** `evolve` ***
   - [] Transform a painting from one state to another using ML.
        (https://chat.openai.com/chat/1c0e4f20-7cb5-441f-a7e4-7b77fb55135d)
 
+*** Code Lookup / Analog <-> Digital Workflow ***
+  - Data entry process
+      1. go to ac and type `pic`
+      2. add from camera roll or take photo
+      3. receive code upon upload
+      4. write code on drawing/sticker for drawing
+  - Viewing process
+      1. visit ac and type `code` to view the image
+
 *** CPU Resizable & Navigable 2D Painting ***
   - [🔴] Test on mobile.
+    - [💛] `rect` and `oval` both can drop a frame...
     - [] Work out a final API that makes sense for every brush by implementing,
          in order...
       - [🟢] `oval`

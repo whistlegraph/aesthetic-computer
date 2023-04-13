@@ -386,6 +386,11 @@ const $commonApi = {
       },
       // Center the picture within the screen.
       setTransform: ({ system: sys, screen }) => {
+        if (!sys.painting) {
+          sys.nopaint.translation = { x: 0, y: 0 };
+          return;
+        }
+
         sys.nopaint.translation.x = floor(
           screen.width / 2 - sys.painting.width / 2
         );
@@ -457,8 +462,8 @@ const $commonApi = {
         await store.delete("painting:resolution-lock", "local:db");
         await store.delete("painting:transform", "local:db");
         system.nopaint.undo.paintings.length = 0; // Reset undo stack.
-        system.nopaint.setTransform({ system, screen }); // Reset transform.
         system.painting = null;
+        system.nopaint.setTransform({ system, screen }); // Reset transform.
         needsPaint();
         return deleted;
       },
