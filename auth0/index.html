@@ -48,6 +48,10 @@
       box-shadow: inset 0px 0px 0px 5px #CCCCCC;
     }
 
+    .f-form {
+      font-size: 1.7rem;
+    }
+
     #btn-reset {
       display: none;
     }
@@ -58,6 +62,10 @@
 
     .form-control:focus::placeholder {
       opacity: 0.5;
+    }
+
+    .ml-nudge {
+      margin-left: 0.1rem;
     }
 
     .z--100 {
@@ -72,6 +80,22 @@
       display: none;
       white-space: break-spaces;
     }
+
+    .form-control:autofill {
+      -webkit-box-shadow: inset 0px 0px 0px 5px rgba(0, 102, 136, 0.5);
+      -moz-box-shadow: inset 0px 0px 0px 5px rgba(0, 102, 136, 0.5);
+      box-shadow: inset 0px 0px 0px 5px rgba(0, 102, 136, 0.5);
+      border-width: .125rem;
+      border-color: #357EDD;
+    }
+
+    .form-control:-webkit-autofill {
+      -webkit-box-shadow: inset 0px 0px 0px 5px rgba(0, 102, 136, 0.5);
+      -moz-box-shadow: inset 0px 0px 0px 5px rgba(0, 102, 136, 0.5);
+      box-shadow: inset 0px 0px 0px 5px rgba(0, 102, 136, 0.5);
+      border-width: .125rem;
+      border-color: #357EDD;
+    }
   </style>
 <body>
   <div>
@@ -84,29 +108,30 @@
         <h3>Welcome</h3>
         <h5>PLEASE LOG IN</h5>
       </div> -->
-      <div id="error-message" class="f3 ml1 mb1 pink-red"></div>
+      
       <form onsubmit="return false;" method="post">
-        <div class="form-group">
+        <div class="form-group ml-nudge">
           <input
             type="email"
-            class="form-control pink-cursor input-reset near-white f3 bg-transparent bw0 mb3 ml1"
+            class="form-control pink-cursor input-reset near-white f-form bg-transparent bw0 mb2 ml2"
             id="email"
             placeholder="Enter your email">
         </div>
         <div class="form-group">
           <input
             type="password"
-            class="form-control pink-cursor input-reset near-white f3 bg-transparent bw0 mb2 ml1"
+            class="form-control pink-cursor input-reset near-white f-form bg-transparent bw0 mb2 ml2"
             id="password"
             placeholder="Enter your password">
         </div>
+        <div id="error-message" class="f-form mb1 ml2 pink-red"></div>
         <div class="captcha-container form-group"></div>
-        <div class="pl2">
+        <div class="pl2 ml-nudge">
           <button
             type="button"
             tabindex="0"
             id="btn-reset"
-            class="active-dim f3 ba bw1 pa1 mb2 red-inner-border b--dark-red link bg-red white pointer bw0">
+            class="active-dim f-form ba bw1 pa1 mb2 red-inner-border b--dark-red link bg-red white pointer bw0">
               Reset Password?
           </button>
           <br>
@@ -114,14 +139,14 @@
             type="button"
             tabindex="0"
             id="btn-signup"
-            class="active-dim f3 ba bw1 pa1 b--white moon-gray-inner-border bg-silver link white pointer bw0">
+            class="active-dim f-form ba bw1 pa1 b--white moon-gray-inner-border bg-silver link white pointer bw0">
               New Account
           </button>
           <button
             type="submit"
             tabindex="0"
             id="btn-login"
-            class="active-dim ml2 f3 ba bw1 pa1 b--green green-inner-border bg-dark-green link green pointer bw0">
+            class="active-dim ml2 f-form ba bw1 pa1 b--green green-inner-border bg-dark-green link green pointer bw0">
               Log In
           </button>
         </div>
