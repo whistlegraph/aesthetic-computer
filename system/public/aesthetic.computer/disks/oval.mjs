@@ -1,11 +1,10 @@
 // Oval, 23.02.13.01.24
-// Make an oval
+// Make an oval (filled).
 
 /* #region 📓 TODO 
-  - [🟠] Clean up the api.
-  - [-] Circle locking / alias circle to a locked oval!
-  - [] Generalize ranged parameters.
+  - [-] Circle locking / circle to a locked oval!
   - [] Outlined ovals.
+  - [] Generalize ranged parameters.
   + Done
   - [x] Add pan support.
   - [x] Filled ovals of different shapes and sizes.
@@ -19,7 +18,7 @@ let oval;
 function paint({ api, params, pen, screen, system: sys, ink, page }) {
   if (bake) {
     page(sys.painting);
-    oval?.(sys.nopaint.brush.dragBox);
+    oval?.();
     oval = null;
     page(screen);
     bake = false;
@@ -29,16 +28,18 @@ function paint({ api, params, pen, screen, system: sys, ink, page }) {
   if (pen?.drawing) {
     if (pen.dragBox) {
       sys.nopaint.present(api); // Display the painting on the screen.
+
       // const radiusCicle = num.p2.dist(pen, pen.dragBox);
       const radX = pen.dragBox.w;
       const radY = pen.dragBox.h;
       const color = rangedParams(params);
 
-      oval = (pos) => {
-        ink(color).oval(pos.x, pos.y, radX, radY, filled);
-      };
+      ink(color).oval(pen.dragBox.x, pen.dragBox.y, radX, radY, filled);
 
-      oval(pen.dragBox);
+      oval = () => {
+        const { x, y } = sys.nopaint.brush.dragBox;
+        ink(color).oval(x, y, radX, radY, filled);
+      };
     }
   }
 }

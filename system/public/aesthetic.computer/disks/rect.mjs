@@ -23,21 +23,26 @@ export function paint({
 }) {
   const color = params.map((str) => parseInt(str));
 
-  if (rect && needsBake) {
-    const brush = sys.nopaint.brush;
-    page(sys.painting)
-      .ink(color)
-      .box(Box.copy(brush.dragBox).abs.crop(0, 0, screen.width, screen.height))
-      .page(screen);
+  if (needsBake) {
     needsBake = false;
-    rect = null;
-    sys.nopaint.present(api); // Display the painting on the screen.
+    page(sys.painting).ink(color).box(rect).page(screen);
+    sys.nopaint.present(api);
   }
 
   if (pen?.drawing && pen.dragBox) {
-    sys.nopaint.present(api); // Display the painting on the screen.
-    rect = Box.copy(pen.dragBox).abs.crop(0, 0, screen.width, screen.height);
-    ink(color).box(rect);
+    sys.nopaint.present(api);
+
+    ink(color).box(
+      Box.copy(pen.dragBox).abs.crop(0, 0, screen.width, screen.height)
+    ); // Render an overlay box.
+
+    // Remember the brush box.
+    rect = Box.copy(sys.nopaint.brush.dragBox).abs.crop(
+      0,
+      0,
+      screen.width,
+      screen.height
+    );
   }
 }
 

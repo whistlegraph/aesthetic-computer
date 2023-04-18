@@ -35,7 +35,7 @@
 
 🐞 Annoying Bugs & Regressions 🪱
   - [] Video download `local` fix.
-  - [] Favicon Cors fix (generate the icon / use a data uri)
+  - [] Favicon CORS fix (generate the icon / use a data uri)
   - [] Apple Pencil is no longer working with brushes.
   - [] Fix painting rotate / resize cropping issue.
     - [] Check this in Brave browser as well.
@@ -90,12 +90,9 @@
       1. visit ac and type `code` to view the image
 
 *** CPU Resizable & Navigable 2D Painting ***
-  - [🔴] Test on mobile.
-    - [💛] `rect` and `oval` both can drop a frame...
+  - [🔴] Test two finger drag on mobile.
     - [] Work out a final API that makes sense for every brush by implementing,
          in order...
-      - [🟢] `oval`
-        - [-] Add some fancy oval features / smooth the pan api.
       - [] `line`
       - [] `smear`
       - [] `camera`
@@ -103,8 +100,11 @@
       - [] `word`
       - [] `sign`
       + Done
+      - [x] `oval`
+      - [x] `rect` and `oval` both can drop a frame...
       - [x] `bits`
       - [x] `rect`
+  - [-] Add a reset pan prompt command or button.
   + Later
   - [] Refactor translation code to eventually add and store rotation, zoom,
        etc.
