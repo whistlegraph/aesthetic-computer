@@ -43,6 +43,13 @@ function nopaint_act({
 
   if (e.is("keyboard:down:alt") || e.is("touch:2")) panning = true;
 
+  // Reset pan by holding shift while alt is pressed down.
+  if (panning && e.is("keyboard:down:shift")) {
+    panning = false;
+    system.nopaint.translation = { x: 0, y: 0 };
+    system.nopaint.present(api);
+  }
+
   if (e.is("keyboard:up:alt") || e.is("lift:2")) {
     panning = false;
     storeTransform(store, system); // Store the translation after completion.

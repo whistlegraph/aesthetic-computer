@@ -61,6 +61,53 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Watchlist ***
+  - [] https://www.youtube.com/watch?v=KrPsyr8Ig6M
+  
+*** CPU Resizable & Navigable 2D Painting ***
+  - [🔴] Test two finger drag on mobile.
+    - [] Work out a final API that makes sense for every brush by implementing,
+         in order...
+      - [] `line`
+      - [] `smear`
+      - [] `camera`
+      - [] `icon`
+      - [] `word`
+      - [] `sign`
+      + Done
+      - [x] `oval`
+      - [x] `rect` and `oval` both can drop a frame...
+      - [x] `bits`
+      - [x] `rect`
+  + Later
+  - [] Refactor translation code to eventually add and store rotation, zoom,
+       etc.
+    - [] Add software zoom.
+    - [] Add software rotation.
+  + Done
+  - [x] Add a reset pan prompt command or button.
+  - [x] Why does holding alt continue the drawing / why is there a frame
+        delay after pen?.drawing?   
+        - [x] system.nopaint.present return data needs to be decoupled from
+            rendering
+  - [x] Keep `pan` position on reload?
+  - [x] Add gestural `pan` support
+    - [x] Hold down `space` key to pan.
+    - [x] Add to nopaint act.
+    - [x] Two finger touch to pan.
+  - [x] Resizing the window should re-present the painting properly.
+  - [x] Add support for painting to be a `fixed` resolution.
+  - [x] Render a backdrop with 1px border showing the
+          edge of the painting.
+  - [x] All brush pixels need to be offset by the panned painting buffer
+    while rendering.
+  - [x] Use `bits` as a case study.
+  - [x] Center the rendering of the painting.
+  - [x] Add command for setting a constant resolution, which avoids
+        any resize hooks on the painting. 
+    - [x] Use "crop" brush or `resize` command for this?
+  - [x] Make a minimal `bits` brush.
+
 *** N and P Shortcut ***
   - [] Do not work across all brushes.
   - [] Should probably not have a screen flicker / when does this happen?
@@ -89,53 +136,10 @@
   - Viewing process
       1. visit ac and type `code` to view the image
 
-*** CPU Resizable & Navigable 2D Painting ***
-  - [🔴] Test two finger drag on mobile.
-    - [] Work out a final API that makes sense for every brush by implementing,
-         in order...
-      - [] `line`
-      - [] `smear`
-      - [] `camera`
-      - [] `icon`
-      - [] `word`
-      - [] `sign`
-      + Done
-      - [x] `oval`
-      - [x] `rect` and `oval` both can drop a frame...
-      - [x] `bits`
-      - [x] `rect`
-  - [-] Add a reset pan prompt command or button.
-  + Later
-  - [] Refactor translation code to eventually add and store rotation, zoom,
-       etc.
-    - [] Add software zoom.
-    - [] Add software rotation.
-  + Done
-  - [x] Why does holding alt continue the drawing / why is there a frame
-        delay after pen?.drawing?   
-        - [x] system.nopaint.present return data needs to be decoupled from
-            rendering
-  - [x] Keep `pan` position on reload?
-  - [x] Add gestural `pan` support
-    - [x] Hold down `space` key to pan.
-    - [x] Add to nopaint act.
-    - [x] Two finger touch to pan.
-  - [x] Resizing the window should re-present the painting properly.
-  - [x] Add support for painting to be a `fixed` resolution.
-  - [x] Render a backdrop with 1px border showing the
-          edge of the painting.
-  - [x] All brush pixels need to be offset by the panned painting buffer
-    while rendering.
-  - [x] Use `bits` as a case study.
-  - [x] Center the rendering of the painting.
-  - [x] Add command for setting a constant resolution, which avoids
-        any resize hooks on the painting. 
-    - [x] Use "crop" brush or `resize` command for this?
-  - [x] Make a minimal `bits` brush.
-
-*** Ordsies ***
+*** Ordinals Collection ***
   + Now
    - [-] Add label / figure out a good motif.
+    - [] Create an official ordinals `digitpain` diary collection.
   + Done
    - [x] Inscribe a test ordinal. 
 *** Error Log / `errors` ***
