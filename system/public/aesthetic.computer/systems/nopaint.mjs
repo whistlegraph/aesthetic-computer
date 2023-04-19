@@ -53,6 +53,7 @@ function nopaint_act({
   if (nopaint_is("painting") && (e.is("move") || e.is("draw"))) {
     // if (debug) console.log("Updating brush...");
     system.nopaint.updateBrush(api);
+  }
 
   // Stop
   if (
