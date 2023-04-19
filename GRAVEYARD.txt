@@ -3,6 +3,9 @@
 
 * 23.02.10.14.42 and Earlier
 
+*** N and P Shortcut ***
+  - [x] Shouldn't these shortcuts just return the user back to the prompt?
+
 *** User Uploaded Paintings ***
   - [x] Test download links on desktop and mobile: https://localhost:8888/download:painting~me@jas.life/painting-2023.3.12.13.02.14
   - [x] Modify `download` to accept a painting and offer special link.

@@ -108,12 +108,6 @@
     - [x] Use "crop" brush or `resize` command for this?
   - [x] Make a minimal `bits` brush.
 
-*** N and P Shortcut ***
-  - [] Do not work across all brushes.
-  - [] Should probably not have a screen flicker / when does this happen?
-  - [] Prevent mouse flicker on `n` and `p`.
-  - [] Should they return the user back to the prompt?
-
 *** Generic Image / Photo Uploader ***
   - Data entry process
    - [] 1. go to ac and type `pic`

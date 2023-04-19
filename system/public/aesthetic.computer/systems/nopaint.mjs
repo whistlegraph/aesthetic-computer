@@ -25,6 +25,7 @@ function nopaint_act({
   store,
   reload,
   api,
+  jump
 }) {
   if (e.is("keyboard:down:enter")) {
     download(`painting-${num.timestamp()}.png`, system.painting, {
@@ -59,7 +60,7 @@ function nopaint_act({
   // Reset pan by holding shift while alt is pressed down.
   if (panning && e.is("keyboard:down:shift")) {
     panning = false;
-    system.nopaint.translation = { x: 0, y: 0 };
+    system.nopaint.resetTransform(api);
     system.nopaint.present(api);
   }
 
@@ -69,15 +70,14 @@ function nopaint_act({
     system.nopaint.present(api);
   }
 
-  // No and then reload the same brush / reload without storing
-  // the painting.
+  // No and then return to the prompt.
   if (e.is("keyboard:down:n") && !loading) {
     system.nopaint.abort();
-    reload();
+    jump('prompt');
   }
 
-  // Paint and then reload the same brush.
-  if (e.is("keyboard:down:p") && !loading) reload();
+  // Paint and then go to the prompt, same as default behavior "`".
+  if (e.is("keyboard:down:p") && !loading) jump('prompt');
 }
 
 // 📚 Library
@@ -106,7 +106,7 @@ function nopaint_adjust(screen, sys, painting, store, size = null) {
     store.persist("painting:resolution-lock", "local:db");
     store.persist("painting", "local:db"); // Also persist the painting.
     sys.nopaint.translation = { x: 0, y: 0 }; // Reset the transform.
-    sys.nopaint.setTransform({ system: sys, screen }); // Reset transform.
+    sys.nopaint.resetTransform({ system: sys, screen }); // Reset transform.
     storeTransform(store, sys);
   }
 }

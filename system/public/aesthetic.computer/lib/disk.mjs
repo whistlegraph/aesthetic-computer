@@ -384,8 +384,8 @@ const $commonApi = {
           needsPaint();
         }
       },
-      // Center the picture within the screen.
-      setTransform: ({ system: sys, screen }) => {
+      // Center the picture within the screen / default translation.
+      resetTransform: ({ system: sys, screen }) => {
         if (!sys.painting) {
           sys.nopaint.translation = { x: 0, y: 0 };
           return;
@@ -463,7 +463,7 @@ const $commonApi = {
         await store.delete("painting:transform", "local:db");
         system.nopaint.undo.paintings.length = 0; // Reset undo stack.
         system.painting = null;
-        system.nopaint.setTransform({ system, screen }); // Reset transform.
+        system.nopaint.resetTransform({ system, screen }); // Reset transform.
         needsPaint();
         return deleted;
       },
