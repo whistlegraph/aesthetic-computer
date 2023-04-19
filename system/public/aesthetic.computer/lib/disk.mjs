@@ -353,8 +353,8 @@ const $commonApi = {
       act: nopaint_act,
       is: nopaint_is,
       undo: { paintings: undoPaintings },
+      needsBake: false,
       no: ({ system, store, needsPaint }) => {
-        // Ripped straight from prompt!
         const paintings = system.nopaint.undo.paintings;
 
         if (paintings.length > 1) {

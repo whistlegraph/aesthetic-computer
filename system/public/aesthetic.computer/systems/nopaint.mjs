@@ -51,13 +51,17 @@ function nopaint_act({
 
   // Track
   if (nopaint_is("painting") && (e.is("move") || e.is("draw"))) {
-    console.log("Updating brush...");
+    // if (debug) console.log("Updating brush...");
     system.nopaint.updateBrush(api);
-  }
 
   // Stop
-  if (e.is("lift") && (e.device === "mouse" || pens().length === 0)) {
+  if (
+    nopaint_is("painting") &&
+    e.is("lift") &&
+    (e.device === "mouse" || pens().length === 0)
+  ) {
     state = "idle";
+    system.nopaint.needsBake = true;
     if (debug) console.log("🖌️ Not painting...");
   }
 
