@@ -41,7 +41,12 @@ function nopaint_act({
 
   if (e.is("move") || e.is("draw")) system.nopaint.updateBrush(api);
 
-  if (e.is("keyboard:down:alt") || e.is("touch:2")) panning = true;
+  if (
+    e.is("keyboard:down:alt") ||
+    ((e.is("touch:2") || e.is("touch:1")) && pens().length === 2)
+  ) {
+    panning = true;
+  }
 
   // Reset pan by holding shift while alt is pressed down.
   if (panning && e.is("keyboard:down:shift")) {
@@ -50,7 +55,10 @@ function nopaint_act({
     system.nopaint.present(api);
   }
 
-  if (e.is("keyboard:up:alt") || e.is("lift:2")) {
+  if (
+    panning &&
+    (e.is("keyboard:up:alt") || e.is("lift:2") || e.is("lift:1"))
+  ) {
     panning = false;
     storeTransform(store, system); // Store the translation after completion.
   }
