@@ -1,5 +1,8 @@
 // No Paint
-// This module contains all of the nopaint system template functionality.
+// This module contains *most* of the nopaint system template functionality.
+// Shared functionality can be found in `disk.mjs`.
+
+let state = "idle";
 
 // Used when defining a custom piece functions in a nopaint system brush to
 // inherit common behavior.
@@ -8,11 +11,13 @@ function nopaint_boot({ api, screen, system, painting, store }) {
   system.nopaint.present(api);
 }
 
-let panning = false;
-
 function storeTransform(store, sys) {
   store["painting:transform"] = { translation: sys.nopaint.translation };
   store.persist("painting:transform", "local:db");
+}
+
+function nopaint_is(stateQuery) {
+  return state === stateQuery;
 }
 
 function nopaint_act({
@@ -23,9 +28,10 @@ function nopaint_act({
   painting,
   loading,
   store,
-  reload,
+  pens,
   api,
-  jump
+  jump,
+  debug,
 }) {
   if (e.is("keyboard:down:enter")) {
     download(`painting-${num.timestamp()}.png`, system.painting, {
@@ -34,32 +40,60 @@ function nopaint_act({
     });
   }
 
-  if (e.is("move") || e.is("draw")) system.nopaint.updateBrush(api);
+  // 🖌️ Painting
 
-  // Panning (held 'alt' key or two finger drag)
-  if (
-    e.is("keyboard:down:alt") // ||
-    //((e.is("touch:2") || e.is("touch:1")) && pens().length === 2)
-  ) {
-    panning = true;
+  // Start
+  if (e.is("touch:1")) {
+    state = "painting";
+    system.nopaint.updateBrush(api);
+    if (debug) console.log("🖌️ Painting!");
   }
 
-  if (e.is("move") && panning) {
+  // Track
+  if (nopaint_is("painting") && (e.is("move") || e.is("draw"))) {
+    console.log("Updating brush...");
+    system.nopaint.updateBrush(api);
+  }
+
+  // Stop
+  if (e.is("lift") && (e.device === "mouse" || pens().length === 0)) {
+    state = "idle";
+    if (debug) console.log("🖌️ Not painting...");
+  }
+
+  // 🧭 Panning (held 'alt' key or two finger drag)
+
+  // Start
+  if (
+    e.is("keyboard:down:alt") ||
+    ((e.is("touch:2") || e.is("touch:1")) && pens().length === 2)
+  ) {
+    if (debug) console.log("🧭 Panning!");
+    state = "panning";
+  }
+
+  // Track
+  if (nopaint_is("panning") && (e.is("move") || e.is("draw"))) {
     system.nopaint.translate(api, e.delta.x, e.delta.y);
     system.nopaint.present(api);
   }
 
+  // End
   if (
-    panning &&
-    e.is("keyboard:up:alt") /*|| e.is("lift:2") || e.is("lift:1")*/
+    nopaint_is("panning") &&
+    (e.is("keyboard:up:alt") || e.is("lift:2") || e.is("lift:1"))
   ) {
-    panning = false;
+    if (debug) console.log("🧭 Not panning...");
+    state = "idle";
     storeTransform(store, system); // Store the translation after completion.
   }
 
-  // Reset pan by holding shift while alt is pressed down.
-  if (panning && e.is("keyboard:down:shift")) {
-    panning = false;
+  // Reset: By holding shift while alt is pressed down.
+  if (
+    nopaint_is("panning") &&
+    (e.is("keyboard:down:shift") || e.is("touch:3"))
+  ) {
+    state = "idle";
     system.nopaint.resetTransform(api);
     system.nopaint.present(api);
   }
@@ -73,11 +107,11 @@ function nopaint_act({
   // No and then return to the prompt.
   if (e.is("keyboard:down:n") && !loading) {
     system.nopaint.abort();
-    jump('prompt');
+    jump("prompt");
   }
 
   // Paint and then go to the prompt, same as default behavior "`".
-  if (e.is("keyboard:down:p") && !loading) jump('prompt');
+  if (e.is("keyboard:down:p") && !loading) jump("prompt");
 }
 
 // 📚 Library
@@ -111,4 +145,4 @@ function nopaint_adjust(screen, sys, painting, store, size = null) {
   }
 }
 
-export { nopaint_boot, nopaint_act, nopaint_adjust };
+export { nopaint_boot, nopaint_act, nopaint_is, nopaint_adjust };

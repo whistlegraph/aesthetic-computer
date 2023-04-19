@@ -2,42 +2,37 @@
 // Inherits from the "nopaint" system, which predefines boot, act, and leave.
 
 /* #region ✅ TODO 
-  + Done
-  - [x] Add support for panned navigation.
-  - [x] Add `n` and `p` support.
+ - [🟢] Write the ideal "rect" brush code.
+  - [] Abstract "needsBake" into nopaint. 
+ + Done
+ - [x] I need an abstraction to know whether we are making a brush
+       stroke or not, in order to manage panning and drawing logic
+       across platforms.
 #endregion */
 
 let needsBake = false;
 let rect;
 
 // 🎨
-export function paint({
-  api,
-  params,
-  pen,
-  ink,
-  system: sys,
-  screen,
-  page,
-  geo: { Box },
-}) {
+export function paint({ api, params, pen, ink, system, screen, page, geo }) {
   const color = params.map((str) => parseInt(str));
 
-  if (needsBake) {
+  if (needsBake && rect) {
     needsBake = false;
-    page(sys.painting).ink(color).box(rect).page(screen);
-    sys.nopaint.present(api);
+    page(system.painting).ink(color).box(rect).page(screen);
+    rect = null;
+    system.nopaint.present(api);
   }
 
-  if (pen?.drawing && pen.dragBox) {
-    sys.nopaint.present(api);
+  if (system.nopaint.is("painting") && pen?.dragBox) {
+    system.nopaint.present(api);
 
     ink(color).box(
-      Box.copy(pen.dragBox).abs.crop(0, 0, screen.width, screen.height)
+      geo.Box.copy(pen.dragBox).abs.crop(0, 0, screen.width, screen.height)
     ); // Render an overlay box.
 
     // Remember the brush box.
-    rect = Box.copy(sys.nopaint.brush.dragBox).abs.crop(
+    rect = geo.Box.copy(system.nopaint.brush.dragBox).abs.crop(
       0,
       0,
       screen.width,
@@ -48,6 +43,7 @@ export function paint({
 
 export function act({ event: e, system, api }) {
   system.nopaint.act(api); // Inherit nopaint's act functionality.
+
   if (e.is("lift")) needsBake = true;
 }
 

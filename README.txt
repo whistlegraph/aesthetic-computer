@@ -63,28 +63,31 @@
 
 *** Watchlist ***
   - [] https://www.youtube.com/watch?v=KrPsyr8Ig6M
-  
+
 *** CPU Resizable & Navigable 2D Painting ***
-  - [🔴] Test two finger drag on mobile.
-    - [] Work out a final API that makes sense for every brush by implementing,
-         in order...
+  - [🟡] Work out a final API / new abstraction that makes sense for every 2D
+       brush, taking into account a possible GPU renderer and eliminating
+       duplicated logic. 
+      - [🟡] Make `rect` a final API example
+    - [] Implement all other brushes:
+      - [] `oval`
       - [] `line`
       - [] `smear`
       - [] `camera`
       - [] `icon`
       - [] `word`
       - [] `sign`
+      - [] `bits`
+  - [] Measure performance.
       + Done
-      - [x] `oval`
       - [x] `rect` and `oval` both can drop a frame...
-      - [x] `bits`
-      - [x] `rect`
   + Later
   - [] Refactor translation code to eventually add and store rotation, zoom,
        etc.
     - [] Add software zoom.
     - [] Add software rotation.
   + Done
+  - [x] Test two finger drag on mobile.
   - [x] Add a reset pan prompt command or button.
   - [x] Why does holding alt continue the drawing / why is there a frame
         delay after pen?.drawing?   
@@ -108,6 +111,19 @@
     - [x] Use "crop" brush or `resize` command for this?
   - [x] Make a minimal `bits` brush.
 
+*** Ranged Parameter Support ***
+  - [] Generalize ranged parameters. 
+    - [] Extract the current implementation from `oval` into a general
+         params parser that detects type and returns a filtered list.
+
+*** Ordinals Collection ***
+  + Now
+   - 📓 This collection should be fully analog.
+        I should keep a list of sats somewhere in a notebook,
+        then sign drawings and upload them.
+  + Done
+   - [x] Inscribe a test ordinal. 
+
 *** Generic Image / Photo Uploader ***
   - Data entry process
    - [] 1. go to ac and type `pic`
@@ -118,8 +134,9 @@
     - [] 1. visit ac and type `code` to view the image
 
 *** `evolve` ***
-  - [] Transform a painting from one state to another using ML.
-       (https://chat.openai.com/chat/1c0e4f20-7cb5-441f-a7e4-7b77fb55135d)
+  - [] Research image net APIs. 
+    - Transform a painting from one state to another using ML.
+      (https://chat.openai.com/chat/1c0e4f20-7cb5-441f-a7e4-7b77fb55135d)
 
 *** Code Lookup / Analog <-> Digital Workflow ***
   - Data entry process
@@ -130,12 +147,6 @@
   - Viewing process
       1. visit ac and type `code` to view the image
 
-*** Ordinals Collection ***
-  + Now
-   - [-] Add label / figure out a good motif.
-    - [] Create an official ordinals `digitpain` diary collection.
-  + Done
-   - [x] Inscribe a test ordinal. 
 *** Error Log / `errors` ***
   - [] Log all mistyped commands with a score count and display them in order.
     - [] I could just use redis for this...
@@ -145,7 +156,6 @@
                 in order?
   - [] Deletable paintings.
   - [] Painting feed.
-
 
 *** Tape & Tapes ***
   `tape`
@@ -179,12 +189,13 @@
   - [] Always show whether we are connected to the internet or not.
 
 *** @rcrdlbl ***
-  - [🧡] IRL meetup
+  - [💛] Implement auth0 "default" / uncustomizable login styling.
   - [] moving $api calls around in `disk`
   - [] making some brushes
   - [] make `bleep` reset BPM to default on exiting
     - [] @digitpain make BPM settable in the leave function
   + Done
+  - [x] IRL meetup
   - [x] auth0 login screen
 
 *** Mood ***

@@ -3,8 +3,7 @@
 
 /* #region 📓 TODO 
   - [-] Circle locking / circle to a locked oval!
-  - [] Outlined ovals.
-  - [] Generalize ranged parameters.
+  - [] Outlined ovals with line thickness support.
   + Done
   - [x] Add pan support.
   - [x] Filled ovals of different shapes and sizes.

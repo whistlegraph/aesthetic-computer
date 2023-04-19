@@ -67,6 +67,8 @@ function boot($) {
   glaze({ on: true }); // TODO: Every glaze triggers `frame` in `disk`, this could be optimized. 2022.04.24.04.25
 
   let motd =
+    `"chaos in a system"                             ` +
+    `                                                ` +
     `Try typing:                                     ` +
     `                                                ` +
     ` 'ff'                                           ` +

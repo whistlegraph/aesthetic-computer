@@ -17,7 +17,7 @@ import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket
 // import { UDP } from "./udp.mjs"; // TODO: Eventually expand to `net.Socket`
 import { notArray } from "./helpers.mjs";
 const { round } = Math;
-import { nopaint_boot, nopaint_act } from "../systems/nopaint.mjs";
+import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
 import { headers } from "./console-headers.mjs";
 import { logs } from "./logs.mjs";
 
@@ -351,6 +351,7 @@ const $commonApi = {
     nopaint: {
       boot: nopaint_boot, // TODO: Why are these in the commonApi? 23.02.12.14.26
       act: nopaint_act,
+      is: nopaint_is,
       undo: { paintings: undoPaintings },
       no: ({ system, store, needsPaint }) => {
         // Ripped straight from prompt!
