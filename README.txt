@@ -64,6 +64,9 @@
 *** Watchlist ***
   - [] https://www.youtube.com/watch?v=KrPsyr8Ig6M
 
+*** Experiential Art ***
+  - [] Answer `experiential-art.txt` questions for Wade / wild.xyz
+
 *** CPU Resizable & Navigable 2D Painting ***
   - [🟡] Work out a final API / new abstraction that makes sense for every 2D
        brush, taking into account a possible GPU renderer and eliminating
