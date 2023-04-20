@@ -13,6 +13,7 @@ import {
 } from "./num.mjs";
 
 import { repeat } from "./help.mjs";
+import { Box } from "./geo.mjs";
 import { nanoid } from "../dep/nanoid/nanoid.js";
 
 const { abs, sign, ceil, floor, sin, cos, min, max, PI } = Math;
@@ -944,14 +945,21 @@ function box() {
     } else if (arguments[0]) {
       // Object {x, y, w, h}
       // Note: Also works with anything that has width and height properties.
+
+      // Allow long names.
+      if (!isNaN(arguments[0].width)) arguments[0].w = arguments[0].width;
+      if (!isNaN(arguments[0].height)) arguments[0].h = arguments[0].height;
+
       x = arguments[0].x || 0;
       y = arguments[0].y || 0;
-      w = arguments[0].w || arguments[0].width;
-      h =
-        arguments[0].h ||
-        arguments[0].height ||
-        arguments[0].w ||
-        arguments[0].width;
+      w = arguments[0].w || 0;
+
+      if (isNaN(arguments[0].h)) {
+        h = w;
+      } else {
+        h = arguments[0].h;
+      }
+
       if (x === undefined || y === undefined || w === undefined) {
         return console.error(
           "Could not make a box {x,y,w,h} from:",
@@ -1007,12 +1015,17 @@ function box() {
   if (h === undefined) h = randInt(height);
   if (mode === undefined) mode = "fill"; // TODO: Add chooser here.
 
+  // Abs / normalize the parameters.
+  ({ x, y, w, h } = Box.from([x, y, w, h]).abs);
+
   // Check for "Center" at the end of mode.
   if (mode.endsWith(BOX_CENTER)) {
     x -= w / 2;
     y -= h / 2;
     mode = mode.slice(0, -BOX_CENTER.length); // Remove it.
   }
+
+  //console.log(x, y, w, h);
 
   // Apply any global pan translations.
   // x += panTranslation.x; // Note: Already processed in `line`.

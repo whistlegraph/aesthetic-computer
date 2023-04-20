@@ -85,7 +85,7 @@ function nopaint_act({
   ) {
     // if (debug) console.log("🧭 Not panning...");
     state = "idle";
-    syste.nopaint.storeTransform(store, system); // Store the translation after completion.
+    system.nopaint.storeTransform(store, system); // Store the translation after completion.
   }
 
   // Reset: By holding shift while alt is pressed down.
@@ -141,7 +141,7 @@ function nopaint_adjust(screen, sys, painting, store, size = null) {
     store.persist("painting", "local:db"); // Also persist the painting.
     sys.nopaint.translation = { x: 0, y: 0 }; // Reset the transform.
     sys.nopaint.resetTransform({ system: sys, screen }); // Reset transform.
-    storeTransform(store, sys);
+    sys.nopaint.storeTransform(store, sys);
   }
 }
 

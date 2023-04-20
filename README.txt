@@ -61,6 +61,11 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** ai brush ***
+  - [] Write a query and get back brush code in response.
+  - [] How can I hook this up easily?
+  - [] Test RunwayML: https://app.runwayml.com/video-tools/teams/me841/ai-tools/image-to-image
+
 *** Watchlist ***
   - [] https://www.youtube.com/watch?v=KrPsyr8Ig6M
 

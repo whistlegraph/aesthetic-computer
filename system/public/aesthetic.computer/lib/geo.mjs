@@ -51,7 +51,7 @@ export class Box {
   }
 
   // Yields a new box that is a copy of an existing old one.
-  static copy(box) {
+  static from(box) {
     if (Array.isArray(box)) {
       return new Box(...box);
     } else {

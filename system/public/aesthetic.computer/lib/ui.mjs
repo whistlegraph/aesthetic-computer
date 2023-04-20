@@ -80,7 +80,7 @@ class Button {
   constructor() {
     if (arguments.length === 1) {
       // Assume we are passing in a box {x,y,w,h} object.
-      this.box = Box.copy(arguments[0]);
+      this.box = Box.from(arguments[0]);
     } else this.box = new Box(...arguments); // Otherwise: x, y, w, h for a box.
   }
 

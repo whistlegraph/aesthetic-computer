@@ -14,38 +14,28 @@
        across platforms.
 #endregion */
 
-let rect;
+let rect, color;
+
+function boot({ params }) {
+  color = params.map((str) => parseInt(str));
+}
 
 // 🎨
-export function paint({ api, params, pen, ink, system, screen, page, geo }) {
-  const color = params.map((str) => parseInt(str));
+function paint({ pen, ink, system: { nopaint } }) {
+  if (nopaint.is("painting") && pen?.dragBox) {
+    ink(color).box(pen.dragBox); // Render an overlay box on the screen.
+    rect = nopaint.brush.dragBox; // Store current brush's dragged box geometry.
+  }
+}
 
-  if (system.nopaint.needsBake && rect) {
-    system.nopaint.needsBake = false;
-    page(system.painting).ink(color).box(rect).page(screen);
+// Paints a stroke to the current painting (in the nopaint system).
+function bake({ ink }) {
+  if (rect) {
+    ink(color).box(rect);
     rect = null;
-    system.nopaint.present(api);
-  }
-
-  if (system.nopaint.is("painting") && pen?.dragBox) {
-    system.nopaint.present(api);
-
-    ink(color).box(
-      geo.Box.copy(pen.dragBox).abs.crop(0, 0, screen.width, screen.height)
-    ); // Render an overlay box.
-
-    // Remember the brush box.
-    rect = geo.Box.copy(system.nopaint.brush.dragBox).abs.crop(
-      0,
-      0,
-      screen.width,
-      screen.height
-    );
   }
 }
 
-export function act({ event: e, system, api }) {
-  system.nopaint.act(api); // Inherit nopaint's act functionality.
-}
+const system = "nopaint";
 
-export const system = "nopaint:dont-paint-on-leave";
+export { boot, paint, bake, system };

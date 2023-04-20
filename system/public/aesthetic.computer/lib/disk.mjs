@@ -58,24 +58,28 @@ let hotSwap = null;
 // Boilerplate for a distributed raster editor.
 const nopaint = {
   pan: { x: 0, y: 0 }, // The current position / offset of the painting view.
-  boot: function boot($) {
-    // showHUD = false;
-    $.system.nopaint.boot($);
-  },
+  // boot: function boot($) {
+  // showHUD = false;
+  // $.system.nopaint.boot($);
+  // },
   act: function act($) {
     $.system.nopaint.act($);
+  },
+  bake: function bake($) {
+    $.system.nopaint.bake($);
   },
   leave: function leave({ store, system, page, screen }) {
     if (NPnoOnLeave === false) {
       // ^ This is set when reloading a brush without storing changes. (`N` key)
-      if (NPdontPaintOnLeave === false) {
+
+      //if (NPdontPaintOnLeave === false) {
         // Bake any changes into the existing painting using the screen buffer.
 
-        const p = system.nopaint.translation; // Offset by the pan position.
-        page(system.painting).paste(screen, -p.x, -p.y); // TODO: Why the + 1 offset here...
-        painting.paint(); // TODO: Why is this here?
-        page(screen);
-      }
+      //  const p = system.nopaint.translation; // Offset by the pan position.
+      //  page(system.painting).paste(screen, -p.x, -p.y); // TODO: Why the + 1 offset here...
+      //  painting.paint(); // TODO: Why is this here?
+      //  page(screen);
+      //}
 
       addUndoPainting(system.painting);
 
@@ -133,12 +137,14 @@ function addUndoPainting(painting) {
   console.log("💩 Added undo painting...", undoPaintings.length);
 }
 
+let system = null; // Used to add built-in templated behaviors like `nopaint`.
 let boot = defaults.boot;
 let sim = defaults.sim;
 let paint = defaults.paint;
 let beat = defaults.beat;
 let act = defaults.act;
 let leave = defaults.leave;
+let bake; // Currently only used by the `nopaint` system.
 
 let leaving = false;
 let leaveLoad; // A callback for loading the next disk after leaving.
@@ -265,7 +271,7 @@ let loadFailure;
 let wiggleAngle = 0;
 
 // TODO; Change this to true and update all brushes.
-let NPdontPaintOnLeave = false;
+// let NPdontPaintOnLeave = false;
 let NPnoOnLeave = false;
 
 // 🔴 Recorder (Singleton)
@@ -349,7 +355,7 @@ const $commonApi = {
   },
   system: {
     nopaint: {
-      boot: nopaint_boot, // TODO: Why are these in the commonApi? 23.02.12.14.26
+      //boot: nopaint_boot, // TODO: Why are these in the commonApi? 23.02.12.14.26
       act: nopaint_act,
       is: nopaint_is,
       undo: { paintings: undoPaintings },
@@ -1624,18 +1630,22 @@ async function load(
       // If there is no painting is in ram, then grab it from the local store,
       // or generate one.
 
+      /*
       if (module.system.split(":")[1] === "dont-paint-on-leave") {
         NPdontPaintOnLeave = true;
       } else {
         NPdontPaintOnLeave = false;
       }
+      */
 
-      boot = module.boot || nopaint.boot;
+      boot = module.boot || defaults.boot;
       sim = module.sim || defaults.sim;
       paint = module.paint || defaults.paint;
       beat = module.beat || defaults.beat;
       act = module.act || nopaint.act;
       leave = module.leave || nopaint.leave;
+      bake = module.bake || nopaint.bake;
+      system = "nopaint";
     } else {
       boot = module.boot || defaults.boot;
       sim = module.sim || defaults.sim;
@@ -1643,8 +1653,9 @@ async function load(
       beat = module.beat || defaults.beat;
       act = module.act || defaults.act;
       leave = module.leave || defaults.leave;
+      system = null;
 
-      delete $commonApi.system.name; // No system in use.
+      // delete $commonApi.system.name; // No system in use.
     }
 
     // ♻️ Reset global state for this piece.
@@ -2702,6 +2713,7 @@ async function makeFrame({ data: { type, content } }) {
           store["painting:transform"]?.translation || sys.nopaint.translation;
 
         try {
+          if (system === "nopaint") nopaint_boot($api);
           boot($api);
         } catch (e) {
           console.warn("🥾 Boot failure...", e);
@@ -2725,6 +2737,23 @@ async function makeFrame({ data: { type, content } }) {
         let paintOut;
 
         try {
+          // 📓 Bake any painting from the nopaint system before anything else.
+          if (system === "nopaint") {
+            const np = $api.system.nopaint;
+            // No Paint: baking
+            if (np.needsBake === true) {
+              $api.page($api.system.painting);
+              bake($api);
+              $api.page($api.screen);
+              np.present($api);
+              np.needsBake = false;
+            }
+
+            // No Paint: prepaint
+            if (np.is("painting")) np.present($api);
+          }
+
+          // All: Paint
           paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
         } catch (e) {
           console.warn("🎨 Paint failure...", e);

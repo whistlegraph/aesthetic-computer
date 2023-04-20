@@ -51,11 +51,11 @@ function paint({ pen, ink, page, screen, paste, geo, paintCount }) {
 
   if (lastDirtyBox) {
     paste(
-      { painting, crop: geo.Box.copy(lastDirtyBox) },
+      { painting, crop: geo.Box.from(lastDirtyBox) },
       lastDirtyBox.x,
       lastDirtyBox.y
     );
-    continuedBoxCopy = geo.Box.copy(lastDirtyBox);
+    continuedBoxCopy = geo.Box.from(lastDirtyBox);
     lastDirtyBox = undefined;
   } else {
     paste(painting);
@@ -72,7 +72,7 @@ function paint({ pen, ink, page, screen, paste, geo, paintCount }) {
 
     // Paste what was painted, cropped to the box.
     page(screen).paste(
-      { painting, crop: geo.Box.copy(db1.box) },
+      { painting, crop: geo.Box.from(db1.box) },
       db1.box.x,
       db1.box.y
     );
@@ -95,7 +95,7 @@ function paint({ pen, ink, page, screen, paste, geo, paintCount }) {
     db1.soil(pen);
   }
 
-  if (db1.soiled) lastDirtyBox = geo.Box.copy(db1.box); // Store what pixels were updated this frame.
+  if (db1.soiled) lastDirtyBox = geo.Box.from(db1.box); // Store what pixels were updated this frame.
 
   if (continuedBoxCopy) {
     db1.soil(continuedBoxCopy);
