@@ -44,6 +44,7 @@ let uploadProgress = 0; // If not zero, then draw a progress bar.
 // 🥾 Boot (Runs once before first paint and sim)
 function boot($) {
   const {
+    api,
     pieceCount,
     glaze,
     load,
@@ -161,6 +162,10 @@ function boot($) {
           flashColor = [255, 0, 0, 100]; // Red for failed undo.
         }
         makeFlash($);
+      } else if (text === "nopan") {
+        system.nopaint.resetTransform(api);
+        system.nopaint.storeTransform(store, system); // Store the translation after completion.
+        input.text = "";
       } else if (text === "painting:reset" || text === "no!") {
         const deleted = system.nopaint.noBang({
           system,
@@ -227,7 +232,7 @@ function boot($) {
         // Go to the Discord for now if anyone types help.
         jump("https://discord.gg/aesthetic-computer");
       } else if (text === "shillball" || text === "sb") {
-        // Shortcuts for Yeche's Shillball game. 
+        // Shortcuts for Yeche's Shillball game.
         jump("https://galerie-yechelange.baby/ball");
       } else if (text === "prod") {
         jump("https://prompt.ac"); // Visit the live site.

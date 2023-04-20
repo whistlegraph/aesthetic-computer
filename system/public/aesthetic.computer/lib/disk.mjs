@@ -399,6 +399,10 @@ const $commonApi = {
           screen.height / 2 - sys.painting.height / 2
         );
       },
+      storeTransform: (store, sys) => {
+        store["painting:transform"] = { translation: sys.nopaint.translation };
+        store.persist("painting:transform", "local:db");
+      },
       translation: { x: 0, y: 0 },
       translate: ({ system }, x, y) => {
         system.nopaint.translation.x += x;

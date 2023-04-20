@@ -11,11 +11,6 @@ function nopaint_boot({ api, screen, system, painting, store }) {
   system.nopaint.present(api);
 }
 
-function storeTransform(store, sys) {
-  store["painting:transform"] = { translation: sys.nopaint.translation };
-  store.persist("painting:transform", "local:db");
-}
-
 function nopaint_is(stateQuery) {
   return state === stateQuery;
 }
@@ -46,7 +41,7 @@ function nopaint_act({
   if (e.is("touch:1")) {
     state = "painting";
     system.nopaint.updateBrush(api);
-    if (debug) console.log("🖌️ Painting!");
+    // if (debug) console.log("🖌️ Painting!");
   }
 
   // Track
@@ -63,7 +58,7 @@ function nopaint_act({
   ) {
     state = "idle";
     system.nopaint.needsBake = true;
-    if (debug) console.log("🖌️ Not painting...");
+    // if (debug) console.log("🖌️ Not painting...");
   }
 
   // 🧭 Panning (held 'alt' key or two finger drag)
@@ -73,7 +68,7 @@ function nopaint_act({
     e.is("keyboard:down:alt") ||
     ((e.is("touch:2") || e.is("touch:1")) && pens().length === 2)
   ) {
-    if (debug) console.log("🧭 Panning!");
+    // if (debug) console.log("🧭 Panning!");
     state = "panning";
   }
 
@@ -88,9 +83,9 @@ function nopaint_act({
     nopaint_is("panning") &&
     (e.is("keyboard:up:alt") || e.is("lift:2") || e.is("lift:1"))
   ) {
-    if (debug) console.log("🧭 Not panning...");
+    // if (debug) console.log("🧭 Not panning...");
     state = "idle";
-    storeTransform(store, system); // Store the translation after completion.
+    syste.nopaint.storeTransform(store, system); // Store the translation after completion.
   }
 
   // Reset: By holding shift while alt is pressed down.
