@@ -3,6 +3,21 @@
 
 * 23.02.10.14.42 and Earlier
 
+*** `rect` ***
+ - [x] Add thickness to the rectangle outlines.
+ - [x] Write the ideal "rect" brush code.
+   - [x] Analyze how dragBox + drawing commands are working, reduce even more.
+ - [x] Add "center" rectangles.
+ - [x] Add unfilled rectangles.
+ - [x] Re-read brush code, squashing down the api bit by bit.
+ - [x] Starting a pan while mid stroke
+       cancels the stroke but still stamps
+       a rectangle when the pan ends and the mouse lifts. 
+ - [x] Abstract "needsBake" into nopaint. 
+ - [x] I need an abstraction to know whether we are making a brush
+       stroke or not, in order to manage panning and drawing logic
+       across platforms.
+
 *** N and P Shortcut ***
   - [x] Shouldn't these shortcuts just return the user back to the prompt?
 

@@ -73,7 +73,7 @@ const nopaint = {
       // ^ This is set when reloading a brush without storing changes. (`N` key)
 
       //if (NPdontPaintOnLeave === false) {
-        // Bake any changes into the existing painting using the screen buffer.
+      // Bake any changes into the existing painting using the screen buffer.
 
       //  const p = system.nopaint.translation; // Offset by the pan position.
       //  page(system.painting).paste(screen, -p.x, -p.y); // TODO: Why the + 1 offset here...
@@ -421,12 +421,12 @@ const $commonApi = {
         const pos = { x: (pen?.x || 0) - x, y: (pen?.y || 0) - y };
 
         // Transform the original dragBox
-        const dragBox = {
-          x: pen?.dragBox?.x - x,
-          y: pen?.dragBox?.y - y,
-          w: pen?.dragBox?.w,
-          h: pen?.dragBox?.h,
-        };
+        const dragBox = new geo.Box(
+          pen?.dragBox?.x - x,
+          pen?.dragBox?.y - y,
+          pen?.dragBox?.w,
+          pen?.dragBox?.h
+        );
 
         system.nopaint.brush = { x: pos.x, y: pos.y, dragBox };
       },
@@ -2198,6 +2198,11 @@ async function makeFrame({ data: { type, content } }) {
       //       Re-test this when pointers is not empty! 22.11.12.20.02
       const pointers = content.pen.pointers;
       const pointersValues = Object.values(pointers);
+
+      // Make all available dragBoxes into `Box` instances.
+      pointersValues.forEach((p) => {
+        if (p.dragBox) p.dragBox = geo.Box.from(p.dragBox);
+      });
 
       const pens = pointersValues.reduce((arr, value) => {
         arr[value.pointerIndex] = value;

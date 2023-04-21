@@ -93,6 +93,11 @@ export class Box {
     return this.w === 1 ? this.x : this.x + this.w;
   }
 
+  // Scales a box and returns a copy.
+  scale(n) {
+    return new Box(this.x, this.y, this.w * n, this.h * n);
+  }
+
   // Crops one box to another.
   crop(toX, toY, toW, toH) {
     let { x, y, w, h } = this;

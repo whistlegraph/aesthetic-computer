@@ -935,7 +935,7 @@ function box() {
     h,
     mode = "fill";
 
-  if (arguments.length === 1) {
+  if (arguments.length === 1 || arguments.length === 2) {
     // Array(4)
     if (Array.isArray(arguments[0])) {
       x = arguments[0][0];
@@ -967,13 +967,7 @@ function box() {
         );
       }
     }
-  } else if (arguments.length === 2) {
-    // box, mode
-    x = arguments[0].x;
-    y = arguments[0].y;
-    w = arguments[0].w;
-    h = arguments[0].h;
-    mode = arguments[1];
+    if (arguments[1]) mode = arguments[1];
   } else if (arguments.length === 3) {
     // x, y, size
     x = arguments[0];
@@ -1016,7 +1010,6 @@ function box() {
   if (mode === undefined) mode = "fill"; // TODO: Add chooser here.
 
   // Abs / normalize the parameters.
-  ({ x, y, w, h } = Box.from([x, y, w, h]).abs);
 
   // Check for "Center" at the end of mode.
   if (mode.endsWith(BOX_CENTER)) {
@@ -1025,22 +1018,56 @@ function box() {
     mode = mode.slice(0, -BOX_CENTER.length); // Remove it.
   }
 
+  ({ x, y, w, h } = Box.from([x, y, w, h]).abs);
+
   //console.log(x, y, w, h);
 
   // Apply any global pan translations.
   // x += panTranslation.x; // Note: Already processed in `line`.
   // y += panTranslation.y;
 
+  const thickness = parseInt(mode.split(":")[1]) || 1;
+  mode = mode.split(":")[0];
+
   if (mode === "outline" || mode === "out") {
-    line(x - 1, y - 1, x + w, y - 1); // Top
-    line(x - 1, y + h, x + w, y + h); // Bottom
-    line(x - 1, y, x - 1, y + h - 1); // Left
-    line(x + w, y, x + w, y + h - 1); // Right
+    if (thickness === 1) {
+      line(x - 1, y - 1, x + w, y - 1); // Top
+      line(x - 1, y + h, x + w, y + h); // Bottom
+      line(x - 1, y, x - 1, y + h - 1); // Left
+      line(x + w, y, x + w, y + h - 1); // Right
+    } else {
+      const leftX = x - thickness;
+      const topY = y - thickness;
+      const rightX = x + w + thickness;
+      const bottomY = y + h + thickness;
+      const boxHeight = h + thickness * 2;
+      const boxWidth = w + thickness * 2;
+      box(leftX, topY, boxWidth, thickness); // Top box
+      box(leftX, bottomY - thickness, boxWidth, thickness); // Bottom box
+      box(leftX, topY + thickness, thickness, boxHeight - thickness * 2); // Left box
+      box(
+        rightX - thickness,
+        topY + thickness,
+        thickness,
+        boxHeight - thickness * 2
+      ); // Right box
+    }
   } else if (mode === "inline" || mode === "in") {
-    line(x, y, x + w - 1, y); // Top
-    line(x, y + h - 1, x + w - 1, y + h - 1); // Bottom
-    line(x, y + 1, x, y + h - 2); // Left
-    line(x + w - 1, y + 1, x + w - 1, y + h - 2); // Right
+    if (thickness === 1) {
+      line(x, y, x + w - 1, y); // Top
+      line(x, y + h - 1, x + w - 1, y + h - 1); // Bottom
+      line(x, y + 1, x, y + h - 2); // Left
+      line(x + w - 1, y + 1, x + w - 1, y + h - 2); // Right
+    } else {
+      if (thickness * 2 <= w && thickness * 2 <= h) {
+        box(x, y, w, thickness); // Top
+        box(x, y + h - thickness, w, thickness); // Bottom
+        box(x, y + thickness, thickness, h - thickness * 2); // Left
+        box(x + w - thickness, y + thickness, thickness, h - thickness * 2); // Right
+      } else {
+        box(x, y, w, h); // Just fill the box if the inline is too big.
+      }
+    }
   } else if (mode === "fill") {
     w -= 1;
     if (sign(height) === 1) {

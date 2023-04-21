@@ -1,39 +1,70 @@
-// Rect, 22.09.19.21.07
-// Inherits from the "nopaint" system, which predefines boot, act, and leave.
+// 🟦 Rect, 23.04.21.12.16
+//       22.09.19.21.07 (original)
+
+/* region docs 📚
+  Draw colored rectangles.
+  Use `rect:type:center color`
+            ^ use `o`, `i` or `f` for `outline`, `inline` or `fill`
+              `outline` and `inline` both take an integer for thickness.
+
+  Ex. `rect:o:c 255 0 0` for an outlined 1px rectangle.
+  Ex. `rect:i-2` for a randomly colored 2px inline rectangle.
+              ^ add a number here for thickness! 
+/* #endregion
 
 /* #region ✅ TODO 
- - [🟡] Write the ideal "rect" brush code.
-  - [🟢] Re-read brush code, squashing down the api bit by bit.
- + Done
- - [x] Starting a pan while mid stroke
-       cancels the stroke but still stamps
-       a rectangle when the pan ends and the mouse lifts. 
- - [x] Abstract "needsBake" into nopaint. 
- - [x] I need an abstraction to know whether we are making a brush
-       stroke or not, in order to manage panning and drawing logic
-       across platforms.
+  + Later
+  - [] Support rotated and zoomed paintings!
 #endregion */
 
-let rect, color;
+let rect,
+  color,
+  mode = "fill",
+  thickness,
+  centered = false;
 
-function boot({ params }) {
+// 🥾 Boot (Runs once before first paint and sim)
+function boot({ params, colon }) {
   color = params.map((str) => parseInt(str));
+
+  // Handle parameters for outline, inline, and fill.
+  if (colon[0].startsWith("outline") || colon[0].startsWith("o")) {
+    mode = "outline";
+  }
+
+  if (colon[0].startsWith("inline") || colon[0].startsWith("i")) {
+    mode = "inline";
+  }
+
+  if (colon[0] === "fill" || colon[0] === "f") mode = "fill";
+
+  // Set optional thickness.
+  if (mode === "outline" || mode === "inline") {
+    thickness = parseInt(colon[0].split("-")[1]);
+    mode += ":" + thickness;
+  }
+
+  // Draw from center or corner (default).
+  if (colon[1] === "center" || colon[1] === "c") {
+    mode += "*center";
+    centered = true;
+  }
 }
 
-// 🎨
+// 🎨 Paint (Executes every display frame)
 function paint({ pen, ink, system: { nopaint } }) {
   if (nopaint.is("painting") && pen?.dragBox) {
-    ink(color).box(pen.dragBox); // Render an overlay box on the screen.
-    rect = nopaint.brush.dragBox; // Store current brush's dragged box geometry.
+    const db = !centered ? pen.dragBox : pen.dragBox.scale(2);
+    ink(color).box(db, mode); // Paint a preview to the screen.
+    rect = !centered ? nopaint.brush.dragBox : nopaint.brush.dragBox.scale(2);
+    // ^ Remember a rect to be consumed in `bake`.
   }
 }
 
-// Paints a stroke to the current painting (in the nopaint system).
+// 🍪 Prints to the current painting.
 function bake({ ink }) {
-  if (rect) {
-    ink(color).box(rect);
-    rect = null;
-  }
+  if (rect) ink(color).box(rect, mode);
+  rect = null;
 }
 
 const system = "nopaint";
