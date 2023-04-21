@@ -59,8 +59,8 @@ let hotSwap = null;
 const nopaint = {
   pan: { x: 0, y: 0 }, // The current position / offset of the painting view.
   // boot: function boot($) {
-  // showHUD = false;
-  // $.system.nopaint.boot($);
+  //   // Runs after nopaint_boot.
+  //   // showHUD = false;
   // },
   act: function act($) {
     $.system.nopaint.act($);
@@ -1641,7 +1641,7 @@ async function load(
       }
       */
 
-      boot = module.boot || defaults.boot;
+      boot = module.boot || nopaint_boot;
       sim = module.sim || defaults.sim;
       paint = module.paint || defaults.paint;
       beat = module.beat || defaults.beat;
@@ -2286,7 +2286,7 @@ async function makeFrame({ data: { type, content } }) {
       $api.api = $api; // Add a reference to the whole API.
 
       lastActAPI = $api; // Remember this API for any other acts outside
-                         // of this loop, like like a focus change
+      // of this loop, like like a focus change
 
       //Object.assign($api, $commonApi);
       //Object.assign($api, $updateApi);

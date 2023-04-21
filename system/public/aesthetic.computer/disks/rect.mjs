@@ -10,7 +10,7 @@
   Ex. `rect:o:c 255 0 0` for an outlined 1px rectangle.
   Ex. `rect:i-2` for a randomly colored 2px inline rectangle.
               ^ add a number here for thickness! 
-/* #endregion
+#endregion */
 
 /* #region ✅ TODO 
   + Later
