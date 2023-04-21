@@ -15,6 +15,8 @@
 /* #region ✅ TODO 
   + Later
   - [] Support rotated and zoomed paintings!
+  + Done
+  - [x] Support ranged parameters
 #endregion */
 
 let rect,
@@ -24,15 +26,15 @@ let rect,
   centered = false;
 
 // 🥾 Boot (Runs once before first paint and sim)
-function boot({ params, colon }) {
-  color = params.map((str) => parseInt(str));
+function boot({ params, num, colon }) {
+  color = num.rangedInts(params);
 
   // Handle parameters for outline, inline, and fill.
-  if (colon[0].startsWith("outline") || colon[0].startsWith("o")) {
+  if (colon[0]?.startsWith("outline") || colon[0]?.startsWith("o")) {
     mode = "outline";
   }
 
-  if (colon[0].startsWith("inline") || colon[0].startsWith("i")) {
+  if (colon[0]?.startsWith("inline") || colon[0]?.startsWith("i")) {
     mode = "inline";
   }
 

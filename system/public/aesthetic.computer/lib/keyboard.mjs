@@ -49,15 +49,15 @@ export class Keyboard {
       if (e.key === "Unidentified" && e.which === 8) key = "Backspace";
       // if (e.key === "Unidentified" && e.which === 13) key = "Enter";
 
-        // Send a normal keyboard message if we are anywhere else.
-        this.events.push({
-          name: "keyboard:down:" + parseKey(key),
-          key,
-          repeat: e.repeat || repeat,
-          shift: e.shiftKey,
-          alt: e.altKey,
-          ctrl: e.ctrlKey,
-        });
+      // Send a normal keyboard message if we are anywhere else.
+      this.events.push({
+        name: "keyboard:down:" + parseKey(key),
+        key,
+        repeat: e.repeat || repeat,
+        shift: e.shiftKey,
+        alt: e.altKey,
+        ctrl: e.ctrlKey,
+      });
 
       if (e.key === "ArrowUp") e.preventDefault();
     });

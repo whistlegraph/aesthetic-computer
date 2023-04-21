@@ -116,6 +116,20 @@ export function randIntRange(low, high) {
   return low + randInt(high - low);
 }
 
+// Converts an array of strings formatted like "1-100" into an array of
+// random integer ranges.
+// 📓 Used for parsing ranged params (usually colors) inside of pieces.
+export function rangedInts(ints) {
+  return ints.map((str) => {
+    if (str.match(/^\d+-\d+$/)) {
+      const range = str.split("-");
+      return num.randIntRange(parseInt(range[0]), parseInt(range[1]));
+    } else {
+      return parseInt(str);
+    }
+  });
+}
+
 // Multiplies one or more [] operands by n and returns a Number or Array.
 export function multiply(operands, n) {
   if (Array.isArray(operands)) {

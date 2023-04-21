@@ -61,11 +61,11 @@ function nopaint_act({
     // if (debug) console.log("🖌️ Not painting...");
   }
 
-  // 🧭 Panning (held 'alt' key or two finger drag)
+  // 🧭 Panning (held 'shift' key or two finger drag)
 
   // Start
   if (
-    e.is("keyboard:down:alt") ||
+    e.is("keyboard:down:shift") ||
     ((e.is("touch:2") || e.is("touch:1")) && pens().length === 2)
   ) {
     // if (debug) console.log("🧭 Panning!");
@@ -81,17 +81,17 @@ function nopaint_act({
   // End
   if (
     nopaint_is("panning") &&
-    (e.is("keyboard:up:alt") || e.is("lift:2") || e.is("lift:1"))
+    (e.is("keyboard:up:shift") || e.is("lift:2") || e.is("lift:1"))
   ) {
     // if (debug) console.log("🧭 Not panning...");
     state = "idle";
     system.nopaint.storeTransform(store, system); // Store the translation after completion.
   }
 
-  // Reset: By holding shift while alt is pressed down.
+  // Reset: By holding `alt` while `shift` (aka meta) is pressed down.
   if (
     nopaint_is("panning") &&
-    (e.is("keyboard:down:shift") || e.is("touch:3"))
+    (e.is("keyboard:down:meta") || e.is("touch:3"))
   ) {
     state = "idle";
     system.nopaint.resetTransform(api);

@@ -72,13 +72,14 @@
 *** Experiential Art ***
   - [] Answer `experiential-art.txt` questions for Wade / wild.xyz
 
+*** Ranged Parameter Support ***
+  - [-] Generalize ranged parameters. 
+    - [] Extract the current implementation from `oval` into a general
+         params parser that detects type and returns a filtered list.
+
 *** CPU Resizable & Navigable 2D Painting ***
-  - [🟡] Work out a final API / new abstraction that makes sense for every 2D
-       brush, taking into account a possible GPU renderer and eliminating
-       duplicated logic. 
-      - [🟡] Make `rect` a final API example
-    - [] Implement all other brushes:
-      - [] `oval`
+    - [🟡] Implement all other brushes:
+      - [🟡] `oval`
       - [] `line`
       - [] `smear`
       - [] `camera`
@@ -88,6 +89,10 @@
       - [] `bits`
   - [] Measure performance.
       + Done
+      - [x] Work out a final API / new abstraction that makes sense for every 2D
+          brush, taking into account a possible GPU renderer and eliminating
+          duplicated logic. 
+        - [x] Make `rect` a final API example
       - [x] `rect` and `oval` both can drop a frame...
   + Later
   - [] Refactor translation code to eventually add and store rotation, zoom,
@@ -118,11 +123,6 @@
         any resize hooks on the painting. 
     - [x] Use "crop" brush or `resize` command for this?
   - [x] Make a minimal `bits` brush.
-
-*** Ranged Parameter Support ***
-  - [] Generalize ranged parameters. 
-    - [] Extract the current implementation from `oval` into a general
-         params parser that detects type and returns a filtered list.
 
 *** Ordinals Collection ***
   + Now

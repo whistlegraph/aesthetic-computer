@@ -332,6 +332,8 @@ class Recorder {
   }
 }
 
+let lastActAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
+
 // For every function to access.
 const $commonApi = {
   // Trigger background music.
@@ -514,6 +516,7 @@ const $commonApi = {
     randInt: num.randInt,
     randIntArr: num.randIntArr,
     randIntRange: num.randIntRange,
+    rangedInts: num.rangedInts,
     multiply: num.multiply,
     dist: num.dist,
     dist3d: num.dist3d,
@@ -1814,6 +1817,25 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "focus-change") {
+    if (!lastActAPI) return; // Hacky... 23.04.21.14.59
+    const $api = lastActAPI; // Focus change events have an empty API.
+    if (content !== inFocus) {
+      inFocus = content;
+      const data = {};
+      Object.assign(data, {
+        device: "none",
+        is: (e) => e === (inFocus === true ? "focus" : "defocus"),
+      });
+      $api.event = data;
+      try {
+        act($api);
+      } catch (e) {
+        console.warn("️ ✒ Act failure...", e);
+      }
+    }
+  }
+
   if (type === "before-unload") {
     // This has to be synchronous (no workers) to work, and is also often unreliable.
     // I should not design around using this event, other than perhaps
@@ -2263,11 +2285,14 @@ async function makeFrame({ data: { type, content } }) {
       );
       $api.api = $api; // Add a reference to the whole API.
 
+      lastActAPI = $api; // Remember this API for any other acts outside
+                         // of this loop, like like a focus change
+
       //Object.assign($api, $commonApi);
       //Object.assign($api, $updateApi);
       //Object.assign($api, painting.api);
 
-      $api.inFocus = content.inFocus;
+      $api.inFocus = inFocus;
 
       // console.log(content.audioTime); // Why does this freeze sometimes?
 
@@ -2321,6 +2346,8 @@ async function makeFrame({ data: { type, content } }) {
       // TODO: Could "device" be removed in favor of "device:event" strings and
       //       if needed, a device method?
 
+      // Window Events
+
       // Reframing the piece... (resizing the window).
       if (reframed === true) {
         $api.event = {
@@ -2365,22 +2392,6 @@ async function makeFrame({ data: { type, content } }) {
           console.warn("️ ✒ Act failure...", e);
         }
         signals.length = 0;
-      }
-
-      // Window Events
-      if (content.inFocus !== inFocus) {
-        inFocus = content.inFocus;
-        const data = {};
-        Object.assign(data, {
-          device: "none",
-          is: (e) => e === (inFocus === true ? "focus" : "defocus"),
-        });
-        $api.event = data;
-        try {
-          act($api);
-        } catch (e) {
-          console.warn("️ ✒ Act failure...", e);
-        }
       }
 
       // Keyboard Paste Event
@@ -2681,10 +2692,7 @@ async function makeFrame({ data: { type, content } }) {
       // 22.09.19.20.45
 
       if (paintCount === 0n) {
-        inFocus = content.inFocus; // Inherit our starting focus from host window.
-        // Read current dark mode.
-
-        const dark = await store.retrieve("dark-mode");
+        const dark = await store.retrieve("dark-mode"); // Read dark mode.
         if (dark === true || dark === false) $commonApi.dark = dark;
 
         // System specific preloaders.

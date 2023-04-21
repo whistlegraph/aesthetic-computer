@@ -815,7 +815,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           needsRender,
           updateCount,
           pixels: screen.pixels.buffer,
-          inFocus: true, // document.hasFocus(),
           audioTime: audioContext?.currentTime,
           audioBpm: sound.bpm, // TODO: Turn this into a messaging thing.
           audioMusicAmplitude: amplitude,
@@ -2893,6 +2892,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
   }
+
+  // Full Focus / Visibility
+  document.addEventListener("visibilitychange", function () {
+    send({
+      type: "focus-change",
+      content: !document.hidden,
+    });
+  });
 
   // 🚨 Signal (Used to pass messages via window... important for embedded HTML
   //           `content` used within pieces that needs communication with the
