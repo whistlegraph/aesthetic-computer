@@ -11,6 +11,10 @@ const { round, floor, random, PI, min, max, sqrt, pow, atan2, sin, cos } = Math;
 
 // Utilities for modifying {x, y} points.
 export const p2 = {
+  // Turn two values into an {x, y} point.
+  of: function (x, y) {
+    return { x, y };
+  },
   // Mutably add P->in to P->out.
   inc: function (pout, pin) {
     pout.x += pin.x;
@@ -53,9 +57,9 @@ export const p2 = {
   },
   // Immutably divide pA / pB.
   // If pA is a single number then this function expands it to an `{x, y}`.
-  // Note: Other library functions here could do the same. 2023.1.19 
+  // Note: Other library functions here could do the same. 2023.1.19
   div: function (pA, pB) {
-    if (typeof pA === "number") pA = {x: pA, y: pA};
+    if (typeof pA === "number") pA = { x: pA, y: pA };
     return {
       x: pA.x / pB.x,
       y: pA.y / pB.y,

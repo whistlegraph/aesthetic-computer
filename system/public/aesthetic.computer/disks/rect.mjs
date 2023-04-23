@@ -13,7 +13,6 @@
 #endregion */
 
 /* #region ✅ TODO 
-  + Later
   - [] Support rotated and zoomed paintings!
   + Done
   - [x] Support ranged parameters
@@ -38,7 +37,7 @@ function boot({ params, num, colon }) {
     mode = "inline";
   }
 
-  if (colon[0] === "fill" || colon[0] === "f") mode = "fill";
+  if (colon[0] === "fill" || colon[0] === "f") mode = "fill"; // Fill (default)
 
   // Set optional thickness.
   if (mode === "outline" || mode === "inline") {
@@ -57,16 +56,22 @@ function boot({ params, num, colon }) {
 function paint({ pen, ink, system: { nopaint } }) {
   if (nopaint.is("painting") && pen?.dragBox) {
     const db = !centered ? pen.dragBox : pen.dragBox.scale(2);
-    ink(color).box(db, mode); // Paint a preview to the screen.
-    rect = !centered ? nopaint.brush.dragBox : nopaint.brush.dragBox.scale(2);
-    // ^ Remember a rect to be consumed in `bake`.
+    ink(color).box(db, mode); // UI: Paint a preview to the screen.
+
+    const r = !centered
+      ? nopaint.brush.dragBox
+      : nopaint.brush.dragBox.scale(2);
+
+    rect = () => {
+      ink(color).box(r, mode);
+      rect = null;
+    }; // Painting: Write to the canvas permanently.
   }
 }
 
 // 🍪 Prints to the current painting.
-function bake({ ink }) {
-  if (rect) ink(color).box(rect, mode);
-  rect = null;
+function bake() {
+  rect?.();
 }
 
 const system = "nopaint";

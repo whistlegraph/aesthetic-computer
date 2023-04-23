@@ -1,4 +1,5 @@
 import {
+  p2,
   randInt,
   byteInterval17,
   vec2,
@@ -649,9 +650,9 @@ function circle(x0, y0, radius, filled = false) {
 }
 
 // TODO: Generate sampled points around a circle then use
-function oval(x0, y0, radiusX, radiusY, filled = false) {
+function oval(x0, y0, radiusX, radiusY, filled = false, thickness = 1) {
   const points = generateEllipsePoints(x0, y0, radiusX, radiusY);
-  shape({ points, filled });
+  shape({ points, filled, thickness });
 }
 
 // TODO: How can I relate precision to the circumference and avoid this little
@@ -1086,11 +1087,13 @@ function shape() {
   let argPoints;
   let points;
   let filled = true;
+  let thickness = 1; // Used if unfilled.
 
   if (arguments.length === 1 && !Array.isArray(arguments[0])) {
     // Assume an object {points, filled}
     argPoints = arguments[0].points;
     filled = arguments[0].filled;
+    thickness = arguments[0].thickness || thickness;
   } else {
     argPoints = arguments[0];
   }
@@ -1110,14 +1113,19 @@ function shape() {
     fillShape(points); // Fill the shape in with the chosen color.
   } else {
     // Make lines from 1->2->3->...->1
-    // Draw white points for each.
-    points.forEach((p, i) => {
-      //color(0, 255, 0, 100);
-      const lastPoint = i < points.length - 1 ? points[i + 1] : points[0];
-      line(...p, ...lastPoint);
-      //color(255, 255, 255);
-      //point(...p);
-    });
+    if (thickness === 1) {
+      points.forEach((p, i) => {
+        const lastPoint = i < points.length - 1 ? points[i + 1] : points[0];
+        line(...p, ...lastPoint);
+      });
+    } else {
+      // Thicker outline using pline.
+      points.push(points[0]);
+      pline(
+        points.map((p) => p2.of(...p)),
+        thickness
+      );
+    }
   }
 }
 
