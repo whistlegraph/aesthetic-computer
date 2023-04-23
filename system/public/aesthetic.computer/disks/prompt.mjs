@@ -238,6 +238,8 @@ function boot($) {
         jump("https://prompt.ac"); // Visit the live site.
       } else if (text === "local") {
         jump("https://localhost:8888"); // Go to the local dev server.
+      } else if (text === "bsoehhdkcvkl" || text === "hqdekuvdjrz") {
+        jump("https://ordinals.com/sat/" + text); // Jump to an official ordinal inscription.
       } else {
         // 🟠 Local and remote pieces...
         load(parse(text)); // Execute the current command.
