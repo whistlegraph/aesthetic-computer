@@ -79,16 +79,17 @@
 
 *** CPU Resizable & Navigable 2D Painting ***
     - [🟡] Implement all other brushes:
-      - [🟡] `oval`
+      - [] Add `color words` to `rect`.
       - [] `line`
+      - [] `word`
       - [] `smear`
       - [] `camera`
       - [] `icon`
-      - [] `word`
       - [] `sign`
       - [] `bits`
   - [] Measure performance.
       + Done
+      - [x] `oval`
       - [x] Work out a final API / new abstraction that makes sense for every 2D
           brush, taking into account a possible GPU renderer and eliminating
           duplicated logic. 

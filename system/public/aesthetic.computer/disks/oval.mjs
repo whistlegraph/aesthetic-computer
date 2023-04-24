@@ -33,7 +33,7 @@ let oval,
   circle = false;
 
 function boot({ params, num, colon }) {
-  color = num.rangedInts(params);
+  color = num.parseColor(params);
 
   // Handle parameters for outline, inline, and fill.
   if (colon[0]?.startsWith("outline") || colon[0]?.startsWith("o")) {

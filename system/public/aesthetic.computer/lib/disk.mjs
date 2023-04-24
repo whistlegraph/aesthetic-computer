@@ -533,6 +533,7 @@ const $commonApi = {
     mat3: num.mat3,
     mat4: num.mat4,
     quat: num.quat,
+    parseColor: num.parseColor,
     saturate: num.saturate,
     desaturate: num.desaturate,
     shiftRGB: num.shiftRGB,

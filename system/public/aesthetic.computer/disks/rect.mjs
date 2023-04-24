@@ -24,9 +24,10 @@ let rect,
   thickness,
   centered = false;
 
+
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({ params, num, colon }) {
-  color = num.rangedInts(params);
+  color = num.parseColor(params);
 
   // Handle parameters for outline, inline, and fill.
   if (colon[0]?.startsWith("outline") || colon[0]?.startsWith("o")) {
