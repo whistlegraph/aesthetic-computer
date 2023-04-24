@@ -268,11 +268,14 @@ export function parseColor(params) {
       params[params.length - 1] = alpha.toString();
     }
 
+
     return rangedInts(params);
   } else {
     let name = params[0].toLowerCase(); // Assume a css color string.
     let alpha = calculateAlpha(params[1]); // Calculate alpha param.
+
     if (name === "?") name = anyKey(cssColors); // Pick a name if `?` is passed.
+
 
     if (name in cssColors) {
       return [...cssColors[name], alpha];
@@ -284,7 +287,7 @@ export function parseColor(params) {
 
 // Just used in parseColor above.
 // TODO: Float has no range support.
-function calculateAlpha(alphaParam) {
+function calculateAlpha(alphaParam = "255") {
   if (alphaParam === "?") return randIntRange(5, 255); // Always show a bit.
   let alpha = parseFloat(alphaParam);
   if (alpha >= 0 && alpha <= 1) {

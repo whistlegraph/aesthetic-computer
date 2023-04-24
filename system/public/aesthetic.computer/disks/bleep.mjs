@@ -161,9 +161,6 @@ function boot($) {
   }
 }
 
-// 🧮 Sim(ulate) (Runs once per logic frame (120fps locked)).
-function sim($api) {}
-
 // 🎨 Paint (Executes every display frame)
 function paint($) {
   const { wipe, screen, ink } = $;
@@ -236,4 +233,4 @@ function leave($api) {
 // 📚 Library (Useful classes & functions used throughout the piece)
 // ...
 
-export { boot, sim, paint, act, beat, leave };
+export { boot, paint, act, beat, leave };

@@ -28,67 +28,11 @@ Jeffrey (me@jas.life / digitpain#2262 / @digitpain)
 // 🥾 Boot (Runs once before first paint and sim)
 // function boot({wipe, ink, screen }) {
 //   wipe(0);
-//   ink(255, 0, 0).line(0, 0, screen.width, screen.height);
 // }
 
-
-function boot({ wipe, ink, screen }) {
-  const colors = [
-    [255, 0, 0], // Red
-    [255, 165, 0], // Orange
-    [255, 255, 0], // Yellow
-    [0, 128, 0], // Green
-    [0, 0, 255], // Blue
-    [75, 0, 130], // Indigo
-    [238, 130, 238], // Violet
-  ];
-
-  const radius = Math.min(screen.width, screen.height) / 4;
-
-  wipe(0);
-
-  for (let i = 0; i < colors.length; i++) {
-    const [r, g, b] = colors[i];
-    ink(r, g, b).circle(screen.width / 2, screen.height / 2, radius + i * 3);
-  }
-
-  // Draw eyes
-  ink(255, 255, 255).circle(
-    screen.width / 2 - radius / 2,
-    screen.height / 2 - radius / 2,
-    radius / 5
-  );
-  ink(255, 255, 255).circle(
-    screen.width / 2 + radius / 2,
-    screen.height / 2 - radius / 2,
-    radius / 5
-  );
-  ink(0, 0, 0).circle(
-    screen.width / 2 - radius / 2,
-    screen.height / 2 - radius / 2,
-    radius / 10
-  );
-  ink(0, 0, 0).circle(
-    screen.width / 2 + radius / 2,
-    screen.height / 2 - radius / 2,
-    radius / 10
-  );
-
-  // Draw mouth
-  ink(255, 255, 255).line(
-    screen.width / 2 - radius / 2,
-    screen.height / 2 + radius / 2,
-    screen.width / 2 + radius / 2,
-    screen.height / 2 + radius / 2
-  );
-}
-
-
-
-
 // 🎨 Paint (Executes every display frame)
-function paint($) {
-}
+// function paint($) {
+// }
 
 /*
 // ✒ Act (Runs once per user interaction)
@@ -112,7 +56,7 @@ function leave($api) {
 }
 */
 
+// export { boot, paint }
+
 // 📚 Library (Useful functions used throughout the piece)
 // ...
-
-export { boot, paint }

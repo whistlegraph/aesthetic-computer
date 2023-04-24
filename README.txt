@@ -61,6 +61,42 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Happy Hands 🖐️😃 ***
+  (All hands are defined by integer ids 0-n)
+
+  - [] Define command set for pipeline.
+
+    - Creating and Publishing
+
+    (pattern -> body) -> style -> face
+      mesh creation
+
+    1. `hhf` aka `happy-hand-factory` with an integer. (REQUIRED, fail if no param)
+      - Tie us to working with a particular hand and jumps to step A by default.
+      - Go to another step with: `hhf:body 800` 
+
+    Today
+      - [] Create `hhf` piece. (hhf.mjs)
+        - [🟡] Limit the count to 1024 or something like that. 
+        - [] Set on the client a global variable that determines what
+              hand we are "on".
+        -------------------------
+        - [] Onboard @ttarigh to the repo. 
+        -------------------------
+        - [] Draw and define the 2D mesh thingy.
+    + Done
+      - [x] Find good name for this process...
+      - [x] Creating `happy-hands-factory` with an alias `hhf`.
+
+    - Viewing and Using
+    1. `hh` or `happy-hand` takes you to using a random hand from 0-n.
+    2. `hh 800` will view a hand
+    + Later
+    3. `hh 100 200` will start a 2 person call where a link is given and
+        guest 2 is 200. 
+    4. `ht` or `hand-time` is just a `hh` alias?
+    5. `ht 5` -> a room with 5 random hands?
+
 *** ai brush ***
   - [] Write a query and get back brush code in response.
   - [] How can I hook this up easily?

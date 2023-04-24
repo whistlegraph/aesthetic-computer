@@ -1612,12 +1612,18 @@ async function load(
         // running a local aesthetic.computer piece.
       }
     }
-
     leaving = true;
-
     url
       ? $commonApi.net.web(to)
       : (leaveLoad = () => load(parse(to), ahistorical, alias));
+  };
+
+  $commonApi.alias = function alias(name, colon, params) {
+    $commonApi.jump(
+      name + colon.map((c) => `:` + c).join("") + params.map((p) => `~` + p).join(""),
+      true,
+      false
+    );
   };
 
   // Go back to the previous piece, or to the prompt if there is no history.

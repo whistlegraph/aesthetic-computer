@@ -3,10 +3,9 @@
 // It's mostly an experiment in abstraction.
 
 // 🥾 Boot (Runs once before first paint and sim)
-export function boot({ params, jump, store }) {
+export function boot({ colon, params, alias }) {
   // Just pass all parameters to `freaky-flowers`.
-  // store["ff"] = true; // But remember where we came from!
-  jump(`freaky-flowers` + params.map((p) => `~` + p).join(""), true, false);
+  alias(`freaky-flowers`, colon, params);
 }
 
 export { meta } from "../disks/freaky-flowers.mjs";
