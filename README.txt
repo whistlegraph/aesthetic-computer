@@ -1106,16 +1106,23 @@
 `aesthetic.computer` is virtual computer environment / interface designed for
  creative exploration. development requires `nodejs`, `git-lfs`, an up-to-date web browser,
  and knowledge of javascript. if you're interested in learning how to do any of
- this, visit https://discord.gg/digitpain and i'll help you out - jeffrey 2022.04.24.05.05
+ this, visit https://discord.com/invite/aesthetic-computer and i'll help you out - jeffrey 2022.04.24.05.05
+
+ Redis
+  0. You may need to install `redis` to get the live reload working properly
+     on local.
+  1. You can use homebrew for this and a default install should be fine, so 
+     long as `redis-cli` works.
 
 Make sure `git` and is installed, (you can do that through `homebrew`) and then get set up for development:
   0. Also install `fnm` the node version manager. (and add environtment variables to your shell: https://github.com/Schniz/fnm#shell-setup)
+  0.0a Open new terminal window and cd into aesthetic.computer directory install node version 
   1. Check `ssl-dev/readme.txt` to generate and add local SSL certificates.
   2. `npm install` from the project directory.
   3. `cd` into `session-server` and `npm install` as well.
   4. Get added to the Netlify project as a collaborator.
   5. `cd` into `system` and run `npx netlify login` and then `npx netlify link`
-  6. Now run `npm run code` and in another shell `npm run server:session`.
+  6. Now from the `aesthetic computer` directory run `npm run code` and in another shell `npm run server:session`.
   7. Visit `https://localhost:8888` to view the running site! 
   8. If you need local copies of the site's rich media `assets` then ask Jeffrey
      and you can slurp them from S3 so you can run the below.
@@ -1124,11 +1131,7 @@ Static Assets
   0. Squadmates can use `npm run assets:sync` after configuring `aws-cli` with
      the aesthetic.computer storage keys provided by Jeffrey.
 
-Redis
-  0. You may need to install `redis` to get the live reload working properly
-     on local.
-  1. You can use homebrew for this and a default install should be fine, so 
-     long as `redis-cli` works.
+
 
 🧩 Making a new included piece.
 - Run `npm run new-piece -- name-of-your-piece` 
