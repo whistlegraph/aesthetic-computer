@@ -89,13 +89,13 @@
 
 *** CPU Resizable & Navigable 2D Painting ***
     - [🟡] Implement all other brushes:
-      - [] `shape`
-      - [] `word`
-      - [] `smear`
-      - [] `camera`
-      - [] `icon`
-      - [] `sign`
-      - [] `bits`
+    - [-] `shape`
+    - [] `word`
+    - [] `smear`
+    - [] `camera`
+    - [] `icon`
+    - [] `sign`
+    - [] `bits`
   - [] Measure performance.
       + Done
       - [x] `line`
