@@ -24,7 +24,6 @@ let rect,
   thickness,
   centered = false;
 
-
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({ params, num, colon }) {
   color = num.parseColor(params);

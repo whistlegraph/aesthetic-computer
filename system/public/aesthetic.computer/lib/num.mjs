@@ -5,6 +5,7 @@ import * as mat4 from "../dep/gl-matrix/mat4.mjs";
 import * as vec2 from "../dep/gl-matrix/vec2.mjs";
 import * as vec3 from "../dep/gl-matrix/vec3.mjs";
 import * as vec4 from "../dep/gl-matrix/vec4.mjs";
+import { anyKey } from "./help.mjs";
 
 export { vec2, vec3, vec4, mat3, mat4, quat };
 const { round, floor, random, PI, min, max, sqrt, pow, atan2, sin, cos } = Math;
@@ -127,8 +128,9 @@ export function rangedInts(ints) {
   return ints.map((str) => {
     if (str.match(/^\d+-\d+$/)) {
       const range = str.split("-");
-      return num.randIntRange(parseInt(range[0]), parseInt(range[1]));
+      return randIntRange(parseInt(range[0]), parseInt(range[1]));
     } else {
+      if (str === "?") return randInt(255);
       return parseInt(str);
     }
   });
@@ -253,14 +255,13 @@ export function isHexString(h) {
 }
 
 // 🌈 Colors
-
 // Parses a color from piece params.
 // Including numeric ranges (0-255) and string matching.
 export function parseColor(params) {
+  if (params.length === 0) return params;
   const int = parseInt(params[0]);
 
-
-  if (!isNaN(int)) {
+  if (!isNaN(int) || params.length > 2) { // Could be "? ? ?" here hence the length check.
     // Assume all params can be parsed into integers (excepting alpha)
     if (params.length === 2 || params.length === 4) {
       const alpha = calculateAlpha(params[params.length - 1]);
@@ -269,11 +270,9 @@ export function parseColor(params) {
 
     return rangedInts(params);
   } else {
-    // Assume params represents a css color string
-    const name = params[0].toLowerCase();
-
-    // Calculate additional alpha param for named colors.
-    let alpha = calculateAlpha(params[1]);
+    let name = params[0].toLowerCase(); // Assume a css color string.
+    let alpha = calculateAlpha(params[1]); // Calculate alpha param.
+    if (name === "?") name = anyKey(cssColors); // Pick a name if `?` is passed.
 
     if (name in cssColors) {
       return [...cssColors[name], alpha];
@@ -284,12 +283,14 @@ export function parseColor(params) {
 }
 
 // Just used in parseColor above.
+// TODO: Float has no range support.
 function calculateAlpha(alphaParam) {
+  if (alphaParam === "?") return randIntRange(5, 255); // Always show a bit.
   let alpha = parseFloat(alphaParam);
   if (alpha >= 0 && alpha <= 1) {
     alpha = Math.round(alpha * 255); // Convert a float alpha from 0->1.
   } else {
-    alpha = parseInt(alphaParam) || 255;
+    alpha = rangedInts([alphaParam]) || 255;
   }
   return alpha;
 }

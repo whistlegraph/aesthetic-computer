@@ -77,10 +77,19 @@
     - [] Extract the current implementation from `oval` into a general
          params parser that detects type and returns a filtered list.
 
+*** `nopaint` and `nopaintAPI` should be merged ***
+  - [] nopaint needs a general code merge / cleanup
+
+*** ⚠️ Color Parser: parseColor ***
+  - [-] Add RGB float support, range support for floats, and
+       "?" support to ranges!
+  + Done
+  - [x] Add support for ? ? ? rgb parameters.
+  - [x] Add support for both ? and ranges in alpha parameter.
+
 *** CPU Resizable & Navigable 2D Painting ***
     - [🟡] Implement all other brushes:
-      - [] Add `color words` to `rect`.
-      - [] `line`
+      - [] `shape`
       - [] `word`
       - [] `smear`
       - [] `camera`
@@ -89,6 +98,8 @@
       - [] `bits`
   - [] Measure performance.
       + Done
+      - [x] `line`
+      - [x] Add `color words` to `rect`.
       - [x] `oval`
       - [x] Work out a final API / new abstraction that makes sense for every 2D
           brush, taking into account a possible GPU renderer and eliminating

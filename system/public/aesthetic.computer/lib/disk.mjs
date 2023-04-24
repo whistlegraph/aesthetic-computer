@@ -358,7 +358,7 @@ const $commonApi = {
   system: {
     nopaint: {
       //boot: nopaint_boot, // TODO: Why are these in the commonApi? 23.02.12.14.26
-      act: nopaint_act,
+      // act: nopaint_act,
       is: nopaint_is,
       undo: { paintings: undoPaintings },
       needsBake: false,
@@ -417,6 +417,12 @@ const $commonApi = {
         system.nopaint.translation.y += y;
       },
       brush: { x: 0, y: 0 },
+      transform: (p) => {
+        return {
+          x: p.x - nopaintAPI.translation.x,
+          y: p.y - nopaintAPI.translation.y,
+        };
+      },
       updateBrush: ({ pen, system }) => {
         const { x, y } = system.nopaint.translation;
 
@@ -577,6 +583,8 @@ const $commonApi = {
   //                 Increments by 1 each time a new piece loads.
   debug,
 };
+
+const nopaintAPI = $commonApi.system.nopaint;
 
 // Spawn a session backend for a piece.
 async function session(slug, forceProduction = false) {
@@ -1646,7 +1654,14 @@ async function load(
       sim = module.sim || defaults.sim;
       paint = module.paint || defaults.paint;
       beat = module.beat || defaults.beat;
-      act = module.act || nopaint.act;
+      act = ($) => {
+        nopaint_act($); // Inherit base functionality.
+        if (module.act) {
+          return module.act($);
+        } else {
+          return defaults.act($);
+        }
+      };
       leave = module.leave || nopaint.leave;
       bake = module.bake || nopaint.bake;
       system = "nopaint";
