@@ -34,6 +34,7 @@
 😀 TODO 😆
 
 🐞 Annoying Bugs & Regressions 🪱
+  - [] Live reload: boot will not paint again if paint returns false in a contrived example
   - [] Video download `local` fix.
   - [] Favicon CORS fix (generate the icon / use a data uri)
   - [] Apple Pencil is no longer working with brushes.
@@ -71,20 +72,21 @@
     (pattern -> body) -> style -> face
       mesh creation
 
-    1. `hhf` aka `happy-hand-factory` with an integer. (REQUIRED, fail if no param)
-      - Tie us to working with a particular hand and jumps to step A by default.
+    1. `hhf` aka `happy-hand-factory` with an integer.
+           - Tie us to working with a particular hand and jumps to step A by default.
       - Go to another step with: `hhf:body 800` 
 
     Today
-      - [] Create `hhf` piece. (hhf.mjs)
-        - [🟡] Limit the count to 1024 or something like that. 
-        - [] Set on the client a global variable that determines what
-              hand we are "on".
+      - [-] Create `hhf` piece. (hhf.mjs)
         -------------------------
-        - [] Onboard @ttarigh to the repo. 
+        - [-] Onboard @ttarigh to the repo. 
         -------------------------
         - [] Draw and define the 2D mesh thingy.
     + Done
+      - [x] Set on the client a global variable that determines what
+            hand we are "on".
+      - [x] Limit the count to 1024 or something like that. 
+      - [x] Fail if no param.
       - [x] Find good name for this process...
       - [x] Creating `happy-hands-factory` with an alias `hhf`.
 

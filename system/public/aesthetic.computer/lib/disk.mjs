@@ -989,11 +989,10 @@ const $paintApiUnwrapped = {
   },
   // Prints a line of text using the default / current global font.
   // Argument options:
-  // (4) x, y, text, bg (optional)
-  // (3) {x, y, center}, text, bg (optional)
+  // text, pos: {x, y, center}, bg (optional)
   write: function (text, pos, bg) {
     if (!text) return; // Fail silently if no text.
-    tf?.print($activePaintApi, pos, 0, text, bg); // Fail on preamble.
+    tf?.print($activePaintApi, pos, 0, text.toString(), bg); // Fail on preamble.
   },
   copy: graph.copy,
   paste: graph.paste,
@@ -1620,7 +1619,9 @@ async function load(
 
   $commonApi.alias = function alias(name, colon, params) {
     $commonApi.jump(
-      name + colon.map((c) => `:` + c).join("") + params.map((p) => `~` + p).join(""),
+      name +
+        colon.map((c) => `:` + c).join("") +
+        params.map((p) => `~` + p).join(""),
       true,
       false
     );
