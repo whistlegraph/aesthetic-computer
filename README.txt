@@ -34,6 +34,9 @@
 😀 TODO 😆
 
 🐞 Annoying Bugs & Regressions 🪱
+  - [] S3 Sync Not Working
+  - [] Alt / Meta shortcut needs to work for mac to reset pan.
+  - [] Discord bot update fail?
   - [] Live reload: boot will not paint again if paint returns false in a contrived example
   - [] Video download `local` fix.
   - [] Favicon CORS fix (generate the icon / use a data uri)
