@@ -58,6 +58,7 @@
   - [] Get ssh working in VS Code on windows via WSL: https://stackoverflow.com/questions/60150466/can-i-ssh-from-wsl-in-visual-studio-code
   - [] `npm run code` does not work offline, due to netlify relying on online conectivity.
   + Done
+  - [x] Just using `box(x, y w, h, "*center")` does not work.
   - [x] `n` and `p` keyboard shortcut do not ignore history / break navigation
   - [x] Fix Freaky Flowers opensea regression.
   - [x] Chained paint functions do not respect inkrn.
@@ -69,7 +70,6 @@
   (All hands are defined by integer ids 0-n)
 
   - [] Define command set for pipeline.
-
     - Creating and Publishing
 
     (pattern -> body) -> style -> face
@@ -80,7 +80,8 @@
       - Go to another step with: `hhf:body 800` 
 
     Tuesday
-    - [] Draw and define the 2D mesh thingy inside `pattern`.
+    - [-] Draw and define the 2D mesh thingy inside `pattern`.
+      - [] 
     - [] Render the 2D mesh in 3D in the next step. `body`
 
     Monday
