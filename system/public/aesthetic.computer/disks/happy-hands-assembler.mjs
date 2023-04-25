@@ -34,7 +34,7 @@ async function boot({ wipe, params, screen, store }) {
 
 // 🎨 Paint (Executes every display frame)
 function paint($) {
-  $.wipe(0);
+  $.wipe(0,255,255);
 }
 
 export { boot, paint };

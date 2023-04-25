@@ -5,5 +5,6 @@
   },
   "search.useIgnoreFiles": true,
   "editor.minimap.scale": 1,
-  "editor.minimap.autohide": false
+  "editor.minimap.autohide": false,
+  "liveServer.settings.port": 5501
 }

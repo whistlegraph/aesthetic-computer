@@ -79,13 +79,14 @@
            - Tie us to working with a particular hand and jumps to step A by default.
       - Go to another step with: `hhf:body 800` 
 
-    Today
-      - [-] Create `hhf` piece. (hhf.mjs)
-        -------------------------
-        - [-] Onboard @ttarigh to the repo. 
-        -------------------------
-        - [] Draw and define the 2D mesh thingy.
+    Tuesday
+    - [] Draw and define the 2D mesh thingy inside `pattern`.
+    - [] Render the 2D mesh in 3D in the next step. `body`
+
+    Monday
     + Done
+      - [x] Create `hhf` piece. (hhf.mjs)
+      - [x] Onboard @ttarigh to the repo. 
       - [x] Set on the client a global variable that determines what
             hand we are "on".
       - [x] Limit the count to 1024 or something like that. 
