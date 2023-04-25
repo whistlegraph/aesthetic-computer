@@ -45,29 +45,29 @@ async function boot({ wipe, params, screen, store }) {
 
 // 🎨 Paint (Executes every display frame)
 function paint({ wipe, ink, box, line, pan, unpan, screen, pen, paintCount }) {
-  const osc = Math.sin(paintCount*0.1);
+  const osc = Math.sin(paintCount * 0.1);
   // Build hand geometry
   const w = [
     origin,
-    crawl(origin, 40 + 2*osc, 10),
-    crawl(origin, 45+ -2*osc, 25),
-    crawl(origin, 50+ 2*osc, 40),
-    crawl(origin, 55+ -2*osc, 55),
+    crawl(origin, 40 + 2 * osc, 10),
+    crawl(origin, 45 + -2 * osc, 25),
+    crawl(origin, 50 + 2 * osc, 40),
+    crawl(origin, 55 + -2 * osc, 55),
   ];
 
   const hand = {
     w,
-    t: digit(w[0], 4, -30, -10*osc),
-    i: digit(w[1], 3, -8, -10*osc),
-    m: digit(w[2], 3, 0, -10*osc),
-    o: digit(w[3], 3, 7, -10*osc),
-    p: digit(w[4], 3, 20, -10*osc),
+    t: digit(w[0], 4, -30, -10 * osc),
+    i: digit(w[1], 3, -8, -10 * osc),
+    m: digit(w[2], 3, 0, -10 * osc),
+    o: digit(w[3], 3, 7, -10 * osc),
+    p: digit(w[4], 3, 20, -10 * osc),
   };
 
   // Render
   wipe(0); // draw bg
 
-  const o = { x: -24 + 2*osc, y: 16 + 2*osc };
+  const o = { x: -24 + 2 * osc, y: 16 + 2 * osc };
   pen
     ? pan(pen.x + o.x, pen.y + o.y)
     : pan(screen.width / 2 + o.x, screen.height / 2 + o.y);
@@ -78,7 +78,6 @@ function paint({ wipe, ink, box, line, pan, unpan, screen, pen, paintCount }) {
   ink(handPalette.t).line(hand.t[1].x, hand.t[1].y, hand.t[2].x, hand.t[2].y);
   ink(handPalette.t).line(hand.t[2].x, hand.t[2].y, hand.t[3].x, hand.t[3].y);
 
-
   ink(handPalette.w).line(hand.w[0].x, hand.w[0].y, w[1].x, w[1].y);
   ink(handPalette.i).line(w[1].x, w[1].y, hand.i[0].x, hand.i[0].y);
   ink(handPalette.i).line(hand.i[0].x, hand.i[0].y, hand.i[1].x, hand.i[1].y);
@@ -88,7 +87,6 @@ function paint({ wipe, ink, box, line, pan, unpan, screen, pen, paintCount }) {
   ink(handPalette.m).line(w[2].x, w[2].y, hand.m[0].x, hand.m[0].y);
   ink(handPalette.m).line(hand.m[0].x, hand.m[0].y, hand.m[1].x, hand.m[1].y);
   ink(handPalette.m).line(hand.m[1].x, hand.m[1].y, hand.m[2].x, hand.m[2].y);
-
 
   ink(handPalette.w).line(w[3].x, w[3].y, w[2].x, w[2].y);
   ink(handPalette.o).line(w[3].x, w[3].y, hand.o[0].x, hand.o[0].y);
@@ -101,9 +99,6 @@ function paint({ wipe, ink, box, line, pan, unpan, screen, pen, paintCount }) {
   ink(handPalette.p).line(w[4].x, w[4].y, hand.p[0].x, hand.p[0].y);
   ink(handPalette.p).line(hand.p[0].x, hand.p[0].y, hand.p[1].x, hand.p[1].y);
   ink(handPalette.p).line(hand.p[1].x, hand.p[1].y, hand.p[2].x, hand.p[2].y);
-
-
-
 
   // 🅰️ Hand Points
   const boxSize = 5;
@@ -123,7 +118,14 @@ function paint({ wipe, ink, box, line, pan, unpan, screen, pen, paintCount }) {
   unpan();
 }
 
-export { boot, paint };
+function meta() {
+  return {
+    title: "Happy Hands Assembler",
+    desc: "Get ready for some happy hands!",
+  };
+}
+
+export { boot, paint, meta };
 
 // 📚 Library (Useful functions used throughout the piece)
 
