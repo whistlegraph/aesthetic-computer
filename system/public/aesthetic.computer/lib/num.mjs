@@ -179,7 +179,7 @@ export function dist3d(p1, p2) {
 }
 
 // Converts degrees to radians.
-export function radians(deg) {
+export function radians(deg = 0) {
   return deg * (PI / 180);
 }
 
@@ -333,7 +333,7 @@ export function parseColor(params) {
 */
 
 // All 147 named css colors.
-const cssColors = {
+export const cssColors = {
   aliceblue: [240, 248, 255],
   antiquewhite: [250, 235, 215],
   aqua: [0, 255, 255],
