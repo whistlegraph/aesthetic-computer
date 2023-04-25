@@ -31,8 +31,9 @@ Jeffrey (me@jas.life / digitpain#2262 / @digitpain)
 // }
 
 // 🎨 Paint (Executes every display frame)
-// function paint($) {
-// }
+function paint({ink, screen}) {
+  ink(255).box(screen.width / 2, screen.height / 2, 64, "*center");
+}
 
 /*
 // ✒ Act (Runs once per user interaction)
@@ -56,7 +57,7 @@ function leave($api) {
 }
 */
 
-// export { boot, paint }
+export { paint }
 
 // 📚 Library (Useful functions used throughout the piece)
 // ...

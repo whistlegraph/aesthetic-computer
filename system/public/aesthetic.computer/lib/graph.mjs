@@ -1008,7 +1008,6 @@ function box() {
   if (y === undefined) y = randInt(height);
   if (w === undefined) w = randInt(width);
   if (h === undefined) h = randInt(height);
-  if (mode === undefined) mode = "fill"; // TODO: Add chooser here.
 
   // Abs / normalize the parameters.
 
@@ -1018,6 +1017,8 @@ function box() {
     y -= h / 2;
     mode = mode.slice(0, -BOX_CENTER.length); // Remove it.
   }
+
+  if (mode === undefined || mode === "") mode = "fill";
 
   ({ x, y, w, h } = Box.from([x, y, w, h]).abs);
 
