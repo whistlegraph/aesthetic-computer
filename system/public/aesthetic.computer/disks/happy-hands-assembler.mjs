@@ -1,5 +1,6 @@
 // Happy Hands Assembler, 23.04.24.15.02
 // Let's make a some happy hands!
+// Coded by Jeffrey Alan Scudder & Tina Tarighian
 
 /* #region 🤝 Read Me 
 #endregion */
