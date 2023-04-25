@@ -70,7 +70,7 @@ function paint({ wipe, ink, box, line, pan, unpan, screen, pen, paintCount }) {
   const o = { x: -24 + 2*osc, y: 16 + 2*osc };
   pen
     ? pan(pen.x + o.x, pen.y + o.y)
-    : pan(screen.width / 2 + o.y, screen.height / 2 + o.x);
+    : pan(screen.width / 2 + o.x, screen.height / 2 + o.y);
 
   // 🅱️ Hand Lines
   ink(handPalette.t).line(hand.w[0].x, hand.w[0].y, hand.t[0].x, hand.t[0].y);
