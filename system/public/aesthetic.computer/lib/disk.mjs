@@ -747,6 +747,7 @@ const LINE = {
 // Inputs: (r, g, b), (r, g, b, a) or an array of those.
 //         (rgb) for grayscale or (rgb, a) for grayscale with alpha.
 //         Or hex with "#000000" or "0x000000" or 0x000000.
+// TODO: Add hex color support with transparency and short hex.
 // TODO: Add better hex support via: https://stackoverflow.com/a/53936623/8146077
 function color() {
   let args = [...arguments];
@@ -782,12 +783,7 @@ function color() {
         args = num.hexToRgb(cleanedHex);
       } else {
         // Try to match it to a table.
-        const colors = {
-          red: [255, 0, 0],
-          green: [0, 255, 0],
-          blue: [0, 0, 255],
-        };
-        args = colors[args[0]];
+        args = num.cssColors[args[0]];
       }
 
       // TODO: Add an error message here. 22.08.29.13.03
