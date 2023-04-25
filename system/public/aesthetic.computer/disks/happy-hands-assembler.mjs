@@ -1,92 +1,65 @@
 // Happy Hands Assembler, 23.04.24.15.02
-// Let's a some happy hands!
+// Let's make a some happy hands!
 
 /* #region 🤝 Read Me 
 #endregion */
 
+import { radians } from "../lib/num.mjs";
+
 const boxSize = 5;
 const boxType = "fill*center";
 
-function digit() {
-  const p = () => ({ x: 0, y: 0, z: 0 });
-  return [p(), p(), p(), p()];
+// Crawl a point {x, y} dist amount in a direction, returning the new position.
+function crawl(p, dist, dir) {
+  dir = radians(dir);
+  return { x: p.x + dist * Math.cos(dir), y: p.y + dist * Math.sin(dir) };
+}
+
+// Generate points for a digit given an orientation (deg).
+function digit(from, segCount, deg = 0) {
+  deg -= 90; //set the orientation of 0 to up
+  const segs = [];
+  const gap = 11;
+  for (let s = 0; s < segCount; s += 1) {
+    if (s > 0) {
+      deg += 0;
+      segs.push(crawl(segs[s - 1], gap, deg));
+    } else {
+      segs.push(crawl(from, gap, deg));
+    }
+  }
+  return segs;
 }
 
 //hand structure
+const w = [
+  { x: 0, y: 0, z: 0 },
+  { x: -10 / 4, y: -40, z: 0 },
+  { x: -10 / 4 + 14, y: -40, z: 0 },
+  { x: -10 / 4 + 27, y: -40, z: 0 },
+  { x: -10 / 4 + 38, y: -35, z: 0 },
+];
+
 const hand = {
-  w: [{ x: 0, y: 0, z: 0 }],
-  t: digit(),
-  i: digit(),
-  m: digit(),
-  o: digit(),
-  p: digit(),
+  w,
+  t: digit(w[0], 4, -30),
+  i: digit(w[1], 3, -8),
+  m: digit(w[2], 3, 0),
+  o: digit(w[3], 3, 7),
+  p: digit(w[4], 3, 20),
 };
 
 const handPalette = {
   w: "#FFFFFFFF",
-  t: [0, 170, 200],  //teal
-  i: [75, 0, 130],    //indigo
-  m: "magenta",   
-  o: "orange",   
-  p: "pink"  //pink
+  t: [0, 170, 200], //teal
+  i: [75, 0, 130], //indigo
+  m: "magenta",
+  o: "orange",
+  p: "pink", //pink
 };
 
 const nudge = 10;
 const hnudge = nudge / 4;
-
-//thumb
-hand.t[0].x -= nudge;
-hand.t[0].y -= nudge;
-hand.t[1].x -= nudge * 2;
-hand.t[1].y -= nudge * 2;
-hand.t[2].x -= nudge * 3;
-hand.t[2].y -= nudge * 3;
-hand.t[3].x -= nudge * 4;
-hand.t[3].y -= nudge * 4;
-//index
-hand.i[0].x -= hnudge;
-const inudge = 14;
-const basei = nudge * 4;
-hand.i[0].y -= basei;
-hand.i[1].x -= hnudge * 1.3;
-hand.i[1].y -= basei + inudge;
-hand.i[2].x -= hnudge * 1.7;
-hand.i[2].y -= basei + inudge * 2;
-hand.i[3].x -= hnudge * 2;
-hand.i[3].y -= basei + inudge * 3;
-//middle
-hand.m[0].x -= hnudge - 14;
-const mnudge = 15;
-const basem = nudge * 4;
-hand.m[0].y -= basem;
-hand.m[1].x -= hnudge - 14;
-hand.m[1].y -= basem + mnudge;
-hand.m[2].x -= hnudge - 14;
-hand.m[2].y -= basem + mnudge * 2;
-hand.m[3].x -= hnudge - 14;
-hand.m[3].y -= basem + mnudge * 3;
-//ring
-hand.o[0].x -= hnudge - 27;
-const onudge = 14;
-const baseo = nudge * 4;
-hand.o[0].y -= baseo;
-hand.o[1].x -= hnudge * -0.2 - 27;
-hand.o[1].y -= baseo + onudge;
-hand.o[2].x -= hnudge * -1.3 - 27;
-hand.o[2].y -= baseo + onudge * 2;
-hand.o[3].x -= hnudge * -1.7 - 27;
-hand.o[3].y -= baseo + onudge * 3;
-//pinky
-hand.p[0].x -= hnudge -38;
-const basep = nudge *3.5; 
-const pnudge = nudge;
-hand.p[0].y -= basep;
-hand.p[1].x -= pnudge * -0.6 - 38;
-hand.p[1].y -= basep + pnudge;
-hand.p[2].x -= pnudge * -1.3 - 38;
-hand.p[2].y -= basep + pnudge * 2;
-hand.p[3].x -= pnudge * -1.7 - 38;
-hand.p[3].y -= basep + pnudge * 3;
 
 const hands = 1024; // How many happy hands exist in total?
 const key = "happy-hand-assembler:hand"; // Keep track of current hand index.
@@ -123,19 +96,19 @@ function paint({ wipe, ink, box, line, pan, unpan, screen }) {
   // 🅱️ Hand Lines
   // ...
 
-
   // 🅰️ Hand Points
-  ink(handPalette.w).box(hand.w[0].x, hand.w[0].y, boxSize, boxType); // wrist 
+  ink(handPalette.w); // wrist
+  for (let coord of hand.w) box(coord.x, coord.y, boxSize, boxType);
   ink(handPalette.t); //thumb
-  for (let coord of hand.t) box(coord.x, coord.y, boxSize, boxType); 
+  for (let coord of hand.t) box(coord.x, coord.y, boxSize, boxType);
   ink(handPalette.i); // index
-  for (let coord of hand.i) box(coord.x, coord.y, boxSize, boxType); 
+  for (let coord of hand.i) box(coord.x, coord.y, boxSize, boxType);
   ink(handPalette.m); // middle
-  for (let coord of hand.m) box(coord.x, coord.y, boxSize, boxType); 
+  for (let coord of hand.m) box(coord.x, coord.y, boxSize, boxType);
   ink(handPalette.o); // ring (o)
-  for (let coord of hand.o) box(coord.x, coord.y, boxSize, boxType); 
+  for (let coord of hand.o) box(coord.x, coord.y, boxSize, boxType);
   ink(handPalette.p); // pinky
-  for (let coord of hand.p) box(coord.x, coord.y, boxSize, boxType); 
+  for (let coord of hand.p) box(coord.x, coord.y, boxSize, boxType);
   unpan();
 }
 
