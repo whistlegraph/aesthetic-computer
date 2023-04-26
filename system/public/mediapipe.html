@@ -2,132 +2,10 @@
     <meta charset="UTF-8">
       
     <title>CodePen - MediaPipe HandLandmarker Task for web</title>
-    
-    
-    
-    
-  <style>
-  /* Copyright 2022 The MediaPipe Authors.
-  
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  
-       http://www.apache.org/licenses/LICENSE-2.0
-  
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License. */
-  
-  @use "@material";
-  body {
-    font-family: roboto;
-    margin: 2em;
-    color: #3d3d3d;
-    --mdc-theme-primary: #007f8b;
-    --mdc-theme-on-primary: #f1f3f4;
-  }
-  
-  h1 {
-    color: #007f8b;
-  }
-  
-  h2 {
-    clear: both;
-  }
-  
-  em {
-    font-weight: bold;
-  }
-  
-  video {
-    clear: both;
-    display: block;
-    transform: rotateY(180deg);
-    -webkit-transform: rotateY(180deg);
-    -moz-transform: rotateY(180deg);
-  }
-  
-  section {
-    opacity: 1;
-    transition: opacity 500ms ease-in-out;
-  }
-  
-  header,
-  footer {
-    clear: both;
-  }
-  
-  .removed {
-    display: none;
-  }
-  
-  .invisible {
-    opacity: 0.2;
-  }
-  
-  .note {
-    font-style: italic;
-    font-size: 130%;
-  }
-  
-  .videoView,
-  .detectOnClick {
-    position: relative;
-    float: left;
-    width: 48%;
-    margin: 2% 1%;
-    cursor: pointer;
-  }
-  
-  .videoView p,
-  .detectOnClick p {
-    position: absolute;
-    padding: 5px;
-    background-color: #007f8b;
-    color: #fff;
-    border: 1px dashed rgba(255, 255, 255, 0.7);
-    z-index: 2;
-    font-size: 12px;
-    margin: 0;
-  }
-  
-  .highlighter {
-    background: rgba(0, 255, 0, 0.25);
-    border: 1px dashed #fff;
-    z-index: 1;
-    position: absolute;
-  }
-  
-  .canvas {
-    z-index: 1;
-    position: absolute;
-    pointer-events: none;
-  }
-  
-  .output_canvas {
-    transform: rotateY(180deg);
-    -webkit-transform: rotateY(180deg);
-    -moz-transform: rotateY(180deg);
-  }
-  
-  .detectOnClick {
-    z-index: 0;
-  }
-  
-  .detectOnClick img {
-    width: 100%;
-  }
-  </style>
-  
     <script>
     window.console = window.console || function(t) {};
   </script>
   
-    
-    
   </head>
   
   <body translate="no" class="vsc-initialized" data-new-gr-c-s-check-loaded="14.1107.0" data-gr-ext-installed="">
@@ -145,7 +23,7 @@
   See the License for the specific language governing permissions and
   limitations under the License. -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-  <script src="aesthetic.computer/dep/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="aesthetic.computer/dep/@mediapipe/hands/hands.jsd" crossorigin="anonymous"></script>
   
   
     <h1>Hand landmark detection using the MediaPipe HandLandmarker task</h1>
@@ -212,63 +90,6 @@
       demosSection.classList.remove("invisible");
   };
   createHandLandmarker();
-  /********************************************************************
-  // Demo 1: Grab a bunch of images from the page and detection them
-  // upon click.
-  ********************************************************************/
-  // In this demo, we have put all our clickable images in divs with the
-  // CSS class 'detectionOnClick'. Lets get all the elements that have
-  // this class.
-  const imageContainers = document.getElementsByClassName("detectOnClick");
-  // Now let's go through all of these and add a click event listener.
-  for (let i = 0; i < imageContainers.length; i++) {
-      // Add event listener to the child element whichis the img element.
-      imageContainers[i].children[0].addEventListener("click", handleClick);
-  }
-  // When an image is clicked, let's detect it and display results!
-  async function handleClick(event) {
-      if (!handLandmarker) {
-          console.log("Wait for handLandmarker to load before clicking!");
-          return;
-      }
-      if (runningMode === "VIDEO") {
-          runningMode = "IMAGE";
-          await handLandmarker.setOptions({ runningMode: "IMAGE" });
-      }
-      // Remove all landmarks drawed before
-      const allCanvas = event.target.parentNode.getElementsByClassName("canvas");
-      for (var i = allCanvas.length - 1; i >= 0; i--) {
-          const n = allCanvas[i];
-          n.parentNode.removeChild(n);
-      }
-      // We can call handLandmarker.detect as many times as we like with
-      // different image data each time. This returns a promise
-      // which we wait to complete and then call a function to
-      // print out the results of the prediction.
-      const handLandmarkerResult = handLandmarker.detect(event.target);
-      const canvas = document.createElement("canvas");
-      canvas.setAttribute("class", "canvas");
-      canvas.setAttribute("width", event.target.naturalWidth + "px");
-      canvas.setAttribute("height", event.target.naturalHeight + "px");
-      canvas.style =
-          "left: 0px;" +
-              "top: 0px;" +
-              "width: " +
-              event.target.width +
-              "px;" +
-              "height: " +
-              event.target.height +
-              "px;";
-      event.target.parentNode.appendChild(canvas);
-      const cxt = canvas.getContext("2d");
-      for (const landmarks of handLandmarkerResult.landmarks) {
-          drawConnectors(cxt, landmarks, HAND_CONNECTIONS, {
-              color: "#00FF00",
-              lineWidth: 5
-          });
-          drawLandmarks(cxt, landmarks, { color: "#FF0000", lineWidth: 1 });
-      }
-  }
   /********************************************************************
   // Demo 2: Continuously grab image from webcam stream and detect it.
   ********************************************************************/
@@ -342,7 +163,3 @@
   //# sourceURL=pen.js
       </script>
   
-    
-  
-  
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.1.0-alpha-11/wasm/vision_wasm_internal.js" crossorigin="anonymous"></script></body><grammarly-desktop-integration data-grammarly-shadow-root="true"></grammarly-desktop-integration></html>
