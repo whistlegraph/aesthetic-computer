@@ -1,9 +1,13 @@
+<!--
+  2. Bring this example into `bios.mjs` / get the data through.
+  3. Add to `hha` with a "pause" key that feeds the default animation back
+     to the model.
+-->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <title>Mediapipe Hands Bare Bones Example</title>
   </head>
-
   <body>
     <style>
       body {
@@ -41,18 +45,18 @@
       import {
         HandLandmarker,
         FilesetResolver,
-      } from "https://cdn.skypack.dev/@mediapipe/tasks-vision@0.1.0-alpha-11";
+      } from "./aesthetic.computer/dep/@mediapipe/tasks-vision/vision_bundle.js";
 
       let handLandmarker = undefined;
-      let processing = true;
+      let processing = false;
 
       const createHandLandmarker = async () => {
         const vision = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.1.0-alpha-11/wasm"
+          "aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
         );
         handLandmarker = await HandLandmarker.createFromOptions(vision, {
           baseOptions: {
-            modelAssetPath: `https://storage.googleapis.com/mediapipe-assets/hand_landmarker.task`,
+            modelAssetPath: `./models/hand_landmarker.task`,
           },
           runningMode: "VIDEO",
           numHands: 2,
@@ -61,89 +65,93 @@
       await createHandLandmarker(); // Preload hand model data
 
       // Read frames from video and draw data to canvas.
-
       const video = document.getElementById("cam");
       const canvas = document.getElementById("hand");
       const ctx = canvas.getContext("2d");
 
       const buffer = document.createElement("canvas");
       buffer.id = "buffer";
-
+      document.body.prepend(buffer); // Add buffer to dom.
       const bufferCtx = buffer.getContext("2d");
 
-      // Set the resolution of an intermediate buffer to paste
-      // video data on and then read for hand data.
+      function frame() {
+        // Actual resolution.
+        buffer.width = window.innerWidth / 4;
+        buffer.height = window.innerHeight / 4;
+        canvas.width = buffer.width;
+        canvas.height = buffer.height;
 
-      // Actual resolution.
-      buffer.width = window.innerWidth / 4;
-      buffer.height = window.innerHeight / 4;
+        // Display resolution.
+        buffer.style.width = window.innerWidth + "px";
+        buffer.style.height = window.innerHeight + "px";
+        canvas.style.width = video.style.width = buffer.style.width;
+        canvas.style.height = video.style.height = buffer.style.height;
+      }
 
-      canvas.width = buffer.width;
-      canvas.height = buffer.height;
+      function requestVideo() {
+        navigator.mediaDevices
+          .getUserMedia({
+            // Request webcam data.
+            video: {
+              width: { ideal: window.innerWidth / 4 },
+              height: { ideal: window.innerHeight / 4 },
+              frameRate: { ideal: 60 },
+              aspectRatio: {ideal: 1.7}
+            },
+          })
+          .then((stream) => {
+            video.srcObject = stream;
+            processing = true;
+            video.addEventListener("loadeddata", process);
+          });
+      }
 
-      // Display resolution.
-      buffer.style.width = window.innerWidth + "px";
-      buffer.style.height = window.innerHeight + "px";
+      requestVideo();
+      frame();
+      let resizeTimer;
 
-      canvas.style.width = video.style.width = buffer.style.width;
-      canvas.style.height = video.style.height = buffer.style.height;
-
-      buffer.style.width = canvas.style.width;
-      buffer.style.height = canvas.style.height;
-
-      document.body.prepend(buffer); // Add buffer to dom.
-
-      // Activate the webcam stream.
-      navigator.mediaDevices
-        .getUserMedia({
-          video: {
-            width: { ideal: window.innerWidth / 4 },
-            height: { ideal: window.innerHeight / 4 },
-            frameRate: { ideal: 60 },
-            aspectRatio: {ideal: 1.7}
-          },
-        })
-        .then((stream) => {
-          video.srcObject = stream;
-          video.addEventListener("loadeddata", process);
-        });
+      window.addEventListener("resize", () => {
+        window.clearTimeout(resizeTimer);
+        resizeTimer = window.setTimeout(function() {
+          processing = false; // Stop everything.
+          video.srcObject.getTracks().forEach((track) => track.stop());
+          video.removeEventListener("loadeddata", process);
+          // Get a new video and resize the buffers.
+          requestVideo();
+          frame();
+        }, 250);
+      }); // Attach frame to a resize event.
 
       function process() {
-        console.log("w:", video.videoWidth, "h:", video.videoHeight);
+        // Drawing a video frame to the buffer (mirrored, proportion adjusted). 
         const videoAR = video.videoWidth / video.videoHeight;
         const bufferAR = buffer.width / buffer.height;
-
-        let outWidth;
-        let outHeight;
-        let outX = 0;
-        let outY = 0;
-
-        // alert(`video w: ${video.videoWidth} h: ${video.videoHeight} r: ${videoAR}`);
-        // alert(`buffer w: ${buffer.width} h: ${buffer.height} r: ${bufferAR}`);
+        let outWidth, outHeight, outX = 0, outY = 0;
 
         if (videoAR <= bufferAR) {
+          // Tall to wide.
           outWidth = buffer.width;
           outHeight = outWidth / videoAR;
-          outY = ((buffer.height - outHeight) / 2) ;
         } else {
+          // Wide to tall. 
           outHeight = buffer.height;
           outWidth = outHeight * videoAR;
-          outX = ((buffer.width - outWidth) / 2) ;
         }
 
-        bufferCtx.drawImage(video, outX, outY, outWidth, outHeight);
+        outY = ((buffer.height - outHeight) / 2); // Adjusting position.
+        outX = ((buffer.width - outWidth) / 2);
 
-        // Read hand data from buffer.
-        const results = handLandmarker.detectForVideo(
-          buffer,
-          performance.now()
-        );
+        bufferCtx.save();
+        bufferCtx.scale(-1, 1); // Draw mirrored.
+        bufferCtx.drawImage(video, -outX - outWidth, outY, outWidth, outHeight);
+        bufferCtx.restore();
 
-        // Render...
+        const data = handLandmarker.detectForVideo( buffer, performance.now());
+
         ctx.save();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if (results.landmarks) {
-          for (const landmarks of results.landmarks) {
+        if (data.landmarks) {
+          for (const landmarks of data.landmarks) {
             drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {
               color: "#00FF00",
               lineWidth: 5,
@@ -157,8 +165,17 @@
         ctx.restore();
 
         // TODO: Send the data to aesthetic.computer disk for rendering.
+
+        // Keep processing the data on every display frame.
         if (processing === true) window.requestAnimationFrame(process);
       }
+
+      function toggleProcessing() {
+        processing = !processing;
+        if (processing) window.requestAnimationFrame(process);
+      }
+
+      window.onkeydown = toggleProcessing; // TODO: Remove me.
     </script>
   </body>
 </html>
