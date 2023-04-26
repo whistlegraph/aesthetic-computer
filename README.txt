@@ -79,10 +79,14 @@
            - Tie us to working with a particular hand and jumps to step A by default.
       - Go to another step with: `hhf:body 800` 
 
+    Wednesday
+    - [] Integrate `@mediapipe/hands` into the project. 
+    + Later
+    - [] Explore gesture recognition model: https://mediapipe-studio.webapps.google.com/demo/gesture_recognizer
+
     Tuesday
-    - [-] Draw and define the 2D mesh thingy inside `pattern`.
-      - [] 
-    - [] Render the 2D mesh in 3D in the next step. `body`
+    + Done
+    - [x] Draw and define the 2D mesh thingy inside `pattern`.
 
     Monday
     + Done
