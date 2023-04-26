@@ -79,8 +79,12 @@
            - Tie us to working with a particular hand and jumps to step A by default.
       - Go to another step with: `hhf:body 800` 
 
+    Next
+    - [] Fix framebuffer initialization error from mediapipe loading delay. (@jeffrey)
+    - [] Plan next meeting w/ Tina.
+
     Wednesday
-    - [] Integrate `@mediapipe/hands` into the project. 
+    - [x] Integrate `@mediapipe/hands` into the project. 
     + Later
     - [] Explore gesture recognition model: https://mediapipe-studio.webapps.google.com/demo/gesture_recognizer
 

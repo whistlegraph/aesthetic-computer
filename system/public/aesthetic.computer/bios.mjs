@@ -108,6 +108,136 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** External Library Dependency Injection ***
 
+  async function loadMediaPipeHands() {
+    const script = document.createElement("script");
+    script.crossOrigin = "anonymous";
+    script.src = "aesthetic.computer/dep/@mediapipe/hands/hands.js";
+
+    script.onerror = function (err) {
+      console.error("Couldn't load `@mediapipe/hands`!");
+    };
+
+    script.onload = async function handleScriptLoaded() {
+      // Create video device output.
+      const video = document.createElement("video");
+      video.autoplay = true;
+      video.playsinline = true;
+      video.style.opacity = 0;
+      wrapper.append(video);
+
+      const { HandLandmarker, FilesetResolver } = await import("./dep/@mediapipe/tasks-vision/vision_bundle.js");
+
+      let handLandmarker = undefined;
+      let processing = false;
+
+      const createHandLandmarker = async () => {
+        const vision = await FilesetResolver.forVisionTasks(
+          "aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
+        );
+
+        handLandmarker = await HandLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: `./models/hand_landmarker.task`,
+          },
+          runningMode: "VIDEO",
+          numHands: 2,
+        });
+      };
+      await createHandLandmarker(); // Preload hand model data
+
+      // Read frames from video and draw data to canvas.
+      const buffer = document.createElement("canvas");
+      const bufferCtx = buffer.getContext("2d");
+
+      function frame() {
+        // Actual resolution.
+        buffer.width = window.innerWidth / 4;
+        buffer.height = window.innerHeight / 4;
+        canvas.width = buffer.width;
+        canvas.height = buffer.height;
+      }
+
+      function requestVideo() {
+        navigator.mediaDevices
+          .getUserMedia({
+            // Request webcam data.
+            video: {
+              width: { ideal: window.innerWidth / 4 },
+              height: { ideal: window.innerHeight / 4 },
+              frameRate: { ideal: 60 },
+              aspectRatio: { ideal: 1.7 },
+            },
+          })
+          .then((stream) => {
+            video.srcObject = stream;
+            processing = true;
+            video.addEventListener("loadeddata", process);
+          });
+      }
+
+      requestVideo();
+      frame();
+      let resizeTimer;
+
+      window.addEventListener("resize", () => {
+        window.clearTimeout(resizeTimer);
+        resizeTimer = window.setTimeout(function () {
+          processing = false; // Stop everything.
+          video.srcObject.getTracks().forEach((track) => track.stop());
+          video.removeEventListener("loadeddata", process);
+          // Get a new video and resize the buffers.
+          requestVideo();
+          frame();
+        }, 250);
+      }); // Attach frame to a resize event.
+
+      function process() {
+        // Drawing a video frame to the buffer (mirrored, proportion adjusted).
+        const videoAR = video.videoWidth / video.videoHeight;
+        const bufferAR = buffer.width / buffer.height;
+        let outWidth,
+          outHeight,
+          outX = 0,
+          outY = 0;
+
+        if (videoAR <= bufferAR) {
+          // Tall to wide.
+          outWidth = buffer.width;
+          outHeight = outWidth / videoAR;
+        } else {
+          // Wide to tall.
+          outHeight = buffer.height;
+          outWidth = outHeight * videoAR;
+        }
+
+        outY = (buffer.height - outHeight) / 2; // Adjusting position.
+        outX = (buffer.width - outWidth) / 2;
+
+        bufferCtx.save();
+        bufferCtx.scale(-1, 1); // Draw mirrored.
+        bufferCtx.drawImage(video, -outX - outWidth, outY, outWidth, outHeight);
+        bufferCtx.restore();
+
+        const data = handLandmarker.detectForVideo(buffer, performance.now());
+
+        send({
+          type: "hand-tracking-data",
+          content: data.landmarks
+        });
+
+        // Keep processing the data on every display frame.
+        if (processing === true) window.requestAnimationFrame(process);
+      }
+
+      function toggleProcessing() {
+        processing = !processing;
+        if (processing) window.requestAnimationFrame(process);
+      }
+    };
+
+    document.head.appendChild(script);
+  }
+
   // FFMPEG.WASM
   async function loadFFmpeg() {
     return new Promise((resolve, reject) => {
@@ -1309,6 +1439,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         loadThreeD();
       }
 
+      // TODO: Make this automatic for pieces that use hand-tracking.
+      if (content.text === "happy-hands-assembler") {
+        loadMediaPipeHands();
+      }
+
       // Show an "audio engine: off" message.
       //if (content.noBeat === false && audioContext?.state !== "running") {
       //bumper.innerText = "audio engine off";
@@ -2190,7 +2325,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         freezeFrame
       );
       frameAlreadyRequested = false; // 🗨️ Tell the system we are ready for another frame.
-
       return;
     }
 

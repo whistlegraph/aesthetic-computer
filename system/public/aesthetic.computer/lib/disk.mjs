@@ -1831,6 +1831,11 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "hand-tracking-data") {
+    $commonApi.hand = { mediapipe: content };
+    return;
+  }
+
   if (type === "upload:progress") {
     serverUploadProgressReporter?.(content); // Report file upload progress if needed.
     return;

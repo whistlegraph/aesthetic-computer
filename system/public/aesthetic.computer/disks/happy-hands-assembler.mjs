@@ -45,7 +45,9 @@ async function boot({ wipe, params, screen, store }) {
 }
 
 // 🎨 Paint (Executes every display frame)
-function paint({ wipe, ink, box, line, pan, unpan, screen, pen, paintCount }) {
+function paint({ hand: { mediapipe }, wipe, ink, box, line, pan, unpan, screen, pen, paintCount }) {
+  console.log(mediapipe);
+
   const osc = Math.sin(paintCount * 0.1);
   // Build hand geometry
   const w = [
