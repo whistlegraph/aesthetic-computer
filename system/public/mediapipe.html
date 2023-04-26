@@ -1,165 +1,164 @@
-<html lang="en"><head>
-    <meta charset="UTF-8">
-      
-    <title>CodePen - MediaPipe HandLandmarker Task for web</title>
-    <script>
-    window.console = window.console || function(t) {};
-  </script>
-  
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Mediapipe Hands Bare Bones Example</title>
   </head>
-  
-  <body translate="no" class="vsc-initialized" data-new-gr-c-s-check-loaded="14.1107.0" data-gr-ext-installed="">
-    <!-- Copyright 2022 The MediaPipe Authors.
-  
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  
-       http://www.apache.org/licenses/LICENSE-2.0
-  
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License. -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-  <script src="aesthetic.computer/dep/@mediapipe/hands/hands.jsd" crossorigin="anonymous"></script>
-  
-  
-    <h1>Hand landmark detection using the MediaPipe HandLandmarker task</h1>
-  
-    <section id="demos" class="">
-      <h2>Demo: Detecting Images</h2>
-      <p><b>Click on an image below</b> to see the key landmarks of the hands.</p>
-  
-      <div class="detectOnClick">
-        <img src="https://assets.codepen.io/9177687/hand-ge4ca13f5d_1920.jpg" width="100%" crossorigin="anonymous" title="Click to get detection!">
-      </div>
-      <div class="detectOnClick">
-        <img src="https://assets.codepen.io/9177687/couple-gb7cb5db4c_1920.jpg" width="100%" crossorigin="anonymous" title="Click to get detection!">
-      </div>
-  
-      <h2>Demo: Webcam continuous hands landmarks detection</h2>
-      <p>Hold your hand in front of your webcam to get real-time hand landmarker detection.<br>Click <b>enable webcam</b> below and grant access to the webcam if prompted.</p>
-  
-      <div id="liveView" class="videoView">
-        <button id="webcamButton" class="mdc-button mdc-button--raised">
-          <span class="mdc-button__ripple"></span>
-          <span class="mdc-button__label">ENABLE WEBCAM</span>
-        </button>
-        <div style="position: relative;"><div class="vsc-controller vsc-nosource"></div>
-          <video id="webcam" style="width: 1280px; height: 720px; position: abso" autoplay="" playsinline=""></video>
-          <canvas class="output_canvas" id="output_canvas" width="1280" height="720" style="position: absolute; left: 0px; top: 0px;"></canvas>
-        </div>
-      </div>
-    </section>
-      <script src="https://cpwebassets.codepen.io/assets/common/stopExecutionOnTimeout-2c7831bb44f98c1391d6a4ffda0e1fd302503391ca806e7fcc7b9b87197aec26.js"></script>
-  
-    
-        <script id="rendered-js" type="module">
-  // Copyright 2022 The MediaPipe Authors.
-  // Licensed under the Apache License, Version 2.0 (the "License");
-  // you may not use this file except in compliance with the License.
-  // You may obtain a copy of the License at
-  //      http://www.apache.org/licenses/LICENSE-2.0
-  // Unless required by applicable law or agreed to in writing, software
-  // distributed under the License is distributed on an "AS IS" BASIS,
-  // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  // See the License for the specific language governing permissions and
-  // limitations under the License.
-  import { HandLandmarker, FilesetResolver } from "https://cdn.skypack.dev/@mediapipe/tasks-vision@0.1.0-alpha-11";
-  const demosSection = document.getElementById("demos");
-  let handLandmarker = undefined;
-  let runningMode = "IMAGE";
-  let enableWebcamButton;
-  let webcamRunning = false;
-  const videoHeight = "360px";
-  const videoWidth = "480px";
-  // Before we can use HandLandmarker class we must wait for it to finish
-  // loading. Machine Learning models can be large and take a moment to
-  // get everything needed to run.
-  const createHandLandmarker = async () => {
-      const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.1.0-alpha-11/wasm");
-      handLandmarker = await HandLandmarker.createFromOptions(vision, {
+
+  <body>
+    <style>
+      body {
+        margin: 0;
+      }
+      video,
+      canvas {
+        position: absolute;
+        left: 0px;
+        top: 0px;
+      }
+      video {
+        background: rgba(255, 0, 0, 0.5);
+        opacity: 0;
+      }
+      #buffer {
+        background: yellow;
+      }
+    </style>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+      crossorigin="anonymous"
+    ></script>
+
+    <script
+      src="aesthetic.computer/dep/@mediapipe/hands/hands.js"
+      crossorigin="anonymous"
+    ></script>
+
+    <video id="cam" autoplay playsinline></video>
+    <canvas id="hand"></canvas>
+
+    <script type="module">
+      import {
+        HandLandmarker,
+        FilesetResolver,
+      } from "https://cdn.skypack.dev/@mediapipe/tasks-vision@0.1.0-alpha-11";
+
+      let handLandmarker = undefined;
+      let processing = true;
+
+      const createHandLandmarker = async () => {
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.1.0-alpha-11/wasm"
+        );
+        handLandmarker = await HandLandmarker.createFromOptions(vision, {
           baseOptions: {
-              modelAssetPath: `https://storage.googleapis.com/mediapipe-assets/hand_landmarker.task`
+            modelAssetPath: `https://storage.googleapis.com/mediapipe-assets/hand_landmarker.task`,
           },
-          runningMode: runningMode,
-          numHands: 2
-      });
-      demosSection.classList.remove("invisible");
-  };
-  createHandLandmarker();
-  /********************************************************************
-  // Demo 2: Continuously grab image from webcam stream and detect it.
-  ********************************************************************/
-  const video = document.getElementById("webcam");
-  const canvasElement = document.getElementById("output_canvas");
-  const canvasCtx = canvasElement.getContext("2d");
-  // Check if webcam access is supported.
-  const hasGetUserMedia = () => { var _a; return !!((_a = navigator.mediaDevices) === null || _a === void 0 ? void 0 : _a.getUserMedia); };
-  // If webcam supported, add event listener to button for when user
-  // wants to activate it.
-  if (hasGetUserMedia()) {
-      enableWebcamButton = document.getElementById("webcamButton");
-      enableWebcamButton.addEventListener("click", enableCam);
-  }
-  else {
-      console.warn("getUserMedia() is not supported by your browser");
-  }
-  // Enable the live webcam view and start detection.
-  function enableCam(event) {
-      if (!handLandmarker) {
-          console.log("Wait! objectDetector not loaded yet.");
-          return;
-      }
-      if (webcamRunning === true) {
-          webcamRunning = false;
-          enableWebcamButton.innerText = "ENABLE PREDICTIONS";
-      }
-      else {
-          webcamRunning = true;
-          enableWebcamButton.innerText = "DISABLE PREDICITONS";
-      }
-      // getUsermedia parameters.
-      const constraints = {
-          video: true
+          runningMode: "VIDEO",
+          numHands: 2,
+        });
       };
+      await createHandLandmarker(); // Preload hand model data
+
+      // Read frames from video and draw data to canvas.
+
+      const video = document.getElementById("cam");
+      const canvas = document.getElementById("hand");
+      const ctx = canvas.getContext("2d");
+
+      const buffer = document.createElement("canvas");
+      buffer.id = "buffer";
+
+      const bufferCtx = buffer.getContext("2d");
+
+      // Set the resolution of an intermediate buffer to paste
+      // video data on and then read for hand data.
+
+      // Actual resolution.
+      buffer.width = window.innerWidth / 4;
+      buffer.height = window.innerHeight / 4;
+
+      canvas.width = buffer.width;
+      canvas.height = buffer.height;
+
+      // Display resolution.
+      buffer.style.width = window.innerWidth + "px";
+      buffer.style.height = window.innerHeight + "px";
+
+      canvas.style.width = video.style.width = buffer.style.width;
+      canvas.style.height = video.style.height = buffer.style.height;
+
+      buffer.style.width = canvas.style.width;
+      buffer.style.height = canvas.style.height;
+
+      document.body.prepend(buffer); // Add buffer to dom.
+
       // Activate the webcam stream.
-      navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
+      navigator.mediaDevices
+        .getUserMedia({
+          video: {
+            width: { ideal: window.innerWidth / 4 },
+            height: { ideal: window.innerHeight / 4 },
+            frameRate: { ideal: 60 },
+            aspectRatio: {ideal: 1.7}
+          },
+        })
+        .then((stream) => {
           video.srcObject = stream;
-          video.addEventListener("loadeddata", predictWebcam);
-      });
-  }
-  async function predictWebcam() {
-      canvasElement.style.height = videoHeight;
-      video.style.height = videoHeight;
-      canvasElement.style.width = videoWidth;
-      video.style.width = videoWidth;
-      // Now let's start detecting the stream.
-      if (runningMode === "IMAGE") {
-          runningMode = "VIDEO";
-          await handLandmarker.setOptions({ runningMode: "VIDEO" });
-      }
-      let startTimeMs = performance.now();
-      const results = handLandmarker.detectForVideo(video, startTimeMs);
-      canvasCtx.save();
-      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-      if (results.landmarks) {
+          video.addEventListener("loadeddata", process);
+        });
+
+      function process() {
+        console.log("w:", video.videoWidth, "h:", video.videoHeight);
+        const videoAR = video.videoWidth / video.videoHeight;
+        const bufferAR = buffer.width / buffer.height;
+
+        let outWidth;
+        let outHeight;
+        let outX = 0;
+        let outY = 0;
+
+        // alert(`video w: ${video.videoWidth} h: ${video.videoHeight} r: ${videoAR}`);
+        // alert(`buffer w: ${buffer.width} h: ${buffer.height} r: ${bufferAR}`);
+
+        if (videoAR <= bufferAR) {
+          outWidth = buffer.width;
+          outHeight = outWidth / videoAR;
+          outY = ((buffer.height - outHeight) / 2) ;
+        } else {
+          outHeight = buffer.height;
+          outWidth = outHeight * videoAR;
+          outX = ((buffer.width - outWidth) / 2) ;
+        }
+
+        bufferCtx.drawImage(video, outX, outY, outWidth, outHeight);
+
+        // Read hand data from buffer.
+        const results = handLandmarker.detectForVideo(
+          buffer,
+          performance.now()
+        );
+
+        // Render...
+        ctx.save();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (results.landmarks) {
           for (const landmarks of results.landmarks) {
-              drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {
-                  color: "#00FF00",
-                  lineWidth: 5
-              });
-              drawLandmarks(canvasCtx, landmarks, { color: "#FF0000", lineWidth: 2 });
+            drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {
+              color: "#00FF00",
+              lineWidth: 5,
+            });
+            drawLandmarks(ctx, landmarks, {
+              color: "#FF0000",
+              lineWidth: 2,
+            });
           }
+        }
+        ctx.restore();
+
+        // TODO: Send the data to aesthetic.computer disk for rendering.
+        if (processing === true) window.requestAnimationFrame(process);
       }
-      canvasCtx.restore();
-      // Call this function again to keep predicting when the browser is ready.
-      if (webcamRunning === true) {
-          window.requestAnimationFrame(predictWebcam);
-      }
-  }
-  //# sourceURL=pen.js
-      </script>
-  
+    </script>
+  </body>
+</html>
