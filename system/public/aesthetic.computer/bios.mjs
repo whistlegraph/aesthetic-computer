@@ -114,6 +114,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       processing = false,
       resize;
 
+    // TODO: Spawn a new worker...
+    // if (workersEnabled) // TODO: Conditionally offload to worker...
+    const path = "/aesthetic.computer/lib/hand-processor.js";
+    const worker = new Worker(path);
+
     async function initMediaPipeHands() {
       // Create video device output.
       video = document.createElement("video");
@@ -122,30 +127,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       video.style.opacity = 0;
       wrapper.append(video);
 
-      const { HandLandmarker, FilesetResolver } = await import(
-        "./dep/@mediapipe/tasks-vision/vision_bundle.js"
-      );
+      // const { HandLandmarker, FilesetResolver } = await import(
+      //   "./dep/@mediapipe/tasks-vision/vision_bundle.js"
+      // );
 
-      let handLandmarker = undefined;
+      // let handLandmarker = undefined;
 
-      const createHandLandmarker = async () => {
-        const vision = await FilesetResolver.forVisionTasks(
-          "aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
-        );
+      // const createHandLandmarker = async () => {
+      // TODO: Put into separate thread.
+      // const vision = await FilesetResolver.forVisionTasks(
+      //   "aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
+      // );
 
-        handLandmarker = await HandLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: `./models/hand_landmarker.task`,
-          },
-          runningMode: "VIDEO",
-          numHands: 2,
-        });
-      };
-      await createHandLandmarker(); // Preload hand model data
+      // handLandmarker = await HandLandmarker.createFromOptions(vision, {
+      //   baseOptions: {
+      //     modelAssetPath: `./models/hand_landmarker.task`,
+      //   },
+      //   runningMode: "VIDEO",
+      //   numHands: 1,
+      // });
+      // };
+      //await createHandLandmarker(); // Preload hand model data
 
       // Read frames from video and draw data to canvas.
       const buffer = document.createElement("canvas");
-      const bufferCtx = buffer.getContext("2d");
+      const bufferCtx = buffer.getContext("2d", { willReadFrequently: true });
 
       function frame() {
         // Actual resolution.
@@ -160,13 +166,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             video: {
               width: { ideal: window.innerWidth / 4 },
               height: { ideal: window.innerHeight / 4 },
-              frameRate: { ideal: 60 },
+              frameRate: { ideal: 30 },
               aspectRatio: { ideal: 1.7 },
             },
           })
           .then((stream) => {
             video.srcObject = stream;
             processing = true;
+            console.log(stream);
             video.addEventListener("loadeddata", process);
           });
       }
@@ -174,43 +181,82 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       requestVideo();
       frame();
 
+      let lastVideoTime = -1;
+      let processingFrame = false;
+
       function process() {
-        // Drawing a video frame to the buffer (mirrored, proportion adjusted).
-        const videoAR = video.videoWidth / video.videoHeight;
-        const bufferAR = buffer.width / buffer.height;
-        let outWidth,
-          outHeight,
-          outX = 0,
-          outY = 0;
+        if (video.currentTime !== lastVideoTime) {
+          // Drawing a video frame to the buffer (mirrored, proportion adjusted).
+          const videoAR = video.videoWidth / video.videoHeight;
+          const bufferAR = buffer.width / buffer.height;
+          let outWidth,
+            outHeight,
+            outX = 0,
+            outY = 0;
 
-        if (videoAR <= bufferAR) {
-          // Tall to wide.
-          outWidth = buffer.width;
-          outHeight = outWidth / videoAR;
-        } else {
-          // Wide to tall.
-          outHeight = buffer.height;
-          outWidth = outHeight * videoAR;
+          if (videoAR <= bufferAR) {
+            // Tall to wide.
+            outWidth = buffer.width;
+            outHeight = outWidth / videoAR;
+          } else {
+            // Wide to tall.
+            outHeight = buffer.height;
+            outWidth = outHeight * videoAR;
+          }
+
+          outY = (buffer.height - outHeight) / 2; // Adjusting position.
+          outX = (buffer.width - outWidth) / 2;
+
+          bufferCtx.save();
+          bufferCtx.scale(-1, 1); // Draw mirrored.
+          bufferCtx.drawImage(
+            video,
+            -outX - outWidth,
+            outY,
+            outWidth,
+            outHeight
+          );
+          bufferCtx.restore();
+
+          const pixels = bufferCtx.getImageData(
+            0,
+            0,
+            buffer.width,
+            buffer.height
+          ).data.buffer;
+
+
+          if (processingFrame === false) {
+            worker.postMessage(
+              { width: buffer.width, height: buffer.height, pixels },
+              [pixels]
+            );
+            processingFrame = true;
+          }
+
+          // TODO:
+          // Send buffer of pixels to other worker thread...
+          // const data = handLandmarker.detectForVideo(buffer, performance.now());
+          //const data = { landmarks: [] };
+
+          // TODO:
+          // Other worker would report this data back here and forward it
+          // along to th disk thread...
+
+          lastVideoTime = video.currentTime;
         }
-
-        outY = (buffer.height - outHeight) / 2; // Adjusting position.
-        outX = (buffer.width - outWidth) / 2;
-
-        bufferCtx.save();
-        bufferCtx.scale(-1, 1); // Draw mirrored.
-        bufferCtx.drawImage(video, -outX - outWidth, outY, outWidth, outHeight);
-        bufferCtx.restore();
-
-        const data = handLandmarker.detectForVideo(buffer, performance.now());
-
-        send({
-          type: "hand-tracking-data",
-          content: data.landmarks[0] || [],
-        });
 
         // Keep processing the data on every display frame.
         if (processing === true) window.requestAnimationFrame(process);
       }
+
+      worker.onmessage = function (e) {
+        send({
+          type: "hand-tracking-data",
+          content: e.data,
+        });
+        processingFrame = false;
+      };
 
       // function toggleProcessing() {
       //   processing = !processing;
@@ -236,24 +282,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     destroyMediaPipeHands = () => {
       processing = false;
-      video.remove(); // Remove video from DOM.
-      window.removeEventListener("resize", resize);
+      video?.remove(); // Remove video from DOM.
+      if (resize) window.removeEventListener("resize", resize);
     };
 
     // Load the dependency script (at least once) and then initialize.
-    let script = document.querySelector("script#media-pipe-hands");
+    // let script = document.querySelector("script#media-pipe-hands");
+    initMediaPipeHands();
 
-    if (!script) {
-      script = document.createElement("script");
-      script.crossOrigin = "anonymous";
-      script.src = "aesthetic.computer/dep/@mediapipe/hands/hands.js";
-      script.id = "media-pipe-hands";
-      script.onload = initMediaPipeHands;
-      document.head.appendChild(script);
-      console.log(script);
-    } else {
-      initMediaPipeHands();
-    }
+    //if (!script) {
+    // script = document.createElement("script");
+    // script.crossOrigin = "anonymous";
+    // script.src = "aesthetic.computer/dep/@mediapipe/hands/hands.js";
+    // script.id = "media-pipe-hands";
+    // script.onload = initMediaPipeHands;
+    // document.head.appendChild(script);
+    // } else {
+    // initMediaPipeHands();
+    // }
   }
 
   // FFMPEG.WASM
@@ -838,7 +884,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const workersEnabled = !sandboxed;
   // const workersEnabled = false;
 
-  // if (workersEnabled) {
   if (!MetaBrowser && workersEnabled) {
     const worker = new Worker(new URL(fullPath, window.location.href), {
       type: "module",
@@ -1461,7 +1506,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // TODO: Make this automatic for pieces that use hand-tracking.
-      if (content.text.indexOf("happy-hands-assembler") === 0)
+      if (content.text.indexOf("happy-hands-assembler") === 0 && !MetaBrowser)
         loadMediaPipeHands();
 
       // Show an "audio engine: off" message.

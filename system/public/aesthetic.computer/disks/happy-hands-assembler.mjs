@@ -3,7 +3,9 @@
 // Coded by Jeffrey Alan Scudder & Tina Tarighian
 
 /* #region 🏁 todo
-  - [] Jeffrey tries to speed it all up.
+  - [x] Jeffrey tries to speed it all up.
+    - [x] Get code running in worker.
+    - [-] Clean up API
   + Done
   - [x] Jeffrey sets up deinitialization of mediapipe.
   - [x] Jeffrey fix improper layering of `box` and `poly`.

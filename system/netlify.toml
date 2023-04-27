@@ -43,7 +43,7 @@
   for = "/*.mjs|/*.js"
   [headers.values]
     Access-Control-Allow-Origin = "*"
-    Content-Security-Policy = "script-src 'self' blob:;"
+    Content-Security-Policy = "script-src 'self' blob: 'unsafe-eval';"
     Vary = "*"
 [[redirects]]
   from = "https://www.4esthetic.com/*"
