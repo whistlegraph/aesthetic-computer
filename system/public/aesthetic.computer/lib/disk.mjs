@@ -336,8 +336,7 @@ let lastActAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
-  // Trigger background music.
-  // Eventually add an "@" style parameter similar to what a stamp system would have.
+  hand: { mediapipe: [] }, // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
   hud: {
     label: (text, color, offset) => {
       currentHUDText = text;
@@ -348,6 +347,8 @@ const $commonApi = {
   send,
   platform,
   history: [], // Populated when a disk loads and sets the former piece.
+  // Trigger background music.
+  // Eventually add an "@" style parameter similar to what a stamp system would have.
   bgm: {
     set: function (trackNumber) {
       send({ type: "bgm-change", content: { trackNumber } });

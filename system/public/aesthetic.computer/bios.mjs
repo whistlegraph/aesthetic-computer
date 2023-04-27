@@ -108,14 +108,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** External Library Dependency Injection ***
 
-  async function loadMediaPipeHands() {
+  function loadMediaPipeHands() {
     const script = document.createElement("script");
     script.crossOrigin = "anonymous";
     script.src = "aesthetic.computer/dep/@mediapipe/hands/hands.js";
-
-    script.onerror = function (err) {
-      console.error("Couldn't load `@mediapipe/hands`!");
-    };
 
     script.onload = async function handleScriptLoaded() {
       // Create video device output.
@@ -153,8 +149,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Actual resolution.
         buffer.width = window.innerWidth / 4;
         buffer.height = window.innerHeight / 4;
-        canvas.width = buffer.width;
-        canvas.height = buffer.height;
       }
 
       function requestVideo() {
@@ -1440,9 +1434,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // TODO: Make this automatic for pieces that use hand-tracking.
-      if (content.text === "happy-hands-assembler") {
-        loadMediaPipeHands();
-      }
+      if (content.text === "happy-hands-assembler") loadMediaPipeHands();
 
       // Show an "audio engine: off" message.
       //if (content.noBeat === false && audioContext?.state !== "running") {
