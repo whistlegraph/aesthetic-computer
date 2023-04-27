@@ -107,24 +107,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let density = 2.2; // added to window.devicePixelRatio
 
   // *** External Library Dependency Injection ***
+  let destroyMediaPipeHands;
 
   function loadMediaPipeHands() {
-    const script = document.createElement("script");
-    script.crossOrigin = "anonymous";
-    script.src = "aesthetic.computer/dep/@mediapipe/hands/hands.js";
+    let video,
+      processing = false,
+      resize;
 
-    script.onload = async function handleScriptLoaded() {
+    async function initMediaPipeHands() {
       // Create video device output.
-      const video = document.createElement("video");
+      video = document.createElement("video");
       video.autoplay = true;
       video.playsinline = true;
       video.style.opacity = 0;
       wrapper.append(video);
 
-      const { HandLandmarker, FilesetResolver } = await import("./dep/@mediapipe/tasks-vision/vision_bundle.js");
+      const { HandLandmarker, FilesetResolver } = await import(
+        "./dep/@mediapipe/tasks-vision/vision_bundle.js"
+      );
 
       let handLandmarker = undefined;
-      let processing = false;
 
       const createHandLandmarker = async () => {
         const vision = await FilesetResolver.forVisionTasks(
@@ -171,19 +173,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       requestVideo();
       frame();
-      let resizeTimer;
-
-      window.addEventListener("resize", () => {
-        window.clearTimeout(resizeTimer);
-        resizeTimer = window.setTimeout(function () {
-          processing = false; // Stop everything.
-          video.srcObject.getTracks().forEach((track) => track.stop());
-          video.removeEventListener("loadeddata", process);
-          // Get a new video and resize the buffers.
-          requestVideo();
-          frame();
-        }, 250);
-      }); // Attach frame to a resize event.
 
       function process() {
         // Drawing a video frame to the buffer (mirrored, proportion adjusted).
@@ -216,20 +205,55 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         send({
           type: "hand-tracking-data",
-          content: data.landmarks[0] || []
+          content: data.landmarks[0] || [],
         });
 
         // Keep processing the data on every display frame.
         if (processing === true) window.requestAnimationFrame(process);
       }
 
-      function toggleProcessing() {
-        processing = !processing;
-        if (processing) window.requestAnimationFrame(process);
-      }
+      // function toggleProcessing() {
+      //   processing = !processing;
+      //   if (processing) window.requestAnimationFrame(process);
+      // }
+
+      let resizeTimer;
+
+      resize = () => {
+        window.clearTimeout(resizeTimer);
+        resizeTimer = window.setTimeout(function () {
+          processing = false; // Stop everything.
+          video.srcObject.getTracks().forEach((track) => track.stop());
+          video.removeEventListener("loadeddata", process);
+          // Get a new video and resize the buffers.
+          requestVideo();
+          frame();
+        }, 250);
+      };
+
+      window.addEventListener("resize", resize);
+    }
+
+    destroyMediaPipeHands = () => {
+      processing = false;
+      video.remove(); // Remove video from DOM.
+      window.removeEventListener("resize", resize);
     };
 
-    document.head.appendChild(script);
+    // Load the dependency script (at least once) and then initialize.
+    let script = document.querySelector("script#media-pipe-hands");
+
+    if (!script) {
+      script = document.createElement("script");
+      script.crossOrigin = "anonymous";
+      script.src = "aesthetic.computer/dep/@mediapipe/hands/hands.js";
+      script.id = "media-pipe-hands";
+      script.onload = initMediaPipeHands;
+      document.head.appendChild(script);
+      console.log(script);
+    } else {
+      initMediaPipeHands();
+    }
   }
 
   // FFMPEG.WASM
@@ -1357,6 +1381,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Kill the 3D engine.
       ThreeD?.kill();
 
+      // Kill mediapipe if it exists.
+      destroyMediaPipeHands?.();
+
       // Clear any DOM content that was added by a piece.
       contentFrame?.remove(); // Remove the contentFrame if it exists.
       contentFrame = undefined;
@@ -1434,7 +1461,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // TODO: Make this automatic for pieces that use hand-tracking.
-      if (content.text === "happy-hands-assembler") loadMediaPipeHands();
+      if (content.text.indexOf("happy-hands-assembler") === 0)
+        loadMediaPipeHands();
 
       // Show an "audio engine: off" message.
       //if (content.noBeat === false && audioContext?.state !== "running") {

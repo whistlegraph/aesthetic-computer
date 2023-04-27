@@ -3,10 +3,12 @@
 // Coded by Jeffrey Alan Scudder & Tina Tarighian
 
 /* #region 🏁 todo
-  - [] Jeffrey fix improper layering of `box` and `poly`.
-  - [] Jeffrey sets up deinitialization of mediapipe.
   - [] Jeffrey tries to speed it all up.
   + Done
+  - [x] Jeffrey sets up deinitialization of mediapipe.
+  - [x] Jeffrey fix improper layering of `box` and `poly`.
+        (Wasn't a bug; ordering of drawing interleaves boxes & lines, so
+        using layers makes sense)
   - [x] Move the corner label numbering the current hand from `boot` to `paint`.
 #endregion */
 
@@ -31,7 +33,8 @@ const handPalette = {
 // 🥾 Boot (Runs once before first paint and sim)
 async function boot({ wipe, params, screen, store }) {
   h = parseInt(params[0]);
-  if (isNaN(h)) { // Try to receive last editted hand. 
+  if (isNaN(h)) {
+    // Try to receive last editted hand.
     const stored = await store.retrieve(key, "local:db");
     h = stored;
   }
@@ -53,36 +56,42 @@ async function boot({ wipe, params, screen, store }) {
 }
 
 // 🎨 Paint (Executes every display frame)
-function paint({ hand: { mediapipe }, layer, wipe, ink, box, pan, unpan, screen, pen, paintCount }) {
-  
-  // Render
+function paint({
+  hand: { mediapipe },
+  layer,
+  wipe,
+  ink,
+  box,
+  pan,
+  unpan,
+  screen,
+  pen,
+  paintCount,
+}) {
   wipe(0, 64, 0)
-  .ink(0, 255, 0, 128)
-  .write(h, { x: 4, y: screen.height - 13 }); // Drawing number of hand.
-
-  // console.log(mediapipe); // Comes from line 219 in bios. "hand-tracking-data"
+    .ink(0, 255, 0, 128)
+    .write(h, { x: 4, y: screen.height - 13 }); // Print working happy hand index.
 
   const boxSize = 5;
   const boxType = "fill*center";
 
   ink(255);
   for (let coord of mediapipe) {
-    const scaledX = coord.x * screen.width; 
-    const scaledY = coord.y * screen.height; 
-    console.log(coord, scaledX, scaledY);
+    const scaledX = coord.x * screen.width;
+    const scaledY = coord.y * screen.height;
     box(scaledX, scaledY, boxSize, boxType);
   }
 
-  const osc = Math.sin(paintCount * 0.1); // Oscillate a value based on frame. 
+  const osc = Math.sin(paintCount * 0.1); // Oscillate a value based on frame.
   // Build base wrist geometry.
-  const w = [ 
+  const w = [
     origin,
     crawl(origin, 40 + 2 * osc, 10),
     crawl(origin, 45 + -2 * osc, 25),
     crawl(origin, 50 + 2 * osc, 40),
     crawl(origin, 55 + -2 * osc, 55),
   ];
-  // Build hand geometry with fingers. 
+  // Build hand geometry with fingers.
   const hand = {
     w,
     t: digit(w[0], 4, -30, -10 * osc),
@@ -92,21 +101,21 @@ function paint({ hand: { mediapipe }, layer, wipe, ink, box, pan, unpan, screen,
     p: digit(w[4], 3, 20, -10 * osc),
   };
 
-  const o = { x: -24 + 2 * osc, y: 16 + 2 * osc }; // Offsets and oscilates the entire hand 
+  const o = { x: -24 + 2 * osc, y: 16 + 2 * osc }; // Offsets and oscilates the entire hand
   pen
     ? pan(pen.x + o.x, pen.y + o.y)
     : pan(screen.width / 2 + o.x, screen.height / 2 + o.y);
-  
-    // 🅰️ Hand Points & Hand Lines
 
-  ["w", "t", "i", "m", "o", "p"].forEach((char,i) => {
-    layer(0);
+  // 🅰️ Hand Lines & Points
+  // Draw each component (lines and boxes) of wrist, followed by each of digit.
+  ["w", "t", "i", "m", "o", "p"].forEach((char, i) => {
+    layer(0); // Lines always under boxes.
     if (char === "w") {
       ink(handPalette.w).poly([...w, w[0]]); // Closed polygon for wrist.
     } else {
-      ink(handPalette[char]).poly([w[i-1], ...hand[char]]); 
+      ink(handPalette[char]).poly([w[i - 1], ...hand[char]]);
     }
-    layer(1); // TODO: Eventually remove.
+    layer(1); // Always draw the boxes on top.
     ink(handPalette[char]);
     for (let coord of hand[char]) box(coord.x, coord.y, boxSize, boxType);
   });
@@ -142,7 +151,7 @@ function digit(from, segCount, deg = 0, curve = 0) {
       segs.push(crawl(from, gap, deg));
     } else {
       deg += curve; // Curve a bit on each seg.
-      gap *= 0.89; // Decrease gap as well. 
+      gap *= 0.89; // Decrease gap as well.
       segs.push(crawl(segs[s - 1], gap, deg)); // Crawl from previous seg.
     }
   }
