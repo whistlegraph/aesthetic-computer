@@ -216,7 +216,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         send({
           type: "hand-tracking-data",
-          content: data.landmarks
+          content: data.landmarks[0] || []
         });
 
         // Keep processing the data on every display frame.

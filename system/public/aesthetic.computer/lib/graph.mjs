@@ -682,6 +682,7 @@ function floodFill(x, y) {
 */
 
 // Draws a series of 1px lines without overlapping / overdrawing points.
+// TODO: Add closed mode? Example: ink(handPalette.w).poly([...w, w[0]]); 
 function poly(coords) {
   let last = coords[0];
   coords.forEach((cur, i) => {
