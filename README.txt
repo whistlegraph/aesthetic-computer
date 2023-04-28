@@ -67,6 +67,14 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Happy Hands (June 1st) 🖐️😃 ***
+  😎 Now
+    - [-] Profile `@mediapipe` for memory leaks in the worker context.
+      - [] Why does it slow down after so many frames?
+      - [] Try passing in a different object other than ImageData, like
+           an OffscreenCanvas (now supported in all browsers)
+    - [] Test `@mediapipe` libraries on iOS.
+      - [] Add the ability to run the library if workers are not enabled? 
+
   ➡️ Next
     - [] Plan next meeting w/ Tina. (6th)
     - [] Explore gesture recognition model: https://mediapipe-studio.webapps.google.com/demo/gesture_recognizer
