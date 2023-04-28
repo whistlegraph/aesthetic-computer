@@ -17,18 +17,20 @@ async function init() {
       modelAssetPath: "../../models/hand_landmarker.task",
     },
     runningMode: "VIDEO",
+    minHandDetectionConfidence: 0.5,
+    minHandPresenceConfidence: 0.5,
+    minTrackingConfidence: 0.5,
     numHands: 1,
   });
-
 }
 
-onmessage = function ({ data: { pixels, width, height } }) {
-  const imageData = new ImageData(
-    new Uint8ClampedArray(pixels),
-    width,
-    height
-  );
+let imageData;
 
+onmessage = function ({ data: { pixels, width, height } }) {
+// onmessage = function ({ data: { offscreenCanvas } }) {
+  imageData = new ImageData(new Uint8ClampedArray(pixels), width, height);
+
+  // const data = handLandmarker?.detectForVideo(offscreenCanvas, performance.now());
   const data = handLandmarker?.detectForVideo(imageData, performance.now());
   postMessage(data?.landmarks[0] || []);
 };

@@ -66,51 +66,50 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Happy Hands 🖐️😃 ***
-  (All hands are defined by integer ids 0-n)
+*** Happy Hands (June 1st) 🖐️😃 ***
+  ➡️ Next
+    - [] Plan next meeting w/ Tina. (6th)
+    - [] Explore gesture recognition model: https://mediapipe-studio.webapps.google.com/demo/gesture_recognizer
 
-  - [] Define command set for pipeline.
+  📓 Notes & Spec
+    (All hands are defined by integer ids 0-n)
     - Creating and Publishing
 
     (pattern -> body) -> style -> face
       mesh creation
 
     1. `hhf` aka `happy-hand-factory` with an integer.
-           - Tie us to working with a particular hand and jumps to step A by default.
+          - Tie us to working with a particular hand and jumps to step A by default.
       - Go to another step with: `hhf:body 800` 
-
-    Next
-    - [] Fix framebuffer initialization error from mediapipe loading delay. (@jeffrey)
-    - [] Plan next meeting w/ Tina.
-
-    Wednesday
-    - [x] Integrate `@mediapipe/hands` into the project. 
-    + Later
-    - [] Explore gesture recognition model: https://mediapipe-studio.webapps.google.com/demo/gesture_recognizer
-
-    Tuesday
-    + Done
-    - [x] Draw and define the 2D mesh thingy inside `pattern`.
-
-    Monday
-    + Done
-      - [x] Create `hhf` piece. (hhf.mjs)
-      - [x] Onboard @ttarigh to the repo. 
-      - [x] Set on the client a global variable that determines what
-            hand we are "on".
-      - [x] Limit the count to 1024 or something like that. 
-      - [x] Fail if no param.
-      - [x] Find good name for this process...
-      - [x] Creating `happy-hands-factory` with an alias `hhf`.
 
     - Viewing and Using
     1. `hh` or `happy-hand` takes you to using a random hand from 0-n.
     2. `hh 800` will view a hand
+
     + Later
     3. `hh 100 200` will start a 2 person call where a link is given and
         guest 2 is 200. 
     4. `ht` or `hand-time` is just a `hh` alias?
     5. `ht 5` -> a room with 5 random hands?
+
+  ✅ Done
+    Thursday
+    - [x] Got hand data working!
+    - [x] Fix framebuffer initialization error from mediapipe loading delay. (@jeffrey)
+    Wednesday
+    - [x] Integrate `@mediapipe/hands` into the project. 
+    Tuesday
+    - [x] Draw and define the 2D mesh thingy inside `pattern`.
+    Monday
+    - [x] Define command set for pipeline.
+    - [x] Create `hhf` piece. (hhf.mjs)
+    - [x] Onboard @ttarigh to the repo. 
+    - [x] Set on the client a global variable that determines what
+          hand we are "on".
+    - [x] Limit the count to 1024 or something like that. 
+    - [x] Fail if no param.
+    - [x] Find good name for this process...
+    - [x] Creating `happy-hands-factory` with an alias `hhf`.
 
 *** ai brush ***
   - [] Write a query and get back brush code in response.

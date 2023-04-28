@@ -185,7 +185,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let processingFrame = false;
 
       function process() {
-        if (video.currentTime !== lastVideoTime) {
+        if (!processingFrame) {
           // Drawing a video frame to the buffer (mirrored, proportion adjusted).
           const videoAR = video.videoWidth / video.videoHeight;
           const bufferAR = buffer.width / buffer.height;
@@ -225,23 +225,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             buffer.height
           ).data.buffer;
 
+          // TODO: Pass an offscreen canvas instead?
 
-          if (processingFrame === false) {
-            worker.postMessage(
-              { width: buffer.width, height: buffer.height, pixels },
-              [pixels]
-            );
-            processingFrame = true;
-          }
+          // const offscreenCanvas = new OffscreenCanvas(
+          //   buffer.width,
+          //   buffer.height
+          // );
+          // const offscreenContext = offscreenCanvas.getContext("2d");
 
-          // TODO:
-          // Send buffer of pixels to other worker thread...
-          // const data = handLandmarker.detectForVideo(buffer, performance.now());
-          //const data = { landmarks: [] };
+          //offscreenContext.drawImage(buffer, 0, 0);
 
-          // TODO:
-          // Other worker would report this data back here and forward it
-          // along to th disk thread...
+          //const of = offscreenCanvas.transferControlToOffscreen();
+
+          //const of = buffer.transferControlToOffscreen();
+
+          // worker.postMessage({ offscreenCanvas }, [
+          //   offscreenCanvas,
+          // ]);
+
+          worker.postMessage(
+            { width: buffer.width, height: buffer.height, pixels },
+            [pixels]
+          );
+          processingFrame = true;
 
           lastVideoTime = video.currentTime;
         }
@@ -266,13 +272,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let resizeTimer;
 
       resize = () => {
-        window.clearTimeout(resizeTimer);
+        window.clearTimeout(resizeTimer); // 250ms delay on reframing.
         resizeTimer = window.setTimeout(function () {
           processing = false; // Stop everything.
           video.srcObject.getTracks().forEach((track) => track.stop());
           video.removeEventListener("loadeddata", process);
-          // Get a new video and resize the buffers.
-          requestVideo();
+          requestVideo(); // Get a new video and resize the buffers.
           frame();
         }, 250);
       };
@@ -281,6 +286,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     destroyMediaPipeHands = () => {
+      worker.terminate();
       processing = false;
       video?.remove(); // Remove video from DOM.
       if (resize) window.removeEventListener("resize", resize);
@@ -289,17 +295,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Load the dependency script (at least once) and then initialize.
     // let script = document.querySelector("script#media-pipe-hands");
     initMediaPipeHands();
-
-    //if (!script) {
-    // script = document.createElement("script");
-    // script.crossOrigin = "anonymous";
-    // script.src = "aesthetic.computer/dep/@mediapipe/hands/hands.js";
-    // script.id = "media-pipe-hands";
-    // script.onload = initMediaPipeHands;
-    // document.head.appendChild(script);
-    // } else {
-    // initMediaPipeHands();
-    // }
   }
 
   // FFMPEG.WASM
