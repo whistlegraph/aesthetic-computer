@@ -1832,10 +1832,10 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
-  if (type === "hand-tracking-data") {
-    $commonApi.hand = { mediapipe: content };
-    return;
-  }
+  // if (type === "hand-tracking-data") {
+  //$commonApi.hand = { mediapipe: content };
+  // return;
+  // }
 
   if (type === "upload:progress") {
     serverUploadProgressReporter?.(content); // Report file upload progress if needed.
@@ -2228,6 +2228,9 @@ async function makeFrame({ data: { type, content } }) {
       amplitude: content.audioMusicAmplitude,
       sample: content.audioMusicSampleData,
     };
+
+    // Hand-tracking
+    if (content.hand) $commonApi.hand = { mediapipe: content.hand };
 
     // Pens
     if (content.pen) {

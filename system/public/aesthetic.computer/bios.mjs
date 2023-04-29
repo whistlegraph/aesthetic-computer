@@ -32,6 +32,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   window.acCONTENT_EVENTS = [];
 
   let pen, keyboard;
+  let handData = []; // Hand-tracking.
+
   // let frameCount = 0;
   // let timePassed = 0;
   let now = 0;
@@ -107,56 +109,59 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let density = 2.2; // added to window.devicePixelRatio
 
   // *** External Library Dependency Injection ***
-  let destroyMediaPipeHands;
 
-  function loadMediaPipeHands() {
+  // Mediapipe Hand Tracking from Google
+  let destroyMediaPipeHands;
+  async function loadMediaPipeHands() {
     let video,
       processing = false,
+      // processingFrame = false,
       resize;
 
-    // TODO: Spawn a new worker...
-    // if (workersEnabled) // TODO: Conditionally offload to worker...
-    const path = "/aesthetic.computer/lib/hand-processor.js";
-    const worker = new Worker(path);
+    // const worker = new Worker("/aesthetic.computer/lib/hand-processor.js"); // ⚠️ No longer in use.
+
+    const { HandLandmarker, FilesetResolver } = await import(
+      "/aesthetic.computer/dep/@mediapipe/tasks-vision/vision_bundle.js"
+    );
+
+    const vision = await FilesetResolver.forVisionTasks(
+      "/aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
+    );
+
+    const handLandmarker = await HandLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: "../models/hand_landmarker.task",
+        delegate: "GPU",
+      },
+      canvas: new OffscreenCanvas(0, 0),
+      runningMode: "VIDEO",
+      minHandDetectionConfidence: 0.25,
+      minHandPresenceConfidence: 0.25,
+      minTrackingConfidence: 0.25,
+      numHands: 1,
+    });
 
     async function initMediaPipeHands() {
-      // Create video device output.
-      video = document.createElement("video");
+      video = document.createElement("video"); // Create video device output.
       video.autoplay = true;
       video.playsinline = true;
-      video.style.opacity = 0;
+
+      video.style.opacity = 0.2;
       wrapper.append(video);
-
-      // const { HandLandmarker, FilesetResolver } = await import(
-      //   "./dep/@mediapipe/tasks-vision/vision_bundle.js"
-      // );
-
-      // let handLandmarker = undefined;
-
-      // const createHandLandmarker = async () => {
-      // TODO: Put into separate thread.
-      // const vision = await FilesetResolver.forVisionTasks(
-      //   "aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
-      // );
-
-      // handLandmarker = await HandLandmarker.createFromOptions(vision, {
-      //   baseOptions: {
-      //     modelAssetPath: `./models/hand_landmarker.task`,
-      //   },
-      //   runningMode: "VIDEO",
-      //   numHands: 1,
-      // });
-      // };
-      //await createHandLandmarker(); // Preload hand model data
+      video.style.zIndex = 1000;
+      video.style.position = "absolute";
+      video.style.imageRendering = "pixelated";
+      video.style.width = "100%";
+      video.style.height = "100%";
 
       // Read frames from video and draw data to canvas.
-      const buffer = document.createElement("canvas");
-      const bufferCtx = buffer.getContext("2d", { willReadFrequently: true });
+      // const buffer = document.createElement("canvas");
+      // const bufferCtx = buffer.getContext("2d", { willReadFrequently: true });
 
       function frame() {
         // Actual resolution.
-        buffer.width = window.innerWidth / 4;
-        buffer.height = window.innerHeight / 4;
+        // buffer.width = window.innerWidth / 4;
+        // buffer.height = window.innerHeight / 4;
       }
 
       function requestVideo() {
@@ -164,16 +169,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           .getUserMedia({
             // Request webcam data.
             video: {
-              width: { ideal: window.innerWidth / 4 },
-              height: { ideal: window.innerHeight / 4 },
-              frameRate: { ideal: 30 },
+              width: { ideal: window.innerWidth / 2 },
+              height: { ideal: window.innerHeight / 2 },
+              frameRate: { exact: 30 },
               aspectRatio: { ideal: 1.7 },
             },
           })
           .then((stream) => {
             video.srcObject = stream;
             processing = true;
-            console.log(stream);
             video.addEventListener("loadeddata", process);
           });
       }
@@ -181,96 +185,91 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       requestVideo();
       frame();
 
-      let lastVideoTime = -1;
-      let processingFrame = false;
+      let videoTime = -1;
 
       function process() {
-        if (!processingFrame) {
-          // Drawing a video frame to the buffer (mirrored, proportion adjusted).
-          const videoAR = video.videoWidth / video.videoHeight;
-          const bufferAR = buffer.width / buffer.height;
-          let outWidth,
-            outHeight,
-            outX = 0,
-            outY = 0;
+        // Drawing a video frame to the buffer (mirrored, proportion adjusted).
+        // const videoAR = video.videoWidth / video.videoHeight;
+        // const bufferAR = buffer.width / buffer.height;
+        // let outWidth,
+        //   outHeight,
+        //   outX = 0,
+        //   outY = 0;
 
-          if (videoAR <= bufferAR) {
-            // Tall to wide.
-            outWidth = buffer.width;
-            outHeight = outWidth / videoAR;
-          } else {
-            // Wide to tall.
-            outHeight = buffer.height;
-            outWidth = outHeight * videoAR;
-          }
+        // if (videoAR <= bufferAR) {
+        //   // Tall to wide.
+        //   outWidth = buffer.width;
+        //   outHeight = outWidth / videoAR;
+        // } else {
+        //   // Wide to tall.
+        //   outHeight = buffer.height;
+        //   outWidth = outHeight * videoAR;
+        // }
 
-          outY = (buffer.height - outHeight) / 2; // Adjusting position.
-          outX = (buffer.width - outWidth) / 2;
+        // outY = (buffer.height - outHeight) / 2; // Adjusting position.
+        // outX = (buffer.width - outWidth) / 2;
 
-          bufferCtx.save();
-          bufferCtx.scale(-1, 1); // Draw mirrored.
-          bufferCtx.drawImage(
-            video,
-            -outX - outWidth,
-            outY,
-            outWidth,
-            outHeight
-          );
-          bufferCtx.restore();
+        // Worker Mode
+        // bufferCtx.save();
+        // bufferCtx.scale(-1, 1); // Draw mirrored.
+        // bufferCtx.drawImage(video, -outX - outWidth, outY, outWidth, outHeight);
+        // bufferCtx.drawImage(video, outX, outY, outWidth, outHeight);
+        // bufferCtx.restore();
 
-          const pixels = bufferCtx.getImageData(
-            0,
-            0,
-            buffer.width,
-            buffer.height
-          ).data.buffer;
+        // No Worker Mode
+        if (videoTime !== video.currentTime) {
+          const data = handLandmarker?.detectForVideo(video, performance.now());
+          videoTime = video.currentTime;
 
-          // TODO: Pass an offscreen canvas instead?
+          handData = data?.landmarks[0] || [];
 
-          // const offscreenCanvas = new OffscreenCanvas(
-          //   buffer.width,
-          //   buffer.height
-          // );
-          // const offscreenContext = offscreenCanvas.getContext("2d");
+          // TODO: Process hand-data / normalize hand data to display.
 
-          //offscreenContext.drawImage(buffer, 0, 0);
-
-          //const of = offscreenCanvas.transferControlToOffscreen();
-
-          //const of = buffer.transferControlToOffscreen();
-
-          // worker.postMessage({ offscreenCanvas }, [
-          //   offscreenCanvas,
-          // ]);
-
-          worker.postMessage(
-            { width: buffer.width, height: buffer.height, pixels },
-            [pixels]
-          );
-          processingFrame = true;
-
-          lastVideoTime = video.currentTime;
+          // Send a custom event for tracking.
+          // (This is less synced with other inputs / slower)
+          // send({
+          //   type: "hand-tracking-data",
+          //   content: data?.landmarks[0] || [],
+          // });
         }
+
+        // ⚠️ No longer in use.
+        // const pixels = bufferCtx.getImageData(0, 0, buffer.width, buffer.height)
+        //   .data.buffer;
+        // if (videoTime !== video.currentTime) {
+        //   worker.postMessage(
+        //     { width: buffer.width, height: buffer.height, pixels, time: video.currentTime },
+        //     [pixels]
+        //   );
+        //   processingFrame = true;
+        //   videoTime = video.currentTime;
+        // }
 
         // Keep processing the data on every display frame.
         if (processing === true) window.requestAnimationFrame(process);
       }
 
-      worker.onmessage = function (e) {
-        send({
-          type: "hand-tracking-data",
-          content: e.data,
-        });
-        processingFrame = false;
-      };
+      // ⚠️ No longer in use.
+      // if (worker) {
+      //   worker.onmessage = function (e) {
+      //     send({
+      //       type: "hand-tracking-data",
+      //       content: e.data,
+      //     });
+      //     processingFrame = false;
+      //   };
+      // }
 
+      // Toggle the processing of frames while the camera is still
+      // running.
+      // TODO: Add this to the `disk` API.
       // function toggleProcessing() {
       //   processing = !processing;
       //   if (processing) window.requestAnimationFrame(process);
       // }
 
+      // Resizing the buffer to match the viewport.
       let resizeTimer;
-
       resize = () => {
         window.clearTimeout(resizeTimer); // 250ms delay on reframing.
         resizeTimer = window.setTimeout(function () {
@@ -281,19 +280,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           frame();
         }, 250);
       };
-
       window.addEventListener("resize", resize);
     }
 
     destroyMediaPipeHands = () => {
-      worker.terminate();
+      //worker.terminate();
       processing = false;
       video?.remove(); // Remove video from DOM.
       if (resize) window.removeEventListener("resize", resize);
     };
 
-    // Load the dependency script (at least once) and then initialize.
-    // let script = document.querySelector("script#media-pipe-hands");
     initMediaPipeHands();
   }
 
@@ -1012,6 +1008,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // TODO: Do all fields of `pointer` need to be sent? 22.09.19.23.30
           pen: { events: pen.events, pointers: pen.pointers },
           pen3d: ThreeD?.pollControllers(), // TODO: Implement pointers in 3D.
+          hand: handData,
           keyboard: keyboard.events,
           clipboardText: pastedText,
         },

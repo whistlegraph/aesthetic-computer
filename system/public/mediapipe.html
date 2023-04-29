@@ -4,178 +4,190 @@
      to the model.
 -->
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Mediapipe Hands Bare Bones Example</title>
-  </head>
-  <body>
-    <style>
-      body {
-        margin: 0;
-      }
-      video,
-      canvas {
-        position: absolute;
-        left: 0px;
-        top: 0px;
-      }
-      video {
-        background: rgba(255, 0, 0, 0.5);
-        opacity: 0;
-      }
-      #buffer {
-        background: yellow;
-      }
-    </style>
 
-    <script
-      src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
-      crossorigin="anonymous"
-    ></script>
+<head>
+  <meta charset="UTF-8" />
+  <title>Mediapipe Hands Bare Bones Example</title>
+</head>
 
-    <script
-      src="aesthetic.computer/dep/@mediapipe/hands/hands.js"
-      crossorigin="anonymous"
-    ></script>
+<body>
+  <style>
+    body {
+      margin: 0;
+    }
 
-    <video id="cam" autoplay playsinline></video>
-    <canvas id="hand"></canvas>
+    video,
+    canvas {
+      position: absolute;
+      left: 0px;
+      top: 0px;
+      image-rendering: pixelated;
+    }
 
-    <script type="module">
-      import {
-        HandLandmarker,
-        FilesetResolver,
-      } from "./aesthetic.computer/dep/@mediapipe/tasks-vision/vision_bundle.js";
+    video {
+      background: rgba(255, 0, 0, 0.5);
+      opacity: 1;
+    }
 
-      let handLandmarker = undefined;
-      let processing = false;
+    #buffer {
+      background: yellow;
+    }
+  </style>
 
-      const createHandLandmarker = async () => {
-        const vision = await FilesetResolver.forVisionTasks(
-          "aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
-        );
-        handLandmarker = await HandLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: `./models/hand_landmarker.task`,
+  <script
+    src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+    crossorigin="anonymous"></script>
+
+  <!-- <script src="aesthetic.computer/dep/@mediapipe/hands/hands.js" -->
+    <!-- crossorigin="anonymous"></script> -->
+
+  <video id="cam" autoplay playsinline></video>
+  <canvas id="hand"></canvas>
+
+  <script type="module">
+
+    // Read frames from video and draw data to canvas.
+    const video = document.getElementById("cam");
+    const canvas = document.getElementById("hand");
+    const ctx = canvas.getContext("2d");
+
+    const buffer = document.createElement("canvas");
+    const bufferCtx = buffer.getContext("2d");
+    // buffer.id = "buffer";
+    // document.body.prepend(buffer); // Add buffer to dom.
+
+    const handCan = new OffscreenCanvas(0, 0);
+
+    // const mp = window;
+    let processing = false;
+
+    import {
+      HandLandmarker,
+      FilesetResolver,
+    } from "./aesthetic.computer/dep/@mediapipe/tasks-vision/vision_bundle.js";
+
+    let handLandmarker = undefined;
+
+    const createHandLandmarker = async () => {
+      const vision = await FilesetResolver.forVisionTasks(
+        "aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
+      );
+
+      handLandmarker = await HandLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: `./models/hand_landmarker.task`,
+          delegate: "GPU",
+        },
+        canvas: handCan,
+        runningMode: "VIDEO",
+        numHands: 1,
+      });
+    };
+    await createHandLandmarker(); // Preload hand model data
+
+    function frame() {
+      // Actual resolution.
+      buffer.width = window.innerWidth;
+      buffer.height = window.innerHeight;
+
+      canvas.width = buffer.width;
+      canvas.height = buffer.height;
+
+      canvas.style.width = video.style.width = window.innerWidth + "px";
+      canvas.style.height = video.style.height = window.innerHeight + "px";
+    }
+
+    function requestVideo() {
+      navigator.mediaDevices
+        .getUserMedia({
+          // Request webcam data.
+          video: {
+            width: { ideal: window.innerWidth },
+            height: { ideal: window.innerHeight },
+            frameRate: { ideal: 60 },
+            // aspectRatio: { ideal: 1.7 }
           },
-          runningMode: "VIDEO",
-          numHands: 2,
+        })
+        .then((stream) => {
+          video.srcObject = stream;
+          processing = true;
+          video.addEventListener("loadeddata", process);
         });
-      };
-      await createHandLandmarker(); // Preload hand model data
+    }
 
-      // Read frames from video and draw data to canvas.
-      const video = document.getElementById("cam");
-      const canvas = document.getElementById("hand");
-      const ctx = canvas.getContext("2d");
+    requestVideo();
+    frame();
+    let resizeTimer;
 
-      const buffer = document.createElement("canvas");
-      buffer.id = "buffer";
-      document.body.prepend(buffer); // Add buffer to dom.
-      const bufferCtx = buffer.getContext("2d");
+    window.addEventListener("resize", () => {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(function () {
+        processing = false; // Stop everything.
+        video.srcObject.getTracks().forEach((track) => track.stop());
+        video.removeEventListener("loadeddata", process);
+        // Get a new video and resize the buffers.
+        requestVideo();
+        frame();
+      }, 250);
+    }); // Attach frame to a resize event.
 
-      function frame() {
-        // Actual resolution.
-        buffer.width = window.innerWidth / 4;
-        buffer.height = window.innerHeight / 4;
-        canvas.width = buffer.width;
-        canvas.height = buffer.height;
+    function process() {
+      // Drawing a video frame to the buffer (mirrored, proportion adjusted). 
+      const videoAR = video.videoWidth / video.videoHeight;
+      const bufferAR = buffer.width / buffer.height;
+      let outWidth, outHeight, outX = 0, outY = 0;
 
-        // Display resolution.
-        buffer.style.width = window.innerWidth + "px";
-        buffer.style.height = window.innerHeight + "px";
-        canvas.style.width = video.style.width = buffer.style.width;
-        canvas.style.height = video.style.height = buffer.style.height;
+      if (videoAR <= bufferAR) {
+        // Tall to wide.
+        outWidth = buffer.width;
+        outHeight = outWidth / videoAR;
+      } else {
+        // Wide to tall. 
+        outHeight = buffer.height;
+        outWidth = outHeight * videoAR;
       }
 
-      function requestVideo() {
-        navigator.mediaDevices
-          .getUserMedia({
-            // Request webcam data.
-            video: {
-              width: { ideal: window.innerWidth / 4 },
-              height: { ideal: window.innerHeight / 4 },
-              frameRate: { ideal: 60 },
-              aspectRatio: {ideal: 1.7}
-            },
-          })
-          .then((stream) => {
-            video.srcObject = stream;
-            processing = true;
-            video.addEventListener("loadeddata", process);
+      outY = ((buffer.height - outHeight) / 2); // Adjusting position.
+      outX = ((buffer.width - outWidth) / 2);
+
+      bufferCtx.save();
+      bufferCtx.scale(-1, 1); // Draw mirrored.
+      bufferCtx.drawImage(video, -outX - outWidth, outY, outWidth, outHeight);
+      bufferCtx.restore();
+
+      const data = handLandmarker.detectForVideo(video, performance.now());
+
+      // hands.send({ image: buffer });
+
+      ctx.save();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (data.landmarks) {
+        for (const landmarks of data.landmarks) {
+          drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {
+            color: "#00FF00",
+            lineWidth: 5,
           });
-      }
-
-      requestVideo();
-      frame();
-      let resizeTimer;
-
-      window.addEventListener("resize", () => {
-        window.clearTimeout(resizeTimer);
-        resizeTimer = window.setTimeout(function() {
-          processing = false; // Stop everything.
-          video.srcObject.getTracks().forEach((track) => track.stop());
-          video.removeEventListener("loadeddata", process);
-          // Get a new video and resize the buffers.
-          requestVideo();
-          frame();
-        }, 250);
-      }); // Attach frame to a resize event.
-
-      function process() {
-        // Drawing a video frame to the buffer (mirrored, proportion adjusted). 
-        const videoAR = video.videoWidth / video.videoHeight;
-        const bufferAR = buffer.width / buffer.height;
-        let outWidth, outHeight, outX = 0, outY = 0;
-
-        if (videoAR <= bufferAR) {
-          // Tall to wide.
-          outWidth = buffer.width;
-          outHeight = outWidth / videoAR;
-        } else {
-          // Wide to tall. 
-          outHeight = buffer.height;
-          outWidth = outHeight * videoAR;
+          drawLandmarks(ctx, landmarks, {
+            color: "#FF0000",
+            lineWidth: 2,
+          });
         }
-
-        outY = ((buffer.height - outHeight) / 2); // Adjusting position.
-        outX = ((buffer.width - outWidth) / 2);
-
-        bufferCtx.save();
-        bufferCtx.scale(-1, 1); // Draw mirrored.
-        bufferCtx.drawImage(video, -outX - outWidth, outY, outWidth, outHeight);
-        bufferCtx.restore();
-
-        const data = handLandmarker.detectForVideo( buffer, performance.now());
-
-        ctx.save();
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if (data.landmarks) {
-          for (const landmarks of data.landmarks) {
-            drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {
-              color: "#00FF00",
-              lineWidth: 5,
-            });
-            drawLandmarks(ctx, landmarks, {
-              color: "#FF0000",
-              lineWidth: 2,
-            });
-          }
-        }
-        ctx.restore();
-
-        // TODO: Send the data to aesthetic.computer disk for rendering.
-
-        // Keep processing the data on every display frame.
-        if (processing === true) window.requestAnimationFrame(process);
       }
+      ctx.restore();
 
-      function toggleProcessing() {
-        processing = !processing;
-        if (processing) window.requestAnimationFrame(process);
-      }
+      // TODO: Send the data to aesthetic.computer disk for rendering.
 
-      window.onkeydown = toggleProcessing; // TODO: Remove me.
-    </script>
-  </body>
+      // Keep processing the data on every display frame.
+      if (processing === true) window.requestAnimationFrame(process);
+    }
+
+    function toggleProcessing() {
+      processing = !processing;
+      if (processing) window.requestAnimationFrame(process);
+    }
+
+    window.onkeydown = toggleProcessing; // TODO: Remove me.
+  </script>
+</body>
+
 </html>
