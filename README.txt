@@ -73,6 +73,8 @@
     - [] https://mediapipe-studio.webapps.google.com/demo/hand_landmarker
          Performance comparison ^
       - [] Also test original demo and hand_landmarker above on Firefox!
+    + Tracking Data
+    - [] Put hand-tracking data in core loop?
     + Done
     - [x] Profile `@mediapipe` for memory leaks in the worker context.
 
