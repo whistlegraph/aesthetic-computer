@@ -2860,12 +2860,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         };
 
-
         process(); // Start processing frames.
 
         // ✋ Optional Hand-tracking (only load once)
         if (hands === true) {
-
           if (!handAPI.HandLandmarker) {
             const { HandLandmarker, FilesetResolver } = await import(
               "/aesthetic.computer/dep/@mediapipe/tasks-vision/vision_bundle.js"
@@ -2879,21 +2877,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             handAPI.vision = vision;
           }
 
-          handAPI.hl = await handAPI.HandLandmarker.createFromOptions(handAPI.vision, {
-            baseOptions: {
-              modelAssetPath: "../models/hand_landmarker.task",
-              delegate: "GPU",
-            },
-            canvas: document.createElement("canvas"),
-            // typeof OffscreenCanvas !== "undefined"
-            //  ? new OffscreenCanvas(0, 0)
-            //  : document.createElement("canvas"),
-            runningMode: "VIDEO",
-            minHandDetectionConfidence: 0.25,
-            minHandPresenceConfidence: 0.25,
-            minTrackingConfidence: 0.25,
-            numHands: 1,
-          });
+          if (!handAPI.hl) {
+            handAPI.hl = await handAPI.HandLandmarker.createFromOptions(
+              handAPI.vision,
+              {
+                baseOptions: {
+                  modelAssetPath: "../models/hand_landmarker.task",
+                  delegate: "GPU",
+                },
+                canvas: document.createElement("canvas"),
+                // typeof OffscreenCanvas !== "undefined"
+                //  ? new OffscreenCanvas(0, 0)
+                //  : document.createElement("canvas"),
+                runningMode: "VIDEO",
+                minHandDetectionConfidence: 0.25,
+                minHandPresenceConfidence: 0.25,
+                minTrackingConfidence: 0.25,
+                numHands: 1,
+              }
+            );
+          }
         }
 
       } catch (err) {
@@ -2910,11 +2913,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // 🤚 Track Hands on the GPU if flagged.
         if (hands === true) {
           if (handVideoTime !== video.currentTime && video.videoWidth > 0) {
-          // if (video.videoWidth > 0) {
-            const data = handAPI.hl?.detectForVideo(
-              video,
-              performance.now()
-            );
+            // if (video.videoWidth > 0) {
+            const data = handAPI.hl?.detectForVideo(video, performance.now());
             handVideoTime = video.currentTime;
 
             let landmarks = data?.landmarks[0] || [];
