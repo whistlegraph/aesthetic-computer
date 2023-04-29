@@ -145,6 +145,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       video = document.createElement("video"); // Create video device output.
       video.autoplay = true;
       video.playsinline = true;
+      video.muted = true;
 
       video.style.opacity = 0.2;
       wrapper.append(video);
