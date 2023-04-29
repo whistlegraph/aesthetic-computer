@@ -2759,8 +2759,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       video.style = `position: absolute;
                      top: 0;
                      left: 0;
-                     opacity: 0;
-                     width: 300px;`;
+                     opacity: 0.5;
+                     transform: scaleX(${facingMode === "user" ? -1 : 1});
+                     width: 100%;`;
 
       buffer.style = `position: absolute;
                       opacity: 0;`;
@@ -2898,7 +2899,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             );
           }
         }
-
       } catch (err) {
         console.log(err);
       }
