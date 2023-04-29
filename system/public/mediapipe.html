@@ -38,8 +38,8 @@
     src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
     crossorigin="anonymous"></script>
 
-  <!-- <script src="aesthetic.computer/dep/@mediapipe/hands/hands.js" -->
-    <!-- crossorigin="anonymous"></script> -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"
+    crossorigin="anonymous"></script>
 
   <video id="cam" autoplay playsinline></video>
   <canvas id="hand"></canvas>
@@ -56,7 +56,7 @@
     // buffer.id = "buffer";
     // document.body.prepend(buffer); // Add buffer to dom.
 
-    const handCan = new OffscreenCanvas(0, 0);
+    const handCan = document.createElement("canvas");
 
     // const mp = window;
     let processing = false;
@@ -98,12 +98,23 @@
     }
 
     function requestVideo() {
+
+      let width = window.innerWidth;
+      let height = window.innerHeight;
+
+      const iOS = /(iPad|iPhone|iPod)/g.test(navigator.userAgent);
+      if (iOS) {
+        const temp = width;
+        width = height;
+        height = temp;
+      }
+
       navigator.mediaDevices
         .getUserMedia({
           // Request webcam data.
           video: {
-            width: { ideal: window.innerWidth },
-            height: { ideal: window.innerHeight },
+            width: { ideal: width },
+            height: { ideal: height },
             frameRate: { ideal: 60 },
             // aspectRatio: { ideal: 1.7 }
           },

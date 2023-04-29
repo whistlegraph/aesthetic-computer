@@ -1249,7 +1249,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Remove existing video tags.
       videos.forEach(({ video, buffer, getAnimationRequest }) => {
         console.log("🎥 Removing:", video, buffer, getAnimationRequest());
+
+        if (video.srcObject) {
+          const stream = video.srcObject;
+          const tracks = stream.getTracks();
+          tracks.forEach((track) => track.stop());
+        }
+
         video.remove();
+
         // buffer.remove();
         cancelAnimationFrame(getAnimationRequest());
         handData = []; // Clear any handData.
@@ -2728,7 +2736,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const video = document.createElement("video");
 
       // Camera properties.
-      let facingMode = "user",
+      let facingMode = options.facing || "user",
         zoom = 1;
 
       video.id = "camera-feed";
@@ -2772,13 +2780,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const videoInputDevices = devices.filter(
           (device) => device.kind === "videoinput"
         );
-        // if (debug)
-        //   console.log(
-        //     "🎥 Available constraints: ",
-        //     navigator.mediaDevices.getSupportedConstraints()
-        //   );
-        // if (debug)
-        //   console.log("🎥 Available video devices: ", videoInputDevices);
+        if (debug)
+          console.log(
+            "🎥 Available constraints: ",
+            navigator.mediaDevices.getSupportedConstraints()
+          );
+        if (debug)
+          console.log("🎥 Available video devices: ", videoInputDevices);
       } catch (error) {
         console.log(error.name + ": " + error.message);
       }
@@ -2792,31 +2800,44 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         options.height = temp;
       }
 
+      console.log("WH", options.width, options.height);
+
       try {
         // Grab video from the user using a requested width and height based
         // on the frame size.
+        let cWidth = options.width,
+          cHeight = options.height;
+
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode,
-            // Double the ideal resolution so there is a bit of downscaling
-            // which makes for a sharper over-all image.
-            width: { ideal: options.width },
-            height: { ideal: options.height },
-            frameRate: { ideal: 60 },
+            width: { ideal: cWidth },
+            height: { ideal: cHeight },
+            frameRate: { ideal: 30 },
           },
           audio: false,
         });
 
+        // TODO: Don't add any constraints for iOS cameras, then crop them.
+
         video.srcObject = stream;
         const videoTrack = stream.getVideoTracks()[0];
+
+        const capabilities = videoTrack.getCapabilities();
+        console.log(capabilities);
 
         // Update the global facingMode in case it's different from
         // what was requested.
         facingMode = videoTrack.getConstraints().facingMode;
 
+        // console.log(videoTrack.getConstraints());
+
         video.addEventListener(
           "loadedmetadata",
           () => {
+            console.log("VIDEO:", video.videoWidth, video.videoHeight);
+            console.log("Window:", window.innerWidth, window.innerHeight);
+
             video.play();
 
             if (debug)
@@ -2825,6 +2846,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           { once: true }
         );
 
+        // Resizing the video after creation. (Window resize or device rotate.)
         videoResize = async function ({ width, height }) {
           cancelAnimationFrame(getAnimationRequest());
 
@@ -2865,6 +2887,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // ✋ Optional Hand-tracking (only load once)
         if (hands === true) {
+
           if (!handAPI.HandLandmarker) {
             const { HandLandmarker, FilesetResolver } = await import(
               "/aesthetic.computer/dep/@mediapipe/tasks-vision/vision_bundle.js"
@@ -2898,6 +2921,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               }
             );
           }
+
+
         }
       } catch (err) {
         console.log(err);
@@ -2907,20 +2932,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // TODO: Video effects / filter kernels could be added here...
         // zoom += 0.001;
 
-        // console.log("Video:", video.videoWidth, video.videoHeight);
-        // console.log("Buffer:", buffer.width, buffer.height);
+        // Draw to intermediate buffer.
 
         // 🤚 Track Hands on the GPU if flagged.
         if (hands === true) {
           if (handVideoTime !== video.currentTime && video.videoWidth > 0) {
-            // if (video.videoWidth > 0) {
             const data = handAPI.hl?.detectForVideo(video, performance.now());
             handVideoTime = video.currentTime;
-
             let landmarks = data?.landmarks[0] || [];
             if (facingMode === "user")
               landmarks.forEach((l) => (l.x = 1 - l.x));
-            handData = landmarks;
+              handData = landmarks;
+              // send({type: "hand-tracking-data", content: landmarks});
+
+
           }
         }
 
@@ -2931,11 +2956,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             bufferCtx.scale(-zoom, zoom);
             bufferCtx.translate(-buffer.width / 2, -buffer.height / 2);
           }
-
           bufferCtx.drawImage(video, 0, 0, buffer.width, buffer.height);
-
           bufferCtx.resetTransform();
-
           const pixels = bufferCtx.getImageData(
             0,
             0,

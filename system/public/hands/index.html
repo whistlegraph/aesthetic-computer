@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>MediaPipe Hands</title>
+  <meta charset="utf-8">
+  <link rel="icon" href="favicon.ico">
+  <script
+    src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js"
+    crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js"
+    crossorigin="anonymous"></script>
+</head>
+
+<body>
+  <style>
+    body {
+      margin: 0;
+    }
+  </style>
+  <video class="input_video"></video>
+  <canvas class="output_canvas" width="1280px" height="720px"></canvas>
+  <script>
+    const mpHands = window;
+    const drawingUtils = window;
+    const videoElement = document.getElementsByClassName("input_video")[0];
+
+    videoElement.style.position = "absolute";
+    videoElement.style.top = "0px";
+    videoElement.style.opacity = 0;
+    videoElement.autoplay = true;
+    videoElement.setAttribute("playsinline", ""); // Only for iOS.
+    videoElement.setAttribute("muted", ""); // Don't include audio with video.
+
+    const canvasElement = document.getElementsByClassName("output_canvas")[0];
+    const canvasCtx = canvasElement.getContext("2d");
+    const config = {
+      locateFile: (file) => {
+        return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@${mpHands.VERSION}/${file}`;
+      }
+    };
+
+    function onResults(results) {
+      canvasCtx.save();
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      canvasCtx.drawImage(
+        results.image,
+        0,
+        0,
+        canvasElement.width,
+        canvasElement.height
+      );
+      if (results.multiHandLandmarks && results.multiHandedness) {
+        for (let index = 0; index < results.multiHandLandmarks.length; index++) {
+          const classification = results.multiHandedness[index];
+          const isRightHand = classification.label === "Right";
+          const landmarks = results.multiHandLandmarks[index];
+          drawingUtils.drawConnectors(
+            canvasCtx,
+            landmarks,
+            mpHands.HAND_CONNECTIONS,
+            { color: isRightHand ? "#00FF00" : "#FF0000" }
+          );
+          drawingUtils.drawLandmarks(canvasCtx, landmarks, {
+            color: isRightHand ? "#00FF00" : "#FF0000",
+            fillColor: isRightHand ? "#FF0000" : "#00FF00",
+            radius: (data) => {
+              return drawingUtils.lerp(data.from.z, -0.15, 0.1, 10, 1);
+            },
+          });
+        }
+      }
+      canvasCtx.restore();
+    }
+
+    const hands = new mpHands.Hands(config);
+    hands.onResults(onResults);
+
+    videoElement.classList.toggle("selfie", true);
+
+    hands.setOptions({
+      selfieMode: true,
+      maxNumHands: 1,
+      modelComplexity: 0,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5,
+    });
+
+    let width = window.innerWidth, height = window.innerHeight;
+    const iOS = /(iPad|iPhone|iPod)/g.test(navigator.userAgent);
+    if (iOS) {
+      const temp = width;
+      width = height;
+      height = temp;
+    }
+
+    // TODO: Replace this with my own code.
+    const camera = new Camera(videoElement, {
+      onFrame: async () => {
+        canvasElement.width = videoElement.videoWidth;
+        canvasElement.height = videoElement.videoHeight;
+        await hands.send({ image: videoElement });
+      },
+      width,
+      height,
+    });
+
+    camera.start();
+  </script>
+
+</body>
+
+</html>

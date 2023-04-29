@@ -1833,8 +1833,8 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   // if (type === "hand-tracking-data") {
-  //$commonApi.hand = { mediapipe: content };
-  // return;
+    // $commonApi.hand = { mediapipe: content };
+    // return;
   // }
 
   if (type === "upload:progress") {

@@ -78,8 +78,9 @@ function paint({
   // (And recalibrate if resized.) 
   if (created || resized) {
     vid = video(created ? "camera" : "camera:update", {
-      hidden: true, // Toggle to stop pulling frames.
+      hidden: false, // Toggle to stop pulling frames.
       hands: true,
+      facing: "user" || "environment",
       width,
       height,
     });
