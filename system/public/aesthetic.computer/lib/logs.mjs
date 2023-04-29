@@ -3,7 +3,7 @@
 // (and production).
 
 export const logs = {
-  store: true, // Storage (local, etc.)
+  store: false, // Storage (local, etc.)
   frame: true, // Screen information / rendering framing.
   loading: false, // Preloading
   session: true, // Socket session.

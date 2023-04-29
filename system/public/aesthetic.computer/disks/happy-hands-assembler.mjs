@@ -57,6 +57,8 @@ async function boot({ wipe, params, screen, store }) {
   }
 }
 
+let vid;
+
 // 🎨 Paint (Executes every display frame)
 function paint({
   hand: { mediapipe },
@@ -66,21 +68,34 @@ function paint({
   box,
   pan,
   unpan,
-  screen,
+  screen: { created, resized, width, height },
   pen,
+  paste,
   paintCount,
+  video,
 }) {
-  wipe(0, 64, 0)
-    .ink(0, 255, 0, 128)
-    .write(h, { x: 4, y: screen.height - 13 }); // Print working happy hand index.
+  // Start video feed once for webcam hand-tracking on mobile and desktop.
+  // (And recalibrate if resized.) 
+  if (created || resized) {
+    vid = video(created ? "camera" : "camera:update", {
+      // hidden: true, // Toggle to stop pulling frames.
+      hands: true,
+      width,
+      height,
+    });
+  }
+
+  const frame = vid();
+  frame ? paste(frame) : wipe(0, 64, 0);
+  ink(0, 255, 0, 128).write(h, { x: 4, y: height - 13 }); // Print hand index.
 
   const boxSize = 5;
   const boxType = "fill*center";
 
   ink(255);
   for (let coord of mediapipe) {
-    const scaledX = coord.x * screen.width;
-    const scaledY = coord.y * screen.height;
+    const scaledX = coord.x * width;
+    const scaledY = coord.y * height;
     box(scaledX, scaledY, boxSize, boxType);
   }
 
@@ -104,9 +119,7 @@ function paint({
   };
 
   const o = { x: -24 + 2 * osc, y: 16 + 2 * osc }; // Offsets and oscilates the entire hand
-  pen
-    ? pan(pen.x + o.x, pen.y + o.y)
-    : pan(screen.width / 2 + o.x, screen.height / 2 + o.y);
+  pen ? pan(pen.x + o.x, pen.y + o.y) : pan(width / 2 + o.x, height / 2 + o.y);
 
   // 🅰️ Hand Lines & Points
   // Draw each component (lines and boxes) of wrist, followed by each of digit.

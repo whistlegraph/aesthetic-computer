@@ -110,190 +110,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** External Library Dependency Injection ***
 
-  // Mediapipe Hand Tracking from Google
-  let destroyMediaPipeHands;
-  async function loadMediaPipeHands() {
-    let video,
-      processing = false,
-      // processingFrame = false,
-      resize;
-
-    // const worker = new Worker("/aesthetic.computer/lib/hand-processor.js"); // ⚠️ No longer in use.
-
-    const { HandLandmarker, FilesetResolver } = await import(
-      "/aesthetic.computer/dep/@mediapipe/tasks-vision/vision_bundle.js"
-    );
-
-    const vision = await FilesetResolver.forVisionTasks(
-      "/aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
-    );
-
-    const handLandmarker = await HandLandmarker.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath: "../models/hand_landmarker.task",
-        delegate: "GPU",
-      },
-      canvas: document.createElement("canvas"), // TODO: Eventually make Offscreen?
-      runningMode: "VIDEO",
-      minHandDetectionConfidence: 0.25,
-      minHandPresenceConfidence: 0.25,
-      minTrackingConfidence: 0.25,
-      numHands: 1,
-    });
-
-    async function initMediaPipeHands() {
-      video = document.createElement("video"); // Create video device output.
-      video.autoplay = true;
-      video.playsinline = true;
-      video.muted = true;
-
-      video.style.opacity = 0.2;
-      wrapper.append(video);
-      video.style.zIndex = 1000;
-      video.style.position = "absolute";
-      video.style.imageRendering = "pixelated";
-      video.style.width = "100%";
-      video.style.height = "100%";
-
-      // Read frames from video and draw data to canvas.
-      // const buffer = document.createElement("canvas");
-      // const bufferCtx = buffer.getContext("2d", { willReadFrequently: true });
-
-      function frame() {
-        // Actual resolution.
-        // buffer.width = window.innerWidth / 4;
-        // buffer.height = window.innerHeight / 4;
-      }
-
-      function requestVideo() {
-        navigator.mediaDevices
-          .getUserMedia({
-            // Request webcam data.
-            video: {
-              width: { ideal: window.innerWidth / 2 },
-              height: { ideal: window.innerHeight / 2 },
-              frameRate: { exact: 30 },
-              aspectRatio: { ideal: 1.7 },
-            },
-          })
-          .then((stream) => {
-            video.srcObject = stream;
-            processing = true;
-            video.addEventListener("loadeddata", process);
-          });
-      }
-
-      requestVideo();
-      frame();
-
-      let videoTime = -1;
-
-      function process() {
-        // Drawing a video frame to the buffer (mirrored, proportion adjusted).
-        // const videoAR = video.videoWidth / video.videoHeight;
-        // const bufferAR = buffer.width / buffer.height;
-        // let outWidth,
-        //   outHeight,
-        //   outX = 0,
-        //   outY = 0;
-
-        // if (videoAR <= bufferAR) {
-        //   // Tall to wide.
-        //   outWidth = buffer.width;
-        //   outHeight = outWidth / videoAR;
-        // } else {
-        //   // Wide to tall.
-        //   outHeight = buffer.height;
-        //   outWidth = outHeight * videoAR;
-        // }
-
-        // outY = (buffer.height - outHeight) / 2; // Adjusting position.
-        // outX = (buffer.width - outWidth) / 2;
-
-        // Worker Mode
-        // bufferCtx.save();
-        // bufferCtx.scale(-1, 1); // Draw mirrored.
-        // bufferCtx.drawImage(video, -outX - outWidth, outY, outWidth, outHeight);
-        // bufferCtx.drawImage(video, outX, outY, outWidth, outHeight);
-        // bufferCtx.restore();
-
-        // No Worker Mode
-        if (videoTime !== video.currentTime) {
-          const data = handLandmarker?.detectForVideo(video, performance.now());
-          videoTime = video.currentTime;
-
-          handData = data?.landmarks[0] || [];
-
-          // TODO: Process hand-data / normalize hand data to display.
-
-          // Send a custom event for tracking.
-          // (This is less synced with other inputs / slower)
-          // send({
-          //   type: "hand-tracking-data",
-          //   content: data?.landmarks[0] || [],
-          // });
-        }
-
-        // ⚠️ No longer in use.
-        // const pixels = bufferCtx.getImageData(0, 0, buffer.width, buffer.height)
-        //   .data.buffer;
-        // if (videoTime !== video.currentTime) {
-        //   worker.postMessage(
-        //     { width: buffer.width, height: buffer.height, pixels, time: video.currentTime },
-        //     [pixels]
-        //   );
-        //   processingFrame = true;
-        //   videoTime = video.currentTime;
-        // }
-
-        // Keep processing the data on every display frame.
-        if (processing === true) window.requestAnimationFrame(process);
-      }
-
-      // ⚠️ No longer in use.
-      // if (worker) {
-      //   worker.onmessage = function (e) {
-      //     send({
-      //       type: "hand-tracking-data",
-      //       content: e.data,
-      //     });
-      //     processingFrame = false;
-      //   };
-      // }
-
-      // Toggle the processing of frames while the camera is still
-      // running.
-      // TODO: Add this to the `disk` API.
-      // function toggleProcessing() {
-      //   processing = !processing;
-      //   if (processing) window.requestAnimationFrame(process);
-      // }
-
-      // Resizing the buffer to match the viewport.
-      let resizeTimer;
-      resize = () => {
-        window.clearTimeout(resizeTimer); // 250ms delay on reframing.
-        resizeTimer = window.setTimeout(function () {
-          processing = false; // Stop everything.
-          video.srcObject.getTracks().forEach((track) => track.stop());
-          video.removeEventListener("loadeddata", process);
-          requestVideo(); // Get a new video and resize the buffers.
-          frame();
-        }, 250);
-      };
-      window.addEventListener("resize", resize);
-    }
-
-    destroyMediaPipeHands = () => {
-      //worker.terminate();
-      processing = false;
-      video?.remove(); // Remove video from DOM.
-      if (resize) window.removeEventListener("resize", resize);
-    };
-
-    initMediaPipeHands();
-  }
-
   // FFMPEG.WASM
   async function loadFFmpeg() {
     return new Promise((resolve, reject) => {
@@ -1419,9 +1235,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Kill the 3D engine.
       ThreeD?.kill();
 
-      // Kill mediapipe if it exists.
-      destroyMediaPipeHands?.();
-
       // Clear any DOM content that was added by a piece.
       contentFrame?.remove(); // Remove the contentFrame if it exists.
       contentFrame = undefined;
@@ -1437,9 +1250,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       videos.forEach(({ video, buffer, getAnimationRequest }) => {
         console.log("🎥 Removing:", video, buffer, getAnimationRequest());
         video.remove();
-        buffer.remove();
+        // buffer.remove();
         cancelAnimationFrame(getAnimationRequest());
+        handData = []; // Clear any handData.
       });
+
+      videos.length = 0;
       // Note: Any other disk state cleanup that needs to take place on unload
       //       should happen here.
 
@@ -1497,10 +1313,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       ) {
         loadThreeD();
       }
-
-      // TODO: Make this automatic for pieces that use hand-tracking.
-      if (content.text.indexOf("happy-hands-assembler") === 0 && !MetaBrowser)
-        loadMediaPipeHands();
 
       // Show an "audio engine: off" message.
       //if (content.noBeat === false && audioContext?.state !== "running") {
@@ -2894,12 +2706,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   // Takes a request for a video and then either uses a media query (for a camera)
-  // or loads a video file from a given url.
+  // or loads a video file from a given url (unimplemented).
 
   // Then it puts that into a new video tag and starts playing it,
-  // sending the disk the thread frames as they update.
+  // sending the disk the thread frames as they update (optional).
 
+  // This module also is used to pull data from frames for
+  // features like hand-tracking.
   let videoResize; // Holds a function defined after initialization.
+  let handLandmarker;
   async function receivedVideo({ type, options }) {
     // if (debug) console.log("🎥 Type:", type, options);
 
@@ -2916,9 +2731,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         zoom = 1;
 
       video.id = "camera-feed";
-      video.autoplay = true; // Allow video footage play automatically.
+      video.autoplay = true; // Allow video footage to play automatically.
       video.setAttribute("playsinline", ""); // Only for iOS.
       video.setAttribute("muted", ""); // Don't include audio with video.
+
+      const hands = options.hands === true; // Hand-tracking globals.
+      let handVideoTime = -1;
 
       const buffer = document.createElement("canvas");
       let animationRequest;
@@ -2935,7 +2753,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const bufferCtx = buffer.getContext("2d", { willReadFrequently: true });
 
       wrapper.appendChild(video);
-      wrapper.appendChild(buffer);
+      // wrapper.appendChild(buffer);
 
       video.style = `position: absolute;
                      top: 0;
@@ -2980,8 +2798,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             facingMode,
             // Double the ideal resolution so there is a bit of downscaling
             // which makes for a sharper over-all image.
-            width: { ideal: options.width * 2 },
-            height: { ideal: options.height * 2 },
+            width: { ideal: options.width },
+            height: { ideal: options.height },
             frameRate: { ideal: 60 },
           },
           audio: false,
@@ -3018,8 +2836,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             video.srcObject = null; // Refresh the video `srcObject`.
 
             await videoTrack.applyConstraints({
-              width: { ideal: width * 2 },
-              height: { ideal: height * 2 },
+              width: { ideal: width },
+              height: { ideal: height },
             });
 
             video.srcObject = stream;
@@ -3041,44 +2859,95 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         };
 
-        process();
+
+        process(); // Start processing frames.
+
+        // ✋ Optional Hand-tracking (only load once)
+        if (hands === true && !handLandmarker) {
+          const { HandLandmarker, FilesetResolver } = await import(
+            "/aesthetic.computer/dep/@mediapipe/tasks-vision/vision_bundle.js"
+          );
+
+          const vision = await FilesetResolver.forVisionTasks(
+            "/aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
+          );
+
+          handLandmarker = await HandLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: "../models/hand_landmarker.task",
+              delegate: "GPU",
+            },
+            canvas: document.createElement("canvas"),
+            // typeof OffscreenCanvas !== "undefined"
+            //  ? new OffscreenCanvas(0, 0)
+            //  : document.createElement("canvas"),
+            runningMode: "VIDEO",
+            minHandDetectionConfidence: 0.25,
+            minHandPresenceConfidence: 0.25,
+            minTrackingConfidence: 0.25,
+            numHands: 1,
+          });
+        }
+
       } catch (err) {
         console.log(err);
       }
 
       function process() {
         // TODO: Video effects / filter kernels could be added here...
-
         // zoom += 0.001;
 
-        if (facingMode === "user") {
-          bufferCtx.translate(buffer.width / 2, buffer.height / 2);
-          bufferCtx.scale(-zoom, zoom);
-          bufferCtx.translate(-buffer.width / 2, -buffer.height / 2);
+        // console.log("Video:", video.videoWidth, video.videoHeight);
+        // console.log("Buffer:", buffer.width, buffer.height);
+
+        // 🤚 Track Hands on the GPU if flagged.
+        if (hands === true) {
+          if (handVideoTime !== video.currentTime && video.videoWidth > 0) {
+          // if (video.videoWidth > 0) {
+            const data = handLandmarker?.detectForVideo(
+              video,
+              performance.now()
+            );
+            handVideoTime = video.currentTime;
+
+            let landmarks = data?.landmarks[0] || [];
+            if (facingMode === "user")
+              landmarks.forEach((l) => (l.x = 1 - l.x));
+            handData = landmarks;
+          }
         }
 
-        bufferCtx.drawImage(video, 0, 0, buffer.width, buffer.height);
+        // Send frames by default.
+        if (options.hidden !== true) {
+          if (facingMode === "user") {
+            bufferCtx.translate(buffer.width / 2, buffer.height / 2);
+            bufferCtx.scale(-zoom, zoom);
+            bufferCtx.translate(-buffer.width / 2, -buffer.height / 2);
+          }
 
-        bufferCtx.resetTransform();
+          bufferCtx.drawImage(video, 0, 0, buffer.width, buffer.height);
 
-        const pixels = bufferCtx.getImageData(
-          0,
-          0,
-          buffer.width,
-          buffer.height
-        );
+          bufferCtx.resetTransform();
 
-        send(
-          {
-            type: "video-frame",
-            content: {
-              width: pixels.width,
-              height: pixels.height,
-              pixels: pixels.data,
+          const pixels = bufferCtx.getImageData(
+            0,
+            0,
+            buffer.width,
+            buffer.height
+          );
+
+          send(
+            {
+              type: "video-frame",
+              content: {
+                width: pixels.width,
+                height: pixels.height,
+                pixels: pixels.data,
+              },
             },
-          },
-          [pixels.data.buffer]
-        );
+            [pixels.data.buffer]
+          );
+        }
 
         animationRequest = requestAnimationFrame(process);
       }

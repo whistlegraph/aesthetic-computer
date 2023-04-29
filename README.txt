@@ -68,8 +68,11 @@
 
 *** Happy Hands (June 1st) 🖐️😃 ***
   😎 Now
-    - [] Test `@mediapipe` tracking integration on iOS.
+    - [x] Test `@mediapipe` tracking integration on iOS.
+      - [] Get multiple refreshes working on iOS without losing tracking?
+        - (Create new landMarker but dont reload libs?)
       - [] Get geometry working properly across all systems.
+      - [] Get rotation working on iOS.
     - [] https://mediapipe-studio.webapps.google.com/demo/hand_landmarker
          Performance comparison ^
       - [] Also test original demo and hand_landmarker above on Firefox!

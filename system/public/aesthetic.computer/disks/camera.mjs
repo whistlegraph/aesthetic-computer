@@ -21,16 +21,13 @@
 #endregion */
 
 let vid;
-
-let advance;
+// let advance;
 
 // 🎨 Paint (Runs once per display refresh rate)
 export function paint({
   wipe,
   paste,
   video,
-  ui,
-  ink,
   screen: { created, resized, width, height },
   num: { randIntRange, clamp, rand },
 }) {
@@ -62,12 +59,8 @@ export function paint({
   // advance.paint({ ink });
 }
 
-export function act($) {
-  $.system.nopaint.act($); // Inherit nopaint's act functionality.
-  const { event: e, jump } = $;
-
-  if (e.is("touch")) { jump(`selfie`); }
-  //advance.btn.act(e, () => jump(`selfie`));
+export function act({ event: e, jump }) {
+  // if (e.is("touch")) jump(`selfie`);
 }
 
 export const system = "nopaint";
