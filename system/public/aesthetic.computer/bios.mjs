@@ -2714,7 +2714,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // This module also is used to pull data from frames for
   // features like hand-tracking.
   let videoResize; // Holds a function defined after initialization.
-  let handLandmarker;
+  let handAPI = {};
+  //let handLandmarker, HandLandmarker, FilesetResolver, vision;
   async function receivedVideo({ type, options }) {
     // if (debug) console.log("🎥 Type:", type, options);
 
@@ -2863,16 +2864,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         process(); // Start processing frames.
 
         // ✋ Optional Hand-tracking (only load once)
-        if (hands === true && !handLandmarker) {
-          const { HandLandmarker, FilesetResolver } = await import(
-            "/aesthetic.computer/dep/@mediapipe/tasks-vision/vision_bundle.js"
-          );
+        if (hands === true) {
 
-          const vision = await FilesetResolver.forVisionTasks(
-            "/aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
-          );
+          if (!handAPI.HandLandmarker) {
+            const { HandLandmarker, FilesetResolver } = await import(
+              "/aesthetic.computer/dep/@mediapipe/tasks-vision/vision_bundle.js"
+            );
 
-          handLandmarker = await HandLandmarker.createFromOptions(vision, {
+            const vision = await FilesetResolver.forVisionTasks(
+              "/aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
+            );
+
+            handAPI.HandLandmarker = HandLandmarker;
+            handAPI.vision = vision;
+          }
+
+          handAPI.hl = await handAPI.HandLandmarker.createFromOptions(handAPI.vision, {
             baseOptions: {
               modelAssetPath: "../models/hand_landmarker.task",
               delegate: "GPU",
@@ -2904,7 +2911,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (hands === true) {
           if (handVideoTime !== video.currentTime && video.videoWidth > 0) {
           // if (video.videoWidth > 0) {
-            const data = handLandmarker?.detectForVideo(
+            const data = handAPI.hl?.detectForVideo(
               video,
               performance.now()
             );
