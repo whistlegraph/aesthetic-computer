@@ -133,7 +133,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         modelAssetPath: "../models/hand_landmarker.task",
         delegate: "GPU",
       },
-      canvas: new OffscreenCanvas(0, 0),
+      canvas: document.createElement("canvas"), // TODO: Eventually make Offscreen?
       runningMode: "VIDEO",
       minHandDetectionConfidence: 0.25,
       minHandPresenceConfidence: 0.25,
