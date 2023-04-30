@@ -1,13 +1,19 @@
-<!--
-  2. Bring this example into `bios.mjs` / get the data through.
-  3. Add to `hha` with a "pause" key that feeds the default animation back
-     to the model.
--->
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
   <meta charset="UTF-8" />
-  <title>Mediapipe Hands Bare Bones Example</title>
+  <title>Mediapipe Hands - New</title>
+  <script
+    src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+    crossorigin="anonymous"></script>
+
+  <script src="aesthetic.computer/dep/@mediapipe/hands/hands.js"
+    crossorigin="anonymous"></script> <!-- Only needed for HAND_CONNECTIONS -->
+
+  <script
+    src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js"
+    crossorigin="anonymous"></script>
 </head>
 
 <body>
@@ -16,35 +22,30 @@
       margin: 0;
     }
 
-    video,
-    canvas {
+    video, canvas {
       position: absolute;
       left: 0px;
       top: 0px;
       image-rendering: pixelated;
+      /* Mirror all visuals in this test. */
+      transform: scaleX(-1);
     }
 
     video {
       background: rgba(255, 0, 0, 0.5);
       opacity: 1;
     }
-
-    #buffer {
-      background: yellow;
-    }
   </style>
-
-  <script
-    src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
-    crossorigin="anonymous"></script>
-
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"
-    crossorigin="anonymous"></script>
 
   <video id="cam" autoplay playsinline></video>
   <canvas id="hand"></canvas>
 
   <script type="module">
+    // Choose a version of @mediapipe/tasks-vision / @mediapipe/hands.
+    const useLegacy = new URLSearchParams(window.location.search).get('useLegacy') === 'true';
+    if (useLegacy) document.title = "Mediapipe Hands - Old";
+
+    const handAPI = {};
 
     // Read frames from video and draw data to canvas.
     const video = document.getElementById("cam");
@@ -53,37 +54,66 @@
 
     const buffer = document.createElement("canvas");
     const bufferCtx = buffer.getContext("2d");
-    // buffer.id = "buffer";
-    // document.body.prepend(buffer); // Add buffer to dom.
 
-    const handCan = document.createElement("canvas");
-
-    // const mp = window;
     let processing = false;
 
-    import {
-      HandLandmarker,
-      FilesetResolver,
-    } from "./aesthetic.computer/dep/@mediapipe/tasks-vision/vision_bundle.js";
+    if (useLegacy) {
+      // Use older version, which will require adding a script tag
+      // to the DOM.
 
-    let handLandmarker = undefined;
+      const script = document.createElement('script');
+      script.src = 'aesthetic.computer/dep/@mediapipe/hands/hands.js';
+      script.crossOrigin = 'anonymous';
 
-    const createHandLandmarker = async () => {
-      const vision = await FilesetResolver.forVisionTasks(
-        "aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
+      script.onload = function () {
+        const config = {
+          locateFile: (file) => {
+            return `aesthetic.computer/dep/@mediapipe/hands/${file}`;
+          }
+        };
+
+        handAPI.hands = new Hands(config);
+
+        handAPI.hands.setOptions({
+          selfieMode: false,
+          maxNumHands: 1,
+          modelComplexity: 0,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5,
+        });
+
+        handAPI.hands.onResults((data) => {
+          diagram({ landmarks: data.multiHandLandmarks })
+        });
+      };
+
+      document.head.appendChild(script);
+    } else {
+      // Use newer version.
+      const { HandLandmarker, FilesetResolver } = await import(
+        "/aesthetic.computer/dep/@mediapipe/tasks-vision/vision_bundle.js"
       );
 
-      handLandmarker = await HandLandmarker.createFromOptions(vision, {
+      const vision = await FilesetResolver.forVisionTasks(
+        "/aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
+      );
+
+      handAPI.HandLandmarker = HandLandmarker;
+      handAPI.vision = vision;
+      handAPI.hl = await HandLandmarker.createFromOptions(vision, {
         baseOptions: {
           modelAssetPath: `./models/hand_landmarker.task`,
           delegate: "GPU",
         },
-        canvas: handCan,
+        canvas: document.createElement("canvas"),
         runningMode: "VIDEO",
+        minHandDetectionConfidence: 0.25,
+        minHandPresenceConfidence: 0.25,
+        minTrackingConfidence: 0.25,
+        modelComplexity: 0,
         numHands: 1,
       });
-    };
-    await createHandLandmarker(); // Preload hand model data
+    }
 
     function frame() {
       // Actual resolution.
@@ -116,7 +146,6 @@
             width: { ideal: width },
             height: { ideal: height },
             frameRate: { ideal: 60 },
-            // aspectRatio: { ideal: 1.7 }
           },
         })
         .then((stream) => {
@@ -142,34 +171,7 @@
       }, 250);
     }); // Attach frame to a resize event.
 
-    function process() {
-      // Drawing a video frame to the buffer (mirrored, proportion adjusted). 
-      const videoAR = video.videoWidth / video.videoHeight;
-      const bufferAR = buffer.width / buffer.height;
-      let outWidth, outHeight, outX = 0, outY = 0;
-
-      if (videoAR <= bufferAR) {
-        // Tall to wide.
-        outWidth = buffer.width;
-        outHeight = outWidth / videoAR;
-      } else {
-        // Wide to tall. 
-        outHeight = buffer.height;
-        outWidth = outHeight * videoAR;
-      }
-
-      outY = ((buffer.height - outHeight) / 2); // Adjusting position.
-      outX = ((buffer.width - outWidth) / 2);
-
-      bufferCtx.save();
-      bufferCtx.scale(-1, 1); // Draw mirrored.
-      bufferCtx.drawImage(video, -outX - outWidth, outY, outWidth, outHeight);
-      bufferCtx.restore();
-
-      const data = handLandmarker.detectForVideo(video, performance.now());
-
-      // hands.send({ image: buffer });
-
+    function diagram(data) {
       ctx.save();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       if (data.landmarks) {
@@ -185,8 +187,39 @@
         }
       }
       ctx.restore();
+    }
 
-      // TODO: Send the data to aesthetic.computer disk for rendering.
+    async function process() {
+      // Drawing a video frame to the buffer (mirrored, proportion adjusted). 
+      // const videoAR = video.videoWidth / video.videoHeight;
+      // const bufferAR = buffer.width / buffer.height;
+      // let outWidth, outHeight, outX = 0, outY = 0;
+
+      // if (videoAR <= bufferAR) {
+      //   // Tall to wide.
+      //   outWidth = buffer.width;
+      //   outHeight = outWidth / videoAR;
+      // } else {
+      //   // Wide to tall. 
+      //   outHeight = buffer.height;
+      //   outWidth = outHeight * videoAR;
+      // }
+
+      // outY = ((buffer.height - outHeight) / 2); // Adjusting position.
+      // outX = ((buffer.width - outWidth) / 2);
+
+      // bufferCtx.save();
+      // bufferCtx.scale(-1, 1); // Draw mirrored.
+      // bufferCtx.drawImage(video, -outX - outWidth, outY, outWidth, outHeight);
+      // bufferCtx.restore();
+
+      let data;
+      if (useLegacy) {
+        await handAPI.hands?.send({ image: video });
+      } else {
+        data = handAPI.hl.detectForVideo(video, performance.now());
+        diagram(data);
+      }
 
       // Keep processing the data on every display frame.
       if (processing === true) window.requestAnimationFrame(process);
