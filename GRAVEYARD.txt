@@ -1,6 +1,13 @@
 🪦 Completed Tasks (dumped from `README.txt`)
    23.02.10.14.41
 
+* 23.04.29.23.42 and ^
+
+*** Ranged Parameter Support ***
+  - [x] Generalize ranged parameters. 
+    - [x] Extract the current implementation from `oval` into a general
+         params parser that detects type and returns a filtered list.
+
 * 23.02.10.14.42 and Earlier
 
 *** `rect` ***

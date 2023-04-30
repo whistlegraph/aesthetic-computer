@@ -68,7 +68,7 @@
 
 *** Happy Hands (June 1st) 🖐️😃 ***
   😎 Now
-    - [] See `happy-hands-assembler` 
+    - [-] See `happy-hands-assembler` 
     + Done
     - [x] Put hand-tracking data in core loop?
     - [x] Test `@mediapipe` tracking integration on iOS.
@@ -125,6 +125,18 @@
     - [x] Find good name for this process...
     - [x] Creating `happy-hands-factory` with an alias `hhf`.
 
+*** Usernames and /p Posting ***
+  - [] Give users the ability to add handles.
+  - [] Show a user's page with their current painting.
+  - [] `/p` painting feed.
+  - [] Update login screen.
+
+*** iOS Native App ***
+  - [] Figure out the best way to make a wrapper now.
+  - [] Also get it work on Android too. (Can use Browserstack for APK testing.)
+  - [] Add notifications.
+  - [] Submit to store with notifications enabled, usernames and posts.
+
 *** ai brush ***
   - [] Write a query and get back brush code in response.
   - [] How can I hook this up easily?
@@ -135,11 +147,6 @@
 
 *** Experiential Art ***
   - [] Answer `experiential-art.txt` questions for Wade / wild.xyz
-
-*** Ranged Parameter Support ***
-  - [-] Generalize ranged parameters. 
-    - [] Extract the current implementation from `oval` into a general
-         params parser that detects type and returns a filtered list.
 
 *** `nopaint` and `nopaintAPI` should be merged ***
   - [] nopaint needs a general code merge / cleanup
