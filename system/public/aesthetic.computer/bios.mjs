@@ -7,7 +7,6 @@ import { Keyboard } from "./lib/keyboard.mjs";
 import * as UI from "./lib/ui.mjs";
 import * as Glaze from "./lib/glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
-import { dist } from "./lib/num.mjs";
 import { parse, slug } from "./lib/parse.mjs";
 import * as Store from "./lib/store.mjs";
 import { Desktop, MetaBrowser, Instagram, iOS } from "./lib/platform.mjs";
@@ -2746,6 +2745,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       const hands = options.hands === true; // Hand-tracking globals.
       let handVideoTime = -1;
+      const useLegacyHandsAPI = true;
 
       const buffer = document.createElement("canvas");
       let animationRequest;
@@ -2762,12 +2762,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const bufferCtx = buffer.getContext("2d", { willReadFrequently: true });
 
       wrapper.appendChild(video);
-      // wrapper.appendChild(buffer);
 
       video.style = `position: absolute;
                      top: 0;
                      left: 0;
-                     opacity: 0.5;
+                     opacity: 0;
                      transform: scaleX(${facingMode === "user" ? -1 : 1});
                      width: 100%;`;
 
@@ -2775,21 +2774,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                       opacity: 0;`;
 
       // List the user's potential video devices. (Front & Back Camera)
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoInputDevices = devices.filter(
-          (device) => device.kind === "videoinput"
-        );
-        if (debug)
-          console.log(
-            "🎥 Available constraints: ",
-            navigator.mediaDevices.getSupportedConstraints()
-          );
-        if (debug)
-          console.log("🎥 Available video devices: ", videoInputDevices);
-      } catch (error) {
-        console.log(error.name + ": " + error.message);
-      }
+      // try {
+        // const devices = await navigator.mediaDevices.enumerateDevices();
+        // const videoInputDevices = devices.filter(
+        //   (device) => device.kind === "videoinput"
+        // );
+        // if (debug)
+        //   console.log(
+        //     "🎥 Available constraints: ",
+        //     navigator.mediaDevices.getSupportedConstraints()
+        //   );
+        // if (debug)
+        //   console.log("🎥 Available video devices: ", videoInputDevices);
+      // } catch (error) {
+        // console.log(error.name + ": " + error.message);
+      // }
 
       // Swap width and height on iOS. (Implementation default differences.)
       // Set a height / width aspect ratio on iOS because
@@ -2799,8 +2798,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         options.width = options.height;
         options.height = temp;
       }
-
-      console.log("WH", options.width, options.height);
 
       try {
         // Grab video from the user using a requested width and height based
@@ -2818,28 +2815,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           audio: false,
         });
 
-        // TODO: Don't add any constraints for iOS cameras, then crop them.
-
         video.srcObject = stream;
         const videoTrack = stream.getVideoTracks()[0];
-
-        const capabilities = videoTrack.getCapabilities();
-        console.log(capabilities);
+        // const capabilities = videoTrack.getCapabilities();
 
         // Update the global facingMode in case it's different from
         // what was requested.
         facingMode = videoTrack.getConstraints().facingMode;
-
         // console.log(videoTrack.getConstraints());
 
         video.addEventListener(
           "loadedmetadata",
           () => {
-            console.log("VIDEO:", video.videoWidth, video.videoHeight);
-            console.log("Window:", window.innerWidth, window.innerHeight);
-
             video.play();
-
             if (debug)
               console.log("🎥 Resolution:", buffer.width, buffer.height);
           },
@@ -2887,65 +2875,123 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // ✋ Optional Hand-tracking (only load once)
         if (hands === true) {
+          if (useLegacyHandsAPI && !window.Hands) {
+            // Load older mediapipe lib.
+            const script = document.createElement("script");
+            script.src = "aesthetic.computer/dep/@mediapipe/hands/hands.js";
+            script.crossOrigin = "anonymous";
 
-          if (!handAPI.HandLandmarker) {
-            const { HandLandmarker, FilesetResolver } = await import(
-              "/aesthetic.computer/dep/@mediapipe/tasks-vision/vision_bundle.js"
-            );
-
-            const vision = await FilesetResolver.forVisionTasks(
-              "/aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
-            );
-
-            handAPI.HandLandmarker = HandLandmarker;
-            handAPI.vision = vision;
-          }
-
-          if (!handAPI.hl) {
-            handAPI.hl = await handAPI.HandLandmarker.createFromOptions(
-              handAPI.vision,
-              {
-                baseOptions: {
-                  modelAssetPath: "../models/hand_landmarker.task",
-                  delegate: "GPU",
+            script.onload = function () {
+              const config = {
+                locateFile: (file) => {
+                  return `aesthetic.computer/dep/@mediapipe/hands/${file}`;
                 },
-                canvas: document.createElement("canvas"),
-                // typeof OffscreenCanvas !== "undefined"
-                //  ? new OffscreenCanvas(0, 0)
-                //  : document.createElement("canvas"),
-                runningMode: "VIDEO",
-                minHandDetectionConfidence: 0.25,
-                minHandPresenceConfidence: 0.25,
-                minTrackingConfidence: 0.25,
-                numHands: 1,
-              }
-            );
+              };
+
+              handAPI.hands = new Hands(config);
+
+              handAPI.hands.setOptions({
+                selfieMode: false,
+                maxNumHands: 1,
+                modelComplexity: 0,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5,
+              });
+
+              handAPI.hands.onResults((data) => {
+                diagram(data.multiHandLandmarks[0] || []);
+              });
+            };
+
+            document.head.appendChild(script);
+          } else {
+            if (!handAPI.HandLandmarker) {
+              const { HandLandmarker, FilesetResolver } = await import(
+                "/aesthetic.computer/dep/@mediapipe/tasks-vision/vision_bundle.js"
+              );
+
+              const vision = await FilesetResolver.forVisionTasks(
+                "/aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
+              );
+
+              handAPI.HandLandmarker = HandLandmarker;
+              handAPI.vision = vision;
+            }
+
+            if (!handAPI.hl) {
+              handAPI.hl = await handAPI.HandLandmarker.createFromOptions(
+                handAPI.vision,
+                {
+                  baseOptions: {
+                    modelAssetPath: "../models/hand_landmarker.task",
+                    delegate: "GPU", // or "CPU"
+                  },
+                  canvas: document.createElement("canvas"),
+                  // typeof OffscreenCanvas !== "undefined"
+                  //  ? new OffscreenCanvas(0, 0)
+                  //  : document.createElement("canvas"),
+                  runningMode: "VIDEO",
+                  minHandDetectionConfidence: 0.25,
+                  minHandPresenceConfidence: 0.25,
+                  minTrackingConfidence: 0.25,
+                  numHands: 1,
+                }
+              );
+            }
           }
-
-
         }
       } catch (err) {
         console.log(err);
+      }
+
+      function diagram(landmarks) {
+        if (facingMode === "user")
+          landmarks.forEach((l) => (l.x = 1 - l.x));
+        handData = landmarks;
       }
 
       function process() {
         // TODO: Video effects / filter kernels could be added here...
         // zoom += 0.001;
 
-        // Draw to intermediate buffer.
+        // 💡 For potentially higher quality visuals. 23.04.29.20.47 ...
+        // Drawing a video frame to the buffer (mirrored, proportion adjusted). 
+        // const videoAR = video.videoWidth / video.videoHeight;
+        // const bufferAR = buffer.width / buffer.height;
+        // let outWidth, outHeight, outX = 0, outY = 0;
+
+        // if (videoAR <= bufferAR) {
+        //   // Tall to wide.
+        //   outWidth = buffer.width;
+        //   outHeight = outWidth / videoAR;
+        // } else {
+        //   // Wide to tall. 
+        //   outHeight = buffer.height;
+        //   outWidth = outHeight * videoAR;
+        // }
+
+        // outY = ((buffer.height - outHeight) / 2); // Adjusting position.
+        // outX = ((buffer.width - outWidth) / 2);
+
+        // bufferCtx.save();
+        // bufferCtx.scale(-1, 1); // Draw mirrored.
+        // bufferCtx.drawImage(video, -outX - outWidth, outY, outWidth, outHeight);
+        // bufferCtx.restore();
 
         // 🤚 Track Hands on the GPU if flagged.
         if (hands === true) {
           if (handVideoTime !== video.currentTime && video.videoWidth > 0) {
-            const data = handAPI.hl?.detectForVideo(video, performance.now());
             handVideoTime = video.currentTime;
-            let landmarks = data?.landmarks[0] || [];
-            if (facingMode === "user")
-              landmarks.forEach((l) => (l.x = 1 - l.x));
-              handData = landmarks;
-              // send({type: "hand-tracking-data", content: landmarks});
-
-
+            if (useLegacyHandsAPI && !handAPI.legacyProcessing) {
+              handAPI.hands?.send({ image: video }).then(() => {
+                handAPI.legacyProcessing = false;
+              });
+              handAPI.legacyProcessing = true;
+            } else {
+              const data = handAPI.hl?.detectForVideo(video, performance.now());
+              diagram(data?.landmarks[0] || []);
+            }
+            // send({type: "hand-tracking-data", content: landmarks});
           }
         }
 
@@ -2958,6 +3004,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
           bufferCtx.drawImage(video, 0, 0, buffer.width, buffer.height);
           bufferCtx.resetTransform();
+          // if (facingMode === "user") {
+          //   bufferCtx.translate(buffer.width / 2, buffer.height / 2);
+          //   bufferCtx.scale(-zoom, zoom);
+          //   bufferCtx.translate(-buffer.width / 2, -buffer.height / 2);
+          // }
+          // bufferCtx.drawImage(video, 0, 0, buffer.width, buffer.height);
+          // bufferCtx.resetTransform();
           const pixels = bufferCtx.getImageData(
             0,
             0,

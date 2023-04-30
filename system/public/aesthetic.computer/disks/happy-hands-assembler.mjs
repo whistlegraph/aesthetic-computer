@@ -3,10 +3,16 @@
 // Coded by Jeffrey Alan Scudder & Tina Tarighian
 
 /* #region 🏁 todo
-  - [x] Jeffrey tries to speed it all up.
-    - [x] Get code running in worker.
-    - [-] Clean up API
+  - [🔥] Clean up Hands API
+    - [] Add buffered video object / layer back with proper cropping
+         and downsizing.
+    - [] Add "pause" feature to tracking.
+    - [] Add init wrapper to hand-track without video frames.
   + Done
+  - [x] Jeffrey tries to speed it all up.
+    - [x] Implement both new and old version.
+    - [x] Add dynamic switch via `useLegacyHands`.
+  - [x] Get code running in worker.
   - [x] Jeffrey sets up deinitialization of mediapipe.
   - [x] Jeffrey fix improper layering of `box` and `poly`.
         (Wasn't a bug; ordering of drawing interleaves boxes & lines, so
@@ -42,7 +48,7 @@ async function boot({ wipe, params, screen, store }) {
   }
 
   if (h === null || isNaN(h) || h < 0 || h > hands - 1) {
-    console.warn("👎 Hand Not Found:", h);
+    console.warn("👎 `Happy Hand` Not Found:", h);
     wipe(100, 0, 0)
       .ink(120, 0, 0)
       .line(0, 0, screen.width, screen.height)
