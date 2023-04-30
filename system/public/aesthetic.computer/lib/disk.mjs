@@ -441,6 +441,10 @@ const $commonApi = {
       },
       // Helper to display the existing painting on the screen, with an
       // optional pan amount, that returns an adjusted pen pointer as `brush`.
+
+      // TODO: - [] Add Zoom
+      //       - [] And Rotation!  
+
       present: ({ system, screen, wipe, paste }, tx, ty) => {
         const x = tx || system.nopaint.translation.x;
         const y = ty || system.nopaint.translation.y;

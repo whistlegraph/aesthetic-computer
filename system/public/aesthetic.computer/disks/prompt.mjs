@@ -236,8 +236,11 @@ function boot($) {
         jump("https://galerie-yechelange.baby/ball");
       } else if (text === "prod") {
         jump("https://prompt.ac"); // Visit the live site.
-      } else if (text === "local") {
-        jump("https://localhost:8888"); // Go to the local dev server.
+      } else if (text === "local" || text.startsWith("local")) {
+        const param = text.replace("local", "").trim().replaceAll(" ", "~");
+        const slug = param.length > 0 ? `/${param}` : "";
+        console.log(slug);
+        jump("https://localhost:8888" + slug); // Go to the local dev server, passing any params as a piece.
       } else if (text === "bsoehhdkcvkl" || text === "hqdekuvdjrz") {
         jump("https://ordinals.com/sat/" + text); // Jump to an official ordinal inscription.
       } else {

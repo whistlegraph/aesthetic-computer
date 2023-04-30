@@ -308,13 +308,21 @@ function copyRow(destX, destY, srcX, srcY, src) {
 // TODO: Add dirty rectangle support here...
 //       - What would the best parameter set be?
 // `from` - can either be
-
-// TODO: Some of these routes are incompatible. 22.10.01.11.57
 // TODO: Replace with more generic algorithm?
+
+// Notes:
+// Scale can also be a transform object: { scale, angle }
+// Blit only works with a scale of 1.
 function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
   if (!from) return;
 
-  if (scale !== 1) {
+  if (scale !== 1) { // Or rotation.
+    let angle = 0;
+    if (typeof scale === "object") {
+      angle = scale.angle;
+      scale = scale.scale;
+    }
+
     grid(
       {
         box: {
@@ -323,12 +331,14 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
           w: from.width,
           h: from.height,
         },
-        scale,
+        transform: { scale, angle },
       },
       from
     );
     return;
   }
+
+  // Note: Angle does not work here yet... 23.04.29.23.38
 
   // TODO: See if from has a dirtyBox attribute.
   if (from.crop) {
@@ -682,7 +692,7 @@ function floodFill(x, y) {
 */
 
 // Draws a series of 1px lines without overlapping / overdrawing points.
-// TODO: Add closed mode? Example: ink(handPalette.w).poly([...w, w[0]]); 
+// TODO: Add closed mode? Example: ink(handPalette.w).poly([...w, w[0]]);
 function poly(coords) {
   let last = coords[0];
   coords.forEach((cur, i) => {
@@ -1174,8 +1184,13 @@ function fillShape(points) {
 // Renders a square grid at x, y given cols, rows, and scale.
 // Buffer is optional, and if present will render the pixels at scale starting
 // from the top left corner of the buffer, repeating if needed to fill the grid.
+
 function grid(
-  { box: { x, y, w: cols, h: rows }, scale, centers = [] },
+  {
+    box: { x, y, w: cols, h: rows },
+    transform: { scale, angle },
+    centers = [],
+  },
   buffer
 ) {
   const oc = c.slice(); // Remember the original color.
@@ -1186,6 +1201,10 @@ function grid(
   const colPix = w / cols,
     rowPix = h / rows;
 
+  const centerX = x + w / 2; // Calculate the center point of the grid
+  const centerY = y + h / 2;
+  angle = radians(angle);
+
   // Draw a scaled image if the buffer is present.
   // Technically, this allows us to scale any bitmap. 22.08.21.21.13
   if (buffer) {
@@ -1193,6 +1212,14 @@ function grid(
       const plotY = y + rowPix * j;
       for (let i = 0; i < cols; i += 1) {
         const plotX = x + colPix * i;
+
+        // Rotate the plot coordinates around the center of the grid
+        const dx = plotX - centerX;
+        const dy = plotY - centerY;
+        const rotatedDX = dx * cos(angle) - dy * sin(angle);
+        const rotatedDY = dx * sin(angle) + dy * cos(angle);
+        const rotatedX = centerX + rotatedDX;
+        const rotatedY = centerY + rotatedDY;
 
         // Repeat (tile) the source over X and Y if we run out of pixels.
         const repeatX = i % buffer.width;
@@ -1204,7 +1231,8 @@ function grid(
 
         if (pixIndex < buffer.pixels.length) {
           color(...buffer.pixels.subarray(pixIndex, pixIndex + 4));
-          box(plotX, plotY, scale);
+          //box(plotX, plotY, scale);
+          box(rotatedX, rotatedY, scale); // These should be polygons that get plotted...
         }
       }
     }
