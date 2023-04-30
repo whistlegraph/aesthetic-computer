@@ -68,17 +68,17 @@
 
 *** Happy Hands (June 1st) 🖐️😃 ***
   😎 Now
-    - [x] Test `@mediapipe` tracking integration on iOS.
-      - [] Get multiple refreshes working on iOS without losing tracking?
-        - (Create new landMarker but dont reload libs?)
-      - [] Get geometry working properly across all systems.
-      - [] Get rotation working on iOS.
-    - [] https://mediapipe-studio.webapps.google.com/demo/hand_landmarker
-         Performance comparison ^
-      - [] Also test original demo and hand_landmarker above on Firefox!
-    + Tracking Data
-    - [] Put hand-tracking data in core loop?
+    - [] See `happy-hands-assembler` 
     + Done
+    - [x] Put hand-tracking data in core loop?
+    - [x] Test `@mediapipe` tracking integration on iOS.
+      - [x] Get multiple refreshes working on iOS without losing tracking?
+        - (Create new landMarker but dont reload libs?)
+      - [x] Get geometry working properly across all systems.
+      - [x] Get rotation working on iOS.
+    - [x] https://mediapipe-studio.webapps.google.com/demo/hand_landmarker
+         Performance comparison ^
+      - [x] Also test original demo and hand_landmarker above on Firefox!
     - [x] Profile `@mediapipe` for memory leaks in the worker context.
 
   ➡️ Next
