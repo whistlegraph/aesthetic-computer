@@ -110,6 +110,7 @@ class TextInput {
   showBlink = false;
 
   canType = false;
+  lock = false;
   typeface;
 
   pal;
@@ -194,13 +195,13 @@ class TextInput {
     const { event: e, slug, store, needsPaint } = $;
 
     // ✂️ Paste from user clipboard.
-    if (e.is("pasted:text")) {
+    if (e.is("pasted:text") && this.lock === false) {
       this.text += e.text;
       this.blink?.flip(true);
     }
 
     // ⌨️ Add text via the keyboard.
-    if (e.is("keyboard:down")) {
+    if (e.is("keyboard:down") && this.lock === false) {
       if (this.canType === false) {
         this.canType = true;
         this.text = "";
@@ -223,7 +224,9 @@ class TextInput {
           store.persist(key); // Persist the history stack across tabs.
 
           // 🍎 Process commands for a given context, passing the text input.
-          this.processCommand?.(this.text);
+          this.lock = true;
+          await this.processCommand?.(this.text);
+          this.lock = false;
           // this.text = "";
         }
 

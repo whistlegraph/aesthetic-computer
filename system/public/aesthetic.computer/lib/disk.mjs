@@ -250,12 +250,12 @@ const store = {
   },
 };
 
-// Promises
+// Promise based API calls (through `bios` and back)
 let fileImport;
-let serverUpload;
+let serverUpload, serverUploadProgressReporter;
+let authorizationRequest;
 let gpuResponse;
 let web3Response;
-let serverUploadProgressReporter;
 
 // Other
 let activeVideo; // TODO: Eventually this can be a bank to store video textures.
@@ -336,6 +336,14 @@ let lastActAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
+  authorize: async () => {
+    // TODO: This should always fail while running user code.
+    const prom = new Promise((resolve, reject) => {
+      authorizationRequest = { resolve, reject };
+    });
+    send({ type: "authorization:request" });
+    return prom;
+  }, // Get a token for a logged in user.
   hand: { mediapipe: [] }, // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
   hud: {
     label: (text, color, offset) => {
@@ -443,7 +451,7 @@ const $commonApi = {
       // optional pan amount, that returns an adjusted pen pointer as `brush`.
 
       // TODO: - [] Add Zoom
-      //       - [] And Rotation!  
+      //       - [] And Rotation!
 
       present: ({ system, screen, wipe, paste }, tx, ty) => {
         const x = tx || system.nopaint.translation.x;
@@ -1837,8 +1845,8 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   // if (type === "hand-tracking-data") {
-    // $commonApi.hand = { mediapipe: content };
-    // return;
+  // $commonApi.hand = { mediapipe: content };
+  // return;
   // }
 
   if (type === "upload:progress") {
@@ -2160,6 +2168,18 @@ async function makeFrame({ data: { type, content } }) {
     }
     serverUploadProgressReporter?.(0);
     serverUpload = undefined;
+    return;
+  }
+
+  // Resolve an authorization request.
+  if (type === "authorization:response" && authorizationRequest) {
+    if (content.result === "success") {
+      authorizationRequest?.resolve(content.data);
+    } else if (content.result === "error") {
+      console.error("Failed to authenticate.", content);
+      authorizationRequest?.reject(content.data);
+    }
+    authorizationRequest = undefined;
     return;
   }
 

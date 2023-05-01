@@ -49,6 +49,7 @@
     "gotrue-js": "^0.9.29",
     "idb": "^7.1.0",
     "jsonwebtoken": "^9.0.0",
+    "mongodb": "^5.3.0",
     "nanoid": "^4.0.0",
     "patreon": "^0.4.1",
     "redis": "^4.5.1",

@@ -7,7 +7,11 @@
   included_files = ["public/aesthetic.computer/disks/**/*.mjs",
                     "public/aesthetic.computer/dep/**/*.mjs",
                     "public/aesthetic.computer/systems/**/*.mjs",
-                    "public/aesthetic.computer/lib/**/*.mjs"]
+                    "public/aesthetic.computer/lib/**/*.mjs",
+                    "backend/**/*.mjs"]
+[functions.handle]
+  included_files = ["backend/**/*.mjs"]
+  external_node_modules = ["got", "mongodb"]
 [functions.presigned-upload-url]
   external_node_modules = ["got", "nanoid", "@aws-sdk-client-s3", "@aws-sdk/s3-request-presigner"]
 [functions.thumbnail]
@@ -99,6 +103,10 @@
 [[redirects]]
   from = "/auth"
   to = "/.netlify/functions/auth"
+  status = 200
+[[redirects]]
+  from = "/handle"
+  to = "/.netlify/functions/handle"
   status = 200
 [[redirects]]
   from = "/run"

@@ -24,6 +24,7 @@
 
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { authorize } from "../../backend/authorization.mjs";
 
 const s3 = new S3Client({
   endpoint: "https://" + process.env.ART_ENDPOINT,
@@ -72,30 +73,31 @@ export async function handler(event, context) {
   } else if (bucket === "user") {
     client = { s3: s3User, bucket: process.env.USER_SPACE_NAME };
 
-    try {
-      const { got } = await import("got");
-      const token = event.headers.authorization.split(" ")[1];
-      const secret = process.env.AUTH0_SECRET;
-      const audience = "https://aesthetic.computer/api";
-      const issuer = "https://aesthetic.us.auth0.com/";
+    //const { got } = await import("got");
+    // const token = event.headers.authorization.split(" ")[1];
+    // const secret = process.env.AUTH0_SECRET;
+    // const audience = "https://aesthetic.computer/api";
+    // const issuer = "https://aesthetic.us.auth0.com/";
 
-      // Send the access token to the /userinfo endpoint to obtain user information
-      const response = await got("https://auth0.aesthetic.computer/userinfo", {
-        headers: {
-          // Authorization: `Bearer ${token}`,
-          Authorization: event.headers.authorization,
-        },
-        responseType: "json",
-      });
+    // Send the access token to the /userinfo endpoint to obtain user information
+    //const response = await got("https://auth0.aesthetic.computer/userinfo", {
+    //  headers: {
+    //    Authorization: event.headers.authorization,
+    //  },
+    //  responseType: "json",
+    //});
 
-      // const sub = response.body.sub;
-      // const username = response.body.name;
-      const email = response.body.email;
+    const user = await authorize(event.headers);
+    if (user) {
+      const email = user.email;
+      // const sub = user.sub;
+      // const username = user.name;
       expiring = false; // Set the file not to expire.
       subdirectory = email; // Sort this object into a user directory.
-    } catch (err) {
-      // TODO: 🔴 Should I just use the guest bucket here?
-      // Fail if the user is not logged in.
+    } else {
+      // Fail if the user is not logged in but an upload is attempted from
+      // the client as if they are.
+      // TODO: 🔴 Should I just use the guest bucket here? 23.04.30.17.59
       return {
         statusCode: 401,
         body: "Authorization failure...",

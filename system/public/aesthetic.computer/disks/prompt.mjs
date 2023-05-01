@@ -1,4 +1,4 @@
-// A text based access-everything console.
+// A text based "access-everything" console.
 
 // Currently the aesthetic.computer home piece!
 
@@ -6,6 +6,9 @@
  - [] Prevent non-printable characters from causing an empty space.
  - [] Generate or pretty print docs (made from the APIs) inside this disk.
       (This would allow people to have a reference while writing disks.)
+ + Done
+ - [x] Generically "lock" prompt after input before a result returns.
+      Show a spinner if too much time has passed?
  + Later
  - [] An iOS app would need a small ESC or arrow overlay button in Swift
       to make this work properly.
@@ -45,6 +48,7 @@ let uploadProgress = 0; // If not zero, then draw a progress bar.
 function boot($) {
   const {
     api,
+    authorize,
     pieceCount,
     glaze,
     load,
@@ -100,8 +104,54 @@ function boot($) {
       const tokens = text.split(" ");
       const slug = tokens[0]; // Note: Includes colon params.
       const params = tokens.slice(1);
+      if (text.startsWith("handle")) {
+        // Set username handle.
+        // TODO: This could eventually be abstracted for more API calls.
+        // Something like... await post({handle: "new"});
 
-      if ((text === "ul" || text === "upload") && store["painting"]) {
+        // Make sure there is a parameter.
+        const handle = text.split(" ")[1];
+
+        // And a handle has been specified.
+        if (handle?.length > 0) {
+          const token = await authorize(); // Get user token.
+          if (token) {
+            const headers = {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            };
+            // 😀 Try to set the handle.
+            // TODO: Lock the input prompt / put a spinner here...
+            try {
+              const response = await fetch("/handle", {
+                method: "POST",
+                headers: headers,
+                body: JSON.stringify({ handle }),
+              });
+              const data = await response.json();
+              if (response.status !== 200) {
+                flashColor = [255, 0, 0];
+                console.error("🧖 Error:", response, data);
+              } else {
+                flashColor = [0, 255, 0];
+                console.log("🧖 Handle changed:", data);
+              }
+            } catch (error) {
+              flashColor = [255, 0, 0]; // Server error.
+              console.error("🧖 Error:", error);
+            }
+          } else {
+            flashColor = [255, 0, 0]; // Authorization error.
+            console.error("🧖 Not logged in.");
+          }
+          makeFlash($);
+          needsPaint();
+        } else {
+          flashColor = [255, 0, 0];
+          console.warn("🧖 No @handle specified.");
+          makeFlash($);
+        }
+      } else if ((text === "ul" || text === "upload") && store["painting"]) {
         if (!navigator.onLine) {
           flashColor = [255, 0, 0];
           makeFlash($, true, "OFFLINE");

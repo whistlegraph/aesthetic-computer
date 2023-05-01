@@ -884,6 +884,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Send a user authorization token (or undefined) across the thread.
+    if (type === "authorization:request") {
+      const token = await authorize();
+      send({
+        type: "authorization:response",
+        content: { data: token, result: token ? "success" : "error" },
+      });
+      return;
+    }
+
     // *** Route to different functions if this change is not a full frame update.
     if (type === "load-failure" && MetaBrowser) {
       document.querySelector("#software-keyboard-input")?.blur();
@@ -2418,23 +2428,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // 📓 This is handled on the server if an empty bucket is sent.
 
     // Authorization: Check to see if we will use a user or a guest bucket.
-    let token;
     const headers = {};
-    try {
-      token = await window.auth0Client.getTokenSilently();
-      console.log("🔐 Authorized");
-    } catch (err) {
-      if (debug) console.log("🔐️ ❌ Unauthorized");
-    }
-
+    const token = await authorize();
     if (token) {
       bucket = "user";
       headers.Authorization = `Bearer ${token}`;
-
-      // TODO: Also update the filename here to prepend "@user" ?
-      //       Or should each user have a directory or something?
-      //       What's the actual best option?
-
+      // This filename gets sorted into the user bucket via their own
+      // directory upon uploading.
       prefetchURL += "/" + filename + "/" + bucket; // Add filename info.
     }
 
@@ -2497,6 +2497,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (debug) console.log("⚠️ Failed to get presigned URL:", err);
         error(err);
       });
+  }
+
+  // Gets an authorization token for the logged in user,
+  // which can be passed onto the server for further verification.
+  async function authorize() {
+    let token;
+    try {
+      token = await window.auth0Client.getTokenSilently();
+      console.log("🔐 Authorized");
+    } catch (err) {
+      if (debug) console.log("🔐️ ❌ Unauthorized");
+    }
+    return token;
   }
 
   // Reads the extension off of filename to determine the mimetype and then
@@ -2775,19 +2788,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // List the user's potential video devices. (Front & Back Camera)
       // try {
-        // const devices = await navigator.mediaDevices.enumerateDevices();
-        // const videoInputDevices = devices.filter(
-        //   (device) => device.kind === "videoinput"
-        // );
-        // if (debug)
-        //   console.log(
-        //     "🎥 Available constraints: ",
-        //     navigator.mediaDevices.getSupportedConstraints()
-        //   );
-        // if (debug)
-        //   console.log("🎥 Available video devices: ", videoInputDevices);
+      // const devices = await navigator.mediaDevices.enumerateDevices();
+      // const videoInputDevices = devices.filter(
+      //   (device) => device.kind === "videoinput"
+      // );
+      // if (debug)
+      //   console.log(
+      //     "🎥 Available constraints: ",
+      //     navigator.mediaDevices.getSupportedConstraints()
+      //   );
+      // if (debug)
+      //   console.log("🎥 Available video devices: ", videoInputDevices);
       // } catch (error) {
-        // console.log(error.name + ": " + error.message);
+      // console.log(error.name + ": " + error.message);
       // }
 
       // Swap width and height on iOS. (Implementation default differences.)
@@ -2945,8 +2958,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       function diagram(landmarks) {
-        if (facingMode === "user")
-          landmarks.forEach((l) => (l.x = 1 - l.x));
+        if (facingMode === "user") landmarks.forEach((l) => (l.x = 1 - l.x));
         handData = landmarks;
       }
 
@@ -2955,7 +2967,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // zoom += 0.001;
 
         // 💡 For potentially higher quality visuals. 23.04.29.20.47 ...
-        // Drawing a video frame to the buffer (mirrored, proportion adjusted). 
+        // Drawing a video frame to the buffer (mirrored, proportion adjusted).
         // const videoAR = video.videoWidth / video.videoHeight;
         // const bufferAR = buffer.width / buffer.height;
         // let outWidth, outHeight, outX = 0, outY = 0;
@@ -2965,7 +2977,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         //   outWidth = buffer.width;
         //   outHeight = outWidth / videoAR;
         // } else {
-        //   // Wide to tall. 
+        //   // Wide to tall.
         //   outHeight = buffer.height;
         //   outWidth = outHeight * videoAR;
         // }

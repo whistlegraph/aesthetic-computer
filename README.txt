@@ -126,10 +126,13 @@
     - [x] Creating `happy-hands-factory` with an alias `hhf`.
 
 *** Usernames and /p Posting ***
-  - [] Give users the ability to add handles.
+  - [x] Give users the ability to add handles.
   - [] Show a user's page with their current painting.
   - [] `/p` painting feed.
   - [] Update login screen.
+
+*** Colors & Notes & Dictation ***
+  - [] See teal book.
 
 *** iOS Native App ***
   - [] Figure out the best way to make a wrapper now.
