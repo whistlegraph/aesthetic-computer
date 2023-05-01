@@ -34,7 +34,7 @@ const scheme = {
   },
 };
 
-let input;
+let input, motd;
 
 // Error / feedback flash on command entry.
 let flash;
@@ -48,6 +48,7 @@ let uploadProgress = 0; // If not zero, then draw a progress bar.
 function boot($) {
   const {
     api,
+    handle,
     authorize,
     pieceCount,
     glaze,
@@ -71,28 +72,7 @@ function boot($) {
 
   glaze({ on: true }); // TODO: Every glaze triggers `frame` in `disk`, this could be optimized. 2022.04.24.04.25
 
-  let motd =
-    `"chaos in a system"                             ` +
-    `                                                ` +
-    `Try typing:                                     ` +
-    `                                                ` +
-    ` 'ff'                                           ` +
-    `  to see Freaky Flowers                         ` +
-    `                                                ` +
-    ` 'shape'                                        ` +
-    `  to paint freehand shapes                      ` +
-    `                                                ` +
-    ` 'bleep'                                        ` +
-    `  to play microtones                            ` +
-    `                                                ` +
-    `Or...                                           ` +
-    `                                                ` +
-    ` 'help'                                         ` +
-    `  to learn more!                                ` +
-    `                                                ` +
-    `mail@aesthetic.computer                         `;
-
-  if (user) motd = `Welcome, ${user.name}!`.padEnd(48) + " ".padEnd(48) + motd;
+  makeMotd($); // Generate welcome message.
 
   input = new TextInput(
     $,
@@ -133,18 +113,21 @@ function boot($) {
                 flashColor = [255, 0, 0];
                 console.error("🧖 Error:", response, data);
               } else {
-                flashColor = [0, 255, 0];
-                console.log("🧖 Handle changed:", data);
+                flashColor = [0, 128, 0];
+                store["handle:updated"] = data.handle;
+                console.log("🧖 Handle changed:", data.handle);
+                makeFlash($, true, "hi @" + data.handle);
               }
             } catch (error) {
               flashColor = [255, 0, 0]; // Server error.
+              makeFlash($);
               console.error("🧖 Error:", error);
             }
           } else {
             flashColor = [255, 0, 0]; // Authorization error.
+            makeFlash($);
             console.error("🧖 Not logged in.");
           }
-          makeFlash($);
           needsPaint();
         } else {
           flashColor = [255, 0, 0];
@@ -310,12 +293,20 @@ function boot($) {
 // 🧮 Sim(ulate) (Runs once per logic frame (120fps locked)).
 function sim($) {
   input?.sim($);
+
+  if ($.store["handle:received"]) {
+    makeMotd($);
+    input.text = motd;
+    delete $.store["handle:received"];
+    $.needsPaint();
+  }
+
   if (flashPresent) flash.step();
 }
 
 // 🎨 Paint (Runs once per display refresh rate)
 function paint($) {
-  const { screen, wipe, ink, history, api, system, store, dark } = $;
+  let { screen, wipe, ink, history, api, system, store, dark } = $;
 
   const pal = scheme[dark ? "dark" : "light"];
   if (input) input.pal = pal; // Update text input palette.
@@ -402,8 +393,35 @@ export { boot, sim, paint, act, meta };
 
 // 📚 Library (Useful classes & functions used throughout the piece)
 
+function makeMotd({ handle, user }) {
+  motd =
+    `"chaos in a system"                             ` +
+    `                                                ` +
+    `Try typing:                                     ` +
+    `                                                ` +
+    ` 'ff'                                           ` +
+    `  to see Freaky Flowers                         ` +
+    `                                                ` +
+    ` 'shape'                                        ` +
+    `  to paint freehand shapes                      ` +
+    `                                                ` +
+    ` 'bleep'                                        ` +
+    `  to play microtones                            ` +
+    `                                                ` +
+    `Or...                                           ` +
+    `                                                ` +
+    ` 'help'                                         ` +
+    `  to learn more!                                ` +
+    `                                                ` +
+    `mail@aesthetic.computer                         `;
+
+  if (user)
+    motd =
+      `Welcome, ${handle || user.name}!`.padEnd(48) + " ".padEnd(48) + motd;
+}
+
 function makeFlash($, clear = true, message) {
-  flash = new $.gizmo.Hourglass($.seconds(message ? 0.25 : 0.1), {
+  flash = new $.gizmo.Hourglass($.seconds(message ? 0.35 : 0.1), {
     flipped: () => {
       flashShow = false;
       flashPresent = false;

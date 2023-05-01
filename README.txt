@@ -34,9 +34,8 @@
 😀 TODO 😆
 
 🐞 Annoying Bugs & Regressions 🪱
-  - [] S3 Sync Not Working
+  - [] S3 Developer Onboarding Sync Not Working
   - [] Alt / Meta shortcut needs to work for mac to reset pan.
-  - [] Discord bot update fail?
   - [] Live reload: boot will not paint again if paint returns false in a contrived example
   - [] Video download `local` fix.
   - [] Favicon CORS fix (generate the icon / use a data uri)
@@ -44,11 +43,9 @@
   - [] Fix painting rotate / resize cropping issue.
     - [] Check this in Brave browser as well.
   - [] Fix `spray` multiplayer / socket messages not being sent regression.
-  - [] Painting doesn't fully reset when resizing.
   - [] Research the use of "requestProvider.js.map" and work it into `index.js`.
   - [] Rename $api.upload to $api.open? or $api.importFile? 
   + In Production
-  - [⏰] Firefox: Fix blank screen on boot.
   - [🍽️] Fix Firefox AudioWorklet Initialization Bug `Error: Module resolve hook not set`
   - [] https://gist.github.com/lukaslihotzki/b50ccb61ff3a44b48fc4d5ed7e54303f
   - [] Zooming in on the page a lot will make the margin too large
@@ -58,6 +55,8 @@
   - [] Get ssh working in VS Code on windows via WSL: https://stackoverflow.com/questions/60150466/can-i-ssh-from-wsl-in-visual-studio-code
   - [] `npm run code` does not work offline, due to netlify relying on online conectivity.
   + Done
+  - [x] Firefox: Fix blank screen on boot.
+  - [x] Painting doesn't fully reset when resizing.
   - [x] Just using `box(x, y w, h, "*center")` does not work.
   - [x] `n` and `p` keyboard shortcut do not ignore history / break navigation
   - [x] Fix Freaky Flowers opensea regression.
@@ -126,11 +125,11 @@
     - [x] Creating `happy-hands-factory` with an alias `hhf`.
 
 *** Usernames and /p Posting ***
-  - [-] Greet a user by their handle!
   - [] Show a user's page with their current painting.
   - [] `/p` painting feed.
   - [] Update login screen.
   + Done
+  - [x] Greet a user by their handle!
   - [x] Give users the ability to add handles.
 
 *** Colors & Notes & Dictation ***
@@ -1111,7 +1110,6 @@
   - [] Should the old nopaint.art be reachable from within aesthetic.computer
   - [] Should a new nopaint be built from scratch?
 
-
 ***Sidelight***
   - A light you can set the color off.
   - Make it flicker.
@@ -1142,9 +1140,9 @@
 🎃 SETUP 💾
 
 `aesthetic.computer` is virtual computer environment / interface designed for
- creative exploration. development requires `nodejs`, `git-lfs`, an up-to-date web browser,
- and knowledge of javascript. if you're interested in learning how to do any of
- this, visit https://discord.com/invite/aesthetic-computer and i'll help you out - jeffrey 2022.04.24.05.05
+ creative exploration. development requires `nodejs`, an up-to-date web browser,
+ and knowledge of javascript. if you're interested in learning how to contribute 
+ visit https://discord.com/invite/aesthetic-computer and i'll help you out - jeffrey 2022.04.24.05.05
 
  Redis
   0. You may need to install `redis` to get the live reload working properly

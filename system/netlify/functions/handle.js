@@ -1,8 +1,9 @@
-// @handle, 23.04.30.18.12
-// Allows a logged in user to set their social `@handle`. (via M"ongoDB)
+// @handle, 23.04.30.18.12 🤚
+// GET: Get a user @handle out of MongoDB based on their `sub` id from auth0.
+// POST: Allows a logged in user to set their social `@handle`. (via MongoDB)
 
-// TODO
-// - [-] Import `mongodb` and create the index / persist the @user.
+// Future: Abstract MongoDB into an included header for other
+//         api calls.
 
 import { authorize } from "../../backend/authorization.mjs";
 import { MongoClient } from "mongodb";
@@ -12,8 +13,34 @@ const mongoDBName = process.env.MONGODB_NAME;
 const dev = process.env.CONTEXT === "dev";
 
 export async function handler(event, context) {
-  if (event.httpMethod !== "POST")
+  // A GET request to get a handle from a user `sub`.
+  if (event.httpMethod === "GET") {
+    const id = event.queryStringParameters.for;
+    // Check the database for the entry.
+    const client = await MongoClient.connect(mongoDBConnectionString, {
+      useUnifiedTopology: true,
+    });
+    const db = client.db(mongoDBName);
+    const collection = db.collection("@handles");
+    const existingUser = await collection.findOne({ _id: id });
+    await client.close(); // Close the connection.
+
+    if (existingUser) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          handle: existingUser.handle,
+        }),
+      };
+    } else {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: "No handle found." }),
+      };
+    }
+  } else if (event.httpMethod !== "POST")
     return { statusCode: 405, body: "Method Not Allowed" };
+  // A POST request to set the handle.
 
   // Parse the body of the HTTP request
   let body;
@@ -39,10 +66,10 @@ export async function handler(event, context) {
       try {
         // Check if a document with this user's sub already exists
         const existingUser = await collection.findOne({ _id: user.sub });
-        if (dev) console.log("User handle is currently:", existingUser.handle);
-
         if (existingUser) {
-          // Note: This could fail if the new handle is already taken by someone else
+          if (dev)
+            console.log("User handle is currently:", existingUser.handle);
+          // Fail if the new handle is already taken by someone else.
           await collection.updateOne(
             { _id: user.sub },
             { $set: { handle: body.handle } }
@@ -52,7 +79,6 @@ export async function handler(event, context) {
           await collection.insertOne({ _id: user.sub, handle: body.handle });
         }
       } catch (error) {
-        console.log(error);
         return {
           statusCode: 400,
           body: JSON.stringify({ message: error }),
@@ -65,10 +91,7 @@ export async function handler(event, context) {
 
       return {
         statusCode: 200,
-        body: JSON.stringify({
-          message: `Handle changed to:`,
-          to: body.handle,
-        }),
+        body: JSON.stringify({ handle: body.handle }),
       };
     } else {
       return {
@@ -77,10 +100,9 @@ export async function handler(event, context) {
       };
     }
   } catch (error) {
-    console.log("Error parsing body", error);
     return {
       statusCode: 400,
-      body: JSON.stringify({ message: "Cannot parse body" }),
+      body: JSON.stringify({ message: "Cannot parse body." }),
     };
   }
 }

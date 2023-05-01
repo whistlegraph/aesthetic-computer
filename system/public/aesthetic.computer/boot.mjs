@@ -82,7 +82,7 @@ if (!sandboxed && window.auth0) {
 
   if (isAuthenticated) {
     const userProfile = await auth0Client.getUser();
-    console.log("🔐 Logged in:", userProfile);
+    if (debug) console.log("🔐 Logged in:", userProfile);
     window.acUSER = userProfile; // Will get passed to the first message by the piece runner.
   }
 }

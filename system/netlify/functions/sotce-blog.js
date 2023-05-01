@@ -3,7 +3,7 @@
 // Patreon dev docs: https://www.patreon.com/portal
 
 /* #region todo 📓 
- - [] Explain to sotce a little more in detail how it works / loop holes etc.
+ - [] Explain to sotce a little more in detail how it works / loopholes etc.
 + Done
  - [x] Make it cute and put it into production.
  - [x] Test on a phone. 
@@ -85,7 +85,7 @@ async function fun(event, context) {
   if (event.httpMethod === "GET") {
     // If the code parameter is not present, return the HTML template with the authorization link
     const scope = encodeURIComponent("identity identity.memberships"); // Space separated... identity[email]
-    //                                                           See also https://docs.patreon.com/#scopes
+    // See also https://docs.patreon.com/#scopes
     const state = crypto.randomBytes(32).toString("hex"); // For securing the request.
     const loginUrl = `https://www.patreon.com/oauth2/authorize?response_type=code&client_id=${client}&redirect_uri=${redirect}&state=${state}&scope=${scope}`;
 

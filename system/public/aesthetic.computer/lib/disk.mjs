@@ -1272,6 +1272,12 @@ async function load(
 ) {
   let { path, host, search, colon, params, hash, text: slug } = parsed;
 
+  // Update the user handle if it changed between pieces.
+  if (store["handle:updated"]) {
+    $commonApi.handle = "@" + store["handle:updated"];
+    delete store["handle:updated"];
+  }
+
   loading === false ? (loading = true) : console.warn("Already loading:", path);
 
   if (debug) console.log(debug ? "🟡 Development" : "🟢 Production");
@@ -1823,12 +1829,14 @@ const actAlerts = []; // Messages that get put into act and cleared after
 // every frame.
 let reframed = false;
 async function makeFrame({ data: { type, content } }) {
+  // Runs once on boot.
   if (type === "init-from-bios") {
     debug = content.debug;
     graph.setDebug(content.debug);
     ROOT_PIECE = content.rootPiece;
     USER = content.user;
     $commonApi.user = USER;
+    handle();
     originalHost = content.parsed.host;
     loadAfterPreamble = () => {
       loadAfterPreamble = null;
@@ -2982,6 +2990,28 @@ async function makeFrame({ data: { type, content } }) {
 }
 
 // 📚 Utilities
+
+// Get the active user's handle from the server if one exists, updating
+// $commonApi.handle
+async function handle() {
+  if (USER) {
+    try {
+      const response = await fetch(`/handle?for=${USER.sub}`);
+      const data = await response.json();
+      if (response.status === 200) {
+        const newHandle = "@" + data.handle;
+        if (newHandle !== $commonApi.handle) {
+          $commonApi.handle = "@" + data.handle;
+          store["handle:received"] = true;
+        }
+      } else {
+        console.warn(data);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+}
 
 // Run the piece's "leave" function which will trigger
 // a new load before sending off the final frame.
