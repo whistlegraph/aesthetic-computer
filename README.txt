@@ -66,11 +66,12 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Usernames and /p Posting ***
-  - [x] Associate handles with user data somehow...
+  - [-] Associate handles with user data somehow...
   - [] Show a user's page with their current painting.
   - [] `/p` painting feed.
   - [] Update login screen.
   + Done
+  - [x] Turn the cursor into a spinner when the prompt is locked...
   - [x] Sanitize handle text entry of the input on both client and server.
     - [x] Remove any prepending "@"
     - [x] Only allow a-z0-9, underscores, and periods

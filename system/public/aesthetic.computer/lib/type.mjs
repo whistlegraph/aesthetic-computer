@@ -164,7 +164,27 @@ class TextInput {
         $.screen.height
       ); // Ruler
       $.ink(127).box(0, 0, $.screen.width, $.screen.height, "inline"); // Focus
-      if (this.showBlink) $.ink(this.pal.block).box(prompt.pos); // Draw blinking cursor.
+
+      if (this.lock) {
+        const r = prompt.pos;
+        const topL = [r.x, r.y];
+        const topR = [r.x + r.w, r.y];
+        const bottomR = [r.x + r.w, r.y + r.h];
+        const bottomL = [r.x, r.y + r.h];
+        const middleL = [r.x, r.y + r.h / 2];
+        const middleR = [r.x + r.w, r.y + r.h / 2];
+
+        $ink(this.pal.block);
+        if ($.paintCount % 60 < 20) {
+          $.line(...topR, ...bottomL);
+        } else if ($.paintCount % 60 < 40) {
+          $.line(...middleL, ...middleR);
+        } else {
+          $.line(...topL, ...bottomR);
+        }
+      } else {
+        if (this.showBlink) $.ink(this.pal.block).box(prompt.pos); // Draw blinking cursor.
+      }
     }
 
     // Return false if we have loaded every glyph.
@@ -187,6 +207,8 @@ class TextInput {
         },
         autoFlip: true,
       });
+
+    if (this.lock) needsPaint();
 
     if (this.canType) this.blink.step();
   }
