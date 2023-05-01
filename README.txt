@@ -65,6 +65,24 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Usernames and /p Posting ***
+  - [x] Associate handles with user data somehow...
+  - [] Show a user's page with their current painting.
+  - [] `/p` painting feed.
+  - [] Update login screen.
+  + Done
+  - [x] Greet a user by their handle!
+  - [x] Give users the ability to add handles.
+
+*** Colors & Notes & Dictation ***
+  - [] See teal book.
+
+*** iOS Native App ***
+  - [] Figure out the best way to make a wrapper now.
+  - [] Also get it work on Android too. (Can use Browserstack for APK testing.)
+  - [] Add notifications.
+  - [] Submit to store with notifications enabled, usernames and posts.
+
 *** Happy Hands (June 1st) 🖐️😃 ***
   😎 Now
     - [-] See `happy-hands-assembler` 
@@ -123,23 +141,6 @@
     - [x] Fail if no param.
     - [x] Find good name for this process...
     - [x] Creating `happy-hands-factory` with an alias `hhf`.
-
-*** Usernames and /p Posting ***
-  - [] Show a user's page with their current painting.
-  - [] `/p` painting feed.
-  - [] Update login screen.
-  + Done
-  - [x] Greet a user by their handle!
-  - [x] Give users the ability to add handles.
-
-*** Colors & Notes & Dictation ***
-  - [] See teal book.
-
-*** iOS Native App ***
-  - [] Figure out the best way to make a wrapper now.
-  - [] Also get it work on Android too. (Can use Browserstack for APK testing.)
-  - [] Add notifications.
-  - [] Submit to store with notifications enabled, usernames and posts.
 
 *** ai brush ***
   - [] Write a query and get back brush code in response.
