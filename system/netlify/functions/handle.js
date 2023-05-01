@@ -9,6 +9,7 @@ import { MongoClient } from "mongodb";
 
 const mongoDBConnectionString = process.env.MONGODB_CONNECTION_STRING;
 const mongoDBName = process.env.MONGODB_NAME;
+const dev = process.env.CONTEXT === "dev";
 
 export async function handler(event, context) {
   if (event.httpMethod !== "POST")
@@ -38,6 +39,8 @@ export async function handler(event, context) {
       try {
         // Check if a document with this user's sub already exists
         const existingUser = await collection.findOne({ _id: user.sub });
+        if (dev) console.log("User handle is currently:", existingUser.handle);
+
         if (existingUser) {
           // Note: This could fail if the new handle is already taken by someone else
           await collection.updateOne(
@@ -63,7 +66,7 @@ export async function handler(event, context) {
       return {
         statusCode: 200,
         body: JSON.stringify({
-          message: `Handle changed from ${user.handle} to:`,
+          message: `Handle changed to:`,
           to: body.handle,
         }),
       };
