@@ -11,6 +11,7 @@ function boot({ alias, colon, params }) {
 }
 
 export { boot }
+export { meta } from "../disks/happy-hands-assembler.mjs";
 
 // 📚 Library (Useful functions used throughout the piece)
 // ...
