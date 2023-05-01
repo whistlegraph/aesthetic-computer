@@ -6,6 +6,7 @@
 //         api calls.
 
 import { authorize } from "../../backend/authorization.mjs";
+import { validateHandle } from "../../public/aesthetic.computer/lib/text.mjs";
 import { MongoClient } from "mongodb";
 
 const mongoDBConnectionString = process.env.MONGODB_CONNECTION_STRING;
@@ -50,6 +51,16 @@ export async function handler(event, context) {
 
     body = JSON.parse(event.body);
 
+    const handle = body.handle;
+
+    // Make sure handle entry is well formed.
+    if (!validateHandle(handle)) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: "Bad handle formatting." }),
+      };
+    }
+
     // And that we are logged in...
     const user = await authorize(event.headers); // We are logged in!
     if (user) {
@@ -72,11 +83,11 @@ export async function handler(event, context) {
           // Fail if the new handle is already taken by someone else.
           await collection.updateOne(
             { _id: user.sub },
-            { $set: { handle: body.handle } }
+            { $set: { handle } }
           );
         } else {
           // Add a new `@handles` document for this user.
-          await collection.insertOne({ _id: user.sub, handle: body.handle });
+          await collection.insertOne({ _id: user.sub, handle });
         }
       } catch (error) {
         return {

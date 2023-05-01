@@ -71,6 +71,10 @@
   - [] `/p` painting feed.
   - [] Update login screen.
   + Done
+  - [x] Sanitize handle text entry of the input on both client and server.
+    - [x] Remove any prepending "@"
+    - [x] Only allow a-z0-9, underscores, and periods
+    - [x] Set a max length of 16 characters.
   - [x] Greet a user by their handle!
   - [x] Give users the ability to add handles.
 

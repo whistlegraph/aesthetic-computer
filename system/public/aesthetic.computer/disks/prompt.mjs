@@ -15,6 +15,7 @@
 #endregion */
 
 import { parse } from "../lib/parse.mjs";
+import { validateHandle } from "../lib/text.mjs";
 import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { Desktop, MetaBrowser } from "../lib/platform.mjs";
 import { TextInput } from "../lib/type.mjs";
@@ -93,7 +94,7 @@ function boot($) {
         const handle = text.split(" ")[1];
 
         // And a handle has been specified.
-        if (handle?.length > 0) {
+        if (handle?.length > 0 && validateHandle(handle)) {
           const token = await authorize(); // Get user token.
           if (token) {
             const headers = {
@@ -131,8 +132,8 @@ function boot($) {
           needsPaint();
         } else {
           flashColor = [255, 0, 0];
-          console.warn("🧖 No @handle specified.");
-          makeFlash($);
+          console.warn("🧖 No @handle specified / bad handle design.");
+          makeFlash($, true, "HANDLE INVALID");
         }
       } else if ((text === "ul" || text === "upload") && store["painting"]) {
         if (!navigator.onLine) {

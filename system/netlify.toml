@@ -10,7 +10,10 @@
                     "public/aesthetic.computer/lib/**/*.mjs",
                     "backend/**/*.mjs"]
 [functions.handle]
-  included_files = ["backend/**/*.mjs"]
+  included_files = [
+    "public/aesthetic.computer/lib/text.mjs",
+    "backend/**/*.mjs"
+    ]
   external_node_modules = ["got", "mongodb"]
 [functions.presigned-upload-url]
   external_node_modules = ["got", "nanoid", "@aws-sdk-client-s3", "@aws-sdk/s3-request-presigner"]
