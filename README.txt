@@ -126,10 +126,12 @@
     - [x] Creating `happy-hands-factory` with an alias `hhf`.
 
 *** Usernames and /p Posting ***
-  - [x] Give users the ability to add handles.
+  - [-] Greet a user by their handle!
   - [] Show a user's page with their current painting.
   - [] `/p` painting feed.
   - [] Update login screen.
+  + Done
+  - [x] Give users the ability to add handles.
 
 *** Colors & Notes & Dictation ***
   - [] See teal book.
