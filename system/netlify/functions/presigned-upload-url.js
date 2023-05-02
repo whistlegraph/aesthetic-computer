@@ -50,18 +50,32 @@ const s3User = new S3Client({
   },
 });
 
-let client; // Will be assigned on each handler runs.
-
 export async function handler(event, context) {
-  const { customAlphabet } = await import("nanoid");
+  // Only allow GET requests.
+  if (event.httpMethod !== "GET") {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({
+        error: "Wrong request type 😩",
+      }),
+    };
+  }
 
+  let client;
+
+  const { customAlphabet } = await import("nanoid");
   const alphabet =
     "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
   const nanoid = customAlphabet(alphabet, 8);
 
   const extension = event.path.slice(1).split("/")[1];
-  const name = event.path.slice(1).split("/")[2];
+  let name = event.path.slice(1).split("/")[2];
   const bucket = event.path.slice(1).split("/")[3];
+  if (bucket !== "wand") {
+    //           ^ Currently using a legacy name schema for wand. 23.05.01.21.59
+    // 🧠 Replace first prefix- with a prefix/ for folder sorting by media.
+    if (name.indexOf("-") > -1) name = name.replace("-", "/");
+  }
 
   let expiring = true;
   let subdirectory; // Sorted by user if necessary.
@@ -89,11 +103,10 @@ export async function handler(event, context) {
 
     const user = await authorize(event.headers);
     if (user) {
-      const email = user.email;
       // const sub = user.sub;
       // const username = user.name;
       expiring = false; // Set the file not to expire.
-      subdirectory = email; // Sort this object into a user directory.
+      subdirectory = user.sub; // Sort this object into a user directory.
     } else {
       // Fail if the user is not logged in but an upload is attempted from
       // the client as if they are.
@@ -105,6 +118,7 @@ export async function handler(event, context) {
     }
   } else {
     client = { s3, bucket: process.env.ART_SPACE_NAME }; // Assume the unauthorized, temporary "art" bucket.
+    // tagging = `activity=${activity}`; // Add activity tag. (Assume anonymous.)
   }
 
   let mimeType;
@@ -148,6 +162,7 @@ export async function handler(event, context) {
     ContentDisposition: "attachment",
     // ContentDisposition: "inline", // For some reason this yields CORS errors. 23.03.02.15.58
   };
+  // if (tagging) putObjectParams.Tagging = tagging; // Add object tags if they exist.
 
   const command = new PutObjectCommand(putObjectParams);
   const uploadOptions = { ContentDisposition: "attachment" };
@@ -162,6 +177,8 @@ export async function handler(event, context) {
     }),
   };
 }
+
+// 📚 Library (Useful functions used throughout the file)
 
 async function fileExists(filename) {
   try {

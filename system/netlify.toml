@@ -15,8 +15,11 @@
     "backend/**/*.mjs"
     ]
   external_node_modules = ["got", "mongodb"]
+[functions.media]
+  included_files = ["backend/**/*.mjs"]
+  external_node_modules = ["got", "mongodb", "@aws-sdk-client-s3"]
 [functions.presigned-upload-url]
-  external_node_modules = ["got", "nanoid", "@aws-sdk-client-s3", "@aws-sdk/s3-request-presigner"]
+  external_node_modules = ["got", "mongodb", "nanoid", "@aws-sdk-client-s3", "@aws-sdk/s3-request-presigner"]
 [functions.thumbnail]
   external_node_modules = ["chrome-aws-lambda"]
 [functions.session]
@@ -110,6 +113,10 @@
 [[redirects]]
   from = "/handle"
   to = "/.netlify/functions/handle"
+  status = 200
+[[redirects]]
+  from = "/media/*"
+  to = "/.netlify/functions/media"
   status = 200
 [[redirects]]
   from = "/run"

@@ -4,7 +4,6 @@
 /* #region 🤝 Read Me 
 #endregion */
 
-
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({ alias, colon, params }) {
   alias('happy-hands-assembler', colon, params);

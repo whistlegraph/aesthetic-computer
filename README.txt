@@ -66,13 +66,12 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Usernames and /p Original Posting ***
-  - [-] Associate handles with user data somehow...
-    - [] Associate S3 directory with user and allow handle mapping.
-    - [] How hard is it to change the directory name and all keys associated?
-  - [] Show a user's page with their current painting.
+  - [] List all of a user's paintings on their page. See `media.js`
   - [] `/p` painting feed.
   - [] Update / finalize auth0 login screen.
   + Done
+  - [x] Associate handles with user data somehow...
+    - [x] Associate S3 directory with user id and do some handle mapping.
   - [x] Turn the cursor into a spinner when the prompt is locked...
   - [x] Sanitize handle text entry of the input on both client and server.
     - [x] Remove any prepending "@"
