@@ -85,6 +85,9 @@
   - [📘] See teal book.
 
 *** Usernames and /p Original Posting ***
+  - [-] Live email file links do not work.
+    - https://aesthetic.computer/media/me@jas.life/painting/2023.5.03.13.38.15.png
+    - https://aesthetic.computer/media/@jeffrey/painting/2023.5.03.13.38.15.png
   - [-] Build a painting listing page!.
   - [*] Limit resolution of paintings?
   - [] `/p` painting feed.
