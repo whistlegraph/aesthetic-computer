@@ -298,9 +298,10 @@ function boot($) {
 function sim($) {
   input?.sim($);
 
-  if ($.store["handle:received"]) {
+  if ($.store["handle:received"] && input.canType === false) {
     makeMotd($);
     input.text = motd;
+    input.canType = false;
     delete $.store["handle:received"];
     $.needsPaint();
   }
