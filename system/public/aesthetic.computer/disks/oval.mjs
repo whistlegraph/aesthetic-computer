@@ -7,10 +7,10 @@
             ^ use `o`, `i` or `f` for `outline`, `fill`
               `outline` takes an integer for thickness.
 
-  Ex. `rect:o:c 255 0 0` for an red outlined 1px perfect circle.
+  Ex. `oval:o:c 255 0 0` for an red outlined 1px perfect circle.
               ^ `c` or `circle`
 
-  Ex. `rect:o-2` for a randomly colored 2px inline rectangle.
+  Ex. `oval:o-2` for a randomly colored 2px inline rectangle.
               ^ add a number here for thickness! 
 #endregion */
 
