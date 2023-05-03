@@ -4,7 +4,7 @@
 /* region docs 📚
   Draw colored ovals (and circles).
   Use `oval:type:circle color`
-            ^ use `o`, `i` or `f` for `outline`, `fill`
+            ^ use `o`, or `f` for `outline`, `fill`
               `outline` takes an integer for thickness.
 
   Ex. `oval:o:c 255 0 0` for an red outlined 1px perfect circle.

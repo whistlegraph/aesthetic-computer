@@ -65,6 +65,22 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** wordfish ***
+  50 bw wordfish
+  "wordfish"
+  "a wordfish is a ..."
+  painting (128)
+  black coat
+  white oval
+  white triangle
+  black word fish 🧠 (use any word)
+  black line
+  download
+- [] change resize to painting
+- [] allow prefix colors for oval, shape, and line
+- [] get `word` working (and with new font?)
+- [] make `coat` a new command
+
 *** Colors & Notes & Dictation ***
   - [📘] See teal book.
 

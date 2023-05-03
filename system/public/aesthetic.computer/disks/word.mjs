@@ -2,7 +2,8 @@
 // Write a word (or words) on the screen that can be dragged around.
 
 /* #region 🏁 todo
-  + Second Version
+  + Now
+     - [] Upgrade to new `paint` api.
   + System
     - [] Improve line thickness code / consider growing from
          a structure / outlining the skeleton as a post process
@@ -36,7 +37,6 @@ const words = ["sad", "OK", "i'm so creative", "alright", "NEXT LEVEL"];
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot($) {
-  $.system.nopaint.boot($); // Inherit boot functionality.
   const { params, colon, help, screen, num } = $;
 
   // Parse all parameters.
@@ -113,9 +113,12 @@ function paint({ system, paste, ink }) {
   ink(color).write(text, { x, y, center: "xy", size, thickness, rotation: 0 });
 }
 
+// 🍪 Prints to the current painting.
+function bake() {
+};
+
 // ✒ Act (Runs once per user interaction)
 function act($) {
-  $.system.nopaint.act($); // Inherit nopaint's act functionality.
   const { event: e } = $;
   if (e.is("draw")) {
     x += e.delta.x;
@@ -128,4 +131,4 @@ export const system = "nopaint";
 // 📚 Library (Useful functions used throughout the piece)
 // ...
 
-export { boot, paint, act };
+export { boot, paint, act, bake };
