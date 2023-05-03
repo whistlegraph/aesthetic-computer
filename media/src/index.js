@@ -41,6 +41,8 @@ async function handleRequest(request) {
 async function queryUserID(username) {
   const host = "https://aesthetic.computer";
   // const host = dev ? "https://localhost:8888" : "https://aesthetic.computer";
+  // ❓ For some reason I cannot call netlify functions locally with :8888
+  //    (403 errors) so I'm turning it off for now. 23.05.03.00.03
   const url = `${host}/user?from=${username}`;
   try {
     const res = await fetch(url);

@@ -65,15 +65,18 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Colors & Notes & Dictation ***
+  - [📘] See teal book.
+
 *** Usernames and /p Original Posting ***
-  - [-] Rewrite clean URLs to individual media files on DO spaces using
-       a Cloudflare worker and a call to a Netlify function.
-  - [] List all of a user's paintings on their page. See `media.js`
+  - [-] List all of a user's paintings on their page. See `media.js`
     - [] Rewrite `media.js` or use the cloudflare worker to
          produce a json list if possible.
   - [] `/p` painting feed.
   - [] Update / finalize auth0 login screen.
   + Done
+  - [x] Rewrite clean URLs to individual media files on DO spaces using
+       a Cloudflare worker and a call to a Netlify function.
   - [x] Associate handles with user data somehow...
     - [x] Associate S3 directory with user id and do some handle mapping.
   - [x] Turn the cursor into a spinner when the prompt is locked...
@@ -83,9 +86,6 @@
     - [x] Set a max length of 16 characters.
   - [x] Greet a user by their handle!
   - [x] Give users the ability to add handles.
-
-*** Colors & Notes & Dictation ***
-  - [] See teal book.
 
 *** iOS Native App ***
   - [] Figure out the best way to make a wrapper now.

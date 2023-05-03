@@ -174,7 +174,7 @@ class TextInput {
         const middleL = [r.x, r.y + r.h / 2];
         const middleR = [r.x + r.w, r.y + r.h / 2];
 
-        $ink(this.pal.block);
+        $.ink(this.pal.block);
         if ($.paintCount % 60 < 20) {
           $.line(...topR, ...bottomL);
         } else if ($.paintCount % 60 < 40) {
