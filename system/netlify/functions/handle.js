@@ -5,7 +5,7 @@
 // Future: Abstract MongoDB into an included header for other
 //         api calls.
 
-import { authorize } from "../../backend/authorization.mjs";
+import { authorize, handleFor } from "../../backend/authorization.mjs";
 import { validateHandle } from "../../public/aesthetic.computer/lib/text.mjs";
 import { MongoClient } from "mongodb";
 
@@ -17,20 +17,13 @@ export async function handler(event, context) {
   // A GET request to get a handle from a user `sub`.
   if (event.httpMethod === "GET") {
     const id = event.queryStringParameters.for;
-    // Check the database for the entry.
-    const client = await MongoClient.connect(mongoDBConnectionString, {
-      useUnifiedTopology: true,
-    });
-    const db = client.db(mongoDBName);
-    const collection = db.collection("@handles");
-    const existingUser = await collection.findOne({ _id: id });
-    await client.close(); // Close the connection.
+    const handle = await handleFor(id);
 
-    if (existingUser) {
+    if (handle) {
       return {
         statusCode: 200,
         body: JSON.stringify({
-          handle: existingUser.handle,
+          handle,
         }),
       };
     } else {
@@ -81,10 +74,7 @@ export async function handler(event, context) {
           if (dev)
             console.log("User handle is currently:", existingUser.handle);
           // Fail if the new handle is already taken by someone else.
-          await collection.updateOne(
-            { _id: user.sub },
-            { $set: { handle } }
-          );
+          await collection.updateOne({ _id: user.sub }, { $set: { handle } });
         } else {
           // Add a new `@handles` document for this user.
           await collection.insertOne({ _id: user.sub, handle });
@@ -97,9 +87,7 @@ export async function handler(event, context) {
       } finally {
         await client.close(); // Close the connection.
       }
-
-      // Successful result...
-
+      // Successful handle change...
       return {
         statusCode: 200,
         body: JSON.stringify({ handle: body.handle }),
@@ -113,7 +101,7 @@ export async function handler(event, context) {
   } catch (error) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ message: "Cannot parse body." }),
+      body: JSON.stringify({ message: "Cannot parse input body." }),
     };
   }
 }

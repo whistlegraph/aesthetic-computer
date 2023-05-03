@@ -108,6 +108,7 @@ function act({ event: e, num, download, colon, rec, params, jump, back }) {
 
     if (rec.printed) {
       // Local download...
+      // Now specific to the whistlegraph video implementation. 23.05.02.00.55
       let filename = `whistlegraph-${num.timestamp()}.mp4`;
       download(filename); // Download the video locally.
     } else if (slug.length > 0) {

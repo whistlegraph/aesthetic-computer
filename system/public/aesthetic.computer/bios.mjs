@@ -633,7 +633,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         audioContext.resume();
 
         modal.classList.remove("on");
-        bumper.innerText = "";
       })();
     } catch (e) {
       coneole.log("Sound failed to initialize:", e);
@@ -2454,15 +2453,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Probably the download code... maybe something else if a custom
         // name is used.
-        const filename = new URL(presignedUrl).pathname.split("/").pop();
+        const url = new URL(presignedUrl);
+        const filename = url.pathname.split("/").pop();
         const slug = filename.substring(0, filename.lastIndexOf("."));
+        const path = url.pathname;
 
         if (debug) console.log("🔐 Presigned URL:", presignedUrl);
 
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", presignedUrl, true);
         xhr.setRequestHeader("Content-Type", MIME);
-        xhr.setRequestHeader("Content-Disposition", "attachment");
+        xhr.setRequestHeader("Content-Disposition", "inline");
         xhr.setRequestHeader("x-amz-acl", "public-read");
 
         xhr.upload.addEventListener("progress", (event) => {
@@ -2480,7 +2481,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
             send({
               type: callbackMessage,
-              content: { result: "success", data: { slug } },
+              content: { result: "success", data: { slug, path } },
             });
 
             if (debug) console.log("✔️ File uploaded:", xhr.responseURL);
@@ -2561,13 +2562,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         object = URL.createObjectURL(blob, { type: MIME });
       } else {
         // Or from the storage network.
-
         // Check to see if filename has user handle data.
-        const [email, slug] = filename.split("/");
-        object =
-          email && slug
-            ? `https://user.aesthetic.computer/${email}/${slug}`
-            : `https://art.aesthetic.computer/${filename}`;
+        const hasEmailOrHandle = filename.split("/")[0].indexOf("@") > -1;
+        object = hasEmailOrHandle
+          ? `/media/${filename}`
+          : `https://art.aesthetic.computer/${filename}`;
       }
     } else if (extension(filename) === "mp4") {
       // 🎥 Video
@@ -2600,10 +2599,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     const a = document.createElement("a");
     a.href = object;
     a.target = "_blank";
-    a.download = filename;
-    // a.onclick = (e) => {
-    //   e.preventDefault();
-    // };
+    a.download = filename.split("/").pop(); // Remove any extra paths.
     a.click();
     URL.revokeObjectURL(a.href);
 

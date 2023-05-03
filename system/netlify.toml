@@ -15,8 +15,11 @@
     "backend/**/*.mjs"
     ]
   external_node_modules = ["got", "mongodb"]
+[functions.user]
+  included_files = ["backend/**/*.mjs"]
+  external_node_modules = ["got", "mongodb"]
 [functions.presigned-upload-url]
-  external_node_modules = ["got", "nanoid", "@aws-sdk-client-s3", "@aws-sdk/s3-request-presigner"]
+  external_node_modules = ["got", "mongodb", "nanoid", "@aws-sdk-client-s3", "@aws-sdk/s3-request-presigner"]
 [functions.thumbnail]
   external_node_modules = ["chrome-aws-lambda"]
 [functions.session]
@@ -52,6 +55,17 @@
     Access-Control-Allow-Origin = "*"
     Content-Security-Policy = "script-src 'self' blob: 'unsafe-eval';"
     Vary = "*"
+[[redirects]]
+  from = "/media/*"
+  to = "https://media.aesthetic-computer.workers.dev/media/:splat"
+  # to = "http://localhost:8787/media/:splat" # Uncomment for developing the Cloudflare worker.
+  status = 200
+  force = true
+[[redirects]]
+  from = "/media-collection/*"
+  to = "/.netlify/functions/media-collection"
+  status = 200
+  force = true
 [[redirects]]
   from = "https://www.4esthetic.com/*"
   to = "https://aesthetic.computer/:splat"
@@ -110,6 +124,10 @@
 [[redirects]]
   from = "/handle"
   to = "/.netlify/functions/handle"
+  status = 200
+[[redirects]]
+  from = "/user"
+  to = "/.netlify/functions/user"
   status = 200
 [[redirects]]
   from = "/run"

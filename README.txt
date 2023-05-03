@@ -65,14 +65,21 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Colors & Notes & Dictation ***
+  - [📘] See teal book.
+
 *** Usernames and /p Original Posting ***
-  - [-] Associate handles with user data somehow...
-    - [] Associate S3 directory with user and allow handle mapping.
-    - [] How hard is it to change the directory name and all keys associated?
-  - [] Show a user's page with their current painting.
+  - [-] Build a painting listing page!.
+  - [*] Limit resolution of paintings?
   - [] `/p` painting feed.
   - [] Update / finalize auth0 login screen.
   + Done
+  - [x] Rewrite `media.js` or use the cloudflare worker to
+        produce a json list if possible.
+  - [x] Rewrite clean URLs to individual media files on DO spaces using
+       a Cloudflare worker and a call to a Netlify function.
+  - [x] Associate handles with user data somehow...
+    - [x] Associate S3 directory with user id and do some handle mapping.
   - [x] Turn the cursor into a spinner when the prompt is locked...
   - [x] Sanitize handle text entry of the input on both client and server.
     - [x] Remove any prepending "@"
@@ -81,11 +88,10 @@
   - [x] Greet a user by their handle!
   - [x] Give users the ability to add handles.
 
-*** Colors & Notes & Dictation ***
-  - [] See teal book.
-
 *** iOS Native App ***
   - [] Figure out the best way to make a wrapper now.
+  - [] Get stickers into a keyboard / live sticker creation with the drawing
+       tools. (Research in GPT)
   - [] Also get it work on Android too. (Can use Browserstack for APK testing.)
   - [] Add notifications.
   - [] Submit to store with notifications enabled, usernames and posts.

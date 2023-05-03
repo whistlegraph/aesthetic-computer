@@ -141,13 +141,16 @@ function boot($) {
           makeFlash($, true, "OFFLINE");
         } else {
           const filename = `painting-${num.timestamp()}.png`;
+          // The first dashed string will get replaced with a slash / media directory filter on the server.
           uploadProgress = -1; // Trigger progress bar rendering.
           upload(filename, store["painting"], (p) => (uploadProgress = p))
             .then((data) => {
               console.log("🪄 Painting uploaded:", filename, data);
               flashColor = [0, 255, 0];
               makeFlash($);
-              const slug = user ? `${user.email}/${data.slug}` : data.slug;
+              const slug = user
+                ? `${handle || user.email}/painting/${data.slug}`
+                : data.slug;
               jump(`download:painting ${slug}`);
             })
             .catch((err) => {
@@ -295,9 +298,10 @@ function boot($) {
 function sim($) {
   input?.sim($);
 
-  if ($.store["handle:received"]) {
+  if ($.store["handle:received"] && input.canType === false) {
     makeMotd($);
     input.text = motd;
+    input.canType = false;
     delete $.store["handle:received"];
     $.needsPaint();
   }
