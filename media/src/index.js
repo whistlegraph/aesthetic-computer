@@ -39,8 +39,8 @@ async function handleRequest(request) {
 }
 
 async function queryUserID(username) {
-  const host = dev ? "https://localhost:8888" : "https://aesthetic.computer";
-	// TODO: This doesn't seem to work locally...
+  const host = "https://aesthetic.computer";
+  // const host = dev ? "https://localhost:8888" : "https://aesthetic.computer";
   const url = `${host}/user?from=${username}`;
   try {
     const res = await fetch(url);
