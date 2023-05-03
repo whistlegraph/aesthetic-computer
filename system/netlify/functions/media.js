@@ -2,13 +2,14 @@
 // Parse clean urls and return uploaded file urls (for downloading) or lists
 // of files from users.
 
+/*
 import {
   userIDFromHandle,
   userIDFromEmail,
 } from "../../backend/authorization.mjs";
+
 import { respond } from "../../backend/http.mjs";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const s3User = new S3Client({
   endpoint: "https://" + process.env.USER_ENDPOINT,
@@ -18,8 +19,6 @@ const s3User = new S3Client({
   },
 });
 
-// GET `/media/{@userHandleOrEmail}/{slug_with_extension}` will download
-//     individual files by proxy. ✅
 // GET `/media/{@userHandleOrEmail}` will list files.
 export async function handler(event, context) {
   // Make sure this is a GET request
@@ -42,9 +41,9 @@ export async function handler(event, context) {
     };
   }
 
-  const client = { s3: s3User, bucket: process.env.USER_SPACE_NAME };
+  //const client = { s3: s3User, bucket: process.env.USER_SPACE_NAME };
 
-  // 1. Download individual files.
+  // 1. Download / go to individual files.
   if (key) {
     let sub;
     if (handleOrEmail.startsWith("@")) {
@@ -55,23 +54,26 @@ export async function handler(event, context) {
       sub = await userIDFromEmail(handleOrEmail);
     }
 
-    const params = { Bucket: client.bucket, Key: `${sub}/${key}` };
-
+    //const params = { Bucket: process.env.USER_SPACE_NAME, Key: `${sub}/${key}` };
     // Generate a pre-signed URL
-    const command = new GetObjectCommand(params);
-    const signedUrl = await getSignedUrl(client.s3, command, {
-      expiresIn: 3600,
-    }); // expires in 1 hour
+    // const command = new GetObjectCommand(params);
+    // const url = await getSignedUrl(client.s3, command, {
+    //   expiresIn: 3600,
+    // }); // expires in 1 hour
+
+    // Construct a CDN url.
+    const url = `https://${process.env.USER_SPACE_NAME}/${sub}/${key}`;
 
     // ❤️‍🔥
-    // TODO: I don't really need a presigned URL here. I can just 
+    // TODO: I don't really need a presigned URL here. I can just
     //       attempt to redirect to the CDN version of the file, based on
     //       the key?
 
     // Redirect to the signed download URL.
-    return respond(302, null, { Location: signedUrl });
+    return respond(302, null, { Location: url });
   } else {
     // 2. Listing.
-    // List all objects prefixed with "${user_id}/painting" 
+    // List all objects prefixed with "${user_id}/painting"
   }
 }
+*/

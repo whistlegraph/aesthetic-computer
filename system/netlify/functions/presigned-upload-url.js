@@ -154,18 +154,20 @@ export async function handler(event, context) {
 
   if (subdirectory) fileName = subdirectory + "/" + fileName;
 
+  const ContentDisposition = "inline";
+
   const putObjectParams = {
     Bucket: client.bucket,
     Key: fileName,
     ContentType: mimeType,
     ACL: "public-read",
-    ContentDisposition: "attachment",
+    ContentDisposition,
     // ContentDisposition: "inline", // For some reason this yields CORS errors. 23.03.02.15.58
   };
   // if (tagging) putObjectParams.Tagging = tagging; // Add object tags if they exist.
 
   const command = new PutObjectCommand(putObjectParams);
-  const uploadOptions = { ContentDisposition: "attachment" };
+  const uploadOptions = { ContentDisposition };
 
   if (expiring) uploadOptions.expiresIn = 3600; // Set to expiring if we are in an anonymous bucket / not a logged in user.
   const uploadURL = await getSignedUrl(client.s3, command, uploadOptions);

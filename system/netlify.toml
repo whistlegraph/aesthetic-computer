@@ -15,9 +15,9 @@
     "backend/**/*.mjs"
     ]
   external_node_modules = ["got", "mongodb"]
-[functions.media]
+[functions.user]
   included_files = ["backend/**/*.mjs"]
-  external_node_modules = ["got", "mongodb", "@aws-sdk-client-s3"]
+  external_node_modules = ["got", "mongodb"]
 [functions.presigned-upload-url]
   external_node_modules = ["got", "mongodb", "nanoid", "@aws-sdk-client-s3", "@aws-sdk/s3-request-presigner"]
 [functions.thumbnail]
@@ -115,9 +115,14 @@
   to = "/.netlify/functions/handle"
   status = 200
 [[redirects]]
-  from = "/media/*"
-  to = "/.netlify/functions/media"
+  from = "/user"
+  to = "/.netlify/functions/user"
   status = 200
+[[redirects]]
+  from = "/media/*"
+  to = "https://media.aesthetic-computer.workers.dev/:splat"
+  status = 200
+  force = true
 [[redirects]]
   from = "/run"
   to = "/.netlify/functions/run"

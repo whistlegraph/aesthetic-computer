@@ -2463,7 +2463,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", presignedUrl, true);
         xhr.setRequestHeader("Content-Type", MIME);
-        xhr.setRequestHeader("Content-Disposition", "attachment");
+        xhr.setRequestHeader("Content-Disposition", "inline");
         xhr.setRequestHeader("x-amz-acl", "public-read");
 
         xhr.upload.addEventListener("progress", (event) => {

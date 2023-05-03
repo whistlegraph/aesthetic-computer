@@ -66,7 +66,11 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Usernames and /p Original Posting ***
+  - [-] Rewrite clean URLs to individual media files on DO spaces using
+       a Cloudflare worker and a call to a Netlify function.
   - [] List all of a user's paintings on their page. See `media.js`
+    - [] Rewrite `media.js` or use the cloudflare worker to
+         produce a json list if possible.
   - [] `/p` painting feed.
   - [] Update / finalize auth0 login screen.
   + Done
