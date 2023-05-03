@@ -89,6 +89,8 @@
 
 *** iOS Native App ***
   - [] Figure out the best way to make a wrapper now.
+  - [] Get stickers into a keyboard / live sticker creation with the drawing
+       tools. (Research in GPT)
   - [] Also get it work on Android too. (Can use Browserstack for APK testing.)
   - [] Add notifications.
   - [] Submit to store with notifications enabled, usernames and posts.
