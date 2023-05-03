@@ -69,12 +69,13 @@
   - [📘] See teal book.
 
 *** Usernames and /p Original Posting ***
-  - [-] List all of a user's paintings on their page. See `media.js`
-    - [] Rewrite `media.js` or use the cloudflare worker to
-         produce a json list if possible.
+  - [-] Build a painting listing page!.
+  - [*] Limit resolution of paintings?
   - [] `/p` painting feed.
   - [] Update / finalize auth0 login screen.
   + Done
+  - [x] Rewrite `media.js` or use the cloudflare worker to
+        produce a json list if possible.
   - [x] Rewrite clean URLs to individual media files on DO spaces using
        a Cloudflare worker and a call to a Netlify function.
   - [x] Associate handles with user data somehow...

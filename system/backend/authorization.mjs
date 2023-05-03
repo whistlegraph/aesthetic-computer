@@ -23,42 +23,47 @@ export async function authorize({ authorization }) {
 // Connect to Auth0 and return the user ID (`sub`) for a given email address.
 export async function userIDFromEmail(email) {
   try {
-    const { got } = await import("got");
-
-    // First get an access token to the auth0 management API for the email lookup.
-    const tokenResponse = await got(
-      `https://aesthetic.us.auth0.com/oauth/token`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        json: {
-          client_id: process.env.AUTH0_M2M_CLIENT_ID,
-          client_secret: process.env.AUTH0_M2M_SECRET,
-          audience: "https://aesthetic.us.auth0.com/api/v2/",
-          grant_type: "client_credentials", // Use "client_credentials" for M2M
-        },
-        responseType: "json",
-      }
-    );
-    const accessToken = tokenResponse.body.access_token;
+    // Get an access token to the auth0 management API for the email lookup.
 
     // Then check to get the user ID via their email.
-    const idResponse = await got(
+    const { got } = await import("got");
+    const token = getAccessToken(got);
+    const userResponse = await got(
       "https://aesthetic.us.auth0.com/api/v2/users-by-email",
       {
         searchParams: { email },
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
         responseType: "json",
       }
     );
 
-    const user = idResponse.body[0];
+    const user = userResponse.body[0];
     const userID = user?.user_id;
     return userID;
   } catch (error) {
     console.error(`Error retrieving user ID from Auth0: ${error}`);
+    return undefined;
+  }
+}
+
+// Takes in a user ID (sub) and returns the user's @handle (preferred) or email.
+export async function getHandleOrEmail(sub) {
+  try {
+    // Attempt to get the user's handle.
+    const handle = await handleFor(sub);
+    if (handle) return "@" + handle;
+
+    // If no handle is found, fetch the user's email from Auth0.
+    const { got } = await import("got");
+    const token = getAccessToken(got); // Get access token for auth0.
+    const userResponse = await got(
+      `https://aesthetic.us.auth0.com/api/v2/users/${encodeURIComponent(sub)}`,
+      { headers: { Authorization: `Bearer ${token}` }, responseType: "json" }
+    );
+
+    return userResponse.body.email;
+  } catch (error) {
+    console.error(`Error retrieving user handle or email: ${error}`);
     return undefined;
   }
 }
@@ -89,6 +94,27 @@ export async function userIDFromHandle(handle) {
 }
 
 // 📚 Library (Useful functions used throughout the file.)
+// Obtain an auth0 access token for our M2M API.
+async function getAccessToken(got) {
+  const tokenResponse = await got(
+    `https://aesthetic.us.auth0.com/oauth/token`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      json: {
+        client_id: process.env.AUTH0_M2M_CLIENT_ID,
+        client_secret: process.env.AUTH0_M2M_SECRET,
+        audience: "https://aesthetic.us.auth0.com/api/v2/",
+        grant_type: "client_credentials", // Use "client_credentials" for M2M
+      },
+      responseType: "json",
+    }
+  );
+
+  return tokenResponse.body.access_token;
+}
+
+// Connect to MongoDB
 async function connect() {
   return await MongoClient.connect(mongoDBConnectionString, {
     useUnifiedTopology: true,

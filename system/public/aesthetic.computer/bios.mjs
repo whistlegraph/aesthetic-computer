@@ -2456,7 +2456,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const url = new URL(presignedUrl);
         const filename = url.pathname.split("/").pop();
         const slug = filename.substring(0, filename.lastIndexOf("."));
-        const path = url.pathname; 
+        const path = url.pathname;
 
         if (debug) console.log("🔐 Presigned URL:", presignedUrl);
 
@@ -2564,10 +2564,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Or from the storage network.
         // Check to see if filename has user handle data.
         const hasEmailOrHandle = filename.split("/")[0].indexOf("@") > -1;
-        object =
-          hasEmailOrHandle 
-            ? `/media/${filename}`
-            : `https://art.aesthetic.computer/${filename}`;
+        object = hasEmailOrHandle
+          ? `/media/${filename}`
+          : `https://art.aesthetic.computer/${filename}`;
       }
     } else if (extension(filename) === "mp4") {
       // 🎥 Video
@@ -2600,10 +2599,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     const a = document.createElement("a");
     a.href = object;
     a.target = "_blank";
-    a.download = filename;
-    // a.onclick = (e) => {
-    //   e.preventDefault();
-    // };
+    a.download = filename.split("/").pop(); // Remove any extra paths.
     a.click();
     URL.revokeObjectURL(a.href);
 

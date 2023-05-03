@@ -16,7 +16,6 @@
 let dev = false;
 export default {
   async fetch(request, env) {
-    console.log(env);
     if (env.MODE === "development") dev = true;
     return await handleRequest(request);
   },
@@ -25,12 +24,23 @@ export default {
 async function handleRequest(request) {
   let url = new URL(request.url);
   let path = url.pathname.split("/");
-
   if (path[1] === "media") {
     const userId = await queryUserID(path[2]);
     const newPath = `${userId}/${path.slice(3).join("/")}`;
-    const newUrl = `https://user.aesthetic.computer/${newPath}`;
-    const response = await fetch(newUrl);
+    let response;
+    if (newPath.split("/").pop().split(".")[1]?.length > 0) {
+      // The path has a file extension / points to an individual file.
+      response = await fetch(`https://user.aesthetic.computer/${newPath}`);
+    } else {
+      // The path should return a collection.
+      const path = encodeURIComponent(newPath.replace("/media", ""));
+
+      // ❓ This url also not be tested locally for the same reasons as below.
+      response = await fetch(
+        `https://aesthetic.computer/media-collection?for=${path}`
+      );
+    }
+
     return response;
   } else {
     // For other paths, just fetch the resource as is
@@ -42,7 +52,9 @@ async function queryUserID(username) {
   const host = "https://aesthetic.computer";
   // const host = dev ? "https://localhost:8888" : "https://aesthetic.computer";
   // ❓ For some reason I cannot call netlify functions locally with :8888
-  //    (403 errors) so I'm turning it off for now. 23.05.03.00.03
+  //    (403 errors) so I'm turning it off for now.
+  //    This is probably because local Cloudflare workers / wrangler does
+  //    not boot an `https` server. 23.05.03.11.25
   const url = `${host}/user?from=${username}`;
   try {
     const res = await fetch(url);

@@ -14,31 +14,33 @@
     - [x] Draw the filled shape and paint it to the backbuffer in `act:lift`. 
 #endregion */
 
-const gesture = [];
-let bake = false;
+const screenGesture = [],
+  brushGesture = [];
+let shape, color;
+
+function boot({ params, num }) {
+  color = num.parseColor(params);
+}
 
 // 🎨 Paint
-function paint({ system, screen, page, pen, paste, params }) {
-  if (bake) {
-    page(system.painting).paste(screen).page(screen); // Bake to painting.
-    bake = false;
-  }
+function paint({ pen, ink, system: { nopaint } }) {
+  if (nopaint.is("painting")) {
+    screenGesture.push([pen.x, pen.y]);
+    ink(color).shape(screenGesture);
 
-  if (pen?.drawing) {
-    const color = params.map((str) => parseInt(str)); // Read from params.
-    gesture.push([pen.x, pen.y]); // Add the whole pen state as a gesture point.
-    paste(system.painting).ink(color).shape(gesture);
+    brushGesture.push([nopaint.brush.x, nopaint.brush.y]);
+
+    shape = () => {
+      ink(color).shape(brushGesture.slice());
+      brushGesture.length = 0;
+      screenGesture.length = 0;
+    };
   }
 }
 
-// ✒ Act
-function act($) {
-  $.system.nopaint.act($); // Inherit nopaint's act functionality.
-
-  if ($.event.is("lift")) {
-    gesture.length = 0;
-    bake = true;
-  }
+// 🍪 Prints to the current painting.
+function bake() {
+  shape?.();
 }
 
 function meta() {
@@ -50,4 +52,4 @@ function meta() {
 // 📚 Library (Useful functions used throughout the piece)
 export const system = "nopaint";
 
-export { paint, act, meta };
+export { boot, paint, bake, meta };

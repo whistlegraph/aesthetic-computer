@@ -56,6 +56,17 @@
     Content-Security-Policy = "script-src 'self' blob: 'unsafe-eval';"
     Vary = "*"
 [[redirects]]
+  from = "/media/*"
+  to = "https://media.aesthetic-computer.workers.dev/media/:splat"
+  # to = "http://localhost:8787/media/:splat" # Uncomment for developing the Cloudflare worker.
+  status = 200
+  force = true
+[[redirects]]
+  from = "/media-collection/*"
+  to = "/.netlify/functions/media-collection"
+  status = 200
+  force = true
+[[redirects]]
   from = "https://www.4esthetic.com/*"
   to = "https://aesthetic.computer/:splat"
   status = 301
@@ -118,11 +129,6 @@
   from = "/user"
   to = "/.netlify/functions/user"
   status = 200
-[[redirects]]
-  from = "/media/*"
-  to = "https://media.aesthetic-computer.workers.dev/media/:splat"
-  status = 200
-  force = true
 [[redirects]]
   from = "/run"
   to = "/.netlify/functions/run"
