@@ -57,6 +57,7 @@ class Typeface {
     text,
     bg = null
   ) {
+
     // TODO: Pass printLine params through / make a state machine.
     const font = this.glyphs;
     const lineHeightGap = 2;

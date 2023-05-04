@@ -1,35 +1,35 @@
-  🧩 AESTHETIC.COMPUTER 🧩
+ 🧩 AESTHETIC.COMPUTER 🧩
 
   A *new* computing environment that...
 
   (Technical Summary)
-  - Works in updated web browsers on all major devices, including VR headsets! 
-  - Runs "pieces" instead of "apps" or "programs".
-  - Pieces are written in a proce55ing-inspired API that's fun to learn and fast
-    to code in.
-  - Screen defaults to an accessibly low resolution, great for learning
-    and counting pixels with, but technically agnostic. (Choose your aesthetic!)
-  - Batteries included with system tools and toys that emphasize creative activities
-    with media content output.
-    - Painting (line, smear, rect, @maya/tuesday, sparkle, [spray, pull])
-    - Musicking (metronome, melody, tracker, microphone, bleep)
-    - Sculpting (wand)
-    - Writing (prompt, play)
-    - Shooting (...)
-    - Viewing & Listening (wg, ff, bgm)
-  - Tools can be creatively strung together to form adaptive sequenced workflows
-    for media creation, like Unix.
+    - Works in updated web browsers on all major devices, including VR headsets! 
+    - Runs "pieces" instead of "apps" or "programs".
+    - Pieces are written in a proce55ing-inspired API that's fun to learn and fast
+      to code in.
+    - Screen defaults to an accessibly low resolution, great for learning
+      and counting pixels with, but technically agnostic. (Choose your aesthetic!)
+    - Batteries included with system tools and toys that emphasize creative activities
+      with media content output.
+      - Painting (line, smear, rect, @maya/tuesday, sparkle, [spray, pull])
+      - Musicking (metronome, melody, tracker, microphone, bleep)
+      - Sculpting (wand)
+      - Writing (prompt, play)
+      - Shooting (...)
+      - Viewing & Listening (wg, ff, bgm)
+    - Tools can be creatively strung together to form adaptive sequenced workflows
+      for media creation, like Unix.
 
   (More Tech)
-  - Threaded logic, audio, and rendering.
-    - Low overhead hypervisor that runs one piece at a time.
-      (similar to a disk based operating system)
-    - Pieces can transition from one to another (instantly) without refreshing
-      the page or losing context. 
-    - Pieces can load remotely off any `https://` url so applications can be
-      distributed over a network.
-    - 2D/3D Software renderer for spatial display of programs as planes.
-    - 3D WebGL renderer for VR.
+    - Threaded logic, audio, and rendering.
+      - Low overhead hypervisor that runs one piece at a time.
+        (similar to a disk based operating system)
+      - Pieces can transition from one to another (instantly) without refreshing
+        the page or losing context. 
+      - Pieces can load remotely off any `https://` url so applications can be
+        distributed over a network.
+      - 2D/3D Software renderer for spatial display of programs as planes.
+      - 3D WebGL renderer for VR.
 
 😀 TODO 😆
 
@@ -66,9 +66,16 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** wordfish ***
+- Pre-production
+- [] Make bw drawings and inscribe them.
++ Done
+- [x] get `word` working again
 - [x] make it so exporting of resized paintings works 
-- [] get `word` working (and with new font?)
 
++ Later
+- [] Fix 'system.nopaint.bakeOnLeave` `page(screen)` anomaly. (Redo "write")
+- [] Abstract the `rect = null` / `shape = null` / "bake" calls better
+     in all brushes.
 - [] change resize to painting
 - [] allow prefix colors for oval, shape, and line
 - [] make `coat` a new command
@@ -89,6 +96,8 @@
 
 *** Usernames and /p Original Posting ***
   - [-] Live email based file links do not work.
+    - [] Also rename so that "painting-${timestamp}.png" is the
+         name of downloaded paintings remotely (to match local).
     - https://cloud.digitalocean.com/spaces/user.aesthetic.computer
     - https://aesthetic.computer/media/me@jas.life/painting/2023.5.03.13.38.15.png
     - https://aesthetic.computer/media/@jeffrey/painting/2023.5.03.13.38.15.png

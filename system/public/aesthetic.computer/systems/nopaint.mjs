@@ -57,7 +57,7 @@ function nopaint_act({
     (e.device === "mouse" || pens().length === 0)
   ) {
     state = "idle";
-    system.nopaint.needsBake = true;
+    if (!system.nopaint.bakeOnLeave) system.nopaint.needsBake = true;
     // if (debug) console.log("🖌️ Not painting...");
   }
 

@@ -58,22 +58,25 @@ let hotSwap = null;
 // Boilerplate for a distributed raster editor.
 const nopaint = {
   pan: { x: 0, y: 0 }, // The current position / offset of the painting view.
-  // boot: function boot($) {
-  //   // Runs after nopaint_boot.
-  //   // showHUD = false;
-  // },
-  act: function act($) {
-    $.system.nopaint.act($);
-  },
-  bake: function bake($) {
-    $.system.nopaint.bake($);
-  },
-  leave: function leave({ store, system, page, screen }) {
+  leave: function leave($) {
+    const { store, system, page, screen, flatten } = $;
     if (NPnoOnLeave === false) {
       // ^ This is set when reloading a brush without storing changes. (`N` key)
 
-      //if (NPdontPaintOnLeave === false) {
+      if (system.nopaint.bakeOnLeave) {
+        // Add bake commands.
+        page(system.painting);
+        bake($);
+        // page(screen); // TODO: This should work but it doesnt...
+        //                        Seems to have something to do with
+        //                        the $activePaintAPI being set
+        //                        and it's specific to the `write`
+        //                        implementation.
+        flatten(); // Force-run the above painting commands.
+      }
       // Bake any changes into the existing painting using the screen buffer.
+      // Note... this may not include the full API that `paint` has...
+      // Which could lead to inconsistencies in `bake` calls.  23.05.04.13.01
 
       //  const p = system.nopaint.translation; // Offset by the pan position.
       //  page(system.painting).paste(screen, -p.x, -p.y); // TODO: Why the + 1 offset here...
@@ -371,6 +374,7 @@ const $commonApi = {
       is: nopaint_is,
       undo: { paintings: undoPaintings },
       needsBake: false,
+      bakeOnLeave: false,
       no: ({ system, store, needsPaint }) => {
         const paintings = system.nopaint.undo.paintings;
 
@@ -501,6 +505,10 @@ const $commonApi = {
       },
       abort: () => (NPnoOnLeave = true),
     },
+  },
+  // Paint all queued rendering commands immediately.
+  flatten: () => {
+    return painting.paint(true);
   },
   connect: () => {
     const p = new Promise((resolve, reject) => {
@@ -1001,7 +1009,7 @@ const $paintApiUnwrapped = {
   // text, pos: {x, y, center}, bg (optional)
   write: function (text, pos, bg) {
     if (!text) return; // Fail silently if no text.
-    tf?.print($activePaintApi, pos, 0, text.toString(), bg); // Fail on preamble.
+    tf?.print({ ...$activePaintApi, screen }, pos, 0, text.toString(), bg); // Fail on preamble.
   },
   copy: graph.copy,
   paste: graph.paste,
@@ -1041,6 +1049,8 @@ const $paintApiUnwrapped = {
 
 let $activePaintApi;
 
+let paintingAPIid = 0;
+
 class Painting {
   #layers = [];
   #layer = 0;
@@ -1050,6 +1060,9 @@ class Painting {
   constructor() {
     Object.assign(this.api, $paintApi);
     const p = this;
+
+    p.api.index = paintingAPIid;
+    paintingAPIid += 1;
 
     p.inkrn = graph.c.slice(); // Init global state machine read-outs.
 
@@ -1062,7 +1075,7 @@ class Painting {
 
       if (k === "write") {
         $activePaintApi = p.api;
-        p.api.screen = screen; // This is kind of a hacky way to get screen into here.
+        // p.api.screen = screen; // This is kind of a hacky way to get screen into here.
       } // TODO: Does this have to happen here? Helps create circular references for some paint functions.
 
       // TODO: 😅 Add other state globals like line thickness? 23.1.25
@@ -1142,10 +1155,6 @@ class Painting {
 }
 
 const painting = new Painting();
-
-$commonApi.flatten = function () {
-  return painting.paint();
-};
 
 let glazeAfterReframe;
 
@@ -1664,13 +1673,8 @@ async function load(
       // If there is no painting is in ram, then grab it from the local store,
       // or generate one.
 
-      /*
-      if (module.system.split(":")[1] === "dont-paint-on-leave") {
-        NPdontPaintOnLeave = true;
-      } else {
-        NPdontPaintOnLeave = false;
-      }
-      */
+      if (module.system.split(":")[1] === "bake-on-leave")
+        $commonApi.system.nopaint.bakeOnLeave = true; // The default is to `bake` at the end of each gesture aka `bake-on-lift`.
 
       boot = module.boot || nopaint_boot;
       sim = module.sim || defaults.sim;
@@ -2893,6 +2897,8 @@ async function makeFrame({ data: { type, content } }) {
         // });
       }
 
+      maybeLeave();
+
       // Return frame data back to the main thread.
       let sendData = {};
 
@@ -2945,8 +2951,6 @@ async function makeFrame({ data: { type, content } }) {
       // new hud
 
       if (sendData.pixels?.byteLength === 0) sendData.pixels = undefined;
-
-      maybeLeave();
 
       let transferredObjects = [sendData.pixels];
       if (sendData.label)
@@ -3019,7 +3023,8 @@ function maybeLeave() {
   // 🚪 Leave (Skips act and sim and paint...)
   if (leaving) {
     try {
-      leave({ ...painting.api, store, screen, system: $commonApi.system }); // Trigger leave.
+      // debugger;
+      leave({ ...painting.api, screen, ...$commonApi }); // Trigger leave.
     } catch (e) {
       console.warn("👋 Leave failure...", e);
     }

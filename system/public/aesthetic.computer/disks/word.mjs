@@ -2,8 +2,6 @@
 // Write a word (or words) on the screen that can be dragged around.
 
 /* #region 🏁 todo
-  + Now
-     - [] Upgrade to new `paint` api.
   + System
     - [] Improve line thickness code / consider growing from
          a structure / outlining the skeleton as a post process
@@ -12,6 +10,8 @@
     - [] (Implement here then generalize for other brushes that parse
           color.) See `line` for an existing implementation.
   + Done
+    - [x] Upgrade to new `paint` api.
+    - [x] Add new color parameters.
     - [x] Add thickness as a secondary colon parameter / colon param 2.
     - [x] 🐛 Dragging is inconsistent. 
     - [x] Word should start in a random place within width and height.
@@ -30,7 +30,7 @@
  - [] Print text from parameter under the mouse.
 #endregion */
 
-let text, size, color, x, y;
+let word, text, size, color, x, y;
 let thickness = 1;
 
 const words = ["sad", "OK", "i'm so creative", "alright", "NEXT LEVEL"];
@@ -45,7 +45,7 @@ function boot($) {
     const singleWord = () => {
       if (params[0].endsWith(sep)) params[0] = params[0].slice(0, -1);
       text = params[0];
-      color = params.slice(1).map((str) => parseInt(str));
+      color = params.slice(1).map((str) => num.parseColor(str));
     };
 
     const secondParamNaN = isNaN(parseInt(params[1]));
@@ -76,7 +76,7 @@ function boot($) {
         singleWord(); // Ending quote not found, assume a single word.
       } else {
         text = params.slice(0, end + 1).join(" ");
-        color = params.slice(end + 1).map((str) => parseInt(str));
+        color = params.slice(end + 1).map((str) => num.parseColor(str));
       }
     } else {
       // TODO: Look ahead to see if the next parameter can be parsed as an
@@ -99,23 +99,44 @@ function boot($) {
 }
 
 // 🎨 Paint (Executes every display frame)
-function paint({ system, paste, ink }) {
-  const shadow = 1;
-  paste(system.painting);
-  ink(0, 50).write(text, {
-    x: x + shadow,
-    y: y + shadow,
-    center: "xy",
-    size,
-    thickness,
-    rotation: 0,
-  });
-  ink(color).write(text, { x, y, center: "xy", size, thickness, rotation: 0 });
+function paint({ ink, system: { nopaint } }) {
+  // Rendering commands to write to screen and painting.
+  function print({ x, y }) {
+    // Shadow
+    const shadow = 1;
+    ink(0, 50).write(text, {
+      x: x + shadow,
+      y: y + shadow,
+      center: "xy",
+      size,
+      thickness,
+      rotation: 0,
+    });
+
+    // Text
+    ink(color).write(text, {
+      x,
+      y,
+      center: "xy",
+      size,
+      thickness,
+      rotation: 0,
+    });
+  }
+
+  print({ x, y }); // Draw everything to the screen.
+
+  word = () => {
+    print(nopaint.transform({x, y}));
+    ink(255).line(0, 0, 50, 50);
+    word = null;
+  }; // Painting: Write to the canvas permanently.
 }
 
 // 🍪 Prints to the current painting.
 function bake() {
-};
+  word?.();
+}
 
 // ✒ Act (Runs once per user interaction)
 function act($) {
@@ -126,7 +147,7 @@ function act($) {
   }
 }
 
-export const system = "nopaint";
+export const system = "nopaint:bake-on-leave";
 
 // 📚 Library (Useful functions used throughout the piece)
 // ...

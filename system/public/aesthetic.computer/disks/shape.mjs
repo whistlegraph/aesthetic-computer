@@ -34,6 +34,7 @@ function paint({ pen, ink, system: { nopaint } }) {
       ink(color).shape(brushGesture.slice());
       brushGesture.length = 0;
       screenGesture.length = 0;
+      shape = null; // TODO: Abstract this so writing it is unnecessary. 23.05.04.12.39
     };
   }
 }
