@@ -1673,8 +1673,8 @@ async function load(
       // If there is no painting is in ram, then grab it from the local store,
       // or generate one.
 
-      if (module.system.split(":")[1] === "bake-on-leave")
-        $commonApi.system.nopaint.bakeOnLeave = true; // The default is to `bake` at the end of each gesture aka `bake-on-lift`.
+      $commonApi.system.nopaint.bakeOnLeave =
+        module.system.split(":")[1] === "bake-on-leave"; // The default is to `bake` at the end of each gesture aka `bake-on-lift`.
 
       boot = module.boot || nopaint_boot;
       sim = module.sim || defaults.sim;
@@ -2818,7 +2818,7 @@ async function makeFrame({ data: { type, content } }) {
           if (system === "nopaint") {
             const np = $api.system.nopaint;
             // No Paint: baking
-            if (np.needsBake === true) {
+            if (np.needsBake === true && bake) {
               $api.page($api.system.painting);
               bake($api);
               $api.page($api.screen);

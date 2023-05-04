@@ -11,11 +11,10 @@ const samples = [];
 
 function paint({
   ink,
-  pen,
   pan,
+  pen,
   unpan,
   params,
-  paste,
   page,
   pixel,
   screen,
@@ -30,9 +29,10 @@ function paint({
     radius = params[0] || 16;
   }
 
-  paste(system.painting);
+  const nopaint = system.nopaint;
 
-  if (pen?.drawing) {
+  if (nopaint.is("painting")) {
+    const brush = nopaint.brush;
     // Crop the back buffer to the radius of the circle.
     if (sampled === false) {
       if (samples.length > 64) samples.length = 64; // Chop some samples.
@@ -54,7 +54,7 @@ function paint({
     ink(255, 0, 0).circle(pen.x, pen.y, radius); // Circle overlay.
 
     page(system.painting);
-    pan(pen.x, pen.y);
+    pan(brush.x, brush.y);
     samples.forEach((sample) => {
       // TODO: Physically drift sample positions based on gesture.
       //sample.x += clamp(sample.x + rr(-1, 1), 0, radius * 2);
@@ -73,7 +73,6 @@ function paint({
 
 // TODO: How to get this to not override everything?
 function act($) {
-  $.system.nopaint.act($); // Inherit nopaint's act functionality.
   if ($.event.is("lift")) sampled = false;
 }
 
