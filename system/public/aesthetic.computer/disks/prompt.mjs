@@ -19,6 +19,7 @@ import { validateHandle } from "../lib/text.mjs";
 import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { Desktop, MetaBrowser } from "../lib/platform.mjs";
 import { TextInput } from "../lib/type.mjs";
+const { abs } = Math;
 
 const scheme = {
   dark: {
@@ -171,11 +172,14 @@ function boot($) {
           flashColor = [0, 255, 0];
         }
         makeFlash($);
-      } else if (text === "dl" || text === "download") {
+      } else if (text.startsWith("dl") || text.startsWith("download")) {
         if (store["painting"]) {
           download(`painting-${num.timestamp()}.png`, store["painting"], {
-            scale: 6,
-            cropToScreen: true,
+            scale: abs(parseInt(text.split(" ")[1])) || 6,
+            // Read an integer parameter for scale.
+            cropToScreen: !(store["painting:resolution-lock"] === true),
+            // Only cut the download off at screen-size if user never
+            // set a resolution.
           });
           // Show a green flash if we succesfully download the file.
           flashColor = [0, 255, 0];

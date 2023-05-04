@@ -66,6 +66,13 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** wordfish ***
+- [x] make it so exporting of resized paintings works 
+- [] get `word` working (and with new font?)
+
+- [] change resize to painting
+- [] allow prefix colors for oval, shape, and line
+- [] make `coat` a new command
+
   50 bw wordfish
   "wordfish"
   "a wordfish is a ..."
@@ -76,16 +83,13 @@
   black word fish 🧠 (use any word)
   black line
   download
-- [] change resize to painting
-- [] allow prefix colors for oval, shape, and line
-- [] get `word` working (and with new font?)
-- [] make `coat` a new command
 
 *** Colors & Notes & Dictation ***
   - [📘] See teal book.
 
 *** Usernames and /p Original Posting ***
-  - [-] Live email file links do not work.
+  - [-] Live email based file links do not work.
+    - https://cloud.digitalocean.com/spaces/user.aesthetic.computer
     - https://aesthetic.computer/media/me@jas.life/painting/2023.5.03.13.38.15.png
     - https://aesthetic.computer/media/@jeffrey/painting/2023.5.03.13.38.15.png
   - [-] Build a painting listing page!.
