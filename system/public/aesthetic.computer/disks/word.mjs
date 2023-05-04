@@ -45,7 +45,7 @@ function boot($) {
     const singleWord = () => {
       if (params[0].endsWith(sep)) params[0] = params[0].slice(0, -1);
       text = params[0];
-      color = params.slice(1).map((str) => num.parseColor(str));
+      color = num.parseColor(params.slice(1)); //.map((str) => num.parseColor(str));
     };
 
     const secondParamNaN = isNaN(parseInt(params[1]));
@@ -76,7 +76,7 @@ function boot($) {
         singleWord(); // Ending quote not found, assume a single word.
       } else {
         text = params.slice(0, end + 1).join(" ");
-        color = params.slice(end + 1).map((str) => num.parseColor(str));
+        color = num.parseColor(params.slice(end + 1)); //.map((str) => num.parseColor(str));
       }
     } else {
       // TODO: Look ahead to see if the next parameter can be parsed as an
@@ -127,8 +127,7 @@ function paint({ ink, system: { nopaint } }) {
   print({ x, y }); // Draw everything to the screen.
 
   word = () => {
-    print(nopaint.transform({x, y}));
-    ink(255).line(0, 0, 50, 50);
+    print(nopaint.transform({ x, y }));
     word = null;
   }; // Painting: Write to the canvas permanently.
 }
