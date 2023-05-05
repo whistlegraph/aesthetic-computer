@@ -19,13 +19,13 @@
 #   "fees": 79660
 # }
 
-# 02: https://ordinals.com/sat/ewqzayivxuy
+# 02: https://ordinals.com/sat/bhouvfjcwjv
 #     BC1QA2F8ZF82CHX4QLWG3JJ7FEAVL2RW6EG3MTYMY4
 # {
-#   "commit": "0a4502e2fde0ae319f37d1477ce42d39d30b17b767690d9152a74fb6b6c0723b",
-#   "inscription": "ffea6caf389f625cb58aadcce4e6d59c0ba79e9328fb550df7d7773085b7c2f9i0",
-#   "reveal": "ffea6caf389f625cb58aadcce4e6d59c0ba79e9328fb550df7d7773085b7c2f9",
-#   "fees": 33320
+#  "commit": "0a4502e2fde0ae319f37d1477ce42d39d30b17b767690d9152a74fb6b6c0723b",
+#  "inscription": "ffea6caf389f625cb58aadcce4e6d59c0ba79e9328fb550df7d7773085b7c2f9i0",
+#  "reveal": "ffea6caf389f625cb58aadcce4e6d59c0ba79e9328fb550df7d7773085b7c2f9",
+#  "fees": 33320
 # }
 
 # 03: https://ordinals.com/sat/bsoehhcnrdk

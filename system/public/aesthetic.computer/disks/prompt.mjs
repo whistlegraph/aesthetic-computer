@@ -284,7 +284,7 @@ function boot($) {
         jump("https://localhost:8888" + slug); // Go to the local dev server, passing any params as a piece.
       } else if (ordfish[text]) {
         debugger;
-        jump("https://ordinals.com/inscription/" + ordfish[text]); // Jump to an official ordinal inscription.
+        jump("https://ordinals.com/content/" + ordfish[text]); // Jump to an official ordinal inscription.
       } else {
         // 🟠 Local and remote pieces...
         load(parse(text)); // Execute the current command.
@@ -450,53 +450,53 @@ function makeFlash($, clear = true, message) {
 
 const ordfish = {
   afajydklwun:
-    "4b182278c42d5a74ab4dd9f43826a0a2fce0158000001ed3bdf44873f1378d93i0",
-  ewqzayivxuy:
-    "ffea5caf389f625cb58aadcce4e6d59c0ba79e9328fb550df7d7773085b7c2f9i0",
+    "5b182278c42d5a74ab4dd9f43826a0a2fce0158000001ed3bdf44873f1378d93i0",
+  bhouvfjcwjv:
+    "ffea6caf389f625cb58aadcce4e6d59c0ba79e9328fb550df7d7773085b7c2f9i0",
   bsoehhcnrdk:
-    "ea355f87bda9f6a2a2f63e2a7aa8182bbd43a0e7ffb42a0db6669a255f90dfb8i0",
+    "ea356f87bda9f6a2a2f63e2a7aa8182bbd43a0e7ffb42a0db6669a255f90dfb8i0",
   bsoehhdbpto:
-    "ebec8d350dbe923cf808f07ac2a98f66d1a5c8fbeada617dc5da0c5b8fe21298i0",
+    "ebec9d350dbe923cf808f07ac2a98f66d1a5c8fbeada617dc5da0c5b8fe21298i0",
   ewqzayivxuy:
-    "8b60a92316a0e1472d1e434c775636e45e9173084c99615bb38eb9e2fd83c1c5i0",
+    "9b60a92316a0e1472d1e434c775636e45e9173084c99615bb38eb9e2fd83c1c5i0",
   hqdekuuuyhb:
-    "46ce3cac5662cde8d2c228a7d186b2be92ad7a4e00069b9735af84409f96d4d3i0",
+    "47ce3cac5662cde8d2c228a7d186b2be92ad7a4e00069b9735af84409f96d4d3i0",
   atbfflnurtx:
-    "fd28ec8b749dee828bc170c62533bd541d2084039ff6619c5efa1d135d1700d0i0",
+    "fd29ec8b749dee828bc170c62533bd541d2084039ff6619c5efa1d135d1700d0i0",
   ewqzayirtoi:
-    "1e6690811e32b9712d7ae2231f90807a6963938dc6377a544be8212fb80f491ci0",
+    "2e6690811e32b9712d7ae2231f90807a6963938dc6377a544be8212fb80f491ci0",
   atbfflnswvx:
-    "d52041660ef0ee12d8dcc784f1274a7a4995b1753d8b37f11a603aa23ee56a24i0",
+    "d52041661ef0ee12d8dcc784f1274a7a4995b1753d8b37f11a603aa23ee56a24i0",
   ewqzayiqitk:
-    "-1c369e39812f83d8f1274246f45f5de41cfc1fd008135935aed7bb77dbdb8919i0",
+    "0c369e39812f83d8f1274246f45f5de41cfc1fd008135935aed7bb77dbdb8919i0",
   afajydkiabh:
-    "bb31334aa76fab43f19c36bf76923168324d0c17b8cbbf7e083fe8b383120812i0",
+    "bb31335aa76fab43f19c36bf76923168324d0c17b8cbbf7e083fe8b383120812i0",
   atbfflnrapr:
-    "e-1f3c237c46dcd5224feae2442f48929e13e0a0589436eca6e65caeaa1941c48i0",
+    "e0f3c237c46dcd5224feae2442f48929e13e0a0589436eca6e65caeaa1941c48i0",
   czvjqrsrfzg:
-    "19a439eb33cdc4800c080f71d5848591621687d2c7873605fc62aa59336b1c44i0",
+    "20a439eb33cdc4800c080f71d5848591621687d2c7873605fc62aa59336b1c44i0",
   exgjjlbpmuf:
-    "fd-1fa116569856df3a22719d8ace732662210ab86440afb20ae3b38cc8ace262i0",
+    "fd0fa116569856df3a22719d8ace732662210ab86440afb20ae3b38cc8ace262i0",
   bsoehhcydbw:
-    "e4072a8cb6a5c50b34f1639adcb4ebb2d7c15be29e6bdb3f5b23167a892d1549i0",
+    "e4073a8cb6a5c50b34f1639adcb4ebb2d7c15be29e6bdb3f5b23167a892d1549i0",
   atbfflnofpf:
-    "7ecfd56cf0cb086eafafb7c27fa3b66c42d445408bf0d982d94c5163b8c734bdi0",
+    "8ecfd56cf0cb086eafafb7c27fa3b66c42d445408bf0d982d94c5163b8c734bdi0",
   cyizglvvggw:
-    "6a17276207151786d73149ef59fd197c2df6c460ed13c23d912ed1268813eaf9i0",
+    "7a17276207151786d73149ef59fd197c2df6c460ed13c23d912ed1268813eaf9i0",
   cyizglvsoki:
-    "10f894b119f9aa495bc7406d6522ad83a521e1ea86edb89e3909ee365bd609f5i0",
+    "11f894b119f9aa495bc7406d6522ad83a521e1ea86edb89e3909ee365bd609f5i0",
   hqdekuuqjit:
-    "761c294f52fb25e0696385ca71061f0d7f6fcfc77e99a0fbdd8c3c714e9deac7i0",
+    "762c294f52fb25e0696385ca71061f0d7f6fcfc77e99a0fbdd8c3c714e9deac7i0",
   gxlbncjokam:
-    "55777367ab2af60774ce11310b861c241628e775c3d9b5550b1171365a6744fi0",
+    "055777368ab2af60774ce11310b861c241628e775c3d9b5550b1171365a6744fi0",
   exgjjlbleox:
-    "451dd0688a9752fd39224e0ea49c2a3b2b04de8b125cff509593ceb962214a9ai0",
+    "452dd0688a9752fd39224e0ea49c2a3b2b04de8b125cff509593ceb962214a9ai0",
   gxlbncjkabl:
-    "b6de80e8363791d46f5094ee903c53eed6cc25ba7b21cc68462b31430dadbcfdi0",
+    "b7de80e8363791d46f5094ee903c53eed6cc25ba7b21cc68462b31430dadbcfdi0",
   afajydkdnav:
-    "2c772118cce5265822adeb7bb768d9d7272a327a9ed1c85e991373bb6c9f3bffi0",
+    "3c772118cce5265822adeb7bb768d9d7272a327a9ed1c85e991373bb6c9f3bffi0",
   atbfflnmnrr:
-    "14d09ed178c442299e22737dd25cc93036f67b500f64baced2c51b644dbfd16bi0",
+    "15d09ed178c442299e22737dd25cc93036f67b500f64baced2c51b644dbfd16bi0",
   afajydjybwq:
-    "eaf-1e999a61728d02af1fbed32d72df0020ee2759e1262e760346510bc3d8a5bi0",
+    "eaf0e999a61728d02af1fbed32d72df0020ee2759e1262e760346510bc3d8a5bi0",
 };
