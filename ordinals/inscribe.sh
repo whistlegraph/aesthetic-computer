@@ -32,6 +32,7 @@
 #   "fees": 60600
 # }
 
+# UNCONFIRMED
 # 03: https://ordinals.com/sat/1711330103456693
 #     bsoehhcnrdk
 #     BC1QZ88U8QZFXNXHCNCYG0Z0CACTD89F6M35A34LN8
@@ -43,10 +44,16 @@
 #   "fees": 64680
 # }
 
-
-# 04: https://ordinals.com/sat/
-#
+# 04: https://ordinals.com/sat/1711330103211561
+#     bsoehhdbpto
 #     BC1QT6DAFNFRD3YQVM4YL2NX8PAJ6ECG7MMX4R37TQ
+#./ord wallet inscribe --dry-run --fee-rate 120 --satpoint ae24623990dd6d036e98e779b98ce35d80658ff5d8bfdf424e01d94b52fe69dd:1:0 --destination BC1QT6DAFNFRD3YQVM4YL2NX8PAJ6ECG7MMX4R37TQ ~/ordfish/4-bsoehhdbpto.webp 
+# {
+#   "commit": "06ab1ab648a0838f1e9a8f8fb1d2b42edd64551929a13bcf09f0bd7511d11e0b",
+#   "inscription": "ebec9d350dbe923cf808f07ac2a98f66d1a5c8fbeada617dc5da0c5b8fe21298i0",
+#   "reveal": "ebec9d350dbe923cf808f07ac2a98f66d1a5c8fbeada617dc5da0c5b8fe21298",
+#   "fees": 74400
+# }
 
 # 05: https://ordinals.com/sat/
 #
