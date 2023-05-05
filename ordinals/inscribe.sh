@@ -21,10 +21,16 @@
 #   "fees": 79660
 # }
 
-# 02: 
-#
+# 02: https://ordinals.com/sat/1711330103159441
+#     ewqzayivxuy
 #     BC1QA2F8ZF82CHX4QLWG3JJ7FEAVL2RW6EG3MTYMY4
-
+# ./ord wallet inscribe --dry-run --satpoint 39a0a50bab3cae97980cd0cd8fb40e9da8fd479250dfc94a33fc82b050863c2f:1:0 --fee-rate 120 --destination BC1QA2F8ZF82CHX4QLWG3JJ7FEAVL2RW6EG3MTYMY4 ~/ordfish/2-ewqzayivxuy.webp 
+# {
+#   "commit": "ae24623990dd6d036e98e779b98ce35d80658ff5d8bfdf424e01d94b52fe69dd",
+#   "inscription": "40e2d68a3fb436146db33710b2dda592cfc702f996b46b460456a51b9e4c62d9i0",
+#   "reveal": "40e2d68a3fb436146db33710b2dda592cfc702f996b46b460456a51b9e4c62d9",
+#   "fees": 60600
+# }
 
 # 03: 
 #
