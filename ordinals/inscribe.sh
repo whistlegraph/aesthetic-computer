@@ -100,7 +100,6 @@
 #   "fees": 87750
 # }
 
-# UNCONFIRMED
 # 11: https://ordinals.com/sat/afajydkiabh
 # {
 #   "commit": "f69787551d4cb621f0b3f3b0e4f4db9921b92ab0b648dd8979332c0ebf863c58",
@@ -109,7 +108,6 @@
 #   "fees": 13700
 # }
 
-# UNCONFIRMED
 # 12: https://ordinals.com/sat/atbfflnrapr
 #     BC1Q2L9KUMKEA9MDMZ6N73G0MFLU59FL2YKUQK7W2U
 # {
@@ -200,7 +198,7 @@
 #   "fees": 68700
 # }
 
-# 22: https://ordinals.com/sat/ 
+# 22: https://ordinals.com/sat/gxlbncjkabl
 #     BC1Q8KJLZGX8VMNVL2UHKK6KJ5ANFAN8532LDEPRJZ
 # {
 #   "commit": "5d80fd8b99af8b22d430e7284112736974faeaefa8ae8dab13bfd48c13837c08",
