@@ -234,56 +234,287 @@
 #   "fees": 65340
 # }
 
-# 26: https://ordinals.com/sat/ 
+# 26: https://ordinals.com/sat/afajydjubgq
 #     BC1Q49764R4E3UKSS25UZVJWJ4ESF5UV7R38K67CFY
-# 27: https://ordinals.com/sat/ 
+# {
+#   "commit": "695fc7af30a5c9a9d5c570a14af18ec7a55f01805a26f91fd31848beb77c158e",
+#   "inscription": "d4a3d5ec2f867dedd6c33118830ff61eb2816df18ef18023cc0bc3f8c8d782c1i0",
+#   "reveal": "d4a3d5ec2f867dedd6c33118830ff61eb2816df18ef18023cc0bc3f8c8d782c1",
+#   "fees": 91390
+# }
+
+# 27: https://ordinals.com/sat/atbfflnkhzr
 #     BC1QTCFXPTJT6E2XD0EAHC65TXRAGH3QD9RNETZX3T
-# 28: https://ordinals.com/sat/  
+# {
+#   "commit": "d52a624eac4277870622cc10c682deec801809f4fe3bf7105d8f19f15ada544f",
+#   "inscription": "0fa12802efd733c4059fd66ee2d8ee7d9fbc8e460b80991a2fedfdd40115b7d4i0",
+#   "reveal": "0fa12802efd733c4059fd66ee2d8ee7d9fbc8e460b80991a2fedfdd40115b7d4",
+#   "fees": 155135
+# }
+
+# 28: https://ordinals.com/sat/cyizglvotma
 #     BC1Q7QF0Z8D4V5KKQYAHFKG4Q504XTFH6TSXW90ZSS
-# 29: https://ordinals.com/sat/  
+# {
+#   "commit": "70be3d4cbf875971e5b4ed6c67c5e1ea535ea3cf6d10ddc0113a29047f34c35e",
+#   "inscription": "d58eb96234dcc2409e01f73a3a3f3176f23a097036c6d9648a407efc04314687i0",
+#   "reveal": "d58eb96234dcc2409e01f73a3a3f3176f23a097036c6d9648a407efc04314687",
+#   "fees": 131400
+# }
+
+# 29: https://ordinals.com/sat/bhouvfjavyt
 #     BC1Q2EH04L705G5XDZHF4Q5GVQNCY5RRDPQ33K8HWA
+# {
+#   "commit": "a90f7555df900689dc5bd5f7b352cb81d625672795d93bfddf9055a197fd3c77",
+#   "inscription": "34afc143bad54f469ee64d2fb6dda167f590d90d65284783a3002d09be7aedc0i0",
+#   "reveal": "34afc143bad54f469ee64d2fb6dda167f590d90d65284783a3002d09be7aedc0",
+#   "fees": 144754
+# }
+
+# ❤️‍🔥 BAD ADDRESS (Skipped)
 # 30: https://ordinals.com/sat/  
-#     BC1Q0RU0JCRCL0ZUUY8PQG77289ZK0C4XRU3LSKHXZ
-# 31: https://ordinals.com/sat/  
+#     _BC1Q0RU0JCRCL0ZUUY8PQG77289ZK0C4XRU3LSKHXZ_
+
+# 31: https://ordinals.com/sat/afajydjpkxa
 #     BC1QGT4P0WYPYJWDZ6ESP4K39UHFMGXDCL9T8AHZR4
-# 32: https://ordinals.com/sat/  
+# {
+#   "commit": "3bce29ec0cbe0b5c23cc13c0512a2f4a157c039709dfcf543aed3aecf754d714",
+#   "inscription": "c5b97ff9749d3bb59cb0864f6e903433fc9a2101e9299934b8ccfeb57b05d875i0",
+#   "reveal": "c5b97ff9749d3bb59cb0864f6e903433fc9a2101e9299934b8ccfeb57b05d875",
+#   "fees": 104535
+# }
+
+# 32: https://ordinals.com/sat/gxlbncizwhg
 #     BC1QPRKTH3ENK9YTWMYGYCYU6MTGZH2K2DEM3M7KZT
-# 33: https://ordinals.com/sat/ 
+# {
+#   "commit": "bc0042b3c26d9c3065d51081e8d19bb95291d751a3cf82e9037e78afaebcb8d1",
+#   "inscription": "80dcb20cc0f72ece2788a196ff1d72b287a9bb3174b31d8a63d27b0fed98b946i0",
+#   "reveal": "80dcb20cc0f72ece2788a196ff1d72b287a9bb3174b31d8a63d27b0fed98b946",
+#   "fees": 94932
+# }
+
+# 33: https://ordinals.com/sat/atbfflnbxxm
 #     BC1QV2JDNCCQKX5L95CSYCM24S02CQNEFTDQESN355
-# 34: https://ordinals.com/sat/  
+# {
+#   "commit": "255512821e628ce5ab0dfaaf4bcaa515146eb81af35b745af90c6b76b65c7f99",
+#   "inscription": "b24edd0ade77f84584427c85b94cf46c391600d4224c7b8309ba0b9ce66a9895i0",
+#   "reveal": "b24edd0ade77f84584427c85b94cf46c391600d4224c7b8309ba0b9ce66a9895",
+#   "fees": 104648
+# }
+
+# 34: https://ordinals.com/sat/bikdtxjurmm
 #     BC1QJ90Z2JQAAP6HYQ74GTMZEZNNZL87FGGC4CZYTE
-# 35: https://ordinals.com/sat/  
+# {
+#   "commit": "87df19fef2c5fcf73aa9e8f525594ce7fb91cde6595405c61499fb9c21becefb",
+#   "inscription": "1575cf2d9b689f4ad4004c7b02a2d899904b5ea42d5416503d9ddfac1d635a6ei0",
+#   "reveal": "1575cf2d9b689f4ad4004c7b02a2d899904b5ea42d5416503d9ddfac1d635a6e",
+#   "fees": 156310
+# }
+
+# 35: https://ordinals.com/sat/ewqzayimcig
 #     BC1Q644KNZYEESZ03T4U07CQKVVF0544JDJNNZWKLT
-# 36: https://ordinals.com/sat/  
+# {
+#   "commit": "6806c20af3a7a1f14142daed993d767107c00c2c603c5912ab8eab9589bb89d0",
+#   "inscription": "2efb094b7c44220b660eabd3269812c85181bd52a21a37f7778507ffc1bb543ai0",
+#   "reveal": "2efb094b7c44220b660eabd3269812c85181bd52a21a37f7778507ffc1bb543a",
+#   "fees": 115380
+# }
+
+# 36: https://ordinals.com/sat/bhouvfiukft
 #     BC1QQUCM5JPPA6S2MJ609RMNJ7Y9AQUDXY593V9QQG
-# 37: https://ordinals.com/sat/  
+# {
+#   "commit": "754da99e226d7f5c5bbc1f7054f16fe368b805179258872d29f5ce0aeb6d3736",
+#   "inscription": "129dc4ba01b40cd91d4703ef451bbd22a42bb90f07cbbc42e37e6d91b9d9ea9ci0",
+#   "reveal": "129dc4ba01b40cd91d4703ef451bbd22a42bb90f07cbbc42e37e6d91b9d9ea9c",
+#   "fees": 270200
+# }
+
+# 37: https://ordinals.com/sat/atbfflmwhua
 #     BC1QQEADCW43SDH3VYRLC2TSLMWM908V88XWSPL3P8
-# 38: https://ordinals.com/sat/  
+# {
+#   "commit": "1b17202edca35d2f5aa55b0de5b5469ab400efa0aa63afd64c6f39bd7b74d53e",
+#   "inscription": "2721164e0160d4feb1e92030ee747d01159a650737df52778d109f539154f2fei0",
+#   "reveal": "2721164e0160d4feb1e92030ee747d01159a650737df52778d109f539154f2fe",
+#   "fees": 66960
+# }
+
+# 38: https://ordinals.com/sat/czvjqrsmtio
 #     BC1Q9WCQ634NCNQNP59CAZCKYA4X5TH5D3ETPKPEQP
-# 39: https://ordinals.com/sat/  
+# {
+#   "commit": "cd3390d0263491f5a1885d9ef5d2182abd94ef0763e81b94326da95801a8ff74",
+#   "inscription": "56ee4746d25caf6d59a3467fd6f036287db68a51ae7c75f66aacba23ec82a574i0",
+#   "reveal": "56ee4746d25caf6d59a3467fd6f036287db68a51ae7c75f66aacba23ec82a574",
+#   "fees": 108630
+# }
+
+# 39: https://ordinals.com/sat/ddqccmegpuz
 #     BC1QZRF5VPQMHT27N7QKA3Y0QT908HYDPPMFAAP9P5
-# 40: https://ordinals.com/sat/  
+# {
+#   "commit": "d45a996fc4e34187b8eae277e0feb0ab694d86caf37f1706667d2c5949772d42",
+#   "inscription": "5973583f8955695ec17b5b634540f500feb585230a8d98aa7a06ec9009c489c7i0",
+#   "reveal": "5973583f8955695ec17b5b634540f500feb585230a8d98aa7a06ec9009c489c7",
+#   "fees": 83895
+# }
+
+# 40: https://ordinals.com/sat/atbfflmszgu
 #     BC1QW6AMP5M250XUEU4X32SYDFCSY7385HVYY9YM4Y
-# 41: https://ordinals.com/sat/  
+# {
+#   "commit": "2f4334f08dcc71513baab0b24617a27494e042a56b2eebc30542c40ee85db6dd",
+#   "inscription": "c87d1ae363e7812deb8fadf0c54dfabdd6cedb9e09f06a08485b1adeb979b6f8i0",
+#   "reveal": "c87d1ae363e7812deb8fadf0c54dfabdd6cedb9e09f06a08485b1adeb979b6f8",
+#   "fees": 131325
+# }
+
+# ❤️‍🔥 BAD ADDRESS (Skipped)
+# 41: https://ordinals.com/sat/
 #     BC1QNA9MS8L6U3DQNZ6983FPGUJ9TG5H8ZT55HCE7V
-# 42: https://ordinals.com/sat/  
+
+# 42: https://ordinals.com/sat/blnwvwcksbj
 #     BC1QX2QN6V2QQN9S4LW2ZHLWELKVS0JD5METG03HTP
-# 43: https://ordinals.com/sat/  
+# {
+#   "commit": "2ab6cb5a1c092869d2c7ccfe84710384108936b8b5b43e692045bb5a76964282",
+#   "inscription": "f9dda6d9cc426de067f5374ef9254022a32e3cbd31296d0a6a63a816786be672i0",
+#   "reveal": "f9dda6d9cc426de067f5374ef9254022a32e3cbd31296d0a6a63a816786be672",
+#   "fees": 76032
+# }
+
+# 43: https://ordinals.com/sat/cggizjswstp
 #     BC1QV6QZTV0SLA2C54YN8T5LXPD0643FDWS22TQP5C
+# {
+#   "commit": "31e1fbd20cd2b51384bbb755e54a9c59c77a48924372f84d1303769bf62bdc3f",
+#   "inscription": "a63313ddad09cbe4f8cd35f876c93db6a0dc92f9c8f8541697b74a255bccf8e0i0",
+#   "reveal": "a63313ddad09cbe4f8cd35f876c93db6a0dc92f9c8f8541697b74a255bccf8e0",
+#   "fees": 66120
+# }
+
+# ❤️‍🔥 BAD ADDRESS (Skipped)
 # 44: https://ordinals.com/sat/  
 #     BC07U82ZV9XDMW83E8QZHH7J68KC70G9UQJMNNRTPA
-# 45: https://ordinals.com/sat/  
-#     BC1QJ9QU7T9FYTW0HENXDCRCLRW6EKK4EVH2375AK6
-# 46: https://ordinals.com/sat/  
+
+# 46: https://ordinals.com/sat/afajydjjxqz
 #     BC1QSNQ9SH3G996WHWC7N88L3CFUZX4LUK9D7368HA
-# 47: https://ordinals.com/sat/  
+# {
+#   "commit": "aaf64dcbd133422df40e339ae4cfe1176db8681c696408775c849aaaf07249b4",
+#   "inscription": "9e5f39181d7b2cbb18c2000ae5196bcfe6109d3498beca65164b8ab35f034f1di0",
+#   "reveal": "9e5f39181d7b2cbb18c2000ae5196bcfe6109d3498beca65164b8ab35f034f1d",
+#   "fees": 79830
+# }
+
+# 47: https://ordinals.com/sat/jahkarqnepw
 #     BC1Q9EXYRF5UFRRCNCD7AXZY3TC597D7JG325QPMC4
-# 48: https://ordinals.com/sat/  
+# {
+#   "commit": "19d5475de0b2ab31c4542f6906318f48eea60c09590f4f9f71c0e7e2a25f9773",
+#   "inscription": "718deb8a4a2f18a230b5da19cba28780cf768aedb0c97afe6b0cd022ea1f04dei0",
+#   "reveal": "718deb8a4a2f18a230b5da19cba28780cf768aedb0c97afe6b0cd022ea1f04de",
+#   "fees": 72150
+# }
+
+# 48: https://ordinals.com/sat/blnwvwchezz
 #     BC1QFG639JCHSYRTYCCF8W2XHY057CMTXVFEFFW4KC
+# {
+#   "commit": "eec5f0be16a18608b3173eeab154cc0752392095ef058b62010ef1072450c13f",
+#   "inscription": "b8a12a3c23b17234fec5ae5a475041d6113351ab3f48f4e7cb0ebde0db3f19a1i0",
+#   "reveal": "b8a12a3c23b17234fec5ae5a475041d6113351ab3f48f4e7cb0ebde0db3f19a1",
+#   "fees": 139520
+# }
+
+# ❤️‍🔥 BAD ADDRESS (Skipped)
 # 49: https://ordinals.com/sat/  
 #     BC1OXNVTYPNR756K324D0M7PJQHP2XJ0U7GFYPHGDC
-# 50: https://ordinals.com/sat/  
+
+# 50: https://ordinals.com/sat/dphnonhypod
 #     BC1QN53AK6T6YJSTYT5R3PH5L3FRZZWX69C0WYLPAV
+# {
+#   "commit": "2a492859a240a70ee1935436440bc1facd48d698fc9be039bcc739501334da76",
+#   "inscription": "5f25fa2b3604e55352db003b106858807479397536cbe8a40a557ce2b0d3d194i0",
+#   "reveal": "5f25fa2b3604e55352db003b106858807479397536cbe8a40a557ce2b0d3d194",
+#   "fees": 89600
+# }
+
+# My ordinals wallet: 
+# bc1p343f8qk5jqynzc24ln8nstytrnlwuxwd7gy6utw98ukc5crkyctqa4fctm
+
+# 51: https://ordinals.com/sat/cggizjsqzhk
+# {
+#   "commit": "d7d726be20c796f5f1b8bd957390db9687e8434413c6520449e6f824a8138524",
+#   "inscription": "e66aae9db6ccf2049ddca95bbec86dfb16d967b0f0935f95f306927ce7e3e962i0",
+#   "reveal": "e66aae9db6ccf2049ddca95bbec86dfb16d967b0f0935f95f306927ce7e3e962",
+#   "fees": 108640
+# }
+
+# 52: https://ordinals.com/sat/empraapnasc
+# {
+#   "commit": "28a91a88e50ba7d6cc682733067675230771389901a86ba173147a74a031d3a6",
+#   "inscription": "cf33fed2a637b9cf6640f35aa7329bf0792669a74e44a618d3235db16e0978cbi0",
+#   "reveal": "cf33fed2a637b9cf6640f35aa7329bf0792669a74e44a618d3235db16e0978cb",
+#   "fees": 256950
+# }
+
+# 53: https://ordinals.com/sat/bcfqtpqefzb
+# {
+#   "commit": "81a9d6d761d58e7f981879b15f1f4c76bb0562d28127246dc8b126487e885b96",
+#   "inscription": "3290fc083f787cb77d9049e246e1f307b0c029e596c6e7993992ada4ba6f1b43i0",
+#   "reveal": "3290fc083f787cb77d9049e246e1f307b0c029e596c6e7993992ada4ba6f1b43",
+#   "fees": 648219
+# }
+
+# Card 45
+# 54: https://ordinals.com/sat/empraaozdzg
+#     BC1QJ9QU7T9FYTW0HENXDCRCLRW6EKK4EVH2375AK6
+# {
+#   "commit": "970c7ba0a0432ddd1585587c035da0d3c53a9cb6a114223ec94e092c515d2806",
+#   "inscription": "cd86563c0330863252b9bb498034f85371c9d99e5ae0a13338a5a6c3f95a546ci0",
+#   "reveal": "cd86563c0330863252b9bb498034f85371c9d99e5ae0a13338a5a6c3f95a546c",
+#   "fees": 272510
+# }
+
+# Card 30
+# 55: https://ordinals.com/sat/jahkarpbgus
+# BC1Q0RU0JCRCL0ZUUY8PQG77289ZK0C4XJU3LSKHXZ
+# {
+#   "commit": "480984777c220ed56fbccd3b5c2e94ae308bc98beba091a88be0f5f3513637de",
+#   "inscription": "b32733504fd221006763ee969f113f1b0f4482c4a56b56d0557d3aac3b475d46i0",
+#   "reveal": "b32733504fd221006763ee969f113f1b0f4482c4a56b56d0557d3aac3b475d46",
+#   "fees": 101070
+# }
+
+# Card 41
+# 56: https://ordinals.com/sat/jmnmofemhyx
+# BC1Q0L9MS8L6U3DQNZ6983FPGUJ9TG5H8ZT55HCE7V
+# {
+#   "commit": "bf0473f1c18075ccec25e5e520b76461ba1c7d451b66c510e8c3c14147f26243",
+#   "inscription": "ee2490d85792d156fe2f7eb40daf1a861295bef0cfff1094e06f555859560007i0",
+#   "reveal": "ee2490d85792d156fe2f7eb40daf1a861295bef0cfff1094e06f555859560007",
+#   "fees": 107625
+# }
+
+# Card 44
+# 57: https://ordinals.com/sat/aqdaszimniv
+# BC1QU82ZV9XDMW83E8QZHH7J68KC70G9UQJMNNRTPA
+# {
+#   "commit": "3fd473ed22665f9ac94cdae4ed3d69cbdf947a84c331b78bf3bf15c73d1202e9",
+#   "inscription": "634e525f7bafa9d48bd8223deb2e598b0f950df5b7a2966c169f13d8eeacf846i0",
+#   "reveal": "634e525f7bafa9d48bd8223deb2e598b0f950df5b7a2966c169f13d8eeacf846",
+#   "fees": 83695
+# }
+
+# Card 49
+# 58: https://ordinals.com/sat/ddqccmdsbqf
+# BC1QXNVTYPNR756K324D0M7PJQHP2XJ0U7GFYPHGDC
+# {
+#   "commit": "b1f1a3c371f71f09956bfde295b26ec5d33f80a95a3ca5e7d8848ed43ea84c39",
+#   "inscription": "a997f335430dc852e42dddeca28ddb4b915cc09d07ed16794bee6d25aeee9db1i0",
+#   "reveal": "a997f335430dc852e42dddeca28ddb4b915cc09d07ed16794bee6d25aeee9db1",
+#   "fees": 62280
+# }
+
+# 59: https://ordinals.com/sat/aqdasziiajw
+# {
+#   "commit": "9af737f0e815ba3544ad7f3890441d5e7d5ca9fd2fe5371b17c61538c93ad688",
+#   "inscription": "f704a6b279a766269c19662a314dd68077ac10a46a3edead88b568788cb2a8bdi0",
+#   "reveal": "f704a6b279a766269c19662a314dd68077ac10a46a3edead88b568788cb2a8bd",
+#   "fees": 243500
+# }
+
 
 # *** Experiments ***
 
