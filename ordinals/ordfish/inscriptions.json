@@ -1,0 +1,9 @@
+[
+  {
+    "id": "inscription",
+    "meta": {
+      "name": "word",
+      "status": "" // Common, Uncommon, Rare
+    }
+  }
+]
