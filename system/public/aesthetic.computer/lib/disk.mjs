@@ -407,7 +407,7 @@ const $commonApi = {
         }
       },
       // Center the picture within the screen / default translation.
-      resetTransform: ({ system: sys, screen }) => {
+      resetTransform: ({ system: sys }) => {
         if (!sys.painting) {
           sys.nopaint.translation = { x: 0, y: 0 };
           return;
