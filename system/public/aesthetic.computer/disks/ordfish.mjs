@@ -110,7 +110,20 @@ export const ordfish = {
     "a997f335430dc852e42dddeca28ddb4b915cc09d07ed16794bee6d25aeee9db1i0",
   aqdasziiajw:
     "f704a6b279a766269c19662a314dd68077ac10a46a3edead88b568788cb2a8bdi0",
+  jahkarovszw:
+    "153445406160c34151ff69dcc47fafca66765daa7ba571d5002435c8f7e719fdi0",
 };
+
+export function boot({ wipe, write }) {
+  wipe(0, 0, 40);
+  write(`fishcount: ${Object.keys(ordfish).length}`, {center: "xy"});
+}
+
+export function paint() {
+  return false;
+}
+
+// 📚 Library (Useful functions used throughout the piece)
 
 // Build collection JSON.
 /*

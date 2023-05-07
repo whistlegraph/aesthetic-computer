@@ -6,9 +6,9 @@
 # 🐟 *** ordfish *** may 5-7
 
 # 🌄 TODO
-# - [] create a collection once i hit 75 inscriptions...
-# - [] add ability to type in codes on aesthetic.computer
-#   - [] make collection json: https://github.com/ordinals-wallet/ordinals-collections
+# - [...] try to hit 75 inscriptions...
+# - [-] finish collection json: https://github.com/ordinals-wallet/ordinals-collections
+# - [x] add ability to type in codes on aesthetic.computer
 
 # 01: https://ordinals.com/sat/afajydklwun
 #     BC1QULNA34US79KMR2Y7VRKFUY8W7KAVQ53PQ5CFST
@@ -515,6 +515,13 @@
 #   "fees": 243500
 # }
 
+# 60: https://ordinals.com/sat/jahkarovszw
+# {
+#   "commit": "7bf5a38cf5a1a586d5d7895d69df3922301f69c0d91b908229aff496e40c85a3",
+#   "inscription": "153445406160c34151ff69dcc47fafca66765daa7ba571d5002435c8f7e719fdi0",
+#   "reveal": "153445406160c34151ff69dcc47fafca66765daa7ba571d5002435c8f7e719fd",
+#   "fees": 127800
+# }
 
 # *** Experiments ***
 
