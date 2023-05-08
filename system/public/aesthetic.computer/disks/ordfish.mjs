@@ -140,6 +140,10 @@ let pix,
   ordf,
   ready = 0;
 
+const baseUrl = `https://assets.aesthetic.computer/ordfish`;
+//const baseUrl = `https://assets.aesthetic.computer.sfo3.cdn.digitaloceanspaces.com`;
+// Or `https://cdn.ordinalswallet.com/inscription/content`;
+
 async function boot({ params, wipe, ink, help, resize, screen, hud, net }) {
   // Look up an ordfish code from the first param.
   parseParams(params);
@@ -147,8 +151,7 @@ async function boot({ params, wipe, ink, help, resize, screen, hud, net }) {
   hud.label(`ordfish ${code}`);
   net.rewrite(`ordfish~${code}`);
   // Get url of ordfish image.
-  path = `https://cdn.ordinalswallet.com/inscription/content/${ordf}`;
-  // alt: `https://ordinals.com/content/${ordf}`;
+  path = `${baseUrl}/${code}.webp`;
   try {
     // Preload ordfish image from the internet and downsize its bitmap.
     pix = resize(await net.preload({ path, extension: "webp" }), 128, 128);
@@ -264,7 +267,7 @@ function meta({ params }) {
   return {
     title,
     desc: `There are ${fishCount} ordfish swimming right now.`,
-    image_url: `https://cdn.ordinalswallet.com/inscription/content/${ordf}`,
+    image_url: `${baseUrl}/${code}.webp`
   };
 }
 
