@@ -207,10 +207,6 @@ function paint({
 }
 
 function act({ event: e, jump, help, hud }) {
-  index?.btn.act(e, () =>
-    jump(`https://ordinalswallet.com/inscription/${ordf}`)
-  );
-
   if (
     e.is("touch") &&
     !index?.btn.box.contains(e) &&
@@ -219,6 +215,10 @@ function act({ event: e, jump, help, hud }) {
     let newCode = code; // Pick any fish other than this one...
     while (code === newCode) newCode = help.anyKey(ordfish);
     jump(`ordfish~${newCode}`);
+  } else {
+    index?.btn.act(e, () =>
+      jump(`https://ordinalswallet.com/inscription/${ordf}`)
+    );
   }
 }
 
