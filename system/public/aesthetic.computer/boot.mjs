@@ -82,7 +82,8 @@ if (!sandboxed && window.auth0) {
 
   if (isAuthenticated) {
     const userProfile = await auth0Client.getUser();
-    if (debug) console.log("🔐 Logged in:", userProfile);
+    console.log("🔐 Welcome,", userProfile.name, "!");
+    console.log("to... \"chaos in a system\"");
     window.acUSER = userProfile; // Will get passed to the first message by the piece runner.
   }
 }
