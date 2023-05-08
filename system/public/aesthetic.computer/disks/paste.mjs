@@ -20,7 +20,7 @@ function paint({ needsPaint, page, screen, paste, store, system }) {
     paste(store["file:opened"], 0, 0, 1 / 6);
     page(screen);
     needsPaste = false;
-    needsPaint();
+    needsPaint(); // TODO: Why is this necessary? 23.05.08.00.03
   }
 }
 

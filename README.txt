@@ -78,18 +78,18 @@
 - [x] make it so exporting of resized paintings works 
 
 *** Usernames and /p Original Posting ***
-  - [-] Live email based file links do not work.
-    - [] Also rename so that "painting-${timestamp}.png" is the
-         name of downloaded paintings remotely (to match local).
-    - https://cloud.digitalocean.com/spaces/user.aesthetic.computer
-    - https://aesthetic.computer/media/me@jas.life/painting/2023.5.03.13.38.15.png
-    - https://aesthetic.computer/media/@jeffrey/painting/2023.5.03.13.38.15.png
+  - [] Also rename so that "painting-${timestamp}.png" is the
+        name of downloaded paintings remotely (to match local).
   - [-] Build a painting listing page!.
   - [-] Limit resolution of paintings?
   + Later
   - [] `/p` painting feed.
   - [] Update / finalize auth0 login screen.
   + Done
+  - [x] Live email based file links do not work.
+    - https://cloud.digitalocean.com/spaces/user.aesthetic.computer
+    - https://aesthetic.computer/media/me@jas.life/painting/2023.5.03.13.38.15.png
+    - https://aesthetic.computer/media/@jeffrey/painting/2023.5.03.13.38.15.png
   - [x] Rewrite `media.js` or use the cloudflare worker to
         produce a json list if possible.
   - [x] Rewrite clean URLs to individual media files on DO spaces using
@@ -114,25 +114,6 @@
 + Done
   - [x] Add "paste" command to load a bitmap locally, with the option
         of scaling it down on import by `n` x.
-
-*** Colors & Notes & Dictation ***
-  - [📘] See teal book.
-    Example:
-      painting (128)
-      black coat
-      white oval
-      white triangle
-      black word fish 🧠 (use any word)
-      black line
-      download
-
-*** iOS Native App ***
-  - [] Figure out the best way to make a wrapper now.
-  - [] Get stickers into a keyboard / live sticker creation with the drawing
-       tools. (Research in GPT)
-  - [] Also get it work on Android too. (Can use Browserstack for APK testing.)
-  - [] Add notifications.
-  - [] Submit to store with notifications enabled, usernames and posts.
 
 *** Happy Hands (June 1st) 🖐️😃 ***
   😎 Now
@@ -192,6 +173,26 @@
     - [x] Fail if no param.
     - [x] Find good name for this process...
     - [x] Creating `happy-hands-factory` with an alias `hhf`.
+
+
+*** Colors & Notes & Dictation ***
+  - [📘] See teal book.
+    Example:
+      painting (128)
+      black coat
+      white oval
+      white triangle
+      black word fish 🧠 (use any word)
+      black line
+      download
+
+*** iOS Native App ***
+  - [] Figure out the best way to make a wrapper now.
+  - [] Get stickers into a keyboard / live sticker creation with the drawing
+       tools. (Research in GPT)
+  - [] Also get it work on Android too. (Can use Browserstack for APK testing.)
+  - [] Add notifications.
+  - [] Submit to store with notifications enabled, usernames and posts.
 
 *** ai brush ***
   - [] Write a query and get back brush code in response.

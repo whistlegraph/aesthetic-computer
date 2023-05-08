@@ -20,6 +20,7 @@ export async function authorize({ authorization }) {
   }
 }
 
+// TODO: ❤️‍🔥 TEST THIS FUNCTION LOCALLY!
 // Connect to Auth0 and return the user ID (`sub`) for a given email address.
 export async function userIDFromEmail(email) {
   try {
@@ -27,7 +28,8 @@ export async function userIDFromEmail(email) {
 
     // Then check to get the user ID via their email.
     const { got } = await import("got");
-    const token = getAccessToken(got);
+    const token = await getAccessToken(got);
+
     const userResponse = await got(
       "https://aesthetic.us.auth0.com/api/v2/users-by-email",
       {
@@ -55,7 +57,7 @@ export async function getHandleOrEmail(sub) {
 
     // If no handle is found, fetch the user's email from Auth0.
     const { got } = await import("got");
-    const token = getAccessToken(got); // Get access token for auth0.
+    const token = await getAccessToken(got); // Get access token for auth0.
     const userResponse = await got(
       `https://aesthetic.us.auth0.com/api/v2/users/${encodeURIComponent(sub)}`,
       { headers: { Authorization: `Bearer ${token}` }, responseType: "json" }
