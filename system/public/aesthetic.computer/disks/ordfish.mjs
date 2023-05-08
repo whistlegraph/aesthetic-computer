@@ -13,6 +13,7 @@
   - [x] Add default load delay.
 #endregion */
 
+import { anyKey } from "../lib/help.mjs";
 const { sin, min, max } = Math;
 
 const ordfish = {
@@ -133,6 +134,7 @@ const GO = 7;
 let pix,
   counter,
   chain,
+  path,
   dir,
   code,
   ordf,
@@ -140,14 +142,13 @@ let pix,
 
 async function boot({ params, wipe, ink, help, resize, screen, hud, net }) {
   // Look up an ordfish code from the first param.
-  code = params[0] || help.anyKey(ordfish);
-  ordf = ordfish[code];
+  parseParams(help, params);
   if (!ordf) return;
   hud.label(`ordfish ${code}`);
   net.rewrite(`ordfish~${code}`);
   // Get url of ordfish image.
-  const path = `https://cdn.ordinalswallet.com/inscription/content/${ordf}`;
-  //      alt: `https://ordinals.com/content/${ordf}`;
+  path = `https://cdn.ordinalswallet.com/inscription/content/${ordf}`;
+  // alt: `https://ordinals.com/content/${ordf}`;
   try {
     // Preload ordfish image from the internet and downsize its bitmap.
     pix = resize(await net.preload({ path, extension: "webp" }), 128, 128);
@@ -252,16 +253,23 @@ function beat({ num, sound: { bpm, square } }) {
   }
 }
 
-function meta() {
+function meta({ params }) {
+  parseParams(params);
   return {
     title: "Ordfish",
     desc: `There are ${fishCount} ordfish swimming right now.`,
+    image_url: `https://cdn.ordinalswallet.com/inscription/content/${ordf}`,
   };
 }
 
-export { boot, paint, act, ordfish, beat };
+export { boot, paint, act, ordfish, beat, meta };
 
 // 📚 Library (Useful functions used throughout the piece)
+
+function parseParams(params) {
+  code = params[0] || anyKey(ordfish);
+  ordf = ordfish[code];
+}
 
 // Build collection JSON.
 /*

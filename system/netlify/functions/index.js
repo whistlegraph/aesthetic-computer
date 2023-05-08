@@ -67,6 +67,7 @@ async function fun(event, context) {
             parsed.text.startsWith("wg") ||
             parsed.text.startsWith("prompt") ||
             parsed.text.startsWith("valbear") ||
+            parsed.text.startsWith("ordfish") ||
             parsed.text === "")
         ) {
           const m = await import(`../../public/${parsed.path}.mjs`);
