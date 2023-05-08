@@ -57,7 +57,6 @@ class Typeface {
     text,
     bg = null
   ) {
-
     // TODO: Pass printLine params through / make a state machine.
     const font = this.glyphs;
     const lineHeightGap = 2;
@@ -229,7 +228,7 @@ class TextInput {
         this.canType = true;
         this.text = "";
       } else if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
-        this.text += e.key; // Printable keys.
+        this.text += e.key.replace(/[“”]/g, '"').replace(/[‘’]/g, "'"); // Printable keys with subbed punctuation.
       } else {
         // Other keys.
         if (e.key === "Backspace") this.text = this.text.slice(0, -1);
