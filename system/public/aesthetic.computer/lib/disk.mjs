@@ -257,6 +257,7 @@ const store = {
 let fileImport;
 let serverUpload, serverUploadProgressReporter;
 let authorizationRequest;
+let fileOpenRequest;
 let gpuResponse;
 let web3Response;
 
@@ -339,6 +340,14 @@ let lastActAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
+  file: async () => {
+    const prom = new Promise((resolve, reject) => {
+      fileOpenRequest = { resolve, reject };
+    });
+    send({ type: "file-open:request" });
+    return prom;
+  },
+  // Authorize a user.
   authorize: async () => {
     // TODO: This should always fail while running user code.
     const prom = new Promise((resolve, reject) => {
@@ -2182,6 +2191,19 @@ async function makeFrame({ data: { type, content } }) {
     serverUpload = undefined;
     return;
   }
+
+  // Resolve a locally requested file.
+  if (type === "file-open:response" && fileOpenRequest) {
+    if (content.result === "success") {
+      fileOpenRequest?.resolve(content.data);
+    } else if (content.result === "error") {
+      console.error("Failed to open file.", content);
+      fileOpenRequest?.reject(content.data);
+    }
+    fileOpenRequest = undefined;
+    return;
+  }
+
 
   // Resolve an authorization request.
   if (type === "authorization:response" && authorizationRequest) {

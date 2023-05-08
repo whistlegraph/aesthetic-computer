@@ -67,10 +67,12 @@ function boot($) {
     needsPaint,
     system,
     screen,
+    debug,
     painting,
     net,
     jump,
     user,
+    file,
     upload,
   } = $;
 
@@ -88,6 +90,17 @@ function boot($) {
       const tokens = text.split(" ");
       const slug = tokens[0]; // Note: Includes colon params.
       const params = tokens.slice(1);
+
+      // Preload a local file if `paste` is entered from the prompt.
+      // (File choosers require a user event.)
+      if (text === "paste") {
+        if (debug) console.log("🖼️ Paste detected: preloading file...");
+        try {
+          const f = await file();
+          store["file:opened"] = f;
+        } catch {}
+      }
+
       if (text.startsWith("handle")) {
         // Set username handle.
         // TODO: This could eventually be abstracted for more API calls.
@@ -285,7 +298,6 @@ function boot($) {
         console.log(slug);
         jump("https://localhost:8888" + slug); // Go to the local dev server, passing any params as a piece.
       } else if (ordfish[text]) {
-        debugger;
         jump("https://ordinals.com/content/" + ordfish[text]); // Jump to an official ordinal inscription.
       } else {
         // 🟠 Local and remote pieces...

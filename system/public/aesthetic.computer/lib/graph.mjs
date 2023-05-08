@@ -1193,6 +1193,7 @@ function grid(
   },
   buffer
 ) {
+
   const oc = c.slice(); // Remember the original color.
 
   const w = cols * scale;

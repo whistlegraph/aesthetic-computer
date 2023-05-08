@@ -58,8 +58,8 @@ export const ordfish = {
     "0fa12802efd733c4059fd66ee2d8ee7d9fbc8e460b80991a2fedfdd40115b7d4i0",
   cyizglvotma:
     "d58eb96234dcc2409e01f73a3a3f3176f23a097036c6d9648a407efc04314687i0",
-  bhouvfjavyt:
-    "34afc143bad54f469ee64d2fb6dda167f590d90d65284783a3002d09be7aedc0i0",
+  ddqccmdnoth:
+    "3ee68b971f1d52e054bfb8d7a2b414e1d91d7e53c3ce31deb3b835ac9c424359i0",
   afajydjpkxa:
     "c5b97ff9749d3bb59cb0864f6e903433fc9a2101e9299934b8ccfeb57b05d875i0",
   gxlbncizwhg:
@@ -116,7 +116,7 @@ export const ordfish = {
 
 export function boot({ wipe, write }) {
   wipe(0, 0, 40);
-  write(`fishcount: ${Object.keys(ordfish).length}`, {center: "xy"});
+  write(`fishcount: ${Object.keys(ordfish).length}`, { center: "xy" });
 }
 
 export function paint() {

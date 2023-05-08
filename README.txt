@@ -65,34 +65,17 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** wordfish ***
-- Pre-production
-- [] Make bw drawings and inscribe them.
+*** (w)ordfish ***
+- [-] Make an `ordfish` slideshow page and route the codes to
+     `ordfish~CODE` for url sharing with a button link to ordinals.com.
++ Later
+- [] Create the last 50 ordfish once fees go down.
+  - [] Use `paste` to bring in old ones.
 + Done
+- [x] Get collection page online.
+- [x] Make bw drawings and inscribe them.
 - [x] get `word` working again
 - [x] make it so exporting of resized paintings works 
-
-+ Later
-- [] Fix 'system.nopaint.bakeOnLeave` `page(screen)` anomaly. (Redo "write")
-- [] Abstract the `rect = null` / `shape = null` / "bake" calls better
-     in all brushes.
-- [] change resize to painting
-- [] allow prefix colors for oval, shape, and line
-- [] make `coat` a new command
-
-  50 bw wordfish
-  "wordfish"
-  "a wordfish is a ..."
-  painting (128)
-  black coat
-  white oval
-  white triangle
-  black word fish 🧠 (use any word)
-  black line
-  download
-
-*** Colors & Notes & Dictation ***
-  - [📘] See teal book.
 
 *** Usernames and /p Original Posting ***
   - [-] Live email based file links do not work.
@@ -102,7 +85,8 @@
     - https://aesthetic.computer/media/me@jas.life/painting/2023.5.03.13.38.15.png
     - https://aesthetic.computer/media/@jeffrey/painting/2023.5.03.13.38.15.png
   - [-] Build a painting listing page!.
-  - [*] Limit resolution of paintings?
+  - [-] Limit resolution of paintings?
+  + Later
   - [] `/p` painting feed.
   - [] Update / finalize auth0 login screen.
   + Done
@@ -119,6 +103,28 @@
     - [x] Set a max length of 16 characters.
   - [x] Greet a user by their handle!
   - [x] Give users the ability to add handles.
+
+*** General Painting / Graphics API ***
+  - [] Fix 'system.nopaint.bakeOnLeave` `page(screen)` anomaly. (Redo "write")
+  - [] Abstract the `rect = null` / `shape = null` / "bake" calls better
+      in all brushes.
+  - [] change resize to painting
+  - [] allow prefix colors for oval, shape, and line
+  - [] make `coat` a new command
++ Done
+  - [x] Add "paste" command to load a bitmap locally, with the option
+        of scaling it down on import by `n` x.
+
+*** Colors & Notes & Dictation ***
+  - [📘] See teal book.
+    Example:
+      painting (128)
+      black coat
+      white oval
+      white triangle
+      black word fish 🧠 (use any word)
+      black line
+      download
 
 *** iOS Native App ***
   - [] Figure out the best way to make a wrapper now.

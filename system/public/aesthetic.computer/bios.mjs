@@ -883,6 +883,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Send a locally opened file across the thread.
+    if (type === "file-open:request") {
+      const file = await openFile();
+      send({
+        type: "file-open:response",
+        content: { data: file, result: file ? "success" : "error" },
+      });
+      return;
+    }
+
     // Send a user authorization token (or undefined) across the thread.
     if (type === "authorization:request") {
       const token = await authorize();
@@ -2498,6 +2508,57 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (debug) console.log("⚠️ Failed to get presigned URL:", err);
         error(err);
       });
+  }
+
+  // Request and open local file from the user.
+  async function openFile() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.click();
+
+    return new Promise((resolve, reject) => {
+      input.onchange = () => {
+        const file = input.files[0];
+        if (!file) {
+          reject("No file was selected!");
+        } else if (!file.type.startsWith("image/")) {
+          reject("Selected file is not an image.");
+        } else {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = (test) => {
+            const img = new Image();
+            img.src = reader.result;
+            img.onload = () => {
+              const canvas = document.createElement("canvas");
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext("2d");
+              ctx.drawImage(img, 0, 0);
+              const imageData = ctx.getImageData(
+                0,
+                0,
+                canvas.width,
+                canvas.height
+              );
+              resolve({
+                width: imageData.width,
+                height: imageData.height,
+                pixels: imageData.data,
+              });
+            };
+
+            img.onerror = (error) => {
+              reject(error);
+            };
+          };
+          reader.onerror = (error) => {
+            reject(error);
+          };
+        }
+      };
+    });
   }
 
   // Gets an authorization token for the logged in user,

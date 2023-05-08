@@ -261,14 +261,14 @@
 #   "fees": 131400
 # }
 
-# 29: https://ordinals.com/sat/bhouvfjavyt
+# 29: https://ordinals.com/sat/ddqccmdnoth
 #     BC1Q2EH04L705G5XDZHF4Q5GVQNCY5RRDPQ33K8HWA
-# {
-#   "commit": "a90f7555df900689dc5bd5f7b352cb81d625672795d93bfddf9055a197fd3c77",
-#   "inscription": "34afc143bad54f469ee64d2fb6dda167f590d90d65284783a3002d09be7aedc0i0",
-#   "reveal": "34afc143bad54f469ee64d2fb6dda167f590d90d65284783a3002d09be7aedc0",
-#   "fees": 144754
-# }
+#{
+#  "commit": "53fdfbb202e6db3d56e8254402a67dd3dd404d1de719cfcdc98c63fec1798879",
+#  "inscription": "3ee68b971f1d52e054bfb8d7a2b414e1d91d7e53c3ce31deb3b835ac9c424359i0",
+#  "reveal": "3ee68b971f1d52e054bfb8d7a2b414e1d91d7e53c3ce31deb3b835ac9c424359",
+#  "fees": 89010
+#}
 
 # ❤️‍🔥 BAD ADDRESS (Skipped)
 # 30: https://ordinals.com/sat/  
@@ -477,6 +477,7 @@
 #   "fees": 101070
 # }
 
+# NOT FOUND
 # Card 41
 # 56: https://ordinals.com/sat/jmnmofemhyx
 # BC1Q0L9MS8L6U3DQNZ6983FPGUJ9TG5H8ZT55HCE7V
@@ -486,6 +487,7 @@
 #   "reveal": "ee2490d85792d156fe2f7eb40daf1a861295bef0cfff1094e06f555859560007",
 #   "fees": 107625
 # }
+
 
 # Card 44
 # 57: https://ordinals.com/sat/aqdaszimniv
