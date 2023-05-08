@@ -169,7 +169,7 @@ async function boot({ params, wipe, ink, help, resize, screen, hud, net }) {
 }
 
 function paint({ screen, ink, wipe, paste, paintCount, ui, noise16 }) {
-  if (pix && ready === GO + 1) {
+  if (pix && ready >= GO + 1) {
     const osc = sin(paintCount / 60);
     const osc2 = sin(paintCount / 40);
     const scaleRat =
