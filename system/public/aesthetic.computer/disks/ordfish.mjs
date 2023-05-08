@@ -3,7 +3,9 @@
 
 /* #region ✏️ todo
   + Now
-  - [-] Tap the screen to change the fish. 
+  - [] Add sound to beep?
+  + Done
+  - [x] Tap the screen to change the fish. 
 #endregion */
 
 const { sin, min, max } = Math;
