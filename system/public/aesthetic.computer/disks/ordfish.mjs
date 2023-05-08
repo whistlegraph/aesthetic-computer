@@ -122,7 +122,7 @@ const ordfish = {
 };
 
 const fishCount = Object.keys(ordfish).length;
-let pix, counter, index, dir, code, ordf;
+let pix, counter, chain, dir, code, ordf;
 
 async function boot({
   params,
@@ -195,12 +195,12 @@ function paint({
 
     // Show "Export" (Print) button to transcode and save a video.
     // Draw the "Export" button.
-    if (!index)
-      index = new ui.TextButton("index", {
+    if (!chain)
+      chain = new ui.TextButton("chain", {
         x: screen.width - 40 - 6,
         y: screen.height - 20 - 6,
       });
-    index.paint({ ink }, [[0], [255, 150], [255], [0]]);
+    chain.paint({ ink }, [[0], [255, 150], [255], [0]]);
   } else {
     noise16();
   }
@@ -209,14 +209,14 @@ function paint({
 function act({ event: e, jump, help, hud }) {
   if (
     e.is("touch") &&
-    !index?.btn.box.contains(e) &&
+    !chain?.btn.box.contains(e) &&
     !hud.currentLabel.btn?.box.contains(e)
   ) {
     let newCode = code; // Pick any fish other than this one...
     while (code === newCode) newCode = help.anyKey(ordfish);
     jump(`ordfish~${newCode}`);
   } else {
-    index?.btn.act(e, () =>
+    chain?.btn.act(e, () =>
       jump(`https://ordinalswallet.com/inscription/${ordf}`)
     );
   }
