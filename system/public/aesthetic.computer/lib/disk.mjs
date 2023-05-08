@@ -363,6 +363,7 @@ const $commonApi = {
       currentHUDTextColor = color;
       currentHUDOffset = offset;
     },
+    currentLabel: () => ({ text: currentHUDText, btn: currentHUDButton }),
   },
   send,
   platform,
@@ -597,6 +598,7 @@ const $commonApi = {
     repeat: help.repeat,
     every: help.every,
     any: help.any,
+    anyKey: help.anyKey,
     each: help.each,
   },
   gizmo: { Hourglass: gizmo.Hourglass },
@@ -830,6 +832,12 @@ function color() {
   }
 
   if (args.length === 3) args = [...args, 255]; // Always be sure we have alpha.
+
+  // Randomized any undefined or null values across all 4 arguments.
+  args.forEach((a, i) => {
+    if (isNaN(args[i])) args[i] = num.randInt(255);
+  });
+
   return args;
 }
 
@@ -842,6 +850,7 @@ const $paintApi = {
   // Image Utilities
   clonePixels: graph.cloneBuffer,
   color,
+  resize: graph.resize,
   // 3D Classes & Objects
   Camera: graph.Camera,
   Form: graph.Form,
@@ -1551,16 +1560,20 @@ async function load(
   //          preload("drawings/default.json") // hosted with disk
   // Results: preload().then((r) => ...).catch((e) => ...) // via promise
 
-  // TODO: Add support for files other than .json and .png / .jpeg 2022.04.06.21.42
-
-  // TODO: How to know when every preload finishes? 2021.12.16.18.55
-
-  // TODO: Preload multiple files and load them into an assets folder with
-  //       a complete handler. 2021.12.12.22.24
   $commonApi.net.preload = function (path, parseJSON = true, progressReport) {
     // console.log("Preload path:", path);
 
-    const extension = path.split(".").pop();
+    let extension;
+
+    // Overload path with an object that can set a custom extension.
+    // Implemented in `ordfish`. 23.05.08.14.07
+    if (typeof path === "object") {
+      extension = path.extension; // Custom extension.
+      path = path.path; // Remap path reference to a string.
+    } else {
+      // Assume path is a string.
+      extension = path.split(".").pop();
+    }
 
     // This is a hack for now. The only thing that should be encoded is the file slug.
     if (!path.startsWith("https://")) path = encodeURIComponent(path);
@@ -2203,7 +2216,6 @@ async function makeFrame({ data: { type, content } }) {
     fileOpenRequest = undefined;
     return;
   }
-
 
   // Resolve an authorization request.
   if (type === "authorization:response" && authorizationRequest) {
@@ -2917,6 +2929,10 @@ async function makeFrame({ data: { type, content } }) {
         //   w: w,
         //   h,
         // });
+        $commonApi.hud.currentLabel = {
+          text: currentHUDText,
+          btn: currentHUDButton
+        }
       }
 
       maybeLeave();

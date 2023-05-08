@@ -2083,27 +2083,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
         } else {
           const blob = await response.blob();
-          const bitmap = await createImageBitmap(blob);
-
-          const ctx = document.createElement("canvas").getContext("2d");
-          ctx.canvas.width = bitmap.width;
-          ctx.canvas.height = bitmap.height;
-          ctx.drawImage(bitmap, 0, 0);
-          const iD = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+          const img = await blobToBitmap(blob);
 
           send(
             {
               type: "loaded-bitmap-success",
               content: {
                 url: content,
-                img: {
-                  width: iD.width,
-                  height: iD.height,
-                  pixels: iD.data,
-                },
+                img,
               },
             },
-            [iD.data]
+            [img.pixels.buffer]
           );
         }
       });
@@ -2527,31 +2517,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         } else {
           const reader = new FileReader();
           reader.readAsDataURL(file);
-          reader.onload = (test) => {
+          reader.onload = async () => {
             const img = new Image();
             img.src = reader.result;
-            img.onload = () => {
-              const canvas = document.createElement("canvas");
-              canvas.width = img.width;
-              canvas.height = img.height;
-              const ctx = canvas.getContext("2d");
-              ctx.drawImage(img, 0, 0);
-              const imageData = ctx.getImageData(
-                0,
-                0,
-                canvas.width,
-                canvas.height
-              );
-              resolve({
-                width: imageData.width,
-                height: imageData.height,
-                pixels: imageData.data,
-              });
-            };
-
-            img.onerror = (error) => {
-              reject(error);
-            };
+            resolve((await blobToBitmap(reader.result)));
           };
           reader.onerror = (error) => {
             reject(error);
@@ -3182,6 +3151,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } else {
       console.log("😱 Leaving fullscreen mode!");
     }
+  };
+}
+
+// Utilities
+async function blobToBitmap(blob) {
+  const img = await createImageBitmap(blob);
+  const canvas = document.createElement("canvas");
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  return {
+    width: imageData.width,
+    height: imageData.height,
+    pixels: imageData.data,
   };
 }
 

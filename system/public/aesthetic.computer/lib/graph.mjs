@@ -303,6 +303,30 @@ function copyRow(destX, destY, srcX, srcY, src) {
 }
  */
 
+// Resize a bitmap to a new with and height, returning a new
+// bitmap, using nearest neighbor scaling.
+// Bitmaps are {pixels: uint8array, width: int, height, int}
+function resize (bitmap, width, height) {
+  const ratioX = bitmap.width / width;
+  const ratioY = bitmap.height / height;
+  const pixels = new Uint8ClampedArray(width * height * 4);
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = (y * width + x) * 4;
+      const srcX = floor(x * ratioX);
+      const srcY = floor(y * ratioY);
+      const srcIndex = (srcY * bitmap.width + srcX) * 4;
+
+      pixels[index] = bitmap.pixels[srcIndex];
+      pixels[index + 1] = bitmap.pixels[srcIndex + 1];
+      pixels[index + 2] = bitmap.pixels[srcIndex + 2];
+      pixels[index + 3] = bitmap.pixels[srcIndex + 3];
+    }
+  }
+  return { pixels, width, height };
+}
+
 // Copies pixels from a source buffer to the active buffer and returns
 // the source buffer.
 // TODO: Add dirty rectangle support here...
@@ -316,7 +340,8 @@ function copyRow(destX, destY, srcX, srcY, src) {
 function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
   if (!from) return;
 
-  if (scale !== 1) { // Or rotation.
+  if (scale !== 1) {
+    // Or rotation.
     let angle = 0;
     if (typeof scale === "object") {
       angle = scale.angle;
@@ -1193,7 +1218,6 @@ function grid(
   },
   buffer
 ) {
-
   const oc = c.slice(); // Remember the original color.
 
   const w = cols * scale;
@@ -1428,6 +1452,7 @@ export {
   unpan,
   skip,
   copy,
+  resize,
   paste,
   line,
   pline,
@@ -1436,7 +1461,6 @@ export {
   circle,
   oval,
   poly,
-  bresenham, // This function is under "abstract" because it doesn't render.
   box,
   shape,
   grid,

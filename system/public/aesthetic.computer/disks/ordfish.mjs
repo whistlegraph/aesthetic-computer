@@ -1,7 +1,14 @@
 // Ordfish, 23.05.06.13.15
 // Viewer and tracker of `ordfish`.
 
-export const ordfish = {
+/* #region ✏️ todo
+  + Now
+  - [-] Tap the screen to change the fish. 
+#endregion */
+
+const { sin, min, max } = Math;
+
+const ordfish = {
   afajydklwun:
     "5b182278c42d5a74ab4dd9f43826a0a2fce0158000001ed3bdf44873f1378d93i0",
   bhouvfjcwjv:
@@ -114,14 +121,108 @@ export const ordfish = {
     "153445406160c34151ff69dcc47fafca66765daa7ba571d5002435c8f7e719fdi0",
 };
 
-export function boot({ wipe, write }) {
-  wipe(0, 0, 40);
-  write(`fishcount: ${Object.keys(ordfish).length}`, { center: "xy" });
+const fishCount = Object.keys(ordfish).length;
+let pix, counter, index, dir, code, ordf;
+
+async function boot({
+  params,
+  wipe,
+  ink,
+  paste,
+  help,
+  resize,
+  needsPaint,
+  screen,
+  hud,
+  net: { preload, rewrite },
+}) {
+  // Look up an ordfish code from the first param.
+  code = params[0] || help.anyKey(ordfish);
+  ordf = ordfish[code];
+  if (!ordf) return;
+  hud.label(`ordfish ${code}`);
+  rewrite(`ordfish~${code}`);
+  // Get url of ordfish image.
+  const path = `https://cdn.ordinalswallet.com/inscription/content/${ordf}`;
+  //      alt: `https://ordinals.com/content/${ordf}`;
+  try {
+    // Preload ordfish image from the internet and downsize its bitmap.
+    pix = resize(await preload({ path, extension: "webp" }), 128, 128);
+  } catch (err) {
+    console.error("Failed to load ordfish image:", err);
+  }
+
+  wipe();
+
+  counter = (gap = 13) => {
+    const msg = `swimming: ${fishCount}/100`;
+    ink(0).write(msg, { x: 4 + 1, y: screen.height - gap + 1 });
+    ink(255).write(msg, { x: 4, y: screen.height - gap });
+  };
+  counter(); // Paint the total ordfish count onto the screen.
+
+  dir = help.choose(1, -1);
 }
 
-export function paint() {
-  return false;
+function paint({
+  screen,
+  num,
+  ink,
+  wipe,
+  box,
+  paste,
+  paintCount,
+  ui,
+  noise16,
+}) {
+  if (pix) {
+    const osc = sin(paintCount / 60);
+    const osc2 = sin(paintCount / 40);
+    const scaleRat =
+      min(screen.width, screen.height) / max(pix.width, pix.height);
+    const scale = scaleRat / 1.1 + osc / 3; // Bounce in and out
+    const angle = 0 + osc2 * dir * 10; // Slowly rotate
+    const x = screen.width / 2 - (pix.width * scale) / 2; // Center
+    const y = screen.height / 2 - (pix.height * scale) / 2;
+    ink(undefined, undefined, undefined, 1).box(
+      0,
+      0,
+      screen.width,
+      screen.height
+    );
+    paste(pix, x, y, { scale, angle });
+    counter();
+
+    // Show "Export" (Print) button to transcode and save a video.
+    // Draw the "Export" button.
+    if (!index)
+      index = new ui.TextButton("index", {
+        x: screen.width - 40 - 6,
+        y: screen.height - 20 - 6,
+      });
+    index.paint({ ink }, [[0], [255, 150], [255], [0]]);
+  } else {
+    noise16();
+  }
 }
+
+function act({ event: e, jump, help, hud }) {
+  index?.btn.act(e, () =>
+    jump(`https://ordinalswallet.com/inscription/${ordf}`)
+  );
+
+  if (
+    e.is("touch") &&
+    !index?.btn.box.contains(e) &&
+    !hud.currentLabel.btn?.box.contains(e)
+  ) {
+    let newCode = code; // Pick any fish other than this one...
+    while (code === newCode) newCode = help.anyKey(ordfish);
+    jump(`ordfish~${newCode}`);
+  }
+}
+
+export { boot, paint, act, ordfish };
 
 // 📚 Library (Useful functions used throughout the piece)
 

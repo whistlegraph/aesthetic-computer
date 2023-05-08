@@ -297,8 +297,10 @@ function boot($) {
         const slug = param.length > 0 ? `/${param}` : "";
         console.log(slug);
         jump("https://localhost:8888" + slug); // Go to the local dev server, passing any params as a piece.
-      } else if (ordfish[text]) {
-        jump("https://ordinals.com/content/" + ordfish[text]); // Jump to an official ordinal inscription.
+      } else if (text.split(" ")[0] === "of") { // Ordfish shortcuts.
+        jump(`ordfish~${text.split(" ").slice(1).join("~")}`);
+      } else if (ordfish[text] || text.split(" ") === "of") {
+        jump(`ordfish~${text}`);
       } else {
         // 🟠 Local and remote pieces...
         load(parse(text)); // Execute the current command.
@@ -423,16 +425,17 @@ function makeMotd({ handle, user }) {
     `                                                ` +
     `Try typing:                                     ` +
     `                                                ` +
+    ` 'of'                                           ` +
+    `  to see an Ordfish                             ` +
+    `                                                ` +
     ` 'ff'                                           ` +
-    `  to see Freaky Flowers                         ` +
+    `  to see a Freaky Flower                        ` +
     `                                                ` +
     ` 'shape'                                        ` +
     `  to paint freehand shapes                      ` +
     `                                                ` +
     ` 'bleep'                                        ` +
     `  to play microtones                            ` +
-    `                                                ` +
-    `Or...                                           ` +
     `                                                ` +
     ` 'help'                                         ` +
     `  to learn more!                                ` +

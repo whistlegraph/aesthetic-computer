@@ -65,18 +65,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** (w)ordfish ***
-- [-] Make an `ordfish` slideshow page and route the codes to
-     `ordfish~CODE` for url sharing with a button link to ordinals.com.
-+ Later
-- [] Create the last 50 ordfish once fees go down.
-  - [] Use `paste` to bring in old ones.
-+ Done
-- [x] Get collection page online.
-- [x] Make bw drawings and inscribe them.
-- [x] get `word` working again
-- [x] make it so exporting of resized paintings works 
-
 *** Usernames and /p Original Posting ***
   - [] Also rename so that "painting-${timestamp}.png" is the
         name of downloaded paintings remotely (to match local).
@@ -174,6 +162,23 @@
     - [x] Find good name for this process...
     - [x] Creating `happy-hands-factory` with an alias `hhf`.
 
+*** (w)ordfish ***
++ Later
+- [] Create the last 50 ordfish once fees go down.
+  - [] Use `paste` to bring in old ones.
++ Done
+- [x] Make an `ordfish` slideshow page and route the codes to
+     `ordfish~CODE` for url sharing with a button link to ordinals.com.
+- [x] Get collection page online.
+- [x] Make bw drawings and inscribe them.
+- [x] get `word` working again
+- [x] make it so exporting of resized paintings works
+
+*** "async message hub" ***
+  - [] Pub/sub model.
+  - [] Works over a network, across multiple a.c units.
+  - [] Can be run locally or remotely.
+  - [] The browser is the best runtime now.
 
 *** Colors & Notes & Dictation ***
   - [📘] See teal book.
