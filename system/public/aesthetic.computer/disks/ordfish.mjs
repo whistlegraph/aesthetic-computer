@@ -142,7 +142,7 @@ let pix,
 
 async function boot({ params, wipe, ink, help, resize, screen, hud, net }) {
   // Look up an ordfish code from the first param.
-  parseParams(help, params);
+  parseParams(params);
   if (!ordf) return;
   hud.label(`ordfish ${code}`);
   net.rewrite(`ordfish~${code}`);
