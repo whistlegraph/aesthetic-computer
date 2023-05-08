@@ -129,7 +129,7 @@ const ordfish = {
 };
 
 const fishCount = Object.keys(ordfish).length;
-const GO = 15;
+const GO = 7;
 let pix,
   counter,
   chain,
@@ -250,6 +250,13 @@ function beat({ num, sound: { bpm, square } }) {
     });
     bip = false;
   }
+}
+
+function meta() {
+  return {
+    title: "Ordfish",
+    desc: `There are ${fishCount} ordfish swimming right now.`,
+  };
 }
 
 export { boot, paint, act, ordfish, beat };
