@@ -51,6 +51,8 @@ const defaults = {
 let loadAfterPreamble = null;
 let hotSwap = null;
 
+// let jumpDelay; // a setInterval for jumping between disks or pages.
+
 // let showHUD = true;
 
 // 🔎 NoPaint
@@ -1647,6 +1649,7 @@ async function load(
   // Make it `ahistorical` to prevent a url change.
   // Make it an `alias` to prevent a metadata change for writing landing or
   // router pieces such as `freaky-flowers` -> `wand`. 22.11.23.16.29
+  // Jump delay...
   $commonApi.jump = function jump(to, ahistorical = false, alias = false) {
     let url;
     if (to.startsWith("http")) {
@@ -1658,9 +1661,9 @@ async function load(
       }
     }
     leaving = true;
-    url
-      ? $commonApi.net.web(to)
-      : (leaveLoad = () => load(parse(to), ahistorical, alias));
+    leaveLoad = url
+      ? () => $commonApi.net.web(to)
+      : () => load(parse(to), ahistorical, alias);
   };
 
   $commonApi.alias = function alias(name, colon, params) {
@@ -2542,9 +2545,10 @@ async function makeFrame({ data: { type, content } }) {
               currentHUDTextColor = [0, 255, 0];
             },
             push: () => {
-              pieceHistoryIndex > 0
-                ? send({ type: "back-to-piece" })
-                : jump("prompt");
+              jump("prompt");
+              // pieceHistoryIndex > 0
+              //   ? send({ type: "back-to-piece" })
+              //   : jump("prompt");
             },
             cancel: () => {
               currentHUDTextColor = originalColor;
@@ -2931,8 +2935,8 @@ async function makeFrame({ data: { type, content } }) {
         // });
         $commonApi.hud.currentLabel = {
           text: currentHUDText,
-          btn: currentHUDButton
-        }
+          btn: currentHUDButton,
+        };
       }
 
       maybeLeave();

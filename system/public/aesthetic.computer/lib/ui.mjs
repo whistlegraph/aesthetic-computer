@@ -162,19 +162,23 @@ class TextButton {
 
   paint(
     $,
-    scheme = [
-      [0, 100, 0],
-      [0, 255, 0, 150],
-      [0, 200, 0],
-      [0, 50, 0],
-    ]
+    // scheme = [
+    //   [0, 100, 0],
+    //   [0, 255, 0, 150],
+    //   [0, 200, 0],
+    //   [0, 50, 0],
+    // ],
+    scheme = [0, 255, 255, 0],
+    hoverScheme = [255, 0, 0, 255]
   ) {
-    $.ink(scheme[0])
+    let s = this.btn.down ? hoverScheme : scheme;
+
+    $.ink(s[0])
       .box(this.btn.box, "fill")
-      .ink(scheme[1])
+      .ink(s[1])
       .box(this.btn.box, "outline")
-      .ink(scheme[2])
-      .write(this.txt, p2.add(this.btn.box, this.#offset), scheme[3]);
+      .ink(s[2])
+      .write(this.txt, p2.add(this.btn.box, this.#offset), s[3]);
   }
 }
 

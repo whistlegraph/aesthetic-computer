@@ -1614,6 +1614,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "web") {
+      // TODO: Eventually add pop-up support here. 23.05.08.17.08
       window.location.href = content;
       return;
     }

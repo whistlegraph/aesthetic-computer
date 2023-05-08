@@ -2,10 +2,15 @@
 // Viewer and tracker of `ordfish`.
 
 /* #region ✏️ todo
-  + Now
-  - [] Add sound to beep?
+  + Later
+  - [❤️‍🔥] Background music that runs consistently across ordfish.
+  - [] Special effects... other data.
   + Done
+  - [x] Add hover to TextButton.
+  - [x] Add sound.
   - [x] Tap the screen to change the fish. 
+  - [x] Fix iOS tap bug.
+  - [x] Add default load delay.
 #endregion */
 
 const { sin, min, max } = Math;
@@ -124,32 +129,28 @@ const ordfish = {
 };
 
 const fishCount = Object.keys(ordfish).length;
-let pix, counter, chain, dir, code, ordf;
+const GO = 15;
+let pix,
+  counter,
+  chain,
+  dir,
+  code,
+  ordf,
+  ready = 0;
 
-async function boot({
-  params,
-  wipe,
-  ink,
-  paste,
-  help,
-  resize,
-  needsPaint,
-  screen,
-  hud,
-  net: { preload, rewrite },
-}) {
+async function boot({ params, wipe, ink, help, resize, screen, hud, net }) {
   // Look up an ordfish code from the first param.
   code = params[0] || help.anyKey(ordfish);
   ordf = ordfish[code];
   if (!ordf) return;
   hud.label(`ordfish ${code}`);
-  rewrite(`ordfish~${code}`);
+  net.rewrite(`ordfish~${code}`);
   // Get url of ordfish image.
   const path = `https://cdn.ordinalswallet.com/inscription/content/${ordf}`;
   //      alt: `https://ordinals.com/content/${ordf}`;
   try {
     // Preload ordfish image from the internet and downsize its bitmap.
-    pix = resize(await preload({ path, extension: "webp" }), 128, 128);
+    pix = resize(await net.preload({ path, extension: "webp" }), 128, 128);
   } catch (err) {
     console.error("Failed to load ordfish image:", err);
   }
@@ -166,18 +167,8 @@ async function boot({
   dir = help.choose(1, -1);
 }
 
-function paint({
-  screen,
-  num,
-  ink,
-  wipe,
-  box,
-  paste,
-  paintCount,
-  ui,
-  noise16,
-}) {
-  if (pix) {
+function paint({ screen, ink, wipe, paste, paintCount, ui, noise16 }) {
+  if (pix && ready === GO + 1) {
     const osc = sin(paintCount / 60);
     const osc2 = sin(paintCount / 40);
     const scaleRat =
@@ -195,36 +186,73 @@ function paint({
     paste(pix, x, y, { scale, angle });
     counter();
 
-    // Show "Export" (Print) button to transcode and save a video.
-    // Draw the "Export" button.
     if (!chain)
       chain = new ui.TextButton("chain", {
         x: screen.width - 40 - 6,
         y: screen.height - 20 - 6,
       });
-    chain.paint({ ink }, [[0], [255, 150], [255], [0]]);
-  } else {
-    noise16();
+    chain.paint({ ink }, [0, 255, 255, 0]);
+  } else if (ready <= GO) {
+    ready += 1;
+    ready <= GO ? noise16(0) : wipe();
   }
 }
 
-function act({ event: e, jump, help, hud }) {
+function act({ event: e, jump, help, screen }) {
+  // Randomize button. (Takes up most of the screen.)
+  const strip = 30; // Strip of pixels to ignore for the big randomizer.
   if (
-    e.is("touch") &&
-    !chain?.btn.box.contains(e) &&
-    !hud.currentLabel.btn?.box.contains(e)
+    ((e.device === "touch" && e.is("lift")) || // Act on lift if using a finger.
+      (e.device === "mouse" && e.is("touch"))) && // Or mouse down on a laptop.
+    e.y > strip &&
+    e.y < screen.height - strip
   ) {
     let newCode = code; // Pick any fish other than this one...
     while (code === newCode) newCode = help.anyKey(ordfish);
+    bip = true;
     jump(`ordfish~${newCode}`);
-  } else {
-    chain?.btn.act(e, () =>
-      jump(`https://ordinalswallet.com/inscription/${ordf}`)
-    );
+  }
+
+  chain?.btn.act(e, () => {
+    jump(`https://ordinalswallet.com/inscription/${ordf}`);
+    bap = true;
+  });
+}
+
+let beatCount = 0n; // TODO: This should REALLY go into the main API at this point... 23.05.08.17.32
+let bap, bip;
+
+function beat({ num, sound: { bpm, square } }) {
+  if (beatCount === 0n) {
+    bap = bip = false; // Clear any existing signals.
+    bpm(1800); // Set bpm to 1800 ~ 30fps }
+  }
+  beatCount += 1n; // TODO: This should go into the main API. 22.11.01.17.43
+
+  if (bap) {
+    square({
+      tone: num.randIntRange(100, 800),
+      beats: 1.5,
+      attack: 0.02,
+      decay: 0.97,
+      volume: 0.35,
+    });
+    bap = false;
+  }
+
+  if (bip) {
+    square({
+      tone: num.randIntRange(1000, 1600),
+      beats: 1,
+      attack: 0.02,
+      decay: 0.97,
+      volume: 0.1,
+    });
+    bip = false;
   }
 }
 
-export { boot, paint, act, ordfish };
+export { boot, paint, act, ordfish, beat };
 
 // 📚 Library (Useful functions used throughout the piece)
 
