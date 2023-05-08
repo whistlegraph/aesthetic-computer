@@ -254,9 +254,15 @@ function beat({ num, sound: { bpm, square } }) {
 }
 
 function meta({ params }) {
-  parseParams(params);
+  let title;
+  if (!params[0]) {
+    title = "Ordfish · aesthetic.computer";
+  } else {
+    parseParams(params);
+    title = `Ordfish - ${code} · aesthetic.computer`;
+  }
   return {
-    title: "Ordfish",
+    title,
     desc: `There are ${fishCount} ordfish swimming right now.`,
     image_url: `https://cdn.ordinalswallet.com/inscription/content/${ordf}`,
   };
