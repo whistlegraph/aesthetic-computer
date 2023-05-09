@@ -1,4 +1,4 @@
-// Ordfish, 23.05.06.13.15
+// 🐟 Ordfish, 23.05.06.13.15
 // Viewer and tracker of `ordfish`.
 
 /* #region ✏️ todo

@@ -103,6 +103,32 @@
   - [x] Add "paste" command to load a bitmap locally, with the option
         of scaling it down on import by `n` x.
 
+*** Bitmark Autonomy App Integration ***
+📇 Autonomy side
+  + Now
+  - [] Tap logo to open fullscreen webview to: `https://aesthetic.computer?dids=${key}`
+    - [] Logo should have a hover state / tap state where the opacity dips.
+    - [] The keyboard should float on top of (and NOT resize) the webview when
+         opened.
+    - [] The background of the webview / border margin around aesthetic.computer should be black.
+  - [] Pass DIDs keys to aesthetic.computer on Autonomy "A" logo tap.
+  - [] Function to call from JS to "close" the webview.
+  - [] If a.c has media / is logged in then show a list in the gallery view. 
+       (Make a listing page that pulls json from https://aesthetic.computer/media/@user/painting) and displays the images uploaded.
+  - [] Single tap link from the "portfolio" view to fork / edit an already made painting / 
+       pop open an aesthetic.computer URL. 
+  + Next
+  - [] Aggregator page of everyone's published work.
+🖌️️ aesthetic.computer side 
+  + Now
+  - [] Add custom MOTD greeting for Autonomy users when the open the prompt.
+  - [] Authenticate user / create account automagically from DIDs key.
+    - [] ❓ How to allow user to associate existing account or tie email address
+         to acount?
+  - [] Custom webview styling for native embed.
+  + Next
+  - [] Aggregator API / social features / turn-based painting.
+
 *** Happy Hands (June 1st) 🖐️😃 ***
   😎 Now
     - [-] See `happy-hands-assembler` 
