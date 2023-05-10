@@ -23,10 +23,19 @@
 // - [] Use a multi-part uploader.
 
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { authorize } from "../../backend/authorization.mjs";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
+import {
+  authorize,
+  userIDFromHandleOrEmail,
+} from "../../backend/authorization.mjs";
+import { respond } from "../../backend/http.mjs";
 
-const s3 = new S3Client({
+// TODO: Maybe I don't need to be initializing all these clients? 23.05.09.10.57
+const s3Guest = new S3Client({
   endpoint: "https://" + process.env.ART_ENDPOINT,
   credentials: {
     accessKeyId: process.env.ART_KEY,
@@ -52,17 +61,56 @@ const s3User = new S3Client({
 
 export async function handler(event, context) {
   // Only allow GET requests.
-  if (event.httpMethod !== "GET") {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({
-        error: "Wrong request type 😩",
-      }),
+  if (event.httpMethod !== "GET")
+    return respond(405, { error: "Wrong request type 😩" });
+
+  if (event.path === "/presigned-download-url") {
+    const queryParams = new URLSearchParams(event.queryStringParameters);
+    const slug = queryParams.get("for");
+
+    if (!slug) {
+      return respond(400, { error: "Missing filename query parameter." });
+    }
+
+    //❤️‍🔥
+    // TODO
+    // Either choose s3 or s3User depending on the filename attribute...
+    // https://aesthetic.computer/presigned-download-url
+
+    // TODO: Need to parse out the path.
+
+    let s3,
+      bucket,
+      filename = decodeURIComponent(slug);
+    // Assume a guest / code lookup because emails or handles have an "@".
+    if (slug.indexOf("@") === -1) {
+      // Guest: ?for=CODE (would have no slashes)
+      s3 = s3Guest;
+      bucket = process.env.ART_SPACE_NAME;
+    } else {
+      // User: ?for=@jeffrey/painting/filename.png
+      s3 = s3User;
+      bucket = process.env.USER_SPACE_NAME;
+      // Replace `user` email or handle with their auth0 id.
+      const path = filename.split("/");
+      path[0] = await userIDFromHandleOrEmail(path[0]);
+      filename = path.join("/");
+    }
+
+    const getObjectParams = {
+      Bucket: bucket,
+      Key: filename,
+      ResponseContentDisposition: `attachment; filename="${filename}"`,
     };
+
+    // Get download link that expires in an hour. (3600 seconds)
+    const command = new GetObjectCommand(getObjectParams);
+    const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
+    return respond(200, { url });
   }
 
+  // ➡️ Assume "presigned-upload-url"
   let client;
-
   const { customAlphabet } = await import("nanoid");
   const alphabet =
     "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -74,7 +122,8 @@ export async function handler(event, context) {
   if (bucket !== "wand") {
     //           ^ Currently using a legacy name schema for wand. 23.05.01.21.59
     // 🧠 Replace first prefix- with a prefix/ for folder sorting by media.
-    if (name.indexOf("-") > -1) name = name.replace("-", "/");
+    //    ⚠️ Only if name exists! Which it doesn't for the guest bucket.
+    if (name?.indexOf("-") > -1) name = name.replace("-", "/");
   }
 
   let expiring = true;
@@ -87,24 +136,8 @@ export async function handler(event, context) {
   } else if (bucket === "user") {
     client = { s3: s3User, bucket: process.env.USER_SPACE_NAME };
 
-    //const { got } = await import("got");
-    // const token = event.headers.authorization.split(" ")[1];
-    // const secret = process.env.AUTH0_SECRET;
-    // const audience = "https://aesthetic.computer/api";
-    // const issuer = "https://aesthetic.us.auth0.com/";
-
-    // Send the access token to the /userinfo endpoint to obtain user information
-    //const response = await got("https://auth0.aesthetic.computer/userinfo", {
-    //  headers: {
-    //    Authorization: event.headers.authorization,
-    //  },
-    //  responseType: "json",
-    //});
-
     const user = await authorize(event.headers);
     if (user) {
-      // const sub = user.sub;
-      // const username = user.name;
       expiring = false; // Set the file not to expire.
       subdirectory = user.sub; // Sort this object into a user directory.
     } else {
@@ -117,7 +150,7 @@ export async function handler(event, context) {
       };
     }
   } else {
-    client = { s3, bucket: process.env.ART_SPACE_NAME }; // Assume the unauthorized, temporary "art" bucket.
+    client = { s3: s3Guest, bucket: process.env.ART_SPACE_NAME }; // Assume the unauthorized, temporary "art" bucket.
     // tagging = `activity=${activity}`; // Add activity tag. (Assume anonymous.)
   }
 

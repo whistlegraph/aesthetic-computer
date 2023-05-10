@@ -20,8 +20,6 @@ export async function authorize({ authorization }) {
   }
 }
 
-// TODO: ❤️‍🔥 TEST THIS FUNCTION LOCALLY!
-// Connect to Auth0 and return the user ID (`sub`) for a given email address.
 export async function userIDFromEmail(email) {
   try {
     // Get an access token to the auth0 management API for the email lookup.
@@ -85,6 +83,7 @@ export async function handleFor(id) {
 }
 
 // Connects to the MongoDB database to obtain a user ID from a handle.
+// Handle should not be prefixed with "@".
 export async function userIDFromHandle(handle) {
   const client = await connect();
   const db = client.db(mongoDBName);
@@ -93,6 +92,15 @@ export async function userIDFromHandle(handle) {
   const userID = user?._id;
   await client.close();
   return userID;
+}
+
+// Assume prefixed handle.
+export async function userIDFromHandleOrEmail(handleOrEmail) {
+  if (handleOrEmail.startsWith("@")) {
+    return userIDFromHandle(handleOrEmail.slice(1)); // Chop off the "@";
+  } else {
+    return userIDFromEmail(handleOrEmail); // Assume email.
+  }
 }
 
 // 📚 Library (Useful functions used throughout the file.)

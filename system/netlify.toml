@@ -18,8 +18,9 @@
 [functions.user]
   included_files = ["backend/**/*.mjs"]
   external_node_modules = ["got", "mongodb"]
-[functions.presigned-upload-url]
+[functions.presigned-url]
   external_node_modules = ["got", "mongodb", "nanoid", "@aws-sdk-client-s3", "@aws-sdk/s3-request-presigner"]
+  included_files = ["backend/**/*.mjs"]
 [functions.thumbnail]
   external_node_modules = ["chrome-aws-lambda"]
 [functions.session]
@@ -135,7 +136,12 @@
   status = 200
 [[redirects]]
   from = "/presigned-upload-url/*"
-  to = "/.netlify/functions/presigned-upload-url"
+  to = "/.netlify/functions/presigned-url"
+  status = 200
+  force = true
+[[redirects]]
+  from = "/presigned-download-url/*"
+  to = "/.netlify/functions/presigned-url"
   status = 200
   force = true
 [[redirects]]

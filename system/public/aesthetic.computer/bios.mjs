@@ -2521,7 +2521,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           reader.onload = async () => {
             const img = new Image();
             img.src = reader.result;
-            resolve((await blobToBitmap(reader.result)));
+            resolve(await blobToBitmap(reader.result));
           };
           reader.onerror = (error) => {
             reject(error);
@@ -2613,26 +2613,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
-    // Download the blob in the background if it doesn't exist?
-    // TODO: This would need a progress bar...
-    /*
-    if (!object.startsWith("blob:")) {
+    // Fetch download url from `/presigned-download-url?for=${filename}` if we
+    // don't already have a blob.
+    if (typeof object === "string") {
       try {
-        const response = await fetch(object);
-        const blob = await response.blob();
-        object = URL.createObjectURL(blob);
-      } catch (error) {
-        console.error(`📉 Failed to download: ${error}`);
+        const response = await fetch(`/presigned-download-url?for=${filename}`);
+        const json = await response.json();
+        object = json.url;
+      } catch (err) {
+        console.log(err);
       }
     }
-    */
 
     const a = document.createElement("a");
     a.href = object;
     a.target = "_blank";
     a.download = filename.split("/").pop(); // Remove any extra paths.
+
     a.click();
-    URL.revokeObjectURL(a.href);
+    if (typeof a.href !== "string") URL.revokeObjectURL(a.href);
 
     // Picture in Picture: Image Download UI? 22.11.24.08.51
     //const container = document.createElement('div');

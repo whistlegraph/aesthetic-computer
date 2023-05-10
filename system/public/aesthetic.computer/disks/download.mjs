@@ -116,6 +116,7 @@ function act({ event: e, num, download, colon, rec, params, jump, back }) {
       if (colon[0] === "painting") {
         // Do a network download here...
         download(slug + ".png");
+        // TODO: Show an in-app progress bar here. 23.05.09.10.21
       } else {
         download(slug + ".mp4");
       }

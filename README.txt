@@ -66,14 +66,15 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Usernames and /p Original Posting ***
-  - [] Also rename so that "painting-${timestamp}.png" is the
-        name of downloaded paintings remotely (to match local).
   - [-] Build a painting listing page!.
   - [-] Limit resolution of paintings?
   + Later
   - [] `/p` painting feed.
   - [] Update / finalize auth0 login screen.
   + Done
+  - [x] Get presigned download URLs working.
+  - [x] Also rename so that "painting-${timestamp}.png" is the
+        name of downloaded paintings remotely (to match local).
   - [x] Live email based file links do not work.
     - https://cloud.digitalocean.com/spaces/user.aesthetic.computer
     - https://aesthetic.computer/media/me@jas.life/painting/2023.5.03.13.38.15.png
@@ -104,30 +105,30 @@
         of scaling it down on import by `n` x.
 
 *** Bitmark Autonomy App Integration ***
-📇 Autonomy side
-  + Now
-  - [] Tap logo to open fullscreen webview to: `https://aesthetic.computer?dids=${key}`
-    - [] Logo should have a hover state / tap state where the opacity dips.
-    - [] The keyboard should float on top of (and NOT resize) the webview when
-         opened.
-    - [] The background of the webview / border margin around aesthetic.computer should be black.
-  - [] Pass DIDs keys to aesthetic.computer on Autonomy "A" logo tap.
-  - [] Function to call from JS to "close" the webview.
-  - [] If a.c has media / is logged in then show a list in the gallery view. 
-       (Make a listing page that pulls json from https://aesthetic.computer/media/@user/painting) and displays the images uploaded.
-  - [] Single tap link from the "portfolio" view to fork / edit an already made painting / 
-       pop open an aesthetic.computer URL. 
-  + Next
-  - [] Aggregator page of everyone's published work.
-🖌️️ aesthetic.computer side 
-  + Now
-  - [] Add custom MOTD greeting for Autonomy users when the open the prompt.
-  - [] Authenticate user / create account automagically from DIDs key.
-    - [] ❓ How to allow user to associate existing account or tie email address
-         to acount?
-  - [] Custom webview styling for native embed.
-  + Next
-  - [] Aggregator API / social features / turn-based painting.
+  📇 Autonomy side
+    + Now
+    - [] Tap logo to open fullscreen webview to: `https://aesthetic.computer?dids=${key}`
+      - [] Logo should have a hover state / tap state where the opacity dips.
+      - [] The keyboard should float on top of (and NOT resize) the webview when
+          opened.
+      - [] The background of the webview / border margin around aesthetic.computer should be black.
+    - [] Pass DIDs keys to aesthetic.computer on Autonomy "A" logo tap.
+    - [] Function to call from JS to "close" the webview.
+    - [] If a.c has media / is logged in then show a list in the gallery view. 
+        (Make a listing page that pulls json from https://aesthetic.computer/media/@user/painting) and displays the images uploaded.
+    - [] Single tap link from the "portfolio" view to fork / edit an already made painting / 
+        pop open an aesthetic.computer URL. 
+    + Next
+    - [] Aggregator page of everyone's published work.
+  🖌️️ aesthetic.computer side 
+    + Now
+    - [] Add custom MOTD greeting for Autonomy users when the open the prompt.
+    - [] Authenticate user / create account automagically from DIDs key.
+      - [] ❓ How to allow user to associate existing account or tie email address
+          to acount?
+    - [] Custom webview styling for native embed.
+    + Next
+    - [] Aggregator API / social features / turn-based painting.
 
 *** Happy Hands (June 1st) 🖐️😃 ***
   😎 Now
