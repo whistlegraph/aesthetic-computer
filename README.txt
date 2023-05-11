@@ -65,6 +65,18 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** General Painting / Graphics API ***
+  - [❤️‍🔥] Examine "paste" not updating automatically in relation to the below.
+  - [] Fix 'system.nopaint.bakeOnLeave` `page(screen)` anomaly. (Redo "write")
+  - [] Abstract the `rect = null` / `shape = null` / "bake" calls better
+      in all brushes.
+  - [] change resize to painting
+  - [] allow prefix colors for oval, shape, and line
+  - [] make `coat` a new command
++ Done
+  - [x] Add "paste" command to load a bitmap locally, with the option
+        of scaling it down on import by `n` x.
+
 *** Usernames and /p Original Posting ***
   - [] Build a painting listing page!.
   - [-] Limit resolution of paintings?
@@ -92,17 +104,6 @@
     - [x] Set a max length of 16 characters.
   - [x] Greet a user by their handle!
   - [x] Give users the ability to add handles.
-
-*** General Painting / Graphics API ***
-  - [] Fix 'system.nopaint.bakeOnLeave` `page(screen)` anomaly. (Redo "write")
-  - [] Abstract the `rect = null` / `shape = null` / "bake" calls better
-      in all brushes.
-  - [] change resize to painting
-  - [] allow prefix colors for oval, shape, and line
-  - [] make `coat` a new command
-+ Done
-  - [x] Add "paste" command to load a bitmap locally, with the option
-        of scaling it down on import by `n` x.
 
 *** Bitmark Autonomy App Integration ***
   📇 Autonomy side

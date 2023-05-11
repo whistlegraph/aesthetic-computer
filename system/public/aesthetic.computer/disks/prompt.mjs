@@ -98,7 +98,10 @@ function boot($) {
         try {
           const f = await file();
           store["file:opened"] = f;
-        } catch {}
+          // The continuation of this is handled inside of `paste` -> `boot`.
+        } catch (err) {
+          console.error(err);
+        }
       }
 
       if (text.startsWith("handle")) {

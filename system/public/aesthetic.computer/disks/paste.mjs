@@ -2,41 +2,39 @@
 // Load an image from an external source.
 
 /* #region 📓 TODO 
-  - [] Get this updating for larger files without frame skips / interaction weirdness.
+  - [😫] Handle file cancel state. (It currently hangs)
   - [-] Add exact width and height scaler to `paste`.
   - [] Optimize / speed up `paste` function by alot?
+  + Done
+  - [x] Get this updating for larger files without frame skips / interaction weirdness.
   - [x] Just load a local file for now.
 #endregion */
 
-let yetToPaste = true,
-  needsPaste = false;
+let needsPaste = false;
 
 // 🥾 Boot (Runs once before first paint and sim)
-async function boot({ store }) {}
-
-// 🎨 Paint (Executes every display frame)
-function paint({ needsPaint, page, screen, paste, store, system, flatten }) {
-  if (needsPaste) {
-    page(system.painting);
-    paste(store["file:opened"], 0, 0, 1 / 6);
-    //page(screen);
-    needsPaste = false;
-    needsPaint();
-  }
-}
-
-function sim({ store, needsPaint }) {
-  if (yetToPaste && store["file:opened"]) {
-    yetToPaste = false;
+function boot({store, system}) {
+  if (store["file:opened"]) {
+    system.nopaint.needsBake = true;
     needsPaste = true;
   }
 }
 
+function bake({ paste, store }) {
+  console.log("baking!");
+  if (needsPaste) {
+    paste(store["file:opened"], 0, 0, 1 / 6);
+    needsPaste = false;
+  }
+}
+
 // ✒ Act (Runs once per user interaction)
-async function act({ event: e, file, store }) {
+async function act({ event: e, file, store, system }) {
   if (e.is("touch") && !store["file:opened"]) {
     try {
       store["file:opened"] = await file();
+      needsPaste = true;
+      system.nopaint.needsBake = true;
     } catch (err) {
       console.error(err);
     }
@@ -45,7 +43,7 @@ async function act({ event: e, file, store }) {
 
 export const system = "nopaint";
 
-export { boot, sim, act, paint };
+export { boot, bake, act };
 
 // 📚 Library (Useful functions used throughout the piece)
 // ...
