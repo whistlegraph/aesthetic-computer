@@ -477,7 +477,6 @@
 #   "fees": 101070
 # }
 
-# NOT FOUND
 # Card 41
 # 56: https://ordinals.com/sat/jmnmofemhyx
 # BC1Q0L9MS8L6U3DQNZ6983FPGUJ9TG5H8ZT55HCE7V
@@ -523,6 +522,14 @@
 #   "inscription": "153445406160c34151ff69dcc47fafca66765daa7ba571d5002435c8f7e719fdi0",
 #   "reveal": "153445406160c34151ff69dcc47fafca66765daa7ba571d5002435c8f7e719fd",
 #   "fees": 127800
+# }
+
+# 61: https://ordinals.com/sat/aqdaszhurwg
+# {
+#   "commit": "c978fc892c2ba30a8a40a5ba00e7399fcfeb1bf0c268c8794fc1334a10711dc2",
+#   "inscription": "82cda410ec2711eaa67fe90034e7e816d6c94bdebf218a7172098299c10edd6ci0",
+#   "reveal": "82cda410ec2711eaa67fe90034e7e816d6c94bdebf218a7172098299c10edd6c",
+#   "fees": 542778
 # }
 
 # *** Experiments ***

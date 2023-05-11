@@ -66,7 +66,7 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Usernames and /p Original Posting ***
-  - [-] Build a painting listing page!.
+  - [] Build a painting listing page!.
   - [-] Limit resolution of paintings?
   + Later
   - [] `/p` painting feed.
@@ -191,6 +191,7 @@
 
 *** (w)ordfish ***
 + Later
+- [] Sign an `ordfish` for Casey.
 - [] Create the last 50 ordfish once fees go down.
   - [] Use `paste` to bring in old ones.
 + Done

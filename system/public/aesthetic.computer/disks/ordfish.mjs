@@ -127,6 +127,8 @@ const ordfish = {
     "f704a6b279a766269c19662a314dd68077ac10a46a3edead88b568788cb2a8bdi0",
   jahkarovszw:
     "153445406160c34151ff69dcc47fafca66765daa7ba571d5002435c8f7e719fdi0",
+  aqdaszhurwg:
+    "82cda410ec2711eaa67fe90034e7e816d6c94bdebf218a7172098299c10edd6ci0",
 };
 
 const fishCount = Object.keys(ordfish).length;
@@ -267,7 +269,7 @@ function meta({ params }) {
   return {
     title,
     desc: `There are ${fishCount} ordfish swimming right now.`,
-    image_url: `${baseUrl}/${code}.webp`
+    image_url: `${baseUrl}/${code}.webp`,
   };
 }
 
