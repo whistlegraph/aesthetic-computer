@@ -191,10 +191,12 @@
 
 *** (w)ordfish ***
 + Later
-- [] Sign an `ordfish` for Casey.
 - [] Create the last 50 ordfish once fees go down.
   - [] Use `paste` to bring in old ones.
+- [] Re-automate the process, including upload to spaces... Perhaps
+     putting it in the a.c api with some edge functions.
 + Done
+- [x] Sign an `ordfish` for Casey.
 - [x] Make an `ordfish` slideshow page and route the codes to
      `ordfish~CODE` for url sharing with a button link to ordinals.com.
 - [x] Get collection page online.
