@@ -880,6 +880,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "logout") {
       window.acLOGOUT?.();
+      window.flutter_inappwebview?.callHandler("closeWebview"); // Close A.C. webview on logout inside of Autonomy wallet.
       return;
     }
 
