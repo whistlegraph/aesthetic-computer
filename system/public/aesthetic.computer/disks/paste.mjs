@@ -2,6 +2,7 @@
 // Load an image from an external source.
 
 /* #region 📓 TODO 
+  - [] Get this updating for larger files without frame skips / interaction weirdness.
   - [-] Add exact width and height scaler to `paste`.
   - [] Optimize / speed up `paste` function by alot?
   - [x] Just load a local file for now.
@@ -14,19 +15,18 @@ let yetToPaste = true,
 async function boot({ store }) {}
 
 // 🎨 Paint (Executes every display frame)
-function paint({ needsPaint, page, screen, paste, store, system }) {
+function paint({ needsPaint, page, screen, paste, store, system, flatten }) {
   if (needsPaste) {
     page(system.painting);
     paste(store["file:opened"], 0, 0, 1 / 6);
-    page(screen);
+    //page(screen);
     needsPaste = false;
-    needsPaint(); // TODO: Why is this necessary? 23.05.08.00.03
+    needsPaint();
   }
 }
 
-function sim({ store }) {
+function sim({ store, needsPaint }) {
   if (yetToPaste && store["file:opened"]) {
-    console.log("simming", store["file:opened"]);
     yetToPaste = false;
     needsPaste = true;
   }

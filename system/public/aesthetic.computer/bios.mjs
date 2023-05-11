@@ -2517,15 +2517,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           reject("Selected file is not an image.");
         } else {
           const reader = new FileReader();
-          reader.readAsDataURL(file);
+
           reader.onload = async () => {
-            const img = new Image();
-            img.src = reader.result;
-            resolve(await blobToBitmap(reader.result));
+            const blob = new Blob([reader.result], { type: file.type });
+            resolve(await blobToBitmap(blob));
           };
           reader.onerror = (error) => {
             reject(error);
           };
+          reader.readAsArrayBuffer(file);
         }
       };
     });
