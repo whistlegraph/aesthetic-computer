@@ -2615,8 +2615,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Fetch download url from `/presigned-download-url?for=${filename}` if we
-    // don't already have a blob.
-    if (typeof object === "string") {
+    // don't already have a blob string.
+
+    if (!object.startsWith("blob:")) {
       try {
         const response = await fetch(`/presigned-download-url?for=${filename}`);
         const json = await response.json();
