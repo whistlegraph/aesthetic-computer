@@ -2786,7 +2786,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       const hands = options.hands === true; // Hand-tracking globals.
       let handVideoTime = -1;
-      const useLegacyHandsAPI = true;
+      const useLegacyHandsAPI = false;
 
       const buffer = document.createElement("canvas");
       let animationRequest;
