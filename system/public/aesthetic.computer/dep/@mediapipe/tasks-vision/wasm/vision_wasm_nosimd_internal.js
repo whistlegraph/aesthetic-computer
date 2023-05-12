@@ -1,4 +1,4 @@
-// Build 527689245
+// Build 530328550
 
 var ModuleFactory = (() => {
   var _scriptDir = typeof document !== 'undefined' && document.currentScript ? document.currentScript.src : undefined;
@@ -406,15 +406,15 @@ var tempDouble;
 var tempI64;
 
 var ASM_CONSTS = {
- 1030022: $0 => {
+ 1038328: $0 => {
   const canvas = Emval.toValue($0);
   const context = canvas.getContext("webgpu");
   return JsValStore.add(context.getCurrentTexture());
  },
- 1030157: () => {
+ 1038463: () => {
   return typeof HTMLCanvasElement !== "undefined";
  },
- 1030212: ($0, $1, $2, $3, $4) => {
+ 1038518: ($0, $1, $2, $3, $4) => {
   const drawable = Emval.toValue($0);
   const device = JsValStore.get($1);
   const texture = JsValStore.get($2);
@@ -426,7 +426,7 @@ var ASM_CONSTS = {
    texture: texture
   }, [ width, height ]);
  },
- 1030463: ($0, $1, $2, $3) => {
+ 1038769: ($0, $1, $2, $3) => {
   const sourceExtTex = Emval.toValue($0);
   const device = JsValStore.get($1);
   const sampler = JsValStore.get($2);
@@ -443,33 +443,33 @@ var ASM_CONSTS = {
   });
   return JsValStore.add(bindGroup);
  },
- 1030811: ($0, $1) => {
+ 1039117: ($0, $1) => {
   const inputArray = Emval.toValue($0);
   const output = Emval.toValue($1);
   const ctx = output.getContext("2d");
   const image_data = new ImageData(inputArray, output.width, output.height);
   ctx.putImageData(image_data, 0, 0);
  },
- 1031035: ($0, $1) => {
+ 1039341: ($0, $1) => {
   const input = Emval.toValue($0);
   const outputArray = Emval.toValue($1);
   const ctx = input.getContext("2d");
   const data = ctx.getImageData(0, 0, input.width, input.height);
   outputArray.set(data.data);
  },
- 1031239: ($0, $1) => {
+ 1039545: ($0, $1) => {
   const input = Emval.toValue($0);
   const output = Emval.toValue($1);
   const ctx = output.getContext("2d");
   ctx.drawImage(input, 0, 0);
  },
- 1031375: () => {
+ 1039681: () => {
   return !!Module["preinitializedWebGPUDevice"];
  },
- 1031426: () => {
+ 1039732: () => {
   specialHTMLTargets["#canvas"] = Module.canvas;
  },
- 1031477: () => {
+ 1039783: () => {
   return typeof wasmOffsetConverter !== "undefined";
  }
 };
@@ -487,8 +487,8 @@ function JsWrapImageConverter() {
  }
 }
 
-function JsOnUint8ClampedArrayImageListener(output_stream_name, binary_ptr, binary_size, width, height, num_channels, make_deep_copy, timestamp_ms) {
- const image = Module._imageConverter(binary_ptr, binary_size, width, height, num_channels, make_deep_copy, Uint8ClampedArray);
+function JsOnUint8ArrayImageListener(output_stream_name, binary_ptr, binary_size, width, height, num_channels, make_deep_copy, timestamp_ms) {
+ const image = Module._imageConverter(binary_ptr, binary_size, width, height, num_channels, make_deep_copy, Uint8Array);
  Module._wrapSimpleListenerOutput(output_stream_name, image, timestamp_ms);
 }
 
@@ -505,8 +505,8 @@ function JsOnWebGLTextureListener(output_stream_name, name, width, height, times
  }, timestamp_ms);
 }
 
-function JsOnUint8ClampedArrayImageVectorListener(output_stream_name, binary_ptr, binary_size, width, height, num_channels, make_deep_copy, timestamp_ms) {
- const image = Module._imageConverter(binary_ptr, binary_size, width, height, num_channels, make_deep_copy, Uint8ClampedArray);
+function JsOnUint8ArrayImageVectorListener(output_stream_name, binary_ptr, binary_size, width, height, num_channels, make_deep_copy, timestamp_ms) {
+ const image = Module._imageConverter(binary_ptr, binary_size, width, height, num_channels, make_deep_copy, Uint8Array);
  Module._wrapSimpleListenerOutput(output_stream_name, image, false, timestamp_ms);
 }
 
@@ -7949,8 +7949,8 @@ var wasmImports = {
  "cd": JsOnSimpleListenerFloat,
  "bd": JsOnSimpleListenerInt,
  "ad": JsOnSimpleListenerString,
- "$c": JsOnUint8ClampedArrayImageListener,
- "_c": JsOnUint8ClampedArrayImageVectorListener,
+ "$c": JsOnUint8ArrayImageListener,
+ "_c": JsOnUint8ArrayImageVectorListener,
  "J": JsOnVectorFinishedListener,
  "Zc": JsOnVectorListenerBool,
  "Yc": JsOnVectorListenerDouble,
@@ -7960,9 +7960,9 @@ var wasmImports = {
  "Uc": JsOnVectorListenerString,
  "Tc": JsOnWebGLTextureListener,
  "Sc": JsOnWebGLTextureVectorListener,
- "C": JsWrapErrorListener,
+ "D": JsWrapErrorListener,
  "Ja": JsWrapImageConverter,
- "r": JsWrapSimpleListeners,
+ "s": JsWrapSimpleListeners,
  "Rc": ___call_sighandler,
  "i": ___cxa_throw,
  "Ia": ___syscall_fcntl64,
@@ -7979,7 +7979,7 @@ var wasmImports = {
  "Fc": __embind_register_emval,
  "Fa": __embind_register_float,
  "B": __embind_register_integer,
- "k": __embind_register_memory_view,
+ "l": __embind_register_memory_view,
  "Ea": __embind_register_std_string,
  "ha": __embind_register_std_wstring,
  "Ec": __embind_register_void,
@@ -7990,10 +7990,10 @@ var wasmImports = {
  "Da": __emval_get_property,
  "Ca": __emval_incref,
  "ea": __emval_instanceof,
- "Z": __emval_new_cstring,
+ "$": __emval_new_cstring,
  "da": __emval_run_destructors,
  "Ba": __emval_set_property,
- "Y": __emval_take_value,
+ "_": __emval_take_value,
  "Cc": __emval_typeof,
  "Bc": __gmtime_js,
  "Ac": __localtime_js,
@@ -8006,7 +8006,7 @@ var wasmImports = {
  "A": _emscripten_asm_const_int,
  "vc": _emscripten_date_now,
  "uc": _emscripten_get_heap_max,
- "q": _emscripten_get_now,
+ "r": _emscripten_get_now,
  "tc": _emscripten_memcpy_big,
  "sc": _emscripten_pc_get_function,
  "rc": _emscripten_resize_heap,
@@ -8025,7 +8025,7 @@ var wasmImports = {
  "I": _emscripten_webgpu_get_device,
  "gc": _emscripten_webgpu_import_bind_group,
  "fc": _emscripten_webgpu_import_texture,
- "Q": _emscripten_webgpu_release_js_handle,
+ "S": _emscripten_webgpu_release_js_handle,
  "Lc": _environ_get,
  "Kc": _environ_sizes_get,
  "xa": _exit,
@@ -8035,65 +8035,65 @@ var wasmImports = {
  "ia": _fd_write,
  "ec": _getentropy,
  "d": _glActiveTexture,
- "X": _glAttachShader,
+ "Z": _glAttachShader,
  "dc": _glBindAttribLocation,
  "e": _glBindBuffer,
  "cc": _glBindBufferBase,
  "t": _glBindFramebuffer,
  "b": _glBindTexture,
- "y": _glBindVertexArray,
+ "v": _glBindVertexArray,
  "wa": _glBlendEquation,
  "bc": _glBlendFunc,
- "s": _glBufferData,
- "v": _glClear,
+ "q": _glBufferData,
+ "x": _glClear,
  "ca": _glClearColor,
  "Pb": _glClientWaitSync,
  "va": _glCompileShader,
  "ua": _glCreateProgram,
  "ta": _glCreateShader,
- "H": _glDeleteBuffers,
+ "C": _glDeleteBuffers,
  "M": _glDeleteFramebuffers,
- "l": _glDeleteProgram,
- "P": _glDeleteShader,
- "O": _glDeleteSync,
- "x": _glDeleteTextures,
- "W": _glDeleteVertexArrays,
- "G": _glDisable,
- "w": _glDisableVertexAttribArray,
- "m": _glDrawArrays,
- "N": _glDrawBuffers,
+ "k": _glDeleteProgram,
+ "R": _glDeleteShader,
+ "Q": _glDeleteSync,
+ "z": _glDeleteTextures,
+ "P": _glDeleteVertexArrays,
+ "H": _glDisable,
+ "u": _glDisableVertexAttribArray,
+ "o": _glDrawArrays,
+ "O": _glDrawBuffers,
  "ac": _glEnable,
- "p": _glEnableVertexAttribArray,
+ "n": _glEnableVertexAttribArray,
  "sa": _glFenceSync,
- "V": _glFinish,
- "ba": _glFlush,
- "u": _glFramebufferTexture2D,
+ "Y": _glFinish,
+ "X": _glFlush,
+ "w": _glFramebufferTexture2D,
  "ra": _glFramebufferTextureLayer,
- "z": _glGenBuffers,
+ "y": _glGenBuffers,
  "L": _glGenFramebuffers,
- "F": _glGenTextures,
- "U": _glGenVertexArrays,
+ "G": _glGenTextures,
+ "N": _glGenVertexArrays,
  "qa": _glGetAttribLocation,
- "T": _glGetError,
- "o": _glGetIntegerv,
+ "W": _glGetError,
+ "p": _glGetIntegerv,
  "$b": _glGetProgramiv,
  "_b": _glGetShaderInfoLog,
  "Zb": _glGetShaderiv,
- "E": _glGetString,
+ "F": _glGetString,
  "Yb": _glGetUniformBlockIndex,
- "h": _glGetUniformLocation,
+ "g": _glGetUniformLocation,
  "pa": _glLinkProgram,
- "S": _glPixelStorei,
+ "V": _glPixelStorei,
  "oa": _glReadPixels,
  "na": _glShaderSource,
- "D": _glTexImage2D,
+ "E": _glTexImage2D,
  "ma": _glTexParameterfv,
  "c": _glTexParameteri,
- "aa": _glTexStorage2D,
+ "ba": _glTexStorage2D,
  "Xb": _glTexStorage3D,
- "$": _glTexSubImage2D,
+ "aa": _glTexSubImage2D,
  "Wb": _glTexSubImage3D,
- "_": _glUniform1f,
+ "U": _glUniform1f,
  "f": _glUniform1i,
  "Vb": _glUniform2f,
  "Ub": _glUniform2fv,
@@ -8101,15 +8101,15 @@ var wasmImports = {
  "Tb": _glUniform4iv,
  "Sb": _glUniformBlockBinding,
  "ka": _glUniformMatrix4fv,
- "g": _glUseProgram,
- "n": _glVertexAttribPointer,
+ "h": _glUseProgram,
+ "m": _glVertexAttribPointer,
  "K": _glViewport,
  "Nb": mediapipe_create_utility_canvas2d,
  "Mb": _mediapipe_find_canvas_event_target,
  "Lb": mediapipe_import_external_texture,
  "Kb": _mediapipe_webgl_tex_image_drawable,
  "Jc": _proc_exit,
- "R": _strftime,
+ "T": _strftime,
  "Jb": _strftime_l,
  "Ib": _wgpuBindGroupLayoutRelease,
  "Hb": _wgpuBindGroupRelease,
@@ -8356,16 +8356,20 @@ var _waitUntilIdle = Module["_waitUntilIdle"] = function() {
  return (_waitUntilIdle = Module["_waitUntilIdle"] = Module["asm"]["de"]).apply(null, arguments);
 };
 
+var _closeGraph = Module["_closeGraph"] = function() {
+ return (_closeGraph = Module["_closeGraph"] = Module["asm"]["ee"]).apply(null, arguments);
+};
+
 var _setAutoRenderToScreen = Module["_setAutoRenderToScreen"] = function() {
- return (_setAutoRenderToScreen = Module["_setAutoRenderToScreen"] = Module["asm"]["ee"]).apply(null, arguments);
+ return (_setAutoRenderToScreen = Module["_setAutoRenderToScreen"] = Module["asm"]["fe"]).apply(null, arguments);
 };
 
 var ___getTypeName = Module["___getTypeName"] = function() {
- return (___getTypeName = Module["___getTypeName"] = Module["asm"]["fe"]).apply(null, arguments);
+ return (___getTypeName = Module["___getTypeName"] = Module["asm"]["ge"]).apply(null, arguments);
 };
 
 var __embind_initialize_bindings = Module["__embind_initialize_bindings"] = function() {
- return (__embind_initialize_bindings = Module["__embind_initialize_bindings"] = Module["asm"]["ge"]).apply(null, arguments);
+ return (__embind_initialize_bindings = Module["__embind_initialize_bindings"] = Module["asm"]["he"]).apply(null, arguments);
 };
 
 var ___dl_seterr = function() {
@@ -8373,32 +8377,32 @@ var ___dl_seterr = function() {
 };
 
 var __emscripten_timeout = function() {
- return (__emscripten_timeout = Module["asm"]["he"]).apply(null, arguments);
+ return (__emscripten_timeout = Module["asm"]["ie"]).apply(null, arguments);
 };
 
 var _emscripten_builtin_memalign = function() {
- return (_emscripten_builtin_memalign = Module["asm"]["ie"]).apply(null, arguments);
+ return (_emscripten_builtin_memalign = Module["asm"]["je"]).apply(null, arguments);
 };
 
 var stackSave = function() {
- return (stackSave = Module["asm"]["je"]).apply(null, arguments);
+ return (stackSave = Module["asm"]["ke"]).apply(null, arguments);
 };
 
 var stackRestore = function() {
- return (stackRestore = Module["asm"]["ke"]).apply(null, arguments);
+ return (stackRestore = Module["asm"]["le"]).apply(null, arguments);
 };
 
 var stackAlloc = function() {
- return (stackAlloc = Module["asm"]["le"]).apply(null, arguments);
+ return (stackAlloc = Module["asm"]["me"]).apply(null, arguments);
 };
 
 var ___cxa_is_pointer_type = function() {
- return (___cxa_is_pointer_type = Module["asm"]["me"]).apply(null, arguments);
+ return (___cxa_is_pointer_type = Module["asm"]["ne"]).apply(null, arguments);
 };
 
-var ___start_em_js = Module["___start_em_js"] = 1023460;
+var ___start_em_js = Module["___start_em_js"] = 1031780;
 
-var ___stop_em_js = Module["___stop_em_js"] = 1030022;
+var ___stop_em_js = Module["___stop_em_js"] = 1038328;
 
 Module["addRunDependency"] = addRunDependency;
 

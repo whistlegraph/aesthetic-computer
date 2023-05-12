@@ -2786,7 +2786,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       const hands = options.hands === true; // Hand-tracking globals.
       let handVideoTime = -1;
-      const useLegacyHandsAPI = true; //performance of both libraries is equivalent on iphone 14 pro but vastly different on 13 pro 23.5.12 
+      const useLegacyHandsAPI = false; //performance of both libraries is equivalent on iphone 14 pro but vastly different on 13 pro 23.5.12 
 
       const buffer = document.createElement("canvas");
       let animationRequest;

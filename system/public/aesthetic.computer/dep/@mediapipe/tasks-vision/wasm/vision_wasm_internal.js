@@ -1,4 +1,4 @@
-// Build 527689245
+// Build 530328550
 
 var ModuleFactory = (() => {
   var _scriptDir = typeof document !== 'undefined' && document.currentScript ? document.currentScript.src : undefined;
@@ -406,15 +406,15 @@ var tempDouble;
 var tempI64;
 
 var ASM_CONSTS = {
- 1205702: $0 => {
+ 1210616: $0 => {
   const canvas = Emval.toValue($0);
   const context = canvas.getContext("webgpu");
   return JsValStore.add(context.getCurrentTexture());
  },
- 1205837: () => {
+ 1210751: () => {
   return typeof HTMLCanvasElement !== "undefined";
  },
- 1205892: ($0, $1, $2, $3, $4) => {
+ 1210806: ($0, $1, $2, $3, $4) => {
   const drawable = Emval.toValue($0);
   const device = JsValStore.get($1);
   const texture = JsValStore.get($2);
@@ -426,7 +426,7 @@ var ASM_CONSTS = {
    texture: texture
   }, [ width, height ]);
  },
- 1206143: ($0, $1, $2, $3) => {
+ 1211057: ($0, $1, $2, $3) => {
   const sourceExtTex = Emval.toValue($0);
   const device = JsValStore.get($1);
   const sampler = JsValStore.get($2);
@@ -443,33 +443,33 @@ var ASM_CONSTS = {
   });
   return JsValStore.add(bindGroup);
  },
- 1206491: ($0, $1) => {
+ 1211405: ($0, $1) => {
   const inputArray = Emval.toValue($0);
   const output = Emval.toValue($1);
   const ctx = output.getContext("2d");
   const image_data = new ImageData(inputArray, output.width, output.height);
   ctx.putImageData(image_data, 0, 0);
  },
- 1206715: ($0, $1) => {
+ 1211629: ($0, $1) => {
   const input = Emval.toValue($0);
   const outputArray = Emval.toValue($1);
   const ctx = input.getContext("2d");
   const data = ctx.getImageData(0, 0, input.width, input.height);
   outputArray.set(data.data);
  },
- 1206919: ($0, $1) => {
+ 1211833: ($0, $1) => {
   const input = Emval.toValue($0);
   const output = Emval.toValue($1);
   const ctx = output.getContext("2d");
   ctx.drawImage(input, 0, 0);
  },
- 1207055: () => {
+ 1211969: () => {
   return !!Module["preinitializedWebGPUDevice"];
  },
- 1207106: () => {
+ 1212020: () => {
   specialHTMLTargets["#canvas"] = Module.canvas;
  },
- 1207157: () => {
+ 1212071: () => {
   return typeof wasmOffsetConverter !== "undefined";
  }
 };
@@ -487,8 +487,8 @@ function JsWrapImageConverter() {
  }
 }
 
-function JsOnUint8ClampedArrayImageListener(output_stream_name, binary_ptr, binary_size, width, height, num_channels, make_deep_copy, timestamp_ms) {
- const image = Module._imageConverter(binary_ptr, binary_size, width, height, num_channels, make_deep_copy, Uint8ClampedArray);
+function JsOnUint8ArrayImageListener(output_stream_name, binary_ptr, binary_size, width, height, num_channels, make_deep_copy, timestamp_ms) {
+ const image = Module._imageConverter(binary_ptr, binary_size, width, height, num_channels, make_deep_copy, Uint8Array);
  Module._wrapSimpleListenerOutput(output_stream_name, image, timestamp_ms);
 }
 
@@ -505,8 +505,8 @@ function JsOnWebGLTextureListener(output_stream_name, name, width, height, times
  }, timestamp_ms);
 }
 
-function JsOnUint8ClampedArrayImageVectorListener(output_stream_name, binary_ptr, binary_size, width, height, num_channels, make_deep_copy, timestamp_ms) {
- const image = Module._imageConverter(binary_ptr, binary_size, width, height, num_channels, make_deep_copy, Uint8ClampedArray);
+function JsOnUint8ArrayImageVectorListener(output_stream_name, binary_ptr, binary_size, width, height, num_channels, make_deep_copy, timestamp_ms) {
+ const image = Module._imageConverter(binary_ptr, binary_size, width, height, num_channels, make_deep_copy, Uint8Array);
  Module._wrapSimpleListenerOutput(output_stream_name, image, false, timestamp_ms);
 }
 
@@ -7957,8 +7957,8 @@ var wasmImports = {
  "ed": JsOnSimpleListenerFloat,
  "dd": JsOnSimpleListenerInt,
  "cd": JsOnSimpleListenerString,
- "bd": JsOnUint8ClampedArrayImageListener,
- "ad": JsOnUint8ClampedArrayImageVectorListener,
+ "bd": JsOnUint8ArrayImageListener,
+ "ad": JsOnUint8ArrayImageVectorListener,
  "K": JsOnVectorFinishedListener,
  "$c": JsOnVectorListenerBool,
  "_c": JsOnVectorListenerDouble,
@@ -8366,16 +8366,20 @@ var _waitUntilIdle = Module["_waitUntilIdle"] = function() {
  return (_waitUntilIdle = Module["_waitUntilIdle"] = Module["asm"]["fe"]).apply(null, arguments);
 };
 
+var _closeGraph = Module["_closeGraph"] = function() {
+ return (_closeGraph = Module["_closeGraph"] = Module["asm"]["ge"]).apply(null, arguments);
+};
+
 var _setAutoRenderToScreen = Module["_setAutoRenderToScreen"] = function() {
- return (_setAutoRenderToScreen = Module["_setAutoRenderToScreen"] = Module["asm"]["ge"]).apply(null, arguments);
+ return (_setAutoRenderToScreen = Module["_setAutoRenderToScreen"] = Module["asm"]["he"]).apply(null, arguments);
 };
 
 var ___getTypeName = Module["___getTypeName"] = function() {
- return (___getTypeName = Module["___getTypeName"] = Module["asm"]["he"]).apply(null, arguments);
+ return (___getTypeName = Module["___getTypeName"] = Module["asm"]["ie"]).apply(null, arguments);
 };
 
 var __embind_initialize_bindings = Module["__embind_initialize_bindings"] = function() {
- return (__embind_initialize_bindings = Module["__embind_initialize_bindings"] = Module["asm"]["ie"]).apply(null, arguments);
+ return (__embind_initialize_bindings = Module["__embind_initialize_bindings"] = Module["asm"]["je"]).apply(null, arguments);
 };
 
 var ___dl_seterr = function() {
@@ -8383,32 +8387,32 @@ var ___dl_seterr = function() {
 };
 
 var __emscripten_timeout = function() {
- return (__emscripten_timeout = Module["asm"]["je"]).apply(null, arguments);
+ return (__emscripten_timeout = Module["asm"]["ke"]).apply(null, arguments);
 };
 
 var _emscripten_builtin_memalign = function() {
- return (_emscripten_builtin_memalign = Module["asm"]["ke"]).apply(null, arguments);
+ return (_emscripten_builtin_memalign = Module["asm"]["le"]).apply(null, arguments);
 };
 
 var stackSave = function() {
- return (stackSave = Module["asm"]["le"]).apply(null, arguments);
+ return (stackSave = Module["asm"]["me"]).apply(null, arguments);
 };
 
 var stackRestore = function() {
- return (stackRestore = Module["asm"]["me"]).apply(null, arguments);
+ return (stackRestore = Module["asm"]["ne"]).apply(null, arguments);
 };
 
 var stackAlloc = function() {
- return (stackAlloc = Module["asm"]["ne"]).apply(null, arguments);
+ return (stackAlloc = Module["asm"]["oe"]).apply(null, arguments);
 };
 
 var ___cxa_is_pointer_type = function() {
- return (___cxa_is_pointer_type = Module["asm"]["oe"]).apply(null, arguments);
+ return (___cxa_is_pointer_type = Module["asm"]["pe"]).apply(null, arguments);
 };
 
-var ___start_em_js = Module["___start_em_js"] = 1199140;
+var ___start_em_js = Module["___start_em_js"] = 1204068;
 
-var ___stop_em_js = Module["___stop_em_js"] = 1205702;
+var ___stop_em_js = Module["___stop_em_js"] = 1210616;
 
 Module["addRunDependency"] = addRunDependency;
 

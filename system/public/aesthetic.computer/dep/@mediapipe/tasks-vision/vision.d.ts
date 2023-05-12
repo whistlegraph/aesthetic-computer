@@ -448,6 +448,33 @@ export declare class FaceLandmarker extends VisionTaskRunner {
      * @param modelAssetPath The path to the model asset.
      */
     static createFromModelPath(wasmFileset: WasmFileset, modelAssetPath: string): Promise<FaceLandmarker>;
+    /** Landmark connections to draw the connection between a face's lips. */
+    static FACE_LANDMARKS_LIPS: Connection[];
+    /** Landmark connections to draw the connection between a face's left eye. */
+    static FACE_LANDMARKS_LEFT_EYE: Connection[];
+    /**
+     * Landmark connections to draw the connection between a face's left eyebrow.
+     */
+    static FACE_LANDMARKS_LEFT_EYEBROW: Connection[];
+    /** Landmark connections to draw the connection between a face's left iris. */
+    static FACE_LANDMARKS_LEFT_IRIS: Connection[];
+    /** Landmark connections to draw the connection between a face's right eye. */
+    static FACE_LANDMARKS_RIGHT_EYE: Connection[];
+    /**
+     * Landmark connections to draw the connection between a face's right
+     * eyebrow.
+     */
+    static FACE_LANDMARKS_RIGHT_EYEBROW: Connection[];
+    /**
+     * Landmark connections to draw the connection between a face's right iris.
+     */
+    static FACE_LANDMARKS_RIGHT_IRIS: Connection[];
+    /** Landmark connections to draw the face's oval. */
+    static FACE_LANDMARKS_FACE_OVAL: Connection[];
+    /** Landmark connections to draw the face's contour. */
+    static FACE_LANDMARKS_CONTOURS: Connection[];
+    /** Landmark connections to draw the face's tesselation. */
+    static FACE_LANDMARKS_TESSELATION: Connection[];
     private constructor();
     /**
      * Sets new options for this `FaceLandmarker`.
@@ -532,23 +559,6 @@ export declare interface FaceLandmarkerResult {
     facialTransformationMatrixes?: Matrix[];
 }
 
-/**
- * A class containing the pairs of landmark indices to be rendered with
- * connections.
- */
-export declare class FaceLandmarksConnections {
-    static FACE_LANDMARKS_LIPS: Connection[];
-    static FACE_LANDMARKS_LEFT_EYE: Connection[];
-    static FACE_LANDMARKS_LEFT_EYEBROW: Connection[];
-    static FACE_LANDMARKS_LEFT_IRIS: Connection[];
-    static FACE_LANDMARKS_RIGHT_EYE: Connection[];
-    static FACE_LANDMARKS_RIGHT_EYEBROW: Connection[];
-    static FACE_LANDMARKS_RIGHT_IRIS: Connection[];
-    static FACE_LANDMARKS_FACE_OVAL: Connection[];
-    static FACE_LANDMARKS_CONTOURS: Connection[];
-    static FACE_LANDMARKS_TESSELATION: Connection[];
-}
-
 /** Performs face stylization on images. */
 export declare class FaceStylizer extends VisionTaskRunner {
     /**
@@ -589,19 +599,55 @@ export declare class FaceStylizer extends VisionTaskRunner {
      */
     setOptions(options: FaceStylizerOptions): Promise<void>;
     /**
-     * Performs face stylization on the provided single image. The method returns
-     * synchronously once the callback returns. Only use this method when the
-     * FaceStylizer is created with the image running mode.
+     * Performs face stylization on the provided single image and invokes the
+     * callback with result. The method returns synchronously once the callback
+     * returns. Only use this method when the FaceStylizer is created with the
+     * image running mode.
      *
      * @param image An image to process.
-     * @param callback The callback that is invoked with the stylized image. The
-     *    lifetime of the returned data is only guaranteed for the duration of the
-     *    callback.
+     * @param callback The callback that is invoked with the stylized image or
+     *    `null` if no face was detected. The lifetime of the returned data is
+     *     only guaranteed for the duration of the callback.
      */
     stylize(image: ImageSource, callback: FaceStylizerCallback): void;
     /**
-     * Performs face stylization on the provided single image. The method returns
-     * synchronously once the callback returns. Only use this method when the
+     * Performs face stylization on the provided single image and invokes the
+     * callback with result. The method returns synchronously once the callback
+     * returns. Only use this method when the FaceStylizer is created with the
+     * image running mode.
+     *
+     * The 'imageProcessingOptions' parameter can be used to specify one or all
+     * of:
+     *  - the rotation to apply to the image before performing stylization, by
+     *    setting its 'rotationDegrees' property.
+     *  - the region-of-interest on which to perform stylization, by setting its
+     *   'regionOfInterest' property. If not specified, the full image is used.
+     *  If both are specified, the crop around the region-of-interest is extracted
+     *  first, then the specified rotation is applied to the crop.
+     *
+     * @param image An image to process.
+     * @param imageProcessingOptions the `ImageProcessingOptions` specifying how
+     *    to process the input image before running inference.
+     * @param callback The callback that is invoked with the stylized image or
+     *    `null` if no face was detected. The lifetime of the returned data is
+     *    only guaranteed for the duration of the callback.
+     */
+    stylize(image: ImageSource, imageProcessingOptions: ImageProcessingOptions, callback: FaceStylizerCallback): void;
+    /**
+     * Performs face stylization on the provided single image and returns the
+     * result. This method creates a copy of the resulting image and should not be
+     * used in high-throughput applictions. Only use this method when the
+     * FaceStylizer is created with the image running mode.
+     *
+     * @param image An image to process.
+     * @return A stylized face or `null` if no face was detected. The result is
+     *     copied to avoid lifetime issues.
+     */
+    stylize(image: ImageSource): MPImage | null;
+    /**
+     * Performs face stylization on the provided single image and returns the
+     * result. This method creates a copy of the resulting image and should not be
+     * used in high-throughput applictions. Only use this method when the
      * FaceStylizer is created with the image running mode.
      *
      * The 'imageProcessingOptions' parameter can be used to specify one or all
@@ -616,14 +662,15 @@ export declare class FaceStylizer extends VisionTaskRunner {
      * @param image An image to process.
      * @param imageProcessingOptions the `ImageProcessingOptions` specifying how
      *    to process the input image before running inference.
-     * @param callback The callback that is invoked with the stylized image. The
-     *    lifetime of the returned data is only guaranteed for the duration of the
-     *    callback.
+     * @return A stylized face or `null` if no face was detected. The result is
+     *     copied to avoid lifetime issues.
      */
-    stylize(image: ImageSource, imageProcessingOptions: ImageProcessingOptions, callback: FaceStylizerCallback): void;
+    stylize(image: ImageSource, imageProcessingOptions: ImageProcessingOptions): MPImage | null;
     /**
-     * Performs face stylization on the provided video frame. Only use this method
-     * when the FaceStylizer is created with the video running mode.
+     * Performs face stylization on the provided video frame and invokes the
+     * callback with result. The method returns synchronously once the callback
+     * returns. Only use this method when the FaceStylizer is created with the
+     * video running mode.
      *
      * The input frame can be of any size. It's required to provide the video
      * frame's timestamp (in milliseconds). The input timestamps must be
@@ -631,14 +678,16 @@ export declare class FaceStylizer extends VisionTaskRunner {
      *
      * @param videoFrame A video frame to process.
      * @param timestamp The timestamp of the current frame, in ms.
-     * @param callback The callback that is invoked with the stylized image. The
-     *    lifetime of the returned data is only guaranteed for the duration of
-     * the callback.
+     * @param callback The callback that is invoked with the stylized image or
+     *   `null` if no face was detected. The lifetime of the returned data is only
+     *   guaranteed for the duration of the callback.
      */
     stylizeForVideo(videoFrame: ImageSource, timestamp: number, callback: FaceStylizerCallback): void;
     /**
-     * Performs face stylization on the provided video frame. Only use this
-     * method when the FaceStylizer is created with the video running mode.
+     * Performs face stylization on the provided video frame and invokes the
+     * callback with result. The method returns synchronously once the callback
+     * returns. Only use this method when the FaceStylizer is created with the
+     * video running mode.
      *
      * The 'imageProcessingOptions' parameter can be used to specify one or all
      * of:
@@ -654,25 +703,67 @@ export declare class FaceStylizer extends VisionTaskRunner {
      * monotonically increasing.
      *
      * @param videoFrame A video frame to process.
+     * @param timestamp The timestamp of the current frame, in ms.
      * @param imageProcessingOptions the `ImageProcessingOptions` specifying how
      *    to process the input image before running inference.
-     * @param timestamp The timestamp of the current frame, in ms.
-     * @param callback The callback that is invoked with the stylized image. The
-     *    lifetime of the returned data is only guaranteed for the duration of
-     * the callback.
+     * @param callback The callback that is invoked with the stylized image or
+     *   `null` if no face was detected. The lifetime of the returned data is only
+     *   guaranteed for the duration of the callback.
      */
-    stylizeForVideo(videoFrame: ImageSource, imageProcessingOptions: ImageProcessingOptions, timestamp: number, callback: FaceStylizerCallback): void;
+    stylizeForVideo(videoFrame: ImageSource, timestamp: number, imageProcessingOptions: ImageProcessingOptions, callback: FaceStylizerCallback): void;
+    /**
+     * Performs face stylization on the provided video frame. This method creates
+     * a copy of the resulting image and should not be used in high-throughput
+     * applictions. Only use this method when the FaceStylizer is created with the
+     * video running mode.
+     *
+     * The input frame can be of any size. It's required to provide the video
+     * frame's timestamp (in milliseconds). The input timestamps must be
+     * monotonically increasing.
+     *
+     * @param videoFrame A video frame to process.
+     * @param timestamp The timestamp of the current frame, in ms.
+     * @return A stylized face or `null` if no face was detected. The result is
+     *     copied to avoid lifetime issues.
+     */
+    stylizeForVideo(videoFrame: ImageSource, timestamp: number): MPImage | null;
+    /**
+     * Performs face stylization on the provided video frame. This method creates
+     * a copy of the resulting image and should not be used in high-throughput
+     * applictions. Only use this method when the FaceStylizer is created with the
+     * video running mode.
+     *
+     * The 'imageProcessingOptions' parameter can be used to specify one or all
+     * of:
+     *  - the rotation to apply to the image before performing stylization, by
+     *    setting its 'rotationDegrees' property.
+     *  - the region-of-interest on which to perform stylization, by setting its
+     *   'regionOfInterest' property. If not specified, the full image is used.
+     *  If both are specified, the crop around the region-of-interest is
+     * extracted first, then the specified rotation is applied to the crop.
+     *
+     * The input frame can be of any size. It's required to provide the video
+     * frame's timestamp (in milliseconds). The input timestamps must be
+     * monotonically increasing.
+     *
+     * @param videoFrame A video frame to process.
+     * @param timestamp The timestamp of the current frame, in ms.
+     * @param imageProcessingOptions the `ImageProcessingOptions` specifying how
+     *    to process the input image before running inference.
+     * @return A stylized face or `null` if no face was detected. The result is
+     *     copied to avoid lifetime issues.
+     */
+    stylizeForVideo(videoFrame: ImageSource, timestamp: number, imageProcessingOptions: ImageProcessingOptions): MPImage | null;
 }
 
 /**
- * A callback that receives an image from the face stylizer, or `null` if no
- * face was detected. The lifetime of the underlying data is limited to the
- * duration of the callback. If asynchronous processing is needed, all data
- * needs to be copied before the callback returns.
- *
- * The `WebGLTexture` output type is reserved for future usage.
+ * A callback that receives an `MPImage` object from the face stylizer, or
+ * `null` if no face was detected. The lifetime of the underlying data is
+ * limited to the duration of the callback. If asynchronous processing is
+ * needed, all data needs to be copied before the callback returns (via
+ * `image.clone()`).
  */
-export declare type FaceStylizerCallback = (image: ImageData | WebGLTexture | null, width: number, height: number) => void;
+export declare type FaceStylizerCallback = (image: MPImage | null) => void;
 
 /** Options to configure the MediaPipe Face Stylizer Task */
 export declare interface FaceStylizerOptions extends VisionTaskOptions {
@@ -1229,6 +1320,30 @@ export declare class ImageSegmenter extends VisionTaskRunner {
      */
     segment(image: ImageSource, imageProcessingOptions: ImageProcessingOptions, callback: ImageSegmenterCallback): void;
     /**
+     * Performs image segmentation on the provided single image and returns the
+     * segmentation result. This method creates a copy of the resulting masks and
+     * should not be used in high-throughput applictions. Only use this method
+     * when the ImageSegmenter is created with running mode `image`.
+     *
+     * @param image An image to process.
+     * @return The segmentation result. The data is copied to avoid lifetime
+     *     issues.
+     */
+    segment(image: ImageSource): ImageSegmenterResult;
+    /**
+     * Performs image segmentation on the provided single image and returns the
+     * segmentation result. This method creates a copy of the resulting masks and
+     * should not be used in high-v applictions. Only use this method when
+     * the ImageSegmenter is created with running mode `image`.
+     *
+     * @param image An image to process.
+     * @param imageProcessingOptions the `ImageProcessingOptions` specifying how
+     *    to process the input image before running inference.
+     * @return The segmentation result. The data is copied to avoid lifetime
+     *     issues.
+     */
+    segment(image: ImageSource, imageProcessingOptions: ImageProcessingOptions): ImageSegmenterResult;
+    /**
      * Performs image segmentation on the provided video frame and invokes the
      * callback with the response. The method returns synchronously once the
      * callback returns. Only use this method when the ImageSegmenter is
@@ -1248,14 +1363,39 @@ export declare class ImageSegmenter extends VisionTaskRunner {
      * created with running mode `video`.
      *
      * @param videoFrame A video frame to process.
-     * @param imageProcessingOptions the `ImageProcessingOptions` specifying how
-     *    to process the input image before running inference.
      * @param timestamp The timestamp of the current frame, in ms.
+     * @param imageProcessingOptions the `ImageProcessingOptions` specifying how
+     *    to process the input frame before running inference.
      * @param callback The callback that is invoked with the segmented masks. The
      *    lifetime of the returned data is only guaranteed for the duration of the
      *    callback.
      */
-    segmentForVideo(videoFrame: ImageSource, imageProcessingOptions: ImageProcessingOptions, timestamp: number, callback: ImageSegmenterCallback): void;
+    segmentForVideo(videoFrame: ImageSource, timestamp: number, imageProcessingOptions: ImageProcessingOptions, callback: ImageSegmenterCallback): void;
+    /**
+     * Performs image segmentation on the provided video frame and returns the
+     * segmentation result. This method creates a copy of the resulting masks and
+     * should not be used in high-throughput applictions. Only use this method
+     * when the ImageSegmenter is created with running mode `video`.
+     *
+     * @param videoFrame A video frame to process.
+     * @return The segmentation result. The data is copied to avoid lifetime
+     *     issues.
+     */
+    segmentForVideo(videoFrame: ImageSource, timestamp: number): ImageSegmenterResult;
+    /**
+     * Performs image segmentation on the provided video frame and returns the
+     * segmentation result. This method creates a copy of the resulting masks and
+     * should not be used in high-v applictions. Only use this method when
+     * the ImageSegmenter is created with running mode `video`.
+     *
+     * @param videoFrame A video frame to process.
+     * @param timestamp The timestamp of the current frame, in ms.
+     * @param imageProcessingOptions the `ImageProcessingOptions` specifying how
+     *    to process the input frame before running inference.
+     * @return The segmentation result. The data is copied to avoid lifetime
+     *     issues.
+     */
+    segmentForVideo(videoFrame: ImageSource, timestamp: number, imageProcessingOptions: ImageProcessingOptions): ImageSegmenterResult;
     /**
      * Get the category label list of the ImageSegmenter can recognize. For
      * `CATEGORY_MASK` type, the index in the category mask corresponds to the
@@ -1291,38 +1431,20 @@ export declare interface ImageSegmenterOptions extends VisionTaskOptions {
     outputCategoryMask?: boolean | undefined;
 }
 
-/**
- * Copyright 2023 The MediaPipe Authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 /** The output result of ImageSegmenter. */
 export declare interface ImageSegmenterResult {
     /**
-     * Multiple masks as Float32Arrays or WebGLTextures where, for each mask, each
-     * pixel represents the prediction confidence, usually in the [0, 1] range.
+     * Multiple masks represented as `Float32Array` or `WebGLTexture`-backed
+     * `MPImage`s where, for each mask, each pixel represents the prediction
+     * confidence, usually in the [0, 1] range.
      */
-    confidenceMasks?: Float32Array[] | WebGLTexture[];
+    confidenceMasks?: MPMask[];
     /**
-     * A category mask as a Uint8ClampedArray or WebGLTexture where each
-     * pixel represents the class which the pixel in the original image was
-     * predicted to belong to.
+     * A category mask represented as a `Uint8ClampedArray` or
+     * `WebGLTexture`-backed `MPImage` where each pixel represents the class which
+     * the pixel in the original image was predicted to belong to.
      */
-    categoryMask?: Uint8ClampedArray | WebGLTexture;
-    /** The width of the masks. */
-    width: number;
-    /** The height of the masks. */
-    height: number;
+    categoryMask?: MPMask;
 }
 
 /**
@@ -1398,14 +1520,9 @@ export declare class InteractiveSegmenter extends VisionTaskRunner {
     setOptions(options: InteractiveSegmenterOptions): Promise<void>;
     /**
      * Performs interactive segmentation on the provided single image and invokes
-     * the callback with the response.  The `roi` parameter is used to represent a
-     * user's region of interest for segmentation.
-     *
-     * If the output_type is `CATEGORY_MASK`, the callback is invoked with vector
-     * of images that represent per-category segmented image mask. If the
-     * output_type is `CONFIDENCE_MASK`, the callback is invoked with a vector of
-     * images that contains only one confidence image mask. The method returns
-     * synchronously once the callback returns.
+     * the callback with the response. The method returns synchronously once the
+     * callback returns. The `roi` parameter is used to represent a user's region
+     * of interest for segmentation.
      *
      * @param image An image to process.
      * @param roi The region of interest for segmentation.
@@ -1416,20 +1533,15 @@ export declare class InteractiveSegmenter extends VisionTaskRunner {
     segment(image: ImageSource, roi: RegionOfInterest, callback: InteractiveSegmenterCallback): void;
     /**
      * Performs interactive segmentation on the provided single image and invokes
-     * the callback with the response. The `roi` parameter is used to represent a
-     * user's region of interest for segmentation.
+     * the callback with the response. The method returns synchronously once the
+     * callback returns. The `roi` parameter is used to represent a user's region
+     * of interest for segmentation.
      *
      * The 'image_processing_options' parameter can be used to specify the
      * rotation to apply to the image before performing segmentation, by setting
      * its 'rotationDegrees' field. Note that specifying a region-of-interest
      * using the 'regionOfInterest' field is NOT supported and will result in an
      * error.
-     *
-     * If the output_type is `CATEGORY_MASK`, the callback is invoked with vector
-     * of images that represent per-category segmented image mask. If the
-     * output_type is `CONFIDENCE_MASK`, the callback is invoked with a vector of
-     * images that contains only one confidence image mask. The method returns
-     * synchronously once the callback returns.
      *
      * @param image An image to process.
      * @param roi The region of interest for segmentation.
@@ -1440,6 +1552,38 @@ export declare class InteractiveSegmenter extends VisionTaskRunner {
      *    callback.
      */
     segment(image: ImageSource, roi: RegionOfInterest, imageProcessingOptions: ImageProcessingOptions, callback: InteractiveSegmenterCallback): void;
+    /**
+     * Performs interactive segmentation on the provided video frame and returns
+     * the segmentation result. This method creates a copy of the resulting masks
+     * and should not be used in high-throughput applictions. The `roi` parameter
+     * is used to represent a user's region of interest for segmentation.
+     *
+     * @param image An image to process.
+     * @param roi The region of interest for segmentation.
+     * @return The segmentation result. The data is copied to avoid lifetime
+     *     limits.
+     */
+    segment(image: ImageSource, roi: RegionOfInterest): InteractiveSegmenterResult;
+    /**
+     * Performs interactive segmentation on the provided video frame and returns
+     * the segmentation result. This method creates a copy of the resulting masks
+     * and should not be used in high-throughput applictions. The `roi` parameter
+     * is used to represent a user's region of interest for segmentation.
+     *
+     * The 'image_processing_options' parameter can be used to specify the
+     * rotation to apply to the image before performing segmentation, by setting
+     * its 'rotationDegrees' field. Note that specifying a region-of-interest
+     * using the 'regionOfInterest' field is NOT supported and will result in an
+     * error.
+     *
+     * @param image An image to process.
+     * @param roi The region of interest for segmentation.
+     * @param imageProcessingOptions the `ImageProcessingOptions` specifying how
+     *    to process the input image before running inference.
+     * @return The segmentation result. The data is copied to avoid lifetime
+     *     limits.
+     */
+    segment(image: ImageSource, roi: RegionOfInterest, imageProcessingOptions: ImageProcessingOptions): InteractiveSegmenterResult;
 }
 
 /**
@@ -1458,38 +1602,20 @@ export declare interface InteractiveSegmenterOptions extends TaskRunnerOptions {
     outputCategoryMask?: boolean | undefined;
 }
 
-/**
- * Copyright 2023 The MediaPipe Authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 /** The output result of InteractiveSegmenter. */
 export declare interface InteractiveSegmenterResult {
     /**
-     * Multiple masks as Float32Arrays or WebGLTextures where, for each mask, each
-     * pixel represents the prediction confidence, usually in the [0, 1] range.
+     * Multiple masks represented as `Float32Array` or `WebGLTexture`-backed
+     * `MPImage`s where, for each mask, each pixel represents the prediction
+     * confidence, usually in the [0, 1] range.
      */
-    confidenceMasks?: Float32Array[] | WebGLTexture[];
+    confidenceMasks?: MPMask[];
     /**
-     * A category mask as a Uint8ClampedArray or WebGLTexture where each
-     * pixel represents the class which the pixel in the original image was
-     * predicted to belong to.
+     * A category mask represented as a `Uint8ClampedArray` or
+     * `WebGLTexture`-backed `MPImage` where each pixel represents the class which
+     * the pixel in the original image was predicted to belong to.
      */
-    categoryMask?: Uint8ClampedArray | WebGLTexture;
-    /** The width of the masks. */
-    width: number;
-    /** The height of the masks. */
-    height: number;
+    categoryMask?: MPMask;
 }
 
 /**
@@ -1543,9 +1669,9 @@ declare interface Matrix {
  *
  * Images are stored as `ImageData`, `ImageBitmap` or `WebGLTexture` objects.
  * You can convert the underlying type to any other type by passing the
- * desired type to `getImage()`. As type conversions can be expensive, it is
+ * desired type to `getAs...()`. As type conversions can be expensive, it is
  * recommended to limit these conversions. You can verify what underlying
- * types are already available by invoking `hasType()`.
+ * types are already available by invoking `has...()`.
  *
  * Images that are returned from a MediaPipe Tasks are owned by by the
  * underlying C++ Task. If you need to extend the lifetime of these objects,
@@ -1557,14 +1683,6 @@ declare interface Matrix {
  * initialized with an `OffscreenCanvas`. As we require WebGL2 support, this
  * places some limitations on Browser support as outlined here:
  * https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas/getContext
- *
- * Some MediaPipe tasks return single channel masks. These masks are stored
- * using an underlying `Uint8ClampedArray` an `Float32Array` (represented as
- * single-channel arrays). To convert these type to other formats a conversion
- * function is invoked to convert pixel values between single channel and four
- * channel RGBA values. To customize this conversion, you can specify these
- * conversion functions when you invoke `getImage()`. If you use the default
- * conversion function a warning will be logged to the console.
  */
 export declare class MPImage {
     /** Returns the canvas element that the image is bound to. */
@@ -1574,82 +1692,42 @@ export declare class MPImage {
     /** Returns the height of the image. */
     readonly height: number;
     private constructor();
-    /**
-     * Returns whether this `MPImage` stores the image in the desired format.
-     * This method can be called to reduce expensive conversion before invoking
-     * `getType()`.
-     */
-    hasType(type: MPImageStorageType): boolean;
-    /**
-     * Returns the underlying image as a single channel `Uint8ClampedArray`. Note
-     * that this involves an expensive GPU to CPU transfer if the current image is
-     * only available as an `ImageBitmap` or `WebGLTexture`. If necessary, this
-     * function converts RGBA data pixel-by-pixel to a single channel value by
-     * invoking a conversion function (see class comment for detail).
-     *
-     * @param type The type of image to return.
-     * @param converter A set of conversion functions that will be invoked to
-     *     convert the underlying pixel data if necessary. You may omit this
-     *     function if the requested conversion does not change the pixel format.
-     * @return The current data as a Uint8ClampedArray.
-     */
-    getImage(type: MPImageStorageType.UINT8_CLAMPED_ARRAY, converter?: MPImageChannelConverter): Uint8ClampedArray;
-    /**
-     * Returns the underlying image as a single channel `Float32Array`. Note
-     * that this involves an expensive GPU to CPU transfer if the current image is
-     * only available as an `ImageBitmap` or `WebGLTexture`. If necessary, this
-     * function converts RGBA data pixel-by-pixel to a single channel value by
-     * invoking a conversion function (see class comment for detail).
-     *
-     * @param type The type of image to return.
-     * @param converter A set of conversion functions that will be invoked to
-     *     convert the underlying pixel data if necessary. You may omit this
-     *     function if the requested conversion does not change the pixel format.
-     * @return The current image as a Float32Array.
-     */
-    getImage(type: MPImageStorageType.FLOAT32_ARRAY, converter?: MPImageChannelConverter): Float32Array;
+    /** Returns whether this `MPImage` contains a mask of type `ImageData`. */
+    hasImageData(): boolean;
+    /** Returns whether this `MPImage` contains a mask of type `ImageBitmap`. */
+    hasImageBitmap(): boolean;
+    /** Returns whether this `MPImage` contains a mask of type `WebGLTexture`. */
+    hasWebGLTexture(): boolean;
     /**
      * Returns the underlying image as an `ImageData` object. Note that this
      * involves an expensive GPU to CPU transfer if the current image is only
-     * available as an `ImageBitmap` or `WebGLTexture`. If necessary, this
-     * function converts single channel pixel values to RGBA by invoking a
-     * conversion function (see class comment for detail).
+     * available as an `ImageBitmap` or `WebGLTexture`.
      *
      * @return The current image as an ImageData object.
      */
-    getImage(type: MPImageStorageType.IMAGE_DATA, converter?: MPImageChannelConverter): ImageData;
+    getAsImageData(): ImageData;
     /**
      * Returns the underlying image as an `ImageBitmap`. Note that
      * conversions to `ImageBitmap` are expensive, especially if the data
-     * currently resides on CPU. If necessary, this function first converts single
-     * channel pixel values to RGBA by invoking a conversion function (see class
-     * comment for detail).
+     * currently resides on CPU.
      *
      * Processing with `ImageBitmap`s requires that the MediaPipe Task was
      * initialized with an `OffscreenCanvas` with WebGL2 support. See
      * https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas/getContext
      * for a list of supported platforms.
      *
-     * @param type The type of image to return.
-     * @param converter A set of conversion functions that will be invoked to
-     *     convert the underlying pixel data if necessary. You may omit this
-     *     function if the requested conversion does not change the pixel format.
      * @return The current image as an ImageBitmap object.
      */
-    getImage(type: MPImageStorageType.IMAGE_BITMAP, converter?: MPImageChannelConverter): ImageBitmap;
+    getAsImageBitmap(): ImageBitmap;
     /**
      * Returns the underlying image as a `WebGLTexture` object. Note that this
      * involves a CPU to GPU transfer if the current image is only available as
      * an `ImageData` object. The returned texture is bound to the current
      * canvas (see `.canvas`).
      *
-     * @param type The type of image to return.
-     * @param converter A set of conversion functions that will be invoked to
-     *     convert the underlying pixel data if necessary. You may omit this
-     *     function if the requested conversion does not change the pixel format.
      * @return The current image as a WebGLTexture.
      */
-    getImage(type: MPImageStorageType.WEBGL_TEXTURE, converter?: MPImageChannelConverter): WebGLTexture;
+    getAsWebGLTexture(): WebGLTexture;
     /**
      * Creates a copy of the resources stored in this `MPImage`. You can invoke
      * this method to extend the lifetime of an image returned by a MediaPipe
@@ -1670,114 +1748,76 @@ export declare class MPImage {
 }
 
 /**
- * An interface that can be used to provide custom conversion functions. These
- * functions are invoked to convert pixel values between different channel
- * counts and value ranges. Any conversion function that is not specified will
- * result in a default conversion.
+ * The wrapper class for MediaPipe segmentation masks.
+ *
+ * Masks are stored as `Uint8Array`, `Float32Array` or `WebGLTexture` objects.
+ * You can convert the underlying type to any other type by passing the desired
+ * type to `getAs...()`. As type conversions can be expensive, it is recommended
+ * to limit these conversions. You can verify what underlying types are already
+ * available by invoking `has...()`.
+ *
+ * Masks that are returned from a MediaPipe Tasks are owned by by the
+ * underlying C++ Task. If you need to extend the lifetime of these objects,
+ * you can invoke the `clone()` method. To free up the resources obtained
+ * during any clone or type conversion operation, it is important to invoke
+ * `close()` on the `MPMask` instance.
  */
-export declare interface MPImageChannelConverter {
+export declare class MPMask {
+    /** Returns the canvas element that the mask is bound to. */
+    readonly canvas: HTMLCanvasElement | OffscreenCanvas | undefined;
+    /** Returns the width of the mask. */
+    readonly width: number;
+    /** Returns the height of the mask. */
+    readonly height: number;
+    private constructor();
+    /** Returns whether this `MPMask` contains a mask of type `Uint8Array`. */
+    hasUint8Array(): boolean;
+    /** Returns whether this `MPMask` contains a mask of type `Float32Array`. */
+    hasFloat32Array(): boolean;
+    /** Returns whether this `MPMask` contains a mask of type `WebGLTexture`. */
+    hasWebGLTexture(): boolean;
     /**
-     * A conversion function to convert a number in the [0.0, 1.0] range to RGBA.
-     * The output is an array with four elemeents whose values range from 0 to 255
-     * inclusive.
+     * Returns the underlying mask as a Uint8Array`. Note that this involves an
+     * expensive GPU to CPU transfer if the current mask is only available as a
+     * `WebGLTexture`.
      *
-     * The default conversion function is `[v * 255, v * 255, v * 255, 255]`
-     * and will log a warning if invoked.
+     * @return The current data as a Uint8Array.
      */
-    floatToRGBAConverter?: (value: number) => [
-    number,
-    number,
-    number,
-    number
-    ];
-    uint8ToRGBAConverter?: (value: number) => [
-    number,
-    number,
-    number,
-    number
-    ];
+    getAsUint8Array(): Uint8Array;
     /**
-     * A conversion function to convert an RGBA value in the range of 0 to 255 to
-     * a single value in the [0.0, 1.0] range.
+     * Returns the underlying mask as a single channel `Float32Array`. Note that
+     * this involves an expensive GPU to CPU transfer if the current mask is only
+     * available as a `WebGLTexture`.
      *
-     * The default conversion function is `(r / 3 + g / 3 + b / 3) / 255` and will
-     * log a warning if invoked.
+     * @return The current mask as a Float32Array.
      */
-    rgbaToFloatConverter?: (r: number, g: number, b: number, a: number) => number;
+    getAsFloat32Array(): Float32Array;
     /**
-     * A conversion function to convert an RGBA value in the range of 0 to 255 to
-     * a single value in the [0, 255] range.
+     * Returns the underlying mask as a `WebGLTexture` object. Note that this
+     * involves a CPU to GPU transfer if the current mask is only available as
+     * a CPU array. The returned texture is bound to the current canvas (see
+     * `.canvas`).
      *
-     * The default conversion function is `r / 3 + g / 3 + b / 3` and will log a
-     * warning if invoked.
+     * @return The current mask as a WebGLTexture.
      */
-    rgbaToUint8Converter?: (r: number, g: number, b: number, a: number) => number;
+    getAsWebGLTexture(): WebGLTexture;
     /**
-     * A conversion function to convert a single value in the 0.0 to 1.0 range to
-     * [0, 255].
+     * Creates a copy of the resources stored in this `MPMask`. You can
+     * invoke this method to extend the lifetime of a mask returned by a
+     * MediaPipe Task. Note that performance critical applications should aim to
+     * only use the `MPMask` within the MediaPipe Task callback so that
+     * copies can be avoided.
+     */
+    clone(): MPMask;
+    /**
+     * Frees up any resources owned by this `MPMask` instance.
      *
-     * The default conversion function is `r * 255` and will log a warning if
-     * invoked.
+     * Note that this method does not free masks that are owned by the C++
+     * Task, as these are freed automatically once you leave the MediaPipe
+     * callback. Additionally, some shared state is freed only once you invoke
+     * the Task's `close()` method.
      */
-    floatToUint8Converter?: (value: number) => number;
-    /**
-     * A conversion function to convert a single value in the 0 to 255 range to
-     * [0.0, 1.0] .
-     *
-     * The default conversion function is `r / 255` and will log a warning if
-     * invoked.
-     */
-    uint8ToFloatConverter?: (value: number) => number;
-}
-
-/** The supported image formats. For internal usage. */
-export declare type MPImageNativeContainer = Uint8ClampedArray | Float32Array | ImageData | ImageBitmap | WebGLTexture;
-
-/**
- * A class that encapsulates the shaders used by an MPImage. Can be re-used
- * across MPImages that use the same WebGL2Rendering context.
- */
-export declare class MPImageShaderContext {
-    /** Runs the callback using the shader. */
-    run<T>(gl: WebGL2RenderingContext, flipVertically: boolean, callback: () => T): T;
-    /**
-     * Binds a framebuffer to the canvas. If the framebuffer does not yet exist,
-     * creates it first. Binds the provided texture to the framebuffer.
-     */
-    bindFramebuffer(gl: WebGL2RenderingContext, texture: WebGLTexture): void;
-    unbindFramebuffer(): void;
     close(): void;
-}
-
-/**
- * Copyright 2023 The MediaPipe Authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-/** The underlying type of the image. */
-export declare enum MPImageStorageType {
-    /** Represents the native `UInt8ClampedArray` type. */
-    UINT8_CLAMPED_ARRAY = 0,
-    /**
-     * Represents the native `Float32Array` type. Values range from [0.0, 1.0].
-     */
-    FLOAT32_ARRAY = 1,
-    /** Represents the native `ImageData` type. */
-    IMAGE_DATA = 2,
-    /** Represents the native `ImageBitmap` type. */
-    IMAGE_BITMAP = 3,
-    /** Represents the native `WebGLTexture` type. */
-    WEBGL_TEXTURE = 4
 }
 
 /**
@@ -1954,21 +1994,22 @@ export declare class PoseLandmarker extends VisionTaskRunner {
      */
     setOptions(options: PoseLandmarkerOptions): Promise<void>;
     /**
-     * Performs pose detection on the provided single image and waits
-     * synchronously for the response. Only use this method when the
-     * PoseLandmarker is created with running mode `image`.
+     * Performs pose detection on the provided single image and invokes the
+     * callback with the response. The method returns synchronously once the
+     * callback returns. Only use this method when the PoseLandmarker is created
+     * with running mode `image`.
      *
      * @param image An image to process.
      * @param callback The callback that is invoked with the result. The
      *    lifetime of the returned masks is only guaranteed for the duration of
      *    the callback.
-     * @return The detected pose landmarks.
      */
     detect(image: ImageSource, callback: PoseLandmarkerCallback): void;
     /**
-     * Performs pose detection on the provided single image and waits
-     * synchronously for the response. Only use this method when the
-     * PoseLandmarker is created with running mode `image`.
+     * Performs pose detection on the provided single image and invokes the
+     * callback with the response. The method returns synchronously once the
+     * callback returns. Only use this method when the PoseLandmarker is created
+     * with running mode `image`.
      *
      * @param image An image to process.
      * @param imageProcessingOptions the `ImageProcessingOptions` specifying how
@@ -1976,37 +2017,89 @@ export declare class PoseLandmarker extends VisionTaskRunner {
      * @param callback The callback that is invoked with the result. The
      *    lifetime of the returned masks is only guaranteed for the duration of
      *    the callback.
-     * @return The detected pose landmarks.
      */
     detect(image: ImageSource, imageProcessingOptions: ImageProcessingOptions, callback: PoseLandmarkerCallback): void;
     /**
-     * Performs pose detection on the provided video frame and waits
-     * synchronously for the response. Only use this method when the
-     * PoseLandmarker is created with running mode `video`.
+     * Performs pose detection on the provided single image and waits
+     * synchronously for the response. This method creates a copy of the resulting
+     * masks and should not be used in high-throughput applictions. Only
+     * use this method when the PoseLandmarker is created with running mode
+     * `image`.
+     *
+     * @param image An image to process.
+     * @return The landmarker result. Any masks are copied to avoid lifetime
+     *     limits.
+     * @return The detected pose landmarks.
+     */
+    detect(image: ImageSource): PoseLandmarkerResult;
+    /**
+     * Performs pose detection on the provided single image and waits
+     * synchronously for the response. This method creates a copy of the resulting
+     * masks and should not be used in high-throughput applictions. Only
+     * use this method when the PoseLandmarker is created with running mode
+     * `image`.
+     *
+     * @param image An image to process.
+     * @return The landmarker result. Any masks are copied to avoid lifetime
+     *     limits.
+     * @return The detected pose landmarks.
+     */
+    detect(image: ImageSource, imageProcessingOptions: ImageProcessingOptions): PoseLandmarkerResult;
+    /**
+     * Performs pose detection on the provided video frame and invokes the
+     * callback with the response. The method returns synchronously once the
+     * callback returns. Only use this method when the PoseLandmarker is created
+     * with running mode `video`.
      *
      * @param videoFrame A video frame to process.
      * @param timestamp The timestamp of the current frame, in ms.
      * @param callback The callback that is invoked with the result. The
      *    lifetime of the returned masks is only guaranteed for the duration of
      *    the callback.
-     * @return The detected pose landmarks.
      */
     detectForVideo(videoFrame: ImageSource, timestamp: number, callback: PoseLandmarkerCallback): void;
     /**
-     * Performs pose detection on the provided video frame and waits
-     * synchronously for the response. Only use this method when the
-     * PoseLandmarker is created with running mode `video`.
+     * Performs pose detection on the provided video frame and invokes the
+     * callback with the response. The method returns synchronously once the
+     * callback returns. Only use this method when the PoseLandmarker is created
+     * with running mode `video`.
      *
      * @param videoFrame A video frame to process.
+     * @param timestamp The timestamp of the current frame, in ms.
      * @param imageProcessingOptions the `ImageProcessingOptions` specifying how
      *    to process the input image before running inference.
-     * @param timestamp The timestamp of the current frame, in ms.
      * @param callback The callback that is invoked with the result. The
      *    lifetime of the returned masks is only guaranteed for the duration of
      *    the callback.
-     * @return The detected pose landmarks.
      */
-    detectForVideo(videoFrame: ImageSource, imageProcessingOptions: ImageProcessingOptions, timestamp: number, callback: PoseLandmarkerCallback): void;
+    detectForVideo(videoFrame: ImageSource, timestamp: number, imageProcessingOptions: ImageProcessingOptions, callback: PoseLandmarkerCallback): void;
+    /**
+     * Performs pose detection on the provided video frame and returns the result.
+     * This method creates a copy of the resulting masks and should not be used
+     * in high-throughput applictions. Only use this method when the
+     * PoseLandmarker is created with running mode `video`.
+     *
+     * @param videoFrame A video frame to process.
+     * @param timestamp The timestamp of the current frame, in ms.
+     * @return The landmarker result. Any masks are copied to extend the
+     *     lifetime of the returned data.
+     */
+    detectForVideo(videoFrame: ImageSource, timestamp: number): PoseLandmarkerResult;
+    /**
+     * Performs pose detection on the provided video frame and returns the result.
+     * This method creates a copy of the resulting masks and should not be used
+     * in high-throughput applictions. The method returns synchronously once the
+     * callback returns. Only use this method when the PoseLandmarker is created
+     * with running mode `video`.
+     *
+     * @param videoFrame A video frame to process.
+     * @param timestamp The timestamp of the current frame, in ms.
+     * @param imageProcessingOptions the `ImageProcessingOptions` specifying how
+     *    to process the input image before running inference.
+     * @return The landmarker result. Any masks are copied to extend the lifetime
+     *     of the returned data.
+     */
+    detectForVideo(videoFrame: ImageSource, timestamp: number, imageProcessingOptions: ImageProcessingOptions): PoseLandmarkerResult;
 }
 
 /**
@@ -2049,13 +2142,11 @@ export declare interface PoseLandmarkerOptions extends VisionTaskOptions {
  */
 export declare interface PoseLandmarkerResult {
     /** Pose landmarks of detected poses. */
-    landmarks: NormalizedLandmark[];
+    landmarks: NormalizedLandmark[][];
     /** Pose landmarks in world coordinates of detected poses. */
-    worldLandmarks: Landmark[];
-    /** Detected auxiliary landmarks, used for deriving ROI for next frame. */
-    auxilaryLandmarks: NormalizedLandmark[];
+    worldLandmarks: Landmark[][];
     /** Segmentation mask for the detected pose. */
-    segmentationMasks?: Float32Array[] | WebGLTexture[];
+    segmentationMasks?: MPMask[];
 }
 
 /**
@@ -2076,7 +2167,9 @@ declare interface RectF {
 /** A Region-Of-Interest (ROI) to represent a region within an image. */
 export declare interface RegionOfInterest {
     /** The ROI in keypoint format. */
-    keypoint: NormalizedKeypoint;
+    keypoint?: NormalizedKeypoint;
+    /** The ROI as scribbles over the object that the user wants to segment. */
+    scribble?: NormalizedKeypoint[];
 }
 
 /**
@@ -2086,20 +2179,13 @@ export declare interface RegionOfInterest {
  */
 declare type RunningMode = "IMAGE" | "VIDEO";
 
-/**
- * The segmentation tasks return the segmentation either as a WebGLTexture (when
- * the output is on GPU) or as a typed JavaScript arrays for CPU-based
- * category or confidence masks. `Uint8ClampedArray`s are used to represent
- * CPU-based category masks and `Float32Array`s are used for CPU-based
- * confidence masks.
- */
-export declare type SegmentationMask = Uint8ClampedArray | Float32Array | WebGLTexture;
-
 /** Base class for all MediaPipe Tasks. */
 declare abstract class TaskRunner {
     protected constructor();
     /** Configures the task with custom options. */
     abstract setOptions(options: TaskRunnerOptions): Promise<void>;
+    /** Closes and cleans up the resources held by this task. */
+    close(): void;
 }
 
 /** Options to configure MediaPipe Tasks in general. */
@@ -2131,6 +2217,8 @@ declare abstract class VisionTaskRunner extends TaskRunner {
     protected constructor();
     /** Configures the shared options of a vision task. */
     applyOptions(options: VisionTaskOptions): Promise<void>;
+    /** Closes and cleans up the resources held by this task. */
+    close(): void;
 }
 
 /**
