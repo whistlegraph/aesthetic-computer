@@ -65,6 +65,13 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `bleep` presets ***
+  - [] Omnichord-like bleep presets in certain keys.
+
+*** `grocery` ***
+  - [] Sampling keyboard with speech to text for grocery lists,
+       with a button to cross off items, sendable from user to user.
+
 *** General Painting / Graphics API ***
   - [❤️‍🔥] Examine "paste" not updating automatically in relation to the below.
   - [] Fix 'system.nopaint.bakeOnLeave` `page(screen)` anomaly. (Redo "write")
