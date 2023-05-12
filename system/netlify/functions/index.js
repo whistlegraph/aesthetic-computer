@@ -111,6 +111,7 @@ async function fun(event, context) {
         <meta name="twitter:site" content="aesthetic.computer" />
         <meta name="twitter:image" content="${twitterImage}"/>
         <script crossorigin="anonymous" src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
+        <script crossorigin="anonymous" src="https://js.sentry-cdn.com/ef4704c0df6a410e972bca14d69e1898.min.js"></script>
         <script crossorigin="anonymous" src="/aesthetic.computer/boot.mjs" type="module" defer></script>
       </head>
       <body class="native-cursor">

@@ -31,6 +31,10 @@
       - 2D/3D Software renderer for spatial display of programs as planes.
       - 3D WebGL renderer for VR.
 
+Running Locally: 
+      -  From the `aesthetic.computer` directory run `npm run code` and in another shell `npm run server:session`.
+
+
 😀 TODO 😆
 
 🐞 Annoying Bugs & Regressions 🪱
