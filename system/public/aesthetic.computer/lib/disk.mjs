@@ -469,7 +469,7 @@ const $commonApi = {
       // TODO: - [] Add Zoom
       //       - [] And Rotation!
 
-      present: ({ system, screen, wipe, paste }, tx, ty) => {
+      present: ({ system, screen, wipe, paste, needsPaint }, tx, ty) => {
         const x = tx || system.nopaint.translation.x;
         const y = ty || system.nopaint.translation.y;
 
@@ -1703,7 +1703,7 @@ async function load(
 
       boot = module.boot || nopaint_boot;
       sim = module.sim || defaults.sim;
-      paint = module.paint || defaults.paint;
+      paint = module.paint || (() => undefined);
       beat = module.beat || defaults.beat;
       act = ($) => {
         nopaint_act($); // Inherit base functionality.

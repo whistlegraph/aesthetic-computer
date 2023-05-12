@@ -91,19 +91,6 @@ function boot($) {
       const slug = tokens[0]; // Note: Includes colon params.
       const params = tokens.slice(1);
 
-      // Preload a local file if `paste` is entered from the prompt.
-      // (File choosers require a user event.)
-      if (text === "paste") {
-        if (debug) console.log("🖼️ Paste detected: preloading file...");
-        try {
-          const f = await file();
-          store["file:opened"] = f;
-          // The continuation of this is handled inside of `paste` -> `boot`.
-        } catch (err) {
-          console.error(err);
-        }
-      }
-
       if (text.startsWith("handle")) {
         // Set username handle.
         // TODO: This could eventually be abstracted for more API calls.
@@ -300,7 +287,8 @@ function boot($) {
         const slug = param.length > 0 ? `/${param}` : "";
         console.log(slug);
         jump("https://localhost:8888" + slug); // Go to the local dev server, passing any params as a piece.
-      } else if (text.split(" ")[0] === "of") { // Ordfish shortcuts.
+      } else if (text.split(" ")[0] === "of") {
+        // Ordfish shortcuts.
         jump(`ordfish~${text.split(" ").slice(1).join("~")}`);
       } else if (ordfish[text] || text.split(" ") === "of") {
         jump(`ordfish~${text}`);
