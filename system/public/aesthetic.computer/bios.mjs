@@ -2786,7 +2786,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       const hands = options.hands === true; // Hand-tracking globals.
       let handVideoTime = -1;
-      const useLegacyHandsAPI = false; //performance of both libraries is equivalent on iphone 14 pro but vastly different on 13 pro 23.5.12 
+      const useLegacyHandsAPI = true; // Performance of both libraries is
+      //                                 equivalent on iPhone 14 Pro but vastly
+      //                                 different on iPhone 13 Pro. 23.05.12.14.23 
 
       const buffer = document.createElement("canvas");
       let animationRequest;
@@ -2944,8 +2946,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               });
             };
 
-            console.log(handAPI);
-
             document.head.appendChild(script);
           } else {
             if (!handAPI.HandLandmarker) {
@@ -2970,10 +2970,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                     delegate: "GPU", // or "CPU"
                   },
                   canvas: document.createElement("canvas"),
-                  // typeof OffscreenCanvas !== "undefined"
-                  //  ? new OffscreenCanvas(0, 0)
-                  //  : document.createElement("canvas"),
                   runningMode: "VIDEO",
+                  //runningMode: "LIVE_STREAM",
                   minHandDetectionConfidence: 0.25,
                   minHandPresenceConfidence: 0.25,
                   minTrackingConfidence: 0.25,
@@ -3027,10 +3025,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (useLegacyHandsAPI && !handAPI.legacyProcessing) {
               handAPI.hands?.send({ image: video }).then(() => {
                 handAPI.legacyProcessing = false;
+                // Don't process more than one frame at a time.
               });
               handAPI.legacyProcessing = true;
             } else {
-              const data = handAPI.hl?.detectForVideo(video, performance.now());
+              const data = handAPI.hl?.detectForVideo(video, handVideoTime);
               diagram(data?.landmarks[0] || []);
             }
             // send({type: "hand-tracking-data", content: landmarks});

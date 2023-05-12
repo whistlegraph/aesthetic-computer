@@ -77,14 +77,14 @@ Running Locally:
        with a button to cross off items, sendable from user to user.
 
 *** General Painting / Graphics API ***
-  - [❤️‍🔥] Examine "paste" not updating automatically in relation to the below.
-  - [] Fix 'system.nopaint.bakeOnLeave` `page(screen)` anomaly. (Redo "write")
+  - [-] Fix 'system.nopaint.bakeOnLeave` `page(screen)` anomaly. (Redo "write")
   - [] Abstract the `rect = null` / `shape = null` / "bake" calls better
       in all brushes.
-  - [] change resize to painting
+  - [] change resize to "painting" or resolution.
   - [] allow prefix colors for oval, shape, and line
   - [] make `coat` a new command
 + Done
+  - [x] Examine "paste" not updating automatically in relation to the below.
   - [x] Add "paste" command to load a bitmap locally, with the option
         of scaling it down on import by `n` x.
 
