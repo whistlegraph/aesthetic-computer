@@ -31,9 +31,10 @@
       - 2D/3D Software renderer for spatial display of programs as planes.
       - 3D WebGL renderer for VR.
 
-Running Locally: 
-      -  From the `aesthetic.computer` directory run `npm run code` and in another shell `npm run server:session`.
-
+🖥️ Running local servers: 
+  1. Scroll to the bottom of this file and follow the setup instructions.
+  2. From the `aesthetic.computer` directory run `npm run code` and in another
+     shell `npm run server:session`.
 
 😀 TODO 😆
 
@@ -68,6 +69,12 @@ Running Locally:
   - [x] Check `wg` and `ff` and other disks including the prompt in the Instagram in-app browser!
 
 🌟 Projects in Progress (PIP) 🌟
+
+*** `learn` ***
+  - [] Sketch a `learn` program that writes text and explains how different
+       commands work. 
+  - [] For now just paginate text on the screen / paginate text / make
+        a pager.
 
 *** `bleep` presets ***
   - [] Omnichord-like bleep presets in certain keys.
