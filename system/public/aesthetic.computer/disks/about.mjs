@@ -1,26 +1,33 @@
-// Learn, 23.05.13.16.17
-// Type `learn` followed by a command to read all about its use!
+// About, 23.05.13.16.17
+// Type `about` followed by a command to read all about its use!
 
-/* #region 🤝 Read Me 
+/* #region 🏁 todo
+  - [x] Parse line and all its parameters.
+  - [] Add a similar "read" or "line" command which takes the user to
+       the source code of the piece.
 #endregion */
 
-let piece, learn;
+let piece, parsed, about;
 
 // 🥾 Boot (Runs once before first paint and sim)
 async function boot({ net, params }) {
   try {
-    piece = await import(`${net.pieces}/${params[0]}.mjs`);
-    learn = piece.learn;
+    parsed = net.parse(params.join(" "));
+    piece = await import(`${net.pieces}/${parsed.piece}.mjs`);
+    about = piece.about;
   } catch (err) {
     console.error(err);
   }
 }
 
 // 🎨 Paint (Executes every display frame)
-function paint({ ink, params }) {
-  ink(255)
-    .wipe(127)
-    .write(learn?.() || "Not Found", { x: 8, y: 24 });
+function paint({ ink, num }) {
+  if (piece) {
+    ink(255)
+      .wipe(127)
+      .write(about?.({ ...parsed, num }) || "Not Found", { x: 7, y: 24 });
+    return false;
+  }
 }
 
 /*

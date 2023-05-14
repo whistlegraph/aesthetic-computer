@@ -261,13 +261,13 @@ export function parseColor(params) {
   if (params.length === 0) return params;
   const int = parseInt(params[0]);
 
-  if (!isNaN(int) || params.length > 2) { // Could be "? ? ?" here hence the length check.
+  if (!isNaN(int) || params.length > 2) {
+    // Could be "? ? ?" here hence the length check.
     // Assume all params can be parsed into integers (excepting alpha)
     if (params.length === 2 || params.length === 4) {
       const alpha = calculateAlpha(params[params.length - 1]);
       params[params.length - 1] = alpha.toString();
     }
-
 
     return rangedInts(params);
   } else {
@@ -275,7 +275,6 @@ export function parseColor(params) {
     let alpha = calculateAlpha(params[1]); // Calculate alpha param.
 
     if (name === "?") name = anyKey(cssColors); // Pick a name if `?` is passed.
-
 
     if (name in cssColors) {
       return [...cssColors[name], alpha];
@@ -482,6 +481,19 @@ export const cssColors = {
   yellow: [255, 255, 0],
   yellowgreen: [154, 205, 50],
 };
+
+// Find a color inside of `cssColors` by value.
+export function findColor(rgb) {
+  for (let name in cssColors) {
+    if (
+      cssColors[name][0] === rgb[0] &&
+      cssColors[name][1] === rgb[1] &&
+      cssColors[name][2] === rgb[2]
+    ) {
+      return name;
+    }
+  }
+}
 
 // Alpha blends two colors, mutating and returning `dst`.
 // Transcribed from C++: https://stackoverflow.com/a/12016968

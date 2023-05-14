@@ -74,6 +74,8 @@ function parse(text, location = self?.location) {
     colonParam = colonSplit.slice(1);
   }
 
+  const piece = tokens[0];
+
   if (customHost) {
     [host, ...path] = tokens[0].split("/");
     path = path.join("/");
@@ -98,7 +100,7 @@ function parse(text, location = self?.location) {
   // 4. Get params. (Everything that comes after the path and host)
   params = tokens.slice(1);
 
-  return { host, path, colon: colonParam, params, search, hash, text };
+  return { host, path, piece, colon: colonParam, params, search, hash, text };
 }
 
 // Cleans a url for feeding into `parse` as the text parameter.

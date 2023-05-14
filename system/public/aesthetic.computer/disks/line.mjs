@@ -26,9 +26,28 @@ let lines, // The baking function.
 const points = []; // Gesture data.
 const debug = false;
 
-// Export to the `learn` piece / show documentation.
-function learn() {
-  return "hello";
+// Export to the `about` piece / show documentation.
+function about({ colon, params, num }) {
+  const color = num.parseColor(params);
+  let name = num.findColor(color);
+  let alpha = 1;
+  if (color.length === 2 || color.length === 4)
+    alpha = (color[color.length - 1] / 255).toFixed(1);
+  if (color.length === 2) {
+    if (color[0] === 0) name = "black";
+    else if (color[0] === 255) name = "white";
+    else name = "gray";
+  }
+
+  // TODO: This should output a text-only version that can generically be
+  //       *replaced* with paint code in a piece like `about` or on the prompt
+  //       but pure text is always gonna be useful! 23.05.14.18.58
+  // TODO: Return some lexical information like index of color start and end?
+  if (!name) name = "*COLOR*";
+
+  let text = `paint ${colon[0] || 1}px ${name} lines`;
+  if (alpha < 1) text += ` with ${alpha} alpha`;
+  return `${text}.`;
 }
 
 // 🥾
@@ -129,7 +148,7 @@ function act({ event: e, pen, num }) {
 
 const system = "nopaint";
 
-export { learn, boot, paint, sim, act, bake, system };
+export { about, boot, paint, sim, act, bake, system };
 
 // 📚 Library (Useful functions used throughout the piece)
 

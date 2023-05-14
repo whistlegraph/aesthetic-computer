@@ -573,6 +573,7 @@ const $commonApi = {
     mat4: num.mat4,
     quat: num.quat,
     parseColor: num.parseColor,
+    findColor: num.findColor,
     saturate: num.saturate,
     desaturate: num.desaturate,
     shiftRGB: num.shiftRGB,
@@ -610,7 +611,8 @@ const $commonApi = {
       send({ type: "login" });
     }, // { email }
     logout: () => send({ type: "logout" }),
-    pieces: `${location.protocol}//${location.host}/aesthetic.computer/disks`
+    pieces: `${location.protocol}//${location.host}/aesthetic.computer/disks`,
+    parse, // Parse a piece slug.
   },
   needsPaint: () => (noPaint = false), // TODO: Does "paint" needs this?
   store,
@@ -1344,6 +1346,7 @@ async function load(
       const response = await fetch(fullUrl);
       const source = await response.text();
 
+      // Automatically replace relative imports with absolute ones.
       const twoDots =
         /^(import|export) {([^{}]*?)} from ["'](\.\.\/|\.\.|\.\/)(.*?)["'];?/gm;
       const oneDot =
@@ -1366,8 +1369,6 @@ async function load(
       const blob = new Blob([updatedCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);
       sourceCode = updatedCode;
-
-      console.log(sourceCode);
     }
 
     module = await import(blobUrl);
