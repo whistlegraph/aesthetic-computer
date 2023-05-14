@@ -1,17 +1,26 @@
-// Learn, 23.05.13.16.17 
-// Type `learn` followed by a command to read all about its use! 
+// Learn, 23.05.13.16.17
+// Type `learn` followed by a command to read all about its use!
 
 /* #region 🤝 Read Me 
 #endregion */
 
+let piece, learn;
+
 // 🥾 Boot (Runs once before first paint and sim)
-// function boot({wipe, ink, screen }) {
-//   wipe(0);
-// }
+async function boot({ net, params }) {
+  try {
+    piece = await import(`${net.pieces}/${params[0]}.mjs`);
+    learn = piece.learn;
+  } catch (err) {
+    console.error(err);
+  }
+}
 
 // 🎨 Paint (Executes every display frame)
-function paint({ink, screen}) {
-  ink(255).box(screen.width / 2, screen.height / 2, 64, "*center");
+function paint({ ink, params }) {
+  ink(255)
+    .wipe(127)
+    .write(learn?.() || "Not Found", { x: 8, y: 24 });
 }
 
 /*
@@ -36,7 +45,7 @@ function leave($api) {
 }
 */
 
-export { paint }
+export { boot, paint };
 
 // 📚 Library (Useful functions used throughout the piece)
 // ...

@@ -610,6 +610,7 @@ const $commonApi = {
       send({ type: "login" });
     }, // { email }
     logout: () => send({ type: "logout" }),
+    pieces: `${location.protocol}//${location.host}/aesthetic.computer/disks`
   },
   needsPaint: () => (noPaint = false), // TODO: Does "paint" needs this?
   store,
@@ -1365,6 +1366,8 @@ async function load(
       const blob = new Blob([updatedCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);
       sourceCode = updatedCode;
+
+      console.log(sourceCode);
     }
 
     module = await import(blobUrl);

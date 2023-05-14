@@ -1,4 +1,4 @@
-// ap (Autopilot), 22.10.13.01.27 
+// ap (Autopilot), 22.10.13.01.27
 // A test that imports any brush from the nopaint system,
 // and runs it on autopilot through $api interception / automation.
 
@@ -14,8 +14,8 @@ let paintCountOffset;
 async function boot($api) {
   const name = $api.params[0] || "smear";
 
-  brush = await import(`./${name}.mjs`);
-  painting = $api.painting(256, 256, p => p.noise16DIGITPAIN())
+  brush = await import(`${$api.net.pieces}/${name}.mjs`);
+  painting = $api.painting(256, 256, (p) => p.noise16DIGITPAIN());
   $api.system = { painting };
   $api.params.shift(); // Remove the first element from params.
   brush?.boot?.($api);
@@ -31,7 +31,7 @@ function paint($api) {
     y: $api.num.randInt(256),
     px: $api.num.randInt(256),
     py: $api.num.randInt(256),
-    dragBox: [0, 0, 10, 10]
+    dragBox: [0, 0, 10, 10],
   };
 
   brush?.paint?.($api);

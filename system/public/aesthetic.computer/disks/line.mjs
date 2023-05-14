@@ -26,6 +26,11 @@ let lines, // The baking function.
 const points = []; // Gesture data.
 const debug = false;
 
+// Export to the `learn` piece / show documentation.
+function learn() {
+  return "hello";
+}
+
 // 🥾
 // If `params` is empty then ink's RGBA will be randomized every segment.
 // If entering "?" then each indivudal param will be randomized once.
@@ -124,7 +129,7 @@ function act({ event: e, pen, num }) {
 
 const system = "nopaint";
 
-export { boot, paint, sim, act, bake, system };
+export { learn, boot, paint, sim, act, bake, system };
 
 // 📚 Library (Useful functions used throughout the piece)
 
