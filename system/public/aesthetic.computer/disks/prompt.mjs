@@ -411,27 +411,27 @@ export { boot, sim, paint, act, meta };
 // 📚 Library (Useful classes & functions used throughout the piece)
 
 function makeMotd({ handle, user }) {
-  motd =
-    `"chaos in a system"                             ` +
-    `                                                ` +
-    `Try typing:                                     ` +
-    `                                                ` +
-    ` 'of'                                           ` +
-    `  to see an Ordfish                             ` +
-    `                                                ` +
-    ` 'ff'                                           ` +
-    `  to see a Freaky Flower                        ` +
-    `                                                ` +
-    ` 'shape'                                        ` +
-    `  to paint freehand shapes                      ` +
-    `                                                ` +
-    ` 'bleep'                                        ` +
-    `  to play microtones                            ` +
-    `                                                ` +
-    ` 'help'                                         ` +
-    `  to learn more!                                ` +
-    `                                                ` +
-    `mail@aesthetic.computer                         `;
+  motd = ``;
+    // `"chaos in a system"                             ` +
+    // `                                                ` +
+    // `Try typing:                                     ` +
+    // `                                                ` +
+    // ` 'of'                                           ` +
+    // `  to see an Ordfish                             ` +
+    // `                                                ` +
+    // ` 'ff'                                           ` +
+    // `  to see a Freaky Flower                        ` +
+    // `                                                ` +
+    // ` 'shape'                                        ` +
+    // `  to paint freehand shapes                      ` +
+    // `                                                ` +
+    // ` 'bleep'                                        ` +
+    // `  to play microtones                            ` +
+    // `                                                ` +
+    // ` 'help'                                         ` +
+    // `  to learn more!                                ` +
+    // `                                                ` +
+    // `mail@aesthetic.computer                         `;
 
   if (user)
     motd =

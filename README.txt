@@ -71,7 +71,7 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** `learn` ***
-  - [] Sketch a `learn` program that writes text and explains how different
+  - [🟠] Sketch a `learn` program that writes text and explains how different
        commands work. 
   - [] For now just paginate text on the screen / paginate text / make
         a pager.

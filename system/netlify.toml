@@ -15,6 +15,9 @@
     "backend/**/*.mjs"
     ]
   external_node_modules = ["got", "mongodb"]
+[functions.llm]
+  included_files = ["backend/**/*.mjs"]
+  external_node_modules = ["openai-streams"]
 [functions.user]
   included_files = ["backend/**/*.mjs"]
   external_node_modules = ["got", "mongodb"]
@@ -129,6 +132,10 @@
 [[redirects]]
   from = "/user"
   to = "/.netlify/functions/user"
+  status = 200
+[[redirects]]
+  from = "/llm"
+  to = "/.netlify/functions/llm"
   status = 200
 [[redirects]]
   from = "/run"

@@ -1,0 +1,7 @@
+{
+  "name": "edge-stream",
+  "version": "1.0.0",
+  "description": "Edge functions for supporting streamable responses in aesthetic.computer. Hosted by Vercel at ai.aesthetic.computer.",
+  "main": "index.js",
+  "author": "Jeffrey Alan Scudder"
+}
