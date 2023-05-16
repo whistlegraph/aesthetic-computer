@@ -152,7 +152,6 @@ async function ask(options, and, finished, failed) {
       // 1 or more json chunks.
       const got = decoder.decode(value, { stream: true }); // Chunk to text.
       const chunks = got.match(/{[^{}]*}/g);
-      const out = [];
 
       // Loop through each JSON chunk and parse it.
       for (const chunk of chunks) {
@@ -165,7 +164,7 @@ async function ask(options, and, finished, failed) {
       }
     }
   } catch (error) {
-    if (DEBUG) console.error("Failed to ask:", error);
+    console.error("Failed to ask:", error);
     failed?.();
   }
 }
