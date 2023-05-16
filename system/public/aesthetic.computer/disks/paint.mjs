@@ -124,7 +124,7 @@ async function ask(options, and, finished, failed) {
       ? "http://localhost:3000"
       : "https://ai.aesthetic.computer";
 
-    const responsePromise = fetch(`${host}/api/ask`, {
+    const responsePromise = fetch(`${host}/api/query`, {
       method: "POST",
       signal,
       headers: { "Content-Type": "application/json" },

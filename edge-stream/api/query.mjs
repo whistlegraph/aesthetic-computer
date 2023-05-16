@@ -2,9 +2,7 @@
 // A vercel edge function to handle OpenAI text prediction APIs.
 
 import { OpenAI } from "openai-streams";
-export const config = { runtime: "edge" };
-
-export default async function ask(request, context) {
+export default async function handler(request, context) {
   const origin = request.headers.get("Origin");
   const production = origin === "https://aesthetic.computer";
   const allowedOrigin = production ? "https://aesthetic.computer" : "*";
@@ -60,3 +58,5 @@ export default async function ask(request, context) {
     }
   }
 }
+
+export const config = { runtime: "edge" };
