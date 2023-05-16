@@ -50,7 +50,6 @@ export default async function ask(request, context) {
         // controller.abort(); // Send to a new abort controller.
       // });
 
-      // Pipe the OpenAI stream through the transformer and into the response.
       return new Response(stream, { headers });
     } catch (error) {
       console.error("Failed to process the request:", error);
