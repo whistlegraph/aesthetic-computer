@@ -69,16 +69,21 @@ function paint({ wipe, ink, system }) {
   }
 
   if (lines.length > 0) {
-    const fun = new Function("ink", lines.join("\n")); // Wrap 1+ statements.
-    brush = () => {
-      try {
-        fun(ink);
-      } catch (err) {
-        console.log("Failed to interpret:", fun);
-      }
-      brush = null;
-    };
-    system.nopaint.needsBake = true;
+    let fun;
+    try {
+      fun = new Function("ink", lines.join("\n")); // Wrap 1+ statements.
+      brush = () => {
+        try {
+          fun(ink);
+        } catch (err) {
+          console.log("Failed to execute:", fun);
+        }
+        brush = null;
+      };
+      system.nopaint.needsBake = true;
+    } catch (err) {
+      console.log("Failed to interpret:", fun);
+    }
     lines.length = 0; // Clear line buffer.
   }
 }
@@ -120,15 +125,12 @@ async function ask(options, and, finished, failed) {
       ? "http://localhost:3000"
       : "https://ai.aesthetic.computer";
 
-    const responsePromise = fetch(
-      `${host}/api/ask`,
-      {
-        method: "POST",
-        signal,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, program }),
-      },
-    );
+    const responsePromise = fetch(`${host}/api/ask`, {
+      method: "POST",
+      signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, program }),
+    });
 
     const timeoutPromise = new Promise((resolve, reject) => {
       setTimeout(() => reject(new Error(`Reply timed out!`)), 10000);
@@ -143,7 +145,10 @@ async function ask(options, and, finished, failed) {
 
     const reader = readableStream.getReader();
 
-    // Read the data incrementally as it arrives
+    // Detect chunks of JSON as they stream in.
+    let buffer = "";
+    let bracketCount = 0;
+
     while (true) {
       const { done, value } = await reader.read();
 
@@ -153,20 +158,40 @@ async function ask(options, and, finished, failed) {
         break;
       }
 
-      // 1 or more json chunks.
       const got = decoder.decode(value, { stream: true }); // Chunk to text.
-      console.log(got);
+      buffer += got; // Append new chunks to the buffer.
 
-      const chunks = got.match(/{[^{}]*}/g) || [];
+      let chunkStart = 0;
+      let chunkEnd = -1;
 
-      // Loop through each JSON chunk and parse it.
-      for (const chunk of chunks) {
+      // Scan the buffer to extract complete JSON objects.
+      for (let i = 0; i < buffer.length; i++) {
+        if (buffer[i] === "{") {
+          if (bracketCount === 0) chunkStart = i;
+          bracketCount += 1;
+        } else if (buffer[i] === "}") {
+          bracketCount -= 1;
+          if (bracketCount === 0) {
+            chunkEnd = i;
+            break;
+          }
+        }
+      }
+
+      // If a complete JSON object was found, parse and process it.
+      if (chunkEnd >= 0) {
+        const chunk = buffer.substring(chunkStart, chunkEnd + 1);
+
         try {
           const msg = JSON.parse(chunk);
-          and?.(msg.text); // Run the call back for every message.
+          console.log("JSON:", msg);
+          // Run the call back for every message.
+          if (msg.choices[0].text) and?.(msg.choices[0].text);
         } catch (err) {
           console.error("Failed to parse chunk as JSON:", err);
         }
+        // Remove the processed chunk from the buffer.
+        buffer = buffer.substring(chunkEnd + 1);
       }
     }
   } catch (error) {
