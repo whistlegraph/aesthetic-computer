@@ -27,7 +27,7 @@ export default async function ask(request, context) {
         prompt = `${body.program.before} - ${prompt}`;
       if (program.after.length > 0) prompt += ` - ${program.after}`;
 
-      const controller = new AbortController();
+      // const controller = new AbortController();
 
       const stream = await OpenAI(
         "completions",
@@ -39,21 +39,19 @@ export default async function ask(request, context) {
         },
         {
           mode: "raw",
-          controller,
+          // controller,
         }
       );
 
       // TODO: How can I cancel this readable stream?
       // This is not currently working: 23.05.16.13.49
-      console.log(request.signal);
-      request.signal.addEventListener("abort", () => {
-        console.log("Cancelled stream!");
-        controller.abort(); // Send to a new abort controller.
-      });
+      // request.signal.addEventListener("abort", () => {
+        // console.log("Cancelled stream!");
+        // controller.abort(); // Send to a new abort controller.
+      // });
 
-      const response = new Response(stream, { headers });
       // Pipe the OpenAI stream through the transformer and into the response.
-      return response;
+      return new Response(stream, { headers });
     } catch (error) {
       console.error("Failed to process the request:", error);
       return new Response("Error", {
