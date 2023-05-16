@@ -70,6 +70,9 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `paint` ***
+  - [] Paint anything by routing prompt to a model. (OpenAI)
+
 *** `learn` ***
   - [🟠] Sketch a `learn` program that writes text and explains how different
        commands work. 

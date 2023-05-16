@@ -5,6 +5,7 @@
   + Now
   - [-] Always print the full source code.
   - [] Add GPT-3.5 / chatting flag. (Model picker.)
+  - [] Add Dall-E 2 or controlnet Support.
   + Later
   - [] Request cancellation handling on the server via `ask.js`.
   + Done

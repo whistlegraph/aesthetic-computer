@@ -6,7 +6,7 @@ import { OpenAI } from "openai-streams";
 export default async function hello(request, context) {
   const origin = request.headers.get("Origin");
   const production = origin === "https://aesthetic.computer";
-  const allowedOrigin = production ? "https://api.aesthetic.computer" : "*";
+  const allowedOrigin = production ? "https://ai.aesthetic.computer" : "*";
 
   const headers = {
     "Access-Control-Allow-Origin": allowedOrigin,
