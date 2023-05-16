@@ -144,14 +144,16 @@ async function ask(options, and, finished, failed) {
       const { done, value } = await reader.read();
 
       if (done) {
-        if (DEBUG) console.log("❗ Response complete.");
+        console.log("❗ Response complete.");
         finished?.();
         break;
       }
 
       // 1 or more json chunks.
       const got = decoder.decode(value, { stream: true }); // Chunk to text.
-      const chunks = got.match(/{[^{}]*}/g);
+      console.log(got);
+
+      const chunks = got.match(/{[^{}]*}/g) || [];
 
       // Loop through each JSON chunk and parse it.
       for (const chunk of chunks) {
