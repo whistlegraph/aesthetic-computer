@@ -3,7 +3,8 @@
 
 /* #region 📓 TODO 
   + Now
-  - [-] Always print the full source code.
+  - [❤️‍🔥] Always print the full source code.
+
   - [] Add GPT-3.5 / chatting flag. (Model picker.)
   - [] Add Dall-E 2 or controlnet Support.
   + Later
@@ -16,7 +17,8 @@
 #endregion */
 
 let brush,
-  code = "PROCESSING...",
+  code = "",
+  fullCode = "PROCESSING...",
   lines = [],
   controller;
 
@@ -30,11 +32,12 @@ async function boot({ params, system: { painting }, needsPaint }) {
   ask(
     { prompt: params.join(" ") || "a red circle", program },
     function and(msg) {
-      if (code === "PROCESSING...") {
-        code = ``; // Clear any waiting message.
+      if (fullCode === "PROCESSING...") {
+        fullCode = ``; // Clear any waiting message.
       }
       // console.log("🗨️", msg); // Every new response shows up here.
       code += msg;
+      fullCode += msg;
       // Remove anything in `code` up to and including the first semicolon.
       const semicolon = code.indexOf(";"); // Get index of the first semicolon.
       if (semicolon !== -1) {
@@ -44,18 +47,19 @@ async function boot({ params, system: { painting }, needsPaint }) {
       }
     },
     function finished() {
-      code = ``;
+      fullCode = ``;
+      // code = ``;
     },
     function failed() {
-      code = "NETWORK FAILURE";
+      fullCode = "NETWORK FAILURE";
     }
   );
 }
 
 // 🎨 Paint (Executes every display frame)
 function paint({ wipe, ink, system }) {
-  if (code) {
-    code
+  if (fullCode) {
+    fullCode
       .trim()
       .split("\n")
       .forEach((line, row) => {
