@@ -95,7 +95,6 @@ function bake() {
 
 // 👋 Leave (Runs once before the piece is unloaded)
 function leave() {
-  console.log("Aborting...");
   controller?.abort(); // Cancel any existing `ask.
 }
 
@@ -154,6 +153,7 @@ async function ask(options, and, finished, failed) {
 
       if (done) {
         console.log("❗ Response complete.");
+        controller = null;
         finished?.();
         break;
       }
