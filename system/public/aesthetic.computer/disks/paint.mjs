@@ -132,7 +132,10 @@ async function ask(options, and, finished, failed) {
     });
 
     const timeoutPromise = new Promise((resolve, reject) => {
-      setTimeout(() => reject(new Error(`Reply timed out!`)), 10000);
+      setTimeout(() => {
+        controller.abort();
+        reject(new Error(`Reply timed out!`));
+      }, 10000);
     });
 
     const response = await Promise.race([responsePromise, timeoutPromise]);
