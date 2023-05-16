@@ -131,13 +131,16 @@ async function ask(options, and, finished, failed) {
       body: JSON.stringify({ prompt, program }),
     });
 
+    let timeout;
+
     const timeoutPromise = new Promise((resolve, reject) => {
-      setTimeout(() => {
+      timeout = setTimeout(() => {
         controller.abort();
         reject(new Error(`Reply timed out!`));
       }, 10000);
     });
 
+    clearTimeout(timeout);
     const response = await Promise.race([responsePromise, timeoutPromise]);
 
     if (!response.ok) throw new Error(`Failed to reply: ${response.status}`);
