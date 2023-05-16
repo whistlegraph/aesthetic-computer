@@ -386,6 +386,7 @@ const $commonApi = {
       is: nopaint_is,
       undo: { paintings: undoPaintings },
       needsBake: false,
+      needsPresent: false,
       bakeOnLeave: false,
       no: ({ system, store, needsPaint }) => {
         const paintings = system.nopaint.undo.paintings;
@@ -469,7 +470,9 @@ const $commonApi = {
       // TODO: - [] Add Zoom
       //       - [] And Rotation!
 
-      present: ({ system, screen, wipe, paste, needsPaint }, tx, ty) => {
+      present: ({ system, screen, wipe, paste }, tx, ty) => {
+        system.nopaint.needsPresent = false;
+
         const x = tx || system.nopaint.translation.x;
         const y = ty || system.nopaint.translation.y;
 
@@ -1365,6 +1368,10 @@ async function load(
         }/${p3.replace(/^disks\//, "")}`;
         return `${p1} * as ${p2} from "${url}";`;
       });
+
+      // 💉 Constant Injection (for pieces to use)
+      // Inject the DEBUG constant into the updatedCode
+      updatedCode = `const DEBUG = ${debug};\n${updatedCode}`;
 
       const blob = new Blob([updatedCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);
@@ -2860,16 +2867,16 @@ async function makeFrame({ data: { type, content } }) {
           if (system === "nopaint") {
             const np = $api.system.nopaint;
             // No Paint: baking
+
             if (np.needsBake === true && bake) {
               $api.page($api.system.painting);
               bake($api);
               $api.page($api.screen);
               np.present($api);
               np.needsBake = false;
+            } else if (np.is("painting") || np.needsPresent) {
+              np.present($api); // No Paint: prepaint
             }
-
-            // No Paint: prepaint
-            if (np.is("painting")) np.present($api);
           }
 
           // All: Paint

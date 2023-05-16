@@ -2,9 +2,10 @@
 // Type `about` followed by a command to read all about its use!
 
 /* #region 🏁 todo
-  - [x] Parse line and all its parameters.
   - [] Add a similar "read" or "line" command which takes the user to
        the source code of the piece.
+  + Done
+  - [x] Parse line and all its parameters.
 #endregion */
 
 let piece, parsed, about;

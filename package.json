@@ -6,6 +6,7 @@
   "scripts": {
     "url": "node generate-local-url.js",
     "code": "cd system; npm run codespaces-dev",
+    "edge": "vercel dev",
     "code:debug": "cd system; npm run codespaces-dev-debug",
     "code:live": "cd system; npm run codespaces-dev-public",
     "new-piece": "f() { cd system/public/aesthetic.computer/disks; cp blank.mjs $1.mjs; };f",
