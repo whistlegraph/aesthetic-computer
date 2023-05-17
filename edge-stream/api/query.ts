@@ -1,7 +1,8 @@
-// Ask, 23.05.16.13.49
+// Query, 23.05.16.13.49
 // A vercel edge function to handle OpenAI text prediction APIs.
 
 import { OpenAI } from "openai-streams";
+
 export default async function handler(request, context) {
   const origin = request.headers.get("Origin");
   const production = origin === "https://aesthetic.computer";
