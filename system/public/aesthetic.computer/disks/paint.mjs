@@ -54,7 +54,8 @@ async function boot({ params, system: { painting }, needsPaint }) {
       const semicolon = code.indexOf(";"); // Get index of the first semicolon.
       if (semicolon !== -1) {
         const line = code.slice(0, semicolon + 1); // A full statement.
-        lines.push(line);
+        lines.push(line.trim() + "\n"); // Trim and add a line terminating character.
+        console.log(lines);
         code = code.slice(semicolon + 1); // Remove the line from `code`.
       }
     },
@@ -120,11 +121,11 @@ export { boot, paint, bake, leave };
 // where `program` has a `before` and `after` string.
 async function ask(options, and, finished, failed) {
   let prompt,
-    program = { before: "", after: "" };
+    program = { before: "", after: "" }, hint;
   if (typeof options === "string") {
     prompt = options;
   } else {
-    ({ prompt, program } = options);
+    ({ prompt, program, hint } = options);
   }
 
   controller?.abort(); // Prevent multiple asks / cancel existing ones.
@@ -140,7 +141,7 @@ async function ask(options, and, finished, failed) {
       method: "POST",
       signal,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, program }),
+      body: JSON.stringify({ prompt, program, hint }),
     });
 
     let timeout;

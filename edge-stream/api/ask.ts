@@ -35,7 +35,7 @@ export default async function handler(request, context) {
       // Tweak for "code" based formal output.
       if (hint === "code") {
         top_p = 0.5;
-        max_tokens = 128;
+        max_tokens = 256;
       }
 
       // Tweak for "char" (character) conversational human output.
