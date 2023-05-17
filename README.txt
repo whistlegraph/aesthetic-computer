@@ -62,14 +62,15 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `sotce` ***
-  - [] Make single answer prototype.
-    - [] Abstract `ask` out of `paint`.
-
 *** `evolve` ***
   - [] Research image net APIs. 
     - Transform a painting from one state to another using ML.
       (https://chat.openai.com/chat/1c0e4f20-7cb5-441f-a7e4-7b77fb55135d)
+
+*** `sotce` ***
+  - [] Clean up `paint` code.
+  - [] Make single answer prototype.
+    - [] Abstract `ask` out of `paint`.
 
 *** `about` ***
   - [] Color code the output / perhaps even show it on the prompt?

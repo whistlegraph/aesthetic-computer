@@ -1,25 +1,21 @@
-// Query, 23.05.16.13.49
+// Ask, 23.05.16.13.49
 // A vercel edge function to handle OpenAI text prediction APIs.
 
-export default async function handler(request, context) {
-  const origin = request.headers.get("Origin");
-  const production = origin === "https://aesthetic.computer";
-  const allowedOrigin = production ? "https://aesthetic.computer" : "*";
+import { corsHeaders } from "../help.mjs";
 
-  const headers = {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "Content-Type",
-  }; // Define CORS headers.
+export default async function handler(req) {
+  const headers = corsHeaders(req);
 
-  if (request.method === "OPTIONS")
-    return new Response("Success!", { headers });
+  if (req.method === "OPTIONS")
+    return new Response("Success!", {
+      headers: { "Content-Type": "text/plain", ...headers },
+    });
 
-  if (request.method === "POST") {
-    const body = await request.json();
+  if (req.method === "POST") {
+    const body = await req.json();
     let { prompt, program, hint } = body;
 
     try {
-
       // Load prompt program
       const messages = new Array();
       if (program.before.length > 0)
