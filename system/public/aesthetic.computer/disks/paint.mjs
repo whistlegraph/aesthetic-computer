@@ -33,7 +33,7 @@ let brush,
 // 🥾 Boot (Runs once before first paint and sim)
 async function boot({ params, system: { painting }, needsPaint }) {
   const program = {
-    before: `you must tell a virtual grid where to put colored rectangles to describe the following, you can do this by sending responses of individual lines consisting of: "ink(r, g, b, a).box(x, y, w, h)" where r, g, b, and a range from 50 to 255 and x, y is within the integer resolution of ${painting.width}, ${painting.height} and w, h ranges from 0 to 128. boxes draw from the top left. never use 255 or 0 for a! now try to plot an image of... in a way that a human would recognize as the subject visually`,
+    before: `you must tell a virtual grid where to put colored rectangles to describe the following, you can do this by sending responses of individual lines consisting of: "ink(r, g, b, a).box(x, y, w, h)" where r, g, b, and a range from 50 to 255 and x, y is within the integer resolution of ${painting.width}, ${painting.height} and w, h ranges inside that resolution. never use 255 or 0 for a! now try to plot an image of... in a way that a human would recognize as the subject visually - usually place any object in the center`,
     after: `make your response no longer than 20 lines where each line ends in a semicolon. choose colors related to the subject and draw clearly. all boxes should fit completely within the frame - every line of your response must begin with "ink" and nothing else`,
   };
 
