@@ -3,9 +3,12 @@
 
 /* #region 📓 TODO 
   + Now
-  - [] Add Dall-E 2
+  - [] Clean up code. 
+  - [] Fail if prompt is empty / provide a sane default.
   + Later
+  - [] Add sound based on color?
   - [] Add line support.
+  - [] Condense the syntax and adjust the prompt.
   - [] Make another prompt based tool or a conversation tool.
        (So this can be abstracted.)
   - [] How can I somehow make a character editor?
@@ -164,7 +167,7 @@ async function ask(options, and, finished, failed) {
       const { done, value } = await reader.read();
 
       if (done) {
-        console.log("❗ Response complete.");
+        if (DEBUG) console.log("❗ Response complete.");
         controller = null;
         finished?.();
         break;
