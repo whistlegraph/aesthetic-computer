@@ -167,6 +167,8 @@ async function ask(options, and, finished, failed) {
       const got = decoder.decode(value, { stream: true }); // Chunk to text.
       buffer += got; // Append new chunks to the buffer.
 
+      console.log(buffer);
+
       let chunkStart = 0;
       let chunkEnd = -1;
 

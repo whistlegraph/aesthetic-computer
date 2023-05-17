@@ -28,19 +28,19 @@ export default async function handler(request, context) {
 
       // const controller = new AbortController();
 
-      const stream = await OpenAI(
-        "completions",
-        {
-          model: "text-davinci-003",
-          prompt,
-          max_tokens: 1024,
-          temperature: 0.2,
-        },
-        {
-          mode: "raw",
-          // controller,
-        }
-      );
+      // const stream = await OpenAI(
+      //   "completions",
+      //   {
+      //     model: "text-davinci-003",
+      //     prompt,
+      //     max_tokens: 1024,
+      //     temperature: 1.2,
+      //   },
+      //   {
+      //     mode: "raw",
+      //     // controller,
+      //   }
+      // );
 
       // TODO: How can I cancel this readable stream?
       // This is not currently working: 23.05.16.13.49
@@ -49,7 +49,8 @@ export default async function handler(request, context) {
         // controller.abort(); // Send to a new abort controller.
       // });
 
-      return new Response(stream, { headers });
+      // return new Response(stream, { headers });
+      return new Response("hello", { headers });
     } catch (error) {
       console.error("Failed to process the request:", error);
       return new Response("Error", {
