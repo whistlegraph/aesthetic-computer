@@ -59,32 +59,26 @@
   + Dev Only
   - [] Get ssh working in VS Code on windows via WSL: https://stackoverflow.com/questions/60150466/can-i-ssh-from-wsl-in-visual-studio-code
   - [] `npm run code` does not work offline, due to netlify relying on online conectivity.
-  + Done
-  - [x] Firefox: Fix blank screen on boot.
-  - [x] Painting doesn't fully reset when resizing.
-  - [x] Just using `box(x, y w, h, "*center")` does not work.
-  - [x] `n` and `p` keyboard shortcut do not ignore history / break navigation
-  - [x] Fix Freaky Flowers opensea regression.
-  - [x] Chained paint functions do not respect inkrn.
-  - [x] Check `wg` and `ff` and other disks including the prompt in the Instagram in-app browser!
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `paint` ***
-  - [] Paint anything by routing prompt to a model. (OpenAI)
+*** `sotce` ***
+  - [] Make single answer prototype.
+    - [] Abstract `ask` out of `paint`.
 
-*** `learn` ***
-  - [🟠] Sketch a `learn` program that writes text and explains how different
-       commands work. 
-  - [] For now just paginate text on the screen / paginate text / make
-        a pager.
+*** `evolve` ***
+  - [] Research image net APIs. 
+    - Transform a painting from one state to another using ML.
+      (https://chat.openai.com/chat/1c0e4f20-7cb5-441f-a7e4-7b77fb55135d)
+
+*** `about` ***
+  - [] Color code the output / perhaps even show it on the prompt?
++ Done
+  - [x] Sketch a `learn` program that writes text and explains how different
+        commands work. 
 
 *** `bleep` presets ***
   - [] Omnichord-like bleep presets in certain keys.
-
-*** `grocery` ***
-  - [] Sampling keyboard with speech to text for grocery lists,
-       with a button to cross off items, sendable from user to user.
 
 *** General Painting / Graphics API ***
   - [-] Fix 'system.nopaint.bakeOnLeave` `page(screen)` anomaly. (Redo "write")
@@ -211,20 +205,9 @@
     - [x] Find good name for this process...
     - [x] Creating `happy-hands-factory` with an alias `hhf`.
 
-*** (w)ordfish ***
-+ Later
-- [] Create the last 50 ordfish once fees go down.
-  - [] Use `paste` to bring in old ones.
-- [] Re-automate the process, including upload to spaces... Perhaps
-     putting it in the a.c api with some edge functions.
-+ Done
-- [x] Sign an `ordfish` for Casey.
-- [x] Make an `ordfish` slideshow page and route the codes to
-     `ordfish~CODE` for url sharing with a button link to ordinals.com.
-- [x] Get collection page online.
-- [x] Make bw drawings and inscribe them.
-- [x] get `word` working again
-- [x] make it so exporting of resized paintings works
+*** `grocery` ***
+  - [] Sampling keyboard with speech to text for grocery lists,
+       with a button to cross off items, sendable from user to user.
 
 *** "async message hub" ***
   - [] Pub/sub model.
@@ -251,10 +234,8 @@
   - [] Add notifications.
   - [] Submit to store with notifications enabled, usernames and posts.
 
-*** ai brush ***
-  - [] Write a query and get back brush code in response.
-  - [] How can I hook this up easily?
-  - [] Test RunwayML: https://app.runwayml.com/video-tools/teams/me841/ai-tools/image-to-image
+*** brush ***
+  - [] Write a query and get back dynamic brush code in response.
 
 *** Watchlist ***
   - [] https://www.youtube.com/watch?v=KrPsyr8Ig6M
@@ -274,15 +255,15 @@
 
 *** CPU Resizable & Navigable 2D Painting ***
     - [🟡] Implement all other brushes:
-    - [-] `shape`
-    - [] `word`
-    - [] `smear`
     - [] `camera`
     - [] `icon`
     - [] `sign`
-    - [] `bits`
   - [] Measure performance.
       + Done
+      - [x] `shape`
+      - [x] `word`
+      - [x] `smear`
+      - [x] `bits`
       - [x] `line`
       - [x] Add `color words` to `rect`.
       - [x] `oval`
@@ -321,14 +302,6 @@
     - [x] Use "crop" brush or `resize` command for this?
   - [x] Make a minimal `bits` brush.
 
-*** Ordinals Collection ***
-  + Now
-   - 📓 This collection should be fully analog.
-        I should keep a list of sats somewhere in a notebook,
-        then sign drawings and upload them.
-  + Done
-   - [x] Inscribe a test ordinal. 
-
 *** Generic Image / Photo Uploader ***
   - Data entry process
    - [] 1. go to ac and type `pic`
@@ -337,11 +310,6 @@
    - [] 4. write code on drawing/sticker for drawing
   - Viewing process
     - [] 1. visit ac and type `code` to view the image
-
-*** `evolve` ***
-  - [] Research image net APIs. 
-    - Transform a painting from one state to another using ML.
-      (https://chat.openai.com/chat/1c0e4f20-7cb5-441f-a7e4-7b77fb55135d)
 
 *** Code Lookup / Analog <-> Digital Workflow ***
   - Data entry process

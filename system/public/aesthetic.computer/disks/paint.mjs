@@ -3,13 +3,18 @@
 
 /* #region 📓 TODO 
   + Now
-  - [❤️‍🔥] Always print the full source code.
-
-  - [] Add GPT-3.5 / chatting flag. (Model picker.)
-  - [] Add Dall-E 2 or controlnet Support.
+  - [] Add Dall-E 2
   + Later
-  - [] Request cancellation handling on the server via `ask.js`.
+  - [] Add line support.
+  - [] Make another prompt based tool or a conversation tool.
+       (So this can be abstracted.)
+  - [] How can I somehow make a character editor?
+  - [] And have two chacters talk to one another in turns, adding a human?
+  - [] ASCII graphics.
   + Done
+  - [X] Request cancellation handling on the server via `ask.js`.
+  - [x] Use GPT-3.5.
+  - [x] Always print the full source code.
   - [x] Segmented / incremental input.
   - [x] Confine to canvas. 
   - [x] Pipe in `/llm` post request and pass in information.
@@ -30,7 +35,11 @@ async function boot({ params, system: { painting }, needsPaint }) {
   };
 
   ask(
-    { prompt: params.join(" ") || "a red circle", program },
+    {
+      prompt: params.join(" ") || "a red circle",
+      program,
+      hint: "code",
+    },
     function and(msg) {
       if (fullCode === "PROCESSING...") {
         fullCode = ``; // Clear any waiting message.
@@ -95,7 +104,7 @@ function bake() {
 
 // 👋 Leave (Runs once before the piece is unloaded)
 function leave() {
-  controller?.abort(); // Cancel any existing `ask.
+  controller?.abort(); // Cancel any existing `ask` which halts the server.
 }
 
 export const system = "nopaint";
@@ -124,7 +133,7 @@ async function ask(options, and, finished, failed) {
       ? "http://localhost:3000"
       : "https://ai.aesthetic.computer";
 
-    const responsePromise = fetch(`${host}/api/query`, {
+    const responsePromise = fetch(`${host}/api/ask`, {
       method: "POST",
       signal,
       headers: { "Content-Type": "application/json" },
@@ -136,7 +145,7 @@ async function ask(options, and, finished, failed) {
     const timeoutPromise = new Promise((resolve, reject) => {
       timeout = setTimeout(() => {
         controller.abort();
-        reject(new Error(`Reply timed out!`));
+        reject(new Error(`Reply timed out after 10 seconds!`));
       }, 10000);
     });
 
@@ -151,9 +160,6 @@ async function ask(options, and, finished, failed) {
     const reader = readableStream.getReader();
 
     // Detect chunks of JSON as they stream in.
-    let buffer = "";
-    let bracketCount = 0;
-
     while (true) {
       const { done, value } = await reader.read();
 
@@ -165,42 +171,7 @@ async function ask(options, and, finished, failed) {
       }
 
       const got = decoder.decode(value, { stream: true }); // Chunk to text.
-      buffer += got; // Append new chunks to the buffer.
-
-      console.log(buffer);
-
-      let chunkStart = 0;
-      let chunkEnd = -1;
-
-      // Scan the buffer to extract complete JSON objects.
-      for (let i = 0; i < buffer.length; i++) {
-        if (buffer[i] === "{") {
-          if (bracketCount === 0) chunkStart = i;
-          bracketCount += 1;
-        } else if (buffer[i] === "}") {
-          bracketCount -= 1;
-          if (bracketCount === 0) {
-            chunkEnd = i;
-            break;
-          }
-        }
-      }
-
-      // If a complete JSON object was found, parse and process it.
-      if (chunkEnd >= 0) {
-        const chunk = buffer.substring(chunkStart, chunkEnd + 1);
-
-        try {
-          const msg = JSON.parse(chunk);
-          console.log("JSON:", msg);
-          // Run the call back for every message.
-          if (msg.choices[0].text) and?.(msg.choices[0].text);
-        } catch (err) {
-          console.error("Failed to parse chunk as JSON:", err);
-        }
-        // Remove the processed chunk from the buffer.
-        buffer = buffer.substring(chunkEnd + 1);
-      }
+      and?.(got);
     }
   } catch (error) {
     console.error("Failed to ask:", error);

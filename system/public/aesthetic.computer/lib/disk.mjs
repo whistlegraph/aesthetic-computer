@@ -1724,7 +1724,10 @@ async function load(
           return defaults.act($);
         }
       };
-      leave = module.leave || nopaint.leave;
+      leave = ($) => {
+        module.leave?.($); // Run the custom leave.
+        nopaint.leave($); // And the inherited default leave from nopaint.
+      };
       bake = module.bake || nopaint.bake;
       system = "nopaint";
     } else {
