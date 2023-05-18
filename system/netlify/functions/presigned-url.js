@@ -62,7 +62,7 @@ const s3User = new S3Client({
 export async function handler(event, context) {
   // Only allow GET requests.
   if (event.httpMethod !== "GET")
-    return respond(405, { error: "Wrong request type 😩" });
+    return respond(405, { error: "Wrong request type!" });
 
   if (event.path === "/presigned-download-url") {
     const queryParams = new URLSearchParams(event.queryStringParameters);

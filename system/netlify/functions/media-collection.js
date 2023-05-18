@@ -18,7 +18,7 @@ const s3User = new S3Client({
 export async function handler(event, context) {
   // Make sure this is a GET request
   if (event.httpMethod !== "GET")
-    return respond(405, { error: "Wrong request type 😩" });
+    return respond(405, { error: "Wrong request type!" });
 
   const client = { s3: s3User, bucket: process.env.USER_SPACE_NAME };
   const path = decodeURIComponent(event.queryStringParameters.for);

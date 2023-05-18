@@ -29,6 +29,8 @@
   external_node_modules = ["got", "redis"]
 [functions.sotce-blog]
   external_node_modules = ["got", "crypto", "patreon"]
+[functions.vary]
+  external_node_modules = ["multiparty", "openai"]
 [dev]
   NODE_ENV = "development"
   publish = "public/"
@@ -121,6 +123,10 @@
 [[redirects]]
   from = "/auth"
   to = "/.netlify/functions/auth"
+  status = 200
+[[redirects]]
+  from = "/api/vary"
+  to = "/.netlify/functions/vary"
   status = 200
 [[redirects]]
   from = "/handle"

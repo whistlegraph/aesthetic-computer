@@ -18,7 +18,7 @@ async function fun(event) {
 
   if (event.httpMethod !== "POST") {
     status = 405;
-    out = { status: "Wrong request type 😩" };
+    out = { status: "Wrong request type!" };
   } else if (event.httpMethod === "POST" && event.path === "/run") {
     try {
       const body = JSON.parse(event.body);

@@ -11,10 +11,7 @@ import { respond } from "../../backend/http.mjs";
 export async function handler(event, context) {
   // Make sure this is a GET request
   if (event.httpMethod !== "GET") {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: "Wrong request type 😩" }),
-    };
+    return respond(405, { error: "Wrong request type." });
   }
 
   const handleOrEmail = event.queryStringParameters.from;

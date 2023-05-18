@@ -7,39 +7,28 @@
 
 // 🥾 Boot (Runs once before first paint and sim)
 async function boot({ system }) {
+  // TODO: Retrieve the painting as a PNG...
+
+
   // Convert the pixels data to a Blob object
   const blob = new Blob([system.painting.pixels], {
     type: "application/octet-stream",
   });
 
-  // Convert the Blob to a base64 string
-  const imageBase64 = await blobToBase64(blob);
-
-  // Create an object to hold the image data and other data
-  const data = {
-    image: imageBase64,
-    width: system.painting.width,
-    height: system.painting.height
-  };
+  const file = new File([blob], "painting.png"); // Make a `File` out of the image, to be consumed by the server.
 
   // Create a FormData object to hold the image blob and other data
-  // const formData = new FormData();
-  // formData.append("image", blob);
-  // formData.append("width", system.painting.width);
-  // formData.append("height", system.painting.height);
-
-  const host = DEBUG
-    ? "http://localhost:3000"
-    : "https://ai.aesthetic.computer";
+  const formData = new FormData();
+  formData.append("image", file);
+  formData.append("width", system.painting.width);
+  formData.append("height", system.painting.height);
 
   // Make a POST request to the API
-  fetch(`${host}/api/vary`, {
-    method: "POST",
-    body: JSON.stringify(data),
-  })
-    .then((response) => {
+  fetch(`/api/vary`, { method: "POST", body: formData })
+    .then(async (response) => {
       if (!response.ok) {
-        throw new Error("Network response was not ok");
+        console.log(await response.json());
+        throw new Error("Network response was not ok.");
       }
       return response.json();
     })
@@ -59,11 +48,3 @@ export const system = "nopaint";
 export { boot, paint };
 
 // 📚 Library (Useful functions used throughout the piece)
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}

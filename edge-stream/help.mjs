@@ -1,5 +1,10 @@
 export function corsHeaders(request) {
-  const origin = request.headers.get("Origin");
+  let origin;
+  if (typeof request.headers.get === "function") {
+    origin = request.headers.get("Origin"); // For edge functions..
+  } else {
+    origin = request.headers.origin; // For serverless functions.
+  }
   const production = origin === "https://aesthetic.computer";
   const allowedOrigin = production ? "https://aesthetic.computer" : "*";
 

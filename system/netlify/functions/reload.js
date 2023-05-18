@@ -17,7 +17,7 @@ async function fun(event, context) {
 
   if (event.httpMethod !== "POST") {
     status = 405;
-    out = { status: "Wrong request type 😩" };
+    out = { status: "Wrong request type!" };
   } else {
     status = 200;
 
