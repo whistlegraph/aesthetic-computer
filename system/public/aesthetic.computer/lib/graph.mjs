@@ -246,6 +246,10 @@ function shadePixels(points, shader, shaderArgs = []) {
 
 // TODO: Implement panTranslation for primitives other than line?
 function pan(x, y) {
+  if (typeof x === "object") {
+    x = x.x;
+    y = x.y;
+  }
   if (y === undefined) y = x;
   panTranslation.x += floor(x);
   panTranslation.y += floor(y);
@@ -306,7 +310,7 @@ function copyRow(destX, destY, srcX, srcY, src) {
 // Resize a bitmap to a new with and height, returning a new
 // bitmap, using nearest neighbor scaling.
 // Bitmaps are {pixels: uint8array, width: int, height, int}
-function resize (bitmap, width, height) {
+function resize(bitmap, width, height) {
   const ratioX = bitmap.width / width;
   const ratioY = bitmap.height / height;
   const pixels = new Uint8ClampedArray(width * height * 4);
@@ -339,6 +343,9 @@ function resize (bitmap, width, height) {
 // Blit only works with a scale of 1.
 function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
   if (!from) return;
+
+  destX += panTranslation.x;
+  destY += panTranslation.y;
 
   if (scale !== 1) {
     // Or rotation.

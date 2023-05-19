@@ -59,7 +59,6 @@ let hotSwap = null;
 // Inheritable via `export const system = "nopaint"` from any piece.
 // Boilerplate for a distributed raster editor.
 const nopaint = {
-  pan: { x: 0, y: 0 }, // The current position / offset of the painting view.
   leave: function leave($) {
     const { store, system, page, screen, flatten } = $;
     if (NPnoOnLeave === false) {

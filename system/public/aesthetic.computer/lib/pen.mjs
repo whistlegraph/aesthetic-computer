@@ -250,7 +250,12 @@ export class Pen {
         delete this.pointers[e.pointerId];
 
       // if (debug)
-        // console.log("Removed pointer by ID:", e.pointerId, this.pointers);
+      // console.log("Removed pointer by ID:", e.pointerId, this.pointers);
+    });
+
+    // Automatically dispatch a pointer release when hidden.
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) this.up();
     });
 
     // Mousewheel
@@ -307,6 +312,19 @@ export class Pen {
     }
 
     return pen;
+  }
+
+  // Synthesize a pointer up event.
+  up() {
+    window.dispatchEvent(
+      new PointerEvent("pointerup", {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        pointerId: 1, // First "finger" or mouse.
+        button: 0 // Left button.
+      })
+    );
   }
 
   // TODO: Fix pointer delta issues.

@@ -21,7 +21,7 @@ export async function handler(event, context) {
     const handle = await handleFor(id);
 
     if (handle) {
-      return respond(200, handle);
+      return respond(200, { handle });
     } else {
       return respond(400, { message: "No handle found." });
     }

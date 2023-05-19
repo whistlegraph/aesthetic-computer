@@ -8,9 +8,11 @@ export class Keyboard {
   events = [];
   #lastKeyDown;
   input;
+  #held = new Set();
 
   constructor(getCurrentPiece) {
     window.addEventListener("keydown", (e) => {
+      this.#held.add(e.key);
       // Firefox "repeat" seems to be broken on linux, so here is
       // some redundancy. 22.07.29.17.43
       const repeat = e.key === this.#lastKeyDown;
@@ -63,11 +65,27 @@ export class Keyboard {
     });
 
     window.addEventListener("keyup", (e) => {
+      this.#held.delete(e.key);
       this.events.push({
         name: "keyboard:up:" + parseKey(e.key),
         key: e.key,
       });
       this.#lastKeyDown = null;
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        // Trigger keyup event for each held key
+        this.#held.forEach((key) => {
+          document.dispatchEvent(
+            new KeyboardEvent("keyup", {
+              key: key,
+              bubbles: true,
+              cancelable: true,
+            })
+          );
+        });
+      }
     });
   }
 }

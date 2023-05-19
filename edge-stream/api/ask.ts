@@ -6,10 +6,11 @@ import { corsHeaders } from "../help.mjs";
 export default async function handler(req) {
   const headers = corsHeaders(req);
 
-  if (req.method === "OPTIONS")
+  if (req.method === "OPTIONS") {
     return new Response("Success!", {
       headers: { "Content-Type": "text/plain", ...headers },
     });
+  }
 
   if (req.method === "POST") {
     const body = await req.json();
@@ -63,6 +64,8 @@ export default async function handler(req) {
         headers: { "Content-Type": "text/plain", ...headers },
       });
     }
+  } else {
+    return new Response("Wrong method.");
   }
 }
 

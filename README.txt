@@ -64,9 +64,15 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** `evolve` ***
-  - [] Research image net APIs. 
+  - [] Rename `vary` to `evolve`.
+  - [x] Integrate OpenAI imageVariation.
+  - [] Research more image net APIs. 
     - Transform a painting from one state to another using ML.
       (https://chat.openai.com/chat/1c0e4f20-7cb5-441f-a7e4-7b77fb55135d)
+
+*** `context-click` ***
+  - [] Add a useful right click menu for desktop / mouse users that
+       runs across all pieces.
 
 *** `sotce` ***
   - [] Clean up `paint` code.

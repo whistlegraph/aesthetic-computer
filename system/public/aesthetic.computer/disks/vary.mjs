@@ -4,7 +4,9 @@
 /* #region ✅ TODO 
   + Now
   - [-] Get it working for all resolution ranges.
-  - [*] Why isn't `ask` working locally? Check on mac.
+  - [*] Why isn't `ask` working locally? Check on mac...
+    - [-] Maybe vercel is not a great choice and I have other
+          options...
   - [-] Abstract "system message" logic.
   + Done
   - [x] Abstract the ellipsisTicker in `video` and add it here
