@@ -30,28 +30,20 @@
     - [] Show a little game or helpful hint. (💡 @alex)
 #endregion */
 
-let btn, nobtn,
+import { EllipsisTicker } from "../lib/ellipsis-ticker.mjs";
+
+let btn,
+  nobtn,
   label = "Download"; // "Export" | "Download" | "CODE" button.
 let slug; // Stores a download code for prepending to locally downloaded videos.
 let isPrinting = false;
-let ellipsisTicker, ellipsisDots = 0;
-
-class EllipsisTicker {
-
-}
+let ellipsisTicker;
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({ wipe, rec, gizmo }) {
   wipe(0);
   rec.present(); // Visually present a recording right away if one exists.
-
-  ellipsisTicker = new gizmo.Hourglass(30, {
-    completed: () => {
-      ellipsisDots = (ellipsisDots + 1) % 4;
-    },
-    autoFlip: true,
-  });
-
+  ellipsisTicker = new EllipsisTicker(gizmo.Hourglass);
 }
 
 // 🎨 Paint (Executes every display frame)
@@ -76,9 +68,7 @@ function paint({
       const h = 16; // Paint a printing / transcoding progress bar.
 
       let text = "PROCESSING";
-      let ellipsis = "";
-      help.repeat(ellipsisDots, () => (ellipsis += "."));
-      text += ellipsis.padEnd(3, " ");
+      text += ellipsisTicker.text(help.repeat);
 
       wipe(0, 0, 80, 180)
         .ink(0)
@@ -88,7 +78,6 @@ function paint({
         .ink(255, 200)
         .write(text, { center: "xy" });
     } else {
-
       // Show "Cancel" / "No" button.
 
       if (!nobtn)
@@ -101,7 +90,7 @@ function paint({
       ink(200, 0, 0)
         .box(nobtn.box, "fill")
         .ink(100, 0, 0)
-        .write("RETRY", num.p2.add(nobtn.box, {x: 6, y: 4}), [0, 40]);
+        .write("RETRY", num.p2.add(nobtn.box, { x: 6, y: 4 }), [0, 40]);
 
       // Show "Export" (Print) button to transcode and save a video.
       // Draw the "Export" button.
@@ -115,9 +104,7 @@ function paint({
       ink(0, 200, 0)
         .box(btn.box, "fill")
         .ink(100, 255, 100)
-        .write("DONE", num.p2.add(btn.box, {x: 8, y: 4}), [0, 40]);
-
-
+        .write("DONE", num.p2.add(btn.box, { x: 8, y: 4 }), [0, 40]);
     }
   } else {
     // TODO: Put a little delay on here?
@@ -125,8 +112,8 @@ function paint({
   }
 }
 
-function sim () {
-  ellipsisTicker.step();
+function sim() {
+  ellipsisTicker.sim();
 }
 
 // ✒ Act (Runs once per user interaction)
@@ -135,7 +122,9 @@ function act({ event: e, rec, download, serverUpload: upload, num, jump }) {
     let noPrint = true;
 
     // Retry
-    nobtn?.act(e, () => { jump(`whistlegraph`) });
+    nobtn?.act(e, () => {
+      jump(`whistlegraph`);
+    });
 
     // Print (or download) a video.
     btn?.act(e, () => {
@@ -158,7 +147,6 @@ function act({ event: e, rec, download, serverUpload: upload, num, jump }) {
         noPrint = false;
       }
     });
-
 
     if (noPrint) {
       if (e.is("touch:1") && !rec.playing) rec.play();

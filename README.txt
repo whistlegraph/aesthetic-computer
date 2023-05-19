@@ -39,6 +39,7 @@
 😀 TODO 😆
 
 🐞 Annoying Bugs & Regressions 🪱
+  - [] `video` In-progress transcoding does not cancel when leaving a piece.
   - [] S3 Developer Onboarding Sync Not Working
   - [] Alt / Meta shortcut needs to work for mac to reset pan.
   - [] Live reload: boot will not paint again if paint returns false in a contrived example

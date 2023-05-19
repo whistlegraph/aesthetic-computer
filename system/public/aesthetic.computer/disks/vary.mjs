@@ -3,21 +3,27 @@
 
 /* #region ✅ TODO 
   + Now
-  - [] Abstract the ellipsisTicker in `video` and add it here
-       and to `paint`.
-  - [] Get it working for all resolutoin ranges.
+  - [-] Get it working for all resolutoin ranges.
+  - [] Abstract "system message" logic.
   + Done
+  - [x] Abstract the ellipsisTicker in `video` and add it here
+       and to `paint`.
   - [x] Upload and receive image from `api/vary`.
 #endregion */
 
+import { EllipsisTicker } from "../lib/ellipsis-ticker.mjs";
+
 let picture;
-let message = "PROCESSING...";
+let message = "PROCESSING";
 
 const failure = "NETWORK FAILURE";
 const msgDelay = 250;
+let ellipsisTicker;
 
 // 🥾 Boot (Runs once before first paint and sim)
-async function boot({ system, encode, net }) {
+async function boot({ system, encode, gizmo }) {
+  ellipsisTicker = new EllipsisTicker(gizmo.Hourglass);
+
   // Encode a png from the current painting and upload it to the server.
   const png = await encode({ file: system.painting, type: "png" });
   const formData = new FormData();
@@ -50,13 +56,19 @@ async function boot({ system, encode, net }) {
 }
 
 // 🎨 Paint (Executes every display frame)
-function paint({ ink, system }) {
+function paint({ ink, system, help }) {
   if (message) {
-    ink(0xcccccc).write(message, { x: 7, y: 24 });
+    let m = message;
+    if (message === "PROCESSING") m += ellipsisTicker.text(help.repeat);
+    ink(0xcccccc).write(m, { x: 7, y: 24 });
     system.nopaint.needsPresent = true; // This should be a more simple flag.
     //                                     And perhaps be automatic and
     //                                     tied to the return value of paint?
   }
+}
+
+function sim() {
+  ellipsisTicker.sim();
 }
 
 function bake({ paste }) {
@@ -67,6 +79,6 @@ function bake({ paste }) {
 }
 
 export const system = "nopaint";
-export { boot, paint, bake };
+export { boot, paint, sim, bake };
 
 // 📚 Library (Useful functions used throughout the piece)
