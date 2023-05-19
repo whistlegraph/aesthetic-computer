@@ -153,8 +153,8 @@ async function ask(options, and, finished, failed) {
       }, 10000);
     });
 
-    clearTimeout(timeout);
     const response = await Promise.race([responsePromise, timeoutPromise]);
+    clearTimeout(timeout);
 
     if (!response.ok) throw new Error(`Failed to reply: ${response.status}`);
 

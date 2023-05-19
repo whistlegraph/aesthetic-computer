@@ -3,8 +3,9 @@
 
 /* #region ✅ TODO 
   + Now
-  - [-] Get it working for all resolutoin ranges.
-  - [] Abstract "system message" logic.
+  - [-] Get it working for all resolution ranges.
+  - [*] Why isn't `ask` working locally? Check on mac.
+  - [-] Abstract "system message" logic.
   + Done
   - [x] Abstract the ellipsisTicker in `video` and add it here
        and to `paint`.
@@ -28,6 +29,7 @@ async function boot({ system, encode, gizmo }) {
   const png = await encode({ file: system.painting, type: "png" });
   const formData = new FormData();
   formData.append("image", new File([png], "painting.png"));
+
 
   // Make a POST request to the API
   fetch(`/api/vary`, { method: "POST", body: formData })
