@@ -894,6 +894,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Send a locally opened file across the thread.
+    if (type === "file-encode:request") {
+      let file;
+      if (content.type === "png")
+        file = await bufferToBlob(content.file, "image/png");
+      send({
+        type: "file-encode:response",
+        content: { data: file, result: file ? "success" : "error" },
+      });
+      return;
+    }
+
     // Send a user authorization token (or undefined) across the thread.
     if (type === "authorization:request") {
       const token = await authorize();
@@ -2077,30 +2089,52 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "load-bitmap") {
-      fetch(content).then(async (response) => {
-        if (!response.ok) {
-          send({
-            type: "loaded-bitmap-rejection",
-            content: { url: content },
-          });
-        } else {
-          const blob = await response.blob();
-          const img = await blobToBitmap(blob);
-
-          send(
-            {
-              type: "loaded-bitmap-success",
-              content: {
-                url: content,
-                img,
-              },
-            },
-            [img.pixels.buffer]
-          );
-        }
+      const img = document.createElement("img");
+      img.src = content;
+      img.crossOrigin = "anonymous";
+      img.addEventListener("load", async () => {
+        const bitmap = await imgToBitmap(img);
+        send(
+          {
+            type: "loaded-bitmap-success",
+            content: { url: content, img: bitmap },
+          },
+          [bitmap.pixels.buffer]
+        );
       });
+      img.addEventListener("error", () => {
+        send({ type: "loaded-bitmap-rejection", content: { url: content } });
+      });
+
       return;
     }
+
+    // This method does not load remote images from different origins.
+    // if (type === "load-bitmap") {
+    //   fetch(content, { mode: "no-cors" }).then(async (response) => {
+    //     if (!response.ok) {
+    //       send({
+    //         type: "loaded-bitmap-rejection",
+    //         content: { url: content },
+    //       });
+    //     } else {
+    //       const blob = await response.blob();
+    //       const img = await toBitmap(blob);
+
+    //       send(
+    //         {
+    //           type: "loaded-bitmap-success",
+    //           content: {
+    //             url: content,
+    //             img,
+    //           },
+    //         },
+    //         [img.pixels.buffer]
+    //       );
+    //     }
+    //   });
+    //   return;
+    // }
 
     if (type === "fullscreen-toggle") {
       curReframeDelay = 0;
@@ -2503,6 +2537,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   // Request and open local file from the user.
+  // TODO: Only supports images for now.
   async function openFile() {
     const input = document.createElement("input");
     input.type = "file";
@@ -2521,7 +2556,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           reader.onload = async () => {
             const blob = new Blob([reader.result], { type: file.type });
-            resolve(await blobToBitmap(blob));
+            resolve(await toBitmap(blob));
           };
           reader.onerror = (error) => {
             reject(error);
@@ -2688,7 +2723,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     const blob = await new Promise((resolve) => can.toBlob(resolve, MIME, 100));
-
     return blob;
   }
 
@@ -2788,7 +2822,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let handVideoTime = -1;
       const useLegacyHandsAPI = true; // Performance of both libraries is
       //                                 equivalent on iPhone 14 Pro but vastly
-      //                                 different on iPhone 13 Pro. 23.05.12.14.23 
+      //                                 different on iPhone 13 Pro. 23.05.12.14.23
 
       const buffer = document.createElement("canvas");
       let animationRequest;
@@ -3158,8 +3192,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 }
 
 // Utilities
-async function blobToBitmap(blob) {
-  const img = await createImageBitmap(blob);
+async function toBitmap(imgOrBlob) {
+  const img = await createImageBitmap(imgOrBlob);
   const canvas = document.createElement("canvas");
   canvas.width = img.width;
   canvas.height = img.height;

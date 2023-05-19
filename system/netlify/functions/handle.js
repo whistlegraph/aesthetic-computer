@@ -8,6 +8,7 @@
 import { authorize, handleFor } from "../../backend/authorization.mjs";
 import { validateHandle } from "../../public/aesthetic.computer/lib/text.mjs";
 import { MongoClient } from "mongodb";
+import { respond } from "../../backend/http.mjs";
 
 const mongoDBConnectionString = process.env.MONGODB_CONNECTION_STRING;
 const mongoDBName = process.env.MONGODB_NAME;
@@ -20,20 +21,13 @@ export async function handler(event, context) {
     const handle = await handleFor(id);
 
     if (handle) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          handle,
-        }),
-      };
+      return respond(200, handle);
     } else {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ message: "No handle found." }),
-      };
+      return respond(400, { message: "No handle found." });
     }
   } else if (event.httpMethod !== "POST")
-    return { statusCode: 405, body: "Method Not Allowed" };
+    return respond(405, { message: "Method Not Allowed" });
+
   // A POST request to set the handle.
 
   // Parse the body of the HTTP request
@@ -48,10 +42,7 @@ export async function handler(event, context) {
 
     // Make sure handle entry is well formed.
     if (!validateHandle(handle)) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ message: "Bad handle formatting." }),
-      };
+      return respond(400, { message: "Bad handle formatting." });
     }
 
     // And that we are logged in...
@@ -80,28 +71,16 @@ export async function handler(event, context) {
           await collection.insertOne({ _id: user.sub, handle });
         }
       } catch (error) {
-        return {
-          statusCode: 400,
-          body: JSON.stringify({ message: error }),
-        };
+        return respond(400, { message: error });
       } finally {
         await client.close(); // Close the connection.
       }
       // Successful handle change...
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ handle: body.handle }),
-      };
+      return respond(200, { handle: body.handle });
     } else {
-      return {
-        statusCode: 401,
-        body: "Authorization failure...",
-      };
+      return respond(401, { message: "Authorization failure..." });
     }
   } catch (error) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ message: "Cannot parse input body." }),
-    };
+    return respond(400, { message: "Cannot parse input body." });
   }
 }

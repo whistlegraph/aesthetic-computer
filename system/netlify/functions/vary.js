@@ -1,16 +1,14 @@
 import { Configuration, OpenAIApi } from "openai";
 import Busboy from "busboy";
 import { respond } from "../../backend/http.mjs";
+import { PassThrough } from "stream";
 
 export async function handler(event, context) {
-  if (event.httpMethod !== "POST") {
+  if (event.httpMethod !== "POST")
     return respond(405, { error: "Wrong request type." });
-  }
 
-  const data = await parseFormData(event);
-
-  data.image.data.name = "painting.png";
-  console.log(data.image.data);
+  const form = await parseFormData(event);
+  form.image.data.name = "painting.png";
 
   try {
     const configuration = new Configuration({
@@ -19,18 +17,32 @@ export async function handler(event, context) {
     const openai = new OpenAIApi(configuration);
 
     const response = await openai.createImageVariation(
-      data.image.data,
+      form.image.data,
       1,
       "256x256"
     );
-    console.log(response);
-    return respond(200, { url: response.data.data[0].url });
+
+    // Fetch the returned image URL and respond with the file.
+    const { got } = await import("got"); // Import "got"
+    const imageResponse = await got.get(response.data.data[0].url, {
+      responseType: "buffer",
+    });
+
+    const image = imageResponse.body; // Buffer
+
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": imageResponse.headers["content-type"] },
+      body: image.toString("base64"), // Convert buffer to base64 string.
+      isBase64Encoded: true, // Set isBase64Encoded to true
+    };
   } catch (error) {
     console.log(error);
     return respond(500, { error: `Error varying painting: ${error}` });
   }
 }
 
+// Use `busboy` to parse form data.
 function parseFormData(event) {
   return new Promise((resolve, reject) => {
     const busboy = Busboy({
@@ -38,9 +50,7 @@ function parseFormData(event) {
     });
     let formData = {};
 
-    busboy.on("field", (fieldname, val) => {
-      formData[fieldname] = val;
-    });
+    busboy.on("field", (fieldname, val) => (formData[fieldname] = val));
 
     busboy.on("file", (fieldname, file, filename, encoding, mimetype) => {
       let buffers = [];
@@ -55,10 +65,7 @@ function parseFormData(event) {
       });
     });
 
-    busboy.on("finish", () => {
-      resolve(formData);
-    });
-
+    busboy.on("finish", () => resolve(formData));
     busboy.on("error", (error) => reject(error));
 
     busboy.write(

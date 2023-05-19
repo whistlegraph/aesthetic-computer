@@ -260,6 +260,7 @@ let fileImport;
 let serverUpload, serverUploadProgressReporter;
 let authorizationRequest;
 let fileOpenRequest;
+let fileEncodeRequest;
 let gpuResponse;
 let web3Response;
 
@@ -342,6 +343,14 @@ let lastActAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
+  // File should be { type, data } where type is "png", "webp", "jef", etc.
+  encode: async (file) => {
+    const prom = new Promise((resolve, reject) => {
+      fileEncodeRequest = { resolve, reject };
+    });
+    send({ type: "file-encode:request", content: file });
+    return prom;
+  },
   file: async () => {
     const prom = new Promise((resolve, reject) => {
       fileOpenRequest = { resolve, reject };
@@ -1574,8 +1583,6 @@ async function load(
   // Results: preload().then((r) => ...).catch((e) => ...) // via promise
 
   $commonApi.net.preload = function (path, parseJSON = true, progressReport) {
-    // console.log("Preload path:", path);
-
     let extension;
 
     // Overload path with an object that can set a custom extension.
@@ -1584,8 +1591,9 @@ async function load(
       extension = path.extension; // Custom extension.
       path = path.path; // Remap path reference to a string.
     } else {
-      // Assume path is a string.
-      extension = path.split(".").pop();
+      // Assume path is a string with a file extension,
+      // filtering out any query parameters.
+      extension = path.split(".").pop().split("?")[0];
     }
 
     // This is a hack for now. The only thing that should be encoded is the file slug.
@@ -2231,6 +2239,18 @@ async function makeFrame({ data: { type, content } }) {
       fileOpenRequest?.reject(content.data);
     }
     fileOpenRequest = undefined;
+    return;
+  }
+
+  // Resolve a file encoding request.
+  if (type === "file-encode:response" && fileEncodeRequest) {
+    if (content.result === "success") {
+      fileEncodeRequest?.resolve(content.data);
+    } else if (content.result === "error") {
+      console.error("Failed to encode file.", content);
+      fileEncodeRequest?.reject(content.data);
+    }
+    fileEncodeRequest = undefined;
     return;
   }
 
@@ -3057,15 +3077,15 @@ async function handle() {
   if (USER) {
     try {
       const response = await fetch(`/handle?for=${USER.sub}`);
-      const data = await response.json();
       if (response.status === 200) {
+        const data = await response.json();
         const newHandle = "@" + data.handle;
         if (newHandle !== $commonApi.handle) {
           $commonApi.handle = "@" + data.handle;
           store["handle:received"] = true;
         }
       } else {
-        console.warn(data);
+        console.warn(await response.text());
       }
     } catch (error) {
       console.error(error);

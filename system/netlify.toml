@@ -30,7 +30,7 @@
 [functions.sotce-blog]
   external_node_modules = ["got", "crypto", "patreon"]
 [functions.vary]
-  external_node_modules = ["multiparty", "openai"]
+  external_node_modules = ["got", "multiparty", "openai"]
 [dev]
   NODE_ENV = "development"
   publish = "public/"

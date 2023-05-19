@@ -25,6 +25,7 @@ function nopaint_act({
   store,
   pens,
   api,
+  num,
   jump,
   debug,
 }) {

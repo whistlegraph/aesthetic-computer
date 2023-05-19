@@ -36,6 +36,10 @@ let slug; // Stores a download code for prepending to locally downloaded videos.
 let isPrinting = false;
 let ellipsisTicker, ellipsisDots = 0;
 
+class EllipsisTicker {
+
+}
+
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({ wipe, rec, gizmo }) {
   wipe(0);
