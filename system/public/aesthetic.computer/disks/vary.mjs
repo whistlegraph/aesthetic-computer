@@ -2,7 +2,12 @@
 // Vary an existing image with AI.
 
 /* #region ✅ TODO 
-  - [] Upload and receive image from `api/vary`.
+  + Now
+  - [] Abstract the ellipsisTicker in `video` and add it here
+       and to `paint`.
+  - [] Get it working for all resolutoin ranges.
+  + Done
+  - [x] Upload and receive image from `api/vary`.
 #endregion */
 
 let picture;
