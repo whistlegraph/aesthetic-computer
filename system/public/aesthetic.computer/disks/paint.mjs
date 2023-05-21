@@ -24,6 +24,8 @@
   - [x] Eval the request.
 #endregion */
 
+import { ask } from "../lib/ask.mjs";
+
 let brush,
   code = "",
   fullCode = "PROCESSING...",
@@ -37,7 +39,7 @@ async function boot({ params, system: { painting }, needsPaint }) {
     after: `make your response no longer than 20 lines where each line ends in a semicolon. choose colors related to the subject and draw clearly. all boxes should fit completely within the frame - every line of your response must begin with "ink" and nothing else`,
   };
 
-  ask(
+  controller = await ask(
     {
       prompt: params.join(" ") || "a red circle",
       program,
@@ -67,6 +69,8 @@ async function boot({ params, system: { painting }, needsPaint }) {
       fullCode = "NETWORK FAILURE";
     }
   );
+
+  console.log("Controller", controller);
 }
 
 // 🎨 Paint (Executes every display frame)
@@ -108,6 +112,7 @@ function bake() {
 
 // 👋 Leave (Runs once before the piece is unloaded)
 function leave() {
+  console.log(controller);
   controller?.abort(); // Cancel any existing `ask` which halts the server.
 }
 
@@ -115,70 +120,3 @@ export const system = "nopaint";
 export { boot, paint, bake, leave };
 
 // 📚 Library (Useful functions used throughout the piece)
-
-// Query a LLM
-// `options` can be a string prompt or an object { prompt, program }
-// where `program` has a `before` and `after` string.
-async function ask(options, and, finished, failed) {
-  let prompt,
-    program = { before: "", after: "" }, hint;
-  if (typeof options === "string") {
-    prompt = options;
-  } else {
-    ({ prompt, program, hint } = options);
-  }
-
-  controller?.abort(); // Prevent multiple asks / cancel existing ones.
-  controller = new AbortController();
-  const signal = controller.signal;
-
-  try {
-    const host = DEBUG
-      ? "http://localhost:3000"
-      : "https://ai.aesthetic.computer";
-
-    const responsePromise = fetch(`${host}/api/ask`, {
-      method: "POST",
-      signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, program, hint }),
-    });
-
-    let timeout;
-
-    const timeoutPromise = new Promise((resolve, reject) => {
-      timeout = setTimeout(() => {
-        controller.abort();
-        reject(new Error(`Reply timed out after 10 seconds!`));
-      }, 10000);
-    });
-
-    const response = await Promise.race([responsePromise, timeoutPromise]);
-    clearTimeout(timeout);
-
-    if (!response.ok) throw new Error(`Failed to reply: ${response.status}`);
-
-    const readableStream = response.body;
-    const decoder = new TextDecoder();
-
-    const reader = readableStream.getReader();
-
-    // Detect chunks of JSON as they stream in.
-    while (true) {
-      const { done, value } = await reader.read();
-
-      if (done) {
-        if (DEBUG) console.log("❗ Response complete.");
-        controller = null;
-        finished?.();
-        break;
-      }
-
-      const got = decoder.decode(value, { stream: true }); // Chunk to text.
-      and?.(got);
-    }
-  } catch (error) {
-    console.error("Failed to ask:", error);
-    failed?.();
-  }
-}

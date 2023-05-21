@@ -2937,6 +2937,8 @@ async function makeFrame({ data: { type, content } }) {
         piece !== undefined &&
         piece.length > 0 &&
         piece !== "prompt" &&
+        piece !== "play" &&
+        piece !== "gargoyle" &&
         piece !== "video"
       ) {
         const w = currentHUDText.length * 6;

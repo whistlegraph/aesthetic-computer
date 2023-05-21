@@ -1257,8 +1257,6 @@ Static Assets
   0. Squadmates can use `npm run assets:sync` after configuring `aws-cli` with
      the aesthetic.computer storage keys provided by Jeffrey.
 
-
-
 🧩 Making a new included piece.
 - Run `npm run new-piece -- name-of-your-piece` 
 - Then open the file in `system/public/aesthetic.computer/disks` and start working!

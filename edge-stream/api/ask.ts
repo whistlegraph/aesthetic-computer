@@ -37,6 +37,7 @@ export default async function handler(req) {
 
       // Tweak for "char" (character) conversational human output.
       if (hint === "char") {
+        top_p = 10;
         // ...
       }
 

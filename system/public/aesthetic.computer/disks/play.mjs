@@ -32,7 +32,7 @@ async function boot($) {
     console.log(id, type, content);
   });
 
-  server.send("msg", "u r in a scary stupid field");
+  // server.send("msg", "u r in a scary stupid field"); // TODO: Why doesn't this work?
 
   input = new TextInput($, "What are you up to?"); // Instantiate a text prompt.
 }
