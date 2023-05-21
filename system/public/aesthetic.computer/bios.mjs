@@ -898,7 +898,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "file-encode:request") {
       let file;
       if (content.type === "png")
-        file = await bufferToBlob(content.file, "image/png");
+        file = await bufferToBlob(content.file, "image/png", content.modifiers);
       send({
         type: "file-encode:response",
         content: { data: file, result: file ? "success" : "error" },
@@ -2731,6 +2731,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   // Used above in `receivedUpload` and `receivedDownload` to generate image files.
+
+  // Add a crop to square modifier.
+
   async function bufferToBlob(data, MIME, modifiers) {
     let can;
 
@@ -2748,6 +2751,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } else {
       can.width = img.width;
       can.height = img.height;
+    }
+
+    if (modifiers?.crop === "square") {
+      debugger;
     }
 
     ctx.putImageData(imageData, 0, 0);

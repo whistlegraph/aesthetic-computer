@@ -28,10 +28,14 @@ async function boot({ system, encode, gizmo }) {
   ellipsisTicker = new EllipsisTicker(gizmo.Hourglass);
 
   // Encode a png from the current painting and upload it to the server.
-  const png = await encode({ file: system.painting, type: "png" });
+  const png = await encode({
+    file: system.painting,
+    type: "png",
+    modifiers: { crop: "square" },
+  });
+
   const formData = new FormData();
   formData.append("image", new File([png], "painting.png"));
-
 
   // Make a POST request to the API
   fetch(`/api/vary`, { method: "POST", body: formData })
@@ -71,6 +75,7 @@ function paint({ ink, system, help }) {
   }
 }
 
+// 🧮 Sim(ulate) (Runs once per logic frame (120fps locked)).
 function sim() {
   ellipsisTicker.sim();
 }
@@ -86,3 +91,4 @@ export const system = "nopaint";
 export { boot, paint, sim, bake };
 
 // 📚 Library (Useful functions used throughout the piece)
+// ...

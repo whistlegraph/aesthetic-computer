@@ -274,6 +274,8 @@ function boot($) {
         bgm.stop();
         makeFlash($, false);
         flashColor = [255, 0, 0];
+      } else if (text === "code") {
+        jump("https://github.com/digitpain/aesthetic.computer");
       } else if (text === "help") {
         // Go to the Discord for now if anyone types help.
         jump("https://discord.gg/aesthetic-computer");
