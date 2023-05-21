@@ -1234,13 +1234,16 @@
  and knowledge of javascript. if you're interested in learning how to contribute 
  visit https://discord.com/invite/aesthetic-computer and i'll help you out - jeffrey 2022.04.24.05.05
 
+macOS from scratch
+  1. Get 'homebrew' (https://brew.sh) and install 'fnm' (nodejs)
+
  Redis
   0. You may need to install `redis` to get the live reload working properly
      on local.
   1. You can use homebrew for this and a default install should be fine, so 
      long as `redis-cli` works.
 
-Make sure `git` and is installed, (you can do that through `homebrew`) and then get set up for development:
+Make sure `git` is installed, (you can do that through `homebrew`) and then get set up for development:
   0. Also install `fnm` the node version manager. (and add environtment variables to your shell: https://github.com/Schniz/fnm#shell-setup)
   0.0a Open new terminal window and cd into aesthetic.computer directory install node version 
   1. Check `ssl-dev/readme.txt` to generate and add local SSL certificates.
