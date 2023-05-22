@@ -26,7 +26,7 @@ export default async function handler(req) {
         messages.push({ role: "system", content: program.after }); // After
 
       // Defaults
-      let top_p = 1;
+      let top_p = 1; // Maximum: 1
       let max_tokens = 64;
 
       // Tweak for "code" based formal output.
@@ -37,8 +37,8 @@ export default async function handler(req) {
 
       // Tweak for "char" (character) conversational human output.
       if (hint === "char") {
-        top_p = 10;
         // ...
+        max_tokens = 256;
       }
 
       // But what about hint === "prose" or just defaults?
@@ -104,15 +104,27 @@ async function OpenAIStream(payload: OpenAIStreamPayload) {
   const decoder = new TextDecoder();
 
   let counter = 0;
+  let res;
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ""}`,
-    },
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  try {
+    res = await fetch("https://api.openai.com/v1/chat/completions", {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ""}`,
+      },
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      console.error("Request failed:", errorData);
+    }
+  } catch (err) {
+    console.error("Request failed:", err);
+  }
+
+  if (!res || !res.ok) return; // Return early if an error was caught.
 
   const stream = new ReadableStream({
     async start(controller) {

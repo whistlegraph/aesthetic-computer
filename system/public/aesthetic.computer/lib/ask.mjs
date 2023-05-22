@@ -1,4 +1,5 @@
-const DEBUG = false; // Add support back.
+import { DEBUG } from "../disks/common/debug.mjs"
+
 let controller;
 
 // TODO:

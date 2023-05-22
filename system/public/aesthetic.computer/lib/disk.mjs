@@ -31,6 +31,7 @@ const { sin, floor } = Math;
 let ROOT_PIECE = "prompt"; // This gets set straight from the host html file for the ac.
 let USER; // A holder for the logged in user. (Defined in `boot`)
 let debug = false; // This can be overwritten on boot.
+import { setDebug } from "../disks/common/debug.mjs";
 
 const defaults = {
   boot: ({ resize, cursor, screen: { width, height } }) => {
@@ -1882,6 +1883,7 @@ async function makeFrame({ data: { type, content } }) {
   // Runs once on boot.
   if (type === "init-from-bios") {
     debug = content.debug;
+    setDebug(content.debug);
     graph.setDebug(content.debug);
     ROOT_PIECE = content.rootPiece;
     USER = content.user;
