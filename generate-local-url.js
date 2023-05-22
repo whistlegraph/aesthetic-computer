@@ -27,9 +27,9 @@ async function constructUrl() {
       if (response.statusCode === 200) {
         qrcode.generate(url, { small: true });
         console.log(`😃 Welcome to aesthetic.computer!`);
-        console.log(`💻️ https://localhost:8888`);
-        console.log(`🏘️️ ${url}`);
-        console.log(`️🌎 https://prompt.ac`);
+        console.log(`Local 💻️ https://localhost:8888`);
+        console.log(`  LAN 🏘️️ ${url} (QR code above)`);
+        console.log(`️World 🌎 https://prompt.ac`);
         break;
       }
     } catch (error) {
