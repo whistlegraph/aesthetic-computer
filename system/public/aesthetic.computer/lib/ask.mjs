@@ -25,7 +25,7 @@ export async function ask(options, and, finished, failed) {
 
   try {
     const host = DEBUG
-      ? "http://localhost:3000"
+      ? "https://localhost:9000"
       : "https://ai.aesthetic.computer";
 
     const responsePromise = fetch(`${host}/api/ask`, {

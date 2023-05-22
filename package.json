@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "url": "node generate-local-url.js",
+    "aesthetic": "concurrently --raw \"npm run code\" \"npm run server:session\" \"npm run edge\" \"npm run url\"",
     "code": "cd system; npm run codespaces-dev",
-    "edge": "vercel dev",
+    "edge": "concurrently --raw \"vercel dev\" \"http-server edge-stream -a 127.0.0.1 -p 9000 --cors -c-1 -i --P http://localhost:3000 -S --cert ssl-dev/localhost.pem --key ssl-dev/localhost-key.pem\"",
     "code:debug": "cd system; npm run codespaces-dev-debug",
     "code:live": "cd system; npm run codespaces-dev-public",
     "new-piece": "f() { cd system/public/aesthetic.computer/disks; cp blank.mjs $1.mjs; };f",
@@ -36,6 +37,9 @@
   },
   "homepage": "https://github.com/digitpain/aesthetic.computer#readme",
   "devDependencies": {
+    "concurrently": "^8.0.1",
+    "got": "^12.6.0",
+    "http-server": "^14.1.1",
     "npm-run-all": "^4.1.5",
     "prettier": "^2.7.1",
     "qrcode-terminal": "^0.12.0",

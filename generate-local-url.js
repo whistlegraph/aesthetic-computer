@@ -1,11 +1,12 @@
 import { networkInterfaces } from "os";
 import qrcode from "qrcode-terminal";
+import got from "got";
 
 async function constructUrl() {
   const ifaces = networkInterfaces();
   let ipAddress;
 
-  // iterate over network interfaces to find the first non-internal IPv4 address
+  // Iterate over network interfaces to find the first non-internal IPv4 address
   Object.keys(ifaces).forEach((ifname) => {
     ifaces[ifname].forEach((iface) => {
       if (iface.family === "IPv4" && !iface.internal) {
@@ -16,10 +17,26 @@ async function constructUrl() {
   });
 
   const url = `https://${ipAddress}:8888`;
-  console.log(`📱 URL: ${url}`);
 
-  // generate QR code in the terminal
-  qrcode.generate(url, { small: true });
+  // Generate QR code in the terminal once a 200 is received from `url`.
+  while (true) {
+    try {
+      const response = await got.get("https://localhost:8888", {
+        https: { rejectUnauthorized: false },
+      });
+      if (response.statusCode === 200) {
+        qrcode.generate(url, { small: true });
+        console.log(`😃 Welcome to aesthetic.computer!`);
+        console.log(`💻️ https://localhost:8888`);
+        console.log(`🏘️️ ${url}`);
+        console.log(`️🌎 https://prompt.ac`);
+        break;
+      }
+    } catch (error) {
+      // console.error("❌ An error occurred:", error);
+    }
+    await new Promise((res) => setTimeout(res, 500)); // Hang out half a sec.
+  }
 }
 
 constructUrl();
