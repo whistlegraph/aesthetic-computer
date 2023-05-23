@@ -169,16 +169,23 @@ class TextInput {
 
       words.forEach((word, i) => {
         // Look ahead at word lenth.
-        const wordLen = word.length;
+        const wordLen = word.replace().length;
         if (prompt.cursor.x + wordLen >= prompt.colWidth) prompt.newLine();
 
-        for (const char of word) {
-          const pic = this.typeface.glyphs[char];
-          if (pic) {
-            $.ink(this.pal.fg).draw(pic, prompt.pos, prompt.scale);
-            prompt.forward();
+        //console.log(word, word.length);
+
+        [...word].forEach((char, index) => {
+          // Detect new line character.
+          if (char === "\\" && word[index + 1] === "n") {
+            prompt.newLine();
+          } else {
+            const pic = this.typeface.glyphs[char];
+            if (pic) {
+              $.ink(this.pal.fg).draw(pic, prompt.pos, prompt.scale);
+              prompt.forward();
+            }
           }
-        }
+        });
 
         if (i < words.length - 1) prompt.forward(); // Move forward a space.
       });
@@ -288,7 +295,8 @@ class TextInput {
       } else {
         // Other keys.
         if (e.key === "Backspace") this.text = this.text.slice(0, -1);
-        const key = `${slug}:history`;
+        const key = `${slug}:history`; // This is "per-piece" and should
+        //                                be per TextInput object...23.05.23.12.50
 
         // Send a command or message.
         if (e.key === "Enter") {

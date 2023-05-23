@@ -62,6 +62,10 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `gargoyle` ***
+  - [] Write new characters.
+  - [] Fix mobile UI.
+
 *** `scream` ***
   - [-] Finish list in `scream`.
   - [] Enable via notifications in the test iOS app.
