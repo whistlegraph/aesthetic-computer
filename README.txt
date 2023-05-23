@@ -63,8 +63,9 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** `scream` ***
-  - [😱] Alert every connected user with a time-synchronized message that
-       covers their screen.
+  - [-] Finish list in `scream`.
+  - [] Enable via notifications in the test iOS app.
+  - [x] Get messaging working. 
 
 *** Viral Checklist ***
   - [] Display current user count on rooms if > 0 users are online.

@@ -182,6 +182,10 @@ let noPaint = false;
 let storeRetrievalResolution, storeDeletionResolution;
 
 let socket, socketStartDelay;
+let scream = null; // 😱 Allow priviledged users to send alerts to everyone.
+//                       (A great end<->end socket + redis test.)
+let screaming = false;
+let screamingTimer; // Keep track of scream duration.
 
 // *** Dark Mode ***
 // Pass `true` or `false` to override or `default` to the system setting.
@@ -1465,7 +1469,15 @@ async function load(
     socket = new Socket(debug); // Then redefine and make a new socket.
     socket.connect(
       new URL(sesh.url).host,
-      (id, type, content) => receiver?.(id, type, content),
+      (id, type, content) => {
+        // 😱 Scream at everyone who is connected!
+        if (type === "scream") {
+          console.log("😱 Scream:", content, "❗");
+          scream = content;
+        }
+
+        receiver?.(id, type, content); // Run the piece receiver.
+      },
       $commonApi.reload,
       "wss"
       //debug === true && !forceProd && host.split(":")[0] === "localhost" ? "ws" : "wss"
@@ -1479,7 +1491,7 @@ async function load(
 
   $commonApi.net.socket = async function (receive) {
     //console.log("📡 Mapping receiver.");
-    receiver = receive;
+    receiver = receive || (() => {});
     if (!socket) clearTimeout(socketStartDelay);
     await startSocket();
     return socket;
@@ -2885,7 +2897,7 @@ async function makeFrame({ data: { type, content } }) {
 
       // Attempt a paint.
       //if (noPaint === false && booted && loading === false) {
-      if (noPaint === false && booted) {
+      if ((noPaint === false || scream) && booted) {
         let paintOut;
 
         try {
@@ -2917,6 +2929,25 @@ async function makeFrame({ data: { type, content } }) {
 
         // Run everything that was queued to be painted, then devour paintLayers.
         //await painting.paint();
+
+        // 😱 Scream - Paint a scream if it exists.
+        // TODO: Should this overlay after the fact and not force a paint? 23.05.23.19.21
+        if (scream || screaming) {
+          const { ink, needsPaint } = $api;
+          ink(255)
+            .wipe(255, 0, 0)
+            .write(scream, { center: "xy", size: 3, thickness: 1 });
+            needsPaint();
+          if (!screaming) {
+            screaming = true;
+            clearTimeout(screamingTimer);
+            screamingTimer = setTimeout(() => {
+              screaming = false;
+              scream = null;
+            }, 1000);
+          }
+        }
+
         painting.paint(true);
         painted = true;
         paintCount = paintCount + 1n;
@@ -2932,6 +2963,10 @@ async function makeFrame({ data: { type, content } }) {
 
       // Draw any Global UI / HUD in an overlay buffer that will get
       // composited by the other thread.
+
+      // TODO: Why is this being composited by a different thread?
+      //       Also... where do I put a scream?
+
       // System info.
       let label;
       const piece = currentHUDText?.split("~")[0];

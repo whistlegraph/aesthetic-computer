@@ -2,7 +2,11 @@
 // Tell everyone something.
 
 /* #region 📚 README 
-  - [😱] Alert every connected user with a time-synchronized message that
+  - [] Tell the main user they screamed, and return them to the prompt. 
+  - [] Ignore the scream for the main user.
+  - [] Smartly synchronize that message for all users by looking ahead a bit?
+  + Done
+  - [x] Alert every connected user with a message that
        covers their screen.
 #endregion */
 
@@ -13,13 +17,8 @@ let server;
 
 // 🥾 Boot
 async function boot({ net: { socket }, params }) {
-  server = await socket((id, type, content) => {
-    if (server.id !== id && type === "scream") {
-      console.log("Screamed:", content);
-    }
-  });
-
-  server.send("scream", "ah!");
+  server = await socket();
+  server.send("scream", params.join(" ") || "Ahh!");
 }
 
 // 🎨 Paint

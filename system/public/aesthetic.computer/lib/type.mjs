@@ -74,7 +74,7 @@ class Typeface {
     pos.center = pos.center || "";
 
     if (pos.center.includes("x")) {
-      const hw = (text.length * blockWidth) / 2;
+      const hw = (text.length * blockWidth * size) / 2;
       x = pos.x === undef ? $.screen.width / 2 - hw : x - hw;
     }
     if (pos.center.includes("y")) {
