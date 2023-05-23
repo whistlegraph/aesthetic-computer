@@ -141,7 +141,7 @@ class TextInput {
     this.#autolock = options.autolock;
 
     this.text = text;
-    this.wrap = options.wrap;
+    this.wrap = options.wrap || "char";
     this.startingInput = this.text;
     this.pal = options.palette || {
       fg: 255,

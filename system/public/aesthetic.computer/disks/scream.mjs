@@ -1,16 +1,22 @@
-// Scream, 2023.5.22.21.56.00 
+// Scream, 2023.5.22.21.56.00
 // Tell everyone something.
 
 /* #region 📚 README 
+  - [] Alert every connected user with a time-synchronized message that
+       covers their screen.
 #endregion */
 
 /* #region 🏁 TODO 
 #endregion */
 
 // 🥾 Boot
-// function boot() {
-//   // Runs once at the start.
-// }
+function boot({ net: { socket } }) {
+  // Runs once at the start.
+  // Connect to the server.
+  server = socket((id, type, content) => {
+    console.log(id, type, content);
+  });
+}
 
 // 🎨 Paint
 // function paint({ ink }) {
@@ -37,7 +43,7 @@
 //  // Runs once before the piece is unloaded.
 // }
 
-export {};
+export { boot };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
