@@ -63,7 +63,7 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** `scream` ***
-  - [] Alert every connected user with a time-synchronized message that
+  - [😱] Alert every connected user with a time-synchronized message that
        covers their screen.
 
 *** Viral Checklist ***

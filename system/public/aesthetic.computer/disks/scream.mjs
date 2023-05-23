@@ -2,7 +2,7 @@
 // Tell everyone something.
 
 /* #region 📚 README 
-  - [] Alert every connected user with a time-synchronized message that
+  - [😱] Alert every connected user with a time-synchronized message that
        covers their screen.
 #endregion */
 
