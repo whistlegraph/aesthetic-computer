@@ -62,6 +62,10 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `gargoyle` ***
+  - [] Write new characters.
+  - [] Fix mobile UI.
+
 *** `scream` ***
   - [😱] Alert every connected user with a time-synchronized message that
        covers their screen.

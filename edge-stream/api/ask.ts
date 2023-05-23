@@ -26,11 +26,13 @@ export default async function handler(req) {
         messages.push({ role: "system", content: program.after }); // After
 
       // Defaults
+      let temperature = 1; 
       let top_p = 1; // Maximum: 1
       let max_tokens = 64;
 
       // Tweak for "code" based formal output.
       if (hint === "code") {
+        temperature = 1;
         top_p = 0.5;
         max_tokens = 256;
       }
@@ -38,6 +40,9 @@ export default async function handler(req) {
       // Tweak for "char" (character) conversational human output.
       if (hint === "char") {
         // ...
+        temperature = 1;
+        top_p = .5
+        console.log("Temperature:", temperature);
         max_tokens = 256;
       }
 
@@ -47,7 +52,7 @@ export default async function handler(req) {
       const payload: OpenAIStreamPayload = {
         model: "gpt-3.5-turbo",
         messages,
-        temperature: 1,
+        temperature,
         top_p,
         frequency_penalty: 0,
         presence_penalty: 0,
