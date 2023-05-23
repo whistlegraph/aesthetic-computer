@@ -108,6 +108,8 @@ export class Socket {
       console.log(
         `📡 ${content.id} has left. Connections open: ${content.count}`
       );
+      receive?.(id, type, content);
+    } else {
       receive?.(id, type, content); // Finally send the message to the client.
     }
   }

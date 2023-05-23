@@ -9,13 +9,17 @@
 /* #region 🏁 TODO 
 #endregion */
 
+let server;
+
 // 🥾 Boot
-function boot({ net: { socket } }) {
-  // Runs once at the start.
-  // Connect to the server.
-  server = socket((id, type, content) => {
-    console.log(id, type, content);
+async function boot({ net: { socket }, params }) {
+  server = await socket((id, type, content) => {
+    if (server.id !== id && type === "scream") {
+      console.log("Screamed:", content);
+    }
   });
+
+  server.send("scream", "ah!");
 }
 
 // 🎨 Paint

@@ -1472,14 +1472,16 @@ async function load(
     );
   }
 
-  // Delay session server by .75 seconds in order to prevent redundant connections
-  //  being opened pieces are quickly re-routing and jumping.
+  // Delay session server by .75 seconds in order to prevent redundant
+  //  connections being opened as pieces are quickly re-routing and jumping.
   clearTimeout(socketStartDelay);
   socketStartDelay = setTimeout(() => startSocket(), 750);
 
-  $commonApi.net.socket = function (receive) {
+  $commonApi.net.socket = async function (receive) {
     //console.log("📡 Mapping receiver.");
     receiver = receive;
+    if (!socket) clearTimeout(socketStartDelay);
+    await startSocket();
     return socket;
   };
 

@@ -5,7 +5,7 @@
   "main": "session.mjs",
   "type": "module",
   "scripts": {
-    "dev": "PORT=8889 NODE_ENV=development node session.mjs",
+    "dev": "PORT=8889 NODE_ENV=development nodemon --watch session.mjs session.mjs",
     "create": "npx jamsocket service create session-server",
     "build": "docker build --platform linux/amd64 --tag session-server-image .",
     "deploy": "jamsocket push session-server session-server-image",
@@ -22,5 +22,8 @@
     "jamsocket": "^0.4.5",
     "redis": "^4.5.1",
     "ws": "^8.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
   }
 }

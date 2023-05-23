@@ -154,7 +154,7 @@ wss.on("connection", (ws, req) => {
     // Parse incoming message and attach client identifier.
     const msg = JSON.parse(data.toString());
     msg.id = id; // TODO: When sending a server generated message, use a special id.
-    // console.log(msg);
+    console.log(msg);
     // TODO: Why not always use "others" here?
     everyone(JSON.stringify(msg));
     // others(JSON.stringify(msg));
