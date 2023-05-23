@@ -62,6 +62,14 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `scream` ***
+  - [] Alert every connected user with a time-synchronized message that
+       covers their screen.
+
+*** online/offline notification ***
+  - [] Show `offline` overlay if the system is not online.
+  - [] How can I know this?
+
 *** `evolve` ***
   - [] Rename `vary` to `evolve`.
   - [] Research more image net APIs. 
@@ -1257,7 +1265,7 @@ Static Assets
      the aesthetic.computer storage keys provided by Jeffrey.
 
 🧩 Making a new included piece.
-- Run `npm run new-piece -- name-of-your-piece` 
+- Run `npm run new name-of-your-piece Description of your piece.` 
 - Then open the file in `system/public/aesthetic.computer/disks` and start working!
 
 In production: Add a "#debug" hash to the end of your URL for more verbose output.

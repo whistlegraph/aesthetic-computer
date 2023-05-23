@@ -7,6 +7,10 @@
   - [] Add a small illustration on bottom right corner.
     - [] Painting @import.
     - [] How would this function? `paste(by("@georgica").painting())`
+    - [] Make the illustration:
+      - [] Implement a zoomable canvas on `rect`.
+        - [] Rename `rect` to `box`.
+      - [] Implement a zoomable canvas on `line`.
   - [] Add some sound.
     - [] 1/3 New synth wav types!
     - [] Custom SFX / sampling.
@@ -84,8 +88,7 @@ function sim($) {
 
 // 🎨 Paint (Executes every display frame)
 function paint($) {
-  const { wipe } = $;
-  wipe(0);
+  $.wipe(0);
   return input?.paint($);
 }
 

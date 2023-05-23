@@ -2897,8 +2897,8 @@ export { Camera, Form, Dolly };
 
 // e. Utilities
 
-let graphicLogCount = 0;
-const graphicLogMax = 5;
+// let graphicLogCount = 0;
+// const graphicLogMax = 5;
 
 /*
 function graphicLog(log) {

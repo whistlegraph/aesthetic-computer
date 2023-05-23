@@ -1,5 +1,5 @@
-// $NAME, $TIMESTAMP 
-// $THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES
+// Scream, 2023.5.22.21.56.00 
+// Tell everyone something.
 
 /* #region 📚 README 
 #endregion */

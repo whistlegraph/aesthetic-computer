@@ -11,7 +11,7 @@
     "edge": "concurrently --raw \"vercel dev\" \"http-server edge-stream -a 127.0.0.1 -p 9000 --cors -c-1 -i --P http://localhost:3000 -S --cert ssl-dev/localhost.pem --key ssl-dev/localhost-key.pem\"",
     "code:debug": "cd system; npm run codespaces-dev-debug",
     "code:live": "cd system; npm run codespaces-dev-public",
-    "new-piece": "f() { cd system/public/aesthetic.computer/disks; cp blank.mjs $1.mjs; };f",
+    "new": "node generate-new-piece.mjs",
     "reload-piece": "curl -X POST -H \"Content-Type: application/json\" -d '{\"piece\": \"@digitpain/hello\"}' http://localhost:8082/reload",
     "server:socket": "cd socket-server; npm run server",
     "assets:sync": "aws s3 sync s3://assets.aesthetic.computer system/public/assets --endpoint-url https://sfo3.digitaloceanspaces.com",
