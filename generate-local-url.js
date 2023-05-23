@@ -29,7 +29,7 @@ async function constructUrl() {
         console.log(`😃 Welcome to aesthetic.computer!`);
         console.log(`Local 💻️ https://localhost:8888`);
         console.log(`  LAN 🏘️️ ${url} (QR code above)`);
-        console.log(`️World 🌎 https://prompt.ac`);
+        console.log(`World 🌎 https://prompt.ac`);
         break;
       }
     } catch (error) {

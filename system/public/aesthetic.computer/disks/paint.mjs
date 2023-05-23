@@ -40,11 +40,7 @@ async function boot({ params, system: { painting }, needsPaint }) {
   };
 
   controller = await ask(
-    {
-      prompt: params.join(" ") || "a red circle",
-      program,
-      hint: "code",
-    },
+    { prompt: params.join(" ") || "a red circle", program, hint: "code" },
     function and(msg) {
       if (fullCode === "PROCESSING...") {
         fullCode = ``; // Clear any waiting message.
@@ -61,11 +57,10 @@ async function boot({ params, system: { painting }, needsPaint }) {
         code = code.slice(semicolon + 1); // Remove the line from `code`.
       }
     },
-    function finished() {
+    function done() {
       fullCode = ``;
-      // code = ``;
     },
-    function failed() {
+    function fail() {
       fullCode = "NETWORK FAILURE";
     }
   );

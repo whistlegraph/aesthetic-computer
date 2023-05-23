@@ -2639,20 +2639,20 @@ async function makeFrame({ data: { type, content } }) {
 
         // 🌟 Global Keyboard Shortcuts
         if (data.name.indexOf("keyboard:down") === 0) {
-          // [Escape]
+          // [Escape] (Deprecated on 23.05.22.19.33)
           // If not on prompt, then move backwards through the history of
           // previously loaded pieces in a session.
-          if (
-            data.key === "Escape" &&
-            currentPath !== "aesthetic.computer/disks/prompt"
-          ) {
-            if (pieceHistoryIndex > 0) {
-              send({ type: "back-to-piece" });
-            } else {
-              // Load the prompt automatically.
-              // $api.load("prompt"); Disabled on 2022.05.07.03.45
-            }
-          }
+          // if (
+          //   data.key === "Escape" &&
+          //   currentPath !== "aesthetic.computer/disks/prompt"
+          // ) {
+          //   if (pieceHistoryIndex > 0) {
+          //     send({ type: "back-to-piece" });
+          //   } else {
+          //     // Load the prompt automatically.
+          //     // $api.load("prompt"); Disabled on 2022.05.07.03.45
+          //   }
+          // }
 
           if (
             data.key === "`" &&

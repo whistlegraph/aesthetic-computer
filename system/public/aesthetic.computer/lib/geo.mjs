@@ -59,8 +59,17 @@ export class Box {
     }
   }
 
+  // Compute area of box.
   get area() {
     return abs(this.w * this.h);
+  }
+
+  // Compute center point of box.
+  get center() {
+    return {
+      x: this.x + this.w / 2,
+      y: this.y + this.h / 2,
+    };
   }
 
   // Yields a box where x, y is at the top left and w, h are positive.

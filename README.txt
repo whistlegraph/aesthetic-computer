@@ -31,10 +31,9 @@
       - 2D/3D Software renderer for spatial display of programs as planes.
       - 3D WebGL renderer for VR.
 
-🖥️ Running local servers: 
+🖥️ Running locally: 
   1. Scroll to the bottom of this file and follow the setup instructions.
-  2. From the `aesthetic.computer` directory run `npm run code` and in another
-     shell `npm run server:session`.
+  2. From the `aesthetic.computer` directory, run `npm run aesthetic`.
 
 😀 TODO 😆
 
@@ -70,10 +69,6 @@
       (https://chat.openai.com/chat/1c0e4f20-7cb5-441f-a7e4-7b77fb55135d)
   - [x] Integrate OpenAI imageVariation.
 
-*** `paint` / `ask` ***
-  - [-] Why did `ask` stop working on local? Is it a `vercel dev` issue? 
-    - [] What other options are there, should I run a node service again?
-
 *** `context-click` ***
   - [] Add a useful right click menu for desktop / mouse users that
        runs across all pieces.
@@ -93,6 +88,7 @@
   - [] Omnichord-like bleep presets in certain keys.
 
 *** General Painting / Graphics API ***
+  - [] Resizing window cuts off painting / interferes with "no" command?
   - [-] Fix 'system.nopaint.bakeOnLeave` `page(screen)` anomaly. (Redo "write")
   - [] Abstract the `rect = null` / `shape = null` / "bake" calls better
       in all brushes.

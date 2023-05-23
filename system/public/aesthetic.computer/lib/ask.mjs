@@ -1,4 +1,4 @@
-import { DEBUG } from "../disks/common/debug.mjs"
+import { DEBUG } from "../disks/common/debug.mjs";
 
 let controller;
 
@@ -9,15 +9,19 @@ let controller;
 // Query a LLM
 // `options` can be a string prompt or an object { prompt, program }
 // where `program` has a `before` and `after` string.
-export async function ask(options, and, finished, failed) {
+export async function ask(options, and, done, fail) {
   let prompt,
     program = { before: "", after: "" },
     hint;
+
   if (typeof options === "string") {
     prompt = options;
   } else {
     ({ prompt, program, hint } = options);
   }
+
+  program.before = program.before?.trim(); // Sanitize prompt program.
+  program.after = program.after?.trim();
 
   controller?.abort(); // Prevent multiple asks / cancel existing ones.
   controller = new AbortController();
@@ -41,7 +45,7 @@ export async function ask(options, and, finished, failed) {
       timeout = setTimeout(() => {
         controller.abort();
         reject(new Error(`Reply timed out after 10 seconds!`));
-      }, 10000);
+      }, 10 * 1000);
     });
 
     const response = await Promise.race([responsePromise, timeoutPromise]);
@@ -56,12 +60,12 @@ export async function ask(options, and, finished, failed) {
 
     // Detect chunks of JSON as they stream in.
     while (true) {
-      const { done, value } = await reader.read();
+      const { done: complete, value } = await reader.read();
 
-      if (done) {
-        if (DEBUG) console.log("❗ Response complete.");
+      if (complete) {
+        // if (DEBUG) console.log("❗ Response complete.");
         controller = null;
-        finished?.();
+        done?.();
         break;
       }
 
@@ -70,7 +74,7 @@ export async function ask(options, and, finished, failed) {
     }
   } catch (error) {
     console.error("Failed to ask:", error);
-    failed?.();
+    fail?.();
   }
 
   return controller;

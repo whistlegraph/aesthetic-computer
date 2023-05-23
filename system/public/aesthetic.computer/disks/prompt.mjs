@@ -83,7 +83,6 @@ function boot($) {
   input = new TextInput(
     $,
     motd,
-    scheme[dark ? "dark" : "light"],
     // 🍎 Process commands...
     async (text) => {
       // Roughly parse out the text (could also do a full `parse` here.)
@@ -298,7 +297,8 @@ function boot($) {
         // 🟠 Local and remote pieces...
         load(parse(text)); // Execute the current command.
       }
-    }
+    },
+    { palette: scheme[dark ? "dark" : "light"] }
   );
 
   // Activate and reset input text if returning to the prompt from elsewhere.
@@ -414,26 +414,26 @@ export { boot, sim, paint, act, meta };
 
 function makeMotd({ handle, user }) {
   motd = ``;
-    // `"chaos in a system"                             ` +
-    // `                                                ` +
-    // `Try typing:                                     ` +
-    // `                                                ` +
-    // ` 'of'                                           ` +
-    // `  to see an Ordfish                             ` +
-    // `                                                ` +
-    // ` 'ff'                                           ` +
-    // `  to see a Freaky Flower                        ` +
-    // `                                                ` +
-    // ` 'shape'                                        ` +
-    // `  to paint freehand shapes                      ` +
-    // `                                                ` +
-    // ` 'bleep'                                        ` +
-    // `  to play microtones                            ` +
-    // `                                                ` +
-    // ` 'help'                                         ` +
-    // `  to learn more!                                ` +
-    // `                                                ` +
-    // `mail@aesthetic.computer                         `;
+  // `"chaos in a system"                             ` +
+  // `                                                ` +
+  // `Try typing:                                     ` +
+  // `                                                ` +
+  // ` 'of'                                           ` +
+  // `  to see an Ordfish                             ` +
+  // `                                                ` +
+  // ` 'ff'                                           ` +
+  // `  to see a Freaky Flower                        ` +
+  // `                                                ` +
+  // ` 'shape'                                        ` +
+  // `  to paint freehand shapes                      ` +
+  // `                                                ` +
+  // ` 'bleep'                                        ` +
+  // `  to play microtones                            ` +
+  // `                                                ` +
+  // ` 'help'                                         ` +
+  // `  to learn more!                                ` +
+  // `                                                ` +
+  // `mail@aesthetic.computer                         `;
 
   if (user)
     motd =

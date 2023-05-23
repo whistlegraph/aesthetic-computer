@@ -1,6 +1,11 @@
 🪦 Completed Tasks (dumped from `README.txt`)
    23.02.10.14.41
 
+*** `paint` / `ask` ***
+  - [x] Why did `ask` stop working on local? Is it a `vercel dev` issue? 
+    - [x] Put behind reverse proxy.
+    - [x] What other options are there, should I run a node service again?
+
 *** Ordinals Collection ***
   + Now
    - 📓 This collection should be fully analog.

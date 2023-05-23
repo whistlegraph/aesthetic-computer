@@ -14,6 +14,7 @@
 
 import { font1 } from "../disks/common/fonts.mjs";
 
+const { floor } = Math;
 const { keys, entries } = Object;
 const undef = undefined;
 
@@ -108,30 +109,41 @@ class TextInput {
 
   blink; // block cursor blink timer
   showBlink = false;
+  cursor = "blink";
 
   canType = false;
+
+  #autolock = true;
   lock = false;
+
   typeface;
+  pal; // color palette
+  wrap = "char"; // auto-wrap setting
 
-  pal;
-
-  processCommand;
-
+  processCommand; // text processing callback
   historyDepth = 0;
 
   // Add support for loading from preloaded system typeface.
-  constructor($, text = "", palette, processCommand, font = font1) {
+  constructor(
+    $,
+    text = "",
+    processCommand,
+    options = { palette: undefined, font: font1, autolock: true, wrap: "char" }
+  ) {
     // Load typeface, preventing double loading of the system default.
-    if ($.typeface?.data !== font) {
-      this.typeface = new Typeface(font); // Load custom typeface.
+    if ($.typeface?.data !== options.font) {
+      this.typeface = new Typeface(options.font); // Load custom typeface.
       this.typeface.load($.net.preload);
     } else {
       this.typeface = $.typeface; // Set to system typeface.
     }
 
+    this.#autolock = options.autolock;
+
     this.text = text;
+    this.wrap = options.wrap;
     this.startingInput = this.text;
-    this.pal = palette || {
+    this.pal = options.palette || {
       fg: 255,
       bg: 0,
       block: 255,
@@ -142,18 +154,34 @@ class TextInput {
   }
 
   paint($) {
-    // TODO: Does this need to be instantiated on each paint? 22.12.10.14.11
-    const prompt = new Prompt(6, 6);
+    const prompt = new Prompt(6, 6, floor($.screen.width / 6) - 2);
 
-    // Print `text` to the prompt one letter at time.
-    for (const char of this.text) {
-      //ink(255, 255, 0, 20).box(prompt.pos); // Paint a highlight background.
-      // And the letter if it is present.
-      const pic = this.typeface.glyphs[char];
-      if (pic)
-        $.ink(this.pal.fg).draw(pic, prompt.pos.x, prompt.pos.y, prompt.scale);
-      // Only move the cursor forward if we matched a character or typed a space.
-      if (pic || char === " ") prompt.forward();
+    // Wrap and render the text.
+    if (this.wrap === "char") {
+      // Print `text` to the prompt one "char" at time if it exists in the font.
+      for (const char of this.text) {
+        const pic = this.typeface.glyphs[char];
+        if (pic) $.ink(this.pal.fg).draw(pic, prompt.pos, prompt.scale);
+        if (pic || char === " ") prompt.forward(); // Move cursor on a match.
+      }
+    } else if (this.wrap === "word") {
+      const words = this.text.split(" ");
+
+      words.forEach((word, i) => {
+        // Look ahead at word lenth.
+        const wordLen = word.length;
+        if (prompt.cursor.x + wordLen >= prompt.colWidth) prompt.newLine();
+
+        for (const char of word) {
+          const pic = this.typeface.glyphs[char];
+          if (pic) {
+            $.ink(this.pal.fg).draw(pic, prompt.pos, prompt.scale);
+            prompt.forward();
+          }
+        }
+
+        if (i < words.length - 1) prompt.forward(); // Move forward a space.
+      });
     }
 
     if (this.canType) {
@@ -166,13 +194,23 @@ class TextInput {
       $.ink(127).box(0, 0, $.screen.width, $.screen.height, "inline"); // Focus
 
       if (this.lock) {
-        const r = prompt.pos;
-        const topL = [r.x, r.y];
-        const topR = [r.x + r.w, r.y];
-        const bottomR = [r.x + r.w, r.y + r.h];
-        const bottomL = [r.x, r.y + r.h];
-        const middleL = [r.x, r.y + r.h / 2];
-        const middleR = [r.x + r.w, r.y + r.h / 2];
+        // Show a spinner if the prompt is "locked".
+        const center = $.geo.Box.from(prompt.pos).center;
+        const distance = 2; // You can adjust this value as per your needs
+
+        const topL = [center.x - distance, center.y - distance];
+        const topR = [center.x + distance, center.y - distance];
+        const bottomL = [center.x - distance, center.y + distance];
+        const bottomR = [center.x + distance, center.y + distance];
+        const middleL = [center.x - distance, center.y];
+        const middleR = [center.x + distance, center.y];
+
+        // const topL = [r.x, r.y];
+        // const topR = [r.x + r.w, r.y];
+        // const bottomL = [r.x, r.y + r.h];
+        // const bottomR = [r.x + r.w, r.y + r.h];
+        // const middleL = [r.x, r.y + r.h / 2];
+        // const middleR = [r.x + r.w, r.y + r.h / 2];
 
         $.ink(this.pal.block);
         if ($.paintCount % 60 < 20) {
@@ -183,7 +221,11 @@ class TextInput {
           $.line(...topL, ...bottomR);
         }
       } else {
-        if (this.showBlink) $.ink(this.pal.block).box(prompt.pos); // Draw blinking cursor.
+        if (this.cursor === "blink" && this.showBlink)
+          $.ink(this.pal.block).box(prompt.pos); // Draw blinking cursor.
+        if (this.cursor === "stop") {
+          $.ink(255, 0, 0).box(prompt.pos.x + 1, prompt.pos.y + 3, 3);
+        }
       }
     }
 
@@ -195,6 +237,14 @@ class TextInput {
     );
   }
 
+  // Clear the TextInput object and flip the cursor to ON.
+  blank(cursor) {
+    if (cursor) this.cursor = cursor;
+    this.text = "";
+    this.blink?.flip(true);
+  }
+
+  // Simulate anything necessary.
   sim({ seconds, needsPaint, gizmo: { Hourglass } }) {
     this.blink =
       this.blink ||
@@ -209,10 +259,10 @@ class TextInput {
       });
 
     if (this.lock) needsPaint();
-
     if (this.canType) this.blink.step();
   }
 
+  // Handle user input.
   async act($) {
     const { event: e, slug, store, needsPaint } = $;
 
@@ -227,7 +277,13 @@ class TextInput {
       if (this.canType === false) {
         this.canType = true;
         this.text = "";
-      } else if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
+      }
+
+      if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
+        if (this.text === "" && e.key === " ") {
+          this.blink?.flip(true);
+          return; // Skip openeing spaces.
+        }
         this.text += e.key.replace(/[“”]/g, '"').replace(/[‘’]/g, "'"); // Printable keys with subbed punctuation.
       } else {
         // Other keys.
@@ -246,9 +302,9 @@ class TextInput {
           store.persist(key); // Persist the history stack across tabs.
 
           // 🍎 Process commands for a given context, passing the text input.
-          this.lock = true;
+          if (this.#autolock) this.lock = true;
           await this.processCommand?.(this.text);
-          this.lock = false;
+          if (this.#autolock) this.lock = false;
           // this.text = "";
         }
 
@@ -305,15 +361,16 @@ class Prompt {
   letterWidth = this.blockWidth * this.scale;
   letterHeight = this.blockHeight * this.scale;
 
-  colWidth = 48; // Maximum width of each line before wrapping.
+  colWidth = 48; // Maximum character width of each line before wrapping.
 
   cursor = { x: 0, y: 0 };
+  gutter; // A y-position at the end of the colWidth.
 
-  gutter = (this.colWidth + 1) * this.blockWidth;
-
-  constructor(top = 0, left = 0) {
+  constructor(top = 0, left = 0, colWidth = 48) {
     this.top = top;
     this.left = left;
+    this.colWidth = colWidth;
+    this.gutter = this.colWidth * this.blockWidth;
   }
 
   get pos() {
@@ -323,8 +380,13 @@ class Prompt {
   }
 
   forward() {
-    this.cursor.x = (this.cursor.x + 1) % this.colWidth;
+    this.cursor.x = (this.cursor.x + 1) % (this.colWidth - 1);
     if (this.cursor.x === 0) this.cursor.y += 1;
+  }
+
+  newLine() {
+    this.cursor.y += 1;
+    this.cursor.x = 0;
   }
 }
 

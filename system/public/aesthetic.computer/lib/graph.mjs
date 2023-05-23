@@ -1305,10 +1305,34 @@ function grid(
   }
 }
 
-// Loading & rendering stored drawings. TODO: Store this on another layer of
-//                                            abstraction? 2021.12.13.22.04
+// Rendering stored drawings.
 // Silently fails if `drawing` is left `undefined`.
-function draw(drawing, x, y, scale = 1, angle = 0, thickness = 1) {
+// Params:
+//   drawing, x, y, scale = 1, angle = 0, thickness = 1
+//   drawing, position, scale = 1, angle = 0, thickness = 1
+function draw() {
+  const args = arguments;
+  let drawing = args[0],
+    x,
+    y,
+    scale = 1,
+    angle = 0,
+    thickness = 1;
+  if (typeof args[1] === "number") {
+    x = args[1];
+    y = args[2];
+    scale = args[3] || scale;
+    angle = args[4] || angle;
+    thickness = args[5] || thickness;
+  } else if (typeof args[1] === "object") {
+    drawing = args[0];
+    x = args[1].x;
+    y = args[1].y;
+    scale = args[2] || scale;
+    angle = args[3] || angle;
+    thickness = args[4] || thickness;
+  }
+
   if (drawing === undefined) return;
 
   // TODO: Eventually make this the call: rotatePoint(args[0], args[1], 0, 0);
