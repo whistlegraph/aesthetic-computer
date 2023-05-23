@@ -66,6 +66,10 @@
   - [] Alert every connected user with a time-synchronized message that
        covers their screen.
 
+*** Viral Checklist ***
+  - [] Display current user count on rooms if > 0 users are online.
+  - [] Pool `session-server` rooms if necessary.
+
 *** online/offline notification ***
   - [] Show `offline` overlay if the system is not online.
   - [] How can I know this?
