@@ -31,7 +31,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   window.acCONTENT_EVENTS = [];
 
   let pen, keyboard;
-  let handData = []; // Hand-tracking.
+  let handData; // Hand-tracking.
 
   // let frameCount = 0;
   // let timePassed = 0;
@@ -1291,7 +1291,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // buffer.remove();
         cancelAnimationFrame(getAnimationRequest());
-        handData = []; // Clear any handData.
+        handData = undefined; // Clear any handData.
       });
 
       videos.length = 0;
@@ -3030,10 +3030,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 minTrackingConfidence: 0.5,
               });
 
-              console.log(handAPI);
-
               handAPI.hands.onResults((data) => {
-                diagram(data.multiHandLandmarks[0] || []);
+                diagram({
+                  screen: data.multiHandLandmarks[0] || [],
+                  world: data.multiHandWorldLandmarks[0] || [],
+                  hand: data.multiHandedness[0]?.label.toLowerCase() || "none",
+                });
               });
             };
 
@@ -3076,9 +3078,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         console.log(err);
       }
 
-      function diagram(landmarks) {
-        if (facingMode === "user") landmarks.forEach((l) => (l.x = 1 - l.x));
-        handData = landmarks;
+      function diagram(hand) {
+        if (facingMode === "user") {
+          hand.screen.forEach((l) => (l.x = 1 - l.x));
+          // Reverse handedness because our data is mirrored.
+          if (hand.handedness === "left") {
+            hand.handedness = "right";
+          } else if (hand.handedness === "right") {
+            hand.handedness = "left"
+          }
+        }
+        handData = hand;
       }
 
       function process() {
@@ -3121,7 +3131,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               handAPI.legacyProcessing = true;
             } else {
               const data = handAPI.hl?.detectForVideo(video, handVideoTime);
-              diagram(data?.landmarks[0] || []);
+              // TODO: This will no longer work. 23.5.24 
+              //       Check the other `diagram` call.
+              // diagram(data?.landmarks[0] || []);
             }
             // send({type: "hand-tracking-data", content: landmarks});
           }

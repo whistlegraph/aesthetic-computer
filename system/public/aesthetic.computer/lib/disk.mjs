@@ -371,7 +371,7 @@ const $commonApi = {
     send({ type: "authorization:request" });
     return prom;
   }, // Get a token for a logged in user.
-  hand: { mediapipe: [] }, // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
+  hand: { mediapipe: { screen: [], world: [], hand: "None"} }, // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
   hud: {
     label: (text, color, offset) => {
       currentHUDText = text;
