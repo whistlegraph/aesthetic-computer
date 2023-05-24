@@ -3030,6 +3030,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 minTrackingConfidence: 0.5,
               });
 
+              console.log(handAPI);
+
               handAPI.hands.onResults((data) => {
                 diagram(data.multiHandLandmarks[0] || []);
               });
