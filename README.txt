@@ -66,8 +66,13 @@
   - [] Write new characters.
   - [] Fix mobile UI.
 
+*** `Prompt Editing` *** 
+  - [-] Scrubbable cursor.  
+
 *** `scream` ***
   - [-] Finish list in `scream`.
+  - [] Use NTP for time synchronized delivery of messages.
+    - [] Is this good enough for musical timing?
   - [] Enable via notifications in the test iOS app.
   - [x] Get messaging working. 
 

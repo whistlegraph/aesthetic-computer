@@ -123,6 +123,9 @@ class TextInput {
   processCommand; // text processing callback
   historyDepth = 0;
 
+  #firstInputReady = true; // Flipped when the TextInput is first activated.
+  //                          (To clear any starting text.)
+
   // Add support for loading from preloaded system typeface.
   constructor(
     $,
@@ -340,9 +343,14 @@ class TextInput {
     // (including os-level software keyboard overlays)
     if (e.is("typing-input-ready")) {
       this.canType = true;
-      this.text = "";
-      this.blink?.flip(true);
+      if (this.#firstInputReady) {
+        this.text = "";
+        this.#firstInputReady = false;
+        this.blink?.flip(true);
+      }
     }
+
+    if (e.is("touch")) this.blink?.flip(true);
 
     if (e.is("keyboard:close")) {
       this.canType = false;

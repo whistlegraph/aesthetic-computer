@@ -9,7 +9,7 @@
     - [] Make sure history works among the different prompts.
     - [] Line breaks
   - [] Add sound for `Music Box`
-  -[] Decide how to get back to main navigation page *especially on mobile
+  - [] Decide how to get back to main navigation page *especially on mobile
   - [] Change `network failure` to `try again`
   - [] How to deal with longer responses?
   - [] Add some basic conversational support
