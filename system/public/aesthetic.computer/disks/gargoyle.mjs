@@ -26,7 +26,7 @@
     - [] 1/3 New synth wav types!
     - [] Custom SFX / sampling.
   + Done
-  - [x] Canellable responses.
+  - [x] Cancellable responses.
   - [x] Movable cursor support, with arrow keys and touch to move or drag. 
     - [x] Draw character once more on top of cursor.
           $.ink(255, 0, 0).draw
@@ -39,48 +39,73 @@
   - [x] Progress spinner / prevent interaction.
 #endregion */
 
+// const hint = "char";
+const hint = "code";
 
-// // 🗨️ ??? Chain of Thought
-const prompt = "";
+// // 🗨️ ??? Music Box
+const prompt = "sing these notes";
 const program = {
   before: `
- Jeffrey's Belly contents: Orange Creamsicles, Tapioca, Nuts
- 
-  Q: Are oranges in Jeffrey's belly?
-  A: No there no oranges in Jeffrey's belly.
+  I have designed a musical program that takes in song titles and generates notes formatted using only letters a-g
 
-  Q: Are there orange creamsicles in Jeffrey's Belly?
-  A: Yes there are 3 orange creamsicles in Jeffrey's Belly.
+  There is no other information in the output other than the notes a-g.
+  There are no spaces between the letters.
 
-  Jeffrey's Belly contents: Orange Creamsicles, Tapioca, Nuts
+  My musical program does not state what it is doing.
+
+  Other constraints:
+    - My program is case sensitive and all notes must be lowercase.
+    -
+   
+what are the notes of: `,
+
+after: 
+
+  `
+  Please remember that...
+
+   - My musical program only accept a maximum of 32 notes with no spaces between letters.
   
-  Q: What about 
+   Now print a string of 32 notes and nothing else so I can input that into my program with no crashes. Output nothing else, just the code.
+
+   therefore the notes for the input would be:
   `,
-  after: ` in his belly?`,
 };
 
+// // 🗨️ ??? Chain of Thought
+// const prompt = "";
+// const program = {
+//   before: `
+//  Jeffrey's Belly contents: Orange Creamsicles, Tapioca, Nuts
 
+//   Q: Are oranges in Jeffrey's belly?
+//   A: No there no oranges in Jeffrey's belly.
 
+//   Q: Are there orange creamsicles in Jeffrey's Belly?
+//   A: Yes there are 3 orange creamsicles in Jeffrey's Belly.
 
+//   Jeffrey's Belly contents: Orange Creamsicles, Tapioca, Nuts
+
+//   Q: What about
+//   `,
+//   after: ` in his belly?`,
+// };
 
 // // 🗨️ ??? SavCom
 // const prompt = "what's wrong, baby?";
 // const program = {
 //   before:`
 //   - you're playing a character who lovingly suggests a solution to the user's
-//   problems 
-//   - an example is, input: "I'm so stressed out," output: "I'm sorry baby, you 
+//   problems
+//   - an example is, input: "I'm so stressed out," output: "I'm sorry baby, you
 //   work so hard, you should really take a break."
 //   - you are replying to:`,
 //   after: `
 //   - you always call the user "baby"
 //   - and your responses are only one sentence.
- 
- 
+
 //   `,
 // };
-
-
 
 // // 🗨️ ??? Harold
 // const prompt = "what are you thinking about?";
@@ -98,22 +123,20 @@ const program = {
 //   - you describe an imaginary bird and mention its colors
 //   - your responses always begin with "a bird flew by with..."
 
- 
 //   `,
 // };
 
 // // 🗨️ ??? Music Box
-const prompt = "write a lyric";
-const program = {
-  before:`
-  - you're playing a character who writes music
-  - you are replying to:`,
-  after: `
-  - you reply only in musical notation
- 
-  `,
-};
+// const prompt = "write a lyric";
+// const program = {
+//   before:`
+//   - you're playing a character who writes music
+//   - you are replying to:`,
+//   after: `
+//   - you reply only in musical notation
 
+//   `,
+// };
 
 // 🗨️ ??? Liar
 // const prompt = "ask me anything but don't expect the truth";
@@ -124,10 +147,9 @@ const program = {
 //   after: `
 //   - you provide a false answer to questions
 //   - you never say that you are lying, or are a liar
- 
+
 //   `,
 // };
-
 
 // 🗨️ ??? Liar
 // const prompt = "ask me anything but don't expect the truth";
@@ -138,11 +160,11 @@ const program = {
 //   after: `
 //   - you provide a false answer to questions
 //   - you never say that you are lying, or are a liar
- 
+
 //   `,
 // };
 
-// 🗨️ Alphabetical poet 
+// 🗨️ Alphabetical poet
 // const prompt = "hi georgica";
 // const program = {
 //   before:`
@@ -176,6 +198,8 @@ let input,
   messageComplete = false,
   processing = false;
 
+let notes = [];
+
 // 🥾 Boot (Runs once before first paint and sim)
 async function boot($) {
   input = new TextInput(
@@ -185,12 +209,15 @@ async function boot($) {
       input.blank();
       processing = input.lock = true;
       controller = ask(
-        { prompt: text, program, hint: "char" },
+        { prompt: text, program, hint },
         function and(msg) {
           input.text += msg;
         },
         function done() {
           // TODO: Play a sound?
+
+          notes = [...input.text];
+          console.log("😀 About to perform:", notes);
           input.cursor = "stop";
           messageComplete = true;
           processing = input.lock = false;
@@ -205,6 +232,32 @@ async function boot($) {
     },
     { autolock: false, wrap: "word" }
   );
+}
+
+function beat({ sound: { square } }) {
+  if (notes.length > 0) {
+    const note = notes.shift();
+
+    const tones = {
+      a: 440,
+      b: 493.88,
+      c: 261.63,
+      d: 293.66,
+      e: 329.63,
+      f: 349.23,
+      g: 392,
+    };
+
+    const hz = tones[note];
+
+    square({
+      tone: hz,
+      beats: 1,
+      attack: 0.02,
+      decay: 0.97,
+      volume: 0.35,
+    });
+  }
 }
 
 // 🧮 Sim(ulate) (Runs once per logic frame (120fps locked)).
@@ -241,7 +294,7 @@ function leave() {
   controller?.abort();
 }
 
-export { boot, sim, paint, act };
+export { boot, sim, paint, act, beat, leave };
 
 // 📚 Library (Useful functions used throughout the piece)
 // ...

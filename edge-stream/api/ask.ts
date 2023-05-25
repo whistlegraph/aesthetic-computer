@@ -32,8 +32,8 @@ export default async function handler(req) {
 
       // Tweak for "code" based formal output.
       if (hint === "code") {
-        temperature = 1;
-        top_p = 0.5;
+        temperature = 0.4;
+        top_p = 1;
         max_tokens = 256;
       }
 
@@ -41,8 +41,7 @@ export default async function handler(req) {
       if (hint === "char") {
         // ...
         temperature = 1;
-        top_p = .5
-        console.log("Temperature:", temperature);
+        top_p = 0.5;
         max_tokens = 256;
       }
 

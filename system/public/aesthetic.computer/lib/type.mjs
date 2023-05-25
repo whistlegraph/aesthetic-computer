@@ -346,7 +346,7 @@ class TextInput {
         if (e.key === "Delete") {
           // Delete the character under the cursor.
           const index = this.#prompt.index;
-          console.log("Index:", index, "Length:", this.text.length);
+          // console.log("Index:", index, "Length:", this.text.length);
 
           this.text = this.text.slice(0, index) + this.text.slice(index + 1);
         } else if (e.key === "Backspace") {
