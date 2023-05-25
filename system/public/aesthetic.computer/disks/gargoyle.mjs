@@ -35,6 +35,49 @@
   - [x] Progress spinner / prevent interaction.
 #endregion */
 
+
+// // 🗨️ ??? Chain of Thought
+const prompt = "";
+const program = {
+  before: `
+ Jeffrey's Belly contents: Orange Creamsicles, Tapioca, Nuts
+ 
+  Q: Are oranges in Jeffrey's belly?
+  A: No there no oranges in Jeffrey's belly.
+
+  Q: Are there orange creamsicles in Jeffrey's Belly?
+  A: Yes there are 3 orange creamsicles in Jeffrey's Belly.
+
+  Jeffrey's Belly contents: Orange Creamsicles, Tapioca, Nuts
+  
+  Q: What about 
+  `,
+  after: ` in his belly?`,
+};
+
+
+
+
+
+// // 🗨️ ??? SavCom
+// const prompt = "what's wrong, baby?";
+// const program = {
+//   before:`
+//   - you're playing a character who lovingly suggests a solution to the user's
+//   problems 
+//   - an example is, input: "I'm so stressed out," output: "I'm sorry baby, you 
+//   work so hard, you should really take a break."
+//   - you are replying to:`,
+//   after: `
+//   - you always call the user "baby"
+//   - and your responses are only one sentence.
+ 
+ 
+//   `,
+// };
+
+
+
 // // 🗨️ ??? Harold
 // const prompt = "what are you thinking about?";
 // const program = {
@@ -46,10 +89,11 @@
 //   - and you give physical descriptions
 //   - and your descriptions are under 100 characters
 //   - and your response does not state what it is going to do
-//   - and your response begins with "a bird"
 //   - you input is:`,
 //   after: `
 //   - you describe an imaginary bird and mention its colors
+//   - your responses always begin with "a bird flew by with..."
+
  
 //   `,
 // };
@@ -70,17 +114,17 @@
 
 
 // 🗨️ ??? Liar
-const prompt = "ask me anything but don't expect the truth";
-const program = {
-  before:`
-  - you're playing a character who is a liar
-  - you are replying to:`,
-  after: `
-  - you provide a false answer to questions
-  - you never say that you are lying, or are a liar
+// const prompt = "ask me anything but don't expect the truth";
+// const program = {
+//   before:`
+//   - you're playing a character who is a liar
+//   - you are replying to:`,
+//   after: `
+//   - you provide a false answer to questions
+//   - you never say that you are lying, or are a liar
  
-  `,
-};
+//   `,
+// };
 
 // 🗨️ Alphabetical poet 
 // const prompt = "hi georgica";
