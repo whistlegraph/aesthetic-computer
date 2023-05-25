@@ -13,6 +13,7 @@
 #endregion */
 
 import { font1 } from "../disks/common/fonts.mjs";
+import { repeat } from "../lib/help.mjs";
 
 const { floor } = Math;
 const { keys, entries } = Object;
@@ -74,7 +75,7 @@ class Typeface {
     pos.center = pos.center || "";
 
     if (pos.center.includes("x")) {
-      const hw = (text.length * blockWidth) / 2;
+      const hw = (text.length * blockWidth * size) / 2;
       x = pos.x === undef ? $.screen.width / 2 - hw : x - hw;
     }
     if (pos.center.includes("y")) {
@@ -116,12 +117,21 @@ class TextInput {
   #autolock = true;
   lock = false;
 
+  #prompt;
+
   typeface;
   pal; // color palette
   wrap = "char"; // auto-wrap setting
 
   processCommand; // text processing callback
   historyDepth = 0;
+
+  #firstInputReady = true; // Flipped when the TextInput is first activated.
+  //                          (To clear any starting text.)
+  #movedCursor; // Shift the cursor off the end of the prompt by dragging or
+  //               using the arrow keys.
+  #moveThreshold = 10; // Drag threshold.
+  #moveDeltaX = 0;
 
   // Add support for loading from preloaded system typeface.
   constructor(
@@ -140,6 +150,10 @@ class TextInput {
 
     this.#autolock = options.autolock;
 
+    this.#prompt = new Prompt(6, 6, floor($.screen.width / 6) - 2);
+
+    this.#movedCursor = null; // Used when the pointer moves the cursor.
+
     this.text = text;
     this.wrap = options.wrap || "char";
     this.startingInput = this.text;
@@ -147,6 +161,7 @@ class TextInput {
       fg: 255,
       bg: 0,
       block: 255,
+      blockHi: 0,
       line: 255,
     };
     this.processCommand = processCommand;
@@ -154,15 +169,22 @@ class TextInput {
   }
 
   paint($) {
-    const prompt = new Prompt(6, 6, floor($.screen.width / 6) - 2);
+    const prompt = this.#prompt;
+    prompt.cursor = { x: 0, y: 0 };
+
+    // TODO: Render the text.
 
     // Wrap and render the text.
     if (this.wrap === "char") {
       // Print `text` to the prompt one "char" at time if it exists in the font.
       for (const char of this.text) {
-        const pic = this.typeface.glyphs[char];
-        if (pic) $.ink(this.pal.fg).draw(pic, prompt.pos, prompt.scale);
-        if (pic || char === " ") prompt.forward(); // Move cursor on a match.
+        if (char.charCodeAt(0) === 10) {
+          prompt.newLine();
+        } else {
+          const pic = this.typeface.glyphs[char];
+          if (pic) $.ink(this.pal.fg).draw(pic, prompt.pos, prompt.scale);
+          if (pic || char === " ") prompt.forward(); // Move cursor on a match.
+        }
       }
     } else if (this.wrap === "word") {
       const words = this.text.split(" ");
@@ -171,13 +193,12 @@ class TextInput {
         // Look ahead at word lenth.
         const wordLen = word.replace().length;
         if (prompt.cursor.x + wordLen >= prompt.colWidth) prompt.newLine();
-
-        //console.log(word, word.length);
-
+        let newLine = false;
         [...word].forEach((char, index) => {
           // Detect new line character.
-          if (char === "\\" && word[index + 1] === "n") {
+          if (char.charCodeAt(0) === 10) {
             prompt.newLine();
+            newLine = true;
           } else {
             const pic = this.typeface.glyphs[char];
             if (pic) {
@@ -187,8 +208,13 @@ class TextInput {
           }
         });
 
-        if (i < words.length - 1) prompt.forward(); // Move forward a space.
+        if (!newLine && i < words.length - 1) prompt.forward(); // Move forward a space.
       });
+    }
+
+    // TODO: Now offset the cursor if it's not at the end.
+    if (this.#movedCursor) {
+      prompt.cursor = this.#movedCursor;
     }
 
     if (this.canType) {
@@ -228,8 +254,14 @@ class TextInput {
           $.line(...topL, ...bottomR);
         }
       } else {
-        if (this.cursor === "blink" && this.showBlink)
+        if (this.cursor === "blink" && this.showBlink) {
           $.ink(this.pal.block).box(prompt.pos); // Draw blinking cursor.
+          const index = this.#prompt.index;
+          const char = this.text[index];
+          const pic = this.typeface.glyphs[char];
+          if (pic) $.ink(this.pal.blockHi).draw(pic, prompt.pos);
+        }
+
         if (this.cursor === "stop") {
           $.ink(255, 0, 0).box(prompt.pos.x + 1, prompt.pos.y + 3, 3);
         }
@@ -273,9 +305,19 @@ class TextInput {
   async act($) {
     const { event: e, slug, store, needsPaint } = $;
 
+    // Reflow the prompt on frame resize.
+    if (e.is("reframed")) {
+      this.#prompt.resize(floor($.screen.width / 6) - 2);
+      needsPaint();
+    }
+
     // ✂️ Paste from user clipboard.
     if (e.is("pasted:text") && this.lock === false) {
-      this.text += e.text;
+      const index = this.#prompt.index;
+      const paste = e.text;
+      this.text = this.text.slice(0, index) + paste + this.text.slice(index);
+      if (this.#movedCursor)
+        this.#prompt.forward(this.#movedCursor, paste.length);
       this.blink?.flip(true);
     }
 
@@ -289,12 +331,42 @@ class TextInput {
       if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
         if (this.text === "" && e.key === " ") {
           this.blink?.flip(true);
-          return; // Skip openeing spaces.
+          return; // Skip opening spaces.
         }
-        this.text += e.key.replace(/[“”]/g, '"').replace(/[‘’]/g, "'"); // Printable keys with subbed punctuation.
+
+        // Printable keys with subbed punctuation.
+        let insert = e.key.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
+        // Insert text at the calculated index
+        const index = this.#prompt.index;
+        // Add spaces if the cursor has scrolled beyond the text.
+        if (this.#movedCursor) this.#prompt.forward(this.#movedCursor);
+        this.text = this.text.slice(0, index) + insert + this.text.slice(index);
       } else {
         // Other keys.
-        if (e.key === "Backspace") this.text = this.text.slice(0, -1);
+        if (e.key === "Delete") {
+          // Delete the character under the cursor.
+          const index = this.#prompt.index;
+          console.log("Index:", index, "Length:", this.text.length);
+
+          this.text = this.text.slice(0, index) + this.text.slice(index + 1);
+        } else if (e.key === "Backspace") {
+          if (this.text.length === 1) {
+            this.text = "";
+            this.#movedCursor = null;
+          } else {
+            if (this.#movedCursor) {
+              const index = this.#prompt.index;
+              if (index === 0 && this.text.length > 0) {
+              } else {
+                this.text =
+                  this.text.slice(0, index - 1) + this.text.slice(index);
+              }
+              this.#prompt.backward(this.#movedCursor);
+            } else {
+              this.text = this.text.slice(0, -1);
+            }
+          }
+        }
         const key = `${slug}:history`; // This is "per-piece" and should
         //                                be per TextInput object...23.05.23.12.50
 
@@ -313,15 +385,18 @@ class TextInput {
           if (this.#autolock) this.lock = true;
           await this.processCommand?.(this.text);
           if (this.#autolock) this.lock = false;
-          // this.text = "";
         }
 
-        if (e.key === "Escape") this.text = "";
+        if (e.key === "Escape") {
+          this.#movedCursor = null;
+          this.text = "";
+        }
 
         // Move backwards through history stack.
         if (e.key === "ArrowUp") {
           const history = (await store.retrieve(key)) || [""];
           this.text = history[this.historyDepth];
+          this.#movedCursor = null;
           this.historyDepth = (this.historyDepth + 1) % history.length;
         }
 
@@ -329,10 +404,28 @@ class TextInput {
         if (e.key === "ArrowDown") {
           const history = (await store.retrieve(key)) || [""];
           this.text = history[this.historyDepth];
+          this.#movedCursor = null;
           this.historyDepth -= 1;
           if (this.historyDepth < 0) this.historyDepth = history.length - 1;
         }
+
+        // Move cursor forward.
+        if (e.key === "ArrowRight") {
+          if (this.#prompt.index < this.text.length) {
+            if (!this.#movedCursor) this.#movedCursor = this.#prompt.cursor;
+            this.#prompt.forward(this.#movedCursor);
+            if (this.#prompt.index === this.text.length)
+              this.#movedCursor = null;
+          }
+        }
+
+        // Move cursor backward.
+        if (e.key === "ArrowLeft") {
+          if (!this.#movedCursor) this.#movedCursor = this.#prompt.cursor;
+          this.#prompt.backward(this.#movedCursor);
+        }
       }
+
       this.blink?.flip(true);
     }
 
@@ -340,7 +433,43 @@ class TextInput {
     // (including os-level software keyboard overlays)
     if (e.is("typing-input-ready")) {
       this.canType = true;
-      this.text = "";
+      if (this.#firstInputReady) {
+        this.text = "";
+        this.#firstInputReady = false;
+        this.blink?.flip(true);
+      }
+    }
+
+    if (e.is("touch")) this.blink?.flip(true);
+
+    if (e.is("lift")) this.moveDeltaX = 0;
+
+    if (e.is("draw") && this.canType) {
+      if (
+        (this.#moveDeltaX > 0 && e.delta.x < 0) ||
+        (this.#moveDeltaX < 0 && e.delta.x > 0)
+      ) {
+        this.#moveDeltaX = 0; // Reset delta on every directional change.
+      }
+
+      this.#moveDeltaX += e.delta.x; // Add up the deltas.
+
+      if (this.#moveDeltaX < -this.#moveThreshold) {
+        this.#moveDeltaX = 0;
+        if (!this.#movedCursor) this.#movedCursor = this.#prompt.cursor;
+        this.#prompt.backward(this.#movedCursor);
+      }
+
+      if (
+        this.#moveDeltaX > this.#moveThreshold &&
+        this.#prompt.index < this.text.length
+      ) {
+        this.#moveDeltaX = 0;
+        if (!this.#movedCursor) this.#movedCursor = this.#prompt.cursor;
+        this.#prompt.forward(this.#movedCursor);
+        if (this.#prompt.index === this.text.length) this.#movedCursor = null;
+      }
+
       this.blink?.flip(true);
     }
 
@@ -381,17 +510,55 @@ class Prompt {
     this.gutter = this.colWidth * this.blockWidth;
   }
 
+  resize(newColWidth) {
+    this.colWidth = newColWidth;
+    // TODO: Reflow the prompt cursor here?
+  }
+
+  // Calculate index for inserting or removing text.
+  // get index() {
+  //   const x = this.cursor.x;
+  //   const y = this.cursor.y;
+  //   const cols = this.colWidth;
+  //   return y * cols + x;
+  // }
+
+  get index() {
+    const x = this.cursor.x;
+    const y = this.cursor.y;
+    const cols = this.colWidth;
+    const lineBreaks = y; // Number of line breaks before the current row
+    return y * (cols + 1) + x - lineBreaks;
+  }
+
+  // Caluclate the screen x, y position of the top left of the cursor.
   get pos() {
     const x = this.top + this.cursor.x * this.letterWidth;
     const y = this.left + this.cursor.y * this.letterHeight;
     return { x, y, w: this.letterWidth, h: this.letterHeight };
   }
 
-  forward() {
-    this.cursor.x = (this.cursor.x + 1) % (this.colWidth - 1);
-    if (this.cursor.x === 0) this.cursor.y += 1;
+  // Move the cursor forward, optionally input an override cursor.
+  forward(cursor = this.cursor, amount = 1) {
+    repeat(amount, () => {
+      cursor.x = (cursor.x + 1) % (this.colWidth - 1);
+      if (cursor.x === 0) cursor.y += 1;
+    });
   }
 
+  // Move cursor backward, with optional override cursor.
+  backward(cursor = this.cursor) {
+    if (cursor.x === 0) {
+      if (cursor.y > 0) {
+        cursor.y -= 1;
+        cursor.x = this.colWidth - 2;
+      }
+    } else {
+      cursor.x -= 1;
+    }
+  }
+
+  // Create a cursor line break.
   newLine() {
     this.cursor.y += 1;
     this.cursor.x = 0;

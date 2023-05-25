@@ -5,18 +5,16 @@
   + Poetic
   - [] Write several characters.
   + Techical
+  - [] Decide how to get back to main navigation page *especially on mobile
+  - [] Add sound for `Music Box`
+  - [] Mobile tap to open keyboard should function better...
+    - []
   - [] Multiple prompts on a page.
     - [] Make sure history works among the different prompts.
     - [] Line breaks
-  - [] Add sound for `Music Box`
-  -[] Decide how to get back to main navigation page *especially on mobile
   - [] Change `network failure` to `try again`
   - [] How to deal with longer responses?
   - [] Add some basic conversational support
-  - [] Mobile tap to open keyboard should function better...
-    - []
-  - [] Movable cursor support, with arrow keys and touch to move or drag. 
-    - [] Paste needs to work on movable cursor.
   - [] Add a small illustration on bottom right corner.
     - [] Painting @import.
     - [] How would this function? `paste(by("@georgica").painting())`
@@ -28,6 +26,12 @@
     - [] 1/3 New synth wav types!
     - [] Custom SFX / sampling.
   + Done
+  - [x] Canellable responses.
+  - [x] Movable cursor support, with arrow keys and touch to move or drag. 
+    - [x] Draw character once more on top of cursor.
+          $.ink(255, 0, 0).draw
+    - [x] Reset cursor position on return.
+    - [x] Paste needs to work on movable cursor.
   - [x] Auto-wrap the text by word in TextInput objects.
   - [x] Better text typing / replacing experience / autotype clear characters
         and skip intro space. 
@@ -98,16 +102,28 @@ const program = {
 //   `,
 // };
 
-
-
 // // 🗨️ ??? Music Box
-// const prompt = "write a lyric";
+const prompt = "write a lyric";
+const program = {
+  before:`
+  - you're playing a character who writes music
+  - you are replying to:`,
+  after: `
+  - you reply only in musical notation
+ 
+  `,
+};
+
+
+// 🗨️ ??? Liar
+// const prompt = "ask me anything but don't expect the truth";
 // const program = {
 //   before:`
-//   - you're playing a character who writes music
+//   - you're playing a character who is a liar
 //   - you are replying to:`,
 //   after: `
-//   - you reply only in musical notation
+//   - you provide a false answer to questions
+//   - you never say that you are lying, or are a liar
  
 //   `,
 // };
@@ -156,6 +172,7 @@ import { TextInput } from "../lib/type.mjs";
 import { ask } from "../lib/ask.mjs";
 
 let input,
+  controller,
   messageComplete = false,
   processing = false;
 
@@ -164,13 +181,12 @@ async function boot($) {
   input = new TextInput(
     $,
     prompt,
-    (text) => {
+    async (text) => {
       input.blank();
       processing = input.lock = true;
-      ask(
+      controller = ask(
         { prompt: text, program, hint: "char" },
         function and(msg) {
-          console.log(msg);
           input.text += msg;
         },
         function done() {
@@ -205,12 +221,24 @@ function paint($) {
 // ✒ Act (Runs once per user interaction)
 function act($) {
   const { event: e } = $;
+
+  if (!messageComplete && processing) {
+    if (e.is("keyboard:down:escape")) {
+      console.log(controller);
+      controller?.abort();
+    }
+  }
+
   if (!messageComplete && !processing) input?.act($);
   if (messageComplete && (e.is("keyboard:down") || e.is("touch"))) {
     input.blank("blink"); // Clear input and switch back to blink cursor.
     input?.act($); // Capture any printable keystrokes.
     messageComplete = false;
   }
+}
+
+function leave() {
+  controller?.abort();
 }
 
 export { boot, sim, paint, act };

@@ -1,4 +1,4 @@
-// Session Server, 22.12.04.14.57
+// Session Server, 23.12.04.14.57
 // Represents a "room" or user or "client" backend
 // which at the moment is run once for every "piece"
 // that requests it.
@@ -52,17 +52,26 @@ const info = {
   service: process.env.SPAWNER_SERVICE,
 };
 
-// *** Start Up a REDIS Client ***
-const client = !dev
+// *** Start up two `redis` clients. (One for subscribing, and for publishing)
+const sub = !dev
   ? createClient({ url: redisConnectionString })
   : createClient();
-client.on("error", (err) => console.log("🔴 Redis client error!", err));
-await client.connect();
-// console.log("client", redisConnectionString);
+sub.on("error", (err) => console.log("🔴 Redis subscriber client error!", err));
 
-await client.subscribe("code", (message) => {
-  // console.log(message); // 'message'
+const pub = !dev
+  ? createClient({ url: redisConnectionString })
+  : createClient();
+pub.on("error", (err) => console.log("🔴 Redis publisher client error!", err));
+
+await sub.connect();
+await pub.connect();
+
+await sub.subscribe("code", (message) => {
   everyone(pack("code", message, "development"));
+});
+
+await sub.subscribe("scream", (message) => {
+  everyone(pack("scream", message, "screamer"));
 });
 
 fastify.get("/", async () => {
@@ -81,7 +90,7 @@ const start = async () => {
   try {
     if (dev) {
       fastify.listen({
-        host: "0.0.0.0",// ip.address(),
+        host: "0.0.0.0", // ip.address(),
         port: info.port,
       });
     } else {
@@ -154,10 +163,22 @@ wss.on("connection", (ws, req) => {
     // Parse incoming message and attach client identifier.
     const msg = JSON.parse(data.toString());
     msg.id = id; // TODO: When sending a server generated message, use a special id.
-    console.log(msg);
-    // TODO: Why not always use "others" here?
-    everyone(JSON.stringify(msg));
-    // others(JSON.stringify(msg));
+
+    if (msg.type === "scream") {
+      // TODO: Alert all connected users via redis pub/sub to the scream.
+
+      pub.publish("scream", msg.content, (error, reply) => {
+        if (error) {
+          console.error("Error publishing message:", error);
+        } else {
+          console.log(`Message published to channel ${channel}`);
+        }
+      });
+    } else {
+      // TODO: Why not always use "others" here?
+      everyone(JSON.stringify(msg));
+      // others(JSON.stringify(msg));
+    }
   });
 
   /*

@@ -1,6 +1,9 @@
 🪦 Completed Tasks (dumped from `README.txt`)
    23.02.10.14.41
 
+*** `Prompt Editing` *** 
+  - [x️‍] Scrubbable cursor.  
+
 *** `paint` / `ask` ***
   - [x] Why did `ask` stop working on local? Is it a `vercel dev` issue? 
     - [x] Put behind reverse proxy.
