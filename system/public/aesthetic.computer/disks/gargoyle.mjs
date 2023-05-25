@@ -5,7 +5,8 @@
   + Poetic
   - [] Write several characters.
   + Techical
-  - [] Decide how to get back to main navigation page *especially on mobile
+  - [] Break prompt programs into multiple commands / characters.
+    - Make a new template.
   - [] Add sound for `Music Box`
   - [] Mobile tap to open keyboard should function better...
     - []
@@ -26,6 +27,7 @@
     - [] 1/3 New synth wav types!
     - [] Custom SFX / sampling.
   + Done
+  - [x] Decide how to get back to main navigation page *especially on mobile
   - [x] Cancellable responses.
   - [x] Movable cursor support, with arrow keys and touch to move or drag. 
     - [x] Draw character once more on top of cursor.
@@ -59,9 +61,7 @@ const program = {
    
 what are the notes of: `,
 
-after: 
-
-  `
+  after: `
   Please remember that...
 
    - My musical program only accept a maximum of 32 notes with no spaces between letters.
@@ -72,123 +72,125 @@ after:
   `,
 };
 
-// // 🗨️ ??? Chain of Thought
-// const prompt = "";
-// const program = {
-//   before: `
-//  Jeffrey's Belly contents: Orange Creamsicles, Tapioca, Nuts
+/* #region 💬 Prompt Programs
+// 🗨️ ??? Chain of Thought
+const prompt = "";
+const program = {
+  before: `
+  Jeffrey's Belly contents: Orange Creamsicles, Tapioca, Nuts
 
-//   Q: Are oranges in Jeffrey's belly?
-//   A: No there no oranges in Jeffrey's belly.
+  Q: Are oranges in Jeffrey's belly?
+  A: No there no oranges in Jeffrey's belly.
 
-//   Q: Are there orange creamsicles in Jeffrey's Belly?
-//   A: Yes there are 3 orange creamsicles in Jeffrey's Belly.
+  Q: Are there orange creamsicles in Jeffrey's Belly?
+  A: Yes there are 3 orange creamsicles in Jeffrey's Belly.
 
-//   Jeffrey's Belly contents: Orange Creamsicles, Tapioca, Nuts
+  Jeffrey's Belly contents: Orange Creamsicles, Tapioca, Nuts
 
-//   Q: What about
-//   `,
-//   after: ` in his belly?`,
-// };
+  Q: What about
+  `,
+  after: ` in his belly?`,
+};
 
-// // 🗨️ ??? SavCom
-// const prompt = "what's wrong, baby?";
-// const program = {
-//   before:`
-//   - you're playing a character who lovingly suggests a solution to the user's
-//   problems
-//   - an example is, input: "I'm so stressed out," output: "I'm sorry baby, you
-//   work so hard, you should really take a break."
-//   - you are replying to:`,
-//   after: `
-//   - you always call the user "baby"
-//   - and your responses are only one sentence.
+// 🗨️ ??? SavCom
+const prompt = "what's wrong, baby?";
+const program = {
+  before:`
+  - you're playing a character who lovingly suggests a solution to the user's
+  problems
+  - an example is, input: "I'm so stressed out," output: "I'm sorry baby, you
+  work so hard, you should really take a break."
+  - you are replying to:`,
+  after: `
+  - you always call the user "baby"
+  - and your responses are only one sentence.
 
-//   `,
-// };
+  `,
+};
 
-// // 🗨️ ??? Harold
-// const prompt = "what are you thinking about?";
-// const program = {
-//   before:`
-//   - you are a character that is a bird
-//   - and you only write about other birds
-//   - and the birds you describe are imaginary
-//   - and you do not name them
-//   - and you give physical descriptions
-//   - and your descriptions are under 100 characters
-//   - and your response does not state what it is going to do
-//   - you input is:`,
-//   after: `
-//   - you describe an imaginary bird and mention its colors
-//   - your responses always begin with "a bird flew by with..."
+// 🗨️ ??? Harold
+const prompt = "what are you thinking about?";
+const program = {
+  before:`
+  - you are a character that is a bird
+  - and you only write about other birds
+  - and the birds you describe are imaginary
+  - and you do not name them
+  - and you give physical descriptions
+  - and your descriptions are under 100 characters
+  - and your response does not state what it is going to do
+  - you input is:`,
+  after: `
+  - you describe an imaginary bird and mention its colors
+  - your responses always begin with "a bird flew by with..."
 
-//   `,
-// };
+  `,
+};
 
-// // 🗨️ ??? Music Box
-// const prompt = "write a lyric";
-// const program = {
-//   before:`
-//   - you're playing a character who writes music
-//   - you are replying to:`,
-//   after: `
-//   - you reply only in musical notation
+// 🗨️ ??? Music Box
+const prompt = "write a lyric";
+const program = {
+  before:`
+  - you're playing a character who writes music
+  - you are replying to:`,
+  after: `
+  - you reply only in musical notation
 
-//   `,
-// };
+  `,
+};
 
-// 🗨️ ??? Liar
-// const prompt = "ask me anything but don't expect the truth";
-// const program = {
-//   before:`
-//   - you're playing a character who is a liar
-//   - you are replying to:`,
-//   after: `
-//   - you provide a false answer to questions
-//   - you never say that you are lying, or are a liar
+🗨️ ??? Liar
+const prompt = "ask me anything but don't expect the truth";
+const program = {
+  before:`
+  - you're playing a character who is a liar
+  - you are replying to:`,
+  after: `
+  - you provide a false answer to questions
+  - you never say that you are lying, or are a liar
 
-//   `,
-// };
+  `,
+};
 
-// 🗨️ ??? Liar
-// const prompt = "ask me anything but don't expect the truth";
-// const program = {
-//   before:`
-//   - you're playing a character who is a liar
-//   - you are replying to:`,
-//   after: `
-//   - you provide a false answer to questions
-//   - you never say that you are lying, or are a liar
+🗨️ ??? Liar
+const prompt = "ask me anything but don't expect the truth";
+const program = {
+  before:`
+  - you're playing a character who is a liar
+  - you are replying to:`,
+  after: `
+  - you provide a false answer to questions
+  - you never say that you are lying, or are a liar
 
-//   `,
-// };
+  `,
+};
 
-// 🗨️ Alphabetical poet
-// const prompt = "hi georgica";
-// const program = {
-//   before:`
-//   - You respond to the input in nonsensical sentences
-//   - And the words in your sentences are in alphabetical order.`,
-//   after: `The words in your responses are in alphabetical order, beginning anywhere in the alphabet. You don't have to include every letter in the alphabet.`,
-// };
+🗨️ Alphabetical poet
+const prompt = "hi georgica";
+const program = {
+  before:`
+  - You respond to the input in nonsensical sentences
+  - And the words in your sentences are in alphabetical order.`,
+  after: `The words in your responses are in alphabetical order, beginning anywhere in the alphabet. You don't have to include every letter in the alphabet.`,
+};
 
-// 🗨️ Primitive gargoyle adaptation
-// const prompt = "hi georgica";
-// const program = {
-//   before: `
-//   your name is gargoyle
-//   and you are replying to:
-//   `,
-//   after: `
-//   - and you sometimes respond in metaphor
-//   - all responses are limited to 100 characters
-//   - all responses provide advice
-//   - some responses include questions
-//   - you are apologetic if user suggests offense
-//   - your tone is familiar
-//   `,
-// };
+🗨️ Primitive gargoyle adaptation
+const prompt = "hi georgica";
+const program = {
+  before: `
+  your name is gargoyle
+  and you are replying to:
+  `,
+  after: `
+  - and you sometimes respond in metaphor
+  - all responses are limited to 100 characters
+  - all responses provide advice
+  - some responses include questions
+  - you are apologetic if user suggests offense
+  - your tone is familiar
+  `,
+};
+#endregion */
 
 import { TextInput } from "../lib/type.mjs";
 import { ask } from "../lib/ask.mjs";
@@ -206,6 +208,12 @@ async function boot($) {
     $,
     prompt,
     async (text) => {
+      const exits = ["q", "quit", "leave", "exit", "bye", "no"];
+      if (exits.indexOf(text) !== -1) {
+        $.jump("prompt");
+        return;
+      }
+
       input.blank();
       processing = input.lock = true;
       controller = ask(
