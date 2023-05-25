@@ -39,7 +39,7 @@ async function boot({ params, system: { painting }, needsPaint }) {
     after: `make your response no longer than 20 lines where each line ends in a semicolon. choose colors related to the subject and draw clearly. all boxes should fit completely within the frame - every line of your response must begin with "ink" and nothing else`,
   };
 
-  controller = await ask(
+  controller = ask(
     { prompt: params.join(" ") || "a red circle", program, hint: "code" },
     function and(msg) {
       if (fullCode === "PROCESSING...") {
@@ -64,8 +64,6 @@ async function boot({ params, system: { painting }, needsPaint }) {
       fullCode = "NETWORK FAILURE";
     }
   );
-
-  console.log("Controller", controller);
 }
 
 // 🎨 Paint (Executes every display frame)
@@ -107,7 +105,6 @@ function bake() {
 
 // 👋 Leave (Runs once before the piece is unloaded)
 function leave() {
-  console.log(controller);
   controller?.abort(); // Cancel any existing `ask` which halts the server.
 }
 

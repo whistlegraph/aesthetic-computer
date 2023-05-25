@@ -63,18 +63,20 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** `gargoyle` ***
+  - [-] Fix mobile UI.
   - [] Write new characters.
-  - [] Fix mobile UI.
-
-*** `Prompt Editing` *** 
-  - [-] Scrubbable cursor.  
 
 *** `scream` ***
+  - [] Visualize the socket connection to make everything faster in production.
+     - [] Possibly the bottleneck is in connecting to JamSocket?
   - [-] Finish list in `scream`.
   - [] Use NTP for time synchronized delivery of messages.
     - [] Is this good enough for musical timing?
   - [] Enable via notifications in the test iOS app.
   - [x] Get messaging working. 
+
+*** Overall Rendering ***
+   - [] Fix pixel imperfect rendering / scaling especially noticeable on iOS.
 
 *** Viral Checklist ***
   - [] Display current user count on rooms if > 0 users are online.
