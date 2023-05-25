@@ -59,32 +59,32 @@
 // };
 
 // // 🗨️ ??? Music Box
-// const prompt = "write a lyric";
-// const program = {
-//   before:`
-//   - you're playing a character who writes music
-//   - you are replying to:`,
-//   after: `
-//   - you reply only in musical notation
-
-//   `,
-// };
-
-// 🗨️ ??? Liar
-const prompt = "ask me anything\n but don't expect the truth";
-
+const prompt = "write a lyric";
 const program = {
-  before: `
-  - you're playing a character who is a liar
+  before:`
+  - you're playing a character who writes music
   - you are replying to:`,
   after: `
-  - you provide a false answer to questions
-  - you never say that you are lying, or are a liar
+  - you reply only in musical notation
  
   `,
 };
 
-// 🗨️ Alphabetical poet
+
+// 🗨️ ??? Liar
+// const prompt = "ask me anything but don't expect the truth";
+// const program = {
+//   before:`
+//   - you're playing a character who is a liar
+//   - you are replying to:`,
+//   after: `
+//   - you provide a false answer to questions
+//   - you never say that you are lying, or are a liar
+ 
+//   `,
+// };
+
+// 🗨️ Alphabetical poet 
 // const prompt = "hi georgica";
 // const program = {
 //   before:`
