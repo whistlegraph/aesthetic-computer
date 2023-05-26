@@ -18,6 +18,7 @@ import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket
 import { notArray } from "./helpers.mjs";
 const { round } = Math;
 import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
+import * as character from "../systems/character.mjs";
 import { headers } from "./console-headers.mjs";
 import { logs } from "./logs.mjs";
 
@@ -371,7 +372,7 @@ const $commonApi = {
     send({ type: "authorization:request" });
     return prom;
   }, // Get a token for a logged in user.
-  hand: { mediapipe: { screen: [], world: [], hand: "None"} }, // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
+  hand: { mediapipe: { screen: [], world: [], hand: "None" } }, // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
   hud: {
     label: (text, color, offset) => {
       currentHUDText = text;
@@ -1752,6 +1753,40 @@ async function load(
       };
       bake = module.bake || nopaint.bake;
       system = "nopaint";
+    } else if (module.system === "character") {
+      boot = ($) => {
+        character.character_boot($, {
+          prompt: module.prompt,
+          program: {
+            before: module.before,
+            after: module.after,
+          },
+          hint: module.hint,
+        }, module.reply);
+        module.boot?.($);
+      };
+
+      sim = ($) => {
+        character.character_sim($);
+        module.sim?.($);
+      };
+
+      paint = ($) => {
+        let painted = character.character_paint($);
+        painted = module.paint?.($); // Carry the return paint through.
+        return painted;
+      };
+
+      act = ($) => {
+        character.character_act($);
+      };
+
+      leave = ($) => {
+        character.character_leave($);
+        module.leave?.($);
+      };
+
+      system = "character";
     } else {
       boot = module.boot || defaults.boot;
       sim = module.sim || defaults.sim;
@@ -2937,7 +2972,7 @@ async function makeFrame({ data: { type, content } }) {
           ink(255)
             .wipe(255, 0, 0)
             .write(scream, { center: "xy", size: 3, thickness: 1 });
-            needsPaint();
+          needsPaint();
           if (!screaming) {
             screaming = true;
             clearTimeout(screamingTimer);
@@ -2978,6 +3013,7 @@ async function makeFrame({ data: { type, content } }) {
         piece !== "prompt" &&
         piece !== "play" &&
         piece !== "gargoyle" &&
+        piece !== "sing" &&
         piece !== "video"
       ) {
         const w = currentHUDText.length * 6;

@@ -26,7 +26,7 @@ export default async function handler(req) {
         messages.push({ role: "system", content: program.after }); // After
 
       // Defaults
-      let temperature = 1; 
+      let temperature = 1;
       let top_p = 1; // Maximum: 1
       let max_tokens = 64;
 
@@ -61,7 +61,15 @@ export default async function handler(req) {
       };
 
       const stream = await OpenAIStream(payload);
-      return new Response(stream, { headers });
+
+      if (!stream) {
+        return new Response("Error", {
+          status: 500,
+          headers: { "Content-Type": "text/plain", ...headers },
+        });
+      } else {
+        return new Response(stream, { headers });
+      }
     } catch (error) {
       console.error("Failed to process the request:", error);
       return new Response("Error", {

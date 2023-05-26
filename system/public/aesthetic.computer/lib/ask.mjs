@@ -49,6 +49,9 @@ export function ask(options, and, done, fail) {
 
   Promise.race([responsePromise, timeoutPromise])
     .then((response) => {
+
+      console.log(response);
+
       clearTimeout(timeout);
 
       if (!response.ok) throw new Error(`Failed to reply: ${response.status}`);
