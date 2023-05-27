@@ -3,41 +3,26 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 55;
+	objectVersion = 56;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		413080252781A20800AA49F4 /* aesthetic_computerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 413080152781A20600AA49F4 /* aesthetic_computerApp.swift */; };
-		413080262781A20800AA49F4 /* aesthetic_computerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 413080152781A20600AA49F4 /* aesthetic_computerApp.swift */; };
-		413080272781A20800AA49F4 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 413080162781A20600AA49F4 /* ContentView.swift */; };
-		413080282781A20800AA49F4 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 413080162781A20600AA49F4 /* ContentView.swift */; };
-		413080292781A20800AA49F4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 413080172781A20800AA49F4 /* Assets.xcassets */; };
-		4130802A2781A20800AA49F4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 413080172781A20800AA49F4 /* Assets.xcassets */; };
-		413080342781A43200AA49F4 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 413080332781A43200AA49F4 /* WebView.swift */; };
-		413080352781A43200AA49F4 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 413080332781A43200AA49F4 /* WebView.swift */; };
+		412BAFB52A1D4446000A41B0 /* aesthetic_computerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 412BAFB42A1D4446000A41B0 /* aesthetic_computerApp.swift */; };
+		412BAFB72A1D4446000A41B0 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 412BAFB62A1D4446000A41B0 /* ContentView.swift */; };
+		412BAFB92A1D4447000A41B0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 412BAFB82A1D4447000A41B0 /* Assets.xcassets */; };
+		412BAFBC2A1D4447000A41B0 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 412BAFBB2A1D4447000A41B0 /* Preview Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		413080152781A20600AA49F4 /* aesthetic_computerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = aesthetic_computerApp.swift; sourceTree = "<group>"; };
-		413080162781A20600AA49F4 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		413080172781A20800AA49F4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		4130801C2781A20800AA49F4 /* aesthetic.computer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = aesthetic.computer.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		413080222781A20800AA49F4 /* aesthetic.computer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = aesthetic.computer.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		413080242781A20800AA49F4 /* macOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = macOS.entitlements; sourceTree = "<group>"; };
-		413080332781A43200AA49F4 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
-		413080362781AA9900AA49F4 /* aesthetic.computer (iOS).entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "aesthetic.computer (iOS).entitlements"; sourceTree = "<group>"; };
-		41D96DE727823FEA0055B776 /* aesthetic-computer--iOS--Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "aesthetic-computer--iOS--Info.plist"; sourceTree = "<group>"; };
+		412BAFB12A1D4446000A41B0 /* aesthetic.computer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = aesthetic.computer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		412BAFB42A1D4446000A41B0 /* aesthetic_computerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = aesthetic_computerApp.swift; sourceTree = "<group>"; };
+		412BAFB62A1D4446000A41B0 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		412BAFB82A1D4447000A41B0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		412BAFBB2A1D4447000A41B0 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		413080192781A20800AA49F4 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		4130801F2781A20800AA49F4 /* Frameworks */ = {
+		412BAFAE2A1D4446000A41B0 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -47,170 +32,126 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		4130800F2781A20600AA49F4 = {
+		412BAFA82A1D4446000A41B0 = {
 			isa = PBXGroup;
 			children = (
-				41D96DE727823FEA0055B776 /* aesthetic-computer--iOS--Info.plist */,
-				413080362781AA9900AA49F4 /* aesthetic.computer (iOS).entitlements */,
-				413080142781A20600AA49F4 /* Shared */,
-				413080232781A20800AA49F4 /* macOS */,
-				4130801D2781A20800AA49F4 /* Products */,
+				412BAFB32A1D4446000A41B0 /* aesthetic.computer */,
+				412BAFB22A1D4446000A41B0 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		413080142781A20600AA49F4 /* Shared */ = {
+		412BAFB22A1D4446000A41B0 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				413080152781A20600AA49F4 /* aesthetic_computerApp.swift */,
-				413080162781A20600AA49F4 /* ContentView.swift */,
-				413080332781A43200AA49F4 /* WebView.swift */,
-				413080172781A20800AA49F4 /* Assets.xcassets */,
-			);
-			path = Shared;
-			sourceTree = "<group>";
-		};
-		4130801D2781A20800AA49F4 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				4130801C2781A20800AA49F4 /* aesthetic.computer.app */,
-				413080222781A20800AA49F4 /* aesthetic.computer.app */,
+				412BAFB12A1D4446000A41B0 /* aesthetic.computer.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		413080232781A20800AA49F4 /* macOS */ = {
+		412BAFB32A1D4446000A41B0 /* aesthetic.computer */ = {
 			isa = PBXGroup;
 			children = (
-				413080242781A20800AA49F4 /* macOS.entitlements */,
+				412BAFB42A1D4446000A41B0 /* aesthetic_computerApp.swift */,
+				412BAFB62A1D4446000A41B0 /* ContentView.swift */,
+				412BAFB82A1D4447000A41B0 /* Assets.xcassets */,
+				412BAFBA2A1D4447000A41B0 /* Preview Content */,
 			);
-			path = macOS;
+			path = aesthetic.computer;
+			sourceTree = "<group>";
+		};
+		412BAFBA2A1D4447000A41B0 /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				412BAFBB2A1D4447000A41B0 /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		4130801B2781A20800AA49F4 /* aesthetic.computer (iOS) */ = {
+		412BAFB02A1D4446000A41B0 /* aesthetic.computer */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 4130802D2781A20800AA49F4 /* Build configuration list for PBXNativeTarget "aesthetic.computer (iOS)" */;
+			buildConfigurationList = 412BAFBF2A1D4447000A41B0 /* Build configuration list for PBXNativeTarget "aesthetic.computer" */;
 			buildPhases = (
-				413080182781A20800AA49F4 /* Sources */,
-				413080192781A20800AA49F4 /* Frameworks */,
-				4130801A2781A20800AA49F4 /* Resources */,
+				412BAFAD2A1D4446000A41B0 /* Sources */,
+				412BAFAE2A1D4446000A41B0 /* Frameworks */,
+				412BAFAF2A1D4446000A41B0 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = "aesthetic.computer (iOS)";
-			productName = "aesthetic.computer (iOS)";
-			productReference = 4130801C2781A20800AA49F4 /* aesthetic.computer.app */;
-			productType = "com.apple.product-type.application";
-		};
-		413080212781A20800AA49F4 /* aesthetic.computer (macOS) */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 413080302781A20800AA49F4 /* Build configuration list for PBXNativeTarget "aesthetic.computer (macOS)" */;
-			buildPhases = (
-				4130801E2781A20800AA49F4 /* Sources */,
-				4130801F2781A20800AA49F4 /* Frameworks */,
-				413080202781A20800AA49F4 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = "aesthetic.computer (macOS)";
-			productName = "aesthetic.computer (macOS)";
-			productReference = 413080222781A20800AA49F4 /* aesthetic.computer.app */;
+			name = aesthetic.computer;
+			productName = aesthetic.computer;
+			productReference = 412BAFB12A1D4446000A41B0 /* aesthetic.computer.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		413080102781A20600AA49F4 /* Project object */ = {
+		412BAFA92A1D4446000A41B0 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1320;
-				LastUpgradeCheck = 1320;
+				LastSwiftUpdateCheck = 1430;
+				LastUpgradeCheck = 1430;
 				TargetAttributes = {
-					4130801B2781A20800AA49F4 = {
-						CreatedOnToolsVersion = 13.2.1;
-					};
-					413080212781A20800AA49F4 = {
-						CreatedOnToolsVersion = 13.2.1;
+					412BAFB02A1D4446000A41B0 = {
+						CreatedOnToolsVersion = 14.3;
 					};
 				};
 			};
-			buildConfigurationList = 413080132781A20600AA49F4 /* Build configuration list for PBXProject "aesthetic.computer" */;
-			compatibilityVersion = "Xcode 13.0";
+			buildConfigurationList = 412BAFAC2A1D4446000A41B0 /* Build configuration list for PBXProject "aesthetic.computer" */;
+			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
-			mainGroup = 4130800F2781A20600AA49F4;
-			productRefGroup = 4130801D2781A20800AA49F4 /* Products */;
+			mainGroup = 412BAFA82A1D4446000A41B0;
+			productRefGroup = 412BAFB22A1D4446000A41B0 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				4130801B2781A20800AA49F4 /* aesthetic.computer (iOS) */,
-				413080212781A20800AA49F4 /* aesthetic.computer (macOS) */,
+				412BAFB02A1D4446000A41B0 /* aesthetic.computer */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		4130801A2781A20800AA49F4 /* Resources */ = {
+		412BAFAF2A1D4446000A41B0 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				413080292781A20800AA49F4 /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		413080202781A20800AA49F4 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				4130802A2781A20800AA49F4 /* Assets.xcassets in Resources */,
+				412BAFBC2A1D4447000A41B0 /* Preview Assets.xcassets in Resources */,
+				412BAFB92A1D4447000A41B0 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		413080182781A20800AA49F4 /* Sources */ = {
+		412BAFAD2A1D4446000A41B0 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				413080342781A43200AA49F4 /* WebView.swift in Sources */,
-				413080272781A20800AA49F4 /* ContentView.swift in Sources */,
-				413080252781A20800AA49F4 /* aesthetic_computerApp.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		4130801E2781A20800AA49F4 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				413080352781A43200AA49F4 /* WebView.swift in Sources */,
-				413080282781A20800AA49F4 /* ContentView.swift in Sources */,
-				413080262781A20800AA49F4 /* aesthetic_computerApp.swift in Sources */,
+				412BAFB72A1D4446000A41B0 /* ContentView.swift in Sources */,
+				412BAFB52A1D4446000A41B0 /* aesthetic_computerApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		4130802B2781A20800AA49F4 /* Debug */ = {
+		412BAFBD2A1D4447000A41B0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
-				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -254,22 +195,23 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;
 		};
-		4130802C2781A20800AA49F4 /* Release */ = {
+		412BAFBE2A1D4447000A41B0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
-				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -307,169 +249,96 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
-			};
-			name = Release;
-		};
-		4130802E2781A20800AA49F4 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "aesthetic.computer (iOS).entitlements";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = FB5948YR3S;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "aesthetic-computer--iOS--Info.plist";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UIStatusBarHidden = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.whistlegraph.aesthetic-computer";
-				PRODUCT_NAME = aesthetic.computer;
-				SDKROOT = iphoneos;
-				SUPPORTS_MACCATALYST = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,6";
-			};
-			name = Debug;
-		};
-		4130802F2781A20800AA49F4 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "aesthetic.computer (iOS).entitlements";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = FB5948YR3S;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "aesthetic-computer--iOS--Info.plist";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UIStatusBarHidden = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.whistlegraph.aesthetic-computer";
-				PRODUCT_NAME = aesthetic.computer;
-				SDKROOT = iphoneos;
-				SUPPORTS_MACCATALYST = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,6";
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
-		413080312781A20800AA49F4 /* Debug */ = {
+		412BAFC02A1D4447000A41B0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = macOS/macOS.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"aesthetic.computer/Preview Content\"";
 				DEVELOPMENT_TEAM = FB5948YR3S;
-				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
-					"@executable_path/../Frameworks",
+					"@executable_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 12.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.whistlegraph.aesthetic-computer";
-				PRODUCT_NAME = aesthetic.computer;
-				SDKROOT = macosx;
+				PRODUCT_BUNDLE_IDENTIFIER = "aesthetic.computer.aesthetic-computer";
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
-		413080322781A20800AA49F4 /* Release */ = {
+		412BAFC12A1D4447000A41B0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = macOS/macOS.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"aesthetic.computer/Preview Content\"";
 				DEVELOPMENT_TEAM = FB5948YR3S;
-				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
-					"@executable_path/../Frameworks",
+					"@executable_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 12.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.whistlegraph.aesthetic-computer";
-				PRODUCT_NAME = aesthetic.computer;
-				SDKROOT = macosx;
+				PRODUCT_BUNDLE_IDENTIFIER = "aesthetic.computer.aesthetic-computer";
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		413080132781A20600AA49F4 /* Build configuration list for PBXProject "aesthetic.computer" */ = {
+		412BAFAC2A1D4446000A41B0 /* Build configuration list for PBXProject "aesthetic.computer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				4130802B2781A20800AA49F4 /* Debug */,
-				4130802C2781A20800AA49F4 /* Release */,
+				412BAFBD2A1D4447000A41B0 /* Debug */,
+				412BAFBE2A1D4447000A41B0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		4130802D2781A20800AA49F4 /* Build configuration list for PBXNativeTarget "aesthetic.computer (iOS)" */ = {
+		412BAFBF2A1D4447000A41B0 /* Build configuration list for PBXNativeTarget "aesthetic.computer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				4130802E2781A20800AA49F4 /* Debug */,
-				4130802F2781A20800AA49F4 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		413080302781A20800AA49F4 /* Build configuration list for PBXNativeTarget "aesthetic.computer (macOS)" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				413080312781A20800AA49F4 /* Debug */,
-				413080322781A20800AA49F4 /* Release */,
+				412BAFC02A1D4447000A41B0 /* Debug */,
+				412BAFC12A1D4447000A41B0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = 413080102781A20600AA49F4 /* Project object */;
+	rootObject = 412BAFA92A1D4446000A41B0 /* Project object */;
 }

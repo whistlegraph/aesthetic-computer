@@ -1,8 +1,8 @@
 //
 //  aesthetic_computerApp.swift
-//  Shared
+//  aesthetic.computer
 //
-//  Created by Jeffrey Alan Scudder on 1/2/22.
+//  Created by Jeffrey Alan Scudder on 5/23/23.
 //
 
 import SwiftUI
@@ -15,4 +15,3 @@ struct aesthetic_computerApp: App {
         }
     }
 }
-
