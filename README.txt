@@ -62,6 +62,11 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `ios shim` ***
+  - [] Get webview build working.
+  - [] Get notifications working.
+    - [] Twilio?
+
 *** `scream` ***
   - [😱] Alert every connected user with a time-synchronized message that
        covers their screen.
