@@ -62,6 +62,15 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `prompt` ***
+  + Now
+  - [] Write a prompt program that suggests commands. 
+  + Done
+  - [x] Make the main `prompt` part of the prompt system now.
+  + Future
+  - [] Embed two "framed" prompts on a page, or a framed prompt with
+       an image below... and with different styles!
+
 *** `gargoyle` ***
   - [] Write new characters / adapt old ones into separate commands.
   - [-] Fix mobile UI.

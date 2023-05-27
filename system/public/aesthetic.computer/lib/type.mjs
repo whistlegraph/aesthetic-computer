@@ -168,11 +168,12 @@ class TextInput {
     $.send({ type: "text-input-enabled" });
   }
 
-  paint($) {
+  paint($, clear = false, frame = $.screen) {
+    // TODO: Provide a frame to paint inside of...
+    if (!clear && this.pal.bg !== undefined) $.ink(this.pal.bg).box(frame); // Paint bg.
+
     const prompt = this.#prompt;
     prompt.cursor = { x: 0, y: 0 };
-
-    // TODO: Render the text.
 
     // Wrap and render the text.
     if (this.wrap === "char") {

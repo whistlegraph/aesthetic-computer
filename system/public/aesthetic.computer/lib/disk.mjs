@@ -18,7 +18,7 @@ import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket
 import { notArray } from "./helpers.mjs";
 const { round } = Math;
 import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
-import * as character from "../systems/character.mjs";
+import * as prompt from "../systems/prompt-system.mjs";
 import { headers } from "./console-headers.mjs";
 import { logs } from "./logs.mjs";
 
@@ -394,6 +394,7 @@ const $commonApi = {
     data: {},
   },
   system: {
+    // prompt: { input: undefined }, Gets set in `prompt_boot`.
     nopaint: {
       //boot: nopaint_boot, // TODO: Why are these in the commonApi? 23.02.12.14.26
       // act: nopaint_act,
@@ -1169,26 +1170,16 @@ class Painting {
   // Paints every layer.
   //async paint(immediate = false) {
   paint(immediate = false) {
-    /*
-    this.#layers.forEach((layer) => {
-      //layer.forEach(async (paint) => await paint());
+    for (let layer of this.#layers) {
+      layer ||= []; // Evaporate empty layers.
       for (const paint of layer) {
-        console.log(paint);
-        await paint();
-      }
-    });
-    */
-
-    for (const layer of this.#layers) {
-      for (const paint of layer) {
-        //        if (immediate) {
+        // if (immediate) {
         paint();
-        //       } else {
-        //        await paint();
-        //      }
+        // } else {
+        // await paint();
+        // }
       }
     }
-
     this.#layers.length = 0;
     this.#layer = 0;
   }
@@ -1398,14 +1389,14 @@ async function load(
     console.error(`😡 "${path}" load failure:`, err);
     loadFailure = err;
     loading = false;
-    return;
+    return false;
   }
   // console.log("Module load time:", performance.now() - moduleLoadTime, module);
 
   // 🧨 Fail out if no module is found.
   if (module === undefined) {
     loading = false;
-    return;
+    return false;
   }
 
   // 🧩 Piece has been loaded...
@@ -1666,13 +1657,17 @@ async function load(
   $commonApi.params = params || [];
   $commonApi.colon = colon;
 
-  $commonApi.load = function () {
+  $commonApi.load = async function () {
     // Load a piece, wrapping it in a leave function so a final frame
     // plays back.
     leaving = true;
-    leaveLoad = () => {
-      load(...arguments);
-    };
+
+    return new Promise((resolve) => {
+      leaveLoad = async () => {
+        const loaded = await load(...arguments);
+        resolve(loaded); // Resolve with `true` or `false`.
+      };
+    });
   };
 
   // 💡 Eventually this could merge with net.web so there is one command
@@ -1753,40 +1748,49 @@ async function load(
       };
       bake = module.bake || nopaint.bake;
       system = "nopaint";
-    } else if (module.system === "character") {
+    } else if (module.system?.startsWith("prompt")) {
       boot = ($) => {
-        character.character_boot($, {
-          prompt: module.prompt,
-          program: {
-            before: module.before,
-            after: module.after,
+        prompt.prompt_boot(
+          $,
+          {
+            prompt: module.prompt,
+            program: {
+              before: module.before,
+              after: module.after,
+            },
+            hint: module.system.split(":")[1], // See `ask.ts`.
           },
-          hint: module.hint,
-        }, module.reply);
+          module.reply,
+          module.halt,
+          module.scheme,
+          module.wrap,
+        );
         module.boot?.($);
       };
 
       sim = ($) => {
-        character.character_sim($);
+        prompt.prompt_sim($);
         module.sim?.($);
       };
 
       paint = ($) => {
-        let painted = character.character_paint($);
-        painted = module.paint?.($); // Carry the return paint through.
-        return painted;
+        let noPaint = module.paint?.($); // Carry the return.
+        noPaint = prompt.prompt_paint($);
+        return noPaint;
       };
 
+      beat = module.beat || defaults.beat;
+
       act = ($) => {
-        character.character_act($);
+        prompt.prompt_act($);
       };
 
       leave = ($) => {
-        character.character_leave($);
+        prompt.prompt_leave($);
         module.leave?.($);
       };
 
-      system = "character";
+      system = "prompt";
     } else {
       boot = module.boot || defaults.boot;
       sim = module.sim || defaults.sim;
@@ -1855,6 +1859,8 @@ async function load(
       // noBeat: beat === defaults.beat,
     },
   });
+
+  return true; // Loaded succesfully.
 }
 
 const isWorker = typeof importScripts === "function";
@@ -3014,6 +3020,7 @@ async function makeFrame({ data: { type, content } }) {
         piece !== "play" &&
         piece !== "gargoyle" &&
         piece !== "sing" &&
+        piece !== "neoprompt" &&
         piece !== "video"
       ) {
         const w = currentHUDText.length * 6;

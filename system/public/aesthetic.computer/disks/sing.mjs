@@ -63,8 +63,5 @@ function beat({ sound: { square } }) {
   }
 }
 
-export const system = "character";
 export { reply, beat };
-
-// 📚 Library (Useful functions used throughout the piece)
-// ...
+export const system = "prompt:code";

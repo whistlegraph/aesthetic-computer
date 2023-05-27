@@ -163,7 +163,6 @@ wss.on("connection", (ws, req) => {
     // Parse incoming message and attach client identifier.
     const msg = JSON.parse(data.toString());
     msg.id = id; // TODO: When sending a server generated message, use a special id.
-
     if (msg.type === "scream") {
       // TODO: Alert all connected users via redis pub/sub to the scream.
 

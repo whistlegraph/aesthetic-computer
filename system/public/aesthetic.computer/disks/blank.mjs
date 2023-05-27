@@ -37,6 +37,14 @@
 //  // Runs once before the piece is unloaded.
 // }
 
+// 📰 Meta
+// function meta() {
+//   return {
+//     title: "$NAME",
+//     desc: "$THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES",
+//   };
+// }
+
 export {};
 
 // 📚 Library

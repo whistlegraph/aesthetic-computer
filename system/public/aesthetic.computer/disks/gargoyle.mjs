@@ -4,14 +4,22 @@
 /* #region 🏁 TODO
 #endregion */
 
-export const prompt = "what's up?";
-export const before = ``;
-export const after = ``;
+const prompt = `say anything`;
+const before = ``;
+const after = ``;
 
+// 🛑 Intercept specific input text with a custom reply.
+function halt($, text) {
+  if (text === "halt") {
+    console.log("Halted:", text);
+    return true;
+  }
+}
+
+// 💬 Receive each reply in full.
 function reply(text) {
   console.log("😀 Replied with:", text);
 }
 
-export const system = "character";
-export const hint = "char"; // "code" for stricter output
-export { reply };
+export { prompt, before, after, halt, reply };
+export const system = "prompt:character"; // or "prompt:code"

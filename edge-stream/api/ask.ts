@@ -19,10 +19,10 @@ export default async function handler(req) {
     try {
       // Load prompt program
       const messages = new Array();
-      if (program.before.length > 0)
+      if (program.before?.length > 0)
         messages.push({ role: "system", content: program.before }); // Before
       messages.push({ role: "user", content: prompt }); // Prompt
-      if (program.after.length > 0)
+      if (program.after?.length > 0)
         messages.push({ role: "system", content: program.after }); // After
 
       // Defaults
@@ -37,15 +37,12 @@ export default async function handler(req) {
         max_tokens = 256;
       }
 
-      // Tweak for "char" (character) conversational human output.
-      if (hint === "char") {
-        // ...
+      // Tweak for "character" dialogical output.
+      if (hint === "character") {
         temperature = 1;
         top_p = 0.5;
         max_tokens = 256;
       }
-
-      // But what about hint === "prose" or just defaults?
 
       // Request streaming response
       const payload: OpenAIStreamPayload = {
