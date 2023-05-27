@@ -38,8 +38,11 @@ export class Keyboard {
         //(MetaBrowser && e.which !== 13) &&
         e.key !== "Unidentified" &&
         e.key !== "Escape" &&
+        e.key !== "Delete" &&
         e.key !== "ArrowUp" &&
-        e.key !== "ArrowDown"
+        e.key !== "ArrowDown" &&
+        e.key !== "ArrowLeft" &&
+        e.key !== "ArrowRight"
       )
         return;
 

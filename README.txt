@@ -62,14 +62,56 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `ios shim` ***
-  - [] Get webview build working.
-  - [] Get notifications working.
-    - [] Twilio?
+*** `gargoyle` ***
+  - [] Write new characters / adapt old ones into separate commands.
+  - [-] Fix mobile UI.
+  + Poetic
+  + Techical
+  - [] Mobile tap to open keyboard should function better...
+  - [] Multiple prompts on a page.
+    - [] Make sure history works among the different prompts.
+    - [] Line breaks
+  - [] Change `network failure` to `try again`
+  - [] How to deal with longer responses?
+  - [] Add some basic conversational support
+  - [] Add a small illustration on bottom right corner.
+    - [] Painting @import.
+    - [] How would this function? `paste(by("@georgica").painting())`
+    - [] Make the illustration:
+      - [] Implement a zoomable canvas on `rect`.
+        - [] Rename `rect` to `box`.
+      - [] Implement a zoomable canvas on `line`.
+  - [] Add some sound.
+    - [] 1/3 New synth wav types!
+    - [] Custom SFX / sampling.
+  + Done
+  - [x] Break prompt programs into multiple commands / characters.
+    - [x] Make a new template.
+  - [x] Add sound for `Music Box`
+  - [x] Decide how to get back to main navigation page *especially on mobile
+  - [x] Cancellable responses.
+  - [x] Movable cursor support, with arrow keys and touch to move or drag. 
+    - [x] Draw character once more on top of cursor.
+          $.ink(255, 0, 0).draw
+    - [x] Reset cursor position on return.
+    - [x] Paste needs to work on movable cursor.
+  - [x] Auto-wrap the text by word in TextInput objects.
+  - [x] Better text typing / replacing experience / autotype clear characters
+        and skip intro space. 
+  - [x] Visual failure messages if offline or given a cancelled request.
+  - [x] Progress spinner / prevent interaction.
 
 *** `scream` ***
-  - [😱] Alert every connected user with a time-synchronized message that
-       covers their screen.
+  - [] Visualize the socket connection to make everything faster in production.
+     - [] Possibly the bottleneck is in connecting to JamSocket?
+  - [-] Finish list in `scream`.
+  - [] Use NTP for time synchronized delivery of messages.
+    - [] Is this good enough for musical timing?
+  - [] Enable via notifications in the test iOS app.
+  - [x] Get messaging working. 
+
+*** Overall Rendering ***
+   - [] Fix pixel imperfect rendering / scaling especially noticeable on iOS.
 
 *** Viral Checklist ***
   - [] Display current user count on rooms if > 0 users are online.

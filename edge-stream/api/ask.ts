@@ -26,18 +26,22 @@ export default async function handler(req) {
         messages.push({ role: "system", content: program.after }); // After
 
       // Defaults
+      let temperature = 1;
       let top_p = 1; // Maximum: 1
       let max_tokens = 64;
 
       // Tweak for "code" based formal output.
       if (hint === "code") {
-        top_p = 0.5;
+        temperature = 0.4;
+        top_p = 1;
         max_tokens = 256;
       }
 
       // Tweak for "char" (character) conversational human output.
       if (hint === "char") {
         // ...
+        temperature = 1;
+        top_p = 0.5;
         max_tokens = 256;
       }
 
@@ -47,7 +51,7 @@ export default async function handler(req) {
       const payload: OpenAIStreamPayload = {
         model: "gpt-3.5-turbo",
         messages,
-        temperature: 1,
+        temperature,
         top_p,
         frequency_penalty: 0,
         presence_penalty: 0,
@@ -57,7 +61,15 @@ export default async function handler(req) {
       };
 
       const stream = await OpenAIStream(payload);
-      return new Response(stream, { headers });
+
+      if (!stream) {
+        return new Response("Error", {
+          status: 500,
+          headers: { "Content-Type": "text/plain", ...headers },
+        });
+      } else {
+        return new Response(stream, { headers });
+      }
     } catch (error) {
       console.error("Failed to process the request:", error);
       return new Response("Error", {

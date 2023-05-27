@@ -3,12 +3,14 @@
 // Coded by Jeffrey Alan Scudder & Tina Tarighian
 
 /* #region 🏁 todo
-  - [🔥] Clean up Hands API
-    - [] Add buffered video object / layer back with proper cropping
-         and downsizing.
-    - [] Add "pause" feature to tracking.
-    - [] Add init wrapper to hand-track without video frames.
+  - [] We need a goal.
+  - [] Fix video orientation issues.
   + Done
+  - [x] Clean up Hands API
+    - [x] Add buffered video object / layer back with proper cropping
+         and downsizing.
+    - [x] Add "pause" feature to tracking.
+    - [x] Add init wrapper to hand-track without video frames.
   - [x] Jeffrey tries to speed it all up.
     - [x] Implement both new and old version.
     - [x] Add dynamic switch via `useLegacyHands`.
@@ -42,7 +44,7 @@ const handPalette = {
 async function boot({ wipe, params, screen, store }) {
   h = parseInt(params[0]);
   if (isNaN(h)) {
-    // Try to receive last editted hand.
+    // Try to receive last edited hand.
     const stored = await store.retrieve(key, "local:db");
     h = stored;
   }
@@ -81,7 +83,7 @@ function paint({
   video,
 }) {
   // Start video feed once for webcam hand-tracking on mobile and desktop.
-  // (And recalibrate if resized.) 
+  // (And recalibrate if resized.)
   if (created || resized) {
     vid = video(created ? "camera" : "camera:update", {
       hidden: false, // Toggle to stop pulling frames.
@@ -99,50 +101,95 @@ function paint({
   const boxSize = 5;
   const boxType = "fill*center";
 
-  ink(255);
-  for (let coord of mediapipe) {
-    const scaledX = coord.x * width;
-    const scaledY = coord.y * height;
-    box(scaledX, scaledY, boxSize, boxType);
+  if (mediapipe?.screen.length > 0) {
+    const scaled = mediapipe.screen.map((coord) => [
+      coord.x * width,
+      coord.y * height,
+    ]);
+
+    // A. Draw lines
+    ink(handPalette.w).poly([
+      scaled[0],
+      scaled[5],
+      scaled[9],
+      scaled[13],
+      scaled[17],
+      scaled[0],
+    ]);
+
+    ink(handPalette.t).poly([
+      scaled[0],
+      scaled[1],
+      scaled[2],
+      scaled[3],
+      scaled[4],
+    ]);
+
+    ink(handPalette.i).poly([scaled[5], scaled[6], scaled[7], scaled[8]]);
+    ink(handPalette.m).poly([scaled[9], scaled[10], scaled[11], scaled[12]]);
+    ink(handPalette.o).poly([scaled[13], scaled[14], scaled[15], scaled[16]]);
+    ink(handPalette.p).poly([scaled[17], scaled[18], scaled[19], scaled[20]]);
+
+    // B. Loop over the scaled points and draw the boxes.
+    scaled.forEach((coord, index) => {
+      if (index >= 18) {
+        ink(handPalette.p); // Pinky
+      } else if (index > 13 && index < 17) {
+        ink(handPalette.o);
+      } else if (index > 9 && index < 13) {
+        ink(handPalette.m);
+      } else if (index > 5 && index < 9) {
+        ink(handPalette.i);
+      } else if (index > 0 && index < 5) {
+        ink(handPalette.t);
+      } else {
+        if (mediapipe.hand === "left") ink(200, 200, 255);
+        if (mediapipe.hand === "right") ink(200, 255, 200);
+      }
+      box(coord[0], coord[1], boxSize, boxType);
+    });
+  } else {
+    const osc = Math.sin(paintCount * 0.1); // Oscillate a value based on frame.
+    // Build base wrist geometry.
+    const w = [
+      origin,
+      crawl(origin, 40 + 2 * osc, 10),
+      crawl(origin, 45 + -2 * osc, 25),
+      crawl(origin, 50 + 2 * osc, 40),
+      crawl(origin, 55 + -2 * osc, 55),
+    ];
+
+    // Build hand geometry with fingers.
+    const hand = {
+      w,
+      t: digit(w[0], 4, -30, -10 * osc),
+      i: digit(w[1], 3, -8, -10 * osc),
+      m: digit(w[2], 3, 0, -10 * osc),
+      o: digit(w[3], 3, 7, -10 * osc),
+      p: digit(w[4], 3, 20, -10 * osc),
+    };
+
+    const o = { x: -24 + 2 * osc, y: 16 + 2 * osc }; // Offsets and oscilates the entire hand
+    pen
+      ? pan(pen.x + o.x, pen.y + o.y)
+      : pan(width / 2 + o.x, height / 2 + o.y);
+
+    // 🅰️ Hand Lines & Points
+    // Draw each component (lines and boxes) of wrist, followed by each of digit.
+    ["w", "t", "i", "m", "o", "p"].forEach((char, i) => {
+      layer(0); // Lines always under boxes.
+      if (char === "w") {
+        ink(handPalette.w).poly([...w, w[0]]); // Closed polygon for wrist.
+      } else {
+        ink(handPalette[char]).poly([w[i - 1], ...hand[char]]);
+      }
+      layer(1); // Always draw the boxes on top.
+      ink(handPalette[char]);
+      for (let coord of hand[char]) box(coord.x, coord.y, boxSize, boxType);
+    });
+
+    unpan(); // Reset the translation.
   }
-
-  const osc = Math.sin(paintCount * 0.1); // Oscillate a value based on frame.
-  // Build base wrist geometry.
-  const w = [
-    origin,
-    crawl(origin, 40 + 2 * osc, 10),
-    crawl(origin, 45 + -2 * osc, 25),
-    crawl(origin, 50 + 2 * osc, 40),
-    crawl(origin, 55 + -2 * osc, 55),
-  ];
-  // Build hand geometry with fingers.
-  const hand = {
-    w,
-    t: digit(w[0], 4, -30, -10 * osc),
-    i: digit(w[1], 3, -8, -10 * osc),
-    m: digit(w[2], 3, 0, -10 * osc),
-    o: digit(w[3], 3, 7, -10 * osc),
-    p: digit(w[4], 3, 20, -10 * osc),
-  };
-
-  const o = { x: -24 + 2 * osc, y: 16 + 2 * osc }; // Offsets and oscilates the entire hand
-  pen ? pan(pen.x + o.x, pen.y + o.y) : pan(width / 2 + o.x, height / 2 + o.y);
-
-  // 🅰️ Hand Lines & Points
-  // Draw each component (lines and boxes) of wrist, followed by each of digit.
-  ["w", "t", "i", "m", "o", "p"].forEach((char, i) => {
-    layer(0); // Lines always under boxes.
-    if (char === "w") {
-      ink(handPalette.w).poly([...w, w[0]]); // Closed polygon for wrist.
-    } else {
-      ink(handPalette[char]).poly([w[i - 1], ...hand[char]]);
-    }
-    layer(1); // Always draw the boxes on top.
-    ink(handPalette[char]);
-    for (let coord of hand[char]) box(coord.x, coord.y, boxSize, boxType);
-  });
-
-  unpan(); // Reset the translation.
 }
 
 // Tab title and meta description of this piece.
