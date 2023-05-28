@@ -6,8 +6,9 @@ import { TextInput } from "../lib/type.mjs";
 import { ask } from "../lib/ask.mjs";
 
 let input,
-  controller,
+  abort,
   messageComplete = false,
+  abortMessage = "NETWORK FAILURE",
   processing = false;
 
 export function prompt_boot(
@@ -16,7 +17,7 @@ export function prompt_boot(
   reply,
   halt,
   scheme,
-  wrap,
+  wrap
 ) {
   input = new TextInput(
     $,
@@ -32,7 +33,9 @@ export function prompt_boot(
 
       input.blank();
       processing = input.lock = true;
-      controller = ask(
+      abortMessage = "NETWORK FAILURE";
+
+      abort = ask(
         { prompt: text, program, hint },
         function and(msg) {
           input.text += msg;
@@ -44,8 +47,13 @@ export function prompt_boot(
           reply?.(input.text);
         },
         function fail() {
-          input.text = "NETWORK FAILURE";
-          input.cursor = "stop";
+          input.text = abortMessage;
+
+          if (input.text.length === 0) {
+          } else {
+            input.cursor = "stop";
+          }
+
           messageComplete = true;
           processing = input.lock = false;
         }
@@ -69,20 +77,24 @@ export function prompt_paint($) {
 }
 
 export function prompt_leave() {
-  controller?.abort();
+  abort?.();
 }
 
 export function prompt_act($) {
   const { event: e } = $;
 
-  if (!messageComplete && processing) {
-    if (e.is("keyboard:down:escape")) {
-      console.log(controller);
-      controller?.abort();
-    }
+  // Cancel any existing request on tap.
+  if (
+    !messageComplete &&
+    processing &&
+    (e.is("keyboard:down:escape") || e.is("touch"))
+  ) {
+    abort?.();
+    abortMessage = "";
   }
 
   if (!messageComplete && !processing) input?.act($);
+
   if (messageComplete && (e.is("keyboard:down") || e.is("touch"))) {
     input.blank("blink"); // Clear input and switch back to blink cursor.
     input?.act($); // Capture any printable keystrokes.

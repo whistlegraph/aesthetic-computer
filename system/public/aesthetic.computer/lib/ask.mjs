@@ -80,7 +80,9 @@ export function ask(options, and, done, fail) {
       fail?.();
     });
 
-  return controller;
+  return () => {
+    controller.abort();
+  };
 }
 
 /*

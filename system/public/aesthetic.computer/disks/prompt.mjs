@@ -5,7 +5,6 @@
 #endregion */
 
 /* #region 🏁 todo
- - [] Write an initial prompt program.
  - [] Lock prompt on handle change.
  - [] Prevent non-printable characters from causing an empty space.
  - [] Generate or pretty print docs (made from the APIs) inside this disk.
@@ -14,6 +13,7 @@
  - [] An iOS app would need a small ESC or arrow overlay button in Swift
       to make this work properly.
   + Done
+  - [x] Write an initial prompt program.
   - [x] Generically "lock" prompt after input before a result returns.
         Show a spinner if too much time has passed?
   - [x] Pass the api into `halt`.

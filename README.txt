@@ -62,17 +62,23 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `whistle` ***
-  - [] Whistle into the aesthetic.computer and get sine wave notes back.
-
 *** `prompt` ***
   + Now
-  - [] Write a prompt program that suggests commands. 
+  - [🧑‍🤝‍🧑] @digitpain: Add conversational support. 
+  + UI Gripes
   + Done
+  - [x] Tap / Escape to cancel a reply and blank the prompt. 
+  - [x] @ggcajp: Write a prompt program that suggests commands. 
   - [x] Make the main `prompt` part of the prompt system now.
   + Future
   - [] Embed two "framed" prompts on a page, or a framed prompt with
        an image below... and with different styles!
+
+*** `whistle` ***
+  - [] Whistle into the aesthetic.computer and get sine wave notes back.
+
+*** `handprint` ***
+  - [] Make a little happy hands style paint brush.
 
 *** `gargoyle` ***
   - [] Write new characters / adapt old ones into separate commands.
