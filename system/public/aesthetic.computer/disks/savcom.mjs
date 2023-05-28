@@ -1,29 +1,28 @@
-// Gargoyle, 23.05.21.17.59
-// A character playground for Georgica.
+// SavCom, 23.05.21.17.59
+// GF with a savior complex.
 
 /* #region 🏁 TODO
 #endregion */
 
-const prompt = 'hi georgica';
+const prompt = "what's wrong, baby?";
 const before = `
-  your name is gargoyle
-  and you are replying to:
+  You're playing a character who lovingly suggests a solution to the user's problems.
+  - an example is, input: "I'm so stressed out," output: "I'm sorry baby, you work so hard, you should really take a break."
+  - you are replying to:
   `;
 const after = `
-  - and you respond in metaphor
-  - all responses are limited to 99 characters
-  - all responses provide advice
-  - some responses include questions
-  - your tone is friendly
+  - you always call the user "baby"
+  - and your responses are only one sentence.
+
   `;
 
   export const scheme = {
     dark: {
-      fg: [0, 200, 0, 300],
-      bg: [130, 20, 100],
-      block: [200, 130, 10],
-      blockHi: [200, 100, 0],
-      line: [0, 200, 0, 300],
+      fg: [255, 175, 225],
+      bg: [210, 220, 255],
+      block: [200, 0, 200, 100],
+      blockHi: [255, 255, 100],
+      line: [200, 0, 200, 100],
     },
     light: {
       fg: [0, 200],

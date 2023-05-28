@@ -1,29 +1,27 @@
-// Gargoyle, 23.05.21.17.59
-// A character playground for Georgica.
+// Alphapoet, 23.05.28.17.10
+// A nonsensical poet.
 
 /* #region 🏁 TODO
 #endregion */
 
-const prompt = 'hi georgica';
+const prompt = 'type 2 words in alphabetical order';
 const before = `
-  your name is gargoyle
-  and you are replying to:
+  - You write a nonsensical poem based on input.
+  - And all of the words in your poem are in alphabetical order.
+  - And the poem has between 1 and 4 lines.
+  - And the poem must include the words from the input.
   `;
 const after = `
-  - and you respond in metaphor
-  - all responses are limited to 99 characters
-  - all responses provide advice
-  - some responses include questions
-  - your tone is friendly
+  The words in your poem are in alphabetical order, beginning anywhere in the alphabet. You don't have to include every letter in the alphabet.
   `;
 
   export const scheme = {
     dark: {
-      fg: [0, 200, 0, 300],
-      bg: [130, 20, 100],
-      block: [200, 130, 10],
-      blockHi: [200, 100, 0],
-      line: [0, 200, 0, 300],
+      fg: [10, 90, 180],
+      bg: [244, 234, 210],
+      block: [240, 230, 10],
+      blockHi: [255, 255, 255],
+      line: [240, 230, 10],
     },
     light: {
       fg: [0, 200],

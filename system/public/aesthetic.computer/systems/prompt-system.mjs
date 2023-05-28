@@ -23,7 +23,7 @@ export function prompt_boot(
     $,
     prompt,
     async (text) => {
-      const exits = ["q", "quit", "leave", "exit", "bye", "no"];
+      const exits = ["q", "quit", "leave", "exit", "bye", "no", "end"];
       if (exits.indexOf(text) !== -1) return $.jump("prompt");
 
       input.lock = true;

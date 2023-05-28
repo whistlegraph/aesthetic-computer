@@ -3019,6 +3019,8 @@ async function makeFrame({ data: { type, content } }) {
         piece !== "prompt" &&
         piece !== "play" &&
         piece !== "gargoyle" &&
+        piece !== "savcom" &&
+        piece !== "alphapoet" &&
         piece !== "sing" &&
         piece !== "neoprompt" &&
         piece !== "video"
