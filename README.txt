@@ -21,7 +21,7 @@
       for media creation, like Unix.
 
   (More Tech)
-    - Threaded logic, audio, and rendering.
+  cr  - Threaded logic, audio, and rendering.
       - Low overhead hypervisor that runs one piece at a time.
         (similar to a disk based operating system)
       - Pieces can transition from one to another (instantly) without refreshing
@@ -61,6 +61,9 @@
   - [] `npm run code` does not work offline, due to netlify relying on online conectivity.
 
 🌟 Projects in Progress (PIP) 🌟
+
+*** `whistle` ***
+  - [] Whistle into the aesthetic.computer and get sine wave notes back.
 
 *** `prompt` ***
   + Now

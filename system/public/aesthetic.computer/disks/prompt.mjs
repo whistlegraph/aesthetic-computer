@@ -5,6 +5,7 @@
 #endregion */
 
 /* #region 🏁 todo
+ - [] Write an initial prompt program.
  - [] Lock prompt on handle change.
  - [] Prevent non-printable characters from causing an empty space.
  - [] Generate or pretty print docs (made from the APIs) inside this disk.
@@ -22,11 +23,19 @@
   - [x] `export const autolock`
 #endregion */
 
-const before = ``;
+const before = `
+Please play a game with me. The rules are:
+  - I have typed something into a machine incorrectly.
+  - And you need to suggest a correct message.
+  - You can suggest a correct word based on my incorrect attempt.
+  - The correct words are: 'line', 'rect', 'smear', 'freaky-flower' (ff), 'happy-hands-assembler' (hha), 'bleep', and 'word'.
+Here is what I have typed in:`;
+
 const after = ``;
 
 import { Desktop, MetaBrowser } from "../lib/platform.mjs";
 import { validateHandle } from "../lib/text.mjs";
+import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { parse } from "../lib/parse.mjs";
 import { ordfish } from "./ordfish.mjs";
 const { abs } = Math;
@@ -294,7 +303,6 @@ async function halt($, text) {
   } else {
     // 🟠 Local and remote pieces...
     const loaded = await load(parse(text)); // Execute the current command.
-    console.log(loaded);
     return loaded;
   }
 }
