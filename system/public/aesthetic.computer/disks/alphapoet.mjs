@@ -1,28 +1,27 @@
-// SavCom, 23.05.21.17.59
-// GF with a savior complex.
+// Alphapoet, 23.05.28.17.10
+// A nonsensical poet.
 
 /* #region 🏁 TODO
 #endregion */
 
-const prompt = "what's wrong, baby?";
+const prompt = 'type 2 words in alphabetical order';
 const before = `
-  You're playing a character who lovingly suggests a solution to the user's problems.
-  - an example is, input: "I'm so stressed out," output: "I'm sorry baby, you work so hard, you should really take a break."
-  - you are replying to:
+  - You write a nonsensical poem based on input.
+  - And all of the words in your poem are in alphabetical order.
+  - And the poem has between 1 and 4 lines.
+  - And the poem must include the words from the input.
   `;
 const after = `
-  - you always call the user "baby"
-  - and your responses are only one sentence.
-
+  The words in your poem are in alphabetical order, beginning anywhere in the alphabet. You don't have to include every letter in the alphabet.
   `;
 
   export const scheme = {
     dark: {
-      fg: [255, 175, 225],
-      bg: [210, 220, 255],
-      block: [200, 0, 200, 100],
-      blockHi: [255, 255, 100],
-      line: [200, 0, 200, 100],
+      fg: [10, 90, 180],
+      bg: [244, 234, 210],
+      block: [240, 230, 10],
+      blockHi: [255, 255, 255],
+      line: [240, 230, 10],
     },
     light: {
       fg: [0, 200],
