@@ -34,8 +34,6 @@ If I type something like 'tree' or 'dog', which isn't directly related to any of
 
 `;
 
-
-
 // const before = `
 // You are playing a character who tries to help me find the command I'm searching for
 // - the options for the commands are: 'line' 'rect' 'smear' 'oval' 'shape' 'word'
@@ -48,8 +46,7 @@ If I type something like 'tree' or 'dog', which isn't directly related to any of
 // If the user types 'yes' in response to your question, go directly to that command's page
 // `;
 
- // (requires convo support)
-
+// (requires convo support)
 
 // const before = `
 // Please play a game with me. The rules are:
@@ -338,7 +335,11 @@ async function halt($, text) {
 // 🥾 Boot
 function boot({ glaze, api, system, pieceCount }) {
   glaze({ on: true });
-  system.prompt.input.text = makeMotd(api); // Override prompt with motd.
+
+  if (!system.prompt.messages || system.prompt.messages?.length === 0) {
+    system.prompt.input.text = makeMotd(api); // Override prompt with motd if
+    //                                           no conversation is present.
+  }
 
   // Activate and reset input text if returning to the prompt from elsewhere.
   if (pieceCount > 0) {
@@ -356,7 +357,7 @@ function paint($) {
     scheme.light.bg[3] = 127;
   }
 
-  $.layer(1); // 🅱️ And above it... 
+  $.layer(1); // 🅱️ And above it...
 
   let historyTexts;
   const { screen, ink, history } = $;
@@ -401,7 +402,11 @@ function paint($) {
 // 🧮 Sim
 function sim($) {
   const input = $.system.prompt.input;
-  if ($.store["handle:received"] && input?.canType === false) {
+  if (
+    $.store["handle:received"] &&
+    input?.canType === false &&
+    $.system.prompt.messages?.length === 0
+  ) {
     input.text = makeMotd($);
     input.canType = false;
     delete $.store["handle:received"];
@@ -486,9 +491,10 @@ function makeMotd({ handle, user }) {
   // `  to learn more!                                ` +
   // `                                                ` +
   // `mail@aesthetic.computer                         `;
-  if (user)
+  if (user) {
     motd =
       `Welcome, ${handle || user.name}!`.padEnd(48) + " ".padEnd(48) + motd;
+  } else motd = "Type 'list' to learn more.";
   return motd;
 }
 

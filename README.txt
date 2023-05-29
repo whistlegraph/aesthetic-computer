@@ -62,11 +62,13 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `prompt` ***
-  + Now
-  - [🧑‍🤝‍🧑] @digitpain: Add conversational support. 
+*** `prompt` system ***
   + UI Gripes
+  - [] Better `forgetting` of conversations. 
+  - [] Keep track of replies somehow? 
+  - [] Keep character names in the corner?
   + Done
+  - [x] @digitpain: Add conversational support. 
   - [x] Tap / Escape to cancel a reply and blank the prompt. 
   - [x] @ggcajp: Write a prompt program that suggests commands. 
   - [x] Make the main `prompt` part of the prompt system now.

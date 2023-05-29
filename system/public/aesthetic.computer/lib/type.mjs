@@ -281,6 +281,7 @@ class TextInput {
   blank(cursor) {
     if (cursor) this.cursor = cursor;
     this.text = "";
+    this.#movedCursor = null;
     this.blink?.flip(true);
   }
 

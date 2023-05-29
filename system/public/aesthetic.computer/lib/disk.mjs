@@ -1749,8 +1749,13 @@ async function load(
       bake = module.bake || nopaint.bake;
       system = "nopaint";
     } else if (module.system?.startsWith("prompt")) {
-      boot = ($) => {
-        prompt.prompt_boot(
+      // Default wrap to "word" if using `prompt:character`.
+      const wrap =
+        module.wrap ||
+        (module.system.indexOf("character") > -1 ? "word" : undefined);
+
+      boot = async ($) => {
+        await prompt.prompt_boot(
           $,
           {
             prompt: module.prompt,
@@ -1763,7 +1768,7 @@ async function load(
           module.reply,
           module.halt,
           module.scheme,
-          module.wrap,
+          wrap
         );
         module.boot?.($);
       };
@@ -2919,7 +2924,7 @@ async function makeFrame({ data: { type, content } }) {
 
         try {
           if (system === "nopaint") nopaint_boot($api);
-          boot($api);
+          await boot($api);
         } catch (e) {
           console.warn("🥾 Boot failure...", e);
         }

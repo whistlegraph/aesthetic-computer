@@ -65,9 +65,6 @@ function boot({ density, resize, cursor, screen }) {
 function paint({ wipe, ink, pan, unpan, line, point }) {
   wipe(255, 50, 0); // Draw a gray background.
 
-  console.log("Hi");
-
-
   // TODO: How to collide with red?
   // - [] Match them with red line coordinates in a collision calculation.
   // - [] Draw a different color if it's "colliding".

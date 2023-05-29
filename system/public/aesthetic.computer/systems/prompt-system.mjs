@@ -3,15 +3,16 @@
 // Prompts are language in<->out services.
 
 import { TextInput } from "../lib/type.mjs";
-import { ask } from "../lib/ask.mjs";
+import { Conversation } from "../lib/ask.mjs";
 
-let input,
+let conversation,
+  input,
   abort,
   messageComplete = false,
   abortMessage = "NETWORK FAILURE",
   processing = false;
 
-export function prompt_boot(
+export async function prompt_boot(
   $,
   { prompt, program, hint },
   reply,
@@ -19,12 +20,24 @@ export function prompt_boot(
   scheme,
   wrap
 ) {
+  conversation = new Conversation($.store, $.slug);
+  const messages = await conversation.retrieve();
+
+  if (messages.length > 0) prompt = messages[messages.length - 1].text;
+
   input = new TextInput(
     $,
     prompt,
     async (text) => {
-      const exits = ["q", "quit", "leave", "exit", "bye", "no", "end"];
-      if (exits.indexOf(text) !== -1) return $.jump("prompt");
+      // Shortcuts for exiting back to the prompt if we are not in it.
+      const exits = ["q", "quit", "leave", "exit", "forget"];
+      if (exits.indexOf(text) !== -1) {
+        await conversation.forget();
+        input.blank();
+        if ($.slug !== "prompt") {
+          return $.jump("prompt");
+        } else return;
+      }
 
       input.lock = true;
       const halted = await halt?.($, text);
@@ -35,7 +48,7 @@ export function prompt_boot(
       processing = input.lock = true;
       abortMessage = "NETWORK FAILURE";
 
-      abort = ask(
+      abort = conversation.ask(
         { prompt: text, program, hint },
         function and(msg) {
           input.text += msg;
@@ -65,6 +78,7 @@ export function prompt_boot(
       palette: scheme?.[$.dark ? "dark" : "light"],
     }
   );
+
   $.system.prompt = { input }; // Set the input on the Disk API.
 }
 
@@ -81,13 +95,15 @@ export function prompt_leave() {
 }
 
 export function prompt_act($) {
-  const { event: e } = $;
+  const { event: e, slug } = $;
 
   // Cancel any existing request on tap.
   if (
     !messageComplete &&
     processing &&
-    (e.is("keyboard:down:escape") || e.is("touch"))
+    (e.is("keyboard:down:escape") ||
+      e.is("touch") ||
+      (e.is("keyboard:down:`") && slug === "prompt"))
   ) {
     abort?.();
     abortMessage = "";

@@ -2,6 +2,8 @@
 // A vercel edge function to handle OpenAI text prediction APIs.
 
 import { corsHeaders } from "../help.mjs";
+// import { count } from "openai-gpt-token-counter";
+// ^ Would require moving to a different runtime. 23.05.29.18.02
 
 export default async function handler(req) {
   const headers = corsHeaders(req);
@@ -14,16 +16,14 @@ export default async function handler(req) {
 
   if (req.method === "POST") {
     const body = await req.json();
-    let { prompt, program, hint } = body;
+    let { messages, hint } = body;
 
     try {
-      // Load prompt program
-      const messages = new Array();
-      if (program.before?.length > 0)
-        messages.push({ role: "system", content: program.before }); // Before
-      messages.push({ role: "user", content: prompt }); // Prompt
-      if (program.after?.length > 0)
-        messages.push({ role: "system", content: program.after }); // After
+      messages = messages?.map((message) => {
+        return { role: message.by, content: message.text };
+      });
+
+      // ❤️‍🔥 TODO: Measure max token size for conversation history.
 
       // Defaults
       let temperature = 1;
@@ -172,3 +172,4 @@ async function OpenAIStream(payload: OpenAIStreamPayload) {
 
   return stream;
 }
+
