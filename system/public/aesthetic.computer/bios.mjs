@@ -423,7 +423,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     audioContext,
     audioStreamDest;
 
-  let requestMicrophoneAmplitude, requestMicrophoneWaveform;
+  let requestMicrophoneAmplitude, requestMicrophoneWaveform, requestMicrophonePitch;
 
   // TODO: Eventually this would be replaced with a more dynamic system.
 
@@ -555,6 +555,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (msg.type === "waveform") {
           send({ type: "microphone-waveform", content: msg.content });
         }
+
+        if (msg.type === "pitch") {
+          send({ type: "microphone-pitch", content: msg.content });
+        }
       };
 
       // Request data / send message to the mic processor thread.
@@ -564,6 +568,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       requestMicrophoneWaveform = () => {
         playerNode.port.postMessage({ type: "get-waveform" });
+      };
+
+      requestMicrophonePitch = () => {
+        playerNode.port.postMessage({ type: "get-pitch" });
       };
 
       // Connect mic to the mediaStream.
@@ -1674,6 +1682,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "get-microphone-waveform") {
       requestMicrophoneWaveform?.();
+      return;
+    }
+
+    if (type === "get-microphone-pitch") {
+      requestMicrophonePitch?.();
       return;
     }
 

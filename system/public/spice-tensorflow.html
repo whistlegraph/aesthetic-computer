@@ -7,7 +7,7 @@
   const MODEL_SAMPLE_RATE = 16000;
   const PT_OFFSET = 25.58;
   const PT_SLOPE = 63.07;
-  const CONF_THRESHOLD = 0.8;
+  const CONF_THRESHOLD = 0;
   const MODEL_URL = 'https://tfhub.dev/google/tfjs-model/spice/2/default/1';
   let model;
 
@@ -50,7 +50,7 @@
       const inputData = samples; // Replace this with your processing logic
       const input = tf.reshape(tf.tensor(inputData), [NUM_INPUT_SAMPLES]);
       const output = model.execute({ "input_audio_samples": input });
-      // const uncertainties = await output[0].data();
+      const uncertainties = await output[0].data();
       const pitches = await output[1].data();
       for (let i = 0; i < pitches.length; ++i) {
         let confidence = 1.0 - uncertainties[i];

@@ -85,9 +85,7 @@ export class Pen {
           event.stopImmediatePropagation();
         }
       },
-      {
-        passive: false,
-      }
+      { passive: false }
     );
 
     // Prevent context click.
@@ -255,7 +253,7 @@ export class Pen {
 
     // Automatically dispatch a pointer release when hidden.
     document.addEventListener("visibilitychange", function () {
-      if (document.hidden) this.up();
+      if (document.hidden) pen.up();
     });
 
     // Mousewheel
@@ -322,7 +320,7 @@ export class Pen {
         cancelable: true,
         view: window,
         pointerId: 1, // First "finger" or mouse.
-        button: 0 // Left button.
+        button: 0, // Left button.
       })
     );
   }

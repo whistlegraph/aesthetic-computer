@@ -1277,6 +1277,7 @@ $commonApi.resize = function (width, height = width, gap = 8) {
 class Microphone {
   amplitude = 0;
   waveform = [];
+  pitch = 0;
   connected = false; // Flips to true on a callback message from `bios`.
 
   // Note: can send `{monitor: true}` in `options` for audio feedback.
@@ -1292,6 +1293,7 @@ class Microphone {
   poll() {
     send({ type: "get-microphone-amplitude" });
     send({ type: "get-microphone-waveform" });
+    send({ type: "get-microphone-pitch" });
   }
 }
 
@@ -2226,6 +2228,11 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "microphone-waveform") {
     microphone.waveform = content;
+    return;
+  }
+
+  if (type === "microphone-pitch") {
+    microphone.pitch = content;
     return;
   }
 
