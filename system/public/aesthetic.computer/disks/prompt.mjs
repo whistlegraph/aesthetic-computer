@@ -336,7 +336,10 @@ async function halt($, text) {
 function boot({ glaze, api, system, pieceCount }) {
   glaze({ on: true });
 
-  if (!system.prompt.messages || system.prompt.messages?.length === 0) {
+  if (
+    !system.prompt.convo.messages ||
+    system.prompt.convo.messages?.length === 0
+  ) {
     system.prompt.input.text = makeMotd(api); // Override prompt with motd if
     //                                           no conversation is present.
   }

@@ -410,7 +410,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     });
   }
 
-  // 2. Audio
+  // 2. 🔈 Audio
   const sound = {
     bpm: new Float32Array(1),
   };

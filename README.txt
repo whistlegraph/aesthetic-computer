@@ -62,6 +62,12 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `whistle` ***
+  - [] Whistle into the aesthetic.computer and get sine wave notes back.
+
+*** `handprint` ***
+  - [] Make a little happy hands style paint brush.
+
 *** `prompt` system ***
   + UI Gripes
   - [] Better `forgetting` of conversations. 
@@ -76,16 +82,7 @@
   - [] Embed two "framed" prompts on a page, or a framed prompt with
        an image below... and with different styles!
 
-*** `whistle` ***
-  - [] Whistle into the aesthetic.computer and get sine wave notes back.
-
-*** `handprint` ***
-  - [] Make a little happy hands style paint brush.
-
 *** `gargoyle` ***
-  - [] Write new characters / adapt old ones into separate commands.
-  - [-] Fix mobile UI.
-  + Poetic
   + Techical
   - [] Mobile tap to open keyboard should function better...
   - [] Multiple prompts on a page.
@@ -105,6 +102,8 @@
     - [] 1/3 New synth wav types!
     - [] Custom SFX / sampling.
   + Done
+  - [x] Write new characters / adapt old ones into separate commands.
+  - [x] Fix mobile UI.
   - [x] Break prompt programs into multiple commands / characters.
     - [x] Make a new template.
   - [x] Add sound for `Music Box`

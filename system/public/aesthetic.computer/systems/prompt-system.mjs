@@ -79,7 +79,7 @@ export async function prompt_boot(
     }
   );
 
-  $.system.prompt = { input }; // Set the input on the Disk API.
+  $.system.prompt = { input, convo: conversation }; // Set the input on the Disk API.
 }
 
 export function prompt_sim($) {
