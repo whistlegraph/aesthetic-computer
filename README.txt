@@ -64,9 +64,9 @@
 
 *** `whistle` ***
   - [🎵] Whistle into the aesthetic.computer and get sine wave notes back.
-  - [-] Add boilerplate `whistle` code from `microphone`.
-  - [] Add sine wave to speaker.
+  - [🧑‍🎤] Add sine wave to speaker.
   + Done
+  - [x] Add boilerplate `whistle` code from `microphone`.
   - [x] Integrate pitch recognition with:
     - [x] https://github.com/bojan88/WASM-vs-JS-Pitch-detector
       - [x] Integrate pitch recognition processor into Microphone / Disk API.
