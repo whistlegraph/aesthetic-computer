@@ -64,6 +64,15 @@
 
 *** `whistle` ***
   - [] Whistle into the aesthetic.computer and get sine wave notes back.
+  - [] Integrate pitch recognition with:
+    - [] https://tfhub.dev/google/tfjs-model/spice/2/default/1
+      - [-] Match the samples / check the accuracy of the example.
+      - [x] Example in : `spice-tensorflow.html`
+      - [x] Why does this crash the tab? (Seems to crash on linux.)
+        - [x] Make the example async / frame-skipping. 
+    - [] https://editor.p5js.org/ml5/sketches/PitchDetection 
+      - [] See if this works better than `spice`. 
+    - [] https://github.com/bojan88/WASM-vs-JS-Pitch-detector
 
 *** `handprint` ***
   - [] Make a little happy hands style paint brush.
