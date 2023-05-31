@@ -512,10 +512,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       try {
         micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            echoCancellation: false,
+            echoCancellation: true,
             latency: 0,
-            noiseSuppression: false,
-            autoGainControl: false,
+            noiseSuppression: true,
+            autoGainControl: true,
           },
         });
       } catch (err) {

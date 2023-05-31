@@ -53,10 +53,11 @@ class Microphone extends AudioWorkletProcessor {
     for (let s = 0; s < mic.length; s += 1) {
       outputs[0][0][s] = mic[s];
       outputs[0][1][s] = mic[s];
-      amp += abs(mic[s]);
+      amp = abs(mic[s]) > amp ? abs(mic[s]) : amp; // Store maximum amplitude.
       if (s % 8 === 0) waveform.push(mic[s]); // Only capture every 8th value. (Usually 16)
     }
-    this.currentAmplitude = amp / mic.length;
+    // this.currentAmplitude = amp / mic.length;
+    this.currentAmplitude = amp;
     this.currentWaveform = waveform.slice(0); // Capture a quantized sample.
     this.currentPitch = pitch(mic, sampleRate); // TODO: Make this conditional?
     return true;

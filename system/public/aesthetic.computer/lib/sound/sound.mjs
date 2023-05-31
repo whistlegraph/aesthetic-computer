@@ -32,7 +32,7 @@ export default class Sound {
   constructor({ type, tone, duration, attack, decay, volume, pan }) {
     this.#type = type;
 
-    const frequency = noteOrFreq(tone) || 1; // Frequency in samples, divided by 2 yields the period length.
+    const frequency = noteOrFreq(tone || 1); // Frequency in samples, divided by 2 yields the period length.
     this.#wavelength = sampleRate / frequency / 2;
     this.#futureWavelength = this.#wavelength;
 
@@ -48,9 +48,10 @@ export default class Sound {
 
   // Update certain properties whilst playing.
   update({ tone, volume }) {
-    if (tone) {
-      // Set futureWavelength for ramping towards.
-      this.#futureWavelength = sampleRate / (noteOrFreq(tone) || 1) / 2;
+    if (typeof tone === "number" && tone > 0) {
+      // Set futureWavelength for ramping up to in `next`.
+      this.#futureWavelength = sampleRate / noteOrFreq(tone) / 2;
+
       if (this.#type === "square") {
         // this.#step = 0;
         // this.#up = !this.#up;
@@ -81,11 +82,12 @@ export default class Sound {
     let value;
 
     // Lerp wavelength & volume towards their future goals.
-    if (!within(0.1, this.#wavelength, this.#futureWavelength)) {
-      this.#wavelength = lerp(this.#wavelength, this.#futureWavelength, 0.05);
+    if (!within(0.001, this.#wavelength, this.#futureWavelength)) {
+      this.#wavelength = lerp(this.#wavelength, this.#futureWavelength, 0.01);
     }
-    if (!within(0.01, this.#volume, this.#futureVolume)) {
-      this.#volume = lerp(this.#volume, this.#futureVolume, 0.15);
+
+    if (!within(0.001, this.#volume, this.#futureVolume)) {
+      this.#volume = lerp(this.#volume, this.#futureVolume, 0.1);
     }
 
     // Generate square wave as we step through the wavelength.
