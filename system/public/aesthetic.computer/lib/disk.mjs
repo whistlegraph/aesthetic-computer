@@ -3058,6 +3058,7 @@ async function makeFrame({ data: { type, content } }) {
         piece !== "play" &&
         piece !== "gargoyle" &&
         piece !== "savcom" &&
+        piece !== "liar" &&
         piece !== "alphapoet" &&
         piece !== "sing" &&
         piece !== "neoprompt" &&
