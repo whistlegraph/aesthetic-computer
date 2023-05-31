@@ -8,7 +8,8 @@ import * as vec4 from "../dep/gl-matrix/vec4.mjs";
 import { anyKey } from "./help.mjs";
 
 export { vec2, vec3, vec4, mat3, mat4, quat };
-const { round, floor, random, PI, min, max, sqrt, pow, atan2, sin, cos } = Math;
+const { abs, round, floor, random, PI, min, max, sqrt, pow, atan2, sin, cos } =
+  Math;
 
 // Utilities for modifying {x, y} points.
 export const p2 = {
@@ -194,6 +195,10 @@ export function degrees(rad) {
 // Keeps a value between min and max.
 export function clamp(value, low, high) {
   return min(max(value, low), high);
+}
+
+export function within(range, a, b) {
+  return abs(a - b) < range;
 }
 
 // Slides a number between a and by a normalized amount.

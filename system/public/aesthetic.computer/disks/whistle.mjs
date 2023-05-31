@@ -5,15 +5,18 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [-] Rethink some audio engine stuff for oscillators.
+  + Done
+  - [x] Rethink some audio engine stuff for oscillators.
 #endregion */
 
 let mic,
+  connected = false,
   capturing = false,
   whistling = false;
 const pitches = [];
 const amps = [];
 let pitchesIndex = 0;
+const { min } = Math;
 
 // 📰 Meta
 function meta() {
@@ -49,6 +52,12 @@ function paint({ wipe, ink }) {
   if (capturing) {
     ink(255).write("WHISTLE NOW", { center: "xy" }, 0);
   }
+
+  if (!connected) {
+    ink(255, 0, 0).write("CONNECT MICROPHONE", { center: "xy" }, 255);
+  } else if (!capturing) {
+    ink(255).write("PUSH DOWN TO WHISTLE", { center: "xy" }, 0);
+  }
 }
 
 // 🧮 Sim
@@ -64,28 +73,36 @@ function sim() {
   if (whistling && sine) {
     pitchesIndex = (pitchesIndex + 1) % pitches.length; // Cycle through all
     //                                                     recorded pitches.
+
     sine.update({
       tone: pitches[pitchesIndex],
-      volume: amps[pitchesIndex],
+      volume: cutoff(),
     });
   }
 }
 
 // 🎪 Act
 function act({ event: e }) {
-  if (e.is("touch") && !capturing) {
+  if (e.is("touch") && !capturing && connected) {
     capturing = true;
     whistling = false;
     pitches.length = 0;
+    amps.length = 0;
     pitchesIndex = 0;
 
     sine?.kill();
     sine = null;
   }
 
+  if (e.is("microphone-connect:success")) connected = true;
+
   if (e.is("lift") && capturing) {
     capturing = false;
-    if (pitches.length > 0) whistling = true;
+    if (pitches.length > 0) {
+      pitches.reverse();
+      amps.reverse();
+      whistling = true;
+    }
   }
 }
 
@@ -99,7 +116,7 @@ function beat({ sound: { microphone, square, bpm } }) {
   if (whistling && !sine) {
     sine = square({
       tone: pitches[pitchesIndex],
-      volume: amps[pitchesIndex],
+      volume: cutoff(),
       beats: Infinity,
     });
   }
@@ -113,4 +130,8 @@ function beat({ sound: { microphone, square, bpm } }) {
 export { meta, paint, sim, act, beat };
 
 // 📚 Library
-//   (Useful functions used throughout the piece)
+function cutoff() {
+  let volume = min(1, amps[pitchesIndex] * 10);
+  if (volume < 0.1) volume = 0;
+  return volume;
+}

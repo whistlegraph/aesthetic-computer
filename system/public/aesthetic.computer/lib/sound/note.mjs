@@ -1,3 +1,5 @@
+const { max } = Math;
+
 const notes = {
   // C-Major w/ a starting H
   b3: 246.94,
@@ -21,5 +23,5 @@ const notes = {
 
 // Check to see if the note exists or default to the input.
 export function noteOrFreq(tone) {
-  return notes[tone] || tone;
+  return max(0, notes[tone] || tone);
 }
