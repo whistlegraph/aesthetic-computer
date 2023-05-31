@@ -508,8 +508,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Microphone Input Processor
     // (Gets attached via a message from the running disk.)
     attachMicrophone = async (data) => {
-      if (debug) console.log("🎙 Microphone:", data);
-
       let micStream;
       try {
         micStream = await navigator.mediaDevices.getUserMedia({
@@ -595,6 +593,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Send a message back to `disk` saying the microphone is connected.
       send({ type: "microphone-connect:success" });
+      if (debug) console.log("🎙 Microphone connected:", data);
     };
 
     // Sound Synthesis Processor

@@ -1,4 +1,6 @@
 import { noteOrFreq } from "./note.mjs";
+import { within, lerp } from "../num.mjs";
+const { abs, floor } = Math;
 
 export default class Sound {
   // Generic for all instruments.
@@ -10,11 +12,13 @@ export default class Sound {
   #decayStart;
 
   #volume = 1; // 0 to 1
+  #futureVolume = 1;
   #pan = 0; // -1 to 1
 
   #progress = 0;
 
   #wavelength; // Calculated from the frequency.
+  #futureWavelength;
 
   #type; // `square` or `sine`
 
@@ -28,31 +32,31 @@ export default class Sound {
   constructor({ type, tone, duration, attack, decay, volume, pan }) {
     this.#type = type;
 
-    const frequency = noteOrFreq(tone);
-    // Frequency in samples, divided by 2 yields the period length.
+    const frequency = noteOrFreq(tone) || 1; // Frequency in samples, divided by 2 yields the period length.
     this.#wavelength = sampleRate / frequency / 2;
+    this.#futureWavelength = this.#wavelength;
 
     this.#duration = duration;
     this.#attack = attack;
     this.#decay = decay;
     this.#pan = pan;
     this.#volume = volume;
+    this.#futureVolume = this.#volume;
 
     this.#decayStart = this.#duration - this.#decay;
   }
 
   // Update certain properties whilst playing.
   update({ tone, volume }) {
-    // console.log("Tone:", tone, "Volume:", volume);
     if (tone) {
-      // TODO: ❤️‍🔥 Ramp to the new wavelength... 23.05.31.01.17
-      this.#wavelength = (sampleRate / noteOrFreq(tone) / 2);
+      // Set futureWavelength for ramping towards.
+      this.#futureWavelength = sampleRate / (noteOrFreq(tone) || 1) / 2;
       if (this.#type === "square") {
         // this.#step = 0;
         // this.#up = !this.#up;
       }
     }
-    if (volume) this.#volume = volume;
+    if (typeof volume === "number") this.#futureVolume = volume;
   }
 
   // Stereo
@@ -65,7 +69,7 @@ export default class Sound {
     } else if (channel === 1) {
       // Right Channel
       if (this.#pan < 0) {
-        frame *= 1 - Math.abs(this.#pan);
+        frame *= 1 - abs(this.#pan);
       }
     }
     return frame;
@@ -74,8 +78,15 @@ export default class Sound {
   next() {
     // Channel is either 0 or 1
     // Generic for all instruments.
-
     let value;
+
+    // Lerp wavelength & volume towards their future goals.
+    if (!within(0.1, this.#wavelength, this.#futureWavelength)) {
+      this.#wavelength = lerp(this.#wavelength, this.#futureWavelength, 0.05);
+    }
+    if (!within(0.01, this.#volume, this.#futureVolume)) {
+      this.#volume = lerp(this.#volume, this.#futureVolume, 0.15);
+    }
 
     // Generate square wave as we step through the wavelength.
     if (this.#type === "square") {
@@ -86,10 +97,8 @@ export default class Sound {
         this.#up = !this.#up;
         this.#step = 0;
       }
-
       value = this.#up ? 1 : -1; // Unmodified Value (either 1 or -1)
     } else if (this.#type === "sine") {
-
       // Sine 🌊
       value = 0; // TODO: Calculate sine wave.
     }
