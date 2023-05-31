@@ -88,24 +88,21 @@
   - [] Better `forgetting` of conversations. 
   - [] Keep track of replies somehow? 
   - [] Keep character names in the corner?
-  + Done
-  - [x] @digitpain: Add conversational support. 
-  - [x] Tap / Escape to cancel a reply and blank the prompt. 
-  - [x] @ggcajp: Write a prompt program that suggests commands. 
-  - [x] Make the main `prompt` part of the prompt system now.
-  + Future
   - [] Embed two "framed" prompts on a page, or a framed prompt with
        an image below... and with different styles!
-
-*** `gargoyle` ***
-  + Techical
+  - [] Make `alphapoet` non-conversational
   - [] Mobile tap to open keyboard should function better...
-  - [] Multiple prompts on a page.
-    - [] Make sure history works among the different prompts.
-    - [] Line breaks
+  - [] Tap should not delete the character's response to user.
+  -[] Tap on mobile just brings the keyboard up and down.
+  -[] Keyboard disappears after user presses return on their text.
+  -[] Can you get rid of "done"
+  - [x] Make sure history works among the different prompts.
+  - [x] Line breaks 
+  - [] While using word break, words that break at the end of the line cause an extra space at the beginning of the next line.
+  - [] New words after a line break are not separated alongside the following word
   - [] Change `network failure` to `try again`
   - [] How to deal with longer responses?
-  - [] Add some basic conversational support
+  - [x] Add some basic conversational support
   - [] Add a small illustration on bottom right corner.
     - [] Painting @import.
     - [] How would this function? `paste(by("@georgica").painting())`
@@ -134,6 +131,10 @@
         and skip intro space. 
   - [x] Visual failure messages if offline or given a cancelled request.
   - [x] Progress spinner / prevent interaction.
+  - [x] @digitpain: Add conversational support. 
+  - [x] Tap / Escape to cancel a reply and blank the prompt. 
+  - [x] @ggcajp: Write a prompt program that suggests commands. 
+  - [x] Make the main `prompt` part of the prompt system now.
 
 *** `scream` ***
   - [] Visualize the socket connection to make everything faster in production.

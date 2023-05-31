@@ -8,11 +8,11 @@ const prompt = 'type 2 words in alphabetical order';
 const before = `
   - You write a nonsensical poem based on input.
   - And all of the words in your poem are in alphabetical order.
-  - And the poem has between 1 and 4 lines.
+  - And the poem has between 30 and 70 characters.
   - And the poem must include the words from the input.
   `;
 const after = `
-  The words in your poem are in alphabetical order, beginning anywhere in the alphabet. You don't have to include every letter in the alphabet.
+   
   `;
 
   export const scheme = {
