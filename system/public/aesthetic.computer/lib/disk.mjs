@@ -188,6 +188,9 @@ let scream = null; // 😱 Allow priviledged users to send alerts to everyone.
 let screaming = false;
 let screamingTimer; // Keep track of scream duration.
 
+// Beat globals.
+let kills = []; // Keep track of playing sounds across beats.
+
 // *** Dark Mode ***
 // Pass `true` or `false` to override or `default` to the system setting.
 function darkMode(enabled = !$commonApi.dark) {
@@ -2166,10 +2169,13 @@ async function makeFrame({ data: { type, content } }) {
 
     // TODO: Generalize square and bubble calls.
     // TODO: Move this stuff to a "sound" module.
-    const squares = [];
+    const sounds = [];
     const bubbles = [];
+    let soundId = 0;
 
+    // TODO: Rename `square`.
     $api.sound.square = function ({
+      type = "square",
       tone = 440, // TODO: Make random.
       beats = Math.random(), // Wow, default func. params can be random!
       attack = 0,
@@ -2177,21 +2183,34 @@ async function makeFrame({ data: { type, content } }) {
       volume = 1,
       pan = 0,
     } = {}) {
-      squares.push({ tone, beats, attack, decay, volume, pan });
+      const id = soundId;
+      sounds.push({ id, type, tone, beats, attack, decay, volume, pan });
+      soundId += 1;
 
       // Return a progress function so it can be used by rendering.
       const seconds = (60 / content.bpm) * beats;
       const end = content.time + seconds;
+
       return {
+        id,
+        kill: function () {
+          kills.push(id);
+        },
         progress: function (time) {
           return 1 - Math.max(0, end - time) / seconds;
+        },
+        update: function (properties) {
+          // Property updates happen outside of beat timing.
+          send({
+            type: "beat:update",
+            content: { id, properties },
+          });
         },
       };
     };
 
     $api.sound.bubble = function ({ radius, rise, volume = 1, pan = 0 } = {}) {
       bubbles.push({ radius: radius, rise, volume, pan });
-
       // Return a progress function so it can be used by rendering.
       /*
       const seconds = (60 / content.bpm) * beats;
@@ -2204,6 +2223,10 @@ async function makeFrame({ data: { type, content } }) {
       */
     };
 
+    $api.sound.kill = function (id) {
+      kills.push(id);
+    };
+
     try {
       beat($api);
     } catch (e) {
@@ -2211,13 +2234,16 @@ async function makeFrame({ data: { type, content } }) {
     }
 
     send(
-      { type: "beat", content: { bpm: content.bpm, squares, bubbles } } //,
+      {
+        type: "beat",
+        content: { bpm: content.bpm, squares: sounds, bubbles, kills },
+      } //,
       //[content.bpm]
     );
 
-    squares.length = 0;
+    sounds.length = 0;
     bubbles.length = 0;
-
+    kills.length = 0;
     return;
   }
 

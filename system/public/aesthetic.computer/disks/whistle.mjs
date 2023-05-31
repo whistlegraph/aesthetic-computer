@@ -13,7 +13,6 @@ let mic,
   whistling = false;
 const pitches = [];
 const amps = [];
-let beatCount = 0n;
 let pitchesIndex = 0;
 
 // 📰 Meta
@@ -61,6 +60,15 @@ function sim() {
     pitches.push(pitch);
     amps.push(mic.amplitude);
   }
+
+  if (whistling && sine) {
+    pitchesIndex = (pitchesIndex + 1) % pitches.length; // Cycle through all
+    //                                                     recorded pitches.
+    sine.update({
+      tone: pitches[pitchesIndex],
+      volume: amps[pitchesIndex],
+    });
+  }
 }
 
 // 🎪 Act
@@ -71,9 +79,10 @@ function act({ event: e }) {
     pitches.length = 0;
     pitchesIndex = 0;
 
-    // sine.stop(); // Cut sine wave oscillator off.
-    // sine = null;
+    sine?.kill();
+    sine = null;
   }
+
   if (e.is("lift") && capturing) {
     capturing = false;
     if (pitches.length > 0) whistling = true;
@@ -83,42 +92,16 @@ function act({ event: e }) {
 let sine;
 
 // 🥁 Beat
-function beat({ sound: { microphone, square, sine, bpm } }) {
+function beat({ sound: { microphone, square, bpm } }) {
   if (!mic) mic = microphone.connect();
-  if (beatCount === 0n) bpm(3600 * 2); // Set bpm to 120fps to match sim record.
-  beatCount += 1n;
 
   // TODO: Rethink how oscillators and one-shot sounds work.
-  /*
-  if (whistling) {
-    if (!sine) {
-      sine = sine({
-        tone: pitches[pitchesIndex],
-        volume: 1, // Set starting tone and volume for an oscillator.
-        beats: Infinity,
-        // Attack and decay would not make sense here.
-      });
-    } else {
-      // If we have a sine, then update it.
-      sine.tone(pitches[pitchesIndex]);
-      sine.volume(amps[pitchesIndex] * 20);
-    }
-  }
-  */
-
-  if (whistling) {
-    let amped = amps[pitchesIndex] * 20;
-    if (pitches[pitchesIndex] > 0) {
-      square({
-        tone: pitches[pitchesIndex],
-        beats: 1,
-        decay: 0.99,
-        attack: 0.1,
-        volume: amped,
-      });
-    }
-    pitchesIndex = (pitchesIndex + 1) % pitches.length; // Cycle through all
-    //                                                     recorded pitches.
+  if (whistling && !sine) {
+    sine = square({
+      tone: pitches[pitchesIndex],
+      volume: amps[pitchesIndex],
+      beats: Infinity,
+    });
   }
 }
 

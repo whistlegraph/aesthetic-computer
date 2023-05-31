@@ -1,6 +1,6 @@
 import { noteOrFreq } from "./note.mjs";
 
-export default class Square {
+export default class Sound {
   // Generic for all instruments.
   playing = true;
 
@@ -14,19 +14,21 @@ export default class Square {
 
   #progress = 0;
 
+  #wavelength; // Calculated from the frequency.
+
+  #type; // `square` or `sine`
+
   // Specific to Square.
-  #wavelength = 1024; // Calculated from the frequency.
   #up = false;
   #step = 0;
 
-  constructor(tone, duration, attack, decay, volume, pan) {
-    let frequency = noteOrFreq(tone);
+  // Specific to Sine.
+  // ...
 
-    // Tuning adjustment.
-    // Measured on MacBook Air with iOS App. - Aug 16, 5:56pm.
-    const tuning = 50;
-    frequency += tuning;
+  constructor({ type, tone, duration, attack, decay, volume, pan }) {
+    this.#type = type;
 
+    const frequency = noteOrFreq(tone);
     // Frequency in samples, divided by 2 yields the period length.
     this.#wavelength = sampleRate / frequency / 2;
 
@@ -37,17 +39,20 @@ export default class Square {
     this.#volume = volume;
 
     this.#decayStart = this.#duration - this.#decay;
-    /*
-    console.log("Volume: ", volume);
-    console.log(
-      "Duration:",
-      this.#duration,
-      "Attack:",
-      this.#attack,
-      "Decay:",
-      this.#decay
-    );
-     */
+  }
+
+  // Update certain properties whilst playing.
+  update({ tone, volume }) {
+    // console.log("Tone:", tone, "Volume:", volume);
+    if (tone) {
+      // TODO: ❤️‍🔥 Ramp to the new wavelength... 23.05.31.01.17
+      this.#wavelength = (sampleRate / noteOrFreq(tone) / 2);
+      if (this.#type === "square") {
+        // this.#step = 0;
+        // this.#up = !this.#up;
+      }
+    }
+    if (volume) this.#volume = volume;
   }
 
   // Stereo
@@ -70,8 +75,24 @@ export default class Square {
     // Channel is either 0 or 1
     // Generic for all instruments.
 
-    // Unmodified Value (either 1 or -1)
-    let value = this.#up ? 1 : -1;
+    let value;
+
+    // Generate square wave as we step through the wavelength.
+    if (this.#type === "square") {
+      // Square 🌊
+      if (this.#step < this.#wavelength) {
+        this.#step += 1;
+      } else {
+        this.#up = !this.#up;
+        this.#step = 0;
+      }
+
+      value = this.#up ? 1 : -1; // Unmodified Value (either 1 or -1)
+    } else if (this.#type === "sine") {
+
+      // Sine 🌊
+      value = 0; // TODO: Calculate sine wave.
+    }
 
     // Attack Envelope (0-1)
     const attack = Math.min(1, this.#progress / this.#attack);
@@ -84,20 +105,8 @@ export default class Square {
     );
     value *= decay;
 
-    //if (this.#progress % 32 === 0) {
-    //console.log(attack);
-    // TODO: How can I plot this sample graphically?
-    //}
-
-    // Generate square wave as we step through the wavelength.
-    if (this.#step < this.#wavelength) {
-      this.#step += 1;
-    } else {
-      this.#up = !this.#up;
-      this.#step = 0;
-    }
-
     // Track the overall progress of the sound.
+    // (Some sounds will have an Infinity duration and are killable)
     this.#progress += 1;
     if (this.#progress >= this.#duration) {
       this.playing = false;
@@ -105,5 +114,9 @@ export default class Square {
     }
 
     return value * this.#volume;
+  }
+
+  kill() {
+    this.playing = false;
   }
 }

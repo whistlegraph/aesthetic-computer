@@ -418,12 +418,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let updateMetronome,
     updateSquare,
     updateBubble,
+    updateSound,
+    killSound,
+    killAllSound,
     attachMicrophone,
     detachMicrophone,
     audioContext,
     audioStreamDest;
 
-  let requestMicrophoneAmplitude, requestMicrophoneWaveform, requestMicrophonePitch;
+  let requestMicrophoneAmplitude,
+    requestMicrophoneWaveform,
+    requestMicrophonePitch;
 
   // TODO: Eventually this would be replaced with a more dynamic system.
 
@@ -609,29 +614,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
 
         updateMetronome = function (newBPM) {
-          soundProcessor.port.postMessage({
-            type: "new-bpm",
-            data: newBPM,
-          });
+          soundProcessor.port.postMessage({ type: "new-bpm", data: newBPM });
         };
 
         updateSquare = function (square) {
-          soundProcessor.port.postMessage({
-            type: "square",
-            data: square,
-          });
+          soundProcessor.port.postMessage({ type: "square", data: square });
         };
 
         updateBubble = function (bubble) {
-          soundProcessor.port.postMessage({
-            type: "bubble",
-            data: bubble,
-          });
+          soundProcessor.port.postMessage({ type: "bubble", data: bubble });
+        };
+
+        killSound = function (id) {
+          soundProcessor.port.postMessage({ type: "kill", data: id });
+        };
+
+        updateSound = function (data) {
+          soundProcessor.port.postMessage({ type: "update", data });
+        };
+
+        killAllSound = function () {
+          soundProcessor.port.postMessage({ type: "kill:all" });
         };
 
         soundProcessor.port.onmessage = (e) => {
-          const time = e.data;
-          diskSupervisor.requestBeat?.(time);
+          if (e.data.currentTime)
+            diskSupervisor.requestBeat?.(e.data.currentTime); // Update metronome.
         };
 
         soundProcessor.connect(audioStreamDest); // Connect to the mediaStream.
@@ -768,6 +776,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // SQUARE
     for (const square of content.squares) updateSquare(square);
     for (const bubble of content.bubbles) updateBubble(bubble);
+    for (const id of content.kills) killSound(id);
   }
 
   // Update & Render
@@ -1261,8 +1270,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Initialize some global stuff after the first piece loads.
       // Unload some already initialized stuff if this wasn't the first load.
 
-      // Remove any attached microphone.
-      detachMicrophone?.();
+      detachMicrophone?.(); // Remove any attached microphone.
+      killAllSound?.(); // Kill any pervasive sounds in `speaker`.
 
       // Reset preloading.
       window.waitForPreload = false;
@@ -1653,6 +1662,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "beat") {
       receivedBeat(content);
+      return;
+    }
+
+    if (type === "beat:update") {
+      updateSound(content);
       return;
     }
 
@@ -3098,7 +3112,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (hand.handedness === "left") {
             hand.handedness = "right";
           } else if (hand.handedness === "right") {
-            hand.handedness = "left"
+            hand.handedness = "left";
           }
         }
         handData = hand;
@@ -3144,7 +3158,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               handAPI.legacyProcessing = true;
             } else {
               const data = handAPI.hl?.detectForVideo(video, handVideoTime);
-              // TODO: This will no longer work. 23.5.24 
+              // TODO: This will no longer work. 23.5.24
               //       Check the other `diagram` call.
               // diagram(data?.landmarks[0] || []);
             }

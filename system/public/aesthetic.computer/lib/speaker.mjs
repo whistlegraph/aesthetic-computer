@@ -2,7 +2,7 @@
 
 // import * as sine from "./sound/sine.js";
 import * as volume from "./sound/volume.mjs";
-import Square from "./sound/square.mjs";
+import Sound from "./sound/sound.mjs";
 import Bubble from "./sound/bubble.mjs";
 
 // Helpful Info:
@@ -26,9 +26,8 @@ class SoundProcessor extends AudioWorkletProcessor {
   #bpm;
   #bpmInSec;
 
+  #running = {};
   #queue = [];
-
-  #bubble;
 
   constructor(options) {
     if (options.debug) console.log("🔊 Sound Synthesis Worklet Started");
@@ -52,97 +51,78 @@ class SoundProcessor extends AudioWorkletProcessor {
         this.#bpm = msg.data;
         this.#bpmInSec = 60 / this.#bpm;
         console.log("🎼 New BPM:", this.#bpm);
+        return;
       }
 
-      // Square
-      // Square fires just once and gets recreated on every call.
-      if (msg.type === "square") {
-        const durationInFrames = Math.round(
-          sampleRate * (this.#bpmInSec * msg.data.beats)
-        );
+      // Update properties of an existing sound, if found.
+      if (msg.type === "update") {
+        this.#running[msg.data.id]?.update(msg.data.properties);
+      }
 
-        const attackInFrames = Math.round(durationInFrames * msg.data.attack);
-        const decayInFrames = Math.round(durationInFrames * msg.data.decay);
+      // 💀 Kill an existing sound.
+      if (msg.type === "kill") {
+        this.#running[msg.data]?.kill(); // Try and kill the sound if it exists,
+        this.#running[msg.data] = undefined; // then compact the array.
+        delete this.#running[msg.data];
+        return;
+      }
 
+      // Kill all pervasive sounds.
+      if (msg.type === "kill:all") {
+        const running = this.#running;
+        Object.keys(running).forEach((key) => {
+          running[key]?.kill();
+          delete runnning[key];
+        });
+        return;
+      }
+
+      // 📢 Sound
+      // Fires just once and gets recreated on every call.
+      if (msg.type === "square" || msg.type === "sine") {
+        let duration, attack, decay;
+
+        if (msg.data.beats === Infinity) {
+          duration = Infinity;
+          attack = msg.data.attack; // Measured in seconds in `Sound`.
+          decay = msg.data.decay;
+        } else {
+          duration = Math.round(sampleRate * (this.#bpmInSec * msg.data.beats));
+          attack = Math.round(durationInFrames * msg.data.attack); // Measured in frames.
+          decay = Math.round(durationInFrames * msg.data.decay);
+        }
+
+        // Trigger the sound...
+        const sound = new Sound({
+          type: msg.type,
+          tone: msg.data.tone,
+          duration,
+          attack,
+          decay,
+          volume: msg.data.volume,
+          pan: msg.data.pan,
+        });
+
+        if (duration === Infinity && msg.data.id > -1) {
+          this.#running[msg.data.id] = sound; // Index by the unique id.
+        }
+
+        this.#queue.push(sound);
+        return;
+      }
+
+      // Bubble works similarly to Square.
+      if (msg.type === "bubble") {
         this.#queue.push(
-          new Square(
-            msg.data.tone,
-            durationInFrames,
-            attackInFrames,
-            decayInFrames,
+          new Bubble(
+            msg.data.radius,
+            msg.data.rise,
             msg.data.volume,
             msg.data.pan
           )
         );
-
-        /*
-        console.log(
-          "🎼 Square:",
-          msg.data.tone,
-          "Beats:",
-          msg.data.beats,
-          "Attack:",
-          msg.data.attack,
-          "Decay:",
-          msg.data.decay,
-          "Volume:",
-          msg.data.volume,
-          "Pan:",
-          msg.data.pan
-        );
-        */
+        return;
       }
-
-      // Bubble is a singleton, only one can ever exist. They automatically
-      // layer or get destroyed / recreated.
-      if (msg.type === "bubble") {
-        this.#bubble = new Bubble(
-          msg.data.radius,
-          msg.data.rise,
-          msg.data.volume,
-          msg.data.pan
-        );
-        this.#queue.push(this.#bubble);
-      }
-
-      /*
-        if (!this.#queue.includes(this.#bubble)) {
-          this.#bubble = new Bubble(
-            msg.data.radius,
-            msg.data.rise,
-            msg.data.volume,
-            msg.data.pan
-          );
-          this.#queue.push(this.#bubble);
-        } else {
-          this.#bubble.start(
-            msg.data.radius,
-            msg.data.rise,
-            msg.data.volume,
-            msg.data.pan
-          );
-        }
-
-        console.log(
-          "🎼 Bubble Radius:",
-          msg.data.radius,
-          "Rise:",
-          msg.data.rise,
-          "Volume:",
-          msg.data.volume,
-          "Pan:",
-          msg.data.pan
-        );
-      }
-       */
-
-      // Sample
-
-      // Triangle
-
-      // Sine
-
-      // Saw
     };
   }
 
@@ -155,7 +135,7 @@ class SoundProcessor extends AudioWorkletProcessor {
 
     if (this.#ticks >= this.#bpmInSec) {
       this.#ticks = 0;
-      this.port.postMessage(currentTime);
+      this.#report({ currentTime });
       // TODO: Add in amplitude.
     }
 
@@ -189,9 +169,10 @@ class SoundProcessor extends AudioWorkletProcessor {
     return true;
   }
 
-  // #report() {
-  //this.port.postMessage()
-  // }
+  // Send data back to the `bios`.
+  #report(content) {
+    this.port.postMessage(content);
+  }
 }
 
 registerProcessor("sound-processor", SoundProcessor);
