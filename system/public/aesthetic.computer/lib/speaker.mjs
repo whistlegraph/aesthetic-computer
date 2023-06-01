@@ -5,7 +5,7 @@ import * as volume from "./sound/volume.mjs";
 import Sound from "./sound/sound.mjs";
 import Bubble from "./sound/bubble.mjs";
 
-const { abs } = Math;
+const { abs, round } = Math;
 
 // Helpful Info:
 
@@ -62,6 +62,7 @@ class SoundProcessor extends AudioWorkletProcessor {
             right: this.#currentWaveformRight,
           },
         });
+        return;
       }
 
       if (msg.type === "get-amplitudes") {
@@ -72,6 +73,7 @@ class SoundProcessor extends AudioWorkletProcessor {
             right: this.#currentAmplitudeRight,
           },
         });
+        return;
       }
 
       // New BPM
@@ -85,6 +87,7 @@ class SoundProcessor extends AudioWorkletProcessor {
       // Update properties of an existing sound, if found.
       if (msg.type === "update") {
         this.#running[msg.data.id]?.update(msg.data.properties);
+        return;
       }
 
       // 💀 Kill an existing sound.
@@ -108,6 +111,9 @@ class SoundProcessor extends AudioWorkletProcessor {
       // 📢 Sound
       // Fires just once and gets recreated on every call.
       if (msg.type === "sound") {
+
+        console.log(msg);
+
         let duration, attack, decay;
 
         if (msg.data.beats === Infinity) {
@@ -115,9 +121,9 @@ class SoundProcessor extends AudioWorkletProcessor {
           attack = msg.data.attack; // Measured in seconds in `Sound`.
           decay = msg.data.decay;
         } else {
-          duration = Math.round(sampleRate * (this.#bpmInSec * msg.data.beats));
-          attack = Math.round(durationInFrames * msg.data.attack); // Measured in frames.
-          decay = Math.round(durationInFrames * msg.data.decay);
+          duration = round(sampleRate * (this.#bpmInSec * msg.data.beats));
+          attack = round(duration * msg.data.attack); // Measured in frames.
+          decay = round(duration * msg.data.decay);
         }
 
         // Trigger the sound...

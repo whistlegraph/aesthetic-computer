@@ -659,7 +659,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
 
           if (msg.type === "metronome") {
-            diskSupervisor.requestBeat?.(msg.content.currentTime); // Update metronome.
+            diskSupervisor.requestBeat?.(msg.content); // Update metronome.
             return;
           }
         };
