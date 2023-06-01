@@ -79,7 +79,7 @@ class SoundProcessor extends AudioWorkletProcessor {
 
       // 📢 Sound
       // Fires just once and gets recreated on every call.
-      if (msg.type === "square" || msg.type === "sine") {
+      if (msg.type === "sound") {
         let duration, attack, decay;
 
         if (msg.data.beats === Infinity) {
@@ -94,7 +94,7 @@ class SoundProcessor extends AudioWorkletProcessor {
 
         // Trigger the sound...
         const sound = new Sound({
-          type: msg.type,
+          type: msg.data.type,
           tone: msg.data.tone,
           duration,
           attack,

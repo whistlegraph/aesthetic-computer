@@ -1,6 +1,6 @@
 import { noteOrFreq } from "./note.mjs";
 import { within, lerp } from "../num.mjs";
-const { abs, floor } = Math;
+const { abs, floor, sin, PI } = Math;
 
 export default class Sound {
   // Generic for all instruments.
@@ -83,26 +83,40 @@ export default class Sound {
 
     // Lerp wavelength & volume towards their future goals.
     if (!within(0.001, this.#wavelength, this.#futureWavelength)) {
-      this.#wavelength = lerp(this.#wavelength, this.#futureWavelength, 0.01);
+      this.#wavelength = lerp(this.#wavelength, this.#futureWavelength, 0.005);
     }
 
-    if (!within(0.001, this.#volume, this.#futureVolume)) {
-      this.#volume = lerp(this.#volume, this.#futureVolume, 0.1);
-    }
+    this.#wavelength = this.#futureWavelength;
+
+    this.#volume = this.#futureVolume;
+
+    // if (!within(0.001, this.#volume, this.#futureVolume)) {
+    //   this.#volume = lerp(this.#volume, this.#futureVolume, 0.1);
+    // }
 
     // Generate square wave as we step through the wavelength.
     if (this.#type === "square") {
       // Square 🌊
-      if (this.#step < this.#wavelength) {
-        this.#step += 1;
-      } else {
+      this.#step += 1;
+      if (this.#step >= this.#wavelength) {
         this.#up = !this.#up;
-        this.#step = 0;
+        this.#step -= this.#wavelength; // instead of resetting to zero
       }
       value = this.#up ? 1 : -1; // Unmodified Value (either 1 or -1)
     } else if (this.#type === "sine") {
       // Sine 🌊
-      value = 0; // TODO: Calculate sine wave.
+      // const angle = (PI * this.#step) / this.#wavelength;
+      // value = sin(angle);
+      // this.#step += 1;
+      // Sine 🌊
+      const angle = (PI * this.#step) / this.#wavelength;
+      value = sin(angle);
+      this.#step += 1; // increase by wavelength instead of 1
+
+      if (this.#step >= 2 * this.#wavelength) {
+        // double the wavelength to lower the frequency by half
+        this.#step = 0;
+      }
     }
 
     // Attack Envelope (0-1)

@@ -416,7 +416,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   };
 
   let updateMetronome,
-    updateSquare,
+    triggerSound,
     updateBubble,
     updateSound,
     killSound,
@@ -616,8 +616,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           soundProcessor.port.postMessage({ type: "new-bpm", data: newBPM });
         };
 
-        updateSquare = function (square) {
-          soundProcessor.port.postMessage({ type: "square", data: square });
+        triggerSound = function (sound) {
+          soundProcessor.port.postMessage({ type: "sound", data: sound });
         };
 
         updateBubble = function (bubble) {
@@ -773,7 +773,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // SQUARE
-    for (const square of content.squares) updateSquare(square);
+    for (const sound of content.sounds) triggerSound(sound);
     for (const bubble of content.bubbles) updateBubble(bubble);
     for (const id of content.kills) killSound(id);
   }

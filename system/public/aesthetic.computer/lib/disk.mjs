@@ -2236,7 +2236,7 @@ async function makeFrame({ data: { type, content } }) {
     send(
       {
         type: "beat",
-        content: { bpm: content.bpm, squares: sounds, bubbles, kills },
+        content: { bpm: content.bpm, sounds, bubbles, kills },
       } //,
       //[content.bpm]
     );

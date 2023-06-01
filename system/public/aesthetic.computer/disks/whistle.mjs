@@ -126,17 +126,15 @@ function act({ event: e }) {
     capturing = false;
     if (pitches.length > 0) {
       // Reverse the playback.
-      // pitches.reverse();
-      // amps.reverse();
-
       let zeros = 0;
       zeros += 15; // Trim the first 1/8th second no matter what.
       // while (amps[zeros] === 0) zeros += 1;
       amps = amps.slice(zeros);
       pitches = pitches.slice(zeros);
+      // pitches.reverse();
+      // amps.reverse();
       whistling = true;
     }
-
   }
 }
 
@@ -149,6 +147,7 @@ function beat({ sound: { microphone, square, bpm } }) {
   // TODO: Rethink how oscillators and one-shot sounds work.
   if (whistling && !sine) {
     sine = square({
+      type: "sine",
       tone: pitches[index],
       volume: amps[index],
       beats: Infinity,
