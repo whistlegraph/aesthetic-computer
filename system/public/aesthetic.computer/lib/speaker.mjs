@@ -5,6 +5,8 @@ import * as volume from "./sound/volume.mjs";
 import Sound from "./sound/sound.mjs";
 import Bubble from "./sound/bubble.mjs";
 
+const { abs } = Math;
+
 // Helpful Info:
 
 // For basic audio waveform algorithms see: https://github.com/Flarp/better-oscillator/blob/master/worklet.js
@@ -29,6 +31,11 @@ class SoundProcessor extends AudioWorkletProcessor {
   #running = {};
   #queue = [];
 
+  #currentWaveformLeft = [];
+  #currentWaveformRight = [];
+  #currentAmplitudeLeft = [];
+  #currentAmplitudeRight = [];
+
   constructor(options) {
     if (options.debug) console.log("🔊 Sound Synthesis Worklet Started");
 
@@ -45,6 +52,27 @@ class SoundProcessor extends AudioWorkletProcessor {
     // Change BPM, or queue up an instrument note.
     this.port.onmessage = (e) => {
       const msg = e.data;
+
+      // Send waveform data to `bios`.
+      if (msg.type === "get-waveforms") {
+        this.port.postMessage({
+          type: "waveforms",
+          content: {
+            left: this.#currentWaveformLeft,
+            right: this.#currentWaveformRight,
+          },
+        });
+      }
+
+      if (msg.type === "get-amplitudes") {
+        this.port.postMessage({
+          type: "amplitudes",
+          content: {
+            left: this.#currentAmplitudeLeft,
+            right: this.#currentAmplitudeRight,
+          },
+        });
+      }
 
       // New BPM
       if (msg.type === "new-bpm") {
@@ -127,6 +155,10 @@ class SoundProcessor extends AudioWorkletProcessor {
   }
 
   process(inputs, outputs) {
+    // 0️⃣ Waveform Tracking
+    let waveformLeft = [];
+    let waveformRight = [];
+
     // 1️⃣ Metronome
     this.#ticks += currentTime - this.#lastTime;
     this.#lastTime = currentTime;
@@ -135,16 +167,18 @@ class SoundProcessor extends AudioWorkletProcessor {
 
     if (this.#ticks >= this.#bpmInSec) {
       this.#ticks = 0;
-      this.#report({ currentTime });
-      // TODO: Add in amplitude.
+      this.#report("metronome", currentTime);
     }
 
     // 2️⃣ Sound generation
     // const input = inputs[0];
     const output = outputs[0];
 
+    let ampLeft = 0,
+      ampRight = 0;
+
     // We assume two channels. (0 and 1)
-    for (let frame = 0; frame < output[0].length; frame += 1) {
+    for (let s = 0; s < output[0].length; s += 1) {
       // Remove any finished instruments from the queue.
       this.#queue = this.#queue.filter((instrument) => {
         return instrument.playing;
@@ -157,21 +191,34 @@ class SoundProcessor extends AudioWorkletProcessor {
         // TODO: Actually add the sounds here instead of replacing them.
         const amplitude = instrument.next(); // this.#queue.length;
 
-        output[0][frame] += instrument.pan(0, amplitude);
-        output[1][frame] += instrument.pan(1, amplitude);
+        output[0][s] += instrument.pan(0, amplitude);
+        output[1][s] += instrument.pan(1, amplitude);
       }
 
       // Mix all sound through global volume.
-      output[0][frame] = volume.apply(output[0][frame]);
-      output[1][frame] = volume.apply(output[1][frame]);
+      output[0][s] = volume.apply(output[0][s]);
+      output[1][s] = volume.apply(output[1][s]);
+
+      // Track the current amplitude of both channels, and get waveform data.
+      ampLeft = abs(output[0][s]) > ampLeft ? abs(output[0][s]) : ampLeft;
+      ampRight = abs(output[1][s]) > ampRight ? abs(output[1][s]) : ampRight;
+
+      if (s % 8 === 0) {
+        waveformLeft.push(output[0][s]); // Cap every 8th value. (Usually 16)
+        waveformRight.push(output[1][s]);
+      }
     }
 
+    this.#currentWaveformLeft = waveformLeft.slice(0);
+    this.#currentWaveformRight = waveformRight.slice(0);
+    this.#currentAmplitudeLeft = ampLeft;
+    this.#currentAmplitudeRight = ampRight;
     return true;
   }
 
   // Send data back to the `bios`.
-  #report(content) {
-    this.port.postMessage(content);
+  #report(type, content) {
+    this.port.postMessage({ type, content });
   }
 }
 

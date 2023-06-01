@@ -421,6 +421,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     updateSound,
     killSound,
     killAllSound,
+    requestSpeakerWaveforms,
+    requestSpeakerAmplitudes,
     attachMicrophone,
     detachMicrophone,
     audioContext,
@@ -636,9 +638,30 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           soundProcessor.port.postMessage({ type: "kill:all" });
         };
 
-        soundProcessor.port.onmessage = (e) => {
-          if (e.data.currentTime)
-            diskSupervisor.requestBeat?.(e.data.currentTime); // Update metronome.
+        // Request data / send message to the mic processor thread.
+        requestSpeakerWaveforms = function () {
+          soundProcessor.port.postMessage({ type: "get-waveforms" });
+        };
+
+        requestSpeakerAmplitudes = function () {
+          soundProcessor.port.postMessage({ type: "get-amplitudes" });
+        };
+
+        soundProcessor.port.onmessage = ({ data: msg }) => {
+          if (msg.type === "waveforms") {
+            send({ type: "speaker-waveforms", content: msg.content });
+            return;
+          }
+
+          if (msg.type === "amplitudes") {
+            send({ type: "speaker-amplitudes", content: msg.content });
+            return;
+          }
+
+          if (msg.type === "metronome") {
+            diskSupervisor.requestBeat?.(msg.content.currentTime); // Update metronome.
+            return;
+          }
         };
 
         soundProcessor.connect(audioStreamDest); // Connect to the mediaStream.
@@ -1695,6 +1718,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "get-microphone-waveform") {
       requestMicrophoneWaveform?.();
+      return;
+    }
+
+    if (type === "get-speaker-waveforms") {
+      requestSpeakerWaveforms?.();
+      return;
+    }
+
+    if (type === "get-speaker-amplitudes") {
+      requestSpeakerAmplitudes?.();
       return;
     }
 

@@ -22,12 +22,8 @@ export default class Sound {
 
   #type; // `square` or `sine`
 
-  // Specific to Square.
-  #up = false;
+  #up = false; // Specific to Square.
   #step = 0;
-
-  // Specific to Sine.
-  // ...
 
   constructor({ type, tone, duration, attack, decay, volume, pan }) {
     this.#type = type;
@@ -83,16 +79,12 @@ export default class Sound {
 
     // Lerp wavelength & volume towards their future goals.
     if (!within(0.001, this.#wavelength, this.#futureWavelength)) {
-      this.#wavelength = lerp(this.#wavelength, this.#futureWavelength, 0.005);
+      this.#wavelength = lerp(this.#wavelength, this.#futureWavelength, 0.001);
     }
 
-    this.#wavelength = this.#futureWavelength;
-
-    this.#volume = this.#futureVolume;
-
-    // if (!within(0.001, this.#volume, this.#futureVolume)) {
-    //   this.#volume = lerp(this.#volume, this.#futureVolume, 0.1);
-    // }
+    if (!within(0.001, this.#volume, this.#futureVolume)) {
+      this.#volume = lerp(this.#volume, this.#futureVolume, 0.025);
+    }
 
     // Generate square wave as we step through the wavelength.
     if (this.#type === "square") {
@@ -104,10 +96,6 @@ export default class Sound {
       }
       value = this.#up ? 1 : -1; // Unmodified Value (either 1 or -1)
     } else if (this.#type === "sine") {
-      // Sine 🌊
-      // const angle = (PI * this.#step) / this.#wavelength;
-      // value = sin(angle);
-      // this.#step += 1;
       // Sine 🌊
       const angle = (PI * this.#step) / this.#wavelength;
       value = sin(angle);

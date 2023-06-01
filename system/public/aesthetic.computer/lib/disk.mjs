@@ -1300,6 +1300,17 @@ class Microphone {
   }
 }
 
+class Speaker {
+  waveforms = { left: [], right: [] };
+  amplitudes = { left: 0, right: 0 };
+
+  poll() {
+    send({ type: "get-speaker-waveforms" });
+    send({ type: "get-speaker-amplitudes" });
+  }
+}
+
+const speaker = new Speaker();
 const microphone = new Microphone();
 
 // 2. ✔ Loading the disk.
@@ -2155,17 +2166,7 @@ async function makeFrame({ data: { type, content } }) {
     };
 
     $api.sound.microphone = microphone;
-    // Attach the microphone.
-    /*
-    $api.sound.microphone = function (options) {
-      send({ type: "microphone", content: options });
-      return {
-        amplitude: (cb) => {
-          send({ type: "get-microphone-amplitude" });
-        },
-      };
-    };
-    */
+    $api.sound.speaker = speaker;
 
     // TODO: Generalize square and bubble calls.
     // TODO: Move this stuff to a "sound" module.
@@ -2254,6 +2255,16 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "microphone-waveform") {
     microphone.waveform = content;
+    return;
+  }
+
+  if (type === "speaker-waveforms") {
+    speaker.waveforms = content;
+    return;
+  }
+
+  if (type === "speaker-amplitudes") {
+    speaker.amplitudes = content;
     return;
   }
 
