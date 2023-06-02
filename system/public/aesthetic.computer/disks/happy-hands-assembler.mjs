@@ -39,6 +39,7 @@ const handPalette = {
   o: "orange", // Ring, orange
   p: "pink", // Pinky, pink
 };
+const lastOrigin = [];
 
 // 🥾 Boot (Runs once before first paint and sim)
 async function boot({ wipe, params, screen, store }) {
@@ -81,6 +82,7 @@ function paint({
   paste,
   paintCount,
   video,
+  write,
 }) {
   // Start video feed once for webcam hand-tracking on mobile and desktop.
   // (And recalibrate if resized.)
@@ -101,12 +103,18 @@ function paint({
   const boxSize = 5;
   const boxType = "fill*center";
 
-  if (mediapipe?.screen.length > 0) {
-    const scaled = mediapipe.screen.map((coord) => [
-      coord.x * width,
-      coord.y * height,
-    ]);
+  // 1. Draw Hand-tracked 2D Coordinates
+  const scaled = mediapipe.screen.map((coord) => [
+    coord.x * width,
+    coord.y * height,
+  ]);
 
+  if (scaled.length > 0) {
+    lastOrigin[0] = scaled[0][0];
+    lastOrigin[1] = scaled[0][1];
+  }
+
+  if (mediapipe?.screen.length > 0) {
     // A. Draw lines
     ink(handPalette.w).poly([
       scaled[0],
@@ -131,6 +139,7 @@ function paint({
     ink(handPalette.p).poly([scaled[17], scaled[18], scaled[19], scaled[20]]);
 
     // B. Loop over the scaled points and draw the boxes.
+
     scaled.forEach((coord, index) => {
       if (index >= 18) {
         ink(handPalette.p); // Pinky
@@ -148,7 +157,17 @@ function paint({
       }
       box(coord[0], coord[1], boxSize, boxType);
     });
+
+    const timop = [scaled[4], scaled[8], scaled[12], scaled[16], scaled[20]];
+    [..."timop"].forEach((letter, index) => {
+      const coord = timop[index].slice(); // Make a copy of the coords.
+      coord[0] += -3;
+      coord[1] += -5;
+      ink("white").write(letter, coord, handPalette[letter]);
+    });
+    // loop through timop and draw all the letters
   } else {
+    // 2. Or... default to a generated model of a hand.
     const osc = Math.sin(paintCount * 0.1); // Oscillate a value based on frame.
     // Build base wrist geometry.
     const w = [
@@ -170,10 +189,14 @@ function paint({
     };
 
     const o = { x: -24 + 2 * osc, y: 16 + 2 * osc }; // Offsets and oscilates the entire hand
-    pen
-      ? pan(pen.x + o.x, pen.y + o.y)
-      : pan(width / 2 + o.x, height / 2 + o.y);
 
+    if (lastOrigin.length > 0) {
+      pan(lastOrigin[0] + o.x, lastOrigin[1] + o.y);
+    } else {
+      pen
+        ? pan(pen.x + o.x, pen.y + o.y)
+        : pan(width / 2 + o.x, height / 2 + o.y);
+    }
     // 🅰️ Hand Lines & Points
     // Draw each component (lines and boxes) of wrist, followed by each of digit.
     ["w", "t", "i", "m", "o", "p"].forEach((char, i) => {
@@ -192,6 +215,13 @@ function paint({
   }
 }
 
+// ✒ Act (Runs once per user interaction)
+function act({ event }) {
+  if (event.is("move")){ //anytime a mouse moves
+    lastOrigin.length = 0;
+  }
+}
+
 // Tab title and meta description of this piece.
 function meta() {
   return {
@@ -200,7 +230,7 @@ function meta() {
   };
 }
 
-export { boot, paint, meta };
+export { boot, paint, meta, act };
 
 // 📚 Library (Useful functions used throughout the piece)
 
@@ -228,11 +258,6 @@ function digit(from, segCount, deg = 0, curve = 0) {
 }
 
 /*
-// ✒ Act (Runs once per user interaction)
-function act({ event }) {
-  // Respond to user input here.
-}
-
 // 🧮 Sim(ulate) (Runs once per logic frame (120fps locked)).
 function sim($api) {
   // Crunch numbers outside of rendering here.

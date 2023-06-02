@@ -68,6 +68,10 @@ class Typeface {
     const thickness = pos.thickness || 1;
     const rotation = pos.rotation || 0;
 
+    if (Array.isArray(pos)) {
+      pos = {x: pos[0], y: pos[1]}
+    }
+
     // Set x, y position and override if centering is specified.
     let x = pos.x || 0,
       y = (pos.y || 0) + lineNumber * blockHeight;
