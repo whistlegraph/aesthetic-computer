@@ -14,6 +14,7 @@ const before = `
 const after = `
    
   `;
+const forgetful = true
 
   export const scheme = {
     dark: {
@@ -45,5 +46,5 @@ function reply(text) {
   console.log("😀 Replied with:", text);
 }
 
-export { prompt, before, after, halt, reply };
+export { prompt, before, after, halt, reply, forgetful };
 export const system = "prompt:character"; // or "prompt:code"

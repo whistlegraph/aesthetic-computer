@@ -39,6 +39,9 @@ const after = `
  Your responses are limited to 100 characters.
  `;
 
+const forgetful = true;
+
+
   export const scheme = {
     dark: {
       fg: [0, 0, 0],
@@ -69,5 +72,5 @@ function reply(text) {
   console.log("😀 Replied with:", text);
 }
 
-export { prompt, before, after, halt, reply };
+export { prompt, before, after, halt, reply, forgetful };
 export const system = "prompt:character"; // or "prompt:code"
