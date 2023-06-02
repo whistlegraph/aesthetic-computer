@@ -2,28 +2,34 @@ import { DEBUG } from "../disks/common/debug.mjs";
 
 export class Conversation {
   messages = [];
+  forgetful = false;
   controller;
 
   // from the `disk` api
   store;
   key;
 
-  constructor(store, slug) {
+  constructor(store, slug, forgetful = false) {
     this.store = store;
     this.key = slug + ":conversation";
+    this.forgetful = forgetful;
   }
 
   // Retrieve messages from the store.
   async retrieve() {
-    this.messages =
-      this.store[this.key] ||
-      (await this.store.retrieve(this.key, "local:db")) ||
-      [];
-    return this.messages.slice();
+    if (!this.forgetful) {
+      this.messages =
+        this.store[this.key] ||
+        (await this.store.retrieve(this.key, "local:db")) ||
+        [];
+      return this.messages.slice();
+    } else {
+      return this.messages.slice();
+    }
   }
 
   async forget() {
-    (await this.store.delete(this.key, "local:db"));
+    await this.store.delete(this.key, "local:db");
     delete this.store[this.key];
     this.messages = [];
   }
@@ -69,6 +75,8 @@ export class Conversation {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages: this.messages, hint }),
     });
+
+    if (this.forgetful) this.messages.length = 0;
 
     let timeout;
 

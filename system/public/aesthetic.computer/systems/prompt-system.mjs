@@ -14,13 +14,13 @@ let conversation,
 
 export async function prompt_boot(
   $,
-  { prompt, program, hint },
+  { prompt, program, hint, forgetful },
   reply,
   halt,
   scheme,
   wrap
 ) {
-  conversation = new Conversation($.store, $.slug);
+  conversation = new Conversation($.store, $.slug, forgetful);
   const messages = await conversation.retrieve();
 
   if (messages.length > 0) prompt = messages[messages.length - 1].text;
