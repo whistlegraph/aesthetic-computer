@@ -130,8 +130,8 @@ function act({ event: e }) {
       // while (amps[zeros] === 0) zeros += 1;
       amps = amps.slice(zeros);
       pitches = pitches.slice(zeros);
-      // pitches.reverse();
-      // amps.reverse();
+      pitches.reverse();
+      amps.reverse();
       whistling = true;
     }
   }

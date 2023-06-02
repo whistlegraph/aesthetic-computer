@@ -90,6 +90,8 @@
   - [-] While using word break, words that break at the end of the line cause an extra space at the beginning of the next line.
   - [] New words after a line break are not separated alongside the following word
 
+ - [] The home page button says `start` and you have to press that to start typing. Once you've started the button becomes `go`, and tapping the screen just gets the keyboard up or down
+
   - [] Make `alphapoet` non-conversational
   - [] Can you get rid of "done"
   - [] Change `network failure` to `try again`?

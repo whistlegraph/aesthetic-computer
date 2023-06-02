@@ -1780,6 +1780,7 @@ async function load(
               after: module.after,
             },
             hint: module.system.split(":")[1], // See `ask.ts`.
+            forgetful: module.forgetful || false
           },
           module.reply,
           module.halt,
@@ -3069,6 +3070,7 @@ async function makeFrame({ data: { type, content } }) {
         piece !== "play" &&
         piece !== "gargoyle" &&
         piece !== "savcom" &&
+        piece !== "botce" &&
         piece !== "liar" &&
         piece !== "alphapoet" &&
         piece !== "sing" &&

@@ -631,6 +631,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         };
 
         updateSound = function (data) {
+          console.log(data);
           soundProcessor.port.postMessage({ type: "update", data });
         };
 
