@@ -1780,6 +1780,7 @@ async function load(
               after: module.after,
             },
             hint: module.system.split(":")[1], // See `ask.ts`.
+            forgetful: module.forgetful || false
           },
           module.reply,
           module.halt,
