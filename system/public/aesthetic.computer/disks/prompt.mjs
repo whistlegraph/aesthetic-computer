@@ -342,12 +342,15 @@ function boot({ glaze, api, system, pieceCount }) {
   ) {
     system.prompt.input.text = makeMotd(api); // Override prompt with motd if
     //                                           no conversation is present.
+    system.prompt.input.lastText = system.prompt.input.text;
+    system.prompt.input.showButton();
   }
 
   // Activate and reset input text if returning to the prompt from elsewhere.
   if (pieceCount > 0) {
     if (Desktop) system.prompt.input.canType = true;
     system.prompt.input.text = "";
+    system.prompt.input.go.btn.disabled = true; // Disable button.
   }
 }
 
@@ -498,7 +501,7 @@ function makeMotd({ handle, user }) {
     motd =
       `Welcome, ${handle || user.name}!`.padEnd(48) + " ".padEnd(48) + motd;
   } else motd = "Type 'list' to learn more.";
-  return motd;
+  return motd.trim();
 }
 
 function makeFlash($, clear = true, message) {

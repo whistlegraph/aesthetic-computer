@@ -111,6 +111,7 @@ class TextInput {
   blink; // block cursor blink timer
   showBlink = false;
   cursor = "blink";
+  go;
 
   canType = false;
 
@@ -133,12 +134,24 @@ class TextInput {
   #moveThreshold = 10; // Drag threshold.
   #moveDeltaX = 0;
 
+  #focusTimer;
+  #inTime = false;
+  #runnable = false; // Whether a commands can be tried.
+  lastText; // Store the last text reply.
+  didReset; // Callback for blank reset.
+
   // Add support for loading from preloaded system typeface.
   constructor(
     $,
     text = "",
     processCommand,
-    options = { palette: undefined, font: font1, autolock: true, wrap: "char" }
+    options = {
+      palette: undefined,
+      font: font1,
+      autolock: true,
+      wrap: "char",
+      didReset,
+    }
   ) {
     // Load typeface, preventing double loading of the system default.
     if ($.typeface?.data !== options.font) {
@@ -149,12 +162,14 @@ class TextInput {
     }
 
     this.#autolock = options.autolock;
+    this.didReset = options.didReset;
 
     this.#prompt = new Prompt(6, 6, floor($.screen.width / 6) - 2);
 
     this.#movedCursor = null; // Used when the pointer moves the cursor.
 
     this.text = text;
+    this.lastText = text;
     this.wrap = options.wrap || "char";
     this.startingInput = this.text;
     this.pal = options.palette || {
@@ -164,6 +179,16 @@ class TextInput {
       blockHi: 0,
       line: 255,
     };
+
+    const {
+      ui: { TextButton: TB },
+    } = $;
+    this.go = new TB("Reply");
+
+    if (this.text.length === 0) {
+      this.go.btn.disabled = true;
+    }
+
     this.processCommand = processCommand;
     $.send({ type: "text-input-enabled" });
   }
@@ -269,20 +294,18 @@ class TextInput {
       }
     }
 
+    // Reply + Go Button
+    if (!this.go.btn.disabled) {
+      this.go.reposition({ right: 6, bottom: 6, screen: frame });
+      this.go.paint({ ink: $.ink });
+    }
+
     // Return false if we have loaded every glyph.
     // (Can be wired up to the return value of the parent's `paint`)
     // TODO: This causes some extra paints on startup.
     return !(
       keys(this.typeface.glyphs).length === keys(this.typeface.data).length
     );
-  }
-
-  // Clear the TextInput object and flip the cursor to ON.
-  blank(cursor) {
-    if (cursor) this.cursor = cursor;
-    this.text = "";
-    this.#movedCursor = null;
-    this.blink?.flip(true);
   }
 
   // Simulate anything necessary.
@@ -301,6 +324,41 @@ class TextInput {
 
     if (this.lock) needsPaint();
     if (this.canType) this.blink.step();
+  }
+
+  showButton() {
+    this.go.btn.disabled = false;
+    this.go.txt = "Reply";
+  }
+
+  // Forget the original finished message.
+  forget() {
+    this.lastText = "";
+  }
+
+  // Run a command.
+  async #execute(store, slug) {
+    const key = `${slug}:history`; // This is "per-piece" and should
+    //                                be per TextInput object...23.05.23.12.50
+    // Make a history stack if one doesn't exist already.
+    store[key] = store[key] || [];
+    // Push input to a history stack, avoiding repeats.
+    if (store[key][0] !== this.text) store[key].unshift(this.text);
+    // console.log("📚 Stored prompt history:", store[key]);
+    store.persist(key); // Persist the history stack across tabs.
+
+    // 🍎 Process commands for a given context, passing the text input.
+    if (this.#autolock) this.lock = true;
+    await this.processCommand?.(this.text);
+    if (this.#autolock) this.lock = false;
+  }
+
+  // Clear the TextInput object and flip the cursor to ON.
+  blank(cursor) {
+    if (cursor) this.cursor = cursor;
+    this.text = "";
+    this.#movedCursor = null;
+    this.blink?.flip(true);
   }
 
   // Handle user input.
@@ -369,30 +427,17 @@ class TextInput {
             }
           }
         }
-        const key = `${slug}:history`; // This is "per-piece" and should
-        //                                be per TextInput object...23.05.23.12.50
 
-        // Send a command or message.
-        if (e.key === "Enter") {
-          // Make a history stack if one doesn't exist already.
-          store[key] = store[key] || [];
-
-          // Push input to a history stack, avoiding repeats.
-          if (store[key][0] !== this.text) store[key].unshift(this.text);
-
-          // console.log("📚 Stored prompt history:", store[key]);
-          store.persist(key); // Persist the history stack across tabs.
-
-          // 🍎 Process commands for a given context, passing the text input.
-          if (this.#autolock) this.lock = true;
-          await this.processCommand?.(this.text);
-          if (this.#autolock) this.lock = false;
-        }
+        if (e.key === "Enter" && this.#runnable)
+          await this.#execute(store, slug); // Send a command.
 
         if (e.key === "Escape") {
           this.#movedCursor = null;
           this.text = "";
         }
+
+        const key = `${slug}:history`; // This is "per-piece" and should
+        //                                be per TextInput object...23.05.23.12.50
 
         // Move backwards through history stack.
         if (e.key === "ArrowUp") {
@@ -428,6 +473,15 @@ class TextInput {
         }
       }
 
+      if (this.text.length > 0) {
+        this.go.btn.disabled = false;
+        this.go.txt = "Go";
+        this.#runnable = true;
+      } else {
+        this.go.btn.disabled = true;
+        this.#runnable = false;
+      }
+
       this.blink?.flip(true);
     }
 
@@ -436,17 +490,77 @@ class TextInput {
     if (e.is("typing-input-ready")) {
       this.canType = true;
       if (this.#firstInputReady) {
-        this.text = "";
+        // this.text = "";
         this.#firstInputReady = false;
-        this.blink?.flip(true);
+        if (this.text.length > 0) {
+          this.cursor = "stop";
+        } else {
+          this.blink?.flip(true);
+        }
       }
     }
 
-    if (e.is("touch")) this.blink?.flip(true);
+    if (e.is("typing-input-unready")) {
+      this.#firstInputReady = false;
+      this.canType = false;
 
-    if (e.is("lift")) this.moveDeltaX = 0;
+      if (this.text.length === 0) {
+        this.#firstInputReady = true;
+        this.text = this.lastText;
+        this.didReset?.();
+        if (this.text.length > 0) this.showButton();
+        // this.cursor = "stop";
+      }
+    }
 
-    if (e.is("draw") && this.canType) {
+    if (e.is("touch") && !this.lock) {
+      this.#inTime = true;
+      clearTimeout(this.#focusTimer);
+      this.#focusTimer = setTimeout(() => (this.#inTime = false), 500);
+    }
+
+    if (!this.lock) {
+      this.go.btn.act(e, {
+        down: () => {
+          if (this.canType) $.send({ type: "text-input-focus-lock" });
+        },
+        push: async () => {
+          clearTimeout(this.#focusTimer);
+          this.#inTime = false;
+
+          if (this.#runnable) {
+            await this.#execute(store, slug);
+            this.go.btn.disabled = true;
+          } else {
+            this.lastText = this.text;
+            this.text = "";
+            this.go.btn.disabled = true;
+            this.canType = true;
+            this.cursor = "blink";
+            this.blink?.flip(true);
+            needsPaint();
+            $.send({ type: "text-input-focus-unlock" });
+          }
+        },
+        cancel: () => {
+          clearTimeout(this.#focusTimer);
+          this.#inTime = false;
+          $.send({ type: "text-input-focus-unlock" });
+        },
+      }); // Track "Reply" / "Edit" buttons.
+    }
+
+    if (e.is("lift") && this.#inTime === true) {
+      $.send({
+        type: `text-input-request-${!this.canType ? "focus" : "blur"}`,
+      });
+    }
+
+    if (e.is("touch") && !this.lock) this.blink?.flip(true);
+
+    if (e.is("lift") && !this.lock) this.moveDeltaX = 0;
+
+    if (e.is("draw") && !this.lock && this.canType) {
       if (
         (this.#moveDeltaX > 0 && e.delta.x < 0) ||
         (this.#moveDeltaX < 0 && e.delta.x > 0)
@@ -475,14 +589,15 @@ class TextInput {
       this.blink?.flip(true);
     }
 
+    /*
     if (e.is("keyboard:close")) {
       this.canType = false;
       needsPaint();
     }
+    */
 
     if (e.is("defocus")) {
       this.canType = false;
-      this.text = this.startingInput;
       needsPaint();
     }
   }

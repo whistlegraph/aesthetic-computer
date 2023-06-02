@@ -86,24 +86,19 @@
 
 *** `prompt` system ***
   + UI Gripes
+  - [] While using word break, words that break at the end of the line cause an extra space at the beginning of the next line.
+  - [] New words after a line break are not separated alongside the following word
+
+  - [] Make `alphapoet` non-conversational
+  - [] Can you get rid of "done"
+  - [] Change `network failure` to `try again`?
+
+  - [] How to deal with longer responses?
   - [] Better `forgetting` of conversations. 
   - [] Keep track of replies somehow? 
   - [] Keep character names in the corner?
   - [] Embed two "framed" prompts on a page, or a framed prompt with
        an image below... and with different styles!
-  - [] Make `alphapoet` non-conversational
-  - [] Mobile tap to open keyboard should function better...
-  - [] Tap should not delete the character's response to user.
-  -[] Tap on mobile just brings the keyboard up and down.
-  -[] Keyboard disappears after user presses return on their text.
-  -[] Can you get rid of "done"
-  - [x] Make sure history works among the different prompts.
-  - [x] Line breaks 
-  - [] While using word break, words that break at the end of the line cause an extra space at the beginning of the next line.
-  - [] New words after a line break are not separated alongside the following word
-  - [] Change `network failure` to `try again`
-  - [] How to deal with longer responses?
-  - [x] Add some basic conversational support
   - [] Add a small illustration on bottom right corner.
     - [] Painting @import.
     - [] How would this function? `paste(by("@georgica").painting())`
@@ -115,6 +110,15 @@
     - [] 1/3 New synth wav types!
     - [] Custom SFX / sampling.
   + Done
+  - [x] Mobile tap to open keyboard should function better...
+    - [x] Tap should not delete the character's response to user.
+    - [x] Tap on mobile just brings the keyboard up and down.
+    - [x] Keyboard disappears after user presses return on their text.
+    - [x] Something weird is going on with focus / unfocus... / responses
+         become editable somehow.
+  - [x] Make sure history works among the different prompts.
+  - [x] Line breaks 
+  - [x] Add some basic conversational support
   - [x] Write new characters / adapt old ones into separate commands.
   - [x] Fix mobile UI.
   - [x] Break prompt programs into multiple commands / characters.
