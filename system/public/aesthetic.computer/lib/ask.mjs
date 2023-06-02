@@ -82,7 +82,7 @@ export class Conversation {
 
     const timeoutPromise = new Promise((resolve, reject) => {
       timeout = setTimeout(() => {
-        this.controller.abort();
+        this.controller?.abort();
         reject(new Error(`Reply timed out after 10 seconds!`));
       }, 10 * 1000);
     });

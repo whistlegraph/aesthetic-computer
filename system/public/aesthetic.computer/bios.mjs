@@ -30,7 +30,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   window.acCONTENT_EVENTS = [];
 
-  let pen, keyboard;
+  let pen, keyboard, keyboardFocusLock;
   let handData; // Hand-tracking.
 
   // let frameCount = 0;
@@ -1152,63 +1152,85 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         });
 
-        let touching = false;
-        let keyboardOpen = false;
+        //let touching = false;
+        //let keyboardOpen = false;
 
         // TODO: The input element could be created and added to the DOM here
         //       if it didn't already exist?
-        window.addEventListener("touchstart", () => (touching = true));
+        //window.addEventListener("touchstart", () => (touching = true));
 
         window.addEventListener("focusout", (e) => {
-          if (keyboardOpen) {
-            keyboard.events.push({ name: "keyboard:close" });
-            keyboardOpen = false;
-          }
+          //if (keyboardOpen) {
+          // keyboard.events.push({ name: "keyboard:close" });
+          //keyboardOpen = false;
+          input.blur();
         });
 
         // Make a pointer "tap" gesture with an `inTime` window of 250ms to
         // trigger the keyboard on all browsers.
-        let down = false;
         // let downPos;
-        let inTime = false;
 
         window.addEventListener("pointerdown", (e) => {
+          // if (currentPieceHasTextInput) {
+          //   down = true;
+          //   // downPos = { x: e.x, y: e.y };
+          //   inTime = true;
+          //   clearTimeout(inTimer);
+          //   inTimer = setTimeout(() => (inTime = false), 500);
+          //   e.preventDefault();
+          // }
           if (currentPieceHasTextInput) {
-            down = true;
-            // downPos = { x: e.x, y: e.y };
-            inTime = true;
-            setTimeout(() => (inTime = false), 500);
             e.preventDefault();
           }
         });
 
-        window.addEventListener("pointerup", (e) => {
-          if (
-            down &&
-            // dist(downPos.x, downPos.y, e.x, e.y) < 32 && // Distance threshold for opening keyboard.
-            inTime &&
-            currentPieceHasTextInput
-            // Refactoring the above could allow iframes to capture keyboard events.
-            // via sending things from input... 22.10.24.17.16, 2022.04.07.02.10
-          ) {
-            if (document.activeElement === input) {
-              input.blur();
-            } else {
-              input.focus();
-            }
+        let hasFocus = false;
 
-            if (touching) {
-              touching = false;
-              keyboard.events.push({ name: "keyboard:open" });
-              keyboardOpen = true;
-            }
-            down = false;
-            e.preventDefault();
+        window.addEventListener("pointerup", (e) => {
+          // if (
+          //   down &&
+          //   // dist(downPos.x, downPos.y, e.x, e.y) < 32 && // Distance threshold for opening keyboard.
+          //   inTime &&
+          //   currentPieceHasTextInput
+          //   // Refactoring the above could allow iframes to capture keyboard events.
+          //   // via sending things from input... 22.10.24.17.16, 2022.04.07.02.10
+          // ) {
+          //   if (hasFocus) {
+          //     input.blur();
+          //   } else {
+          //     input.focus();
+          //   }
+          // input.focus();
+
+          //   if (touching) {
+          //     touching = false;
+          //     keyboard.events.push({ name: "keyboard:open" });
+          //     keyboardOpen = true;
+          //   }
+          //   down = false;
+          //   e.preventDefault();
+          // }
+
+          if (currentPieceHasTextInput) e.preventDefault();
+
+          if (
+            currentPieceHasTextInput &&
+            !keyboardFocusLock &&
+            hasFocus === false &&
+            document.activeElement !== input
+          ) {
+            input.focus();
           }
         });
 
         input.addEventListener("focus", (e) => {
+          hasFocus = true;
           keyboard.events.push({ name: "typing-input-ready" });
+        });
+
+        input.addEventListener("blur", (e) => {
+          hasFocus = false;
+          keyboard.events.push({ name: "typing-input-unready" });
         });
       }
 
@@ -1470,6 +1492,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "text-input-enabled") {
       currentPieceHasTextInput = true;
+      return;
+    }
+
+    if (type === "text-input-request-focus") {
+      if (document.activeElement !== keyboard?.input) {
+        keyboard?.input.focus();
+      }
+      return;
+    }
+
+    if (type === "text-input-request-blur") {
+      keyboard?.input.blur();
+      return;
+    }
+
+    if (type === "text-input-focus-lock") {
+      keyboardFocusLock = true;
+      return;
+    }
+
+    if (type === "text-input-focus-unlock") {
+      keyboardFocusLock = false;
       return;
     }
 
