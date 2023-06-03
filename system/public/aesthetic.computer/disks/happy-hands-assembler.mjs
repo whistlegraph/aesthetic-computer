@@ -40,6 +40,7 @@ const handPalette = {
   p: "pink", // Pinky, pink
 };
 const lastOrigin = [];
+let beep = false; 
 
 // 🥾 Boot (Runs once before first paint and sim)
 async function boot({ wipe, params, screen, store }) {
@@ -83,6 +84,7 @@ function paint({
   paintCount,
   video,
   write,
+  num,
 }) {
   // Start video feed once for webcam hand-tracking on mobile and desktop.
   // (And recalibrate if resized.)
@@ -158,13 +160,29 @@ function paint({
       box(coord[0], coord[1], boxSize, boxType);
     });
 
+    //Interactions
+    let tiLine = ink((255, 0, 0)).poly([scaled[4], scaled[8]]); //line between thumb and index
+
     const timop = [scaled[4], scaled[8], scaled[12], scaled[16], scaled[20]];
     [..."timop"].forEach((letter, index) => {
       const coord = timop[index].slice(); // Make a copy of the coords.
       coord[0] += -3;
       coord[1] += -5;
-      ink("white").write(letter, coord, handPalette[letter]);
+      if ((tiLine && letter === "i") || letter === "t") { //if there is a line between 2 points
+        if (num.dist(scaled[4][0],scaled[4][1],scaled[8][0],scaled[8][1]) < 16) { //if the line is less than a certain length 
+          ink("white").write(letter, coord, "red");
+          tiLine = ink("red").poly([scaled[4], scaled[8]]);
+          beep = true; 
+        }else{ 
+          ink("white").write(letter, coord, handPalette[letter]);
+          tiLine = ink("green").poly([scaled[4], scaled[8]]);
+          beep = false; 
+        }
+      } else {
+        ink("white").write(letter, coord, handPalette[letter]);
+      }
     });
+
     // loop through timop and draw all the letters
   } else {
     // 2. Or... default to a generated model of a hand.
@@ -215,11 +233,33 @@ function paint({
   }
 }
 
+
 // ✒ Act (Runs once per user interaction)
 function act({ event }) {
-  if (event.is("move")){ //anytime a mouse moves
+  if (event.is("move")) {
+    //anytime a mouse moves
     lastOrigin.length = 0;
   }
+}
+
+let beatCount = 0n;
+
+// 🥁 Beat
+function beat({ sound: { square, bpm }, num}) {
+  if (beatCount === 0n) {
+    bpm(180); // Set bpm to 3600 ~ 60fps
+  }
+
+  if (beep) {
+    square({
+      tone: num.randIntRange(400, 800),
+      beats: 0.25,
+      decay: 0.99,
+    });
+    beep = false;
+  }
+
+  beatCount += 1n;
 }
 
 // Tab title and meta description of this piece.
@@ -230,7 +270,7 @@ function meta() {
   };
 }
 
-export { boot, paint, meta, act };
+export { boot, paint, act, beat, meta };
 
 // 📚 Library (Useful functions used throughout the piece)
 
