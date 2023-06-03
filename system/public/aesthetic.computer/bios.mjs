@@ -3284,10 +3284,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
   }
 
-  // Full Focus / Visibility
+  // Window Focus
+  window.addEventListener("focusout", function (e) {
+    send({ type: "focus-change", content: false });
+  });
+
+  window.addEventListener("focusin", function (e) {
+    send({ type: "focus-change", content: true });
+  });
+
+  // Window Visibility
   document.addEventListener("visibilitychange", function () {
     send({
-      type: "focus-change",
+      type: "visibility-change",
       content: !document.hidden,
     });
   });

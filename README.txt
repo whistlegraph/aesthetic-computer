@@ -86,16 +86,12 @@
 
 *** `prompt` system ***
   + UI Gripes
-  - [] Pressing "done" on iOS keyboard should trigger a handler.
+  - [-] Test typing flow and remove code cruft unused handlers and messages.
   - [-] While using word break, words that break at the end of the line cause an extra space at the beginning of the next line.
   - [] New words after a line break are not separated alongside the following word
-
- - [] The home page button says `start` and you have to press that to start typing. Once you've started the button becomes `go`, and tapping the screen just gets the keyboard up or down
-
-  - [] Make `alphapoet` non-conversational
-  - [] Can you get rid of "done"
-  - [] Change `network failure` to `try again`?
-
+  - [] Pressing "done" on iOS keyboard should trigger a handler.
+    - [] Can you get rid of "done" altogether?
+  + Later
   - [] How to deal with longer responses?
   - [] Better `forgetting` of conversations. 
   - [] Keep track of replies somehow? 
@@ -113,6 +109,8 @@
     - [] 1/3 New synth wav types!
     - [] Custom SFX / sampling.
   + Done
+  - [x] Make `alphapoet` non-conversational
+  - [x] The home page button says `start` and you have to press that to start typing. Once you've started the button becomes `go`, and tapping the screen just gets the keyboard up or down
   - [x] Mobile tap to open keyboard should function better...
     - [x] Tap should not delete the character's response to user.
     - [x] Tap on mobile just brings the keyboard up and down.

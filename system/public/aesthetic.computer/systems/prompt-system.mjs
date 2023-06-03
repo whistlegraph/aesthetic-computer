@@ -71,6 +71,7 @@ export async function prompt_boot(
             input.cursor = "stop";
           }
           messageComplete = true;
+          input.showButton("Retry?");
           processing = input.lock = false;
         }
       );

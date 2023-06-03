@@ -2010,6 +2010,27 @@ async function makeFrame({ data: { type, content } }) {
     }
   }
 
+  if (type === "visibility-change") {
+    // 🧨 Just in case of a regression... 23.06.02.21.12
+    //    Because the `bios` focus event changed from visibility behavior.
+    // if (!lastActAPI) return; // Hacky... 23.04.21.14.59
+    // const $api = lastActAPI; // Focus change events have an empty API.
+    // if (content !== inFocus) {
+    //   inFocus = content;
+    //   const data = {};
+    //   Object.assign(data, {
+    //     device: "none",
+    //     is: (e) => e === (inFocus === true ? "focus" : "defocus"),
+    //   });
+    //   $api.event = data;
+    //   try {
+    //     act($api);
+    //   } catch (e) {
+    //     console.warn("️ ✒ Act failure...", e);
+    //   }
+    // }
+  }
+
   if (type === "before-unload") {
     // This has to be synchronous (no workers) to work, and is also often unreliable.
     // I should not design around using this event, other than perhaps

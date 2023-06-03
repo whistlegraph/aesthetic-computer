@@ -69,7 +69,7 @@ class Typeface {
     const rotation = pos.rotation || 0;
 
     if (Array.isArray(pos)) {
-      pos = {x: pos[0], y: pos[1]}
+      pos = { x: pos[0], y: pos[1] };
     }
 
     // Set x, y position and override if centering is specified.
@@ -187,7 +187,7 @@ class TextInput {
     const {
       ui: { TextButton: TB },
     } = $;
-    this.go = new TB("Reply");
+    this.go = new TB("Start");
 
     if (this.text.length === 0) {
       this.go.btn.disabled = true;
@@ -301,7 +301,16 @@ class TextInput {
     // Reply + Go Button
     if (!this.go.btn.disabled) {
       this.go.reposition({ right: 6, bottom: 6, screen: frame });
-      this.go.paint({ ink: $.ink });
+      if (this.go.txt === "Go") {
+        this.go.paint({ ink: $.ink }, [
+          [0, 100, 0],
+          [0, 255, 0, 150],
+          [0, 200, 0],
+          [0, 50, 0, 0],
+        ]);
+      } else { // "Start" or "Retry"
+        this.go.paint({ ink: $.ink });
+      }
     }
 
     // Return false if we have loaded every glyph.
@@ -330,9 +339,9 @@ class TextInput {
     if (this.canType) this.blink.step();
   }
 
-  showButton() {
+  showButton(txt) {
     this.go.btn.disabled = false;
-    this.go.txt = "Reply";
+    this.go.txt = txt || "Start";
   }
 
   // Forget the original finished message.
@@ -492,29 +501,36 @@ class TextInput {
     // Handle activation / focusing of the input
     // (including os-level software keyboard overlays)
     if (e.is("typing-input-ready")) {
-      this.canType = true;
-      if (this.#firstInputReady) {
-        // this.text = "";
-        this.#firstInputReady = false;
-        if (this.text.length > 0) {
-          this.cursor = "stop";
-        } else {
-          this.blink?.flip(true);
-        }
-      }
+      // this.canType = true;
+      // if (this.#firstInputReady) {
+      //   this.#firstInputReady = false;
+      //   if (this.text.length > 0) {
+      //     this.cursor = "stop";
+      //   } else {
+      //     this.blink?.flip(true);
+      //   }
+      // }
     }
 
     if (e.is("typing-input-unready")) {
-      this.#firstInputReady = false;
-      this.canType = false;
+      // this.#firstInputReady = false;
+      // this.canType = false;
+      // if (this.text.length === 0) {
+      //   this.#firstInputReady = true;
+      //   this.text = this.lastText;
+      //   this.didReset?.();
+      //   if (this.text.length > 0) this.showButton();
+      // }
+    }
 
-      if (this.text.length === 0) {
-        this.#firstInputReady = true;
-        this.text = this.lastText;
-        this.didReset?.();
-        if (this.text.length > 0) this.showButton();
-        // this.cursor = "stop";
-      }
+    if (e.is("focus")) {
+      console.log("focus");
+      this.canType = true;
+    }
+
+    if (e.is("defocus")) {
+      console.log("defocus");
+      this.canType = false;
     }
 
     if (e.is("touch") && !this.lock) {
@@ -551,14 +567,14 @@ class TextInput {
           this.#inTime = false;
           $.send({ type: "text-input-focus-unlock" });
         },
-      }); // Track "Reply" / "Edit" buttons.
-    }
-
-    if (e.is("lift") && this.#inTime === true) {
-      $.send({
-        type: `text-input-request-${!this.canType ? "focus" : "blur"}`,
       });
     }
+
+    // if (e.is("lift") && this.#inTime === true) {
+      // $.send({
+      //   type: `text-input-request-${!this.canType ? "focus" : "blur"}`,
+      // });
+    // }
 
     if (e.is("touch") && !this.lock) this.blink?.flip(true);
 
