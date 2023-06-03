@@ -40,7 +40,7 @@ const handPalette = {
   p: "pink", // Pinky, pink
 };
 const lastOrigin = [];
-let beep = false; 
+let beep = false;
 
 // 🥾 Boot (Runs once before first paint and sim)
 async function boot({ wipe, params, screen, store }) {
@@ -159,24 +159,28 @@ function paint({
       }
       box(coord[0], coord[1], boxSize, boxType);
     });
-
     //Interactions
     let tiLine = ink((255, 0, 0)).poly([scaled[4], scaled[8]]); //line between thumb and index
 
     const timop = [scaled[4], scaled[8], scaled[12], scaled[16], scaled[20]];
+    touching(timop, num);
     [..."timop"].forEach((letter, index) => {
       const coord = timop[index].slice(); // Make a copy of the coords.
       coord[0] += -3;
       coord[1] += -5;
-      if ((tiLine && letter === "i") || letter === "t") { //if there is a line between 2 points
-        if (num.dist(scaled[4][0],scaled[4][1],scaled[8][0],scaled[8][1]) < 16) { //if the line is less than a certain length 
+      if ((tiLine && letter === "i") || letter === "t") {
+        //if there is a line between 2 points
+        if (
+          num.dist(scaled[4][0], scaled[4][1], scaled[8][0], scaled[8][1]) < 16
+        ) {
+          //if the line is less than a certain length
           ink("white").write(letter, coord, "red");
           tiLine = ink("red").poly([scaled[4], scaled[8]]);
-          beep = true; 
-        }else{ 
+          beep = true;
+        } else {
           ink("white").write(letter, coord, handPalette[letter]);
           tiLine = ink("green").poly([scaled[4], scaled[8]]);
-          beep = false; 
+          beep = false;
         }
       } else {
         ink("white").write(letter, coord, handPalette[letter]);
@@ -233,7 +237,6 @@ function paint({
   }
 }
 
-
 // ✒ Act (Runs once per user interaction)
 function act({ event }) {
   if (event.is("move")) {
@@ -245,7 +248,7 @@ function act({ event }) {
 let beatCount = 0n;
 
 // 🥁 Beat
-function beat({ sound: { square, bpm }, num}) {
+function beat({ sound: { square, bpm }, num }) {
   if (beatCount === 0n) {
     bpm(180); // Set bpm to 3600 ~ 60fps
   }
@@ -295,6 +298,57 @@ function digit(from, segCount, deg = 0, curve = 0) {
     }
   }
   return segs;
+}
+
+//merge array of touching points
+function mergeTouchingPoints(points) {
+  const mergedPoints = [];
+
+  for (let i = 0; i < points.length; i++) {
+    const currentPoint = points[i];
+    let merged = false;
+
+    for (let j = 0; j < mergedPoints.length; j++) {
+      const group = mergedPoints[j];
+
+      if (group.includes(currentPoint[0]) || group.includes(currentPoint[1])) {
+        group.push(currentPoint[0], currentPoint[1]);
+        merged = true;
+        break;
+      }
+    }
+
+    if (!merged) {
+      mergedPoints.push([...currentPoint]);
+    }
+  }
+
+  return mergedPoints;
+}
+
+//Param tips is array of tip points from thumb - pinky, scaled[4,8,12,16,20]
+function touching(tips, num) {
+  let touchedTips = [];
+  let mergedTips;
+
+  let timop = ["t", "i", "m", "o", "p"];
+  //compare every point to each other
+  for (let i = 0; i < tips.length; i++) {
+    for (let j = i + 1; j < tips.length; j++) {
+      let distance = num.dist(tips[i][0], tips[i][1], tips[j][0], tips[j][1]);
+      if (distance < 20) {
+        //if distance between points less than 16 pixels, group points together
+        touchedTips.push([timop[i] + " and " + timop[j], tips[i], tips[j]]);
+      }
+    }
+  }
+  if (touchedTips.length > 1) {
+    mergedTips = mergeTouchingPoints(touchedTips);
+  } else if (touchedTips.length > 0) {
+    console.log("The tips that are touching:" + touchedTips[0][0]);
+    return touchedTips;
+  }
+  return mergedTips;
 }
 
 /*
