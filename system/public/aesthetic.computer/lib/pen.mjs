@@ -180,6 +180,7 @@ export class Pen {
         pointer.pressure = reportPressure(e);
         pointer.button = e.button; // Should this be deprecated? 22.11.07.22.13
         pointer.buttons = [e.button];
+        // pointer.buttons = [e.button];
         pointer.device = e.pointerType;
         pointer.pointerId = e.pointerId;
         pointer.isPrimary = e.isPrimary;

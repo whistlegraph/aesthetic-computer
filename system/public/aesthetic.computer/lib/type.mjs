@@ -72,6 +72,12 @@ class Typeface {
       pos = { x: pos[0], y: pos[1] };
     }
 
+    // Randomize pos.x and pos.y if undefined.
+    if (pos.center === undefined) {
+      if (pos.x === undefined) pos.x = $.num.randInt($.screen.width);
+      if (pos.y === undefined) pos.y = $.num.randInt($.screen.height);
+    }
+
     // Set x, y position and override if centering is specified.
     let x = pos.x || 0,
       y = (pos.y || 0) + lineNumber * blockHeight;
