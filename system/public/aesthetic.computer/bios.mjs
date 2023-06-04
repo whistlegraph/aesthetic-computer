@@ -30,7 +30,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   window.acCONTENT_EVENTS = [];
 
-  let pen, keyboard, keyboardFocusLock;
+  let pen,
+    keyboard,
+    keyboardFocusLock = true;
   let handData; // Hand-tracking.
 
   // let frameCount = 0;
@@ -39,7 +41,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   let diskSupervisor;
   let currentPiece = null; // Gets set to a path after `loaded`.
-  let currentPieceHasTextInput = false;
+  let currentPieceHasKeyboard = false;
 
   // Media Recorder
   let mediaRecorder, mediaRecorderDataHandler, mediaRecorderBlob; // Holds the last generated recording.
@@ -631,7 +633,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         };
 
         updateSound = function (data) {
-          console.log(data);
           soundProcessor.port.postMessage({ type: "update", data });
         };
 
@@ -1171,66 +1172,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // let downPos;
 
         window.addEventListener("pointerdown", (e) => {
-          // if (currentPieceHasTextInput) {
-          //   down = true;
-          //   // downPos = { x: e.x, y: e.y };
-          //   inTime = true;
-          //   clearTimeout(inTimer);
-          //   inTimer = setTimeout(() => (inTime = false), 500);
-          //   e.preventDefault();
-          // }
-          if (currentPieceHasTextInput) {
-            e.preventDefault();
-          }
+          if (currentPieceHasKeyboard) e.preventDefault();
         });
 
-        let hasFocus = false;
-
         window.addEventListener("pointerup", (e) => {
-          // if (
-          //   down &&
-          //   // dist(downPos.x, downPos.y, e.x, e.y) < 32 && // Distance threshold for opening keyboard.
-          //   inTime &&
-          //   currentPieceHasTextInput
-          //   // Refactoring the above could allow iframes to capture keyboard events.
-          //   // via sending things from input... 22.10.24.17.16, 2022.04.07.02.10
-          // ) {
-          //   if (hasFocus) {
-          //     input.blur();
-          //   } else {
-          //     input.focus();
-          //   }
-          // input.focus();
-
-          //   if (touching) {
-          //     touching = false;
-          //     keyboard.events.push({ name: "keyboard:open" });
-          //     keyboardOpen = true;
-          //   }
-          //   down = false;
-          //   e.preventDefault();
-          // }
-
-          if (currentPieceHasTextInput) e.preventDefault();
-
-          if (
-            currentPieceHasTextInput &&
-            !keyboardFocusLock &&
-            hasFocus === false &&
-            document.activeElement !== input
-          ) {
-            input.focus();
+          if (currentPieceHasKeyboard) e.preventDefault();
+          if (currentPieceHasKeyboard && !keyboardFocusLock) {
+            document.activeElement !== input ? input.focus() : input.blur();
           }
         });
 
         input.addEventListener("focus", (e) => {
-          hasFocus = true;
-          keyboard.events.push({ name: "typing-input-ready" });
+          keyboard.events.push({ name: "keyboard:open" });
         });
 
         input.addEventListener("blur", (e) => {
-          hasFocus = false;
-          keyboard.events.push({ name: "typing-input-unready" });
+          keyboard.events.push({ name: "keyboard:close" });
         });
       }
 
@@ -1310,7 +1267,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "disk-loaded") {
       currentPiece = content.path;
-      currentPieceHasTextInput = false;
+      currentPieceHasKeyboard = false;
 
       // Initialize some global stuff after the first piece loads.
       // Unload some already initialized stuff if this wasn't the first load.
@@ -1490,29 +1447,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    if (type === "text-input-enabled") {
-      currentPieceHasTextInput = true;
+    if (type === "keyboard:enabled") {
+      currentPieceHasKeyboard = true;
       return;
     }
 
-    if (type === "text-input-request-focus") {
-      if (document.activeElement !== keyboard?.input) {
-        keyboard?.input.focus();
-      }
-      return;
-    }
-
-    if (type === "text-input-request-blur") {
+    if (type === "keyboard:close") {
       keyboard?.input.blur();
       return;
     }
 
-    if (type === "text-input-focus-lock") {
+    if (type === "keyboard:lock") {
       keyboardFocusLock = true;
       return;
     }
 
-    if (type === "text-input-focus-unlock") {
+    if (type === "keyboard:unlock") {
       keyboardFocusLock = false;
       return;
     }
@@ -3285,12 +3235,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   // Window Focus
-  window.addEventListener("focusout", function (e) {
+  // window.addEventListener("focusout", function (e) {
+  // console.log("window focus out");
+  // });
+
+  window.addEventListener("focus", function (e) {
+    console.log("window focused!");
+    send({ type: "focus-change", content: true });
+  });
+
+  window.addEventListener("blur", function (e) {
+    console.log("window blurrred!");
     send({ type: "focus-change", content: false });
   });
 
   window.addEventListener("focusin", function (e) {
-    send({ type: "focus-change", content: true });
+    //console.log("window focus in");
+    //send({ type: "focus-change", content: true });
   });
 
   // Window Visibility

@@ -44,35 +44,45 @@ export async function prompt_boot(
       }
 
       input.lock = true;
+      input.go.btn.disabled = true;
       const halted = await halt?.($, text);
-      input.lock = false;
+      if (!$.jumping()) {
+        // input.lock = false;
+      }
       if (halted) return; // No more processing necessary.
 
-      input.blank();
       processing = input.lock = true;
       abortMessage = "NETWORK FAILURE";
+
+      $.send({ type: "keyboard:close" });
+      $.send({ type: "keyboard:lock" });
+
+      input.inputStarted = false;
+      input.canType = false;
+      let firstAnd = true; // Clear the text on first reply.
 
       abort = conversation.ask(
         { prompt: text, program, hint },
         function and(msg) {
-          input.text += msg;
+          input.text = firstAnd ? msg : input.text + msg;
+          firstAnd = false;
         },
         function done() {
-          input.cursor = "stop";
           messageComplete = true;
           processing = input.lock = false;
-          input.showButton();
           reply?.(input.text);
+          input.showButton("Prompt");
         },
         function fail() {
           input.text = abortMessage;
+          processing = input.lock = false;
+          input.canType = true;
           if (input.text.length === 0) {
           } else {
             input.cursor = "stop";
+            messageComplete = true;
+            input.showButton("Back");
           }
-          messageComplete = true;
-          input.showButton("Retry?");
-          processing = input.lock = false;
         }
       );
     },
@@ -109,7 +119,6 @@ export function prompt_act($) {
     !messageComplete &&
     processing &&
     (e.is("keyboard:down:escape") ||
-      //e.is("touch") ||
       (e.is("keyboard:down:`") && slug === "prompt"))
   ) {
     abort?.();
@@ -119,10 +128,15 @@ export function prompt_act($) {
   let inputHandled = false;
 
   // Whitelist events for tracking the TextInput.
+  // Note: Any event typed added to `TextInput` -> `act` must be
+  //       whitelisted here. 💬
   if (
     e.is("move") ||
+    e.is("draw") ||
     e.is("touch") ||
     e.is("lift") ||
+    e.is("focus") ||
+    e.is("defocus") ||
     e.is("typing-input-ready") ||
     e.is("typing-input-unready")
   ) {

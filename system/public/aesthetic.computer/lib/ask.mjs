@@ -66,7 +66,7 @@ export class Conversation {
     const signal = this.controller.signal;
 
     const host = DEBUG
-      ? "https://localhost:9000"
+      ? `` // Just use current host, via `netlify.toml`.
       : "https://ai.aesthetic.computer";
 
     const responsePromise = fetch(`${host}/api/ask`, {

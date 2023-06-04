@@ -62,37 +62,19 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `whistle` ***
-  - [🎵] Whistle into the aesthetic.computer and get sine wave notes back.
-  - [🔉] Proper oscillator phase shifting / tone updates.
-  + Done
-  - [x] Add sine wave to speaker.
-  - [x] Add boilerplate `whistle` code from `microphone`.
-  - [x] Integrate pitch recognition with:
-    - [x] https://github.com/bojan88/WASM-vs-JS-Pitch-detector
-      - [x] Integrate pitch recognition processor into Microphone / Disk API.
-      - [x] Get JS audioWorklet version working.
-  // Cancelled
-    - [n] https://tfhub.dev/google/tfjs-model/spice/2/default/1
-      - [n] Match the samples / check the accuracy of the example.
-      - [x] Example in : `spice-tensorflow.html`
-      - [x] Why does this crash the tab? (Seems to crash on linux.)
-        - [x] Make the example async / frame-skipping. 
-    - [n] https://editor.p5js.org/ml5/sketches/PitchDetection 
-      - [n] See if this works better than `spice`. 
-
 *** `handprint` ***
   - [] Make a little happy hands style paint brush.
 
 *** `prompt` system ***
   + UI Gripes
-  - [-] Test typing flow and remove code cruft unused handlers and messages.
+  - [😆] Tapping corner word should immediately bring up keyboard.
   - [-] While using word break, words that break at the end of the line cause an extra space at the beginning of the next line.
   - [] New words after a line break are not separated alongside the following word
-  - [] Pressing "done" on iOS keyboard should trigger a handler.
-    - [] Can you get rid of "done" altogether?
+  - [] More pixel accurate text scrubbing.
+
   + Later
-  - [] How to deal with longer responses?
+  - [-] How to deal with longer responses?
+    - [] Add 'copy" and "cancel" buttons?
   - [] Better `forgetting` of conversations. 
   - [] Keep track of replies somehow? 
   - [] Keep character names in the corner?
@@ -109,6 +91,10 @@
     - [] 1/3 New synth wav types!
     - [] Custom SFX / sampling.
   + Done
+  - [x] Pressing "done" on iOS keyboard should trigger a handler.
+  - [x] Test typing flow and remove code cruft unused handlers and messages.
+  - [x] Dragging text should stop keyboard removal on mobile.
+  - [x] Remove red square from finished responses.
   - [x] Make `alphapoet` non-conversational
   - [x] The home page button says `start` and you have to press that to start typing. Once you've started the button becomes `go`, and tapping the screen just gets the keyboard up or down
   - [x] Mobile tap to open keyboard should function better...
@@ -143,6 +129,9 @@
   - [x] Make the main `prompt` part of the prompt system now.
 
 *** `scream` ***
+  - [] Get JamSocket working again.
+  - [] And also get notifications working!
+
   - [] Visualize the socket connection to make everything faster in production.
      - [] Possibly the bottleneck is in connecting to JamSocket?
   - [-] Finish list in `scream`.
@@ -153,6 +142,29 @@
 
 *** Overall Rendering ***
    - [] Fix pixel imperfect rendering / scaling especially noticeable on iOS.
+
+*** `whistle` ***
+  - [-] Get working on mobile.
+  - [-] Allow users to send whistles / instrumentalize whistles
+       somehow...
+  - [] See `whistle`.
+  + Done
+  - [x] Whistle into the aesthetic.computer and get sine wave notes back.
+  - [x] Proper oscillator phase shifting / tone updates.
+  - [x] Add sine wave to speaker.
+  - [x] Add boilerplate `whistle` code from `microphone`.
+  - [x] Integrate pitch recognition with:
+    - [x] https://github.com/bojan88/WASM-vs-JS-Pitch-detector
+      - [x] Integrate pitch recognition processor into Microphone / Disk API.
+      - [x] Get JS audioWorklet version working.
+  // Cancelled
+    - [n] https://tfhub.dev/google/tfjs-model/spice/2/default/1
+      - [n] Match the samples / check the accuracy of the example.
+      - [x] Example in : `spice-tensorflow.html`
+      - [x] Why does this crash the tab? (Seems to crash on linux.)
+        - [x] Make the example async / frame-skipping. 
+    - [n] https://editor.p5js.org/ml5/sketches/PitchDetection 
+      - [n] See if this works better than `spice`. 
 
 *** Viral Checklist ***
   - [] Display current user count on rooms if > 0 users are online.
@@ -254,7 +266,7 @@
     + Next
     - [] Aggregator API / social features / turn-based painting.
 
-*** Happy Hands (June 1st) 🖐️😃 ***
+*** Happy Hands 🖐️😃 ***
   😎 Now
     - [-] See `happy-hands-assembler` 
     + Done

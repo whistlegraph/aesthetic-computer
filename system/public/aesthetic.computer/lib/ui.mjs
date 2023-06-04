@@ -97,7 +97,7 @@ class Button {
 
     // 1. Down: Enable the button if we touched over it.
     if (e.is("touch:any") && this.box.contains(e) && !this.down) {
-      callbacks.down?.();
+      callbacks.down?.(this);
       this.down = true;
     }
 
@@ -107,10 +107,10 @@ class Button {
         (pens.length > 0 && this.box.onlyContains(e.pointer - 1, pens)) ||
         this.box.contains(e)
       ) {
-        callbacks.push?.();
+        callbacks.push?.(this);
         this.down = false;
       } else if (this.box.containsNone(pens) || !this.box.contains(e)) {
-        callbacks.cancel?.();
+        callbacks.cancel?.(this);
         this.down = false;
       }
     }
@@ -120,7 +120,7 @@ class Button {
 
     // 4. Rollover: Run a rollover event if dragged on.
     if (e.is("draw:any") && !this.down && this.box.contains(e)) {
-      callbacks.rollover?.();
+      callbacks.rollover?.(this);
     }
 
     // 5. Rollout: Run a rollout event if dragged off.
@@ -130,7 +130,7 @@ class Button {
       !this.box.contains(e) &&
       this.box.containsNone(pens)
     ) {
-      callbacks.rollout?.();
+      callbacks.rollout?.(this);
     }
   }
 

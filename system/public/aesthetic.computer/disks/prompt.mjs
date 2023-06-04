@@ -31,7 +31,6 @@ If I type 'linr' for example, you say 'how bout typing line instead :P'. If I ty
 
 
 If I type something like 'tree' or 'dog', which isn't directly related to any of the commands, or if I type random letters, you respond: 'hmm I'm stumped. type list to explore' and make sure all letters are lower case.
-
 `;
 
 // const before = `
@@ -57,6 +56,7 @@ If I type something like 'tree' or 'dog', which isn't directly related to any of
 // Here is what I have typed in:`;
 
 const after = ``;
+const forgetful = true;
 
 import { Desktop, MetaBrowser } from "../lib/platform.mjs";
 import { validateHandle } from "../lib/text.mjs";
@@ -333,7 +333,7 @@ async function halt($, text) {
 }
 
 // 🥾 Boot
-function boot({ glaze, api, system, pieceCount }) {
+function boot({ glaze, api, system, pieceCount, send }) {
   glaze({ on: true });
 
   if (
@@ -348,9 +348,11 @@ function boot({ glaze, api, system, pieceCount }) {
 
   // Activate and reset input text if returning to the prompt from elsewhere.
   if (pieceCount > 0) {
-    if (Desktop) system.prompt.input.canType = true;
+    system.prompt.input.canType = true;
     system.prompt.input.text = "";
     system.prompt.input.go.btn.disabled = true; // Disable button.
+    system.prompt.input.inputStarted = true;
+    send({ type: "keyboard:unlock" });
   }
 }
 
@@ -450,7 +452,7 @@ function meta() {
   };
 }
 
-export { before, after, halt, boot, paint, sim, act, meta };
+export { before, after, forgetful, halt, boot, paint, sim, act, meta };
 export const system = "prompt:character"; // or "prompt:code"
 
 // Prompt configuration overrides.

@@ -1711,6 +1711,8 @@ async function load(
       : () => load(parse(to), ahistorical, alias);
   };
 
+  $commonApi.jumping = () => leaving;
+
   $commonApi.alias = function alias(name, colon, params) {
     $commonApi.jump(
       name +
@@ -1780,7 +1782,7 @@ async function load(
               after: module.after,
             },
             hint: module.system.split(":")[1], // See `ask.ts`.
-            forgetful: module.forgetful || false
+            forgetful: module.forgetful || false,
           },
           module.reply,
           module.halt,
@@ -2697,13 +2699,16 @@ async function makeFrame({ data: { type, content } }) {
           act($api);
 
           // Always check to see if there was a tap on the corner.
-          const { event: e, jump } = $api;
+          const { event: e, jump, send } = $api;
           let originalColor;
 
+          // TODO: Show keyboard immediately when returning to prompt.
           currentHUDButton?.act(e, {
             down: () => {
               originalColor = currentHUDTextColor;
               currentHUDTextColor = [0, 255, 0];
+              // send({ type: "keyboard:enabled" }); // Tricky enabling of keyboard flag.
+              // send({ type: "keyboard:unlock" });
             },
             push: () => {
               jump("prompt");
@@ -2713,6 +2718,13 @@ async function makeFrame({ data: { type, content } }) {
             },
             cancel: () => {
               currentHUDTextColor = originalColor;
+              // send({ type: "keyboard:lock" });
+            },
+            rollover: (btn) => {
+              // if (btn) send({ type: "keyboard:unlock" });
+            },
+            rollout: () => {
+              // send({ type: "keyboard:lock" });
             },
           });
         } catch (e) {

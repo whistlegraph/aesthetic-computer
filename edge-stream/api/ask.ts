@@ -8,6 +8,12 @@ import { corsHeaders } from "../help.mjs";
 export default async function handler(req) {
   const headers = corsHeaders(req);
 
+  if (req.method === "GET") {
+    return new Response("Wrong method.", {
+      headers: { "Content-Type": "text/plain", ...headers },
+    });
+  }
+
   if (req.method === "OPTIONS") {
     return new Response("Success!", {
       headers: { "Content-Type": "text/plain", ...headers },

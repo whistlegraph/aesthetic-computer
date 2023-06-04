@@ -150,6 +150,14 @@
   to = "/.netlify/functions/presigned-url"
   status = 200
   force = true
+# 📔 development only redirects (will deploy to, but won't route in production)
+# 23.06.03.22.47 - Eventually netlify may add this: https://answers.netlify.com/t/using-different-redirects-across-different-contexts-environments/2524/19 
+[[redirects]]
+  from = "/api/ask"
+  to = "http://localhost:3000/api/ask"
+  status = 200
+  force = false
+# This should be a 404...
 [[redirects]]
   from = "/*"
   to = "/.netlify/builders/index"
