@@ -46,9 +46,7 @@ export async function prompt_boot(
       input.lock = true;
       input.go.btn.disabled = true;
       const halted = await halt?.($, text);
-      if (!$.jumping()) {
-        // input.lock = false;
-      }
+      if (!$.jumping()) { input.lock = false; }
       if (halted) return; // No more processing necessary.
 
       processing = input.lock = true;

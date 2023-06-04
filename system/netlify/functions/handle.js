@@ -34,8 +34,6 @@ export async function handler(event, context) {
   let body;
   try {
     // Make sure we have a username present to set.
-    debugger;
-
     body = JSON.parse(event.body);
 
     const handle = body.handle;

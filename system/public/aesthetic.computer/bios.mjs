@@ -3235,23 +3235,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   // Window Focus
-  // window.addEventListener("focusout", function (e) {
-  // console.log("window focus out");
-  // });
-
   window.addEventListener("focus", function (e) {
-    console.log("window focused!");
     send({ type: "focus-change", content: true });
   });
 
+  // Window Blur
   window.addEventListener("blur", function (e) {
-    console.log("window blurrred!");
     send({ type: "focus-change", content: false });
-  });
-
-  window.addEventListener("focusin", function (e) {
-    //console.log("window focus in");
-    //send({ type: "focus-change", content: true });
   });
 
   // Window Visibility
