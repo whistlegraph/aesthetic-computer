@@ -36,7 +36,7 @@ function paint({ wipe, ink, line, write, user, box, pen }) {
   ink("red");
   line();
   ink("black");
-  write(user.email, { center: "xy" }, "cyan");
+  write(user?.email || "no user", { center: "xy" }, "cyan");
 
   if (pen) {
     bx = pen.x - bw / 2;
