@@ -46,7 +46,9 @@ export async function prompt_boot(
       input.lock = true;
       input.go.btn.disabled = true;
       const halted = await halt?.($, text);
-      if (!$.jumping()) { input.lock = false; }
+      if (!$.jumping()) {
+        input.lock = false;
+      }
       if (halted) return; // No more processing necessary.
 
       processing = input.lock = true;
@@ -69,7 +71,8 @@ export async function prompt_boot(
           messageComplete = true;
           processing = input.lock = false;
           reply?.(input.text);
-          input.showButton("Prompt");
+          input.runnable = false;
+          input.showButton("Enter");
         },
         function fail() {
           input.text = abortMessage;
@@ -79,7 +82,7 @@ export async function prompt_boot(
           } else {
             input.cursor = "stop";
             messageComplete = true;
-            input.showButton("Back");
+            input.showButton("Enter");
           }
         }
       );
@@ -135,8 +138,8 @@ export function prompt_act($) {
     e.is("lift") ||
     e.is("focus") ||
     e.is("defocus") ||
-    e.is("typing-input-ready") ||
-    e.is("typing-input-unready")
+    e.is("keyboard:open") ||
+    e.is("keyboard:close")
   ) {
     input?.act($);
     inputHandled = true;

@@ -141,12 +141,10 @@ class TextInput {
   //                       (To clear any starting text.)
   #movedCursor; // Shift the cursor off the end of the prompt by dragging or
   //               using the arrow keys.
-  #moveThreshold = 10; // Drag threshold.
+  #moveThreshold = 6; // Drag threshold.
   #moveDeltaX = 0;
 
-  #focusTimer;
-  #inTime = false;
-  #runnable = false; // Whether a commands can be tried.
+  runnable = false; // Whether a command can be tried.
   lastText; // Store the last text reply.
   didReset; // Callback for blank reset.
 
@@ -198,7 +196,7 @@ class TextInput {
     const {
       ui: { TextButton: TB },
     } = $;
-    this.go = new TB("Start");
+    this.go = new TB("Enter");
 
     if (this.text.length === 0) {
       this.go.btn.disabled = true;
@@ -233,14 +231,12 @@ class TextInput {
 
       words.forEach((word, i) => {
         // Look ahead at word lenth.
-        const wordLen = word.replace().length;
+        const wordLen = word.length;
         if (prompt.cursor.x + wordLen >= prompt.colWidth) prompt.newLine();
-        let newLine = false;
         [...word].forEach((char, index) => {
           // Detect new line character.
           if (char.charCodeAt(0) === 10) {
             prompt.newLine();
-            newLine = true;
           } else {
             const pic = this.typeface.glyphs[char];
             if (pic) {
@@ -250,7 +246,7 @@ class TextInput {
           }
         });
 
-        if (!newLine && i < words.length - 1) prompt.forward(); // Move forward a space.
+        if (i < words.length - 1 && prompt.cursor.x !== 0) prompt.forward(); // Move forward a space.
       });
     }
 
@@ -292,8 +288,20 @@ class TextInput {
     } else {
       if (this.cursor === "blink" && this.showBlink && this.canType) {
         $.ink(this.pal.block).box(prompt.pos); // Draw blinking cursor.
+
+        // 🧨
+        // TODO: Prompt index is different from text index due to
+        //       text wrapping, so I need to store an offset.
+
+        // Prompt needs to store an text index -> prompt index map..
+        // Or at every prompt index there needs to be a character index
+        // related to text, or null.
+
+        // And if it's null then we skip it when dragging left or right.
+
         const index = this.#prompt.index;
         const char = this.text[index];
+
         const pic = this.typeface.glyphs[char];
         if (pic) $.ink(this.pal.blockHi).draw(pic, prompt.pos);
       }
@@ -306,14 +314,15 @@ class TextInput {
     // Prompt Button
     if (!this.go.btn.disabled) {
       this.go.reposition({ right: 6, bottom: 6, screen: frame });
-      if (this.go.txt === "Go") {
-        this.go.paint({ ink: $.ink }, [
-          [0, 100, 0],
-          [0, 255, 0, 150],
-          [0, 200, 0],
-          [0, 50, 0, 0],
-        ]);
-      } else this.go.paint({ ink: $.ink });
+      // if (this.go.txt === "Enter") {
+      // this.go.paint({ ink: $.ink }, [
+      //   [0, 100, 0],
+      //   [0, 255, 0, 150],
+      //   [0, 200, 0],
+      //   [0, 50, 0, 0],
+      // ]);
+      // } else
+      this.go.paint({ ink: $.ink });
     }
 
     // Return false if we have loaded every glyph.
@@ -344,7 +353,7 @@ class TextInput {
 
   showButton(txt) {
     this.go.btn.disabled = false;
-    this.go.txt = txt || "Start";
+    this.go.txt = txt || "Enter";
   }
 
   // Forget the original finished message.
@@ -400,7 +409,9 @@ class TextInput {
       if (this.canType === false) {
         this.canType = true;
         this.text = "";
+        this.#movedCursor = null;
         this.inputStarted = true;
+        this.#prompt.cursor = { x: 0, y: 0 };
       }
 
       if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
@@ -443,7 +454,7 @@ class TextInput {
           }
         }
 
-        if (e.key === "Enter" && this.#runnable) await this.#execute(store); // Send a command.
+        if (e.key === "Enter" && this.runnable) await this.#execute(store); // Send a command.
 
         if (e.key === "Escape") {
           this.#movedCursor = null;
@@ -486,11 +497,11 @@ class TextInput {
 
       if (e.key !== "Enter" && this.text.length > 0) {
         this.go.btn.disabled = false;
-        this.go.txt = "Go";
-        this.#runnable = true;
+        this.go.txt = "Enter";
+        this.runnable = true;
       } else {
         this.go.btn.disabled = true;
-        this.#runnable = false;
+        this.runnable = false;
       }
 
       this.blink?.flip(true);
@@ -498,14 +509,16 @@ class TextInput {
 
     // Handle activation / focusing of the input
     // (including os-level software keyboard overlays)
-    if (e.is("keyboard:open") && this.inputStarted) this.canType = true;
+    // if (e.is("keyboard:open") && this.inputStarted) this.canType = true;
+    // if (e.is("keyboard:open")) {}
 
-    if (e.is("keyboard:close")) {
-      $.send({ type: `keyboard:${!this.lock ? "unlock" : "lock"}` });
-    }
+    // if (e.is("keyboard:close")) {
+    //  console.log("keyboard close...");
+    //  $.send({ type: `keyboard:${!this.lock ? "unlock" : "lock"}` });
+    // }
 
     // if (e.is("focus")) {}
-    if (e.is("defocus")) this.canType = false;
+    // if (e.is("defocus")) {}
 
     if (e.is("touch") && !this.lock && !this.inputStarted && !this.canType) {
       $.send({ type: "keyboard:lock" });
@@ -517,7 +530,7 @@ class TextInput {
           $.send({ type: "keyboard:unlock" });
         },
         push: async () => {
-          if (this.#runnable) {
+          if (this.runnable) {
             await this.#execute(store);
             this.go.btn.disabled = true;
           } else {
@@ -553,7 +566,7 @@ class TextInput {
       $.send({ type: "keyboard:unlock" });
     }
 
-    if (e.is("draw") && !this.lock && this.canType) {
+    if (e.is("draw") && !this.lock && this.canType && !this.go.btn.down) {
       $.send({ type: "keyboard:lock" });
 
       if (
@@ -565,17 +578,17 @@ class TextInput {
 
       this.#moveDeltaX += e.delta.x; // Add up the deltas.
 
-      if (this.#moveDeltaX < -this.#moveThreshold) {
-        this.#moveDeltaX = 0;
+      while (this.#moveDeltaX <= -this.#moveThreshold) {
+        this.#moveDeltaX += this.#moveThreshold;
         if (!this.#movedCursor) this.#movedCursor = this.#prompt.cursor;
         this.#prompt.backward(this.#movedCursor);
       }
 
-      if (
-        this.#moveDeltaX > this.#moveThreshold &&
+      while (
+        this.#moveDeltaX >= this.#moveThreshold &&
         this.#prompt.index < this.text.length
       ) {
-        this.#moveDeltaX = 0;
+        this.#moveDeltaX -= this.#moveThreshold;
         if (!this.#movedCursor) this.#movedCursor = this.#prompt.cursor;
         this.#prompt.forward(this.#movedCursor);
         if (this.#prompt.index === this.text.length) this.#movedCursor = null;

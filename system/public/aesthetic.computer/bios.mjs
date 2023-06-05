@@ -1153,23 +1153,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         });
 
-        //let touching = false;
-        //let keyboardOpen = false;
-
-        // TODO: The input element could be created and added to the DOM here
-        //       if it didn't already exist?
-        //window.addEventListener("touchstart", () => (touching = true));
-
         window.addEventListener("focusout", (e) => {
-          //if (keyboardOpen) {
-          // keyboard.events.push({ name: "keyboard:close" });
-          //keyboardOpen = false;
           input.blur();
         });
-
-        // Make a pointer "tap" gesture with an `inTime` window of 250ms to
-        // trigger the keyboard on all browsers.
-        // let downPos;
 
         window.addEventListener("pointerdown", (e) => {
           if (currentPieceHasKeyboard) e.preventDefault();

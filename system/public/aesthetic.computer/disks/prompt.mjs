@@ -502,7 +502,7 @@ function makeMotd({ handle, user }) {
   if (user) {
     motd =
       `Welcome, ${handle || user.name}!`.padEnd(48) + " ".padEnd(48) + motd;
-  } else motd = "Type 'list' to learn more.";
+  } else motd = "Monday, June 5th, 2023";
   return motd.trim();
 }
 

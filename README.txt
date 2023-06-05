@@ -70,16 +70,10 @@
 
 *** `prompt` system ***
   + UI Gripes
-
+  - [❤️‍🔥] Scrub cursor does not respect word-wrapped spacing.
+  - [] Long single word breaks into second line.
   - [] Cannot backspace on Android keyboard.
-
-  - [] Fix halt on 'handle' command.
-  
-  - [😆] Tapping corner word should immediately bring up keyboard.
-
-  - [-] While using word break, words that break at the end of the line cause an extra space at the beginning of the next line.
-  - [] New words after a line break are not separated alongside the following word
-  - [] More pixel accurate text scrubbing.
+  - [🌟] Tapping corner word should immediately bring up keyboard.
 
   + Later
   - [-] How to deal with longer responses?
@@ -100,6 +94,10 @@
     - [] 1/3 New synth wav types!
     - [] Custom SFX / sampling.
   + Done
+  - [x] New words after a line break are not separated alongside the following word.
+  - [x] While using word break, words that break at the end of the line cause an extra space at the beginning of the next line.
+  - [x] More pixel accurate text scrubbing.
+  - [x] Fix halt on 'handle' command.
   - [x] Pressing "done" on iOS keyboard should trigger a handler.
   - [x] Test typing flow and remove code cruft unused handlers and messages.
   - [x] Dragging text should stop keyboard removal on mobile.

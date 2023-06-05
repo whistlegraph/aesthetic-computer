@@ -3120,7 +3120,7 @@ async function makeFrame({ data: { type, content } }) {
           } else {
             c = [255, 200, 240];
           }
-          ink(c).write(currentHUDText?.replaceAll("~", " "));
+          ink(c).write(currentHUDText?.replaceAll("~", " "), {x: 0, y: 0});
         });
 
         currentHUDButton =
