@@ -70,8 +70,13 @@
 
 *** `prompt` system ***
   + UI Gripes
+
+  - [] Cannot backspace on Android keyboard.
+
   - [] Fix halt on 'handle' command.
+  
   - [😆] Tapping corner word should immediately bring up keyboard.
+
   - [-] While using word break, words that break at the end of the line cause an extra space at the beginning of the next line.
   - [] New words after a line break are not separated alongside the following word
   - [] More pixel accurate text scrubbing.
