@@ -68,6 +68,16 @@ class Typeface {
     const thickness = pos.thickness || 1;
     const rotation = pos.rotation || 0;
 
+    if (Array.isArray(pos)) {
+      pos = { x: pos[0], y: pos[1] };
+    }
+
+    // Randomize pos.x and pos.y if undefined.
+    if (pos.center === undefined) {
+      if (pos.x === undefined) pos.x = $.num.randInt($.screen.width);
+      if (pos.y === undefined) pos.y = $.num.randInt($.screen.height);
+    }
+
     // Set x, y position and override if centering is specified.
     let x = pos.x || 0,
       y = (pos.y || 0) + lineNumber * blockHeight;
@@ -109,8 +119,9 @@ class TextInput {
   text; // text content
 
   blink; // block cursor blink timer
-  showBlink = false;
+  showBlink = true;
   cursor = "blink";
+  go;
 
   canType = false;
 
@@ -126,20 +137,35 @@ class TextInput {
   processCommand; // text processing callback
   historyDepth = 0;
 
-  #firstInputReady = true; // Flipped when the TextInput is first activated.
-  //                          (To clear any starting text.)
+  inputStarted = false; // Flipped when the TextInput is first activated.
+  //                       (To clear any starting text.)
   #movedCursor; // Shift the cursor off the end of the prompt by dragging or
   //               using the arrow keys.
-  #moveThreshold = 10; // Drag threshold.
+  #moveThreshold = 6; // Drag threshold.
   #moveDeltaX = 0;
+
+  runnable = false; // Whether a command can be tried.
+  lastText; // Store the last text reply.
+  didReset; // Callback for blank reset.
+
+  key;
 
   // Add support for loading from preloaded system typeface.
   constructor(
     $,
     text = "",
     processCommand,
-    options = { palette: undefined, font: font1, autolock: true, wrap: "char" }
+    options = {
+      palette: undefined,
+      font: font1,
+      autolock: true,
+      wrap: "char",
+      didReset,
+    }
   ) {
+    this.key = `${$.slug}:history`; // This is "per-piece" and should
+    //                                be per TextInput object...23.05.23.12.50
+
     // Load typeface, preventing double loading of the system default.
     if ($.typeface?.data !== options.font) {
       this.typeface = new Typeface(options.font); // Load custom typeface.
@@ -149,12 +175,14 @@ class TextInput {
     }
 
     this.#autolock = options.autolock;
+    this.didReset = options.didReset;
 
     this.#prompt = new Prompt(6, 6, floor($.screen.width / 6) - 2);
 
     this.#movedCursor = null; // Used when the pointer moves the cursor.
 
     this.text = text;
+    this.lastText = text;
     this.wrap = options.wrap || "char";
     this.startingInput = this.text;
     this.pal = options.palette || {
@@ -164,12 +192,23 @@ class TextInput {
       blockHi: 0,
       line: 255,
     };
+
+    const {
+      ui: { TextButton: TB },
+    } = $;
+    this.go = new TB("Enter");
+
+    if (this.text.length === 0) {
+      this.go.btn.disabled = true;
+    }
+
     this.processCommand = processCommand;
-    $.send({ type: "text-input-enabled" });
+    $.send({ type: "keyboard:enabled" });
   }
 
+  // Paint the TextInput, with an optional `frame` for placement.
+  // TODO: Provide a full frame along with an x, y position..
   paint($, clear = false, frame = $.screen) {
-    // TODO: Provide a frame to paint inside of...
     if (!clear && this.pal.bg !== undefined) $.ink(this.pal.bg).box(frame); // Paint bg.
 
     const prompt = this.#prompt;
@@ -192,14 +231,12 @@ class TextInput {
 
       words.forEach((word, i) => {
         // Look ahead at word lenth.
-        const wordLen = word.replace().length;
+        const wordLen = word.length;
         if (prompt.cursor.x + wordLen >= prompt.colWidth) prompt.newLine();
-        let newLine = false;
         [...word].forEach((char, index) => {
           // Detect new line character.
           if (char.charCodeAt(0) === 10) {
             prompt.newLine();
-            newLine = true;
           } else {
             const pic = this.typeface.glyphs[char];
             if (pic) {
@@ -209,7 +246,7 @@ class TextInput {
           }
         });
 
-        if (!newLine && i < words.length - 1) prompt.forward(); // Move forward a space.
+        if (i < words.length - 1 && prompt.cursor.x !== 0) prompt.forward(); // Move forward a space.
       });
     }
 
@@ -226,47 +263,66 @@ class TextInput {
         $.screen.height
       ); // Ruler
       $.ink(127).box(0, 0, $.screen.width, $.screen.height, "inline"); // Focus
+    }
 
-      if (this.lock) {
-        // Show a spinner if the prompt is "locked".
-        const center = $.geo.Box.from(prompt.pos).center;
-        const distance = 2; // You can adjust this value as per your needs
+    if (this.lock) {
+      // Show a spinner if the prompt is "locked".
+      const center = $.geo.Box.from(prompt.pos).center;
+      const distance = 2; // You can adjust this value as per your needs
 
-        const topL = [center.x - distance, center.y - distance];
-        const topR = [center.x + distance, center.y - distance];
-        const bottomL = [center.x - distance, center.y + distance];
-        const bottomR = [center.x + distance, center.y + distance];
-        const middleL = [center.x - distance, center.y];
-        const middleR = [center.x + distance, center.y];
+      const topL = [center.x - distance, center.y - distance];
+      const topR = [center.x + distance, center.y - distance];
+      const bottomL = [center.x - distance, center.y + distance];
+      const bottomR = [center.x + distance, center.y + distance];
+      const middleL = [center.x - distance, center.y];
+      const middleR = [center.x + distance, center.y];
 
-        // const topL = [r.x, r.y];
-        // const topR = [r.x + r.w, r.y];
-        // const bottomL = [r.x, r.y + r.h];
-        // const bottomR = [r.x + r.w, r.y + r.h];
-        // const middleL = [r.x, r.y + r.h / 2];
-        // const middleR = [r.x + r.w, r.y + r.h / 2];
-
-        $.ink(this.pal.block);
-        if ($.paintCount % 60 < 20) {
-          $.line(...topR, ...bottomL);
-        } else if ($.paintCount % 60 < 40) {
-          $.line(...middleL, ...middleR);
-        } else {
-          $.line(...topL, ...bottomR);
-        }
+      $.ink(this.pal.block);
+      if ($.paintCount % 60 < 20) {
+        $.line(...topR, ...bottomL);
+      } else if ($.paintCount % 60 < 40) {
+        $.line(...middleL, ...middleR);
       } else {
-        if (this.cursor === "blink" && this.showBlink) {
-          $.ink(this.pal.block).box(prompt.pos); // Draw blinking cursor.
-          const index = this.#prompt.index;
-          const char = this.text[index];
-          const pic = this.typeface.glyphs[char];
-          if (pic) $.ink(this.pal.blockHi).draw(pic, prompt.pos);
-        }
-
-        if (this.cursor === "stop") {
-          $.ink(255, 0, 0).box(prompt.pos.x + 1, prompt.pos.y + 3, 3);
-        }
+        $.line(...topL, ...bottomR);
       }
+    } else {
+      if (this.cursor === "blink" && this.showBlink && this.canType) {
+        $.ink(this.pal.block).box(prompt.pos); // Draw blinking cursor.
+
+        // 🧨
+        // TODO: Prompt index is different from text index due to
+        //       text wrapping, so I need to store an offset.
+
+        // Prompt needs to store an text index -> prompt index map..
+        // Or at every prompt index there needs to be a character index
+        // related to text, or null.
+
+        // And if it's null then we skip it when dragging left or right.
+
+        const index = this.#prompt.index;
+        const char = this.text[index];
+
+        const pic = this.typeface.glyphs[char];
+        if (pic) $.ink(this.pal.blockHi).draw(pic, prompt.pos);
+      }
+    }
+
+    if (this.cursor === "stop" && !this.canType) {
+      $.ink(255, 0, 0).box(prompt.pos.x + 1, prompt.pos.y + 3, 3);
+    }
+
+    // Prompt Button
+    if (!this.go.btn.disabled) {
+      this.go.reposition({ right: 6, bottom: 6, screen: frame });
+      // if (this.go.txt === "Enter") {
+      // this.go.paint({ ink: $.ink }, [
+      //   [0, 100, 0],
+      //   [0, 255, 0, 150],
+      //   [0, 200, 0],
+      //   [0, 50, 0, 0],
+      // ]);
+      // } else
+      this.go.paint({ ink: $.ink });
     }
 
     // Return false if we have loaded every glyph.
@@ -275,13 +331,6 @@ class TextInput {
     return !(
       keys(this.typeface.glyphs).length === keys(this.typeface.data).length
     );
-  }
-
-  // Clear the TextInput object and flip the cursor to ON.
-  blank(cursor) {
-    if (cursor) this.cursor = cursor;
-    this.text = "";
-    this.blink?.flip(true);
   }
 
   // Simulate anything necessary.
@@ -302,9 +351,42 @@ class TextInput {
     if (this.canType) this.blink.step();
   }
 
+  showButton(txt) {
+    this.go.btn.disabled = false;
+    this.go.txt = txt || "Enter";
+  }
+
+  // Forget the original finished message.
+  forget() {
+    this.lastText = "";
+  }
+
+  // Run a command.
+  async #execute(store) {
+    // Make a history stack if one doesn't exist already.
+    store[this.key] = store[this.key] || [];
+    // Push input to a history stack, avoiding repeats.
+    if (store[this.key][0] !== this.text) store[this.key].unshift(this.text);
+    // console.log("📚 Stored prompt history:", store[key]);
+    store.persist(this.key); // Persist the history stack across tabs.
+
+    // 🍎 Process commands for a given context, passing the text input.
+    if (this.#autolock) this.lock = true;
+    await this.processCommand?.(this.text);
+    if (this.#autolock) this.lock = false;
+  }
+
+  // Clear the TextInput object and flip the cursor to ON.
+  blank(cursor) {
+    if (cursor) this.cursor = cursor;
+    this.text = "";
+    this.#movedCursor = null;
+    this.blink?.flip(true);
+  }
+
   // Handle user input.
   async act($) {
-    const { event: e, slug, store, needsPaint } = $;
+    const { event: e, store, needsPaint } = $;
 
     // Reflow the prompt on frame resize.
     if (e.is("reframed")) {
@@ -327,6 +409,9 @@ class TextInput {
       if (this.canType === false) {
         this.canType = true;
         this.text = "";
+        this.#movedCursor = null;
+        this.inputStarted = true;
+        this.#prompt.cursor = { x: 0, y: 0 };
       }
 
       if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
@@ -368,25 +453,8 @@ class TextInput {
             }
           }
         }
-        const key = `${slug}:history`; // This is "per-piece" and should
-        //                                be per TextInput object...23.05.23.12.50
 
-        // Send a command or message.
-        if (e.key === "Enter") {
-          // Make a history stack if one doesn't exist already.
-          store[key] = store[key] || [];
-
-          // Push input to a history stack, avoiding repeats.
-          if (store[key][0] !== this.text) store[key].unshift(this.text);
-
-          // console.log("📚 Stored prompt history:", store[key]);
-          store.persist(key); // Persist the history stack across tabs.
-
-          // 🍎 Process commands for a given context, passing the text input.
-          if (this.#autolock) this.lock = true;
-          await this.processCommand?.(this.text);
-          if (this.#autolock) this.lock = false;
-        }
+        if (e.key === "Enter" && this.runnable) await this.#execute(store); // Send a command.
 
         if (e.key === "Escape") {
           this.#movedCursor = null;
@@ -395,7 +463,7 @@ class TextInput {
 
         // Move backwards through history stack.
         if (e.key === "ArrowUp") {
-          const history = (await store.retrieve(key)) || [""];
+          const history = (await store.retrieve(this.key)) || [""];
           this.text = history[this.historyDepth];
           this.#movedCursor = null;
           this.historyDepth = (this.historyDepth + 1) % history.length;
@@ -403,7 +471,7 @@ class TextInput {
 
         // ... and forwards.
         if (e.key === "ArrowDown") {
-          const history = (await store.retrieve(key)) || [""];
+          const history = (await store.retrieve(this.key)) || [""];
           this.text = history[this.historyDepth];
           this.#movedCursor = null;
           this.historyDepth -= 1;
@@ -427,25 +495,80 @@ class TextInput {
         }
       }
 
+      if (e.key !== "Enter" && this.text.length > 0) {
+        this.go.btn.disabled = false;
+        this.go.txt = "Enter";
+        this.runnable = true;
+      } else {
+        this.go.btn.disabled = true;
+        this.runnable = false;
+      }
+
       this.blink?.flip(true);
     }
 
     // Handle activation / focusing of the input
     // (including os-level software keyboard overlays)
-    if (e.is("typing-input-ready")) {
-      this.canType = true;
-      if (this.#firstInputReady) {
-        this.text = "";
-        this.#firstInputReady = false;
-        this.blink?.flip(true);
-      }
+    // if (e.is("keyboard:open") && this.inputStarted) this.canType = true;
+    // if (e.is("keyboard:open")) {}
+
+    // if (e.is("keyboard:close")) {
+    //  console.log("keyboard close...");
+    //  $.send({ type: `keyboard:${!this.lock ? "unlock" : "lock"}` });
+    // }
+
+    // if (e.is("focus")) {}
+    // if (e.is("defocus")) {}
+
+    if (e.is("touch") && !this.lock && !this.inputStarted && !this.canType) {
+      $.send({ type: "keyboard:lock" });
     }
 
-    if (e.is("touch")) this.blink?.flip(true);
+    if (!this.lock) {
+      this.go.btn.act(e, {
+        down: () => {
+          $.send({ type: "keyboard:unlock" });
+        },
+        push: async () => {
+          if (this.runnable) {
+            await this.#execute(store);
+            this.go.btn.disabled = true;
+          } else {
+            this.lastText = this.text;
+            this.text = "";
+            this.go.btn.disabled = true;
+            this.canType = true;
+            this.cursor = "blink";
+            this.blink?.flip(true);
+            needsPaint();
+            this.inputStarted = true;
+            $.send({ type: "keyboard:unlock" });
+          }
+        },
+        cancel: () => {
+          $.send({ type: "keyboard:lock" });
+        },
+        rollover: (btn) => {
+          if (btn) $.send({ type: "keyboard:unlock" });
+        },
+        rollout: () => {
+          $.send({ type: "keyboard:lock" });
+        },
+      });
+    }
 
-    if (e.is("lift")) this.moveDeltaX = 0;
+    if (e.is("touch") && e.device === "mouse" && !this.lock) {
+      this.blink?.flip(true);
+    }
 
-    if (e.is("draw") && this.canType) {
+    if (e.is("lift") && !this.lock) {
+      this.moveDeltaX = 0;
+      $.send({ type: "keyboard:unlock" });
+    }
+
+    if (e.is("draw") && !this.lock && this.canType && !this.go.btn.down) {
+      $.send({ type: "keyboard:lock" });
+
       if (
         (this.#moveDeltaX > 0 && e.delta.x < 0) ||
         (this.#moveDeltaX < 0 && e.delta.x > 0)
@@ -455,34 +578,23 @@ class TextInput {
 
       this.#moveDeltaX += e.delta.x; // Add up the deltas.
 
-      if (this.#moveDeltaX < -this.#moveThreshold) {
-        this.#moveDeltaX = 0;
+      while (this.#moveDeltaX <= -this.#moveThreshold) {
+        this.#moveDeltaX += this.#moveThreshold;
         if (!this.#movedCursor) this.#movedCursor = this.#prompt.cursor;
         this.#prompt.backward(this.#movedCursor);
       }
 
-      if (
-        this.#moveDeltaX > this.#moveThreshold &&
+      while (
+        this.#moveDeltaX >= this.#moveThreshold &&
         this.#prompt.index < this.text.length
       ) {
-        this.#moveDeltaX = 0;
+        this.#moveDeltaX -= this.#moveThreshold;
         if (!this.#movedCursor) this.#movedCursor = this.#prompt.cursor;
         this.#prompt.forward(this.#movedCursor);
         if (this.#prompt.index === this.text.length) this.#movedCursor = null;
       }
 
       this.blink?.flip(true);
-    }
-
-    if (e.is("keyboard:close")) {
-      this.canType = false;
-      needsPaint();
-    }
-
-    if (e.is("defocus")) {
-      this.canType = false;
-      this.text = this.startingInput;
-      needsPaint();
     }
   }
 }
@@ -515,14 +627,6 @@ class Prompt {
     this.colWidth = newColWidth;
     // TODO: Reflow the prompt cursor here?
   }
-
-  // Calculate index for inserting or removing text.
-  // get index() {
-  //   const x = this.cursor.x;
-  //   const y = this.cursor.y;
-  //   const cols = this.colWidth;
-  //   return y * cols + x;
-  // }
 
   get index() {
     const x = this.cursor.x;

@@ -30,7 +30,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   window.acCONTENT_EVENTS = [];
 
-  let pen, keyboard;
+  let pen,
+    keyboard,
+    keyboardFocusLock = true;
   let handData; // Hand-tracking.
 
   // let frameCount = 0;
@@ -39,7 +41,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   let diskSupervisor;
   let currentPiece = null; // Gets set to a path after `loaded`.
-  let currentPieceHasTextInput = false;
+  let currentPieceHasKeyboard = false;
 
   // Media Recorder
   let mediaRecorder, mediaRecorderDataHandler, mediaRecorderBlob; // Holds the last generated recording.
@@ -410,20 +412,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     });
   }
 
-  // 2. Audio
+  // 2. 🔈 Audio
   const sound = {
     bpm: new Float32Array(1),
   };
 
   let updateMetronome,
-    updateSquare,
+    triggerSound,
     updateBubble,
+    updateSound,
+    killSound,
+    killAllSound,
+    requestSpeakerWaveforms,
+    requestSpeakerAmplitudes,
     attachMicrophone,
     detachMicrophone,
     audioContext,
     audioStreamDest;
 
-  let requestMicrophoneAmplitude, requestMicrophoneWaveform;
+  let requestMicrophoneAmplitude,
+    requestMicrophoneWaveform,
+    requestMicrophonePitch;
 
   // TODO: Eventually this would be replaced with a more dynamic system.
 
@@ -503,16 +512,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Microphone Input Processor
     // (Gets attached via a message from the running disk.)
     attachMicrophone = async (data) => {
-      if (debug) console.log("🎙 Microphone:", data);
-
       let micStream;
       try {
         micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            echoCancellation: false,
+            echoCancellation: true,
             latency: 0,
-            noiseSuppression: false,
-            autoGainControl: false,
+            noiseSuppression: true,
+            autoGainControl: true,
           },
         });
       } catch (err) {
@@ -555,6 +562,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (msg.type === "waveform") {
           send({ type: "microphone-waveform", content: msg.content });
         }
+
+        if (msg.type === "pitch") {
+          send({ type: "microphone-pitch", content: msg.content });
+        }
       };
 
       // Request data / send message to the mic processor thread.
@@ -564,6 +575,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       requestMicrophoneWaveform = () => {
         playerNode.port.postMessage({ type: "get-waveform" });
+      };
+
+      requestMicrophonePitch = () => {
+        playerNode.port.postMessage({ type: "get-pitch" });
       };
 
       // Connect mic to the mediaStream.
@@ -582,6 +597,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Send a message back to `disk` saying the microphone is connected.
       send({ type: "microphone-connect:success" });
+      if (debug) console.log("🎙 Microphone connected:", data);
     };
 
     // Sound Synthesis Processor
@@ -601,29 +617,53 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
 
         updateMetronome = function (newBPM) {
-          soundProcessor.port.postMessage({
-            type: "new-bpm",
-            data: newBPM,
-          });
+          soundProcessor.port.postMessage({ type: "new-bpm", data: newBPM });
         };
 
-        updateSquare = function (square) {
-          soundProcessor.port.postMessage({
-            type: "square",
-            data: square,
-          });
+        triggerSound = function (sound) {
+          soundProcessor.port.postMessage({ type: "sound", data: sound });
         };
 
         updateBubble = function (bubble) {
-          soundProcessor.port.postMessage({
-            type: "bubble",
-            data: bubble,
-          });
+          soundProcessor.port.postMessage({ type: "bubble", data: bubble });
         };
 
-        soundProcessor.port.onmessage = (e) => {
-          const time = e.data;
-          diskSupervisor.requestBeat?.(time);
+        killSound = function (id) {
+          soundProcessor.port.postMessage({ type: "kill", data: id });
+        };
+
+        updateSound = function (data) {
+          soundProcessor.port.postMessage({ type: "update", data });
+        };
+
+        killAllSound = function () {
+          soundProcessor.port.postMessage({ type: "kill:all" });
+        };
+
+        // Request data / send message to the mic processor thread.
+        requestSpeakerWaveforms = function () {
+          soundProcessor.port.postMessage({ type: "get-waveforms" });
+        };
+
+        requestSpeakerAmplitudes = function () {
+          soundProcessor.port.postMessage({ type: "get-amplitudes" });
+        };
+
+        soundProcessor.port.onmessage = ({ data: msg }) => {
+          if (msg.type === "waveforms") {
+            send({ type: "speaker-waveforms", content: msg.content });
+            return;
+          }
+
+          if (msg.type === "amplitudes") {
+            send({ type: "speaker-amplitudes", content: msg.content });
+            return;
+          }
+
+          if (msg.type === "metronome") {
+            diskSupervisor.requestBeat?.(msg.content); // Update metronome.
+            return;
+          }
         };
 
         soundProcessor.connect(audioStreamDest); // Connect to the mediaStream.
@@ -758,8 +798,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // SQUARE
-    for (const square of content.squares) updateSquare(square);
+    for (const sound of content.sounds) triggerSound(sound);
     for (const bubble of content.bubbles) updateBubble(bubble);
+    for (const id of content.kills) killSound(id);
   }
 
   // Update & Render
@@ -1112,63 +1153,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         });
 
-        let touching = false;
-        let keyboardOpen = false;
-
-        // TODO: The input element could be created and added to the DOM here
-        //       if it didn't already exist?
-        window.addEventListener("touchstart", () => (touching = true));
-
         window.addEventListener("focusout", (e) => {
-          if (keyboardOpen) {
-            keyboard.events.push({ name: "keyboard:close" });
-            keyboardOpen = false;
-          }
+          input.blur();
         });
 
-        // Make a pointer "tap" gesture with an `inTime` window of 250ms to
-        // trigger the keyboard on all browsers.
-        let down = false;
-        // let downPos;
-        let inTime = false;
-
         window.addEventListener("pointerdown", (e) => {
-          if (currentPieceHasTextInput) {
-            down = true;
-            // downPos = { x: e.x, y: e.y };
-            inTime = true;
-            setTimeout(() => (inTime = false), 500);
-            e.preventDefault();
-          }
+          if (currentPieceHasKeyboard) e.preventDefault();
         });
 
         window.addEventListener("pointerup", (e) => {
-          if (
-            down &&
-            // dist(downPos.x, downPos.y, e.x, e.y) < 32 && // Distance threshold for opening keyboard.
-            inTime &&
-            currentPieceHasTextInput
-            // Refactoring the above could allow iframes to capture keyboard events.
-            // via sending things from input... 22.10.24.17.16, 2022.04.07.02.10
-          ) {
-            if (document.activeElement === input) {
-              input.blur();
-            } else {
-              input.focus();
-            }
-
-            if (touching) {
-              touching = false;
-              keyboard.events.push({ name: "keyboard:open" });
-              keyboardOpen = true;
-            }
-            down = false;
-            e.preventDefault();
+          if (currentPieceHasKeyboard) e.preventDefault();
+          if (currentPieceHasKeyboard && !keyboardFocusLock) {
+            document.activeElement !== input ? input.focus() : input.blur();
           }
         });
 
         input.addEventListener("focus", (e) => {
-          keyboard.events.push({ name: "typing-input-ready" });
+          keyboard.events.push({ name: "keyboard:open" });
+        });
+
+        input.addEventListener("blur", (e) => {
+          keyboard.events.push({ name: "keyboard:close" });
         });
       }
 
@@ -1248,13 +1253,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "disk-loaded") {
       currentPiece = content.path;
-      currentPieceHasTextInput = false;
+      currentPieceHasKeyboard = false;
 
       // Initialize some global stuff after the first piece loads.
       // Unload some already initialized stuff if this wasn't the first load.
 
-      // Remove any attached microphone.
-      detachMicrophone?.();
+      detachMicrophone?.(); // Remove any attached microphone.
+      killAllSound?.(); // Kill any pervasive sounds in `speaker`.
 
       // Reset preloading.
       window.waitForPreload = false;
@@ -1428,8 +1433,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    if (type === "text-input-enabled") {
-      currentPieceHasTextInput = true;
+    if (type === "keyboard:enabled") {
+      currentPieceHasKeyboard = true;
+      return;
+    }
+
+    if (type === "keyboard:close") {
+      keyboard?.input.blur();
+      return;
+    }
+
+    if (type === "keyboard:lock") {
+      keyboardFocusLock = true;
+      return;
+    }
+
+    if (type === "keyboard:unlock") {
+      keyboardFocusLock = false;
       return;
     }
 
@@ -1648,6 +1668,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "beat:update") {
+      updateSound(content);
+      return;
+    }
+
     if (type === "download") {
       receivedDownload(content);
       return;
@@ -1674,6 +1699,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "get-microphone-waveform") {
       requestMicrophoneWaveform?.();
+      return;
+    }
+
+    if (type === "get-speaker-waveforms") {
+      requestSpeakerWaveforms?.();
+      return;
+    }
+
+    if (type === "get-speaker-amplitudes") {
+      requestSpeakerAmplitudes?.();
+      return;
+    }
+
+    if (type === "get-microphone-pitch") {
+      requestMicrophonePitch?.();
       return;
     }
 
@@ -3085,7 +3125,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (hand.handedness === "left") {
             hand.handedness = "right";
           } else if (hand.handedness === "right") {
-            hand.handedness = "left"
+            hand.handedness = "left";
           }
         }
         handData = hand;
@@ -3131,7 +3171,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               handAPI.legacyProcessing = true;
             } else {
               const data = handAPI.hl?.detectForVideo(video, handVideoTime);
-              // TODO: This will no longer work. 23.5.24 
+              // TODO: This will no longer work. 23.5.24
               //       Check the other `diagram` call.
               // diagram(data?.landmarks[0] || []);
             }
@@ -3180,10 +3220,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
   }
 
-  // Full Focus / Visibility
+  // Window Focus
+  window.addEventListener("focus", function (e) {
+    send({ type: "focus-change", content: true });
+  });
+
+  // Window Blur
+  window.addEventListener("blur", function (e) {
+    send({ type: "focus-change", content: false });
+  });
+
+  // Window Visibility
   document.addEventListener("visibilitychange", function () {
     send({
-      type: "focus-change",
+      type: "visibility-change",
       content: !document.hidden,
     });
   });

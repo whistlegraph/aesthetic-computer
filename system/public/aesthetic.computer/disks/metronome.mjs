@@ -35,6 +35,7 @@ function beat({ sound, params, store }) {
   // console.log("🎼 BPM:", sound.bpm(), "Time:", sound.time.toFixed(2));
 
   square = sound.square({
+    type: "square",
     tone: melody[melodyIndex],
     //beats: 1,
     beats: 1,
@@ -47,6 +48,7 @@ function beat({ sound, params, store }) {
   sound.square({
     // TODO: Add a delay here so sounds can be arranged
     //       to start part-way through a beat?
+    type: "square",
     tone: 200,
     beats: 1 / 2,
     attack: 0.01,

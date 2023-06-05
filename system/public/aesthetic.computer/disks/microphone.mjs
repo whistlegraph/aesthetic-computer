@@ -48,8 +48,14 @@ function paint({
 
 //let printFinished = false;
 
-function sim({ dom: { html, css, javascript }, signal, rec: { printProgress } }) {
+function sim({
+  dom: { html, css, javascript },
+  signal,
+  rec: { printProgress },
+}) {
   mic?.poll(); // Query for updated amplitude and waveform data.
+
+  if (mic) console.log(mic.pitch); // Pitch will either be null or something...
 
   // if (printProgress === 1 && !printFinished) {
   //   signal("microphone:transcoding-complete");

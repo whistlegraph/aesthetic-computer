@@ -39,10 +39,10 @@ async function generateNewPiece(name) {
   let fileContents = await fs.promises.readFile(destination, "utf-8");
 
   // Perform replacements from the `blank.mjs` template.
-  fileContents = fileContents.replace("$NAME", capitalizedName);
-  fileContents = fileContents.replace("$TIMESTAMP", timestamp());
+  fileContents = fileContents.replace(/\$NAME/g, capitalizedName);
+  fileContents = fileContents.replace(/\$TIMESTAMP/g, timestamp());
   fileContents = fileContents.replace(
-    "$THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES",
+    /\$THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES/g,
     process.argv.slice(3).join(" ")
   );
 

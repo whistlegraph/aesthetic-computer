@@ -9,6 +9,7 @@
     "eventsource-parser": "^1.0.0",
     "multiparty": "^4.2.3",
     "openai": "^3.2.1",
+    "openai-gpt-token-counter": "^1.0.3",
     "openai-streams": "^5.3.0"
   }
 }

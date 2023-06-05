@@ -1,4 +1,4 @@
-// 🧩 Disk (Piece)
+// i Disk (Piece)
 // Manages a piece and the transitions between pieces like a
 // hypervisor or shell.
 
@@ -187,6 +187,9 @@ let scream = null; // 😱 Allow priviledged users to send alerts to everyone.
 //                       (A great end<->end socket + redis test.)
 let screaming = false;
 let screamingTimer; // Keep track of scream duration.
+
+// Beat globals.
+let kills = []; // Keep track of playing sounds across beats.
 
 // *** Dark Mode ***
 // Pass `true` or `false` to override or `default` to the system setting.
@@ -1050,7 +1053,7 @@ const $paintApiUnwrapped = {
   // text, pos: {x, y, center}, bg (optional)
   write: function (text, pos, bg) {
     if (!text) return; // Fail silently if no text.
-    tf?.print({ ...$activePaintApi, screen }, pos, 0, text.toString(), bg); // Fail on preamble.
+    tf?.print({ ...$activePaintApi, screen, num }, pos, 0, text.toString(), bg); // Fail on preamble.
   },
   copy: graph.copy,
   paste: graph.paste,
@@ -1277,6 +1280,7 @@ $commonApi.resize = function (width, height = width, gap = 8) {
 class Microphone {
   amplitude = 0;
   waveform = [];
+  pitch = 0;
   connected = false; // Flips to true on a callback message from `bios`.
 
   // Note: can send `{monitor: true}` in `options` for audio feedback.
@@ -1292,9 +1296,21 @@ class Microphone {
   poll() {
     send({ type: "get-microphone-amplitude" });
     send({ type: "get-microphone-waveform" });
+    send({ type: "get-microphone-pitch" });
   }
 }
 
+class Speaker {
+  waveforms = { left: [], right: [] };
+  amplitudes = { left: 0, right: 0 };
+
+  poll() {
+    send({ type: "get-speaker-waveforms" });
+    send({ type: "get-speaker-amplitudes" });
+  }
+}
+
+const speaker = new Speaker();
 const microphone = new Microphone();
 
 // 2. ✔ Loading the disk.
@@ -1695,6 +1711,8 @@ async function load(
       : () => load(parse(to), ahistorical, alias);
   };
 
+  $commonApi.jumping = () => leaving;
+
   $commonApi.alias = function alias(name, colon, params) {
     $commonApi.jump(
       name +
@@ -1749,8 +1767,13 @@ async function load(
       bake = module.bake || nopaint.bake;
       system = "nopaint";
     } else if (module.system?.startsWith("prompt")) {
-      boot = ($) => {
-        prompt.prompt_boot(
+      // Default wrap to "word" if using `prompt:character`.
+      const wrap =
+        module.wrap ||
+        (module.system.indexOf("character") > -1 ? "word" : undefined);
+
+      boot = async ($) => {
+        await prompt.prompt_boot(
           $,
           {
             prompt: module.prompt,
@@ -1759,11 +1782,12 @@ async function load(
               after: module.after,
             },
             hint: module.system.split(":")[1], // See `ask.ts`.
+            forgetful: module.forgetful || false,
           },
           module.reply,
           module.halt,
           module.scheme,
-          module.wrap,
+          wrap
         );
         module.boot?.($);
       };
@@ -1988,6 +2012,27 @@ async function makeFrame({ data: { type, content } }) {
     }
   }
 
+  if (type === "visibility-change") {
+    // 🧨 Just in case of a regression... 23.06.02.21.12
+    //    Because the `bios` focus event changed from visibility behavior.
+    // if (!lastActAPI) return; // Hacky... 23.04.21.14.59
+    // const $api = lastActAPI; // Focus change events have an empty API.
+    // if (content !== inFocus) {
+    //   inFocus = content;
+    //   const data = {};
+    //   Object.assign(data, {
+    //     device: "none",
+    //     is: (e) => e === (inFocus === true ? "focus" : "defocus"),
+    //   });
+    //   $api.event = data;
+    //   try {
+    //     act($api);
+    //   } catch (e) {
+    //     console.warn("️ ✒ Act failure...", e);
+    //   }
+    // }
+  }
+
   if (type === "before-unload") {
     // This has to be synchronous (no workers) to work, and is also often unreliable.
     // I should not design around using this event, other than perhaps
@@ -2145,24 +2190,17 @@ async function makeFrame({ data: { type, content } }) {
     };
 
     $api.sound.microphone = microphone;
-    // Attach the microphone.
-    /*
-    $api.sound.microphone = function (options) {
-      send({ type: "microphone", content: options });
-      return {
-        amplitude: (cb) => {
-          send({ type: "get-microphone-amplitude" });
-        },
-      };
-    };
-    */
+    $api.sound.speaker = speaker;
 
     // TODO: Generalize square and bubble calls.
     // TODO: Move this stuff to a "sound" module.
-    const squares = [];
+    const sounds = [];
     const bubbles = [];
+    let soundId = 0;
 
+    // TODO: Rename `square`.
     $api.sound.square = function ({
+      type = "square",
       tone = 440, // TODO: Make random.
       beats = Math.random(), // Wow, default func. params can be random!
       attack = 0,
@@ -2170,21 +2208,34 @@ async function makeFrame({ data: { type, content } }) {
       volume = 1,
       pan = 0,
     } = {}) {
-      squares.push({ tone, beats, attack, decay, volume, pan });
+      const id = soundId;
+      sounds.push({ id, type, tone, beats, attack, decay, volume, pan });
+      soundId += 1;
 
       // Return a progress function so it can be used by rendering.
       const seconds = (60 / content.bpm) * beats;
       const end = content.time + seconds;
+
       return {
+        id,
+        kill: function () {
+          kills.push(id);
+        },
         progress: function (time) {
           return 1 - Math.max(0, end - time) / seconds;
+        },
+        update: function (properties) {
+          // Property updates happen outside of beat timing.
+          send({
+            type: "beat:update",
+            content: { id, properties },
+          });
         },
       };
     };
 
     $api.sound.bubble = function ({ radius, rise, volume = 1, pan = 0 } = {}) {
       bubbles.push({ radius: radius, rise, volume, pan });
-
       // Return a progress function so it can be used by rendering.
       /*
       const seconds = (60 / content.bpm) * beats;
@@ -2197,6 +2248,10 @@ async function makeFrame({ data: { type, content } }) {
       */
     };
 
+    $api.sound.kill = function (id) {
+      kills.push(id);
+    };
+
     try {
       beat($api);
     } catch (e) {
@@ -2204,13 +2259,16 @@ async function makeFrame({ data: { type, content } }) {
     }
 
     send(
-      { type: "beat", content: { bpm: content.bpm, squares, bubbles } } //,
+      {
+        type: "beat",
+        content: { bpm: content.bpm, sounds, bubbles, kills },
+      } //,
       //[content.bpm]
     );
 
-    squares.length = 0;
+    sounds.length = 0;
     bubbles.length = 0;
-
+    kills.length = 0;
     return;
   }
 
@@ -2221,6 +2279,21 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "microphone-waveform") {
     microphone.waveform = content;
+    return;
+  }
+
+  if (type === "speaker-waveforms") {
+    speaker.waveforms = content;
+    return;
+  }
+
+  if (type === "speaker-amplitudes") {
+    speaker.amplitudes = content;
+    return;
+  }
+
+  if (type === "microphone-pitch") {
+    microphone.pitch = content;
     return;
   }
 
@@ -2626,13 +2699,16 @@ async function makeFrame({ data: { type, content } }) {
           act($api);
 
           // Always check to see if there was a tap on the corner.
-          const { event: e, jump } = $api;
+          const { event: e, jump, send } = $api;
           let originalColor;
 
+          // TODO: Show keyboard immediately when returning to prompt.
           currentHUDButton?.act(e, {
             down: () => {
               originalColor = currentHUDTextColor;
               currentHUDTextColor = [0, 255, 0];
+              // send({ type: "keyboard:enabled" }); // Tricky enabling of keyboard flag.
+              // send({ type: "keyboard:unlock" });
             },
             push: () => {
               jump("prompt");
@@ -2642,6 +2718,13 @@ async function makeFrame({ data: { type, content } }) {
             },
             cancel: () => {
               currentHUDTextColor = originalColor;
+              // send({ type: "keyboard:lock" });
+            },
+            rollover: (btn) => {
+              // if (btn) send({ type: "keyboard:unlock" });
+            },
+            rollout: () => {
+              // send({ type: "keyboard:lock" });
             },
           });
         } catch (e) {
@@ -2919,7 +3002,7 @@ async function makeFrame({ data: { type, content } }) {
 
         try {
           if (system === "nopaint") nopaint_boot($api);
-          boot($api);
+          await boot($api);
         } catch (e) {
           console.warn("🥾 Boot failure...", e);
         }
@@ -3019,6 +3102,10 @@ async function makeFrame({ data: { type, content } }) {
         piece !== "prompt" &&
         piece !== "play" &&
         piece !== "gargoyle" &&
+        piece !== "savcom" &&
+        piece !== "botce" &&
+        piece !== "liar" &&
+        piece !== "alphapoet" &&
         piece !== "sing" &&
         piece !== "neoprompt" &&
         piece !== "video"
@@ -3033,7 +3120,7 @@ async function makeFrame({ data: { type, content } }) {
           } else {
             c = [255, 200, 240];
           }
-          ink(c).write(currentHUDText?.replaceAll("~", " "));
+          ink(c).write(currentHUDText?.replaceAll("~", " "), {x: 0, y: 0});
         });
 
         currentHUDButton =

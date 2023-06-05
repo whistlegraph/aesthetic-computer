@@ -1,157 +1,145 @@
 import { DEBUG } from "../disks/common/debug.mjs";
 
-let controller;
+export class Conversation {
+  messages = [];
+  forgetful = false;
+  controller;
 
-// TODO:
-// ❤️‍🔥 Controller needs to instantiate outside / why can't `ask` return
-//    controller or why can't the "leave" be managed?
+  // from the `disk` api
+  store;
+  key;
 
-// Query a LLM
-// `options` can be a string prompt or an object { prompt, program }
-// where `program` has a `before` and `after` string.
-export function ask(options, and, done, fail) {
-  let prompt,
-    program = { before: "", after: "" },
-    hint;
-
-  if (typeof options === "string") {
-    prompt = options;
-  } else {
-    ({ prompt, program, hint } = options);
+  constructor(store, slug, forgetful = false) {
+    this.store = store;
+    this.key = slug + ":conversation";
+    this.forgetful = forgetful;
   }
 
-  program.before = program.before?.trim(); // Sanitize prompt program.
-  program.after = program.after?.trim();
-
-  controller?.abort(); // Prevent multiple asks / cancel existing ones.
-  controller = new AbortController();
-  const signal = controller.signal;
-
-  const host = DEBUG
-    ? "https://localhost:9000"
-    : "https://ai.aesthetic.computer";
-
-  const responsePromise = fetch(`${host}/api/ask`, {
-    method: "POST",
-    signal,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, program, hint }),
-  });
-
-  let timeout;
-
-  const timeoutPromise = new Promise((resolve, reject) => {
-    timeout = setTimeout(() => {
-      controller.abort();
-      reject(new Error(`Reply timed out after 10 seconds!`));
-    }, 10 * 1000);
-  });
-
-  Promise.race([responsePromise, timeoutPromise])
-    .then((response) => {
-      clearTimeout(timeout);
-
-      if (!response.ok) throw new Error(`Failed to reply: ${response.status}`);
-
-      const readableStream = response.body;
-      const decoder = new TextDecoder();
-
-      const reader = readableStream.getReader();
-
-      // Detect chunks of JSON as they stream in.
-      function read() {
-        reader.read().then(({ done: complete, value }) => {
-          if (complete) {
-            // if (DEBUG) console.log("❗ Response complete.");
-            controller = null;
-            done?.();
-          } else {
-            const got = decoder.decode(value, { stream: true }); // Chunk->text.
-            and?.(got);
-            read(); // keep reading
-          }
-        });
-      }
-
-      read();
-    })
-    .catch((error) => {
-      console.error("Failed to ask:", error);
-      fail?.();
-    });
-
-  return controller;
-}
-
-/*
-export async function ask(options, and, done, fail) {
-  let prompt,
-    program = { before: "", after: "" },
-    hint;
-
-  if (typeof options === "string") {
-    prompt = options;
-  } else {
-    ({ prompt, program, hint } = options);
+  // Retrieve messages from the store.
+  async retrieve() {
+    if (!this.forgetful) {
+      this.messages =
+        this.store[this.key] ||
+        (await this.store.retrieve(this.key, "local:db")) ||
+        [];
+      return this.messages.slice();
+    } else {
+      return this.messages.slice();
+    }
   }
 
-  program.before = program.before?.trim(); // Sanitize prompt program.
-  program.after = program.after?.trim();
+  async forget() {
+    await this.store.delete(this.key, "local:db");
+    delete this.store[this.key];
+    this.messages = [];
+  }
 
-  controller?.abort(); // Prevent multiple asks / cancel existing ones.
-  controller = new AbortController();
-  const signal = controller.signal;
+  ask(options, and, done, fail) {
+    let prompt,
+      program = { before: "", after: "" },
+      hint;
 
-  try {
+    if (typeof options === "string") {
+      prompt = options;
+    } else {
+      ({ prompt, program, hint } = options);
+    }
+
+    const messageLength = this.messages.length;
+
+    if (messageLength === 0) {
+      program.before = program.before?.trim(); // Sanitize prompt program.
+      program.after = program.after?.trim();
+      if (program.before)
+        this.messages.push({ by: "system", text: program.before });
+      this.messages.push({ by: "user", text: prompt });
+      if (program.after)
+        this.messages.push({ by: "system", text: program.after });
+    } else {
+      this.messages.push({ by: "user", text: prompt });
+    }
+
+    if (DEBUG) console.log("🗨️ Sending a conversation:", this.messages);
+
+    this.controller?.abort(); // Prevent multiple asks / cancel existing ones.
+    this.controller = new AbortController();
+    const signal = this.controller.signal;
+
     const host = DEBUG
-      ? "https://localhost:9000"
+      ? `` // Just use current host, via `netlify.toml`.
       : "https://ai.aesthetic.computer";
 
     const responsePromise = fetch(`${host}/api/ask`, {
       method: "POST",
       signal,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, program, hint }),
+      body: JSON.stringify({ messages: this.messages, hint }),
     });
+
+    if (this.forgetful) this.messages.length = 0;
 
     let timeout;
 
     const timeoutPromise = new Promise((resolve, reject) => {
       timeout = setTimeout(() => {
-        controller.abort();
+        this.controller?.abort();
         reject(new Error(`Reply timed out after 10 seconds!`));
       }, 10 * 1000);
     });
 
-    const response = await Promise.race([responsePromise, timeoutPromise]);
-    clearTimeout(timeout);
+    let streamedReply = "";
 
-    if (!response.ok) throw new Error(`Failed to reply: ${response.status}`);
+    const convo = this;
 
-    const readableStream = response.body;
-    const decoder = new TextDecoder();
-
-    const reader = readableStream.getReader();
-
-    // Detect chunks of JSON as they stream in.
-    while (true) {
-      const { done: complete, value } = await reader.read();
-
-      if (complete) {
-        // if (DEBUG) console.log("❗ Response complete.");
-        controller = null;
-        done?.();
-        break;
-      }
-
-      const got = decoder.decode(value, { stream: true }); // Chunk to text.
-      and?.(got);
+    function reportFailure(error) {
+      console.error("Failed to ask:", error);
+      // Clear the messages that were added,
+      convo.messages = convo.messages.slice(0, messageLength);
+      fail?.(); // and fail out.
     }
-  } catch (error) {
-    console.error("Failed to ask:", error);
-    fail?.();
-  }
 
-  return controller;
+    Promise.race([responsePromise, timeoutPromise])
+      .then((response) => {
+        clearTimeout(timeout);
+
+        if (!response.ok)
+          throw new Error(`Failed to reply: ${response.status}`);
+
+        const readableStream = response.body;
+        const decoder = new TextDecoder();
+
+        const reader = readableStream.getReader();
+
+        // Detect chunks of JSON as they stream in.
+        function read() {
+          reader
+            .read()
+            .then(async ({ done: complete, value }) => {
+              if (complete) {
+                // if (DEBUG) console.log("❗ Response complete.");
+                convo.controller = null;
+                done?.();
+                // Add last message to the queue.
+                convo.messages.push({ by: "system", text: streamedReply });
+                if (convo.store && convo.key) {
+                  convo.store[convo.key] = convo.messages; // Add messages to store.
+                  await convo.store.persist(convo.key, "local:db"); // Persist messages.
+                }
+              } else {
+                const got = decoder.decode(value, { stream: true }); // Chunk->text.
+                streamedReply += got;
+                and?.(got);
+                read(); // keep reading
+              }
+            })
+            .catch(reportFailure);
+        }
+        read();
+      })
+      .catch(reportFailure);
+
+    return () => {
+      this.controller?.abort();
+    };
+  }
 }
-*/

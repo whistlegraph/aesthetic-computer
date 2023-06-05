@@ -13,6 +13,7 @@
  - [] An iOS app would need a small ESC or arrow overlay button in Swift
       to make this work properly.
   + Done
+  - [x] Write an initial prompt program.
   - [x] Generically "lock" prompt after input before a result returns.
         Show a spinner if too much time has passed?
   - [x] Pass the api into `halt`.
@@ -22,11 +23,44 @@
   - [x] `export const autolock`
 #endregion */
 
-const before = ``;
+const before = `
+You are playing a character who tries to help me find the command I'm searching for
+- The options for the commands are: 'line' 'gargoyle' 'rect' 'smear' 'oval' 'shape' 'word'
+If I type 'linr' for example, you say 'how bout typing line instead :P'. If I type 'round' for example, you say 'try typing oval instead ;)'. Choose between emoticons,  ';)' ':)' ':P' ';P' ';*' ';$', at the end of your response.
+-  When you suggest the right command, your responses must have only lower case letters.
+
+
+If I type something like 'tree' or 'dog', which isn't directly related to any of the commands, or if I type random letters, you respond: 'hmm I'm stumped. type list to explore' and make sure all letters are lower case.
+`;
+
+// const before = `
+// You are playing a character who tries to help me find the command I'm searching for
+// - the options for the commands are: 'line' 'rect' 'smear' 'oval' 'shape' 'word'
+// If I type 'linr' for example, you say 'do you want the line tool?'
+//   - If I type 'round' for example, you say 'do you want the oval tool?'
+// If I type something like 'tree' or 'dog', which isn't directly related to any of the commands, you provide a list of all of the possible commands.
+//   - You say 'not sure what you're looking for, you can choose between: ...' and list the possible command options
+//   - And at the end add 'if none of these are what you need, get more help here'
+
+// If the user types 'yes' in response to your question, go directly to that command's page
+// `;
+
+// (requires convo support)
+
+// const before = `
+// Please play a game with me. The rules are:
+//   - I have typed something into a machine incorrectly.
+//   - And you need to suggest a correct message.
+//   - You can suggest a correct word based on my incorrect attempt.
+//   - The correct words are: 'line', 'rect', 'smear', 'freaky-flower' (ff), 'happy-hands-assembler' (hha), 'bleep', and 'word'.
+// Here is what I have typed in:`;
+
 const after = ``;
+const forgetful = true;
 
 import { Desktop, MetaBrowser } from "../lib/platform.mjs";
 import { validateHandle } from "../lib/text.mjs";
+import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { parse } from "../lib/parse.mjs";
 import { ordfish } from "./ordfish.mjs";
 const { abs } = Math;
@@ -294,20 +328,31 @@ async function halt($, text) {
   } else {
     // 🟠 Local and remote pieces...
     const loaded = await load(parse(text)); // Execute the current command.
-    console.log(loaded);
     return loaded;
   }
 }
 
 // 🥾 Boot
-function boot({ glaze, api, system, pieceCount }) {
+function boot({ glaze, api, system, pieceCount, send }) {
   glaze({ on: true });
-  system.prompt.input.text = makeMotd(api); // Override prompt with motd.
+
+  if (
+    !system.prompt.convo.messages ||
+    system.prompt.convo.messages?.length === 0
+  ) {
+    system.prompt.input.text = makeMotd(api); // Override prompt with motd if
+    //                                           no conversation is present.
+    system.prompt.input.lastText = system.prompt.input.text;
+    system.prompt.input.showButton();
+  }
 
   // Activate and reset input text if returning to the prompt from elsewhere.
   if (pieceCount > 0) {
-    if (Desktop) system.prompt.input.canType = true;
+    system.prompt.input.canType = true;
     system.prompt.input.text = "";
+    system.prompt.input.go.btn.disabled = true; // Disable button.
+    system.prompt.input.inputStarted = true;
+    send({ type: "keyboard:unlock" });
   }
 }
 
@@ -320,7 +365,7 @@ function paint($) {
     scheme.light.bg[3] = 127;
   }
 
-  $.layer(1); // 🅱️ And above it... 
+  $.layer(1); // 🅱️ And above it...
 
   let historyTexts;
   const { screen, ink, history } = $;
@@ -365,7 +410,11 @@ function paint($) {
 // 🧮 Sim
 function sim($) {
   const input = $.system.prompt.input;
-  if ($.store["handle:received"] && input?.canType === false) {
+  if (
+    $.store["handle:received"] &&
+    input?.canType === false &&
+    $.system.prompt.messages?.length === 0
+  ) {
     input.text = makeMotd($);
     input.canType = false;
     delete $.store["handle:received"];
@@ -403,7 +452,7 @@ function meta() {
   };
 }
 
-export { before, after, halt, boot, paint, sim, act, meta };
+export { before, after, forgetful, halt, boot, paint, sim, act, meta };
 export const system = "prompt:character"; // or "prompt:code"
 
 // Prompt configuration overrides.
@@ -450,10 +499,11 @@ function makeMotd({ handle, user }) {
   // `  to learn more!                                ` +
   // `                                                ` +
   // `mail@aesthetic.computer                         `;
-  if (user)
+  if (user) {
     motd =
       `Welcome, ${handle || user.name}!`.padEnd(48) + " ".padEnd(48) + motd;
-  return motd;
+  } else motd = "Monday, June 5th, 2023";
+  return motd.trim();
 }
 
 function makeFlash($, clear = true, message) {

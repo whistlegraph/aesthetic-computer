@@ -39,6 +39,8 @@ const handPalette = {
   o: "orange", // Ring, orange
   p: "pink", // Pinky, pink
 };
+const lastOrigin = [];
+let beep = false;
 
 // 🥾 Boot (Runs once before first paint and sim)
 async function boot({ wipe, params, screen, store }) {
@@ -81,6 +83,8 @@ function paint({
   paste,
   paintCount,
   video,
+  write,
+  num,
 }) {
   // Start video feed once for webcam hand-tracking on mobile and desktop.
   // (And recalibrate if resized.)
@@ -101,12 +105,18 @@ function paint({
   const boxSize = 5;
   const boxType = "fill*center";
 
-  if (mediapipe?.screen.length > 0) {
-    const scaled = mediapipe.screen.map((coord) => [
-      coord.x * width,
-      coord.y * height,
-    ]);
+  // 1. Draw Hand-tracked 2D Coordinates
+  const scaled = mediapipe.screen.map((coord) => [
+    coord.x * width,
+    coord.y * height,
+  ]);
 
+  if (scaled.length > 0) {
+    lastOrigin[0] = scaled[0][0];
+    lastOrigin[1] = scaled[0][1];
+  }
+
+  if (mediapipe?.screen.length > 0) {
     // A. Draw lines
     ink(handPalette.w).poly([
       scaled[0],
@@ -131,6 +141,7 @@ function paint({
     ink(handPalette.p).poly([scaled[17], scaled[18], scaled[19], scaled[20]]);
 
     // B. Loop over the scaled points and draw the boxes.
+
     scaled.forEach((coord, index) => {
       if (index >= 18) {
         ink(handPalette.p); // Pinky
@@ -148,7 +159,37 @@ function paint({
       }
       box(coord[0], coord[1], boxSize, boxType);
     });
+    //Interactions
+    let tiLine = ink((255, 0, 0)).poly([scaled[4], scaled[8]]); //line between thumb and index
+
+    const timop = [scaled[4], scaled[8], scaled[12], scaled[16], scaled[20]];
+    touching(timop, num);
+    [..."timop"].forEach((letter, index) => {
+      const coord = timop[index].slice(); // Make a copy of the coords.
+      coord[0] += -3;
+      coord[1] += -5;
+      if ((tiLine && letter === "i") || letter === "t") {
+        //if there is a line between 2 points
+        if (
+          num.dist(scaled[4][0], scaled[4][1], scaled[8][0], scaled[8][1]) < 16
+        ) {
+          //if the line is less than a certain length
+          ink("white").write(letter, coord, "red");
+          tiLine = ink("red").poly([scaled[4], scaled[8]]);
+          beep = true;
+        } else {
+          ink("white").write(letter, coord, handPalette[letter]);
+          tiLine = ink("green").poly([scaled[4], scaled[8]]);
+          beep = false;
+        }
+      } else {
+        ink("white").write(letter, coord, handPalette[letter]);
+      }
+    });
+
+    // loop through timop and draw all the letters
   } else {
+    // 2. Or... default to a generated model of a hand.
     const osc = Math.sin(paintCount * 0.1); // Oscillate a value based on frame.
     // Build base wrist geometry.
     const w = [
@@ -170,10 +211,14 @@ function paint({
     };
 
     const o = { x: -24 + 2 * osc, y: 16 + 2 * osc }; // Offsets and oscilates the entire hand
-    pen
-      ? pan(pen.x + o.x, pen.y + o.y)
-      : pan(width / 2 + o.x, height / 2 + o.y);
 
+    if (lastOrigin.length > 0) {
+      pan(lastOrigin[0] + o.x, lastOrigin[1] + o.y);
+    } else {
+      pen
+        ? pan(pen.x + o.x, pen.y + o.y)
+        : pan(width / 2 + o.x, height / 2 + o.y);
+    }
     // 🅰️ Hand Lines & Points
     // Draw each component (lines and boxes) of wrist, followed by each of digit.
     ["w", "t", "i", "m", "o", "p"].forEach((char, i) => {
@@ -192,6 +237,34 @@ function paint({
   }
 }
 
+// ✒ Act (Runs once per user interaction)
+function act({ event }) {
+  if (event.is("move")) {
+    //anytime a mouse moves
+    lastOrigin.length = 0;
+  }
+}
+
+let beatCount = 0n;
+
+// 🥁 Beat
+function beat({ sound: { square, bpm }, num }) {
+  if (beatCount === 0n) {
+    bpm(180); // Set bpm to 3600 ~ 60fps
+  }
+
+  if (beep) {
+    square({
+      tone: num.randIntRange(400, 800),
+      beats: 0.25,
+      decay: 0.99,
+    });
+    beep = false;
+  }
+
+  beatCount += 1n;
+}
+
 // Tab title and meta description of this piece.
 function meta() {
   return {
@@ -200,7 +273,7 @@ function meta() {
   };
 }
 
-export { boot, paint, meta };
+export { boot, paint, act, beat, meta };
 
 // 📚 Library (Useful functions used throughout the piece)
 
@@ -227,12 +300,58 @@ function digit(from, segCount, deg = 0, curve = 0) {
   return segs;
 }
 
-/*
-// ✒ Act (Runs once per user interaction)
-function act({ event }) {
-  // Respond to user input here.
+//merge array of touching points
+function mergeTouchingPoints(points) {
+  const mergedPoints = [];
+
+  for (let i = 0; i < points.length; i++) {
+    const currentPoint = points[i];
+    let merged = false;
+
+    for (let j = 0; j < mergedPoints.length; j++) {
+      const group = mergedPoints[j];
+
+      if (group.includes(currentPoint[0]) || group.includes(currentPoint[1])) {
+        group.push(currentPoint[0], currentPoint[1]);
+        merged = true;
+        break;
+      }
+    }
+
+    if (!merged) {
+      mergedPoints.push([...currentPoint]);
+    }
+  }
+
+  return mergedPoints;
 }
 
+//Param tips is array of tip points from thumb - pinky, scaled[4,8,12,16,20]
+function touching(tips, num) {
+  let touchedTips = [];
+  let mergedTips;
+
+  let timop = ["t", "i", "m", "o", "p"];
+  //compare every point to each other
+  for (let i = 0; i < tips.length; i++) {
+    for (let j = i + 1; j < tips.length; j++) {
+      let distance = num.dist(tips[i][0], tips[i][1], tips[j][0], tips[j][1]);
+      if (distance < 20) {
+        //if distance between points less than 16 pixels, group points together
+        touchedTips.push([timop[i] + " and " + timop[j], tips[i], tips[j]]);
+      }
+    }
+  }
+  if (touchedTips.length > 1) {
+    mergedTips = mergeTouchingPoints(touchedTips);
+  } else if (touchedTips.length > 0) {
+    console.log("The tips that are touching:" + touchedTips[0][0]);
+    return touchedTips;
+  }
+  return mergedTips;
+}
+
+/*
 // 🧮 Sim(ulate) (Runs once per logic frame (120fps locked)).
 function sim($api) {
   // Crunch numbers outside of rendering here.

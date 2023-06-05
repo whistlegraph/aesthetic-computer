@@ -2,8 +2,10 @@
 
 // import * as sine from "./sound/sine.js";
 import * as volume from "./sound/volume.mjs";
-import Square from "./sound/square.mjs";
+import Sound from "./sound/sound.mjs";
 import Bubble from "./sound/bubble.mjs";
+
+const { abs, round } = Math;
 
 // Helpful Info:
 
@@ -26,9 +28,13 @@ class SoundProcessor extends AudioWorkletProcessor {
   #bpm;
   #bpmInSec;
 
+  #running = {};
   #queue = [];
 
-  #bubble;
+  #currentWaveformLeft = [];
+  #currentWaveformRight = [];
+  #currentAmplitudeLeft = [];
+  #currentAmplitudeRight = [];
 
   constructor(options) {
     if (options.debug) console.log("🔊 Sound Synthesis Worklet Started");
@@ -47,106 +53,118 @@ class SoundProcessor extends AudioWorkletProcessor {
     this.port.onmessage = (e) => {
       const msg = e.data;
 
+      // Send waveform data to `bios`.
+      if (msg.type === "get-waveforms") {
+        this.port.postMessage({
+          type: "waveforms",
+          content: {
+            left: this.#currentWaveformLeft,
+            right: this.#currentWaveformRight,
+          },
+        });
+        return;
+      }
+
+      if (msg.type === "get-amplitudes") {
+        this.port.postMessage({
+          type: "amplitudes",
+          content: {
+            left: this.#currentAmplitudeLeft,
+            right: this.#currentAmplitudeRight,
+          },
+        });
+        return;
+      }
+
       // New BPM
       if (msg.type === "new-bpm") {
         this.#bpm = msg.data;
         this.#bpmInSec = 60 / this.#bpm;
         console.log("🎼 New BPM:", this.#bpm);
+        return;
       }
 
-      // Square
-      // Square fires just once and gets recreated on every call.
-      if (msg.type === "square") {
-        const durationInFrames = Math.round(
-          sampleRate * (this.#bpmInSec * msg.data.beats)
-        );
+      // Update properties of an existing sound, if found.
+      if (msg.type === "update") {
+        this.#running[msg.data.id]?.update(msg.data.properties);
+        return;
+      }
 
-        const attackInFrames = Math.round(durationInFrames * msg.data.attack);
-        const decayInFrames = Math.round(durationInFrames * msg.data.decay);
+      // 💀 Kill an existing sound.
+      if (msg.type === "kill") {
+        this.#running[msg.data]?.kill(); // Try and kill the sound if it exists,
+        this.#running[msg.data] = undefined; // then compact the array.
+        delete this.#running[msg.data];
+        return;
+      }
 
+      // Kill all pervasive sounds.
+      if (msg.type === "kill:all") {
+        const running = this.#running;
+        Object.keys(running).forEach((key) => {
+          running[key]?.kill();
+          delete runnning[key];
+        });
+        return;
+      }
+
+      // 📢 Sound
+      // Fires just once and gets recreated on every call.
+      if (msg.type === "sound") {
+
+        console.log(msg);
+
+        let duration, attack, decay;
+
+        if (msg.data.beats === Infinity) {
+          duration = Infinity;
+          attack = msg.data.attack; // Measured in seconds in `Sound`.
+          decay = msg.data.decay;
+        } else {
+          duration = round(sampleRate * (this.#bpmInSec * msg.data.beats));
+          attack = round(duration * msg.data.attack); // Measured in frames.
+          decay = round(duration * msg.data.decay);
+        }
+
+        // Trigger the sound...
+        const sound = new Sound({
+          type: msg.data.type,
+          tone: msg.data.tone,
+          duration,
+          attack,
+          decay,
+          volume: msg.data.volume,
+          pan: msg.data.pan,
+        });
+
+        if (duration === Infinity && msg.data.id > -1) {
+          this.#running[msg.data.id] = sound; // Index by the unique id.
+        }
+
+        this.#queue.push(sound);
+        return;
+      }
+
+      // Bubble works similarly to Square.
+      if (msg.type === "bubble") {
         this.#queue.push(
-          new Square(
-            msg.data.tone,
-            durationInFrames,
-            attackInFrames,
-            decayInFrames,
+          new Bubble(
+            msg.data.radius,
+            msg.data.rise,
             msg.data.volume,
             msg.data.pan
           )
         );
-
-        /*
-        console.log(
-          "🎼 Square:",
-          msg.data.tone,
-          "Beats:",
-          msg.data.beats,
-          "Attack:",
-          msg.data.attack,
-          "Decay:",
-          msg.data.decay,
-          "Volume:",
-          msg.data.volume,
-          "Pan:",
-          msg.data.pan
-        );
-        */
+        return;
       }
-
-      // Bubble is a singleton, only one can ever exist. They automatically
-      // layer or get destroyed / recreated.
-      if (msg.type === "bubble") {
-        this.#bubble = new Bubble(
-          msg.data.radius,
-          msg.data.rise,
-          msg.data.volume,
-          msg.data.pan
-        );
-        this.#queue.push(this.#bubble);
-      }
-
-      /*
-        if (!this.#queue.includes(this.#bubble)) {
-          this.#bubble = new Bubble(
-            msg.data.radius,
-            msg.data.rise,
-            msg.data.volume,
-            msg.data.pan
-          );
-          this.#queue.push(this.#bubble);
-        } else {
-          this.#bubble.start(
-            msg.data.radius,
-            msg.data.rise,
-            msg.data.volume,
-            msg.data.pan
-          );
-        }
-
-        console.log(
-          "🎼 Bubble Radius:",
-          msg.data.radius,
-          "Rise:",
-          msg.data.rise,
-          "Volume:",
-          msg.data.volume,
-          "Pan:",
-          msg.data.pan
-        );
-      }
-       */
-
-      // Sample
-
-      // Triangle
-
-      // Sine
-
-      // Saw
     };
   }
 
   process(inputs, outputs) {
+    // 0️⃣ Waveform Tracking
+    let waveformLeft = [];
+    let waveformRight = [];
+
     // 1️⃣ Metronome
     this.#ticks += currentTime - this.#lastTime;
     this.#lastTime = currentTime;
@@ -155,16 +173,18 @@ class SoundProcessor extends AudioWorkletProcessor {
 
     if (this.#ticks >= this.#bpmInSec) {
       this.#ticks = 0;
-      this.port.postMessage(currentTime);
-      // TODO: Add in amplitude.
+      this.#report("metronome", currentTime);
     }
 
     // 2️⃣ Sound generation
     // const input = inputs[0];
     const output = outputs[0];
 
+    let ampLeft = 0,
+      ampRight = 0;
+
     // We assume two channels. (0 and 1)
-    for (let frame = 0; frame < output[0].length; frame += 1) {
+    for (let s = 0; s < output[0].length; s += 1) {
       // Remove any finished instruments from the queue.
       this.#queue = this.#queue.filter((instrument) => {
         return instrument.playing;
@@ -177,21 +197,35 @@ class SoundProcessor extends AudioWorkletProcessor {
         // TODO: Actually add the sounds here instead of replacing them.
         const amplitude = instrument.next(); // this.#queue.length;
 
-        output[0][frame] += instrument.pan(0, amplitude);
-        output[1][frame] += instrument.pan(1, amplitude);
+        output[0][s] += instrument.pan(0, amplitude);
+        output[1][s] += instrument.pan(1, amplitude);
       }
 
       // Mix all sound through global volume.
-      output[0][frame] = volume.apply(output[0][frame]);
-      output[1][frame] = volume.apply(output[1][frame]);
+      output[0][s] = volume.apply(output[0][s]);
+      output[1][s] = volume.apply(output[1][s]);
+
+      // Track the current amplitude of both channels, and get waveform data.
+      ampLeft = abs(output[0][s]) > ampLeft ? abs(output[0][s]) : ampLeft;
+      ampRight = abs(output[1][s]) > ampRight ? abs(output[1][s]) : ampRight;
+
+      if (s % 8 === 0) {
+        waveformLeft.push(output[0][s]); // Cap every 8th value. (Usually 16)
+        waveformRight.push(output[1][s]);
+      }
     }
 
+    this.#currentWaveformLeft = waveformLeft.slice(0);
+    this.#currentWaveformRight = waveformRight.slice(0);
+    this.#currentAmplitudeLeft = ampLeft;
+    this.#currentAmplitudeRight = ampRight;
     return true;
   }
 
-  // #report() {
-  //this.port.postMessage()
-  // }
+  // Send data back to the `bios`.
+  #report(type, content) {
+    this.port.postMessage({ type, content });
+  }
 }
 
 registerProcessor("sound-processor", SoundProcessor);
