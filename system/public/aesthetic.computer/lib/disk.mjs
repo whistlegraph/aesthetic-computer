@@ -1,4 +1,4 @@
-// 🧩 Disk (Piece)
+// i Disk (Piece)
 // Manages a piece and the transitions between pieces like a
 // hypervisor or shell.
 
@@ -1053,7 +1053,7 @@ const $paintApiUnwrapped = {
   // text, pos: {x, y, center}, bg (optional)
   write: function (text, pos, bg) {
     if (!text) return; // Fail silently if no text.
-    tf?.print({ ...$activePaintApi, screen }, pos, 0, text.toString(), bg); // Fail on preamble.
+    tf?.print({ ...$activePaintApi, screen, num }, pos, 0, text.toString(), bg); // Fail on preamble.
   },
   copy: graph.copy,
   paste: graph.paste,
