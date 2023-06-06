@@ -120,7 +120,8 @@ export class Conversation {
                 convo.controller = null;
                 done?.();
                 // Add last message to the queue.
-                convo.messages.push({ by: "system", text: streamedReply });
+                if (!convo.forgetful)
+                  convo.messages.push({ by: "system", text: streamedReply });
                 if (convo.store && convo.key) {
                   convo.store[convo.key] = convo.messages; // Add messages to store.
                   await convo.store.persist(convo.key, "local:db"); // Persist messages.
