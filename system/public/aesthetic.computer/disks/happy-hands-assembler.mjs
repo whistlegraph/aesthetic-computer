@@ -165,9 +165,9 @@ function paint({
 
     //Interactions
     const timop = [scaled[4], scaled[8], scaled[12], scaled[16], scaled[20]];
+    const timopUnscaled = [mediapipe.world[4], mediapipe.world[8], mediapipe.world[12], mediapipe.world[16], mediapipe.world[20]];
 
-    const interactions = touching(timop, num);
-
+    const interactions = touching(timop, num, timopUnscaled);
     //default populated
     const letterColors = {
       //default populated
@@ -204,13 +204,11 @@ function paint({
       for (let i = 0; i < interactions.length; i++) {
         let touchLabels = Object.keys(interactions[i].data); 
         let comboColor = letterColors[touchLabels.join("")];
-        console.log(comboColor)
         touchLabels.forEach((label) => { //get label and new color
           letterColors[label] = comboColor;
         });
       }
     }
-
 
     //Then, color the fingers
     [..."timop"].forEach((letter, index) => {
@@ -336,21 +334,28 @@ function digit(from, segCount, deg = 0, curve = 0) {
 //Track interactions between finger tips
 //Params: Ordered TIMOP tip points, num API
 //Returns: Array of collections of touching tips.
-function touching(tips, num) {
+function touching(tips, num, timopUnscaled) {
   let touchedTips = [];
   let timop = ["t", "i", "m", "o", "p"];
   let touchGroup = 0; 
-  //
+  
   for (let tip = 0; tip < 5; tip++) {
     for (let tc = tip + 1; tc < 5; tc++) {
       const currentTip = tips[tip];
       const tipToCheck = tips[tc];
+
+      //3D Z-coords
+      // let distance = num.dist3d( 
+      //   Object.values(timopUnscaled[tip]).slice(0, -1),
+      //   Object.values(timopUnscaled[tc]).slice(0, -1)
+      // );
       let distance = num.dist(
         currentTip[0],
         currentTip[1],
         tipToCheck[0],
         tipToCheck[1]
       );
+
       if (distance < 20) {
         // Create a "touch" to collect all touching tips, starting with these
         const tipId1 = timop[tip];
