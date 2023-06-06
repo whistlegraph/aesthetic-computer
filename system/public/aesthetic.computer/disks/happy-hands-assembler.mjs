@@ -5,6 +5,7 @@
 /* #region 🏁 todo
   - [] We need a goal.
   - [] Fix video orientation issues.
+  - [] Fix scale for Num
   + Done
   - [x] Clean up Hands API
     - [x] Add buffered video object / layer back with proper cropping
@@ -20,6 +21,8 @@
         (Wasn't a bug; ordering of drawing interleaves boxes & lines, so
         using layers makes sense)
   - [x] Move the corner label numbering the current hand from `boot` to `paint`.
+  - [x] Letter colors for interactions 
+
 #endregion */
 
 /* #region 🤝 Read Me 
@@ -159,32 +162,62 @@ function paint({
       }
       box(coord[0], coord[1], boxSize, boxType);
     });
-    //Interactions
-    let tiLine = ink((255, 0, 0)).poly([scaled[4], scaled[8]]); //line between thumb and index
 
+    //Interactions
     const timop = [scaled[4], scaled[8], scaled[12], scaled[16], scaled[20]];
-    touching(timop, num);
+
+    const interactions = touching(timop, num);
+
+    //default populated
+    const letterColors = {
+      //default populated
+      ti: "red",
+      tm: "orange",
+      to: "gold",
+      tp: "goldenrod",
+      im: "green",
+      io: "olivedrab",
+      ip: "blue",
+      mo: "cornflowerblue",
+      mp: "darkcyan",
+      op: "darkblue",
+      tim: "darkslateblue",
+      tio: "darkorchid",
+      tip: "darkmagenta", 
+      tmo: "darkviolet", 
+      tmp: "fuchsia",
+      top: "deeppink",
+      imo: "hotpink",
+      imp: "indianred", 
+      iop: "lightcoral",
+      mop: "lightpink", 
+      timo: "lightseagreen",
+      tmop: "pink",
+      timp: "plum", 
+      tiop: "teal",
+      imop: "mediumslateblue",
+      timop: "chartreuse"
+    };
+
+    //Overwrite the default color on interacting fingers
+    if (interactions.length > 0) {
+      for (let i = 0; i < interactions.length; i++) {
+        let touchLabels = Object.keys(interactions[i].data); 
+        let comboColor = letterColors[touchLabels.join("")];
+        console.log(comboColor)
+        touchLabels.forEach((label) => { //get label and new color
+          letterColors[label] = comboColor;
+        });
+      }
+    }
+
+
+    //Then, color the fingers
     [..."timop"].forEach((letter, index) => {
       const coord = timop[index].slice(); // Make a copy of the coords.
       coord[0] += -3;
       coord[1] += -5;
-      if ((tiLine && letter === "i") || letter === "t") {
-        //if there is a line between 2 points
-        if (
-          num.dist(scaled[4][0], scaled[4][1], scaled[8][0], scaled[8][1]) < 16
-        ) {
-          //if the line is less than a certain length
-          ink("white").write(letter, coord, "red");
-          tiLine = ink("red").poly([scaled[4], scaled[8]]);
-          beep = true;
-        } else {
-          ink("white").write(letter, coord, handPalette[letter]);
-          tiLine = ink("green").poly([scaled[4], scaled[8]]);
-          beep = false;
-        }
-      } else {
-        ink("white").write(letter, coord, handPalette[letter]);
-      }
+      ink("white").write(letter, coord, letterColors[letter]);
     });
 
     // loop through timop and draw all the letters
@@ -300,14 +333,15 @@ function digit(from, segCount, deg = 0, curve = 0) {
   return segs;
 }
 
-//Track interactions between finger tips 
-//Params: Ordered TIMOP tip points, num API 
-//Returns: Array of collections of touching tips. 
+//Track interactions between finger tips
+//Params: Ordered TIMOP tip points, num API
+//Returns: Array of collections of touching tips.
 function touching(tips, num) {
   let touchedTips = [];
   let timop = ["t", "i", "m", "o", "p"];
+  let touchGroup = 0; 
   //
-  for (let tip = 0; tip < 5; tip++) { 
+  for (let tip = 0; tip < 5; tip++) {
     for (let tc = tip + 1; tc < 5; tc++) {
       const currentTip = tips[tip];
       const tipToCheck = tips[tc];
@@ -323,26 +357,32 @@ function touching(tips, num) {
         const tipId2 = timop[tc];
         let added = false;
 
-        touchedTips.forEach((touchedTip) => { // Search touchedTips to see if the keys tipId1 is present
-          const keys = Object.keys(touchedTip);
-          if (keys.includes(tipId1)) { //if they are, only add tipToCheck 
-            touchedTip[tipId2] = tipToCheck;
+        touchedTips.forEach((touchedTip) => {
+          // Search touchedTips to see if the keys tipId1 is present
+          const keys = Object.keys(touchedTip.data);
+          if (keys.includes(tipId1)) {
+            //if they are, only add tipToCheck
+            touchedTip.data[tipId2] = tipToCheck;
             added = true;
           }
         });
 
-        if (!added) { //Create new touch collection when not updating previous touch
-          const touch = {};
-          touch[tipId1] = currentTip;
-          touch[tipId2] = tipToCheck;
+        if (!added) {
+          //Create new touch collection when not updating previous touch
+          const touch = {
+            data: {},
+            group: touchGroup,
+          };
+          touch.data[tipId1] = currentTip;
+          touch.data[tipId2] = tipToCheck; 
           touchedTips.push(touch);
+          touchGroup++;
         }
         break;
       }
     }
   }
-  console.log(touchedTips);
-  return mergedTips;
+  return touchedTips;
 }
 
 /*
