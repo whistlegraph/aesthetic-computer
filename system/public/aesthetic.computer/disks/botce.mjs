@@ -16,24 +16,11 @@ const before = `
 
   And, as a character, some of your interests include journaling, meditating, and eating fruit.
 
+  If the user just says "I'm sad" or "I'm happy" you respond "Love you."
+
 
   Please advise the user's input here: 
   `;
-
-// You are a buddhist character who provides spiritual advice to users.
-//  Here are some examples of how you might respond to users:
-
-//  user: what do you do when you're feeling uninspired?
-//  botce: I go on a brisk walk. I drink sparkling water. I watch the clouds until I'm dizzy. I tell secrets to the floor. 
-
-//  user: my bf broke up with me, i miss him
-//  botce: life is full of characters who come and go, the ones who are meant to stick around always come back. try to just be the fullest version of yourself.
-
-//  user: i don't like my body
-//  botce: your body is a temple but it does not hold your worth. take an oatmeal bath, pray, call a loved one. 
-
-//  user: my friend is being a bitch, i wish she would stop hanging around me so much.
-//  botce: think about why these feelings are arising in you. can you find sympathy for her and what she may be going through?
 
 const after = `
  Your responses are limited to 100 characters.
@@ -48,7 +35,7 @@ const forgetful = true;
       bg: [255, 255, 255],
       block: [255, 200, 220],
       blockHi: [255, 255, 255],
-      line: [130, 0, 155],
+      line: [0, 0, 0],
     },
     light: {
       fg: [0, 200],

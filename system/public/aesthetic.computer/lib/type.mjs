@@ -212,7 +212,10 @@ class TextInput {
     if (!clear && this.pal.bg !== undefined) $.ink(this.pal.bg).box(frame); // Paint bg.
 
     const prompt = this.#prompt;
+
+    // Begin the cursor / text-wrapping crawl.
     prompt.cursor = { x: 0, y: 0 };
+    prompt.lineBreaks.length = 0;
 
     // Wrap and render the text.
     if (this.wrap === "char") {
@@ -248,6 +251,10 @@ class TextInput {
 
         if (i < words.length - 1 && prompt.cursor.x !== 0) prompt.forward(); // Move forward a space.
       });
+
+      prompt.span = prompt.index; // Now that the index is maxed out,
+      //                                 cache the full text length including
+      //                                 whitespace.
     }
 
     // TODO: Now offset the cursor if it's not at the end.
@@ -293,14 +300,20 @@ class TextInput {
         // TODO: Prompt index is different from text index due to
         //       text wrapping, so I need to store an offset.
 
-        // Prompt needs to store an text index -> prompt index map..
+        // Prompt needs to store n text index -> prompt index map..
         // Or at every prompt index there needs to be a character index
         // related to text, or null.
 
         // And if it's null then we skip it when dragging left or right.
 
-        const index = this.#prompt.index;
-        const char = this.text[index];
+        // console.log(this.#prompt.index, this.#prompt.lineBreaks);
+
+        if (this.#prompt.lineBreaks.includes(this.#prompt.index)) {
+          $.ink(0, 255, 0, 64).box(prompt.pos); // Draw line-break alignment.
+        }
+
+        const wrappedIndex = this.#prompt.textIndex(this.text);
+        const char = this.text[wrappedIndex];
 
         const pic = this.typeface.glyphs[char];
         if (pic) $.ink(this.pal.blockHi).draw(pic, prompt.pos);
@@ -441,13 +454,46 @@ class TextInput {
             this.#movedCursor = null;
           } else {
             if (this.#movedCursor) {
-              const index = this.#prompt.index;
-              if (index === 0 && this.text.length > 0) {
+              const promptIndex = this.#prompt.index;
+              let gap;
+
+              if (promptIndex === 0 && this.text.length > 0) {
+                // ...
               } else {
+                // Delete a character from the current cursor position,
+                // taking into account line breaks.
+                const breaks = this.#prompt.lineBreaks.slice();
+                let promptCrawler = 0,
+                  offsetIndex;
+
+                // Move through the full text...
+                for (let index = 0; index < this.text.length; index += 1) {
+                  const char = this.text[index];
+
+                  if (breaks[0] === promptCrawler) {
+                    breaks.shift();
+                    const x = promptCrawler % this.#prompt.colWidth;
+                    gap = this.#prompt.colWidth - x;
+                    promptCrawler += gap;
+                  }
+
+                  if (promptCrawler === promptIndex) {
+                    offsetIndex = index;
+                    console.log(gap);
+                    break;
+                  }
+
+                  promptCrawler += 1;
+                }
+
                 this.text =
-                  this.text.slice(0, index - 1) + this.text.slice(index);
+                  this.text.slice(0, offsetIndex - 1) +
+                  this.text.slice(offsetIndex);
               }
+
+              console.log("Current gap:", gap);
               this.#prompt.backward(this.#movedCursor);
+
             } else {
               this.text = this.text.slice(0, -1);
             }
@@ -480,10 +526,18 @@ class TextInput {
 
         // Move cursor forward.
         if (e.key === "ArrowRight") {
-          if (this.#prompt.index < this.text.length) {
+          // console.log(
+          //   "Cursor:",
+          //   this.#prompt.index,
+          //   "Span:",
+          //   this.#prompt.span,
+          //   "Text:",
+          //   this.text.length
+          // );
+          if (this.#prompt.index < this.#prompt.span) {
             if (!this.#movedCursor) this.#movedCursor = this.#prompt.cursor;
             this.#prompt.forward(this.#movedCursor);
-            if (this.#prompt.index === this.text.length)
+            if (this.#prompt.index === this.#prompt.span)
               this.#movedCursor = null;
           }
         }
@@ -604,6 +658,7 @@ class TextInput {
 class Prompt {
   top = 0;
   left = 0;
+  span = 0; // Cache the full width of the text (after processing in `paint`)
 
   scale = 1;
   blockWidth = 6;
@@ -612,6 +667,8 @@ class Prompt {
   letterHeight = this.blockHeight * this.scale;
 
   colWidth = 48; // Maximum character width of each line before wrapping.
+
+  lineBreaks = [];
 
   cursor = { x: 0, y: 0 };
   gutter; // A y-position at the end of the colWidth.
@@ -636,6 +693,20 @@ class Prompt {
     return y * (cols + 1) + x - lineBreaks;
   }
 
+  textIndex(text) {
+    let ti = 0;
+    let lbi = 0;
+
+    [...text].forEach((char, index) => {
+      if (this.lineBreaks[lbi] === index) {
+        // console.log("Cursor index:", cursorIndex, "Index:", index, "Char:", char);
+      }
+      ti += 1;
+    });
+
+    return ti;
+  }
+
   // Caluclate the screen x, y position of the top left of the cursor.
   get pos() {
     const x = this.top + this.cursor.x * this.letterWidth;
@@ -648,6 +719,13 @@ class Prompt {
     repeat(amount, () => {
       cursor.x = (cursor.x + 1) % (this.colWidth - 1);
       if (cursor.x === 0) cursor.y += 1;
+      // Check to see if the index needs a break and move forward more as needed.
+      this.lineBreaks.forEach((lineBreak) => {
+        if (lineBreak === this.index) {
+          this.cursor.y += 1;
+          this.cursor.x = 0;
+        }
+      });
     });
   }
 
@@ -655,16 +733,30 @@ class Prompt {
   backward(cursor = this.cursor) {
     if (cursor.x === 0) {
       if (cursor.y > 0) {
+        let closestLineBreak;
+        for (let l = 0; l < this.lineBreaks.length; l += 1) {
+          const lineBreak = this.lineBreaks[l];
+          if (this.index > lineBreak) {
+            closestLineBreak = lineBreak;
+          }
+        }
+
+        if (closestLineBreak) {
+          cursor.x = (closestLineBreak % this.colWidth) - 1;
+        } else {
+          cursor.x = this.colWidth - 2;
+        }
+
         cursor.y -= 1;
-        cursor.x = this.colWidth - 2;
       }
     } else {
       cursor.x -= 1;
     }
   }
 
-  // Create a cursor line break.
+  // Create and track a cursor line break.
   newLine() {
+    this.lineBreaks.push(this.index);
     this.cursor.y += 1;
     this.cursor.x = 0;
   }
