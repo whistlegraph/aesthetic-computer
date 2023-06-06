@@ -150,6 +150,11 @@
 *** Overall Rendering ***
    - [] Fix pixel imperfect rendering / scaling especially noticeable on iOS.
 
+*** Painting ***
+  - [] Two finger / scroll pan (trackpad).
+  - [] Two finger / trackpad zoom.
+  - (Use Figma as an example)
+
 *** `whistle` ***
   - [-] Get working on mobile.
   - [-] Allow users to send whistles / instrumentalize whistles

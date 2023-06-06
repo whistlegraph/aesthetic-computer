@@ -300,54 +300,48 @@ function digit(from, segCount, deg = 0, curve = 0) {
   return segs;
 }
 
-//merge array of touching points
-function mergeTouchingPoints(points) {
-  const mergedPoints = [];
+//Track interactions between finger tips 
+//Params: Ordered TIMOP tip points, num API 
+//Returns: Array of collections of touching tips. 
+function touching(tips, num) {
+  let touchedTips = [];
+  let timop = ["t", "i", "m", "o", "p"];
+  //
+  for (let tip = 0; tip < 5; tip++) { 
+    for (let tc = tip + 1; tc < 5; tc++) {
+      const currentTip = tips[tip];
+      const tipToCheck = tips[tc];
+      let distance = num.dist(
+        currentTip[0],
+        currentTip[1],
+        tipToCheck[0],
+        tipToCheck[1]
+      );
+      if (distance < 20) {
+        // Create a "touch" to collect all touching tips, starting with these
+        const tipId1 = timop[tip];
+        const tipId2 = timop[tc];
+        let added = false;
 
-  for (let i = 0; i < points.length; i++) {
-    const currentPoint = points[i];
-    let merged = false;
+        touchedTips.forEach((touchedTip) => { // Search touchedTips to see if the keys tipId1 is present
+          const keys = Object.keys(touchedTip);
+          if (keys.includes(tipId1)) { //if they are, only add tipToCheck 
+            touchedTip[tipId2] = tipToCheck;
+            added = true;
+          }
+        });
 
-    for (let j = 0; j < mergedPoints.length; j++) {
-      const group = mergedPoints[j];
-
-      if (group.includes(currentPoint[0]) || group.includes(currentPoint[1])) {
-        group.push(currentPoint[0], currentPoint[1]);
-        merged = true;
+        if (!added) { //Create new touch collection when not updating previous touch
+          const touch = {};
+          touch[tipId1] = currentTip;
+          touch[tipId2] = tipToCheck;
+          touchedTips.push(touch);
+        }
         break;
       }
     }
-
-    if (!merged) {
-      mergedPoints.push([...currentPoint]);
-    }
   }
-
-  return mergedPoints;
-}
-
-//Param tips is array of tip points from thumb - pinky, scaled[4,8,12,16,20]
-function touching(tips, num) {
-  let touchedTips = [];
-  let mergedTips;
-
-  let timop = ["t", "i", "m", "o", "p"];
-  //compare every point to each other
-  for (let i = 0; i < tips.length; i++) {
-    for (let j = i + 1; j < tips.length; j++) {
-      let distance = num.dist(tips[i][0], tips[i][1], tips[j][0], tips[j][1]);
-      if (distance < 20) {
-        //if distance between points less than 16 pixels, group points together
-        touchedTips.push([timop[i] + " and " + timop[j], tips[i], tips[j]]);
-      }
-    }
-  }
-  if (touchedTips.length > 1) {
-    mergedTips = mergeTouchingPoints(touchedTips);
-  } else if (touchedTips.length > 0) {
-    console.log("The tips that are touching:" + touchedTips[0][0]);
-    return touchedTips;
-  }
+  console.log(touchedTips);
   return mergedTips;
 }
 
