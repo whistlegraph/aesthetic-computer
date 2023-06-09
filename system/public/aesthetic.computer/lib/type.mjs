@@ -2,15 +2,17 @@
 // Abstraction for typography and text input.
 
 /* #region 🏁 todo
- + Next Version of `TextInput`
+ + Next Version of `TextInput` (before recording)
  - [🟡] Add multi-select / shift+select to replace or modify whole regions. 
  - [] Add support for spaces to be inserted before the
       first character.
  - [] Add support for creating line breaks.
- - [] Make history on message input optional?
- - [] Gracefully allow for multiple instances of TextInput in a single piece? 
+ + Later
  - [] Add tab auto-completion feature that can be side-loaded with contextual
       data based on where the text module is used.
+ -
+ - [] Make history on message input optional?
+ - [] Gracefully allow for multiple instances of TextInput in a single piece? 
  + Done
  - [x] Enter after a reply does not clear the cursor posiiton Enter after a reply does not clear the cursor position.
  - [x] Don't Backspace when cursor is on first character. 
