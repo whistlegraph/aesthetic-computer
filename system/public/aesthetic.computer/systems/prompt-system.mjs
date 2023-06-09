@@ -18,7 +18,7 @@ export async function prompt_boot(
   reply,
   halt,
   scheme,
-  wrap
+  wrap,
 ) {
   messageComplete = true;
   processing = false;
@@ -46,9 +46,7 @@ export async function prompt_boot(
       input.lock = true;
       input.go.btn.disabled = true;
       const halted = await halt?.($, text);
-      if (!$.jumping()) {
-        input.lock = false;
-      }
+      if (!$.jumping()) input.lock = false;
       if (halted) return; // No more processing necessary.
 
       processing = input.lock = true;
@@ -65,6 +63,7 @@ export async function prompt_boot(
         { prompt: text, program, hint },
         function and(msg) {
           input.text = firstAnd ? msg : input.text + msg;
+          input.snap();
           firstAnd = false;
         },
         function done() {
@@ -73,6 +72,7 @@ export async function prompt_boot(
           reply?.(input.text);
           input.runnable = false;
           input.showButton("Enter");
+          $.needsPaint();
         },
         function fail() {
           input.text = abortMessage;
@@ -90,7 +90,7 @@ export async function prompt_boot(
     {
       autolock: false,
       wrap,
-      palette: scheme?.[$.dark ? "dark" : "light"],
+      scheme,
       didReset: () => {
         messageComplete = true;
       },
@@ -137,6 +137,8 @@ export function prompt_act($) {
     e.is("touch") ||
     e.is("lift") ||
     e.is("focus") ||
+    e.is("reframed") ||
+    e.is("pasted:text") ||
     e.is("defocus") ||
     e.is("keyboard:open") ||
     e.is("keyboard:close")

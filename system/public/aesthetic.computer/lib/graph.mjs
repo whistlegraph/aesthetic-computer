@@ -1326,8 +1326,13 @@ function draw() {
     thickness = args[5] || thickness;
   } else if (typeof args[1] === "object") {
     drawing = args[0];
-    x = args[1].x;
-    y = args[1].y;
+    if (Array.isArray(args[1])) {
+      x = args[1][0];
+      y = args[1][1];
+    } else {
+      x = args[1].x;
+      y = args[1].y;
+    }
     scale = args[2] || scale;
     angle = args[3] || angle;
     thickness = args[4] || thickness;

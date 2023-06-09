@@ -58,12 +58,12 @@ If I type something like 'tree' or 'dog', which isn't directly related to any of
 const after = ``;
 const forgetful = true;
 
-import { Desktop, MetaBrowser } from "../lib/platform.mjs";
+import { MetaBrowser } from "../lib/platform.mjs";
 import { validateHandle } from "../lib/text.mjs";
 import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { parse } from "../lib/parse.mjs";
 import { ordfish } from "./ordfish.mjs";
-const { abs } = Math;
+const { abs, max } = Math;
 
 // Error / feedback flash on command entry.
 let flash;
@@ -204,6 +204,13 @@ async function halt($, text) {
     } else {
       flashColor = [255, 0, 0]; // Show a red flash otherwise.
     }
+    makeFlash($);
+    return true;
+  } else if (slug === "gutter") {
+    // Change the `TextInput` gutter to a minimum of 5 or a default of 16.
+    input.gutter = max(5, parseInt(params[0])) || 16;
+    // This will reflow on resize.
+    flashColor = [100, 0, 100, 100]; // Dark Magenta
     makeFlash($);
     return true;
   } else if (slug === "login" || slug === "hi") {
@@ -352,6 +359,10 @@ function boot({ glaze, api, system, pieceCount, send }) {
     system.prompt.input.text = "";
     system.prompt.input.go.btn.disabled = true; // Disable button.
     system.prompt.input.inputStarted = true;
+
+    // 🍫 Create a pleasurable blinking cursor delay.
+    system.prompt.input.showBlink = false;
+    setTimeout(() => (system.prompt.input.showBlink = true), 100);
     send({ type: "keyboard:unlock" });
   }
 }
@@ -363,6 +374,8 @@ function paint($) {
     $.system.nopaint.present($); // Render the painting.
     scheme.dark.bg[3] = 127; // Half the opacity of the palette background.
     scheme.light.bg[3] = 127;
+  } else {
+    $.wipe(scheme.dark.bg);
   }
 
   $.layer(1); // 🅱️ And above it...
@@ -502,7 +515,7 @@ function makeMotd({ handle, user }) {
   if (user) {
     motd =
       `Welcome, ${handle || user.name}!`.padEnd(48) + " ".padEnd(48) + motd;
-  } else motd = "Monday, June 5th, 2023";
+  } else motd = "hello world :)";
   return motd.trim();
 }
 
@@ -521,5 +534,5 @@ function makeFlash($, clear = true, message) {
   flashPresent = true;
   flashShow = true;
   flashMessage = message;
-  if (clear) $.system.prompt.input.text = "";
+  if (clear) $.system.prompt.input.blank(); // Clear the prompt.
 }

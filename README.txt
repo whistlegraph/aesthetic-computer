@@ -62,6 +62,24 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Launch Goodies ***
+  - [] Add Abe's startup sound.
+  - [] Add more themes other than the dark boolean?
+    - [] You should be able to type colors and have the
+         general prompt aesthetic change immediately,
+         with a sound that plays per each different color.
+    - [] Startup themes can change on a daily basis for visitors.
+  - [] Regenerate a background painting on every "no!" /
+       starting painting creation.
+  - [] Jumping to the prompt after first loading from somewhere else
+       is slow. (Always preload prompt locally?)
+  - [] Add offline support for the prompt.
+    - [] And include an abstraction for caching / loading from
+         cached commands.
+  *Fast 3G Load Test*
+  - [] Run a Fast 3G load test to optimize assets and
+      make a better startup / loading sequence.
+
 *** `handprint` ***
   - [] Make a little happy hands style paint brush.
 
@@ -70,11 +88,9 @@
 
 *** `prompt` system ***
   + UI Gripes
-  - [❤️‍🔥] Scrub cursor does not respect word-wrapped spacing.
-  - [] Long single word breaks into second line.
-  - [] Cannot backspace on Android keyboard.
+  - [-] Cannot backspace on Android keyboard.
+    - [-] Do a local ngrok phone gap test to fix this.
   - [🌟] Tapping corner word should immediately bring up keyboard.
-
   + Later
   - [-] How to deal with longer responses?
     - [] Add 'copy" and "cancel" buttons?
@@ -94,6 +110,8 @@
     - [] 1/3 New synth wav types!
     - [] Custom SFX / sampling.
   + Done
+  - [x] Scrub cursor does not respect word-wrapped spacing.
+  - [x] Long single word breaks into second line.
   - [x] New words after a line break are not separated alongside the following word.
   - [x] While using word break, words that break at the end of the line cause an extra space at the beginning of the next line.
   - [x] More pixel accurate text scrubbing.
