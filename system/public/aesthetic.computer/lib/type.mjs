@@ -12,6 +12,7 @@
  - [] Add tab auto-completion feature that can be side-loaded with contextual
       data based on where the text module is used.
  + Done
+ - [x] Enter after a reply does not clear the cursor posiiton Enter after a reply does not clear the cursor position.
  - [x] Don't Backspace when cursor is on first character. 
  - [x] Test line break printing again.
   - [x] Word wrapping.
@@ -615,8 +616,6 @@ class TextInput {
 
       this.blink.flip(true);
       this.showBlink = true;
-
-      // this.#prompt.mapTo(this.text);
     }
 
     // Handle activation / focusing of the input
@@ -647,11 +646,9 @@ class TextInput {
             this.go.btn.disabled = true;
           } else {
             this.lastText = this.text;
-            this.text = "";
             this.go.btn.disabled = true;
             this.canType = true;
-            this.cursor = "blink";
-            this.blink.flip(true);
+            this.blank("blink");
             needsPaint();
             this.inputStarted = true;
             $.send({ type: "keyboard:unlock" });
