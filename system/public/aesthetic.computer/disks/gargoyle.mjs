@@ -4,7 +4,7 @@
 /* #region 🏁 TODO
 #endregion */
 
-const prompt = 'hi georgica';
+const prompt = 'whats on your mind, @?';
 const before = `
   your name is gargoyle
   and you are replying to:

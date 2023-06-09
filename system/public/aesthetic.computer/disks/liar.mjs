@@ -4,7 +4,7 @@
 /* #region 🏁 TODO
 #endregion */
 
-const prompt = "ask me anything";
+const prompt = "ask me anything, i only speak the truth ;)";
 const before = `
   - you're playing a character who is a liar
   - you are replying to:

@@ -94,7 +94,8 @@
   + Later
   - [-] How to deal with longer responses?
     - [] Add 'copy" and "cancel" buttons?
-  - [] Better `forgetting` of conversations. 
+  - [] Conversations that have history should be able to be forgotten with a bottom left button.
+  - [] `copy` button in the lower left to copy all of the response. 
   - [] Keep track of replies somehow? 
   - [] Keep character names in the corner?
   - [] Embed two "framed" prompts on a page, or a framed prompt with
