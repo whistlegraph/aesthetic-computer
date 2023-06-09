@@ -62,8 +62,21 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `scream` ***
+  - [] Get JamSocket working again.
+  - [] And also get notifications working!
+
+  - [] Visualize the socket connection to make everything faster in production.
+     - [] Possibly the bottleneck is in connecting to JamSocket?
+  - [-] Finish list in `scream`.
+  - [] Use NTP for time synchronized delivery of messages.
+    - [] Is this good enough for musical timing?
+  - [] Enable via notifications in the test iOS app.
+  - [x] Get messaging working. 
+
 *** Launch Goodies ***
   - [] Add Abe's startup sound.
+  - [] New homepage with login / sign-up buttons.
   - [] Add more themes other than the dark boolean?
     - [] You should be able to type colors and have the
          general prompt aesthetic change immediately,
@@ -153,18 +166,6 @@
   - [x] Tap / Escape to cancel a reply and blank the prompt. 
   - [x] @ggcajp: Write a prompt program that suggests commands. 
   - [x] Make the main `prompt` part of the prompt system now.
-
-*** `scream` ***
-  - [] Get JamSocket working again.
-  - [] And also get notifications working!
-
-  - [] Visualize the socket connection to make everything faster in production.
-     - [] Possibly the bottleneck is in connecting to JamSocket?
-  - [-] Finish list in `scream`.
-  - [] Use NTP for time synchronized delivery of messages.
-    - [] Is this good enough for musical timing?
-  - [] Enable via notifications in the test iOS app.
-  - [x] Get messaging working. 
 
 *** Overall Rendering ***
    - [] Fix pixel imperfect rendering / scaling especially noticeable on iOS.
