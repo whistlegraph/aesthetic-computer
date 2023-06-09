@@ -12,6 +12,7 @@
  - [] Add tab auto-completion feature that can be side-loaded with contextual
       data based on where the text module is used.
  + Done
+ - [x] Don't Backspace when cursor is on first character. 
  - [x] Test line break printing again.
   - [x] Word wrapping.
   - [x] Character wrapping.
@@ -544,6 +545,8 @@ class TextInput {
           const back = prompt.backward({ ...prompt.cursor });
           const cursorTextIndex = prompt.cursorToTextMap[`${back.x}:${back.y}`];
           const currentCursorIndex = prompt.textPos();
+
+          if (currentCursorIndex === 0) return; // Don't delete if on first character.
 
           // Exception for moving backwards at the start of a word-wrapped line.
           if (cursorTextIndex === undefined && currentCursorIndex !== 0) {
