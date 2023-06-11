@@ -64,11 +64,11 @@
 
 *** encode/decode ***
 - [x] decide on command names
-- [] make the encode bot
-  - [] add https://www.npmjs.com/package/gpt-3-encoder this library
+- [x] make the encode bot
+  - [x] add gpt3-tokenizer library
 - [] make the decode bot
 - [] add the copy button to copy text
-- [] the reply vs answer themea are different, when the poem is encoded the words disappear and the theme changes  
+- [] the reply vs answer themes are different, when the poem is encoded the words disappear and the theme changes  
 
 *** sfx ***
   - [] Add startup sound and keyboard sound.
