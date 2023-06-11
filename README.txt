@@ -62,6 +62,11 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** sfx ***
+  - [] Add startup sound and keyboard sound.
+    - [] Make sure `sfx` clears any remotely loaded sounds?
+      - [] Just whitelist sounds for now.
+
 *** `scream` ***
   - [] Get JamSocket working again.
   - [] And also get notifications working!

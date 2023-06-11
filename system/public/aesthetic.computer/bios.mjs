@@ -417,6 +417,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     bpm: new Float32Array(1),
   };
 
+  const sfx = []; // Buffers of sound effects that have been loaded.
+  // TODO: Some of these need to be kept (like system ones) and others need to
+  // be destroyed after pieces change.
+
   let updateMetronome,
     triggerSound,
     updateBubble,
@@ -2149,6 +2153,69 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Load a sound from a url.
+    if (type === "load-sfx") {
+      //const decodedUrl = decodeURIComponent(content);
+      //console.log("Decoding:", decodedUrl);
+
+      fetch(content)
+        .then((response) => {
+          return response.arrayBuffer();
+        })
+        .then(async (arrayBuffer) => {
+          const name = content;
+          try {
+            if (!audioContext) {
+              sfx[name] = arrayBuffer;
+              console.log("No audio context available... Loading buffer.");
+              send({
+                type: "loaded-sfx-success",
+                content: { url: content, sfx: name },
+              });
+            } else {
+              const audioBuffer = await audioContext.decodeAudioData(
+                arrayBuffer
+              );
+              sfx[name] = audioBuffer;
+              send({
+                type: "loaded-sfx-success",
+                content: { url: content, sfx: name /*buffer: audioBuffer*/ },
+                //content: { url: content, buffer: audioBuffer, sfx: name },
+              });
+            }
+          } catch (error) {
+            send({
+              type: "loaded-sfx-rejection",
+              content: { url: content },
+            });
+          }
+        })
+        .catch((error) => {
+          send({ type: "loaded-sfx-rejection", content: { url: content } });
+        });
+
+      return;
+    }
+
+    // Trigger a sound to playback.
+    if (type === "play-sfx") {
+      if (audioContext) {
+        // Instantly decode the audio before playback if it hasn't been already.
+        if (sfx[content.sfx] instanceof ArrayBuffer) {
+          const audioBuffer = await audioContext.decodeAudioData(
+            sfx[content.sfx]
+          );
+          sfx[content.sfx] = audioBuffer;
+        }
+
+        const source = audioContext.createBufferSource();
+        source.buffer = sfx[content.sfx]; // 'content.buffer' is supposed to be the AudioBuffer you've received in 'loaded-sfx-success' message
+        source.connect(audioContext.destination);
+        source.addEventListener("ended", () => source.disconnect());
+        source.start();
+      }
+    }
+
     // This method does not load remote images from different origins.
     // if (type === "load-bitmap") {
     //   fetch(content, { mode: "no-cors" }).then(async (response) => {
@@ -2794,7 +2861,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (modifiers?.crop === "square") {
-      debugger;
+      // debugger;
     }
 
     ctx.putImageData(imageData, 0, 0);

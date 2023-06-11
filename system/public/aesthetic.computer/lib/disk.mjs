@@ -274,7 +274,7 @@ let web3Response;
 
 // Other
 let activeVideo; // TODO: Eventually this can be a bank to store video textures.
-let bitmapPromises = {};
+let preloadPromises = {};
 let inFocus;
 let loadFailure;
 
@@ -1604,7 +1604,11 @@ async function load(
   //          preload("drawings/default.json") // hosted with disk
   // Results: preload().then((r) => ...).catch((e) => ...) // via promise
 
-  $commonApi.net.preload = function (path, parseJSON = true, progressReport) {
+  $commonApi.net.preload = async function (
+    path,
+    parseJSON = true,
+    progressReport
+  ) {
     let extension;
 
     // Overload path with an object that can set a custom extension.
@@ -1617,6 +1621,9 @@ async function load(
       // filtering out any query parameters.
       extension = path.split(".").pop().split("?")[0];
     }
+
+    // Remove any prepending "/" because it's already relative to root.
+    if (path.indexOf("/") === 0) path = path.slice(1);
 
     // This is a hack for now. The only thing that should be encoded is the file slug.
     if (!path.startsWith("https://")) path = encodeURIComponent(path);
@@ -1656,14 +1663,20 @@ async function load(
         xhr.send();
       });
     } else if (
+      // 🖼️ Image files.
       extension === "webp" ||
       extension === "jpg" ||
       extension === "png"
     ) {
-      // Other-wise we should drop into the other thread and wait...
       return new Promise((resolve, reject) => {
         send({ type: "load-bitmap", content: path });
-        bitmapPromises[path] = { resolve, reject };
+        preloadPromises[path] = { resolve, reject };
+      });
+    } else if (extension === "m4a") {
+      // 🔈 Audio files
+      return new Promise((resolve, reject) => {
+        send({ type: "load-sfx", content: path });
+        preloadPromises[path] = { resolve, reject };
       });
     }
   };
@@ -1684,6 +1697,11 @@ async function load(
         resolve(loaded); // Resolve with `true` or `false`.
       };
     });
+  };
+
+  // Trigger and audio sample to playback in the `bios`.
+  $commonApi.play = async function (sfx) {
+    send({ type: "play-sfx", content: { sfx } });
   };
 
   // 💡 Eventually this could merge with net.web so there is one command
@@ -1833,7 +1851,7 @@ async function load(
     booted = false;
     initialSim = true;
     activeVideo = null;
-    bitmapPromises = {};
+    preloadPromises = {};
     noPaint = false;
     formsSent = {}; // Clear 3D list for GPU.
     currentPath = path;
@@ -2410,16 +2428,31 @@ async function makeFrame({ data: { type, content } }) {
 
   // 1d. Loading Bitmaps
   if (type === "loaded-bitmap-success") {
-    // console.log("Bitmap load success:", content);
-    bitmapPromises[content.url].resolve(content.img);
-    delete bitmapPromises[content];
+    if (debug) console.log("Bitmap load success:", content);
+    preloadPromises[content.url].resolve(content.img);
+    delete preloadPromises[content];
     return;
   }
 
   if (type === "loaded-bitmap-rejection") {
-    console.error("Bitmap load failure:", content);
-    bitmapPromises[content.url].reject(content.url);
-    delete bitmapPromises[content.url];
+    if (debug) console.error("Bitmap load failure:", content);
+    preloadPromises[content.url].reject(content.url);
+    delete preloadPromises[content.url];
+    return;
+  }
+
+  // 1e. Loading Sound Effects
+  if (type === "loaded-sfx-success") {
+    if (debug) console.log("Sound load success:", content);
+    preloadPromises[content.url].resolve(content.sfx);
+    delete preloadPromises[content];
+    return;
+  }
+
+  if (type === "loaded-sfx-rejection") {
+    if (debug) console.error("Sound load failure:", content);
+    preloadPromises[content.url].reject(content.url);
+    delete preloadPromises[content.url];
     return;
   }
 
@@ -3002,11 +3035,11 @@ async function makeFrame({ data: { type, content } }) {
 
         try {
           if (system === "nopaint") nopaint_boot($api);
-          await boot($api);
+          boot($api);
+          booted = true;
         } catch (e) {
           console.warn("🥾 Boot failure...", e);
         }
-        booted = true;
         send({ type: "disk-loaded-and-booted" });
       }
 
@@ -3120,7 +3153,7 @@ async function makeFrame({ data: { type, content } }) {
           } else {
             c = [255, 200, 240];
           }
-          ink(c).write(currentHUDText?.replaceAll("~", " "), {x: 0, y: 0});
+          ink(c).write(currentHUDText?.replaceAll("~", " "), { x: 0, y: 0 });
         });
 
         currentHUDButton =

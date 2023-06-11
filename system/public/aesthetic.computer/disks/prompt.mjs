@@ -235,7 +235,8 @@ async function halt($, text) {
   } else if (text === "nopan") {
     system.nopaint.resetTransform(api);
     system.nopaint.storeTransform(store, system); // Store the translation after completion.
-    input.text = "";
+    flashColor = [0, 0, 255];
+    makeFlash($);
     return true;
   } else if (text === "painting:reset" || text === "no!") {
     const deleted = system.nopaint.noBang({
