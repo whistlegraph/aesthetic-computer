@@ -2935,7 +2935,7 @@ async function makeFrame({ data: { type, content } }) {
       $api.screen.center = [screen.width / 2, screen.height / 2];
 
       $api.fps = function (newFps) {
-        send({ type: "fps-change", content: newFps });
+        send({ type: "fps-change", content: newFps });f
       };
 
       $api.cursor = (code) => (cursorCode = code);
@@ -3138,6 +3138,7 @@ async function makeFrame({ data: { type, content } }) {
         piece !== "savcom" &&
         piece !== "botce" &&
         piece !== "liar" &&
+        piece !== "encode" &&
         piece !== "alphapoet" &&
         piece !== "sing" &&
         piece !== "neoprompt" &&
