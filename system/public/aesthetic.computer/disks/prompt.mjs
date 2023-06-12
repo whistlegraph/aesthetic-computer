@@ -516,8 +516,8 @@ function makeMotd({ handle, user }) {
   if (user) {
     motd =
       `Welcome, ${handle || user.name}!`.padEnd(48) + " ".padEnd(48) + motd;
-  } else motd = "hello world :)";
-  return motd.trim();
+  } else motd = "hello world!";
+  return motd;
 }
 
 function makeFlash($, clear = true, message) {

@@ -1103,17 +1103,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         form.addEventListener("submit", (e) => {
           e.preventDefault();
-          if (!sandboxed) keyboard.events.push(enterEvent);
+          //console.log("SUBMIT", e);
+          //if (!sandboxed) keyboard.events.push(enterEvent);
         });
 
-        if (sandboxed) {
-          form.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-              keyboard.events.push(enterEvent);
-              e.preventDefault();
-            }
-          });
-        }
+        //if (sandboxed) {
+        form.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            const enter = { ...enterEvent };
+            enter.shift = e.shiftKey;
+            enter.alt = e.altKey;
+            enter.ctrl = e.ctrlKey;
+            keyboard.events.push(enter);
+          }
+        });
+        //}
 
         input.addEventListener("input", (e) => {
           let input = e.data;
@@ -1270,7 +1275,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       keys(sfx).forEach((key) => {
         if (key !== sound) delete sfx[key];
       });
-      if (logs.audio && debug) console.log ("🔉 SFX Cleaed up:", sfx);
+      if (logs.audio && debug) console.log("🔉 SFX Cleaed up:", sfx);
 
       if (sfx[sound])
         // Reset preloading.

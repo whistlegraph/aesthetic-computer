@@ -3,10 +3,11 @@
 
 /* #region 🏁 todo
  + Next Version of `TextInput` (before recording)
-  - [] Add support for creating line breaks.
- - [🟡] Add multi-select / shift+select to replace or modify whole regions. 
+  - [-] Add support for creating line breaks.
+ - [] Add multi-select / shift+select to replace or modify whole regions. 
  - [] Add support for spaces to be inserted before the
       first character.
+
  + Later
  - [] Add tab auto-completion feature that can be side-loaded with contextual
       data based on where the text module is used.
@@ -309,16 +310,17 @@ class TextInput {
     // A. Draw all text from displayToTextMap.
     Object.keys(prompt.cursorToTextMap).forEach((key) => {
       const [x, y] = key.split(":").map((c) => parseInt(c));
+      // console.log(this.sanitized, this.text);
       const char = this.sanitized[prompt.cursorToTextMap[key]];
       paintBlockLetter(char, prompt.pos({ x, y }));
     });
 
     // Or...
     // B. Draw all text from textToDisplayMap
-    prompt.textToCursorMap.forEach((pos, i) => {
-      const char = this.sanitized[i];
-      paintBlockLetter(char, prompt.pos(pos));
-    });
+    // prompt.textToCursorMap.forEach((pos, i) => {
+    //   const char = this.sanitized[i];
+    //   paintBlockLetter(char, prompt.pos(pos));
+    // });
 
     if (this.canType) {
       $.ink(this.pal.line).line(
@@ -576,8 +578,6 @@ class TextInput {
           }
         }
 
-        if (e.key === "Enter" && this.runnable) await this.#execute(store); // Send a command.
-
         if (e.key === "Escape") {
           this.text = "";
           this.#prompt.cursor = { x: 0, y: 0 };
@@ -607,13 +607,27 @@ class TextInput {
         if (e.key === "ArrowLeft") this.#prompt.crawlBackward();
       }
 
-      if (e.key !== "Enter" && this.text.length > 0) {
-        this.go.btn.disabled = false;
-        this.go.txt = "Enter";
-        this.runnable = true;
-      } else {
-        this.go.btn.disabled = true;
-        this.runnable = false;
+      if (e.key !== "Enter") {
+        if (this.text.length > 0) {
+          this.go.btn.disabled = false;
+          this.go.txt = "Enter";
+          this.runnable = true;
+        } else {
+          this.go.btn.disabled = true;
+          this.runnable = false;
+        }
+      }
+
+      if (e.key === "Enter") {
+        if (e.shift) {
+          // console.log(this.#prompt.textToCursorMap, this.text.length, this.text);
+          // this.#prompt.snapTo(this.text);
+          this.text += `\n`;
+          this.#prompt.newLine();
+          // TODO: Insert new line character.
+        } else if (this.runnable) {
+          await this.#execute(store); // Send a command.
+        }
       }
 
       this.blink.flip(true);
@@ -798,10 +812,28 @@ class Prompt {
           if (char.charCodeAt(0) === 10) {
             this.newLine(cursor);
             brokeLine = true;
+
+            console.log("BROKE LINE!");
+
             textIndex += 1;
             if (index === word.length - 1) {
-              skipSpace = true; // Skip the extra space for when "\n" ends a word.
-              textIndex += 1;
+              // On the last char of word...
+              // If we aren't on the last word, then...
+              if (i < words.length - 1) {
+                // Not the last word.
+                skipSpace = true; // Skip the extra space for when "\n" ends a word.
+                textIndex += 1;
+                console.log("Skipping space..., not the last word.");
+              } else {
+                // Last word, last character.
+                // console.log("Last word, last char:", textIndex, cursor, text[textIndex]);
+                // console.log("Pre update:", this.textToCursorMap, this.cursorToTextMap, textIndex);
+                // textIndex += 1;
+                // console.log("text index:", textIndex);
+                // this.#updateMaps(textIndex, cursor);
+                this.textToCursorMap[textIndex] = undefined;
+                this.cursorToTextMap[`${cursor.x}:${cursor.y}`] = textIndex;
+              }
             }
           } else {
             if (!brokeLine) {
@@ -817,6 +849,7 @@ class Prompt {
         // Check to see if this word needs to be on a new line...
         if (i < words.length - 1) {
           const nextWord = words[i + 1]?.trim(); //.split("\n")[0];
+          console.log("next word", nextWord);
           // Measure up through the next line break.
           if (nextWord && cursor.x + 2 + nextWord.length >= this.colWidth) {
             this.newLine(cursor);
@@ -832,6 +865,8 @@ class Prompt {
         }
       });
     }
+
+    console.log("Current:", this.textToCursorMap, this.cursorToTextMap, text, this.cursor);
   }
 
   #updateMaps(textIndex, cursor = this.cursor) {
