@@ -58,6 +58,6 @@ export const scheme = {
   },
 };
 
-export { prompt, halt, act, editable };
+export { prompt, halt, editable };
 export const system = "prompt"; // or "prompt:code"
 export const wrap = "word";
