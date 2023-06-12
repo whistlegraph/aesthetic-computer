@@ -12,8 +12,9 @@ import * as Store from "./lib/store.mjs";
 import { Desktop, MetaBrowser, Instagram, iOS } from "./lib/platform.mjs";
 import { headers } from "./lib/console-headers.mjs";
 import { logs } from "./lib/logs.mjs";
+import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 
-const { assign } = Object;
+const { assign, keys } = Object;
 const { round, floor, min, max } = Math;
 
 // 💾 Boot the system and load a disk.
@@ -417,7 +418,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     bpm: new Float32Array(1),
   };
 
-  const sfx = []; // Buffers of sound effects that have been loaded.
+  const sfx = {}; // Buffers of sound effects that have been loaded.
   // TODO: Some of these need to be kept (like system ones) and others need to
   // be destroyed after pieces change.
 
@@ -1102,17 +1103,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         form.addEventListener("submit", (e) => {
           e.preventDefault();
-          if (!sandboxed) keyboard.events.push(enterEvent);
+          //console.log("SUBMIT", e);
+          //if (!sandboxed) keyboard.events.push(enterEvent);
         });
 
-        if (sandboxed) {
-          form.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-              keyboard.events.push(enterEvent);
-              e.preventDefault();
-            }
-          });
-        }
+        //if (sandboxed) {
+        form.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            const enter = { ...enterEvent };
+            enter.shift = e.shiftKey;
+            enter.alt = e.altKey;
+            enter.ctrl = e.ctrlKey;
+            keyboard.events.push(enter);
+          }
+        });
+        //}
 
         input.addEventListener("input", (e) => {
           let input = e.data;
@@ -1255,18 +1261,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       );
     }
 
+    // 💾
+    // Initialize some global stuff after the first piece loads.
+    // Unload some already initialized stuff if this wasn't the first load.
     if (type === "disk-loaded") {
       currentPiece = content.path;
       currentPieceHasKeyboard = false;
 
-      // Initialize some global stuff after the first piece loads.
-      // Unload some already initialized stuff if this wasn't the first load.
-
       detachMicrophone?.(); // Remove any attached microphone.
       killAllSound?.(); // Kill any pervasive sounds in `speaker`.
 
-      // Reset preloading.
-      window.waitForPreload = false;
+      // ⚠️ Remove any sounds that aren't in the whitelist.
+      keys(sfx).forEach((key) => {
+        if (key !== sound) delete sfx[key];
+      });
+      if (logs.audio && debug) console.log("🔉 SFX Cleaed up:", sfx);
+
+      if (sfx[sound])
+        // Reset preloading.
+        window.waitForPreload = false;
       window.preloaded = false;
 
       // Clear any 3D content.
@@ -2155,43 +2168,50 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Load a sound from a url.
     if (type === "load-sfx") {
-      //const decodedUrl = decodeURIComponent(content);
-      //console.log("Decoding:", decodedUrl);
+      let internal = false;
 
-      fetch(content)
+      for (let wl of soundWhitelist) {
+        if (content === wl) {
+          internal = true;
+          break;
+        }
+      }
+
+      let url;
+
+      url = internal ? `/assets/sounds/AeCo_${content}.m4a` : content;
+
+      fetch(url)
         .then((response) => {
           return response.arrayBuffer();
         })
         .then(async (arrayBuffer) => {
-          const name = content;
           try {
             if (!audioContext) {
-              sfx[name] = arrayBuffer;
-              console.log("No audio context available... Loading buffer.");
+              sfx[content] = arrayBuffer;
               send({
                 type: "loaded-sfx-success",
-                content: { url: content, sfx: name },
+                content: { url, sfx: content },
               });
             } else {
               const audioBuffer = await audioContext.decodeAudioData(
                 arrayBuffer
               );
-              sfx[name] = audioBuffer;
+              sfx[content] = audioBuffer;
               send({
                 type: "loaded-sfx-success",
-                content: { url: content, sfx: name /*buffer: audioBuffer*/ },
-                //content: { url: content, buffer: audioBuffer, sfx: name },
+                content: { url, sfx: content /*buffer: audioBuffer*/ },
               });
             }
           } catch (error) {
             send({
               type: "loaded-sfx-rejection",
-              content: { url: content },
+              content: { sfx: content },
             });
           }
         })
         .catch((error) => {
-          send({ type: "loaded-sfx-rejection", content: { url: content } });
+          send({ type: "loaded-sfx-rejection", content: { sfx: content } });
         });
 
       return;
@@ -2205,6 +2225,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const audioBuffer = await audioContext.decodeAudioData(
             sfx[content.sfx]
           );
+          if (debug && logs.audio) console.log("🔈 Decoded:", content.sfx);
           sfx[content.sfx] = audioBuffer;
         }
 
@@ -2212,6 +2233,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         source.buffer = sfx[content.sfx]; // 'content.buffer' is supposed to be the AudioBuffer you've received in 'loaded-sfx-success' message
         source.connect(audioContext.destination);
         source.addEventListener("ended", () => source.disconnect());
+        if (debug && logs.audio) console.log("🔈 Playing:", content.sfx);
         source.start();
       }
     }

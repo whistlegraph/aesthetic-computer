@@ -5,36 +5,36 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Add an interface to play the sample. 
-    - [] With a parameter to set the name.
+  - [🟡] Add startup sound and keyboard sound to keyboard clicks and prompt!
   - [] Eventually add information to read back / get streamed back.
   - [] Check decode delay / trigger a whole keyboard of samples.
   - [] Create a sampling recorder.
   + Done
-  - [-] Decide an architecture for loading and playing back samples.
+  - [x] Add these sounds to the remote assets folder.
+  - [x] How to load indidivudal sound effects by short name?
+  - [x] With a parameter to set the name.
+  - [x] Add an interface to play the sample. 
+  - [x] Decide an architecture for loading and playing back samples.
 #endregion */
 
 // 🥾 Boot
-let sfx;
-async function boot({ net: { preload }, play }) {
-  // Runs once at the start.
-  sfx = await preload("assets/sounds/AeCo_startup.m4a");
-  console.log("SFX", sfx);
-
-  play(sfx); // Try to play regardless of whether there was an audioContext
-  //            available.
-  // TODO: There should be a way to detect this.
+let sfx, btn;
+async function boot({ net: { preload }, play, ui, params }) {
+  const name = params[0] || "startup";
+  sfx = await preload(name);
+  btn = new ui.TextButton(`Play "${name}"`);
 }
 
 // 🖌️ Paint
-// function paint({ wipe, noise16Aesthetic }) {
-//   // wipe(255, 0, 0);
-//   noise16Aesthetic(); // Why does this create a buffer error?
-// }
+function paint({ wipe, ink, screen }) {
+  wipe(0, 0, 255);
+  btn.reposition({ center: "xy", screen });
+  btn.paint({ ink });
+}
 
 // 🎪 Act
 function act({ event: e, play }) {
-  if (e.is("touch")) play(sfx);
+  btn.btn.act(e, () => play(sfx));
 }
 
 // 📰 Meta
