@@ -45,6 +45,10 @@ function reply(text) {
   console.log("😀 Replied with:", text);
 }
 
-export { prompt, halt, reply };
+function editable() {
+  console.log("Can edit!");
+}
+
+export { prompt, halt, reply, editable };
 export const system = "prompt"; // or "prompt:code"
 export const wrap = "word";

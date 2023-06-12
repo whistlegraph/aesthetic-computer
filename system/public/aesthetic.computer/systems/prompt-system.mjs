@@ -19,6 +19,7 @@ export async function prompt_boot(
   halt,
   scheme,
   wrap,
+  editable
 ) {
   messageComplete = true;
   processing = false;
@@ -91,6 +92,7 @@ export async function prompt_boot(
       autolock: false,
       wrap,
       scheme,
+      editable,
       didReset: () => {
         messageComplete = true;
       },

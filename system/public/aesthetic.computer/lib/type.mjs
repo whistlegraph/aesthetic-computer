@@ -195,6 +195,9 @@ class TextInput {
 
   key;
 
+  editableCallback; // A function that can run when the TextInput is made
+  //                   editable.
+
   set gutter(n) {
     this.#prompt.colWidth = n;
     this.#prompt.gutter = this.#prompt.colWidth * this.#prompt.blockWidth;
@@ -230,10 +233,13 @@ class TextInput {
       autolock: true,
       wrap: "char",
       didReset,
+      editable
     }
   ) {
     this.key = `${$.slug}:history`; // This is "per-piece" and should
     //                                be per TextInput object...23.05.23.12.50
+
+    this.editableCallback = options.editable;
 
     // Load typeface, preventing double loading of the system default.
     if ($.typeface?.data !== options.font) {
@@ -475,6 +481,7 @@ class TextInput {
         this.canType = true;
         this.text = "";
         this.inputStarted = true;
+        this.editableCallback?.();
         this.#prompt.cursor = { x: 0, y: 0 };
       }
 
@@ -668,6 +675,7 @@ class TextInput {
             this.blank("blink");
             needsPaint();
             this.inputStarted = true;
+            this.editableCallback?.();
             $.send({ type: "keyboard:unlock" });
           }
         },
@@ -813,7 +821,7 @@ class Prompt {
             this.newLine(cursor);
             brokeLine = true;
 
-            console.log("BROKE LINE!");
+            // console.log("BROKE LINE!");
 
             textIndex += 1;
             if (index === word.length - 1) {
@@ -823,7 +831,7 @@ class Prompt {
                 // Not the last word.
                 skipSpace = true; // Skip the extra space for when "\n" ends a word.
                 textIndex += 1;
-                console.log("Skipping space..., not the last word.");
+                // console.log("Skipping space..., not the last word.");
               } else {
                 // Last word, last character.
                 // console.log("Last word, last char:", textIndex, cursor, text[textIndex]);
@@ -849,7 +857,7 @@ class Prompt {
         // Check to see if this word needs to be on a new line...
         if (i < words.length - 1) {
           const nextWord = words[i + 1]?.trim(); //.split("\n")[0];
-          console.log("next word", nextWord);
+          // console.log("next word", nextWord);
           // Measure up through the next line break.
           if (nextWord && cursor.x + 2 + nextWord.length >= this.colWidth) {
             this.newLine(cursor);
@@ -866,7 +874,7 @@ class Prompt {
       });
     }
 
-    console.log("Current:", this.textToCursorMap, this.cursorToTextMap, text, this.cursor);
+    // console.log("Current:", this.textToCursorMap, this.cursorToTextMap, text, this.cursor);
   }
 
   #updateMaps(textIndex, cursor = this.cursor) {
@@ -939,7 +947,7 @@ class Prompt {
         }
       }
     } else if (startIndex === 0) {
-      console.log(startIndex);
+      //console.log(startIndex);
       this.forward();
     }
   }
