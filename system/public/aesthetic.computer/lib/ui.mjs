@@ -169,10 +169,19 @@ class TextButton {
     this.btn = new Button(this.#computePosition(text, pos));
   }
 
-  #computePosition(text, pos = {x: 0, y: 0}) {
+  #computePosition(text, pos = { x: 0, y: 0 }) {
     let x, y;
     const w = text.length * this.#cw + this.#g2;
     const h = this.#h;
+
+    if (pos.center === "xy") {
+      return {
+        x: pos.screen.width / 2 - w / 2,
+        y: pos.screen.height / 2 - h / 2,
+        w,
+        h,
+      };
+    }
 
     if (pos.x !== undefined && pos.y !== undefined) {
       // Position from top left if x and y are set on pos

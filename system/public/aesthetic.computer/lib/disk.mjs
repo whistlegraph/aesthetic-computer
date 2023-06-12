@@ -21,6 +21,7 @@ import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
 import { headers } from "./console-headers.mjs";
 import { logs } from "./logs.mjs";
+import { soundWhitelist } from "./sound/sound-whitelist.mjs";
 
 import { Typeface } from "../lib/type.mjs";
 let tf; // Typeface global.
@@ -1604,41 +1605,47 @@ async function load(
   //          preload("drawings/default.json") // hosted with disk
   // Results: preload().then((r) => ...).catch((e) => ...) // via promise
 
+  const soundWhitelist = ["startup", "compkey"];
+
   $commonApi.net.preload = async function (
     path,
     parseJSON = true,
     progressReport
   ) {
     let extension;
-
-    // Overload path with an object that can set a custom extension.
-    // Implemented in `ordfish`. 23.05.08.14.07
-    if (typeof path === "object") {
-      extension = path.extension; // Custom extension.
-      path = path.path; // Remap path reference to a string.
+    if (soundWhitelist.includes(path)) {
+      // Use shortnames for system sounds that are in the `preloadWhitelist`.
+      extension = "m4a";
     } else {
-      // Assume path is a string with a file extension,
-      // filtering out any query parameters.
-      extension = path.split(".").pop().split("?")[0];
-    }
-
-    // Remove any prepending "/" because it's already relative to root.
-    if (path.indexOf("/") === 0) path = path.slice(1);
-
-    // This is a hack for now. The only thing that should be encoded is the file slug.
-    if (!path.startsWith("https://")) path = encodeURIComponent(path);
-
-    try {
-      const url = new URL(path);
-      if (url.protocol === "demo:") {
-        // Load from aesthetic.computer host.
-        path = `/demo/${url.pathname}`;
-      } else if (url.protocol === "https:") {
-        // No need to change path because an original URL was specified.
+      // Overload path with an object that can set a custom extension.
+      // Implemented in `ordfish`. 23.05.08.14.07
+      if (typeof path === "object") {
+        extension = path.extension; // Custom extension.
+        path = path.path; // Remap path reference to a string.
+      } else {
+        // Assume path is a string with a file extension,
+        // filtering out any query parameters.
+        extension = path.split(".").pop().split("?")[0];
       }
-    } catch {
-      // Not a valid URL so assume local file on disk server.
-      path = `${location.protocol}//${$commonApi.net.host}/${path}`;
+
+      // Remove any prepending "/" because it's already relative to root.
+      if (path.indexOf("/") === 0) path = path.slice(1);
+
+      // This is a hack for now. The only thing that should be encoded is the file slug.
+      if (!path.startsWith("https://")) path = encodeURIComponent(path);
+
+      try {
+        const url = new URL(path);
+        if (url.protocol === "demo:") {
+          // Load from aesthetic.computer host.
+          path = `/demo/${url.pathname}`;
+        } else if (url.protocol === "https:") {
+          // No need to change path because an original URL was specified.
+        }
+      } catch {
+        // Not a valid URL so assume local file on disk server.
+        path = `${location.protocol}//${$commonApi.net.host}/${path}`;
+      }
     }
 
     // If we are loading a .json file then we can parse or not parse it here.
@@ -2444,15 +2451,15 @@ async function makeFrame({ data: { type, content } }) {
   // 1e. Loading Sound Effects
   if (type === "loaded-sfx-success") {
     if (debug) console.log("Sound load success:", content);
-    preloadPromises[content.url].resolve(content.sfx);
+    preloadPromises[content.sfx].resolve(content.sfx);
     delete preloadPromises[content];
     return;
   }
 
   if (type === "loaded-sfx-rejection") {
     if (debug) console.error("Sound load failure:", content);
-    preloadPromises[content.url].reject(content.url);
-    delete preloadPromises[content.url];
+    preloadPromises[content.sfx].reject(content.sfx);
+    delete preloadPromises[content.sfx];
     return;
   }
 
@@ -3035,7 +3042,7 @@ async function makeFrame({ data: { type, content } }) {
 
         try {
           if (system === "nopaint") nopaint_boot($api);
-          boot($api);
+          await boot($api);
           booted = true;
         } catch (e) {
           console.warn("🥾 Boot failure...", e);

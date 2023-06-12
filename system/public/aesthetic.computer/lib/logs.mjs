@@ -8,4 +8,5 @@ export const logs = {
   loading: false, // Preloading
   session: true, // Socket session.
   download: false, // Download progress, etc. (JSON)
+  audio: true,
 };
