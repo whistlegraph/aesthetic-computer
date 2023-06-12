@@ -491,6 +491,7 @@ class TextInput {
         this.text = "";
         this.inputStarted = true;
         this.editableCallback?.(this);
+        this.editableCallback?.(this);
         this.#prompt.cursor = { x: 0, y: 0 };
       }
 
@@ -681,9 +682,9 @@ class TextInput {
             this.go.btn.disabled = true;
             this.canType = true;
             this.blank("blink");
-            needsPaint();
             this.inputStarted = true;
             this.editableCallback?.(this);
+            needsPaint();
             $.send({ type: "keyboard:unlock" });
           }
         },
