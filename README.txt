@@ -62,6 +62,14 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** encode/decode ***
+- [x] decide on command names
+- [x] make the encode bot
+  - [x] add gpt3-tokenizer library
+- [] make the decode bot
+- [] add the copy button to copy text
+- [] the reply vs answer themes are different, when the poem is encoded the words disappear and the theme changes  
+
 *** sfx ***
   - [] Add startup sound and keyboard sound.
     - [] Make sure `sfx` clears any remotely loaded sounds?

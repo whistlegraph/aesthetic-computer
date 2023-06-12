@@ -3,10 +3,10 @@
 
 /* #region 🏁 todo
  + Next Version of `TextInput` (before recording)
+  - [] Add support for creating line breaks.
  - [🟡] Add multi-select / shift+select to replace or modify whole regions. 
  - [] Add support for spaces to be inserted before the
       first character.
- - [] Add support for creating line breaks.
  + Later
  - [] Add tab auto-completion feature that can be side-loaded with contextual
       data based on where the text module is used.
