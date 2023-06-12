@@ -1833,6 +1833,7 @@ async function load(
 
       act = ($) => {
         prompt.prompt_act($);
+        module.act?.($);
       };
 
       leave = ($) => {

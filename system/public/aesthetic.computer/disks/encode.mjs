@@ -13,18 +13,15 @@ const prompt = "write a poem";
 
 // 🛑 Intercept specific input text with a custom reply.
 function halt($, text) {
-  const encoded = tokenizer.encode(text);
-  console.log(encoded.bpe);
-  $.system.prompt.input.text = encoded.bpe.join(" ");
-  console.log($.system.prompt.input);
-  $.system.prompt.input.scheme = altScheme;
-  $.system.prompt.input.lock = false;
-  $.system.prompt.input.runnable = false;
-  $.system.prompt.input.inputStarted = false;
-  $.system.prompt.input.canType = false;
-  $.system.prompt.input.showButton("Enter");
-  $.needsPaint();
+  const encoded = tokenizer.encode(text); // Encode text into tokens.
+  $.system.prompt.input.text = encoded.bpe.join(" "); // Join ints into text.
+  $.system.prompt.input.scheme = altScheme; // Change to "reply" color scheme.
+  $.system.prompt.input.replied(); // Set the UI state back to normal.
   return true;
+}
+
+function editable(input) {
+  input.scheme = scheme; // Flip the color scheme back to original.
 }
 
 const altScheme = {
@@ -61,15 +58,6 @@ export const scheme = {
   },
 };
 
-// 💬 Receive each reply in full.
-function reply(text) {
-  console.log("😀 Replied with:", text);
-}
-
-function editable() {
-  console.log("Can edit!");
-}
-
-export { prompt, halt, reply, editable };
+export { prompt, halt, act, editable };
 export const system = "prompt"; // or "prompt:code"
 export const wrap = "word";

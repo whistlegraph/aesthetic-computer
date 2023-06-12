@@ -445,6 +445,15 @@ class TextInput {
     this.blink.flip(true);
   }
 
+  // Set the UI state to be that of a completed reply.
+  replied() {
+    this.lock = false;
+    this.runnable = false;
+    this.inputStarted = false;
+    this.canType = false;
+    this.showButton("Enter");
+  }
+
   // Handle user input.
   async act($) {
     const { event: e, store, needsPaint } = $;
@@ -481,7 +490,7 @@ class TextInput {
         this.canType = true;
         this.text = "";
         this.inputStarted = true;
-        this.editableCallback?.();
+        this.editableCallback?.(this);
         this.#prompt.cursor = { x: 0, y: 0 };
       }
 
@@ -667,7 +676,6 @@ class TextInput {
         push: async () => {
           if (this.runnable) {
             await this.#execute(store);
-            this.go.btn.disabled = true;
           } else {
             this.lastText = this.text;
             this.go.btn.disabled = true;
@@ -675,7 +683,7 @@ class TextInput {
             this.blank("blink");
             needsPaint();
             this.inputStarted = true;
-            this.editableCallback?.();
+            this.editableCallback?.(this);
             $.send({ type: "keyboard:unlock" });
           }
         },

@@ -63,13 +63,13 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** encode/decode ***
-- [] reset the interface so when text changes you have to hit reply again
-- [] color changing
 - [-] line break while editing
 - [] make the decode bot
 - [] add the copy button to copy text
-- [] the reply vs answer themes are different, when the poem is encoded the words disappear and the theme changes  
 + Done
+- [x] reset the interface so when text changes you have to hit reply again
+- [x] color changing
+- [x] when you press enter with mouse both times, it doesn't bring you to new entry blinking cursor
 - [x] bug: going to encode from prompt freezes the screen but works upon pressing enter
 - [x] decide on command names
 - [x] make the encode bot
