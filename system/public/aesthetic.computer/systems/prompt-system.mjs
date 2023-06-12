@@ -48,8 +48,12 @@ export async function prompt_boot(
       input.go.btn.disabled = true;
       const halted = await halt?.($, text);
       if (!$.jumping()) input.lock = false;
-      if (halted) return; // No more processing necessary.
+      if (halted) {
+        messageComplete = true;
 
+        
+        return; // No more processing necessary.
+      }
       processing = input.lock = true;
       abortMessage = "NETWORK FAILURE";
 
@@ -99,6 +103,7 @@ export async function prompt_boot(
     }
   );
 
+  $.needsPaint();
   $.system.prompt = { input, convo: conversation }; // Set the input on the Disk API.
 }
 

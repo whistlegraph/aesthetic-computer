@@ -2,11 +2,7 @@
 // Converts poems to token strings.
 
 /* #region 🏁 TODO
-- reset the interface so when text changes you have to hit reply again
-- color changing
-- take encoder and turn into decoder 
-- copy text button
-- line break while editing
+
 #endregion */
 
 import { GPT3BrowserTokenizer } from "../dep/gpt3-tokenizer/gpt3-tokenizer.js";
@@ -19,9 +15,34 @@ const prompt = "write a poem";
 function halt($, text) {
   const encoded = tokenizer.encode(text);
   console.log(encoded.bpe);
-  $.system.prompt.input.text = encoded.bpe.join(" ")
+  $.system.prompt.input.text = encoded.bpe.join(" ");
+  console.log($.system.prompt.input);
+  $.system.prompt.input.scheme = altScheme;
+  $.system.prompt.input.lock = false;
+  $.system.prompt.input.runnable = false;
+  $.system.prompt.input.inputStarted = false;
+  $.system.prompt.input.canType = false;
+  $.system.prompt.input.showButton("Enter");
+  $.needsPaint();
   return true;
 }
+
+const altScheme = {
+  dark: {
+    fg: [50, 255, 0],
+    bg: [10, 20, 20],
+    block: [240, 250, 10],
+    blockHi: [0, 0, 0],
+    line: [0, 0, 10],
+  },
+  light: {
+    fg: [0, 200],
+    bg: [170, 150, 200],
+    block: [30, 200, 200],
+    blockHi: [200, 200, 30],
+    line: [0, 0, 0, 128],
+  },
+};
 
 export const scheme = {
   dark: {

@@ -63,12 +63,17 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** encode/decode ***
-- [x] decide on command names
-- [x] make the encode bot
-  - [x] add gpt3-tokenizer library
+- [] reset the interface so when text changes you have to hit reply again
+- [] color changing
+- [-] line break while editing
 - [] make the decode bot
 - [] add the copy button to copy text
 - [] the reply vs answer themes are different, when the poem is encoded the words disappear and the theme changes  
++ Done
+- [x] bug: going to encode from prompt freezes the screen but works upon pressing enter
+- [x] decide on command names
+- [x] make the encode bot
+  - [x] add gpt3-tokenizer library
 
 *** sfx ***
   - [] Add startup sound and keyboard sound.
