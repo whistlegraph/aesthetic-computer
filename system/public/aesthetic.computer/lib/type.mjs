@@ -641,6 +641,7 @@ class TextInput {
       this.go.btn.act(e, {
         down: () => {
           $.send({ type: "keyboard:unlock" });
+          needsPaint();
         },
         push: async () => {
           if (this.runnable) {
@@ -658,12 +659,15 @@ class TextInput {
         },
         cancel: () => {
           $.send({ type: "keyboard:lock" });
+          needsPaint();
         },
         rollover: (btn) => {
           if (btn) $.send({ type: "keyboard:unlock" });
+          needsPaint();
         },
         rollout: () => {
           $.send({ type: "keyboard:lock" });
+          needsPaint();
         },
       });
     }
