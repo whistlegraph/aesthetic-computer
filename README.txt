@@ -64,10 +64,15 @@
 
 *** encode/decode ***
 - [-] line break while editing
-- [x] make the decode bot
-- [-] colors for decode bot
 - [] add the copy button to copy text
+  - [] add flag so that copy is only on some of the buttons
+  - [] print current text to console when copy button is pressed
+  - [] copy text to user's clipboard on every platform
+  - [] once copied, button reads 'copied' and is visibly deactivated for 3 seconds
+- [] design the text + url that gets copied and sent
 + Done
+- [x] make the decode bot
+- [x] colors for decode bot
 - [x] reset the interface so when text changes you have to hit reply again
 - [x] color changing
 - [x] when you press enter with mouse both times, it doesn't bring you to new entry blinking cursor

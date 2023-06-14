@@ -9,7 +9,13 @@ import { GPT3BrowserTokenizer } from "../dep/gpt3-tokenizer/gpt3-tokenizer.js";
 
 const tokenizer = new GPT3BrowserTokenizer({ type: "gpt3" });
 
-const prompt = "type numbers to reveal a poem";
+const prompt = "enter numbers to decode";
+
+// 🥾 Boot
+async function boot ({store, system, params}) {
+  system.prompt.input.text = params.join(" ");
+  await system.prompt.input.run(store);
+}
 
 // 🛑 Intercept specific input text with a custom reply.
 function halt($, text) {
@@ -26,10 +32,10 @@ function editable(input) {
 
 const altScheme = {
   dark: {
-    fg: [50, 255, 0],
-    bg: [10, 20, 20],
-    block: [255, 255, 255],
-    blockHi: [0, 0, 0],
+    fg: [0, 0, 0],
+    bg: [210, 255, 40],
+    block: [0, 0, 0],
+    blockHi: [255, 255, 255],
     line: [0, 0, 10],
   },
   light: {
@@ -43,10 +49,10 @@ const altScheme = {
 
 export const scheme = {
   dark: {
-    fg: [0, 0, 0],
-    bg: [210, 255, 40],
-    block: [0, 0, 0],
-    blockHi: [255, 255, 255],
+    fg: [50, 255, 0],
+    bg: [10, 20, 20],
+    block: [255, 255, 255],
+    blockHi: [0, 0, 0],
     line: [0, 0, 10],
   },
   light: {
@@ -58,6 +64,6 @@ export const scheme = {
   },
 };
 
-export { prompt, halt, editable };
+export { boot, prompt, halt, editable };
 export const system = "prompt"; // or "prompt:code"
 export const wrap = "word";

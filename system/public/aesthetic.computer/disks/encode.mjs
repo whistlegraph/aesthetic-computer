@@ -9,7 +9,13 @@ import { GPT3BrowserTokenizer } from "../dep/gpt3-tokenizer/gpt3-tokenizer.js";
 
 const tokenizer = new GPT3BrowserTokenizer({ type: "gpt3" });
 
-const prompt = "write a poem";
+const prompt = "enter a message to encode";
+
+// 🥾 Boot
+async function boot ({store, system, params}) {
+  system.prompt.input.text = params.join(" ");
+  await system.prompt.input.run(store);
+}
 
 // 🛑 Intercept specific input text with a custom reply.
 function halt($, text) {
@@ -58,6 +64,6 @@ export const scheme = {
   },
 };
 
-export { prompt, halt, editable };
+export { boot, prompt, halt, editable };
 export const system = "prompt"; // or "prompt:code"
 export const wrap = "word";

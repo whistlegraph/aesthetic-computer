@@ -214,6 +214,12 @@ class TextInput {
     this.#prompt.snapTo(this.text);
   }
 
+  // Run a command
+  async run(store) {
+    this.#prompt.snapTo(this.text);
+    await this.#execute(store); // Send a command.
+  }
+
   set text(str) {
     this.#text = str;
     this.flow();
@@ -748,8 +754,7 @@ class TextInput {
             }
           }
         } else if (this.runnable) {
-          this.#prompt.snapTo(this.text);
-          await this.#execute(store); // Send a command.
+          await this.run(store);
         }
       }
 
@@ -782,7 +787,7 @@ class TextInput {
         },
         push: async () => {
           if (this.runnable) {
-            await this.#execute(store);
+            await this.run(store);
           } else {
             this.lastText = this.text;
             this.go.btn.disabled = true;
@@ -946,7 +951,7 @@ class Prompt {
             wordStart = true;
             wordCount += 1;
           }
-          console.log("wordStart:", wordStart, char);
+          //console.log("wordStart:", wordStart, char);
           continue;
         }
 
@@ -965,30 +970,30 @@ class Prompt {
               }
             }
 
-            console.log(
-              "Length of upcoming word:",
-              len,
-              "Cursor X:",
-              cursor.x,
-              "Gutter:",
-              this.colWidth,
-              len + cursor.x,
-            );
+            // console.log(
+            //   "Length of upcoming word:",
+            //   len,
+            //   "Cursor X:",
+            //   cursor.x,
+            //   "Gutter:",
+            //   this.colWidth,
+            //   len + cursor.x,
+            // );
 
             // TODO: Check for words that are equal length.
 
-            console.log("Will Break:", cursor.x + len >= this.colWidth - 1);
+            //console.log("Will Break:", cursor.x + len >= this.colWidth - 1);
             if (cursor.x + len >= this.colWidth - 1) {
               this.newLine(cursor);
               brokeLine = true;
-              console.log("Word Break!");
+             // console.log("Word Break!");
             }
           }
         } else {
           wordStart = false;
         }
 
-        console.log("wordStart:", wordStart, char);
+        //console.log("wordStart:", wordStart, char);
 
         if (newLine) {
           this.newLine(cursor);
