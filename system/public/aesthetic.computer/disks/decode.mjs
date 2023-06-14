@@ -1,5 +1,5 @@
-// Encode, 23.06.11.14.33
-// Converts poems to token strings.
+// Decode, 23.06.14.11.29
+// Converts token strings to poems.
 
 /* #region 🏁 TODO
 
@@ -9,12 +9,12 @@ import { GPT3BrowserTokenizer } from "../dep/gpt3-tokenizer/gpt3-tokenizer.js";
 
 const tokenizer = new GPT3BrowserTokenizer({ type: "gpt3" });
 
-const prompt = "write a poem";
+const prompt = "type numbers to reveal a poem";
 
 // 🛑 Intercept specific input text with a custom reply.
 function halt($, text) {
-  const encoded = tokenizer.encode(text); // Encode text into tokens.
-  $.system.prompt.input.text = encoded.bpe.join(" "); // Join ints into text.
+  const decoded = tokenizer.decode(text.split(" ")); // Converts text into list and turns ints. into text.
+  $.system.prompt.input.text = decoded;
   $.system.prompt.input.scheme = altScheme; // Change to "reply" color scheme.
   $.system.prompt.input.replied(); // Set the UI state back to normal.
   return true;

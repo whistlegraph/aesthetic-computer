@@ -1833,6 +1833,7 @@ async function load(
 
       act = ($) => {
         prompt.prompt_act($);
+        module.act?.($);
       };
 
       leave = ($) => {
@@ -3145,6 +3146,7 @@ async function makeFrame({ data: { type, content } }) {
         piece !== "gargoyle" &&
         piece !== "savcom" &&
         piece !== "botce" &&
+        piece !== "decode" &&
         piece !== "liar" &&
         piece !== "encode" &&
         piece !== "alphapoet" &&

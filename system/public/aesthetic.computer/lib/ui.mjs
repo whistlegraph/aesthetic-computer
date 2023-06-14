@@ -84,6 +84,8 @@ class Button {
     } else this.box = new Box(...arguments); // Otherwise: x, y, w, h for a box.
   }
 
+  
+
   // For using in a piece's `act` function. Contains callbacks for
   // events that take place inside the button.
   // Usage:  act(e, () => {}); // For 'push' callback only.
@@ -140,6 +142,7 @@ class Button {
   }
 
   enableIf(flag) {
+    console.log("BUTTON IS DISABLED?");
     this.disabled = !flag;
   }
 }
