@@ -64,7 +64,8 @@
 
 *** encode/decode ***
 - [-] line break while editing
-- [] make the decode bot
+- [x] make the decode bot
+- [-] colors for decode bot
 - [] add the copy button to copy text
 + Done
 - [x] reset the interface so when text changes you have to hit reply again
