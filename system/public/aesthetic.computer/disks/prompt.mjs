@@ -471,6 +471,7 @@ export const system = "prompt:character"; // or "prompt:code"
 
 // Prompt configuration overrides.
 export const wrap = "word";
+// export const wrap = "char";
 export const scheme = {
   dark: {
     fg: [255, 100],
@@ -516,7 +517,7 @@ function makeMotd({ handle, user }) {
   if (user) {
     motd =
       `Welcome, ${handle || user.name}!`.padEnd(48) + " ".padEnd(48) + motd;
-  } else motd = "hello world!";
+  } else motd = "monday    tuesday wednesday";
   return motd;
 }
 

@@ -3,7 +3,13 @@
 
 /* #region 🏁 todo
  + Next Version of `TextInput` (before recording)
-  - [-] Add support for creating line breaks.
+
+ - [-] Add support for creating line breaks.
+  - [❤️‍🔥] Word break edge cases.
+    - [] Creating new lines (SHIFT+ENTER) betweeen word broken words should
+         create a new space.
+    - []
+
  - [] Add multi-select / shift+select to replace or modify whole regions. 
  - [] Add support for spaces to be inserted before the
       first character.
@@ -159,7 +165,7 @@ class Typeface {
 // An interactive text prompt object.
 class TextInput {
   #text; // text content
-  sanitized; // sanitized text
+  // sanitized; // sanitized text
 
   #renderSpaces = false; // Whether to render invisible space characters. " "
   //                        For debugging purposes.
@@ -215,7 +221,7 @@ class TextInput {
 
   flow() {
     this.#prompt.mapTo(this.#text); // Rebuild the text map index.
-    this.sanitized = this.text.replace(/[\r\n]+/g, "");
+    // this.sanitized = this.text.replace(/[\r\n]+/g, "");
   }
 
   get text() {
@@ -233,7 +239,7 @@ class TextInput {
       autolock: true,
       wrap: "char",
       didReset,
-      editable
+      editable,
     }
   ) {
     this.key = `${$.slug}:history`; // This is "per-piece" and should
@@ -302,29 +308,30 @@ class TextInput {
     const ti = this;
     const prompt = this.#prompt;
 
-    // 🗺️ Render the text from the maps! (Can go both ways...)
-
     function paintBlockLetter(char, pos) {
-      if (char !== " ") {
+      if (char.charCodeAt(0) === 10 && ti.#renderSpaces) {
+        $.ink([255, 0, 0, 127]).box(pos.x, pos.y, 4);
+      } else if (char !== " ") {
         const pic = ti.typeface.glyphs[char] || ti.typeface.glyphs["?"];
         $.ink(ti.pal.fg).draw(pic, pos, prompt.scale);
       } else if (ti.#renderSpaces) {
-        $.ink(ti.pal.fg).box(pos.x, pos.y, 3);
+        $.ink([0, 255, 0, 127]).box(pos.x, pos.y, 3);
       }
     }
+
+    // 🗺️ Render the text from the maps! (Can go both ways...)
 
     // A. Draw all text from displayToTextMap.
     Object.keys(prompt.cursorToTextMap).forEach((key) => {
       const [x, y] = key.split(":").map((c) => parseInt(c));
-      // console.log(this.sanitized, this.text);
-      const char = this.sanitized[prompt.cursorToTextMap[key]];
+      const char = this.text[prompt.cursorToTextMap[key]];
       paintBlockLetter(char, prompt.pos({ x, y }));
     });
 
     // Or...
     // B. Draw all text from textToDisplayMap
     // prompt.textToCursorMap.forEach((pos, i) => {
-    //   const char = this.sanitized[i];
+    //   const char = this.text[i];
     //   paintBlockLetter(char, prompt.pos(pos));
     // });
 
@@ -486,25 +493,48 @@ class TextInput {
       }
 
       if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
-        if (this.text === "" && e.key === " ") {
-          this.blink.flip(true);
-          return; // Skip opening spaces.
-        }
+        // if (this.text === "" && e.key === " ") {
+        //   this.blink.flip(true);
+        //   return; // Skip opening spaces.
+        // }
 
         // Printable keys with subbed punctuation.
         let insert = e.key.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
-        let index = this.#prompt.textPos();
+
+        let index = this.#prompt.textPos(); // TODO: This needs to present doubled up
+        //                                           characters in the right order.
+
+        const char = this.text[index];
+        const newLine = char?.charCodeAt(0) === 10;
+
         const underCursor = index !== undefined;
 
-        // Don't allow any spaces to be inserted before the first
-        // character.
-        if (underCursor && index === 0 && insert === " ") {
+        // If the cursor is in the corner but that comes before any text.
+        if (
+          index === undefined &&
+          this.#prompt.cursor.x === 0 &&
+          this.#prompt.cursor.y === 0
+        ) {
+          index = 0;
+          this.text = insert + this.text;
+          this.#prompt.forward(this.#prompt.cursor, insert.length);
+          this.blink.flip(true);
+          this.showBlink = true;
+          return;
+        }
+
+        if (newLine && underCursor) {
+          // Double up the characters so that this new character exists
+          // at the position of the current cursor.
+          this.text =
+            this.text.slice(0, index + 1) + insert + this.text.slice(index + 1);
+          this.#prompt.forward();
+          this.blink.flip(true);
+          this.showBlink = true;
           return;
         }
 
         // Move backwards until we reach a character
-        // (Assume we are one step ahead and adjust the index accordingly.)
-
         while (index === undefined) {
           index = this.#prompt.textPos(
             this.#prompt.backward({ ...this.#prompt.cursor })
@@ -540,47 +570,109 @@ class TextInput {
               this.#prompt.textToCursorMap[sliceIndex + insert.length + 1];
           if (newCursor) this.#prompt.cursor = { ...newCursor };
         }
-
-        // TODO: Move the prompt cursor directly to the index.
-        // Check for breaks here.
       } else {
         // Other keys.
         if (e.key === "Delete") {
           // Delete the character under the cursor.
-          const index = this.#prompt.index;
-          this.text =
-            this.text.slice(0, index) + this.text.slice(index + 1) || "";
+          const index = this.#prompt.textPos();
+          if (index !== undefined) {
+            if (
+              !(
+                this.text[index]?.charCodeAt(0) === 10 &&
+                index === this.text.length - 1
+              )
+            ) {
+              // quit
+              this.text =
+                this.text.slice(0, index) + this.text.slice(index + 1) || "";
+            }
+          } else {
+            const back = this.#prompt.backward({ ...this.#prompt.cursor });
+            const backIndex = this.#prompt.textPos(back);
+            console.log(
+              "Where to go...",
+              this.text.length - 1,
+              this.#prompt.textPos(),
+              "Back:",
+              back,
+              "Back index:",
+              backIndex
+            );
+            if (this.text.length - 1 !== backIndex) {
+              // Do nothing, we are at the end.
+              // If we are on the first character or if there is
+              // text before the cursor.
+              const bi = backIndex === undefined ? 0 : backIndex + 1;
+              this.text =
+                this.text.slice(0, bi) + this.text.slice(bi + 1) || "";
+            }
+          }
+
+          // ❤️‍🔥
+          // What to do when the line is empty and you deleted a new line
+          // char?
         } else if (e.key === "Backspace") {
           const prompt = this.#prompt;
 
-          // Move an invisible cursor back and retrieve the text index for it.
-          const back = prompt.backward({ ...prompt.cursor });
-          const cursorTextIndex = prompt.cursorToTextMap[`${back.x}:${back.y}`];
-          const currentCursorIndex = prompt.textPos();
+          // Detect if the cursor is on a `\n` new line character.
+          // It could potentially be on "two characters"...
+          const currentTextIndex = prompt.textPos();
+          const onNewline = this.text[currentTextIndex]?.charCodeAt(0) === 10;
 
-          if (currentCursorIndex === 0) return; // Don't delete if on first character.
-
-          // Exception for moving backwards at the start of a word-wrapped line.
-          if (cursorTextIndex === undefined && currentCursorIndex !== 0) {
+          if (onNewline) {
             this.text =
-              this.text.slice(0, currentCursorIndex - 1) +
-              this.text.slice(currentCursorIndex);
-            prompt.cursor = prompt.textToCursorMap[currentCursorIndex - 1];
-          }
-
-          if (cursorTextIndex >= 0) {
-            this.text =
-              this.text.slice(0, cursorTextIndex) +
-              this.text.slice(cursorTextIndex + 1);
-
-            let cursor = prompt.textToCursorMap[cursorTextIndex - 1];
-            if (!cursor) cursor = prompt.textToCursorMap[cursorTextIndex];
-
-            if (cursor) {
-              prompt.cursor = { ...cursor };
-              if (cursorTextIndex > 0) prompt.forward();
+              this.text.slice(0, currentTextIndex) +
+              this.text.slice(currentTextIndex + 1);
+            if (this.text.length === currentTextIndex) {
+              prompt.snapTo(this.text);
             } else {
+              //this.#prompt.cursor = {
+              //  ...this.#prompt.textToCursorMap[currentTextIndex],
+              //};
               prompt.crawlBackward();
+              if (prompt.posHasVisibleCharacter()) prompt.forward();
+            }
+          } else {
+            // Otherwise continue with a normal backspace action.
+
+            // Move an invisible cursor back and retrieve the text index for it.
+            const back = prompt.backward({ ...prompt.cursor });
+            const key = `${back.x}:${back.y}`;
+
+            const cursorTextIndex = prompt.cursorToTextMap[key];
+            const hasNewLine =
+              prompt.cursorToTextMap[key + ":\\n"] !== undefined;
+
+            if (currentTextIndex === 0) return; // Don't delete if on first character.
+
+            // Exception for moving backwards at the start of a word-wrapped line.
+            if (cursorTextIndex === undefined && currentTextIndex > 0) {
+              this.text =
+                this.text.slice(0, currentTextIndex - 1) +
+                this.text.slice(currentTextIndex);
+              prompt.cursor = prompt.textToCursorMap[currentTextIndex - 1];
+            }
+
+            if (cursorTextIndex >= 0) {
+              this.text =
+                this.text.slice(0, cursorTextIndex) +
+                this.text.slice(cursorTextIndex + 1);
+
+              let cursor = prompt.textToCursorMap[cursorTextIndex - 1];
+              if (!cursor) {
+                if (prompt.posHasVisibleCharacter()) {
+                  cursor = prompt.textToCursorMap[cursorTextIndex];
+                } else {
+                  cursor = { x: 0, y: 0 };
+                }
+              }
+
+              if (cursor) {
+                prompt.cursor = { ...cursor };
+                if (cursorTextIndex > 0 && !hasNewLine) prompt.forward();
+              } else {
+                prompt.crawlBackward();
+              }
             }
           }
         }
@@ -627,12 +719,26 @@ class TextInput {
 
       if (e.key === "Enter") {
         if (e.shift) {
-          // console.log(this.#prompt.textToCursorMap, this.text.length, this.text);
-          // this.#prompt.snapTo(this.text);
-          this.text += `\n`;
-          this.#prompt.newLine();
-          // TODO: Insert new line character.
+          const pos = this.#prompt.textPos();
+          const char = this.text[pos];
+          if (
+            pos === undefined ||
+            (char?.charCodeAt(0) === 10 && pos === this.text.length - 1)
+          ) {
+            this.text += `\n`;
+            this.#prompt.newLine();
+            this.#prompt.snapTo(this.text);
+          } else {
+            const hasVis = this.#prompt.posHasVisibleCharacter();
+            this.text = this.text.slice(0, pos) + "\n" + this.text.slice(pos);
+            if (hasVis) {
+              this.#prompt.cursor = { ...this.#prompt.textToCursorMap[pos] };
+            } else {
+              this.#prompt.cursor.y += 1;
+            }
+          }
         } else if (this.runnable) {
+          this.#prompt.snapTo(this.text);
           await this.#execute(store); // Send a command.
         }
       }
@@ -765,8 +871,12 @@ class Prompt {
 
   // Snap the cursor to the end of a text.
   snapTo(text) {
-    this.cursor = { ...this.textToCursorMap[text.length - 1] };
-    this.forward(); // Move ahead one space after the end.
+    if (text[text.length - 1]) {
+      this.cursor = { ...this.textToCursorMap[text.length - 1] };
+      if (text[text.length - 1].charCodeAt(0) !== 10) this.forward(); // Move ahead one space after the end.
+    } else {
+      this.cursor = { x: 0, y: 0 };
+    }
   }
 
   // Generate text map for rendering and UI operations.
@@ -785,32 +895,106 @@ class Prompt {
       let brokeLine = false;
 
       for (let c = 0; c < text.length; c += 1) {
+        const char = text[c];
+        const newLine = char.charCodeAt(0) === 10;
+
         if (c === 0) {
-          this.#updateMaps(textIndex, cursor); // Update cursor<->text indexing.
+          if (newLine) {
+            this.newLine(cursor);
+            brokeLine = true;
+          }
+          this.#updateMaps(text, textIndex, cursor); // Update cursor<->text indexing.
           continue;
         }
 
-        const char = text[c];
-        if (char.charCodeAt(0) === 10) {
+        if (newLine) {
           this.newLine(cursor);
           brokeLine = true;
-          textIndex += 1;
         } else {
-          if (!brokeLine) {
-            this.forward(cursor); // Move cursor on a match.
-            textIndex += 1;
-          } else {
-            brokeLine = false;
-          }
-          this.#updateMaps(textIndex, cursor); // Update cursor<->text indexing.
+          !brokeLine ? this.forward(cursor) : (brokeLine = false);
         }
+        textIndex += 1;
+        this.#updateMaps(text, textIndex, cursor); // Update cursor<->text indexing.
       }
     } else if (this.wrap === "word") {
-      const words = text.split(" ");
-
       let textIndex = 0;
-      let brokeLine = true; // Start on a broke line to updateMaps at index 0.
+      let brokeLine = false;
+      let wordStart = false;
+      let wordCount = 0;
 
+      for (let c = 0; c < text.length; c += 1) {
+        const char = text[c];
+        const newLine = char.charCodeAt(0) === 10;
+
+        // First character...
+        if (c === 0) {
+          if (newLine) {
+            this.newLine(cursor);
+            brokeLine = true;
+          }
+          this.#updateMaps(text, textIndex, cursor);
+          if (!newLine && char !== " ") {
+            wordStart = true;
+            wordCount += 1;
+          }
+          console.log("wordStart:", wordStart, char);
+          continue;
+        }
+
+        if (!newLine && char !== " ") {
+          if (!wordStart) {
+            wordStart = true;
+            wordCount += 1;
+
+            let len = 0;
+            for (let i = c; i < text.length; i += 1) {
+              const char = text[i];
+              if (char !== " " && char.charCodeAt(0) !== 10) {
+                len += 1;
+              } else {
+                break;
+              }
+            }
+
+            console.log(
+              "Length of upcoming word:",
+              len,
+              "Cursor X:",
+              cursor.x,
+              "Gutter:",
+              this.colWidth,
+              len + cursor.x,
+            );
+
+            // TODO: Check for words that are equal length.
+
+            console.log("Will Break:", cursor.x + len >= this.colWidth - 1);
+            if (cursor.x + len >= this.colWidth - 1) {
+              this.newLine(cursor);
+              brokeLine = true;
+              console.log("Word Break!");
+            }
+          }
+        } else {
+          wordStart = false;
+        }
+
+        console.log("wordStart:", wordStart, char);
+
+        if (newLine) {
+          this.newLine(cursor);
+          brokeLine = true;
+        } else {
+          !brokeLine ? this.forward(cursor) : (brokeLine = false);
+        }
+        textIndex += 1;
+        this.#updateMaps(text, textIndex, cursor);
+      }
+
+      // console.log(words);
+      // let textIndex = 0;
+      // let brokeLine = true; // Start on a broke line to updateMaps at index 0.
+      /*
       words.forEach((word, i) => {
         let skipSpace = false;
 
@@ -821,8 +1005,6 @@ class Prompt {
             this.newLine(cursor);
             brokeLine = true;
 
-            // console.log("BROKE LINE!");
-
             textIndex += 1;
             if (index === word.length - 1) {
               // On the last char of word...
@@ -831,14 +1013,7 @@ class Prompt {
                 // Not the last word.
                 skipSpace = true; // Skip the extra space for when "\n" ends a word.
                 textIndex += 1;
-                // console.log("Skipping space..., not the last word.");
               } else {
-                // Last word, last character.
-                // console.log("Last word, last char:", textIndex, cursor, text[textIndex]);
-                // console.log("Pre update:", this.textToCursorMap, this.cursorToTextMap, textIndex);
-                // textIndex += 1;
-                // console.log("text index:", textIndex);
-                // this.#updateMaps(textIndex, cursor);
                 this.textToCursorMap[textIndex] = undefined;
                 this.cursorToTextMap[`${cursor.x}:${cursor.y}`] = textIndex;
               }
@@ -850,14 +1025,13 @@ class Prompt {
             } else {
               brokeLine = false;
             }
-            this.#updateMaps(textIndex, cursor); // Update cursor<->text indexing.
+            this.#updateMaps(text, textIndex, cursor); // Update cursor<->text indexing.
           }
         });
 
         // Check to see if this word needs to be on a new line...
         if (i < words.length - 1) {
           const nextWord = words[i + 1]?.trim(); //.split("\n")[0];
-          // console.log("next word", nextWord);
           // Measure up through the next line break.
           if (nextWord && cursor.x + 2 + nextWord.length >= this.colWidth) {
             this.newLine(cursor);
@@ -868,30 +1042,49 @@ class Prompt {
             // end in a `\n`.
             this.forward(cursor);
             textIndex += 1;
-            this.#updateMaps(textIndex, cursor); // Update cursor<->text indexing.
+            this.#updateMaps(text, textIndex, cursor); // Update cursor<->text indexing.
           }
         }
       });
+      */
     }
-
-    // console.log("Current:", this.textToCursorMap, this.cursorToTextMap, text, this.cursor);
   }
 
-  #updateMaps(textIndex, cursor = this.cursor) {
+  #updateMaps(text, textIndex, cursor = this.cursor) {
+    const char = text[textIndex];
+    const newLine = char.charCodeAt(0) === 10;
     this.textToCursorMap[textIndex] = { ...cursor };
-    this.cursorToTextMap[`${cursor.x}:${cursor.y}`] = textIndex;
+    let key = `${cursor.x}:${cursor.y}`;
+    if (newLine) key = key + ":\\n";
+    this.cursorToTextMap[key] = textIndex;
   }
 
   resize(newColWidth) {
     this.colWidth = newColWidth;
   }
 
+  // Get the current text index given a cursor position.
   textPos(cursor = this.cursor) {
     if (this.textToCursorMap.length === 0) {
       return 0;
     } else {
-      return this.cursorToTextMap[`${cursor.x}:${cursor.y}`];
+      // First check for any preceeding new line characters...
+      const key = `${cursor.x}:${cursor.y}`;
+      let pos = this.cursorToTextMap[key];
+      if (pos === undefined) pos = this.cursorToTextMap[key + ":\\n"];
+      return pos;
     }
+  }
+
+  // Determine whether a cursor has a visible character in the map.
+  posHasVisibleCharacter(cursor = this.cursor) {
+    return this.cursorToTextMap[`${cursor.x}:${cursor.y}`] !== undefined;
+  }
+
+  // Determine whether there is an invisible new line character
+  // under the cursor in the map.
+  posHasNewLine(cursor = this.cursor) {
+    return this.cursorToTextMap[`${cursor.x}:${cursor.y}:\\n`] !== undefined;
   }
 
   // Flatten the coordinates of the cursor to return a linear value.
@@ -921,45 +1114,73 @@ class Prompt {
     return cursor;
   }
 
-  // Move one space forward, but never beyond "text".
-  //forwardStop() {
-  //}
-
   // Move the cursor forward only by the mapped text.
   crawlForward() {
     if (this.#mappedTo.length === 0) return;
 
-    let back = this.backward({ ...this.cursor });
-    let backIndex = this.textPos(back);
+    const back = this.backward({ ...this.cursor });
+    const backIndex = this.textPos(back);
+    const startIndex = this.textPos();
 
-    if (backIndex === this.#mappedTo.length) return; // We are at the end.
+    if (
+      backIndex === this.#mappedTo.length ||
+      (startIndex === this.#mappedTo.length - 1 &&
+        !this.posHasVisibleCharacter())
+    ) {
+      return; // We are at the end.
+    }
 
-    let startIndex = this.textPos();
-
-    // Keep stepping forward if startIndex is undefined.
-    // Otherwise, move forward.
     if (backIndex !== this.#mappedTo.length - 1) {
-      this.forward();
-      // Skip any undefined / wrapped sections.
-      if (startIndex !== this.#mappedTo.length - 1) {
-        while (this.textPos() === undefined) {
-          this.forward();
+      // Check to see if the next character is a new line and
+      // only move forward on the x if it is.
+      if (
+        this.#mappedTo[startIndex + 1]?.charCodeAt(0) === 10 &&
+        this.posHasVisibleCharacter()
+      ) {
+        this.cursor.x += 1;
+      } else {
+        // Otherwise move forward and jump through potential word wrapping.
+        this.forward();
+        // Skip any undefined / wrapped sections.
+        if (startIndex !== this.#mappedTo.length - 1) {
+          while (this.textPos() === undefined) {
+            this.forward();
+          }
         }
       }
-    } else if (startIndex === 0) {
-      //console.log(startIndex);
-      this.forward();
-    }
+    } else if (startIndex === 0) this.forward();
   }
 
   // Move the cursor backward only by the mapped text.
   crawlBackward() {
     const back = this.backward({ ...this.cursor });
     let backIndex = this.textPos(back);
+    const currentIndex = this.textPos();
+
     if (backIndex === undefined) {
-      while (backIndex === undefined) {
-        this.backward();
-        backIndex = this.textPos(this.backward(back));
+      // Check for new line character.
+      if (
+        this.posHasNewLine() &&
+        currentIndex <= 1 &&
+        this.#mappedTo[currentIndex].charCodeAt(0) === 10
+      ) {
+        this.cursor.y -= 1;
+        return;
+      } else {
+        if (this.posHasNewLine()) {
+          const backupAmount = this.posHasVisibleCharacter() ? 2 : 1;
+          this.cursor = {
+            ...this.textToCursorMap[currentIndex - backupAmount],
+          };
+          if (this.posHasVisibleCharacter()) this.forward();
+          return;
+        } else {
+          // Otherwise back up as needed.
+          while (backIndex === undefined) {
+            this.backward();
+            backIndex = this.textPos(this.backward(back));
+          }
+        }
       }
     }
     this.backward();

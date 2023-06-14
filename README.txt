@@ -75,6 +75,12 @@
 - [x] make the encode bot
   - [x] add gpt3-tokenizer library
 
+*** global screenshot key ***
+  - [] There needs to be a system wide method of capturing a screenshot.
+    - [] Both on desktop and on mobile.
+  - [] These screenshots need to be published automatically upon getting
+       a confirmation modal. 
+
 *** sfx ***
   - [] Add startup sound and keyboard sound.
     - [] Make sure `sfx` clears any remotely loaded sounds?
@@ -93,7 +99,7 @@
   - [x] Get messaging working. 
 
 *** Launch Goodies ***
-  - [] Add Abe's startup sound.
+  - [-] Add Abe's startup sound.
   - [] New homepage with login / sign-up buttons.
   - [] Add more themes other than the dark boolean?
     - [] You should be able to type colors and have the
@@ -107,6 +113,7 @@
   - [] Add offline support for the prompt.
     - [] And include an abstraction for caching / loading from
          cached commands.
+  - [] Prompts with extra spaces betwene parameters should compress space.
   *Fast 3G Load Test*
   - [] Run a Fast 3G load test to optimize assets and
       make a better startup / loading sequence.
@@ -119,6 +126,7 @@
 
 *** `prompt` system ***
   + UI Gripes
+  - [] Text wrap breaks on zoom.
   - [-] Cannot backspace on Android keyboard.
     - [-] Do a local ngrok phone gap test to fix this.
   - [🌟] Tapping corner word should immediately bring up keyboard.
