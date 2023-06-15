@@ -143,7 +143,7 @@ function paint({
     randIntRange(200, 250),
     randIntRange(200, 250),
     150
-  ).printLine("Amalia Plot :)", typeface.glyphs, 2, 2, 6, 1, 0);
+  ).printLine("Glyph Editor", typeface.glyphs, 2, 2, 6, 1, 0);
 
   // Render all added lines by generating a bitmap and projecting it on a grid.
   if (commands.length > 0) {

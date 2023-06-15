@@ -3,24 +3,26 @@
 
 /* #region 🏁 todo
  + Next Version of `TextInput` (before recording)
-
- - [-] Add support for creating line breaks.
-  - [❤️‍🔥] Word break edge cases.
-    - [] Creating new lines (SHIFT+ENTER) betweeen word broken words should
-         create a new space.
-    - []
-
- - [] Add multi-select / shift+select to replace or modify whole regions. 
- - [] Add support for spaces to be inserted before the
-      first character.
-
+ - [-] Add multi-select / shift+select to replace or modify whole regions. 
  + Later
  - [] Add tab auto-completion feature that can be side-loaded with contextual
       data based on where the text module is used.
- -
  - [] Make history on message input optional?
  - [] Gracefully allow for multiple instances of TextInput in a single piece? 
  + Done
+ - [x] Add support for spaces to be inserted before the
+      first character.
+ - [x] Add support for creating line breaks.
+ - [x] Word break edge cases.
+   (Insertion + Deletion)
+   - [x] Backspacing characters at the start character of the broken
+         word should remove all extraneous space before the next word...
+   - [x] Adding spaces on the start character of a broken word *should*
+         increase the number of spaces by default...
+   - [x] A full length word appearing on a line after a break
+         will jump the line wrong and the cursor wrong.
+   - [x] Creating new lines (SHIFT+ENTER) at the start of broken words should
+         create an extra new line.
  - [x] Enter after a reply does not clear the cursor posiiton Enter after a reply does not clear the cursor position.
  - [x] Don't Backspace when cursor is on first character. 
  - [x] Test line break printing again.
@@ -317,7 +319,7 @@ class TextInput {
     function paintBlockLetter(char, pos) {
       if (char.charCodeAt(0) === 10 && ti.#renderSpaces) {
         $.ink([255, 0, 0, 127]).box(pos.x, pos.y, 4);
-      } else if (char !== " ") {
+      } else if (char !== " " && char.charCodeAt(0) !== 10) {
         const pic = ti.typeface.glyphs[char] || ti.typeface.glyphs["?"];
         $.ink(ti.pal.fg).draw(pic, pos, prompt.scale);
       } else if (ti.#renderSpaces) {
@@ -525,7 +527,7 @@ class TextInput {
 
         const underCursor = index !== undefined;
 
-        // If the cursor is in the corner but that comes before any text.
+        // If the cursor is in the corner but comes before any text.
         if (
           index === undefined &&
           this.#prompt.cursor.x === 0 &&
@@ -558,6 +560,17 @@ class TextInput {
         }
 
         const sliceIndex = underCursor ? index : index + 1;
+
+        // If we are on the first char of a wrapped word, and inserting spaces,
+        // then add enough spaces through to the end of the line.
+        if (this.#prompt.wrapped(sliceIndex) && insert === " ") {
+          const lastCursor = this.#prompt.textToCursorMap[sliceIndex - 1];
+          const thisCursor = this.#prompt.cursor;
+
+          let spaces = 0;
+          spaces = this.#prompt.colWidth - lastCursor.x + thisCursor.x;
+          insert = " ".repeat(spaces - 1);
+        }
 
         this.text =
           this.text.slice(0, sliceIndex) + insert + this.text.slice(sliceIndex);
@@ -605,15 +618,6 @@ class TextInput {
           } else {
             const back = this.#prompt.backward({ ...this.#prompt.cursor });
             const backIndex = this.#prompt.textPos(back);
-            console.log(
-              "Where to go...",
-              this.text.length - 1,
-              this.#prompt.textPos(),
-              "Back:",
-              back,
-              "Back index:",
-              backIndex
-            );
             if (this.text.length - 1 !== backIndex) {
               // Do nothing, we are at the end.
               // If we are on the first character or if there is
@@ -623,10 +627,6 @@ class TextInput {
                 this.text.slice(0, bi) + this.text.slice(bi + 1) || "";
             }
           }
-
-          // ❤️‍🔥
-          // What to do when the line is empty and you deleted a new line
-          // char?
         } else if (e.key === "Backspace") {
           const prompt = this.#prompt;
 
@@ -642,9 +642,6 @@ class TextInput {
             if (this.text.length === currentTextIndex) {
               prompt.snapTo(this.text);
             } else {
-              //this.#prompt.cursor = {
-              //  ...this.#prompt.textToCursorMap[currentTextIndex],
-              //};
               prompt.crawlBackward();
               if (prompt.posHasVisibleCharacter()) prompt.forward();
             }
@@ -659,14 +656,45 @@ class TextInput {
             const hasNewLine =
               prompt.cursorToTextMap[key + ":\\n"] !== undefined;
 
+            const currentPosition = prompt.textPos();
+            if (prompt.wrapped(currentPosition)) {
+              // Delete backwards from text position through any
+              // spaces until the last visible character.
+
+              let movablePosition = prompt.textPos();
+              let char = this.text[movablePosition - 1];
+              let len = 0;
+              while (char === " ") {
+                movablePosition -= 1;
+                char = this.text[movablePosition - 1];
+                len += 1;
+              }
+
+              // Remove `len` characters from the text.
+              if (len > 0) {
+                this.text =
+                  this.text.slice(0, currentPosition - len) +
+                  this.text.slice(currentPosition);
+                prompt.cursor = {
+                  ...prompt.textToCursorMap[currentPosition - len],
+                };
+              }
+
+              this.blink.flip(true);
+              this.showBlink = true;
+              return;
+            }
+
             if (currentTextIndex === 0) return; // Don't delete if on first character.
 
-            // Exception for moving backwards at the start of a word-wrapped line.
+            // 🎁 Exception for moving backwards at the start of a word-wrapped line.
             if (cursorTextIndex === undefined && currentTextIndex > 0) {
               this.text =
                 this.text.slice(0, currentTextIndex - 1) +
                 this.text.slice(currentTextIndex);
-              prompt.cursor = prompt.textToCursorMap[currentTextIndex - 1];
+              prompt.cursor = {
+                ...prompt.textToCursorMap[currentTextIndex - 1],
+              };
             }
 
             if (cursorTextIndex >= 0) {
@@ -675,6 +703,7 @@ class TextInput {
                 this.text.slice(cursorTextIndex + 1);
 
               let cursor = prompt.textToCursorMap[cursorTextIndex - 1];
+
               if (!cursor) {
                 if (prompt.posHasVisibleCharacter()) {
                   cursor = prompt.textToCursorMap[cursorTextIndex];
@@ -685,7 +714,9 @@ class TextInput {
 
               if (cursor) {
                 prompt.cursor = { ...cursor };
-                if (cursorTextIndex > 0 && !hasNewLine) prompt.forward();
+                if (cursorTextIndex > 0 && !hasNewLine) {
+                  if (!prompt.wrapped(cursorTextIndex)) prompt.forward();
+                }
               } else {
                 prompt.crawlBackward();
               }
@@ -735,6 +766,7 @@ class TextInput {
 
       if (e.key === "Enter") {
         if (e.shift) {
+          // ✏️ Make a new line while editing.
           const pos = this.#prompt.textPos();
           const char = this.text[pos];
           if (
@@ -746,14 +778,25 @@ class TextInput {
             this.#prompt.snapTo(this.text);
           } else {
             const hasVis = this.#prompt.posHasVisibleCharacter();
-            this.text = this.text.slice(0, pos) + "\n" + this.text.slice(pos);
-            if (hasVis) {
+
+            // Check to see if the cursor is at the start of a word breaked word
+            // and if it is, then add another line.
+            let insert = "\n";
+            let wrapped = false;
+            if (this.#prompt.wrapped(pos)) {
+              wrapped = true;
+              insert += "\n"; // Add an extra line if on a wrapped word.
+            }
+            this.text = this.text.slice(0, pos) + insert + this.text.slice(pos);
+
+            if (hasVis && !wrapped) {
               this.#prompt.cursor = { ...this.#prompt.textToCursorMap[pos] };
             } else {
               this.#prompt.cursor.y += 1;
             }
           }
         } else if (this.runnable) {
+          // 💻 Execute a command!
           await this.run(store);
         }
       }
@@ -872,6 +915,8 @@ class Prompt {
 
   cursorToTextMap = {}; // Keep track of text data in relationship to whitespace.
   textToCursorMap = [];
+  wrappedWordIndices = []; // Keep track of word wrapped indices after
+  //                           each mapping.
 
   #mappedTo = ""; // Text that has been mapped.
 
@@ -899,6 +944,7 @@ class Prompt {
     this.#mappedTo = text;
     this.cursorToTextMap = {};
     this.textToCursorMap = [];
+    this.wrappedWordIndices = [];
     const cursor = { x: 0, y: 0 };
 
     // Wrap and map the text either by character or word.
@@ -951,7 +997,6 @@ class Prompt {
             wordStart = true;
             wordCount += 1;
           }
-          //console.log("wordStart:", wordStart, char);
           continue;
         }
 
@@ -970,30 +1015,17 @@ class Prompt {
               }
             }
 
-            // console.log(
-            //   "Length of upcoming word:",
-            //   len,
-            //   "Cursor X:",
-            //   cursor.x,
-            //   "Gutter:",
-            //   this.colWidth,
-            //   len + cursor.x,
-            // );
-
-            // TODO: Check for words that are equal length.
-
-            //console.log("Will Break:", cursor.x + len >= this.colWidth - 1);
             if (cursor.x + len >= this.colWidth - 1) {
-              this.newLine(cursor);
-              brokeLine = true;
-             // console.log("Word Break!");
+              if (!this.posHasNewLine(cursor)) {
+                this.newLine(cursor);
+                brokeLine = true;
+                this.wrappedWordIndices.push(c);
+              }
             }
           }
         } else {
           wordStart = false;
         }
-
-        //console.log("wordStart:", wordStart, char);
 
         if (newLine) {
           this.newLine(cursor);
@@ -1004,64 +1036,14 @@ class Prompt {
         textIndex += 1;
         this.#updateMaps(text, textIndex, cursor);
       }
-
-      // console.log(words);
-      // let textIndex = 0;
-      // let brokeLine = true; // Start on a broke line to updateMaps at index 0.
-      /*
-      words.forEach((word, i) => {
-        let skipSpace = false;
-
-        // Move forward through each character in the word.
-        [...word].forEach((char, index) => {
-          // Detect new line character.
-          if (char.charCodeAt(0) === 10) {
-            this.newLine(cursor);
-            brokeLine = true;
-
-            textIndex += 1;
-            if (index === word.length - 1) {
-              // On the last char of word...
-              // If we aren't on the last word, then...
-              if (i < words.length - 1) {
-                // Not the last word.
-                skipSpace = true; // Skip the extra space for when "\n" ends a word.
-                textIndex += 1;
-              } else {
-                this.textToCursorMap[textIndex] = undefined;
-                this.cursorToTextMap[`${cursor.x}:${cursor.y}`] = textIndex;
-              }
-            }
-          } else {
-            if (!brokeLine) {
-              this.forward(cursor); // Bring cursor forward. (Character insert.)
-              textIndex += 1;
-            } else {
-              brokeLine = false;
-            }
-            this.#updateMaps(text, textIndex, cursor); // Update cursor<->text indexing.
-          }
-        });
-
-        // Check to see if this word needs to be on a new line...
-        if (i < words.length - 1) {
-          const nextWord = words[i + 1]?.trim(); //.split("\n")[0];
-          // Measure up through the next line break.
-          if (nextWord && cursor.x + 2 + nextWord.length >= this.colWidth) {
-            this.newLine(cursor);
-            brokeLine = true;
-            textIndex += 2;
-          } else if (!skipSpace) {
-            // Or just add a space after the current word so long as it doesn't
-            // end in a `\n`.
-            this.forward(cursor);
-            textIndex += 1;
-            this.#updateMaps(text, textIndex, cursor); // Update cursor<->text indexing.
-          }
-        }
-      });
-      */
     }
+  }
+
+  // Lookup to check if the word at the beginning of this index was
+  // word-wrapped.
+  wrapped(index) {
+    if (this.wrap !== "word") return false; // Make sure word wrap is on.
+    return this.wrappedWordIndices.includes(index);
   }
 
   #updateMaps(text, textIndex, cursor = this.cursor) {

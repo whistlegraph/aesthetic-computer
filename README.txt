@@ -62,15 +62,24 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*plot* (new launch fonts)
+  - [] Fix `resize` call in plot.
+  - [] Is `scale` working?
+  - [] Set up preview / more UI so that new fonts can be produced.
+    - [] Gamify it?
+  - [] Design a multi-line prompt / poster design tool.
+    - [] Rainbow stripes of different colors delineated horizontally
+          kind of like a pastel stenograph pad.
+
 *** encode/decode ***
-- [-] line break while editing
-- [] add the copy button to copy text
+- [🟡] add the copy button to copy text
   - [] add flag so that copy is only on some of the buttons
   - [] print current text to console when copy button is pressed
   - [] copy text to user's clipboard on every platform
   - [] once copied, button reads 'copied' and is visibly deactivated for 3 seconds
 - [] design the text + url that gets copied and sent
 + Done
+- [x] line break while editing
 - [x] make the decode bot
 - [x] colors for decode bot
 - [x] reset the interface so when text changes you have to hit reply again
@@ -81,28 +90,11 @@
 - [x] make the encode bot
   - [x] add gpt3-tokenizer library
 
-*** global screenshot key ***
-  - [] There needs to be a system wide method of capturing a screenshot.
-    - [] Both on desktop and on mobile.
-  - [] These screenshots need to be published automatically upon getting
-       a confirmation modal. 
-
 *** sfx ***
+  - [] Fix and test `sfx` on iOS.
   - [] Add startup sound and keyboard sound.
     - [] Make sure `sfx` clears any remotely loaded sounds?
       - [] Just whitelist sounds for now.
-
-*** `scream` ***
-  - [] Get JamSocket working again.
-  - [] And also get notifications working!
-
-  - [] Visualize the socket connection to make everything faster in production.
-     - [] Possibly the bottleneck is in connecting to JamSocket?
-  - [-] Finish list in `scream`.
-  - [] Use NTP for time synchronized delivery of messages.
-    - [] Is this good enough for musical timing?
-  - [] Enable via notifications in the test iOS app.
-  - [x] Get messaging working. 
 
 *** Launch Goodies ***
   - [-] Add Abe's startup sound.
@@ -124,6 +116,24 @@
   - [] Run a Fast 3G load test to optimize assets and
       make a better startup / loading sequence.
 
+*** global screenshot key ***
+  - [] There needs to be a system wide method of capturing a screenshot.
+    - [] Both on desktop and on mobile.
+  - [] These screenshots need to be published automatically upon getting
+       a confirmation modal. 
+
+*** `scream` ***
+  - [] Get JamSocket working again.
+  - [] And also get notifications working!
+
+  - [] Visualize the socket connection to make everything faster in production.
+     - [] Possibly the bottleneck is in connecting to JamSocket?
+  - [-] Finish list in `scream`.
+  - [] Use NTP for time synchronized delivery of messages.
+    - [] Is this good enough for musical timing?
+  - [] Enable via notifications in the test iOS app.
+  - [x] Get messaging working. 
+
 *** `handprint` ***
   - [] Make a little happy hands style paint brush.
 
@@ -132,7 +142,6 @@
 
 *** `prompt` system ***
   + UI Gripes
-  - [] Text wrap breaks on zoom.
   - [-] Cannot backspace on Android keyboard.
     - [-] Do a local ngrok phone gap test to fix this.
   - [🌟] Tapping corner word should immediately bring up keyboard.
@@ -156,6 +165,7 @@
     - [] 1/3 New synth wav types!
     - [] Custom SFX / sampling.
   + Done
+  - [x] Text wrap breaks on zoom.
   - [x] Scrub cursor does not respect word-wrapped spacing.
   - [x] Long single word breaks into second line.
   - [x] New words after a line break are not separated alongside the following word.

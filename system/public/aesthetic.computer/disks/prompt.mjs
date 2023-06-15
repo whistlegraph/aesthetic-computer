@@ -439,7 +439,7 @@ function sim($) {
 
 // 🎪 Act
 function act({ event: e, api }) {
-  const input = $.system.prompt.input;
+  const input = api.system.prompt.input;
   if (e.is("load-error")) {
     makeFlash(api);
     flashColor = [255, 0, 0];
@@ -470,8 +470,7 @@ export { before, after, forgetful, halt, boot, paint, sim, act, meta };
 export const system = "prompt:character"; // or "prompt:code"
 
 // Prompt configuration overrides.
-export const wrap = "word";
-// export const wrap = "char";
+export const wrap = "word"; // or "char"
 export const scheme = {
   dark: {
     fg: [255, 100],

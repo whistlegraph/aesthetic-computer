@@ -176,6 +176,7 @@ export class Grid {
   box;
   scale;
   // TODO: Could rotation eventually be added here? 2021.12.08.10.51
+  transform;
 
   #halfScale;
   centerOffset;
@@ -184,6 +185,7 @@ export class Grid {
     // Takes the same arguments as box.
     this.box = new Box(x, y, w, h);
     this.scale = s;
+    this.transform = { scale: this.scale };
     this.#halfScale = this.scale / 2;
     this.centerOffset = floor(this.#halfScale);
   }
