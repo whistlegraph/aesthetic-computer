@@ -6,16 +6,16 @@
 let oldScr, scale;
 
 // 🥾 Boot (Runs once before first paint and sim)
-function boot({ resize, wipe, screen, ink, flatten, clonePixels }) {
+function boot({ resolution, wipe, screen, ink, flatten, clonePixels }) {
   // WIP 🎇
-  resize(32);
+  resolution(32);
   wipe(255, 255, 0);
   ink(0, 255, 0).line(screen.width - 1, 0, 0, screen.height - 1);
   ink(100, 100, 100).box(8, 12, 4, 4);
   ink(0, 0, 255).line(0, 0, screen.width - 1, screen.height - 1);
   flatten();
   oldScr = clonePixels(screen);
-  resize(128);
+  resolution(128);
 }
 
 // 🧮 Sim(ulate) (Runs once per logic frame (120fps locked)).

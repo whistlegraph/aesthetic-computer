@@ -167,7 +167,6 @@ class Typeface {
 // An interactive text prompt object.
 class TextInput {
   #text; // text content
-  // sanitized; // sanitized text
 
   #renderSpaces = false; // Whether to render invisible space characters. " "
   //                        For debugging purposes.
@@ -198,43 +197,12 @@ class TextInput {
   #moveDeltaX = 0;
 
   runnable = false; // Whether a command can be tried.
-  lastText; // Store the last text reply.
   didReset; // Callback for blank reset.
 
   key;
 
   editableCallback; // A function that can run when the TextInput is made
   //                   editable.
-
-  set gutter(n) {
-    this.#prompt.colWidth = n;
-    this.#prompt.gutter = this.#prompt.colWidth * this.#prompt.blockWidth;
-  }
-
-  // Snap cursor to the end of text.
-  snap() {
-    this.#prompt.snapTo(this.text);
-  }
-
-  // Run a command
-  async run(store) {
-    this.#prompt.snapTo(this.text);
-    await this.#execute(store); // Send a command.
-  }
-
-  set text(str) {
-    this.#text = str;
-    this.flow();
-  }
-
-  flow() {
-    this.#prompt.mapTo(this.#text); // Rebuild the text map index.
-    // this.sanitized = this.text.replace(/[\r\n]+/g, "");
-  }
-
-  get text() {
-    return this.#text;
-  }
 
   // Add support for loading from preloaded system typeface.
   constructor(
@@ -274,7 +242,6 @@ class TextInput {
     );
 
     this.text = text;
-    this.lastText = this.text;
 
     this.startingInput = this.text;
     this.scheme = options.scheme || {
@@ -306,6 +273,40 @@ class TextInput {
     this.processCommand = processCommand;
     $.send({ type: "keyboard:enabled" });
   }
+
+  // Adjust the gutter width for text wrapping.
+  set gutter(n) {
+    this.#prompt.colWidth = n;
+    this.#prompt.gutter = this.#prompt.colWidth * this.#prompt.blockWidth;
+  }
+
+  // Snap cursor to the end of text.
+  snap() {
+    this.#prompt.snapTo(this.text);
+  }
+
+  // Run a command
+  async run(store) {
+    this.#prompt.snapTo(this.text);
+    await this.#execute(store); // Send a command.
+  }
+
+  // Set the text and reflow it.
+  set text(str) {
+    this.#text = str;
+    this.flow();
+  }
+
+  // Reflow the input text.
+  flow() {
+    this.#prompt.mapTo(this.#text); // Rebuild the text map index.
+  }
+
+  // Return the text contents of the input.
+  get text() {
+    return this.#text;
+  }
+
 
   // Paint the TextInput, with an optional `frame` for placement.
   // TODO: Provide a full frame along with an x, y position..
@@ -432,11 +433,6 @@ class TextInput {
     this.go.txt = txt || "Enter";
   }
 
-  // Forget the original finished message.
-  forget() {
-    this.lastText = "";
-  }
-
   // Run a command.
   async #execute(store) {
     // Make a history stack if one doesn't exist already.
@@ -454,6 +450,7 @@ class TextInput {
 
   // Clear the TextInput object and flip the cursor to ON.
   blank(cursor) {
+    console.log("BLANK");
     if (cursor) this.cursor = cursor;
     this.text = "";
     this.#prompt.cursor = { x: 0, y: 0 };
@@ -832,7 +829,6 @@ class TextInput {
           if (this.runnable) {
             await this.run(store);
           } else {
-            this.lastText = this.text;
             this.go.btn.disabled = true;
             this.canType = true;
             this.blank("blink");

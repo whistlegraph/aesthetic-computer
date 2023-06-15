@@ -25,11 +25,11 @@ async function boot({
   net: { waitForPreload, preload, preloaded },
   cursor,
   fps,
-  resize,
+  resolution,
   glaze,
   gap,
 }) {
-  resize(1000, 1250); // 3x5
+  resolution(1000, 1250); // 3x5
   gap(0);
   cursor("native");
 

@@ -323,7 +323,6 @@ async function halt($, text) {
   } else if (text === "local" || text.startsWith("local")) {
     const param = text.replace("local", "").trim().replaceAll(" ", "~");
     const slug = param.length > 0 ? `/${param}` : "";
-    console.log(slug);
     jump("https://localhost:8888" + slug); // Go to the local dev server, passing any params as a piece.
     return true;
   } else if (text.split(" ")[0] === "of") {
@@ -350,7 +349,6 @@ function boot({ glaze, api, system, pieceCount, send }) {
   ) {
     system.prompt.input.text = makeMotd(api); // Override prompt with motd if
     //                                           no conversation is present.
-    system.prompt.input.lastText = system.prompt.input.text;
     system.prompt.input.showButton();
   }
 
@@ -438,10 +436,10 @@ function sim($) {
 }
 
 // 🎪 Act
-function act({ event: e, api }) {
+function act({ event: e, api, needsPaint }) {
   const input = api.system.prompt.input;
   if (e.is("load-error")) {
-    makeFlash(api);
+    makeFlash(api, false);
     flashColor = [255, 0, 0];
     if (MetaBrowser) input.canType = false;
     needsPaint();

@@ -34,7 +34,7 @@ let glyphs = {};
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({
-  resize,
+  resolution,
   screen,
   store,
   geo: { Box, Grid },
@@ -49,7 +49,7 @@ function boot({
     ({ data: scoreData, stopRow: scoreHeight } = store["tracker:score"]);
   }
 
-  resize(160, 90); // 16x9
+  resolution(160, 90); // 16x9
 
   // TODO: Eek! Screen height is not changing after resize...
   // resize(screen.width, screen.height); // 16x9 // TODO: Double resize doesn't work... why is that?

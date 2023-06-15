@@ -536,7 +536,7 @@ function boot({
   params,
   dom: { html },
   net: { waitForPreload },
-  resize,
+  resolution,
   debug,
 }) {
   // Add assetPath here.
@@ -544,7 +544,7 @@ function boot({
     ? "/assets/whistlegraph"
     : "https://assets.aesthetic.computer/whistlegraph";
 
-  resize({ gap: 0 });
+  resolution({ gap: 0 });
   waitForPreload();
   cursor("native");
 

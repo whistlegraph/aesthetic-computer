@@ -21,13 +21,13 @@ let beatStartTime;
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({
-  resize,
+  resolution,
   store,
   net: { preload },
   num: { randIntRange },
   help: { choose },
 }) {
-  resize(160, 90); // 16x9
+  resolution(160, 90); // 16x9
 
   if (store["tracker:score"]) {
     ({ data: scoreData, stopRow } = store["tracker:score"]);

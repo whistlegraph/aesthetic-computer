@@ -6,7 +6,7 @@ let image;
 let imgToExport;
 
 // 🥾 Boot (Runs once before first paint and sim)
-function boot({ resize, net, needsPaint, painting, dowwnload }) {
+function boot({ resolution, net, needsPaint, painting, dowwnload }) {
   // 🅰️
   // net.waitForPreload();
   // net.preload(`aesthetic.computer/disks/digitpain/1/${0}.webp`).then((img) => {
@@ -16,7 +16,7 @@ function boot({ resize, net, needsPaint, painting, dowwnload }) {
   // });
 
   // 🅱️
-  resize(256, 256);
+  resolution(256, 256);
   imgToExport = painting(256, 256, ({noise16DIGITPAIN}) => noise16DIGITPAIN());
 }
 

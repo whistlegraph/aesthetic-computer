@@ -62,23 +62,16 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*plot* (new launch fonts)
-  - [] Fix `resize` call in plot.
-  - [] Is `scale` working?
-  - [] Set up preview / more UI so that new fonts can be produced.
-    - [] Gamify it?
-  - [] Design a multi-line prompt / poster design tool.
-    - [] Rainbow stripes of different colors delineated horizontally
-          kind of like a pastel stenograph pad.
-
 *** encode/decode ***
 - [🟡] add the copy button to copy text
-  - [] add flag so that copy is only on some of the buttons
-  - [] print current text to console when copy button is pressed
-  - [] copy text to user's clipboard on every platform
-  - [] once copied, button reads 'copied' and is visibly deactivated for 3 seconds
+- [] add flag so that copy is only on some of the buttons
+- [] print current text to console when copy button is pressed
+- [] copy text to user's clipboard on every platform
+- [] once copied, button reads 'copied' and is visibly deactivated for 3 seconds
 - [] design the text + url that gets copied and sent
+
 + Done
+- [x] Fix the empty params error.
 - [x] line break while editing
 - [x] make the decode bot
 - [x] colors for decode bot
@@ -89,6 +82,20 @@
 - [x] decide on command names
 - [x] make the encode bot
   - [x] add gpt3-tokenizer library
+
+*plot* (new launch fonts)
+  - [] Make the UI responsive based on grid and scale and window size.
+    - [] Print the resolution and the output number in the corner.     
+  - [] Set up preview / more UI so that new fonts can be produced.
+    - [] Gamify it?
+  - [] Allow the creation of a custom font using the current glyph set.
+  - [] Allow color.
+  - [] Design a multi-line prompt / poster design tool.
+    - [] Rainbow stripes of different colors delineated horizontally
+          kind of like a pastel stenograph pad.
+  + Done
+  - [x] Fix `resize` call in plot.
+  - [x] Is `scale` working?
 
 *** sfx ***
   - [] Fix and test `sfx` on iOS.

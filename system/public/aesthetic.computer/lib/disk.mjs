@@ -1193,16 +1193,16 @@ const painting = new Painting();
 
 let glazeAfterReframe;
 
-// *** Resize ***
+// *** Resolution ***
 // Accepts width, height and gap either as numbers or as
 // an object with those keys.
 //
-// Usage: resize(64);
-//        resize(320, 240);
-//        resize(display); // "display" is a global object whose width
-//                             and height matches the hardware display
-//                             hosting aesthetic.computer.
-$commonApi.resize = function (width, height = width, gap = 8) {
+// Usage: resolution(64);
+//        resolution(320, 240);
+//        resolution(display); // "display" is a global object whose width
+//                                 and height matches the hardware display
+//                                 hosting aesthetic.computer.
+$commonApi.resolution = function (width, height = width, gap = 8) {
   if (typeof width === "object") {
     const props = width;
     height = props.height;
@@ -2944,7 +2944,8 @@ async function makeFrame({ data: { type, content } }) {
       $api.screen.center = [screen.width / 2, screen.height / 2];
 
       $api.fps = function (newFps) {
-        send({ type: "fps-change", content: newFps });f
+        send({ type: "fps-change", content: newFps });
+        f;
       };
 
       $api.cursor = (code) => (cursorCode = code);
@@ -3143,6 +3144,7 @@ async function makeFrame({ data: { type, content } }) {
         piece.length > 0 &&
         piece !== "prompt" &&
         piece !== "play" &&
+        piece !== "plot" &&
         piece !== "gargoyle" &&
         piece !== "savcom" &&
         piece !== "botce" &&

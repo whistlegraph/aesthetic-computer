@@ -13,6 +13,7 @@ const prompt = "enter a message to encode";
 
 // 🥾 Boot
 async function boot ({store, system, params}) {
+  if (params.length === 0) return;
   system.prompt.input.text = params.join(" ");
   await system.prompt.input.run(store);
 }

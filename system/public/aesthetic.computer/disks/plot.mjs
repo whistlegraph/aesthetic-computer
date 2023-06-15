@@ -56,7 +56,7 @@ let height = 13;
 
 // TODO: Add query params to plot starting size.
 
-let scale = 5;
+let scale = 10;//5;
 
 const abc123Baseline = 8;
 const typography = false; // Enabled or disables the baseline.
@@ -65,7 +65,7 @@ let typeface;
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({
-  resize,
+  resolution,
   cursor,
   geo: { Grid },
   ui: { Button },
@@ -77,7 +77,7 @@ function boot({
   typeface = new Typeface(font1);
   typeface.load(preload);
   // cursor("tiny"); // TODO: Why doesn't cursor tiny work here? 22.11.01.16.59
-  resize(96, 96); // It might have to do with this resize call?
+  // resolution(96, 96); // It might have to do with this resize call?
 
   // Read some basic query parameters for configuring the resolution.
   //const params = new URLSearchParams(query);
@@ -134,16 +134,15 @@ function paint({
     .box(g.scaled, "outline");
 
   // Draw a box on the "center" of the grid.
-  console.log(g.middle())
   ink(255, 0, 0, 64).box(...g.middle(), g.scale);
 
   // Add text on the top...
-  ink(
-    randIntRange(200, 250),
-    randIntRange(200, 250),
-    randIntRange(200, 250),
-    150
-  ).printLine("Glyph Editor", typeface.glyphs, 2, 2, 6, 1, 0);
+  // ink(
+  //   randIntRange(200, 250),
+  //   randIntRange(200, 250),
+  //   randIntRange(200, 250),
+  //   150
+  // ).printLine("Glyph Editor", typeface.glyphs, 2, 2, 6, 1, 0);
 
   // Render all added lines by generating a bitmap and projecting it on a grid.
   if (commands.length > 0) {
@@ -252,7 +251,7 @@ function act({ event: e, download, sideload, num: { timestamp }, needsPaint }) {
 
   if (!opening) {
     open.act(e, () => {
-      upload(".json")
+      sideload(".json")
         .then((data) => {
           decode(JSON.parse(data));
           needsPaint();

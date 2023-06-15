@@ -28,8 +28,8 @@ let history,
   plottedTurns = 0;
 
 // 🥾 Boot (Runs once before first paint and sim)
-export function boot({ resize, painting, screen, wipe, ink, glaze }) {
-  resize(32, 32 + 1);
+export function boot({ resolution, painting, screen, wipe, ink, glaze }) {
+  resolution(32, 32 + 1);
 
   const palette = {
     light: {

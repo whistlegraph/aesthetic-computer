@@ -38,7 +38,6 @@ export async function prompt_boot(
       if (exits.indexOf(text) !== -1) {
         await conversation.forget();
         input.blank();
-        input.forget();
         if ($.slug !== "prompt") {
           return $.jump("prompt");
         } else return;
@@ -84,6 +83,7 @@ export async function prompt_boot(
           input.text = abortMessage;
           processing = input.lock = false;
           input.canType = true;
+          input.runnable = false;
           if (input.text.length === 0) {
           } else {
             input.cursor = "stop";
@@ -92,6 +92,7 @@ export async function prompt_boot(
           }
         }
       );
+
     },
     {
       autolock: false,

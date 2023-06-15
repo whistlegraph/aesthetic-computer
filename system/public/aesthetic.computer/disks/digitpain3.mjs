@@ -9,12 +9,12 @@ const frames = { count: 4, loaded: false, images: [] };
 async function boot({
   net: { waitForPreload, preload, preloaded },
   cursor,
-  resize,
+  resolution,
   gap,
   help: { repeat },
 }) {
   cursor("native");
-  resize(1000, 1250);
+  resolution(1000, 1250);
   gap(0);
   // Preload all images.
   waitForPreload();
