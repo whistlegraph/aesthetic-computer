@@ -569,11 +569,12 @@ const $commonApi = {
       return p;
     },
   },
-  clipboard: {
-    copy: (text) => {
-      send({ type: "copy", content: text });
-    },
-  },
+  // Deprecated in favor of `bios` -> `hitboxes`. (To support iOS)
+  // clipboard: {
+  //   copy: (text) => {
+  //     send({ type: "copy", content: text });
+  //   },
+  // },
   num: {
     even: num.even,
     odd: num.odd,

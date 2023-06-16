@@ -3,6 +3,7 @@
 // 📦 All Imports
 import * as Loop from "./lib/loop.mjs";
 import { Pen } from "./lib/pen.mjs";
+import { Box } from "./lib/geo.mjs";
 import { Keyboard } from "./lib/keyboard.mjs";
 import * as UI from "./lib/ui.mjs";
 import * as Glaze from "./lib/glaze.mjs";
@@ -918,16 +919,61 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
-    // Copy text to clipboard.
-    if (type === "copy") {
-      try {
-        await navigator.clipboard.writeText(content);
-        send({ type: "copy:copied" });
-      } catch (err) {
-        send({ type: "copy:failed" });
-      }
+    // Add a DOM event hitbox for the `Button Hitboxes`
+    // event listener on the document.
+    // 📓 Adding the same label multiple times will have no additional effect.
+    if (type === "button:hitbox:add") {
+      if (hitboxes[content.label] !== undefined) return;
+
+      let state = "up";
+      hitboxes[content.label] = async (e) => {
+        const frame = canvas.getBoundingClientRect();
+        const scale = projectedWidth / canvas.width;
+        const hitbox = Box.from({
+          x: frame.left + content.box.x * scale,
+          y: frame.top + content.box.y * scale,
+          w: content.box.w * scale,
+          h: content.box.h * scale,
+        });
+
+        const hit = hitbox.contains({ x: e.x, y: e.y });
+
+        if (e.type === "pointerup" && state === "down" && hit) {
+          // This is pretty specific to the "copy" clipboard
+          // stuff for now. 23.06.16.15.03
+          try {
+            await navigator.clipboard.writeText(content.message);
+            send({ type: "copy:copied" });
+          } catch (err) {
+            send({ type: "copy:failed" });
+          }
+        } else if (e.type === "pointerdown" && hit) {
+          state = "down";
+        } else if (e.type === "pointerup" && !hit) {
+          state = "up";
+        }
+      };
+
       return;
     }
+
+    // Remove a hitbox via its label.
+    if (type === "button:hitbox:remove") {
+      delete hitboxes[content];
+      return;
+    }
+
+    // Removed in favor of the above. 23.06.16.15.04
+    // Copy text to clipboard.
+    // if (type === "copy") {
+    //   try {
+    //     await navigator.clipboard.writeText(content);
+    //     send({ type: "copy:copied" });
+    //   } catch (err) {
+    //     send({ type: "copy:failed" });
+    //   }
+    //   return;
+    // }
 
     // Authenticate / signup or login a user.
     if (type === "login") {
@@ -1288,9 +1334,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       });
       if (logs.audio && debug) console.log("🔉 SFX Cleaed up:", sfx);
 
-      if (sfx[sound])
-        // Reset preloading.
-        window.waitForPreload = false;
+      // Reset preloading.
+      window.waitForPreload = false;
       window.preloaded = false;
 
       // Clear any 3D content.
@@ -1298,6 +1343,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Kill the 3D engine.
       ThreeD?.kill();
+
+      // Clear any DOM hitboxes added for Buttons that need
+      // user interaction to trigger browser APIs. (Like clipboard)
+      hitboxes = {};
 
       // Clear any DOM content that was added by a piece.
       contentFrame?.remove(); // Remove the contentFrame if it exists.
@@ -3408,6 +3457,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       console.log("😱 Leaving fullscreen mode!");
     }
   };
+
+  // 🔘 Button Hitboxes
+  // (Created for 📋 Clipboard Events)
+  let hitboxes = {};
+  window.addEventListener("pointerup", async (e) => {
+    keys(hitboxes).forEach((key) => hitboxes[key]?.(e));
+  });
+
+  window.addEventListener("pointerdown", async (e) => {
+    keys(hitboxes).forEach((key) => hitboxes[key]?.(e));
+  });
 }
 
 // Utilities

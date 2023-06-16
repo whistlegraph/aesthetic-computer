@@ -75,6 +75,7 @@ class Button {
   down = false;
   disabled = false;
   icon;
+  dom = false;
 
   // (x, y, width, height) or Box
   constructor() {
@@ -84,7 +85,14 @@ class Button {
     } else this.box = new Box(...arguments); // Otherwise: x, y, w, h for a box.
   }
 
-  
+  publishToDom({ send }, label, message) {
+    // The only use case for this right now is the Clipboard API. 23.06.16.15.40
+    send({ type: "button:hitbox:add", content: { box: this.box, label, message } });
+  }
+
+  removeFromDom({ send }, label) {
+    send({ type: "button:hitbox:remove", content: label });
+  }
 
   // For using in a piece's `act` function. Contains callbacks for
   // events that take place inside the button.

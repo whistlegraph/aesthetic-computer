@@ -63,11 +63,12 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** encode/decode ***
-- [❤️‍🔥] design the text + url that gets copied and sent
-  - [] Add a "copied" hook to the `prompt-system`.
+  - [-] Add a "copied" hook to the `prompt-system`.
+  - [❤️‍🔥] design the text + url that gets copied and sent
   - [] Fill it in with some designs.
 
 + Done
+- [x] Fix clipboard for iOS.
 - [no] add flag so that copy is only on some of the buttons
 - [x] print current text to console when copy button is pressed
 - [x] copy text to user's clipboard on every platform

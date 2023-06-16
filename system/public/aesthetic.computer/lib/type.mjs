@@ -273,6 +273,7 @@ class TextInput {
     const {
       ui: { TextButton: TB },
     } = $;
+
     this.enter = new TB("Enter");
     this.copy = new TB("Copy");
     this.copy.btn.disabled = true; // Copy should be disabled by default.
@@ -408,6 +409,7 @@ class TextInput {
     // Copy Button
     if (!this.copy.btn.disabled) {
       this.copy.reposition({ right: 6, bottom: 32, screen: frame });
+      this.copy.btn.publishToDom($, "copy", this.text);
       this.copy.paint({ ink: $.ink }, this.#copyScheme);
     }
 
@@ -762,6 +764,7 @@ class TextInput {
         if (this.text.length > 0) {
           this.enter.btn.disabled = false;
           this.copy.btn.disabled = true;
+          this.copy.btn.removeFromDom($, "copy");
           this.runnable = true;
         } else {
           this.enter.btn.disabled = true;
@@ -868,7 +871,7 @@ class TextInput {
         },
         push: () => {
           // Copy text to user's clipboard.
-          clipboard.copy(this.text);
+          // clipboard.copy(this.text);
           needsPaint();
         },
         cancel: () => {
