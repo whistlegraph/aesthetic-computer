@@ -174,7 +174,13 @@ class TextInput {
   blink; // block cursor blink timer
   showBlink = true;
   cursor = "blink";
-  go;
+
+  // Buttons
+  enter; // A button for replying or inputting text.
+
+  // 🏵️ TODO: ...
+  copy; // A button for copying replies to the clipboard, that shows up
+  //       conditionally.
 
   canType = false;
 
@@ -203,6 +209,9 @@ class TextInput {
 
   editableCallback; // A function that can run when the TextInput is made
   //                   editable.
+
+  #copyTimeout; // UI Timer for clipboard copy response.
+  #copyScheme; // An override for the Copy button's color.
 
   // Add support for loading from preloaded system typeface.
   constructor(
@@ -264,10 +273,13 @@ class TextInput {
     const {
       ui: { TextButton: TB },
     } = $;
-    this.go = new TB("Enter");
+    this.enter = new TB("Enter");
+    this.copy = new TB("Copy");
+    this.copy.btn.disabled = true; // Copy should be disabled by default.
 
     if (this.text.length === 0) {
-      this.go.btn.disabled = true;
+      this.enter.btn.disabled = true;
+      // this.copy.btn.disabled = true;
     }
 
     this.processCommand = processCommand;
@@ -306,7 +318,6 @@ class TextInput {
   get text() {
     return this.#text;
   }
-
 
   // Paint the TextInput, with an optional `frame` for placement.
   // TODO: Provide a full frame along with an x, y position..
@@ -388,18 +399,16 @@ class TextInput {
       $.ink(255, 0, 0).box(pos.x + 1, pos.y + 3, 3);
     }
 
-    // Prompt Button
-    if (!this.go.btn.disabled) {
-      this.go.reposition({ right: 6, bottom: 6, screen: frame });
-      // if (this.go.txt === "Enter") {
-      // this.go.paint({ ink: $.ink }, [
-      //   [0, 100, 0],
-      //   [0, 255, 0, 150],
-      //   [0, 200, 0],
-      //   [0, 50, 0, 0],
-      // ]);
-      // } else
-      this.go.paint({ ink: $.ink });
+    // Enter Button
+    if (!this.enter.btn.disabled) {
+      this.enter.reposition({ right: 6, bottom: 6, screen: frame });
+      this.enter.paint({ ink: $.ink });
+    }
+
+    // Copy Button
+    if (!this.copy.btn.disabled) {
+      this.copy.reposition({ right: 6, bottom: 32, screen: frame });
+      this.copy.paint({ ink: $.ink }, this.#copyScheme);
     }
 
     // Return false if we have loaded every glyph.
@@ -428,9 +437,9 @@ class TextInput {
     if (this.canType) this.blink.step();
   }
 
-  showButton(txt) {
-    this.go.btn.disabled = false;
-    this.go.txt = txt || "Enter";
+  showButton({ nocopy } = { nocopy: false }) {
+    this.enter.btn.disabled = false;
+    if (!nocopy) this.copy.btn.disabled = false;
   }
 
   // Run a command.
@@ -450,7 +459,6 @@ class TextInput {
 
   // Clear the TextInput object and flip the cursor to ON.
   blank(cursor) {
-    console.log("BLANK");
     if (cursor) this.cursor = cursor;
     this.text = "";
     this.#prompt.cursor = { x: 0, y: 0 };
@@ -463,12 +471,12 @@ class TextInput {
     this.runnable = false;
     this.inputStarted = false;
     this.canType = false;
-    this.showButton("Enter");
+    this.showButton();
   }
 
   // Handle user input.
   async act($) {
-    const { event: e, store, needsPaint } = $;
+    const { debug, event: e, store, needsPaint, clipboard } = $;
 
     // Reflow the prompt on frame resize.
     if (e.is("reframed")) {
@@ -752,11 +760,11 @@ class TextInput {
 
       if (e.key !== "Enter") {
         if (this.text.length > 0) {
-          this.go.btn.disabled = false;
-          this.go.txt = "Enter";
+          this.enter.btn.disabled = false;
+          this.copy.btn.disabled = true;
           this.runnable = true;
         } else {
-          this.go.btn.disabled = true;
+          this.enter.btn.disabled = true;
           this.runnable = false;
         }
       }
@@ -819,8 +827,10 @@ class TextInput {
       $.send({ type: "keyboard:lock" });
     }
 
+    // UI Button Actions
     if (!this.lock) {
-      this.go.btn.act(e, {
+      // 🔲 Enter
+      this.enter.btn.act(e, {
         down: () => {
           $.send({ type: "keyboard:unlock" });
           needsPaint();
@@ -829,7 +839,7 @@ class TextInput {
           if (this.runnable) {
             await this.run(store);
           } else {
-            this.go.btn.disabled = true;
+            this.enter.btn.disabled = true;
             this.canType = true;
             this.blank("blink");
             this.inputStarted = true;
@@ -851,6 +861,47 @@ class TextInput {
           needsPaint();
         },
       });
+      // 🔲 Copy
+      this.copy.btn.act(e, {
+        down: () => {
+          needsPaint();
+        },
+        push: () => {
+          // Copy text to user's clipboard.
+          clipboard.copy(this.text);
+          needsPaint();
+        },
+        cancel: () => {
+          needsPaint();
+        },
+      });
+    }
+
+    // TODO: Share the same code among both events
+    //       below.
+
+    // ✂️ Copy to a user's clipboard.
+    if (e.name?.startsWith("clipboard:copy")) {
+      const copied = e.is("clipboard:copy:copied");
+      if (debug) {
+        copied
+          ? console.log("📋 Copy: Copied 🙃")
+          : console.warn("📋 Copy: Failed ⚠️");
+      }
+
+      this.copy.txt = copied ? "Copied" : "Failed";
+      this.#copyScheme = [64, 127, 127, 64]; // Greyed out.
+      needsPaint();
+      clearTimeout(this.#copyTimeout);
+      this.#copyTimeout = setTimeout(() => {
+        this.copy.btn.disabled = false;
+        this.copy.txt = "Copy";
+        this.#copyScheme = undefined;
+        needsPaint();
+      }, 500);
+    }
+
+    if (e.is("clipboard:copy:failed")) {
     }
 
     if (e.is("touch") && e.device === "mouse" && !this.lock) {
@@ -862,7 +913,7 @@ class TextInput {
       $.send({ type: "keyboard:unlock" });
     }
 
-    if (e.is("draw") && !this.lock && this.canType && !this.go.btn.down) {
+    if (e.is("draw") && !this.lock && this.canType && !this.enter.btn.down) {
       $.send({ type: "keyboard:lock" });
 
       if (

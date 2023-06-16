@@ -918,6 +918,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+    // Copy text to clipboard.
+    if (type === "copy") {
+      try {
+        await navigator.clipboard.writeText(content);
+        send({ type: "copy:copied" });
+      } catch (err) {
+        send({ type: "copy:failed" });
+      }
+      return;
+    }
+
     // Authenticate / signup or login a user.
     if (type === "login") {
       window.acLOGIN?.();
@@ -1261,7 +1272,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       );
     }
 
-    // 💾
+    // 💾 Disk Loading
     // Initialize some global stuff after the first piece loads.
     // Unload some already initialized stuff if this wasn't the first load.
     if (type === "disk-loaded") {

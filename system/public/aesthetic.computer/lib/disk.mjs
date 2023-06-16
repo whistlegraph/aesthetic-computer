@@ -569,6 +569,11 @@ const $commonApi = {
       return p;
     },
   },
+  clipboard: {
+    copy: (text) => {
+      send({ type: "copy", content: text });
+    },
+  },
   num: {
     even: num.even,
     odd: num.odd,
@@ -2014,6 +2019,16 @@ async function makeFrame({ data: { type, content } }) {
   // $commonApi.hand = { mediapipe: content };
   // return;
   // }
+
+  if (type === "copy:copied") {
+    actAlerts.push("clipboard:copy:copied");
+    return;
+  }
+
+  if (type === "copy:failed") {
+    actAlerts.push("clipboard:copy:failed");
+    return;
+  }
 
   if (type === "upload:progress") {
     serverUploadProgressReporter?.(content); // Report file upload progress if needed.

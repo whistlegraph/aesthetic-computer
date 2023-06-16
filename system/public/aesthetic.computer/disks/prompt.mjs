@@ -343,20 +343,21 @@ async function halt($, text) {
 function boot({ glaze, api, system, pieceCount, send }) {
   glaze({ on: true });
 
+  // Only if prompt is set to recall conversations.
   if (
-    !system.prompt.convo.messages ||
-    system.prompt.convo.messages?.length === 0
+    (!system.prompt.convo.messages ||
+      system.prompt.convo.messages?.length === 0)
   ) {
     system.prompt.input.text = makeMotd(api); // Override prompt with motd if
     //                                           no conversation is present.
-    system.prompt.input.showButton();
+    system.prompt.input.showButton({ nocopy: true });
   }
 
   // Activate and reset input text if returning to the prompt from elsewhere.
   if (pieceCount > 0) {
     system.prompt.input.canType = true;
     system.prompt.input.text = "";
-    system.prompt.input.go.btn.disabled = true; // Disable button.
+    system.prompt.input.enter.btn.disabled = true; // Disable button.
     system.prompt.input.inputStarted = true;
 
     // 🍫 Create a pleasurable blinking cursor delay.

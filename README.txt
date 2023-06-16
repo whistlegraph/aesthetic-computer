@@ -63,14 +63,16 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** encode/decode ***
-- [🟡] add the copy button to copy text
-- [] add flag so that copy is only on some of the buttons
-- [] print current text to console when copy button is pressed
-- [] copy text to user's clipboard on every platform
-- [] once copied, button reads 'copied' and is visibly deactivated for 3 seconds
-- [] design the text + url that gets copied and sent
+- [❤️‍🔥] design the text + url that gets copied and sent
+  - [] Add a "copied" hook to the `prompt-system`.
+  - [] Fill it in with some designs.
 
 + Done
+- [no] add flag so that copy is only on some of the buttons
+- [x] print current text to console when copy button is pressed
+- [x] copy text to user's clipboard on every platform
+- [x] once copied, button reads 'copied' and is visibly deactivated for 3 seconds
+- [x] add the copy button to copy text
 - [x] Fix the empty params error.
 - [x] line break while editing
 - [x] make the decode bot
