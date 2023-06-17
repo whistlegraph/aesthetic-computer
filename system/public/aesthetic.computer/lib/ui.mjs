@@ -87,7 +87,10 @@ class Button {
 
   publishToDom({ send }, label, message) {
     // The only use case for this right now is the Clipboard API. 23.06.16.15.40
-    send({ type: "button:hitbox:add", content: { box: this.box, label, message } });
+    send({
+      type: "button:hitbox:add",
+      content: { box: this.box, label, message },
+    });
   }
 
   removeFromDom({ send }, label) {

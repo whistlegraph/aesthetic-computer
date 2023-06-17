@@ -1819,7 +1819,8 @@ async function load(
           module.halt,
           module.scheme,
           wrap,
-          module.editable || (() => {})
+          module.editable || (() => {}),
+          module.copied
         );
         module.boot?.($);
       };

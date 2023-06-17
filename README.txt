@@ -63,11 +63,14 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** encode/decode ***
-  - [-] Add a "copied" hook to the `prompt-system`.
-  - [❤️‍🔥] design the text + url that gets copied and sent
-  - [] Fill it in with some designs.
+  - [🟠] Add the ability to paste on mobile.
+
+*** fr moca notes ***
+  - [] Get mushrooms talking to humans. (Harry)
 
 + Done
+- [x] design the text + url that gets copied and sent
+- [x] Add a "copied" hook to the `prompt-system`.
 - [x] Fix clipboard for iOS.
 - [no] add flag so that copy is only on some of the buttons
 - [x] print current text to console when copy button is pressed

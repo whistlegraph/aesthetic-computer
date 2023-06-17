@@ -178,7 +178,6 @@ class TextInput {
   // Buttons
   enter; // A button for replying or inputting text.
 
-  // 🏵️ TODO: ...
   copy; // A button for copying replies to the clipboard, that shows up
   //       conditionally.
 
@@ -209,9 +208,13 @@ class TextInput {
 
   editableCallback; // A function that can run when the TextInput is made
   //                   editable.
+  copiedCallback;
 
   #copyTimeout; // UI Timer for clipboard copy response.
   #copyScheme; // An override for the Copy button's color.
+
+  #coatedCopy; // Stores a version of the current text output that could be
+  //              decorated. (With a URL, for example.)
 
   // Add support for loading from preloaded system typeface.
   constructor(
@@ -223,14 +226,13 @@ class TextInput {
       font: font1,
       autolock: true,
       wrap: "char",
-      didReset,
-      editable,
     }
   ) {
     this.key = `${$.slug}:history`; // This is "per-piece" and should
     //                                be per TextInput object...23.05.23.12.50
 
     this.editableCallback = options.editable;
+    this.copiedCallback = options.copied;
 
     // Load typeface, preventing double loading of the system default.
     if ($.typeface?.data !== options.font) {
@@ -318,6 +320,10 @@ class TextInput {
   // Return the text contents of the input.
   get text() {
     return this.#text;
+  }
+
+  #coatCopy(text) {
+    return this.copiedCallback?.(text) || text;
   }
 
   // Paint the TextInput, with an optional `frame` for placement.
@@ -409,7 +415,7 @@ class TextInput {
     // Copy Button
     if (!this.copy.btn.disabled) {
       this.copy.reposition({ right: 6, bottom: 32, screen: frame });
-      this.copy.btn.publishToDom($, "copy", this.text);
+      this.copy.btn.publishToDom($, "copy", this.#coatedCopy);
       this.copy.paint({ ink: $.ink }, this.#copyScheme);
     }
 
@@ -441,7 +447,10 @@ class TextInput {
 
   showButton({ nocopy } = { nocopy: false }) {
     this.enter.btn.disabled = false;
-    if (!nocopy) this.copy.btn.disabled = false;
+    if (!nocopy && this.text.length > 0) {
+      this.#coatedCopy = this.#coatCopy(this.text); // Wrap text to be copied. 
+      this.copy.btn.disabled = false;
+    }
   }
 
   // Run a command.
@@ -512,7 +521,6 @@ class TextInput {
         this.canType = true;
         this.text = "";
         this.inputStarted = true;
-        this.editableCallback?.(this);
         this.editableCallback?.(this);
         this.#prompt.cursor = { x: 0, y: 0 };
       }
@@ -761,9 +769,9 @@ class TextInput {
       }
 
       if (e.key !== "Enter") {
+        this.copy.btn.disabled = true;
         if (this.text.length > 0) {
           this.enter.btn.disabled = false;
-          this.copy.btn.disabled = true;
           this.copy.btn.removeFromDom($, "copy");
           this.runnable = true;
         } else {

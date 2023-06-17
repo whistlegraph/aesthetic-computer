@@ -12,7 +12,7 @@ const tokenizer = new GPT3BrowserTokenizer({ type: "gpt3" });
 const prompt = "enter a message to encode";
 
 // 🥾 Boot
-async function boot ({store, system, params}) {
+async function boot({ store, system, params }) {
   if (params.length === 0) return;
   system.prompt.input.text = params.join(" ");
   await system.prompt.input.run(store);
@@ -29,6 +29,10 @@ function halt($, text) {
 
 function editable(input) {
   input.scheme = scheme; // Flip the color scheme back to original.
+}
+
+function copied(text) {
+  return `${text} 🧮 https://aesthetic.computer/decode~${text.replaceAll(" ", "~")}`;
 }
 
 const altScheme = {
@@ -65,6 +69,6 @@ export const scheme = {
   },
 };
 
-export { boot, prompt, halt, editable };
+export { boot, prompt, halt, editable, copied };
 export const system = "prompt"; // or "prompt:code"
 export const wrap = "word";
