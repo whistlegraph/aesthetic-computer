@@ -5,7 +5,6 @@
 /* #region 🏁 todo
   - [] We need a goal.
   - [] Fix video orientation issues.
-  - [] Fix scale for Num
   + Done
   - [x] Clean up Hands API
     - [x] Add buffered video object / layer back with proper cropping
@@ -22,13 +21,13 @@
         using layers makes sense)
   - [x] Move the corner label numbering the current hand from `boot` to `paint`.
   - [x] Letter colors for interactions 
+  - [x] Fix scale for Num
 
 #endregion */
-
 /* #region 🤝 Read Me 
 #endregion */
 
-import { radians } from "../lib/num.mjs";
+import { radians, map } from "../lib/num.mjs";
 
 let h; // Current working hand.
 const hands = 1024; // How many happy hands exist in total?
@@ -112,6 +111,7 @@ function paint({
   const scaled = mediapipe.screen.map((coord) => [
     coord.x * width,
     coord.y * height,
+    coord.z
   ]);
 
   if (scaled.length > 0) {
@@ -165,12 +165,28 @@ function paint({
 
     //Interactions
     const timop = [scaled[4], scaled[8], scaled[12], scaled[16], scaled[20]];
-    const timopUnscaled = [mediapipe.world[4], mediapipe.world[8], mediapipe.world[12], mediapipe.world[16], mediapipe.world[20]];
+    const timopUnscaled = [
+      mediapipe.screen[4],
+      mediapipe.screen[8],
+      mediapipe.screen[12],
+      mediapipe.screen[16],
+      mediapipe.screen[20],
+    ];
+    const { interactions, contactDistances } = touching(
+      timop,
+      num,
+      timopUnscaled
+    );
 
-    const interactions = touching(timop, num, timopUnscaled);
+    // Paint circles representing contact area.
+    // [..."timop"].forEach((letter, index) => {
+    //   ink("yellow").circle(...timop[index].slice(0, -1), contactDistances[index]/2);
+    // });
+
     //default populated
     const letterColors = {
       //default populated
+      t: "green",
       ti: "red",
       tm: "orange",
       to: "gold",
@@ -183,39 +199,43 @@ function paint({
       op: "darkblue",
       tim: "darkslateblue",
       tio: "darkorchid",
-      tip: "darkmagenta", 
-      tmo: "darkviolet", 
+      tip: "darkmagenta",
+      tmo: "darkviolet",
       tmp: "fuchsia",
       top: "deeppink",
       imo: "hotpink",
-      imp: "indianred", 
+      imp: "indianred",
       iop: "lightcoral",
-      mop: "lightpink", 
+      mop: "lightpink",
       timo: "lightseagreen",
       tmop: "pink",
-      timp: "plum", 
+      timp: "plum",
       tiop: "teal",
       imop: "mediumslateblue",
-      timop: "chartreuse"
+      timop: "chartreuse",
     };
 
-    //Overwrite the default color on interacting fingers
+    const outputColors = {...handPalette}; // Set from above.
+
+    // Overwrite the default color on interacting fingers
     if (interactions.length > 0) {
       for (let i = 0; i < interactions.length; i++) {
-        let touchLabels = Object.keys(interactions[i].data); 
+        let touchLabels = Object.keys(interactions[i].data);
         let comboColor = letterColors[touchLabels.join("")];
-        touchLabels.forEach((label) => { //get label and new color
-          letterColors[label] = comboColor;
+        touchLabels.forEach((label) => {
+          // Read from letterColors and output the value to individual finger.
+          outputColors[label] = comboColor;
         });
       }
     }
 
-    //Then, color the fingers
+    // Then, color the fingers
     [..."timop"].forEach((letter, index) => {
       const coord = timop[index].slice(); // Make a copy of the coords.
       coord[0] += -3;
       coord[1] += -5;
-      ink("white").write(letter, coord, letterColors[letter]);
+      ink(outputColors[letter]).circle(...timop[index].slice(0, -1), contactDistances[index]/2, true);
+      ink("white").write(letter, coord, outputColors[letter])
     });
 
     // loop through timop and draw all the letters
@@ -337,18 +357,15 @@ function digit(from, segCount, deg = 0, curve = 0) {
 function touching(tips, num, timopUnscaled) {
   let touchedTips = [];
   let timop = ["t", "i", "m", "o", "p"];
-  let touchGroup = 0; 
-  
+  let touchGroup = 0;
+  let contactDistances = [];
+
   for (let tip = 0; tip < 5; tip++) {
+    contactDistances[tip] = map(tips[tip][2], -0.03, -1, 8, 60);
     for (let tc = tip + 1; tc < 5; tc++) {
       const currentTip = tips[tip];
       const tipToCheck = tips[tc];
 
-      //3D Z-coords
-      // let distance = num.dist3d( 
-      //   Object.values(timopUnscaled[tip]).slice(0, -1),
-      //   Object.values(timopUnscaled[tc]).slice(0, -1)
-      // );
       let distance = num.dist(
         currentTip[0],
         currentTip[1],
@@ -356,7 +373,7 @@ function touching(tips, num, timopUnscaled) {
         tipToCheck[1]
       );
 
-      if (distance < 20) {
+      if (distance < contactDistances[tip]) {
         // Create a "touch" to collect all touching tips, starting with these
         const tipId1 = timop[tip];
         const tipId2 = timop[tc];
@@ -379,7 +396,7 @@ function touching(tips, num, timopUnscaled) {
             group: touchGroup,
           };
           touch.data[tipId1] = currentTip;
-          touch.data[tipId2] = tipToCheck; 
+          touch.data[tipId2] = tipToCheck;
           touchedTips.push(touch);
           touchGroup++;
         }
@@ -387,7 +404,7 @@ function touching(tips, num, timopUnscaled) {
       }
     }
   }
-  return touchedTips;
+  return { interactions: touchedTips, contactDistances };
 }
 
 /*

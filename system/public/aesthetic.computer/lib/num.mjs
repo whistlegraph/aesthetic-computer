@@ -201,7 +201,7 @@ export function within(range, a, b) {
   return abs(a - b) < range;
 }
 
-// Slides a number between a and by a normalized amount.
+// Slides a number between a and b by a normalized amount.
 export function lerp(a, b, amount) {
   return a + (b - a) * clamp(amount, 0, 1);
 }
