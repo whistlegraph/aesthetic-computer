@@ -1,23 +1,22 @@
 // Plot, 2021.12.05.13.27
 // A tool for editing pixel-perfect vector art / glyphs, and icons.
 
-// TODO for July, 2022 version...
-// 1. Fix `aesthetic.computer/plot`
-// 2. Allow plot to have a custom grid size both from prompt and in url.
-// 3. Labels for save and load buttons.
-// 4. Make the mouse cursor appear.
-// 5. Make the layout flexible.
-//    - Center the grid.
-// 6. Make an animation preview. 
-// 7. Add exporter for drawings in common format.
-//    - Vector option (.SVG)
-//    - Raster option (.PNG)
-//    - Animation (.GIF or .APNG or .WEBP)
-// TODO next version...
-// 1. Add freehand / drag mode for making larger drawings?
-// 2. Add anchor point to be used for the initial pan and also rotation.
-
-const { min, floor } = Math;
+/* #region 🏁 TODO 
+  - [🟡] Custom grid size in params.
+  - [] Reflow layout based on grid size and resolution.
+    - [] And on frame resize.
+  - [] New "Save" and "Load" buttons.
+  - [] Fix the "tiny" cursor.
+  - [] Add anchor point to the format.
+  - [] Add typography / font mode when typing.
+  + Next Version
+   - [] Add freehand / drag mode for making larger drawings?
+   - [] Add exporter for drawings in common format.
+     - [] Vector option (.SVG)
+     - [] Raster option (.PNG)
+     - [] Animation (.GIF or .APNG or .WEBP)
+     - [] Make an animation preview.
+#endregion */
 
 import { Typeface } from "../lib/type.mjs";
 import { font1 } from "../disks/common/fonts.mjs";
@@ -56,7 +55,7 @@ let height = 13;
 
 // TODO: Add query params to plot starting size.
 
-let scale = 10;//5;
+let scale = 10; //5;
 
 const abc123Baseline = 8;
 const typography = false; // Enabled or disables the baseline.
@@ -94,21 +93,24 @@ function boot({
   const gridWidth = width * scale;
   const gridHeight = height * scale;
 
-  const gridX = (screen.width / 2) - gridWidth / 2; 
-  const gridY = (screen.height / 2) - gridHeight / 2; 
+  const gridX = screen.width / 2 - gridWidth / 2;
+  const gridY = screen.height / 2 - gridHeight / 2;
 
   g = new Grid(gridX, gridY, width, height, scale);
   open = new Button(gap, screen.height - gap - 2, btnW, 6);
-  save = new Button(screen.width - btnW - gap, screen.height - gap - 2, btnW, 6);
+  save = new Button(
+    screen.width - btnW - gap,
+    screen.height - gap - 2,
+    btnW,
+    6
+  );
   needsPaint();
   // preload("drawings/default.json").then(decode); // Preload drawing.
   // Preload save button icon.
-  preload("aesthetic.computer/disks/drawings/save_open_icon.json").then(
-    (r) => {
-      plots.icon = r;
-      needsPaint();
-    }
-  );
+  preload("aesthetic.computer/disks/drawings/save_open_icon.json").then((r) => {
+    plots.icon = r;
+    needsPaint();
+  });
 }
 
 // 🎨 Paint (Runs once per display refresh rate)
@@ -123,7 +125,7 @@ function paint({
   ink,
   point,
   screen,
-  num: { randIntRange }
+  num: { randIntRange },
 }) {
   // A. 🌟 Grid
   // Clear the background and draw a grid with an outline.
@@ -165,7 +167,7 @@ function paint({
   }
 
   // Outline the active square and highlight its center point.
-  const sq = g.under(pen || {x: 0, y: 0}, (sq) => {
+  const sq = g.under(pen || { x: 0, y: 0 }, (sq) => {
     ink(colors.activeSquareInline).box(sq, "inline");
     g.centers.forEach((p) =>
       ink(colors.activeSquareCenter).point(sq.x + p.x, sq.y + p.y)
@@ -214,7 +216,6 @@ function paint({
 
 // ✒ Act (Runs once per user interaction)
 function act({ event: e, download, sideload, num: { timestamp }, needsPaint }) {
-
   // Undo a step!
   if (e.is("keyboard:down:u")) {
     commands.pop();
@@ -296,7 +297,7 @@ function encode(filename) {
     2
   );
 
-  return [ filename, data ];
+  return [filename, data];
 
   // *Future Plans*
   // TODO: Use a custom file format instead of JSON? 2021.12.11.19.02

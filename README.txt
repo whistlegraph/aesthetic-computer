@@ -62,33 +62,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** encode/decode ***
-  - [🟠] Add the ability to paste on mobile.
-
-*** fr moca notes ***
-  - [] Get mushrooms talking to humans. (Harry)
-
-+ Done
-- [x] design the text + url that gets copied and sent
-- [x] Add a "copied" hook to the `prompt-system`.
-- [x] Fix clipboard for iOS.
-- [no] add flag so that copy is only on some of the buttons
-- [x] print current text to console when copy button is pressed
-- [x] copy text to user's clipboard on every platform
-- [x] once copied, button reads 'copied' and is visibly deactivated for 3 seconds
-- [x] add the copy button to copy text
-- [x] Fix the empty params error.
-- [x] line break while editing
-- [x] make the decode bot
-- [x] colors for decode bot
-- [x] reset the interface so when text changes you have to hit reply again
-- [x] color changing
-- [x] when you press enter with mouse both times, it doesn't bring you to new entry blinking cursor
-- [x] bug: going to encode from prompt freezes the screen but works upon pressing enter
-- [x] decide on command names
-- [x] make the encode bot
-  - [x] add gpt3-tokenizer library
-
 *plot* (new launch fonts)
   - [] Make the UI responsive based on grid and scale and window size.
     - [] Print the resolution and the output number in the corner.     
@@ -103,15 +76,57 @@
   - [x] Fix `resize` call in plot.
   - [x] Is `scale` working?
 
+
+- [] New homepage with login / sign-up buttons.
+  - `prompt`
+  - [] Add buttons to login / sign-up if the user is logged out.
+  - [] If the user is logged in, then add a `profile` button.
+- [-] Add Abe's startup sound.
+
 *** sfx ***
-  - [] Fix and test `sfx` on iOS.
+  - [🟡] Fix and test `sfx` on iOS.
   - [] Add startup sound and keyboard sound.
     - [] Make sure `sfx` clears any remotely loaded sounds?
       - [] Just whitelist sounds for now.
 
+*** encode/decode ***
+  - [🟠] Add the ability to paste on mobile.
+  + Done
+  - [x] design the text + url that gets copied and sent
+  - [x] Add a "copied" hook to the `prompt-system`.
+  - [x] Fix clipboard for iOS.
+  - [no] add flag so that copy is only on some of the buttons
+  - [x] print current text to console when copy button is pressed
+  - [x] copy text to user's clipboard on every platform
+  - [x] once copied, button reads 'copied' and is visibly deactivated for 3 seconds
+  - [x] add the copy button to copy text
+  - [x] Fix the empty params error.
+  - [x] line break while editing
+  - [x] make the decode bot
+  - [x] colors for decode bot
+  - [x] reset the interface so when text changes you have to hit reply again
+  - [x] color changing
+  - [x] when you press enter with mouse both times, it doesn't bring you to new entry blinking cursor
+  - [x] bug: going to encode from prompt freezes the screen but works upon pressing enter
+  - [x] decide on command names
+  - [x] make the encode bot
+    - [x] add gpt3-tokenizer library
+
+*** `scream` ***
+  - [] Get JamSocket working again.
+  - [] And also get notifications working!
+  - [] Visualize the socket connection to make everything faster in production.
+     - [] Possibly the bottleneck is in connecting to JamSocket?
+  - [-] Finish list in `scream`.
+  - [] Use NTP for time synchronized delivery of messages.
+    - [] Is this good enough for musical timing?
+  - [] Enable via notifications in the test iOS app.
+  - [x] Get messaging working. 
+
+*** fr moca notes ***
+  - [] Get mushrooms talking to humans. (Harry)
+
 *** Launch Goodies ***
-  - [-] Add Abe's startup sound.
-  - [] New homepage with login / sign-up buttons.
   - [] Add more themes other than the dark boolean?
     - [] You should be able to type colors and have the
          general prompt aesthetic change immediately,
@@ -134,18 +149,6 @@
     - [] Both on desktop and on mobile.
   - [] These screenshots need to be published automatically upon getting
        a confirmation modal. 
-
-*** `scream` ***
-  - [] Get JamSocket working again.
-  - [] And also get notifications working!
-
-  - [] Visualize the socket connection to make everything faster in production.
-     - [] Possibly the bottleneck is in connecting to JamSocket?
-  - [-] Finish list in `scream`.
-  - [] Use NTP for time synchronized delivery of messages.
-    - [] Is this good enough for musical timing?
-  - [] Enable via notifications in the test iOS app.
-  - [x] Get messaging working. 
 
 *** `handprint` ***
   - [] Make a little happy hands style paint brush.

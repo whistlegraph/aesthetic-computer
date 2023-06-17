@@ -3161,7 +3161,6 @@ async function makeFrame({ data: { type, content } }) {
         piece.length > 0 &&
         piece !== "prompt" &&
         piece !== "play" &&
-        piece !== "plot" &&
         piece !== "gargoyle" &&
         piece !== "savcom" &&
         piece !== "botce" &&
