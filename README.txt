@@ -63,7 +63,7 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *plot* (new launch fonts)
-  - [] Make the UI responsive based on grid and scale and window size.
+  - [-] Make the UI responsive based on grid and scale and window size.
     - [] Print the resolution and the output number in the corner.     
   - [] Set up preview / more UI so that new fonts can be produced.
     - [] Gamify it?

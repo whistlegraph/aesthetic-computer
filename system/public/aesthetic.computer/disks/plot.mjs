@@ -2,13 +2,14 @@
 // A tool for editing pixel-perfect vector art / glyphs, and icons.
 
 /* #region 🏁 TODO 
-  - [🟡] Custom grid size in params.
   - [] Reflow layout based on grid size and resolution.
     - [] And on frame resize.
   - [] New "Save" and "Load" buttons.
   - [] Fix the "tiny" cursor.
   - [] Add anchor point to the format.
   - [] Add typography / font mode when typing.
+  + Done
+  - [x] Custom grid size in params.
   + Next Version
    - [] Add freehand / drag mode for making larger drawings?
    - [] Add exporter for drawings in common format.
@@ -16,24 +17,17 @@
      - [] Raster option (.PNG)
      - [] Animation (.GIF or .APNG or .WEBP)
      - [] Make an animation preview.
+     - [] Use a custom file format instead of JSON? 2021.12.11.19.02
+      - Could be something like...
+        16x16
+        C 255 0 0
+        L 1 2 11 11
+        L 10 2 1 13
 #endregion */
 
 import { Typeface } from "../lib/type.mjs";
 import { font1 } from "../disks/common/fonts.mjs";
 
-let g; // Our virtual drawing guide.
-let save; // A button to save drawings.
-let open; // ..and to open them.
-let opening = false; // Disables open button if in the process of uploading.
-
-// For tracking and storing each line as its drawn.
-let startMark = false;
-let currentLine;
-const points = [],
-  commands = [];
-
-// TODO: Can eventually be shifted around somehow with the javascript console or
-// a mouse and then reprinted for pasting back in. 2021.12.10.23.02
 const colors = {
   background: [0, 30, 0],
   grid: [0, 70, 0],
@@ -48,51 +42,53 @@ const colors = {
   open: [0, 0, 255, 80],
 };
 
+let g, // Our virtual drawing guide.
+  save, // A button to save drawings.
+  open, // ..and to open them.
+  opening = false; // Disables open button if in the process of uploading.
+
+// For tracking and storing each line as its drawn.
+let startMark = false;
+const points = [],
+  commands = [];
+
 const plots = {}; // Stored preloaded drawings.
-
-let width = 13; // Starting size.
-let height = 13;
-
-// TODO: Add query params to plot starting size.
-
-let scale = 10; //5;
-
+let width = 3,
+  height = 3; // Starting size.
+let scale = 1; //5;
 const abc123Baseline = 8;
 const typography = false; // Enabled or disables the baseline.
-
 let typeface;
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({
-  resolution,
   cursor,
   geo: { Grid },
   ui: { Button },
-  net: { host, preload },
-  query,
+  net: { preload },
   screen,
+  hud: { label },
+  params,
   needsPaint,
 }) {
   typeface = new Typeface(font1);
   typeface.load(preload);
   // cursor("tiny"); // TODO: Why doesn't cursor tiny work here? 22.11.01.16.59
-  // resolution(96, 96); // It might have to do with this resize call?
 
-  // Read some basic query parameters for configuring the resolution.
-  //const params = new URLSearchParams(query);
-  //width = params.get("width") || width;
-  //height = params.get("height") || height;
-  //scale = params.get("scale") || scale;
+  // Get the resolution or use a default.
 
-  width = query?.[0] || width;
-  height = query?.[1] || height;
+  if (params.length > 0) {
+    const split = params[0].split("x");
+    width = parseInt(split[0]) || width;
+    height = parseInt(split[1]) || height;
+  } else {
+    label("plot 3x3");
+  }
 
   const btnW = 15;
   const gap = 8;
-
   const gridWidth = width * scale;
   const gridHeight = height * scale;
-
   const gridX = screen.width / 2 - gridWidth / 2;
   const gridY = screen.height / 2 - gridHeight / 2;
 
@@ -105,7 +101,9 @@ function boot({
     6
   );
   needsPaint();
-  // preload("drawings/default.json").then(decode); // Preload drawing.
+
+  // preload("drawings/default.json").then(decode); // Preloada default drawing.
+
   // Preload save button icon.
   preload("aesthetic.computer/disks/drawings/save_open_icon.json").then((r) => {
     plots.icon = r;
@@ -125,7 +123,6 @@ function paint({
   ink,
   point,
   screen,
-  num: { randIntRange },
 }) {
   // A. 🌟 Grid
   // Clear the background and draw a grid with an outline.
@@ -137,14 +134,6 @@ function paint({
 
   // Draw a box on the "center" of the grid.
   ink(255, 0, 0, 64).box(...g.middle(), g.scale);
-
-  // Add text on the top...
-  // ink(
-  //   randIntRange(200, 250),
-  //   randIntRange(200, 250),
-  //   randIntRange(200, 250),
-  //   150
-  // ).printLine("Glyph Editor", typeface.glyphs, 2, 2, 6, 1, 0);
 
   // Render all added lines by generating a bitmap and projecting it on a grid.
   if (commands.length > 0) {
@@ -270,11 +259,12 @@ function act({ event: e, download, sideload, num: { timestamp }, needsPaint }) {
 
 // 📚 Library (Useful functions used throughout the program)
 
+// Drawing Format
+
 // Encode all drawing data (lines) into a single file format.
 function encode(filename) {
   // Use JSON to build an AST. 2021.12.11.00.02
   filename += ".json";
-
   // Create a simple JSON format that is indented by 2 characters.
   const data = JSON.stringify(
     {
@@ -298,44 +288,6 @@ function encode(filename) {
   );
 
   return [filename, data];
-
-  // *Future Plans*
-  // TODO: Use a custom file format instead of JSON? 2021.12.11.19.02
-
-  // What should the syntax or programmability of this format be?
-  /* Maybe something like?
-
-  16x16
-  C 255 0 0
-  L 1 2 11 11
-  L 10 2 1 13
-  */
-
-  // Or I could use turtle graphics?
-
-  // TODO: Save this somehow on the network? 2021.12.11.17.01
-  // - To clipboard? (Get general clipboard access working.)
-  // - Directly on-chain?
-  // - On my own server via or Pinata / DO Spaces using web3.eth as auth?
-
-  // Fetch example:
-  // This would have to be modified to fit both production and development
-  // environments. 2021.12.11.19.07
-  /*
-  (async () => {
-    const rawResponse = await fetch("https://aesthetic.computer/post", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ a: 1, b: "Textual content" }),
-    });
-    const content = await rawResponse.json();
-
-    console.log(content);
-  })();
-  */
 }
 
 // Read preparsed json data to step through the commands and fill in "lines".
