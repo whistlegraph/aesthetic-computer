@@ -2,13 +2,18 @@
 // A tool for editing pixel-perfect vector art / glyphs, and icons.
 
 /* #region 🏁 TODO 
-  - [] Reflow layout based on grid size and resolution.
+  + This Version
+  - [💛] Reflow layout based on grid size and resolution.
+  - [] Make a dark on light color scheme. Replace "colors".
+    - [] Scheme should be neutral and tintable.
     - [] And on frame resize.
+    - [] Add zooming and panning to the grid.
   - [] New "Save" and "Load" buttons.
-  - [] Fix the "tiny" cursor.
   - [] Add anchor point to the format.
   - [] Add typography / font mode when typing.
+    - [] Live preview of characters?
   + Done
+  - [x] Fix the "tiny" cursor.
   - [x] Custom grid size in params.
   + Next Version
    - [] Add freehand / drag mode for making larger drawings?
@@ -28,8 +33,9 @@
 import { Typeface } from "../lib/type.mjs";
 import { font1 } from "../disks/common/fonts.mjs";
 
+// Dark on light.
 const colors = {
-  background: [0, 30, 0],
+  background: 127,
   grid: [0, 70, 0],
   gridOutline: [255, 255, 0, 32],
   lines: [0, 120, 220, 150],
@@ -41,6 +47,21 @@ const colors = {
   save: [255, 0, 0, 80],
   open: [0, 0, 255, 80],
 };
+
+// Light on dark. (green vibe)
+// const colors = {
+//   background: [0, 30, 0],
+//   grid: [0, 70, 0],
+//   gridOutline: [255, 255, 0, 32],
+//   lines: [0, 120, 220, 150],
+//   innerLine: [128, 128, 0, 200],
+//   inlinePreview: [128, 128, 0, 64],
+//   activeSquareInline: [255, 128],
+//   activeSquareCenter: [0, 255, 0],
+//   ghostSquare: [100, 50],
+//   save: [255, 0, 0, 80],
+//   open: [0, 0, 255, 80],
+// };
 
 let g, // Our virtual drawing guide.
   save, // A button to save drawings.
@@ -73,7 +94,7 @@ function boot({
 }) {
   typeface = new Typeface(font1);
   typeface.load(preload);
-  // cursor("tiny"); // TODO: Why doesn't cursor tiny work here? 22.11.01.16.59
+  cursor("precise"); // TODO: Why doesn't cursor tiny work here? 22.11.01.16.59
 
   // Get the resolution or use a default.
 
@@ -85,14 +106,15 @@ function boot({
     label("plot 3x3");
   }
 
-  const btnW = 15;
-  const gap = 8;
   const gridWidth = width * scale;
   const gridHeight = height * scale;
   const gridX = screen.width / 2 - gridWidth / 2;
   const gridY = screen.height / 2 - gridHeight / 2;
 
   g = new Grid(gridX, gridY, width, height, scale);
+
+  const btnW = 15;
+  const gap = 8;
   open = new Button(gap, screen.height - gap - 2, btnW, 6);
   save = new Button(
     screen.width - btnW - gap,
@@ -100,7 +122,6 @@ function boot({
     btnW,
     6
   );
-  needsPaint();
 
   // preload("drawings/default.json").then(decode); // Preloada default drawing.
 

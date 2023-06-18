@@ -451,32 +451,37 @@ export class Pen {
       ctx.restore();
     } else if (this.cursorCode === "tiny") {
       // 🦐 Tiny
-      const l = 4;
+      const g = 3;
+      const l = g + 1;
+      ctx.lineCap = "square";
+
       ctx.save();
       ctx.translate(round(p.x - r.x), round(p.y - r.y));
 
       ctx.beginPath();
-      ctx.moveTo(0, -l); // Over
+      ctx.moveTo(0, -g); // Over
       ctx.lineTo(0, -l);
-      ctx.moveTo(0, l); // Under
+      ctx.moveTo(0, g); // Under
       ctx.lineTo(0, l);
-      ctx.moveTo(-l, 0); // Left
+      ctx.moveTo(-g, 0); // Left
       ctx.lineTo(-l, 0);
-      ctx.moveTo(l, 0); // Right
+      ctx.moveTo(g, 0); // Right
       ctx.lineTo(l, 0);
 
       ctx.strokeStyle = "rgba(255, 255, 0, 0.75)";
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 3;
       ctx.stroke();
+
       ctx.restore();
     } else if (this.cursorCode === "dot") {
+      ctx.lineCap = "round";
       ctx.save();
       ctx.translate(round(p.x - r.x), round(p.y - r.y));
       ctx.beginPath();
       ctx.lineTo(0, 0); // bottom right
 
-      ctx.strokeStyle = "rgba(255, 0, 0, 0.9)";
-      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.lineWidth = 5;
       ctx.stroke();
       ctx.restore();
     } else if (this.cursorCode === "none") {
