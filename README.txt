@@ -62,6 +62,13 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Login + Sign-up Buttons ***
+  - [🟢] If the user is logged in, then add a `profile` button.
+  + Done
+  - [x] New homepage with login / sign-up buttons.
+  - [x] Add buttons to login / sign-up if the user is logged out.
+  - [-] Add Abe's startup sound.
+
 *plot* (new launch fonts)
   - [-] Make the UI responsive based on grid and scale and window size.
     - [] Print the resolution and the output number in the corner.     
@@ -75,13 +82,6 @@
   + Done
   - [x] Fix `resize` call in plot.
   - [x] Is `scale` working?
-
-
-- [] New homepage with login / sign-up buttons.
-  - `prompt`
-  - [] Add buttons to login / sign-up if the user is logged out.
-  - [] If the user is logged in, then add a `profile` button.
-- [-] Add Abe's startup sound.
 
 *** sfx ***
   - [🟡] Fix and test `sfx` on iOS.
@@ -127,6 +127,7 @@
   - [] Get mushrooms talking to humans. (Harry)
 
 *** Launch Goodies ***
+  - [] Auth0 login customization and email notification customization.
   - [] Add more themes other than the dark boolean?
     - [] You should be able to type colors and have the
          general prompt aesthetic change immediately,

@@ -65,7 +65,11 @@ if (!sandboxed && window.auth0) {
 
   const isAuthenticated = await auth0Client.isAuthenticated();
 
-  window.acLOGIN = async () => auth0Client.loginWithRedirect();
+  window.acLOGIN = async (mode) => {
+    const opts = { prompt: "login" }; // Never skip the login screen.
+    if (mode === "signup") opts.screen_hint = mode;
+    auth0Client.loginWithRedirect({ authorizationParams: opts });
+  };
 
   window.acLOGOUT = () => {
     if (isAuthenticated) {
@@ -83,7 +87,7 @@ if (!sandboxed && window.auth0) {
   if (isAuthenticated) {
     const userProfile = await auth0Client.getUser();
     console.log("🔐 Welcome,", userProfile.name, "!");
-    console.log("to... \"chaos in a system\"");
+    console.log('to... "chaos in a system"');
     window.acUSER = userProfile; // Will get passed to the first message by the piece runner.
   }
 }

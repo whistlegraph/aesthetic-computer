@@ -178,11 +178,14 @@ class TextButton {
   //   this.btn = new Button({ x: pos.x, y: pos.y, w, h: this.#h });
   // }
 
-  constructor(text, pos) {
+  constructor(text = "Button", pos = {x: 0, y: 0}) {
     this.txt = text;
     this.btn = new Button(this.#computePosition(text, pos));
   }
 
+  // Compute position for box.
+  // pos: {x, y} for top left positioning.
+  //      { center: "xy", screen } for screen centering.
   #computePosition(text, pos = { x: 0, y: 0 }) {
     let x, y;
     const w = text.length * this.#cw + this.#g2;

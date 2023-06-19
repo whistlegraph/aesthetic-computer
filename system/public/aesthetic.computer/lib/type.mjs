@@ -409,7 +409,7 @@ class TextInput {
     // Enter Button
     if (!this.enter.btn.disabled) {
       this.enter.reposition({ right: 6, bottom: 6, screen: frame });
-      this.enter.paint({ ink: $.ink });
+      this.enter.paint($);
     }
 
     // Copy Button
@@ -518,6 +518,7 @@ class TextInput {
     // ⌨️ Add text via the keyboard.
     if (e.is("keyboard:down") && this.lock === false) {
       if (this.canType === false) {
+        console.log("DOWNNNNNNNNNN");
         this.canType = true;
         this.text = "";
         this.inputStarted = true;

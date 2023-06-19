@@ -1417,6 +1417,7 @@ function printLine(
   thickness = 1,
   rotation = 0
 ) {
+
   if (!text) return;
   [...text.toString()].forEach((char, i) => {
     draw(

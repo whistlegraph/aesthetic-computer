@@ -1,4 +1,4 @@
-// i Disk (Piece)
+// 💾 Disk (Piece)
 // Manages a piece and the transitions between pieces like a
 // hypervisor or shell.
 
@@ -635,6 +635,9 @@ const $commonApi = {
   gizmo: { Hourglass: gizmo.Hourglass },
   rec: new Recorder(),
   net: {
+    signup: () => {
+      send({ type: "signup" });
+    },
     login: () => {
       send({ type: "login" });
     }, // { email }
@@ -880,11 +883,21 @@ function ink() {
 
 // 🔎 PAINTAPI (for searching)
 const $paintApi = {
-  // Image Utilities
+  // 1. Composite functions (that use $activePaintApi)
+  //    (Must be unwrapped)
+
+  // Prints a line of text using the default / current global font.
+  // Argument options:
+  // text, pos: {x, y, center}, bg (optional)
+  write: function (text, pos, bg) {
+    if (!text) return; // Fail silently if no text.
+    tf?.print($activePaintApi, pos, 0, text.toString(), bg); // Fail on preamble.
+  },
+  // 2. Image Utilities
   clonePixels: graph.cloneBuffer,
   color,
   resize: graph.resize,
-  // 3D Classes & Objects
+  // 3. 3D Classes & Objects
   Camera: graph.Camera,
   Form: graph.Form,
   Dolly: graph.Dolly,
@@ -1055,13 +1068,6 @@ const $paintApiUnwrapped = {
     ink(...arguments);
     graph.clear();
   },
-  // Prints a line of text using the default / current global font.
-  // Argument options:
-  // text, pos: {x, y, center}, bg (optional)
-  write: function (text, pos, bg) {
-    if (!text) return; // Fail silently if no text.
-    tf?.print({ ...$activePaintApi, screen, num }, pos, 0, text.toString(), bg); // Fail on preamble.
-  },
   copy: graph.copy,
   paste: graph.paste,
   plot: function () {
@@ -1100,7 +1106,7 @@ const $paintApiUnwrapped = {
 
 let $activePaintApi;
 
-let paintingAPIid = 0;
+let paintingAPIid = 0n;
 
 class Painting {
   #layers = [];
@@ -1113,7 +1119,7 @@ class Painting {
     const p = this;
 
     p.api.index = paintingAPIid;
-    paintingAPIid += 1;
+    paintingAPIid += 1n;
 
     p.inkrn = graph.c.slice(); // Init global state machine read-outs.
 
@@ -1123,12 +1129,6 @@ class Painting {
 
     function globals(k, args) {
       if (k === "ink") p.inkrn = [...args].flat();
-
-      if (k === "write") {
-        $activePaintApi = p.api;
-        // p.api.screen = screen; // This is kind of a hacky way to get screen into here.
-      } // TODO: Does this have to happen here? Helps create circular references for some paint functions.
-
       // TODO: 😅 Add other state globals like line thickness? 23.1.25
     }
 
@@ -1141,15 +1141,26 @@ class Painting {
           if (notArray(p.#layers[p.#layer])) p.#layers[p.#layer] = [];
           // Add each deferred paint api function to the layer, to be run
           // all at once in `paint` on each frame update.
-          p.#layers[p.#layer].push(() => {
-            globals(k, arguments); // Update globals again on chainable calls.
-            $paintApiUnwrapped[k](...arguments);
-            // await $paintApiUnwrapped[k](...arguments);
-          });
+          p.#layers[p.#layer].push([
+            k,
+            () => {
+              globals(k, arguments); // Update globals again on chainable calls.
+              $paintApiUnwrapped[k](...arguments);
+            },
+          ]);
           return p.api;
         };
       }
     }
+
+    // Allows grouping & composing painting order using an AofA (Array of Arrays).
+    // n: 0-n (Cannot be negative.)
+    // fun: A callback that contains $paintApi commands or any other code.
+    this.api.layer = function (n) {
+      p.#layer = n;
+      // TODO: ❤️‍🔥 Current layer needs to be set on each API state...!
+      return p.api;
+    };
 
     // Creates a new pixel buffer with its own layering wrapper / context
     // on top of the base painting API.
@@ -1162,14 +1173,6 @@ class Painting {
     };
 
     this.api.inkrn = () => this.inkrn; // Return current ink color.
-
-    // Allows grouping & composing painting order using an AofA (Array of Arrays).
-    // n: 0-n (Cannot be negative.)
-    // fun: A callback that contains $paintApi commands or any other code.
-    this.api.layer = function (n) {
-      p.#layer = n;
-      return p.api;
-    };
 
     // This links to abstract, solitary graph functions that do not need
     // to be wrapped or deferred for rendering.
@@ -1184,7 +1187,8 @@ class Painting {
       layer ||= []; // Evaporate empty layers.
       for (const paint of layer) {
         // if (immediate) {
-        paint();
+        // console.log("Label:", paint[0]);
+        paint[1]();
         // } else {
         // await paint();
         // }
@@ -1230,7 +1234,6 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
 
   // TODO: Paint anything that needs to be painted before resizing...
   // TODO: Does this even work right now?
-  //debugger;
   painting.paint();
 
   if (width === undefined && height === undefined) {
@@ -1454,6 +1457,9 @@ async function load(
     } else if (piece === "*" || piece === undefined || currentText === piece) {
       console.log("💾️ Reloading piece...", piece);
       const devReload = true;
+      $commonApi.pieceCount = -1; // Reset pieceCount on developer reload.
+      //                             (This can be disabled while testing pieces
+      //                              that rely on pieceCount increments)
       $commonApi.load(
         {
           path: currentPath,
@@ -1610,8 +1616,6 @@ async function load(
   //          preload("https://myserver.com/test.json") // remote
   //          preload("drawings/default.json") // hosted with disk
   // Results: preload().then((r) => ...).catch((e) => ...) // via promise
-
-  const soundWhitelist = ["startup", "compkey"];
 
   $commonApi.net.preload = async function (
     path,
@@ -1863,6 +1867,7 @@ async function load(
 
     // ♻️ Reset global state for this piece.
     paintCount = 0n;
+    paintingAPIid = 0n;
     simCount = 0n;
     booted = false;
     initialSim = true;
@@ -3102,6 +3107,7 @@ async function makeFrame({ data: { type, content } }) {
           }
 
           // All: Paint
+          $activePaintApi = $api;
           paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
         } catch (e) {
           console.warn("🎨 Paint failure...", e);
@@ -3174,16 +3180,16 @@ async function makeFrame({ data: { type, content } }) {
       ) {
         const w = currentHUDText.length * 6;
         const h = 11;
-        label = $api.painting(w, h, ({ ink }) => {
-          ink(0).write(currentHUDText?.replaceAll("~", " "), { x: 1, y: 1 });
-          let c;
-          if (currentHUDTextColor) {
-            c = num.shiftRGB(currentHUDTextColor, [255, 255, 255], 0.75);
-          } else {
-            c = [255, 200, 240];
-          }
-          ink(c).write(currentHUDText?.replaceAll("~", " "), { x: 0, y: 0 });
-        });
+        // label = $api.painting(w, h, ({ ink }) => {
+        //   ink(0).write(currentHUDText?.replaceAll("~", " "), { x: 1, y: 1 });
+        //   let c;
+        //   if (currentHUDTextColor) {
+        //     c = num.shiftRGB(currentHUDTextColor, [255, 255, 255], 0.75);
+        //   } else {
+        //     c = [255, 200, 240];
+        //   }
+        //   ink(c).write(currentHUDText?.replaceAll("~", " "), { x: 0, y: 0 });
+        // });
 
         currentHUDButton =
           currentHUDButton ||
@@ -3331,7 +3337,6 @@ function maybeLeave() {
   // 🚪 Leave (Skips act and sim and paint...)
   if (leaving) {
     try {
-      // debugger;
       leave({ ...painting.api, screen, ...$commonApi }); // Trigger leave.
     } catch (e) {
       console.warn("👋 Leave failure...", e);

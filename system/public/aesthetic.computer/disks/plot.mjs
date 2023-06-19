@@ -10,6 +10,7 @@
     - [] Add zooming and panning to the grid.
   - [] New "Save" and "Load" buttons.
   - [] Add anchor point to the format.
+  - [] Make a "move" mode vs. draw mode.
   - [] Add typography / font mode when typing.
     - [] Live preview of characters?
   + Done
@@ -32,6 +33,7 @@
 
 import { Typeface } from "../lib/type.mjs";
 import { font1 } from "../disks/common/fonts.mjs";
+const { floor } = Math;
 
 // Dark on light.
 const colors = {
@@ -94,17 +96,43 @@ function boot({
 }) {
   typeface = new Typeface(font1);
   typeface.load(preload);
-  cursor("precise"); // TODO: Why doesn't cursor tiny work here? 22.11.01.16.59
-
-  // Get the resolution or use a default.
+  cursor("precise");
 
   if (params.length > 0) {
+    // Get the resolution from the params or use a default.
     const split = params[0].split("x");
     width = parseInt(split[0]) || width;
     height = parseInt(split[1]) || height;
+  } else label("plot 3x3");
+
+  // Grid
+
+  // TODO: Determine scale based on grid size and screen width / height.
+
+  const gridAspect = width / height;
+  const screenAspect = screen.width / screen.height;
+  console.log("gridAspect", gridAspect, "screenAspect", screenAspect);
+
+  let longSide;
+
+  // Screen Landscape
+  if (screenAspect > 1) {
+    if (gridAspect > 1) {
+      longSide = [screen.width, width];
+    } else {
+      longSide = [screen.height, height];
+    }
   } else {
-    label("plot 3x3");
+    // Portrait
+    if (gridAspect > 1) {
+      console.log("Portrait, landscape");
+      longSide = [screen.height, height];
+    } else {
+      longSide = [screen.width, width];
+    }
   }
+  const margin = longSide[0] / 6;
+  scale = floor((longSide[0] - margin) / longSide[1]);
 
   const gridWidth = width * scale;
   const gridHeight = height * scale;
@@ -113,6 +141,7 @@ function boot({
 
   g = new Grid(gridX, gridY, width, height, scale);
 
+  // Buttons
   const btnW = 15;
   const gap = 8;
   open = new Button(gap, screen.height - gap - 2, btnW, 6);

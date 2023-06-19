@@ -981,6 +981,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "signup") {
+      window.acLOGIN?.("signup");
+      return;
+    }
+
     if (type === "logout") {
       window.acLOGOUT?.();
       window.flutter_inappwebview?.callHandler("closeWebview"); // Close A.C. webview on logout inside of Autonomy wallet.
@@ -1332,7 +1337,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       keys(sfx).forEach((key) => {
         if (key !== sound) delete sfx[key];
       });
-      if (logs.audio && debug) console.log("🔉 SFX Cleaed up:", sfx);
+      if (logs.audio && debug) console.log("🔉 SFX Cleaned up:", sfx);
 
       // Reset preloading.
       window.waitForPreload = false;

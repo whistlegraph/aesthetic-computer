@@ -1,4 +1,4 @@
-// $NAME, $TIMESTAMP 
+// $NAME, $TIMESTAMP
 // $THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES
 
 /* #region 📚 README 
@@ -8,14 +8,16 @@
 #endregion */
 
 // 🥾 Boot
-// function boot() {
-//   // Runs once at the start.
-// }
+function boot({ wipe }) {
+  // Runs once at the start.
+  wipe(127);
+}
 
 // 🎨 Paint
-// function paint({ ink }) {
-//   // Executes every display frame.
-// }
+function paint({ ink }) {
+  // Executes every display frame.
+  return false;
+}
 
 // 🎪 Act
 // function act({ event }) {
@@ -45,7 +47,7 @@
 //   };
 // }
 
-export {};
+export { boot, paint };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)

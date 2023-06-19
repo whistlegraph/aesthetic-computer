@@ -5,7 +5,7 @@
 #endregion */
 
 /* #region 🏁 todo
- - [] Lock prompt on handle change.
+ - [] Lock prompt on handle change?
  - [] Prevent non-printable characters from causing an empty space.
  - [] Generate or pretty print docs (made from the APIs) inside this disk.
       (This would allow people to have a reference while writing disks.)
@@ -13,6 +13,15 @@
  - [] An iOS app would need a small ESC or arrow overlay button in Swift
       to make this work properly.
   + Done
+  - [x] Reset pieceCount on developer reload.
+  - [x] Reposition buttons once the frame is resized.
+  - [x] Hide buttons after logging in.
+  - [x] Hide buttons once starting to type. 
+  - [x] Wire up login and sign-up buttons.
+  - [x] Make Login Button
+    - [x] Get layering working with `write`.
+  - [x] Make Sign-Up Button
+  - [x] Positioning Login button in center of display.
   - [x] Write an initial prompt program.
   - [x] Generically "lock" prompt after input before a result returns.
         Show a spinner if too much time has passed?
@@ -71,7 +80,13 @@ let flashShow = false;
 let flashMessage;
 let flashColor = [];
 let flashPresent = false;
+
 let uploadProgress = 0; // If not zero, then draw a progress bar.
+
+let login, // A login button in the center of the display.
+  signup; // A Sign-up button.
+let ruler = false; // Paint a line down the center of the display.
+//                   (for measuring the login / signup centering).
 
 // 🛑 Intercept input and route it to commands.
 async function halt($, text) {
@@ -339,14 +354,33 @@ async function halt($, text) {
   }
 }
 
+function positionWelcomeButtons(screen) {
+  login.reposition({ center: "xy", screen });
+  signup.reposition({ center: "xy", screen });
+  // Nudge signup and login by half their width.
+  let offset = 5; // With a fixed pixel offset.
+  signup.btn.box.x += signup.btn.box.w / 2 + offset;
+  login.btn.box.x -= login.btn.box.w / 2 + offset;
+  if (screen.width % 2 !== 0) login.btn.box.x += 1; // Nudge odd display width.
+}
+
 // 🥾 Boot
-function boot({ glaze, api, system, pieceCount, send }) {
+function boot({ glaze, api, system, pieceCount, send, ui, screen, user }) {
   glaze({ on: true });
+
+  console.log(system.prompt.input.canType, pieceCount);
+
+  // Create login & signup buttons.
+  if (!user && pieceCount === 0) {
+    login = new ui.TextButton("Log in", { center: "xy", screen });
+    signup = new ui.TextButton("I'm new", { center: "xy", screen });
+    positionWelcomeButtons(screen);
+  }
 
   // Only if prompt is set to recall conversations.
   if (
-    (!system.prompt.convo.messages ||
-      system.prompt.convo.messages?.length === 0)
+    !system.prompt.convo.messages ||
+    system.prompt.convo.messages?.length === 0
   ) {
     system.prompt.input.text = makeMotd(api); // Override prompt with motd if
     //                                           no conversation is present.
@@ -369,7 +403,7 @@ function boot({ glaze, api, system, pieceCount, send }) {
 
 // 🎨 Paint
 function paint($) {
-  // 🅰️ Paint below the prom || schemept.
+  // 🅰️ Paint below the prompt || scheme.
   if ($.store["painting"]) {
     $.system.nopaint.present($); // Render the painting.
     scheme.dark.bg[3] = 127; // Half the opacity of the palette background.
@@ -417,6 +451,29 @@ function paint($) {
     if (flashMessage) ink(255).write(flashMessage, { x: 5, y: 4, size: 2 });
   }
 
+  // Paint UI Buttons
+  if (!login?.btn.disabled) login?.paint($);
+  if (!signup?.btn.disabled) signup?.paint($);
+
+  // 📏 Paint a measurement line in the center of the display.
+  if (ruler) {
+    $.ink(255, 0, 255, 127).line(
+      screen.width / 2,
+      0,
+      screen.width / 2,
+      screen.height
+    );
+    if (screen.width % 2 === 0) {
+      $.ink(255, 0, 255, 127).line(
+        screen.width / 2 - 1,
+        0,
+        screen.width / 2 - 1,
+        screen.height
+      );
+    }
+  }
+
+  $.layer(0); // Return to the bottom layer.
   return false;
 }
 
@@ -437,7 +494,21 @@ function sim($) {
 }
 
 // 🎪 Act
-function act({ event: e, api, needsPaint }) {
+function act({ event: e, api, needsPaint, net, screen }) {
+  login?.btn.act(e, () => net.login());
+  signup?.btn.act(e, () => net.signup());
+
+  if (e.is("reframed")) positionWelcomeButtons(screen);
+
+  if (e.is("keyboard:open")) {
+    // Hide login and sign-up buttons
+    // upon typing or pressing Enter.
+    login.btn.disabled = true;
+    signup.btn.disabled = true;
+  }
+
+  if (e.is("lift")) needsPaint();
+
   const input = api.system.prompt.input;
   if (e.is("load-error")) {
     makeFlash(api, false);
@@ -515,7 +586,7 @@ function makeMotd({ handle, user }) {
   if (user) {
     motd =
       `Welcome, ${handle || user.name}!`.padEnd(48) + " ".padEnd(48) + motd;
-  } else motd = "monday    tuesday wednesday";
+  } else motd = "welcome 2 aesthetic :)";
   return motd;
 }
 
