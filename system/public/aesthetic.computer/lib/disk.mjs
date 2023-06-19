@@ -2967,7 +2967,6 @@ async function makeFrame({ data: { type, content } }) {
 
       $api.fps = function (newFps) {
         send({ type: "fps-change", content: newFps });
-        f;
       };
 
       $api.cursor = (code) => (cursorCode = code);
@@ -3180,16 +3179,17 @@ async function makeFrame({ data: { type, content } }) {
       ) {
         const w = currentHUDText.length * 6;
         const h = 11;
-        // label = $api.painting(w, h, ({ ink }) => {
-        //   ink(0).write(currentHUDText?.replaceAll("~", " "), { x: 1, y: 1 });
-        //   let c;
-        //   if (currentHUDTextColor) {
-        //     c = num.shiftRGB(currentHUDTextColor, [255, 255, 255], 0.75);
-        //   } else {
-        //     c = [255, 200, 240];
-        //   }
-        //   ink(c).write(currentHUDText?.replaceAll("~", " "), { x: 0, y: 0 });
-        // });
+        label = $api.painting(w, h, ($) => {
+          $activePaintApi = $;
+          $.ink(0).write(currentHUDText?.replaceAll("~", " "), { x: 1, y: 1 });
+          let c;
+          if (currentHUDTextColor) {
+            c = num.shiftRGB(currentHUDTextColor, [255, 255, 255], 0.75);
+          } else {
+            c = [255, 200, 240];
+          }
+          $.ink(c).write(currentHUDText?.replaceAll("~", " "), { x: 0, y: 0 });
+        });
 
         currentHUDButton =
           currentHUDButton ||

@@ -5,13 +5,9 @@
 #endregion */
 
 /* #region 🏁 todo
- - [] Lock prompt on handle change?
- - [] Prevent non-printable characters from causing an empty space.
- - [] Generate or pretty print docs (made from the APIs) inside this disk.
-      (This would allow people to have a reference while writing disks.)
- + Later
- - [] An iOS app would need a small ESC or arrow overlay button in Swift
-      to make this work properly.
+  + Later
+  - [] Generate or pretty print docs (made from the APIs) inside this disk.
+       (This would allow people to have a reference while writing disks.)
   + Done
   - [x] Reset pieceCount on developer reload.
   - [x] Reposition buttons once the frame is resized.
@@ -84,7 +80,8 @@ let flashPresent = false;
 let uploadProgress = 0; // If not zero, then draw a progress bar.
 
 let login, // A login button in the center of the display.
-  signup; // A Sign-up button.
+  signup, // A Sign-up button.
+  profile; // A profile page button.
 let ruler = false; // Paint a line down the center of the display.
 //                   (for measuring the login / signup centering).
 
@@ -355,20 +352,22 @@ async function halt($, text) {
 }
 
 function positionWelcomeButtons(screen) {
-  login.reposition({ center: "xy", screen });
-  signup.reposition({ center: "xy", screen });
-  // Nudge signup and login by half their width.
-  let offset = 5; // With a fixed pixel offset.
-  signup.btn.box.x += signup.btn.box.w / 2 + offset;
-  login.btn.box.x -= login.btn.box.w / 2 + offset;
-  if (screen.width % 2 !== 0) login.btn.box.x += 1; // Nudge odd display width.
+  if (login && signup) {
+    login.reposition({ center: "xy", screen });
+    signup.reposition({ center: "xy", screen });
+    // Nudge signup and login by half their width.
+    let offset = 5; // With a fixed pixel offset.
+    signup.btn.box.x += signup.btn.box.w / 2 + offset;
+    login.btn.box.x -= login.btn.box.w / 2 + offset;
+    if (screen.width % 2 !== 0) login.btn.box.x += 1; // Nudge odd display width.
+  }
+
+  if (profile) profile.reposition({ center: "xy", screen });
 }
 
 // 🥾 Boot
 function boot({ glaze, api, system, pieceCount, send, ui, screen, user }) {
   glaze({ on: true });
-
-  console.log(system.prompt.input.canType, pieceCount);
 
   // Create login & signup buttons.
   if (!user && pieceCount === 0) {
@@ -376,6 +375,9 @@ function boot({ glaze, api, system, pieceCount, send, ui, screen, user }) {
     signup = new ui.TextButton("I'm new", { center: "xy", screen });
     positionWelcomeButtons(screen);
   }
+
+  if (user && pieceCount === 0)
+    profile = new ui.TextButton(user.name, { center: "xy", screen });
 
   // Only if prompt is set to recall conversations.
   if (
@@ -454,6 +456,7 @@ function paint($) {
   // Paint UI Buttons
   if (!login?.btn.disabled) login?.paint($);
   if (!signup?.btn.disabled) signup?.paint($);
+  if (!profile?.btn.disabled) profile?.paint($);
 
   // 📏 Paint a measurement line in the center of the display.
   if (ruler) {
@@ -480,11 +483,13 @@ function paint($) {
 // 🧮 Sim
 function sim($) {
   const input = $.system.prompt.input;
+  // console.log(input?.canType);
   if (
     $.store["handle:received"] &&
     input?.canType === false &&
-    $.system.prompt.messages?.length === 0
+    ($.system.prompt.messages && $.system.prompt.messages.length) === 0
   ) {
+    console.log($.store["handle:received"]);
     input.text = makeMotd($);
     input.canType = false;
     delete $.store["handle:received"];
@@ -494,26 +499,28 @@ function sim($) {
 }
 
 // 🎪 Act
-function act({ event: e, api, needsPaint, net, screen }) {
+function act({ event: e, api, needsPaint, net, screen, jump }) {
+  // Buttons
   login?.btn.act(e, () => net.login());
   signup?.btn.act(e, () => net.signup());
+  profile?.btn.act(e, () => jump("profile"));
 
   if (e.is("reframed")) positionWelcomeButtons(screen);
 
   if (e.is("keyboard:open")) {
     // Hide login and sign-up buttons
     // upon typing or pressing Enter.
-    login.btn.disabled = true;
-    signup.btn.disabled = true;
+    if (login) login.btn.disabled = true;
+    if (signup) signup.btn.disabled = true;
+    if (profile) profile.btn.disabled = true;
   }
 
   if (e.is("lift")) needsPaint();
 
-  const input = api.system.prompt.input;
   if (e.is("load-error")) {
     makeFlash(api, false);
     flashColor = [255, 0, 0];
-    if (MetaBrowser) input.canType = false;
+    if (MetaBrowser) api.system.prompt.input.canType = false;
     needsPaint();
   }
 }
@@ -585,8 +592,10 @@ function makeMotd({ handle, user }) {
   // `mail@aesthetic.computer                         `;
   if (user) {
     motd =
-      `Welcome, ${handle || user.name}!`.padEnd(48) + " ".padEnd(48) + motd;
-  } else motd = "welcome 2 aesthetic :)";
+      `Welcome back, ${handle || user.name}!`.padEnd(48) +
+      " ".padEnd(48) +
+      motd;
+  } else motd = "You are basically welcome to sign up now. ;)";
   return motd;
 }
 

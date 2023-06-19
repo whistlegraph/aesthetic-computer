@@ -5,58 +5,55 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Replace email with handle and get /@handle working. (Jeffrey)
-  - most recent user painting
-  - activity log
-  - outward facing vs user facing
-  - settings
-  - theme
-  - warn user if they are unauthenticated
+  + Ideas for content...
+  - [] Most recent user painting
+  - [] Activity log
+  - [] Consider public facing vs user facing differences.
+    - [] Like the ability to set a handle.
+  - [] Settings
+    - [] Theme
+  - [] Globally warn user if they are inauthenticated somehow.
+    - [] Or if they are offline... using tiny LEDs?
 #endregion */
 
 // 🥾 Boot
-function boot({ fps }) {
-  // Runs once at the start.
-  fps(30);
-}
+function boot() {}
 
 // 🎨 Paint
-function paint({ wipe, ink, line, write, user, box, pen }) {
-  let bx = 30;
-  let by = 20;
-  let bc = "blue";
-  const bh = 100;
-  const bw = 130;
-  let boxin = "i am sitting in a box";
+function paint({ wipe, ink, line, write, user, handle, box, pen }) {
+  if (!pen?.drawing) wipe(98);
 
-  if (!pen?.drawing) {
-    wipe("grey");
-  }
+  ink(127).line();
+  if (handle) ink().line().ink().line().ink().line();
+  ink(handle ? undefined : 255).write(
+    handle || user.name || "no user",
+    { center: "xy" },
+    "black"
+  );
 
-  ink("red");
-  line();
-  ink("black");
-  write(user?.email || "no user", { center: "xy" }, "cyan");
+  // Drawing Boxes (Ida Lesson)
+  // let bx = 30;
+  // let by = 20;
+  // let bc = "blue";
+  // const bh = 100;
+  // const bw = 130;
+  // let boxin = "i am sitting in a box";
+  // if (pen) {
+  //   bx = pen.x - bw / 2;
+  //   by = pen.y - bh / 2;
+  // }
+  // if (!pen?.drawing) bc = "black";
+  // ink(bc);
+  // if (pen?.button === 2 && pen?.drawing) ink("red");
 
-  if (pen) {
-    bx = pen.x - bw / 2;
-    by = pen.y - bh / 2;
-  }
-  if (!pen?.drawing) {
-    bc = "black";
-  }
-  ink(bc);
-  if (pen?.button === 2 && pen?.drawing) {
-    ink("red");
-  }
-  box(bx, by, bw, bh); // x, y, width, height
-  ink("white");
+  // box(bx, by, bw, bh); // x, y, width, height
+  // ink("white");
 
-  if (!pen?.drawing) {
-    write(boxin, { x: bx, y: by });
-  } else {
-    write("drawing", { x: bx, y: by });
-  }
+  // if (!pen?.drawing) {
+  // write(boxin, { x: bx, y: by });
+  // } else {
+  // write("drawing", { x: bx, y: by });
+  // }
 
   // return false;
 }

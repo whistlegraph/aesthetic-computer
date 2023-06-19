@@ -487,10 +487,12 @@ function line() {
       y1 = arguments[1].y;
     }
   } else {
-    console.warn(
-      "Line did not use the correct number of arguments:",
-      arguments
-    );
+    // if (debug) {
+    //   console.warn(
+    //     "Line did not use the correct number of arguments:",
+    //     arguments
+    //   );
+    // }
   }
 
   // Set all untruthy values like null, or undefined to a random value.
@@ -1417,7 +1419,6 @@ function printLine(
   thickness = 1,
   rotation = 0
 ) {
-
   if (!text) return;
   [...text.toString()].forEach((char, i) => {
     draw(

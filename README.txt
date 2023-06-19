@@ -63,8 +63,11 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Login + Sign-up Buttons ***
-  - [🟢] If the user is logged in, then add a `profile` button.
+  - [] Get /@handle working. (Jeffrey)
+  - [] Fix `handle` setting in all cases / make it work better.
   + Done
+  - [x] Show user handle on profile page if it exists.
+  - [x] If the user is logged in, then add a `profile` button.
   - [x] New homepage with login / sign-up buttons.
   - [x] Add buttons to login / sign-up if the user is logged out.
   - [-] Add Abe's startup sound.
