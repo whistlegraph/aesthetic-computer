@@ -9,7 +9,7 @@ function paint({ wipe, paste, screen, system, paintCount }) {
   const angle = (paintCount / 2); // Slowly rotate
   const x = screen.width / 2 - (system.painting.width * scale) / 2; // Center
   const y = screen.height / 2 - (system.painting.height * scale) / 2;
-  wipe(0, 0, 255).paste(system.painting, x, y, { scale, angle });
+  wipe().paste(system.painting, x, y, { scale, angle });
 }
 
 export { paint };

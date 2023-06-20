@@ -426,18 +426,10 @@ function paint($) {
     historyTexts = history.map((h) => h.replaceAll("~", " "));
   }
 
+  // TODO: Just use write for this...
   historyTexts.reverse().forEach((t, i) => {
     const ii = i + 1;
-    const yMargin = i === 0 ? 0 : 2;
-    ink(140, 90, 235, 80 / ii).printLine(
-      t,
-      input?.typeface.glyphs,
-      6,
-      screen.height - 6 * 3 * ii - 6 - yMargin,
-      6,
-      2,
-      0
-    );
+    ink(140, 90, 235, 80 / ii).write(t, { x: 6, y: 18 + 12 * i });
   });
 
   if (uploadProgress > 0 || uploadProgress === -1) {
@@ -519,7 +511,7 @@ function act({ event: e, api, needsPaint, net, screen, jump }) {
   //                                           ^      paint on-demand.
   // 🚨 Idea: It would be nice to pass     ----^
   //          what needs to be painted
-  //          so the knowledge can be 
+  //          so the knowledge can be
   //          used in the `paint` function
   //          to allow for manual optimizations. 23.06.20.00.30
 

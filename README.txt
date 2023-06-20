@@ -62,16 +62,13 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-** Drag + Drop Coding ***
-  - [] Type `code piece-name` to get a template
-       piece downloaded, or get the current version of an existing piece. 
-  - [] Drag and drop an `*.mjs` file onto aesthetic.computer to
-       replace or add a piece with your version.
-  - [] Open and edit this file to get live updates whenever the window
-       regains focus. (Or automatically, via an export flag.)
+- [🟡] Jumping back to the prompt from `word` no longer stamps the word.
+
+- [] There is an extra slash in these paths: {"files":["https://aesthetic.computer/media/@ida/painting//2023.6.04.13.05.50.png}","https://aesthetic.computer/media/@ida/painting//2023.6.04.13.07.05.png}","https://aesthetic.computer/media/@ida/painting//2023.6.04.13.10.06.png}","https://aesthetic.computer/media/@ida/painting//2023.6.20.15.43.22.png}"]}
 
 *** Login + Sign-up Buttons ***
   - [-] Get /@handle working. (Jeffrey)
+  - [] CTRL & + should not make sign-up buttons go away.
   - [] Fix `handle` setting in all cases / make it work better.
   + Done
   - [x] Show user handle on profile page if it exists.
@@ -79,6 +76,14 @@
   - [x] New homepage with login / sign-up buttons.
   - [x] Add buttons to login / sign-up if the user is logged out.
   - [-] Add Abe's startup sound.
+
+** Drag + Drop Coding ***
+  - [] Type `code piece-name` to get a template
+       piece downloaded, or get the current version of an existing piece. 
+  - [] Drag and drop an `*.mjs` file onto aesthetic.computer to
+       replace or add a piece with your version.
+  - [] Open and edit this file to get live updates whenever the window
+       regains focus. (Or automatically, via an export flag.)
 
 *plot* (new launch fonts)
   - [-] Make the UI responsive based on grid and scale and window size.

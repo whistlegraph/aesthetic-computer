@@ -136,6 +136,7 @@ function paint({ ink, system: { nopaint } }) {
 
 // 🍪 Prints to the current painting.
 function bake() {
+  console.log("baking");
   word?.();
 }
 

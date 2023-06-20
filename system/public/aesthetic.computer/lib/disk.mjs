@@ -70,6 +70,7 @@ const nopaint = {
       if (system.nopaint.bakeOnLeave) {
         // Add bake commands.
         page(system.painting);
+        $activePaintApi = $; // In case of recursive paint functions like `write`.
         bake($);
         // page(screen); // TODO: This should work but it doesnt...
         //                        Seems to have something to do with
