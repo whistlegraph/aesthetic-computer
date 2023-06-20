@@ -2244,9 +2244,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       let url;
       if (internal) {
-        url = `/assets/sounds/AeCo_${content}.m4a`;
-        if (window.production === true)
+        url = `/sounds/AeCo_${content}.m4a`;
+        if (window.production === true) {
           url = `https://assets.aesthetic.computer` + url;
+        } else {
+          url = `/assets` + url;
+        }
       } else url = content;
 
       fetch(url)
