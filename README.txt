@@ -62,8 +62,19 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Text Editing ***
+  - [] Pasting text at the beginning of a \n is broken.
+
+** Drag + Drop Coding ***
+  - [] Type `code piece-name` to get a template
+       piece downloaded, or get the current version of an existing piece. 
+  - [] Drag and drop an `*.mjs` file onto aesthetic.computer to
+       replace or add a piece with your version.
+  - [] Open and edit this file to get live updates whenever the window
+       regains focus. (Or automatically, via an export flag.)
+
 *** Login + Sign-up Buttons ***
-  - [] Get /@handle working. (Jeffrey)
+  - [-] Get /@handle working. (Jeffrey)
   - [] Fix `handle` setting in all cases / make it work better.
   + Done
   - [x] Show user handle on profile page if it exists.
