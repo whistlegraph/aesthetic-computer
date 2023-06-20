@@ -21,6 +21,7 @@ if (window.acDEBUG === true || window.acDEBUG === false) {
   window.location.hostname === "m2w2.whistlegraph.com"
 ) {
   debug = false; // Turn debugging off by default in production.
+  window.production = true;
 } else {
   debug = true; // Turn debuging on by default everywhere else.
   // TODO: This should eventually be upgraded for IPFS exports.

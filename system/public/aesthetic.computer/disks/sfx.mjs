@@ -21,6 +21,7 @@
 let sfx, btn;
 async function boot({ net: { preload }, play, ui, params }) {
   const name = params[0] || "startup";
+  console.log("Sound name:", name);
   sfx = await preload(name);
   btn = new ui.TextButton(`Play "${name}"`);
 }

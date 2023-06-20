@@ -64,6 +64,11 @@
   # to = "http://localhost:8787/media/:splat" # Uncomment for developing the Cloudflare worker.
   status = 200
   force = true
+# [[redirects]]
+#   from = "/assets/*"
+#   to = "https://assets.aesthetic.computer/:splat"
+#   status = 200
+#   force = true
 [[redirects]]
   from = "/media-collection/*"
   to = "/.netlify/functions/media-collection"

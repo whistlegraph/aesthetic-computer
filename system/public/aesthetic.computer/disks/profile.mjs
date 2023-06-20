@@ -26,7 +26,7 @@ function paint({ wipe, ink, line, write, user, handle, box, pen }) {
   ink(127).line();
   if (handle) ink().line().ink().line().ink().line();
   ink(handle ? undefined : 255).write(
-    handle || user.name || "no user",
+    handle || user?.name || "no user",
     { center: "xy" },
     "black"
   );

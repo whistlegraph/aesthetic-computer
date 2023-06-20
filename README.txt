@@ -98,10 +98,12 @@
   - [x] Is `scale` working?
 
 *** sfx ***
-  - [🟡] Fix and test `sfx` on iOS.
   - [] Add startup sound and keyboard sound.
     - [] Make sure `sfx` clears any remotely loaded sounds?
       - [] Just whitelist sounds for now.
+  + Done
+  - [x] Fix and test `sfx` in Safari.
+        (Was production related?)
 
 *** encode/decode ***
   - [🟠] Add the ability to paste on mobile.
@@ -142,6 +144,7 @@
 
 *** Launch Goodies ***
   - [] Auth0 login customization and email notification customization.
+  - [] Tapping top-left corner label should always highlight the text.
   - [] Add more themes other than the dark boolean?
     - [] You should be able to type colors and have the
          general prompt aesthetic change immediately,
