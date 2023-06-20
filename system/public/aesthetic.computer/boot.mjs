@@ -14,6 +14,7 @@ window.preloaded = false; // This gets set to true either automatically or
 // piece.
 
 // Check for the debug constant in index.html which overrides all defaults.
+// (And assumes we are not in a production environment)
 if (window.acDEBUG === true || window.acDEBUG === false) {
   debug = window.acDEBUG;
 } else if (
@@ -21,6 +22,7 @@ if (window.acDEBUG === true || window.acDEBUG === false) {
   window.location.hostname === "m2w2.whistlegraph.com"
 ) {
   debug = false; // Turn debugging off by default in production.
+  window.production = true;
 } else {
   debug = true; // Turn debuging on by default everywhere else.
   // TODO: This should eventually be upgraded for IPFS exports.

@@ -2243,8 +2243,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       let url;
-
-      url = internal ? `/assets/sounds/AeCo_${content}.m4a` : content;
+      if (internal) {
+        url = `/sounds/AeCo_${content}.m4a`;
+        if (window.production === true) {
+          url = `https://assets.aesthetic.computer` + url;
+        } else {
+          url = `/assets` + url;
+        }
+      } else url = content;
 
       fetch(url)
         .then((response) => {
@@ -2287,12 +2293,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (audioContext) {
         // Instantly decode the audio before playback if it hasn't been already.
         if (sfx[content.sfx] instanceof ArrayBuffer) {
-          const audioBuffer = await audioContext.decodeAudioData(
-            sfx[content.sfx]
-          );
-          if (debug && logs.audio) console.log("🔈 Decoded:", content.sfx);
-          sfx[content.sfx] = audioBuffer;
+          let audioBuffer;
+          try {
+            audioBuffer = await audioContext.decodeAudioData(sfx[content.sfx]);
+            if (debug && logs.audio) console.log("🔈 Decoded:", content.sfx);
+            sfx[content.sfx] = audioBuffer;
+          } catch (err) {
+            console.error("🔉 Error: ", err);
+          }
         }
+
+        if (sfx[content.sfx] instanceof ArrayBuffer) return;
+        // If decoding has failed or no sound is present then silently fail.
 
         const source = audioContext.createBufferSource();
         source.buffer = sfx[content.sfx]; // 'content.buffer' is supposed to be the AudioBuffer you've received in 'loaded-sfx-success' message
