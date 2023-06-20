@@ -448,7 +448,7 @@ class TextInput {
   showButton({ nocopy } = { nocopy: false }) {
     this.enter.btn.disabled = false;
     if (!nocopy && this.text.length > 0) {
-      this.#coatedCopy = this.#coatCopy(this.text); // Wrap text to be copied. 
+      this.#coatedCopy = this.#coatCopy(this.text); // Wrap text to be copied.
       this.copy.btn.disabled = false;
     }
   }
@@ -500,6 +500,7 @@ class TextInput {
     if (e.is("pasted:text") && this.lock === false && this.canType) {
       const paste = e.text;
       const index = this.#prompt.textPos();
+      console.log("Pos has new line:", this.#prompt.posHasNewLine());
 
       // Just add the text to the end.
       if (index === undefined) {
@@ -507,9 +508,14 @@ class TextInput {
         this.#prompt.snapTo(this.text);
       } else {
         // Or inside.
-        this.text = this.text.slice(0, index) + paste + this.text.slice(index);
+        let sliceIndex = index;
+        const onChar = this.#prompt.posHasVisibleCharacter();
+        if (!onChar) sliceIndex += 1;
+        this.text =
+          this.text.slice(0, sliceIndex) + paste + this.text.slice(sliceIndex);
         const newCursor = this.#prompt.textToCursorMap[index + paste.length];
         this.#prompt.cursor = { ...newCursor };
+        if (!onChar) this.#prompt.forward();
       }
 
       this.blink.flip(true);

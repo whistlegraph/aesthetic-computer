@@ -1,6 +1,9 @@
 🪦 Completed Tasks (dumped from `README.txt`)
    23.02.10.14.41
 
+*** Text Editing ***
+  - [x] Pasting text at the beginning of a \n is broken.
+
 *** `Prompt Editing` *** 
   - [x️‍] Scrubbable cursor.  
 

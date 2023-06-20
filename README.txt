@@ -62,9 +62,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Text Editing ***
-  - [] Pasting text at the beginning of a \n is broken.
-
 ** Drag + Drop Coding ***
   - [] Type `code piece-name` to get a template
        piece downloaded, or get the current version of an existing piece. 
