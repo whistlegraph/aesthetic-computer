@@ -518,7 +518,6 @@ class TextInput {
     // ⌨️ Add text via the keyboard.
     if (e.is("keyboard:down") && this.lock === false) {
       if (this.canType === false) {
-        console.log("DOWNNNNNNNNNN");
         this.canType = true;
         this.text = "";
         this.inputStarted = true;
@@ -889,9 +888,6 @@ class TextInput {
       });
     }
 
-    // TODO: Share the same code among both events
-    //       below.
-
     // ✂️ Copy to a user's clipboard.
     if (e.name?.startsWith("clipboard:copy")) {
       const copied = e.is("clipboard:copy:copied");
@@ -916,7 +912,7 @@ class TextInput {
     if (e.is("clipboard:copy:failed")) {
     }
 
-    if (e.is("touch") && e.device === "mouse" && !this.lock) {
+    if (e.is("touch") && !this.lock) {
       this.blink.flip(true);
     }
 

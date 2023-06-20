@@ -515,7 +515,13 @@ function act({ event: e, api, needsPaint, net, screen, jump }) {
     if (profile) profile.btn.disabled = true;
   }
 
-  if (e.is("lift")) needsPaint();
+  if (e.is("lift") || e.is("touch")) needsPaint(); // Get button changes to
+  //                                           ^      paint on-demand.
+  // 🚨 Idea: It would be nice to pass     ----^
+  //          what needs to be painted
+  //          so the knowledge can be 
+  //          used in the `paint` function
+  //          to allow for manual optimizations. 23.06.20.00.30
 
   if (e.is("load-error")) {
     makeFlash(api, false);
