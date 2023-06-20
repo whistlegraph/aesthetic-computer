@@ -14,6 +14,7 @@ window.preloaded = false; // This gets set to true either automatically or
 // piece.
 
 // Check for the debug constant in index.html which overrides all defaults.
+// (And assumes we are not in a production environment)
 if (window.acDEBUG === true || window.acDEBUG === false) {
   debug = window.acDEBUG;
 } else if (
