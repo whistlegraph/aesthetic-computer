@@ -3,14 +3,14 @@ import { radians, map } from "../lib/num.mjs";
 const { cos, sin } = Math;
 
 /* #region 🏁 todo
+  - [] Add flag to enable video feedback to constructor 
   - [] Fix video orientation issues.
   - [] Fix gesture interactions 
-  - [] Add flag to enable video feedback to constructor 
 #endregion */
 
 export class HandInput {
+    timop = [];
     #lastOrigin = [];
-  
     #origin = { x: 0, y: 0, z: 0 }; // Wrist
     #handPalette = {
       w: "#FFFFFFFF", // Wrist, white
@@ -20,10 +20,25 @@ export class HandInput {
       o: "orange", // Ring, orange
       p: "pink", // Pinky, pink
     };
-    #vid;
+    #vid; // Stores a video frame.
+    #scaled = []; // Stores the screen scaled mediapipe points.
   
     constructor() {
       console.log("New hand input object!");
+    }
+
+    sim({hand: { mediapipe }, screen: { width, height}}) {
+      // Calculate Hand-tracked 2D Coordinates
+      this.#scaled = mediapipe.screen.map((coord) => [
+        coord.x * width,
+        coord.y * height,
+        coord.z,
+      ]);
+      if (this.#scaled.length > 0) {
+        this.timop = [this.#scaled[4], this.#scaled[8], this.#scaled[12], this.#scaled[16], this.#scaled[20]];
+      } else {
+        this.timop = [];
+      }
     }
   
     paint({
@@ -41,40 +56,43 @@ export class HandInput {
       video,
       write,
       num,
-    }) {
+    }, options) {
       // Start video feed once for webcam hand-tracking on mobile and desktop.
       // (And recalibrate if resized.)
       if (created || resized) {
         this.#vid = video(created ? "camera" : "camera:update", {
-          hidden: true, // Toggle to stop pulling frames.
+          hidden: !options.video, // Toggle to stop pulling frames.
           hands: true,
           facing: "user", // || "environment",
           width,
           height,
         });
       }
-  
-      // const frame = this.#vid();
-      // frame ? paste(frame) : wipe(0, 64, 0);
-  
-      const boxSize = 5;
-      const boxType = "fill*center";
-  
-      // 1. Draw Hand-tracked 2D Coordinates
-      const scaled = mediapipe.screen.map((coord) => [
-        coord.x * width,
-        coord.y * height,
-        coord.z,
-      ]);
-  
+
+      if (options.video) {
+        const frame = this.#vid(); // Enables video feedback.
+        frame ? paste(frame) : wipe(0, 64, 0);
+      }
+
+      let timop; 
+      const scaled = this.#scaled;
+
       if (scaled.length > 0) {
         this.#lastOrigin[0] = scaled[0][0];
         this.#lastOrigin[1] = scaled[0][1];
       }
+
+      // Draw scaled coordinates.
+
+      const fadedPalette = { w: 64, t: 64, i: 64, m: 64, o: 64, p: 64 };
+      let palette = options.faded ? fadedPalette : this.#handPalette;
+
+      const boxSize = 5;
+      const boxType = "fill*center";
   
-      if (mediapipe?.screen.length > 0) {
+      if (scaled.length > 0) {
         // A. Draw lines
-        ink(this.#handPalette.w).poly([
+        ink(palette.w).poly([
           scaled[0],
           scaled[5],
           scaled[9],
@@ -83,7 +101,7 @@ export class HandInput {
           scaled[0],
         ]);
   
-        ink(this.#handPalette.t).poly([
+        ink(palette.t).poly([
           scaled[0],
           scaled[1],
           scaled[2],
@@ -91,25 +109,28 @@ export class HandInput {
           scaled[4],
         ]);
   
-        ink(this.#handPalette.i).poly([
+        ink(palette.i).poly([
           scaled[5],
           scaled[6],
           scaled[7],
           scaled[8],
         ]);
-        ink(this.#handPalette.m).poly([
+
+        ink(palette.m).poly([
           scaled[9],
           scaled[10],
           scaled[11],
           scaled[12],
         ]);
-        ink(this.#handPalette.o).poly([
+
+        ink(palette.o).poly([
           scaled[13],
           scaled[14],
           scaled[15],
           scaled[16],
         ]);
-        ink(this.#handPalette.p).poly([
+
+        ink(palette.p).poly([
           scaled[17],
           scaled[18],
           scaled[19],
@@ -117,28 +138,33 @@ export class HandInput {
         ]);
   
         // B. Loop over the scaled points and draw the boxes.
-  
         scaled.forEach((coord, index) => {
           if (index >= 18) {
-            ink(this.#handPalette.p); // Pinky
+            ink(palette.p); // Pinky
           } else if (index > 13 && index < 17) {
-            ink(this.#handPalette.o);
+            ink(palette.o);
           } else if (index > 9 && index < 13) {
-            ink(this.#handPalette.m);
+            ink(palette.m);
           } else if (index > 5 && index < 9) {
-            ink(this.#handPalette.i);
+            ink(palette.i);
           } else if (index > 0 && index < 5) {
-            ink(this.#handPalette.t);
+            ink(palette.t);
           } else {
-            if (mediapipe.hand === "left") ink(200, 200, 255);
-            if (mediapipe.hand === "right") ink(200, 255, 200);
+            if (options.faded) {
+              ink(64);
+            } else {
+              if (mediapipe.hand === "left") ink(200, 200, 255);
+              if (mediapipe.hand === "right") ink(200, 255, 200);
+            }
           }
           box(coord[0], coord[1], boxSize, boxType);
         });
-  
+ 
         // Interactions
-        const timop = [scaled[4], scaled[8], scaled[12], scaled[16], scaled[20]];
+        timop = [scaled[4], scaled[8], scaled[12], scaled[16], scaled[20]];
         const { interactions, contactDistances } = this.#touching(timop, num);
+
+        if (options.faded) return; // Don't paint interactions if faded.
   
         const letterColors = {
           //default populated
