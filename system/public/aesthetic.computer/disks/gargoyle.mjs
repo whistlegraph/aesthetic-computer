@@ -2,6 +2,7 @@
 // A character playground for Georgica.
 
 /* #region 🏁 TODO
+  - [] How to replace the "@" with the current user?
 #endregion */
 
 const prompt = 'whats on your mind, @?';

@@ -216,6 +216,9 @@ class TextInput {
   #coatedCopy; // Stores a version of the current text output that could be
   //              decorated. (With a URL, for example.)
 
+  activated; // Optional caalback for when the the text input becomes
+  //            activated via pushing the Enter button or typing a key.
+
   // Add support for loading from preloaded system typeface.
   constructor(
     $,
@@ -242,6 +245,7 @@ class TextInput {
       this.typeface = $.typeface; // Set to system typeface.
     }
 
+    this.activated = options.activated;
     this.#autolock = options.autolock;
     this.didReset = options.didReset;
 
@@ -282,7 +286,6 @@ class TextInput {
 
     if (this.text.length === 0) {
       this.enter.btn.disabled = true;
-      // this.copy.btn.disabled = true;
     }
 
     this.processCommand = processCommand;
@@ -775,6 +778,7 @@ class TextInput {
       }
 
       if (e.key !== "Enter") {
+        this.activated?.(); // Run an activate callback.
         this.copy.btn.disabled = true;
         if (this.text.length > 0) {
           this.enter.btn.disabled = false;
@@ -856,7 +860,12 @@ class TextInput {
           if (this.runnable) {
             await this.run(store);
           } else {
+            this.activated?.();
             this.enter.btn.disabled = true;
+            if (this.text.length > 0) {
+              this.copy.btn.disabled = true;
+              this.copy.btn.removeFromDom($, "copy");
+            }
             this.canType = true;
             this.blank("blink");
             this.inputStarted = true;

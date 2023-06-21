@@ -59,18 +59,18 @@
   + Dev Only
   - [] Get ssh working in VS Code on windows via WSL: https://stackoverflow.com/questions/60150466/can-i-ssh-from-wsl-in-visual-studio-code
   - [] `npm run code` does not work offline, due to netlify relying on online conectivity.
+  + Done
+  - [x] Jumping back to the prompt from `word` no longer stamps the word.
 
 🌟 Projects in Progress (PIP) 🌟
-
-- [🟡] Jumping back to the prompt from `word` no longer stamps the word.
 
 - [] There is an extra slash in these paths: {"files":["https://aesthetic.computer/media/@ida/painting//2023.6.04.13.05.50.png}","https://aesthetic.computer/media/@ida/painting//2023.6.04.13.07.05.png}","https://aesthetic.computer/media/@ida/painting//2023.6.04.13.10.06.png}","https://aesthetic.computer/media/@ida/painting//2023.6.20.15.43.22.png}"]}
 
 *** Login + Sign-up Buttons ***
   - [-] Get /@handle working. (Jeffrey)
-  - [] CTRL & + should not make sign-up buttons go away.
   - [] Fix `handle` setting in all cases / make it work better.
   + Done
+  - [x] CTRL & + should not make sign-up buttons go away.
   - [x] Show user handle on profile page if it exists.
   - [x] If the user is logged in, then add a `profile` button.
   - [x] New homepage with login / sign-up buttons.

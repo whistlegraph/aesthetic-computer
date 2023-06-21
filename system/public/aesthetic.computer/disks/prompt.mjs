@@ -503,9 +503,6 @@ function act({ event: e, api, needsPaint, net, screen, jump }) {
   if (e.is("keyboard:open")) {
     // Hide login and sign-up buttons
     // upon typing or pressing Enter.
-    if (login) login.btn.disabled = true;
-    if (signup) signup.btn.disabled = true;
-    if (profile) profile.btn.disabled = true;
   }
 
   if (e.is("lift") || e.is("touch")) needsPaint(); // Get button changes to
@@ -534,6 +531,14 @@ function act({ event: e, api, needsPaint, net, screen, jump }) {
 //  // Runs once before the piece is unloaded.
 // }
 
+// 🖥️ Run When the Prompt is activated.
+function activated() {
+  console.log("activated");
+  if (login) login.btn.disabled = true;
+  if (signup) signup.btn.disabled = true;
+  if (profile) profile.btn.disabled = true;
+}
+
 // 📰 Meta
 function meta() {
   return {
@@ -542,7 +547,18 @@ function meta() {
   };
 }
 
-export { before, after, forgetful, halt, boot, paint, sim, act, meta };
+export {
+  before,
+  after,
+  forgetful,
+  halt,
+  boot,
+  paint,
+  sim,
+  act,
+  activated,
+  meta,
+};
 export const system = "prompt:character"; // or "prompt:code"
 
 // Prompt configuration overrides.
