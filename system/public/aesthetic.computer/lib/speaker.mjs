@@ -103,7 +103,7 @@ class SoundProcessor extends AudioWorkletProcessor {
         const running = this.#running;
         Object.keys(running).forEach((key) => {
           running[key]?.kill();
-          delete runnning[key];
+          delete running[key];
         });
         return;
       }

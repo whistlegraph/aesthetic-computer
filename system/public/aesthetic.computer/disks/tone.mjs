@@ -10,7 +10,7 @@
 let sine;
 
 // 🥁 Beat
-function beat({ params, sound: { microphone, square, speaker } }) {
+function beat({ params, sound: { square } }) {
   if (!sine) {
     sine = square({
       type: "sine",
@@ -19,6 +19,11 @@ function beat({ params, sound: { microphone, square, speaker } }) {
       beats: Infinity,
     });
   }
+}
+
+// 🧮 Sim
+function sim({ simCount, jump, num }) {
+  if (simCount >= 80) jump(`tone~${num.randIntRange(700, 1000)}`);
 }
 
 // 🥾 Boot
@@ -40,7 +45,7 @@ function meta() {
   };
 }
 
-export { boot, paint, beat, meta };
+export { boot, paint, beat, meta, sim };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)

@@ -421,7 +421,8 @@ function paint($) {
   const input = $.system.prompt.input;
 
   if (history.length === 0) {
-    historyTexts = ["aesthetic.computer"];
+    historyTexts = [];
+    // historyTexts = ["aesthetic.computer"];
   } else {
     historyTexts = history.map((h) => h.replaceAll("~", " "));
   }
