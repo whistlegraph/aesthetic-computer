@@ -225,8 +225,13 @@ async function halt($, text) {
     flashColor = [100, 0, 100, 100]; // Dark Magenta
     makeFlash($);
     return true;
-  } else if (slug === "login" || slug === "hi") {
+  } else if (slug === "login") {
     net.login();
+    flashColor = [255, 255, 0, 100]; // Yellow
+    makeFlash($);
+    return true;
+  } else if (slug === "hi") {
+    net.signup();
     flashColor = [255, 255, 0, 100]; // Yellow
     makeFlash($);
     return true;
