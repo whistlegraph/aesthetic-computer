@@ -5,17 +5,18 @@
 #endregion */
 
 /* #region 🏁 TODO 
-- [] Recognize shaka gesture based on T and P y values 
-- [] Draw line between T and P 
-- [] Generate falling shapes 
+- [-] Generate falling shapes 
 - [] Catch falling shapes on the line
 - [] Create screen boundaries for where the console can be used  
 - [] Game start, game over
 - [] Hand is working/not working
 - [] Levels
 - [] Beeps
-
++ Done
+- [x] Recognize shaka gesture based on T and P y values 
+- [x] Draw line between T and P 
 #endregion */
+
 import { HandInput } from "../lib/hand.mjs";
 // 🥾 Boot
 let handInput;
@@ -26,21 +27,58 @@ function boot() {
 
 // 🎨 Paint
 function paint($) {
-    const { wipe, ink, screen: { height } } = $;
-    wipe(127);
-    handInput.paint($);
+  const {
+    wipe,
+    ink,
+    screen: { height },
+  } = $;
+  wipe(127);
+
+  const timop = handInput.timop;
+  let plate;
+
+  if (timop.length > 0) {
+    const t = timop[0],
+      i = timop[1],
+      m = timop[2],
+      o = timop[3],
+      p = timop[4];
+
+    if (
+      t[1] < i[1] &&
+      t[1] < m[1] &&
+      t[1] < o[1] && // if t is higher than imo
+      p[1] < i[1] &&
+      p[1] < m[1] &&
+      p[1] < o[1] // and p is higher than imo
+    ) {
+      plate = true;
+    }
   }
+  handInput.paint($, { faded: plate }); // Uses calculated points.
+  if (plate) {
+    ink(255, 96).pline(
+      [
+        { x: timop[0][0], y: timop[0][1] },
+        { x: timop[4][0], y: timop[4][1] },
+      ],
+      12
+    );
+    ink("white").line(timop[0], timop[4]);
+  }
+}
+
+// 🧮 Sim
+function sim($) {
+  handInput.sim($); // Calculate the hand points.
+  // Runs once per logic frame. (120fps locked.)
+}
 
 // 🎪 Act
 function act($) {
   handInput.act($);
   // Respond to user input here.
 }
-
-// 🧮 Sim
-// function sim() {
-//  // Runs once per logic frame. (120fps locked.)
-// }
 
 // 🥁 Beat
 // function beat() {
@@ -60,7 +98,7 @@ function meta() {
   };
 }
 
-export { boot, act, meta, paint };
+export { boot, act, meta, paint, sim };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
