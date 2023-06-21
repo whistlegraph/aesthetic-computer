@@ -492,11 +492,22 @@ function sim($) {
 }
 
 // 🎪 Act
-function act({ event: e, api, needsPaint, net, screen, jump }) {
+function act({ event: e, api, needsPaint, net, screen, jump, system }) {
   // Buttons
   login?.btn.act(e, () => net.login());
   signup?.btn.act(e, () => net.signup());
   profile?.btn.act(e, () => jump("profile"));
+
+  if (
+    e.is("touch") &&
+    (login?.btn.box.contains(e) ||
+      signup?.btn.box.contains(e) ||
+      signup?.btn.box.contains(e))
+  ) {
+    system.prompt.input.backdropTouchOff = true;
+  }
+
+  if (e.is("lift")) system.prompt.input.backdropTouchOff = false;
 
   if (e.is("reframed")) positionWelcomeButtons(screen);
 
@@ -533,7 +544,6 @@ function act({ event: e, api, needsPaint, net, screen, jump }) {
 
 // 🖥️ Run When the Prompt is activated.
 function activated() {
-  console.log("activated");
   if (login) login.btn.disabled = true;
   if (signup) signup.btn.disabled = true;
   if (profile) profile.btn.disabled = true;

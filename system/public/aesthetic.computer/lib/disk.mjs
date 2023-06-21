@@ -1832,8 +1832,8 @@ async function load(
       };
 
       sim = ($) => {
-        prompt.prompt_sim($);
         module.sim?.($);
+        prompt.prompt_sim($);
       };
 
       paint = ($) => {
@@ -1845,13 +1845,13 @@ async function load(
       beat = module.beat || defaults.beat;
 
       act = ($) => {
-        prompt.prompt_act($);
         module.act?.($);
+        prompt.prompt_act($);
       };
 
       leave = ($) => {
-        prompt.prompt_leave($);
         module.leave?.($);
+        prompt.prompt_leave($);
       };
 
       system = "prompt";

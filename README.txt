@@ -64,12 +64,17 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-- [] There is an extra slash in these paths: {"files":["https://aesthetic.computer/media/@ida/painting//2023.6.04.13.05.50.png}","https://aesthetic.computer/media/@ida/painting//2023.6.04.13.07.05.png}","https://aesthetic.computer/media/@ida/painting//2023.6.04.13.10.06.png}","https://aesthetic.computer/media/@ida/painting//2023.6.20.15.43.22.png}"]}
+- [] Whistle
+  - [] Get whistle working on iOS.
 
 *** Login + Sign-up Buttons ***
-  - [-] Get /@handle working. (Jeffrey)
+  - [🧡] Get /@handle working. (Jeffrey)
+      - [] Should @handle actually be a piece in the system for every user?
+      - [] And then they can edit it?
+      - [] What happens when you visit there now?
   - [] Fix `handle` setting in all cases / make it work better.
   + Done
+  - [x] Tapping the text at the top of the prompt should activate it. 
   - [x] CTRL & + should not make sign-up buttons go away.
   - [x] Show user handle on profile page if it exists.
   - [x] If the user is logged in, then add a `profile` button.

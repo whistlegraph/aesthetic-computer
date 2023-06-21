@@ -218,6 +218,8 @@ class TextInput {
 
   activated; // Optional caalback for when the the text input becomes
   //            activated via pushing the Enter button or typing a key.
+  backdropTouchOff = false; // Determines whether to activate the input
+  //                           after tapping the backdrop.
 
   // Add support for loading from preloaded system typeface.
   constructor(
@@ -848,6 +850,34 @@ class TextInput {
       $.send({ type: "keyboard:lock" });
     }
 
+    // Begin the prompt input mode / leave the splash.
+    function activate(ti) {
+      ti.activated?.();
+      ti.enter.btn.disabled = true;
+      if (ti.text.length > 0) {
+        ti.copy.btn.disabled = true;
+        ti.copy.btn.removeFromDom($, "copy");
+      }
+      ti.canType = true;
+      ti.blank("blink");
+      ti.inputStarted = true;
+      ti.editableCallback?.(ti);
+      needsPaint();
+      $.send({ type: "keyboard:unlock" });
+    }
+
+    // TODO: Touching background as a button (but no other button)
+    //       should activate the prompt.
+
+    if (
+      e.is("touch") &&
+      !this.inputStarted &&
+      !this.enter.btn.box.contains(e) &&
+      !this.backdropTouchOff
+    ) {
+      activate(this);
+    }
+
     // UI Button Actions
     if (!this.lock) {
       // 🔲 Enter
@@ -860,18 +890,7 @@ class TextInput {
           if (this.runnable) {
             await this.run(store);
           } else {
-            this.activated?.();
-            this.enter.btn.disabled = true;
-            if (this.text.length > 0) {
-              this.copy.btn.disabled = true;
-              this.copy.btn.removeFromDom($, "copy");
-            }
-            this.canType = true;
-            this.blank("blink");
-            this.inputStarted = true;
-            this.editableCallback?.(this);
-            needsPaint();
-            $.send({ type: "keyboard:unlock" });
+            activate(this);
           }
         },
         cancel: () => {
