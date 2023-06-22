@@ -82,7 +82,6 @@ export class HandInput {
       }
 
       // Draw scaled coordinates.
-
       const fadedPalette = { w: 64, t: 64, i: 64, m: 64, o: 64, p: 64 };
       let palette = options?.faded ? fadedPalette : this.#handPalette;
 
