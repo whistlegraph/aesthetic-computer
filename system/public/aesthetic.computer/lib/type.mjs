@@ -424,6 +424,10 @@ class TextInput {
     if (!this.enter.btn.disabled) {
       this.enter.reposition({ right: 6, bottom: 6, screen: frame });
       this.enter.paint($);
+
+      if (this.enter.btn.down) {
+        $.ink(255, 0, 200, 64).box(0, 0, $.screen.width, $.screen.height, "in");
+      }
     }
 
     // Copy Button
@@ -864,6 +868,7 @@ class TextInput {
       !this.canType &&
       !this.backdropTouchOff
     ) {
+      this.enter.btn.down = true;
       $.send({ type: "keyboard:unlock" });
     }
 

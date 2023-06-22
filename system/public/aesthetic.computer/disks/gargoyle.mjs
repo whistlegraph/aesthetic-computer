@@ -44,7 +44,7 @@ function halt($, text) {
   }
 }
 
-// 💬 Receive each reply in full.
+// 💬 Receive each response in full.
 function reply(text) {
   console.log("😀 Replied with:", text);
 }

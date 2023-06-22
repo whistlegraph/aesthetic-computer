@@ -34,7 +34,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   let pen,
     keyboard,
-    keyboardFocusLock = true;
+    keyboardFocusLock = false;
   let handData; // Hand-tracking.
 
   // let frameCount = 0;
@@ -1229,6 +1229,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           input.blur();
         });
 
+        window.addEventListener("focus", (e) => {
+          // e.preventDefault();
+        });
+
         window.addEventListener("pointerdown", (e) => {
           if (currentPieceHasKeyboard) e.preventDefault();
         });
@@ -1527,13 +1531,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "keyboard:lock") {
       keyboardFocusLock = true;
-      console.log("Keyboard LOCKED");
+      // console.log("⌨️ Virtual Keyboard: Unlocked");
       return;
     }
 
     if (type === "keyboard:unlock") {
       keyboardFocusLock = false;
-      console.log("Keyboard UNLOCKED");
+      // console.log("⌨️ Virtual Keyboard: Locked");
       return;
     }
 

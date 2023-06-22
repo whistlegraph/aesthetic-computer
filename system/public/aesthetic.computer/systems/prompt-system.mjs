@@ -52,6 +52,7 @@ export async function prompt_boot(
       if (!$.jumping()) input.lock = false;
       if (halted) {
         messageComplete = true;
+        reply?.(input.text);
         $.needsPaint();
         return; // No more processing necessary.
       }
@@ -85,6 +86,7 @@ export async function prompt_boot(
         function fail() {
           input.text = abortMessage;
           $.needsPaint();
+          reply?.(input.text);
           processing = input.lock = false;
           input.clearUserText();
           input.runnable = false;

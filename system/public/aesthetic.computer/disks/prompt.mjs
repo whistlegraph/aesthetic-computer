@@ -84,6 +84,7 @@ let login, // A login button in the center of the display.
   profile; // A profile page button.
 let ruler = false; // Paint a line down the center of the display.
 //                   (for measuring the login / signup centering).
+let firstCommandSent = false; // 🏳️
 
 // 🛑 Intercept input and route it to commands.
 async function halt($, text) {
@@ -454,8 +455,9 @@ function paint($) {
   }
 
   // Paint UI Buttons
-  if (!login?.btn.disabled) login?.paint($);
-  if (!signup?.btn.disabled) signup?.paint($);
+  if (!login?.btn.disabled) login?.paint($, [[0, 0, 64], 255, 255, [0, 0, 64]]);
+  if (!signup?.btn.disabled)
+    signup?.paint($, [[0, 64, 0], 255, 255, [0, 64, 0]]);
   if (!profile?.btn.disabled) profile?.paint($);
 
   // 📏 Paint a measurement line in the center of the display.
@@ -506,7 +508,8 @@ function act({ event: e, api, needsPaint, net, screen, jump, system, send }) {
   profile?.btn.act(e, () => jump("profile"));
 
   // TODO: ^ Move the events above to rollover events.
-  if (e.is("draw") &&
+  if (
+    e.is("draw") &&
     (login?.btn.box.contains(e) ||
       signup?.btn.box.contains(e) ||
       signup?.btn.box.contains(e))
@@ -559,9 +562,16 @@ function act({ event: e, api, needsPaint, net, screen, jump, system, send }) {
 
 // 🖥️ Run When the Prompt is activated.
 function activated(state) {
+  if (state === false && firstCommandSent) return;
   if (login) login.btn.disabled = state;
   if (signup) signup.btn.disabled = state;
   if (profile) profile.btn.disabled = state;
+}
+
+// 💬 Receive each response in full.
+function reply(text) {
+  firstCommandSent = true;
+  console.log("😀 Replied with:", text);
 }
 
 // 📰 Meta
@@ -582,6 +592,7 @@ export {
   sim,
   act,
   activated,
+  reply,
   meta,
 };
 export const system = "prompt:character"; // or "prompt:code"
