@@ -16,32 +16,7 @@ export class Circle {
   }
 
   //  Determines whether the circle is intersecting the given line.
-  online(x1, y1, x2, y2) {
-  // Calculate the slope (m)
-  const slope = (y2 - y1) / (x2 - x1);
-
-  // Calculate the y-intercept (b)
-  const yIntercept = y1 - slope * x1;
-
-  // Calculate the coefficients for the standard form (Ax + By = C)
-  const a = slope;
-  const b = -1; // Coefficient of 'y'
-  const c = yIntercept;
-
-    let dist = (abs(a * this.x + b * this.y + c)) / sqrt(a * a + b * b);
-
-    console.log("Distance:", dist);
-
-    // Checking if the distance is less than, greater than or equal to radius.
-    if (this.radius == dist) {
-      return true; // Line is directly on circle.
-    } else if (this.radius > dist) {
-      return true; // Line intersects circle.
-    } else {
-      return false;
-    }
-
-}
+  // function ( line, )
 
   // Returns a random (x, y) point within the circle by recursively generating
   // random points within a bounding box and checking to see if they are within

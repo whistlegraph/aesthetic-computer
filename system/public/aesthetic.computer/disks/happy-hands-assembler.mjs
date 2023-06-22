@@ -56,6 +56,10 @@ function act($) {
   handInput.act($);
 }
 
+function sim($) {
+  handInput.sim($); // Calculate the hand points.
+}
+
 // Tab title and meta description of this piece.
 function meta() {
   return {
@@ -64,6 +68,6 @@ function meta() {
   };
 }
 
-export { boot, paint, act, meta };
+export { boot, paint, act, meta, sim};
 
 // 📚 Library (Useful functions used throughout the piece)

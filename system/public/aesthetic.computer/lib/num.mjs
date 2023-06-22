@@ -47,6 +47,7 @@ export const p2 = {
       y: pA.y - pB.y,
     };
   },
+  
   // Immutably multiply p by angle in radians.
   rot(p, angle) {
     return {
@@ -83,6 +84,9 @@ export const p2 = {
   },
   angle: function (pA, pB) {
     return atan2(pB.y - pA.y, pB.x - pA.x);
+  },
+  dot: function (pA, pB) {
+    return pA.x * pB.x + pA.y * pB.y;
   },
   floor: function (p) {
     return { x: floor(p.x), y: floor(p.y) };
