@@ -1028,7 +1028,7 @@ class TextInput {
       this.blink.flip(true);
     }
 
-    if (e.is("lift") && !this.lock && this.#shifting) {
+    if (e.is("lift") && !this.lock) {
       this.moveDeltaX = 0;
       $.send({ type: "keyboard:unlock" });
     }

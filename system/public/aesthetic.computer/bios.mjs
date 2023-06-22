@@ -1531,13 +1531,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "keyboard:lock") {
       keyboardFocusLock = true;
-      // console.log("⌨️ Virtual Keyboard: Unlocked");
+      console.log("⌨️ Virtual Keyboard: Locked");
       return;
     }
 
     if (type === "keyboard:unlock") {
       keyboardFocusLock = false;
-      // console.log("⌨️ Virtual Keyboard: Locked");
+      console.log("⌨️ Virtual Keyboard: Unlocked");
       return;
     }
 
