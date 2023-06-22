@@ -1030,9 +1030,10 @@ class TextInput {
 
     if (e.is("lift") && !this.lock && this.#shifting) {
       this.moveDeltaX = 0;
-      this.#shifting = false;
       $.send({ type: "keyboard:unlock" });
     }
+
+    if (e.is("lift")) this.#shifting = false;
 
     if (e.is("draw") && !this.lock && this.canType && !this.enter.btn.down) {
       $.send({ type: "keyboard:lock" });
