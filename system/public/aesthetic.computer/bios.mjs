@@ -1429,7 +1429,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       whens = {};
 
       // Close (defocus) software keyboard if we are NOT on the prompt.
-      document.querySelector("#software-keyboard-input")?.blur();
+      // debugger;
+      if (content.text !== "prompt") {
+        document.querySelector("#software-keyboard-input")?.blur();
+      }
       keyboard.events.push({ name: "keyboard:close" });
 
       setMetatags(content.meta);
