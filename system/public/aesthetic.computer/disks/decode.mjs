@@ -2,7 +2,8 @@
 // Converts token strings to poems.
 
 /* #region 🏁 TODO
-
+  - [] Add a custom rendered preview image / support on the server for
+       for an AC rendered thumbnail.
 #endregion */
 
 import { GPT3BrowserTokenizer } from "../dep/gpt3-tokenizer/gpt3-tokenizer.js";

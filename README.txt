@@ -64,23 +64,25 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-- [] Whistle
-  - [] Get whistle working on iOS.
+*** Whistle ***
+  - [-] Get whistle working on iOS.
 
-*** Login + Sign-up Buttons ***
-  - [🧡] Get /@handle working. (Jeffrey)
-      - [] Should @handle actually be a piece in the system for every user?
-      - [] And then they can edit it?
-      - [] What happens when you visit there now?
-  - [] Fix `handle` setting in all cases / make it work better.
+*** sfx ***
+  - [💛] Add startup sound and keyboard sound.
+    - [] Test this sound playback on Firefox.
   + Done
-  - [x] Tapping the text at the top of the prompt should activate it. 
-  - [x] CTRL & + should not make sign-up buttons go away.
-  - [x] Show user handle on profile page if it exists.
-  - [x] If the user is logged in, then add a `profile` button.
-  - [x] New homepage with login / sign-up buttons.
-  - [x] Add buttons to login / sign-up if the user is logged out.
-  - [-] Add Abe's startup sound.
+  - [x] Make sure `sfx` clears any remotely loaded sounds?
+    - [x] Just whitelist sounds for now.
+  - [x] Fix and test `sfx` in Safari.
+        (Was production related?)
+
+*** Profiles and Handles *** 
+  - [] Fix `handle` setting in all cases / make it work better.
+  - [] Allow people to set handle via profile page by jumping to the
+       prompt.
+  - [] Show most recent painting on profile page.
+  - [] Allow people to set a status.
+    - [] Where to store this?
 
 ** Drag + Drop Coding ***
   - [] Type `code piece-name` to get a template
@@ -103,14 +105,6 @@
   + Done
   - [x] Fix `resize` call in plot.
   - [x] Is `scale` working?
-
-*** sfx ***
-  - [] Add startup sound and keyboard sound.
-    - [] Make sure `sfx` clears any remotely loaded sounds?
-      - [] Just whitelist sounds for now.
-  + Done
-  - [x] Fix and test `sfx` in Safari.
-        (Was production related?)
 
 *** encode/decode ***
   - [🟠] Add the ability to paste on mobile.

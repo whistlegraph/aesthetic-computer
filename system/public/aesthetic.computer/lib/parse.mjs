@@ -59,13 +59,14 @@ function parse(text, location = self?.location) {
 
   // 3. Determine the host and path.
   let customHost = false;
-  // Remove "@" from 1st token if it starts with "@", and set customHost flag.
-  if (tokens[0].indexOf("@") === 0) {
+  // Remove "@" from 1st token if it starts with "@" and is the root path,
+  // then set a `customHost` flag.
+  if (tokens[0].indexOf("@") === 0 && tokens[0].indexOf("/") !== -1) {
     customHost = true;
     tokens[0] = tokens[0].substring(1);
   }
 
-  // TODO: Extract colon parameter...
+  // Extract colon parameter...
   let colonParam;
   const colonSplit = tokens[0].split(":");
 

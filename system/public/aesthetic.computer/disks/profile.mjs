@@ -1,32 +1,40 @@
 // Profile, 2023.6.04.16.58.31
-// Profile pages for all users.
+// The default profile page for all users.
 
 /* #region 📚 README 
 #endregion */
 
 /* #region 🏁 TODO 
+  - General thoughts...
+    - [] Should @handle eventually be a piece in the system for every user?
+    - [] And then they can edit it?
+    - [] What happens when you visit there now?
   + Ideas for content...
-  - [] Most recent user painting
-  - [] Activity log
-  - [] Consider public facing vs user facing differences.
-    - [] Like the ability to set a handle.
-  - [] Settings
-    - [] Theme
-  - [] Globally warn user if they are inauthenticated somehow.
-    - [] Or if they are offline... using tiny LEDs?
+    - [] Most recent user painting.
+    - [] Activity log
+    - [] Consider public facing vs user facing differences.
+      - [] Like the ability to set a handle.
+    - [] Settings
+      - [] Theme
+    - [] Globally warn user if they are inauthenticated somehow.
+      - [] Or if they are offline... using tiny LEDs?
 #endregion */
 
 // 🥾 Boot
-function boot() {}
+function boot({ params, user, handle }) {
+  console.log("🤺 Visiting the profile of...", params[0]);
+  if (user) console.log("😉 Logged in as...", handle || user?.name);
+  // 🎆 TODO: Check to see if this user actually exists via a server-side call.
+}
 
 // 🎨 Paint
-function paint({ wipe, ink, line, write, user, handle, box, pen }) {
+function paint({ params, wipe, ink, user, handle, pen }) {
   if (!pen?.drawing) wipe(98);
 
   ink(127).line();
   if (handle) ink().line().ink().line().ink().line();
   ink(handle ? undefined : 255).write(
-    handle || user?.name || "no user",
+    handle || user?.name || params[0] || "no user",
     { center: "xy" },
     "black"
   );

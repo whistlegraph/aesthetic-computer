@@ -1339,6 +1339,14 @@ async function load(
 ) {
   let { path, host, search, colon, params, hash, text: slug } = parsed;
 
+  if (slug.startsWith("@")) {
+    params = [slug, ...params]; // Rewrite all params for `@user` slug urls.
+    slug = "profile"; // Go to `profile` instead of the `@user`.
+    // Rewrite path to `profile`.
+    console.log("Path:", path);
+    path = [...path.split("/").slice(0, -1), slug].join("/");
+  }
+
   // Update the user handle if it changed between pieces.
   if (store["handle:updated"]) {
     $commonApi.handle = "@" + store["handle:updated"];

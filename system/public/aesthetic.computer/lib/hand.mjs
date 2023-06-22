@@ -54,14 +54,13 @@ export class HandInput {
       paste,
       paintCount,
       video,
-      write,
       num,
     }, options) {
       // Start video feed once for webcam hand-tracking on mobile and desktop.
       // (And recalibrate if resized.)
       if (created || resized) {
         this.#vid = video(created ? "camera" : "camera:update", {
-          hidden: !options.video, // Toggle to stop pulling frames.
+          hidden: !options?.video, // Toggle to stop pulling frames.
           hands: true,
           facing: "user", // || "environment",
           width,
@@ -69,7 +68,7 @@ export class HandInput {
         });
       }
 
-      if (options.video) {
+      if (options?.video) {
         const frame = this.#vid(); // Enables video feedback.
         frame ? paste(frame) : wipe(0, 64, 0);
       }
@@ -85,7 +84,7 @@ export class HandInput {
       // Draw scaled coordinates.
 
       const fadedPalette = { w: 64, t: 64, i: 64, m: 64, o: 64, p: 64 };
-      let palette = options.faded ? fadedPalette : this.#handPalette;
+      let palette = options?.faded ? fadedPalette : this.#handPalette;
 
       const boxSize = 5;
       const boxType = "fill*center";
@@ -150,7 +149,7 @@ export class HandInput {
           } else if (index > 0 && index < 5) {
             ink(palette.t);
           } else {
-            if (options.faded) {
+            if (options?.faded) {
               ink(64);
             } else {
               if (mediapipe.hand === "left") ink(200, 200, 255);
@@ -164,7 +163,7 @@ export class HandInput {
         timop = [scaled[4], scaled[8], scaled[12], scaled[16], scaled[20]];
         const { interactions, contactDistances } = this.#touching(timop, num);
 
-        if (options.faded) return; // Don't paint interactions if faded.
+        if (options?.faded) return; // Don't paint interactions if faded.
   
         const letterColors = {
           //default populated
