@@ -510,18 +510,18 @@ function act({ event: e, api, needsPaint, net, screen, jump, system, send }) {
   // TODO: ^ Move the events above to rollover events.
   if (
     e.is("draw") &&
-    (login?.btn.box.contains(e) ||
-      signup?.btn.box.contains(e) ||
-      signup?.btn.box.contains(e))
+    ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
+      (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
+      (profile?.btn.disabled === false && profile?.btn.box.contains(e)))
   ) {
     send({ type: "keyboard:lock" });
   }
 
   if (
     (e.is("touch") || e.is("lift")) &&
-    (login?.btn.box.contains(e) ||
-      signup?.btn.box.contains(e) ||
-      signup?.btn.box.contains(e))
+    ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
+      (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
+      (profile?.btn.disabled === false && profile?.btn.box.contains(e)))
   ) {
     system.prompt.input.backdropTouchOff = true;
     send({ type: "keyboard:lock" });

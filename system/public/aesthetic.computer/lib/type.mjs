@@ -484,6 +484,7 @@ class TextInput {
     if (this.#autolock) this.lock = true; // TODO: This might be redundant now. 23.06.07.23.32
     await this.processCommand?.(this.text);
     this.commandSentOnce = true;
+    this.enter.btn.down = false; // Make sure the  Enter button is released.
     if (this.#autolock) this.lock = false;
   }
 
@@ -919,7 +920,8 @@ class TextInput {
 
     if (
       e.is("touch") &&
-      (this.enter.btn.box.contains(e) || this.copy.btn.box.contains(e))
+      ((this.enter.btn.disabled === false && this.enter.btn.box.contains(e)) ||
+        (this.copy.btn.disabled === false && this.copy.btn.box.contains(e)))
     ) {
       this.backdropTouchOff = true;
     }
@@ -950,7 +952,7 @@ class TextInput {
       // Enter Button...
       if (
         e.is("draw") &&
-        this.enter.btn.box.contains(e) &&
+        (this.enter.btn.disabled === false && this.enter.btn.box.contains(e)) &&
         !this.enter.btn.down
       ) {
         $.send({ type: "keyboard:lock" });
@@ -959,7 +961,7 @@ class TextInput {
       // Copy Button...
       if (
         (e.is("draw") || e.is("touch")) &&
-        this.copy.btn.box.contains(e) // &&
+        (this.copy.btn.disabled === false && this.copy.btn.box.contains(e)) // &&
         //!this.copy.btn.down
       ) {
         // this.backdropTouchOff = true;
