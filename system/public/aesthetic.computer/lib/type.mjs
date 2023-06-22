@@ -224,6 +224,7 @@ class TextInput {
   //            activated via pushing the Enter button or typing a key.
   backdropTouchOff = false; // Determines whether to activate the input
   //                           after tapping the backdrop.
+  commandSentOnce = false; // 🏴
 
   // Add support for loading from preloaded system typeface.
   constructor(
@@ -482,6 +483,7 @@ class TextInput {
     // 🍎 Process commands for a given context, passing the text input.
     if (this.#autolock) this.lock = true; // TODO: This might be redundant now. 23.06.07.23.32
     await this.processCommand?.(this.text);
+    this.commandSentOnce = true;
     if (this.#autolock) this.lock = false;
   }
 
@@ -796,6 +798,7 @@ class TextInput {
 
       if (e.key !== "Enter") {
         this.activated?.(true); // Run an activate callback.
+        // this.activatedOnce = true;
         this.copy.btn.disabled = true;
         if (this.text.length > 0) {
           this.enter.btn.disabled = false;
@@ -875,6 +878,7 @@ class TextInput {
     // Begin the prompt input mode / leave the splash.
     function activate(ti) {
       ti.activated?.(true);
+      // ti.activatedOnce = true;
       if (ti.text.length > 0) {
         ti.copy.btn.disabled = true;
         ti.copy.btn.removeFromDom($, "copy");
@@ -902,6 +906,10 @@ class TextInput {
       ti.runnable = false;
       ti.#lastUserText = ti.#text;
       ti.text = ti.#lastPrintedText;
+      if (ti.#lastPrintedText.length > 0 && ti.commandSentOnce) {
+        ti.copy.btn.disabled = false;
+        console.log(ti.historyDepth);
+      }
       needsPaint();
       // $.send({ type: "keyboard:lock" });
     }
@@ -909,7 +917,10 @@ class TextInput {
     // TODO: Touching background as a button (but no other button)
     //       should activate the prompt.
 
-    if (e.is("touch") && (this.enter.btn.box.contains(e) || this.copy.btn.box.contains(e))) {
+    if (
+      e.is("touch") &&
+      (this.enter.btn.box.contains(e) || this.copy.btn.box.contains(e))
+    ) {
       this.backdropTouchOff = true;
     }
 
