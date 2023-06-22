@@ -64,6 +64,9 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Camera ***
+  - [-] Simply get the camera working again, with a chooser.
+
 *** Whistle ***
   - [-] Get whistle working on iOS.
 
