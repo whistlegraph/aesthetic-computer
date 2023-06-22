@@ -84,6 +84,7 @@ let login, // A login button in the center of the display.
   profile; // A profile page button.
 let ruler = false; // Paint a line down the center of the display.
 //                   (for measuring the login / signup centering).
+let firstCommandSent = false; // 🏳️
 
 // 🛑 Intercept input and route it to commands.
 async function halt($, text) {
@@ -375,14 +376,15 @@ function boot({ glaze, api, system, pieceCount, send, ui, screen, user }) {
   glaze({ on: true });
 
   // Create login & signup buttons.
-  if (!user && pieceCount === 0) {
+  // if (pieceCount === 0) {
+  if (!user) {
     login = new ui.TextButton("Log in", { center: "xy", screen });
     signup = new ui.TextButton("I'm new", { center: "xy", screen });
     positionWelcomeButtons(screen);
   }
-
   if (user && pieceCount === 0)
     profile = new ui.TextButton(user.name, { center: "xy", screen });
+  // }
 
   // Only if prompt is set to recall conversations.
   if (
@@ -396,6 +398,7 @@ function boot({ glaze, api, system, pieceCount, send, ui, screen, user }) {
 
   // Activate and reset input text if returning to the prompt from elsewhere.
   if (pieceCount > 0) {
+    activated(true);
     system.prompt.input.canType = true;
     system.prompt.input.text = "";
     system.prompt.input.enter.btn.disabled = true; // Disable button.
@@ -452,8 +455,9 @@ function paint($) {
   }
 
   // Paint UI Buttons
-  if (!login?.btn.disabled) login?.paint($);
-  if (!signup?.btn.disabled) signup?.paint($);
+  if (!login?.btn.disabled) login?.paint($, [[0, 0, 64], 255, 255, [0, 0, 64]]);
+  if (!signup?.btn.disabled)
+    signup?.paint($, [[0, 64, 0], 255, 255, [0, 64, 0]]);
   if (!profile?.btn.disabled) profile?.paint($);
 
   // 📏 Paint a measurement line in the center of the display.
@@ -497,22 +501,31 @@ function sim($) {
 }
 
 // 🎪 Act
-function act({ event: e, api, needsPaint, net, screen, jump, system }) {
+function act({ event: e, api, needsPaint, net, screen, jump, system, send }) {
   // Buttons
   login?.btn.act(e, () => net.login());
   signup?.btn.act(e, () => net.signup());
   profile?.btn.act(e, () => jump("profile"));
 
+  // TODO: ^ Move the events above to rollover events.
   if (
-    e.is("touch") &&
+    e.is("draw") &&
+    (login?.btn.box.contains(e) ||
+      signup?.btn.box.contains(e) ||
+      signup?.btn.box.contains(e))
+  ) {
+    send({ type: "keyboard:lock" });
+  }
+
+  if (
+    (e.is("touch") || e.is("lift")) &&
     (login?.btn.box.contains(e) ||
       signup?.btn.box.contains(e) ||
       signup?.btn.box.contains(e))
   ) {
     system.prompt.input.backdropTouchOff = true;
+    send({ type: "keyboard:lock" });
   }
-
-  if (e.is("lift")) system.prompt.input.backdropTouchOff = false;
 
   if (e.is("reframed")) positionWelcomeButtons(screen);
 
@@ -548,10 +561,17 @@ function act({ event: e, api, needsPaint, net, screen, jump, system }) {
 // }
 
 // 🖥️ Run When the Prompt is activated.
-function activated() {
-  if (login) login.btn.disabled = true;
-  if (signup) signup.btn.disabled = true;
-  if (profile) profile.btn.disabled = true;
+function activated(state) {
+  if (state === false && firstCommandSent) return;
+  if (login) login.btn.disabled = state;
+  if (signup) signup.btn.disabled = state;
+  if (profile) profile.btn.disabled = state;
+}
+
+// 💬 Receive each response in full.
+function reply(text) {
+  firstCommandSent = true;
+  console.log("😀 Replied with:", text);
 }
 
 // 📰 Meta
@@ -572,6 +592,7 @@ export {
   sim,
   act,
   activated,
+  reply,
   meta,
 };
 export const system = "prompt:character"; // or "prompt:code"

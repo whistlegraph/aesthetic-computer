@@ -167,6 +167,10 @@ class Typeface {
 // An interactive text prompt object.
 class TextInput {
   #text; // text content
+  #lastPrintedText = ""; // a place to cache a previous reply
+  #lastUserText = ""; // cache the user's edited text
+
+  #shifting = false; // Whether we ar emoving the cursor or not.
 
   #renderSpaces = false; // Whether to render invisible space characters. " "
   //                        For debugging purposes.
@@ -300,6 +304,11 @@ class TextInput {
     this.#prompt.gutter = this.#prompt.colWidth * this.#prompt.blockWidth;
   }
 
+  // Reset the user text after a message is complete.
+  clearUserText() {
+    this.#lastUserText = "";
+  }
+
   // Snap cursor to the end of text.
   snap() {
     this.#prompt.snapTo(this.text);
@@ -415,6 +424,10 @@ class TextInput {
     if (!this.enter.btn.disabled) {
       this.enter.reposition({ right: 6, bottom: 6, screen: frame });
       this.enter.paint($);
+
+      if (this.enter.btn.down) {
+        $.ink(255, 0, 200, 64).box(0, 0, $.screen.width, $.screen.height, "in");
+      }
     }
 
     // Copy Button
@@ -466,7 +479,6 @@ class TextInput {
     if (store[this.key][0] !== this.text) store[this.key].unshift(this.text);
     // console.log("📚 Stored prompt history:", store[key]);
     store.persist(this.key); // Persist the history stack across tabs.
-
     // 🍎 Process commands for a given context, passing the text input.
     if (this.#autolock) this.lock = true; // TODO: This might be redundant now. 23.06.07.23.32
     await this.processCommand?.(this.text);
@@ -505,7 +517,6 @@ class TextInput {
     if (e.is("pasted:text") && this.lock === false && this.canType) {
       const paste = e.text;
       const index = this.#prompt.textPos();
-      console.log("Pos has new line:", this.#prompt.posHasNewLine());
 
       // Just add the text to the end.
       if (index === undefined) {
@@ -530,10 +541,14 @@ class TextInput {
     if (e.is("keyboard:down") && this.lock === false) {
       if (this.canType === false) {
         this.canType = true;
-        this.text = "";
+        this.#lastPrintedText = this.#text; // Remember last printed text.
+        if (this.#lastUserText.length > 0) {
+          this.text = this.#lastUserText;
+        } else {
+          this.blank("blink"); // Clear input and switch back to blink cursor.
+        }
         this.inputStarted = true;
         this.editableCallback?.(this);
-        this.#prompt.cursor = { x: 0, y: 0 };
       }
 
       if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
@@ -780,7 +795,7 @@ class TextInput {
       }
 
       if (e.key !== "Enter") {
-        this.activated?.(); // Run an activate callback.
+        this.activated?.(true); // Run an activate callback.
         this.copy.btn.disabled = true;
         if (this.text.length > 0) {
           this.enter.btn.disabled = false;
@@ -846,31 +861,68 @@ class TextInput {
     // if (e.is("focus")) {}
     // if (e.is("defocus")) {}
 
-    if (e.is("touch") && !this.lock && !this.inputStarted && !this.canType) {
-      $.send({ type: "keyboard:lock" });
+    if (
+      e.is("touch") &&
+      !this.lock &&
+      !this.inputStarted &&
+      !this.canType &&
+      !this.backdropTouchOff
+    ) {
+      this.enter.btn.down = true;
+      $.send({ type: "keyboard:unlock" });
     }
 
     // Begin the prompt input mode / leave the splash.
     function activate(ti) {
-      ti.activated?.();
-      ti.enter.btn.disabled = true;
+      ti.activated?.(true);
       if (ti.text.length > 0) {
         ti.copy.btn.disabled = true;
         ti.copy.btn.removeFromDom($, "copy");
       }
       ti.canType = true;
-      ti.blank("blink");
+      ti.#lastPrintedText = ti.#text; // Remember the last text.
+      if (ti.#lastUserText.length > 0) {
+        ti.text = ti.#lastUserText;
+        ti.runnable = true;
+      } else {
+        ti.blank("blink");
+        ti.enter.btn.disabled = true;
+      }
       ti.inputStarted = true;
       ti.editableCallback?.(ti);
       needsPaint();
-      $.send({ type: "keyboard:unlock" });
+      // $.send({ type: "keyboard:unlock" });
+    }
+
+    function deactivate(ti) {
+      ti.activated?.(false);
+      ti.enter.btn.disabled = false;
+      ti.inputStarted = false;
+      ti.canType = false;
+      ti.runnable = false;
+      ti.#lastUserText = ti.#text;
+      ti.text = ti.#lastPrintedText;
+      needsPaint();
+      // $.send({ type: "keyboard:lock" });
     }
 
     // TODO: Touching background as a button (but no other button)
     //       should activate the prompt.
 
+    if (e.is("touch") && (this.enter.btn.box.contains(e) || this.copy.btn.box.contains(e))) {
+      this.backdropTouchOff = true;
+    }
+
     if (
-      e.is("touch") &&
+      e.is("lift") &&
+      this.canType &&
+      this.inputStarted &&
+      !this.backdropTouchOff
+    ) {
+      // Deactivate...
+      deactivate(this);
+    } else if (
+      e.is("lift") &&
       !this.inputStarted &&
       !this.enter.btn.box.contains(e) &&
       !this.backdropTouchOff
@@ -878,8 +930,31 @@ class TextInput {
       activate(this);
     }
 
+    if (e.is("lift")) this.backdropTouchOff = false;
+
     // UI Button Actions
     if (!this.lock) {
+      // TODO: This could be part of rollover also.
+
+      // Enter Button...
+      if (
+        e.is("draw") &&
+        this.enter.btn.box.contains(e) &&
+        !this.enter.btn.down
+      ) {
+        $.send({ type: "keyboard:lock" });
+      }
+
+      // Copy Button...
+      if (
+        (e.is("draw") || e.is("touch")) &&
+        this.copy.btn.box.contains(e) // &&
+        //!this.copy.btn.down
+      ) {
+        // this.backdropTouchOff = true;
+        $.send({ type: "keyboard:lock" });
+      }
+
       // 🔲 Enter
       this.enter.btn.act(e, {
         down: () => {
@@ -898,10 +973,12 @@ class TextInput {
           needsPaint();
         },
         rollover: (btn) => {
+          console.log("roll over");
           if (btn) $.send({ type: "keyboard:unlock" });
           needsPaint();
         },
         rollout: () => {
+          console.log("roll out");
           $.send({ type: "keyboard:lock" });
           needsPaint();
         },
@@ -909,6 +986,7 @@ class TextInput {
       // 🔲 Copy
       this.copy.btn.act(e, {
         down: () => {
+          //$.send({ type: "keyboard:lock" });
           needsPaint();
         },
         push: () => {
@@ -943,20 +1021,25 @@ class TextInput {
       }, 500);
     }
 
-    if (e.is("clipboard:copy:failed")) {
-    }
+    // if (e.is("clipboard:copy:failed")) {
+    // }
 
     if (e.is("touch") && !this.lock) {
       this.blink.flip(true);
     }
 
-    if (e.is("lift") && !this.lock) {
+    if (e.is("lift") && !this.lock && this.#shifting) {
       this.moveDeltaX = 0;
       $.send({ type: "keyboard:unlock" });
     }
 
+    if (e.is("lift")) this.#shifting = false;
+
     if (e.is("draw") && !this.lock && this.canType && !this.enter.btn.down) {
       $.send({ type: "keyboard:lock" });
+
+      this.#shifting = true;
+      this.backdropTouchOff = true;
 
       if (
         (this.#moveDeltaX > 0 && e.delta.x < 0) ||

@@ -52,6 +52,7 @@ export async function prompt_boot(
       if (!$.jumping()) input.lock = false;
       if (halted) {
         messageComplete = true;
+        reply?.(input.text);
         $.needsPaint();
         return; // No more processing necessary.
       }
@@ -77,24 +78,24 @@ export async function prompt_boot(
           messageComplete = true;
           processing = input.lock = false;
           reply?.(input.text);
+          input.clearUserText();
           input.runnable = false;
           input.showButton();
           $.needsPaint();
         },
         function fail() {
           input.text = abortMessage;
+          $.needsPaint();
+          reply?.(input.text);
           processing = input.lock = false;
-          input.canType = true;
+          input.clearUserText();
           input.runnable = false;
-          if (input.text.length === 0) {
-          } else {
-            input.cursor = "stop";
+          if (input.text.length > 0) {
             messageComplete = true;
             input.showButton();
           }
         }
       );
-
     },
     {
       autolock: false,
@@ -165,7 +166,6 @@ export function prompt_act($) {
   if (!messageComplete && !processing && !inputHandled) input?.act($);
 
   if (messageComplete && e.is("keyboard:down")) {
-    input.blank("blink"); // Clear input and switch back to blink cursor.
     if (!inputHandled) input?.act($); // Capture any printable keystrokes.
     messageComplete = false;
   }
