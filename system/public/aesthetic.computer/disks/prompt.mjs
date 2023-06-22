@@ -505,6 +505,15 @@ function act({ event: e, api, needsPaint, net, screen, jump, system, send }) {
   signup?.btn.act(e, () => net.signup());
   profile?.btn.act(e, () => jump("profile"));
 
+  // TODO: ^ Move the events above to rollover events.
+  if (e.is("draw") &&
+    (login?.btn.box.contains(e) ||
+      signup?.btn.box.contains(e) ||
+      signup?.btn.box.contains(e))
+  ) {
+    send({ type: "keyboard:lock" });
+  }
+
   if (
     (e.is("touch") || e.is("lift")) &&
     (login?.btn.box.contains(e) ||

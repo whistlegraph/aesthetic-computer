@@ -855,7 +855,13 @@ class TextInput {
     // if (e.is("focus")) {}
     // if (e.is("defocus")) {}
 
-    if (e.is("touch") && !this.lock && !this.inputStarted && !this.canType && !this.backdropTouchOff) {
+    if (
+      e.is("touch") &&
+      !this.lock &&
+      !this.inputStarted &&
+      !this.canType &&
+      !this.backdropTouchOff
+    ) {
       $.send({ type: "keyboard:unlock" });
     }
 
@@ -921,6 +927,24 @@ class TextInput {
 
     // UI Button Actions
     if (!this.lock) {
+
+      // TODO: This could be part of rollover also.
+      if (
+        e.is("draw") &&
+        this.enter.btn.box.contains(e) &&
+        !this.enter.btn.down
+      ) {
+        $.send({ type: "keyboard:lock" });
+      }
+
+      if (
+        e.is("draw") &&
+        this.copy.btn.box.contains(e) &&
+        !this.copy.btn.down
+      ) {
+        $.send({ type: "keyboard:lock" });
+      }
+
       // 🔲 Enter
       this.enter.btn.act(e, {
         down: () => {
