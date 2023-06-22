@@ -375,14 +375,15 @@ function boot({ glaze, api, system, pieceCount, send, ui, screen, user }) {
   glaze({ on: true });
 
   // Create login & signup buttons.
-  if (!user && pieceCount === 0) {
+  // if (pieceCount === 0) {
+  if (!user) {
     login = new ui.TextButton("Log in", { center: "xy", screen });
     signup = new ui.TextButton("I'm new", { center: "xy", screen });
     positionWelcomeButtons(screen);
   }
-
   if (user && pieceCount === 0)
     profile = new ui.TextButton(user.name, { center: "xy", screen });
+  // }
 
   // Only if prompt is set to recall conversations.
   if (
@@ -396,6 +397,7 @@ function boot({ glaze, api, system, pieceCount, send, ui, screen, user }) {
 
   // Activate and reset input text if returning to the prompt from elsewhere.
   if (pieceCount > 0) {
+    activated(true);
     system.prompt.input.canType = true;
     system.prompt.input.text = "";
     system.prompt.input.enter.btn.disabled = true; // Disable button.
@@ -504,15 +506,13 @@ function act({ event: e, api, needsPaint, net, screen, jump, system }) {
   profile?.btn.act(e, () => jump("profile"));
 
   if (
-    e.is("touch") &&
+    (e.is("touch") || e.is("lift")) &&
     (login?.btn.box.contains(e) ||
       signup?.btn.box.contains(e) ||
       signup?.btn.box.contains(e))
   ) {
     system.prompt.input.backdropTouchOff = true;
   }
-
-  if (e.is("lift")) system.prompt.input.backdropTouchOff = false;
 
   if (e.is("reframed")) positionWelcomeButtons(screen);
 
@@ -548,10 +548,10 @@ function act({ event: e, api, needsPaint, net, screen, jump, system }) {
 // }
 
 // 🖥️ Run When the Prompt is activated.
-function activated() {
-  if (login) login.btn.disabled = true;
-  if (signup) signup.btn.disabled = true;
-  if (profile) profile.btn.disabled = true;
+function activated(state) {
+  if (login) login.btn.disabled = state;
+  if (signup) signup.btn.disabled = state;
+  if (profile) profile.btn.disabled = state;
 }
 
 // 📰 Meta
