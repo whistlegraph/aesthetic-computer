@@ -170,6 +170,8 @@ class TextInput {
   #lastPrintedText = ""; // a place to cache a previous reply
   #lastUserText = ""; // cache the user's edited text
 
+  #shifting = false; // Whether we ar emoving the cursor or not.
+
   #renderSpaces = false; // Whether to render invisible space characters. " "
   //                        For debugging purposes.
 
@@ -929,6 +931,8 @@ class TextInput {
     if (!this.lock) {
 
       // TODO: This could be part of rollover also.
+
+      // Enter Button...
       if (
         e.is("draw") &&
         this.enter.btn.box.contains(e) &&
@@ -937,6 +941,7 @@ class TextInput {
         $.send({ type: "keyboard:lock" });
       }
 
+      // Copy Button...
       if (
         e.is("draw") &&
         this.copy.btn.box.contains(e) &&
@@ -976,6 +981,7 @@ class TextInput {
       // 🔲 Copy
       this.copy.btn.act(e, {
         down: () => {
+          //$.send({ type: "keyboard:lock" });
           needsPaint();
         },
         push: () => {
@@ -1017,13 +1023,16 @@ class TextInput {
       this.blink.flip(true);
     }
 
-    if (e.is("lift") && !this.lock) {
+    if (e.is("lift") && !this.lock && this.#shifting) {
       this.moveDeltaX = 0;
-      // $.send({ type: "keyboard:unlock" });
+      this.#shifting = false;
+      $.send({ type: "keyboard:unlock" });
     }
 
     if (e.is("draw") && !this.lock && this.canType && !this.enter.btn.down) {
       $.send({ type: "keyboard:lock" });
+
+      this.#shifting = true;
       this.backdropTouchOff = true;
 
       if (
