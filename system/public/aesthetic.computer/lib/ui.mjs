@@ -76,6 +76,7 @@ class Button {
   disabled = false;
   icon;
   dom = false;
+  over = false; // Keep track of rollover state.
 
   // (x, y, width, height) or Box
   constructor() {
@@ -112,6 +113,7 @@ class Button {
     if (e.is("touch:any") && this.box.contains(e) && !this.down) {
       callbacks.down?.(this);
       this.down = true;
+      this.over = true;
     }
 
     // 3. Push: Trigger the button if we push it.
@@ -122,9 +124,11 @@ class Button {
       ) {
         callbacks.push?.(this);
         this.down = false;
+        this.over = false;
       } else if (this.box.containsNone(pens) || !this.box.contains(e)) {
         callbacks.cancel?.(this);
         this.down = false;
+        this.over = false;
       }
     }
 
@@ -132,18 +136,22 @@ class Button {
     //       which often differs among use cases such as pianos or general GUIs.
 
     // 4. Rollover: Run a rollover event if dragged on.
-    if (e.is("draw:any") && !this.down && this.box.contains(e)) {
+    // if (e.is("draw:any") && !this.down && this.box.contains(e)) {
+    if (e.is("draw:any") && !this.over && this.down && this.box.contains(e)) {
       callbacks.rollover?.(this);
+      this.over = true;
     }
 
     // 5. Rollout: Run a rollout event if dragged off.
     if (
       e.is("draw:any") &&
       this.down &&
+      this.over &&
       !this.box.contains(e) &&
       this.box.containsNone(pens)
     ) {
       callbacks.rollout?.(this);
+      this.over = false;
     }
   }
 

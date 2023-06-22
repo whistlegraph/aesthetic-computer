@@ -1527,11 +1527,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "keyboard:lock") {
       keyboardFocusLock = true;
+      // console.log("Keyboard LOCKED");
       return;
     }
 
     if (type === "keyboard:unlock") {
       keyboardFocusLock = false;
+      // console.log("Keyboard UNLOCKED");
       return;
     }
 

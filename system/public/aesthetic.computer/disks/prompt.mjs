@@ -499,7 +499,7 @@ function sim($) {
 }
 
 // 🎪 Act
-function act({ event: e, api, needsPaint, net, screen, jump, system }) {
+function act({ event: e, api, needsPaint, net, screen, jump, system, send }) {
   // Buttons
   login?.btn.act(e, () => net.login());
   signup?.btn.act(e, () => net.signup());
@@ -512,6 +512,7 @@ function act({ event: e, api, needsPaint, net, screen, jump, system }) {
       signup?.btn.box.contains(e))
   ) {
     system.prompt.input.backdropTouchOff = true;
+    send({ type: "keyboard:lock" });
   }
 
   if (e.is("reframed")) positionWelcomeButtons(screen);

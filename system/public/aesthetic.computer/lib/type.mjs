@@ -855,8 +855,8 @@ class TextInput {
     // if (e.is("focus")) {}
     // if (e.is("defocus")) {}
 
-    if (e.is("touch") && !this.lock && !this.inputStarted && !this.canType) {
-      // $.send({ type: "keyboard:lock" });
+    if (e.is("touch") && !this.lock && !this.inputStarted && !this.canType && !this.backdropTouchOff) {
+      $.send({ type: "keyboard:unlock" });
     }
 
     // Begin the prompt input mode / leave the splash.
@@ -878,7 +878,7 @@ class TextInput {
       ti.inputStarted = true;
       ti.editableCallback?.(ti);
       needsPaint();
-      $.send({ type: "keyboard:unlock" });
+      // $.send({ type: "keyboard:unlock" });
     }
 
     function deactivate(ti) {
@@ -890,7 +890,7 @@ class TextInput {
       ti.#lastUserText = ti.#text;
       ti.text = ti.#lastPrintedText;
       needsPaint();
-      $.send({ type: "keyboard:lock" });
+      // $.send({ type: "keyboard:lock" });
     }
 
     // TODO: Touching background as a button (but no other button)
@@ -939,10 +939,12 @@ class TextInput {
           needsPaint();
         },
         rollover: (btn) => {
+          console.log("roll over");
           if (btn) $.send({ type: "keyboard:unlock" });
           needsPaint();
         },
         rollout: () => {
+          console.log("roll out");
           $.send({ type: "keyboard:lock" });
           needsPaint();
         },
@@ -993,7 +995,7 @@ class TextInput {
 
     if (e.is("lift") && !this.lock) {
       this.moveDeltaX = 0;
-      $.send({ type: "keyboard:unlock" });
+      // $.send({ type: "keyboard:unlock" });
     }
 
     if (e.is("draw") && !this.lock && this.canType && !this.enter.btn.down) {
