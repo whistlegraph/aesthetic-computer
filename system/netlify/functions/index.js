@@ -48,11 +48,10 @@ async function fun(event, context) {
 
   // Externally hosted pieces always start with @.
   try {
-    if (slug.startsWith("@")) {
+    if (slug.startsWith("@") && slug.indexOf("/") !== -1) {
       const externalPiece = await getPage(
         `https://${parsed.host}/${parsed.path}.mjs`
       );
-      console.log(externalPiece);
       if (externalPiece?.code !== 200) return redirect;
     } else {
       // Locally hosted piece.
