@@ -18,11 +18,17 @@
 #endregion */
 
 import { HandInput } from "../lib/hand.mjs";
+
+let circle, plate, touching;
+
 // 🥾 Boot
 let handInput;
-function boot() {
+function boot({ num, geo, screen }) {
   // Runs once at the start.
   handInput = new HandInput();
+  const radius = 16;
+  // circle = new geo.Circle(num.randInt(screen.width), -radius, radius);
+  circle = new geo.Circle(screen.width / 2, screen.height / 2, radius);
 }
 
 // 🎨 Paint
@@ -33,9 +39,30 @@ function paint($) {
     screen: { height },
   } = $;
   wipe(127);
+  
+  handInput.paint($, { faded: plate !== undefined }); // Uses calculated points.
+  if (plate) {
+    ink(255, 96).pline(
+      [
+        { x: plate[0][0], y: plate[0][1] },
+        { x: plate[1][0], y: plate[1][1] },
+      ],
+      12
+    );
+    ink(255).line(...plate);
+  }
+  let circleColor = touching ? [255, 0, 0] : "blue"; 
+  ink(circleColor).circle(circle.x, circle.y, circle.radius, true);
+  ink(255, 255, 0).circle(circle.x, circle.y, circle.radius);
+}
+
+// 🧮 Sim
+function sim($) {
+  handInput.sim($); // Calculate the hand points.
+  // Runs once per logic frame. (120fps locked.)
+//   circle.y += 0.1; 
 
   const timop = handInput.timop;
-  let plate;
 
   if (timop.length > 0) {
     const t = timop[0],
@@ -52,26 +79,13 @@ function paint($) {
       p[1] < m[1] &&
       p[1] < o[1] // and p is higher than imo
     ) {
-      plate = true;
+      plate = [timop[0], timop[4]];
+      touching = circle.online(...plate[0], ...plate[1]);
+    } else {
+      plate = undefined;
     }
   }
-  handInput.paint($, { faded: plate }); // Uses calculated points.
-  if (plate) {
-    ink(255, 96).pline(
-      [
-        { x: timop[0][0], y: timop[0][1] },
-        { x: timop[4][0], y: timop[4][1] },
-      ],
-      12
-    );
-    ink("white").line(timop[0], timop[4]);
-  }
-}
-
-// 🧮 Sim
-function sim($) {
-  handInput.sim($); // Calculate the hand points.
-  // Runs once per logic frame. (120fps locked.)
+  
 }
 
 // 🎪 Act
