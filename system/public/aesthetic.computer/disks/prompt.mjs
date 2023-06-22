@@ -376,15 +376,14 @@ function boot({ glaze, api, system, pieceCount, send, ui, screen, user }) {
   glaze({ on: true });
 
   // Create login & signup buttons.
-  // if (pieceCount === 0) {
-  if (!user) {
-    login = new ui.TextButton("Log in", { center: "xy", screen });
-    signup = new ui.TextButton("I'm new", { center: "xy", screen });
-    positionWelcomeButtons(screen);
+  if (pieceCount === 0) {
+    if (!user) {
+      login = new ui.TextButton("Log in", { center: "xy", screen });
+      signup = new ui.TextButton("I'm new", { center: "xy", screen });
+      positionWelcomeButtons(screen);
+    }
+    if (user) profile = new ui.TextButton(user.name, { center: "xy", screen });
   }
-  if (user && pieceCount === 0)
-    profile = new ui.TextButton(user.name, { center: "xy", screen });
-  // }
 
   // Only if prompt is set to recall conversations.
   if (
