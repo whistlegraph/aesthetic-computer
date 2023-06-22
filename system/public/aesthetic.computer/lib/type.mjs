@@ -904,7 +904,7 @@ class TextInput {
     // TODO: Touching background as a button (but no other button)
     //       should activate the prompt.
 
-    if (e.is("touch") && this.enter.btn.box.contains(e)) {
+    if (e.is("touch") && (this.enter.btn.box.contains(e) || this.copy.btn.box.contains(e))) {
       this.backdropTouchOff = true;
     }
 
@@ -929,7 +929,6 @@ class TextInput {
 
     // UI Button Actions
     if (!this.lock) {
-
       // TODO: This could be part of rollover also.
 
       // Enter Button...
@@ -943,10 +942,11 @@ class TextInput {
 
       // Copy Button...
       if (
-        e.is("draw") &&
-        this.copy.btn.box.contains(e) &&
-        !this.copy.btn.down
+        (e.is("draw") || e.is("touch")) &&
+        this.copy.btn.box.contains(e) // &&
+        //!this.copy.btn.down
       ) {
+        // this.backdropTouchOff = true;
         $.send({ type: "keyboard:lock" });
       }
 
@@ -1016,8 +1016,8 @@ class TextInput {
       }, 500);
     }
 
-    if (e.is("clipboard:copy:failed")) {
-    }
+    // if (e.is("clipboard:copy:failed")) {
+    // }
 
     if (e.is("touch") && !this.lock) {
       this.blink.flip(true);
