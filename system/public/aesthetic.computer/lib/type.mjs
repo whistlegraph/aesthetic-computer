@@ -856,7 +856,7 @@ class TextInput {
     // if (e.is("defocus")) {}
 
     if (e.is("touch") && !this.lock && !this.inputStarted && !this.canType) {
-      $.send({ type: "keyboard:lock" });
+      // $.send({ type: "keyboard:lock" });
     }
 
     // Begin the prompt input mode / leave the splash.
