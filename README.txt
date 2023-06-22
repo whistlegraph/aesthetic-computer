@@ -67,6 +67,9 @@
 *** Camera ***
   - [-] Simply get the camera working again, with a chooser.
 
+*** Corner Word ***
+  - [] Tapping the word in the corner should bring up the keyboard by default.
+
 *** Whistle ***
   - [-] Get whistle working on iOS.
 

@@ -2781,8 +2781,8 @@ async function makeFrame({ data: { type, content } }) {
             down: () => {
               originalColor = currentHUDTextColor;
               currentHUDTextColor = [0, 255, 0];
-              // send({ type: "keyboard:enabled" }); // Tricky enabling of keyboard flag.
-              // send({ type: "keyboard:unlock" });
+              send({ type: "keyboard:enabled" }); // Enable keyboard flag.
+              send({ type: "keyboard:unlock" });
             },
             push: () => {
               jump("prompt");
