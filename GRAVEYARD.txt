@@ -1,4 +1,10 @@
 🪦 Completed Tasks (dumped from `README.txt`)
+
+*** Camera ***
+  - [x] Simply get the camera working again, with a chooser.
+
+*** Corner Word ***
+  - [x] Tapping the word in the corner should bring up the keyboard by default.
    
 *** Login + Sign-up Buttons ***
   + Done

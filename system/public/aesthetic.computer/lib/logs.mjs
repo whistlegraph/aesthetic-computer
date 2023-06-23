@@ -9,4 +9,5 @@ export const logs = {
   session: true, // Socket session.
   download: false, // Download progress, etc. (JSON)
   audio: true,
+  hid: false,
 };

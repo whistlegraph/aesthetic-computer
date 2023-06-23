@@ -103,7 +103,6 @@ function paint({ ink, system: { nopaint } }) {
   // Rendering commands to write to screen and painting.
   function print({ x, y }) {
     // Shadow
-    /*
     const shadow = 1;
     ink(0, 50).write(text, {
       x: x + shadow,
@@ -113,7 +112,6 @@ function paint({ ink, system: { nopaint } }) {
       thickness,
       rotation: 0,
     });
-    */
 
     // Text
     ink(color).write(text, {
@@ -136,7 +134,6 @@ function paint({ ink, system: { nopaint } }) {
 
 // 🍪 Prints to the current painting.
 function bake() {
-  console.log("baking");
   word?.();
 }
 

@@ -541,7 +541,7 @@ class TextInput {
     }
 
     // ⌨️ Add text via the keyboard.
-    if (e.is("keyboard:down") && this.lock === false) {
+    if (e.is("keyboard:down") && this.lock === false && !this.enter.btn.down) {
       if (this.canType === false) {
         this.canType = true;
         this.#lastPrintedText = this.#text; // Remember last printed text.
@@ -871,8 +871,7 @@ class TextInput {
       !this.inputStarted &&
       !this.canType &&
       !this.backdropTouchOff &&
-      (this.copy.btn.disabled === true || 
-      !this.copy.btn.box.contains(e))
+      (this.copy.btn.disabled === true || !this.copy.btn.box.contains(e))
     ) {
       this.enter.btn.down = true;
       $.send({ type: "keyboard:unlock" });
@@ -908,10 +907,17 @@ class TextInput {
       ti.canType = false;
       ti.runnable = false;
       ti.#lastUserText = ti.#text;
+
+      if (ti.#lastPrintedText.length === 0) {
+        // Get user input text to appear on a blank prompt return,
+        // along with the copy button.
+        ti.#lastPrintedText = ti.#lastUserText;
+        ti.commandSentOnce = true;
+      }
       ti.text = ti.#lastPrintedText;
       if (ti.#lastPrintedText.length > 0 && ti.commandSentOnce) {
         ti.copy.btn.disabled = false;
-        console.log(ti.historyDepth);
+        this.#coatedCopy = this.#coatCopy(this.text); // Wrap text to be copied.
       }
       needsPaint();
       // $.send({ type: "keyboard:lock" });

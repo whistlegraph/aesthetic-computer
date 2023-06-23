@@ -64,23 +64,23 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Camera ***
-  - [-] Simply get the camera working again, with a chooser.
-
-*** Corner Word ***
-  - [] Tapping the word in the corner should bring up the keyboard by default.
-
-*** Whistle ***
-  - [-] Get whistle working on iOS.
-
 *** sfx ***
-  - [💛] Add startup sound and keyboard sound.
-    - [] Test this sound playback on Firefox.
+  - [💛] Add startup sound to first enter button press. 
+  - [] And add keyboard sounds to prompt system.
+  - [] Test this sound playback on Firefox.
   + Done
   - [x] Make sure `sfx` clears any remotely loaded sounds?
     - [x] Just whitelist sounds for now.
   - [x] Fix and test `sfx` in Safari.
         (Was production related?)
+
+** Drag + Drop Coding ***
+  - [] Type `code piece-name` to get a template
+       piece downloaded, or get the current version of an existing piece. 
+  - [] Drag and drop an `*.mjs` file onto aesthetic.computer to
+       replace or add a piece with your version.
+  - [] Open and edit this file to get live updates whenever the window
+       regains focus. (Or automatically, via an export flag.)
 
 *** Profiles and Handles *** 
   - [] Fix `handle` setting in all cases / make it work better.
@@ -90,13 +90,8 @@
   - [] Allow people to set a status.
     - [] Where to store this?
 
-** Drag + Drop Coding ***
-  - [] Type `code piece-name` to get a template
-       piece downloaded, or get the current version of an existing piece. 
-  - [] Drag and drop an `*.mjs` file onto aesthetic.computer to
-       replace or add a piece with your version.
-  - [] Open and edit this file to get live updates whenever the window
-       regains focus. (Or automatically, via an export flag.)
+*** Whistle ***
+  - [-] Get whistle working on iOS.
 
 *plot* (new launch fonts)
   - [-] Make the UI responsive based on grid and scale and window size.
