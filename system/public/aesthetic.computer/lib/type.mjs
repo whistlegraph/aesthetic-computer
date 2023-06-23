@@ -2,58 +2,58 @@
 // Abstraction for typography and text input.
 
 /* #region 🏁 todo
- + Next Version of `TextInput` (before recording)
- - [-] Add multi-select / shift+select to replace or modify whole regions. 
- + Later
- - [] Add tab auto-completion feature that can be side-loaded with contextual
-      data based on where the text module is used.
- - [] Make history on message input optional?
- - [] Gracefully allow for multiple instances of TextInput in a single piece? 
- + Done
- - [x] Add support for spaces to be inserted before the
-      first character.
- - [x] Add support for creating line breaks.
- - [x] Word break edge cases.
-   (Insertion + Deletion)
-   - [x] Backspacing characters at the start character of the broken
-         word should remove all extraneous space before the next word...
-   - [x] Adding spaces on the start character of a broken word *should*
-         increase the number of spaces by default...
-   - [x] A full length word appearing on a line after a break
-         will jump the line wrong and the cursor wrong.
-   - [x] Creating new lines (SHIFT+ENTER) at the start of broken words should
-         create an extra new line.
- - [x] Enter after a reply does not clear the cursor posiiton Enter after a reply does not clear the cursor position.
- - [x] Don't Backspace when cursor is on first character. 
- - [x] Test line break printing again.
-  - [x] Word wrapping.
-  - [x] Character wrapping.
- - [x] Get character wrapping working.
- - [x] Can't move cursor to the right when under a single character text.
- - [x] Disallow opening spaces.
- - [x] Rewrite paste to work. 
- - [x] Test movable cursor again.
- - [x] Add debug flag for drawing of spaces.
- - [x️‍] Scrubbing does not respect word wrapping.
- - [x] Infinite loop while adding spaces before the first character of the
-       first line.
- - [x] Adding space between two words / causing a break from inside will
-       shove the cursor to the top left.
- - [x] Backspacing the cursor on the first character of any line
-       doesn't work.
- - [x] The cursor does not jump accordingly when inserting a character
-       inside a word that will break it to the next line.
- - [x‍] Re-calculate gutter on resize.
- - [x] Add a gutter command to change the prompt gutter.
- - [x] Moving cursor to the right does not respect word breaks
- - [x] Draw glyphs under the moved cursor.
- - [x] "`" hotkeying back should start with the cursor non-visible.
- - [x] Receiving a bot reply should update the spinner. 
- - [x] Pressing return should reset the cursor and just work...
- - [😃] Rewrite Prompt with index maps to finish word wrapping support.
- - [x] Upcycling commands should reset the cursor position.
- - [x] Add different colors to "print" / storing the ink color / writing
-      a backdrop somehow... maybe using layer?
+  + Next Version of `TextInput` (before recording)
+  - [-] Add multi-select / shift+select to replace or modify whole regions. 
+  + Later
+  - [] Add tab auto-completion feature that can be side-loaded with contextual
+       data based on where the text module is used.
+  - [] Make history on message input optional?
+  - [] Gracefully allow for multiple instances of TextInput in a single piece? 
+  + Done
+  - [x] Add support for spaces to be inserted before the
+       first character.
+  - [x] Add support for creating line breaks.
+  - [x] Word break edge cases.
+    (Insertion + Deletion)
+    - [x] Backspacing characters at the start character of the broken
+          word should remove all extraneous space before the next word...
+    - [x] Adding spaces on the start character of a broken word *should*
+          increase the number of spaces by default...
+    - [x] A full length word appearing on a line after a break
+          will jump the line wrong and the cursor wrong.
+    - [x] Creating new lines (SHIFT+ENTER) at the start of broken words should
+          create an extra new line.
+  - [x] Enter after a reply does not clear the cursor posiiton Enter after a reply does not clear the cursor position.
+  - [x] Don't Backspace when cursor is on first character. 
+  - [x] Test line break printing again.
+   - [x] Word wrapping.
+   - [x] Character wrapping.
+  - [x] Get character wrapping working.
+  - [x] Can't move cursor to the right when under a single character text.
+  - [x] Disallow opening spaces.
+  - [x] Rewrite paste to work. 
+  - [x] Test movable cursor again.
+  - [x] Add debug flag for drawing of spaces.
+  - [x️‍] Scrubbing does not respect word wrapping.
+  - [x] Infinite loop while adding spaces before the first character of the
+        first line.
+  - [x] Adding space between two words / causing a break from inside will
+        shove the cursor to the top left.
+  - [x] Backspacing the cursor on the first character of any line
+        doesn't work.
+  - [x] The cursor does not jump accordingly when inserting a character
+        inside a word that will break it to the next line.
+  - [x‍] Re-calculate gutter on resize.
+  - [x] Add a gutter command to change the prompt gutter.
+  - [x] Moving cursor to the right does not respect word breaks
+  - [x] Draw glyphs under the moved cursor.
+  - [x] "`" hotkeying back should start with the cursor non-visible.
+  - [x] Receiving a bot reply should update the spinner. 
+  - [x] Pressing return should reset the cursor and just work...
+  - [😃] Rewrite Prompt with index maps to finish word wrapping support.
+  - [x] Upcycling commands should reset the cursor position.
+  - [x] Add different colors to "print" / storing the ink color / writing
+       a backdrop somehow... maybe using layer?
 #endregion */
 
 import { font1 } from "../disks/common/fonts.mjs";
@@ -567,6 +567,7 @@ class TextInput {
         this.editableCallback?.(this);
       }
 
+      // 🔡 Inserting an individual character.
       if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
         // if (this.text === "" && e.key === " ") {
         //   this.blink.flip(true);
@@ -575,9 +576,7 @@ class TextInput {
 
         // Printable keys with subbed punctuation.
         let insert = e.key.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
-
-        let index = this.#prompt.textPos(); // TODO: This needs to present doubled up
-        //                                           characters in the right order.
+        let index = this.#prompt.textPos();
 
         const char = this.text[index];
         const newLine = char?.charCodeAt(0) === 10;
@@ -870,7 +869,6 @@ class TextInput {
     // if (e.is("keyboard:open") && this.inputStarted) this.canType = true;
     if (e.is("keyboard:open")) {
       activate(this);
-      // this.text = "KEYBOARD OPENED";
     }
 
     if (e.is("keyboard:close")) {
@@ -879,7 +877,6 @@ class TextInput {
 
     // if (e.is("defocus")) {
     // deactivate(this);
-    // console.log("deofuzed");
     // }
 
     if (
@@ -896,6 +893,10 @@ class TextInput {
 
     // Begin the prompt input mode / leave the splash.
     function activate(ti) {
+      if (ti.canType) {
+        if (debug) console.log("✔️✍️ TextInput already activated.");
+        return;
+      }
       ti.activated?.(true);
       ti.enter.btn.down = false;
       // ti.activatedOnce = true;
@@ -921,7 +922,7 @@ class TextInput {
     function deactivate(ti) {
       if (ti.canType === false) {
         // Assume we are already deactivated.
-        if (debug) console.log("✍️ TextInput already deactivated.");
+        if (debug) console.log("❌✍️ TextInput already deactivated.");
         return;
       }
       ti.activated?.(false);
