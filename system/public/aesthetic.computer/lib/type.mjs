@@ -263,7 +263,7 @@ class TextInput {
       floor($.screen.width / 6) - 2 // colWidth
     );
 
-    this.text = text;
+    this.print(text); // Set initial text.
 
     this.startingInput = this.text;
     this.scheme = options.scheme || {
@@ -327,9 +327,22 @@ class TextInput {
     this.flow();
   }
 
+  print(text) {
+    this.text = text;
+    this.bakePrintedText();
+  }
+
+  bakePrintedText() {
+    this.#lastPrintedText = this.text;
+  }
+
+  // clearPrintedText() {
+  //   this.#lastPrintedText = "";
+  // }
+
   // Reflow the input text.
   flow() {
-    this.#prompt.mapTo(this.#text); // Rebuild the text map index.
+    this.#prompt.mapTo(this.text); // Rebuild the text map index.
   }
 
   // Return the text contents of the input.
@@ -484,7 +497,7 @@ class TextInput {
     if (this.#autolock) this.lock = true; // TODO: This might be redundant now. 23.06.07.23.32
     await this.processCommand?.(this.text);
     this.commandSentOnce = true;
-    this.enter.btn.down = false; // Make sure the  Enter button is released.
+    // this.enter.btn.down = false; // Make sure the Enter button is released.
     if (this.#autolock) this.lock = false;
   }
 
@@ -544,7 +557,7 @@ class TextInput {
     if (e.is("keyboard:down") && this.lock === false && !this.enter.btn.down) {
       if (this.canType === false) {
         this.canType = true;
-        this.#lastPrintedText = this.#text; // Remember last printed text.
+        this.#lastPrintedText = this.text; // Remember last printed text.
         if (this.#lastUserText.length > 0) {
           this.text = this.#lastUserText;
         } else {
@@ -855,15 +868,19 @@ class TextInput {
     // Handle activation / focusing of the input
     // (including os-level software keyboard overlays)
     // if (e.is("keyboard:open") && this.inputStarted) this.canType = true;
-    // if (e.is("keyboard:open")) {}
+    if (e.is("keyboard:open")) {
+      activate(this);
+      // this.text = "KEYBOARD OPENED";
+    }
 
-    // if (e.is("keyboard:close")) {
-    //  console.log("keyboard close...");
-    //  $.send({ type: `keyboard:${!this.lock ? "unlock" : "lock"}` });
+    if (e.is("keyboard:close")) {
+      deactivate(this);
+    }
+
+    // if (e.is("defocus")) {
+    // deactivate(this);
+    // console.log("deofuzed");
     // }
-
-    // if (e.is("focus")) {}
-    // if (e.is("defocus")) {}
 
     if (
       e.is("touch") &&
@@ -880,13 +897,14 @@ class TextInput {
     // Begin the prompt input mode / leave the splash.
     function activate(ti) {
       ti.activated?.(true);
+      ti.enter.btn.down = false;
       // ti.activatedOnce = true;
       if (ti.text.length > 0) {
         ti.copy.btn.disabled = true;
         ti.copy.btn.removeFromDom($, "copy");
       }
       ti.canType = true;
-      ti.#lastPrintedText = ti.#text; // Remember the last text.
+      ti.#lastPrintedText = ti.text;
       if (ti.#lastUserText.length > 0) {
         ti.text = ti.#lastUserText;
         ti.runnable = true;
@@ -901,23 +919,30 @@ class TextInput {
     }
 
     function deactivate(ti) {
+      if (ti.canType === false) {
+        // Assume we are already deactivated.
+        if (debug) console.log("✍️ TextInput already deactivated.");
+        return;
+      }
       ti.activated?.(false);
       ti.enter.btn.disabled = false;
       ti.inputStarted = false;
       ti.canType = false;
       ti.runnable = false;
-      ti.#lastUserText = ti.#text;
+      ti.#lastUserText = ti.text;
+      ti.backdropTouchOff = false;
 
-      if (ti.#lastPrintedText.length === 0) {
-        // Get user input text to appear on a blank prompt return,
-        // along with the copy button.
-        ti.#lastPrintedText = ti.#lastUserText;
-        ti.commandSentOnce = true;
-      }
+      // if (ti.#lastPrintedText.length === 0) {
+      //   // Get user input text to appear on a blank prompt return,
+      //   // along with the copy button.
+      //   ti.#lastPrintedText = ti.#lastUserText;
+      //   ti.commandSentOnce = true;
+      // }
+
       ti.text = ti.#lastPrintedText;
       if (ti.#lastPrintedText.length > 0 && ti.commandSentOnce) {
         ti.copy.btn.disabled = false;
-        this.#coatedCopy = this.#coatCopy(this.text); // Wrap text to be copied.
+        ti.#coatedCopy = ti.#coatCopy(ti.text); // Wrap text to be copied.
       }
       needsPaint();
       // $.send({ type: "keyboard:lock" });
@@ -932,23 +957,6 @@ class TextInput {
         (this.copy.btn.disabled === false && this.copy.btn.box.contains(e)))
     ) {
       this.backdropTouchOff = true;
-    }
-
-    if (
-      e.is("lift") &&
-      this.canType &&
-      this.inputStarted &&
-      !this.backdropTouchOff
-    ) {
-      // Deactivate...
-      deactivate(this);
-    } else if (
-      e.is("lift") &&
-      !this.inputStarted &&
-      !this.enter.btn.box.contains(e) &&
-      !this.backdropTouchOff
-    ) {
-      activate(this);
     }
 
     if (e.is("lift")) this.backdropTouchOff = false;

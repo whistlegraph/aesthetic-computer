@@ -1127,6 +1127,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
          * keyboard on touchscreen devices like iPhones and iPads.
          * *Only works in "disks/prompt".
          */
+        let keyboardOpen = false;
         const input = document.createElement("input");
         const form = document.createElement("form");
         form.id = "software-keyboard-input-form";
@@ -1226,11 +1227,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         window.addEventListener("focusout", (e) => {
-          input.blur();
+          // console.log("FOCUS OUT");
+          // input.blur();
         });
 
-        window.addEventListener("focus", (e) => {
-          // e.preventDefault();
+        window.addEventListener("blur", (e) => {
+          input.blur();
         });
 
         window.addEventListener("pointerdown", (e) => {
@@ -1238,17 +1240,35 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         window.addEventListener("pointerup", (e) => {
+
+          if (keyboard.needsImmediateOpen) {
+            input.focus();
+            keyboard.needsImmediateOpen = false;
+            return;
+          }
+
           if (currentPieceHasKeyboard) e.preventDefault();
+
+          if (e.target === window) return; // This prevents.
+
           if (currentPieceHasKeyboard && !keyboardFocusLock) {
-            document.activeElement !== input ? input.focus() : input.blur();
+            if (keyboardOpen) {
+              input.blur();
+            } else {
+              input.focus();
+            }
           }
         });
 
+        input.addEventListener("pointerdown", (e) => {});
+
         input.addEventListener("focus", (e) => {
+          keyboardOpen = true;
           keyboard.events.push({ name: "keyboard:open" });
         });
 
         input.addEventListener("blur", (e) => {
+          keyboardOpen = false;
           keyboard.events.push({ name: "keyboard:close" });
         });
       }
@@ -1527,8 +1547,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "keyboard:disabled") {
+      currentPieceHasKeyboard = false;
+      return;
+    }
+
     if (type === "keyboard:close") {
       keyboard?.input.blur();
+      return;
+    }
+
+    if (type === "keyboard:open") {
+      keyboard?.input.focus();
+      // if (keyboard) keyboard.needsImmediateOpen = true; // For iOS.
       return;
     }
 

@@ -9,6 +9,7 @@ export class Keyboard {
   #lastKeyDown;
   input;
   #held = new Set();
+  needsImmediateOpen = false;
 
   constructor(getCurrentPiece) {
     window.addEventListener("keydown", (e) => {

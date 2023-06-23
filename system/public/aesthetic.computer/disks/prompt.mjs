@@ -390,8 +390,11 @@ function boot({ glaze, api, system, pieceCount, send, ui, screen, user }) {
     !system.prompt.convo.messages ||
     system.prompt.convo.messages?.length === 0
   ) {
-    system.prompt.input.text = makeMotd(api); // Override prompt with motd if
-    //                                           no conversation is present.
+    if (pieceCount === 0) {
+      system.prompt.input.print(makeMotd(api)); // Override prompt with motd if
+      //                                           no conversation is present.
+    }
+
     system.prompt.input.showButton({ nocopy: true });
   }
 

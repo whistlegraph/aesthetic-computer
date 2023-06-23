@@ -161,7 +161,6 @@ class Button {
   }
 
   enableIf(flag) {
-    console.log("BUTTON IS DISABLED?");
     this.disabled = !flag;
   }
 }

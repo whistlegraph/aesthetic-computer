@@ -53,6 +53,7 @@ export async function prompt_boot(
       if (halted) {
         messageComplete = true;
         reply?.(input.text);
+        input.bakePrintedText();
         $.needsPaint();
         return; // No more processing necessary.
       }
@@ -78,6 +79,7 @@ export async function prompt_boot(
           messageComplete = true;
           processing = input.lock = false;
           reply?.(input.text);
+          input.bakePrintedText();
           input.clearUserText();
           input.runnable = false;
           input.showButton();
@@ -87,8 +89,9 @@ export async function prompt_boot(
           input.text = abortMessage;
           $.needsPaint();
           reply?.(input.text);
+          //input.#lastPrintedText = input.text;
           processing = input.lock = false;
-          input.clearUserText();
+          input.bakePrintedText();
           input.runnable = false;
           if (input.text.length > 0) {
             messageComplete = true;

@@ -2781,10 +2781,13 @@ async function makeFrame({ data: { type, content } }) {
             down: () => {
               originalColor = currentHUDTextColor;
               currentHUDTextColor = [0, 255, 0];
+
+              // This is gonna be weird...
               send({ type: "keyboard:enabled" }); // Enable keyboard flag.
               send({ type: "keyboard:unlock" });
             },
             push: () => {
+              // send({ type: "keyboard:open" });
               jump("prompt");
               // pieceHistoryIndex > 0
               //   ? send({ type: "back-to-piece" })
@@ -2792,6 +2795,8 @@ async function makeFrame({ data: { type, content } }) {
             },
             cancel: () => {
               currentHUDTextColor = originalColor;
+              send({ type: "keyboard:disabled" }); // Enable keyboard flag.
+              send({ type: "keyboard:lock" }); // Enable keyboard flag.
               // send({ type: "keyboard:lock" });
             },
             rollover: (btn) => {
@@ -2870,8 +2875,11 @@ async function makeFrame({ data: { type, content } }) {
             data.key === "`" &&
             currentPath !== "aesthetic.computer/disks/prompt"
           ) {
-            // Load prompt if the backtic is pressed.
-            $api.load(parse("prompt"));
+            // $api.send({ type: "keyboard:enabled" }); // Enable keyboard flag.
+            // $api.send({ type: "keyboard:unlock" });
+            // Jump to prompt if the backtic is pressed.
+            send({ type: "keyboard:open" });
+            $api.jump("prompt");
           }
 
           // [Ctrl + X]
