@@ -1491,7 +1491,7 @@ async function load(
   $commonApi.debug = debug;
 
   // Add reload to the common api.
-  $commonApi.reload = ({ piece, code } = {}) => {
+  $commonApi.reload = ({ piece, name, source } = {}) => {
     if (loading) {
       console.log("🟡 A piece is already loading.");
       return;
@@ -1500,10 +1500,10 @@ async function load(
     if (piece === "*refresh*") {
       console.log("💥️ Restarting system...");
       send({ type: "refresh" }); // Refresh the browser.
-    } else if (piece === "code") {
+    } else if (name && source) {
+      // TODO: Check for existence of `name` and `source` is hacky. 23.06.24.19.27
       // Note: This is used for live development via the socket server.
-      console.log(code, "💾️ Reloading code...");
-      $commonApi.load({ ...parse("code"), source: code }); // Load source code.
+      $commonApi.load({ source, name }); // Load source code.
     } else if (piece === "*" || piece === undefined || currentText === piece) {
       console.log("💾️ Reloading piece...", piece);
       const devReload = true;

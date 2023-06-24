@@ -7,7 +7,7 @@
     "vscode": "^1.74.2"
   },
   "scripts": {
-    "reload": "npm run build; npm run install;",
+    "reload": "npm run build; npm run install:ext;",
     "build": "vsce package",
     "install:ext": "code --install-extension aesthetic-computer-code-1.0.0.vsix",
     "publish": "vsce publish"
@@ -42,7 +42,7 @@
     "viewsWelcome": [
       {
         "view": "piece",
-        "contents": "With any file open, push... \n[Run Piece ➡️](command:aestheticComputer.runPiece)"
+        "contents": "With any piece open, push... \n[Run Piece ➡️](command:aestheticComputer.runPiece)"
       }
     ]
   },

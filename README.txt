@@ -70,6 +70,7 @@
        📗 Research:
        - This is not possible unless I publish an Electron app.
        - Or I could map it to the existing VSCode plugin.
+        - [] Look at this code again.
        - Or I could try to embed VSCode or another similar editor somehow.
   + Done
   - [x] Drag and drop a `*.mjs` file onto aesthetic.computer to

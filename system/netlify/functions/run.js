@@ -3,8 +3,7 @@
 // Designed to work alongside `vscode-extension`.
 
 /* #region todo 📓 
-  - [💛] Send a request to Redis or something else that immediately
-       loads this piece...
+  - [] Pieces to not reload twice after button change.
 #endregion */
 
 import { createClient } from "redis";
@@ -23,8 +22,6 @@ async function fun(event) {
     try {
       const body = JSON.parse(event.body);
 
-      console.log(body);
-
       // 🚗 TODO
       // Send a redis request or socket message containing the
       // piece code.
@@ -36,8 +33,12 @@ async function fun(event) {
 
       //try {
       // await client.SET("code", body);
-      //console.log(body.code);
-      await client.publish(body.piece, body.source);
+      console.log("PIECE:", body.piece);
+      await client.publish(
+        "code",
+        JSON.stringify({ piece: body.piece, source: body.source })
+      );
+      //await client.publish("code", { piece: body.piece, code: body.source });
 
       // } catch (err) {
       //console.log("Error setting message:", err);
