@@ -1,5 +1,15 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** sfx ***
+  + Done
+  - [x] Test this sound playback on Firefox.
+  - [x] Add startup sound to first enter button press. 
+  - [x] And add keyboard sounds to prompt system.
+  - [x] Make sure `sfx` clears any remotely loaded sounds?
+    - [x] Just whitelist sounds for now.
+  - [x] Fix and test `sfx` in Safari.
+        (Was production related?)
+
 *** Camera ***
   - [x] Simply get the camera working again, with a chooser.
 

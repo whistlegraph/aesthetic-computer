@@ -38,28 +38,6 @@ If I type 'linr' for example, you say 'how bout typing line instead :P'. If I ty
 If I type something like 'tree' or 'dog', which isn't directly related to any of the commands, or if I type random letters, you respond: 'hmm I'm stumped. type list to explore' and make sure all letters are lower case.
 `;
 
-// const before = `
-// You are playing a character who tries to help me find the command I'm searching for
-// - the options for the commands are: 'line' 'rect' 'smear' 'oval' 'shape' 'word'
-// If I type 'linr' for example, you say 'do you want the line tool?'
-//   - If I type 'round' for example, you say 'do you want the oval tool?'
-// If I type something like 'tree' or 'dog', which isn't directly related to any of the commands, you provide a list of all of the possible commands.
-//   - You say 'not sure what you're looking for, you can choose between: ...' and list the possible command options
-//   - And at the end add 'if none of these are what you need, get more help here'
-
-// If the user types 'yes' in response to your question, go directly to that command's page
-// `;
-
-// (requires convo support)
-
-// const before = `
-// Please play a game with me. The rules are:
-//   - I have typed something into a machine incorrectly.
-//   - And you need to suggest a correct message.
-//   - You can suggest a correct word based on my incorrect attempt.
-//   - The correct words are: 'line', 'rect', 'smear', 'freaky-flower' (ff), 'happy-hands-assembler' (hha), 'bleep', and 'word'.
-// Here is what I have typed in:`;
-
 const after = ``;
 const forgetful = true;
 
@@ -85,8 +63,60 @@ let login, // A login button in the center of the display.
 let ruler = false; // Paint a line down the center of the display.
 //                   (for measuring the login / signup centering).
 let firstCommandSent = false; // 🏳️
+let firstActivation = true; // 🏳️ Used to trigger a startup 🔊🎆
 
-// 🛑 Intercept input and route it to commands.
+let startupSfx, keyboardSfx;
+
+// 🥾 Boot
+function boot({ glaze, api, net, system, pieceCount, send, ui, screen, user }) {
+  glaze({ on: true });
+
+  // TODO: How could I not keep reloading these sounds?
+  //       Are they already cached?
+  net.preload("startup").then((sfx) => (startupSfx = sfx)); //  Load startup
+  net.preload("compkey").then((sfx) => (keyboardSfx = sfx)); // and key sounds.
+
+  // Create login & signup buttons.
+  if (pieceCount === 0) {
+    if (!user) {
+      login = new ui.TextButton("Log in", { center: "xy", screen });
+      signup = new ui.TextButton("I'm new", { center: "xy", screen });
+      positionWelcomeButtons(screen);
+    }
+    if (user) profile = new ui.TextButton(user.name, { center: "xy", screen });
+  }
+
+  // Only if prompt is set to recall conversations.
+  if (
+    !system.prompt.convo.messages ||
+    system.prompt.convo.messages?.length === 0
+  ) {
+    if (pieceCount === 0) {
+      system.prompt.input.print(makeMotd(api)); // Override prompt with motd if
+      //                                           no conversation is present.
+    } else {
+      firstActivation = false; // Assume we've activated if returning from
+      //                          elsewhere.
+    }
+    system.prompt.input.showButton({ nocopy: true });
+  }
+
+  // Activate and reset input text if returning to the prompt from elsewhere.
+  if (pieceCount > 0) {
+    activated(api, true);
+    system.prompt.input.canType = true;
+    system.prompt.input.text = "";
+    system.prompt.input.enter.btn.disabled = true; // Disable button.
+    system.prompt.input.inputStarted = true;
+
+    // 🍫 Create a pleasurable blinking cursor delay.
+    system.prompt.input.showBlink = false;
+    setTimeout(() => (system.prompt.input.showBlink = true), 100);
+    send({ type: "keyboard:unlock" });
+  }
+}
+
+// 🛑 Halt: (Intercept input and route it to commands.)
 async function halt($, text) {
   const {
     api,
@@ -357,69 +387,13 @@ async function halt($, text) {
   }
 }
 
-function positionWelcomeButtons(screen) {
-  if (login && signup) {
-    login.reposition({ center: "xy", screen });
-    signup.reposition({ center: "xy", screen });
-    // Nudge signup and login by half their width.
-    let offset = 5; // With a fixed pixel offset.
-    signup.btn.box.x += signup.btn.box.w / 2 + offset;
-    login.btn.box.x -= login.btn.box.w / 2 + offset;
-    if (screen.width % 2 !== 0) login.btn.box.x += 1; // Nudge odd display width.
-  }
-
-  if (profile) profile.reposition({ center: "xy", screen });
-}
-
-// 🥾 Boot
-function boot({ glaze, api, system, pieceCount, send, ui, screen, user }) {
-  glaze({ on: true });
-
-  // Create login & signup buttons.
-  if (pieceCount === 0) {
-    if (!user) {
-      login = new ui.TextButton("Log in", { center: "xy", screen });
-      signup = new ui.TextButton("I'm new", { center: "xy", screen });
-      positionWelcomeButtons(screen);
-    }
-    if (user) profile = new ui.TextButton(user.name, { center: "xy", screen });
-  }
-
-  // Only if prompt is set to recall conversations.
-  if (
-    !system.prompt.convo.messages ||
-    system.prompt.convo.messages?.length === 0
-  ) {
-    if (pieceCount === 0) {
-      system.prompt.input.print(makeMotd(api)); // Override prompt with motd if
-      //                                           no conversation is present.
-    }
-
-    system.prompt.input.showButton({ nocopy: true });
-  }
-
-  // Activate and reset input text if returning to the prompt from elsewhere.
-  if (pieceCount > 0) {
-    activated(true);
-    system.prompt.input.canType = true;
-    system.prompt.input.text = "";
-    system.prompt.input.enter.btn.disabled = true; // Disable button.
-    system.prompt.input.inputStarted = true;
-
-    // 🍫 Create a pleasurable blinking cursor delay.
-    system.prompt.input.showBlink = false;
-    setTimeout(() => (system.prompt.input.showBlink = true), 100);
-    send({ type: "keyboard:unlock" });
-  }
-}
-
 // 🎨 Paint
 function paint($) {
   // 🅰️ Paint below the prompt || scheme.
   if ($.store["painting"]) {
     $.system.nopaint.present($); // Render the painting.
-    scheme.dark.bg[3] = 127; // Half the opacity of the palette background.
-    scheme.light.bg[3] = 127;
+    scheme.dark.bg[3] = 176; // Half semi-opaque palette background.
+    scheme.light.bg[3] = 176;
   } else {
     $.wipe(scheme.dark.bg);
   }
@@ -450,12 +424,6 @@ function paint($) {
     }
   }
 
-  // Trigger a red or green screen flash with a timer.
-  if (flashShow) {
-    ink(flashColor).box(0, 0, screen.width, screen.height);
-    if (flashMessage) ink(255).write(flashMessage, { x: 5, y: 4, size: 2 });
-  }
-
   // Paint UI Buttons
   if (!login?.btn.disabled) login?.paint($, [[0, 0, 64], 255, 255, [0, 0, 64]]);
   if (!signup?.btn.disabled)
@@ -478,6 +446,16 @@ function paint($) {
         screen.height
       );
     }
+  }
+
+  // Trigger a red or green screen flash with a timer.
+  if (flashShow) {
+    let color = firstActivation
+      ? $.help.choose("blue", scheme.dark.block)
+      : flashColor;
+    ink(color).box(0, 0, screen.width, screen.height);
+    if (flashMessage) ink(255).write(flashMessage, { x: 5, y: 4, size: 2 });
+    if (firstActivation) return true;
   }
 
   $.layer(0); // Return to the bottom layer.
@@ -503,13 +481,24 @@ function sim($) {
 }
 
 // 🎪 Act
-function act({ event: e, api, needsPaint, net, screen, jump, system, send }) {
-  // Buttons
+function act({
+  event: e,
+  api,
+  needsPaint,
+  net,
+  screen,
+  num,
+  jump,
+  system,
+  play,
+  send,
+}) {
+  // 🔘 Buttons
   login?.btn.act(e, () => net.login());
   signup?.btn.act(e, () => net.signup());
   profile?.btn.act(e, () => jump("profile"));
-
-  // TODO: ^ Move the events above to rollover events.
+  // Rollover keyboard locking.
+  // TODO: ^ Move the below events, above to rollover events.
   if (
     e.is("draw") &&
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
@@ -518,7 +507,6 @@ function act({ event: e, api, needsPaint, net, screen, jump, system, send }) {
   ) {
     send({ type: "keyboard:lock" });
   }
-
   if (
     (e.is("touch") || e.is("lift")) &&
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
@@ -529,13 +517,6 @@ function act({ event: e, api, needsPaint, net, screen, jump, system, send }) {
     send({ type: "keyboard:lock" });
   }
 
-  if (e.is("reframed")) positionWelcomeButtons(screen);
-
-  if (e.is("keyboard:open")) {
-    // Hide login and sign-up buttons
-    // upon typing or pressing Enter.
-  }
-
   if (e.is("lift") || e.is("touch")) needsPaint(); // Get button changes to
   //                                           ^      paint on-demand.
   // 🚨 Idea: It would be nice to pass     ----^
@@ -544,6 +525,16 @@ function act({ event: e, api, needsPaint, net, screen, jump, system, send }) {
   //          used in the `paint` function
   //          to allow for manual optimizations. 23.06.20.00.30
 
+  // 🖥️ Screen
+  if (e.is("reframed")) positionWelcomeButtons(screen);
+
+  // ⌨️ Keyboard
+  if (e.is("keyboard:open") && firstActivation) firstActivation = false;
+
+  if (e.is("keyboard:down"))
+    play(keyboardSfx, { volume: 0.2 + (num.randInt(100) / 100) * 0.4 });
+
+  // 💾 Piece / disk loading
   if (e.is("load-error")) {
     makeFlash(api, false);
     flashColor = [255, 0, 0];
@@ -563,7 +554,12 @@ function act({ event: e, api, needsPaint, net, screen, jump, system, send }) {
 // }
 
 // 🖥️ Run When the Prompt is activated.
-function activated(state) {
+function activated($, state) {
+  if (firstActivation) {
+    $.play(startupSfx); // Play startup sound...
+    flashColor = scheme.dark.block; // Trigger startup animation...
+    makeFlash($); // Always sets firstActivation flag to false.
+  }
   if (state === false && firstCommandSent) return;
   if (login) login.btn.disabled = state;
   if (signup) signup.btn.disabled = state;
@@ -659,6 +655,7 @@ function makeFlash($, clear = true, message) {
       flashPresent = false;
       flashMessage = undefined;
       flash = undefined;
+      firstActivation = false;
       $.needsPaint();
     },
     autoFlip: true,
@@ -668,4 +665,18 @@ function makeFlash($, clear = true, message) {
   flashShow = true;
   flashMessage = message;
   if (clear) $.system.prompt.input.blank(); // Clear the prompt.
+}
+
+function positionWelcomeButtons(screen) {
+  if (login && signup) {
+    login.reposition({ center: "xy", screen });
+    signup.reposition({ center: "xy", screen });
+    // Nudge signup and login by half their width.
+    let offset = 5; // With a fixed pixel offset.
+    signup.btn.box.x += signup.btn.box.w / 2 + offset;
+    login.btn.box.x -= login.btn.box.w / 2 + offset;
+    if (screen.width % 2 !== 0) login.btn.box.x += 1; // Nudge odd display width.
+  }
+
+  if (profile) profile.reposition({ center: "xy", screen });
 }

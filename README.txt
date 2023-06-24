@@ -64,16 +64,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** sfx ***
-  - [💛] Add startup sound to first enter button press. 
-  - [] And add keyboard sounds to prompt system.
-  - [] Test this sound playback on Firefox.
-  + Done
-  - [x] Make sure `sfx` clears any remotely loaded sounds?
-    - [x] Just whitelist sounds for now.
-  - [x] Fix and test `sfx` in Safari.
-        (Was production related?)
-
 ** Drag + Drop Coding ***
   - [] Type `code piece-name` to get a template
        piece downloaded, or get the current version of an existing piece. 

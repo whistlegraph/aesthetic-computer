@@ -681,7 +681,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         modal.classList.remove("on");
       })();
     } catch (e) {
-      coneole.log("Sound failed to initialize:", e);
+      console.log("Sound failed to initialize:", e);
     }
 
     function enableAudioPlayback(skip = false) {
@@ -694,7 +694,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     enableAudioPlayback(true);
-    //
 
     window.addEventListener("pointerdown", enableAudioPlayback);
     window.addEventListener("keydown", enableAudioPlayback);
@@ -819,6 +818,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       frame(undefined, undefined, lastGap);
       pen.retransformPosition();
       frameAlreadyRequested = false;
+      return;
     }
 
     if (frameAlreadyRequested) return;
@@ -1240,7 +1240,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         window.addEventListener("pointerup", (e) => {
-
           if (keyboard.needsImmediateOpen) {
             input.focus();
             keyboard.needsImmediateOpen = false;
@@ -1311,13 +1310,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // 🔊 Sound
       // TODO: Disable sound engine entirely... unless it is enabled by a disk. 2022.04.07.03.33
       // Only start this after a user-interaction to prevent warnings.
-      window.addEventListener(
-        "pointerdown",
-        function down() {
-          startSound();
-        },
-        { once: true }
-      );
+
+      const activateSound = () => {
+        startSound();
+        window.removeEventListener("keydown", activateSound);
+        window.removeEventListener("pointerdown", activateSound);
+      };
+
+      window.addEventListener("keydown", activateSound, {
+        once: true,
+      });
+
+      window.addEventListener("pointerdown", activateSound, {
+        once: true,
+      });
 
       diskSupervisor = { requestBeat, requestFrame };
 
@@ -2346,10 +2352,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (sfx[content.sfx] instanceof ArrayBuffer) return;
         // If decoding has failed or no sound is present then silently fail.
 
+        // 🌡️ TODO; Performance: Cache these buffers per sound effect in each piece?
+
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = content.options?.volume || 1;
         const source = audioContext.createBufferSource();
-        source.buffer = sfx[content.sfx]; // 'content.buffer' is supposed to be the AudioBuffer you've received in 'loaded-sfx-success' message
-        source.connect(audioContext.destination);
-        source.addEventListener("ended", () => source.disconnect());
+        source.buffer = sfx[content.sfx];
+        source.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        source.addEventListener("ended", () => {
+          source.disconnect();
+          gainNode.disconnect();
+        });
+
+        // Start playing the sound
         if (debug && logs.audio) console.log("🔈 Playing:", content.sfx);
         source.start();
       }
@@ -2449,6 +2466,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // BIOS:RENDER
     // 🌟 Assume `type === render` from now on.
+    if (!(type === "render" || type === "update")) return;
     if (!content) return;
 
     // This is a bit messy compared to what happens inside of content.reframe -> frame below. 22.10.27.02.05

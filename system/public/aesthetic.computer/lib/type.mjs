@@ -220,7 +220,7 @@ class TextInput {
   #coatedCopy; // Stores a version of the current text output that could be
   //              decorated. (With a URL, for example.)
 
-  activated; // Optional caalback for when the the text input becomes
+  activated; // Optional callback for when the the text input becomes
   //            activated via pushing the Enter button or typing a key.
   backdropTouchOff = false; // Determines whether to activate the input
   //                           after tapping the backdrop.
@@ -506,7 +506,7 @@ class TextInput {
     if (cursor) this.cursor = cursor;
     this.text = "";
     this.#prompt.cursor = { x: 0, y: 0 };
-    this.blink.flip(true);
+    this.blink?.flip(true);
   }
 
   // Set the UI state to be that of a completed reply.
@@ -810,7 +810,7 @@ class TextInput {
       }
 
       if (e.key !== "Enter") {
-        this.activated?.(true); // Run an activate callback.
+        this.activated?.($, true); // Run an activate callback.
         // this.activatedOnce = true;
         this.copy.btn.disabled = true;
         if (this.text.length > 0) {
@@ -897,7 +897,7 @@ class TextInput {
         if (debug) console.log("✔️✍️ TextInput already activated.");
         return;
       }
-      ti.activated?.(true);
+      ti.activated?.($, true);
       ti.enter.btn.down = false;
       // ti.activatedOnce = true;
       if (ti.text.length > 0) {
@@ -919,13 +919,14 @@ class TextInput {
       // $.send({ type: "keyboard:unlock" });
     }
 
+    // Leave the prompt input mode.
     function deactivate(ti) {
       if (ti.canType === false) {
         // Assume we are already deactivated.
         if (debug) console.log("❌✍️ TextInput already deactivated.");
         return;
       }
-      ti.activated?.(false);
+      ti.activated?.($, false);
       ti.enter.btn.disabled = false;
       ti.inputStarted = false;
       ti.canType = false;
@@ -1005,12 +1006,10 @@ class TextInput {
           needsPaint();
         },
         rollover: (btn) => {
-          console.log("roll over");
           if (btn) $.send({ type: "keyboard:unlock" });
           needsPaint();
         },
         rollout: () => {
-          console.log("roll out");
           $.send({ type: "keyboard:lock" });
           needsPaint();
         },

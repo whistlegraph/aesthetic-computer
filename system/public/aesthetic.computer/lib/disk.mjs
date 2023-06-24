@@ -1726,8 +1726,8 @@ async function load(
   };
 
   // Trigger and audio sample to playback in the `bios`.
-  $commonApi.play = async function (sfx) {
-    send({ type: "play-sfx", content: { sfx } });
+  $commonApi.play = async function (sfx, options) {
+    send({ type: "play-sfx", content: { sfx, options } });
   };
 
   // 💡 Eventually this could merge with net.web so there is one command
@@ -1846,7 +1846,7 @@ async function load(
 
       paint = ($) => {
         let noPaint = module.paint?.($); // Carry the return.
-        noPaint = prompt.prompt_paint($);
+        noPaint = noPaint || prompt.prompt_paint($);
         return noPaint;
       };
 
