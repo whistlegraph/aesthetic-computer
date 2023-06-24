@@ -11,6 +11,8 @@ async function fun(event, context) {
   const dev = process.env.CONTEXT === "dev";
   if (dev) console.log("Node version:", process.version);
 
+  console.log(event);
+
   // TODO: Return a 500 or 404 for everything that does not exist...
   //       - [] Like for example if the below import fails...
   if (event.path === "/favicon.ico") return { statusCode: 500 };

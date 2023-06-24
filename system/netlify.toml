@@ -162,7 +162,20 @@
   to = "http://localhost:3000/api/ask"
   status = 200
   force = false
-# This should be a 404...
+# Index
+[[redirects]]
+  from = "/"
+  to = "/.netlify/builders/index"
+  status = 200
+  force = true
+# Catch any unfound disk paths to the blank disk.
+[[redirects]]
+  from = "/aesthetic.computer/disks/*"
+  to = "/aesthetic.computer/disks/404.mjs"
+  status = 404
+  force = false
+# Reroute any other unfound file to the index.
+# TODO: This should be a 404...
 [[redirects]]
   from = "/*"
   to = "/.netlify/builders/index"

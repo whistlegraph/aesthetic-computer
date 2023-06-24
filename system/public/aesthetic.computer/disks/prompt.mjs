@@ -34,7 +34,6 @@ You are playing a character who tries to help me find the command I'm searching 
 If I type 'linr' for example, you say 'how bout typing line instead :P'. If I type 'round' for example, you say 'try typing oval instead ;)'. Choose between emoticons,  ';)' ':)' ':P' ';P' ';*' ';$', at the end of your response.
 -  When you suggest the right command, your responses must have only lower case letters.
 
-
 If I type something like 'tree' or 'dog', which isn't directly related to any of the commands, or if I type random letters, you respond: 'hmm I'm stumped. type list to explore' and make sure all letters are lower case.
 `;
 
@@ -125,6 +124,7 @@ async function halt($, text) {
     load,
     download,
     darkMode,
+    text: { capitalize },
     num,
     store,
     connect,
@@ -144,7 +144,50 @@ async function halt($, text) {
   const params = tokens.slice(1);
   const input = $.system.prompt.input; // Reference to the TextInput.
 
-  if (text.startsWith("handle")) {
+  if (text.startsWith("code")) {
+    // Try to grab the piece requested in param[0] or just load blank.
+    const piece = params[0] || "blank";
+    const { host, path } = parse(piece);
+
+    // Replacement tokens for blank piece.
+    const tokens = {
+      name: "$NAME",
+      timestamp: "$TIMESTAMP",
+      desc: "$THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES",
+    };
+
+    // Inject the Blank template with some starting data.
+    function inject(body, desc) {
+      return body
+        .replaceAll(tokens.name, capitalize(piece))
+        .replaceAll(tokens.timestamp, num.timestamp())
+        .replaceAll(tokens.desc, desc);
+    }
+
+    try {
+      const result = await fetch(`https://${host}/${path}.mjs`);
+      if (result.status === 404) throw new Error("📄🚫 Piece not found.");
+      let body = await result.text();
+      if (piece === "blank") body = inject(body, `A blank piece.`);
+      download(`${piece}.mjs`, body);
+      flashColor = [0, 0, 255];
+    } catch (err) {
+      console.error("📄🤯", err);
+      // Download the blank piece if the piece was not found,
+      // and replace it.
+      console.log("📄📥 Downloading the blank piece.");
+      const { host, path } = parse("blank");
+      const result = await fetch(`https://${host}/${path}.mjs`);
+      let body = await result.text();
+      let desc = params.slice(1).join(" ");
+      if (desc.length === 0) desc = `A piece called \`${piece}\`.`;
+      body = inject(body, desc);
+      download(`${piece}.mjs`, body);
+      flashColor = [0, 0, 255];
+    }
+    makeFlash($);
+    return true;
+  } else if (text.startsWith("handle")) {
     // Set username handle.
     // TODO: This could eventually be abstracted for more API calls.
     // Something like... await post({handle: "new"});

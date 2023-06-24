@@ -2901,13 +2901,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     let object;
     let MIME = "application/octet-stream"; // Default content type.
+    const ext = extension(filename);
 
-    if (extension(filename) === "glb") {
+    if (ext === "glb") {
       MIME = "model/gltf+binary";
       object = URL.createObjectURL(new Blob([data], { type: MIME }));
     } else if (
-      extension(filename) === "json" ||
-      extension(filename) === "gltf"
+      ext === "json" ||
+      ext === "gltf"
     ) {
       // ✍️ Text + 3D
       // JSON
@@ -2925,8 +2926,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       object = URL.createObjectURL(new Blob([data], { type: MIME }));
     } else if (
-      extension(filename) === "png" ||
-      extension(filename) === "webp"
+      ext === "png" ||
+      ext === "webp"
     ) {
       // 🖼️ Images
       MIME = "image/png"; // PNG
@@ -2947,7 +2948,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           ? `/media/${filename}`
           : `https://art.aesthetic.computer/${filename}`;
       }
-    } else if (extension(filename) === "mp4") {
+    } else if (ext === "mp4") {
       // 🎥 Video
       // Use `data` from the global Media Recorder.
       if (mediaRecorderBlob) {
@@ -2959,6 +2960,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
         object = `https://art.aesthetic.computer/${filename}`;
       }
+    } else if (ext === "mjs") {
+      MIME = "application/javascript";
+      object = URL.createObjectURL(new Blob([data], { type: MIME }));
     }
 
     // Fetch download url from `/presigned-download-url?for=${filename}` if we

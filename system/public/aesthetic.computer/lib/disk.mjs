@@ -7,6 +7,7 @@
 
 import * as graph from "./graph.mjs";
 import * as num from "./num.mjs";
+import * as text from "./text.mjs";
 import * as geo from "./geo.mjs";
 import * as gizmo from "./gizmo.mjs";
 import * as ui from "./ui.mjs";
@@ -576,6 +577,9 @@ const $commonApi = {
   //     send({ type: "copy", content: text });
   //   },
   // },
+  text: {
+    capitalize: text.capitalize
+  },
   num: {
     even: num.even,
     odd: num.odd,
@@ -1388,6 +1392,14 @@ async function load(
     } else {
       const response = await fetch(fullUrl);
       const source = await response.text();
+
+      if (source.startsWith("// 404")) {
+        if (!firstLoad) {
+          throw new Error("📄 Piece not found.");
+        } else {
+          console.log("📄🚫 Piece not found:", slug);
+        }
+      }
 
       // Automatically replace relative imports with absolute ones.
       const twoDots =
@@ -3083,6 +3095,7 @@ async function makeFrame({ data: { type, content } }) {
           store["painting:transform"]?.translation || sys.nopaint.translation;
 
         try {
+          $activePaintApi = $api;
           if (system === "nopaint") nopaint_boot($api);
           await boot($api);
           booted = true;
