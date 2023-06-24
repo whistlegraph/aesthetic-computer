@@ -2906,10 +2906,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (ext === "glb") {
       MIME = "model/gltf+binary";
       object = URL.createObjectURL(new Blob([data], { type: MIME }));
-    } else if (
-      ext === "json" ||
-      ext === "gltf"
-    ) {
+    } else if (ext === "json" || ext === "gltf") {
       // ✍️ Text + 3D
       // JSON
       MIME = "application/json";
@@ -2925,10 +2922,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
       }
       object = URL.createObjectURL(new Blob([data], { type: MIME }));
-    } else if (
-      ext === "png" ||
-      ext === "webp"
-    ) {
+    } else if (ext === "png" || ext === "webp") {
       // 🖼️ Images
       MIME = "image/png"; // PNG
 
@@ -3546,6 +3540,37 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   window.addEventListener("pointerdown", async (e) => {
     keys(hitboxes).forEach((key) => hitboxes[key]?.(e));
+  });
+
+  // 📄 Drag and Drop File API
+
+  // Drag over...
+  document.body.addEventListener("dragover", function (e) {
+    e.stopPropagation();
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy"; // Show as copy
+    // copy, move, link, or none
+  });
+
+  document.body.addEventListener("drop", function (e) {
+    e.stopPropagation();
+    e.preventDefault();
+    const files = e.dataTransfer.files; // Get the file(s).
+    // Check if a file was dropped and process only the first one.
+    if (files.length > 0) {
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        send({
+          type: "dropped:piece",
+          content: {
+            name: file.name.replace(".mjs", ""),
+            source: e.target.result,
+          },
+        });
+      };
+      reader.readAsText(file);
+    }
   });
 }
 

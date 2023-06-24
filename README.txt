@@ -65,11 +65,15 @@
 🌟 Projects in Progress (PIP) 🌟
 
 ** Drag + Drop Coding ***
-  - [😎] Drag and drop an `*.mjs` file onto aesthetic.computer to
-       replace or add a piece with your version.
-  - [] Open and edit this file to get live updates whenever the window
+  - [-] Open and edit this file to get live updates whenever the window
        regains focus. (Or automatically, via an export flag.)
+       📗 Research:
+       - This is not possible unless I publish an Electron app.
+       - Or I could map it to the existing VSCode plugin.
+       - Or I could try to embed VSCode or another similar editor somehow.
   + Done
+  - [x] Drag and drop a `*.mjs` file onto aesthetic.computer to
+       replace or add a piece with your version.
   - [x] Type `code piece-name` to get a template
        piece downloaded, or get the current version of an existing piece. 
 

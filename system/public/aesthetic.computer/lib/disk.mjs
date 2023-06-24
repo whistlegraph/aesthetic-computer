@@ -578,7 +578,7 @@ const $commonApi = {
   //   },
   // },
   text: {
-    capitalize: text.capitalize
+    capitalize: text.capitalize,
   },
   num: {
     even: num.even,
@@ -1336,48 +1336,70 @@ let firstPiece, firstParams, firstSearch; // Why is this still here? 23.01.27.13
 //                                           Perhaps for bare ROOT_PIECE's that
 //                                           require params?
 async function load(
-  parsed,
+  parsed, // If parsed is not an object, then assume it's source code.
   fromHistory = false,
   alias = false,
   devReload = false
 ) {
-  let { path, host, search, colon, params, hash, text: slug } = parsed;
+  let fullUrl, code;
+  let params,
+    search,
+    colon,
+    hash,
+    path,
+    host = originalHost,
+    slug;
 
-  if (slug.startsWith("@")) {
-    params = [slug, ...params]; // Rewrite all params for `@user` slug urls.
-    slug = "profile"; // Go to `profile` instead of the `@user`.
-    // Rewrite path to `profile`.
-    console.log("Path:", path);
-    path = [...path.split("/").slice(0, -1), slug].join("/");
+  // 🕸️ Loading over the network from a parsed path object with no source code.
+  if (!parsed.source) {
+    params = parsed.params;
+    path = parsed.path;
+    search = parsed.search;
+    colon = parsed.colon;
+    hash = parsed.hash;
+    host = parsed.host;
+    slug = parsed.text;
+
+    if (slug.startsWith("@")) {
+      params = [slug, ...params]; // Rewrite all params for `@user` slug urls.
+      slug = "profile"; // Go to `profile` instead of the `@user`.
+      // Rewrite path to `profile`.
+      console.log("Path:", path);
+      path = [...path.split("/").slice(0, -1), slug].join("/");
+    }
+
+    // Update the user handle if it changed between pieces.
+    if (store["handle:updated"]) {
+      $commonApi.handle = "@" + store["handle:updated"];
+      delete store["handle:updated"];
+    }
+
+    loading === false
+      ? (loading = true)
+      : console.warn("Already loading:", path);
+
+    if (debug) console.log(debug ? "🟡 Development" : "🟢 Production");
+    if (host === "") host = originalHost;
+    loadFailure = undefined;
+    host = host.replace(/\/$/, ""); // Remove any trailing slash from host.
+    //                                 Note: This fixes a preview bug on teia.art. 2022.04.07.03.00
+
+    if (path === "") path = ROOT_PIECE; // Set bare path to what "/" maps to.
+    // if (path === firstPiece && params.length === 0) params = firstParams;
+
+    fullUrl =
+      location.protocol + "//" + host + "/" + path + ".mjs" + "#" + Date.now();
+    // The hash `time` parameter busts the cache so that the environment is
+    // reset if a disk is re-entered while the system is running.
+    // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
+    if (debug) console.log("🕸", fullUrl);
+  } else {
+    // 📃 Loading with provided local source code.
+    code = parsed.source;
+    slug = parsed.name;
+    path = "aesthetic.computer/disks/" + slug;
+    // 📓 Might need to fill in hash, path, or slug here. 23.06.24.18.49
   }
-
-  // Update the user handle if it changed between pieces.
-  if (store["handle:updated"]) {
-    $commonApi.handle = "@" + store["handle:updated"];
-    delete store["handle:updated"];
-  }
-
-  loading === false ? (loading = true) : console.warn("Already loading:", path);
-
-  if (debug) console.log(debug ? "🟡 Development" : "🟢 Production");
-  if (host === "") host = originalHost;
-  loadFailure = undefined;
-  host = host.replace(/\/$/, ""); // Remove any trailing slash from host.
-  //                                 Note: This fixes a preview bug on teia.art. 2022.04.07.03.00
-
-  if (path === "") path = ROOT_PIECE; // Set bare path to what "/" maps to.
-  // if (path === firstPiece && params.length === 0) params = firstParams;
-
-  let fullUrl =
-    location.protocol + "//" + host + "/" + path + ".mjs" + "#" + Date.now();
-  // The hash `time` parameter busts the cache so that the environment is
-  // reset if a disk is re-entered while the system is running.
-  // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
-  if (debug) console.log("🕸", fullUrl);
-
-  // See if we already have source code to build a blobURL from.
-  // if (parsed.source) {
-  // }
 
   // 🅱️ Load the piece.
   // const moduleLoadTime = performance.now();
@@ -1390,8 +1412,15 @@ async function load(
       blobUrl = URL.createObjectURL(blob);
       sourceCode = currentCode;
     } else {
-      const response = await fetch(fullUrl);
-      const source = await response.text();
+      // check to see if fullUrl is defined...
+
+      let response, source;
+      if (fullUrl) {
+        response = await fetch(fullUrl);
+        source = await response.text();
+      } else {
+        source = code;
+      }
 
       if (source.startsWith("// 404")) {
         if (!firstLoad) {
@@ -2048,6 +2077,12 @@ async function makeFrame({ data: { type, content } }) {
   // $commonApi.hand = { mediapipe: content };
   // return;
   // }
+
+  // Load the source code for a dropped `.mjs` file.
+  if (type === "dropped:piece") {
+    load(content);
+    return;
+  }
 
   if (type === "copy:copied") {
     actAlerts.push("clipboard:copy:copied");
