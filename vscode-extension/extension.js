@@ -17,7 +17,10 @@ function activate(context) {
     async () => {
       let editor = vscode.window.activeTextEditor;
       let source = editor.document.getText();
-      const piece = editor.document.fileName.replace(".mjs", "");
+      const piece = editor.document.fileName
+        .split("/")
+        .slice(-1)[0]
+        .replace(".mjs", "");
 
       // const host = "aesthetic.computer";
       const host = "localhost:8888";
