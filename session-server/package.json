@@ -8,6 +8,7 @@
     "start": "node session.mjs",
     "dev": "PORT=8889 NODE_ENV=development nodemon --watch session.mjs session.mjs",
     "create": "npx jamsocket service create session-server",
+    "build": "echo Built 😄",
     "build:jamsocket": "docker build --platform linux/amd64 --tag session-server-image .",
     "deploy": "jamsocket push session-server session-server-image",
     "spawn": "jamsocket spawn session-server",
