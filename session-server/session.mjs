@@ -4,8 +4,9 @@
 // that requests it.
 
 /* #region todo 📓 
+ - [] Gracefully fail if redis does not connect.
+ + Later
  - [] Speed up developer reload by using redis pub/sub.
- - [] Cache some stuff in redis / connect to redis here.
  - [] Send a signal to everyone once a user leaves.
  + Done
  - [x] Get "developer" live reloading working again. 
@@ -21,10 +22,11 @@ import { WebSocket, WebSocketServer } from "ws";
 import ip from "ip";
 import chokidar from "chokidar";
 import fs from "fs";
+import dotenv from "dotenv";
+dotenv.config();
 
 import { createClient } from "redis";
 const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
-
 const dev = process.env.NODE_ENV === "development";
 
 let fastify;
@@ -63,16 +65,24 @@ const pub = !dev
   : createClient();
 pub.on("error", (err) => console.log("🔴 Redis publisher client error!", err));
 
-await sub.connect();
-await pub.connect();
+try {
+  await sub.connect();
+  await pub.connect();
 
-await sub.subscribe("code", (message) => {
-  everyone(pack("code", message, "development"));
-});
+  console.log(sub, pub);
 
-await sub.subscribe("scream", (message) => {
-  everyone(pack("scream", message, "screamer"));
-});
+  // TODO: This needs to be sent only for a specific user or needs
+  //       some kind of special ID.
+  await sub.subscribe("code", (message) => {
+    everyone(pack("code", message, "development"));
+  });
+
+  await sub.subscribe("scream", (message) => {
+    everyone(pack("scream", message, "screamer"));
+  });
+} catch (err) {
+  console.error("🔴 Could not connect to `redis` instance.");
+}
 
 fastify.get("/", async () => {
   return { msg: "Hello aesthetic.computer!" };
@@ -218,7 +228,6 @@ if (dev) {
   chokidar
     .watch("../system/public/aesthetic.computer/disks")
     .on("all", (event, path) => {
-      //console.log("Disk:", event, path);
       if (event === "change") everyone(pack("reload", { piece: "*" }, "local"));
     });
 

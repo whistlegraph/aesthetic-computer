@@ -66,6 +66,8 @@
 
 *** VS Code Extension ***
   - [🟠] Finish and publish the first version.
+    - [-] Get JamSocket working again, or use something else.
+      - [] Implement JamSocket locks?
 
 *** Profiles and Handles *** 
   - [] Fix `handle` setting in all cases / make it work better.

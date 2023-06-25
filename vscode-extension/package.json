@@ -52,9 +52,7 @@
     "url": "git+https://github.com/digitpain/aesthetic-computer.git"
   },
   "devDependencies": {
-    "@types/node-fetch": "^2.6.2",
-    "@types/vscode": "^1.74.0",
-    "vsce": "^2.15.0"
+    "@vscode/vsce": "^2.19.0"
   },
   "dependencies": {
     "node-fetch": "^2.6.7"

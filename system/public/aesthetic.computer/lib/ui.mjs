@@ -137,7 +137,7 @@ class Button {
 
     // 4. Rollover: Run a rollover event if dragged on.
     // if (e.is("draw:any") && !this.down && this.box.contains(e)) {
-    if (e.is("draw:any") && !this.over && this.down && this.box.contains(e)) {
+    if (e.is("draw:any") && !this.over && this.box.contains(e)) {
       callbacks.rollover?.(this);
       this.over = true;
     }

@@ -21,6 +21,7 @@
     "server:session": "cd session-server; npm run dev",
     "server:session:build": "cd session-server; npm run build",
     "server:session:deploy": "cd session-server; npm run deploy",
+    "server:session:spawn": "cd session-server; npm run spawn",
     "server:session:logs": "f() { cd session-server; npm run watch-prod $1; };f",
     "install:system": "cd system; npm install",
     "install:socket-server": "cd socket-server; npm install",

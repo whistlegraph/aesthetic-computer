@@ -2,18 +2,21 @@
 // A VSCode extension for live reloading aesthetic.computer pieces.
 
 /* #region todo 📓 
-  - [ ] Run npm outdated in this repo to see if install can be fixed
-        or reload of the extension can be automated.
-  - [-] Only add autoreload after making the `Run Piece` link once...
-       check for a file that was already added.
-  - [🟡] Get working in production again and enable the production host. 
-    - [🔴] This will require JamSocket support to be working again...
+  - [💛] Get JamSocket working again.
+    - [] Get working in production again and enable the production host. 
   - [] Replace the SVG.
   - [] Publish the first version of the extension.
+  + Done
+  - [x] Run npm outdated in this repo to see if install can be fixed
+        or reload of the extension can be automated.
+  - [x] Only add autoreload after making the `Run Piece` link once...
+       check for a file that was already added.
 #endregion */
 
 const vscode = require("vscode");
 const fetch = require("node-fetch");
+
+let activeEditor;
 
 function activate(context) {
   console.log("My aesthetic.computer extension is now active!");
@@ -29,8 +32,7 @@ function activate(context) {
         .slice(-1)[0]
         .replace(".mjs", "");
 
-      // const host = "aesthetic.computer";
-      const host = "localhost:8888";
+      const host = "aesthetic.computer"; // "localhost:8888";
 
       fetch(`https://${host}/run`, {
         method: "POST",
@@ -44,14 +46,17 @@ function activate(context) {
         .catch((error) => {
           console.error("Error:", error);
         });
+
+      activeEditor = editor; // Set the active editor for live updates.
     }
   );
 
-  // Automatically reload whenever the file changes.
+  // *** Event Listener ***
   vscode.workspace.onDidSaveTextDocument((document) => {
     if (
+      activeEditor &&
       vscode.window.activeTextEditor &&
-      vscode.window.activeTextEditor.document === document
+      activeEditor.document === document
     ) {
       vscode.commands.executeCommand("aestheticComputer.runPiece");
     }
