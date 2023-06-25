@@ -3,7 +3,8 @@
 // Designed to work alongside `vscode-extension`.
 
 /* #region todo 📓 
-  - [] Pieces to not reload twice after button change.
+  - [] Add a "secret" string for receiving updates on a channel.
+  - [] (Or simply require the user to be logged in to get a channel ID.)
 #endregion */
 
 import { createClient } from "redis";
@@ -22,44 +23,22 @@ async function fun(event) {
     try {
       const body = JSON.parse(event.body);
 
-      // 🚗 TODO
-      // Send a redis request or socket message containing the
-      // piece code.
+      // Send a redis request or socket message containing the piece code.
       const client = !dev
         ? createClient({ url: redisConnectionString })
         : createClient();
       client.on("error", (err) => console.log("🔴 Redis client error!", err));
       await client.connect();
-
-      //try {
-      // await client.SET("code", body);
-      console.log("PIECE:", body.piece);
       await client.publish(
         "code",
         JSON.stringify({ piece: body.piece, source: body.source })
       );
-      //await client.publish("code", { piece: body.piece, code: body.source });
-
-      // } catch (err) {
-      //console.log("Error setting message:", err);
-      //}
-
-      //await client.HSET("", "latest", session.name); // Store the session name in redis using the 'slug' key.
-
-      // Log the source and the piece name.
-      // TODO: - [] Timestamp the piece and return a number back...
-
       out = { result: "Piece code received!" };
 
-      return {
-        statusCode: 200,
-        body: response,
-      };
+      return { statusCode: 200, body: response };
     } catch (err) {
       status = 500;
-      out = {
-        result: `Error receiving piece code: ${err.message}`,
-      };
+      out = { result: `Error receiving piece code: ${err.message}` };
     }
   }
 

@@ -69,33 +69,8 @@
     - [-] Get JamSocket working again, or use something else.
       - [] Implement JamSocket locks?
 
-*** Profiles and Handles *** 
-  - [] Fix `handle` setting in all cases / make it work better.
-  - [] Allow people to set handle via profile page by jumping to the
-       prompt.
-  - [] Show most recent painting on profile page.
-  - [] Allow people to set a status.
-    - [] Where to store this?
-
-*** Whistle ***
-  - [-] Get whistle working on iOS.
-
-*plot* (new launch fonts)
-  - [-] Make the UI responsive based on grid and scale and window size.
-    - [] Print the resolution and the output number in the corner.     
-  - [] Set up preview / more UI so that new fonts can be produced.
-    - [] Gamify it?
-  - [] Allow the creation of a custom font using the current glyph set.
-  - [] Allow color.
-  - [] Design a multi-line prompt / poster design tool.
-    - [] Rainbow stripes of different colors delineated horizontally
-          kind of like a pastel stenograph pad.
-  + Done
-  - [x] Fix `resize` call in plot.
-  - [x] Is `scale` working?
-
 *** encode/decode ***
-  - [🟠] Add the ability to paste on mobile.
+  - [🟠] Add a shortcut to paste on mobile.
   + Done
   - [x] design the text + url that gets copied and sent
   - [x] Add a "copied" hook to the `prompt-system`.
@@ -117,6 +92,32 @@
   - [x] make the encode bot
     - [x] add gpt3-tokenizer library
 
+*** Whistle ***
+  - [-] Get whistle working on iOS.
+
+*** Profiles and Handles *** 
+  - [] Fix `handle` setting in all cases / make it work better.
+  - [] Make /@handle profile pages actually live.
+  - [] Allow people to set handle via profile page by jumping to the
+       prompt.
+  - [] Show most recent painting on profile page.
+  - [] Allow people to set a status.
+    - [] Where to store this?
+
+*plot* (new launch fonts)
+  - [-] Make the UI responsive based on grid and scale and window size.
+    - [] Print the resolution and the output number in the corner.     
+  - [] Set up preview / more UI so that new fonts can be produced.
+    - [] Gamify it?
+  - [] Allow the creation of a custom font using the current glyph set.
+  - [] Allow color.
+  - [] Design a multi-line prompt / poster design tool.
+    - [] Rainbow stripes of different colors delineated horizontally
+         kind of like a pastel stenograph pad.
+  + Done
+  - [x] Fix `resize` call in plot.
+  - [x] Is `scale` working?
+
 *** `scream` ***
   - [] Get JamSocket working again.
   - [] And also get notifications working!
@@ -132,7 +133,6 @@
   - [] Get mushrooms talking to humans. (Harry)
 
 *** Launch Goodies ***
-  - [] Auth0 login customization and email notification customization.
   - [] Tapping top-left corner label should always highlight the text.
   - [] Add more themes other than the dark boolean?
     - [] You should be able to type colors and have the
@@ -147,9 +147,10 @@
     - [] And include an abstraction for caching / loading from
          cached commands.
   - [] Prompts with extra spaces betwene parameters should compress space.
-  *Fast 3G Load Test*
   - [] Run a Fast 3G load test to optimize assets and
       make a better startup / loading sequence.
+  + Done
+  - [x] Auth0 login customization and email notification customization.
 
 *** global screenshot key ***
   - [] There needs to be a system wide method of capturing a screenshot.

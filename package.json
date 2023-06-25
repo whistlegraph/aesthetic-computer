@@ -19,7 +19,7 @@
     "server:socket": "cd socket-server; npm run server",
     "assets:sync": "aws s3 sync s3://assets.aesthetic.computer system/public/assets --endpoint-url https://sfo3.digitaloceanspaces.com",
     "server:session": "cd session-server; npm run dev",
-    "server:session:build": "cd session-server; npm run build",
+    "server:session:build": "cd session-server; npm run build:jamsocket",
     "server:session:deploy": "cd session-server; npm run deploy",
     "server:session:spawn": "cd session-server; npm run spawn",
     "server:session:logs": "f() { cd session-server; npm run watch-prod $1; };f",

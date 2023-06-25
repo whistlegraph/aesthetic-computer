@@ -660,11 +660,11 @@ const $commonApi = {
 const nopaintAPI = $commonApi.system.nopaint;
 
 // Spawn a session backend for a piece.
-async function session(slug, forceProduction = false) {
+async function session(slug, forceProduction = false, service) {
   let endPoint = "/session/" + slug;
-
-  if (forceProduction)
-    endPoint += "?" + new URLSearchParams({ forceProduction: 1 });
+  const params = { service };
+  if (forceProduction) params.forceProduction = 1;
+  endPoint += "?" + new URLSearchParams(params);
 
   const req = await fetch(endPoint);
 
@@ -674,7 +674,7 @@ async function session(slug, forceProduction = false) {
     console.log(`🐕‍🦺 Session: ${slug} - ${session.backend || session.name}`);
 
   // Return the active session if the server knows it's "Ready", otherwise
-  // wait for the one we requested to spin up before doing anything else.
+  // wait for the one we requested to spin up.
   // (And in debug mode we just get a local url from "/session" so no need
   // to check that.)
   if (session.state === "Ready" || (debug && !forceProduction)) {
@@ -1341,7 +1341,6 @@ async function load(
   alias = false,
   devReload = false
 ) {
-
   let fullUrl, code;
   let params,
     search,
@@ -1536,7 +1535,7 @@ async function load(
 
   // Requests a session-backend and connects via websockets.
   async function startSocket() {
-    const sesh = await session(slug, forceProd); // Grab a session backend for this piece.
+    const sesh = await session(slug, forceProd, "monolith"); // Grab a session backend for this piece.
     socket?.kill(); // Kill any already open socket from a previous disk.
     socket = new Socket(debug); // Then redefine and make a new socket.
     socket.connect(
