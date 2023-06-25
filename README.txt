@@ -64,32 +64,8 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-** Drag + Drop Coding ***
-  - [-] Open and edit this file to get live updates whenever the window
-       regains focus. (Or automatically, via an export flag.)
-       📗 Research:
-       - This is not possible unless I publish an Electron app.
-       - Or I could map it to the existing VSCode plugin.
-        - [] Look at this code again.
-       - Or I could try to embed VSCode or another similar editor somehow.
-  + Done
-  - [x] Drag and drop a `*.mjs` file onto aesthetic.computer to
-       replace or add a piece with your version.
-  - [x] Type `code piece-name` to get a template
-       piece downloaded, or get the current version of an existing piece. 
-
-  // Flow... (How to expose this to users?)
-  // 1. A Template file will be downloaded.
-  // 2. You can drag it into `aesthetic.computer` to route the
-  //    piece name to your file.
-  // 3. Edit the code in your file and `aesthetic.computer` will update with
-  //    the changes automatically.
-  // 4. Upload your command to your account using the `upload piece-name`
-  //    command.
-  // 5. This makes it easy to test on any device by typing
-  //    `@handle/piece-name` into `aesthetic.computer` on any device.
-  // 6. Publish your command to the world by submitting it with the
-  //    `submit piece-name` command.
+*** VS Code Extension ***
+  - [🟠] Finish and publish the first version.
 
 *** Profiles and Handles *** 
   - [] Fix `handle` setting in all cases / make it work better.
