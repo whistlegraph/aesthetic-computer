@@ -671,8 +671,7 @@ async function session(slug, forceProduction = false, service) {
   const session = await req.json();
 
   if (debug && logs.session)
-    console.log(`🐕‍🦺 Session: ${slug} - ${session.backend || session.name}`);
-
+    console.log(`🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`);
   // Return the active session if the server knows it's "Ready", otherwise
   // wait for the one we requested to spin up.
   // (And in debug mode we just get a local url from "/session" so no need
@@ -1535,7 +1534,8 @@ async function load(
 
   // Requests a session-backend and connects via websockets.
   async function startSocket() {
-    const sesh = await session(slug, forceProd, "monolith"); // Grab a session backend for this piece.
+    const monolith = "monolith"; // or undefined for horizontal scaling.
+    const sesh = await session(slug, forceProd, monolith); // Backend for piece.
     socket?.kill(); // Kill any already open socket from a previous disk.
     socket = new Socket(debug); // Then redefine and make a new socket.
     socket.connect(

@@ -28,7 +28,7 @@ async function fun(event, context) {
     const host = event.headers.host.split(":")[0];
     out = { url: `http://${host}:8889` };
   } else if (event.queryStringParameters.service === "monolith") {
-    out = { url: `https://session-server.aesthetic.computer` };
+    out = { url: `https://session-server.aesthetic.computer`, state: "Ready" };
   } else {
     const { got } = await import("got");
     const slug = event.path.replace("/session/", ""); // Take everything after the path.
@@ -61,8 +61,6 @@ async function fun(event, context) {
       ).json();
       out.url = `https://${currentBackend}.jamsocket.run`; // Add URL for client.
     }
-
-    console.log("Current backend:", out);
 
     if (out?.state !== "Ready") {
       // Make a new session backend if one doesn't already exist.

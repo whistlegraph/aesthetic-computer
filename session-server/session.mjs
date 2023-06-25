@@ -69,8 +69,6 @@ try {
   await sub.connect();
   await pub.connect();
 
-  console.log(sub, pub);
-
   // TODO: This needs to be sent only for a specific user or needs
   //       some kind of special ID.
   await sub.subscribe("code", (message) => {

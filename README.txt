@@ -65,9 +65,8 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** VS Code Extension ***
-  - [🟠] Finish and publish the first version.
-    - [-] Get JamSocket working again, or use something else.
-      - [] Implement JamSocket locks?
+  - [🟢] Finish and publish the first version.
+  - [x] Add `monolith` backup service.
 
 *** encode/decode ***
   - [🟠] Add a shortcut to paste on mobile.
@@ -119,8 +118,9 @@
   - [x] Is `scale` working?
 
 *** `scream` ***
+  - [] Get notifications working!
   - [] Get JamSocket working again.
-  - [] And also get notifications working!
+    - [] Implement JamSocket "locks" and deprecate my redis scaling?
   - [] Visualize the socket connection to make everything faster in production.
      - [] Possibly the bottleneck is in connecting to JamSocket?
   - [-] Finish list in `scream`.
