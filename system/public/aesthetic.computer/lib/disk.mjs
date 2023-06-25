@@ -1341,6 +1341,7 @@ async function load(
   alias = false,
   devReload = false
 ) {
+
   let fullUrl, code;
   let params,
     search,
@@ -1503,7 +1504,7 @@ async function load(
     } else if (name && source) {
       // TODO: Check for existence of `name` and `source` is hacky. 23.06.24.19.27
       // Note: This is used for live development via the socket server.
-      $commonApi.load({ source, name }); // Load source code.
+      $commonApi.load({ source, name }, false, false, true); // Load source code.
     } else if (piece === "*" || piece === undefined || currentText === piece) {
       console.log("💾️ Reloading piece...", piece);
       const devReload = true;

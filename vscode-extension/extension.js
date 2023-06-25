@@ -2,7 +2,14 @@
 // A VSCode extension for live reloading aesthetic.computer pieces.
 
 /* #region todo 📓 
+  - [ ] Run npm outdated in this repo to see if install can be fixed
+        or reload of the extension can be automated.
+  - [-] Only add autoreload after making the `Run Piece` link once...
+       check for a file that was already added.
   - [🟡] Get working in production again and enable the production host. 
+    - [🔴] This will require JamSocket support to be working again...
+  - [] Replace the SVG.
+  - [] Publish the first version of the extension.
 #endregion */
 
 const vscode = require("vscode");
@@ -39,6 +46,16 @@ function activate(context) {
         });
     }
   );
+
+  // Automatically reload whenever the file changes.
+  vscode.workspace.onDidSaveTextDocument((document) => {
+    if (
+      vscode.window.activeTextEditor &&
+      vscode.window.activeTextEditor.document === document
+    ) {
+      vscode.commands.executeCommand("aestheticComputer.runPiece");
+    }
+  });
 
   context.subscriptions.push(runPieceCommand); // Memory clean-up.
 }
