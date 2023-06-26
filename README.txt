@@ -21,7 +21,7 @@
       for media creation, like Unix.
 
   (More Tech)
-  cr  - Threaded logic, audio, and rendering.
+      - Threaded logic, audio, and rendering.
       - Low overhead hypervisor that runs one piece at a time.
         (similar to a disk based operating system)
       - Pieces can transition from one to another (instantly) without refreshing
@@ -66,6 +66,7 @@
 
 *** VS Code Extension ***
   - [🟢] Finish and publish the first version.
+  + Done
   - [x] Add `monolith` backup service.
 
 *** encode/decode ***

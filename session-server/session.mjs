@@ -4,11 +4,14 @@
 // that requests it.
 
 /* #region todo 📓 
- - [] Gracefully fail if redis does not connect.
  + Later
- - [] Speed up developer reload by using redis pub/sub.
- - [] Send a signal to everyone once a user leaves.
+ - [] Conditional redis sub to dev updates. (Will save bandwidth if extension
+      gets lots of use, also would be more secure.) 
  + Done
+ - [x] Secure the "code" path to require a special string.
+ - [x] Secure the "reload" path (must be in dev mode, sorta okay) 
+ - [c] Speed up developer reload by using redis pub/sub.
+ - [x] Send a signal to everyone once a user leaves.
  - [x] Get "developer" live reloading working again. 
  - [x] Add sockets back.
  - [x] Make a "local" option.
@@ -188,10 +191,15 @@ wss.on("connection", (ws, req) => {
     }
   });
 
-  /*
+  // More info: https://stackoverflow.com/a/49791634/8146077
+  ws.on("close", () => {
+    everyone(pack("left", { id, count: wss.clients.size }));
+    clearInterval(interval); // Stop pinging once the socket closes.
+  });
+
   ws.isAlive = true; // For checking persistence between ping-pong messages.
 
-  // Send a ping message to all clients every 30 seconds, and kill
+  // Send a ping message to all clients every 10 seconds, and kill
   // the client if it does not respond back with a pong on any given pass.
   const interval = setInterval(function ping() {
     wss.clients.forEach((client) => {
@@ -199,17 +207,11 @@ wss.on("connection", (ws, req) => {
       client.isAlive = false;
       client.ping();
     });
-  }, 3000);
+  }, 10000);
 
-  ws.on("pong", () => (ws.isAlive = true)); // Receive a pong.
-
-  // Stop pinging once the socket closes.
-  // More info: https://stackoverflow.com/a/49791634/8146077
-  ws.on("close", () => {
-    everyone(pack("left", { id, count: wss.clients.size }));
-    clearInterval(interval);
-  });
-  */
+  ws.on("pong", () => {
+    ws.isAlive = true;
+  }); // Receive a pong.
 });
 
 // Sends a message to all connected clients.

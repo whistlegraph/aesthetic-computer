@@ -137,6 +137,7 @@ async function halt($, text) {
     jump,
     user,
     upload,
+    code,
   } = $;
   // Roughly parse out the text (could also do a full `parse` here.)
   const tokens = text.split(" ");
@@ -144,7 +145,16 @@ async function halt($, text) {
   const params = tokens.slice(1);
   const input = $.system.prompt.input; // Reference to the TextInput.
 
-  if (text.startsWith("code")) {
+  if (text.startsWith("code-channel")) {
+    if (!params[0]) {
+      flashColor = [255, 0, 0];
+    } else {
+      code.channel(params[0]);
+      flashColor = [0, 255, 0];
+    }
+    makeFlash($);
+    return true;
+  } else if (text.startsWith("code")) {
     // Try to grab the piece requested in param[0] or just load blank.
     const piece = params[0] || "blank";
     const { host, path } = parse(piece);
@@ -612,7 +622,7 @@ function activated($, state) {
 // 💬 Receive each response in full.
 function reply(text) {
   firstCommandSent = true;
-  console.log("😀 Replied with:", text);
+  // console.log("😀 Replied with:", text || "Halted?");
 }
 
 // 📰 Meta

@@ -354,6 +354,14 @@ let lastActAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
+  code: {
+    channel: (chan) => {
+      codeChannel = chan; // Set the current `codeChannel`.
+      store["code-channel"] = codeChannel; // Remember the painting data.
+      store.persist("code-channel");
+      console.log("💻 Code channel set to:", codeChannel);
+    },
+  },
   // File should be { type, data } where type is "png", "webp", "jef", etc.
   encode: async (file) => {
     const prom = new Promise((resolve, reject) => {
@@ -671,7 +679,9 @@ async function session(slug, forceProduction = false, service) {
   const session = await req.json();
 
   if (debug && logs.session)
-    console.log(`🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`);
+    console.log(
+      `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`
+    );
   // Return the active session if the server knows it's "Ready", otherwise
   // wait for the one we requested to spin up.
   // (And in debug mode we just get a local url from "/session" so no need
@@ -1340,7 +1350,7 @@ async function load(
   alias = false,
   devReload = false
 ) {
-  let fullUrl, code;
+  let fullUrl, source;
   let params,
     search,
     colon,
@@ -1394,7 +1404,15 @@ async function load(
     if (debug) console.log("🕸", fullUrl);
   } else {
     // 📃 Loading with provided local source code.
-    code = parsed.source;
+    if (parsed.code === undefined || parsed.code !== codeChannel) {
+      console.warn(
+        "🙅 Not reloading, code signal invalid:",
+        codeChannel || "N/A"
+      );
+      return;
+    }
+
+    source = parsed.source;
     slug = parsed.name;
     path = "aesthetic.computer/disks/" + slug;
     // 📓 Might need to fill in hash, path, or slug here. 23.06.24.18.49
@@ -1413,15 +1431,15 @@ async function load(
     } else {
       // check to see if fullUrl is defined...
 
-      let response, source;
+      let response, sourceToRun;
       if (fullUrl) {
         response = await fetch(fullUrl);
-        source = await response.text();
+        sourceToRun = await response.text();
       } else {
-        source = code;
+        sourceToRun = source;
       }
 
-      if (source.startsWith("// 404")) {
+      if (sourceToRun.startsWith("// 404")) {
         if (!firstLoad) {
           throw new Error("📄 Piece not found.");
         } else {
@@ -1435,12 +1453,15 @@ async function load(
       const oneDot =
         /^(import|export) \* as ([^ ]+) from ["']\.?\/(.*?)["'];?/gm;
 
-      let updatedCode = source.replace(twoDots, (match, p1, p2, p3, p4) => {
-        let url = `${location.protocol}//${host}/aesthetic.computer${
-          p3 === "./" ? "/disks" : ""
-        }/${p4.replace(/\.\.\//g, "")}`;
-        return `${p1} { ${p2} } from "${url}";`;
-      });
+      let updatedCode = sourceToRun.replace(
+        twoDots,
+        (match, p1, p2, p3, p4) => {
+          let url = `${location.protocol}//${host}/aesthetic.computer${
+            p3 === "./" ? "/disks" : ""
+          }/${p4.replace(/\.\.\//g, "")}`;
+          return `${p1} { ${p2} } from "${url}";`;
+        }
+      );
 
       updatedCode = updatedCode.replace(oneDot, (match, p1, p2, p3) => {
         let url = `${location.protocol}//${host}/aesthetic.computer${
@@ -1490,7 +1511,7 @@ async function load(
   $commonApi.debug = debug;
 
   // Add reload to the common api.
-  $commonApi.reload = ({ piece, name, source } = {}) => {
+  $commonApi.reload = ({ piece, name, source, code } = {}) => {
     if (loading) {
       console.log("🟡 A piece is already loading.");
       return;
@@ -1502,7 +1523,7 @@ async function load(
     } else if (name && source) {
       // TODO: Check for existence of `name` and `source` is hacky. 23.06.24.19.27
       // Note: This is used for live development via the socket server.
-      $commonApi.load({ source, name }, false, false, true); // Load source code.
+      $commonApi.load({ source, name, code }, false, false, true); // Load source code.
     } else if (piece === "*" || piece === undefined || currentText === piece) {
       console.log("💾️ Reloading piece...", piece);
       const devReload = true;
@@ -1997,6 +2018,10 @@ function send(data, shared = []) {
     noWorker.postMessage({ data });
   }
 }
+
+
+// Used to subscribe to live coding / development reloads.
+let codeChannel = await store.retrieve("code-channel");
 
 // 3. ✔ Add any APIs that require send.
 //      Just the `content` API for now.

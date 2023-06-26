@@ -20,6 +20,10 @@
       {
         "command": "aestheticComputer.runPiece",
         "title": "Aesthetic Computer: Run Piece ➡️"
+      },
+      {
+        "command": "aestheticComputer.enterCode",
+        "title": "Aesthetic Computer: Enter Code️"
       }
     ],
     "viewsContainers": {
@@ -34,17 +38,12 @@
     "views": {
       "piece": [
         {
-          "id": "piece",
+          "type": "webview",
+          "id": "aestheticComputer.sidebarView",
           "name": "Piece"
         }
       ]
-    },
-    "viewsWelcome": [
-      {
-        "view": "piece",
-        "contents": "With any piece open, push... \n[Run Piece ➡️](command:aestheticComputer.runPiece)"
-      }
-    ]
+    }
   },
   "license": "None",
   "repository": {
