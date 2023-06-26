@@ -3,11 +3,12 @@
 // (and production).
 
 export const logs = {
-  store: true, // Storage (local, etc.)
-  frame: true, // Screen information / rendering framing.
+  store: false, // Storage (local, etc.)
+  frame: false, // Screen information / rendering framing.
   loading: false, // Preloading
   session: true, // Socket session.
   download: false, // Download progress, etc. (JSON)
-  audio: true,
+  audio: false,
   hid: false,
+  painting: false, // System wallpaper / paint related logs.
 };

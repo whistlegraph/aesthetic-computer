@@ -64,14 +64,10 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** VS Code Extension ***
-  - [🟢] Finish and publish the first version.
-  + Done
-  - [x] Add `monolith` backup service.
-
 *** encode/decode ***
-  - [🟠] Add a shortcut to paste on mobile.
+  - [🟡] Fix word wrap on response issue.
   + Done
+  - [x] Add a shortcut to paste on mobile.
   - [x] design the text + url that gets copied and sent
   - [x] Add a "copied" hook to the `prompt-system`.
   - [x] Fix clipboard for iOS.
@@ -93,7 +89,20 @@
     - [x] add gpt3-tokenizer library
 
 *** Whistle ***
-  - [-] Get whistle working on iOS.
+  - [🧡] Get whistle working on iOS.
+
+*** bb ***
+  - [] Make a game state.
+    - [] Title
+    - [] Level
+    - [] Game Over
+
+*** nopaint ***
+  - [] Move "test".
+
+*** deck ***
+  - []
+
 
 *** Profiles and Handles *** 
   - [] Fix `handle` setting in all cases / make it work better.

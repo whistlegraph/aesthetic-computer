@@ -97,7 +97,7 @@ function boot({ glaze, api, net, system, pieceCount, send, ui, screen, user }) {
       firstActivation = false; // Assume we've activated if returning from
       //                          elsewhere.
     }
-    system.prompt.input.showButton({ nocopy: true });
+    system.prompt.input.showButton(api, { nocopy: true });
   }
 
   // Activate and reset input text if returning to the prompt from elsewhere.
@@ -581,8 +581,9 @@ function act({
   // 🖥️ Screen
   if (e.is("reframed")) positionWelcomeButtons(screen);
 
-  // ⌨️ Keyboard
+  // ⌨️ Keyboard (Skip startup sound if a key is pressed or text is pasted.)
   if (e.is("keyboard:open") && firstActivation) firstActivation = false;
+  if (e.is("pasted:text")) firstActivation = false;
 
   if (e.is("keyboard:down"))
     play(keyboardSfx, { volume: 0.2 + (num.randInt(100) / 100) * 0.4 });

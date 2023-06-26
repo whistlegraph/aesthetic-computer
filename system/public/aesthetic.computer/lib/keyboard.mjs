@@ -25,7 +25,10 @@ export class Keyboard {
       if (
         piece === "aesthetic.computer/disks/prompt" &&
         this.input &&
-        document.activeElement !== this.input
+        document.activeElement !== this.input // &&
+        // e.key !== "Control" &&
+        // e.key !== "Alt" &&
+        // e.key !== "Meta"
       ) {
         this.input.focus();
       }

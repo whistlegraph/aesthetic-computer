@@ -1,5 +1,10 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** VS Code Extension ***
+  + Done
+  - [x] Finish and publish the first version.
+  - [x] Add `monolith` backup service.
+
 *** Drag + Drop Coding ***
   + Done
   - [x] Open and edit this file to get live updates whenever the window

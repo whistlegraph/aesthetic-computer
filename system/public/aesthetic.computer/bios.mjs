@@ -941,11 +941,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (e.type === "pointerup" && state === "down" && hit) {
           // This is pretty specific to the "copy" clipboard
           // stuff for now. 23.06.16.15.03
-          try {
-            await navigator.clipboard.writeText(content.message);
-            send({ type: "copy:copied" });
-          } catch (err) {
-            send({ type: "copy:failed" });
+
+          if (content.label === "copy") {
+            try {
+              await navigator.clipboard.writeText(content.message);
+              send({ type: "copy:copied" });
+            } catch (err) {
+              send({ type: "copy:failed" });
+            }
+          }
+
+          if (content.label === "paste") {
+            try {
+              pastedText = await navigator.clipboard.readText();
+              // This routes through to the `pasted:text` event in `disk`.
+              // where `pastedText` is sent on the next frame.
+              send({ type: "paste:pasted" }); 
+            } catch (err) {
+              send({ type: "pasted:failed" });
+            }
           }
         } else if (e.type === "pointerdown" && hit) {
           state = "down";
@@ -2366,7 +2380,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           gainNode.disconnect();
         });
 
-        // Start playing the sound
         if (debug && logs.audio) console.log("🔈 Playing:", content.sfx);
         source.start();
       }

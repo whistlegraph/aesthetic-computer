@@ -48,6 +48,13 @@ export async function prompt_boot(
       input.lock = true;
       input.enter.btn.disabled = true;
 
+      // Disable any paste button.
+      input.paste.btn.disabled = true;
+      input.paste.btn.removeFromDom($, "paste");
+
+      input.inputStarted = false;
+      input.canType = false;
+
       const halted = await halt?.($, text);
       if (!$.jumping()) input.lock = false;
       if (halted) {
@@ -64,8 +71,6 @@ export async function prompt_boot(
       $.send({ type: "keyboard:close" });
       $.send({ type: "keyboard:lock" });
 
-      input.inputStarted = false;
-      input.canType = false;
       let firstAnd = true; // Clear the text on first reply.
 
       abort = conversation.ask(
@@ -82,7 +87,7 @@ export async function prompt_boot(
           input.bakePrintedText();
           input.clearUserText();
           input.runnable = false;
-          input.showButton();
+          input.showButton($);
           $.needsPaint();
         },
         function fail() {
@@ -95,7 +100,7 @@ export async function prompt_boot(
           input.runnable = false;
           if (input.text.length > 0) {
             messageComplete = true;
-            input.showButton();
+            input.showButton($);
           }
         }
       );
@@ -139,6 +144,7 @@ export function prompt_act($) {
     (e.is("keyboard:down:escape") ||
       (e.is("keyboard:down:`") && slug === "prompt"))
   ) {
+    console.log("ABORTING");
     abort?.();
     abortMessage = "";
   }
@@ -160,7 +166,9 @@ export function prompt_act($) {
     e.is("keyboard:open") ||
     e.is("keyboard:close") ||
     e.is("clipboard:copy:copied") ||
-    e.is("clipboard:copy:failed")
+    e.is("clipboard:copy:failed") ||
+    e.is("clipboard:paste:pasted") ||
+    e.is("clipboard:paste:failed")
   ) {
     input?.act($);
     inputHandled = true;

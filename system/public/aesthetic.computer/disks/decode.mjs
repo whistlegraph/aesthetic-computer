@@ -24,7 +24,7 @@ function halt($, text) {
   const decoded = tokenizer.decode(text.split(" ")); // Converts text into list and turns ints. into text.
   $.system.prompt.input.text = decoded;
   $.system.prompt.input.scheme = altScheme; // Change to "reply" color scheme.
-  $.system.prompt.input.replied(); // Set the UI state back to normal.
+  $.system.prompt.input.replied($); // Set the UI state back to normal.
   return true;
 }
 

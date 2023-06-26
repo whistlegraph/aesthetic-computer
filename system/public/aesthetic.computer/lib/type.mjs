@@ -181,9 +181,8 @@ class TextInput {
 
   // Buttons
   enter; // A button for replying or inputting text.
-
-  copy; // A button for copying replies to the clipboard, that shows up
-  //       conditionally.
+  copy; // A button for copying to the clipboard, that shows up conditionally.
+  paste; // Similar to copy.
 
   canType = false;
 
@@ -214,8 +213,8 @@ class TextInput {
   //                   editable.
   copiedCallback;
 
-  #copyTimeout; // UI Timer for clipboard copy response.
-  #copyScheme; // An override for the Copy button's color.
+  #copyPasteTimeout; // UI Timer for clipboard copy response.
+  #copyPasteScheme; // An override for the Copy button's color.
 
   #coatedCopy; // Stores a version of the current text output that could be
   //              decorated. (With a URL, for example.)
@@ -289,7 +288,9 @@ class TextInput {
 
     this.enter = new TB("Enter");
     this.copy = new TB("Copy");
-    this.copy.btn.disabled = true; // Copy should be disabled by default.
+    this.paste = new TB("Paste");
+    this.copy.btn.disabled = true; // Copy is disabled by default,
+    this.paste.btn.disabled = false; // as is Paste.
 
     if (this.text.length === 0) {
       this.enter.btn.disabled = true;
@@ -446,9 +447,16 @@ class TextInput {
 
     // Copy Button
     if (!this.copy.btn.disabled) {
-      this.copy.reposition({ right: 6, bottom: 32, screen: frame });
+      this.copy.reposition({ left: 6, bottom: 6, screen: frame });
       this.copy.btn.publishToDom($, "copy", this.#coatedCopy);
-      this.copy.paint({ ink: $.ink }, this.#copyScheme);
+      this.copy.paint({ ink: $.ink }, this.#copyPasteScheme);
+    }
+
+    // Paste Button
+    if (!this.paste.btn.disabled) {
+      this.paste.reposition({ left: 6, bottom: 6, screen: frame });
+      this.paste.btn.publishToDom($, "paste");
+      this.paste.paint({ ink: $.ink }, this.#copyPasteScheme);
     }
 
     // Return false if we have loaded every glyph.
@@ -477,11 +485,14 @@ class TextInput {
     if (this.canType) this.blink.step();
   }
 
-  showButton({ nocopy } = { nocopy: false }) {
+  showButton($, { nocopy } = { nocopy: false }) {
     this.enter.btn.disabled = false;
     if (!nocopy && this.text.length > 0) {
       this.#coatedCopy = this.#coatCopy(this.text); // Wrap text to be copied.
       this.copy.btn.disabled = false;
+
+      this.paste.btn.disabled = true; // Disable paste button.
+      this.paste.btn.removeFromDom($, "paste");
     }
   }
 
@@ -510,12 +521,12 @@ class TextInput {
   }
 
   // Set the UI state to be that of a completed reply.
-  replied() {
+  replied($) {
     this.lock = false;
     this.runnable = false;
     this.inputStarted = false;
     this.canType = false;
-    this.showButton();
+    this.showButton($);
   }
 
   // Handle user input.
@@ -527,30 +538,6 @@ class TextInput {
       this.#prompt.resize(floor($.screen.width / 6) - 2);
       this.flow();
       needsPaint();
-    }
-
-    // ✂️ Paste from user clipboard.
-    if (e.is("pasted:text") && this.lock === false && this.canType) {
-      const paste = e.text;
-      const index = this.#prompt.textPos();
-
-      // Just add the text to the end.
-      if (index === undefined) {
-        this.text += paste;
-        this.#prompt.snapTo(this.text);
-      } else {
-        // Or inside.
-        let sliceIndex = index;
-        const onChar = this.#prompt.posHasVisibleCharacter();
-        if (!onChar) sliceIndex += 1;
-        this.text =
-          this.text.slice(0, sliceIndex) + paste + this.text.slice(sliceIndex);
-        const newCursor = this.#prompt.textToCursorMap[index + paste.length];
-        this.#prompt.cursor = { ...newCursor };
-        if (!onChar) this.#prompt.forward();
-      }
-
-      this.blink.flip(true);
     }
 
     // ⌨️ Add text via the keyboard.
@@ -813,9 +800,11 @@ class TextInput {
         this.activated?.($, true); // Run an activate callback.
         // this.activatedOnce = true;
         this.copy.btn.disabled = true;
+        this.copy.btn.removeFromDom($, "copy");
+        this.paste.btn.disabled = false;
+
         if (this.text.length > 0) {
           this.enter.btn.disabled = false;
-          this.copy.btn.removeFromDom($, "copy");
           this.runnable = true;
         } else {
           this.enter.btn.disabled = true;
@@ -867,11 +856,11 @@ class TextInput {
     // Handle activation / focusing of the input
     // (including os-level software keyboard overlays)
     // if (e.is("keyboard:open") && this.inputStarted) this.canType = true;
-    if (e.is("keyboard:open")) {
+    if (e.is("keyboard:open") && !this.lock) {
       activate(this);
     }
 
-    if (e.is("keyboard:close")) {
+    if (e.is("keyboard:close") && !this.lock) {
       deactivate(this);
     }
 
@@ -885,7 +874,8 @@ class TextInput {
       !this.inputStarted &&
       !this.canType &&
       !this.backdropTouchOff &&
-      (this.copy.btn.disabled === true || !this.copy.btn.box.contains(e))
+      (this.copy.btn.disabled === true || !this.copy.btn.box.contains(e)) &&
+      (this.paste.btn.disabled === true || !this.paste.btn.box.contains(e))
     ) {
       this.enter.btn.down = true;
       $.send({ type: "keyboard:unlock" });
@@ -912,6 +902,7 @@ class TextInput {
       } else {
         ti.blank("blink");
         ti.enter.btn.disabled = true;
+        ti.paste.btn.disabled = false;
       }
       ti.inputStarted = true;
       ti.editableCallback?.(ti);
@@ -926,8 +917,12 @@ class TextInput {
         if (debug) console.log("❌✍️ TextInput already deactivated.");
         return;
       }
+
+      console.log("Deactivated...")
       ti.activated?.($, false);
+
       ti.enter.btn.disabled = false;
+      ti.paste.btn.disabled = false;
       ti.inputStarted = false;
       ti.canType = false;
       ti.runnable = false;
@@ -945,6 +940,9 @@ class TextInput {
       if (ti.#lastPrintedText.length > 0 && ti.commandSentOnce) {
         ti.copy.btn.disabled = false;
         ti.#coatedCopy = ti.#coatCopy(ti.text); // Wrap text to be copied.
+
+        ti.paste.btn.disabled = true; // Disable paste button.
+        ti.paste.btn.removeFromDom($, "paste");
       }
       needsPaint();
       // $.send({ type: "keyboard:lock" });
@@ -956,7 +954,8 @@ class TextInput {
     if (
       e.is("touch") &&
       ((this.enter.btn.disabled === false && this.enter.btn.box.contains(e)) ||
-        (this.copy.btn.disabled === false && this.copy.btn.box.contains(e)))
+        (this.copy.btn.disabled === false && this.copy.btn.box.contains(e)) ||
+        (this.paste.btn.disabled === false && this.paste.btn.box.contains(e)))
     ) {
       this.backdropTouchOff = true;
     }
@@ -982,9 +981,16 @@ class TextInput {
         (e.is("draw") || e.is("touch")) &&
         this.copy.btn.disabled === false &&
         this.copy.btn.box.contains(e) // &&
-        //!this.copy.btn.down
       ) {
-        // this.backdropTouchOff = true;
+        $.send({ type: "keyboard:lock" });
+      }
+
+      // Paste button...
+      if (
+        (e.is("draw") || e.is("touch")) &&
+        this.paste.btn.disabled === false &&
+        this.paste.btn.box.contains(e) // &&
+      ) {
         $.send({ type: "keyboard:lock" });
       }
 
@@ -1014,20 +1020,21 @@ class TextInput {
           needsPaint();
         },
       });
+
       // 🔲 Copy
       this.copy.btn.act(e, {
-        down: () => {
-          //$.send({ type: "keyboard:lock" });
-          needsPaint();
-        },
+        down: () => needsPaint(),
+        push: () => needsPaint(),
+        cancel: () => needsPaint(),
+      });
+
+      // 🔲 Paste
+      this.paste.btn.act(e, {
+        down: () => needsPaint(),
         push: () => {
-          // Copy text to user's clipboard.
-          // clipboard.copy(this.text);
           needsPaint();
         },
-        cancel: () => {
-          needsPaint();
-        },
+        cancel: () => needsPaint(),
       });
     }
 
@@ -1041,19 +1048,71 @@ class TextInput {
       }
 
       this.copy.txt = copied ? "Copied" : "Failed";
-      this.#copyScheme = [64, 127, 127, 64]; // Greyed out.
+      this.#copyPasteScheme = [64, 127, 127, 64]; // Greyed out.
       needsPaint();
-      clearTimeout(this.#copyTimeout);
-      this.#copyTimeout = setTimeout(() => {
+      clearTimeout(this.#copyPasteTimeout);
+      this.#copyPasteTimeout = setTimeout(() => {
         this.copy.btn.disabled = false;
         this.copy.txt = "Copy";
-        this.#copyScheme = undefined;
+        this.#copyPasteScheme = undefined;
         needsPaint();
       }, 500);
     }
 
-    // if (e.is("clipboard:copy:failed")) {
-    // }
+    // 🗞️ Paste UI signal.
+    if (e.name?.startsWith("clipboard:paste")) {
+      const pasted = e.is("clipboard:paste:pasted");
+      if (debug) {
+        pasted
+          ? console.log("📋 Paste: Pasted 🙃")
+          : console.warn("📋 Paste: Failed ⚠️");
+      }
+
+      this.paste.txt = pasted ? "Pasted" : "Failed";
+      this.#copyPasteScheme = [64, 127, 127, 64]; // Greyed out.
+      needsPaint();
+      clearTimeout(this.#copyPasteTimeout);
+      this.#copyPasteTimeout = setTimeout(() => {
+        this.paste.btn.disabled = false;
+        this.paste.txt = "Paste";
+        this.#copyPasteScheme = undefined;
+        needsPaint();
+      }, 500);
+    }
+
+    if (e.is("pasted:text") && !this.canType) {
+      activate(this); // Activate on pasted text if necessary.
+    }
+
+    // 🗞️ Pasted text from user clipboard.
+    if (e.is("pasted:text") && this.lock === false && this.canType) {
+      const paste = e.text;
+      const index = this.#prompt.textPos();
+
+      // Just add the text to the end.
+      if (index === undefined || this.text.length === 0) {
+        this.text += paste;
+        this.#prompt.snapTo(this.text);
+      } else {
+        // Or inside.
+        let sliceIndex = index;
+        const onChar = this.#prompt.posHasVisibleCharacter();
+        if (!onChar) sliceIndex += 1;
+        this.text =
+          this.text.slice(0, sliceIndex) + paste + this.text.slice(sliceIndex);
+        const newCursor = this.#prompt.textToCursorMap[index + paste.length];
+        this.#prompt.cursor = { ...newCursor };
+        if (!onChar) this.#prompt.forward();
+      }
+
+      if (this.text.length > 0) {
+        this.enter.btn.disabled = false;
+        //this..btn.removeFromDom($, "copy");
+        this.runnable = true;
+      }
+
+      this.blink.flip(true);
+    }
 
     if (e.is("touch") && !this.lock) {
       this.blink.flip(true);
@@ -1066,7 +1125,13 @@ class TextInput {
 
     if (e.is("lift")) this.#shifting = false;
 
-    if (e.is("draw") && !this.lock && this.canType && !this.enter.btn.down) {
+    if (
+      e.is("draw") &&
+      !this.lock &&
+      this.canType &&
+      !this.enter.btn.down &&
+      !this.paste.btn.down
+    ) {
       $.send({ type: "keyboard:lock" });
 
       this.#shifting = true;

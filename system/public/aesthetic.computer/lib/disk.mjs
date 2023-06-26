@@ -143,7 +143,8 @@ function addUndoPainting(painting) {
   //       undo stack, and images could be diffed? 23.01.31.01.30
   if (undoPaintings.length > 2) undoPaintings.shift();
 
-  console.log("💩 Added undo painting...", undoPaintings.length);
+  if (debug && logs.painting)
+    console.log("💩 Added undo painting...", undoPaintings.length);
 }
 
 let system = null; // Used to add built-in templated behaviors like `nopaint`.
@@ -2019,7 +2020,6 @@ function send(data, shared = []) {
   }
 }
 
-
 // Used to subscribe to live coding / development reloads.
 let codeChannel = await store.retrieve("code-channel");
 
@@ -2106,6 +2106,16 @@ async function makeFrame({ data: { type, content } }) {
   // Load the source code for a dropped `.mjs` file.
   if (type === "dropped:piece") {
     load(content);
+    return;
+  }
+
+  if (type === "paste:pasted") {
+    actAlerts.push("clipboard:paste:pasted");
+    return;
+  }
+
+  if (type === "paste:failed") {
+    actAlerts.push("clipboard:paste:failed");
     return;
   }
 
@@ -2556,7 +2566,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // 1e. Loading Sound Effects
   if (type === "loaded-sfx-success") {
-    if (debug) console.log("Sound load success:", content);
+    if (debug && logs.sound) console.log("Sound load success:", content);
     preloadPromises[content.sfx].resolve(content.sfx);
     delete preloadPromises[content];
     return;
