@@ -16,7 +16,7 @@ function boot({ wipe }) {
 // 🎨 Paint
 function paint({ ink }) {
   // Executes every display frame.
-  return false;
+  return false; // Uncomment for an animation loop.
 }
 
 // 🎪 Act
@@ -40,14 +40,14 @@ function paint({ ink }) {
 // }
 
 // 📰 Meta
-// function meta() {
-//   return {
-//     title: "$NAME",
-//     desc: "$THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES",
-//   };
-// }
+function meta() {
+  return {
+    title: "$NAME",
+    desc: "$THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES",
+  };
+}
 
-export { boot, paint };
+export { boot, paint, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
