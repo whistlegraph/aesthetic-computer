@@ -40,8 +40,7 @@ function activate(context) {
         .slice(-1)[0]
         .replace(".mjs", "");
 
-      // const host = "aesthetic.computer"; // "localhost:8888";
-      const host = "localhost:8888";
+      const host = "aesthetic.computer"; // "localhost:8888";
 
       fetch(`https://${host}/run`, {
         method: "POST",

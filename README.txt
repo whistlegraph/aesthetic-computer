@@ -135,6 +135,7 @@
 
 *** Launch Goodies ***
   - [] Tapping top-left corner label should always highlight the text.
+    - [] Doesn't work on `bleep`.
   - [] Add more themes other than the dark boolean?
     - [] You should be able to type colors and have the
          general prompt aesthetic change immediately,

@@ -1,8 +1,11 @@
 {
   "name": "aesthetic-computer-code",
+  "publisher": "aesthetic-computer",
   "displayName": "aesthetic.computer",
+  "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
   "version": "1.0.0",
+  "description": "An extension for loading and running aesthetic.computer pieces in VS Code.",
   "engines": {
     "vscode": "^1.74.2"
   },
@@ -12,25 +15,24 @@
     "install:ext": "code --install-extension aesthetic-computer-code-1.0.0.vsix",
     "publish": "vsce publish"
   },
-  "description": "An extension for loading and running aesthetic.computer pieces in VS Code.",
   "main": "./extension.js",
   "activationEvents": [],
   "contributes": {
     "commands": [
       {
         "command": "aestheticComputer.runPiece",
-        "title": "Aesthetic Computer: Run Piece ➡️"
+        "title": "aesthetic.computer: Run Piece ➡️"
       },
       {
         "command": "aestheticComputer.enterCode",
-        "title": "Aesthetic Computer: Enter Code️"
+        "title": "aesthetic.computer: Enter Code️"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "piece",
-          "title": "Aesthetic Computer",
+          "title": "aesthetic.computer",
           "icon": "resources/aesthetic-computer.svg"
         }
       ]
