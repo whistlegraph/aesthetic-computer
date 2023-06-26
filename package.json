@@ -9,6 +9,7 @@
     "tunnel": "ngrok http https://localhost:8888 --domain local.aesthetic.computer",
     "aesthetic": "concurrently --raw \"npm run code\" \"npm run server:session\" \"npm run edge\" \"npm run url\"",
     "ext": "cd vscode-extension; npm run reload;",
+    "ext:publish": "cd vscode-extension; npm run publish;",
     "code": "cd system; npm run codespaces-dev",
     "edge": "vercel dev",
     "edge.old": "concurrently --raw \"vercel dev\" \"http-server edge-stream -p 9000 --cors -c-1 -i --P http://localhost:3000 -S --cert ssl-dev/localhost.pem --key ssl-dev/localhost-key.pem\"",
