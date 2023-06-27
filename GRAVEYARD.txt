@@ -1,5 +1,31 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** encode/decode ***
+  + Done
+  - [x] Fix word wrap on response issue.
+  - [x] Test with a motd or default response?
+  - [x] Figure out how to handle pasting text on iOS.
+  - [x] Add a shortcut to paste on mobile.
+  - [x] Design the text + url that gets copied and sent.
+  - [x] Add a "copied" hook to the `prompt-system`.
+  - [x] Fix clipboard for iOS.
+  - [no] add flag so that copy is only on some of the buttons
+  - [x] print current text to console when copy button is pressed
+  - [x] copy text to user's clipboard on every platform
+  - [x] once copied, button reads 'copied' and is visibly deactivated for 3 seconds
+  - [x] add the copy button to copy text
+  - [x] Fix the empty params error.
+  - [x] line break while editing
+  - [x] make the decode bot
+  - [x] colors for decode bot
+  - [x] reset the interface so when text changes you have to hit reply again
+  - [x] color changing
+  - [x] when you press enter with mouse both times, it doesn't bring you to new entry blinking cursor
+  - [x] bug: going to encode from prompt freezes the screen but works upon pressing enter
+  - [x] decide on command names
+  - [x] make the encode bot
+    - [x] add gpt3-tokenizer library
+
 *** VS Code Extension ***
   + Done
   - [x] Finish and publish the first version.

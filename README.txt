@@ -44,54 +44,32 @@
   - [] Live reload: boot will not paint again if paint returns false in a contrived example
   - [] Video download `local` fix.
   - [] Favicon CORS fix (generate the icon / use a data uri)
+    - [] Get SharedArrayBuffer Working again.
   - [] Apple Pencil is no longer working with brushes.
-  - [] Fix painting rotate / resize cropping issue.
-    - [] Check this in Brave browser as well.
+  - [] Fix painting device rotate / resize cropping issue.
   - [] Fix `spray` multiplayer / socket messages not being sent regression.
-  - [] Research the use of "requestProvider.js.map" and work it into `index.js`.
   - [] Rename $api.upload to $api.open? or $api.importFile? 
   + In Production
   - [🍽️] Fix Firefox AudioWorklet Initialization Bug `Error: Module resolve hook not set`
   - [] https://gist.github.com/lukaslihotzki/b50ccb61ff3a44b48fc4d5ed7e54303f
   - [] Zooming in on the page a lot will make the margin too large
        and squash the main display.
-  - [] The back button does not work in the Instagram in-app browser.
   + Dev Only
   - [] Get ssh working in VS Code on windows via WSL: https://stackoverflow.com/questions/60150466/can-i-ssh-from-wsl-in-visual-studio-code
   - [] `npm run code` does not work offline, due to netlify relying on online conectivity.
   + Done
+  - [x] Research the use of "requestProvider.js.map" and work it into `index.js`.
+  - [x] The back button does not work in the Instagram in-app browser.
   - [x] Jumping back to the prompt from `word` no longer stamps the word.
+  - [x] Fix tap focus / unfocus regression in `type`.
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** encode/decode ***
-  - [🟡] Fix word wrap on response issue.
-    - [] Test with a motd or default response?
-  + Done
-  - [x] Figure out how to handle pasting text on iOS.
-  - [x] Add a shortcut to paste on mobile.
-  - [x] Design the text + url that gets copied and sent.
-  - [x] Add a "copied" hook to the `prompt-system`.
-  - [x] Fix clipboard for iOS.
-  - [no] add flag so that copy is only on some of the buttons
-  - [x] print current text to console when copy button is pressed
-  - [x] copy text to user's clipboard on every platform
-  - [x] once copied, button reads 'copied' and is visibly deactivated for 3 seconds
-  - [x] add the copy button to copy text
-  - [x] Fix the empty params error.
-  - [x] line break while editing
-  - [x] make the decode bot
-  - [x] colors for decode bot
-  - [x] reset the interface so when text changes you have to hit reply again
-  - [x] color changing
-  - [x] when you press enter with mouse both times, it doesn't bring you to new entry blinking cursor
-  - [x] bug: going to encode from prompt freezes the screen but works upon pressing enter
-  - [x] decide on command names
-  - [x] make the encode bot
-    - [x] add gpt3-tokenizer library
-
 *** Whistle ***
   - [🧡] Get whistle working on iOS.
+
+*** lyrical melody finder / selector ***
+  - [] Fork `tone`.
 
 *** bb ***
   - [] Make a game state.
@@ -104,7 +82,6 @@
 
 *** deck ***
   - []
-
 
 *** Profiles and Handles *** 
   - [] Fix `handle` setting in all cases / make it work better.

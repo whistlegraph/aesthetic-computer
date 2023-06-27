@@ -1276,7 +1276,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         window.addEventListener("pointerdown", (e) => {
-          // if (currentPieceHasKeyboard) e.preventDefault();
+          if (currentPieceHasKeyboard) e.preventDefault();
         });
 
         window.addEventListener("pointerup", (e) => {

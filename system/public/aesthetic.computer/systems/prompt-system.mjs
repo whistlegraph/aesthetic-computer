@@ -144,7 +144,6 @@ export function prompt_act($) {
     (e.is("keyboard:down:escape") ||
       (e.is("keyboard:down:`") && slug === "prompt"))
   ) {
-    console.log("ABORTING");
     abort?.();
     abortMessage = "";
   }

@@ -1106,7 +1106,6 @@ class TextInput {
 
       if (this.text.length > 0) {
         this.enter.btn.disabled = false;
-        //this..btn.removeFromDom($, "copy");
         this.runnable = true;
       }
 
@@ -1251,7 +1250,7 @@ class Prompt {
 
       for (let c = 0; c < text.length; c += 1) {
         const char = text[c];
-        const newLine = char.charCodeAt(0) === 10;
+        let newLine = char.charCodeAt(0) === 10;
 
         // First character...
         if (c === 0) {
@@ -1295,11 +1294,11 @@ class Prompt {
           wordStart = false;
         }
 
-        // TODO: ❤️‍🔥 Finish end of line space wordwrapping code.
-        // if (char === " " && cursor.x + 1 === this.colWidth - 1) {
-        //   console.log(cursor.x);
-        //   brokeLine = true;
-        // }
+        // Create a line break if a line will begin with a space and we're
+        // not on a space. 
+        if (char === " " && cursor.x + 1 === this.colWidth - 1 && text[textIndex] !== " ") {
+          newLine = true;
+        }
 
         if (newLine) {
           this.newLine(cursor);
@@ -1307,6 +1306,7 @@ class Prompt {
         } else {
           !brokeLine ? this.forward(cursor) : (brokeLine = false);
         }
+
         textIndex += 1;
         this.#updateMaps(text, textIndex, cursor);
       }
