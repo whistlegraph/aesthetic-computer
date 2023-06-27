@@ -65,16 +65,12 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** encode/decode ***
-  - [] Figure out how to handle pasting text on iOS.
-    - [] "Copy" should work internally, so that paste also works
-         internally?
-    - [] Or "paste" opens a full view on iOS that has you tap and hold.
-      - [] Or the button has a cooldown...! 🌈
   - [🟡] Fix word wrap on response issue.
     - [] Test with a motd or default response?
   + Done
+  - [x] Figure out how to handle pasting text on iOS.
   - [x] Add a shortcut to paste on mobile.
-  - [x] design the text + url that gets copied and sent
+  - [x] Design the text + url that gets copied and sent.
   - [x] Add a "copied" hook to the `prompt-system`.
   - [x] Fix clipboard for iOS.
   - [no] add flag so that copy is only on some of the buttons

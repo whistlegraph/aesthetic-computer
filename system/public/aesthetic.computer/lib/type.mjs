@@ -918,7 +918,6 @@ class TextInput {
         return;
       }
 
-      console.log("Deactivated...")
       ti.activated?.($, false);
 
       ti.enter.btn.disabled = false;
@@ -1268,6 +1267,7 @@ class Prompt {
           continue;
         }
 
+        //if (!newLine && char !== " ") {
         if (!newLine && char !== " ") {
           if (!wordStart) {
             wordStart = true;
@@ -1294,6 +1294,12 @@ class Prompt {
         } else {
           wordStart = false;
         }
+
+        // TODO: ❤️‍🔥 Finish end of line space wordwrapping code.
+        // if (char === " " && cursor.x + 1 === this.colWidth - 1) {
+        //   console.log(cursor.x);
+        //   brokeLine = true;
+        // }
 
         if (newLine) {
           this.newLine(cursor);

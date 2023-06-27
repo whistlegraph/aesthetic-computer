@@ -80,6 +80,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const uiCtx = uiCanvas.getContext("2d");
   uiCanvas.dataset.type = "ui";
 
+  const debugCanvas = document.createElement("canvas");
+  const debugCtx = debugCanvas.getContext("2d");
+  debugCanvas.dataset.type = "debug";
+
   // A buffer for nicer resolution switches, nice when moving from
   // low resolution back to high resolution. Could eventually be used
   // for transition effects.
@@ -307,6 +311,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     uiCanvas.style.width = projectedWidth + "px";
     uiCanvas.style.height = projectedHeight + "px";
 
+    if (debug) {
+      debugCanvas.width = projectedWidth;
+      debugCanvas.height = projectedHeight;
+      debugCanvas.style.width = projectedWidth + "px";
+      debugCanvas.style.height = projectedHeight + "px";
+    }
+
     // Add some fancy ratios to the canvas and uiCanvas.
     /*
     canvas.style.width = `calc(100vw - ${gapSize}px)`;
@@ -348,6 +359,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       modal.append(bumper);
 
       wrapper.append(uiCanvas);
+      if (debug) wrapper.append(debugCanvas);
       document.body.append(wrapper);
 
       // Trigger it to re-draw whenever the window resizes.
@@ -928,13 +940,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let state = "up";
       hitboxes[content.label] = async (e) => {
         const frame = canvas.getBoundingClientRect();
-        const scale = projectedWidth / canvas.width;
+        const xscale = projectedWidth / canvas.width;
+        const yscale = projectedHeight / canvas.height;
         const hitbox = Box.from({
-          x: frame.left + content.box.x * scale,
-          y: frame.top + content.box.y * scale,
-          w: content.box.w * scale,
-          h: content.box.h * scale,
+          x: frame.left + content.box.x * xscale,
+          y: frame.top + content.box.y * yscale,
+          w: content.box.w * xscale,
+          h: content.box.h * yscale,
         });
+
+        // 📓 Uncomment to debug the hitboxes and see how they line up.
+        // const dbg = Box.from({
+        //   x: content.box.x * xscale,
+        //   y: content.box.y * yscale,
+        //   w: content.box.w * xscale,
+        //   h: content.box.h * yscale,
+        // });
+        // debugCtx.fillStyle = "red";
+        // debugCtx.fillRect(dbg.x, dbg.y, dbg.w, dbg.h);
 
         const hit = hitbox.contains({ x: e.x, y: e.y });
 
@@ -951,16 +974,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           }
 
+          // Paste should always happen on a pointerdown.
           if (content.label === "paste") {
             try {
               pastedText = await navigator.clipboard.readText();
               // This routes through to the `pasted:text` event in `disk`.
               // where `pastedText` is sent on the next frame.
-              send({ type: "paste:pasted" }); 
+              send({ type: "paste:pasted" });
             } catch (err) {
-              send({ type: "pasted:failed" });
+              send({ type: "paste:failed" });
             }
           }
+
+          state = "up";
         } else if (e.type === "pointerdown" && hit) {
           state = "down";
         } else if (e.type === "pointerup" && !hit) {
@@ -1250,12 +1276,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         window.addEventListener("pointerdown", (e) => {
-          if (currentPieceHasKeyboard) e.preventDefault();
+          // if (currentPieceHasKeyboard) e.preventDefault();
         });
 
         window.addEventListener("pointerup", (e) => {
           if (keyboard.needsImmediateOpen) {
-            input.focus();
+            //input.focus();
             keyboard.needsImmediateOpen = false;
             return;
           }
@@ -1508,8 +1534,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         // Replace the state if we are running an aliased `load` or `jump`.
-        // (That doesn't avoids the history stack.)
-        // Note: History state changes do not work in a sandboxed iframe.
+        // (That doesn't avoid the history stack.)
+        // Note: History state changes do not work in a sandboxed iframe!
         if (
           content.fromHistory === true &&
           content.alias === false &&
@@ -1524,6 +1550,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       UI.spinnerReset(); // Reset the timer on the yellow UI loading spinner.
+
       send({ type: "loading-complete" });
       return;
     }
