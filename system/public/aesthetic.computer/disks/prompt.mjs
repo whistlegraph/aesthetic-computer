@@ -109,8 +109,8 @@ function boot({ glaze, api, net, system, pieceCount, send, ui, screen, user }) {
     system.prompt.input.inputStarted = true;
 
     // 🍫 Create a pleasurable blinking cursor delay.
-    system.prompt.input.showBlink = false;
-    setTimeout(() => (system.prompt.input.showBlink = true), 100);
+    // system.prompt.input.showBlink = false;
+    // setTimeout(() => (system.prompt.input.showBlink = true), 100);
     send({ type: "keyboard:unlock" });
   }
 }

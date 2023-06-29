@@ -48,16 +48,17 @@
   - [] Apple Pencil is no longer working with brushes.
   - [] Fix painting device rotate / resize cropping issue.
   - [] Fix `spray` multiplayer / socket messages not being sent regression.
-  - [] Rename $api.upload to $api.open? or $api.importFile? 
   + In Production
   - [🍽️] Fix Firefox AudioWorklet Initialization Bug `Error: Module resolve hook not set`
   - [] https://gist.github.com/lukaslihotzki/b50ccb61ff3a44b48fc4d5ed7e54303f
   - [] Zooming in on the page a lot will make the margin too large
        and squash the main display.
   + Dev Only
-  - [] Get ssh working in VS Code on windows via WSL: https://stackoverflow.com/questions/60150466/can-i-ssh-from-wsl-in-visual-studio-code
   - [] `npm run code` does not work offline, due to netlify relying on online conectivity.
+    - [-] How can be sure I can run the whole stack without an internet
+        connection?
   + Done
+  - [x] Rename $api.upload to $api.open? or $api.importFile? 
   - [x] Research the use of "requestProvider.js.map" and work it into `index.js`.
   - [x] The back button does not work in the Instagram in-app browser.
   - [x] Jumping back to the prompt from `word` no longer stamps the word.
@@ -65,11 +66,18 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Silly Snake ***
+
+*** lyrical melody finder / selector ***
+  - [] Fork `tone` and also use audio feedback graph from `whistle`.
+
 *** Whistle ***
   - [🧡] Get whistle working on iOS.
 
-*** lyrical melody finder / selector ***
-  - [] Fork `tone`.
+*** WebGL2 / WebGPU Backend ***
+  - [] Specify a new GPU backed graphics backend.
+  - [] Abstract the graph api into `Y` calls so both compositors can be run
+       simultaneously on sample pieces.
 
 *** bb ***
   - [] Make a game state.
@@ -137,6 +145,7 @@
     - [] And include an abstraction for caching / loading from
          cached commands.
   - [] Prompts with extra spaces betwene parameters should compress space.
+  - [] Upgrade all the packages in `/system` (and manually copy over new dependencies, then test most hot paths for regressions).
   - [] Run a Fast 3G load test to optimize assets and
       make a better startup / loading sequence.
   + Done

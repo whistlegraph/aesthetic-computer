@@ -55,13 +55,18 @@ export async function prompt_boot(
       input.inputStarted = false;
       input.canType = false;
 
+
       const halted = await halt?.($, text);
       if (!$.jumping()) input.lock = false;
       if (halted) {
         messageComplete = true;
         reply?.(input.text);
         input.bakePrintedText();
+        input.runnable = false;
+        input.showButton($);
         $.needsPaint();
+        input.canType = true;
+        input.inputStarted = true;
         return; // No more processing necessary.
       }
 

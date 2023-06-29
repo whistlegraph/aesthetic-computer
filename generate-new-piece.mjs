@@ -3,7 +3,9 @@
 // command line.
 
 /* #region 🏁 TODO 
+  - [] Make it so `this-piece` -> titleizes to: `This Piece`.
   - [] Abstract the replacement logic in order to produce AlI generated pieces.
+    - [] And also share the same abstracted logic in `prompt''s `code` command.
 #endregion */
 
 import fs from "fs";
