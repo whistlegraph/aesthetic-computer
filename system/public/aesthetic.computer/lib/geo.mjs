@@ -1,6 +1,6 @@
 // 🧮 Geometry
 
-const { abs, cos, sin, floor } = Math;
+const { abs, cos, sin, floor, sqrt } = Math;
 import { dist, vec4, radians, randIntRange } from "./num.mjs";
 
 // A generic circle model for algorithmic use.
@@ -14,6 +14,9 @@ export class Circle {
     this.y = y;
     this.radius = radius;
   }
+
+  //  Determines whether the circle is intersecting the given line.
+  // function ( line, )
 
   // Returns a random (x, y) point within the circle by recursively generating
   // random points within a bounding box and checking to see if they are within
@@ -40,11 +43,27 @@ export class Box {
   w = 1;
   h = 1;
 
-  constructor(x, y, w, h = w) {
-    this.x = x;
-    this.y = y;
-    this.w = w;
-    this.h = h;
+  // Params:
+  // x, y, w, h
+  // x, y, s
+  // {x, y}, s
+  constructor() {
+    if (arguments.length === 4) {
+      this.x = arguments[0];
+      this.y = arguments[1];
+      this.w = arguments[2];
+      this.h = arguments[3];
+    } else if (arguments.length === 3) {
+      this.x = arguments[0];
+      this.y = arguments[1];
+      this.w = arguments[2];
+      this.h = this.w;
+    } else if (arguments.length === 2) {
+      this.x = arguments[0].x;
+      this.y = arguments[0].y;
+      this.w = arguments[1];
+      this.h = this.w;
+    }
 
     if (this.w === 0) this.w = 1;
     if (this.h === 0) this.h = 1;
@@ -89,6 +108,11 @@ export class Box {
     return new Box(x, y, w, h);
   }
 
+  // The top side of the box. (same as y)
+  get top() {
+    return this.y;
+  }
+
   // Calculates a y value, representing the bottom of the box.
   // Note: Returns y if the height is 1.
   get bottom() {
@@ -96,10 +120,32 @@ export class Box {
     //return this.y + this.h;
   }
 
+  // The left side of the box. (same as x)
+  get left() {
+    return this.x;
+  }
+
   // Calculates an x value, representing the right of the box.
   // Note: Returns x if the width is 1.
   get right() {
     return this.w === 1 ? this.x : this.x + this.w;
+  }
+
+  // All four corners.
+  get topLeft() {
+    return { x: this.left, y: this.top };
+  }
+
+  get topRight() {
+    return { x: this.right, y: this.top };
+  }
+
+  get bottomLeft() {
+    return { x: this.left, y: this.bottom };
+  }
+
+  get bottomRight() {
+    return { x: this.right, y: this.bottom };
   }
 
   // Scales a box and returns a copy.
@@ -141,7 +187,7 @@ export class Box {
   contains(point = { x: undefined, y: undefined }) {
     const { x, y } = point;
     return (
-      this.x <= x && x < this.x + this.w && this.y <= y && y < this.y + this.h
+      this.x <= x && x <= this.x + this.w && this.y <= y && y <= this.y + this.h
     );
   }
 
@@ -161,6 +207,34 @@ export class Box {
   // The opposite of contains.
   misses(o) {
     return !this.contains(o);
+  }
+
+  // Grow a box from the center by `n` units on every side.
+  // And returns a copy.
+  grow(n) {
+    return new Box(this.x - n, this.y - n, this.w + n * 2, this.h + n * 2);
+  }
+
+  // Checks whether two boxes are making contact and / or intersecting.
+  // 📓 This might be a little unperforant with tons of boxes. 23.06.29.12.48
+  contact(box) {
+    return (
+      box &&
+      (this.contains(box.topLeft) ||
+        this.contains(box.topRight) ||
+        this.contains(box.bottomRight) ||
+        this.contains(box.bottomLeft))
+    );
+  }
+
+  // Returns true if the boxes match exactly.
+  equal(box) {
+    return (
+      this.x === box.x &&
+      this.y === box.y &&
+      this.w === box.w &&
+      this.h === box.h
+    );
   }
 }
 

@@ -2,7 +2,6 @@
 // Converts poems to token strings.
 
 /* #region 🏁 TODO
-
 #endregion */
 
 import { GPT3BrowserTokenizer } from "../dep/gpt3-tokenizer/gpt3-tokenizer.js";
@@ -23,7 +22,7 @@ function halt($, text) {
   const encoded = tokenizer.encode(text); // Encode text into tokens.
   $.system.prompt.input.text = encoded.bpe.join(" "); // Join ints into text.
   $.system.prompt.input.scheme = altScheme; // Change to "reply" color scheme.
-  $.system.prompt.input.replied(); // Set the UI state back to normal.
+  $.system.prompt.input.replied($); // Set the UI state back to normal.
   return true;
 }
 

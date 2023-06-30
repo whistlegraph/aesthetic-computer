@@ -1,5 +1,5 @@
-// $NAME, $TIMESTAMP
-// $THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES
+// 404, 2023.6.24.16.57.08
+// Appears when a piece is not found.
 
 /* #region 📚 README 
 #endregion */
@@ -8,15 +8,15 @@
 #endregion */
 
 // 🥾 Boot
-function boot({ wipe }) {
+function boot({ wipe, screen }) {
   // Runs once at the start.
-  wipe(127);
+  wipe(96).ink(128).write("Piece Not Found", { center: "xy" });
 }
 
 // 🎨 Paint
 function paint({ ink }) {
   // Executes every display frame.
-  return false; // Uncomment for an animation loop.
+  return false;
 }
 
 // 🎪 Act
@@ -40,14 +40,14 @@ function paint({ ink }) {
 // }
 
 // 📰 Meta
-function meta() {
-  return {
-    title: "$NAME",
-    desc: "$THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES",
-  };
-}
+// function meta() {
+//   return {
+//     title: "404",
+//     desc: "Appears when a piece is not found.",
+//   };
+// }
 
-export { boot, paint, meta };
+export { boot, paint };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)

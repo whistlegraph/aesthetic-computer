@@ -2,7 +2,8 @@
 // Manages clientside WebSocket connections.
 
 /* #region 🏁 todo
-- [] Queue any sent messages to be received when the connection opens?
++ Done
+- [x] Queue any sent messages to be received when the connection opens?
 #endregion */
 
 export class Socket {
@@ -90,7 +91,8 @@ export class Socket {
         console.log(`📡 ${c.ip} → 🤹 ${c.playerCount} : @${c.id}`);
         this.id = c.id; // Set the user identifier.
       }
-    } else if (type === "reload" && reload) {
+    } else if (type === "reload" && reload && this.#debug) {
+      // Only respond to global `reload` signals when in debug mode.
       let c;
       if (typeof content === "object") {
         c = content;
@@ -100,9 +102,14 @@ export class Socket {
       // this.kill(); // Don't immmediately kill the socket on reload.
       reload(c);
     } else if (type === "code") {
-      // console.log(id, type, content);
+      const parsed = JSON.parse(content);
+
       if (id === "development") {
-        reload?.({ piece: "code", code: content });
+        reload?.({
+          name: parsed.piece,
+          source: parsed.source,
+          code: parsed.code,
+        });
       }
     } else if (type === "left") {
       console.log(

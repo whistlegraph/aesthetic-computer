@@ -2,58 +2,58 @@
 // Abstraction for typography and text input.
 
 /* #region 🏁 todo
- + Next Version of `TextInput` (before recording)
- - [-] Add multi-select / shift+select to replace or modify whole regions. 
- + Later
- - [] Add tab auto-completion feature that can be side-loaded with contextual
-      data based on where the text module is used.
- - [] Make history on message input optional?
- - [] Gracefully allow for multiple instances of TextInput in a single piece? 
- + Done
- - [x] Add support for spaces to be inserted before the
-      first character.
- - [x] Add support for creating line breaks.
- - [x] Word break edge cases.
-   (Insertion + Deletion)
-   - [x] Backspacing characters at the start character of the broken
-         word should remove all extraneous space before the next word...
-   - [x] Adding spaces on the start character of a broken word *should*
-         increase the number of spaces by default...
-   - [x] A full length word appearing on a line after a break
-         will jump the line wrong and the cursor wrong.
-   - [x] Creating new lines (SHIFT+ENTER) at the start of broken words should
-         create an extra new line.
- - [x] Enter after a reply does not clear the cursor posiiton Enter after a reply does not clear the cursor position.
- - [x] Don't Backspace when cursor is on first character. 
- - [x] Test line break printing again.
-  - [x] Word wrapping.
-  - [x] Character wrapping.
- - [x] Get character wrapping working.
- - [x] Can't move cursor to the right when under a single character text.
- - [x] Disallow opening spaces.
- - [x] Rewrite paste to work. 
- - [x] Test movable cursor again.
- - [x] Add debug flag for drawing of spaces.
- - [x️‍] Scrubbing does not respect word wrapping.
- - [x] Infinite loop while adding spaces before the first character of the
-       first line.
- - [x] Adding space between two words / causing a break from inside will
-       shove the cursor to the top left.
- - [x] Backspacing the cursor on the first character of any line
-       doesn't work.
- - [x] The cursor does not jump accordingly when inserting a character
-       inside a word that will break it to the next line.
- - [x‍] Re-calculate gutter on resize.
- - [x] Add a gutter command to change the prompt gutter.
- - [x] Moving cursor to the right does not respect word breaks
- - [x] Draw glyphs under the moved cursor.
- - [x] "`" hotkeying back should start with the cursor non-visible.
- - [x] Receiving a bot reply should update the spinner. 
- - [x] Pressing return should reset the cursor and just work...
- - [😃] Rewrite Prompt with index maps to finish word wrapping support.
- - [x] Upcycling commands should reset the cursor position.
- - [x] Add different colors to "print" / storing the ink color / writing
-      a backdrop somehow... maybe using layer?
+  + Next Version of `TextInput` (before recording)
+  - [-] Add multi-select / shift+select to replace or modify whole regions. 
+  + Later
+  - [] Add tab auto-completion feature that can be side-loaded with contextual
+       data based on where the text module is used.
+  - [] Make history on message input optional?
+  - [] Gracefully allow for multiple instances of TextInput in a single piece? 
+  + Done
+  - [x] Add support for spaces to be inserted before the
+       first character.
+  - [x] Add support for creating line breaks.
+  - [x] Word break edge cases.
+    (Insertion + Deletion)
+    - [x] Backspacing characters at the start character of the broken
+          word should remove all extraneous space before the next word...
+    - [x] Adding spaces on the start character of a broken word *should*
+          increase the number of spaces by default...
+    - [x] A full length word appearing on a line after a break
+          will jump the line wrong and the cursor wrong.
+    - [x] Creating new lines (SHIFT+ENTER) at the start of broken words should
+          create an extra new line.
+  - [x] Enter after a reply does not clear the cursor posiiton Enter after a reply does not clear the cursor position.
+  - [x] Don't Backspace when cursor is on first character. 
+  - [x] Test line break printing again.
+   - [x] Word wrapping.
+   - [x] Character wrapping.
+  - [x] Get character wrapping working.
+  - [x] Can't move cursor to the right when under a single character text.
+  - [x] Disallow opening spaces.
+  - [x] Rewrite paste to work. 
+  - [x] Test movable cursor again.
+  - [x] Add debug flag for drawing of spaces.
+  - [x️‍] Scrubbing does not respect word wrapping.
+  - [x] Infinite loop while adding spaces before the first character of the
+        first line.
+  - [x] Adding space between two words / causing a break from inside will
+        shove the cursor to the top left.
+  - [x] Backspacing the cursor on the first character of any line
+        doesn't work.
+  - [x] The cursor does not jump accordingly when inserting a character
+        inside a word that will break it to the next line.
+  - [x‍] Re-calculate gutter on resize.
+  - [x] Add a gutter command to change the prompt gutter.
+  - [x] Moving cursor to the right does not respect word breaks
+  - [x] Draw glyphs under the moved cursor.
+  - [x] "`" hotkeying back should start with the cursor non-visible.
+  - [x] Receiving a bot reply should update the spinner. 
+  - [x] Pressing return should reset the cursor and just work...
+  - [😃] Rewrite Prompt with index maps to finish word wrapping support.
+  - [x] Upcycling commands should reset the cursor position.
+  - [x] Add different colors to "print" / storing the ink color / writing
+       a backdrop somehow... maybe using layer?
 #endregion */
 
 import { font1 } from "../disks/common/fonts.mjs";
@@ -167,6 +167,10 @@ class Typeface {
 // An interactive text prompt object.
 class TextInput {
   #text; // text content
+  #lastPrintedText = ""; // a place to cache a previous reply
+  #lastUserText = ""; // cache the user's edited text
+
+  #shifting = false; // Whether we ar emoving the cursor or not.
 
   #renderSpaces = false; // Whether to render invisible space characters. " "
   //                        For debugging purposes.
@@ -177,9 +181,8 @@ class TextInput {
 
   // Buttons
   enter; // A button for replying or inputting text.
-
-  copy; // A button for copying replies to the clipboard, that shows up
-  //       conditionally.
+  copy; // A button for copying to the clipboard, that shows up conditionally.
+  paste; // Similar to copy.
 
   canType = false;
 
@@ -210,11 +213,17 @@ class TextInput {
   //                   editable.
   copiedCallback;
 
-  #copyTimeout; // UI Timer for clipboard copy response.
-  #copyScheme; // An override for the Copy button's color.
+  #copyPasteTimeout; // UI Timer for clipboard copy response.
+  #copyPasteScheme; // An override for the Copy button's color.
 
   #coatedCopy; // Stores a version of the current text output that could be
   //              decorated. (With a URL, for example.)
+
+  activated; // Optional callback for when the the text input becomes
+  //            activated via pushing the Enter button or typing a key.
+  backdropTouchOff = false; // Determines whether to activate the input
+  //                           after tapping the backdrop.
+  commandSentOnce = false; // 🏴
 
   // Add support for loading from preloaded system typeface.
   constructor(
@@ -242,6 +251,7 @@ class TextInput {
       this.typeface = $.typeface; // Set to system typeface.
     }
 
+    this.activated = options.activated;
     this.#autolock = options.autolock;
     this.didReset = options.didReset;
 
@@ -252,7 +262,7 @@ class TextInput {
       floor($.screen.width / 6) - 2 // colWidth
     );
 
-    this.text = text;
+    this.print(text); // Set initial text.
 
     this.startingInput = this.text;
     this.scheme = options.scheme || {
@@ -278,11 +288,12 @@ class TextInput {
 
     this.enter = new TB("Enter");
     this.copy = new TB("Copy");
-    this.copy.btn.disabled = true; // Copy should be disabled by default.
+    this.paste = new TB("Paste");
+    this.copy.btn.disabled = true; // Copy is disabled by default,
+    this.paste.btn.disabled = false; // as is Paste.
 
     if (this.text.length === 0) {
       this.enter.btn.disabled = true;
-      // this.copy.btn.disabled = true;
     }
 
     this.processCommand = processCommand;
@@ -293,6 +304,11 @@ class TextInput {
   set gutter(n) {
     this.#prompt.colWidth = n;
     this.#prompt.gutter = this.#prompt.colWidth * this.#prompt.blockWidth;
+  }
+
+  // Reset the user text after a message is complete.
+  clearUserText() {
+    this.#lastUserText = "";
   }
 
   // Snap cursor to the end of text.
@@ -312,9 +328,22 @@ class TextInput {
     this.flow();
   }
 
+  print(text) {
+    this.text = text;
+    this.bakePrintedText();
+  }
+
+  bakePrintedText() {
+    this.#lastPrintedText = this.text;
+  }
+
+  // clearPrintedText() {
+  //   this.#lastPrintedText = "";
+  // }
+
   // Reflow the input text.
   flow() {
-    this.#prompt.mapTo(this.#text); // Rebuild the text map index.
+    this.#prompt.mapTo(this.text); // Rebuild the text map index.
   }
 
   // Return the text contents of the input.
@@ -410,13 +439,24 @@ class TextInput {
     if (!this.enter.btn.disabled) {
       this.enter.reposition({ right: 6, bottom: 6, screen: frame });
       this.enter.paint($);
+
+      if (this.enter.btn.down) {
+        $.ink(255, 0, 200, 64).box(0, 0, $.screen.width, $.screen.height, "in");
+      }
     }
 
     // Copy Button
     if (!this.copy.btn.disabled) {
-      this.copy.reposition({ right: 6, bottom: 32, screen: frame });
+      this.copy.reposition({ left: 6, bottom: 6, screen: frame });
       this.copy.btn.publishToDom($, "copy", this.#coatedCopy);
-      this.copy.paint({ ink: $.ink }, this.#copyScheme);
+      this.copy.paint({ ink: $.ink }, this.#copyPasteScheme);
+    }
+
+    // Paste Button
+    if (!this.paste.btn.disabled) {
+      this.paste.reposition({ left: 6, bottom: 6, screen: frame });
+      this.paste.btn.publishToDom($, "paste");
+      this.paste.paint({ ink: $.ink }, this.#copyPasteScheme);
     }
 
     // Return false if we have loaded every glyph.
@@ -445,11 +485,14 @@ class TextInput {
     if (this.canType) this.blink.step();
   }
 
-  showButton({ nocopy } = { nocopy: false }) {
+  showButton($, { nocopy } = { nocopy: false }) {
     this.enter.btn.disabled = false;
     if (!nocopy && this.text.length > 0) {
-      this.#coatedCopy = this.#coatCopy(this.text); // Wrap text to be copied. 
+      this.#coatedCopy = this.#coatCopy(this.text); // Wrap text to be copied.
       this.copy.btn.disabled = false;
+
+      this.paste.btn.disabled = true; // Disable paste button.
+      this.paste.btn.removeFromDom($, "paste");
     }
   }
 
@@ -461,10 +504,11 @@ class TextInput {
     if (store[this.key][0] !== this.text) store[this.key].unshift(this.text);
     // console.log("📚 Stored prompt history:", store[key]);
     store.persist(this.key); // Persist the history stack across tabs.
-
     // 🍎 Process commands for a given context, passing the text input.
     if (this.#autolock) this.lock = true; // TODO: This might be redundant now. 23.06.07.23.32
     await this.processCommand?.(this.text);
+    this.commandSentOnce = true;
+    // this.enter.btn.down = false; // Make sure the Enter button is released.
     if (this.#autolock) this.lock = false;
   }
 
@@ -473,16 +517,16 @@ class TextInput {
     if (cursor) this.cursor = cursor;
     this.text = "";
     this.#prompt.cursor = { x: 0, y: 0 };
-    this.blink.flip(true);
+    this.blink?.flip(true);
   }
 
   // Set the UI state to be that of a completed reply.
-  replied() {
+  replied($) {
     this.lock = false;
     this.runnable = false;
     this.inputStarted = false;
     this.canType = false;
-    this.showButton();
+    this.showButton($);
   }
 
   // Handle user input.
@@ -496,35 +540,21 @@ class TextInput {
       needsPaint();
     }
 
-    // ✂️ Paste from user clipboard.
-    if (e.is("pasted:text") && this.lock === false && this.canType) {
-      const paste = e.text;
-      const index = this.#prompt.textPos();
-
-      // Just add the text to the end.
-      if (index === undefined) {
-        this.text += paste;
-        this.#prompt.snapTo(this.text);
-      } else {
-        // Or inside.
-        this.text = this.text.slice(0, index) + paste + this.text.slice(index);
-        const newCursor = this.#prompt.textToCursorMap[index + paste.length];
-        this.#prompt.cursor = { ...newCursor };
-      }
-
-      this.blink.flip(true);
-    }
-
     // ⌨️ Add text via the keyboard.
-    if (e.is("keyboard:down") && this.lock === false) {
+    if (e.is("keyboard:down") && this.lock === false && !this.enter.btn.down) {
       if (this.canType === false) {
         this.canType = true;
-        this.text = "";
+        this.#lastPrintedText = this.text; // Remember last printed text.
+        if (this.#lastUserText.length > 0) {
+          this.text = this.#lastUserText;
+        } else {
+          this.blank("blink"); // Clear input and switch back to blink cursor.
+        }
         this.inputStarted = true;
         this.editableCallback?.(this);
-        this.#prompt.cursor = { x: 0, y: 0 };
       }
 
+      // 🔡 Inserting an individual character.
       if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
         // if (this.text === "" && e.key === " ") {
         //   this.blink.flip(true);
@@ -533,9 +563,7 @@ class TextInput {
 
         // Printable keys with subbed punctuation.
         let insert = e.key.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
-
-        let index = this.#prompt.textPos(); // TODO: This needs to present doubled up
-        //                                           characters in the right order.
+        let index = this.#prompt.textPos();
 
         const char = this.text[index];
         const newLine = char?.charCodeAt(0) === 10;
@@ -769,10 +797,14 @@ class TextInput {
       }
 
       if (e.key !== "Enter") {
+        this.activated?.($, true); // Run an activate callback.
+        // this.activatedOnce = true;
         this.copy.btn.disabled = true;
+        this.copy.btn.removeFromDom($, "copy");
+        this.paste.btn.disabled = false;
+
         if (this.text.length > 0) {
           this.enter.btn.disabled = false;
-          this.copy.btn.removeFromDom($, "copy");
           this.runnable = true;
         } else {
           this.enter.btn.disabled = true;
@@ -824,22 +856,143 @@ class TextInput {
     // Handle activation / focusing of the input
     // (including os-level software keyboard overlays)
     // if (e.is("keyboard:open") && this.inputStarted) this.canType = true;
-    // if (e.is("keyboard:open")) {}
+    if (e.is("keyboard:open") && !this.lock) {
+      activate(this);
+    }
 
-    // if (e.is("keyboard:close")) {
-    //  console.log("keyboard close...");
-    //  $.send({ type: `keyboard:${!this.lock ? "unlock" : "lock"}` });
+    if (e.is("keyboard:close") && !this.lock) {
+      deactivate(this);
+    }
+
+    // if (e.is("defocus")) {
+    // deactivate(this);
     // }
 
-    // if (e.is("focus")) {}
-    // if (e.is("defocus")) {}
-
-    if (e.is("touch") && !this.lock && !this.inputStarted && !this.canType) {
-      $.send({ type: "keyboard:lock" });
+    if (
+      e.is("touch") &&
+      !this.lock &&
+      !this.inputStarted &&
+      !this.canType &&
+      !this.backdropTouchOff &&
+      (this.copy.btn.disabled === true || !this.copy.btn.box.contains(e)) &&
+      (this.paste.btn.disabled === true || !this.paste.btn.box.contains(e))
+    ) {
+      this.enter.btn.down = true;
+      $.send({ type: "keyboard:unlock" });
     }
+
+    // Begin the prompt input mode / leave the splash.
+    function activate(ti) {
+      if (ti.canType) {
+        if (debug) console.log("✔️✍️ TextInput already activated.");
+        return;
+      }
+      ti.activated?.($, true);
+      ti.enter.btn.down = false;
+      // ti.activatedOnce = true;
+      if (ti.text.length > 0) {
+        ti.copy.btn.disabled = true;
+        ti.copy.btn.removeFromDom($, "copy");
+      }
+      ti.canType = true;
+      ti.#lastPrintedText = ti.text;
+      if (ti.#lastUserText.length > 0) {
+        ti.text = ti.#lastUserText;
+        ti.runnable = true;
+      } else {
+        ti.blank("blink");
+        ti.enter.btn.disabled = true;
+        ti.paste.btn.disabled = false;
+      }
+      ti.inputStarted = true;
+      ti.editableCallback?.(ti);
+      needsPaint();
+      // $.send({ type: "keyboard:unlock" });
+    }
+
+    // Leave the prompt input mode.
+    function deactivate(ti) {
+      if (ti.canType === false) {
+        // Assume we are already deactivated.
+        if (debug) console.log("❌✍️ TextInput already deactivated.");
+        return;
+      }
+
+      ti.activated?.($, false);
+
+      ti.enter.btn.disabled = false;
+      ti.paste.btn.disabled = false;
+      ti.inputStarted = false;
+      ti.canType = false;
+      ti.runnable = false;
+      ti.#lastUserText = ti.text;
+      ti.backdropTouchOff = false;
+
+      // if (ti.#lastPrintedText.length === 0) {
+      //   // Get user input text to appear on a blank prompt return,
+      //   // along with the copy button.
+      //   ti.#lastPrintedText = ti.#lastUserText;
+      //   ti.commandSentOnce = true;
+      // }
+
+      ti.text = ti.#lastPrintedText;
+      if (ti.#lastPrintedText.length > 0 && ti.commandSentOnce) {
+        ti.copy.btn.disabled = false;
+        ti.#coatedCopy = ti.#coatCopy(ti.text); // Wrap text to be copied.
+
+        ti.paste.btn.disabled = true; // Disable paste button.
+        ti.paste.btn.removeFromDom($, "paste");
+      }
+      needsPaint();
+      // $.send({ type: "keyboard:lock" });
+    }
+
+    // TODO: Touching background as a button (but no other button)
+    //       should activate the prompt.
+
+    if (
+      e.is("touch") &&
+      ((this.enter.btn.disabled === false && this.enter.btn.box.contains(e)) ||
+        (this.copy.btn.disabled === false && this.copy.btn.box.contains(e)) ||
+        (this.paste.btn.disabled === false && this.paste.btn.box.contains(e)))
+    ) {
+      this.backdropTouchOff = true;
+    }
+
+    if (e.is("lift")) this.backdropTouchOff = false;
 
     // UI Button Actions
     if (!this.lock) {
+      // TODO: This could be part of rollover also.
+
+      // Enter Button...
+      if (
+        e.is("draw") &&
+        this.enter.btn.disabled === false &&
+        this.enter.btn.box.contains(e) &&
+        !this.enter.btn.down
+      ) {
+        $.send({ type: "keyboard:lock" });
+      }
+
+      // Copy Button...
+      if (
+        (e.is("draw") || e.is("touch")) &&
+        this.copy.btn.disabled === false &&
+        this.copy.btn.box.contains(e) // &&
+      ) {
+        $.send({ type: "keyboard:lock" });
+      }
+
+      // Paste button...
+      if (
+        (e.is("draw") || e.is("touch")) &&
+        this.paste.btn.disabled === false &&
+        this.paste.btn.box.contains(e) // &&
+      ) {
+        $.send({ type: "keyboard:lock" });
+      }
+
       // 🔲 Enter
       this.enter.btn.act(e, {
         down: () => {
@@ -850,13 +1003,7 @@ class TextInput {
           if (this.runnable) {
             await this.run(store);
           } else {
-            this.enter.btn.disabled = true;
-            this.canType = true;
-            this.blank("blink");
-            this.inputStarted = true;
-            this.editableCallback?.(this);
-            needsPaint();
-            $.send({ type: "keyboard:unlock" });
+            activate(this);
           }
         },
         cancel: () => {
@@ -872,19 +1019,21 @@ class TextInput {
           needsPaint();
         },
       });
+
       // 🔲 Copy
       this.copy.btn.act(e, {
-        down: () => {
-          needsPaint();
-        },
+        down: () => needsPaint(),
+        push: () => needsPaint(),
+        cancel: () => needsPaint(),
+      });
+
+      // 🔲 Paste
+      this.paste.btn.act(e, {
+        down: () => needsPaint(),
         push: () => {
-          // Copy text to user's clipboard.
-          // clipboard.copy(this.text);
           needsPaint();
         },
-        cancel: () => {
-          needsPaint();
-        },
+        cancel: () => needsPaint(),
       });
     }
 
@@ -898,18 +1047,69 @@ class TextInput {
       }
 
       this.copy.txt = copied ? "Copied" : "Failed";
-      this.#copyScheme = [64, 127, 127, 64]; // Greyed out.
+      this.#copyPasteScheme = [64, 127, 127, 64]; // Greyed out.
       needsPaint();
-      clearTimeout(this.#copyTimeout);
-      this.#copyTimeout = setTimeout(() => {
+      clearTimeout(this.#copyPasteTimeout);
+      this.#copyPasteTimeout = setTimeout(() => {
         this.copy.btn.disabled = false;
         this.copy.txt = "Copy";
-        this.#copyScheme = undefined;
+        this.#copyPasteScheme = undefined;
         needsPaint();
       }, 500);
     }
 
-    if (e.is("clipboard:copy:failed")) {
+    // 🗞️ Paste UI signal.
+    if (e.name?.startsWith("clipboard:paste")) {
+      const pasted = e.is("clipboard:paste:pasted");
+      if (debug) {
+        pasted
+          ? console.log("📋 Paste: Pasted 🙃")
+          : console.warn("📋 Paste: Failed ⚠️");
+      }
+
+      this.paste.txt = pasted ? "Pasted" : "Failed";
+      this.#copyPasteScheme = [64, 127, 127, 64]; // Greyed out.
+      needsPaint();
+      clearTimeout(this.#copyPasteTimeout);
+      this.#copyPasteTimeout = setTimeout(() => {
+        this.paste.btn.disabled = false;
+        this.paste.txt = "Paste";
+        this.#copyPasteScheme = undefined;
+        needsPaint();
+      }, 500);
+    }
+
+    if (e.is("pasted:text") && !this.canType) {
+      activate(this); // Activate on pasted text if necessary.
+    }
+
+    // 🗞️ Pasted text from user clipboard.
+    if (e.is("pasted:text") && this.lock === false && this.canType) {
+      const paste = e.text;
+      const index = this.#prompt.textPos();
+
+      // Just add the text to the end.
+      if (index === undefined || this.text.length === 0) {
+        this.text += paste;
+        this.#prompt.snapTo(this.text);
+      } else {
+        // Or inside.
+        let sliceIndex = index;
+        const onChar = this.#prompt.posHasVisibleCharacter();
+        if (!onChar) sliceIndex += 1;
+        this.text =
+          this.text.slice(0, sliceIndex) + paste + this.text.slice(sliceIndex);
+        const newCursor = this.#prompt.textToCursorMap[index + paste.length];
+        this.#prompt.cursor = { ...newCursor };
+        if (!onChar) this.#prompt.forward();
+      }
+
+      if (this.text.length > 0) {
+        this.enter.btn.disabled = false;
+        this.runnable = true;
+      }
+
+      this.blink.flip(true);
     }
 
     if (e.is("touch") && !this.lock) {
@@ -921,8 +1121,19 @@ class TextInput {
       $.send({ type: "keyboard:unlock" });
     }
 
-    if (e.is("draw") && !this.lock && this.canType && !this.enter.btn.down) {
+    if (e.is("lift")) this.#shifting = false;
+
+    if (
+      e.is("draw") &&
+      !this.lock &&
+      this.canType &&
+      !this.enter.btn.down &&
+      !this.paste.btn.down
+    ) {
       $.send({ type: "keyboard:lock" });
+
+      this.#shifting = true;
+      this.backdropTouchOff = true;
 
       if (
         (this.#moveDeltaX > 0 && e.delta.x < 0) ||
@@ -1039,7 +1250,7 @@ class Prompt {
 
       for (let c = 0; c < text.length; c += 1) {
         const char = text[c];
-        const newLine = char.charCodeAt(0) === 10;
+        let newLine = char.charCodeAt(0) === 10;
 
         // First character...
         if (c === 0) {
@@ -1055,6 +1266,7 @@ class Prompt {
           continue;
         }
 
+        //if (!newLine && char !== " ") {
         if (!newLine && char !== " ") {
           if (!wordStart) {
             wordStart = true;
@@ -1082,12 +1294,19 @@ class Prompt {
           wordStart = false;
         }
 
+        // Create a line break if a line will begin with a space and we're
+        // not on a space. 
+        if (char === " " && cursor.x + 1 === this.colWidth - 1 && text[textIndex] !== " ") {
+          newLine = true;
+        }
+
         if (newLine) {
           this.newLine(cursor);
           brokeLine = true;
         } else {
           !brokeLine ? this.forward(cursor) : (brokeLine = false);
         }
+
         textIndex += 1;
         this.#updateMaps(text, textIndex, cursor);
       }

@@ -130,8 +130,8 @@ function act({ event: e }) {
       // while (amps[zeros] === 0) zeros += 1;
       amps = amps.slice(zeros);
       pitches = pitches.slice(zeros);
-      pitches.reverse();
-      amps.reverse();
+      // pitches.reverse();
+      // amps.reverse();
       whistling = true;
     }
   }
@@ -147,7 +147,7 @@ function beat({ sound: { microphone, square, speaker } }) {
     sine = square({
       type: "sine",
       tone: pitches[index],
-      volume: amps[index],
+      volume: amps[index] * 2,
       beats: Infinity,
     });
   }

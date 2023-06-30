@@ -20,7 +20,8 @@ export async function prompt_boot(
   scheme,
   wrap,
   editable,
-  copied
+  copied,
+  activated
 ) {
   messageComplete = true;
   processing = false;
@@ -47,11 +48,25 @@ export async function prompt_boot(
       input.lock = true;
       input.enter.btn.disabled = true;
 
+      // Disable any paste button.
+      input.paste.btn.disabled = true;
+      input.paste.btn.removeFromDom($, "paste");
+
+      input.inputStarted = false;
+      input.canType = false;
+
+
       const halted = await halt?.($, text);
       if (!$.jumping()) input.lock = false;
       if (halted) {
         messageComplete = true;
+        reply?.(input.text);
+        input.bakePrintedText();
+        input.runnable = false;
+        input.showButton($);
         $.needsPaint();
+        input.canType = true;
+        input.inputStarted = true;
         return; // No more processing necessary.
       }
 
@@ -61,8 +76,6 @@ export async function prompt_boot(
       $.send({ type: "keyboard:close" });
       $.send({ type: "keyboard:lock" });
 
-      input.inputStarted = false;
-      input.canType = false;
       let firstAnd = true; // Clear the text on first reply.
 
       abort = conversation.ask(
@@ -76,24 +89,26 @@ export async function prompt_boot(
           messageComplete = true;
           processing = input.lock = false;
           reply?.(input.text);
+          input.bakePrintedText();
+          input.clearUserText();
           input.runnable = false;
-          input.showButton();
+          input.showButton($);
           $.needsPaint();
         },
         function fail() {
           input.text = abortMessage;
+          $.needsPaint();
+          reply?.(input.text);
+          //input.#lastPrintedText = input.text;
           processing = input.lock = false;
-          input.canType = true;
+          input.bakePrintedText();
           input.runnable = false;
-          if (input.text.length === 0) {
-          } else {
-            input.cursor = "stop";
+          if (input.text.length > 0) {
             messageComplete = true;
-            input.showButton();
+            input.showButton($);
           }
         }
       );
-
     },
     {
       autolock: false,
@@ -101,6 +116,7 @@ export async function prompt_boot(
       scheme,
       editable,
       copied,
+      activated,
       didReset: () => {
         messageComplete = true;
       },
@@ -154,7 +170,9 @@ export function prompt_act($) {
     e.is("keyboard:open") ||
     e.is("keyboard:close") ||
     e.is("clipboard:copy:copied") ||
-    e.is("clipboard:copy:failed")
+    e.is("clipboard:copy:failed") ||
+    e.is("clipboard:paste:pasted") ||
+    e.is("clipboard:paste:failed")
   ) {
     input?.act($);
     inputHandled = true;
@@ -163,7 +181,6 @@ export function prompt_act($) {
   if (!messageComplete && !processing && !inputHandled) input?.act($);
 
   if (messageComplete && e.is("keyboard:down")) {
-    input.blank("blink"); // Clear input and switch back to blink cursor.
     if (!inputHandled) input?.act($); // Capture any printable keystrokes.
     messageComplete = false;
   }

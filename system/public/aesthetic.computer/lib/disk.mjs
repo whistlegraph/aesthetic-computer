@@ -7,6 +7,7 @@
 
 import * as graph from "./graph.mjs";
 import * as num from "./num.mjs";
+import * as text from "./text.mjs";
 import * as geo from "./geo.mjs";
 import * as gizmo from "./gizmo.mjs";
 import * as ui from "./ui.mjs";
@@ -70,6 +71,7 @@ const nopaint = {
       if (system.nopaint.bakeOnLeave) {
         // Add bake commands.
         page(system.painting);
+        $activePaintApi = $; // In case of recursive paint functions like `write`.
         bake($);
         // page(screen); // TODO: This should work but it doesnt...
         //                        Seems to have something to do with
@@ -141,7 +143,8 @@ function addUndoPainting(painting) {
   //       undo stack, and images could be diffed? 23.01.31.01.30
   if (undoPaintings.length > 2) undoPaintings.shift();
 
-  console.log("💩 Added undo painting...", undoPaintings.length);
+  if (debug && logs.painting)
+    console.log("💩 Added undo painting...", undoPaintings.length);
 }
 
 let system = null; // Used to add built-in templated behaviors like `nopaint`.
@@ -352,6 +355,14 @@ let lastActAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
+  code: {
+    channel: (chan) => {
+      codeChannel = chan; // Set the current `codeChannel`.
+      store["code-channel"] = codeChannel; // Remember the painting data.
+      store.persist("code-channel");
+      console.log("💻 Code channel set to:", codeChannel);
+    },
+  },
   // File should be { type, data } where type is "png", "webp", "jef", etc.
   encode: async (file) => {
     const prom = new Promise((resolve, reject) => {
@@ -575,6 +586,9 @@ const $commonApi = {
   //     send({ type: "copy", content: text });
   //   },
   // },
+  text: {
+    capitalize: text.capitalize,
+  },
   num: {
     even: num.even,
     odd: num.odd,
@@ -655,21 +669,22 @@ const $commonApi = {
 const nopaintAPI = $commonApi.system.nopaint;
 
 // Spawn a session backend for a piece.
-async function session(slug, forceProduction = false) {
+async function session(slug, forceProduction = false, service) {
   let endPoint = "/session/" + slug;
-
-  if (forceProduction)
-    endPoint += "?" + new URLSearchParams({ forceProduction: 1 });
+  const params = { service };
+  if (forceProduction) params.forceProduction = 1;
+  endPoint += "?" + new URLSearchParams(params);
 
   const req = await fetch(endPoint);
 
   const session = await req.json();
 
   if (debug && logs.session)
-    console.log(`🐕‍🦺 Session: ${slug} - ${session.backend || session.name}`);
-
+    console.log(
+      `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`
+    );
   // Return the active session if the server knows it's "Ready", otherwise
-  // wait for the one we requested to spin up before doing anything else.
+  // wait for the one we requested to spin up.
   // (And in debug mode we just get a local url from "/session" so no need
   // to check that.)
   if (session.state === "Ready" || (debug && !forceProduction)) {
@@ -1331,40 +1346,78 @@ let firstPiece, firstParams, firstSearch; // Why is this still here? 23.01.27.13
 //                                           Perhaps for bare ROOT_PIECE's that
 //                                           require params?
 async function load(
-  parsed,
+  parsed, // If parsed is not an object, then assume it's source code.
   fromHistory = false,
   alias = false,
   devReload = false
 ) {
-  let { path, host, search, colon, params, hash, text: slug } = parsed;
+  let fullUrl, source;
+  let params,
+    search,
+    colon,
+    hash,
+    path,
+    host = originalHost,
+    slug;
 
-  // Update the user handle if it changed between pieces.
-  if (store["handle:updated"]) {
-    $commonApi.handle = "@" + store["handle:updated"];
-    delete store["handle:updated"];
+  // 🕸️ Loading over the network from a parsed path object with no source code.
+  if (!parsed.source) {
+    params = parsed.params;
+    path = parsed.path;
+    search = parsed.search;
+    colon = parsed.colon;
+    hash = parsed.hash;
+    host = parsed.host;
+    slug = parsed.text;
+
+    if (slug.startsWith("@")) {
+      params = [slug, ...params]; // Rewrite all params for `@user` slug urls.
+      slug = "profile"; // Go to `profile` instead of the `@user`.
+      // Rewrite path to `profile`.
+      console.log("Path:", path);
+      path = [...path.split("/").slice(0, -1), slug].join("/");
+    }
+
+    // Update the user handle if it changed between pieces.
+    if (store["handle:updated"]) {
+      $commonApi.handle = "@" + store["handle:updated"];
+      delete store["handle:updated"];
+    }
+
+    loading === false
+      ? (loading = true)
+      : console.warn("Already loading:", path);
+
+    if (debug) console.log(debug ? "🟡 Development" : "🟢 Production");
+    if (host === "") host = originalHost;
+    loadFailure = undefined;
+    host = host.replace(/\/$/, ""); // Remove any trailing slash from host.
+    //                                 Note: This fixes a preview bug on teia.art. 2022.04.07.03.00
+
+    if (path === "") path = ROOT_PIECE; // Set bare path to what "/" maps to.
+    // if (path === firstPiece && params.length === 0) params = firstParams;
+
+    fullUrl =
+      location.protocol + "//" + host + "/" + path + ".mjs" + "#" + Date.now();
+    // The hash `time` parameter busts the cache so that the environment is
+    // reset if a disk is re-entered while the system is running.
+    // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
+    if (debug) console.log("🕸", fullUrl);
+  } else {
+    // 📃 Loading with provided local source code.
+    if (parsed.code === undefined || parsed.code !== codeChannel) {
+      console.warn(
+        "🙅 Not reloading, code signal invalid:",
+        codeChannel || "N/A"
+      );
+      return;
+    }
+
+    source = parsed.source;
+    slug = parsed.name;
+    path = "aesthetic.computer/disks/" + slug;
+    // 📓 Might need to fill in hash, path, or slug here. 23.06.24.18.49
   }
-
-  loading === false ? (loading = true) : console.warn("Already loading:", path);
-
-  if (debug) console.log(debug ? "🟡 Development" : "🟢 Production");
-  if (host === "") host = originalHost;
-  loadFailure = undefined;
-  host = host.replace(/\/$/, ""); // Remove any trailing slash from host.
-  //                                 Note: This fixes a preview bug on teia.art. 2022.04.07.03.00
-
-  if (path === "") path = ROOT_PIECE; // Set bare path to what "/" maps to.
-  // if (path === firstPiece && params.length === 0) params = firstParams;
-
-  let fullUrl =
-    location.protocol + "//" + host + "/" + path + ".mjs" + "#" + Date.now();
-  // The hash `time` parameter busts the cache so that the environment is
-  // reset if a disk is re-entered while the system is running.
-  // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
-  if (debug) console.log("🕸", fullUrl);
-
-  // See if we already have source code to build a blobURL from.
-  // if (parsed.source) {
-  // }
 
   // 🅱️ Load the piece.
   // const moduleLoadTime = performance.now();
@@ -1377,8 +1430,23 @@ async function load(
       blobUrl = URL.createObjectURL(blob);
       sourceCode = currentCode;
     } else {
-      const response = await fetch(fullUrl);
-      const source = await response.text();
+      // check to see if fullUrl is defined...
+
+      let response, sourceToRun;
+      if (fullUrl) {
+        response = await fetch(fullUrl);
+        sourceToRun = await response.text();
+      } else {
+        sourceToRun = source;
+      }
+
+      if (sourceToRun.startsWith("// 404")) {
+        if (!firstLoad) {
+          throw new Error("📄 Piece not found.");
+        } else {
+          console.log("📄🚫 Piece not found:", slug);
+        }
+      }
 
       // Automatically replace relative imports with absolute ones.
       const twoDots =
@@ -1386,12 +1454,15 @@ async function load(
       const oneDot =
         /^(import|export) \* as ([^ ]+) from ["']\.?\/(.*?)["'];?/gm;
 
-      let updatedCode = source.replace(twoDots, (match, p1, p2, p3, p4) => {
-        let url = `${location.protocol}//${host}/aesthetic.computer${
-          p3 === "./" ? "/disks" : ""
-        }/${p4.replace(/\.\.\//g, "")}`;
-        return `${p1} { ${p2} } from "${url}";`;
-      });
+      let updatedCode = sourceToRun.replace(
+        twoDots,
+        (match, p1, p2, p3, p4) => {
+          let url = `${location.protocol}//${host}/aesthetic.computer${
+            p3 === "./" ? "/disks" : ""
+          }/${p4.replace(/\.\.\//g, "")}`;
+          return `${p1} { ${p2} } from "${url}";`;
+        }
+      );
 
       updatedCode = updatedCode.replace(oneDot, (match, p1, p2, p3) => {
         let url = `${location.protocol}//${host}/aesthetic.computer${
@@ -1441,7 +1512,7 @@ async function load(
   $commonApi.debug = debug;
 
   // Add reload to the common api.
-  $commonApi.reload = ({ piece, code } = {}) => {
+  $commonApi.reload = ({ piece, name, source, code } = {}) => {
     if (loading) {
       console.log("🟡 A piece is already loading.");
       return;
@@ -1450,10 +1521,10 @@ async function load(
     if (piece === "*refresh*") {
       console.log("💥️ Restarting system...");
       send({ type: "refresh" }); // Refresh the browser.
-    } else if (piece === "code") {
+    } else if (name && source) {
+      // TODO: Check for existence of `name` and `source` is hacky. 23.06.24.19.27
       // Note: This is used for live development via the socket server.
-      console.log(code, "💾️ Reloading code...");
-      $commonApi.load({ ...parse("code"), source: code }); // Load source code.
+      $commonApi.load({ source, name, code }, false, false, true); // Load source code.
     } else if (piece === "*" || piece === undefined || currentText === piece) {
       console.log("💾️ Reloading piece...", piece);
       const devReload = true;
@@ -1485,7 +1556,8 @@ async function load(
 
   // Requests a session-backend and connects via websockets.
   async function startSocket() {
-    const sesh = await session(slug, forceProd); // Grab a session backend for this piece.
+    const monolith = "monolith"; // or undefined for horizontal scaling.
+    const sesh = await session(slug, forceProd, monolith); // Backend for piece.
     socket?.kill(); // Kill any already open socket from a previous disk.
     socket = new Socket(debug); // Then redefine and make a new socket.
     socket.connect(
@@ -1717,8 +1789,8 @@ async function load(
   };
 
   // Trigger and audio sample to playback in the `bios`.
-  $commonApi.play = async function (sfx) {
-    send({ type: "play-sfx", content: { sfx } });
+  $commonApi.play = async function (sfx, options) {
+    send({ type: "play-sfx", content: { sfx, options } });
   };
 
   // 💡 Eventually this could merge with net.web so there is one command
@@ -1824,32 +1896,33 @@ async function load(
           module.scheme,
           wrap,
           module.editable || (() => {}),
-          module.copied
+          module.copied,
+          module.activated
         );
         module.boot?.($);
       };
 
       sim = ($) => {
-        prompt.prompt_sim($);
         module.sim?.($);
+        prompt.prompt_sim($);
       };
 
       paint = ($) => {
         let noPaint = module.paint?.($); // Carry the return.
-        noPaint = prompt.prompt_paint($);
+        noPaint = noPaint || prompt.prompt_paint($);
         return noPaint;
       };
 
       beat = module.beat || defaults.beat;
 
       act = ($) => {
-        prompt.prompt_act($);
         module.act?.($);
+        prompt.prompt_act($);
       };
 
       leave = ($) => {
-        prompt.prompt_leave($);
         module.leave?.($);
+        prompt.prompt_leave($);
       };
 
       system = "prompt";
@@ -1947,6 +2020,9 @@ function send(data, shared = []) {
   }
 }
 
+// Used to subscribe to live coding / development reloads.
+let codeChannel = await store.retrieve("code-channel");
+
 // 3. ✔ Add any APIs that require send.
 //      Just the `content` API for now.
 //      TODO: Move others from makeFrame into here.
@@ -2026,6 +2102,22 @@ async function makeFrame({ data: { type, content } }) {
   // $commonApi.hand = { mediapipe: content };
   // return;
   // }
+
+  // Load the source code for a dropped `.mjs` file.
+  if (type === "dropped:piece") {
+    load(content);
+    return;
+  }
+
+  if (type === "paste:pasted") {
+    actAlerts.push("clipboard:paste:pasted");
+    return;
+  }
+
+  if (type === "paste:failed") {
+    actAlerts.push("clipboard:paste:failed");
+    return;
+  }
 
   if (type === "copy:copied") {
     actAlerts.push("clipboard:copy:copied");
@@ -2474,7 +2566,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // 1e. Loading Sound Effects
   if (type === "loaded-sfx-success") {
-    if (debug) console.log("Sound load success:", content);
+    if (debug && logs.sound) console.log("Sound load success:", content);
     preloadPromises[content.sfx].resolve(content.sfx);
     delete preloadPromises[content];
     return;
@@ -2771,10 +2863,13 @@ async function makeFrame({ data: { type, content } }) {
             down: () => {
               originalColor = currentHUDTextColor;
               currentHUDTextColor = [0, 255, 0];
-              // send({ type: "keyboard:enabled" }); // Tricky enabling of keyboard flag.
-              // send({ type: "keyboard:unlock" });
+
+              // This is gonna be weird...
+              send({ type: "keyboard:enabled" }); // Enable keyboard flag.
+              send({ type: "keyboard:unlock" });
             },
             push: () => {
+              // send({ type: "keyboard:open" });
               jump("prompt");
               // pieceHistoryIndex > 0
               //   ? send({ type: "back-to-piece" })
@@ -2782,6 +2877,8 @@ async function makeFrame({ data: { type, content } }) {
             },
             cancel: () => {
               currentHUDTextColor = originalColor;
+              send({ type: "keyboard:disabled" }); // Enable keyboard flag.
+              send({ type: "keyboard:lock" }); // Enable keyboard flag.
               // send({ type: "keyboard:lock" });
             },
             rollover: (btn) => {
@@ -2860,8 +2957,11 @@ async function makeFrame({ data: { type, content } }) {
             data.key === "`" &&
             currentPath !== "aesthetic.computer/disks/prompt"
           ) {
-            // Load prompt if the backtic is pressed.
-            $api.load(parse("prompt"));
+            // $api.send({ type: "keyboard:enabled" }); // Enable keyboard flag.
+            // $api.send({ type: "keyboard:unlock" });
+            // Jump to prompt if the backtic is pressed.
+            send({ type: "keyboard:open" });
+            $api.jump("prompt");
           }
 
           // [Ctrl + X]
@@ -2963,7 +3063,7 @@ async function makeFrame({ data: { type, content } }) {
       graph.writeBuffer.fill(0); // Clear writebuffer.
 
       $api.screen = screen;
-      $api.screen.center = [screen.width / 2, screen.height / 2];
+      $api.screen.center = { x: screen.width / 2, y: screen.height / 2 };
 
       $api.fps = function (newFps) {
         send({ type: "fps-change", content: newFps });
@@ -3065,6 +3165,7 @@ async function makeFrame({ data: { type, content } }) {
           store["painting:transform"]?.translation || sys.nopaint.translation;
 
         try {
+          $activePaintApi = $api;
           if (system === "nopaint") nopaint_boot($api);
           await boot($api);
           booted = true;

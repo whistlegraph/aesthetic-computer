@@ -2,6 +2,7 @@
 // A character playground for Georgica.
 
 /* #region 🏁 TODO
+  - [] How to replace the "@" with the current user?
 #endregion */
 
 const prompt = 'whats on your mind, @?';
@@ -43,7 +44,7 @@ function halt($, text) {
   }
 }
 
-// 💬 Receive each reply in full.
+// 💬 Receive each response in full.
 function reply(text) {
   console.log("😀 Replied with:", text);
 }

@@ -103,7 +103,7 @@ class SoundProcessor extends AudioWorkletProcessor {
         const running = this.#running;
         Object.keys(running).forEach((key) => {
           running[key]?.kill();
-          delete runnning[key];
+          delete running[key];
         });
         return;
       }
@@ -111,9 +111,6 @@ class SoundProcessor extends AudioWorkletProcessor {
       // 📢 Sound
       // Fires just once and gets recreated on every call.
       if (msg.type === "sound") {
-
-        console.log(msg);
-
         let duration, attack, decay;
 
         if (msg.data.beats === Infinity) {

@@ -1,32 +1,38 @@
 {
   "name": "aesthetic-computer-code",
+  "publisher": "aesthetic-computer",
   "displayName": "aesthetic.computer",
+  "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.0.0",
+  "version": "1.1.0",
+  "description": "An extension for loading and running aesthetic.computer pieces in VS Code.",
   "engines": {
     "vscode": "^1.74.2"
   },
   "scripts": {
-    "reload": "npm run build; npm run install;",
+    "reload": "npm run build; npm run install:ext;",
     "build": "vsce package",
     "install:ext": "code --install-extension aesthetic-computer-code-1.0.0.vsix",
-    "publish": "vsce publish"
+    "publish": "vsce publish minor"
   },
-  "description": "An extension for loading and running aesthetic.computer pieces in VS Code.",
   "main": "./extension.js",
   "activationEvents": [],
   "contributes": {
     "commands": [
       {
         "command": "aestheticComputer.runPiece",
-        "title": "Aesthetic Computer: Run Piece ➡️"
+        "title": "aesthetic.computer: Run Piece ➡️"
+      },
+      {
+        "command": "aestheticComputer.enterCode",
+        "title": "aesthetic.computer: Enter Code️"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "piece",
-          "title": "Aesthetic Computer",
+          "title": "aesthetic.computer",
           "icon": "resources/aesthetic-computer.svg"
         }
       ]
@@ -34,17 +40,12 @@
     "views": {
       "piece": [
         {
-          "id": "piece",
+          "type": "webview",
+          "id": "aestheticComputer.sidebarView",
           "name": "Piece"
         }
       ]
-    },
-    "viewsWelcome": [
-      {
-        "view": "piece",
-        "contents": "With any file open, push... \n[Run Piece ➡️](command:aestheticComputer.runPiece)"
-      }
-    ]
+    }
   },
   "license": "None",
   "repository": {
@@ -52,9 +53,7 @@
     "url": "git+https://github.com/digitpain/aesthetic-computer.git"
   },
   "devDependencies": {
-    "@types/node-fetch": "^2.6.2",
-    "@types/vscode": "^1.74.0",
-    "vsce": "^2.15.0"
+    "@vscode/vsce": "^2.19.0"
   },
   "dependencies": {
     "node-fetch": "^2.6.7"

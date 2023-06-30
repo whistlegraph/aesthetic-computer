@@ -6,8 +6,9 @@ export class Hourglass {
   ticks = 0;
   max = 1;
   complete = false;
-  #completedCb;
-  #flippedCb;
+  flips = 0n;
+  #completed;
+  #flipped;
   #autoFlip = false;
 
   constructor(
@@ -18,17 +19,17 @@ export class Hourglass {
     this.max = max;
     this.ticks = startingTicks;
     this.#autoFlip = autoFlip;
-    this.#completedCb = completed;
-    this.#flippedCb = flipped;
+    this.#completed = completed;
+    this.#flipped = flipped;
   }
 
   step() {
     if (this.complete === true) return console.log("⌛ Already complete.");
 
     this.ticks += 1;
-    if (this.ticks === this.max) {
+    if (this.ticks >= this.max) {
       this.complete = true;
-      this.#completedCb?.(this);
+      this.#completed?.(this.flips);
       if (this.#autoFlip) this.flip();
     }
   }
@@ -38,8 +39,9 @@ export class Hourglass {
   }
 
   flip() {
+    this.flips += 1n;
     this.ticks = 0;
     this.complete = false;
-    this.#flippedCb?.(...arguments);
+    this.#flipped?.(this.flips);
   }
 }

@@ -10,7 +10,6 @@ import { parse, metadata } from "../../public/aesthetic.computer/lib/parse.mjs";
 async function fun(event, context) {
   const dev = process.env.CONTEXT === "dev";
   if (dev) console.log("Node version:", process.version);
-
   // TODO: Return a 500 or 404 for everything that does not exist...
   //       - [] Like for example if the below import fails...
   if (event.path === "/favicon.ico") return { statusCode: 500 };
@@ -48,11 +47,10 @@ async function fun(event, context) {
 
   // Externally hosted pieces always start with @.
   try {
-    if (slug.startsWith("@")) {
+    if (slug.startsWith("@") && slug.indexOf("/") !== -1) {
       const externalPiece = await getPage(
         `https://${parsed.host}/${parsed.path}.mjs`
       );
-      console.log(externalPiece);
       if (externalPiece?.code !== 200) return redirect;
     } else {
       // Locally hosted piece.

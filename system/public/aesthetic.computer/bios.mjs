@@ -34,7 +34,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   let pen,
     keyboard,
-    keyboardFocusLock = true;
+    keyboardFocusLock = false;
   let handData; // Hand-tracking.
 
   // let frameCount = 0;
@@ -79,6 +79,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const uiCanvas = document.createElement("canvas");
   const uiCtx = uiCanvas.getContext("2d");
   uiCanvas.dataset.type = "ui";
+
+  const debugCanvas = document.createElement("canvas");
+  const debugCtx = debugCanvas.getContext("2d");
+  debugCanvas.dataset.type = "debug";
 
   // A buffer for nicer resolution switches, nice when moving from
   // low resolution back to high resolution. Could eventually be used
@@ -307,6 +311,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     uiCanvas.style.width = projectedWidth + "px";
     uiCanvas.style.height = projectedHeight + "px";
 
+    if (debug) {
+      debugCanvas.width = projectedWidth;
+      debugCanvas.height = projectedHeight;
+      debugCanvas.style.width = projectedWidth + "px";
+      debugCanvas.style.height = projectedHeight + "px";
+    }
+
     // Add some fancy ratios to the canvas and uiCanvas.
     /*
     canvas.style.width = `calc(100vw - ${gapSize}px)`;
@@ -348,6 +359,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       modal.append(bumper);
 
       wrapper.append(uiCanvas);
+      if (debug) wrapper.append(debugCanvas);
       document.body.append(wrapper);
 
       // Trigger it to re-draw whenever the window resizes.
@@ -681,7 +693,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         modal.classList.remove("on");
       })();
     } catch (e) {
-      coneole.log("Sound failed to initialize:", e);
+      console.log("Sound failed to initialize:", e);
     }
 
     function enableAudioPlayback(skip = false) {
@@ -694,7 +706,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     enableAudioPlayback(true);
-    //
 
     window.addEventListener("pointerdown", enableAudioPlayback);
     window.addEventListener("keydown", enableAudioPlayback);
@@ -819,6 +830,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       frame(undefined, undefined, lastGap);
       pen.retransformPosition();
       frameAlreadyRequested = false;
+      return;
     }
 
     if (frameAlreadyRequested) return;
@@ -928,25 +940,53 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let state = "up";
       hitboxes[content.label] = async (e) => {
         const frame = canvas.getBoundingClientRect();
-        const scale = projectedWidth / canvas.width;
+        const xscale = projectedWidth / canvas.width;
+        const yscale = projectedHeight / canvas.height;
         const hitbox = Box.from({
-          x: frame.left + content.box.x * scale,
-          y: frame.top + content.box.y * scale,
-          w: content.box.w * scale,
-          h: content.box.h * scale,
+          x: frame.left + content.box.x * xscale,
+          y: frame.top + content.box.y * yscale,
+          w: content.box.w * xscale,
+          h: content.box.h * yscale,
         });
+
+        // 📓 Uncomment to debug the hitboxes and see how they line up.
+        // const dbg = Box.from({
+        //   x: content.box.x * xscale,
+        //   y: content.box.y * yscale,
+        //   w: content.box.w * xscale,
+        //   h: content.box.h * yscale,
+        // });
+        // debugCtx.fillStyle = "red";
+        // debugCtx.fillRect(dbg.x, dbg.y, dbg.w, dbg.h);
 
         const hit = hitbox.contains({ x: e.x, y: e.y });
 
         if (e.type === "pointerup" && state === "down" && hit) {
           // This is pretty specific to the "copy" clipboard
           // stuff for now. 23.06.16.15.03
-          try {
-            await navigator.clipboard.writeText(content.message);
-            send({ type: "copy:copied" });
-          } catch (err) {
-            send({ type: "copy:failed" });
+
+          if (content.label === "copy") {
+            try {
+              await navigator.clipboard.writeText(content.message);
+              send({ type: "copy:copied" });
+            } catch (err) {
+              send({ type: "copy:failed" });
+            }
           }
+
+          // Paste should always happen on a pointerdown.
+          if (content.label === "paste") {
+            try {
+              pastedText = await navigator.clipboard.readText();
+              // This routes through to the `pasted:text` event in `disk`.
+              // where `pastedText` is sent on the next frame.
+              send({ type: "paste:pasted" });
+            } catch (err) {
+              send({ type: "paste:failed" });
+            }
+          }
+
+          state = "up";
         } else if (e.type === "pointerdown" && hit) {
           state = "down";
         } else if (e.type === "pointerup" && !hit) {
@@ -1127,6 +1167,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
          * keyboard on touchscreen devices like iPhones and iPads.
          * *Only works in "disks/prompt".
          */
+        let keyboardOpen = false;
         const input = document.createElement("input");
         const form = document.createElement("form");
         form.id = "software-keyboard-input-form";
@@ -1226,6 +1267,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         window.addEventListener("focusout", (e) => {
+          // console.log("FOCUS OUT");
+          // input.blur();
+        });
+
+        window.addEventListener("blur", (e) => {
           input.blur();
         });
 
@@ -1234,17 +1280,34 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         window.addEventListener("pointerup", (e) => {
+          if (keyboard.needsImmediateOpen) {
+            //input.focus();
+            keyboard.needsImmediateOpen = false;
+            return;
+          }
+
           if (currentPieceHasKeyboard) e.preventDefault();
+
+          if (e.target === window) return; // This prevents.
+
           if (currentPieceHasKeyboard && !keyboardFocusLock) {
-            document.activeElement !== input ? input.focus() : input.blur();
+            if (keyboardOpen) {
+              input.blur();
+            } else {
+              input.focus();
+            }
           }
         });
 
+        input.addEventListener("pointerdown", (e) => {});
+
         input.addEventListener("focus", (e) => {
+          keyboardOpen = true;
           keyboard.events.push({ name: "keyboard:open" });
         });
 
         input.addEventListener("blur", (e) => {
+          keyboardOpen = false;
           keyboard.events.push({ name: "keyboard:close" });
         });
       }
@@ -1287,13 +1350,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // 🔊 Sound
       // TODO: Disable sound engine entirely... unless it is enabled by a disk. 2022.04.07.03.33
       // Only start this after a user-interaction to prevent warnings.
-      window.addEventListener(
-        "pointerdown",
-        function down() {
-          startSound();
-        },
-        { once: true }
-      );
+
+      const activateSound = () => {
+        startSound();
+        window.removeEventListener("keydown", activateSound);
+        window.removeEventListener("pointerdown", activateSound);
+      };
+
+      window.addEventListener("keydown", activateSound, {
+        once: true,
+      });
+
+      window.addEventListener("pointerdown", activateSound, {
+        once: true,
+      });
 
       diskSupervisor = { requestBeat, requestFrame };
 
@@ -1425,7 +1495,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       whens = {};
 
       // Close (defocus) software keyboard if we are NOT on the prompt.
-      document.querySelector("#software-keyboard-input")?.blur();
+      // debugger;
+      if (content.text !== "prompt") {
+        document.querySelector("#software-keyboard-input")?.blur();
+      }
       keyboard.events.push({ name: "keyboard:close" });
 
       setMetatags(content.meta);
@@ -1461,8 +1534,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         // Replace the state if we are running an aliased `load` or `jump`.
-        // (That doesn't avoids the history stack.)
-        // Note: History state changes do not work in a sandboxed iframe.
+        // (That doesn't avoid the history stack.)
+        // Note: History state changes do not work in a sandboxed iframe!
         if (
           content.fromHistory === true &&
           content.alias === false &&
@@ -1477,6 +1550,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       UI.spinnerReset(); // Reset the timer on the yellow UI loading spinner.
+
       send({ type: "loading-complete" });
       return;
     }
@@ -1520,18 +1594,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "keyboard:disabled") {
+      currentPieceHasKeyboard = false;
+      return;
+    }
+
     if (type === "keyboard:close") {
       keyboard?.input.blur();
       return;
     }
 
+    if (type === "keyboard:open") {
+      keyboard?.input.focus();
+      // if (keyboard) keyboard.needsImmediateOpen = true; // For iOS.
+      return;
+    }
+
     if (type === "keyboard:lock") {
       keyboardFocusLock = true;
+      if (logs.hid && debug) console.log("⌨️ Virtual Keyboard: Locked");
       return;
     }
 
     if (type === "keyboard:unlock") {
       keyboardFocusLock = false;
+      if (logs.hid && debug) console.log("⌨️ Virtual Keyboard: Unlocked");
       return;
     }
 
@@ -2306,10 +2393,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (sfx[content.sfx] instanceof ArrayBuffer) return;
         // If decoding has failed or no sound is present then silently fail.
 
+        // 🌡️ TODO; Performance: Cache these buffers per sound effect in each piece?
+
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = content.options?.volume || 1;
         const source = audioContext.createBufferSource();
-        source.buffer = sfx[content.sfx]; // 'content.buffer' is supposed to be the AudioBuffer you've received in 'loaded-sfx-success' message
-        source.connect(audioContext.destination);
-        source.addEventListener("ended", () => source.disconnect());
+        source.buffer = sfx[content.sfx];
+        source.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        source.addEventListener("ended", () => {
+          source.disconnect();
+          gainNode.disconnect();
+        });
+
         if (debug && logs.audio) console.log("🔈 Playing:", content.sfx);
         source.start();
       }
@@ -2409,6 +2506,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // BIOS:RENDER
     // 🌟 Assume `type === render` from now on.
+    if (!(type === "render" || type === "update")) return;
     if (!content) return;
 
     // This is a bit messy compared to what happens inside of content.reframe -> frame below. 22.10.27.02.05
@@ -2843,14 +2941,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     let object;
     let MIME = "application/octet-stream"; // Default content type.
+    const ext = extension(filename);
 
-    if (extension(filename) === "glb") {
+    if (ext === "glb") {
       MIME = "model/gltf+binary";
       object = URL.createObjectURL(new Blob([data], { type: MIME }));
-    } else if (
-      extension(filename) === "json" ||
-      extension(filename) === "gltf"
-    ) {
+    } else if (ext === "json" || ext === "gltf") {
       // ✍️ Text + 3D
       // JSON
       MIME = "application/json";
@@ -2866,10 +2962,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
       }
       object = URL.createObjectURL(new Blob([data], { type: MIME }));
-    } else if (
-      extension(filename) === "png" ||
-      extension(filename) === "webp"
-    ) {
+    } else if (ext === "png" || ext === "webp") {
       // 🖼️ Images
       MIME = "image/png"; // PNG
 
@@ -2889,7 +2982,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           ? `/media/${filename}`
           : `https://art.aesthetic.computer/${filename}`;
       }
-    } else if (extension(filename) === "mp4") {
+    } else if (ext === "mp4") {
       // 🎥 Video
       // Use `data` from the global Media Recorder.
       if (mediaRecorderBlob) {
@@ -2901,6 +2994,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
         object = `https://art.aesthetic.computer/${filename}`;
       }
+    } else if (ext === "mjs") {
+      MIME = "application/javascript";
+      object = URL.createObjectURL(new Blob([data], { type: MIME }));
     }
 
     // Fetch download url from `/presigned-download-url?for=${filename}` if we
@@ -3484,6 +3580,37 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   window.addEventListener("pointerdown", async (e) => {
     keys(hitboxes).forEach((key) => hitboxes[key]?.(e));
+  });
+
+  // 📄 Drag and Drop File API
+
+  // Drag over...
+  document.body.addEventListener("dragover", function (e) {
+    e.stopPropagation();
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy"; // Show as copy
+    // copy, move, link, or none
+  });
+
+  document.body.addEventListener("drop", function (e) {
+    e.stopPropagation();
+    e.preventDefault();
+    const files = e.dataTransfer.files; // Get the file(s).
+    // Check if a file was dropped and process only the first one.
+    if (files.length > 0) {
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        send({
+          type: "dropped:piece",
+          content: {
+            name: file.name.replace(".mjs", ""),
+            source: e.target.result,
+          },
+        });
+      };
+      reader.readAsText(file);
+    }
   });
 }
 

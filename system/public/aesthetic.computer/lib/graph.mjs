@@ -966,7 +966,7 @@ function bresenham(x0, y0, x1, y1) {
 // Takes in x, y, width and height and draws an
 // outline, inline (1px) or filled rectangle, optionally
 // from the center by inputting eg: "inline*center" in mode.
-const BOX_CENTER = "*center";
+const BOX_CENTER = "center";
 // Parameters
 // (1) box (any object with {x, y, w, h} properties) (1)
 // (2) box, mode (2)
@@ -1060,7 +1060,7 @@ function box() {
   if (mode.endsWith(BOX_CENTER)) {
     x -= w / 2;
     y -= h / 2;
-    mode = mode.slice(0, -BOX_CENTER.length); // Remove it.
+    mode = mode.slice(0, -BOX_CENTER.length - 1); // Clear through separator: *
   }
 
   if (mode === undefined || mode === "") mode = "fill";

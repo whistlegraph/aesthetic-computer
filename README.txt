@@ -21,7 +21,7 @@
       for media creation, like Unix.
 
   (More Tech)
-  cr  - Threaded logic, audio, and rendering.
+      - Threaded logic, audio, and rendering.
       - Low overhead hypervisor that runs one piece at a time.
         (similar to a disk based operating system)
       - Pieces can transition from one to another (instantly) without refreshing
@@ -44,44 +44,62 @@
   - [] Live reload: boot will not paint again if paint returns false in a contrived example
   - [] Video download `local` fix.
   - [] Favicon CORS fix (generate the icon / use a data uri)
+    - [] Get SharedArrayBuffer Working again.
   - [] Apple Pencil is no longer working with brushes.
-  - [] Fix painting rotate / resize cropping issue.
-    - [] Check this in Brave browser as well.
+  - [] Fix painting device rotate / resize cropping issue.
   - [] Fix `spray` multiplayer / socket messages not being sent regression.
-  - [] Research the use of "requestProvider.js.map" and work it into `index.js`.
-  - [] Rename $api.upload to $api.open? or $api.importFile? 
   + In Production
   - [🍽️] Fix Firefox AudioWorklet Initialization Bug `Error: Module resolve hook not set`
   - [] https://gist.github.com/lukaslihotzki/b50ccb61ff3a44b48fc4d5ed7e54303f
   - [] Zooming in on the page a lot will make the margin too large
        and squash the main display.
-  - [] The back button does not work in the Instagram in-app browser.
   + Dev Only
-  - [] Get ssh working in VS Code on windows via WSL: https://stackoverflow.com/questions/60150466/can-i-ssh-from-wsl-in-visual-studio-code
   - [] `npm run code` does not work offline, due to netlify relying on online conectivity.
+    - [-] How can be sure I can run the whole stack without an internet
+        connection?
+  + Done
+  - [x] Rename $api.upload to $api.open? or $api.importFile? 
+  - [x] Research the use of "requestProvider.js.map" and work it into `index.js`.
+  - [x] The back button does not work in the Instagram in-app browser.
+  - [x] Jumping back to the prompt from `word` no longer stamps the word.
+  - [x] Fix tap focus / unfocus regression in `type`.
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Text Editing ***
-  - [] Pasting text at the beginning of a \n is broken.
+*** Scawy Snake ***
+  - [🟠] Finish basic prototype with title / level / game over and leaderboard.
 
-** Drag + Drop Coding ***
-  - [] Type `code piece-name` to get a template
-       piece downloaded, or get the current version of an existing piece. 
-  - [] Drag and drop an `*.mjs` file onto aesthetic.computer to
-       replace or add a piece with your version.
-  - [] Open and edit this file to get live updates whenever the window
-       regains focus. (Or automatically, via an export flag.)
+*** Whistle ***
+  - [🧡] Get whistle working on iOS.
 
-*** Login + Sign-up Buttons ***
-  - [-] Get /@handle working. (Jeffrey)
+*** lyrical melody finder / selector ***
+  - [] Fork `tone` and also use audio feedback graph from `whistle`.
+
+*** WebGL2 / WebGPU Backend ***
+  - [] Specify a new GPU backed graphics backend.
+  - [] Abstract the graph api into `Y` calls so both compositors can be run
+       simultaneously on sample pieces.
+
+*** bb ***
+  - [] Make a game state.
+    - [] Title
+    - [] Level
+    - [] Game Over
+
+*** nopaint ***
+  - [] Move "test".
+
+*** deck ***
+  - []
+
+*** Profiles and Handles *** 
   - [] Fix `handle` setting in all cases / make it work better.
-  + Done
-  - [x] Show user handle on profile page if it exists.
-  - [x] If the user is logged in, then add a `profile` button.
-  - [x] New homepage with login / sign-up buttons.
-  - [x] Add buttons to login / sign-up if the user is logged out.
-  - [-] Add Abe's startup sound.
+  - [] Make /@handle profile pages actually live.
+  - [] Allow people to set handle via profile page by jumping to the
+       prompt.
+  - [] Show most recent painting on profile page.
+  - [] Allow people to set a status.
+    - [] Where to store this?
 
 *plot* (new launch fonts)
   - [-] Make the UI responsive based on grid and scale and window size.
@@ -92,45 +110,15 @@
   - [] Allow color.
   - [] Design a multi-line prompt / poster design tool.
     - [] Rainbow stripes of different colors delineated horizontally
-          kind of like a pastel stenograph pad.
+         kind of like a pastel stenograph pad.
   + Done
   - [x] Fix `resize` call in plot.
   - [x] Is `scale` working?
 
-*** sfx ***
-  - [] Add startup sound and keyboard sound.
-    - [] Make sure `sfx` clears any remotely loaded sounds?
-      - [] Just whitelist sounds for now.
-  + Done
-  - [x] Fix and test `sfx` in Safari.
-        (Was production related?)
-
-*** encode/decode ***
-  - [🟠] Add the ability to paste on mobile.
-  + Done
-  - [x] design the text + url that gets copied and sent
-  - [x] Add a "copied" hook to the `prompt-system`.
-  - [x] Fix clipboard for iOS.
-  - [no] add flag so that copy is only on some of the buttons
-  - [x] print current text to console when copy button is pressed
-  - [x] copy text to user's clipboard on every platform
-  - [x] once copied, button reads 'copied' and is visibly deactivated for 3 seconds
-  - [x] add the copy button to copy text
-  - [x] Fix the empty params error.
-  - [x] line break while editing
-  - [x] make the decode bot
-  - [x] colors for decode bot
-  - [x] reset the interface so when text changes you have to hit reply again
-  - [x] color changing
-  - [x] when you press enter with mouse both times, it doesn't bring you to new entry blinking cursor
-  - [x] bug: going to encode from prompt freezes the screen but works upon pressing enter
-  - [x] decide on command names
-  - [x] make the encode bot
-    - [x] add gpt3-tokenizer library
-
 *** `scream` ***
+  - [] Get notifications working!
   - [] Get JamSocket working again.
-  - [] And also get notifications working!
+    - [] Implement JamSocket "locks" and deprecate my redis scaling?
   - [] Visualize the socket connection to make everything faster in production.
      - [] Possibly the bottleneck is in connecting to JamSocket?
   - [-] Finish list in `scream`.
@@ -143,8 +131,8 @@
   - [] Get mushrooms talking to humans. (Harry)
 
 *** Launch Goodies ***
-  - [] Auth0 login customization and email notification customization.
   - [] Tapping top-left corner label should always highlight the text.
+    - [] Doesn't work on `bleep`.
   - [] Add more themes other than the dark boolean?
     - [] You should be able to type colors and have the
          general prompt aesthetic change immediately,
@@ -158,9 +146,11 @@
     - [] And include an abstraction for caching / loading from
          cached commands.
   - [] Prompts with extra spaces betwene parameters should compress space.
-  *Fast 3G Load Test*
+  - [] Upgrade all the packages in `/system` (and manually copy over new dependencies, then test most hot paths for regressions).
   - [] Run a Fast 3G load test to optimize assets and
       make a better startup / loading sequence.
+  + Done
+  - [x] Auth0 login customization and email notification customization.
 
 *** global screenshot key ***
   - [] There needs to be a system wide method of capturing a screenshot.
