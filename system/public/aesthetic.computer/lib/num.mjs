@@ -29,8 +29,8 @@ export const p2 = {
   },
   // Mutably scale P->out by P->in.
   scl: function (pout, pin) {
-    pout.x *= pin.x;
-    pout.y *= pin.y;
+    pout.x *= pin.x || pin;
+    pout.y *= pin.y || pin;
     return pout;
   },
   // Immutably add pA + pB.
@@ -58,8 +58,8 @@ export const p2 = {
   // Immutably multiply pA * pB.
   mul: function (pA, pB) {
     return {
-      x: pA.x * pB.x,
-      y: pA.y * pB.y,
+      x: pA.x * (pB.x || pB),
+      y: pA.y * (pB.y || pB),
     };
   },
   // Immutably divide pA / pB.

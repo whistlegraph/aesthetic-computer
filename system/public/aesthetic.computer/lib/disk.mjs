@@ -3063,7 +3063,7 @@ async function makeFrame({ data: { type, content } }) {
       graph.writeBuffer.fill(0); // Clear writebuffer.
 
       $api.screen = screen;
-      $api.screen.center = [screen.width / 2, screen.height / 2];
+      $api.screen.center = { x: screen.width / 2, y: screen.height / 2 };
 
       $api.fps = function (newFps) {
         send({ type: "fps-change", content: newFps });

@@ -31,9 +31,6 @@ function boot() {}
 
 // 🎨 Paint (Executes every display frame)
 function paint({ wipe, ink, circle, screen, pen, num, line }) {
-  const X = 0,
-    Y = 1;
-
   // Computation
   // const eyeWidth = faceSize / 12;
   const eyeWidth = faceSize / 6;
@@ -48,13 +45,13 @@ function paint({ wipe, ink, circle, screen, pen, num, line }) {
   const eyeY = faceSize / 6;
 
   const left = {
-    x: screen.center[X] - faceSize / 2,
-    y: screen.center[Y] - eyeY,
+    x: screen.center.x - faceSize / 2,
+    y: screen.center.y - eyeY,
   };
 
   const right = {
-    x: screen.center[X] + faceSize / 2,
-    y: screen.center[Y] - eyeY,
+    x: screen.center.x + faceSize / 2,
+    y: screen.center.y - eyeY,
   };
 
   const leftEyeA = num.p2.add(eye.a, left);
@@ -80,8 +77,8 @@ function paint({ wipe, ink, circle, screen, pen, num, line }) {
   };
 
   const mouthPos = {
-    x: screen.center[X],
-    y: screen.center[Y] + faceSize / 2.5,
+    x: screen.center.x,
+    y: screen.center.y + faceSize / 2.5,
   };
 
   const mouthA = num.p2.add(mouth.a, mouthPos);
@@ -93,7 +90,7 @@ function paint({ wipe, ink, circle, screen, pen, num, line }) {
 // ✒ Act (Runs once per user interaction)
 function act({ event: e, jump }) {
   // if (e.is("touch")) faceSize += 2;
-  if (e.is("touch")) jump('camera');
+  if (e.is("touch")) jump("camera");
 }
 
 /*
