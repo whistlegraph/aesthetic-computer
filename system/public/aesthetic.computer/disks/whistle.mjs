@@ -47,11 +47,12 @@ function paint({ api, wipe, ink, screen: { width, height }, pen }) {
 
   // Print pitch and amplitude information from mic.
   if (mic?.pitch && mic.amplitude > minAmp) {
-    wipe(w)
-      .ink(255, 0, 0)
-      .write(mic.pitch.toFixed(2), { x: 4, y: 20 }, 255)
-      .ink(0, 0, 255)
-      .write(mic.amplitude.toFixed(2), { x: 4, y: 36 }, 255);
+    console.log(w, mic.amplitude, mic.pitch);
+    const x = wipe(w)
+       .ink(255, 0, 0)
+       .write(mic.pitch.toFixed(2), { x: 4, y: 20 }, 255)
+       .ink(0, 0, 255)
+       .write(mic.amplitude.toFixed(2), { x: 4, y: 36 }, 255);
   } else {
     wipe(w);
   }

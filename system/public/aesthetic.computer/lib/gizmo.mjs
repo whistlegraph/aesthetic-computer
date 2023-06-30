@@ -42,6 +42,6 @@ export class Hourglass {
     this.flips += 1n;
     this.ticks = 0;
     this.complete = false;
-    this.#flipped?.(this.flips);
+    this.#flipped?.(this.flips, ...arguments);
   }
 }

@@ -472,7 +472,7 @@ class TextInput {
     this.blink =
       this.blink ||
       new Hourglass(seconds(0.75), {
-        flipped: (showBlinkOverride) => {
+        flipped: (count, showBlinkOverride) => {
           if (showBlinkOverride !== undefined)
             this.showBlink = showBlinkOverride;
           else this.showBlink = !this.showBlink;

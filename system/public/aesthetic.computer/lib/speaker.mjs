@@ -111,6 +111,9 @@ class SoundProcessor extends AudioWorkletProcessor {
       // 📢 Sound
       // Fires just once and gets recreated on every call.
       if (msg.type === "sound") {
+
+        console.log("New Sound!");
+
         let duration, attack, decay;
 
         if (msg.data.beats === Infinity) {

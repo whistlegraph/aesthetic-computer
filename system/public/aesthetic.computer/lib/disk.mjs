@@ -907,6 +907,7 @@ const $paintApi = {
   write: function (text, pos, bg) {
     if (!text) return; // Fail silently if no text.
     tf?.print($activePaintApi, pos, 0, text.toString(), bg); // Fail on preamble.
+    return $activePaintApi;
   },
   // 2. Image Utilities
   clonePixels: graph.cloneBuffer,

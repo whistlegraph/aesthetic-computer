@@ -18,12 +18,13 @@ function beat({ params, sound: { square } }) {
       volume: 1.0,
       beats: Infinity,
     });
+    // console.log(sine);
   }
 }
 
 // 🧮 Sim
 function sim({ simCount, jump, num }) {
-  if (simCount >= 80) jump(`tone~${num.randIntRange(700, 1000)}`);
+  // if (simCount >= 80) jump(`tone~${num.randIntRange(700, 1000)}`);
 }
 
 // 🥾 Boot

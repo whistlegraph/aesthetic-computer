@@ -64,8 +64,6 @@ class Microphone extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor("microphone-processor", Microphone);
-
 // 🐦
 // Pitch recognition via: https://github.com/bojan88/WASM-vs-JS-Pitch-detector
 {
@@ -196,3 +194,5 @@ registerProcessor("microphone-processor", Microphone);
     }
   }
 }
+
+registerProcessor("microphone-processor", Microphone);
