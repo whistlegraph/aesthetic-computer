@@ -66,14 +66,14 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Scawy Snake ***
+  - [🟠] Finish basic prototype with title / level / game over and leaderboard.
+
 *** Whistle ***
   - [🧡] Get whistle working on iOS.
 
 *** lyrical melody finder / selector ***
   - [] Fork `tone` and also use audio feedback graph from `whistle`.
-
-*** Scawy Snake ***
-  - [] Finish basic prototype with title / level / game over and leaderboard.
 
 *** WebGL2 / WebGPU Backend ***
   - [] Specify a new GPU backed graphics backend.

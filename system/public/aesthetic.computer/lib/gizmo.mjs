@@ -27,7 +27,7 @@ export class Hourglass {
     if (this.complete === true) return console.log("⌛ Already complete.");
 
     this.ticks += 1;
-    if (this.ticks === this.max) {
+    if (this.ticks >= this.max) {
       this.complete = true;
       this.#completed?.(this.flips);
       if (this.#autoFlip) this.flip();
