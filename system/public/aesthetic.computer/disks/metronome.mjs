@@ -34,7 +34,7 @@ function beat({ sound, params, store }) {
   store["metronome:bpm"] = sound.bpm(params[0] || store["metronome:bpm"] || 200);
   // console.log("🎼 BPM:", sound.bpm(), "Time:", sound.time.toFixed(2));
 
-  square = sound.square({
+  square = sound.synth({
     type: "square",
     tone: melody[melodyIndex],
     //beats: 1,
@@ -45,7 +45,7 @@ function beat({ sound, params, store }) {
     pan: 0,
   });
 
-  sound.square({
+  sound.synth({
     // TODO: Add a delay here so sounds can be arranged
     //       to start part-way through a beat?
     type: "square",
@@ -87,7 +87,7 @@ const paint = ({ wipe, ink, line, screen, num: { lerp } }) => {
 
   let angle = melodyIndex === 0 ? lerp(left, right, squareP) : lerp(right, left, squareP);
 
-  if (firstBeat) angle = right;
+  if (firstBeat) angle = left;
 
   ink(255).lineAngle(
     screen.width / 2,

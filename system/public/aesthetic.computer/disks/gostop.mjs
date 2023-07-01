@@ -16,10 +16,10 @@ function paint({ wipe }) {
 // function act({ event }) {}
 
 // 💗 Beat (Runs once per bpm, starting when the audio engine is activated.)
-function beat({ sound: { bpm, square }, needsPaint }) {
+function beat({ sound: { bpm, synth }, needsPaint }) {
   bpm(70);
   stop = !stop;
-  square({
+  synth({
     tone: stop ? 400 : 800,
     beats: 2 / 10,
     decay: 0.99

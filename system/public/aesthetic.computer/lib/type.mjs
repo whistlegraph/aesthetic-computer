@@ -884,7 +884,7 @@ class TextInput {
     // Begin the prompt input mode / leave the splash.
     function activate(ti) {
       if (ti.canType) {
-        if (debug) console.log("✔️✍️ TextInput already activated.");
+        // if (debug) console.log("✔️✍️ TextInput already activated.");
         return;
       }
       ti.activated?.($, true);

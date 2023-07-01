@@ -5,7 +5,7 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🟢] Allow triggering of sounds from act, sim, paint, and boot.
+  - [🟢] Change triggering of sounds to act, sim, paint, and boot.
 
   - [] Add proper start and stop of sine wave with a delay on recording. 
     - [] Add a delay to the start.
@@ -166,13 +166,13 @@ function act({ event: e }) {
 }
 
 // 🥁 Beat
-function beat({ sound: { microphone, square, speaker } }) {
+function beat({ sound: { microphone, synth, speaker } }) {
   if (!mic) mic = microphone.connect();
   if (!spk) spk = speaker;
   
   // TODO: Rethink how oscillators and one-shot sounds work.
   if (whistling && !sine) {
-    sine = square({
+    sine = synth({
       type: "sine",
       tone: pitches[index],
       volume: amps[index],

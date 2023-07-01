@@ -388,10 +388,10 @@ function act($) {
 }
 
 // 💗 Beat
-function beat({ sound: { microphone, square } }) {
+function beat({ sound: { microphone, synth } }) {
   if (!mic && mode === "record") mic = microphone.connect(); // Connect the mic.
   if (bop) {
-    square({
+    synth({
       tone: 250,
       beats: 1 / 16,
       attack: 0.01,

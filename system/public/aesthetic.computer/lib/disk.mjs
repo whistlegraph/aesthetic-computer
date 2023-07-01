@@ -71,7 +71,7 @@ const nopaint = {
       if (system.nopaint.bakeOnLeave) {
         // Add bake commands.
         page(system.painting);
-        $activePaintApi = $; // In case of recursive paint functions like `write`.
+        //$activePaintApi = $; // In case of recursive paint functions like `write`.
         bake($);
         // page(screen); // TODO: This should work but it doesnt...
         //                        Seems to have something to do with
@@ -181,8 +181,10 @@ let pieceHistoryIndex = -1; // Gets incremented to 0 when first piece loads.
 let paintCount = 0n;
 let simCount = 0n;
 let booted = false;
-let initialSim = true;
+// let initialSim = true;
 let noPaint = false;
+
+let sound, soundClear; // Used by receivedBeat and defined in first frame update.
 
 let storeRetrievalResolution, storeDeletionResolution;
 
@@ -191,9 +193,6 @@ let scream = null; // 😱 Allow priviledged users to send alerts to everyone.
 //                       (A great end<->end socket + redis test.)
 let screaming = false;
 let screamingTimer; // Keep track of scream duration.
-
-// Beat globals.
-let kills = []; // Keep track of playing sounds across beats.
 
 // *** Dark Mode ***
 // Pass `true` or `false` to override or `default` to the system setting.
@@ -1181,7 +1180,13 @@ class Painting {
     // Creates a new pixel buffer with its own layering wrapper / context
     // on top of the base painting API.
     this.api.painting = function () {
-      return graph.makeBuffer(...arguments, new Painting());
+      const oldActivePaintApi = $activePaintApi;
+      const painting = new Painting();
+      $activePaintApi = painting.api;
+      const pix = graph.makeBuffer(...arguments, painting, painting.api);
+
+      $activePaintApi = oldActivePaintApi;
+      return pix;
     };
 
     this.api.pixel = function () {
@@ -1765,7 +1770,7 @@ async function load(
     } else if (extension === "m4a") {
       // 🔈 Audio files
       return new Promise((resolve, reject) => {
-        send({ type: "load-sfx", content: path });
+        send({ type: "sfx:load", content: path });
         preloadPromises[path] = { resolve, reject };
       });
     }
@@ -1787,11 +1792,6 @@ async function load(
         resolve(loaded); // Resolve with `true` or `false`.
       };
     });
-  };
-
-  // Trigger and audio sample to playback in the `bios`.
-  $commonApi.play = async function (sfx, options) {
-    send({ type: "play-sfx", content: { sfx, options } });
   };
 
   // 💡 Eventually this could merge with net.web so there is one command
@@ -1944,7 +1944,7 @@ async function load(
     paintingAPIid = 0n;
     simCount = 0n;
     booted = false;
-    initialSim = true;
+    // initialSim = true;
     activeVideo = null;
     preloadPromises = {};
     noPaint = false;
@@ -1955,6 +1955,8 @@ async function load(
     currentColon = colon;
     currentParams = params;
     currentHash = hash;
+    sound = null;
+    soundClear = null;
 
     // Push last piece to a history list, skipping prompt and repeats.
     if (
@@ -1990,6 +1992,8 @@ async function load(
       hash,
       text: slug,
       pieceCount: $commonApi.pieceCount,
+      pieceHasSound: true, // TODO: Make this an export flag for pieces that don't want to enable the sound engine. 23.07.01.16.40
+      // 📓 Could also disable the sound engine if the flag is false on a subsequent piece, but that would never really make practical sense?
       fromHistory,
       alias,
       meta,
@@ -2315,105 +2319,6 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
-  // 1. Beat // One send (returns afterwards)
-  if (type === "beat") {
-    const $api = {};
-    Object.assign($api, $commonApi);
-    $api.graph = painting.api; // TODO: Should this eventually be removed?
-    $api.api = $api; // Add a reference to the whole API.
-
-    $api.sound = {
-      time: content.time,
-      // Get the bpm with bpm() or set the bpm with bpm(newBPM).
-      bpm: function (newBPM) {
-        if (newBPM) content.bpm = newBPM;
-        return content.bpm;
-      },
-    };
-
-    $api.sound.microphone = microphone;
-    $api.sound.speaker = speaker;
-
-    // TODO: Generalize square and bubble calls.
-    // TODO: Move this stuff to a "sound" module.
-    const sounds = [];
-    const bubbles = [];
-    let soundId = 0;
-
-    // TODO: Rename `square`.
-    $api.sound.square = function ({
-      type = "square",
-      tone = 440, // TODO: Make random.
-      beats = Math.random(), // Wow, default func. params can be random!
-      attack = 0,
-      decay = 0,
-      volume = 1,
-      pan = 0,
-    } = {}) {
-      const id = soundId;
-      sounds.push({ id, type, tone, beats, attack, decay, volume, pan });
-      soundId += 1;
-
-      // Return a progress function so it can be used by rendering.
-      const seconds = (60 / content.bpm) * beats;
-      const end = content.time + seconds;
-
-      return {
-        id,
-        kill: function () {
-          kills.push(id);
-        },
-        progress: function (time) {
-          return 1 - Math.max(0, end - time) / seconds;
-        },
-        update: function (properties) {
-          // Property updates happen outside of beat timing.
-          send({
-            type: "beat:update",
-            content: { id, properties },
-          });
-        },
-      };
-    };
-
-    $api.sound.bubble = function ({ radius, rise, volume = 1, pan = 0 } = {}) {
-      bubbles.push({ radius: radius, rise, volume, pan });
-      // Return a progress function so it can be used by rendering.
-      /*
-      const seconds = (60 / content.bpm) * beats;
-      const end = content.time + seconds;
-      return {
-        progress: function (time) {
-          return 1 - Math.max(0, end - time) / seconds;
-        },
-      };
-      */
-    };
-
-    $api.sound.kill = function (id) {
-      kills.push(id);
-    };
-
-    try {
-      beat($api);
-    } catch (e) {
-      console.warn(" 💗 Beat failure...", e);
-    }
-
-    send(
-      {
-        type: "beat",
-        content: { bpm: content.bpm, sounds, bubbles, kills },
-      } //,
-      //[content.bpm]
-    );
-
-    sounds.length = 0;
-    bubbles.length = 0;
-    kills.length = 0;
-    return;
-  }
-
   if (type === "microphone-amplitude") {
     microphone.amplitude = content;
     return;
@@ -2601,6 +2506,20 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // 1. Beat
+  if (type === "beat") {
+    if (!sound) return; // Just in case no `frame` has been sent yet.
+    try {
+      beat($activePaintApi);
+    } catch (e) {
+      console.warn(" 💗 Beat failure...", e);
+    }
+
+    send({ type: "beat", content: sound });
+    soundClear();
+    return;
+  }
+
   // 2. Frame
   // Where each piece action (boot, sim, paint, etc...) is run.
   if (type === "frame") {
@@ -2696,7 +2615,94 @@ async function makeFrame({ data: { type, content } }) {
       return s * 120; // TODO: Get 120 dynamically from the Loop setting. 2022.01.13.23.28
     };
 
-    // Act & Sim (Occurs after first boot and paint.)
+    // 🔈 Sound
+    const $sound = {
+      time: content.audioTime,
+      // Get the bpm with bpm() or set the bpm with bpm(newBPM).
+      bpm: function (newBPM) {
+        if (newBPM) sound.bpm = newBPM;
+        return sound.bpm;
+      },
+    };
+
+    $sound.microphone = microphone;
+    $sound.speaker = speaker;
+
+    // TODO: Generalize square and bubble calls.
+    // TODO: Move this stuff to a "sound" module.
+    sound = {
+      bpm: content.audioBpm,
+      sounds: [],
+      bubbles: [],
+      kills: [],
+    };
+
+    // Clear synchronized audio triggers.
+    soundClear = () => {
+      sound.sounds.length = 0;
+      sound.bubbles.length = 0;
+      sound.kills.length = 0;
+    };
+
+    {
+      const sounds = sound.sounds;
+      const bubbles = sound.bubbles;
+      const kills = sound.kills;
+      let soundId = 0;
+
+      // Trigger a named audio sample to playback in the `bios`.
+      // options: { volume: 0-n }
+      $sound.play = async function (sfx, options) {
+        send({ type: "sfx:play", content: { sfx, options } });
+      };
+
+      $sound.synth = function ({
+        type = "square",
+        tone = 440, // TODO: Make random.
+        beats = Math.random(), // Wow, default func. params can be random!
+        attack = 0,
+        decay = 0,
+        volume = 1,
+        pan = 0,
+      } = {}) {
+        const id = soundId;
+        sounds.push({ id, type, tone, beats, attack, decay, volume, pan });
+        soundId += 1;
+
+        // Return a progress function so it can be used by rendering.
+        const seconds = (60 / content.audioBpm) * beats;
+        const end = content.audioTime + seconds;
+
+        return {
+          id,
+          kill: function () {
+            kills.push(id);
+          },
+          progress: function (time) {
+            return 1 - Math.max(0, end - time) / seconds;
+          },
+          update: function (properties) {
+            // Property updates happen outside of beat timing.
+            send({
+              type: "beat:update",
+              content: { id, properties },
+            });
+          },
+        };
+      };
+
+      $sound.bubble = function ({ radius, rise, volume = 1, pan = 0 } = {}) {
+        bubbles.push({ radius: radius, rise, volume, pan });
+      };
+
+      $sound.kill = function (id) {
+        kills.push(id);
+      };
+
+      $commonApi.sound = $sound;
+    }
+
+    // Act & Sim (Occurs after first boot and paint, `boot` occurs below.)
     if (booted && paintCount > 0n) {
       const $api = {};
       Object.keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
@@ -2707,17 +2713,9 @@ async function makeFrame({ data: { type, content } }) {
       $api.api = $api; // Add a reference to the whole API.
 
       lastActAPI = $api; // Remember this API for any other acts outside
-      // of this loop, like like a focus change
-
-      //Object.assign($api, $commonApi);
-      //Object.assign($api, $updateApi);
-      //Object.assign($api, painting.api);
+      // of this loop, like a focus change
 
       $api.inFocus = inFocus;
-
-      // console.log(content.audioTime); // Why does this freeze sometimes?
-
-      $api.sound = { time: content.audioTime, bpm: content.audioBpm };
 
       // Don't pass pixels to updates.
       $api.screen = {
@@ -2727,29 +2725,28 @@ async function makeFrame({ data: { type, content } }) {
 
       $api.cursor = (code) => (cursorCode = code);
 
-      // TODO: A booted check could be higher up the chain here?
-      // Or this could just move. 22.10.11.01.31
-      // if (loading === false && booted) {
-      if (booted) {
-        if (initialSim) {
+      // Deprecated on 23.07.01.15.31 (Remove later if no regressions.)
+      // if (initialSim) {
+      //   console.log("initial", initialSim, content.updateCount, 'paintcount', paintCount);
+      //   simCount += 1n;
+      //   $api.simCount = simCount;
+      //   try {
+      //     sim($api);
+      //   } catch (e) {
+      //     console.warn("🧮 Sim failure...", e);
+      //   }
+      //   initialSim = false;
+      // } else
+
+      if (content.updateCount > 0 && paintCount > 0n) {
+        // Run `sim` the number of times as requested from `bios`.
+        for (let i = content.updateCount; i--; ) {
           simCount += 1n;
           $api.simCount = simCount;
           try {
             sim($api);
           } catch (e) {
             console.warn("🧮 Sim failure...", e);
-          }
-          initialSim = false;
-        } else if (content.updateCount > 0 && paintCount > 0n) {
-          // Update the number of times that are needed.
-          for (let i = content.updateCount; i--; ) {
-            simCount += 1n;
-            $api.simCount = simCount;
-            try {
-              sim($api);
-            } catch (e) {
-              console.warn("🧮 Sim failure...", e);
-            }
           }
         }
       }
@@ -2989,7 +2986,7 @@ async function makeFrame({ data: { type, content } }) {
       actAlerts.length = 0; // Clear act alerts.
     }
 
-    // 🖼 Paint & Render // Two sends (Move one send up eventually? -- 2021.11.27.17.20)
+    // 🖼 Paint
     if (content.needsRender) {
       const $api = {};
       Object.keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
@@ -3002,8 +2999,6 @@ async function makeFrame({ data: { type, content } }) {
       // Object.assign($api, painting.api);
 
       $api.paintCount = Number(paintCount);
-
-      $api.sound = { time: content.audioTime, bpm: content.audioBpm };
 
       $api.inFocus = content.inFocus;
 
@@ -3108,6 +3103,9 @@ async function makeFrame({ data: { type, content } }) {
 
       graph.setBuffer(screen);
 
+      // API Stops being modified here...
+      $activePaintApi = $api;
+
       // TODO: Set bpm from boot.
       /*
       $api.sound = {
@@ -3166,7 +3164,6 @@ async function makeFrame({ data: { type, content } }) {
           store["painting:transform"]?.translation || sys.nopaint.translation;
 
         try {
-          $activePaintApi = $api;
           if (system === "nopaint") nopaint_boot($api);
           await boot($api);
           booted = true;
@@ -3208,7 +3205,6 @@ async function makeFrame({ data: { type, content } }) {
           }
 
           // All: Paint
-          $activePaintApi = $api;
           paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
         } catch (e) {
           console.warn("🎨 Paint failure...", e);
@@ -3282,7 +3278,7 @@ async function makeFrame({ data: { type, content } }) {
         const w = currentHUDText.length * 6;
         const h = 11;
         label = $api.painting(w, h, ($) => {
-          $activePaintApi = $;
+          // $activePaintApi = $;
           $.ink(0).write(currentHUDText?.replaceAll("~", " "), { x: 1, y: 1 });
           let c;
           if (currentHUDTextColor) {
@@ -3301,12 +3297,6 @@ async function makeFrame({ data: { type, content } }) {
             w: w + (currentHUDOffset?.x || defo),
             h: h + (currentHUDOffset?.y || defo),
           });
-        // new $api.ui.Button({
-        //   x: currentHUDOffset?.y || defo,
-        //   y: currentHUDOffset?.y || defo,
-        //   w: w,
-        //   h,
-        // });
         $commonApi.hud.currentLabel = {
           text: currentHUDText,
           btn: currentHUDButton,
@@ -3372,6 +3362,8 @@ async function makeFrame({ data: { type, content } }) {
       if (sendData.label)
         transferredObjects.push(sendData.label?.img.pixels.buffer);
 
+      sendData.sound = sound;
+
       send({ type: "render", content: sendData }, transferredObjects);
 
       // Flush the `signals` after sending.
@@ -3386,7 +3378,12 @@ async function makeFrame({ data: { type, content } }) {
       send(
         {
           type: "update",
-          content: { didntRender: true, loading, pixels: pixels?.buffer },
+          content: {
+            didntRender: true,
+            loading,
+            pixels: pixels?.buffer,
+            sound,
+          },
         },
         [pixels?.buffer]
       );
@@ -3394,6 +3391,8 @@ async function makeFrame({ data: { type, content } }) {
 
     // Wait 8 frames of the default piece before loading the next piece.
     if (paintCount > 8n) loadAfterPreamble?.(); // Start loading after the first disk if necessary.
+
+    soundClear();
 
     // ***Frame State Reset***
     // Reset video transcoding / print progress.

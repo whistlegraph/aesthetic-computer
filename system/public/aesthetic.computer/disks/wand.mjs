@@ -1999,7 +1999,7 @@ function act({
 }
 
 // 💗 Beat
-function beat({ num, sound: { bpm, square } }) {
+function beat({ num, sound: { bpm, synth } }) {
   if (beatCount === 0n) {
     bap = bip = beep = bop = ping = pong = false; // Clear any existing signals.
     bpm(1800); // Set bpm to 1800 ~ 30fps }
@@ -2007,7 +2007,7 @@ function beat({ num, sound: { bpm, square } }) {
   beatCount += 1n; // TODO: This should go into the main API. 22.11.01.17.43
 
   if (bap) {
-    square({
+    synth({
       tone: num.randIntRange(100, 800),
       beats: 1.5,
       attack: 0.02,
@@ -2018,7 +2018,7 @@ function beat({ num, sound: { bpm, square } }) {
   }
 
   if (bip) {
-    square({
+    synth({
       tone: num.randIntRange(50, 1600),
       beats: 1,
       attack: 0.02,
@@ -2029,7 +2029,7 @@ function beat({ num, sound: { bpm, square } }) {
   }
 
   if (beep) {
-    square({
+    synth({
       tone: 300,
       beats: 0.7,
       attack: 0.01,
@@ -2040,7 +2040,7 @@ function beat({ num, sound: { bpm, square } }) {
   }
 
   if (bop) {
-    square({
+    synth({
       tone: 600,
       beats: 0.7,
       attack: 0.01,
@@ -2051,7 +2051,7 @@ function beat({ num, sound: { bpm, square } }) {
   }
 
   if (ping) {
-    square({
+    synth({
       tone: 1000,
       beats: 1.0,
       attack: 0.01,
@@ -2062,7 +2062,7 @@ function beat({ num, sound: { bpm, square } }) {
   }
 
   if (pong) {
-    square({
+    synth({
       tone: 100,
       beats: 1.5,
       attack: 0.01,

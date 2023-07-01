@@ -10,10 +10,10 @@
 let sine;
 
 // 🥁 Beat
-function beat({ params, sound: { square } }) {
+function beat({ params, sound: { synth } }) {
   // TODO: This should not have to go in `beat`.
   if (!sine) {
-    sine = square({
+    sine = synth({
       type: "sine",
       tone: params[0] || 400,
       volume: 1.0,

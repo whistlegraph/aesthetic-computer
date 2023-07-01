@@ -228,7 +228,7 @@ function act({ event: e, jump, help, screen }) {
 let beatCount = 0n; // TODO: This should REALLY go into the main API at this point... 23.05.08.17.32
 let bap, bip;
 
-function beat({ num, sound: { bpm, square } }) {
+function beat({ num, sound: { bpm, synth } }) {
   if (beatCount === 0n) {
     bap = bip = false; // Clear any existing signals.
     bpm(1800); // Set bpm to 1800 ~ 30fps }
@@ -236,7 +236,7 @@ function beat({ num, sound: { bpm, square } }) {
   beatCount += 1n; // TODO: This should go into the main API. 22.11.01.17.43
 
   if (bap) {
-    square({
+    synth({
       tone: num.randIntRange(100, 800),
       beats: 1.5,
       attack: 0.02,
@@ -247,7 +247,7 @@ function beat({ num, sound: { bpm, square } }) {
   }
 
   if (bip) {
-    square({
+    synth({
       tone: num.randIntRange(1000, 1600),
       beats: 1,
       attack: 0.02,

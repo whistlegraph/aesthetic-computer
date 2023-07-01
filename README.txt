@@ -67,7 +67,10 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** whistle & tone ***
-  - [] Refactor `beat` so that sounds can be triggered from `paint`, `act`, and `sim`.
+  - [💛] Update `tone` to not trigger sound in beat.
+  - [-] Update `whistle` to not trigger sound in beat.
+  + Done
+  - [x] Refactor `beat` so that sounds can be triggered from `paint`, `act`, and `sim`.
 
 *** lyrical melody finder / selector ***
   - [] Fork `tone` and also use audio feedback graph from `whistle`.

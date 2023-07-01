@@ -1,6 +1,17 @@
 // Bleep, 22.07.15.19.21
 // A configurable interface of colored boxes that can be pushed to make tones.
 
+/* #region 📚 README 
+#endregion */
+
+/* #region 🏁 todo
+  - [🟡] Fix any button tap regressions. (Test rollover logic etc with a 2x1)
+  - [] Add multiple wave-types and adjustable tones to the buttons.
+  - [] Add the ability to record, play back, and download audio.
+  - [] Add automatic qwerty key-mapping.
+      (Only on a desktop and if a key is pressed.)
+#endregion */
+
 const debug = false;
 
 const { floor } = Math;
@@ -46,13 +57,13 @@ class Bleep {
     // TODO: Add a text label or color things based on a tone value?
   }
 
-  beep({ sound: { square } }) {
+  beep({ sound: { synth } }) {
     if (!this.needsBleep) return;
     this.needsBleep = false;
 
-    square({
+    synth({
       tone: this.tone,
-      beats: 30,
+      beats: 1,
       decay: 0.99,
     });
   }
@@ -170,6 +181,10 @@ function paint($) {
   return false; // Draw only once until `needsPaint` is called..
 }
 
+function sim($) {
+  bleeps.forEach((bleep) => bleep.beep($));
+}
+
 let anyBleepDowned = false;
 
 // ✒ Act (Runs once per user interaction)
@@ -211,18 +226,9 @@ function act($) {
   });
 }
 
-let beatCount = 0n,
-  defaultBPM;
-
 // 💗 Beat (Runs once per bpm, starting when the audio engine is activated.)
-function beat($api) {
-  if (beatCount === 0n) {
-    defaultBPM = $api.sound.bpm();
-    $api.sound.bpm(3600); // Set bpm to 3600 ~ 60fps
-  }
-  bleeps.forEach((bleep) => bleep.beep($api));
-  beatCount += 1n;
-}
+// function beat($api) {
+// }
 
 // 🏃 Leave (Runs once while the piece is being exited)
 function leave($api) {
@@ -233,4 +239,4 @@ function leave($api) {
 // 📚 Library (Useful classes & functions used throughout the piece)
 // ...
 
-export { boot, paint, act, beat, leave };
+export { boot, paint, sim, act, leave };

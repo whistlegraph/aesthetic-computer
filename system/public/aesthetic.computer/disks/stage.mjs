@@ -348,7 +348,7 @@ let playDurationProgress = 0;
 // 2. Music
 export function beat({
   help: { every, each, choose, repeat },
-  sound: { bpm, time, square },
+  sound: { bpm, time, synth },
   num: { lerp, Track },
   graph: { painting, ink, wipe, line },
 }) {
@@ -356,7 +356,7 @@ export function beat({
 
   // A. Introductory Countdown
   if (noteI < 0) {
-    square({
+    synth({
       tone: 50 - abs(noteI * 10),
       beats: 0.05,
       attack: 0.1,
@@ -402,7 +402,7 @@ export function beat({
       // Play a note.
 
       if (playDurationProgress === 0) {
-        instrument = square({
+        instrument = synth({
           tone: scale[letter],
           beats: 1, //play.duration,
           attack: 0.1,
@@ -411,7 +411,7 @@ export function beat({
           pan: 0,
         });
       } else {
-        instrument = square({
+        instrument = synth({
           tone: scale[letter],
           beats: 1, //play.duration,
           attack: 0.1,
@@ -508,7 +508,7 @@ export function beat({
 
   // C: Metronome clicks up till the end of the last note.
   if (noteI < notes.length + 1) {
-    square({
+    synth({
       tone: 10,
       beats: 0.05,
       attack: 0.1,
@@ -543,7 +543,7 @@ export function beat({
 
   // E: Final Sound
   if (noteI === notes.length + 1) {
-    square({
+    synth({
       tone: 25,
       beats: 0.2,
       attack: 0.01,

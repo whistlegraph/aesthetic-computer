@@ -34,8 +34,8 @@ function paint({ wipe, ink, screen }) {
 }
 
 // 🎪 Act
-function act({ event: e, play }) {
-  btn.btn.act(e, () => play(sfx));
+function act({ event: e, sound }) {
+  btn.btn.act(e, () => sound.play(sfx));
 }
 
 // 📰 Meta

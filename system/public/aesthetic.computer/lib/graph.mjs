@@ -32,7 +32,7 @@ export function setDebug(newDebug) {
 }
 
 // 1. Configuration & State
-function makeBuffer(width, height, fillProcess, painting) {
+function makeBuffer(width, height, fillProcess, painting, api) {
   const imageData = new ImageData(width, height);
 
   const buffer = {
@@ -46,8 +46,6 @@ function makeBuffer(width, height, fillProcess, painting) {
     const savedBuffer = getBuffer();
     const rc = c; // Remember color.
     setBuffer(buffer);
-    const api = { width, height, pixels };
-    Object.assign(api, painting.api);
     fillProcess(api); // Every fill process gets a painting API.
     painting.paint(true);
     // Restore old buffer and color.

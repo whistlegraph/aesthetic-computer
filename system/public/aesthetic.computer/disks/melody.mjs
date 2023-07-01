@@ -56,7 +56,7 @@ function boot({
 }
 
 // 💗 Beat (Runs once per bpm)
-function beat({ sound: { bpm, square, time }, store, gizmo: { Hourglass } }) {
+function beat({ sound: { bpm, synth, time }, store, gizmo: { Hourglass } }) {
   bpm(store["metronome:bpm"]); // Set the bpm from last metronome run.
 
   if (globalBeatCount >= 0) {
@@ -64,7 +64,7 @@ function beat({ sound: { bpm, square, time }, store, gizmo: { Hourglass } }) {
     scoreData?.forEach((row, x) => {
       row.forEach((column, y) => {
         if (row[y] && y === beatCount && y < stopRow) {
-          square({
+          synth({
             tone: noteFrequencies[noteList[x]],
             beats: 1,
             attack: 0.01,
@@ -85,14 +85,14 @@ function beat({ sound: { bpm, square, time }, store, gizmo: { Hourglass } }) {
       volume: 0.5,
       pan: 0.5,
     };
-    square(sq);
+    synth(sq);
     sq.pan *= -1;
     sq.tone = 150;
-    square(sq);
+    synth(sq);
   }
 
   // Make a tiny metronome sound.
-  square({
+  synth({
     tone: 50,
     beats: 1 / 8,
     attack: 0.01,
@@ -101,7 +101,7 @@ function beat({ sound: { bpm, square, time }, store, gizmo: { Hourglass } }) {
     pan: -0.1,
   });
 
-  square({
+  synth({
     tone: 40,
     beats: 1 / 8,
     attack: 0.01,

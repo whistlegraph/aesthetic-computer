@@ -1,4 +1,5 @@
 // Prompt, 2023.5.26.21.38.35
+//         2021.11.28.03.13 (Created on)
 // A language based "access-everything" console with LLM fallback.
 
 /* #region 📚 README 
@@ -543,7 +544,7 @@ function act({
   num,
   jump,
   system,
-  play,
+  sound: { play },
   send,
 }) {
   // 🔘 Buttons
@@ -610,7 +611,7 @@ function act({
 // 🖥️ Run When the Prompt is activated.
 function activated($, state) {
   if (firstActivation) {
-    $.play(startupSfx); // Play startup sound...
+    $.sound.play(startupSfx); // Play startup sound...
     flashColor = scheme.dark.block; // Trigger startup animation...
     makeFlash($); // Always sets firstActivation flag to false.
   }

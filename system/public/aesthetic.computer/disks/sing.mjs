@@ -39,7 +39,7 @@ function reply(text) {
   console.log("😀 About to perform:", notes);
 }
 
-function beat({ sound: { square } }) {
+function beat({ sound: { synth } }) {
   if (notes.length > 0) {
     const note = notes.shift();
 
@@ -53,7 +53,7 @@ function beat({ sound: { square } }) {
       g: 392,
     };
 
-    square({
+    synth({
       tone: tones[note],
       beats: 1,
       attack: 0.02,

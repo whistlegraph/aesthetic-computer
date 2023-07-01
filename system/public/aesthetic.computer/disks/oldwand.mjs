@@ -556,7 +556,7 @@ function act({ event: e, color, gpu, screen, download, num: { timestamp } }) {
 }
 
 // 💗 Beat
-function beat({ sound: { bpm, square } }) {
+function beat({ sound: { bpm, synth } }) {
   if (beatCount === 0n) bpm(1800); // Set bpm to 1800 ~ 30fps }
   beatCount += 1n; // TODO: This should go into the main API. 22.11.01.17.43
   if (beatCount < 8n * 2n) {
@@ -566,7 +566,7 @@ function beat({ sound: { bpm, square } }) {
   // TODO: ^ This is a little janky and should be tied to an event.
 
   beeps.forEach((beep) => {
-    square({
+    synth({
       tone: beep.event === "join" ? 200 : 50,
       beats: 0.5,
       attack: 0.1,
@@ -576,7 +576,7 @@ function beat({ sound: { bpm, square } }) {
   });
 
   if (wand.beep) {
-    square({
+    synth({
       tone: 300,
       beats: 0.7,
       attack: 0.01,
@@ -587,7 +587,7 @@ function beat({ sound: { bpm, square } }) {
   }
 
   if (wand.bop) {
-    square({
+    synth({
       tone: 600,
       beats: 0.7,
       attack: 0.01,

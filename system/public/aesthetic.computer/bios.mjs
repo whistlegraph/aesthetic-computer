@@ -436,6 +436,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // be destroyed after pieces change.
 
   let updateMetronome,
+    activateSound,
+    activatedSoundCallback,
     triggerSound,
     updateBubble,
     updateSound,
@@ -517,6 +519,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // sampleRate: 96000,
       // sampleRate: 192000,
     });
+
+    // Run any held audio on resume / sounds on initial button presses or taps.
+    audioContext.onstatechange = function () {
+      if (audioContext.state === "running") activatedSoundCallback?.();
+    };
 
     audioStreamDest = audioContext.createMediaStreamDestination();
 
@@ -795,29 +802,36 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   sound.bpm = bpm;
 
   function requestBeat(time) {
-    send(
-      {
-        type: "beat",
-        content: {
-          time,
-          bpm: sound.bpm,
-        },
-      } //,
-      //[sound.bpm] // TODO: Why not just send the number here?
-    );
+    send({
+      type: "beat",
+      content: { time, bpm: sound.bpm },
+    });
   }
 
+  // Called inside of `requestFrame`, and on the `beat` message.
   function receivedBeat(content) {
-    // BPM
-    if (sound.bpm !== content.bpm) {
-      sound.bpm = content.bpm;
-      updateMetronome(sound.bpm);
+    function beat() {
+      if (sound.bpm !== content.bpm) {
+        sound.bpm = content.bpm;
+        updateMetronome(sound.bpm);
+      }
+
+      for (const sound of content.sounds) triggerSound(sound);
+      for (const bubble of content.bubbles) updateBubble(bubble);
+      for (const id of content.kills) killSound(id);
     }
 
-    // SQUARE
-    for (const sound of content.sounds) triggerSound(sound);
-    for (const bubble of content.bubbles) updateBubble(bubble);
-    for (const id of content.kills) killSound(id);
+    if (
+      audioContext?.state !== "running" &&
+      (sound.bpm !== content.bpm ||
+        content.sounds.length > 0 ||
+        content.bubbles.length > 0 ||
+        content.kills.length > 0)
+    ) {
+      activatedSoundCallback = beat;
+      // 📓 Hold a single update frame if audio cuts out or is just beginning.
+      return;
+    } else beat();
   }
 
   // Update & Render
@@ -873,7 +887,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           needsRender,
           updateCount,
           pixels: screen.pixels.buffer,
-          audioTime: audioContext?.currentTime,
+          audioTime: audioContext?.currentTime || 0,
           audioBpm: sound.bpm, // TODO: Turn this into a messaging thing.
           audioMusicAmplitude: amplitude,
           audioMusicSampleData: amplitude > 0 ? frequencyData : [],
@@ -1351,19 +1365,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // TODO: Disable sound engine entirely... unless it is enabled by a disk. 2022.04.07.03.33
       // Only start this after a user-interaction to prevent warnings.
 
-      const activateSound = () => {
+      activateSound = () => {
         startSound();
         window.removeEventListener("keydown", activateSound);
         window.removeEventListener("pointerdown", activateSound);
       };
-
-      window.addEventListener("keydown", activateSound, {
-        once: true,
-      });
-
-      window.addEventListener("pointerdown", activateSound, {
-        once: true,
-      });
 
       diskSupervisor = { requestBeat, requestFrame };
 
@@ -1551,6 +1557,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       UI.spinnerReset(); // Reset the timer on the yellow UI loading spinner.
 
+      if (content.pieceHasSound && !audioContext) {
+        // Enable sound engine on interaction.
+        window.addEventListener("keydown", activateSound, { once: true });
+        window.addEventListener("pointerdown", activateSound, { once: true });
+      }
+
       send({ type: "loading-complete" });
       return;
     }
@@ -1627,6 +1639,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Adding custom DOM content.
     if (type === "content-create") {
       // Create a DOM container, if it doesn't already exist,
       // and add it here along with the requested content in the
@@ -1672,6 +1685,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Removing custom DOM content.
     if (type === "content-remove") {
       // Clear any DOM content that was added by a piece.
       contentFrame?.remove(); // Remove the contentFrame if it exists.
@@ -1684,15 +1698,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "signal") {
       if (debug) console.log("📻 Signal received:", content);
-      if (whens[content]) {
-        whens[content]();
-        // delete whens[content]; // These shouldn't need to be deleted here. 22.10.04.23.04
-      }
+      if (whens[content]) whens[content]();
     }
 
-    // I have a storage system where I can store data to localStorage (user settings),
-    //                                                   indexedDB (large files)
-    //                                                   remote (with user account or anonymous)
+    // 📦 Storage
+
+    // Can store data to localStorage (user settings),
+    //                   indexedDB (large files)
+    //                   remote (with user account or anonymous)
 
     // *** 🏪 Store: Persist ***
     if (type === "store:persist") {
@@ -2319,7 +2332,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Load a sound from a url.
-    if (type === "load-sfx") {
+    if (type === "sfx:load") {
       let internal = false;
 
       for (let wl of soundWhitelist) {
@@ -2376,9 +2389,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Trigger a sound to playback.
-    if (type === "play-sfx") {
+    if (type === "sfx:play") {
       if (audioContext) {
         // Instantly decode the audio before playback if it hasn't been already.
+
+        // 🌡️ TODO: `sfx` could be scraped for things that need to be decoded
+        //          upon audio activation. This would probably be helpful
+        //          in terms of creating a sampler and asynchronously
+        //          decoding all the sounds after an initial tap.
+
         if (sfx[content.sfx] instanceof ArrayBuffer) {
           let audioBuffer;
           try {
@@ -2412,33 +2431,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
-    // This method does not load remote images from different origins.
-    // if (type === "load-bitmap") {
-    //   fetch(content, { mode: "no-cors" }).then(async (response) => {
-    //     if (!response.ok) {
-    //       send({
-    //         type: "loaded-bitmap-rejection",
-    //         content: { url: content },
-    //       });
-    //     } else {
-    //       const blob = await response.blob();
-    //       const img = await toBitmap(blob);
-
-    //       send(
-    //         {
-    //           type: "loaded-bitmap-success",
-    //           content: {
-    //             url: content,
-    //             img,
-    //           },
-    //         },
-    //         [img.pixels.buffer]
-    //       );
-    //     }
-    //   });
-    //   return;
-    // }
-
     if (type === "fullscreen-toggle") {
       curReframeDelay = 0;
       toggleFullscreen();
@@ -2450,28 +2442,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       Loop.frameRate(content);
       return;
     }
-
-    // TODO: How can these updates be made more
-    //       instant? 22.09.25.15.43
-    // So that after calling them in the API, drawing can still happen...
-
-    // TODO: They need to be synchronous / just use basic numbers
-    //       that the disks already have.
-    //       The pixel buffers can be updated instantly in the thread...
-
-    //       And glaze and other functions can stay asynchronous, so no
-    //       pixels are lost.
-
-    /*
-    if (type === "gap-change") {
-      if (gap !== content) {
-        if (debug) console.log("🕳️ Gap:", content);
-        gap = content;
-        needsReframe = true;
-      }
-      return;
-    }
-    */
 
     if (type === "glaze") {
       if (debug) {
@@ -2504,10 +2474,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    // BIOS:RENDER
-    // 🌟 Assume `type === render` from now on.
+    // 🌟 Update & Render (Compositing)
     if (!(type === "render" || type === "update")) return;
     if (!content) return;
+
+    receivedBeat(content.sound); // 🔈 Trigger any audio that was called upon.
+
+    // 🖥️ Compositing
 
     // This is a bit messy compared to what happens inside of content.reframe -> frame below. 22.10.27.02.05
     if (content.pixels?.byteLength > 0) {
@@ -2705,22 +2678,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       canvas.style.removeProperty("opacity");
     }
 
-    // TODO: Put this in a budget / progress bar system, related to the current refresh rate.
-
     if (needsReappearance && wrapper.classList.contains("hidden")) {
       wrapper.classList.remove("hidden");
       needsReappearance = false;
     }
 
-    //frameCount += 1;
-    frameAlreadyRequested = false; // 🗨️ Tell the system we are ready for another frame.
-
-    //if (needsRender)
-
-    //if (lastRender) {
-    //console.log(performance.now() - lastRender)
-    //}
-    //lastRender = performance.now()
+    frameAlreadyRequested = false; // 🗨️ Signal readiness for the next frame.
+    // if (lastRender) console.log(performance.now() - lastRender)
+    // lastRender = performance.now()
   }
 
   // Reads a file and uploads it to the server.
