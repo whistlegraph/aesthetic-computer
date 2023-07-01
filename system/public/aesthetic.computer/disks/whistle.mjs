@@ -5,9 +5,10 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [-] Get working on mobile.
-  - [] Add reversable playback mode / parameter.
+  - [-] No longer process amps and pitches in this file. (See `sim`)
+  - [] Add reversable playback mode as a parameter.
   + Done
+  - [x] Get working on mobile.
   - [x] Add visuals to playback.
   - [x] Rethink some audio engine stuff for oscillators.
 #endregion */
@@ -103,6 +104,12 @@ function paint({ api, wipe, ink, screen: { width, height }, pen }) {
 
 // 🧮 Sim
 function sim() {
+  // TODO:
+  // I am only getting partial data here... it should probably all be routed
+  // via BIOS, possibly through the creation of some kind of managed sound
+  // buffer / sample record feature... or at least "poll" should grab
+  // whatever is current and empty the last bit out?
+
   mic?.poll(); // Query for updated amplitude and waveform data.
   spk?.poll();
 
