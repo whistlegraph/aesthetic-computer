@@ -107,16 +107,19 @@ export default class Sound {
       }
     }
 
-    // Attack Envelope (0-1)
-    const attack = Math.min(1, this.#progress / this.#attack);
-    value *= attack;
+    // Only use attack or decay envelopes on self-terminating sounds.
+    if (this.#duration < Infinity) {
+      // Attack Envelope (0-1)
+      const attack = Math.min(1, this.#progress / this.#attack);
+      if (attack) value *= attack;
 
-    // Decay Envelope (0-1)
-    const decay = Math.min(
-      1,
-      1 - (this.#progress - this.#decayStart) / this.#decay
-    );
-    value *= decay;
+      // Decay Envelope (0-1)
+      const decay = Math.min(
+        1,
+        1 - (this.#progress - this.#decayStart) / this.#decay
+      );
+      value *= decay;
+    }
 
     // Track the overall progress of the sound.
     // (Some sounds will have an Infinity duration and are killable)

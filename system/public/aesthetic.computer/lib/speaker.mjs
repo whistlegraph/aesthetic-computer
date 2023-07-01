@@ -111,15 +111,10 @@ class SoundProcessor extends AudioWorkletProcessor {
       // 📢 Sound
       // Fires just once and gets recreated on every call.
       if (msg.type === "sound") {
-
-        console.log("New Sound!");
-
         let duration, attack, decay;
 
         if (msg.data.beats === Infinity) {
           duration = Infinity;
-          attack = msg.data.attack; // Measured in seconds in `Sound`.
-          decay = msg.data.decay;
         } else {
           duration = round(sampleRate * (this.#bpmInSec * msg.data.beats));
           attack = round(duration * msg.data.attack); // Measured in frames.
@@ -133,8 +128,8 @@ class SoundProcessor extends AudioWorkletProcessor {
           duration,
           attack,
           decay,
-          volume: msg.data.volume,
-          pan: msg.data.pan,
+          volume: msg.data.volume || 1,
+          pan: msg.data.pan || 0,
         });
 
         if (duration === Infinity && msg.data.id > -1) {

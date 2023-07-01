@@ -11,20 +11,20 @@ let sine;
 
 // 🥁 Beat
 function beat({ params, sound: { square } }) {
+  // TODO: This should not have to go in `beat`.
   if (!sine) {
     sine = square({
       type: "sine",
       tone: params[0] || 400,
       volume: 1.0,
-      beats: Infinity,
+      beats: Infinity
     });
-    // console.log(sine);
   }
 }
 
 // 🧮 Sim
 function sim({ simCount, jump, num }) {
-  // if (simCount >= 80) jump(`tone~${num.randIntRange(700, 1000)}`);
+  if (simCount >= 80n) jump(`tone~${num.randIntRange(700, 1000)}`);
 }
 
 // 🥾 Boot

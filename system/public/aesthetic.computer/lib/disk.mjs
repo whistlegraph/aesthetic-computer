@@ -3131,7 +3131,7 @@ async function makeFrame({ data: { type, content } }) {
       // Right now, in `line` there is a paintCount check to work around this.
       // 22.09.19.20.45
 
-      if (paintCount === 0n) {
+      if (paintCount === 0n && loading === false) {
         const dark = await store.retrieve("dark-mode"); // Read dark mode.
         if (dark === true || dark === false) $commonApi.dark = dark;
 

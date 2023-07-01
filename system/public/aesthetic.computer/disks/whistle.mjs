@@ -47,12 +47,11 @@ function paint({ api, wipe, ink, screen: { width, height }, pen }) {
 
   // Print pitch and amplitude information from mic.
   if (mic?.pitch && mic.amplitude > minAmp) {
-    console.log(w, mic.amplitude, mic.pitch);
-    const x = wipe(w)
-       .ink(255, 0, 0)
-       .write(mic.pitch.toFixed(2), { x: 4, y: 20 }, 255)
-       .ink(0, 0, 255)
-       .write(mic.amplitude.toFixed(2), { x: 4, y: 36 }, 255);
+    wipe(w)
+      .ink(255, 0, 0)
+      .write(mic.pitch.toFixed(2), { x: 4, y: 20 }, 255)
+      .ink(0, 0, 255)
+      .write(mic.amplitude.toFixed(2), { x: 4, y: 36 }, 255);
   } else {
     wipe(w);
   }
@@ -66,8 +65,26 @@ function paint({ api, wipe, ink, screen: { width, height }, pen }) {
   } else {
     // Graph speaker (2 channels)
     const hw = width / 2;
-    paintSound(api, spk.amplitudes.left, spk.waveforms.left, 0, 0, hw, height, [255, 0, 0, 32]);
-    paintSound(api, spk.amplitudes.left, spk.waveforms.left, hw, 0, hw, height, [0, 0, 255, 32]);
+    paintSound(
+      api,
+      spk.amplitudes.left,
+      spk.waveforms.left,
+      0,
+      0,
+      hw,
+      height,
+      [255, 0, 0, 32]
+    );
+    paintSound(
+      api,
+      spk.amplitudes.left,
+      spk.waveforms.left,
+      hw,
+      0,
+      hw,
+      height,
+      [0, 0, 255, 32]
+    );
   }
 
   if (capturing) ink(255).write("NOW!", { center: "xy" }, 0);
@@ -112,7 +129,6 @@ function act({ event: e }) {
     pitches.length = 0;
     amps.length = 0;
     index = 0;
-    console.log("killed", sine);
     sine?.kill();
     sine = null;
   }
@@ -127,7 +143,7 @@ function act({ event: e }) {
     if (pitches.length > 0) {
       // Reverse the playback.
       let zeros = 0;
-      zeros += 30; // Trim the first 1/8th second no matter what.
+      // zeros += 30; // Trim the first 1/8th second no matter what.
       // while (amps[zeros] === 0) zeros += 1;
       amps = amps.slice(zeros);
       pitches = pitches.slice(zeros);

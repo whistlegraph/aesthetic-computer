@@ -509,7 +509,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Main audio feed
     audioContext = new AudioContext({
-      latencyHint: "interactive",
+      // latencyHint: "interactive",
       // TODO: Eventually choose a good sample rate and/or make it settable via
       //       the current disk.
       // sampleRate: 44100,
