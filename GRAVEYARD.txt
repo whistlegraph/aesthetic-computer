@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** Whistle ***
+  - [x] Get whistle working on iOS.
+
 *** encode/decode ***
   + Done
   - [x] Fix word wrap on response issue.

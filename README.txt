@@ -66,14 +66,14 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Scawy Snake ***
-  - [🟠] Finish basic prototype with title / level / game over and leaderboard.
-
-*** Whistle ***
-  - [🧡] Get whistle working on iOS.
+*** whistle & tone ***
+  - [] Refactor `beat` so that sounds can be triggered from `paint`, `act`, and `sim`.
 
 *** lyrical melody finder / selector ***
   - [] Fork `tone` and also use audio feedback graph from `whistle`.
+
+*** Scawy Snake ***
+  - [🟠] Finish basic prototype with title / level / game over and leaderboard.
 
 *** WebGL2 / WebGPU Backend ***
   - [] Specify a new GPU backed graphics backend.
@@ -116,7 +116,8 @@
   - [x] Is `scale` working?
 
 *** `scream` ***
-  - [] Get notifications working!
+  - [] https://mdn.github.io/dom-examples/web-speech-api/speak-easy-synthesis Speak the scream using speech synthesis.
+  - [] Get notifications working.
   - [] Get JamSocket working again.
     - [] Implement JamSocket "locks" and deprecate my redis scaling?
   - [] Visualize the socket connection to make everything faster in production.

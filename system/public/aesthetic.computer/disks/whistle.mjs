@@ -5,6 +5,10 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [🟢] Allow triggering of sounds from act, sim, paint, and boot.
+
+  - [] Add proper start and stop of sine wave with a delay on recording. 
+    - [] Add a delay to the start.
   - [-] No longer process amps and pitches in this file. (See `sim`)
   - [] Add reversable playback mode as a parameter.
   + Done
@@ -165,13 +169,13 @@ function act({ event: e }) {
 function beat({ sound: { microphone, square, speaker } }) {
   if (!mic) mic = microphone.connect();
   if (!spk) spk = speaker;
-
+  
   // TODO: Rethink how oscillators and one-shot sounds work.
   if (whistling && !sine) {
     sine = square({
       type: "sine",
       tone: pitches[index],
-      volume: amps[index] * 2,
+      volume: amps[index],
       beats: Infinity,
     });
   }
