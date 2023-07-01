@@ -90,6 +90,11 @@
   status = 301
   force = true
 [[redirects]]
+  from = "https://aesthetic.direct"
+  to = "https://tiktok.com/@aesthetic.direct"
+  status = 301
+  force = true
+[[redirects]]
   from = "https://m2w2.whistlegraph.com"
   to = "https://aesthetic.computer/wg~m2w2"
   status = 200
@@ -99,11 +104,11 @@
   to = "https://aesthetic.computer/sotce-blog"
   status = 200
   force = false
-[[redirects]]
-  from = "https://blog.sotce.com"
-  to = "https://aesthetic.computer/sotce-blog"
-  status = 200
-  force = false
+# [[redirects]]
+#   from = "https://blog.sotce.com"
+#   to = "https://aesthetic.computer/sotce-blog"
+#   status = 200
+#   force = false
 [[redirects]]
   from = "https://prompt.ac/*"
   to = "https://aesthetic.computer/:splat"
