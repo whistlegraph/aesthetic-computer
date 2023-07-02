@@ -9,6 +9,9 @@
     - [] Add a delay to the start.
   - [-] No longer process amps and pitches in this file. (See `sim`)
   - [] Add reversable playback mode as a parameter.
+  + Later
+  - [] Allow users to send whistles / instrumentalize whistles
+       somehow...
   + Done
   - [x] Get working on mobile.
   - [x] Add visuals to playback.

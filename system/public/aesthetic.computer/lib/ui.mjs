@@ -105,7 +105,6 @@ class Button {
   //         act(e, {push: () => {}, down: () => {}, cancel: () => {}, draw() => {}});
   // You can optionally pass in an array of `pens` {x, y} for multi-touch support.
   act(e, callbacks = () => {}, pens = []) {
-
     if (this.disabled) return;
 
     // If only a single function is sent, then assume it's a button push callback.
@@ -176,25 +175,17 @@ class TextButton {
   #offset = { x: this.#gap, y: this.#gap };
   #h = 19;
 
-  // constructor(text, pos) {
-  //   this.txt = text;
-  //   const w = text.length * this.#cw + this.#g2;
-
-  //   // TODO: Position from top left if x and y is set on pos, or use "bottom", and "right" if it exists on position to calculate the x and y.
-  //   // TODO: Also detect "top" and "left".
-
-  //   this.btn = new Button({ x: pos.x, y: pos.y, w, h: this.#h });
-  // }
-
-  constructor(text = "Button", pos = {x: 0, y: 0}) {
+  constructor(text = "Button", pos = { x: 0, y: 0 }) {
     this.txt = text;
     this.btn = new Button(this.#computePosition(text, pos));
   }
 
   // Compute position for box.
-  // pos: {x, y} for top left positioning.
+  // pos: {x, y} or { top, left } for positioning.
+  // pos: {bottom, right} for bottom right...
   //      { center: "xy", screen } for screen centering.
   #computePosition(text, pos = { x: 0, y: 0 }) {
+    pos = { ...pos }; // Make a shallow copy of pos because we will mutate it.
     let x, y;
     const w = text.length * this.#cw + this.#g2;
     const h = this.#h;
@@ -206,6 +197,16 @@ class TextButton {
         w,
         h,
       };
+    }
+
+    if (pos.x === undefined && pos.left) {
+      pos.x = pos.left;
+      delete pos.left;
+    }
+
+    if (pos.y === undefined && pos.top) {
+      pos.y = pos.top;
+      delete pos.top;
     }
 
     if (pos.x !== undefined && pos.y !== undefined) {

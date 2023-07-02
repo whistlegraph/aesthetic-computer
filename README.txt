@@ -69,8 +69,9 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** lyrical melody finder / selector ***
-  - [🟠] Fork `tone` and also use audio feedback graph from `whistle`.
+*** Song ***
+  - [🍊] Finish basic prototype with tone playback, lyric per tone support,
+       and loading and saving.
 
 *** Scawy Snake ***
   - [🟠] Finish basic prototype with title / level / game over and leaderboard.
@@ -237,33 +238,16 @@
 *** Overall Rendering ***
    - [] Fix pixel imperfect rendering / scaling especially noticeable on iOS.
 
+*** General API Design ***
+  - [] Add a general "positioning" function to geo that can cover TextButton,
+       Button, write, and box. It should already know about the
+       current screen size?
+    - [] It should support: { center: "xy", top, left, bottom, right, x, y }
+
 *** Painting ***
   - [] Two finger / scroll pan (trackpad).
   - [] Two finger / trackpad zoom.
   - (Use Figma as an example)
-
-*** `whistle` ***
-  - [-] Get working on mobile.
-  - [-] Allow users to send whistles / instrumentalize whistles
-       somehow...
-  - [] See `whistle`.
-  + Done
-  - [x] Whistle into the aesthetic.computer and get sine wave notes back.
-  - [x] Proper oscillator phase shifting / tone updates.
-  - [x] Add sine wave to speaker.
-  - [x] Add boilerplate `whistle` code from `microphone`.
-  - [x] Integrate pitch recognition with:
-    - [x] https://github.com/bojan88/WASM-vs-JS-Pitch-detector
-      - [x] Integrate pitch recognition processor into Microphone / Disk API.
-      - [x] Get JS audioWorklet version working.
-  // Cancelled
-    - [n] https://tfhub.dev/google/tfjs-model/spice/2/default/1
-      - [n] Match the samples / check the accuracy of the example.
-      - [x] Example in : `spice-tensorflow.html`
-      - [x] Why does this crash the tab? (Seems to crash on linux.)
-        - [x] Make the example async / frame-skipping. 
-    - [n] https://editor.p5js.org/ml5/sketches/PitchDetection 
-      - [n] See if this works better than `spice`. 
 
 *** Viral Checklist ***
   - [] Display current user count on rooms if > 0 users are online.

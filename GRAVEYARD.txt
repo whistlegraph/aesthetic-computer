@@ -1,5 +1,29 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** lyrical melody finder / selector ***
+  - [x] Fork `tone`.
+
+*** `whistle` ***
+  + Done
+  - [x] Get working on mobile.
+  - [x] Whistle into the aesthetic.computer and get sine wave notes back.
+  - [x] Proper oscillator phase shifting / tone updates.
+  - [x] Add sine wave to speaker.
+  - [x] Add boilerplate `whistle` code from `microphone`.
+  - [x] Integrate pitch recognition with:
+    - [x] https://github.com/bojan88/WASM-vs-JS-Pitch-detector
+      - [x] Integrate pitch recognition processor into Microphone / Disk API.
+      - [x] Get JS audioWorklet version working.
+  // Cancelled
+    - [n] https://tfhub.dev/google/tfjs-model/spice/2/default/1
+      - [n] Match the samples / check the accuracy of the example.
+      - [x] Example in : `spice-tensorflow.html`
+      - [x] Why does this crash the tab? (Seems to crash on linux.)
+        - [x] Make the example async / frame-skipping. 
+    - [n] https://editor.p5js.org/ml5/sketches/PitchDetection 
+      - [n] See if this works better than `spice`. 
+
+
 *** `prompt` History ***
   - [x] Move global keyboard shortcuts outside of `act` (to kill pieces mid-load / while swapping) 
   - [x] Don't add `tone` / ahistorical jumps to prompt history list.

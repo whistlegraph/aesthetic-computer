@@ -5,13 +5,15 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Fix sticking `tone` on iOS.
+  - [] Add `cycle` option.
+  + Done
+  - [x] Fix sticking `tone` on iOS.
 #endregion */
 
 // 🧮 Sim
-function sim({ simCount, jump, leaving, num }) {
-  if (!leaving && simCount >= 1n)
-    jump(`tone~${num.randIntRange(400, 500)}`, true);
+function sim({ colon, simCount, jump, leaving, num }) {
+  if (colon[0] === "cycle" && !leaving && simCount >= 1n)
+    jump(`tone:cycle~${num.randIntRange(400, 500)}`, true);
 }
 
 // 🥾 Boot
