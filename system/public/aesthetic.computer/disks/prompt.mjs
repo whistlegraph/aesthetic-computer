@@ -456,7 +456,6 @@ function paint($) {
 
   let historyTexts;
   const { screen, ink, history } = $;
-  const input = $.system.prompt.input;
 
   if (history.length === 0) {
     historyTexts = [];

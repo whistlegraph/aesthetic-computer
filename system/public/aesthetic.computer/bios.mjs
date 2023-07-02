@@ -907,8 +907,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     //   console.log(pen.events, pen.pointers);
     // }
 
-    // Clear any pasted text.
-    pastedText = undefined;
+    pastedText = undefined; // Clear any pasted text.
 
     pen.updatePastPositions();
 
@@ -1504,7 +1503,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (content.text !== "prompt") {
         document.querySelector("#software-keyboard-input")?.blur();
       }
-      keyboard.events.push({ name: "keyboard:close" });
+      // keyboard.events.push({ name: "keyboard:close" });
 
       setMetatags(content.meta);
 
@@ -2436,9 +2435,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
-    if (type === "fullscreen-toggle") {
+    if (type === "fullscreen-enable") {
       curReframeDelay = 0;
-      toggleFullscreen();
+      enableFullscreen();
       return;
     }
 
@@ -3515,18 +3514,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const requestFullscreen =
     document.body.requestFullscreen || wrapper.webkitRequestFullscreen;
 
-  const exitFullscreen =
-    document.exitFullscreen || document.webkitExitFullscreen;
+  // const exitFullscreen =
+  //   document.exitFullscreen || document.webkitExitFullscreen;
 
   // Tries to toggle fullscreen. Must be called within a user interaction.
-  function toggleFullscreen() {
+  function enableFullscreen() {
     const fullscreenElement =
       document.fullscreenElement || document.webkitFullscreenElement;
 
     if (!fullscreenElement) {
       requestFullscreen.apply(document.body)?.catch((e) => console.error(e));
     } else {
-      exitFullscreen();
+      // exitFullscreen();
     }
   }
 

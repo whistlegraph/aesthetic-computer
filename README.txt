@@ -69,9 +69,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `prompt` History ***
-  - [-] Don't add `tone` / ahistorical jumps to prompt history list.
-
 *** lyrical melody finder / selector ***
   - [🟠] Fork `tone` and also use audio feedback graph from `whistle`.
 

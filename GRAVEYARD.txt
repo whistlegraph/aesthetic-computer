@@ -1,5 +1,9 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** `prompt` History ***
+  - [x] Move global keyboard shortcuts outside of `act` (to kill pieces mid-load / while swapping) 
+  - [x] Don't add `tone` / ahistorical jumps to prompt history list.
+
 *** whistle & tone ***
   + Done
   - [x] `tone` loop should not break on iOS / it eventually halts with a yellow spinner.

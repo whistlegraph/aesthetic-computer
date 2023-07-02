@@ -1373,7 +1373,11 @@ async function load(
   } else {
     // TODO: If the piece is different, then there should be a way to abort
     //       or ignore a current load.
-    console.warn("Already loading:", parsed.path || parsed.name);
+    console.warn(
+      "Coudn't load:",
+      parsed.path || parsed.name,
+      "(Already loading.)"
+    );
     return true;
   }
 
@@ -1966,6 +1970,7 @@ async function load(
 
     // Push last piece to a history list, skipping prompt and repeats.
     if (
+      !fromHistory &&
       currentText &&
       currentText !== "prompt" &&
       currentText !== $commonApi.history[$commonApi.history.length - 1]
@@ -2530,6 +2535,44 @@ async function makeFrame({ data: { type, content } }) {
   // 2. Frame
   // Where each piece action (boot, sim, paint, etc...) is run.
   if (type === "frame") {
+
+    // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
+    content.keyboard.forEach((data) => {
+      if (data.name.indexOf("keyboard:down") === 0) {
+        // [Escape] (Deprecated on 23.05.22.19.33)
+        // If not on prompt, then move backwards through the history of
+        // previously loaded pieces in a session.
+        // if (
+        //   data.key === "Escape" &&
+        //   currentPath !== "aesthetic.computer/disks/prompt"
+        // ) {
+        //   if (pieceHistoryIndex > 0) {
+        //     send({ type: "back-to-piece" });
+        //   } else {
+        //     // Load the prompt automatically.
+        //     // $api.load("prompt"); Disabled on 2022.05.07.03.45
+        //   }
+        // }
+
+        if (
+          data.key === "`" &&
+          currentPath !== "aesthetic.computer/disks/prompt"
+        ) {
+          // $api.send({ type: "keyboard:enabled" }); // Enable keyboard flag.
+          // $api.send({ type: "keyboard:unlock" });
+          // Jump to prompt if the backtic is pressed.
+          send({ type: "keyboard:open" });
+          $commonApi.jump("prompt");
+        }
+
+        // [Ctrl + X]
+        // Enter and exit fullscreen mode.
+        if (data.key === "x" && data.ctrl) {
+          send({ type: "fullscreen-enable" });
+        }
+      }
+    });
+
     // Take hold of a previously worker transferrable screen buffer
     // and re-assign it.
     let pixels;
@@ -2704,7 +2747,7 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.sound = $sound;
 
     // Act & Sim (Occurs after first boot and paint, `boot` occurs below.)
-    if (booted && paintCount > 0n && !leaving) {
+    if (booted && paintCount > 0n /*&& !leaving*/) {
       const $api = {};
       Object.keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
       Object.keys($updateApi).forEach((key) => ($api[key] = $updateApi[key]));
@@ -2933,41 +2976,6 @@ async function makeFrame({ data: { type, content } }) {
           act($api); // Execute piece shortcut.
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
-        }
-
-        // 🌟 Global Keyboard Shortcuts
-        if (data.name.indexOf("keyboard:down") === 0) {
-          // [Escape] (Deprecated on 23.05.22.19.33)
-          // If not on prompt, then move backwards through the history of
-          // previously loaded pieces in a session.
-          // if (
-          //   data.key === "Escape" &&
-          //   currentPath !== "aesthetic.computer/disks/prompt"
-          // ) {
-          //   if (pieceHistoryIndex > 0) {
-          //     send({ type: "back-to-piece" });
-          //   } else {
-          //     // Load the prompt automatically.
-          //     // $api.load("prompt"); Disabled on 2022.05.07.03.45
-          //   }
-          // }
-
-          if (
-            data.key === "`" &&
-            currentPath !== "aesthetic.computer/disks/prompt"
-          ) {
-            // $api.send({ type: "keyboard:enabled" }); // Enable keyboard flag.
-            // $api.send({ type: "keyboard:unlock" });
-            // Jump to prompt if the backtic is pressed.
-            send({ type: "keyboard:open" });
-            $api.jump("prompt");
-          }
-
-          // [Ctrl + X]
-          // Enter and exit fullscreen mode.
-          if (data.key === "x" && data.ctrl) {
-            send({ type: "fullscreen-toggle" });
-          }
         }
       });
 
