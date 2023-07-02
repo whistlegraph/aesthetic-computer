@@ -199,16 +199,6 @@ class TextButton {
       };
     }
 
-    if (pos.x === undefined && pos.left) {
-      pos.x = pos.left;
-      delete pos.left;
-    }
-
-    if (pos.y === undefined && pos.top) {
-      pos.y = pos.top;
-      delete pos.top;
-    }
-
     if (pos.x !== undefined && pos.y !== undefined) {
       // Position from top left if x and y are set on pos
       x = pos.x;
