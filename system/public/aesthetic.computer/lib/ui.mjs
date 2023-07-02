@@ -105,6 +105,7 @@ class Button {
   //         act(e, {push: () => {}, down: () => {}, cancel: () => {}, draw() => {}});
   // You can optionally pass in an array of `pens` {x, y} for multi-touch support.
   act(e, callbacks = () => {}, pens = []) {
+
     if (this.disabled) return;
 
     // If only a single function is sent, then assume it's a button push callback.
@@ -146,7 +147,6 @@ class Button {
     // 5. Rollout: Run a rollout event if dragged off.
     if (
       e.is("draw:any") &&
-      this.down &&
       this.over &&
       !this.box.contains(e) &&
       this.box.containsNone(pens)

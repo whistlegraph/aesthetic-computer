@@ -200,7 +200,10 @@ function act($) {
     bleep.button.act(
       event,
       {
-        push: () => needsPaint(),
+        push: () => {
+          anyBleepDowned = false;
+          needsPaint();
+        },
         down: () => {
           anyBleepDowned = true;
           bleep.needsBleep = true;
