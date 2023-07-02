@@ -5,31 +5,24 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] Fix sticking `tone` on iOS.
 #endregion */
 
-let sine;
-
-// 🥁 Beat
-function beat({ params, sound: { synth } }) {
-  // TODO: This should not have to go in `beat`.
-  if (!sine) {
-    sine = synth({
-      type: "sine",
-      tone: params[0] || 400,
-      volume: 1.0,
-      beats: Infinity
-    });
-  }
-}
-
 // 🧮 Sim
-function sim({ simCount, jump, num }) {
-  if (simCount >= 80n) jump(`tone~${num.randIntRange(700, 1000)}`);
+function sim({ simCount, jump, leaving, num }) {
+  if (!leaving && simCount >= 1n)
+    jump(`tone~${num.randIntRange(400, 500)}`, true);
 }
 
 // 🥾 Boot
-function boot({ wipe }) {
+function boot({ wipe, params, sound: { synth } }) {
   wipe(0, 0, 128);
+  synth({
+    type: "sine",
+    tone: params[0] || 400,
+    volume: 1.0,
+    beats: Infinity,
+  });
 }
 
 // 🎨 Paint
@@ -46,7 +39,7 @@ function meta() {
   };
 }
 
-export { boot, paint, beat, meta, sim };
+export { boot, paint, meta, sim };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)

@@ -57,7 +57,7 @@ export async function prompt_boot(
 
 
       const halted = await halt?.($, text);
-      if (!$.jumping()) input.lock = false;
+      if (!$.leaving) input.lock = false;
       if (halted) {
         messageComplete = true;
         reply?.(input.text);

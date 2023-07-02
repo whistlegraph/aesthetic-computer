@@ -156,7 +156,7 @@ let act = defaults.act;
 let leave = defaults.leave;
 let bake; // Currently only used by the `nopaint` system.
 
-let leaving = false;
+let leaving = false; // Set to true on first piece.
 let leaveLoad; // A callback for loading the next disk after leaving.
 
 let module; // Currently loaded piece module code.
@@ -184,7 +184,9 @@ let booted = false;
 // let initialSim = true;
 let noPaint = false;
 
-let sound, soundClear; // Used by receivedBeat and defined in first frame update.
+let sound,
+  soundClear, // Used by receivedBeat and defined in first frame update.
+  soundId = 0n; // Increment each sound / give it an id in the `bios`.
 
 let storeRetrievalResolution, storeDeletionResolution;
 
@@ -1366,6 +1368,15 @@ async function load(
     host = originalHost,
     slug;
 
+  if (loading === false) {
+    loading = true;
+  } else {
+    // TODO: If the piece is different, then there should be a way to abort
+    //       or ignore a current load.
+    console.warn("Already loading:", parsed.path || parsed.name);
+    return true;
+  }
+
   // 🕸️ Loading over the network from a parsed path object with no source code.
   if (!parsed.source) {
     params = parsed.params;
@@ -1385,14 +1396,11 @@ async function load(
     }
 
     // Update the user handle if it changed between pieces.
+    // TODO: This is not an optimal spot for this. 23.07.01.22.38
     if (store["handle:updated"]) {
       $commonApi.handle = "@" + store["handle:updated"];
       delete store["handle:updated"];
     }
-
-    loading === false
-      ? (loading = true)
-      : console.warn("Already loading:", path);
 
     if (debug) console.log(debug ? "🟡 Development" : "🟢 Production");
     if (host === "") host = originalHost;
@@ -1429,15 +1437,13 @@ async function load(
   // const moduleLoadTime = performance.now();
   let blobUrl, sourceCode;
   try {
-    if (slug === currentText && !devReload) {
-      // If this is a reload (with no source change) then just create a new
-      // blobURL off the old source.
+    // If this is a reload (with no source change) then just create a new
+    // blobURL off the old source.
+    if (slug.split("~")[0] === currentText?.split("~")[0] && !devReload) {
       const blob = new Blob([currentCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);
       sourceCode = currentCode;
     } else {
-      // check to see if fullUrl is defined...
-
       let response, sourceToRun;
       if (fullUrl) {
         response = await fetch(fullUrl);
@@ -1505,7 +1511,8 @@ async function load(
   // 🧩 Piece has been loaded...
 
   lastHost = host; // Memoize the host.
-  pieceHistoryIndex += fromHistory === true ? -1 : 1; // Adjust the history.
+  // pieceHistoryIndex += fromHistory === true ? -1 : 1; // Adjust the history.
+  pieceHistoryIndex += fromHistory === true ? 0 : 1; // Adjust the history.
 
   if (!debug && !firstLoad) {
     console.clear();
@@ -1804,6 +1811,8 @@ async function load(
   // router pieces such as `freaky-flowers` -> `wand`. 22.11.23.16.29
   // Jump delay...
   $commonApi.jump = function jump(to, ahistorical = false, alias = false) {
+    leaving = true;
+
     let url;
     if (to.startsWith("http")) {
       try {
@@ -1813,13 +1822,10 @@ async function load(
         // running a local aesthetic.computer piece.
       }
     }
-    leaving = true;
     leaveLoad = url
       ? () => $commonApi.net.web(to)
       : () => load(parse(to), ahistorical, alias);
   };
-
-  $commonApi.jumping = () => leaving;
 
   $commonApi.alias = function alias(name, colon, params) {
     $commonApi.jump(
@@ -2099,6 +2105,7 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "loading-complete") {
     loading = false;
+    leaving = false;
     hotSwap?.(); // Actually swap out the piece functions and reset the state.
     return;
   }
@@ -2534,6 +2541,7 @@ async function makeFrame({ data: { type, content } }) {
     // Add 'loading' status to $commonApi.
     $commonApi.loading = loading; // Let the piece know if we are already
     //                               loading another piece.
+    $commonApi.leaving = leaving; // Set a flag to tell whether we are leaving.
 
     // Globalize any background music data, retrievable via bgm.data
     $commonApi.bgm.data = {
@@ -2644,66 +2652,59 @@ async function makeFrame({ data: { type, content } }) {
       sound.kills.length = 0;
     };
 
-    {
-      const sounds = sound.sounds;
-      const bubbles = sound.bubbles;
-      const kills = sound.kills;
-      let soundId = 0;
+    // Trigger a named audio sample to playback in the `bios`.
+    // options: { volume: 0-n }
+    $sound.play = async function (sfx, options) {
+      send({ type: "sfx:play", content: { sfx, options } });
+    };
 
-      // Trigger a named audio sample to playback in the `bios`.
-      // options: { volume: 0-n }
-      $sound.play = async function (sfx, options) {
-        send({ type: "sfx:play", content: { sfx, options } });
+    $sound.synth = function ({
+      type = "square",
+      tone = 440, // TODO: Make random.
+      beats = Math.random(), // Wow, default func. params can be random!
+      attack = 0,
+      decay = 0,
+      volume = 1,
+      pan = 0,
+    } = {}) {
+      const id = soundId;
+      sound.sounds.push({ id, type, tone, beats, attack, decay, volume, pan });
+      soundId += 1n;
+
+      // Return a progress function so it can be used by rendering.
+      const seconds = (60 / content.audioBpm) * beats;
+      const end = content.audioTime + seconds;
+
+      return {
+        id,
+        kill: function () {
+          sound.kills.push(id);
+        },
+        progress: function (time) {
+          return 1 - Math.max(0, end - time) / seconds;
+        },
+        update: function (properties) {
+          // Property updates happen outside of beat timing.
+          send({
+            type: "beat:update",
+            content: { id, properties },
+          });
+        },
       };
+    };
 
-      $sound.synth = function ({
-        type = "square",
-        tone = 440, // TODO: Make random.
-        beats = Math.random(), // Wow, default func. params can be random!
-        attack = 0,
-        decay = 0,
-        volume = 1,
-        pan = 0,
-      } = {}) {
-        const id = soundId;
-        sounds.push({ id, type, tone, beats, attack, decay, volume, pan });
-        soundId += 1;
+    $sound.bubble = function ({ radius, rise, volume = 1, pan = 0 } = {}) {
+      sound.bubbles.push({ radius: radius, rise, volume, pan });
+    };
 
-        // Return a progress function so it can be used by rendering.
-        const seconds = (60 / content.audioBpm) * beats;
-        const end = content.audioTime + seconds;
+    $sound.kill = function (id) {
+      sound.kills.push(id);
+    };
 
-        return {
-          id,
-          kill: function () {
-            kills.push(id);
-          },
-          progress: function (time) {
-            return 1 - Math.max(0, end - time) / seconds;
-          },
-          update: function (properties) {
-            // Property updates happen outside of beat timing.
-            send({
-              type: "beat:update",
-              content: { id, properties },
-            });
-          },
-        };
-      };
-
-      $sound.bubble = function ({ radius, rise, volume = 1, pan = 0 } = {}) {
-        bubbles.push({ radius: radius, rise, volume, pan });
-      };
-
-      $sound.kill = function (id) {
-        kills.push(id);
-      };
-
-      $commonApi.sound = $sound;
-    }
+    $commonApi.sound = $sound;
 
     // Act & Sim (Occurs after first boot and paint, `boot` occurs below.)
-    if (booted && paintCount > 0n) {
+    if (booted && paintCount > 0n && !leaving) {
       const $api = {};
       Object.keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
       Object.keys($updateApi).forEach((key) => ($api[key] = $updateApi[key]));
@@ -2724,6 +2725,11 @@ async function makeFrame({ data: { type, content } }) {
       };
 
       $api.cursor = (code) => (cursorCode = code);
+
+      // 📻 Signaling
+      $api.signal = (content) => {
+        send({ type: "signal", content });
+      };
 
       // Deprecated on 23.07.01.15.31 (Remove later if no regressions.)
       // if (initialSim) {
@@ -2750,11 +2756,6 @@ async function makeFrame({ data: { type, content } }) {
           }
         }
       }
-
-      // 📻 Signaling
-      $api.signal = (content) => {
-        send({ type: "signal", content });
-      };
 
       // 🌟 Act
       // *Device Event Handling*
@@ -3119,16 +3120,10 @@ async function makeFrame({ data: { type, content } }) {
       };
        */
 
-      // Run boot only once before painting for the first time.
-      // TODO: Why is boot running twice? 22.07.17.17.26
-
       // TODO: Boot's painting is currently bound by whatever dirtyBox gets
       //       set to at the end of `paint`.
 
-      // How can this be solved intelligently?
-      // Right now, in `line` there is a paintCount check to work around this.
-      // 22.09.19.20.45
-
+      // Run boot only once before painting for the first time.
       if (paintCount === 0n && loading === false) {
         const dark = await store.retrieve("dark-mode"); // Read dark mode.
         if (dark === true || dark === false) $commonApi.dark = dark;
@@ -3172,8 +3167,6 @@ async function makeFrame({ data: { type, content } }) {
         }
         send({ type: "disk-loaded-and-booted" });
       }
-
-      //console.log(paintCount, "booted:", booted, "loading:", loading);
 
       // Paint a frame, which can return false to enable caching via noPaint and by
       // default returns undefined (assume a repaint).
@@ -3442,8 +3435,8 @@ function maybeLeave() {
     } catch (e) {
       console.warn("👋 Leave failure...", e);
     }
-    leaveLoad?.();
     leaving = false;
+    leaveLoad?.();
   }
 }
 

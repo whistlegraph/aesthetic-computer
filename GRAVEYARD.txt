@@ -1,5 +1,12 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** whistle & tone ***
+  + Done
+  - [x] `tone` loop should not break on iOS / it eventually halts with a yellow spinner.
+  - [x] Update `whistle` to not trigger sound in beat.
+  - [x] Update `tone` to not trigger sound in beat.
+  - [x] Refactor `beat` so that sounds can be triggered from `paint`, `act`, and `sim`.
+
 *** Whistle ***
   - [x] Get whistle working on iOS.
 

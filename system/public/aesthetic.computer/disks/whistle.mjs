@@ -5,9 +5,7 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🟢] Change triggering of sounds to act, sim, paint, and boot.
-
-  - [] Add proper start and stop of sine wave with a delay on recording. 
+  - [-] Add proper start and stop of sine wave with a delay on recording. 
     - [] Add a delay to the start.
   - [-] No longer process amps and pitches in this file. (See `sim`)
   - [] Add reversable playback mode as a parameter.
@@ -18,7 +16,6 @@
 #endregion */
 
 let mic,
-  spk,
   sine,
   connected = false,
   connecting = false,
@@ -47,7 +44,14 @@ function meta() {
 // }
 
 // 🎨 Paint
-function paint({ api, wipe, ink, screen: { width, height }, pen }) {
+function paint({
+  api,
+  wipe,
+  ink,
+  screen: { width, height },
+  pen,
+  sound: { speaker: spk },
+}) {
   const w = capturing ? [0, 255, 0] : 127;
 
   // Print pitch and amplitude information from mic.
@@ -107,12 +111,21 @@ function paint({ api, wipe, ink, screen: { width, height }, pen }) {
 }
 
 // 🧮 Sim
-function sim() {
+function sim({ sound: { microphone, synth, speaker: spk } }) {
   // TODO:
   // I am only getting partial data here... it should probably all be routed
   // via BIOS, possibly through the creation of some kind of managed sound
   // buffer / sample record feature... or at least "poll" should grab
   // whatever is current and empty the last bit out?
+
+  if (whistling && !sine) {
+    sine = synth({
+      type: "sine",
+      tone: pitches[index],
+      volume: amps[index],
+      beats: Infinity,
+    });
+  }
 
   mic?.poll(); // Query for updated amplitude and waveform data.
   spk?.poll();
@@ -131,8 +144,11 @@ function sim() {
 }
 
 // 🎪 Act
-function act({ event: e }) {
-  if (e.is("touch") && !connected && !connecting) connecting = true;
+function act({ event: e, sound: { microphone } }) {
+  if (e.is("touch") && !connected && !connecting) {
+    if (!mic) mic = microphone.connect();
+    connecting = true;
+  }
 
   if (e.is("touch") && !capturing && connected) {
     capturing = true;
@@ -154,7 +170,7 @@ function act({ event: e }) {
     if (pitches.length > 0) {
       // Reverse the playback.
       let zeros = 0;
-      // zeros += 30; // Trim the first 1/8th second no matter what.
+      zeros += 16; // Trim a bit at first.
       // while (amps[zeros] === 0) zeros += 1;
       amps = amps.slice(zeros);
       pitches = pitches.slice(zeros);
@@ -165,28 +181,12 @@ function act({ event: e }) {
   }
 }
 
-// 🥁 Beat
-function beat({ sound: { microphone, synth, speaker } }) {
-  if (!mic) mic = microphone.connect();
-  if (!spk) spk = speaker;
-  
-  // TODO: Rethink how oscillators and one-shot sounds work.
-  if (whistling && !sine) {
-    sine = synth({
-      type: "sine",
-      tone: pitches[index],
-      volume: amps[index],
-      beats: Infinity,
-    });
-  }
-}
-
 // 👋 Leave
 // function leave() {
 //  // Runs once before the piece is unloaded.
 // }
 
-export { meta, paint, sim, act, beat };
+export { meta, paint, sim, act };
 
 // 📚 Library
 

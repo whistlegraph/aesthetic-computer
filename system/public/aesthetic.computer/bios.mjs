@@ -713,7 +713,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     enableAudioPlayback(true);
-
     window.addEventListener("pointerdown", enableAudioPlayback);
     window.addEventListener("keydown", enableAudioPlayback);
   }
@@ -1547,11 +1546,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           content.alias === false &&
           window.origin !== "null"
         ) {
-          history.replaceState(
-            "",
-            document.title,
-            content.text === "/prompt" ? "/" : "/" + content.text // Replace "prompt" with "/".
-          );
+          try {
+            history.replaceState(
+              "",
+              document.title,
+              content.text === "/prompt" ? "/" : "/" + content.text // Replace "prompt" with "/".
+            );
+          } catch (err) {
+            console.warn("⚠️ Couldn't change url state. Going too fast!? ➿🚗");
+          }
         }
       }
 
@@ -2375,6 +2378,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               });
             }
           } catch (error) {
+            if (debug && logs.audio)
+              console.error("Sound loading failed:", error);
             send({
               type: "loaded-sfx-rejection",
               content: { sfx: content },
@@ -2405,7 +2410,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (debug && logs.audio) console.log("🔈 Decoded:", content.sfx);
             sfx[content.sfx] = audioBuffer;
           } catch (err) {
-            console.error("🔉 Error: ", err);
+            console.error("🔉 Error: ", err, sfx[content.sfx]);
           }
         }
 

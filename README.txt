@@ -66,14 +66,11 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** whistle & tone ***
-  - [💛] Update `tone` to not trigger sound in beat.
-  - [-] Update `whistle` to not trigger sound in beat.
-  + Done
-  - [x] Refactor `beat` so that sounds can be triggered from `paint`, `act`, and `sim`.
+*** SFX ***
+  - [🟡] SFX no longer decode in iOS (is this only in development?)
 
 *** lyrical melody finder / selector ***
-  - [] Fork `tone` and also use audio feedback graph from `whistle`.
+  - [🟠] Fork `tone` and also use audio feedback graph from `whistle`.
 
 *** Scawy Snake ***
   - [🟠] Finish basic prototype with title / level / game over and leaderboard.

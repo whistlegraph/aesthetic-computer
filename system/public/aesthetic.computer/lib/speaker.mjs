@@ -132,7 +132,7 @@ class SoundProcessor extends AudioWorkletProcessor {
           pan: msg.data.pan || 0,
         });
 
-        if (duration === Infinity && msg.data.id > -1) {
+        if (duration === Infinity && msg.data.id > -1n) {
           this.#running[msg.data.id] = sound; // Index by the unique id.
         }
 
