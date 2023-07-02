@@ -520,11 +520,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // sampleRate: 192000,
     });
 
-    // Run any held audio on resume / sounds on initial button presses or taps.
-    audioContext.onstatechange = function () {
-      if (audioContext.state === "running") activatedSoundCallback?.();
-    };
-
     audioStreamDest = audioContext.createMediaStreamDestination();
 
     if (audioContext.state === "running") {
@@ -695,6 +690,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         soundProcessor.connect(audioContext.destination);
 
+        // Run any held audio on resume / sounds on initial button presses or taps.
+        audioContext.onstatechange = function () {
+          if (audioContext.state === "running") activatedSoundCallback?.();
+        };
+
         audioContext.resume();
 
         modal.classList.remove("on");
@@ -712,7 +712,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
-    enableAudioPlayback(true);
+    //enableAudioPlayback(true);
     window.addEventListener("pointerdown", enableAudioPlayback);
     window.addEventListener("keydown", enableAudioPlayback);
   }
@@ -821,7 +821,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (
-      audioContext?.state !== "running" &&
+      (!triggerSound || audioContext?.state !== "running") &&
       (sound.bpm !== content.bpm ||
         content.sounds.length > 0 ||
         content.bubbles.length > 0 ||

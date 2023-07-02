@@ -54,6 +54,9 @@
   - [] Zooming in on the page a lot will make the margin too large
        and squash the main display.
   + Dev Only
+  - [] `sfx` do not decode in Safari when using the development servers.
+       (Probably due to a local IP address or a CORS issue?)
+       - [] Confirm that it's a Safari bug.
   - [] `npm run code` does not work offline, due to netlify relying on online conectivity.
     - [-] How can be sure I can run the whole stack without an internet
         connection?
@@ -65,9 +68,6 @@
   - [x] Fix tap focus / unfocus regression in `type`.
 
 🌟 Projects in Progress (PIP) 🌟
-
-*** SFX ***
-  - [🟡] SFX no longer decode in iOS (is this only in development?)
 
 *** lyrical melody finder / selector ***
   - [🟠] Fork `tone` and also use audio feedback graph from `whistle`.
