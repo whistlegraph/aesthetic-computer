@@ -212,6 +212,7 @@ export function initialize(
 
 let lastPerspectiveCam = {};
 
+// Instantiates or modifies the display graph prior to rendering.
 export function bake({ cam, forms, color }, { width, height }, size) {
   // Only instantiate some things once.
   if (!target || target.width !== width || target.height !== height) {

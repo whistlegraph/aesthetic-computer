@@ -14,6 +14,7 @@ import { Desktop, MetaBrowser, Instagram, iOS } from "./lib/platform.mjs";
 import { headers } from "./lib/console-headers.mjs";
 import { logs } from "./lib/logs.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
+import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 
 const { assign, keys } = Object;
 const { round, floor, min, max } = Math;
@@ -63,9 +64,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const wrapper = document.createElement("div");
   wrapper.id = "aesthetic-computer";
 
-  // Our main display surface.
+  // 🖥️ Our main display surface. (Software Renderer)
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+  // 🖥️🔌 Secondary main display surface. (GPU Renderer)
+  // TODO: Eventually deprecate the software renderer in favor of this?
+  //       (Or even reuse the same tag if pieces swap.)
+  //       TODO: Would it be possible for pieces to use both... and why?
+  //             (Probably Not)
+  TwoD.initialize(wrapper);
 
   // An extra canvas reference for passing through or buffering video recording streams.
   let streamCanvasContext;
@@ -96,6 +104,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let projectedWidth, projectedHeight;
   let canvasRect;
 
+  // A post-process / effects layer.
   let glaze = { on: false };
   let currentGlaze;
 
@@ -115,82 +124,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let lastGap = 0;
   let density = 2.2; // added to window.devicePixelRatio
 
-  // *** External Library Dependency Injection ***
-
-  // FFMPEG.WASM
-  async function loadFFmpeg() {
-    return new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = "aesthetic.computer/dep/ffmpeg/ffmpeg.min.js";
-
-      script.onerror = function (err) {
-        reject(err, s);
-      };
-
-      script.onload = function handleScriptLoaded() {
-        if (debug) console.log("📼 FFmpeg has loaded.", FFmpeg);
-        resolve(FFmpeg);
-      };
-
-      document.head.appendChild(script);
-    });
-  }
-
-  // THREE.JS (With a thin wrapper called ThreeD).
-  let ThreeD;
-  let ThreeDBakeQueue = [];
-  async function loadThreeD() {
-    ThreeD = await import(`./lib/3d.mjs`);
-    ThreeD.initialize(
-      wrapper,
-      Loop.mainLoop,
-      receivedDownload,
-      receivedUpload,
-      send
-    );
-  }
-
-  // Web3
-  async function loadWeb3() {
-    return new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = "aesthetic.computer/dep/web3/web3.min.js";
-
-      script.onerror = (err) => reject(err, s);
-
-      script.onload = function handleScriptLoaded() {
-        if (debug) console.log("🕸️3️⃣ Ready...");
-        resolve(Web3);
-      };
-
-      document.head.appendChild(script);
-    });
-  }
-
-  // Used by `disk` to set the metatags by default when a piece loads. It can
-  // be overridden using `meta` inside of `boot` for any given piece.
-  function setMetatags(meta) {
-    if (meta?.title) {
-      document.title = meta.title;
-      document.querySelector('meta[name="og:title"]').content = meta.title;
-      document.querySelector('meta[name="twitter:title"]').content = meta.title;
-    }
-    if (meta?.desc) {
-      document.querySelector('meta[name="og:description"]').content = meta.desc;
-    }
-    if (meta?.img?.og) {
-      document.querySelector('meta[name="og:image"]').content = meta.img.og;
-    }
-    if (meta?.img?.twitter) {
-      document.querySelector('meta[name="twitter:image"]').content =
-        meta.img.twitter;
-    }
-    if (meta?.url) {
-      // This might need to be conditional / opt-in?
-      // document.querySelector('meta[name="twitter:player"').content = meta.url;
-    }
-  }
-
+  // Runs one on boot & every time display resizes to adjust the framebuffer.
   function frame(width, height, gap = 8) {
     lastGap = gap;
 
@@ -423,6 +357,82 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         innerHeight: window.innerHeight,
         subdivisions,
       },
+    });
+  }
+
+  // Used by `disk` to set the metatags by default when a piece loads. It can
+  // be overridden using `meta` inside of `boot` for any given piece.
+  function setMetatags(meta) {
+    if (meta?.title) {
+      document.title = meta.title;
+      document.querySelector('meta[name="og:title"]').content = meta.title;
+      document.querySelector('meta[name="twitter:title"]').content = meta.title;
+    }
+    if (meta?.desc) {
+      document.querySelector('meta[name="og:description"]').content = meta.desc;
+    }
+    if (meta?.img?.og) {
+      document.querySelector('meta[name="og:image"]').content = meta.img.og;
+    }
+    if (meta?.img?.twitter) {
+      document.querySelector('meta[name="twitter:image"]').content =
+        meta.img.twitter;
+    }
+    if (meta?.url) {
+      // This might need to be conditional / opt-in?
+      // document.querySelector('meta[name="twitter:player"').content = meta.url;
+    }
+  }
+
+  // *** External Library Dependency Injection ***
+
+  // FFMPEG.WASM
+  async function loadFFmpeg() {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "aesthetic.computer/dep/ffmpeg/ffmpeg.min.js";
+
+      script.onerror = function (err) {
+        reject(err, s);
+      };
+
+      script.onload = function handleScriptLoaded() {
+        if (debug) console.log("📼 FFmpeg has loaded.", FFmpeg);
+        resolve(FFmpeg);
+      };
+
+      document.head.appendChild(script);
+    });
+  }
+
+  // THREE.JS (With a thin wrapper called ThreeD).
+  let ThreeD;
+  let ThreeDBakeQueue = [];
+  async function loadThreeD() {
+    ThreeD = await import(`./lib/3d.mjs`);
+    ThreeD.initialize(
+      wrapper,
+      Loop.mainLoop,
+      receivedDownload,
+      receivedUpload,
+      send
+    );
+  }
+
+  // Web3
+  async function loadWeb3() {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "aesthetic.computer/dep/web3/web3.min.js";
+
+      script.onerror = (err) => reject(err, s);
+
+      script.onload = function handleScriptLoaded() {
+        if (debug) console.log("🕸️3️⃣ Ready...");
+        resolve(Web3);
+      };
+
+      document.head.appendChild(script);
     });
   }
 

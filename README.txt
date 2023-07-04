@@ -76,6 +76,19 @@
 *** Scawy Snake ***
   - [🟠] Finish basic prototype with title / level / game over and leaderboard.
 
+*** `scream` ***
+  - [] Get iOS notifications working in the test app.
+  - [] https://mdn.github.io/dom-examples/web-speech-api/speak-easy-synthesis Speak the scream using speech synthesis.
+  - [x] Get JamSocket working again.
+    - [c] Implement JamSocket "locks" and deprecate my redis scaling?
+  - [] Visualize the socket connection to make everything faster in production.
+     - [] Possibly the bottleneck is in connecting to JamSocket?
+  - [-] Finish list in `scream`.
+  - [] Use NTP for time synchronized delivery of messages.
+    - [] Is this good enough for musical timing?
+  - [x] Get messaging working. 
+
+
 *** WebGL2 / WebGPU Backend ***
   - [] Specify a new GPU backed graphics backend.
   - [] Abstract the graph api into `Y` calls so both compositors can be run
@@ -88,7 +101,7 @@
     - [] Game Over
 
 *** nopaint ***
-  - [] Move "test".
+  - [] Refactor "test" to nopaint.
 
 *** deck ***
   - []
@@ -115,19 +128,6 @@
   + Done
   - [x] Fix `resize` call in plot.
   - [x] Is `scale` working?
-
-*** `scream` ***
-  - [] https://mdn.github.io/dom-examples/web-speech-api/speak-easy-synthesis Speak the scream using speech synthesis.
-  - [] Get notifications working.
-  - [] Get JamSocket working again.
-    - [] Implement JamSocket "locks" and deprecate my redis scaling?
-  - [] Visualize the socket connection to make everything faster in production.
-     - [] Possibly the bottleneck is in connecting to JamSocket?
-  - [-] Finish list in `scream`.
-  - [] Use NTP for time synchronized delivery of messages.
-    - [] Is this good enough for musical timing?
-  - [] Enable via notifications in the test iOS app.
-  - [x] Get messaging working. 
 
 *** fr moca notes ***
   - [] Get mushrooms talking to humans. (Harry)

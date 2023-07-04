@@ -26,9 +26,7 @@ let btn,
 
 // 🥾 Boot
 function boot({ ink, wipe, screen, ui }) {
-  // Runs once at the start.
   wipe(127);
-
   const m = 24;
   btn = new ui.Button(m, m, screen.width - m * 2, screen.height - m * 2);
 }
