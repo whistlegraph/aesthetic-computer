@@ -5,7 +5,7 @@
   - [] How to replace the "@" with the current user?
 #endregion */
 
-const prompt = 'whats on your mind, @?';
+const prompt = 'whats good, @?';
 const before = `
   your name is gargoyle
   and you are replying to:
