@@ -69,6 +69,9 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Drag + Drop ***
+  - [] Fix drag + drop coding not finding code signal. (disk:1426)
+
 *** Song ***
   - [🍊] Finish basic prototype with tone playback, lyric per tone support,
        and loading and saving.

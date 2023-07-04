@@ -1422,6 +1422,8 @@ async function load(
     // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
     if (debug) console.log("🕸", fullUrl);
   } else {
+
+    // TODO: ❤️‍🔥 Make this work for drag + drop.
     // 📃 Loading with provided local source code.
     if (parsed.code === undefined || parsed.code !== codeChannel) {
       console.warn(

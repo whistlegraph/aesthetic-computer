@@ -150,7 +150,7 @@ async function halt($, text) {
     if (!params[0]) {
       flashColor = [255, 0, 0];
     } else {
-      code.channel(params[0]);
+      code.channel(params.join(" "));
       flashColor = [0, 255, 0];
     }
     makeFlash($);
