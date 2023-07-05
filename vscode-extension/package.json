@@ -4,7 +4,7 @@
   "displayName": "aesthetic.computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "An extension for loading and running aesthetic.computer pieces in VS Code.",
   "engines": {
     "vscode": "^1.74.2"
@@ -12,7 +12,7 @@
   "scripts": {
     "reload": "npm run build; npm run install:ext;",
     "build": "vsce package",
-    "install:ext": "code --install-extension aesthetic-computer-code-1.1.0.vsix",
+    "install:ext": "code --install-extension aesthetic-computer-code-1.3.0.vsix",
     "publish": "vsce publish minor"
   },
   "main": "./extension.js",
