@@ -1,9 +1,15 @@
-// Media, 23.05.02.12.39
+// `aesthetic.computer` Router, 23.05.02.12.39
 // This is a cloudflare worker that manages requests for user uploaded media
 // on aesthetic.computer.
 
+// Routes:
+
 // GET `/media/{@userHandleOrEmail}/{slug_with_extension}` will download
 //     individual files by proxy. ✅
+
+// GET `/media/{@userHandleOrEmail}/{media_type} will fetch json of all
+//     media of that type (subdirectory) directly from the buckets,
+//     sorted by upload date.
 
 /* #region 📔 readme
 	Welcome to Cloudflare Workers! This is your first worker.
@@ -15,7 +21,7 @@
 
 let dev = false;
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (env.MODE === "development") dev = true;
     return await handleRequest(request);
   },
@@ -30,7 +36,8 @@ async function handleRequest(request) {
     let response;
     if (newPath.split("/").pop().split(".")[1]?.length > 0) {
       // The path has a file extension / points to an individual file.
-      response = await fetch(`https://user.aesthetic.computer/${newPath}`);
+			const newUrl = `https://user.aesthetic.computer/${newPath}`;
+      response = await fetch(newUrl);
     } else {
       // The path should return a collection.
       const path = encodeURIComponent(newPath.replace("/media", ""));
@@ -40,23 +47,10 @@ async function handleRequest(request) {
         `https://aesthetic.computer/media-collection?for=${path}`
       );
     }
-
-    // Create a new response with CORS headers
-    const newHeaders = new Headers(response.headers);
-    newHeaders.set("Access-Control-Allow-Origin", "*"); // Allow requests from any origin
-    newHeaders.set("Access-Control-Allow-Methods", "GET, OPTIONS"); // Allow GET and OPTIONS methods
-    newHeaders.set("Access-Control-Allow-Headers", "Content-Type"); // Allow the Content-Type header
-
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: newHeaders,
-    });
-
-    // return response;
+    return response;
   } else {
-    // For other paths, just fetch the resource as is
-    return fetch(request);
+    // For other paths, just fetch the resource as is.
+    return new Response("💾 Not a `media` path.", { status: 500 } );
   }
 }
 
