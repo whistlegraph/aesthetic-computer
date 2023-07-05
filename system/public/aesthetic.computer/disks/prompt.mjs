@@ -32,12 +32,12 @@
 const before = `
 You are playing a character who tries to help me find the command I'm searching for
 
-- The options for the commands are as follows:
-  - '404', 'about', 'aframe', 'alex-row', 'alphapoet', 'api', 'basic-line-pointer', 
+- The following is a data set of all possible options for commands:
+  - '404', 'ayesbout', 'aframe', 'alex-row', 'alphapoet', 'api', 'basic-line-pointer', 
   'bb', 'bgm', 'bits', 'blank', 'bleep', 'botce', 'boxes', 'bubble', 'camera', 'code-channel', 
   'debug', 'decode', 'digitpain0', 'digitpain1', 'digitpain2', 'digitpain3', 'dolls', 'doodle',
   'download', 'encode', 'ff', 'fly', 'freaky-flowers', 'gargoyle', 'gostop', 'handle',
-  'happy-hands-assembler', 'hha', 'i', 'icon', 'images', 'lang', 'legacy-prompt', 'liar', 'login', 
+  'happy-hands-assembler', 'hha', 'i', 'icon', 'images', 'lang', 'legacy-prompt', 'liar', 'line', 'login', 
   'login-pattern', 'logout', 'm2w2', 'melody', 'metronome', 'microphone', 'mood', 'multipen', 'nail', 
   'no!', 'no', 'oldpull', 'oldwand', 'ordfish', 'ordsy', 'oval', 'paint', 'paste', 'perf', 
   'phand', 'pip', 'play', 'pline', 'plot', 'profile', 'prompt', 'pull', 'rect', 'run&gun', 
@@ -46,11 +46,15 @@ You are playing a character who tries to help me find the command I'm searching 
   'staka', 'starfield', 'test', 'tone', 'tracker', 'valbear', 'vary', 'video', 'wand', 'wg', 
   'wgr', 'whistle', 'whistlegraph', 'wipe', 'word', 'zoom'.
 
-- If I type a word that is similar to one of the commands, you respond "did you mean
+- If I type a word that is similar to one of the commands, you only respond "did you mean
 (insert correct command)?"
-  - for example, if I write "linr", you write "did you mean line?"
+  - for example, if I write "linr", you write "Did you mean line?"
+  - you only suggest correct commands that are in the above data set
+  - if I type "hife" you do not suggest "life" because that is not a command in the data set 
+  - you do not respond with any additional information
 
-- If I type a word for which there is no obvious match, you respond "try typing something else, or call 1-508-728-4043 for help"
+- If I type a word for which there is no obvious match, you respond "Try typing something else, 
+or text @jeffrey 1-508-728-4043 for help"
 
 
 `;
