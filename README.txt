@@ -82,23 +82,11 @@
   - [x] Fix debug live-reload blank load from prompt.
   - [x] Fix drag + drop coding not finding code signal. (disk:1426)
 
-*** Adding Notifications ***
-  - [-] Run on a device and send the first test notification.
-    - [] https://designcode.io/swiftui-advanced-handbook-push-notifications-part-2 (Halfway down page.)
-  + Done
-  - [x] Set up `FCM` (Firebase Cloud Messaging) 
-  - [x] Add integration to iOS app. 
-    - [x] https://github.com/firebase/quickstart-ios/tree/master/messaging
-
-*** Song ***
-  - [🍊] Finish basic prototype with tone playback, lyric per tone support,
-       and loading and saving.
-
-*** Scawy Snake ***
-  - [🟠] Finish basic prototype with title / level / game over and leaderboard.
-
 *** `scream` ***
-  - [] Get iOS notifications working in the test app.
+  - [-] How can I get `scream` to notify all devices via my server by using Firebase?
+       and how can I associate device IDs with user accounts?
+       - [] Probably use MongoDB?
+       - [] What about users who have notifications enabled but are not logged in?
   - [] https://mdn.github.io/dom-examples/web-speech-api/speak-easy-synthesis Speak the scream using speech synthesis.
   - [x] Get JamSocket working again.
     - [c] Implement JamSocket "locks" and deprecate my redis scaling?
@@ -108,7 +96,15 @@
   - [] Use NTP for time synchronized delivery of messages.
     - [] Is this good enough for musical timing?
   - [x] Get messaging working. 
+  + Done
+  - [x] Get iOS notifications working in the test app.
 
+*** Song ***
+  - [🍊] Finish basic prototype with tone playback, lyric per tone support,
+       and loading and saving.
+
+*** Scawy Snake ***
+  - [🟠] Finish basic prototype with title / level / game over and leaderboard.
 
 *** WebGL2 / WebGPU Backend ***
   - [] Specify a new GPU backed graphics backend.
