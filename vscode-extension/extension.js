@@ -3,10 +3,11 @@
 
 /* #region todo 📓 
   - [-] Replace the SVG.
-  - [] Fix the extension manifest.
-  - [] Add instructions to the html view.
-  - [] Publish the first version of the extension.
   + Done
+  - [x] Add publish button.
+  - [x] Fix the extension manifest.
+  - [x] Add instructions to the html view.
+  - [x] Publish the first version of the extension.
   - [x] Don't update everyone at the same time.
     - [x] Run an AC command to link to the service.
   - [x] Test with the production url.
