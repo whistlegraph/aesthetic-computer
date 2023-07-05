@@ -2327,7 +2327,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       img.src = content;
       img.crossOrigin = "anonymous";
       img.addEventListener("load", async () => {
-        const bitmap = await imgToBitmap(img);
+        const bitmap = await toBitmap(img);
         send(
           {
             type: "loaded-bitmap-success",
