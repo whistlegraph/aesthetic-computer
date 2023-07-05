@@ -11,6 +11,9 @@
 		412BAFB72A1D4446000A41B0 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 412BAFB62A1D4446000A41B0 /* ContentView.swift */; };
 		412BAFB92A1D4447000A41B0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 412BAFB82A1D4447000A41B0 /* Assets.xcassets */; };
 		412BAFBC2A1D4447000A41B0 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 412BAFBB2A1D4447000A41B0 /* Preview Assets.xcassets */; };
+		419EB15A2A550BFA004D9F5D /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 419EB1592A550BFA004D9F5D /* GoogleService-Info.plist */; };
+		419EB15D2A550D7D004D9F5D /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 419EB15C2A550D7D004D9F5D /* FirebaseAnalyticsWithoutAdIdSupport */; };
+		419EB15F2A550D7D004D9F5D /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 419EB15E2A550D7D004D9F5D /* FirebaseMessaging */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -20,6 +23,8 @@
 		412BAFB82A1D4447000A41B0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		412BAFBB2A1D4447000A41B0 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		412BAFC22A25B829000A41B0 /* aesthetic.computerRelease.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = aesthetic.computerRelease.entitlements; sourceTree = "<group>"; };
+		419EB1592A550BFA004D9F5D /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "../../../../Downloads/GoogleService-Info.plist"; sourceTree = "<group>"; };
+		419EB1602A550EAE004D9F5D /* aesthetic-computer-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "aesthetic-computer-Info.plist"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -27,6 +32,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				419EB15F2A550D7D004D9F5D /* FirebaseMessaging in Frameworks */,
+				419EB15D2A550D7D004D9F5D /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -52,10 +59,12 @@
 		412BAFB32A1D4446000A41B0 /* aesthetic.computer */ = {
 			isa = PBXGroup;
 			children = (
+				419EB1602A550EAE004D9F5D /* aesthetic-computer-Info.plist */,
 				412BAFC22A25B829000A41B0 /* aesthetic.computerRelease.entitlements */,
 				412BAFB42A1D4446000A41B0 /* aesthetic_computerApp.swift */,
 				412BAFB62A1D4446000A41B0 /* ContentView.swift */,
 				412BAFB82A1D4447000A41B0 /* Assets.xcassets */,
+				419EB1592A550BFA004D9F5D /* GoogleService-Info.plist */,
 				412BAFBA2A1D4447000A41B0 /* Preview Content */,
 			);
 			path = aesthetic.computer;
@@ -85,6 +94,10 @@
 			dependencies = (
 			);
 			name = aesthetic.computer;
+			packageProductDependencies = (
+				419EB15C2A550D7D004D9F5D /* FirebaseAnalyticsWithoutAdIdSupport */,
+				419EB15E2A550D7D004D9F5D /* FirebaseMessaging */,
+			);
 			productName = aesthetic.computer;
 			productReference = 412BAFB12A1D4446000A41B0 /* aesthetic.computer.app */;
 			productType = "com.apple.product-type.application";
@@ -113,6 +126,9 @@
 				Base,
 			);
 			mainGroup = 412BAFA82A1D4446000A41B0;
+			packageReferences = (
+				419EB15B2A550D7D004D9F5D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			productRefGroup = 412BAFB22A1D4446000A41B0 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -129,6 +145,7 @@
 			files = (
 				412BAFBC2A1D4447000A41B0 /* Preview Assets.xcassets in Resources */,
 				412BAFB92A1D4447000A41B0 /* Assets.xcassets in Resources */,
+				419EB15A2A550BFA004D9F5D /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -272,6 +289,7 @@
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "aesthetic-computer-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -304,6 +322,7 @@
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "aesthetic-computer-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -315,7 +334,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer.aesthetic.computer;
+				PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -346,6 +365,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		419EB15B2A550D7D004D9F5D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 10.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		419EB15C2A550D7D004D9F5D /* FirebaseAnalyticsWithoutAdIdSupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 419EB15B2A550D7D004D9F5D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalyticsWithoutAdIdSupport;
+		};
+		419EB15E2A550D7D004D9F5D /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 419EB15B2A550D7D004D9F5D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 412BAFA92A1D4446000A41B0 /* Project object */;
 }

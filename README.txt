@@ -82,6 +82,10 @@
   - [x] Fix debug live-reload blank load from prompt.
   - [x] Fix drag + drop coding not finding code signal. (disk:1426)
 
+*** Adding Notifications ***
+  - [] 
+  - [] https://github.com/firebase/quickstart-ios/tree/master/messaging/
+
 *** Song ***
   - [🍊] Finish basic prototype with tone playback, lyric per tone support,
        and loading and saving.
