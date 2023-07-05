@@ -4,7 +4,7 @@
   "displayName": "aesthetic.computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "An extension for loading and running aesthetic.computer pieces in VS Code.",
   "engines": {
     "vscode": "^1.74.2"
