@@ -1,5 +1,13 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** Adding Notifications ***
+  - [x] Run on a device and send the first test notification.
+    - [x] https://designcode.io/swiftui-advanced-handbook-push-notifications-part-2 (Halfway down page.)
+  + Done
+  - [x] Set up `FCM` (Firebase Cloud Messaging) 
+  - [x] Add integration to iOS app. 
+    - [x] https://github.com/firebase/quickstart-ios/tree/master/messaging
+
 *** lyrical melody finder / selector ***
   - [x] Fork `tone`.
 
