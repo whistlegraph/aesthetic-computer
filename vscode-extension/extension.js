@@ -23,7 +23,6 @@ const fetch = require("node-fetch");
 let activeEditor, codeChannel;
 
 function activate(context) {
-  const development = vscode.ExtensionMode.Development;
   const provider = new AestheticViewProvider(context.extensionUri);
 
   context.subscriptions.push(
@@ -41,7 +40,8 @@ function activate(context) {
       .slice(-1)[0]
       .replace(".mjs", "");
 
-    const host = !development ? "aesthetic.computer" : "localhost:8888";
+    const host = "aesthetic.computer"; // const host = "localhost:8888";
+
     let url = `https://${host}/run`;
     if (publish) url += "?publish=true"; // Set a flag to attempt to publish
     //                                      this piece to the user's account

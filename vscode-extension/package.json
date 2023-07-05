@@ -12,7 +12,7 @@
   "scripts": {
     "reload": "npm run build; npm run install:ext;",
     "build": "vsce package",
-    "install:ext": "code --install-extension aesthetic-computer-code-1.1.0.vsix",
+    "install:ext": "code --install-extension aesthetic-computer-code-1.2.0.vsix",
     "publish": "vsce publish minor"
   },
   "main": "./extension.js",
