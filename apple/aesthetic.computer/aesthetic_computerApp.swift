@@ -1,7 +1,7 @@
-import FirebaseCore
-import FirebaseMessaging
 import SwiftUI
 import UserNotifications
+import FirebaseCore
+import FirebaseMessaging
 
 @main
 struct aesthetic_computerApp: App {

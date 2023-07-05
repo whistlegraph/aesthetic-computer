@@ -83,8 +83,12 @@
   - [x] Fix drag + drop coding not finding code signal. (disk:1426)
 
 *** Adding Notifications ***
-  - [] 
-  - [] https://github.com/firebase/quickstart-ios/tree/master/messaging/
+  - [-] Run on a device and send the first test notification.
+    - [] https://designcode.io/swiftui-advanced-handbook-push-notifications-part-2 (Halfway down page.)
+  + Done
+  - [x] Set up `FCM` (Firebase Cloud Messaging) 
+  - [x] Add integration to iOS app. 
+    - [x] https://github.com/firebase/quickstart-ios/tree/master/messaging
 
 *** Song ***
   - [🍊] Finish basic prototype with tone playback, lyric per tone support,
