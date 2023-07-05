@@ -1,6 +1,0 @@
-name = "media"
-main = "src/index.js"
-compatibility_date = "2023-05-02"
-
-[env.development.vars]
-MODE = "development"

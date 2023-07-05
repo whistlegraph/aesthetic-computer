@@ -91,7 +91,8 @@ function parse(text, location = self?.location) {
     // }
 
     // Route the piece to the local `/media/@handle/code/piece-name` path.
-    host = "aesthetic.computer";
+    host = location.hostname;
+    if (location.port) host += ":" + location.port;
     const [handle, name] = tokens[0].split("/");
     path = `media/${handle}/piece/${name}`;
   } else {
