@@ -70,11 +70,9 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Drag + Drop / Publishing ***
-  - [-] Get user hosted pieces to run.
-    - [🟡] Fix cloudflare wrangler dev worker.
-    - [] Is there something in particular that makes the cloudflare worker
-         slow, like the handle lookup?
-    - [] Profile it...
+  - [🟠] Add an on-screen friendly UI message once a piece has been published.
+  - [x] Get user hosted pieces to run.
+    - [x] Fix cloudflare wrangler dev worker.
   - [x] Get guest hosted pieces to run. 
   - [x] Add publish command underneath `Run Piece`.
   - [x] Test code-channel re-routing along with drag + drop.
@@ -131,6 +129,9 @@
   - [] Show most recent painting on profile page.
   - [] Allow people to set a status.
     - [] Where to store this?
+  - [] Is there something in particular that makes the cloudflare worker
+      slow, like the handle lookup?
+  - [] Profile it...
 
 *plot* (new launch fonts)
   - [-] Make the UI responsive based on grid and scale and window size.
