@@ -356,12 +356,28 @@ let lastActAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
+  // ***Actually*** upload a file to the server.
+  // 📓 The file name can have `media-` which will sort it on the server into
+  // a directory via `presigned-url.js`.
+  upload: async (filename, data, progress, bucket) => {
+    const prom = new Promise((resolve, reject) => {
+      serverUpload = { resolve, reject };
+    });
+    serverUploadProgressReporter = progress;
+    send({ type: "upload", content: { filename, data, bucket } });
+    return prom;
+  },
   code: {
     channel: (chan) => {
       codeChannel = chan; // Set the current `codeChannel`.
-      store["code-channel"] = codeChannel; // Remember the painting data.
+      store["code-channel"] = codeChannel; // Store and keep it in the browser.
       store.persist("code-channel");
       console.log("💻 Code channel set to:", codeChannel);
+      socket.send("code-channel:sub", codeChannel);
+      //       ❤️‍🔥
+      // TODO: Should return a promise here, and wait for a `code-channel:subbed`
+      //       event, that way users get better confirmation if the socket
+      //       doesn't go through / there is a server issue. 23.07.04.18.01
     },
   },
   // File should be { type, data } where type is "png", "webp", "jef", etc.
@@ -1366,7 +1382,8 @@ async function load(
     hash,
     path,
     host = originalHost,
-    slug;
+    slug,
+    publish;
 
   if (loading === false) {
     loading = true;
@@ -1391,7 +1408,9 @@ async function load(
     host = parsed.host;
     slug = parsed.text;
 
-    if (slug.startsWith("@")) {
+    // 👱 Route to the `profile` piece if we are just hitting an empty
+    // username.
+    if (slug.startsWith("@") && slug.indexOf("/") === -1) {
       params = [slug, ...params]; // Rewrite all params for `@user` slug urls.
       slug = "profile"; // Go to `profile` instead of the `@user`.
       // Rewrite path to `profile`.
@@ -1422,10 +1441,13 @@ async function load(
     // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
     if (debug) console.log("🕸", fullUrl);
   } else {
-
-    // TODO: ❤️‍🔥 Make this work for drag + drop.
     // 📃 Loading with provided local source code.
-    if (parsed.code === undefined || parsed.code !== codeChannel) {
+    //    Check to see if we are subscribed to thr right codeChannel only
+    //    on devReload (coming from the server)
+    if (
+      devReload === true &&
+      (parsed.codeChannel === undefined || parsed.codeChannel !== codeChannel)
+    ) {
       console.warn(
         "🙅 Not reloading, code signal invalid:",
         codeChannel || "N/A"
@@ -1436,6 +1458,7 @@ async function load(
     source = parsed.source;
     slug = parsed.name;
     path = "aesthetic.computer/disks/" + slug;
+    publish = parsed.publish;
     // 📓 Might need to fill in hash, path, or slug here. 23.06.24.18.49
   }
 
@@ -1452,6 +1475,7 @@ async function load(
     } else {
       let response, sourceToRun;
       if (fullUrl) {
+        console.log("Attempting to load from local url:", fullUrl);
         response = await fetch(fullUrl);
         sourceToRun = await response.text();
       } else {
@@ -1459,10 +1483,26 @@ async function load(
       }
 
       if (sourceToRun.startsWith("// 404")) {
-        if (!firstLoad) {
-          throw new Error("📄 Piece not found.");
-        } else {
-          console.log("📄🚫 Piece not found:", slug);
+        let found = false;
+        try {
+          // Piece not found... try the guest server...
+          const fullUrl = `https://art.aesthetic.computer/${
+            path.split("/").slice(-1)[0]
+          }.mjs#${Date.now()}`;
+          console.warn("Local load failed. Attempting to run from: ", fullUrl);
+          response = await fetch(fullUrl);
+          sourceToRun = await response.text();
+          found = true; // Found a piece on the guest server!
+        } catch (err) {
+          console.warn("😢 No guest piece found.");
+        }
+
+        if (!found) {
+          if (!firstLoad) {
+            throw new Error("📄 Piece not found.");
+          } else {
+            console.log("📄🚫 Piece not found:", slug);
+          }
         }
       }
 
@@ -1514,7 +1554,49 @@ async function load(
     return false;
   }
 
-  // 🧩 Piece has been loaded...
+  // 📥 Check to see if this code should be published.
+  //    (If the `publish` flag was set on a devReload via $commonApi.reload)
+  if (publish) {
+    console.log("📥 Now publishing...", slug);
+    // Upload to the user's "piece-" directory if possible.
+    $commonApi
+      .upload("piece-" + slug + ".mjs", source)
+      .then((data) => {
+        console.log("🪄 Code uploaded:", data);
+        // flashColor = [0, 255, 0];
+        // makeFlash($);
+        // const slug = user
+        // ? `${handle || user.email}/painting/${data.slug}`
+        // : data.slug;
+        // jump(`download:painting ${slug}`);
+      })
+      .catch((err) => {
+        console.error("🪄 Code upload failed:", err);
+        // flashColor = [255, 0, 0];
+        // makeFlash($);
+      });
+
+    /*
+    fetch("/publish", {
+      method: "POST",
+      body: source,
+      headers: { "Content-Type": "application/javascript" },
+    })
+      .then((response) => {
+        if (response.ok) {
+          console.log("✅ Publishing successful!");
+        } else {
+          console.warn("🚫 Publishing failed.", response);
+        }
+      })
+      .catch((error) => {
+        console.error("😫 Publishing failed.", error);
+      });
+    */
+  }
+
+  // 🧩 Piece code has been loaded...
+  //    Now we can instantiate the piece.
 
   lastHost = host; // Memoize the host.
   // pieceHistoryIndex += fromHistory === true ? -1 : 1; // Adjust the history.
@@ -1531,7 +1613,7 @@ async function load(
   $commonApi.debug = debug;
 
   // Add reload to the common api.
-  $commonApi.reload = ({ piece, name, source, code } = {}) => {
+  $commonApi.reload = ({ piece, name, source, codeChannel, publish } = {}) => {
     if (loading) {
       console.log("🟡 A piece is already loading.");
       return;
@@ -1543,7 +1625,12 @@ async function load(
     } else if (name && source) {
       // TODO: Check for existence of `name` and `source` is hacky. 23.06.24.19.27
       // Note: This is used for live development via the socket server.
-      $commonApi.load({ source, name, code }, false, false, true); // Load source code.
+      $commonApi.load(
+        { source, name, codeChannel, publish },
+        false,
+        false,
+        true
+      ); // Load source code.
     } else if (piece === "*" || piece === undefined || currentText === piece) {
       console.log("💾️ Reloading piece...", piece);
       const devReload = true;
@@ -1591,8 +1678,11 @@ async function load(
         receiver?.(id, type, content); // Run the piece receiver.
       },
       $commonApi.reload,
-      "wss"
-      //debug === true && !forceProd && host.split(":")[0] === "localhost" ? "ws" : "wss"
+      "wss",
+      () => {
+        // Post-connection logic.
+        if (codeChannel) socket.send("code-channel:sub", codeChannel);
+      }
     );
   }
 
@@ -2537,7 +2627,6 @@ async function makeFrame({ data: { type, content } }) {
   // 2. Frame
   // Where each piece action (boot, sim, paint, etc...) is run.
   if (type === "frame") {
-
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
       if (data.name.indexOf("keyboard:down") === 0) {
@@ -2649,17 +2738,6 @@ async function makeFrame({ data: { type, content } }) {
         fileImport = { resolve, reject };
       });
       send({ type: "import", content: type });
-      return prom;
-    };
-
-    // ***Actually*** upload a file to the server.
-    $commonApi.upload = (filename, data, progress, bucket) => {
-      const prom = new Promise((resolve, reject) => {
-        serverUpload = { resolve, reject };
-      });
-
-      serverUploadProgressReporter = progress;
-      send({ type: "upload", content: { filename, data, bucket } });
       return prom;
     };
 

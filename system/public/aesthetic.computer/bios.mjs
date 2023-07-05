@@ -2725,6 +2725,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
+    if (ext === "mjs") MIME = "application/javascript";
+
     if (ext === "obj") MIME = "application/object";
     if (ext === "glb") MIME = "model/gltf-binary";
 
@@ -2753,6 +2755,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       headers.Authorization = `Bearer ${token}`;
       // This filename gets sorted into the user bucket via their own
       // directory upon uploading.
+      // Otherwise if there is no authorization, we just send an empty filename.
+      // (And one will be generated via nanoid on the server.)
       prefetchURL += "/" + filename + "/" + bucket; // Add filename info.
     }
 
@@ -2974,7 +2978,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         object = `https://art.aesthetic.computer/${filename}`;
       }
     } else if (ext === "mjs") {
-      MIME = "application/javascript";
+      MIME = "application/javascript; charset=utf-8";
       object = URL.createObjectURL(new Blob([data], { type: MIME }));
     }
 

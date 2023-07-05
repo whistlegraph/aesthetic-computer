@@ -59,11 +59,10 @@ function parse(text, location = self?.location) {
 
   // 3. Determine the host and path.
   let customHost = false;
-  // Remove "@" from 1st token if it starts with "@" and is the root path,
-  // then set a `customHost` flag.
+  // Set a `customHost` flag if we are loading a @user/piece.
   if (tokens[0].indexOf("@") === 0 && tokens[0].indexOf("/") !== -1) {
     customHost = true;
-    tokens[0] = tokens[0].substring(1);
+    // tokens[0] = tokens[0].substring(1);
   }
 
   // Extract colon parameter...
@@ -78,16 +77,23 @@ function parse(text, location = self?.location) {
   const piece = tokens[0];
 
   if (customHost) {
-    [host, ...path] = tokens[0].split("/");
-    path = path.join("/");
 
-    // Default to `index` if no piece path is specified for the custom host.
-    if (path.length === 0) path = "index";
+    // ⚠️ Custom user hosts can be deprecated for now. 23.07.04.20.16 
+    // [host, ...path] = tokens[0].split("/");
+    // path = path.join("/");
 
-    // Default to *.aesthetic.computer if no `.` is present in the custom host.
-    if (host.indexOf(".") === -1) {
-      host += ".aesthetic.computer";
-    }
+    // // Default to `index` if no piece path is specified for the custom host.
+    // if (path.length === 0) path = "index";
+
+    // // Default to *.aesthetic.computer if no `.` is present in the custom host.
+    // if (host.indexOf(".") === -1) {
+    //   host += ".aesthetic.computer";
+    // }
+
+    // Route the piece to the local `/media/@handle/code/piece-name` path.
+    host = "aesthetic.computer";
+    const [handle, name] = tokens[0].split("/");
+    path = `media/${handle}/piece/${name}`;
   } else {
     host = location.hostname;
     if (location.port) host += ":" + location.port;

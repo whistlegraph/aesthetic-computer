@@ -23,8 +23,6 @@ export async function handler(event, context) {
   const client = { s3: s3User, bucket: process.env.USER_SPACE_NAME };
   const path = decodeURIComponent(event.queryStringParameters.for);
 
-  console.log("PATH", path);
-
   // List all objects prefixed with `path` in the bucket.
   let params = { Bucket: client.bucket, Prefix: path };
 

@@ -5,9 +5,13 @@
 
 /* #region todo 📓 
  + Later
- - [] Conditional redis sub to dev updates. (Will save bandwidth if extension
-      gets lots of use, also would be more secure.) 
+- [] `code.channel` should return a promise, and wait for a `code-channel:subbed`
+    event here? This way users get better confirmation if the socket
+    doesn't go through or if there is a server issue. 23.07.04.18.01
+    (Might not actually be that necessary.)
  + Done
+ - [x] Conditional redis sub to dev updates. (Will save bandwidth if extension
+       gets lots of use, also would be more secure.) 
  - [x] Secure the "code" path to require a special string.
  - [x] Secure the "reload" path (must be in dev mode, sorta okay) 
  - [c] Speed up developer reload by using redis pub/sub.
@@ -57,6 +61,9 @@ const info = {
   service: process.env.SPAWNER_SERVICE,
 };
 
+const codeChannels = {}; // Used to filter `code` updates from redis to
+//                          clients who explicitly have the channel set.
+
 // *** Start up two `redis` clients. (One for subscribing, and for publishing)
 const sub = !dev
   ? createClient({ url: redisConnectionString })
@@ -75,7 +82,11 @@ try {
   // TODO: This needs to be sent only for a specific user or needs
   //       some kind of special ID.
   await sub.subscribe("code", (message) => {
-    everyone(pack("code", message, "development"));
+    const parsed = JSON.parse(message);
+    if (codeChannels[parsed.codeChannel]) {
+      const msg = pack("code", message, "development");
+      subscribers(codeChannels[parsed.codeChannel], msg);
+    }
   });
 
   await sub.subscribe("scream", (message) => {
@@ -86,15 +97,18 @@ try {
 }
 
 fastify.get("/", async () => {
-  return { msg: "Hello aesthetic.computer!" };
+  return {
+    msg: "Hello, you've reached an aesthetic.computer session server instance!",
+  };
 });
 
 // *** Live Reload of Pieces in Development ***
-fastify.post("/reload", async (req) => {
-  everyone(pack("reload", req.body, "pieces"));
-  // console.log("Reload!", req.body);
-  return { msg: "Reload request sent!", body: req.body };
-});
+if (dev) {
+  fastify.post("/reload", async (req) => {
+    everyone(pack("reload", req.body, "pieces"));
+    return { msg: "Reload request sent!", body: req.body };
+  });
+}
 
 // *** HTTP Server Initialization ***
 const start = async () => {
@@ -142,6 +156,7 @@ wss.on("connection", (ws, req) => {
   // Assign the conection a unique id.
   connections[connectionId] = ws;
   const id = connectionId;
+  let codeChannel; // Used to subscribe to incoming piece code.
 
   // Send a single welcome message for every new client connection.
   // TODO: This message should be a JSON encoded object and be displayed on
@@ -184,6 +199,11 @@ wss.on("connection", (ws, req) => {
           console.log(`Message published to channel ${channel}`);
         }
       });
+    } else if (msg.type === "code-channel:sub") {
+      // Filter code-channel updates based on this user.
+      codeChannel = msg.content;
+      if (!codeChannels[codeChannel]) codeChannels[codeChannel] = new Set();
+      codeChannels[codeChannel].add(id);
     } else {
       // TODO: Why not always use "others" here?
       everyone(JSON.stringify(msg));
@@ -194,6 +214,15 @@ wss.on("connection", (ws, req) => {
   // More info: https://stackoverflow.com/a/49791634/8146077
   ws.on("close", () => {
     everyone(pack("left", { id, count: wss.clients.size }));
+
+    // Clear out the codeChannel if the last user disconnects from it.
+    if (codeChannel !== undefined) {
+      codeChannels[codeChannel]?.delete(id);
+      if (codeChannels[codeChannel]?.values().length === 0) {
+        delete codeChannels[codeChannel];
+      }
+    }
+
     clearInterval(interval); // Stop pinging once the socket closes.
   });
 
@@ -218,6 +247,14 @@ wss.on("connection", (ws, req) => {
 function everyone(string) {
   wss.clients.forEach((c) => {
     if (c.readyState === WebSocket.OPEN) c.send(string);
+  });
+}
+
+// Sends a message to a particular set of client ids on
+// this instance that have are part of the `subs` Set.
+function subscribers(subs, msg) {
+  subs.forEach((connectionId) => {
+    connections[connectionId]?.send(msg);
   });
 }
 

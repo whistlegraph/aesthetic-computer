@@ -35,13 +35,25 @@ async function handleRequest(request) {
       // The path should return a collection.
       const path = encodeURIComponent(newPath.replace("/media", ""));
 
-      // ❓ This url also not be tested locally for the same reasons as below.
+      // ❓ This url also can not be tested locally for the same reasons as below.
       response = await fetch(
         `https://aesthetic.computer/media-collection?for=${path}`
       );
     }
 
-    return response;
+    // Create a new response with CORS headers
+    const newHeaders = new Headers(response.headers);
+    newHeaders.set("Access-Control-Allow-Origin", "*"); // Allow requests from any origin
+    newHeaders.set("Access-Control-Allow-Methods", "GET, OPTIONS"); // Allow GET and OPTIONS methods
+    newHeaders.set("Access-Control-Allow-Headers", "Content-Type"); // Allow the Content-Type header
+
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: newHeaders,
+    });
+
+    // return response;
   } else {
     // For other paths, just fetch the resource as is
     return fetch(request);

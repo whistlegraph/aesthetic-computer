@@ -19,7 +19,7 @@ export class Socket {
   }
 
   // Connects a WebSocket object and takes a handler for messages.
-  connect(host, receive, reload, protocol = "wss") {
+  connect(host, receive, reload, protocol = "wss", connectCallback) {
     try {
       this.#ws = new WebSocket(`${protocol}://${host}`);
     } catch {
@@ -34,6 +34,7 @@ export class Socket {
       // if (this.#debug) console.log("📡 Connected"); // Redundant log given an initial message from the server.
       this.#queue.forEach((q) => this.send(...q)); // Send any held messages.
       this.#reconnectTime = 1000;
+      connectCallback?.(); // Run any post-connection logic, like setting codeChannel for example.
     };
 
     // Respond to incoming messages and assume `e.data` is a JSON String.
@@ -108,7 +109,8 @@ export class Socket {
         reload?.({
           name: parsed.piece,
           source: parsed.source,
-          code: parsed.code,
+          codeChannel: parsed.codeChannel,
+          publish: parsed.publish,
         });
       }
     } else if (type === "left") {

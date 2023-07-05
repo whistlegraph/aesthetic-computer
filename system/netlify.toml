@@ -60,8 +60,8 @@
     Vary = "*"
 [[redirects]]
   from = "/media/*"
-  to = "https://media.aesthetic-computer.workers.dev/media/:splat"
-  # to = "http://localhost:8787/media/:splat" # Uncomment for developing the Cloudflare worker.
+  # to = "https://media.aesthetic-computer.workers.dev/media/:splat"
+  to = "http://localhost:8787/media/:splat" # Uncomment for developing the Cloudflare worker.
   status = 200
   force = true
 # [[redirects]]
