@@ -109,7 +109,7 @@ export async function handler(event, context) {
     return respond(200, { url });
   }
 
-  // ➡️ Assume "presigned-upload-url"
+  // ➡️ Assume the path === "presigned-upload-url"
   let client;
   const { customAlphabet } = await import("nanoid");
   const alphabet =
@@ -119,8 +119,10 @@ export async function handler(event, context) {
   const extension = event.path.slice(1).split("/")[1];
   let name = event.path.slice(1).split("/")[2];
   const bucket = event.path.slice(1).split("/")[3];
+
   if (bucket !== "wand") {
     //           ^ Currently using a legacy name schema for wand. 23.05.01.21.59
+
     // 🧠 Replace first prefix- with a prefix/ for folder sorting by media.
     //    ⚠️ Only if name exists! Which it doesn't for the guest bucket.
     if (name?.indexOf("-") > -1) name = name.replace("-", "/");
@@ -156,6 +158,7 @@ export async function handler(event, context) {
 
   let mimeType;
   if (extension === "png") mimeType = "image/png";
+  if (extension === "mjs") mimeType = "application/javascript; charset=utf-8";
   if (extension === "mp4") mimeType = "video/mp4";
   if (extension === "json") mimeType = "application/json";
   if (extension === "gltf") mimeType = "model/gltf+json";

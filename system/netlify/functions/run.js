@@ -20,6 +20,9 @@ async function fun(event) {
     status = 405;
     out = { status: "Wrong request type!" };
   } else if (event.httpMethod === "POST" && event.path === "/run") {
+    const params = event.queryStringParameters;
+    const publish = params.publish === "true" ? true : false;
+
     try {
       const body = JSON.parse(event.body);
       // Send a redis request or socket message containing the piece code.
@@ -27,14 +30,14 @@ async function fun(event) {
         ? createClient({ url: redisConnectionString })
         : createClient();
       client.on("error", (err) => console.log("🔴 Redis client error!", err));
-
       await client.connect();
       await client.publish(
         "code",
         JSON.stringify({
           piece: body.piece,
           source: body.source,
-          code: body.code,
+          codeChannel: body.codeChannel,
+          publish,
         })
       );
       out = { result: "Piece code received!" };

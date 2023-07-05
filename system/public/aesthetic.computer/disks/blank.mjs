@@ -10,7 +10,7 @@
 // 🥾 Boot
 function boot({ wipe }) {
   // Runs once at the start.
-  wipe(127);
+  wipe();
 }
 
 // 🎨 Paint

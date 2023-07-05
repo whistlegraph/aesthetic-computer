@@ -69,8 +69,18 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Drag + Drop ***
-  - [] Fix drag + drop coding not finding code signal. (disk:1426)
+*** Drag + Drop / Publishing ***
+  - [-] Get user hosted pieces to run.
+    - [🟡] Fix cloudflare wrangler dev worker.
+    - [] Is there something in particular that makes the cloudflare worker
+         slow, like the handle lookup?
+    - [] Profile it...
+  - [x] Get guest hosted pieces to run. 
+  - [x] Add publish command underneath `Run Piece`.
+  - [x] Test code-channel re-routing along with drag + drop.
+  - [x] Filter codeChannel messages on the server.
+  - [x] Fix debug live-reload blank load from prompt.
+  - [x] Fix drag + drop coding not finding code signal. (disk:1426)
 
 *** Song ***
   - [🍊] Finish basic prototype with tone playback, lyric per tone support,

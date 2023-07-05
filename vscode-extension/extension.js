@@ -19,9 +19,10 @@
 const vscode = require("vscode");
 const fetch = require("node-fetch");
 
-let activeEditor, code;
+let activeEditor, codeChannel;
 
 function activate(context) {
+  const development = vscode.ExtensionMode.Development;
   const provider = new AestheticViewProvider(context.extensionUri);
 
   context.subscriptions.push(
@@ -31,32 +32,42 @@ function activate(context) {
     )
   );
 
+  function upload({ publish }) {
+    let editor = vscode.window.activeTextEditor;
+    let source = editor.document.getText();
+    const piece = editor.document.fileName
+      .split("/")
+      .slice(-1)[0]
+      .replace(".mjs", "");
+
+    const host = !development ? "aesthetic.computer" : "localhost:8888";
+    let url = `https://${host}/run`;
+    if (publish) url += "?publish=true"; // Set a flag to attempt to publish
+    //                                      this piece to the user's account
+    //                                      (or the liminal art storage...)
+
+    fetch(url, {
+      method: "POST",
+      body: JSON.stringify({ piece, source, codeChannel }),
+      headers: { "Content-Type": "application/json" },
+    })
+      .then((res) => res.json())
+      .then((response) => {
+        console.log("Success:", JSON.stringify(response));
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+      });
+
+    activeEditor = editor; // Set the active editor for live updates.
+  }
+
   context.subscriptions.push(
     vscode.commands.registerCommand("aestheticComputer.runPiece", () => {
-      let editor = vscode.window.activeTextEditor;
-      let source = editor.document.getText();
-      const piece = editor.document.fileName
-        .split("/")
-        .slice(-1)[0]
-        .replace(".mjs", "");
-
-      const host = "aesthetic.computer"; // "localhost:8888";
-
-      fetch(`https://${host}/run`, {
-        method: "POST",
-        body: JSON.stringify({ piece, source, code }),
-        headers: { "Content-Type": "application/json" },
-      })
-        .then((res) => res.json())
-        .then((response) => {
-          console.log("Success:", JSON.stringify(response));
-        })
-        .catch((error) => {
-          console.error("Error:", error);
-        });
-
-      activeEditor = editor; // Set the active editor for live updates.
-      // provider.runPiece(); // Update the contents of the button.
+      upload({ publish: false });
+    }),
+    vscode.commands.registerCommand("aestheticComputer.publishPiece", () => {
+      upload({ publish: true });
     })
   );
 
@@ -92,12 +103,16 @@ class AestheticViewProvider {
 
     webviewView.webview.onDidReceiveMessage((data) => {
       switch (data.type) {
+        case "setCode": {
+          codeChannel = data.value;
+          break;
+        }
         case "runPiece": {
           vscode.commands.executeCommand("aestheticComputer.runPiece");
           break;
         }
-        case "setCode": {
-          code = data.value;
+        case "publishPiece": {
+          vscode.commands.executeCommand("aestheticComputer.publishPiece");
           break;
         }
       }
@@ -143,6 +158,7 @@ class AestheticViewProvider {
 			<body>
         <input id="code" placeholder="Enter Code Channel" type="text"></input>
 				<button id="run">Run Piece</button>
+				<button id="publish">Publish</button>
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
