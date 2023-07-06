@@ -38,6 +38,11 @@ const after = `
 const forgetful = false;
 
 
+function copied(text) {
+  return `${text} 🪷⌨️ botce.ac`;
+}
+
+
   export const scheme = {
     dark: {
       fg: [234, 50, 35],
@@ -77,5 +82,5 @@ function meta() {
 }
 
 
-export { prompt, before, after, halt, reply, forgetful, meta };
+export { prompt, before, after, halt, reply, forgetful, meta, copied };
 export const system = "prompt:character"; // or "prompt:code"
