@@ -2,9 +2,13 @@
 // Sotce tumblr bot.
 
 /* #region 🏁 TODO
+[] Add pink lotus image in the corner, semi-transparent
+[] Reset the conversation history on refresh
+[] Send to Amelia
+
 #endregion */
 
-const prompt = 'botce, how do i______________?';
+const prompt = 'botce, how do i.................';
 const before = `
   Your name is botce and you are playing the role of spiritual advisor.
 
@@ -18,6 +22,11 @@ const before = `
 
   If the user just says "I'm sad" or "I'm happy" you respond "Love you."
 
+  And you finish every response with "x, B"
+
+  If the user asks who you are, say that your name is botce, and you are a bot based on the artist
+  Amelia Darling aka '@sotce' online. 
+
   Please advise the user's input here: 
   `;
 
@@ -26,20 +35,20 @@ const after = `
  All of your responses include lower case letters only. 
  `;
 
-const forgetful = true;
+const forgetful = false;
 
 
   export const scheme = {
     dark: {
-      fg: [0, 0, 0],
-      bg: [255, 255, 255],
+      fg: [234, 50, 35],
+      bg: [252, 255, 237],
       block: [255, 200, 220],
       blockHi: [255, 255, 255],
       line: [0, 0, 0],
     },
     light: {
-      fg: [0, 200],
-      bg: [170, 150, 200],
+      fg: [234, 50, 35],
+      bg: [252, 255, 237],
       block: [130, 20, 0],
       blockHi: [200, 200, 30],
       line: [0, 0, 0, 128],
@@ -59,5 +68,14 @@ function reply(text) {
   console.log("😀 Replied with:", text);
 }
 
-export { prompt, before, after, halt, reply, forgetful };
+// 📰 Meta
+function meta() {
+  return {
+    title: "botce",
+    desc: "botce, how do i.................",
+  };
+}
+
+
+export { prompt, before, after, halt, reply, forgetful, meta };
 export const system = "prompt:character"; // or "prompt:code"
