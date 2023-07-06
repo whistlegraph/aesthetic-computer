@@ -3,7 +3,8 @@
 // Coded by Jeffrey Alan Scudder & Tina Tarighian
 
 /* #region 🏁 todo
-  - [] We need a goal.
+  + Done
+  - [x] We need a goal. (handtime, handprint, staka)
 #endregion */
 
 /* #region 🤝 Read Me 

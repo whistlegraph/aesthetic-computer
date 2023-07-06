@@ -1,5 +1,49 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** Happy Hands 🖐️😃 ***
+    + Done
+    - [x] Put hand-tracking data in core loop?
+    - [x] Test `@mediapipe` tracking integration on iOS.
+      - [x] Get multiple refreshes working on iOS without losing tracking?
+        - (Create new landMarker but dont reload libs?)
+      - [x] Get geometry working properly across all systems.
+      - [x] Get rotation working on iOS.
+    - [x] https://mediapipe-studio.webapps.google.com/demo/hand_landmarker
+         Performance comparison ^
+      - [x] Also test original demo and hand_landmarker above on Firefox!
+    - [x] Profile `@mediapipe` for memory leaks in the worker context.
+    - [x] Plan next meeting w/ Tina. (6th)
+    - [x] Explore gesture recognition model: https://mediapipe-studio.webapps.google.com/demo/gesture_recognizer
+  📓 Notes & Spec
+    (All hands are defined by integer ids 0-n)
+    - Creating and Publishing
+    (pattern -> body) -> style -> face
+      mesh creation
+    1. `hhf` aka `happy-hand-factory` with an integer.
+          - Tie us to working with a particular hand and jumps to step A by default.
+      - Go to another step with: `hhf:body 800` 
+    - Viewing and Using
+    1. `hh` or `happy-hand` takes you to using a random hand from 0-n.
+    2. `hh 800` will view a hand
+  ✅ Done
+    Thursday
+    - [x] Got hand data working!
+    - [x] Fix framebuffer initialization error from mediapipe loading delay. (@jeffrey)
+    Wednesday
+    - [x] Integrate `@mediapipe/hands` into the project. 
+    Tuesday
+    - [x] Draw and define the 2D mesh thingy inside `pattern`.
+    Monday
+    - [x] Define command set for pipeline.
+    - [x] Create `hhf` piece. (hhf.mjs)
+    - [x] Onboard @ttarigh to the repo. 
+    - [x] Set on the client a global variable that determines what
+          hand we are "on".
+    - [x] Limit the count to 1024 or something like that. 
+    - [x] Fail if no param.
+    - [x] Find good name for this process...
+    - [x] Creating `happy-hands-factory` with an alias `hhf`.
+
 *** Adding Notifications ***
   - [x] Run on a device and send the first test notification.
     - [x] https://designcode.io/swiftui-advanced-handbook-push-notifications-part-2 (Halfway down page.)
