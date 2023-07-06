@@ -98,6 +98,7 @@
   - [] Draggable gutter?
 - [] "?" appears after typing a valid word.
   - [] "?" jumps to a `learn piece` page for learning more about a piece.
+- [] Better dynamic `preview` / thumbnail images.
 
 *** Learn ***
 - [] Start writing "learn" pages for some existing commands or bots.
