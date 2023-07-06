@@ -80,6 +80,28 @@
   - [x] Fix debug live-reload blank load from prompt.
   - [x] Fix drag + drop coding not finding code signal. (disk:1426)
 
+*** Thursday ***
+- [] Form an email response and have a call with Gemma.
+- [] Itemize demonstrable June improvements to aesthetic.computer. (To be presented live as a thank you for the investment.)
+- [] Investor planning / summer + fall strategy chat.
+---------
+- [] Design “copy” wrapper text for front-facing bots. @ggacjp.
+
+@jeffrey
+- [] Add image support and images to front-facing bots. (`gargoyle`, `liar` … )
+- [] Finish all todos in `botce`. 
+  - [] Remove `botce` from intro text.
+- [] Add name to top left corner of bots.
+- [] Add starfield to prompt.
+- [] Tappable floaty words on prompt.
+- [] Gutter max with but no min width o.
+  - [] Draggable gutter?
+- [] "?" appears after typing a valid word.
+  - [] "?" jumps to a `learn piece` page for learning more about a piece.
+
+*** Learn ***
+- [] Start writing "learn" pages for some existing commands or bots.
+
 *** `scream` ***
   - [-] How can I get `scream` to notify all devices via my server by using Firebase?
        and how can I associate device IDs with user accounts?
