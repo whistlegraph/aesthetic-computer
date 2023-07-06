@@ -44,5 +44,10 @@ function reply(text) {
   console.log("😀 Replied with:", text);
 }
 
-export { prompt, before, after, halt, reply };
+function copied(text) {
+  return `${text} 🤥 https://aesthetic.computer/liar`;
+}
+
+
+export { prompt, before, after, halt, reply, copied };
 export const system = "prompt:character"; // or "prompt:code"
