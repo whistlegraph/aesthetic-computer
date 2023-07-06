@@ -31,7 +31,7 @@ function editable(input) {
 }
 
 function copied(text) {
-  return `${text} 🧮 https://aesthetic.computer/decode~${text.replaceAll(" ", "~")}`;
+  return `${text} 💌 https://aesthetic.computer/decode~${text.replaceAll(" ", "~")}`;
 }
 
 const altScheme = {
