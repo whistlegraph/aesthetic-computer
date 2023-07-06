@@ -3,9 +3,10 @@ import { radians, map } from "../lib/num.mjs";
 const { cos, sin } = Math;
 
 /* #region 🏁 todo
-  - [] Add flag to enable video feedback to constructor 
-  - [] Fix video orientation issues.
-  - [] Fix gesture interactions 
+  - [] Fix gesture interactions.  (Need a piece that will require it.)
+  - [] Fix video orientation issues. (Need a video enabled "goal" piece.)
+  + Done
+  - [x] Add flag to enable video feedback to paint function. 
 #endregion */
 
 export class HandInput {
