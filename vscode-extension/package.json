@@ -24,10 +24,6 @@
         "title": "aesthetic.computer: Run Piece 🏃"
       },
       {
-        "command": "aestheticComputer.publishPiece",
-        "title": "aesthetic.computer: Publish Piece 📬️️"
-      },
-      {
         "command": "aestheticComputer.localServer",
         "title": "aesthetic.computer: Local Server 💻"
       }
