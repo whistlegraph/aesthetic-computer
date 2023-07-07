@@ -73,6 +73,7 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Drag + Drop / Publishing ***
+  - [🟠] Test `publish` command by using new extension. 
   + Done
   - [x] Only publish to the correct user via the extension. (Not to everyone subscribed...) (See `extension.js`)
     (Make `publish` command)
