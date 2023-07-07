@@ -4,8 +4,9 @@
 /* #region 🏁 TODO
 [] Add pink lotus image in the corner, semi-transparent
 [] Reset the conversation history on refresh
+[] Respond well to "who wrote you" (Replace default GPT response).
+[] Respond well to "what is amelia's art about".
 [] Send to Amelia
-
 #endregion */
 
 const prompt = 'botce, how do i.................';

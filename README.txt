@@ -28,7 +28,8 @@
         the page or losing context. 
       - Pieces can load remotely off any `https://` url so applications can be
         distributed over a network.
-      - 2D/3D Software renderer for spatial display of programs as planes.
+      - 2D/3D Software renderer for spatial display of programs as planes and
+        ease of accessing pixels while coding a piece and learning graphics.
       - 3D WebGL renderer for VR.
 
 🖥️ Running locally: 
@@ -104,12 +105,33 @@
 *** Learn ***
 - [] Start writing "learn" pages for some existing commands or bots.
 
+*** Logo / Load LOGO ***
+  - [] Make a "logo" command that sets
+       aesthetic.computer's logo,
+        - [] Uploads a painting to a special bucket.
+        - [] Copies to a cached url for the current one.
+       based on whether a user has a permission flag set, (for niki.)
+  - [] Make a logo:load option that
+       opens the current logo as a painting. 
+
+*** CSS Background / Load + Login ***
+  - [] Add a `splash` command that
+       works similar to logo, for
+       a page backdrop that can be swapped out. 
+
+*** `prompt` ***
+  - [] After returning to a blank prompt / if the answer is empty then
+       show the user's text.
+  - [] Maintain the cursor's index state within the history stack.
+       and reload it as needed for faster edits.
+
 *** `scream` ***
   - [-] How can I get `scream` to notify all devices via my server by using Firebase?
        and how can I associate device IDs with user accounts?
        - [] Probably use MongoDB?
        - [] What about users who have notifications enabled but are not logged in?
   - [] https://mdn.github.io/dom-examples/web-speech-api/speak-easy-synthesis Speak the scream using speech synthesis.
+  - [] Make it turn-based.
   - [x] Get JamSocket working again.
     - [c] Implement JamSocket "locks" and deprecate my redis scaling?
   - [] Visualize the socket connection to make everything faster in production.
