@@ -5,12 +5,19 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/vscode-extension"
+      ],
+      "name": "Launch aesthetic.computer Extension",
+      "outFiles": ["${workspaceFolder}/vscode-extension/out/**/*.js"],
+      "request": "launch",
+      "type": "extensionHost"
+    },
+    {
       "name": "Attach by Process ID",
       "processId": "${command:PickProcess}",
       "request": "attach",
-      "skipFiles": [
-        "<node_internals>/**"
-      ],
+      "skipFiles": ["<node_internals>/**"],
       "type": "node"
     },
     {
