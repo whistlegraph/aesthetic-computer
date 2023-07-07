@@ -23,7 +23,6 @@ async function fun(event) {
     out = { status: "Wrong request type!" };
   } else if (event.httpMethod === "POST" && event.path === "/run") {
     const params = event.queryStringParameters;
-    const publish = params.publish === "true" ? true : false;
 
     try {
       const body = JSON.parse(event.body);
@@ -38,8 +37,7 @@ async function fun(event) {
         JSON.stringify({
           piece: body.piece,
           source: body.source,
-          codeChannel: body.codeChannel,
-          publish,
+          codeChannel: body.codeChannel
         })
       );
       out = { result: "Piece code received!" };

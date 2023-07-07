@@ -109,8 +109,7 @@ export class Socket {
         reload?.({
           name: parsed.piece,
           source: parsed.source,
-          codeChannel: parsed.codeChannel,
-          publish: parsed.publish,
+          codeChannel: parsed.codeChannel
         });
       }
     } else if (type === "left") {

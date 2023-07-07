@@ -1382,8 +1382,7 @@ async function load(
     hash,
     path,
     host = originalHost,
-    slug,
-    publish;
+    slug;
 
   if (loading === false) {
     loading = true;
@@ -1458,8 +1457,12 @@ async function load(
     source = parsed.source;
     slug = parsed.name;
     path = "aesthetic.computer/disks/" + slug;
-    publish = parsed.publish;
     // 📓 Might need to fill in hash, path, or slug here. 23.06.24.18.49
+
+    if (devReload) {
+      // Remember the source and slug for the `publish` command.
+      store["publishable-piece"] = { source, slug };
+    }
   }
 
   // 🅱️ Load the piece.
@@ -1554,43 +1557,6 @@ async function load(
     return false;
   }
 
-  // 📥 Check to see if this code should be published.
-  //    (If the `publish` flag was set on a devReload via $commonApi.reload)
-  if (publish) {
-    console.log("📥 Now publishing...", slug);
-    // Upload to the user's "piece-" directory if possible.
-    $commonApi
-      .upload("piece-" + slug + ".mjs", source)
-      .then((data) => {
-        console.log("🪄 Code uploaded:", data);
-        send({type: "alert", content: `\`${slug}\` was published!`});
-      })
-      .catch((err) => {
-        console.error("🪄 Code upload failed:", err);
-        send({type: "alert", content: `😥 Piece failed to publish.`});
-        // flashColor = [255, 0, 0];
-        // makeFlash($);
-      });
-
-    /*
-    fetch("/publish", {
-      method: "POST",
-      body: source,
-      headers: { "Content-Type": "application/javascript" },
-    })
-      .then((response) => {
-        if (response.ok) {
-          console.log("✅ Publishing successful!");
-        } else {
-          console.warn("🚫 Publishing failed.", response);
-        }
-      })
-      .catch((error) => {
-        console.error("😫 Publishing failed.", error);
-      });
-    */
-  }
-
   // 🧩 Piece code has been loaded...
   //    Now we can instantiate the piece.
 
@@ -1609,7 +1575,7 @@ async function load(
   $commonApi.debug = debug;
 
   // Add reload to the common api.
-  $commonApi.reload = ({ piece, name, source, codeChannel, publish } = {}) => {
+  $commonApi.reload = ({ piece, name, source, codeChannel } = {}) => {
     if (loading) {
       console.log("🟡 A piece is already loading.");
       return;
@@ -1621,12 +1587,7 @@ async function load(
     } else if (name && source) {
       // TODO: Check for existence of `name` and `source` is hacky. 23.06.24.19.27
       // Note: This is used for live development via the socket server.
-      $commonApi.load(
-        { source, name, codeChannel, publish },
-        false,
-        false,
-        true
-      ); // Load source code.
+      $commonApi.load({ source, name, codeChannel }, false, false, true); // Load source code.
     } else if (piece === "*" || piece === undefined || currentText === piece) {
       console.log("💾️ Reloading piece...", piece);
       const devReload = true;

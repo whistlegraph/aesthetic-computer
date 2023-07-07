@@ -8,7 +8,7 @@
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}/vscode-extension"
       ],
-      "name": "Launch aesthetic.computer Extension",
+      "name": "Extension",
       "outFiles": ["${workspaceFolder}/vscode-extension/out/**/*.js"],
       "request": "launch",
       "type": "extensionHost"
