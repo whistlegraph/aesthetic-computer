@@ -26,13 +26,14 @@
 #endregion */
 
 const vscode = require("vscode");
+const fetch = require("node-fetch");
 
 let local = false;
 let activeEditor, codeChannel;
 
 async function activate(context) {
-  const fetch = (...args) =>
-    import("node-fetch").then(({ default: fetch }) => fetch(...args));
+  // const fetch = (...args) =>
+  //   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
   const provider = new AestheticViewProvider(context.extensionUri);
 
