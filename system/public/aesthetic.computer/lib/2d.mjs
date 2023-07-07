@@ -24,7 +24,7 @@ function initialize(wrapper /*, sendToPiece*/) {
   gl.blendEquation(gl.FUNC_ADD);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-  wrapper.append(can); // And add the canvas to the DOM.
+  // wrapper.append(can); // And add the canvas to the DOM.
 }
 
 // Resizes the textures & re-initializes the necessary components for a resolution change.
