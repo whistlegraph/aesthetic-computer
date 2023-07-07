@@ -158,6 +158,7 @@ async function halt($, text) {
     user,
     upload,
     code,
+    send,
   } = $;
   // Roughly parse out the text (could also do a full `parse` here.)
   const tokens = text.split(" ");
@@ -165,7 +166,37 @@ async function halt($, text) {
   const params = tokens.slice(1);
   const input = $.system.prompt.input; // Reference to the TextInput.
 
-  if (text.startsWith("code-channel")) {
+  if (text === "publish") {
+    // Publish the last devReload'ed or dragged piece.
+    const publishablePiece = store["publishable-piece"];
+
+    if (!publishablePiece) {
+      flashColor = [255, 0, 0];
+      makeFlash($);
+      console.error("🪄 No publishable piece found!");
+      return true;
+    }
+
+    const { slug, source } = publishablePiece;
+
+    console.log("📥 Now publishing...", slug);
+
+    // Upload to the user's "piece-" directory if possible.
+    upload("piece-" + slug + ".mjs", source)
+      .then((data) => {
+        console.log("🪄 Code uploaded:", data);
+        flashColor = [0, 255, 0];
+        makeFlash($);
+        send({ type: "alert", content: `\`${slug}\` was published!` });
+      })
+      .catch((err) => {
+        console.error("🪄 Code upload failed:", err);
+        send({ type: "alert", content: `😥 Piece failed to publish.` });
+        flashColor = [255, 0, 0];
+        makeFlash($);
+      });
+  } else if (text.startsWith("code-channel")) {
+    // Set a `code-channel` for piece writing.
     if (!params[0]) {
       flashColor = [255, 0, 0];
     } else {

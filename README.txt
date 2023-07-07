@@ -73,10 +73,11 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Drag + Drop / Publishing ***
-  - [-] Local extension not working.
-  - [🟠] Add an on-screen friendly UI message once a piece has been published.
-  - [-] Only publish to the correct user via the extension. (Not to everyone subscribed...) (See `extension.js`)
   + Done
+  - [x] Only publish to the correct user via the extension. (Not to everyone subscribed...) (See `extension.js`)
+    (Make `publish` command)
+  - [x] Add an on-screen friendly UI message once a piece has been published.
+  - [x] Local extension not working. (SSL Self-signed Error / Unsolvable)
   - [x] Get user hosted pieces to run.
     - [x] Fix cloudflare wrangler dev worker.
   - [x] Get guest hosted pieces to run. 
