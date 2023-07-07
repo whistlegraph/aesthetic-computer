@@ -69,6 +69,10 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** VSCode Extension Nuances ***
+  - [] Refreshing the aesthetic.computer page should load a cached copy of the code. What if `prompt` is being edited?
+  - [] Typing the name of the piece from the prompt should go to the cached copy.
+
 *** Drag + Drop / Publishing ***
   - [🟠] Add an on-screen friendly UI message once a piece has been published.
   - [x] Get user hosted pieces to run.
