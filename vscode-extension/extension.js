@@ -2,6 +2,9 @@
 // A VSCode extension for live reloading aesthetic.computer pieces.
 
 /* #region todo 📓 
+  - [💜] Add flag in the extension for local server. 
+  - [] Publish should no longer publish everywhere / only publish to
+       active user.
   - [-] Replace the SVG.
   + Done
   - [x] Add publish button.
@@ -20,6 +23,7 @@
 const vscode = require("vscode");
 const fetch = require("node-fetch");
 
+let local = false;
 let activeEditor, codeChannel;
 
 function activate(context) {
@@ -40,12 +44,14 @@ function activate(context) {
       .slice(-1)[0]
       .replace(".mjs", "");
 
-    const host = "aesthetic.computer"; // const host = "localhost:8888";
+    const host = local === false ? "aesthetic.computer" : "localhost:8888";
 
     let url = `https://${host}/run`;
     if (publish) url += "?publish=true"; // Set a flag to attempt to publish
     //                                      this piece to the user's account
     //                                      (or the liminal art storage...)
+
+    vscode.window.showInformationMessage("Running via: " + url);
 
     fetch(url, {
       method: "POST",
@@ -54,10 +60,13 @@ function activate(context) {
     })
       .then((res) => res.json())
       .then((response) => {
-        console.log("Success:", JSON.stringify(response));
+        const res = JSON.stringify(response);
+        console.log("Success:", res);
+        vscode.window.showInformationMessage(res);
       })
       .catch((error) => {
         console.error("Error:", error);
+        vscode.window.showInformationMessage(error);
       });
 
     activeEditor = editor; // Set the active editor for live updates.
@@ -69,6 +78,12 @@ function activate(context) {
     }),
     vscode.commands.registerCommand("aestheticComputer.publishPiece", () => {
       upload({ publish: true });
+    }),
+    vscode.commands.registerCommand("aestheticComputer.localServer", () => {
+      local = !local;
+      vscode.window.showInformationMessage(
+        `Local Mode: ${local ? "Enabled" : "Disabled"}`
+      );
     })
   );
 

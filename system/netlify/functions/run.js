@@ -16,6 +16,8 @@ async function fun(event) {
   let status;
   let out;
 
+  console.log("Running a piece...");
+
   if (event.httpMethod !== "POST") {
     status = 405;
     out = { status: "Wrong request type!" };

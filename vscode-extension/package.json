@@ -21,15 +21,15 @@
     "commands": [
       {
         "command": "aestheticComputer.runPiece",
-        "title": "aesthetic.computer: Run Piece ➡️"
+        "title": "aesthetic.computer: Run Piece 🏃"
       },
       {
         "command": "aestheticComputer.publishPiece",
-        "title": "aesthetic.computer: Publish Piece ⬆️️"
+        "title": "aesthetic.computer: Publish Piece 📬️️"
       },
       {
-        "command": "aestheticComputer.enterCode",
-        "title": "aesthetic.computer: Enter Code️"
+        "command": "aestheticComputer.localServer",
+        "title": "aesthetic.computer: Local Server 💻"
       }
     ],
     "viewsContainers": {
@@ -60,6 +60,6 @@
     "@vscode/vsce": "^2.19.0"
   },
   "dependencies": {
-    "node-fetch": "^2.6.7"
+    "node-fetch": "^2.6.12"
   }
 }
