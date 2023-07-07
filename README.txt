@@ -54,6 +54,9 @@
   - [] Zooming in on the page a lot will make the margin too large
        and squash the main display.
   + Dev Only
+  - [] error: invalid data
+    at https://6494585a67d46e0008867e60--edge.netlify.app/bootstrap/cache.ts:1:32 (On Tina's MacBook)
+◈ Reloading edge functions...
   - [] `sfx` do not decode in Safari when using the development servers.
        (Probably due to a local IP address or a CORS issue?)
        - [] Confirm that it's a Safari bug.
@@ -72,6 +75,30 @@
 *** VSCode Extension Nuances ***
   - [] Refreshing the aesthetic.computer page should load a cached copy of the code. What if `prompt` is being edited?
   - [] Typing the name of the piece from the prompt should go to the cached copy.
+
+*** Hands ***
+  📔 General
+- [] Better user acknowledgement of what instantiates or not related to hands,
+     and why. 
+- [] Fade hand alpha and possibly color based on distance from edge of safe zone.
+
+ 🧩 Pieces
+  *** `handtime` ***
+    - [🍏] Send data across the wire of all connected hands and render them. 
+    - [] Fix gesture interactions.  (Need a piece that will require it.)
+    - [] `ht yellow blue` will start a 2 person call where a link is given and
+          guest 2 is blue and you are yellow. 
+
+  *** `handprint` ***
+    - [] See `handprint` for features. 
+    - [❤️‍🔥] Panning the canvas should also pan the hand properly!
+
+  *** `staka` ***
+    - [] Create safe zone boundary that the game takes place in. 
+
+  *** `simon says` ***
+    - [] Combos of TIMOP flash hold on the screen until a user matches the combo. 
+    - [] Then, another combo is shown.
 
 *** Drag + Drop / Publishing ***
   - [🟠] Add an on-screen friendly UI message once a piece has been published.
@@ -92,6 +119,10 @@
 - [] Design “copy” wrapper text for front-facing bots. @ggacjp.
 
 @jeffrey
+- [] status update
+- [] aesthetic.computer/@user should go to that user's page.
+- [] Typing @user on prompt goes to /@user instead of profile.
+- [] Profile name at top left is user's username.
 - [] Add image support and images to front-facing bots. (`gargoyle`, `liar` … )
 - [] Finish all todos in `botce`. 
   - [] Remove `botce` from intro text.
@@ -204,9 +235,6 @@
     - [] Both on desktop and on mobile.
   - [] These screenshots need to be published automatically upon getting
        a confirmation modal. 
-
-*** `handprint` ***
-  - [] Make a little happy hands style paint brush.
 
 *** handle ***
   - [] handle
@@ -393,65 +421,6 @@
     - [] Custom webview styling for native embed.
     + Next
     - [] Aggregator API / social features / turn-based painting.
-
-*** Happy Hands 🖐️😃 ***
-  😎 Now
-    - [-] See `happy-hands-assembler` 
-    + Done
-    - [x] Put hand-tracking data in core loop?
-    - [x] Test `@mediapipe` tracking integration on iOS.
-      - [x] Get multiple refreshes working on iOS without losing tracking?
-        - (Create new landMarker but dont reload libs?)
-      - [x] Get geometry working properly across all systems.
-      - [x] Get rotation working on iOS.
-    - [x] https://mediapipe-studio.webapps.google.com/demo/hand_landmarker
-         Performance comparison ^
-      - [x] Also test original demo and hand_landmarker above on Firefox!
-    - [x] Profile `@mediapipe` for memory leaks in the worker context.
-
-  ➡️ Next
-    - [] Plan next meeting w/ Tina. (6th)
-    - [] Explore gesture recognition model: https://mediapipe-studio.webapps.google.com/demo/gesture_recognizer
-
-  📓 Notes & Spec
-    (All hands are defined by integer ids 0-n)
-    - Creating and Publishing
-
-    (pattern -> body) -> style -> face
-      mesh creation
-
-    1. `hhf` aka `happy-hand-factory` with an integer.
-          - Tie us to working with a particular hand and jumps to step A by default.
-      - Go to another step with: `hhf:body 800` 
-
-    - Viewing and Using
-    1. `hh` or `happy-hand` takes you to using a random hand from 0-n.
-    2. `hh 800` will view a hand
-
-    + Later
-    3. `hh 100 200` will start a 2 person call where a link is given and
-        guest 2 is 200. 
-    4. `ht` or `hand-time` is just a `hh` alias?
-    5. `ht 5` -> a room with 5 random hands?
-
-  ✅ Done
-    Thursday
-    - [x] Got hand data working!
-    - [x] Fix framebuffer initialization error from mediapipe loading delay. (@jeffrey)
-    Wednesday
-    - [x] Integrate `@mediapipe/hands` into the project. 
-    Tuesday
-    - [x] Draw and define the 2D mesh thingy inside `pattern`.
-    Monday
-    - [x] Define command set for pipeline.
-    - [x] Create `hhf` piece. (hhf.mjs)
-    - [x] Onboard @ttarigh to the repo. 
-    - [x] Set on the client a global variable that determines what
-          hand we are "on".
-    - [x] Limit the count to 1024 or something like that. 
-    - [x] Fail if no param.
-    - [x] Find good name for this process...
-    - [x] Creating `happy-hands-factory` with an alias `hhf`.
 
 *** `grocery` ***
   - [] Sampling keyboard with speech to text for grocery lists,
