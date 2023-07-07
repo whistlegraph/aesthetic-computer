@@ -31,7 +31,7 @@ export class Socket {
 
     // Send a message to the console after the first connection.
     ws.onopen = (e) => {
-      // if (this.#debug) console.log("📡 Connected"); // Redundant log given an initial message from the server.
+      /*if (this.#debug)*/ console.log("📡 Connected"); // Redundant log given an initial message from the server.
       this.#queue.forEach((q) => this.send(...q)); // Send any held messages.
       this.#reconnectTime = 1000;
       connectCallback?.(); // Run any post-connection logic, like setting codeChannel for example.
@@ -109,7 +109,7 @@ export class Socket {
         reload?.({
           name: parsed.piece,
           source: parsed.source,
-          codeChannel: parsed.codeChannel
+          codeChannel: parsed.codeChannel,
         });
       }
     } else if (type === "left") {
