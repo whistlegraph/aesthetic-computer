@@ -2,8 +2,9 @@
 // A VSCode extension for live reloading aesthetic.computer pieces.
 
 /* #region todo 📓 
-  - [] Publish should no longer publish everywhere / only publish to
+  - [-] Publish should no longer publish everywhere / only publish to
        active user.
+       - [-] Remove publish from here and add it to the main prompt.
   - [-] Replace the SVG.
   + Done
   - [x] Add aesthetic.computer extension launch configuration for debugging.
@@ -23,7 +24,6 @@
 #endregion */
 
 const vscode = require("vscode");
-const https = require("https");
 
 let local = false;
 let activeEditor, codeChannel;
@@ -41,7 +41,7 @@ async function activate(context) {
     )
   );
 
-  function upload({ publish }) {
+  function upload() {
     let editor = vscode.window.activeTextEditor;
     let source = editor.document.getText();
     const piece = editor.document.fileName
@@ -53,13 +53,8 @@ async function activate(context) {
     const host = local === false ? "aesthetic.computer" : "localhost:8888";
 
     let url = `https://${host}/run`;
-    if (publish) url += "?publish=true"; // Set a flag to attempt to publish
-    //                                      this piece to the user's account
-    //                                      (or the liminal art storage...)
 
     vscode.window.showInformationMessage("Running via: " + url);
-
-    let agent;
 
     fetch(url, {
       method: "POST",
@@ -81,9 +76,6 @@ async function activate(context) {
   context.subscriptions.push(
     vscode.commands.registerCommand("aestheticComputer.runPiece", () => {
       upload({ publish: false });
-    }),
-    vscode.commands.registerCommand("aestheticComputer.publishPiece", () => {
-      upload({ publish: true });
     }),
     vscode.commands.registerCommand("aestheticComputer.localServer", () => {
       local = !local;
@@ -133,10 +125,6 @@ class AestheticViewProvider {
           vscode.commands.executeCommand("aestheticComputer.runPiece");
           break;
         }
-        case "publishPiece": {
-          vscode.commands.executeCommand("aestheticComputer.publishPiece");
-          break;
-        }
       }
     });
   }
@@ -178,9 +166,17 @@ class AestheticViewProvider {
 				<title>aesthetic.computer</title>
 			</head>
 			<body>
+        <h3>🧩 Piece</h3>
+        <p>
+        Set a <code>code-channel</code> on the <code>prompt</code> and enter it below.
+        </p>
         <input id="code" placeholder="Enter Code Channel" type="text"></input>
+        <br>
 				<button id="run">Run Piece</button>
-				<button id="publish">Publish</button>
+        <br>
+        <p>
+        Type <code>publish</code> on the <code>prompt</code> to make it public.
+        </p>
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
