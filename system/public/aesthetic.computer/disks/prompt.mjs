@@ -187,14 +187,19 @@ async function halt($, text) {
         console.log("🪄 Code uploaded:", data);
         flashColor = [0, 255, 0];
         makeFlash($);
-        send({ type: "alert", content: `\`${slug}\` was published!` });
+        const route = handle ? `${handle}/${data.slug}` : data.slug;
+        send({ type: "alert", content: `\`${route}\` was published!` });
       })
       .catch((err) => {
         console.error("🪄 Code upload failed:", err);
-        send({ type: "alert", content: `😥 Piece failed to publish.` });
+        send({
+          type: "alert",
+          content: `😥 Piece: \`${slug}\` failed to publish.`,
+        });
         flashColor = [255, 0, 0];
         makeFlash($);
       });
+    return true;
   } else if (text.startsWith("code-channel")) {
     // Set a `code-channel` for piece writing.
     if (!params[0]) {
