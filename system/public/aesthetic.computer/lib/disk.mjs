@@ -1563,15 +1563,11 @@ async function load(
       .upload("piece-" + slug + ".mjs", source)
       .then((data) => {
         console.log("🪄 Code uploaded:", data);
-        // flashColor = [0, 255, 0];
-        // makeFlash($);
-        // const slug = user
-        // ? `${handle || user.email}/painting/${data.slug}`
-        // : data.slug;
-        // jump(`download:painting ${slug}`);
+        send({type: "alert", content: `\`${slug}\` was published!`});
       })
       .catch((err) => {
         console.error("🪄 Code upload failed:", err);
+        send({type: "alert", content: `😥 Piece failed to publish.`});
         // flashColor = [255, 0, 0];
         // makeFlash($);
       });

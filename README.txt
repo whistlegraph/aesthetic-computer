@@ -73,7 +73,10 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Drag + Drop / Publishing ***
+  - [-] Local extension not working.
   - [🟠] Add an on-screen friendly UI message once a piece has been published.
+  - [-] Only publish to the correct user via the extension. (Not to everyone subscribed...) (See `extension.js`)
+  + Done
   - [x] Get user hosted pieces to run.
     - [x] Fix cloudflare wrangler dev worker.
   - [x] Get guest hosted pieces to run. 
@@ -83,9 +86,7 @@
   - [x] Fix debug live-reload blank load from prompt.
   - [x] Fix drag + drop coding not finding code signal. (disk:1426)
 
-  + Done
-  - [x] Design “copy” wrapper text for front-facing bots. @ggacjp.
-@jeffrey
+*** Friday Polishing ***
 - [] status update
 - [] aesthetic.computer/@user should go to that user's page.
 - [] Typing @user on prompt goes to /@user instead of profile.
@@ -101,6 +102,8 @@
 - [] "?" appears after typing a valid word.
   - [] "?" jumps to a `learn piece` page for learning more about a piece.
 - [] Better dynamic `preview` / thumbnail images.
++ Done
+- [x] Design “copy” wrapper text for front-facing bots. @ggacjp.
 
 *** Learn ***
 - [] Start writing "learn" pages for some existing commands or bots.

@@ -953,6 +953,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+
+    // Show a classic DOM / window style alert box.
+    if (type === "alert") {
+      window.alert(content);
+      return;
+    }
+
     // Add a DOM event hitbox for the `Button Hitboxes`
     // event listener on the document.
     // 📓 Adding the same label multiple times will have no additional effect.
