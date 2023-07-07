@@ -2,11 +2,13 @@
 // A VSCode extension for live reloading aesthetic.computer pieces.
 
 /* #region todo 📓 
-  - [-] Publish should no longer publish everywhere / only publish to
-       active user.
-       - [-] Remove publish from here and add it to the main prompt.
   - [-] Replace the SVG.
   + Done
+  - [x] Write better sidebar docs.
+  - [x] Publish should no longer publish everywhere / only publish to
+       active user.
+       - [x] Add a `publish` command to the main prompt.
+       - [x] Remove publish from here
   - [x] Add aesthetic.computer extension launch configuration for debugging.
   - [x] Add flag in the extension for local server. 
         (VSCode yields SSL errors.)
@@ -166,14 +168,18 @@ class AestheticViewProvider {
 				<title>aesthetic.computer</title>
 			</head>
 			<body>
-        <h3>🧩 Piece</h3>
+        <h3>⚙️ Setup</h3>
         <p>
-        Set a <code>code-channel</code> on the <code>prompt</code> and enter it below.
+        Set a <code>code-channel</code> on the <code>prompt</code> and enter it here.
         </p>
         <input id="code" placeholder="Enter Code Channel" type="text"></input>
         <br>
+        <h3>💻 Code</h3>
+        <p>Run any piece in your active editor.</p>
 				<button id="run">Run Piece</button>
         <br>
+        <br>
+        <h3>🧩 Publish</h3>
         <p>
         Type <code>publish</code> on the <code>prompt</code> to make it public.
         </p>

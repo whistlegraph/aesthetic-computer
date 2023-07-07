@@ -2423,6 +2423,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           let audioBuffer;
           try {
             audioBuffer = await audioContext.decodeAudioData(sfx[content.sfx]);
+            debugger;
             if (debug && logs.audio) console.log("🔈 Decoded:", content.sfx);
             sfx[content.sfx] = audioBuffer;
           } catch (err) {
