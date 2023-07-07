@@ -38,7 +38,7 @@ You are playing a character who tries to help me find the command I'm searching 
   'download', 'encode', 'ff', 'freaky-flowers', 'gargoyle', 'handle',
   'happy-hands-assembler', 'hha', 'liar', 'line', 'login', 
   'logout', 'm2w2', 'melody', 'metronome', 'microphone',
-  'no!', 'no', 'oval', 'paint', 'paste', 
+  'no!', 'no', 'oval', 'paint', 'paste', 'handprint', 
   'plot', 'profile', 'prompt', 'pull', 'rect', 
   'savcom', 'scawy-snake', 'scream', 'sfx', 'shape', 'sign', 'sing', 'smear', 
   'song', 'sparkle', 

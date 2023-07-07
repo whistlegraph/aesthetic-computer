@@ -5,14 +5,14 @@
 #endregion */
 
 /* #region 🏁 TODO 
-- [-] Generate falling shapes 
-- [] Catch falling shapes on the line
-- [] Create screen boundaries for where the console can be used  
-- [] Game start, game over
-- [] Hand is working/not working
++ Later
+- [] Title Screen
+- [] Game Over
+- [] Sound
 - [] Levels
-- [] Beeps
 + Done
+- [x] Generate falling shapes.
+- [x] Collide falling shapes on the line.
 - [x] Recognize shaka gesture based on T and P y values 
 - [x] Draw line between T and P 
 #endregion */
@@ -34,12 +34,8 @@ function boot({ num, geo, screen }) {
 
 // 🎨 Paint
 function paint($) {
-  const {
-    wipe,
-    ink,
-    screen: { height },
-    num,
-  } = $;
+  const { wipe, ink, screen: { height }, num, } = $;
+
   wipe(127);
 
   handInput.paint($, { faded: plate !== undefined }); // Uses calculated points.
