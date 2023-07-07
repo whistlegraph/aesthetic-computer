@@ -1,0 +1,3 @@
+To manually publish, visit: https://marketplace.visualstudio.com/manage/publishers/aesthetic-computer
+
+To develop, use the debug "Launch aesthetic.computer extension" configuration.

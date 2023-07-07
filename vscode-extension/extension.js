@@ -2,11 +2,13 @@
 // A VSCode extension for live reloading aesthetic.computer pieces.
 
 /* #region todo 📓 
-  - [💜] Add flag in the extension for local server. 
   - [] Publish should no longer publish everywhere / only publish to
        active user.
   - [-] Replace the SVG.
   + Done
+  - [x] Add aesthetic.computer extension launch configuration for debugging.
+  - [x] Add flag in the extension for local server. 
+        (VSCode yields SSL errors.)
   - [x] Add publish button.
   - [x] Fix the extension manifest.
   - [x] Add instructions to the html view.
@@ -21,12 +23,15 @@
 #endregion */
 
 const vscode = require("vscode");
-const fetch = require("node-fetch");
+const https = require("https");
 
 let local = false;
 let activeEditor, codeChannel;
 
-function activate(context) {
+async function activate(context) {
+  const fetch = (...args) =>
+    import("node-fetch").then(({ default: fetch }) => fetch(...args));
+
   const provider = new AestheticViewProvider(context.extensionUri);
 
   context.subscriptions.push(
@@ -44,6 +49,7 @@ function activate(context) {
       .slice(-1)[0]
       .replace(".mjs", "");
 
+    // 📓 The `local` probably won't work due to VSCode's Proxy.
     const host = local === false ? "aesthetic.computer" : "localhost:8888";
 
     let url = `https://${host}/run`;
@@ -53,14 +59,14 @@ function activate(context) {
 
     vscode.window.showInformationMessage("Running via: " + url);
 
+    let agent;
+
     fetch(url, {
       method: "POST",
       body: JSON.stringify({ piece, source, codeChannel }),
       headers: { "Content-Type": "application/json" },
     })
-      .then((res) => res.json())
-      .then((response) => {
-        const res = JSON.stringify(response);
+      .then((res) => {
         console.log("Success:", res);
         vscode.window.showInformationMessage(res);
       })
