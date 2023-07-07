@@ -54,9 +54,8 @@
   - [] Zooming in on the page a lot will make the margin too large
        and squash the main display.
   + Dev Only
-  - [] error: invalid data
-    at https://6494585a67d46e0008867e60--edge.netlify.app/bootstrap/cache.ts:1:32 (On Tina's MacBook)
-◈ Reloading edge functions...
+  - [] `error: invalid data - Reloading edge functions...
+    at https://6494585a67d46e0008867e60--edge.netlify.app/bootstrap/cache.ts:1:32` (On Tina's MacBook)
   - [] `sfx` do not decode in Safari when using the development servers.
        (Probably due to a local IP address or a CORS issue?)
        - [] Confirm that it's a Safari bug.
@@ -72,34 +71,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** VSCode Extension Nuances ***
-  - [] Refreshing the aesthetic.computer page should load a cached copy of the code. What if `prompt` is being edited?
-  - [] Typing the name of the piece from the prompt should go to the cached copy.
-
-*** Hands ***
-  📔 General
-- [] Better user acknowledgement of what instantiates or not related to hands,
-     and why. 
-- [] Fade hand alpha and possibly color based on distance from edge of safe zone.
-
- 🧩 Pieces
-  *** `handtime` ***
-    - [🍏] Send data across the wire of all connected hands and render them. 
-    - [] Fix gesture interactions.  (Need a piece that will require it.)
-    - [] `ht yellow blue` will start a 2 person call where a link is given and
-          guest 2 is blue and you are yellow. 
-
-  *** `handprint` ***
-    - [] See `handprint` for features. 
-    - [❤️‍🔥] Panning the canvas should also pan the hand properly!
-
-  *** `staka` ***
-    - [] Create safe zone boundary that the game takes place in. 
-
-  *** `simon says` ***
-    - [] Combos of TIMOP flash hold on the screen until a user matches the combo. 
-    - [] Then, another combo is shown.
-
 *** Drag + Drop / Publishing ***
   - [🟠] Add an on-screen friendly UI message once a piece has been published.
   - [x] Get user hosted pieces to run.
@@ -111,13 +82,8 @@
   - [x] Fix debug live-reload blank load from prompt.
   - [x] Fix drag + drop coding not finding code signal. (disk:1426)
 
-*** Thursday ***
-- [] Form an email response and have a call with Gemma.
-- [] Itemize demonstrable June improvements to aesthetic.computer. (To be presented live as a thank you for the investment.)
-- [] Investor planning / summer + fall strategy chat.
----------
-- [] Design “copy” wrapper text for front-facing bots. @ggacjp.
-
+  + Done
+  - [x] Design “copy” wrapper text for front-facing bots. @ggacjp.
 @jeffrey
 - [] status update
 - [] aesthetic.computer/@user should go to that user's page.
@@ -126,7 +92,7 @@
 - [] Add image support and images to front-facing bots. (`gargoyle`, `liar` … )
 - [] Finish all todos in `botce`. 
   - [] Remove `botce` from intro text.
-- [] Add name to top left corner of bots.
+- [] Add name to top left corner of all bots.
 - [] Add starfield to prompt.
 - [] Tappable floaty words on prompt.
 - [] Gutter max with but no min width o.
@@ -167,6 +133,36 @@
   - [] Abstract the graph api into `Y` calls so both compositors can be run
        simultaneously on sample pieces.
 
+*** VSCode Extension Nuances ***
+  - [] Refreshing the aesthetic.computer page should load a cached copy of the code. What if `prompt` is being edited?
+  - [] Typing the name of the piece from the prompt should go to the cached copy.
+
+--
+
+*** Hands ***
+  📔 General
+- [] Better user acknowledgement of what instantiates or not related to hands,
+     and why. 
+- [] Fade hand alpha and possibly color based on distance from edge of safe zone.
+
+ 🧩 Pieces
+  *** `handtime` ***
+    - [🍏] Send data across the wire of all connected hands and render them. 
+    - [] Fix gesture interactions.  (Need a piece that will require it.)
+    - [] `ht yellow blue` will start a 2 person call where a link is given and
+          guest 2 is blue and you are yellow. 
+
+  *** `handprint` ***
+    - [] See `handprint` for features. 
+    - [❤️‍🔥] Panning the canvas should also pan the hand properly!
+
+  *** `staka` ***
+    - [] Create safe zone boundary that the game takes place in. 
+
+  *** `simon says` ***
+    - [] Combos of TIMOP flash hold on the screen until a user matches the combo. 
+    - [] Then, another combo is shown.
+
 *** bb ***
   - [] Make a game state.
     - [] Title
@@ -205,9 +201,6 @@
   - [x] Fix `resize` call in plot.
   - [x] Is `scale` working?
 
-*** fr moca notes ***
-  - [] Get mushrooms talking to humans. (Harry)
-
 *** Launch Goodies ***
   - [] Tapping top-left corner label should always highlight the text.
     - [] Doesn't work on `bleep`.
@@ -230,14 +223,20 @@
   + Done
   - [x] Auth0 login customization and email notification customization.
 
+*** iOS Native App ***
+  - [] Figure out the best way to make a wrapper now.
+  - [] Get stickers into a keyboard / live sticker creation with the drawing
+       tools. (Research in GPT)
+  - [] Also get it work on Android too. (Can use Browserstack for APK testing.)
+  - [] Add notifications.
+  - [] Submit to store with notifications enabled, usernames and posts.
+
+
 *** global screenshot key ***
   - [] There needs to be a system wide method of capturing a screenshot.
     - [] Both on desktop and on mobile.
   - [] These screenshots need to be published automatically upon getting
        a confirmation modal. 
-
-*** handle ***
-  - [] handle
 
 *** `prompt` system ***
   + UI Gripes
@@ -341,11 +340,6 @@
   - [] Add a useful right click menu for desktop / mouse users that
        runs across all pieces.
 
-*** `sotce` ***
-  - [] Clean up `paint` code.
-  - [] Make single answer prototype.
-    - [] Abstract `ask` out of `paint`.
-
 *** `about` ***
   - [] Color code the output / perhaps even show it on the prompt?
 + Done
@@ -442,14 +436,6 @@
       black word fish 🧠 (use any word)
       black line
       download
-
-*** iOS Native App ***
-  - [] Figure out the best way to make a wrapper now.
-  - [] Get stickers into a keyboard / live sticker creation with the drawing
-       tools. (Research in GPT)
-  - [] Also get it work on Android too. (Can use Browserstack for APK testing.)
-  - [] Add notifications.
-  - [] Submit to store with notifications enabled, usernames and posts.
 
 *** brush ***
   - [] Write a query and get back dynamic brush code in response.
