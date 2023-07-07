@@ -56,7 +56,6 @@
     "@vscode/vsce": "^2.19.0"
   },
   "dependencies": {
-    "got": "^13.0.0",
     "node-fetch": "^3.3.1"
   }
 }
