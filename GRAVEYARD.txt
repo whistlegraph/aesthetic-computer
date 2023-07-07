@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** fr moca notes ***
+  - [🍄] Get mushrooms talking to humans. (Harry)
+
 *** Happy Hands 🖐️😃 ***
     + Done
     - [x] Put hand-tracking data in core loop?
