@@ -748,12 +748,13 @@ function makeMotd({ handle, user }) {
   // `  to learn more!                                ` +
   // `                                                ` +
   // `mail@aesthetic.computer                         `;
-  if (user) {
-    motd =
-      `Welcome back, ${handle || user.name}!`.padEnd(48) +
-      " ".padEnd(48) +
-      motd;
-  } else motd = "You are basically welcome to sign up now. ;)";
+  // if (user) {
+  //   motd =
+  //     `Welcome back, ${handle || user.name}!`.padEnd(48) +
+  //     " ".padEnd(48) +
+  //     motd;
+  // } else motd = "You are basically welcome to sign up now. ;)";
+  motd = "protect my computer.\nprotect my baby."
   return motd;
 }
 
