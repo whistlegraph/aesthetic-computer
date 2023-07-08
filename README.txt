@@ -89,7 +89,8 @@
   - [x] Fix drag + drop coding not finding code signal. (disk:1426)
 
 *** Friday Polishing ***
-- [] status update
+- [] Status update support. Set my status to motd automatically.
+- [] Scream does not render on top of homepage buttons.
 - [] aesthetic.computer/@user should go to that user's page.
 - [] Typing @user on prompt goes to /@user instead of profile.
 - [] Profile name at top left is user's username.
@@ -97,6 +98,8 @@
 - [] Finish all todos in `botce`. 
   - [] Remove `botce` from intro text.
 - [] Add name to top left corner of all bots.
+- [] Back browser button should bring up mobile keyboard.
+- [] Spaces on new line breaks no longer work on `prompt` ?
 - [] Add starfield to prompt.
 - [] Tappable floaty words on prompt.
 - [] Gutter max with but no min width o.
