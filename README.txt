@@ -72,38 +72,22 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Drag + Drop / Publishing ***
-  - [🟠] Test `publish` command by using new extension. 
-  + Done
-  - [x] Only publish to the correct user via the extension. (Not to everyone subscribed...) (See `extension.js`)
-    (Make `publish` command)
-  - [x] Add an on-screen friendly UI message once a piece has been published.
-  - [x] Local extension not working. (SSL Self-signed Error / Unsolvable)
-  - [x] Get user hosted pieces to run.
-    - [x] Fix cloudflare wrangler dev worker.
-  - [x] Get guest hosted pieces to run. 
-  - [x] Add publish command underneath `Run Piece`.
-  - [x] Test code-channel re-routing along with drag + drop.
-  - [x] Filter codeChannel messages on the server.
-  - [x] Fix debug live-reload blank load from prompt.
-  - [x] Fix drag + drop coding not finding code signal. (disk:1426)
-
 *** Friday Polishing ***
-- [] status update
 - [] aesthetic.computer/@user should go to that user's page.
 - [] Typing @user on prompt goes to /@user instead of profile.
 - [] Profile name at top left is user's username.
+- [] status updates
 - [] Add image support and images to front-facing bots. (`gargoyle`, `liar` … )
+- [] Add name to top left corner of all bots.
+- [] Better dynamic `preview` / thumbnail images.
 - [] Finish all todos in `botce`. 
   - [] Remove `botce` from intro text.
-- [] Add name to top left corner of all bots.
 - [] Add starfield to prompt.
 - [] Tappable floaty words on prompt.
 - [] Gutter max with but no min width o.
   - [] Draggable gutter?
 - [] "?" appears after typing a valid word.
   - [] "?" jumps to a `learn piece` page for learning more about a piece.
-- [] Better dynamic `preview` / thumbnail images.
 + Done
 - [x] Design “copy” wrapper text for front-facing bots. @ggacjp.
 
