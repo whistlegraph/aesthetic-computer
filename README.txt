@@ -72,8 +72,10 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Friday Polishing ***
-- [] status updates
+*** Saturday Polishing ***
+- [] `motd` command / status updates per user 
+     (visible on their profiles)
+     
 - [] Add image support and images to front-facing bots. (`gargoyle`, `liar` … )
 - [] Add name to top left corner of all bots.
 - [] Better dynamic `preview` / thumbnail images.
