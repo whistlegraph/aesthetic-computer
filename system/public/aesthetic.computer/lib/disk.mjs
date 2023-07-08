@@ -173,14 +173,7 @@ let currentPath,
   currentHUDButton,
   currentHUDOffset;
 let loading = false;
-
 let reframe;
-let reframed = false;
-
-const signals = []; // Easy messages from embedded DOM content.
-const actAlerts = []; // Messages that get put into act and cleared after
-// every frame.
-
 let screen;
 let currentDisplay; // TODO: Remove this? 22.09.29.11.38
 let cursorCode;
@@ -358,39 +351,6 @@ class Recorder {
     send({ type: "recorder:present:pause" });
   }
 }
-
-// ✔ For adding new content to the DOM. 
-//   (Requires `send`)
-class Content {
-  nodes = [];
-  #id = 0;
-
-  constructor() {}
-
-  // Make a request to add new content to the DOM.
-  add(content) {
-    // if (debug) console.log("📃 Adding content:", content);
-    this.nodes.push({ id: this.#id });
-    this.#id = this.nodes.length - 1;
-    send({ type: "content-create", content: { id: this.#id, content } });
-    return this.nodes[this.nodes.length - 1];
-  }
-
-  remove() {
-    send({ type: "content-remove" });
-    this.nodes = [];
-    this.#id = 0;
-  }
-
-  receive({ id, response }) {
-    this.nodes[id].response = response;
-  }
-
-  //update({ id, msg }) {
-  //  send({ type: "content-update", content: { id, msg } });
-  //}
-}
-
 
 let lastActAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
@@ -1451,10 +1411,11 @@ async function load(
     // username.
     if (slug.startsWith("@") && slug.indexOf("/") === -1) {
       params = [slug, ...params]; // Rewrite all params for `@user` slug urls.
-      slug = "profile"; // Go to `profile` instead of the `@user`.
+      //slug = "profile"; // Go to `profile` instead of the `@user`.
+      const hiddenSlug = "profile";
       // Rewrite path to `profile`.
       console.log("Path:", path);
-      path = [...path.split("/").slice(0, -1), slug].join("/");
+      path = [...path.split("/").slice(0, -1), hiddenSlug].join("/");
     }
 
     // Update the user handle if it changed between pieces.
@@ -2129,6 +2090,39 @@ function send(data, shared = []) {
 let codeChannel = await store.retrieve("code-channel");
 if (codeChannel.length > 0) console.log("💻 Code channel:", codeChannel);
 
+// 3. ✔ Add any APIs that require send.
+//      Just the `content` API for now.
+//      TODO: Move others from makeFrame into here.
+class Content {
+  nodes = [];
+  #id = 0;
+
+  constructor() {}
+
+  // Make a request to add new content to the DOM.
+  add(content) {
+    // if (debug) console.log("📃 Adding content:", content);
+    this.nodes.push({ id: this.#id });
+    this.#id = this.nodes.length - 1;
+    send({ type: "content-create", content: { id: this.#id, content } });
+    return this.nodes[this.nodes.length - 1];
+  }
+
+  remove() {
+    send({ type: "content-remove" });
+    this.nodes = [];
+    this.#id = 0;
+  }
+
+  receive({ id, response }) {
+    this.nodes[id].response = response;
+  }
+
+  //update({ id, msg }) {
+  //  send({ type: "content-update", content: { id, msg } });
+  //}
+}
+
 // 4. ✔ Respond to incoming messages, and probably produce a frame.
 // Boot procedure:
 // First `paint` happens after `boot`, then any `act` and `sim`s each frame
@@ -2142,6 +2136,10 @@ if (codeChannel.length > 0) console.log("💻 Code channel:", codeChannel);
 // TODO: Make simple needsPaint example.
 // TODO: Try to remove as many API calls from here as possible.
 
+const signals = []; // Easy messages from embedded DOM content.
+const actAlerts = []; // Messages that get put into act and cleared after
+// every frame.
+let reframed = false;
 async function makeFrame({ data: { type, content } }) {
   // Runs once on boot.
   if (type === "init-from-bios") {
