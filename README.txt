@@ -73,16 +73,12 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Friday Polishing ***
-- [] aesthetic.computer/@user should go to that user's page.
-- [] Typing @user on prompt goes to /@user instead of profile.
-- [] Profile name at top left is user's username.
 - [] status updates
 - [] Add image support and images to front-facing bots. (`gargoyle`, `liar` … )
 - [] Add name to top left corner of all bots.
 - [] Better dynamic `preview` / thumbnail images.
 - [] Finish all todos in `botce`. 
   - [] Remove `botce` from intro text.
-- [] Back browser button should bring up mobile keyboard.
 - [] Spaces on new line breaks no longer work on `prompt` ?
 - [] Add starfield to prompt.
 - [] Tappable floaty words on prompt.
@@ -91,6 +87,11 @@
 - [] "?" appears after typing a valid word.
   - [] "?" jumps to a `learn piece` page for learning more about a piece.
 + Done
+- [x] Typing @user on prompt goes to /@user instead of profile.
+- [x] Profile name at top left is user's username.
+- [x] aesthetic.computer/@user should go to that user's page.
+- [x] Back browser button should bring up mobile keyboard. (This could never happen on Safari, might happen on Android)
+- [x] Fix Safari regression.
 - [x] Design “copy” wrapper text for front-facing bots. @ggacjp.
 
 *** Learn ***

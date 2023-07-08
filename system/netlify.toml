@@ -139,6 +139,10 @@
   to = "/.netlify/functions/vary"
   status = 200
 [[redirects]]
+  from = "/api/profile/*"
+  to = "/.netlify/functions/profile"
+  status = 200
+[[redirects]]
   from = "/handle"
   to = "/.netlify/functions/handle"
   status = 200
