@@ -237,9 +237,10 @@ async function halt($, text) {
       .then((data) => {
         console.log("🪄 Code uploaded:", data);
         flashColor = [0, 255, 0];
-        makeFlash($);
         const route = handle ? `${handle}/${data.slug}` : data.slug;
+        makeFlash($);
         send({ type: "alert", content: `\`${route}\` was published!` });
+        jump(route);
       })
       .catch((err) => {
         console.error("🪄 Code upload failed:", err);
@@ -355,6 +356,7 @@ async function halt($, text) {
           makeFlash($);
         });
     }
+    system.prompt.input.blank();
     return true;
   } else if (slug === "resize" || slug === "res") {
     // Resize the active painting if one exists, or make one at this

@@ -202,6 +202,9 @@ let scream = null; // 😱 Allow priviledged users to send alerts to everyone.
 let screaming = false;
 let screamingTimer; // Keep track of scream duration.
 
+const ambientPenPoints = []; // Render cursor points of other active users,
+//                              dumped each frame.
+
 // *** Dark Mode ***
 // Pass `true` or `false` to override or `default` to the system setting.
 function darkMode(enabled = !$commonApi.dark) {
@@ -1660,10 +1663,19 @@ async function load(
     socket.connect(
       new URL(sesh.url).host,
       (id, type, content) => {
+        // Globally receivable messages...
+        // (There are also some messages handled in `Socket`)
+
         // 😱 Scream at everyone who is connected!
         if (type === "scream") {
           console.log("😱 Scream:", content, "❗");
           scream = content;
+        }
+
+        // 🧚 Ambient cursor support.
+        if (type === "ambient-pen:point" && socket.id !== id) {
+          ambientPenPoints.push(content);
+          // console.log(socket.id, id, type, content);
         }
 
         receiver?.(id, type, content); // Run the piece receiver.
@@ -2680,6 +2692,16 @@ async function makeFrame({ data: { type, content } }) {
         primaryPointer.multipen = true; // Set a flag for multipen activity on main pen API object.
 
       $commonApi.pen = primaryPointer; // || { x: undefined, y: undefined };
+
+      if (
+        primaryPointer &&
+        (primaryPointer.delta.x !== 0 || primaryPointer.delta.y !== 0)
+      ) {
+        socket?.send("ambient-pen:point", {
+          x: primaryPointer.x,
+          y: primaryPointer.y,
+        });
+      }
     }
 
     // 🕶️ VR Pen
@@ -3222,7 +3244,10 @@ async function makeFrame({ data: { type, content } }) {
 
       // Attempt a paint.
       //if (noPaint === false && booted && loading === false) {
-      if ((noPaint === false || scream) && booted) {
+      if (
+        (noPaint === false || scream || ambientPenPoints.length > 0) &&
+        booted
+      ) {
         let paintOut;
 
         try {
@@ -3255,8 +3280,11 @@ async function makeFrame({ data: { type, content } }) {
         // Run everything that was queued to be painted, then devour paintLayers.
         //await painting.paint();
 
+        // Upper layer.
+
         // 😱 Scream - Paint a scream if it exists.
         // TODO: Should this overlay after the fact and not force a paint? 23.05.23.19.21
+        //       Yes probably, because of layering issues?
         if (scream || screaming) {
           const { ink, needsPaint } = $api;
           ink(255)
@@ -3272,6 +3300,15 @@ async function makeFrame({ data: { type, content } }) {
             }, 1000);
           }
         }
+
+        // 🧚 Ambient Pen Points - Paint if they exist.
+        const { ink, needsPaint } = $api;
+        ambientPenPoints.forEach((xy) => ink().point(xy));
+        if (ambientPenPoints.length > 0) {
+          needsPaint();
+          if (system === "nopaint") $api.system.nopaint.needsPresent = true;
+        }
+        ambientPenPoints.length = 0;
 
         painting.paint(true);
         painted = true;
