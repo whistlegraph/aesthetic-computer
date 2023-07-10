@@ -20,6 +20,7 @@ export class Socket {
 
   // Connects a WebSocket object and takes a handler for messages.
   connect(host, receive, reload, protocol = "wss", connectCallback) {
+    this.#killSocket = false;
     try {
       this.#ws = new WebSocket(`${protocol}://${host}`);
     } catch {
