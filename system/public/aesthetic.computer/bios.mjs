@@ -953,7 +953,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
-
     // Show a classic DOM / window style alert box.
     if (type === "alert") {
       window.alert(content);
@@ -2927,7 +2926,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Downloads both cached files via `data` and network stored files for
   // users and guests.
   async function receivedDownload({ filename, data, modifiers }) {
-    console.log("💾 Downloading:", filename, typeof data);
+    console.log("💾 Downloading:", filename);
+    if (data) console.log("Data:", typeof data);
 
     let object;
     let MIME = "application/octet-stream"; // Default content type.
@@ -3006,6 +3006,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     a.href = object;
     a.target = "_blank";
     a.download = filename.split("/").pop(); // Remove any extra paths.
+    console.log(a.download);
 
     a.click();
     if (typeof a.href !== "string") URL.revokeObjectURL(a.href);
