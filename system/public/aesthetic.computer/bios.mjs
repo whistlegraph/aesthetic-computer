@@ -1088,7 +1088,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const token = await authorize();
       send({
         type: "authorization:response",
-        content: { data: token, result: token ? "success" : "error" },
+        content: { data: token || null, result: token ? "success" : "error" },
       });
       return;
     }

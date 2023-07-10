@@ -337,9 +337,13 @@ class TextInput {
     this.#lastPrintedText = this.text;
   }
 
-  // clearPrintedText() {
-  //   this.#lastPrintedText = "";
-  // }
+  latentFirstPrint(text) {
+    if (!this.inputStarted) {
+      this.print(text);
+    } else if (!this.commandSentOnce) {
+      this.#lastPrintedText = text;
+    }
+  }
 
   // Reflow the input text.
   flow() {
@@ -1295,8 +1299,12 @@ class Prompt {
         }
 
         // Create a line break if a line will begin with a space and we're
-        // not on a space. 
-        if (char === " " && cursor.x + 1 === this.colWidth - 1 && text[textIndex] !== " ") {
+        // not on a space.
+        if (
+          char === " " &&
+          cursor.x + 1 === this.colWidth - 1 &&
+          text[textIndex] !== " "
+        ) {
           newLine = true;
         }
 

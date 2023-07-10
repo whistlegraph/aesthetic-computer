@@ -2,7 +2,9 @@
 
 // Authenticates a user to make sure they are logged in
 // and their local keys match the user database.
-// 🧠 (So that they can run authorized server functions.)
+// 🧠 (And so they can run authorized server functions.)
+
+import { connect } from "./database.mjs";
 
 export async function authorize({ authorization }) {
   try {
@@ -68,36 +70,32 @@ export async function getHandleOrEmail(sub) {
   }
 }
 
-import { MongoClient } from "mongodb";
-const mongoDBConnectionString = process.env.MONGODB_CONNECTION_STRING;
-const mongoDBName = process.env.MONGODB_NAME;
-
 // Connects to the MongoDB database to obtain a user's handle from their ID.
 export async function handleFor(id) {
-  const client = await connect();
-  const db = client.db(mongoDBName);
-  const collection = db.collection("@handles");
+  const database = await connect();
+  const collection = database.db.collection("@handles");
   const existingUser = await collection.findOne({ _id: id });
-  await client.close();
+  await database.disconnect();
   return existingUser?.handle;
 }
 
 // Connects to the MongoDB database to obtain a user ID from a handle.
 // Handle should not be prefixed with "@".
-export async function userIDFromHandle(handle) {
-  const client = await connect();
-  const db = client.db(mongoDBName);
-  const collection = db.collection("@handles");
+export async function userIDFromHandle(handle, database) {
+  const keepOpen = database; // Keep the db connection if database is defined.
+  if (!database) database = await connect();
+  const collection = database.db.collection("@handles");
   const user = await collection.findOne({ handle });
   const userID = user?._id;
-  await client.close();
+  if (!keepOpen) await database.disconnect();
   return userID;
 }
 
 // Assume prefixed handle.
-export async function userIDFromHandleOrEmail(handleOrEmail) {
+export async function userIDFromHandleOrEmail(handleOrEmail, database) {
+  if (!handleOrEmail) return;
   if (handleOrEmail.startsWith("@")) {
-    return userIDFromHandle(handleOrEmail.slice(1)); // Chop off the "@";
+    return userIDFromHandle(handleOrEmail.slice(1), database);
   } else {
     return userIDFromEmail(handleOrEmail); // Assume email.
   }
@@ -122,11 +120,4 @@ async function getAccessToken(got) {
   );
 
   return tokenResponse.body.access_token;
-}
-
-// Connect to MongoDB
-async function connect() {
-  return await MongoClient.connect(mongoDBConnectionString, {
-    useUnifiedTopology: true,
-  });
 }

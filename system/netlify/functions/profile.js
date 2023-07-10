@@ -5,10 +5,15 @@
 // `/profile/user@email.com` (Email)
 // `/profile/@jeffrey` (Handle)
 
+/* #region 🏁 TODO 
+  - [🧡] Add the current mood to the basic profile request. 
+#endregion */
+
 import {
   userIDFromHandle,
   userIDFromEmail,
 } from "../../backend/authorization.mjs";
+import { connect, moodFor } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 
 // GET A user's `sub` id from either their handle or email address.
@@ -18,8 +23,7 @@ export async function handler(event, context) {
     return respond(405, { error: "Wrong request type." });
   }
 
-  // Get last path segment.
-  const handleOrEmail = event.path.split("/").slice(-1)[0];
+  const handleOrEmail = event.path.split("/").slice(-1)[0]; // Last path slug.
 
   if (!handleOrEmail) {
     return {
@@ -28,20 +32,23 @@ export async function handler(event, context) {
     };
   }
 
-  // 1. Download / go to individual files.
+  let database;
   let sub;
   if (handleOrEmail.startsWith("@")) {
     // Try and look up `sub` from `handle` in MongoDB.
-    sub = await userIDFromHandle(handleOrEmail.slice(1));
+    database = await connect();
+    sub = await userIDFromHandle(handleOrEmail.slice(1), database);
   } else {
     // Assume email and try to look up sub from email via auth0.
     sub = await userIDFromEmail(handleOrEmail);
   }
 
   if (sub) {
-    // TODO: Grab more information about the user...
-
-    return respond(200, { sub });
+    // Get the user's latest mood.
+    database ||= await connect();
+    const mood = await moodFor(sub, database); // Could be empty.
+    await database.disconnect();
+    return respond(200, { sub, mood });
   } else {
     return respond(400, { message: "User not found." });
   }

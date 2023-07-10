@@ -11,7 +11,6 @@ function capitalize(word) {
 // They can use a-z and 0-9, underscores and periods.
 // They cannot begin or end with underscores or periods.
 function validateHandle(handle) {
-  handle = handle.replace(/^@/, ""); // Rm prepending "@".
   if (!/^[a-z0-9]+([._][a-z0-9]+)*$/i.test(handle) || handle.length > 16) {
     return false;
   }
