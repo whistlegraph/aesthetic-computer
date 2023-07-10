@@ -73,15 +73,7 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Sunday Polishing ***
-- Main profile button improvements:
-
-- [🧡] User profile button should be replaced with their current handle if it
-     exists.
-- [] Tapping the user profile button should take them to their profile.
-- [] Typing an email should also take you to the user's profile.
-- [] Typing `profile` or jumping to `profile` should take you to your profile.
-
-- [] Add image support and images to front-facing bots. (`gargoyle`, `liar` … )
+- [👱‍♀️] Add image support and images to front-facing bots. (`gargoyle`, `liar` … )
 - [] Add name to top left corner of all bots.
 - [] Better dynamic `preview` / thumbnail images.
 - [] Finish all todos in `botce`. 
@@ -94,6 +86,10 @@
 - [] "?" appears after typing a valid word.
   - [] "?" jumps to a `learn piece` page for learning more about a piece.
 + Done
+- [x] Typing `profile` or jumping to `profile` should route you to your profile.
+- [c] Typing an email should also take you to the user's profile.
+- [x] Tapping the user profile button should take them to their profile.
+- [x] User profile button should be replaced with their current handle if it
 - [x] Put most recent mood on user's profile.
 - [x] `mood` command / status updates per user 
       (visible on their profiles) homepage should show last @jeffrey mood.
@@ -103,6 +99,8 @@
 - [x] Back browser button should bring up mobile keyboard. (This could never happen on Safari, might happen on Android)
 - [x] Fix Safari regression.
 - [x] Design “copy” wrapper text for front-facing bots. @ggacjp.
+
+*** ambient system-wide cursor movement. ***
 
 *** Learn ***
 - [] Start writing "learn" pages for some existing commands or bots.

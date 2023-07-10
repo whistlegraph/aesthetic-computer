@@ -324,41 +324,6 @@ async function halt($, text) {
       } else {
         makeFlash($);
       }
-
-      // const token = await authorize(); // Get user token.
-      // if (token) {
-      //   const headers = {
-      //     Authorization: `Bearer ${token}`,
-      //     "Content-Type": "application/json",
-      //   };
-      //   // 😀 Try to set the handle.
-      //   try {
-      //     const response = await fetch("/handle", {
-      //       method: "POST",
-      //       headers: headers,
-      //       body: JSON.stringify({ handle }),
-      //     });
-      //     const data = await response.json();
-      //     if (response.status !== 200) {
-      //       flashColor = [255, 0, 0];
-      //       console.error("🧖 Error:", response, data);
-      //     } else {
-      //       flashColor = [0, 128, 0];
-      //       store["handle:updated"] = data.handle;
-      //       console.log("🧖 Handle changed:", data.handle);
-      //       makeFlash($, true, "hi @" + data.handle);
-      //     }
-      //   } catch (error) {
-      //     flashColor = [255, 0, 0]; // Server error.
-      //     makeFlash($);
-      //     console.error("🧖 Error:", error);
-      //   }
-      // } else {
-      //   flashColor = [255, 0, 0]; // Authorization error.
-      //   makeFlash($);
-      //   console.error("🧖 Not logged in.");
-      // }
-
       needsPaint();
     } else {
       flashColor = [255, 0, 0];
@@ -635,15 +600,12 @@ function paint($) {
 // 🧮 Sim
 function sim($) {
   const input = $.system.prompt.input;
-  // console.log(input?.canType);
   if (
     $.store["handle:received"] &&
     input?.canType === false &&
-    ($.system.prompt.messages && $.system.prompt.messages.length) === 0
+    (!$.system.prompt.messages || $.system.prompt.messages.length === 0)
   ) {
-    console.log($.store["handle:received"]);
-    // input.text = makeMotd($);
-    input.canType = false;
+    profile = new $.ui.TextButton($.handle, { center: "xy", screen: $.screen });
     delete $.store["handle:received"];
     $.needsPaint();
   }
@@ -661,13 +623,14 @@ function act({
   jump,
   system,
   sound: { play },
+  user,
   send,
   handle,
 }) {
   // 🔘 Buttons
   login?.btn.act(e, () => net.login());
   signup?.btn.act(e, () => net.signup());
-  profile?.btn.act(e, () => jump("profile"));
+  profile?.btn.act(e, () => jump(handle || "profile"));
 
   // Rollover keyboard locking.
   // TODO: ^ Move the below events, above to rollover events.
