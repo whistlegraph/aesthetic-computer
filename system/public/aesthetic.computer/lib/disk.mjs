@@ -1674,7 +1674,10 @@ async function load(
 
         // 🧚 Ambient cursor support.
         if (type === "ambient-pen:point" && socket.id !== id) {
-          ambientPenPoints.push(content);
+          ambientPenPoints.push({
+            x: content.x,
+            y: content.y,
+          });
           // console.log(socket.id, id, type, content);
         }
 
@@ -2698,8 +2701,8 @@ async function makeFrame({ data: { type, content } }) {
         (primaryPointer.delta.x !== 0 || primaryPointer.delta.y !== 0)
       ) {
         socket?.send("ambient-pen:point", {
-          x: primaryPointer.x,
-          y: primaryPointer.y,
+          x: primaryPointer.x / screen.width,
+          y: primaryPointer.y / screen.height,
         });
       }
     }
@@ -3303,7 +3306,9 @@ async function makeFrame({ data: { type, content } }) {
 
         // 🧚 Ambient Pen Points - Paint if they exist.
         const { ink, needsPaint } = $api;
-        ambientPenPoints.forEach((xy) => ink().point(xy));
+        ambientPenPoints.forEach(({ x, y }) => {
+          ink().point(x * screen.width, y * screen.height);
+        });
         if (ambientPenPoints.length > 0) {
           needsPaint();
           if (system === "nopaint") $api.system.nopaint.needsPresent = true;
