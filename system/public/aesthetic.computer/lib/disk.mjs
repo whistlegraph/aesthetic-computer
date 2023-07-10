@@ -2184,7 +2184,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // Load the source code for a dropped `.mjs` file.
   if (type === "dropped:piece") {
-    load(content);
+    load(content, false, false, true);
     return;
   }
 
