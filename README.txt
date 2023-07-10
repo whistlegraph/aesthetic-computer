@@ -72,6 +72,9 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** handle updates ***
+ - [] Handles were not working for mitch.
+
 *** Sunday Polishing ***
 - [👱‍♀️] Add image support and images to front-facing bots. (`gargoyle`, `liar` … )
 - [] Add name to top left corner of all bots.
@@ -127,6 +130,12 @@
   - [] Add a `splash` command that
        works similar to logo, for
        a page backdrop that can be swapped out. 
+
+*** `code` ***
+  - [] https://github.com/yjs/yjs - Integrate CRDT with a provider.
+    - [] https://github.com/yjs/y-websocket
+  - [] Try to integrate a collaborative editing experience.
+  - [] Open monaco in separate window or same window.
 
 *** `prompt` ***
   - [] After returning to a blank prompt / if the answer is empty then
