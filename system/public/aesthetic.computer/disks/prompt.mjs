@@ -87,7 +87,17 @@ let firstActivation = true; // 🏳️ Used to trigger a startup 🔊🎆
 let startupSfx, keyboardSfx;
 
 // 🥾 Boot
-function boot({ glaze, api, net, system, pieceCount, send, ui, screen, user }) {
+async function boot({
+  glaze,
+  api,
+  net,
+  system,
+  pieceCount,
+  send,
+  ui,
+  screen,
+  user,
+}) {
   glaze({ on: true });
 
   // TODO: How could I not keep reloading these sounds?
@@ -111,8 +121,8 @@ function boot({ glaze, api, net, system, pieceCount, send, ui, screen, user }) {
     system.prompt.convo.messages?.length === 0
   ) {
     if (pieceCount === 0) {
-      system.prompt.input.print(makeMotd(api)); // Override prompt with motd if
-      //                                           no conversation is present.
+      // system.prompt.input.print("aesthetic.computer"); // Set a default empty motd.
+      makeMotd(api);
     } else {
       firstActivation = false; // Assume we've activated if returning from
       //                          elsewhere.
@@ -166,7 +176,48 @@ async function halt($, text) {
   const params = tokens.slice(1);
   const input = $.system.prompt.input; // Reference to the TextInput.
 
-  if (text === "publish") {
+  // Make a user authorized / signed request to the api.
+  // Used both in `motd` and `handle`.
+  async function userRequest(method, endpoint, body) {
+    try {
+      const token = await authorize(); // Get user token.
+      if (!token) throw new Error("🧖 Not logged in.");
+
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+
+      const options = { method, headers };
+      if (body) options.body = JSON.stringify(body);
+      const response = await fetch(endpoint, options);
+
+      if (response.status !== 200) {
+        const text = await response.text();
+        throw new Error(`🚫 Bad response: ${text}`);
+      } else {
+        return await response.json(); // Success!
+      }
+    } catch (error) {
+      if (error) console.error("🚫 Error:", error);
+      return null;
+    }
+  }
+
+  if (slug === "mood") {
+    let res;
+    if (params.join(" ").trim().length > 0) {
+      res = await userRequest("POST", "/api/mood", { mood: params.join(" ") });
+    }
+    flashColor = res ? [0, 255, 0] : [255, 0, 0];
+    if (res) {
+      console.log("‍🍼 mood:", res.mood);
+    } else {
+      console.error("🍼🚫 Could not set mood.");
+    }
+    makeFlash($);
+    return true;
+  } else if (text === "publish") {
     // Publish the last devReload'ed or dragged piece.
     const publishablePiece = store["publishable-piece"];
 
@@ -259,44 +310,55 @@ async function halt($, text) {
     // Something like... await post({handle: "new"});
 
     // Make sure there is a parameter.
-    const handle = text.split(" ")[1];
+    let handle = text.split(" ")[1];
+    if (handle[0] === "@") handle = handle.slice(1); // Strip off any leading "@" sign to help with validation.
 
     // And a handle has been specified.
     if (handle?.length > 0 && validateHandle(handle)) {
-      const token = await authorize(); // Get user token.
-      if (token) {
-        const headers = {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        };
-        // 😀 Try to set the handle.
-        // TODO: Lock the input prompt / put a spinner here...
-        try {
-          const response = await fetch("/handle", {
-            method: "POST",
-            headers: headers,
-            body: JSON.stringify({ handle }),
-          });
-          const data = await response.json();
-          if (response.status !== 200) {
-            flashColor = [255, 0, 0];
-            console.error("🧖 Error:", response, data);
-          } else {
-            flashColor = [0, 128, 0];
-            store["handle:updated"] = data.handle;
-            console.log("🧖 Handle changed:", data.handle);
-            makeFlash($, true, "hi @" + data.handle);
-          }
-        } catch (error) {
-          flashColor = [255, 0, 0]; // Server error.
-          makeFlash($);
-          console.error("🧖 Error:", error);
-        }
+      const res = await userRequest("POST", "/handle", { handle });
+      flashColor = res ? [0, 255, 0] : [255, 0, 0];
+      if (res) {
+        store["handle:updated"] = res.handle;
+        console.log("🧖 Handle changed:", res.handle);
+        makeFlash($, true, "hi @" + res.handle);
       } else {
-        flashColor = [255, 0, 0]; // Authorization error.
         makeFlash($);
-        console.error("🧖 Not logged in.");
       }
+
+      // const token = await authorize(); // Get user token.
+      // if (token) {
+      //   const headers = {
+      //     Authorization: `Bearer ${token}`,
+      //     "Content-Type": "application/json",
+      //   };
+      //   // 😀 Try to set the handle.
+      //   try {
+      //     const response = await fetch("/handle", {
+      //       method: "POST",
+      //       headers: headers,
+      //       body: JSON.stringify({ handle }),
+      //     });
+      //     const data = await response.json();
+      //     if (response.status !== 200) {
+      //       flashColor = [255, 0, 0];
+      //       console.error("🧖 Error:", response, data);
+      //     } else {
+      //       flashColor = [0, 128, 0];
+      //       store["handle:updated"] = data.handle;
+      //       console.log("🧖 Handle changed:", data.handle);
+      //       makeFlash($, true, "hi @" + data.handle);
+      //     }
+      //   } catch (error) {
+      //     flashColor = [255, 0, 0]; // Server error.
+      //     makeFlash($);
+      //     console.error("🧖 Error:", error);
+      //   }
+      // } else {
+      //   flashColor = [255, 0, 0]; // Authorization error.
+      //   makeFlash($);
+      //   console.error("🧖 Not logged in.");
+      // }
+
       needsPaint();
     } else {
       flashColor = [255, 0, 0];
@@ -580,7 +642,7 @@ function sim($) {
     ($.system.prompt.messages && $.system.prompt.messages.length) === 0
   ) {
     console.log($.store["handle:received"]);
-    input.text = makeMotd($);
+    // input.text = makeMotd($);
     input.canType = false;
     delete $.store["handle:received"];
     $.needsPaint();
@@ -600,11 +662,13 @@ function act({
   system,
   sound: { play },
   send,
+  handle,
 }) {
   // 🔘 Buttons
   login?.btn.act(e, () => net.login());
   signup?.btn.act(e, () => net.signup());
   profile?.btn.act(e, () => jump("profile"));
+
   // Rollover keyboard locking.
   // TODO: ^ Move the below events, above to rollover events.
   if (
@@ -726,35 +790,16 @@ export const scheme = {
 // 📚 Library
 //   (Useful functions used throughout the piece)
 
-function makeMotd({ handle, user }) {
-  let motd = ``;
-  // `"chaos in a system"                             ` +
-  // `                                                ` +
-  // `Try typing:                                     ` +
-  // `                                                ` +
-  // ` 'of'                                           ` +
-  // `  to see an Ordfish                             ` +
-  // `                                                ` +
-  // ` 'ff'                                           ` +
-  // `  to see a Freaky Flower                        ` +
-  // `                                                ` +
-  // ` 'shape'                                        ` +
-  // `  to paint freehand shapes                      ` +
-  // `                                                ` +
-  // ` 'bleep'                                        ` +
-  // `  to play microtones                            ` +
-  // `                                                ` +
-  // ` 'help'                                         ` +
-  // `  to learn more!                                ` +
-  // `                                                ` +
-  // `mail@aesthetic.computer                         `;
-  // if (user) {
-  //   motd =
-  //     `Welcome back, ${handle || user.name}!`.padEnd(48) +
-  //     " ".padEnd(48) +
-  //     motd;
-  // } else motd = "You are basically welcome to sign up now. ;)";
-  motd = "protect my computer.\nprotect my baby."
+async function makeMotd({ system, needsPaint, handle, user }) {
+  let motd = "aesthetic.computer"; // Fallback motd.
+  const res = await fetch("/api/mood/@jeffrey");
+  if (res.status === 200) {
+    motd = (await res.json()).mood;
+    system.prompt.input.latentFirstPrint(motd);
+    needsPaint();
+  } else {
+    console.warn("😢 No mood found.");
+  }
   return motd;
 }
 

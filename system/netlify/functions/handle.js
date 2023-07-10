@@ -2,16 +2,15 @@
 // GET: Get a user @handle out of MongoDB based on their `sub` id from auth0.
 // POST: Allows a logged in user to set their social `@handle`. (via MongoDB)
 
-// Future: Abstract MongoDB into an included header for other
-//         api calls.
+/* #region 🏁 TODO 
+  - [x] Abstract MongoDB into an included header for other api calls.
+#endregion */
 
 import { authorize, handleFor } from "../../backend/authorization.mjs";
 import { validateHandle } from "../../public/aesthetic.computer/lib/text.mjs";
-import { MongoClient } from "mongodb";
+import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 
-const mongoDBConnectionString = process.env.MONGODB_CONNECTION_STRING;
-const mongoDBName = process.env.MONGODB_NAME;
 const dev = process.env.CONTEXT === "dev";
 
 export async function handler(event, context) {
@@ -44,15 +43,14 @@ export async function handler(event, context) {
     }
 
     // And that we are logged in...
-    const user = await authorize(event.headers); // We are logged in!
+    const user = await authorize(event.headers);
     if (user) {
-      // 📕 Database
-      // Connect to mongo & add the uniqueness index for `@handles`.
-      const client = await MongoClient.connect(mongoDBConnectionString, {
-        useUnifiedTopology: true,
-      });
-      const db = client.db(mongoDBName);
-      const collection = db.collection("@handles");
+      // 🔑 We are logged in!
+      const database = await connect(); // 📕 Database
+      const collection = database.db.collection("@handles");
+
+      // Make an "handle" index on the @handles collection that forces
+      // them all to be unique, (if it doesn't already exist).
       await collection.createIndex({ handle: 1 }, { unique: true });
 
       // Insert or update the handle using the `provider|id` key from auth0.
@@ -69,9 +67,9 @@ export async function handler(event, context) {
           await collection.insertOne({ _id: user.sub, handle });
         }
       } catch (error) {
-        return respond(400, { message: error });
+        return respond(500, { message: error });
       } finally {
-        await client.close(); // Close the connection.
+        await database.disconnect();
       }
       // Successful handle change...
       return respond(200, { handle: body.handle });
