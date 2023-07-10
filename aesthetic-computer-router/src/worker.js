@@ -11,6 +11,11 @@
 //     media of that type (subdirectory) directly from the buckets,
 //     sorted by upload date.
 
+/* #region 📝 TODO 
+  + Now
+  - [] Try making this a Netlify worker. If only to close the development loop. 
+#endregion */
+
 /* #region 📔 readme
 	Welcome to Cloudflare Workers! This is your first worker.
 	- Run `npx wrangler dev src/index.js` in your terminal to start a dev server
@@ -37,6 +42,7 @@ async function handleRequest(request) {
     if (newPath.split("/").pop().split(".")[1]?.length > 0) {
       // The path has a file extension / points to an individual file.
 			const newUrl = `https://user.aesthetic.computer/${newPath}`;
+      // TODO: ❤️‍🔥 Try to rewrite this response!
       response = await fetch(newUrl);
     } else {
       // The path should return a collection.

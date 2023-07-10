@@ -78,6 +78,7 @@
 - [] Better dynamic `preview` / thumbnail images.
 - [] Finish all todos in `botce`. 
   - [] Remove `botce` from intro text.
+- [🟠] Revisit `worker.js` to fix download link url names.
 - [] Spaces on new line breaks no longer work on `prompt` ?
 - [] Add starfield to prompt.
 - [] Tappable floaty words on prompt.
