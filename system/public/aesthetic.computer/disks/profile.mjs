@@ -34,7 +34,7 @@ function meta({ piece }) {
 }
 
 // 🥾 Boot
-function boot({ params, user, handle, slug }) {
+function boot({ params, user, handle, slug, debug }) {
   console.log("🤺 Visiting the profile of...", params[0]);
   if (user) console.log("😉 Logged in as...", handle || user?.name);
 
@@ -45,10 +45,10 @@ function boot({ params, user, handle, slug }) {
     .then(async (response) => {
       const json = await response.json();
       if (response.ok) {
-        console.log("🙆 Profile found:", json);
-        profile = { handle: params[0] };
+        if (debug) console.log("🙆 Profile found:", json);
+        profile = { handle: params[0], mood: json.mood.mood };
       } else {
-        console.warn("🙍 Profile not found:", json);
+        if (debug) console.warn("🙍 Profile not found:", json);
         noprofile = "no profile found";
       }
     })
@@ -58,16 +58,25 @@ function boot({ params, user, handle, slug }) {
 }
 
 // 🎨 Paint
-function paint({ params, wipe, ink, pen }) {
+function paint({ params, wipe, ink, pen, screen }) {
   if (!pen?.drawing) wipe(98);
   ink(127).line();
 
   if (profile) ink().line().ink().line().ink().line();
   ink(profile ? undefined : 255).write(
     profile?.handle || noprofile,
-    { center: "xy" },
+    { center: "x", y: screen.height / 2 - 12 },
     "black"
   );
+
+  if (profile?.mood) {
+    ink().write(profile.mood);
+    ink(255).write(
+      profile.mood,
+      { center: "x", y: screen.height / 2 + 12 },
+      "black"
+    );
+  }
 
   // Drawing Boxes (Ida Lesson)
   // let bx = 30;

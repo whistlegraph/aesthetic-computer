@@ -8,4 +8,9 @@ function respond(statusCode, body, headers) {
   return res;
 }
 
-export { respond };
+function pathParams(path) {
+  if (path.startsWith("/")) path = path.slice(1);
+  return path.split("/");
+}
+
+export { respond, pathParams };

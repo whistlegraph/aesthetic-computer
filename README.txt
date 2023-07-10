@@ -72,10 +72,15 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Saturday Polishing ***
-- [] `motd` command / status updates per user 
-     (visible on their profiles)
-     
+*** Sunday Polishing ***
+- Main profile button improvements:
+
+- [🧡] User profile button should be replaced with their current handle if it
+     exists.
+- [] Tapping the user profile button should take them to their profile.
+- [] Typing an email should also take you to the user's profile.
+- [] Typing `profile` or jumping to `profile` should take you to your profile.
+
 - [] Add image support and images to front-facing bots. (`gargoyle`, `liar` … )
 - [] Add name to top left corner of all bots.
 - [] Better dynamic `preview` / thumbnail images.
@@ -89,6 +94,9 @@
 - [] "?" appears after typing a valid word.
   - [] "?" jumps to a `learn piece` page for learning more about a piece.
 + Done
+- [x] Put most recent mood on user's profile.
+- [x] `mood` command / status updates per user 
+      (visible on their profiles) homepage should show last @jeffrey mood.
 - [x] Typing @user on prompt goes to /@user instead of profile.
 - [x] Profile name at top left is user's username.
 - [x] aesthetic.computer/@user should go to that user's page.

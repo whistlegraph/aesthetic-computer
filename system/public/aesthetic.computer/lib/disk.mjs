@@ -1332,7 +1332,7 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
 };
 
 // Add new content to the DOM.
-// (Requires `send`) 
+// (Requires `send`)
 class Content {
   nodes = [];
   #id = 0;
@@ -1362,7 +1362,6 @@ class Content {
   //  send({ type: "content-update", content: { id, msg } });
   //}
 }
-
 
 // Microphone State (Audio Input)
 class Microphone {
@@ -1403,11 +1402,8 @@ const microphone = new Microphone();
 
 // 2. ✔ Loading the disk.
 let originalHost;
-let lastHost; // = "disks.aesthetic.computer"; TODO: Add default host here.
 let firstLoad = true;
-let firstPiece, firstParams, firstSearch; // Why is this still here? 23.01.27.13.07
-//                                           Perhaps for bare ROOT_PIECE's that
-//                                           require params?
+
 async function load(
   parsed, // If parsed is not an object, then assume it's source code.
   fromHistory = false,
@@ -1600,8 +1596,6 @@ async function load(
   // 🧩 Piece code has been loaded...
   //    Now we can instantiate the piece.
 
-  lastHost = host; // Memoize the host.
-  // pieceHistoryIndex += fromHistory === true ? -1 : 1; // Adjust the history.
   pieceHistoryIndex += fromHistory === true ? 0 : 1; // Adjust the history.
 
   if (!debug && !firstLoad) {
@@ -1999,7 +1993,7 @@ async function load(
           module.copied,
           module.activated
         );
-        module.boot?.($);
+        await module.boot?.($);
       };
 
       sim = ($) => {
