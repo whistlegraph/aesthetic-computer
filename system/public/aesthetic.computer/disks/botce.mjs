@@ -3,8 +3,7 @@
 
 /* #region 🏁 TODO
 [🟠] Add pink lotus image in the corner, semi-transparent
-  - [🟠] All these features need to be added:
-  - [-] Crop (this needs to be an interactive thing.)
+  - [🔴] Crop (this needs to be an interactive thing.)
   (Bonus)
   - [] Resize
   - [] Rotate 90
