@@ -2181,7 +2181,7 @@ function send(data, shared = []) {
 
 // Used to subscribe to live coding / development reloads.
 let codeChannel = await store.retrieve("code-channel");
-if (codeChannel.length > 0) console.log("💻 Code channel:", codeChannel);
+if (codeChannel?.length > 0) console.log("💻 Code channel:", codeChannel);
 
 // 4. ✔ Respond to incoming messages, and probably produce a frame.
 // Boot procedure:
