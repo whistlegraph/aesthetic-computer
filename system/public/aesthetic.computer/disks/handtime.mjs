@@ -21,9 +21,9 @@ async function boot({ net: { socket } }) {
   server = await socket((id, type, content) => {
     console.log("Our id:", server.id);
     console.log("Got new message:", id, type, content);
-    if (server.id !== id && type === "handtime:hand") {
-      remoteHandPoints = content;
-    }
+    // if (server.id !== id && type === "handtime:hand") {
+    remoteHandPoints = content;
+    // }
   });
 }
 
