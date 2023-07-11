@@ -3583,24 +3583,37 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // copy, move, link, or none
   });
 
-  document.body.addEventListener("drop", function (e) {
+  document.body.addEventListener("drop", async function (e) {
     e.stopPropagation();
     e.preventDefault();
     const files = e.dataTransfer.files; // Get the file(s).
     // Check if a file was dropped and process only the first one.
     if (files.length > 0) {
       const file = files[0];
-      const reader = new FileReader();
-      reader.onload = function (e) {
+      const ext = extension(file.name);
+      if (extension === "mjs") {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          send({
+            type: "dropped:piece",
+            content: {
+              name: file.name.replace(".mjs", ""),
+              source: e.target.result,
+            },
+          });
+        };
+
+        reader.readAsText(file);
+      } else if (ext === "png") {
+        const bitmap = await toBitmap(file);
         send({
-          type: "dropped:piece",
+          type: "dropped:bitmap",
           content: {
-            name: file.name.replace(".mjs", ""),
-            source: e.target.result,
+            name: file.name.replace(".png", ""),
+            source: bitmap,
           },
         });
-      };
-      reader.readAsText(file);
+      }
     }
   });
 }

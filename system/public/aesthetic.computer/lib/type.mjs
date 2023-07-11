@@ -347,7 +347,7 @@ class TextInput {
   }
 
   latentFirstPrint(text) {
-    if (!this.inputStarted) {
+    if (!this.inputStarted && !this.commandSentOnce) {
       this.print(text);
     } else if (!this.commandSentOnce) {
       this.#lastPrintedText = text;

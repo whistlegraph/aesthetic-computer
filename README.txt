@@ -73,7 +73,8 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Sunday Polishing ***
-- [👱‍♀️] Add image support and images to front-facing bots. (`gargoyle`, `liar` … )
+- [👱‍♀️] Add painting include support and images to front-facing bots. (`gargoyle`, `liar` … )
+
 - [] Add name to top left corner of all bots.
 - [] Better dynamic `preview` / thumbnail images.
 - [] Finish all todos in `botce`. 
