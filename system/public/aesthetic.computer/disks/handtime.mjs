@@ -14,7 +14,7 @@ import { HandInput } from "../lib/hand.mjs";
 // 🥾 Boot
 let handInput;
 let server;
-let remoteHandPoints;
+let remoteHandPoints = {};
 async function boot({ net: { socket } }) {
   handInput = new HandInput();
 
@@ -22,7 +22,7 @@ async function boot({ net: { socket } }) {
     console.log("Our id:", server.id);
     console.log("Got new message:", id, type, content);
     // if (server.id !== id && type === "handtime:hand") {
-    remoteHandPoints = content;
+    remoteHandPoints[id] = content;
     // }
   });
 }
@@ -33,9 +33,17 @@ function paint($) {
   handInput.paint($);
 
   // Draw remote points using boxes in a loop.
+
+  // Make an array of an object's keys using. Object.keys(remoteHndPoints);
+
+  const keys = Object.keys(remoteHandPoints);
+
   if (remoteHandPoints) {
-    for (let i = 0; i < remoteHandPoints.length; i += 1){
-      $.ink("red").box(remoteHandPoints[i][0], remoteHandPoints[i][1], 5, "fill*center"); 
+    for (let i = 0; i < keys.length; i += 1){
+      const points = remoteHandPoints[keys[i]];
+      for (let j= 0; j < points.length; j += 1){
+        $.ink("red").box(points[j][0], points[j][1], 5, "fill*center"); 
+      }
     }
   }
 
