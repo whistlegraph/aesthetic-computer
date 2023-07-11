@@ -40,6 +40,8 @@ export class HandInput {
       } else {
         this.timop = [];
       }
+      return this.#scaled; // Return scaled points in case they are needed
+      //                      in sim.
     }
   
     paint({
@@ -74,6 +76,10 @@ export class HandInput {
         frame ? paste(frame) : wipe(0, 64, 0);
       }
 
+      if (options.hidden) return;
+
+      // TODO: Is everything underneath this, dependent just on the point data?
+      // - [] Abstract hand drawing so remote hands can be drawn from a sata set.
       let timop; 
       const scaled = this.#scaled;
 
@@ -313,7 +319,7 @@ export class HandInput {
       let contactDistances = [];
   
       for (let tip = 0; tip < 5; tip++) {
-        contactDistances[tip] = map(tips[tip][2], -0.03, -1, 8, 60);
+        contactDistances[tip] = map(tips[tip][2], -0.03, -1, 24, 60);
         for (let tc = tip + 1; tc < 5; tc++) {
           const currentTip = tips[tip];
           const tipToCheck = tips[tc];

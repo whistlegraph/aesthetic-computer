@@ -3303,6 +3303,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
               handAPI.hands = new Hands(config);
 
+              console.log("Hand API:", handAPI);
+
               handAPI.hands.setOptions({
                 selfieMode: false,
                 maxNumHands: 1,
@@ -3312,6 +3314,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               });
 
               handAPI.hands.onResults((data) => {
+                console.log(data);
                 diagram({
                   screen: data.multiHandLandmarks[0] || [],
                   world: data.multiHandWorldLandmarks[0] || [],
