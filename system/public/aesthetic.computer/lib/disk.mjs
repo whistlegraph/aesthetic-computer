@@ -2221,7 +2221,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // Load the source code for a dropped `.mjs` file.
   if (type === "dropped:piece") {
-    load(content);
+    load(content, false, false, true);
     return;
   }
 
@@ -2747,7 +2747,7 @@ async function makeFrame({ data: { type, content } }) {
 
       if (
         primaryPointer &&
-        (primaryPointer.delta.x !== 0 || primaryPointer.delta.y !== 0)
+        (primaryPointer.delta?.x !== 0 || primaryPointer.delta?.y !== 0)
       ) {
         socket?.send("ambient-pen:point", {
           x: primaryPointer.x / screen.width,
