@@ -10,14 +10,16 @@ import * as Glaze from "./lib/glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
 import { parse, slug } from "./lib/parse.mjs";
 import * as Store from "./lib/store.mjs";
-import { Desktop, MetaBrowser, Instagram, iOS } from "./lib/platform.mjs";
+import { MetaBrowser, iOS } from "./lib/platform.mjs";
 import { headers } from "./lib/console-headers.mjs";
 import { logs } from "./lib/logs.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
-import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
+
+// import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
+const TwoD = undefined;
 
 const { assign, keys } = Object;
-const { round, floor, min, max } = Math;
+const { round, floor, min } = Math;
 
 // 💾 Boot the system and load a disk.
 async function boot(parsed, bpm = 60, resolution, debug) {
@@ -73,7 +75,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //       (Or even reuse the same tag if pieces swap.)
   //       TODO: Would it be possible for pieces to use both... and why?
   //             (Probably Not)
-  TwoD.initialize(wrapper);
+  TwoD?.initialize(wrapper);
 
   // An extra canvas reference for passing through or buffering video recording streams.
   let streamCanvasContext;
@@ -252,28 +254,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       debugCanvas.style.height = projectedHeight + "px";
     }
 
-    // Add some fancy ratios to the canvas and uiCanvas.
-    /*
-    canvas.style.width = `calc(100vw - ${gapSize}px)`;
-    canvas.style.height = `calc(calc(${
-      height / width
-    } * 100vw) - ${gapSize}px)`;
-    canvas.style.maxHeight = `calc(100vh - ${gapSize}px)`;
-    canvas.style.maxWidth = `calc(calc(${
-      width / height
-    } * 100vh) - ${gapSize}px)`;
-
-    uiCanvas.style.width = `calc(100vw - ${gapSize}px)`;
-    uiCanvas.style.height = `calc(calc(${
-      height / width
-    } * 100vw) - ${gapSize}px)`;
-
-    uiCanvas.style.maxHeight = `calc(100vh - ${gapSize}px)`;
-    uiCanvas.style.maxWidth = `calc(calc(${
-      width / height
-    } * 100vh) - ${gapSize}px)`;
-    */
-
     if (imageData?.length > 0) {
       ctx.putImageData(imageData, 0, 0);
     } else {
@@ -282,6 +262,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     assign(screen, { pixels: imageData.data, width, height });
+
+    TwoD?.frame(width, height, wrapper); // Reframe the 2D GPU layer.
 
     // Add the canvas, modal, and uiCanvas when we first boot up.
     if (!wrapper.contains(canvas)) {
@@ -1409,6 +1391,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             ThreeDBakeQueue.length = 0;
             ThreeD?.render(now);
           }
+
+          TwoD?.render();
         }
       );
     }
@@ -2497,6 +2481,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // 🌟 Update & Render (Compositing)
     if (!(type === "render" || type === "update")) return;
     if (!content) return;
+
+    if (content.TwoD) {
+      TwoD?.pack(content.TwoD);
+    }
 
     receivedBeat(content.sound); // 🔈 Trigger any audio that was called upon.
 

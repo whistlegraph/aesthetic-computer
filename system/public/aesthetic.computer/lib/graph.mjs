@@ -91,6 +91,7 @@ function color(r, g, b, a = 255) {
   c[1] = floor(g);
   c[2] = floor(b);
   c[3] = floor(a);
+  return c.slice();
 }
 
 export {
@@ -500,7 +501,8 @@ function line() {
   if (y1 == null) y1 = randIntRange(0, height);
 
   if (isNaN(x0) || isNaN(y0) || isNaN(x1) || isNaN(y1)) {
-    return console.error("Invalid line arguments:", x0, y0, x1, y1);
+    console.error("Invalid line arguments:", x0, y0, x1, y1);
+    return;
   }
 
   // Add any panTranslations.
@@ -515,6 +517,8 @@ function line() {
   } else {
     bresenham(x0, y0, x1, y1).forEach((p) => plot(p.x, p.y));
   }
+
+  return [x0, y0, x1, y1];
 }
 
 // Takes an array of pixel coords `{x, y}` and filters out L shapes.
