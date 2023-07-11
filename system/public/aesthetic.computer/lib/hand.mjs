@@ -76,6 +76,7 @@ export class HandInput {
         frame ? paste(frame) : wipe(0, 64, 0);
       }
 
+      if (options.hidden) return;
 
       // TODO: Is everything underneath this, dependent just on the point data?
       // - [] Abstract hand drawing so remote hands can be drawn from a sata set.
