@@ -90,6 +90,7 @@
   - [] Draggable gutter?
 - [] "?" appears after typing a valid word.
   - [] "?" jumps to a `learn piece` page for learning more about a piece.
+- [] `Ctrl+x` fullscreen keyboard shortcut does not work on `prompt`.
 + Done
 - [x] Publishing should jump you directly to your finished piece url. 
 - [x] Typing `profile` or jumping to `profile` should route you to your profile.
