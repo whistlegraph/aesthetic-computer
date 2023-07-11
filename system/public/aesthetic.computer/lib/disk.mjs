@@ -956,7 +956,7 @@ function color() {
 }
 
 function ink() {
-  graph.color(...color(...arguments));
+  return graph.color(...color(...arguments));
 }
 
 // 🔎 PAINTAPI (for searching)
@@ -1135,12 +1135,15 @@ function form(
 
 const $paintApiUnwrapped = {
   // Shortcuts
-  l: graph.line,
-  i: ink,
+  // l: graph.line,
+  // i: ink,
   // Defaults
   page: graph.setBuffer,
   edit: graph.changePixels, // Edit pixels by pasing a callback.
-  ink, // Color
+  ink: function () {
+    const out = ink(...arguments);
+    twoDCommands.push(["ink", ...out]);
+  }, // Color
   // inkrn: () => graph.c.slice(), // Get current inkColor.
   // 2D
   wipe: function () {
@@ -1157,7 +1160,10 @@ const $paintApiUnwrapped = {
     }
   }, // TODO: Should this be renamed to set?
   point: graph.point,
-  line: graph.line,
+  line: function () {
+    const out = graph.line(...arguments);
+    twoDCommands.push(["line", ...out]);
+  },
   lineAngle: graph.lineAngle,
   pline: graph.pline,
   pppline: graph.pixelPerfectPolyline,
@@ -1186,6 +1192,8 @@ const $paintApiUnwrapped = {
 let $activePaintApi;
 
 let paintingAPIid = 0n;
+
+const twoDCommands = [];
 
 class Painting {
   #layers = [];
@@ -3437,6 +3445,18 @@ async function makeFrame({ data: { type, content } }) {
       // Return frame data back to the main thread.
       let sendData = {};
 
+      // TODO: Write this up to the data in `painting`.
+
+      sendData.TwoD = {
+        code: twoDCommands
+        // code: [
+        //   ["ink", 1.0, 0, 0, 1.0],
+        //   ["ink2", 0.0, 1.0, 0, 1.0],
+        //   ["line", 0, 0, 30, 30],
+        //   //     x1, y1, x2, y2, r1, g1, b1, a1, r2, g2, b2, a2
+        // ],
+      };
+
       // Attach a label buffer if necessary.
       if (label)
         sendData.label = {
@@ -3494,6 +3514,8 @@ async function makeFrame({ data: { type, content } }) {
       sendData.sound = sound;
 
       send({ type: "render", content: sendData }, transferredObjects);
+
+      twoDCommands.length = 0; // Empty the 2D GPU command buffer.
 
       // Flush the `signals` after sending.
       if (reframe) reframe = undefined;
