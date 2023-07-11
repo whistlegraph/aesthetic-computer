@@ -6,7 +6,8 @@
 // `/profile/@jeffrey` (Handle)
 
 /* #region 🏁 TODO 
-  - [🧡] Add the current mood to the basic profile request. 
+  + Done
+  - [x] Add the current mood to the basic profile request. 
 #endregion */
 
 import {

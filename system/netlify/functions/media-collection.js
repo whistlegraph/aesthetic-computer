@@ -36,7 +36,7 @@ export async function handler(event, context) {
       // return `https://${process.env.USER_SPACE_NAME}/${file.Key}`; // Original bucket path.
       // Canonical url for this resource, routing through Cloudflare worker.
       const filename = file.Key.split("/").pop();
-      return `https://aesthetic.computer/media/${id}/${route}/${filename}}`;
+      return `https://aesthetic.computer/media/${id}/${route}/${filename}`;
     });
   } catch (err) {
     console.log("Error", err);

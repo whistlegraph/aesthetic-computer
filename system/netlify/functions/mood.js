@@ -65,6 +65,7 @@ export async function handler(event, context) {
       const database = await connect();
       const collection = database.db.collection("moods"); // Make tweet-like collection.
       await collection.createIndex({ user: 1 }); // Index for `user`.
+      await collection.createIndex({ when: 1 }); // Index for `when`.
       await collection.insertOne({ user: user.sub, mood, when: new Date() });
       await database.disconnect();
       return respond(200, { mood: body.mood }); // Successful mood change.

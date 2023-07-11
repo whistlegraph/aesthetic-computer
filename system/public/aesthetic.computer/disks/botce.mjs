@@ -2,14 +2,23 @@
 // Sotce tumblr bot.
 
 /* #region 🏁 TODO
-[] Add pink lotus image in the corner, semi-transparent
+[🟠] Add pink lotus image in the corner, semi-transparent
+  - [🔴] Crop (this needs to be an interactive thing.)
+  (Bonus)
+  - [] Resize
+  - [] Rotate 90
+  - [] Flip
+  - [] Transparency support.
+  + Done
+  - [x] Load image into painting from pasted url.
+  - [x] And drag and drop.
 [] Reset the conversation history on refresh
 [] Respond well to "who wrote you" (Replace default GPT response).
 [] Respond well to "what is amelia's art about".
 [] Send to Amelia
 #endregion */
 
-const prompt = 'botce, how do i.................';
+const prompt = "botce, how do i.................";
 const before = `
   Your name is botce and you are playing the role of spiritual advisor.
 
@@ -25,8 +34,7 @@ const before = `
 
   And you finish every response with "x, B"
 
-  If the user asks who you are, say that your name is botce, and you are a bot based on the artist
-  Amelia Darling aka '@sotce' online. 
+  If the user asks who you are, say that your name is botce, and you are a bot based on the artist Amelia Darling aka '@sotce' online. 
 
   Please advise the user's input here: 
   `;
@@ -38,41 +46,26 @@ const after = `
 
 const forgetful = false;
 
-
 function copied(text) {
   return `${text} 🪷⌨️ botce.ac`;
 }
 
-
-  export const scheme = {
-    dark: {
-      fg: [234, 50, 35],
-      bg: [252, 255, 237],
-      block: [255, 200, 220],
-      blockHi: [255, 255, 255],
-      line: [0, 0, 0],
-    },
-    light: {
-      fg: [234, 50, 35],
-      bg: [252, 255, 237],
-      block: [130, 20, 0],
-      blockHi: [200, 200, 30],
-      line: [0, 0, 0, 128],
-    },
-  };
-
-// 🛑 Intercept specific input text with a custom reply.
-function halt($, text) {
-  if (text === "halt") {
-    console.log("Halted:", text);
-    return true;
-  }
-}
-
-// 💬 Receive each reply in full.
-function reply(text) {
-  console.log("😀 Replied with:", text);
-}
+export const scheme = {
+  dark: {
+    fg: [234, 50, 35],
+    bg: [252, 255, 237, 176],
+    block: [255, 200, 220],
+    blockHi: [255, 255, 255],
+    line: [0, 0, 0],
+  },
+  light: {
+    fg: [234, 50, 35],
+    bg: [252, 255, 237],
+    block: [130, 20, 0],
+    blockHi: [200, 200, 30],
+    line: [0, 0, 0, 128],
+  },
+};
 
 // 📰 Meta
 function meta() {
@@ -82,6 +75,34 @@ function meta() {
   };
 }
 
+// 🛑 Intercept specific input text with a custom reply.
+// function halt($, text) {
+//   if (text === "halt") {
+//     console.log("Halted:", text);
+//     return true;
+//   }
+// }
 
-export { prompt, before, after, halt, reply, forgetful, meta, copied };
+// // 💬 Receive each reply in full.
+// function reply(text) {
+//   console.log("😀 Replied with:", text);
+// }
+
+let painting;
+
+// 🥾 Boot
+function boot({ get }) {
+  get
+    .painting("2023.5.03.13.38.15")
+    .by("@jeffrey")
+    .then((p) => (painting = p));
+}
+
+// 🎨 Paint
+function paint({ wipe, ink, paste }) {
+  wipe(252, 255, 237);
+  paste(painting);
+}
+
+export { boot, prompt, before, after, forgetful, meta, paint, copied };
 export const system = "prompt:character"; // or "prompt:code"
