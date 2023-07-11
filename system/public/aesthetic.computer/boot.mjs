@@ -87,6 +87,7 @@ if (!sandboxed && window.auth0) {
   };
 
   if (isAuthenticated) {
+    // TODO: How long does this await actually take? 23.07.11.18.55
     const userProfile = await auth0Client.getUser();
     console.log("🔐 Welcome,", userProfile.name, "!");
     console.log('to... "chaos in a system"');
