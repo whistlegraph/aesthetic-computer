@@ -3,6 +3,8 @@
 
 /* #region todo 📓 
   - [-] Replace the SVG.
+  - [] Make a web extension.
+       (https://code.visualstudio.com/api/extension-guides/web-extensions)
   + Done
   - [x] Write better sidebar docs.
   - [x] Publish should no longer publish everywhere / only publish to
