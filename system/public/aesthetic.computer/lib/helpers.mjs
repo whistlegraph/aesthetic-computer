@@ -33,7 +33,7 @@ export function wrapNotArray(any) {
   else return [];
 }
 
-// Returns content remaining after the last "\" of a string.
+// Returns content remaining after the last "/" of a string.
 // Used for URL path resolution.
 export function pathEnd(path) {
   return path.substring(path.lastIndexOf("/") + 1);

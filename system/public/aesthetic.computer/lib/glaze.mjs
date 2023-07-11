@@ -11,6 +11,8 @@
 const { keys } = Object;
 
 import glazes from "./glazes/uniforms.js";
+import { createShader, createProgram, preloadShaders } from "./gl.mjs";
+import { pathEnd, wrapNotArray } from "./helpers.mjs";
 
 class Glaze {
   w;
@@ -69,8 +71,6 @@ class Glaze {
 let gl, canvas;
 let glaze;
 let passthrough;
-
-import { pathEnd, wrapNotArray } from "./helpers.mjs";
 
 export function init(wrapper) {
   canvas = document.createElement("canvas");
@@ -135,19 +135,19 @@ export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
   canvas.style.height = rect.height + "px";
 
   // Create custom shader program.
-  const customVert = createShader(gl.VERTEX_SHADER, passthrough);
-  const customFrag = createShader(gl.FRAGMENT_SHADER, glaze.frag);
-  customProgram = createProgram(customVert, customFrag);
+  const customVert = createShader(gl, gl.VERTEX_SHADER, passthrough);
+  const customFrag = createShader(gl, gl.FRAGMENT_SHADER, glaze.frag);
+  customProgram = createProgram(gl, customVert, customFrag);
 
   // Create compute shader program.
-  const computeVert = createShader(gl.VERTEX_SHADER, passthrough);
-  const computeFrag = createShader(gl.FRAGMENT_SHADER, glaze.compute);
-  computeProgram = createProgram(computeVert, computeFrag);
+  const computeVert = createShader(gl, gl.VERTEX_SHADER, passthrough);
+  const computeFrag = createShader(gl, gl.FRAGMENT_SHADER, glaze.compute);
+  computeProgram = createProgram(gl, computeVert, computeFrag);
 
   // Create display shader program.
-  const displayVert = createShader(gl.VERTEX_SHADER, passthrough);
-  const displayFrag = createShader(gl.FRAGMENT_SHADER, glaze.display);
-  displayProgram = createProgram(displayVert, displayFrag);
+  const displayVert = createShader(gl, gl.VERTEX_SHADER, passthrough);
+  const displayFrag = createShader(gl, gl.FRAGMENT_SHADER, glaze.display);
+  displayProgram = createProgram(gl, displayVert, displayFrag);
 
   // Make surface texture.
   texSurf = gl.createTexture();
@@ -478,47 +478,6 @@ export function render(time, mouse) {
   );
   gl.uniform1f(displayUniformLocations.iTime, time);
   gl.drawElementsInstanced(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0, 1);
-}
-
-// 📚 Utilities
-function createShader(type, source) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  const success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
-  if (success) {
-    return shader;
-  }
-
-  console.error(gl.getShaderInfoLog(shader), source);
-  gl.deleteShader(shader);
-}
-
-function createProgram(vertShader, fragShader) {
-  const program = gl.createProgram();
-  gl.attachShader(program, vertShader);
-  gl.attachShader(program, fragShader);
-  gl.linkProgram(program);
-  const success = gl.getProgramParameter(program, gl.LINK_STATUS);
-  if (success) return program;
-  console.error(gl.getProgramInfoLog(program));
-  gl.deleteProgram(program);
-}
-
-// Loads shader sources from a list of filenames: [url1, url2...]
-// Then adds them to lib[].
-export async function preloadShaders(pathArray) {
-  const sources = await Promise.all(
-    pathArray.map((path) =>
-      fetch("/aesthetic.computer/lib/" + path + ".glsl").then((file) => {
-        return file.text();
-      })
-    )
-  );
-
-  const lib = {};
-  pathArray.forEach((path, i) => (lib[pathEnd(path)] = sources[i]));
-  return lib;
 }
 
 export function clear(r = 0, g = 0, b = 0) {

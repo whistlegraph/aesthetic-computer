@@ -204,6 +204,29 @@ async function halt($, text) {
     }
   }
 
+  if (slug === "load") {
+    // Load a file via URL.
+    // Images:
+    if (params[0].startsWith("http")) {
+      // Replace painting with loaded image, adding it to the undo stack.
+      try {
+        const image = await net.preload(params[0]);
+        system.nopaint.replace({ system, store, needsPaint }, image);
+        flashColor = [0, 0, 255];
+        makeFlash($);
+        return true;
+      } catch (err) {
+        console.error("🚫 Could not load:", err);
+        flashColor = [255, 0, 0];
+        makeFlash($);
+        return true;
+      }
+    } else {
+      flashColor = [255, 0, 0];
+      makeFlash($);
+      return true;
+    }
+  }
   if (slug === "mood") {
     let res;
     if (params.join(" ").trim().length > 0) {
@@ -237,9 +260,10 @@ async function halt($, text) {
       .then((data) => {
         console.log("🪄 Code uploaded:", data);
         flashColor = [0, 255, 0];
-        makeFlash($);
         const route = handle ? `${handle}/${data.slug}` : data.slug;
+        makeFlash($);
         send({ type: "alert", content: `\`${route}\` was published!` });
+        jump(route);
       })
       .catch((err) => {
         console.error("🪄 Code upload failed:", err);
@@ -324,41 +348,6 @@ async function halt($, text) {
       } else {
         makeFlash($);
       }
-
-      // const token = await authorize(); // Get user token.
-      // if (token) {
-      //   const headers = {
-      //     Authorization: `Bearer ${token}`,
-      //     "Content-Type": "application/json",
-      //   };
-      //   // 😀 Try to set the handle.
-      //   try {
-      //     const response = await fetch("/handle", {
-      //       method: "POST",
-      //       headers: headers,
-      //       body: JSON.stringify({ handle }),
-      //     });
-      //     const data = await response.json();
-      //     if (response.status !== 200) {
-      //       flashColor = [255, 0, 0];
-      //       console.error("🧖 Error:", response, data);
-      //     } else {
-      //       flashColor = [0, 128, 0];
-      //       store["handle:updated"] = data.handle;
-      //       console.log("🧖 Handle changed:", data.handle);
-      //       makeFlash($, true, "hi @" + data.handle);
-      //     }
-      //   } catch (error) {
-      //     flashColor = [255, 0, 0]; // Server error.
-      //     makeFlash($);
-      //     console.error("🧖 Error:", error);
-      //   }
-      // } else {
-      //   flashColor = [255, 0, 0]; // Authorization error.
-      //   makeFlash($);
-      //   console.error("🧖 Not logged in.");
-      // }
-
       needsPaint();
     } else {
       flashColor = [255, 0, 0];
@@ -390,6 +379,7 @@ async function halt($, text) {
           makeFlash($);
         });
     }
+    system.prompt.input.blank();
     return true;
   } else if (slug === "resize" || slug === "res") {
     // Resize the active painting if one exists, or make one at this
@@ -562,6 +552,7 @@ async function halt($, text) {
 function paint($) {
   // 🅰️ Paint below the prompt || scheme.
   if ($.store["painting"]) {
+    $.wipe(scheme.dark.bg); // Render the backdrop.
     $.system.nopaint.present($); // Render the painting.
     scheme.dark.bg[3] = 176; // Half semi-opaque palette background.
     scheme.light.bg[3] = 176;
@@ -635,15 +626,12 @@ function paint($) {
 // 🧮 Sim
 function sim($) {
   const input = $.system.prompt.input;
-  // console.log(input?.canType);
   if (
     $.store["handle:received"] &&
     input?.canType === false &&
-    ($.system.prompt.messages && $.system.prompt.messages.length) === 0
+    (!$.system.prompt.messages || $.system.prompt.messages.length === 0)
   ) {
-    console.log($.store["handle:received"]);
-    // input.text = makeMotd($);
-    input.canType = false;
+    profile = new $.ui.TextButton($.handle, { center: "xy", screen: $.screen });
     delete $.store["handle:received"];
     $.needsPaint();
   }
@@ -661,13 +649,14 @@ function act({
   jump,
   system,
   sound: { play },
+  user,
   send,
   handle,
 }) {
   // 🔘 Buttons
   login?.btn.act(e, () => net.login());
   signup?.btn.act(e, () => net.signup());
-  profile?.btn.act(e, () => jump("profile"));
+  profile?.btn.act(e, () => jump(handle || "profile"));
 
   // Rollover keyboard locking.
   // TODO: ^ Move the below events, above to rollover events.

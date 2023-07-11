@@ -244,8 +244,12 @@ canvas[data-type="ui"] {
   /* display: none; */
 }
 
-canvas[data-type="debug"] {
+canvas[data-type="2d"] {
   z-index: 7;
+}
+
+canvas[data-type="debug"] {
+  z-index: 8;
   /* filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.5)); */
   /* transform: rotateX(0.01deg); */
   /* Make sure we are using the GPU compositor. */
