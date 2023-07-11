@@ -74,13 +74,13 @@
 
 *** Sunday Polishing ***
 - Main profile button improvements:
+  - [🧡] User profile button should be replaced with their current handle if it
+      exists.
+  - [] Tapping the user profile button should take them to their profile.
+  - [] Typing an email should also take you to the user's profile.
+  - [] Typing `profile` or jumping to `profile` should take you to your profile.
 
-- [🧡] User profile button should be replaced with their current handle if it
-     exists.
-- [] Tapping the user profile button should take them to their profile.
-- [] Typing an email should also take you to the user's profile.
-- [] Typing `profile` or jumping to `profile` should take you to your profile.
-
+- [] Setting a mood should jump you to your profile so you can see it?
 - [] Add image support and images to front-facing bots. (`gargoyle`, `liar` … )
 - [] Add name to top left corner of all bots.
 - [] Better dynamic `preview` / thumbnail images.
