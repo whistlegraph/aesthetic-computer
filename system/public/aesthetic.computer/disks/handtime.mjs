@@ -13,6 +13,7 @@ import { HandInput } from "../lib/hand.mjs";
 
 // 🥾 Boot
 let handInput;
+let points;
 let server;
 let remoteHandPoints = {};
 async function boot({ net: { socket } }) {
@@ -21,32 +22,30 @@ async function boot({ net: { socket } }) {
   server = await socket((id, type, content) => {
     console.log("Our id:", server.id);
     console.log("Got new message:", id, type, content);
-    // if (server.id !== id && type === "handtime:hand") {
     remoteHandPoints[id] = content;
-    // }
   });
 }
 
 // 🎨 Paint
 function paint($) {
-  $.wipe(0);
-  handInput.paint($);
+  $.wipe(64);
+  handInput.paint($, { hidden: true }); // Instantiate but never draw the hand.
 
-  // Draw remote points using boxes in a loop.
-
-  // Make an array of an object's keys using. Object.keys(remoteHndPoints);
-
+  // Draw all remote points.
   const keys = Object.keys(remoteHandPoints);
-
   if (remoteHandPoints) {
     for (let i = 0; i < keys.length; i += 1){
       const points = remoteHandPoints[keys[i]];
-      for (let j= 0; j < points.length; j += 1){
+      for (let j = 0; j < points.length; j += 1){
         $.ink("red").box(points[j][0], points[j][1], 5, "fill*center"); 
       }
     }
   }
 
+  // Draw local points on top.
+  for (let j = 0; j < points.length; j += 1){
+    $.ink("lime").box(points[j][0], points[j][1], 3, "fill*center"); 
+  }
 }
 
 // 🎪 Act
@@ -56,7 +55,7 @@ function act($) {
 
 // 🧮 Sim
 function sim($) {
-  const points = handInput.sim($);
+  points = handInput.sim($);
   server.send("handtime:hand", points);
 }
 
