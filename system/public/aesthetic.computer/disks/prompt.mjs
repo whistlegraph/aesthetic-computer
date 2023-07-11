@@ -204,6 +204,29 @@ async function halt($, text) {
     }
   }
 
+  if (slug === "load") {
+    // Load a file via URL.
+    // Images:
+    if (params[0].startsWith("http")) {
+      // Replace painting with loaded image, adding it to the undo stack.
+      try {
+        const image = await net.preload(params[0]);
+        system.nopaint.replace({ system, store, needsPaint }, image);
+        flashColor = [0, 0, 255];
+        makeFlash($);
+        return true;
+      } catch (err) {
+        console.error("🚫 Could not load:", err);
+        flashColor = [255, 0, 0];
+        makeFlash($);
+        return true;
+      }
+    } else {
+      flashColor = [255, 0, 0];
+      makeFlash($);
+      return true;
+    }
+  }
   if (slug === "mood") {
     let res;
     if (params.join(" ").trim().length > 0) {
@@ -529,6 +552,7 @@ async function halt($, text) {
 function paint($) {
   // 🅰️ Paint below the prompt || scheme.
   if ($.store["painting"]) {
+    $.wipe(scheme.dark.bg); // Render the backdrop.
     $.system.nopaint.present($); // Render the painting.
     scheme.dark.bg[3] = 176; // Half semi-opaque palette background.
     scheme.light.bg[3] = 176;

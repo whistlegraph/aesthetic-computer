@@ -116,6 +116,7 @@ const nopaint = {
 const undoPaintings = []; // Stores the last two paintings.
 
 function addUndoPainting(painting) {
+  if (!painting) return; // If there is no painting present, silently pass.
   const op = painting.pixels;
   const pixels = new Uint8ClampedArray(op.length);
   pixels.set(op);
@@ -123,9 +124,12 @@ function addUndoPainting(painting) {
   if (undoPaintings.length > 0) {
     const lastPainting = undoPaintings[0];
 
-    const eq = pixels.every(
-      (value, index) => value === lastPainting.pixels[index]
-    );
+    // Check for equality in the two states.
+    // TODO: How long does this take?
+    const eq =
+      painting.width === lastPainting.width &&
+      painting.height === lastPainting.height &&
+      pixels.every((value, index) => value === lastPainting.pixels[index]);
 
     if (eq) {
       console.log("💩 The undo stack was not changed:", undoPaintings.length);
@@ -365,6 +369,16 @@ let lastActAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
+  // `Get` api
+  // Retrieve assets from a user account.
+  get: {
+    painting: (code) => {
+      return {
+        by: (handle) =>
+          $commonApi.net.preload(`/media/${handle}/painting/${code}.png`),
+      };
+    },
+  },
   // ***Actually*** upload a file to the server.
   // 📓 The file name can have `media-` which will sort it on the server into
   // a directory via `presigned-url.js`.
@@ -444,6 +458,7 @@ const $commonApi = {
       needsBake: false,
       needsPresent: false,
       bakeOnLeave: false,
+      addUndoPainting,
       no: ({ system, store, needsPaint }) => {
         const paintings = system.nopaint.undo.paintings;
 
@@ -460,6 +475,10 @@ const $commonApi = {
             pixels,
           };
 
+          const resolutionChange =
+            paintings[0].width !== paintings[1].width ||
+            paintings[0].height !== paintings[1].height;
+
           // Swap mode.
           // 'no' should swap...
           const temp = paintings[0];
@@ -467,11 +486,17 @@ const $commonApi = {
           paintings[1] = temp;
 
           // Rewind mode
-          //paintings.length -= 1;
+          // paintings.length -= 1;
 
           store.persist("painting", "local:db");
 
           system.painting = store["painting"];
+
+          if (resolutionChange) {
+            system.nopaint.resetTransform({ system });
+            system.nopaint.storeTransform(store, system);
+          }
+
           needsPaint();
         }
       },
@@ -573,6 +598,18 @@ const $commonApi = {
         system.nopaint.resetTransform({ system, screen }); // Reset transform.
         needsPaint();
         return deleted;
+      },
+      // Replace a painting entirely, remembering the last one.
+      // (This will always enable fixed resolution mode.)
+      replace: ({ system, store, needsPaint }, painting) => {
+        system.painting = painting; // Update references.
+        store["painting"] = system.painting;
+        store.persist("painting", "local:db"); // Persist to storage.
+        store["painting:resolution-lock"] = true;
+        store.persist("painting:resolution-lock", "local:db");
+        system.nopaint.addUndoPainting(system.painting);
+        system.nopaint.needsPresent = true;
+        needsPaint();
       },
       abort: () => (NPnoOnLeave = true),
     },
@@ -2185,6 +2222,18 @@ async function makeFrame({ data: { type, content } }) {
   // Load the source code for a dropped `.mjs` file.
   if (type === "dropped:piece") {
     load(content);
+    return;
+  }
+
+  if (type === "dropped:bitmap") {
+    if (currentPath === "aesthetic.computer/disks/prompt") {
+      $commonApi.system.nopaint.replace(
+        { system: $commonApi.system, store, needsPaint: $commonApi.needsPaint },
+        content.source
+      );
+    } else {
+      console.warn("🖼️ Dropped images only function in the `prompt`.");
+    }
     return;
   }
 
