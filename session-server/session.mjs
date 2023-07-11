@@ -205,6 +205,7 @@ wss.on("connection", (ws, req) => {
       if (!codeChannels[codeChannel]) codeChannels[codeChannel] = new Set();
       codeChannels[codeChannel].add(id);
     } else {
+      // Relay any other message to every user.
       // TODO: Why not always use "others" here?
       everyone(JSON.stringify(msg));
       // others(JSON.stringify(msg));

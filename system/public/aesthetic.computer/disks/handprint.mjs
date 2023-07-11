@@ -18,12 +18,12 @@
   - [3] Paint based on stillness or movement.
 #endregion */
 
+let handInput;
 let handprint;
 import { HandInput } from "../lib/hand.mjs";
+
 // 🥾 Boot
-let handInput;
-function boot({ wipe, ink, line }) {
-  // Runs once at the start.
+function boot() {
   handInput = new HandInput();
 }
 
@@ -37,8 +37,18 @@ function paint($) {
 }
 
 // 🥞 Bake (to the painting)
-function bake() {
-  handprint?.();
+function bake($) {
+  handprint?.($);
+}
+
+// 🧮 Sim
+function sim($) {
+  handInput.sim($);
+}
+
+// 🧮 Act
+function act($) {
+  handInput.act($);
 }
 
 // 📰 Meta
@@ -50,7 +60,7 @@ function meta() {
 }
 
 export const system = "nopaint:bake-on-leave";
-export { boot, paint, bake, meta };
+export { boot, paint, bake, act, sim, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)

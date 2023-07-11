@@ -85,7 +85,6 @@ function paint($) {
 
 // 🧮 Sim
 function sim($) {
-  console.log(speed);
   handInput.sim($); // Calculate the hand points.
   // Runs once per logic frame. (120fps locked.
   if (reverseIt === true) {
