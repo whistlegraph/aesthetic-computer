@@ -8,9 +8,17 @@
 #endregion */
 
 // 🥾 Boot
-function boot({ wipe }) {
+function boot({ wipe, ink, line }) {
   // Runs once at the start.
-  wipe();
+  wipe(0);
+  ink();
+  line();
+  ink();
+  line();
+  ink();
+  line();
+  ink();
+  line();
 }
 
 // 🎨 Paint

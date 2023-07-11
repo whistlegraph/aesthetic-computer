@@ -117,6 +117,7 @@ class Typeface {
     const blockWidth = 6;
     const thickness = pos.thickness || 1;
     const rotation = pos.rotation || 0;
+    const fullWidth = blockWidth * size * text.length;
 
     if (Array.isArray(pos)) {
       pos = { x: pos[0], y: pos[1] };
@@ -124,8 +125,16 @@ class Typeface {
 
     // Randomize pos.x and pos.y if undefined.
     if (pos.center === undefined) {
-      if (pos.x === undefined) pos.x = $.num.randInt($.screen.width);
-      if (pos.y === undefined) pos.y = $.num.randInt($.screen.height);
+      if (pos.x === undefined)
+        pos.x = $.num.randIntRange(
+          -fullWidth / 2,
+          $.screen.width + fullWidth / 2
+        );
+      if (pos.y === undefined)
+        pos.y = $.num.randIntRange(
+          -blockHeight / 2,
+          $.screen.height + blockHeight / 2
+        );
     }
 
     // Set x, y position and override if centering is specified.
@@ -147,7 +156,7 @@ class Typeface {
 
     // Background
     if (bg !== null) {
-      $.ink(bg).box(x, y, blockWidth * size * text.length, blockHeight);
+      $.ink(bg).box(x, y, fullWidth, blockHeight);
     }
 
     $.ink(rn).printLine(
@@ -338,7 +347,7 @@ class TextInput {
   }
 
   latentFirstPrint(text) {
-    if (!this.inputStarted) {
+    if (!this.inputStarted && !this.commandSentOnce) {
       this.print(text);
     } else if (!this.commandSentOnce) {
       this.#lastPrintedText = text;

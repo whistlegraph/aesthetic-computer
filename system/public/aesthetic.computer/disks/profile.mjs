@@ -6,7 +6,7 @@
 
 /* #region 🏁 TODO 
   - ☁️ General thoughts:
-    - [] Should @handle eventually be a piece in the system for every user?
+    - [] Should @handle eventually be a code piece in the system for every user?
     - [] And then they can edit it?
     - [] Or maybe just a custom paint function?
     - [] What happens when you visit there now?
@@ -21,8 +21,9 @@
       - [] Or if they are offline... using tiny LEDs?
 #endregion */
 
+const RETRIEVING = "retrieving...";
 let profile,
-  noprofile = "searching...";
+  noprofile = RETRIEVING;
 
 // 📰 Meta
 function meta({ piece }) {
@@ -34,21 +35,31 @@ function meta({ piece }) {
 }
 
 // 🥾 Boot
-function boot({ params, user, handle, slug, debug }) {
+function boot({ params, user, handle, debug, hud, net }) {
+  // Mask from `profile` if we are logged in.
+  if (handle) {
+    hud.label(handle);
+    net.rewrite(handle);
+  }
+
   console.log("🤺 Visiting the profile of...", params[0]);
   if (user) console.log("😉 Logged in as...", handle || user?.name);
-
+  if (!handle && params[0] === undefined) {
+    noprofile = user?.name || "no profile (enter 'hi' at the prompt)";
+    return;
+  }
   // 🎆 Check to see if this user actually exists via a server-side call.
-  fetch(`/api/profile/${params[0]}`, {
+  fetch(`/api/profile/${handle || params[0]}`, {
     headers: { Accept: "application/json" },
   })
     .then(async (response) => {
-      const json = await response.json();
+      const data = (await response.json()).mood;
       if (response.ok) {
-        if (debug) console.log("🙆 Profile found:", json);
-        profile = { handle: params[0], mood: json.mood.mood };
+        if (debug) console.log("🙆 Profile found:", data);
+        profile = { handle: params[0], mood: data?.mood };
+        noprofile = null;
       } else {
-        if (debug) console.warn("🙍 Profile not found:", json);
+        if (debug) console.warn("🙍 Profile not found:", data);
         noprofile = "no profile found";
       }
     })
@@ -58,50 +69,34 @@ function boot({ params, user, handle, slug, debug }) {
 }
 
 // 🎨 Paint
-function paint({ params, wipe, ink, pen, screen }) {
+function paint({ params, wipe, ink, pen, user, screen }) {
   if (!pen?.drawing) wipe(98);
   ink(127).line();
 
+  const retrieving = noprofile === RETRIEVING;
   if (profile) ink().line().ink().line().ink().line();
   ink(profile ? undefined : 255).write(
-    profile?.handle || noprofile,
-    { center: "x", y: screen.height / 2 - 12 },
-    "black"
+    profile?.handle || noprofile || user?.name,
+    { center: "x", y: screen.height / 2 + 5 - (retrieving ? 0 : 12) },
+    retrieving ? 64 : "black"
   );
 
-  if (profile?.mood) {
-    ink().write(profile.mood);
-    ink(255).write(
-      profile.mood,
-      { center: "x", y: screen.height / 2 + 12 },
-      "black"
+  if (!retrieving && !profile && user?.name) {
+    ink("yellow").write(
+      "enter 'handle urnamehere' at the prompt",
+      { center: "x", y: screen.height / 2 + 5 + 24 },
+      "blue"
     );
   }
 
-  // Drawing Boxes (Ida Lesson)
-  // let bx = 30;
-  // let by = 20;
-  // let bc = "blue";
-  // const bh = 100;
-  // const bw = 130;
-  // let boxin = "i am sitting in a box";
-  // if (pen) {
-  //   bx = pen.x - bw / 2;
-  //   by = pen.y - bh / 2;
-  // }
-  // if (!pen?.drawing) bc = "black";
-  // ink(bc);
-  // if (pen?.button === 2 && pen?.drawing) ink("red");
-
-  // box(bx, by, bw, bh); // x, y, width, height
-  // ink("white");
-
-  // if (!pen?.drawing) {
-  // write(boxin, { x: bx, y: by });
-  // } else {
-  // write("drawing", { x: bx, y: by });
-  // }
-
+  if (profile) {
+    ink().write(profile?.mood || "no mood");
+    ink(255).write(
+      profile.mood || "no mood",
+      { center: "x", y: screen.height / 2 + 5 + 12 },
+      "black"
+    );
+  }
   // return false;
 }
 

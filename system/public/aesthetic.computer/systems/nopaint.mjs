@@ -135,6 +135,8 @@ function nopaint_adjust(screen, sys, painting, store, size = null) {
   });
   store["painting"] = sys.painting;
 
+  sys.nopaint.addUndoPainting(sys.painting);
+
   // Set a flag to prevent auto-resize.
   if (size) {
     store["painting:resolution-lock"] = true;

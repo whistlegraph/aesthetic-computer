@@ -116,6 +116,7 @@ const nopaint = {
 const undoPaintings = []; // Stores the last two paintings.
 
 function addUndoPainting(painting) {
+  if (!painting) return; // If there is no painting present, silently pass.
   const op = painting.pixels;
   const pixels = new Uint8ClampedArray(op.length);
   pixels.set(op);
@@ -123,9 +124,12 @@ function addUndoPainting(painting) {
   if (undoPaintings.length > 0) {
     const lastPainting = undoPaintings[0];
 
-    const eq = pixels.every(
-      (value, index) => value === lastPainting.pixels[index]
-    );
+    // Check for equality in the two states.
+    // TODO: How long does this take?
+    const eq =
+      painting.width === lastPainting.width &&
+      painting.height === lastPainting.height &&
+      pixels.every((value, index) => value === lastPainting.pixels[index]);
 
     if (eq) {
       console.log("💩 The undo stack was not changed:", undoPaintings.length);
@@ -201,6 +205,9 @@ let scream = null; // 😱 Allow priviledged users to send alerts to everyone.
 //                       (A great end<->end socket + redis test.)
 let screaming = false;
 let screamingTimer; // Keep track of scream duration.
+
+const ambientPenPoints = []; // Render cursor points of other active users,
+//                              dumped each frame.
 
 // *** Dark Mode ***
 // Pass `true` or `false` to override or `default` to the system setting.
@@ -362,6 +369,16 @@ let lastActAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
+  // `Get` api
+  // Retrieve assets from a user account.
+  get: {
+    painting: (code) => {
+      return {
+        by: (handle) =>
+          $commonApi.net.preload(`/media/${handle}/painting/${code}.png`),
+      };
+    },
+  },
   // ***Actually*** upload a file to the server.
   // 📓 The file name can have `media-` which will sort it on the server into
   // a directory via `presigned-url.js`.
@@ -441,6 +458,7 @@ const $commonApi = {
       needsBake: false,
       needsPresent: false,
       bakeOnLeave: false,
+      addUndoPainting,
       no: ({ system, store, needsPaint }) => {
         const paintings = system.nopaint.undo.paintings;
 
@@ -457,6 +475,10 @@ const $commonApi = {
             pixels,
           };
 
+          const resolutionChange =
+            paintings[0].width !== paintings[1].width ||
+            paintings[0].height !== paintings[1].height;
+
           // Swap mode.
           // 'no' should swap...
           const temp = paintings[0];
@@ -464,11 +486,17 @@ const $commonApi = {
           paintings[1] = temp;
 
           // Rewind mode
-          //paintings.length -= 1;
+          // paintings.length -= 1;
 
           store.persist("painting", "local:db");
 
           system.painting = store["painting"];
+
+          if (resolutionChange) {
+            system.nopaint.resetTransform({ system });
+            system.nopaint.storeTransform(store, system);
+          }
+
           needsPaint();
         }
       },
@@ -570,6 +598,18 @@ const $commonApi = {
         system.nopaint.resetTransform({ system, screen }); // Reset transform.
         needsPaint();
         return deleted;
+      },
+      // Replace a painting entirely, remembering the last one.
+      // (This will always enable fixed resolution mode.)
+      replace: ({ system, store, needsPaint }, painting) => {
+        system.painting = painting; // Update references.
+        store["painting"] = system.painting;
+        store.persist("painting", "local:db"); // Persist to storage.
+        store["painting:resolution-lock"] = true;
+        store.persist("painting:resolution-lock", "local:db");
+        system.nopaint.addUndoPainting(system.painting);
+        system.nopaint.needsPresent = true;
+        needsPaint();
       },
       abort: () => (NPnoOnLeave = true),
     },
@@ -916,7 +956,7 @@ function color() {
 }
 
 function ink() {
-  graph.color(...color(...arguments));
+  return graph.color(...color(...arguments));
 }
 
 // 🔎 PAINTAPI (for searching)
@@ -1095,12 +1135,15 @@ function form(
 
 const $paintApiUnwrapped = {
   // Shortcuts
-  l: graph.line,
-  i: ink,
+  // l: graph.line,
+  // i: ink,
   // Defaults
   page: graph.setBuffer,
   edit: graph.changePixels, // Edit pixels by pasing a callback.
-  ink, // Color
+  ink: function () {
+    const out = ink(...arguments);
+    twoDCommands.push(["ink", ...out]);
+  }, // Color
   // inkrn: () => graph.c.slice(), // Get current inkColor.
   // 2D
   wipe: function () {
@@ -1117,7 +1160,10 @@ const $paintApiUnwrapped = {
     }
   }, // TODO: Should this be renamed to set?
   point: graph.point,
-  line: graph.line,
+  line: function () {
+    const out = graph.line(...arguments);
+    twoDCommands.push(["line", ...out]);
+  },
   lineAngle: graph.lineAngle,
   pline: graph.pline,
   pppline: graph.pixelPerfectPolyline,
@@ -1146,6 +1192,8 @@ const $paintApiUnwrapped = {
 let $activePaintApi;
 
 let paintingAPIid = 0n;
+
+const twoDCommands = [];
 
 class Painting {
   #layers = [];
@@ -1660,10 +1708,22 @@ async function load(
     socket.connect(
       new URL(sesh.url).host,
       (id, type, content) => {
+        // Globally receivable messages...
+        // (There are also some messages handled in `Socket`)
+
         // 😱 Scream at everyone who is connected!
         if (type === "scream") {
           console.log("😱 Scream:", content, "❗");
           scream = content;
+        }
+
+        // 🧚 Ambient cursor support.
+        if (type === "ambient-pen:point" && socket.id !== id) {
+          ambientPenPoints.push({
+            x: content.x,
+            y: content.y,
+          });
+          // console.log(socket.id, id, type, content);
         }
 
         receiver?.(id, type, content); // Run the piece receiver.
@@ -2169,7 +2229,19 @@ async function makeFrame({ data: { type, content } }) {
 
   // Load the source code for a dropped `.mjs` file.
   if (type === "dropped:piece") {
-    load(content);
+    load(content, false, false, true);
+    return;
+  }
+
+  if (type === "dropped:bitmap") {
+    if (currentPath === "aesthetic.computer/disks/prompt") {
+      $commonApi.system.nopaint.replace(
+        { system: $commonApi.system, store, needsPaint: $commonApi.needsPaint },
+        content.source
+      );
+    } else {
+      console.warn("🖼️ Dropped images only function in the `prompt`.");
+    }
     return;
   }
 
@@ -2680,6 +2752,16 @@ async function makeFrame({ data: { type, content } }) {
         primaryPointer.multipen = true; // Set a flag for multipen activity on main pen API object.
 
       $commonApi.pen = primaryPointer; // || { x: undefined, y: undefined };
+
+      if (
+        primaryPointer &&
+        (primaryPointer.delta?.x !== 0 || primaryPointer.delta?.y !== 0)
+      ) {
+        socket?.send("ambient-pen:point", {
+          x: primaryPointer.x / screen.width,
+          y: primaryPointer.y / screen.height,
+        });
+      }
     }
 
     // 🕶️ VR Pen
@@ -3222,7 +3304,10 @@ async function makeFrame({ data: { type, content } }) {
 
       // Attempt a paint.
       //if (noPaint === false && booted && loading === false) {
-      if ((noPaint === false || scream) && booted) {
+      if (
+        (noPaint === false || scream || ambientPenPoints.length > 0) &&
+        booted
+      ) {
         let paintOut;
 
         try {
@@ -3255,8 +3340,11 @@ async function makeFrame({ data: { type, content } }) {
         // Run everything that was queued to be painted, then devour paintLayers.
         //await painting.paint();
 
+        // Upper layer.
+
         // 😱 Scream - Paint a scream if it exists.
         // TODO: Should this overlay after the fact and not force a paint? 23.05.23.19.21
+        //       Yes probably, because of layering issues?
         if (scream || screaming) {
           const { ink, needsPaint } = $api;
           ink(255)
@@ -3272,6 +3360,17 @@ async function makeFrame({ data: { type, content } }) {
             }, 1000);
           }
         }
+
+        // 🧚 Ambient Pen Points - Paint if they exist.
+        const { ink, needsPaint } = $api;
+        ambientPenPoints.forEach(({ x, y }) => {
+          ink().point(x * screen.width, y * screen.height);
+        });
+        if (ambientPenPoints.length > 0) {
+          needsPaint();
+          if (system === "nopaint") $api.system.nopaint.needsPresent = true;
+        }
+        ambientPenPoints.length = 0;
 
         painting.paint(true);
         painted = true;
@@ -3346,6 +3445,18 @@ async function makeFrame({ data: { type, content } }) {
       // Return frame data back to the main thread.
       let sendData = {};
 
+      // TODO: Write this up to the data in `painting`.
+
+      sendData.TwoD = {
+        code: twoDCommands
+        // code: [
+        //   ["ink", 1.0, 0, 0, 1.0],
+        //   ["ink2", 0.0, 1.0, 0, 1.0],
+        //   ["line", 0, 0, 30, 30],
+        //   //     x1, y1, x2, y2, r1, g1, b1, a1, r2, g2, b2, a2
+        // ],
+      };
+
       // Attach a label buffer if necessary.
       if (label)
         sendData.label = {
@@ -3403,6 +3514,8 @@ async function makeFrame({ data: { type, content } }) {
       sendData.sound = sound;
 
       send({ type: "render", content: sendData }, transferredObjects);
+
+      twoDCommands.length = 0; // Empty the 2D GPU command buffer.
 
       // Flush the `signals` after sending.
       if (reframe) reframe = undefined;

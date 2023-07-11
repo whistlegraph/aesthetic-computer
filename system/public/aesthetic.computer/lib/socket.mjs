@@ -27,32 +27,33 @@ export class Socket {
       return;
     }
 
+    const socket = this;
     const ws = this.#ws;
 
     // Send a message to the console after the first connection.
     ws.onopen = (e) => {
       /*if (this.#debug)*/ console.log("📡 Connected."); // Redundant log given an initial message from the server.
-      this.#queue.forEach((q) => this.send(...q)); // Send any held messages.
-      this.#reconnectTime = 1000;
+      socket.#queue.forEach((q) => socket.send(...q)); // Send any held messages.
+      socket.#reconnectTime = 1000;
       connectCallback?.(); // Run any post-connection logic, like setting codeChannel for example.
     };
 
     // Respond to incoming messages and assume `e.data` is a JSON String.
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
-      this.#preReceive(msg, receive, reload);
+      socket.#preReceive(msg, receive, reload);
     };
 
     // Recursively re-connect after every second upon close or failed connection.
     ws.onclose = (e) => {
       console.warn("📡 Disconnected...", e.currentTarget?.url);
       // Only reconnect if we are not killing the socket and not in development mode.
-      if (this.#killSocket === false) {
-        console.log("📡 Reconnecting in:", this.#reconnectTime, "ms");
+      if (socket.#killSocket === false) {
+        console.log("📡 Reconnecting in:", socket.#reconnectTime, "ms");
         setTimeout(() => {
-          this.connect(host, receive, reload, protocol);
-        }, this.#reconnectTime);
-        this.#reconnectTime = Math.min(this.#reconnectTime * 2, 32000);
+          socket.connect(host, receive, reload, protocol);
+        }, socket.#reconnectTime);
+        socket.#reconnectTime = Math.min(socket.#reconnectTime * 2, 32000);
       }
     };
 
