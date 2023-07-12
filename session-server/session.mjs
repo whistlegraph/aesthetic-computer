@@ -176,8 +176,8 @@ wss.on("connection", (ws, req) => {
   // Send a message to all other clients except this one.
   function others(string) {
     // Object.keys(connections)
-    wss.clients.forEach((id) => {
-      const c = connections[id];
+    wss.clients.forEach((c) => {
+      // const c = connections[id];
       if (c !== ws && c?.readyState === WebSocket.OPEN) c.send(string);
     });
   }
@@ -247,8 +247,8 @@ wss.on("connection", (ws, req) => {
 
 // Sends a message to all connected clients.
 function everyone(string) {
-  wss.clients.forEach((id) => {
-    const c = connections[id];
+  wss.clients.forEach((c) => {
+    //const c = connections[id];
     if (c?.readyState === WebSocket.OPEN) c.send(string);
   });
 }
