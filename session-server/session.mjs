@@ -149,6 +149,14 @@ function pack(type, content, id) {
   return JSON.stringify({ type, content, id });
 }
 
+const interval = setInterval(function ping() {
+  wss.clients.forEach((client) => {
+    if (client.isAlive === false) return client.terminate();
+    client.isAlive = false;
+    client.ping();
+  });
+}, 5000);
+
 // Construct the server.
 wss.on("connection", (ws, req) => {
   const ip = req.socket.remoteAddress || "localhost"; // beautify ip
@@ -163,13 +171,17 @@ wss.on("connection", (ws, req) => {
   //       the client instead.
   const content = { ip, id, playerCount: wss.clients.size };
 
+  // console.log("client length:", wss.clients.size);
+
   ws.send(pack("message", JSON.stringify(content), id));
 
   // Send a message to all other clients except this one.
   function others(string) {
-    wss.clients.forEach((c) => {
-      if (c !== ws && c.readyState === WebSocket.OPEN) c.send(string);
-    });
+    Object.keys(connections)
+      /*wss.clients*/ .forEach((id) => {
+        const c = connections[id];
+        if (c !== ws && c?.readyState === WebSocket.OPEN) c.send(string);
+      });
   }
 
   others(
@@ -215,6 +227,7 @@ wss.on("connection", (ws, req) => {
   // More info: https://stackoverflow.com/a/49791634/8146077
   ws.on("close", () => {
     everyone(pack("left", { id, count: wss.clients.size }));
+    delete connections[id];
 
     // Clear out the codeChannel if the last user disconnects from it.
     if (codeChannel !== undefined) {
@@ -231,24 +244,20 @@ wss.on("connection", (ws, req) => {
 
   // Send a ping message to all clients every 10 seconds, and kill
   // the client if it does not respond back with a pong on any given pass.
-  const interval = setInterval(function ping() {
-    wss.clients.forEach((client) => {
-      if (client.isAlive === false) return client.terminate();
-      client.isAlive = false;
-      client.ping();
-    });
-  }, 10000);
-
   ws.on("pong", () => {
+    console.log("pong");
     ws.isAlive = true;
   }); // Receive a pong.
 });
 
 // Sends a message to all connected clients.
 function everyone(string) {
-  wss.clients.forEach((c) => {
-    if (c.readyState === WebSocket.OPEN) c.send(string);
-  });
+  Object.keys(connections)
+    /*wss.clients*/ .forEach((id) => {
+      const c = connections[id];
+      // console.log(c?.readyState, string);
+      if (c?.readyState === WebSocket.OPEN) c.send(string);
+    });
 }
 
 // Sends a message to a particular set of client ids on
