@@ -1702,7 +1702,10 @@ async function load(
   // Requests a session-backend and connects via websockets.
   function startSocket() {
     if (debug) console.log("🧦 Initializing socket server...");
+    console.log("killing socket...")
     socket?.kill(); // Kill any already open socket from a previous disk.
+
+    console.log("making new socket...")
     socket = new Socket(debug); // Then redefine and make a new socket.
 
     const monolith = "monolith"; // or undefined for horizontal scaling.
