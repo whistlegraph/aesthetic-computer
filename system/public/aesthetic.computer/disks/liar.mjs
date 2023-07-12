@@ -16,11 +16,11 @@ const after = `
 
 export const scheme = {
   dark: {
-    fg: [50, 255, 0],
-    bg: [180, 20, 20],
-    block: [240, 250, 10],
-    blockHi: [0, 0, 0],
-    line: [0, 0, 10],
+    fg: [6, 180, 180],
+    bg: [255, 225, 4, 220],
+    block: [255, 1, 25],
+    blockHi: [255, 255, 255],
+    line: [255, 255, 255],
   },
   light: {
     fg: [0, 200],
@@ -44,10 +44,41 @@ function reply(text) {
   console.log("😀 Replied with:", text);
 }
 
+
 function copied(text) {
   return `${text} 🤥 https://aesthetic.computer/liar`;
 }
 
+let painting;
 
-export { prompt, before, after, halt, reply, copied };
+// 🥾 Boot
+function boot({ get, needsPaint }) {
+  get
+    .painting("2023.7.12.16.16.02")
+    .by("@georgica")
+    .then((p) => { painting = p; needsPaint(); });
+}
+
+// 🎨 Paint
+function paint({ screen, wipe, ink, paste }) {
+  wipe(255, 225, 4);
+  if (painting === undefined) return;
+  let scale
+  console.log(screen.width, screen.height)
+  if (screen.width > screen.height) {
+    scale =  screen.width / painting.width;
+    console.log("Scale:", scale);
+  } else {
+    scale = screen.height / painting.height;
+    console.log(scale, screen.height, painting.height)
+
+  }
+
+
+  paste(painting, 0, 0, scale);
+}
+
+
+
+export { prompt, before, after, halt, reply, copied, boot, paint };
 export const system = "prompt:character"; // or "prompt:code"
