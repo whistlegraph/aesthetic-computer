@@ -219,6 +219,7 @@ wss.on("connection", (ws, req) => {
     } else {
       // Relay any other message to every user.
       // TODO: Why not always use "others" here?
+      console.log(msg);
       everyone(JSON.stringify(msg));
       // others(JSON.stringify(msg));
     }
@@ -245,13 +246,14 @@ wss.on("connection", (ws, req) => {
   // Send a ping message to all clients every 10 seconds, and kill
   // the client if it does not respond back with a pong on any given pass.
   ws.on("pong", () => {
-    console.log("pong");
+    // console.log("pong");
     ws.isAlive = true;
   }); // Receive a pong.
 });
 
 // Sends a message to all connected clients.
 function everyone(string) {
+  console.log(wss.clients.size);
   Object.keys(connections)
     /*wss.clients*/ .forEach((id) => {
       const c = connections[id];
