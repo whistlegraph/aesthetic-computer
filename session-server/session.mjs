@@ -163,15 +163,17 @@ wss.on("connection", (ws, req) => {
   //       the client instead.
   const content = { ip, id, playerCount: wss.clients.size };
 
-  console.log("client length:", wss.clients.size);
+  // console.log("client length:", wss.clients.size);
 
   ws.send(pack("message", JSON.stringify(content), id));
 
   // Send a message to all other clients except this one.
   function others(string) {
-    wss.clients.forEach((c) => {
-      if (c !== ws && c.readyState === WebSocket.OPEN) c.send(string);
-    });
+    Object.keys(connections)
+      /*wss.clients*/ .forEach((id) => {
+        const c = connections[id];
+        if (c !== ws && c?.readyState === WebSocket.OPEN) c.send(string);
+      });
   }
 
   others(
@@ -249,10 +251,12 @@ wss.on("connection", (ws, req) => {
 
 // Sends a message to all connected clients.
 function everyone(string) {
-  wss.clients.forEach((c) => {
-    console.log(c.readyState, string);
-    if (c.readyState === WebSocket.OPEN) c.send(string);
-  });
+  Object.keys(connections)
+    /*wss.clients*/ .forEach((id) => {
+      const c = connections[id];
+      // console.log(c?.readyState, string);
+      if (c?.readyState === WebSocket.OPEN) c.send(string);
+    });
 }
 
 // Sends a message to a particular set of client ids on
