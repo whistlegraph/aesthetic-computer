@@ -128,14 +128,21 @@ function nopaint_adjust(screen, sys, painting, store, size = null) {
   )
     return; // Never auto-resize if we are panned.
 
-  const width = size?.w || screen.width;
-  const height = size?.h || screen.height;
-  sys.painting = painting(width, height, (p) => {
-    p.wipe(64).paste(sys.painting);
-  });
-  store["painting"] = sys.painting;
+  if (size || !sys.painting) {
+    const width = size?.w || screen.width;
+    const height = size?.h || screen.height;
 
-  sys.nopaint.addUndoPainting(sys.painting);
+    sys.painting = painting(width, height, (p) => {
+      if (size?.scale) {
+        p.wipe(128).paste(sys.painting, 0, 0, { width, height });
+      } else {
+        p.wipe(64).paste(sys.painting);
+      }
+    });
+
+    store["painting"] = sys.painting;
+    sys.nopaint.addUndoPainting(sys.painting);
+  }
 
   // Set a flag to prevent auto-resize.
   if (size) {
