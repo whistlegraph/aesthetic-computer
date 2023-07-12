@@ -1700,53 +1700,61 @@ async function load(
   const forceProd = false; // For testing prod socket servers in development.
 
   // Requests a session-backend and connects via websockets.
-  async function startSocket() {
-    const monolith = "monolith"; // or undefined for horizontal scaling.
-    const sesh = await session(slug, forceProd, monolith); // Backend for piece.
+  function startSocket() {
+    if (debug) console.log("🧦 Initializing socket server...");
     socket?.kill(); // Kill any already open socket from a previous disk.
     socket = new Socket(debug); // Then redefine and make a new socket.
-    socket.connect(
-      new URL(sesh.url).host,
-      (id, type, content) => {
-        // Globally receivable messages...
-        // (There are also some messages handled in `Socket`)
 
-        // 😱 Scream at everyone who is connected!
-        if (type === "scream") {
-          console.log("😱 Scream:", content, "❗");
-          scream = content;
-        }
+    const monolith = "monolith"; // or undefined for horizontal scaling.
 
-        // 🧚 Ambient cursor support.
-        if (type === "ambient-pen:point" /*&& socket.id !== id*/) {
-          ambientPenPoints.push({
-            x: content.x,
-            y: content.y,
-          });
-          // console.log(socket.id, id, type, content);
-        }
+    session(slug, forceProd, monolith)
+      .then((sesh) => {
+        socket.connect(
+          new URL(sesh.url).host,
+          (id, type, content) => {
+            // Globally receivable messages...
+            // (There are also some messages handled in `Socket`)
+            // 😱 Scream at everyone who is connected!
+            if (type === "scream") {
+              console.log("😱 Scream:", content, "❗");
+              scream = content;
+              return;
+            }
 
-        receiver?.(id, type, content); // Run the piece receiver.
-      },
-      $commonApi.reload,
-      "wss",
-      () => {
-        // Post-connection logic.
-        if (codeChannel) socket.send("code-channel:sub", codeChannel);
-      }
-    );
+            // 🧚 Ambient cursor support.
+            if (type === "ambient-pen:point" /*&& socket.id !== id*/) {
+              ambientPenPoints.push({ x: content.x, y: content.y });
+              return;
+            }
+
+            // 🧩 Pieces get all other messages not caught in `Socket`.
+            receiver?.(id, type, content); // Run the piece receiver.
+          },
+          $commonApi.reload,
+          "wss",
+          () => {
+            // Post-connection logic.
+            if (codeChannel) socket.send("code-channel:sub", codeChannel);
+          }
+        );
+      })
+      .catch((err) => {
+        console.error("Socket connection error:", err);
+      });
   }
 
   // Delay session server by .75 seconds in order to prevent redundant
   //  connections being opened as pieces are quickly re-routing and jumping.
   clearTimeout(socketStartDelay);
-  socketStartDelay = setTimeout(() => startSocket(), 750);
+  socketStartDelay = setTimeout(() => startSocket(), 250);
 
-  $commonApi.net.socket = async function (receive) {
-    //console.log("📡 Mapping receiver.");
+  $commonApi.net.socket = function (receive) {
     receiver = receive || (() => {});
-    if (!socket) clearTimeout(socketStartDelay);
-    await startSocket();
+    if (!socket) {
+      // Just in case we init. in a `boot` before the timeout fires above.
+      clearTimeout(socketStartDelay);
+      startSocket();
+    }
     return socket;
   };
 
@@ -3588,6 +3596,10 @@ async function handle() {
 function maybeLeave() {
   // 🚪 Leave (Skips act and sim and paint...)
   if (leaving) {
+    // End the socket connection before switching pieces if one exists.
+    socket?.kill();
+    socket = undefined;
+
     try {
       leave({ ...painting.api, screen, ...$commonApi }); // Trigger leave.
     } catch (e) {
