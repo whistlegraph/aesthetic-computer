@@ -163,6 +163,8 @@ wss.on("connection", (ws, req) => {
   //       the client instead.
   const content = { ip, id, playerCount: wss.clients.size };
 
+  console.log("client length:", wss.clients.size);
+
   ws.send(pack("message", JSON.stringify(content), id));
 
   // Send a message to all other clients except this one.
@@ -225,24 +227,24 @@ wss.on("connection", (ws, req) => {
       }
     }
 
-    clearInterval(interval); // Stop pinging once the socket closes.
+    // clearInterval(interval); // Stop pinging once the socket closes.
   });
 
-  ws.isAlive = true; // For checking persistence between ping-pong messages.
+  // ws.isAlive = true; // For checking persistence between ping-pong messages.
 
-  // Send a ping message to all clients every 10 seconds, and kill
-  // the client if it does not respond back with a pong on any given pass.
-  const interval = setInterval(function ping() {
-    wss.clients.forEach((client) => {
-      if (client.isAlive === false) return client.terminate();
-      client.isAlive = false;
-      client.ping();
-    });
-  }, 10000);
+  // // Send a ping message to all clients every 10 seconds, and kill
+  // // the client if it does not respond back with a pong on any given pass.
+  // const interval = setInterval(function ping() {
+  //   wss.clients.forEach((client) => {
+  //     if (client.isAlive === false) return client.terminate();
+  //     client.isAlive = false;
+  //     client.ping();
+  //   });
+  // }, 10000);
 
-  ws.on("pong", () => {
-    ws.isAlive = true;
-  }); // Receive a pong.
+  // ws.on("pong", () => {
+  //   ws.isAlive = true;
+  // }); // Receive a pong.
 });
 
 // Sends a message to all connected clients.
