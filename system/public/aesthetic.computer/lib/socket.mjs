@@ -51,7 +51,7 @@ export class Socket {
       if (socket.#killSocket === false) {
         console.log("📡 Reconnecting in:", socket.#reconnectTime, "ms");
         setTimeout(() => {
-          socket.connect(host, receive, reload, protocol);
+          socket.connect(host, receive, reload, protocol, connectCallback);
         }, socket.#reconnectTime);
         socket.#reconnectTime = Math.min(socket.#reconnectTime * 2, 32000);
       }
