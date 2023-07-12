@@ -1718,7 +1718,7 @@ async function load(
         }
 
         // 🧚 Ambient cursor support.
-        if (type === "ambient-pen:point" && socket.id !== id) {
+        if (type === "ambient-pen:point" /*&& socket.id !== id*/) {
           ambientPenPoints.push({
             x: content.x,
             y: content.y,
@@ -3448,7 +3448,7 @@ async function makeFrame({ data: { type, content } }) {
       // TODO: Write this up to the data in `painting`.
 
       sendData.TwoD = {
-        code: twoDCommands
+        code: twoDCommands,
         // code: [
         //   ["ink", 1.0, 0, 0, 1.0],
         //   ["ink2", 0.0, 1.0, 0, 1.0],
