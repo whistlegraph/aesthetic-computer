@@ -68,7 +68,6 @@ export class Socket {
     // Respond to incoming messages and assume `e.data` is a JSON String.
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
-      console.log(msg);
       socket.#preReceive(msg, receive, reload);
     };
 
