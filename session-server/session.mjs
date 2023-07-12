@@ -250,6 +250,7 @@ wss.on("connection", (ws, req) => {
 // Sends a message to all connected clients.
 function everyone(string) {
   wss.clients.forEach((c) => {
+    console.log(string);
     if (c.readyState === WebSocket.OPEN) c.send(string);
   });
 }
