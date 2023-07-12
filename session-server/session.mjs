@@ -215,6 +215,7 @@ wss.on("connection", (ws, req) => {
   // More info: https://stackoverflow.com/a/49791634/8146077
   ws.on("close", () => {
     everyone(pack("left", { id, count: wss.clients.size }));
+    delete connections[id];
 
     // Clear out the codeChannel if the last user disconnects from it.
     if (codeChannel !== undefined) {
