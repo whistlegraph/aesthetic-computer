@@ -1697,7 +1697,7 @@ async function load(
   // Start the socket server
   // TODO: Before we load the disk, in case of needing to reload remotely on failure? 23.01.27.12.48
   let receiver; // Handles incoming messages from the socket.
-  const forceProd = false; // For testing prod socket servers in development.
+  const forceProd = true; // For testing prod socket servers in development.
 
   // Requests a session-backend and connects via websockets.
   function startSocket() {
