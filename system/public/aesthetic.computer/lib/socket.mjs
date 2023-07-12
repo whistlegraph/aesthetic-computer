@@ -83,6 +83,9 @@ export class Socket {
   // Before passing messages to disk code, handle some system messages here.
   // Note: "reload" should only be defined when in development / debug mode.
   #preReceive({ id, type, content }, receive, reload) {
+
+    console.log(id, type);
+
     if (type === "message") {
       const c = JSON.parse(content);
       if (c.text) {
@@ -118,7 +121,6 @@ export class Socket {
       );
       receive?.(id, type, content);
     } else {
-      console.log(id, type);
       receive?.(id, type, content); // Finally send the message to the client.
     }
   }
