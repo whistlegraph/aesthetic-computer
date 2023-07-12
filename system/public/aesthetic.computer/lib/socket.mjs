@@ -41,6 +41,7 @@ export class Socket {
     // Respond to incoming messages and assume `e.data` is a JSON String.
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
+      console.log(msg);
       socket.#preReceive(msg, receive, reload);
     };
 
@@ -83,9 +84,6 @@ export class Socket {
   // Before passing messages to disk code, handle some system messages here.
   // Note: "reload" should only be defined when in development / debug mode.
   #preReceive({ id, type, content }, receive, reload) {
-
-    console.log(id, type);
-
     if (type === "message") {
       const c = JSON.parse(content);
       if (c.text) {
