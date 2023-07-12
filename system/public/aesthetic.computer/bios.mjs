@@ -3355,7 +3355,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         }
 
-        process(); // Start processing frames.
+        process(); // Start processing data.
       } catch (err) {
         console.log(err);
       }
@@ -3402,7 +3402,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // bufferCtx.restore();
 
         // 🤚 Track Hands on the GPU if flagged.
-        if (hands === true) {
+        if (hands === true && handAPI) {
           if (handVideoTime !== video.currentTime && video.videoWidth > 0) {
             handVideoTime = video.currentTime;
             if (useLegacyHandsAPI && !handAPI?.legacyProcessing) {
