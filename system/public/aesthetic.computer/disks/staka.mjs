@@ -34,13 +34,18 @@ function boot({ num, geo, screen }) {
 
 // 🎨 Paint
 function paint($) {
-  const { wipe, ink, screen: { height }, num, } = $;
+  const {
+    wipe,
+    ink,
+    screen: { height },
+    num,
+  } = $;
 
   wipe(127);
 
   handInput.paint($, { faded: plate !== undefined }); // Uses calculated points.
 
-  //Stuff to replace with Jeffreys code:
+  // Stuff to replace with Jeffrey's code:
   function proj(a, b) {
     const k = $.num.p2.dot(a, b) / $.num.p2.dot(b, b);
     return { x: k * b.x, y: k * b.y };
@@ -75,7 +80,7 @@ function paint($) {
     if (k > 0.0 && k < 1.0 && vecDistance < circle.radius) {
       // if plate in contact with ball
       reverseIt = true;
-      speed = (Math.random() * 2) + 0.1;
+      speed = Math.random() * 2 + 0.1;
     }
   }
   //Draw Circle
@@ -89,10 +94,7 @@ function sim($) {
   // Runs once per logic frame. (120fps locked.
   if (reverseIt === true) {
     circle.y -= speed;
-    if (circle.y < 0) {
-      console.log("gone:)");
-      reverseIt = false;
-    }
+    if (circle.y < 0) reverseIt = false;
   } else {
     circle.y += Math.random();
   }
@@ -102,8 +104,8 @@ function sim($) {
     circle.x = $.num.randInt($.screen.width);
     circle.radius = Math.floor(Math.random() * 20) + 10;
     circleColor = Math.floor(Math.random() * 16777215).toString(16);
-    speed = (Math.random() * 2) + 0.1;
-}
+    speed = Math.random() * 2 + 0.1;
+  }
 
   if (timop.length > 0) {
     const t = timop[0],

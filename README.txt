@@ -190,11 +190,12 @@
  🧩 Pieces
   *** `handtime` ***
     - [🍏] Send data across the wire of all connected hands and render them. 
-    - [] Socket joining errors. @jeffrey
-    - [] Hand-track re-entrance errors. @jeffrey
     - [] Fix gesture interactions.  (Need a piece that will require it.)
     - [] `ht yellow blue` will start a 2 person call where a link is given and
           guest 2 is blue and you are yellow. 
+    + Done
+    - [x] Socket joining errors. @jeffrey
+    - [x] Hand-track re-entrance errors. @jeffrey
 
   *** `handprint` ***
     - [] See `handprint` for features. 

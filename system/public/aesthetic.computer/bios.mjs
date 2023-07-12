@@ -3132,7 +3132,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // This module also is used to pull data from frames for
   // features like hand-tracking.
   let videoResize; // Holds a function defined after initialization.
-  let handAPI = {};
+  let handAPI;
   //let handLandmarker, HandLandmarker, FilesetResolver, vision;
   async function receivedVideo({ type, options }) {
     // if (debug) console.log("🎥 Type:", type, options);
@@ -3284,11 +3284,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         };
 
-        process(); // Start processing frames.
-
         // ✋ Optional Hand-tracking (only load once)
-        if (hands === true) {
-          if (useLegacyHandsAPI && !window.Hands) {
+        if (hands === true && !handAPI) {
+          if (useLegacyHandsAPI) {
             // Load older mediapipe lib.
             const script = document.createElement("script");
             script.src = "aesthetic.computer/dep/@mediapipe/hands/hands.js";
@@ -3301,9 +3299,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 },
               };
 
-              handAPI.hands = new Hands(config);
-
-              console.log("Hand API:", handAPI);
+              handAPI = { hands: new Hands(config) }; // Globally def. handAPI.
+              window.handAPI = handAPI; // For production debugging.
 
               handAPI.hands.setOptions({
                 selfieMode: false,
@@ -3314,7 +3311,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               });
 
               handAPI.hands.onResults((data) => {
-                console.log(data);
                 diagram({
                   screen: data.multiHandLandmarks[0] || [],
                   world: data.multiHandWorldLandmarks[0] || [],
@@ -3358,6 +3354,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           }
         }
+
+        process(); // Start processing frames.
       } catch (err) {
         console.log(err);
       }
@@ -3407,14 +3405,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (hands === true) {
           if (handVideoTime !== video.currentTime && video.videoWidth > 0) {
             handVideoTime = video.currentTime;
-            if (useLegacyHandsAPI && !handAPI.legacyProcessing) {
+            if (useLegacyHandsAPI && !handAPI?.legacyProcessing) {
               handAPI.hands?.send({ image: video }).then(() => {
                 handAPI.legacyProcessing = false;
                 // Don't process more than one frame at a time.
               });
               handAPI.legacyProcessing = true;
             } else {
-              const data = handAPI.hl?.detectForVideo(video, handVideoTime);
+              // const data = handAPI.hl?.detectForVideo(video, handVideoTime);
               // TODO: This will no longer work. 23.5.24
               //       Check the other `diagram` call.
               // diagram(data?.landmarks[0] || []);
