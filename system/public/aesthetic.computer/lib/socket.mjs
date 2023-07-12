@@ -6,6 +6,33 @@
 - [x] Queue any sent messages to be received when the connection opens?
 #endregion */
 
+/*
+Ping Ping Check
+
+import WebSocket from 'ws';
+
+function heartbeat() {
+  clearTimeout(this.pingTimeout);
+
+  // Use `WebSocket#terminate()`, which immediately destroys the connection,
+  // instead of `WebSocket#close()`, which waits for the close timer.
+  // Delay should be equal to the interval at which your server
+  // sends out pings plus a conservative assumption of the latency.
+  this.pingTimeout = setTimeout(() => {
+    this.terminate();
+  }, 30000 + 1000);
+}
+
+const client = new WebSocket('wss://websocket-echo.com/');
+
+client.on('error', console.error);
+client.on('open', heartbeat);
+client.on('ping', heartbeat);
+client.on('close', function clear() {
+  clearTimeout(this.pingTimeout);
+});
+*/
+
 export class Socket {
   id; // Will be filled in with the user identifier after the first message.
   #debug;
@@ -32,7 +59,7 @@ export class Socket {
 
     // Send a message to the console after the first connection.
     ws.onopen = (e) => {
-      /*if (this.#debug)*/ console.log("📡 Connected."); // Redundant log given an initial message from the server.
+      // if (this.#debug) console.log("📡 Connected."); // Redundant log given an initial message from the server.
       socket.#queue.forEach((q) => socket.send(...q)); // Send any held messages.
       socket.#reconnectTime = 1000;
       connectCallback?.(); // Run any post-connection logic, like setting codeChannel for example.
@@ -41,6 +68,7 @@ export class Socket {
     // Respond to incoming messages and assume `e.data` is a JSON String.
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
+      console.log(msg);
       socket.#preReceive(msg, receive, reload);
     };
 
@@ -51,7 +79,7 @@ export class Socket {
       if (socket.#killSocket === false) {
         console.log("📡 Reconnecting in:", socket.#reconnectTime, "ms");
         setTimeout(() => {
-          socket.connect(host, receive, reload, protocol);
+          socket.connect(host, receive, reload, protocol, connectCallback);
         }, socket.#reconnectTime);
         socket.#reconnectTime = Math.min(socket.#reconnectTime * 2, 32000);
       }
@@ -84,7 +112,6 @@ export class Socket {
   // Note: "reload" should only be defined when in development / debug mode.
   #preReceive({ id, type, content }, receive, reload) {
     if (type === "message") {
-      // 🔴 TODO: Catch this JSON.parse error.
       const c = JSON.parse(content);
       if (c.text) {
         console.log(`📡 ${c.text}`); // Someone else has connected as...
