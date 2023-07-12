@@ -149,13 +149,13 @@ function pack(type, content, id) {
   return JSON.stringify({ type, content, id });
 }
 
-const interval = setInterval(function ping() {
-  wss.clients.forEach((client) => {
-    if (client.isAlive === false) return client.terminate();
-    client.isAlive = false;
-    client.ping();
-  });
-}, 5000);
+// const interval = setInterval(function ping() {
+//   wss.clients.forEach((client) => {
+//     if (client.isAlive === false) return client.terminate();
+//     client.isAlive = false;
+//     client.ping();
+//   });
+// }, 5000);
 
 // Construct the server.
 wss.on("connection", (ws, req) => {
@@ -238,22 +238,22 @@ wss.on("connection", (ws, req) => {
       }
     }
 
-    clearInterval(interval); // Stop pinging once the socket closes.
+    // clearInterval(interval); // Stop pinging once the socket closes.
   });
 
-  ws.isAlive = true; // For checking persistence between ping-pong messages.
+  // ws.isAlive = true; // For checking persistence between ping-pong messages.
 
   // Send a ping message to all clients every 10 seconds, and kill
   // the client if it does not respond back with a pong on any given pass.
-  ws.on("pong", () => {
+  // ws.on("pong", () => {
     // console.log("pong");
-    ws.isAlive = true;
-  }); // Receive a pong.
+    // ws.isAlive = true;
+  // }); // Receive a pong.
 });
 
 // Sends a message to all connected clients.
 function everyone(string) {
-  console.log(wss.clients.size);
+  console.log(wss.clients.size, Object.keys(connections));
   Object.keys(connections)
     /*wss.clients*/ .forEach((id) => {
       const c = connections[id];
