@@ -2,6 +2,8 @@
 // Sotce tumblr bot.
 
 /* #region 🏁 TODO
+[🟢] Reset the conversation history on refresh.
+
 [🟠] Add pink lotus image in the corner, semi-transparent
   - [🔴] Crop (this needs to be an interactive thing.)
   (Bonus)
@@ -12,7 +14,6 @@
   - [x] Resize
   - [x] Load image into painting from pasted url.
   - [x] And drag and drop.
-[] Reset the conversation history on refresh
 [] Respond well to "who wrote you" (Replace default GPT response).
 [] Respond well to "what is amelia's art about".
 [] Send to Amelia
