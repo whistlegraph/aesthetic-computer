@@ -3,6 +3,7 @@
 
 /* region docs 📚
   Draw colored rectangles.
+  // rect color
   Use `rect:type:center color`
             ^ use `o`, `i` or `f` for `outline`, `inline` or `fill`
               `outline` and `inline` both take an integer for thickness.

@@ -59,26 +59,48 @@ function boot({ get, needsPaint }) {
     .then((p) => { painting = p; needsPaint(); });
 }
 
-// 🎨 Paint
-function paint({ screen, wipe, ink, paste }) {
+ // 🎨 Paint
+ function paint({ screen, wipe, ink, paste }) {
   wipe(255, 225, 4);
-  // if (painting === undefined) return;
-  // let scale
-  // console.log(screen.width, screen.height)
-  // if (screen.width > screen.height) {
-  //   scale =  screen.width / painting.width;
-  //   console.log("Scale:", scale);
-  // } else {
-  //   scale = screen.height / painting.height;
-  //   console.log(scale, screen.height, painting.height)
-
-  // }
-
-
-  // paste(painting, 0, 0, scale);
+  let scale = .25;
+  let scaledpainting = scale * painting.width;
+  let xposition = screen.width - scaledpainting;
+  paste(painting, xposition, 0, scale);
 }
 
 
 
 export { prompt, before, after, halt, reply, copied, boot, paint };
-export const system = "prompt:character"; // or "prompt:code"
+export const system = "prompt:character"; // or "prompt:code
+/*
+Bots
+ Type text into the prompt to receive a reply.
+ Begin typing right away, or click the page or press 'enter' for a blank page
+ to leave the chatbot, type: exit.
+*/
+
+  /*
+  Liar: Text                              bot
+
+  Outputs a lie based on input text.
+
+  */
+
+
+/*
+Brushes
+
+*/
+
+/* 
+ rect color                                brush
+
+ Paint a rectangle from its top left corner.
+
+ Parameters: outline, color, opacity 
+
+ rect:outline - outline only
+ rect:outline-20 - 20pt outline
+ rect:outline-20 blue - blue 20pt outline
+
+*/

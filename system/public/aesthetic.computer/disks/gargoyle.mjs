@@ -22,7 +22,7 @@ const after = `
   export const scheme = {
     dark: {
       fg: [0, 200, 0, 300],
-      bg: [130, 20, 100],
+      bg: [130, 20, 100, 200],
       block: [200, 130, 10],
       blockHi: [200, 100, 0],
       line: [0, 200, 0, 300],
@@ -53,5 +53,24 @@ function copied(text) {
   return `${text} 🧌 https://aesthetic.computer/gargoyle`;
 }
 
-export { prompt, before, after, halt, reply, copied };
+let painting;
+
+ // 🥾 Boot
+function boot({ get, needsPaint }) {
+  get
+    .painting("2023.7.14.14.43.01")
+    .by("@georgica")
+    .then((p) => { painting = p; needsPaint(); });
+}
+
+ // 🎨 Paint
+function paint({ screen, wipe, ink, paste }) {
+  wipe(130, 20, 100);
+  const scale = .2;
+  const scaledpainting = scale * painting.width;
+  const xposition = screen.width - scaledpainting;
+  paste(painting, xposition, 0, scale);
+}
+
+export { prompt, before, after, halt, reply, copied, boot, paint };
 export const system = "prompt:character"; // or "prompt:code"
