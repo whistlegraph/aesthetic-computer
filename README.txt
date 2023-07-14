@@ -75,6 +75,17 @@
 *** handle updates ***
  - [] Handles were not working for mitch.
 
+*** Georgica AC *** 
+  - [] "?" appears after typing a valid word which jumps to a learn page for learning more about a command.
+    (Requires that gutter is always visible on screen by default.)
+  - [] Polish bots with background images.
+    - [] Fix `liar` background image sizing code.
+    - [] Some bots could have corner images?
+  - [] Fix `encode` input / enter regression.
+  - [] Start writing `learn` page content.
+    - `rect` (A brush example)
+    - `liar` (A bot example) 
+
 *** Sunday Polishing ***
 - [👱‍♀️] Add painting include support and images to front-facing bots. (`gargoyle`, `liar` … )
 
@@ -188,21 +199,21 @@
 - [] Fade hand alpha and possibly color based on distance from edge of safe zone.
 
  🧩 Pieces
+   *** `staka` ***
+    - [] Create safe zone boundary that the game takes place in. 
+    
   *** `handtime` ***
-    - [🍏] Send data across the wire of all connected hands and render them. 
-    - [] Fix gesture interactions.  (Need a piece that will require it.)
     - [] `ht yellow blue` will start a 2 person call where a link is given and
           guest 2 is blue and you are yellow. 
     + Done
     - [x] Socket joining errors. @jeffrey
     - [x] Hand-track re-entrance errors. @jeffrey
+    - [x] Fix gesture interactions.  (Need a piece that will require it.)
+    - [x] Send data across the wire of all connected hands and render them. 
 
   *** `handprint` ***
     - [] See `handprint` for features. 
     - [❤️‍🔥] Panning the canvas should also pan the hand properly!
-
-  *** `staka` ***
-    - [] Create safe zone boundary that the game takes place in. 
 
   *** `simon says` ***
     - [] Combos of TIMOP flash hold on the screen until a user matches the combo. 
