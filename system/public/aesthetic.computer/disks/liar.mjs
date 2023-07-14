@@ -62,20 +62,17 @@ function boot({ get, needsPaint }) {
 // 🎨 Paint
 function paint({ screen, wipe, ink, paste }) {
   wipe(255, 225, 4);
-  if (painting === undefined) return;
-  let scale
-  console.log(screen.width, screen.height)
-  if (screen.width > screen.height) {
-    scale =  screen.width / painting.width;
-    console.log("Scale:", scale);
-  } else {
-    scale = screen.height / painting.height;
-    console.log(scale, screen.height, painting.height)
-
-  }
-
-
-  paste(painting, 0, 0, scale);
+  // if (painting === undefined) return;
+  // let scale
+  // console.log(screen.width, screen.height)
+  // if (screen.width > screen.height) {
+  //   scale =  screen.width / painting.width;
+  //   console.log("Scale:", scale);
+  // } else {
+  //   scale = screen.height / painting.height;
+  //   console.log(scale, screen.height, painting.height)
+  // }
+  // paste(painting, 0, 0, scale);
 }
 
 
