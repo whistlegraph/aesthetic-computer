@@ -75,6 +75,17 @@
 *** handle updates ***
  - [] Handles were not working for mitch.
 
+*** Georgica AC *** 
+  - [] "?" appears after typing a valid word which jumps to a learn page for learning more about a command.
+    (Requires that gutter is always visible on screen by default.)
+  - [] Polish bots with background images.
+    - [] Fix `liar` background image sizing code.
+    - [] Some bots could have corner images?
+  - [] Fix `encode` input / enter regression.
+  - [] Start writing `learn` page content.
+    - `rect` (A brush example)
+    - `liar` (A bot example) 
+
 *** Sunday Polishing ***
 - [👱‍♀️] Add painting include support and images to front-facing bots. (`gargoyle`, `liar` … )
 
