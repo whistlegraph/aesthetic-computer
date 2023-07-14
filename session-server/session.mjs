@@ -132,7 +132,7 @@ await start();
 // *** Socket Server Initialization ***
 // #region socket
 let wss;
-const connections = {};
+let connections = {};
 
 let connectionId = 0; // TODO: Eventually replace with a username arrived at through
 //                             a client <-> server authentication function.
@@ -149,44 +149,59 @@ function pack(type, content, id) {
   return JSON.stringify({ type, content, id });
 }
 
-// const interval = setInterval(function ping() {
-//   wss.clients.forEach((client) => {
-//     if (client.isAlive === false) return client.terminate();
-//     client.isAlive = false;
-//     client.ping();
-//   });
-// }, 5000);
+// Enable ping-pong behavior to keep connections persistently tracked.
+// Or just tie connections to logged in users or
+// persistent tokens to keep persistence.
+const interval = setInterval(function ping() {
+  wss.clients.forEach((client) => {
+    if (client.isAlive === false) {
+      return client.terminate();
+    }
+    client.isAlive = false;
+    client.ping();
+  });
+}, 15000); // 15 second pings from server before termination.
+
+wss.on("close", function close() {
+  clearInterval(interval);
+  connections = {};
+});
 
 // Construct the server.
 wss.on("connection", (ws, req) => {
   const ip = req.socket.remoteAddress || "localhost"; // beautify ip
+  ws.isAlive = true; // For checking persistence between ping-pong messages.
+
+  ws.on("pong", () => {
+    ws.isAlive = true;
+  }); // Receive a pong and stay alive!
 
   // Assign the conection a unique id.
   connections[connectionId] = ws;
   const id = connectionId;
   let codeChannel; // Used to subscribe to incoming piece code.
 
-  // Send a single welcome message for every new client connection.
-  // TODO: This message should be a JSON encoded object and be displayed on
-  //       the client instead.
-  const content = { ip, id, playerCount: wss.clients.size };
+  console.log(
+    "🧏 Someone joined:",
+    `${id}:${ip}`,
+    "🫂 Online:",
+    wss.clients.size
+  );
 
-  ws.send(pack("message", JSON.stringify(content), id));
+  const content = { id, playerCount: wss.clients.size };
 
   // Send a message to all other clients except this one.
   function others(string) {
-    // Object.keys(connections)
     wss.clients.forEach((c) => {
-      // const c = connections[id];
       if (c !== ws && c?.readyState === WebSocket.OPEN) c.send(string);
     });
   }
 
-  others(
+  everyone(
     pack(
       "message",
       JSON.stringify({
-        text: `${connectionId} has joined from ${ip}. Connections open: ${content.playerCount}`,
+        text: `${connectionId} has joined. Connections open: ${content.playerCount}`,
       }),
       id
     )
@@ -221,6 +236,7 @@ wss.on("connection", (ws, req) => {
 
   // More info: https://stackoverflow.com/a/49791634/8146077
   ws.on("close", () => {
+    console.log("🚪 Someone left:", id, "🫂 Online:", wss.clients.size);
     everyone(pack("left", { id, count: wss.clients.size }));
     delete connections[id];
 
@@ -231,24 +247,12 @@ wss.on("connection", (ws, req) => {
         delete codeChannels[codeChannel];
       }
     }
-
-    // clearInterval(interval); // Stop pinging once the socket closes.
   });
-
-  // ws.isAlive = true; // For checking persistence between ping-pong messages.
-
-  // Send a ping message to all clients every 10 seconds, and kill
-  // the client if it does not respond back with a pong on any given pass.
-  // ws.on("pong", () => {
-  // console.log("pong");
-  // ws.isAlive = true;
-  // }); // Receive a pong.
 });
 
 // Sends a message to all connected clients.
 function everyone(string) {
   wss.clients.forEach((c) => {
-    //const c = connections[id];
     if (c?.readyState === WebSocket.OPEN) c.send(string);
   });
 }

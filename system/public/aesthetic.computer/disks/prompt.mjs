@@ -385,11 +385,11 @@ async function halt($, text) {
     // Resize the active painting if one exists, or make one at this
     // size if it doesn't.
     const w = params[0],
-      h = params[0] || w;
+      h = params[1] || w;
     if (isNaN(w)) {
       flashColor = [255, 0, 0];
     } else {
-      nopaint_adjust(screen, system, painting, store, { w, h });
+      nopaint_adjust(screen, system, painting, store, { w, h, scale: true });
       flashColor = [0, 255, 0];
     }
     makeFlash($);
@@ -423,7 +423,7 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (slug === "hi") {
-    net.signup();
+    net.login();
     flashColor = [255, 255, 0, 100]; // Yellow
     makeFlash($);
     return true;

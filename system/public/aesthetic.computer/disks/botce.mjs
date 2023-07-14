@@ -5,11 +5,11 @@
 [🟠] Add pink lotus image in the corner, semi-transparent
   - [🔴] Crop (this needs to be an interactive thing.)
   (Bonus)
-  - [] Resize
   - [] Rotate 90
   - [] Flip
   - [] Transparency support.
   + Done
+  - [x] Resize
   - [x] Load image into painting from pasted url.
   - [x] And drag and drop.
 [] Reset the conversation history on refresh
