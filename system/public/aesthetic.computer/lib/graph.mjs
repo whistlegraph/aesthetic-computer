@@ -349,8 +349,11 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
   if (scale !== 1) {
     // Or rotation.
     let angle = 0;
+    let width, height;
     if (typeof scale === "object") {
       angle = scale.angle;
+      width = scale.width;
+      height = scale.height;
       scale = scale.scale;
     }
 
@@ -362,10 +365,11 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
           w: from.width,
           h: from.height,
         },
-        transform: { scale, angle },
+        transform: { scale, angle, width, height },
       },
       from
     );
+
     return;
   }
 
@@ -1224,18 +1228,33 @@ function fillShape(points) {
 function grid(
   {
     box: { x, y, w: cols, h: rows },
-    transform: { scale, angle },
+    transform: { scale, angle, width, height },
     centers = [],
   },
   buffer
 ) {
   const oc = c.slice(); // Remember the original color.
 
-  const w = cols * scale;
-  const h = rows * scale;
+  let w, h;
+
+  // Note: `transform` is a bit overloaded here and looks for the presence
+  //        of certain properties to determine the behavior.
+  //        See `function paste` here in `graph` for an example usage.
+  if (scale !== undefined) {
+    w = cols * scale;
+    h = rows * scale;
+    scale = [scale]; // Alter for the `box` call below.
+  } else if (width !== undefined && height !== undefined) {
+    w = width;
+    h = height;
+    scale = [w / cols, h / rows];
+    //      ^ Give scale a separate width and height.
+  }
 
   const colPix = w / cols,
     rowPix = h / rows;
+
+  console.log("colPix:", colPix, "rowPix:", rowPix);
 
   const centerX = x + w / 2; // Calculate the center point of the grid
   const centerY = y + h / 2;
@@ -1268,7 +1287,7 @@ function grid(
         if (pixIndex < buffer.pixels.length) {
           color(...buffer.pixels.subarray(pixIndex, pixIndex + 4));
           //box(plotX, plotY, scale);
-          box(rotatedX, rotatedY, scale); // These should be polygons that get plotted...
+          box(rotatedX, rotatedY, ...scale); // These should be polygons that get plotted...
         }
       }
     }
