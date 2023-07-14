@@ -35,7 +35,7 @@ function paint($) {
     const id = keys[i];
     const points = otherHands[id];
     for (let j = 0; j < points.length; j += 1) {
-      $.ink((server?.id).toString() === id ? "brown" : "red").box(
+      $.ink((server?.id) === id ? "brown" : "red").box(
         points[j][0],
         points[j][1],
         5,
