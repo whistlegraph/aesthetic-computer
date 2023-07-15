@@ -10,10 +10,10 @@ import { GPT3BrowserTokenizer } from "../dep/gpt3-tokenizer/gpt3-tokenizer.js";
 
 const tokenizer = new GPT3BrowserTokenizer({ type: "gpt3" });
 
-const prompt = "enter numbers to decode";
+const prompt = "Enter numbers to decode.";
 
 // 🥾 Boot
-async function boot ({store, system, params}) {
+async function boot({ store, system, params }) {
   if (params.length === 0) return;
   system.prompt.input.text = params.join(" ");
   await system.prompt.input.run(store);
@@ -21,18 +21,21 @@ async function boot ({store, system, params}) {
 
 // 🛑 Intercept specific input text with a custom reply.
 function halt($, text) {
-  const decoded = tokenizer.decode(text.split(" ")); // Converts text into list and turns ints. into text.
+  const decoded = tokenizer.decode(text.split(" ")); // Devode tokens to text.
   $.system.prompt.input.text = decoded;
-  $.system.prompt.input.scheme = altScheme; // Change to "reply" color scheme.
+  $.system.prompt.input.scheme = scheme; // Change to "reply" color scheme.
   $.system.prompt.input.replied($); // Set the UI state back to normal.
-  return true;
+  return { replied: true };
 }
 
-function editable(input) {
-  input.scheme = scheme; // Flip the color scheme back to original.
+// 🎪 Act
+function act({ system: { prompt }, event: e }) {
+  if (e.is("text-input:editable")) prompt.input.scheme = altScheme;
+  if (e.is("text-input:uneditable") && prompt.input.text.length > 0)
+    prompt.input.scheme = scheme;
 }
 
-const altScheme = {
+export const scheme = {
   dark: {
     fg: [0, 0, 0],
     bg: [210, 255, 40],
@@ -49,7 +52,7 @@ const altScheme = {
   },
 };
 
-export const scheme = {
+const altScheme = {
   dark: {
     fg: [50, 255, 0],
     bg: [10, 20, 20],
@@ -66,6 +69,6 @@ export const scheme = {
   },
 };
 
-export { boot, prompt, halt, editable };
+export { boot, prompt, halt, act };
 export const system = "prompt"; // or "prompt:code"
 export const wrap = "word";

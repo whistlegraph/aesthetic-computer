@@ -8,10 +8,11 @@ export class Keyboard {
   events = [];
   #lastKeyDown;
   input;
+  focusHandler;
   #held = new Set();
   needsImmediateOpen = false;
 
-  constructor(getCurrentPiece) {
+  constructor() {
     window.addEventListener("keydown", (e) => {
       this.#held.add(e.key);
       // Firefox "repeat" seems to be broken on linux, so here is
@@ -19,21 +20,12 @@ export class Keyboard {
       const repeat = e.key === this.#lastKeyDown;
       this.#lastKeyDown = e.key;
 
-      const piece = getCurrentPiece();
+      const keyboardFocused = this.focusHandler(e); // Focus DOM input field
+      //                                               as neded for text entry.
+      if (keyboardFocused) return;
+      // Skip any initial keyboard event.
 
-      // Only activate input field driven text input if we are in the prompt.
-      if (
-        piece === "aesthetic.computer/disks/prompt" &&
-        this.input &&
-        document.activeElement !== this.input // &&
-        // e.key !== "Control" &&
-        // e.key !== "Alt" &&
-        // e.key !== "Meta"
-      ) {
-        this.input.focus();
-      }
-
-      // Skip sending keyboard events from here if we are using text input
+      // Skip sending most keyboard events from here if we are using text input
       // which generates a synthetic keyboard event back
       //  in `bios` under `Keyboard`
       if (

@@ -2,13 +2,16 @@
 // Converts poems to token strings.
 
 /* #region 🏁 TODO
+ + Done
+ - [x] `editable` and `uneditable` could both be events triggered by TextInput
+       that get wired up inside the `act` function, rather than exported functions.
 #endregion */
 
 import { GPT3BrowserTokenizer } from "../dep/gpt3-tokenizer/gpt3-tokenizer.js";
 
 const tokenizer = new GPT3BrowserTokenizer({ type: "gpt3" });
 
-const prompt = "enter a message to encode";
+const prompt = "Enter a message to encode.";
 
 // 🥾 Boot
 async function boot({ store, system, params }) {
@@ -21,20 +24,26 @@ async function boot({ store, system, params }) {
 function halt($, text) {
   const encoded = tokenizer.encode(text); // Encode text into tokens.
   $.system.prompt.input.text = encoded.bpe.join(" "); // Join ints into text.
-  $.system.prompt.input.scheme = altScheme; // Change to "reply" color scheme.
+  $.system.prompt.input.scheme = scheme; // Change to "reply" color scheme.
   $.system.prompt.input.replied($); // Set the UI state back to normal.
-  return true;
+  return { replied: true };
 }
 
-function editable(input) {
-  input.scheme = scheme; // Flip the color scheme back to original.
+// 🎪 Act
+function act({ system: { prompt }, event: e }) {
+  if (e.is("text-input:editable")) prompt.input.scheme = altScheme;
+  if (e.is("text-input:uneditable") && prompt.input.text.length > 0)
+    prompt.input.scheme = scheme;
 }
 
 function copied(text) {
-  return `${text} 💌 https://aesthetic.computer/decode~${text.replaceAll(" ", "~")}`;
+  return `${text} 💌 https://aesthetic.computer/decode~${text.replaceAll(
+    " ",
+    "~"
+  )}`;
 }
 
-const altScheme = {
+export const scheme = {
   dark: {
     fg: [50, 255, 0],
     bg: [10, 20, 20],
@@ -51,7 +60,7 @@ const altScheme = {
   },
 };
 
-export const scheme = {
+const altScheme = {
   dark: {
     fg: [0, 0, 0],
     bg: [210, 255, 40],
@@ -68,6 +77,6 @@ export const scheme = {
   },
 };
 
-export { boot, prompt, halt, editable, copied };
+export { boot, prompt, halt, act, copied };
 export const system = "prompt"; // or "prompt:code"
 export const wrap = "word";

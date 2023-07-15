@@ -73,7 +73,7 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** handle updates ***
- - [] Handles were not working for mitch.
+ - [] Handle updates were not working for mitch.
 
 *** Georgica AC *** 
   - [] "?" appears after typing a valid word which jumps to a learn page for learning more about a command.
@@ -88,7 +88,6 @@
 
 *** Sunday Polishing ***
 - [👱‍♀️] Add painting include support and images to front-facing bots. (`gargoyle`, `liar` … )
-
 - [] Add name to top left corner of all bots.
 - [] Better dynamic `preview` / thumbnail images.
 - [] Finish all todos in `botce`. 
@@ -287,6 +286,13 @@
   - [] Add notifications.
   - [] Submit to store with notifications enabled, usernames and posts.
 
+*** (ida mood setter) / android backspace ***
+ - [x] Allow backspacing on android. (This seems to work now.)
+ - [-] Make sure autosuggested text input works on android
+       and iOS.
+       - [x] Works on iOS.
+       - [] Adding space after autocorrected word.
+       - [] Not replacing corrections.
 
 *** global screenshot key ***
   - [] There needs to be a system wide method of capturing a screenshot.

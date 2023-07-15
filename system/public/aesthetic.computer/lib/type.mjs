@@ -54,7 +54,7 @@
   - [x] Upcycling commands should reset the cursor position.
   - [x] Add different colors to "print" / storing the ink color / writing
        a backdrop somehow... maybe using layer?
-#endregion */
+endregion */
 
 import { font1 } from "../disks/common/fonts.mjs";
 import { repeat } from "../lib/help.mjs";
@@ -218,9 +218,7 @@ class TextInput {
 
   key;
 
-  editableCallback; // A function that can run when the TextInput is made
-  //                   editable.
-  copiedCallback;
+  copiedCallback; // When the "Copy" button is pressed, for designing wrappers.
 
   #copyPasteTimeout; // UI Timer for clipboard copy response.
   #copyPasteScheme; // An override for the Copy button's color.
@@ -249,7 +247,6 @@ class TextInput {
     this.key = `${$.slug}:history`; // This is "per-piece" and should
     //                                be per TextInput object...23.05.23.12.50
 
-    this.editableCallback = options.editable;
     this.copiedCallback = options.copied;
 
     // Load typeface, preventing double loading of the system default.
@@ -535,16 +532,16 @@ class TextInput {
 
   // Set the UI state to be that of a completed reply.
   replied($) {
-    this.lock = false;
     this.runnable = false;
     this.inputStarted = false;
     this.canType = false;
+    this.clearUserText();
     this.showButton($);
   }
 
   // Handle user input.
   async act($) {
-    const { debug, event: e, store, needsPaint, clipboard } = $;
+    const { debug, event: e, store, needsPaint } = $;
 
     // Reflow the prompt on frame resize.
     if (e.is("reframed")) {
@@ -555,18 +552,6 @@ class TextInput {
 
     // ⌨️ Add text via the keyboard.
     if (e.is("keyboard:down") && this.lock === false && !this.enter.btn.down) {
-      if (this.canType === false) {
-        this.canType = true;
-        this.#lastPrintedText = this.text; // Remember last printed text.
-        if (this.#lastUserText.length > 0) {
-          this.text = this.#lastUserText;
-        } else {
-          this.blank("blink"); // Clear input and switch back to blink cursor.
-        }
-        this.inputStarted = true;
-        this.editableCallback?.(this);
-      }
-
       // 🔡 Inserting an individual character.
       if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
         // if (this.text === "" && e.key === " ") {
@@ -809,13 +794,10 @@ class TextInput {
         if (e.key === "ArrowLeft") this.#prompt.crawlBackward();
       }
 
-      if (e.key !== "Enter") {
-        this.activated?.($, true); // Run an activate callback.
-        // this.activatedOnce = true;
-        this.copy.btn.disabled = true;
-        this.copy.btn.removeFromDom($, "copy");
-        this.paste.btn.disabled = false;
-
+      if (e.key !== "Enter" && e.key !== "`") {
+        // this.copy.btn.disabled = true;
+        // this.copy.btn.removeFromDom($, "copy");
+        // this.paste.btn.disabled = false;
         if (this.text.length > 0) {
           this.enter.btn.disabled = false;
           this.runnable = true;
@@ -859,6 +841,8 @@ class TextInput {
         } else if (this.runnable) {
           // 💻 Execute a command!
           await this.run(store);
+        } else {
+          activate(this);
         }
       }
 
@@ -868,18 +852,8 @@ class TextInput {
 
     // Handle activation / focusing of the input
     // (including os-level software keyboard overlays)
-    // if (e.is("keyboard:open") && this.inputStarted) this.canType = true;
-    if (e.is("keyboard:open") && !this.lock) {
-      activate(this);
-    }
-
-    if (e.is("keyboard:close") && !this.lock) {
-      deactivate(this);
-    }
-
-    // if (e.is("defocus")) {
-    // deactivate(this);
-    // }
+    if (e.is("keyboard:open") && !this.lock) activate(this);
+    if (e.is("keyboard:close") && !this.lock) deactivate(this);
 
     if (
       e.is("touch") &&
@@ -891,15 +865,19 @@ class TextInput {
       (this.paste.btn.disabled === true || !this.paste.btn.box.contains(e))
     ) {
       this.enter.btn.down = true;
+      // console.log("unlocking keyboard...");
       $.send({ type: "keyboard:unlock" });
     }
 
     // Begin the prompt input mode / leave the splash.
     function activate(ti) {
       if (ti.canType) {
-        // if (debug) console.log("✔️✍️ TextInput already activated.");
+        if (debug) console.log("✔️✍️ TextInput already activated.");
+        // (This redundancy check is because this behavior is tied to
+        // keyboard open and close events.)
         return;
       }
+
       ti.activated?.($, true);
       ti.enter.btn.down = false;
       // ti.activatedOnce = true;
@@ -918,9 +896,7 @@ class TextInput {
         ti.paste.btn.disabled = false;
       }
       ti.inputStarted = true;
-      ti.editableCallback?.(ti);
-      needsPaint();
-      // $.send({ type: "keyboard:unlock" });
+      $.act("text-input:editable");
     }
 
     // Leave the prompt input mode.
@@ -928,6 +904,8 @@ class TextInput {
       if (ti.canType === false) {
         // Assume we are already deactivated.
         if (debug) console.log("❌✍️ TextInput already deactivated.");
+        // (This redundancy check is because this behavior is tied to
+        // keyboard open and close events.)
         return;
       }
 
@@ -941,13 +919,6 @@ class TextInput {
       ti.#lastUserText = ti.text;
       ti.backdropTouchOff = false;
 
-      // if (ti.#lastPrintedText.length === 0) {
-      //   // Get user input text to appear on a blank prompt return,
-      //   // along with the copy button.
-      //   ti.#lastPrintedText = ti.#lastUserText;
-      //   ti.commandSentOnce = true;
-      // }
-
       ti.text = ti.#lastPrintedText;
       if (ti.#lastPrintedText.length > 0 && ti.commandSentOnce) {
         ti.copy.btn.disabled = false;
@@ -956,8 +927,9 @@ class TextInput {
         ti.paste.btn.disabled = true; // Disable paste button.
         ti.paste.btn.removeFromDom($, "paste");
       }
+
+      $.act("text-input:uneditable");
       needsPaint();
-      // $.send({ type: "keyboard:lock" });
     }
 
     // TODO: Touching background as a button (but no other button)
@@ -985,6 +957,7 @@ class TextInput {
         this.enter.btn.box.contains(e) &&
         !this.enter.btn.down
       ) {
+        console.log("locking keyboard");
         $.send({ type: "keyboard:lock" });
       }
 
@@ -1017,6 +990,7 @@ class TextInput {
             await this.run(store);
           } else {
             activate(this);
+            // $.send({ type: "keyboard:lock" });
           }
         },
         cancel: () => {
@@ -1125,16 +1099,15 @@ class TextInput {
       this.blink.flip(true);
     }
 
-    if (e.is("touch") && !this.lock) {
-      this.blink.flip(true);
-    }
+    if (e.is("touch") && !this.lock) this.blink.flip(true);
 
     if (e.is("lift") && !this.lock) {
-      this.moveDeltaX = 0;
+      if (this.#shifting) {
+        this.moveDeltaX = 0;
+        this.#shifting = false;
+      }
       $.send({ type: "keyboard:unlock" });
     }
-
-    if (e.is("lift")) this.#shifting = false;
 
     if (
       e.is("draw") &&
