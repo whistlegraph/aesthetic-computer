@@ -365,10 +365,20 @@ class Recorder {
   }
 }
 
-let lastActAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
+let cachedAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
+  // Broadcast an event through the entire act system.
+  act: (event, data = {}) => {
+    data.is = (e) => e === event;
+    cachedAPI.event = data;
+    try {
+      act(cachedAPI);
+    } catch (e) {
+      console.warn("️ ✒ Act failure...", e);
+    }
+  },
   // `Get` api
   // Retrieve assets from a user account.
   get: {
@@ -1456,7 +1466,8 @@ async function load(
   parsed, // If parsed is not an object, then assume it's source code.
   fromHistory = false,
   alias = false,
-  devReload = false
+  devReload = false,
+  loadedCallback
 ) {
   let fullUrl, source;
   let params,
@@ -1977,9 +1988,12 @@ async function load(
         // running a local aesthetic.computer piece.
       }
     }
+
+    let callback;
     leaveLoad = url
       ? () => $commonApi.net.web(to)
-      : () => load(parse(to), ahistorical, alias);
+      : () => load(parse(to), ahistorical, alias, false, callback);
+    return (cb) => (callback = cb);
   };
 
   $commonApi.alias = function alias(name, colon, params) {
@@ -2010,6 +2024,8 @@ async function load(
 
   // This function actually hotSwaps out the piece via a callback from `bios` once fully loaded via the `loading-complete` message.
   hotSwap = () => {
+    loadedCallback?.(); // Run the optional load callback. (See also: `jump`)
+
     if (module.system?.startsWith("nopaint")) {
       // If there is no painting is in ram, then grab it from the local store,
       // or generate one.
@@ -2057,7 +2073,6 @@ async function load(
           module.halt,
           module.scheme,
           wrap,
-          module.editable || (() => {}),
           module.copied,
           module.activated
         );
@@ -2279,8 +2294,8 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "focus-change") {
-    if (!lastActAPI) return; // Hacky... 23.04.21.14.59
-    const $api = lastActAPI; // Focus change events have an empty API.
+    if (!cachedAPI) return; // Hacky... 23.04.21.14.59
+    const $api = cachedAPI;
     if (content !== inFocus) {
       inFocus = content;
       const data = {};
@@ -2680,15 +2695,13 @@ async function makeFrame({ data: { type, content } }) {
         //   }
         // }
 
-        if (
-          data.key === "`" &&
-          currentPath !== "aesthetic.computer/disks/prompt"
-        ) {
+        if (data.key === "`" && system !== "aesthetic.computer/disks/prompt") {
           // $api.send({ type: "keyboard:enabled" }); // Enable keyboard flag.
           // $api.send({ type: "keyboard:unlock" });
           // Jump to prompt if the backtic is pressed.
-          send({ type: "keyboard:open" });
-          $commonApi.jump("prompt");
+          $commonApi.jump("prompt")(() => {
+            send({ type: "keyboard:open" });
+          });
         }
 
         // [Ctrl + X]
@@ -2881,8 +2894,8 @@ async function makeFrame({ data: { type, content } }) {
       );
       $api.api = $api; // Add a reference to the whole API.
 
-      lastActAPI = $api; // Remember this API for any other acts outside
-      // of this loop, like a focus change
+      cachedAPI = $api; // Remember this API for any other acts outside
+      // of this loop, like a focus change or custom act broadcast.
 
       $api.inFocus = inFocus;
 
@@ -3130,6 +3143,9 @@ async function makeFrame({ data: { type, content } }) {
         (key) => ($api[key] = painting.api[key])
       );
       $api.api = $api; // Add a reference to the whole API.
+
+      cachedAPI = $api; // Remember this API for any other acts outside
+      // of this loop, like a focus change or custom act broadcast.
 
       // Object.assign($api, $commonApi);
       // Object.assign($api, painting.api);

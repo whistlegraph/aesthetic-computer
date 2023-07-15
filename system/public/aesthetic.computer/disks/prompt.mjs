@@ -515,8 +515,11 @@ async function halt($, text) {
     makeFlash($, false);
     flashColor = [255, 0, 0];
     return true;
-  } else if (text === "code") {
+  } else if (text === "github" || text === "gh") {
     jump("https://github.com/digitpain/aesthetic.computer");
+    return true;
+  } else if (text === "browserstack" || text === "bs") {
+    jump("https://live.browserstack.com");
     return true;
   } else if (text === "help") {
     // Go to the Discord for now if anyone types help.
@@ -693,8 +696,9 @@ function act({
   if (e.is("keyboard:open") && firstActivation) firstActivation = false;
   if (e.is("pasted:text")) firstActivation = false;
 
-  if (e.is("keyboard:down"))
+  if (e.is("keyboard:down")) {
     play(keyboardSfx, { volume: 0.2 + (num.randInt(100) / 100) * 0.4 });
+  }
 
   // 💾 Piece / disk loading
   if (e.is("load-error")) {

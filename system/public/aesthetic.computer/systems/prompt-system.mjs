@@ -19,7 +19,6 @@ export async function prompt_boot(
   halt,
   scheme,
   wrap,
-  editable,
   copied,
   activated
 ) {
@@ -55,11 +54,19 @@ export async function prompt_boot(
       input.inputStarted = false;
       input.canType = false;
 
-
       const halted = await halt?.($, text);
       if (!$.leaving) input.lock = false;
       if (halted) {
         messageComplete = true;
+
+        // Assume we set custom replied state via `TextInput -> replied`.
+        if (halted.replied) {
+          input.lock = false;
+          $.needsPaint();
+          return;
+        }
+
+        // Otherwise set the reply state now.
         reply?.(input.text);
         input.bakePrintedText();
         input.runnable = false;
@@ -114,7 +121,6 @@ export async function prompt_boot(
       autolock: false,
       wrap,
       scheme,
-      editable,
       copied,
       activated,
       didReset: () => {
