@@ -3,10 +3,12 @@ import { radians, map } from "../lib/num.mjs";
 const { cos, sin } = Math;
 
 /* #region 🏁 todo
-  - [] Fix gesture interactions.  (Need a piece that will require it.)
+  - [] Clean Up / Refactor gesture interaction code 
   - [] Fix video orientation issues. (Need a video enabled "goal" piece.)
   + Done
   - [x] Add flag to enable video feedback to paint function. 
+  - [X] Fix gesture interactions.  (Need a piece that will require it.)
+
 #endregion */
 
 export class HandInput {
@@ -83,7 +85,7 @@ export class HandInput {
       frame ? paste(frame) : wipe(0, 64, 0);
     }
 
-    if (options.hidden) return;
+    if (options?.hidden) return;
 
     // TODO: Is everything underneath this, dependent just on the point data?
     // - [] Abstract hand drawing so remote hands can be drawn from a sata set.
@@ -156,6 +158,7 @@ export class HandInput {
       timop = [scaled[4], scaled[8], scaled[12], scaled[16], scaled[20]];
       const { interactions, contactDistances } = this.#touching(timop, num);
 
+      // console.log(this.#touching(timop, num));
       if (options?.faded) return; // Don't paint interactions if faded.
 
       const letterColors = {
@@ -190,13 +193,17 @@ export class HandInput {
       };
 
       const outputColors = { ...this.#handPalette }; // Set from above.
-
       // Overwrite the default color on interacting fingers
       if (interactions.length > 0) {
+        // console.log(interactions[0], interactions[1], interactions[2]);
         for (let i = 0; i < interactions.length; i++) {
-          let touchLabels = Object.keys(interactions[i].data);
-          let comboColor = letterColors[touchLabels.join("")];
-          touchLabels.forEach((label) => {
+          let touchLabels = Object.keys(interactions[i]);
+          const order = ["t", "i", "m", "o", "p"];
+          let newTL = touchLabels.sort(
+            (a, b) => order.indexOf(a) - order.indexOf(b)
+          );
+          let comboColor = letterColors[newTL.join("")];
+          newTL.forEach((label) => {
             // Read from letterColors and output the value to individual finger.
             outputColors[label] = comboColor;
           });
@@ -299,18 +306,23 @@ export class HandInput {
   // Track interactions between finger tips
   // Params: Ordered TIMOP tip points, num API
   // Returns: Array of collections of touching tips.
+
   #touching(tips, num) {
-    let touchedTips = [];
+    let touchedPairs = [];
     let timop = ["t", "i", "m", "o", "p"];
-    let touchGroup = 0;
     let contactDistances = [];
 
+    // Go through each tip in order from TIMOP...
     for (let tip = 0; tip < 5; tip++) {
+      // Defining a hitbox for each tip.
       contactDistances[tip] = map(tips[tip][2], -0.03, -1, 24, 60);
-      for (let tc = tip + 1; tc < 5; tc++) {
-        const currentTip = tips[tip];
-        const tipToCheck = tips[tc];
 
+      // Start looking at the next tip after this one to the end.
+      // So for T, we look at IMOP, and for I, we look at MOP.
+      for (let tc = tip + 1; tc < 5; tc++) {
+        // We must already have a touchedTips with "TI".
+        const currentTip = tips[tip]; // T: 0
+        const tipToCheck = tips[tc]; // M: 2
         let distance = num.dist(
           currentTip[0],
           currentTip[1],
@@ -319,33 +331,84 @@ export class HandInput {
         );
 
         if (distance < contactDistances[tip]) {
-          // Create a "touch" to collect all touching tips, starting with these
-          const tipId1 = timop[tip];
-          const tipId2 = timop[tc];
-          let added = false;
-
-          touchedTips.forEach((touchedTip) => {
-            // Search touchedTips to see if the keys tipId1 is present
-            const keys = Object.keys(touchedTip.data);
-            if (keys.includes(tipId1)) {
-              //if they are, only add tipToCheck
-              touchedTip.data[tipId2] = tipToCheck;
-              added = true;
-            }
-          });
-
-          if (!added) {
-            //Create new touch collection when not updating previous touch
-            const touch = { data: {}, group: touchGroup };
-            touch.data[tipId1] = currentTip;
-            touch.data[tipId2] = tipToCheck;
-            touchedTips.push(touch);
-            touchGroup++;
+          const tipA = timop[tip];
+          const tipB = timop[tc];
+          let touchFound = false;
+          // If the current pair of tips is not part of an existing touch, create a new touch
+          if (!touchFound) {
+            const touch = {};
+            touch[tipA] = currentTip;
+            touch[tipB] = tipToCheck;
+            touchedPairs.push(touch);
           }
-          break;
         }
       }
     }
-    return { interactions: touchedTips, contactDistances };
+    // TODO: Current Problem: when TIMOP, it is splitting into two groups: TPO, IMOP
+    let finalTouchedTips = [];
+    //const finalFinalTouchedTips = [];
+
+    touchedPairs.forEach((tip) => {
+      // console.log("current tip:", tip);
+      const lastAdded = finalTouchedTips[finalTouchedTips.length - 1];
+      let added = false;
+
+      if (!lastAdded) {
+        // if lastAdded is empty...
+        finalTouchedTips.push(tip); // Nothing to compare, then add this pair.
+        added = true;
+      } else {
+        // Check all final touched tips for potential duplicates.
+        finalTouchedTips.forEach((finalTip) => {
+          const existingKeys = Object.keys(finalTip);
+          // console.log("master keys:", existingKeys);
+          const newKeys = Object.keys(tip);
+
+          // if existingKeys includes anything from newKeys
+          const hasSharedKeys = existingKeys.some((key) =>
+            newKeys.includes(key)
+          );
+          // console.log("has Shared keys:", hasSharedKeys);
+
+          if (hasSharedKeys) {
+            // then get all the keys that need to be added
+            const keysToAdd = newKeys.filter(
+              (key) => !finalTip.hasOwnProperty(key)
+            );
+            // console.log("keys to add:", keysToAdd);
+            keysToAdd.forEach((key) => (finalTip[key] = tip[key]));
+            // then add everything from newKeys to existingKeys.
+            added = true;
+          }
+        });
+      }
+
+      if (!added) {
+        finalTouchedTips.push(tip);
+      }
+    });
+
+    let dupe = {};
+
+    if (finalTouchedTips.length > 1) {
+      const firstKeys = Object.keys(finalTouchedTips[0]);
+      const secondKeys = Object.keys(finalTouchedTips[1]);
+      const hasDuplicate = firstKeys.some((key) => secondKeys.includes(key));
+
+      if (hasDuplicate) {
+        const mergedArrayKeys = [...new Set([...firstKeys, ...secondKeys])];
+
+        mergedArrayKeys.forEach((key) => {
+          if (finalTouchedTips[0].hasOwnProperty(key)) {
+            dupe[key] = finalTouchedTips[0][key];
+          } else {
+            dupe[key] = finalTouchedTips[1][key];
+          }
+        });
+        finalTouchedTips = [dupe];
+      }
+    }
+
+    return { interactions: finalTouchedTips, contactDistances };
   }
 }

@@ -198,21 +198,21 @@
 - [] Fade hand alpha and possibly color based on distance from edge of safe zone.
 
  🧩 Pieces
+   *** `staka` ***
+    - [] Create safe zone boundary that the game takes place in. 
+    
   *** `handtime` ***
-    - [🍏] Send data across the wire of all connected hands and render them. 
-    - [] Fix gesture interactions.  (Need a piece that will require it.)
     - [] `ht yellow blue` will start a 2 person call where a link is given and
           guest 2 is blue and you are yellow. 
     + Done
     - [x] Socket joining errors. @jeffrey
     - [x] Hand-track re-entrance errors. @jeffrey
+    - [x] Fix gesture interactions.  (Need a piece that will require it.)
+    - [x] Send data across the wire of all connected hands and render them. 
 
   *** `handprint` ***
     - [] See `handprint` for features. 
     - [❤️‍🔥] Panning the canvas should also pan the hand properly!
-
-  *** `staka` ***
-    - [] Create safe zone boundary that the game takes place in. 
 
   *** `simon says` ***
     - [] Combos of TIMOP flash hold on the screen until a user matches the combo. 
