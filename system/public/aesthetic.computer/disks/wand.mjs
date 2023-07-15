@@ -1988,6 +1988,11 @@ function act({
     tube.form.limiter = limiter;
   }
 
+  // Wipe ambient pixels. Kinda slow... 23.07.15.18.07
+  if (e.is("move") || e.is("draw")) {
+    needsWipe = [0, 0];
+  }
+
   // In case we need a wireframe form too.
   // if (e.is("keyboard:down:[")) tubeWire.form.limiter = limiter2;
 

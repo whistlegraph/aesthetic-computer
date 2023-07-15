@@ -1254,8 +1254,6 @@ function grid(
   const colPix = w / cols,
     rowPix = h / rows;
 
-  console.log("colPix:", colPix, "rowPix:", rowPix);
-
   const centerX = x + w / 2; // Calculate the center point of the grid
   const centerY = y + h / 2;
   angle = radians(angle);
