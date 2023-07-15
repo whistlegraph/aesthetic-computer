@@ -781,7 +781,7 @@ export const scheme = {
 
 async function makeMotd({ system, needsPaint, handle, user }) {
   let motd = "aesthetic.computer"; // Fallback motd.
-  const res = await fetch("/api/mood/@jeffrey");
+  const res = await fetch("/api/mood/@ida");
   if (res.status === 200) {
     motd = (await res.json()).mood;
     system.prompt.input.latentFirstPrint(motd);
