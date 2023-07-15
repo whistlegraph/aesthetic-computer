@@ -44,7 +44,6 @@ function reply(text) {
   console.log("😀 Replied with:", text);
 }
 
-
 function copied(text) {
   return `${text} 🤥 https://aesthetic.computer/liar`;
 }
@@ -56,19 +55,21 @@ function boot({ get, needsPaint }) {
   get
     .painting("2023.7.12.16.16.02")
     .by("@georgica")
-    .then((p) => { painting = p; needsPaint(); });
+    .then((p) => {
+      painting = p;
+      needsPaint();
+    });
 }
 
- // 🎨 Paint
- function paint({ screen, wipe, ink, paste }) {
+// 🎨 Paint
+function paint({ screen, wipe, ink, paste }) {
   wipe(255, 225, 4);
-  let scale = .25;
+  if (!painting) return;
+  let scale = 0.25;
   let scaledpainting = scale * painting.width;
   let xposition = screen.width - scaledpainting;
   paste(painting, xposition, 0, scale);
 }
-
-
 
 export { prompt, before, after, halt, reply, copied, boot, paint };
 export const system = "prompt:character"; // or "prompt:code
@@ -79,13 +80,12 @@ Bots
  to leave the chatbot, type: exit.
 */
 
-  /*
+/*
   Liar: Text                              bot
 
   Outputs a lie based on input text.
 
   */
-
 
 /*
 Brushes

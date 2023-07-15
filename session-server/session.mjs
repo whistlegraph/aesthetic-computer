@@ -181,12 +181,7 @@ wss.on("connection", (ws, req) => {
   const id = connectionId;
   let codeChannel; // Used to subscribe to incoming piece code.
 
-  console.log(
-    "🧏 Someone joined:",
-    `${id}:${ip}`,
-    "🫂 Online:",
-    wss.clients.size
-  );
+  console.log("🧏 Someone joined:", `${id}:${ip}`, wss.clients.size, "🫂");
 
   const content = { id, playerCount: wss.clients.size };
 
@@ -236,7 +231,7 @@ wss.on("connection", (ws, req) => {
 
   // More info: https://stackoverflow.com/a/49791634/8146077
   ws.on("close", () => {
-    console.log("🚪 Someone left:", id, "🫂 Online:", wss.clients.size);
+    console.log("🚪 Someone left:", id, "Online:", wss.clients.size, "🫂");
     everyone(pack("left", { id, count: wss.clients.size }));
     delete connections[id];
 
