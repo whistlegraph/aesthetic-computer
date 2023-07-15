@@ -1170,7 +1170,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       });
 
       // ⌨️ Keyboard
-      keyboard = new Keyboard(() => currentPiece);
+      keyboard = new Keyboard();
       {
         /**
          * Insert a hidden input element that is used to toggle the software
@@ -1198,6 +1198,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         form.append(input);
         wrapper.append(form);
+
+        keyboard.focusHandler = function (e) {
+          if (!currentPieceHasKeyboard) return;
+          if (document.activeElement !== input && e.key !== "`") {
+            input.focus();
+            return true;
+          } else if (e.key === "Enter") {
+            input.blur();
+            return false;
+          }
+        };
 
         keyboard.input = input;
 
@@ -1276,11 +1287,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         });
 
-        window.addEventListener("focusout", (e) => {
-          // console.log("FOCUS OUT");
-          // input.blur();
-        });
-
         window.addEventListener("blur", (e) => {
           input.blur();
         });
@@ -1291,7 +1297,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         window.addEventListener("pointerup", (e) => {
           if (keyboard.needsImmediateOpen) {
-            //input.focus();
             keyboard.needsImmediateOpen = false;
             return;
           }
@@ -2405,7 +2410,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (sfx[content.sfx] instanceof ArrayBuffer) {
           let audioBuffer;
           try {
-            audioBuffer = await audioContext.decodeAudioData(sfx[content.sfx]);
+            let buf = sfx[content.sfx];
+            sfx[content.sfx] = null;
+            audioBuffer = await audioContext.decodeAudioData(buf);
             if (debug && logs.audio) console.log("🔈 Decoded:", content.sfx);
             sfx[content.sfx] = audioBuffer;
           } catch (err) {
