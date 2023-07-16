@@ -553,7 +553,6 @@ const $commonApi = {
           pen?.dragBox?.h
         );
 
-
         system.nopaint.brush = { x: pos.x, y: pos.y, dragBox };
       },
       // Helper to display the existing painting on the screen, with an

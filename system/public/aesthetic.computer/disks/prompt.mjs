@@ -386,7 +386,7 @@ async function halt($, text) {
     // size if it doesn't.
     const w = params[0],
       h = params[1] || w;
-    if (isNaN(w)) {
+    if (w === undefined) {
       flashColor = [255, 0, 0];
     } else {
       nopaint_adjust(screen, system, painting, store, { w, h, scale: true });

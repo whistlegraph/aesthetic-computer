@@ -126,11 +126,23 @@ function nopaint_adjust(screen, sys, painting, store, size = null) {
     !size &&
     (sys.nopaint.translation.x !== 0 || sys.nopaint.translation.y !== 0)
   )
-    return; // Never auto-resize if we are panned.
+    return; // Stop auto-resizing if we are panned.
 
   if (size || !sys.painting) {
-    const width = size?.w || screen.width;
-    const height = size?.h || screen.height;
+    // Check to see if size?.w has an x at the end.
+    let width, height;
+    if (size.w && size.h) {
+      // Allow for "2x or 3x" modifiers.
+      width = size.w.endsWith("x")
+        ? parseFloat(size.w.slice(0, -1)) * sys.painting.width
+        : parseInt(size.w);
+      height = size.h.endsWith("x")
+        ? parseFloat(size.h.slice(0, -1)) * sys.painting.height
+        : parseInt(size.h);
+    } else {
+      width = screen.width;
+      height = screen.height;
+    }
 
     sys.painting = painting(width, height, (p) => {
       if (size?.scale) {

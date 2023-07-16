@@ -5,14 +5,14 @@
 [🟢] Reset the conversation history on refresh.
 
 [🟠] Add pink lotus image in the corner, semi-transparent
-  - [🍊] Crop (this needs to be an interactive thing.)
   - [] Rotate 90
   - [] Flip
-  - [] Resize needs to be able to take 0-1 values with min and
-       max settings.
   - [] Allow for multiple no (with countdown), with yes as reverse?
   - [?] Check on full transparency support.
   + Done
+  - [x] Resize needs to be able to take 0-1 values with min and
+       max settings.
+  - [x] Crop (this needs to be an interactive thing.)
   - [x] Resize
   - [x] Load image into painting from pasted url.
   - [x] And drag and drop.

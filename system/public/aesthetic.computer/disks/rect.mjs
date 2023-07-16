@@ -54,7 +54,7 @@ function boot({ params, num, colon }) {
 }
 
 // 🎨 Paint (Executes every display frame)
-function paint({ pen, ink, system: { nopaint } }) {
+function paint({ pen, ink, system: { nopaint }, geo }) {
   if (nopaint.is("painting") && pen?.dragBox) {
     const db = !centered ? pen.dragBox : pen.dragBox.scale(2);
     ink(color).box(db, mode); // UI: Paint a preview to the screen.
