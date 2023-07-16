@@ -76,7 +76,11 @@
  - [] Handle updates were not working for mitch.
 
 *** nopaint ***
-  - [] Scaffold `nopaint`.
+  - [x] Scaffold `nopaint`.
+
+*** poem ***
+  - [] Scaffold the `poem` recorder.
+    - [] Poem will implement TextInput, but not the prompt system.
 
 *** Polishing ***
 - [👱‍♀️] Add painting include support and images to front-facing bots. (`gargoyle`, `liar` … )
