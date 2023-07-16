@@ -24,25 +24,17 @@ async function boot({ api, wipe, ink, line, net }) {
 }
 
 // 🧮 Sim
-function sim({ num: { randIntRange: rr }, screen: { width, height } }) {
+function sim({ num: { randIntRange: rr }, screen: { width, height }, system }) {
   if (cycleFrame < cycle) {
     if (cycleFrame === 0) {
-      // Must be able to trigger nopaint.is("painting") here...
       const w = rr(8, 64),
         h = rr(8, 64),
-        dragBox = [rr(-w / 2, width - w / 2), rr(-h / 2, height - h / 2), w, h];
-      apis.push({
-        system: {
-          nopaint: {
-            is: (state) => state === "painting",
-            // TODO: Get "updateBrush" dragBox math to work.
-            brush: { dragBox }, // Needs to take pan into account.
-          },
-        },
-        pen: { dragBox },
-      });
+        x = rr(-w / 2, width - w / 2),
+        y = rr(-h / 2, height - h / 2),
+        dragBox = { x, y, w, h };
+      const api = { pen: { x, y, dragBox } };
+      apis.push(api);
     }
-
     cycleFrame += 1;
   }
 }
@@ -50,6 +42,15 @@ function sim({ num: { randIntRange: rr }, screen: { width, height } }) {
 // 🎨 Paint
 function paint($) {
   apis.forEach((api) => {
+    // Translate the pen to the current painting position.
+    api.system = {
+      nopaint: {
+        is: (state) => state === "painting",
+        translation: { ...$.system.nopaint.translation },
+      },
+    };
+    $.system.nopaint.updateBrush(api); // Set the current transform of brush.
+
     const passApi = { ...$ };
     passApi.system = api.system; // Replace with our generated system.
     passApi.pen = api.pen;
