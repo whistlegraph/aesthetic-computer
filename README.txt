@@ -207,6 +207,9 @@
 
  🧩 Pieces
    *** `staka` ***
+    - [] Tapping and holding the mouse down when a hand is not present should
+         drop the y value of the dummy data of IMO, so the gesture gets
+         recognized and the game is playable / testable with no tracking!
     - [] Create safe zone boundary that the game takes place in. 
     
   *** `handtime` ***
