@@ -1204,7 +1204,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (document.activeElement !== input && e.key !== "`") {
             input.focus();
             return true;
-          } else if (e.key === "Enter") {
+          } else if (e.key === "Enter" && e.shiftKey === false) {
             input.blur();
             return false;
           }

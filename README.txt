@@ -75,18 +75,10 @@
 *** handle updates ***
  - [] Handle updates were not working for mitch.
 
-*** Georgica AC *** 
-  - [] "?" appears after typing a valid word which jumps to a learn page for learning more about a command.
-    (Requires that gutter is always visible on screen by default.)
-  - [] Polish bots with background images.
-    - [] Fix `liar` background image sizing code.
-    - [] Some bots could have corner images?
-  - [] Fix `encode` input / enter regression.
-  - [] Start writing `learn` page content.
-    - `rect` (A brush example)
-    - `liar` (A bot example) 
+*** nopaint ***
+  - [] Scaffold `nopaint`.
 
-*** Sunday Polishing ***
+*** Polishing ***
 - [👱‍♀️] Add painting include support and images to front-facing bots. (`gargoyle`, `liar` … )
 - [] Add name to top left corner of all bots.
 - [] Better dynamic `preview` / thumbnail images.
@@ -102,6 +94,7 @@
   - [] "?" jumps to a `learn piece` page for learning more about a piece.
 - [] `Ctrl+x` fullscreen keyboard shortcut does not work on `prompt`.
 + Done
+- [x] Fix Shift+ENTER
 - [x] Publishing should jump you directly to your finished piece url. 
 - [x] Typing `profile` or jumping to `profile` should route you to your profile.
 - [c] Typing an email should also take you to the user's profile.
@@ -116,6 +109,17 @@
 - [x] Back browser button should bring up mobile keyboard. (This could never happen on Safari, might happen on Android)
 - [x] Fix Safari regression.
 - [x] Design “copy” wrapper text for front-facing bots. @ggacjp.
+
+*** Georgica AC *** 
+  - [] "?" appears after typing a valid word which jumps to a learn page for learning more about a command.
+    (Requires that gutter is always visible on screen by default.)
+  - [] Polish bots with background images.
+    - [] Fix `liar` background image sizing code.
+    - [] Some bots could have corner images?
+  - [] Fix `encode` input / enter regression.
+  - [] Start writing `learn` page content.
+    - `rect` (A brush example)
+    - `liar` (A bot example) 
 
 *** ambient system-wide cursor movement. ***
   - [] Optimize rendering... move scream and label and ambientCursors
