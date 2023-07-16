@@ -35,6 +35,7 @@ function sim({ num: { randIntRange: rr }, screen: { width, height } }) {
         system: {
           nopaint: {
             is: (state) => state === "painting",
+            // TODO: Get "updateBrush" dragBox math to work.
             brush: { dragBox }, // Needs to take pan into account.
           },
         },
