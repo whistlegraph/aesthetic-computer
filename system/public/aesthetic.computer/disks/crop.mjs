@@ -5,7 +5,7 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🟢] Draw a rectangle to show the darkened crop on the painting, where
+  - [🟢] Draw an overlay rectangle to show the darkened crop on the painting, where
          returning to the prompt crops it.
 #endregion */
 
