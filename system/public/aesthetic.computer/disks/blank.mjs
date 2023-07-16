@@ -11,14 +11,6 @@
 function boot({ wipe, ink, line }) {
   // Runs once at the start.
   wipe(0);
-  ink();
-  line();
-  ink();
-  line();
-  ink();
-  line();
-  ink();
-  line();
 }
 
 // 🎨 Paint
