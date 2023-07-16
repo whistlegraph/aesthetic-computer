@@ -9,15 +9,37 @@
          returning to the prompt crops it.
 #endregion */
 
-// 🥾 Boot
-function boot({ wipe, ink, line }) {
-  // Runs once at the start.
-}
+const { max } = Math;
+let crop, b;
 
 // 🎨 Paint
-function paint({ ink }) {
-  // Executes every display frame.
-  return false; // Uncomment for an animation loop.
+function paint({ pen, ink, painting, store, system: sys, screen }) {
+  if (sys.nopaint.is("painting") && pen?.dragBox) {
+    b = pen.dragBox.abs;
+    crop = () => {
+      const { x, y } = sys.nopaint.transform({ x: b.x, y: b.y });
+      // Resize the original painting.
+      sys.painting = painting(b.w, b.h, (p) => {
+        p.wipe().paste(sys.painting, -x, -y);
+      });
+      sys.nopaint.translation = { x: b.x, y: b.y };
+      // Assume we changed the size of the painting so set the resolution lock.
+      store["painting:resolution-lock"] = true;
+      store.persist("painting:resolution-lock", "local:db");
+      crop = null;
+    };
+  }
+  if (b) {
+    // Draw a preview on-screen.
+    ink(0, 64).box(b, `outline:${max(screen.width, screen.height)}`);
+    ink().box(b, "outline");
+    sys.nopaint.needsPresent = true;
+  }
+}
+
+// 🍪 Prints to the current painting.
+function bake() {
+  crop?.();
 }
 
 // 🎪 Act
@@ -48,7 +70,8 @@ function meta() {
   };
 }
 
-export { boot, paint, meta };
+export const system = "nopaint:bake-on-leave";
+export { paint, bake, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)

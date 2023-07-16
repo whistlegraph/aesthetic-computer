@@ -1122,6 +1122,7 @@ function box() {
       }
     }
   } else if (mode === "fill") {
+    // TODO: The boxes could be cropped to always fit inside the screen here.
     w -= 1;
     if (sign(height) === 1) {
       for (let row = 0; row < h; row += 1) line(x, y + row, x + w, y + row);
