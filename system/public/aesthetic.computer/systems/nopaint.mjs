@@ -146,7 +146,7 @@ function nopaint_adjust(screen, sys, painting, store, size = null) {
 
     sys.painting = painting(width, height, (p) => {
       if (size?.scale) {
-        p.wipe(128).paste(sys.painting, 0, 0, { width, height });
+        p.wipe(64).paste(sys.painting, 0, 0, { width, height });
       } else {
         p.wipe(64).paste(sys.painting);
       }
@@ -161,7 +161,6 @@ function nopaint_adjust(screen, sys, painting, store, size = null) {
     store["painting:resolution-lock"] = true;
     store.persist("painting:resolution-lock", "local:db");
     store.persist("painting", "local:db"); // Also persist the painting.
-    sys.nopaint.translation = { x: 0, y: 0 }; // Reset the transform.
     sys.nopaint.resetTransform({ system: sys, screen }); // Reset transform.
     sys.nopaint.storeTransform(store, sys);
   }

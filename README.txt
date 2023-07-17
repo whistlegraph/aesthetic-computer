@@ -72,6 +72,10 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Decode / Encode (Issue) ***
+- [] Text automatically copied to clipboard when typing `decode` and
+     going to the piece.
+
 *** handle updates ***
  - [] Handle updates were not working for mitch.
 
@@ -89,6 +93,9 @@
 - [] Finish all todos in `botce`. 
   - [] Remove `botce` from intro text.
 - [🟠] Revisit `worker.js` to fix download link url names.
+  - [] Files need to be stored in the database...
+    - [] With a flag for completion, ticked after the presigned-upload-url
+         completes?
 - [] Spaces on new line breaks no longer work on `prompt` ?
 - [] Add starfield to prompt.
 - [] Tappable floaty words on prompt.
@@ -168,15 +175,16 @@
 
   - [] "?" appears after typing a valid word which jumps to a learn page for learning more about a command.
     (Requires that gutter is always visible on screen by default.)
-  + Done
-  - [x] Start writing `learn` page content.
+  - [] Polish bots with background images.
+    - [] Fix `liar` background image sizing code.
+    - [] Some bots could have corner images?
+  - [] Fix `encode` input / enter regression.
+  - [] Start writing `learn` page content.
     - `rect` (A brush example)
     - `liar` (A bot example) 
-  - [x] Polish bots with background images.
-    - [x] Fix `liar` background image sizing code.
-    - [x] Some bots could have corner images?
-    - [] botce, girlfriend, boyfriend
-  - [x] Fix `encode` input / enter regression.
+
+*** Learn ***
+- [] Start writing "learn" pages for some existing commands or bots.
 
 *** ambient system-wide cursor movement. ***
   - [] Optimize rendering... move scream and label and ambientCursors
@@ -186,9 +194,6 @@
   - [] Don't force a repaint.
   + Done
   - [x] Show just a pixel for now.
-
-*** Learn ***
-- [] Start writing "learn" pages for some existing commands or bots.
 
 *** Logo / Load LOGO ***
   - [] Make a "logo" command that sets

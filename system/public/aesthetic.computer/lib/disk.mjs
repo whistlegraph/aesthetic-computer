@@ -3468,7 +3468,7 @@ async function makeFrame({ data: { type, content } }) {
       maybeLeave();
 
       // Return frame data back to the main thread.
-      let sendData = {};
+      let sendData = { width: screen.width, height: screen.height };
 
       // TODO: Write this up to the data in `painting`.
 
@@ -3548,7 +3548,6 @@ async function makeFrame({ data: { type, content } }) {
     } else {
       // Send update (sim).
       maybeLeave();
-
       // TODO: How necessary is this - does any info ever need to actually
       //       get sent? 23.01.06.16.02
       send(
@@ -3558,6 +3557,8 @@ async function makeFrame({ data: { type, content } }) {
             didntRender: true,
             loading,
             pixels: pixels?.buffer,
+            width: content.width,
+            height: content.height,
             sound,
           },
         },
