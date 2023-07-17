@@ -2498,16 +2498,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // 🖥️ Compositing
 
     // This is a bit messy compared to what happens inside of content.reframe -> frame below. 22.10.27.02.05
-    if (content.pixels?.byteLength > 0) {
+    if (
+      content.pixels?.byteLength > 0 &&
+      (content.width === screen.width && content.height === screen.height)
+    ) {
       screen.pixels = new Uint8ClampedArray(content.pixels);
+      // screen.width = content.width;
+      // screen.height = content.height;
       let width = screen.width;
       let height = screen.height;
+
       if (content.reframe && content.reframe.width && content.reframe.height) {
         width = content.reframe.width;
         height = content.reframe.height;
       }
+
       imageData = new ImageData(screen.pixels, width, height);
-      // console.log("cp", content.pixels, content, type);
     }
 
     // old threed garbage collection (remove)
@@ -2571,8 +2577,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // 🅱️ Normal full-screen update.
       imageData = new ImageData(
         new Uint8ClampedArray(content.pixels),
-        canvas.width,
-        canvas.height
+        content.width,
+        content.height
       );
     }
 
