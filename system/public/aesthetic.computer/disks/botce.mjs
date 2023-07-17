@@ -7,7 +7,7 @@
 [🟠] Add pink lotus image in the corner, semi-transparent
   - [x] Right (turn 90)
   - [x] Left (turn 90)
-    - [x] Fix subtle pixel rotate bug.
+    - [🛑] Fix subtle pixel rotate bug. (Noticeable in `zoom` with 90deg left rotation)
   - [] Flip (vertical)
   - [] Flop (horizontal)
   - [] Allow for multiple no (with countdown), with yes as reverse?

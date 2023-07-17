@@ -122,6 +122,9 @@
 - [x] Design “copy” wrapper text for front-facing bots. @ggacjp.
 
 *** Georgica AC *** 
+  - [🧡] "?" appears after typing a valid word which jumps to a learn page for learning more about a command.
+    (Requires that gutter is always visible on screen by default.)
+
   - [x] Make `boyfriend` bot
   - [] `relationship` dialogue screen
     - [] Where `boyfriend` and `girlfriend` are in an automated conversation.
@@ -173,13 +176,12 @@
          |    [Back]                 [Share]
          |________________________________________
 
-  - [] "?" appears after typing a valid word which jumps to a learn page for learning more about a command.
-    (Requires that gutter is always visible on screen by default.)
   - [] Polish bots with background images.
     - [] Fix `liar` background image sizing code.
     - [] Some bots could have corner images?
-  - [] Fix `encode` input / enter regression.
-  - [] Start writing `learn` page content.
+  + Done
+  - [x] Fix `encode` input / enter regression.
+  - [x] Start writing `learn` page content.
     - `rect` (A brush example)
     - `liar` (A bot example) 
 
