@@ -1270,10 +1270,10 @@ function grid(
         // Rotate the plot coordinates around the center of the grid
         const dx = plotX - centerX;
         const dy = plotY - centerY;
-        const rotatedDX = (dx * cos(angle) - dy * sin(angle));
-        const rotatedDY = (dx * sin(angle) + dy * cos(angle));
-        const rotatedX = ceil(centerX + rotatedDX);
-        const rotatedY = ceil(centerY + rotatedDY);
+        const rotatedDX = dx * cos(angle) - dy * sin(angle);
+        const rotatedDY = dx * sin(angle) + dy * cos(angle);
+        const rotatedX = floor(centerX + rotatedDX);
+        const rotatedY = floor(centerY + rotatedDY);
 
         // Repeat (tile) the source over X and Y if we run out of pixels.
         const repeatX = i % buffer.width;
