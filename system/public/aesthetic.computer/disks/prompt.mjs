@@ -381,6 +381,41 @@ async function halt($, text) {
     }
     system.prompt.input.blank();
     return true;
+  } else if (slug === "right" || slug === "left") {
+    // Turn the canvas to the right or left.
+    const angle = slug === "right" ? 90 : -90;
+    const width = system.painting.height;
+    const height = system.painting.width;
+
+    // Create a new painting with swapped width and height parameters.
+    system.painting = painting(width, height, (p) => {
+      // Then wipe, rotate and paste.
+      // Paste the original painting, rotated by 90 degrees.
+      p.wipe(64).paste(
+        system.painting,
+        width / 2 - system.painting.width / 2,
+        height / 2 - system.painting.height / 2,
+        {
+          scale: 1,
+          angle,
+        }
+      );
+    });
+
+    // Move the painting to the center of the screen.
+    system.nopaint.resetTransform({ system, screen });
+    system.nopaint.storeTransform(store, system);
+
+    // Persist the painting and lock the resolution.
+    store["painting"] = system.painting;
+    store.persist("painting", "local:db"); // Also persist the painting.
+    system.nopaint.addUndoPainting(system.painting);
+    store["painting:resolution-lock"] = true; // Set resolution lock.
+    store.persist("painting:resolution-lock", "local:db");
+
+    flashColor = [0, 0, 255];
+    makeFlash($);
+    return true;
   } else if (slug === "resize" || slug === "res") {
     // Resize the active painting if one exists, or make one at this
     // size if it doesn't.
