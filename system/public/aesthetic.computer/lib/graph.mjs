@@ -17,7 +17,7 @@ import { repeat } from "./help.mjs";
 import { Box } from "./geo.mjs";
 import { nanoid } from "../dep/nanoid/nanoid.js";
 
-const { abs, sign, ceil, floor, sin, cos, min, max, PI } = Math;
+const { round, abs, sign, ceil, floor, sin, cos, min, max, PI } = Math;
 
 let width, height, pixels;
 const depthBuffer = [];
@@ -1255,8 +1255,8 @@ function grid(
   const colPix = w / cols,
     rowPix = h / rows;
 
-  const centerX = x + w / 2; // Calculate the center point of the grid
-  const centerY = y + h / 2;
+  const centerX = (x + w / 2); // Calculate the center point of the grid
+  const centerY = (y + h / 2);
   angle = radians(angle);
 
   // Draw a scaled image if the buffer is present.
@@ -1270,10 +1270,10 @@ function grid(
         // Rotate the plot coordinates around the center of the grid
         const dx = plotX - centerX;
         const dy = plotY - centerY;
-        const rotatedDX = dx * cos(angle) - dy * sin(angle);
-        const rotatedDY = dx * sin(angle) + dy * cos(angle);
-        const rotatedX = centerX + rotatedDX;
-        const rotatedY = centerY + rotatedDY;
+        const rotatedDX = (dx * cos(angle) - dy * sin(angle));
+        const rotatedDY = (dx * sin(angle) + dy * cos(angle));
+        const rotatedX = ceil(centerX + rotatedDX);
+        const rotatedY = ceil(centerY + rotatedDY);
 
         // Repeat (tile) the source over X and Y if we run out of pixels.
         const repeatX = i % buffer.width;
@@ -1281,11 +1281,15 @@ function grid(
         const repeatCols = buffer.width;
 
         // Loop over the buffer and find the proper color.
-        const pixIndex = (repeatX + repeatCols * repeatY) * 4;
+        const pixIndex = ceil((repeatX + repeatCols * repeatY) * 4);
 
         if (pixIndex < buffer.pixels.length) {
           color(...buffer.pixels.subarray(pixIndex, pixIndex + 4));
+          
           //box(plotX, plotY, scale);
+          // if (rotatedY < 120) {
+            // console.log(rotatedX, rotatedY, pixIndex);
+          // }
           box(rotatedX, rotatedY, ...scale); // These should be polygons that get plotted...
         }
       }
