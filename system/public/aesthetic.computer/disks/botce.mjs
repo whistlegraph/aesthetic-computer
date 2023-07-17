@@ -5,11 +5,15 @@
 [🟢] Reset the conversation history on refresh.
 
 [🟠] Add pink lotus image in the corner, semi-transparent
-  - [] Rotate 90
-  - [] Flip
+  - [x] Right (turn 90)
+  - [x] Left (turn 90)
+    - [x] Fix subtle pixel rotate bug.
+  - [] Flip (vertical)
+  - [] Flop (horizontal)
   - [] Allow for multiple no (with countdown), with yes as reverse?
   - [?] Check on full transparency support.
   + Done
+  - [x] Fix framebuffer resize bug.
   - [x] Resize needs to be able to take 0-1 values with min and
        max settings.
   - [x] Crop (this needs to be an interactive thing.)
