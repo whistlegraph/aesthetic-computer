@@ -115,15 +115,68 @@
 - [x] Design “copy” wrapper text for front-facing bots. @ggacjp.
 
 *** Georgica AC *** 
+  - [x] Make `boyfriend` bot
+  - [] `relationship` dialogue screen
+    - [] Where `boyfriend` and `girlfriend` are in an automated conversation.
+      - Screen is separated vertically as two buttons, tapping either button
+        sends a response to the other. Multiple sends from one is possible,
+        but not while replying.
+       | girlfriend | 
+       --------------
+       | boyfriend  |
+  - [] `boyfriend` should be able to reply using a "Message read" receipt style
+       rendering mode on the reply that gets colored. 
+  - [] `boyfriend / girlfriend` conversation share
+    - [] Conversation: Reply Screen
+          _____________________________________
+         | 
+         |    Blah blah.
+         |
+         |    Ble bleeee bleee blee blee.
+         |
+         |    - bf/gf
+         |
+         |    [Copy]                    [Share]
+         |    [Forget]         <--- 4/4 [Reply]         
+         |_____________________________________
+         |                              [Reply]          
+         |                     <--- 2/2 [Reply]          
+         |                     <--- 3/3 [Reply]          
+         |                     <--- 4/4 [Reply]          
+         |                     <--- 3/4 --->          
+         |                     <--- 2/4 --->          
+         |                          1/4 --->          
+                  (Also include progress bar.)
+
+  - [] `liar` Screenshot (forgetful sharing)
+    - [] User's reply stays on screen while the response is being written.
+    - [] A button appears to "download" or "share" which allows user
+         to download the image to their camera roll.
+
+         Forgetful: Reply Screen
+          ________________________________________
+         | 
+         |    Blah blah.
+         |
+         |    Ble bleeee bleee blee blee.
+         |
+         |    - liar
+         |
+         |    [Copy]
+         |    [Back]                 [Share]
+         |________________________________________
+
   - [] "?" appears after typing a valid word which jumps to a learn page for learning more about a command.
     (Requires that gutter is always visible on screen by default.)
-  - [] Polish bots with background images.
-    - [] Fix `liar` background image sizing code.
-    - [] Some bots could have corner images?
-  - [] Fix `encode` input / enter regression.
-  - [] Start writing `learn` page content.
+  + Done
+  - [x] Start writing `learn` page content.
     - `rect` (A brush example)
     - `liar` (A bot example) 
+  - [x] Polish bots with background images.
+    - [x] Fix `liar` background image sizing code.
+    - [x] Some bots could have corner images?
+    - [] botce, girlfriend, boyfriend
+  - [x] Fix `encode` input / enter regression.
 
 *** ambient system-wide cursor movement. ***
   - [] Optimize rendering... move scream and label and ambientCursors
