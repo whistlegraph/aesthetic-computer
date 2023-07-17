@@ -204,7 +204,13 @@ async function halt($, text) {
     }
   }
 
-  if (slug === "load") {
+  if (slug === "flower") {
+    jump("lmn-flower");
+    return true;
+  } else if (slug === "petal") {
+    jump("lmn-petal");
+    return true;
+  } else if (slug === "load") {
     // Load a file via URL.
     // Images:
     if (params[0].startsWith("http")) {
