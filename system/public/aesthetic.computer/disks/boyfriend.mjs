@@ -20,17 +20,15 @@ const after = `
   - and your responses are only one sentence.
   - if the user types "i love you" or "do you love me," you only
     respond "seen"
-
-
   `;
 
   export const scheme = {
     dark: {
       fg: [126, 150, 111],
       bg: [4, 19, 55],
-      block: [200, 0, 200, 100],
-      blockHi: [255, 255, 100],
-      line: [200, 0, 200, 100],
+      block: [77, 114, 78, 100],
+      blockHi: [4, 3, 247],
+      line: [77, 114, 78, 100],
     },
     light: {
       fg: [0, 200],
