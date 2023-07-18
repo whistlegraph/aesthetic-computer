@@ -1,5 +1,6 @@
 import {
   p2,
+  wrap,
   randInt,
   byteInterval17,
   vec2,
@@ -1073,8 +1074,6 @@ function box() {
 
   ({ x, y, w, h } = Box.from([x, y, w, h]).abs);
 
-  //console.log(x, y, w, h);
-
   // Apply any global pan translations.
   // x += panTranslation.x; // Note: Already processed in `line`.
   // y += panTranslation.y;
@@ -1255,9 +1254,21 @@ function grid(
   const colPix = w / cols,
     rowPix = h / rows;
 
-  const centerX = (x + w / 2); // Calculate the center point of the grid
-  const centerY = (y + h / 2);
-  angle = radians(angle);
+  // Always make sure we are at the mid-point of the pixel we rotate around.
+  // given the image resolution's even / oddness on each axis.
+  if (angle) {
+    if (x % 1 === 0 && w % 2 !== 0) x += 0.5;
+    if (y % 1 === 0 && h % 2 !== 0) y += 0.5;
+    angle = wrap(angle, 360); // Keep angle positive.
+    // Make some off by 1 adjustments for specific angles.
+    if (angle >= 180) y -= 1;
+    if (angle >= 90 && angle < 270) x -= 1;
+  }
+
+  let centerX = x + w / 2; // Calculate the center point of the grid
+  let centerY = y + h / 2;
+
+  angle = radians(angle); // Sets angle to 0 if it was undefined.
 
   // Draw a scaled image if the buffer is present.
   // Technically, this allows us to scale any bitmap. 22.08.21.21.13
@@ -1272,8 +1283,8 @@ function grid(
         const dy = plotY - centerY;
         const rotatedDX = dx * cos(angle) - dy * sin(angle);
         const rotatedDY = dx * sin(angle) + dy * cos(angle);
-        const rotatedX = floor(centerX + rotatedDX);
-        const rotatedY = floor(centerY + rotatedDY);
+        const rotatedX = centerX + rotatedDX;
+        const rotatedY = centerY + rotatedDY;
 
         // Repeat (tile) the source over X and Y if we run out of pixels.
         const repeatX = i % buffer.width;
@@ -1281,15 +1292,10 @@ function grid(
         const repeatCols = buffer.width;
 
         // Loop over the buffer and find the proper color.
-        const pixIndex = ceil((repeatX + repeatCols * repeatY) * 4);
+        const pixIndex = (repeatX + repeatCols * repeatY) * 4;
 
         if (pixIndex < buffer.pixels.length) {
           color(...buffer.pixels.subarray(pixIndex, pixIndex + 4));
-          
-          //box(plotX, plotY, scale);
-          // if (rotatedY < 120) {
-            // console.log(rotatedX, rotatedY, pixIndex);
-          // }
           box(rotatedX, rotatedY, ...scale); // These should be polygons that get plotted...
         }
       }

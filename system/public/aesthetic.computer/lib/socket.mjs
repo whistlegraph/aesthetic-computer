@@ -85,15 +85,16 @@ export class Socket {
   // Before passing messages to disk code, handle some system messages here.
   // Note: "reload" should only be defined when in development / debug mode.
   #preReceive({ id, type, content }, receive, reload) {
-    if (type === "message") {
+    if (type === "connected") {
       const c = JSON.parse(content);
-      if (c.text) {
-        console.log(`📡 ${c.text}`); // Someone else has connected as...
-      } else {
-        // Send a self-connection message here. (You are connected as...)
-        console.log(`📡 ${c.ip} → 🤹 ${c.playerCount} : @${c.id}`);
-        this.id = c.id; // Set the user identifier.
-      }
+      this.id = c.id; // Set the user identifier.
+      // Send a self-connection message here. (You are connected as...)
+      console.log(
+        `📡 You joined: ${c.ip} id: ${c.id} 🤹 Connections open: ${c.playerCount}`
+      );
+    } else if (type === "message") {
+      const c = JSON.parse(content);
+      console.log(`📡 ${c.text || c}`); // Someone else has connected as...
     } else if (type === "reload" && reload && this.#debug) {
       // Only respond to global `reload` signals when in debug mode.
       let c;
