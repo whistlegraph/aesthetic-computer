@@ -1257,8 +1257,9 @@ function grid(
   // Always make sure we are at the mid-point of the pixel we rotate around.
   // given the image resolution's even / oddness on each axis.
   if (angle) {
-    if (x % 1 === 0 && w % 2 !== 0) x += 0.5;
-    if (y % 1 === 0 && h % 2 !== 0) y += 0.5;
+    if (x % 1 === 0 || w % 2 === 0) x += 0.5;
+    if (y % 1 === 0 || h % 2 === 0) y += 0.5;
+
     angle = wrap(angle, 360); // Keep angle positive.
     // Make some off by 1 adjustments for specific angles.
     if (angle >= 180) y -= 1;
