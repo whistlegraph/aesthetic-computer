@@ -210,6 +210,12 @@ async function halt($, text) {
   } else if (slug === "petal") {
     jump("lmn-petal");
     return true;
+  } else if (slug === "gf") {
+    jump("girlfriend");
+    return true;
+  } else if (slug === "bf") {
+    jump("boyfriend");
+    return true;
   } else if (slug === "load") {
     // Load a file via URL.
     // Images:
@@ -788,6 +794,11 @@ function meta() {
   };
 }
 
+// 👋 Leave
+function leave() {
+  motdController?.abort(); // Abort any motd update.
+}
+
 export {
   before,
   after,
@@ -800,6 +811,7 @@ export {
   activated,
   reply,
   meta,
+  leave,
 };
 export const system = "prompt:character"; // or "prompt:code"
 
@@ -825,9 +837,12 @@ export const scheme = {
 // 📚 Library
 //   (Useful functions used throughout the piece)
 
-async function makeMotd({ system, needsPaint, handle, user }) {
+let motdController;
+
+async function makeMotd({ system, needsPaint, handle, user, net, api }) {
   let motd = "aesthetic.computer"; // Fallback motd.
-  const res = await fetch("/api/mood/@ida");
+  motdController = new AbortController();
+  const res = await fetch("/api/mood/@ida", { signal: motdController.signal});
   if (res.status === 200) {
     motd = (await res.json()).mood;
     system.prompt.input.latentFirstPrint(motd);
