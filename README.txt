@@ -123,17 +123,16 @@
 
 *** Georgica AC *** 
   - [🧡] "?" appears after typing a valid word which jumps to a learn page for learning more about a command.
-    (Requires that gutter is always visible on screen by default.)
-
-  - [x] Make `boyfriend` bot
   - [] `relationship` dialogue screen
     - [] Where `boyfriend` and `girlfriend` are in an automated conversation.
       - Screen is separated vertically as two buttons, tapping either button
         sends a response to the other. Multiple sends from one is possible,
         but not while replying.
+
        | girlfriend | 
        --------------
        | boyfriend  |
+
   - [] `boyfriend` should be able to reply using a "Message read" receipt style
        rendering mode on the reply that gets colored. 
   - [] `boyfriend / girlfriend` conversation share
@@ -180,6 +179,9 @@
     - [] Fix `liar` background image sizing code.
     - [] Some bots could have corner images?
   + Done
+  - [x] Auto-expand the gutter.
+  (Requires that gutter is always visible on screen by default.)
+  - [x] Make `boyfriend` bot
   - [x] Fix `encode` input / enter regression.
   - [x] Start writing `learn` page content.
     - `rect` (A brush example)

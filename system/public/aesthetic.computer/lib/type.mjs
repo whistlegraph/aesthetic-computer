@@ -261,11 +261,13 @@ class TextInput {
     this.#autolock = options.autolock;
     this.didReset = options.didReset;
 
+    const blockWidth = 6;
+
     this.#prompt = new Prompt(
-      6,
-      6,
+      blockWidth,
+      blockWidth,
       options.wrap, // "char" or "word"
-      floor($.screen.width / 6) - 2 // colWidth
+      $.store["gutter:lock"] || floor($.screen.width / blockWidth) - 2
     );
 
     this.print(text); // Set initial text.
@@ -306,10 +308,20 @@ class TextInput {
     $.send({ type: "keyboard:enabled" });
   }
 
+  // Stretches the gutter to be the screen width minus two slots.
+  fullGutter($) {
+    this.gutter = floor($.screen.width / this.#prompt.blockWidth) - 2;
+  }
+
   // Adjust the gutter width for text wrapping.
   set gutter(n) {
     this.#prompt.colWidth = n;
     this.#prompt.gutter = this.#prompt.colWidth * this.#prompt.blockWidth;
+  }
+
+  // Alias for the setter above, returned in columns.
+  get columns() {
+    return this.#prompt.colWidth;
   }
 
   // Reset the user text after a message is complete.
@@ -545,7 +557,7 @@ class TextInput {
 
     // Reflow the prompt on frame resize.
     if (e.is("reframed")) {
-      this.#prompt.resize(floor($.screen.width / 6) - 2);
+      if (!$.store["gutter:lock"]) this.fullGutter($);
       this.flow();
       needsPaint();
     }
@@ -1319,9 +1331,9 @@ class Prompt {
     this.cursorToTextMap[key] = textIndex;
   }
 
-  resize(newColWidth) {
-    this.colWidth = newColWidth;
-  }
+  // resize(newColWidth) {
+  //   this.colWidth = newColWidth;
+  // }
 
   // Get the current text index given a cursor position.
   textPos(cursor = this.cursor) {
