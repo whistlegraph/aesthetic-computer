@@ -47,7 +47,7 @@ export const p2 = {
       y: pA.y - pB.y,
     };
   },
-  
+
   // Immutably multiply p by angle in radians.
   rot(p, angle) {
     return {
@@ -92,6 +92,13 @@ export const p2 = {
     return { x: floor(p.x), y: floor(p.y) };
   },
 };
+
+// Wraps a number around 0 through a max.
+export function wrap(n, to) {
+  // n %= to; // This should work the same.
+  // if (n < 0) n = to + n;
+  return (n / to - floor(n / to)) * to;
+}
 
 // Returns true if the number is even, and false otherwise.
 export function even(n) {
@@ -192,6 +199,7 @@ export function radians(deg = 0) {
   return deg * (PI / 180);
 }
 
+// Converts radians to degrees.
 export function degrees(rad) {
   return rad * (180 / PI);
 }
