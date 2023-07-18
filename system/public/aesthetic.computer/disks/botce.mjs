@@ -3,16 +3,15 @@
 
 /* #region 🏁 TODO
 [🟢] Reset the conversation history on refresh.
-
 [🟠] Add pink lotus image in the corner, semi-transparent
-  - [x] Right (turn 90)
-  - [x] Left (turn 90)
-    - [🛑] Fix subtle pixel rotate bug. (Noticeable in `zoom` with 90deg left rotation)
   - [] Flip (vertical)
   - [] Flop (horizontal)
   - [] Allow for multiple no (with countdown), with yes as reverse?
   - [?] Check on full transparency support.
   + Done
+  - [x] Right (turn 90)
+  - [x] Left (turn 90)
+    - [x] Fix subtle pixel rotate bug. (Noticeable in `zoom` with 90deg left rotation)
   - [x] Fix framebuffer resize bug.
   - [x] Resize needs to be able to take 0-1 values with min and
        max settings.

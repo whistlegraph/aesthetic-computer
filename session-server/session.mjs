@@ -192,7 +192,16 @@ wss.on("connection", (ws, req) => {
     });
   }
 
-  everyone(
+  // Send a self-connection message back to the client.
+  ws.send(
+    pack(
+      "connected",
+      JSON.stringify({ id, ip, playerCount: content.playerCount })
+    )
+  );
+
+  // Send a join message to everyone else.
+  others(
     pack(
       "message",
       JSON.stringify({

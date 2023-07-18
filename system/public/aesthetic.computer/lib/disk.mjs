@@ -663,6 +663,7 @@ const $commonApi = {
     capitalize: text.capitalize,
   },
   num: {
+    wrap: num.wrap,
     even: num.even,
     odd: num.odd,
     clamp: num.clamp,
@@ -1733,7 +1734,8 @@ async function load(
             }
 
             // 🧚 Ambient cursor support.
-            if (type === "ambient-pen:point" /*&& socket.id !== id*/) {
+            if (type === "ambient-pen:point" && socket.id !== id) {
+              console.log(socket, id);
               ambientPenPoints.push({ x: content.x, y: content.y });
               return;
             }
