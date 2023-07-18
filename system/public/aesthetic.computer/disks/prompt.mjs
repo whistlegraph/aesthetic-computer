@@ -448,6 +448,7 @@ async function halt($, text) {
   } else if (slug === "gutter") {
     // Change the `TextInput` gutter to a minimum of 5 or a default of 16.
     input.gutter = max(5, parseInt(params[0])) || 16;
+    store["gutter:lock"] = input.columns;
     // This will reflow on resize.
     flashColor = [100, 0, 100, 100]; // Dark Magenta
     makeFlash($);
