@@ -945,6 +945,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // event listener on the document.
     // 📓 Adding the same label multiple times will have no additional effect.
     if (type === "button:hitbox:add") {
+
+      console.log(hitboxes);
+
       if (hitboxes[content.label] !== undefined) return;
 
       let state = "up";
@@ -974,6 +977,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (e.type === "pointerup" && state === "down" && hit) {
           // This is pretty specific to the "copy" clipboard
           // stuff for now. 23.06.16.15.03
+
+          console.log("Label:", content.label);
 
           if (content.label === "copy") {
             try {

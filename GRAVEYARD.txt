@@ -1,5 +1,12 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** Decode / Encode (Issue) ***
+- [x] Text automatically copied to clipboard when typing `decode` and
+     going to the piece.
+     
+*** nopaint ***
+  - [x] Scaffold `nopaint`.
+
 *** Drag + Drop / Publishing ***
   - [x] Test `publish` command by using new extension. 
   + Done
