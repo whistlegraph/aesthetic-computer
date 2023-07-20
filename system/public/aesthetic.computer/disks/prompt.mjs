@@ -393,6 +393,24 @@ async function halt($, text) {
     }
     system.prompt.input.blank();
     return true;
+  } else if (slug === "flip" || slug === "flop") {
+    const vertical = slug === "flip"; // `flop` is lateral
+    const w = system.painting.width,
+      h = system.painting.height;
+    // Invert the scale of the painting, pasting it into a new one of the
+    // same size.
+    const scale = vertical ? { x: 1, y: -1 } : { x: -1, y: 1 };
+    system.painting = painting(w, h, (p) => {
+      p.wipe(64).paste(system.painting, 0, 0, { scale });
+    });
+
+    // Persis the painting.
+    store["painting"] = system.painting;
+    store.persist("painting", "local:db"); // Also persist the painting.
+    system.nopaint.addUndoPainting(system.painting);
+    flashColor = [0, 0, 255];
+    makeFlash($);
+    return true;
   } else if (slug === "right" || slug === "left") {
     // Turn the canvas to the right or left.
     const angle = slug === "right" ? 90 : -90;
@@ -842,7 +860,7 @@ let motdController;
 async function makeMotd({ system, needsPaint, handle, user, net, api }) {
   let motd = "aesthetic.computer"; // Fallback motd.
   motdController = new AbortController();
-  const res = await fetch("/api/mood/@ida", { signal: motdController.signal});
+  const res = await fetch("/api/mood/@ida", { signal: motdController.signal });
   if (res.status === 200) {
     motd = (await res.json()).mood;
     system.prompt.input.latentFirstPrint(motd);

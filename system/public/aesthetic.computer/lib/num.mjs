@@ -93,6 +93,10 @@ export const p2 = {
   },
 };
 
+export function number(maybeNumber) {
+  return typeof maybeNumber === "number" ? maybeNumber : null;
+}
+
 // Wraps a number around 0 through a max.
 export function wrap(n, to) {
   // n %= to; // This should work the same.

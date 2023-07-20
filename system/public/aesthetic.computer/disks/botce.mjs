@@ -2,13 +2,14 @@
 // Sotce tumblr bot.
 
 /* #region 🏁 TODO
-[🟢] Reset the conversation history on refresh.
 [🟠] Add pink lotus image in the corner, semi-transparent
-  - [] Flip (vertical)
-  - [] Flop (horizontal)
-  - [] Allow for multiple no (with countdown), with yes as reverse?
-  - [?] Check on full transparency support.
+  - [?] Check on full transparency support / add a "clear" ink color.
+        for system-wide erasing...
+  - [] Allow for multiple no (with countdown), where yes is
+       the reverse?
   + Done
+  - [x] Flip (vertical)
+  - [x] Flop (horizontal)
   - [x] Right (turn 90)
   - [x] Left (turn 90)
     - [x] Fix subtle pixel rotate bug. (Noticeable in `zoom` with 90deg left rotation)
@@ -19,6 +20,7 @@
   - [x] Resize
   - [x] Load image into painting from pasted url.
   - [x] And drag and drop.
+[🟢] Reset the conversation history on refresh.
 [] Respond well to "who wrote you" (Replace default GPT response).
 [] Respond well to "what is amelia's art about".
 [] Send to Amelia
