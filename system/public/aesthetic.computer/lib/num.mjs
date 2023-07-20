@@ -303,6 +303,8 @@ export function parseColor(params) {
 
     if (name in cssColors) {
       return [...cssColors[name], alpha];
+    } else if (name === "erase") {
+      return [-1, -1, -1, alpha]; // Use a "clear" color here.
     } else {
       return [0, 0, 0, alpha]; // Default to black if color name is not found
     }
@@ -524,6 +526,16 @@ export function findColor(rgb) {
 // Transcribed from C++: https://stackoverflow.com/a/12016968
 export function blend(dst, src, alphaIn = 1) {
   if (src[3] === 0) return; // Return early if src is invalid.
+
+  // Assume we are erasing if first channel is negative.
+  if (src[0] === -1) {
+    // (All three should be negative for an `erase`.)
+    const normalizedAlpha = 1 - src[3] / 255;
+    dst[3] *= normalizedAlpha;
+    return;
+  }
+
+  // Otherwise continue to blend.
   if (src[3] === undefined) src[3] = 255; // Max alpha if it's not present.
   const alpha = src[3] * alphaIn + 1;
   const invAlpha = 256 - alpha;
