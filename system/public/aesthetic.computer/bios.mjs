@@ -945,9 +945,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // event listener on the document.
     // 📓 Adding the same label multiple times will have no additional effect.
     if (type === "button:hitbox:add") {
-
-      console.log(hitboxes);
-
       if (hitboxes[content.label] !== undefined) return;
 
       let state = "up";
