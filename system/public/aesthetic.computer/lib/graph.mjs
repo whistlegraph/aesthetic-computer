@@ -1,5 +1,6 @@
 import {
   p2,
+  number,
   wrap,
   randInt,
   byteInterval17,
@@ -18,7 +19,7 @@ import { repeat } from "./help.mjs";
 import { Box } from "./geo.mjs";
 import { nanoid } from "../dep/nanoid/nanoid.js";
 
-const { round, abs, sign, ceil, floor, sin, cos, min, max, PI } = Math;
+const { sign, abs, ceil, floor, sin, cos, min, max, PI } = Math;
 
 let width, height, pixels;
 const depthBuffer = [];
@@ -360,12 +361,7 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
 
     grid(
       {
-        box: {
-          x: destX,
-          y: destY,
-          w: from.width,
-          h: from.height,
-        },
+        box: { x: destX, y: destY, w: from.width, h: from.height },
         transform: { scale, angle, width, height },
       },
       from
@@ -1241,18 +1237,30 @@ function grid(
   //        of certain properties to determine the behavior.
   //        See `function paste` here in `graph` for an example usage.
   if (scale !== undefined) {
-    w = cols * scale;
-    h = rows * scale;
-    scale = [scale]; // Alter for the `box` call below.
+    if (number(scale)) scale = { x: scale, y: scale };
+    w = cols * scale.x;
+    h = rows * scale.y;
+
+    //       ❤️‍🔥
+    // TODO: Allow for scaleX and scaleY values on transform / let scale
+    //       be an input array.
   } else if (width !== undefined && height !== undefined) {
     w = width;
     h = height;
-    scale = [w / cols, h / rows];
+    scale = { x: w / cols, y: h / rows };
     //      ^ Give scale a separate width and height.
   }
 
   const colPix = w / cols,
     rowPix = h / rows;
+
+  if (scale.x < 0) {
+    x -= w + 1;
+  }
+
+  if (scale.y < 0) {
+    y -= h + 1;
+  }
 
   // Always make sure we are at the mid-point of the pixel we rotate around.
   // given the image resolution's even / oddness on each axis.
@@ -1262,8 +1270,22 @@ function grid(
 
     angle = wrap(angle, 360); // Keep angle positive.
     // Make some off by 1 adjustments for specific angles.
-    if (angle >= 180) y -= 1;
-    if (angle >= 90 && angle < 270) x -= 1;
+
+    // Make off by 1 adjustments for specific scale inverstions.
+    // (This is kind of hacky. 23.07.20.13.44)
+    if (scale.x < 0 && scale.y > 0) {
+      if (angle >= 90 && angle < 270) y += 1 * sign(-scale.y);
+      if (angle >= 180 && angle <= 270) x += 1 * sign(-scale.x);
+    } else if (scale.x > 0 && scale.y > 0) {
+      if (angle >= 90 && angle < 270) x += 1 * sign(-scale.x);
+      if (angle >= 180 && angle <= 270) y += 1 * sign(-scale.y);
+    } else if (scale.y < 0 && scale.x > 0) {
+      if (angle >= 90 && angle < 270) y += 1 * sign(-scale.y);
+      if (angle >= 180 && angle <= 270) x += 1 * sign(-scale.x);
+    } else if (scale.y < 0 && scale.x < 0) {
+      if (angle >= 90 && angle < 270) x += 1 * sign(-scale.x);
+      if (angle >= 180 && angle <= 270) y += 1 * sign(-scale.y);
+    }
   }
 
   let centerX = x + w / 2; // Calculate the center point of the grid
@@ -1297,7 +1319,8 @@ function grid(
 
         if (pixIndex < buffer.pixels.length) {
           color(...buffer.pixels.subarray(pixIndex, pixIndex + 4));
-          box(rotatedX, rotatedY, ...scale); // These should be polygons that get plotted...
+
+          box(rotatedX, rotatedY, abs(scale.x), abs(scale.y)); // These should be polygons that get plotted...
         }
       }
     }
@@ -1324,7 +1347,7 @@ function grid(
         // Lightly shade this grid square, alternating tint on evens and odds.
         const alphaMod = oc[3] / 255;
         color(oc[0], oc[1], oc[2], even(i + j) ? 50 * alphaMod : 75 * alphaMod);
-        box(plotX, plotY, scale);
+        box(plotX, plotY, scale.x, scale.y);
 
         // Color in the centers of each grid square.
         centers.forEach((p) => {

@@ -15,16 +15,18 @@ function paint({ wipe, screen, system, pen }) {
   // const scale = 1.25 + osc; // Bounce in and out
   // const angle = (paintCount / 2); // Slowly rotate
 
-  const scale = 1;
+  const scale = {x: 1, y: 1};
+
+  const { abs } = Math;
 
   function coords(w, h) {
     let x, y;
     if (pen) {
-      x = pen.x - (w * scale) / 2;
-      y = pen.y - (h * scale) / 2;
+      x = pen.x - (w * abs(scale.x)) / 2;
+      y = pen.y - (h * abs(scale.y)) / 2;
     } else {
-      x = screen.width / 2 - (w * scale) / 2; // Center
-      y = screen.height / 2 - (h * scale) / 2;
+      x = screen.width / 2 - (w * abs(scale.x)) / 2; // Center
+      y = screen.height / 2 - (h * abs(scale.y)) / 2;
     }
     return { x, y };
   }

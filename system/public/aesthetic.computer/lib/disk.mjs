@@ -122,7 +122,7 @@ function addUndoPainting(painting) {
   pixels.set(op);
 
   if (undoPaintings.length > 0) {
-    const lastPainting = undoPaintings[0];
+    const lastPainting = undoPaintings[undoPaintings.length - 1];
 
     // Check for equality in the two states.
     // TODO: How long does this take?
