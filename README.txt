@@ -40,7 +40,6 @@
 
 🐞 Annoying Bugs & Regressions 🪱
   - [] `video` In-progress transcoding does not cancel when leaving a piece.
-  - [] S3 Developer Onboarding Sync Not Working
   - [] Alt / Meta shortcut needs to work for mac to reset pan.
   - [] Live reload: boot will not paint again if paint returns false in a contrived example
   - [] Video download `local` fix.
@@ -64,6 +63,7 @@
     - [-] How can be sure I can run the whole stack without an internet
         connection?
   + Done
+  - [x] S3 Developer Onboarding Sync Not Working
   - [x] Rename $api.upload to $api.open? or $api.importFile? 
   - [x] Research the use of "requestProvider.js.map" and work it into `index.js`.
   - [x] The back button does not work in the Instagram in-app browser.
