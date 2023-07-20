@@ -12,7 +12,7 @@
 
 // 🧮 Sim
 function sim({ colon, simCount, jump, leaving, num }) {
-  if (colon[0] === "cycle" && !leaving && simCount >= 1n)
+  if (colon[0] === "cycle" && !leaving() && simCount >= 1n)
     jump(`tone:cycle~${num.randIntRange(400, 500)}`, true);
 }
 

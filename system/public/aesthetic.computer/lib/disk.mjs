@@ -2725,7 +2725,7 @@ async function makeFrame({ data: { type, content } }) {
     // Add 'loading' status to $commonApi.
     $commonApi.loading = loading; // Let the piece know if we are already
     //                               loading another piece.
-    $commonApi.leaving = leaving; // Set a flag to tell whether we are leaving.
+    $commonApi.leaving = () => leaving; // Set a flag to tell whether we are leaving.
 
     // Globalize any background music data, retrievable via bgm.data
     $commonApi.bgm.data = {
