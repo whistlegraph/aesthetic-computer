@@ -72,15 +72,8 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Decode / Encode (Issue) ***
-- [] Text automatically copied to clipboard when typing `decode` and
-     going to the piece.
-
 *** handle updates ***
  - [] Handle updates were not working for mitch.
-
-*** nopaint ***
-  - [x] Scaffold `nopaint`.
 
 *** poem ***
   - [] Scaffold the `poem` recorder.

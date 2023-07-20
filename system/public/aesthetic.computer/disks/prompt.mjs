@@ -613,7 +613,7 @@ async function halt($, text) {
   } else {
     // 🟠 Local and remote pieces...
     const loaded = await load(parse(text)); // Execute the current command.
-    return loaded;
+    return loaded ? { left: true } : loaded;
   }
 }
 

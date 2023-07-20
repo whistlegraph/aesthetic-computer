@@ -37,10 +37,11 @@ function act({ system: { prompt }, event: e }) {
 }
 
 function copied(text) {
-  return `${text} 💌 https://aesthetic.computer/decode~${text.replaceAll(
-    " ",
-    "~"
-  )}`;
+  return text;
+  // return `${text} 💌 https://aesthetic.computer/decode~${text.replaceAll(
+  //   " ",
+  //   "~"
+  // )}`;
 }
 
 export const scheme = {

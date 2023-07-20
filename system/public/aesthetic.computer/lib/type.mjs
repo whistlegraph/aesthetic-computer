@@ -512,6 +512,7 @@ class TextInput {
     if (!nocopy && this.text.length > 0) {
       this.#coatedCopy = this.#coatCopy(this.text); // Wrap text to be copied.
       this.copy.btn.disabled = false;
+      // console.log("enabled copy...");
 
       this.paste.btn.disabled = true; // Disable paste button.
       this.paste.btn.removeFromDom($, "paste");

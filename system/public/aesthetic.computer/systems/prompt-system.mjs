@@ -55,9 +55,11 @@ export async function prompt_boot(
       input.canType = false;
 
       const halted = await halt?.($, text);
-      if (!$.leaving) input.lock = false;
+      if (!$.leaving()) input.lock = false;
+
       if (halted) {
         messageComplete = true;
+        if (halted.left) return; // Ditch if we already loaded a piece. 
 
         // Assume we set custom replied state via `TextInput -> replied`.
         if (halted.replied) {
