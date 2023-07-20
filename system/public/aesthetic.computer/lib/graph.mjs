@@ -151,7 +151,10 @@ function plot(x, y) {
   const i = (x + y * width) * 4;
   const alpha = c[3];
 
-  if (alpha === 255) {
+  // Erasing
+  if (c[0] === -1 && c[1] === -1 && c[2] === -1) {
+    erase(pixels, i, 1 - c[3] / 255);
+  } else if (alpha === 255) {
     // No alpha blending, just copy.
     pixels.set(c, i);
   } else if (alpha !== 0) {
@@ -412,12 +415,26 @@ function blend(dst, src, si, di, alphaIn = 1) {
   //if (stipple < 4) { return; }
   //stipple = 0;
   if (src[si + 3] === 0) return; // Return early if src is invalid.
+
+  // if (src[si] === -1) {
+  //   // Assume we are erasing if first channel is negative.
+  //   // (All three should be negative for an `erase`.)
+  //   erase(di, 1 - src[si + 3] / 255);
+  //   console.log("erasing");
+  //   return;
+  // }
+
   const alpha = src[si + 3] * alphaIn + 1;
   const invAlpha = 256 - alpha;
   dst[di] = (alpha * src[si + 0] + invAlpha * dst[di + 0]) >> 8;
   dst[di + 1] = (alpha * src[si + 1] + invAlpha * dst[di + 1]) >> 8;
   dst[di + 2] = (alpha * src[si + 2] + invAlpha * dst[di + 2]) >> 8;
   dst[di + 3] = dst[di + 3] + alpha;
+}
+
+// Blends the alpha channel only / erases pixels.
+function erase(pixels, i, normalizedAlpha) {
+  pixels[i + 3] *= normalizedAlpha;
 }
 
 // Draws a horizontal line. (Should be very fast...)
@@ -445,14 +462,21 @@ function lineh(x0, x1, y) {
     endIndex = secondIndex;
   }
 
-  // Only use alpha blending if necessary.
-  if (c[3] === 255) {
+  // Erasing.
+  if (c[0] === -1 && c[1] === -1 && c[2] === -1) {
+    const normalAlpha = 1 - c[3] / 255;
+    for (let i = startIndex; i <= endIndex; i += 4) {
+      erase(pixels, i, normalAlpha);
+    }
+    // No alpha.
+  } else if (c[3] === 255) {
     for (let i = startIndex; i <= endIndex; i += 4) {
       pixels[i] = c[0];
       pixels[i + 1] = c[1];
       pixels[i + 2] = c[2];
       pixels[i + 3] = 255;
     }
+    // Alpha blending.
   } else if (c[3] !== 0) {
     for (let i = startIndex; i <= endIndex; i += 4) {
       blend(pixels, c, 0, i);

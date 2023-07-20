@@ -3,11 +3,11 @@
 
 /* #region 🏁 TODO
 [🟠] Add pink lotus image in the corner, semi-transparent
-  - [?] Check on full transparency support / add a "clear" ink color.
-        for system-wide erasing...
-  - [] Allow for multiple no (with countdown), where yes is
+  - [🥬] Allow for multiple no (with countdown), where yes is
        the reverse?
   + Done
+  - [x] Check on full transparency support / add an "erase" ink color.
+        for system-wide erasing using all brushes?
   - [x] Flip (vertical)
   - [x] Flop (horizontal)
   - [x] Right (turn 90)
