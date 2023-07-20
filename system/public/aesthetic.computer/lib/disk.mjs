@@ -904,7 +904,8 @@ const LINE = {
 // Inputs: (r, g, b), (r, g, b, a) or an array of those.
 //         (rgb) for grayscale or (rgb, a) for grayscale with alpha.
 //         Or hex with "#000000" or "0x000000" or 0x000000.
-// TODO: Add hex color support with transparency and short hex.
+// TODO: Add `erase` anc all css color alpha support. 23.07.20.14.45
+// TODO: Add transparency and short hex to hex support.
 // TODO: Add better hex support via: https://stackoverflow.com/a/53936623/8146077
 function color() {
   let args = [...arguments];
@@ -938,9 +939,11 @@ function color() {
       const cleanedHex = args[0].replace("#", "").replace("0x", "");
       if (num.isHexString(cleanedHex) === true) {
         args = num.hexToRgb(cleanedHex);
+      } else if (args[0] === "erase") {
+        args = [-1, -1, -1];
+        // if (args[1]) alpha = parseFloat(args[1]);
       } else {
-        // Try to match it to a table.
-        args = num.cssColors[args[0]];
+        args = num.cssColors[args[0]]; // Try to match it to a table.
       }
 
       // TODO: Add an error message here. 22.08.29.13.03
