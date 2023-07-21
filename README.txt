@@ -85,6 +85,8 @@
     - [] Poem will implement TextInput, but not the prompt system.
 
 *** Polishing ***
+- [] Colon spacing.
+- [] Zoom for image editing.
 - [] NaskjdlkjsETWORK FAILURE
 - [👱‍♀️] Add painting include support and images to front-facing bots. (`gargoyle`, `liar` … )
 - [] Add name to top left corner of all bots.
