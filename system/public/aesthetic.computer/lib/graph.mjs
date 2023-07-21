@@ -172,8 +172,8 @@ function skip(...args) {
   else
     args.forEach((p) => {
       skips.push({
-        x: floor(p[0]) + panTranslation.x,
-        y: floor(p[1]) + panTranslation.y,
+        x: floor(p.x || p[0]) + panTranslation.x,
+        y: floor(p.y || p[1]) + panTranslation.y,
       });
     });
 }

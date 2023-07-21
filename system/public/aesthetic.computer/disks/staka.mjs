@@ -5,11 +5,14 @@
 #endregion */
 
 /* #region 🏁 TODO 
-+ Later
++ Now
+- [] Bug for unpan() needs fixing ! :D
 - [] Title Screen
 - [] Game Over
 - [] Sound
 - [] Levels
+- [] ReadMe
+- [] Fix dummy shaka contact point
 + Done
 - [x] Generate falling shapes.
 - [x] Collide falling shapes on the line.
@@ -22,6 +25,7 @@ let speed;
 let circle, plate, touching;
 let circleColor = Math.floor(Math.random() * 16777215).toString(16);
 let reverseIt = false;
+let dummy; 
 // 🥾 Boot
 let handInput;
 function boot({ num, geo, screen }) {
@@ -37,8 +41,10 @@ function paint($) {
   const {
     wipe,
     ink,
-    screen: { height },
+    screen: { width, height },
     num,
+    pan,
+    unpan,
   } = $;
 
   wipe(127);
@@ -53,14 +59,40 @@ function paint($) {
 
   let vecDistance;
   if (plate) {
-    ink(255, 96).pline(
-      [
-        { x: plate[0][0], y: plate[0][1] },
-        { x: plate[1][0], y: plate[1][1] },
-      ],
-      12
-    );
-    ink(255).line(...plate);
+    console.log(dummy);
+
+
+    // ink(255, 96).pline( 
+    //   [
+    //     { x: plate[0][0], y: plate[0][1]},
+    //     { x: plate[1][0], y: plate[1][1]},
+    //   ],
+    //   12
+    // );
+    // ink(255).line(...plate);
+    if (dummy = true) {
+      pan(...handInput.dummyPan);
+      ink(255, 96).pline( 
+        [
+          { x: plate[0][0], y: plate[0][1]},
+          { x: plate[1][0], y: plate[1][1]},
+        ],
+        12
+      );
+      ink(255).line(...plate).unpan();
+    }
+    else {
+      ink(255, 96).pline( 
+        [
+          { x: plate[0][0], y: plate[0][1]},
+          { x: plate[1][0], y: plate[1][1]},
+        ],
+        12
+      );
+      ink(255).line(...plate);
+    }
+    
+
 
     let A = { x: plate[0][0], y: plate[0][1] };
     let B = { x: plate[1][0], y: plate[1][1] };
@@ -99,6 +131,7 @@ function sim($) {
     circle.y += Math.random();
   }
   const timop = handInput.timop;
+  const dummyPoints = handInput.dummyPoints;
   if (circle.y > $.screen.height) {
     circle.y = circle.radius;
     circle.x = $.num.randInt($.screen.width);
@@ -107,7 +140,29 @@ function sim($) {
     speed = Math.random() * 2 + 0.1;
   }
 
-  if (timop.length > 0) {
+  if (dummyPoints[4] === timop[0]) { //dummy data 
+    dummy = true; 
+    const t = dummyPoints[4],
+      i = dummyPoints[8],
+      m = dummyPoints[12],
+      o = dummyPoints[16],
+      p = dummyPoints[20];
+
+    if (
+      t.y < i.y &&
+      t.y < m.y &&
+      t.y < o.y && // if t is higher than imo
+      p.y < i.y &&
+      p.y < m.y &&
+      p.y < o.y // and p is higher than imo
+    ) {
+      console.log("Staka Gesture Recognized");
+      const data = [dummyPoints[4], dummyPoints[20]];
+      plate = data.map(({ x, y }) => [x, y]);
+    }
+    // console.log("DUMMY DATA: ", plate);
+  } else { //real data
+    dummy = false; 
     const t = timop[0],
       i = timop[1],
       m = timop[2],
@@ -115,6 +170,7 @@ function sim($) {
       p = timop[4];
 
     if (
+      // gesture recognizer
       t[1] < i[1] &&
       t[1] < m[1] &&
       t[1] < o[1] && // if t is higher than imo
@@ -123,11 +179,12 @@ function sim($) {
       p[1] < o[1] // and p is higher than imo
     ) {
       plate = [timop[0], timop[4]];
-
       //   touching = circle.online(...plate[0], ...plate[1]);
-    } else {
+    }
+    else {
       plate = undefined;
     }
+    // console.log("NOT DUMMY DATA: ", plate);
   }
 }
 
