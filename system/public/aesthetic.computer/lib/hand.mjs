@@ -13,6 +13,11 @@ const { cos, sin } = Math;
 
 export class HandInput {
   timop = [];
+  dummy = true;
+  dummyGesture = "shaka";
+  dummyPoints = [];
+  dummyPan; 
+  #dummyOsc;
   #lastOrigin = [];
   #origin = { x: 0, y: 0, z: 0 }; // Wrist
   #handPalette = {
@@ -24,30 +29,91 @@ export class HandInput {
     p: "pink", // Pinky, pink
   };
   #vid; // Stores a video frame.
-  #scaled = []; // Stores the screen scaled mediapipe points.
+  #points = []; // Stores the screen scaled mediapipe points.
+
 
   constructor() {}
 
-  sim({ hand: { mediapipe }, screen: { width, height } }) {
+  sim({ hand: { mediapipe }, screen: { width, height }, simCount }) {
     // Calculate Hand-tracked 2D Coordinates
-    this.#scaled = mediapipe.screen.map((coord) => [
+    this.#points = mediapipe.screen.map((coord) => [
       coord.x * width,
       coord.y * height,
       coord.z,
     ]);
-    if (this.#scaled.length > 0) {
-      this.timop = [
-        this.#scaled[4],
-        this.#scaled[8],
-        this.#scaled[12],
-        this.#scaled[16],
-        this.#scaled[20],
-      ];
-    } else {
-      this.timop = [];
+
+    this.dummy = this.#points.length === 0;
+
+    if (this.dummy === false) {
+      this.#lastOrigin[0] = this.#points[0][0];
+      this.#lastOrigin[1] = this.#points[0][1];
     }
+
+    if (this.dummy) {
+      // console.log("In Dummy Mode");
+      // 2. Or... default to a generated model of a hand.
+      const osc = Math.sin(Number(simCount % 120n) * 0.1); // Oscillate a value based on frame.
+
+      const imoAngleCurve = {
+        i: [-8, -10 * osc],
+        m: [0, -10 * osc],
+        o: [7, -10 * osc],
+      };
+
+      if (this.dummyGesture === "shaka") {
+        imoAngleCurve.i[0] -= 180;
+        imoAngleCurve.m[0] -= 180;
+        imoAngleCurve.o[0] -= 180;
+      }
+      // Build base wrist geometry.
+      const w = [
+        this.#origin,
+        this.#crawl(this.#origin, 40 + 2 * osc, 10),
+        this.#crawl(this.#origin, 45 + -2 * osc, 25),
+        this.#crawl(this.#origin, 50 + 2 * osc, 40),
+        this.#crawl(this.#origin, 55 + -2 * osc, 55),
+      ];
+
+      // Build hand geometry with fingers.
+      const hand = {
+        w,
+        t: this.#digit(w[0], 4, -30, -10 * osc),
+        i: this.#digit(w[1], 3, ...imoAngleCurve.i),
+        m: this.#digit(w[2], 3, ...imoAngleCurve.m),
+        o: this.#digit(w[3], 3, ...imoAngleCurve.o),
+        p: this.#digit(w[4], 3, 20, -10 * osc),
+      };
+
+      this.dummyPoints = [
+        hand.w[0],
+        ...hand.t,
+        hand.w[1],
+        ...hand.i,
+        hand.w[2],
+        ...hand.m,
+        hand.w[3],
+        ...hand.o,
+        hand.w[4],
+        ...hand.p,
+      ];
+
+      // We need a "standard" property on the class for points.
+      // We need a "dummyData" property for additional stuff like `o`.
+
+      this.#points = this.dummyPoints;
+      this.#dummyOsc = osc;
+    }
+
+    this.timop = [
+      this.#points[4],
+      this.#points[8],
+      this.#points[12],
+      this.#points[16],
+      this.#points[20],
+    ];
+
     // Return scaled points in case they are needed in sim.
-    return this.#scaled?.length > 0 ? this.#scaled : undefined;
+    return this.#points?.length > 0 ? this.#points : undefined;
   }
 
   paint(
@@ -56,6 +122,7 @@ export class HandInput {
       layer,
       wipe,
       ink,
+      poly,
       box,
       pan,
       unpan,
@@ -90,12 +157,6 @@ export class HandInput {
     // TODO: Is everything underneath this, dependent just on the point data?
     // - [] Abstract hand drawing so remote hands can be drawn from a sata set.
     let timop;
-    const scaled = this.#scaled;
-
-    if (scaled.length > 0) {
-      this.#lastOrigin[0] = scaled[0][0];
-      this.#lastOrigin[1] = scaled[0][1];
-    }
 
     // Draw scaled coordinates.
     const fadedPalette = { w: 64, t: 64, i: 64, m: 64, o: 64, p: 64 };
@@ -104,35 +165,37 @@ export class HandInput {
     const boxSize = 5;
     const boxType = "fill*center";
 
-    if (scaled.length > 0) {
+    if (this.dummy === false) {
+      const points = this.#points;
+
       // A. Draw lines
       ink(palette.w).poly([
-        scaled[0],
-        scaled[5],
-        scaled[9],
-        scaled[13],
-        scaled[17],
-        scaled[0],
+        points[0],
+        points[5],
+        points[9],
+        points[13],
+        points[17],
+        points[0],
       ]);
 
       ink(palette.t).poly([
-        scaled[0],
-        scaled[1],
-        scaled[2],
-        scaled[3],
-        scaled[4],
+        points[0],
+        points[1],
+        points[2],
+        points[3],
+        points[4],
       ]);
 
-      ink(palette.i).poly([scaled[5], scaled[6], scaled[7], scaled[8]]);
+      ink(palette.i).poly([points[5], points[6], points[7], points[8]]);
 
-      ink(palette.m).poly([scaled[9], scaled[10], scaled[11], scaled[12]]);
+      ink(palette.m).poly([points[9], points[10], points[11], points[12]]);
 
-      ink(palette.o).poly([scaled[13], scaled[14], scaled[15], scaled[16]]);
+      ink(palette.o).poly([points[13], points[14], points[15], points[16]]);
 
-      ink(palette.p).poly([scaled[17], scaled[18], scaled[19], scaled[20]]);
+      ink(palette.p).poly([points[17], points[18], points[19], points[20]]);
 
       // B. Loop over the scaled points and draw the boxes.
-      scaled.forEach((coord, index) => {
+      points.forEach((coord, index) => {
         if (index >= 18) {
           ink(palette.p); // Pinky
         } else if (index > 13 && index < 17) {
@@ -155,7 +218,7 @@ export class HandInput {
       });
 
       // Interactions
-      timop = [scaled[4], scaled[8], scaled[12], scaled[16], scaled[20]];
+      timop = [points[4], points[8], points[12], points[16], points[20]];
       const { interactions, contactDistances } = this.#touching(timop, num);
 
       // console.log(this.#touching(timop, num));
@@ -224,49 +287,79 @@ export class HandInput {
       });
 
       // loop through timop and draw all the letters
-    } else {
-      // 2. Or... default to a generated model of a hand.
-      const osc = Math.sin(paintCount * 0.1); // Oscillate a value based on frame.
-      // Build base wrist geometry.
-      const w = [
-        this.#origin,
-        this.#crawl(this.#origin, 40 + 2 * osc, 10),
-        this.#crawl(this.#origin, 45 + -2 * osc, 25),
-        this.#crawl(this.#origin, 50 + 2 * osc, 40),
-        this.#crawl(this.#origin, 55 + -2 * osc, 55),
-      ];
-
-      // Build hand geometry with fingers.
-      const hand = {
-        w,
-        t: this.#digit(w[0], 4, -30, -10 * osc),
-        i: this.#digit(w[1], 3, -8, -10 * osc),
-        m: this.#digit(w[2], 3, 0, -10 * osc),
-        o: this.#digit(w[3], 3, 7, -10 * osc),
-        p: this.#digit(w[4], 3, 20, -10 * osc),
-      };
-
-      const o = { x: -24 + 2 * osc, y: 16 + 2 * osc }; // Offsets and oscilates the entire hand
+    } else if (this.dummy === true && this.#points.length > 0) {
+      // Offsets and oscilates the entire hand
+      const o = { x: -24 + 2 * this.#dummyOsc, y: 16 + 2 * this.#dummyOsc };
 
       if (this.#lastOrigin.length > 0) {
-        pan(this.#lastOrigin[0] + o.x, this.#lastOrigin[1] + o.y);
+        this.dummyPan = [this.#lastOrigin[0] + o.x, this.#lastOrigin[1] + o.y];
+
       } else {
         pen
-          ? pan(pen.x + o.x, pen.y + o.y)
-          : pan(width / 2 + o.x, height / 2 + o.y);
+          ? this.dummyPan = [pen.x + o.x, pen.y + o.y]
+          : this.dummyPan = [width / 2 + o.x, height / 2 + o.y];
+
       }
+      
+      pan(...this.dummyPan); 
+
+      // TODO: Eliminate w, and hand, and instead iterate through this.#points;
+
+      const points = this.#points;
+
+      // console.log("Dummy points to render:", points);
+
       // 🅰️ Hand Lines & Points
       // Draw each component (lines and boxes) of wrist, followed by each of digit.
       ["w", "t", "i", "m", "o", "p"].forEach((char, i) => {
         layer(0); // Lines always under boxes.
+        let currentInd = [];
+        const indices = {
+          t: [0, 5],
+          i: [5, 9],
+          m: [9, 13],
+          o: [13, 17],
+          p: [17, 21],
+        };
         if (char === "w") {
-          ink(this.#handPalette.w).poly([...w, w[0]]); // Closed polygon for wrist.
+          if (options?.faded) {
+            ink(64).poly([
+              points[0],
+              points[5],
+              points[9],
+              points[13],
+              points[17],
+              points[0],
+            ]); // Closed polygon for wrist.
+          } else {
+            ink(this.#handPalette.w).poly([
+              points[0],
+              points[5],
+              points[9],
+              points[13],
+              points[17],
+              points[0],
+            ]); // Closed polygon for wrist.
+          }
+          // console.log(points[0]);
         } else {
-          ink(this.#handPalette[char]).poly([w[i - 1], ...hand[char]]);
+          let currentColor;
+          currentInd = indices[char];
+          if (options?.faded) { currentColor = 64 }
+          else {
+            currentColor = this.#handPalette[char];
+          }
+          const currentPoints = points.slice(currentInd[0], currentInd[1]);
+          layer(0);
+          ink(currentColor);
+          poly(currentPoints);
+          layer(1); // TODO: How does layering work with ink?
+          ink(currentColor);
+          currentPoints.forEach((p) => box(p.x, p.y, boxSize, boxType));
         }
         layer(1); // Always draw the boxes on top.
         ink(this.#handPalette[char]);
-        for (let coord of hand[char]) box(coord.x, coord.y, boxSize, boxType);
+        // for (let coord of hand[char]) box(coord.x, coord.y, boxSize, boxType);
       });
 
       unpan(); // Reset the translation.
@@ -315,7 +408,7 @@ export class HandInput {
     // Go through each tip in order from TIMOP...
     for (let tip = 0; tip < 5; tip++) {
       // Defining a hitbox for each tip.
-      contactDistances[tip] = map(tips[tip][2], -0.03, -1, 24, 60);
+      contactDistances[tip] = map(tips[tip][2], -0.5, -1, 30, 40);
 
       // Start looking at the next tip after this one to the end.
       // So for T, we look at IMOP, and for I, we look at MOP.
