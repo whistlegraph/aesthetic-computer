@@ -13,14 +13,24 @@ const { max } = Math;
 let crop, b;
 
 // 🎨 Paint
-function paint({ pen, ink, painting, store, system: sys, screen }) {
+function paint({
+  pen,
+  ink,
+  painting,
+  store,
+  system: sys,
+  screen,
+  params,
+  num,
+}) {
   if (sys.nopaint.is("painting") && pen?.dragBox) {
     b = pen.dragBox.abs;
+    const color = num.parseColor(params);
     crop = () => {
       const { x, y } = sys.nopaint.transform({ x: b.x, y: b.y });
       // Resize the original painting.
       sys.painting = painting(b.w, b.h, (p) => {
-        p.wipe().paste(sys.painting, -x, -y);
+        p.wipe(color).paste(sys.painting, -x, -y);
       });
       sys.nopaint.translation = { x: b.x, y: b.y };
       // Assume we changed the size of the painting so set the resolution lock.

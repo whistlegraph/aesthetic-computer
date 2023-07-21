@@ -1364,7 +1364,6 @@ function grid(
 
         if (pixIndex < buffer.pixels.length) {
           color(...buffer.pixels.subarray(pixIndex, pixIndex + 4));
-
           box(rotatedX, rotatedY, abs(scale.x), abs(scale.y)); // These should be polygons that get plotted...
         }
       }
