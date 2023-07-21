@@ -85,6 +85,8 @@
     - [] Poem will implement TextInput, but not the prompt system.
 
 *** Polishing ***
+- [] Colon spacing.
+- [] Zoom for image editing.
 - [] NaskjdlkjsETWORK FAILURE
 - [👱‍♀️] Add painting include support and images to front-facing bots. (`gargoyle`, `liar` … )
 - [] Add name to top left corner of all bots.
@@ -282,6 +284,7 @@
   *** `handtime` ***
     - [] `ht yellow blue` will start a 2 person call where a link is given and
           guest 2 is blue and you are yellow. 
+    - [] shared canvas (like digital touch)
     + Done
     - [x] Socket joining errors. @jeffrey
     - [x] Hand-track re-entrance errors. @jeffrey
@@ -295,6 +298,9 @@
   *** `simon says` ***
     - [] Combos of TIMOP flash hold on the screen until a user matches the combo. 
     - [] Then, another combo is shown.
+
+  *** `hand piano` ***
+    - [] activate beeps on interactions/ touches
 
 *** bb ***
   - [] Make a game state.
