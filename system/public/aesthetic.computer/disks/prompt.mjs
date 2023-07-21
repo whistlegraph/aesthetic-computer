@@ -367,7 +367,7 @@ async function halt($, text) {
       makeFlash($, true, "HANDLE INVALID");
     }
     return true;
-  } else if ((text === "ul" || text === "upload") && store["painting"]) {
+  } else if ((text === "ul" || text === "upload" || text === "yes!") && store["painting"]) {
     if (!navigator.onLine) {
       flashColor = [255, 0, 0];
       makeFlash($, true, "OFFLINE");
@@ -500,9 +500,18 @@ async function halt($, text) {
   } else if (text === "no") {
     system.nopaint.no({ system, store, needsPaint });
     if (system.nopaint.undo.paintings.length > 1) {
-      flashColor = [0, 0, 255, 100]; // Blue for succesful undo.
+      flashColor = [0, 0, 255, 100]; // Blue for successful undo.
     } else {
       flashColor = [255, 0, 0, 100]; // Red for failed undo.
+    }
+    makeFlash($);
+    return true;
+  } else if (text === "yes") {
+    system.nopaint.no({ system, store, needsPaint }, true);
+    if (system.nopaint.undo.paintings.length > 1) {
+      flashColor = [0, 0, 255, 100]; // Blue for success.
+    } else {
+      flashColor = [255, 0, 0, 100]; // Red for fail.
     }
     makeFlash($);
     return true;

@@ -2,10 +2,10 @@
 // Sotce tumblr bot.
 
 /* #region 🏁 TODO
-[🟠] Add pink lotus image in the corner, semi-transparent
-  - [🥬] Allow for multiple no (with countdown), where yes is
-       the reverse?
+[🟢] Add pink lotus image in the corner, semi-transparent
   + Done
+  - [x] Allow for multiple no (with countdown), where yes is
+       the reverse?
   - [x] Check on full transparency support / add an "erase" ink color.
         for system-wide erasing using all brushes?
   - [x] Flip (vertical)
@@ -20,7 +20,7 @@
   - [x] Resize
   - [x] Load image into painting from pasted url.
   - [x] And drag and drop.
-[🟢] Reset the conversation history on refresh.
+[🥬] Reset the conversation history on refresh.
 [] Respond well to "who wrote you" (Replace default GPT response).
 [] Respond well to "what is amelia's art about".
 [] Send to Amelia

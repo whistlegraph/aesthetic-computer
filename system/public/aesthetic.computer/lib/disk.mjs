@@ -114,6 +114,7 @@ const nopaint = {
 };
 
 const undoPaintings = []; // Stores the last two paintings.
+let undoPosition = 0;
 
 function addUndoPainting(painting) {
   if (!painting) return; // If there is no painting present, silently pass.
@@ -143,9 +144,12 @@ function addUndoPainting(painting) {
     height: painting.height,
   });
 
+  undoPosition = undoPaintings.length - 1;
+
   // Note: This could be extended to increase the size of the
   //       undo stack, and images could be diffed? 23.01.31.01.30
-  if (undoPaintings.length > 2) undoPaintings.shift();
+  const maxUndoSteps = 32;
+  if (undoPaintings.length > maxUndoSteps) undoPaintings.shift();
 
   if (debug && logs.painting)
     console.log("💩 Added undo painting...", undoPaintings.length);
@@ -469,12 +473,27 @@ const $commonApi = {
       needsPresent: false,
       bakeOnLeave: false,
       addUndoPainting,
-      no: ({ system, store, needsPaint }) => {
+      // Regresses the system painting to a previous state.
+      // Or the reverse... ("yes")
+      no: ({ system, store, needsPaint }, yes = false) => {
         const paintings = system.nopaint.undo.paintings;
+
+        if (yes) {
+          // ⏩ Fast-forward mode.
+          console.log("YES:", undoPosition);
+          undoPosition += 1;
+          if (undoPosition > paintings.length - 1)
+            undoPosition = paintings.length - 1;
+        } else {
+          // ⏪ Rewind mode.
+            undoPosition -= 1;
+            if (undoPosition < 0) undoPosition = 0;
+        }
 
         if (paintings.length > 1) {
           // Copy over the old picture here...
-          const p = paintings[paintings.length - 2];
+          const p = paintings[undoPosition];
+
           const op = p.pixels;
           const pixels = new Uint8ClampedArray(op.length);
           pixels.set(op);
@@ -489,14 +508,11 @@ const $commonApi = {
             paintings[0].width !== paintings[1].width ||
             paintings[0].height !== paintings[1].height;
 
-          // Swap mode.
+          // 🦢 Swap mode.
           // 'no' should swap...
-          const temp = paintings[0];
-          paintings[0] = paintings[1];
-          paintings[1] = temp;
-
-          // Rewind mode
-          // paintings.length -= 1;
+          // const temp = paintings[0];
+          // paintings[0] = paintings[1];
+          // paintings[1] = temp;
 
           store.persist("painting", "local:db");
 
