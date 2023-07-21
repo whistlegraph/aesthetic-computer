@@ -2700,7 +2700,10 @@ async function makeFrame({ data: { type, content } }) {
         //   }
         // }
 
-        if (data.key === "`" && system !== "aesthetic.computer/disks/prompt") {
+        if (
+          data.key === "`" &&
+          currentPath !== "aesthetic.computer/disks/prompt"
+        ) {
           // $api.send({ type: "keyboard:enabled" }); // Enable keyboard flag.
           // $api.send({ type: "keyboard:unlock" });
           // Jump to prompt if the backtic is pressed.
