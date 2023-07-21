@@ -89,6 +89,8 @@
 - [👱‍♀️] Add painting include support and images to front-facing bots. (`gargoyle`, `liar` … )
 - [] Add name to top left corner of all bots.
 - [] Better dynamic `preview` / thumbnail images.
+- [-] Add countdown / progress overlay to no and yes?
+- [ ] Better "yes!" support / cooler download screen.
 - [] Finish all todos in `botce`. 
   - [] Remove `botce` from intro text.
 - [🟠] Revisit `worker.js` to fix download link url names.
