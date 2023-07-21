@@ -414,22 +414,21 @@ async function halt($, text) {
   } else if (slug === "right" || slug === "left") {
     // Turn the canvas to the right or left.
     const angle = slug === "right" ? 90 : -90;
+
     const width = system.painting.height;
     const height = system.painting.width;
+
+    let x = 0,
+      y = 0;
 
     // Create a new painting with swapped width and height parameters.
     system.painting = painting(width, height, (p) => {
       // Then wipe, rotate and paste.
       // Paste the original painting, rotated by 90 degrees.
-      p.wipe(64).paste(
-        system.painting,
-        width / 2 - system.painting.width / 2,
-        height / 2 - system.painting.height / 2,
-        {
-          scale: 1,
-          angle,
-        }
-      );
+      p.wipe("red").paste(system.painting, x, y, {
+        scale: { x: 1, y: 1 },
+        angle,
+      });
     });
 
     // Move the painting to the center of the screen.
