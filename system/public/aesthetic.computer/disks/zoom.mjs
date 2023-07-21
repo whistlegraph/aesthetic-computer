@@ -15,7 +15,7 @@ function paint({ wipe, screen, system, pen }) {
   // const scale = 1.25 + osc; // Bounce in and out
   // const angle = (paintCount / 2); // Slowly rotate
 
-  const scale = {x: 1, y: 1};
+  const scale = { x: 1, y: 1 };
 
   const { abs } = Math;
 
@@ -44,12 +44,19 @@ function paint({ wipe, screen, system, pen }) {
 
   const boxPos = coords(pw, ph);
 
+  // console.log("Paint position:", x, y);
+  // console.log("Painting:", system.painting.width, system.painting.height);
+
   wipe(32)
     .ink(255)
-    .box(boxPos.x, boxPos.y, pw, ph)
+    // .box(boxPos.x, boxPos.y, pw, ph)
+    .box(30, 30, pw, ph)
     .ink(255, 0, 0)
-    .box(boxPos.x, boxPos.y, pw, ph, "outline")
-    .paste(system.painting, x, y, { scale, angle });
+    // .box(boxPos.x, boxPos.y, pw, ph, "outline")
+    // .box(0, 0, pw, ph, "outline")
+    //.paste(system.painting, x, y, { scale, angle });
+    // TODO: Eventually floor these ^ 😃
+    .paste(system.painting, 30, 30, { scale, angle });
 }
 
 function act({ event: e }) {

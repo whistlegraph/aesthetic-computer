@@ -72,6 +72,11 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** General Brush Notes ***
+  - [] Make sure `left`, `right`, `flip` and `flop` are all added to 
+       piece history.
+    😱 (All commands should be?)
+
 *** handle updates ***
  - [] Handle updates were not working for mitch.
 
@@ -80,6 +85,9 @@
     - [] Poem will implement TextInput, but not the prompt system.
 
 *** Polishing ***
+- [] Shouldn't be able to load the prompt from the prompt / 
+     pressing the [`] shortcut stops the letters from loading / gets weird.
+- [] NaskjdlkjsETWORK FAILURE
 - [👱‍♀️] Add painting include support and images to front-facing bots. (`gargoyle`, `liar` … )
 - [] Add name to top left corner of all bots.
 - [] Better dynamic `preview` / thumbnail images.

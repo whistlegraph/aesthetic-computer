@@ -1247,7 +1247,7 @@ class Prompt {
       let wordStart = false;
       let wordCount = 0;
 
-      for (let c = 0; c < text.length; c += 1) {
+      for (let c = 0; c < text?.length; c += 1) {
         const char = text[c];
         let newLine = char.charCodeAt(0) === 10;
 

@@ -406,7 +406,7 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
   }
 }
 
-//let stipple = 0;
+// let stipple = 0;
 
 // A fast alpha blending function that looks into a pixel array.
 // Transcribed from C++: https://stackoverflow.com/a/12016968
@@ -1278,22 +1278,43 @@ function grid(
   const colPix = w / cols,
     rowPix = h / rows;
 
-  if (scale.x < 0) {
-    x -= w + 1;
-  }
+  if (scale.x < 0) x -= w + 1;
+  if (scale.y < 0) y -= h + 1;
 
-  if (scale.y < 0) {
-    y -= h + 1;
-  }
+  angle = wrap(angle, 360); // Keep angle positive.
 
   // Always make sure we are at the mid-point of the pixel we rotate around.
   // given the image resolution's even / oddness on each axis.
+  // (Make some off by 1 adjustments for specific angles.)
   if (angle) {
-    if (x % 1 === 0 || w % 2 === 0) x += 0.5;
-    if (y % 1 === 0 || h % 2 === 0) y += 0.5;
-
-    angle = wrap(angle, 360); // Keep angle positive.
-    // Make some off by 1 adjustments for specific angles.
+    // Odd width.
+    if (w % 2 !== 0 && h % 2 === 0) {
+      if (x % 1 !== 0 && angle === 90) x += 0.5;
+      if (angle === 90 || angle === 270) y += 1;
+      if (angle === 180) {
+        y += 0.5;
+        if (x % 1 === 0) x += 0.5;
+      }
+      if (x % 1 !== 0 && angle === 270) x += 0.5;
+    }
+    if (h % 2 !== 0 && w % 2 === 0) {
+      // Odd height.
+      if (y % 1 !== 0 && angle === 90) y += 0.5;
+      if (angle === 90 || angle === 270) x += 1;
+      if (angle === 180) {
+        x += 0.5;
+        if (y % 1 === 0) y += 0.5;
+      }
+      if (y % 1 !== 0 && angle === 270) y += 0.5;
+    } else if (w % 2 === 0 && h % 2 === 0) {
+      // Both even...
+      x += 0.5;
+      y += 0.5;
+    } else if (w % 2 !== 0 && h % 2 !== 0) {
+      if (x % 2 === 0) x += 0.5;
+      if (y % 2 === 0) y += 0.5;
+      // Both odd, do nothing. 😅
+    }
 
     // Make off by 1 adjustments for specific scale inverstions.
     // (This is kind of hacky. 23.07.20.13.44)
