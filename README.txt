@@ -85,8 +85,6 @@
     - [] Poem will implement TextInput, but not the prompt system.
 
 *** Polishing ***
-- [] Shouldn't be able to load the prompt from the prompt / 
-     pressing the [`] shortcut stops the letters from loading / gets weird.
 - [] NaskjdlkjsETWORK FAILURE
 - [👱‍♀️] Add painting include support and images to front-facing bots. (`gargoyle`, `liar` … )
 - [] Add name to top left corner of all bots.
@@ -106,6 +104,8 @@
   - [] "?" jumps to a `learn piece` page for learning more about a piece.
 - [] `Ctrl+x` fullscreen keyboard shortcut does not work on `prompt`.
 + Done
+- [x] Shouldn't be able to load the prompt from the prompt / 
+     pressing the [`] shortcut stops the letters from loading / gets weird.
 - [x] Fix Shift+ENTER
 - [x] Publishing should jump you directly to your finished piece url. 
 - [x] Typing `profile` or jumping to `profile` should route you to your profile.

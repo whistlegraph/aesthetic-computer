@@ -200,6 +200,7 @@ export function dist3d(p1, p2) {
 
 // Converts degrees to radians.
 export function radians(deg = 0) {
+  if (isNaN(deg)) deg = 0;
   return deg * (PI / 180);
 }
 
