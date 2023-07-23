@@ -47,7 +47,14 @@ function meta() {
   };
 }
 
-export { boot, paint, meta };
+// 🖼️ Preview
+function preview({ resolution, ink, wipe }) {
+  wipe("blue");
+  ink(255, 0, 0).box(0, 50, 25);
+  // Render a thumbnail / static image.
+}
+
+export { boot, paint, meta, preview };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)

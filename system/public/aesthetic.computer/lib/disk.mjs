@@ -50,6 +50,9 @@ const defaults = {
   beat: () => false, // Runs every bpm.
   act: () => false, // All user interaction.
   leave: () => false, // Before unload.
+  preview: ({ noise16Aesthetic }) => {
+    noise16Aesthetic();
+  },
 };
 
 let loadAfterPreamble = null;
@@ -162,10 +165,14 @@ let paint = defaults.paint;
 let beat = defaults.beat;
 let act = defaults.act;
 let leave = defaults.leave;
+let preview = defaults.preview;
 let bake; // Currently only used by the `nopaint` system.
 
 let leaving = false; // Set to true on first piece.
 let leaveLoad; // A callback for loading the next disk after leaving.
+
+let previewMode = false; // Detects ?preview on a piece and yields its
+//                          preview function if it exists.
 
 let module; // Currently loaded piece module code.
 let currentPath,
@@ -486,8 +493,8 @@ const $commonApi = {
             undoPosition = paintings.length - 1;
         } else {
           // ⏪ Rewind mode.
-            undoPosition -= 1;
-            if (undoPosition < 0) undoPosition = 0;
+          undoPosition -= 1;
+          if (undoPosition < 0) undoPosition = 0;
         }
 
         if (paintings.length > 1) {
@@ -1349,8 +1356,7 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
   }
 
   // Don't do anything if there is no change and no gap update.
-  if (screen.width === width && screen.height === height && gap === undefined)
-    return;
+  if (screen.width === width && screen.height === height && gap === 8) return;
 
   // width = width || currentDisplay.innerWidth;
   // height = height || currentDisplay.innerHeight;
@@ -2136,6 +2142,8 @@ async function load(
       // delete $commonApi.system.name; // No system in use.
     }
 
+    preview = module.preview || defaults.preview; // Set preview method.
+
     // ♻️ Reset global state for this piece.
     paintCount = 0n;
     paintingAPIid = 0n;
@@ -2149,6 +2157,7 @@ async function load(
     currentPath = path;
     currentHost = host;
     currentSearch = search;
+    previewMode = parsed.search.startsWith("preview"); // TODO: Parse all search params. 23.07.23.12.06
     currentColon = colon;
     currentParams = params;
     currentHash = hash;
@@ -3350,10 +3359,32 @@ async function makeFrame({ data: { type, content } }) {
       let painted = false;
       let dirtyBox;
 
+      if (previewMode) {
+        try {
+          if (currentSearch === "preview") {
+            $api.resolution(1280, 630);
+          } else {
+            $api.resolution(
+              ...currentSearch
+                .split("=")[1]
+                .split("x")
+                .map((n) => parseInt(n))
+            );
+          }
+          preview($api);
+          painting.paint(true);
+          painted = true;
+        } catch (err) {
+          console.warn("🖼️ Preview failure...", e);
+        }
+      }
+
       // Attempt a paint.
       //if (noPaint === false && booted && loading === false) {
       if (
-        (noPaint === false || scream || ambientPenPoints.length > 0) &&
+        ((previewMode === false && noPaint === false) ||
+          scream ||
+          ambientPenPoints.length > 0) &&
         booted
       ) {
         let paintOut;
@@ -3445,6 +3476,7 @@ async function makeFrame({ data: { type, content } }) {
       const defo = 6; // Default offset
 
       if (
+        !previewMode &&
         piece !== undefined &&
         piece.length > 0 &&
         piece !== "prompt" &&

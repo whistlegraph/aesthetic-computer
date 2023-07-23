@@ -38,13 +38,8 @@ function parse(text, location = self?.location) {
     text = window?.acSTARTING_PIECE || "prompt";
   } else {
     // TODO: This does not keep the question marks on this string but it should... https://localhost:8888/line:5~?~?~?
-
-    let searchIndex = text.search(/[^~]\?[^~]/); // Filter out single question mark params.
-    if (searchIndex >= 0) {
-      // [text, search] = text.split("?");
-      text = text.substring(0, searchIndex + 1);
-      search = text.substring(searchIndex + 1);
-    }
+    let searchIndex = text.search(/[^~]\?[^~]/); // Filter single "?" params.
+    if (searchIndex >= 0) [text, search] = text.split("?");
   }
 
   // TODO: When to parse the search query string into a URLSearchParams object?
@@ -77,8 +72,7 @@ function parse(text, location = self?.location) {
   const piece = tokens[0];
 
   if (customHost) {
-
-    // ⚠️ Custom user hosts can be deprecated for now. 23.07.04.20.16 
+    // ⚠️ Custom user hosts can be deprecated for now. 23.07.04.20.16
     // [host, ...path] = tokens[0].split("/");
     // path = path.join("/");
 
