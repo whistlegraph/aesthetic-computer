@@ -101,11 +101,11 @@ function boot({ get, net }) {
 // 🎨 Paint
 function paint({ screen, wipe, paste }) {
   wipe(252, 255, 237);
-  if (!painting) return;
-  const scale = 1;
-  const scaledpainting = scale * painting.width;
-  const xposition = screen.width - scaledpainting;
-  paste(painting, xposition, 0, scale);
+  // if (!painting) return;
+  // const scale = 1;
+  // const scaledpainting = scale * painting.width;
+  // const xposition = screen.width - scaledpainting;
+  // paste(painting, xposition, 0, scale);
 }
 
 function preview({ wipe, screen }) {
