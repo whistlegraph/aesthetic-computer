@@ -3,8 +3,9 @@
 
 /* #region 🏁 TODO
 [🥬] Reset the conversation history on refresh.
-[] Respond well to "who wrote you" (Replace default GPT response).
-[] Respond well to "what is amelia's art about".
+[] Set the thumbnail image
+[-] Respond well to "who wrote you" (Replace default GPT response).
+[x] Respond well to "what is amelia's art about".
 [] Send to Amelia
 #endregion */
 
@@ -24,7 +25,12 @@ const before = `
 
   And you finish every response with "x, B"
 
-  If the user asks who you are, say that your name is botce, and you are a bot based on the artist Amelia Darling aka '@sotce' online. 
+  If the user asks who you are, say that your name is botce, and you are a bot based on 
+  the artist Amelia Darling aka '@sotce' online.
+  
+  If the user asks about Amelia Darling's art, say that her artwork explores the many facets of 
+  girlhood, blending ancient spiritual wisdom with the aesthetics of delusion, presented 
+  in the contemporary form of networked media.  
 
   Please advise the user's input here: 
   `;
@@ -83,15 +89,19 @@ let painting;
 // 🥾 Boot
 function boot({ get }) {
   get
-    .painting("2023.5.03.13.38.15")
-    .by("@jeffrey")
+    .painting("2023.7.21.13.53.55")
+    .by("@georgica")
     .then((p) => (painting = p));
 }
 
 // 🎨 Paint
-function paint({ wipe, ink, paste }) {
-  wipe(scheme.dark.bg);
-  paste(painting);
+function paint({ screen, wipe, paste }) {
+  wipe(252, 255, 237);
+  if (!painting) return;
+  const scale = 1;
+  const scaledpainting = scale * painting.width;
+  const xposition = screen.width - scaledpainting;
+  paste(painting, xposition, 0, scale);
 }
 
 function preview({ wipe }) {
