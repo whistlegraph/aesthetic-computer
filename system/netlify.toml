@@ -91,7 +91,7 @@
   force = true
 [[redirects]]
   from = "https://botce.ac"
-  to = "https://aesthetic.computer/botce"
+  to = "/botce"
   status = 200
   force = false
 [[redirects]]
