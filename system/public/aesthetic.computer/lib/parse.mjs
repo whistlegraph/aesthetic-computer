@@ -23,6 +23,9 @@ function parse(text, location = self?.location) {
 
   // -1. Clear any spaces.
   text = text.trim();
+
+  // Squish any spaces inside of colon parameters.
+  text = text.replace(/\s*:\s*/g, ":"); // Squash space before & after colons.
   text = text.replace(/ /g, "~"); // Replace all spaces with "~".
   text = decodeURIComponent(text); // Decode any URL encoded characters.
 
