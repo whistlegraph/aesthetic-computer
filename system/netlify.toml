@@ -90,6 +90,11 @@
   status = 301
   force = true
 [[redirects]]
+  from = "https://botce.ac"
+  to = "https://aesthetic.computer/botce"
+  status = 200
+  force = true
+[[redirects]]
   from = "https://aesthetic.direct"
   to = "https://tiktok.com/@aesthetic.direct"
   status = 301
