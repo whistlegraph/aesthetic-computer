@@ -87,11 +87,15 @@ function meta() {
 let painting;
 
 // 🥾 Boot
-function boot({ get }) {
+function boot({ get, net }) {
+  net.waitForPreload();
   get
     .painting("2023.7.21.13.53.55")
     .by("@georgica")
-    .then((p) => (painting = p));
+    .then((p) => {
+      net.preloaded();
+      painting = p;
+    });
 }
 
 // 🎨 Paint
@@ -104,9 +108,15 @@ function paint({ screen, wipe, paste }) {
   paste(painting, xposition, 0, scale);
 }
 
-function preview({ wipe }) {
-  wipe(255, 0, 0).ink(255).write("botce", { center: "xy" });
-  // TODO: Scale the type here...
+function preview({ wipe, screen }) {
+  wipe(64)
+    .paste(
+      painting,
+      screen.width - painting?.width - 4,
+      screen.height / 2 - painting?.height / 2
+    )
+    .ink(250, 100, 150)
+    .write("botce", { center: "y", x: 8, size: 3 });
 }
 
 export { boot, prompt, before, after, forgetful, meta, paint, copied, preview };

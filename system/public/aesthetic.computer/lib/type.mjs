@@ -94,6 +94,8 @@ class Typeface {
         `aesthetic.computer/disks/drawings/${this.name}/${location}.json`
       ).then((res) => {
         this.glyphs[glyph] = res;
+      }).catch((err) => {
+        console.error("Couldn't load typeface:", err);
       });
     });
 

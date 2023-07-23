@@ -17,7 +17,7 @@ import { parse, metadata } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
 // import { UDP } from "./udp.mjs"; // TODO: Eventually expand to `net.Socket`
 import { notArray } from "./helpers.mjs";
-const { round } = Math;
+const { round, sin, random, max, floor } = Math;
 import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
 import { headers } from "./console-headers.mjs";
@@ -28,8 +28,6 @@ import { Typeface } from "../lib/type.mjs";
 let tf; // Typeface global.
 
 export const noWorker = { onMessage: undefined, postMessage: undefined };
-
-const { sin, floor } = Math;
 
 let ROOT_PIECE = "prompt"; // This gets set straight from the host html file for the ac.
 let USER; // A holder for the logged in user. (Defined in `boot`)
@@ -2047,6 +2045,7 @@ async function load(
   // Load typeface if it hasn't been yet.
   // (This only has to happen when the first piece loads.)
   if (!tf) tf = await new Typeface().load($commonApi.net.preload);
+  console.log("Typeface:", tf);
   $commonApi.typeface = tf; // Expose a preloaded typeface globally.
 
   // This function actually hotSwaps out the piece via a callback from `bios` once fully loaded via the `loading-complete` message.
@@ -2157,7 +2156,7 @@ async function load(
     currentPath = path;
     currentHost = host;
     currentSearch = search;
-    previewMode = parsed.search.startsWith("preview"); // TODO: Parse all search params. 23.07.23.12.06
+    previewMode = parsed.search?.startsWith("preview") || false; // TODO: Parse all search params. 23.07.23.12.06
     currentColon = colon;
     currentParams = params;
     currentHash = hash;
@@ -2875,7 +2874,7 @@ async function makeFrame({ data: { type, content } }) {
     $sound.synth = function ({
       type = "square",
       tone = 440, // TODO: Make random.
-      beats = Math.random(), // Wow, default func. params can be random!
+      beats = random(), // Wow, default func. params can be random!
       attack = 0,
       decay = 0,
       volume = 1,
@@ -2895,7 +2894,7 @@ async function makeFrame({ data: { type, content } }) {
           sound.kills.push(id);
         },
         progress: function (time) {
-          return 1 - Math.max(0, end - time) / seconds;
+          return 1 - max(0, end - time) / seconds;
         },
         update: function (properties) {
           // Property updates happen outside of beat timing.
@@ -3362,29 +3361,29 @@ async function makeFrame({ data: { type, content } }) {
       if (previewMode) {
         try {
           if (currentSearch === "preview") {
-            $api.resolution(1280, 630);
+            $api.resolution(1200 / 8, 630 / 8, 0);
           } else {
             $api.resolution(
               ...currentSearch
                 .split("=")[1]
                 .split("x")
-                .map((n) => parseInt(n))
+                .map((n) => floor(parseInt(n) / 8)), 0
             );
           }
           preview($api);
           painting.paint(true);
           painted = true;
+          paintCount += 1n;
         } catch (err) {
-          console.warn("🖼️ Preview failure...", e);
+          console.warn("🖼️ Preview failure...", err);
+          previewMode = false;
         }
       }
 
       // Attempt a paint.
-      //if (noPaint === false && booted && loading === false) {
       if (
-        ((previewMode === false && noPaint === false) ||
-          scream ||
-          ambientPenPoints.length > 0) &&
+        previewMode === false &&
+        (noPaint === false || scream || ambientPenPoints.length > 0) &&
         booted
       ) {
         let paintOut;
