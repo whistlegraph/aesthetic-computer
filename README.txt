@@ -181,6 +181,8 @@
          |________________________________________
 
   - [] Polish bots with background images.
+    - [] Remove paste button from homepage 
+    - [] Enter button should return you to prompt, not download
     - [] Fix `liar` background image sizing code.
     - [] Some bots could have corner images?
   + Done
