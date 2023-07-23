@@ -93,7 +93,7 @@
   from = "https://botce.ac"
   to = "https://aesthetic.computer/botce"
   status = 200
-  force = true
+  force = false
 [[redirects]]
   from = "https://aesthetic.direct"
   to = "https://tiktok.com/@aesthetic.direct"
