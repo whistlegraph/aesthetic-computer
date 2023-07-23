@@ -2,24 +2,6 @@
 // Sotce tumblr bot.
 
 /* #region 🏁 TODO
-[🟢] Add pink lotus image in the corner, semi-transparent
-  + Done
-  - [x] Allow for multiple no (with countdown), where yes is
-       the reverse?
-  - [x] Check on full transparency support / add an "erase" ink color.
-        for system-wide erasing using all brushes?
-  - [x] Flip (vertical)
-  - [x] Flop (horizontal)
-  - [x] Right (turn 90)
-  - [x] Left (turn 90)
-    - [x] Fix subtle pixel rotate bug. (Noticeable in `zoom` with 90deg left rotation)
-  - [x] Fix framebuffer resize bug.
-  - [x] Resize needs to be able to take 0-1 values with min and
-       max settings.
-  - [x] Crop (this needs to be an interactive thing.)
-  - [x] Resize
-  - [x] Load image into painting from pasted url.
-  - [x] And drag and drop.
 [🥬] Reset the conversation history on refresh.
 [] Respond well to "who wrote you" (Replace default GPT response).
 [] Respond well to "what is amelia's art about".
@@ -108,9 +90,14 @@ function boot({ get }) {
 
 // 🎨 Paint
 function paint({ wipe, ink, paste }) {
-  wipe(252, 255, 237);
+  wipe(scheme.dark.bg);
   paste(painting);
 }
 
-export { boot, prompt, before, after, forgetful, meta, paint, copied };
+function preview({ wipe }) {
+  wipe(255, 0, 0).ink(255).write("botce", { center: "xy" });
+  // TODO: Scale the type here...
+}
+
+export { boot, prompt, before, after, forgetful, meta, paint, copied, preview };
 export const system = "prompt:character"; // or "prompt:code"

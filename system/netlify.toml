@@ -22,7 +22,7 @@
   external_node_modules = ["got", "mongodb", "nanoid", "@aws-sdk-client-s3", "@aws-sdk/s3-request-presigner"]
   included_files = ["backend/**/*.mjs"]
 [functions.thumbnail]
-  external_node_modules = ["chrome-aws-lambda"]
+  external_node_modules = ["puppeteer"]
 [functions.session]
   external_node_modules = ["got", "redis"]
 [functions.reload]
