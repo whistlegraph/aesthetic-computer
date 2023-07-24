@@ -16,6 +16,7 @@ export class Conversation {
   }
 
   // Retrieve messages from the store.
+  // This can probably be deprecated... 23.07.24.17.17
   async retrieve() {
     if (!this.forgetful) {
       this.messages =
@@ -123,8 +124,8 @@ export class Conversation {
                 if (!convo.forgetful)
                   convo.messages.push({ by: "system", text: streamedReply });
                 if (convo.store && convo.key) {
-                  convo.store[convo.key] = convo.messages; // Add messages to store.
-                  await convo.store.persist(convo.key, "local:db"); // Persist messages.
+                  // convo.store[convo.key] = convo.messages; // Add messages to store.
+                  // await convo.store.persist(convo.key, "local:db"); // Persist messages.
                 }
               } else {
                 const got = decoder.decode(value, { stream: true }); // Chunk->text.

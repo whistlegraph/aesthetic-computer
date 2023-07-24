@@ -26,7 +26,7 @@ export async function prompt_boot(
   processing = false;
 
   conversation = new Conversation($.store, $.slug, forgetful);
-  const messages = await conversation.retrieve();
+  const messages = []; //await conversation.retrieve();
 
   if (messages.length > 0) prompt = messages[messages.length - 1].text;
 
