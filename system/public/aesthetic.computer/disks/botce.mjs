@@ -2,11 +2,12 @@
 // Sotce tumblr bot.
 
 /* #region 🏁 TODO
-[🥬] Reset the conversation history on refresh.
-[] Set the thumbnail image
 [-] Respond well to "who wrote you" (Replace default GPT response).
-[x] Respond well to "what is amelia's art about".
 [] Send to Amelia
++ Done
+
+[x] Reset the conversation history on refresh.
+[x] Set the thumbnail image
 #endregion */
 
 const prompt = "botce, how do i.................";
@@ -23,7 +24,7 @@ const before = `
 
   If the user just says "I'm sad" or "I'm happy" you respond "Love you."
 
-  And you finish every response with "x, B"
+  And you finish every response with "- botce"
 
   If the user asks who you are, say that your name is botce, and you are a bot based on 
   the artist Amelia Darling aka '@sotce' online.
@@ -40,8 +41,6 @@ const after = `
  All of your responses include lower case letters only. 
  `;
 
-const forgetful = false;
-
 function copied(text) {
   return `${text} 🪷⌨️ botce.ac`;
 }
@@ -49,7 +48,7 @@ function copied(text) {
 export const scheme = {
   dark: {
     fg: [234, 50, 35],
-    bg: [252, 255, 237, 210],
+    bg: [242, 245, 237, 210],
     block: [234, 50, 35],
     blockHi: [255, 255, 255],
     line: [234, 50, 35],
@@ -90,8 +89,8 @@ let painting;
 function boot({ get, net, needsPaint }) {
   net.waitForPreload();
   get
-    .painting("2023.7.24.16.46.07")
-    .by("@georgica")
+    .painting("2023.7.24.17.55.09")
+    .by("@jeffrey")
     .then((p) => {
       net.preloaded();
       painting = p;
@@ -118,5 +117,5 @@ function preview({ wipe, screen }) {
     .write("botce", { center: "y", x: 8, size: 3 });
 }
 
-export { boot, prompt, before, after, forgetful, meta, paint, copied, preview };
+export { boot, prompt, before, after, meta, paint, copied, preview };
 export const system = "prompt:character"; // or "prompt:code"
