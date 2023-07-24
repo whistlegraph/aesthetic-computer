@@ -127,6 +127,8 @@
 - [x] Design “copy” wrapper text for front-facing bots. @ggacjp.
 
 *** Georgica AC *** 
+  - [x] Mom and Dad bots should at some point say "ask your mom / dad" 
+  - [] When bot is not forgetful, exiting chat should erase the history
   - [🧡] "?" appears after typing a valid word which jumps to a learn page for learning more about a command.
   - [] `relationship` dialogue screen
     - [] Where `boyfriend` and `girlfriend` are in an automated conversation.
@@ -184,7 +186,6 @@
     - [] Remove paste button from homepage 
     - [] Enter button should return you to prompt, not download
     - [] Fix `liar` background image sizing code.
-    - [] Some bots could have corner images?
   + Done
   - [x] Auto-expand the gutter.
   (Requires that gutter is always visible on screen by default.)
