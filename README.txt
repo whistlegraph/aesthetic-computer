@@ -73,7 +73,11 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** faster user media urls ***
- - [] Clean media urls should just go to a painting "viewer" type of page.
+ - [] Why is the handle lookup being so goddamn slow?
+  - [] Profile it on local...
+  - [] Would redis make more sense?
+
+ - [-] Clean media urls should just go to a painting "viewer" type of page.
  - [] https://docs.netlify.com/edge-functions/limits
  - [] https://answers.netlify.com/t/new-syntax-for-rewrites-in-edge-functions/88257 
  - [x] Have local requests use the user bucket directly.
@@ -84,56 +88,55 @@
     😱 (All commands should be?)
 
 *** handle updates ***
- - [] Handle updates were not working for mitch.
+  - [] Handle updates were not working for mitch.
 
 *** poem ***
   - [] Scaffold the `poem` recorder.
     - [] Poem will implement TextInput, but not the prompt system.
 
 *** Polishing ***
-- [] Painting now needs zoom...
-- [] NaskjdlkjsETWORK FAILURE
-- [👱‍♀️] Add painting include support and images to front-facing bots. (`gargoyle`, `liar` … )
-- [] Add name to top left corner of all bots.
-- [-] Add countdown / progress overlay to no and yes?
-- [ ] Better "yes!" support / cooler download screen.
-- [] Finish all todos in `botce`. 
-  - [] Remove `botce` from intro text.
-- [🟠] Revisit `worker.js` to fix download link url names.
-  - [] Files need to be stored in the database...
-    - [] With a flag for completion, ticked after the presigned-upload-url
-         completes?
-- [] Spaces on new line breaks no longer work on `prompt` ?
-- [] Add starfield to prompt.
-- [] Tappable floaty words on prompt.
-- [] Gutter max with but no min width.
-  - [] Draggable gutter?
-- [] "?" appears after typing a valid word.
-  - [] "?" jumps to a `learn piece` page for learning more about a piece.
-- [] `Ctrl+x` fullscreen keyboard shortcut does not work on `prompt`.
-+ Done
-- [x] Better dynamic `preview` / thumbnail images.
-- [x] More forgivable colon spacing.
-- [x] Shouldn't be able to load the prompt from the prompt / 
-     pressing the [`] shortcut stops the letters from loading / gets weird.
-- [x] Fix Shift+ENTER
-- [x] Publishing should jump you directly to your finished piece url. 
-- [x] Typing `profile` or jumping to `profile` should route you to your profile.
-- [c] Typing an email should also take you to the user's profile.
-- [x] Tapping the user profile button should take them to their profile.
-- [x] User profile button should be replaced with their current handle if it
-- [x] Put most recent mood on user's profile.
-- [x] `mood` command / status updates per user 
-      (visible on their profiles) homepage should show last @jeffrey mood.
-- [x] Typing @user on prompt goes to /@user instead of profile.
-- [x] Profile name at top left is user's username.
-- [x] aesthetic.computer/@user should go to that user's page.
-- [x] Back browser button should bring up mobile keyboard. (This could never happen on Safari, might happen on Android)
-- [x] Fix Safari regression.
-- [x] Design “copy” wrapper text for front-facing bots. @ggacjp.
+  - [] Painting now needs zoom...
+  - [] NaskjdlkjsETWORK FAILURE
+  - [👱‍♀️] Add painting include support and images to front-facing bots. (`gargoyle`, `liar` … )
+  - [] Add name to top left corner of all bots.
+  - [-] Add countdown / progress overlay to no and yes?
+  - [ ] Better "yes!" support / cooler download screen.
+  - [] Finish all todos in `botce`. 
+    - [] Remove `botce` from intro text.
+  - [🟠] Revisit `worker.js` to fix download link url names.
+    - [] Files need to be stored in the database...
+      - [] With a flag for completion, ticked after the presigned-upload-url
+          completes?
+  - [] Spaces on new line breaks no longer work on `prompt` ?
+  - [] Add starfield to prompt.
+  - [] Tappable floaty words on prompt.
+  - [] Gutter max with but no min width.
+    - [] Draggable gutter?
+  - [] "?" appears after typing a valid word.
+    - [] "?" jumps to a `learn piece` page for learning more about a piece.
+  - [] `Ctrl+x` fullscreen keyboard shortcut does not work on `prompt`.
+  + Done
+  - [x] Better dynamic `preview` / thumbnail images.
+  - [x] More forgivable colon spacing.
+  - [x] Shouldn't be able to load the prompt from the prompt / 
+      pressing the [`] shortcut stops the letters from loading / gets weird.
+  - [x] Fix Shift+ENTER
+  - [x] Publishing should jump you directly to your finished piece url. 
+  - [x] Typing `profile` or jumping to `profile` should route you to your profile.
+  - [c] Typing an email should also take you to the user's profile.
+  - [x] Tapping the user profile button should take them to their profile.
+  - [x] User profile button should be replaced with their current handle if it
+  - [x] Put most recent mood on user's profile.
+  - [x] `mood` command / status updates per user 
+        (visible on their profiles) homepage should show last @jeffrey mood.
+  - [x] Typing @user on prompt goes to /@user instead of profile.
+  - [x] Profile name at top left is user's username.
+  - [x] aesthetic.computer/@user should go to that user's page.
+  - [x] Back browser button should bring up mobile keyboard. (This could never happen on Safari, might happen on Android)
+  - [x] Fix Safari regression.
+  - [x] Design “copy” wrapper text for front-facing bots. @ggacjp.
 
 *** Georgica AC *** 
-  - [x] Mom and Dad bots should at some point say "ask your mom / dad" 
   - [] When bot is not forgetful, exiting chat should erase the history
   - [🧡] "?" appears after typing a valid word which jumps to a learn page for learning more about a command.
   - [] `relationship` dialogue screen
@@ -193,6 +196,7 @@
     - [] Enter button should return you to prompt, not download
     - [] Fix `liar` background image sizing code.
   + Done
+  - [x] Mom and Dad bots should at some point say "ask your mom / dad" 
   - [x] Auto-expand the gutter.
   (Requires that gutter is always visible on screen by default.)
   - [x] Make `boyfriend` bot
