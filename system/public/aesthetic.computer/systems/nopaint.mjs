@@ -29,12 +29,12 @@ function nopaint_act({
   jump,
   debug,
 }) {
-  if (e.is("keyboard:down:enter")) {
-    download(`painting-${num.timestamp()}.png`, system.painting, {
-      scale: 6,
-      cropToScreen: true,
-    });
-  }
+  // if (e.is("keyboard:down:enter")) {
+  //   download(`painting-${num.timestamp()}.png`, system.painting, {
+  //     scale: 6,
+  //     cropToScreen: true,
+  //   });
+  // }
 
   // 🖌️ Painting
 
@@ -148,7 +148,8 @@ function nopaint_adjust(screen, sys, painting, store, size = null) {
       if (size?.scale) {
         p.paste(sys.painting, 0, 0, { width, height });
       } else {
-        p.paste(sys.painting);
+        // TODO: Put in some custom noise function here...
+        p.wipe(64).paste(sys.painting);
       }
     });
 

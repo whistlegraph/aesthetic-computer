@@ -30,7 +30,11 @@ function paint({
       const { x, y } = sys.nopaint.transform({ x: b.x, y: b.y });
       // Resize the original painting.
       sys.painting = painting(b.w, b.h, (p) => {
-        p.wipe(color).paste(sys.painting, -x, -y);
+        if (color !== "erase") {
+          p.wipe(color).paste(sys.painting, -x, -y);
+        } else {
+          p.paste(sys.painting, -x, -y);
+        }
       });
       sys.nopaint.translation = { x: b.x, y: b.y };
       // Assume we changed the size of the painting so set the resolution lock.
