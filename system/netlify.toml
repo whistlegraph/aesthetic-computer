@@ -87,12 +87,12 @@
 [[redirects]]
   from = "https://wand.ac"
   to = "https://aesthetic.computer/wand"
-  status = 301
-  force = true
+  status = 200
+  force = false
 [[redirects]]
   from = "https://botce.ac"
   to = "https://aesthetic.computer/botce"
-  status = 301
+  status = 200
   force = false
 [[redirects]]
   from = "https://aesthetic.direct"
