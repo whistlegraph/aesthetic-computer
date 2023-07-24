@@ -73,11 +73,10 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** faster user media urls ***
- - [x] Have local requests use the user bucket directly...
- - [] Move cloudflare edge function to user edge function. 
- - [] Don't download the whole image twice?
+ - [] Clean media urls should just go to a painting "viewer" type of page.
  - [] https://docs.netlify.com/edge-functions/limits
  - [] https://answers.netlify.com/t/new-syntax-for-rewrites-in-edge-functions/88257 
+ - [x] Have local requests use the user bucket directly.
 
 *** General Brush Notes ***
   - [] Make sure `left`, `right`, `flip` and `flop` are all added to 
