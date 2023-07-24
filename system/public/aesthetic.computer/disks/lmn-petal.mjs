@@ -15,7 +15,7 @@ let pany;
 // 🥾 Boot
 function boot({ help, num }) {
   message = help.choose("He loves me", "He loves me not");
-  background = help.choose("blue", "indigo", "lightcyan", "honeydew");
+  background = help.choose("blue", "indigo", "lightcyan", "black");
   panx = num.randIntRange(-100, 100);
   pany = num.randIntRange(-100, 100);
 }

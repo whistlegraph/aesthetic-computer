@@ -33,6 +33,8 @@ export async function handler(event, context) {
     sub = await userIDFromEmail(handleOrEmail);
   }
 
+  console.log("Found sub:", sub);
+
   if (sub) {
     return respond(200, { sub });
   } else {

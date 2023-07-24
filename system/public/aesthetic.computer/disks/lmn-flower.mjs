@@ -10,6 +10,7 @@
 // 🥾 Boot
 function boot({ resolution }) {
   // Stuff here happens once.
+  resolution(256, 256);
 }
 
 // 🎨 Paint
