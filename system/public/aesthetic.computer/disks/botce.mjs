@@ -49,10 +49,10 @@ function copied(text) {
 export const scheme = {
   dark: {
     fg: [234, 50, 35],
-    bg: [252, 255, 237, 176],
-    block: [255, 200, 220],
+    bg: [252, 255, 237, 210],
+    block: [234, 50, 35],
     blockHi: [255, 255, 255],
-    line: [0, 0, 0],
+    line: [234, 50, 35],
   },
   light: {
     fg: [234, 50, 35],
@@ -90,7 +90,7 @@ let painting;
 function boot({ get, net, needsPaint }) {
   net.waitForPreload();
   get
-    .painting("2023.7.21.13.53.55")
+    .painting("2023.7.24.16.46.07")
     .by("@georgica")
     .then((p) => {
       net.preloaded();
@@ -103,10 +103,8 @@ function boot({ get, net, needsPaint }) {
 function paint({ screen, wipe, paste }) {
   wipe(252, 255, 237);
   if (!painting) return;
-  const scale = 1;
-  const scaledpainting = scale * painting.width;
-  const xposition = screen.width - scaledpainting;
-  paste(painting, xposition, 0, scale);
+  const xposition = screen.width/2 - painting.width/2;
+  paste(painting, xposition, screen.height - painting.height);
 }
 
 function preview({ wipe, screen }) {
