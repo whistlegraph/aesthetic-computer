@@ -19,7 +19,7 @@ async function handler(event, context) {
   // Ditch if we don't hit the accepted resolution whitelist.
   if (
     acceptedResolutions.indexOf(resolution) === -1 ||
-    !filepath[filepath.length - 1].endsWith(".jpg")
+    !filepath[filepath.length - 1].endsWith(".png")
   ) {
     return { statusCode: 500 };
   }
@@ -35,7 +35,7 @@ async function handler(event, context) {
     },
   };
 
-  if (dev) ops.ignoreHTTPSErrors = true;
+  // if (dev) ops.ignoreHTTPSErrors = true;
   if (!dev)
     ops.browserWSEndpoint = `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`;
 
@@ -47,7 +47,7 @@ async function handler(event, context) {
 
   let url;
 
-  if (process.env.CONTEXT === "dev") {
+  if (dev) {
     console.log("🟡 Development");
     url = "https://localhost:8888"; // This is used for testing pages locally.
   } else {
@@ -71,7 +71,7 @@ async function handler(event, context) {
   try {
     await page.goto(
       `${url}/${
-        filepath.join("/").replace(".jpg", "") || ""
+        filepath.join("/").replace(".png", "") || ""
       }?preview=${width}x${height}`,
       {
         waitUntil: "networkidle2",
@@ -84,7 +84,7 @@ async function handler(event, context) {
 
   try {
     await page.waitForFunction("window.preloaded === true", {
-      timeout: 6000,
+      timeout: 8000,
     });
   } catch {
     console.log("🔴 Failed window.preloaded timer.");
@@ -92,17 +92,14 @@ async function handler(event, context) {
 
   await page.waitForTimeout(500); // A bit of extra time.
 
-  const buffer = await page.screenshot({
-    type: "jpeg",
-    quality: 80,
-  });
+  const buffer = await page.screenshot({ type: "png" });
 
   await browser.close();
 
   return {
     statusCode: 200,
     headers: {
-      "Content-Type": "image/jpeg",
+      "Content-Type": "image/png",
       "Content-Length": buffer.length.toString(),
     },
     body: buffer.toString("base64"),

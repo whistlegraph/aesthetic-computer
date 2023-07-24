@@ -87,7 +87,7 @@ function meta() {
 let painting;
 
 // 🥾 Boot
-function boot({ get, net }) {
+function boot({ get, net, needsPaint }) {
   net.waitForPreload();
   get
     .painting("2023.7.21.13.53.55")
@@ -95,17 +95,18 @@ function boot({ get, net }) {
     .then((p) => {
       net.preloaded();
       painting = p;
+      needsPaint();
     });
 }
 
 // 🎨 Paint
 function paint({ screen, wipe, paste }) {
   wipe(252, 255, 237);
-  // if (!painting) return;
-  // const scale = 1;
-  // const scaledpainting = scale * painting.width;
-  // const xposition = screen.width - scaledpainting;
-  // paste(painting, xposition, 0, scale);
+  if (!painting) return;
+  const scale = 1;
+  const scaledpainting = scale * painting.width;
+  const xposition = screen.width - scaledpainting;
+  paste(painting, xposition, 0, scale);
 }
 
 function preview({ wipe, screen }) {
