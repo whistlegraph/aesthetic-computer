@@ -393,8 +393,28 @@ const $commonApi = {
   get: {
     painting: (code) => {
       return {
-        by: (handle) =>
-          $commonApi.net.preload(`/media/${handle}/painting/${code}.png`),
+        by: async (handle) => {
+          // Get the user sub from the handle...
+          const url = `/user?from=${handle}`;
+          try {
+            const res = await fetch(url);
+            if (res.ok) {
+              const json = await res.json();
+              return $commonApi.net.preload(
+                `https://user.aesthetic.computer/${json.sub}/painting/${code}.png`
+              );
+            } else {
+              console.error(`Error: ${res.status} ${res.statusText}`);
+              console.error(
+                `Response headers: ${JSON.stringify(
+                  Array.from(res.headers.entries())
+                )}`
+              );
+            }
+          } catch (error) {
+            console.error(`Fetch failed: ${error}`);
+          }
+        },
       };
     },
   },
@@ -3361,13 +3381,13 @@ async function makeFrame({ data: { type, content } }) {
       if (previewMode) {
         try {
           if (currentSearch === "preview") {
-            $api.resolution(1200 / 8, 630 / 8, 0);
+            $api.resolution(1200 / 8, 630 / 8);
           } else {
             $api.resolution(
               ...currentSearch
                 .split("=")[1]
                 .split("x")
-                .map((n) => floor(parseInt(n) / 8)), 0
+                .map((n) => floor(parseInt(n) / 8))
             );
           }
           preview($api);

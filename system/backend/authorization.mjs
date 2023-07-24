@@ -87,7 +87,7 @@ export async function userIDFromHandle(handle, database) {
   const collection = database.db.collection("@handles");
   const user = await collection.findOne({ handle });
   const userID = user?._id;
-  if (!keepOpen) await database.disconnect();
+  if (!keepOpen) database.disconnect();
   return userID;
 }
 

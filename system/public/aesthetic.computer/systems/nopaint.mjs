@@ -146,9 +146,9 @@ function nopaint_adjust(screen, sys, painting, store, size = null) {
 
     sys.painting = painting(width, height, (p) => {
       if (size?.scale) {
-        p.wipe(64).paste(sys.painting, 0, 0, { width, height });
+        p.paste(sys.painting, 0, 0, { width, height });
       } else {
-        p.wipe(64).paste(sys.painting);
+        p.paste(sys.painting);
       }
     });
 
