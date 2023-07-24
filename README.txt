@@ -91,7 +91,6 @@
     - [] Poem will implement TextInput, but not the prompt system.
 
 *** Polishing ***
-- [committed] Better dynamic `preview` / thumbnail images.
 - [] Painting now needs zoom...
 - [] NaskjdlkjsETWORK FAILURE
 - [👱‍♀️] Add painting include support and images to front-facing bots. (`gargoyle`, `liar` … )
@@ -113,6 +112,7 @@
   - [] "?" jumps to a `learn piece` page for learning more about a piece.
 - [] `Ctrl+x` fullscreen keyboard shortcut does not work on `prompt`.
 + Done
+- [x] Better dynamic `preview` / thumbnail images.
 - [x] More forgivable colon spacing.
 - [x] Shouldn't be able to load the prompt from the prompt / 
      pressing the [`] shortcut stops the letters from loading / gets weird.

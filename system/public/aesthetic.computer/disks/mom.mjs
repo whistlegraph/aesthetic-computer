@@ -72,7 +72,6 @@ function paint({ screen, wipe, ink, paste }) {
   const scale = .5;
   const scaledpainting = scale * painting.width;
   const xposition = screen.width - scaledpainting;
-  console.log(painting.width*scale)
   paste(painting, xposition, 0, scale);
 }
 
