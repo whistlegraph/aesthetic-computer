@@ -56,11 +56,13 @@ function copied(text) {
 let painting;
 
 // 🥾 Boot
-function boot({ get, needsPaint }) {
+function boot({ get, net, needsPaint }) {
+  net.waitForPreload();
   get
-    .painting("2023.7.14.14.43.01")
+    .painting("2023.7.24.17.02.58")
     .by("@georgica")
     .then((p) => {
+      net.preloaded();
       painting = p;
       needsPaint();
     });
@@ -70,11 +72,20 @@ function boot({ get, needsPaint }) {
 function paint({ screen, wipe, ink, paste }) {
   wipe(130, 20, 100);
   if (!painting) return;
-  const scale = 0.2;
-  const scaledpainting = scale * painting.width;
-  const xposition = screen.width - scaledpainting;
-  paste(painting, xposition, 0, scale);
+  const xposition = screen.width / 2 - painting.width / 2;
+  paste(painting, xposition, screen.height - painting.height);
 }
 
-export { prompt, before, after, halt, reply, copied, boot, paint };
+function preview({ wipe, screen }) {
+  wipe(scheme.dark.bg)
+    .paste(
+      painting,
+      screen.width - painting?.width - 4,
+      screen.height / 2 - painting?.height / 2
+    )
+    .ink(0, 200, 0, 300)
+    .write("gargoyle", { center: "xy", size: 3 });
+}
+
+export { prompt, before, after, halt, reply, copied, boot, paint, preview };
 export const system = "prompt:character"; // or "prompt:code"

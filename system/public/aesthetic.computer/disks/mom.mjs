@@ -64,17 +64,20 @@ function copied(text) {
 let painting;
 
 // 🥾 Boot
-function boot({ get }) {
+function boot({ get, needsPaint }) {
   get
     .painting("2023.7.24.15.31.02")
     .by("@georgica")
-    .then((p) => (painting = p));
+    .then((p) => {
+      painting = p;
+      needsPaint();
+    });
 }
 
 // 🎨 Paint
 function paint({ screen, wipe, ink, paste }) {
   wipe(215, 181, 74);
-  if(!painting)return;
+  if (!painting) return;
   const xposition = screen.width/2 - painting.width/2;
   paste(painting, xposition, screen.height - painting.height);
 }
