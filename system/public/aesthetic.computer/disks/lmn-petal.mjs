@@ -8,26 +8,36 @@
 #endregion */
 
 let message;
+let background; 
+let panx;
+let pany;
 
 // 🥾 Boot
-function boot({ help }) {
+function boot({ help, num }) {
   message = help.choose("He loves me", "He loves me not");
+  background = help.choose("blue", "indigo", "lightcyan", "honeydew");
+  panx = num.randIntRange(-100, 100);
+  pany = num.randIntRange(-100, 100);
 }
 
 // 🎨 Paint
-function paint({ ink, wipe, oval, write, screen, help }) {
-  wipe("blue");
+function paint({ ink, wipe, oval, write, screen, help, pan, unpan, num }) {
+  wipe(background);
   ink("white")
   // function oval(x0, y0, radiusX, radiusY, filled = false, thickness = 1)
+  pan(panx, pany);
   oval(screen.width / 2, screen.height / 2, 80, 17, true);
   ink("pink");
   write(message, { center: "xy" })
+  unpan();
 }
 
 // 🎪 Act
-// function act({ event }) {
-//  // Respond to user input here.
-// }
+function act({ event, jump }) {
+  if (event.is("touch")) {
+    jump("lmn-flower");
+  }
+}
 
 // 🧮 Sim
 // function sim() {
@@ -52,7 +62,7 @@ function meta() {
   };
 }
 
-export { boot, paint, meta };
+export { boot, paint, act, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
