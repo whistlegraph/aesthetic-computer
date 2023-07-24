@@ -20,22 +20,22 @@ const after = `
   - your responses are limited to 100 characters.
   `;
 
-  export const scheme = {
-    dark: {
-      fg: [93, 49, 32],
-      bg: [149, 165, 188, 200],
-      block: [77, 114, 78, 100],
-      blockHi: [4, 3, 247],
-      line: [77, 114, 78, 100],
-    },
-    light: {
-      fg: [0, 200],
-      bg: [170, 150, 200],
-      block: [30, 200, 200],
-      blockHi: [200, 200, 30],
-      line: [0, 0, 0, 128],
-    },
-  };
+export const scheme = {
+  dark: {
+    fg: [93, 49, 32],
+    bg: [149, 165, 188, 200],
+    block: [77, 114, 78, 100],
+    blockHi: [4, 3, 247],
+    line: [77, 114, 78, 100],
+  },
+  light: {
+    fg: [0, 200],
+    bg: [170, 150, 200],
+    block: [30, 200, 200],
+    blockHi: [200, 200, 30],
+    line: [0, 0, 0, 128],
+  },
+};
 
 // 🛑 Intercept specific input text with a custom reply.
 function halt($, text) {
@@ -52,24 +52,26 @@ function reply(text) {
 
 function copied(text) {
   return text;
-  // return `${text} ❤️‍🩹 https://aesthetic.computer/boyfriend`;
 }
 
 let painting;
 
 // 🥾 Boot
-function boot({ get }) {
+function boot({ get, needsPaint }) {
   get
     .painting("2023.7.24.15.16.04")
     .by("@georgica")
-    .then((p) => (painting = p));
+    .then((p) => {
+      painting = p;
+      needsPaint();
+    });
 }
 
 // 🎨 Paint
 function paint({ screen, wipe, ink, paste }) {
   wipe(149, 165, 188);
   if (!painting) return;
-  const xposition = screen.width/2 - painting.width/2;
+  const xposition = screen.width / 2 - painting.width / 2;
   paste(painting, xposition, screen.height - painting.height);
 }
 
