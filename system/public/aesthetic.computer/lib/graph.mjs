@@ -1445,6 +1445,9 @@ function draw() {
   const s = sin(angle);
   const c = cos(angle);
 
+  x = floor(x);
+  y = floor(y);
+
   pan(x, y);
 
   // 🍎 Build a poly line out of subsequent points sharing start & end points.
@@ -1496,7 +1499,8 @@ function draw() {
         : circle(args[0], args[1], thickness / 2, true);
     }
   });
-  unpan();
+
+  pan(-x, -y);
 }
 
 // Write out a line of text.

@@ -13,25 +13,28 @@ function boot({ resolution }) {
 }
 
 // 🎨 Paint
-function paint({ wipe, ink, line, rect, oval, screen }) {
+function paint({ wipe, ink, line, box, oval, screen, write }) {
+  wipe("blue"); // Sky
 
-  wipe("blue");
-
-  // Horizon
-  ink("green"); // Set our drawing color to green.
-  // const horizon = { height: 3*screen.height/4 }; // for `horizon.height`
+  // Grass
   const horizonHeight = 3 * screen.height / 4;
-  line(0, horizonHeight, screen.width, horizonHeight); // (x1, y1), (x2, y2)
+  ink("green");
+  box(0, horizonHeight, screen.width, screen.height - horizonHeight)
 
   // Stem
   ink("purple");
-  line(screen.width / 2, horizonHeight, screen.width / 2, screen.height / 2);
+  line(screen.width / 2, horizonHeight - 1, screen.width / 2, screen.height / 2);
 
   // Flower
   ink("yellow");
   // function oval(x0, y0, radiusX, radiusY, filled = false, thickness = 1)
   oval(screen.width / 2, screen.height / 2, 20, 10, true )
   // Executes every display frame.
+
+
+  // Text
+  ink("pink");
+  write("pick a petal", { center: "x", y: horizonHeight * 1.15 })
 }
 
 // 🎪 Act
