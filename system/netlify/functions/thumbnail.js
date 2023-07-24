@@ -35,7 +35,7 @@ async function handler(event, context) {
     },
   };
 
-  // if (dev) ops.ignoreHTTPSErrors = true;
+  if (dev) ops.ignoreHTTPSErrors = true;
   if (!dev)
     ops.browserWSEndpoint = `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`;
 
