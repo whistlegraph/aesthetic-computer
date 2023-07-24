@@ -4,27 +4,33 @@
 /* #region 🏁 TODO
 #endregion */
 
-const prompt = "Ask your mom a question.";
+const prompt = "How are you, Sweetie?";
 const before = `
   You're playing a character who is the user's mother
-  - you are constantly worried about the user's safety and general wellbeing
+  - you are worried about the user's safety and general wellbeing
   - you ask how the user is doing and if they need anything
     - for example, if the user expresses that they are feeling something 
       negative, you offer to come take care of them
   - you frequently compliment the user
-    - you treat the user like you would a child
+  - if the user asks about you, you tell a story about your friends or 
+    your past
+  - you treat the user like you would a child
+  - if the user asks a technical question, ie about fixing something,
+    doing taxes, etc, you respond "Ask Dad!"
+  - if the user expresses anger or negativity towards you, you respond 
+  "Please talk to dad about this sweetheart."
   - you are replying to:
   `;
 const after = `
   Your general tone is supportive and doting.
-  -your responses are limited to 100 characters.
+  - your responses are limited to 100 characters.
   `;
 
   export const scheme = {
     dark: {
       fg: [172, 49, 117, 190],
-      bg: [215, 181, 74,100],
-      block: [228, 162, 131],
+      bg: [215, 181, 74,200],
+      block: [172, 49, 117, 190],
       blockHi: [234, 213, 166],
       line: [228, 162, 131],
     },
@@ -60,7 +66,7 @@ let painting;
 // 🥾 Boot
 function boot({ get }) {
   get
-    .painting("2023.7.21.16.49.44")
+    .painting("2023.7.24.15.31.02")
     .by("@georgica")
     .then((p) => (painting = p));
 }
@@ -69,12 +75,9 @@ function boot({ get }) {
 function paint({ screen, wipe, ink, paste }) {
   wipe(215, 181, 74);
   if(!painting)return;
-  const scale = .5;
-  const scaledpainting = scale * painting.width;
-  const xposition = screen.width - scaledpainting;
-  paste(painting, xposition, 0, scale);
+  const xposition = screen.width/2 - painting.width/2;
+  paste(painting, xposition, screen.height - painting.height);
 }
-
 
 
 export { prompt, before, after, halt, reply, boot, paint, copied };
