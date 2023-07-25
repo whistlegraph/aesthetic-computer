@@ -183,7 +183,7 @@
 # Index
 [[redirects]]
   from = "/"
-  to = "/.netlify/builders/index"
+  to = "/.netlify/functions/index"
   status = 200
   force = true
 # Catch any unfound disk paths to the blank disk.
@@ -196,6 +196,6 @@
 # TODO: This should be a 404...
 [[redirects]]
   from = "/*"
-  to = "/.netlify/builders/index"
+  to = "/.netlify/functions/index"
   status = 200
   force = false
