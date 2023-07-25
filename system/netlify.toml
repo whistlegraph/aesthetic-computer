@@ -90,10 +90,10 @@
   status = 301
   force = true
 [[redirects]]
-  from = "https://wand.ac/*"
+  from = "https://wand.ac/"
   to = "https://aesthetic-computer.netlify.app/wand"
   status = 200
-  force = false
+  force = true
 [[redirects]]
   from = "https://aesthetic.direct"
   to = "https://tiktok.com/@aesthetic.direct"
