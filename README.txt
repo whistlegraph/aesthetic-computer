@@ -287,15 +287,12 @@
 
  🧩 Pieces
    *** `staka` ***
-    - [] Tapping and holding the mouse down when a hand is not present should
-         drop the y value of the dummy data of IMO, so the gesture gets
-         recognized and the game is playable / testable with no tracking!
-    - [] Create safe zone boundary that the game takes place in. 
+    - [] See `staka`.
     
   *** `handtime` ***
+    - [] shared canvas (like digital touch)
     - [] `ht yellow blue` will start a 2 person call where a link is given and
           guest 2 is blue and you are yellow. 
-    - [] shared canvas (like digital touch)
     + Done
     - [x] Socket joining errors. @jeffrey
     - [x] Hand-track re-entrance errors. @jeffrey

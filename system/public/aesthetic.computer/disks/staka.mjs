@@ -6,18 +6,23 @@
 
 /* #region 🏁 TODO 
 + Now
-- [] Bug for unpan() needs fixing ! :D
+- [] Rename Staka
+- [] Create safe zone boundary that the game takes place in. 
+- [] Clean up "dead-zone" edges by tracking some video pixels outside
+      of the screen boundery. (For all hand-tracking) 
 - [] Title Screen
 - [] Game Over
 - [] Sound
-- [] Levels
-- [] ReadMe
-- [] Fix dummy shaka contact point
 + Done
+- [x] Tapping and holding the mouse down when a hand is not present should
+      drop the y value of the dummy data of IMO, so the gesture gets
+      recognized and the game is playable / testable with no tracking!
 - [x] Generate falling shapes.
 - [x] Collide falling shapes on the line.
 - [x] Recognize shaka gesture based on T and P y values 
 - [x] Draw line between T and P 
+- [x] Bug for unpan() needs fixing ! :D
+- [x] Default hand bouncy line not working
 #endregion */
 
 import { HandInput } from "../lib/hand.mjs";
@@ -59,18 +64,10 @@ function paint($) {
 
   let vecDistance;
   if (plate) {
-    console.log(dummy);
+    let A;
+    let B;
 
-
-    // ink(255, 96).pline( 
-    //   [
-    //     { x: plate[0][0], y: plate[0][1]},
-    //     { x: plate[1][0], y: plate[1][1]},
-    //   ],
-    //   12
-    // );
-    // ink(255).line(...plate);
-    if (dummy = true) {
+    if (dummy === true) {
       pan(...handInput.dummyPan);
       ink(255, 96).pline( 
         [
@@ -80,6 +77,10 @@ function paint($) {
         12
       );
       ink(255).line(...plate).unpan();
+      const dp = handInput.dummyPan; 
+      A = { x: plate[0][0] + dp[0], y: plate[0][1] + dp[1]};
+      B = { x: plate[1][0] + dp[0], y: plate[1][1] + dp[1] }; 
+      // console.log("A: ", A, "B: ", B); 
     }
     else {
       ink(255, 96).pline( 
@@ -90,22 +91,15 @@ function paint($) {
         12
       );
       ink(255).line(...plate);
+      A = { x: plate[0][0], y: plate[0][1] };
+      B = { x: plate[1][0], y: plate[1][1] }; 
     }
     
-
-
-    let A = { x: plate[0][0], y: plate[0][1] };
-    let B = { x: plate[1][0], y: plate[1][1] };
-    let C = { x: circle.x, y: circle.y };
-
+    const C = { x: circle.x, y: circle.y };
     const AC = $.num.p2.sub(C, A);
     const AB = $.num.p2.sub(B, A);
-
     const D = $.num.p2.add(proj(AC, AB), A);
-    //Vector 1 (the center of the circle to the start of the line), Vector 2 (the start and end of the line), Vector 3 (center of circle to line)
-    // ink("yellow").line(circle.x, circle.y, plate[0][0], plate[0][1]);
-    // ink("blue").line(plate[0][0], plate[0][1], plate[1][0], plate[1][1]);
-    // ink("red").line(circle.x, circle.y, D.x, D.y);
+  
     vecDistance = num.dist(circle.x, circle.y, D.x, D.y);
     const AD = $.num.p2.sub(D, A);
     const k = Math.abs(AB.x) > Math.abs(AB.y) ? AD.x / AB.x : AD.y / AB.y;
@@ -156,9 +150,12 @@ function sim($) {
       p.y < m.y &&
       p.y < o.y // and p is higher than imo
     ) {
-      console.log("Staka Gesture Recognized");
       const data = [dummyPoints[4], dummyPoints[20]];
       plate = data.map(({ x, y }) => [x, y]);
+    }
+    else {
+      plate = undefined;
+
     }
     // console.log("DUMMY DATA: ", plate);
   } else { //real data
@@ -191,6 +188,11 @@ function sim($) {
 // 🎪 Act
 function act($) {
   handInput.act($);
+  if ($.event.is("touch")) {
+    handInput.dummyGesture = handInput.dummyGesture === "shaka" ? "open" : "shaka";
+  }
+
+  // if click --> handInput.dummyGesture = "shaka"
   // Respond to user input here.
 }
 
