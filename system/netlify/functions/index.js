@@ -1,6 +1,5 @@
 // Serves HTML from a template for every landing route on aesthetic.computer.
 
-import { builder } from "@netlify/functions";
 import https from "https";
 import { URLSearchParams } from "url";
 import { parse, metadata } from "../../public/aesthetic.computer/lib/parse.mjs";
