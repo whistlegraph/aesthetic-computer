@@ -94,16 +94,16 @@
   to = "https://aesthetic-computer.netlify.app/wand"
   status = 301
   force = true
-[[redirects]]
-  from = "https://aesthetic.direct"
-  to = "https://tiktok.com/@aesthetic.direct"
-  status = 301
-  force = true
-[[redirects]]
-  from = "https://m2w2.whistlegraph.com"
-  to = "https://aesthetic.computer/wg~m2w2"
-  status = 200
-  force = false
+# [[redirects]]
+#   from = "https://aesthetic.direct"
+#   to = "https://tiktok.com/@aesthetic.direct"
+#   status = 301
+#   force = true
+# [[redirects]]
+#   from = "https://m2w2.whistlegraph.com"
+#   to = "https://aesthetic.computer/wg~m2w2"
+#   status = 200
+#   force = false
 [[redirects]]
   from = "https://sotce.aesthetic.computer"
   to = "https://aesthetic.computer/sotce-blog"
