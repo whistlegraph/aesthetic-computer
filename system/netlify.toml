@@ -59,6 +59,11 @@
     Content-Security-Policy = "script-src 'self' blob: 'unsafe-eval';"
     Vary = "*"
 [[redirects]]
+  from = "https://botce.ac"
+  to = "https://aesthetic.computer/botce"
+  status = 200
+  force = true
+[[redirects]]
   from = "/media/*"
   to = "https://aesthetic-computer-router.aesthetic-computer.workers.dev/media/:splat"
   # to = "http://localhost:8787/media/:splat" # Uncomment for developing the Cloudflare worker.
@@ -87,11 +92,8 @@
 [[redirects]]
   from = "https://wand.ac"
   to = "https://aesthetic.computer/wand"
-  force = false
-[[redirects]]
-  from = "https://botce.ac"
-  to = "https://aesthetic.computer/botce"
-  force = false
+  status = 301
+  force = true
 [[redirects]]
   from = "https://aesthetic.direct"
   to = "https://tiktok.com/@aesthetic.direct"
