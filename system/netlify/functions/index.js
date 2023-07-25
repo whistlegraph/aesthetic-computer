@@ -14,6 +14,8 @@ async function fun(event, context) {
 
   let slug = event.path.slice(1) || "prompt";
 
+  console.log("Path:", event.path, "Host:", event.headers["host"]);
+
   // Some domains will rewrite the initial slug.
   if (event.headers["host"] === "botce.ac") {
     slug = "botce";
