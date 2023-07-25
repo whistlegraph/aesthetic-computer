@@ -14,7 +14,7 @@ const { cos, sin } = Math;
 export class HandInput {
   timop = [];
   dummy = true;
-  dummyGesture = "shaka";
+  dummyGesture = "palm";
   dummyPoints = [];
   dummyPan; 
   #dummyOsc;
