@@ -19,6 +19,7 @@ if (window.acDEBUG === true || window.acDEBUG === false) {
   debug = window.acDEBUG;
 } else if (
   window.location.hostname === "aesthetic.computer" ||
+  window.location.hostname === "botce.ac" ||
   window.location.hostname === "m2w2.whistlegraph.com"
 ) {
   debug = false; // Turn debugging off by default in production.
@@ -52,7 +53,6 @@ if (!sandboxed && window.auth0) {
 
   window.auth0Client = auth0Client;
 
-  // Assumes a button with id "login" in the DOM
   if (
     location.search.includes("state=") &&
     (location.search.includes("code=") || location.search.includes("error="))
@@ -122,6 +122,7 @@ if (window.location.pathname.length > 1) {
 // Or it can be set by a custom host...
 if (location.hostname === "m2w2.whistlegraph.com")
   window.acSTARTING_PIECE = "wg~m2w2";
+if (location.hostname === "botce.ac") window.acSTARTING_PIECE = "botce";
 
 if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";
 
