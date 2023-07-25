@@ -62,7 +62,7 @@
   from = "https://botce.ac"
   to = "https://aesthetic.computer/botce"
   status = 200
-  force = true
+  force = false
 [[redirects]]
   from = "/media/*"
   to = "https://aesthetic-computer-router.aesthetic-computer.workers.dev/media/:splat"
