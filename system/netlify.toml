@@ -82,8 +82,8 @@
 [[redirects]]
   from = "https://www.4esthetic.com/*"
   to = "https://aesthetic.computer/:splat"
-  status = 301
-  force = true
+  status = 200
+  force = false
 [[redirects]]
   from = "https://4esthetic.com/*"
   to = "https://aesthetic.computer/:splat"
