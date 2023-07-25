@@ -164,4 +164,4 @@ async function getPage(url) {
   });
 }
 
-export const handler = builder(fun);
+export const handler = fun;
