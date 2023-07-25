@@ -90,8 +90,8 @@
   status = 301
   force = true
 [[redirects]]
-  from = "https://wand.ac"
-  to = "/wand"
+  from = "https://wand.ac/*"
+  to = "https://aesthetic.computer/wand"
   status = 200
   force = false
 [[redirects]]
