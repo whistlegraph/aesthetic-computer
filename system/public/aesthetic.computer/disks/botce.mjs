@@ -1,22 +1,26 @@
 // Botce, 23.06.02.15.18
-// Sotce tumblr bot.
+// Sotce Q&A / tumblr bot.
 
 /* #region 🏁 TODO
+[] Change button colors.
+[] If pasted text is empty, then say "Empty" instead of "Pasted".
+  - [] Get rid of paste's "two option" modal?
 [-] Respond well to "who wrote you" (Replace default GPT response).
-[] Send to Amelia
+[] Upgrade to gpt4 on the server using a flag.
+[] Send a version to Amelia.
 + Done
-
+[x] Get `botce.ac` working.
 [x] Reset the conversation history on refresh.
 [x] Set the thumbnail image
 #endregion */
 
-const prompt = "botce, how do i.................";
+const prompt = "botce, how do i...";
 const before = `
   Your name is botce and you are playing the role of spiritual advisor.
 
   And you speak in the first person.
 
-  And you respond in esoteric spiritual aphorisms.
+  And you respond in esoteric spiritual aphorisms albeit in short and simple words.
   
   And you frequently reference vajrayana buddhism.
 
@@ -33,13 +37,10 @@ const before = `
   girlhood, blending ancient spiritual wisdom with the aesthetics of delusion, presented 
   in the contemporary form of networked media.  
 
-  Please advise the user's input here: 
-  `;
+  Please advise the user's input here:`;
 
-const after = `
- Your responses are limited to 100 characters.
- All of your responses include lower case letters only. 
- `;
+const after = `Your responses are limited to 100 characters.
+ All of your responses include lower case letters only.`;
 
 function copied(text) {
   return `${text} 🪷⌨️ botce.ac`;
@@ -66,7 +67,7 @@ export const scheme = {
 function meta() {
   return {
     title: "botce",
-    desc: "botce, how do i.................",
+    desc: "botce, how do i...",
   };
 }
 
@@ -102,8 +103,8 @@ function boot({ get, net, needsPaint }) {
 function paint({ screen, wipe, paste }) {
   wipe(252, 255, 237);
   if (!painting) return;
-  const xposition = screen.width/2 - painting.width/2;
-  paste(painting, xposition, screen.height - painting.height);
+  const x = screen.width / 2 - painting.width / 2;
+  paste(painting, x, screen.height - painting.height);
 }
 
 function preview({ wipe, screen }) {
