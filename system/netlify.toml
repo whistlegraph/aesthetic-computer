@@ -58,11 +58,11 @@
     Access-Control-Allow-Origin = "*"
     Content-Security-Policy = "script-src 'self' blob: 'unsafe-eval';"
     Vary = "*"
-[[redirects]]
-  from = "https://botce.ac"
-  to = "https://aesthetic-computer.netlify.app/botce"
-  status = 200
-  force = true
+# [[redirects]]
+#   from = "https://botce.ac"
+#   to = "https://aesthetic-computer.netlify.app/botce"
+#   status = 200
+#   force = true
 [[redirects]]
   from = "/media/*"
   to = "https://aesthetic-computer-router.aesthetic-computer.workers.dev/media/:splat"
@@ -82,7 +82,7 @@
 [[redirects]]
   from = "https://www.4esthetic.com/*"
   to = "https://aesthetic.computer/:splat"
-  status = 200
+  status = 301
   force = true
 [[redirects]]
   from = "https://4esthetic.com/*"
@@ -92,7 +92,7 @@
 [[redirects]]
   from = "https://wand.ac"
   to = "https://aesthetic-computer.netlify.app/wand"
-  status = 200
+  status = 301
   force = true
 [[redirects]]
   from = "https://aesthetic.direct"
