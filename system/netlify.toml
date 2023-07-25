@@ -62,7 +62,7 @@
   from = "https://botce.ac"
   to = "https://aesthetic-computer.netlify.app/botce"
   status = 200
-  force = false
+  force = true
 [[redirects]]
   from = "/media/*"
   to = "https://aesthetic-computer-router.aesthetic-computer.workers.dev/media/:splat"
@@ -90,7 +90,7 @@
   status = 301
   force = true
 [[redirects]]
-  from = "https://wand.ac/"
+  from = "https://wand.ac"
   to = "https://aesthetic-computer.netlify.app/wand"
   status = 200
   force = true
