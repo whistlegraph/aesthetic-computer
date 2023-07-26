@@ -40,7 +40,7 @@ You are playing a character who tries to help me find the command I'm searching 
   'logout', 'm2w2', 'melody', 'metronome', 'microphone',
   'no!', 'no', 'oval', 'paint', 'paste', 'handprint', 
   'plot', 'profile', 'prompt', 'pull', 'rect', 
-  'savcom', 'scawy-snake', 'scream', 'sfx', 'shape', 'sign', 'sing', 'smear', 
+  'girlfriend', 'boyfriend', 'mom', 'dad', 'scawy-snake', 'scream', 'sfx', 'shape', 'sign', 'sing', 'smear', 
   'song', 'sparkle', 
   'staka', 'starfield', 'tone', 'tracker', 'valbear', 'vary', 'video', 'wand', 'wg', 
   'wgr', 'whistle', 'whistlegraph', 'wipe', 'word', 'zoom'.
@@ -367,7 +367,10 @@ async function halt($, text) {
       makeFlash($, true, "HANDLE INVALID");
     }
     return true;
-  } else if ((text === "ul" || text === "upload" || text === "yes!") && store["painting"]) {
+  } else if (
+    (text === "ul" || text === "upload" || text === "yes!") &&
+    store["painting"]
+  ) {
     if (!navigator.onLine) {
       flashColor = [255, 0, 0];
       makeFlash($, true, "OFFLINE");
@@ -709,6 +712,7 @@ function sim($) {
     (!$.system.prompt.messages || $.system.prompt.messages.length === 0)
   ) {
     profile = new $.ui.TextButton($.handle, { center: "xy", screen: $.screen });
+    profile.btn.disabled = true;
     delete $.store["handle:received"];
     $.needsPaint();
   }

@@ -11,4 +11,5 @@ export const logs = {
   audio: false,
   hid: false,
   painting: false, // System wallpaper / paint related logs.
+  glaze: false,
 };
