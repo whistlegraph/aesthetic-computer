@@ -712,7 +712,7 @@ function sim($) {
     (!$.system.prompt.messages || $.system.prompt.messages.length === 0)
   ) {
     profile = new $.ui.TextButton($.handle, { center: "xy", screen: $.screen });
-    profile.btn.disabled = true;
+    if (firstCommandSent === true) profile.btn.disabled = true;
     delete $.store["handle:received"];
     $.needsPaint();
   }
