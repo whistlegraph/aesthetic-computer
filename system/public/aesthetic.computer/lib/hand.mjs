@@ -14,6 +14,7 @@ const { cos, sin } = Math;
 #endregion */
 
 export class HandInput {
+  api; // Set in the constructor.
   timop = []; // Coordinates of each tip.
   interactions = [];
   #contactDistances = [];
@@ -37,7 +38,19 @@ export class HandInput {
   #points = []; // Stores the screen scaled mediapipe points.
 
 
-  constructor() {}
+  constructor($) {
+    this.api = $;
+  }
+
+  #tipsFrom(handPoints) {
+    return [
+      handPoints[this.indices.t],
+      handPoints[this.indices.i],
+      handPoints[this.indices.m],
+      handPoints[this.indices.o],
+      handPoints[this.indices.p],
+    ];
+  }
 
   sim({ hand: { mediapipe }, screen: { width, height }, simCount, num }) {
     // Calculate Hand-tracked 2D Coordinates
@@ -47,13 +60,7 @@ export class HandInput {
       coord.z,
     ]);
 
-    this.timop = [
-      this.#points[this.indices.t],
-      this.#points[this.indices.i],
-      this.#points[this.indices.m],
-      this.#points[this.indices.o],
-      this.#points[this.indices.p],
-    ];
+    this.timop = this.#tipsFrom(this.#points);
 
     this.dummy = this.#points.length === 0;
 
@@ -402,10 +409,14 @@ export class HandInput {
     return segs;
   }
 
+  gesture(handPoints) {
+    // TODO: Get tips from handPoints.
+    return this.#touching(this.#tipsFrom(handPoints), this.api.num).interactions;
+  }
+
   // Track interactions between finger tips
   // Params: Ordered TIMOP tip points, num API
   // Returns: Array of collections of touching tips.
-
   #touching(tips, num) {
     let touchedPairs = [];
     const timop = ["t", "i", "m", "o", "p"];
