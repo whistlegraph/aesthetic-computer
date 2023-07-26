@@ -723,6 +723,7 @@ const $commonApi = {
     Track: num.Track,
     timestamp: num.timestamp,
     p2: num.p2,
+    midp: num.midp,
     vec2: num.vec2,
     vec3: num.vec3,
     vec4: num.vec4,
