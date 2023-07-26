@@ -15,7 +15,7 @@ import {
   clamp,
 } from "./num.mjs";
 
-import { repeat } from "./help.mjs";
+import { repeat, nonvalue } from "./help.mjs";
 import { Box } from "./geo.mjs";
 import { nanoid } from "../dep/nanoid/nanoid.js";
 
@@ -1075,11 +1075,11 @@ function box() {
 
   if (w === 0 || h === 0 || isNaN(w) || isNaN(h)) return; // Silently quit if the box has no volume.
 
-  // Random parameters if undefined.
-  if (x === undefined) x = randInt(width);
-  if (y === undefined) y = randInt(height);
-  if (w === undefined) w = randInt(width);
-  if (h === undefined) h = randInt(height);
+  // Random parameters if undefined, null, or NaN.
+  if (nonvalue(x)) x = randInt(width);
+  if (nonvalue(y)) y = randInt(height);
+  if (nonvalue(w)) w = randInt(width);
+  if (nonvalue(h)) h = randInt(height);
 
   // Abs / normalize the parameters.
 
