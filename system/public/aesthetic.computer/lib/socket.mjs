@@ -92,9 +92,11 @@ export class Socket {
       console.log(
         `📡 You joined: ${c.ip} id: ${c.id} 🤹 Connections open: ${c.playerCount}`
       );
-    } else if (type === "message") {
+      receive?.(id, type, c);
+    } else if (type === "joined") {
       const c = JSON.parse(content);
       console.log(`📡 ${c.text || c}`); // Someone else has connected as...
+      receive?.(id, type, c);
     } else if (type === "reload" && reload && this.#debug) {
       // Only respond to global `reload` signals when in debug mode.
       let c;
@@ -119,7 +121,7 @@ export class Socket {
       console.log(
         `📡 ${content.id} has left. Connections open: ${content.count}`
       );
-      receive?.(id, type, content);
+      receive?.(content.id, type, content);
     } else {
       receive?.(id, type, content); // Finally send the message to the client.
     }
