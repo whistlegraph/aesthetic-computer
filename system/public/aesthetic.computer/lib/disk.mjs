@@ -123,6 +123,10 @@ function addUndoPainting(painting) {
   const pixels = new Uint8ClampedArray(op.length);
   pixels.set(op);
 
+  if (undoPaintings.length > undoPosition + 1) {
+    undoPaintings.length = undoPosition + 1;
+  }
+
   if (undoPaintings.length > 0) {
     const lastPainting = undoPaintings[undoPaintings.length - 1];
 
@@ -505,7 +509,6 @@ const $commonApi = {
 
         if (yes) {
           // ⏩ Fast-forward mode.
-          console.log("YES:", undoPosition);
           undoPosition += 1;
           if (undoPosition > paintings.length - 1)
             undoPosition = paintings.length - 1;
@@ -1617,7 +1620,7 @@ async function load(
     } else {
       let response, sourceToRun;
       if (fullUrl) {
-        console.log("Attempting to load from local url:", fullUrl);
+        // console.log("Attempting to load from local url:", fullUrl);
         response = await fetch(fullUrl);
         sourceToRun = await response.text();
       } else {
@@ -2065,7 +2068,6 @@ async function load(
   // Load typeface if it hasn't been yet.
   // (This only has to happen when the first piece loads.)
   if (!tf) tf = await new Typeface().load($commonApi.net.preload);
-  console.log("Typeface:", tf);
   $commonApi.typeface = tf; // Expose a preloaded typeface globally.
 
   // This function actually hotSwaps out the piece via a callback from `bios` once fully loaded via the `loading-complete` message.
