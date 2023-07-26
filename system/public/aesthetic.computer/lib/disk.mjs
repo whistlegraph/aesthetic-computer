@@ -1782,7 +1782,6 @@ async function load(
 
             // 🧚 Ambient cursor support.
             if (type === "ambient-pen:point" && socket.id !== id) {
-              console.log(socket, id);
               ambientPenPoints.push({ x: content.x, y: content.y });
               return;
             }

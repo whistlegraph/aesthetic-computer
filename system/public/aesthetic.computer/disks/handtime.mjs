@@ -7,9 +7,14 @@
 /* #region 🏁 TODO 
   + Now 
   - [] Keep a buffer of that line and fade it out so multiple lines can be painted.
+  - [] Add usernames to hands 
+  - [] Draw lines on remote side
+  - [] Make all the "others" different colors 
   + Later
   - [-] Ignore signal from our id
+  - [] Leave messages from timeout of data from useres 
   + Done
+  - [x] Leaving and joining IDs 
   - [x] Find midpoint between TI and paint it.
   - [x] Start drawing a line when TI are making contact.
   - [x] Stop drawing a line (collecting points) when TI stop making contact.
@@ -19,17 +24,32 @@
 
 import { HandInput } from "../lib/hand.mjs";
 
-let myHand, points;
+let myHand, points; // Our local hand data.
+let drawing = false; // Are we drawing a line?
+let currentMark; // The mark we are currently drawing.
+const lines = []; // Store all marks.
+
 let server;
-const otherHands = {};
-let drawing = false;
-const lines = [];
-let currentMark;
+const otherHands = {}; // Remote hand data, stored by client id.
+const otherGestures = {}; // Remote drawn gestures for each client.
 
 // 🥾 Boot
 function boot({ net: { socket }, num }) {
   myHand = new HandInput({ num });
   server = socket((id, type, content) => {
+    if (type === "left") {
+      console.log("️✌️ Goodbye:", id);
+      delete otherHands[id];
+      delete otherGestures[id]; // TODO: Fade out instead of delete.
+    }
+    if (type === "joined") {
+      console.log("️👋 Hello:", id);
+      otherGestures[id] = { drawing: false, lines: [], currentMark: null };
+    }
+    if (type === "connected") {
+      console.log("Your ID is:", id, content);
+      otherGestures[id] = { drawing: false, lines: [], currentMark: null };      
+    }
     if (type === "handtime:hand") otherHands[id] = content;
   });
 }
@@ -50,14 +70,48 @@ function paint($) {
     const I = otherPoints[myHand.indices.i];
     const midpoint = $.num.midp(T, I);
 
-    const dist = $.num.dist(T[0], T[1], I[0], I[1]);
     // console.log(dist, T, I);
-
     let ti;
-    
     myHand.gesture(otherPoints).forEach((interaction) => {
       if (interaction.t && interaction.i) ti = interaction;
     });
+
+    // TODO: Set the otherGestures[id].drawing flag if we are
+    //       starting or stopping a mark.
+    // Right now, otherGestures has no record for this client, so nothing
+    // exists.
+
+    // We could either populate all of that here after checking for it's
+    // existence, or prepopulate when the client joins...
+
+    const g = otherGestures[id];
+    console.log(otherGestures, id, g);
+
+    if (ti && !g.drawing) {
+      g.drawing = true;
+      g.currentMark = [];
+      g.lines.push(g.currentMark);
+      console.log(id, "started drawing!");
+    } else if (!ti && g.drawing) {
+      g.drawing = false;
+      g.currentMark = undefined;
+      console.log(id, "stopped drawing!");
+    }
+
+    if (g.drawing) {
+      const lastPoint = g.currentMark[g.currentMark.length - 1];
+      if (
+        !lastPoint ||
+        lastPoint[0] !== midpoint[0] ||
+        lastPoint[1] !== midpoint[1]
+      ) {
+        // console.log(midpoint);
+        g.currentMark.push(midpoint); 
+      }
+    }
+
+    // { id: { drawing: false, lines: [], currentMark: ... } }
+
     //console.log("1: ", myHand.gesture(otherPoints));
 
     $.ink(ti ? "pink" : "lime").box(...midpoint, 12, "fill*center");
@@ -69,15 +123,10 @@ function paint($) {
         5,
         "fill*center"
       );
-      delete otherHands[id]; // Consume the points.
-      // ^ TODO: This will cause a flicker, therefore should go into
-      //         a temporary cache that gets deleted after a healthy timeout
-      //         duration if there are no updates.
     }
   }
 
   // Draw local points on top.
-  
   for (let j = 0; j < points?.length; j += 1) {
     let [x, y] = points[j];
     if (myHand.dummy) x = y = undefined;
@@ -92,9 +141,6 @@ function paint($) {
   myHand.interactions.forEach((interaction) => {
     if (interaction.t && interaction.i) ti = interaction;
   });
-
-  // console.log("2: ", myHand.interactions);
-  // if (myHand.dummy) drawing = false;
 
   if (ti && !drawing) {
     drawing = true;
@@ -118,17 +164,15 @@ function paint($) {
       lastPoint[1] !== midpoint[1]
     ) {
       // console.log(midpoint);
-      currentMark.push(midpoint); // TODO: This will store duplicates!
+      currentMark.push(midpoint); 
     }
   }
-
   // Loop through every lines.
-  lines.forEach((mark) => {
-    $.ink("white").poly(mark);
+  Object.keys(otherGestures).forEach((g) => {
+    otherGestures[g].lines.forEach((mark) => $.ink("red").poly(mark));
   });
-  
+  lines.forEach((mark) => $.ink("white").poly(mark));
 }
-
 // 🎪 Act
 function act($) {
   myHand.act($);
