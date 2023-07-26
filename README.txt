@@ -349,7 +349,8 @@
   - [x] Is `scale` working?
 
 *** Launch Goodies ***
-  - [] Tapping top-left corner label should always highlight the text.
+  - [] Tapping top-left corner label should always highlight the text, and
+       prevent other touch events from firing in the piece...
     - [] Doesn't work on `bleep`.
   - [] Add more themes other than the dark boolean?
     - [] You should be able to type colors and have the

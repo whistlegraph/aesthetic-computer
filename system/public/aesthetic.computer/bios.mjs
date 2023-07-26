@@ -2457,7 +2457,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "glaze") {
-      if (debug) {
+      if (debug && logs.glaze) {
         console.log("🪟 Glaze:", content, "Type:", content.type || "prompt");
       }
       glaze = content;
