@@ -196,14 +196,14 @@ wss.on("connection", (ws, req) => {
   ws.send(
     pack(
       "connected",
-      JSON.stringify({ id, ip, playerCount: content.playerCount })
+      JSON.stringify({ id, ip, playerCount: content.playerCount }), id
     )
   );
 
   // Send a join message to everyone else.
   others(
     pack(
-      "message",
+      "joined",
       JSON.stringify({
         text: `${connectionId} has joined. Connections open: ${content.playerCount}`,
       }),
