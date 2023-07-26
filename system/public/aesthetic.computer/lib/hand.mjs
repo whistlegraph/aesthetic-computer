@@ -3,8 +3,10 @@ import { radians, map } from "../lib/num.mjs";
 const { cos, sin } = Math;
 
 /* #region 🏁 todo
+  - [] When in dummy mode, all interactions should be taken away
   - [] Clean Up / Refactor gesture interaction code 
   - [] Fix video orientation issues. (Need a video enabled "goal" piece.)
+  - [] Add indices for data 
   + Done
   - [x] Add flag to enable video feedback to paint function. 
   - [X] Fix gesture interactions.  (Need a piece that will require it.)
@@ -12,14 +14,17 @@ const { cos, sin } = Math;
 #endregion */
 
 export class HandInput {
-  timop = [];
+  timop = []; // Coordinates of each tip.
+  interactions = [];
+  #contactDistances = [];
   dummy = true;
   dummyGesture = "palm";
   dummyPoints = [];
   dummyPan; 
   #dummyOsc;
   #lastOrigin = [];
-  #origin = { x: 0, y: 0, z: 0 }; // Wrist
+  indices = {t: 4, i: 8, m: 12, o: 16, p: 20};
+  #origin = [ 0, 0, 0 ]; // Wrist
   #handPalette = {
     w: "#FFFFFFFF", // Wrist, white
     t: [0, 170, 200], // Thumb, teal
@@ -34,7 +39,7 @@ export class HandInput {
 
   constructor() {}
 
-  sim({ hand: { mediapipe }, screen: { width, height }, simCount }) {
+  sim({ hand: { mediapipe }, screen: { width, height }, simCount, num }) {
     // Calculate Hand-tracked 2D Coordinates
     this.#points = mediapipe.screen.map((coord) => [
       coord.x * width,
@@ -42,14 +47,28 @@ export class HandInput {
       coord.z,
     ]);
 
+    this.timop = [
+      this.#points[this.indices.t],
+      this.#points[this.indices.i],
+      this.#points[this.indices.m],
+      this.#points[this.indices.o],
+      this.#points[this.indices.p],
+    ];
+
     this.dummy = this.#points.length === 0;
 
     if (this.dummy === false) {
       this.#lastOrigin[0] = this.#points[0][0];
       this.#lastOrigin[1] = this.#points[0][1];
+
+      // Interactions
+      const { interactions, contactDistances } = this.#touching(this.timop, num);
+      this.interactions = interactions; // Update the interactions for the class.
+      this.#contactDistances = contactDistances;
     }
 
     if (this.dummy) {
+      this.interactions = [];
       // console.log("In Dummy Mode");
       // 2. Or... default to a generated model of a hand.
       const osc = Math.sin(Number(simCount % 120n) * 0.1); // Oscillate a value based on frame.
@@ -104,14 +123,6 @@ export class HandInput {
       this.#dummyOsc = osc;
     }
 
-    this.timop = [
-      this.#points[4],
-      this.#points[8],
-      this.#points[12],
-      this.#points[16],
-      this.#points[20],
-    ];
-
     // Return scaled points in case they are needed in sim.
     return this.#points?.length > 0 ? this.#points : undefined;
   }
@@ -156,7 +167,6 @@ export class HandInput {
 
     // TODO: Is everything underneath this, dependent just on the point data?
     // - [] Abstract hand drawing so remote hands can be drawn from a sata set.
-    let timop;
 
     // Draw scaled coordinates.
     const fadedPalette = { w: 64, t: 64, i: 64, m: 64, o: 64, p: 64 };
@@ -167,6 +177,9 @@ export class HandInput {
 
     if (this.dummy === false) {
       const points = this.#points;
+
+      const interactions = this.interactions;
+      const contactDistances = this.#contactDistances;
 
       // A. Draw lines
       ink(palette.w).poly([
@@ -187,11 +200,8 @@ export class HandInput {
       ]);
 
       ink(palette.i).poly([points[5], points[6], points[7], points[8]]);
-
       ink(palette.m).poly([points[9], points[10], points[11], points[12]]);
-
       ink(palette.o).poly([points[13], points[14], points[15], points[16]]);
-
       ink(palette.p).poly([points[17], points[18], points[19], points[20]]);
 
       // B. Loop over the scaled points and draw the boxes.
@@ -217,11 +227,6 @@ export class HandInput {
         box(coord[0], coord[1], boxSize, boxType);
       });
 
-      // Interactions
-      timop = [points[4], points[8], points[12], points[16], points[20]];
-      const { interactions, contactDistances } = this.#touching(timop, num);
-
-      // console.log(this.#touching(timop, num));
       if (options?.faded) return; // Don't paint interactions if faded.
 
       const letterColors = {
@@ -275,11 +280,11 @@ export class HandInput {
 
       // Then, color the fingers
       [..."timop"].forEach((letter, index) => {
-        const coord = timop[index].slice(); // Make a copy of the coords.
+        const coord = this.timop[index].slice(); // Make a copy of the coords.
         coord[0] += -3;
         coord[1] += -5;
         ink(outputColors[letter]).circle(
-          ...timop[index].slice(0, -1),
+          ...this.timop[index].slice(0, -1),
           contactDistances[index] / 2,
           true
         );
@@ -355,7 +360,7 @@ export class HandInput {
           poly(currentPoints);
           layer(1); // TODO: How does layering work with ink?
           ink(currentColor);
-          currentPoints.forEach((p) => box(p.x, p.y, boxSize, boxType));
+          currentPoints.forEach((p) => box(...p, boxSize, boxType));
         }
         layer(1); // Always draw the boxes on top.
         ink(this.#handPalette[char]);
@@ -376,7 +381,8 @@ export class HandInput {
   // Crawl a point {x, y} dist amount in a direction, returning the new position.
   #crawl(p, dist, dir = 0) {
     dir = radians(dir - 90); // Set 0 degrees to up, convert to radians.
-    return { x: p.x + dist * cos(dir), y: p.y + dist * sin(dir) };
+    // return { x: p.x + dist * cos(dir), y: p.y + dist * sin(dir) };
+    return [ p[0] + dist * cos(dir), p[1] + dist * sin(dir) ];
   }
 
   // Generate points for a digit given an orientation (deg).
@@ -402,7 +408,7 @@ export class HandInput {
 
   #touching(tips, num) {
     let touchedPairs = [];
-    let timop = ["t", "i", "m", "o", "p"];
+    const timop = ["t", "i", "m", "o", "p"];
     let contactDistances = [];
 
     // Go through each tip in order from TIMOP...

@@ -67,3 +67,8 @@ export function repeat(n, fn) {
 export function findKeyAndValue(obj, k, v) {
   return obj[Object.keys(obj).find((key) => obj[key][k] === v)];
 }
+
+// Determine if an input value is nothing.
+export function nonvalue(i) {
+  return i === undefined || i === null || isNaN(i)
+}

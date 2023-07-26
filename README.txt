@@ -290,7 +290,7 @@
     - [] See `staka`.
     
   *** `handtime` ***
-    - [] shared canvas (like digital touch)
+    - [💚] shared canvas (like digital touch)
     - [] `ht yellow blue` will start a 2 person call where a link is given and
           guest 2 is blue and you are yellow. 
     + Done
