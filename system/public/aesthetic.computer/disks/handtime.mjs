@@ -27,8 +27,8 @@ const lines = [];
 let currentMark;
 
 // 🥾 Boot
-function boot({ net: { socket } }) {
-  myHand = new HandInput();
+function boot({ net: { socket }, num }) {
+  myHand = new HandInput({ num });
   server = socket((id, type, content) => {
     if (type === "handtime:hand") otherHands[id] = content;
   });
@@ -43,11 +43,29 @@ function paint($) {
   const keys = Object.keys(otherHands);
   for (let i = 0; i < keys.length; i += 1) {
     const id = keys[i];
-    const points = otherHands[id];
-    for (let j = 0; j < points.length; j += 1) {
+    const otherPoints = otherHands[id];
+
+    // Get T, I, and the midpoint between T and I, then graph the midpoint.
+    const T = otherPoints[myHand.indices.t];
+    const I = otherPoints[myHand.indices.i];
+    const midpoint = $.num.midp(T, I);
+
+    const dist = $.num.dist(T[0], T[1], I[0], I[1]);
+    // console.log(dist, T, I);
+
+    let ti;
+    
+    myHand.gesture(otherPoints).forEach((interaction) => {
+      if (interaction.t && interaction.i) ti = interaction;
+    });
+    //console.log("1: ", myHand.gesture(otherPoints));
+
+    $.ink(ti ? "pink" : "lime").box(...midpoint, 12, "fill*center");
+
+    for (let j = 0; j < otherPoints.length; j += 1) {
       $.ink(server?.id === id ? "brown" : "red").box(
-        points[j][0],
-        points[j][1],
+        otherPoints[j][0],
+        otherPoints[j][1],
         5,
         "fill*center"
       );
@@ -59,6 +77,7 @@ function paint($) {
   }
 
   // Draw local points on top.
+  
   for (let j = 0; j < points?.length; j += 1) {
     let [x, y] = points[j];
     if (myHand.dummy) x = y = undefined;
@@ -74,6 +93,7 @@ function paint($) {
     if (interaction.t && interaction.i) ti = interaction;
   });
 
+  // console.log("2: ", myHand.interactions);
   // if (myHand.dummy) drawing = false;
 
   if (ti && !drawing) {
@@ -83,7 +103,7 @@ function paint($) {
   } else if (!ti && drawing) {
     drawing = false;
     currentMark = undefined;
-    console.log(lines);
+    // console.log(lines);
   }
 
   const midpoint = $.num.midp(T, I);
@@ -97,7 +117,7 @@ function paint($) {
       lastPoint[0] !== midpoint[0] ||
       lastPoint[1] !== midpoint[1]
     ) {
-      console.log(midpoint);
+      // console.log(midpoint);
       currentMark.push(midpoint); // TODO: This will store duplicates!
     }
   }
@@ -106,6 +126,7 @@ function paint($) {
   lines.forEach((mark) => {
     $.ink("white").poly(mark);
   });
+  
 }
 
 // 🎪 Act
