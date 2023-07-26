@@ -1813,6 +1813,8 @@ async function load(
       // Just in case we init. in a `boot` before the timeout fires above.
       clearTimeout(socketStartDelay);
       startSocket();
+    } else {
+      receive(socket.id, "connected:already");
     }
     return socket;
   };

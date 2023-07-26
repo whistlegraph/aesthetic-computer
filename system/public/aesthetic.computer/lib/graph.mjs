@@ -798,8 +798,8 @@ function pline(coords, thickness, shader) {
     const cur = coords[i];
 
     // 1. Two points on both sides of last and cur via line dir.
-    const lp = [last.x, last.y],
-      cp = [cur.x, cur.y]; // Convert last and cur to vec2.
+    const lp = [last.x || last[0], last.y || last[1]],
+      cp = [cur.x || cur[0], cur.y || cur[1]]; // Convert last and cur to vec2.
 
     const dir = vec2.normalize([], vec2.subtract([], cp, lp)); // Line direction.
     if (!ldir) ldir = dir;
