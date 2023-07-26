@@ -887,7 +887,7 @@ class TextInput {
     // Begin the prompt input mode / leave the splash.
     function activate(ti) {
       if (ti.canType) {
-        if (debug) console.log("✔️✍️ TextInput already activated.");
+        // if (debug) console.log("✔️✍️ TextInput already activated.");
         // (This redundancy check is because this behavior is tied to
         // keyboard open and close events.)
         return;
