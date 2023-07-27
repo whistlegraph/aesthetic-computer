@@ -72,10 +72,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** better `paste` rotation ***
-  - [] Make paste rotation work pixel perfectly for all 90 degree increments.
-       and all image sizes.
-
 *** faster user media urls ***
  - [] Why is the handle lookup being so goddamn slow?
   - [] Profile it on local...

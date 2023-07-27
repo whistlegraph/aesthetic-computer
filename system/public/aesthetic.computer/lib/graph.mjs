@@ -354,18 +354,21 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
   if (scale !== 1) {
     // Or rotation.
     let angle = 0;
+    let anchor;
     let width, height;
     if (typeof scale === "object") {
       angle = scale.angle;
       width = scale.width;
       height = scale.height;
-      scale = scale.scale;
+      anchor = scale.anchor;
+      // ^ Pull properties out of the scale object.
+      scale = scale.scale; // And then redefine scale.
     }
 
     grid(
       {
         box: { x: destX, y: destY, w: from.width, h: from.height },
-        transform: { scale, angle, width, height },
+        transform: { scale, angle, width, height, anchor },
       },
       from
     );
@@ -1248,7 +1251,7 @@ function fillShape(points) {
 function grid(
   {
     box: { x, y, w: cols, h: rows },
-    transform: { scale, angle, width, height },
+    transform: { scale, angle, width, height, anchor },
     centers = [],
   },
   buffer
@@ -1287,73 +1290,79 @@ function grid(
   // given the image resolution's even / oddness on each axis.
   // (Make some off by 1 adjustments for specific angles.)
 
-  // debugger;
+  let xmod = 0,
+    ymod = 0;
 
   if (angle) {
     // Odd width.
     if (w % 2 !== 0 && h % 2 === 0) {
-      if (x % 1 !== 0 && angle === 90) x += 0.5;
-      if (angle === 90 || angle === 270) y += 1;
-      if (angle === 180) {
-        y += 0.5;
-        if (x % 1 === 0) x += 0.5;
+      if (x % 1 !== 0 && angle === 90) xmod += 0.5;
+
+      // if (angle === 90 || angle === 270) ymod += 1;
+      if (angle === 270) {
+        xmod += x % 1 !== 0 ? 1.0 : 0.5;
+        ymod += 0.5;
       }
-      if (x % 1 !== 0 && angle === 270) x += 0.5;
+
+      if (angle === 180) {
+        ymod += 0.5;
+        if (x % 1 === 0) xmod += 0.5;
+      }
     }
     if (h % 2 !== 0 && w % 2 === 0) {
       // Odd height.
-      if (y % 1 !== 0 && angle === 90) y += 0.5;
-      if (angle === 90 || angle === 270) x += 1;
-      if (angle === 180) {
-        x += 0.5;
-        if (y % 1 === 0) y += 0.5;
+      if (y % 1 !== 0 && angle === 90) ymod += 0.5;
+
+      if (angle === 270) {
+        xmod += 0.5;
+        ymod += y % 1 !== 0 ? 1.0 : 0.5;
       }
-      if (y % 1 !== 0 && angle === 270) y += 0.5;
+
+      if (angle === 180) {
+        xmod += 0.5;
+        if (y % 1 === 0) ymod += 0.5;
+      }
     } else if (w % 2 === 0 && h % 2 === 0) {
       // Both even...
-      x += 0.5;
-      y += 0.5;
+      xmod += 0.5;
+      ymod += 0.5;
     } else if (w % 2 !== 0 && h % 2 !== 0) {
-      if (x % 2 === 0) x += 0.5;
-      if (y % 2 === 0) y += 0.5;
-      // Both odd, do nothing. 😅
+      // Both odd...
+      xmod += 0.5;
+      ymod += 0.5;
     }
-
-    // Make off by 1 adjustments for specific scale inverstions.
-    // (This is kind of hacky. 23.07.20.13.44)
-    if (scale.x < 0 && scale.y > 0) {
-      if (angle >= 90 && angle < 270) y += 1 * sign(-scale.y);
-      if (angle >= 180 && angle <= 270) x += 1 * sign(-scale.x);
-    } else if (scale.x > 0 && scale.y > 0) {
-      if (angle >= 90 && angle < 270) x += 1 * sign(-scale.x);
-      if (angle >= 180 && angle <= 270) y += 1 * sign(-scale.y);
-    } else if (scale.y < 0 && scale.x > 0) {
-      if (angle >= 90 && angle < 270) y += 1 * sign(-scale.y);
-      if (angle >= 180 && angle <= 270) x += 1 * sign(-scale.x);
-    } else if (scale.y < 0 && scale.x < 0) {
-      if (angle >= 90 && angle < 270) x += 1 * sign(-scale.x);
-      if (angle >= 180 && angle <= 270) y += 1 * sign(-scale.y);
-    }
-
-    // console.log("Angle:", angle, x, y, w, h);
-
   }
 
-  let centerX = x + w / 2; // Calculate the center point of the grid
-  let centerY = y + h / 2;
+  // Make off by 1 adjustments for specific scale inverstions.
+  // (This is kind of hacky. 23.07.20.13.44)
+  if (scale.x < 0 && scale.y > 0) {
+    if (angle >= 90 && angle < 270) ymod += 1 * sign(-scale.y);
+    if (angle >= 180 && angle <= 270) xmod += 1 * sign(-scale.x);
+  } else if (scale.x > 0 && scale.y > 0) {
+    if (angle >= 90 && angle < 270) xmod += 1 * sign(-scale.x);
+    if (angle >= 180 && angle <= 270) ymod += 1 * sign(-scale.y);
+  } else if (scale.y < 0 && scale.x > 0) {
+    if (angle >= 90 && angle < 270) ymod += 1 * sign(-scale.y);
+    if (angle >= 180 && angle <= 270) xmod += 1 * sign(-scale.x);
+  } else if (scale.y < 0 && scale.x < 0) {
+    if (angle >= 90 && angle < 270) xmod += 1 * sign(-scale.x);
+    if (angle >= 180 && angle <= 270) ymod += 1 * sign(-scale.y);
+  }
+
+  x += xmod;
+  y += ymod;
+
+  // Rotate around the anchor, or center.
+  let centerX, centerY;
+  if (anchor) {
+    centerX = anchor.x + x;
+    centerY = anchor.y + y;
+  } else {
+    centerX = x + w / 2;
+    centerY = y + h / 2;
+  }
 
   angle = radians(angle); // Sets angle to 0 if it was undefined.
-
-  // let centerX = x;
-  // let centerY = y;
-
-  // const newC = p2.rot({x: w / 2, y: h / 2 }, angle);
-
-  // centerX = abs(newC.x);
-  // centerY = abs(newC.y);
-
-  // console.log("Angle:", angle, x, y, w, h);
-  // console.log(newC);
 
   // Draw a scaled image if the buffer is present.
   // Technically, this allows us to scale any bitmap. 22.08.21.21.13

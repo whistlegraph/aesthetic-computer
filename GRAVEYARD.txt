@@ -1,5 +1,9 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** better `paste` rotation ***
+  - [x] Make paste rotation work pixel perfectly for all 90 degree increments.
+       and all image sizes.
+
 *** Decode / Encode (Issue) ***
 - [x] Text automatically copied to clipboard when typing `decode` and
      going to the piece.

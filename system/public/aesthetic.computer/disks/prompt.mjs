@@ -417,7 +417,6 @@ async function halt($, text) {
   } else if (slug === "right" || slug === "left") {
     // Turn the canvas to the right or left.
     const angle = slug === "right" ? 90 : -90;
-
     const width = system.painting.height;
     const height = system.painting.width;
 
@@ -428,9 +427,16 @@ async function halt($, text) {
     system.painting = painting(width, height, (p) => {
       // Then wipe, rotate and paste.
       // Paste the original painting, rotated by 90 degrees.
-      p.wipe("red").paste(system.painting, x, y, {
+      if (angle === 90) {
+        x += system.painting.height;
+      } else if (angle === -90) {
+        y += system.painting.width;
+      }
+
+      p.wipe("lime").paste(system.painting, x, y, {
         scale: { x: 1, y: 1 },
         angle,
+        anchor: { x: 0, y: 0 },
       });
     });
 
@@ -872,7 +878,9 @@ let motdController;
 async function makeMotd({ system, needsPaint, handle, user, net, api }) {
   let motd = "aesthetic.computer"; // Fallback motd.
   motdController = new AbortController();
-  const res = await fetch("/api/mood/@jeffrey", { signal: motdController.signal });
+  const res = await fetch("/api/mood/@jeffrey", {
+    signal: motdController.signal,
+  });
   if (res.status === 200) {
     motd = (await res.json()).mood;
     system.prompt.input.latentFirstPrint(motd);

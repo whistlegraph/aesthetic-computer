@@ -47,20 +47,43 @@ function paint({ wipe, screen, system, pen }) {
   // console.log("Paint position:", x, y);
   // console.log("Painting:", system.painting.width, system.painting.height);
 
+  let ax = 120;
+  let ay = 120;
+  // let tx = 0;
+  // let ty = 0;
+
+  // console.log(system.painting.width, system.painting.height);
+
+  if (angle === 90) {
+    ax += system.painting.height;
+  } else if (angle === 180) {
+    ay += system.painting.height;
+    ax += system.painting.width;
+  } else if (angle === 270) {
+    ay += system.painting.width;
+  }
+
   wipe(32)
     .ink(255, 255, 0)
     // .box(boxPos.x, boxPos.y, pw, ph)
-    .box(30, 30, pw, ph)
+    .box(120, 120, pw, ph)
     .ink(255, 0, 0)
     // .box(boxPos.x, boxPos.y, pw, ph, "outline")
     // .box(0, 0, pw, ph, "outline")
     //.paste(system.painting, x, y, { scale, angle });
     // TODO: Eventually floor these ^ 😃
-    .paste(system.painting, 30, 30, { scale, angle });
+    //.pan(tx, ty)
+    .paste(system.painting, ax, ay, { scale, angle, anchor: { x: 0, y: 0 } })
+    //.unpan();
+
+  return false;
 }
 
-function act({ event: e }) {
-  if (e.is("touch")) angle = (angle + 90) % 360;
+function act({ event: e, needsPaint }) {
+  if (e.is("touch")) {
+    angle = (angle + 90) % 360;
+    needsPaint();
+  }
 }
 
 export { paint, act };
