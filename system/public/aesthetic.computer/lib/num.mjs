@@ -47,8 +47,7 @@ export const p2 = {
       y: pA.y - pB.y,
     };
   },
-
-  // Immutably multiply p by angle in radians.
+  // Immutably rotate p by angle in radians.
   rot(p, angle) {
     return {
       x: p.x * cos(angle) - p.y * sin(angle),

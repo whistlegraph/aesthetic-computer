@@ -48,7 +48,7 @@ function paint({ wipe, screen, system, pen }) {
   // console.log("Painting:", system.painting.width, system.painting.height);
 
   wipe(32)
-    .ink(255)
+    .ink(255, 255, 0)
     // .box(boxPos.x, boxPos.y, pw, ph)
     .box(30, 30, pw, ph)
     .ink(255, 0, 0)
