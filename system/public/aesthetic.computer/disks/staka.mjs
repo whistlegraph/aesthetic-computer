@@ -6,6 +6,7 @@
 
 /* #region 🏁 TODO 
 + Now
+- [] Dummy gesture no longer functions.
 - [] Rename Staka
 - [] Create safe zone boundary that the game takes place in. 
 - [] Clean up "dead-zone" edges by tracking some video pixels outside
@@ -155,7 +156,6 @@ function sim($) {
     }
     else {
       plate = undefined;
-
     }
     // console.log("DUMMY DATA: ", plate);
   } else { //real data

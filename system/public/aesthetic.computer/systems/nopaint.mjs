@@ -134,10 +134,10 @@ function nopaint_adjust(screen, sys, painting, store, size = null) {
     if (size.w && size.h) {
       // Allow for "2x or 3x" modifiers.
       width = size.w.endsWith("x")
-        ? parseFloat(size.w.slice(0, -1)) * sys.painting.width
+        ? parseFloat(size.w.slice(0, -1)) * (sys.painting?.width || screen.width)
         : parseInt(size.w);
       height = size.h.endsWith("x")
-        ? parseFloat(size.h.slice(0, -1)) * sys.painting.height
+        ? parseFloat(size.h.slice(0, -1)) * (sys.painting?.height || screen.height)
         : parseInt(size.h);
     } else {
       width = screen.width;

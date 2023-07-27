@@ -1286,6 +1286,9 @@ function grid(
   // Always make sure we are at the mid-point of the pixel we rotate around.
   // given the image resolution's even / oddness on each axis.
   // (Make some off by 1 adjustments for specific angles.)
+
+  // debugger;
+
   if (angle) {
     // Odd width.
     if (w % 2 !== 0 && h % 2 === 0) {
@@ -1331,12 +1334,26 @@ function grid(
       if (angle >= 90 && angle < 270) x += 1 * sign(-scale.x);
       if (angle >= 180 && angle <= 270) y += 1 * sign(-scale.y);
     }
+
+    // console.log("Angle:", angle, x, y, w, h);
+
   }
 
   let centerX = x + w / 2; // Calculate the center point of the grid
   let centerY = y + h / 2;
 
   angle = radians(angle); // Sets angle to 0 if it was undefined.
+
+  // let centerX = x;
+  // let centerY = y;
+
+  // const newC = p2.rot({x: w / 2, y: h / 2 }, angle);
+
+  // centerX = abs(newC.x);
+  // centerY = abs(newC.y);
+
+  // console.log("Angle:", angle, x, y, w, h);
+  // console.log(newC);
 
   // Draw a scaled image if the buffer is present.
   // Technically, this allows us to scale any bitmap. 22.08.21.21.13
