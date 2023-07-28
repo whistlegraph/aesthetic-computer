@@ -64,7 +64,7 @@ let painting;
 // 🥾 Boot
 function boot({ get, needsPaint }) {
   get
-    .painting("2023.7.28.13.06.34")
+    .painting("2023.7.28.13.32.40")
     .by("@georgica")
     .then((p) => {
       painting = p;

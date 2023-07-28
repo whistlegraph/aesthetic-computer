@@ -3508,7 +3508,9 @@ async function makeFrame({ data: { type, content } }) {
         piece !== "girlfriend" &&
         piece !== "boyfriend" &&
         piece !== "botce" &&
+        piece !== "angel" &&
         piece !== "dad" &&
+        piece !== "kid" &&
         piece !== "decode" &&
         piece !== "liar" &&
         piece !== "mom" &&

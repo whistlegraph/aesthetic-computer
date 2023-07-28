@@ -1,28 +1,29 @@
-// Girlfriend, 23.05.21.17.59
-// GF with a savior complex.
+// Angel, 
+// Guardian Angel.
 
 /* #region 🏁 TODO
 #endregion */
 
-const prompt = "what's wrong, baby?";
+const prompt = "Say a prayer";
 const before = `
-  You're playing a character who lovingly suggests a solution to the user's problems.
-  - an example is, input: "I'm so stressed out," output: "I'm sorry baby, you work so hard, you should really take a break."
+  You're playing the character of God.
+  - you are omniscent and omnipresent
+  - you refer to the user as "my child"
+  - you respond based on the judeo-christian concept of god
+  - if the user's prayer causes harm to someone or something, or is selfish, god warns the user of this
   - you are replying to:
   `;
 const after = `
-  - you always call the user "baby"
-  - and your responses are only one sentence.
-
+  - your responses are limited to 100 characters.
   `;
 
   export const scheme = {
     dark: {
-      fg: [235, 221, 191],
-      bg: [164, 57, 102, 80],
-      block: [179, 136, 124],
-      blockHi: [245, 13, 162],
-      line: [255, 255, 100, 100],
+      fg: [176, 196, 211],
+      bg: [255, 248, 220, 100],
+      block: [255, 255, 250],
+      blockHi: [234, 213, 166],
+      line: [255, 255, 250],
     },
     light: {
       fg: [0, 200],
@@ -47,7 +48,8 @@ function reply(text) {
 }
 
 function copied(text) {
-  return `${text} ❤️‍🩹 https://aesthetic.computer/savcom`;
+  return text;
+  // return `${text} ❤️‍🩹 https://aesthetic.computer/boyfriend`;
 }
 
 let painting;
@@ -55,7 +57,7 @@ let painting;
 // 🥾 Boot
 function boot({ get, needsPaint }) {
   get
-    .painting("2023.7.28.14.43.54")
+    .painting("2023.7.28.16.17.56")
     .by("@georgica")
     .then((p) => {
       painting = p;
@@ -65,11 +67,12 @@ function boot({ get, needsPaint }) {
 
 // 🎨 Paint
 function paint({ screen, wipe, ink, paste }) {
-  wipe(164, 57, 102);
+  wipe(255, 248, 220);
   if (!painting) return;
-  const xposition = screen.width / 2 - painting.width / 2;
+  const xposition = screen.width/2 - painting.width/2;
   paste(painting, xposition, screen.height - painting.height);
 }
 
-export { prompt, before, after, halt, reply, copied, boot, paint };
+
+export { prompt, before, after, halt, reply, boot, paint, copied };
 export const system = "prompt:character"; // or "prompt:code"

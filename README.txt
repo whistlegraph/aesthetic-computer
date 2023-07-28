@@ -145,19 +145,19 @@
 
 *** Characters *** 
   - [] Polish bots with background images.
-    - [] boyfriend
-    - [] girlfriend
-    - [] liar 
-    - [] god
+    - [x] boyfriend
+    - [x] girlfriend
+    - [x] liar 
+    - [x] angel
     - [] kid
     - [x] mom, dad, gargoyle, botce 
     - [x] Fix `liar` background image sizing code.
 
-  - [] `god` bot
-    - [] "Pray to me"
+  - [x] `angel` bot
+    - [x] "Pray to me"
   
-  - [] `kid` bot
-    - [] "..."
+  - [x] `kid` bot
+    - [x] "..."
 
   * One shot bot sharing.
   - [] `liar` and `botce` Screenshot
