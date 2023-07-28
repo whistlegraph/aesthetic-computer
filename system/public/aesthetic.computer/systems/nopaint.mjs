@@ -106,13 +106,13 @@ function nopaint_act({
   }
 
   // No and then return to the prompt.
-  if (e.is("keyboard:down:n") && !loading) {
-    system.nopaint.abort();
-    jump("prompt");
-  }
+  // if (e.is("keyboard:down:n") && !loading) {
+  //   system.nopaint.abort();
+  //   jump("prompt");
+  // }
 
   // Paint and then go to the prompt, same as default behavior "`".
-  if (e.is("keyboard:down:p") && !loading) jump("prompt");
+  // if (e.is("keyboard:down:p") && !loading) jump("prompt");
 }
 
 // 📚 Library

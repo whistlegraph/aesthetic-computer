@@ -27,7 +27,7 @@ const after = `
   export const scheme = {
     dark: {
       fg: [126, 150, 111],
-      bg: [4, 19, 55],
+      bg: [4, 19, 55, 100],
       block: [77, 114, 78, 100],
       blockHi: [4, 3, 247],
       line: [77, 114, 78, 100],
@@ -59,5 +59,26 @@ function copied(text) {
   // return `${text} ❤️‍🩹 https://aesthetic.computer/boyfriend`;
 }
 
-export { prompt, before, after, halt, reply, copied };
+let painting;
+
+// 🥾 Boot
+function boot({ get, needsPaint }) {
+  get
+    .painting("2023.7.28.13.06.34")
+    .by("@georgica")
+    .then((p) => {
+      painting = p;
+      needsPaint();
+    });
+}
+
+// 🎨 Paint
+function paint({ screen, wipe, ink, paste }) {
+  wipe(4, 19, 55);
+  if (!painting) return;
+  const xposition = screen.width / 2 - painting.width / 2;
+  paste(painting, xposition, screen.height - painting.height);
+}
+
+export { prompt, before, after, halt, reply, copied, boot, paint };
 export const system = "prompt:character"; // or "prompt:code"
