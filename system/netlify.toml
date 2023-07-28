@@ -64,6 +64,11 @@
 #   status = 200
 #   force = true
 [[redirects]]
+   from = "https://botce.ac/*"
+   to = "https://aesthetic-computer.netlify.app/botce"
+   status = 200
+   force = true
+[[redirects]]
   from = "/media/*"
   to = "https://aesthetic-computer-router.aesthetic-computer.workers.dev/media/:splat"
   # to = "http://localhost:8787/media/:splat" # Uncomment for developing the Cloudflare worker.
