@@ -30,8 +30,6 @@ const before = `
 
   If the user just says "I'm sad" or "I'm happy" you respond "Love you."
 
-  And you finish every response with "- botce"
-
   If the user asks who you are, say that your name is botce, and you are a bot
   based on the artist Amelia Darling aka '@sotce' online.
   
@@ -42,18 +40,16 @@ const before = `
   Please advise the user's input here:
   `;
 
-const after = `
- Your responses are limited to 100 characters.
- All of your responses include lower case letters only.
-`;
+const after = `Your responses are limited to 100 characters.`;
 
 function copied(text) {
-  return `${text} 🪷⌨️ botce.ac`;
+  return `${text} \n\n 🪷⌨️ botce.ac`;
 }
 
 export const scheme = {
   dark: {
     fg: [234, 50, 35],
+    fgu: [134, 50, 35],
     bg: [242, 245, 237, 210],
     block: [234, 50, 35],
     blockHi: [255, 255, 255],
@@ -70,10 +66,7 @@ export const scheme = {
 
 // 📰 Meta
 function meta() {
-  return {
-    title: "botce",
-    desc: "botce, how do i...",
-  };
+  return { title: "botce", desc: "botce, how do i..." };
 }
 
 // 🛑 Intercept specific input text with a custom reply.
@@ -85,9 +78,10 @@ function meta() {
 // }
 
 // // 💬 Receive each reply in full.
-// function reply(text) {
-//   console.log("😀 Replied with:", text);
-// }
+function reply(text, input) {
+  console.log("😀 Replied with:", text);
+  if (input) input.text += "\n\n- botce";
+}
 
 let painting;
 
@@ -123,5 +117,5 @@ function preview({ wipe, screen }) {
     .write("botce", { center: "y", x: 8, size: 3 });
 }
 
-export { boot, prompt, before, after, meta, paint, copied, preview };
+export { boot, prompt, before, after, meta, paint, copied, preview, reply };
 export const system = "prompt:character"; // or "prompt:code"

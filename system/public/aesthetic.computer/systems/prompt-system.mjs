@@ -86,20 +86,23 @@ export async function prompt_boot(
       $.send({ type: "keyboard:lock" });
 
       let firstAnd = true; // Clear the text on first reply.
+      input.submittedText = ""; // Clear any previously submitted text cache.
 
       abort = conversation.ask(
         { prompt: text, program, hint },
         function and(msg) {
-          input.text = firstAnd ? msg : input.text + msg;
+          if (firstAnd) input.submittedText = input.text;
+          input.text = firstAnd ? input.text + "\n\n" + msg : input.text + msg;
           input.snap();
           firstAnd = false;
         },
         function done() {
           messageComplete = true;
           processing = input.lock = false;
-          reply?.(input.text);
+          reply?.(input.text, input);
           input.bakePrintedText();
           input.clearUserText();
+          // input.submittedText = ""; 
           input.runnable = false;
           input.showButton($);
           $.needsPaint();
@@ -109,6 +112,7 @@ export async function prompt_boot(
           $.needsPaint();
           reply?.(input.text);
           //input.#lastPrintedText = input.text;
+          input.submittedText = ""; 
           processing = input.lock = false;
           input.bakePrintedText();
           input.runnable = false;
