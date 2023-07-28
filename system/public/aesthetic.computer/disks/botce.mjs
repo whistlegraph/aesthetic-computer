@@ -6,7 +6,7 @@
 [] If pasted text is empty, then say "Empty" instead of "Pasted".
   - [] Get rid of paste's "two option" modal?
 [-] Respond well to "who wrote you" (Replace default GPT response).
-[] Upgrade to gpt4 on the server using a flag.0
+[] Upgrade to gpt4 on the server using a flag.
 [] Send a version to Amelia.
 + Done
 [x] Get `botce.ac` working.

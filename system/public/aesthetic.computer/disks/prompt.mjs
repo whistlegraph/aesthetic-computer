@@ -127,7 +127,7 @@ async function boot({
       firstActivation = false; // Assume we've activated if returning from
       //                          elsewhere.
     }
-    system.prompt.input.showButton(api, { nocopy: true });
+    system.prompt.input.showButton(api, { nocopy: true, nopaste: true });
   }
 
   // Activate and reset input text if returning to the prompt from elsewhere.
