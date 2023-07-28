@@ -17,7 +17,7 @@ const after = `
 export const scheme = {
   dark: {
     fg: [6, 180, 180],
-    bg: [255, 225, 4, 220],
+    bg: [255, 225, 4, 90],
     block: [255, 1, 25],
     blockHi: [255, 255, 255],
     line: [255, 255, 255],
@@ -53,7 +53,7 @@ let painting;
 // 🥾 Boot
 function boot({ get, needsPaint }) {
   get
-    .painting("2023.7.12.16.16.02")
+    .painting("2023.7.28.15.15.29")
     .by("@georgica")
     .then((p) => {
       painting = p;
@@ -65,10 +65,8 @@ function boot({ get, needsPaint }) {
 function paint({ screen, wipe, ink, paste }) {
   wipe(255, 225, 4);
   if (!painting) return;
-  let scale = 0.25;
-  let scaledpainting = scale * painting.width;
-  let xposition = screen.width - scaledpainting;
-  paste(painting, xposition, 0, scale);
+  const xposition = screen.width / 2 - painting.width / 2;
+  paste(painting, xposition, screen.height - painting.height);
 }
 
 export { prompt, before, after, halt, reply, copied, boot, paint };
