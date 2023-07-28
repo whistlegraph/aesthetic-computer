@@ -2502,7 +2502,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // This is a bit messy compared to what happens inside of content.reframe -> frame below. 22.10.27.02.05
     if (
       content.pixels?.byteLength > 0 &&
-      (content.width === screen.width && content.height === screen.height)
+      content.width === screen.width &&
+      content.height === screen.height
     ) {
       screen.pixels = new Uint8ClampedArray(content.pixels);
       // screen.width = content.width;
@@ -3608,12 +3609,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         };
 
         reader.readAsText(file);
-      } else if (ext === "png") {
+      } else if (
+        ext === "png" ||
+        ext === "jpeg" ||
+        ext === "jpg" ||
+        ext === "gif" ||
+        ext === "webp"
+      ) {
         const bitmap = await toBitmap(file);
         send({
           type: "dropped:bitmap",
           content: {
-            name: file.name.replace(".png", ""),
+            name: file.name.replace("." + ext, ""),
             source: bitmap,
           },
         });
