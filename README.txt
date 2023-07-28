@@ -72,6 +72,7 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+
 *** faster user media urls ***
  - [] Why is the handle lookup being so goddamn slow?
   - [] Profile it on local...
@@ -95,6 +96,7 @@
     - [] Poem will implement TextInput, but not the prompt system.
 
 *** Polishing ***
+  - [] Remove paste button from homepage 
   - [] Painting now needs zoom...
   - [] NaskjdlkjsETWORK FAILURE
   - [👱‍♀️] Add painting include support and images to front-facing bots. (`gargoyle`, `liar` … )
@@ -116,6 +118,7 @@
     - [] "?" jumps to a `learn piece` page for learning more about a piece.
   - [] `Ctrl+x` fullscreen keyboard shortcut does not work on `prompt`.
   + Done
+  - [x] Eliminate Enter button download for painting and also N and P shortcuts. 
   - [x] Better dynamic `preview` / thumbnail images.
   - [x] More forgivable colon spacing.
   - [x] Shouldn't be able to load the prompt from the prompt / 
@@ -136,44 +139,28 @@
   - [x] Fix Safari regression.
   - [x] Design “copy” wrapper text for front-facing bots. @ggacjp.
 
-*** Georgica AC *** 
-  - [] When bot is not forgetful, exiting chat should erase the history
+*** Learn ***
   - [🧡] "?" appears after typing a valid word which jumps to a learn page for learning more about a command.
-  - [] `relationship` dialogue screen
-    - [] Where `boyfriend` and `girlfriend` are in an automated conversation.
-      - Screen is separated vertically as two buttons, tapping either button
-        sends a response to the other. Multiple sends from one is possible,
-        but not while replying.
+  - [] Start writing "learn" pages for some existing commands or bots.
 
-       | girlfriend | 
-       --------------
-       | boyfriend  |
+*** Characters *** 
+  - [] Polish bots with background images.
+    - [] boyfriend
+    - [] girlfriend
+    - [] liar 
+    - [] god
+    - [] kid
+    - [x] mom, dad, gargoyle, botce 
+    - [x] Fix `liar` background image sizing code.
 
-  - [] `boyfriend` should be able to reply using a "Message read" receipt style
-       rendering mode on the reply that gets colored. 
-  - [] `boyfriend / girlfriend` conversation share
-    - [] Conversation: Reply Screen
-          _____________________________________
-         | 
-         |    Blah blah.
-         |
-         |    Ble bleeee bleee blee blee.
-         |
-         |    - bf/gf
-         |
-         |    [Copy]                    [Share]
-         |    [Forget]         <--- 4/4 [Reply]         
-         |_____________________________________
-         |                              [Reply]          
-         |                     <--- 2/2 [Reply]          
-         |                     <--- 3/3 [Reply]          
-         |                     <--- 4/4 [Reply]          
-         |                     <--- 3/4 --->          
-         |                     <--- 2/4 --->          
-         |                          1/4 --->          
-                  (Also include progress bar.)
+  - [] `god` bot
+    - [] "Pray to me"
+  
+  - [] `kid` bot
+    - [] "..."
 
-  - [] `liar` Screenshot (forgetful sharing)
+  * One shot bot sharing.
+  - [] `liar` and `botce` Screenshot
     - [] User's reply stays on screen while the response is being written.
     - [] A button appears to "download" or "share" which allows user
          to download the image to their camera roll.
@@ -191,11 +178,45 @@
          |    [Back]                 [Share]
          |________________________________________
 
-  - [] Polish bots with background images.
-    - [] Remove paste button from homepage 
-    - [] Enter button should return you to prompt, not download
-    - [] Fix `liar` background image sizing code.
+  * Conversation sharing. 
+  - [] `boyfriend / girlfriend` conversation share
+    - [] Conversation: Reply Screen
+          _____________________________________
+         | 
+         |    Blah blah.
+         |
+         |    Ble bleeee bleee blee blee.
+         |
+         |    - bf/gf
+         |
+         |                              [Share]
+         |    [Copy]           <--- 4/4 [Reply]         
+         |_____________________________________
+         |                              [Reply]          
+         |                     <--- 2/2 [Reply]          
+         |                     <--- 3/3 [Reply]          
+         |                     <--- 4/4 [Reply]          
+         |                     <--- 3/4 --->          
+         |                     <--- 2/4 --->          
+         |                          1/4 --->          
+                  (Also include progress bar.)
+
+  - [] `boyfriend` should be able to reply using a "Message read" receipt style
+        rendering mode on the reply that gets colored. 
+
+  * Multiple characters interacting. 
+  - [] `relationship` dialogue screen
+    - [] Where `boyfriend` and `girlfriend` are in an automated conversation.
+      - Screen is separated vertically as two buttons, tapping either button
+        sends a response to the other. Multiple sends from one is possible,
+        but not while replying.
+
+       | girlfriend | 
+       --------------
+       | boyfriend  |
+
   + Done
+  - [x] When bot is not forgetful, exiting chat should erase the history
   - [x] Mom and Dad bots should at some point say "ask your mom / dad" 
   - [x] Auto-expand the gutter.
   (Requires that gutter is always visible on screen by default.)
@@ -204,9 +225,6 @@
   - [x] Start writing `learn` page content.
     - `rect` (A brush example)
     - `liar` (A bot example) 
-
-*** Learn ***
-- [] Start writing "learn" pages for some existing commands or bots.
 
 *** ambient system-wide cursor movement. ***
   - [] Optimize rendering... move scream and label and ambientCursors
