@@ -92,11 +92,13 @@ class Typeface {
       // 2. Load all other keys / glyphs over the network.
       return $preload(
         `aesthetic.computer/disks/drawings/${this.name}/${location}.json`
-      ).then((res) => {
-        this.glyphs[glyph] = res;
-      }).catch((err) => {
-        console.error("Couldn't load typeface:", err);
-      });
+      )
+        .then((res) => {
+          this.glyphs[glyph] = res;
+        })
+        .catch((err) => {
+          console.error("Couldn't load typeface:", err);
+        });
     });
 
     // Wait for all the promises to resolve before returning
@@ -178,8 +180,9 @@ class Typeface {
 // An interactive text prompt object.
 class TextInput {
   #text; // text content
-  #lastPrintedText = ""; // a place to cache a previous reply
-  #lastUserText = ""; // cache the user's edited text
+  #lastPrintedText = ""; // a place to cache a previous reply.
+  #lastUserText = ""; // cache the user's in-progress edited text.
+  submittedText = ""; // cache the user's submitted text.
 
   #shifting = false; // Whether we ar emoving the cursor or not.
 
@@ -388,12 +391,12 @@ class TextInput {
     const ti = this;
     const prompt = this.#prompt;
 
-    function paintBlockLetter(char, pos) {
+    function paintBlockLetter(char, pos, alt = false) {
       if (char.charCodeAt(0) === 10 && ti.#renderSpaces) {
         $.ink([255, 0, 0, 127]).box(pos.x, pos.y, 4);
       } else if (char !== " " && char.charCodeAt(0) !== 10) {
         const pic = ti.typeface.glyphs[char] || ti.typeface.glyphs["?"];
-        $.ink(ti.pal.fg).draw(pic, pos, prompt.scale);
+        $.ink(!alt ? ti.pal.fg : ti.pal.fgu).draw(pic, pos, prompt.scale); // Draw each character.
       } else if (ti.#renderSpaces) {
         $.ink([0, 255, 0, 127]).box(pos.x, pos.y, 3);
       }
@@ -402,14 +405,21 @@ class TextInput {
     // 🗺️ Render the text from the maps! (Can go both ways...)
 
     // A. Draw all text from displayToTextMap.
+    let submittedIndex = 0;
     Object.keys(prompt.cursorToTextMap).forEach((key) => {
       const [x, y] = key.split(":").map((c) => parseInt(c));
       const char = this.text[prompt.cursorToTextMap[key]];
-      paintBlockLetter(char, prompt.pos({ x, y }));
+      let fromSubmitted = false;
+      if (!this.canType && submittedIndex < this.submittedText.length) {
+        if (char === this.submittedText[submittedIndex]) fromSubmitted = true;
+        submittedIndex += 1;
+      }
+      paintBlockLetter(char, prompt.pos({ x, y }), fromSubmitted);
     });
 
     // Or...
     // B. Draw all text from textToDisplayMap
+    //    TODO: Include the submitted text index. 23.07.28.15.47
     // prompt.textToCursorMap.forEach((pos, i) => {
     //   const char = this.text[i];
     //   paintBlockLetter(char, prompt.pos(pos));

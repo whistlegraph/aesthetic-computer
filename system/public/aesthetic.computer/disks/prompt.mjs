@@ -648,21 +648,17 @@ function paint($) {
 
   $.layer(1); // 🅱️ And above it...
 
-  let historyTexts;
   const { screen, ink, history } = $;
 
-  if (history.length === 0) {
-    historyTexts = [];
-    // historyTexts = ["aesthetic.computer"];
-  } else {
-    historyTexts = history.map((h) => h.replaceAll("~", " "));
-  }
+  if ($.system.prompt.input.canType) {
+    let historyTexts =
+      history.length === 0 ? [] : history.map((h) => h.replaceAll("~", " "));
 
-  // TODO: Just use write for this...
-  historyTexts.reverse().forEach((t, i) => {
-    const ii = i + 1;
-    ink(140, 90, 235, 80 / ii).write(t, { x: 6, y: 18 + 12 * i });
-  });
+    historyTexts.reverse().forEach((t, i) => {
+      const ii = i + 1;
+      ink(140, 90, 235, 80 / ii).write(t, { x: 6, y: 18 + 12 * i });
+    });
+  }
 
   if (uploadProgress > 0 || uploadProgress === -1) {
     ink(0).box(1, 1, screen.width - 2, 2);
@@ -856,6 +852,7 @@ export const wrap = "word"; // or "char"
 export const scheme = {
   dark: {
     fg: [255, 100],
+    fgu: [200, 30, 100, 200],
     bg: [70, 50, 100],
     block: [200, 30, 100],
     blockHi: [255, 100, 0],
@@ -863,6 +860,7 @@ export const scheme = {
   },
   light: {
     fg: [0, 200],
+    fgu: [100, 200],
     bg: [170, 150, 200],
     block: [30, 200, 200],
     blockHi: [200, 200, 30],
