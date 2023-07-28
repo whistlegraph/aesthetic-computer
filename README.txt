@@ -72,7 +72,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-
 *** faster user media urls ***
  - [] Why is the handle lookup being so goddamn slow?
   - [] Profile it on local...
@@ -96,7 +95,6 @@
     - [] Poem will implement TextInput, but not the prompt system.
 
 *** Polishing ***
-  - [] Remove paste button from homepage 
   - [] Painting now needs zoom...
   - [] NaskjdlkjsETWORK FAILURE
   - [👱‍♀️] Add painting include support and images to front-facing bots. (`gargoyle`, `liar` … )
@@ -118,6 +116,8 @@
     - [] "?" jumps to a `learn piece` page for learning more about a piece.
   - [] `Ctrl+x` fullscreen keyboard shortcut does not work on `prompt`.
   + Done
+  - [x] Remove paste button from homepage on first appearance.
+  - [x] Dragging a new image into a.c should reset the pan.
   - [x] Eliminate Enter button download for painting and also N and P shortcuts. 
   - [x] Better dynamic `preview` / thumbnail images.
   - [x] More forgivable colon spacing.

@@ -655,12 +655,14 @@ const $commonApi = {
       },
       // Replace a painting entirely, remembering the last one.
       // (This will always enable fixed resolution mode.)
-      replace: ({ system, store, needsPaint }, painting) => {
+      replace: ({ system, screen, store, needsPaint }, painting) => {
         system.painting = painting; // Update references.
         store["painting"] = system.painting;
         store.persist("painting", "local:db"); // Persist to storage.
         store["painting:resolution-lock"] = true;
         store.persist("painting:resolution-lock", "local:db");
+        system.nopaint.resetTransform({ system, screen }); // Reset transform.
+        system.nopaint.storeTransform(store, system);
         system.nopaint.addUndoPainting(system.painting);
         system.nopaint.needsPresent = true;
         needsPaint();
