@@ -161,8 +161,7 @@
 
   * One shot bot sharing.
   - [] `liar` and `botce` Screenshot
-    - [] User's reply stays on screen while the response is being written.
-    - [] A button appears to "download" or "share" which allows user
+    - [🧡] A button appears to "download" or "share" which allows user
          to download the image to their camera roll.
 
          Forgetful: Reply Screen
@@ -216,6 +215,7 @@
        | boyfriend  |
 
   + Done
+  - [x] User's reply stays on screen while the response is being written.
   - [x] When bot is not forgetful, exiting chat should erase the history
   - [x] Mom and Dad bots should at some point say "ask your mom / dad" 
   - [x] Auto-expand the gutter.

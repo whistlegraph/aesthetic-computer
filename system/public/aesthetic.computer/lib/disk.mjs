@@ -2751,7 +2751,8 @@ async function makeFrame({ data: { type, content } }) {
         // }
 
         if (
-          data.key === "`" &&
+          (data.key === "`" ||
+            (data.key === "Escape" && system !== "prompt")) &&
           currentPath !== "aesthetic.computer/disks/prompt"
         ) {
           // $api.send({ type: "keyboard:enabled" }); // Enable keyboard flag.
