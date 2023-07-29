@@ -2,13 +2,13 @@
 // Sotce Q&A / tumblr bot.
 
 /* #region 🏁 TODO
-[-] Add custom button colors.
-[] If pasted text is empty, then say "Empty" instead of "Pasted".
+[🟠] If pasted text is empty, then say "Empty" instead of "Pasted".
   - [] Get rid of paste's "two option" modal?
 [-] Respond well to "who wrote you" (Replace default GPT response).
 [] Upgrade to gpt4 on the server using a flag.
 [] Send a version to Amelia.
 + Done
+[x] Add custom button colors.
 [x] Get `botce.ac` working.
 [x] Reset the conversation history on refresh.
 [x] Set the thumbnail image
@@ -54,6 +54,12 @@ export const scheme = {
     block: [234, 50, 35],
     blockHi: [255, 255, 255],
     line: [234, 50, 35],
+    btn: [255, 200, 200],
+    btnTxt: [234, 50, 35],
+    btnHvr: [234, 50, 35],
+    btnHvrTxt: [255, 200, 200],
+    btnReply: [230, 140, 140],
+    btnReplyTxt: [200, 50, 50],
   },
   light: {
     fg: [234, 50, 35],
