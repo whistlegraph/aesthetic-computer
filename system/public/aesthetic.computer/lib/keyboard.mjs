@@ -60,6 +60,8 @@ export class Keyboard {
         ctrl: e.ctrlKey,
       });
 
+      console.log(this.events[0], this.events[1]);
+
       if (e.key === "ArrowUp") e.preventDefault();
     });
 

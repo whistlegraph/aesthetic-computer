@@ -1207,7 +1207,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             input.focus();
             return true;
           } else if (e.key === "Enter" && e.shiftKey === false) {
-            input.blur();
+            // input.blur(); // Deprecated 23.07.29.17.44
             return false;
           }
         };
@@ -1228,6 +1228,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         };
 
         form.addEventListener("submit", (e) => {
+          console.log("submitted...");
           e.preventDefault();
           //console.log("SUBMIT", e);
           //if (!sandboxed) keyboard.events.push(enterEvent);
@@ -2403,7 +2404,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "sfx:play") {
       if (audioContext) {
         // Instantly decode the audio before playback if it hasn't been already.
-
         // 🌡️ TODO: `sfx` could be scraped for things that need to be decoded
         //          upon audio activation. This would probably be helpful
         //          in terms of creating a sampler and asynchronously
