@@ -469,11 +469,20 @@ class TextInput {
       $.ink(255, 0, 0).box(pos.x + 1, pos.y + 3, 3);
     }
 
+    // Build custom color schemes for the `ui.TextButton`s if they were defined.
+    let btnScheme, btnHvrScheme;
+    const pal = this.pal;
+    if (pal.btn && pal.btnTxt)
+      btnScheme = [pal.btn, pal.btnTxt, pal.btnTxt, pal.btn];
+    if (pal.btnHvr && pal.btnHvrTxt)
+      btnHvrScheme = [pal.btnHvr, pal.btnHvrTxt, pal.btnHvrTxt, pal.btnHvr];
+
     // Enter Button
     if (!this.enter.btn.disabled) {
       this.enter.reposition({ right: 6, bottom: 6, screen: frame });
-      this.enter.paint($);
+      this.enter.paint($, btnScheme, btnHvrScheme);
 
+      // Outline the whole screen.
       if (this.enter.btn.down) {
         $.ink(255, 0, 200, 64).box(0, 0, $.screen.width, $.screen.height, "in");
       }
@@ -483,14 +492,22 @@ class TextInput {
     if (!this.copy.btn.disabled) {
       this.copy.reposition({ left: 6, bottom: 6, screen: frame });
       this.copy.btn.publishToDom($, "copy", this.#coatedCopy);
-      this.copy.paint({ ink: $.ink }, this.#copyPasteScheme);
+      this.copy.paint(
+        { ink: $.ink },
+        this.#copyPasteScheme || btnScheme,
+        btnHvrScheme
+      );
     }
 
     // Paste Button
     if (!this.paste.btn.disabled) {
       this.paste.reposition({ left: 6, bottom: 6, screen: frame });
       this.paste.btn.publishToDom($, "paste");
-      this.paste.paint({ ink: $.ink }, this.#copyPasteScheme);
+      this.paste.paint(
+        { ink: $.ink },
+        this.#copyPasteScheme || btnScheme,
+        btnHvrScheme
+      );
     }
 
     // Return false if we have loaded every glyph.
@@ -567,6 +584,19 @@ class TextInput {
     this.canType = false;
     this.clearUserText();
     this.showButton($);
+  }
+
+  #buildCopyPasteScheme() {
+    // Use default or set custom scheme for inactive button reply.
+    let scheme = [64, 127, 127, 64];
+    if (this.pal.btnReply && this.pal.btnReplyTxt)
+      scheme = [
+        this.pal.btnReply,
+        this.pal.btnReplyTxt,
+        this.pal.btnReplyTxt,
+        this.pal.btnReply,
+      ];
+    return scheme;
   }
 
   // Handle user input.
@@ -1064,7 +1094,9 @@ class TextInput {
       }
 
       this.copy.txt = copied ? "Copied" : "Failed";
-      this.#copyPasteScheme = [64, 127, 127, 64]; // Greyed out.
+
+      this.#copyPasteScheme = this.#buildCopyPasteScheme(); // Greyed out.
+
       needsPaint();
       clearTimeout(this.#copyPasteTimeout);
       this.#copyPasteTimeout = setTimeout(() => {
@@ -1085,7 +1117,7 @@ class TextInput {
       }
 
       this.paste.txt = pasted ? "Pasted" : "Failed";
-      this.#copyPasteScheme = [64, 127, 127, 64]; // Greyed out.
+      this.#copyPasteScheme = this.#buildCopyPasteScheme(); // Greyed out.
       needsPaint();
       clearTimeout(this.#copyPasteTimeout);
       this.#copyPasteTimeout = setTimeout(() => {
