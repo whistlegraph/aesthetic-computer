@@ -72,10 +72,13 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `baktok` ***
+  - [] Record user voice and play it backwards, for backwards vocal training.
+
 *** faster user media urls ***
- - [] Why is the handle lookup being so goddamn slow?
-  - [] Profile it on local...
-  - [] Would redis make more sense?
+  - [] Why is the handle lookup being so goddamn slow?
+    - [] Profile it on local...
+    - [] Would redis make more sense?
 
  - [-] Clean media urls should just go to a painting "viewer" type of page.
  - [] https://docs.netlify.com/edge-functions/limits
