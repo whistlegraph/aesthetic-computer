@@ -2,7 +2,7 @@
 // Sotce Q&A / tumblr bot.
 
 /* #region 🏁 TODO
-[] Add custom button colors.
+[-] Add custom button colors.
 [] If pasted text is empty, then say "Empty" instead of "Pasted".
   - [] Get rid of paste's "two option" modal?
 [-] Respond well to "who wrote you" (Replace default GPT response).
