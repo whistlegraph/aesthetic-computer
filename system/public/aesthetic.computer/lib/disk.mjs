@@ -2323,8 +2323,9 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
-  if (type === "paste:pasted") {
-    actAlerts.push("clipboard:paste:pasted");
+  // Handles: clipboard:paste:pasted, clipboard:paste:pasted:empty
+  if (type.startsWith("paste:pasted")) {
+    actAlerts.push("clipboard:" + type);
     return;
   }
 
@@ -3183,6 +3184,7 @@ async function makeFrame({ data: { type, content } }) {
         const data = {
           name,
           is: (e) => e === name,
+          of: (e) => name.startsWith(e),
         };
         $api.event = data;
         try {

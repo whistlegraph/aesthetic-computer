@@ -1017,7 +1017,6 @@ class TextInput {
         this.enter.btn.box.contains(e) &&
         !this.enter.btn.down
       ) {
-        console.log("locking keyboard");
         $.send({ type: "keyboard:lock" });
       }
 
@@ -1077,9 +1076,7 @@ class TextInput {
       // 🔲 Paste
       this.paste.btn.act(e, {
         down: () => needsPaint(),
-        push: () => {
-          needsPaint();
-        },
+        push: () => needsPaint(),
         cancel: () => needsPaint(),
       });
     }
@@ -1109,14 +1106,19 @@ class TextInput {
 
     // 🗞️ Paste UI signal.
     if (e.name?.startsWith("clipboard:paste")) {
-      const pasted = e.is("clipboard:paste:pasted");
-      if (debug) {
-        pasted
-          ? console.log("📋 Paste: Pasted 🙃")
-          : console.warn("📋 Paste: Failed ⚠️");
+      let label;
+      if (e.is("clipboard:paste:pasted")) {
+        if (debug) console.log("📋 Paste: Pasted 🙃");
+        label = "Pasted";
+      } else if (e.is("clipboard:paste:pasted:empty")) {
+        if (debug) console.warn("📋 Paste: Empty 👐️");
+        label = "Empty";
+      } else {
+        if (debug) console.warn("📋 Paste: Failed ⚠️");
+        label = "Failed";
       }
 
-      this.paste.txt = pasted ? "Pasted" : "Failed";
+      this.paste.txt = label;
       this.#copyPasteScheme = this.#buildCopyPasteScheme(); // Greyed out.
       needsPaint();
       clearTimeout(this.#copyPasteTimeout);

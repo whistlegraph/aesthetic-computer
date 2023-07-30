@@ -2,12 +2,14 @@
 // Sotce Q&A / tumblr bot.
 
 /* #region 🏁 TODO
-[🟠] If pasted text is empty, then say "Empty" instead of "Pasted".
-  - [] Get rid of paste's "two option" modal?
-[-] Respond well to "who wrote you" (Replace default GPT response).
+[] Make sure enter key works on android. (test @ida's phone)
 [] Upgrade to gpt4 on the server using a flag.
+[] Finalize thumbnail image.
+[-] Respond well to "who wrote you" (Replace default GPT response).
 [] Send a version to Amelia.
 + Done
+[x] If pasted text is empty, then say "Empty" instead of "Pasted".
+  - [c] Get rid of paste's "two option" modal on ios?
 [x] Add custom button colors.
 [x] Get `botce.ac` working.
 [x] Reset the conversation history on refresh.
