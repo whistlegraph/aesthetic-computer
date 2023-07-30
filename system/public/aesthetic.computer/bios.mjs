@@ -1232,7 +1232,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         };
 
         form.addEventListener("submit", (e) => {
-          console.log("submitted...");
           e.preventDefault();
           //console.log("SUBMIT", e);
           //if (!sandboxed) keyboard.events.push(enterEvent);
@@ -1249,14 +1248,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             keyboard.events.push(enter);
           }
         });
-        //}
 
-        input.addEventListener("input", (e) => {
+        input.addEventListener("beforeinput", (e) => {
           let input = e.data;
 
           const pressedKeys = [];
 
           if (e.inputType === "deleteContentBackward") {
+            // console.log(e.inputType, e.target.value);
+            // alert(e.inputType);
             pressedKeys.push("Backspace");
           } else if (
             ["insertText", "insertCompositionText"].includes(e.inputType)
@@ -1286,12 +1286,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               ctrl: false,
             });
           });
+        });
 
-          if (input === "Backspace") {
-            e.target.value = e.target.value.slice(0, -1);
-          } else {
-            e.target.value += input;
-          }
+        input.addEventListener("input", (e) => {
+          e.target.value = "";
+          e.target.value = "_";
         });
 
         window.addEventListener("blur", (e) => {
