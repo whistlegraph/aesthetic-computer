@@ -59,7 +59,7 @@ export async function prompt_boot(
 
       if (halted) {
         messageComplete = true;
-        if (halted.left) return; // Ditch if we already loaded a piece. 
+        if (halted.left) return; // Ditch if we already loaded a piece.
 
         // Assume we set custom replied state via `TextInput -> replied`.
         if (halted.replied) {
@@ -102,7 +102,7 @@ export async function prompt_boot(
           reply?.(input.text, input);
           input.bakePrintedText();
           input.clearUserText();
-          // input.submittedText = ""; 
+          // input.submittedText = "";
           input.runnable = false;
           input.showButton($);
           $.needsPaint();
@@ -112,7 +112,7 @@ export async function prompt_boot(
           $.needsPaint();
           reply?.(input.text);
           //input.#lastPrintedText = input.text;
-          input.submittedText = ""; 
+          input.submittedText = "";
           processing = input.lock = false;
           input.bakePrintedText();
           input.runnable = false;
@@ -177,14 +177,11 @@ export function prompt_act($) {
     e.is("lift") ||
     e.is("focus") ||
     e.is("reframed") ||
-    e.is("pasted:text") ||
     e.is("defocus") ||
     e.is("keyboard:open") ||
     e.is("keyboard:close") ||
-    e.is("clipboard:copy:copied") ||
-    e.is("clipboard:copy:failed") ||
-    e.is("clipboard:paste:pasted") ||
-    e.is("clipboard:paste:failed")
+    e.is("pasted:text") ||
+    e.of?.("clipboard")
   ) {
     input?.act($);
     inputHandled = true;

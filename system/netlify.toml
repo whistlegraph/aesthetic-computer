@@ -59,15 +59,10 @@
     Content-Security-Policy = "script-src 'self' blob: 'unsafe-eval';"
     Vary = "*"
 # [[redirects]]
-#   from = "https://botce.ac"
-#   to = "https://aesthetic-computer.netlify.app/botce"
-#   status = 200
-#   force = true
-[[redirects]]
-   from = "https://botce.ac/*"
-   to = "https://aesthetic-computer.netlify.app/botce"
-   status = 200
-   force = true
+#    from = "https://botce.ac/*"
+#    to = "https://aesthetic-computer.netlify.app/botce"
+#    status = 200
+#    force = true
 [[redirects]]
   from = "/media/*"
   to = "https://aesthetic-computer-router.aesthetic-computer.workers.dev/media/:splat"
