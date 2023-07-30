@@ -37,22 +37,24 @@ export default async function handler(req) {
       let max_tokens = 64;
 
       // Tweak for "code" based formal output.
-      if (hint === "code") {
+      if (hint.startsWith("code")) {
         temperature = 0.4;
         top_p = 1;
         max_tokens = 256;
       }
 
       // Tweak for "character" dialogical output.
-      if (hint === "character") {
+      if (hint.startsWith("character")) {
         temperature = 1;
         top_p = 0.5;
         max_tokens = 256;
       }
 
+      const model = hint.split(":")[1] || "gpt-3.5-turbo";
+
       // Request streaming response
       const payload: OpenAIStreamPayload = {
-        model: "gpt-3.5-turbo",
+        model,
         messages,
         temperature,
         top_p,
@@ -178,4 +180,3 @@ async function OpenAIStream(payload: OpenAIStreamPayload) {
 
   return stream;
 }
-
