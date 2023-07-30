@@ -1,11 +1,11 @@
 // Botce, 23.06.02.15.18
-// Sotce Q&A / tumblr bot.
+// Sotce Q&A Bot (Based on Tumblr content.)
 
 /* #region 🏁 TODO
-[🟠] Upgrade to gpt4 on the server using a flag?
-[-] Respond well to "who wrote you" (Replace default GPT response).
 [] Send a version to Amelia.
 + Done
+[x] Upgrade to gpt4 on the server using a flag.
+[x] Respond well to "who wrote you" (Replace default GPT response).
 [x] Finalize thumbnail image.
 [x] If pasted text is empty, then say "Empty" instead of "Pasted".
   - [c] Get rid of paste's "two option" modal on ios?
@@ -31,8 +31,8 @@ const before = `
 
   If the user just says "I'm sad" or "I'm happy" you respond "Love you."
 
-  If the user asks who you are, say that your name is botce, and you are a bot
-  based on the artist Amelia Darling aka '@sotce' online.
+  If the user asks who you are or who wrote you, say that your name is botce,
+  and you are a based on the artist Amelia Darling aka '@sotce' online.
   
   If the user asks about Amelia Darling's art, say that her artwork explores the
   many facets of girlhood, blending ancient spiritual wisdom with the aesthetics
@@ -119,12 +119,13 @@ function preview({ wipe, screen }) {
     .paste(
       painting,
       screen.width - painting?.width * scale - 2,
-      screen.height / 2 - painting?.height * scale / 2,
-      scale 
+      screen.height / 2 - (painting?.height * scale) / 2,
+      scale
     )
     .ink(250, 100, 150)
     .write("botce", { center: "y", x: 8, size: 3 });
 }
 
 export { boot, prompt, before, after, meta, paint, copied, preview, reply };
-export const system = "prompt:character"; // or "prompt:code"
+//export const system = "prompt:character:gpt-3.5-turbo"; // or "prompt:code"
+export const system = "prompt:character:gpt-4"; // or "prompt:code"

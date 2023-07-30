@@ -2118,7 +2118,7 @@ async function load(
               before: module.before,
               after: module.after,
             },
-            hint: module.system.split(":")[1], // See `ask.ts`.
+            hint: module.system.split(":").slice(1).join(":"), // See `ask.ts`.
             forgetful: module.forgetful || false,
           },
           module.reply,
