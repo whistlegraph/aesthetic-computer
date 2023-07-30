@@ -948,6 +948,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (hitboxes[content.label] !== undefined) return;
 
       let state = "up";
+      // Event handler for each button press.
       hitboxes[content.label] = async (e) => {
         const frame = canvas.getBoundingClientRect();
         const xscale = projectedWidth / canvas.width;
@@ -967,6 +968,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         //   h: content.box.h * yscale,
         // });
         // debugCtx.fillStyle = "red";
+        // debugCtx.globalAlpha = 0.5;
         // debugCtx.fillRect(dbg.x, dbg.y, dbg.w, dbg.h);
 
         const hit = hitbox.contains({ x: e.x, y: e.y });
@@ -974,8 +976,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (e.type === "pointerup" && state === "down" && hit) {
           // This is pretty specific to the "copy" clipboard
           // stuff for now. 23.06.16.15.03
-
-          console.log("Label:", content.label);
+          // console.log("🔘 Button tap label:", content.label);
 
           if (content.label === "copy") {
             try {
@@ -992,7 +993,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               pastedText = await navigator.clipboard.readText();
               // This routes through to the `pasted:text` event in `disk`.
               // where `pastedText` is sent on the next frame.
-              send({ type: "paste:pasted" });
+              send({
+                type:
+                  pastedText.length > 0 ? "paste:pasted" : "paste:pasted:empty",
+              });
             } catch (err) {
               send({ type: "paste:failed" });
             }
