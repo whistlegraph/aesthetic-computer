@@ -401,7 +401,7 @@
   - [] Submit to store with notifications enabled, usernames and posts.
 
 *** (ida mood setter) / android backspace ***
- - [x] Allow backspacing on android. (This seems to work now.)
+ - [wip] Allow backspacing on android. (This seems to work now.)
  - [-] Make sure autosuggested text input works on android
        and iOS.
        - [x] Works on iOS.

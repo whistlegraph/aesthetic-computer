@@ -2,12 +2,11 @@
 // Sotce Q&A / tumblr bot.
 
 /* #region 🏁 TODO
-[] Make sure enter key works on android. (test @ida's phone)
-[] Upgrade to gpt4 on the server using a flag.
-[] Finalize thumbnail image.
+[🟠] Upgrade to gpt4 on the server using a flag?
 [-] Respond well to "who wrote you" (Replace default GPT response).
 [] Send a version to Amelia.
 + Done
+[x] Finalize thumbnail image.
 [x] If pasted text is empty, then say "Empty" instead of "Pasted".
   - [c] Get rid of paste's "two option" modal on ios?
 [x] Add custom button colors.
@@ -52,7 +51,7 @@ export const scheme = {
   dark: {
     fg: [234, 50, 35],
     fgu: [134, 50, 35],
-    bg: [242, 245, 237, 210],
+    bg: [251, 240, 235, 210],
     block: [234, 50, 35],
     blockHi: [255, 255, 255],
     line: [234, 50, 35],
@@ -115,11 +114,13 @@ function paint({ screen, wipe, paste }) {
 }
 
 function preview({ wipe, screen }) {
-  wipe(64)
+  const scale = 0.5;
+  wipe(240, 200, 200)
     .paste(
       painting,
-      screen.width - painting?.width - 4,
-      screen.height / 2 - painting?.height / 2
+      screen.width - painting?.width * scale - 2,
+      screen.height / 2 - painting?.height * scale / 2,
+      scale 
     )
     .ink(250, 100, 150)
     .write("botce", { center: "y", x: 8, size: 3 });

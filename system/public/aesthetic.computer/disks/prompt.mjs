@@ -433,7 +433,7 @@ async function halt($, text) {
         y += system.painting.width;
       }
 
-      p.wipe("lime").paste(system.painting, x, y, {
+      p.paste(system.painting, x, y, {
         scale: { x: 1, y: 1 },
         angle,
         anchor: { x: 0, y: 0 },
