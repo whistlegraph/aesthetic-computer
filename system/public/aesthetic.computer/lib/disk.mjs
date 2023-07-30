@@ -48,8 +48,8 @@ const defaults = {
   beat: () => false, // Runs every bpm.
   act: () => false, // All user interaction.
   leave: () => false, // Before unload.
-  preview: ({ noise16Aesthetic }) => {
-    noise16Aesthetic();
+  preview: ({ wipe, slug }) => {
+    wipe(64).ink(255).write(slug, { center: "xy", size: 1 });
   },
 };
 
