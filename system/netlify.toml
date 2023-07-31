@@ -23,6 +23,8 @@
   included_files = ["backend/**/*.mjs"]
 [functions.thumbnail]
   external_node_modules = ["puppeteer"]
+[functions.icon]
+  external_node_modules = ["puppeteer"]
 [functions.session]
   external_node_modules = ["got", "redis"]
 [functions.reload]
@@ -122,6 +124,10 @@
 [[redirects]]
   from = "/thumbnail/*"
   to = "/.netlify/builders/thumbnail"
+  status = 200
+[[redirects]]
+  from = "/icon/*"
+  to = "/.netlify/builders/icon"
   status = 200
 [[redirects]]
   from = "/session/*"
