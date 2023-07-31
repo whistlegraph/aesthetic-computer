@@ -51,6 +51,12 @@ const defaults = {
   preview: ({ wipe, slug }) => {
     wipe(64).ink(255).write(slug, { center: "xy", size: 1 });
   },
+  icon: ({ glaze, wipe }) => {
+    glaze({ on: false });
+    wipe(70, 50, 100)
+      .ink(200, 30, 100)
+      .box(screen.width / 2, screen.height / 2, 48, 72, "*center");
+  },
 };
 
 let loadAfterPreamble = null;
@@ -168,6 +174,7 @@ let beat = defaults.beat;
 let act = defaults.act;
 let leave = defaults.leave;
 let preview = defaults.preview;
+let icon = defaults.icon;
 let bake; // Currently only used by the `nopaint` system.
 
 let leaving = false; // Set to true on first piece.
@@ -175,6 +182,8 @@ let leaveLoad; // A callback for loading the next disk after leaving.
 
 let previewMode = false; // Detects ?preview on a piece and yields its
 //                          preview function if it exists.
+let iconMode = false; // Detects ?icon on a piece and yields its
+//                          icon function if it exists.
 
 let module; // Currently loaded piece module code.
 let currentPath,
@@ -1367,6 +1376,7 @@ let glazeAfterReframe;
 //        resolution(display); // "display" is a global object whose width
 //                                 and height matches the hardware display
 //                                 hosting aesthetic.computer.
+let lastGap = 8;
 $commonApi.resolution = function (width, height = width, gap = 8) {
   if (typeof width === "object") {
     const props = width;
@@ -1381,7 +1391,10 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
   }
 
   // Don't do anything if there is no change and no gap update.
-  if (screen.width === width && screen.height === height && gap === 8) return;
+  if (screen.width === width && screen.height === height && gap === lastGap)
+    return;
+
+  lastGap = gap;
 
   // width = width || currentDisplay.innerWidth;
   // height = height || currentDisplay.innerHeight;
@@ -1838,8 +1851,8 @@ async function load(
 
   if (alias === false) {
     // Parse any special piece metadata.
-    const { title, desc, ogImage, twitterImage } = metadata(
-      "aesthetic.computer",
+    const { title, desc, ogImage, twitterImage, icon: iconUrl } = metadata(
+      location.host, // "aesthetic.computer",
       slug,
       // Adding the num API here is a little hacky, but needed for Freaky Flowers random metadata generation. 22.12.27
       module.meta?.({ ...parsed, num: $commonApi.num, store: $commonApi.store })
@@ -1851,6 +1864,7 @@ async function load(
       img: {
         og: ogImage,
         twitter: twitterImage,
+        icon: iconUrl
       },
       url: "https://aesthetic.computer/" + slug,
     };
@@ -2169,6 +2183,7 @@ async function load(
     }
 
     preview = module.preview || defaults.preview; // Set preview method.
+    icon = module.icon || defaults.icon; // Set preview method.
 
     // ♻️ Reset global state for this piece.
     paintCount = 0n;
@@ -2184,6 +2199,7 @@ async function load(
     currentHost = host;
     currentSearch = search;
     previewMode = parsed.search?.startsWith("preview") || false; // TODO: Parse all search params. 23.07.23.12.06
+    iconMode = parsed.search?.startsWith("icon") || false;
     currentColon = colon;
     currentParams = params;
     currentHash = hash;
@@ -3385,9 +3401,11 @@ async function makeFrame({ data: { type, content } }) {
       // default returns undefined (assume a repaint).
       // Once paint returns false and noPaint is marked true, `needsPaint` must be called.
       // Note: Always marked false on a disk's first frame.
+
       let painted = false;
       let dirtyBox;
 
+      // Render a thumbnail instead of the piece.
       if (previewMode) {
         try {
           if (currentSearch === "preview") {
@@ -3408,11 +3426,35 @@ async function makeFrame({ data: { type, content } }) {
           console.warn("🖼️ Preview failure...", err);
           previewMode = false;
         }
+      } else if (iconMode) {
+        // Render a favicon instead of the piece.
+        try {
+          $api.resolution(128, 128, 0);
+          if (currentSearch === "icon") {
+            $api.resolution(128, 128, 0);
+          } else {
+            $api.resolution(
+              ...currentSearch
+                .split("=")[1]
+                .split("x")
+                .map((n) => parseInt(n)),
+              0
+            );
+          }
+          icon($api);
+          painting.paint(true);
+          painted = true;
+          paintCount += 1n;
+        } catch (err) {
+          console.warn("🪷 Icon failure...", err);
+          iconMode = false;
+        }
       }
 
       // Attempt a paint.
       if (
         previewMode === false &&
+        iconMode === false &&
         (noPaint === false || scream || ambientPenPoints.length > 0) &&
         booted
       ) {
@@ -3603,6 +3645,11 @@ async function makeFrame({ data: { type, content } }) {
       if (reframe || glazeAfterReframe) {
         sendData.reframe = reframe || glazeAfterReframe !== undefined;
         if (glazeAfterReframe) {
+          sendData.reframe = {
+            width: screen.width,
+            height: screen.height,
+            gap: lastGap,
+          };
           send(glazeAfterReframe);
           glazeAfterReframe = undefined;
         }
