@@ -2,10 +2,11 @@
 // Sotce Q&A Bot (Based on Tumblr content.)
 
 /* #region 🏁 TODO
-[🌈] Color the "- botce" text.
-[] Add support for a custom favicon!
+[🟠] Add support for a custom favicon!
+[] Speed up the site.
 [] Send a version to Amelia.
 + Done
+[x] Color the "- botce" text.
 [x] Add cool backdrop and pick final colors.
 [x] Upgrade to gpt4 on the server using a flag.
 [x] Respond well to "who wrote you" (Replace default GPT response).
@@ -102,10 +103,13 @@ function meta() {
 function reply(text, input) {
   // console.log("😀 Replied with:", text);
   if (input) input.text += "\n\n- botce";
+
+  // TODO: Find the x, y cursor coordinates of the botce text...
+  const botceIndex = input.text.indexOf("- botce");
+  botce = input.prompt.pos(input.prompt.textToCursorMap[botceIndex]);
 }
 
-let lotus;
-let backdrop;
+let lotus, backdrop, botce;
 
 // 🥾 Boot
 function boot({ get, net, needsPaint, glaze }) {
@@ -131,20 +135,31 @@ function paint({
   noise16Sotce,
   page,
   painting,
+  write,
+  system,
+  ink,
   help: { choose },
 }) {
   if (!backdrop) backdrop = painting(screen.width, screen.height);
   page(backdrop);
-  if (!lotus) return;
-  const x = screen.width / 2 - lotus.width / 2;
   noise16Sotce(); // Or... wipe(252, 255, 237);
-  paste(
-    lotus,
-    x + choose(-1, 0, 0, 0, 0, 0, 1),
-    screen.height - lotus.height + choose(-1, 0, 0, 0, 0, 0, 1)
-  );
+  if (lotus) {
+    const x = screen.width / 2 - lotus.width / 2;
+    paste(
+      lotus,
+      x + choose(-1, 0, 0, 0, 0, 0, 1),
+      screen.height - lotus.height + choose(-1, 0, 0, 0, 0, 0, 1)
+    );
+  }
   page(screen);
   paste(backdrop);
+
+  if (system.prompt.input.lock && botce) botce = null;
+  if (botce && !system.prompt.input.canType)
+    ink().write("- botce", {
+      x: botce.x + choose(-1, 0, 1),
+      y: botce.y + choose(-1, 0, 1),
+    });
 }
 
 function preview({ wipe, screen }) {
@@ -160,6 +175,10 @@ function preview({ wipe, screen }) {
     .write("botce", { center: "y", x: 8, size: 3 });
 }
 
-export { boot, sim, prompt, before, meta, paint, copied, preview, reply };
+function icon({ wipe }) {
+  wipe(255, 0, 0);
+}
+
+export { boot, sim, prompt, before, meta, paint, copied, preview, reply, icon };
 //export const system = "prompt:character:gpt-3.5-turbo"; // or "prompt:code"
 export const system = "prompt:character:gpt-4"; // or "prompt:code"

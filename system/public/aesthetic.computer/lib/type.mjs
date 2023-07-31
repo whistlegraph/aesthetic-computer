@@ -352,6 +352,11 @@ class TextInput {
     this.flow();
   }
 
+  // Return the prompt.
+  get prompt() {
+    return this.#prompt;
+  }
+
   print(text) {
     this.text = text;
     this.bakePrintedText();
