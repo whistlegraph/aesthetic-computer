@@ -15,11 +15,11 @@ import {
   clamp,
 } from "./num.mjs";
 
-import { repeat, nonvalue } from "./help.mjs";
+import { repeat, nonvalue, flip } from "./help.mjs";
 import { Box } from "./geo.mjs";
 import { nanoid } from "../dep/nanoid/nanoid.js";
 
-const { sign, abs, ceil, floor, sin, cos, min, max, PI } = Math;
+const { sign, abs, ceil, floor, sin, cos, min, max, random, PI } = Math;
 
 let width, height, pixels;
 const depthBuffer = [];
@@ -1587,6 +1587,15 @@ function noise16Aesthetic() {
   }
 }
 
+function noise16Sotce() {
+  for (let i = 0; i < pixels.length; i += 4) {
+    if (flip()) pixels[i] = byteInterval17(14 + randInt(2)); // r
+    if (flip()) pixels[i + 1] = byteInterval17(8 + randInt(2)) * 0.9; // g
+    if (flip()) pixels[i + 2] = byteInterval17(8 + randInt(2)) * 0.9; // b
+    pixels[i + 3] = 255; // a
+  }
+}
+
 function noiseTinted(tint, amount, saturation) {
   // console.log("Tinting:", tint, amount, saturation);
   for (let i = 0; i < pixels.length; i += 4) {
@@ -1632,8 +1641,9 @@ export {
   grid,
   draw,
   noise16,
-  noise16Aesthetic,
   noise16DIGITPAIN,
+  noise16Aesthetic,
+  noise16Sotce,
   noiseTinted,
   printLine,
 };
