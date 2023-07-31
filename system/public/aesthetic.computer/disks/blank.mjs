@@ -48,11 +48,14 @@ function meta() {
 }
 
 // 🖼️ Preview
-function preview({ resolution, ink, wipe }) {
-  wipe("blue");
-  ink(255, 0, 0).box(0, 50, 25);
-  // Render a thumbnail / static image.
-}
+// function preview({ ink, wipe }) {
+// Render a custom thumbnail image.
+// }
+
+// 🪷 Icon
+// function icon() {
+// Render an application icon, aka favicon.
+// }
 
 export { boot, paint, meta, preview };
 
