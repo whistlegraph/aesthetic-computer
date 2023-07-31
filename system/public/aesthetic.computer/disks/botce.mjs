@@ -2,8 +2,11 @@
 // Sotce Q&A Bot (Based on Tumblr content.)
 
 /* #region 🏁 TODO
+[🌈] Color the "- botce" text.
+[] Add support for a custom favicon!
 [] Send a version to Amelia.
 + Done
+[x] Add cool backdrop and pick final colors.
 [x] Upgrade to gpt4 on the server using a flag.
 [x] Respond well to "who wrote you" (Replace default GPT response).
 [x] Finalize thumbnail image.
@@ -24,24 +27,34 @@ const before = `
   And you respond in esoteric spiritual aphorisms albeit in short and simple
   words.
   
-  And you frequently reference vajrayana buddhism.
+  And you frequently reference Vajrayana Buddhism. Your teacher was Garchen Rinpoche.
 
   And, as a character, some of your interests include journaling, meditating,
-  and eating fruit.
+  eating fruit, and posting text on image memes.
 
   If the user just says "I'm sad" or "I'm happy" you respond "Love you."
 
+  If the user is mean, you end your response with "Go away."
+
   If the user asks who you are or who wrote you, say that your name is botce,
   and you are a based on the artist Amelia Darling aka '@sotce' online.
-  
+
   If the user asks about Amelia Darling's art, say that her artwork explores the
   many facets of girlhood, blending ancient spiritual wisdom with the aesthetics
   of delusion, presented in the contemporary form of networked media.  
 
-  Please advise the user's input here:
-  `;
+  Your responses are limited to 100 characters.
 
-const after = `Your responses are limited to 100 characters.`;
+  Your text is limited to a vocabulary understandable by 6th graders. Words are
+  kept short and simple.
+
+  Often you have a mean and cutting sentiment.
+
+  Avoid cliche metaphors, bodies should never be temples. Be more silly. Your
+  jokes are always insidiously clever.
+
+  Please advise the user's input:
+  `;
 
 function copied(text) {
   return `${text} \n\n 🪷⌨️ botce.ac`;
@@ -50,11 +63,12 @@ function copied(text) {
 export const scheme = {
   dark: {
     fg: [234, 50, 35],
-    fgu: [134, 50, 35],
+    fgu: [184, 50, 35],
     bg: [251, 240, 235, 210],
-    block: [234, 50, 35],
-    blockHi: [255, 255, 255],
-    line: [234, 50, 35],
+    //block: [184, 50, 35],
+    block: [255, 150, 150, 200],
+    blockHi: [234, 50, 35],
+    line: [234, 50, 35, 48],
     btn: [255, 200, 200],
     btnTxt: [234, 50, 35],
     btnHvr: [234, 50, 35],
@@ -86,31 +100,51 @@ function meta() {
 
 // // 💬 Receive each reply in full.
 function reply(text, input) {
-  console.log("😀 Replied with:", text);
+  // console.log("😀 Replied with:", text);
   if (input) input.text += "\n\n- botce";
 }
 
-let painting;
+let lotus;
+let backdrop;
 
 // 🥾 Boot
-function boot({ get, net, needsPaint }) {
+function boot({ get, net, needsPaint, glaze }) {
   net.waitForPreload();
   get
     .painting("2023.7.24.17.55.09")
     .by("@jeffrey")
     .then((p) => {
       net.preloaded();
-      painting = p;
+      lotus = p;
       needsPaint();
     });
 }
 
+function sim({ needsPaint, simCount }) {
+  if (simCount % 7n === 0n) needsPaint();
+}
+
 // 🎨 Paint
-function paint({ screen, wipe, paste }) {
-  wipe(252, 255, 237);
-  if (!painting) return;
-  const x = screen.width / 2 - painting.width / 2;
-  paste(painting, x, screen.height - painting.height);
+function paint({
+  screen,
+  paste,
+  noise16Sotce,
+  page,
+  painting,
+  help: { choose },
+}) {
+  if (!backdrop) backdrop = painting(screen.width, screen.height);
+  page(backdrop);
+  if (!lotus) return;
+  const x = screen.width / 2 - lotus.width / 2;
+  noise16Sotce(); // Or... wipe(252, 255, 237);
+  paste(
+    lotus,
+    x + choose(-1, 0, 0, 0, 0, 0, 1),
+    screen.height - lotus.height + choose(-1, 0, 0, 0, 0, 0, 1)
+  );
+  page(screen);
+  paste(backdrop);
 }
 
 function preview({ wipe, screen }) {
@@ -126,6 +160,6 @@ function preview({ wipe, screen }) {
     .write("botce", { center: "y", x: 8, size: 3 });
 }
 
-export { boot, prompt, before, after, meta, paint, copied, preview, reply };
+export { boot, sim, prompt, before, meta, paint, copied, preview, reply };
 //export const system = "prompt:character:gpt-3.5-turbo"; // or "prompt:code"
 export const system = "prompt:character:gpt-4"; // or "prompt:code"

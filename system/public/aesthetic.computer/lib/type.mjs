@@ -209,7 +209,8 @@ class TextInput {
   pal; // color palette
   scheme;
 
-  processCommand; // text processing callback
+  #processCommand; // text processing callback
+  // #processingCommand = false;
   historyDepth = 0;
 
   inputStarted = false; // Flipped when the TextInput is first activated.
@@ -309,7 +310,7 @@ class TextInput {
       this.enter.btn.disabled = true;
     }
 
-    this.processCommand = processCommand;
+    this.#processCommand = processCommand;
     $.send({ type: "keyboard:enabled" });
   }
 
@@ -396,6 +397,7 @@ class TextInput {
         $.ink([255, 0, 0, 127]).box(pos.x, pos.y, 4);
       } else if (char !== " " && char.charCodeAt(0) !== 10) {
         const pic = ti.typeface.glyphs[char] || ti.typeface.glyphs["?"];
+
         $.ink(!alt ? ti.pal.fg : ti.pal.fgu).draw(pic, pos, prompt.scale); // Draw each character.
       } else if (ti.#renderSpaces) {
         $.ink([0, 255, 0, 127]).box(pos.x, pos.y, 3);
@@ -414,6 +416,10 @@ class TextInput {
         if (char === this.submittedText[submittedIndex]) fromSubmitted = true;
         submittedIndex += 1;
       }
+
+      // console.log(this.submittedText, this.text)
+      // if (this.canType || !this.commandSentOnce || (this.lock && this.text === this.submittedText))
+      //   fromSubmitted = true;
       paintBlockLetter(char, prompt.pos({ x, y }), fromSubmitted);
     });
 
@@ -484,7 +490,8 @@ class TextInput {
 
       // Outline the whole screen.
       if (this.enter.btn.down) {
-        $.ink(255, 0, 200, 64).box(0, 0, $.screen.width, $.screen.height, "in");
+        const color = pal.fg ? [...pal.fg.slice(0, 3), 128] : [255, 0, 200, 64];
+        $.ink(color).box(0, 0, $.screen.width, $.screen.height, "in");
       }
     }
 
@@ -563,7 +570,9 @@ class TextInput {
     store.persist(this.key); // Persist the history stack across tabs.
     // 🍎 Process commands for a given context, passing the text input.
     if (this.#autolock) this.lock = true; // TODO: This might be redundant now. 23.06.07.23.32
-    await this.processCommand?.(this.text);
+    // this.#processingCommand = true;
+    await this.#processCommand?.(this.text);
+    // this.#processingCommand = false;
     this.commandSentOnce = true;
     // this.enter.btn.down = false; // Make sure the Enter button is released.
     if (this.#autolock) this.lock = false;
