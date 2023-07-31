@@ -360,6 +360,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       document.querySelector('meta[name="twitter:image"]').content =
         meta.img.twitter;
     }
+    if (meta?.img?.icon) {
+      document.querySelector('link[rel="icon"]').href = meta.img.icon;
+    }
     if (meta?.url) {
       // This might need to be conditional / opt-in?
       // document.querySelector('meta[name="twitter:player"').content = meta.url;

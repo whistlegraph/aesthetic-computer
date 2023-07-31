@@ -73,6 +73,7 @@ async function fun(event, context) {
             parsed.text.startsWith("freaky-flowers") ||
             parsed.text.startsWith("wg") ||
             parsed.text.startsWith("prompt") ||
+            parsed.text.startsWith("botce") ||
             parsed.text.startsWith("valbear") ||
             parsed.text.startsWith("ordfish") ||
             parsed.text === "")
@@ -91,7 +92,7 @@ async function fun(event, context) {
   }
 
   // *** Server Metadata Fields***
-  const { title, desc, ogImage, twitterImage } = metadata(
+  const { title, desc, ogImage, icon, twitterImage } = metadata(
     event.headers["host"],
     slug,
     meta
@@ -105,7 +106,7 @@ async function fun(event, context) {
       <head>
         <meta charset="utf-8">
         <title>${title}</title>
-        <link rel="icon" href="${assetURI}images/favicon.png" type="image/png">
+        <link rel="icon" href="${icon}" type="image/png">
         <link rel="stylesheet" crossorigin="anonymous" href="/type/webfonts/berkeley-mono-variable.css" />
         <link rel="stylesheet" crossorigin="anonymous" href="/type/webfonts/ywft-processing-regular.css" />
         <link rel="stylesheet" crossorigin="anonymous" href="/aesthetic.computer/style.css" />
