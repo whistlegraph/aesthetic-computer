@@ -130,6 +130,7 @@ function metadata(host, slug, pieceMetadata) {
 
   // See also: `index.js`
   let ogImage, twitterImage;
+  let icon;
   if (pieceMetadata?.image_url) {
     ogImage = twitterImage = pieceMetadata.image_url;
   } else {
@@ -137,7 +138,9 @@ function metadata(host, slug, pieceMetadata) {
     twitterImage = `https://${host}/thumbnail/1800x900/${slug}.png`;
   }
 
-  return { title, desc, ogImage, twitterImage };
+  icon = `https://${host}/icon/128x128/${slug}.png`;
+
+  return { title, desc, ogImage, twitterImage, icon };
 }
 
 export { parse, slug, metadata };
