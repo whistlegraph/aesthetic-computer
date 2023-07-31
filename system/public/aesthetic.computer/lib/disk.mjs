@@ -1243,6 +1243,7 @@ const $paintApiUnwrapped = {
   noise16: graph.noise16,
   noise16DIGITPAIN: graph.noise16DIGITPAIN,
   noise16Aesthetic: graph.noise16Aesthetic,
+  noise16Sotce: graph.noise16Sotce,
   noiseTinted: graph.noiseTinted,
   // glaze: ...
 };
