@@ -152,7 +152,7 @@
     - [x] girlfriend
     - [x] liar 
     - [x] angel
-    - [] kid
+    - [x] kid
     - [x] mom, dad, gargoyle, botce 
     - [x] Fix `liar` background image sizing code.
 
