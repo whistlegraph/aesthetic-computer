@@ -2,10 +2,15 @@
 // Sotce Q&A Bot (Based on Tumblr content.)
 
 /* #region 🏁 TODO
-[🟠] Add support for a custom favicon!
-[] Speed up the site.
+
+[-] Hide "Paste" button until the user starts typing.
+[] Override "Enter" button name.
+[] Add sound to buttons.
+[] Speed up the site's initial load.
+
 [] Send a version to Amelia.
 + Done
+[x] Add support for a custom favicon!
 [x] Color the "- botce" text.
 [x] Add cool backdrop and pick final colors.
 [x] Upgrade to gpt4 on the server using a flag.
@@ -162,21 +167,29 @@ function paint({
     });
 }
 
+// 🖼️ Preview
 function preview({ wipe, screen }) {
   const scale = 0.5;
   wipe(240, 200, 200)
     .paste(
-      painting,
-      screen.width - painting?.width * scale - 2,
-      screen.height / 2 - (painting?.height * scale) / 2,
+      lotus,
+      screen.width - lotus?.width * scale - 2,
+      screen.height / 2 - (lotus?.height * scale) / 2,
       scale
     )
     .ink(250, 100, 150)
     .write("botce", { center: "y", x: 8, size: 3 });
 }
 
-function icon({ wipe }) {
-  wipe(255, 0, 0);
+// 🪷 Icon
+function icon({ screen, wipe, noise16Sotce }) {
+  const scale = 1.3;
+  wipe(230, 150, 150).noise16Sotce().paste(
+    lotus,
+    screen.width / 2 - (lotus?.width * scale) / 2 + 2,
+    screen.height / 2 - (lotus?.height * scale) / 2,
+    scale
+  );
 }
 
 export { boot, sim, prompt, before, meta, paint, copied, preview, reply, icon };
