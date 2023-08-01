@@ -110,8 +110,8 @@ class Button {
     // If only a single function is sent, then assume it's a button push callback.
     if (typeof callbacks === "function") callbacks = { push: callbacks };
 
-    // 1. Down: Enable the button if we touched over it.
-    if (e.is("touch:any") && this.box.contains(e) && !this.down) {
+    // 1. Down: Enable the button if we touched over it. (Repeatable)
+    if (e.is("touch:any") && this.box.contains(e) /*&& !this.down*/) {
       callbacks.down?.(this);
       this.down = true;
       this.over = true;

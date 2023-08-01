@@ -776,7 +776,7 @@ function act({
   if (e.is("keyboard:open") && firstActivation) firstActivation = false;
   if (e.is("pasted:text")) firstActivation = false;
 
-  if (e.is("keyboard:down")) {
+  if (e.is("keyboard:down") && e.key !== "Enter") {
     play(keyboardSfx, { volume: 0.2 + (num.randInt(100) / 100) * 0.4 });
   }
 

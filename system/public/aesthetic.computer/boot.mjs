@@ -36,7 +36,7 @@ if (window.location.hash === "#nodebug") debug = false;
 window.acDEBUG = debug; // Set window.acDEBUG again just in case any code relies
 // on it down the line. Should it need to? 22.07.15.00.21
 
-const sandboxed = window.origin === "null";
+let sandboxed = window.origin === "null";
 
 if (!sandboxed && window.auth0) {
   // #region 🔐 Auth0: Universal Login & Authentication
