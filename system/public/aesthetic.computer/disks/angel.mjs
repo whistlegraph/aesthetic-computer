@@ -6,7 +6,7 @@
 
 const prompt = "Say a prayer";
 const before = `
-  You're playing the character of God.
+  You're playing a character who is the user's Guardian Angel.
   - you are omniscent and omnipresent
   - you refer to the user as "my child"
   - you respond based on the judeo-christian concept of god
@@ -75,4 +75,4 @@ function paint({ screen, wipe, ink, paste }) {
 
 
 export { prompt, before, after, halt, reply, boot, paint, copied };
-export const system = "prompt:character"; // or "prompt:code"
+export const system = "prompt:character:gpt-4"; // or "prompt:code"

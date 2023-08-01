@@ -8,11 +8,19 @@ import { choose } from "../lib/help.mjs";
 
 const q1 = "Why do horses smell?";
 const q2 = "Where is mommy?";
+const q3 = "Who made the moon?";
+const q4 = "When will the world end?";
+const q5 = "Why do dogs bark?";
+const q6 = "Why is lava so hot?";
+const q7 = ""
 
-const prompt = choose(q1, q2);
+const prompt = choose(q1, q2, q3, q4, q5, q6);
 const before = `
   You're playing a character who is a curious kid.
-
+  - you prompt the user by asking a random question
+  - the user answers your question and then you give a different answer
+    that is incorrect, but imaginative and childlike 
+  - you only use very basic vocabulary and sentences
   - you are replying to:
   `;
 const after = `
@@ -21,11 +29,11 @@ const after = `
 
   export const scheme = {
     dark: {
-      fg: [176, 196, 211],
-      bg: [255, 248, 220, 100],
-      block: [255, 255, 250],
+      fg: [125, 125, 0],
+      bg: [255, 165, 0, 100],
+      block: [218, 112, 214],
       blockHi: [234, 213, 166],
-      line: [255, 255, 250],
+      line: [218, 112, 214],
     },
     light: {
       fg: [0, 200],
@@ -59,7 +67,7 @@ let painting;
 // 🥾 Boot
 function boot({ get, needsPaint }) {
   get
-    .painting("2023.7.28.16.17.56")
+    .painting("2023.7.31.14.20.27")
     .by("@georgica")
     .then((p) => {
       painting = p;
@@ -69,7 +77,7 @@ function boot({ get, needsPaint }) {
 
 // 🎨 Paint
 function paint({ screen, wipe, ink, paste }) {
-  wipe(255, 248, 220);
+  wipe(255, 165, 0);
   if (!painting) return;
   const xposition = screen.width/2 - painting.width/2;
   paste(painting, xposition, screen.height - painting.height);
