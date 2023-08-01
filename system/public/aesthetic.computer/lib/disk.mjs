@@ -216,10 +216,6 @@ let booted = false;
 // let initialSim = true;
 let noPaint = false;
 
-let sound,
-  soundClear, // Used by receivedBeat and defined in first frame update.
-  soundId = 0n; // Increment each sound / give it an id in the `bios`.
-
 let storeRetrievalResolution, storeDeletionResolution;
 
 let socket, socketStartDelay;
@@ -230,6 +226,8 @@ let screamingTimer; // Keep track of scream duration.
 
 const ambientPenPoints = []; // Render cursor points of other active users,
 //                              dumped each frame.
+
+let glazeEnabled = false; // Keep track of whether glaze is on or off.
 
 // *** Dark Mode ***
 // Pass `true` or `false` to override or `default` to the system setting.
@@ -1029,7 +1027,7 @@ function ink() {
   return graph.color(...color(...arguments));
 }
 
-// 🔎 PAINTAPI (for searching)
+// 🔎 PAINTAPI
 const $paintApi = {
   // 1. Composite functions (that use $activePaintApi)
   //    (Must be unwrapped)
@@ -1485,6 +1483,8 @@ class Content {
   //}
 }
 
+// 🔈 Sound
+
 // Microphone State (Audio Input)
 class Microphone {
   amplitude = 0;
@@ -1518,6 +1518,18 @@ class Speaker {
     send({ type: "get-speaker-amplitudes" });
   }
 }
+
+let sound,
+  soundClear, // Used by receivedBeat and defined in first frame update.
+  soundId = 0n, // Increment each sound / give it an id in the `bios`.
+  soundTime; // Used by `$sound.synth` for global timing.
+
+sound = {
+  bpm: undefined,
+  sounds: [],
+  bubbles: [],
+  kills: [],
+};
 
 const speaker = new Speaker();
 const microphone = new Microphone();
@@ -1851,7 +1863,13 @@ async function load(
 
   if (alias === false) {
     // Parse any special piece metadata.
-    const { title, desc, ogImage, twitterImage, icon: iconUrl } = metadata(
+    const {
+      title,
+      desc,
+      ogImage,
+      twitterImage,
+      icon: iconUrl,
+    } = metadata(
       location.host, // "aesthetic.computer",
       slug,
       // Adding the num API here is a little hacky, but needed for Freaky Flowers random metadata generation. 22.12.27
@@ -1864,7 +1882,7 @@ async function load(
       img: {
         og: ogImage,
         twitter: twitterImage,
-        icon: iconUrl
+        icon: iconUrl,
       },
       url: "https://aesthetic.computer/" + slug,
     };
@@ -2203,7 +2221,8 @@ async function load(
     currentColon = colon;
     currentParams = params;
     currentHash = hash;
-    sound = null;
+    // sound = null;
+    glazeEnabled = null;
     soundClear = null;
 
     // Push last piece to a history list, skipping prompt and repeats.
@@ -2896,12 +2915,7 @@ async function makeFrame({ data: { type, content } }) {
 
     // TODO: Generalize square and bubble calls.
     // TODO: Move this stuff to a "sound" module.
-    sound = {
-      bpm: content.audioBpm,
-      sounds: [],
-      bubbles: [],
-      kills: [],
-    };
+    sound.bpm = content.audioBpm;
 
     // Clear synchronized audio triggers.
     soundClear = () => {
@@ -2916,22 +2930,28 @@ async function makeFrame({ data: { type, content } }) {
       send({ type: "sfx:play", content: { sfx, options } });
     };
 
+    soundTime = content.audioTime;
+
     $sound.synth = function ({
       type = "square",
       tone = 440, // TODO: Make random.
       beats = random(), // Wow, default func. params can be random!
+      duration = undefined, // In seconds... (where beats is a shortcut)
       attack = 0,
       decay = 0,
       volume = 1,
       pan = 0,
     } = {}) {
       const id = soundId;
+      if (duration !== undefined) beats = (duration * sound.bpm) / 60;
       sound.sounds.push({ id, type, tone, beats, attack, decay, volume, pan });
+
       soundId += 1n;
 
-      // Return a progress function so it can be used by rendering.
-      const seconds = (60 / content.audioBpm) * beats;
-      const end = content.audioTime + seconds;
+      let seconds;
+      if (duration !== undefined) seconds = duration;
+      else seconds = (60 / sound.bpm) * beats;
+      const end = soundTime + seconds;
 
       return {
         id,
@@ -3233,6 +3253,8 @@ async function makeFrame({ data: { type, content } }) {
       $api.inFocus = content.inFocus;
 
       $api.glaze = function (content) {
+        if (glazeEnabled === content.on) return; // Prevent glaze from being fired twice...
+        glazeEnabled = content.on;
         glazeAfterReframe = { type: "glaze", content };
       };
 
@@ -3645,11 +3667,6 @@ async function makeFrame({ data: { type, content } }) {
       if (reframe || glazeAfterReframe) {
         sendData.reframe = reframe || glazeAfterReframe !== undefined;
         if (glazeAfterReframe) {
-          sendData.reframe = {
-            width: screen.width,
-            height: screen.height,
-            gap: lastGap,
-          };
           send(glazeAfterReframe);
           glazeAfterReframe = undefined;
         }

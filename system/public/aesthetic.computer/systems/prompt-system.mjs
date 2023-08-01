@@ -106,6 +106,14 @@ export async function prompt_boot(
           input.runnable = false;
           input.showButton($);
           $.needsPaint();
+          $.sound.synth({
+            type: "sine",
+            tone: 500,
+            attack: 0.1,
+            decay: 0.96,
+            volume: 0.65,
+            duration: 0.05,
+          });
         },
         function fail() {
           input.text = abortMessage;

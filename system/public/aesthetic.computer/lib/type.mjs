@@ -59,7 +59,7 @@ endregion */
 import { font1 } from "../disks/common/fonts.mjs";
 import { repeat } from "../lib/help.mjs";
 
-const { floor } = Math;
+const { floor, min } = Math;
 const { keys, entries } = Object;
 const undef = undefined;
 
@@ -300,11 +300,11 @@ class TextInput {
       ui: { TextButton: TB },
     } = $;
 
-    this.enter = new TB("Enter");
+    this.enter = new TB(this.scheme.buttons?.enter || "Enter");
     this.copy = new TB("Copy");
     this.paste = new TB("Paste");
     this.copy.btn.disabled = true; // Copy is disabled by default,
-    this.paste.btn.disabled = false; // as is Paste.
+    this.paste.btn.disabled = true; // as is Paste.
 
     if (this.text.length === 0) {
       this.enter.btn.disabled = true;
@@ -615,7 +615,7 @@ class TextInput {
 
   // Handle user input.
   async act($) {
-    const { debug, event: e, store, needsPaint } = $;
+    const { debug, event: e, store, needsPaint, sound } = $;
 
     // Reflow the prompt on frame resize.
     if (e.is("reframed")) {
@@ -914,6 +914,14 @@ class TextInput {
           }
         } else if (this.runnable) {
           // 💻 Execute a command!
+          sound.synth({
+            type: "sine",
+            tone: 850,
+            attack: 0.1,
+            decay: 0.96,
+            volume: 0.65,
+            duration: 0.005,
+          });
           await this.run(store);
         } else {
           activate(this);
@@ -939,8 +947,15 @@ class TextInput {
       (this.paste.btn.disabled === true || !this.paste.btn.box.contains(e))
     ) {
       this.enter.btn.down = true;
-      // console.log("unlocking keyboard...");
       $.send({ type: "keyboard:unlock" });
+      sound.synth({
+        type: "sine",
+        tone: 400,
+        attack: 0.1,
+        decay: 0.96,
+        volume: 0.5,
+        duration: 0.01,
+      });
     }
 
     // Begin the prompt input mode / leave the splash.
@@ -971,6 +986,15 @@ class TextInput {
       }
       ti.inputStarted = true;
       $.act("text-input:editable");
+
+      sound.synth({
+        type: "sine",
+        tone: 600,
+        attack: 0.1,
+        decay: 0.96,
+        volume: 0.5,
+        duration: 0.005,
+      });
     }
 
     // Leave the prompt input mode.
@@ -1004,6 +1028,15 @@ class TextInput {
 
       $.act("text-input:uneditable");
       needsPaint();
+
+      sound.synth({
+        type: "sine",
+        tone: 250,
+        attack: 0.1,
+        decay: 0.99,
+        volume: 0.75,
+        duration: 0.001,
+      });
     }
 
     // TODO: Touching background as a button (but no other button)
@@ -1055,7 +1088,6 @@ class TextInput {
       // 🔲 Enter
       this.enter.btn.act(e, {
         down: () => {
-          $.send({ type: "keyboard:unlock" });
           needsPaint();
         },
         push: async () => {
@@ -1082,15 +1114,55 @@ class TextInput {
 
       // 🔲 Copy
       this.copy.btn.act(e, {
-        down: () => needsPaint(),
-        push: () => needsPaint(),
+        down: () => {
+          needsPaint();
+          sound.synth({
+            type: "sine",
+            tone: 600,
+            attack: 0.1,
+            decay: 0.99,
+            volume: 0.75,
+            duration: 0.001,
+          });
+        },
+        push: () => {
+          sound.synth({
+            type: "sine",
+            tone: 800,
+            attack: 0.1,
+            decay: 0.99,
+            volume: 0.75,
+            duration: 0.005,
+          });
+          needsPaint();
+        },
         cancel: () => needsPaint(),
       });
 
       // 🔲 Paste
       this.paste.btn.act(e, {
-        down: () => needsPaint(),
-        push: () => needsPaint(),
+        down: () => {
+          needsPaint();
+          sound.synth({
+            type: "sine",
+            tone: 600,
+            attack: 0.1,
+            decay: 0.99,
+            volume: 0.75,
+            duration: 0.001,
+          });
+        },
+        push: () => {
+          sound.synth({
+            type: "sine",
+            tone: 800,
+            attack: 0.1,
+            decay: 0.99,
+            volume: 0.75,
+            duration: 0.005,
+          });
+          needsPaint();
+        },
         cancel: () => needsPaint(),
       });
     }

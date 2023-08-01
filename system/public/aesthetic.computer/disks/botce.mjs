@@ -2,14 +2,24 @@
 // Sotce Q&A Bot (Based on Tumblr content.)
 
 /* #region 🏁 TODO
-
-[-] Hide "Paste" button until the user starts typing.
-[] Override "Enter" button name.
-[] Add sound to buttons.
-[] Speed up the site's initial load.
-
+[-] Make the site pixel perfect.
+[] Optimize the the site's initial load...
+  [] Change the starter noise function if the starting
+     piece is botce.
+  [] Don't load the auth0 library until after we booted.
+[] Sinosoid float the lotus and only have it appear once a question is answered.
+[] Test metadata.
 [] Send a version to Amelia.
 + Done
+[c] Max gutter width.
+[x] Make buffer resizable.
+  [x] Fix screen resize error.
+[x] Add keyboard sounds.
+[x] Add sound to buttons.
+ - [x] Add sound to paste and copy button. 
+ - [x] Add `seconds` in lieu of `beats`.
+[x] Override "Enter" button name.
+[x] Hide "Paste" button until the user starts typing.
 [x] Add support for a custom favicon!
 [x] Color the "- botce" text.
 [x] Add cool backdrop and pick final colors.
@@ -67,6 +77,9 @@ function copied(text) {
 }
 
 export const scheme = {
+  buttons: {
+    enter: "Ask",
+  },
   dark: {
     fg: [234, 50, 35],
     fgu: [184, 50, 35],
@@ -106,19 +119,17 @@ function meta() {
 
 // // 💬 Receive each reply in full.
 function reply(text, input) {
-  // console.log("😀 Replied with:", text);
   if (input) input.text += "\n\n- botce";
-
-  // TODO: Find the x, y cursor coordinates of the botce text...
   const botceIndex = input.text.indexOf("- botce");
   botce = input.prompt.pos(input.prompt.textToCursorMap[botceIndex]);
 }
 
-let lotus, backdrop, botce;
+let lotus, backdrop, botce, keyboardSfx;
 
 // 🥾 Boot
 function boot({ get, net, needsPaint, glaze }) {
   net.waitForPreload();
+  net.preload("compkey").then((sfx) => (keyboardSfx = sfx)); // Keyboard sound.
   get
     .painting("2023.7.24.17.55.09")
     .by("@jeffrey")
@@ -145,7 +156,12 @@ function paint({
   ink,
   help: { choose },
 }) {
-  if (!backdrop) backdrop = painting(screen.width, screen.height);
+  if (
+    !backdrop ||
+    backdrop.width !== screen.width ||
+    backdrop.height !== screen.height
+  )
+    backdrop = painting(screen.width, screen.height);
   page(backdrop);
   noise16Sotce(); // Or... wipe(252, 255, 237);
   if (lotus) {
@@ -184,14 +200,35 @@ function preview({ wipe, screen }) {
 // 🪷 Icon
 function icon({ screen, wipe, noise16Sotce }) {
   const scale = 1.3;
-  wipe(230, 150, 150).noise16Sotce().paste(
-    lotus,
-    screen.width / 2 - (lotus?.width * scale) / 2 + 2,
-    screen.height / 2 - (lotus?.height * scale) / 2,
-    scale
-  );
+  wipe(230, 150, 150)
+    .noise16Sotce()
+    .paste(
+      lotus,
+      screen.width / 2 - (lotus?.width * scale) / 2 + 2,
+      screen.height / 2 - (lotus?.height * scale) / 2,
+      scale
+    );
 }
 
-export { boot, sim, prompt, before, meta, paint, copied, preview, reply, icon };
+// 🎪 Act
+function act({ event: e, sound: { play }, num }) {
+  if (e.is("keyboard:down") && e.key !== "Enter") {
+    play(keyboardSfx, { volume: 0.2 + (num.randInt(100) / 100) * 0.4 });
+  }
+}
+
+export {
+  boot,
+  sim,
+  prompt,
+  before,
+  meta,
+  paint,
+  copied,
+  preview,
+  reply,
+  icon,
+  act,
+};
 //export const system = "prompt:character:gpt-3.5-turbo"; // or "prompt:code"
 export const system = "prompt:character:gpt-4"; // or "prompt:code"
