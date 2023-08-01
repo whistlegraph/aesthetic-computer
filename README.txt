@@ -93,6 +93,17 @@
 *** handle updates ***
   - [] Handle updates were not working for mitch.
 
+*** Recordable Painting Game / Journal ***
+  - [] Game starts by entering `no! 128` or `no! 64 32` etc. with a resolution.
+  - [] There is an indicator line or box around the screen the whole game.
+  - [] Game ends when typing `yes!`.
+    - [] Record the resulting bitmap after each command that modifies it, using
+         the `slug` of what was entered as the key. 
+    - [] Capture the "gestures" for each brush via a global "gesture",
+         function of some kind? `system.nopaint.gesture`
+    - [] Step through each command, and if a gesture exists, then it can
+         be played back. (or skipped)
+
 *** poem ***
   - [] Scaffold the `poem` recorder.
     - [] Poem will implement TextInput, but not the prompt system.
