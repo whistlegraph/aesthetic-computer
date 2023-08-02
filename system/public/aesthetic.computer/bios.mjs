@@ -124,7 +124,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const REFRAME_DELAY = 250;
   let curReframeDelay = REFRAME_DELAY;
   let lastGap = 0;
-  let density = 2.2; // added to window.devicePixelRatio
+  let density = 2; // added to window.devicePixelRatio
 
   // Runs one on boot & every time display resizes to adjust the framebuffer.
   function frame(width, height, gap = 8) {
@@ -197,10 +197,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let ratio = density || window.devicePixelRatio;
       if (!density && window.devicePixelRatio === 1) ratio = 3; // Always force a screen density of 3 on non-retina displays.
       subdivisions = ratio;
-      width = round(window.innerWidth / subdivisions);
-      height = round(window.innerHeight / subdivisions);
-      projectedWidth = round(width * subdivisions - gapSize);
-      projectedHeight = round(height * subdivisions - gapSize);
+
+      width =
+        round(window.innerWidth / subdivisions) - round(gapSize / subdivisions);
+      height =
+        round(window.innerHeight / subdivisions) -
+        round(gapSize / subdivisions);
+
+      projectedWidth = round(width * density);
+      projectedHeight = round(height * density);
     } else {
       // Or do it manually if both width and height are defined.
       fixedWidth = width;
