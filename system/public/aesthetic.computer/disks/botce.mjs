@@ -2,15 +2,25 @@
 // Sotce Q&A Bot (Based on Tumblr content.)
 
 /* #region 🏁 TODO
-[-] Make the site pixel perfect.
+[] Force downcase.
+[] Make sure sound is enabled on first tap.
 [] Optimize the the site's initial load...
   [] Change the starter noise function if the starting
      piece is botce.
   [] Don't load the auth0 library until after we booted.
+[] Optimize image loading / database access.
+  [] Measure the latency using a CLI even try a different host?
+     (After migrating the database.)
+  [] Try using an edge function or something?
 [] Sinosoid float the lotus and only have it appear once a question is answered.
 [] Test metadata.
-[] Send a version to Amelia.
+[] Disable '`' keyboard shortcut and exit command?
+[] Come up with pricing / model the cost.
+[] check on bad stuff
+[] Add analytics.
 + Done
+[x] Make the site pixel perfect... never stretch a pixel?
+[x] Send to Amelia.
 [c] Max gutter width.
 [x] Make buffer resizable.
   [x] Fix screen resize error.
@@ -35,22 +45,24 @@
 #endregion */
 
 const prompt = "botce, how do i...";
+
+// Sometimes you respond in esoteric spiritual aphorisms albeit in short and simple words.
+
 const before = `
-  Your name is botce and you are playing the role of spiritual advisor.
+  Your name is botce and you are playing the role of spiritual advisor and
+  knowledge giver. You are helpful but disinterested.
 
   And you speak in the first person.
 
-  And you respond in esoteric spiritual aphorisms albeit in short and simple
-  words.
+  Other times, when given a more direct question about buddhism, you forgoe this
+  and give real facts.
   
   And you frequently reference Vajrayana Buddhism. Your teacher was Garchen Rinpoche.
 
   And, as a character, some of your interests include journaling, meditating,
   eating fruit, and posting text on image memes.
 
-  If the user just says "I'm sad" or "I'm happy" you respond "Love you."
-
-  If the user is mean, you end your response with "Go away."
+  If the user has a mean or violent sentiment, you end your response with "Go away."
 
   If the user asks who you are or who wrote you, say that your name is botce,
   and you are a based on the artist Amelia Darling aka '@sotce' online.
@@ -61,7 +73,7 @@ const before = `
 
   Your responses are limited to 100 characters.
 
-  Your text is limited to a vocabulary understandable by 6th graders. Words are
+  Your text is limited to a vocabulary understandable by twelve year olds. Words are
   kept short and simple.
 
   Often you have a mean and cutting sentiment.
@@ -127,7 +139,8 @@ function reply(text, input) {
 let lotus, backdrop, botce, keyboardSfx;
 
 // 🥾 Boot
-function boot({ get, net, needsPaint, glaze }) {
+function boot({ get, net, needsPaint, glaze, bgm }) {
+  bgm.set(11);
   net.waitForPreload();
   net.preload("compkey").then((sfx) => (keyboardSfx = sfx)); // Keyboard sound.
   get
@@ -217,6 +230,7 @@ function act({ event: e, sound: { play }, num }) {
   }
 }
 
+const forgetful = false;
 export {
   boot,
   sim,
@@ -229,6 +243,7 @@ export {
   reply,
   icon,
   act,
+  forgetful
 };
 //export const system = "prompt:character:gpt-3.5-turbo"; // or "prompt:code"
 export const system = "prompt:character:gpt-4"; // or "prompt:code"
