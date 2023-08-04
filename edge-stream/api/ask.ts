@@ -54,7 +54,7 @@ export default async function handler(req) {
 
       if (model === "gpt-4") {
         top_p = 1;
-        max_tokens = 512;
+        max_tokens = 256;
       }
 
       // Request streaming response
