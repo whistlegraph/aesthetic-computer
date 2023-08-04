@@ -133,7 +133,7 @@ export const scheme = {
 
 // 📰 Meta
 function meta() {
-  return { title: "botce", desc: "botce, how do i..." };
+  return { title: "botce, how do i...", desc: "(ask botce a question)" };
 }
 
 // 🛑 Intercept specific input text with a custom reply.
@@ -152,7 +152,11 @@ function reply(text, input) {
   botce = input.prompt.pos(input.prompt.textToCursorMap[botceIndex]);
 }
 
-let lotus, lotusOsc = 0, backdrop, botce, keyboardSfx;
+let lotus,
+  lotusOsc = 0,
+  backdrop,
+  botce,
+  keyboardSfx;
 
 // 🥾 Boot
 function boot({ get, net, resolution, screen, needsPaint, glaze, bgm }) {
@@ -197,9 +201,14 @@ function paint({
     backdrop = painting(screen.width, screen.height);
   page(backdrop);
   noise16Sotce(); // Or... wipe(252, 255, 237);
-  if (lotus && !system.prompt.input.canType && system.prompt.input.commandSentOnce) {
+  if (
+    lotus &&
+    !system.prompt.input.canType &&
+    system.prompt.input.commandSentOnce
+  ) {
     const x = screen.width / 2 - lotus.width / 2;
-    const yMod = Math.sin(num.radians(lotusOsc)) * (system.prompt.input.lock ? 20 : 10);
+    const yMod =
+      Math.sin(num.radians(lotusOsc)) * (system.prompt.input.lock ? 20 : 10);
     paste(
       lotus,
       x + choose(-1, 0, 0, 0, 0, 0, 1),
@@ -267,7 +276,7 @@ export {
   reply,
   icon,
   act,
-  forgetful
+  forgetful,
 };
 //export const system = "prompt:character:gpt-3.5-turbo"; // or "prompt:code"
 export const system = "prompt:character:gpt-4"; // or "prompt:code"
