@@ -3431,13 +3431,14 @@ async function makeFrame({ data: { type, content } }) {
       if (previewMode) {
         try {
           if (currentSearch === "preview") {
-            $api.resolution(1200 / 8, 630 / 8);
+            $api.resolution(1200 / 8, 630 / 8, 0);
           } else {
             $api.resolution(
               ...currentSearch
                 .split("=")[1]
                 .split("x")
-                .map((n) => floor(parseInt(n) / 8))
+                .map((n) => floor(parseInt(n) / 8)),
+              0
             );
           }
           preview($api);
