@@ -301,8 +301,8 @@ class TextInput {
     } = $;
 
     this.enter = new TB(this.scheme.buttons?.enter || "Enter");
-    this.copy = new TB("Copy");
-    this.paste = new TB("Paste");
+    this.copy = new TB(this.scheme.buttons?.copy.label ||"Copy");
+    this.paste = new TB(this.scheme.buttons?.paste?.label ||"Paste");
     this.copy.btn.disabled = true; // Copy is disabled by default,
     this.paste.btn.disabled = true; // as is Paste.
 
@@ -1176,15 +1176,14 @@ class TextInput {
           : console.warn("📋 Copy: Failed ⚠️");
       }
 
-      this.copy.txt = copied ? "Copied" : "Failed";
-
+      this.copy.txt = copied ? (this.scheme.buttons?.copy?.copied || "Copied") : (this.scheme.buttons?.copy?.failed || "Failed");
       this.#copyPasteScheme = this.#buildCopyPasteScheme(); // Greyed out.
 
       needsPaint();
       clearTimeout(this.#copyPasteTimeout);
       this.#copyPasteTimeout = setTimeout(() => {
         this.copy.btn.disabled = false;
-        this.copy.txt = "Copy";
+        this.copy.txt = this.scheme.buttons?.copy?.label || "Copy";
         this.#copyPasteScheme = undefined;
         needsPaint();
       }, 500);
@@ -1195,13 +1194,13 @@ class TextInput {
       let label;
       if (e.is("clipboard:paste:pasted")) {
         if (debug) console.log("📋 Paste: Pasted 🙃");
-        label = "Pasted";
+        label = this.scheme.buttons?.paste?.pasted || "Pasted";
       } else if (e.is("clipboard:paste:pasted:empty")) {
         if (debug) console.warn("📋 Paste: Empty 👐️");
-        label = "Empty";
+        label = this.scheme.buttons?.paste?.empty || "Empty";
       } else {
         if (debug) console.warn("📋 Paste: Failed ⚠️");
-        label = "Failed";
+        label = this.scheme.buttons?.paste?.failed || "Failed";
       }
 
       this.paste.txt = label;
@@ -1210,7 +1209,7 @@ class TextInput {
       clearTimeout(this.#copyPasteTimeout);
       this.#copyPasteTimeout = setTimeout(() => {
         this.paste.btn.disabled = false;
-        this.paste.txt = "Paste";
+        this.paste.txt = this.scheme.buttons?.paste?.label || "Paste";
         this.#copyPasteScheme = undefined;
         needsPaint();
       }, 500);
