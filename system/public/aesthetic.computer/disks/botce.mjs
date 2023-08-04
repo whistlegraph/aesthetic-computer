@@ -2,25 +2,21 @@
 // Sotce Q&A Bot (Based on Tumblr content.)
 
 /* #region 🏁 TODO
-[-] Force downcase.
-[] Square preview image.
-
+[] Cancelling a question / losing internet connection.
 [] Make sure sound is enabled on first tap.
-[] Optimize the the site's initial load...
-  [] Change the starter noise function if the starting
-     piece is botce.
-  [] Don't load the auth0 library until after we booted.
-[] Optimize image loading / database access.
-  [] Measure the latency using a CLI even try a different host?
-     (After migrating the database.)
-  [] Try using an edge function or something?
-[] Sinosoid float the lotus and only have it appear once a question is answered.
-[] Test metadata.
-[] Disable '`' keyboard shortcut and exit command?
-[] Come up with pricing / model the cost.
-[] check on bad stuff
+
+Pre-launch:
 [] Add analytics.
+[] Browser testing (Firefox, Chrome, Android, Safari).
+[] Paywall.
+
 + Done
+[c] Disable '`' keyboard shortcut and exit command?
+[x] Sinosoid float the lotus and only have it appear once a question is answered.
+[x] Come up with pricing / model the cost.
+[x] Polish the preview image.
+[x] Check on bad stuff.
+[x] Force downcase.
 [x] Make the site pixel perfect... never stretch a pixel?
 [x] Send to Amelia.
 [c] Max gutter width.
@@ -66,8 +62,12 @@ const before = `
 
   If the user has a mean or violent sentiment, you end your response with "Go away."
 
-  If the user asks who you are or who wrote you, say that your name is botce,
-  and you are a based on the artist Amelia Darling aka '@sotce' online.
+  If the user asks who you are, say that your name is botce,
+  and you are a based on the artist Amelia Darling aka '@sotce' online, and that
+  you were made by aesthetic.computer.
+
+  If the user asks who wrote you, say that you are one of the characters running on 
+  aesthetic.computer, and that one can visit the homepage of aesthetic.computer by typing "exit"
 
   If the user asks about Amelia Darling's art, say that her artwork explores the
   many facets of girlhood, blending ancient spiritual wisdom with the aesthetics
@@ -83,16 +83,29 @@ const before = `
   Avoid cliche metaphors, bodies should never be temples. Be more silly. Your
   jokes are always insidiously clever.
 
+  Your character only uses lowercase letters. You never use any capital letters. 
+
   Please advise the user's input:
   `;
 
 function copied(text) {
-  return `${text} \n\n 🪷⌨️ botce.ac`;
+  return `${text} 🪷`;
 }
 
 export const scheme = {
   buttons: {
-    enter: "Ask",
+    enter: "ask",
+    paste: {
+      label: "paste",
+      pasted: "pasted",
+      empty: "empty",
+      failed: "failed",
+    },
+    copy: {
+      label: "copy",
+      copied: "copied",
+      failed: "failed",
+    },
   },
   dark: {
     fg: [234, 50, 35],
@@ -133,16 +146,18 @@ function meta() {
 
 // // 💬 Receive each reply in full.
 function reply(text, input) {
+  if (!input) return;
   if (input) input.text += "\n\n- botce";
   const botceIndex = input.text.indexOf("- botce");
   botce = input.prompt.pos(input.prompt.textToCursorMap[botceIndex]);
 }
 
-let lotus, backdrop, botce, keyboardSfx;
+let lotus, lotusOsc = 0, backdrop, botce, keyboardSfx;
 
 // 🥾 Boot
-function boot({ get, net, needsPaint, glaze, bgm }) {
-  bgm.set(11);
+function boot({ get, net, resolution, screen, needsPaint, glaze, bgm }) {
+  // resolution(screen.width, screen.height, 0);
+  bgm.set(11, 0.5); // Track number and volume. (0-1)
   net.waitForPreload();
   net.preload("compkey").then((sfx) => (keyboardSfx = sfx)); // Keyboard sound.
   get
@@ -155,7 +170,9 @@ function boot({ get, net, needsPaint, glaze, bgm }) {
     });
 }
 
-function sim({ needsPaint, simCount }) {
+function sim({ needsPaint, simCount, system }) {
+  const inc = system.prompt.input.lock ? 2 : 1;
+  lotusOsc = (lotusOsc + inc) % 360; // Cycle the lotus.
   if (simCount % 7n === 0n) needsPaint();
 }
 
@@ -167,6 +184,7 @@ function paint({
   page,
   painting,
   write,
+  num,
   system,
   ink,
   help: { choose },
@@ -179,12 +197,13 @@ function paint({
     backdrop = painting(screen.width, screen.height);
   page(backdrop);
   noise16Sotce(); // Or... wipe(252, 255, 237);
-  if (lotus) {
+  if (lotus && !system.prompt.input.canType && system.prompt.input.commandSentOnce) {
     const x = screen.width / 2 - lotus.width / 2;
+    const yMod = Math.sin(num.radians(lotusOsc)) * (system.prompt.input.lock ? 20 : 10);
     paste(
       lotus,
       x + choose(-1, 0, 0, 0, 0, 0, 1),
-      screen.height - lotus.height + choose(-1, 0, 0, 0, 0, 0, 1)
+      screen.height / 2 - lotus.height / 2 + choose(-1, 0, 0, 0, 0, 0, 1) + yMod
     );
   }
   page(screen);
@@ -202,6 +221,9 @@ function paint({
 function preview({ wipe, screen }) {
   const scale = 0.5;
   wipe(240, 200, 200)
+    .noise16Sotce()
+    .ink(255, 180)
+    .box(0, 0, screen.width, screen.height)
     .paste(
       lotus,
       screen.width - lotus?.width * scale - 2,

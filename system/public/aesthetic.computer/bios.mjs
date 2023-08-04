@@ -484,11 +484,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let analyserCtx, analyserSrc, analyser, frequencyData;
   let currentBackgroundTrack;
 
-  function playBackgroundMusic(n) {
+  function playBackgroundMusic(n, volume) {
     if (currentBackgroundTrack !== n && !isNaN(n)) {
       const origin = "https://bgm.aesthetic.computer/";
       backgroundMusicEl.src = origin + backgroundTrackURLs[n];
-      if (audioContext) backgroundMusicEl.play();
+      backgroundMusicEl.volume = parseFloat(volume);
+      if (audioContext) {
+        backgroundMusicEl.play();
+      } 
       currentBackgroundTrack = n;
     }
   }
@@ -1164,7 +1167,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "bgm-change") {
-      playBackgroundMusic(content.trackNumber);
+      playBackgroundMusic(content.trackNumber, content.volume);
       return;
     }
 
