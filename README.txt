@@ -72,6 +72,7 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+
 *** `baktok` ***
   - [] Record user voice and play it backwards, for backwards vocal training.
 
@@ -109,6 +110,15 @@
     - [] Poem will implement TextInput, but not the prompt system.
 
 *** Polishing ***
+  - [] Optimize the the site's initial load...
+    - [] Change the starter noise function if the starting
+        piece is botce.
+    - [] Don't load the auth0 library until after we booted.
+  - [] Optimize image loading / database access.
+    - [] Measure the latency using a CLI even try a different host?
+      (After migrating the database.)
+    - [] Try using an edge function or something?
+
   - [] Painting now needs zoom...
   - [] NaskjdlkjsETWORK FAILURE
   - [👱‍♀️] Add painting include support and images to front-facing bots. (`gargoyle`, `liar` … )

@@ -35,14 +35,19 @@ let debug = false; // This can be overwritten on boot.
 import { setDebug } from "../disks/common/debug.mjs";
 
 const defaults = {
-  boot: ({ resize, cursor, screen: { width, height } }) => {
+  boot: ({ resize, cursor, screen: { width, height }, resolution, slug }) => {
     // resize(width / 2, height / 2);
+    if (slug?.startsWith("botce")) resolution(width, height, 0);
     cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
-  paint: ({ noise16Aesthetic }) => {
+  paint: ({ noise16Aesthetic, noise16Sotce, slug }) => {
     // TODO: Make this a boot choice via the index.html file?
-    noise16Aesthetic();
+    if (slug?.startsWith("botce")) {
+      noise16Sotce();
+    } else {
+      noise16Aesthetic();
+    }
     //noiseTinted([20, 20, 20], 0.8, 0.7);
   },
   beat: () => false, // Runs every bpm.
@@ -492,8 +497,8 @@ const $commonApi = {
   // Trigger background music.
   // Eventually add an "@" style parameter similar to what a stamp system would have.
   bgm: {
-    set: function (trackNumber) {
-      send({ type: "bgm-change", content: { trackNumber } });
+    set: function (trackNumber, volume) {
+      send({ type: "bgm-change", content: { trackNumber, volume } });
     },
     stop: () => send({ type: "bgm-stop" }),
     data: {},
