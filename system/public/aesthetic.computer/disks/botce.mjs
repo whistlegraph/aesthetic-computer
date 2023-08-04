@@ -4,6 +4,7 @@
 /* #region 🏁 TODO
 [-] Force downcase.
 [] Square preview image.
+
 [] Make sure sound is enabled on first tap.
 [] Optimize the the site's initial load...
   [] Change the starter noise function if the starting
