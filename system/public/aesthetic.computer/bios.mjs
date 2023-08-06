@@ -491,7 +491,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       backgroundMusicEl.volume = parseFloat(volume);
       if (audioContext) {
         backgroundMusicEl.play();
-      } 
+      }
       currentBackgroundTrack = n;
     }
   }
@@ -1218,7 +1218,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         keyboard.focusHandler = function (e) {
           if (!currentPieceHasKeyboard) return;
-          if (document.activeElement !== input && e.key !== "`") {
+          if (
+            document.activeElement !== input &&
+            e.key !== "`" &&
+            e.key !== "Escape"
+          ) {
             input.focus();
             return true;
           } else if (e.key === "Enter" && e.shiftKey === false) {

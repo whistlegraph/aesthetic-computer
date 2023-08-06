@@ -2,11 +2,10 @@
 // Sotce Q&A Bot (Based on Tumblr content.)
 
 /* #region 🏁 TODO
-[] Cancelling a question / losing internet connection.
 [] Make sure sound is enabled on first tap.
 
 Pre-launch:
-[] Keep track of user responses
+[] Keep track of user responses.
 [] Add analytics.
 [] Browser testing (Firefox, Chrome, Android, Safari).
 [] Paywall.
@@ -14,6 +13,7 @@ Pre-launch:
 [] Make it 1 shot- make forgetful
 
 + Done
+[x] Cancelling a question / losing internet connection.
 [c] Disable '`' keyboard shortcut and exit command?
 [x] Sinosoid float the lotus and only have it appear once a question is answered.
 [x] Come up with pricing / model the cost.

@@ -12,6 +12,8 @@ let conversation,
   abortMessage = "NETWORK FAILURE",
   processing = false;
 
+let cancel;
+
 export async function prompt_boot(
   $,
   { prompt, program, hint, forgetful },
@@ -88,6 +90,13 @@ export async function prompt_boot(
       let firstAnd = true; // Clear the text on first reply.
       input.submittedText = ""; // Clear any previously submitted text cache.
 
+      // Cancel a request (via `act`)
+      cancel = function () {
+        abortMessage = "";
+        abort?.(); // Prevent fail from running here...
+        input.activate(input);
+      };
+
       abort = conversation.ask(
         { prompt: text, program, hint },
         function and(msg) {
@@ -119,7 +128,6 @@ export async function prompt_boot(
           input.text = abortMessage;
           $.needsPaint();
           reply?.(input.text);
-          //input.#lastPrintedText = input.text;
           input.submittedText = "";
           processing = input.lock = false;
           input.bakePrintedText();
@@ -161,7 +169,6 @@ export function prompt_leave() {
 
 export function prompt_act($) {
   const { event: e, slug } = $;
-
   // Cancel any existing request on tap.
   if (
     !messageComplete &&
@@ -169,8 +176,7 @@ export function prompt_act($) {
     (e.is("keyboard:down:escape") ||
       (e.is("keyboard:down:`") && slug === "prompt"))
   ) {
-    abort?.();
-    abortMessage = "";
+    cancel();
   }
 
   let inputHandled = false;

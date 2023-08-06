@@ -232,6 +232,7 @@ class TextInput {
   #coatedCopy; // Stores a version of the current text output that could be
   //              decorated. (With a URL, for example.)
 
+  activate; // Hook to `activate` inside of act.
   activated; // Optional callback for when the the text input becomes
   //            activated via pushing the Enter button or typing a key.
   backdropTouchOff = false; // Determines whether to activate the input
@@ -840,6 +841,8 @@ class TextInput {
         }
 
         if (e.key === "Escape") {
+          this.activate(this);
+          $.send({ type: "keyboard:open" });
           this.text = "";
           this.#prompt.cursor = { x: 0, y: 0 };
         }
@@ -996,6 +999,8 @@ class TextInput {
         duration: 0.005,
       });
     }
+
+    this.activate = activate;
 
     // Leave the prompt input mode.
     function deactivate(ti) {
