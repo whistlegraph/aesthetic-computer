@@ -16,7 +16,7 @@ import * as platform from "./platform.mjs";
 import { parse, metadata } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
 // import { UDP } from "./udp.mjs"; // TODO: Eventually expand to `net.Socket`
-import { notArray } from "./helpers.mjs";
+import { notArray, defaultTemplateStringProcessor } from "./helpers.mjs";
 const { round, sin, random, max, floor } = Math;
 import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
@@ -3785,13 +3785,4 @@ function maybeLeave() {
     leaving = false;
     leaveLoad?.();
   }
-}
-
-// Default template string behavior: https://stackoverflow.com/a/64298689/8146077
-function defaultTemplateStringProcessor(strings, ...vars) {
-  let result = "";
-  strings.forEach((str, i) => {
-    result += `${str}${i === strings.length - 1 ? "" : vars[i]}`;
-  });
-  return result;
 }

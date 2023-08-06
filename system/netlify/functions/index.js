@@ -3,6 +3,7 @@
 import https from "https";
 import { URLSearchParams } from "url";
 import { parse, metadata } from "../../public/aesthetic.computer/lib/parse.mjs";
+import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 
 async function fun(event, context) {
   const dev = process.env.CONTEXT === "dev";
@@ -100,36 +101,70 @@ async function fun(event, context) {
 
   const assetURI = dev ? "/assets/" : "https://assets.aesthetic.computer/";
 
-  const html = `
+  const body = html`
     <!DOCTYPE html>
     <html>
       <head>
-        <meta charset="utf-8">
+        <meta charset="utf-8" />
         <title>${title}</title>
-        <link rel="icon" href="${icon}" type="image/png">
-        <link rel="stylesheet" crossorigin="anonymous" href="/type/webfonts/berkeley-mono-variable.css" />
-        <link rel="stylesheet" crossorigin="anonymous" href="/type/webfonts/ywft-processing-regular.css" />
-        <link rel="stylesheet" crossorigin="anonymous" href="/aesthetic.computer/style.css" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        <link rel="icon" href="${icon}" type="image/png" />
+        <link
+          rel="stylesheet"
+          crossorigin="anonymous"
+          href="/type/webfonts/berkeley-mono-variable.css"
+        />
+        <link
+          rel="stylesheet"
+          crossorigin="anonymous"
+          href="/type/webfonts/ywft-processing-regular.css"
+        />
+        <link
+          rel="stylesheet"
+          crossorigin="anonymous"
+          href="/aesthetic.computer/style.css"
+        />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
         <meta name="og:title" content="${title}" />
         <meta name="og:description" content="${desc}" />
         <meta name="og:image" content="${ogImage}" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="${title}" />
         <meta name="twitter:site" content="aesthetic.computer" />
-        <meta name="twitter:image" content="${twitterImage}"/>
-        <script crossorigin="anonymous" src="/aesthetic.computer/dep/cdn.auth0.com_js_auth0-spa-js_2.0_auth0-spa-js.production.js"></script>
-        ${
-          dev
-            ? ""
-            : `<!-- <script crossorigin="anonymous" src="https://js.sentry-cdn.com/ef4704c0df6a410e972bca14d69e1898.min.js"></script> -->`
-        }
-        <script crossorigin="anonymous" src="/aesthetic.computer/boot.mjs" type="module" defer></script>
+        <meta name="twitter:image" content="${twitterImage}" />
+        <script
+          crossorigin="anonymous"
+          src="/aesthetic.computer/dep/cdn.auth0.com_js_auth0-spa-js_2.0_auth0-spa-js.production.js"
+        ></script>
+        ${dev
+          ? ""
+          : `<!-- <script crossorigin="anonymous" src="https://js.sentry-cdn.com/ef4704c0df6a410e972bca14d69e1898.min.js"></script> -->`}
+        <script
+          crossorigin="anonymous"
+          src="/aesthetic.computer/boot.mjs"
+          type="module"
+          defer
+        ></script>
+        <!-- Google tag (gtag.js) -->
+        <script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-B4TLVYKXVF"
+        ></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag() {
+            dataLayer.push(arguments);
+          }
+          gtag("js", new Date());
+          gtag("config", "G-B4TLVYKXVF");
+        </script>
       </head>
       <body class="native-cursor">
-      <script>
-        if (window.self !== window.top) document.body.classList.add("embed");
-      </script>
+        <script>
+          if (window.self !== window.top) document.body.classList.add("embed");
+        </script>
       </body>
     </html>
   `;
@@ -140,7 +175,7 @@ async function fun(event, context) {
       "Cross-Origin-Embedder-Policy": "require-corp",
       "Cross-Origin-Opener-Policy": "same-origin",
     },
-    body: html,
+    body,
     ttl: 60,
   };
 }

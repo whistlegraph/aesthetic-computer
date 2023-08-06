@@ -6,13 +6,13 @@
 
 Pre-launch:
 [] Keep track of user responses.
-[] Add analytics.
 [] Browser testing (Firefox, Chrome, Android, Safari).
 [] Paywall.
-[] Function.choose diff images for each reponse
+[] Function: Choose different images for each response.
 [] Make it 1 shot- make forgetful
 
 + Done
+[x] Add analytics.
 [x] Cancelling a question / losing internet connection.
 [c] Disable '`' keyboard shortcut and exit command?
 [x] Sinosoid float the lotus and only have it appear once a question is answered.
