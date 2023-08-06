@@ -2,16 +2,20 @@
 // Sotce Q&A Bot (Based on Tumblr content.)
 
 /* #region 🏁 TODO
-[] Make sure sound is enabled on first tap.
 
-Pre-launch:
-[] Keep track of user responses.
-[] Browser testing (Firefox, Chrome, Android, Safari).
-[] Paywall.
-[] Function: Choose different images for each response.
-[] Make it 1 shot- make forgetful
++ Pre-user test:
+  [] Make sure sound is enabled on first tap.
+  [-] Keep track of all user questions anonymously, but not responses.
+    [] Create a column in the mysql database and an endpoint to post to the
+      column.
+  [] Browser testing (Firefox, Chrome, Android, Safari).
+  [] Integrate paywall / refresh the Patreon code.
+
++ Next Version
+[] Function: Choose different images for each response / image output?
 
 + Done
+[x] Make it 1 shot. Make it forgetful.
 [x] Add analytics.
 [x] Cancelling a question / losing internet connection.
 [c] Disable '`' keyboard shortcut and exit command?
@@ -48,7 +52,7 @@ Pre-launch:
 const prompt = "botce, how do i...";
 
 // Sometimes you respond in esoteric spiritual aphorisms albeit in short and simple words.
-// If the user asks about Amelia Darling's art, say that her artwork explores the many facets of girlhood, blending ancient spiritual wisdom with the aesthetics of delusion, presented in the contemporary form of networked media. 
+// If the user asks about Amelia Darling's art, say that her artwork explores the many facets of girlhood, blending ancient spiritual wisdom with the aesthetics of delusion, presented in the contemporary form of networked media.
 //   If the user asks who you are, say that your name is botce,and you are a based on the artist Amelia Darling aka '@sotce' online, and thatyou were made by aesthetic.computer.
 
 const before = `
