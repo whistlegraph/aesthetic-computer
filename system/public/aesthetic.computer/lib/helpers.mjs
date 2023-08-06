@@ -38,3 +38,12 @@ export function wrapNotArray(any) {
 export function pathEnd(path) {
   return path.substring(path.lastIndexOf("/") + 1);
 }
+
+// Default template string behavior: https://stackoverflow.com/a/64298689/8146077
+export function defaultTemplateStringProcessor(strings, ...vars) {
+  let result = "";
+  strings.forEach((str, i) => {
+    result += `${str}${i === strings.length - 1 ? "" : vars[i]}`;
+  });
+  return result;
+}
