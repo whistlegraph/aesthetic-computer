@@ -57,7 +57,7 @@ function meta() {
 // Render an application icon, aka favicon.
 // }
 
-export { boot, paint, meta, preview };
+export { boot, paint, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
