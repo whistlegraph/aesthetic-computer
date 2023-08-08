@@ -4,10 +4,10 @@
 /* #region 🏁 TODO
 
 + Pre-user test:
-  [] Make sure sound is enabled on first tap.
   [-] Keep track of all user questions anonymously, but not responses.
     [] Create a column in the mysql database and an endpoint to post to the
       column.
+  [] Make sure sound is enabled on first tap.
   [] Browser testing (Firefox, Chrome, Android, Safari).
   [] Integrate paywall / refresh the Patreon code.
 
