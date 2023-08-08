@@ -74,7 +74,7 @@
 
 
 *** `baktok` ***
-  - [] Record user voice and play it backwards, for backwards vocal training.
+  - [🟠] Record user voice and play it backwards, for backwards vocal training.
 
 *** faster user media urls ***
   - [] Why is the handle lookup being so goddamn slow?
