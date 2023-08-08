@@ -6,15 +6,17 @@
 
 /* #region 🏁 TODO 
 + Now
-- [] Dummy gesture no longer functions.
-- [] Rename Staka
+- [🟠] Ball bounce at different angles related to the plate.
+    - [] How to have the ball bounce off the paddle without sticking or sliding.
 - [] Create safe zone boundary that the game takes place in. 
 - [] Clean up "dead-zone" edges by tracking some video pixels outside
       of the screen boundery. (For all hand-tracking) 
 - [] Title Screen
 - [] Game Over
 - [] Sound
+- [] Rename Staka
 + Done
+- [x] Dummy gesture no longer functions.
 - [x] Tapping and holding the mouse down when a hand is not present should
       drop the y value of the dummy data of IMO, so the gesture gets
       recognized and the game is playable / testable with no tracking!
@@ -27,19 +29,23 @@
 #endregion */
 
 import { HandInput } from "../lib/hand.mjs";
-let speed;
-let circle, plate, touching;
-let circleColor = Math.floor(Math.random() * 16777215).toString(16);
-let reverseIt = false;
-let dummy; 
+let plate, touching;
+
+const startingSpeed = 1;
+
+const ball = {
+  color: Math.floor(Math.random() * 16777215).toString(16),
+  speed: startingSpeed,
+  angle: 160
+};
+
 // 🥾 Boot
 let handInput;
 function boot({ num, geo, screen }) {
-  // Runs once at the start.
   handInput = new HandInput();
   const radius = 16;
-  circle = new geo.Circle(num.randInt(screen.width), -radius, radius);
-  //   circle = new geo.Circle(screen.width / 2, screen.height / 2, radius);
+  // ball.circle = new geo.Circle(num.randInt(screen.width), -radius, radius);
+  ball.circle = new geo.Circle(screen.width / 2, screen.height / 2 - 100, radius);
 }
 
 // 🎨 Paint
@@ -57,86 +63,103 @@ function paint($) {
 
   handInput.paint($, { faded: plate !== undefined }); // Uses calculated points.
 
-  // Stuff to replace with Jeffrey's code:
-  function proj(a, b) {
-    const k = $.num.p2.dot(a, b) / $.num.p2.dot(b, b);
-    return { x: k * b.x, y: k * b.y };
-  }
-
-  let vecDistance;
   if (plate) {
-    let A;
-    let B;
-
-    if (dummy === true) {
-      pan(...handInput.dummyPan);
-      ink(255, 96).pline( 
-        [
-          { x: plate[0][0], y: plate[0][1]},
-          { x: plate[1][0], y: plate[1][1]},
-        ],
-        12
-      );
-      ink(255).line(...plate).unpan();
-      const dp = handInput.dummyPan; 
-      A = { x: plate[0][0] + dp[0], y: plate[0][1] + dp[1]};
-      B = { x: plate[1][0] + dp[0], y: plate[1][1] + dp[1] }; 
-      // console.log("A: ", A, "B: ", B); 
-    }
-    else {
-      ink(255, 96).pline( 
-        [
-          { x: plate[0][0], y: plate[0][1]},
-          { x: plate[1][0], y: plate[1][1]},
-        ],
-        12
-      );
-      ink(255).line(...plate);
-      A = { x: plate[0][0], y: plate[0][1] };
-      B = { x: plate[1][0], y: plate[1][1] }; 
-    }
-    
-    const C = { x: circle.x, y: circle.y };
-    const AC = $.num.p2.sub(C, A);
-    const AB = $.num.p2.sub(B, A);
-    const D = $.num.p2.add(proj(AC, AB), A);
-  
-    vecDistance = num.dist(circle.x, circle.y, D.x, D.y);
-    const AD = $.num.p2.sub(D, A);
-    const k = Math.abs(AB.x) > Math.abs(AB.y) ? AD.x / AB.x : AD.y / AB.y;
-    if (k > 0.0 && k < 1.0 && vecDistance < circle.radius) {
-      // if plate in contact with ball
-      reverseIt = true;
-      speed = Math.random() * 2 + 0.1;
-    }
+    if (handInput.dummy) pan(...handInput.dummyPan);
+    ink(255, 96).pline(
+      [
+        { x: plate[0][0], y: plate[0][1] },
+        { x: plate[1][0], y: plate[1][1] },
+      ],
+      12
+    );
+    ink(255).line(...plate)
+    if (handInput.dummy) unpan();
   }
+
   //Draw Circle
-  ink(circleColor).circle(circle.x, circle.y, circle.radius, true);
-  ink(255, 255, 0).circle(circle.x, circle.y, circle.radius);
+  ink(ball.color).circle(
+    ball.circle.x,
+    ball.circle.y,
+    ball.circle.radius,
+    true
+  );
+  ink(255, 255, 0).circle(ball.circle.x, ball.circle.y, ball.circle.radius);
 }
 
 // 🧮 Sim
 function sim($) {
   handInput.sim($); // Calculate the hand points.
-  // Runs once per logic frame. (120fps locked.
-  if (reverseIt === true) {
-    circle.y -= speed;
-    if (circle.y < 0) reverseIt = false;
-  } else {
-    circle.y += Math.random();
-  }
-  const timop = handInput.timop;
-  const dummyPoints = handInput.dummyPoints;
-  if (circle.y > $.screen.height) {
-    circle.y = circle.radius;
-    circle.x = $.num.randInt($.screen.width);
-    circle.radius = Math.floor(Math.random() * 20) + 10;
-    circleColor = Math.floor(Math.random() * 16777215).toString(16);
-    speed = Math.random() * 2 + 0.1;
+  // Runs once per logic frame. (120fps locked).
+
+  // Update both ball.circle.x and ball.circle.y by projecting
+  // by speed amount, in a given direction 
+
+  // const travel = $.num.p2.rot(ball.speed, radians); 
+
+  // 🏀 Update the ball.
+  const radians = $.num.radians(ball.angle);
+  ball.circle.x += ball.speed * Math.cos(radians); 
+  ball.circle.y += ball.speed * Math.sin(radians);
+
+  // Check for collision with ball plate.
+  if (plate) {
+    let vecDistance;
+    const A = { x: plate[0][0], y: plate[0][1] };
+    const B = { x: plate[1][0], y: plate[1][1] };
+
+    if (handInput.dummy === true) {
+      const dp = {x: handInput.dummyPan[0], y: handInput.dummyPan[1] };
+      $.num.p2.inc(A, dp); // Add dp to A and B
+      $.num.p2.inc(B, dp);
+    }
+
+    const C = { x: ball.circle.x, y: ball.circle.y };
+    const AC = $.num.p2.sub(C, A);
+    const AB = $.num.p2.sub(B, A);
+    const D = $.num.p2.add(proj($, AC, AB), A);
+
+    vecDistance = $.num.dist(ball.circle.x, ball.circle.y, D.x, D.y);
+    const AD = $.num.p2.sub(D, A);
+    const k = Math.abs(AB.x) > Math.abs(AB.y) ? AD.x / AB.x : AD.y / AB.y;
+
+    // Print out the angle of the plate and the angle of the ball in the 
+    // console.
+    const plateRadians = $.num.p2.angle(A, B);
+    const plateDegrees = $.num.degrees(plateRadians);
+
+    // If plate collides with ball.
+    if (k > 0.0 && k < 1.0 && vecDistance < ball.circle.radius) {
+      // ball.collided = true;
+      // setTimeout(() => ball.collided = false, 50);
+      ball.angle = ((360 - ball.angle) + plateDegrees); 
+
+      // Move the ball in its new direction by vecDistance. 
+      const radians = $.num.radians(ball.angle);
+      ball.circle.x += (vecDistance / 2) * Math.cos(radians); 
+      ball.circle.y += (vecDistance / 2) * Math.sin(radians);
+    }
   }
 
-  if (dummyPoints[4] === timop[0]) { //dummy data 
-    dummy = true; 
+  if (ball.circle.y < 0) ball.angle = 360 - ball.angle; // Bounce of the top.
+  if (ball.circle.x < 0) ball.angle = 180 - ball.angle; // Left
+  if (ball.circle.x > $.screen.width) ball.angle = 180 - ball.angle; // Right
+
+  // Move ball back to the top of the screen and randomize its properties
+  // if it leaves the bottom.
+  if (ball.circle.y > $.screen.height) {
+    ball.circle.y = ball.circle.radius;
+    ball.circle.x = $.num.randInt($.screen.width);
+    ball.circle.radius = Math.floor(Math.random() * 20) + 10;
+    ball.color = Math.floor(Math.random() * 16777215).toString(16);
+    ball.speed = genSpeed();
+  }
+
+  // 🖐️ Hand
+  const timop = handInput.timop;
+  const dummyPoints = handInput.dummyPoints;
+
+  if (handInput.dummy) {
+    //dummy data
     const t = dummyPoints[4],
       i = dummyPoints[8],
       m = dummyPoints[12],
@@ -144,22 +167,19 @@ function sim($) {
       p = dummyPoints[20];
 
     if (
-      t.y < i.y &&
-      t.y < m.y &&
-      t.y < o.y && // if t is higher than imo
-      p.y < i.y &&
-      p.y < m.y &&
-      p.y < o.y // and p is higher than imo
+      t[1] < i[1] &&
+      t[1] < m[1] &&
+      t[1] < o[1] && // if t is higher than imo
+      p[1] < i[1] &&
+      p[1] < m[1] &&
+      p[1] < o[1] // and p is higher than imo
     ) {
-      const data = [dummyPoints[4], dummyPoints[20]];
-      plate = data.map(({ x, y }) => [x, y]);
-    }
-    else {
+      plate = [dummyPoints[4], dummyPoints[20]];
+    } else {
       plate = undefined;
     }
-    // console.log("DUMMY DATA: ", plate);
-  } else { //real data
-    dummy = false; 
+  } else {
+    //real data
     const t = timop[0],
       i = timop[1],
       m = timop[2],
@@ -176,12 +196,9 @@ function sim($) {
       p[1] < o[1] // and p is higher than imo
     ) {
       plate = [timop[0], timop[4]];
-      //   touching = circle.online(...plate[0], ...plate[1]);
-    }
-    else {
+    } else {
       plate = undefined;
     }
-    // console.log("NOT DUMMY DATA: ", plate);
   }
 }
 
@@ -189,11 +206,9 @@ function sim($) {
 function act($) {
   handInput.act($);
   if ($.event.is("touch")) {
-    handInput.dummyGesture = handInput.dummyGesture === "shaka" ? "open" : "shaka";
+    handInput.dummyGesture =
+      handInput.dummyGesture === "shaka" ? "open" : "shaka";
   }
-
-  // if click --> handInput.dummyGesture = "shaka"
-  // Respond to user input here.
 }
 
 // 🥁 Beat
@@ -218,3 +233,12 @@ export { boot, act, meta, paint, sim };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
+
+function genSpeed () {
+  return Math.random() * 2 + 0.5;
+}
+
+function proj($, a, b) {
+  const k = $.num.p2.dot(a, b) / $.num.p2.dot(b, b);
+  return { x: k * b.x, y: k * b.y };
+}
