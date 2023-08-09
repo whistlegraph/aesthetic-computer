@@ -13,7 +13,8 @@ const tokenizer = new GPT3BrowserTokenizer({ type: "gpt3" });
 const prompt = "Enter numbers to decode.";
 
 // 🥾 Boot
-async function boot({ store, system, params }) {
+async function boot({ store, system, params, resolution, screen }) {
+  resolution(screen.width/1.2, screen.height/1.2)
   if (params.length === 0) return;
   system.prompt.input.text = params.join(" ");
   await system.prompt.input.run(store);
@@ -37,15 +38,15 @@ function act({ system: { prompt }, event: e }) {
 
 export const scheme = {
   dark: {
-    fg: [0, 0, 0],
-    bg: [210, 255, 40],
+    fg: [230, 274, 224],
+    bg: [189, 164, 166, 100],
     block: [0, 0, 0],
     blockHi: [255, 255, 255],
     line: [0, 0, 10],
   },
   light: {
     fg: [0, 200],
-    bg: [170, 150, 200],
+    bg: [179, 164, 166],
     block: [30, 200, 200],
     blockHi: [200, 200, 30],
     line: [0, 0, 0, 128],
@@ -54,11 +55,11 @@ export const scheme = {
 
 const altScheme = {
   dark: {
-    fg: [50, 255, 0],
-    bg: [10, 20, 20],
-    block: [255, 255, 255],
+    fg: [123, 66,102, 120],
+    bg: [230, 234, 224, 200],
+    block: [123, 66,102, 120],
     blockHi: [0, 0, 0],
-    line: [0, 0, 10],
+    line: [230, 234, 224, 120],
   },
   light: {
     fg: [0, 200],
@@ -69,6 +70,16 @@ const altScheme = {
   },
 };
 
-export { boot, prompt, halt, act };
+// 🎨 Paint
+function paint({ noiseTinted }) {
+noiseTinted([189, 164, 166], 0.8, 0.6)
+}
+
+function sim({ needsPaint, simCount }) {
+  if (simCount % 4n === 0n) needsPaint();
+}
+
+
+export { boot, prompt, halt, act, paint, sim };
 export const system = "prompt"; // or "prompt:code"
 export const wrap = "word";
