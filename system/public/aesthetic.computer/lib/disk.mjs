@@ -394,6 +394,9 @@ let cachedAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
+  speak: (utterance, voice) => {
+    send({ type: "speak", content: { utterance, voice } });
+  },
   // Broadcast an event through the entire act system.
   act: (event, data = {}) => {
     data.is = (e) => e === event;
@@ -776,8 +779,10 @@ const $commonApi = {
     repeat: help.repeat,
     every: help.every,
     any: help.any,
+    anyIndex: help.anyIndex,
     anyKey: help.anyKey,
     each: help.each,
+    shuffleInPlace: help.shuffleInPlace,
   },
   gizmo: { Hourglass: gizmo.Hourglass },
   rec: new Recorder(),
@@ -2364,6 +2369,11 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // 🗣️ An act that fires when an utterance has ended in the Web Speech API.
+  if (type === "speech:completed") {
+    actAlerts.push("speech:completed");
+  }
+
   // Handles: clipboard:paste:pasted, clipboard:paste:pasted:empty
   if (type.startsWith("paste:pasted")) {
     actAlerts.push("clipboard:" + type);
@@ -3582,6 +3592,7 @@ async function makeFrame({ data: { type, content } }) {
         piece !== "play" &&
         piece !== "gargoyle" &&
         piece !== "girlfriend" &&
+        piece !== "need-help" &&
         piece !== "boyfriend" &&
         piece !== "botce" &&
         piece !== "angel" &&

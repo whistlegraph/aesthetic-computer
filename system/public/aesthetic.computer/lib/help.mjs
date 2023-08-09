@@ -17,6 +17,11 @@ export function every(obj, value) {
   Object.keys(obj).forEach((k) => (obj[k] = value));
 }
 
+// Returns a random index value from an array.
+export function anyIndex(array) {
+  return num.randInt(array.length - 1);
+}
+
 // Returns a random value from an object.
 export function any(obj) {
   const keys = Object.keys(obj);
