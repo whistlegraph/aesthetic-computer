@@ -72,7 +72,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-
 *** `baktok` ***
   - [🟠] Record user voice and play it backwards, for backwards vocal training.
 
@@ -110,7 +109,7 @@
     - [] Poem will implement TextInput, but not the prompt system.
 
 *** Polishing ***
-  - [] Optimize the the site's initial load...
+  - [] Optimize the site's initial load...
     - [] Change the starter noise function if the starting
         piece is botce.
     - [] Don't load the auth0 library until after we booted.
