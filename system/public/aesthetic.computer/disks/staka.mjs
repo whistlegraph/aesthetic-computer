@@ -7,6 +7,11 @@
 /* #region 🏁 TODO 
 + Now
 - [🟠] Ball bounce at different angles related to the plate.
+    - [] Prototype this in `balls`.
+    - [] This could be a question of using `force` instead of a direct
+         angle change.
+    - [] Also we could skip some of these phsyics by integrating matter.js
+         or bullet or another physics engine.
     - [] How to have the ball bounce off the paddle without sticking or sliding.
 - [] Create safe zone boundary that the game takes place in. 
 - [] Clean up "dead-zone" edges by tracking some video pixels outside
@@ -92,7 +97,7 @@ function sim($) {
   // Runs once per logic frame. (120fps locked).
 
   // Update both ball.circle.x and ball.circle.y by projecting
-  // by speed amount, in a given direction 
+  // by speed amount, in a given direction. 
 
   // const travel = $.num.p2.rot(ball.speed, radians); 
 
@@ -132,11 +137,11 @@ function sim($) {
       // ball.collided = true;
       // setTimeout(() => ball.collided = false, 50);
       ball.angle = ((360 - ball.angle) + plateDegrees); 
-
-      // Move the ball in its new direction by vecDistance. 
+      // Move the ball in its new direction by vecDistance?
       const radians = $.num.radians(ball.angle);
-      ball.circle.x += (vecDistance / 2) * Math.cos(radians); 
-      ball.circle.y += (vecDistance / 2) * Math.sin(radians);
+      const dist = ball.circle.radius - vecDistance;
+      ball.circle.x += dist * Math.cos(radians); 
+      ball.circle.y += dist * Math.sin(radians);
     }
   }
 
@@ -159,7 +164,7 @@ function sim($) {
   const dummyPoints = handInput.dummyPoints;
 
   if (handInput.dummy) {
-    //dummy data
+    // dummy data
     const t = dummyPoints[4],
       i = dummyPoints[8],
       m = dummyPoints[12],

@@ -5,6 +5,7 @@ import * as Loop from "./lib/loop.mjs";
 import { Pen } from "./lib/pen.mjs";
 import { Box } from "./lib/geo.mjs";
 import { Keyboard } from "./lib/keyboard.mjs";
+import { speak } from "./lib/speech.mjs";
 import * as UI from "./lib/ui.mjs";
 import * as Glaze from "./lib/glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
@@ -785,6 +786,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (debug && worker.postMessage) console.log("🟢 Worker");
 
     send = (e, shared) => worker.postMessage(e, shared);
+    window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
 
     worker.onmessage = onMessage;
   } else {
@@ -946,6 +948,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+    if (type === "speak") {
+      speak(content.utterance, content.voice);
+    }
+
     // Show a classic DOM / window style alert box.
     if (type === "alert") {
       window.alert(content);
