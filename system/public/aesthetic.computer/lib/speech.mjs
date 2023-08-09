@@ -17,7 +17,7 @@ function populateVoiceList() {
       return 1;
     }
   });
-  console.log("🗣️ Available voices:", voices);
+  // console.log("🗣️ Available voices:", voices);
 }
 
 populateVoiceList();
