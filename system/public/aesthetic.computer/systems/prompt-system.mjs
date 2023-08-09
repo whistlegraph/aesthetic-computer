@@ -66,7 +66,11 @@ export async function prompt_boot(
         // Assume we set custom replied state via `TextInput -> replied`.
         if (halted.replied) {
           input.lock = false;
+          input.runnable = false;
+          input.bakePrintedText();
+          input.showButton($);
           $.needsPaint();
+          $.send({ type: "keyboard:close" });
           return;
         }
 
