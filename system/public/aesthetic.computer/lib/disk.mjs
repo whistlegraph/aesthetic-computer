@@ -2761,6 +2761,7 @@ async function makeFrame({ data: { type, content } }) {
       subdivisions: content.subdivisions,
     };
     $commonApi.display = currentDisplay;
+
     // Only trigger a reframe event if we have already passed `boot` (painted
     // at least once)
     if (booted) reframed = true;
