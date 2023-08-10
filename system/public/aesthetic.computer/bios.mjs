@@ -765,6 +765,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Always use workers if they are supported, except for
   // when we are in VR (MetaBrowser).
   const sandboxed = window.origin === "null" || !window.origin;
+  console.log("Origin:", window.origin);
 
   // Disable workers if we are in a sandboxed iframe.
   const workersEnabled = !sandboxed;
