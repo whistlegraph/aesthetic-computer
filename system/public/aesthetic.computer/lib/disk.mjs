@@ -2299,7 +2299,7 @@ function send(data, shared = []) {
     if (shared[0] === undefined) shared = [];
     postMessage(data, shared);
   } else {
-    noWorker.postMessage({ data });
+    noWorker.postMessage?.({ data });
   }
 }
 
