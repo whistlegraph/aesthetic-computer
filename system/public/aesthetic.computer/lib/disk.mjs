@@ -2524,7 +2524,7 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "recorder:printed") {
     $commonApi.rec.printed = true;
-    $commonApi.rec.printCallback?.();
+    $commonApi.rec.printCallback?.(content);
     $commonApi.rec.printing = false;
     return;
   }

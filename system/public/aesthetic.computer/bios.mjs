@@ -564,7 +564,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         "/aesthetic.computer/lib/microphone.mjs"
       );
 
-      const playerNode = new AudioWorkletNode(
+      const micProcessorNode = new AudioWorkletNode(
         audioContext,
         "microphone-processor",
         {
@@ -573,10 +573,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
       );
 
-      micNode.connect(playerNode);
+      micNode.connect(micProcessorNode);
 
       // Receive messages from the microphone processor thread.
-      playerNode.port.onmessage = (e) => {
+      micProcessorNode.port.onmessage = (e) => {
         const msg = e.data;
 
         if (msg.type === "amplitude") {
@@ -590,30 +590,43 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (msg.type === "pitch") {
           send({ type: "microphone-pitch", content: msg.content });
         }
+
+        if (msg.type === "recording:complete") {
+          send({ type: "microphone:recording:complete", content: msg.content });
+        }
+      };
+
+      requestMicrophoneRecordingStart = () => {
+        micProcessorNode.port.postMessage({ type: "record:start" });
+      };
+
+      requestMicrophoneRecordingStop = () => {
+        micProcessorNode.port.postMessage({ type: "record:stop" });
       };
 
       // Request data / send message to the mic processor thread.
       requestMicrophoneAmplitude = () => {
-        playerNode.port.postMessage({ type: "get-amplitude" });
+        micProcessorNode.port.postMessage({ type: "get-amplitude" });
       };
 
       requestMicrophoneWaveform = () => {
-        playerNode.port.postMessage({ type: "get-waveform" });
+        micProcessorNode.port.postMessage({ type: "get-waveform" });
       };
 
       requestMicrophonePitch = () => {
-        playerNode.port.postMessage({ type: "get-pitch" });
+        micProcessorNode.port.postMessage({ type: "get-pitch" });
       };
 
       // Connect mic to the mediaStream.
-      playerNode.connect(audioStreamDest);
+      micProcessorNode.connect(audioStreamDest);
 
       // Connect to the speaker if we are monitoring audio.
-      if (data?.monitor === true) playerNode.connect(audioContext.destination);
+      if (data?.monitor === true)
+        micProcessorNode.connect(audioContext.destination);
 
       // Setup microphone detachment function.
       detachMicrophone = () => {
-        playerNode.disconnect();
+        micProcessorNode.disconnect();
         micNode.disconnect();
         micStream.getTracks().forEach((t) => t.stop());
         if (debug) console.log("🎙💀 Microphone:", "Detached");
@@ -751,7 +764,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // 🔥 Optionally use workers or not.
   // Always use workers if they are supported, except for
   // when we are in VR (MetaBrowser).
-  const sandboxed = window.origin === "null";
+  const sandboxed = window.origin === "null" || !window.origin;
 
   // Disable workers if we are in a sandboxed iframe.
   const workersEnabled = !sandboxed;
@@ -764,23 +777,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Rewire things a bit if workers with modules are not supported (Firefox).
     worker.onerror = async (err) => {
-      if (
-        err.message ===
-        "SyntaxError: import declarations may only appear at top level of a module"
-      ) {
-        console.warn(
-          "🟡 Disk module workers unsupported in this browser. Using a dynamic import..."
-        );
-        // https://bugzilla.mozilla.org/show_bug.cgi?id=1247687
-        const module = await import(`./lib/disk.mjs`);
-        module.noWorker.postMessage = (e) => onMessage(e); // Define the disk's postMessage replacement.
-        send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
-        send(firstMessage);
-      } else {
-        console.error("🛑 Disk error:", err);
-        // TODO: Try and save the crash here by restarting the worker
-        //       without a full system reload?
-      }
+      // if (
+      //   err.message ===
+      //   "SyntaxError: import declarations may only appear at top level of a module"
+      // ) {
+      console.error("🛑 Disk error:", err);
+      console.warn("🟡 Attempting a dynamic import...");
+      // https://bugzilla.mozilla.org/show_bug.cgi?id=1247687
+      const module = await import(`./lib/disk.mjs`);
+      module.noWorker.postMessage = (e) => onMessage(e); // Define the disk's postMessage replacement.
+      send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
+      send(firstMessage);
+      // } else {
+      // TODO: Try and save the crash here by restarting the worker
+      //       without a full system reload?
+      // }
     };
 
     if (debug && worker.postMessage) console.log("🟢 Worker");
@@ -1938,6 +1949,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Audio-visual recording of the main audio track and microphone.
     if (type === "recorder:rolling") {
       if (mediaRecorder && mediaRecorder.state === "paused") {
         mediaRecorder.resume();
@@ -2138,64 +2150,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         // Add the recording wrapper to the DOM, among other recordings that may exist.
-        // const recordings = wrapper.querySelector("#recordings");
-        //let recordingsWrapper;
-
-        //if (recordings) {
-        //  recordingsWrapper = recordings.querySelector("#recordings-wrapper");
-        //} else {
-        //  const recordingsEl = document.createElement("div");
-        //  recordingsEl.id = "recordings";
-
-        //  recordingsWrapper = document.createElement("div");
-        //  recordingsWrapper.id = "recordings-wrapper";
-
-        //  recordingsEl.append(recordingsWrapper); // Add wrapper.
-        //  wrapper.append(recordingsEl); // Add recordings to DOM.
-        //}
-
-        // Add download link.
-        //const download = document.createElement("a");
-        //download.href = URL.createObjectURL(blob);
-        //download.innerText = "DOWNLOAD VIDEO";
-        //download.download = "test.mp4";
-        //mediaRecorderDownload = download;
-        //recordingsWrapper.append(download);
-
-        // TODO: Clicking a button should trigger the download.
-
-        // TODO: Add UI for downloading the file.
-
-        // 🕸️ Upload the video to a bucket...
-        // TODO: There needs to be a progress bar or spinner or button to
-        //       upload the video.
-        /*
-        fetch("/presigned-upload-url/" + "mp4")
-          .then(async (res) => {
-            const presignedUrl = (await res.json()).uploadURL;
-            if (debug) console.log("🔐 Presigned URL:", presignedUrl);
-
-            const response = await fetch(presignedUrl, {
-              method: "PUT",
-              headers: {
-                "Content-Type": "video/mp4",
-                "x-amz-acl": "public-read",
-              },
-              body: blob,
-            });
-
-            if (debug) console.log("📼 Video uploaded:", response);
-          })
-          .catch((err) => {
-            if (debug) console.log("⚠️ Failed to get presigned URL:", err);
-          });
-        */
 
         if (debug) console.log("📼 Recorder: Printed");
 
         mediaRecorderBlob = blob;
 
-        send({ type: "recorder:printed" });
+        // TODO: Store an index into the blob if its an audio clip or loaded sample.
+
+        send({ type: "recorder:printed", content: { id: "test-sample-id" } });
         // TODO: Can send the download code back here...
         // send({ type: "recorder:uploaded", code });
 
@@ -2210,7 +2172,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (!mediaRecorder) return;
       if (debug) console.log("✂️ Recorder: Cut");
       setTimeout(() => {
-        mediaRecorder.pause();
+        // TODO: This delay is probably not needed? 23.08.09.19.46
+        mediaRecorder?.pause();
         send({ type: "recorder:rolling:ended" });
       }, 250);
       return;
