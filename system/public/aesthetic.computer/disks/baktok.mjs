@@ -1,5 +1,5 @@
-// Whistle, 2024.5.27.21.02.43
-// Whistle into the microphone and receive back the same melody as sine waves.
+// Bak Tok, 2024.5.27.21.02.43
+// Learn to talk backwards.
 
 /* #region 📚 README 
 #endregion */
@@ -98,7 +98,7 @@ function sim({ sound: { microphone, synth, speaker: spk } }) {
 }
 
 // 🎪 Act
-function act({ event: e, sound: { microphone }, rec }) {
+function act({ event: e, sound: { microphone, sfx }, rec }) {
   if (e.is("touch") && !connected && !connecting) {
     if (!mic) mic = microphone.connect();
     connecting = true;
@@ -124,11 +124,13 @@ function act({ event: e, sound: { microphone }, rec }) {
 
   if (e.is("lift") && capturing) {
 
-    rec.cut(); // 💚 Make sure this works.
+    // rec.cut(); // 💚 Make sure this works.
 
     // 💚 Get a sample ID back with: rec.print();
-
-    sfx.play({reverse: true}) // Add sample id here.
+    rec.print((a) => {
+      console.log("Print completed:", a)
+      // sfx.play({sample: id, reverse: true}) // Add sample id here.
+    });
 
     capturing = false;
     playing = true;
@@ -138,7 +140,7 @@ function act({ event: e, sound: { microphone }, rec }) {
 // 📰 Meta
 function meta() {
   return {
-    title: "Baktok",
+    title: "Bak Tok",
     desc: "Learn to talk backwards.",
   };
 }
