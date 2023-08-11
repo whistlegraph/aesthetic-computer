@@ -5,6 +5,9 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] Replace speech synthesis with a cloud API and/or use
+    - https://jankapunkt.github.io/easy-speech? or https://www.masswerk.at/mespeak/#download
+    - https://responsivevoice.org/text-to-speech-languages/us-english-text-to-speech/
   - [] Have it working without text to speech if it isn't available.
 #endregion */
 
@@ -75,7 +78,7 @@ function paint({ wipe, ink, write, screen }) {
     });
     ink(255).write(h, { center: "y", x: cx + h.length / 2 + 3 });
   }
-  // ink(64).line(cx, 0, cx, screen.height);
+  ink(64).line(cx, 0, cx, screen.height);
 }
 
 // 🎪 Act

@@ -1501,6 +1501,7 @@ class Microphone {
   waveform = [];
   pitch = 0;
   connected = false; // Flips to true on a callback message from `bios`.
+  recordingPromise;
 
   // Note: can send `{monitor: true}` in `options` for audio feedback.
   connect(options) {
@@ -1516,6 +1517,20 @@ class Microphone {
     send({ type: "get-microphone-amplitude" });
     send({ type: "get-microphone-waveform" });
     send({ type: "get-microphone-pitch" });
+  }
+
+  // Start recording.
+  rec() {
+    send({ type: "microphone:record" });
+  }
+
+  // Stop recording.
+  cut() {
+    const prom = new Promise((resolve, reject) => {
+      this.recordingPromise = { resolve, reject };
+    });
+    send({ type: "microphone:cut" });
+    return prom;
   }
 }
 
@@ -2338,7 +2353,6 @@ async function makeFrame({ data: { type, content } }) {
       load(content.parsed); // Load after some of the default frames run.
     };
 
-
     send({ type: "disk-defaults-loaded" });
     return;
   }
@@ -2609,6 +2623,12 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "microphone:recording:complete") {
+    console.log("Completed recording id:", content.id);
+    microphone.recordingPromise?.resolve(content.id);
+    return;
+  }
+
   if (type === "microphone-connect:success") {
     microphone.connected = true;
     actAlerts.push("microphone-connect:success");
@@ -2782,7 +2802,7 @@ async function makeFrame({ data: { type, content } }) {
     }
 
     send({ type: "beat", content: sound });
-    soundClear();
+    soundClear?.();
     return;
   }
 
@@ -2948,6 +2968,18 @@ async function makeFrame({ data: { type, content } }) {
     // options: { volume: 0-n }
     $sound.play = async function (sfx, options) {
       send({ type: "sfx:play", content: { sfx, options } });
+
+      // 🔥
+      // TODO: How can I terminate a sound effect based on its id?
+
+      // TODO: Return a promise that waits for the `playingSources` id to
+      //       come back.
+
+      return {
+        kill: () => {
+          send({ type: "sfx:kill", content: { sfx } });
+        },
+      };
     };
 
     soundTime = content.audioTime;
@@ -3744,7 +3776,7 @@ async function makeFrame({ data: { type, content } }) {
     // Wait 8 frames of the default piece before loading the next piece.
     if (paintCount > 8n) loadAfterPreamble?.(); // Start loading after the first disk if necessary.
 
-    soundClear();
+    soundClear?.();
 
     // ***Frame State Reset***
     // Reset video transcoding / print progress.
