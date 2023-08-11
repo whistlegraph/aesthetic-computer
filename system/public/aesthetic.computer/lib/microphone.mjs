@@ -23,6 +23,17 @@ class Microphone extends AudioWorkletProcessor {
     this.port.onmessage = (e) => {
       const msg = e.data;
 
+      if (msg.type === "record:start") {
+        // TODO: Start keeping track of waveform data...
+      }
+
+      if (msg.type === "record:stop") {
+        this.port.postMessage({
+          type: "recording:complete",
+          content: "RECORDED BUFFER?",
+        });
+      }
+
       if (msg.type === "get-amplitude") {
         this.port.postMessage({
           type: "amplitude",

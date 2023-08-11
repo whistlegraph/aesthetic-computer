@@ -765,7 +765,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Always use workers if they are supported, except for
   // when we are in VR (MetaBrowser).
   const sandboxed = window.origin === "null" || !window.origin;
-  console.log("Origin:", window.origin);
 
   // Disable workers if we are in a sandboxed iframe.
   const workersEnabled = !sandboxed;
@@ -795,12 +794,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // }
     };
 
-    if (debug && worker.postMessage) console.log("🟢 Worker");
-
-    send = (e, shared) => worker.postMessage(e, shared);
-    window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
-
-    worker.onmessage = onMessage;
+    if (worker.postMessage) {
+      console.log("🟢 Worker");
+      send = (e, shared) => worker.postMessage(e, shared);
+      window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
+      worker.onmessage = onMessage;
+    }
   } else {
     // B. No Worker Mode
     if (debug) console.log("🔴 No Worker");
