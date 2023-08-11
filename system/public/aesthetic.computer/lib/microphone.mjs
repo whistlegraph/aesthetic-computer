@@ -14,6 +14,8 @@ let pitch;
 class Microphone extends AudioWorkletProcessor {
   currentAmplitude = 0;
   currentWaveform = [];
+  currentRecording; // Store an active sample to record.
+  recording = false;
 
   constructor(options) {
     if (options.debug) console.log("🔊 Sound Synthesis Worklet Started");
@@ -24,14 +26,17 @@ class Microphone extends AudioWorkletProcessor {
       const msg = e.data;
 
       if (msg.type === "record:start") {
-        // TODO: Start keeping track of waveform data...
+        this.recording = true; // Start keeping track of waveform data...
+        this.currentRecording = [];
       }
 
       if (msg.type === "record:stop") {
+        this.recording = false;
         this.port.postMessage({
           type: "recording:complete",
-          content: "RECORDED BUFFER?",
+          content: { recording: this.currentRecording },
         });
+        this.currentRecording = null;
       }
 
       if (msg.type === "get-amplitude") {
@@ -64,6 +69,7 @@ class Microphone extends AudioWorkletProcessor {
     for (let s = 0; s < mic.length; s += 1) {
       outputs[0][0][s] = mic[s];
       outputs[0][1][s] = mic[s];
+      if (this.recording) this.currentRecording.push(mic[s]);
       amp = abs(mic[s]) > amp ? abs(mic[s]) : amp; // Store maximum amplitude.
       if (s % 8 === 0) waveform.push(mic[s]); // Only capture every 8th value. (Usually 16)
     }

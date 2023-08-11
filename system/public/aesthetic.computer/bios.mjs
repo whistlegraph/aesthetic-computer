@@ -453,7 +453,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   let requestMicrophoneAmplitude,
     requestMicrophoneWaveform,
-    requestMicrophonePitch;
+    requestMicrophonePitch,
+    requestMicrophoneRecordingStart,
+    requestMicrophoneRecordingStop;
 
   // TODO: Eventually this would be replaced with a more dynamic system.
 
@@ -592,7 +594,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         if (msg.type === "recording:complete") {
-          send({ type: "microphone:recording:complete", content: msg.content });
+          // Turn this into a sample with a playback ID here and send
+          // the sample ID back.
+          const id = "microphone-recording";
+          // Create an empty mono AudioBuffer (1 channel)
+          const buffer = audioContext.createBuffer(
+            1,
+            msg.content.recording.length,
+            audioContext.sampleRate
+          );
+          const channel = buffer.getChannelData(0); // Ref to the first channel.
+          channel.set(msg.content.recording);
+          // Copy your Float32Array data into the buffer's channel
+
+          sfx[id] = buffer; // Set the sfx id so the sfx system
+          //                   can play back the sample.
+
+          send({ type: "microphone:recording:complete", content: { id } });
         }
       };
 
@@ -1919,6 +1937,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "microphone:record") {
+      requestMicrophoneRecordingStart?.();
+      return;
+    }
+
+    if (type === "microphone:cut") {
+      requestMicrophoneRecordingStop?.();
+      return;
+    }
+
     if (type === "get-microphone-amplitude") {
       requestMicrophoneAmplitude?.();
       return;
@@ -2417,7 +2445,35 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const gainNode = audioContext.createGain();
         gainNode.gain.value = content.options?.volume || 1;
         const source = audioContext.createBufferSource();
-        source.buffer = sfx[content.sfx];
+
+        //source.buffer = sfx[content.sfx]; // Map the source buffer based on id.
+
+        const buffer = sfx[content.sfx];
+
+        // Reverse the playback if specified.
+        if (content.options.reverse) {
+          // Make new AudioBuffer of the same size and sample rate as original.
+          const tempBuffer = audioContext.createBuffer(
+            buffer.numberOfChannels,
+            buffer.length,
+            buffer.sampleRate
+          );
+
+          // Copy and reverse the data for each channel.
+          for (let i = 0; i < buffer.numberOfChannels; i++) {
+            const originalData = buffer.getChannelData(i);
+            const tempData = tempBuffer.getChannelData(i);
+            tempData.set(originalData);
+            tempData.reverse();
+          }
+
+          source.buffer = tempBuffer; // Remap the source buffer to the copy.
+        } else {
+          source.buffer = buffer;
+        }
+
+        if (content.options.loop) source.loop = true; // Loop playback.
+
         source.connect(gainNode);
         gainNode.connect(audioContext.destination);
 
@@ -2427,8 +2483,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         if (debug && logs.audio) console.log("🔈 Playing:", content.sfx);
+
         source.start();
+
+        // 🔥
+        // TODO: Return a playback handle here to be able to pause or kill
+        //       the sample somehow?
+
+        // Add to a `playingSources` collection...
+        // 
       }
+    }
+
+    // Stop a playing sound or sample if possible...
+    if (type === "sfx:kill") {
+      // Target and remove from playing sources.
     }
 
     if (type === "fullscreen-enable") {
