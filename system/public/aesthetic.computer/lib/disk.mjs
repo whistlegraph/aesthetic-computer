@@ -2279,7 +2279,7 @@ async function load(
     },
   });
 
-  return true; // Loaded succesfully.
+  return true; // Loaded successfully.
 }
 
 const isWorker = typeof importScripts === "function";
@@ -2299,13 +2299,12 @@ function send(data, shared = []) {
     if (shared[0] === undefined) shared = [];
     postMessage(data, shared);
   } else {
-    noWorker.postMessage?.({ data });
+    noWorker.postMessage({ data });
   }
 }
 
 // Used to subscribe to live coding / development reloads.
-let codeChannel = await store.retrieve("code-channel");
-if (codeChannel?.length > 0) console.log("💻 Code channel:", codeChannel);
+let codeChannel;
 
 // 4. ✔ Respond to incoming messages, and probably produce a frame.
 // Boot procedure:
@@ -2329,12 +2328,17 @@ async function makeFrame({ data: { type, content } }) {
     ROOT_PIECE = content.rootPiece;
     USER = content.user;
     $commonApi.user = USER;
+
+    codeChannel = await store.retrieve("code-channel");
+    if (codeChannel?.length > 0) console.log("💻 Code channel:", codeChannel);
     handle();
     originalHost = content.parsed.host;
     loadAfterPreamble = () => {
       loadAfterPreamble = null;
       load(content.parsed); // Load after some of the default frames run.
     };
+
+
     send({ type: "disk-defaults-loaded" });
     return;
   }
@@ -3593,7 +3597,7 @@ async function makeFrame({ data: { type, content } }) {
         piece !== "play" &&
         piece !== "gargoyle" &&
         piece !== "girlfriend" &&
-        piece !== "need-help" &&
+        piece !== "wordfight" &&
         piece !== "boyfriend" &&
         piece !== "botce" &&
         piece !== "angel" &&
