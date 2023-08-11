@@ -98,23 +98,18 @@ function sim({ sound: { microphone, synth, speaker: spk } }) {
 }
 
 // 🎪 Act
-function act({ event: e, sound: { microphone, sfx }, rec }) {
+async function act({ event: e, sound: { microphone, play }, rec }) {
   if (e.is("touch") && !connected && !connecting) {
     if (!mic) mic = microphone.connect();
     connecting = true;
   }
 
+  // Start a microphone recording.
   if (e.is("touch") && !capturing && connected) {
-    // rec: { rolling, cut, print, printProgress }
-
-    // TODO: Start rolling an audio recording, then be able to play it back in reverse.
-
-    rec.rolling("audio"); // 💚 Make sure this works.
-
+    sample?.kill(); // Stop any existing sample.
+    microphone.rec(); // Start recording.
     capturing = true;
     playing = false;
-    sample?.kill();
-    sample = null;
   }
 
   if (e.is("microphone-connect:success")) {
@@ -123,15 +118,8 @@ function act({ event: e, sound: { microphone, sfx }, rec }) {
   }
 
   if (e.is("lift") && capturing) {
-
-    // rec.cut(); // 💚 Make sure this works.
-
-    // 💚 Get a sample ID back with: rec.print();
-    rec.print((a) => {
-      console.log("Print completed:", a)
-      // sfx.play({sample: id, reverse: true}) // Add sample id here.
-    });
-
+    const id = await microphone.cut(); // End recording and get the sample.
+    sample = play(id, { reverse: true, loop: true }); // TODO: Get reverse working.
     capturing = false;
     playing = true;
   }
