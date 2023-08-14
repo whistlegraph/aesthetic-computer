@@ -15,6 +15,7 @@ import { MetaBrowser, iOS } from "./lib/platform.mjs";
 import { headers } from "./lib/console-headers.mjs";
 import { logs } from "./lib/logs.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
+import { timestamp } from "./lib/num.mjs";
 
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
@@ -433,6 +434,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   };
 
   const sfx = {}; // Buffers of sound effects that have been loaded.
+  const sfxPlaying = {}; // Sound sources that are currently playing.
   // TODO: Some of these need to be kept (like system ones) and others need to
   // be destroyed after pieces change.
 
@@ -1474,6 +1476,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       });
       if (logs.audio && debug) console.log("🔉 SFX Cleaned up:", sfx);
 
+      // Stop any playing samples.
+      keys(sfxPlaying).forEach((sfx) => sfxPlaying[sfx].kill());
+
       // Reset preloading.
       window.waitForPreload = false;
       window.preloaded = false;
@@ -2480,24 +2485,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         source.addEventListener("ended", () => {
           source.disconnect();
           gainNode.disconnect();
+          delete sfxPlaying[content.id];
         });
 
         if (debug && logs.audio) console.log("🔈 Playing:", content.sfx);
 
         source.start();
 
-        // 🔥
-        // TODO: Return a playback handle here to be able to pause or kill
-        //       the sample somehow?
-
-        // Add to a `playingSources` collection...
-        // 
+        // Return a playback handle here to be able to pause or kill the sample.
+        sfxPlaying[content.id] = {
+          kill: () => {
+            if (debug && logs.audio) console.log("🔈 Killing...", content.id);
+            source.disconnect();
+            gainNode.disconnect();
+            delete sfxPlaying[content.id];
+          },
+        };
       }
     }
 
-    // Stop a playing sound or sample if possible...
+    // Stop a playing sound or sample if it exists.
     if (type === "sfx:kill") {
-      // Target and remove from playing sources.
+      sfxPlaying[content.id]?.kill();
     }
 
     if (type === "fullscreen-enable") {
