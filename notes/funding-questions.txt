@@ -1,0 +1,45 @@
+See also: https://www.notion.so/aesthetic-computer/What-is-aesthetic-computer-c9d9d198408248d393736355ec095011?pvs=4
+
+What is aesthetic.computer?
+
+ - An artist invented, instantly accessible social computing environment that
+   reconsiders the fundamental interface metaphor of creative computing and
+   social media.
+
+ - It runs "pieces" not "apps".
+
+Why is it important?
+
+ - Artists have special minds and there needs to be an general computing UI that
+   accomodates all media and supports the human creative process.
+
+ - It aims to turn computer users of all ages into software makers and
+   publishers on an instantly accessible network.
+
+What problems are we trying to solve?
+
+ - The lack of user recomposable of functionality across company made
+   "apps" and "suites".
+
+ - Users have no control over their For You pages and social feed designs.
+
+ - The death of end user web creativity and ease of dynamic media creation
+   and publishing inherent in the Flash (.SWF) era.
+
+What is the role that [each party] plays?
+
+   (Creator)
+ - Jeffrey Scudder is the inventor and lead developer of aesthetic.computer.
+
+   (Helpers)
+ - Jeffrey both trains and works part-time with artists and engineers. These
+   relationships provide valuable design insight, add real features, and embody
+   the educational vision of the system.
+
+ - Contributors include:
+   Sage Jensen, Ida Pruit, Tina Tarighian, and Georgica Pettus.
+
+What is the vision of this initiative?
+
+ - To design and maintain infrastructure for easy creation, publishing, and
+   collecting of dynamic and static digital media across all hardware platforms. 
