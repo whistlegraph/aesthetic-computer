@@ -206,6 +206,8 @@ let currentPath,
 let loading = false;
 let reframe;
 
+const sfxProgressReceivers = {};
+
 const signals = []; // Easy messages from embedded DOM content.
 const actAlerts = []; // Messages that get put into act and cleared after
 // every frame.
@@ -740,6 +742,8 @@ const $commonApi = {
     degrees: num.degrees,
     lerp: num.lerp,
     map: num.map,
+    arrMax: num.arrMax,
+    arrCompress: num.arrCompress,
     Track: num.Track,
     timestamp: num.timestamp,
     p2: num.p2,
@@ -2598,6 +2602,11 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "sfx:progress:report") {
+    sfxProgressReceivers[content.id]?.(content); // Resolve the progress report.
+    return;
+  }
+
   if (type === "microphone-amplitude") {
     microphone.amplitude = content;
     return;
@@ -2624,7 +2633,7 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "microphone:recording:complete") {
-    microphone.recordingPromise?.resolve(content.id);
+    microphone.recordingPromise?.resolve(content);
     return;
   }
 
@@ -2974,6 +2983,14 @@ async function makeFrame({ data: { type, content } }) {
         kill: () => {
           send({ type: "sfx:kill", content: { id } });
         },
+        progress: async () => {
+          const prom = new Promise((resolve, reject) => {
+            sfxProgressReceivers[id] = resolve;
+            return { resolve, reject };
+          });
+          send({ type: "sfx:progress", content: { id } });
+          return prom;
+        },
       };
     };
 
@@ -3176,11 +3193,11 @@ async function makeFrame({ data: { type, content } }) {
         //console.log(data)
         $api.event = data;
         try {
-          act($api);
-
           // Always check to see if there was a tap on the corner.
           const { event: e, jump, send } = $api;
           let originalColor;
+
+          let masked = false;
 
           // TODO: Show keyboard immediately when returning to prompt.
           currentHUDButton?.act(e, {
@@ -3190,6 +3207,7 @@ async function makeFrame({ data: { type, content } }) {
               send({ type: "keyboard:enabled" }); // Enable keyboard flag.
               send({ type: "keyboard:unlock" });
               $api.needsPaint();
+              masked = true;
             },
             push: () => {
               // send({ type: "keyboard:open" });
@@ -3198,6 +3216,7 @@ async function makeFrame({ data: { type, content } }) {
               //   ? send({ type: "back-to-piece" })
               //   : jump("prompt");
               $api.needsPaint();
+              masked = true;
             },
             cancel: () => {
               currentHUDTextColor = originalColor;
@@ -3214,6 +3233,8 @@ async function makeFrame({ data: { type, content } }) {
               // send({ type: "keyboard:lock" });
             },
           });
+
+          if (!masked) act($api); // Run the act function for all pen events.
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
         }
