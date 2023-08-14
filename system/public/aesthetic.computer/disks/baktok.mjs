@@ -5,11 +5,14 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [🧧] Show waveform of the sample that is playing back?
   - [] Turn "CONNECT" into a "ENABLE MICROPHONE" button / generally make
        a button abstraction that is also triggered from a screen tap.
   - [] Change background colors to be distinct from whistle.
   - [] Add a painting / illustration / with more instructions?
     - [] The slogan?
+  + Done
+  - [x] Record user voice and play it backwards, for backwards vocal training.
 #endregion */
 
 let mic,

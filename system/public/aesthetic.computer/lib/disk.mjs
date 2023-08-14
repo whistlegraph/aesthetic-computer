@@ -2624,7 +2624,6 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "microphone:recording:complete") {
-    console.log("Completed recording id:", content.id);
     microphone.recordingPromise?.resolve(content.id);
     return;
   }
@@ -2966,18 +2965,14 @@ async function makeFrame({ data: { type, content } }) {
 
     // Trigger a named audio sample to playback in the `bios`.
     // options: { volume: 0-n }
-    $sound.play = async function (sfx, options) {
-      send({ type: "sfx:play", content: { sfx, options } });
+    $sound.play = function (sfx, options) {
+      const id = sfx + "_" + performance.now(); // A *unique id for this sample.
 
-      // 🔥
-      // TODO: How can I terminate a sound effect based on its id?
-
-      // TODO: Return a promise that waits for the `playingSources` id to
-      //       come back.
+      send({ type: "sfx:play", content: { sfx, id, options } });
 
       return {
         kill: () => {
-          send({ type: "sfx:kill", content: { sfx } });
+          send({ type: "sfx:kill", content: { id } });
         },
       };
     };

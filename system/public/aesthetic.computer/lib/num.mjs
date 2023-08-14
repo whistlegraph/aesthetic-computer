@@ -94,7 +94,7 @@ export const p2 = {
 
 // Find the midpoint between two [x, y] coordinates.
 export function midp(a, b) {
-  return [(a[0]+ b[0]) / 2, (a[1] + b[1]) / 2];
+  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
 }
 
 export function number(maybeNumber) {
