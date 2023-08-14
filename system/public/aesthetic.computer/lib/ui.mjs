@@ -71,6 +71,7 @@ function cached(ctx) {
 }
 
 class Button {
+  btn;
   box;
   down = false;
   disabled = false;
@@ -84,6 +85,7 @@ class Button {
       // Assume we are passing in a box {x,y,w,h} object.
       this.box = Box.from(arguments[0]);
     } else this.box = new Box(...arguments); // Otherwise: x, y, w, h for a box.
+    this.btn = this;
   }
 
   publishToDom({ send }, label, message) {
@@ -105,31 +107,32 @@ class Button {
   //         act(e, {push: () => {}, down: () => {}, cancel: () => {}, draw() => {}});
   // You can optionally pass in an array of `pens` {x, y} for multi-touch support.
   act(e, callbacks = () => {}, pens = []) {
-    if (this.disabled) return;
+    const btn = this.btn;
+    if (btn.disabled) return;
 
     // If only a single function is sent, then assume it's a button push callback.
     if (typeof callbacks === "function") callbacks = { push: callbacks };
 
     // 1. Down: Enable the button if we touched over it. (Repeatable)
-    if (e.is("touch:any") && this.box.contains(e) /*&& !this.down*/) {
-      callbacks.down?.(this);
-      this.down = true;
-      this.over = true;
+    if (e.is("touch:any") && btn.box.contains(e) /*&& !btn.down*/) {
+      callbacks.down?.(btn);
+      btn.down = true;
+      btn.over = true;
     }
 
     // 3. Push: Trigger the button if we push it.
-    if (e.is("lift:any") && this.down) {
+    if (e.is("lift:any") && btn.down) {
       if (
-        (pens.length > 0 && this.box.onlyContains(e.pointer - 1, pens)) ||
-        this.box.contains(e)
+        (pens.length > 0 && btn.box.onlyContains(e.pointer - 1, pens)) ||
+        btn.box.contains(e)
       ) {
-        callbacks.push?.(this);
-        this.down = false;
-        this.over = false;
-      } else if (this.box.containsNone(pens) || !this.box.contains(e)) {
-        callbacks.cancel?.(this);
-        this.down = false;
-        this.over = false;
+        callbacks.push?.(btn);
+        btn.down = false;
+        btn.over = false;
+      } else if (btn.box.containsNone(pens) || !btn.box.contains(e)) {
+        callbacks.cancel?.(btn);
+        btn.down = false;
+        btn.over = false;
       }
     }
 
@@ -138,20 +141,20 @@ class Button {
 
     // 4. Rollover: Run a rollover event if dragged on.
     // if (e.is("draw:any") && !this.down && this.box.contains(e)) {
-    if (e.is("draw:any") && !this.over && this.box.contains(e)) {
-      callbacks.rollover?.(this);
-      this.over = true;
+    if (e.is("draw:any") && !btn.over && btn.box.contains(e)) {
+      callbacks.rollover?.(btn);
+      btn.over = true;
     }
 
     // 5. Rollout: Run a rollout event if dragged off.
     if (
       e.is("draw:any") &&
-      this.over &&
-      !this.box.contains(e) &&
-      this.box.containsNone(pens)
+      btn.over &&
+      !btn.box.contains(e) &&
+      btn.box.containsNone(pens)
     ) {
-      callbacks.rollout?.(this);
-      this.over = false;
+      callbacks.rollout?.(btn);
+      btn.over = false;
     }
   }
 
@@ -178,6 +181,26 @@ class TextButton {
   constructor(text = "Button", pos = { x: 0, y: 0 }) {
     this.txt = text;
     this.btn = new Button(this.#computePosition(text, pos));
+  }
+
+  get act() {
+    return this.btn.act;
+  }
+
+  set disabled(d) {
+    return (this.btn.disabled = d);
+  }
+
+  get disabled() {
+    return this.btn.disabled;
+  }
+
+  get down() {
+    return this.btn.down;
+  }
+
+  set down(d) {
+    return (this.btn.down = d);
   }
 
   // Compute position for box.
@@ -221,7 +244,8 @@ class TextButton {
     return { x, y, w, h };
   }
 
-  reposition(pos) {
+  reposition(pos, txt) {
+    if (txt) this.txt = txt;
     this.btn.box = Box.from(this.#computePosition(this.txt, pos));
   }
 
@@ -234,9 +258,15 @@ class TextButton {
     //   [0, 50, 0],
     // ],
     scheme = [0, 255, 255, 0],
-    hoverScheme = [255, 0, 0, 255]
+    hoverScheme = [255, 0, 0, 255],
+    disabledScheme = [64, 127, 127, 64]
   ) {
-    let s = this.btn.down ? hoverScheme : scheme;
+    let s;
+    if (this.btn.disabled) {
+      s = disabledScheme;
+    } else {
+      s = this.btn.down ? hoverScheme : scheme;
+    }
 
     $.ink(s[0])
       .box(this.btn.box, "fill")

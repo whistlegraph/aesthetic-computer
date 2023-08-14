@@ -21,7 +21,7 @@ import { timestamp } from "./lib/num.mjs";
 const TwoD = undefined;
 
 const { assign, keys } = Object;
-const { round, floor, min } = Math;
+const { round, floor, min, max } = Math;
 
 // 💾 Boot the system and load a disk.
 async function boot(parsed, bpm = 60, resolution, debug) {
@@ -599,6 +599,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Turn this into a sample with a playback ID here and send
           // the sample ID back.
           const id = "microphone-recording";
+
+          if (debug)
+            console.log("🔈 Buffer length:", msg.content.recording.length);
+
           // Create an empty mono AudioBuffer (1 channel)
           const buffer = audioContext.createBuffer(
             1,
@@ -612,7 +616,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           sfx[id] = buffer; // Set the sfx id so the sfx system
           //                   can play back the sample.
 
-          send({ type: "microphone:recording:complete", content: { id } });
+          send({
+            type: "microphone:recording:complete",
+            content: { id, data: msg.content.recording },
+          });
         }
       };
 
@@ -2450,13 +2457,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const gainNode = audioContext.createGain();
         gainNode.gain.value = content.options?.volume || 1;
         const source = audioContext.createBufferSource();
-
-        //source.buffer = sfx[content.sfx]; // Map the source buffer based on id.
-
         const buffer = sfx[content.sfx];
 
         // Reverse the playback if specified.
-        if (content.options.reverse) {
+        if (content.options?.reverse) {
           // Make new AudioBuffer of the same size and sample rate as original.
           const tempBuffer = audioContext.createBuffer(
             buffer.numberOfChannels,
@@ -2477,7 +2481,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           source.buffer = buffer;
         }
 
-        if (content.options.loop) source.loop = true; // Loop playback.
+        if (content.options?.loop) source.loop = true; // Loop playback.
 
         source.connect(gainNode);
         gainNode.connect(audioContext.destination);
@@ -2490,6 +2494,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         if (debug && logs.audio) console.log("🔈 Playing:", content.sfx);
 
+        const startTime = audioContext.currentTime;
         source.start();
 
         // Return a playback handle here to be able to pause or kill the sample.
@@ -2500,6 +2505,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             gainNode.disconnect();
             delete sfxPlaying[content.id];
           },
+          progress: () => {
+            const elapsed = audioContext.currentTime - startTime;
+            const progress = max(
+              0,
+              (elapsed % buffer.duration) / buffer.duration
+            );
+            // You can return either the elapsedTime or percentage, or both, based on your needs.
+            return { elapsed, progress };
+          },
         };
       }
     }
@@ -2507,6 +2521,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Stop a playing sound or sample if it exists.
     if (type === "sfx:kill") {
       sfxPlaying[content.id]?.kill();
+    }
+
+    // Report progress of a playing sound back to the disk.
+    if (type === "sfx:progress") {
+      send({
+        type: "sfx:progress:report",
+        content: { id: content.id, ...sfxPlaying[content.id]?.progress() },
+      });
     }
 
     if (type === "fullscreen-enable") {

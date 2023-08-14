@@ -233,6 +233,16 @@ export function map(num, inMin, inMax, outMin, outMax) {
   return ((num - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
 }
 
+// Return the maximum number in an array.
+export function arrMax(arr) {
+  return arr.reduce((top, current) => max(top, current), -Infinity);
+}
+
+// Return a new array with every n index missing.
+export function arrCompress(arr, n) {
+  return arr.filter((_, index) => (index + 1) % n === 0);
+}
+
 // Returns a string of numbers based on local system time. YYYY.MM.DD.HH.MM.SS
 export function timestamp() {
   const d = new Date();
