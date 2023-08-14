@@ -72,9 +72,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `baktok` ***
-  - [🟠] Record user voice and play it backwards, for backwards vocal training.
-
 *** faster user media urls ***
   - [] Why is the handle lookup being so goddamn slow?
     - [] Profile it on local...
