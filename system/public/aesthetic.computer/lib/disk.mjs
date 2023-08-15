@@ -396,6 +396,16 @@ let cachedAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
+  motion: {
+    start: () => {
+      send({ type: "motion:start" });
+    },
+    stop: () => {
+      send({ type: "motion:stop" });
+      // TODO: Automatically stop when changing a disk?
+    },
+    current: {}, // Will get replaced by an update event.
+  },
   speak: (utterance, voice) => {
     send({ type: "speak", content: { utterance, voice } });
   },
@@ -2475,6 +2485,12 @@ async function makeFrame({ data: { type, content } }) {
       console.warn("👋 Leave failure...", e);
     }
     */
+    return;
+  }
+
+  // Get the updated device motion.
+  if (type === "motion:update") {
+    $commonApi.motion.current = content;
     return;
   }
 
