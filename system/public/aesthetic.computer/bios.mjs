@@ -5,6 +5,7 @@ import * as Loop from "./lib/loop.mjs";
 import { Pen } from "./lib/pen.mjs";
 import { Box } from "./lib/geo.mjs";
 import { Keyboard } from "./lib/keyboard.mjs";
+import { startCapturingMotion, stopCapturingMotion } from "./lib/motion.mjs";
 import { speak } from "./lib/speech.mjs";
 import * as UI from "./lib/ui.mjs";
 import * as Glaze from "./lib/glaze.mjs";
@@ -986,8 +987,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+
+    // Capture device motion.
+    if (type === "motion:start") {
+      startCapturingMotion();
+      return;
+    }
+
+    if (type === "motion:stop") {
+      stopCapturingMotion();
+      return;
+    }
+
     if (type === "speak") {
       speak(content.utterance, content.voice);
+      return;
     }
 
     // Show a classic DOM / window style alert box.
