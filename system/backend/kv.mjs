@@ -23,8 +23,12 @@ async function set(collection, key, value) {
   await client.HSET(collection, key, value);
 }
 
+async function del(collection, key) {
+  await client.HDEL(collection, key);
+}
+
 async function get(collection, key) {
   return await client.HGET(collection, key);
 }
 
-export { connect, get, set, disconnect };
+export { connect, get, set, del, disconnect };
