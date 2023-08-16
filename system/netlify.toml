@@ -23,6 +23,8 @@
   included_files = ["backend/**/*.mjs"]
 [functions.thumbnail]
   external_node_modules = ["puppeteer"]
+[functions.tts]
+  external_node_modules = ["@google-cloud/text-to-speech", "@grpc/grpc-js"]
 [functions.icon]
   external_node_modules = ["puppeteer"]
 [functions.session]
@@ -128,6 +130,10 @@
 [[redirects]]
   from = "/icon/*"
   to = "/.netlify/builders/icon"
+  status = 200
+[[redirects]]
+  from = "/tts"
+  to = "/.netlify/functions/tts"
   status = 200
 [[redirects]]
   from = "/session/*"

@@ -73,9 +73,11 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** faster user media urls ***
-  - [😫] Why is the handle lookup being so goddamn slow?
+  - [x] Why is the handle lookup being so goddamn slow?
     - [x] Migrate data to a mongodb atlas cluster... which should be faster?
-      - [] How fast can it get?
+      - [-] How fast can it get?
+      - [x] Store in redis.
+      - [] Sign up for Cloudflare
     - [] Profile it on local...
     - [] Would redis make more sense or what? 
 
