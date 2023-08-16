@@ -88,6 +88,7 @@ export async function userIDFromHandle(handle, database) {
   //       redis afterwards...
   let userID;
 
+  const time = performance.now();
   await KeyValue.connect();
   const cachedHandle = await KeyValue.get("@handles", handle);
 
@@ -95,10 +96,8 @@ export async function userIDFromHandle(handle, database) {
     // Look in database.
     if (dev) console.log("Looking in database...");
     const keepOpen = database; // Keep the db connection if database is defined.
-    const time = performance.now();
     if (dev) console.log("Connecting...", time);
     if (!database) database = await connect();
-    if (dev) console.log("Connected...", performance.now() - time);
     const collection = database.db.collection("@handles");
     const user = await collection.findOne({ handle });
     userID = user?._id;
@@ -114,6 +113,9 @@ export async function userIDFromHandle(handle, database) {
     await KeyValue.set("@handles", handle, userID);
     await KeyValue.disconnect();
   }
+
+  console.log("Time taken...", performance.now() - time);
+
 
   return userID;
 }
