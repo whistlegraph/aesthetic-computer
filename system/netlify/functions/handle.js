@@ -70,7 +70,11 @@ export async function handler(event, context) {
 
         // Update the redis handle cache...
         await KeyValue.connect();
-        // console.log("Setting in redis:", handle);
+        if (dev) console.log("Setting in redis:", handle);
+
+        if (existingUser.handle)
+          await KeyValue.del("@handles", existingUser.handle);
+
         await KeyValue.set("@handles", handle, user.sub);
         await KeyValue.disconnect();
       } catch (error) {

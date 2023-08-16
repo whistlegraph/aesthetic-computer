@@ -6,6 +6,7 @@
 
 import { connect } from "./database.mjs";
 import * as KeyValue from "./kv.mjs";
+const dev = process.env.CONTEXT === "dev";
 
 export async function authorize({ authorization }) {
   try {
@@ -92,29 +93,27 @@ export async function userIDFromHandle(handle, database) {
 
   if (!cachedHandle) {
     // Look in database.
-    // console.log("Looking in database...");
+    if (dev) console.log("Looking in database...");
     const keepOpen = database; // Keep the db connection if database is defined.
-    // const time = performance.now();
-    // console.log("Connecting...", time);
+    const time = performance.now();
+    if (dev) console.log("Connecting...", time);
     if (!database) database = await connect();
-    // console.log("Connected...", performance.now() - time);
+    if (dev) console.log("Connected...", performance.now() - time);
     const collection = database.db.collection("@handles");
     const user = await collection.findOne({ handle });
     userID = user?._id;
     if (!keepOpen) database.disconnect();
   } else {
-    // console.log("Found in redis...");
+    if (dev) console.log("Found in redis...");
     userID = cachedHandle;
   }
 
+  // Cache userID in redis...
   if (!cachedHandle && userID) {
-    // Cache userID in redis...
-    console.log("Caching in redis...", handle);
+    if (dev) console.log("Caching in redis...", handle);
     await KeyValue.set("@handles", handle, userID);
     await KeyValue.disconnect();
   }
-
-  // console.log("Handle:", userID);
 
   return userID;
 }
