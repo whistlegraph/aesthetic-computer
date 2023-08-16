@@ -2,7 +2,7 @@
 // Manages database connections to MongoDB.
 // And has application-specific queries.
 
-import { MongoClient } from "mongodb";
+import { MongoClient, ServerApiVersion } from "mongodb";
 const mongoDBConnectionString = process.env.MONGODB_CONNECTION_STRING;
 const mongoDBName = process.env.MONGODB_NAME;
 
@@ -10,7 +10,11 @@ let client;
 
 async function connect() {
   client = await MongoClient.connect(mongoDBConnectionString, {
-    useUnifiedTopology: true,
+    serverApi: {
+      version: ServerApiVersion.v1,
+      strict: true,
+      deprecationErrors: true,
+    },
   });
   const db = client.db(mongoDBName);
   return { db, disconnect };
@@ -33,3 +37,28 @@ async function moodFor(sub, database) {
 }
 
 export { connect, moodFor };
+
+// Demo code from MongoDB's connection page: (23.08.15.19.59)
+
+// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+// const client = new MongoClient(uri, {
+//   serverApi: {
+//     version: ServerApiVersion.v1,
+//     strict: true,
+//     deprecationErrors: true,
+//   }
+// });
+
+// async function run() {
+//   try {
+//     // Connect the client to the server	(optional starting in v4.7)
+//     await client.connect();
+//     // Send a ping to confirm a successful connection
+//     await client.db("admin").command({ ping: 1 });
+//     console.log("Pinged your deployment. You successfully connected to MongoDB!");
+//   } finally {
+//     // Ensures that the client will close when you finish/error
+//     await client.close();
+//   }
+// }
+// run().catch(console.dir);

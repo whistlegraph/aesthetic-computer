@@ -73,9 +73,11 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** faster user media urls ***
-  - [] Why is the handle lookup being so goddamn slow?
+  - [😫] Why is the handle lookup being so goddamn slow?
+    - [x] Migrate data to a mongodb atlas cluster... which should be faster?
+      - [] How fast can it get?
     - [] Profile it on local...
-    - [] Would redis make more sense?
+    - [] Would redis make more sense or what? 
 
  - [-] Clean media urls should just go to a painting "viewer" type of page.
  - [] https://docs.netlify.com/edge-functions/limits
