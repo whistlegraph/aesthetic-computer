@@ -5,6 +5,7 @@
 // 🧠 (And so they can run authorized server functions.)
 
 import { connect } from "./database.mjs";
+import * as KeyValue from "./kv.mjs";
 
 export async function authorize({ authorization }) {
   try {
@@ -82,12 +83,39 @@ export async function handleFor(id) {
 // Connects to the MongoDB database to obtain a user ID from a handle.
 // Handle should not be prefixed with "@".
 export async function userIDFromHandle(handle, database) {
-  const keepOpen = database; // Keep the db connection if database is defined.
-  if (!database) database = await connect();
-  const collection = database.db.collection("@handles");
-  const user = await collection.findOne({ handle });
-  const userID = user?._id;
-  if (!keepOpen) database.disconnect();
+  // TODO: Read from redis, otherwise check the database, and store in
+  //       redis afterwards...
+  let userID;
+
+  await KeyValue.connect();
+  const cachedHandle = await KeyValue.get("@handles", handle);
+
+  if (!cachedHandle) {
+    // Look in database.
+    // console.log("Looking in database...");
+    const keepOpen = database; // Keep the db connection if database is defined.
+    // const time = performance.now();
+    // console.log("Connecting...", time);
+    if (!database) database = await connect();
+    // console.log("Connected...", performance.now() - time);
+    const collection = database.db.collection("@handles");
+    const user = await collection.findOne({ handle });
+    userID = user?._id;
+    if (!keepOpen) database.disconnect();
+  } else {
+    // console.log("Found in redis...");
+    userID = cachedHandle;
+  }
+
+  if (!cachedHandle && userID) {
+    // Cache userID in redis...
+    console.log("Caching in redis...", handle);
+    await KeyValue.set("@handles", handle, userID);
+    await KeyValue.disconnect();
+  }
+
+  // console.log("Handle:", userID);
+
   return userID;
 }
 
