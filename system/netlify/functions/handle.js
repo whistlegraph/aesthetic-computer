@@ -9,6 +9,7 @@
 import { authorize, handleFor } from "../../backend/authorization.mjs";
 import { validateHandle } from "../../public/aesthetic.computer/lib/text.mjs";
 import { connect } from "../../backend/database.mjs";
+import * as KeyValue from "../../backend/kv.mjs";
 import { respond } from "../../backend/http.mjs";
 
 const dev = process.env.CONTEXT === "dev";
@@ -66,6 +67,12 @@ export async function handler(event, context) {
           // Add a new `@handles` document for this user.
           await collection.insertOne({ _id: user.sub, handle });
         }
+
+        // Update the redis handle cache...
+        await KeyValue.connect();
+        // console.log("Setting in redis:", handle);
+        await KeyValue.set("@handles", handle, user.sub);
+        await KeyValue.disconnect();
       } catch (error) {
         return respond(500, { message: error });
       } finally {
