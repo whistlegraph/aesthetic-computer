@@ -77,7 +77,9 @@
     - [x] Migrate data to a mongodb atlas cluster... which should be faster?
       - [-] How fast can it get?
       - [x] Store in redis.
-      - [] Sign up for Cloudflare
+      - [x] Sign up for Cloudflare
+        - [] Cache the output of the handle page so it's much faster?
+             And uncache it via the API when needed?
     - [] Profile it on local...
     - [] Would redis make more sense or what? 
 
