@@ -1,5 +1,6 @@
 // Speech, 23.08.09.15.50
-// A thin API over the web speech synthesis API.
+// A thin API over the web speech synthesis API,
+// with cloud support.
 
 const synth = window.speechSynthesis;
 
@@ -26,31 +27,55 @@ if (speechSynthesis.onvoiceschanged !== undefined) {
   speechSynthesis.onvoiceschanged = populateVoiceList;
 }
 
-function speak(words, voice) {
-  if (synth.speaking) {
-    console.error("🗣️ Already speaking...");
-    return;
+// The mode can either be "local", which uses
+// the web speech synth API or "server" which uses google cloud
+// and returns a mp3 file.
+function speak(words, voice, mode = "local", opts = {}) {
+  if (mode === "local") {
+    if (synth.speaking) {
+      console.error("🗣️ Already speaking...");
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(words);
+
+    let voiceIndex = 11;
+    if (voice.startsWith("female")) voiceIndex = 9;
+    if (voice.startsWith("male")) voiceIndex = 10;
+
+    utterance.voice = voices[voiceIndex];
+    // console.log("Speaking:", words, utterance.voice);
+
+    if (!opts.skipCompleted) {
+      utterance.onend = function (event) {
+        // console.log("🗣️ Speech completed:", event);
+        window.acSEND({ type: "speech:completed" }); // Send to piece.
+      };
+    }
+
+    utterance.onerror = function (event) {
+      console.error("🗣️ Speech failure:", event);
+    };
+
+    synth.speak(utterance);
+  } else if (mode === "cloud") {
+    const queryString = new URLSearchParams({ from: words, voice }).toString();
+    fetch(`/tts?${queryString}`)
+      .then((res) => res.blob()) // Convert the response to a Blob.
+      .then((blob) => {
+        const sfx = new Audio();
+        sfx.src = URL.createObjectURL(blob);
+        if (!opts.skipCompleted) {
+          sfx.addEventListener("ended", () => {
+            window.acSEND({ type: "speech:completed" });
+          });
+        }
+        sfx.play();
+      })
+      .catch((err) => {
+        console.error("Speech fetch failure:", err);
+      });
   }
-
-  const utterance = new SpeechSynthesisUtterance(words);
-
-  let voiceIndex = 11;
-  if (voice === "female") voiceIndex = 9;
-  if (voice === "male") voiceIndex = 10;
-
-  utterance.voice = voices[voiceIndex];
-  // console.log("Speaking:", words, utterance.voice);
-
-  utterance.onend = function (event) {
-    // console.log("🗣️ Speech completed:", event);
-    window.acSEND({ type: "speech:completed" }); // TODO: Send a message to the disk that the speech has been completed.
-  };
-
-  utterance.onerror = function (event) {
-    console.error("🗣️ Speech failure:", event);
-  };
-
-  synth.speak(utterance);
 }
 
 export { speak };

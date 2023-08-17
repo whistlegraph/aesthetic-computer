@@ -987,7 +987,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
-
     // Capture device motion.
     if (type === "motion:start") {
       startCapturingMotion();
@@ -1000,7 +999,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "speak") {
-      speak(content.utterance, content.voice);
+      speak(content.utterance, content.voice, content.mode, content.opts);
       return;
     }
 

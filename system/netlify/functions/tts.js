@@ -6,14 +6,14 @@
   - [] Get the sample in `wordfight` and play it back when necessary.
 #endregion */
 
-// const { builder } = require("@netlify/functions");
+const { builder } = require("@netlify/functions");
 const textToSpeech = require("@google-cloud/text-to-speech");
 import { respond } from "../../backend/http.mjs";
 const dev = process.env.CONTEXT === "dev";
 const gcpKey = process.env.GCP_TTS_KEY;
 const gcpEmail = process.env.GCP_EMAIL;
 
-export async function handler(event, context) {
+async function handler(event, context) {
   // A GET request to get a handle from a user `sub`.
   if (
     event.httpMethod === "GET" &&
@@ -26,15 +26,43 @@ export async function handler(event, context) {
       },
     });
 
-    const utterance = event.queryStringParameters.from || "aesthetic.computer";
+    // const utterance = event.queryStringParameters.from || "aesthetic.computer";
 
-    // console.log(decodeURIComponent(event.rawQuery.replace("from=")));
+    const params = new URLSearchParams(event.rawQuery);
+    const utterance = params.get("from") || "aesthetic.computer";
+    const set = parseInt(params.get("voice").split(":")[1]) || 0;
+    const gender =
+      params.get("voice").split(":")[0]?.toUpperCase() || "NEUTRAL";
+
+    const voices = (
+      await client.listVoices({
+        languageCode: "en-US",
+      })
+    )[0].voices;
+
+    const females = voices.filter((v) => v.ssmlGender === "FEMALE");
+    const males = voices.filter((v) => v.ssmlGender === "MALE");
+
+    console.log("Female voices:", females.length);
+    console.log("Male voices:", males.length);
+
+    let voice;
+
+    if (gender === "MALE") {
+      voice = males[set];
+    } else if (gender === "FEMALE") {
+      voice = females[set];
+    } else {
+      voice = males[1]; // Different male.
+    }
+
+    console.log("Chosen voice:", voice, set);
 
     const request = {
       input: { text: utterance },
       voice: {
         languageCode: "en-US",
-        ssmlGender: "NEUTRAL",
+        ...voice,
       },
       audioConfig: {
         audioEncoding: "MP3",
@@ -61,4 +89,4 @@ export async function handler(event, context) {
   }
 }
 
-// exports.handler = builder(handler);
+exports.handler = builder(handler);
