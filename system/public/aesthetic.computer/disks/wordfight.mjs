@@ -6,6 +6,8 @@
 
 /* #region 🏁 TODO 
   - [?] What happens on network failure? 
+  - [] Implement a local cache in tts for already spoken phrases, and
+       add `cache: true` as an option while speaking.
   + Done
   - [x] Randomly choose a voice set from 0-22.
   - [x] Pan both voices left and right. 
