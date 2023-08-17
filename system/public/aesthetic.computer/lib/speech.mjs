@@ -65,11 +65,21 @@ function speak(words, voice, mode = "local", opts = {}) {
       .then((blob) => {
         const sfx = new Audio();
         sfx.src = URL.createObjectURL(blob);
-        if (!opts.skipCompleted) {
-          sfx.addEventListener("ended", () => {
-            window.acSEND({ type: "speech:completed" });
-          });
-        }
+
+        sfx.addEventListener("ended", () => {
+          if (!opts.skipCompleted) window.acSEND({ type: "speech:completed" });
+          sourceNode.disconnect();
+          panNode.disconnect();
+        });
+
+        const audioContext = window.acAUDIO_CONTEXT;
+
+        const panNode = audioContext.createStereoPanner();
+        panNode.pan.value = opts.pan || 0; // -1 for left, 0 for center, 1 for right
+        const sourceNode = audioContext.createMediaElementSource(sfx);
+        sourceNode.connect(panNode);
+        panNode.connect(audioContext.destination);
+
         sfx.play();
       })
       .catch((err) => {
