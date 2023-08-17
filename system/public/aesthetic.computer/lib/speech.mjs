@@ -30,6 +30,7 @@ if (speechSynthesis.onvoiceschanged !== undefined) {
 // The mode can either be "local", which uses
 // the web speech synth API or "server" which uses google cloud
 // and returns a mp3 file.
+
 function speak(words, voice, mode = "local", opts = {}) {
   if (mode === "local") {
     if (synth.speaking) {
@@ -59,6 +60,10 @@ function speak(words, voice, mode = "local", opts = {}) {
 
     synth.speak(utterance);
   } else if (mode === "cloud") {
+
+    // TODO: ❤️‍🔥 Check to see if this phrase is already in the local cache.
+    // TODO: I could use a `Set` for this.
+
     const queryString = new URLSearchParams({ from: words, voice }).toString();
     fetch(`/tts?${queryString}`)
       .then((res) => res.blob()) // Convert the response to a Blob.
