@@ -529,6 +529,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // sampleRate: 192000,
     });
 
+    console.log("Sound started.");
+
+    window.acAUDIO_CONTEXT = audioContext; // Make audioContext global, for
+    // `speech` and perhaps other
+    // modules. 23.08.17.12.31
+
     audioStreamDest = audioContext.createMediaStreamDestination();
 
     if (audioContext.state === "running") {
