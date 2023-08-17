@@ -6,7 +6,9 @@
 
 /* #region 🏁 TODO 
   - [?] What happens on network failure? 
-  - [] What voices to use and how to cache them?
+  - [] Choose ideal voices / blacklist certain voices?
+  - [] Preload the next speech sound / only change words when
+       ready to speak?
   + Done
   - [x] Implement a local cache in `speech` for already spoken phrases.
   - [x] Randomly choose a voice set from 0-22.
