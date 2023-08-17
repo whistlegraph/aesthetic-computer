@@ -5,10 +5,13 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Replace speech synthesis with a cloud API and/or use
+  - [] Choose a voice set from 0-22.
+  - [] What happens on network failure? 
+  - [] Is it possible to pan the speaker?
+  - [x] Replace speech synthesis with a cloud API and/or use
     - https://jankapunkt.github.io/easy-speech? or https://www.masswerk.at/mespeak/#download
     - https://responsivevoice.org/text-to-speech-languages/us-english-text-to-speech/
-  - [] Have it working without text to speech if it isn't available.
+       the call fails?
 #endregion */
 
 const lefts = [
@@ -38,16 +41,17 @@ let needs, helps;
 let speaking = false;
 let needsGen = false;
 let newGen = false;
+let voiceSet = 10;
 
 let n = 0,
-  h = 0,
-  xShift = 0;
+  h = 0;
 const charWidth = 6;
 let textColor = "white";
 
 // 🥾 Boot
 function boot($) {
   // $.resolution(160, 160);
+  if ($.params[0]) voiceSet = parseInt($.params[0]);
   $.cursor("native");
   gen($);
   n = needs.pop();
@@ -64,7 +68,7 @@ function sim($) {
 // 🎨 Paint
 function paint({ wipe, ink, write, screen }) {
   wipe(0);
-  const cx = screen.width / 2 + xShift;
+  const cx = screen.width / 2;
   if (speaking) {
     ink(textColor).write(n, {
       center: "y",
@@ -96,9 +100,9 @@ function act($) {
       newGen = false;
       n = needs.pop();
       h = helps.pop();
-      voice = flip() ? "female" : "male";
       textColor = "white";
-      xShift = $.num.randIntRange(-64, 64);
+      speak(n + " " + h, `female:${voiceSet}`, "cloud");
+      speak(n + " " + h, `male:${voiceSet}`, "cloud", { skipCompleted: true });
     } else {
       if (flip()) {
         n = needs.pop();
@@ -106,7 +110,7 @@ function act($) {
           needs = left.slice();
           shuffleInPlace(left);
         }
-        voice = "female";
+        voice = `female:${voiceSet}`;
         textColor = "white";
       } else {
         h = helps.pop();
@@ -114,11 +118,11 @@ function act($) {
           helps = right.slice();
           shuffleInPlace(right);
         }
-        voice = "male";
+        voice = `male:${voiceSet}`;
         textColor = "white";
       }
+      speak(n + " " + h, voice, "cloud");
     }
-    speak(n + " " + h, voice);
 
     if (needsGen) {
       gen($);
