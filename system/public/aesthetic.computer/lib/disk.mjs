@@ -406,8 +406,8 @@ const $commonApi = {
     },
     current: {}, // Will get replaced by an update event.
   },
-  speak: (utterance, voice) => {
-    send({ type: "speak", content: { utterance, voice } });
+  speak: (utterance, voice, mode, opts) => {
+    send({ type: "speak", content: { utterance, voice, mode, opts } });
   },
   // Broadcast an event through the entire act system.
   act: (event, data = {}) => {
