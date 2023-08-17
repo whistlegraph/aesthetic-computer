@@ -6,7 +6,7 @@ import { Pen } from "./lib/pen.mjs";
 import { Box } from "./lib/geo.mjs";
 import { Keyboard } from "./lib/keyboard.mjs";
 import { startCapturingMotion, stopCapturingMotion } from "./lib/motion.mjs";
-import { speak } from "./lib/speech.mjs";
+import { speak, speakAPI } from "./lib/speech.mjs";
 import * as UI from "./lib/ui.mjs";
 import * as Glaze from "./lib/glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
@@ -436,6 +436,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   const sfx = {}; // Buffers of sound effects that have been loaded.
   const sfxPlaying = {}; // Sound sources that are currently playing.
+  speakAPI.sfx = sfx;
   // TODO: Some of these need to be kept (like system ones) and others need to
   // be destroyed after pieces change.
 
@@ -531,9 +532,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     console.log("Sound started.");
 
-    window.acAUDIO_CONTEXT = audioContext; // Make audioContext global, for
-    // `speech` and perhaps other
-    // modules. 23.08.17.12.31
+    speakAPI.audioContext = audioContext; // Make audioContext global, for
+    //                                       `speech` and perhaps other
+    //                                       modules. 23.08.17.12.31
 
     audioStreamDest = audioContext.createMediaStreamDestination();
 
@@ -767,6 +768,106 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     window.addEventListener("pointerdown", enableAudioPlayback);
     window.addEventListener("keydown", enableAudioPlayback);
   }
+
+  // Play a sound back through the sfx system.
+  async function playSfx(id, sound, options, completed) {
+      if (audioContext) {
+        // Instantly decode the audio before playback if it hasn't been already.
+        // 🌡️ TODO: `sfx` could be scraped for things that need to be decoded
+        //          upon audio activation. This would probably be helpful
+        //          in terms of creating a sampler and asynchronously
+        //          decoding all the sounds after an initial tap.
+
+        if (sfx[sound] instanceof ArrayBuffer) {
+          let audioBuffer;
+          try {
+            let buf = sfx[sound];
+            sfx[sound] = null;
+            audioBuffer = await audioContext.decodeAudioData(buf);
+            if (debug && logs.audio) console.log("🔈 Decoded:", sound);
+            sfx[sound] = audioBuffer;
+          } catch (err) {
+            console.error("🔉 Error: ", err, sfx[sound]);
+          }
+        }
+
+        if (sfx[sound] instanceof ArrayBuffer) return;
+        // If decoding has failed or no sound is present then silently fail.
+
+        // 🌡️ TODO; Performance: Cache these buffers per sound effect in each piece?
+
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = options?.volume || 1;
+
+        const panNode = audioContext.createStereoPanner();
+        panNode.pan.value = options?.pan || 0; // -1 for left, 0 for center, 1 for right
+
+        const source = audioContext.createBufferSource();
+        const buffer = sfx[sound];
+
+        // Reverse the playback if specified.
+        if (options?.reverse) {
+          // Make new AudioBuffer of the same size and sample rate as original.
+          const tempBuffer = audioContext.createBuffer(
+            buffer.numberOfChannels,
+            buffer.length,
+            buffer.sampleRate
+          );
+
+          // Copy and reverse the data for each channel.
+          for (let i = 0; i < buffer.numberOfChannels; i++) {
+            const originalData = buffer.getChannelData(i);
+            const tempData = tempBuffer.getChannelData(i);
+            tempData.set(originalData);
+            tempData.reverse();
+          }
+
+          source.buffer = tempBuffer; // Remap the source buffer to the copy.
+        } else {
+          source.buffer = buffer;
+        }
+
+        if (options?.loop) source.loop = true; // Loop playback.
+
+        source.connect(panNode);
+        panNode.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        source.addEventListener("ended", () => {
+          source.disconnect();
+          gainNode.disconnect();
+          panNode.disconnect();
+          completed?.();
+          delete sfxPlaying[id];
+        });
+
+        if (debug && logs.audio) console.log("🔈 Playing:", sound);
+
+        const startTime = audioContext.currentTime;
+        source.start();
+
+        // Return a playback handle here to be able to pause or kill the sample.
+        sfxPlaying[id] = {
+          kill: () => {
+            if (debug && logs.audio) console.log("🔈 Killing...", id);
+            source.disconnect();
+            gainNode.disconnect();
+            delete sfxPlaying[id];
+          },
+          progress: () => {
+            const elapsed = audioContext.currentTime - startTime;
+            const progress = max(
+              0,
+              (elapsed % buffer.duration) / buffer.duration
+            );
+            // You can return either the elapsedTime or percentage, or both, based on your needs.
+            return { elapsed, progress };
+          },
+        };
+      }
+  }
+
+  speakAPI.playSfx = playSfx;
 
   // TODO: Add mute
   // function mute() {
@@ -1956,6 +2057,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "upload") {
       receivedUpload(content);
+      return;
     }
 
     if (type === "import") {
@@ -2352,6 +2454,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         underlayFrame = undefined;
         send({ type: "recorder:unpresented" });
       }
+      return;
     }
 
     if (type === "recorder:print") {
@@ -2448,98 +2551,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Trigger a sound to playback.
     if (type === "sfx:play") {
-      if (audioContext) {
-        // Instantly decode the audio before playback if it hasn't been already.
-        // 🌡️ TODO: `sfx` could be scraped for things that need to be decoded
-        //          upon audio activation. This would probably be helpful
-        //          in terms of creating a sampler and asynchronously
-        //          decoding all the sounds after an initial tap.
-
-        if (sfx[content.sfx] instanceof ArrayBuffer) {
-          let audioBuffer;
-          try {
-            let buf = sfx[content.sfx];
-            sfx[content.sfx] = null;
-            audioBuffer = await audioContext.decodeAudioData(buf);
-            if (debug && logs.audio) console.log("🔈 Decoded:", content.sfx);
-            sfx[content.sfx] = audioBuffer;
-          } catch (err) {
-            console.error("🔉 Error: ", err, sfx[content.sfx]);
-          }
-        }
-
-        if (sfx[content.sfx] instanceof ArrayBuffer) return;
-        // If decoding has failed or no sound is present then silently fail.
-
-        // 🌡️ TODO; Performance: Cache these buffers per sound effect in each piece?
-
-        const gainNode = audioContext.createGain();
-        gainNode.gain.value = content.options?.volume || 1;
-        const source = audioContext.createBufferSource();
-        const buffer = sfx[content.sfx];
-
-        // Reverse the playback if specified.
-        if (content.options?.reverse) {
-          // Make new AudioBuffer of the same size and sample rate as original.
-          const tempBuffer = audioContext.createBuffer(
-            buffer.numberOfChannels,
-            buffer.length,
-            buffer.sampleRate
-          );
-
-          // Copy and reverse the data for each channel.
-          for (let i = 0; i < buffer.numberOfChannels; i++) {
-            const originalData = buffer.getChannelData(i);
-            const tempData = tempBuffer.getChannelData(i);
-            tempData.set(originalData);
-            tempData.reverse();
-          }
-
-          source.buffer = tempBuffer; // Remap the source buffer to the copy.
-        } else {
-          source.buffer = buffer;
-        }
-
-        if (content.options?.loop) source.loop = true; // Loop playback.
-
-        source.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-
-        source.addEventListener("ended", () => {
-          source.disconnect();
-          gainNode.disconnect();
-          delete sfxPlaying[content.id];
-        });
-
-        if (debug && logs.audio) console.log("🔈 Playing:", content.sfx);
-
-        const startTime = audioContext.currentTime;
-        source.start();
-
-        // Return a playback handle here to be able to pause or kill the sample.
-        sfxPlaying[content.id] = {
-          kill: () => {
-            if (debug && logs.audio) console.log("🔈 Killing...", content.id);
-            source.disconnect();
-            gainNode.disconnect();
-            delete sfxPlaying[content.id];
-          },
-          progress: () => {
-            const elapsed = audioContext.currentTime - startTime;
-            const progress = max(
-              0,
-              (elapsed % buffer.duration) / buffer.duration
-            );
-            // You can return either the elapsedTime or percentage, or both, based on your needs.
-            return { elapsed, progress };
-          },
-        };
-      }
+      playSfx(content.id, content.sfx, content.options);
+      return;
     }
 
     // Stop a playing sound or sample if it exists.
     if (type === "sfx:kill") {
       sfxPlaying[content.id]?.kill();
+      return;
     }
 
     // Report progress of a playing sound back to the disk.
@@ -2548,6 +2567,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         type: "sfx:progress:report",
         content: { id: content.id, ...sfxPlaying[content.id]?.progress() },
       });
+      return;
     }
 
     if (type === "fullscreen-enable") {
