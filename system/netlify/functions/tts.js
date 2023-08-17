@@ -6,14 +6,15 @@
   - [] Get the sample in `wordfight` and play it back when necessary.
 #endregion */
 
-const { builder } = require("@netlify/functions");
+
+// const { builder } = require("@netlify/functions");
 const textToSpeech = require("@google-cloud/text-to-speech");
 import { respond } from "../../backend/http.mjs";
 const dev = process.env.CONTEXT === "dev";
 const gcpKey = process.env.GCP_TTS_KEY;
 const gcpEmail = process.env.GCP_EMAIL;
 
-async function handler(event, context) {
+export async function handler(event, context) {
   // A GET request to get a handle from a user `sub`.
   if (
     event.httpMethod === "GET" &&
@@ -89,4 +90,4 @@ async function handler(event, context) {
   }
 }
 
-exports.handler = builder(handler);
+// exports.handler = builder(handler);

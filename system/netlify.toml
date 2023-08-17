@@ -133,7 +133,7 @@
   status = 200
 [[redirects]]
   from = "/tts"
-  to = "/.netlify/builders/tts"
+  to = "/.netlify/functions/tts"
   status = 200
 [[redirects]]
   from = "/session/*"
