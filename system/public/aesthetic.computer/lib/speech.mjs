@@ -4,6 +4,8 @@
 
 const synth = window.speechSynthesis;
 
+const speakAPI = {}; // Will get `audioContext` and `playSfx`;
+
 let voices = [];
 
 function populateVoiceList() {
@@ -60,37 +62,41 @@ function speak(words, voice, mode = "local", opts = {}) {
 
     synth.speak(utterance);
   } else if (mode === "cloud") {
+    const label = `speech:${voice} - ${words}`;
 
-    // TODO: ❤️‍🔥 Check to see if this phrase is already in the local cache.
-    // TODO: I could use a `Set` for this.
-
-    const queryString = new URLSearchParams({ from: words, voice }).toString();
-    fetch(`/tts?${queryString}`)
-      .then((res) => res.blob()) // Convert the response to a Blob.
-      .then((blob) => {
-        const sfx = new Audio();
-        sfx.src = URL.createObjectURL(blob);
-
-        sfx.addEventListener("ended", () => {
+    // Trigger speech playback.
+    function play() {
+      console.log("🗣️", label);
+      const id = label + "_" + performance.now(); // An id for this sample.
+      speakAPI.playSfx(
+        id,
+        label,
+        { reverse: opts.reverse, pan: opts.pan },
+        () => {
           if (!opts.skipCompleted) window.acSEND({ type: "speech:completed" });
-          sourceNode.disconnect();
-          panNode.disconnect();
+        }
+      );
+    }
+
+    // Add the label to the sfx library.
+    if (!speakAPI.sfx[label]) {
+      const queryString = new URLSearchParams({
+        from: words,
+        voice,
+      }).toString();
+      fetch(`/tts?${queryString}`)
+        .then((res) => res.blob()) // Convert the response to a Blob.
+        .then(async (blob) => {
+          speakAPI.sfx[label] ||= await blob.arrayBuffer();
+          play();
+        })
+        .catch((err) => {
+          console.error("Speech fetch failure:", err);
         });
-
-        const audioContext = window.acAUDIO_CONTEXT;
-
-        const panNode = audioContext.createStereoPanner();
-        panNode.pan.value = opts.pan || 0; // -1 for left, 0 for center, 1 for right
-        const sourceNode = audioContext.createMediaElementSource(sfx);
-        sourceNode.connect(panNode);
-        panNode.connect(audioContext.destination);
-
-        sfx.play();
-      })
-      .catch((err) => {
-        console.error("Speech fetch failure:", err);
-      });
+    } else {
+      play(); // Or play it again if it's already present.
+    }
   }
 }
 
-export { speak };
+export { speak, speakAPI };
