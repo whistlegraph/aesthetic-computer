@@ -72,12 +72,23 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Recordable Paintings ***
+  - [🟠] Add a special mode for making "recordable paintings" which can be
+       downloaded as a .zip file / run as independent html pieces?
+
+
+*** Apple Pencil Painting Support ***
+  - [🍏] Hook iPad into a MacBook to fix apple pencil support for brushes.
+
 *** faster user media urls ***
-  - [😫] Why is the handle lookup being so goddamn slow?
+  - [x] Why is the handle lookup being so goddamn slow?
     - [x] Migrate data to a mongodb atlas cluster... which should be faster?
-      - [] How fast can it get?
-    - [] Profile it on local...
-    - [] Would redis make more sense or what? 
+      - [-] How fast can it get?
+      - [x] Store in redis.
+      - [x] Sign up for Cloudflare
+        - [] Cache the output of the handle page so it's much faster?
+             And uncache it via the API when needed?
+        - [] Cache tts replies also?
 
  - [-] Clean media urls should just go to a painting "viewer" type of page.
  - [] https://docs.netlify.com/edge-functions/limits

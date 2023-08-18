@@ -102,7 +102,7 @@ const nopaint = {
       //  page(screen);
       //}
 
-      addUndoPainting(system.painting);
+      addUndoPainting(system.painting, $.slug);
 
       // Idea: Check to see if anything actually got painted by doing a diff on
       //       the pixels?
@@ -128,7 +128,7 @@ const nopaint = {
 const undoPaintings = []; // Stores the last two paintings.
 let undoPosition = 0;
 
-function addUndoPainting(painting) {
+function addUndoPainting(painting, step = "unspecified") {
   if (!painting) return; // If there is no painting present, silently pass.
   const op = painting.pixels;
   const pixels = new Uint8ClampedArray(op.length);
@@ -159,6 +159,22 @@ function addUndoPainting(painting) {
     width: painting.width,
     height: painting.height,
   });
+
+  if ($commonApi.system.nopaint.recording) {
+    $commonApi.system.nopaint.record.push({
+      label: step,
+      painting: {
+        pixels,
+        width: painting.width,
+        height: painting.height,
+      },
+    });
+    console.log(
+      "🖌️🟠 Recorded a step:",
+      step,
+      $commonApi.system.nopaint.record
+    );
+  }
 
   undoPosition = undoPaintings.length - 1;
 
@@ -406,8 +422,8 @@ const $commonApi = {
     },
     current: {}, // Will get replaced by an update event.
   },
-  speak: (utterance, voice) => {
-    send({ type: "speak", content: { utterance, voice } });
+  speak: (utterance, voice, mode, opts) => {
+    send({ type: "speak", content: { utterance, voice, mode, opts } });
   },
   // Broadcast an event through the entire act system.
   act: (event, data = {}) => {
@@ -523,6 +539,8 @@ const $commonApi = {
     nopaint: {
       //boot: nopaint_boot, // TODO: Why are these in the commonApi? 23.02.12.14.26
       // act: nopaint_act,
+      recording: false,
+      record: [], // Store a recording here.
       is: nopaint_is,
       undo: { paintings: undoPaintings },
       needsBake: false,
@@ -534,15 +552,22 @@ const $commonApi = {
       no: ({ system, store, needsPaint }, yes = false) => {
         const paintings = system.nopaint.undo.paintings;
 
+        let dontRecord = false;
+
         if (yes) {
           // ⏩ Fast-forward mode.
           undoPosition += 1;
-          if (undoPosition > paintings.length - 1)
+          if (undoPosition > paintings.length - 1) {
             undoPosition = paintings.length - 1;
+            dontRecord = true;
+          }
         } else {
           // ⏪ Rewind mode.
           undoPosition -= 1;
-          if (undoPosition < 0) undoPosition = 0;
+          if (undoPosition < 0) {
+            undoPosition = 0;
+            dontRecord = true;
+          }
         }
 
         if (paintings.length > 1) {
@@ -572,6 +597,19 @@ const $commonApi = {
           store.persist("painting", "local:db");
 
           system.painting = store["painting"];
+
+          if (system.nopaint.recording && dontRecord === false) {
+            const label = yes ? "yes" : "no";
+            system.nopaint.record.push({
+              label, //,
+              // painting: {
+              //   width: system.painting.width,
+              //   height: system.painting.height,
+              //   pixels: new Uint8Array(system.painting.pixels),
+              // },
+            });
+            console.log("🖌️🟠 Recorded a step:", label, system.nopaint.record);
+          }
 
           if (resolutionChange) {
             system.nopaint.resetTransform({ system });
@@ -670,7 +708,7 @@ const $commonApi = {
         };
       },
       // Kill an existing painting.
-      noBang: async ({ system, store, needsPaint }) => {
+      noBang: async ({ system, store, needsPaint, painting }) => {
         const deleted = await store.delete("painting", "local:db");
         await store.delete("painting:resolution-lock", "local:db");
         await store.delete("painting:transform", "local:db");
@@ -678,6 +716,19 @@ const $commonApi = {
         system.painting = null;
         system.nopaint.resetTransform({ system, screen }); // Reset transform.
         needsPaint();
+
+        // Make a blank painting.
+        system.painting = painting(screen.width, screen.height, ($) => {
+          $.wipe(64);
+        });
+
+        // Clear any existing painting recording.
+        if (system.nopaint.recording) {
+          system.nopaint.recording = false;
+          system.nopaint.record.length = 0;
+          console.log("🖌️🛑 Recording cleared.");
+        }
+
         return deleted;
       },
       // Replace a painting entirely, remembering the last one.
@@ -690,7 +741,7 @@ const $commonApi = {
         store.persist("painting:resolution-lock", "local:db");
         system.nopaint.resetTransform({ system, screen }); // Reset transform.
         system.nopaint.storeTransform(store, system);
-        system.nopaint.addUndoPainting(system.painting);
+        system.nopaint.addUndoPainting(system.painting, "(replace)");
         system.nopaint.needsPresent = true;
         needsPaint();
       },
