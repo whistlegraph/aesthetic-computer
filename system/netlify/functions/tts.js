@@ -41,8 +41,21 @@ export async function handler(event, context) {
       })
     )[0].voices;
 
-    const females = voices.filter((v) => v.ssmlGender === "FEMALE");
-    const males = voices.filter((v) => v.ssmlGender === "MALE");
+    const females = voices.filter((v) => v.ssmlGender === "FEMALE").sort((a, b) => {
+      return a.name.localeCompare(b.name);
+    });
+
+    const males = voices.filter((v) => v.ssmlGender === "MALE").sort((a, b) => {
+      return a.name.localeCompare(b.name);
+    });
+
+    // females.forEach((f, i) => {
+    //   console.log("Index:", i, "Name:", f.name);
+    // });
+
+    // males.forEach((f, i) => {
+    //   console.log("Index:", i, "Name:", f.name);
+    // });
 
     console.log("Female voices:", females.length);
     console.log("Male voices:", males.length);
@@ -57,7 +70,7 @@ export async function handler(event, context) {
       voice = males[1]; // Different male.
     }
 
-    console.log("Chosen voice:", voice, set);
+    console.log("Chosen voice:", voice, "Set:", set, "Spoken:", utterance);
 
     const request = {
       input: { text: utterance },
