@@ -109,7 +109,9 @@ function paint({ wipe, ink, write, screen }) {
     });
     ink(textColor).write(r, { center: "y", x: cx + r.length / 2 + 3 });
   }
-  ink(64).line(cx, cy-20, cx, cy+2);
+  // ink(64).line(cx+1, cy-20, cx+1, cy+2);
+
+  ink(64).line(cx+.5, cy-20, cx+.5, cy+2);
 }
 
 // 🎪 Act
