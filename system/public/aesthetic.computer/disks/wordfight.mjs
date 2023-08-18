@@ -5,9 +5,10 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [?] What happens on network failure? 
-  - [] What voices to use and how to cache them?
+  - [] What voices to use.
   + Done
+  - [x] What happens on network failure? 
+    - [x] It should pause and keep retrying...
   - [x] Implement a local cache in `speech` for already spoken phrases.
   - [x] Randomly choose a voice set from 0-22.
   - [x] Pan both voices left and right. 
@@ -43,6 +44,10 @@ const rights = [
 
 let left, right;
 let leftDeck, rightDeck;
+
+let groupTurnsMin, // 8-15
+  groupTurns = 0;
+
 let speaking = false;
 let needsGen = false;
 let newGen = false;
@@ -78,11 +83,8 @@ function boot($) {
 }
 
 // 🧮 Sim
-function sim($) {
-  if ($.simCount % 1000n === 0n) {
-    needsGen = true;
-  }
-}
+// function sim($) {
+// }
 
 // 🎨 Paint
 function paint({ wipe, ink, write, screen }) {
@@ -115,7 +117,15 @@ function act($) {
     speaking = true;
     let voice;
 
+    groupTurns += 1;
+    console.log(
+      "🎴 Turns left:",
+      `${groupTurnsMin - groupTurns + 1}/${groupTurnsMin}`
+    );
+    if (groupTurns === groupTurnsMin) needsGen = true;
+
     if (newGen) {
+      console.log("⚔️ New word set...");
       newGen = false;
       l = leftDeck.pop();
       r = rightDeck.pop();
@@ -185,15 +195,17 @@ function meta() {
 // Render an application icon, aka favicon.
 // }
 
-export { boot, sim, paint, act, meta };
+export { boot, paint, act, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
 
 function gen({ help: { shuffleInPlace }, num }) {
-  console.log("⚔️ Switching word set...");
   // speaking = false;
   needsGen = false;
+  groupTurns = 0;
+  groupTurnsMin = num.randIntRange(8, 15);
+
   const i = num.randInt(lefts.length - 1);
   left = lefts[i];
   right = rights[i];
