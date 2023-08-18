@@ -5,11 +5,19 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Replace speech synthesis with a cloud API and/or use
+  - [?] What happens on network failure? 
+  - [] What voices to use and how to cache them?
+  + Done
+  - [x] Implement a local cache in `speech` for already spoken phrases.
+  - [x] Randomly choose a voice set from 0-22.
+  - [x] Pan both voices left and right. 
+  - [x] Replace speech synthesis with a cloud API and/or use
     - https://jankapunkt.github.io/easy-speech? or https://www.masswerk.at/mespeak/#download
     - https://responsivevoice.org/text-to-speech-languages/us-english-text-to-speech/
-  - [] Have it working without text to speech if it isn't available.
+       the call fails?
 #endregion */
+
+const panSway = 0.9; // How much to pan each voice left or right.
 
 const lefts = [
   ["need", "won't", "can", "will", "can't", "shouldn't"],
@@ -34,24 +42,39 @@ const rights = [
 ];
 
 let left, right;
-let needs, helps;
+let leftDeck, rightDeck;
 let speaking = false;
 let needsGen = false;
 let newGen = false;
+let voiceSet;
 
-let n = 0,
-  h = 0,
-  xShift = 0;
+let l = 0,
+  r = 0;
 const charWidth = 6;
 let textColor = "white";
 
 // 🥾 Boot
 function boot($) {
-  // $.resolution(160, 160);
+  if ($.params[0]) {
+    voiceSet = parseInt($.params[0]);
+  } else {
+    voiceSet = $.num.randInt(22);
+  }
+  console.log("🗣️ Voice set chosen:", voiceSet);
   $.cursor("native");
   gen($);
-  n = needs.pop();
-  h = helps.pop();
+  l = leftDeck.pop();
+  r = rightDeck.pop();
+
+  // Assume audio is activated because we came from another piece.
+  if ($.pieceCount > 0) {
+    speaking = true;
+    $.speak(l + " " + r, `female:${voiceSet}`, "cloud", { pan: -panSway });
+    $.speak(l + " " + r, `male:${voiceSet}`, "cloud", {
+      pan: panSway,
+      skipCompleted: true,
+    });
+  }
 }
 
 // 🧮 Sim
@@ -64,19 +87,19 @@ function sim($) {
 // 🎨 Paint
 function paint({ wipe, ink, write, screen }) {
   wipe(0);
-  const cx = screen.width / 2 + xShift;
+  const cx = screen.width / 2;
   if (speaking) {
-    ink(textColor).write(n, {
+    ink(textColor).write(l, {
       center: "y",
-      x: cx - charWidth * n.length - charWidth / 4,
+      x: cx - charWidth * l.length - charWidth / 4,
     });
-    ink(textColor).write(h, { center: "y", x: cx + h.length / 2 + 3 });
+    ink(textColor).write(r, { center: "y", x: cx + r.length / 2 + 3 });
   } else {
-    ink(255).write(n, {
+    ink(textColor).write(l, {
       center: "y",
-      x: cx - charWidth * n.length - charWidth / 4,
+      x: cx - charWidth * l.length - charWidth / 4,
     });
-    ink(255).write(h, { center: "y", x: cx + h.length / 2 + 3 });
+    ink(textColor).write(r, { center: "y", x: cx + r.length / 2 + 3 });
   }
   ink(64).line(cx, 0, cx, screen.height);
 }
@@ -94,31 +117,37 @@ function act($) {
 
     if (newGen) {
       newGen = false;
-      n = needs.pop();
-      h = helps.pop();
-      voice = flip() ? "female" : "male";
+      l = leftDeck.pop();
+      r = rightDeck.pop();
       textColor = "white";
-      xShift = $.num.randIntRange(-64, 64);
+      speak(l + " " + r, `female:${voiceSet}`, "cloud", { pan: -panSway });
+      speak(l + " " + r, `male:${voiceSet}`, "cloud", {
+        pan: panSway,
+        skipCompleted: true,
+      });
     } else {
+      let pan = 0;
       if (flip()) {
-        n = needs.pop();
-        if (needs.length === 0) {
-          needs = left.slice();
+        l = leftDeck.pop();
+        if (leftDeck.length === 0) {
+          leftDeck = left.slice();
           shuffleInPlace(left);
         }
-        voice = "female";
+        voice = `female:${voiceSet}`;
+        pan = -panSway;
         textColor = "white";
       } else {
-        h = helps.pop();
-        if (helps.length === 0) {
-          helps = right.slice();
+        r = rightDeck.pop();
+        if (rightDeck.length === 0) {
+          rightDeck = right.slice();
           shuffleInPlace(right);
         }
-        voice = "male";
+        voice = `male:${voiceSet}`;
+        pan = 1;
         textColor = "white";
       }
+      speak(l + " " + r, voice, "cloud", { pan });
     }
-    speak(n + " " + h, voice);
 
     if (needsGen) {
       gen($);
@@ -169,8 +198,8 @@ function gen({ help: { shuffleInPlace }, num }) {
   left = lefts[i];
   right = rights[i];
 
-  (needs = left.slice()), (helps = right.slice());
+  (leftDeck = left.slice()), (rightDeck = right.slice());
 
-  shuffleInPlace(needs);
-  shuffleInPlace(helps);
+  shuffleInPlace(leftDeck);
+  shuffleInPlace(rightDeck);
 }
