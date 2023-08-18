@@ -7,6 +7,10 @@
 /* #region 🏁 TODO 
   - [?] What happens on network failure? 
   - [] What voices to use and how to cache them?
+  - [] Figure out starting screen - press/tap/click here/me/now
+  - [] Word groups
+    -[] Some groups smaller than others? Just one group? Linear vs random?
+  - [] Picking voices (together)
   + Done
   - [x] Implement a local cache in `speech` for already spoken phrases.
   - [x] Randomly choose a voice set from 0-22.
@@ -20,16 +24,18 @@
 const panSway = 0.9; // How much to pan each voice left or right.
 
 const lefts = [
-  ["need", "won't", "can", "will", "can't", "shouldn't"],
-  ["sit", "be", "not", "run", "keep", "stop", "cry"],
+  // ["need", "won't", "can", "will", "can't", "shouldn't"],
+  ["will", "won't", "can", "can't"]
+  ["sit", "be", "not", "run", "keep", "stop", "cry", "click"],
   ["i'm", "it's", "that's", "they're", "you're", "we're", "who's"],
-  ["track", "see", "check", "smell", "charge", "become", "worship"],
+  ["track", "see", "check", "save", "charge", "become", "worship"],
 ];
 
 const rights = [
-  ["help", "come!", "scream?", "be", "run?", "talk...", "act"],
-  ["here", "now", "down", "there", "slowly", "fully", "soon"],
-  ["trying", "cold", "easy", "stupid", "beautiful", "lying", "dead"],
+  // ["help", "come!", "scream?", "be", "run?", "talk...", "act", "this"],
+  ["be", "help", "come", "talk"]
+  ["here", "now", "down", "there", "slowly", "fully", "soon", "this"],
+  ["trying", "cold", "easy", "stupid", "beautiful", "lying", "dead", "dying", "everything", "lost", "simple"],
   [
     "down",
     "backwards",
