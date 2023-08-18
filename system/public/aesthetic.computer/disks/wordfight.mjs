@@ -6,9 +6,9 @@
 
 /* #region 🏁 TODO 
   - [?] What happens on network failure? 
-  - [] Implement a local cache in tts for already spoken phrases, and
-       add `cache: true` as an option while speaking.
+  - [] What voices to use and how to cache them?
   + Done
+  - [x] Implement a local cache in `speech` for already spoken phrases.
   - [x] Randomly choose a voice set from 0-22.
   - [x] Pan both voices left and right. 
   - [x] Replace speech synthesis with a cloud API and/or use
@@ -17,7 +17,7 @@
        the call fails?
 #endregion */
 
-const panSway = 0.8; // How much to pan each voice left or right.
+const panSway = 0.9; // How much to pan each voice left or right.
 
 const lefts = [
   ["need", "won't", "can", "will", "can't", "shouldn't"],
