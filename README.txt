@@ -72,12 +72,13 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Recordable Paintings ***
+  - [🟠] Add a special mode for making "recordable paintings" which can be
+       downloaded as a .zip file / run as independent html pieces?
+
+
 *** Apple Pencil Painting Support ***
   - [🍏] Hook iPad into a MacBook to fix apple pencil support for brushes.
-
-*** Recordable Paintings ***
-  - [-] Add a special mode for making "recordable paintings" which can be
-       downloaded as a .zip file / run as independent html pieces?
 
 *** faster user media urls ***
   - [x] Why is the handle lookup being so goddamn slow?
