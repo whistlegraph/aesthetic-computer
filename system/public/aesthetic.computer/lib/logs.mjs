@@ -12,4 +12,5 @@ export const logs = {
   hid: false,
   painting: false, // System wallpaper / paint related logs.
   glaze: false,
+  deps: false, // Dependency loading and injection.
 };

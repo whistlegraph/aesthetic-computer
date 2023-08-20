@@ -327,6 +327,7 @@ const store = {
 // Promise based API calls (through `bios` and back)
 let fileImport;
 let serverUpload, serverUploadProgressReporter;
+let zipCreation;
 let authorizationRequest;
 let fileOpenRequest;
 let fileEncodeRequest;
@@ -412,6 +413,13 @@ let cachedAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
+  zip: (content) => {
+    const prom = new Promise((resolve, reject) => {
+      zipCreation = { resolve, reject };
+    });
+    send({ type: "zip", content });
+    return prom;
+  },
   motion: {
     start: () => {
       send({ type: "motion:start" });
@@ -438,7 +446,7 @@ const $commonApi = {
   // `Get` api
   // Retrieve assets from a user account.
   get: {
-    painting: (code) => {
+    painting: (code, opts) => {
       return {
         by: async (handle) => {
           // Get the user sub from the handle...
@@ -447,8 +455,9 @@ const $commonApi = {
             const res = await fetch(url);
             if (res.ok) {
               const json = await res.json();
+              const extension = opts?.record ? "zip" : "png";
               return $commonApi.net.preload(
-                `https://user.aesthetic.computer/${json.sub}/painting/${code}.png`
+                `https://user.aesthetic.computer/${json.sub}/painting/${code}.${extension}`
               );
             } else {
               console.error(`Error: ${res.status} ${res.statusText}`);
@@ -2121,6 +2130,11 @@ async function load(
         send({ type: "sfx:load", content: path });
         preloadPromises[path] = { resolve, reject };
       });
+    } else if (extension === "zip") {
+      return new Promise((resolve, reject) => {
+        send({ type: "zip:load", content: path });
+        preloadPromises[path] = { resolve, reject };
+      });
     }
   };
 
@@ -2766,6 +2780,27 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "zipped" && zipCreation) {
+    if (content.result === "success") {
+      zipCreation.resolve(content.data);
+    } else if (content.result === "error") {
+      console.error("Zip failed to be created:", content);
+      zipCreation?.reject(content.data);
+    }
+    zipCreation = undefined;
+    return;
+  }
+
+  // Run when a painting record ZIP is succesfully parsed after being
+  // dragged into the A.C window.
+  if (type === "painting:record:dropped") {
+    // Replace the active nopaint record with the loaded one.
+    $commonApi.system.nopaint.recording = true;
+    $commonApi.system.nopaint.record = content;
+    if ($commonApi.slug !== "painting") $commonApi.jump("painting");
+    return;
+  }
+
   // Resolve a locally requested file.
   if (type === "file-open:response" && fileOpenRequest) {
     if (content.result === "success") {
@@ -2839,9 +2874,24 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "loaded-sfx-rejection") {
-    if (debug) console.error("Sound load failure:", content);
+    if (debug && logs.sound) console.error("Sound load failure:", content);
     preloadPromises[content.sfx].reject(content.sfx);
     delete preloadPromises[content.sfx];
+    return;
+  }
+
+  // 1f. Loading ZIP files.
+  if (type === "loaded-zip-success") {
+    if (debug) console.log("🤐 Zip load success:", content.url);
+    preloadPromises[content.url].resolve(content.data);
+    delete preloadPromises[content.url];
+    return;
+  }
+
+  if (type === "loaded-zip-rejection") {
+    if (debug) console.error("🤐 Zip load failure:", content.url);
+    preloadPromises[content.url].reject(content.url);
+    delete preloadPromises[content.url];
     return;
   }
 
