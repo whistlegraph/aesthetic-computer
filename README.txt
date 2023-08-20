@@ -73,9 +73,32 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Recordable Paintings ***
-  - [🟠] Add a special mode for making "recordable paintings" which can be
-       downloaded as a .zip file / run as independent html pieces?
+  How-to: Enter `painting:record` to start.
+          Enter `painting` to view the history so far. 
+          Enter `painting:done` to download the complete history
+          of your painting. Or `painting:done upload` or `u` to upload it.
 
+  - [🟠] Store recorded painting steps in idb so they persist
+       across refreshes. 
+  - [] Better media type detection (don't just use "steps").
+  - [] Separate paintings and painting-records in S3, or just always
+       keep a PNG and a ZIP (if the recording exists) and have the
+       timestamps match.
+  - [] The `painting` viewer should attach the timestamp or the timestamp
+       should be remembered and not regenerated based on the last "sign"
+       stamp.
+  - [] How should uploading work?
+  - [] What about the text file format, and keeping track of gestures
+       between steps?
+    - [] Translation would need to be tracked in addition to the gestures.
+  + Done
+  - [x] `painting insert-code-here` to play back an uploaded recording.
+  - [x] Drag in a zip to unpack and play back a recording.
+  - [x] Add a special mode for making "recordable paintings".
+    - [x] `painting:done` to complete and download a zip of the recording.
+      - [x] Upload zips to S3? 
+    - [x] `painting` to play back the current recording.
+    - [x] `painting:record` to start a recording.
 
 *** Apple Pencil Painting Support ***
   - [🍏] Hook iPad into a MacBook to fix apple pencil support for brushes.

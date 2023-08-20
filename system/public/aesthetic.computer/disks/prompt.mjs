@@ -169,6 +169,7 @@ async function halt($, text) {
     upload,
     code,
     send,
+    zip,
   } = $;
   // Roughly parse out the text (could also do a full `parse` here.)
   const tokens = text.split(" ");
@@ -217,6 +218,24 @@ async function halt($, text) {
     });
     console.log("🖌️🔴 Now recording:", system.nopaint.record);
     flashColor = [200, 0, 200];
+    makeFlash($);
+    return true;
+  } else if (slug === "painting:done") {
+    if (system.nopaint.recording) {
+      let destination = params[0] || "download"; // or "upload"
+      if (destination === "u") destination = "upload";
+      console.log("🖌️ Saving recording:", destination);
+
+      const zipped = await zip({
+        destination,
+        painting: { record: system.nopaint.record, timestamp: num.timestamp() },
+      });
+      console.log("🤐 Zipped:", zipped);
+      flashColor = [0, 255, 0];
+    } else {
+      flashColor = [255, 0, 0];
+      console.warn("🖌️ No recording to save!");
+    }
     makeFlash($);
     return true;
   } else if (slug === "flower") {
