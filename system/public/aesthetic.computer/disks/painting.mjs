@@ -22,11 +22,22 @@ let painting,
   label,
   labelFade = labelFadeSpeed,
   stepIndex = 0,
+  interim = "No recording found.",
   // direction = 1,
   paintingIndex = stepIndex;
 
 // 🥾 Boot
-function boot({ system }) {
+function boot({ system, params, get }) {
+  if (params[0]) {
+    const [handle, timestamp] = params[0].split("/");
+    interim = "Loading...";
+    get
+      .painting(timestamp, { record: true })
+      .by(handle)
+      .then((out) => {
+        system.nopaint.record = out;
+      });
+  }
   advance(system);
 }
 
@@ -57,7 +68,7 @@ function paint({ wipe, ink, box, system, screen, num, paste }) {
       screen.height
     );
   } else {
-    ink().write("No recording found.", { center: "xy" });
+    ink().write(interim, { center: "xy" });
   }
 }
 

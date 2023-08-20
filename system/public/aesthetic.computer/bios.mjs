@@ -20,6 +20,7 @@ import { timestamp } from "./lib/num.mjs";
 
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
+let JSZip; // Dynamic import of `jszip` as needed.
 
 const { assign, keys } = Object;
 const { round, floor, min, max } = Math;
@@ -383,15 +384,34 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   async function loadFFmpeg() {
     return new Promise((resolve, reject) => {
       const script = document.createElement("script");
-      script.src = "aesthetic.computer/dep/ffmpeg/ffmpeg.min.js";
+      script.src = "/aesthetic.computer/dep/ffmpeg/ffmpeg.min.js";
 
       script.onerror = function (err) {
         reject(err, s);
       };
 
       script.onload = function handleScriptLoaded() {
-        if (debug) console.log("📼 FFmpeg has loaded.", FFmpeg);
+        if (debug && logs.deps) console.log("📼 FFmpeg has loaded.", FFmpeg);
         resolve(FFmpeg);
+      };
+
+      document.head.appendChild(script);
+    });
+  }
+
+  async function loadJSZip() {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "/aesthetic.computer/dep/jszip.min.js";
+
+      script.onerror = function (err) {
+        reject(err, s);
+      };
+
+      script.onload = function handleScriptLoaded() {
+        if (debug && logs.deps)
+          console.log("🤐 JSZip has loaded.", window.JSZip);
+        resolve(window.JSZip);
       };
 
       document.head.appendChild(script);
@@ -416,7 +436,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   async function loadWeb3() {
     return new Promise((resolve, reject) => {
       const script = document.createElement("script");
-      script.src = "aesthetic.computer/dep/web3/web3.min.js";
+      script.src = "/aesthetic.computer/dep/web3/web3.min.js";
 
       script.onerror = (err) => reject(err, s);
 
@@ -771,100 +791,100 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Play a sound back through the sfx system.
   async function playSfx(id, sound, options, completed) {
-      if (audioContext) {
-        // Instantly decode the audio before playback if it hasn't been already.
-        // 🌡️ TODO: `sfx` could be scraped for things that need to be decoded
-        //          upon audio activation. This would probably be helpful
-        //          in terms of creating a sampler and asynchronously
-        //          decoding all the sounds after an initial tap.
+    if (audioContext) {
+      // Instantly decode the audio before playback if it hasn't been already.
+      // 🌡️ TODO: `sfx` could be scraped for things that need to be decoded
+      //          upon audio activation. This would probably be helpful
+      //          in terms of creating a sampler and asynchronously
+      //          decoding all the sounds after an initial tap.
 
-        if (sfx[sound] instanceof ArrayBuffer) {
-          let audioBuffer;
-          try {
-            let buf = sfx[sound];
-            sfx[sound] = null;
-            audioBuffer = await audioContext.decodeAudioData(buf);
-            if (debug && logs.audio) console.log("🔈 Decoded:", sound);
-            sfx[sound] = audioBuffer;
-          } catch (err) {
-            console.error("🔉 Error: ", err, sfx[sound]);
-          }
+      if (sfx[sound] instanceof ArrayBuffer) {
+        let audioBuffer;
+        try {
+          let buf = sfx[sound];
+          sfx[sound] = null;
+          audioBuffer = await audioContext.decodeAudioData(buf);
+          if (debug && logs.audio) console.log("🔈 Decoded:", sound);
+          sfx[sound] = audioBuffer;
+        } catch (err) {
+          console.error("🔉 Error: ", err, sfx[sound]);
+        }
+      }
+
+      if (sfx[sound] instanceof ArrayBuffer) return;
+      // If decoding has failed or no sound is present then silently fail.
+
+      // 🌡️ TODO; Performance: Cache these buffers per sound effect in each piece?
+
+      const gainNode = audioContext.createGain();
+      gainNode.gain.value = options?.volume || 1;
+
+      const panNode = audioContext.createStereoPanner();
+      panNode.pan.value = options?.pan || 0; // -1 for left, 0 for center, 1 for right
+
+      const source = audioContext.createBufferSource();
+      const buffer = sfx[sound];
+
+      // Reverse the playback if specified.
+      if (options?.reverse) {
+        // Make new AudioBuffer of the same size and sample rate as original.
+        const tempBuffer = audioContext.createBuffer(
+          buffer.numberOfChannels,
+          buffer.length,
+          buffer.sampleRate
+        );
+
+        // Copy and reverse the data for each channel.
+        for (let i = 0; i < buffer.numberOfChannels; i++) {
+          const originalData = buffer.getChannelData(i);
+          const tempData = tempBuffer.getChannelData(i);
+          tempData.set(originalData);
+          tempData.reverse();
         }
 
-        if (sfx[sound] instanceof ArrayBuffer) return;
-        // If decoding has failed or no sound is present then silently fail.
+        source.buffer = tempBuffer; // Remap the source buffer to the copy.
+      } else {
+        source.buffer = buffer;
+      }
 
-        // 🌡️ TODO; Performance: Cache these buffers per sound effect in each piece?
+      if (options?.loop) source.loop = true; // Loop playback.
 
-        const gainNode = audioContext.createGain();
-        gainNode.gain.value = options?.volume || 1;
+      source.connect(panNode);
+      panNode.connect(gainNode);
+      gainNode.connect(audioContext.destination);
 
-        const panNode = audioContext.createStereoPanner();
-        panNode.pan.value = options?.pan || 0; // -1 for left, 0 for center, 1 for right
+      source.addEventListener("ended", () => {
+        source.disconnect();
+        gainNode.disconnect();
+        panNode.disconnect();
+        completed?.();
+        delete sfxPlaying[id];
+      });
 
-        const source = audioContext.createBufferSource();
-        const buffer = sfx[sound];
+      if (debug && logs.audio) console.log("🔈 Playing:", sound);
 
-        // Reverse the playback if specified.
-        if (options?.reverse) {
-          // Make new AudioBuffer of the same size and sample rate as original.
-          const tempBuffer = audioContext.createBuffer(
-            buffer.numberOfChannels,
-            buffer.length,
-            buffer.sampleRate
-          );
+      const startTime = audioContext.currentTime;
+      source.start();
 
-          // Copy and reverse the data for each channel.
-          for (let i = 0; i < buffer.numberOfChannels; i++) {
-            const originalData = buffer.getChannelData(i);
-            const tempData = tempBuffer.getChannelData(i);
-            tempData.set(originalData);
-            tempData.reverse();
-          }
-
-          source.buffer = tempBuffer; // Remap the source buffer to the copy.
-        } else {
-          source.buffer = buffer;
-        }
-
-        if (options?.loop) source.loop = true; // Loop playback.
-
-        source.connect(panNode);
-        panNode.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-
-        source.addEventListener("ended", () => {
+      // Return a playback handle here to be able to pause or kill the sample.
+      sfxPlaying[id] = {
+        kill: () => {
+          if (debug && logs.audio) console.log("🔈 Killing...", id);
           source.disconnect();
           gainNode.disconnect();
-          panNode.disconnect();
-          completed?.();
           delete sfxPlaying[id];
-        });
-
-        if (debug && logs.audio) console.log("🔈 Playing:", sound);
-
-        const startTime = audioContext.currentTime;
-        source.start();
-
-        // Return a playback handle here to be able to pause or kill the sample.
-        sfxPlaying[id] = {
-          kill: () => {
-            if (debug && logs.audio) console.log("🔈 Killing...", id);
-            source.disconnect();
-            gainNode.disconnect();
-            delete sfxPlaying[id];
-          },
-          progress: () => {
-            const elapsed = audioContext.currentTime - startTime;
-            const progress = max(
-              0,
-              (elapsed % buffer.duration) / buffer.duration
-            );
-            // You can return either the elapsedTime or percentage, or both, based on your needs.
-            return { elapsed, progress };
-          },
-        };
-      }
+        },
+        progress: () => {
+          const elapsed = audioContext.currentTime - startTime;
+          const progress = max(
+            0,
+            (elapsed % buffer.duration) / buffer.duration
+          );
+          // You can return either the elapsedTime or percentage, or both, based on your needs.
+          return { elapsed, progress };
+        },
+      };
+    }
   }
 
   speakAPI.playSfx = playSfx;
@@ -1094,6 +1114,83 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+    // Zip up some data and download it.
+    if (type === "zip") {
+      if (!window.JSZip) await loadJSZip();
+      const zip = new window.JSZip(); // https://github.com/Stuk/jszip
+
+      if (content.painting) {
+        const steps = [content.painting.timestamp];
+        const images = {};
+
+        content.painting.record.forEach((step, index) => {
+          console.log(index, step);
+          steps.push(`${index} - ${step.label}`);
+
+          if (step.painting) {
+            images[`${index} - ${step.label}`] = bufferToBlob(
+              step.painting,
+              "image/png"
+            );
+          }
+        });
+
+        // Add text file.
+        const stepFile = steps.join("\n");
+        zip.file("steps.txt", stepFile);
+
+        // 🔥 23.08.19.16.23
+        // TODO: Perhaps this could be a JSON file which could
+        //       eventually auto-expand and/or store gesture data?
+
+        // Add all images based on step and index.
+        keys(images).forEach((label) => {
+          zip.file(`${label}.png`, images[label]);
+        });
+
+        const zipped = await zip.generateAsync({ type: "blob" });
+        const filename = `painting-${content.painting.timestamp}.zip`;
+
+        if (content.destination === "download") {
+          // See also: `receivedDownload`.
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(zipped);
+          a.target = "_blank";
+          a.download = filename; // Remove any extra paths.
+          a.click();
+          URL.revokeObjectURL(a.href);
+          send({ type: "zipped", content: { result: "success", data: true } });
+        } else if (content.destination === "upload") {
+          // TODO: Put this on the S3 server somewhere...
+          console.log("Uploading...", zipped);
+          receivedUpload({ filename, data: zipped }, "zipped");
+        }
+      } else {
+        send({ type: "zipped", content: { result: "error", data: false } });
+      }
+
+      return;
+    }
+
+    // Load a zip from a URL and return its unpacked contents to the piece.
+    if (type === "zip:load") {
+      console.log("Load zip remotely...", content);
+      fetch(content)
+        .then((response) => response.arrayBuffer())
+        .then(async (buffer) => {
+          if (!window.JSZip) await loadJSZip();
+          const record = await unzip(buffer);
+          send({
+            type: "loaded-zip-success",
+            content: { url: content, data: record },
+          });
+        })
+        .catch((error) => {
+          send({ type: "loaded-zip-rejection", content: { url: content } });
+        });
+      return;
+    }
+
     // Capture device motion.
     if (type === "motion:start") {
       startCapturingMotion();
@@ -1105,6 +1202,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Speech synthesis. (local and remote)
     if (type === "speak") {
       speak(content.utterance, content.voice, content.mode, content.opts);
       return;
@@ -2838,7 +2936,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // lastRender = performance.now()
   }
 
-  // Reads a file and uploads it to the server.
+  // 📤 Reads a file and uploads it to the server.
   async function receivedUpload(
     { filename, data, bucket },
     callbackMessage = "upload"
@@ -2875,6 +2973,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       MIME = "image/png";
       data = await bufferToBlob(data, MIME); // Could be adding modifiers here...
     }
+
+    if (ext === "zip") MIME = "application/zip";
 
     let prefetchURL = "/presigned-upload-url/" + ext;
 
@@ -3117,6 +3217,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } else if (ext === "mjs") {
       MIME = "application/javascript; charset=utf-8";
       object = URL.createObjectURL(new Blob([data], { type: MIME }));
+    } else if (extension === "zip") {
+      object = URL.createObjectURL(data, { type: MIME });
     }
 
     // Fetch download url from `/presigned-download-url?for=${filename}` if we
@@ -3136,8 +3238,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     a.href = object;
     a.target = "_blank";
     a.download = filename.split("/").pop(); // Remove any extra paths.
-    console.log(a.download);
-
     a.click();
     if (typeof a.href !== "string") URL.revokeObjectURL(a.href);
 
@@ -3159,7 +3259,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   async function bufferToBlob(data, MIME, modifiers) {
     let can;
-
     // Encode a pixel buffer as a png.
     // See also: https://stackoverflow.com/questions/11112321/how-to-save-canvas-as-png-image
     const img = data;
@@ -3431,7 +3530,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (useLegacyHandsAPI) {
             // Load older mediapipe lib.
             const script = document.createElement("script");
-            script.src = "aesthetic.computer/dep/@mediapipe/hands/hands.js";
+            script.src = "/aesthetic.computer/dep/@mediapipe/hands/hands.js";
             script.crossOrigin = "anonymous";
 
             script.onload = function () {
@@ -3722,6 +3821,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (files.length > 0) {
       const file = files[0];
       const ext = extension(file.name);
+      // 🗒️ Source code file.
       if (extension === "mjs") {
         const reader = new FileReader();
         reader.onload = function (e) {
@@ -3735,6 +3835,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         };
 
         reader.readAsText(file);
+        // 🖼️ Image file
       } else if (
         ext === "png" ||
         ext === "jpeg" ||
@@ -3750,6 +3851,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             source: bitmap,
           },
         });
+        // 🖼️⌛ Recorded Painting (or other complex media)
+      } else if (ext === "zip") {
+        const reader = new FileReader();
+        reader.onload = async function (e) {
+          const data = e.target.result;
+          if (!window.JSZip) await loadJSZip();
+          const record = await unzip(data);
+          if (record) send({ type: "painting:record:dropped", content: record });
+        };
+        reader.readAsArrayBuffer(file);
       }
     }
   });
@@ -3769,6 +3880,40 @@ async function toBitmap(imgOrBlob) {
     height: imageData.height,
     pixels: imageData.data,
   };
+}
+
+async function unzip(data) {
+  try {
+    const zip = await window.JSZip.loadAsync(data);
+    console.log("🤐 Zip opened...");
+    // Detect type of media based on presence of "steps" file...
+    const steps = await zip.file("steps.txt")?.async("string");
+
+    if (steps) {
+      console.log("🖼️⌛ Painting record detected.");
+
+      const record = [];
+      const lines = steps.split("\n").slice(1); // Remove timestamp.
+
+      for (let i = 0; i < lines.length; i += 1) {
+        const step = { label: lines[i].replace(/^\d+ - /, "") };
+        const picture = zip.file(`${lines[i]}.png`);
+
+        if (picture) {
+          const blob = await picture.async("blob");
+          step.painting = await toBitmap(blob);
+        }
+        record.push(step);
+      }
+      console.log("🖼️⌛ Loaded record:", record);
+
+      return record;
+    } else {
+      console.warn("🤐 Could not detect ZIP media type.");
+    }
+  } catch (err) {
+    console.error("🤐 Error reading ZIP:", err);
+  }
 }
 
 export { boot };
