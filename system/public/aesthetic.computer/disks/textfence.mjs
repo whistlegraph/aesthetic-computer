@@ -5,9 +5,14 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] Tech meeting / notes with Sam:
+    - [] ... 
+  - [] Optically center the text by getting the right-most drawn point
+       of the left word and the left-most drawn point of the right word,
+       spacing accordingly.
   - [] Seeing "stop now" causes a blackout and group change after it's spoken.
-  - [] Experiment with ssml.
   - [] Finalize words / great narrative.
+  - [] Experiment with ssml?
   + Launch Process
   - [] Deploy it / publish with Sam. (Tech)
   + Done
