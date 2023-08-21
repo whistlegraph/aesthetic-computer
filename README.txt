@@ -72,12 +72,39 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Recordable Paintings ***
+  How-to: Enter `painting:record` to start.
+          Enter `painting` to view the history so far. 
+          Enter `painting:done` to download the complete history
+          of your painting. Or `painting:done upload` or `u` to upload it.
+
+  - [🟢] Rename "steps.txt" to "steps.json"
+    - [] Store metadata for the media type.
+    - [] Store gesture data.  
+    
+  - [] Of each current step... 
+    - [] And the gestures translated to the painting itself need to be tracked.
+    - [] So that live playback can occur if necessary.
+  - [] Separate paintings and painting-records in S3, and always
+       keep a PNG and a ZIP (if the recording exists) and have the
+       timestamps match.
+
+  + Done
+  - [x] Add `timestamp` to the text data format.
+  - [x] The `painting` viewer should have the timestamp in the corner.
+  - [x] Store recorded painting steps in idb so they persist
+        across refreshes. 
+  - [x] Add recording indicator.
+  - [x] `painting insert-code-here` to play back an uploaded recording.
+  - [x] Drag in a zip to unpack and play back a recording.
+  - [x] Add a special mode for making "recordable paintings".
+    - [x] `painting:done` to complete and download a zip of the recording.
+      - [x] Upload zips to S3? 
+    - [x] `painting` to play back the current recording.
+    - [x] `painting:record` to start a recording.
+
 *** Apple Pencil Painting Support ***
   - [🍏] Hook iPad into a MacBook to fix apple pencil support for brushes.
-
-*** Recordable Paintings ***
-  - [-] Add a special mode for making "recordable paintings" which can be
-       downloaded as a .zip file / run as independent html pieces?
 
 *** faster user media urls ***
   - [x] Why is the handle lookup being so goddamn slow?
