@@ -152,7 +152,7 @@ class Typeface {
       x = pos.x === undef ? $.screen.width / 2 - hw : x - hw;
     }
     if (pos.center.includes("y")) {
-      const hh = blockHeight / 2;
+      const hh = Math.floor(blockHeight / 2);
       y = pos.y === undef ? $.screen.height / 2 - hh : y - hh;
     }
 
