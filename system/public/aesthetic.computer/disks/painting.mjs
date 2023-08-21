@@ -60,10 +60,7 @@ function paint({ wipe, ink, box, system, screen, num, paste }) {
 
     ink(num.map(labelFade, 0, labelFadeSpeed, 0, 255)).write(
       label,
-      {
-        y: 12,
-        center: "x",
-      },
+      { y: 12, center: "x" },
       "black"
     );
 
