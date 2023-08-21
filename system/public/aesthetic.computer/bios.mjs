@@ -1125,7 +1125,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Encode `painting:recording` text format.
         content.painting.record.forEach((step, index) => {
-          const format = `${index} - ${step.label} - ${step.timestamp}`;
+          const format = `${step.timestamp} - ${step.label}`;
           steps.push(format);
           if (step.painting) {
             images[format] = bufferToBlob(step.painting, "image/png");
@@ -1134,9 +1134,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // TODO: Encode a JSON file for steps.
         // Add text file.
-        const stepFile = steps.join("\n");
+        const stepFile = JSON.stringify(steps); //.join("\n");
 
-        zip.file("steps.txt", stepFile);
+        zip.file("painting.json", stepFile);
 
         // 🔥 23.08.19.16.23
         // TODO: Perhaps this could be a JSON file which could
@@ -3891,7 +3891,7 @@ async function unzip(data) {
 
     console.log("🤐 Zip opened...");
     // Detect type of media based on presence of "steps" file...
-    const steps = await zip.file("steps.txt")?.async("string");
+    const steps = JSON.parse(await zip.file("painting.json")?.async("text"));
 
     if (steps) {
       console.log("🖼️⌛ Painting record detected.");
@@ -3899,12 +3899,12 @@ async function unzip(data) {
       const record = [];
 
       // TODO: Parse the JSON from steps.
-      const lines = steps.split("\n"); // Remove timestamp.
+      const lines = steps; // Remove timestamp.
 
       // Load `painting:recording` step text format.
       for (let i = 0; i < lines.length; i += 1) {
         const components = lines[i].split(" - ");
-        const step = { label: components[1], timestamp: components[2] };
+        const step = { timestamp: components[0], label: components[1] };
         const picture = zip.file(`${lines[i]}.png`);
 
         if (picture) {
