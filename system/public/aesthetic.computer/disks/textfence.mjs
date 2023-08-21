@@ -10,6 +10,7 @@
   - [] Optically center the text by getting the right-most drawn point
        of the left word and the left-most drawn point of the right word,
        spacing accordingly.
+       -[] Pick a good gap and hide the lines
   - [] Seeing "stop now" causes a blackout and group change after it's spoken.
   - [] Finalize words / great narrative.
   - [] Experiment with ssml?
