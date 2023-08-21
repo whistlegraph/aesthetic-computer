@@ -530,7 +530,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // sampleRate: 192000,
     });
 
-    console.log("Sound started.");
+    // console.log("Sound started.");
 
     speakAPI.audioContext = audioContext; // Make audioContext global, for
     //                                       `speech` and perhaps other
