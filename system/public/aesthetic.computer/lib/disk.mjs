@@ -102,7 +102,7 @@ const nopaint = {
       //  page(screen);
       //}
 
-      addUndoPainting(system.painting);
+      addUndoPainting(system.painting, $.slug);
 
       // Idea: Check to see if anything actually got painted by doing a diff on
       //       the pixels?
@@ -128,7 +128,7 @@ const nopaint = {
 const undoPaintings = []; // Stores the last two paintings.
 let undoPosition = 0;
 
-function addUndoPainting(painting) {
+function addUndoPainting(painting, step = "unspecified") {
   if (!painting) return; // If there is no painting present, silently pass.
   const op = painting.pixels;
   const pixels = new Uint8ClampedArray(op.length);
@@ -159,6 +159,17 @@ function addUndoPainting(painting) {
     width: painting.width,
     height: painting.height,
   });
+
+  if ($commonApi.system.nopaint.recording) {
+    $commonApi.system.nopaint.addToRecord({
+      label: step,
+      painting: {
+        pixels,
+        width: painting.width,
+        height: painting.height,
+      },
+    });
+  }
 
   undoPosition = undoPaintings.length - 1;
 
@@ -311,6 +322,7 @@ const store = {
 // Promise based API calls (through `bios` and back)
 let fileImport;
 let serverUpload, serverUploadProgressReporter;
+let zipCreation;
 let authorizationRequest;
 let fileOpenRequest;
 let fileEncodeRequest;
@@ -396,6 +408,13 @@ let cachedAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
+  zip: (content) => {
+    const prom = new Promise((resolve, reject) => {
+      zipCreation = { resolve, reject };
+    });
+    send({ type: "zip", content });
+    return prom;
+  },
   motion: {
     start: () => {
       send({ type: "motion:start" });
@@ -422,7 +441,7 @@ const $commonApi = {
   // `Get` api
   // Retrieve assets from a user account.
   get: {
-    painting: (code) => {
+    painting: (code, opts) => {
       return {
         by: async (handle) => {
           // Get the user sub from the handle...
@@ -431,8 +450,9 @@ const $commonApi = {
             const res = await fetch(url);
             if (res.ok) {
               const json = await res.json();
+              const extension = opts?.record ? "zip" : "png";
               return $commonApi.net.preload(
-                `https://user.aesthetic.computer/${json.sub}/painting/${code}.png`
+                `https://user.aesthetic.computer/${json.sub}/painting/${code}.${extension}`
               );
             } else {
               console.error(`Error: ${res.status} ${res.statusText}`);
@@ -523,6 +543,15 @@ const $commonApi = {
     nopaint: {
       //boot: nopaint_boot, // TODO: Why are these in the commonApi? 23.02.12.14.26
       // act: nopaint_act,
+      recording: false,
+      record: [], // Store a recording here.
+      addToRecord: function (record) {
+        record.timestamp = num.timestamp(); // Insert the timestamp data.
+        $commonApi.system.nopaint.record.push(record);
+        store["painting:record"] = $commonApi.system.nopaint.record;
+        store.persist("painting:record", "local:db");
+        console.log("🖌️🟠 Recorded a step:", record.label);
+      },
       is: nopaint_is,
       undo: { paintings: undoPaintings },
       needsBake: false,
@@ -534,15 +563,22 @@ const $commonApi = {
       no: ({ system, store, needsPaint }, yes = false) => {
         const paintings = system.nopaint.undo.paintings;
 
+        let dontRecord = false;
+
         if (yes) {
           // ⏩ Fast-forward mode.
           undoPosition += 1;
-          if (undoPosition > paintings.length - 1)
+          if (undoPosition > paintings.length - 1) {
             undoPosition = paintings.length - 1;
+            dontRecord = true;
+          }
         } else {
           // ⏪ Rewind mode.
           undoPosition -= 1;
-          if (undoPosition < 0) undoPosition = 0;
+          if (undoPosition < 0) {
+            undoPosition = 0;
+            dontRecord = true;
+          }
         }
 
         if (paintings.length > 1) {
@@ -572,6 +608,18 @@ const $commonApi = {
           store.persist("painting", "local:db");
 
           system.painting = store["painting"];
+
+          if (system.nopaint.recording && dontRecord === false) {
+            const label = yes ? "yes" : "no";
+            system.nopaint.addToRecord({
+              label, //,
+              // painting: {
+              //   width: system.painting.width,
+              //   height: system.painting.height,
+              //   pixels: new Uint8Array(system.painting.pixels),
+              // },
+            });
+          }
 
           if (resolutionChange) {
             system.nopaint.resetTransform({ system });
@@ -670,7 +718,7 @@ const $commonApi = {
         };
       },
       // Kill an existing painting.
-      noBang: async ({ system, store, needsPaint }) => {
+      noBang: async ({ system, store, needsPaint, painting }) => {
         const deleted = await store.delete("painting", "local:db");
         await store.delete("painting:resolution-lock", "local:db");
         await store.delete("painting:transform", "local:db");
@@ -678,6 +726,21 @@ const $commonApi = {
         system.painting = null;
         system.nopaint.resetTransform({ system, screen }); // Reset transform.
         needsPaint();
+
+        // Make a blank painting.
+        system.painting = painting(screen.width, screen.height, ($) => {
+          $.wipe(64);
+        });
+
+        // Clear any existing painting recording in RAM and
+        // storage.
+        await store.delete("painting:record", "local:db");
+        if (system.nopaint.recording) {
+          system.nopaint.recording = false;
+          system.nopaint.record.length = 0;
+          console.log("🖌️🛑 Recording cleared.");
+        }
+
         return deleted;
       },
       // Replace a painting entirely, remembering the last one.
@@ -690,7 +753,7 @@ const $commonApi = {
         store.persist("painting:resolution-lock", "local:db");
         system.nopaint.resetTransform({ system, screen }); // Reset transform.
         system.nopaint.storeTransform(store, system);
-        system.nopaint.addUndoPainting(system.painting);
+        system.nopaint.addUndoPainting(system.painting, "(replace)");
         system.nopaint.needsPresent = true;
         needsPaint();
       },
@@ -2070,6 +2133,11 @@ async function load(
         send({ type: "sfx:load", content: path });
         preloadPromises[path] = { resolve, reject };
       });
+    } else if (extension === "zip") {
+      return new Promise((resolve, reject) => {
+        send({ type: "zip:load", content: path });
+        preloadPromises[path] = { resolve, reject };
+      });
     }
   };
 
@@ -2715,6 +2783,27 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "zipped" && zipCreation) {
+    if (content.result === "success") {
+      zipCreation.resolve(content.data);
+    } else if (content.result === "error") {
+      console.error("Zip failed to be created:", content);
+      zipCreation?.reject(content.data);
+    }
+    zipCreation = undefined;
+    return;
+  }
+
+  // Run when a painting record ZIP is succesfully parsed after being
+  // dragged into the A.C window.
+  if (type === "painting:record:dropped") {
+    // Replace the active nopaint record with the loaded one.
+    // $commonApi.system.nopaint.recording = true;
+    $commonApi.system.nopaint.record = content;
+    if ($commonApi.slug !== "painting") $commonApi.jump("painting");
+    return;
+  }
+
   // Resolve a locally requested file.
   if (type === "file-open:response" && fileOpenRequest) {
     if (content.result === "success") {
@@ -2788,9 +2877,24 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "loaded-sfx-rejection") {
-    if (debug) console.error("Sound load failure:", content);
+    if (debug && logs.sound) console.error("Sound load failure:", content);
     preloadPromises[content.sfx].reject(content.sfx);
     delete preloadPromises[content.sfx];
+    return;
+  }
+
+  // 1f. Loading ZIP files.
+  if (type === "loaded-zip-success") {
+    if (debug) console.log("🤐 Zip load success:", content.url);
+    preloadPromises[content.url].resolve(content.data);
+    delete preloadPromises[content.url];
+    return;
+  }
+
+  if (type === "loaded-zip-rejection") {
+    if (debug) console.error("🤐 Zip load failure:", content.url);
+    preloadPromises[content.url].reject(content.url);
+    delete preloadPromises[content.url];
     return;
   }
 
@@ -3488,6 +3592,14 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         const sys = $commonApi.system;
+
+        // Set the painting record if one is in storage.
+        if (sys.nopaint.record.length === 0 && !sys.nopaint.recording) {
+          sys.nopaint.record =
+            (await store.retrieve("painting:record", "local:db")) || [];
+          sys.nopaint.recording = sys.nopaint.record.length > 0;
+        }
+
         sys.painting = store["painting"];
 
         sys.nopaint.translation =
@@ -3620,6 +3732,7 @@ async function makeFrame({ data: { type, content } }) {
 
         // 🧚 Ambient Pen Points - Paint if they exist.
         const { ink, needsPaint } = $api;
+
         ambientPenPoints.forEach(({ x, y }) => {
           ink().point(x * screen.width, y * screen.height);
         });
@@ -3628,6 +3741,12 @@ async function makeFrame({ data: { type, content } }) {
           if (system === "nopaint") $api.system.nopaint.needsPresent = true;
         }
         ambientPenPoints.length = 0;
+
+        // 🔴 Show a cross-piece "Recording" indicator.
+        //    Currently only implemented for `painting:record`. 23.08.20.21.36
+        if ($api.system.nopaint.recording) {
+          ink("red").box(screen.width - 3, 1, 2);
+        }
 
         painting.paint(true);
         painted = true;
@@ -3645,7 +3764,7 @@ async function makeFrame({ data: { type, content } }) {
       // Draw any Global UI / HUD in an overlay buffer that will get
       // composited by the other thread.
 
-      // TODO: Why is this being composited by a different thread?
+      // TODO: ❤️‍🔥 Why is this being composited by a different thread?
       //       Also... where do I put a scream?
 
       // System info.
@@ -3661,7 +3780,7 @@ async function makeFrame({ data: { type, content } }) {
         piece !== "play" &&
         piece !== "gargoyle" &&
         piece !== "girlfriend" &&
-        piece !== "wordfight" &&
+        piece !== "textfence" &&
         piece !== "boyfriend" &&
         piece !== "botce" &&
         piece !== "angel" &&

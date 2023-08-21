@@ -1,15 +1,28 @@
-// Wordfight, 2023.8.09.14.21.22
-// A dynamic back and forth for two people and two words.
+// Textfence, 2023.8.09.14.21.22
+// A dynamic poem for two characters and two words.
 
 /* #region 📚 README 
 #endregion */
 
 /* #region 🏁 TODO 
-  - [?] What happens on network failure? 
-  - [] Choose ideal voices / blacklist certain voices?
-  - [] Preload the next speech sound / only change words when
-       ready to speak?
+  - [] Tech meeting / notes with Sam:
+    - [] ... 
+  - [] Optically center the text by getting the right-most drawn point
+       of the left word and the left-most drawn point of the right word,
+       spacing accordingly.
+  - [] Seeing "stop now" causes a blackout and group change after it's spoken.
+  - [] Finalize words / great narrative.
+  - [] Experiment with ssml?
+  + Launch Process
+  - [] Deploy it / publish with Sam. (Tech)
   + Done
+  - [x] Rename to `textfence`.
+  - [x] What voices to use.
+  - [x] Figure out starting screen - press/tap/click here/me/now
+  - [x] Word groups
+    - [x] Some groups smaller than others? Just one group? Linear vs random?
+  - [x] What happens on network failure? 
+    - [x] It should pause and keep retrying...
   - [x] Implement a local cache in `speech` for already spoken phrases.
   - [x] Randomly choose a voice set from 0-22.
   - [x] Pan both voices left and right. 
@@ -22,33 +35,40 @@
 const panSway = 0.9; // How much to pan each voice left or right.
 
 const lefts = [
-  ["need", "won't", "can", "will", "can't", "shouldn't"],
-  ["sit", "be", "not", "run", "keep", "stop", "cry"],
+  // ["need", "won't", "can", "will", "can't", "shouldn't"],
+  ["sit", "be", "not", "run", "keep", "stop", "cry", "click"],
+  ["will", "won't", "can", "can't"],
+  ["track", "see", "check", "save", "charge", "become", "worship"],
   ["i'm", "it's", "that's", "they're", "you're", "we're", "who's"],
-  ["track", "see", "check", "smell", "charge", "become", "worship"],
 ];
 
 const rights = [
-  ["help", "come!", "scream?", "be", "run?", "talk...", "act"],
-  ["here", "now", "down", "there", "slowly", "fully", "soon"],
-  ["trying", "cold", "easy", "stupid", "beautiful", "lying", "dead"],
+  // ["help", "come!", "scream?", "be", "run?", "talk...", "act", "this"],
+  ["here", "now", "down", "there", "slowly", "fully", "soon", "this"],
+  ["be", "help", "come", "talk"],
   [
-    "down",
-    "backwards",
-    "bear",
-    "cellphone",
-    "100 dollars",
-    "forward",
-    "something",
+  "down",
+  "backwards",
+  "bear",
+  "cellphone",
+  "100 dollars",
+  "forward",
+  "something"
   ],
+  ["trying", "cold", "easy", "stupid", "beautiful", "lying", "dead", "dying", "everything", "lost", "simple"],
 ];
 
 let left, right;
 let leftDeck, rightDeck;
+let wordsIndex = 0;
+
+let groupTurnsMin, // 8-15
+  groupTurns = 0;
+
 let speaking = false;
 let needsGen = false;
 let newGen = false;
-let voiceSet;
+let voiceFemale, voiceMale;
 
 let l = 0,
   r = 0;
@@ -57,39 +77,30 @@ let textColor = "white";
 
 // 🥾 Boot
 function boot($) {
-  if ($.params[0]) {
-    voiceSet = parseInt($.params[0]);
-  } else {
-    voiceSet = $.num.randInt(22);
-  }
-  console.log("🗣️ Voice set chosen:", voiceSet);
+  voiceFemale = $.params[0] ? parseInt($.params[0]) : 18; // $.num.randInt(22);
+  voiceMale = $.params[1] ? parseInt($.params[1]) : 22; // $.num.randInt(22);
+  console.log("🗣️ Voices chosen:", "Female:", voiceFemale, "Male:", voiceMale);
   $.cursor("native");
   gen($);
-  l = leftDeck.pop();
-  r = rightDeck.pop();
 
-  // Assume audio is activated because we came from another piece.
-  if ($.pieceCount > 0) {
-    speaking = true;
-    $.speak(l + " " + r, `female:${voiceSet}`, "cloud", { pan: -panSway });
-    $.speak(l + " " + r, `male:${voiceSet}`, "cloud", {
-      pan: panSway,
-      skipCompleted: true,
-    });
-  }
+  const clickIndex = leftDeck.indexOf("click");
+  const hereIndex = rightDeck.indexOf("here");
+  l = leftDeck[clickIndex];
+  r = rightDeck[hereIndex];
+  leftDeck.splice(clickIndex, 1);
+  rightDeck.splice(hereIndex, 1);
 }
+
 
 // 🧮 Sim
-function sim($) {
-  if ($.simCount % 1000n === 0n) {
-    needsGen = true;
-  }
-}
+// function sim($) {
+// }
 
 // 🎨 Paint
 function paint({ wipe, ink, write, screen }) {
   wipe(0);
   const cx = screen.width / 2;
+  const cy = screen.height/2
   if (speaking) {
     ink(textColor).write(l, {
       center: "y",
@@ -103,7 +114,9 @@ function paint({ wipe, ink, write, screen }) {
     });
     ink(textColor).write(r, { center: "y", x: cx + r.length / 2 + 3 });
   }
-  ink(64).line(cx, 0, cx, screen.height);
+  // ink(64).line(cx+1, cy-20, cx+1, cy+2);
+
+  ink(64).line(cx+.5, cy-20, cx+.5, cy+2);
 }
 
 // 🎪 Act
@@ -113,17 +126,25 @@ function act($) {
     help: { flip, shuffleInPlace },
     speak,
   } = $;
-  if ((e.is("touch") && !speaking) || e.is("speech:completed")) {
+  if ((e.is("touch") && !speaking) || (e.is("speech:completed") && speaking)) {
     speaking = true;
     let voice;
 
+    groupTurns += 1;
+    console.log(
+      "🎴 Turns left:",
+      `${groupTurnsMin - groupTurns + 1}/${groupTurnsMin}`
+    );
+    if (groupTurns === groupTurnsMin) needsGen = true;
+
     if (newGen) {
+      console.log("⚔️ New word set...");
       newGen = false;
       l = leftDeck.pop();
       r = rightDeck.pop();
       textColor = "white";
-      speak(l + " " + r, `female:${voiceSet}`, "cloud", { pan: -panSway });
-      speak(l + " " + r, `male:${voiceSet}`, "cloud", {
+      speak(l + " " + r, `female:${voiceFemale}`, "cloud", { pan: -panSway });
+      speak(l + " " + r, `male:${voiceMale}`, "cloud", {
         pan: panSway,
         skipCompleted: true,
       });
@@ -135,7 +156,7 @@ function act($) {
           leftDeck = left.slice();
           shuffleInPlace(left);
         }
-        voice = `female:${voiceSet}`;
+        voice = `female:${voiceFemale}`;
         pan = -panSway;
         textColor = "white";
       } else {
@@ -144,7 +165,7 @@ function act($) {
           rightDeck = right.slice();
           shuffleInPlace(right);
         }
-        voice = `male:${voiceSet}`;
+        voice = `male:${voiceMale}`;
         pan = 1;
         textColor = "white";
       }
@@ -172,8 +193,8 @@ function act($) {
 // 📰 Meta
 function meta() {
   return {
-    title: "Wordfight",
-    desc: "A dynamic back and forth for two people and two words.",
+    title: "click | here • textfence",
+    desc: "A dynamic poem for two characters and two words.",
   };
 }
 
@@ -187,18 +208,22 @@ function meta() {
 // Render an application icon, aka favicon.
 // }
 
-export { boot, sim, paint, act, meta };
+export { boot, paint, act, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
 
 function gen({ help: { shuffleInPlace }, num }) {
-  console.log("⚔️ Switching word set...");
   // speaking = false;
   needsGen = false;
-  const i = num.randInt(lefts.length - 1);
+  groupTurns = 0;
+  groupTurnsMin = num.randIntRange(8, 15);
+
+  const i = wordsIndex; // num.randInt(lefts.length - 1);
   left = lefts[i];
   right = rights[i];
+
+  wordsIndex = (wordsIndex + 1) % lefts.length;
 
   (leftDeck = left.slice()), (rightDeck = right.slice());
 

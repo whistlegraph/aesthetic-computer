@@ -11,14 +11,10 @@ import { GPT3BrowserTokenizer } from "../dep/gpt3-tokenizer/gpt3-tokenizer.js";
 const tokenizer = new GPT3BrowserTokenizer({ type: "gpt3" });
 
 const prompt = "Enter numbers to decode.";
-let needsResolution = false;
 
 // 🥾 Boot
-async function boot({ store, system, params, resolution, display }) {
-  resolution(
-    display.width / 2.25,
-    display.height / 2.25
-  );
+async function boot({ store, system, params, resolution, screen }) {
+  resolution(screen.width/1.2, screen.height/1.2)
   if (params.length === 0) return;
   system.prompt.input.text = params.join(" ");
   await system.prompt.input.run(store);
@@ -27,7 +23,6 @@ async function boot({ store, system, params, resolution, display }) {
 // 🛑 Intercept specific input text with a custom reply.
 function halt($, text) {
   const decoded = tokenizer.decode(text.split(" ")); // Devode tokens to text.
-  $.system.prompt.input.prompt.wrap = "word";
   $.system.prompt.input.text = decoded;
   $.system.prompt.input.scheme = scheme; // Change to "reply" color scheme.
   $.system.prompt.input.replied($); // Set the UI state back to normal.
@@ -36,19 +31,9 @@ function halt($, text) {
 
 // 🎪 Act
 function act({ system: { prompt }, event: e }) {
-  if (e.is("text-input:editable")) {
-    prompt.input.prompt.wrap = "char";
-    prompt.input.text = prompt.input.text;
-    prompt.input.scheme = altScheme;
-  }
-  if (e.is("text-input:uneditable") && prompt.input.text.length > 0) {
-    prompt.input.prompt.wrap = "word";
-    prompt.input.text = prompt.input.text;
+  if (e.is("text-input:editable")) prompt.input.scheme = altScheme;
+  if (e.is("text-input:uneditable") && prompt.input.text.length > 0)
     prompt.input.scheme = scheme;
-  }
-  if (e.is("reframed")) {
-    needsResolution = true;
-  }
 }
 
 export const scheme = {
@@ -70,9 +55,9 @@ export const scheme = {
 
 const altScheme = {
   dark: {
-    fg: [123, 66, 102, 120],
+    fg: [123, 66,102, 120],
     bg: [230, 234, 224, 200],
-    block: [123, 66, 102, 120],
+    block: [123, 66,102, 120],
     blockHi: [0, 0, 0],
     line: [230, 234, 224, 120],
   },
@@ -86,21 +71,14 @@ const altScheme = {
 };
 
 // 🎨 Paint
-function paint({ noiseTinted, resolution, display }) {
-  if (needsResolution) {
-    console.log(display);
-    resolution(
-      display.width / 2.25,
-      display.height / 2.25
-    );
-    needsResolution = false;
-  }
-  noiseTinted([189, 164, 166], 0.8, 0.6);
+function paint({ noiseTinted }) {
+noiseTinted([189, 164, 166], 0.8, 0.6)
 }
 
 function sim({ needsPaint, simCount }) {
   if (simCount % 4n === 0n) needsPaint();
 }
+
 
 export { boot, prompt, halt, act, paint, sim };
 export const system = "prompt"; // or "prompt:code"

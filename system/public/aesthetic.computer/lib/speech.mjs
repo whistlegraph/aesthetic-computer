@@ -84,15 +84,29 @@ function speak(words, voice, mode = "local", opts = {}) {
         from: words,
         voice,
       }).toString();
-      fetch(`/tts?${queryString}`)
-        .then((res) => res.blob()) // Convert the response to a Blob.
-        .then(async (blob) => {
-          speakAPI.sfx[label] ||= await blob.arrayBuffer();
-          play();
-        })
-        .catch((err) => {
-          console.error("Speech fetch failure:", err);
-        });
+
+      function fetchSpeech() {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), 8000);
+        fetch(`/tts?${queryString}`, { signal: controller.signal })
+          .then(async (res) => {
+            clearTimeout(id);
+            if (res.status === 200) {
+              const blob = await res.blob(); // Convert the response to a Blob.
+              speakAPI.sfx[label] ||= await blob.arrayBuffer();
+              play();
+            } else {
+              console.log("🗣️ Speech fetch failure, retrying...", res.status);
+              fetchSpeech();
+            }
+          })
+          .catch((err) => {
+            clearTimeout(id);
+            console.error("🗣️ Speech fetch failure, retrying...", err);
+            fetchSpeech();
+          });
+      }
+      fetchSpeech();
     } else {
       play(); // Or play it again if it's already present.
     }
