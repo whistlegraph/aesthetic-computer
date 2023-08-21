@@ -54,6 +54,11 @@ form {
   opacity: 0;
 }
 
+#aesthetic-computer.reloading {
+  filter: blur(2px) grayscale(0.75);
+  transition: 0.25s filter;
+}
+
 /* Overlay DOM Content */
 #content {
   position: absolute;

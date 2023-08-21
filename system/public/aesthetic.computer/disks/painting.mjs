@@ -24,7 +24,8 @@ let painting,
   stepIndex = 0,
   interim = "No recording found.",
   // direction = 1,
-  paintingIndex = stepIndex;
+  paintingIndex = stepIndex,
+  pastRecord; // In case we load a record off the network.
 
 // 🥾 Boot
 function boot({ system, params, get }) {
@@ -35,6 +36,7 @@ function boot({ system, params, get }) {
       .painting(timestamp, { record: true })
       .by(handle)
       .then((out) => {
+        pastRecord = system.nopaint.record;
         system.nopaint.record = out;
       });
   }
@@ -48,10 +50,6 @@ function paint({ wipe, ink, box, system, screen, num, paste }) {
   if (system.nopaint.record.length > 0) {
     ink().write(label, { size: 2 });
     ink(0, 127).box(0, 0, screen.width, screen.height);
-    ink(num.map(labelFade, 0, labelFadeSpeed, 0, 255)).write(label, {
-      y: 12,
-      center: "x",
-    });
 
     if (painting) {
       const x = screen.width / 2 - painting.width / 2;
@@ -59,6 +57,15 @@ function paint({ wipe, ink, box, system, screen, num, paste }) {
       paste(painting, x, y);
       ink().box(x, y, painting.width, painting.height, "outline");
     }
+
+    ink(num.map(labelFade, 0, labelFadeSpeed, 0, 255)).write(
+      label,
+      {
+        y: 12,
+        center: "x",
+      },
+      "black"
+    );
 
     // Progress bar.
     ink().box(
@@ -89,9 +96,9 @@ function sim({ simCount, system }) {
 // }
 
 // 👋 Leave
-// function leave() {
-//  // Runs once before the piece is unloaded.
-// }
+function leave({ system }) {
+  if (pastRecord) system.nopaint.record = pastRecord;
+}
 
 // 📰 Meta
 function meta() {
@@ -111,7 +118,7 @@ function meta() {
 // Render an application icon, aka favicon.
 // }
 
-export { boot, paint, sim, meta };
+export { boot, paint, sim, leave, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)

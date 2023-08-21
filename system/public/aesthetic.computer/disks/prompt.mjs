@@ -208,7 +208,7 @@ async function halt($, text) {
   if (slug === "painting:record") {
     // TODO: Start recording paintings.
     system.nopaint.recording = true;
-    system.nopaint.record.push({
+    system.nopaint.addToRecord({
       label: "start",
       painting: {
         pixels: new Uint8ClampedArray(system.painting.pixels),

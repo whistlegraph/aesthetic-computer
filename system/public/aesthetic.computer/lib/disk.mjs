@@ -161,7 +161,7 @@ function addUndoPainting(painting, step = "unspecified") {
   });
 
   if ($commonApi.system.nopaint.recording) {
-    $commonApi.system.nopaint.record.push({
+    $commonApi.system.nopaint.addToRecord({
       label: step,
       painting: {
         pixels,
@@ -169,11 +169,6 @@ function addUndoPainting(painting, step = "unspecified") {
         height: painting.height,
       },
     });
-    console.log(
-      "🖌️🟠 Recorded a step:",
-      step,
-      $commonApi.system.nopaint.record
-    );
   }
 
   undoPosition = undoPaintings.length - 1;
@@ -550,6 +545,12 @@ const $commonApi = {
       // act: nopaint_act,
       recording: false,
       record: [], // Store a recording here.
+      addToRecord: function (record) {
+        $commonApi.system.nopaint.record.push(record);
+        store["painting:record"] = $commonApi.system.nopaint.record;
+        store.persist("painting:record", "local:db");
+        console.log("🖌️🟠 Recorded a step:", record.label);
+      },
       is: nopaint_is,
       undo: { paintings: undoPaintings },
       needsBake: false,
@@ -609,7 +610,7 @@ const $commonApi = {
 
           if (system.nopaint.recording && dontRecord === false) {
             const label = yes ? "yes" : "no";
-            system.nopaint.record.push({
+            system.nopaint.addToRecord({
               label, //,
               // painting: {
               //   width: system.painting.width,
@@ -617,7 +618,6 @@ const $commonApi = {
               //   pixels: new Uint8Array(system.painting.pixels),
               // },
             });
-            console.log("🖌️🟠 Recorded a step:", label, system.nopaint.record);
           }
 
           if (resolutionChange) {
@@ -731,7 +731,9 @@ const $commonApi = {
           $.wipe(64);
         });
 
-        // Clear any existing painting recording.
+        // Clear any existing painting recording in RAM and
+        // storage.
+        await store.delete("painting:record", "local:db");
         if (system.nopaint.recording) {
           system.nopaint.recording = false;
           system.nopaint.record.length = 0;
@@ -3589,6 +3591,14 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         const sys = $commonApi.system;
+
+        // Set the painting record if one is in storage.
+        if (sys.nopaint.record.length === 0 && !sys.nopaint.recording) {
+          sys.nopaint.record =
+            (await store.retrieve("painting:record", "local:db")) || [];
+          sys.nopaint.recording = sys.nopaint.record.length > 0;
+        }
+
         sys.painting = store["painting"];
 
         sys.nopaint.translation =
@@ -3721,6 +3731,7 @@ async function makeFrame({ data: { type, content } }) {
 
         // 🧚 Ambient Pen Points - Paint if they exist.
         const { ink, needsPaint } = $api;
+
         ambientPenPoints.forEach(({ x, y }) => {
           ink().point(x * screen.width, y * screen.height);
         });
@@ -3729,6 +3740,12 @@ async function makeFrame({ data: { type, content } }) {
           if (system === "nopaint") $api.system.nopaint.needsPresent = true;
         }
         ambientPenPoints.length = 0;
+
+        // 🔴 Show a cross-piece "Recording" indicator.
+        //    Currently only implemented for `painting:record`. 23.08.20.21.36
+        if ($api.system.nopaint.recording) {
+          ink("red").box(screen.width - 3, 1, 2);
+        }
 
         painting.paint(true);
         painted = true;
@@ -3746,7 +3763,7 @@ async function makeFrame({ data: { type, content } }) {
       // Draw any Global UI / HUD in an overlay buffer that will get
       // composited by the other thread.
 
-      // TODO: Why is this being composited by a different thread?
+      // TODO: ❤️‍🔥 Why is this being composited by a different thread?
       //       Also... where do I put a scream?
 
       // System info.
