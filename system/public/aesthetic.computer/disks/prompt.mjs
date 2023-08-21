@@ -206,7 +206,8 @@ async function halt($, text) {
   }
 
   if (slug === "painting:record") {
-    // TODO: Start recording paintings.
+    // Start recording paintings.
+    system.nopaint.record = []; // Clear any existing recording.
     system.nopaint.recording = true;
     system.nopaint.addToRecord({
       label: "start",
@@ -228,9 +229,15 @@ async function halt($, text) {
 
       const zipped = await zip({
         destination,
-        painting: { record: system.nopaint.record, timestamp: num.timestamp() },
+        painting: { record: system.nopaint.record },
       });
       console.log("🤐 Zipped:", zipped);
+
+      // TODO: 🔥 Should the record be cleared here?
+      // system.nopaint.record = [];
+      // system.nopaint.recording = false;
+      // store
+
       flashColor = [0, 255, 0];
     } else {
       flashColor = [255, 0, 0];
