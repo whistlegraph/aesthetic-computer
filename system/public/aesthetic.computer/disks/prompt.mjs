@@ -205,7 +205,7 @@ async function halt($, text) {
     }
   }
 
-  if (slug === "painting:record") {
+  if (slug === "painting:start") {
     // Start recording paintings.
     system.nopaint.record = []; // Clear any existing recording.
     system.nopaint.recording = true;
@@ -221,33 +221,53 @@ async function halt($, text) {
     flashColor = [200, 0, 200];
     makeFlash($);
     return true;
-  } else if (slug === "painting:done") {
+  } else if (slug === "painting:done" || slug === "yes!") {
+    let destination = params[0] || "download"; // or "upload"
+    if (destination === "u" || slug === "yes!") destination = "upload";
+    //                                  ^ "yes!" is always an upload.
+    let filename; // Used in painting upload.
+
     if (system.nopaint.recording) {
-      let destination = params[0] || "download"; // or "upload"
-      if (destination === "u") destination = "upload";
       console.log("🖌️ Saving recording:", destination);
+      const record = system.nopaint.record;
+      filename = `painting-${record[record.length - 1].timestamp}.png`;
+      // ^ For below, because the record will be cleared.
 
       const zipped = await zip({
         destination,
-        painting: { record: system.nopaint.record },
+        painting: { record },
       });
+
       console.log("🤐 Zipped:", zipped);
 
       system.nopaint.recording = false;
       system.nopaint.record = [];
       await store.delete("painting:record", "local:db");
 
-      // TODO: 🔥 Should the record be cleared here?
-      // system.nopaint.record = [];
-      // system.nopaint.recording = false;
-      // store
-
       flashColor = [0, 255, 0];
     } else {
       flashColor = [255, 0, 0];
       console.warn("🖌️ No recording to save!");
     }
-    makeFlash($);
+
+    if (destination === "upload") {
+      console.log("🖼️ Uploading painting...");
+      uploadProgress = -1; // Trigger progress bar rendering.
+      upload(filename, store["painting"], (p) => (uploadProgress = p))
+        .then((data) => {
+          console.log("🪄 Painting uploaded:", filename, data);
+          flashColor = [0, 255, 0];
+          makeFlash($);
+        })
+        .catch((err) => {
+          console.error("🪄 Painting upload failed:", err);
+          flashColor = [255, 0, 0];
+          makeFlash($);
+        });
+    } else {
+      makeFlash($);
+    }
+
     return true;
   } else if (slug === "flower") {
     jump("lmn-flower");
@@ -412,10 +432,7 @@ async function halt($, text) {
       makeFlash($, true, "HANDLE INVALID");
     }
     return true;
-  } else if (
-    (text === "ul" || text === "upload" || text === "yes!") &&
-    store["painting"]
-  ) {
+  } else if ((text === "ul" || text === "upload") && store["painting"]) {
     if (!navigator.onLine) {
       flashColor = [255, 0, 0];
       makeFlash($, true, "OFFLINE");
