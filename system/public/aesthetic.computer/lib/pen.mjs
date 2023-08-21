@@ -121,9 +121,15 @@ export class Pen {
     });
 
     // ***Touch***
+    function getPointerId(e) {
+      return e.pointerType === "pen" || e.isPrimary ? 1 : e.pointerId;
+    }
+
     window.addEventListener("pointerdown", (e) => {
+      const pointerId = getPointerId(e);
+
       // Make sure the pointer we are using is already being tracked.
-      let pointer = pen.pointers[e.pointerId];
+      let pointer = pen.pointers[pointerId];
 
       // If it doesn't exist, then make a new pointer and push to pointers.
       if (!pointer) {
@@ -146,11 +152,13 @@ export class Pen {
         pointer.penDragStartPos = { x: pointer.x, y: pointer.y };
 
         pointer.device = e.pointerType;
-        pointer.pointerId = e.pointerId;
+
+        pointer.pointerId = pointerId;
+
         pointer.isPrimary = e.isPrimary;
         pointer.pointerIndex = this.pointerCount;
 
-        pen.pointers[e.pointerId] = pointer;
+        pen.pointers[pointerId] = pointer;
       } else {
         pointer.button = e.button; // Should this be deprecated? 22.11.07.22.13
         pointer.buttons = [e.button];
@@ -160,14 +168,17 @@ export class Pen {
 
       // Set `pen` globals.
       pen.penCursor = true;
-      if (e.device !== "mouse") pen.penCursor = false;
+      if (e.pointerType !== "mouse") pen.penCursor = false;
       pen.#event("touch", pointer);
+      console.log(pointer.drawing, pointer.device, e.device, pen.penCursor);
     });
 
     // ***Move (Hover) and Draw (Drag)***
     window.addEventListener("pointermove", (e) => {
+      const pointerId = getPointerId(e);
+
       // Make sure the pointer we are using is already being tracked.
-      let pointer = pen.pointers[e.pointerId];
+      let pointer = pen.pointers[pointerId];
 
       // If it doesn't exist, then make a new pointer and push to pointers.
       if (!pointer) {
@@ -182,10 +193,10 @@ export class Pen {
         pointer.buttons = [e.button];
         // pointer.buttons = [e.button];
         pointer.device = e.pointerType;
-        pointer.pointerId = e.pointerId;
+        pointer.pointerId = pointerId;
         pointer.isPrimary = e.isPrimary;
         pointer.pointerIndex = this.pointerCount;
-        pen.pointers[e.pointerId] = pointer;
+        pen.pointers[pointerId] = pointer;
       }
 
       assign(pointer, point(e.x, e.y));
@@ -193,9 +204,13 @@ export class Pen {
       pointer.untransformedPosition = { x: e.x, y: e.y };
       pointer.pressure = reportPressure(e);
 
+      //console.log(pointer);
+
       pointer.saveDelta();
 
       if (pointer.drawing) {
+        console.log("drawing...");
+
         const penDragAmount = {
           x: pointer.x - pointer.penDragStartPos.x,
           y: pointer.y - pointer.penDragStartPos.y,
@@ -221,6 +236,7 @@ export class Pen {
       // Set `pen` globals.
       pen.penCursor = true;
       if (e.pointerType !== "mouse") pen.penCursor = false;
+      // console.log("type:", e.pointerType, "cursor:", pen.penCursor);
     });
 
     function pointerMoveEvent(type, pointer) {
@@ -231,7 +247,9 @@ export class Pen {
 
     // ***Lift***
     window.addEventListener("pointerup", (e) => {
-      const pointer = pen.pointers[e.pointerId];
+      const pointerId = getPointerId(e);
+
+      const pointer = pen.pointers[pointerId];
 
       if (!pointer) return;
 
@@ -246,7 +264,7 @@ export class Pen {
 
       // Delete pointer only if we are using touch.
       if (e.pointerType === "touch" || e.pointerType === "pen")
-        delete this.pointers[e.pointerId];
+        delete this.pointers[pointerId];
 
       // if (debug)
       // console.log("Removed pointer by ID:", e.pointerId, this.pointers);
@@ -388,7 +406,8 @@ export class Pen {
   }
 
   render(ctx, bouRect) {
-    // TODO: How to get the primary pointer from pointers?
+    if (this.penCursor === false) return;
+
     const pointer = this.pointers[1];
 
     if (!pointer) return;
