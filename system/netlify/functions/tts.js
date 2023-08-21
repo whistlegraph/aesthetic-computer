@@ -49,6 +49,8 @@ export async function handler(event, context) {
       return a.name.localeCompare(b.name);
     });
 
+    // Print all male and female voices:
+
     // females.forEach((f, i) => {
     //   console.log("Index:", i, "Name:", f.name);
     // });
@@ -73,7 +75,6 @@ export async function handler(event, context) {
     console.log("Chosen voice:", voice, "Set:", set, "Spoken:", utterance);
 
     const request = {
-      input: { text: utterance },
       voice: {
         languageCode: "en-US",
         ...voice,
@@ -82,6 +83,11 @@ export async function handler(event, context) {
         audioEncoding: "MP3",
       },
     };
+
+    // Add `input` to the request after detecting whether it is `ssml` or not.
+    let ssml = false;
+    if (utterance.indexOf("<speak>") !== -1) ssml = true;
+    request.input = ssml ? { ssml: utterance } : { text: utterance};
 
     // Performs the text-to-speech request
     const [response] = await client.synthesizeSpeech(request);

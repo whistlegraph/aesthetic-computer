@@ -79,7 +79,7 @@ function speak(words, voice, mode = "local", opts = {}) {
     }
 
     // Add the label to the sfx library.
-    if (!speakAPI.sfx[label]) {
+    // if (!speakAPI.sfx[label]) {
       const queryString = new URLSearchParams({
         from: words,
         voice,
@@ -107,9 +107,9 @@ function speak(words, voice, mode = "local", opts = {}) {
           });
       }
       fetchSpeech();
-    } else {
-      play(); // Or play it again if it's already present.
-    }
+    // } else {
+    //  play(); // Or play it again if it's already present.
+    // }
   }
 }
 

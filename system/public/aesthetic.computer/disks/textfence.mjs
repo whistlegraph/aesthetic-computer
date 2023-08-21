@@ -5,17 +5,21 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Tech meeting / notes with Sam:
-    - [] ... 
-  - [] Optically center the text by getting the right-most drawn point
-       of the left word and the left-most drawn point of the right word,
-       spacing accordingly.
-  - [] Seeing "stop now" causes a blackout and group change after it's spoken.
   - [] Finalize words / great narrative.
-  - [] Experiment with ssml?
+  - [] Make a test mint on Zora:
+       - [] Wait for parameters from Sam.
+       - https://docs.zora.co/docs/smart-contracts/creator-tools/ZoraNFTCreator
+       - Mint the piece on a testnet.
   + Launch Process
   - [] Deploy it / publish with Sam. (Tech)
   + Done
+  - [x] Experiment with ssml.
+  - [c] Generate all speech audio files to avoid hitting GCP on every request.
+  - [x] Fully blank out the two words after each group change. 
+    - [x] Optically center the text by getting the right-most drawn point
+       of the left word and the left-most drawn point of the right word,
+        spacing accordingly.
+  - [x] Make the fence white?
   - [x] Rename to `textfence`.
   - [x] What voices to use.
   - [x] Figure out starting screen - press/tap/click here/me/now
@@ -47,15 +51,27 @@ const rights = [
   ["here", "now", "down", "there", "slowly", "fully", "soon", "this"],
   ["be", "help", "come", "talk"],
   [
-  "down",
-  "backwards",
-  "bear",
-  "cellphone",
-  "100 dollars",
-  "forward",
-  "something"
+    "down",
+    "backwards",
+    "bear",
+    "cellphone",
+    "100 dollars",
+    "forward",
+    "something",
   ],
-  ["trying", "cold", "easy", "stupid", "beautiful", "lying", "dead", "dying", "everything", "lost", "simple"],
+  [
+    "trying",
+    "cold",
+    "easy",
+    "stupid",
+    "beautiful",
+    "lying",
+    "dead",
+    "dying",
+    "everything",
+    "lost",
+    "simple",
+  ],
 ];
 
 let left, right;
@@ -74,6 +90,9 @@ let l = 0,
   r = 0;
 const charWidth = 6;
 let textColor = "white";
+let textBlink = 0; // Store the shrinking blink delay.
+const textBlinkTime = 120 * 1.5; // Delay for blink.
+let textBlinkCallback; // A function that runs after the delay. (Speaks)
 
 // 🥾 Boot
 function boot($) {
@@ -91,32 +110,69 @@ function boot($) {
   rightDeck.splice(hereIndex, 1);
 }
 
-
 // 🧮 Sim
-// function sim($) {
-// }
+function sim($) {
+  if (textBlink > 0) { // 1
+    textBlink = textBlink - 1; // Subtract 1 from textBlink.
+    if (textBlink === 0) {
+      textColor = "white";
+      textBlinkCallback();
+    }
+  }
+}
 
 // 🎨 Paint
-function paint({ wipe, ink, write, screen }) {
+function paint({ wipe, ink, write, screen, typeface }) {
   wipe(0);
   const cx = screen.width / 2;
-  const cy = screen.height/2
-  if (speaking) {
-    ink(textColor).write(l, {
-      center: "y",
-      x: cx - charWidth * l.length - charWidth / 4,
-    });
-    ink(textColor).write(r, { center: "y", x: cx + r.length / 2 + 3 });
-  } else {
-    ink(textColor).write(l, {
-      center: "y",
-      x: cx - charWidth * l.length - charWidth / 4,
-    });
-    ink(textColor).write(r, { center: "y", x: cx + r.length / 2 + 3 });
-  }
-  // ink(64).line(cx+1, cy-20, cx+1, cy+2);
+  const cy = screen.height / 2;
+  const gap = 7;
 
-  ink(64).line(cx+.5, cy-20, cx+.5, cy+2);
+  ink(255).line(cx, cy - 20, cx, cy + 2);
+
+  // ⬅️ Left Word
+  const leftWidthMinusOneCharacter = (l.length - 1) * charWidth;
+  const lastLeftCharacter = l[l.length - 1];
+
+  let leftMaxX = 0;
+  {
+    const commands = typeface.glyphs[lastLeftCharacter].commands;
+    for (let i = 0; i < commands.length; i += 1) {
+      const command = commands[i];
+      if (command.args[0] > leftMaxX) leftMaxX = command.args[0];
+      if (command.name === "line") {
+        if (command.args[2] > leftMaxX) leftMaxX = command.args[2];
+      }
+    }
+  }
+
+  const leftX = cx - leftWidthMinusOneCharacter - leftMaxX - gap;
+
+  // const leftRightSideX = leftX + leftWidthMinusOneCharacter + leftMaxX;
+  // ink().line(leftRightSideX, 0, leftRightSideX, screen.height);
+
+  ink(textColor).write(l, {
+    center: "y",
+    x: leftX,
+  });
+
+  // ➡️ Right Word
+  const firstRightCharacter = r[0];
+
+  let rightMinX = charWidth;
+  {
+    const commands = typeface.glyphs[firstRightCharacter].commands;
+    for (let i = 0; i < commands.length; i += 1) {
+      const command = commands[i];
+      if (command.args[0] < rightMinX) rightMinX = command.args[0];
+      if (command.name === "line") {
+        if (command.args[2] < rightMinX) rightMinX = command.args[2];
+      }
+    }
+  }
+
+  const rightX = cx - rightMinX + gap;
+  ink(textColor).write(r, { center: "y", x: rightX });
 }
 
 // 🎪 Act
@@ -125,6 +181,7 @@ function act($) {
     event: e,
     help: { flip, shuffleInPlace },
     speak,
+    num,
   } = $;
   if ((e.is("touch") && !speaking) || (e.is("speech:completed") && speaking)) {
     speaking = true;
@@ -142,12 +199,19 @@ function act($) {
       newGen = false;
       l = leftDeck.pop();
       r = rightDeck.pop();
-      textColor = "white";
-      speak(l + " " + r, `female:${voiceFemale}`, "cloud", { pan: -panSway });
-      speak(l + " " + r, `male:${voiceMale}`, "cloud", {
-        pan: panSway,
-        skipCompleted: true,
-      });
+      textColor = "black";
+      textBlink = textBlinkTime; // Setting textBlink to 30.
+      textBlinkCallback = function () {
+        const maleUtterance = utteranceFor("male", `${l} ${r}`, num);
+        const femaleUtterance = utteranceFor("female", `${l} ${r}`, num);
+        speak(femaleUtterance, `female:${voiceFemale}`, "cloud", {
+           pan: -panSway
+        });
+        speak(maleUtterance, `male:${voiceMale}`, "cloud", {
+          pan: panSway,
+          skipCompleted: true,
+        });
+      };
     } else {
       let pan = 0;
       if (flip()) {
@@ -169,7 +233,8 @@ function act($) {
         pan = 1;
         textColor = "white";
       }
-      speak(l + " " + r, voice, "cloud", { pan });
+      const utterance = utteranceFor(voice, `${l} ${r}`, num);
+      speak(utterance, voice, "cloud", { pan });
     }
 
     if (needsGen) {
@@ -208,7 +273,7 @@ function meta() {
 // Render an application icon, aka favicon.
 // }
 
-export { boot, paint, act, meta };
+export { boot, sim, paint, act, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
@@ -229,4 +294,20 @@ function gen({ help: { shuffleInPlace }, num }) {
 
   shuffleInPlace(leftDeck);
   shuffleInPlace(rightDeck);
+}
+
+function utteranceFor(voice, text, num) {
+  let rate, pitch;
+  if (voice.startsWith("female")) {
+    rate = `${num.randIntRange(95, 115)}%`;
+    pitch = `+${num.randIntRange(10, 35)}%`;
+  } else {
+    rate = `${num.randIntRange(80, 105)}%`;
+    pitch = `${num.randIntRange(-15, 0)}%`;
+  }
+  return `
+  <speak>
+    <prosody rate="${rate}" pitch="${pitch}">${text}</prosody>
+  </speak>
+  `;
 }
