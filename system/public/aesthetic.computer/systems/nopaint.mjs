@@ -39,6 +39,10 @@ function nopaint_act({
   // 🖌️ Painting
 
   // Start
+  console.log(e);
+  // TODO: Fix artifacts that occur while touching to draw, after using the
+  //       pen.
+
   if (e.is("touch:1")) {
     state = "painting";
     system.nopaint.updateBrush(api);
@@ -46,6 +50,7 @@ function nopaint_act({
   }
 
   // Track
+  // if (nopaint_is("painting") && (e.is("move") || e.is("draw"))) {
   if (nopaint_is("painting") && (e.is("move") || e.is("draw"))) {
     // if (debug) console.log("Updating brush...");
     system.nopaint.updateBrush(api);
@@ -59,7 +64,7 @@ function nopaint_act({
   ) {
     state = "idle";
     if (!system.nopaint.bakeOnLeave) system.nopaint.needsBake = true;
-    // if (debug) console.log("🖌️ Not painting...");
+    if (debug) console.log("🖌️ Not painting...");
   }
 
   // 🧭 Panning (held 'shift' key or two finger drag)
