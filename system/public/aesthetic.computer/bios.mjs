@@ -1613,7 +1613,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Turn off all layers onbeforeunload. (Prevents a white flicker in chrome.)
       window.addEventListener("beforeunload", (e) => {
         send({ type: "before-unload" });
-        wrapper.remove();
+        wrapper.classList.add("reloading");
       });
 
       // 🌒 Detect light or dark mode.
@@ -3858,7 +3858,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const data = e.target.result;
           if (!window.JSZip) await loadJSZip();
           const record = await unzip(data);
-          if (record) send({ type: "painting:record:dropped", content: record });
+          if (record)
+            send({ type: "painting:record:dropped", content: record });
         };
         reader.readAsArrayBuffer(file);
       }
