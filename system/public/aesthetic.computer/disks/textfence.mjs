@@ -6,13 +6,18 @@
 
 /* #region 🏁 TODO 
   - [] Tech meeting / notes with Sam:
-    - [] ... 
   - [] Optically center the text by getting the right-most drawn point
        of the left word and the left-most drawn point of the right word,
        spacing accordingly.
-  - [] Seeing "stop now" causes a blackout and group change after it's spoken.
+       - [] Make the fence white?
+  - [] Fully blank out the two words after each group change. 
   - [] Finalize words / great narrative.
-  - [] Experiment with ssml?
+  - [] Experiment with ssml.
+  - [] Generate all speech audio files to avoid hitting GCP on every request.
+  - [] Make a test mint on Zora:
+       - [] Wait for parameters from Sam.
+       - https://docs.zora.co/docs/smart-contracts/creator-tools/ZoraNFTCreator
+       - Mint the piece on a testnet.
   + Launch Process
   - [] Deploy it / publish with Sam. (Tech)
   + Done
@@ -47,15 +52,27 @@ const rights = [
   ["here", "now", "down", "there", "slowly", "fully", "soon", "this"],
   ["be", "help", "come", "talk"],
   [
-  "down",
-  "backwards",
-  "bear",
-  "cellphone",
-  "100 dollars",
-  "forward",
-  "something"
+    "down",
+    "backwards",
+    "bear",
+    "cellphone",
+    "100 dollars",
+    "forward",
+    "something",
   ],
-  ["trying", "cold", "easy", "stupid", "beautiful", "lying", "dead", "dying", "everything", "lost", "simple"],
+  [
+    "trying",
+    "cold",
+    "easy",
+    "stupid",
+    "beautiful",
+    "lying",
+    "dead",
+    "dying",
+    "everything",
+    "lost",
+    "simple",
+  ],
 ];
 
 let left, right;
@@ -91,32 +108,64 @@ function boot($) {
   rightDeck.splice(hereIndex, 1);
 }
 
-
 // 🧮 Sim
 // function sim($) {
 // }
 
 // 🎨 Paint
-function paint({ wipe, ink, write, screen }) {
+function paint({ wipe, ink, write, screen, typeface }) {
   wipe(0);
   const cx = screen.width / 2;
-  const cy = screen.height/2
-  if (speaking) {
-    ink(textColor).write(l, {
-      center: "y",
-      x: cx - charWidth * l.length - charWidth / 4,
-    });
-    ink(textColor).write(r, { center: "y", x: cx + r.length / 2 + 3 });
-  } else {
-    ink(textColor).write(l, {
-      center: "y",
-      x: cx - charWidth * l.length - charWidth / 4,
-    });
-    ink(textColor).write(r, { center: "y", x: cx + r.length / 2 + 3 });
-  }
-  // ink(64).line(cx+1, cy-20, cx+1, cy+2);
+  const cy = screen.height / 2;
+  const gap = 1;
 
-  ink(64).line(cx+.5, cy-20, cx+.5, cy+2);
+  ink(64).line(cx, cy - 20, cx, cy + 2);
+
+  // ⬅️ Left Word
+  const leftWidthMinusOneCharacter = (l.length - 1) * charWidth;
+  const lastLeftCharacter = l[l.length - 1];
+
+  let leftMaxX = 0;
+  {
+    const commands = typeface.glyphs[lastLeftCharacter].commands;
+    for (let i = 0; i < commands.length; i += 1) {
+      const command = commands[i];
+      if (command.args[0] > leftMaxX) leftMaxX = command.args[0];
+      if (command.name === "line") {
+        if (command.args[2] > leftMaxX) leftMaxX = command.args[2];
+      }
+    }
+  }
+
+  const leftX = cx - leftWidthMinusOneCharacter - leftMaxX - gap;
+
+  const leftRightSideX = leftX + leftWidthMinusOneCharacter + leftMaxX;
+  ink().line(leftRightSideX, 0, leftRightSideX, screen.height);
+
+  ink(textColor).write(l, {
+    center: "y",
+    x: leftX,
+  });
+
+  // ➡️ Right Word
+  const firstRightCharacter = r[0];
+
+  let rightMinX = charWidth;
+  {
+    const commands = typeface.glyphs[firstRightCharacter].commands;
+    for (let i = 0; i < commands.length; i += 1) {
+      const command = commands[i];
+      if (command.args[0] < rightMinX) rightMinX = command.args[0];
+      if (command.name === "line") {
+        if (command.args[2] < rightMinX) rightMinX = command.args[2];
+      }
+    }
+  }
+
+  const rightX = cx - rightMinX + gap;
+
+  ink().line(rightX, 0, rightX, screen.height);
+  ink(textColor).write(r, { center: "y", x: rightX });
 }
 
 // 🎪 Act
