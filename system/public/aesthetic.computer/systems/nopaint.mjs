@@ -124,7 +124,14 @@ function nopaint_act({
 // Adjust painting resolution dynamically to match the screen,
 // or provide a custom resolution.
 // (Also used in `prompt`.)
-function nopaint_adjust(screen, sys, painting, store, size = null) {
+function nopaint_adjust(
+  screen,
+  sys,
+  painting,
+  store,
+  size = null,
+  slug = "resize"
+) {
   if (!size && store["painting:resolution-lock"] === true) return;
 
   if (
@@ -139,10 +146,12 @@ function nopaint_adjust(screen, sys, painting, store, size = null) {
     if (size.w && size.h) {
       // Allow for "2x or 3x" modifiers.
       width = size.w.endsWith("x")
-        ? parseFloat(size.w.slice(0, -1)) * (sys.painting?.width || screen.width)
+        ? parseFloat(size.w.slice(0, -1)) *
+          (sys.painting?.width || screen.width)
         : parseInt(size.w);
       height = size.h.endsWith("x")
-        ? parseFloat(size.h.slice(0, -1)) * (sys.painting?.height || screen.height)
+        ? parseFloat(size.h.slice(0, -1)) *
+          (sys.painting?.height || screen.height)
         : parseInt(size.h);
     } else {
       width = screen.width;
@@ -159,7 +168,7 @@ function nopaint_adjust(screen, sys, painting, store, size = null) {
     });
 
     store["painting"] = sys.painting;
-    sys.nopaint.addUndoPainting(sys.painting);
+    sys.nopaint.addUndoPainting(sys.painting, slug);
   }
 
   // Set a flag to prevent auto-resize.

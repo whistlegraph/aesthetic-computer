@@ -169,6 +169,7 @@ async function halt($, text) {
     upload,
     code,
     send,
+    zip,
   } = $;
   // Roughly parse out the text (could also do a full `parse` here.)
   const tokens = text.split(" ");
@@ -204,7 +205,51 @@ async function halt($, text) {
     }
   }
 
-  if (slug === "flower") {
+  if (slug === "painting:record") {
+    // Start recording paintings.
+    system.nopaint.record = []; // Clear any existing recording.
+    system.nopaint.recording = true;
+    system.nopaint.addToRecord({
+      label: "start",
+      painting: {
+        pixels: new Uint8ClampedArray(system.painting.pixels),
+        width: system.painting.width,
+        height: system.painting.height,
+      },
+    });
+    console.log("🖌️🔴 Now recording:", system.nopaint.record);
+    flashColor = [200, 0, 200];
+    makeFlash($);
+    return true;
+  } else if (slug === "painting:done") {
+    if (system.nopaint.recording) {
+      let destination = params[0] || "download"; // or "upload"
+      if (destination === "u") destination = "upload";
+      console.log("🖌️ Saving recording:", destination);
+
+      const zipped = await zip({
+        destination,
+        painting: { record: system.nopaint.record },
+      });
+      console.log("🤐 Zipped:", zipped);
+
+      system.nopaint.recording = false;
+      system.nopaint.record = [];
+      await store.delete("painting:record", "local:db");
+
+      // TODO: 🔥 Should the record be cleared here?
+      // system.nopaint.record = [];
+      // system.nopaint.recording = false;
+      // store
+
+      flashColor = [0, 255, 0];
+    } else {
+      flashColor = [255, 0, 0];
+      console.warn("🖌️ No recording to save!");
+    }
+    makeFlash($);
+    return true;
+  } else if (slug === "flower") {
     jump("lmn-flower");
     return true;
   } else if (slug === "petal") {
@@ -410,7 +455,7 @@ async function halt($, text) {
     // Persis the painting.
     store["painting"] = system.painting;
     store.persist("painting", "local:db"); // Also persist the painting.
-    system.nopaint.addUndoPainting(system.painting);
+    system.nopaint.addUndoPainting(system.painting, slug);
     flashColor = [0, 0, 255];
     makeFlash($);
     return true;
@@ -447,7 +492,7 @@ async function halt($, text) {
     // Persist the painting and lock the resolution.
     store["painting"] = system.painting;
     store.persist("painting", "local:db"); // Also persist the painting.
-    system.nopaint.addUndoPainting(system.painting);
+    system.nopaint.addUndoPainting(system.painting, slug);
     store["painting:resolution-lock"] = true; // Set resolution lock.
     store.persist("painting:resolution-lock", "local:db");
 
@@ -459,10 +504,21 @@ async function halt($, text) {
     // size if it doesn't.
     const w = params[0],
       h = params[1] || w;
+
+    let fullText = slug;
+    if (params.length > 0) fullText += "~" + params.join("~");
+
     if (w === undefined) {
       flashColor = [255, 0, 0];
     } else {
-      nopaint_adjust(screen, system, painting, store, { w, h, scale: true });
+      nopaint_adjust(
+        screen,
+        system,
+        painting,
+        store,
+        { w, h, scale: true },
+        fullText
+      );
       flashColor = [0, 255, 0];
     }
     makeFlash($);
@@ -536,6 +592,7 @@ async function halt($, text) {
       store,
       screen,
       needsPaint,
+      painting,
     });
 
     if (deleted) {
