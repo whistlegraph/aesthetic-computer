@@ -39,7 +39,7 @@ function nopaint_act({
   // 🖌️ Painting
 
   // Start
-  console.log(e);
+  // console.log(e);
   // TODO: Fix artifacts that occur while touching to draw, after using the
   //       pen.
 
