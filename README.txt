@@ -73,23 +73,24 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Recordable Paintings ***
-  How-to: Enter `painting:record` to start.
+  How-to: Enter `painting:start` to start.
           Enter `painting` to view the history so far. 
           Enter `painting:done` to download the complete history
-          of your painting. Or `painting:done upload` or `u` to upload it.
+          of your painting. Or `painting:done upload` or `u` to upload it,
+          along with the current painting.
 
-  - [🟢] Rename "steps.txt" to "steps.json"
-    - [] Store metadata for the media type.
-    - [] Store gesture data.  
-    
+  - [🟠] Store gesture data.  
+
   - [] Of each current step... 
-    - [] And the gestures translated to the painting itself need to be tracked.
+    - [] And the gestures translated to the painting itself needs to be tracked.
     - [] So that live playback can occur if necessary.
-  - [] Separate paintings and painting-records in S3, and always
-       keep a PNG and a ZIP (if the recording exists) and have the
-       timestamps match.
 
   + Done
+  - [x] Separate paintings and painting-records in S3, and always
+       keep a PNG and a ZIP (if the recording exists) and have the
+       timestamps match.
+  - [x] Rename "steps.txt" to "steps.json"
+    - [x] Store metadata for the media type (in the json filename).
   - [x] Add `timestamp` to the text data format.
   - [x] The `painting` viewer should have the timestamp in the corner.
   - [x] Store recorded painting steps in idb so they persist
