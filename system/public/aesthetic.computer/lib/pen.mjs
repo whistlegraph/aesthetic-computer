@@ -170,7 +170,7 @@ export class Pen {
       pen.penCursor = true;
       if (e.pointerType !== "mouse") pen.penCursor = false;
       pen.#event("touch", pointer);
-      console.log(pointer.drawing, pointer.device, e.device, pen.penCursor);
+      // console.log(pointer.drawing, pointer.device, e.device, pen.penCursor);
     });
 
     // ***Move (Hover) and Draw (Drag)***
@@ -209,7 +209,7 @@ export class Pen {
       pointer.saveDelta();
 
       if (pointer.drawing) {
-        console.log("drawing...");
+        // console.log("drawing...");
 
         const penDragAmount = {
           x: pointer.x - pointer.penDragStartPos.x,
