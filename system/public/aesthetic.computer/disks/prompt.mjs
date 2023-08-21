@@ -233,6 +233,10 @@ async function halt($, text) {
       });
       console.log("🤐 Zipped:", zipped);
 
+      system.nopaint.recording = false;
+      system.nopaint.record = [];
+      await store.delete("painting:record", "local:db");
+
       // TODO: 🔥 Should the record be cleared here?
       // system.nopaint.record = [];
       // system.nopaint.recording = false;
