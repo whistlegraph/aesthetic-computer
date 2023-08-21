@@ -1132,8 +1132,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         });
 
+        // TODO: Encode a JSON file for steps.
         // Add text file.
         const stepFile = steps.join("\n");
+
         zip.file("steps.txt", stepFile);
 
         // 🔥 23.08.19.16.23
@@ -3886,6 +3888,7 @@ async function toBitmap(imgOrBlob) {
 async function unzip(data) {
   try {
     const zip = await window.JSZip.loadAsync(data);
+
     console.log("🤐 Zip opened...");
     // Detect type of media based on presence of "steps" file...
     const steps = await zip.file("steps.txt")?.async("string");
@@ -3894,6 +3897,8 @@ async function unzip(data) {
       console.log("🖼️⌛ Painting record detected.");
 
       const record = [];
+
+      // TODO: Parse the JSON from steps.
       const lines = steps.split("\n"); // Remove timestamp.
 
       // Load `painting:recording` step text format.
