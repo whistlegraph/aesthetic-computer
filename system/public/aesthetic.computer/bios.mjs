@@ -1120,18 +1120,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const zip = new window.JSZip(); // https://github.com/Stuk/jszip
 
       if (content.painting) {
-        const steps = [content.painting.timestamp];
+        const steps = [];
         const images = {};
 
+        // Encode `painting:recording` text format.
         content.painting.record.forEach((step, index) => {
-          console.log(index, step);
-          steps.push(`${index} - ${step.label}`);
-
+          const format = `${index} - ${step.label} - ${step.timestamp}`;
+          steps.push(format);
           if (step.painting) {
-            images[`${index} - ${step.label}`] = bufferToBlob(
-              step.painting,
-              "image/png"
-            );
+            images[format] = bufferToBlob(step.painting, "image/png");
           }
         });
 
@@ -1148,8 +1145,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           zip.file(`${label}.png`, images[label]);
         });
 
+        const finalTimestamp =
+          content.painting.record[content.painting.record.length - 1].timestamp;
+
         const zipped = await zip.generateAsync({ type: "blob" });
-        const filename = `painting-${content.painting.timestamp}.zip`;
+        const filename = `painting-${finalTimestamp}.zip`;
 
         if (content.destination === "download") {
           // See also: `receivedDownload`.
@@ -3894,10 +3894,12 @@ async function unzip(data) {
       console.log("🖼️⌛ Painting record detected.");
 
       const record = [];
-      const lines = steps.split("\n").slice(1); // Remove timestamp.
+      const lines = steps.split("\n"); // Remove timestamp.
 
+      // Load `painting:recording` step text format.
       for (let i = 0; i < lines.length; i += 1) {
-        const step = { label: lines[i].replace(/^\d+ - /, "") };
+        const components = lines[i].split(" - ");
+        const step = { label: components[1], timestamp: components[2] };
         const picture = zip.file(`${lines[i]}.png`);
 
         if (picture) {

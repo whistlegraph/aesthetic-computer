@@ -243,17 +243,18 @@ export function arrCompress(arr, n) {
   return arr.filter((_, index) => (index + 1) % n === 0);
 }
 
-// Returns a string of numbers based on local system time. YYYY.MM.DD.HH.MM.SS
+// Returns a string of numbers based on local system time. YYYY.MM.DD.HH.MM.SS:MS
 export function timestamp() {
   const d = new Date();
-  const pad = (n) => n.toString().padStart(2, "0");
+  const pad = (n, digits = 2) => n.toString().padStart(digits, "0");
   return `
     ${d.getFullYear()}.
     ${d.getMonth() + 1}.
     ${pad(d.getDate())}.
     ${pad(d.getHours())}.
     ${pad(d.getMinutes())}.
-    ${pad(d.getSeconds())}`.replace(/\s/g, "");
+    ${pad(d.getSeconds())}.
+    ${pad(d.getMilliseconds(), 3)}`.replace(/\s/g, "");
 }
 
 // A. Lerps over a single value (from->to) via `progress` (0->1).
