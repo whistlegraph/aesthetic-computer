@@ -67,6 +67,14 @@ function paint({ wipe, ink, box, system, screen, num, paste }) {
       "black"
     );
 
+    if (system.nopaint.record[stepIndex - 1]?.timestamp) {
+      ink(200).write(
+        system.nopaint.record[stepIndex - 1]?.timestamp,
+        { x: 3, y: screen.height - 13 },
+        "black"
+      );
+    }
+
     // Progress bar.
     ink().box(
       0,

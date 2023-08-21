@@ -546,6 +546,7 @@ const $commonApi = {
       recording: false,
       record: [], // Store a recording here.
       addToRecord: function (record) {
+        record.timestamp = num.timestamp(); // Insert the timestamp data.
         $commonApi.system.nopaint.record.push(record);
         store["painting:record"] = $commonApi.system.nopaint.record;
         store.persist("painting:record", "local:db");
@@ -2797,7 +2798,7 @@ async function makeFrame({ data: { type, content } }) {
   // dragged into the A.C window.
   if (type === "painting:record:dropped") {
     // Replace the active nopaint record with the loaded one.
-    $commonApi.system.nopaint.recording = true;
+    // $commonApi.system.nopaint.recording = true;
     $commonApi.system.nopaint.record = content;
     if ($commonApi.slug !== "painting") $commonApi.jump("painting");
     return;

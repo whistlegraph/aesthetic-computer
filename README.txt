@@ -77,21 +77,21 @@
           Enter `painting` to view the history so far. 
           Enter `painting:done` to download the complete history
           of your painting. Or `painting:done upload` or `u` to upload it.
-          
-  - [] The `painting` viewer should have the timestamp in the corner for
-       each step? 
-       should be remembered and not regenerated based on the last "sign"
-       stamp.
 
-  - [] Better media type detection (don't just use "steps").
+  - [🟢] Rename "steps.txt" to "steps.json"
+    - [] Store metadata for the media type.
+    - [] Store gesture data.  
+    
+  - [] Of each current step... 
+    - [] And the gestures translated to the painting itself need to be tracked.
+    - [] So that live playback can occur if necessary.
   - [] Separate paintings and painting-records in S3, and always
        keep a PNG and a ZIP (if the recording exists) and have the
        timestamps match.
-  - [] How should uploading work ideally?
-  - [] What about the text file format, and keeping track of gestures
-       between steps?
-    - [] Translation would need to be tracked in addition to the gestures.
+
   + Done
+  - [x] Add `timestamp` to the text data format.
+  - [x] The `painting` viewer should have the timestamp in the corner.
   - [x] Store recorded painting steps in idb so they persist
         across refreshes. 
   - [x] Add recording indicator.
