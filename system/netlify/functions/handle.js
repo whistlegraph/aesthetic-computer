@@ -18,12 +18,13 @@ export async function handler(event, context) {
   // A GET request to get a handle from a user `sub`.
   if (event.httpMethod === "GET") {
     const id = event.queryStringParameters.for;
-    const handle = await handleFor(id);
-
-    if (handle) {
-      return respond(200, { handle });
+    const result = await handleFor(id);
+    if (typeof result === "string") {
+      return respond(200, { handle: result });
+    } else if (Array.isArray(result) && result.length > 0) {
+      return respond(200, { handles: result });
     } else {
-      return respond(400, { message: "No handle found." });
+      return respond(400, { message: "No handle(s) found." });
     }
   } else if (event.httpMethod !== "POST")
     return respond(405, { message: "Method Not Allowed" });

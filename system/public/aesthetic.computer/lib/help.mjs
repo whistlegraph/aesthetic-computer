@@ -7,7 +7,7 @@ export function choose() {
   return arguments[num.randInt(arguments.length - 1)];
 }
 
-// Flip a coin, returning true or false. 
+// Flip a coin, returning true or false.
 export function flip() {
   return choose(true, false);
 }
@@ -22,10 +22,14 @@ export function anyIndex(array) {
   return num.randInt(array.length - 1);
 }
 
-// Returns a random value from an object.
-export function any(obj) {
-  const keys = Object.keys(obj);
-  return obj[keys[(keys.length * Math.random()) << 0]];
+// Returns a random value from an object, or array.
+export function any(objOrArray) {
+  if (Array.isArray(objOrArray)) {
+    return objOrArray[anyIndex(objOrArray)];
+  } else {
+    const keys = Object.keys(objOrArray);
+    return objOrArray[keys[(keys.length * Math.random()) << 0]];
+  }
 }
 
 // Returns a random key from an object.
@@ -75,5 +79,5 @@ export function findKeyAndValue(obj, k, v) {
 
 // Determine if an input value is nothing.
 export function nonvalue(i) {
-  return i === undefined || i === null || isNaN(i)
+  return i === undefined || i === null || isNaN(i);
 }

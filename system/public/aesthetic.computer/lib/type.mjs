@@ -151,9 +151,11 @@ class Typeface {
       const hw = (text.length * blockWidth * size) / 2;
       x = pos.x === undef ? $.screen.width / 2 - hw : x - hw;
     }
+
     if (pos.center.includes("y")) {
       const hh = Math.floor(blockHeight / 2);
       y = pos.y === undef ? $.screen.height / 2 - hh : y - hh;
+      y += lineNumber * blockHeight;
     }
 
     const rn = $.inkrn(); // Remember the current ink color.
