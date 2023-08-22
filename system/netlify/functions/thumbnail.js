@@ -33,6 +33,7 @@ async function handler(event, context) {
       height: Math.ceil(height / 2),
       deviceScaleFactor: 2,
     },
+    headless: "true",
   };
 
   if (dev) ops.ignoreHTTPSErrors = true;

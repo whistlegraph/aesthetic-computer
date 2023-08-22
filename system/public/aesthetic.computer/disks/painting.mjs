@@ -148,6 +148,8 @@ function advance(system) {
     painting = system.nopaint.record[paintingIndex].painting;
   }
 
+  console.log(step);
+
   // if (direction > 0) {
   stepIndex = stepIndex + 1;
   //if (stepIndex === system.nopaint.record.length - 1) {

@@ -72,6 +72,9 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** deck ***
+  - [] Make a complete interactive deck prototype. 
+
 *** Recordable Paintings ***
   How-to: Enter `painting:start` to start.
           Enter `painting` to view the history so far. 
@@ -79,9 +82,9 @@
           of your painting. Or `painting:done upload` or `u` to upload it,
           along with the current painting.
 
-  - [🟠] Store gesture data.  
-
+  - [🟠] Store gesture data in the recording.
   - [] Of each current step... 
+    - [] See `nopaint.mjs` line 56...
     - [] And the gestures translated to the painting itself needs to be tracked.
     - [] So that live playback can occur if necessary.
 
@@ -121,6 +124,11 @@
  - [] https://docs.netlify.com/edge-functions/limits
  - [] https://answers.netlify.com/t/new-syntax-for-rewrites-in-edge-functions/88257 
  - [x] Have local requests use the user bucket directly.
+
+*** Mintable Paintings ***
+  - [] Everyone should be able to mint? 
+    - [] Add mint button in playback corner?
+
 
 *** General Brush Notes ***
   - [] Make sure `left`, `right`, `flip` and `flop` are all added to 
@@ -396,9 +404,6 @@
 
 *** nopaint ***
   - [] Refactor "test" to nopaint.
-
-*** deck ***
-  - []
 
 *** Profiles and Handles *** 
   - [] Fix `handle` setting in all cases / make it work better.

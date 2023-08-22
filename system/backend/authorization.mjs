@@ -76,9 +76,21 @@ export async function getHandleOrEmail(sub) {
 export async function handleFor(id) {
   const database = await connect();
   const collection = database.db.collection("@handles");
-  const existingUser = await collection.findOne({ _id: id });
-  await database.disconnect();
-  return existingUser?.handle;
+  if (id === "all") {
+    // TODO: Return a list of all existing handles for all users.
+    const randomHandles = await collection
+      .aggregate([
+        { $sample: { size: 100 } }, // Randomly select 100 documents
+        { $project: { handle: 1 } }, // Only project the handle field
+      ])
+      .toArray();
+    return randomHandles.map((doc) => "@" + doc.handle); // Get handles.
+  } else {
+    // Return the existing handle for the `id` if present.
+    const existingUser = await collection.findOne({ _id: id });
+    await database.disconnect();
+    return existingUser?.handle;
+  }
 }
 
 // Connects to the MongoDB database to obtain a user ID from a handle.
@@ -115,7 +127,6 @@ export async function userIDFromHandle(handle, database) {
   }
 
   console.log("Time taken...", performance.now() - time);
-
 
   return userID;
 }

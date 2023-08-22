@@ -545,8 +545,11 @@ const $commonApi = {
       // act: nopaint_act,
       recording: false,
       record: [], // Store a recording here.
+      gestureRecord: [], // Store the active gesture.
       addToRecord: function (record) {
         record.timestamp = num.timestamp(); // Insert the timestamp data.
+        record.gesture = $commonApi.system.nopaint.gestureRecord.slice();
+        $commonApi.system.nopaint.gestureRecord = [];
         $commonApi.system.nopaint.record.push(record);
         store["painting:record"] = $commonApi.system.nopaint.record;
         store.persist("painting:record", "local:db");
@@ -1122,9 +1125,48 @@ const $paintApi = {
   // Prints a line of text using the default / current global font.
   // Argument options:
   // text, pos: {x, y, center}, bg (optional)
-  write: function (text, pos, bg) {
-    if (!text) return; // Fail silently if no text.
-    tf?.print($activePaintApi, pos, 0, text.toString(), bg); // Fail on preamble.
+  write: function (text, pos, bg, bounds) {
+    if (!text || !tf) return $activePaintApi; // Fail silently if no text.
+    text = text.toString();
+
+    // TODO:
+    // See if the text length is greater than the bounds, and if it is then
+    // print on a new line.
+
+    if (bounds) {
+      let run = 0;
+      const blockWidth = 6; // TODO: Eventually replace this. 23.08.22.19.36
+      const words = text.split(" ");
+      const lines = [[]];
+      let line = 0;
+
+      words.forEach((word) => {
+        const len = (word.length + 1) * blockWidth;
+
+        if (run + len >= bounds) {
+          run = 0;
+          line += 1;
+          lines[line] = [];
+        }
+
+        lines[line].push(word);
+        run += len;
+
+      });
+
+      if (pos.center.indexOf("y") !== -1) {
+        // Adjust y based on line value.
+        // pos.y = 20;
+        // TODO: ❤️‍🔥 Get better centering here.
+      }
+
+      lines.forEach((line, index) => {
+        tf?.print($activePaintApi, pos, index, line.join(" "), bg);
+      });
+    } else {
+      tf?.print($activePaintApi, pos, 0, text, bg);
+    }
+
     return $activePaintApi;
   },
   // 2. Image Utilities
