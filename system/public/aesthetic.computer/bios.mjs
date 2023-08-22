@@ -1126,7 +1126,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Encode `painting:recording` format.
         content.painting.record.forEach((step) => {
           const format = `${step.timestamp} - ${step.label}`;
-          steps.push({ step: format });
+          const encodedStep = { step: format };
+          if (step.gesture.length > 0) encodedStep.gesture = step.gesture;
+          steps.push(encodedStep);
           if (step.painting) {
             images[format] = bufferToBlob(step.painting, "image/png");
           }
@@ -1135,10 +1137,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const stepFile = JSON.stringify(steps); // Encode a JSON file for steps.
 
         zip.file("painting.json", stepFile);
-
-        // 🔥 23.08.19.16.23
-        // TODO: Perhaps this could be a JSON file which could
-        //       eventually auto-expand and/or store gesture data?
 
         // Add all images based on step and index.
         keys(images).forEach((label) => {
@@ -1163,7 +1161,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         } else if (content.destination === "upload") {
           // TODO: Put this on the S3 server somewhere...
           console.log("🤐 Uploading zip...", zipped);
-            receivedUpload({ filename, data: zipped }, "zipped");
+          receivedUpload({ filename, data: zipped }, "zipped");
         }
       } else {
         send({ type: "zipped", content: { result: "error", data: false } });
@@ -3903,6 +3901,7 @@ async function unzip(data) {
       for (let i = 0; i < lines.length; i += 1) {
         const components = lines[i].step.split(" - ");
         const step = { timestamp: components[0], label: components[1] };
+        if (lines[i].gesture.length > 0) step.gesture = lines[i].gesture;
         const picture = zip.file(`${lines[i].step}.png`);
 
         if (picture) {

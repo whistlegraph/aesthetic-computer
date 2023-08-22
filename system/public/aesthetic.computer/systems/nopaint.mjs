@@ -43,10 +43,18 @@ function nopaint_act({
   // TODO: Fix artifacts that occur while touching to draw, after using the
   //       pen.
 
+  // 🔥
+  // TODO: Add each of these to the record if it exists..
+
   if (e.is("touch:1")) {
     state = "painting";
     system.nopaint.updateBrush(api);
     // if (debug) console.log("🖌️ Painting!");
+
+    // TODO:
+    // 🔥 Add this to the current gestures, which will be packed
+    //    when `addToRecord` is run.
+    // system.nopaint.gestureRecord.push("gesture:start");
   }
 
   // Track
@@ -54,6 +62,7 @@ function nopaint_act({
   if (nopaint_is("painting") && (e.is("move") || e.is("draw"))) {
     // if (debug) console.log("Updating brush...");
     system.nopaint.updateBrush(api);
+    // TODO: system.nopaint.gestureRecord.push("gesture:mark");
   }
 
   // Stop
@@ -65,6 +74,7 @@ function nopaint_act({
     state = "idle";
     if (!system.nopaint.bakeOnLeave) system.nopaint.needsBake = true;
     if (debug) console.log("🖌️ Not painting...");
+    // TODO: system.nopaint.gestureRecord.push("gesture:stop");
   }
 
   // 🧭 Panning (held 'shift' key or two finger drag)
