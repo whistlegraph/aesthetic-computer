@@ -6,8 +6,10 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🟠] Add word-wrapped text / break-width option to "write".
   - [] Minors need to start in a base location and then show up automagically. 
+  - [] Add sound and other doodads.
+  + Done
+  - [x] Add word-wrapped text / break-width option to "write".
 #endregion */
 
 const statements = [
@@ -154,6 +156,8 @@ function paint({ ink, wipe, write, num, help, leaving, screen }) {
     screen.width * (si / (statements.length - 1)),
     screen.height - 2
   );
+
+  // ink("red").line(0, screen.height / 2, screen.width, screen.height / 2);
 }
 
 // 🎪 Act

@@ -1151,13 +1151,12 @@ const $paintApi = {
 
         lines[line].push(word);
         run += len;
-
       });
 
+      // Center multi-line text. (Kinda hacky? 23.08.22.20.30)
       if (pos.center.indexOf("y") !== -1) {
-        // Adjust y based on line value.
-        // pos.y = 20;
-        // TODO: ❤️‍🔥 Get better centering here.
+        const blockHeight = 11;
+        pos.y = screen.height / 2 - (lines.length * blockHeight) / 4;
       }
 
       lines.forEach((line, index) => {
