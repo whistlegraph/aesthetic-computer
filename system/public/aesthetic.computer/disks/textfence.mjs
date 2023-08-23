@@ -39,40 +39,32 @@
 
 const panSway = 0.9; // How much to pan each voice left or right.
 
-const lefts = [
-  // ["need", "won't", "can", "will", "can't", "shouldn't"],
-  ["sit", "be", "not", "run", "keep", "stop", "cry", "click"],
-  ["will", "won't", "can", "can't"],
-  ["track", "see", "check", "save", "charge", "become", "worship"],
-  ["i'm", "it's", "that's", "they're", "you're", "we're", "who's"],
-];
-
-const rights = [
-  // ["help", "come!", "scream?", "be", "run?", "talk...", "act", "this"],
-  ["here", "now", "down", "there", "slowly", "fully", "soon", "this"],
-  ["be", "help", "come", "talk"],
-  [
-    "down",
-    "backwards",
-    "bear",
-    "cellphone",
-    "100 dollars",
-    "forward",
-    "something",
-  ],
-  [
-    "trying",
-    "cold",
-    "easy",
-    "stupid",
-    "beautiful",
-    "lying",
-    "dead",
-    "dying",
-    "everything",
-    "lost",
-    "simple",
-  ],
+const words = [
+  // Scene 1
+  {
+    left: ["sit", "be", "not", "run", "keep", "stop", "cry", "click"],
+    right: ["here", "now", "down", "there", "slowly", "fully", "soon", "this"],
+  },
+  // Scene 2
+  {
+    left: ["need", "won't", "can", "will", "can't", "shouldn't"],
+    right: ["help", "come!", "scream?", "be", "run?", "talk...", "act", "this"],
+  },
+  // Scene 3
+  {
+    left: ["will", "won't", "can", "can't"],
+    right: ["be", "help", "come", "talk"],
+  },
+  // Scene 4
+  {
+    left: ["track", "see", "check", "save", "charge", "become", "worship"],
+    right: [ "down", "backwards", "bear", "cellphone", "100 dollars", "forward", "something"],
+  },
+  // Scene 5
+  {
+    left: ["i'm", "it's", "that's", "they're", "you're", "we're", "who's"],
+    right: [ "trying", "cold", "easy", "stupid", "beautiful", "lying", "dead", "dying", "everything", "lost", "simple"],
+  },
 ];
 
 let left, right;
@@ -103,6 +95,7 @@ function boot($) {
   $.cursor("native");
   gen($);
 
+  console.log(leftDeck, rightDeck);
   const clickIndex = leftDeck.indexOf("click");
   const hereIndex = rightDeck.indexOf("here");
   l = leftDeck[clickIndex];
@@ -113,7 +106,8 @@ function boot($) {
 
 // 🧮 Sim
 function sim($) {
-  if (textBlink > 0) { // 1
+  if (textBlink > 0) {
+    // 1
     textBlink = textBlink - 1; // Subtract 1 from textBlink.
     if (textBlink === 0) {
       textColor = "white";
@@ -206,7 +200,7 @@ function act($) {
         const maleUtterance = utteranceFor("male", `${l} ${r}`, num);
         const femaleUtterance = utteranceFor("female", `${l} ${r}`, num);
         speak(femaleUtterance, `female:${voiceFemale}`, "cloud", {
-           pan: -panSway
+          pan: -panSway,
         });
         speak(maleUtterance, `male:${voiceMale}`, "cloud", {
           pan: panSway,
@@ -286,10 +280,12 @@ function gen({ help: { shuffleInPlace }, num }) {
   groupTurnsMin = num.randIntRange(8, 15);
 
   const i = wordsIndex; // num.randInt(lefts.length - 1);
-  left = lefts[i];
-  right = rights[i];
+  left = words[i].left;
+  right = words[i].right;
 
-  wordsIndex = (wordsIndex + 1) % lefts.length;
+  console.log(left, right);
+
+  wordsIndex = (wordsIndex + 1) % words.length;
 
   (leftDeck = left.slice()), (rightDeck = right.slice());
 
