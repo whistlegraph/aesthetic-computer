@@ -6,6 +6,7 @@
 
 /* #region 🏁 TODO 
   - [] Finalize words / great narrative.
+  - [] Create global screenshot feature and take square screenshot for thumbnail.
   - [] Make a test mint on Zora:
        - [] Wait for parameters from Sam.
        - https://docs.zora.co/docs/smart-contracts/creator-tools/ZoraNFTCreator
@@ -299,7 +300,7 @@ function gen({ help: { shuffleInPlace }, num }) {
 function utteranceFor(voice, text, num) {
   let rate, pitch;
   if (voice.startsWith("female")) {
-    rate = `${num.randIntRange(95, 115)}%`;
+    rate = `${num.randIntRange(90, 105)}%`;
     pitch = `+${num.randIntRange(10, 35)}%`;
   } else {
     rate = `${num.randIntRange(80, 105)}%`;
