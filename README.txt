@@ -72,9 +72,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** deck ***
-  - [] Make a complete interactive deck prototype. 
-
 *** Recordable Paintings ***
   How-to: Enter `painting:start` to start.
           Enter `painting` to view the history so far. 
@@ -126,9 +123,9 @@
  - [x] Have local requests use the user bucket directly.
 
 *** Mintable Paintings ***
+  - [] Hook it all up to a marketplace instance?
   - [] Everyone should be able to mint? 
     - [] Add mint button in playback corner?
-
 
 *** General Brush Notes ***
   - [] Make sure `left`, `right`, `flip` and `flop` are all added to 

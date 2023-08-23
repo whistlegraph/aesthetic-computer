@@ -55,7 +55,7 @@ const statements = [
   { major: "it simplifies ur identity" },
   { major: "and operates in secret" },
   {
-    major: "we want as much money as possible",
+    major: "we need funding",
     minors: [
       "$100",
       "10 eth",
@@ -146,15 +146,14 @@ function paint({ ink, wipe, write, num, help, leaving, screen }) {
     screen.width - 48
   );
 
-  if (s.minors?.length > 0) {
-    ink(minorColor).write(help.any(s.minors));
-  }
+  if (s.minors?.length > 0) ink(minorColor).write(help.any(s.minors));
 
+  const mid = screen.height / 2;
   ink(help.choose("white", "black", "red")).box(
     0,
-    screen.height - 2,
+    mid,
     screen.width * (si / (statements.length - 1)),
-    screen.height - 2
+    mid
   );
 
   // ink("red").line(0, screen.height / 2, screen.width, screen.height / 2);
