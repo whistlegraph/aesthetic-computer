@@ -143,7 +143,7 @@ class Typeface {
 
     // Set x, y position and override if centering is specified.
     let x = pos.x || 0,
-      y = (pos.y || 0) + lineNumber * blockHeight;
+      y = (pos.y || 0);
 
     pos.center = pos.center || "";
 
@@ -155,8 +155,9 @@ class Typeface {
     if (pos.center.includes("y")) {
       const hh = Math.floor(blockHeight / 2);
       y = pos.y === undef ? $.screen.height / 2 - hh : y - hh;
-      y += lineNumber * blockHeight;
     }
+
+    y += (lineNumber * blockHeight);
 
     const rn = $.inkrn(); // Remember the current ink color.
 
