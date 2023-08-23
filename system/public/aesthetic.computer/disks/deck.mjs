@@ -178,8 +178,8 @@ function act({ event: e, jump }) {
     }
 
     if (si === 0) {
-      si = -1;
-      jump("prompt");
+      // si = -1;
+      // jump("prompt");
     }
   }
 }
