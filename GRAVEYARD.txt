@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** deck ***
+  - [x] Make a complete interactive deck prototype. 
+
 *** better `paste` rotation ***
   - [x] Make paste rotation work pixel perfectly for all 90 degree increments.
        and all image sizes.
