@@ -6,6 +6,7 @@
 
 /* #region 🏁 TODO 
   - [] Finalize words / great narrative.
+  - [] Make sure there are no repeats.
   - [] Create global screenshot feature and take square screenshot for thumbnail.
   - [] Make a test mint on Zora:
        - [] Wait for parameters from Sam.
@@ -40,30 +41,25 @@
 const panSway = 0.9; // How much to pan each voice left or right.
 
 const words = [
-  // Scene 1
+  // Scene 1 (Baby, no ego, just interaction)
   {
-    left: ["sit", "be", "not", "run", "keep", "stop", "cry", "click"],
-    right: ["here", "now", "down", "there", "slowly", "fully", "soon", "this"],
+    left: ["feel", "be", "grow", "begin", "search", "click", "open"],
+    right: ["here", "now", "there", "slowly", "fully", "soon", "this"],
   },
-  // Scene 2
+  // Scene 2 (Dos and Donts / Rules / Structure)
   {
-    left: ["need", "won't", "can", "will", "can't", "shouldn't"],
-    right: ["help", "come!", "scream?", "be", "run?", "talk...", "act", "this"],
+    left: ["will", "don't", "can", "can't",],
+    right: ["be", "help", "come", "talk", "run", "share"],
   },
-  // Scene 3
-  {
-    left: ["will", "won't", "can", "can't"],
-    right: ["be", "help", "come", "talk"],
-  },
-  // Scene 4
-  {
-    left: ["track", "see", "check", "save", "charge", "become", "worship"],
-    right: [ "down", "backwards", "bear", "cellphone", "100 dollars", "forward", "something"],
-  },
-  // Scene 5
+  // Scene 3 (Dialogue)
   {
     left: ["i'm", "it's", "that's", "they're", "you're", "we're", "who's"],
-    right: [ "trying", "cold", "easy", "stupid", "beautiful", "lying", "dead", "dying", "everything", "lost", "simple"],
+    right: [ "trying", "cold", "easy", "stupid", "beautiful", "lying", "everything", "lost", "simple", "bitter"],
+  },
+  // Scene 4 (Death / existentialism)
+  {
+    left: ["that's", "it's", "i'm",  "you're all", "everything is", "no one's"],
+    right: [ "right", "done", "gone", "missing", "sorry", "dead"],
   },
 ];
 
@@ -84,7 +80,7 @@ let l = 0,
 const charWidth = 6;
 let textColor = "white";
 let textBlink = 0; // Store the shrinking blink delay.
-const textBlinkTime = 120 * 1.5; // Delay for blink.
+const textBlinkTime = 120 * 1; // Delay for blink.
 let textBlinkCallback; // A function that runs after the delay. (Speaks)
 
 // 🥾 Boot
@@ -210,20 +206,20 @@ function act($) {
     } else {
       let pan = 0;
       if (flip()) {
-        l = leftDeck.pop();
         if (leftDeck.length === 0) {
           leftDeck = left.slice();
           shuffleInPlace(left);
         }
+        l = leftDeck.pop();
         voice = `female:${voiceFemale}`;
         pan = -panSway;
         textColor = "white";
       } else {
-        r = rightDeck.pop();
         if (rightDeck.length === 0) {
           rightDeck = right.slice();
           shuffleInPlace(right);
         }
+        r = rightDeck.pop();
         voice = `male:${voiceMale}`;
         pan = 1;
         textColor = "white";
@@ -277,7 +273,7 @@ function gen({ help: { shuffleInPlace }, num }) {
   // speaking = false;
   needsGen = false;
   groupTurns = 0;
-  groupTurnsMin = num.randIntRange(8, 15);
+  groupTurnsMin = num.randIntRange(8, 12);
 
   const i = wordsIndex; // num.randInt(lefts.length - 1);
   left = words[i].left;
