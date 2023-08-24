@@ -1,5 +1,5 @@
-// Bak Tok, 2024.5.27.21.02.43
-// Learn to talk backwards.
+// BakTok, 2024.5.27.21.02.43
+// Learn 2 talk backwards.
 
 /* #region 📚 README 
 #endregion */
@@ -107,6 +107,22 @@ function paint({
     unpan();
   }
 
+  if (!capturing && !playing) {
+    const hh = height / 2;
+    const hq = hh / 3.5;
+    const yo = 10;
+    pan(choose(-1, 0, 1), choose(-1, 0, 1));
+    ink("cyan").write("LEARN 2 TALK", {
+      center: "x",
+      y: hh - yo - hq,
+      size: 2,
+    });
+    unpan();
+    pan(choose(-1, 0, 1), choose(-1, 0, 1));
+    ink("cyan").write("BACKWARDS", { center: "x", y: hh - yo + hq, size: 2 });
+    unpan();
+  }
+
   if (!hideButton) btn.paint({ ink });
 }
 
@@ -129,16 +145,35 @@ function sim({ sound: { microphone, synth, speaker: spk } }) {
 }
 
 // 🎪 Act
-async function act({ event: e, screen, sound: { microphone, play }, rec }) {
+async function act({
+  event: e,
+  screen,
+  sound: { microphone, play, synth },
+  rec,
+}) {
   if (e.is("reframed")) {
     btn.reposition({ center: "xy", screen });
   }
 
   if (e.is("touch") && !connected) {
     btn.down = true;
+    synth({
+      tone: 400,
+      beats: 0.1,
+      attack: 0.01,
+      decay: 0.5,
+      volume: 0.15,
+    });
   }
 
   if (e.is("lift") && btn.down && !connected) {
+    synth({
+      tone: 600,
+      beats: 0.1,
+      attack: 0.01,
+      decay: 0.5,
+      volume: 0.15,
+    });
     btn.disabled = true;
     hideButton = true;
     clearTimeout(hideButtonTimeout);
@@ -180,15 +215,15 @@ async function act({ event: e, screen, sound: { microphone, play }, rec }) {
     sample = play(id, { reverse: true, loop: true }); // TODO: Get reverse working.
     capturing = false;
     playing = true;
-    btn.reposition({ center: "xy", screen }, "AGAIN");
+    btn.reposition({ center: "xy", screen }, "REPEAT WHAT YOU HEAR");
   }
 }
 
 // 📰 Meta
 function meta() {
   return {
-    title: "Bak Tok",
-    desc: "Learn to talk backwards.",
+    title: "BakTok",
+    desc: "Learn 2 talk backwards.",
   };
 }
 
