@@ -148,7 +148,7 @@ function paint({ ink, wipe, write, num, help, leaving, screen }) {
 
   if (s.minors?.length > 0) ink(minorColor).write(help.any(s.minors));
 
-  const mid = screen.height / 2;
+  const mid = screen.height - 1;
   ink(help.choose("white", "black", "red")).box(
     0,
     mid,

@@ -10,8 +10,6 @@
 // It should be... *.aesthetic.computer with
 // allowed methods GET, PUT and HEAD.
 
-// TODO
-
 // - [] Show the media file expiration date to the user.
 // - [] Visiting aesthetic.computer/art~code will show the
 //      file in a viewer.
