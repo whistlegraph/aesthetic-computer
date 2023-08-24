@@ -5,13 +5,19 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🟠] Playback all an existing painting's steps in a loop, with
-       the image centered.
-  - [] Save and load painting recordings with steps 2 remote storage somehow.
-    - [] Ordered text file, combined with bitmaps labeled with their commands
-         and indices.
+  - [] Automatically go to the `painting` page after a successful upload /
+       return the proper code.
+  - [] Fix the progress bar.
   + Later
-  - [] Get directionality working again.
+  - [] Sound
+  - [] Forwards and backwards directionality.
+  + Done
+  - [x] Load provisional / non-user paintings.
+  - [x] If there is no recording then still load and show the `.png`.
+  - [x] Playback all an existing painting's steps in a loop, with
+  - [x] Save and load painting recordings with steps 2 remote storage somehow.
+  - [x] Ordered text file, combined with bitmaps labeled with their commands and indices.
+      the image centered.
 #endregion */
 
 const labelFadeSpeed = 80;
@@ -30,30 +36,47 @@ let painting,
 
 // 🥾 Boot
 function boot({ system, params, get, net }) {
-  if (params[0]) {
-    const [handle, timestamp] = params[0].split("/");
+  if (params[0]?.length > 0) {
     interim = "Loading...";
+
+    let handle;
+    let imageCode, recordingCode;
+    // User string (@user/timestamp)
+    if (params[0].startsWith("@")) {
+      const [user, timestamp] = params[0].split("/");
+      handle = user;
+      imageCode = recordingCode = timestamp;
+    } else {
+      // Assume a guest painting code.
+      // Example: Lw2OYs0H:qVlzDcp6;
+      //          ^ png    ^ recording (if it exists)
+      [imageCode, recordingCode] = params[0].split(":");
+      handle = "anon";
+    }
+
     net.waitForPreload();
     get
-      .painting(timestamp, { record: true })
-      .by(handle)
-      .then((out) => {
-        pastRecord = system.nopaint.record;
-        system.nopaint.record = out;
-      });
-    get
-      .painting(timestamp)
+      .painting(imageCode)
       .by(handle)
       .then((out) => {
         finalPainting = out;
         net.preloaded();
       });
+    if (recordingCode) {
+      get
+        .painting(recordingCode, { record: true })
+        .by(handle)
+        .then((out) => {
+          pastRecord = system.nopaint.record;
+          system.nopaint.record = out;
+        });
+    }
   }
   advance(system);
 }
 
 // 🎨 Paint
-function paint({ wipe, ink, box, system, screen, num, paste }) {
+function paint({ wipe, ink, system, screen, num, paste }) {
   wipe(0);
   // Executes every display frame.
   if (system.nopaint.record?.length > 0) {
@@ -88,6 +111,11 @@ function paint({ wipe, ink, box, system, screen, num, paste }) {
       screen.width * (stepIndex / system.nopaint.record.length),
       screen.height
     );
+  } else if (finalPainting) {
+    const x = screen.width / 2 - finalPainting.width / 2;
+    const y = screen.height / 2 - finalPainting.height / 2;
+    paste(finalPainting, x, y);
+    ink().box(x, y, finalPainting.width, finalPainting.height, "outline");
   } else {
     ink().write(interim, { center: "xy" });
   }
@@ -115,9 +143,9 @@ function leave({ system }) {
 }
 
 // 📰 Meta
-function meta({params}) {
-  const [handle, timestamp] = params[0].split("/");
-  if (handle && timestamp) {
+function meta({ params }) {
+  if (params[0]) {
+    const [handle, timestamp] = params[0].split("/");
     return {
       title: `painting · ${handle}/${timestamp}`,
       desc: `A painting by ${handle} from ${timestamp}.`,

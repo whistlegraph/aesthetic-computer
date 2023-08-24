@@ -444,27 +444,34 @@ const $commonApi = {
   get: {
     painting: (code, opts) => {
       return {
-        by: async (handle) => {
-          // Get the user sub from the handle...
-          const url = `/user?from=${handle}`;
-          try {
-            const res = await fetch(url);
-            if (res.ok) {
-              const json = await res.json();
-              const extension = opts?.record ? "zip" : "png";
-              return $commonApi.net.preload(
-                `https://user.aesthetic.computer/${json.sub}/painting/${code}.${extension}`
-              );
-            } else {
-              console.error(`Error: ${res.status} ${res.statusText}`);
-              console.error(
-                `Response headers: ${JSON.stringify(
-                  Array.from(res.headers.entries())
-                )}`
-              );
+        by: async (handle = "anon") => {
+          // Add support for pulling paintings from the `art` bucket...
+          const extension = opts?.record ? "zip" : "png";
+          if (handle === "anon") {
+            return $commonApi.net.preload(
+              `https://art.aesthetic.computer/${code}.${extension}`
+            );
+          } else {
+            // Get the user sub from the handle...
+            const url = `/user?from=${handle}`;
+            try {
+              const res = await fetch(url);
+              if (res.ok) {
+                const json = await res.json();
+                return $commonApi.net.preload(
+                  `https://user.aesthetic.computer/${json.sub}/painting/${code}.${extension}`
+                );
+              } else {
+                console.error(`Error: ${res.status} ${res.statusText}`);
+                console.error(
+                  `Response headers: ${JSON.stringify(
+                    Array.from(res.headers.entries())
+                  )}`
+                );
+              }
+            } catch (error) {
+              console.error(`Fetch failed: ${error}`);
             }
-          } catch (error) {
-            console.error(`Fetch failed: ${error}`);
           }
         },
       };
