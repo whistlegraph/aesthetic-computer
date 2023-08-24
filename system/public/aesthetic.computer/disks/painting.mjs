@@ -47,7 +47,7 @@ function boot({ system, params, get }) {
 function paint({ wipe, ink, box, system, screen, num, paste }) {
   wipe(0);
   // Executes every display frame.
-  if (system.nopaint.record.length > 0) {
+  if (system.nopaint.record?.length > 0) {
     ink().write(label, { size: 2 });
     ink(0, 127).box(0, 0, screen.width, screen.height);
 
