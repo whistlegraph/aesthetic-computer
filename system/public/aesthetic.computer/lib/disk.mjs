@@ -3372,8 +3372,22 @@ async function makeFrame({ data: { type, content } }) {
               send({ type: "keyboard:unlock" });
               $api.needsPaint();
               masked = true;
+              $api.sound.synth({
+                tone: 300,
+                beats: 0.1,
+                attack: 0.01,
+                decay: 0.5,
+                volume: 0.25,
+              });
             },
             push: () => {
+              $api.sound.synth({
+                tone: 600,
+                beats: 0.1,
+                attack: 0.01,
+                decay: 0.5,
+                volume: 0.15,
+              });
               // send({ type: "keyboard:open" });
               jump("prompt");
               // pieceHistoryIndex > 0
