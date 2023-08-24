@@ -198,6 +198,7 @@ let leaveLoad; // A callback for loading the next disk after leaving.
 
 let previewMode = false; // Detects ?preview on a piece and yields its
 //                          preview function if it exists.
+let firstPreviewOrIcon = true;
 let iconMode = false; // Detects ?icon on a piece and yields its
 //                          icon function if it exists.
 
@@ -2366,6 +2367,7 @@ async function load(
     currentHost = host;
     currentSearch = search;
     previewMode = parsed.search?.startsWith("preview") || false; // TODO: Parse all search params. 23.07.23.12.06
+    firstPreviewOrIcon = true;
     iconMode = parsed.search?.startsWith("icon") || false;
     currentColon = colon;
     currentParams = params;
@@ -3668,17 +3670,24 @@ async function makeFrame({ data: { type, content } }) {
       // Render a thumbnail instead of the piece.
       if (previewMode) {
         try {
-          if (currentSearch === "preview") {
-            $api.resolution(1200 / 8, 630 / 8, 0);
-          } else {
-            $api.resolution(
-              ...currentSearch
-                .split("=")[1]
-                .split("x")
-                .map((n) => floor(parseInt(n) / 8)),
-              0
-            );
+          // Assign a default resolution on first preview,
+          // which can be over-ridden using `resolution` inside the
+          // `preview` function.
+          if (firstPreviewOrIcon) {
+            if (currentSearch === "preview") {
+              $api.resolution(1200 / 8, 630 / 8, 0);
+            } else {
+              $api.resolution(
+                ...currentSearch
+                  .split("=")[1]
+                  .split("x")
+                  .map((n) => floor(parseInt(n) / 8)),
+                0
+              );
+            }
+            firstPreviewOrIcon = false;
           }
+
           preview($api);
           painting.paint(true);
           painted = true;
@@ -3690,17 +3699,20 @@ async function makeFrame({ data: { type, content } }) {
       } else if (iconMode) {
         // Render a favicon instead of the piece.
         try {
-          $api.resolution(128, 128, 0);
-          if (currentSearch === "icon") {
+          if (firstPreviewOrIcon) {
             $api.resolution(128, 128, 0);
-          } else {
-            $api.resolution(
-              ...currentSearch
-                .split("=")[1]
-                .split("x")
-                .map((n) => parseInt(n)),
-              0
-            );
+            if (currentSearch === "icon") {
+              $api.resolution(128, 128, 0);
+            } else {
+              $api.resolution(
+                ...currentSearch
+                  .split("=")[1]
+                  .split("x")
+                  .map((n) => parseInt(n)),
+                0
+              );
+            }
+            firstPreviewOrIcon = false;
           }
           icon($api);
           painting.paint(true);
@@ -3816,6 +3828,7 @@ async function makeFrame({ data: { type, content } }) {
 
       if (
         !previewMode &&
+        !iconMode &&
         piece !== undefined &&
         piece.length > 0 &&
         piece !== "prompt" &&

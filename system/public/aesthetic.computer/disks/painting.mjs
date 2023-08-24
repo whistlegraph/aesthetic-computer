@@ -18,6 +18,7 @@ const labelFadeSpeed = 80;
 const advanceSpeed = 120n;
 
 let painting,
+  finalPainting,
   step,
   label,
   labelFade = labelFadeSpeed,
@@ -28,16 +29,24 @@ let painting,
   pastRecord; // In case we load a record off the network.
 
 // 🥾 Boot
-function boot({ system, params, get }) {
+function boot({ system, params, get, net }) {
   if (params[0]) {
     const [handle, timestamp] = params[0].split("/");
     interim = "Loading...";
+    net.waitForPreload();
     get
       .painting(timestamp, { record: true })
       .by(handle)
       .then((out) => {
         pastRecord = system.nopaint.record;
         system.nopaint.record = out;
+      });
+    get
+      .painting(timestamp)
+      .by(handle)
+      .then((out) => {
+        finalPainting = out;
+        net.preloaded();
       });
   }
   advance(system);
@@ -114,16 +123,25 @@ function meta() {
 }
 
 // 🖼️ Preview
-// function preview({ ink, wipe }) {
-// Render a custom thumbnail image.
-// }
+function preview({ ink, screen, paste, wipe, resolution }) {
+  // Render a custom thumbnail image.
+  if (finalPainting) {
+    resolution(finalPainting.width, finalPainting.height, 0);
+    const x = screen.width / 2 - finalPainting.width / 2;
+    const y = screen.height / 2 - finalPainting.height / 2;
+    paste(finalPainting, x, y);
+    ink().box(x, y, finalPainting.width, finalPainting.height, "outline");
+  } else {
+    wipe();
+  }
+}
 
 // 🪷 Icon
-// function icon() {
-// Render an application icon, aka favicon.
-// }
+function icon($) {
+  preview($);
+}
 
-export { boot, paint, sim, leave, meta };
+export { boot, paint, sim, leave, meta, preview, icon };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
