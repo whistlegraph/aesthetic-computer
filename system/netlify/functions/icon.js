@@ -2,7 +2,7 @@
 // Generates the favicon for a given piece.
 
 // Usage:
-// https://aesthetic.computer/icon/widthxheight/command~any~params.jpg
+// https://aesthetic.computer/icon/widthxheight/command~any~params.png
 
 const { builder } = require("@netlify/functions");
 const puppeteer = require("puppeteer");
@@ -15,6 +15,9 @@ async function handler(event, context) {
   const [resolution, ...filepath] = event.path.replace("/icon/", "").split("/"); // yields nxn and the command, if it exists
 
   // Ditch if we don't hit the accepted resolution whitelist.
+
+  console.log(filepath);
+
   if (
     acceptedResolutions.indexOf(resolution) === -1 ||
     !filepath[filepath.length - 1].endsWith(".png")
@@ -31,7 +34,7 @@ async function handler(event, context) {
       height: Math.ceil(height / 2),
       deviceScaleFactor: 2,
     },
-    headless: "true"
+    headless: "true",
   };
 
   if (dev) ops.ignoreHTTPSErrors = true;
@@ -52,6 +55,12 @@ async function handler(event, context) {
   } else {
     url = "https://aesthetic.computer";
   }
+
+  console.log("Yeah:", 
+    `${url}/${
+      filepath.join("/").replace(".png", "") || ""
+    }?icon=${width}x${height}`
+  );
 
   try {
     await page.goto(
