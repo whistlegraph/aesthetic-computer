@@ -115,11 +115,19 @@ function leave({ system }) {
 }
 
 // 📰 Meta
-function meta() {
-  return {
-    title: "Painting",
-    desc: "View any aesthetic.computer painting.",
-  };
+function meta({params}) {
+  const [handle, timestamp] = params[0].split("/");
+  if (handle && timestamp) {
+    return {
+      title: `painting · ${handle}/${timestamp}`,
+      desc: `A painting by ${handle} from ${timestamp}.`,
+    };
+  } else {
+    return {
+      title: "painting",
+      desc: "View any aesthetic.computer painting.",
+    };
+  }
 }
 
 // 🖼️ Preview
