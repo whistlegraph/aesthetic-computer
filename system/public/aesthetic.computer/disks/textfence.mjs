@@ -6,7 +6,6 @@
 
 /* #region 🏁 TODO 
   - [] Finalize words / great narrative.
-  - [] Make sure there are no repeats.
   - [] Create global screenshot feature and take square screenshot for thumbnail.
   - [] Make a test mint on Zora:
        - [] Wait for parameters from Sam.
@@ -15,6 +14,7 @@
   + Launch Process
   - [] Deploy it / publish with Sam. (Tech)
   + Done
+  - [x] Make sure there are no repeats.
   - [x] Experiment with ssml.
   - [c] Generate all speech audio files to avoid hitting GCP on every request.
   - [x] Fully blank out the two words after each group change. 
@@ -48,18 +48,29 @@ const words = [
   },
   // Scene 2 (Dos and Donts / Rules / Structure)
   {
-    left: ["will", "don't", "can", "can't",],
+    left: ["will", "don't", "can", "can't"],
     right: ["be", "help", "come", "talk", "run", "share"],
   },
   // Scene 3 (Dialogue)
   {
     left: ["i'm", "it's", "that's", "they're", "you're", "we're", "who's"],
-    right: [ "trying", "cold", "easy", "stupid", "beautiful", "lying", "everything", "lost", "simple", "bitter"],
+    right: [
+      "trying",
+      "cold",
+      "easy",
+      "stupid",
+      "beautiful",
+      "lying",
+      "everything",
+      "lost",
+      "simple",
+      "bitter",
+    ],
   },
   // Scene 4 (Death / existentialism)
   {
-    left: ["that's", "it's", "i'm",  "you're all", "everything is", "no one's"],
-    right: [ "right", "done", "gone", "missing", "sorry", "dead"],
+    left: ["that's", "it's", "i'm", "you're all", "everything is", "no one's"],
+    right: ["right", "done", "gone", "missing", "sorry", "dead"],
   },
 ];
 
@@ -67,12 +78,14 @@ let left, right;
 let leftDeck, rightDeck;
 let wordsIndex = 0;
 
-let groupTurnsMin, // 8-15
+const turns = []; // Generate turn amount in advance to keep global fence
+// progress.
+let totalTurns, groupTurnsAmt;
+let currentTurn = 0,
   groupTurns = 0;
 
 let speaking = false;
 let needsGen = false;
-let newGen = false;
 let voiceFemale, voiceMale;
 
 let l = 0,
@@ -80,7 +93,7 @@ let l = 0,
 const charWidth = 6;
 let textColor = "white";
 let textBlink = 0; // Store the shrinking blink delay.
-const textBlinkTime = 120 * 1; // Delay for blink.
+const textBlinkTime = 120 * 0.5; // Delay for blink.
 let textBlinkCallback; // A function that runs after the delay. (Speaks)
 
 // 🥾 Boot
@@ -91,7 +104,7 @@ function boot($) {
   $.cursor("native");
   gen($);
 
-  console.log(leftDeck, rightDeck);
+  // console.log(leftDeck, rightDeck);
   const clickIndex = leftDeck.indexOf("click");
   const hereIndex = rightDeck.indexOf("here");
   l = leftDeck[clickIndex];
@@ -113,12 +126,14 @@ function sim($) {
 }
 
 // 🎨 Paint
-function paint({ wipe, ink, write, screen, typeface }) {
+function paint({ wipe, ink, write, screen, typeface, num }) {
   wipe(0);
+
   const cx = screen.width / 2;
   const cy = screen.height / 2;
-  const gap = 7;
 
+  const progress = 1 - (totalTurns - currentTurn) / totalTurns;
+  const gap = 7; // Max 1 space.
   ink(255).line(cx, cy - 20, cx, cy + 2);
 
   // ⬅️ Left Word
@@ -138,14 +153,7 @@ function paint({ wipe, ink, write, screen, typeface }) {
   }
 
   const leftX = cx - leftWidthMinusOneCharacter - leftMaxX - gap;
-
-  // const leftRightSideX = leftX + leftWidthMinusOneCharacter + leftMaxX;
-  // ink().line(leftRightSideX, 0, leftRightSideX, screen.height);
-
-  ink(textColor).write(l, {
-    center: "y",
-    x: leftX,
-  });
+  ink(textColor).write(l, { center: "y", x: leftX });
 
   // ➡️ Right Word
   const firstRightCharacter = r[0];
@@ -179,15 +187,19 @@ function act($) {
     let voice;
 
     groupTurns += 1;
-    console.log(
-      "🎴 Turns left:",
-      `${groupTurnsMin - groupTurns + 1}/${groupTurnsMin}`
-    );
-    if (groupTurns === groupTurnsMin) needsGen = true;
+    currentTurn += 1;
 
-    if (newGen) {
+    console.log(
+      "🎴 Group turns left:",
+      `${groupTurnsAmt - groupTurns + 1}/${groupTurnsAmt}`,
+      "⌛ Total turns left:",
+      `${totalTurns - currentTurn + 1}/${totalTurns}`
+    );
+    if (groupTurns === groupTurnsAmt) needsGen = true;
+
+    if (needsGen) {
+      gen($);
       console.log("⚔️ New word set...");
-      newGen = false;
       l = leftDeck.pop();
       r = rightDeck.pop();
       textColor = "black";
@@ -206,31 +218,28 @@ function act($) {
     } else {
       let pan = 0;
       if (flip()) {
+        l = leftDeck.pop();
         if (leftDeck.length === 0) {
           leftDeck = left.slice();
-          shuffleInPlace(left);
+          shuffleInPlace(leftDeck);
         }
-        l = leftDeck.pop();
+        console.log("left deck:", leftDeck);
         voice = `female:${voiceFemale}`;
         pan = -panSway;
         textColor = "white";
       } else {
+        r = rightDeck.pop();
         if (rightDeck.length === 0) {
           rightDeck = right.slice();
-          shuffleInPlace(right);
+          shuffleInPlace(rightDeck);
         }
-        r = rightDeck.pop();
+        console.log("right deck:", rightDeck);
         voice = `male:${voiceMale}`;
         pan = 1;
         textColor = "white";
       }
       const utterance = utteranceFor(voice, `${l} ${r}`, num);
       speak(utterance, voice, "cloud", { pan });
-    }
-
-    if (needsGen) {
-      gen($);
-      newGen = true;
     }
   }
   // Respond to user input here.
@@ -272,14 +281,22 @@ export { boot, sim, paint, act, meta };
 function gen({ help: { shuffleInPlace }, num }) {
   // speaking = false;
   needsGen = false;
-  groupTurns = 0;
-  groupTurnsMin = num.randIntRange(8, 12);
 
   const i = wordsIndex; // num.randInt(lefts.length - 1);
   left = words[i].left;
   right = words[i].right;
 
-  console.log(left, right);
+  if (wordsIndex === 0) {
+    // Generate all random turns.
+    for (let i = 0; i < words.length; i += 1) {
+      turns[i] = num.randIntRange(8, 12);
+    }
+    totalTurns = num.add(turns);
+    currentTurn = 0;
+  }
+
+  groupTurns = 0;
+  groupTurnsAmt = turns[wordsIndex];
 
   wordsIndex = (wordsIndex + 1) % words.length;
 

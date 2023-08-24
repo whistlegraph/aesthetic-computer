@@ -92,6 +92,17 @@ export const p2 = {
   },
 };
 
+// Add all numbers in an array or all parameters.
+export function add(...args) {
+  let numbers;
+  if (Array.isArray(args[0])) {
+    numbers = args[0];
+  } else {
+    numbers = args;
+  }
+  return numbers.reduce((acc, curr) => acc + curr, 0);
+}
+
 // Find the midpoint between two [x, y] coordinates.
 export function midp(a, b) {
   return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];

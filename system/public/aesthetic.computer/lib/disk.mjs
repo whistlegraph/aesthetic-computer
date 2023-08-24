@@ -802,6 +802,7 @@ const $commonApi = {
     capitalize: text.capitalize,
   },
   num: {
+    add: num.add,
     wrap: num.wrap,
     even: num.even,
     odd: num.odd,

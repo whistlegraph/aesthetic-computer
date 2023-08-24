@@ -3901,7 +3901,7 @@ async function unzip(data) {
       for (let i = 0; i < lines.length; i += 1) {
         const components = lines[i].step.split(" - ");
         const step = { timestamp: components[0], label: components[1] };
-        if (lines[i].gesture.length > 0) step.gesture = lines[i].gesture;
+        if (lines[i].gesture?.length > 0) step.gesture = lines[i].gesture;
         const picture = zip.file(`${lines[i].step}.png`);
 
         if (picture) {
