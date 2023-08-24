@@ -2984,6 +2984,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Authorization: Check to see if we will use a user or a guest bucket.
     const headers = {};
     const token = await authorize();
+
     if (token) {
       bucket = "user";
       headers.Authorization = `Bearer ${token}`;
