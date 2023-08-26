@@ -4,18 +4,20 @@
 // Usage: /print?image=imageurl;
 //               ^ TODO: This should be a painting code / url?
 
-// Test URL: https://aesthetic.local:8888/api/print?painting=https://art.aesthetic.computer/Lw2OYs0H.png
+// Test URL: https://aesthetic.computer/api/print?pixels=https://aesthetic.computer/api/pixel/1650x1650/art/Lw2OYs0H
 
 /* #region 🏁 TODO 
   - [] Get mockup images working and looking good for different
        resolutions.
-  - [😀] Nearest-neighbor stretch the painting to fit 1650x1650
-      - [-] And place it on a URL.
-      - ... https://aesthetic.local:8888/api/pixel/1024x1024/art/Lw2OYs0H
-
-    - [🍊] Find a library that can decode and rescale the PNG.
-    - [] Should this eventually go in a separate API call?
+       - [] Test a painting that is at a different resolution / try
+            a cropped image.
   - [] Create an actual order. (Is it possible to make a fake order / cancel one after making it?)
+  + Done
+  - [x] Find a library that can decode and rescale the PNG.
+  - [x] Should this eventually go in a separate API call?
+  - [x] Nearest-neighbor stretch the painting to fit 1650x1650
+      - [x] And place it on a URL.
+      - https://aesthetic.local:8888/api/pixel/1024x1024/art/Lw2OYs0H
 #endregion */
 
 import { respond } from "../../backend/http.mjs";
@@ -67,7 +69,7 @@ export async function handler(event, context) {
       // return respond(200, { product: JSON.parse(printfiles.body) });
 
       // 🔸 Generate a mockup image.
-      const imageUrl = event.queryStringParameters.painting;
+      const imageUrl = event.queryStringParameters.pixels;
 
       const task = await got.post(`${API}/mockup-generator/create-task/${id}`, {
         headers: headers,
@@ -98,7 +100,7 @@ export async function handler(event, context) {
 
       // Polling logic
       let mockupUrl = null;
-      const maxAttempts = 10;
+      const maxAttempts = 12;
       let attempt = 0;
       while (attempt < maxAttempts) {
         const statusResponse = await got.get(
