@@ -5,9 +5,9 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] Add `print` button.
   - [] Automatically go to the `painting` page after a successful upload /
        return the proper code.
-  - [] Fix the progress bar.
   + Later
   - [] Sound
   - [] Forwards and backwards directionality.
@@ -34,8 +34,10 @@ let painting,
   paintingIndex = stepIndex,
   pastRecord; // In case we load a record off the network.
 
+let print; // Sticker button.
+
 // 🥾 Boot
-function boot({ system, params, get, net }) {
+function boot({ system, params, get, net, ui, screen }) {
   if (params[0]?.length > 0) {
     interim = "Loading...";
 
@@ -71,6 +73,8 @@ function boot({ system, params, get, net }) {
           system.nopaint.record = out;
         });
     }
+
+    print = new ui.TextButton(`Print`, { bottom: 6, right: 6, screen });
   }
   advance(system);
 }
@@ -111,20 +115,27 @@ function paint({ wipe, ink, system, screen, num, paste }) {
       screen.width * (stepIndex / system.nopaint.record.length),
       screen.height
     );
+
+    print.paint({ ink });
   } else if (finalPainting) {
     const x = screen.width / 2 - finalPainting.width / 2;
     const y = screen.height / 2 - finalPainting.height / 2;
     paste(finalPainting, x, y);
     ink().box(x, y, finalPainting.width, finalPainting.height, "outline");
+    print.paint({ ink });
   } else {
     ink().write(interim, { center: "xy" });
   }
 }
 
 // 🎪 Act
-// function act({ event }) {
-//  // Respond to user input here.
-// }
+function act({ event: e, screen }) {
+  print.act(e);
+
+  if (e.is("reframed")) {
+    print.reposition({ right: 6, bottom: 6, screen });
+  }
+}
 
 // 🧮 Sim
 function sim({ simCount, system }) {
@@ -177,7 +188,7 @@ function icon($) {
   preview($);
 }
 
-export { boot, paint, sim, leave, meta, preview, icon };
+export { boot, paint, sim, act, leave, meta, preview, icon };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
