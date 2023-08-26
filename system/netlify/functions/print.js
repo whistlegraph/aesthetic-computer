@@ -9,7 +9,10 @@
 /* #region 🏁 TODO 
   - [] Get mockup images working and looking good for different
        resolutions.
-  - [😀] Nearest-neighbor stretch the painting to fit 1650x1650.
+  - [😀] Nearest-neighbor stretch the painting to fit 1650x1650
+      - [-] And place it on a URL.
+      - ... https://aesthetic.local:8888/api/pixel/1024x1024/art/Lw2OYs0H
+
     - [🍊] Find a library that can decode and rescale the PNG.
     - [] Should this eventually go in a separate API call?
   - [] Create an actual order. (Is it possible to make a fake order / cancel one after making it?)
@@ -21,7 +24,6 @@ const dev = process.env.CONTEXT === "dev";
 const printfulKey = process.env.PRINTFUL_API_TOKEN;
 
 export async function handler(event, context) {
-  // Inline import for got
   const { got } = await import("got");
 
   const API = "https://api.printful.com";
