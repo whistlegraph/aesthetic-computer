@@ -17,6 +17,8 @@
   external_node_modules = ["got", "mongodb"]
 [functions.print]
   external_node_modules = ["got"]
+[functions.pixel]
+  external_node_modules = ["got", "sharp"]
 [functions.user]
   included_files = ["backend/**/*.mjs"]
   external_node_modules = ["got", "mongodb"]
@@ -136,6 +138,10 @@
 [[redirects]]
   from = "/api/print/*"
   to = "/.netlify/functions/print"
+  status = 200
+[[redirects]]
+  from = "/api/pixel/*"
+  to = "/.netlify/builders/pixel"
   status = 200
 [[redirects]]
   from = "/tts"
