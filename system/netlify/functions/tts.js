@@ -6,7 +6,6 @@
   - [] Get the sample in `wordfight` and play it back when necessary.
 #endregion */
 
-
 // const { builder } = require("@netlify/functions");
 const textToSpeech = require("@google-cloud/text-to-speech");
 import { respond } from "../../backend/http.mjs";
@@ -41,13 +40,17 @@ export async function handler(event, context) {
       })
     )[0].voices;
 
-    const females = voices.filter((v) => v.ssmlGender === "FEMALE").sort((a, b) => {
-      return a.name.localeCompare(b.name);
-    });
+    const females = voices
+      .filter((v) => v.ssmlGender === "FEMALE")
+      .sort((a, b) => {
+        return a.name.localeCompare(b.name);
+      });
 
-    const males = voices.filter((v) => v.ssmlGender === "MALE").sort((a, b) => {
-      return a.name.localeCompare(b.name);
-    });
+    const males = voices
+      .filter((v) => v.ssmlGender === "MALE")
+      .sort((a, b) => {
+        return a.name.localeCompare(b.name);
+      });
 
     // Print all male and female voices:
 
@@ -87,14 +90,13 @@ export async function handler(event, context) {
     // Add `input` to the request after detecting whether it is `ssml` or not.
     let ssml = false;
     if (utterance.indexOf("<speak>") !== -1) ssml = true;
-    request.input = ssml ? { ssml: utterance } : { text: utterance};
+    request.input = ssml ? { ssml: utterance } : { text: utterance };
 
     // Performs the text-to-speech request
     const [response] = await client.synthesizeSpeech(request);
     const audioContent = response.audioContent;
 
-    // TODO: Properly return the MP3 response here...
-    // Return the audio content as a binary response
+    // Return the audio content as a binary mp3 file.
     return {
       statusCode: 200,
       body: audioContent.toString("base64"), // Convert to base64 for proper transfer
