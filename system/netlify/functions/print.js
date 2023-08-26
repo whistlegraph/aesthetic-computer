@@ -128,7 +128,7 @@ export async function handler(event, context) {
       }
     } catch (error) {
       console.error("Failed to generate mockup:", error.message);
-      return respond(500, { message: "Failed to generate sticker mockup." });
+      return respond(500, { message: error.message });
     }
   } else {
     return respond(405, { message: "Method Not Allowed" });
