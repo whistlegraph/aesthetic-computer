@@ -2,12 +2,13 @@
 // An endpoint to transform / affect input pixels from
 // a painting before returning them.
 
-// Usage: /pixel/widthxheight/bucket/painting
+// Usage: /pixel/widthxheight/bucket/painting or add an extension.
 
-// Test URL: https://aesthetic.local:8888/api/print?painting=https://art.aesthetic.computer/Lw2OYs0H.png
+// Test URL: https://aesthetic.local:8888/api/print?pixels=https://art.aesthetic.computer/Lw2OYs0H.png
 
 /* #region 🏁 TODO 
-  - [] Nearest neighbor scale a painting after opening it.
+  + Done
+  - [x] Nearest neighbor scale a painting after opening it.
 #endregion */
 
 const { builder } = require("@netlify/functions");
@@ -24,7 +25,7 @@ async function handler(event, context) {
     const params = event.path.replace("/api/pixel/", "").split("/");
     const resolution = params[0].split("x").map((n) => parseInt(n));
     const bucket = params[1];
-    const painting = params[2];
+    const painting = params[2].replace(".png", ""); // Replace ".png" suffix if it exists.
 
     const imageUrl = `https://${bucket}.aesthetic.computer/${painting}.png`;
 
@@ -37,10 +38,12 @@ async function handler(event, context) {
       const response = await got(imageUrl, { responseType: "buffer" });
 
       // Resize the image using nearest neighbor filtering with "sharp"
+      // Docs: https://sharp.pixelplumbing.com/api-resize
       const resizedBuffer = await sharp(response.body)
         .resize({
           width: resolution[0],
           height: resolution[1],
+          fit: "fill",
           kernel: sharp.kernel.nearest,
         })
         .png()
