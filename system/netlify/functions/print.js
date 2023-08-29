@@ -2,11 +2,12 @@
 // Order stickers or get mockup imagery from a POD API (Printful)
 // Dashboard: https://www.printful.com/dashboard
 
-// Usage: /print?image=imageurl;
-//               ^ TODO: This should be a painting code / url?
-
 // GET: Returns an image mockup url for the print.
-// POST: Takes user info like an address and creates an order in the system.
+//      Usage: `/print?pixels=imageUrl`
+// POST: Takes user info like an address and creates an order in the system,
+//       running off of a Stripe webhook.
+
+// Testing:
 // Prod example URL: https://aesthetic.computer/api/print?pixels=https://aesthetic.computer/api/pixel/1650x1650/art/Lw2OYs0H
 // Local example URL: https://aesthetic.local:8888/api/print?pixels=https://aesthetic.computer/api/pixel/1650x1650/art/Lw2OYs0H
 
@@ -14,6 +15,8 @@
 // For testing webhooks: `stripe listen --forward-to stripe listen --forward-to "https://localhost:8888/api/print"
 
 /* #region 🏁 TODO 
+  - [-] Adjust the POST requests with a `hook` flag for normal order creation or
+       responding to the webhook.
   - [] Add branding: https://stripe.com/docs/payments/checkout/customization
   - [] Get mockup images working and looking good for different
        resolutions.
@@ -21,7 +24,7 @@
          a cropped image.
   - [] Run some test orders.
   - [] Create a REAL order!
-
+  - [] Handle errors or automatic refunds if Printful fails?
   + Later
   - [] Generate multiple items / stickers per order. (Multi-pack) 
   + Done
