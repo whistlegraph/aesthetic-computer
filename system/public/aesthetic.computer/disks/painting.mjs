@@ -5,13 +5,14 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Add `print` button.
-  - [] Automatically go to the `painting` page after a successful upload /
+  - [-] Automatically go to the `painting` page after a successful upload /
        return the proper code.
+       - [] Generally smooth out the `painting:done` and `yes` feedback.
   + Later
   - [] Sound
   - [] Forwards and backwards directionality.
   + Done
+  - [x] Add `print` button.
   - [x] Load provisional / non-user paintings.
   - [x] If there is no recording then still load and show the `.png`.
   - [x] Playback all an existing painting's steps in a loop, with
@@ -130,7 +131,26 @@ function paint({ wipe, ink, system, screen, num, paste }) {
 
 // 🎪 Act
 function act({ event: e, screen }) {
-  print.act(e);
+  print.act(e, {
+    push: async () => {
+      try {
+        const pixels =
+          "https://aesthetic.computer/api/pixel/1650x1650/art/Lw2OYs0H";
+        const res = await fetch(`/api/print?pixels=${pixels}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order: "yeah" }),
+          // TODO: Add order info here. ^
+        });
+
+        if (!res.ok) throw new Error(`HTTP error! Status: ${res}`);
+        const data = await res.json();
+        console.log("Order:", data);
+      } catch (error) {
+        console.error("Order creation error:", error.message);
+      }
+    },
+  });
 
   if (e.is("reframed")) {
     print.reposition({ right: 6, bottom: 6, screen });
