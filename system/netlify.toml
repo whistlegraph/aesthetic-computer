@@ -16,7 +16,7 @@
     ]
   external_node_modules = ["got", "mongodb"]
 [functions.print]
-  external_node_modules = ["got"]
+  external_node_modules = ["got", "stripe"]
 [functions.pixel]
   external_node_modules = ["got", "sharp"]
 [functions.user]
