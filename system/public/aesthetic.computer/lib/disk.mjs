@@ -1948,7 +1948,7 @@ async function load(
 
     session(slug, forceProd, monolith)
       .then((sesh) => {
-        socket.connect(
+        socket?.connect(
           new URL(sesh.url).host,
           (id, type, content) => {
             // Globally receivable messages...
@@ -2152,7 +2152,8 @@ async function load(
         const xhr = new XMLHttpRequest();
         xhr.open("GET", path, true);
         xhr.onprogress = function (event) {
-          const progress = event.loaded / event.total;
+          const progress = Math.min(event.loaded / event.total, 1);
+          console.log(event.loaded, event.total);
           if (debug && logs.download)
             console.log(`💈 JSON Download: ${progress * 100}%`);
           progressReport?.(progress);
