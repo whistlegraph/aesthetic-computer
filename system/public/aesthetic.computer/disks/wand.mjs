@@ -553,7 +553,9 @@ function sim({
     loadDemoProgress = 0;
     cursor("native");
 
-    preload(slug, false, (p) => (loadDemoProgress = p)).then((data) => {
+    preload(slug, false, (p) => {
+      loadDemoProgress = p;
+    }).then((data) => {
       tube.clear(); // Reset the tube geometry...
 
       const frames = parseDemoFrames(data);

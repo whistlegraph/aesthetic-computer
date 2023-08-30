@@ -133,6 +133,7 @@ function paint({ wipe, ink, system, screen, num, paste }) {
 function act({ event: e, screen }) {
   print.act(e, {
     push: async () => {
+
       try {
         const pixels =
           "https://aesthetic.computer/api/pixel/1650x1650/art/Lw2OYs0H";
