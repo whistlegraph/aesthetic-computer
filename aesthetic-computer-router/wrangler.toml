@@ -1,6 +1,6 @@
 name = "aesthetic-computer-router"
 main = "src/worker.js"
-compatibility_date = "2023-07-05"
+compatibility_date = "2023-08-21"
 
 # Variable bindings. These are arbitrary, plaintext strings (similar to environment variables)
 # Note: Use secrets to store sensitive data.
