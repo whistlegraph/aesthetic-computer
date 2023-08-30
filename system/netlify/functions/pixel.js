@@ -4,7 +4,8 @@
 
 // Usage: /pixel/widthxheight/bucket/painting or add an extension.
 
-// Test URL: https://aesthetic.local:8888/api/print?pixels=https://art.aesthetic.computer/Lw2OYs0H.png
+// Test URL: https://aesthetic.local:8888/api/pixel/1650x1650/@jeffrey/painting/2023.8.24.16.21.09.123.png
+//           https://aesthetic.local:8888/api/pixel/1650x1650/Lw2OYs0H.png
 
 /* #region 🏁 TODO 
   + Done
@@ -14,8 +15,8 @@
 const { builder } = require("@netlify/functions");
 import sharp from "sharp";
 import { respond } from "../../backend/http.mjs";
-
 const dev = process.env.CONTEXT === "dev";
+const domain = "aesthetic.computer"; // Always use the production assets.
 
 async function handler(event, context) {
   if (
@@ -24,10 +25,11 @@ async function handler(event, context) {
   ) {
     const params = event.path.replace("/api/pixel/", "").split("/");
     const resolution = params[0].split("x").map((n) => parseInt(n));
-    const bucket = params[1];
-    const painting = params[2].replace(".png", ""); // Replace ".png" suffix if it exists.
 
-    const imageUrl = `https://${bucket}.aesthetic.computer/${painting}.png`;
+    const slug = params.slice(1).join("/");
+    const imageUrl = `https://${domain}/media/${slug}`;
+
+    console.log(imageUrl);
 
     if (!imageUrl) {
       return respond(400, { message: "Image URL not provided." });
