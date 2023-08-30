@@ -35,7 +35,8 @@ let painting,
   paintingIndex = stepIndex,
   pastRecord; // In case we load a record off the network.
 
-let print; // Sticker button.
+let print, // Sticker button.
+  printPixels; // A url to the loaded image for printing.
 
 // 🥾 Boot
 function boot({ system, params, get, net, ui, screen }) {
@@ -49,13 +50,17 @@ function boot({ system, params, get, net, ui, screen }) {
       const [user, timestamp] = params[0].split("/");
       handle = user;
       imageCode = recordingCode = timestamp;
+      printPixels = handle + "/painting/" + imageCode;
     } else {
       // Assume a guest painting code.
       // Example: Lw2OYs0H:qVlzDcp6;
       //          ^ png    ^ recording (if it exists)
       [imageCode, recordingCode] = params[0].split(":");
       handle = "anon";
+      printPixels = imageCode;
     }
+
+    console.log("Print pixels:", printPixels);
 
     net.waitForPreload();
     get
@@ -133,10 +138,9 @@ function paint({ wipe, ink, system, screen, num, paste }) {
 function act({ event: e, screen }) {
   print.act(e, {
     push: async () => {
-
       try {
         const pixels =
-          "https://aesthetic.computer/api/pixel/1650x1650/art/Lw2OYs0H";
+          "https://aesthetic.computer/api/pixel/1650x1650/" + printPixels;
         const res = await fetch(`/api/print?pixels=${pixels}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

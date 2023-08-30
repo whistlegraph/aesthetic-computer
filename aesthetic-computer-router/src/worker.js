@@ -4,10 +4,13 @@
 
 // Routes:
 
-// GET `/media/{@userHandleOrEmail}/{slug_with_extension}` will download
+// GET `/media/{slug_with_extension}` will download media from the art
+//     bucket.
+
+// GET `/media/${userHandleOrEmail}/${slug_with_extension}` will download
 //     individual files by proxy. ✅
 
-// GET `/media/{@userHandleOrEmail}/{media_type} will fetch json of all
+// GET `/media/${userHandleOrEmail}/${media_type} will fetch json of all
 //     media of that type (subdirectory) directly from the buckets,
 //     sorted by upload date.
 
@@ -17,11 +20,7 @@
 #endregion */
 
 /* #region 📔 readme
-	Welcome to Cloudflare Workers! This is your first worker.
-	- Run `npx wrangler dev src/index.js` in your terminal to start a dev server
-	- Open a browser tab at http://localhost:8787/ to see your worker in action
-	- Run `npx wrangler publish src/index.js --name my-worker` to publish
-	Learn more at https://developers.cloudflare.com/workers/
+  - See the `package.json` for tasks.
 #endregion */
 
 let dev = false;
@@ -35,28 +34,40 @@ export default {
 async function handleRequest(request) {
   let url = new URL(request.url);
   let path = url.pathname.split("/");
-  if (path[1] === "media") {
-    const userId = await queryUserID(path[2]);
-    const newPath = `${userId}/${path.slice(3).join("/")}`;
-    let response;
-    if (newPath.split("/").pop().split(".")[1]?.length > 0) {
-      // The path has a file extension / points to an individual file.
-			const newUrl = `https://user.aesthetic.computer/${newPath}`;
-      // TODO: ❤️‍🔥 Try to rewrite this response!
-      response = await fetch(newUrl);
-    } else {
-      // The path should return a collection.
-      const path = encodeURIComponent(newPath.replace("/media", ""));
+  let newUrl;
 
-      // ❓ This url also can not be tested locally for the same reasons as below.
-      response = await fetch(
-        `https://aesthetic.computer/media-collection?for=${path}`
-      );
+  if (path[1] === "media") {
+    if (path[2].indexOf("@") === -1) {
+      // 💁 Guest Media
+      newUrl = `https://art.aesthetic.computer/${path[2]}`;
+    } else {
+      // 🖼️ User Media
+      const userId = await queryUserID(path[2]);
+      let newPath = `${userId}/${path.slice(3).join("/")}`;
+
+      if (!newPath.endsWith(".png")) newPath += ".png"; // Allow routing without extensions.
+
+      if (newPath.split("/").pop().split(".")[1]?.length > 0) {
+        // The path has a file extension / points to an individual file.
+        newUrl = `https://user.aesthetic.computer/${newPath}`;
+      } else {
+        // The path should return a collection.
+        const path = encodeURIComponent(newPath.replace("/media", ""));
+        newUrl = `https://aesthetic.computer/media-collection?for=${path}`;
+      }
     }
-    return response;
+
+    // Use the resolveOverride property to rewrite the request instead
+    // of fetching the whole file.
+    request = new Request(newUrl, {
+      ...request,
+      cf: { ...request.cf, resolveOverride: newUrl },
+    });
+
+    return fetch(request);
   } else {
-    // For other paths, just fetch the resource as is.
-    return new Response("💾 Not a `media` path.", { status: 500 } );
+    // For other paths, just return a response.
+    return new Response("💾 Not a `media` path.", { status: 500 });
   }
 }
 
