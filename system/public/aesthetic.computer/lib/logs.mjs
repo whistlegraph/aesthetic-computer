@@ -7,7 +7,7 @@ export const logs = {
   frame: false, // Screen information / rendering framing.
   loading: false, // Preloading
   session: true, // Socket session.
-  download: true, // Download progress, etc. (JSON)
+  download: false, // Download progress, etc. (JSON)
   audio: false,
   hid: false,
   painting: false, // System wallpaper / paint related logs.

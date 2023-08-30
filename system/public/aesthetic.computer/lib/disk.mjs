@@ -2153,7 +2153,6 @@ async function load(
         xhr.open("GET", path, true);
         xhr.onprogress = function (event) {
           const progress = Math.min(event.loaded / event.total, 1);
-          console.log(event.loaded, event.total);
           if (debug && logs.download)
             console.log(`💈 JSON Download: ${progress * 100}%`);
           progressReport?.(progress);
