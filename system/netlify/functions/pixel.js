@@ -4,8 +4,8 @@
 
 // Usage: /pixel/widthxheight/bucket/painting or add an extension.
 
-// Test URL: https://aesthetic.local:8888/api/pixel/1650x1650/@jeffrey/painting/2023.8.24.16.21.09.123.png
-//           https://aesthetic.local:8888/api/pixel/1650x1650/Lw2OYs0H.png
+// Test URLs: https://aesthetic.local:8888/api/pixel/1650x1650/@jeffrey/painting/2023.8.24.16.21.09.123.png
+//            https://aesthetic.local:8888/api/pixel/1650x1650/Lw2OYs0H.png
 
 /* #region 🏁 TODO 
   + Done
@@ -28,12 +28,7 @@ async function handler(event, context) {
 
     const slug = params.slice(1).join("/");
     const imageUrl = `https://${domain}/media/${slug}`;
-
-    console.log(imageUrl);
-
-    if (!imageUrl) {
-      return respond(400, { message: "Image URL not provided." });
-    }
+    if (!imageUrl) return respond(400, { message: "Image URL not provided." });
 
     try {
       const { got } = await import("got");
