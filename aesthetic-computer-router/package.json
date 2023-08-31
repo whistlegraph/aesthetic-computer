@@ -2,11 +2,13 @@
   "name": "aesthetic-computer-router",
   "version": "0.0.0",
   "private": true,
+	"type": "module",
   "scripts": {
-    "publish": "wrangler publish",
+    "publish": "node publish.js",
     "start": "wrangler dev"
   },
   "devDependencies": {
+    "dotenv": "^16.3.1",
     "wrangler": "^3.0.0"
   }
 }
