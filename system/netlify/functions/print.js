@@ -8,8 +8,9 @@
 //       running off of a Stripe webhook.
 
 // Testing:
-// Prod example URL: https://aesthetic.computer/api/print?pixels=https://aesthetic.computer/api/pixel/1650x1650/art/Lw2OYs0H
+// Prod example URL:  https://aesthetic.computer/api/print?pixels=https://aesthetic.computer/api/pixel/1650x1650/art/Lw2OYs0H
 // Local example URL: https://aesthetic.local:8888/api/print?pixels=https://aesthetic.computer/api/pixel/1650x1650/art/Lw2OYs0H
+// Or...              https://aesthetic.local:8888/api/print?pixels=https://aesthetic.local:8888/api/pixel/1650x1650/@jeffrey/painting/2023.8.24.16.21.09.123.png
 
 // Installing the Stripe CLI: https://stripe.com/docs/stripe-cli#install
 // For testing webhooks: `stripe listen --forward-to stripe listen --forward-to "https://localhost:8888/api/print"
@@ -41,9 +42,7 @@
 #endregion */
 
 import { respond } from "../../backend/http.mjs";
-
 import Stripe from "stripe";
-
 const dev = process.env.CONTEXT === "dev";
 const printfulKey = process.env.PRINTFUL_API_TOKEN;
 const stripeKey = process.env.STRIPE_API_TEST_KEY; // process.env.STRIPE_API_PRIV_KEY; // Uncomment for real orders.
