@@ -28,6 +28,9 @@ async function handler(event, context) {
 
     const slug = params.slice(1).join("/");
     const imageUrl = `https://${domain}/media/${slug}`;
+
+    console.log("Image URL:", imageUrl);
+
     if (!imageUrl) return respond(400, { message: "Image URL not provided." });
 
     try {
