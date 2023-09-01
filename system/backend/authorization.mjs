@@ -106,16 +106,16 @@ export async function userIDFromHandle(handle, database) {
 
   if (!cachedHandle) {
     // Look in database.
-    if (dev) console.log("Looking in database...");
+    // if (dev) console.log("Handle: Looking in database...");
     const keepOpen = database; // Keep the db connection if database is defined.
-    if (dev) console.log("Connecting...", time);
+    // if (dev) console.log("Handle: Connecting...", time);
     if (!database) database = await connect();
     const collection = database.db.collection("@handles");
     const user = await collection.findOne({ handle });
     userID = user?._id;
     if (!keepOpen) database.disconnect();
   } else {
-    if (dev) console.log("Found in redis...");
+    // if (dev) console.log("Handle: Found in redis...");
     userID = cachedHandle;
   }
 

@@ -5,8 +5,9 @@ import { URLSearchParams } from "url";
 import { parse, metadata } from "../../public/aesthetic.computer/lib/parse.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 
+const dev = process.env.CONTEXT === "dev";
+
 async function fun(event, context) {
-  const dev = process.env.CONTEXT === "dev";
   if (dev) console.log("Node version:", process.version);
   // TODO: Return a 500 or 404 for everything that does not exist...
   //       - [] Like for example if the below import fails...
@@ -61,29 +62,34 @@ async function fun(event, context) {
       const externalPiece = await getPage(
         `https://${parsed.host}/${parsed.path}.mjs`
       );
+      // TODO: How can I run these pieces in a sandbox and then get the
+      //       result of the meta function out? 23.09.01.16.29
       if (externalPiece?.code !== 200) return redirect;
     } else {
       // Locally hosted piece.
       try {
         // Just whitelist freaky-flowers for now 22.11.28.13.36.
         // Also whitelist wg 22.12.25.20.28
-
         if (
-          !parsed.text.startsWith("requestProvider.js.map") &&
-          (parsed.text.startsWith("ff") ||
-            parsed.text.startsWith("freaky-flowers") ||
-            parsed.text.startsWith("wg") ||
-            parsed.text.startsWith("prompt") ||
-            parsed.text.startsWith("botce") ||
-            parsed.text.startsWith("baktok") ||
-            parsed.text.startsWith("painting") ||
-            parsed.text.startsWith("textfence") ||
-            parsed.text.startsWith("valbear") ||
-            parsed.text.startsWith("ordfish") ||
-            parsed.text === "")
+          !parsed.text.startsWith("requestProvider.js.map") // &&
+          // (parsed.text.startsWith("ff") ||
+          //   parsed.text.startsWith("freaky-flowers") ||
+          //   parsed.text.startsWith("wg") ||
+          //   parsed.text.startsWith("prompt") ||
+          //   parsed.text.startsWith("botce") ||
+          //   parsed.text.startsWith("baktok") ||
+          //   parsed.text.startsWith("painting") ||
+          //   parsed.text.startsWith("textfence") ||
+          //   parsed.text.startsWith("valbear") ||
+          //   parsed.text.startsWith("ordfish") ||
+          //   parsed.text === "")
         ) {
-          const m = await import(`../../public/${parsed.path}.mjs`);
+          const path = parsed.path.replace("aesthetic.computer/disks/", "");
+          const m = await import(
+            `../../public/aesthetic.computer/disks/${path}.mjs`
+          );
           meta = m.meta?.(parsed); // Parse any special piece metadata if it exists.
+          console.log("Meta:", meta);
         }
       } catch (e) {
         console.log(e);
@@ -184,10 +190,13 @@ async function fun(event, context) {
 }
 
 async function getPage(url) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     let data = "";
+    const options = dev
+      ? { agent: new https.Agent({ rejectUnauthorized: false }) }
+      : {};
     https
-      .get(url, (res) => {
+      .get(url, options, (res) => {
         res.on("data", (chunk) => {
           data += chunk;
         });
@@ -197,7 +206,7 @@ async function getPage(url) {
       })
       .on("error", (e) => {
         console.log("Error:", e);
-        resolve(); // TODO: Should I error here, rather than resolve?
+        reject(e);
       });
   });
 }

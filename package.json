@@ -4,6 +4,7 @@
   "description": "The header package for the whole aesthetic.computer codebase.",
   "type": "module",
   "scripts": {
+    "upgrade": "ncu -u",
     "url": "node generate-local-url.js",
     "ac": "npm run aesthetic",
     "tunnel": "ngrok http https://localhost:8888 --domain local.aesthetic.computer",
@@ -43,12 +44,13 @@
   },
   "homepage": "https://github.com/digitpain/aesthetic.computer#readme",
   "devDependencies": {
-    "concurrently": "^8.0.1",
-    "got": "^12.6.0",
+    "concurrently": "^8.2.1",
+    "got": "^13.0.0",
     "http-server": "^14.1.1",
     "kill-port": "^2.0.1",
+    "npm-check-updates": "^16.13.2",
     "npm-run-all": "^4.1.5",
-    "prettier": "^2.7.1",
+    "prettier": "^3.0.3",
     "qrcode-terminal": "^0.12.0"
   }
 }
