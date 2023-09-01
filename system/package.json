@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "My virtual computer system for loading and running pieces.",
   "source": "./public/index.html",
-  "type": "module",
   "scripts": {
     "dev": "netlify dev",
     "dev-debug": "netlify dev --debug",
