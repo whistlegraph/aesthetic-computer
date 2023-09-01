@@ -2,7 +2,6 @@
   "name": "aesthetic.computer",
   "version": "1.0.0",
   "description": "The header package for the whole aesthetic.computer codebase.",
-  "type": "module",
   "scripts": {
     "url": "node generate-local-url.js",
     "ac": "npm run aesthetic",
