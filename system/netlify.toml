@@ -3,7 +3,6 @@
   publish = "public"
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["mongodb", "keyv"]
 [functions.index]
   included_files = ["public/aesthetic.computer/disks/**/*.mjs",
                     "public/aesthetic.computer/dep/**/*.mjs",
@@ -15,16 +14,16 @@
     "public/aesthetic.computer/lib/text.mjs",
     "backend/**/*.mjs"
     ]
-  external_node_modules = ["got", "mongodb"]
+  external_node_modules = ["got", "mongodb", "keyv"]
 # [functions.print]
   # external_node_modules = ["got", "stripe"]
 [functions.pixel]
   external_node_modules = ["got", "sharp"]
 [functions.user]
   included_files = ["backend/**/*.mjs"]
-  external_node_modules = ["got", "mongodb"]
+  external_node_modules = ["got", "mongodb", "keyv"]
 [functions.presigned-url]
-  external_node_modules = ["got", "mongodb", "nanoid", "@aws-sdk-client-s3", "@aws-sdk/s3-request-presigner"]
+  external_node_modules = ["got", "mongodb", "keyv", "nanoid", "@aws-sdk-client-s3", "@aws-sdk/s3-request-presigner"]
   included_files = ["backend/**/*.mjs"]
 [functions.thumbnail]
   external_node_modules = ["puppeteer"]
