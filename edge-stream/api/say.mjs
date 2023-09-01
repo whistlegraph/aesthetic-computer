@@ -64,30 +64,26 @@ export default async function handler(req, res) {
     }
 
     const ttsRequest = {
-      voice: {
-        languageCode: "en-US",
-        ...voice,
-      },
-      audioConfig: {
-        audioEncoding: "MP3",
-      },
+      voice: { languageCode: "en-US", ...voice },
+      audioConfig: { audioEncoding: "MP3" },
     };
 
     let ssml = false;
     if (utterance.indexOf("<speak>") !== -1) ssml = true;
     ttsRequest.input = ssml ? { ssml: utterance } : { text: utterance };
 
-    const [ttsResponse] = await client.synthesizeSpeech(ttsRequest);
-    const audioContent = ttsResponse.audioContent;
+    client.synthesizeSpeech(ttsRequest).then((ttsResponse) => {
+      const audioContent = ttsResponse[0].audioContent;
+      res.setHeader("Content-Type", "audio/mpeg");
+      res.setHeader("Content-Disposition", 'inline; filename="response.mp3"');
+      for (const [k, v] of Object.entries(corsHeaders(req))) {
+        res.setHeader(k, v);
+      } 
+      res.status(200).send(audioContent);
+    }).catch((err) => {
+      console.log(err)
+    });
 
-    res.setHeader("Content-Type", "audio/mpeg");
-    res.setHeader("Content-Disposition", 'inline; filename="response.mp3"');
-
-    for (const [k, v] of Object.entries(corsHeaders(req))) {
-       res.setHeader(k, v);
-    } 
-
-    res.status(200).send(audioContent);
   } else {
     res.status(405).json({ message: "Method Not Allowed" });
   }
