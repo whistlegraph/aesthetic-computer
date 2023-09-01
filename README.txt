@@ -72,6 +72,14 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Get Deployment Working Again ***
+  - [🟠] Move `tts.js` to `ai.aesthetic.computer/api/tts`, removing
+         the large GCP environment variables.
+
+*** artur painting story ***
+  - [] Truncate or fade long prompt corner strings if they go past the screen
+       width. 
+
 *** Recordable Paintings ***
   How-to: Enter `painting:start` to start.
           Enter `painting` to view the history so far. 

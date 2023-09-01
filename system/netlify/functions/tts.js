@@ -110,5 +110,3 @@ export async function handler(event, context) {
     return respond(405, { message: "Method Not Allowed" });
   }
 }
-
-// exports.handler = builder(handler);
