@@ -1,6 +1,9 @@
 🧪 Dev Log
 Practical and conceptual notes weaved together.
 
+⛈️ Shortcuts:
+  Netlify Environment Variables: https://app.netlify.com/sites/aesthetic-computer/configuration/env
+
 🕸️ W3C Proposals To Watch:
 - https://www.w3.org/TR/mediacapture-fromelement
 
