@@ -95,6 +95,7 @@ function speak(words, voice, mode = "local", opts = {}) {
         .then(async (res) => {
           clearTimeout(id);
           if (res.status === 200) {
+            console.log("🗣️ Speech response:", res);
             const blob = await res.blob(); // Convert the response to a Blob.
             speakAPI.sfx[label] ||= await blob.arrayBuffer();
             play();
