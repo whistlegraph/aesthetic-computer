@@ -4,8 +4,6 @@ export function corsHeaders(request) {
   const production = !dev;
   const allowedOrigin = production ? "https://aesthetic.computer" : "*";
 
-  console.log("Allowed origin:", allowedOrigin);
-
   return {
     "Access-Control-Allow-Methods": "GET,OPTIONS,PATCH,DELETE,POST,PUT",
     "Access-Control-Allow-Origin": allowedOrigin,
