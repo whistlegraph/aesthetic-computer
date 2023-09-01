@@ -88,7 +88,6 @@ export default async function handler(req, res) {
     res.setHeader("Content-Disposition", 'inline; filename="response.mp3"');
 
     for (const [k, v] of Object.entries(corsHeaders(req))) {
-      console.log("Setting header:", k, v);
       res.setHeader(k, v);
     } 
 
