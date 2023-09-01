@@ -32,6 +32,9 @@ export const noWorker = { onMessage: undefined, postMessage: undefined };
 let ROOT_PIECE = "prompt"; // This gets set straight from the host html file for the ac.
 let USER; // A holder for the logged in user. (Defined in `boot`)
 let debug = false; // This can be overwritten on boot.
+
+const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading noise.
+
 import { setDebug } from "../disks/common/debug.mjs";
 
 const defaults = {
@@ -41,14 +44,15 @@ const defaults = {
     cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
-  paint: ({ noise16Aesthetic, noise16Sotce, slug }) => {
+  paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe }) => {
     // TODO: Make this a boot choice via the index.html file?
-    if (slug?.startsWith("botce")) {
-      noise16Sotce();
-    } else {
-      noise16Aesthetic();
+    if (!projectionMode) {
+      if (slug?.startsWith("botce")) {
+        noise16Sotce();
+      } else {
+        noise16Aesthetic();
+      }
     }
-    //noiseTinted([20, 20, 20], 0.8, 0.7);
   },
   beat: () => false, // Runs every bpm.
   act: () => false, // All user interaction.
@@ -201,6 +205,7 @@ let previewMode = false; // Detects ?preview on a piece and yields its
 let firstPreviewOrIcon = true;
 let iconMode = false; // Detects ?icon on a piece and yields its
 //                          icon function if it exists.
+let hideLabel = false;
 
 let module; // Currently loaded piece module code.
 let currentPath,
@@ -2376,6 +2381,7 @@ async function load(
     previewMode = parsed.search?.startsWith("preview") || false; // TODO: Parse all search params. 23.07.23.12.06
     firstPreviewOrIcon = true;
     iconMode = parsed.search?.startsWith("icon") || false;
+    hideLabel = parsed.search?.startsWith("nolabel") || false;
     currentColon = colon;
     currentParams = params;
     currentHash = hash;
@@ -3819,7 +3825,12 @@ async function makeFrame({ data: { type, content } }) {
 
         // 🔴 Show a cross-piece "Recording" indicator.
         //    Currently only implemented for `painting:record`. 23.08.20.21.36
-        if ($api.system.nopaint.recording) {
+        if (
+          $api.system.nopaint.recording &&
+          !hideLabel &&
+          pieceHistoryIndex > -1 &&
+          !loading
+        ) {
           ink("red").box(screen.width - 3, 1, 2);
         }
 
@@ -3850,6 +3861,7 @@ async function makeFrame({ data: { type, content } }) {
       if (
         !previewMode &&
         !iconMode &&
+        !hideLabel &&
         piece !== undefined &&
         piece.length > 0 &&
         piece !== "prompt" &&

@@ -900,7 +900,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //const worker = new Worker("./aesthetic.computer/lib/disk.js", {
   //  type: "module",
   //});
-  const fullPath = "/aesthetic.computer/lib/disk.mjs" + "#" + Date.now(); // bust the cache. This prevents an error related to Safari loading workers from memory.
+  const fullPath =
+    "/aesthetic.computer/lib/disk.mjs" +
+    window.location.search +
+    "#" +
+    Date.now(); // bust the cache. This prevents an error related to Safari loading workers from memory.
 
   const firstMessage = {
     type: "init-from-bios",
