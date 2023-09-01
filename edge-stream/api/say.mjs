@@ -21,7 +21,7 @@ const gcpEmail = process.env.GCP_EMAIL;
 export default async function handler(req, res) {
   const { method, query, headers } = req;
 
-  if (method === "GET" && (headers["host"] === "aesthetic.computer" || dev)) {
+  if (method === "GET") {
     const client = new TextToSpeechClient({
       credentials: {
         private_key: gcpKey.replace(/\\n/g, "\n"),
@@ -29,11 +29,8 @@ export default async function handler(req, res) {
       },
     });
 
-
     let from = "aesthetic.computer";
     if (query.from) from = Buffer.from(query.from, 'base64').toString();
-
-    // TODO: How do I remove +'s from the query string?
 
     const utterance = from;
     const set = parseInt(query.voice?.split(":")[1]) || 0;
