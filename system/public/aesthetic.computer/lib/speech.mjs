@@ -111,7 +111,9 @@ function speak(words, voice, mode = "local", opts = {}) {
         .catch((err) => {
           clearTimeout(id);
           console.error("🗣️ Speech fetch failure, retrying...", err);
-          fetchSpeech();
+          setTimeout(() => {
+            fetchSpeech();
+          }, 1000);
         });
     }
     fetchSpeech();
