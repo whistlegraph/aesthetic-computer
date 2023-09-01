@@ -4,10 +4,13 @@ export function corsHeaders(request) {
     origin = request.headers.get("Origin"); // For edge functions..
   } else {
     origin = "https://" + request.headers.host; // For serverless functions.
+    console.log("Set origin:", origin);
   }
 
   const production = origin === "https://aesthetic.computer";
   const allowedOrigin = production ? "https://aesthetic.computer" : "*";
+
+  console.log("Allowed origin:", allowedOrigin);
 
   return {
     "Access-Control-Allow-Methods": "GET,OPTIONS,PATCH,DELETE,POST,PUT",
