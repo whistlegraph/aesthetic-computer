@@ -11,7 +11,7 @@ const dev = process.env.CONTEXT === "dev";
 // Only allow a few given resolutions to prevent spam.
 const acceptedResolutions = ["128x128"];
 
-async function fun(event, context) {
+async function handler(event, context) {
   const [resolution, ...filepath] = event.path.replace("/icon/", "").split("/"); // yields nxn and the command, if it exists
 
   // Ditch if we don't hit the accepted resolution whitelist.
@@ -56,8 +56,7 @@ async function fun(event, context) {
     url = "https://aesthetic.computer";
   }
 
-  console.log(
-    "Yeah:",
+  console.log("Yeah:", 
     `${url}/${
       filepath.join("/").replace(".png", "") || ""
     }?icon=${width}x${height}`
@@ -103,4 +102,5 @@ async function fun(event, context) {
   };
 }
 
-export const handler = builder(fun);
+exports.handler = builder(handler);
+

@@ -18,7 +18,7 @@ import { respond } from "../../backend/http.mjs";
 const dev = process.env.CONTEXT === "dev";
 const domain = "aesthetic.computer"; // Always use the production assets.
 
-async function fun(event, context) {
+async function handler(event, context) {
   if (
     event.httpMethod === "GET" &&
     (event.headers["host"] === "aesthetic.computer" || dev)
@@ -29,7 +29,7 @@ async function fun(event, context) {
     const slug = params.slice(1).join("/");
     const imageUrl = `https://${domain}/media/${slug}`;
 
-    console.log("Image URL:", imageUrl);
+    // console.log("Image URL:", imageUrl);
 
     if (!imageUrl) return respond(400, { message: "Image URL not provided." });
 
@@ -70,4 +70,4 @@ async function fun(event, context) {
   }
 }
 
-export const handler = builder(fun);
+exports.handler = builder(handler);
