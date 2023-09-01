@@ -3,6 +3,7 @@
   publish = "public"
 [functions]
   node_bundler = "esbuild"
+  # external_node_modules = ["mongodb", "keyv"]
 [functions.index]
   included_files = ["public/aesthetic.computer/disks/**/*.mjs",
                     "public/aesthetic.computer/dep/**/*.mjs",
