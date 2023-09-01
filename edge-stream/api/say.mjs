@@ -31,8 +31,7 @@ export default async function handler(req, res) {
 
     let from = "aesthetic.computer";
     if (query.from) from = Buffer.from(query.from, 'base64').toString();
-
-    const utterance = from;
+    const utterance = from || "aesthetic.computer";
     const set = parseInt(query.voice?.split(":")[1]) || 0;
     const gender = query.voice?.split(":")[0]?.toUpperCase() || "NEUTRAL";
 
