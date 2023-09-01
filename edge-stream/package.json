@@ -5,6 +5,8 @@
   "main": "index.js",
   "author": "Jeffrey Alan Scudder",
   "dependencies": {
+    "@google-cloud/text-to-speech": "^5.0.0",
+    "@grpc/grpc-js": "^1.9.2",
     "busboy": "^1.6.0",
     "eventsource-parser": "^1.0.0",
     "multiparty": "^4.2.3",

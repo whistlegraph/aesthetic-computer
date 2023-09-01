@@ -80,33 +80,36 @@ function speak(words, voice, mode = "local", opts = {}) {
 
     // Add the label to the sfx library.
     // if (!speakAPI.sfx[label]) {
-      const queryString = new URLSearchParams({
-        from: words,
-        voice,
-      }).toString();
+    const queryString = new URLSearchParams({
+      from: words,
+      voice,
+    }).toString();
 
-      function fetchSpeech() {
-        const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), 8000);
-        fetch(`/tts?${queryString}`, { signal: controller.signal })
-          .then(async (res) => {
-            clearTimeout(id);
-            if (res.status === 200) {
-              const blob = await res.blob(); // Convert the response to a Blob.
-              speakAPI.sfx[label] ||= await blob.arrayBuffer();
-              play();
-            } else {
-              console.log("🗣️ Speech fetch failure, retrying...", res.status);
-              fetchSpeech();
-            }
-          })
-          .catch((err) => {
-            clearTimeout(id);
-            console.error("🗣️ Speech fetch failure, retrying...", err);
+    function fetchSpeech() {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), 8000);
+      const host = window.acDEBUG
+        ? `` // Just use current host, via `netlify.toml`.
+        : "https://ai.aesthetic.computer";
+      fetch(`${host}/api/say?${queryString}`, { signal: controller.signal })
+        .then(async (res) => {
+          clearTimeout(id);
+          if (res.status === 200) {
+            const blob = await res.blob(); // Convert the response to a Blob.
+            speakAPI.sfx[label] ||= await blob.arrayBuffer();
+            play();
+          } else {
+            console.log("🗣️ Speech fetch failure, retrying...", res.status);
             fetchSpeech();
-          });
-      }
-      fetchSpeech();
+          }
+        })
+        .catch((err) => {
+          clearTimeout(id);
+          console.error("🗣️ Speech fetch failure, retrying...", err);
+          fetchSpeech();
+        });
+    }
+    fetchSpeech();
     // } else {
     //  play(); // Or play it again if it's already present.
     // }

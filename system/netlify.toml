@@ -28,8 +28,6 @@
   included_files = ["backend/**/*.mjs"]
 [functions.thumbnail]
   external_node_modules = ["puppeteer"]
-[functions.tts]
-  external_node_modules = ["@google-cloud/text-to-speech", "@grpc/grpc-js"]
 [functions.icon]
   external_node_modules = ["puppeteer"]
 [functions.session]
@@ -203,6 +201,11 @@
 [[redirects]]
   from = "/api/ask"
   to = "http://localhost:3000/api/ask"
+  status = 200
+  force = false
+[[redirects]]
+  from = "/api/say"
+  to = "http://localhost:3000/api/say"
   status = 200
   force = false
 # Index
