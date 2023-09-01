@@ -73,7 +73,7 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Get Deployment Working Again ***
-  - [🟠] Move `tts.js` to `ai.aesthetic.computer/api/tts`, removing
+  - [🟠] Move `tts.js` to `ai.aesthetic.computer/api/say`, removing
          the large GCP environment variables.
 
 *** artur painting story ***
