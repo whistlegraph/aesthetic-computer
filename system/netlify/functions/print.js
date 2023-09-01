@@ -41,7 +41,6 @@
       - https://aesthetic.local:8888/api/pixel/1024x1024/art/Lw2OYs0H
 #endregion */
 
-/*
 import { respond } from "../../backend/http.mjs";
 import Stripe from "stripe";
 const dev = process.env.CONTEXT === "dev";
@@ -318,4 +317,3 @@ export async function handler(event, context) {
     return respond(405, { message: "Method Not Allowed" });
   }
 }
-*/
