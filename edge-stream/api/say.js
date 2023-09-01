@@ -85,6 +85,7 @@ export default async function handler(req, res) {
             'inline; filename="response.mp3"'
           );
           res.setHeader("Content-Type", "audio/mpeg");
+          console.log("Sending autio content:", audioContent);
           res.status(200).send(audioContent);
         }
       })
