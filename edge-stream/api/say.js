@@ -4,6 +4,7 @@
 
 /* #region 🏁 TODO 
   - [x] Get the basic function working on vercel. 
+    - https://vercel.com/docs/functions/edge-functions/quickstart
   - [] Move over the environment variables (remove from netlify)
   - [] Get everything working locally.
   - [] Try and run in production.
