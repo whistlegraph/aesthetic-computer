@@ -1,9 +1,9 @@
 [build]
-  command = "bash ./github-discord.sh"
   publish = "public"
+  # command = "bash ./github-discord.sh"
+  command = "echo 'Building...'"
 [functions]
   node_bundler = "esbuild"
-  # external_node_modules = ["mongodb", "keyv"]
 [functions.index]
   included_files = ["public/aesthetic.computer/disks/**/*.mjs",
                     "public/aesthetic.computer/dep/**/*.mjs",

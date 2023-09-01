@@ -22,36 +22,36 @@ function boot($api) {
 
   painting = $api.painting(256, 256, p => p.noise16())
   $api.system.painting = painting;
-  line.boot?.($api);
-  rect.boot?.($api);
+  line?.boot?.($api);
+  rect?.boot?.($api);
 }
 
 function paint($api) {
   $api.system = { painting };
-  line.paint?.($api);
-  rect.paint?.($api);
-  smear.paint?.($api);
+  line?.paint?.($api);
+  rect?.paint?.($api);
+  smear?.paint?.($api);
 }
 
 function act($api) {
   $api.system = { painting };
-  line.act?.($api);
-  rect.act?.($api);
+  line?.act?.($api);
+  rect?.act?.($api);
 }
 
 function sim($api) {
-  line.sim?.($api);
-  rect.sim?.($api);
+  line?.sim?.($api);
+  rect?.sim?.($api);
 }
 
 function beat($api) {
-  line.beat?.($api);
-  rect.beat?.($api);
+  line?.beat?.($api);
+  rect?.beat?.($api);
 }
 
 function leave($api) {
-  line.leave?.($api);
-  rect.leave?.($api);
+  line?.leave?.($api);
+  rect?.leave?.($api);
 }
 
 export { boot, sim, paint, act, beat, leave };
