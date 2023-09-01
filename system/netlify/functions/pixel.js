@@ -18,7 +18,7 @@ import { respond } from "../../backend/http.mjs";
 const dev = process.env.CONTEXT === "dev";
 const domain = "aesthetic.computer"; // Always use the production assets.
 
-async function handler(event, context) {
+async function fun(event, context) {
   if (
     event.httpMethod === "GET" &&
     (event.headers["host"] === "aesthetic.computer" || dev)
@@ -70,4 +70,4 @@ async function handler(event, context) {
   }
 }
 
-exports.handler = builder(handler);
+export const handler = builder(fun);

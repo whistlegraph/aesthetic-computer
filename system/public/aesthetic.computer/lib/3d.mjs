@@ -333,7 +333,7 @@ export function bake({ cam, forms, color }, { width, height }, size) {
       for (let i = 0; i < pointColors.length; i += 1) {
         const colStart = i * 4;
 
-        const color = new THREE.Color(
+        let color = new THREE.Color(
           pointColors[i].x / 255,
           pointColors[i].y / 255,
           pointColors[i].z / 255
