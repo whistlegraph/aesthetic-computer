@@ -76,9 +76,11 @@
   - [🟠] Move `tts.js` to `ai.aesthetic.computer/api/say`, removing
          the large GCP environment variables.
 
-*** artur painting story ***
-  - [] Truncate or fade long prompt corner strings if they go past the screen
-       width. 
+*** Sticker Costs ***
+  - [] Kiss-cut sticker should retail for 4.00.
+  - [] Shipping & Processing is $5. Printful Shipping: 4.99 / Stripe
+  - [] Payment processor fees: $1.00
+  - [] Stripe takes 30 cents plus 3%.
 
 *** Recordable Paintings ***
   How-to: Enter `painting:start` to start.
@@ -114,6 +116,13 @@
 
 *** Apple Pencil Painting Support ***
   - [🍏] Hook iPad into a MacBook to fix apple pencil support for brushes.
+
+*** Upgrade some client libs... ***
+  - [] Three.JS ?
+
+*** artur painting story ***
+  - [] Truncate or fade long prompt corner strings if they go past the screen
+       width. 
 
 *** faster user media urls ***
   - [x] Why is the handle lookup being so goddamn slow?

@@ -4,14 +4,20 @@
   "description": "Edge functions for supporting streamable responses in aesthetic.computer. Hosted by Vercel at ai.aesthetic.computer.",
   "main": "index.js",
   "author": "Jeffrey Alan Scudder",
+  "scripts": {
+    "upgrade": "ncu -u"
+  },
   "dependencies": {
     "@google-cloud/text-to-speech": "^5.0.0",
     "@grpc/grpc-js": "^1.9.2",
     "busboy": "^1.6.0",
     "eventsource-parser": "^1.0.0",
     "multiparty": "^4.2.3",
-    "openai": "^3.2.1",
-    "openai-gpt-token-counter": "^1.0.3",
-    "openai-streams": "^5.3.0"
+    "openai": "^4.4.0",
+    "openai-gpt-token-counter": "^1.1.0",
+    "openai-streams": "^6.2.0"
+  },
+  "devDependencies": {
+    "npm-check-updates": "^16.13.2"
   }
 }
