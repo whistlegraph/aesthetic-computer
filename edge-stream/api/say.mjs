@@ -74,11 +74,14 @@ export default async function handler(req, res) {
 
     client.synthesizeSpeech(ttsRequest).then((ttsResponse) => {
       const audioContent = ttsResponse[0].audioContent;
+
+      console.log(audioContent);
+
       res.setHeader("Content-Type", "audio/mpeg");
       res.setHeader("Content-Disposition", 'inline; filename="response.mp3"');
-      // for (const [k, v] of Object.entries(corsHeaders(req))) {
-      //   res.setHeader(k, v);
-      // } 
+      for (const [k, v] of Object.entries(corsHeaders(req))) {
+        res.setHeader(k, v);
+      } 
       res.status(200).send(audioContent);
     }).catch((err) => {
       console.log(err)
