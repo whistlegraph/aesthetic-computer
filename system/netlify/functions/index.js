@@ -89,7 +89,7 @@ async function fun(event, context) {
             `../../public/aesthetic.computer/disks/${path}.mjs`
           );
           meta = m.meta?.(parsed); // Parse any special piece metadata if it exists.
-          console.log("Meta:", meta);
+          console.log("Metadata:", meta);
         }
       } catch (e) {
         console.log(e);
