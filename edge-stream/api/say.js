@@ -16,7 +16,11 @@ const gcpKey = process.env.GCP_TTS_KEY;
 const gcpEmail = process.env.GCP_EMAIL;
 
 export default async function handler(req, res) {
-  const { method, query, headers } = req;
+  const { method, query } = req;
+
+  console.log("Running!");
+
+  for (const [k, v] of Object.entries(corsHeaders(req))) res.setHeader(k, v);
 
   if (method === "GET") {
     const client = new tts.TextToSpeechClient({
@@ -73,12 +77,16 @@ export default async function handler(req, res) {
       .synthesizeSpeech(ttsRequest)
       .then((ttsResponse) => {
         const audioContent = ttsResponse[0].audioContent;
-        res.setHeader("Content-Type", "audio/mpeg");
-        res.setHeader("Content-Disposition", 'inline; filename="response.mp3"');
-        for (const [k, v] of Object.entries(corsHeaders(req))) {
-          res.setHeader(k, v);
+        if (!audioContent) {
+          res.status(500).json(ttsResponse);
+        } else {
+          res.setHeader(
+            "Content-Disposition",
+            'inline; filename="response.mp3"'
+          );
+          res.setHeader("Content-Type", "audio/mpeg");
+          res.status(200).send(audioContent);
         }
-        res.status(200).send(audioContent);
       })
       .catch((err) => {
         res.status(500).json({ message: "An error has occured." });
