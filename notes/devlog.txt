@@ -1,8 +1,11 @@
 🧪 Dev Log
 Practical and conceptual notes weaved together.
 
+🚗 Migration:
+ - https://vercel.com/guides/migrate-to-vercel-from-netlify
+
 ⛈️ Shortcuts:
-  Netlify Environment Variables: https://app.netlify.com/sites/aesthetic-computer/configuration/env
+ - Netlify Environment Variables: https://app.netlify.com/sites/aesthetic-computer/configuration/env
 
 🕸️ W3C Proposals To Watch:
 - https://www.w3.org/TR/mediacapture-fromelement
