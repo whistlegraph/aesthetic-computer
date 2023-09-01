@@ -143,10 +143,6 @@
   to = "/.netlify/builders/pixel"
   status = 200
 [[redirects]]
-  from = "/tts"
-  to = "/.netlify/functions/tts"
-  status = 200
-[[redirects]]
   from = "/session/*"
   to = "/.netlify/functions/session"
   status = 200
