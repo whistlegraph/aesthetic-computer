@@ -3,7 +3,7 @@ export function corsHeaders(request) {
   if (typeof request.headers.get === "function") {
     origin = request.headers.get("Origin"); // For edge functions..
   } else {
-    origin = request.headers.host; // For serverless functions.
+    origin = "https://" + request.headers.host; // For serverless functions.
   }
 
   const production = origin === "https://aesthetic.computer";

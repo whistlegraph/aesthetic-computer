@@ -82,11 +82,6 @@ function speak(words, voice, mode = "local", opts = {}) {
 
     // Add the label to the sfx library.
     // if (!speakAPI.sfx[label]) {
-    // const queryString = new URLSearchParams({
-    //   from: words,
-    //   voice,
-    // }).toString();
-
     const wordsEncoded = utf8ToBase64(words);
     const queryString = `from=${wordsEncoded}&voice=${voice}`;
 
