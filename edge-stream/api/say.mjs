@@ -12,6 +12,7 @@
 #endregion */
 
 import { TextToSpeechClient } from "@google-cloud/text-to-speech";
+import { corsHeaders } from "../help.mjs";
 
 const dev = process.env.VERCEL_ENV === "development";
 const gcpKey = process.env.GCP_TTS_KEY;
@@ -27,7 +28,6 @@ export default async function handler(req, res) {
         client_email: gcpEmail,
       },
     });
-
 
     const utterance = query.from || "aesthetic.computer";
     const set = parseInt(query.voice?.split(":")[1]) || 0;
@@ -78,10 +78,11 @@ export default async function handler(req, res) {
     const [ttsResponse] = await client.synthesizeSpeech(ttsRequest);
     const audioContent = ttsResponse.audioContent;
 
-    res.setHeader('Content-Type', 'audio/mpeg');
-    res.setHeader('Content-Disposition', 'inline; filename="response.mp3"');
-    res.status(200).send(audioContent);
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Content-Disposition", 'inline; filename="response.mp3"');
+    for (const [k, v] of Object.entries(corsHeaders(req))) res.setHeader(k, v);
 
+    res.status(200).send(audioContent);
   } else {
     res.status(405).json({ message: "Method Not Allowed" });
   }
