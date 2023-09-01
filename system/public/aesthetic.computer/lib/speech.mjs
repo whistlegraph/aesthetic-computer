@@ -8,6 +8,8 @@ const speakAPI = {}; // Will get `audioContext` and `playSfx`;
 
 let voices = [];
 
+import { utf8ToBase64 } from "./helpers.mjs";
+
 function populateVoiceList() {
   voices = synth.getVoices().sort(function (a, b) {
     const aname = a.name.toUpperCase();
@@ -80,10 +82,13 @@ function speak(words, voice, mode = "local", opts = {}) {
 
     // Add the label to the sfx library.
     // if (!speakAPI.sfx[label]) {
-    const queryString = new URLSearchParams({
-      from: words,
-      voice,
-    }).toString();
+    // const queryString = new URLSearchParams({
+    //   from: words,
+    //   voice,
+    // }).toString();
+
+    const wordsEncoded = utf8ToBase64(words);
+    const queryString = `from=${wordsEncoded}&voice=${voice}`;
 
     function fetchSpeech() {
       const controller = new AbortController();

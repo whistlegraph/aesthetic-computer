@@ -29,7 +29,13 @@ export default async function handler(req, res) {
       },
     });
 
-    const utterance = query.from || "aesthetic.computer";
+
+    let from = "aesthetic.computer";
+    if (query.from) from = Buffer.from(query.from, 'base64').toString();
+
+    // TODO: How do I remove +'s from the query string?
+
+    const utterance = from;
     const set = parseInt(query.voice?.split(":")[1]) || 0;
     const gender = query.voice?.split(":")[0]?.toUpperCase() || "NEUTRAL";
 
@@ -80,7 +86,9 @@ export default async function handler(req, res) {
 
     res.setHeader("Content-Type", "audio/mpeg");
     res.setHeader("Content-Disposition", 'inline; filename="response.mp3"');
-    for (const [k, v] of Object.entries(corsHeaders(req))) res.setHeader(k, v);
+    for (const [k, v] of Object.entries(corsHeaders(req))) {
+      res.setHeader(k, v);
+    } 
 
     res.status(200).send(audioContent);
   } else {
