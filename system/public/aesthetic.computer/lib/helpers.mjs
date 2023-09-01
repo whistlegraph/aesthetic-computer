@@ -47,3 +47,9 @@ export function defaultTemplateStringProcessor(strings, ...vars) {
   });
   return result;
 }
+
+export function utf8ToBase64(str) {
+    let bytes = new TextEncoder().encode(str);
+    let binary = String.fromCharCode(...bytes);
+    return btoa(binary);
+}
