@@ -85,7 +85,7 @@ export default async function handler(req, res) {
             'inline; filename="response.mp3"'
           );
           res.setHeader("Content-Type", "audio/mpeg");
-          console.log("Sending audio content:", audioContent.length);
+          console.log("Sending audio content:", audioContent.length, utterance);
           res.status(200).send(audioContent);
         }
       })
