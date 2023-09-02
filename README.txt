@@ -72,15 +72,14 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Get Deployment Working Again ***
-  - [🟠] Move `tts.js` to `ai.aesthetic.computer/api/say`, removing
-         the large GCP environment variables.
-
 *** Sticker Costs ***
   - [] Kiss-cut sticker should retail for 4.00.
   - [] Shipping & Processing is $5. Printful Shipping: 4.99 / Stripe
   - [] Payment processor fees: $1.00
   - [] Stripe takes 30 cents plus 3%.
+  - [] Make it so that multiple stickers can be ordered.
+  - [🌪️] Make a dynamic logo endpoint that always returns a different graphic: "https://assets.aesthetic.computer/images/favicon.png"
+    - [] Could I use icon for this?
 
 *** Recordable Paintings ***
   How-to: Enter `painting:start` to start.
