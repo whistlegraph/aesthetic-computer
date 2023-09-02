@@ -16,13 +16,11 @@ const gcpKey = process.env.GCP_TTS_KEY;
 const gcpEmail = process.env.GCP_EMAIL;
 
 export default async function handler(req, res) {
-  const { method, query } = req;
-
-  console.log("Running!");
+  const { method, body } = req;
 
   for (const [k, v] of Object.entries(corsHeaders(req))) res.setHeader(k, v);
 
-  if (method === "GET") {
+  if (method === "POST") {
     const client = new tts.TextToSpeechClient({
       credentials: {
         private_key: gcpKey.replace(/\\n/g, "\n"),
@@ -30,12 +28,9 @@ export default async function handler(req, res) {
       },
     });
 
-    let from = "aesthetic.computer";
-    if (query.from) from = Buffer.from(query.from, "base64").toString();
-    const utterance = from || "aesthetic.computer";
-    const set = parseInt(query.voice?.split(":")[1]) || 0;
-    const gender = query.voice?.split(":")[0]?.toUpperCase() || "NEUTRAL";
-
+    const utterance = body.from || "aesthetic.computer";
+    const set = parseInt(body.voice?.split(":")[1]) || 0;
+    const gender = body.voice?.split(":")[0]?.toUpperCase() || "NEUTRAL";
     const voices = (
       await client.listVoices({
         languageCode: "en-US",
@@ -85,17 +80,17 @@ export default async function handler(req, res) {
             'inline; filename="response.mp3"'
           );
           res.setHeader("Content-Type", "audio/mpeg");
-          console.log(
-            "Sending audio content:",
-            audioContent.length,
-            utterance,
-            JSON.stringify(ttsResponse[0])
-          );
+          // console.log(
+          //   "Sending audio content:",
+          //   audioContent.length,
+          //   utterance,
+          //   JSON.stringify(ttsResponse[0])
+          // );
           res.status(200).send(audioContent);
         }
       })
       .catch((err) => {
-        res.status(500).json({ message: "An error has occured." });
+        res.status(500).json({ message: "An error has occurred." });
       });
   } else {
     res.status(405).json({ message: "Method Not Allowed" });
