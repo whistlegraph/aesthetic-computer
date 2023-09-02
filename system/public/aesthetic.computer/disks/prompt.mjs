@@ -179,7 +179,7 @@ async function halt($, text) {
 
   // Make a user authorized / signed request to the api.
   // Used both in `motd` and `handle`.
-  async function userRequest(method, endpoint, body) {
+  async function userJSONRequest(method, endpoint, body) {
     try {
       const token = await authorize(); // Get user token.
       if (!token) throw new Error("🧖 Not logged in.");
@@ -307,7 +307,7 @@ async function halt($, text) {
   if (slug === "mood") {
     let res;
     if (params.join(" ").trim().length > 0) {
-      res = await userRequest("POST", "/api/mood", { mood: params.join(" ") });
+      res = await userJSONRequest("POST", "/api/mood", { mood: params.join(" ") });
     }
     flashColor = res ? [0, 255, 0] : [255, 0, 0];
     if (res) {
@@ -416,7 +416,7 @@ async function halt($, text) {
 
     // And a handle has been specified.
     if (handle?.length > 0 && validateHandle(handle)) {
-      const res = await userRequest("POST", "/handle", { handle });
+      const res = await userJSONRequest("POST", "/handle", { handle });
       flashColor = res ? [0, 255, 0] : [255, 0, 0];
       if (res) {
         store["handle:updated"] = res.handle;

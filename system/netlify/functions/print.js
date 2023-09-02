@@ -10,25 +10,31 @@
 // Testing:
 // Prod example URL:  https://aesthetic.computer/api/print?pixels=https://aesthetic.computer/api/pixel/1650x1650/art/Lw2OYs0H
 // Local example URL: https://aesthetic.local:8888/api/print?pixels=https://aesthetic.computer/api/pixel/1650x1650/art/Lw2OYs0H
-// Or...              https://aesthetic.local:8888/api/print?pixels=https://aesthetic.local:8888/api/pixel/1650x1650/@jeffrey/painting/2023.8.24.16.21.09.123.png
+// Or...              https://aesthetic.local:8888/api/print?pixels=https://aesthetic.computer/api/pixel/1650x1650/@jeffrey/painting/2023.8.24.16.21.09.123.png
 
 // Installing the Stripe CLI: https://stripe.com/docs/stripe-cli#install
-// For testing webhooks: `stripe listen --forward-to stripe listen --forward-to "https://localhost:8888/api/print"
+// ⚠️ For testing webhooks: `stripe listen --forward-to stripe listen --forward-to "https://localhost:8888/api/print"
 
 /* #region 🏁 TODO 
+  - [🟡] Write a `print` command that will print the current painting.
+  - [🟡] And also wire up the `Print` button from a painting page to that command.
+
   - [-] Adjust the POST requests with a `hook` flag for normal order creation or
        responding to the webhook.
+
   - [] Add branding: https://stripe.com/docs/payments/checkout/customization
+
   - [] Get mockup images working and looking good for different
        resolutions.
     - [] Test a painting that is at a different resolution / try
          a cropped image.
-  - [] Run some test orders.
+
+  - [] Make production test orders.
   - [] Create a REAL order!
-  - [] Handle errors or automatic refunds if Printful fails?
+  - [] Handle errors or automatic refunds if a Printful order fails?
   + Later
-  - [] Generate multiple items / stickers per order. (Multi-pack) 
   + Done
+  - [x] Run some test orders.
   - [x] Add stripe checkout. 
   - [x] There needs to be a way to get and/or store user address information or
         have the user fill out a payment form and validate their address that
@@ -41,13 +47,13 @@
       - https://aesthetic.local:8888/api/pixel/1024x1024/art/Lw2OYs0H
 #endregion */
 
-/*
 import { respond } from "../../backend/http.mjs";
 import Stripe from "stripe";
 const dev = process.env.CONTEXT === "dev";
 const printfulKey = process.env.PRINTFUL_API_TOKEN;
 const stripeKey = process.env.STRIPE_API_TEST_KEY; // process.env.STRIPE_API_PRIV_KEY; // Uncomment for real orders.
-const productName = "aesthetic.computer Painting Sticker";
+
+import { authorize } from "../../backend/authorization.mjs";
 
 export async function handler(event, context) {
   const { got } = await import("got");
@@ -57,40 +63,66 @@ export async function handler(event, context) {
     "Content-Type": "application/json",
   };
 
+  // TODO: This might prevent orders from working in production?
   if (event.headers["host"] !== "aesthetic.computer" && !dev) {
-    return respond(400, { message: "Bad request." });
+    return respond(400, {
+      message: "Bad request.",
+      host: event.headers["host"],
+    });
   }
 
-  const id = 358;
-  const variant = 10165;
-  const imageUrl = event.queryStringParameters.pixels;
-  const width = 1650;
+  const id = 358; // Kiss-cut Sticker
+  const variant = 10165; // 5.5" Square
+  const width = 1650; // Print resolution.
   const height = 1650;
 
   // 🅰️ GET: Generate a mockup image.
   if (event.httpMethod === "GET") {
+    const imageUrl = event.queryStringParameters.pixels;
+    //    ^ This must exist.
+    // console.log("Image:", imageUrl);
+
     // TODO: Eventually move this down into a "POST" request.
     const stripe = new Stripe(stripeKey);
     const domain = dev
       ? "https://localhost:8888"
       : "https://aesthetic.computer";
 
+    // Pricing details.
+    const quantity = 1;
+    const unitAmount = 400 * quantity; // Kiss-cut sticker price in cents
+    //                 ❓ Go down a bit in price for higher quantities?
+    const shippingAndProcessing = 500; // Shipping & Processing in cents
+    const paymentProcessorFees = 100; // Payment processor fees in cents
+    const subtotal = unitAmount + shippingAndProcessing + paymentProcessorFees;
+    // const stripeFee = Math.round(subtotal * 0.03 + 30); // Stripe takes 3% + 30 cents
+    const finalAmount = subtotal; // + stripeFee;
+
+    // TODO: Add quantity to product name if there is more than 1.
+    const productName = 'Painting Sticker 5.5"';
+    const name = productName + " x " + quantity;
+
+    const user = await authorize(event.headers);
+    console.log("User:", user);
+    // TODO: See: async function userJSONRequest(method, endpoint, body)
+    //       in `prompt`.
+
     const stripeCheckout = {
       line_items: [
         {
           price_data: {
             currency: "usd",
-            product_data: {
-              name: productName,
-              images: [imageUrl],
-            },
-            unit_amount: 1000, // Amount in cents
+            product_data: { name, images: [imageUrl] },
+            unit_amount: finalAmount, // Amount in cents
           },
           quantity: 1,
         },
       ],
       metadata: {
-        imageUrl, // TODO: Eventually this might need to include images<->product associations for multiple items.
+        productName, // Pass product name to Printful.
+        quantity, // Pass actual quantity to Printful.
+        imageUrl, // TODO: Eventually this might need to include
+        //                 images<->product associations for multiple items.
       },
       mode: "payment",
       shipping_address_collection: { allowed_countries: ["US"] },
@@ -100,10 +132,11 @@ export async function handler(event, context) {
     };
 
     // TODO: 🔥 Add `customer_email` to the above if the user is currently logged in?
+    //          This will prefill their information.
 
     const session = await stripe.checkout.sessions.create(stripeCheckout);
-
     return respond(303, undefined, { Location: session.url });
+    // ^ Uncomment the pair above to get product listings while in development,
 
     try {
       // 🔸 List all products.
@@ -166,7 +199,7 @@ export async function handler(event, context) {
       while (attempt < maxAttempts) {
         const statusResponse = await got.get(
           `${API}/mockup-generator/task/?task_key=${taskResult?.task_key}`,
-          { headers }
+          { headers },
         );
         const statusResult = JSON.parse(statusResponse.body);
 
@@ -216,28 +249,28 @@ export async function handler(event, context) {
 
     // Handle the `checkout.session.completed` event
     if (hookEvent.type === "checkout.session.completed") {
-      // Retrieve the session. If you require line items in the response, you may include them by expanding line_items.
       const session = await stripe.checkout.sessions.retrieve(
         hookEvent.data.object.id,
-        { expand: ["line_items", "shipping_details", "customer_details"] }
-      );
-      console.log("🤑 Stripe order:", session);
+        { expand: ["line_items", "shipping_details", "customer_details"] },
+      ); // Retrieve session expanding certain fields.
+      // See also: https://stripe.com/docs/api/checkout/sessions/object
 
-      console.log("Line items:", session.line_items);
+      // console.log("🤑 Stripe order:", session);
 
-      const itemImage = hookEvent.data.object.metadata.imageUrl;
-      console.log("Image:", itemImage);
-      // console.log("Shipping details:", session.shipping_details);
-      // console.log("Customer:", session.customer_details);
-
-      // TODO: If this fails after a successful payment, then it needs to be
+      // 💁 If this fails after a successful payment, then it needs to be
       // manually triggerable for already paid orders or a refund needs
       // to be triggered automagically. 23.08.29.17.50
 
       if (session.payment_status === "paid") {
         console.log("✅ Paid!");
+        const productName = hookEvent.data.object.metadata.productName;
+        const quantity = hookEvent.data.object.metadata.quantity;
+        const itemImage = hookEvent.data.object.metadata.imageUrl;
+        console.log("Metadata image:", itemImage);
+        // console.log("Shipping details:", session.shipping_details);
+        // console.log("Customer:", session.customer_details);
 
-        // 🖨️ Run the printful order.
+        // 🖨️ Run the printful order, transferring over the shipping data.
         const shipping = session.shipping_details;
         const recipient = {
           name: shipping.name,
@@ -255,7 +288,7 @@ export async function handler(event, context) {
             {
               name: productName,
               variant_id: variant,
-              quantity: 1,
+              quantity,
               files: [
                 {
                   url: itemImage,
@@ -273,7 +306,7 @@ export async function handler(event, context) {
           ],
           packing_slip: {
             email: "mail@aesthetic.computer",
-            message: "Stickers belong in special spots. - @jeffrey",
+            message: "Your pictures belong on this earth. - @jeffrey",
             logo_url: "https://assets.aesthetic.computer/images/favicon.png",
             store_name: "aesthetic.computer",
           },
@@ -318,4 +351,3 @@ export async function handler(event, context) {
     return respond(405, { message: "Method Not Allowed" });
   }
 }
-*/

@@ -1,5 +1,9 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** Get Deployment Working Again ***
+  - [x] Move `tts.js` to `ai.aesthetic.computer/api/say`, removing
+         the large GCP environment variables.
+
 *** deck ***
   - [x] Make a complete interactive deck prototype. 
 
