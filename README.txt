@@ -81,6 +81,9 @@
   - [🌪️] Make a dynamic logo endpoint that always returns a different graphic: "https://assets.aesthetic.computer/images/favicon.png"
     - [] Could I use icon for this?
 
+*** ✨ Rattle ***
+  - [] Make rattle prototype functional.
+
 *** Recordable Paintings ***
   How-to: Enter `painting:start` to start.
           Enter `painting` to view the history so far. 

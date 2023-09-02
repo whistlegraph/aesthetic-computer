@@ -414,6 +414,22 @@ let cachedAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
+  // Print either a url or the `pixels` that get passed into
+  // the argument, with N quantity.
+  print: (picture, quantity = 1) => {
+
+    // TODO: Determine if picture is a string or an object.
+    //       If it's an object, then it needs to be uploaded
+    //       as a painting to the temporary bucket so it
+    //       has a URL. Otherwise it can just be POSTed to
+    //       `/api/print` which needs user credentials if
+    //       possible to pre-fill the email address.
+
+    // ❤️‍🔥 Standardize the waiting...
+    // Uploading the image should be easy and have a progress
+    // bar?
+  },
+  // Create a zip file of specified content. (Used for storing painting data.)
   zip: (content) => {
     const prom = new Promise((resolve, reject) => {
       zipCreation = { resolve, reject };
@@ -421,6 +437,7 @@ const $commonApi = {
     send({ type: "zip", content });
     return prom;
   },
+  // Track device motion.
   motion: {
     start: () => {
       send({ type: "motion:start" });
@@ -454,7 +471,7 @@ const $commonApi = {
           const extension = opts?.record ? "zip" : "png";
           if (handle === "anon") {
             return $commonApi.net.preload(
-              `https://art.aesthetic.computer/${code}.${extension}`
+              `https://art.aesthetic.computer/${code}.${extension}`,
             );
           } else {
             // Get the user sub from the handle...
@@ -464,14 +481,14 @@ const $commonApi = {
               if (res.ok) {
                 const json = await res.json();
                 return $commonApi.net.preload(
-                  `https://user.aesthetic.computer/${json.sub}/painting/${code}.${extension}`
+                  `https://user.aesthetic.computer/${json.sub}/painting/${code}.${extension}`,
                 );
               } else {
                 console.error(`Error: ${res.status} ${res.statusText}`);
                 console.error(
                   `Response headers: ${JSON.stringify(
-                    Array.from(res.headers.entries())
-                  )}`
+                    Array.from(res.headers.entries()),
+                  )}`,
                 );
               }
             } catch (error) {
@@ -653,10 +670,10 @@ const $commonApi = {
         }
 
         sys.nopaint.translation.x = floor(
-          screen.width / 2 - sys.painting.width / 2
+          screen.width / 2 - sys.painting.width / 2,
         );
         sys.nopaint.translation.y = floor(
-          screen.height / 2 - sys.painting.height / 2
+          screen.height / 2 - sys.painting.height / 2,
         );
       },
       storeTransform: (store, sys) => {
@@ -685,7 +702,7 @@ const $commonApi = {
           pen?.dragBox?.x - x,
           pen?.dragBox?.y - y,
           pen?.dragBox?.w,
-          pen?.dragBox?.h
+          pen?.dragBox?.h,
         );
 
         system.nopaint.brush = { x: pos.x, y: pos.y, dragBox };
@@ -723,7 +740,7 @@ const $commonApi = {
               y,
               system.painting.width,
               system.painting.height,
-              "outline"
+              "outline",
             );
         }
 
@@ -913,7 +930,7 @@ async function session(slug, forceProduction = false, service) {
 
   if (debug && logs.session)
     console.log(
-      `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`
+      `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`,
     );
   // Return the active session if the server knows it's "Ready", otherwise
   // wait for the one we requested to spin up.
@@ -923,7 +940,7 @@ async function session(slug, forceProduction = false, service) {
     return session;
   } else {
     let eventSource = new EventSource(
-      `https://api.jamsocket.com/backend/${session.name}/status/stream`
+      `https://api.jamsocket.com/backend/${session.name}/status/stream`,
       // See also: https://docs.jamsocket.com/api-docs/#get-a-backends-status-stream
     );
 
@@ -1214,7 +1231,7 @@ function form(
     cpu: false,
     keep: true,
     background: backgroundColor3D,
-  }
+  },
 ) {
   // Exit silently if no forms are present.
   if (forms === undefined || forms?.length === 0) return;
@@ -1564,7 +1581,7 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
     height,
     "from",
     screen.width,
-    screen.height
+    screen.height,
   );
 
   // 3. Assign the generated or manual width and height.
@@ -1700,7 +1717,7 @@ async function load(
   fromHistory = false,
   alias = false,
   devReload = false,
-  loadedCallback
+  loadedCallback,
 ) {
   let fullUrl, source;
   let params,
@@ -1719,7 +1736,7 @@ async function load(
     console.warn(
       "Coudn't load:",
       parsed.path || parsed.name,
-      "(Already loading.)"
+      "(Already loading.)",
     );
     return true;
   }
@@ -1777,7 +1794,7 @@ async function load(
     ) {
       console.warn(
         "🙅 Not reloading, code signal invalid:",
-        codeChannel || "N/A"
+        codeChannel || "N/A",
       );
       return;
     }
@@ -1850,7 +1867,7 @@ async function load(
             p3 === "./" ? "/disks" : ""
           }/${p4.replace(/\.\.\//g, "")}`;
           return `${p1} { ${p2} } from "${url}";`;
-        }
+        },
       );
 
       updatedCode = updatedCode.replace(oneDot, (match, p1, p2, p3) => {
@@ -1933,7 +1950,7 @@ async function load(
         // Use the existing contextual values when live-reloading in debug mode.
         true, // (fromHistory) ... never add any reload to the history stack
         alias,
-        devReload
+        devReload,
       );
     }
   };
@@ -1979,7 +1996,7 @@ async function load(
           () => {
             // Post-connection logic.
             if (codeChannel) socket.send("code-channel:sub", codeChannel);
-          }
+          },
         );
       })
       .catch((err) => {
@@ -2030,7 +2047,11 @@ async function load(
       location.host, // "aesthetic.computer",
       slug,
       // Adding the num API here is a little hacky, but needed for Freaky Flowers random metadata generation. 22.12.27
-      module.meta?.({ ...parsed, num: $commonApi.num, store: $commonApi.store })
+      module.meta?.({
+        ...parsed,
+        num: $commonApi.num,
+        store: $commonApi.store,
+      }),
     );
 
     meta = {
@@ -2113,7 +2134,7 @@ async function load(
   $commonApi.net.preload = async function (
     path,
     parseJSON = true,
-    progressReport
+    progressReport,
   ) {
     let extension;
     if (soundWhitelist.includes(path)) {
@@ -2249,7 +2270,7 @@ async function load(
         colon.map((c) => `:` + c).join("") +
         params.map((p) => `~` + p).join(""),
       true,
-      false
+      false,
     );
   };
 
@@ -2321,7 +2342,7 @@ async function load(
           module.scheme,
           wrap,
           module.copied,
-          module.activated
+          module.activated,
         );
         await module.boot?.($);
       };
@@ -2518,7 +2539,7 @@ async function makeFrame({ data: { type, content } }) {
     if (currentPath === "aesthetic.computer/disks/prompt") {
       $commonApi.system.nopaint.replace(
         { system: $commonApi.system, store, needsPaint: $commonApi.needsPaint },
-        content.source
+        content.source,
       );
     } else {
       console.warn("🖼️ Dropped images only function in the `prompt`.");
@@ -3060,7 +3081,7 @@ async function makeFrame({ data: { type, content } }) {
       const primaryPointer = help.findKeyAndValue(
         content.pen.pointers,
         "isPrimary",
-        true
+        true,
       );
 
       // Returns all [pens] if n is undefined, or can return a specific pen by 1 based index.
@@ -3228,7 +3249,7 @@ async function makeFrame({ data: { type, content } }) {
       Object.keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
       Object.keys($updateApi).forEach((key) => ($api[key] = $updateApi[key]));
       Object.keys(painting.api).forEach(
-        (key) => ($api[key] = painting.api[key])
+        (key) => ($api[key] = painting.api[key]),
       );
       $api.api = $api; // Add a reference to the whole API.
 
@@ -3497,7 +3518,7 @@ async function makeFrame({ data: { type, content } }) {
       const $api = {};
       Object.keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
       Object.keys(painting.api).forEach(
-        (key) => ($api[key] = painting.api[key])
+        (key) => ($api[key] = painting.api[key]),
       );
       $api.api = $api; // Add a reference to the whole API.
 
@@ -3651,12 +3672,12 @@ async function makeFrame({ data: { type, content } }) {
 
           store["painting:resolution-lock"] = await store.retrieve(
             "painting:resolution-lock",
-            "local:db"
+            "local:db",
           );
 
           store["painting:transform"] = await store.retrieve(
             "painting:transform",
-            "local:db"
+            "local:db",
           );
 
           addUndoPainting(store["painting"]);
@@ -3709,7 +3730,7 @@ async function makeFrame({ data: { type, content } }) {
                   .split("=")[1]
                   .split("x")
                   .map((n) => floor(parseInt(n) / 8)),
-                0
+                0,
               );
             }
             firstPreviewOrIcon = false;
@@ -3736,7 +3757,7 @@ async function makeFrame({ data: { type, content } }) {
                   .split("=")[1]
                   .split("x")
                   .map((n) => parseInt(n)),
-                0
+                0,
               );
             }
             firstPreviewOrIcon = false;
@@ -4008,7 +4029,7 @@ async function makeFrame({ data: { type, content } }) {
             sound,
           },
         },
-        [pixels?.buffer]
+        [pixels?.buffer],
       );
     }
 
