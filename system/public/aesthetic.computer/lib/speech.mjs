@@ -76,14 +76,16 @@ function speak(words, voice, mode = "local", opts = {}) {
         { reverse: opts.reverse, pan: opts.pan },
         () => {
           if (!opts.skipCompleted) window.acSEND({ type: "speech:completed" });
-        }
+        },
       );
     }
 
     // Add the label to the sfx library.
     // if (!speakAPI.sfx[label]) {
-    const wordsEncoded = utf8ToBase64(words);
-    const queryString = `from=${wordsEncoded}&voice=${voice}`;
+    const payload = {
+      from: words,
+      voice: voice,
+    };
 
     function fetchSpeech() {
       const controller = new AbortController();
@@ -91,17 +93,27 @@ function speak(words, voice, mode = "local", opts = {}) {
       const host = window.acDEBUG
         ? `` // Just use current host, via `netlify.toml`.
         : "https://ai.aesthetic.computer";
-      fetch(`${host}/api/say?${queryString}`, { signal: controller.signal })
+
+      fetch(`${host}/api/say`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      })
         .then(async (res) => {
           clearTimeout(id);
           if (res.status === 200) {
-            console.log("🗣️ Speech response:", res);
+            // console.log("🗣️ Speech response:", res);
             const blob = await res.blob(); // Convert the response to a Blob.
             speakAPI.sfx[label] ||= await blob.arrayBuffer();
             play();
           } else {
             console.log("🗣️ Speech fetch failure, retrying...", res.status);
-            fetchSpeech();
+            setTimeout(() => {
+              fetchSpeech();
+            }, 1000);
           }
         })
         .catch((err) => {
@@ -112,9 +124,10 @@ function speak(words, voice, mode = "local", opts = {}) {
           }, 1000);
         });
     }
+
     fetchSpeech();
     // } else {
-    //  play(); // Or play it again if it's already present.
+    // play(); // Or play it again if it's already present.
     // }
   }
 }
