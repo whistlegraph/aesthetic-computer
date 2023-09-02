@@ -20,7 +20,9 @@ export default async function handler(req, res) {
 
   for (const [k, v] of Object.entries(corsHeaders(req))) res.setHeader(k, v);
 
-  if (method === "POST") {
+  if (method === "OPTIONS") {
+    res.status(200).json({ message: "Success!" });
+  } else if (method === "POST") {
     const client = new tts.TextToSpeechClient({
       credentials: {
         private_key: gcpKey.replace(/\\n/g, "\n"),
@@ -77,7 +79,7 @@ export default async function handler(req, res) {
         } else {
           res.setHeader(
             "Content-Disposition",
-            'inline; filename="response.mp3"'
+            'inline; filename="response.mp3"',
           );
           res.setHeader("Content-Type", "audio/mpeg");
           // console.log(
@@ -108,6 +110,7 @@ function corsHeaders(request) {
   return {
     "Access-Control-Allow-Methods": "GET,OPTIONS,PATCH,DELETE,POST,PUT",
     "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Credentials": true,
     "Access-Control-Allow-Headers":
       "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version",
   }; // Define CORS headers.
