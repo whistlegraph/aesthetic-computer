@@ -20,7 +20,7 @@ let homebtn;
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({ hud }) {
-  hud.label();
+  // hud.label(); // Hide the label.
 }
 
 // 🎨 Paint (Executes every display frame)

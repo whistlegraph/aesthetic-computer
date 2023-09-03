@@ -16,24 +16,36 @@
 // ⚠️ For testing webhooks: `stripe listen --forward-to stripe listen --forward-to "https://localhost:8888/api/print"
 
 /* #region 🏁 TODO 
-  - [🟡] Write a `print` command that will print the current painting.
-  - [🟡] And also wire up the `Print` button from a painting page to that command.
-
-  - [-] Adjust the POST requests with a `hook` flag for normal order creation or
-       responding to the webhook.
-
+  - [] Customize stripe: https://dashboard.stripe.com/settings/branding
   - [] Add branding: https://stripe.com/docs/payments/checkout/customization
-
+  - [] Send user a confirmation email from mail@aesthetic.computer
+       upon a successful Printful order fulfillment.
+       - [] Email should link to a sticker feed of some kind?
+            (Don't want your sticker included? Reply to this email to opt-out.)
+            (Paintings that have been printed get special copies in S3.)
   - [] Get mockup images working and looking good for different
        resolutions.
     - [] Test a painting that is at a different resolution / try
          a cropped image.
-
   - [] Make production test orders.
+  - [] Make sure to refund the user if their order can't be fulfilled.
+  - [] How can I associate the Stripe order ID with the printful order
+        just in case of issues that need to be manually addressed?
+  - [] Retrieve the mockup image for a successful order and show it to
+        the user either on the success screen or in the email they receive.
+  - [️] Make a dynamic logo endpoint that always returns a different graphic:
+        "https://assets.aesthetic.computer/images/favicon.png"
+  - [] Could I use icon for this?
   - [] Create a REAL order!
-  - [] Handle errors or automatic refunds if a Printful order fails?
   + Later
   + Done
+  - [x] Integrate into a `print` command and the [Print] button on a painting page.
+  - [x] Show a `success` or `failure` screen to the user after they
+        attempt to checkout.
+  - [x] Write a `print` command that will print the current painting.
+  - [x] And also wire up the `Print` button from a painting page to that command.
+  - [x] Adjust the POST requests with a `hook` flag for normal order creation or
+       responding to the webhook.
   - [x] Run some test orders.
   - [x] Add stripe checkout. 
   - [x] There needs to be a way to get and/or store user address information or
@@ -193,11 +205,6 @@ export async function handler(event, context) {
       const productName = 'Painting Sticker 5.5"';
       const name = productName + " x " + quantity;
 
-      const user = await authorize(event.headers);
-      console.log("User:", user);
-      // TODO: See: async function userJSONRequest(method, endpoint, body)
-      //       in `prompt`.
-
       const stripeCheckout = {
         line_items: [
           {
@@ -217,13 +224,14 @@ export async function handler(event, context) {
         },
         mode: "payment",
         shipping_address_collection: { allowed_countries: ["US"] },
-        success_url: `${domain}/${post.slug}?success`, // Pick these states up in the piece.
-        cancel_url: `${domain}/${post.slug}?cancel`,
+        success_url: `${domain}/${post.slug}?notice=success`, // Pick these states up in the piece.
+        cancel_url: `${domain}/${post.slug}?notice=cancel`,
         automatic_tax: { enabled: true },
       };
 
-      // TODO: 🔥 Add `customer_email` to the above if the user is currently logged in?
-      //          This will prefill their information.
+      // 🤹 Add `customer_email` to the checkout if the user is logged in.
+      const user = await authorize(event.headers);
+      if (user?.email) stripeCheckout.customer_email = user.email;
 
       const session = await stripe.checkout.sessions.create(stripeCheckout);
       return respond(200, { location: session.url });
