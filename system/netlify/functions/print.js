@@ -16,9 +16,8 @@
 // ⚠️ For testing webhooks: `stripe listen --forward-to stripe listen --forward-to "https://localhost:8888/api/print"
 
 /* #region 🏁 TODO 
-  - [] Customize stripe: https://dashboard.stripe.com/settings/branding
-  - [] Add branding: https://stripe.com/docs/payments/checkout/customization
-  - [] Send user a confirmation email from mail@aesthetic.computer
+  - [🔥] Send user a stripe receipt email. (How does this work in testing?)
+  - [️‍🔥] Send user a confirmation email from mail@aesthetic.computer
        upon a successful Printful order fulfillment.
        - [] Email should link to a sticker feed of some kind?
             (Don't want your sticker included? Reply to this email to opt-out.)
@@ -27,7 +26,9 @@
        resolutions.
     - [] Test a painting that is at a different resolution / try
          a cropped image.
-  - [] Make production test orders.
+  - [] Customize stripe: https://dashboard.stripe.com/settings/branding
+    -  (What extra info can I add to the checkout page to make it nicer?)
+  - [] Add branding: https://stripe.com/docs/payments/checkout/customization
   - [] Make sure to refund the user if their order can't be fulfilled.
   - [] How can I associate the Stripe order ID with the printful order
         just in case of issues that need to be manually addressed?
