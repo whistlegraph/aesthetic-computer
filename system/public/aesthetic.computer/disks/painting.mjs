@@ -87,9 +87,9 @@ function boot({ system, query, params, get, net, ui, screen, gizmo }) {
   }
   advance(system);
 
-  // ⚠️
+  // 2 - [] ⚠️
   // TODO: Make this a generic overlay that can be added
-  //       on top of any piece.
+  //       on top of any piece?
 
   const noticeBell = () => {
     noticeTimer = new gizmo.Hourglass(180, {
