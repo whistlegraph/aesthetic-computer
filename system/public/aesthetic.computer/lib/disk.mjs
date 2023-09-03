@@ -418,6 +418,7 @@ const $commonApi = {
   // the argument, with N quantity.
   print: (picture, quantity = 1) => {
 
+    // ❤️‍🔥
     // TODO: Determine if picture is a string or an object.
     //       If it's an object, then it needs to be uploaded
     //       as a painting to the temporary bucket so it
