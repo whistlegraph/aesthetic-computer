@@ -103,6 +103,7 @@ function boot({ system, query, params, get, net, ui, screen, gizmo }) {
   if (query === "success") {
     notice = "PRINTED";
     noticeBell();
+    printBtn = null; // Kill the print button upon success. (Clear signal)
   } else if (query === "cancel") {
     notice = "CANCELLED";
     noticeBell();
@@ -146,13 +147,13 @@ function paint({ wipe, ink, system, screen, num, paste }) {
       screen.height,
     );
 
-    printBtn.paint({ ink });
+    printBtn?.paint({ ink });
   } else if (finalPainting) {
     const x = screen.width / 2 - finalPainting.width / 2;
     const y = screen.height / 2 - finalPainting.height / 2;
     paste(finalPainting, x, y);
     ink().box(x, y, finalPainting.width, finalPainting.height, "outline");
-    printBtn.paint({ ink });
+    printBtn?.paint({ ink });
   } else {
     ink().write(interim, { center: "xy" });
   }
@@ -169,7 +170,7 @@ function paint({ wipe, ink, system, screen, num, paste }) {
 
 // 🎪 Act
 function act({ event: e, screen, print }) {
-  printBtn.act(e, {
+  printBtn?.act(e, {
     push: async () => {
       // - [] Make the print button appear "held".
       //   - [] Would this require a scheme adjustment?
@@ -180,7 +181,7 @@ function act({ event: e, screen, print }) {
   });
 
   if (e.is("reframed")) {
-    printBtn.reposition({ right: 6, bottom: 6, screen });
+    printBtn?.reposition({ right: 6, bottom: 6, screen });
   }
 }
 

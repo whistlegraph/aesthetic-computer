@@ -82,7 +82,10 @@
   - [] @handle pages should show the current version of an active painting 
       (so broadcasting is possible, eventually enabling live spectating, passing
        and turntaking)
+  - [] Shorten the corner word on painting pages / remove the timestamp
+       especially if it will be seen in the corner.
   - [] Painting pages need both a [Mint] and a [Print] button.
+  - [] Painting pages need a left and right screen tap to advance or retreat. 
   - [] Also make a mint command in addition to a print command.
        (Minting is a form of printing.)
        (See if Zora can accept prefilled form data parameters on their
