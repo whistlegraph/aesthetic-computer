@@ -416,18 +416,49 @@ let cachedAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 const $commonApi = {
   // Print either a url or the `pixels` that get passed into
   // the argument, with N quantity.
-  print: (picture, quantity = 1) => {
-
+  print: async (picture, quantity = 1) => {
+    // ❤️‍🔥
     // TODO: Determine if picture is a string or an object.
+
+    //       - [🌻] Otherwise it can just be POSTed to
+    //             `/api/print` which needs user credentials if
+    //              possible to pre-fill the email address.
+
     //       If it's an object, then it needs to be uploaded
     //       as a painting to the temporary bucket so it
-    //       has a URL. Otherwise it can just be POSTed to
-    //       `/api/print` which needs user credentials if
-    //       possible to pre-fill the email address.
+    //       has a URL.
 
-    // ❤️‍🔥 Standardize the waiting...
-    // Uploading the image should be easy and have a progress
-    // bar?
+    // Handle strings first / implement the painting button.
+
+    let pixels;
+    if (typeof picture === "string") {
+      pixels = picture; // Assume picture is a URL to an image.
+    } else {
+      // Assume picture is a buffer with `{ pixels, width, height }`
+      // that needs to be uploaded to the temp art bucket on S3.
+      // 💁 Printful rehosts the image, so no need to keep them.
+      // TODO: Implement this for the `print` prompt command.
+      // Check the code for the `upload` command too.
+      // ❤️‍🔥 Standardize the waiting...
+      // Uploading the image should be easy and have a progress
+      // bar?
+    }
+
+    try {
+      const res = await fetch(`/api/print?new=true&pixels=${pixels}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantity, slug: $commonApi.slug }),
+        // TODO: Add order info here. ^
+      });
+
+      if (!res.ok) throw new Error(`🖨️ Print: HTTP error! Status: ${res}`);
+      const data = await res.json();
+      console.log("🖨️ Print order:", data);
+      $commonApi.jump(data.location); // Redirect to checkout.
+    } catch (error) {
+      console.error("🖨️ Print order error:", error.message);
+    }
   },
   // Create a zip file of specified content. (Used for storing painting data.)
   zip: (content) => {

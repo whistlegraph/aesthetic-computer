@@ -31,15 +31,18 @@ let painting,
   labelFade = labelFadeSpeed,
   stepIndex = 0,
   interim = "No recording found.",
+  notice,
   // direction = 1,
   paintingIndex = stepIndex,
   pastRecord; // In case we load a record off the network.
 
-let print, // Sticker button.
+let printBtn, // Sticker button.
   printPixels; // A url to the loaded image for printing.
 
+let noticeTimer;
+
 // 🥾 Boot
-function boot({ system, params, get, net, ui, screen }) {
+function boot({ system, query, params, get, net, ui, screen, gizmo }) {
   if (params[0]?.length > 0) {
     interim = "Loading...";
 
@@ -80,9 +83,31 @@ function boot({ system, params, get, net, ui, screen }) {
         });
     }
 
-    print = new ui.TextButton(`Print`, { bottom: 6, right: 6, screen });
+    printBtn = new ui.TextButton(`Print`, { bottom: 6, right: 6, screen });
   }
   advance(system);
+
+  // ⚠️
+  // TODO: Make this a generic overlay that can be added
+  //       on top of any piece.
+
+  const noticeBell = () => {
+    noticeTimer = new gizmo.Hourglass(180, {
+      completed: () => {
+        notice = "";
+        noticeTimer = null;
+      },
+    });
+  };
+
+  if (query === "success") {
+    notice = "PRINTED";
+    noticeBell();
+    printBtn = null; // Kill the print button upon success. (Clear signal)
+  } else if (query === "cancel") {
+    notice = "CANCELLED";
+    noticeBell();
+  }
 }
 
 // 🎨 Paint
@@ -103,14 +128,14 @@ function paint({ wipe, ink, system, screen, num, paste }) {
     ink(num.map(labelFade, 0, labelFadeSpeed, 0, 255)).write(
       label,
       { y: 32, center: "x" },
-      "black"
+      "black",
     );
 
     if (system.nopaint.record[stepIndex - 1]?.timestamp) {
       ink(200).write(
         system.nopaint.record[stepIndex - 1]?.timestamp,
         { x: 3, y: screen.height - 13 },
-        "black"
+        "black",
       );
     }
 
@@ -119,46 +144,44 @@ function paint({ wipe, ink, system, screen, num, paste }) {
       0,
       screen.height - 1,
       screen.width * (stepIndex / system.nopaint.record.length),
-      screen.height
+      screen.height,
     );
 
-    print.paint({ ink });
+    printBtn?.paint({ ink });
   } else if (finalPainting) {
     const x = screen.width / 2 - finalPainting.width / 2;
     const y = screen.height / 2 - finalPainting.height / 2;
     paste(finalPainting, x, y);
     ink().box(x, y, finalPainting.width, finalPainting.height, "outline");
-    print.paint({ ink });
+    printBtn?.paint({ ink });
   } else {
     ink().write(interim, { center: "xy" });
+  }
+
+  if (notice) {
+    const c = notice === "CANCELLED";
+    ink(c ? "yellow" : "white").write(
+      notice,
+      { center: "xy", size: 2 },
+      c ? "red" : "green",
+    );
   }
 }
 
 // 🎪 Act
-function act({ event: e, screen }) {
-  print.act(e, {
+function act({ event: e, screen, print }) {
+  printBtn?.act(e, {
     push: async () => {
-      try {
-        const pixels =
-          "https://aesthetic.computer/api/pixel/1650x1650/" + printPixels;
-        const res = await fetch(`/api/print?pixels=${pixels}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ order: "yeah" }),
-          // TODO: Add order info here. ^
-        });
-
-        if (!res.ok) throw new Error(`HTTP error! Status: ${res}`);
-        const data = await res.json();
-        console.log("Order:", data);
-      } catch (error) {
-        console.error("Order creation error:", error.message);
-      }
+      // - [] Make the print button appear "held".
+      //   - [] Would this require a scheme adjustment?
+      printBtn.disabled = true;
+      printBtn.reposition({ right: 6, bottom: 6, screen }, "Printing...");
+      print("https://aesthetic.computer/api/pixel/1650x1650/" + printPixels);
     },
   });
 
   if (e.is("reframed")) {
-    print.reposition({ right: 6, bottom: 6, screen });
+    printBtn?.reposition({ right: 6, bottom: 6, screen });
   }
 }
 
@@ -166,6 +189,7 @@ function act({ event: e, screen }) {
 function sim({ simCount, system }) {
   if (simCount % advanceSpeed === 0n) advance(system);
   if (labelFade > 0) labelFade--;
+  noticeTimer?.step();
 }
 
 // 🥁 Beat
