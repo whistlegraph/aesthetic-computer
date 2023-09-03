@@ -72,6 +72,18 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Fix `Painting` page in Firefox ***
+ - Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at https://user.aesthetic.computer/auth0|63effeeb2a7d55f8098d62f9/painting/2023.8.24.14.26.54.544.zip. (Reason: CORS request did not succeed). Status code: (null).
+
+Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at https://user.aesthetic.computer/auth0|63effeeb2a7d55f8098d62f9/painting/2023.8.24.14.26.54.544.png. (Reason: CORS request did not succeed). Status code: (null).
+
+*** Email Receipts ***
+  - [] Customize stripe: https://dashboard.stripe.com/settings/branding
+  - [] Send receipt email and also an email from aesthetic.computer that
+       links to a sticker feed of some kind?
+       (Don't want your sticker included? Reply to this email to opt-out.)
+       (Paintings that have been printed get special copies in S3.)
+
 *** Sticker Costs ***
   - [] Kiss-cut sticker should retail for 4.00.
   - [] Shipping & Processing is $5. Printful Shipping: 4.99 / Stripe
