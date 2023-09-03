@@ -416,40 +416,50 @@ let cachedAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 const $commonApi = {
   // Print either a url or the `pixels` that get passed into
   // the argument, with N quantity.
-  print: async (picture, quantity = 1) => {
-    // ❤️‍🔥
-    // TODO: Determine if picture is a string or an object.
+  print: async (picture, quantity = 1, progress) => {
+    console.log("🖨️ Printing:", picture, "Quantity:", quantity);
 
-    //       - [🌻] Otherwise it can just be POSTed to
-    //             `/api/print` which needs user credentials if
-    //              possible to pre-fill the email address.
-
-    // TODO: 1. [] 🔥 Add / check for user credentials to pre-fill email!
-
-    //       If it's an object, then it needs to be uploaded
-    //       as a painting to the temporary bucket so it
-    //       has a URL.
-
-    // Handle strings first / implement the painting button.
-
+    // Determine if picture is a string or an object.
     let pixels;
     if (typeof picture === "string") {
       pixels = picture; // Assume picture is a URL to an image.
     } else {
       // Assume picture is a buffer with `{ pixels, width, height }`
-      // that needs to be uploaded to the temp art bucket on S3.
-      // 💁 Printful rehosts the image, so no need to keep them.
-      // TODO: Implement this for the `print` prompt command.
-      // Check the code for the `upload` command too.
+      // Upload it to the temporary bucket.
+      const filename = `painting-${num.timestamp()}.png`;
+
+      try {
+        const data = await $commonApi.upload(
+          filename,
+          picture,
+          (p) => {
+            console.log("Painting upload progress:", p);
+            progress?.(p);
+          },
+          "art", // Store in temporary bucket no matter what.
+        );
+        console.log("🪄 Painting uploaded:", data.slug, data.ext, data.url);
+        pixels = `https://aesthetic.computer/api/pixel/1650x1650/${data.slug}.${data.ext}`;
+      } catch (err) {
+        console.error("🪄 Painting upload failed:", err);
+      }
+
       // ❤️‍🔥 Standardize the waiting...
-      // Uploading the image should be easy and have a progress
-      // bar?
+      // - [💛] Uploading stuff image from the prompt should be easy and have
+      //      working progress bars.
     }
 
     try {
+      const headers = { "Content-Type": "application/json" };
+      try {
+        // Include authorization token if logged in.
+        const token = await $commonApi.authorize(); // Get user token.
+        if (token) headers.Authorization = `Bearer ${token}`;
+      } catch (err) {} // Handled up-stream.
+
       const res = await fetch(`/api/print?new=true&pixels=${pixels}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ quantity, slug: $commonApi.slug }),
         // TODO: Add order info here. ^
       });
@@ -459,14 +469,20 @@ const $commonApi = {
       console.log("🖨️ Print order:", data);
       $commonApi.jump(data.location); // Redirect to checkout.
     } catch (error) {
-      console.error("🖨️ Print order error:", error.message);
+      console.error("🖨️ Print order error:", error);
     }
   },
   // Create a zip file of specified content. (Used for storing painting data.)
-  zip: (content) => {
+  zip: (content, progress) => {
     const prom = new Promise((resolve, reject) => {
       zipCreation = { resolve, reject };
     });
+
+    if (content.destination === "upload") {
+      serverUploadProgressReporter = progress;
+      serverUploadProgressReporter?.(0);
+    }
+
     send({ type: "zip", content });
     return prom;
   },
@@ -540,6 +556,7 @@ const $commonApi = {
       serverUpload = { resolve, reject };
     });
     serverUploadProgressReporter = progress;
+    serverUploadProgressReporter?.(0);
     send({ type: "upload", content: { filename, data, bucket } });
     return prom;
   },
@@ -941,7 +958,10 @@ const $commonApi = {
     pieces: `${location.protocol}//${location.host}/aesthetic.computer/disks`,
     parse, // Parse a piece slug.
   },
-  needsPaint: () => (noPaint = false), // TODO: Does "paint" needs this?
+  needsPaint: () => {
+    noPaint = false;
+    if (system === "nopaint") $commonApi.system.nopaint.needsPresent = true;
+  }, // TODO: Does "paint" needs this?
   store,
   pieceCount: -1, // Incs to 0 when the first piece (usually the prompt) loads.
   //                 Increments by 1 each time a new piece loads.
@@ -1745,6 +1765,8 @@ const microphone = new Microphone();
 let originalHost;
 let firstLoad = true;
 
+let notice, noticeTimer; // Renders a full-screen notice on piece-load if present.
+
 async function load(
   parsed, // If parsed is not an object, then assume it's source code.
   fromHistory = false,
@@ -2251,7 +2273,7 @@ async function load(
   };
 
   $commonApi.slug = slug;
-  $commonApi.query = search;
+  $commonApi.query = Object.fromEntries(new URLSearchParams(search));
   $commonApi.params = params || [];
   $commonApi.colon = colon;
 
@@ -2442,6 +2464,20 @@ async function load(
     // sound = null;
     glazeEnabled = null;
     soundClear = null;
+
+    // 🪧 See if notice needs to be shown.
+    if ($commonApi.query.notice === "success") {
+      notice = "PRINTED";
+      noticeBell();
+    } else if ($commonApi.query.notice === "cancel") {
+      notice = "CANCELLED";
+      noticeBell();
+    } else if ($commonApi.query.notice?.length > 0) {
+      notice = $commonApi.query.notice;
+      noticeBell();
+    } else {
+      notice = noticeTimer = undefined;
+    }
 
     // Push last piece to a history list, skipping prompt and repeats.
     if (
@@ -2889,7 +2925,6 @@ async function makeFrame({ data: { type, content } }) {
       console.error("File failed to load:", content);
       serverUpload?.reject(content.data);
     }
-    serverUploadProgressReporter?.(0);
     serverUpload = undefined;
     return;
   }
@@ -2944,7 +2979,7 @@ async function makeFrame({ data: { type, content } }) {
     if (content.result === "success") {
       authorizationRequest?.resolve(content.data);
     } else if (content.result === "error") {
-      console.error("Failed to authenticate.", content);
+      console.warn("Failed to authenticate.", content);
       authorizationRequest?.reject(content.data);
     }
     authorizationRequest = undefined;
@@ -3324,6 +3359,7 @@ async function makeFrame({ data: { type, content } }) {
           $api.simCount = simCount;
           try {
             sim($api);
+            noticeTimer?.step(); // Globally tick the noticeTimer if it exists.
           } catch (e) {
             console.warn("🧮 Sim failure...", e);
           }
@@ -3845,12 +3881,13 @@ async function makeFrame({ data: { type, content } }) {
         //await painting.paint();
 
         // Upper layer.
+        const { layer, ink, needsPaint } = $api;
+        layer(1000); // Always make sure this stuff draws on top.
 
         // 😱 Scream - Paint a scream if it exists.
         // TODO: Should this overlay after the fact and not force a paint? 23.05.23.19.21
         //       Yes probably, because of layering issues?
         if (scream || screaming) {
-          const { ink, needsPaint } = $api;
           ink(255)
             .wipe(255, 0, 0)
             .write(scream, { center: "xy", size: 3, thickness: 1 });
@@ -3866,14 +3903,12 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         // 🧚 Ambient Pen Points - Paint if they exist.
-        const { ink, needsPaint } = $api;
-
         ambientPenPoints.forEach(({ x, y }) => {
           ink().point(x * screen.width, y * screen.height);
         });
         if (ambientPenPoints.length > 0) {
           needsPaint();
-          if (system === "nopaint") $api.system.nopaint.needsPresent = true;
+          // if (system === "nopaint") $api.system.nopaint.needsPresent = true;
         }
         ambientPenPoints.length = 0;
 
@@ -3887,6 +3922,18 @@ async function makeFrame({ data: { type, content } }) {
         ) {
           ink("red").box(screen.width - 3, 1, 2);
         }
+
+        // Show a notice if necessary.
+        if (notice) {
+          const c = notice === "CANCELLED";
+          ink(c ? "yellow" : "white").write(
+            notice,
+            { center: "x", y: 32, size: 2 },
+            c ? "red" : "green",
+          );
+        }
+
+        layer(0);
 
         painting.paint(true);
         painted = true;
@@ -3918,6 +3965,7 @@ async function makeFrame({ data: { type, content } }) {
         !hideLabel &&
         piece !== undefined &&
         piece.length > 0 &&
+        piece !== "download:painting" &&
         piece !== "prompt" &&
         piece !== "play" &&
         piece !== "gargoyle" &&
@@ -4127,3 +4175,14 @@ function maybeLeave() {
     leaveLoad?.();
   }
 }
+
+const noticeBell = () => {
+  noticeTimer = new gizmo.Hourglass(180, {
+    completed: () => {
+      notice = "";
+      noticeTimer = null;
+      $commonApi.needsPaint();
+    },
+    // every: () => $commonApi.needsPaint(),
+  });
+};

@@ -45,7 +45,7 @@ async function handleRequest(request) {
       const userId = await queryUserID(path[2]);
       let newPath = `${userId}/${path.slice(3).join("/")}`;
 
-      if (!newPath.endsWith(".png")) newPath += ".png"; // Allow routing without extensions.
+      if (!newPath.endsWith(".png")) newPath += ".png"; // Allow routing without extensions. (default to PNG).
 
       if (newPath.split("/").pop().split(".")[1]?.length > 0) {
         // The path has a file extension / points to an individual file.

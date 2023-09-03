@@ -82,11 +82,11 @@ export async function handler(event, context) {
       filename = decodeURIComponent(slug);
     // Assume a guest / code lookup because emails or handles have an "@".
     if (slug.indexOf("@") === -1) {
-      // Guest: ?for=CODE (would have no slashes)
+      // Guest
       s3 = s3Guest;
       bucket = process.env.ART_SPACE_NAME;
     } else {
-      // User: ?for=@jeffrey/painting/filename.png
+      // User
       s3 = s3User;
       bucket = process.env.USER_SPACE_NAME;
       // Replace `user` email or handle with their auth0 id.
@@ -150,7 +150,8 @@ export async function handler(event, context) {
       };
     }
   } else {
-    client = { s3: s3Guest, bucket: process.env.ART_SPACE_NAME }; // Assume the unauthorized, temporary "art" bucket.
+    // Assume the unauthorized, temporary "art" bucket.
+    client = { s3: s3Guest, bucket: process.env.ART_SPACE_NAME };
     // tagging = `activity=${activity}`; // Add activity tag. (Assume anonymous.)
   }
 
