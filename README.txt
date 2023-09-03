@@ -76,7 +76,21 @@
   - [] `snaptok` (^-^)
   - [] `meet`, `talk`, `say`
 
-*** aesthetic.computer ***
+*** i-feel-pretty-lost ***
+  - [] don't know how to relax
+  - [] am i close or am i far?
+  - [] @handle pages should show the current version of an active painting 
+      (so broadcasting is possible, eventually enabling live spectating, passing
+       and turntaking)
+  - [] Painting pages need both a [Mint] and a [Print] button.
+  - [] Also make a mint command in addition to a print command.
+       (Minting is a form of printing.)
+       (See if Zora can accept prefilled form data parameters on their
+        minting page: https://support.zora.co/en/articles/7131468-zora101-how-to-create-a-multi-edition-erc-1155)
+        - I want to be able to send them a URL for an image that can prefill
+          the file field.
+
+*** @aesthetic.computer ***
   - [] Make the first instagram grid post.
 
 *** Stickers ***

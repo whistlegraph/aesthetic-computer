@@ -75,69 +75,11 @@ export async function handler(event, context) {
   const variant = 10165; // 5.5" Square
   const width = 1650; // Print resolution.
   const height = 1650;
+  const imageUrl = event.queryStringParameters.pixels;
+  // console.log("Image:", imageUrl);
 
   // 🅰️ GET: Generate a mockup image.
   if (event.httpMethod === "GET") {
-    const imageUrl = event.queryStringParameters.pixels;
-    //    ^ This must exist.
-    // console.log("Image:", imageUrl);
-
-    // TODO: Eventually move this down into a "POST" request.
-    const stripe = new Stripe(stripeKey);
-    const domain = dev
-      ? "https://localhost:8888"
-      : "https://aesthetic.computer";
-
-    // Pricing details.
-    const quantity = 1;
-    const unitAmount = 400 * quantity; // Kiss-cut sticker price in cents
-    //                 ❓ Go down a bit in price for higher quantities?
-    const shippingAndProcessing = 500; // Shipping & Processing in cents
-    const paymentProcessorFees = 100; // Payment processor fees in cents
-    const subtotal = unitAmount + shippingAndProcessing + paymentProcessorFees;
-    // const stripeFee = Math.round(subtotal * 0.03 + 30); // Stripe takes 3% + 30 cents
-    const finalAmount = subtotal; // + stripeFee;
-
-    // TODO: Add quantity to product name if there is more than 1.
-    const productName = 'Painting Sticker 5.5"';
-    const name = productName + " x " + quantity;
-
-    const user = await authorize(event.headers);
-    console.log("User:", user);
-    // TODO: See: async function userJSONRequest(method, endpoint, body)
-    //       in `prompt`.
-
-    const stripeCheckout = {
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: { name, images: [imageUrl] },
-            unit_amount: finalAmount, // Amount in cents
-          },
-          quantity: 1,
-        },
-      ],
-      metadata: {
-        productName, // Pass product name to Printful.
-        quantity, // Pass actual quantity to Printful.
-        imageUrl, // TODO: Eventually this might need to include
-        //                 images<->product associations for multiple items.
-      },
-      mode: "payment",
-      shipping_address_collection: { allowed_countries: ["US"] },
-      success_url: `${domain}/success.html`,
-      cancel_url: `${domain}/cancel.html`,
-      automatic_tax: { enabled: true },
-    };
-
-    // TODO: 🔥 Add `customer_email` to the above if the user is currently logged in?
-    //          This will prefill their information.
-
-    const session = await stripe.checkout.sessions.create(stripeCheckout);
-    return respond(303, undefined, { Location: session.url });
-    // ^ Uncomment the pair above to get product listings while in development,
-
     try {
       // 🔸 List all products.
       // (Only really needed while developing for now. 23.08.25.18.42)
@@ -225,127 +167,189 @@ export async function handler(event, context) {
     }
   } else if (event.httpMethod === "POST") {
     // 🅱️ POST: Place an order.
-
-    // ↪️ Receive webhook events...
-    // ✅ checkout.session.completed
-    //    charge.succeeded
-    //    payment_intent.succeeded
-    //    payment_intent.created
-
     const stripe = new Stripe(stripeKey);
-    const sig = event.headers["stripe-signature"];
-    const secret = dev
-      ? "whsec_181bbe48c808731616de39c5c75fc670c83c6ef554409b8c770170b718fbd3b0"
-      : process.env.STRIPE_ENDPOINT_SECRET;
-    let hookEvent;
 
-    try {
-      hookEvent = stripe.webhooks.constructEvent(event.body, sig, secret);
-    } catch (err) {
-      const msg = { message: `Webhook Error: ${err.message}` };
-      console.log(msg);
-      return respond(400, msg);
-    }
+    const imageUrl = event.queryStringParameters.pixels;
+    const post = JSON.parse(event.body);
 
-    // Handle the `checkout.session.completed` event
-    if (hookEvent.type === "checkout.session.completed") {
-      const session = await stripe.checkout.sessions.retrieve(
-        hookEvent.data.object.id,
-        { expand: ["line_items", "shipping_details", "customer_details"] },
-      ); // Retrieve session expanding certain fields.
-      // See also: https://stripe.com/docs/api/checkout/sessions/object
+    // 1. Begin a new print order.
+    if (event.queryStringParameters.new === "true") {
+      const domain = dev
+        ? "https://localhost:8888"
+        : "https://aesthetic.computer";
 
-      // console.log("🤑 Stripe order:", session);
+      // Pricing details.
+      const quantity = post.quantity || 1; // Set quantity from post data.
+      const unitAmount = 400 * quantity; // Kiss-cut sticker price in cents
+      //                 ❓ Go down a bit in price for higher quantities?
+      const shippingAndProcessing = 500; // Shipping & Processing in cents
+      const paymentProcessorFees = 100; // Payment processor fees in cents
+      const subtotal =
+        unitAmount + shippingAndProcessing + paymentProcessorFees;
+      // const stripeFee = Math.round(subtotal * 0.03 + 30); // Stripe takes 3% + 30 cents
+      const finalAmount = subtotal; // + stripeFee;
 
-      // 💁 If this fails after a successful payment, then it needs to be
-      // manually triggerable for already paid orders or a refund needs
-      // to be triggered automagically. 23.08.29.17.50
+      // TODO: Add quantity to product name if there is more than 1.
+      const productName = 'Painting Sticker 5.5"';
+      const name = productName + " x " + quantity;
 
-      if (session.payment_status === "paid") {
-        console.log("✅ Paid!");
-        const productName = hookEvent.data.object.metadata.productName;
-        const quantity = hookEvent.data.object.metadata.quantity;
-        const itemImage = hookEvent.data.object.metadata.imageUrl;
-        console.log("Metadata image:", itemImage);
-        // console.log("Shipping details:", session.shipping_details);
-        // console.log("Customer:", session.customer_details);
+      const user = await authorize(event.headers);
+      console.log("User:", user);
+      // TODO: See: async function userJSONRequest(method, endpoint, body)
+      //       in `prompt`.
 
-        // 🖨️ Run the printful order, transferring over the shipping data.
-        const shipping = session.shipping_details;
-        const recipient = {
-          name: shipping.name,
-          address1: shipping.address.line1,
-          city: shipping.address.city,
-          state_code: shipping.address.state,
-          country_code: shipping.address.country,
-          zip: shipping.address.postal_code,
-        };
-        if (shipping.address.line2) recipient.address2 = shipping.address.line2;
-
-        const order = {
-          recipient,
-          items: [
-            {
-              name: productName,
-              variant_id: variant,
-              quantity,
-              files: [
-                {
-                  url: itemImage,
-                  position: {
-                    area_width: 1650, // Constant for this variant.
-                    area_height: 1650,
-                    width,
-                    height,
-                    top: 0,
-                    left: 0,
-                  },
-                },
-              ],
+      const stripeCheckout = {
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: { name, images: [imageUrl] },
+              unit_amount: finalAmount, // Amount in cents
             },
-          ],
-          packing_slip: {
-            email: "mail@aesthetic.computer",
-            message: "Your pictures belong on this earth. - @jeffrey",
-            logo_url: "https://assets.aesthetic.computer/images/favicon.png",
-            store_name: "aesthetic.computer",
+            quantity: 1,
           },
-        };
+        ],
+        metadata: {
+          productName, // Pass product name to Printful.
+          quantity, // Pass actual quantity to Printful.
+          imageUrl, // TODO: Eventually this might need to include
+          //                 images<->product associations for multiple items.
+        },
+        mode: "payment",
+        shipping_address_collection: { allowed_countries: ["US"] },
+        success_url: `${domain}/${post.slug}?success`, // Pick these states up in the piece.
+        cancel_url: `${domain}/${post.slug}?cancel`,
+        automatic_tax: { enabled: true },
+      };
 
-        console.log("Making printful order:", order);
+      // TODO: 🔥 Add `customer_email` to the above if the user is currently logged in?
+      //          This will prefill their information.
 
-        try {
-          // 🔸 Place an order.
-          // See also: https://developers.printful.com/docs/#operation/createOrder
-          // TODO: Auto-confirm orders.
-          const orderResponse = await got.post(`${API}/orders?confirm=false`, {
-            headers,
-            json: order,
-          });
+      const session = await stripe.checkout.sessions.create(stripeCheckout);
+      return respond(200, { location: session.url });
+    } else {
+      // 2. Or respond to an existing one.
+      // ↪️ Receive webhook events...
+      // ✅ checkout.session.completed
+      //    charge.succeeded
+      //    payment_intent.succeeded
+      //    payment_intent.created
 
-          const orderResult = JSON.parse(orderResponse.body);
+      const sig = event.headers["stripe-signature"];
+      const secret = dev
+        ? "whsec_181bbe48c808731616de39c5c75fc670c83c6ef554409b8c770170b718fbd3b0"
+        : process.env.STRIPE_ENDPOINT_SECRET;
+      let hookEvent;
 
-          if (orderResult && orderResult.result) {
-            console.log("😃 Order sent!", orderResult);
-            // TODO: How to include image metadata?
+      try {
+        hookEvent = stripe.webhooks.constructEvent(event.body, sig, secret);
+      } catch (err) {
+        const msg = { message: `Webhook Error: ${err.message}` };
+        console.log(msg);
+        return respond(400, msg);
+      }
 
-            return respond(200, { order: orderResult.result });
-          } else {
-            const msg = { message: "Error processing order." };
+      // Handle the `checkout.session.completed` event
+      if (hookEvent.type === "checkout.session.completed") {
+        const session = await stripe.checkout.sessions.retrieve(
+          hookEvent.data.object.id,
+          { expand: ["line_items", "shipping_details", "customer_details"] },
+        ); // Retrieve session expanding certain fields.
+        // See also: https://stripe.com/docs/api/checkout/sessions/object
+
+        // console.log("🤑 Stripe order:", session);
+
+        // 💁 If this fails after a successful payment, then it needs to be
+        // manually triggerable for already paid orders or a refund needs
+        // to be triggered automagically. 23.08.29.17.50
+
+        if (session.payment_status === "paid") {
+          console.log("✅ Paid!");
+          const productName = hookEvent.data.object.metadata.productName;
+          const quantity = hookEvent.data.object.metadata.quantity;
+          const itemImage = hookEvent.data.object.metadata.imageUrl;
+          console.log("Metadata image:", itemImage);
+          // console.log("Shipping details:", session.shipping_details);
+          // console.log("Customer:", session.customer_details);
+
+          // 🖨️ Run the printful order, transferring over the shipping data.
+          const shipping = session.shipping_details;
+          const recipient = {
+            name: shipping.name,
+            address1: shipping.address.line1,
+            city: shipping.address.city,
+            state_code: shipping.address.state,
+            country_code: shipping.address.country,
+            zip: shipping.address.postal_code,
+          };
+          if (shipping.address.line2)
+            recipient.address2 = shipping.address.line2;
+
+          const order = {
+            recipient,
+            items: [
+              {
+                name: productName,
+                variant_id: variant,
+                quantity,
+                files: [
+                  {
+                    url: itemImage,
+                    position: {
+                      area_width: 1650, // Constant for this variant.
+                      area_height: 1650,
+                      width,
+                      height,
+                      top: 0,
+                      left: 0,
+                    },
+                  },
+                ],
+              },
+            ],
+            packing_slip: {
+              email: "mail@aesthetic.computer",
+              message: "Your pictures belong on this earth. - @jeffrey",
+              logo_url: "https://assets.aesthetic.computer/images/favicon.png",
+              store_name: "aesthetic.computer",
+            },
+          };
+
+          console.log("Making printful order:", order);
+
+          try {
+            // 🔸 Place an order.
+            // See also: https://developers.printful.com/docs/#operation/createOrder
+            // TODO: Auto-confirm orders.
+            const orderResponse = await got.post(
+              `${API}/orders?confirm=false`,
+              { headers, json: order },
+            );
+
+            const orderResult = JSON.parse(orderResponse.body);
+
+            if (orderResult && orderResult.result) {
+              console.log("😃 Order sent!", orderResult);
+              // TODO: How to include image metadata?
+
+              return respond(200, { order: orderResult.result });
+            } else {
+              const msg = { message: "Error processing order." };
+              console.log(msg);
+              return respond(500, msg);
+            }
+          } catch (error) {
+            const msg = { message: error.message };
             console.log(msg);
             return respond(500, msg);
           }
-        } catch (error) {
-          const msg = { message: error.message };
-          console.log(msg);
-          return respond(500, msg);
+        } else {
+          // Stripe order was unpaid.
+          return respond(500, { message: "Order payment failed." });
         }
       } else {
-        // Stripe order was unpaid.
-        return respond(500, { message: "Order payment failed." });
+        return respond(400, { message: "Incorrect webhook event." });
       }
-    } else {
-      return respond(400, { message: "Incorrect webhook event." });
     }
   } else {
     return respond(405, { message: "Method Not Allowed" });
