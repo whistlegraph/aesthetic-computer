@@ -424,6 +424,8 @@ const $commonApi = {
     //             `/api/print` which needs user credentials if
     //              possible to pre-fill the email address.
 
+    // TODO: 1. [] 🔥 Add / check for user credentials to pre-fill email!
+
     //       If it's an object, then it needs to be uploaded
     //       as a painting to the temporary bucket so it
     //       has a URL.
