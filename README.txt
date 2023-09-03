@@ -83,6 +83,42 @@ Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remot
        links to a sticker feed of some kind?
        (Don't want your sticker included? Reply to this email to opt-out.)
        (Paintings that have been printed get special copies in S3.)
+       
+*** picture call ***
+  - [] `snaptok` (^-^)
+  - [] `meet`, `talk`, `say`
+
+*** i-feel-pretty-lost ***
+  - [] don't know how to relax
+  - [] am i close or am i far?
+  - [] @handle pages should show the current version of an active painting 
+      (so broadcasting is possible, eventually enabling live spectating, passing
+       and turntaking)
+  - [] Shorten the corner word on painting pages / remove the timestamp
+       especially if it will be seen in the corner.
+  - [] Painting pages need both a [Mint] and a [Print] button.
+  - [] Painting pages need a left and right screen tap to advance or retreat. 
+  - [] Also make a mint command in addition to a print command.
+       (Minting is a form of printing.)
+       (See if Zora can accept prefilled form data parameters on their
+        minting page: https://support.zora.co/en/articles/7131468-zora101-how-to-create-a-multi-edition-erc-1155)
+        - I want to be able to send them a URL for an image that can prefill
+          the file field.
+
+*** @aesthetic.computer ***
+  - [] Make the first instagram grid post.
+
+*** Stickers ***
+  + Core
+    - [😙] Integrate into a `print` command and the [Print] button on a painting page.
+    - [] Send the user a confirmation email... will Printful do this or can they?
+    - [] Make sure to refund the user if their order can't be fulfilled.
+    - [] How can I associate the Stripe order ID with the printful order
+         just in case of issues that need to be manually addressed?
+    - [] Show a `success` or `failure` screen to the user after they
+         attempt to checkout.
+    - [] Retrieve the mockup image for a successful order and show it to
+         the user either on the success screen or in the email they receive.
 
 *** Sticker Costs ***
   - [] Kiss-cut sticker should retail for 4.00.
