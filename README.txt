@@ -94,6 +94,9 @@
   - [🌪️] Make a dynamic logo endpoint that always returns a different graphic: "https://assets.aesthetic.computer/images/favicon.png"
     - [] Could I use icon for this?
 
+*** Voice ***
+  - [] Implement calls with: https://console.agora.io/
+
 *** ✨ Rattle ***
   - [] Make rattle prototype functional.
 
