@@ -70,6 +70,9 @@ function boot({ system, query, params, get, net, ui, screen, gizmo }) {
       .then((out) => {
         finalPainting = out;
         net.preloaded();
+      })
+      .catch((err) => {
+        // console.warn("Could not load painting.", err);
       });
     if (recordingCode) {
       get
@@ -78,6 +81,9 @@ function boot({ system, query, params, get, net, ui, screen, gizmo }) {
         .then((out) => {
           pastRecord = system.nopaint.record;
           system.nopaint.record = out;
+        })
+        .catch((err) => {
+          // console.warn("Could not load recording.", err);
         });
     }
 
