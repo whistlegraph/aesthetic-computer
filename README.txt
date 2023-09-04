@@ -110,32 +110,19 @@
         - I want to be able to send them a URL for an image that can prefill
           the file field.
 
+*** Profiles ***
+  - [] Make sure setting a @handle actually works.
+  - [] @handle pages should show the current version of an active painting 
+      (so broadcasting is possible, eventually enabling live spectating, passing
+        and turntaking)
+
 *** @aesthetic.computer ***
   - [] Make the first instagram grid post.
 
-*** Stickers ***
-  + Core
-    - [😙] Integrate into a `print` command and the [Print] button on a painting page.
-    - [] Send the user a confirmation email... will Printful do this or can they?
-    - [] Make sure to refund the user if their order can't be fulfilled.
-    - [] How can I associate the Stripe order ID with the printful order
-         just in case of issues that need to be manually addressed?
-    - [] Show a `success` or `failure` screen to the user after they
-         attempt to checkout.
-    - [] Retrieve the mockup image for a successful order and show it to
-         the user either on the success screen or in the email they receive.
-
-*** Sticker Costs ***
-  - [] Kiss-cut sticker should retail for 4.00.
-  - [] Shipping & Processing is $5. Printful Shipping: 4.99 / Stripe
-  - [] Payment processor fees: $1.00
-  - [] Stripe takes 30 cents plus 3%.
-  - [] Make it so that multiple stickers can be ordered.
-  - [🌪️] Make a dynamic logo endpoint that always returns a different graphic: "https://assets.aesthetic.computer/images/favicon.png"
-    - [] Could I use icon for this?
-
-*** Voice ***
-  - [] Implement calls with: https://console.agora.io/
+*** picture call ***
+  - [] `snaptok` (^-^)
+  - [] `meet`, `talk`, `say`
+  - [] Implement voice calls with: https://console.agora.io/
 
 *** ✨ Rattle ***
   - [] Make rattle prototype functional.

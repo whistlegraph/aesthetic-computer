@@ -21,13 +21,6 @@ let melodyIndex = 0;
 let square;
 let firstBeat = true;
 
-// 🥾 Boot
-// TODO: Get this working so bpm can have a starting default,
-//       and/or make it so beat does not start on a delay?
-//function boot({ sound: { bpm }, query }) {
-//bpm(query || 200);
-//}
-
 // 💗 Beat
 function beat({ sound, params, store }) {
   // Set the system metronome using `store`.
