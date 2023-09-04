@@ -102,6 +102,7 @@ export default async function handler(req, res) {
 // See also: `help.mjs`
 // TODO: Could not import like in `ask.ts` because of the JS environment.
 //       23.09.01.19.11
+// ⚠️ This will not work on other *.ac domains.
 function corsHeaders(request) {
   const dev = process.env.VERCEL_ENV === "development";
   const production = !dev;
