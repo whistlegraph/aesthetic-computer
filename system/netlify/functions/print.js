@@ -61,6 +61,7 @@
 #endregion */
 
 import { respond } from "../../backend/http.mjs";
+import { email } from "../../backend/email.mjs";
 import Stripe from "stripe";
 const dev = process.env.CONTEXT === "dev";
 const printfulKey = process.env.PRINTFUL_API_TOKEN;
@@ -279,7 +280,7 @@ export async function handler(event, context) {
           const itemImage = hookEvent.data.object.metadata.imageUrl;
           console.log("Metadata image:", itemImage);
           // console.log("Shipping details:", session.shipping_details);
-          // console.log("Customer:", session.customer_details);
+          console.log("Customer:", session.customer_details);
 
           // 🖨️ Run the printful order, transferring over the shipping data.
           const shipping = session.shipping_details;
@@ -290,6 +291,7 @@ export async function handler(event, context) {
             state_code: shipping.address.state,
             country_code: shipping.address.country,
             zip: shipping.address.postal_code,
+            email: session.customer_details.email,
           };
           if (shipping.address.line2)
             recipient.address2 = shipping.address.line2;
@@ -339,9 +341,17 @@ export async function handler(event, context) {
 
             if (orderResult && orderResult.result) {
               console.log("😃 Order sent!", orderResult);
-              // TODO: How to include image metadata?
+              // TODO: Include an image in this email also?
+              const isSuccess = await email({
+                to: session.customer_details.email,
+                subject: "your sticker is coming! 🫠",
+                html: "<p>and we appreciate your order</p><b>aesthetic.computer</b>",
+              });
 
-              return respond(200, { order: orderResult.result });
+              return respond(200, {
+                order: orderResult.result,
+                emailSent: isSuccess,
+              });
             } else {
               const msg = { message: "Error processing order." };
               console.log(msg);
