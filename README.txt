@@ -90,12 +90,35 @@
   - [] Same goes for all other media.
 
 *** Fix `Painting` page in Firefox ***
-  - [] Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at https://user.aesthetic.computer/auth0|63effeeb2a7d55f8098d62f9/painting/2023.8.24.14.26.54.544.zip. (Reason: CORS request did not succeed). Status code: (null).
+ - [] Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at https://user.aesthetic.computer/auth0|63effeeb2a7d55f8098d62f9/painting/2023.8.24.14.26.54.544.zip. (Reason: CORS request did not succeed). Status code: (null).
 
-*** Painting Pages ***
+*** Email Receipts ***
+  - [] Customize stripe: https://dashboard.stripe.com/settings/branding
+  - [] Send receipt email and also an email from aesthetic.computer that
+       links to a sticker feed of some kind?
+       (Don't want your sticker included? Reply to this email to opt-out.)
+       (Paintings that have been printed get special copies in S3.)
+       
+*** picture call ***
+  - [] `snaptok` (^-^)
+  - [] `meet`, `talk`, `say`
+
+*** painting page ***
+  - [] Static image on page. 
+  - [] Play forward or single step.
+  - [] Move buttons above progress bar (action area)
+
+*** i-feel-pretty-lost ***
+  - [] don't know how to relax
+  - [] am i close or am i far?
+  - [] @handle pages should show the current version of an active painting 
+      (so broadcasting is possible, eventually enabling live spectating, passing
+       and turntaking)
   - [] Shorten the corner word on painting pages / remove the timestamp
        especially if it will be seen in the corner.
+
   - [] Painting pages need both a [Mint] and a [Print] button.
+
   - [] Painting pages need a left and right screen tap to advance or retreat. 
   - [] Also make a mint command in addition to a print command.
        (Minting is a form of printing.)
