@@ -16,12 +16,13 @@
 // ⚠️ For testing webhooks: `stripe listen --forward-to stripe listen --forward-to "https://localhost:8888/api/print"
 
 /* #region 🏁 TODO 
-  - [🔥] Send user a stripe receipt email. (How does this work in testing?)
-  - [️‍🔥] Send user a confirmation email from mail@aesthetic.computer
+  - [x] Send user a confirmation email from mail@aesthetic.computer
        upon a successful Printful order fulfillment.
-       - [] Email should link to a sticker feed of some kind?
-            (Don't want your sticker included? Reply to this email to opt-out.)
-            (Paintings that have been printed get special copies in S3.)
+       - [-] Email should embed the mockup image of the sticker, or 
+             at the very least, include a link?
+
+  - [🔥] Send user a stripe receipt email. (How does this work in testing?)
+
   - [] Get mockup images working and looking good for different
        resolutions.
     - [] Test a painting that is at a different resolution / try
@@ -39,6 +40,9 @@
   - [] Could I use icon for this?
   - [] Create a REAL order!
   + Later
+  - [] Email should link to a sticker feed of some kind?
+      (Don't want your sticker included? Reply to this email to opt-out.)
+      (Paintings that have been printed get special copies in S3.)
   + Done
   - [x] Integrate into a `print` command and the [Print] button on a painting page.
   - [x] Show a `success` or `failure` screen to the user after they
