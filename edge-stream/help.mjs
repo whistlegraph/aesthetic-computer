@@ -1,3 +1,5 @@
+// TODO: - [] Update `say` with this function also...
+
 export function corsHeaders(request) {
   const dev = process.env.VERCEL_ENV === "development";
   const production = !dev;
