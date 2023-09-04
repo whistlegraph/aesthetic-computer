@@ -72,6 +72,23 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** typing `print` ***
+  - [] Should be the same as `done` and then typing `print`.
+  - [] `user/prints` -> goes to folder and adds a record to the database
+                        metadata on how many times this image has been printed
+
+*** etude ***
+  - [] Play an automated musical piece designed to express the functionality
+       of a.c.
+
+*** user generated media ***
+  - [] You can do version updates on code but old versions are kept of the same
+       name and new versions are auto-incremented but the original name
+       always points to the newest version, and there will be a way to get
+       a list of versions.
+  - [] Paintings cannot be modified but maybe deleted. 
+  - [] Same goes for all other media.
+
 *** Fix `Painting` page in Firefox ***
   - [] Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at https://user.aesthetic.computer/auth0|63effeeb2a7d55f8098d62f9/painting/2023.8.24.14.26.54.544.zip. (Reason: CORS request did not succeed). Status code: (null).
 

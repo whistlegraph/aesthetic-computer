@@ -3038,7 +3038,7 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "loaded-zip-rejection") {
-    if (debug) console.error("🤐 Zip load failure:", content.url);
+    if (debug) console.warn("🤐 Zip load failure:", content.url);
     preloadPromises[content.url].reject(content.url);
     delete preloadPromises[content.url];
     return;
