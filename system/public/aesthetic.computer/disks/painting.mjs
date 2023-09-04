@@ -63,8 +63,6 @@ function boot({ system, query, params, get, net, ui, screen, gizmo }) {
       printPixels = imageCode;
     }
 
-    console.log("Print pixels:", printPixels);
-
     net.waitForPreload();
     get
       .painting(imageCode)
@@ -86,28 +84,7 @@ function boot({ system, query, params, get, net, ui, screen, gizmo }) {
     printBtn = new ui.TextButton(`Print`, { bottom: 6, right: 6, screen });
   }
   advance(system);
-
-  // 2 - [] ⚠️
-  // TODO: Make this a generic overlay that can be added
-  //       on top of any piece?
-
-  const noticeBell = () => {
-    noticeTimer = new gizmo.Hourglass(180, {
-      completed: () => {
-        notice = "";
-        noticeTimer = null;
-      },
-    });
-  };
-
-  if (query === "success") {
-    notice = "PRINTED";
-    noticeBell();
-    printBtn = null; // Kill the print button upon success. (Clear signal)
-  } else if (query === "cancel") {
-    notice = "CANCELLED";
-    noticeBell();
-  }
+  if (query.notice === "success") printBtn = null; // Kill button after order.
 }
 
 // 🎨 Paint
@@ -157,15 +134,6 @@ function paint({ wipe, ink, system, screen, num, paste }) {
   } else {
     ink().write(interim, { center: "xy" });
   }
-
-  if (notice) {
-    const c = notice === "CANCELLED";
-    ink(c ? "yellow" : "white").write(
-      notice,
-      { center: "xy", size: 2 },
-      c ? "red" : "green",
-    );
-  }
 }
 
 // 🎪 Act
@@ -189,7 +157,6 @@ function act({ event: e, screen, print }) {
 function sim({ simCount, system }) {
   if (simCount % advanceSpeed === 0n) advance(system);
   if (labelFade > 0) labelFade--;
-  noticeTimer?.step();
 }
 
 // 🥁 Beat

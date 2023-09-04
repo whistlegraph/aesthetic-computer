@@ -74,7 +74,7 @@ let flashMessage;
 let flashColor = [];
 let flashPresent = false;
 
-let uploadProgress = 0; // If not zero, then draw a progress bar.
+let progressBar = -1; // If not zero, then draw a progress bar.
 
 let login, // A login button in the center of the display.
   signup, // A Sign-up button.
@@ -170,6 +170,7 @@ async function halt($, text) {
     code,
     send,
     zip,
+    print,
   } = $;
   // Roughly parse out the text (could also do a full `parse` here.)
   const tokens = text.split(" ");
@@ -221,6 +222,13 @@ async function halt($, text) {
     flashColor = [200, 0, 200];
     makeFlash($);
     return true;
+  } else if (slug === "print") {
+    // TODO: Do I want to show the progress bar here?
+    progressBar = 0;
+    await print(system.painting, params[0], (p) => (progressBar = p)); // Print a sticker.
+    progressBar = 1;
+
+    return true;
   } else if (slug === "painting:done" || slug === "yes!") {
     let destination = params[0] || "download"; // or "upload"
     if (destination === "u" || slug === "yes!") destination = "upload";
@@ -233,9 +241,12 @@ async function halt($, text) {
       filename = `painting-${record[record.length - 1].timestamp}.png`;
       // ^ For below, because the record will be cleared.
 
-      const zipped = await zip({
-        destination,
-        painting: { record },
+      if (destination === "upload") progressBar = 0;
+      // TODO: How to have zip upload progress?
+
+      const zipped = await zip({ destination, painting: { record } }, (p) => {
+        console.log("🤐 Zip progress:", p);
+        progressBar = p;
       });
 
       console.log("🤐 Zipped:", zipped);
@@ -246,28 +257,32 @@ async function halt($, text) {
 
       flashColor = [0, 255, 0];
     } else {
+      filename = `painting-${num.timestamp()}.png`;
       flashColor = [255, 0, 0];
       console.warn("🖌️ No recording to save!");
     }
 
+    // Always upload a PNG.
     if (destination === "upload") {
       console.log("🖼️ Uploading painting...");
-      uploadProgress = -1; // Trigger progress bar rendering.
-      upload(filename, store["painting"], (p) => (uploadProgress = p))
-        .then((data) => {
-          console.log("🪄 Painting uploaded:", filename, data);
-          flashColor = [0, 255, 0];
-          makeFlash($);
-        })
-        .catch((err) => {
-          console.error("🪄 Painting upload failed:", err);
-          flashColor = [255, 0, 0];
-          makeFlash($);
+      progressBar = 0; // Trigger progress bar rendering.
+      try {
+        const data = await upload(filename, store["painting"], (p) => {
+          console.log("🖌️ Painting progress:", p);
+          progressBar = p;
         });
+        console.log("🪄 Painting uploaded:", filename, data);
+        flashColor = [0, 255, 0];
+      } catch (err) {
+        console.error("🪄 Painting upload failed:", err);
+        flashColor = [255, 0, 0];
+      }
+      makeFlash($);
     } else {
       makeFlash($);
     }
 
+    progressBar = -1;
     return true;
   } else if (slug === "flower") {
     jump("lmn-flower");
@@ -307,7 +322,9 @@ async function halt($, text) {
   if (slug === "mood") {
     let res;
     if (params.join(" ").trim().length > 0) {
-      res = await userJSONRequest("POST", "/api/mood", { mood: params.join(" ") });
+      res = await userJSONRequest("POST", "/api/mood", {
+        mood: params.join(" "),
+      });
     }
     flashColor = res ? [0, 255, 0] : [255, 0, 0];
     if (res) {
@@ -439,24 +456,26 @@ async function halt($, text) {
     } else {
       const filename = `painting-${num.timestamp()}.png`;
       // The first dashed string will get replaced with a slash / media directory filter on the server.
-      uploadProgress = -1; // Trigger progress bar rendering.
-      upload(filename, store["painting"], (p) => (uploadProgress = p))
-        .then((data) => {
-          console.log("🪄 Painting uploaded:", filename, data);
-          flashColor = [0, 255, 0];
-          makeFlash($);
-          const slug = user
-            ? `${handle || user.email}/painting/${data.slug}`
-            : data.slug;
-          jump(`download:painting ${slug}`);
-        })
-        .catch((err) => {
-          console.error("🪄 Painting upload failed:", err);
-          flashColor = [255, 0, 0];
-          makeFlash($);
-        });
+      progressBar = 0; // Trigger progress bar rendering.
+      try {
+        const data = await upload(
+          filename,
+          store["painting"],
+          (p) => (progressBar = p),
+        );
+        console.log("🪄 Painting uploaded:", filename, data);
+        flashColor = [0, 255, 0, 128];
+        makeFlash($);
+        const slug = user
+          ? `${handle || user.email}/painting/${data.slug}`
+          : data.slug;
+        jump(`download:painting ${slug}`);
+      } catch (err) {
+        console.error("🪄 Painting upload failed:", err);
+        flashColor = [255, 0, 0, 127];
+        makeFlash($);
+      }
     }
-    system.prompt.input.blank();
     return true;
   } else if (slug === "flip" || slug === "flop") {
     const vertical = slug === "flip"; // `flop` is lateral
@@ -534,7 +553,7 @@ async function halt($, text) {
         painting,
         store,
         { w, h, scale: true },
-        fullText
+        fullText,
       );
       flashColor = [0, 255, 0];
     }
@@ -734,10 +753,11 @@ function paint($) {
     });
   }
 
-  if (uploadProgress > 0 || uploadProgress === -1) {
-    ink(0).box(1, 1, screen.width - 2, 2);
-    if (uploadProgress > 0) {
-      ink(scheme.dark.block).box(1, 1, (screen.width - 2) * uploadProgress, 2);
+  if (progressBar >= 0) {
+    ink(255, 180, 0, 120).box(0, 0, screen.width, screen.height, "inline");
+    ink(0).box(1, 1, screen.width - 2, 1);
+    if (progressBar > 0) {
+      ink(scheme.dark.block).box(1, 1, (screen.width - 2) * progressBar, 1);
     }
   }
 
@@ -753,14 +773,14 @@ function paint($) {
       screen.width / 2,
       0,
       screen.width / 2,
-      screen.height
+      screen.height,
     );
     if (screen.width % 2 === 0) {
       $.ink(255, 0, 255, 127).line(
         screen.width / 2 - 1,
         0,
         screen.width / 2 - 1,
-        screen.height
+        screen.height,
       );
     }
   }

@@ -94,17 +94,16 @@ export function boot({
   // Load some initial parameters.
 
   // Change from default BPM
-  const params = new URLSearchParams(query);
-  BPM = params.get("bpm") || BPM;
+  BPM = params.bpm || BPM;
 
   // Change from default melody
-  melody = params.get("melody") || melody;
+  melody = params.melody || melody;
   melody = melody.replace(/\s/g, "");
   notes = parseMelody(melody);
   melodyBeatsTotal = melody.length;
 
   // Change whether we loop or not.
-  if (params.get("loop") === "true") {
+  if (params.loop === "true") {
     loopSong = true;
   }
 
@@ -128,7 +127,7 @@ export function boot({
           p.wipe(...blocksColors[l]);
         }),
       },
-      [blocksX[l], 0, 4] // Position
+      [blocksX[l], 0, 4], // Position
     );
 
   each(blocks, (b) => (b.alpha = 0.25));
@@ -139,7 +138,7 @@ export function boot({
     { texture: painting(32, 32, (p) => p.wipe(32)) },
     [blocksX[notes[0].letter], 4, 4],
     [0, 0, 180],
-    [0.7, 0.7, 1]
+    [0.7, 0.7, 1],
   );
 }
 
@@ -230,7 +229,7 @@ export function paint({
     if (playDurationProgress === 0 && noteI < notes.length) {
       arrow.texture = painting(32, 32, ({ wipe }) => {
         const light = [255, 255, 255].map((n) =>
-          lerp(0, n, instrumentProgress)
+          lerp(0, n, instrumentProgress),
         );
         wipe(...light);
         // const height = Math.floor(lerp(0, 32, (playIndex + 1) / plays.length));

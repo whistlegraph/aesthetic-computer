@@ -145,7 +145,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           "🥶 Freezing:",
           freezeFrame,
           imageData.width,
-          imageData.height
+          imageData.height,
         );
       }
 
@@ -228,7 +228,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         height,
         "🖥 Window:",
         window.innerWidth,
-        window.innerHeight
+        window.innerHeight,
       );
 
     // Send a message about this new width and height to any hosting frames.
@@ -311,7 +311,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         function (event) {
           if (event.target.tagName !== "A") event.preventDefault();
         },
-        false
+        false,
       );
     }
 
@@ -332,7 +332,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         () => {
           send({ type: "needs-paint" }); // Once all the glaze shaders load, render a single frame.
           // canvas.style.opacity = 0;
-        }
+        },
       );
     } else {
       Glaze.off();
@@ -428,7 +428,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       Loop.mainLoop,
       receivedDownload,
       receivedUpload,
-      send
+      send,
     );
   }
 
@@ -593,7 +593,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // TODO: Why can't there be separate audioWorklet modules?
       await audioContext.audioWorklet.addModule(
-        "/aesthetic.computer/lib/microphone.mjs"
+        "/aesthetic.computer/lib/microphone.mjs",
       );
 
       const micProcessorNode = new AudioWorkletNode(
@@ -602,7 +602,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         {
           outputChannelCount: [2],
           processorOptions: { debug },
-        }
+        },
       );
 
       micNode.connect(micProcessorNode);
@@ -635,7 +635,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const buffer = audioContext.createBuffer(
             1,
             msg.content.recording.length,
-            audioContext.sampleRate
+            audioContext.sampleRate,
           );
           const channel = buffer.getChannelData(0); // Ref to the first channel.
           channel.set(msg.content.recording);
@@ -696,7 +696,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     try {
       (async () => {
         await audioContext.audioWorklet.addModule(
-          "/aesthetic.computer/lib/speaker.mjs"
+          "/aesthetic.computer/lib/speaker.mjs",
         );
 
         const soundProcessor = new AudioWorkletNode(
@@ -705,7 +705,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           {
             outputChannelCount: [2],
             processorOptions: { bpm: sound.bpm, debug },
-          }
+          },
         );
 
         updateMetronome = function (newBPM) {
@@ -831,7 +831,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const tempBuffer = audioContext.createBuffer(
           buffer.numberOfChannels,
           buffer.length,
-          buffer.sampleRate
+          buffer.sampleRate,
         );
 
         // Copy and reverse the data for each channel.
@@ -878,7 +878,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const elapsed = audioContext.currentTime - startTime;
           const progress = max(
             0,
-            (elapsed % buffer.duration) / buffer.duration
+            (elapsed % buffer.duration) / buffer.duration,
           );
           // You can return either the elapsedTime or percentage, or both, based on your needs.
           return { elapsed, progress };
@@ -1075,7 +1075,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           clipboardText: pastedText,
         },
       },
-      transferrableObjects
+      transferrableObjects,
     );
 
     // if (Object.keys(pen.pointers).length > 1) {
@@ -1388,7 +1388,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 type: "function",
                 inputs: [{ type: "address", name: "addr" }],
               },
-              [address]
+              [address],
             ),
           });
           return web3.eth.abi.decodeParameter(
@@ -1401,9 +1401,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   type: "function",
                   inputs: [{ type: "bytes32", name: "hash" }],
                 },
-                [namehash]
+                [namehash],
               ),
-            })
+            }),
           );
         }
 
@@ -1417,7 +1417,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       } else {
         send({ type: "web3-connect-response", content: { result: "error" } });
         console.warn(
-          "🔴 Web3 is unavailable. Please install an Ethereum wallet or enable your extension."
+          "🔴 Web3 is unavailable. Please install an Ethereum wallet or enable your extension.",
         );
       }
       return;
@@ -1683,7 +1683,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
 
           TwoD?.render();
-        }
+        },
       );
     }
 
@@ -1826,7 +1826,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           history.pushState(
             "",
             document.title,
-            content.text === "/prompt" ? "/" : "/" + content.text // Replace "prompt" with "/".
+            content.text === "/prompt" ? "/" : "/" + content.text, // Replace "prompt" with "/".
           );
         }
 
@@ -1842,7 +1842,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             history.replaceState(
               "",
               document.title,
-              content.text === "/prompt" ? "/" : "/" + content.text // Replace "prompt" with "/".
+              content.text === "/prompt" ? "/" : "/" + content.text, // Replace "prompt" with "/".
             );
           } catch (err) {
             console.warn("⚠️ Couldn't change url state. Going too fast!? ➿🚗");
@@ -2070,7 +2070,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           console.log(
             "📦 Retrieved local:db data:",
             content.key,
-            retrievedContent
+            retrievedContent,
           );
         send({ type: "store:retrieved", content: retrievedContent });
       }
@@ -2299,7 +2299,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               0,
               frameHeight / 2 - height / 2,
               streamCanvasContext.canvas.width,
-              height
+              height,
             );
           } else {
             const width = streamCanvasContext.canvas.height / aspectRatio;
@@ -2308,7 +2308,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               frameWidth / 2 - width / 2,
               0,
               width,
-              streamCanvasContext.canvas.height
+              streamCanvasContext.canvas.height,
             );
           }
         };
@@ -2398,7 +2398,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // TikTok
             //"fps=30, scale=1080x1920:flags=neighbor:force_original_aspect_ratio=decrease, pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
             "fps=30",
-            "output.mp4"
+            "output.mp4",
           );
           // Notes on these options:
           // width expression: https://stackoverflow.com/a/20848224/8146077
@@ -2487,7 +2487,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
             */
             },
-            { once: true }
+            { once: true },
           );
 
           // Try running everything through the audioContext even if
@@ -2580,7 +2580,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             type: "loaded-bitmap-success",
             content: { url: content, img: bitmap },
           },
-          [bitmap.pixels.buffer]
+          [bitmap.pixels.buffer],
         );
       });
       img.addEventListener("error", () => {
@@ -2624,9 +2624,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 content: { url, sfx: content },
               });
             } else {
-              const audioBuffer = await audioContext.decodeAudioData(
-                arrayBuffer
-              );
+              const audioBuffer =
+                await audioContext.decodeAudioData(arrayBuffer);
               sfx[content] = audioBuffer;
               send({
                 type: "loaded-sfx-success",
@@ -2771,7 +2770,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         content.didntRender,
         content.reframe,
         "Freeze:",
-        freezeFrame
+        freezeFrame,
       );
       frameAlreadyRequested = false; // 🗨️ Tell the system we are ready for another frame.
       return;
@@ -2785,7 +2784,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const imageData = new ImageData(
         new Uint8ClampedArray(content.pixels), // Is this the only necessary part?
         content.dirtyBox.w,
-        content.dirtyBox.h
+        content.dirtyBox.h,
       );
 
       // Paint everything to a secondary canvas buffer.
@@ -2807,7 +2806,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       imageData = new ImageData(
         new Uint8ClampedArray(content.pixels),
         content.width,
-        content.height
+        content.height,
       );
     }
 
@@ -2819,7 +2818,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const overlay = new ImageData(
         content.label.img.pixels,
         content.label.img.width,
-        content.label.img.height
+        content.label.img.height,
       );
 
       // TODO: This could be instantiated elsewhere if it's ever slow... similar to dirtyBoxBitmapCam's potential optimization above. 23.01.30.21.32
@@ -2941,7 +2940,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // 📤 Reads a file and uploads it to the server.
   async function receivedUpload(
     { filename, data, bucket },
-    callbackMessage = "upload"
+    callbackMessage = "upload",
   ) {
     console.log("📤 Uploading globally:", filename, typeof data || "...");
     const ext = extension(filename);
@@ -2955,7 +2954,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (typeof data !== "string") {
         data = JSON.stringify(
           data,
-          (k, v) => (typeof v === "bigint" ? v.toString() : v)
+          (k, v) => (typeof v === "bigint" ? v.toString() : v),
           // 2 // Also make sure we indent by 2 spaces so it's nicely formatted.
         );
       }
@@ -2987,16 +2986,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Authorization: Check to see if we will use a user or a guest bucket.
     const headers = {};
-    const token = await authorize();
 
-    if (token) {
-      bucket = "user";
-      headers.Authorization = `Bearer ${token}`;
-      // This filename gets sorted into the user bucket via their own
-      // directory upon uploading.
-      // Otherwise if there is no authorization, we just send an empty filename.
-      // (And one will be generated via nanoid on the server.)
-      prefetchURL += "/" + filename + "/" + bucket; // Add filename info.
+    // If no bucket is specified, then try and use the "user" bucket.
+    if (!bucket) {
+      const token = await authorize();
+      if (token) {
+        bucket = "user";
+        headers.Authorization = `Bearer ${token}`;
+        // This filename gets sorted into the user bucket via their own
+        // directory upon uploading.
+        // Otherwise if there is no authorization, we just send an empty filename
+        // slug with an extension and an identifier gets generated via nanoid on
+        // the server.
+        prefetchURL += "/" + filename + "/" + bucket; // Add filename info.
+      }
     }
 
     function error(err) {
@@ -3018,7 +3021,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const url = new URL(presignedUrl);
         const filename = url.pathname.split("/").pop();
         const slug = filename.substring(0, filename.lastIndexOf("."));
-        const path = url.pathname;
+        const path = url.pathname.slice(1); // Remove prepending "/";
 
         if (debug) console.log("🔐 Presigned URL:", presignedUrl);
 
@@ -3043,7 +3046,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
             send({
               type: callbackMessage,
-              content: { result: "success", data: { slug, path } },
+              content: {
+                result: "success",
+                data: { slug, url: "https://" + path, ext },
+              },
             });
 
             if (debug) console.log("✔️ File uploaded:", xhr.responseURL);
@@ -3180,7 +3186,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (typeof data !== "string") {
         data = JSON.stringify(
           data,
-          (k, v) => (typeof v === "bigint" ? v.toString() : v)
+          (k, v) => (typeof v === "bigint" ? v.toString() : v),
           // 2 // Also make sure we indent by 2 spaces so it's nicely formatted.
         );
       }
@@ -3213,7 +3219,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       } else {
         console.warn(
           "🕸️ No local video available... Trying art bucket:",
-          filename
+          filename,
         );
         object = `https://art.aesthetic.computer/${filename}`;
       }
@@ -3488,7 +3494,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (debug)
               console.log("🎥 Resolution:", buffer.width, buffer.height);
           },
-          { once: true }
+          { once: true },
         );
 
         // Resizing the video after creation. (Window resize or device rotate.)
@@ -3520,7 +3526,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 if (debug)
                   console.log("🎥 Resolution:", buffer.width, buffer.height);
               },
-              { once: true }
+              { once: true },
             );
           } catch (error) {
             process();
@@ -3571,7 +3577,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               );
 
               const vision = await FilesetResolver.forVisionTasks(
-                "/aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
+                "/aesthetic.computer/dep/@mediapipe/tasks-vision/wasm",
               );
 
               handAPI.HandLandmarker = HandLandmarker;
@@ -3593,7 +3599,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   minHandPresenceConfidence: 0.25,
                   minTrackingConfidence: 0.25,
                   numHands: 1,
-                }
+                },
               );
             }
           }
@@ -3685,7 +3691,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             0,
             0,
             buffer.width,
-            buffer.height
+            buffer.height,
           );
 
           send(
@@ -3697,7 +3703,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 pixels: pixels.data,
               },
             },
-            [pixels.data.buffer]
+            [pixels.data.buffer],
           );
         }
 

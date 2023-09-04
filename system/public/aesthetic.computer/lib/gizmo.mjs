@@ -10,23 +10,28 @@ export class Hourglass {
   #completed;
   #flipped;
   #autoFlip = false;
+  #every; // Callback that fires every frame.
 
   constructor(
     max = 1,
-    { completed, flipped, autoFlip = false } = {},
-    startingTicks = 0
+    { completed, flipped, every, autoFlip = false } = {},
+    startingTicks = 0,
   ) {
     this.max = max;
     this.ticks = startingTicks;
     this.#autoFlip = autoFlip;
     this.#completed = completed;
     this.#flipped = flipped;
+    this.#every = every;
   }
 
   step() {
     if (this.complete === true) return console.log("⌛ Already complete.");
 
     this.ticks += 1;
+
+    this.#every?.();
+
     if (this.ticks >= this.max) {
       this.complete = true;
       this.#completed?.(this.flips);
