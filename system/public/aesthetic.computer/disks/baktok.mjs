@@ -5,15 +5,19 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] [Start] button should be blue.
+  - [] Push and Hold -> Press and Hold 
+  - [] [Press and Hold] should be green.
+  - [] This button should be white on red while recording,
+       and the background of the page should probably be red too.
+  - [] LISTEN CAREFULLY, should replace "SAY SOMETHING" during playback.
+  - [] Add a pause / play button, on the bottom right. 
   - [] Drag line to scrub recording head and add gestural recording and
        playback. (Easter egg?)
-  - [] Change themes to be distinct from whistle.
-    - [] Make start button green.
-    - [] Make record button red.
-    - [] Turn push and hold into "again" after the first time.
-  - [] Add a painting or illustration in the background / a logo.
-  - Pre-launch:
-  - [] Make the microphone access / audio context work better.
+    - [] Pitch loop 89 (Ableton Plugin)
+    - [] Borderlands iPad App
+  - [] Make the microphone access / audio context work better?
+       (Seems to work fine.)
   + Next version
   - [] Add layering option so multiple sounds can be layered and removed,
        stacked on top of one another, etc. 
