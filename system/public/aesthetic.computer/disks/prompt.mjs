@@ -172,6 +172,8 @@ async function halt($, text) {
     zip,
     print,
   } = $;
+  motdController?.abort(); // Abort any motd update.
+
   // Roughly parse out the text (could also do a full `parse` here.)
   const tokens = text.split(" ");
   const slug = tokens[0]; // Note: Includes colon params.
@@ -234,6 +236,7 @@ async function halt($, text) {
     if (destination === "u" || slug === "yes!") destination = "upload";
     //                                  ^ "yes!" is always an upload.
     let filename; // Used in painting upload.
+    let recordingSlug;
 
     if (system.nopaint.recording) {
       console.log("🖌️ Saving recording:", destination);
@@ -250,6 +253,7 @@ async function halt($, text) {
       });
 
       console.log("🤐 Zipped:", zipped);
+      recordingSlug = zipped.slug;
 
       system.nopaint.recording = false;
       system.nopaint.record = [];
@@ -272,7 +276,15 @@ async function halt($, text) {
           progressBar = p;
         });
         console.log("🪄 Painting uploaded:", filename, data);
-        jump(`painting~${"@jeffrey"}/${data.slug}`);
+
+        // Jump to the painting page that gets returned.
+        if (handle) {
+          jump(`painting~${handle}/${data.slug}`); // For a user.
+        } else {
+          jump(
+            `painting~${data.slug}${recordingSlug ? ":" + recordingSlug : ""}`,
+          ); // Or for a guest.
+        }
         flashColor = [0, 255, 0];
       } catch (err) {
         console.error("🪄 Painting upload failed:", err);

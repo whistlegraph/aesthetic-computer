@@ -5,13 +5,14 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [-] Automatically go to the `painting` page after a successful upload /
-       return the proper code.
-       - [] Generally smooth out the `painting:done` and `yes` feedback.
   + Later
   - [] Sound
   - [] Forwards and backwards directionality.
   + Done
+  - [x] `done` should take you to the painting page after uploading.
+  - [x] Automatically go to the `painting` page after a successful upload /
+       return the proper code.
+       - [x] Generally smooth out the `painting:done` and `yes` feedback.
   - [x] Add `print` button.
   - [x] Load provisional / non-user paintings.
   - [x] If there is no recording then still load and show the `.png`.
@@ -42,6 +43,9 @@ const btnBar = 32;
 const butBottom = 6;
 const butSide = 6;
 
+let handle;
+let imageCode, recordingCode;
+
 let mintBtn; // A button to mint.
 
 // 🥾 Boot
@@ -49,22 +53,7 @@ function boot({ system, params, get, net, ui, screen }) {
   if (params[0]?.length > 0) {
     interim = "Loading...";
 
-    let handle;
-    let imageCode, recordingCode;
-    // User string (@user/timestamp)
-    if (params[0].startsWith("@")) {
-      const [user, timestamp] = params[0].split("/");
-      handle = user;
-      imageCode = recordingCode = timestamp;
-      slug = handle + "/painting/" + imageCode + ".png";
-    } else {
-      // Assume a guest painting code.
-      // Example: Lw2OYs0H:qVlzDcp6;
-      //          ^ png    ^ recording (if it exists)
-      [imageCode, recordingCode] = params[0].split(":");
-      handle = "anon";
-      slug = imageCode + ".png";
-    }
+    genSlug({ params });
 
     net.waitForPreload();
     get
@@ -221,10 +210,12 @@ function leave({ system }) {
 // 📰 Meta
 function meta({ params }) {
   if (params[0]) {
-    const [handle, timestamp] = params[0].split("/");
+    genSlug({ params });
     return {
-      title: `painting · ${handle}/${timestamp}`,
-      desc: `A painting by ${handle} from ${timestamp}.`,
+      title: `painting · ${slug.replace(".png", "")}`,
+      desc: handle
+        ? `A pixel painting by ${handle}.`
+        : `An anonymous pixel painting.`,
     };
   } else {
     return {
@@ -288,4 +279,21 @@ function advance(system) {
   // stepIndex -= 1;
   // if (stepIndex === 0) direction = 1;
   //}
+}
+
+function genSlug({ params }) {
+  // User string (@user/timestamp)
+  if (params[0].startsWith("@")) {
+    const [user, timestamp] = params[0].split("/");
+    handle = user;
+    imageCode = recordingCode = timestamp;
+    slug = handle + "/painting/" + imageCode + ".png";
+  } else {
+    // Assume a guest painting code.
+    // Example: Lw2OYs0H:qVlzDcp6;
+    //          ^ png    ^ recording (if it exists)
+    [imageCode, recordingCode] = params[0].split(":");
+    handle = "anon";
+    slug = imageCode + ".png";
+  }
 }
