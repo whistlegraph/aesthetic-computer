@@ -10,12 +10,13 @@ export function corsHeaders(request) {
   // If there's a match, set that as the Access-Control-Allow-Origin value.
   // If in development, simply use the wildcard.
   let originToSet;
+  console.log("Origin:", request.headers.get("origin"));
   if (production) {
     if (
       request.headers &&
-      allowedOrigins.includes(request.headers.origin.value)
+      allowedOrigins.includes(request.headers.get("origin"))
     ) {
-      originToSet = request.headers.origin;
+      originToSet = request.headers.get("origin");
     } else {
       originToSet = allowedOrigins[0]; // Default to the first one if no match
     }
