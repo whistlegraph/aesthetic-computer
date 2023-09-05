@@ -73,7 +73,8 @@ async function fun(event, context) {
             ? width / metadata.width
             : height / metadata.height;
 
-        const margin = 0.05;
+        const margin = 0.1;
+        // const marginPx = 128;//Math.floor(long * scalingFactor * margin);
         const marginPx = Math.floor(long * scalingFactor * margin);
         const rectWidth = Math.floor(metadata.width * scalingFactor) - marginPx;
         const rectHeight =
@@ -89,8 +90,10 @@ async function fun(event, context) {
           })
           .toBuffer();
 
-        const radius = Math.floor(long * 0.1),
-          pad = Math.floor(long * 0.2);
+        const radius = Math.floor(long * scalingFactor * 0.02),
+          pad = Math.floor(long * scalingFactor * 0.04);
+
+        console.log(radius, pad);
 
         const svg = `
           <svg width="${rectWidth + marginPx}" height="${
