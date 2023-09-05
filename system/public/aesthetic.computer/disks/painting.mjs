@@ -31,15 +31,12 @@ let painting,
   labelFade = labelFadeSpeed,
   stepIndex = 0,
   interim = "No recording found.",
-  notice,
   // direction = 1,
   paintingIndex = stepIndex,
   pastRecord; // In case we load a record off the network.
 
 let printBtn, // Sticker button.
   printPixels; // A url to the loaded image for printing.
-
-let noticeTimer;
 
 // 🥾 Boot
 function boot({ system, query, params, get, net, ui, screen, gizmo }) {
@@ -53,14 +50,14 @@ function boot({ system, query, params, get, net, ui, screen, gizmo }) {
       const [user, timestamp] = params[0].split("/");
       handle = user;
       imageCode = recordingCode = timestamp;
-      printPixels = handle + "/painting/" + imageCode;
+      printPixels = handle + "/painting/" + imageCode + ".png";
     } else {
       // Assume a guest painting code.
       // Example: Lw2OYs0H:qVlzDcp6;
       //          ^ png    ^ recording (if it exists)
       [imageCode, recordingCode] = params[0].split(":");
       handle = "anon";
-      printPixels = imageCode;
+      printPixels = imageCode + ".png";
     }
 
     net.waitForPreload();
@@ -90,7 +87,7 @@ function boot({ system, query, params, get, net, ui, screen, gizmo }) {
     printBtn = new ui.TextButton(`Print`, { bottom: 6, right: 6, screen });
   }
   advance(system);
-  if (query.notice === "success") printBtn = null; // Kill button after order.
+  // if (query.notice === "success") printBtn = null; // Kill button after order.
 }
 
 // 🎨 Paint
