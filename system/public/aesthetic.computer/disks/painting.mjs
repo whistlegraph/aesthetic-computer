@@ -150,7 +150,7 @@ function act({ event: e, screen, print }) {
       //   - [] Would this require a scheme adjustment?
       printBtn.disabled = true;
       printBtn.reposition({ right: 6, bottom: 6, screen }, "Printing...");
-      print("https://aesthetic.computer/api/pixel/1650x1650/" + printPixels);
+      print("https://aesthetic.computer/api/pixel/1650:contain/" + printPixels);
     },
   });
 
