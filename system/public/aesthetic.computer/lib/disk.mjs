@@ -464,8 +464,11 @@ const $commonApi = {
         // TODO: Add order info here. ^
       });
 
-      if (!res.ok) throw new Error(`🖨️ Print: HTTP error! Status: ${res}`);
       const data = await res.json();
+      if (!res.ok)
+        throw new Error(
+          `🖨️ Print: HTTP error! Status: ${JSON.stringify(data)}`,
+        );
       console.log("🖨️ Print order:", data);
       $commonApi.jump(data.location); // Redirect to checkout.
     } catch (error) {
