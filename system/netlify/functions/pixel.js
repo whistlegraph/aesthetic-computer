@@ -48,6 +48,7 @@ async function fun(event, context) {
       const metadata = await sharp(response.body).metadata();
       const width = resolution[0];
       const height = resolution[1] || resolution[0];
+      const long = Math.max(metadata.width, metadata.height);
       const kernel =
         width > metadata.width || height > metadata.height
           ? sharp.kernel.nearest // For scaling up.
@@ -72,9 +73,11 @@ async function fun(event, context) {
             ? width / metadata.width
             : height / metadata.height;
 
-        const margin = 128;
-        const rectWidth = Math.floor(metadata.width * scalingFactor) - margin;
-        const rectHeight = Math.floor(metadata.height * scalingFactor) - margin;
+        const margin = 0.05;
+        const marginPx = Math.floor(long * scalingFactor * margin);
+        const rectWidth = Math.floor(metadata.width * scalingFactor) - marginPx;
+        const rectHeight =
+          Math.floor(metadata.height * scalingFactor) - marginPx;
 
         const resizedBuffer = await sharp(response.body)
           .resize({
@@ -84,15 +87,14 @@ async function fun(event, context) {
             kernel,
             background: { r: 0, g: 0, b: 0, alpha: 0 },
           })
-          .png()
           .toBuffer();
 
-        const radius = 24,
-          pad = 48;
+        const radius = Math.floor(long * 0.1),
+          pad = Math.floor(long * 0.2);
 
         const svg = `
-          <svg width="${rectWidth + margin}" height="${
-            rectHeight + margin
+          <svg width="${rectWidth + marginPx}" height="${
+            rectHeight + marginPx
           }" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <filter id="dropshadow" height="130%">
@@ -107,18 +109,19 @@ async function fun(event, context) {
                   </feMerge>
                 </filter>
               </defs>
-              <rect x="${margin / 2 - pad / 2}" y="${
-                margin / 2 - pad / 2
+              <rect x="${marginPx / 2 - pad / 2}" y="${
+                marginPx / 2 - pad / 2
               }" width="${rectWidth + pad}" height="${
                 rectHeight + pad
               }" rx="${radius}" ry="${radius}" fill="white" filter="url(#dropshadow)" />
           </svg>`;
 
-        const rectangleBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
+        const rectangleBuffer = await sharp(Buffer.from(svg)).toBuffer();
 
         // Composite the resized rectangle to the rounded sheet.
         buffer = await sharp(rectangleBuffer)
           .composite([{ input: resizedBuffer, blend: "over" }])
+          .png()
           .toBuffer();
       }
 
@@ -144,11 +147,3 @@ async function fun(event, context) {
 }
 
 export const handler = builder(fun);
-
-async function createCenteredRoundedRectangle(
-  bufferWidth,
-  bufferHeight,
-  rectWidth,
-  rectHeight,
-  borderRadius,
-) {}

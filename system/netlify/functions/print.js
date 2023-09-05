@@ -138,7 +138,9 @@ export async function handler(event, context) {
       let imageUrl;
       if (!event.queryStringParameters.pixels.startsWith("https://")) {
         imageUrl = `https://aesthetic.computer/api/pixel/1650:contain/${event.queryStringParameters.pixels}`;
-        mockupUrl = imageUrl.replace("contain", "sticker");
+        mockupUrl = imageUrl
+          .replace("contain", "sticker")
+          .replace("1650", "640");
       } else {
         imageUrl = event.queryStringParameters.pixels;
         mockupUrl = imageUrl; // Don't generate a mockup yet for a custom url. 23.09.05.02.34
@@ -368,7 +370,7 @@ export async function handler(event, context) {
                 <p>and we appreciate your order</p>
                 <b>aesthetic.computer</b>
                 <br>
-                <code>${orderResponse.result.id}</code>
+                <code>${orderResult.result.id}</code>
                 `,
               });
 
