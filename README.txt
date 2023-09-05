@@ -73,11 +73,9 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** `done` ***
-  - [] Should take you to the painting page after uploading.
-  - [] Always record a painting by default now?
 
 *** painting page ***
-  - [] Shorten the corner word on painting pages / remove the timestamp
+  - [🧡] Shorten the corner word on painting pages / remove the timestamp
        especially if it will be seen in the corner.
   - [] Painting pages need a left and right screen tap to advance or retreat. 
   - [] Also make a mint command in addition to a print command.
@@ -87,6 +85,7 @@
         - I want to be able to send them a URL for an image that can prefill
           the file field.
   - [x] Make a nicer loading transition for painting pages.
+  - [] Always record a painting by default now?
   - [] Play forward or single step.
   + Done
   - [x] Static image on page.
