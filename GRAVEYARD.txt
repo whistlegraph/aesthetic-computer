@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** Fix `Painting` page in Firefox ***
+ - [x] Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at https://user.aesthetic.computer/auth0|63effeeb2a7d55f8098d62f9/painting/2023.8.24.14.26.54.544.zip. (Reason: CORS request did not succeed). Status code: (null).
+
 *** Get Deployment Working Again ***
   - [x] Move `tts.js` to `ai.aesthetic.computer/api/say`, removing
          the large GCP environment variables.

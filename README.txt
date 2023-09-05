@@ -72,53 +72,14 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** typing `print` ***
-  - [] Should be the same as `done` and then typing `print`.
-  - [] `user/prints` -> goes to folder and adds a record to the database
-                        metadata on how many times this image has been printed
-
-*** etude ***
-  - [] Play an automated musical piece designed to express the functionality
-       of a.c.
-
-*** user generated media ***
-  - [] You can do version updates on code but old versions are kept of the same
-       name and new versions are auto-incremented but the original name
-       always points to the newest version, and there will be a way to get
-       a list of versions.
-  - [] Paintings cannot be modified but maybe deleted. 
-  - [] Same goes for all other media.
-
-*** Fix `Painting` page in Firefox ***
- - [] Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at https://user.aesthetic.computer/auth0|63effeeb2a7d55f8098d62f9/painting/2023.8.24.14.26.54.544.zip. (Reason: CORS request did not succeed). Status code: (null).
-
-*** Email Receipts ***
-  - [] Customize stripe: https://dashboard.stripe.com/settings/branding
-  - [] Send receipt email and also an email from aesthetic.computer that
-       links to a sticker feed of some kind?
-       (Don't want your sticker included? Reply to this email to opt-out.)
-       (Paintings that have been printed get special copies in S3.)
-       
-*** picture call ***
-  - [] `snaptok` (^-^)
-  - [] `meet`, `talk`, `say`
+*** `done` ***
+  - [] Should take you to the painting page after uploading.
+  - [] Always record a painting by default now?
 
 *** painting page ***
-  - [] Static image on page. 
-  - [] Play forward or single step.
-  - [] Move buttons above progress bar (action area)
-
-*** i-feel-pretty-lost ***
-  - [] don't know how to relax
-  - [] am i close or am i far?
-  - [] @handle pages should show the current version of an active painting 
-      (so broadcasting is possible, eventually enabling live spectating, passing
-       and turntaking)
+  - [💛] Painting pages need a [Mint] button.
   - [] Shorten the corner word on painting pages / remove the timestamp
        especially if it will be seen in the corner.
-
-  - [] Painting pages need both a [Mint] and a [Print] button.
-
   - [] Painting pages need a left and right screen tap to advance or retreat. 
   - [] Also make a mint command in addition to a print command.
        (Minting is a form of printing.)
@@ -126,6 +87,9 @@
         minting page: https://support.zora.co/en/articles/7131468-zora101-how-to-create-a-multi-edition-erc-1155)
         - I want to be able to send them a URL for an image that can prefill
           the file field.
+  - [] Static image on page. 
+  - [] Play forward or single step.
+  - [] Move buttons above progress bar (action area)
 
 *** Profiles ***
   - [] Make sure setting a @handle actually works.
@@ -136,10 +100,27 @@
 *** @aesthetic.computer ***
   - [] Make the first instagram grid post.
 
+*** user generated media ***
+  - [] You can do version updates on code but old versions are kept of the same
+       name and new versions are auto-incremented but the original name
+       always points to the newest version, and there will be a way to get
+       a list of versions.
+  - [] Paintings cannot be modified but maybe deleted. 
+  - [] Same goes for all other media.
+
+*** typing `print` ***
+  - [] Should be the same as `done` and then typing `print`.
+  - [] `user/prints` -> goes to folder and adds a record to the database
+                        metadata on how many times this image has been printed
+
 *** picture call ***
   - [] `snaptok` (^-^)
   - [] `meet`, `talk`, `say`
   - [] Implement voice calls with: https://console.agora.io/
+
+*** etude ***
+  - [] Play an automated musical piece designed to express the functionality
+       of a.c.
 
 *** ✨ Rattle ***
   - [] Make rattle prototype functional.
