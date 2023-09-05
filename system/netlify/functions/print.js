@@ -22,7 +22,7 @@
   - [️] Make a dynamic logo endpoint that always returns a different graphic:
         "https://assets.aesthetic.computer/images/favicon.png"
   - [] Could I use icon for this?
-  - [] Create a REAL order!
+  - [] Create a REAL order... make it actually work!
   + Later
   - [] Email should link to a sticker feed of some kind?
       (Don't want your sticker included? Reply to this email to opt-out.)
