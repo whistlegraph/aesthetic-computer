@@ -77,7 +77,6 @@
   - [] Always record a painting by default now?
 
 *** painting page ***
-  - [💛] Painting pages need a [Mint] button.
   - [] Shorten the corner word on painting pages / remove the timestamp
        especially if it will be seen in the corner.
   - [] Painting pages need a left and right screen tap to advance or retreat. 
@@ -87,9 +86,12 @@
         minting page: https://support.zora.co/en/articles/7131468-zora101-how-to-create-a-multi-edition-erc-1155)
         - I want to be able to send them a URL for an image that can prefill
           the file field.
-  - [] Static image on page. 
+  - [x] Make a nicer loading transition for painting pages.
   - [] Play forward or single step.
-  - [] Move buttons above progress bar (action area)
+  + Done
+  - [x] Static image on page.
+  - [x] Painting pages need a [Mint] button.
+  - [x] Move buttons above progress bar (action area)
 
 *** Profiles ***
   - [] Make sure setting a @handle actually works.
