@@ -414,7 +414,13 @@ let cachedAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
-  // Print either a url or the `pixels` that get passed into
+  // 🪙 Mint a url or the `pixels` that get passed into the argument to a
+  // network of choice.
+  mint: async (picture) => {
+    console.log("🪙 Minting...", picture);
+    $commonApi.jump("https://zora.co/create/edition"); // Redirect to Zora create.
+  },
+  // 🖨️ Print either a url or the `pixels` that get passed into
   // the argument, with N quantity.
   print: async (picture, quantity = 1, progress) => {
     console.log("🖨️ Printing:", picture, "Quantity:", quantity);

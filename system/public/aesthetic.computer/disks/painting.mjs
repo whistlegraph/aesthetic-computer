@@ -36,10 +36,16 @@ let painting,
   pastRecord; // In case we load a record off the network.
 
 let printBtn, // Sticker button.
-  printPixels; // A url to the loaded image for printing.
+  slug; // A url to the loaded image for printing.
+
+const btnBar = 32;
+const butBottom = 6;
+const butSide = 6;
+
+let mintBtn; // A button to mint.
 
 // 🥾 Boot
-function boot({ system, query, params, get, net, ui, screen, gizmo }) {
+function boot({ system, params, get, net, ui, screen }) {
   if (params[0]?.length > 0) {
     interim = "Loading...";
 
@@ -50,14 +56,14 @@ function boot({ system, query, params, get, net, ui, screen, gizmo }) {
       const [user, timestamp] = params[0].split("/");
       handle = user;
       imageCode = recordingCode = timestamp;
-      printPixels = handle + "/painting/" + imageCode + ".png";
+      slug = handle + "/painting/" + imageCode + ".png";
     } else {
       // Assume a guest painting code.
       // Example: Lw2OYs0H:qVlzDcp6;
       //          ^ png    ^ recording (if it exists)
       [imageCode, recordingCode] = params[0].split(":");
       handle = "anon";
-      printPixels = imageCode + ".png";
+      slug = imageCode + ".png";
     }
 
     net.waitForPreload();
@@ -84,7 +90,16 @@ function boot({ system, query, params, get, net, ui, screen, gizmo }) {
         });
     }
 
-    printBtn = new ui.TextButton(`Print`, { bottom: 6, right: 6, screen });
+    printBtn = new ui.TextButton(`Print`, {
+      bottom: butBottom,
+      right: butSide,
+      screen,
+    });
+    mintBtn = new ui.TextButton(`Mint`, {
+      bottom: butBottom,
+      left: butSide,
+      screen,
+    });
   }
   advance(system);
   // if (query.notice === "success") printBtn = null; // Kill button after order.
@@ -93,16 +108,28 @@ function boot({ system, query, params, get, net, ui, screen, gizmo }) {
 // 🎨 Paint
 function paint({ wipe, ink, system, screen, num, paste }) {
   wipe(0);
+  ink(0, 127).box(0, 0, screen.width, screen.height);
+
+  function paintUi() {
+    ink(64, 127).box(
+      0,
+      screen.height - btnBar,
+      screen.width,
+      screen.height - btnBar,
+    );
+    printBtn?.paint({ ink });
+    mintBtn?.paint({ ink });
+  }
+
   // Executes every display frame.
   if (system.nopaint.record?.length > 0) {
     ink().write(label, { size: 2 });
-    ink(0, 127).box(0, 0, screen.width, screen.height);
 
     if (painting) {
       const x = screen.width / 2 - painting.width / 2;
       const y = screen.height / 2 - painting.height / 2;
-      paste(painting, x, y);
-      ink().box(x, y, painting.width, painting.height, "outline");
+      paste(painting, x, y - btnBar / 2);
+      ink().box(x, y - btnBar / 2, painting.width, painting.height, "outline");
     }
 
     ink(num.map(labelFade, 0, labelFadeSpeed, 0, 255)).write(
@@ -114,7 +141,7 @@ function paint({ wipe, ink, system, screen, num, paste }) {
     if (system.nopaint.record[stepIndex - 1]?.timestamp) {
       ink(200).write(
         system.nopaint.record[stepIndex - 1]?.timestamp,
-        { x: 3, y: screen.height - 13 },
+        { x: 3, y: screen.height - 13 - btnBar },
         "black",
       );
     }
@@ -122,37 +149,56 @@ function paint({ wipe, ink, system, screen, num, paste }) {
     // Progress bar.
     ink().box(
       0,
-      screen.height - 1,
+      screen.height - 1 - btnBar,
       screen.width * (stepIndex / system.nopaint.record.length),
-      screen.height,
+      1,
     );
 
-    printBtn?.paint({ ink });
+    paintUi();
   } else if (finalPainting) {
     const x = screen.width / 2 - finalPainting.width / 2;
     const y = screen.height / 2 - finalPainting.height / 2;
-    paste(finalPainting, x, y);
-    ink().box(x, y, finalPainting.width, finalPainting.height, "outline");
-    printBtn?.paint({ ink });
+    paste(finalPainting, x, y - btnBar / 2);
+    ink().box(
+      x,
+      y - btnBar / 2,
+      finalPainting.width,
+      finalPainting.height,
+      "outline",
+    );
+    paintUi();
   } else {
     ink().write(interim, { center: "xy" });
   }
 }
 
 // 🎪 Act
-function act({ event: e, screen, print }) {
+function act({ event: e, screen, print, mint }) {
   printBtn?.act(e, {
     push: async () => {
-      // - [] Make the print button appear "held".
-      //   - [] Would this require a scheme adjustment?
       printBtn.disabled = true;
-      printBtn.reposition({ right: 6, bottom: 6, screen }, "Printing...");
-      print(printPixels);
+      printBtn.reposition(
+        { right: butSide, bottom: butBottom, screen },
+        "Printing...",
+      );
+      print(slug);
+    },
+  });
+
+  mintBtn?.act(e, {
+    push: async () => {
+      printBtn.disabled = true;
+      printBtn.reposition(
+        { right: butSide, bottom: butBottom, screen },
+        "Minting...",
+      );
+      mint(slug);
     },
   });
 
   if (e.is("reframed")) {
-    printBtn?.reposition({ right: 6, bottom: 6, screen });
+    printBtn?.reposition({ right: butSide, bottom: butBottom, screen });
+    mintBtn?.reposition({ left: butSide, bottom: butBottom, screen });
   }
 }
 

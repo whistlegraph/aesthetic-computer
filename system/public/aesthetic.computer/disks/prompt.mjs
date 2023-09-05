@@ -229,8 +229,8 @@ async function halt($, text) {
     progressBar = 1;
 
     return true;
-  } else if (slug === "painting:done" || slug === "yes!") {
-    let destination = params[0] || "download"; // or "upload"
+  } else if (slug === "painting:done" || slug === "yes!" || slug === "done") {
+    let destination = params[0] || "upload"; // or "upload"
     if (destination === "u" || slug === "yes!") destination = "upload";
     //                                  ^ "yes!" is always an upload.
     let filename; // Used in painting upload.
@@ -272,6 +272,7 @@ async function halt($, text) {
           progressBar = p;
         });
         console.log("🪄 Painting uploaded:", filename, data);
+        jump(`painting~${"@jeffrey"}/${data.slug}`);
         flashColor = [0, 255, 0];
       } catch (err) {
         console.error("🪄 Painting upload failed:", err);
