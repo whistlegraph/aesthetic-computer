@@ -31,6 +31,10 @@
   - [] Create a REAL order!
 
   + Later
+  - [] Image mockup generation is kind of slow... maybe I could use /pixel
+       to do it on my own server and just have "essentially" the same kind
+       of image?
+       (Also it may be rate-limited)
   - [] Email should link to a sticker feed of some kind?
       (Don't want your sticker included? Reply to this email to opt-out.)
       (Paintings that have been printed get special copies in S3.)
