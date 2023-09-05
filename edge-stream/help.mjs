@@ -11,8 +11,10 @@ export function corsHeaders(request) {
   // If in development, simply use the wildcard.
   let originToSet;
   if (production) {
-    console.log("Origin:", request.headers.origin);
-    if (request.headers && allowedOrigins.includes(request.headers.origin)) {
+    if (
+      request.headers &&
+      allowedOrigins.includes(request.headers.origin.value)
+    ) {
       originToSet = request.headers.origin;
     } else {
       originToSet = allowedOrigins[0]; // Default to the first one if no match
