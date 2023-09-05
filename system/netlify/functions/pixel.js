@@ -6,9 +6,12 @@
 
 // Test URLs: https://aesthetic.local:8888/api/pixel/1650x1650/@jeffrey/painting/2023.8.24.16.21.09.123.png
 //            https://aesthetic.local:8888/api/pixel/1650x1650/Lw2OYs0H.png
+//            https://aesthetic.local:8888/api/pixel/1650x1650:contain/@jeffrey/painting/2023.9.04.21.10.34.574.png
+//                                                             ^ mode for fit
 
 /* #region 🏁 TODO 
   + Done
+  - [x] Add a fitMode.
   - [x] Nearest neighbor scale a painting after opening it.
 #endregion */
 
@@ -24,12 +27,13 @@ async function fun(event, context) {
     (event.headers["host"] === "aesthetic.computer" || dev)
   ) {
     const params = event.path.replace("/api/pixel/", "").split("/");
-    const resolution = params[0].split("x").map((n) => parseInt(n));
-
+    let [pre, fit] = params[0].split(":");
+    fit ||= "fill"; // or "fill"
+    const resolution = pre.split("x").map((n) => parseInt(n));
     const slug = params.slice(1).join("/");
     const imageUrl = `https://${domain}/media/${slug}`;
 
-    // console.log("Image URL:", imageUrl);
+    console.log("Image URL:", imageUrl);
 
     if (!imageUrl) return respond(400, { message: "Image URL not provided." });
 
@@ -42,9 +46,10 @@ async function fun(event, context) {
       const resizedBuffer = await sharp(response.body)
         .resize({
           width: resolution[0],
-          height: resolution[1],
-          fit: "fill",
+          height: resolution[1] || resolution[0],
+          fit, // or "fill" to stretch it
           kernel: sharp.kernel.nearest,
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
         })
         .png()
         .toBuffer();
