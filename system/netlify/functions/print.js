@@ -18,7 +18,7 @@
 /* #region 🏁 TODO 
   - [x] Send user a confirmation email from mail@aesthetic.computer
        upon a successful Printful order fulfillment.
-       - [-] Email should embed the mockup image of the sticker, or 
+       - [🧡] Email should embed the mockup image of the sticker, or 
              at the very least, include a link?
 
   - [🔥] Send user a stripe receipt email. (How does this work in testing?)
@@ -39,6 +39,8 @@
         "https://assets.aesthetic.computer/images/favicon.png"
   - [] Could I use icon for this?
   - [] Create a REAL order!
+
+
   + Later
   - [] Email should link to a sticker feed of some kind?
       (Don't want your sticker included? Reply to this email to opt-out.)
@@ -349,7 +351,11 @@ export async function handler(event, context) {
               const isSuccess = await email({
                 to: session.customer_details.email,
                 subject: "your sticker is coming! 🫠",
-                html: "<p>and we appreciate your order</p><b>aesthetic.computer</b>",
+                html: `
+                <p>and we appreciate your order</p>
+                  <img src="${itemImage}" width="150">
+                <b>aesthetic.computer</b>
+                `,
               });
 
               return respond(200, {
