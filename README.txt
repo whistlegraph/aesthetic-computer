@@ -72,22 +72,20 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `done` ***
-
 *** painting page ***
   - [🧡] Shorten the corner word on painting pages / remove the timestamp
        especially if it will be seen in the corner.
   - [] Painting pages need a left and right screen tap to advance or retreat. 
-  - [] Also make a mint command in addition to a print command.
-       (Minting is a form of printing.)
-       (See if Zora can accept prefilled form data parameters on their
-        minting page: https://support.zora.co/en/articles/7131468-zora101-how-to-create-a-multi-edition-erc-1155)
-        - I want to be able to send them a URL for an image that can prefill
-          the file field.
-  - [x] Make a nicer loading transition for painting pages.
   - [] Always record a painting by default now?
-  - [] Play forward or single step.
+  - [] Make a nicer loading transition for painting pages that load
+       an animation (Always show the last frame for a given duration.)
+  - [] Play forward or by a single step.
+       (Minting is a form of printing.)
+       (See if Zora can accept prefilled form data parameters on their minting page: https://support.zora.co/en/articles/7131468-zora101-how-to-create-a-multi-edition-erc-1155)
+       - I want to be able to send them a URL for an image that they can use to prefill
+         the form fields.
   + Done
+  - [x] Also make a mint command in addition to a print command.
   - [x] Static image on page.
   - [x] Painting pages need a [Mint] button.
   - [x] Move buttons above progress bar (action area)
@@ -100,6 +98,7 @@
 
 *** @aesthetic.computer ***
   - [] Make the first instagram grid post.
+  - [] Have "word" be wrapped and centered based on the painting by default.
 
 *** user generated media ***
   - [] You can do version updates on code but old versions are kept of the same
