@@ -16,29 +16,27 @@
 // ⚠️ For testing webhooks: `stripe listen --forward-to stripe listen --forward-to "https://localhost:8888/api/print"
 
 /* #region 🏁 TODO 
-  - [🔥] Send user a stripe receipt email. (How does this work in testing?)
-  - [] Customize stripe: https://dashboard.stripe.com/settings/branding
-    -  (What extra info can I add to the checkout page to make it nicer?)
-  - [] Add branding: https://stripe.com/docs/payments/checkout/customization
-  - [] Make sure to refund the user if their order can't be fulfilled.
-  - [] How can I associate the Stripe order ID with the printful order
+  - [❤️‍🔥] How can I associate the Stripe order ID with the printful order
         just in case of issues that need to be manually addressed?
-  - [] Retrieve the mockup image for a successful order and show it to
-        the user either on the success screen or in the email they receive.
+  - [❤️‍🔥] Make sure to refund the user if their order can't be fulfilled.
   - [️] Make a dynamic logo endpoint that always returns a different graphic:
         "https://assets.aesthetic.computer/images/favicon.png"
   - [] Could I use icon for this?
   - [] Create a REAL order!
-
   + Later
-  - [] Image mockup generation is kind of slow... maybe I could use /pixel
-       to do it on my own server and just have "essentially" the same kind
-       of image?
-       (Also it may be rate-limited)
   - [] Email should link to a sticker feed of some kind?
       (Don't want your sticker included? Reply to this email to opt-out.)
       (Paintings that have been printed get special copies in S3.)
   + Done
+  - [x] Retrieve the mockup image for a successful order and show it to
+        the user either on the success screen or in the email they receive.
+  - [x] Image mockup generation is kind of slow... maybe I could use /pixel
+       to do it on my own server and just have "essentially" the same kind
+       of image?
+       (Also it may be rate-limited)
+  - [x] Add branding: https://stripe.com/docs/payments/checkout/customization
+  - [x] Customize stripe: https://dashboard.stripe.com/settings/branding
+  - [x] Send user a stripe receipt email. (How does this work in testing?)
   - [x] Replace printful compositor with my own from `api/pixel`.
   - [x] Get mockup images working and looking good for different
        resolutions.
@@ -248,6 +246,13 @@ export async function handler(event, context) {
         success_url: `${domain}/${post.slug}?notice=success`, // Pick these states up in the piece.
         cancel_url: `${domain}/${post.slug}?notice=cancel`,
         automatic_tax: { enabled: true },
+        custom_text: {
+          submit: {
+            message: `Expect your sticker${
+              quantity > 1 ? "s" : ""
+            } to arrive soon!`,
+          },
+        },
       };
 
       // 🤹 Add `customer_email` to the checkout if the user is logged in.
