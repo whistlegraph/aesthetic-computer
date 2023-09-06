@@ -23,6 +23,10 @@ export async function handler(event, context) {
     https: { rejectUnauthorized: false },
   });
 
+  const base64Logo = Buffer.from(response.body, "binary").toString("base64");
+  const dataUrl = `data:image/png;base64,${base64Logo}`;
+
+
   // Check the User-Agent to determine the type of request
   const userAgent = event.headers["user-agent"] || "";
   const isServer =
@@ -38,7 +42,7 @@ export async function handler(event, context) {
       headers: {
         "Content-Type": "image/png",
       },
-      body: Buffer.from(response.body, "binary").toString("base64"),
+      body: base64Logo,
       isBase64Encoded: true,
     };
   } else {
@@ -46,7 +50,7 @@ export async function handler(event, context) {
     const htmlResponse = `
       <html>
         <head>
-          <link rel="icon" href="${chosenLogo}" type="image/x-icon">
+          <link rel="icon" href="${dataUrl}" type="image/x-icon">
           <style>
             body { 
               display: flex; 
@@ -66,7 +70,7 @@ export async function handler(event, context) {
           </style>
         </head>
         <body>
-          <img crossorigin src="${chosenLogo}" onclick="location.reload()">
+          <img crossorigin src="${dataUrl}" onclick="location.reload()">
         </body>
       </html>
     `;
