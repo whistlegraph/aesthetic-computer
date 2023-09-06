@@ -25,6 +25,8 @@ const RETRIEVING = "retrieving...";
 let profile,
   noprofile = RETRIEVING;
 
+let painting;
+
 // 📰 Meta
 function meta({ piece }) {
   return {
@@ -35,7 +37,7 @@ function meta({ piece }) {
 }
 
 // 🥾 Boot
-function boot({ params, user, handle, debug, hud, net }) {
+function boot({ params, user, handle, debug, hud, net, get }) {
   // Mask from `profile` if we are logged in.
 
   const visiting = params[0] || handle;
@@ -62,6 +64,32 @@ function boot({ params, user, handle, debug, hud, net }) {
         if (debug) console.log("🙆 Profile found:", data);
         profile = { handle: params[0], mood: data?.mood };
         noprofile = null;
+
+        // Fetch all of a user's paintings...
+        let paintings;
+        try {
+          const res = await fetch(`/media/${profile.handle}/painting`);
+          paintings = (await res.json())?.files;
+        } catch (err) {
+          console.warn("Could not fetch media.");
+        }
+
+        const lastPainting = paintings?.[paintings?.length - 1];
+        console.log("Last painting:", lastPainting);
+        const lastPaintingCode = lastPainting
+          .split("/")
+          .pop()
+          .replace(".png", "");
+        // net.preload(lastPainting).then((img) => (painting = img)); // This doesn't work because of CORS errors in the Cloudflare worker.
+        get
+          .painting(lastPaintingCode)
+          .by(visiting)
+          .then((out) => {
+            painting = out;
+          })
+          .catch((err) => {
+            // console.warn("Could not load painting.", err);
+          });
       } else {
         if (debug) console.warn("🙍 Profile not found:", data);
         noprofile = "no profile found";
@@ -73,12 +101,20 @@ function boot({ params, user, handle, debug, hud, net }) {
 }
 
 // 🎨 Paint
-function paint({ params, wipe, ink, pen, user, screen }) {
+function paint({ params, wipe, ink, pen, user, screen, paste }) {
   if (!pen?.drawing) wipe(98);
   ink(127).line();
+  if (profile) ink().line().ink().line().ink().line();
+
+  if (painting) {
+    const x = screen.width / 2 - painting.width / 2;
+    const y = screen.height / 2 - painting.height / 2;
+    ink(64).box(x, y, painting.width, painting.height);
+    paste(painting, x, y);
+    ink().box(x, y, painting.width, painting.height, "outline");
+  }
 
   const retrieving = noprofile === RETRIEVING;
-  if (profile) ink().line().ink().line().ink().line();
   ink(profile ? undefined : 255).write(
     profile?.handle || noprofile || user?.name,
     { center: "x", y: screen.height / 2 + 5 - (retrieving ? 0 : 12) },
