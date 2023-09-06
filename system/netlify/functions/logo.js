@@ -1,6 +1,10 @@
 // Logo, 23.05.02.22.09
 // Proxy a random logo from one endpoint.
 
+/* #region 🏁 TODO 
+  - [] Does the `favicon` actually work with CORS?
+#endregion */
+
 import { respond } from "../../backend/http.mjs";
 import { logoUrl } from "../../backend/logo.mjs";
 
@@ -11,7 +15,10 @@ export async function handler(event, context) {
   }
 
   const { got } = await import("got");
-  const response = await got(logoUrl(), {
+
+  const chosenLogo = logoUrl();
+
+  const response = await got(chosenLogo, {
     responseType: "buffer",
     https: { rejectUnauthorized: false },
   });
@@ -39,7 +46,7 @@ export async function handler(event, context) {
     const htmlResponse = `
       <html>
         <head>
-          <link rel="icon" href="${logoUrl()}" type="image/x-icon">
+          <link rel="icon" href="${chosenLogo}" type="image/x-icon">
           <style>
             body { 
               display: flex; 
@@ -59,7 +66,7 @@ export async function handler(event, context) {
           </style>
         </head>
         <body>
-          <img crossorigin src="${logoUrl()}" onclick="location.reload()">
+          <img crossorigin src="${chosenLogo}" onclick="location.reload()">
         </body>
       </html>
     `;
