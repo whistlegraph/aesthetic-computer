@@ -96,6 +96,9 @@
   - [🧡] Shorten the corner word on painting pages / remove the timestamp
        especially if it will be seen in the corner.
        (Word wrap it)
+  - [] Add a transparent image tag overlay for tap to save on every
+       painting page.
+  - [] Single finger pan.
   - [] Painting pages need a left and right screen tap to advance or retreat. 
   - [] Always record a painting by default now?
   - [] Make a nicer loading transition for painting pages that load
