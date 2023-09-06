@@ -6,7 +6,6 @@
 
 /* #region 🏁 TODO 
   - [] [Start] button should be blue.
-  - [] Push and Hold -> Press and Hold 
   - [] [Press and Hold] should be green.
   - [] This button should be white on red while recording,
        and the background of the page should probably be red too.
@@ -22,6 +21,7 @@
   - [] Add layering option so multiple sounds can be layered and removed,
        stacked on top of one another, etc. 
   + Done
+  - [x] Push and Hold -> Press and Hold 
   - [x] Activity flow:
     - [x] Show waveform of the sample that is playing back?
     - [x] Let go and it plays back visually.
@@ -90,7 +90,7 @@ function paint({
       0,
       width,
       height,
-      [0, 0, 255, 32]
+      [0, 0, 255, 32],
     );
 
     if (typeof progress === "number") {
@@ -209,7 +209,7 @@ async function act({
     clearTimeout(hideButtonTimeout);
     hideButton = false;
     // 🔴 Add a red color scheme here...
-    btn.reposition({ center: "xy", screen }, "PUSH AND HOLD");
+    btn.reposition({ center: "xy", screen }, "PRESS AND HOLD");
   }
 
   if (e.is("lift") && capturing) {
@@ -253,13 +253,13 @@ function paintSound({ ink }, amplitude, waveform, x, y, width, height, color) {
       yMid,
       width,
       amplitude * yMax * 2,
-      "*center"
+      "*center",
     );
   }
 
   ink(255, 0, 0, 128).poly(
     waveform.map((v, i) => {
       return [x + i * xStep, yMid + v * yMax];
-    })
+    }),
   );
 }
