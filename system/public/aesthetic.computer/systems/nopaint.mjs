@@ -3,10 +3,13 @@
 // Shared functionality can be found in `disk.mjs`.
 
 let state = "idle";
+const cursor = { x: 0, y: 0 };
 
 // Used when defining a custom piece functions in a nopaint system brush to
 // inherit common behavior.
 function nopaint_boot({ api, screen, system, painting, store }) {
+  cursor.x = screen.width / 2;
+  cursor.y = screen.height / 2;
   nopaint_adjust(screen, system, painting, store);
   system.nopaint.present(api);
 }
@@ -24,6 +27,7 @@ function nopaint_act({
   loading,
   store,
   pens,
+  pen,
   api,
   num,
   jump,
@@ -75,6 +79,25 @@ function nopaint_act({
     if (!system.nopaint.bakeOnLeave) system.nopaint.needsBake = true;
     if (debug) console.log("🖌️ Not painting...");
     // TODO: system.nopaint.gestureRecord.push("gesture:stop");
+  }
+
+  // 🔭 Zooming...
+
+  if (e.is("move")) {
+    cursor.x = pen.x;
+    cursor.y = pen.y;
+  }
+
+  if (e.is("keyboard:down:arrowup")) {
+    console.log("Zoom in...");
+    system.nopaint.zoom(api, "in", cursor);
+    system.nopaint.present(api);
+  }
+
+  if (e.is("keyboard:down:arrowdown")) {
+    console.log("Zoom out...");
+    system.nopaint.zoom(api, "out", cursor);
+    system.nopaint.present(api);
   }
 
   // 🧭 Panning (held 'shift' key or two finger drag)
@@ -140,7 +163,7 @@ function nopaint_adjust(
   painting,
   store,
   size = null,
-  slug = "resize"
+  slug = "resize",
 ) {
   if (!size && store["painting:resolution-lock"] === true) return;
 

@@ -119,6 +119,7 @@ function paint({ wipe, ink, system, screen, num, paste }) {
     if (painting) {
       const x = screen.width / 2 - painting.width / 2;
       const y = screen.height / 2 - painting.height / 2;
+      ink(64).box(x, y - btnBar / 2, painting.width, painting.height);
       paste(painting, x, y - btnBar / 2);
       ink().box(x, y - btnBar / 2, painting.width, painting.height, "outline");
     }
@@ -149,6 +150,7 @@ function paint({ wipe, ink, system, screen, num, paste }) {
   } else if (finalPainting) {
     const x = screen.width / 2 - finalPainting.width / 2;
     const y = screen.height / 2 - finalPainting.height / 2;
+    ink(64).box(x, y - btnBar / 2, finalPainting.width, finalPainting.height);
     paste(finalPainting, x, y - btnBar / 2);
     ink().box(
       x,

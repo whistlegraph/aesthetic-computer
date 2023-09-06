@@ -28,8 +28,12 @@ async function fun(event, context) {
     (event.headers["host"] === "aesthetic.computer" || dev)
   ) {
     const params = event.path.replace("/api/pixel/", "").split("/");
-    let [pre, mode] = params[0].split(":");
-    mode ||= "fill"; // or "fill", or "sticker"
+    let [pre, premode] = params[0].split(":");
+    premode ||= "fill"; // or "fill", or "sticker"
+    let [mode, compose] = premode.split("-");
+    const clear = compose === "clear";
+    // TODO: Eventually use a  "-clear" option to keep the backdrop transparent.
+    //       23.09.06.02.27
     const resolution = pre.split("x").map((n) => parseInt(n));
     const slug = params.slice(1).join("/");
     const imageUrl = `https://${domain}/media/${slug}`;
@@ -45,7 +49,8 @@ async function fun(event, context) {
       // Docs: https://sharp.pixelplumbing.com/api-resize
       let buffer;
 
-      const metadata = await sharp(response.body).metadata();
+      const original = await sharp(response.body);
+      const metadata = await original.metadata();
       const width = resolution[0];
       const height = resolution[1] || resolution[0];
       const long = Math.max(metadata.width, metadata.height);
@@ -55,19 +60,37 @@ async function fun(event, context) {
           : sharp.kernel.lanczos3; // For scaling down.
 
       if (mode !== "sticker") {
-        // A. Simple resizing.
-        buffer = await sharp(response.body)
+        // 🟠. Simple resizing.
+
+        // Make sure the original image has a colored backdrop.
+        // TODO: Should this actually be a weird gray, or a gradient?
+        //       or maybe it should be random?
+        let combinedImage;
+        if (!clear) {
+          combinedImage = await sharp({
+            create: {
+              width: metadata.width,
+              height: metadata.height,
+              channels: 4,
+              background: { r: 32, g: 32, b: 32, alpha: 1 },
+            },
+          })
+            .composite([{ input: await original.toBuffer() }])
+            .png()
+            .toBuffer();
+        }
+
+        buffer = await sharp(clear ? await original.toBuffer() : combinedImage)
           .resize({
             width,
             height,
-            fit: mode, // "contain" or "fill"
+            fit: mode,
             kernel,
-            background: { r: 0, g: 0, b: 0, alpha: 0 },
           })
           .png()
           .toBuffer();
       } else if (mode === "sticker") {
-        // B. Complex sticker mockup.
+        // 🟠 Complex sticker mockup.
         const scalingFactor =
           metadata.width > metadata.height
             ? width / metadata.width
@@ -80,20 +103,36 @@ async function fun(event, context) {
         const rectHeight =
           Math.floor(metadata.height * scalingFactor) - marginPx;
 
-        const resizedBuffer = await sharp(response.body)
+        let combinedImage;
+        if (!clear) {
+          combinedImage = await sharp({
+            create: {
+              width: metadata.width,
+              height: metadata.height,
+              channels: 4,
+              background: { r: 32, g: 32, b: 32, alpha: 1 },
+            },
+          })
+            .composite([{ input: await original.toBuffer() }])
+            .png()
+            .toBuffer();
+        }
+
+        const resizedBuffer = await sharp(
+          clear ? await original.toBuffer() : combinedImage,
+        )
           .resize({
             width: rectWidth, // Adjusting the target dimensions for the padding
             height: rectHeight,
             fit: "fill",
             kernel,
-            background: { r: 0, g: 0, b: 0, alpha: 0 },
+            background: getRandomColor(), // { r: 0, g: 0, b: 0, alpha: 1 },
           })
           .toBuffer();
 
         const radius = Math.floor(long * scalingFactor * 0.02),
           pad = Math.floor(long * scalingFactor * 0.04);
-
-        console.log(radius, pad);
+        // console.log(radius, pad);
 
         const svg = `
           <svg width="${rectWidth + marginPx}" height="${
@@ -123,7 +162,7 @@ async function fun(event, context) {
 
         // Composite the resized rectangle to the rounded sheet.
         buffer = await sharp(rectangleBuffer)
-          .composite([{ input: resizedBuffer, blend: "over" }])
+          .composite([{ input: resizedBuffer }])
           .png()
           .toBuffer();
       }
@@ -147,6 +186,15 @@ async function fun(event, context) {
   } else {
     return respond(405, { message: "Method Not Allowed" });
   }
+}
+
+function getRandomColor() {
+  return {
+    r: Math.floor(Math.random() * 256),
+    g: Math.floor(Math.random() * 256),
+    b: Math.floor(Math.random() * 256),
+    alpha: 1,
+  };
 }
 
 export const handler = builder(fun);
