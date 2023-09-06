@@ -91,6 +91,7 @@
   - [x] Move buttons above progress bar (action area)
 
 *** Profiles ***
+  - [] Typing in a handle on the prompt and visiting it should work.
   - [] Make sure setting a @handle actually works.
   - [] @handle pages should show the current version of an active painting 
       (so broadcasting is possible, eventually enabling live spectating, passing
