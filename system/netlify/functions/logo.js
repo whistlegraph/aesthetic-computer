@@ -26,7 +26,6 @@ export async function handler(event, context) {
   const base64Logo = Buffer.from(response.body, "binary").toString("base64");
   const dataUrl = `data:image/png;base64,${base64Logo}`;
 
-
   // Check the User-Agent to determine the type of request
   const userAgent = event.headers["user-agent"] || "";
   const isServer =
@@ -52,11 +51,12 @@ export async function handler(event, context) {
         <head>
           <link rel="icon" href="${dataUrl}" type="image/x-icon">
           <style>
+            html { height: 100%; }
             body { 
               display: flex; 
               justify-content: center; 
               align-items: center; 
-              height: 100vh;
+              height: 100%;
               background-color: ${randomPurple()};
               margin: 0;
               overflow: hidden;
@@ -64,7 +64,7 @@ export async function handler(event, context) {
             img { 
               object-fit: contain;
               width: 100vw;
-              height: 100vh;
+              height: 100%;
               cursor: pointer;
             }
           </style>
