@@ -72,6 +72,10 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Combined Mint+Print? ***
+  - [] How can I just send 12 words along with the digital artifact
+       once something has been printed... like just put it in the email?
+
 *** Painting ***
   - [WIP] Add Zoom. 🔵
   - [] Make sure `nopan` centers a zoomed canvas. 
