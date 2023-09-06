@@ -126,8 +126,8 @@
 [[redirects]]
   from = "https://logo.aesthetic.computer/*"
   to = "https://aesthetic.computer/api/logo/:splat"
-  status = 301
-  force = false
+  status = 200
+  force = true
 [[redirects]]
   from = "https://prompt.ac/*"
   to = "https://aesthetic.computer/:splat"
