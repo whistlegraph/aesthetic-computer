@@ -37,19 +37,23 @@ function meta({ piece }) {
 // 🥾 Boot
 function boot({ params, user, handle, debug, hud, net }) {
   // Mask from `profile` if we are logged in.
-  if (handle) {
-    hud.label(handle);
-    net.rewrite(handle);
+
+  const visiting = params[0] || handle;
+
+  if (visiting) {
+    hud.label(visiting);
+    net.rewrite(visiting);
   }
 
-  console.log("🤺 Visiting the profile of...", params[0]);
+  console.log("🤺 Visiting the profile of...", visiting);
   if (user) console.log("😉 Logged in as...", handle || user?.name);
-  if (!handle && params[0] === undefined) {
+
+  if (!visiting) {
     noprofile = user?.name || "no profile (enter 'hi' at the prompt)";
     return;
   }
   // 🎆 Check to see if this user actually exists via a server-side call.
-  fetch(`/api/profile/${handle || params[0]}`, {
+  fetch(`/api/profile/${visiting}`, {
     headers: { Accept: "application/json" },
   })
     .then(async (response) => {
@@ -78,14 +82,14 @@ function paint({ params, wipe, ink, pen, user, screen }) {
   ink(profile ? undefined : 255).write(
     profile?.handle || noprofile || user?.name,
     { center: "x", y: screen.height / 2 + 5 - (retrieving ? 0 : 12) },
-    retrieving ? 64 : "black"
+    retrieving ? 64 : "black",
   );
 
   if (!retrieving && !profile && user?.name) {
     ink("yellow").write(
       "enter 'handle urnamehere' at the prompt",
       { center: "x", y: screen.height / 2 + 5 + 24 },
-      "blue"
+      "blue",
     );
   }
 
@@ -94,7 +98,7 @@ function paint({ params, wipe, ink, pen, user, screen }) {
     ink(255).write(
       profile.mood || "no mood",
       { center: "x", y: screen.height / 2 + 5 + 12 },
-      "black"
+      "black",
     );
   }
   // return false;
