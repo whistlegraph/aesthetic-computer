@@ -1699,6 +1699,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Initialize some global stuff after the first piece loads.
     // Unload some already initialized stuff if this wasn't the first load.
     if (type === "disk-loaded") {
+      // Clear any active parameters once the disk has been loaded.
+      window.history.replaceState({}, "", window.location.pathname);
+
       currentPiece = content.path;
       currentPieceHasKeyboard = false;
 
