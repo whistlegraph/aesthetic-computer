@@ -225,11 +225,15 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (slug === "print") {
-    // TODO: Do I want to show the progress bar here?
     progressBar = 0;
-    await print(system.painting, params[0], (p) => (progressBar = p)); // Print a sticker.
+    try {
+      await print(system.painting, params[0], (p) => (progressBar = p)); // Print a sticker.
+      flashColor = [0, 200, 0];
+    } catch (err) {
+      flashColor = [200, 0, 0];
+    }
     progressBar = 1;
-
+    makeFlash($);
     return true;
   } else if (slug === "painting:done" || slug === "yes!" || slug === "done") {
     let destination = params[0] || "upload"; // or "upload"
