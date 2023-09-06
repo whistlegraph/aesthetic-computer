@@ -86,13 +86,13 @@ export async function handler(event, context) {
     "Content-Type": "application/json",
   };
 
-  // TODO: This might prevent orders from working in production?
-  if (event.headers["host"] !== "aesthetic.computer" && !dev) {
-    return respond(400, {
-      message: "Bad request.",
-      host: event.headers["host"],
-    });
-  }
+  // Lock these requests to a particular hosts. // Not necessary? 23.09.06.00.06
+  // if (event.headers["host"] !== "aesthetic.computer" && !dev) {
+  //   return respond(400, {
+  //     message: "Bad request.",
+  //     host: event.headers["host"],
+  //   });
+  // }
 
   const id = 358; // Kiss-cut Sticker
   const variant = 10165; // 5.5" Square
