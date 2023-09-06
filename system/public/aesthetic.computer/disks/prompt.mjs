@@ -208,8 +208,10 @@ async function halt($, text) {
     }
   }
 
-  console.log("SLUG:", slug, text);
-  if (slug === "@maya/sparkle") {
+  if (slug === "me") {
+    jump("profile");
+    return true;
+  } else if (slug === "@maya/sparkle") {
     jump("sparkle");
     return true;
   } else if (slug === "painting:start") {
