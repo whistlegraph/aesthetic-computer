@@ -208,7 +208,11 @@ async function halt($, text) {
     }
   }
 
-  if (slug === "painting:start") {
+  console.log("SLUG:", slug, text);
+  if (slug === "@maya/sparkle") {
+    jump("sparkle");
+    return true;
+  } else if (slug === "painting:start") {
     // Start recording paintings.
     system.nopaint.record = []; // Clear any existing recording.
     system.nopaint.recording = true;

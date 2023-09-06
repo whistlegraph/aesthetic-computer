@@ -24,8 +24,14 @@
   - [x] Find a good general sparkle behavior.
 #endregion */
 
+let sparkle;
 let sparkleBuffer = [];
 let sparkleMode = 0;
+
+export function boot({ hud, net }) {
+  hud.label("@maya/sparkle");
+  net.rewrite("@maya/sparkle");
+}
 
 // painting:reset to reset
 // no!
@@ -100,9 +106,8 @@ export function paint($api) {
     [244, 244, 223],
     [132, 100, 156],
   ];
-  paste(system.painting);
 
-  if (pen?.drawing) {
+  if (system.nopaint.is("painting") && pen?.drawing) {
     // @maya/brush 255 16
     // params = params.map((str) => parseInt(str));
     let chosenColorIndex = r(mollyHeartColors.length - 1);
@@ -142,66 +147,87 @@ export function paint($api) {
     };
   };
 
-  for (let s = 0; s < sparkleBuffer.length; s++) {
-    // Loop through the number of points on the star
-    let currentSparkle = sparkleBuffer[s];
+  sparkle = (offset = false) => {
+    for (let s = 0; s < sparkleBuffer.length; s++) {
+      // Loop through the number of points on the star
+      let currentSparkle = sparkleBuffer[s];
 
-    if (sparkleMode == 0) {
-      let currentX = sparkleBuffer[s].position.x;
-      let currentY = sparkleBuffer[s].position.y + currentSparkle.fallState;
-      ink(sparkleBuffer[s].color);
+      if (sparkleMode == 0) {
+        let currentX = sparkleBuffer[s].position.x;
+        let currentY = sparkleBuffer[s].position.y + currentSparkle.fallState;
 
-      let size = currentSparkle.size;
-      circle(currentX, currentY, size);
-      circle(currentX - size * 2, currentY - size * 2, currentSparkle.size);
-      circle(currentX + size * 2, currentY - size * 2, currentSparkle.size);
-    } else if (sparkleMode == 1) {
-      let currentX = sparkleBuffer[s].position.x;
-      let currentY = sparkleBuffer[s].position.y;
+        ink(sparkleBuffer[s].color);
 
-      if (sparkleBuffer[s].flash && sparkleBuffer[s].flashing > 0) {
-        ink(255);
-        let sparkleOffset =
-          -2 * currentSparkle.size + Math.random() * currentSparkle.size * 4;
-        circle(currentX, currentY + sparkleOffset, 1);
-      }
+        let size = currentSparkle.size;
 
-      for (let i = 0; i < numPoints; i++) {
-        // Calculate the x and y coordinates of the current point
-        const coords = calculateCoords(
-          currentX,
-          currentY,
-          currentSparkle.size,
-          angle * i
-        );
-        const innerRadius = currentSparkle.size * 0.5;
+        if (offset) {
+          currentX -= system.nopaint.translation.x;
+          currentY -= system.nopaint.translation.y;
+        }
 
-        // Draw a circle at the current point
-        let starCircleSize = 1;
-        let starOffset = 10;
-        // let starOffset = 10;
+        circle(currentX, currentY, size);
+        circle(currentX - size * 2, currentY - size * 2, currentSparkle.size);
+        circle(currentX + size * 2, currentY - size * 2, currentSparkle.size);
+      } else if (sparkleMode == 1) {
+        let currentX = sparkleBuffer[s].position.x;
+        let currentY = sparkleBuffer[s].position.y;
+
+        if (offset) {
+          currentX -= system.nopaint.translation.x;
+          currentY -= system.nopaint.translation.y;
+        }
+
         if (sparkleBuffer[s].flash && sparkleBuffer[s].flashing > 0) {
           ink(255);
-        } else {
-          ink(sparkleBuffer[s].color);
+          let sparkleOffset =
+            -2 * currentSparkle.size + Math.random() * currentSparkle.size * 4;
+          circle(currentX, currentY + sparkleOffset, 1);
         }
-        // ink(sparkleBuffer[s].color)
 
-        circle(coords.x, coords.y, starCircleSize);
+        for (let i = 0; i < numPoints; i++) {
+          // Calculate the x and y coordinates of the current point
+          const coords = calculateCoords(
+            currentX,
+            currentY,
+            currentSparkle.size,
+            angle * i,
+          );
+          const innerRadius = currentSparkle.size * 0.5;
 
-        // Calculate the x and y coordinates of the point halfway between the current point and the next point
-        const coords2 = calculateCoords(
-          currentX,
-          currentY,
-          innerRadius,
-          angle * (i + 0.5)
-        );
-        // Draw a circle at the midpoint
-        // console.log(sparkleBuffer[s].color);
-        circle(coords2.x, coords2.y, starCircleSize);
+          // Draw a circle at the current point
+          let starCircleSize = 1;
+          let starOffset = 10;
+          // let starOffset = 10;
+          if (sparkleBuffer[s].flash && sparkleBuffer[s].flashing > 0) {
+            ink(255);
+          } else {
+            ink(sparkleBuffer[s].color);
+          }
+          // ink(sparkleBuffer[s].color)
+
+          circle(coords.x, coords.y, starCircleSize);
+
+          // Calculate the x and y coordinates of the point halfway between the current point and the next point
+          const coords2 = calculateCoords(
+            currentX,
+            currentY,
+            innerRadius,
+            angle * (i + 0.5),
+          );
+          // Draw a circle at the midpoint
+          // console.log(sparkleBuffer[s].color);
+          circle(coords2.x, coords2.y, starCircleSize);
+        }
       }
     }
-  }
+  };
+
+  sparkle();
+  system.nopaint.needsPresent = true;
+}
+
+export function bake() {
+  sparkle?.(true);
 }
 
 export function sim() {
@@ -280,4 +306,4 @@ function sparkleFactory(pen, color, size) {
   };
 }
 
-export const system = "nopaint"; // Uses a template for all the other functions.
+export const system = "nopaint:bake-on-leave";
