@@ -38,26 +38,26 @@ export function paint({
   }
 
   // Draw the video on each frame and add an effect.
-  const frame = vid();//function shader({ x, y }, c) {
-    // // ✨ Sparkles
-    // if (rand() > 0.98) {
-    //   c[0] = clamp(c[0] + randIntRange(50, 150), 0, 255);
-    //   c[1] = clamp(c[1] + randIntRange(50, 150), 0, 255);
-    //   c[2] = clamp(c[2] + randIntRange(50, 150), 0, 255);
-    // }
+  const frame = vid(function shader({ x, y }, c) {
+    // ✨ Sparkles
+    if (rand() > 0.98) {
+      c[0] = clamp(c[0] + randIntRange(50, 150), 0, 255);
+      c[1] = clamp(c[1] + randIntRange(50, 150), 0, 255);
+      c[2] = clamp(c[2] + randIntRange(50, 150), 0, 255);
+    }
 
-    // // Fade
+    // Fade
     // if (rand() > 0.1) {
     //   c[3] = randIntRange(0, 5);
     // }
-  // });
+  });
 
   paste(frame); // Paste the video to the main buffer.
 
   snap = () => {
     paste(frame);
     snap = null;
-  }
+  };
 
   // User interface
   // advance = new ui.TextButton("Decorate", { x: width - 70, y: height - 32 });
