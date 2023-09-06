@@ -78,11 +78,6 @@
 *** iOS ***
   - [] Why does the site not load sometimes?
 
-*** Stickers ***
-  - [] How do I treat alpha in images?
-  - [] Make it black in both the mockup and in the actual resize setting. 
-       (This needs to be a url option in `pixel`)
-
 *** painting page ***
   - [🧡] Shorten the corner word on painting pages / remove the timestamp
        especially if it will be seen in the corner.

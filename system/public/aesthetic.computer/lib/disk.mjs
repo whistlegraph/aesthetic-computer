@@ -740,9 +740,38 @@ const $commonApi = {
         store.persist("painting:transform", "local:db");
       },
       translation: { x: 0, y: 0 },
+      zoomLevel: 1,
       translate: ({ system }, x, y) => {
         system.nopaint.translation.x += x;
         system.nopaint.translation.y += y;
+      },
+      // zoom: ({ system }, dir) => {
+      //   system.nopaint.zoomLevel += dir === "in" ? 1 : -1;
+      //   console.log("🔭 Zoom level:", system.nopaint.zoomLevel);
+      //   if (system.nopaint.zoomLevel <= 0) system.nopaint.zoomLevel = 1;
+      //   // TODO: Adjust the translation based on system.nopaint.brush.x and y
+      //   //       Which would serve as the zoom origin point.
+      // },
+      zoom: ({ system }, dir, cursor) => {
+        // Store old zoom level
+        const oldZoomLevel = system.nopaint.zoomLevel;
+
+        // Adjust the zoom level
+        system.nopaint.zoomLevel += dir === "in" ? 1 : -1;
+
+        // Ensure zoom level is at least 1
+        if (system.nopaint.zoomLevel <= 0) system.nopaint.zoomLevel = 1;
+
+        // Calculate the scaling factor based on the change in zoom levels
+        const scale = system.nopaint.zoomLevel / oldZoomLevel;
+
+        // Adjust the translation based on the scaling factor and the cursor's position
+        system.nopaint.translation.x = floor(
+          cursor.x + (system.nopaint.translation.x - cursor.x) * scale,
+        );
+        system.nopaint.translation.y = floor(
+          cursor.y + (system.nopaint.translation.y - cursor.y) * scale,
+        );
       },
       brush: { x: 0, y: 0 },
       transform: (p) => {
@@ -792,13 +821,13 @@ const $commonApi = {
         } else {
           // If we are panned or the painting is a custom resolution.
           wipe(32)
-            .paste(system.painting, x, y)
+            .paste(system.painting, x, y, system.nopaint.zoomLevel)
             .ink(128)
             .box(
               x,
               y,
-              system.painting.width,
-              system.painting.height,
+              system.painting.width * system.nopaint.zoomLevel,
+              system.painting.height * system.nopaint.zoomLevel,
               "outline",
             );
         }

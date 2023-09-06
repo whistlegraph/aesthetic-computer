@@ -1,5 +1,10 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** Stickers ***
+  - [x] How do I treat alpha in images?
+  - [x] Make it black in both the mockup and in the actual resize setting. 
+       (This needs to be a url option in `pixel`)
+
 *** Fix `Painting` page in Firefox ***
  - [x] Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at https://user.aesthetic.computer/auth0|63effeeb2a7d55f8098d62f9/painting/2023.8.24.14.26.54.544.zip. (Reason: CORS request did not succeed). Status code: (null).
 
