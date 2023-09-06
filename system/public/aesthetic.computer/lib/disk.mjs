@@ -1853,7 +1853,7 @@ async function load(
       //slug = "profile"; // Go to `profile` instead of the `@user`.
       const hiddenSlug = "profile";
       // Rewrite path to `profile`.
-      console.log("Path:", path);
+      console.log("Profile Path:", path);
       path = [...path.split("/").slice(0, -1), hiddenSlug].join("/");
     }
 
