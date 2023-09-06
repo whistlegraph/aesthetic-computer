@@ -445,7 +445,7 @@ const $commonApi = {
           "art", // Store in temporary bucket no matter what.
         );
         console.log("🪄 Painting uploaded:", data.slug, data.ext, data.url);
-        pixels = `https://aesthetic.computer/api/pixel/1650x1650/${data.slug}.${data.ext}`;
+        pixels = `${data.slug}.${data.ext}`;
       } catch (err) {
         console.error("🪄 Painting upload failed:", err);
       }
@@ -2476,7 +2476,7 @@ async function load(
 
     // 🪧 See if notice needs to be shown.
     if ($commonApi.query.notice === "success") {
-      notice = "PRINTED";
+      notice = "PRINTED!";
       noticeBell();
     } else if ($commonApi.query.notice === "cancel") {
       notice = "CANCELLED";

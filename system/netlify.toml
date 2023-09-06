@@ -16,6 +16,8 @@
     "backend/**/*.mjs"
     ]
   external_node_modules = ["got", "mongodb"]
+[functions.logo]
+  external_node_modules = ["got"]
 [functions.print]
   external_node_modules = ["got", "stripe", "nodemailer"]
 [functions.pixel]
@@ -137,6 +139,10 @@
 [[redirects]]
   from = "/api/print/*"
   to = "/.netlify/functions/print"
+  status = 200
+[[redirects]]
+  from = "/api/logo"
+  to = "/.netlify/functions/logo"
   status = 200
 [[redirects]]
   from = "/api/pixel/*"
