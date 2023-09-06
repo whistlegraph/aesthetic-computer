@@ -781,7 +781,9 @@ const $commonApi = {
         };
       },
       updateBrush: ({ pen, system }) => {
-        const { x, y } = system.nopaint.translation;
+        let { x, y } = system.nopaint.translation;
+        x *= system.nopaint.zoomLevel;
+        y *= system.nopaint.zoomLevel;
 
         const pos = { x: (pen?.x || 0) - x, y: (pen?.y || 0) - y };
 

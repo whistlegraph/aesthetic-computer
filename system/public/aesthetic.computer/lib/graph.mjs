@@ -1423,7 +1423,6 @@ function grid(
             bufPixels[pixIndex + 3],
           ];
           color(...colorData);
-
           // Skip panTranslation and just...
           for (let y = finalY; y < finalY + bufferHeight; y += 1) {
             lineh(finalX, finalX + bufferWidth, y);
