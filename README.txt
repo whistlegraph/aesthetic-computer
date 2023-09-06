@@ -72,9 +72,21 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Backdrop ***
+  - [] Get a Camille backdrop test in place.
+
+*** iOS ***
+  - [] Why does the site not load sometimes?
+
+*** Stickers ***
+  - [] How do I treat alpha in images?
+  - [] Make it black in both the mockup and in the actual resize setting. 
+       (This needs to be a url option in `pixel`)
+
 *** painting page ***
   - [🧡] Shorten the corner word on painting pages / remove the timestamp
        especially if it will be seen in the corner.
+       (Word wrap it)
   - [] Painting pages need a left and right screen tap to advance or retreat. 
   - [] Always record a painting by default now?
   - [] Make a nicer loading transition for painting pages that load

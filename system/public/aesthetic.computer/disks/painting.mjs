@@ -100,7 +100,7 @@ function paint({ wipe, ink, system, screen, num, paste }) {
   ink(0, 127).box(0, 0, screen.width, screen.height);
 
   function paintUi() {
-    ink(64, 127).box(
+    ink(32, 127).box(
       0,
       screen.height - btnBar,
       screen.width,
@@ -109,6 +109,8 @@ function paint({ wipe, ink, system, screen, num, paste }) {
     printBtn?.paint({ ink });
     mintBtn?.paint({ ink });
   }
+
+  ink(96).box(0, screen.height - 1 - btnBar, screen.width, 1);
 
   // Executes every display frame.
   if (system.nopaint.record?.length > 0) {
@@ -170,18 +172,25 @@ function act({ event: e, screen, print, mint }) {
         { right: butSide, bottom: butBottom, screen },
         "Printing...",
       );
-      print(slug);
+      await print(slug);
+      printBtn.disabled = false;
+      printBtn.reposition(
+        { right: butSide, bottom: butBottom, screen },
+        "Print",
+      );
     },
   });
 
   mintBtn?.act(e, {
     push: async () => {
-      printBtn.disabled = true;
-      printBtn.reposition(
+      mintBtn.disabled = true;
+      mintBtn.reposition(
         { right: butSide, bottom: butBottom, screen },
         "Minting...",
       );
-      mint(slug);
+      await mint(slug);
+      mintBtn.disabled = false;
+      mintBtn.reposition({ right: butSide, bottom: butBottom, screen }, "Mint");
     },
   });
 
