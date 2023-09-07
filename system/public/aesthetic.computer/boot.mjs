@@ -92,10 +92,11 @@ if (!sandboxed && window.auth0) {
     } catch (error) {
       console.log("🔐️ ❌ Unauthorized", error);
       console.error("Failed to retrieve token silently. Logging out.", error);
-      // await window.auth0Client.loginWithRedirect();
-      auth0Client.logout({
-        logoutParams: { returnTo: window.location.origin },
-      });
+      auth0Client.logout();
+      isAuthenticated = false;
+      // auth0Client.logout({
+      //   logoutParams: { returnTo: window.location.origin },
+      // });
     }
   }
 
