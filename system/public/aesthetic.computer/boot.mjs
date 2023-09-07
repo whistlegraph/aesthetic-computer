@@ -90,7 +90,7 @@ if (!sandboxed && window.auth0) {
       await window.auth0Client.getTokenSilently();
       console.log("🔐 Authorized");
     } catch (error) {
-      console.log("🔐️ ❌ Unauthorized", err);
+      console.log("🔐️ ❌ Unauthorized", error);
       console.error("Failed to retrieve token silently. Logging out.", error);
       // await window.auth0Client.loginWithRedirect();
       auth0Client.logout({
