@@ -77,14 +77,28 @@ if (!sandboxed && window.auth0) {
     if (isAuthenticated) {
       console.log("🔐 Logging out...");
       auth0Client.logout({
-        logoutParams: {
-          returnTo: window.location.origin,
-        },
+        logoutParams: { returnTo: window.location.origin },
       });
     } else {
       console.log("🔐 Already logged out!");
     }
   };
+
+  // Redirect the user to login if the token has failed.
+  if (isAuthenticated) {
+    try {
+      await window.auth0Client.getTokenSilently();
+      console.log("🔐 Authorized");
+    } catch (error) {
+      console.log("🔐️ ❌ Unauthorized", error);
+      console.error("Failed to retrieve token silently. Logging out.", error);
+      auth0Client.logout();
+      isAuthenticated = false;
+      // auth0Client.logout({
+      //   logoutParams: { returnTo: window.location.origin },
+      // });
+    }
+  }
 
   if (isAuthenticated) {
     // TODO: How long does this await actually take? 23.07.11.18.55

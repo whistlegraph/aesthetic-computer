@@ -2008,7 +2008,7 @@ async function load(
   pieceHistoryIndex += fromHistory === true ? 0 : 1; // Adjust the history.
 
   if (!debug && !firstLoad) {
-    console.clear();
+    // console.clear();
     headers(); // Clear console and re-print headers if we are in production.
   }
 
