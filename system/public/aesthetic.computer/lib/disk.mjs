@@ -414,7 +414,13 @@ let cachedAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
-  // Print either a url or the `pixels` that get passed into
+  // 🪙 Mint a url or the `pixels` that get passed into the argument to a
+  // network of choice.
+  mint: async (picture) => {
+    console.log("🪙 Minting...", picture);
+    $commonApi.jump("https://zora.co/create/edition"); // Redirect to Zora create.
+  },
+  // 🖨️ Print either a url or the `pixels` that get passed into
   // the argument, with N quantity.
   print: async (picture, quantity = 1, progress) => {
     console.log("🖨️ Printing:", picture, "Quantity:", quantity);
@@ -439,7 +445,7 @@ const $commonApi = {
           "art", // Store in temporary bucket no matter what.
         );
         console.log("🪄 Painting uploaded:", data.slug, data.ext, data.url);
-        pixels = `https://aesthetic.computer/api/pixel/1650x1650/${data.slug}.${data.ext}`;
+        pixels = `${data.slug}.${data.ext}`;
       } catch (err) {
         console.error("🪄 Painting upload failed:", err);
       }
@@ -464,8 +470,11 @@ const $commonApi = {
         // TODO: Add order info here. ^
       });
 
-      if (!res.ok) throw new Error(`🖨️ Print: HTTP error! Status: ${res}`);
       const data = await res.json();
+      if (!res.ok)
+        throw new Error(
+          `🖨️ Print: HTTP error! Status: ${JSON.stringify(data)}`,
+        );
       console.log("🖨️ Print order:", data);
       $commonApi.jump(data.location); // Redirect to checkout.
     } catch (error) {
@@ -731,9 +740,38 @@ const $commonApi = {
         store.persist("painting:transform", "local:db");
       },
       translation: { x: 0, y: 0 },
+      zoomLevel: 1,
       translate: ({ system }, x, y) => {
         system.nopaint.translation.x += x;
         system.nopaint.translation.y += y;
+      },
+      // zoom: ({ system }, dir) => {
+      //   system.nopaint.zoomLevel += dir === "in" ? 1 : -1;
+      //   console.log("🔭 Zoom level:", system.nopaint.zoomLevel);
+      //   if (system.nopaint.zoomLevel <= 0) system.nopaint.zoomLevel = 1;
+      //   // TODO: Adjust the translation based on system.nopaint.brush.x and y
+      //   //       Which would serve as the zoom origin point.
+      // },
+      zoom: ({ system }, dir, cursor) => {
+        // Store old zoom level
+        const oldZoomLevel = system.nopaint.zoomLevel;
+
+        // Adjust the zoom level
+        system.nopaint.zoomLevel += dir === "in" ? 1 : -1;
+
+        // Ensure zoom level is at least 1
+        if (system.nopaint.zoomLevel <= 0) system.nopaint.zoomLevel = 1;
+
+        // Calculate the scaling factor based on the change in zoom levels
+        const scale = system.nopaint.zoomLevel / oldZoomLevel;
+
+        // Adjust the translation based on the scaling factor and the cursor's position
+        system.nopaint.translation.x = floor(
+          cursor.x + (system.nopaint.translation.x - cursor.x) * scale,
+        );
+        system.nopaint.translation.y = floor(
+          cursor.y + (system.nopaint.translation.y - cursor.y) * scale,
+        );
       },
       brush: { x: 0, y: 0 },
       transform: (p) => {
@@ -743,7 +781,9 @@ const $commonApi = {
         };
       },
       updateBrush: ({ pen, system }) => {
-        const { x, y } = system.nopaint.translation;
+        let { x, y } = system.nopaint.translation;
+        x *= system.nopaint.zoomLevel;
+        y *= system.nopaint.zoomLevel;
 
         const pos = { x: (pen?.x || 0) - x, y: (pen?.y || 0) - y };
 
@@ -783,13 +823,13 @@ const $commonApi = {
         } else {
           // If we are panned or the painting is a custom resolution.
           wipe(32)
-            .paste(system.painting, x, y)
+            .paste(system.painting, x, y, system.nopaint.zoomLevel)
             .ink(128)
             .box(
               x,
               y,
-              system.painting.width,
-              system.painting.height,
+              system.painting.width * system.nopaint.zoomLevel,
+              system.painting.height * system.nopaint.zoomLevel,
               "outline",
             );
         }
@@ -1813,7 +1853,7 @@ async function load(
       //slug = "profile"; // Go to `profile` instead of the `@user`.
       const hiddenSlug = "profile";
       // Rewrite path to `profile`.
-      console.log("Path:", path);
+      console.log("Profile Path:", path);
       path = [...path.split("/").slice(0, -1), hiddenSlug].join("/");
     }
 
@@ -2467,7 +2507,7 @@ async function load(
 
     // 🪧 See if notice needs to be shown.
     if ($commonApi.query.notice === "success") {
-      notice = "PRINTED";
+      notice = "PRINTED!";
       noticeBell();
     } else if ($commonApi.query.notice === "cancel") {
       notice = "CANCELLED";
@@ -3038,7 +3078,7 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "loaded-zip-rejection") {
-    if (debug) console.error("🤐 Zip load failure:", content.url);
+    if (debug) console.warn("🤐 Zip load failure:", content.url);
     preloadPromises[content.url].reject(content.url);
     delete preloadPromises[content.url];
     return;
