@@ -288,13 +288,14 @@ async function halt($, text) {
         console.log("🪄 Painting uploaded:", filename, data);
 
         // Jump to the painting page that gets returned.
-        if (handle) {
+        if (handle && filename.startsWith("painting")) {
           jump(`painting~${handle}/${data.slug}`); // For a user.
         } else {
           jump(
             `painting~${data.slug}${recordingSlug ? ":" + recordingSlug : ""}`,
           ); // Or for a guest.
         }
+
         flashColor = [0, 255, 0];
       } catch (err) {
         console.error("🪄 Painting upload failed:", err);
