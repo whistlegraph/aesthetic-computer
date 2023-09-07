@@ -3167,7 +3167,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       token = await window.auth0Client.getTokenSilently();
       console.log("🔐 Authorized");
     } catch (err) {
-      if (debug) console.log("🔐️ ❌ Unauthorized");
+      console.log("🔐️ ❌ Unauthorized", err);
     }
     return token;
   }
