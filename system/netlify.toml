@@ -16,8 +16,10 @@
     "backend/**/*.mjs"
     ]
   external_node_modules = ["got", "mongodb"]
+[functions.logo]
+  external_node_modules = ["got"]
 [functions.print]
-  external_node_modules = ["got", "stripe"]
+  external_node_modules = ["got", "stripe", "nodemailer"]
 [functions.pixel]
   external_node_modules = ["got", "sharp"]
 [functions.user]
@@ -122,6 +124,11 @@
 #   status = 200
 #   force = false
 [[redirects]]
+  from = "https://logo.aesthetic.computer/*"
+  to = "https://aesthetic.computer/api/logo/:splat"
+  status = 200
+  force = true
+[[redirects]]
   from = "https://prompt.ac/*"
   to = "https://aesthetic.computer/:splat"
   status = 301
@@ -137,6 +144,10 @@
 [[redirects]]
   from = "/api/print/*"
   to = "/.netlify/functions/print"
+  status = 200
+[[redirects]]
+  from = "/api/logo"
+  to = "/.netlify/functions/logo"
   status = 200
 [[redirects]]
   from = "/api/pixel/*"

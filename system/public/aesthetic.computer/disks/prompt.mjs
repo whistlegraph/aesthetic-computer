@@ -172,6 +172,8 @@ async function halt($, text) {
     zip,
     print,
   } = $;
+  motdController?.abort(); // Abort any motd update.
+
   // Roughly parse out the text (could also do a full `parse` here.)
   const tokens = text.split(" ");
   const slug = tokens[0]; // Note: Includes colon params.
@@ -206,7 +208,13 @@ async function halt($, text) {
     }
   }
 
-  if (slug === "painting:start") {
+  if (slug === "me") {
+    jump("profile");
+    return true;
+  } else if (slug === "@maya/sparkle") {
+    jump("sparkle");
+    return true;
+  } else if (slug === "painting:start") {
     // Start recording paintings.
     system.nopaint.record = []; // Clear any existing recording.
     system.nopaint.recording = true;
@@ -223,17 +231,22 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (slug === "print") {
-    // TODO: Do I want to show the progress bar here?
     progressBar = 0;
-    await print(system.painting, params[0], (p) => (progressBar = p)); // Print a sticker.
+    try {
+      await print(system.painting, params[0], (p) => (progressBar = p)); // Print a sticker.
+      flashColor = [0, 200, 0];
+    } catch (err) {
+      flashColor = [200, 0, 0];
+    }
     progressBar = 1;
-
+    makeFlash($);
     return true;
-  } else if (slug === "painting:done" || slug === "yes!") {
-    let destination = params[0] || "download"; // or "upload"
+  } else if (slug === "painting:done" || slug === "yes!" || slug === "done") {
+    let destination = params[0] || "upload"; // or "upload"
     if (destination === "u" || slug === "yes!") destination = "upload";
     //                                  ^ "yes!" is always an upload.
     let filename; // Used in painting upload.
+    let recordingSlug;
 
     if (system.nopaint.recording) {
       console.log("🖌️ Saving recording:", destination);
@@ -250,6 +263,7 @@ async function halt($, text) {
       });
 
       console.log("🤐 Zipped:", zipped);
+      recordingSlug = zipped.slug;
 
       system.nopaint.recording = false;
       system.nopaint.record = [];
@@ -272,6 +286,16 @@ async function halt($, text) {
           progressBar = p;
         });
         console.log("🪄 Painting uploaded:", filename, data);
+
+        // Jump to the painting page that gets returned.
+        if (handle && filename.startsWith("painting")) {
+          jump(`painting~${handle}/${data.slug}`); // For a user.
+        } else {
+          jump(
+            `painting~${data.slug}${recordingSlug ? ":" + recordingSlug : ""}`,
+          ); // Or for a guest.
+        }
+
         flashColor = [0, 255, 0];
       } catch (err) {
         console.error("🪄 Painting upload failed:", err);

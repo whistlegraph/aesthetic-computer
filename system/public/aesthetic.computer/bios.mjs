@@ -1177,11 +1177,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Load a zip from a URL and return its unpacked contents to the piece.
     if (type === "zip:load") {
       console.log("Load zip remotely...", content);
-      fetch(content)
-        .then((response) => response.arrayBuffer())
+      fetch(encodeURI(content))
+        .then((response) => {
+          // console.log("Response", response);
+          if (response.status == 200) {
+            return response.arrayBuffer();
+          } else {
+            throw new Error(`Zip not found. Status: ${response.status}`);
+          }
+        })
         .then(async (buffer) => {
           if (!window.JSZip) await loadJSZip();
           const record = await unzip(buffer);
+          if (record.length === 0) throw new Error("Record is an empty array");
           send({
             type: "loaded-zip-success",
             content: { url: content, data: record },
@@ -1691,6 +1699,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Initialize some global stuff after the first piece loads.
     // Unload some already initialized stuff if this wasn't the first load.
     if (type === "disk-loaded") {
+      // Clear any active parameters once the disk has been loaded.
+      window.history.replaceState({}, "", window.location.pathname);
+
       currentPiece = content.path;
       currentPieceHasKeyboard = false;
 
@@ -2571,7 +2582,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "load-bitmap") {
       const img = document.createElement("img");
-      img.src = content;
+      img.src = encodeURI(content);
       img.crossOrigin = "anonymous";
       img.addEventListener("load", async () => {
         const bitmap = await toBitmap(img);
@@ -2583,7 +2594,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           [bitmap.pixels.buffer],
         );
       });
-      img.addEventListener("error", () => {
+      img.addEventListener("error", (err) => {
+        console.error(err);
         send({ type: "loaded-bitmap-rejection", content: { url: content } });
       });
 
@@ -3899,11 +3911,10 @@ async function unzip(data) {
     console.log("🤐 Zip opened...");
     // Detect type of media based on presence of "steps" file...
     const steps = JSON.parse(await zip.file("painting.json")?.async("text"));
+    const record = [];
 
     if (steps) {
       console.log("🖼️⌛ Painting record detected.");
-
-      const record = [];
 
       // TODO: Parse the JSON from steps.
       const lines = steps; // Remove timestamp.
@@ -3926,9 +3937,11 @@ async function unzip(data) {
       return record;
     } else {
       console.warn("🤐 Could not detect ZIP media type.");
+      return record;
     }
   } catch (err) {
     console.error("🤐 Error reading ZIP:", err);
+    return record;
   }
 }
 

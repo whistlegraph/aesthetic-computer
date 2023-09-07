@@ -5,13 +5,14 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [-] Automatically go to the `painting` page after a successful upload /
-       return the proper code.
-       - [] Generally smooth out the `painting:done` and `yes` feedback.
   + Later
   - [] Sound
   - [] Forwards and backwards directionality.
   + Done
+  - [x] `done` should take you to the painting page after uploading.
+  - [x] Automatically go to the `painting` page after a successful upload /
+       return the proper code.
+       - [x] Generally smooth out the `painting:done` and `yes` feedback.
   - [x] Add `print` button.
   - [x] Load provisional / non-user paintings.
   - [x] If there is no recording then still load and show the `.png`.
@@ -31,37 +32,28 @@ let painting,
   labelFade = labelFadeSpeed,
   stepIndex = 0,
   interim = "No recording found.",
-  notice,
   // direction = 1,
   paintingIndex = stepIndex,
   pastRecord; // In case we load a record off the network.
 
 let printBtn, // Sticker button.
-  printPixels; // A url to the loaded image for printing.
+  slug; // A url to the loaded image for printing.
 
-let noticeTimer;
+const btnBar = 32;
+const butBottom = 6;
+const butSide = 6;
+
+let handle;
+let imageCode, recordingCode;
+
+let mintBtn; // A button to mint.
 
 // 🥾 Boot
-function boot({ system, query, params, get, net, ui, screen, gizmo }) {
+function boot({ system, params, get, net, ui, screen }) {
   if (params[0]?.length > 0) {
     interim = "Loading...";
 
-    let handle;
-    let imageCode, recordingCode;
-    // User string (@user/timestamp)
-    if (params[0].startsWith("@")) {
-      const [user, timestamp] = params[0].split("/");
-      handle = user;
-      imageCode = recordingCode = timestamp;
-      printPixels = handle + "/painting/" + imageCode;
-    } else {
-      // Assume a guest painting code.
-      // Example: Lw2OYs0H:qVlzDcp6;
-      //          ^ png    ^ recording (if it exists)
-      [imageCode, recordingCode] = params[0].split(":");
-      handle = "anon";
-      printPixels = imageCode;
-    }
+    genSlug({ params });
 
     net.waitForPreload();
     get
@@ -70,6 +62,9 @@ function boot({ system, query, params, get, net, ui, screen, gizmo }) {
       .then((out) => {
         finalPainting = out;
         net.preloaded();
+      })
+      .catch((err) => {
+        // console.warn("Could not load painting.", err);
       });
     if (recordingCode) {
       get
@@ -78,28 +73,55 @@ function boot({ system, query, params, get, net, ui, screen, gizmo }) {
         .then((out) => {
           pastRecord = system.nopaint.record;
           system.nopaint.record = out;
+        })
+        .catch((err) => {
+          // console.warn("Could not load recording.", err);
         });
     }
 
-    printBtn = new ui.TextButton(`Print`, { bottom: 6, right: 6, screen });
+    printBtn = new ui.TextButton(`Print`, {
+      bottom: butBottom,
+      right: butSide,
+      screen,
+    });
+    mintBtn = new ui.TextButton(`Mint`, {
+      bottom: butBottom,
+      left: butSide,
+      screen,
+    });
   }
   advance(system);
-  if (query.notice === "success") printBtn = null; // Kill button after order.
+  // if (query.notice === "success") printBtn = null; // Kill button after order.
 }
 
 // 🎨 Paint
 function paint({ wipe, ink, system, screen, num, paste }) {
   wipe(0);
+  ink(0, 127).box(0, 0, screen.width, screen.height);
+
+  function paintUi() {
+    ink(32, 127).box(
+      0,
+      screen.height - btnBar,
+      screen.width,
+      screen.height - btnBar,
+    );
+    printBtn?.paint({ ink });
+    mintBtn?.paint({ ink });
+  }
+
+  ink(96).box(0, screen.height - 1 - btnBar, screen.width, 1);
+
   // Executes every display frame.
   if (system.nopaint.record?.length > 0) {
     ink().write(label, { size: 2 });
-    ink(0, 127).box(0, 0, screen.width, screen.height);
 
     if (painting) {
       const x = screen.width / 2 - painting.width / 2;
       const y = screen.height / 2 - painting.height / 2;
-      paste(painting, x, y);
-      ink().box(x, y, painting.width, painting.height, "outline");
+      ink(64).box(x, y - btnBar / 2, painting.width, painting.height);
+      paste(painting, x, y - btnBar / 2);
+      ink().box(x, y - btnBar / 2, painting.width, painting.height, "outline");
     }
 
     ink(num.map(labelFade, 0, labelFadeSpeed, 0, 255)).write(
@@ -111,7 +133,7 @@ function paint({ wipe, ink, system, screen, num, paste }) {
     if (system.nopaint.record[stepIndex - 1]?.timestamp) {
       ink(200).write(
         system.nopaint.record[stepIndex - 1]?.timestamp,
-        { x: 3, y: screen.height - 13 },
+        { x: 3, y: screen.height - 13 - btnBar },
         "black",
       );
     }
@@ -119,37 +141,64 @@ function paint({ wipe, ink, system, screen, num, paste }) {
     // Progress bar.
     ink().box(
       0,
-      screen.height - 1,
+      screen.height - 1 - btnBar,
       screen.width * (stepIndex / system.nopaint.record.length),
-      screen.height,
+      1,
     );
 
-    printBtn?.paint({ ink });
+    paintUi();
   } else if (finalPainting) {
     const x = screen.width / 2 - finalPainting.width / 2;
     const y = screen.height / 2 - finalPainting.height / 2;
-    paste(finalPainting, x, y);
-    ink().box(x, y, finalPainting.width, finalPainting.height, "outline");
-    printBtn?.paint({ ink });
+    ink(64).box(x, y - btnBar / 2, finalPainting.width, finalPainting.height);
+    paste(finalPainting, x, y - btnBar / 2);
+    ink().box(
+      x,
+      y - btnBar / 2,
+      finalPainting.width,
+      finalPainting.height,
+      "outline",
+    );
+    paintUi();
   } else {
     ink().write(interim, { center: "xy" });
   }
 }
 
 // 🎪 Act
-function act({ event: e, screen, print }) {
+function act({ event: e, screen, print, mint }) {
   printBtn?.act(e, {
     push: async () => {
-      // - [] Make the print button appear "held".
-      //   - [] Would this require a scheme adjustment?
       printBtn.disabled = true;
-      printBtn.reposition({ right: 6, bottom: 6, screen }, "Printing...");
-      print("https://aesthetic.computer/api/pixel/1650x1650/" + printPixels);
+      printBtn.reposition(
+        { right: butSide, bottom: butBottom, screen },
+        "Printing...",
+      );
+      await print(slug);
+      printBtn.disabled = false;
+      printBtn.reposition(
+        { right: butSide, bottom: butBottom, screen },
+        "Print",
+      );
+    },
+  });
+
+  mintBtn?.act(e, {
+    push: async () => {
+      mintBtn.disabled = true;
+      mintBtn.reposition(
+        { right: butSide, bottom: butBottom, screen },
+        "Minting...",
+      );
+      await mint(slug);
+      mintBtn.disabled = false;
+      mintBtn.reposition({ right: butSide, bottom: butBottom, screen }, "Mint");
     },
   });
 
   if (e.is("reframed")) {
-    printBtn?.reposition({ right: 6, bottom: 6, screen });
+    printBtn?.reposition({ right: butSide, bottom: butBottom, screen });
+    mintBtn?.reposition({ left: butSide, bottom: butBottom, screen });
   }
 }
 
@@ -172,10 +221,12 @@ function leave({ system }) {
 // 📰 Meta
 function meta({ params }) {
   if (params[0]) {
-    const [handle, timestamp] = params[0].split("/");
+    genSlug({ params });
     return {
-      title: `painting · ${handle}/${timestamp}`,
-      desc: `A painting by ${handle} from ${timestamp}.`,
+      title: `painting · ${slug.replace(".png", "")}`,
+      desc: handle
+        ? `A pixel painting by ${handle}.`
+        : `An anonymous pixel painting.`,
     };
   } else {
     return {
@@ -239,4 +290,21 @@ function advance(system) {
   // stepIndex -= 1;
   // if (stepIndex === 0) direction = 1;
   //}
+}
+
+function genSlug({ params }) {
+  // User string (@user/timestamp)
+  if (params[0].startsWith("@")) {
+    const [user, timestamp] = params[0].split("/");
+    handle = user;
+    imageCode = recordingCode = timestamp;
+    slug = handle + "/painting/" + imageCode + ".png";
+  } else {
+    // Assume a guest painting code.
+    // Example: Lw2OYs0H:qVlzDcp6;
+    //          ^ png    ^ recording (if it exists)
+    [imageCode, recordingCode] = params[0].split(":");
+    handle = "anon";
+    slug = imageCode + ".png";
+  }
 }
