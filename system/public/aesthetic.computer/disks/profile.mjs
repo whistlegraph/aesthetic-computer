@@ -25,6 +25,8 @@ const RETRIEVING = "retrieving...";
 let profile,
   noprofile = RETRIEVING;
 
+let painting;
+
 // 📰 Meta
 function meta({ piece }) {
   return {
@@ -35,21 +37,25 @@ function meta({ piece }) {
 }
 
 // 🥾 Boot
-function boot({ params, user, handle, debug, hud, net }) {
+function boot({ params, user, handle, debug, hud, net, get }) {
   // Mask from `profile` if we are logged in.
-  if (handle) {
-    hud.label(handle);
-    net.rewrite(handle);
+
+  const visiting = params[0] || handle;
+
+  if (visiting) {
+    hud.label(visiting);
+    net.rewrite(visiting);
   }
 
-  console.log("🤺 Visiting the profile of...", params[0]);
+  console.log("🤺 Visiting the profile of...", visiting);
   if (user) console.log("😉 Logged in as...", handle || user?.name);
-  if (!handle && params[0] === undefined) {
+
+  if (!visiting) {
     noprofile = user?.name || "no profile (enter 'hi' at the prompt)";
     return;
   }
   // 🎆 Check to see if this user actually exists via a server-side call.
-  fetch(`/api/profile/${handle || params[0]}`, {
+  fetch(`/api/profile/${visiting}`, {
     headers: { Accept: "application/json" },
   })
     .then(async (response) => {
@@ -58,6 +64,32 @@ function boot({ params, user, handle, debug, hud, net }) {
         if (debug) console.log("🙆 Profile found:", data);
         profile = { handle: params[0], mood: data?.mood };
         noprofile = null;
+
+        // Fetch all of a user's paintings...
+        let paintings;
+        try {
+          const res = await fetch(`/media/${profile.handle}/painting`);
+          paintings = (await res.json())?.files;
+        } catch (err) {
+          console.warn("Could not fetch media.");
+        }
+
+        const lastPainting = paintings?.[paintings?.length - 1];
+        console.log("Last painting:", lastPainting);
+        const lastPaintingCode = lastPainting
+          .split("/")
+          .pop()
+          .replace(".png", "");
+        // net.preload(lastPainting).then((img) => (painting = img)); // This doesn't work because of CORS errors in the Cloudflare worker.
+        get
+          .painting(lastPaintingCode)
+          .by(visiting)
+          .then((out) => {
+            painting = out;
+          })
+          .catch((err) => {
+            // console.warn("Could not load painting.", err);
+          });
       } else {
         if (debug) console.warn("🙍 Profile not found:", data);
         noprofile = "no profile found";
@@ -69,23 +101,31 @@ function boot({ params, user, handle, debug, hud, net }) {
 }
 
 // 🎨 Paint
-function paint({ params, wipe, ink, pen, user, screen }) {
+function paint({ params, wipe, ink, pen, user, screen, paste }) {
   if (!pen?.drawing) wipe(98);
   ink(127).line();
+  if (profile) ink().line().ink().line().ink().line();
+
+  if (painting) {
+    const x = screen.width / 2 - painting.width / 2;
+    const y = screen.height / 2 - painting.height / 2;
+    ink(64).box(x, y, painting.width, painting.height);
+    paste(painting, x, y);
+    ink().box(x, y, painting.width, painting.height, "outline");
+  }
 
   const retrieving = noprofile === RETRIEVING;
-  if (profile) ink().line().ink().line().ink().line();
   ink(profile ? undefined : 255).write(
     profile?.handle || noprofile || user?.name,
     { center: "x", y: screen.height / 2 + 5 - (retrieving ? 0 : 12) },
-    retrieving ? 64 : "black"
+    retrieving ? 64 : "black",
   );
 
   if (!retrieving && !profile && user?.name) {
     ink("yellow").write(
       "enter 'handle urnamehere' at the prompt",
       { center: "x", y: screen.height / 2 + 5 + 24 },
-      "blue"
+      "blue",
     );
   }
 
@@ -94,7 +134,7 @@ function paint({ params, wipe, ink, pen, user, screen }) {
     ink(255).write(
       profile.mood || "no mood",
       { center: "x", y: screen.height / 2 + 5 + 12 },
-      "black"
+      "black",
     );
   }
   // return false;

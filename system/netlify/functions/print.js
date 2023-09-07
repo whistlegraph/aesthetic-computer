@@ -16,30 +16,35 @@
 // ⚠️ For testing webhooks: `stripe listen --forward-to stripe listen --forward-to "https://localhost:8888/api/print"
 
 /* #region 🏁 TODO 
-  - [🔥] Send user a stripe receipt email. (How does this work in testing?)
-  - [️‍🔥] Send user a confirmation email from mail@aesthetic.computer
-       upon a successful Printful order fulfillment.
-       - [] Email should link to a sticker feed of some kind?
-            (Don't want your sticker included? Reply to this email to opt-out.)
-            (Paintings that have been printed get special copies in S3.)
-  - [] Get mockup images working and looking good for different
-       resolutions.
-    - [] Test a painting that is at a different resolution / try
-         a cropped image.
-  - [] Customize stripe: https://dashboard.stripe.com/settings/branding
-    -  (What extra info can I add to the checkout page to make it nicer?)
-  - [] Add branding: https://stripe.com/docs/payments/checkout/customization
-  - [] Make sure to refund the user if their order can't be fulfilled.
-  - [] How can I associate the Stripe order ID with the printful order
-        just in case of issues that need to be manually addressed?
-  - [] Retrieve the mockup image for a successful order and show it to
-        the user either on the success screen or in the email they receive.
-  - [️] Make a dynamic logo endpoint that always returns a different graphic:
-        "https://assets.aesthetic.computer/images/favicon.png"
-  - [] Could I use icon for this?
-  - [] Create a REAL order!
+  - [❤️‍🔥] Hook up a real production order! Make it actually work?!
   + Later
+  - [] Email should link to a sticker feed of some kind?
+      (Don't want your sticker included? Reply to this email to opt-out.)
+      (Paintings that have been printed get special copies in S3.)
   + Done
+  - [x️] Make a dynamic logo endpoint that always returns a different graphic:
+        "https://assets.aesthetic.computer/images/favicon.png"
+  - [x] Make sure to refund the user if the Printful order can't created.
+  - [x‍] How can I associate the Stripe order ID with the printful order
+        just in case of issues that need to be manually addressed?
+  - [x] Retrieve the mockup image for a successful order and show it to
+        the user either on the success screen or in the email they receive.
+  - [x] Image mockup generation is kind of slow... maybe I could use /pixel
+       to do it on my own server and just have "essentially" the same kind
+       of image?
+       (Also it may be rate-limited)
+  - [x] Add branding: https://stripe.com/docs/payments/checkout/customization
+  - [x] Customize stripe: https://dashboard.stripe.com/settings/branding
+  - [x] Send user a stripe receipt email. (How does this work in testing?)
+  - [x] Replace printful compositor with my own from `api/pixel`.
+  - [x] Get mockup images working and looking good for different
+       resolutions.
+    - [x] Test a painting that is at a different resolution / try
+         a cropped image.
+  - [x] Send user a confirmation email from mail@aesthetic.computer
+       upon a successful Printful order fulfillment.
+       - [x] Email should embed the mockup image of the sticker, or 
+             at the very least, include a link?
   - [x] Integrate into a `print` command and the [Print] button on a painting page.
   - [x] Show a `success` or `failure` screen to the user after they
         attempt to checkout.
@@ -61,132 +66,148 @@
 #endregion */
 
 import { respond } from "../../backend/http.mjs";
+import { email } from "../../backend/email.mjs";
 import Stripe from "stripe";
 const dev = process.env.CONTEXT === "dev";
 const printfulKey = process.env.PRINTFUL_API_TOKEN;
-const stripeKey = process.env.STRIPE_API_TEST_KEY; // process.env.STRIPE_API_PRIV_KEY; // Uncomment for real orders.
+const stripeKey = dev
+  ? process.env.STRIPE_API_TEST_KEY
+  : process.env.STRIPE_API_PRIV_KEY; // Uncomment for real orders.
 
 import { authorize } from "../../backend/authorization.mjs";
+import { logoUrl } from "../../backend/logo.mjs";
 
 export async function handler(event, context) {
   const { got } = await import("got");
+  // const { nanoid } = await import("nanoid");
   const API = "https://api.printful.com";
   const headers = {
     Authorization: "Bearer " + printfulKey,
     "Content-Type": "application/json",
   };
 
-  // TODO: This might prevent orders from working in production?
-  if (event.headers["host"] !== "aesthetic.computer" && !dev) {
-    return respond(400, {
-      message: "Bad request.",
-      host: event.headers["host"],
-    });
-  }
+  // Lock these requests to a particular hosts. // Not necessary? 23.09.06.00.06
+  // if (event.headers["host"] !== "aesthetic.computer" && !dev) {
+  //   return respond(400, {
+  //     message: "Bad request.",
+  //     host: event.headers["host"],
+  //   });
+  // }
 
   const id = 358; // Kiss-cut Sticker
   const variant = 10165; // 5.5" Square
   const width = 1650; // Print resolution.
   const height = 1650;
-  const imageUrl = event.queryStringParameters.pixels;
-  // console.log("Image:", imageUrl);
 
   // 🅰️ GET: Generate a mockup image.
   if (event.httpMethod === "GET") {
-    try {
-      // 🔸 List all products.
-      // (Only really needed while developing for now. 23.08.25.18.42)
-      // const products = await got.get(`${API_URL}/products?category_id=202`, {
-      // headers,
-      // });
-      // return respond(200, { product: JSON.parse(products.body) });
-
-      // 🔍
-      // 202 - Stickers `category_id`.
-      // 358 - Kiss-cut sticker product `id`.
-      // const id = 358;
-
-      // 🔸 Get information for a single product.
-      // (Which includes its availailbility status by region, per variant.)
-      // TODO: Make sure it's stock before purchasing? 23.08.25.18.50
-      // const product = await got.get(`${API}/products/${id}`, { headers });
-      // return respond(200, { product: JSON.parse(product.body) });
-
-      // 🔍
-      // ??? - Kiss-cut sticker 5.5" square `variant_id`.
-      // const variant = 10165;
-
-      // 🔸 Get print constraints for a given product.
-      // const printfiles = await got.get(
-      //   `${API}/mockup-generator/printfiles/${id}`,
-      //   { headers }
-      // );
-      // return respond(200, { product: JSON.parse(printfiles.body) });
-
-      // 🔸 Generate a mockup image.
-      const task = await got.post(`${API}/mockup-generator/create-task/${id}`, {
-        headers: headers,
-        json: {
-          variant_ids: [variant],
-          files: [
-            {
-              placement: "default", // 185
-              image_url: imageUrl,
-              position: {
-                area_width: 1650, // Constant for this variant.
-                area_height: 1650,
-                width,
-                height,
-                top: 0,
-                left: 0,
-              },
-            },
-          ], // See also: https://developers.printful.com/docs/#operation/createGeneratorTask
-          format: "png",
-        },
-      });
-
-      const taskResult = JSON.parse(task.body)?.result;
-
-      let mockupUrl = null;
-      const maxAttempts = 12;
-      let attempt = 0;
-      while (attempt < maxAttempts) {
-        const statusResponse = await got.get(
-          `${API}/mockup-generator/task/?task_key=${taskResult?.task_key}`,
-          { headers },
-        );
-        const statusResult = JSON.parse(statusResponse.body);
-
-        if (statusResult.result.status === "completed") {
-          console.log("Result:", statusResult);
-          mockupUrl = statusResult.result.mockups[0].mockup_url;
-          break;
-        } else {
-          await new Promise((res) => setTimeout(res, 2000)); // wait 2 seconds.
-          attempt += 1;
-        }
-      }
-
-      if (mockupUrl) {
-        return respond(200, { sticker: mockupUrl });
-      } else {
-        return respond(500, {
-          message: "Timed out waiting for mockup generation.",
-        });
-      }
-    } catch (error) {
-      return respond(500, { message: error.message });
-    }
+    // 🔸 List all products.
+    // (Only really needed while developing for now. 23.08.25.18.42)
+    // const products = await got.get(`${API_URL}/products?category_id=202`, {
+    // headers,
+    // });
+    // return respond(200, { product: JSON.parse(products.body) });
+    // 🔍
+    // 202 - Stickers `category_id`.
+    // 358 - Kiss-cut sticker product `id`.
+    // const id = 358;
+    // 🔸 Get information for a single product.
+    // (Which includes its availailbility status by region, per variant.)
+    // TODO: Make sure it's stock before purchasing? 23.08.25.18.50
+    // const product = await got.get(`${API}/products/${id}`, { headers });
+    // return respond(200, { product: JSON.parse(product.body) });
+    // 🔍
+    // ??? - Kiss-cut sticker 5.5" square `variant_id`.
+    // const variant = 10165;
+    // 🔸 Get print constraints for a given product.
+    // const printfiles = await got.get(
+    //   `${API}/mockup-generator/printfiles/${id}`,
+    //   { headers }
+    // );
+    // return respond(200, { product: JSON.parse(printfiles.body) });
+    // 🔸 Generate a mockup image.
+    // return respond(200, { message: mockupUrl });
+    return respond(405, { message: "No GET Method allowed. 😃" });
   } else if (event.httpMethod === "POST") {
-    // 🅱️ POST: Place an order.
     const stripe = new Stripe(stripeKey);
 
-    const imageUrl = event.queryStringParameters.pixels;
-    const post = JSON.parse(event.body);
-
-    // 1. Begin a new print order.
+    // 1. 🔵 Begin a new print order.
     if (event.queryStringParameters.new === "true") {
+      let mockupUrl = null; // Generated by printful below, before each order.
+
+      // Parse the input slug or url and generate a mockup image if possible.
+      let imageUrl;
+      console.log("Pixels:", event.queryStringParameters.pixels);
+      if (!event.queryStringParameters.pixels.startsWith("https://")) {
+        imageUrl = `https://aesthetic.computer/api/pixel/1650:contain/${event.queryStringParameters.pixels}`;
+        mockupUrl = imageUrl
+          .replace("contain", "sticker")
+          .replace("1650", "640");
+      } else {
+        imageUrl = event.queryStringParameters.pixels;
+        mockupUrl = imageUrl; // Don't generate a mockup yet for a custom url. 23.09.05.02.34
+      }
+
+      // try {
+      //   // 🔸 Generate a mockup image via printful.
+      //   const task = await got.post(
+      //     `${API}/mockup-generator/create-task/${id}`,
+      //     {
+      //       headers: headers,
+      //       json: {
+      //         variant_ids: [variant],
+      //         files: [
+      //           {
+      //             placement: "default", // 185
+      //             image_url: imageUrl,
+      //             position: {
+      //               area_width: 1650, // Constant for this variant.
+      //               area_height: 1650,
+      //               width,
+      //               height,
+      //               top: 0,
+      //               left: 0,
+      //             },
+      //           },
+      //         ], // See also: https://developers.printful.com/docs/#operation/createGeneratorTask
+      //         format: "png",
+      //       },
+      //     },
+      //   );
+
+      //   const taskResult = JSON.parse(task.body)?.result;
+
+      //   const maxAttempts = 12;
+      //   let attempt = 0;
+      //   while (attempt < maxAttempts) {
+      //     const statusResponse = await got.get(
+      //       `${API}/mockup-generator/task/?task_key=${taskResult?.task_key}`,
+      //       { headers },
+      //     );
+      //     const statusResult = JSON.parse(statusResponse.body);
+
+      //     if (statusResult.result.status === "completed") {
+      //       console.log("Result:", statusResult);
+      //       mockupUrl = statusResult.result.mockups[0].mockup_url;
+      //       break;
+      //     } else {
+      //       await new Promise((res) => setTimeout(res, 2000)); // wait 2 seconds.
+      //       attempt += 1;
+      //     }
+      //   }
+
+      //   if (!mockupUrl) {
+      //     return respond(500, {
+      //       message: "Timed out waiting for mockup generation.",
+      //     });
+      //   }
+      // } catch (error) {
+      //   return respond(500, { message: error.message });
+      // }
+
+      // 🅱️ POST: Place an order.
+      const post = JSON.parse(event.body);
+
       const domain = dev
         ? "https://localhost:8888"
         : "https://aesthetic.computer";
@@ -204,14 +225,15 @@ export async function handler(event, context) {
 
       // TODO: Add quantity to product name if there is more than 1.
       const productName = 'Painting Sticker 5.5"';
-      const name = productName + " x " + quantity;
+      let name = productName;
+      if (quantity > 1) name += "(" + quantity + " copies)";
 
       const stripeCheckout = {
         line_items: [
           {
             price_data: {
               currency: "usd",
-              product_data: { name, images: [imageUrl] },
+              product_data: { name, images: [mockupUrl] },
               unit_amount: finalAmount, // Amount in cents
             },
             quantity: 1,
@@ -220,6 +242,7 @@ export async function handler(event, context) {
         metadata: {
           productName, // Pass product name to Printful.
           quantity, // Pass actual quantity to Printful.
+          mockupUrl, // Send the mockup url for a reply email.
           imageUrl, // TODO: Eventually this might need to include
           //                 images<->product associations for multiple items.
         },
@@ -228,6 +251,13 @@ export async function handler(event, context) {
         success_url: `${domain}/${post.slug}?notice=success`, // Pick these states up in the piece.
         cancel_url: `${domain}/${post.slug}?notice=cancel`,
         automatic_tax: { enabled: true },
+        custom_text: {
+          submit: {
+            message: `📥 Check your email and expect your sticker${
+              quantity > 1 ? "s" : ""
+            } to arrive soon!`,
+          },
+        },
       };
 
       // 🤹 Add `customer_email` to the checkout if the user is logged in.
@@ -237,7 +267,7 @@ export async function handler(event, context) {
       const session = await stripe.checkout.sessions.create(stripeCheckout);
       return respond(200, { location: session.url });
     } else {
-      // 2. Or respond to an existing one.
+      // 2. 🔵 Or respond to an existing one.
       // ↪️ Receive webhook events...
       // ✅ checkout.session.completed
       //    charge.succeeded
@@ -254,11 +284,11 @@ export async function handler(event, context) {
         hookEvent = stripe.webhooks.constructEvent(event.body, sig, secret);
       } catch (err) {
         const msg = { message: `Webhook Error: ${err.message}` };
-        console.log(msg);
+        // console.log(msg);
         return respond(400, msg);
       }
 
-      // Handle the `checkout.session.completed` event
+      // Handle the `checkout.session.completed` webhook.
       if (hookEvent.type === "checkout.session.completed") {
         const session = await stripe.checkout.sessions.retrieve(
           hookEvent.data.object.id,
@@ -277,9 +307,12 @@ export async function handler(event, context) {
           const productName = hookEvent.data.object.metadata.productName;
           const quantity = hookEvent.data.object.metadata.quantity;
           const itemImage = hookEvent.data.object.metadata.imageUrl;
-          console.log("Metadata image:", itemImage);
+          const mockupUrl = hookEvent.data.object.metadata.mockupUrl;
+          // console.log("Metadata image:", itemImage);
           // console.log("Shipping details:", session.shipping_details);
           // console.log("Customer:", session.customer_details);
+
+          // 📔 Prinful Order Docs: https://developers.printful.com/docs/#operation/createOrder
 
           // 🖨️ Run the printful order, transferring over the shipping data.
           const shipping = session.shipping_details;
@@ -290,11 +323,13 @@ export async function handler(event, context) {
             state_code: shipping.address.state,
             country_code: shipping.address.country,
             zip: shipping.address.postal_code,
+            email: session.customer_details.email,
           };
           if (shipping.address.line2)
             recipient.address2 = shipping.address.line2;
 
           const order = {
+            external_id: session.payment_intent, // Store this "Stripe" checkout session id.
             recipient,
             items: [
               {
@@ -319,37 +354,79 @@ export async function handler(event, context) {
             packing_slip: {
               email: "mail@aesthetic.computer",
               message: "Your pictures belong on this earth. - @jeffrey",
-              logo_url: "https://assets.aesthetic.computer/images/favicon.png",
+              logo_url: logoUrl(),
               store_name: "aesthetic.computer",
             },
           };
 
-          console.log("Making printful order:", order);
+          // console.log("Making printful order:", order);
 
           try {
             // 🔸 Place an order.
-            // See also: https://developers.printful.com/docs/#operation/createOrder
-            // TODO: Auto-confirm orders.
+            //    (Auto-confirm in production.)
             const orderResponse = await got.post(
-              `${API}/orders?confirm=false`,
+              `${API}/orders?confirm=${dev ? false : true}`,
               { headers, json: order },
             );
 
             const orderResult = JSON.parse(orderResponse.body);
 
-            if (orderResult && orderResult.result) {
-              console.log("😃 Order sent!", orderResult);
-              // TODO: How to include image metadata?
+            if (orderResult && orderResult.code === 200 && orderResult.result) {
+              // console.log("😃 Order sent!", orderResult);
+              const emailSent = await email({
+                to: session.customer_details.email,
+                subject:
+                  quantity > 1
+                    ? "your stickers are coming! 🫠"
+                    : "your sticker is coming! 🫠",
+                html: `
+                <img src="${mockupUrl}" width="250">
+                <p>and we appreciate your order</p>
+                <b>aesthetic.computer</b>
+                <br>
+                <code>${session.payment_intent.replace("pi_", "")}</code>
+                `,
+              });
 
-              return respond(200, { order: orderResult.result });
+              return respond(200, { order: orderResult.result, emailSent });
             } else {
-              const msg = { message: "Error processing order." };
-              console.log(msg);
-              return respond(500, msg);
+              throw new Error("Error processing order.");
             }
           } catch (error) {
-            const msg = { message: error.message };
-            console.log(msg);
+            console.log("Printful order failed, refunding the customer...");
+            let refunded = false;
+
+            try {
+              await stripe.refunds.create({
+                payment_intent: session.payment_intent,
+              });
+              refunded = true;
+              console.log("✅ Refund successful!");
+            } catch (refundError) {
+              console.error("🚫 Refund error:", refundError.message);
+            }
+
+            await email({
+              to: session.customer_details.email,
+              subject: "oh no! 🚫",
+              html: `
+                <img src="${mockupUrl}" width="250">
+                <p>
+                  your sticker order has failed due to an error,<br>
+                  ${
+                    refunded
+                      ? "and you have been refunded."
+                      : "reply here to be refunded."
+                  } 
+                </p>
+                <p>deeply sorry about that!</p>
+                <b>aesthetic.computer</b>
+                <br>
+                <code>${session.payment_intent.replace("pi_", "")}</code>
+                `,
+            });
+
+            const msg = { message: error.message + " - Refund attempted." };
             return respond(500, msg);
           }
         } else {
@@ -357,7 +434,9 @@ export async function handler(event, context) {
           return respond(500, { message: "Order payment failed." });
         }
       } else {
-        return respond(400, { message: "Incorrect webhook event." });
+        return respond(400, {
+          message: `Unhandled webhook event: ${hookEvent.type}`,
+        });
       }
     }
   } else {

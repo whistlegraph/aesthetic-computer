@@ -5,19 +5,23 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] [Start] button should be blue.
+  - [] [Press and Hold] should be green.
+  - [] This button should be white on red while recording,
+       and the background of the page should probably be red too.
+  - [] LISTEN CAREFULLY, should replace "SAY SOMETHING" during playback.
+  - [] Add a pause / play button, on the bottom right. 
   - [] Drag line to scrub recording head and add gestural recording and
        playback. (Easter egg?)
-  - [] Change themes to be distinct from whistle.
-    - [] Make start button green.
-    - [] Make record button red.
-    - [] Turn push and hold into "again" after the first time.
-  - [] Add a painting or illustration in the background / a logo.
-  - Pre-launch:
-  - [] Make the microphone access / audio context work better.
+    - [] Pitch loop 89 (Ableton Plugin)
+    - [] Borderlands iPad App
+  - [] Make the microphone access / audio context work better?
+       (Seems to work fine.)
   + Next version
   - [] Add layering option so multiple sounds can be layered and removed,
        stacked on top of one another, etc. 
   + Done
+  - [x] Push and Hold -> Press and Hold 
   - [x] Activity flow:
     - [x] Show waveform of the sample that is playing back?
     - [x] Let go and it plays back visually.
@@ -86,7 +90,7 @@ function paint({
       0,
       width,
       height,
-      [0, 0, 255, 32]
+      [0, 0, 255, 32],
     );
 
     if (typeof progress === "number") {
@@ -205,7 +209,7 @@ async function act({
     clearTimeout(hideButtonTimeout);
     hideButton = false;
     // 🔴 Add a red color scheme here...
-    btn.reposition({ center: "xy", screen }, "PUSH AND HOLD");
+    btn.reposition({ center: "xy", screen }, "PRESS AND HOLD");
   }
 
   if (e.is("lift") && capturing) {
@@ -249,13 +253,13 @@ function paintSound({ ink }, amplitude, waveform, x, y, width, height, color) {
       yMid,
       width,
       amplitude * yMax * 2,
-      "*center"
+      "*center",
     );
   }
 
   ink(255, 0, 0, 128).poly(
     waveform.map((v, i) => {
       return [x + i * xStep, yMid + v * yMax];
-    })
+    }),
   );
 }
