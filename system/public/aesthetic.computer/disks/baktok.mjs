@@ -5,12 +5,9 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] [Start] button should be blue.
-  - [] [Press and Hold] should be green.
-  - [] This button should be white on red while recording,
-       and the background of the page should probably be red too.
-  - [] LISTEN CAREFULLY, should replace "SAY SOMETHING" during playback.
-  - [] Add a pause / play button, on the bottom right. 
+  - [] Add scrubbable audio.
+  - [] Would it be possible to re-add microphone access via browser
+       without a page refresh?
   - [] Drag line to scrub recording head and add gestural recording and
        playback. (Easter egg?)
     - [] Pitch loop 89 (Ableton Plugin)
@@ -54,7 +51,7 @@ const { max } = Math;
 // 🥾 Boot
 function boot({ ui, screen }) {
   // Runs once at the start.
-  btn = new ui.TextButton(`START`, { center: "xy", screen });
+  btn = new ui.TextButton(`Start`, { center: "xy", screen });
 }
 
 // 🎨 Paint
@@ -70,18 +67,27 @@ function paint({
   help: { choose },
   sound: { speaker: spk },
 }) {
-  const w = capturing ? [0, 127, 0] : "teal";
-  wipe(w);
+  wipe(
+    capturing
+      ? "red"
+      : playing
+      ? "yellow"
+      : connecting
+      ? "gray"
+      : connected
+      ? "pink"
+      : btn.down
+      ? [0, 64, 64]
+      : "teal",
+  );
 
   // Microphone Waveform & Amplitude Line
-  if (!playing) {
+  if (!playing && !connecting) {
     // Graph microphone (1 channel)
     if (mic?.waveform.length > 0 && mic?.amplitude !== undefined) {
       paintSound(api, mic.amplitude, mic.waveform, 0, 0, width, height);
     }
-  } else {
-    // Graph speaker (2 channels)
-    const hw = width / 2;
+  } else if (!connecting) {
     paintSound(
       api,
       num.arrMax(sampleData),
@@ -99,35 +105,46 @@ function paint({
     }
   }
 
-  if (capturing) {
+  function instructions(gap, color, line1, line2) {
     const hh = height / 2;
-    const hq = hh / 2;
-    const yo = 10;
-    pan(choose(-1, 0, 1), choose(-1, 0, 1));
-    ink().write("SAY", { center: "x", y: hh - yo - hq, size: 2 });
+    const hq = gap;
+    const yo = 9;
+
+    const noshake = btn?.down && color !== "yellow";
+
+    pan(noshake ? 0 : choose(-1, 0, 1), noshake ? 0 : choose(-1, 0, 1));
+    ink(color).write(line1, { center: "x", y: hh - yo - hq, size: 2 });
     unpan();
-    pan(choose(-1, 0, 1), choose(-1, 0, 1));
-    ink().write("SOMETHING", { center: "x", y: hh - yo + hq, size: 2 });
+    pan(noshake ? 0 : choose(-1, 0, 1), noshake ? 0 : choose(-1, 0, 1));
+    ink(color).write(line2, { center: "x", y: hh - yo + hq, size: 2 });
     unpan();
   }
 
-  if (!capturing && !playing) {
-    const hh = height / 2;
-    const hq = hh / 3.5;
-    const yo = 10;
-    pan(choose(-1, 0, 1), choose(-1, 0, 1));
-    ink("cyan").write("LEARN 2 TALK", {
-      center: "x",
-      y: hh - yo - hq,
-      size: 2,
-    });
-    unpan();
-    pan(choose(-1, 0, 1), choose(-1, 0, 1));
-    ink("cyan").write("BACKWARDS", { center: "x", y: hh - yo + hq, size: 2 });
-    unpan();
-  }
+  if (capturing) instructions(36, "yellow", "SAY", "SOMETHING");
 
-  if (!hideButton) btn.paint({ ink });
+  if (!capturing && connected && !playing)
+    instructions(14, "red", "HOLD TO", "RECORD");
+
+  if (!capturing && !playing && !connecting && !connected)
+    instructions(36, btn.down ? "teal" : "cyan", "LEARN TO TALK", "BACKWARDS");
+
+  if (!hideButton) {
+    const lowTeal = [0, 158, 158];
+    const startScheme = [
+      [lowTeal, "cyan", "cyan", lowTeal],
+      [64, lowTeal, lowTeal, 64],
+    ];
+
+    const pressAndHoldScheme = [
+      ["red", "yellow", "yellow", "red"],
+      ["yellow", "red", "red", "yellow"],
+    ];
+
+    let scheme = [];
+    if (btn.txt === "Start") scheme = startScheme;
+    if (btn.txt === "Repeat") scheme = pressAndHoldScheme;
+    if (btn.txt !== "Capture") btn.paint({ ink }, ...scheme);
+  }
 }
 
 // 🧮 Sim
@@ -154,12 +171,13 @@ async function act({
   screen,
   sound: { microphone, play, synth },
   rec,
+  delay,
 }) {
   if (e.is("reframed")) {
     btn.reposition({ center: "xy", screen });
   }
 
-  if (e.is("touch") && !connected) {
+  if (e.is("touch") && !connected && !connecting) {
     btn.down = true;
     synth({
       tone: 400,
@@ -170,7 +188,7 @@ async function act({
     });
   }
 
-  if (e.is("lift") && btn.down && !connected) {
+  if (e.is("lift") && btn.down && !connected && !connecting) {
     synth({
       tone: 600,
       beats: 0.1,
@@ -179,12 +197,7 @@ async function act({
       volume: 0.15,
     });
     btn.disabled = true;
-    hideButton = true;
-    clearTimeout(hideButtonTimeout);
-    hideButtonTimeout = setTimeout(() => {
-      hideButton = false;
-    }, 250);
-    btn.reposition({ center: "xy", screen }, "Enabling Microphone");
+    btn.reposition({ center: "xy", screen }, "Activating Microphone");
     if (!mic) mic = microphone.connect();
     connecting = true;
     btn.down = false;
@@ -193,7 +206,7 @@ async function act({
   btn.act(e); // Pass user events through to the button.
 
   // Start a microphone recording.
-  if (e.is("touch") && !capturing && connected) {
+  if (e.is("touch") && !capturing && connected && !playing) {
     sample?.kill(); // Stop any existing sample.
     microphone.rec(); // Start recording.
     btn.down = true;
@@ -202,14 +215,28 @@ async function act({
     progress = null;
   }
 
+  if (e.is("touch") && playing) {
+    btn.down = true;
+  }
+
+  // Stop playback.
+  if (e.is("lift") && playing) {
+    sample?.kill(); // Stop any existing sample.
+    playing = false;
+    progress = null;
+    btn.reposition({ center: "xy", screen }, "Capture");
+  }
+
   if (e.is("microphone-connect:success")) {
-    connecting = false;
-    connected = true;
-    btn.disabled = false;
-    clearTimeout(hideButtonTimeout);
-    hideButton = false;
-    // 🔴 Add a red color scheme here...
-    btn.reposition({ center: "xy", screen }, "PRESS AND HOLD");
+    // TODO: I need my own version of `setTimeout` called `delay` that instantiates an Hourglass Timer in `disk`. 23.09.07.16.26
+    // setTimeout(() => {
+    delay(() => {
+      connecting = false;
+      connected = true;
+      btn.disabled = false;
+      hideButton = false;
+      btn.reposition({ center: "xy", screen }, "Capture");
+    }, 60);
   }
 
   if (e.is("lift") && capturing) {
@@ -219,7 +246,7 @@ async function act({
     sample = play(id, { reverse: true, loop: true }); // TODO: Get reverse working.
     capturing = false;
     playing = true;
-    btn.reposition({ center: "xy", screen }, "REPEAT WHAT YOU HEAR");
+    btn.reposition({ center: "xy", screen }, "Repeat");
   }
 }
 
@@ -247,17 +274,17 @@ function paintSound({ ink }, amplitude, waveform, x, y, width, height, color) {
     yMax = height / 2;
 
   // Amplitude bounding box.
-  if (amplitude) {
-    ink(capturing ? [255, 255, 0] : color || [255, 128]).box(
-      x + width / 2,
-      yMid,
-      width,
-      amplitude * yMax * 2,
-      "*center",
-    );
-  }
+  // if (amplitude && capturing) {
+  //   ink(!capturing ? [255, 255, 0] : color || [255, 128]).box(
+  //     x + width / 2,
+  //     yMid,
+  //     width,
+  //     amplitude * yMax * 2,
+  //     "*center",
+  //   );
+  // }
 
-  ink(255, 0, 0, 128).poly(
+  ink(capturing ? "yellow" : connected ? [255, 0, 0] : color).poly(
     waveform.map((v, i) => {
       return [x + i * xStep, yMid + v * yMax];
     }),

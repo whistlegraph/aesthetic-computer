@@ -16,12 +16,17 @@
 // ⚠️ For testing webhooks: `stripe listen --forward-to stripe listen --forward-to "https://localhost:8888/api/print"
 
 /* #region 🏁 TODO 
-  - [❤️‍🔥] Hook up a real production order! Make it actually work?!
+  - [🟠] Why are there black bars in the sticker mockups / orders?
+    - [🟢] Check the official mockup api against the image I'm sending in?
+  - [️🔴] How can I route tracking numbers of shipped orders / get the status
+       or listen in via Printful's API? 
+       (Do I have to run a cron-task or listen for a webhook?)
   + Later
   - [] Email should link to a sticker feed of some kind?
       (Don't want your sticker included? Reply to this email to opt-out.)
       (Paintings that have been printed get special copies in S3.)
   + Done
+  - [x] Hook up a real production order! Make it actually work?!
   - [x️] Make a dynamic logo endpoint that always returns a different graphic:
         "https://assets.aesthetic.computer/images/favicon.png"
   - [x] Make sure to refund the user if the Printful order can't created.
