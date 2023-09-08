@@ -16,8 +16,6 @@
 // ⚠️ For testing webhooks: `stripe listen --forward-to stripe listen --forward-to "https://localhost:8888/api/print"
 
 /* #region 🏁 TODO 
-  - [🟠] Why are there black bars in the sticker mockups / orders?
-    - [🟢] Check the official mockup api against the image I'm sending in?
   - [️🔴] How can I route tracking numbers of shipped orders / get the status
        or listen in via Printful's API? 
        (Do I have to run a cron-task or listen for a webhook?)
@@ -26,6 +24,8 @@
       (Don't want your sticker included? Reply to this email to opt-out.)
       (Paintings that have been printed get special copies in S3.)
   + Done
+  - [x] Why are there black bars in the sticker mockups / orders?
+    - [x] Check the official mockup api against the image I'm sending in?
   - [x] Hook up a real production order! Make it actually work?!
   - [x️] Make a dynamic logo endpoint that always returns a different graphic:
         "https://assets.aesthetic.computer/images/favicon.png"
@@ -142,7 +142,7 @@ export async function handler(event, context) {
 
       // Parse the input slug or url and generate a mockup image if possible.
       let imageUrl;
-      console.log("Pixels:", event.queryStringParameters.pixels);
+      // console.log("Pixels:", event.queryStringParameters.pixels);
       if (!event.queryStringParameters.pixels.startsWith("https://")) {
         imageUrl = `https://aesthetic.computer/api/pixel/1650:contain/${event.queryStringParameters.pixels}`;
         mockupUrl = imageUrl
@@ -151,64 +151,72 @@ export async function handler(event, context) {
       } else {
         imageUrl = event.queryStringParameters.pixels;
         mockupUrl = imageUrl; // Don't generate a mockup yet for a custom url. 23.09.05.02.34
+        return respond(500, {
+          message: "No external image URLs allowed.",
+          imageUrl,
+        });
       }
 
-      // try {
-      //   // 🔸 Generate a mockup image via printful.
-      //   const task = await got.post(
-      //     `${API}/mockup-generator/create-task/${id}`,
-      //     {
-      //       headers: headers,
-      //       json: {
-      //         variant_ids: [variant],
-      //         files: [
-      //           {
-      //             placement: "default", // 185
-      //             image_url: imageUrl,
-      //             position: {
-      //               area_width: 1650, // Constant for this variant.
-      //               area_height: 1650,
-      //               width,
-      //               height,
-      //               top: 0,
-      //               left: 0,
-      //             },
-      //           },
-      //         ], // See also: https://developers.printful.com/docs/#operation/createGeneratorTask
-      //         format: "png",
-      //       },
-      //     },
-      //   );
+      // console.log("imageURL:", imageUrl);
 
-      //   const taskResult = JSON.parse(task.body)?.result;
+      /*
+      try {
+        // 🔸 Generate a mockup image via printful.
+        const task = await got.post(
+          `${API}/mockup-generator/create-task/${id}`,
+          {
+            headers: headers,
+            json: {
+              variant_ids: [variant],
+              files: [
+                {
+                  placement: "default", // 185
+                  image_url: imageUrl,
+                  position: {
+                    area_width: 1650, // Constant for this variant.
+                    area_height: 1650,
+                    width,
+                    height,
+                    top: 0,
+                    left: 0,
+                  },
+                },
+              ], // See also: https://developers.printful.com/docs/#operation/createGeneratorTask
+              format: "png",
+            },
+          },
+        );
 
-      //   const maxAttempts = 12;
-      //   let attempt = 0;
-      //   while (attempt < maxAttempts) {
-      //     const statusResponse = await got.get(
-      //       `${API}/mockup-generator/task/?task_key=${taskResult?.task_key}`,
-      //       { headers },
-      //     );
-      //     const statusResult = JSON.parse(statusResponse.body);
+        const taskResult = JSON.parse(task.body)?.result;
 
-      //     if (statusResult.result.status === "completed") {
-      //       console.log("Result:", statusResult);
-      //       mockupUrl = statusResult.result.mockups[0].mockup_url;
-      //       break;
-      //     } else {
-      //       await new Promise((res) => setTimeout(res, 2000)); // wait 2 seconds.
-      //       attempt += 1;
-      //     }
-      //   }
+        const maxAttempts = 12;
+        let attempt = 0;
+        while (attempt < maxAttempts) {
+          const statusResponse = await got.get(
+            `${API}/mockup-generator/task/?task_key=${taskResult?.task_key}`,
+            { headers },
+          );
+          const statusResult = JSON.parse(statusResponse.body);
 
-      //   if (!mockupUrl) {
-      //     return respond(500, {
-      //       message: "Timed out waiting for mockup generation.",
-      //     });
-      //   }
-      // } catch (error) {
-      //   return respond(500, { message: error.message });
-      // }
+          if (statusResult.result.status === "completed") {
+            console.log("Result:", statusResult);
+            mockupUrl = statusResult.result.mockups[0].mockup_url;
+            break;
+          } else {
+            await new Promise((res) => setTimeout(res, 2000)); // wait 2 seconds.
+            attempt += 1;
+          }
+        }
+
+        if (!mockupUrl) {
+          return respond(500, {
+            message: "Timed out waiting for mockup generation.",
+          });
+        }
+      } catch (error) {
+        return respond(500, { message: error.message });
+      }
+      */
 
       // 🅱️ POST: Place an order.
       const post = JSON.parse(event.body);

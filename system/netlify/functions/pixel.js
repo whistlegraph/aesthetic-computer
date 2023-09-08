@@ -86,6 +86,7 @@ async function fun(event, context) {
             height,
             fit: mode,
             kernel,
+            background: { r: 0, g: 0, b: 0, alpha: 0 },
           })
           .png()
           .toBuffer();
@@ -131,8 +132,7 @@ async function fun(event, context) {
           .toBuffer();
 
         const radius = Math.floor(long * scalingFactor * 0.02),
-          pad = Math.floor(long * scalingFactor * 0.04);
-        // console.log(radius, pad);
+          pad = Math.floor(long * scalingFactor * 0.05);
 
         const svg = `
           <svg width="${rectWidth + marginPx}" height="${
