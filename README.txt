@@ -72,18 +72,19 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** iOS ***
-  - [] Audio loads inonsistently / slowly on iOS. 
-
-*** rainbow bot text ***
-  - [] Stop printing rainbow text on the bot replies.
-
 *** Painting ***
   - [WIP] Add Zoom. 🔵
+          TODO: How would this work with rotation?
   - [] Make sure `nopan` centers a zoomed canvas. 
   - [] Make a full screen buffer that is the proper zoom amount?
   - [] Add an `info` command to view painting info.
   - [] Contextually show whether we are zoomed or not, perhaps with a border?
+
+*** iOS ***
+  - [🟡] Audio loads inconsistently / slowly on iOS. 
+
+*** rainbow bot text ***
+  - [] Stop printing rainbow text on the bot replies.
 
 *** prompt ***
   - [] The main page prompt should be removed... it kills the feedback loop,

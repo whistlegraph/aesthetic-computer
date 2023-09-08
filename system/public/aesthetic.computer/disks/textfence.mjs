@@ -5,15 +5,17 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Finalize words / great narrative.
   - [] Create global screenshot feature and take square screenshot for thumbnail.
+  - [] The speakers / pan channels should be reversed for iOS?
+       (This is probably an audio processor thing.)
+  - [] Preload the audio for the next step before showing the words.
   - [] Make a test mint on Zora:
        - [] Wait for parameters from Sam.
        - https://docs.zora.co/docs/smart-contracts/creator-tools/ZoraNFTCreator
        - Mint the piece on a testnet.
   + Launch Process
-  - [] Deploy it / publish with Sam. (Tech)
   + Done
+  - [x] Finalize words / great narrative.
   - [x] Make sure there are no repeats.
   - [x] Experiment with ssml.
   - [c] Generate all speech audio files to avoid hitting GCP on every request.

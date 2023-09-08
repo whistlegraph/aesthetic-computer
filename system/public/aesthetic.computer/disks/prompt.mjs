@@ -96,7 +96,7 @@ async function boot({
   ui,
   screen,
   user,
-  handle
+  handle,
 }) {
   glaze({ on: true });
 
@@ -107,12 +107,13 @@ async function boot({
 
   // Create login & signup buttons.
   // if (pieceCount === 0) {
-    if (!user) {
-      login = new ui.TextButton("Log in", { center: "xy", screen });
-      signup = new ui.TextButton("I'm new", { center: "xy", screen });
-      positionWelcomeButtons(screen);
-    }
-    if (user) profile = new ui.TextButton(handle || user.name, { center: "xy", screen });
+  if (!user) {
+    login = new ui.TextButton("Log in", { center: "xy", screen });
+    signup = new ui.TextButton("I'm new", { center: "xy", screen });
+    positionWelcomeButtons(screen);
+  }
+  if (user)
+    profile = new ui.TextButton(handle || user.name, { center: "xy", screen });
   // }
 
   // Only if prompt is set to recall conversations.
@@ -467,7 +468,7 @@ async function halt($, text) {
         notice("@" + res.handle);
       } else {
         makeFlash($, true);
-        // TODO: Actually read this error back and choose the appropriate word. 
+        // TODO: Actually read this error back and choose the appropriate word.
         notice("TAKEN?", ["yellow", "red"]);
       }
       needsPaint();
@@ -894,7 +895,10 @@ function act({
   if (e.is("reframed")) positionWelcomeButtons(screen);
 
   // ⌨️ Keyboard (Skip startup sound if a key is pressed or text is pasted.)
-  if (e.is("keyboard:open") && firstActivation) firstActivation = false;
+  if (e.is("keyboard:open") && firstActivation && e.method !== "pointer") {
+    firstActivation = false;
+  }
+
   if (e.is("pasted:text")) firstActivation = false;
 
   if (e.is("keyboard:down") && e.key !== "Enter") {
