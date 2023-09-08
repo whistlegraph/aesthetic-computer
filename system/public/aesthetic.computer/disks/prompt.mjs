@@ -816,9 +816,7 @@ function paint($) {
 
   // Trigger a red or green screen flash with a timer.
   if (flashShow) {
-    let color = firstActivation
-      ? $.help.choose("blue", scheme.dark.block)
-      : flashColor;
+    let color = firstActivation ? scheme.dark.block : flashColor;
     ink(color).box(0, 0, screen.width, screen.height);
     if (firstActivation) return true;
   }
