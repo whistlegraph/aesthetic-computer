@@ -70,7 +70,6 @@ const { abs, max } = Math;
 // Error / feedback flash on command entry.
 let flash;
 let flashShow = false;
-let flashMessage;
 let flashColor = [];
 let flashPresent = false;
 
@@ -97,6 +96,7 @@ async function boot({
   ui,
   screen,
   user,
+  handle
 }) {
   glaze({ on: true });
 
@@ -106,14 +106,14 @@ async function boot({
   net.preload("compkey").then((sfx) => (keyboardSfx = sfx)); // and key sounds.
 
   // Create login & signup buttons.
-  if (pieceCount === 0) {
+  // if (pieceCount === 0) {
     if (!user) {
       login = new ui.TextButton("Log in", { center: "xy", screen });
       signup = new ui.TextButton("I'm new", { center: "xy", screen });
       positionWelcomeButtons(screen);
     }
-    if (user) profile = new ui.TextButton(user.name, { center: "xy", screen });
-  }
+    if (user) profile = new ui.TextButton(handle || user.name, { center: "xy", screen });
+  // }
 
   // Only if prompt is set to recall conversations.
   if (
@@ -135,7 +135,7 @@ async function boot({
     activated(api, true);
     system.prompt.input.canType = true;
     system.prompt.input.text = "";
-    system.prompt.input.enter.btn.disabled = true; // Disable button.
+    // system.prompt.input.enter.btn.disabled = true; // Disable button.
     system.prompt.input.inputStarted = true;
 
     // 🍫 Create a pleasurable blinking cursor delay.
@@ -149,6 +149,7 @@ async function boot({
 async function halt($, text) {
   const {
     api,
+    notice,
     handle,
     authorize,
     load,
@@ -462,21 +463,24 @@ async function halt($, text) {
       if (res) {
         store["handle:updated"] = res.handle;
         console.log("🧖 Handle changed:", res.handle);
-        makeFlash($, true, "hi @" + res.handle);
+        makeFlash($, true);
+        notice("@" + res.handle);
       } else {
-        makeFlash($);
+        makeFlash($, true);
+        // TODO: Actually read this error back and choose the appropriate word. 
+        notice("TAKEN?", ["yellow", "red"]);
       }
       needsPaint();
     } else {
       flashColor = [255, 0, 0];
       console.warn("🧖 No @handle specified / bad handle design.");
-      makeFlash($, true, "HANDLE INVALID");
+      notice("INVALID!", ["yellow", "red"]);
     }
     return true;
   } else if ((text === "ul" || text === "upload") && store["painting"]) {
     if (!navigator.onLine) {
       flashColor = [255, 0, 0];
-      makeFlash($, true, "OFFLINE");
+      notice("OFFLINE", ["yellow", "red"]);
     } else {
       const filename = `painting-${num.timestamp()}.png`;
       // The first dashed string will get replaced with a slash / media directory filter on the server.
@@ -815,7 +819,6 @@ function paint($) {
       ? $.help.choose("blue", scheme.dark.block)
       : flashColor;
     ink(color).box(0, 0, screen.width, screen.height);
-    if (flashMessage) ink(255).write(flashMessage, { x: 5, y: 4, size: 2 });
     if (firstActivation) return true;
   }
 
@@ -1007,12 +1010,11 @@ async function makeMotd({ system, needsPaint, handle, user, net, api }) {
   return motd;
 }
 
-function makeFlash($, clear = true, message) {
-  flash = new $.gizmo.Hourglass($.seconds(message ? 0.35 : 0.1), {
+function makeFlash($, clear = true) {
+  flash = new $.gizmo.Hourglass($.seconds(0.1), {
     flipped: () => {
       flashShow = false;
       flashPresent = false;
-      flashMessage = undefined;
       flash = undefined;
       firstActivation = false;
       $.needsPaint();
@@ -1022,7 +1024,6 @@ function makeFlash($, clear = true, message) {
 
   flashPresent = true;
   flashShow = true;
-  flashMessage = message;
   if (clear) $.system.prompt.input.blank(); // Clear the prompt.
 }
 

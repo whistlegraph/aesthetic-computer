@@ -414,6 +414,13 @@ let cachedAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 // For every function to access.
 const $commonApi = {
+  notice: (msg, color = ["white", "green"]) => {
+    notice = msg;
+    noticeColor = color;
+    const sound = {};
+    if (color[0] === "yellow" && color[1] === "red") sound.tone = 300;
+    noticeBell(cachedAPI, sound);
+  },
   // 🪙 Mint a url or the `pixels` that get passed into the argument to a
   // network of choice.
   mint: async (picture) => {
@@ -1278,7 +1285,7 @@ const $paintApi = {
       });
 
       // Center multi-line text. (Kinda hacky? 23.08.22.20.30)
-      if (pos.center.indexOf("y") !== -1) {
+      if (lines.length > 1 && pos.center.indexOf("y") !== -1) {
         const blockHeight = 11;
         pos.y = screen.height / 2 - (lines.length * blockHeight) / 4;
       }
@@ -1805,7 +1812,7 @@ const microphone = new Microphone();
 let originalHost;
 let firstLoad = true;
 
-let notice, noticeTimer; // Renders a full-screen notice on piece-load if present.
+let notice, noticeTimer, noticeColor; // Renders a full-screen notice on piece-load if present.
 
 async function load(
   parsed, // If parsed is not an object, then assume it's source code.
@@ -2508,13 +2515,14 @@ async function load(
     // 🪧 See if notice needs to be shown.
     if ($commonApi.query.notice === "success") {
       notice = "PRINTED!";
-      noticeBell();
+      noticeBell(cachedAPI);
     } else if ($commonApi.query.notice === "cancel") {
       notice = "CANCELLED";
-      noticeBell();
+      noticeColor = ["yellow", "red"];
+      noticeBell(cachedAPI, { tone: 300 });
     } else if ($commonApi.query.notice?.length > 0) {
       notice = $commonApi.query.notice;
-      noticeBell();
+      noticeBell(cachedAPI, { tone: 300 });
     } else {
       notice = noticeTimer = undefined;
     }
@@ -2615,7 +2623,7 @@ async function makeFrame({ data: { type, content } }) {
 
     codeChannel = await store.retrieve("code-channel");
     if (codeChannel?.length > 0) console.log("💻 Code channel:", codeChannel);
-    handle();
+    await handle(); // Get the user's handle.
     originalHost = content.parsed.host;
     loadAfterPreamble = () => {
       loadAfterPreamble = null;
@@ -3965,11 +3973,10 @@ async function makeFrame({ data: { type, content } }) {
 
         // Show a notice if necessary.
         if (notice) {
-          const c = notice === "CANCELLED";
-          ink(c ? "yellow" : "white").write(
+          ink(noticeColor[0]).write(
             notice,
             { center: "x", y: 32, size: 2 },
-            c ? "red" : "green",
+            noticeColor[1],
           );
         }
 
@@ -4216,7 +4223,15 @@ function maybeLeave() {
   }
 }
 
-const noticeBell = () => {
+const noticeBell = (api, { tone } = { tone: 600 }) => {
+  api.sound.synth({
+    tone,
+    beats: 0.1,
+    attack: 0.01,
+    decay: 0.5,
+    volume: 0.25,
+  });
+
   noticeTimer = new gizmo.Hourglass(180, {
     completed: () => {
       notice = "";
