@@ -72,9 +72,11 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Combined Mint+Print? ***
-  - [] How can I just send 12 words along with the digital artifact
-       once something has been printed... like just put it in the email?
+*** iOS ***
+  - [] Audio loads inonsistently / slowly on iOS. 
+
+*** rainbow bot text ***
+  - [] Stop printing rainbow text on the bot replies.
 
 *** Painting ***
   - [WIP] Add Zoom. 🔵
@@ -83,8 +85,12 @@
   - [] Add an `info` command to view painting info.
   - [] Contextually show whether we are zoomed or not, perhaps with a border?
 
-*** iOS ***
-  - [] Why does the site not load sometimes?
+*** prompt ***
+  - [] The main page prompt should be removed... it kills the feedback loop,
+       and instead a help bot should replace it.
+  - [] Entering an incorrect command should flash the screen red but
+       not clear the text. This also needs to be a negative sound.
+  - [] Entering correct things should make a positive sound.
 
 *** painting page ***
   - [🧡] Shorten the corner word on painting pages / remove the timestamp
@@ -109,11 +115,15 @@
   - [x] Move buttons above progress bar (action area)
 
 *** Profiles ***
-  - [] Typing in a handle on the prompt and visiting it should work.
-  - [] Make sure setting a @handle actually works.
-  - [] @handle pages should show the current version of an active painting 
-      (so broadcasting is possible, eventually enabling live spectating, passing
-        and turntaking)
+  - [x] Typing in a handle on the prompt and visiting it should work.
+  - [x] Make sure setting a @handle actually works.
+  - [x] @handle pages should show the current version of the user's painting. 
+        (Upload and replace the file in S3, then send a redis sub ping for
+        that user.)
+
+*** Combined Mint+Print? ***
+  - [] How can I just send 12 words along with the digital artifact
+       once something has been printed... like just put it in the email?
 
 *** @aesthetic.computer ***
   - [] Make the first instagram grid post.
