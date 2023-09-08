@@ -763,9 +763,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         soundProcessor.connect(audioContext.destination);
 
         // Run any held audio on resume / sounds on initial button presses or taps.
-        audioContext.onstatechange = function () {
-          if (audioContext.state === "running") activatedSoundCallback?.();
-        };
+        // audioContext.onstatechange = function () {
+        //   if (audioContext.state === "running") activatedSoundCallback?.();
+        // };
+        activatedSoundCallback?.();
 
         // audioContext.resume();
 
@@ -989,7 +990,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         sound.bpm = content.bpm;
         updateMetronome(sound.bpm);
       }
-
       for (const sound of content.sounds) triggerSound(sound);
       for (const bubble of content.bubbles) updateBubble(bubble);
       for (const id of content.kills) killSound(id);
