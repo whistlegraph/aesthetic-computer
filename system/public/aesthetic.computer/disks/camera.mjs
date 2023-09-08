@@ -74,9 +74,10 @@ export function bake() {
 }
 
 export function act({ event: e, jump, video }) {
-  if (e.is("lift")) {
-    facing = facing === "user" ? "environment" : "user";
-    vid = video("camera:update", { facing });
+  if (e.is("touch")) {
+    jump("prompt");
+    //facing = facing === "user" ? "environment" : "user";
+    //vid = video("camera:update", { facing });
   }
 }
 
