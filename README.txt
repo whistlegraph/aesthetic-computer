@@ -82,6 +82,8 @@
 
 *** iOS ***
   - [🟡] Audio loads inconsistently / slowly on iOS. 
+    (Debug on the actual device.)
+  - [] Page sometimes doesn't load on iOS, what's the hangup?
 
 *** rainbow bot text ***
   - [] Stop printing rainbow text on the bot replies.
