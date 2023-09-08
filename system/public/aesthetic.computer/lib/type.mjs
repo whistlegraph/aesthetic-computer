@@ -952,7 +952,6 @@ class TextInput {
       (this.copy.btn.disabled === true || !this.copy.btn.box.contains(e)) &&
       (this.paste.btn.disabled === true || !this.paste.btn.box.contains(e))
     ) {
-      console.log("DOWN");
       this.enter.btn.down = true;
       $.send({ type: "keyboard:unlock" });
       sound.synth({
