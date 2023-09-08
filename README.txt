@@ -72,18 +72,18 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Painting ***
-  - [WIP] Add Zoom. 🔵
-          TODO: How would this work with rotation?
-  - [] Make sure `nopan` centers a zoomed canvas. 
-  - [] Make a full screen buffer that is the proper zoom amount?
-  - [] Add an `info` command to view painting info.
-  - [] Contextually show whether we are zoomed or not, perhaps with a border?
-
 *** iOS ***
   - [🟡] Audio loads inconsistently / slowly on iOS. 
     (Debug on the actual device.)
   - [] Page sometimes doesn't load on iOS, so what's the hangup?
+
+*** Painting ***
+  - [WIP] Add Zoom. 🔵
+          TODO: How would this work with rotation?
+  - [] Make sure `nopan` centers a zoomed canvas. 
+  - [] Always have a secondary buffer.
+  - [] Add an `info` command to view painting info.
+  - [] Contextually show whether we are zoomed or not, perhaps with a border?
 
 *** Prompt / Piece Cache ***
   - [] Fonts sometimes don't load all the way on prompt.
