@@ -19,6 +19,10 @@
   - [️🔴] How can I route tracking numbers of shipped orders / get the status
        or listen in via Printful's API? 
        (Do I have to run a cron-task or listen for a webhook?)
+       - [] https://chat.openai.com/c/8ecc3d00-fe14-4f89-ba8f-b7d0c558591b
+       - Write a CURL script / request to enable the https://developers.printful.com/docs/#operation/packageShipped webhook.
+       - [] https://developers.printful.com/docs/#operation/getWebhooks
+       - [] https://www.printful.com/api/webhook-simulator
   + Later
   - [] Email should link to a sticker feed of some kind?
       (Don't want your sticker included? Reply to this email to opt-out.)
