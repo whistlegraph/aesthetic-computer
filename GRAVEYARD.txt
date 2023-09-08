@@ -1,5 +1,11 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** @maya/sparkle ***
+  - [x] Get sparkle working again and add it to @maya.
+
+*** Backdrop ***
+  - [x] Get a backdrop test in place.
+
 *** Stickers ***
   - [x] How do I treat alpha in images?
   - [x] Make it black in both the mockup and in the actual resize setting. 

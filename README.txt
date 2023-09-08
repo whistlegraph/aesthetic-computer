@@ -83,12 +83,6 @@
   - [] Add an `info` command to view painting info.
   - [] Contextually show whether we are zoomed or not, perhaps with a border?
 
-*** @maya/sparkle ***
-  - [] Get sparkle working again and add it to @maya.
-
-*** Backdrop ***
-  - [] Get a Camille backdrop test in place.
-
 *** iOS ***
   - [] Why does the site not load sometimes?
 
