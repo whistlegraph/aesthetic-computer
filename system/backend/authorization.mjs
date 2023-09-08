@@ -73,25 +73,50 @@ export async function getHandleOrEmail(sub) {
 }
 
 // Connects to the MongoDB database to obtain a user's handle from their ID.
+// (With redis cache)
 export async function handleFor(id) {
+  const time = performance.now();
+
+  await KeyValue.connect();
+  let cachedID = await KeyValue.get("userIDs", id);
+
+  if (cachedID) {
+    console.log("ID: Found in redis...");
+    await KeyValue.disconnect();
+    return cachedID;
+  }
+
   const database = await connect();
   const collection = database.db.collection("@handles");
+
   if (id === "all") {
-    // TODO: Return a list of all existing handles for all users.
     const randomHandles = await collection
       .aggregate([
-        { $sample: { size: 100 } }, // Randomly select 100 documents
-        { $project: { handle: 1 } }, // Only project the handle field
+        { $sample: { size: 100 } },
+        { $project: { handle: 1 } }
       ])
       .toArray();
-    return randomHandles.map((doc) => "@" + doc.handle); // Get handles.
-  } else {
-    // Return the existing handle for the `id` if present.
-    const existingUser = await collection.findOne({ _id: id });
+    
     await database.disconnect();
+    return randomHandles.map((doc) => "@" + doc.handle);
+  } else {
+    const existingUser = await collection.findOne({ _id: id });
+
+    // Cache the handle in redis...
+    if (existingUser?.handle) {
+      console.log("Caching in redis...", id);
+      await KeyValue.set("userIDs", id, existingUser.handle);
+    }
+
+    await database.disconnect();
+    await KeyValue.disconnect();
+
+    console.log("Time taken...", performance.now() - time);
     return existingUser?.handle;
   }
 }
+
+
 
 // Connects to the MongoDB database to obtain a user ID from a handle.
 // Handle should not be prefixed with "@".
@@ -127,7 +152,6 @@ export async function userIDFromHandle(handle, database) {
   }
 
   console.log("Time taken...", performance.now() - time);
-
   return userID;
 }
 

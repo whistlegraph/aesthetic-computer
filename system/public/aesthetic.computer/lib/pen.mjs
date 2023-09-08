@@ -423,8 +423,8 @@ export class Pen {
       ctx.clearRect(
         this.#lastP.x - r.x - s,
         this.#lastP.y - r.y - s,
-        s * 2,
-        s * 2
+        s * 2.5,
+        s * 2.5
       );
 
     assign(this.#lastP, p);
@@ -437,22 +437,55 @@ export class Pen {
     }
 
     if (!this.cursorCode || this.cursorCode === "precise") {
+      /*
       // 🎯 Precise
       ctx.lineCap = "round";
+
+      const radius = 2;
+      const gap = 7.5,
+        to = 10;
+
+      // Offset for the shadow graphics
+      const offsetX = 2;
+      const offsetY = 2;
+
+      // Draw shadow graphics first
+      ctx.save();
+      ctx.translate(round(p.x - r.x) + offsetX, round(p.y - r.y) + offsetY);
+
+      // A. Draw the shadow circle in the center.
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+      ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; // Half-opacity black
+      ctx.fill();
+
+      // Drawing the shadow cross
+      ctx.beginPath();
+      ctx.moveTo(0, -gap);
+      ctx.lineTo(0, -to);
+      ctx.moveTo(0, gap);
+      ctx.lineTo(0, to);
+      ctx.moveTo(-gap, 0);
+      ctx.lineTo(-to, 0);
+      ctx.moveTo(gap, 0);
+      ctx.lineTo(to, 0);
+
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.5)"; // Half-opacity black
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.restore();
+
+      // Now, you can proceed to draw your main graphics as you've shown before
 
       ctx.save();
       ctx.translate(round(p.x - r.x), round(p.y - r.y));
 
       // A. Make circle in center.
-      const radius = 2;
       ctx.beginPath();
       ctx.arc(0, 0, radius, 0, 2 * Math.PI);
 
       ctx.fillStyle = "white";
       ctx.fill();
-
-      const gap = 7.5,
-        to = 10;
 
       ctx.beginPath();
       ctx.moveTo(0, -gap); // Over
@@ -468,6 +501,7 @@ export class Pen {
       ctx.lineWidth = 4;
       ctx.stroke();
       ctx.restore();
+      */
     } else if (this.cursorCode === "tiny") {
       // 🦐 Tiny
       const g = 3;
