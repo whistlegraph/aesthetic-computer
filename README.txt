@@ -83,7 +83,12 @@
 *** iOS ***
   - [🟡] Audio loads inconsistently / slowly on iOS. 
     (Debug on the actual device.)
-  - [] Page sometimes doesn't load on iOS, what's the hangup?
+  - [] Page sometimes doesn't load on iOS, so what's the hangup?
+
+*** Prompt / Piece Cache ***
+  - [] Fonts sometimes don't load all the way on prompt.
+  - [] The piece cache doesn't seem to work / loading times are always
+       present on iOS?
 
 *** rainbow bot text ***
   - [] Stop printing rainbow text on the bot replies.
