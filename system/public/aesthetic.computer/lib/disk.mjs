@@ -1,4 +1,3 @@
-// 💾 Disk (Piece)
 // Manages a piece and the transitions between pieces like a
 // hypervisor or shell.
 
@@ -412,6 +411,8 @@ class Recorder {
 
 let cachedAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
+const hourGlasses = [];
+
 // For every function to access.
 const $commonApi = {
   notice: (msg, color = ["white", "green"]) => {
@@ -420,6 +421,10 @@ const $commonApi = {
     const sound = {};
     if (color[0] === "yellow" && color[1] === "red") sound.tone = 300;
     noticeBell(cachedAPI, sound);
+  },
+  // ⌛
+  delay: (fun, time) => {
+    hourGlasses.push(new gizmo.Hourglass(time, { completed: () => fun() }));
   },
   // 🪙 Mint a url or the `pixels` that get passed into the argument to a
   // network of choice.
@@ -2511,6 +2516,7 @@ async function load(
     // sound = null;
     glazeEnabled = null;
     soundClear = null;
+    hourGlasses.length = 0;
 
     // 🪧 See if notice needs to be shown.
     if ($commonApi.query.notice === "success") {
@@ -3408,6 +3414,11 @@ async function makeFrame({ data: { type, content } }) {
           try {
             sim($api);
             noticeTimer?.step(); // Globally tick the noticeTimer if it exists.
+            // Run through the global hourglass timers.
+            for (let i = hourGlasses.length - 1; i >= 0; i--) {
+              hourGlasses[i].step();
+              if (hourGlasses[i].complete) hourGlasses.splice(i, 1);
+            }
           } catch (e) {
             console.warn("🧮 Sim failure...", e);
           }
