@@ -2397,6 +2397,40 @@ async function load(
   if (!tf) tf = await new Typeface().load($commonApi.net.preload);
   $commonApi.typeface = tf; // Expose a preloaded typeface globally.
 
+  /**
+   * @function video
+   * @descrption Make a live video feed. Returns an object that links to current frame.
+   * @param {string} type - "camera" or "camera-update" or see below. 💡
+   * @param {object} options - *unimplemented* { src, width, height }
+   */
+  $commonApi.video = function (type, options) {
+    // TODO: Options could eventually be { src, width, height }
+    // const vid = video("youtube-link");
+    // const vid = video("tiktok:@whistlegraph");
+    // https://codepen.io/oceangermanique/pen/LqaPgO
+    if (type === "camera:update") activeVideo = null;
+
+    send({ type: "video", content: { type, options } });
+
+    // Return an object that can grab whatever the most recent frame of
+    // video was.
+    return function videoFrame(shader) {
+      if (activeVideo) {
+        const { width, pixels } = activeVideo;
+
+        if (shader) {
+          for (let i = 0; i < pixels.length; i += 4) {
+            const c = pixels.subarray(i, i + 4);
+            const p = { x: (i / 4) % width, y: floor(i / 4 / width) };
+            shader(p, c);
+          }
+        }
+      }
+
+      return activeVideo;
+    };
+  };
+
   // This function actually hotSwaps out the piece via a callback from `bios` once fully loaded via the `loading-complete` message.
   hotSwap = () => {
     loadedCallback?.(); // Run the optional load callback. (See also: `jump`)
@@ -3726,40 +3760,6 @@ async function makeFrame({ data: { type, content } }) {
       };
 
       $api.cursor = (code) => (cursorCode = code);
-
-      /**
-       * @function video
-       * @descrption Make a live video feed. Returns an object that links to current frame.
-       * @param {string} type - "camera" or "camera-update" or see below. 💡
-       * @param {object} options - *unimplemented* { src, width, height }
-       */
-      $api.video = function (type, options) {
-        // TODO: Options could eventually be { src, width, height }
-        // const vid = video("youtube-link");
-        // const vid = video("tiktok:@whistlegraph");
-        // https://codepen.io/oceangermanique/pen/LqaPgO
-        if (type === "camera:update") activeVideo = null;
-
-        send({ type: "video", content: { type, options } });
-
-        // Return an object that can grab whatever the most recent frame of
-        // video was.
-        return function videoFrame(shader) {
-          if (activeVideo) {
-            const { width, pixels } = activeVideo;
-
-            if (shader) {
-              for (let i = 0; i < pixels.length; i += 4) {
-                const c = pixels.subarray(i, i + 4);
-                const p = { x: (i / 4) % width, y: floor(i / 4 / width) };
-                shader(p, c);
-              }
-            }
-          }
-
-          return activeVideo;
-        };
-      };
 
       graph.setBuffer(screen);
 

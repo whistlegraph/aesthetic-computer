@@ -3517,36 +3517,41 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
 
         // Resizing the video after creation. (Window resize or device rotate.)
-        videoResize = async function ({ width, height }) {
+        videoResize = async function ({ width, height, facing }) {
           cancelAnimationFrame(getAnimationRequest());
 
           try {
-            if (iOS) {
-              const temp = width;
-              width = height;
-              height = temp;
+            const constraints = {};
+
+            const sizeChange = !isNaN(width) && !isNaN(height);
+            if (sizeChange) {
+              if (iOS) {
+                const temp = width;
+                width = height;
+                height = temp;
+              }
+              constraints.width = { ideal: width };
+              constraints.height = { ideal: height };
+
+              video.addEventListener(
+                "loadedmetadata",
+                () => {
+                  buffer.width = width;
+                  buffer.height = height;
+                  process();
+                  if (debug)
+                    console.log("🎥 Resolution:", buffer.width, buffer.height);
+                },
+                { once: true },
+              );
             }
 
+            if (facing) constraints.facing = { ideal: facing };
             video.srcObject = null; // Refresh the video `srcObject`.
-
-            await videoTrack.applyConstraints({
-              width: { ideal: width },
-              height: { ideal: height },
-            });
-
+            console.log(constraints);
+            await videoTrack.applyConstraints(constraints);
             video.srcObject = stream;
-
-            video.addEventListener(
-              "loadedmetadata",
-              () => {
-                buffer.width = width;
-                buffer.height = height;
-                process();
-                if (debug)
-                  console.log("🎥 Resolution:", buffer.width, buffer.height);
-              },
-              { once: true },
-            );
+            if (!sizeChange) process();
           } catch (error) {
             process();
             if (debug) console.warn("🎥 Resolution update failed.");

@@ -22,6 +22,7 @@
 
 let vid, snap;
 // let advance;
+let facing = "environment";
 
 // 🎨 Paint (Runs once per display refresh rate)
 export function paint({
@@ -32,9 +33,13 @@ export function paint({
   num: { randIntRange, clamp, rand },
 }) {
   // Initialize or update video feed.
-  if (created || resized) {
+  if (!vid || resized) {
     wipe(0);
-    vid = video(created ? "camera" : "camera:update", { width, height });
+    vid = video(created ? "camera" : "camera:update", {
+      width,
+      height,
+      facing,
+    });
   }
 
   // Draw the video on each frame and add an effect.
@@ -68,8 +73,11 @@ export function bake() {
   snap?.();
 }
 
-export function act({ event: e, jump }) {
-  // if (e.is("touch")) jump(`selfie`);
+export function act({ event: e, jump, video }) {
+  if (e.is("lift")) {
+    facing = facing === "user" ? "environment" : "user";
+    vid = video("camera:update", { facing });
+  }
 }
 
 export const system = "nopaint:bake-on-leave";
