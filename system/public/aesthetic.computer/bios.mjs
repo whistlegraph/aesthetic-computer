@@ -559,7 +559,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     audioStreamDest = audioContext.createMediaStreamDestination();
 
     if (audioContext.state === "running") {
-      audioContext.suspend();
+      // audioContext.suspend();
     }
 
     // TODO: Check to see if there is support for AudioWorklet or not...
@@ -767,7 +767,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (audioContext.state === "running") activatedSoundCallback?.();
         };
 
-        audioContext.resume();
+        // audioContext.resume();
 
         modal.classList.remove("on");
       })();
@@ -1467,6 +1467,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
          * *Only works in "disks/prompt".
          */
         let keyboardOpen = false;
+        let keyboardOpenMethod;
         const input = document.createElement("input");
         const form = document.createElement("form");
         form.id = "software-keyboard-input-form";
@@ -1495,6 +1496,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             e.key !== "`" &&
             e.key !== "Escape"
           ) {
+            keyboardOpenMethod = "keyboard";
             input.focus();
             return true;
           } else if (e.key === "Enter" && e.shiftKey === false) {
@@ -1602,6 +1604,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (keyboardOpen) {
               input.blur();
             } else {
+              keyboardOpenMethod = "pointer";
               input.focus();
             }
           }
@@ -1611,7 +1614,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         input.addEventListener("focus", (e) => {
           keyboardOpen = true;
-          keyboard.events.push({ name: "keyboard:open" });
+          keyboard.events.push({
+            name: "keyboard:open",
+            method: keyboardOpenMethod,
+          });
+          keyboardOpenMethod = undefined;
         });
 
         input.addEventListener("blur", (e) => {

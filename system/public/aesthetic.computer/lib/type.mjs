@@ -86,12 +86,12 @@ class Typeface {
   async load($preload) {
     // 1. Ignore any keys with a "glyph" prefix because these are settings.
     const glyphsToLoad = entries(this.data).filter(
-      ([g, loc]) => !g.startsWith("glyph")
+      ([g, loc]) => !g.startsWith("glyph"),
     );
     const promises = glyphsToLoad.map(([glyph, location], i) => {
       // 2. Load all other keys / glyphs over the network.
       return $preload(
-        `aesthetic.computer/disks/drawings/${this.name}/${location}.json`
+        `aesthetic.computer/disks/drawings/${this.name}/${location}.json`,
       )
         .then((res) => {
           this.glyphs[glyph] = res;
@@ -111,7 +111,7 @@ class Typeface {
     pos = { x: undef, y: undef, size: 1, thickness: 1, rotation: 0 },
     lineNumber,
     text,
-    bg = null
+    bg = null,
   ) {
     // TODO: Pass printLine params through / make a state machine.
     const font = this.glyphs;
@@ -132,18 +132,18 @@ class Typeface {
       if (pos.x === undefined)
         pos.x = $.num.randIntRange(
           -fullWidth / 2,
-          $.screen.width + fullWidth / 2
+          $.screen.width + fullWidth / 2,
         );
       if (pos.y === undefined)
         pos.y = $.num.randIntRange(
           -blockHeight / 2,
-          $.screen.height + blockHeight / 2
+          $.screen.height + blockHeight / 2,
         );
     }
 
     // Set x, y position and override if centering is specified.
     let x = pos.x || 0,
-      y = (pos.y || 0);
+      y = pos.y || 0;
 
     pos.center = pos.center || "";
 
@@ -157,7 +157,7 @@ class Typeface {
       y = pos.y === undef ? $.screen.height / 2 - hh : y - hh;
     }
 
-    y += (lineNumber * blockHeight);
+    y += lineNumber * blockHeight;
 
     const rn = $.inkrn(); // Remember the current ink color.
 
@@ -175,7 +175,7 @@ class Typeface {
       size,
       0,
       thickness,
-      rotation
+      rotation,
     ); // Text
   }
 }
@@ -252,7 +252,7 @@ class TextInput {
       font: font1,
       autolock: true,
       wrap: "char",
-    }
+    },
   ) {
     this.key = `${$.slug}:history`; // This is "per-piece" and should
     //                                be per TextInput object...23.05.23.12.50
@@ -277,7 +277,7 @@ class TextInput {
       blockWidth,
       blockWidth,
       options.wrap, // "char" or "word"
-      $.store["gutter:lock"] || floor($.screen.width / blockWidth) - 2
+      $.store["gutter:lock"] || floor($.screen.width / blockWidth) - 2,
     );
 
     this.print(text); // Set initial text.
@@ -305,8 +305,8 @@ class TextInput {
     } = $;
 
     this.enter = new TB(this.scheme.buttons?.enter || "Enter");
-    this.copy = new TB(this.scheme.buttons?.copy.label ||"Copy");
-    this.paste = new TB(this.scheme.buttons?.paste?.label ||"Paste");
+    this.copy = new TB(this.scheme.buttons?.copy.label || "Copy");
+    this.paste = new TB(this.scheme.buttons?.paste?.label || "Paste");
     this.copy.btn.disabled = true; // Copy is disabled by default,
     this.paste.btn.disabled = true; // as is Paste.
 
@@ -445,7 +445,7 @@ class TextInput {
         prompt.gutter,
         0,
         prompt.gutter,
-        $.screen.height
+        $.screen.height,
       ); // Ruler
       $.ink(127).box(0, 0, $.screen.width, $.screen.height, "inline"); // Focus
     }
@@ -511,7 +511,7 @@ class TextInput {
       this.copy.paint(
         { ink: $.ink },
         this.#copyPasteScheme || btnScheme,
-        btnHvrScheme
+        btnHvrScheme,
       );
     }
 
@@ -522,7 +522,7 @@ class TextInput {
       this.paste.paint(
         { ink: $.ink },
         this.#copyPasteScheme || btnScheme,
-        btnHvrScheme
+        btnHvrScheme,
       );
     }
 
@@ -674,7 +674,7 @@ class TextInput {
         // Move backwards until we reach a character
         while (index === undefined) {
           index = this.#prompt.textPos(
-            this.#prompt.backward({ ...this.#prompt.cursor })
+            this.#prompt.backward({ ...this.#prompt.cursor }),
           );
         }
 
@@ -1184,7 +1184,9 @@ class TextInput {
           : console.warn("📋 Copy: Failed ⚠️");
       }
 
-      this.copy.txt = copied ? (this.scheme.buttons?.copy?.copied || "Copied") : (this.scheme.buttons?.copy?.failed || "Failed");
+      this.copy.txt = copied
+        ? this.scheme.buttons?.copy?.copied || "Copied"
+        : this.scheme.buttons?.copy?.failed || "Failed";
       this.#copyPasteScheme = this.#buildCopyPasteScheme(); // Greyed out.
 
       needsPaint();
