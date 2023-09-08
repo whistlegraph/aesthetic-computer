@@ -2555,6 +2555,7 @@ async function load(
     // 🪧 See if notice needs to be shown.
     if ($commonApi.query.notice === "success") {
       notice = "PRINTED!";
+      noticeColor = ["white", "green"];
       noticeBell(cachedAPI);
     } else if ($commonApi.query.notice === "cancel") {
       notice = "CANCELLED";
