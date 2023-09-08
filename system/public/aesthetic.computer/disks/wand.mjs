@@ -466,13 +466,13 @@ function boot({
     QUAD,
     { color: [2, 2, 2, 255] },
     /* { tex: painting(16, 16, (g) => g.noise16DIGITPAIN()) }, */
-    { pos: [0, 0, 0], rot: [-90, 0, 0], scale: [1, 1, 1] }
+    { pos: [0, 0, 0], rot: [-90, 0, 0], scale: [1, 1, 1] },
   );
 
   measuringCube = new Form(
     CUBEL,
     { color: [255, 0, 0, 255] },
-    { pos: [0, cubeHeight, 0], rot: [0, 0, 0], scale: cubeSize }
+    { pos: [0, cubeHeight, 0], rot: [0, 0, 0], scale: cubeSize },
   );
 
   origin = new Form(ORIGIN, {
@@ -653,27 +653,27 @@ function sim({
           vec3.add(
             vec3.create(),
             position,
-            vec3.scale(vec3.create(), dir, length)
+            vec3.scale(vec3.create(), dir, length),
           ),
         ],
         colors: [color, color],
         keep: false,
       },
-      { pos: [0, 0, 0] }
+      { pos: [0, 0, 0] },
     );
 
     rotation = quat.fromValues(
       pen3d.rotation._x,
       pen3d.rotation._y,
       pen3d.rotation._z,
-      pen3d.rotation._w
+      pen3d.rotation._w,
     );
 
     controllerRotation = quat.fromValues(
       pen3d.rotation._x,
       pen3d.rotation._y,
       pen3d.rotation._z,
-      pen3d.rotation._w
+      pen3d.rotation._w,
     );
 
     if (spi === undefined) {
@@ -683,7 +683,7 @@ function sim({
         lastPosition,
         dir,
         rotation,
-        color
+        color,
       );
       race.start(spi.state.position);
     }
@@ -737,24 +737,24 @@ function sim({
 
       const firstTangent = vec3.normalize(
         vec3.create(),
-        vec3.sub(vec3.create(), pos, lpos)
+        vec3.sub(vec3.create(), pos, lpos),
       );
 
       const nextTangent = vec3.normalize(
         vec3.create(),
-        vec3.sub(vec3.create(), tpos, lpos)
+        vec3.sub(vec3.create(), tpos, lpos),
       );
 
       let lastNormal = vec4.transformQuat(vec4.create(), [0, 1, 0, 1], rot);
 
       const helper = vec3.normalize(
         vec3.create(),
-        vec3.cross(vec3.create(), lastNormal, firstTangent)
+        vec3.cross(vec3.create(), lastNormal, firstTangent),
       );
 
       lastNormal = vec3.normalize(
         vec3.create(),
-        vec3.cross(vec3.create(), firstTangent, helper)
+        vec3.cross(vec3.create(), firstTangent, helper),
       );
 
       if (waving) {
@@ -764,16 +764,16 @@ function sim({
           vec3.add(
             vec3.create(),
             pos,
-            vec3.scale(vec3.create(), lastNormal, 0.15)
+            vec3.scale(vec3.create(), lastNormal, 0.15),
           ),
           pos,
-          vec3.add(vec3.create(), pos, vec3.scale(vec3.create(), helper, 0.15))
+          vec3.add(vec3.create(), pos, vec3.scale(vec3.create(), helper, 0.15)),
         );
         diffPrevColors.push(
           [255, 255, 100, 255],
           [255, 255, 100, 255],
           [50, 255, 100, 255],
-          [50, 255, 100, 255]
+          [50, 255, 100, 255],
         );
       }
 
@@ -786,7 +786,7 @@ function sim({
         // Get angle between first and next tangent.
         let rq = quat.normalize(
           quat.create(),
-          quat.rotationTo(quat.create(), firstTangent, nextTangent)
+          quat.rotationTo(quat.create(), firstTangent, nextTangent),
         );
         newNormal = vec3.transformQuat(vec3.create(), lastNormal, rq);
         spi.lastNormal = newNormal; // hmm... 22.11.18.03.57
@@ -794,7 +794,7 @@ function sim({
 
       bitangent = vec3.normalize(
         vec3.create(),
-        vec3.cross(vec3.create(), newNormal, nextTangent)
+        vec3.cross(vec3.create(), newNormal, nextTangent),
       );
 
       if (waving) {
@@ -804,20 +804,20 @@ function sim({
           vec3.add(
             vec3.create(),
             pos,
-            vec3.scale(vec3.create(), newNormal, 0.15)
+            vec3.scale(vec3.create(), newNormal, 0.15),
           ),
           pos,
           vec3.add(
             vec3.create(),
             pos,
-            vec3.scale(vec3.create(), bitangent, 0.15)
-          )
+            vec3.scale(vec3.create(), bitangent, 0.15),
+          ),
         );
         diffPrevColors.push(
           [255, 0, 0, 255],
           [255, 0, 0, 255],
           [50, 0, 255, 255],
-          [50, 0, 255, 255]
+          [50, 0, 255, 255],
         );
       }
 
@@ -826,8 +826,8 @@ function sim({
         quat.create(),
         quat.fromMat3(
           quat.create(),
-          mat3.fromValues(...bitangent, ...newNormal, ...nextTangent)
-        )
+          mat3.fromValues(...bitangent, ...newNormal, ...nextTangent),
+        ),
       );
 
       rotation = qua;
@@ -923,7 +923,7 @@ function sim({
         const direction = vec4.transformQuat(
           vec4.create(),
           [0, 0, step, 1],
-          rotation
+          rotation,
         );
 
         const lastPosition = spi.position;
@@ -938,7 +938,7 @@ function sim({
           lastPosition,
           direction,
           rotation,
-          color
+          color,
         );
 
         spi.lastNormal = newNormal;
@@ -977,7 +977,7 @@ function sim({
             let repeats = min(6, floor(d / step));
             const spiToRace = vec3.normalize(
               vec3.create(),
-              vec3.sub(vec3.create(), race.pos, spi.state.position)
+              vec3.sub(vec3.create(), race.pos, spi.state.position),
             );
             let dot = vec3.dot(spiToRace, spi.state.direction);
             let divisor = max(3, round(sides / 2));
@@ -1094,7 +1094,7 @@ function sim({
           radius,
           sides,
           step,
-          true
+          true,
         );
       } else if (type === "tube:goto") {
         // ❔ tick, tube:goto, PX, PY, PZ, QX, QY, QZ
@@ -1106,7 +1106,7 @@ function sim({
           },
           undefined,
           true,
-          true
+          true,
         );
       } else if (type === "tube:radius") {
         // ❔ tick, tube:radius N
@@ -1317,7 +1317,7 @@ function paint({
     for (let d = 0; d < diffPrevPoints.length - 1; d += 2) {
       diffPrevPositions.push(
         [...diffPrevPoints[d], 1],
-        [...diffPrevPoints[d + 1], 1]
+        [...diffPrevPoints[d + 1], 1],
       );
       diffPrevCol.push(diffPrevColors[d], diffPrevColors[d + 1]);
     }
@@ -1333,7 +1333,7 @@ function paint({
         keep: false,
       },
       { color: [255, 0, 0, 255] },
-      { scale: [1, 1, 1] }
+      { scale: [1, 1, 1] },
     );
 
     const diffPositions = [];
@@ -1353,7 +1353,7 @@ function paint({
         keep: false,
       },
       { color: [255, 0, 0, 255] },
-      { scale: [1, 1, 1] }
+      { scale: [1, 1, 1] },
     );
 
     // Draw some cursor measurement lines.
@@ -1366,7 +1366,7 @@ function paint({
         keep: false,
       },
       { color: [255, 255, 255, 255] },
-      { scale: [1, 1, 1] }
+      { scale: [1, 1, 1] },
     );
 
     form([trackerForm, diffPrevForm, diffForm, raceForm], camdoll.cam);
@@ -1387,7 +1387,7 @@ function paint({
         step,
         geometry,
         undefined,
-        true // isWand
+        true, // isWand
       );
       // demoWandTube.form.tag = "demo-wand"; // Disables wand occlusion.
     } else {
@@ -1402,7 +1402,7 @@ function paint({
       },
       tubeRadius,
       tubeSides,
-      step
+      step,
     );
 
     demoWandTube.goto(
@@ -1413,7 +1413,7 @@ function paint({
       },
       undefined,
       false,
-      false
+      false,
     );
     demoWandTube.stop(false);
 
@@ -1481,8 +1481,8 @@ function paint({
         floor(seg[1] * width),
         player.instant === 0 ? height - thickness : seg[2],
         floor((seg[3] - seg[1]) * width + 1),
-        seg[4]
-      )
+        seg[4],
+      ),
     );
 
     playerProgLast = p;
@@ -1502,7 +1502,7 @@ function paint({
       !player ? wandForm : null,
     ],
     camdoll.cam,
-    { background }
+    { background },
   );
 
   if (stageOn) form(stage, camdoll.cam);
@@ -1570,7 +1570,7 @@ function act({
       e.rotation._x,
       e.rotation._y,
       e.rotation._z,
-      e.rotation._w
+      e.rotation._w,
     );
 
     const dir = [e.direction.x, e.direction.y, e.direction.z]; // ❓ Is this even used? 22.11.13.16.41
@@ -1845,7 +1845,7 @@ function act({
      color: rgb(255, 255, 0);
      padding: 0 0.25em;
      border-left: 0.75px solid rgb(255, 255, 0);
-     border-right: 0.75px solid rgb(255, 255, 0);`
+     border-right: 0.75px solid rgb(255, 255, 0);`,
     );
 
     bop = true;
@@ -1959,7 +1959,7 @@ function act({
         // (L)oad or (P)lay back the demo file.
         player = new Player(
           frames,
-          e.is("keyboard:down:l") ? 0 : 1 // If the "l" key is pressed then load all the demo frames instantly.
+          e.is("keyboard:down:l") ? 0 : 1, // If the "l" key is pressed then load all the demo frames instantly.
         );
       })
       .catch((err) => {
@@ -2080,7 +2080,11 @@ function beat({ num, sound: { bpm, synth } }) {
   }
 }
 
-export { boot, paint, sim, act, beat };
+function leave() {
+  player = null;
+}
+
+export { boot, paint, sim, act, leave, beat };
 
 // #region 📑 library
 
@@ -2260,7 +2264,7 @@ class Tube {
     geometry,
     demo,
     isWand = false,
-    cursorGeometry = "line:buffered"
+    cursorGeometry = "line:buffered",
   ) {
     this.$ = $; // Hold onto the API.
     this.geometry = geometry; // Set the geometry type.
@@ -2415,7 +2419,7 @@ class Tube {
     radius = this.radius,
     sides = this.sides,
     step = this.step,
-    fromDemo = false
+    fromDemo = false,
   ) {
     this.sides = sides;
     this.radius = radius;
@@ -2519,7 +2523,7 @@ class Tube {
       1,
       form.vertices.length /
         (form.MAX_POINTS -
-          (this.verticesPerSide * this.sides + this.verticesPerCap * 2))
+          (this.verticesPerSide * this.sides + this.verticesPerCap * 2)),
     );
   }
 
@@ -2640,7 +2644,7 @@ class Tube {
           colors.push(
             this.varyCap(shade),
             this.varyCap(shade),
-            this.varyCap(shade)
+            this.varyCap(shade),
           );
         } else {
           // End cap.
@@ -2648,7 +2652,7 @@ class Tube {
           colors.push(
             this.varyCap(shade),
             this.varyCap(shade),
-            this.varyCap(shade)
+            this.varyCap(shade),
           );
         }
       }
@@ -2662,7 +2666,7 @@ class Tube {
             pathP.shape[3],
             pathP.shape[4],
             pathP.shape[3],
-            pathP.shape[1]
+            pathP.shape[1],
           );
         } else {
           positions.push(
@@ -2671,7 +2675,7 @@ class Tube {
             pathP.shape[3],
             pathP.shape[3],
             pathP.shape[4],
-            pathP.shape[1]
+            pathP.shape[1],
           );
         }
 
@@ -2681,7 +2685,7 @@ class Tube {
           this.varyCap(shade),
           this.varyCap(shade),
           this.varyCap(shade),
-          this.varyCap(shade)
+          this.varyCap(shade),
         );
       }
 
@@ -2698,14 +2702,14 @@ class Tube {
             colors.push(
               this.varyCap(shade), // Inner color for a gradient.
               this.varyCap(shade),
-              this.varyCap(shade)
+              this.varyCap(shade),
             );
           } else {
             positions.push(center, pathP.shape[i], pathP.shape[i + 1]);
             colors.push(
               this.varyCap(shade), // Inner color for a gradient.
               this.varyCap(shade),
-              this.varyCap(shade)
+              this.varyCap(shade),
             );
           }
         }
@@ -2715,23 +2719,23 @@ class Tube {
           positions.push(
             center,
             pathP.shape[1],
-            pathP.shape[pathP.shape.length - 1]
+            pathP.shape[pathP.shape.length - 1],
           );
           colors.push(
             this.varyCap(shade), // Inner color for a gradient.
             this.varyCap(shade),
-            this.varyCap(shade)
+            this.varyCap(shade),
           );
         } else {
           positions.push(
             pathP.shape[1],
             center,
-            pathP.shape[pathP.shape.length - 1]
+            pathP.shape[pathP.shape.length - 1],
           );
           colors.push(
             this.varyCap(shade), // Inner color for a gradient.
             this.varyCap(shade),
-            this.varyCap(shade)
+            this.varyCap(shade),
           );
         }
       }
@@ -2747,7 +2751,7 @@ class Tube {
           pathP.shape[2],
           pathP.shape[3],
           pathP.shape[3],
-          pathP.shape[1]
+          pathP.shape[1],
         );
         colors.push(
           this.varyCapLine(shade),
@@ -2755,7 +2759,7 @@ class Tube {
           this.varyCapLine(shade),
           this.varyCapLine(shade),
           this.varyCapLine(shade),
-          this.varyCapLine(shade)
+          this.varyCapLine(shade),
         );
       }
 
@@ -2770,7 +2774,7 @@ class Tube {
           pathP.shape[4],
           pathP.shape[1],
           pathP.shape[1],
-          pathP.shape[3]
+          pathP.shape[3],
         );
         colors.push(
           this.varyCapLine(shade),
@@ -2782,7 +2786,7 @@ class Tube {
           this.varyCapLine(shade),
           this.varyCapLine(shade),
           this.varyCapLine(shade),
-          this.varyCapLine(shade)
+          this.varyCapLine(shade),
         );
       }
 
@@ -2843,14 +2847,14 @@ class Tube {
       pathP.rotation,
       pathP.pos,
       [1, 1, 1],
-      [0, 0, 0]
+      [0, 0, 0],
     );
 
     this.shape.forEach((shapePos, i) => {
       const newShapePos = vec4.transformMat4(
         vec4.create(),
         [...shapePos, 1],
-        rm
+        rm,
       );
       pathP.shape[i] = newShapePos;
     });
@@ -3008,7 +3012,7 @@ class Tube {
                   colors.push(
                     this.vary(shade),
                     this.vary(shade),
-                    this.vary(shade)
+                    this.vary(shade),
                   );
                 }
 
@@ -3027,7 +3031,7 @@ class Tube {
                   colors.push(
                     this.vary(shade),
                     this.vary(shade),
-                    this.vary(shade)
+                    this.vary(shade),
                   );
                 }
 
@@ -3045,7 +3049,7 @@ class Tube {
                 colors.push(
                   this.vary(shade),
                   this.vary(shade),
-                  this.vary(shade)
+                  this.vary(shade),
                 );
 
                 positions.push(this.lastPathP.shape[si]);
@@ -3060,7 +3064,7 @@ class Tube {
                 colors.push(
                   this.vary(shade),
                   this.vary(shade),
-                  this.vary(shade)
+                  this.vary(shade),
                 );
               }
             }
@@ -3070,7 +3074,7 @@ class Tube {
                 positions.push(
                   pathP.shape[si],
                   this.lastPathP.shape[si + 1],
-                  this.lastPathP.shape[si]
+                  this.lastPathP.shape[si],
                 );
 
                 // The outward facing normal from pathP.shape[si] would be
@@ -3093,13 +3097,13 @@ class Tube {
                 normals.push(
                   norm(pathP.shape[0], pathP.shape[si]),
                   norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1]),
-                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si])
+                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si]),
                 );
 
                 colors.push(
                   this.vary(shade),
                   this.vary(shade),
-                  this.vary(shade)
+                  this.vary(shade),
                 );
               }
             }
@@ -3112,13 +3116,13 @@ class Tube {
                 normals.push(
                   norm(this.lastPathP.shape[0], this.lastPathP.shape[si]),
                   norm(pathP.shape[0], pathP.shape[si]),
-                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1])
+                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1]),
                 );
 
                 colors.push(
                   this.vary(shade),
                   this.vary(shade),
-                  this.vary(shade)
+                  this.vary(shade),
                 );
               } //else {
               //}
@@ -3138,7 +3142,7 @@ class Tube {
               positions.push(
                 pathP.shape[si],
                 this.lastPathP.shape[si],
-                pathP.shape[si - 1]
+                pathP.shape[si - 1],
               );
 
               // normals.push(
@@ -3152,7 +3156,7 @@ class Tube {
               normals.push(
                 norm(pathP.shape[0], pathP.shape[si]),
                 norm(this.lastPathP.shape[0], this.lastPathP.shape[si]),
-                norm(pathP.shape[0], pathP.shape[si - 1])
+                norm(pathP.shape[0], pathP.shape[si - 1]),
               );
 
               colors.push(this.vary(shade), this.vary(shade), this.vary(shade));
@@ -3176,13 +3180,13 @@ class Tube {
               positions.push(
                 pathP.shape[si],
                 this.lastPathP.shape[si],
-                pathP.shape[si - 1]
+                pathP.shape[si - 1],
               );
 
               normals.push(
                 norm(pathP.shape[0], pathP.shape[si]),
                 norm(this.lastPathP.shape[0], this.lastPathP.shape[si]),
-                norm(pathP.shape[0], pathP.shape[si - 1])
+                norm(pathP.shape[0], pathP.shape[si - 1]),
               );
 
               //              colors.push(this.vary(shade));
@@ -3209,7 +3213,7 @@ class Tube {
                 positions.push(
                   this.lastPathP.shape[si],
                   pathP.shape[si],
-                  this.lastPathP.shape[si + 1]
+                  this.lastPathP.shape[si + 1],
                 );
 
                 // normals.push(
@@ -3223,13 +3227,13 @@ class Tube {
                 normals.push(
                   norm(this.lastPathP.shape[0], this.lastPathP.shape[si]),
                   norm(pathP.shape[0], pathP.shape[si]),
-                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1])
+                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1]),
                 );
 
                 colors.push(
                   this.vary(shade),
                   this.vary(shade),
-                  this.vary(shade)
+                  this.vary(shade),
                 );
               }
             }
@@ -3243,37 +3247,37 @@ class Tube {
                 positions.push(
                   this.lastPathP.shape[si],
                   pathP.shape[si],
-                  this.lastPathP.shape[si + 1]
+                  this.lastPathP.shape[si + 1],
                 );
 
                 normals.push(
                   norm(this.lastPathP.shape[0], this.lastPathP.shape[si]),
                   norm(pathP.shape[0], pathP.shape[si]),
-                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1])
+                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1]),
                 );
 
                 colors.push(
                   this.vary(shade),
                   this.vary(shade),
-                  this.vary(shade)
+                  this.vary(shade),
                 );
 
                 positions.push(
                   pathP.shape[si],
                   pathP.shape[si + 1],
-                  this.lastPathP.shape[si + 1]
+                  this.lastPathP.shape[si + 1],
                 );
 
                 normals.push(
                   norm(pathP.shape[0], pathP.shape[si]),
                   norm(pathP.shape[0], pathP.shape[si + 1]),
-                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1])
+                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1]),
                 );
 
                 colors.push(
                   this.vary(shade),
                   this.vary(shade),
-                  this.vary(shade)
+                  this.vary(shade),
                 );
                 // colors.push(
                 //   this.vary(shade),
@@ -3286,37 +3290,37 @@ class Tube {
                 positions.push(
                   this.lastPathP.shape[si],
                   pathP.shape[si],
-                  this.lastPathP.shape[si + 1]
+                  this.lastPathP.shape[si + 1],
                 );
 
                 normals.push(
                   norm(this.lastPathP.shape[0], this.lastPathP.shape[si]),
                   norm(pathP.shape[0], pathP.shape[si]),
-                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1])
+                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1]),
                 );
 
                 colors.push(
                   this.vary(shade),
                   this.vary(shade),
-                  this.vary(shade)
+                  this.vary(shade),
                 );
 
                 positions.push(
                   pathP.shape[si],
                   pathP.shape[si + 1],
-                  this.lastPathP.shape[si + 1]
+                  this.lastPathP.shape[si + 1],
                 );
 
                 normals.push(
                   norm(pathP.shape[0], pathP.shape[si]),
                   norm(pathP.shape[0], pathP.shape[si + 1]),
-                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1])
+                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1]),
                 );
 
                 colors.push(
                   this.vary(shade),
                   this.vary(shade),
-                  this.vary(shade)
+                  this.vary(shade),
                 );
               }
 
@@ -3324,13 +3328,13 @@ class Tube {
                 positions.push(
                   this.lastPathP.shape[si],
                   pathP.shape[si],
-                  this.lastPathP.shape[si + 1]
+                  this.lastPathP.shape[si + 1],
                 );
 
                 normals.push(
                   norm(this.lastPathP.shape[0], this.lastPathP.shape[si]),
                   norm(pathP.shape[0], pathP.shape[si]),
-                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1])
+                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1]),
                 );
 
                 colors.push(
@@ -3339,25 +3343,25 @@ class Tube {
                   // [255, 0, 0, 255]
                   this.vary(shade),
                   this.vary(shade),
-                  this.vary(shade)
+                  this.vary(shade),
                 );
 
                 positions.push(
                   pathP.shape[si],
                   pathP.shape[si + 1],
-                  this.lastPathP.shape[si + 1]
+                  this.lastPathP.shape[si + 1],
                 );
 
                 normals.push(
                   norm(pathP.shape[0], pathP.shape[si]),
                   norm(pathP.shape[0], pathP.shape[si + 1]),
-                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1])
+                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1]),
                 );
 
                 colors.push(
                   this.vary(shade),
                   this.vary(shade),
-                  this.vary(shade)
+                  this.vary(shade),
                 );
               }
             }
@@ -3367,19 +3371,19 @@ class Tube {
                 positions.push(
                   this.lastPathP.shape[si],
                   pathP.shape[si],
-                  this.lastPathP.shape[si + 1]
+                  this.lastPathP.shape[si + 1],
                 );
 
                 normals.push(
                   norm(this.lastPathP.shape[0], this.lastPathP.shape[si]),
                   norm(pathP.shape[0], pathP.shape[si]),
-                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1])
+                  norm(this.lastPathP.shape[0], this.lastPathP.shape[si + 1]),
                 );
 
                 colors.push(
                   this.vary(shade),
                   this.vary(shade),
-                  this.vary(shade)
+                  this.vary(shade),
                 );
               }
             }
@@ -3399,7 +3403,7 @@ class Tube {
           positions.push(
             pathP.shape[pathP.shape.length - 1],
             this.lastPathP.shape[1],
-            this.lastPathP.shape[pathP.shape.length - 1]
+            this.lastPathP.shape[pathP.shape.length - 1],
           );
 
           normals.push(
@@ -3407,8 +3411,8 @@ class Tube {
             norm(this.lastPathP.shape[0], this.lastPathP.shape[1]),
             norm(
               this.lastPathP.shape[0],
-              this.lastPathP.shape[pathP.shape.length - 1]
-            )
+              this.lastPathP.shape[pathP.shape.length - 1],
+            ),
           );
 
           colors.push(this.vary(shade), this.vary(shade), this.vary(shade));
@@ -3417,7 +3421,7 @@ class Tube {
           positions.push(
             this.lastPathP.shape[1],
             pathP.shape[pathP.shape.length - 1],
-            pathP.shape[1]
+            pathP.shape[1],
           );
 
           // normals.push(
@@ -3431,7 +3435,7 @@ class Tube {
           normals.push(
             norm(this.lastPathP.shape[0], this.lastPathP.shape[1]),
             norm(pathP.shape[0], pathP.shape[pathP.shape.length - 1]),
-            norm(pathP.shape[0], pathP.shape[1])
+            norm(pathP.shape[0], pathP.shape[1]),
           );
 
           colors.push(this.vary(shade), this.vary(shade), this.vary(shade));
@@ -3456,13 +3460,13 @@ class Tube {
           positions.push(
             this.lastPathP.shape[1],
             pathP.shape[pathP.shape.length - 1],
-            pathP.shape[1]
+            pathP.shape[1],
           );
 
           normals.push(
             norm(this.lastPathP.shape[0], this.lastPathP.shape[1]),
             norm(pathP.shape[0], pathP.shape[pathP.shape.length - 1]),
-            norm(pathP.shape[0], pathP.shape[1])
+            norm(pathP.shape[0], pathP.shape[1]),
           );
 
           colors.push(this.vary(shade), this.vary(shade), this.vary(shade));
@@ -3471,7 +3475,7 @@ class Tube {
           positions.push(
             pathP.shape[pathP.shape.length - 1],
             this.lastPathP.shape[1],
-            this.lastPathP.shape[pathP.shape.length - 1]
+            this.lastPathP.shape[pathP.shape.length - 1],
           );
 
           normals.push(
@@ -3479,8 +3483,8 @@ class Tube {
             norm(this.lastPathP.shape[0], this.lastPathP.shape[1]),
             norm(
               this.lastPathP.shape[0],
-              this.lastPathP.shape[pathP.shape.length - 1]
-            )
+              this.lastPathP.shape[pathP.shape.length - 1],
+            ),
           );
 
           colors.push(this.vary(shade), this.vary(shade), this.vary(shade));
@@ -3496,16 +3500,16 @@ class Tube {
           positions.push(
             this.lastPathP.shape[1],
             this.lastPathP.shape[pathP.shape.length - 1],
-            pathP.shape[pathP.shape.length - 1]
+            pathP.shape[pathP.shape.length - 1],
           );
 
           normals.push(
             norm(this.lastPathP.shape[0], this.lastPathP.shape[1]),
             norm(
               this.lastPathP.shape[0],
-              this.lastPathP.shape[pathP.shape.length - 1]
+              this.lastPathP.shape[pathP.shape.length - 1],
             ),
-            norm(pathP.shape[0], pathP.shape[pathP.shape.length - 1])
+            norm(pathP.shape[0], pathP.shape[pathP.shape.length - 1]),
           );
 
           colors.push(this.vary(shade), this.vary(shade), this.vary(shade));
@@ -3513,13 +3517,13 @@ class Tube {
           positions.push(
             pathP.shape[pathP.shape.length - 1],
             pathP.shape[1],
-            this.lastPathP.shape[1]
+            this.lastPathP.shape[1],
           );
 
           normals.push(
             norm(pathP.shape[0], pathP.shape[pathP.shape.length - 1]),
             norm(pathP.shape[0], pathP.shape[1]),
-            norm(this.lastPathP.shape[0], this.lastPathP.shape[1])
+            norm(this.lastPathP.shape[0], this.lastPathP.shape[1]),
           );
 
           colors.push(this.vary(shade), this.vary(shade), this.vary(shade));
@@ -3529,7 +3533,7 @@ class Tube {
         if (this.sides === 3) {
           positions.push(
             this.lastPathP.shape[1],
-            pathP.shape[pathP.shape.length - 1]
+            pathP.shape[pathP.shape.length - 1],
           );
           colors.push(this.varyLine(shade), this.varyLine(shade));
 
@@ -3540,7 +3544,7 @@ class Tube {
         if (this.sides > 3) {
           positions.push(
             this.lastPathP.shape[1],
-            pathP.shape[pathP.shape.length - 1]
+            pathP.shape[pathP.shape.length - 1],
           );
           colors.push(this.varyLine(shade), this.varyLine(shade));
           // 6. Final across
@@ -3605,7 +3609,7 @@ class Spider {
     lp = [0, 0, 0, 1],
     dir, // A starting directional vector.
     rot, // A quaternion.
-    col = [255, 255, 255, 255]
+    col = [255, 255, 255, 255],
   ) {
     this.$ = $; // Shorthand any dependencies.
     // const { num: { vec3 } } = $;
@@ -3646,12 +3650,12 @@ class Spider {
     const firstTangent = vec3.normalize(
       vec3.create(),
       //vec3.sub(vec3.create(), targetPosition, this.lastPosition)
-      vec3.sub(vec3.create(), this.position, this.lastPosition)
+      vec3.sub(vec3.create(), this.position, this.lastPosition),
     );
 
     const nextTangent = vec3.normalize(
       vec3.create(),
-      vec3.sub(vec3.create(), targetPosition, this.position)
+      vec3.sub(vec3.create(), targetPosition, this.position),
     );
 
     // TODO: Will this only be the first normal?
@@ -3660,7 +3664,7 @@ class Spider {
       lastNormal = vec4.transformQuat(
         vec4.create(),
         [0, 1, 0, 1],
-        this.rotation
+        this.rotation,
       );
     } else {
       lastNormal = this.lastNormal;
@@ -3668,12 +3672,12 @@ class Spider {
 
     const helper = vec3.normalize(
       vec3.create(),
-      vec3.cross(vec3.create(), lastNormal, firstTangent)
+      vec3.cross(vec3.create(), lastNormal, firstTangent),
     );
 
     lastNormal = vec3.normalize(
       vec3.create(),
-      vec3.cross(vec3.create(), firstTangent, helper)
+      vec3.cross(vec3.create(), firstTangent, helper),
     );
 
     /*
@@ -3708,14 +3712,14 @@ class Spider {
       let rq = quat.rotationTo(quat.create(), firstTangent, nextTangent);
       newNormal = vec3.normalize(
         vec3.create(),
-        vec3.transformQuat(vec3.create(), lastNormal, rq)
+        vec3.transformQuat(vec3.create(), lastNormal, rq),
       );
       this.lastNormal = newNormal;
     }
 
     bitangent = vec3.normalize(
       vec3.create(),
-      vec3.cross(vec3.create(), newNormal, nextTangent)
+      vec3.cross(vec3.create(), newNormal, nextTangent),
     );
 
     /*
@@ -3747,8 +3751,8 @@ class Spider {
       quat.create(),
       quat.fromMat3(
         quat.create(),
-        mat3.fromValues(...bitangent, ...newNormal, ...nextTangent)
-      )
+        mat3.fromValues(...bitangent, ...newNormal, ...nextTangent),
+      ),
     );
 
     // Interpolate it... only apply a section via `tightness` from 0-1.
@@ -3767,7 +3771,7 @@ class Spider {
     // Original direction.
     this.direction = vec4.normalize(
       vec4.create(),
-      vec4.transformQuat(vec4.create(), [0, 0, 1, 1], slerpedRot)
+      vec4.transformQuat(vec4.create(), [0, 0, 1, 1], slerpedRot),
     );
 
     const scaledDir = vec3.scale(vec3.create(), this.direction, stepSize);
@@ -3890,7 +3894,7 @@ class Player {
     instant = MetaBrowser ? 1 : 5, // Slower default in VR.
     waitForPreload,
     goUntilFirst = "tube:start",
-    endAtLast = "room:color"
+    endAtLast = "room:color",
   ) {
     this.frames = frames;
     this.instant = instant;
@@ -3957,7 +3961,7 @@ class Player {
           const lastChunk = end >= this.collectedFrames.length;
           const chunk = this.collectedFrames.slice(
             i,
-            lastChunk ? this.collectedFrames.length : end
+            lastChunk ? this.collectedFrames.length : end,
           );
           this.#instantChunks.push(chunk);
         }
