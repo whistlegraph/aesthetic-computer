@@ -12,4 +12,4 @@ export const Android = /(Android)/g.test(nav.userAgent);
 export const MetaBrowser = /(OculusBrowser)/g.test(nav.userAgent);
 export const Desktop = !iOS && !Android && !MetaBrowser;
 export const Instagram = /(Instagram)/g.test(nav.userAgent);
-export const TikTok = /TikTok/i.test(navigator.userAgent);
+export const TikTok = /BytedanceWebview/i.test(navigator.userAgent);
