@@ -208,7 +208,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         round(window.innerHeight / subdivisions) -
         round(gapSize / subdivisions);
 
-      if (TikTok) height -= gap * 2;
+      if (TikTok) height -= gap * 3;
 
       projectedWidth = round(width * density);
       projectedHeight = round(height * density);
