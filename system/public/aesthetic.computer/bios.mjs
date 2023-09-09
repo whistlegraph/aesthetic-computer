@@ -12,7 +12,7 @@ import * as Glaze from "./lib/glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
 import { parse, slug } from "./lib/parse.mjs";
 import * as Store from "./lib/store.mjs";
-import { MetaBrowser, iOS } from "./lib/platform.mjs";
+import { MetaBrowser, iOS, TikTok } from "./lib/platform.mjs";
 import { headers } from "./lib/console-headers.mjs";
 import { logs } from "./lib/logs.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
@@ -208,6 +208,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         round(window.innerHeight / subdivisions) -
         round(gapSize / subdivisions);
 
+      if (TikTok) height -= gap;
+
       projectedWidth = round(width * density);
       projectedHeight = round(height * density);
     } else {
@@ -244,8 +246,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     uiCanvas.height = projectedHeight * window.devicePixelRatio;
 
     // Horizontal and vertical offsetting of the wrapper.
-    wrapper.style.top =
-      round((window.innerHeight - projectedHeight) / 2) + "px";
+
+    if (TikTok) {
+      wrapper.style.top = `${gap}px`;
+    } else {
+      wrapper.style.top =
+        round((window.innerHeight - projectedHeight) / 2) + "px";
+    }
 
     wrapper.style.left = round((window.innerWidth - projectedWidth) / 2) + "px";
     wrapper.style.width = projectedWidth + "px";
