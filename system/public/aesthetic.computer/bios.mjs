@@ -247,7 +247,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Horizontal and vertical offsetting of the wrapper.
 
-    alert(navigator.userAgent, window.location)
     if (TikTok) {
       wrapper.style.top = `${gap}px`;
     } else {
