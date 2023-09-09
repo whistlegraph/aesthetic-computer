@@ -208,7 +208,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         round(window.innerHeight / subdivisions) -
         round(gapSize / subdivisions);
 
-      if (TikTok) height -= gap * 1.5;
+      if (TikTok) height -= gap * 2;
 
       projectedWidth = round(width * density);
       projectedHeight = round(height * density);
@@ -248,7 +248,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Horizontal and vertical offsetting of the wrapper.
 
     if (TikTok) {
-      wrapper.style.top = `${gap + 2}px`;
+      wrapper.style.top = `${gap * 1.5}px`;
     } else {
       wrapper.style.top =
         round((window.innerHeight - projectedHeight) / 2) + "px";
