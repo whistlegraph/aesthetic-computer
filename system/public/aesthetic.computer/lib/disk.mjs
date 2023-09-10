@@ -554,7 +554,9 @@ const $commonApi = {
               if (res.ok) {
                 const json = await res.json();
                 return $commonApi.net.preload(
-                  `https://user.aesthetic.computer/${json.sub}/painting/${code}.${extension}`,
+                  encodeURI(
+                    `https://user.aesthetic.computer/${json.sub}/painting/${code}.${extension}`,
+                  ),
                 );
               } else {
                 console.error(`Error: ${res.status} ${res.statusText}`);
