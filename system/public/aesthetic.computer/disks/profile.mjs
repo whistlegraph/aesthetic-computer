@@ -90,8 +90,8 @@ async function boot({ params, user, handle, debug, hud, net, get }) {
         // net.preload(lastPainting).then((img) => (painting = img)); // This doesn't work because of CORS errors in the Cloudflare worker.
         return get.painting(lastPaintingCode).by(visiting);
       })
-      .then((out) => {
-        painting = out;
+      .then(({ img }) => {
+        painting = img;
       })
       .catch((err) => {
         console.warn("Could not load painting or fetch media.", err);
