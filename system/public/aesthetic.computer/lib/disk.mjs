@@ -415,6 +415,9 @@ const hourGlasses = [];
 
 // For every function to access.
 const $commonApi = {
+  handle: () => {
+    return HANDLE;
+  },
   notice: (msg, color = ["white", "green"]) => {
     notice = msg;
     noticeColor = color;
@@ -1871,13 +1874,6 @@ async function load(
       path = [...path.split("/").slice(0, -1), hiddenSlug].join("/");
     }
 
-    // Update the user handle if it changed between pieces.
-    // TODO: This is not an optimal spot for this. 23.07.01.22.38
-    if (store["handle:updated"]) {
-      $commonApi.handle = "@" + store["handle:updated"];
-      delete store["handle:updated"];
-    }
-
     if (debug) console.log(debug ? "🟡 Development" : "🟢 Production");
     if (host === "") host = originalHost;
     loadFailure = undefined;
@@ -3174,6 +3170,12 @@ async function makeFrame({ data: { type, content } }) {
   // 2. Frame
   // Where each piece action (boot, sim, paint, etc...) is run.
   if (type === "frame") {
+    // 👰‍♀️ Update the user handle if it changed between frames.
+    if (store["handle:updated"]) {
+      HANDLE = "@" + store["handle:updated"];
+      delete store["handle:updated"];
+    }
+
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
       if (data.name.indexOf("keyboard:down") === 0) {
@@ -3817,7 +3819,7 @@ async function makeFrame({ data: { type, content } }) {
         const sys = $commonApi.system;
 
         // Set the painting record if one is in storage.
-        if (sys.nopaint.record.length === 0 && !sys.nopaint.recording) {
+        if (sys.nopaint.record?.length === 0 && !sys.nopaint.recording) {
           sys.nopaint.record =
             (await store.retrieve("painting:record", "local:db")) || [];
           sys.nopaint.recording = sys.nopaint.record.length > 0;
@@ -4198,6 +4200,7 @@ async function makeFrame({ data: { type, content } }) {
 
 // Get the active user's handle from the server if one exists, updating
 // $commonApi.handle
+let HANDLE;
 async function handle() {
   if (USER) {
     try {
@@ -4205,8 +4208,8 @@ async function handle() {
       if (response.status === 200) {
         const data = await response.json();
         const newHandle = "@" + data.handle;
-        if (newHandle !== $commonApi.handle) {
-          $commonApi.handle = "@" + data.handle;
+        if (newHandle !== $commonApi.handle()) {
+          HANDLE = "@" + data.handle;
           store["handle:received"] = true;
         }
       } else {
