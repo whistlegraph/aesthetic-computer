@@ -544,7 +544,7 @@ const $commonApi = {
           const extension = opts?.record ? "zip" : "png";
           if (handle === "anon") {
             return $commonApi.net.preload(
-              `https://art.aesthetic.computer/${code}.${extension}`,
+              encodeURI(`https://art.aesthetic.computer/${code}.${extension}`),
             );
           } else {
             // Get the user sub from the handle...
