@@ -49,10 +49,9 @@ let imageCode, recordingCode;
 let mintBtn; // A button to mint.
 
 // 🥾 Boot
-function boot({ system, params, get, net, ui, screen }) {
+function boot({ system, params, get, net, ui, screen, dom: { html } }) {
   if (params[0]?.length > 0) {
     interim = "Loading...";
-
     genSlug({ params });
 
     net.waitForPreload();
@@ -60,8 +59,41 @@ function boot({ system, params, get, net, ui, screen }) {
       .painting(imageCode)
       .by(handle)
       .then((out) => {
-        finalPainting = out;
+        finalPainting = out.img;
         net.preloaded();
+        let slug = imageCode + ".png";
+        if (handle) slug = handle + "/painting/" + imageCode + ".png";
+
+        html`
+          <img
+            width="${out.img.width}"
+            height="${out.img.height}"
+            id="hidden-painting"
+            crossorigin
+            src=${"/api/pixel/2048:conform/" + slug}
+          />
+          <style>
+            #content {
+              z-index: 0 !important;
+            }
+            #hidden-painting {
+              position: absolute;
+              top: 48px;
+              width: 100%;
+              height: calc(100% - 64px - 48px);
+              background: yellow;
+              opacity: 0.25;
+              object-fit: contain;
+              image-rendering: pixelated;
+              -webkit-user-select: all;
+              user-select: all;
+            }
+          </style>
+          <script>
+            const hp = document.querySelector("#hidden-painting");
+            hp.onmousedown = (e) => {};
+          </script>
+        `;
       })
       .catch((err) => {
         // console.warn("Could not load painting.", err);
@@ -89,6 +121,7 @@ function boot({ system, params, get, net, ui, screen }) {
       left: butSide,
       screen,
     });
+    mintBtn.disabled = true;
   }
   advance(system);
   // if (query.notice === "success") printBtn = null; // Kill button after order.

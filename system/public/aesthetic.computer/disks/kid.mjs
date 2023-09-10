@@ -69,8 +69,8 @@ function boot({ get, needsPaint }) {
   get
     .painting("2023.7.31.14.20.27")
     .by("@georgica")
-    .then((p) => {
-      painting = p;
+    .then(({ img }) => {
+      painting = img;
       needsPaint();
     });
 }

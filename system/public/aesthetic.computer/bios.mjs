@@ -316,7 +316,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       wrapper.addEventListener(
         "touchstart",
         function (event) {
-          if (event.target.tagName !== "A") event.preventDefault();
+          if (event.target.tagName !== "A" && event.target.tagName !== "IMG")
+            event.preventDefault();
         },
         false,
       );
@@ -2596,7 +2597,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "load-bitmap") {
       const img = document.createElement("img");
-      img.src = encodeURI(content);
+      img.src = content;
       img.crossOrigin = "anonymous";
       img.addEventListener("load", async () => {
         const bitmap = await toBitmap(img);

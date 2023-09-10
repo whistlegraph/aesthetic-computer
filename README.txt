@@ -79,6 +79,29 @@
   - [] Page sometimes doesn't load on iOS, so what's the hangup?
   - [] Camera should be aligned to the canvas size...
 
+*** painting page ***
+  - [🧡] Shorten the corner word on painting pages / remove the timestamp
+       especially if it will be seen in the corner.
+       (Word wrap it)
+  - [] Single finger pan.
+  - [] Painting pages need a left and right screen tap to advance or retreat. 
+  - [] Always record a painting by default now?
+  - [] Make a nicer loading transition for painting pages that load
+       an animation (Always show the last frame for a given duration.)
+  - [] Play forward or by a single step.
+       (Minting is a form of printing.)
+       (See if Zora can accept prefilled form data parameters on their minting page: https://support.zora.co/en/articles/7131468-zora101-how-to-create-a-multi-edition-erc-1155)
+       - I want to be able to send them a URL for an image that they can use to prefill
+         the form fields.
+  + Done
+  - [x] Add a transparent image tag overlay for tap to save on every
+       painting page.
+  - [x] Tap and hold to save on an invisible image tag.
+  - [x] Also make a mint command in addition to a print command.
+  - [x] Static image on page.
+  - [x] Painting pages need a [Mint] button.
+  - [x] Move buttons above progress bar (action area)
+
 *** Painting ***
   - [WIP] Add Zoom. 🔵
           TODO: How would this work with rotation?
@@ -101,28 +124,6 @@
   - [] Entering an incorrect command should flash the screen red but
        not clear the text. This also needs to be a negative sound.
   - [] Entering correct things should make a positive sound.
-
-*** painting page ***
-  - [🧡] Shorten the corner word on painting pages / remove the timestamp
-       especially if it will be seen in the corner.
-       (Word wrap it)
-  - [] Add a transparent image tag overlay for tap to save on every
-       painting page.
-  - [] Single finger pan.
-  - [] Painting pages need a left and right screen tap to advance or retreat. 
-  - [] Always record a painting by default now?
-  - [] Make a nicer loading transition for painting pages that load
-       an animation (Always show the last frame for a given duration.)
-  - [] Play forward or by a single step.
-       (Minting is a form of printing.)
-       (See if Zora can accept prefilled form data parameters on their minting page: https://support.zora.co/en/articles/7131468-zora101-how-to-create-a-multi-edition-erc-1155)
-       - I want to be able to send them a URL for an image that they can use to prefill
-         the form fields.
-  + Done
-  - [x] Also make a mint command in addition to a print command.
-  - [x] Static image on page.
-  - [x] Painting pages need a [Mint] button.
-  - [x] Move buttons above progress bar (action area)
 
 *** Profiles ***
   - [x] Typing in a handle on the prompt and visiting it should work.
