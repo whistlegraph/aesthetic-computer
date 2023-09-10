@@ -170,7 +170,7 @@ function boot({ get, net, resolution, screen, needsPaint, glaze, bgm }) {
     .by("@jeffrey")
     .then(({ img }) => {
       net.preloaded();
-      lotus = { img };
+      lotus = img;
       needsPaint();
     });
 }
