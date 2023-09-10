@@ -1185,7 +1185,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Load a zip from a URL and return its unpacked contents to the piece.
     if (type === "zip:load") {
       console.log("Load zip remotely...", content);
-      fetch(encodeURI(content))
+      fetch(decodeURI(content))
         .then((response) => {
           // console.log("Response", response);
           if (response.status == 200) {
