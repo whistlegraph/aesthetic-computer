@@ -114,7 +114,10 @@ async function boot({
     positionWelcomeButtons(screen);
   }
   if (user)
-    profile = new ui.TextButton(handle || user.name, { center: "xy", screen });
+    profile = new ui.TextButton(handle() || user.name, {
+      center: "xy",
+      screen,
+    });
   // }
 
   // Only if prompt is set to recall conversations.
@@ -291,8 +294,8 @@ async function halt($, text) {
         console.log("🪄 Painting uploaded:", filename, data);
 
         // Jump to the painting page that gets returned.
-        if (handle && filename.startsWith("painting")) {
-          jump(`painting~${handle}/${data.slug}`); // For a user.
+        if (handle() && filename.startsWith("painting")) {
+          jump(`painting~${handle()}/${data.slug}`); // For a user.
         } else {
           jump(
             `painting~${data.slug}${recordingSlug ? ":" + recordingSlug : ""}`,
@@ -381,7 +384,7 @@ async function halt($, text) {
       .then((data) => {
         console.log("🪄 Code uploaded:", data);
         flashColor = [0, 255, 0];
-        const route = handle ? `${handle}/${data.slug}` : data.slug;
+        const route = handle() ? `${handle()}/${data.slug}` : data.slug;
         makeFlash($);
         send({ type: "alert", content: `\`${route}\` was published!` });
         jump(route);
@@ -497,7 +500,7 @@ async function halt($, text) {
         flashColor = [0, 255, 0, 128];
         makeFlash($);
         const slug = user
-          ? `${handle || user.email}/painting/${data.slug}`
+          ? `${handle() || user.email}/painting/${data.slug}`
           : data.slug;
         jump(`download:painting ${slug}`);
       } catch (err) {
@@ -577,7 +580,7 @@ async function halt($, text) {
     if (w === undefined) {
       flashColor = [255, 0, 0];
     } else {
-      nopaint_adjust(
+      const result = nopaint_adjust(
         screen,
         system,
         painting,
@@ -585,7 +588,7 @@ async function halt($, text) {
         { w, h, scale: true },
         fullText,
       );
-      flashColor = [0, 255, 0];
+      flashColor = result ? "lime" : "red";
     }
     makeFlash($);
     return true;
@@ -834,7 +837,10 @@ function sim($) {
     input?.canType === false &&
     (!$.system.prompt.messages || $.system.prompt.messages.length === 0)
   ) {
-    profile = new $.ui.TextButton($.handle, { center: "xy", screen: $.screen });
+    profile = new $.ui.TextButton($.handle(), {
+      center: "xy",
+      screen: $.screen,
+    });
     if (firstCommandSent === true) profile.btn.disabled = true;
     delete $.store["handle:received"];
     $.needsPaint();
@@ -860,7 +866,7 @@ function act({
   // 🔘 Buttons
   login?.btn.act(e, () => net.login());
   signup?.btn.act(e, () => net.signup());
-  profile?.btn.act(e, () => jump(handle || "profile"));
+  profile?.btn.act(e, () => jump(handle() || "profile"));
 
   // Rollover keyboard locking.
   // TODO: ^ Move the below events, above to rollover events.

@@ -191,6 +191,8 @@ function nopaint_adjust(
       height = screen.height;
     }
 
+    if (isNaN(width) || !isNaN(height)) return false;
+
     sys.painting = painting(width, height, (p) => {
       if (size?.scale) {
         p.paste(sys.painting, 0, 0, { width, height });
@@ -202,6 +204,7 @@ function nopaint_adjust(
 
     store["painting"] = sys.painting;
     sys.nopaint.addUndoPainting(sys.painting, slug);
+    return true;
   }
 
   // Set a flag to prevent auto-resize.

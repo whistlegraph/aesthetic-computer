@@ -40,7 +40,7 @@ function meta({ piece }) {
 async function boot({ params, user, handle, debug, hud, net, get }) {
   // Mask from `profile` if we are logged in.
 
-  const visiting = params[0] || handle;
+  const visiting = params[0] || handle();
 
   console.log("Visiting:", visiting);
 
@@ -50,7 +50,7 @@ async function boot({ params, user, handle, debug, hud, net, get }) {
   }
 
   console.log("🤺 Visiting the profile of...", visiting);
-  if (user) console.log("😉 Logged in as...", handle || user?.name);
+  if (user) console.log("😉 Logged in as...", handle() || user?.name);
 
   if (!visiting) {
     noprofile = user?.name || "enter 'hi' at prompt";
