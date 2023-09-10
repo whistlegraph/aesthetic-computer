@@ -29,7 +29,7 @@ async function fun(event, context) {
   ) {
     const params = event.path.replace("/api/pixel/", "").split("/");
     let [pre, premode] = params[0].split(":");
-    premode ||= "fill"; // or "fill", or "sticker"
+    premode ||= "fill"; // or "contain", or "conform" or "sticker"
     let [mode, compose] = premode.split("-");
     const clear = compose === "clear";
     // TODO: Eventually use a  "-clear" option to keep the backdrop transparent.
@@ -80,10 +80,21 @@ async function fun(event, context) {
             .toBuffer();
         }
 
+        // Use "conform" to resize to the longest aspect.
+        let resolution;
+        if (mode === "conform") {
+          resolution =
+            metadata.width >= metadata.height
+              ? { width: width }
+              : { height: height };
+          mode = "inside";
+        } else {
+          resolution = { width, height };
+        }
+
         buffer = await sharp(clear ? await original.toBuffer() : combinedImage)
           .resize({
-            width,
-            height,
+            ...resolution,
             fit: mode,
             kernel,
             background: { r: 0, g: 0, b: 0, alpha: 0 },

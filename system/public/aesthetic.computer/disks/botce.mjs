@@ -168,9 +168,9 @@ function boot({ get, net, resolution, screen, needsPaint, glaze, bgm }) {
   get
     .painting("2023.7.24.17.55.09")
     .by("@jeffrey")
-    .then((p) => {
+    .then(({ img }) => {
       net.preloaded();
-      lotus = p;
+      lotus = { img };
       needsPaint();
     });
 }

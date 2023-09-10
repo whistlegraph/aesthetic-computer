@@ -61,9 +61,9 @@ function boot({ get, net, needsPaint }) {
   get
     .painting("2023.7.24.17.02.58")
     .by("@georgica")
-    .then((p) => {
+    .then(({ img }) => {
       net.preloaded();
-      painting = p;
+      painting = img;
       needsPaint();
     });
 }

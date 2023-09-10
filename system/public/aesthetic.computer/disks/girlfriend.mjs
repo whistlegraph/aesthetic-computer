@@ -16,22 +16,22 @@ const after = `
 
   `;
 
-  export const scheme = {
-    dark: {
-      fg: [235, 221, 191],
-      bg: [164, 57, 102, 80],
-      block: [179, 136, 124],
-      blockHi: [245, 13, 162],
-      line: [255, 255, 100, 100],
-    },
-    light: {
-      fg: [0, 200],
-      bg: [170, 150, 200],
-      block: [30, 200, 200],
-      blockHi: [200, 200, 30],
-      line: [0, 0, 0, 128],
-    },
-  };
+export const scheme = {
+  dark: {
+    fg: [235, 221, 191],
+    bg: [164, 57, 102, 80],
+    block: [179, 136, 124],
+    blockHi: [245, 13, 162],
+    line: [255, 255, 100, 100],
+  },
+  light: {
+    fg: [0, 200],
+    bg: [170, 150, 200],
+    block: [30, 200, 200],
+    blockHi: [200, 200, 30],
+    line: [0, 0, 0, 128],
+  },
+};
 
 // 🛑 Intercept specific input text with a custom reply.
 function halt($, text) {
@@ -57,8 +57,8 @@ function boot({ get, needsPaint }) {
   get
     .painting("2023.7.28.14.43.54")
     .by("@georgica")
-    .then((p) => {
-      painting = p;
+    .then(({ img }) => {
+      painting = img;
       needsPaint();
     });
 }
