@@ -74,6 +74,7 @@ form {
   z-index: 4;
   pointer-events: all;
   touch-action: manipulation;
+  -webkit-touch-callout: default;
   display: flex;
 }
 

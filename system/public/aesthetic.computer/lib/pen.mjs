@@ -85,12 +85,12 @@ export class Pen {
           event.stopImmediatePropagation();
         }
       },
-      { passive: false }
+      { passive: false },
     );
 
     // Prevent context click.
     window.addEventListener("contextmenu", function (e) {
-      e.preventDefault();
+      if (e.target.tagName !== "IMG") e.preventDefault();
     });
 
     // Mouse only...
@@ -340,7 +340,7 @@ export class Pen {
         view: window,
         pointerId: 1, // First "finger" or mouse.
         button: 0, // Left button.
-      })
+      }),
     );
   }
 
@@ -357,7 +357,7 @@ export class Pen {
   retransformPosition() {
     assign(
       this,
-      this.point(this.untransformedPosition?.x, this.untransformedPosition?.y)
+      this.point(this.untransformedPosition?.x, this.untransformedPosition?.y),
     );
   }
 
@@ -424,7 +424,7 @@ export class Pen {
         this.#lastP.x - r.x - s,
         this.#lastP.y - r.y - s,
         s * 2.5,
-        s * 2.5
+        s * 2.5,
       );
 
     assign(this.#lastP, p);
