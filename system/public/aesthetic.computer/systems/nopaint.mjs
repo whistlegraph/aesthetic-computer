@@ -191,7 +191,7 @@ function nopaint_adjust(
       height = screen.height;
     }
 
-    if (isNaN(width) || !isNaN(height)) return false;
+    if (isNaN(width) || isNaN(height)) return false;
 
     sys.painting = painting(width, height, (p) => {
       if (size?.scale) {
