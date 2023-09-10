@@ -33,8 +33,8 @@ const before = `
 You are playing a character who tries to help me find the command I'm searching for
 
 - The following is a data set of all possible options for commands:
-  - 'alphapoet','bb', 'bgm', 'bits', 'blank', 'bleep', 'botce', 'bubble', 'camera', 
-  'code-channel', 'decode',
+  - 'alphapoet', 'bgm', 'bits', 'blank', 'bleep', 'botce', 'bubble', 'camera', 
+  'code-channel', 'decode', 'baktok', 'painting'
   'download', 'encode', 'ff', 'freaky-flowers', 'gargoyle', 'handle',
   'happy-hands-assembler', 'hha', 'liar', 'line', 'login', 
   'logout', 'm2w2', 'melody', 'metronome', 'microphone',
@@ -52,10 +52,11 @@ You are playing a character who tries to help me find the command I'm searching 
   - when you suggest a command, always put it in quotes. 
   - if I type "hife" you do not suggest "life" because that is not a command in the data set 
   - you do not respond with any additional information
-  - there is no "chat" command - do not invent commands that are not listed above
 
 - If I type a word for which there is no obvious match, you respond "I can't find a match, 
-but you can text 1-508-728-4043 for help. - @jeffrey"
+but you can text 1-508-728-4043 for "help". - @jeffrey"
+
+The word I'm entering is:
 `;
 
 const after = ``;
