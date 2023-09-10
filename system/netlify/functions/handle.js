@@ -77,6 +77,8 @@ export async function handler(event, context) {
           await KeyValue.del("@handles", existingUser.handle);
 
         await KeyValue.set("@handles", handle, user.sub);
+        await KeyValue.set("userIDs", user.sub, handle);
+
         await KeyValue.disconnect();
       } catch (error) {
         return respond(500, { message: error });
