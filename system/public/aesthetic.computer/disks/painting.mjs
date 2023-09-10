@@ -62,7 +62,8 @@ function boot({ system, params, get, net, ui, screen, dom: { html } }) {
         finalPainting = out.img;
         net.preloaded();
         let slug = imageCode + ".png";
-        if (handle) slug = handle + "/painting/" + imageCode + ".png";
+        if (handle && handle !== "anon")
+          slug = handle + "/painting/" + imageCode + ".png";
 
         html`
           <img
