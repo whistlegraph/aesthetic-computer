@@ -68,7 +68,7 @@
     Content-Security-Policy = "script-src 'self' blob: 'unsafe-eval';"
     Vary = "*"
 [[redirects]]
-   from = "https://botce.ac"
+   from = "https://botce.ac/wPyYL4osf6Cw0pkHn"
    to = "https://aesthetic.computer/wPyYL4osf6Cw0pkHn_E5I-botce"
    status = 200
    force = true
