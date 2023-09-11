@@ -72,9 +72,13 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** BakTok ***
+  - [] Make the audio scrubbable.
+
 *** Painting ***
   - [] Add Zoom. 🔵
   - [🟠] Always have a secondary buffer.
+    - [] Implement for `rect`...
     - [] Make sure `nopan` centers a zoomed canvas. 
     - [] Add an `info` command to view painting info.
     - [] Contextually show whether we are zoomed or not, perhaps with a border?
