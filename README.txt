@@ -80,6 +80,12 @@
     - [] Contextually show whether we are zoomed or not, perhaps with a border?
     - [] Add color picker. 🔵
     - [] Also add rotation.
+  
+*** Painting Listing Pages ***
+  - [] Scrape all user media and add records to the database.
+    - [] Write a one-time runnable task for this.
+  - [] Add a new record whenever something is uploaded.
+    - [] See `bios` -> where `presigned-upload-url` succeeds.
 
 *** iOS ***
   - [🟡] Audio loads inconsistently / slowly on iOS. 

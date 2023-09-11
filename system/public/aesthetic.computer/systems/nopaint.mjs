@@ -163,7 +163,7 @@ function nopaint_adjust(
   painting,
   store,
   size = null,
-  slug = "resize",
+  slug = "resize"
 ) {
   if (!size && store["painting:resolution-lock"] === true) return;
 
@@ -204,7 +204,6 @@ function nopaint_adjust(
 
     store["painting"] = sys.painting;
     sys.nopaint.addUndoPainting(sys.painting, slug);
-    return true;
   }
 
   // Set a flag to prevent auto-resize.
@@ -215,6 +214,7 @@ function nopaint_adjust(
     sys.nopaint.resetTransform({ system: sys, screen }); // Reset transform.
     sys.nopaint.storeTransform(store, sys);
   }
+  return true;
 }
 
 export { nopaint_boot, nopaint_act, nopaint_is, nopaint_adjust };
