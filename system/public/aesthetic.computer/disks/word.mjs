@@ -92,36 +92,48 @@ function boot($) {
   size = parseInt(colon[0]) || 1; // No 0, undefined or NaN.
   thickness = parseInt(colon[1]) || thickness;
 
-  // x = screen.width / 2; // Default position is the center of the display.
-  // y = screen.height / 2;
-  x = num.randInt(screen.width);
-  y = num.randInt(screen.height);
+  x = screen.width / 2; // Default position is the center of the display.
+  y = screen.height / 2;
+  // x = num.randInt(screen.width);
+  // y = num.randInt(screen.height);
 }
 
 // 🎨 Paint (Executes every display frame)
-function paint({ ink, system: { nopaint } }) {
+function paint({ ink, system: { nopaint, painting } }) {
   // Rendering commands to write to screen and painting.
   function print({ x, y }) {
     // Shadow
     const shadow = 1;
-    ink(0, 50).write(text, {
-      x: x + shadow,
-      y: y + shadow,
-      center: "xy",
-      size,
-      thickness,
-      rotation: 0,
-    });
+    ink(0, 50).write(
+      text,
+      {
+        x: x + shadow,
+        y: y + shadow,
+        center: "xy",
+        size,
+        thickness,
+        rotation: 0,
+      },
+      undefined,
+      painting.width * 0.85,
+    );
+
+    console.log(x, y);
 
     // Text
-    ink(color).write(text, {
-      x,
-      y,
-      center: "xy",
-      size,
-      thickness,
-      rotation: 0,
-    });
+    ink(color).write(
+      text,
+      {
+        x,
+        y,
+        center: "xy",
+        size,
+        thickness,
+        rotation: 0,
+      },
+      undefined,
+      painting.width * 0.85,
+    );
   }
 
   print({ x, y }); // Draw everything to the screen.
