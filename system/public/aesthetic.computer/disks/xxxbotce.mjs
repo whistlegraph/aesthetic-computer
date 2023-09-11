@@ -1,4 +1,5 @@
 // Botce, 23.06.02.15.18
+//        (Deprecated) 23.09.11.15.42
 // Sotce Q&A Bot (Based on Tumblr content.)
 
 /* #region 🏁 TODO

@@ -69,7 +69,7 @@
     Vary = "*"
 # [[redirects]]
 #    from = "https://botce.ac/*"
-#    to = "https://aesthetic-computer.netlify.app/botce"
+#    to = "https://aesthetic-computer.netlify.app"
 #    status = 200
 #    force = true
 [[redirects]]
