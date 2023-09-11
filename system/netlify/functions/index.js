@@ -19,7 +19,7 @@ async function fun(event, context) {
 
   // Some domains will rewrite the initial slug.
   if (event.headers["host"] === "botce.ac") {
-    slug = "prompt";
+    slug = "wPyYL4osf6Cw0pkHn_E5I-botce";
   } else if (
     event.headers["host"] === "m2w2.whistlegraph.com" &&
     event.path.length <= 1
