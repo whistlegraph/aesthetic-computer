@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** colplay ***
+  - [x] Tie a sound with a color. 
+
 *** @maya/sparkle ***
   - [x] Get sparkle working again and add it to @maya.
 
