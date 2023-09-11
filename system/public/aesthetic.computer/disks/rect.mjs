@@ -57,9 +57,7 @@ function boot({ params, num, colon }) {
 function paint({ pen, screen, ink, page, system: { nopaint }, geo }) {
   if (nopaint.is("painting") && pen?.dragBox) {
     const db = !centered ? pen.dragBox : pen.dragBox.scale(2);
-
     //ink(color).box(db, mode); // UI: Paint a preview to the screen.
-
     const r = !centered
       ? nopaint.brush.dragBox
       : nopaint.brush.dragBox.scale(2);
@@ -72,7 +70,6 @@ function paint({ pen, screen, ink, page, system: { nopaint }, geo }) {
       ink(color).box(r, mode);
       rect = null;
     }; // Painting: Write to the canvas permanently.
-
   }
 }
 
