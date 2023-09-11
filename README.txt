@@ -72,6 +72,17 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** colplay ***
+  - [] Tie a sound with a color. 
+
+*** Painting ***
+  - [] Add Zoom. 🔵
+  - [🟠] Always have a secondary buffer.
+    - [] Make sure `nopan` centers a zoomed canvas. 
+    - [] Add an `info` command to view painting info.
+    - [] Contextually show whether we are zoomed or not, perhaps with a border?
+    - [] Also add rotation.
+
 *** iOS ***
   - [🟡] Audio loads inconsistently / slowly on iOS. 
     (Debug on the actual device.)
@@ -101,14 +112,6 @@
   - [x] Static image on page.
   - [x] Painting pages need a [Mint] button.
   - [x] Move buttons above progress bar (action area)
-
-*** Painting ***
-  - [WIP] Add Zoom. 🔵
-          TODO: How would this work with rotation?
-  - [] Make sure `nopan` centers a zoomed canvas. 
-  - [] Always have a secondary buffer.
-  - [] Add an `info` command to view painting info.
-  - [] Contextually show whether we are zoomed or not, perhaps with a border?
 
 *** Prompt / Piece Cache ***
   - [] Fonts sometimes don't load all the way on prompt.
