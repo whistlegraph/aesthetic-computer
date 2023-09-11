@@ -69,8 +69,8 @@
     Vary = "*"
 [[redirects]]
    from = "https://botce.ac"
-   to = "https://aesthetic.computer"
-   status = 301
+   to = "https://aesthetic.computer/wPyYL4osf6Cw0pkHn_E5I-botce"
+   status = 200
    force = true
 [[redirects]]
   from = "/media/*"
