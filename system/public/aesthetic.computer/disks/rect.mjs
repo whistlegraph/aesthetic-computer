@@ -82,5 +82,4 @@ function bake() {
 }
 
 const system = "nopaint";
-
 export { boot, paint, bake, system };
