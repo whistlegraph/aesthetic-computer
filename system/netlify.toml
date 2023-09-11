@@ -67,11 +67,11 @@
     Access-Control-Allow-Origin = "*"
     Content-Security-Policy = "script-src 'self' blob: 'unsafe-eval';"
     Vary = "*"
-# [[redirects]]
-#    from = "https://botce.ac/*"
-#    to = "https://aesthetic-computer.netlify.app"
-#    status = 200
-#    force = true
+[[redirects]]
+   from = "https://botce.ac"
+   to = "https://aesthetic.computer"
+   status = 301
+   force = true
 [[redirects]]
   from = "/media/*"
   to = "https://aesthetic-computer-router.aesthetic-computer.workers.dev/media/:splat"
