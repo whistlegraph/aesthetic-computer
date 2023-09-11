@@ -976,6 +976,7 @@ const $commonApi = {
     rgbToHexStr: num.rgbToHexStr,
     hexToRgb: num.hexToRgb,
     blend: num.blend,
+    rgbToHsl: num.rgbToHsl,
   },
   geo: {
     Box: geo.Box,
