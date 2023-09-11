@@ -40,14 +40,14 @@ import { setDebug } from "../disks/common/debug.mjs";
 const defaults = {
   boot: ({ resize, cursor, screen: { width, height }, resolution, slug }) => {
     // resize(width / 2, height / 2);
-    if (slug?.startsWith("botce")) resolution(width, height, 0);
+    if (slug?.indexOf("botce") > -1) resolution(width, height, 0);
     cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
   paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe }) => {
     // TODO: Make this a boot choice via the index.html file?
     if (!projectionMode) {
-      if (slug?.startsWith("botce")) {
+      if (slug?.indexOf("botce") > -1) {
         noise16Sotce();
       } else {
         noise16Aesthetic();
@@ -4038,7 +4038,7 @@ async function makeFrame({ data: { type, content } }) {
         piece !== "girlfriend" &&
         piece !== "textfence" &&
         piece !== "boyfriend" &&
-        piece !== "botce" &&
+        piece.indexOf("botce") === -1 &&
         piece !== "angel" &&
         piece !== "dad" &&
         piece !== "kid" &&
