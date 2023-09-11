@@ -78,10 +78,14 @@ function changePixels(changer) {
   changer(pixels, width, height);
 }
 
-// Return a pixel from the main buffer.
-function pixel(x, y) {
-  const i = (floor(x) + floor(y) * width) * 4;
-  return [pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3]];
+// Return a pixel from the main buffer or from a specified buffer.
+function pixel(x, y, painting) {
+  const buffer = painting.pixels;
+  if (x >= painting.width || y >= painting.height || x < 0 || y < 0) {
+    return [0, 0, 0, 0];
+  }
+  const i = (floor(x) + floor(y) * painting.width) * 4;
+  return [buffer[i], buffer[i + 1], buffer[i + 2], buffer[i + 3]];
 }
 
 // Set global color.
@@ -370,7 +374,7 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
         box: { x: destX, y: destY, w: from.width, h: from.height },
         transform: { scale, angle, width, height, anchor },
       },
-      from,
+      from
     );
 
     return;
@@ -389,7 +393,7 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
           destY + y,
           from.crop.x + x,
           from.crop.y + y,
-          from.painting,
+          from.painting
         );
       }
     }
@@ -866,7 +870,7 @@ function pline(coords, thickness, shader) {
         tv[0] += panTranslation.x;
         tv[1] += panTranslation.y;
         return tv[0] >= 0 && tv[0] < width && tv[1] >= 0 && tv[1] < height;
-      }),
+      })
     );
 
     clippedTris.forEach((tri) => fillTri(tri, tris)); // Fill quad.
@@ -1039,7 +1043,7 @@ function box() {
       if (x === undefined || y === undefined || w === undefined) {
         return console.error(
           "Could not make a box {x,y,w,h} from:",
-          arguments[0],
+          arguments[0]
         );
       }
     }
@@ -1124,7 +1128,7 @@ function box() {
         rightX - thickness,
         topY + thickness,
         thickness,
-        boxHeight - thickness * 2,
+        boxHeight - thickness * 2
       ); // Right box
     }
   } else if (mode === "inline" || mode === "in") {
@@ -1198,7 +1202,7 @@ function shape() {
       points.push(points[0]);
       pline(
         points.map((p) => p2.of(...p)),
-        thickness,
+        thickness
       );
     }
   }
@@ -1254,7 +1258,7 @@ function grid(
     transform: { scale, angle, width: twidth, height: theight, anchor },
     centers = [],
   },
-  buffer,
+  buffer
 ) {
   const oc = c.slice(); // Remember the original color.
 
@@ -1582,7 +1586,7 @@ function printLine(
   scale = 1,
   xOffset = 0,
   thickness = 1,
-  rotation = 0,
+  rotation = 0
 ) {
   if (!text) return;
   [...text.toString()].forEach((char, i) => {
@@ -1592,7 +1596,7 @@ function printLine(
       startY,
       scale,
       rotation,
-      thickness,
+      thickness
     );
   });
 }
@@ -1640,17 +1644,17 @@ function noiseTinted(tint, amount, saturation) {
     pixels[i] = lerp(
       lerp(grayscale, randInt(255), saturation),
       tint[0],
-      amount,
+      amount
     ); // r
     pixels[i + 1] = lerp(
       lerp(grayscale, randInt(255), saturation),
       tint[1],
-      amount,
+      amount
     ); // g
     pixels[i + 2] = lerp(
       lerp(grayscale, randInt(255), saturation),
       tint[2],
-      amount,
+      amount
     ); // b
     pixels[i + 3] = 255; // a
   }
@@ -1830,7 +1834,7 @@ class Camera {
       radians(fov),
       width / height,
       zNear,
-      zFar,
+      zFar
     );
 
     // See: https://github.com/BennyQBD/3DSoftwareRenderer/blob/641f59125351d9565e744a90ad86256c3970a724/src/Matrix4f.java#L89
@@ -1875,7 +1879,7 @@ class Camera {
     // Camera World Space -> Inverted Perspective Projection
     const invertedProjection = mat4.invert(
       mat4.create(),
-      this.perspectiveMatrix,
+      this.perspectiveMatrix
     );
     const invWorldPersProj = mat4.mul(mat4.create(), world, invertedProjection);
 
@@ -1900,7 +1904,7 @@ class Camera {
     const xyz = vec4.transformMat4(
       vec4.create(),
       shiftedScreenPos,
-      invWorldPersProj,
+      invWorldPersProj
     );
 
     // Subtract transformed point from camera position.
@@ -1940,7 +1944,7 @@ class Camera {
     this.#transformMatrix = mat4.multiply(
       mat4.create(),
       this.perspectiveMatrix,
-      scaled,
+      scaled
     );
   }
 }
@@ -1976,7 +1980,7 @@ class Dolly {
       vec2.create(),
       vec2.fromValues(x, z),
       vec2.fromValues(0, 0),
-      radians(-this.camera.rotY), // Take the camera Y axis for strafing.
+      radians(-this.camera.rotY) // Take the camera Y axis for strafing.
     );
 
     this.xVel += xz[0] || 0;
@@ -2059,7 +2063,7 @@ class Form {
     },
     fill,
     // Transform
-    transform,
+    transform
   ) {
     this.gradients = gradients; // A flag to decide if we use gradients or not. Only for line3d right now. 22.11.06.02.00
 
@@ -2163,7 +2167,7 @@ class Form {
           "Max. cutoff in GPU form!",
           this,
           incomingLength,
-          pointsAvailable,
+          pointsAvailable
         );
     }
 
@@ -2198,8 +2202,8 @@ class Form {
           attributes.colors?.[i],
           // this.#gradientColors[i % 3],
           texCoord, //this.#texCoords[i % 3] // Replace to enable bespoke texture coordinates.
-          attributes.normals?.[i],
-        ),
+          attributes.normals?.[i]
+        )
       );
 
       // TODO: This may need to be turned back on for the GPU?
@@ -2266,12 +2270,12 @@ class Form {
 
     const rotX = mat4.fromXRotation(
       mat4.create(),
-      radians(this.rotation[X] * -1), // FLIPPED
+      radians(this.rotation[X] * -1) // FLIPPED
     );
 
     const rotZ = mat4.fromZRotation(
       mat4.create(),
-      radians(this.rotation[Z] * -1), // FLIPPED
+      radians(this.rotation[Z] * -1) // FLIPPED
     );
 
     const rotatedX = mat4.mul(mat4.create(), panned, rotX);
@@ -2318,7 +2322,7 @@ class Form {
           transformedVertices[this.indices[i + 2]],
           // Eventually pass in a "shader" function instead of texture or alpha..
           this.texture,
-          this.alpha,
+          this.alpha
         );
       }
     }
@@ -2337,7 +2341,7 @@ class Form {
           transformedVertices[this.indices[i]],
           transformedVertices[this.indices[i + 1]],
           transformedVertices[this.indices[i]].color || this.color,
-          this.gradients,
+          this.gradients
         );
       }
     }
@@ -2403,7 +2407,7 @@ class Vertex {
     pos = [0, 0, 0, 1],
     color = [...c, 1.0],
     texCoords = [0, 0, 0, 0],
-    normal = [0, 0, 0],
+    normal = [0, 0, 0]
   ) {
     this.pos = vec4.fromValues(...pos);
     this.color = vec4.fromValues(...color);
@@ -2423,10 +2427,10 @@ class Vertex {
           this.pos[Z] * -1, // FLIPPED
           this.pos[W],
         ],
-        matrix,
+        matrix
       ),
       this.color,
-      this.texCoords,
+      this.texCoords
     );
   }
 
@@ -2440,10 +2444,10 @@ class Vertex {
           this.pos[Z], // FLIPPED
           this.pos[W],
         ],
-        matrix,
+        matrix
       ),
       this.color,
-      this.texCoords,
+      this.texCoords
     );
   }
 
@@ -2453,10 +2457,10 @@ class Vertex {
         this.pos[X] / this.pos[W],
         this.pos[Y] / this.pos[W],
         this.pos[Z] / this.pos[W],
-        this.pos[W],
+        this.pos[W]
       ),
       this.color,
-      this.texCoords,
+      this.texCoords
     );
   }
 
@@ -2467,7 +2471,7 @@ class Vertex {
       vec4.create(),
       this.texCoords,
       other.texCoords,
-      lerpAmt,
+      lerpAmt
     );
     return new Vertex(pos, col, texCoords);
   }
@@ -2577,12 +2581,12 @@ class Edge {
       vec4.add(
         vec,
         vec,
-        vec4.scale(vec4.create(), gradients.colorYStep, yPrestep),
+        vec4.scale(vec4.create(), gradients.colorYStep, yPrestep)
       );
       vec4.add(
         vec,
         vec,
-        vec4.scale(vec4.create(), gradients.colorXStep, xPrestep),
+        vec4.scale(vec4.create(), gradients.colorXStep, xPrestep)
       );
       this.color = vec;
     }
@@ -2592,7 +2596,7 @@ class Edge {
       const scaled = vec4.scale(
         vec4.create(),
         gradients.colorXStep,
-        this.#xStep,
+        this.#xStep
       );
       vec4.add(vec, vec, scaled);
       this.#colorStep = vec;
@@ -2676,7 +2680,7 @@ class Gradients {
       minYVert,
       midYVert,
       maxYVert,
-      oneOverdX,
+      oneOverdX
     );
 
     this.texCoordXYStep = Gradients.calcYStep(
@@ -2684,7 +2688,7 @@ class Gradients {
       minYVert,
       midYVert,
       maxYVert,
-      oneOverdY,
+      oneOverdY
     );
 
     this.texCoordYXStep = Gradients.calcXStep(
@@ -2692,7 +2696,7 @@ class Gradients {
       minYVert,
       midYVert,
       maxYVert,
-      oneOverdX,
+      oneOverdX
     );
 
     this.texCoordYYStep = Gradients.calcYStep(
@@ -2700,7 +2704,7 @@ class Gradients {
       minYVert,
       midYVert,
       maxYVert,
-      oneOverdY,
+      oneOverdY
     );
 
     this.oneOverZXStep = Gradients.calcXStep(
@@ -2708,7 +2712,7 @@ class Gradients {
       minYVert,
       midYVert,
       maxYVert,
-      oneOverdX,
+      oneOverdX
     );
 
     this.oneOverZYStep = Gradients.calcYStep(
@@ -2716,7 +2720,7 @@ class Gradients {
       minYVert,
       midYVert,
       maxYVert,
-      oneOverdY,
+      oneOverdY
     );
 
     this.depthXStep = Gradients.calcXStep(
@@ -2724,7 +2728,7 @@ class Gradients {
       minYVert,
       midYVert,
       maxYVert,
-      oneOverdX,
+      oneOverdX
     );
 
     this.depthYStep = Gradients.calcYStep(
@@ -2732,7 +2736,7 @@ class Gradients {
       minYVert,
       midYVert,
       maxYVert,
-      oneOverdY,
+      oneOverdY
     );
 
     // Color
@@ -2919,7 +2923,7 @@ function scanTriangle(
   maxYVert,
   handedness,
   texture,
-  alpha,
+  alpha
 ) {
   const gradients = new Gradients(minYVert, midYVert, maxYVert);
   const topToBottom = new Edge(gradients, minYVert, maxYVert, 0);
@@ -2959,7 +2963,7 @@ function drawScanLine(
   j,
   texture,
   alpha,
-  render = true,
+  render = true
 ) {
   const xMin = ceil(left.x);
   const xMax = ceil(right.x);
@@ -2984,7 +2988,7 @@ function drawScanLine(
   const gradientColor = vec4.add(
     vec4.create(),
     left.color,
-    vec4.scale(vec4.create(), gradients.colorXStep, xPrestep),
+    vec4.scale(vec4.create(), gradients.colorXStep, xPrestep)
   );
 
   //console.log(xMin, xMax, j)
@@ -3048,7 +3052,7 @@ function clipPolygonComponent(
   vertices,
   componentIndex,
   componentFactor,
-  result,
+  result
 ) {
   let prevVertex = vertices[vertices.length - 1];
   let prevComponent = prevVertex.pos[componentIndex] * componentFactor;
