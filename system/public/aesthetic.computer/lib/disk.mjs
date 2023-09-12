@@ -856,10 +856,10 @@ const $commonApi = {
 
         if (fullbleed) {
           // If we are not panned and the painting fills the screen.
-          paste(system.painting);
-          paste(system.nopaint.buffer);
+          paste(system.painting).paste(system.nopaint.buffer);
         } else {
           // If we are panned or the painting is a custom resolution.
+
           wipe(32)
             .paste(system.painting, x, y, system.nopaint.zoomLevel)
             .paste(system.nopaint.buffer, x, y, system.nopaint.zoomLevel)
