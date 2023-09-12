@@ -428,33 +428,56 @@ function blend(dst, src, si, di, alphaIn = 1) {
   //if (stipple < 4) { return; }
   //stipple = 0;
 
+  if (blendingMode === "erase") {
+    const normalAlpha = 1 - src[si + 3] / 255;
+    dst[di + 3] *= normalAlpha;
+    if (dst[di + 3] === 0) {
+      // If the alpha is zero then wipe the data.
+      dst[di] = 32;
+      dst[di + 1] = 32;
+      dst[di + 2] = 32;
+    }
+    return;
+  }
+
   if (src[si + 3] === 0) return; // Return early if src is invalid.
 
-  // Just do a straight up copy if we are in "blit" mode.
-  // if (blendingMode === "blit") {
-  //   // TODO: Fill this code in.
-  //   return;
-  // }
   // Just do a straight up copy if we are in "blit" mode.
   if (blendingMode === "blit") {
     for (let i = 0; i < 4; i++) {
       if (i != 3) {
-        // For R, G, B channels
-        dst[di + i] = src[si + i];
+        dst[di + i] = src[si + i]; // For R, G, B channels
       } else {
-        // For the Alpha channel
-        dst[di + i] = src[si + i] * alphaIn;
+        dst[di + i] = src[si + i] * alphaIn; // For the Alpha channel
       }
     }
     return;
   }
 
-  const alpha = src[si + 3] * alphaIn + 1;
-  const invAlpha = 256 - alpha;
-  dst[di] = (alpha * src[si + 0] + invAlpha * dst[di + 0]) >> 8;
-  dst[di + 1] = (alpha * src[si + 1] + invAlpha * dst[di + 1]) >> 8;
-  dst[di + 2] = (alpha * src[si + 2] + invAlpha * dst[di + 2]) >> 8;
-  dst[di + 3] = dst[di + 3] + alpha;
+  // A. Blend over transparent pixels.
+  if (dst[di + 3] < 255 && src[si + 3] > 0) {
+    const alphaSrc = (src[si + 3] * alphaIn) / 255;
+    const alphaDst = dst[di + 3] / 255;
+    const combinedAlpha = alphaSrc + (1.0 - alphaSrc) * alphaDst;
+    if (combinedAlpha > 0) {
+      for (let offset = 0; offset < 3; offset++) {
+        // Iterate over R, G, B channels
+        dst[di + offset] =
+          (src[si + offset] * alphaSrc +
+            dst[di + offset] * (1.0 - alphaSrc) * alphaDst) /
+          combinedAlpha;
+      }
+      dst[di + 3] = combinedAlpha * 255;
+    }
+  } else {
+    // B. Blend over opaque pixels.
+    const alpha = src[si + 3] * alphaIn + 1;
+    const invAlpha = 256 - alpha;
+    dst[di] = (alpha * src[si + 0] + invAlpha * dst[di + 0]) >> 8;
+    dst[di + 1] = (alpha * src[si + 1] + invAlpha * dst[di + 1]) >> 8;
+    dst[di + 2] = (alpha * src[si + 2] + invAlpha * dst[di + 2]) >> 8;
+    dst[di + 3] = dst[di + 3] + alpha;
+  }
 }
 
 // Blends the alpha channel only / erases pixels.
@@ -488,7 +511,7 @@ function lineh(x0, x1, y) {
   }
 
   // Erasing.
-  if (c[0] === -1 && c[1] === -1 && c[2] === -1) {
+  if (blendMode !== "erase" && c[0] === -1 && c[1] === -1 && c[2] === -1) {
     const normalAlpha = 1 - c[3] / 255;
     for (let i = startIndex; i <= endIndex; i += 4) {
       erase(pixels, i, normalAlpha);
