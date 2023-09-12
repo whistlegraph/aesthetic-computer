@@ -24,13 +24,22 @@ let rect,
   mode = "fill",
   thickness,
   rainbow = false,
-  centered = false;
+  centered = false,
+  erase = false;
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({ params, num, colon }) {
   color = num.parseColor(params);
-  if (color[0] === "rainbow") rainbow = true;
-  if (rainbow) color = [...num.rainbow(), color[1]];
+  // 🌈 Rainbow
+  if (color[0] === "rainbow") {
+    rainbow = true;
+    color = [...num.rainbow(), color[1]];
+  }
+  // 🧱 Erase
+  if (color[0] === -1) {
+    erase = true; // Detect erase color.
+    color = [32, color[3]]; // Don't use the -1 erase color here.
+  }
 
   // Handle parameters for outline, inline, and fill.
   if (colon[0]?.startsWith("outline") || colon[0]?.startsWith("o")) {
@@ -76,16 +85,16 @@ function paint({
       ? nopaint.brush.dragBox
       : nopaint.brush.dragBox.scale(2);
 
-    // nopaint.clear();
-    page(nopaint.buffer).wipe(255, 255, 0, 0);
-    blend("blit");
+    page(nopaint.buffer).wipe(32, 0);
+    blend(erase ? "blend" : "blit");
     ink(color).box(r, mode); // UI: Paint a preview to the screen.
-    blend(); // "blend"
-    page(screen);
+    blend().page(screen);
 
     rect = () => {
+      blend(erase ? "erase" : "blend");
       paste(nopaint.buffer);
-      page(nopaint.buffer).wipe(255, 255, 0, 0);
+      blend();
+      page(nopaint.buffer).wipe(32, 0);
       rect = null;
       if (rainbow) color = [...num.rainbow(), color[3]];
     }; // Painting: Write to the canvas permanently.

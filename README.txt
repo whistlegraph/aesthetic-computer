@@ -72,6 +72,14 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Onboarding ***
+  - [] Make auth0 emails match the formatting & tone of the print order emails.
+    - [] Welcome and please verify email.
+      - [] Where is the user directed to after clicking the verify link?
+           (What are the possibilities here?)
+    - [] Thank you for confirming your email.
+  - [] Help the user through the process of making their profile... 
+
 *** BakTok ***
   - [] Make the audio scrubbable.
 
@@ -85,7 +93,11 @@
     - [] Add an `info` command to view painting info.
     - [] Add color picker. 🔵
     - [] Also add rotation.
+  - [] Entering any valid cssColor, hexColor, or RGB values on
+       the prompt should be an alias for `wipe color` and
+       `wipe color` needs to be coded properly?
   + Done
+  - [x] `rect erase` no longer works
   - [x] Contextually show whether we are zoomed or not, perhaps with a border?
   - [x] Make sure `nopan` centers a zoomed canvas. 
   - [x] Implement for `rect`
