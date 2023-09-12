@@ -23,11 +23,14 @@ let rect,
   color,
   mode = "fill",
   thickness,
+  rainbow = false,
   centered = false;
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({ params, num, colon }) {
   color = num.parseColor(params);
+  if (color[0] === "rainbow") rainbow = true;
+  if (rainbow) color = [...num.rainbow(), color[1]];
 
   // Handle parameters for outline, inline, and fill.
   if (colon[0]?.startsWith("outline") || colon[0]?.startsWith("o")) {
@@ -54,21 +57,37 @@ function boot({ params, num, colon }) {
 }
 
 // 🎨 Paint (Executes every display frame)
-function paint({ pen, screen, ink, page, system: { nopaint }, geo }) {
+function paint({
+  pen,
+  paste,
+  num,
+  screen,
+  ink,
+  page,
+  system: { nopaint },
+  geo,
+  blend,
+}) {
   if (nopaint.is("painting") && pen?.dragBox) {
-    const db = !centered ? pen.dragBox : pen.dragBox.scale(2);
-    //ink(color).box(db, mode); // UI: Paint a preview to the screen.
+    // const db = !centered ? pen.dragBox : pen.dragBox.scale(2);
+    // ink(color).box(db, mode); // UI: Paint a preview to the screen.
+
     const r = !centered
       ? nopaint.brush.dragBox
       : nopaint.brush.dragBox.scale(2);
 
-    // page(nopaint.buffer);
-    ink(color).box(db, mode); // UI: Paint a preview to the screen.
-    // page(screen);
+    // nopaint.clear();
+    page(nopaint.buffer).wipe(255, 255, 0, 0);
+    blend("blit");
+    ink(color).box(r, mode); // UI: Paint a preview to the screen.
+    blend(); // "blend"
+    page(screen);
 
     rect = () => {
-      ink(color).box(r, mode);
+      paste(nopaint.buffer);
+      page(nopaint.buffer).wipe(255, 255, 0, 0);
       rect = null;
+      if (rainbow) color = [...num.rainbow(), color[3]];
     }; // Painting: Write to the canvas permanently.
   }
 }
