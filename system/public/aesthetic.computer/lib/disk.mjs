@@ -16,7 +16,7 @@ import { parse, metadata } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
 // import { UDP } from "./udp.mjs"; // TODO: Eventually expand to `net.Socket`
 import { notArray, defaultTemplateStringProcessor } from "./helpers.mjs";
-const { round, sin, random, max, floor } = Math;
+const { round, sin, random, max, floor, abs, ceil } = Math;
 import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
 import { headers } from "./console-headers.mjs";
@@ -40,6 +40,7 @@ import { setDebug } from "../disks/common/debug.mjs";
 const defaults = {
   boot: ({ resize, cursor, screen: { width, height }, resolution, slug }) => {
     // resize(width / 2, height / 2);
+    console.log("🐌 Boot slug:", slug);
     if (slug?.indexOf("botce") > -1) resolution(width, height, 0);
     cursor("native");
   }, // aka Setup
@@ -115,7 +116,10 @@ const nopaint = {
       store.persist("painting", "local:db");
 
       // And its transform.
-      store["painting:transform"] = { translation: system.nopaint.translation };
+      store["painting:transform"] = {
+        translation: system.nopaint.translation,
+        zoom: system.nopaint.zoomLevel,
+      };
       store.persist("painting:transform", "local:db");
     } else {
       // Restore a painting if `no`ing.
@@ -650,6 +654,8 @@ const $commonApi = {
     nopaint: {
       //boot: nopaint_boot, // TODO: Why are these in the commonApi? 23.02.12.14.26
       // act: nopaint_act,
+      buffer: null, // An overlapping brush buffer that gets drawn on top of the
+      //              painting.
       recording: false,
       record: [], // Store a recording here.
       gestureRecord: [], // Store the active gesture.
@@ -741,6 +747,8 @@ const $commonApi = {
       },
       // Center the picture within the screen / default translation.
       resetTransform: ({ system: sys }) => {
+        sys.nopaint.zoomLevel = 1;
+
         if (!sys.painting) {
           sys.nopaint.translation = { x: 0, y: 0 };
           return;
@@ -754,7 +762,10 @@ const $commonApi = {
         );
       },
       storeTransform: (store, sys) => {
-        store["painting:transform"] = { translation: sys.nopaint.translation };
+        store["painting:transform"] = {
+          translation: sys.nopaint.translation,
+          zoom: sys.nopaint.zoomLevel,
+        };
         store.persist("painting:transform", "local:db");
       },
       translation: { x: 0, y: 0 },
@@ -791,37 +802,45 @@ const $commonApi = {
           cursor.y + (system.nopaint.translation.y - cursor.y) * scale
         );
       },
-      brush: { x: 0, y: 0 },
+      brush: { x: 0, y: 0, dragBox: undefined },
       transform: (p) => {
         return {
-          x: p.x - nopaintAPI.translation.x,
-          y: p.y - nopaintAPI.translation.y,
+          x: (p.x - nopaintAPI.translation.x) / nopaintAPI.zoomLevel,
+          y: (p.y - nopaintAPI.translation.y) / nopaintAPI.zoomLevel,
         };
       },
-      updateBrush: ({ pen, system }) => {
-        let { x, y } = system.nopaint.translation;
-        x *= system.nopaint.zoomLevel;
-        y *= system.nopaint.zoomLevel;
-
-        const pos = { x: (pen?.x || 0) - x, y: (pen?.y || 0) - y };
-
-        // Transform the original dragBox
-        const dragBox = new geo.Box(
-          pen?.dragBox?.x - x,
-          pen?.dragBox?.y - y,
-          pen?.dragBox?.w,
-          pen?.dragBox?.h
+      updateBrush: ({ pen, system, num }, act) => {
+        let zoom = system.nopaint.zoomLevel;
+        const x = Math.floor(
+          ((pen?.x || 0) - system.nopaint.translation.x) / zoom
+        );
+        const y = Math.floor(
+          ((pen?.y || 0) - system.nopaint.translation.y) / zoom
         );
 
-        system.nopaint.brush = { x: pos.x, y: pos.y, dragBox };
+        if (act === "touch") system.nopaint.startDrag = { x, y };
+
+        const dragBox = new geo.Box(
+          system.nopaint.startDrag.x,
+          system.nopaint.startDrag.y,
+          x -
+            system.nopaint.startDrag.x +
+            (x >= system.nopaint.startDrag.x ? 1 : -1),
+          y -
+            system.nopaint.startDrag.y +
+            (y >= system.nopaint.startDrag.y ? 1 : -1)
+        );
+
+        system.nopaint.brush = { x: x, y: y, dragBox };
       },
+
       // Helper to display the existing painting on the screen, with an
       // optional pan amount, that returns an adjusted pen pointer as `brush`.
 
       // TODO: - [] Add Zoom
       //       - [] And Rotation!
 
-      present: ({ system, screen, wipe, paste }, tx, ty) => {
+      present: ({ system, screen, wipe, paste, ink, slug }, tx, ty) => {
         system.nopaint.needsPresent = false;
 
         const x = tx || system.nopaint.translation.x;
@@ -838,10 +857,12 @@ const $commonApi = {
         if (fullbleed) {
           // If we are not panned and the painting fills the screen.
           paste(system.painting);
+          paste(system.nopaint.buffer);
         } else {
           // If we are panned or the painting is a custom resolution.
           wipe(32)
             .paste(system.painting, x, y, system.nopaint.zoomLevel)
+            .paste(system.nopaint.buffer, x, y, system.nopaint.zoomLevel)
             .ink(128)
             .box(
               x,
@@ -851,6 +872,10 @@ const $commonApi = {
               "outline"
             );
         }
+
+        // Graph `zoomLevel`
+        if (system.nopaint.zoomLevel !== 1 && slug !== "prompt")
+          ink(255, 127).write(`${system.nopaint.zoomLevel}x`, { x: 6, y: 18 });
 
         return {
           x,
@@ -963,6 +988,8 @@ const $commonApi = {
     timestamp: num.timestamp,
     p2: num.p2,
     midp: num.midp,
+    signedCeil: num.signedCeil,
+    signedFloor: num.signedFloor,
     vec2: num.vec2,
     vec3: num.vec3,
     vec4: num.vec4,
@@ -978,6 +1005,7 @@ const $commonApi = {
     hexToRgb: num.hexToRgb,
     blend: num.blend,
     rgbToHsl: num.rgbToHsl,
+    rainbow: num.rainbow,
   },
   geo: {
     Box: geo.Box,
@@ -1194,6 +1222,12 @@ const LINE = {
 // TODO: Add `erase` anc all css color alpha support. 23.07.20.14.45
 // TODO: Add transparency and short hex to hex support.
 // TODO: Add better hex support via: https://stackoverflow.com/a/53936623/8146077
+
+function computeAlpha(alpha) {
+  if (alpha >= 0 && alpha <= 1) alpha = round(alpha * 255);
+  return alpha;
+}
+
 function color() {
   let args = [...arguments];
 
@@ -1227,17 +1261,27 @@ function color() {
       if (num.isHexString(cleanedHex) === true) {
         args = num.hexToRgb(cleanedHex);
       } else if (args[0] === "erase") {
-        args = [-1, -1, -1];
+        // TODO: Add better alpha support here... 23.09.11.22.10
+        //       ^ See `parseColor` in `num`.
+        // let alpha = 255;
         // if (args[1]) alpha = parseFloat(args[1]);
+        args = [-1, -1, -1];
+        if (args[1]) args.push(computeAlpha(args[1]));
+      } else if (args[0] === "rainbow") {
+        args = num.rainbow(); // Cycle through roygbiv in a linear sequence.
       } else {
         args = num.cssColors[args[0]]; // Try to match it to a table.
       }
-
       // TODO: Add an error message here. 22.08.29.13.03
     }
   } else if (args.length === 2) {
-    // rgb, a
-    args = [arguments[0], arguments[0], arguments[0], arguments[1]];
+    // rainbow, alpha
+    if (args[0] === "rainbow") {
+      args = [...num.rainbow(), computeAlpha(args[1])];
+    } else {
+      // rgb, a
+      args = [args[0], args[0], args[0], args[1]];
+    }
   } else if (
     args.length === 0 ||
     (args.length === 1 && args[0] === undefined)
@@ -1477,6 +1521,7 @@ const $paintApiUnwrapped = {
   // l: graph.line,
   // i: ink,
   // Defaults
+  blend: graph.blendMode,
   page: graph.setBuffer,
   edit: graph.changePixels, // Edit pixels by pasing a callback.
   ink: function () {
@@ -3832,6 +3877,8 @@ async function makeFrame({ data: { type, content } }) {
 
         sys.nopaint.translation =
           store["painting:transform"]?.translation || sys.nopaint.translation;
+        sys.nopaint.zoomLevel =
+          store["painting:transform"]?.zoom || sys.nopaint.zoomLevel;
 
         try {
           if (system === "nopaint") nopaint_boot($api);

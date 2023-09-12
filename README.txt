@@ -76,14 +76,20 @@
   - [] Make the audio scrubbable.
 
 *** Painting ***
-  - [] Add Zoom. 🔵
+  - [-] Add Zoom for all brushes. 🔵
+    - [🟠] `line` 
+      (Read implementation in `rect`)
+    - [] `oval`
+    - [] `word`
   - [🟠] Always have a secondary buffer.
-    - [] Implement for `rect`...
-    - [] Make sure `nopan` centers a zoomed canvas. 
     - [] Add an `info` command to view painting info.
-    - [] Contextually show whether we are zoomed or not, perhaps with a border?
     - [] Add color picker. 🔵
     - [] Also add rotation.
+  + Done
+  - [x] Contextually show whether we are zoomed or not, perhaps with a border?
+  - [x] Make sure `nopan` centers a zoomed canvas. 
+  - [x] Implement for `rect`
+  - [x] Add basic rainbow for `rect` and `line`.
   
 *** Painting Listing Pages ***
   - [] Scrape all user media and add records to the database.

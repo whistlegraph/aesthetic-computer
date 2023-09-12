@@ -8,8 +8,21 @@ import * as vec4 from "../dep/gl-matrix/vec4.mjs";
 import { anyKey } from "./help.mjs";
 
 export { vec2, vec3, vec4, mat3, mat4, quat };
-const { abs, round, floor, random, PI, min, max, sqrt, pow, atan2, sin, cos } =
-  Math;
+const {
+  abs,
+  round,
+  floor,
+  ceil,
+  random,
+  PI,
+  min,
+  max,
+  sqrt,
+  pow,
+  atan2,
+  sin,
+  cos,
+} = Math;
 
 // Utilities for modifying {x, y} points.
 export const p2 = {
@@ -108,8 +121,31 @@ export function midp(a, b) {
   return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
 }
 
+// Determine if the value is a number or not.
 export function number(maybeNumber) {
   return typeof maybeNumber === "number" ? maybeNumber : null;
+}
+
+// Ceil an integer (ignoring its sign)
+// export function signedCeil(n) {
+//   return n < 0 ? floor(n) : ceil(n);
+// }
+
+// // Floor an integer (ignoring its sign)
+// export function signedFloor(val) {
+//   let adjustment = 0;
+//   if (val < 0) adjustment = -1;
+//   return Math.floor(val) + adjustment;
+// };
+
+// Ceil a number away from 0
+export function signedCeil(n) {
+  return n < 0 ? Math.floor(n) : Math.ceil(n);
+}
+
+// Floor a number towards 0
+export function signedFloor(val) {
+  return val < 0 ? Math.ceil(val) : Math.floor(val);
 }
 
 // Wraps a number around 0 through a max.
@@ -160,6 +196,7 @@ export function randIntRange(low, high) {
 // random integer ranges.
 // 📓 Used for parsing ranged params (usually colors) inside of pieces.
 export function rangedInts(ints) {
+  if (ints[0] === undefined) return;
   return ints.map((str) => {
     if (str.match(/^\d+-\d+$/)) {
       const range = str.split("-");
@@ -286,7 +323,7 @@ export class Track {
     if (this.#quantize) {
       const index = min(
         floor(progress * this.#values.length),
-        this.#values.length - 1,
+        this.#values.length - 1
       );
       this.#result(this.#values[index]);
     } else {
@@ -324,6 +361,8 @@ export function parseColor(params) {
     return rangedInts(params);
   } else {
     let name = params[0].toLowerCase(); // Assume a css color string.
+
+
     let alpha = calculateAlpha(params[1]); // Calculate alpha param.
 
     if (name === "?") name = anyKey(cssColors); // Pick a name if `?` is passed.
@@ -331,7 +370,9 @@ export function parseColor(params) {
     if (name in cssColors) {
       return [...cssColors[name], alpha];
     } else if (name === "erase") {
-      return [-1, -1, -1, alpha]; // Use a "clear" color here.
+      return [-1, -1, -1, alpha];
+    } else if (name === "rainbow") {
+      return ["rainbow", alpha]; // Cycle through the "rainbow" colors here.
     } else {
       return [0, 0, 0, alpha]; // Default to black if color name is not found
     }
@@ -340,7 +381,7 @@ export function parseColor(params) {
 
 // Just used in parseColor above.
 // TODO: Float has no range support.
-function calculateAlpha(alphaParam = "255") {
+function calculateAlpha(alphaParam) {
   if (alphaParam === "?") return randIntRange(5, 255); // Always show a bit.
   let alpha = parseFloat(alphaParam);
   if (alpha >= 0 && alpha <= 1) {
@@ -535,6 +576,25 @@ export const cssColors = {
   yellow: [255, 255, 0],
   yellowgreen: [154, 205, 50],
 };
+
+// 🌈 Rainbow color cycling.
+let currentRainbowIndex = 0;
+
+const rainbowColors = [
+  cssColors.red,
+  cssColors.orange,
+  cssColors.yellow,
+  cssColors.green,
+  cssColors.blue,
+  cssColors.indigo,
+  cssColors.violet,
+];
+
+export function rainbow() {
+  const color = rainbowColors[currentRainbowIndex];
+  currentRainbowIndex = (currentRainbowIndex + 1) % rainbowColors.length;
+  return color;
+}
 
 // Find a color inside of `cssColors` by value.
 export function findColor(rgb) {

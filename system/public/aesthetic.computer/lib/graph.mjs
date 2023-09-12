@@ -13,6 +13,8 @@ import {
   lerp,
   randIntRange,
   clamp,
+  signedCeil,
+  rainbow,
 } from "./num.mjs";
 
 import { repeat, nonvalue, flip } from "./help.mjs";
@@ -413,23 +415,39 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
   }
 }
 
-// let stipple = 0;
+let blendingMode = "blend";
+function blendMode(mode = "blend") {
+  blendingMode = mode;
+}
 
+// let stipple = 0;
 // A fast alpha blending function that looks into a pixel array.
 // Transcribed from C++: https://stackoverflow.com/a/12016968
 function blend(dst, src, si, di, alphaIn = 1) {
   //stipple += 1;
   //if (stipple < 4) { return; }
   //stipple = 0;
+
   if (src[si + 3] === 0) return; // Return early if src is invalid.
 
-  // if (src[si] === -1) {
-  //   // Assume we are erasing if first channel is negative.
-  //   // (All three should be negative for an `erase`.)
-  //   erase(di, 1 - src[si + 3] / 255);
-  //   console.log("erasing");
+  // Just do a straight up copy if we are in "blit" mode.
+  // if (blendingMode === "blit") {
+  //   // TODO: Fill this code in.
   //   return;
   // }
+  // Just do a straight up copy if we are in "blit" mode.
+  if (blendingMode === "blit") {
+    for (let i = 0; i < 4; i++) {
+      if (i != 3) {
+        // For R, G, B channels
+        dst[di + i] = src[si + i];
+      } else {
+        // For the Alpha channel
+        dst[di + i] = src[si + i] * alphaIn;
+      }
+    }
+    return;
+  }
 
   const alpha = src[si + 3] * alphaIn + 1;
   const invAlpha = 256 - alpha;
@@ -579,10 +597,14 @@ function pixelPerfectPolyline(points, shader) {
       return;
     }
 
+    //if (cur.color === "rainbow") color(rainbow());
+
+    const rb = last.color === "rainbow";
+
     // Compute bresen pixels, filtering out duplicates.
     bresenham(last.x, last.y, cur.x, cur.y).forEach((p, i) => {
       if (i > 0 || pixels.length < 2) {
-        pixels.push({ ...p, color: last.color }); // Add color for each pixel.
+        pixels.push({ ...p, color: rb ? rainbow() : last.color }); // Add color for each pixel.
       }
     });
     last = cur;
@@ -885,7 +907,8 @@ function pline(coords, thickness, shader) {
     points.push({ x: c1[0], y: c1[1] }, { x: c2[0], y: c2[1] }); // Add points.
 
     // Paint each triangle.
-    if (cur.color) color(...cur.color);
+    if (cur.color === "rainbow") color(...rainbow());
+    else if (cur.color) color(...cur.color);
 
     if (shader) {
       const progress = 1 - i / (coords.length - 2);
@@ -1098,6 +1121,11 @@ function box() {
   }
 
   if (mode === undefined || mode === "") mode = "fill";
+
+  x = floor(x);
+  y = floor(y);
+  w = signedCeil(w);
+  h = signedCeil(h);
 
   ({ x, y, w, h } = Box.from([x, y, w, h]).abs);
 
@@ -1429,9 +1457,9 @@ function grid(
           color(...colorData);
           // Skip panTranslation and just...
           for (let y = finalY; y < finalY + bufferHeight; y += 1) {
-            lineh(finalX, finalX + bufferWidth, y);
+            lineh(finalX, finalX + bufferWidth - 1, y);
           }
-          // box(finalX, finalY, bufferWidth, bufferHeight);
+          //box(finalX, finalY, bufferWidth, bufferHeight);
         }
       }
     }
@@ -1687,6 +1715,7 @@ export {
   noise16Sotce,
   noiseTinted,
   printLine,
+  blendMode,
 };
 
 // 3. 3D Drawing (Kinda mixed with some 2D)
