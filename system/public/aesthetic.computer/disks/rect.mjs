@@ -14,8 +14,9 @@
 #endregion */
 
 /* #region ✅ TODO 
-  - [] Support rotated and zoomed paintings!
+  - [] Support rotated paintings.
   + Done
+  - [x] Support zoomed paintings.
   - [x] Support ranged parameters
 #endregion */
 
@@ -30,6 +31,7 @@ let rect,
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({ params, num, colon }) {
   color = num.parseColor(params);
+
   // 🌈 Rainbow
   if (color[0] === "rainbow") {
     rainbow = true;
@@ -74,27 +76,24 @@ function paint({
   ink,
   page,
   system: { nopaint },
-  geo,
   blend,
 }) {
   if (nopaint.is("painting") && pen?.dragBox) {
-    // const db = !centered ? pen.dragBox : pen.dragBox.scale(2);
-    // ink(color).box(db, mode); // UI: Paint a preview to the screen.
-
     const r = !centered
       ? nopaint.brush.dragBox
       : nopaint.brush.dragBox.scale(2);
 
-    page(nopaint.buffer).wipe(32, 0);
-    blend(erase ? "blend" : "blit");
+    page(nopaint.buffer).wipe(255, 0);
+    // if (!erase) blend("blit");
     ink(color).box(r, mode); // UI: Paint a preview to the screen.
-    blend().page(screen);
+    // if (!erase) blend();
+    page(screen);
 
     rect = () => {
-      blend(erase ? "erase" : "blend");
+      if (erase) blend("erase");
       paste(nopaint.buffer);
-      blend();
-      page(nopaint.buffer).wipe(32, 0);
+      if (erase) blend();
+      page(nopaint.buffer).wipe(255, 0);
       rect = null;
       if (rainbow) color = [...num.rainbow(), color[3]];
     }; // Painting: Write to the canvas permanently.
