@@ -141,6 +141,7 @@ async function boot({
   if (params[0]) {
     const text = params[0].replaceAll("~", " ");
     system.prompt.input.text = text;
+    system.prompt.input.runnable = true;
     system.prompt.input.addUserText(text);
     system.prompt.input.snap();
   } else {
@@ -1060,7 +1061,8 @@ function activated($, state) {
     flashColor = scheme.dark.block; // Trigger startup animation...
     makeFlash($, !$.params[0]); // Always sets firstActivation flag to false.
   }
-  if (state === false && firstCommandSent) return;
+  // console.log(state, firstCommandSent)
+  // if (state === false && firstCommandSent) return;
   if (login) login.btn.disabled = state;
   if (signup) signup.btn.disabled = state;
   if (profile) profile.btn.disabled = state;

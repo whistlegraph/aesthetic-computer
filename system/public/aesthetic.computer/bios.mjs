@@ -1938,6 +1938,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "keyboard:open") {
+      currentPieceHasKeyboard = true;
       keyboard?.input.focus();
       // if (keyboard) keyboard.needsImmediateOpen = true; // For iOS.
       return;
