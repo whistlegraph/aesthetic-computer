@@ -33,7 +33,7 @@ const before = `
 You are playing a character who tries to help me find the command I'm searching for
 
 - The following is a data set of all possible options for commands:
-  - 'alphapoet', 'bgm', 'bits', 'blank', 'bleep', 'botce', 'bubble', 'camera', 
+  - 'alphapoet', 'bgm', 'bits', 'blank', 'bleep', 'bubble', 'camera', 
   'code-channel', 'decode', 'baktok', 'painting'
   'download', 'encode', 'ff', 'freaky-flowers', 'gargoyle', 'handle',
   'happy-hands-assembler', 'hha', 'liar', 'line', 'login', 

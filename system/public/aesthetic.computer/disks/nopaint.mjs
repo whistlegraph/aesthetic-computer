@@ -49,6 +49,8 @@ function paint($) {
         translation: { ...$.system.nopaint.translation },
       },
     };
+    // TODO: Add the `mode` in here
+    //       for the gesture.
     $.system.nopaint.updateBrush(api); // Set the current transform of brush.
 
     const passApi = { ...$ };

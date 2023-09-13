@@ -11,6 +11,15 @@ function nopaint_boot({ api, screen, system, painting, store }) {
   cursor.x = screen.width / 2;
   cursor.y = screen.height / 2;
   nopaint_adjust(screen, system, painting, store);
+
+  system.nopaint.buffer = painting(
+    system.painting.width,
+    system.painting.height,
+    (p) => {
+      p.wipe(255, 255, 255, 0);
+    }
+  );
+
   system.nopaint.present(api);
 }
 
@@ -52,7 +61,7 @@ function nopaint_act({
 
   if (e.is("touch:1")) {
     state = "painting";
-    system.nopaint.updateBrush(api);
+    system.nopaint.updateBrush(api, "touch");
     // if (debug) console.log("🖌️ Painting!");
 
     // TODO:
@@ -65,7 +74,7 @@ function nopaint_act({
   // if (nopaint_is("painting") && (e.is("move") || e.is("draw"))) {
   if (nopaint_is("painting") && (e.is("move") || e.is("draw"))) {
     // if (debug) console.log("Updating brush...");
-    system.nopaint.updateBrush(api);
+    system.nopaint.updateBrush(api, "draw");
     // TODO: system.nopaint.gestureRecord.push("gesture:mark");
   }
 
@@ -89,13 +98,13 @@ function nopaint_act({
   }
 
   if (e.is("keyboard:down:arrowup")) {
-    console.log("Zoom in...");
+    // console.log("Zoom in...");
     system.nopaint.zoom(api, "in", cursor);
     system.nopaint.present(api);
   }
 
   if (e.is("keyboard:down:arrowdown")) {
-    console.log("Zoom out...");
+    // console.log("Zoom out...");
     system.nopaint.zoom(api, "out", cursor);
     system.nopaint.present(api);
   }
@@ -114,6 +123,12 @@ function nopaint_act({
   // Track
   if (nopaint_is("panning") && (e.is("move") || e.is("draw"))) {
     system.nopaint.translate(api, e.delta.x, e.delta.y);
+
+    const p = pens();
+    if (p.length === 2) {
+      console.log(p); // TODO: Set the zoom level here.
+    }
+
     system.nopaint.present(api);
   }
 
@@ -163,7 +178,7 @@ function nopaint_adjust(
   painting,
   store,
   size = null,
-  slug = "resize",
+  slug = "resize"
 ) {
   if (!size && store["painting:resolution-lock"] === true) return;
 
@@ -204,7 +219,6 @@ function nopaint_adjust(
 
     store["painting"] = sys.painting;
     sys.nopaint.addUndoPainting(sys.painting, slug);
-    return true;
   }
 
   // Set a flag to prevent auto-resize.
@@ -215,6 +229,7 @@ function nopaint_adjust(
     sys.nopaint.resetTransform({ system: sys, screen }); // Reset transform.
     sys.nopaint.storeTransform(store, sys);
   }
+  return true;
 }
 
 export { nopaint_boot, nopaint_act, nopaint_is, nopaint_adjust };

@@ -96,12 +96,12 @@ export class Box {
     let { x, y, w, h } = this;
 
     if (w < 0) {
-      x += w;
+      x += w + 1;
       w = Math.abs(w);
     }
 
     if (h < 0) {
-      y += h;
+      y += h + 1;
       h = Math.abs(h);
     }
 
