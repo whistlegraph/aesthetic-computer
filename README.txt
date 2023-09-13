@@ -73,9 +73,9 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Onboarding ***
-  - [] Add verification to handle confirmation in API.
   - [] Add change email command / link.
   + Done
+  - [x] Add verification to handle confirmation in API.
   - [x] Thank you for confirming your email.
   - [x] Make auth0 emails match the formatting & tone of the print order emails.
     - [x] Welcome and please verify email.
@@ -84,6 +84,10 @@
 
 *** BakTok ***
   - [] Make the audio scrubbable.
+
+*** Logo ***
+  - [] Add ice cream pals to `pals.aesthetic.computer.`
+  - [] See if this starts working: https://logo.aesthetic.computer/painting-2023.8.01.14.04.png
 
 *** Painting ***
   - [-] Add Zoom for all brushes. 🔵

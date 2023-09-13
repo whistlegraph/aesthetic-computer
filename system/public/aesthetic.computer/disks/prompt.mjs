@@ -203,15 +203,16 @@ async function halt($, text) {
       if (body) options.body = JSON.stringify(body);
       const response = await fetch(endpoint, options);
 
-      if (response.status !== 200) {
-        const text = await response.text();
-        throw new Error(`🚫 Bad response: ${text}`);
+      if (response.status === 500) {
+        // const text = await response.text();
+        // throw new Error(`🚫 Bad response: ${text}`);
+        return { message: "error" };
       } else {
         return await response.json(); // Success!
       }
     } catch (error) {
-      if (error) console.error("🚫 Error:", error);
-      return null;
+      console.error("🚫 Error:", error);
+      return { message: "unauthorized" };
     }
   }
 
@@ -465,16 +466,20 @@ async function halt($, text) {
     // And a handle has been specified.
     if (handle?.length > 0 && validateHandle(handle)) {
       const res = await userJSONRequest("POST", "/handle", { handle });
-      flashColor = res ? [0, 255, 0] : [255, 0, 0];
-      if (res) {
+      const handleChanged = res?.handle;
+      flashColor = handleChanged ? [0, 255, 0] : [255, 0, 0];
+      if (handleChanged) {
         store["handle:updated"] = res.handle;
         console.log("🧖 Handle changed:", res.handle);
         makeFlash($, true);
         notice("@" + res.handle);
       } else {
+        const message = res?.message;
+        let note = "TAKEN";
+        if (message === "unauthorized") note = "UNAUTHORIZED";
+        if (message === "unverified") note = "UNVERIFIED";
         makeFlash($, true);
-        // TODO: Actually read this error back and choose the appropriate word.
-        notice("TAKEN?", ["yellow", "red"]);
+        notice(note, ["yellow", "red"]);
       }
       needsPaint();
     } else {
