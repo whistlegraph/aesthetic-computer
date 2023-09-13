@@ -73,15 +73,19 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Onboarding Bugs ***
-  - [] typing "me" in one tab after setting handle in another tab
-       does not get the handle update
-  - [] same email should say taken
+  - [x] uploading media with no handle should send it to the temp bucket?
   - [] profile page when not logged in should say sign up to create profile
-  - [] handle with no parameters should flash EMPTY
-  - [] unverified = email unverified and wrap the message
   - [] `enter` and `backspace` as primary keyboard shortcuts
   - [] `prompt` button appears in bottom left corner in all pieces
        but pieces can opt out and only when coming from the prompt
+  + Done
+  - [x] pressing back button requires extra prompt tap
+  - [x] back button does not bring up keyboard... (same as above?)
+  - [x] handle with no parameters should flash EMPTY
+  - [x] unverified = email unverified and wrap the message
+  - [x] same email should say taken
+  - [x] typing "me" in one tab after setting handle in another tab
+       does not get the handle update
 
 *** `booted-by` ***
   - [] 10 tappable bars with decoration.

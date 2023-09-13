@@ -26,7 +26,7 @@
 let dev = false;
 export default {
 	async fetch(request, env, ctx) {
-		if (env.MODE === 'development') dev = true;
+		// if (env.MODE === 'development') dev = true;
 		return await handleRequest(request);
 	},
 };
@@ -78,7 +78,7 @@ async function queryUserID(username) {
 	//    (403 errors) so I'm turning it off for now.
 	//    This is probably because local Cloudflare workers / wrangler does
 	//    not boot an `https` server. 23.05.03.11.25
-	const url = `${host}/user?from=${username}`;
+	const url = `${host}/user?from=${encodeURIComponent(username)}`;
 	try {
 		const res = await fetch(url);
 		if (res.ok) {
