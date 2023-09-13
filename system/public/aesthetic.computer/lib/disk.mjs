@@ -552,8 +552,8 @@ const $commonApi = {
               encodeURI(`https://art.aesthetic.computer/${code}.${extension}`)
             );
           } else {
-            // Get the user sub from the handle...
-            const url = `/user?from=${handle}`;
+            // Get the user sub from the handle or email...
+            const url = `/user?from=${encodeURIComponent(handle)}`;
             try {
               const res = await fetch(url);
               if (res.ok) {
@@ -1057,6 +1057,20 @@ const $commonApi = {
 
 const nopaintAPI = $commonApi.system.nopaint;
 
+// Broadcast to other tabs in the same origin.
+const channel = new BroadcastChannel("aesthetic.computer");
+
+channel.onmessage = (event) => {
+  if (debug) console.log(`🗼 Got broadcast: ${event.data}`);
+  if (event.data.startsWith("handle:updated")) {
+    // 👰‍♀️ Update the user handle if it changed.
+    HANDLE = "@" + event.data.split(":").pop();
+    store["handle:received"] = true;
+  }
+};
+
+$commonApi.broadcast = (msg) => channel.postMessage(msg);
+
 // Spawn a session backend for a piece.
 async function session(slug, forceProduction = false, service) {
   let endPoint = "/session/" + slug;
@@ -1316,13 +1330,14 @@ const $paintApi = {
     if (!text || !tf) return $activePaintApi; // Fail silently if no text.
     text = text.toString();
 
-    // TODO:
+    // 🎁
     // See if the text length is greater than the bounds, and if it is then
     // print on a new line.
+    const scale = pos.size || 1;
 
     if (bounds) {
       let run = 0;
-      const blockWidth = 6; // TODO: Eventually replace this. 23.08.22.19.36
+      const blockWidth = 6 * scale; // TODO: Replace this `6`. 23.09.13.15.31
       const words = text.split(" ");
       const lines = [[]];
       let line = 0;
@@ -1341,7 +1356,7 @@ const $paintApi = {
       });
 
       if (lines.length > 1 && pos.center.indexOf("y") !== -1) {
-        const blockHeight = 11;
+        const blockHeight = 11 * scale; // TODO: Replace `11`. 23.09.13.15.31
         pos.y =
           $activePaintApi.screen.height / 2 -
           (lines.length * blockHeight) / 2 +
@@ -3221,12 +3236,6 @@ async function makeFrame({ data: { type, content } }) {
   // 2. Frame
   // Where each piece action (boot, sim, paint, etc...) is run.
   if (type === "frame") {
-    // 👰‍♀️ Update the user handle if it changed between frames.
-    if (store["handle:updated"]) {
-      HANDLE = "@" + store["handle:updated"];
-      delete store["handle:updated"];
-    }
-
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
       if (data.name.indexOf("keyboard:down") === 0) {
@@ -4044,8 +4053,10 @@ async function makeFrame({ data: { type, content } }) {
         if (notice) {
           ink(noticeColor[0]).write(
             notice,
-            { center: "x", y: 32, size: 2 },
-            noticeColor[1]
+            { center: "xy", size: 2 },
+            // { center: "x", y: 32, size: 2 },
+            noticeColor[1],
+            $api.screen.width - 8
           );
         }
 

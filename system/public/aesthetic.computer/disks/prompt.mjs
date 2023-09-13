@@ -156,6 +156,7 @@ async function boot({
 async function halt($, text) {
   const {
     api,
+    broadcast,
     notice,
     handle,
     authorize,
@@ -318,8 +319,8 @@ async function halt($, text) {
         progressTrick = null;
 
         // Jump to the painting page that gets returned.
-        if (handle() && filename.startsWith("painting")) {
-          jump(`painting~${handle()}/${data.slug}`); // For a user.
+        if ((handle() || user?.name) && filename.startsWith("painting")) {
+          jump(`painting~${handle() || user?.name}/${data.slug}`); // For a user.
         } else {
           jump(
             `painting~${data.slug}${recordingSlug ? ":" + recordingSlug : ""}`
@@ -492,11 +493,11 @@ async function halt($, text) {
       console.log(res);
       if (res.email) {
         flashColor = [0, 255, 0];
-        notice(res.email);
+        notice("CHECK " + res.email);
       } else {
         flashColor = [255, 0, 0];
         console.warn(res.message);
-        notice("ERROR", ["yellow", "red"]);
+        notice("TAKEN?", ["yellow", "red"]);
       }
     } else {
       flashColor = [255, 0, 0];
@@ -510,6 +511,14 @@ async function halt($, text) {
 
     // Make sure there is a parameter.
     let handle = text.split(" ")[1];
+
+    if (!handle) {
+      flashColor = [0, 0, 128];
+      makeFlash($);
+      notice("EMPTY", ["cyan", "blue"]);
+      return true;
+    }
+
     if (handle[0] === "@") handle = handle.slice(1); // Strip off any leading "@" sign to help with validation.
 
     // And a handle has been specified.
@@ -518,7 +527,7 @@ async function halt($, text) {
       const handleChanged = res?.handle;
       flashColor = handleChanged ? [0, 255, 0] : [255, 0, 0];
       if (handleChanged) {
-        store["handle:updated"] = res.handle;
+        broadcast("handle:updated:" + res.handle);
         console.log("🧖 Handle changed:", res.handle);
         makeFlash($, true);
         notice("@" + res.handle);
@@ -526,7 +535,7 @@ async function halt($, text) {
         const message = res?.message;
         let note = "TAKEN";
         if (message === "unauthorized") note = "UNAUTHORIZED";
-        if (message === "unverified") note = "UNVERIFIED";
+        if (message === "unverified") note = "EMAIL UNVERIFIED";
         makeFlash($, true);
         notice(note, ["yellow", "red"]);
       }
@@ -895,9 +904,9 @@ function sim($) {
   progressTrick?.step();
 
   if (
-    $.store["handle:received"] &&
-    input?.canType === false &&
-    (!$.system.prompt.messages || $.system.prompt.messages.length === 0)
+    $.store["handle:received"] // &&
+    //input?.canType === false &&
+    //(!$.system.prompt.messages || $.system.prompt.messages.length === 0)
   ) {
     profile = new $.ui.TextButton($.handle(), {
       center: "xy",
