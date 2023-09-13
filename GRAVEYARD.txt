@@ -2,6 +2,7 @@
 
 *** Onboarding Bugs ***
   + Done
+  - [x] Using the backspace command reloads the font?
   - [x] `prompt` button appears in bottom left corner in all pieces
        but pieces can opt out and only when coming from the prompt
   - [x] `enter` and `backspace` as primary keyboard shortcuts
