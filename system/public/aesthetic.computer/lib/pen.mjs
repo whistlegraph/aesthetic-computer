@@ -166,6 +166,13 @@ export class Pen {
         pointer.penDragStartPos = { x: pointer.x, y: pointer.y };
       }
 
+      pointer.dragBox = {
+        x: pointer.penDragStartPos.x,
+        y: pointer.penDragStartPos.y,
+        w: 1,
+        h: 1,
+      };
+
       // Set `pen` globals.
       pen.penCursor = true;
       if (e.pointerType !== "mouse") pen.penCursor = false;

@@ -72,14 +72,44 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Onboarding ***
+  - [] Add verification to handle confirmation in API.
+  - [] Add change email command / link.
+  + Done
+  - [x] Thank you for confirming your email.
+  - [x] Make auth0 emails match the formatting & tone of the print order emails.
+    - [x] Welcome and please verify email.
+      - [x] Where is the user directed to after clicking the verify link?
+            (What are the possibilities here?)
+
+*** BakTok ***
+  - [] Make the audio scrubbable.
+
 *** Painting ***
-  - [] Add Zoom. 🔵
+  - [-] Add Zoom for all brushes. 🔵
+    - [🟠] `line` 
+      (Read implementation in `rect`)
+    - [] `oval`
+    - [] `word`
   - [🟠] Always have a secondary buffer.
-    - [] Make sure `nopan` centers a zoomed canvas. 
     - [] Add an `info` command to view painting info.
-    - [] Contextually show whether we are zoomed or not, perhaps with a border?
     - [] Add color picker. 🔵
     - [] Also add rotation.
+  - [] Entering any valid cssColor, hexColor, or RGB values on
+       the prompt should be an alias for `wipe color` and
+       `wipe color` needs to be coded properly?
+  + Done
+  - [x] `rect erase` no longer works
+  - [x] Contextually show whether we are zoomed or not, perhaps with a border?
+  - [x] Make sure `nopan` centers a zoomed canvas. 
+  - [x] Implement for `rect`
+  - [x] Add basic rainbow for `rect` and `line`.
+  
+*** Painting Listing Pages ***
+  - [] Scrape all user media and add records to the database.
+    - [] Write a one-time runnable task for this.
+  - [] Add a new record whenever something is uploaded.
+    - [] See `bios` -> where `presigned-upload-url` succeeds.
 
 *** iOS ***
   - [🟡] Audio loads inconsistently / slowly on iOS. 

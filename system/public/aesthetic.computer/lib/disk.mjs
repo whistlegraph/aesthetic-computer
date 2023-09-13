@@ -16,7 +16,7 @@ import { parse, metadata } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
 // import { UDP } from "./udp.mjs"; // TODO: Eventually expand to `net.Socket`
 import { notArray, defaultTemplateStringProcessor } from "./helpers.mjs";
-const { round, sin, random, max, floor } = Math;
+const { round, sin, random, max, floor, abs, ceil } = Math;
 import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
 import { headers } from "./console-headers.mjs";
@@ -31,6 +31,7 @@ export const noWorker = { onMessage: undefined, postMessage: undefined };
 let ROOT_PIECE = "prompt"; // This gets set straight from the host html file for the ac.
 let USER; // A holder for the logged in user. (Defined in `boot`)
 let debug = false; // This can be overwritten on boot.
+let visible = true; // Is aesthetic.computer visibly rendering or not?
 
 const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading noise.
 
@@ -39,14 +40,15 @@ import { setDebug } from "../disks/common/debug.mjs";
 const defaults = {
   boot: ({ resize, cursor, screen: { width, height }, resolution, slug }) => {
     // resize(width / 2, height / 2);
-    if (slug?.startsWith("botce")) resolution(width, height, 0);
+    console.log("🐌 Boot slug:", slug);
+    if (slug?.indexOf("botce") > -1) resolution(width, height, 0);
     cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
   paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe }) => {
     // TODO: Make this a boot choice via the index.html file?
     if (!projectionMode) {
-      if (slug?.startsWith("botce")) {
+      if (slug?.indexOf("botce") > -1) {
         noise16Sotce();
       } else {
         noise16Aesthetic();
@@ -114,7 +116,10 @@ const nopaint = {
       store.persist("painting", "local:db");
 
       // And its transform.
-      store["painting:transform"] = { translation: system.nopaint.translation };
+      store["painting:transform"] = {
+        translation: system.nopaint.translation,
+        zoom: system.nopaint.zoomLevel,
+      };
       store.persist("painting:transform", "local:db");
     } else {
       // Restore a painting if `no`ing.
@@ -247,7 +252,7 @@ let scream = null; // 😱 Allow priviledged users to send alerts to everyone.
 let screaming = false;
 let screamingTimer; // Keep track of scream duration.
 
-const ambientPenPoints = []; // Render cursor points of other active users,
+const fairies = []; // Render cursor points of other active users,
 //                              dumped each frame.
 
 let glazeEnabled = false; // Keep track of whether glaze is on or off.
@@ -457,7 +462,7 @@ const $commonApi = {
             console.log("Painting upload progress:", p);
             progress?.(p);
           },
-          "art", // Store in temporary bucket no matter what.
+          "art" // Store in temporary bucket no matter what.
         );
         console.log("🪄 Painting uploaded:", data.slug, data.ext, data.url);
         pixels = `${data.slug}.${data.ext}`;
@@ -488,7 +493,7 @@ const $commonApi = {
       const data = await res.json();
       if (!res.ok)
         throw new Error(
-          `🖨️ Print: HTTP error! Status: ${JSON.stringify(data)}`,
+          `🖨️ Print: HTTP error! Status: ${JSON.stringify(data)}`
         );
       console.log("🖨️ Print order:", data);
       $commonApi.jump(data.location); // Redirect to checkout.
@@ -544,7 +549,7 @@ const $commonApi = {
           const extension = opts?.record ? "zip" : "png";
           if (handle === "anon") {
             return $commonApi.net.preload(
-              encodeURI(`https://art.aesthetic.computer/${code}.${extension}`),
+              encodeURI(`https://art.aesthetic.computer/${code}.${extension}`)
             );
           } else {
             // Get the user sub from the handle...
@@ -555,15 +560,15 @@ const $commonApi = {
                 const json = await res.json();
                 return $commonApi.net.preload(
                   encodeURI(
-                    `https://user.aesthetic.computer/${json.sub}/painting/${code}.${extension}`,
-                  ),
+                    `https://user.aesthetic.computer/${json.sub}/painting/${code}.${extension}`
+                  )
                 );
               } else {
                 console.error(`Error: ${res.status} ${res.statusText}`);
                 console.error(
                   `Response headers: ${JSON.stringify(
-                    Array.from(res.headers.entries()),
-                  )}`,
+                    Array.from(res.headers.entries())
+                  )}`
                 );
               }
             } catch (error) {
@@ -649,6 +654,8 @@ const $commonApi = {
     nopaint: {
       //boot: nopaint_boot, // TODO: Why are these in the commonApi? 23.02.12.14.26
       // act: nopaint_act,
+      buffer: null, // An overlapping brush buffer that gets drawn on top of the
+      //              painting.
       recording: false,
       record: [], // Store a recording here.
       gestureRecord: [], // Store the active gesture.
@@ -740,20 +747,25 @@ const $commonApi = {
       },
       // Center the picture within the screen / default translation.
       resetTransform: ({ system: sys }) => {
+        sys.nopaint.zoomLevel = 1;
+
         if (!sys.painting) {
           sys.nopaint.translation = { x: 0, y: 0 };
           return;
         }
 
         sys.nopaint.translation.x = floor(
-          screen.width / 2 - sys.painting.width / 2,
+          screen.width / 2 - sys.painting.width / 2
         );
         sys.nopaint.translation.y = floor(
-          screen.height / 2 - sys.painting.height / 2,
+          screen.height / 2 - sys.painting.height / 2
         );
       },
       storeTransform: (store, sys) => {
-        store["painting:transform"] = { translation: sys.nopaint.translation };
+        store["painting:transform"] = {
+          translation: sys.nopaint.translation,
+          zoom: sys.nopaint.zoomLevel,
+        };
         store.persist("painting:transform", "local:db");
       },
       translation: { x: 0, y: 0 },
@@ -784,43 +796,51 @@ const $commonApi = {
 
         // Adjust the translation based on the scaling factor and the cursor's position
         system.nopaint.translation.x = floor(
-          cursor.x + (system.nopaint.translation.x - cursor.x) * scale,
+          cursor.x + (system.nopaint.translation.x - cursor.x) * scale
         );
         system.nopaint.translation.y = floor(
-          cursor.y + (system.nopaint.translation.y - cursor.y) * scale,
+          cursor.y + (system.nopaint.translation.y - cursor.y) * scale
         );
       },
-      brush: { x: 0, y: 0 },
+      brush: { x: 0, y: 0, dragBox: undefined },
       transform: (p) => {
         return {
-          x: p.x - nopaintAPI.translation.x,
-          y: p.y - nopaintAPI.translation.y,
+          x: (p.x - nopaintAPI.translation.x) / nopaintAPI.zoomLevel,
+          y: (p.y - nopaintAPI.translation.y) / nopaintAPI.zoomLevel,
         };
       },
-      updateBrush: ({ pen, system }) => {
-        let { x, y } = system.nopaint.translation;
-        x *= system.nopaint.zoomLevel;
-        y *= system.nopaint.zoomLevel;
-
-        const pos = { x: (pen?.x || 0) - x, y: (pen?.y || 0) - y };
-
-        // Transform the original dragBox
-        const dragBox = new geo.Box(
-          pen?.dragBox?.x - x,
-          pen?.dragBox?.y - y,
-          pen?.dragBox?.w,
-          pen?.dragBox?.h,
+      updateBrush: ({ pen, system, num }, act) => {
+        let zoom = system.nopaint.zoomLevel;
+        const x = Math.floor(
+          ((pen?.x || 0) - system.nopaint.translation.x) / zoom
+        );
+        const y = Math.floor(
+          ((pen?.y || 0) - system.nopaint.translation.y) / zoom
         );
 
-        system.nopaint.brush = { x: pos.x, y: pos.y, dragBox };
+        if (act === "touch") system.nopaint.startDrag = { x, y };
+
+        const dragBox = new geo.Box(
+          system.nopaint.startDrag.x,
+          system.nopaint.startDrag.y,
+          x -
+            system.nopaint.startDrag.x +
+            (x >= system.nopaint.startDrag.x ? 1 : -1),
+          y -
+            system.nopaint.startDrag.y +
+            (y >= system.nopaint.startDrag.y ? 1 : -1)
+        );
+
+        system.nopaint.brush = { x: x, y: y, dragBox };
       },
+
       // Helper to display the existing painting on the screen, with an
       // optional pan amount, that returns an adjusted pen pointer as `brush`.
 
       // TODO: - [] Add Zoom
       //       - [] And Rotation!
 
-      present: ({ system, screen, wipe, paste }, tx, ty) => {
+      present: ({ system, screen, wipe, paste, ink, slug }, tx, ty) => {
         system.nopaint.needsPresent = false;
 
         const x = tx || system.nopaint.translation.x;
@@ -836,20 +856,26 @@ const $commonApi = {
 
         if (fullbleed) {
           // If we are not panned and the painting fills the screen.
-          paste(system.painting);
+          paste(system.painting).paste(system.nopaint.buffer);
         } else {
           // If we are panned or the painting is a custom resolution.
+
           wipe(32)
             .paste(system.painting, x, y, system.nopaint.zoomLevel)
+            .paste(system.nopaint.buffer, x, y, system.nopaint.zoomLevel)
             .ink(128)
             .box(
               x,
               y,
               system.painting.width * system.nopaint.zoomLevel,
               system.painting.height * system.nopaint.zoomLevel,
-              "outline",
+              "outline"
             );
         }
+
+        // Graph `zoomLevel`
+        if (system.nopaint.zoomLevel !== 1 && slug !== "prompt")
+          ink(255, 127).write(`${system.nopaint.zoomLevel}x`, { x: 6, y: 18 });
 
         return {
           x,
@@ -962,6 +988,8 @@ const $commonApi = {
     timestamp: num.timestamp,
     p2: num.p2,
     midp: num.midp,
+    signedCeil: num.signedCeil,
+    signedFloor: num.signedFloor,
     vec2: num.vec2,
     vec3: num.vec3,
     vec4: num.vec4,
@@ -977,6 +1005,7 @@ const $commonApi = {
     hexToRgb: num.hexToRgb,
     blend: num.blend,
     rgbToHsl: num.rgbToHsl,
+    rainbow: num.rainbow,
   },
   geo: {
     Box: geo.Box,
@@ -1041,7 +1070,7 @@ async function session(slug, forceProduction = false, service) {
 
   if (debug && logs.session)
     console.log(
-      `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`,
+      `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`
     );
   // Return the active session if the server knows it's "Ready", otherwise
   // wait for the one we requested to spin up.
@@ -1051,7 +1080,7 @@ async function session(slug, forceProduction = false, service) {
     return session;
   } else {
     let eventSource = new EventSource(
-      `https://api.jamsocket.com/backend/${session.name}/status/stream`,
+      `https://api.jamsocket.com/backend/${session.name}/status/stream`
       // See also: https://docs.jamsocket.com/api-docs/#get-a-backends-status-stream
     );
 
@@ -1193,6 +1222,12 @@ const LINE = {
 // TODO: Add `erase` anc all css color alpha support. 23.07.20.14.45
 // TODO: Add transparency and short hex to hex support.
 // TODO: Add better hex support via: https://stackoverflow.com/a/53936623/8146077
+
+function computeAlpha(alpha) {
+  if (alpha >= 0 && alpha <= 1) alpha = round(alpha * 255);
+  return alpha;
+}
+
 function color() {
   let args = [...arguments];
 
@@ -1226,17 +1261,27 @@ function color() {
       if (num.isHexString(cleanedHex) === true) {
         args = num.hexToRgb(cleanedHex);
       } else if (args[0] === "erase") {
-        args = [-1, -1, -1];
+        // TODO: Add better alpha support here... 23.09.11.22.10
+        //       ^ See `parseColor` in `num`.
+        // let alpha = 255;
         // if (args[1]) alpha = parseFloat(args[1]);
+        args = [-1, -1, -1];
+        if (args[1]) args.push(computeAlpha(args[1]));
+      } else if (args[0] === "rainbow") {
+        args = num.rainbow(); // Cycle through roygbiv in a linear sequence.
       } else {
         args = num.cssColors[args[0]]; // Try to match it to a table.
       }
-
       // TODO: Add an error message here. 22.08.29.13.03
     }
   } else if (args.length === 2) {
-    // rgb, a
-    args = [arguments[0], arguments[0], arguments[0], arguments[1]];
+    // rainbow, alpha
+    if (args[0] === "rainbow") {
+      args = [...num.rainbow(), computeAlpha(args[1])];
+    } else {
+      // rgb, a
+      args = [args[0], args[0], args[0], args[1]];
+    }
   } else if (
     args.length === 0 ||
     (args.length === 1 && args[0] === undefined)
@@ -1342,7 +1387,7 @@ function form(
     cpu: false,
     keep: true,
     background: backgroundColor3D,
-  },
+  }
 ) {
   // Exit silently if no forms are present.
   if (forms === undefined || forms?.length === 0) return;
@@ -1476,6 +1521,7 @@ const $paintApiUnwrapped = {
   // l: graph.line,
   // i: ink,
   // Defaults
+  blend: graph.blendMode,
   page: graph.setBuffer,
   edit: graph.changePixels, // Edit pixels by pasing a callback.
   ink: function () {
@@ -1692,7 +1738,7 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
     height,
     "from",
     screen.width,
-    screen.height,
+    screen.height
   );
 
   // 3. Assign the generated or manual width and height.
@@ -1830,7 +1876,7 @@ async function load(
   fromHistory = false,
   alias = false,
   devReload = false,
-  loadedCallback,
+  loadedCallback
 ) {
   let fullUrl, source;
   let params,
@@ -1849,7 +1895,7 @@ async function load(
     console.warn(
       "Coudn't load:",
       parsed.path || parsed.name,
-      "(Already loading.)",
+      "(Already loading.)"
     );
     return true;
   }
@@ -1900,7 +1946,7 @@ async function load(
     ) {
       console.warn(
         "🙅 Not reloading, code signal invalid:",
-        codeChannel || "N/A",
+        codeChannel || "N/A"
       );
       return;
     }
@@ -1973,7 +2019,7 @@ async function load(
             p3 === "./" ? "/disks" : ""
           }/${p4.replace(/\.\.\//g, "")}`;
           return `${p1} { ${p2} } from "${url}";`;
-        },
+        }
       );
 
       updatedCode = updatedCode.replace(oneDot, (match, p1, p2, p3) => {
@@ -2056,7 +2102,7 @@ async function load(
         // Use the existing contextual values when live-reloading in debug mode.
         true, // (fromHistory) ... never add any reload to the history stack
         alias,
-        devReload,
+        devReload
       );
     }
   };
@@ -2088,9 +2134,9 @@ async function load(
               return;
             }
 
-            // 🧚 Ambient cursor support.
-            if (type === "ambient-pen:point" && socket.id !== id) {
-              ambientPenPoints.push({ x: content.x, y: content.y });
+            // 🧚 Ambient cursor (fairies) support.
+            if (type === "ambient-pen:point" && socket.id !== id && visible) {
+              fairies.push({ x: content.x, y: content.y });
               return;
             }
 
@@ -2102,7 +2148,7 @@ async function load(
           () => {
             // Post-connection logic.
             if (codeChannel) socket.send("code-channel:sub", codeChannel);
-          },
+          }
         );
       })
       .catch((err) => {
@@ -2157,7 +2203,7 @@ async function load(
         ...parsed,
         num: $commonApi.num,
         store: $commonApi.store,
-      }),
+      })
     );
 
     meta = {
@@ -2240,7 +2286,7 @@ async function load(
   $commonApi.net.preload = async function (
     path,
     parseJSON = true,
-    progressReport,
+    progressReport
   ) {
     let extension;
     if (soundWhitelist.includes(path)) {
@@ -2376,7 +2422,7 @@ async function load(
         colon.map((c) => `:` + c).join("") +
         params.map((p) => `~` + p).join(""),
       true,
-      false,
+      false
     );
   };
 
@@ -2482,7 +2528,7 @@ async function load(
           module.scheme,
           wrap,
           module.copied,
-          module.activated,
+          module.activated
         );
         await module.boot?.($);
       };
@@ -2696,7 +2742,7 @@ async function makeFrame({ data: { type, content } }) {
     if (currentPath === "aesthetic.computer/disks/prompt") {
       $commonApi.system.nopaint.replace(
         { system: $commonApi.system, store, needsPaint: $commonApi.needsPaint },
-        content.source,
+        content.source
       );
     } else {
       console.warn("🖼️ Dropped images only function in the `prompt`.");
@@ -2773,6 +2819,7 @@ async function makeFrame({ data: { type, content } }) {
     //     console.warn("️ ✒ Act failure...", e);
     //   }
     // }
+    visible = content;
   }
 
   if (type === "before-unload") {
@@ -3243,7 +3290,7 @@ async function makeFrame({ data: { type, content } }) {
       const primaryPointer = help.findKeyAndValue(
         content.pen.pointers,
         "isPrimary",
-        true,
+        true
       );
 
       // Returns all [pens] if n is undefined, or can return a specific pen by 1 based index.
@@ -3411,7 +3458,7 @@ async function makeFrame({ data: { type, content } }) {
       Object.keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
       Object.keys($updateApi).forEach((key) => ($api[key] = $updateApi[key]));
       Object.keys(painting.api).forEach(
-        (key) => ($api[key] = painting.api[key]),
+        (key) => ($api[key] = painting.api[key])
       );
       $api.api = $api; // Add a reference to the whole API.
 
@@ -3686,7 +3733,7 @@ async function makeFrame({ data: { type, content } }) {
       const $api = {};
       Object.keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
       Object.keys(painting.api).forEach(
-        (key) => ($api[key] = painting.api[key]),
+        (key) => ($api[key] = painting.api[key])
       );
       $api.api = $api; // Add a reference to the whole API.
 
@@ -3806,12 +3853,12 @@ async function makeFrame({ data: { type, content } }) {
 
           store["painting:resolution-lock"] = await store.retrieve(
             "painting:resolution-lock",
-            "local:db",
+            "local:db"
           );
 
           store["painting:transform"] = await store.retrieve(
             "painting:transform",
-            "local:db",
+            "local:db"
           );
 
           addUndoPainting(store["painting"]);
@@ -3830,6 +3877,8 @@ async function makeFrame({ data: { type, content } }) {
 
         sys.nopaint.translation =
           store["painting:transform"]?.translation || sys.nopaint.translation;
+        sys.nopaint.zoomLevel =
+          store["painting:transform"]?.zoom || sys.nopaint.zoomLevel;
 
         try {
           if (system === "nopaint") nopaint_boot($api);
@@ -3864,7 +3913,7 @@ async function makeFrame({ data: { type, content } }) {
                   .split("=")[1]
                   .split("x")
                   .map((n) => floor(parseInt(n) / 8)),
-                0,
+                0
               );
             }
             firstPreviewOrIcon = false;
@@ -3891,7 +3940,7 @@ async function makeFrame({ data: { type, content } }) {
                   .split("=")[1]
                   .split("x")
                   .map((n) => parseInt(n)),
-                0,
+                0
               );
             }
             firstPreviewOrIcon = false;
@@ -3910,7 +3959,7 @@ async function makeFrame({ data: { type, content } }) {
       if (
         previewMode === false &&
         iconMode === false &&
-        (noPaint === false || scream || ambientPenPoints.length > 0) &&
+        (noPaint === false || scream || fairies.length > 0) &&
         booted
       ) {
         let paintOut;
@@ -3968,14 +4017,14 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         // 🧚 Ambient Pen Points - Paint if they exist.
-        ambientPenPoints.forEach(({ x, y }) => {
+        fairies.forEach(({ x, y }) => {
           ink().point(x * screen.width, y * screen.height);
         });
-        if (ambientPenPoints.length > 0) {
+        if (fairies.length > 0) {
           needsPaint();
           // if (system === "nopaint") $api.system.nopaint.needsPresent = true;
         }
-        ambientPenPoints.length = 0;
+        fairies.length = 0;
 
         // 🔴 Show a cross-piece "Recording" indicator.
         //    Currently only implemented for `painting:record`. 23.08.20.21.36
@@ -3993,7 +4042,7 @@ async function makeFrame({ data: { type, content } }) {
           ink(noticeColor[0]).write(
             notice,
             { center: "x", y: 32, size: 2 },
-            noticeColor[1],
+            noticeColor[1]
           );
         }
 
@@ -4036,7 +4085,7 @@ async function makeFrame({ data: { type, content } }) {
         piece !== "girlfriend" &&
         piece !== "textfence" &&
         piece !== "boyfriend" &&
-        piece !== "botce" &&
+        piece.indexOf("botce") === -1 &&
         piece !== "angel" &&
         piece !== "dad" &&
         piece !== "kid" &&
@@ -4174,7 +4223,7 @@ async function makeFrame({ data: { type, content } }) {
             sound,
           },
         },
-        [pixels?.buffer],
+        [pixels?.buffer]
       );
     }
 
