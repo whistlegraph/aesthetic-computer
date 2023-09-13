@@ -38,7 +38,7 @@ export async function userIDFromEmail(email) {
         searchParams: { email },
         headers: { Authorization: `Bearer ${token}` },
         responseType: "json",
-      }
+      },
     );
 
     const user = userResponse.body[0];
@@ -62,7 +62,7 @@ export async function getHandleOrEmail(sub) {
     const token = await getAccessToken(got); // Get access token for auth0.
     const userResponse = await got(
       `https://aesthetic.us.auth0.com/api/v2/users/${encodeURIComponent(sub)}`,
-      { headers: { Authorization: `Bearer ${token}` }, responseType: "json" }
+      { headers: { Authorization: `Bearer ${token}` }, responseType: "json" },
     );
 
     return userResponse.body.email;
@@ -91,12 +91,9 @@ export async function handleFor(id) {
 
   if (id === "all") {
     const randomHandles = await collection
-      .aggregate([
-        { $sample: { size: 100 } },
-        { $project: { handle: 1 } }
-      ])
+      .aggregate([{ $sample: { size: 100 } }, { $project: { handle: 1 } }])
       .toArray();
-    
+
     await database.disconnect();
     return randomHandles.map((doc) => "@" + doc.handle);
   } else {
@@ -115,8 +112,6 @@ export async function handleFor(id) {
     return existingUser?.handle;
   }
 }
-
-
 
 // Connects to the MongoDB database to obtain a user ID from a handle.
 // Handle should not be prefixed with "@".
@@ -165,6 +160,61 @@ export async function userIDFromHandleOrEmail(handleOrEmail, database) {
   }
 }
 
+// Sets the user's email and triggers a re-verification email.
+export async function setEmailAndReverify(id, email) {
+  try {
+    const { got } = await import("got");
+    const token = await getAccessToken(got);
+
+    // 1. Update the user's email
+    const updateEmailResponse = await got(
+      `https://aesthetic.us.auth0.com/api/v2/users/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        json: { email, email_verified: false },
+        responseType: "json",
+      },
+    );
+
+    if (!updateEmailResponse.body) {
+      throw new Error("Failed to update user email");
+    }
+
+    // 2. Trigger the verification email
+    const verificationResponse = await got(
+      `https://aesthetic.us.auth0.com/api/v2/jobs/verification-email`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        json: { user_id: id },
+        responseType: "json",
+      },
+    );
+
+    if (!verificationResponse.body) {
+      throw new Error("Failed to send verification email");
+    }
+
+    return {
+      success: true,
+      message: "Email updated and verification email sent successfully!",
+    };
+  } catch (error) {
+    console.error(`Error setting email and sending verification: ${error}`);
+    return {
+      success: false,
+      message: error.message,
+    };
+  }
+}
+
 // 📚 Library (Useful functions used throughout the file.)
 // Obtain an auth0 access token for our M2M API.
 async function getAccessToken(got) {
@@ -180,7 +230,7 @@ async function getAccessToken(got) {
         grant_type: "client_credentials", // Use "client_credentials" for M2M
       },
       responseType: "json",
-    }
+    },
   );
 
   return tokenResponse.body.access_token;
