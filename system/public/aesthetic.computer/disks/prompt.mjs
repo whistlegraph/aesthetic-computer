@@ -218,7 +218,6 @@ async function halt($, text) {
       return { message: "unauthorized" };
     }
   }
-
   if (slug === "me") {
     jump("profile");
     return true;
@@ -682,6 +681,11 @@ async function halt($, text) {
     flashColor = [255, 255, 0, 100]; // Yellow
     makeFlash($);
     return true;
+  } else if (slug === "signup" || slug === "imnew") {
+    net.signup();
+    flashColor = [255, 255, 0, 100]; // Yellow
+    makeFlash($);
+    return true;
   } else if (text === "logout" || text === "bye") {
     net.logout();
     flashColor = [255, 255, 0, 100]; // Yellow
@@ -899,7 +903,7 @@ function sim($) {
       center: "xy",
       screen: $.screen,
     });
-    if (firstCommandSent === true) profile.btn.disabled = true;
+    // if (firstCommandSent === true) profile.btn.disabled = true;
     delete $.store["handle:received"];
     $.needsPaint();
   }
