@@ -1340,11 +1340,14 @@ const $paintApi = {
         run += len;
       });
 
-      // Center multi-line text. (Kinda hacky? 23.08.22.20.30)
       if (lines.length > 1 && pos.center.indexOf("y") !== -1) {
         const blockHeight = 11;
-        pos.y = pos.y - (lines.length * blockHeight) / 2 + blockHeight / 2;
+        pos.y =
+          $activePaintApi.screen.height / 2 -
+          (lines.length * blockHeight) / 2 +
+          blockHeight / 2;
       }
+      console.log(pos.y, lines.length);
 
       lines.forEach((line, index) => {
         tf?.print($activePaintApi, pos, index, line.join(" "), bg);

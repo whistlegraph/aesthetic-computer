@@ -18,5 +18,5 @@ const slugs = [
 
 export function logoUrl() {
   const i = Math.floor(Math.random() * slugs.length);
-  return `https://logo.aesthetic.computer.nyc3.cdn.digitaloceanspaces.com/${slugs[i]}`;
+  return `https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/${slugs[i]}`;
 }

@@ -3756,6 +3756,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Window Visibility
   document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) wrapper.classList.remove("reloading");
     send({
       type: "visibility-change",
       content: !document.hidden,
