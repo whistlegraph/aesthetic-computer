@@ -100,6 +100,7 @@ async function boot({
   screen,
   user,
   handle,
+  params,
 }) {
   glaze({ on: true });
 
@@ -129,7 +130,7 @@ async function boot({
   ) {
     if (pieceCount === 0) {
       // system.prompt.input.print("aesthetic.computer"); // Set a default empty motd.
-      makeMotd(api);
+      if (!params[0]) makeMotd(api);
     } else {
       firstActivation = false; // Assume we've activated if returning from
       //                          elsewhere.
@@ -137,11 +138,20 @@ async function boot({
     system.prompt.input.showButton(api, { nocopy: true, nopaste: true });
   }
 
+  if (params[0]) {
+    const text = params[0].replaceAll("~", " ");
+    system.prompt.input.text = text;
+    system.prompt.input.addUserText(text);
+    system.prompt.input.snap();
+  } else {
+    system.prompt.input.text = "";
+  }
+
   // Activate and reset input text if returning to the prompt from elsewhere.
   if (pieceCount > 0) {
     activated(api, true);
     system.prompt.input.canType = true;
-    system.prompt.input.text = "";
+
     // system.prompt.input.enter.btn.disabled = true; // Disable button.
     system.prompt.input.inputStarted = true;
 
@@ -1048,7 +1058,7 @@ function activated($, state) {
   if (firstActivation) {
     $.sound.play(startupSfx); // Play startup sound...
     flashColor = scheme.dark.block; // Trigger startup animation...
-    makeFlash($); // Always sets firstActivation flag to false.
+    makeFlash($, !$.params[0]); // Always sets firstActivation flag to false.
   }
   if (state === false && firstCommandSent) return;
   if (login) login.btn.disabled = state;
