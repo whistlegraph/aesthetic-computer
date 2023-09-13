@@ -399,7 +399,7 @@ export async function handler(event, context) {
                 html: `
                 <img src="${mockupUrl}" width="250">
                 <p>and we appreciate your order</p>
-                <b>aesthetic.computer</b>
+                <b><a href="https://aesthetic.computer">aesthetic.computer</a></b>
                 <br>
                 <code>${session.payment_intent.replace("pi_", "")}</code>
                 `,
@@ -437,7 +437,7 @@ export async function handler(event, context) {
                   } 
                 </p>
                 <p>deeply sorry about that!</p>
-                <b>aesthetic.computer</b>
+                <b><a href="https://aesthetic.computer">aesthetic.computer</a></b>
                 <br>
                 <code>${session.payment_intent.replace("pi_", "")}</code>
                 `,
