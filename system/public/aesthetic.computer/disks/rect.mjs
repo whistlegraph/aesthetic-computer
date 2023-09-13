@@ -84,9 +84,9 @@ function paint({
       : nopaint.brush.dragBox.scale(2);
 
     page(nopaint.buffer).wipe(255, 0);
-    // if (!erase) blend("blit");
+    if (!erase) blend("blit");
     ink(color).box(r, mode); // UI: Paint a preview to the screen.
-    // if (!erase) blend();
+    if (!erase) blend();
     page(screen);
 
     rect = () => {
