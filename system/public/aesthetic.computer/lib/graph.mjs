@@ -456,16 +456,18 @@ function blend(dst, src, si, di, alphaIn = 1) {
 
   // A. Blend over transparent pixels.
   if (dst[di + 3] < 255 && src[si + 3] > 0) {
+    const epsilon = 1e-10; // Small number to prevent division by zero
     const alphaSrc = (src[si + 3] * alphaIn) / 255;
     const alphaDst = dst[di + 3] / 255;
     const combinedAlpha = alphaSrc + (1.0 - alphaSrc) * alphaDst;
-    if (combinedAlpha > 0) {
+    if (combinedAlpha > epsilon) {
+      // Check against a very small number instead of 0
       for (let offset = 0; offset < 3; offset++) {
         // Iterate over R, G, B channels
         dst[di + offset] =
           (src[si + offset] * alphaSrc +
             dst[di + offset] * (1.0 - alphaSrc) * alphaDst) /
-          combinedAlpha;
+          (combinedAlpha + epsilon); // Add epsilon to prevent division instability
       }
       dst[di + 3] = combinedAlpha * 255;
     }
