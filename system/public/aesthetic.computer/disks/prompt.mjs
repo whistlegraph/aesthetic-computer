@@ -67,7 +67,7 @@ import { validateHandle } from "../lib/text.mjs";
 import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { parse } from "../lib/parse.mjs";
 import { ordfish } from "./ordfish.mjs";
-const { abs, max } = Math;
+const { abs, max, min } = Math;
 
 // Error / feedback flash on command entry.
 let flash;
@@ -76,6 +76,7 @@ let flashColor = [];
 let flashPresent = false;
 
 let progressBar = -1; // If not zero, then draw a progress bar.
+let progressTrick; // A faux growth period on the progress bar.
 
 let login, // A login button in the center of the display.
   signup, // A Sign-up button.
@@ -168,6 +169,7 @@ async function halt($, text) {
     bgm,
     needsPaint,
     system,
+    gizmo,
     screen,
     painting,
     net,
@@ -241,12 +243,19 @@ async function halt($, text) {
     return true;
   } else if (slug === "print") {
     progressBar = 0;
+
+    progressTrick = new gizmo.Hourglass(24, {
+      completed: () => (progressBar += min(0.5, progressBar + 0.1)),
+      autoFlip: true,
+    });
+
     try {
       await print(system.painting, params[0], (p) => (progressBar = p)); // Print a sticker.
       flashColor = [0, 200, 0];
     } catch (err) {
       flashColor = [200, 0, 0];
     }
+    progressTrick = null;
     progressBar = 1;
     makeFlash($);
     return true;
@@ -263,13 +272,21 @@ async function halt($, text) {
       filename = `painting-${record[record.length - 1].timestamp}.png`;
       // ^ For below, because the record will be cleared.
 
-      if (destination === "upload") progressBar = 0;
+      if (destination === "upload") {
+        progressBar = 0;
+        progressTrick = new gizmo.Hourglass(24, {
+          completed: () => (progressBar += min(0.5, progressBar + 0.1)),
+          autoFlip: true,
+        });
+      }
       // TODO: How to have zip upload progress?
 
       const zipped = await zip({ destination, painting: { record } }, (p) => {
         console.log("🤐 Zip progress:", p);
         progressBar = p;
       });
+
+      progressTrick = null;
 
       console.log("🤐 Zipped:", zipped);
       recordingSlug = zipped.slug;
@@ -289,19 +306,24 @@ async function halt($, text) {
     if (destination === "upload") {
       console.log("🖼️ Uploading painting...");
       progressBar = 0; // Trigger progress bar rendering.
+      progressTrick = new gizmo.Hourglass(24, {
+        completed: () => (progressBar += min(0.5, progressBar + 0.1)),
+        autoFlip: true,
+      });
       try {
         const data = await upload(filename, store["painting"], (p) => {
           console.log("🖌️ Painting progress:", p);
           progressBar = p;
         });
         console.log("🪄 Painting uploaded:", filename, data);
+        progressTrick = null;
 
         // Jump to the painting page that gets returned.
         if (handle() && filename.startsWith("painting")) {
           jump(`painting~${handle()}/${data.slug}`); // For a user.
         } else {
           jump(
-            `painting~${data.slug}${recordingSlug ? ":" + recordingSlug : ""}`,
+            `painting~${data.slug}${recordingSlug ? ":" + recordingSlug : ""}`
           ); // Or for a guest.
         }
 
@@ -528,7 +550,7 @@ async function halt($, text) {
         const data = await upload(
           filename,
           store["painting"],
-          (p) => (progressBar = p),
+          (p) => (progressBar = p)
         );
         console.log("🪄 Painting uploaded:", filename, data);
         flashColor = [0, 255, 0, 128];
@@ -620,7 +642,7 @@ async function halt($, text) {
         painting,
         store,
         { w, h, scale: true },
-        fullText,
+        fullText
       );
       flashColor = result ? "lime" : "red";
     }
@@ -840,14 +862,14 @@ function paint($) {
       screen.width / 2,
       0,
       screen.width / 2,
-      screen.height,
+      screen.height
     );
     if (screen.width % 2 === 0) {
       $.ink(255, 0, 255, 127).line(
         screen.width / 2 - 1,
         0,
         screen.width / 2 - 1,
-        screen.height,
+        screen.height
       );
     }
   }
@@ -866,6 +888,8 @@ function paint($) {
 // 🧮 Sim
 function sim($) {
   const input = $.system.prompt.input;
+  progressTrick?.step();
+
   if (
     $.store["handle:received"] &&
     input?.canType === false &&
@@ -892,15 +916,58 @@ function act({
   num,
   jump,
   system,
-  sound: { play },
+  sound: { play, synth },
   user,
   send,
   handle,
 }) {
   // 🔘 Buttons
-  login?.btn.act(e, () => net.login());
-  signup?.btn.act(e, () => net.signup());
-  profile?.btn.act(e, () => jump(handle() || "profile"));
+
+  const downSound = () => {
+    synth({
+      type: "sine",
+      tone: 600,
+      attack: 0.1,
+      decay: 0.99,
+      volume: 0.75,
+      duration: 0.001,
+    });
+  };
+
+  const pushSound = () => {
+    synth({
+      type: "sine",
+      tone: 800,
+      attack: 0.1,
+      decay: 0.99,
+      volume: 0.75,
+      duration: 0.005,
+    });
+  };
+
+  login?.btn.act(e, {
+    down: () => downSound(),
+    push: () => {
+      pushSound();
+      net.login();
+    },
+  });
+
+  signup?.btn.act(e, {
+    down: () => downSound(),
+    push: () => {
+      pushSound();
+      net.signup();
+    },
+  });
+
+  profile?.btn.act(e, {
+    down: () => downSound(),
+    push: () => {
+      pushSound();
+      jump(handle() || "profile");
+    },
+  });
 
   // Rollover keyboard locking.
   // TODO: ^ Move the below events, above to rollover events.
@@ -1056,6 +1123,7 @@ async function makeMotd({ system, needsPaint, handle, user, net, api }) {
 function makeFlash($, clear = true) {
   flash = new $.gizmo.Hourglass($.seconds(0.1), {
     flipped: () => {
+      progressBar = -1;
       flashShow = false;
       flashPresent = false;
       flash = undefined;

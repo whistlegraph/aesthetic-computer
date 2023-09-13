@@ -101,6 +101,17 @@
   - [] Page sometimes doesn't load on iOS, so what's the hangup?
   - [] Camera should be aligned to the canvas size...
 
+*** Networking ***
+  - [] Remove periods from all buckets on DigitalOcean so that certificates 
+       behind the CDNs work.
+      - [] user.aesthetic.computer
+      - [] sotce.aesthetic.computer
+      - [] assets.aesthetic.computer
+      - [] wand.aesthetic.computer
+      - [] art.aesthetic.computer
+      + Done
+      - [x] logo.aesthetic.computer -> pals-aesthetic-computer
+
 *** BakTok ***
   - [] Make the audio scrubbable.
 

@@ -64,6 +64,7 @@ export async function prompt_boot(
         if (halted.left) return; // Ditch if we already loaded a piece.
 
         // Assume we set custom replied state via `TextInput -> replied`.
+        // (Immediate bot-style reply)
         if (halted.replied) {
           input.lock = false;
           input.runnable = false;
@@ -73,6 +74,11 @@ export async function prompt_boot(
           $.send({ type: "keyboard:close" });
           return;
         }
+
+        if ($.leaving()) {
+          input.lock = false;
+          return; // Keep the screen emptied out if we are leaving.
+        } 
 
         // Otherwise set the reply state now.
         reply?.(input.text);

@@ -21,12 +21,12 @@ export async function handler(event, context) {
   const queryParams = new URLSearchParams(event.queryStringParameters);
   const previousLogo = queryParams.get("previousLogo");
 
-  let chosenLogo;
+  let logo;
   do {
-    chosenLogo = logoUrl();
-  } while (chosenLogo === previousLogo); // Make sure we don't select the same logo
+    logo = logoUrl();
+  } while (logo === previousLogo); // Make sure we don't select the same logo
 
-  const response = await got(chosenLogo, {
+  const response = await got(logo, {
     responseType: "buffer",
     https: { rejectUnauthorized: false },
   });
@@ -55,7 +55,7 @@ export async function handler(event, context) {
     const htmlResponse = `
     <html>
         <head>
-            <link rel="icon" href="${dataUrl}" type="image/x-icon">
+            <link rel="icon" href="${logo}" type="image/x-icon">
             <style>
                 html { height: 100%; }
                 body { 
@@ -80,14 +80,14 @@ export async function handler(event, context) {
             </style>
         </head>
         <body>
-            <img crossorigin src="${dataUrl}" onclick="updateQueryString()">
+            <img crossorigin src="${logo}" onclick="updateQueryString()">
         </body>
         <script>
             const strippedUrl = window.location.origin + window.location.pathname;
             window.history.replaceState({}, document.title, strippedUrl);
             function updateQueryString() {
               document.body.classList.add('blurred');
-              const currentLogoId = '${chosenLogo}'; 
+              const currentLogoId = '${logo}'; 
               const newURL = strippedUrl + '?previousLogo=' + encodeURIComponent(currentLogoId);
               setTimeout(() => { window.location = newURL; }, 200);
             }

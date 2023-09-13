@@ -243,7 +243,7 @@ export async function handler(event, context) {
       // TODO: Add quantity to product name if there is more than 1.
       const productName = 'Painting Sticker 5.5"';
       let name = productName;
-      if (quantity > 1) name += "(" + quantity + " copies)";
+      if (quantity > 1) name += " (" + quantity + " copies)";
 
       const stripeCheckout = {
         line_items: [
