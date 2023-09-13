@@ -200,7 +200,7 @@ function paint({ wipe, ink, system, screen, num, paste }) {
 }
 
 // 🎪 Act
-function act({ event: e, screen, print, mint }) {
+function act({ event: e, screen, print, mint, delay }) {
   printBtn?.act(e, {
     push: async () => {
       printBtn.disabled = true;
@@ -209,7 +209,9 @@ function act({ event: e, screen, print, mint }) {
         "Printing...",
       );
       await print(slug);
-      printBtn.disabled = false;
+      delay(() => {
+        printBtn.disabled = false;
+      }, 0.1)
       printBtn.reposition(
         { right: butSide, bottom: butBottom, screen },
         "Print",
