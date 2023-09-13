@@ -71,7 +71,7 @@ function boot({ system, params, get, net, ui, screen, dom: { html } }) {
             height="${out.img.height}"
             id="hidden-painting"
             crossorigin
-            src=${"/api/pixel/2048:conform/" + slug}
+            src=${"/api/pixel/2048:conform/" + encodeURI(slug)}
           />
           <style>
             #content {
@@ -330,7 +330,7 @@ function advance(system) {
 
 function genSlug({ params }) {
   // User string (@user/timestamp)
-  if (params[0].startsWith("@")) {
+  if (params[0].startsWith("@") || params[0].indexOf("@") !== -1) {
     const [user, timestamp] = params[0].split("/");
     handle = user;
     imageCode = recordingCode = timestamp;

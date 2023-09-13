@@ -2109,6 +2109,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (content.method === "local") {
         if (debug && logs.store)
           console.log("📦 Delete local data:", content.key);
+        localStorage.removeItem(content.key);
         send({
           type: "store:deleted",
           content: true,
@@ -3795,9 +3796,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       document.location.reload();
     }
 
+    const sluggy = slug(document.location.href);
+    if (sluggy === "prompt") keyboard?.input.focus();
+
     send({
       type: "history-load",
-      content: parse(slug(document.location.href) || window.acSTARTING_PIECE),
+      content: parse(sluggy || window.acSTARTING_PIECE),
     });
   };
 
