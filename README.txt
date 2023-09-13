@@ -88,6 +88,9 @@
   - [] Page sometimes doesn't load on iOS, so what's the hangup?
   - [] Camera should be aligned to the canvas size...
 
+*** word -> write ***
+  - [] What other commands should be renamed now?
+
 *** painting page ***
   - [🧡] Shorten the corner word on painting pages / remove the timestamp
        especially if it will be seen in the corner.
