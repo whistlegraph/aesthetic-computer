@@ -75,6 +75,7 @@
 *** Painting ***
   - [-] Add Zoom for all brushes. 🔵
     - [🧡] (Make sure erase works perfectly in rect)
+           (Is `pan` much slower now because of the new blend?)
     - [🟠] `line` 
       (Read implementation in `rect`)
     - [] `oval`
@@ -93,6 +94,13 @@
   - [x] Implement for `rect`
   - [x] Add basic rainbow for `rect` and `line`.
 
+*** iOS ***
+  - [🟡] Audio loads inconsistently / slowly on iOS. 
+    (Debug on the actual device.)
+  - [] Test camera facing mode / get swap working.
+  - [] Page sometimes doesn't load on iOS, so what's the hangup?
+  - [] Camera should be aligned to the canvas size...
+
 *** BakTok ***
   - [] Make the audio scrubbable.
 
@@ -105,13 +113,6 @@
     - [] Write a one-time runnable task for this.
   - [] Add a new record whenever something is uploaded.
     - [] See `bios` -> where `presigned-upload-url` succeeds.
-
-*** iOS ***
-  - [🟡] Audio loads inconsistently / slowly on iOS. 
-    (Debug on the actual device.)
-  - [] Test camera facing mode / get swap working.
-  - [] Page sometimes doesn't load on iOS, so what's the hangup?
-  - [] Camera should be aligned to the canvas size...
 
 *** word -> write ***
   - [] What other commands should be renamed now?
