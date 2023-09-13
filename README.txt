@@ -74,8 +74,6 @@
 
 *** Painting ***
   - [-] Add Zoom for all brushes. 🔵
-    - [🧡] (Make sure erase works perfectly in rect)
-           (Is `pan` much slower now because of the new blend?)
     - [🟠] `line` 
       (Read implementation in `rect`)
     - [] `oval`
@@ -88,6 +86,8 @@
        the prompt should be an alias for `wipe color` and
        `wipe color` needs to be coded properly?
   + Done
+  - [x] (Make sure erase works perfectly in rect)
+          (Is `pan` much slower now because of the new blend?)
   - [x] `rect erase` no longer works
   - [x] Contextually show whether we are zoomed or not, perhaps with a border?
   - [x] Make sure `nopan` centers a zoomed canvas. 
