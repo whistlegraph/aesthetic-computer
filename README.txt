@@ -72,16 +72,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Onboarding ***
-  - [] Add change email command / link.
-  + Done
-  - [x] Add verification to handle confirmation in API.
-  - [x] Thank you for confirming your email.
-  - [x] Make auth0 emails match the formatting & tone of the print order emails.
-    - [x] Welcome and please verify email.
-      - [x] Where is the user directed to after clicking the verify link?
-            (What are the possibilities here?)
-
 *** BakTok ***
   - [] Make the audio scrubbable.
 

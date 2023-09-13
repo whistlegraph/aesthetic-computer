@@ -176,6 +176,7 @@ async function halt($, text) {
     upload,
     code,
     send,
+    help,
     zip,
     print,
   } = $;
@@ -358,10 +359,18 @@ async function halt($, text) {
         mood: params.join(" "),
       });
     }
-    flashColor = res ? [0, 255, 0] : [255, 0, 0];
-    if (res) {
+    console.log("RES", res);
+
+    flashColor = res?.mood ? [0, 255, 0] : [255, 0, 0];
+    if (res?.mood) {
       console.log("‍🍼 mood:", res.mood);
+      notice(help.choose(":)", ":|", ":(", ":O", ":\\", ":/"));
     } else {
+      const message = res?.message;
+      let note = "ERROR";
+      if (message === "unauthorized") note = "UNAUTHORIZED";
+      makeFlash($, true);
+      notice(note, ["yellow", "red"]);
       console.error("🍼🚫 Could not set mood.");
     }
     makeFlash($);
@@ -453,6 +462,25 @@ async function halt($, text) {
       flashColor = [0, 0, 255];
     }
     makeFlash($);
+    return true;
+  } else if (text.startsWith("email")) {
+    // Set user email.
+    const email = text.split(" ")[1];
+    if (email) {
+      const res = await userJSONRequest("POST", "/api/email", { email });
+      console.log(res);
+      if (res.email) {
+        flashColor = [0, 255, 0];
+        notice(res.email);
+      } else {
+        flashColor = [255, 0, 0];
+        console.warn(res.message);
+        notice("ERROR", ["yellow", "red"]);
+      }
+    } else {
+      flashColor = [255, 0, 0];
+    }
+    makeFlash($, true);
     return true;
   } else if (text.startsWith("handle")) {
     // Set username handle.
