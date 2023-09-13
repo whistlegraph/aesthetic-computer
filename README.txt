@@ -72,6 +72,29 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Onboarding Bugs ***
+  - [] typing "me" in one tab after setting handle in another tab
+       does not get the handle update
+  - [] same email should say taken
+  - [] profile page when not logged in should say sign up to create profile
+  - [] handle with no parameters should flash EMPTY
+  - [] unverified = email unverified and wrap the message
+  - [] `enter` and `backspace` as primary keyboard shortcuts
+  - [] `prompt` button appears in bottom left corner in all pieces
+       but pieces can opt out and only when coming from the prompt
+
+*** `booted-by` ***
+  - [] 10 tappable bars with decoration.
+  - [] `booted-by` - your text and your url
+    - [] Make this a nice payment page
+
+*** iOS ***
+  - [🟡] Audio loads inconsistently / slowly on iOS. 
+    (Debug on the actual device.)
+  - [] Test camera facing mode / get swap working.
+  - [] Page sometimes doesn't load on iOS, so what's the hangup?
+  - [] Camera should be aligned to the canvas size...
+
 *** Painting ***
   - [-] Add Zoom for all brushes. 🔵
     - [🟠] `line` 
@@ -85,6 +108,7 @@
   - [] Entering any valid cssColor, hexColor, or RGB values on
        the prompt should be an alias for `wipe color` and
        `wipe color` needs to be coded properly?
+  - [] Double tap Shift key to reset pan. (Remove ALT)
   + Done
   - [x] (Make sure erase works perfectly in rect)
           (Is `pan` much slower now because of the new blend?)
@@ -93,13 +117,6 @@
   - [x] Make sure `nopan` centers a zoomed canvas. 
   - [x] Implement for `rect`
   - [x] Add basic rainbow for `rect` and `line`.
-
-*** iOS ***
-  - [🟡] Audio loads inconsistently / slowly on iOS. 
-    (Debug on the actual device.)
-  - [] Test camera facing mode / get swap working.
-  - [] Page sometimes doesn't load on iOS, so what's the hangup?
-  - [] Camera should be aligned to the canvas size...
 
 *** Networking ***
   - [] Remove periods from all buckets on DigitalOcean so that certificates 
