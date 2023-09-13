@@ -40,8 +40,9 @@ export async function handler(event, context) {
     userAgent.includes("wget") ||
     userAgent.includes("python-requests") ||
     userAgent.includes("node-fetch");
+  const isPngEndpoint = event.path.split("/").pop() === "png";
 
-  if (isServer) {
+  if (isServer || isPngEndpoint) {
     return {
       statusCode: 200,
       headers: {

@@ -55,6 +55,7 @@ function about({ colon, params, num }) {
 // If entering "?" then each indivudal param will be randomized once.
 function boot({ params, geo, num, colon }) {
   colorParams = num.parseColor(params);
+
   thickness = parseInt(colon[0]) || 1; // Set line thickness with a colon param.
 
   // Set up line smoothing system.
@@ -155,5 +156,6 @@ export { about, boot, paint, sim, act, bake, system };
 function addPoint(num, x, y) {
   let color;
   if (colorParams.length === 0) color = num.randIntArr(255, 3);
+  if (colorParams[0] === "rainbow") color = "rainbow";
   points.push({ x, y, color }); // Push last point.
 }

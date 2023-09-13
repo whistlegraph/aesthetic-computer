@@ -39,8 +39,12 @@ function paint({
       repeat(128, (i) => {
         const ang = r(360);
         const dst = r(radius);
-        const xy = pointFrom(pen.x, pen.y, ang, dst);
-        const sample = new Sample(xy[0] - pen.x, xy[1] - pen.y, pixel(...xy));
+        const xy = pointFrom(brush.x, brush.y, ang, dst);
+        const sample = new Sample(
+          xy[0] - brush.x,
+          xy[1] - brush.y,
+          pixel(...xy, system.painting)
+        );
         samples.push(sample); // Add sample to the list.
       });
       sampled = true;
@@ -73,7 +77,10 @@ function paint({
 
 // TODO: How to get this to not override everything?
 function act($) {
-  if ($.event.is("lift")) sampled = false;
+  if ($.event.is("lift")) {
+    sampled = false;
+    samples.length = 0;
+  }
 }
 
 export { paint, act };

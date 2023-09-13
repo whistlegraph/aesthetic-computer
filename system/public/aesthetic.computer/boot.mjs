@@ -136,7 +136,8 @@ if (window.location.pathname.length > 1) {
 // Or it can be set by a custom host...
 if (location.hostname === "m2w2.whistlegraph.com")
   window.acSTARTING_PIECE = "wg~m2w2";
-if (location.hostname === "botce.ac") window.acSTARTING_PIECE = "botce";
+if (location.hostname === "botce.ac")
+  window.acSTARTING_PIECE = "wPyYL4osf6Cw0pkHn_E5I-botce";
 
 if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";
 

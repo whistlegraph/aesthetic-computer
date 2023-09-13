@@ -67,11 +67,16 @@
     Access-Control-Allow-Origin = "*"
     Content-Security-Policy = "script-src 'self' blob: 'unsafe-eval';"
     Vary = "*"
-# [[redirects]]
-#    from = "https://botce.ac/*"
-#    to = "https://aesthetic-computer.netlify.app/botce"
-#    status = 200
-#    force = true
+[[redirects]]
+   from = "https://botce.ac/wPyYL4osf6Cw0pkHn_E5I-botce"
+   to = "https://aesthetic.computer/wPyYL4osf6Cw0pkHn_E5I-botce"
+   status = 200
+   force = true
+[[redirects]]
+   from = "https://botce.ac"
+   to = "https://sotce.com"
+   status = 301
+   force = true
 [[redirects]]
   from = "/media/*"
   to = "https://aesthetic-computer-router.aesthetic-computer.workers.dev/media/:splat"
@@ -124,7 +129,7 @@
 #   status = 200
 #   force = false
 [[redirects]]
-  from = "https://logo.aesthetic.computer/*"
+  from = "https://pals.aesthetic.computer/*"
   to = "https://aesthetic.computer/api/logo/:splat"
   status = 200
   force = true
@@ -146,8 +151,8 @@
   to = "/.netlify/functions/print"
   status = 200
 [[redirects]]
-  from = "/api/logo"
-  to = "/.netlify/functions/logo"
+  from = "/api/logo/*"
+  to = "/.netlify/functions/logo/:splat"
   status = 200
 [[redirects]]
   from = "/api/pixel/*"
