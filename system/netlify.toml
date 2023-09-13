@@ -73,7 +73,7 @@
    status = 200
    force = true
 [[redirects]]
-   from = "https://botce.ac/*"
+   from = "https://botce.ac"
    to = "https://sotce.com"
    status = 301
    force = true
