@@ -339,6 +339,10 @@ class TextInput {
     this.#lastUserText = "";
   }
 
+  addUserText(txt) {
+    this.#lastUserText = txt;
+  }
+
   // Snap cursor to the end of text.
   snap() {
     this.#prompt.snapTo(this.text);
