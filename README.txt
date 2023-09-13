@@ -73,12 +73,14 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** Onboarding ***
-  - [] Make auth0 emails match the formatting & tone of the print order emails.
-    - [] Welcome and please verify email.
-      - [] Where is the user directed to after clicking the verify link?
-           (What are the possibilities here?)
-    - [] Thank you for confirming your email.
-  - [] Help the user through the process of making their profile... 
+  - [] Add verification to handle confirmation in API.
+  - [] Add change email command / link.
+  + Done
+  - [x] Thank you for confirming your email.
+  - [x] Make auth0 emails match the formatting & tone of the print order emails.
+    - [x] Welcome and please verify email.
+      - [x] Where is the user directed to after clicking the verify link?
+            (What are the possibilities here?)
 
 *** BakTok ***
   - [] Make the audio scrubbable.

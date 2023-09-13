@@ -129,7 +129,7 @@
 #   status = 200
 #   force = false
 [[redirects]]
-  from = "https://logo.aesthetic.computer/*"
+  from = "https://pals.aesthetic.computer/*"
   to = "https://aesthetic.computer/api/logo/:splat"
   status = 200
   force = true
@@ -151,8 +151,8 @@
   to = "/.netlify/functions/print"
   status = 200
 [[redirects]]
-  from = "/api/logo"
-  to = "/.netlify/functions/logo"
+  from = "/api/logo/*"
+  to = "/.netlify/functions/logo/:splat"
   status = 200
 [[redirects]]
   from = "/api/pixel/*"
