@@ -46,7 +46,7 @@ export async function handler(event, context) {
 
     // And that we are logged in...
     const user = await authorize(event.headers);
-    if (user) {
+    if (user && user.email_verified) {
       // 🔑 We are logged in!
       const database = await connect(); // 📕 Database
       const collection = database.db.collection("@handles");
@@ -88,7 +88,11 @@ export async function handler(event, context) {
       // Successful handle change...
       return respond(200, { handle: body.handle });
     } else {
-      return respond(401, { message: "Authorization failure..." });
+      if (user) {
+        return respond(401, { message: "unverified" });
+      } else {
+        return respond(401, { message: "unauthorized" });
+      }
     }
   } catch (error) {
     return respond(400, { message: "Cannot parse input body." });
