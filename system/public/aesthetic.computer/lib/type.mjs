@@ -260,6 +260,7 @@ class TextInput {
     this.copiedCallback = options.copied;
 
     // Load typeface, preventing double loading of the system default.
+    if (!options.font) options.font = font1; // Use preloaded font as needed.
     if ($.typeface?.data !== options.font) {
       this.typeface = new Typeface(options.font); // Load custom typeface.
       this.typeface.load($.net.preload);
