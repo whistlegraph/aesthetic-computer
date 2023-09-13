@@ -223,7 +223,8 @@ let currentPath,
   currentHUDText,
   currentHUDTextColor,
   currentHUDButton,
-  currentHUDOffset;
+  currentHUDOffset,
+  currentPromptButton;
 let loading = false;
 let reframe;
 
@@ -2199,6 +2200,7 @@ async function load(
   currentHUDOffset = undefined; // Always reset these to the defaults.
   currentHUDTextColor = undefined;
   currentHUDButton = undefined;
+  currentPromptButton = undefined;
 
   // ***Client Metadata Fields***
   // Set default metadata fields for SEO and sharing,
@@ -3213,6 +3215,12 @@ async function makeFrame({ data: { type, content } }) {
     };
     $commonApi.display = currentDisplay;
 
+    currentPromptButton?.reposition({
+      left: 6,
+      bottom: 6,
+      screen: $activePaintApi.screen,
+    });
+
     // Only trigger a reframe event if we have already passed `boot` (painted
     // at least once)
     if (booted) reframed = true;
@@ -3662,6 +3670,7 @@ async function makeFrame({ data: { type, content } }) {
                 volume: 0.15,
               });
               // send({ type: "keyboard:open" });
+              //send({ type: "keyboard:open" });
               jump("prompt");
               // pieceHistoryIndex > 0
               //   ? send({ type: "back-to-piece" })
@@ -3678,10 +3687,54 @@ async function makeFrame({ data: { type, content } }) {
               $api.needsPaint();
             },
             rollover: (btn) => {
-              // if (btn) send({ type: "keyboard:unlock" });
+              if (btn) send({ type: "keyboard:unlock" });
             },
             rollout: () => {
-              // send({ type: "keyboard:lock" });
+              send({ type: "keyboard:lock" });
+            },
+          });
+
+          currentPromptButton?.act(e, {
+            down: () => {
+              send({ type: "keyboard:enabled" }); // Enable keyboard flag.
+              send({ type: "keyboard:unlock" });
+              $api.needsPaint();
+              masked = true;
+              $api.sound.synth({
+                type: "sine",
+                tone: 600,
+                attack: 0.1,
+                decay: 0.99,
+                volume: 0.75,
+                duration: 0.001,
+              });
+            },
+            push: () => {
+              $api.sound.synth({
+                type: "sine",
+                tone: 800,
+                attack: 0.1,
+                decay: 0.99,
+                volume: 0.75,
+                duration: 0.005,
+              });
+              send({ type: "keyboard:open" });
+              jump("prompt");
+              $api.needsPaint();
+              masked = true;
+            },
+            cancel: () => {
+              // TODO: This might break on pieces where the keyboard is already
+              //       open.
+              send({ type: "keyboard:disabled" }); // Disable keyboard flag.
+              send({ type: "keyboard:lock" });
+              $api.needsPaint();
+            },
+            rollover: (btn) => {
+              if (btn) send({ type: "keyboard:unlock" });
+            },
+            rollout: () => {
+              send({ type: "keyboard:lock" });
             },
           });
 
@@ -4019,8 +4072,32 @@ async function makeFrame({ data: { type, content } }) {
         //await painting.paint();
 
         // Upper layer.
-        const { layer, ink, needsPaint } = $api;
+        const { layer, ink, needsPaint, pieceCount } = $api;
         layer(1000); // Always make sure this stuff draws on top.
+
+        const piece = $api.slug?.split("~")[0];
+
+        if (
+          !previewMode &&
+          !iconMode &&
+          !hideLabel &&
+          system !== "prompt" &&
+          piece !== "textfence" &&
+          piece !== "bleep" &&
+          piece !== undefined &&
+          piece.length > 0 &&
+          piece !== "painting" &&
+          pieceCount > 0
+        ) {
+          currentPromptButton =
+            currentPromptButton ||
+            new $api.ui.TextButton("Prompt", {
+              left: 6,
+              bottom: 6,
+              screen: $api.screen,
+            });
+          currentPromptButton.paint($api);
+        }
 
         // 😱 Scream - Paint a scream if it exists.
         // TODO: Should this overlay after the fact and not force a paint? 23.05.23.19.21
@@ -4063,13 +4140,16 @@ async function makeFrame({ data: { type, content } }) {
 
         // Show a notice if necessary.
         if (notice) {
-          ink(noticeColor[0]).write(
-            notice,
-            { center: "xy", size: 2 },
-            // { center: "x", y: 32, size: 2 },
-            noticeColor[1],
-            $api.screen.width - 8
-          );
+          ink(noticeColor[0])
+            //.pan(help.choose(-1, 0, 1), help.choose(-1, 0, 1))
+            .write(
+              notice,
+              { center: "xy", size: 2 },
+              // { center: "x", y: 32, size: 2 },
+              noticeColor[1],
+              $api.screen.width - 8
+            );
+          //.unpan();
         }
 
         layer(0);
@@ -4093,7 +4173,7 @@ async function makeFrame({ data: { type, content } }) {
       // TODO: ❤️‍🔥 Why is this being composited by a different thread?
       //       Also... where do I put a scream?
 
-      // System info.
+      // System info label (addressability).
       let label;
       const piece = currentHUDText?.split("~")[0];
       const defo = 6; // Default offset
@@ -4325,7 +4405,7 @@ const noticeBell = (api, { tone } = { tone: 600 }) => {
     volume: 0.25,
   });
 
-  noticeTimer = new gizmo.Hourglass(180, {
+  noticeTimer = new gizmo.Hourglass(160, {
     completed: () => {
       notice = "";
       noticeTimer = null;
