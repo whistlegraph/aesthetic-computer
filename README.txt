@@ -72,21 +72,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Onboarding Bugs ***
-  - [-] `prompt` button appears in bottom left corner in all pieces
-       but pieces can opt out and only when coming from the prompt
-  + Done
-  - [x] `enter` and `backspace` as primary keyboard shortcuts
-  - [x] profile page when not logged in should say sign up to create profile
-  - [x] uploading media with no handle should still use email 
-  - [x] pressing back button requires extra prompt tap
-  - [x] back button does not bring up keyboard... (same as above?)
-  - [x] handle with no parameters should flash EMPTY
-  - [x] unverified = email unverified and wrap the message
-  - [x] same email should say taken
-  - [x] typing "me" in one tab after setting handle in another tab
-       does not get the handle update
-
 *** `booted-by` ***
   - [] 10 tappable bars with decoration.
   - [] `booted-by` - your text and your url

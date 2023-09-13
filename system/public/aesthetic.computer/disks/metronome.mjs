@@ -21,6 +21,9 @@ let melodyIndex = 0;
 let square;
 let firstBeat = true;
 
+function boot() {
+}
+
 // 💗 Beat
 function beat({ sound, params, store }) {
   // Set the system metronome using `store`.
@@ -90,7 +93,7 @@ const paint = ({ wipe, ink, line, screen, num: { lerp } }) => {
   );
 };
 
-export { beat, sim, paint };
+export { boot, beat, sim, paint };
 
 // 📚 Library
 // ...
