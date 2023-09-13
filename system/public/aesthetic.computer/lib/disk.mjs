@@ -38,10 +38,9 @@ const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading 
 import { setDebug } from "../disks/common/debug.mjs";
 
 const defaults = {
-  boot: ({ resize, cursor, screen: { width, height }, resolution, slug }) => {
+  boot: ({ resize, cursor, screen: { width, height }, resolution }) => {
     // resize(width / 2, height / 2);
-    console.log("🐌 Boot slug:", slug);
-    if (slug?.indexOf("botce") > -1) resolution(width, height, 0);
+    if (location.host.indexOf("botce") > -1) resolution(width, height, 0);
     cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
@@ -1334,7 +1333,7 @@ const $paintApi = {
     // 🎁
     // See if the text length is greater than the bounds, and if it is then
     // print on a new line.
-    const scale = pos.size || 1;
+    const scale = pos?.size || 1;
 
     if (bounds) {
       let run = 0;
@@ -1363,7 +1362,6 @@ const $paintApi = {
           (lines.length * blockHeight) / 2 +
           blockHeight / 2;
       }
-      console.log(pos.y, lines.length);
 
       lines.forEach((line, index) => {
         tf?.print($activePaintApi, pos, index, line.join(" "), bg);
