@@ -72,15 +72,9 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** BakTok ***
-  - [] Make the audio scrubbable.
-
-*** Logo ***
-  - [] Add ice cream pals to `pals.aesthetic.computer.`
-  - [] See if this starts working: https://logo.aesthetic.computer/painting-2023.8.01.14.04.png
-
 *** Painting ***
   - [-] Add Zoom for all brushes. 🔵
+    - [🧡] (Make sure erase works perfectly in rect)
     - [🟠] `line` 
       (Read implementation in `rect`)
     - [] `oval`
@@ -98,7 +92,14 @@
   - [x] Make sure `nopan` centers a zoomed canvas. 
   - [x] Implement for `rect`
   - [x] Add basic rainbow for `rect` and `line`.
-  
+
+*** BakTok ***
+  - [] Make the audio scrubbable.
+
+*** Logo ***
+  - [] Add ice cream pals to `pals.aesthetic.computer.`
+  - [] See if this starts working: https://logo.aesthetic.computer/painting-2023.8.01.14.04.png
+
 *** Painting Listing Pages ***
   - [] Scrape all user media and add records to the database.
     - [] Write a one-time runnable task for this.
