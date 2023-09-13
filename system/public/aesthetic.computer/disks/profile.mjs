@@ -53,7 +53,7 @@ async function boot({ params, user, handle, debug, hud, net, get }) {
   if (user) console.log("😉 Logged in as...", handle() || user?.name);
 
   if (!visiting) {
-    noprofile = "no handle";
+    noprofile = "sign up to create profile";
     return;
   }
   // 🎆 Check to see if this user's profile actually exists via a server-side call.
@@ -68,7 +68,7 @@ async function boot({ params, user, handle, debug, hud, net, get }) {
         noprofile = null;
       } else {
         if (debug) console.warn("🙍 Profile not found:", data);
-        noprofile = "no handle";
+        noprofile = "no profile found";
       }
     })
     .catch((error) => {
