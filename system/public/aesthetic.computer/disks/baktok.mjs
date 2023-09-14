@@ -253,7 +253,7 @@ async function act({
 // 📰 Meta
 function meta() {
   return {
-    title: "BakTok · aesthetic.computer",
+    title: "BakTok",
     desc: "Learn 2 talk backwards.",
   };
 }
