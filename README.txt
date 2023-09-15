@@ -72,6 +72,13 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** textfence ***
+  - [] Title of tab is merely "textfence".
+  - [] Fix duplicate playback of phrases.
+  - [] Write an IPFS compatible exporter.
+  - [] Dump all phrases to static audio and use them on a flag / with
+       the exporter.
+
 *** camera backdrop ***
   - [] Add background painting to camera.
 
