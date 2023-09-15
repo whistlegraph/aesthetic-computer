@@ -72,20 +72,11 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** textfence ***
-  - [] Title of tab is merely "textfence".
-  - [] Fix duplicate playback of phrases.
-  - [] Write an IPFS compatible exporter.
-  - [] Dump all phrases to static audio and use them on a flag / with
-       the exporter.
 
-*** camera backdrop ***
-  - [] Add background painting to camera.
-
-*** `booted-by` ***
-  - [] 10 tappable bars with decoration.
-  - [] `booted-by` - your text and your url
-    - [] Make this a nice payment page
+*** tape ***
+ - [] downloadable `baktok` video.
+ - [] system-wide `tape` command to record voice with everything else.
+      (Default 30 seconds with progress bar)
 
 *** iOS ***
   - [🟡] Audio loads inconsistently / slowly on iOS. 
@@ -93,6 +84,30 @@
   - [] Test camera facing mode / get swap working.
   - [] Page sometimes doesn't load on iOS, so what's the hangup?
   - [] Camera should be aligned to the canvas size...
+
+*** textfence ***
+  - [] Title of tab is merely "textfence".
+  - [] Fix duplicate playback of phrases.
+  - [] Write an IPFS compatible exporter.
+  - [] Dump all phrases to static audio and use them on a flag / with
+       the exporter.
+
+*** landing page ***
+  - [] Add support for transparent animation. (Starfield)
+    - (Dont show if logged in.)
+  - [] ### signups so far
+
+*** mood links ***
+  - [] underlined and different colors
+  - [] links to pieces and surround with ``. 
+
+*** `booted-by` ***
+  - [] 10 tappable bars with decoration.
+  - [] `booted-by` - your text and your url
+    - [] Make this a nice payment page
+
+*** camera backdrop ***
+  - [] Add background painting to camera.
 
 *** Painting ***
   - [-] Add Zoom for all brushes. 🔵
