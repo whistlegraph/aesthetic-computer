@@ -260,8 +260,8 @@ function act($) {
 // 📰 Meta
 function meta() {
   return {
-    title: "click | here • textfence",
-    desc: "A dynamic poem for two characters and two words.",
+    title: "textfence",
+    desc: "A dynamic line punctuated by a vertical fence.",
   };
 }
 
