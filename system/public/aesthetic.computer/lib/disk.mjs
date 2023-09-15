@@ -4089,7 +4089,7 @@ async function makeFrame({ data: { type, content } }) {
         ) {
           currentPromptButton =
             currentPromptButton ||
-            new $api.ui.TextButton("Prompt", {
+            new $api.ui.TextButton("Back", {
               left: 6,
               bottom: 6,
               screen: $api.screen,
