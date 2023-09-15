@@ -72,6 +72,9 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** camera backdrop ***
+  - [] Add background painting to camera.
+
 *** `booted-by` ***
   - [] 10 tappable bars with decoration.
   - [] `booted-by` - your text and your url
