@@ -402,9 +402,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (debug && logs.deps) console.log("📼 FFmpeg has loaded.", FFmpeg);
         resolve(FFmpeg);
       };
-
       document.head.appendChild(script);
     });
+    // return await import(`/aesthetic.computer/dep/@ffmpeg/ffmpeg-core.js`);
   }
 
   async function loadJSZip() {
@@ -580,7 +580,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       try {
         micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            echoCancellation: true,
+            echoCancellation: true, // Eventually put this behind a flag.
             latency: 0,
             noiseSuppression: true,
             autoGainControl: true,
@@ -767,7 +767,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         };
 
         soundProcessor.connect(audioStreamDest); // Connect to the mediaStream.
-
         soundProcessor.connect(audioContext.destination);
 
         // Run any held audio on resume / sounds on initial button presses or taps.
@@ -861,6 +860,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       source.connect(panNode);
       panNode.connect(gainNode);
       gainNode.connect(audioContext.destination);
+      gainNode.connect(audioStreamDest);
 
       source.addEventListener("ended", () => {
         source.disconnect();
@@ -881,6 +881,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (debug && logs.audio) console.log("🔈 Killing...", id);
           source.disconnect();
           gainNode.disconnect();
+          panNode.disconnect();
           delete sfxPlaying[id];
         },
         progress: () => {
@@ -2343,7 +2344,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         const canvasStream = streamCanvasContext.canvas.captureStream(30);
 
-        canvasStream.addTrack(audioStreamDest.stream.getAudioTracks()[0]);
+        audioStreamDest.stream.getAudioTracks().forEach((track) => {
+          canvasStream.addTrack(track);
+        });
+
         mediaRecorder = new MediaRecorder(canvasStream, options);
       }
 
@@ -2387,6 +2391,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
 
           const { createFFmpeg, fetchFile } = await loadFFmpeg();
+          // const { FFmpeg } = await loadFFmpeg();
 
           let transcodeProgress = 0;
 
@@ -2594,7 +2599,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "recorder:slate") {
-      // mediaRecorder = undefined;
+      mediaRecorder = undefined;
     }
 
     if (type === "load-bitmap") {

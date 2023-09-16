@@ -72,11 +72,14 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-
 *** tape ***
- - [] downloadable `baktok` video.
- - [] system-wide `tape` command to record voice with everything else.
-      (Default 30 seconds with progress bar)
+ - [🟠] system-wide `tape` command to record voice with everything else.
+      (Default 30 seconds with progress bar of some kind)
+ - [] Because `tape` connects the microphone and also includes the audio
+      jumping to `baktok` while a tape is being recorded would be no problem.
+ - [] A `jump` to any url or signing in and out (leaving the site) 
+      should cancel a tape or make a sound when the tape is cut off.
+ - [c] downloadable `baktok` video.
 
 *** iOS ***
   - [🟡] Audio loads inconsistently / slowly on iOS. 
@@ -101,6 +104,9 @@
   - [] underlined and different colors
   - [] links to pieces and surround with ``. 
 
+*** fairy pond ***
+  - [] a place where connected cursors can communicate with disappearing lines
+
 *** `booted-by` ***
   - [] 10 tappable bars with decoration.
   - [] `booted-by` - your text and your url
@@ -108,6 +114,16 @@
 
 *** camera backdrop ***
   - [] Add background painting to camera.
+
+*** painting forking ***
+
+*** painting listings ***
+  - [] `profile` should be table to <- -> on a user's paintings 
+       (tap into lightbox for painting / playback)
+  - [] move `mood` to be to the top left to the right of username
+
+*** `painters` ***
+  - [] A listing / gallery view.
 
 *** Painting ***
   - [-] Add Zoom for all brushes. 🔵

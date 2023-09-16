@@ -5,6 +5,7 @@
 export class Hourglass {
   ticks = 0;
   max = 1;
+  progress = 0;
   complete = false;
   flips = 0n;
   #completed;
@@ -32,8 +33,11 @@ export class Hourglass {
 
     this.#every?.();
 
+    this.progress = this.ticks / this.max;
+
     if (this.ticks >= this.max) {
       this.complete = true;
+      this.progress = 1;
       this.#completed?.(this.flips);
       if (this.#autoFlip) this.flip();
     }
