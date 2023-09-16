@@ -243,9 +243,12 @@ async function act({
     btn.down = false;
     const { id, data } = await microphone.cut(); // End recording and get the sample.
     sampleData = data;
-    sample = play(id, { reverse: true, loop: true }); // TODO: Get reverse working.
+    sample = play(id, { reverse: true, loop: true });
     capturing = false;
     playing = true;
+
+    // TODO: Queue / trigger video to record...
+    
     btn.reposition({ center: "xy", screen }, "Repeat");
   }
 }
@@ -254,7 +257,7 @@ async function act({
 function meta() {
   return {
     title: "BakTok",
-    desc: "Learn 2 talk backwards.",
+    desc: "Learn to talk backwards.",
   };
 }
 
