@@ -368,8 +368,17 @@ class Recorder {
   playing = false; // "
   cutCallback;
   printCallback;
+  tapeHourglass;
+  tapeProgress = 0;
 
   constructor() {}
+
+  tapeTimer(seconds) {
+    this.tapeHourglass = new gizmo.Hourglass(120 * seconds, {
+      completed: () => this.cut(() => $commonApi.jump("video")),
+      every: () => $commonApi.needsPaint(),
+    });
+  }
 
   slate() {
     send({ type: "recorder:slate" }); // Kill the MediaRecorder instance.
@@ -388,11 +397,11 @@ class Recorder {
 
   cut(cb) {
     $commonApi.rec.cutCallback = cb;
+    this.tapeHourglass = null;
     send({ type: "recorder:cut" });
   }
 
   print(cb) {
-    // $commonApi.rec.printing = true; // Set this to `true` right away.
     $commonApi.rec.printCallback = cb;
     send({ type: "recorder:print" });
   }
@@ -462,7 +471,7 @@ const $commonApi = {
             console.log("Painting upload progress:", p);
             progress?.(p);
           },
-          "art" // Store in temporary bucket no matter what.
+          "art", // Store in temporary bucket no matter what.
         );
         console.log("🪄 Painting uploaded:", data.slug, data.ext, data.url);
         pixels = `${data.slug}.${data.ext}`;
@@ -493,7 +502,7 @@ const $commonApi = {
       const data = await res.json();
       if (!res.ok)
         throw new Error(
-          `🖨️ Print: HTTP error! Status: ${JSON.stringify(data)}`
+          `🖨️ Print: HTTP error! Status: ${JSON.stringify(data)}`,
         );
       console.log("🖨️ Print order:", data);
       $commonApi.jump(data.location); // Redirect to checkout.
@@ -549,7 +558,7 @@ const $commonApi = {
           const extension = opts?.record ? "zip" : "png";
           if (handle === "anon") {
             return $commonApi.net.preload(
-              encodeURI(`https://art.aesthetic.computer/${code}.${extension}`)
+              encodeURI(`https://art.aesthetic.computer/${code}.${extension}`),
             );
           } else {
             // Get the user sub from the handle or email...
@@ -560,15 +569,15 @@ const $commonApi = {
                 const json = await res.json();
                 return $commonApi.net.preload(
                   encodeURI(
-                    `https://user.aesthetic.computer/${json.sub}/painting/${code}.${extension}`
-                  )
+                    `https://user.aesthetic.computer/${json.sub}/painting/${code}.${extension}`,
+                  ),
                 );
               } else {
                 console.error(`Error: ${res.status} ${res.statusText}`);
                 console.error(
                   `Response headers: ${JSON.stringify(
-                    Array.from(res.headers.entries())
-                  )}`
+                    Array.from(res.headers.entries()),
+                  )}`,
                 );
               }
             } catch (error) {
@@ -755,10 +764,10 @@ const $commonApi = {
         }
 
         sys.nopaint.translation.x = floor(
-          screen.width / 2 - sys.painting.width / 2
+          screen.width / 2 - sys.painting.width / 2,
         );
         sys.nopaint.translation.y = floor(
-          screen.height / 2 - sys.painting.height / 2
+          screen.height / 2 - sys.painting.height / 2,
         );
       },
       storeTransform: (store, sys) => {
@@ -796,10 +805,10 @@ const $commonApi = {
 
         // Adjust the translation based on the scaling factor and the cursor's position
         system.nopaint.translation.x = floor(
-          cursor.x + (system.nopaint.translation.x - cursor.x) * scale
+          cursor.x + (system.nopaint.translation.x - cursor.x) * scale,
         );
         system.nopaint.translation.y = floor(
-          cursor.y + (system.nopaint.translation.y - cursor.y) * scale
+          cursor.y + (system.nopaint.translation.y - cursor.y) * scale,
         );
       },
       brush: { x: 0, y: 0, dragBox: undefined },
@@ -812,10 +821,10 @@ const $commonApi = {
       updateBrush: ({ pen, system, num }, act) => {
         let zoom = system.nopaint.zoomLevel;
         const x = Math.floor(
-          ((pen?.x || 0) - system.nopaint.translation.x) / zoom
+          ((pen?.x || 0) - system.nopaint.translation.x) / zoom,
         );
         const y = Math.floor(
-          ((pen?.y || 0) - system.nopaint.translation.y) / zoom
+          ((pen?.y || 0) - system.nopaint.translation.y) / zoom,
         );
 
         if (act === "touch") system.nopaint.startDrag = { x, y };
@@ -828,7 +837,7 @@ const $commonApi = {
             (x >= system.nopaint.startDrag.x ? 1 : -1),
           y -
             system.nopaint.startDrag.y +
-            (y >= system.nopaint.startDrag.y ? 1 : -1)
+            (y >= system.nopaint.startDrag.y ? 1 : -1),
         );
 
         system.nopaint.brush = { x: x, y: y, dragBox };
@@ -869,7 +878,7 @@ const $commonApi = {
               y,
               system.painting.width * system.nopaint.zoomLevel,
               system.painting.height * system.nopaint.zoomLevel,
-              "outline"
+              "outline",
             );
         }
 
@@ -1084,7 +1093,7 @@ async function session(slug, forceProduction = false, service) {
 
   if (debug && logs.session)
     console.log(
-      `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`
+      `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`,
     );
   // Return the active session if the server knows it's "Ready", otherwise
   // wait for the one we requested to spin up.
@@ -1094,7 +1103,7 @@ async function session(slug, forceProduction = false, service) {
     return session;
   } else {
     let eventSource = new EventSource(
-      `https://api.jamsocket.com/backend/${session.name}/status/stream`
+      `https://api.jamsocket.com/backend/${session.name}/status/stream`,
       // See also: https://docs.jamsocket.com/api-docs/#get-a-backends-status-stream
     );
 
@@ -1404,7 +1413,7 @@ function form(
     cpu: false,
     keep: true,
     background: backgroundColor3D,
-  }
+  },
 ) {
   // Exit silently if no forms are present.
   if (forms === undefined || forms?.length === 0) return;
@@ -1755,7 +1764,7 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
     height,
     "from",
     screen.width,
-    screen.height
+    screen.height,
   );
 
   // 3. Assign the generated or manual width and height.
@@ -1893,7 +1902,7 @@ async function load(
   fromHistory = false,
   alias = false,
   devReload = false,
-  loadedCallback
+  loadedCallback,
 ) {
   let fullUrl, source;
   let params,
@@ -1912,7 +1921,7 @@ async function load(
     console.warn(
       "Coudn't load:",
       parsed.path || parsed.name,
-      "(Already loading.)"
+      "(Already loading.)",
     );
     return true;
   }
@@ -1963,7 +1972,7 @@ async function load(
     ) {
       console.warn(
         "🙅 Not reloading, code signal invalid:",
-        codeChannel || "N/A"
+        codeChannel || "N/A",
       );
       return;
     }
@@ -2036,7 +2045,7 @@ async function load(
             p3 === "./" ? "/disks" : ""
           }/${p4.replace(/\.\.\//g, "")}`;
           return `${p1} { ${p2} } from "${url}";`;
-        }
+        },
       );
 
       updatedCode = updatedCode.replace(oneDot, (match, p1, p2, p3) => {
@@ -2119,7 +2128,7 @@ async function load(
         // Use the existing contextual values when live-reloading in debug mode.
         true, // (fromHistory) ... never add any reload to the history stack
         alias,
-        devReload
+        devReload,
       );
     }
   };
@@ -2165,7 +2174,7 @@ async function load(
           () => {
             // Post-connection logic.
             if (codeChannel) socket.send("code-channel:sub", codeChannel);
-          }
+          },
         );
       })
       .catch((err) => {
@@ -2221,7 +2230,7 @@ async function load(
         ...parsed,
         num: $commonApi.num,
         store: $commonApi.store,
-      })
+      }),
     );
 
     meta = {
@@ -2304,7 +2313,7 @@ async function load(
   $commonApi.net.preload = async function (
     path,
     parseJSON = true,
-    progressReport
+    progressReport,
   ) {
     let extension;
     if (soundWhitelist.includes(path)) {
@@ -2440,7 +2449,7 @@ async function load(
         colon.map((c) => `:` + c).join("") +
         params.map((p) => `~` + p).join(""),
       true,
-      false
+      false,
     );
   };
 
@@ -2546,7 +2555,7 @@ async function load(
           module.scheme,
           wrap,
           module.copied,
-          module.activated
+          module.activated,
         );
         await module.boot?.($);
       };
@@ -2760,7 +2769,7 @@ async function makeFrame({ data: { type, content } }) {
     if (currentPath === "aesthetic.computer/disks/prompt") {
       $commonApi.system.nopaint.replace(
         { system: $commonApi.system, store, needsPaint: $commonApi.needsPaint },
-        content.source
+        content.source,
       );
     } else {
       console.warn("🖼️ Dropped images only function in the `prompt`.");
@@ -2904,7 +2913,6 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.rec.printProgress = content;
     if (content === 1) {
       send({ type: "signal", content: "recorder:transcoding-done" });
-      $commonApi.rec.printing = false;
       // TODO: Is this the best place for this signal to be sent?
       //       Maybe it should go back in the BIOS? 22.08.19.13.44
     }
@@ -2924,14 +2932,12 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "recorder:printing:started") {
-    $commonApi.rec.printing = true;
     return;
   }
 
   if (type === "recorder:printed") {
     $commonApi.rec.printed = true;
     $commonApi.rec.printCallback?.(content);
-    $commonApi.rec.printing = false;
     return;
   }
 
@@ -3320,7 +3326,7 @@ async function makeFrame({ data: { type, content } }) {
       const primaryPointer = help.findKeyAndValue(
         content.pen.pointers,
         "isPrimary",
-        true
+        true,
       );
 
       // Returns all [pens] if n is undefined, or can return a specific pen by 1 based index.
@@ -3488,7 +3494,7 @@ async function makeFrame({ data: { type, content } }) {
       Object.keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
       Object.keys($updateApi).forEach((key) => ($api[key] = $updateApi[key]));
       Object.keys(painting.api).forEach(
-        (key) => ($api[key] = painting.api[key])
+        (key) => ($api[key] = painting.api[key]),
       );
       $api.api = $api; // Add a reference to the whole API.
 
@@ -3536,6 +3542,7 @@ async function makeFrame({ data: { type, content } }) {
               hourGlasses[i].step();
               if (hourGlasses[i].complete) hourGlasses.splice(i, 1);
             }
+            $api.rec.tapeHourglass?.step();
           } catch (e) {
             console.warn("🧮 Sim failure...", e);
           }
@@ -3808,7 +3815,7 @@ async function makeFrame({ data: { type, content } }) {
       const $api = {};
       Object.keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
       Object.keys(painting.api).forEach(
-        (key) => ($api[key] = painting.api[key])
+        (key) => ($api[key] = painting.api[key]),
       );
       $api.api = $api; // Add a reference to the whole API.
 
@@ -3928,12 +3935,12 @@ async function makeFrame({ data: { type, content } }) {
 
           store["painting:resolution-lock"] = await store.retrieve(
             "painting:resolution-lock",
-            "local:db"
+            "local:db",
           );
 
           store["painting:transform"] = await store.retrieve(
             "painting:transform",
-            "local:db"
+            "local:db",
           );
 
           addUndoPainting(store["painting"]);
@@ -3988,7 +3995,7 @@ async function makeFrame({ data: { type, content } }) {
                   .split("=")[1]
                   .split("x")
                   .map((n) => floor(parseInt(n) / 8)),
-                0
+                0,
               );
             }
             firstPreviewOrIcon = false;
@@ -4015,7 +4022,7 @@ async function makeFrame({ data: { type, content } }) {
                   .split("=")[1]
                   .split("x")
                   .map((n) => parseInt(n)),
-                0
+                0,
               );
             }
             firstPreviewOrIcon = false;
@@ -4136,6 +4143,15 @@ async function makeFrame({ data: { type, content } }) {
           ink("red").box(screen.width - 3, 1, 2);
         }
 
+        if ($api.rec.tapeHourglass?.progress > 0) {
+          ink("red").box(
+            0,
+            0,
+            screen.width * $api.rec.tapeHourglass.progress,
+            1,
+          );
+        }
+
         // Show a notice if necessary.
         if (notice) {
           ink(noticeColor[0])
@@ -4145,7 +4161,7 @@ async function makeFrame({ data: { type, content } }) {
               { center: "xy", size: 2 },
               // { center: "x", y: 32, size: 2 },
               noticeColor[1],
-              $api.screen.width - 8
+              $api.screen.width - 8,
             );
           //.unpan();
         }
@@ -4327,7 +4343,7 @@ async function makeFrame({ data: { type, content } }) {
             sound,
           },
         },
-        [pixels?.buffer]
+        [pixels?.buffer],
       );
     }
 

@@ -88,6 +88,8 @@ let firstActivation = true; // 🏳️ Used to trigger a startup 🔊🎆
 
 let startupSfx, keyboardSfx;
 
+let tapePromiseResolve, tapePromiseReject;
+
 // 🥾 Boot
 async function boot({
   glaze,
@@ -193,6 +195,8 @@ async function halt($, text) {
     help,
     zip,
     print,
+    rec,
+    sound,
   } = $;
   motdController?.abort(); // Abort any motd update.
 
@@ -230,7 +234,48 @@ async function halt($, text) {
       return { message: "unauthorized" };
     }
   }
-  if (slug === "me") {
+  if (slug === "tape") {
+    // jump("profile");
+    // rec: { slate, rolling, recording, printProgress },
+    rec.slate();
+    const tapePromise = new Promise((resolve, reject) => {
+      tapePromiseResolve = resolve;
+      tapePromiseReject = reject;
+    });
+    sound.microphone.connect(); // Connect the mic.
+    try {
+      await tapePromise;
+      // TODO: Start a global tape timer.
+      rec.tapeTimer(parseFloat(params[0]) || 30); // 15 Seconds by default.
+      flashColor = [0, 255, 0];
+    } catch (err) {
+      console.log(err);
+      flashColor = [255, 0, 0];
+    }
+    makeFlash($);
+    return true;
+  } else if (slug === "tape:cut") {
+    let cutRes, cutRej;
+    const cutPromise = new Promise((res, rej) => {
+      cutRes = res;
+      cutRej = rej;
+    });
+    setTimeout(cutRej, 250);
+    rec.cut(() => {
+      cutRes();
+      jump("video");
+    });
+    try {
+      await cutPromise;
+      flashColor = [0, 255, 0];
+      jump("video");
+    } catch (err) {
+      flashColor = [255, 0, 0];
+    }
+    makeFlash($);
+    // TODO: How can I hold the cursor here...
+    return true;
+  } else if (slug === "me") {
     jump("profile");
     return true;
   } else if (slug === "@maya/sparkle") {
@@ -334,7 +379,7 @@ async function halt($, text) {
           jump(`painting~${handle() || user?.name}/${data.slug}`); // For a user.
         } else {
           jump(
-            `painting~${data.slug}${recordingSlug ? ":" + recordingSlug : ""}`
+            `painting~${data.slug}${recordingSlug ? ":" + recordingSlug : ""}`,
           ); // Or for a guest.
         }
 
@@ -569,7 +614,7 @@ async function halt($, text) {
         const data = await upload(
           filename,
           store["painting"],
-          (p) => (progressBar = p)
+          (p) => (progressBar = p),
         );
         console.log("🪄 Painting uploaded:", filename, data);
         flashColor = [0, 255, 0, 128];
@@ -661,7 +706,7 @@ async function halt($, text) {
         painting,
         store,
         { w, h, scale: true },
-        fullText
+        fullText,
       );
       flashColor = result ? "lime" : "red";
     }
@@ -886,14 +931,14 @@ function paint($) {
       screen.width / 2,
       0,
       screen.width / 2,
-      screen.height
+      screen.height,
     );
     if (screen.width % 2 === 0) {
       $.ink(255, 0, 255, 127).line(
         screen.width / 2 - 1,
         0,
         screen.width / 2 - 1,
-        screen.height
+        screen.height,
       );
     }
   }
@@ -941,12 +986,25 @@ function act({
   jump,
   system,
   sound: { play, synth },
+  rec,
   user,
   send,
   handle,
 }) {
-  // 🔘 Buttons
+  // 📼 Taping
+  if (e.is("microphone-connect:success")) {
+    console.log("📼 Taping...");
+    rec.rolling("video"); // Start recording immediately.
+    tapePromiseResolve?.();
+  }
 
+  if (e.is("microphone-connect:failure")) {
+    console.warn("📼 🟡 Microphone failed to connect. Not taping.");
+    // TODO: How to re-approve permission here in a cross-browser way?
+    tapePromiseReject?.();
+  }
+
+  // 🔘 Buttons
   const downSound = () => {
     synth({
       type: "sine",

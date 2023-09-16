@@ -60,7 +60,7 @@ async function fun(event, context) {
   try {
     if (slug.startsWith("@") && slug.indexOf("/") !== -1) {
       const externalPiece = await getPage(
-        `https://${parsed.host}/${parsed.path}.mjs`
+        `https://${parsed.host}/${parsed.path}.mjs`,
       );
       // TODO: How can I run these pieces in a sandbox and then get the
       //       result of the meta function out? 23.09.01.16.29
@@ -105,13 +105,13 @@ async function fun(event, context) {
   const { title, desc, ogImage, icon, twitterImage } = metadata(
     event.headers["host"],
     slug,
-    meta
+    meta,
   );
 
   const assetURI = dev ? "/assets/" : "https://assets.aesthetic.computer/";
 
   const body = html`
-    <!DOCTYPE html>
+    <!doctype html>
     <html>
       <head>
         <meta charset="utf-8" />
@@ -136,6 +136,7 @@ async function fun(event, context) {
           name="viewport"
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
         />
+        <meta name="description" content="${desc}" />
         <meta name="og:title" content="${title}" />
         <meta name="og:description" content="${desc}" />
         <meta name="og:image" content="${ogImage}" />

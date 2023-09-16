@@ -46,7 +46,7 @@ const butSide = 6;
 let handle;
 let imageCode, recordingCode;
 
-let mintBtn; // A button to mint.
+//let mintBtn; // A button to mint.
 
 // 🥾 Boot
 function boot({ system, params, get, net, ui, screen, dom: { html } }) {
@@ -117,12 +117,12 @@ function boot({ system, params, get, net, ui, screen, dom: { html } }) {
       right: butSide,
       screen,
     });
-    mintBtn = new ui.TextButton(`Mint`, {
-      bottom: butBottom,
-      left: butSide,
-      screen,
-    });
-    mintBtn.disabled = true;
+    // mintBtn = new ui.TextButton(`Mint`, {
+    //   bottom: butBottom,
+    //   left: butSide,
+    //   screen,
+    // });
+    // mintBtn.disabled = true;
   }
   advance(system);
   // if (query.notice === "success") printBtn = null; // Kill button after order.
@@ -141,7 +141,7 @@ function paint({ wipe, ink, system, screen, num, paste }) {
       screen.height - btnBar,
     );
     printBtn?.paint({ ink });
-    mintBtn?.paint({ ink });
+    //mintBtn?.paint({ ink });
   }
 
   ink(96).box(0, screen.height - 1 - btnBar, screen.width, 1);
@@ -219,22 +219,22 @@ function act({ event: e, screen, print, mint, delay }) {
     },
   });
 
-  mintBtn?.act(e, {
-    push: async () => {
-      mintBtn.disabled = true;
-      mintBtn.reposition(
-        { right: butSide, bottom: butBottom, screen },
-        "Minting...",
-      );
-      await mint(slug);
-      mintBtn.disabled = false;
-      mintBtn.reposition({ right: butSide, bottom: butBottom, screen }, "Mint");
-    },
-  });
+  // mintBtn?.act(e, {
+  //   push: async () => {
+  //     mintBtn.disabled = true;
+  //     mintBtn.reposition(
+  //       { right: butSide, bottom: butBottom, screen },
+  //       "Minting...",
+  //     );
+  //     await mint(slug);
+  //     mintBtn.disabled = false;
+  //     mintBtn.reposition({ right: butSide, bottom: butBottom, screen }, "Mint");
+  //   },
+  // });
 
   if (e.is("reframed")) {
     printBtn?.reposition({ right: butSide, bottom: butBottom, screen });
-    mintBtn?.reposition({ left: butSide, bottom: butBottom, screen });
+    // mintBtn?.reposition({ left: butSide, bottom: butBottom, screen });
   }
 }
 
