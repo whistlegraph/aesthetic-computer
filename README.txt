@@ -75,6 +75,9 @@
 *** tape ***
  - [🟠] system-wide `tape` command to record voice with everything else.
       (Default 30 seconds with progress bar of some kind)
+  - [-] Put download button on bottom right of `video` page, removing the other lame buttons and skipping the `download` page.
+  - [] Support downloading of webm files and mp4 downloads on iOS, skipping
+       ffmpeg. 
  - [] Because `tape` connects the microphone and also includes the audio
       jumping to `baktok` while a tape is being recorded would be no problem.
  - [] A `jump` to any url or signing in and out (leaving the site) 

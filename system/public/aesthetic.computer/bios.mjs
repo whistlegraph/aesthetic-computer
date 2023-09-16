@@ -2390,57 +2390,56 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // TODO: Skip encoding.
           }
 
-          const { createFFmpeg, fetchFile } = await loadFFmpeg();
-          // const { FFmpeg } = await loadFFmpeg();
+          //   const { createFFmpeg, fetchFile } = await loadFFmpeg();
 
-          let transcodeProgress = 0;
+          //   let transcodeProgress = 0;
 
-          const ffmpeg = createFFmpeg({
-            log: debug,
-            progress: (p) => {
-              // Send a message to the piece that gives the transcode progress.
-              let time = p.time;
-              if (time === undefined) {
-                if (transcodeProgress === 0) {
-                  time = 0;
-                } else {
-                  time = recordingDuration;
-                }
-              }
-              transcodeProgress = min(1, time / recordingDuration);
-              send({
-                type: "recorder:transcode-progress",
-                content: transcodeProgress,
-              });
-            },
-          });
+          //   const ffmpeg = createFFmpeg({
+          //     log: debug,
+          //     progress: (p) => {
+          //       // Send a message to the piece that gives the transcode progress.
+          //       let time = p.time;
+          //       if (time === undefined) {
+          //         if (transcodeProgress === 0) {
+          //           time = 0;
+          //         } else {
+          //           time = recordingDuration;
+          //         }
+          //       }
+          //       transcodeProgress = min(1, time / recordingDuration);
+          //       send({
+          //         type: "recorder:transcode-progress",
+          //         content: transcodeProgress,
+          //       });
+          //     },
+          //   });
 
-          ffmpeg.setLogging(debug); // Enable ffmpeg logging only if we are in `debug` mode.
+          //   ffmpeg.setLogging(debug); // Enable ffmpeg logging only if we are in `debug` mode.
 
-          await ffmpeg.load();
-          ffmpeg.FS("writeFile", "input.video", await fetchFile(blob));
+          //   await ffmpeg.load();
+          //   ffmpeg.FS("writeFile", "input.video", await fetchFile(blob));
 
-          await ffmpeg.run(
-            "-i",
-            "input.video",
-            "-movflags",
-            "+faststart",
-            "-vf",
-            // General shaving to make even sides (required by the pixel format)
-            // "pad=ceil(iw/2)*2:ceil(ih/2)*2",
-            // TikTok
-            //"fps=30, scale=1080x1920:flags=neighbor:force_original_aspect_ratio=decrease, pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
-            "fps=30",
-            "output.mp4",
-          );
-          // Notes on these options:
-          // width expression: https://stackoverflow.com/a/20848224/8146077
-          // scaling: https://trac.ffmpeg.org/wiki/Scaling
-          // general info: https://avpres.net/FFmpeg/im_H264
+          //   await ffmpeg.run(
+          //     "-i",
+          //     "input.video",
+          //     "-movflags",
+          //     "+faststart",
+          //     "-vf",
+          //     // General shaving to make even sides (required by the pixel format)
+          //     // "pad=ceil(iw/2)*2:ceil(ih/2)*2",
+          //     // TikTok
+          //     //"fps=30, scale=1080x1920:flags=neighbor:force_original_aspect_ratio=decrease, pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
+          //     "fps=30",
+          //     "output.mp4",
+          //   );
+          //   // Notes on these options:
+          //   // width expression: https://stackoverflow.com/a/20848224/8146077
+          //   // scaling: https://trac.ffmpeg.org/wiki/Scaling
+          //   // general info: https://avpres.net/FFmpeg/im_H264
 
-          const file = ffmpeg.FS("readFile", "output.mp4");
+          //   const file = ffmpeg.FS("readFile", "output.mp4");
 
-          blob = new Blob([file.buffer], { type: "video/mp4" }); // Re-assign blob.
+          //   blob = new Blob([file.buffer], { type: "video/mp4" }); // Re-assign blob.
         }
 
         // Add the recording wrapper to the DOM, among other recordings that may exist.
@@ -3246,6 +3245,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           : `https://art.aesthetic.computer/${filename}`;
       }
     } else if (ext === "mp4") {
+      // TODO: Support other formats / webm passthrough. 23.09.15.22.41
       // 🎥 Video
       // Use `data` from the global Media Recorder.
       if (mediaRecorderBlob) {
