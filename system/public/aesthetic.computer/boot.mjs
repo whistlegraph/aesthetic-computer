@@ -46,9 +46,7 @@ if (!sandboxed && window.auth0) {
     clientId,
     cacheLocation: "localstorage",
     useRefreshTokens: true,
-    authorizationParams: {
-      redirect_uri: window.location.origin,
-    },
+    authorizationParams: { redirect_uri: window.location.origin },
   });
 
   window.auth0Client = auth0Client;
@@ -156,6 +154,13 @@ const parsed = parse(slug(window.location.href) || window.acSTARTING_PIECE);
 const bpm = 120; // Set the starting bpm. Is this still necessary?
 
 // TODO: Add params, search, and hash in here. 22.07.15.00.46
+
+// Wait for fonts to load before booting.
+if ("fonts" in document) {
+  await document.fonts.load("1em YWFTProcessing-Light");
+  await document.fonts.load("1em YWFTProcessing-Regular");
+  // await document.fonts.load("1em Berkeley Mono Variable");
+}
 
 boot(parsed, bpm, undefined, debug);
 

@@ -62,7 +62,7 @@ class Glaze {
       const [type, name] = uniformIdentifier.split(":");
       gl[`uniform${type}`](
         locations[name],
-        ...wrapNotArray(this.#uniforms[uniformIdentifier])
+        ...wrapNotArray(this.#uniforms[uniformIdentifier]),
       );
     });
   }
@@ -175,7 +175,7 @@ export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
     0,
     gl.RGBA,
     gl.UNSIGNED_BYTE,
-    buffer
+    buffer,
   );
 
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -203,7 +203,7 @@ export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
     0,
     gl.RGBA,
     gl.UNSIGNED_BYTE,
-    buffer2
+    buffer2,
   );
 
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -221,7 +221,7 @@ export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
     0,
     gl.RGBA,
     gl.UNSIGNED_BYTE,
-    buffer2
+    buffer2,
   );
 
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -239,7 +239,7 @@ export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
   // Position Attribute
   const positionAttributeLocation = gl.getAttribLocation(
     customProgram,
-    "a_position"
+    "a_position",
   );
   const positionBuffer = gl.createBuffer();
 
@@ -256,7 +256,7 @@ export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
   // Texture Coordinate Attribute
   const texCoordAttributeLocation = gl.getAttribLocation(
     customProgram,
-    "a_texc"
+    "a_texc",
   );
   const texCoordBuffer = gl.createBuffer();
 
@@ -285,7 +285,7 @@ export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
   gl.bufferData(
     gl.ELEMENT_ARRAY_BUFFER,
     new Uint16Array(indices),
-    gl.STATIC_DRAW
+    gl.STATIC_DRAW,
   );
 
   // Display Uniforms (Just the defaults.)
@@ -311,6 +311,10 @@ export function off() {
   offed = true;
 }
 
+export function getCan() {
+  return canvas;
+}
+
 // Turn glaze on if it has already been turned off.
 export async function on(
   w,
@@ -320,12 +324,18 @@ export async function on(
   nativeHeight,
   wrapper,
   type,
-  loaded
+  loaded,
 ) {
-
   //console.log("Starting a glaze...", glaze, arguments);
 
-  if (glaze && (glaze.type === type || type === undefined) && (glaze.w === w && glaze.h === h) && (rect.width === glaze.rect.width && rect.height === glaze.rect.height)) {
+  if (
+    glaze &&
+    (glaze.type === type || type === undefined) &&
+    glaze.w === w &&
+    glaze.h === h &&
+    rect.width === glaze.rect.width &&
+    rect.height === glaze.rect.height
+  ) {
     // Don't reload glaze from scratch if the same one has already been loaded.
 
     //console.log("Keeping glaze...", rect, glaze.rect);
@@ -366,7 +376,7 @@ export function update(texture, x = 0, y = 0) {
     texture.height,
     gl.RGBA,
     gl.UNSIGNED_BYTE,
-    texture // Note: passing in canvasTexture did not work in Safari 15.2 so I am passing in imageData instead.
+    texture, // Note: passing in canvasTexture did not work in Safari 15.2 so I am passing in imageData instead.
   );
 }
 
@@ -394,7 +404,7 @@ export function render(time, mouse) {
     gl.COLOR_ATTACHMENT0,
     gl.TEXTURE_2D,
     texFbSurfA,
-    0
+    0,
   );
 
   // Resolution of custom filter.
@@ -427,7 +437,7 @@ export function render(time, mouse) {
     gl.COLOR_ATTACHMENT0,
     gl.TEXTURE_2D,
     texFbSurfB,
-    0
+    0,
   );
 
   gl.viewport(0, 0, texSurfWidth, texSurfHeight);
@@ -443,12 +453,12 @@ export function render(time, mouse) {
   gl.uniform2f(
     gl.getUniformLocation(computeProgram, "iMouse"),
     mouse.x,
-    mouse.y
+    mouse.y,
   );
   gl.uniform2f(
     gl.getUniformLocation(computeProgram, "iResolution"),
     texSurfWidth,
-    texSurfHeight
+    texSurfHeight,
   );
 
   //glaze.setComputeUniforms(computeUniformLocations, gl);
@@ -474,7 +484,7 @@ export function render(time, mouse) {
   gl.uniform2f(
     displayUniformLocations.iResolution,
     gl.canvas.width,
-    gl.canvas.height
+    gl.canvas.height,
   );
   gl.uniform1f(displayUniformLocations.iTime, time);
   gl.drawElementsInstanced(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0, 1);

@@ -32,36 +32,48 @@
 
 import { EllipsisTicker } from "../lib/ellipsis-ticker.mjs";
 
-let btn,
-  nobtn,
-  label = "Download"; // "Export" | "Download" | "CODE" button.
-let slug; // Stores a download code for prepending to locally downloaded videos.
+let btn;
 let isPrinting = false;
 let ellipsisTicker;
 
 // 🥾 Boot (Runs once before first paint and sim)
-function boot({ wipe, rec, gizmo }) {
+function boot({ wipe, rec, gizmo, jump, notice }) {
+  if (rec.recording) {
+    notice("TAPING", ["yellow", "red"]);
+    jump("prompt");
+    return;
+  }
+
   wipe(0);
   rec.present(); // Visually present a recording right away if one exists.
+
   ellipsisTicker = new EllipsisTicker(gizmo.Hourglass);
 }
 
 // 🎨 Paint (Executes every display frame)
 function paint({
+  api,
   wipe,
   num,
   ink,
   ui,
   help,
   rec: { presenting, playing, printProgress, printed, presentProgress },
-  screen: { width, height },
+  screen,
+  paintCount,
 }) {
   if (presenting) {
     if (!playing) {
       wipe(0, 100).ink(255, 200).write("TAP TO PLAY", { center: "xy " });
-    } else {
+    } else if (presentProgress) {
       wipe(0, 0);
-      // ink(0, 255, 255, 200).box( 0, height - 4, width * presentProgress, height - 4); // Present a progress bar.
+      ink(0).box(0, screen.height - 1, screen.width, screen.height - 1);
+      ink().box(
+        0,
+        screen.height - 1,
+        screen.width * presentProgress,
+        screen.height - 1,
+      ); // Present a progress bar.
     }
 
     if (isPrinting) {
@@ -72,86 +84,60 @@ function paint({
 
       wipe(0, 0, 80, 180)
         .ink(0)
-        .box(0, height / 2 - h / 2, width, h)
+        .box(0, screen.height / 2 - h / 2, screen.width, h)
         .ink(255, 0, 0)
-        .box(0, height / 2 - h / 2, printProgress * width, h)
+        .box(0, screen.height / 2 - h / 2, printProgress * screen.width, h)
         .ink(255, 200)
         .write(text, { center: "xy" });
     } else {
-      // Show "Cancel" / "No" button.
-
-      if (!nobtn)
-        nobtn = new ui.Button({
-          x: 6,
-          y: height - 20 - 6,
-          w: 40,
-          h: 20,
-        });
-      ink(200, 0, 0)
-        .box(nobtn.box, "fill")
-        .ink(100, 0, 0)
-        .write("RETRY", num.p2.add(nobtn.box, { x: 6, y: 4 }), [0, 40]);
-
-      // Show "Export" (Print) button to transcode and save a video.
-      // Draw the "Export" button.
+      // Show "Download" button which transcodes and saves a video.
       if (!btn)
-        btn = new ui.Button({
-          x: width - 40 - 6,
-          y: height - 20 - 6,
-          w: 40,
-          h: 20,
-        });
-      ink(0, 200, 0)
-        .box(btn.box, "fill")
-        .ink(100, 255, 100)
-        .write("DONE", num.p2.add(btn.box, { x: 8, y: 4 }), [0, 40]);
+        btn = new ui.TextButton("Download", { right: 6, bottom: 6, screen });
+      btn.reposition({ right: 6, bottom: 6, screen });
+      btn.paint(api);
     }
-  } else {
-    // TODO: Put a little delay on here?
+  } else if (paintCount > 16n) {
     wipe(40, 0, 0).ink(180, 0, 0).write("NO VIDEO", { center: "xy" });
   }
 }
 
 function sim() {
-  ellipsisTicker.sim();
+  ellipsisTicker?.sim();
 }
 
 // ✒ Act (Runs once per user interaction)
-function act({ event: e, rec, download, serverUpload: upload, num, jump }) {
+function act({ event: e, rec, download, num, jump }) {
   if (!rec.printing) {
-    let noPrint = true;
-
-    // Retry
-    nobtn?.act(e, () => {
-      jump(`whistlegraph`);
-    });
+    // let noPrint = true;
 
     // Print (or download) a video.
-    btn?.act(e, () => {
-      if (rec.printed) {
-      } else {
+    btn?.act(e, {
+      push: () => {
         // TODO: How do I keep track of network upload progress?
         //       Maybe with a callback?
         // Transcode and then upload.
-        isPrinting = true;
-        rec.print(async () => {
-          let uploaded;
-          try {
-            uploaded = await upload(".mp4");
-          } catch (e) {
-            console.error("Upload failed:", e);
-            uploaded = { slug: "local" };
-          }
-          jump(`download ${uploaded.slug}`);
-        });
-        noPrint = false;
-      }
+        // isPrinting = true;
+
+        // rec.print(async () => {
+        // });
+
+        // let uploaded;
+        // try {
+        //   uploaded = await upload(".mp4");
+        // } catch (e) {
+        //   console.error("Upload failed:", e);
+        //   uploaded = { slug: "local" };
+        // }
+        // jump(`download ${uploaded.slug}`);
+        // noPrint = false;
+        download("tape.mp4");
+      },
     });
 
-    if (noPrint) {
-      if (e.is("touch:1") && !rec.playing) rec.play();
-      if (e.is("touch:1") && rec.playing) rec.pause();
-    }
+    // if (noPrint) {
+    //   if (e.is("touch:1") && !rec.playing) rec.play();
+    //   if (e.is("touch:1") && rec.playing) rec.pause();
+    // }
   }
 }
 

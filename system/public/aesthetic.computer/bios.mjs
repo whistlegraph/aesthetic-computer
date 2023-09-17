@@ -10,13 +10,14 @@ import { speak, speakAPI } from "./lib/speech.mjs";
 import * as UI from "./lib/ui.mjs";
 import * as Glaze from "./lib/glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
+import { choose } from "./lib/help.mjs";
 import { parse, slug } from "./lib/parse.mjs";
 import * as Store from "./lib/store.mjs";
 import { MetaBrowser, iOS, TikTok } from "./lib/platform.mjs";
 import { headers } from "./lib/console-headers.mjs";
 import { logs } from "./lib/logs.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
-import { timestamp } from "./lib/num.mjs";
+import { timestamp, radians } from "./lib/num.mjs";
 
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
@@ -39,12 +40,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   window.acCONTENT_EVENTS = [];
 
+  let HANDLE; // Populated with the user's handle from `disk`.
+
   let pen,
     keyboard,
     keyboardFocusLock = false;
   let handData; // Hand-tracking.
 
-  // let frameCount = 0;
+  let frameCount = 0n;
   // let timePassed = 0;
   let now = 0;
 
@@ -54,6 +57,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Media Recorder
   let mediaRecorder, mediaRecorderDataHandler, mediaRecorderBlob; // Holds the last generated recording.
+  let mediaRecorderDuration = 0,
+    mediaRecorderStartTime;
+  let mediaRecorderFirstRetrieval = true;
 
   // Clipboard
   let pastedText;
@@ -82,7 +88,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   TwoD?.initialize(wrapper);
 
   // An extra canvas reference for passing through or buffering video recording streams.
-  let streamCanvasContext;
+  let streamCanCtx;
   let resizeToStreamCanvas = false;
 
   // A layer for modal messages such as "audio engine is off".
@@ -1026,14 +1032,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (needsRender && needsReframe) {
       frame(undefined, undefined, lastGap);
       pen.retransformPosition();
-      frameAlreadyRequested = false;
+      //frameAlreadyRequested = false; // Deprecated. 23.09.17.01.20
       return;
     }
 
     if (frameAlreadyRequested) return;
 
     frameAlreadyRequested = true;
-    // frameCount += 1;
+    frameCount += 1n;
 
     // TODO: 📏 Measure performance of frame: test with different resolutions.
 
@@ -1118,8 +1124,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let pixelsDidChange = false; // TODO: Can this whole thing be removed? 2021.11.28.03.50
 
   let contentFrame;
-  let underlayFrame,
-    underlayVideo = {};
+  let underlayFrame;
 
   //const bakedCan = document.createElement("canvas", {
   //  willReadFrequently: true,
@@ -1127,6 +1132,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+    if (type === "handle") {
+      HANDLE = content;
+      return;
+    }
+
     // Zip up some data and download it.
     if (type === "zip") {
       if (!window.JSZip) await loadJSZip();
@@ -1721,7 +1731,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       currentPiece = content.path;
       currentPieceHasKeyboard = false;
 
-      detachMicrophone?.(); // Remove any attached microphone.
+      if (!mediaRecorder) {
+        detachMicrophone?.(); // Remove any attached microphone unless we
+        //                       are taping 📼.
+      }
+
       killAllSound?.(); // Kill any pervasive sounds in `speaker`.
 
       // ⚠️ Remove any sounds that aren't in the whitelist.
@@ -2241,8 +2255,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Audio-visual recording of the main audio track and microphone.
     if (type === "recorder:rolling") {
+      mediaRecorderBlob = null; // Clear the current blob when we start recording.
+
       if (mediaRecorder && mediaRecorder.state === "paused") {
         mediaRecorder.resume();
+        mediaRecorderStartTime = performance.now();
+        send({
+          type: "recorder:rolling:resumed",
+          content: {
+            mime: mediaRecorder.mimeType,
+            time: audioContext?.currentTime,
+          },
+        });
+        if (debug) console.log("🔴 Recorder: Resumed", content);
         return;
       }
 
@@ -2298,15 +2323,45 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // TODO: What happens upon resize?
         // TODO: Only set the streamCanvas here if it is below a certain
         //       resolution.
-        streamCanvasContext = document.createElement("canvas").getContext("2d");
 
         // TODO: If we aren't using TikTok, then just find a good resolution / double
         // the pixels as needed. 22.08.11.03.38
-        streamCanvasContext.canvas.width = canvas.width * 4;
-        streamCanvasContext.canvas.height = canvas.height * 4;
+
+        const originalWidth = canvas.width;
+        const originalHeight = canvas.height;
+        const aspectRatio = originalWidth / originalHeight;
+
+        let newWidth = originalWidth * 4;
+        let newHeight = originalHeight * 4;
+
+        if (newWidth > 1080) {
+          newWidth = originalWidth * 2;
+          newHeight = newWidth / aspectRatio;
+        }
+
+        if (newHeight > 1920) {
+          newHeight = originalHeight * 2;
+          newWidth = newHeight * aspectRatio;
+        }
+
+        streamCanCtx = document.createElement("canvas").getContext("2d", {
+          alpha: false,
+        });
+
+        const sctx = streamCanCtx;
+
+        sctx.canvas.width = newWidth;
+        sctx.canvas.height = newHeight;
+
+        // console.log(
+        //   "WIDTH:",
+        //   streamCanvasContext.canvas.width,
+        //   "HEIGHT:",
+        //   streamCanvasContext.canvas.height,
+        // );
 
         // Must be set after resize.
-        streamCanvasContext.imageSmoothingEnabled = false;
+        sctx.imageSmoothingEnabled = false;
 
         // Portrait Mode / TikTok (this is the default for recording)
         // This is hardcoded at 1080p for TikTok right now.
@@ -2316,33 +2371,122 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Draw into the streamCanvas buffer from the normal canvas,
         // Leaves black bars, resizing it to the frame of the streamCanvas.
         resizeToStreamCanvas = function () {
-          const frameWidth = streamCanvasContext.canvas.width;
-          const frameHeight = streamCanvasContext.canvas.height;
+          const frameWidth = sctx.canvas.width;
+          const frameHeight = sctx.canvas.height;
           const frameAspectRatio = frameHeight / frameWidth;
           const aspectRatio = canvas.height / canvas.width;
 
+          sctx.clearRect(0, 0, frameWidth, frameHeight);
+
+          let can = canvas;
+          // if (glaze.on) can = Glaze.getCan();
+
+          let x = 0,
+            y = 0,
+            width,
+            height;
+
           if (frameAspectRatio > aspectRatio) {
-            const height = streamCanvasContext.canvas.width * aspectRatio;
-            streamCanvasContext.drawImage(
-              canvas,
-              0,
-              frameHeight / 2 - height / 2,
-              streamCanvasContext.canvas.width,
-              height,
-            );
+            height = sctx.canvas.width * aspectRatio;
+            y = Math.floor(frameHeight / 2 - height / 2);
+            width = sctx.canvas.width;
           } else {
-            const width = streamCanvasContext.canvas.height / aspectRatio;
-            streamCanvasContext.drawImage(
-              canvas,
-              frameWidth / 2 - width / 2,
-              0,
-              width,
-              streamCanvasContext.canvas.height,
-            );
+            width = sctx.canvas.height / aspectRatio;
+            x = Math.floor(frameWidth / 2 - width / 2);
+            height = sctx.canvas.height;
+          }
+
+          if (ThreeD) sctx.drawImage(ThreeD.getCan(), x, y, width, height);
+          sctx.drawImage(can, x, y, width, height);
+
+          // 2. Set up the font.
+          const typeSize = max(12, floor(sctx.canvas.height / 28));
+          // const textHeight = typeSize;
+          const gap = typeSize;
+
+          sctx.save(); // Save the current state of the canvas
+
+          drawTextAtPosition(0, 90); // Left
+          drawTextAtPosition(sctx.canvas.width, -90); // Right
+
+          sctx.restore();
+          sctx.globalAlpha = 1;
+
+          function drawTextAtPosition(positionX, deg) {
+            sctx.save();
+            sctx.translate(positionX, 0);
+            sctx.rotate(radians(deg));
+            const yDist = 0.1;
+
+            sctx.font = `${typeSize}px YWFTProcessing-Regular`;
+            const text = "aesthetic.computer";
+            const measured = sctx.measureText(text);
+            const textWidth = measured.width;
+
+            ["red", "lime", "blue", "white"].forEach((color) => {
+              let offsetX, offsetY;
+              if (color !== "white") {
+                sctx.globalAlpha = 0.45;
+                offsetX = choose(-2, -4, 0, 2, 4);
+                offsetY = choose(-2, -4, 0, 2, 4);
+              } else {
+                sctx.globalAlpha = choose(0.5, 0.4, 0.6);
+                offsetX = choose(-1, 0, 1);
+                offsetY = choose(-1, 0, 1);
+                color = choose("white", "white", "white", "magenta", "yellow");
+              }
+
+              sctx.fillStyle = color;
+
+              if (deg === 90) {
+                sctx.fillText(
+                  text,
+                  floor(sctx.canvas.height * (1 - yDist) - textWidth + offsetY),
+                  -floor(offsetX + gap),
+                );
+              } else if (deg === -90) {
+                sctx.fillText(
+                  text,
+                  -floor(sctx.canvas.height * yDist + textWidth + offsetY),
+                  floor(offsetX - gap),
+                );
+              }
+            });
+
+            if (HANDLE) {
+              // sctx.font = `normal 10 ${typeSize / 1.5}px Berkeley Mono Variable`;
+              sctx.font = `${typeSize * 1.25}px YWFTProcessing-Light`;
+              sctx.fillStyle = choose("yellow", "red", "blue");
+              let offsetX, offsetY;
+              const handleWidth =
+                textWidth / 2 + sctx.measureText(HANDLE).width / 2;
+              const handleSpace = typeSize * 1.35;
+              offsetX = choose(-1, 0, 1);
+              offsetY = choose(-1, 0, 1);
+
+              if (deg === 90) {
+                // Handle
+                sctx.fillText(
+                  HANDLE,
+                  floor(
+                    sctx.canvas.height * (1 - yDist) - handleWidth + offsetY,
+                  ),
+                  -floor(offsetX + handleSpace + gap),
+                );
+              } else if (deg === -90) {
+                sctx.fillText(
+                  HANDLE,
+                  -floor(sctx.canvas.height * yDist + handleWidth + offsetY),
+                  floor(offsetX - handleSpace - gap),
+                );
+              }
+            }
+
+            sctx.restore();
           }
         };
 
-        const canvasStream = streamCanvasContext.canvas.captureStream(30);
+        const canvasStream = sctx.canvas.captureStream(30);
 
         audioStreamDest.stream.getAudioTracks().forEach((track) => {
           canvasStream.addTrack(track);
@@ -2358,103 +2502,112 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (debug) console.log("🔴 Recorder: Data", evt.data);
           chunks.push(evt.data);
           mediaRecorderDataHandler?.(chunks);
+          mediaRecorderDataHandler = null;
         }
       };
 
-      let recordingStartTime = 0;
-      let recordingDuration;
+      // let recordingStartTime = 0;
+      // let recordingDuration;
 
       // 🗺️ mediaRecorder:Start
       mediaRecorder.onstart = function () {
-        recordingStartTime = performance.now();
-        send({ type: "recorder:rolling:started", content });
+        mediaRecorderStartTime = performance.now();
+        send({
+          type: "recorder:rolling:started",
+          content: {
+            mime: mediaRecorder.mimeType,
+            time: audioContext?.currentTime,
+          },
+        });
         if (debug) console.log("🔴 Recorder: Rolling", content);
       };
 
       // 🗺️ mediaRecorder:Stop (Recorder Printing)
       mediaRecorder.onstop = async function (evt) {
-        recordingDuration = (performance.now() - recordingStartTime) / 1000;
+        // recordingDuration = (performance.now() - recordingStartTime) / 1000;
 
         // Reset global streamCanvas state.
-        streamCanvasContext = undefined;
-        resizeToStreamCanvas = null;
+        // streamCanvasContext = undefined;
+        // resizeToStreamCanvas = null;
 
-        let blob = new Blob(chunks, {
-          type: options.mimeType,
-        });
+        // let blob = new Blob(chunks, {
+        //  type: options.mimeType,
+        // });
 
         // Load FFmpeg so the recording can be transcribed to a proper video format.
-        if (content === "video") {
-          if (options.mimeType === "video/mp4") {
-            console.warn("Encoding can be skipped!");
-            // TODO: Skip encoding.
-          }
+        // if (content === "video") {
+        //   if (options.mimeType === "video/mp4") {
+        //     console.warn("Encoding can be skipped!");
+        //     // TODO: Skip encoding.
+        //   }
 
-          //   const { createFFmpeg, fetchFile } = await loadFFmpeg();
+        //   const { createFFmpeg, fetchFile } = await loadFFmpeg();
 
-          //   let transcodeProgress = 0;
+        //   let transcodeProgress = 0;
 
-          //   const ffmpeg = createFFmpeg({
-          //     log: debug,
-          //     progress: (p) => {
-          //       // Send a message to the piece that gives the transcode progress.
-          //       let time = p.time;
-          //       if (time === undefined) {
-          //         if (transcodeProgress === 0) {
-          //           time = 0;
-          //         } else {
-          //           time = recordingDuration;
-          //         }
-          //       }
-          //       transcodeProgress = min(1, time / recordingDuration);
-          //       send({
-          //         type: "recorder:transcode-progress",
-          //         content: transcodeProgress,
-          //       });
-          //     },
-          //   });
+        //   const ffmpeg = createFFmpeg({
+        //     log: debug,
+        //     progress: (p) => {
+        //       // Send a message to the piece that gives the transcode progress.
+        //       let time = p.time;
+        //       if (time === undefined) {
+        //         if (transcodeProgress === 0) {
+        //           time = 0;
+        //         } else {
+        //           time = recordingDuration;
+        //         }
+        //       }
+        //       transcodeProgress = min(1, time / recordingDuration);
+        //       send({
+        //         type: "recorder:transcode-progress",
+        //         content: transcodeProgress,
+        //       });
+        //     },
+        //   });
 
-          //   ffmpeg.setLogging(debug); // Enable ffmpeg logging only if we are in `debug` mode.
+        //   ffmpeg.setLogging(debug); // Enable ffmpeg logging only if we are in `debug` mode.
 
-          //   await ffmpeg.load();
-          //   ffmpeg.FS("writeFile", "input.video", await fetchFile(blob));
+        //   await ffmpeg.load();
+        //   ffmpeg.FS("writeFile", "input.video", await fetchFile(blob));
 
-          //   await ffmpeg.run(
-          //     "-i",
-          //     "input.video",
-          //     "-movflags",
-          //     "+faststart",
-          //     "-vf",
-          //     // General shaving to make even sides (required by the pixel format)
-          //     // "pad=ceil(iw/2)*2:ceil(ih/2)*2",
-          //     // TikTok
-          //     //"fps=30, scale=1080x1920:flags=neighbor:force_original_aspect_ratio=decrease, pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
-          //     "fps=30",
-          //     "output.mp4",
-          //   );
-          //   // Notes on these options:
-          //   // width expression: https://stackoverflow.com/a/20848224/8146077
-          //   // scaling: https://trac.ffmpeg.org/wiki/Scaling
-          //   // general info: https://avpres.net/FFmpeg/im_H264
+        //   await ffmpeg.run(
+        //     "-i",
+        //     "input.video",
+        //     "-movflags",
+        //     "+faststart",
+        //     "-vf",
+        //     // General shaving to make even sides (required by the pixel format)
+        //     // "pad=ceil(iw/2)*2:ceil(ih/2)*2",
+        //     // TikTok
+        //     //"fps=30, scale=1080x1920:flags=neighbor:force_original_aspect_ratio=decrease, pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
+        //     "fps=30",
+        //     "output.mp4",
+        //   );
+        //   // Notes on these options:
+        //   // width expression: https://stackoverflow.com/a/20848224/8146077
+        //   // scaling: https://trac.ffmpeg.org/wiki/Scaling
+        //   // general info: https://avpres.net/FFmpeg/im_H264
 
-          //   const file = ffmpeg.FS("readFile", "output.mp4");
+        //   const file = ffmpeg.FS("readFile", "output.mp4");
 
-          //   blob = new Blob([file.buffer], { type: "video/mp4" }); // Re-assign blob.
-        }
+        //   blob = new Blob([file.buffer], { type: "video/mp4" }); // Re-assign blob.
+        // }
 
         // Add the recording wrapper to the DOM, among other recordings that may exist.
 
-        if (debug) console.log("📼 Recorder: Printed");
+        // if (debug) console.log("📼 Recorder: Printed");
 
-        mediaRecorderBlob = blob;
+        // mediaRecorderBlob = blob;
 
         // TODO: Store an index into the blob if its an audio clip or loaded sample.
 
-        send({ type: "recorder:printed", content: { id: "test-sample-id" } });
+        // send({ type: "recorder:printed", content: { id: "test-sample-id" } });
         // TODO: Can send the download code back here...
         // send({ type: "recorder:uploaded", code });
 
         mediaRecorder = undefined; // ❌ Trash the recorder.
+        mediaRecorderStartTime = null;
+        mediaRecorderDuration = null;
       };
 
       mediaRecorder.start();
@@ -2464,35 +2617,43 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "recorder:cut") {
       if (!mediaRecorder) return;
       if (debug) console.log("✂️ Recorder: Cut");
-      setTimeout(() => {
-        // TODO: This delay is probably not needed? 23.08.09.19.46
-        mediaRecorder?.pause();
-        send({ type: "recorder:rolling:ended" });
-      }, 250);
+      //setTimeout(async () => {
+      // TODO: This delay is probably not needed? 23.08.09.19.46
+      mediaRecorder?.pause();
+      send({ type: "recorder:rolling:ended" });
+      //}, 250);
+
+      mediaRecorderDuration += performance.now() - mediaRecorderStartTime;
       return;
     }
 
     if (type === "recorder:present") {
       // TODO: Add a DOM preview here.
-      if (mediaRecorder && mediaRecorder.state === "paused") {
-        const type = mediaRecorder.mimeType.split("/")[0];
+      //if (tape)
+
+      // TODO: Check to see if we have anything in indexDB.
+      let retrievedTape;
+      if (!mediaRecorder) retrievedTape = await Store.get("tape");
+
+      if (
+        retrievedTape ||
+        (mediaRecorder && mediaRecorder.state === "paused")
+      ) {
+        const type = retrievedTape
+          ? "video"
+          : mediaRecorder.mimeType.split("/")[0];
 
         if (type === "video") {
           underlayFrame = document.createElement("div");
           underlayFrame.id = "underlay";
-          underlayVideo = {}; // Reset underlayVideo state.
 
           const el = document.createElement(type); // "audio" or "video"
           el.autoplay = true; // Allow video footage play automatically.
           el.setAttribute("playsinline", ""); // Only for iOS.
           el.loop = true;
-          // el.setAttribute("muted", ""); // Only for iOS.
-          // el.volume = 0;
-          // el.controls = true;
 
           el.addEventListener("play", () => {
             send({ type: "recorder:present-playing" });
-            underlayVideo.played = true;
           });
 
           el.addEventListener("pause", () => {
@@ -2502,65 +2663,96 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           el.addEventListener(
             "pointerdown",
             () => {
-              // Note: Just always leave this playing once it starts...
               if (el.paused) el.play();
-              // TODO: This is hacky. Will do for now. 23.01.29.16.06
-              /*
-            if (underlayVideo.needsPlay || (el.paused && !underlayVideo.played)) {
-              try {
-                el.play();
-              } catch (e) {
-                console.warn(e);
-              }
-              delete underlayVideo.needsPlay;
-            } else if (underlayVideo.needsPause) {
-              el.pause();
-              delete underlayVideo.needsPause;
-            }
-            */
             },
             { once: true },
           );
 
-          // Try running everything through the audioContext even if
-          // the video is muted.
-          // if (audioContext) {
-          // const source = audioContext.createMediaElementSource(el);
-          // const gainNode = audioContext.createGain();
-          // source.connect(gainNode);
-          // source.connect(audioContext.destination);
-          // }
-
           // Active recording...
-          mediaRecorderDataHandler = (chunks) => {
-            const blob = new Blob(chunks, {
-              type: mediaRecorder.mimeType,
-            });
 
+          // Report the progress of this element back to the `disk`.
+          function start(blob, duration) {
             el.src = URL.createObjectURL(blob);
+            // Listen for the loaded metadata event
+            // el.addEventListener("loadedmetadata", function () {
+            // Now that metadata is loaded, set the current time and play
+            // el.currentTime = 0;
+            el.play();
 
-            // Report the progress of this element back to the `disk`.
+            // Once the video starts playing, request the animation frame to track progress
             window.requestAnimationFrame(function update() {
-              // Note: Reading el.currentTime seems a little delayed...
-              //       and returns NaN early on.
-              const content = el.currentTime / el.duration;
+              let d = el.duration === Infinity ? duration : el.duration;
+              const content = el.currentTime / d;
+              // console.log(el.currentTime, el.duration, content);
               send({ type: "recorder:present-progress", content });
               if (underlayFrame) window.requestAnimationFrame(update);
             });
+            // });
+            // el.currentTime = 0;
+            // el.play();
+            // // Attempt to play the video, won't work on mobile?
+            // // Note: Video plays via recorder:present:play and pause events.
+            // window.requestAnimationFrame(function update() {
+            //   // Note: Reading el.currentTime seems a little delayed...
+            //   //       and returns NaN early on.
+            //   const content = el.currentTime / el.duration;
+            //   send({ type: "recorder:present-progress", content });
+            //   if (underlayFrame) window.requestAnimationFrame(update);
+            // });
+          }
 
-            el.play(); // Attempt to play the video (won't work on mobile).
-            // Note: Video plays via recorder:present:play and pause events.
-          };
+          if (retrievedTape && !mediaRecorder) {
+            start(retrievedTape.blob, retrievedTape.duration);
+          } else if (mediaRecorder) {
+            if (!mediaRecorderBlob) {
+              mediaRecorderDataHandler = (chunks) => {
+                mediaRecorderBlob = new Blob(chunks, {
+                  type: mediaRecorder.mimeType,
+                });
 
-          mediaRecorder.requestData();
+                // Try to concatenate the blob of the old tape...
+                // TODO: Combining blobs like this won't work with most media
+                // formats and this needs to wait until a clip editor is
+                // requied. 23.09.16.18.03
+                // if (retrievedTape && mediaRecorderFirstRetrieval) {
+                //   mediaRecorderBlob = new Blob(
+                //     [retrievedTape, mediaRecorderBlob],
+                //     {
+                //       type: mediaRecorder.mimeType,
+                //     },
+                //   );
+                //   mediaRecorderFirstRetrieval = false;
+                // }
+
+                // Store current video recording in indexDB.
+                receivedChange({
+                  data: {
+                    type: "store:persist",
+                    content: {
+                      key: "tape",
+                      method: "local:db",
+                      data: {
+                        blob: mediaRecorderBlob,
+                        duration: mediaRecorderDuration,
+                      },
+                    },
+                  },
+                });
+
+                start(mediaRecorderBlob, mediaRecorderDuration);
+              };
+
+              mediaRecorder.requestData();
+            } else {
+              start(mediaRecorderBlob, mediaRecorderDuration);
+            }
+          }
 
           // el.srcObject = mediaRecorder.stream; // Live feed.
           // 🧠 Eventually this could be useful for live feedback? 23.01.27.16.59
 
           underlayFrame.appendChild(el);
-
           wrapper.appendChild(underlayFrame);
-
           send({ type: "recorder:presented" });
         }
       }
@@ -2568,12 +2760,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "recorder:present:play") {
-      underlayVideo.needsPlay = true;
       return;
     }
 
     if (type === "recorder:present:pause") {
-      underlayVideo.needsPause = true;
       return;
     }
 
@@ -2581,7 +2771,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (underlayFrame) {
         const media = underlayFrame.querySelector("video, audio");
         if (media?.src) URL.revokeObjectURL(media.src);
-
         underlayFrame?.remove(); // Remove the underlayFrame if it exists.
         underlayFrame = undefined;
         send({ type: "recorder:unpresented" });
@@ -2591,14 +2780,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "recorder:print") {
       if (!mediaRecorder) return;
-      mediaRecorder.stop(); // Render a video if a recording exists.
+      // mediaRecorder.stop(); // Render a video if a recording exists.
       // mediaRecorder = undefined;
       send({ type: "recorder:printing:started" });
       return;
     }
 
     if (type === "recorder:slate") {
-      mediaRecorder = undefined;
+      await Store.del("tape"); // Delete video from indexDB.
+      mediaRecorderFirstRetrieval = false;
+      mediaRecorderDataHandler = null; // Prevent stop's data handler from
+      //                                  triggering playback.
+      mediaRecorder?.stop();
+      return;
     }
 
     if (type === "load-bitmap") {
@@ -2805,7 +2999,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         "Freeze:",
         freezeFrame,
       );
-      frameAlreadyRequested = false; // 🗨️ Tell the system we are ready for another frame.
+      //frameAlreadyRequested = false; // 🗨️ Tell the system we are ready for another frame.
+      // ^ Deprecated: 23.09.17.01.20
       return;
     }
 
@@ -2845,27 +3040,30 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     pixelsDidChange = content.paintChanged || false;
 
-    // UI Overlay (Composite) Layer
-    let paintOverlay;
-    if (content.label) {
-      const overlay = new ImageData(
-        content.label.img.pixels,
-        content.label.img.width,
-        content.label.img.height,
-      );
-
-      // TODO: This could be instantiated elsewhere if it's ever slow... similar to dirtyBoxBitmapCam's potential optimization above. 23.01.30.21.32
+    // ✨ UI Overlay (Composite) Layer
+    // This currently paints corner labels and tape progress bars only.
+    // (So they can be skipped for recordings?)
+    let paintOverlays = {};
+    function buildOverlay(name, o) {
+      if (!o) return;
       const overlayCan = document.createElement("canvas");
       const octx = overlayCan.getContext("2d");
-      overlayCan.width = content.label.img.width;
-      overlayCan.height = content.label.img.height;
-      octx.imageSmoothingEnabled = false;
-      octx.putImageData(overlay, 0, 0);
 
-      paintOverlay = () => {
-        ctx.drawImage(overlayCan, content.label.x, content.label.y);
-      };
+      octx.imageSmoothingEnabled = false;
+
+      overlayCan.width = o.img.width;
+      overlayCan.height = o.img.height;
+
+      octx.putImageData(
+        new ImageData(o.img.pixels, o.img.width, o.img.height),
+        0,
+        0,
+      );
+
+      paintOverlays[name] = () => ctx.drawImage(overlayCan, o.x, o.y);
     }
+    buildOverlay("label", content.label);
+    buildOverlay("tapeProgressBar", content.tapeProgressBar);
 
     function draw() {
       // 🅰️ Draw updated content from the piece.
@@ -2873,12 +3071,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const db = content.dirtyBox;
       if (db) {
         ctx.drawImage(dirtyBoxBitmapCan, db.x, db.y);
-        paintOverlay?.();
         if (glaze.on) Glaze.update(dirtyBoxBitmapCan, db.x, db.y);
       } else if (pixelsDidChange) {
         ctx.putImageData(imageData, 0, 0); // Comment out for a `dirtyBox` visualization.
 
-        paintOverlay?.();
+        paintOverlays["label"]?.(); // label
+
+        if (
+          typeof resizeToStreamCanvas === "function" &&
+          mediaRecorder?.state !== "paused" // &&
+          //frameCount % 2n === 0n
+        ) {
+          resizeToStreamCanvas();
+        }
+
+        paintOverlays["tapeProgressBar"]?.(); // tape progress
 
         if (glaze.on) {
           ThreeD?.pasteTo(glazeCompositeCtx);
@@ -2920,10 +3127,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (debug && frameCached && content.loading !== true) UI.cached(uiCtx); // Pause icon.
 
       uiCtx.resetTransform();
-
-      if (typeof resizeToStreamCanvas === "function") {
-        resizeToStreamCanvas();
-      }
     }
 
     if (pixelsDidChange || pen.changedInPiece) {
@@ -3000,7 +3203,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (ext === "mp4") {
       MIME = "video/mp4";
-      data = mediaRecorderBlob;
+      // data = mediaRecorderBlob;
     }
 
     if (ext === "png") {
@@ -3244,18 +3447,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           ? `/media/${filename}`
           : `https://art.aesthetic.computer/${filename}`;
       }
-    } else if (ext === "mp4") {
-      // TODO: Support other formats / webm passthrough. 23.09.15.22.41
+    } else if (ext === "mp4" || ext === "webm") {
       // 🎥 Video
-      // Use `data` from the global Media Recorder.
-      if (mediaRecorderBlob) {
-        object = URL.createObjectURL(mediaRecorderBlob);
+      // Use stored data from the global Media Recorder.
+      const tape = await Store.get("tape");
+
+      // 🫲 Make sure the container matches the extension.
+      // Check the tape's blob's type.
+      const tapeMIME = tape.blob.type;
+      if (tapeMIME.indexOf("webm") > -1) {
+        filename = "tape.webm"; // Replaces "tape.mp4" set from `video`.
       } else {
-        console.warn(
-          "🕸️ No local video available... Trying art bucket:",
-          filename,
-        );
-        object = `https://art.aesthetic.computer/${filename}`;
+        filename = "tape.mp4"; // ..
+      }
+
+      if (tape) {
+        object = URL.createObjectURL(tape.blob);
+      } else {
+        // console.warn(
+        //   "🕸️ No local video available... Trying art bucket:",
+        //   filename,
+        // );
+        // object = `https://art.aesthetic.computer/${filename}`;
       }
     } else if (ext === "mjs") {
       MIME = "application/javascript; charset=utf-8";

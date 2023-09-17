@@ -55,6 +55,10 @@ let button, vrSession, controller1, controller2; // VR Specific.
 let ambi, hemi; // Lighting
 let ambiMode = true;
 
+let canvas;
+
+export function getCan() { return canvas; }
+
 export const penEvents = []; // VR pointer events.
 export const bakeQueue = [];
 export const status = { alive: false };
@@ -75,6 +79,8 @@ export function initialize(
     antialias: true,
     preserveDrawingBuffer: true,
   });
+
+  canvas = renderer.domElement; // Globalize the canvas.
 
   renderer.debug.checkShaderErrors = false;
 

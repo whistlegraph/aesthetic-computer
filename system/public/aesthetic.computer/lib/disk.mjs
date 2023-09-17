@@ -222,8 +222,8 @@ let currentPath,
   currentHUDText,
   currentHUDTextColor,
   currentHUDButton,
-  currentHUDOffset,
-  currentPromptButton;
+  currentHUDOffset;
+//currentPromptButton;
 let loading = false;
 let reframe;
 
@@ -363,21 +363,37 @@ class Recorder {
   printing = false; // Set by a callback from `bios`.
   printed = false; // "
   recording = false; // "
+  rollingCallback;
   recorded = false; // "
   presenting = false; // "
   playing = false; // "
   cutCallback;
   printCallback;
-  tapeHourglass;
+  loadCallback;
+
+  tapeTimerStart;
   tapeProgress = 0;
+  tapeTimerDuration;
+
+  videoOnLeave = false;
 
   constructor() {}
 
-  tapeTimer(seconds) {
-    this.tapeHourglass = new gizmo.Hourglass(120 * seconds, {
-      completed: () => this.cut(() => $commonApi.jump("video")),
-      every: () => $commonApi.needsPaint(),
-    });
+  tapeTimerSet(seconds, time) {
+    this.tapeTimerStart = time;
+    this.tapeTimerDuration = seconds;
+  }
+
+  tapeTimerStep({ needsPaint, sound: { time } }) {
+    if (!this.tapeTimerDuration) return;
+    this.tapeProgress = (time - this.tapeTimerStart) / this.tapeTimerDuration;
+    needsPaint();
+    if (this.tapeProgress >= 1) {
+      this.tapeProgress = 0;
+      this.tapeTimerStart = null;
+      this.tapeTimerDuration = null;
+      this.cut(() => $commonApi.jump("video"));
+    }
   }
 
   slate() {
@@ -391,13 +407,16 @@ class Recorder {
     $commonApi.rec.printProgress = 0; // "
   }
 
-  rolling(opts) {
+  rolling(opts, cb) {
     send({ type: "recorder:rolling", content: opts });
+    this.rollingCallback = cb;
   }
 
   cut(cb) {
     $commonApi.rec.cutCallback = cb;
-    this.tapeHourglass = null;
+    this.tapeProgress = 0;
+    this.tapeTimerStart = null;
+    this.tapeTimerDuration = null;
     send({ type: "recorder:cut" });
   }
 
@@ -1074,6 +1093,7 @@ channel.onmessage = (event) => {
   if (event.data.startsWith("handle:updated")) {
     // 👰‍♀️ Update the user handle if it changed.
     HANDLE = "@" + event.data.split(":").pop();
+    send({ type: "handle", content: HANDLE });
     store["handle:received"] = true;
   }
 };
@@ -1238,6 +1258,8 @@ const LINE = {
   ],
   indices: [0, 1],
 };
+
+let SCREEN;
 
 // Inputs: (r, g, b), (r, g, b, a) or an array of those.
 //         (rgb) for grayscale or (rgb, a) for grayscale with alpha.
@@ -2207,7 +2229,7 @@ async function load(
   currentHUDOffset = undefined; // Always reset these to the defaults.
   currentHUDTextColor = undefined;
   currentHUDButton = undefined;
-  currentPromptButton = undefined;
+  //currentPromptButton = undefined;
 
   // ***Client Metadata Fields***
   // Set default metadata fields for SEO and sharing,
@@ -2436,10 +2458,23 @@ async function load(
       }
     }
 
+    function loadLine() {
+      load(parse(to), ahistorical, alias, false, callback);
+    }
+
     let callback;
     leaveLoad = url
       ? () => $commonApi.net.web(to)
-      : () => load(parse(to), ahistorical, alias, false, callback);
+      : () => {
+          // Intercept returns to the prompt when taping from a piece directly.
+          if ($commonApi.rec.videoOnLeave && to.split("~")[0] === "prompt") {
+            to = "video";
+            $commonApi.rec.videoOnLeave = false;
+            $commonApi.rec.cut(loadLine);
+          } else {
+            loadLine(); // Or just load normally.
+          }
+        };
     return (cb) => (callback = cb);
   };
 
@@ -2506,6 +2541,9 @@ async function load(
   // This function actually hotSwaps out the piece via a callback from `bios` once fully loaded via the `loading-complete` message.
   hotSwap = () => {
     loadedCallback?.(); // Run the optional load callback. (See also: `jump`)
+
+    $commonApi.rec.loadCallback?.(); // Start any queued tape.
+    $commonApi.rec.loadCallback = null;
 
     if (module.system?.startsWith("nopaint")) {
       // If there is no painting is in ram, then grab it from the local store,
@@ -2637,7 +2675,8 @@ async function load(
       notice = $commonApi.query.notice;
       noticeBell(cachedAPI, { tone: 300 });
     } else {
-      notice = noticeTimer = undefined;
+      // Clear any existing notice on disk change.
+      // notice = noticeTimer = undefined;
     }
 
     // Push last piece to a history list, skipping prompt and repeats.
@@ -2919,8 +2958,12 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
-  if (type === "recorder:rolling:started") {
+  if (
+    type === "recorder:rolling:started" ||
+    type === "recorder:rolling:resumed"
+  ) {
     $commonApi.rec.recording = true;
+    $commonApi.rec.rollingCallback?.(content.time);
     return;
   }
 
@@ -3218,12 +3261,6 @@ async function makeFrame({ data: { type, content } }) {
       subdivisions: content.subdivisions,
     };
     $commonApi.display = currentDisplay;
-
-    currentPromptButton?.reposition({
-      left: 6,
-      bottom: 6,
-      screen: $activePaintApi.screen,
-    });
 
     // Only trigger a reframe event if we have already passed `boot` (painted
     // at least once)
@@ -3542,7 +3579,7 @@ async function makeFrame({ data: { type, content } }) {
               hourGlasses[i].step();
               if (hourGlasses[i].complete) hourGlasses.splice(i, 1);
             }
-            $api.rec.tapeHourglass?.step();
+            $api.rec.tapeTimerStep($api);
           } catch (e) {
             console.warn("🧮 Sim failure...", e);
           }
@@ -3571,6 +3608,13 @@ async function makeFrame({ data: { type, content } }) {
           console.warn("️ ✒ Act failure...", e);
         }
         reframed = false;
+
+        // Global reframings.
+        // currentPromptButton?.reposition({
+        //   left: 6,
+        //   bottom: 6,
+        //   screen: $api.screen,
+        // });
       }
 
       // If a disk failed to load, then notify the disk that loaded it
@@ -3699,49 +3743,49 @@ async function makeFrame({ data: { type, content } }) {
             },
           });
 
-          currentPromptButton?.act(e, {
-            down: () => {
-              send({ type: "keyboard:enabled" }); // Enable keyboard flag.
-              send({ type: "keyboard:unlock" });
-              $api.needsPaint();
-              masked = true;
-              $api.sound.synth({
-                type: "sine",
-                tone: 600,
-                attack: 0.1,
-                decay: 0.99,
-                volume: 0.75,
-                duration: 0.001,
-              });
-            },
-            push: () => {
-              $api.sound.synth({
-                type: "sine",
-                tone: 800,
-                attack: 0.1,
-                decay: 0.99,
-                volume: 0.75,
-                duration: 0.005,
-              });
-              send({ type: "keyboard:open" });
-              jump("prompt");
-              $api.needsPaint();
-              masked = true;
-            },
-            cancel: () => {
-              // TODO: This might break on pieces where the keyboard is already
-              //       open.
-              send({ type: "keyboard:disabled" }); // Disable keyboard flag.
-              send({ type: "keyboard:lock" });
-              $api.needsPaint();
-            },
-            rollover: (btn) => {
-              if (btn) send({ type: "keyboard:unlock" });
-            },
-            rollout: () => {
-              send({ type: "keyboard:lock" });
-            },
-          });
+          // currentPromptButton?.act(e, {
+          //   down: () => {
+          //     send({ type: "keyboard:enabled" }); // Enable keyboard flag.
+          //     send({ type: "keyboard:unlock" });
+          //     $api.needsPaint();
+          //     masked = true;
+          //     $api.sound.synth({
+          //       type: "sine",
+          //       tone: 600,
+          //       attack: 0.1,
+          //       decay: 0.99,
+          //       volume: 0.75,
+          //       duration: 0.001,
+          //     });
+          //   },
+          //   push: () => {
+          //     $api.sound.synth({
+          //       type: "sine",
+          //       tone: 800,
+          //       attack: 0.1,
+          //       decay: 0.99,
+          //       volume: 0.75,
+          //       duration: 0.005,
+          //     });
+          //     send({ type: "keyboard:open" });
+          //     jump("prompt");
+          //     $api.needsPaint();
+          //     masked = true;
+          //   },
+          //   cancel: () => {
+          //     // TODO: This might break on pieces where the keyboard is already
+          //     //       open.
+          //     send({ type: "keyboard:disabled" }); // Disable keyboard flag.
+          //     send({ type: "keyboard:lock" });
+          //     $api.needsPaint();
+          //   },
+          //   rollover: (btn) => {
+          //     if (btn) send({ type: "keyboard:unlock" });
+          //   },
+          //   rollout: () => {
+          //     send({ type: "keyboard:lock" });
+          //   },
+          // });
 
           if (!masked) act($api); // Run the act function for all pen events.
         } catch (e) {
@@ -3889,6 +3933,8 @@ async function makeFrame({ data: { type, content } }) {
 
       $api.screen = screen;
       $api.screen.center = { x: screen.width / 2, y: screen.height / 2 };
+
+      SCREEN = screen;
 
       $api.fps = function (newFps) {
         send({ type: "fps-change", content: newFps });
@@ -4077,32 +4123,32 @@ async function makeFrame({ data: { type, content } }) {
         //await painting.paint();
 
         // Upper layer.
-        const { layer, ink, needsPaint, pieceCount } = $api;
+        const { page, layer, ink, needsPaint, pieceCount } = $api;
+        page($api.screen); // Make sure we're on the right bufer.
         layer(1000); // Always make sure this stuff draws on top.
 
-        const piece = $api.slug?.split("~")[0];
-
-        if (
-          !previewMode &&
-          !iconMode &&
-          !hideLabel &&
-          system !== "prompt" &&
-          piece !== "textfence" &&
-          piece !== "bleep" &&
-          piece !== undefined &&
-          piece.length > 0 &&
-          piece !== "painting" &&
-          pieceCount > 0
-        ) {
-          currentPromptButton =
-            currentPromptButton ||
-            new $api.ui.TextButton("Back", {
-              left: 6,
-              bottom: 6,
-              screen: $api.screen,
-            });
-          currentPromptButton.paint($api);
-        }
+        // const piece = $api.slug?.split("~")[0];
+        // if (
+        //   !previewMode &&
+        //   !iconMode &&
+        //   !hideLabel &&
+        //   system !== "prompt" &&
+        //   piece !== "textfence" &&
+        //   piece !== "bleep" &&
+        //   piece !== undefined &&
+        //   piece.length > 0 &&
+        //   piece !== "painting" &&
+        //   pieceCount > 0
+        // ) {
+        // currentPromptButton =
+        //   currentPromptButton ||
+        //   new $api.ui.TextButton("Back", {
+        //     left: 6,
+        //     bottom: 6,
+        //     screen: $api.screen,
+        //   });
+        // currentPromptButton.paint($api);
+        // }
 
         // 😱 Scream - Paint a scream if it exists.
         // TODO: Should this overlay after the fact and not force a paint? 23.05.23.19.21
@@ -4141,15 +4187,6 @@ async function makeFrame({ data: { type, content } }) {
           !loading
         ) {
           ink("red").box(screen.width - 3, 1, 2);
-        }
-
-        if ($api.rec.tapeHourglass?.progress > 0) {
-          ink("red").box(
-            0,
-            0,
-            screen.width * $api.rec.tapeHourglass.progress,
-            1,
-          );
         }
 
         // Show a notice if necessary.
@@ -4246,13 +4283,27 @@ async function makeFrame({ data: { type, content } }) {
         };
       }
 
-      maybeLeave();
-
       // Return frame data back to the main thread.
       let sendData = { width: screen.width, height: screen.height };
 
-      // TODO: Write this up to the data in `painting`.
+      // Tack on the tape progress bar pixel buffer if necessary.
+      if ($api.rec.tapeProgress) {
+        const tapeProgressBar = $api.painting($api.screen.width, 1, ($) => {
+          // $activePaintApi = $;
+          $.ink("red").box(0, 0, $api.screen.width * $api.rec.tapeProgress, 1);
+        });
 
+        if (tapeProgressBar)
+          sendData.tapeProgressBar = {
+            x: 0,
+            y: 0,
+            img: tapeProgressBar,
+          };
+      }
+
+      maybeLeave();
+
+      // TODO: Write this up to the data in `painting`.
       sendData.TwoD = {
         code: twoDCommands,
         // code: [
@@ -4380,6 +4431,7 @@ async function handle() {
         const newHandle = "@" + data.handle;
         if (newHandle !== $commonApi.handle()) {
           HANDLE = "@" + data.handle;
+          send({ type: "handle", content: HANDLE });
           store["handle:received"] = true;
         }
       } else {

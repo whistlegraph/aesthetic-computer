@@ -43,7 +43,7 @@ function paint({
         const sample = new Sample(
           xy[0] - brush.x,
           xy[1] - brush.y,
-          pixel(...xy, system.painting)
+          pixel(...xy, system.painting),
         );
         samples.push(sample); // Add sample to the list.
       });
@@ -72,6 +72,7 @@ function paint({
       ink(sample.c).point(sample.x, sample.y);
     });
     unpan();
+    page(screen);
   }
 }
 
@@ -85,7 +86,7 @@ function act($) {
 
 export { paint, act };
 
-export const system = "nopaint:dont-paint-on-leave";
+export const system = "nopaint";
 
 // 📚 Library (Useful functions used throughout the piece)
 
