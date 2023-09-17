@@ -234,19 +234,47 @@ async function halt($, text) {
       return { message: "unauthorized" };
     }
   }
-  if (slug === "tape") {
-    // jump("profile");
-    // rec: { slate, rolling, recording, printProgress },
-    rec.slate();
+  // 📼 Start taping.
+  // Note: Right now, tapes get saved on refresh but can't be concatenated to,
+  // so they start over when using `tape`. Otherwise they get added to
+  // during a single session unless `tape:new` is run.
+  // This could eventually be replaced by a system that makes a new
+  // video blob for every clip and then render or stitches them together
+  // in the end, where `video` can evolve into more of a clip editor.
+  // 23.09.16.18.01
+  if (slug === "tape" || slug === "tape:new") {
+    if (slug === "tape:new") rec.slate(); // Start a recording over.
     const tapePromise = new Promise((resolve, reject) => {
       tapePromiseResolve = resolve;
       tapePromiseReject = reject;
     });
-    sound.microphone.connect(); // Connect the mic.
+    setTimeout(function () {
+      sound.microphone.connect(); // Connect the mic.
+    }, 500);
     try {
       await tapePromise;
+      let duration = parseFloat(params[0]);
+
+      // Gets picked up on next piece load automatically.
+      rec.loadCallback = () => {
+        rec.rolling("video", (time) => {
+          rec.tapeTimerSet(duration || 30, time); // 15 Seconds by default.
+        }); // Start recording immediately.
+      };
+
+      if (isNaN(duration) && params[0]?.length > 0) {
+        duration = Infinity;
+        jump(params[0]);
+        rec.videoOnLeave = true;
+      } else if (params[1]) {
+        jump(params[1]);
+      } else {
+        jump("prompt");
+      }
       // TODO: Start a global tape timer.
-      rec.tapeTimer(parseFloat(params[0]) || 30); // 15 Seconds by default.
+
+      // TODO: Run this on a jump callback? ❤️‍🔥 (To prevent flicker)
+
       flashColor = [0, 255, 0];
     } catch (err) {
       console.log(err);
@@ -254,7 +282,8 @@ async function halt($, text) {
     }
     makeFlash($);
     return true;
-  } else if (slug === "tape:cut") {
+    // 📼 Cut a tape early.
+  } else if (slug === "tape:cut" || slug === "cut") {
     let cutRes, cutRej;
     const cutPromise = new Promise((res, rej) => {
       cutRes = res;
@@ -263,12 +292,11 @@ async function halt($, text) {
     setTimeout(cutRej, 250);
     rec.cut(() => {
       cutRes();
-      jump("video");
     });
     try {
       await cutPromise;
-      flashColor = [0, 255, 0];
       jump("video");
+      flashColor = [0, 255, 0];
     } catch (err) {
       flashColor = [255, 0, 0];
     }
@@ -994,7 +1022,6 @@ function act({
   // 📼 Taping
   if (e.is("microphone-connect:success")) {
     console.log("📼 Taping...");
-    rec.rolling("video"); // Start recording immediately.
     tapePromiseResolve?.();
   }
 
