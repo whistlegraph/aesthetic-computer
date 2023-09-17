@@ -130,6 +130,16 @@ async function fun(event, context) {
         <link
           rel="stylesheet"
           crossorigin="anonymous"
+          href="/type/webfonts/ywft-processing-light.css"
+        />
+        <link
+          rel="stylesheet"
+          crossorigin="anonymous"
+          href="/type/webfonts/ywft-processing-bold.css"
+        />
+        <link
+          rel="stylesheet"
+          crossorigin="anonymous"
           href="/aesthetic.computer/style.css"
         />
         <meta

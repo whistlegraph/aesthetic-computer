@@ -73,23 +73,43 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** tape ***
- - [🟠] system-wide `tape` command to record voice with everything else.
-      (Default 30 seconds with progress bar of some kind)
-  - [-] Put download button on bottom right of `video` page, removing the other lame buttons and skipping the `download` page.
-  - [] Support downloading of webm files and mp4 downloads on iOS, skipping
-       ffmpeg. 
- - [] Because `tape` connects the microphone and also includes the audio
-      jumping to `baktok` while a tape is being recorded would be no problem.
- - [] A `jump` to any url or signing in and out (leaving the site) 
-      should cancel a tape or make a sound when the tape is cut off.
- - [c] downloadable `baktok` video.
+  - [] Make better / more interactive `tap to play` call to action.
+      (And test it with the buttons)
+  - [] Tap to pause as well.
+  - [] Also add scrubbing.
+  - [] Wire up corner hotspot even though video covers it.
+    - [✨] Could use a lime blending mode trick with a dom element
+           here. 😄
+  --
+  - [] Test in iOS to see if videos can actually be uploaded to TikTok.
+    - [] Add a special 1080x1920 flag if needed. `tape:tt`.
+  - [] Potentially use cloudinary to transcode if the above is not so smooth.
+       (This could also speed up recording by not composing in the client?)
+       (And simplify long-term storage of video?)
 
-*** iOS ***
-  - [🟡] Audio loads inconsistently / slowly on iOS. 
-    (Debug on the actual device.)
-  - [] Test camera facing mode / get swap working.
-  - [] Page sometimes doesn't load on iOS, so what's the hangup?
-  - [] Camera should be aligned to the canvas size...
+ + Done
+  - [x] And stop it from flickering.
+  - [x] Wire up download button for downloading the file with the proper extension.
+  - [x] Add `HANDLE` watermark if a handle exists.
+  - [x] Make tape progress bar global for the tape, and superimposed. 
+  - [x] Stop the start flickering.
+  - [x] Overlay a global progress bar on the recording. 
+  - [x] Also see if glaze can be swapped in on the fly if it's enabled. (📓 Not enabling, wait until full GPU renderer.)
+  - [x] Clear the screen each frame.
+  - [x] Add a stamp while superimposing.
+  - [x] Hide it from the actual recorded pixels.
+  - [x] Check to see if mic is already connected in BakTok and skip starting
+        screen if it is.
+    - [x] and also if the freaky-flowers / 3D buffer can work, if enabled.
+    - [x] Put download button on bottom right of `video` page, removing the other lame buttons and skipping the `download` page.
+  - [c] downloadable `baktok` video.
+  - [x] system-wide `tape` command to record voice with everything else.
+        (Default 30 seconds with progress bar of some kind)
+
+*** Remove Back Button ***
+  - [🥰] But add a hot spot corner?
+  + Done
+  - [x] Remove back button
 
 *** textfence ***
   - [] Title of tab is merely "textfence".
@@ -97,6 +117,13 @@
   - [] Write an IPFS compatible exporter.
   - [] Dump all phrases to static audio and use them on a flag / with
        the exporter.
+
+*** iOS ***
+  - [🟡] Audio loads inconsistently / slowly on iOS. 
+    (Debug on the actual device.)
+  - [] Test camera facing mode / get swap working.
+  - [] Page sometimes doesn't load on iOS, so what's the hangup?
+  - [] Camera should be aligned to the canvas size...
 
 *** landing page ***
   - [] Add support for transparent animation. (Starfield)

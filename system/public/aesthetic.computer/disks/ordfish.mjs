@@ -156,7 +156,11 @@ async function boot({ params, wipe, ink, help, resize, screen, hud, net }) {
   path = `${baseUrl}/${code}.webp`;
   try {
     // Preload ordfish image from the internet and downsize its bitmap.
-    pix = resize(await net.preload({ path, extension: "webp" }).img, 128, 128);
+    pix = resize(
+      (await net.preload({ path, extension: "webp" })).img,
+      128,
+      128,
+    );
   } catch (err) {
     console.error("Failed to load ordfish image:", err);
   }

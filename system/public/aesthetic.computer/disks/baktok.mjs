@@ -49,9 +49,16 @@ let hideButton = false,
 const { max } = Math;
 
 // 🥾 Boot
-function boot({ ui, screen }) {
+function boot({ ui, screen, sound: { microphone } }) {
   // Runs once at the start.
   btn = new ui.TextButton(`Start`, { center: "xy", screen });
+
+  mic = microphone;
+  if (mic.connected) {
+    connected = true;
+    hideButton = true;
+  }
+
 }
 
 // 🎨 Paint
@@ -198,7 +205,7 @@ async function act({
     });
     btn.disabled = true;
     btn.reposition({ center: "xy", screen }, "Activating Microphone");
-    if (!mic) mic = microphone.connect();
+    microphone.connect();
     connecting = true;
     btn.down = false;
   }
@@ -248,7 +255,7 @@ async function act({
     playing = true;
 
     // TODO: Queue / trigger video to record...
-    
+
     btn.reposition({ center: "xy", screen }, "Repeat");
   }
 }
