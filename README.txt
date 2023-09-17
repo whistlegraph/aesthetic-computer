@@ -39,6 +39,7 @@
 😀 TODO 😆
 
 🐞 Annoying Bugs & Regressions 🪱
+  - [] Test huawei web browser.
   - [] `video` In-progress transcoding does not cancel when leaving a piece.
   - [] Alt / Meta shortcut needs to work for mac to reset pan.
   - [] Live reload: boot will not paint again if paint returns false in a contrived example
@@ -80,13 +81,13 @@
   - [] Wire up corner hotspot even though video covers it.
     - [✨] Could use a lime blending mode trick with a dom element
            here. 😄
+  - [] Show mouse cursor in the recordings.
   --
   - [] Test in iOS to see if videos can actually be uploaded to TikTok.
     - [] Add a special 1080x1920 flag if needed. `tape:tt`.
   - [] Potentially use cloudinary to transcode if the above is not so smooth.
        (This could also speed up recording by not composing in the client?)
        (And simplify long-term storage of video?)
-
  + Done
   - [x] And stop it from flickering.
   - [x] Wire up download button for downloading the file with the proper extension.
