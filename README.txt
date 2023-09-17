@@ -76,8 +76,7 @@
 *** tape ***
   - [] Make better / more interactive `tap to play` call to action.
       (And test it with the buttons)
-  - [] Tap to pause as well.
-  - [] Also add scrubbing.
+
   - [] Wire up corner hotspot even though video covers it.
     - [] First just keep the button but prevent it from rendering.
     - [✨] Could use a lime blending mode trick with a dom element
@@ -91,6 +90,15 @@
   - [] Potentially use cloudinary to transcode if the above is not so smooth.
        (This could also speed up recording by not composing in the client?)
        (And simplify long-term storage of video?)
+  - [] Red indicator circle in top right while recording is happening
+  - [] tapping circle jumps to video page
+  - [] disable stackable recordings
+
++ Later
+  - [] Tap to pause
+  - [] Add scrubbing
+  - [] stackable recordings
+
  + Done
   - [x] And stop it from flickering.
   - [x] Wire up download button for downloading the file with the proper extension.
