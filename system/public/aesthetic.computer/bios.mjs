@@ -2711,6 +2711,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           } else if (mediaRecorder) {
             if (!mediaRecorderBlob) {
               mediaRecorderDataHandler = (chunks) => {
+
+                console.log("Media Data Handled...");
+                
                 mediaRecorderBlob = new Blob(chunks, {
                   type: mediaRecorder.mimeType,
                 });
@@ -2747,7 +2750,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 start(mediaRecorderBlob, mediaRecorderDuration);
               };
 
-              mediaRecorder.requestData();
+              // mediaRecorder.requestData();
+              mediaRecorder.stop();
             } else {
               start(mediaRecorderBlob, mediaRecorderDuration);
             }
