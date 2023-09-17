@@ -73,6 +73,8 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+  - [] android keyboard not opening while taping
+
 *** tape ***
   - [] Make better / more interactive `tap to play` call to action.
       (And test it with the buttons)
