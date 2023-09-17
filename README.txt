@@ -79,11 +79,14 @@
   - [] Tap to pause as well.
   - [] Also add scrubbing.
   - [] Wire up corner hotspot even though video covers it.
+    - [] First just keep the button but prevent it from rendering.
     - [✨] Could use a lime blending mode trick with a dom element
            here. 😄
-  - [] Show mouse cursor in the recordings.
+  - [] Show mouse cursor / touches in the recordings.
   --
   - [] Test in iOS to see if videos can actually be uploaded to TikTok.
+    - [] It might be that the mediaRecorder does not stop and get the end
+         of its data?
     - [] Add a special 1080x1920 flag if needed. `tape:tt`.
   - [] Potentially use cloudinary to transcode if the above is not so smooth.
        (This could also speed up recording by not composing in the client?)
