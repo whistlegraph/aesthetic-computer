@@ -95,6 +95,7 @@
   - [] Red indicator circle in top right while recording is happening
   - [] tapping circle jumps to video page
   - [] disable stackable recordings
+  - [] add timestamps to tape file names
 
 + Later
   - [] Tap to pause
