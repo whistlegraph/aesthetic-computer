@@ -53,13 +53,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   let diskSupervisor;
   let currentPiece = null; // Gets set to a path after `loaded`.
+  let firstPiece = true;
   let currentPieceHasKeyboard = false;
 
   // Media Recorder
   let mediaRecorder, mediaRecorderDataHandler, mediaRecorderBlob; // Holds the last generated recording.
   let mediaRecorderDuration = 0,
     mediaRecorderStartTime;
-  let mediaRecorderFirstRetrieval = true;
+  // let mediaRecorderFirstRetrieval = true;
 
   // Clipboard
   let pastedText;
@@ -1728,10 +1729,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Clear any active parameters once the disk has been loaded.
       window.history.replaceState({}, "", window.location.pathname);
 
+      if (currentPiece !== null) firstPiece = false;
       currentPiece = content.path;
       currentPieceHasKeyboard = false;
 
-      if (!mediaRecorder) {
+      if (!content.taping) {
         detachMicrophone?.(); // Remove any attached microphone unless we
         //                       are taping 📼.
       }
@@ -2652,6 +2654,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           el.setAttribute("playsinline", ""); // Only for iOS.
           el.loop = true;
 
+          el.muted = firstPiece;
+
           el.addEventListener("play", () => {
             send({ type: "recorder:present-playing" });
           });
@@ -2664,6 +2668,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             "pointerdown",
             () => {
               if (el.paused) el.play();
+              el.muted = false;
             },
             { once: true },
           );
@@ -2788,7 +2793,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "recorder:slate") {
       await Store.del("tape"); // Delete video from indexDB.
-      mediaRecorderFirstRetrieval = false;
+      // mediaRecorderFirstRetrieval = false;
       mediaRecorderDataHandler = null; // Prevent stop's data handler from
       //                                  triggering playback.
       mediaRecorder?.stop();
