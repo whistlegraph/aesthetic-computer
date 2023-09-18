@@ -43,10 +43,8 @@ function boot({ wipe, rec, gizmo, jump, notice }) {
     jump("prompt");
     return;
   }
-
   wipe(0);
   rec.present(); // Visually present a recording right away if one exists.
-
   ellipsisTicker = new EllipsisTicker(gizmo.Hourglass);
 }
 
@@ -54,21 +52,22 @@ function boot({ wipe, rec, gizmo, jump, notice }) {
 function paint({
   api,
   wipe,
-  num,
   ink,
   ui,
   help,
-  rec: { presenting, playing, printProgress, printed, presentProgress },
+  rec: { presenting, playing, printProgress, presentProgress },
   screen,
   paintCount,
 }) {
   if (presenting) {
     if (!playing) {
-      wipe(0, 100).ink(255, 200).write("TAP TO PLAY", { center: "xy " });
-    } else if (presentProgress) {
-      wipe(0, 0);
+      wipe(0, 100).ink(255, 200).write("||", { center: "xy " });
+    }
+
+    if (presentProgress) {
+      if (playing) wipe(0, 0);
       ink(0).box(0, screen.height - 1, screen.width, screen.height - 1);
-      ink().box(
+      ink(playing ? undefined : 64).box(
         0,
         screen.height - 1,
         screen.width * presentProgress,
@@ -78,10 +77,8 @@ function paint({
 
     if (isPrinting) {
       const h = 16; // Paint a printing / transcoding progress bar.
-
       let text = "PROCESSING";
       text += ellipsisTicker.text(help.repeat);
-
       wipe(0, 0, 80, 180)
         .ink(0)
         .box(0, screen.height / 2 - h / 2, screen.width, h)
@@ -108,19 +105,14 @@ function sim() {
 // ✒ Act (Runs once per user interaction)
 function act({ event: e, rec, download, num, jump }) {
   if (!rec.printing) {
-    // let noPrint = true;
-
-    // Print (or download) a video.
+    // Download or print (render) a video.
     btn?.act(e, {
       push: () => {
-        // TODO: How do I keep track of network upload progress?
-        //       Maybe with a callback?
+        download(`tape-${num.timestamp()}.mp4`);
         // Transcode and then upload.
         // isPrinting = true;
-
         // rec.print(async () => {
         // });
-
         // let uploaded;
         // try {
         //   uploaded = await upload(".mp4");
@@ -128,16 +120,13 @@ function act({ event: e, rec, download, num, jump }) {
         //   console.error("Upload failed:", e);
         //   uploaded = { slug: "local" };
         // }
-        // jump(`download ${uploaded.slug}`);
-        // noPrint = false;
-        download("tape.mp4");
       },
     });
 
-    // if (noPrint) {
-    //   if (e.is("touch:1") && !rec.playing) rec.play();
-    //   if (e.is("touch:1") && rec.playing) rec.pause();
-    // }
+    if (!btn?.down) {
+      if (e.is("touch:1") && !rec.playing) rec.play();
+      if (e.is("touch:1") && rec.playing) rec.pause();
+    }
   }
 }
 
