@@ -194,6 +194,7 @@ async function fun(event, context) {
       "Content-Type": "text/html",
       "Cross-Origin-Embedder-Policy": "require-corp",
       "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Resource-Policy": "cross-origin",
     },
     body,
     ttl: 60,
