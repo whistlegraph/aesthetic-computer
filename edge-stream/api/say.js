@@ -111,6 +111,9 @@ function corsHeaders(request) {
   if (request.headers.origin === "https://ipfs.decentralized-content.com")
     allowedOrigin = request.headers.origin; // Whitelist `textfence` ipfs origin for Zora.
 
+  if (request.headers.origin === "https://zora.co")
+    allowedOrigin = request.headers.origin;
+
   return {
     "Access-Control-Allow-Methods": "GET,OPTIONS,PATCH,DELETE,POST,PUT",
     "Access-Control-Allow-Origin": allowedOrigin,
