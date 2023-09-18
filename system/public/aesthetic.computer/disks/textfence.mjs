@@ -5,15 +5,12 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Create global screenshot feature and take square screenshot for thumbnail.
+  + Launch Process
+  - [] Mint on Zora using the production URL. 
+  + Next Version
   - [] The speakers / pan channels should be reversed for iOS?
        (This is probably an audio processor thing.)
   - [] Preload the audio for the next step before showing the words.
-  - [] Make a test mint on Zora:
-       - [] Wait for parameters from Sam.
-       - https://docs.zora.co/docs/smart-contracts/creator-tools/ZoraNFTCreator
-       - Mint the piece on a testnet.
-  + Launch Process
   + Done
   - [x] Finalize words / great narrative.
   - [x] Make sure there are no repeats.
@@ -89,6 +86,7 @@ let currentTurn = 0,
 let speaking = false;
 let needsGen = false;
 let voiceFemale, voiceMale;
+let curtain = false;
 
 let l = 0,
   r = 0;
@@ -136,7 +134,7 @@ function paint({ wipe, ink, write, screen, typeface, num }) {
 
   const progress = 1 - (totalTurns - currentTurn) / totalTurns;
   const gap = 7; // Max 1 space.
-  ink(255).line(cx, cy - 20, cx, cy + 2);
+  ink(curtain ? 128 : 255).line(cx, cy - 20, cx, cy + 2);
 
   // ⬅️ Left Word
   const leftWidthMinusOneCharacter = (l.length - 1) * charWidth;
@@ -155,7 +153,7 @@ function paint({ wipe, ink, write, screen, typeface, num }) {
   }
 
   const leftX = cx - leftWidthMinusOneCharacter - leftMaxX - gap;
-  ink(textColor).write(l, { center: "y", x: leftX });
+  ink(curtain ? 128 : textColor).write(l, { center: "y", x: leftX });
 
   // ➡️ Right Word
   const firstRightCharacter = r[0];
@@ -173,7 +171,7 @@ function paint({ wipe, ink, write, screen, typeface, num }) {
   }
 
   const rightX = cx - rightMinX + gap;
-  ink(textColor).write(r, { center: "y", x: rightX });
+  ink(curtain ? 128 : textColor).write(r, { center: "y", x: rightX });
 }
 
 // 🎪 Act
@@ -184,7 +182,16 @@ function act($) {
     speak,
     num,
   } = $;
-  if ((e.is("touch") && !speaking) || (e.is("speech:completed") && speaking)) {
+
+  if (e.is("touch") && !speaking) {
+    curtain = true;
+  }
+
+  if (e.is("lift") && !speaking) {
+    curtain = false;
+  }
+
+  if ((e.is("lift") && !speaking) || (e.is("speech:completed") && speaking)) {
     speaking = true;
     let voice;
 
@@ -195,7 +202,7 @@ function act($) {
       "🎴 Group turns left:",
       `${groupTurnsAmt - groupTurns + 1}/${groupTurnsAmt}`,
       "⌛ Total turns left:",
-      `${totalTurns - currentTurn + 1}/${totalTurns}`
+      `${totalTurns - currentTurn + 1}/${totalTurns}`,
     );
     if (groupTurns === groupTurnsAmt) needsGen = true;
 
@@ -209,12 +216,14 @@ function act($) {
       textBlinkCallback = function () {
         const maleUtterance = utteranceFor("male", `${l} ${r}`, num);
         const femaleUtterance = utteranceFor("female", `${l} ${r}`, num);
+        const completed = flip();
         speak(femaleUtterance, `female:${voiceFemale}`, "cloud", {
           pan: -panSway,
+          skipCompleted: !completed,
         });
         speak(maleUtterance, `male:${voiceMale}`, "cloud", {
           pan: panSway,
-          skipCompleted: true,
+          skipCompleted: completed,
         });
       };
     } else {
@@ -223,6 +232,8 @@ function act($) {
         l = leftDeck.pop();
         if (leftDeck.length === 0) {
           leftDeck = left.slice();
+          const index = leftDeck.indexOf(l);
+          if (index !== -1) leftDeck.splice(index, 1);
           shuffleInPlace(leftDeck);
         }
         console.log("left deck:", leftDeck);
@@ -233,6 +244,8 @@ function act($) {
         r = rightDeck.pop();
         if (rightDeck.length === 0) {
           rightDeck = right.slice();
+          const index = rightDeck.indexOf(r);
+          if (index !== -1) rightDeck.splice(index, 1);
           shuffleInPlace(rightDeck);
         }
         console.log("right deck:", rightDeck);
