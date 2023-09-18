@@ -58,6 +58,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Media Recorder
   let mediaRecorder, mediaRecorderBlob;
+  let recordedFrames = [];
   const mediaRecorderChunks = [];
   let mediaRecorderDuration = 0,
     mediaRecorderStartTime,
@@ -1128,6 +1129,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   let contentFrame;
   let underlayFrame;
+  let underlayCan;
 
   //const bakedCan = document.createElement("canvas", {
   //  willReadFrequently: true,
@@ -1771,6 +1773,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       underlayFrame?.remove(); // Remove the underlayFrame if it exists.
       underlayFrame = undefined;
+      underlayCan = undefined;
 
       // Remove any event listeners added by the content frame.
       window?.acCONTENT_EVENTS.forEach((e) => e());
@@ -2279,38 +2282,38 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         return;
       }
 
-      // TODO: To add it to a canvas...
-      //       look into using "content" or options.
-
-      // recorder.start();
-
-      // https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/captureStream
-      // console.log(content);
-      // let audioTrack = dest.stream.getAudioTracks()[0];
-      // add it to your canvas stream:
-      // canvasStream.addTrack(audioTrack);
-      // use your canvas stream like you would normally:
-      // let recorder = new MediaRecorder(canvasStream);
-
       let mimeType;
 
-      if (content === "audio" || content === "video") {
-        if (MediaRecorder.isTypeSupported(content + "/mp4")) {
-          mimeType = content + "/mp4"; // This is the setup for Safari.
-        } else if (MediaRecorder.isTypeSupported(content + "/webm")) {
-          mimeType = content + "/webm"; // And for Chrome & Firefox.
-          // mimeType = content + "/webm;codecs=h264"; // Possible optimization.
-        } else {
-          console.error("🔴 Mimetypes mp4 and webm are unsupported.");
-        }
-      } else {
-        console.error("🔴 Option must be 'audio' or 'video'.");
+      // if (content === "audio" || content === "video") {
+
+      // if (MediaRecorder.isTypeSupported(content + "/mp4")) {
+      //   mimeType = content + "/mp4"; // This is the setup for Safari.
+      // } else if (MediaRecorder.isTypeSupported(content + "/webm")) {
+      //   mimeType = content + "/webm"; // And for Chrome & Firefox.
+      //   // mimeType = content + "/webm;codecs=h264"; // Possible optimization.
+      // } else {
+      //   console.error("🔴 Mimetypes mp4 and webm are unsupported.");
+      // }
+
+      // } else {
+      //   console.error("🔴 Option must be 'audio' or 'video'.");
+      // }
+
+      // Set the audio recorder mimetypes.
+      // TODO: Should WAV also be here?
+      if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+        mimeType = "audio/webm;codecs=opus";
+      } else if (MediaRecorder.isTypeSupported("audio/ogg;codecs=vorbis")) {
+        mimeType = "audio/ogg;codecs=vorbis";
+      } else if (MediaRecorder.isTypeSupported("audio/aac")) {
+        mimeType = "audio/aac";
       }
 
       let options;
 
-      const svgCursor = new Image();
+      // const svgCursor = new Image();
 
+      /*
       if (content === "audio") {
         options = {
           audioBitsPerSecond: 128000,
@@ -2539,13 +2542,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         };
 
-        const canvasStream = sctx.canvas.captureStream();
+        //const canvasStream = sctx.canvas.captureStream();
 
-        audioStreamDest.stream.getAudioTracks().forEach((track) => {
-          canvasStream.addTrack(track);
-        });
+        // audioStreamDest.stream.getAudioTracks().forEach((track) => {
+        //   canvasStream.addTrack(track);
+        // });
 
-        mediaRecorder = new MediaRecorder(canvasStream, options);
+        mediaRecorder = new MediaRecorder(audioStreamDest.stream, options);
+      }
+      */
+
+      if (content === "video") {
+        // Start recording audio.
+        mediaRecorder = new MediaRecorder(audioStreamDest.stream, options);
       }
 
       // 🗺️ mediaRecorder:Start
@@ -2649,25 +2658,30 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // TODO: Can send the download code back here...
         // send({ type: "recorder:uploaded", code });
 
-        mediaRecorderBlob = new Blob(mediaRecorderChunks, {
-          type: mediaRecorder.mimeType,
-        });
+        recordedFrames.length = 0;
 
-        await receivedChange({
-          data: {
-            type: "store:persist",
-            content: {
-              key: "tape",
-              method: "local:db",
-              data: {
-                blob: mediaRecorderBlob,
-                duration: mediaRecorderDuration,
-              },
-            },
-          },
-        });
+        // mediaRecorderBlob = new Blob(mediaRecorderChunks, {
+        //   type: mediaRecorder.mimeType,
+        // });
+
+        // if (content === "video") {
+        //   await receivedChange({
+        //     data: {
+        //       type: "store:persist",
+        //       content: {
+        //         key: "tape",
+        //         method: "local:db",
+        //         data: {
+        //           blob: mediaRecorderBlob,
+        //           duration: mediaRecorderDuration,
+        //         },
+        //       },
+        //     },
+        //   });
+        // }
+
         mediaRecorder = undefined; // ❌ Trash the recorder.
-        mediaRecorderStartTime = null;
+        mediaRecorderStartTime = undefined;
         mediaRecorderDuration = null;
         mediaRecorderChunks.length = 0;
         // send({ type: "recorder:rolling:ended" });
@@ -2677,16 +2691,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (e.data && e.data.size > 0) mediaRecorderChunks.push(e.data);
       };
 
-      if (content === "video") {
-        // Start media recorder once svg loads.
-        svgCursor.onload = function (e) {
-          // Use small chunk sizes. (`1000` broke TikTok)
-          mediaRecorder.start(100);
-        };
-        svgCursor.src = "/aesthetic.computer/cursors/precise.svg";
-      } else {
-        mediaRecorder.start(100);
-      }
+      //if (content === "video") {
+      // Start media recorder once svg loads.
+      //svgCursor.onload = function (e) {
+      // Use small chunk sizes. (`1000` broke TikTok)
+      //  mediaRecorder.start(100);
+      //};
+      //svgCursor.src = "/aesthetic.computer/cursors/precise.svg";
+      //} else {
+      console.log("Start audio recording...");
+      mediaRecorder.start(100);
+      //}
       return;
     }
 
@@ -2708,13 +2723,85 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         retrievedTape ||
         (mediaRecorder && mediaRecorder.state === "paused")
       ) {
-        const type = retrievedTape
-          ? "video"
-          : mediaRecorder.mimeType.split("/")[0];
+        // const type = retrievedTape
+        //   ? "video"
+        //   : mediaRecorder.mimeType.split("/")[0];
 
-        if (type === "video") {
-          underlayFrame = document.createElement("div");
-          underlayFrame.id = "underlay";
+        // if (type === "video") {
+
+        const blob = new Blob(mediaRecorderChunks, {
+          type: mediaRecorder.mimeType,
+        });
+
+        sfx["tape:audio"] = await blobToArrayBuffer(blob);
+
+        underlayFrame = document.createElement("div");
+        underlayFrame.id = "underlay";
+
+        const frameCan = document.createElement("canvas");
+        const fctx = frameCan.getContext("2d");
+
+        underlayCan = frameCan;
+
+        frameCan.width = recordedFrames[0][1].width;
+        frameCan.height = recordedFrames[0][1].height;
+        frameCan.style.width = "100%";
+        frameCan.style.height = "100%";
+        // TODO: ^ Letterbox this canvas appropriately when the screen
+        //         resizes.
+
+        let f = 0;
+
+        // console.log(mediaRecorderDuration, blob, recordedFrames);
+
+        let playbackStart;
+        let playbackProgress = 0;
+
+        window.requestAnimationFrame(function update() {
+          //let d = el.duration === Infinity ? duration : el.duration;
+          // const content = el.currentTime / d;
+
+          // Play audio along with frames, on each loop around.
+
+          // TODO: In recordedFrames[f][0] is the current timing of
+          //       this frame. I want to skip any frames / advance F
+          //       further if necessary.
+
+          if (f === 0) {
+            playSfx("tape:audio_" + performance.now(), "tape:audio");
+            playbackStart = performance.now();
+            playbackProgress = 0;
+          } else {
+            playbackProgress = performance.now() - playbackStart;
+            // while (
+            //   f < recordedFrames.length &&
+            //   playbackProgress > recordedFrames[f][0]
+            // ) {
+            //   f++;
+            // }
+            // f %= recordedFrames.length;
+          }
+
+          // console.log(playbackProgress, recordedFrames[f][0]);
+
+          fctx.putImageData(recordedFrames[f][1], 0, 0);
+          f = (f + 1) % recordedFrames.length;
+          // TODO: Drop frames as necessary?
+          // while (recordedFrames[f][0] < playbackProgress && f ) {
+          //   f = (f + 1) % recordedFrames.length;
+          //   // Skip any frames if necessary.
+          // }
+
+          send({ type: "recorder:present-progress", content });
+          if (underlayFrame) window.requestAnimationFrame(update);
+        });
+
+        underlayFrame.appendChild(frameCan);
+        wrapper.appendChild(underlayFrame);
+        send({ type: "recorder:presented" });
+        send({ type: "recorder:present-playing" });
+
+        /*
 
           const el = document.createElement(type); // "audio" or "video"
           el.autoplay = true; // Allow video footage play automatically.
@@ -2801,7 +2888,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           underlayFrame.appendChild(el);
           wrapper.appendChild(underlayFrame);
           send({ type: "recorder:presented" });
-        }
+          */
+        //} else if (type === "audio") {
+        //  console.log("🎵🙁 Audio recorder playback unimplemented.");
+        //}
       }
       return;
     }
@@ -2837,15 +2927,46 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (!mediaRecorder) return;
       // mediaRecorder.stop(); // Render a video if a recording exists.
       // mediaRecorder = undefined;
+
+      // This should create a new mediastream that includes the audio
+      // track / sound effect in addition to the dumped frames
+      // on the dump canvas.
+
+      // It should just linearly record everything, and then
+      // download a video file after rendering...
+
+      // ❤️‍🔥
+      console.log("RENDERING VIDEO...");
+
+      let mimeType;
+      const content = "video";
+      if (MediaRecorder.isTypeSupported(content + "/mp4")) {
+        mimeType = content + "/mp4"; // This is the setup for Safari.
+      } else if (MediaRecorder.isTypeSupported(content + "/webm")) {
+        mimeType = content + "/webm"; // And for Chrome & Firefox.
+      } else {
+        console.error("🔴 Mimetypes mp4 and webm are unsupported.");
+      }
+
+      const canvasStream = underlayCan.captureStream();
+
+      // TODO: This would be overdubbing....
+      //       I only really want to play one SFX blob here...
+      audioStreamDest.stream.getAudioTracks().forEach((track) => {
+        canvasStream.addTrack(track);
+      });
+
+      const videoRecorder = new MediaRecorder(audioStreamDest.stream, options);
+      videoRecorder.start(50);
+
       send({ type: "recorder:printing:started" });
       return;
     }
 
     if (type === "recorder:slate") {
-      await Store.del("tape"); // Delete video from indexDB.
-      // mediaRecorderFirstRetrieval = false;
-      // mediaRecorderDataHandler = null; // Prevent stop's data handler from
-      //                                  triggering playback.
+      if (mediaRecorder?.mimeType.indexOf("video") !== -1) {
+        await Store.del("tape");
+      }
       mediaRecorder?.stop();
       return;
     }
@@ -3130,14 +3251,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       } else if (pixelsDidChange) {
         ctx.putImageData(imageData, 0, 0); // Comment out for a `dirtyBox` visualization.
 
-        paintOverlays["label"]?.(); // labe //
+        paintOverlays["label"]?.(); // label
+
         //
         if (
-          typeof paintToStreamCanvas === "function" &&
-          mediaRecorder?.state !== "paused" // &&
+          // typeof paintToStreamCanvas === "function" &&
+          mediaRecorder?.state !== "paused" &&
+          mediaRecorderStartTime !== undefined
           // frameCount % 2n === 0n
         ) {
-          paintToStreamCanvas();
+          // Dump each frame frame if we are recording.
+          recordedFrames.push([
+            performance.now() - mediaRecorderStartTime,
+            ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height),
+          ]);
+          //paintToStreamCanvas();
         }
 
         paintOverlays["tapeProgressBar"]?.(); // tape progress
@@ -4188,6 +4316,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 }
 
 // Utilities
+
+// Convert an img or blob object to an ac formatted bitmap  / "painting".
 async function toBitmap(imgOrBlob) {
   const img = await createImageBitmap(imgOrBlob);
   const canvas = document.createElement("canvas");
@@ -4203,6 +4333,7 @@ async function toBitmap(imgOrBlob) {
   };
 }
 
+// Unzip a file.
 async function unzip(data) {
   try {
     const zip = await window.JSZip.loadAsync(data);
@@ -4242,6 +4373,16 @@ async function unzip(data) {
     console.error("🤐 Error reading ZIP:", err);
     return record;
   }
+}
+
+// Convert a blob oobject to an ArrayBuffer.
+function blobToArrayBuffer(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(blob);
+  });
 }
 
 export { boot };
