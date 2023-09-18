@@ -39,6 +39,8 @@
 😀 TODO 😆
 
 🐞 Annoying Bugs & Regressions 🪱
+  - [] android keyboard not opening while taping
+  - [] android backspace bug
   - [] Test huawei web browser.
   - [] `video` In-progress transcoding does not cancel when leaving a piece.
   - [] Alt / Meta shortcut needs to work for mac to reset pan.
@@ -73,36 +75,26 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-  - [] android keyboard not opening while taping
-
-*** tape ***
-  - [] Make better / more interactive `tap to play` call to action.
-      (And test it with the buttons)
-
-  - [] Wire up corner hotspot even though video covers it.
-    - [] First just keep the button but prevent it from rendering.
-    - [✨] Could use a lime blending mode trick with a dom element
-           here. 😄
-  - [] Show mouse cursor / touches in the recordings.
-  --
-  - [] Test in iOS to see if videos can actually be uploaded to TikTok.
-    - [] It might be that the mediaRecorder does not stop and get the end
-         of its data?
-    - [] Add a special 1080x1920 flag if needed. `tape:tt`.
-  - [] Potentially use cloudinary to transcode if the above is not so smooth.
-       (This could also speed up recording by not composing in the client?)
-       (And simplify long-term storage of video?)
-  - [] Red indicator circle in top right while recording is happening
-  - [] tapping circle jumps to video page
-  - [] disable stackable recordings
-  - [] add timestamps to tape file names
-
-+ Later
-  - [] Tap to pause
-  - [] Add scrubbing
-  - [] stackable recordings
-
+*** `tape` ***
+  - [🟥] Try a new strategy where frames are dumped
+       and then playback occurs through a live mediastream that
+       composes the frames and the sound. This can be captured
+       when download is tapped?
+  - [-] Test tape.
+    (Audio disables weirdly.)
  + Done
+  - [x] Show mouse cursor / touches in the recordings.
+  - [c] See if tape addition works via concatenating stored tape now?
+  - [x] Make better / more interactive `tap to play` call to action.
+        (No longer necessary right now because it should always auto-play?)
+        (And test it with the buttons)
+  - [x] Wire up corner hotspot even though video covers it.
+    - [x] First just keep the button but prevent it from rendering.
+  - [x] Add timestamps to tape file names
+  - [x] Add a special 1080x1920 flag if needed. `tape:tt`.
+  - [x] disable stackable recordings
+        (Put behind a `tape:add` flag.)
+  - [x] Test in iOS to see if videos can actually be uploaded to TikTok.
   - [x] And stop it from flickering.
   - [x] Wire up download button for downloading the file with the proper extension.
   - [x] Add `HANDLE` watermark if a handle exists.
@@ -265,9 +257,17 @@
         (Upload and replace the file in S3, then send a redis sub ping for
         that user.)
 
-*** Combined Mint+Print? ***
-  - [] How can I just send 12 words along with the digital artifact
-       once something has been printed... like just put it in the email?
+*** tape ***
+  - [] Enable limitless recording.
+  - [] Red indicator circle in top right while recording is happening.
+  - [] tapping circle jumps to video page / pauses recording
+  - [] Tap to pause
+  - [] Add scrubbing
+  - [] stackable recordings
+  - [] Integrate direct-to-tiktok posting: https://developers.tiktok.com.
+  - [] Potentially use cloudinary to transcode if the above is not so smooth.
+       (This could also speed up recording by not composing in the client?)
+       (And simplify long-term storage of video?)
 
 *** @aesthetic.computer ***
   - [] Make the first instagram grid post.
