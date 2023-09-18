@@ -2459,8 +2459,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           sctx.save(); // Save the current state of the canvas
 
-          // drawTextAtPosition(0, 90); // Left
-          // drawTextAtPosition(sctx.canvas.width, -90); // Right
+          drawTextAtPosition(0, 90); // Left
+          drawTextAtPosition(sctx.canvas.width, -90); // Right
 
           sctx.restore();
           sctx.globalAlpha = 1;
