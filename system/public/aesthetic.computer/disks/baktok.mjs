@@ -58,7 +58,6 @@ function boot({ ui, screen, sound: { microphone } }) {
     connected = true;
     hideButton = true;
   }
-
 }
 
 // 🎨 Paint
@@ -256,6 +255,7 @@ async function act({
 
     // TODO: Queue / trigger video to record...
 
+    hideButton = false;
     btn.reposition({ center: "xy", screen }, "Repeat");
   }
 }
