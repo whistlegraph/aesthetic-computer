@@ -219,7 +219,7 @@ let currentPath,
   currentHash,
   currentText,
   currentCode,
-  currentHUDText,
+  currentHUDTxt,
   currentHUDTextColor,
   currentHUDButton,
   currentHUDOffset;
@@ -388,7 +388,10 @@ class Recorder {
     if (!this.tapeTimerDuration) return;
     this.tapeProgress = (time - this.tapeTimerStart) / this.tapeTimerDuration;
     needsPaint();
-    if (this.tapeProgress >= 1) {
+    const secondsOver =
+      this.tapeProgress * this.tapeTimerDuration - this.tapeTimerDuration;
+    // Run for an extra 150 milliseconds.
+    if (this.tapeProgress >= 1 && secondsOver > 0.15) {
       this.tapeProgress = 0;
       this.tapeTimerStart = null;
       this.tapeTimerDuration = null;
@@ -400,7 +403,6 @@ class Recorder {
     send({ type: "recorder:slate" }); // Kill the MediaRecorder instance.
     // TODO: Should printing and playing also be set to false?
     //$commonApi.rec.printing = false; // "
-
     $commonApi.rec.recording = false; // Reset this singleton.
     $commonApi.rec.recorded = false; //
     $commonApi.rec.printed = false; // "
@@ -659,11 +661,11 @@ const $commonApi = {
   hand: { mediapipe: { screen: [], world: [], hand: "None" } }, // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
   hud: {
     label: (text, color, offset) => {
-      currentHUDText = text;
+      currentHUDTxt = text;
       currentHUDTextColor = color;
       currentHUDOffset = offset;
     },
-    currentLabel: () => ({ text: currentHUDText, btn: currentHUDButton }),
+    currentLabel: () => ({ text: currentHUDTxt, btn: currentHUDButton }),
   },
   send,
   platform,
@@ -2221,16 +2223,6 @@ async function load(
     return socket;
   };
 
-  // This would also get the source code, in case meta-programming is needed.
-  // const source = await (await fetch(fullUrl)).text();
-
-  if (!alias) currentHUDText = slug; // Update hud text if this is not an alias.
-  if (module.nohud) currentHUDText = undefined; // Don't use hud text if needed.
-  currentHUDOffset = undefined; // Always reset these to the defaults.
-  currentHUDTextColor = undefined;
-  currentHUDButton = undefined;
-  //currentPromptButton = undefined;
-
   // ***Client Metadata Fields***
   // Set default metadata fields for SEO and sharing,
   // (requires serverside prerendering, also via `index.js`).
@@ -2678,6 +2670,13 @@ async function load(
       // Clear any existing notice on disk change.
       // notice = noticeTimer = undefined;
     }
+
+    if (!alias) currentHUDTxt = slug; // Update hud if this is not an alias.
+    if (module.nohud) currentHUDTxt = undefined;
+    currentHUDOffset = undefined; // Always reset these to the defaults.
+    currentHUDTextColor = undefined;
+    currentHUDButton = undefined;
+    //currentPromptButton = undefined;
 
     // Push last piece to a history list, skipping prompt and repeats.
     if (
@@ -4227,7 +4226,7 @@ async function makeFrame({ data: { type, content } }) {
 
       // System info label (addressability).
       let label;
-      const piece = currentHUDText?.split("~")[0];
+      const piece = currentHUDTxt?.split("~")[0];
       const defo = 6; // Default offset
 
       if (
@@ -4252,34 +4251,41 @@ async function makeFrame({ data: { type, content } }) {
         piece !== "mom" &&
         piece !== "encode" &&
         piece !== "alphapoet" &&
-        piece !== "sing" &&
-        piece !== "neoprompt" &&
-        piece !== "video"
+        piece !== "sing" // &&
       ) {
-        const w = currentHUDText.length * 6;
+        let w = currentHUDTxt.length * 6;
         const h = 11;
+        if (piece === "video") w = screen.width;
+
         label = $api.painting(w, h, ($) => {
-          // $activePaintApi = $;
-          $.ink(0).write(currentHUDText?.replaceAll("~", " "), { x: 1, y: 1 });
           let c;
           if (currentHUDTextColor) {
             c = num.shiftRGB(currentHUDTextColor, [255, 255, 255], 0.75);
           } else {
             c = [255, 200, 240];
           }
-          $.ink(c).write(currentHUDText?.replaceAll("~", " "), { x: 0, y: 0 });
+          if (piece !== "video") {
+            $.ink(0).write(currentHUDTxt?.replaceAll("~", " "), { x: 1, y: 1 });
+            $.ink(c).write(currentHUDTxt?.replaceAll("~", " "), { x: 0, y: 0 });
+          } else {
+            $.ink(0).line(1, 1, 1, h - 1);
+            $.ink(c).line(0, 0, 0, h - 2);
+          }
         });
+
+        if (piece === "video") currentHUDOffset = { x: 0, y: 6 };
+        if (!currentHUDOffset) currentHUDOffset = { x: defo, y: defo };
 
         currentHUDButton =
           currentHUDButton ||
           new $api.ui.Button({
             x: 0,
             y: 0,
-            w: w + (currentHUDOffset?.x || defo),
-            h: h + (currentHUDOffset?.y || defo),
+            w: w + currentHUDOffset.x,
+            h: h + currentHUDOffset.y,
           });
         $commonApi.hud.currentLabel = {
-          text: currentHUDText,
+          text: currentHUDTxt,
           btn: currentHUDButton,
         };
       }
@@ -4290,7 +4296,6 @@ async function makeFrame({ data: { type, content } }) {
       // Tack on the tape progress bar pixel buffer if necessary.
       if ($api.rec.tapeProgress) {
         const tapeProgressBar = $api.painting($api.screen.width, 1, ($) => {
-          // $activePaintApi = $;
           $.ink("red").box(0, 0, $api.screen.width * $api.rec.tapeProgress, 1);
         });
 
@@ -4318,8 +4323,8 @@ async function makeFrame({ data: { type, content } }) {
       // Attach a label buffer if necessary.
       if (label)
         sendData.label = {
-          x: currentHUDOffset?.x || defo,
-          y: currentHUDOffset?.y || defo,
+          x: currentHUDOffset.x,
+          y: currentHUDOffset.y,
           img: label,
         };
 
