@@ -2956,6 +2956,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         canvasStream.addTrack(track);
       });
 
+      const options = { mimeType };
       const videoRecorder = new MediaRecorder(audioStreamDest.stream, options);
       videoRecorder.start(50);
 
