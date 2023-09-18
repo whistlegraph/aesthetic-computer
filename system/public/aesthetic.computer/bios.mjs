@@ -10,7 +10,7 @@ import { speak, speakAPI } from "./lib/speech.mjs";
 import * as UI from "./lib/ui.mjs";
 import * as Glaze from "./lib/glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
-import { choose, shuffleInPlace } from "./lib/help.mjs";
+import { choose } from "./lib/help.mjs";
 import { parse, slug } from "./lib/parse.mjs";
 import * as Store from "./lib/store.mjs";
 import { MetaBrowser, iOS, TikTok } from "./lib/platform.mjs";
@@ -57,12 +57,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let currentPieceHasKeyboard = false;
 
   // Media Recorder
-  let mediaRecorder, mediaRecorderBlob;
-  let recordedFrames = [];
-  const mediaRecorderChunks = [];
+  let mediaRecorder, mediaRecorderDataHandler, mediaRecorderBlob; // Holds the last generated recording.
   let mediaRecorderDuration = 0,
-    mediaRecorderStartTime,
-    mediaRecorderResized = false;
+    mediaRecorderStartTime;
   // let mediaRecorderFirstRetrieval = true;
 
   // Clipboard
@@ -93,7 +90,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // An extra canvas reference for passing through or buffering video recording streams.
   let streamCanCtx;
-  let paintToStreamCanvas = false;
+  let resizeToStreamCanvas = false;
 
   // A layer for modal messages such as "audio engine is off".
   const modal = document.createElement("div");
@@ -966,6 +963,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const module = await import(`./lib/disk.mjs`);
       module.noWorker.postMessage = (e) => onMessage(e); // Define the disk's postMessage replacement.
       send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
+      window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
       send(firstMessage);
       // } else {
       // TODO: Try and save the crash here by restarting the worker
@@ -1129,7 +1127,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   let contentFrame;
   let underlayFrame;
-  let underlayCan;
 
   //const bakedCan = document.createElement("canvas", {
   //  willReadFrequently: true,
@@ -1773,7 +1770,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       underlayFrame?.remove(); // Remove the underlayFrame if it exists.
       underlayFrame = undefined;
-      underlayCan = undefined;
 
       // Remove any event listeners added by the content frame.
       window?.acCONTENT_EVENTS.forEach((e) => e());
@@ -2264,10 +2260,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "recorder:rolling") {
       mediaRecorderBlob = null; // Clear the current blob when we start recording.
 
-      const colonSplit = content.split(":");
-      const tiktokVideo = colonSplit[1] === "tiktok";
-      content = colonSplit[0];
-
       if (mediaRecorder && mediaRecorder.state === "paused") {
         mediaRecorder.resume();
         mediaRecorderStartTime = performance.now();
@@ -2282,38 +2274,36 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         return;
       }
 
+      // TODO: To add it to a canvas...
+      //       look into using "content" or options.
+
+      // recorder.start();
+
+      // https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/captureStream
+      // console.log(content);
+      // let audioTrack = dest.stream.getAudioTracks()[0];
+      // add it to your canvas stream:
+      // canvasStream.addTrack(audioTrack);
+      // use your canvas stream like you would normally:
+      // let recorder = new MediaRecorder(canvasStream);
+
       let mimeType;
 
-      // if (content === "audio" || content === "video") {
-
-      // if (MediaRecorder.isTypeSupported(content + "/mp4")) {
-      //   mimeType = content + "/mp4"; // This is the setup for Safari.
-      // } else if (MediaRecorder.isTypeSupported(content + "/webm")) {
-      //   mimeType = content + "/webm"; // And for Chrome & Firefox.
-      //   // mimeType = content + "/webm;codecs=h264"; // Possible optimization.
-      // } else {
-      //   console.error("🔴 Mimetypes mp4 and webm are unsupported.");
-      // }
-
-      // } else {
-      //   console.error("🔴 Option must be 'audio' or 'video'.");
-      // }
-
-      // Set the audio recorder mimetypes.
-      // TODO: Should WAV also be here?
-      if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
-        mimeType = "audio/webm;codecs=opus";
-      } else if (MediaRecorder.isTypeSupported("audio/ogg;codecs=vorbis")) {
-        mimeType = "audio/ogg;codecs=vorbis";
-      } else if (MediaRecorder.isTypeSupported("audio/aac")) {
-        mimeType = "audio/aac";
+      if (content === "audio" || content === "video") {
+        if (MediaRecorder.isTypeSupported(content + "/mp4")) {
+          mimeType = content + "/mp4"; // This is the setup for Safari.
+        } else if (MediaRecorder.isTypeSupported(content + "/webm")) {
+          mimeType = content + "/webm"; // And for Chrome & Firefox.
+          // mimeType = content + "/webm; codecs=h264"; // Possible optimization to change the container to mp4 without re-encoding.
+        } else {
+          console.error("🔴 Mimetypes mp4 and webm are unsupported.");
+        }
+      } else {
+        console.error("🔴 Option must be 'audio' or 'video'.");
       }
 
       let options;
 
-      // const svgCursor = new Image();
-
-      /*
       if (content === "audio") {
         options = {
           audioBitsPerSecond: 128000,
@@ -2323,9 +2313,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       } else if (content === "video") {
         // Currently always includes an audio track by default.
         options = {
-          audioBitsPerSecond: audioContext.sampleRate * 16,
+          audioBitsPerSecond: 128000,
           // videoBitsPerSecond: 2500000,
-          // videoBitsPerSecond: 9000000,
+          videoBitsPerSecond: 5000000,
           mimeType,
         };
 
@@ -2340,44 +2330,50 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // TODO: If we aren't using TikTok, then just find a good resolution / double
         // the pixels as needed. 22.08.11.03.38
 
+        const originalWidth = canvas.width;
+        const originalHeight = canvas.height;
+        const aspectRatio = originalWidth / originalHeight;
+
+        let newWidth = originalWidth * 4;
+        let newHeight = originalHeight * 4;
+
+        if (newWidth > 1080) {
+          newWidth = originalWidth * 2;
+          newHeight = newWidth / aspectRatio;
+        }
+
+        if (newHeight > 1920) {
+          newHeight = originalHeight * 2;
+          newWidth = newHeight * aspectRatio;
+        }
+
         streamCanCtx = document.createElement("canvas").getContext("2d", {
           alpha: false,
-          willReadFrequently: true,
         });
 
         const sctx = streamCanCtx;
 
-        if (tiktokVideo) {
-          // Portrait Mode / TikTok (this is the default for recording)
-          // This is hardcoded at half 720p for TikTok right now.
-          sctx.canvas.width = canvas.width * 2; //720 / 2;
-          sctx.canvas.height = canvas.height * 2; //1280 / 2;
-        } else {
-          const originalWidth = canvas.width;
-          const originalHeight = canvas.height;
-          const aspectRatio = originalWidth / originalHeight;
+        sctx.canvas.width = newWidth;
+        sctx.canvas.height = newHeight;
 
-          let newWidth = originalWidth * 4;
-          let newHeight = originalHeight * 4;
+        // console.log(
+        //   "WIDTH:",
+        //   streamCanvasContext.canvas.width,
+        //   "HEIGHT:",
+        //   streamCanvasContext.canvas.height,
+        // );
 
-          if (newWidth > 1080) {
-            newWidth = originalWidth * 2;
-            newHeight = newWidth / aspectRatio;
-          }
+        // Must be set after resize.
+        sctx.imageSmoothingEnabled = false;
 
-          if (newHeight > 1920) {
-            newHeight = originalHeight * 2;
-            newWidth = newHeight * aspectRatio;
-          }
-          sctx.canvas.width = newWidth;
-          sctx.canvas.height = newHeight;
-        }
-
-        sctx.imageSmoothingEnabled = false; // Must be set after resize.
+        // Portrait Mode / TikTok (this is the default for recording)
+        // This is hardcoded at 1080p for TikTok right now.
+        // streamCanvasContext.canvas.width = 1080;
+        // streamCanvasContext.canvas.height = 1920;
 
         // Draw into the streamCanvas buffer from the normal canvas,
         // Leaves black bars, resizing it to the frame of the streamCanvas.
-        paintToStreamCanvas = function () {
+        resizeToStreamCanvas = function () {
           const frameWidth = sctx.canvas.width;
           const frameHeight = sctx.canvas.height;
           const frameAspectRatio = frameHeight / frameWidth;
@@ -2395,70 +2391,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           if (frameAspectRatio > aspectRatio) {
             height = sctx.canvas.width * aspectRatio;
-            y = floor(frameHeight / 2 - height / 2);
+            y = Math.floor(frameHeight / 2 - height / 2);
             width = sctx.canvas.width;
           } else {
             width = sctx.canvas.height / aspectRatio;
-            x = floor(frameWidth / 2 - width / 2);
+            x = Math.floor(frameWidth / 2 - width / 2);
             height = sctx.canvas.height;
           }
 
-          if (ThreeD)
-            sctx.drawImage(ThreeD.getCan(), x, y, floor(width), floor(height));
-
-          sctx.drawImage(can, x, y, floor(width), floor(height));
-
-          if (pen.pointers[1]) {
-            const originalX = pen.pointers[1].x;
-            const originalY = pen.pointers[1].y;
-            const scaledX = (originalX / canvas.width) * width + x;
-            const scaledY = (originalY / canvas.height) * height + y;
-
-            if (pen.pointers[1].device === "mouse") {
-              sctx.drawImage(
-                svgCursor,
-                floor(scaledX - 12),
-                floor(scaledY - 12),
-                svgCursor.naturalWidth,
-                svgCursor.naturalHeight,
-              );
-            } else {
-              // Draw a soft tap.
-              // const circleRadius = 16; // example value, adjust as needed
-              // shuffleInPlace(["magenta", "lime", "white"]).forEach((color) => {
-              //   const ox = choose(-4, -2, 0, 2, 4);
-              //   const oy = choose(-4, -2, 0, 2, 4);
-              //   sctx.globalAlpha = 0.15 + Math.random() * 0.25;
-              //   sctx.beginPath();
-              //   sctx.arc(
-              //     scaledX + ox,
-              //     scaledY + oy,
-              //     circleRadius,
-              //     0,
-              //     2 * Math.PI,
-              //   );
-              //   sctx.fillStyle = color; // or any desired color
-              //   sctx.fill();
-              //   sctx.closePath();
-              // });
-              // sctx.globalAlpha = 1;
-            }
-          }
-
-          // if (pen.pointers[1]) {
-          // console.log(pen.pointers[1]);
-
-          // TODO: Draw a circle based on pen.points[1].x and y
-          //       that fits inside of the scaled can drawImage
-          //       below, because these ranges are within
-          //       the original width and height before the aspect
-          //       ratio scale.
-          // }
+          if (ThreeD) sctx.drawImage(ThreeD.getCan(), x, y, width, height);
+          sctx.drawImage(can, x, y, width, height);
 
           // 2. Set up the font.
-          const typeSize = min(24, max(12, floor(sctx.canvas.height / 28)));
+          const typeSize = max(12, floor(sctx.canvas.height / 28));
           // const textHeight = typeSize;
-          const gap = typeSize * 0.75;
+          const gap = typeSize;
 
           sctx.save(); // Save the current state of the canvas
 
@@ -2542,24 +2489,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         };
 
-        //const canvasStream = sctx.canvas.captureStream();
+        const canvasStream = sctx.canvas.captureStream(30);
 
-        // audioStreamDest.stream.getAudioTracks().forEach((track) => {
-        //   canvasStream.addTrack(track);
-        // });
+        audioStreamDest.stream.getAudioTracks().forEach((track) => {
+          canvasStream.addTrack(track);
+        });
 
-        mediaRecorder = new MediaRecorder(audioStreamDest.stream, options);
+        mediaRecorder = new MediaRecorder(canvasStream, options);
       }
-      */
 
-      if (content === "video") {
-        // Start recording audio.
-        mediaRecorder = new MediaRecorder(audioStreamDest.stream, options);
-      }
+      const chunks = []; // Store chunks of the recording.
+
+      mediaRecorder.ondataavailable = (evt) => {
+        if (evt.data.size > 0) {
+          if (debug) console.log("🔴 Recorder: Data", evt.data);
+          chunks.push(evt.data);
+          mediaRecorderDataHandler?.(chunks);
+          mediaRecorderDataHandler = null;
+        }
+      };
+
+      // let recordingStartTime = 0;
+      // let recordingDuration;
 
       // 🗺️ mediaRecorder:Start
       mediaRecorder.onstart = function () {
-        mediaRecorderResized = false;
         mediaRecorderStartTime = performance.now();
         send({
           type: "recorder:rolling:started",
@@ -2569,10 +2523,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           },
         });
         if (debug) console.log("🔴 Recorder: Rolling", content);
-
-        window.addEventListener("resize", () => (mediaRecorderResized = true), {
-          once: true,
-        });
       };
 
       // 🗺️ mediaRecorder:Stop (Recorder Printing)
@@ -2658,64 +2608,33 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // TODO: Can send the download code back here...
         // send({ type: "recorder:uploaded", code });
 
-        recordedFrames.length = 0;
-
-        // mediaRecorderBlob = new Blob(mediaRecorderChunks, {
-        //   type: mediaRecorder.mimeType,
-        // });
-
-        // if (content === "video") {
-        //   await receivedChange({
-        //     data: {
-        //       type: "store:persist",
-        //       content: {
-        //         key: "tape",
-        //         method: "local:db",
-        //         data: {
-        //           blob: mediaRecorderBlob,
-        //           duration: mediaRecorderDuration,
-        //         },
-        //       },
-        //     },
-        //   });
-        // }
-
         mediaRecorder = undefined; // ❌ Trash the recorder.
-        mediaRecorderStartTime = undefined;
+        mediaRecorderStartTime = null;
         mediaRecorderDuration = null;
-        mediaRecorderChunks.length = 0;
-        // send({ type: "recorder:rolling:ended" });
       };
 
-      mediaRecorder.ondataavailable = function (e) {
-        if (e.data && e.data.size > 0) mediaRecorderChunks.push(e.data);
-      };
-
-      //if (content === "video") {
-      // Start media recorder once svg loads.
-      //svgCursor.onload = function (e) {
-      // Use small chunk sizes. (`1000` broke TikTok)
-      //  mediaRecorder.start(100);
-      //};
-      //svgCursor.src = "/aesthetic.computer/cursors/precise.svg";
-      //} else {
-      console.log("Start audio recording...");
-      mediaRecorder.start(100);
-      //}
+      mediaRecorder.start();
       return;
     }
 
     if (type === "recorder:cut") {
       if (!mediaRecorder) return;
       if (debug) console.log("✂️ Recorder: Cut");
-      mediaRecorderDuration += performance.now() - mediaRecorderStartTime;
-      // mediaRecorder?.stop();
-      mediaRecorder?.pause(); // Single clips for now.
+      //setTimeout(async () => {
+      // TODO: This delay is probably not needed? 23.08.09.19.46
+      mediaRecorder?.pause();
       send({ type: "recorder:rolling:ended" });
+      //}, 250);
+
+      mediaRecorderDuration += performance.now() - mediaRecorderStartTime;
       return;
     }
 
     if (type === "recorder:present") {
+      // TODO: Add a DOM preview here.
+      //if (tape)
+
+      // TODO: Check to see if we have anything in indexDB.
       let retrievedTape;
       if (!mediaRecorder) retrievedTape = await Store.get("tape");
 
@@ -2723,111 +2642,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         retrievedTape ||
         (mediaRecorder && mediaRecorder.state === "paused")
       ) {
-        // const type = retrievedTape
-        //   ? "video"
-        //   : mediaRecorder.mimeType.split("/")[0];
+        const type = retrievedTape
+          ? "video"
+          : mediaRecorder.mimeType.split("/")[0];
 
-        // if (type === "video") {
-
-        const blob = new Blob(mediaRecorderChunks, {
-          type: mediaRecorder.mimeType,
-        });
-
-        sfx["tape:audio"] = await blobToArrayBuffer(blob);
-
-        underlayFrame = document.createElement("div");
-        underlayFrame.id = "underlay";
-
-        const frameCan = document.createElement("canvas");
-        const fctx = frameCan.getContext("2d");
-
-        underlayCan = frameCan;
-
-        frameCan.width = recordedFrames[0][1].width;
-        frameCan.height = recordedFrames[0][1].height;
-        frameCan.style.width = "100%";
-        frameCan.style.height = "100%";
-        // TODO: ^ Letterbox this canvas appropriately when the screen
-        //         resizes.
-
-        let f = 0;
-
-        // console.log(mediaRecorderDuration, blob, recordedFrames);
-
-        let playbackStart;
-        let playbackProgress = 0;
-
-        window.requestAnimationFrame(function update() {
-          //let d = el.duration === Infinity ? duration : el.duration;
-          // const content = el.currentTime / d;
-
-          // Play audio along with frames, on each loop around.
-
-          // TODO: In recordedFrames[f][0] is the current timing of
-          //       this frame. I want to skip any frames / advance F
-          //       further if necessary.
-
-          if (f === 0) {
-            playSfx("tape:audio_" + performance.now(), "tape:audio");
-            playbackStart = performance.now();
-            playbackProgress = 0;
-          } else {
-            playbackProgress = performance.now() - playbackStart;
-            // while (
-            //   f < recordedFrames.length &&
-            //   playbackProgress > recordedFrames[f][0]
-            // ) {
-            //   f++;
-            // }
-            // f %= recordedFrames.length;
-          }
-
-          // console.log(playbackProgress, recordedFrames[f][0]);
-
-          fctx.putImageData(recordedFrames[f][1], 0, 0);
-          f = (f + 1) % recordedFrames.length;
-          // TODO: Drop frames as necessary?
-          // while (recordedFrames[f][0] < playbackProgress && f ) {
-          //   f = (f + 1) % recordedFrames.length;
-          //   // Skip any frames if necessary.
-          // }
-
-          send({ type: "recorder:present-progress", content });
-          if (underlayFrame) window.requestAnimationFrame(update);
-        });
-
-        underlayFrame.appendChild(frameCan);
-        wrapper.appendChild(underlayFrame);
-        send({ type: "recorder:presented" });
-        send({ type: "recorder:present-playing" });
-
-        /*
+        if (type === "video") {
+          underlayFrame = document.createElement("div");
+          underlayFrame.id = "underlay";
 
           const el = document.createElement(type); // "audio" or "video"
           el.autoplay = true; // Allow video footage play automatically.
           el.setAttribute("playsinline", ""); // Only for iOS.
           el.loop = true;
 
-          el.addEventListener("loadedmetadata", () => {
-            const videoAspect = el.videoWidth / el.videoHeight;
-            const screenAspect = canvas.width / canvas.height;
-
-            if (
-              !firstPiece &&
-              videoAspect !== screenAspect &&
-              !mediaRecorderResized
-            ) {
-              el.style.objectFit = "cover";
-            }
-
-            window.addEventListener(
-              "resize",
-              () => (el.style.objectFit = "contain"),
-              { once: true },
-            );
-          });
-
-          el.muted = firstPiece || iOS; // auto-play on mute as needed
+          el.muted = firstPiece;
 
           el.addEventListener("play", () => {
             send({ type: "recorder:present-playing" });
@@ -2840,46 +2668,93 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           el.addEventListener(
             "pointerdown",
             () => {
-              el.play();
+              if (el.paused) el.play();
               el.muted = false;
             },
             { once: true },
           );
 
+          // Active recording...
+
           // Report the progress of this element back to the `disk`.
           function start(blob, duration) {
             el.src = URL.createObjectURL(blob);
+            // Listen for the loaded metadata event
+            // el.addEventListener("loadedmetadata", function () {
+            // Now that metadata is loaded, set the current time and play
+            // el.currentTime = 0;
             el.play();
 
             // Once the video starts playing, request the animation frame to track progress
             window.requestAnimationFrame(function update() {
               let d = el.duration === Infinity ? duration : el.duration;
               const content = el.currentTime / d;
+              // console.log(el.currentTime, el.duration, content);
               send({ type: "recorder:present-progress", content });
               if (underlayFrame) window.requestAnimationFrame(update);
             });
+            // });
+            // el.currentTime = 0;
+            // el.play();
+            // // Attempt to play the video, won't work on mobile?
+            // // Note: Video plays via recorder:present:play and pause events.
+            // window.requestAnimationFrame(function update() {
+            //   // Note: Reading el.currentTime seems a little delayed...
+            //   //       and returns NaN early on.
+            //   const content = el.currentTime / el.duration;
+            //   send({ type: "recorder:present-progress", content });
+            //   if (underlayFrame) window.requestAnimationFrame(update);
+            // });
           }
 
-          if (retrievedTape) {
-            console.log(retrievedTape);
+          if (retrievedTape && !mediaRecorder) {
             start(retrievedTape.blob, retrievedTape.duration);
-          } else {
-            const blob = new Blob(mediaRecorderChunks, {
-              type: mediaRecorder.mimeType,
-            });
+          } else if (mediaRecorder) {
+            if (!mediaRecorderBlob) {
+              mediaRecorderDataHandler = (chunks) => {
+                console.log("Media Data Handled...");
 
-            await receivedChange({
-              data: {
-                type: "store:persist",
-                content: {
-                  key: "tape",
-                  method: "local:db",
-                  data: { blob, duration: mediaRecorderDuration },
-                },
-              },
-            });
+                mediaRecorderBlob = new Blob(chunks, {
+                  type: mediaRecorder.mimeType,
+                });
 
-            start(blob, mediaRecorderDuration);
+                // Try to concatenate the blob of the old tape...
+                // TODO: Combining blobs like this won't work with most media
+                // formats and this needs to wait until a clip editor is
+                // requied. 23.09.16.18.03
+                // if (retrievedTape && mediaRecorderFirstRetrieval) {
+                //   mediaRecorderBlob = new Blob(
+                //     [retrievedTape, mediaRecorderBlob],
+                //     {
+                //       type: mediaRecorder.mimeType,
+                //     },
+                //   );
+                //   mediaRecorderFirstRetrieval = false;
+                // }
+
+                // Store current video recording in indexDB.
+                receivedChange({
+                  data: {
+                    type: "store:persist",
+                    content: {
+                      key: "tape",
+                      method: "local:db",
+                      data: {
+                        blob: mediaRecorderBlob,
+                        duration: mediaRecorderDuration,
+                      },
+                    },
+                  },
+                });
+
+                start(mediaRecorderBlob, mediaRecorderDuration);
+              };
+
+              // mediaRecorder.requestData();
+              mediaRecorder.stop();
+            } else {
+              start(mediaRecorderBlob, mediaRecorderDuration);
+            }
           }
 
           // el.srcObject = mediaRecorder.stream; // Live feed.
@@ -2888,27 +2763,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           underlayFrame.appendChild(el);
           wrapper.appendChild(underlayFrame);
           send({ type: "recorder:presented" });
-          */
-        //} else if (type === "audio") {
-        //  console.log("🎵🙁 Audio recorder playback unimplemented.");
-        //}
+        }
       }
       return;
     }
 
     if (type === "recorder:present:play") {
-      if (underlayFrame) {
-        const media = underlayFrame.querySelector("video, audio");
-        media.play();
-      }
       return;
     }
 
     if (type === "recorder:present:pause") {
-      if (underlayFrame) {
-        const media = underlayFrame.querySelector("video, audio");
-        media.pause();
-      }
       return;
     }
 
@@ -2927,47 +2791,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (!mediaRecorder) return;
       // mediaRecorder.stop(); // Render a video if a recording exists.
       // mediaRecorder = undefined;
-
-      // This should create a new mediastream that includes the audio
-      // track / sound effect in addition to the dumped frames
-      // on the dump canvas.
-
-      // It should just linearly record everything, and then
-      // download a video file after rendering...
-
-      // ❤️‍🔥
-      console.log("RENDERING VIDEO...");
-
-      let mimeType;
-      const content = "video";
-      if (MediaRecorder.isTypeSupported(content + "/mp4")) {
-        mimeType = content + "/mp4"; // This is the setup for Safari.
-      } else if (MediaRecorder.isTypeSupported(content + "/webm")) {
-        mimeType = content + "/webm"; // And for Chrome & Firefox.
-      } else {
-        console.error("🔴 Mimetypes mp4 and webm are unsupported.");
-      }
-
-      const canvasStream = underlayCan.captureStream();
-
-      // TODO: This would be overdubbing....
-      //       I only really want to play one SFX blob here...
-      audioStreamDest.stream.getAudioTracks().forEach((track) => {
-        canvasStream.addTrack(track);
-      });
-
-      const options = { mimeType };
-      const videoRecorder = new MediaRecorder(audioStreamDest.stream, options);
-      videoRecorder.start(50);
-
       send({ type: "recorder:printing:started" });
       return;
     }
 
     if (type === "recorder:slate") {
-      if (mediaRecorder?.mimeType.indexOf("video") !== -1) {
-        await Store.del("tape");
-      }
+      await Store.del("tape"); // Delete video from indexDB.
+      // mediaRecorderFirstRetrieval = false;
+      mediaRecorderDataHandler = null; // Prevent stop's data handler from
+      //                                  triggering playback.
       mediaRecorder?.stop();
       return;
     }
@@ -3254,19 +3086,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         paintOverlays["label"]?.(); // label
 
-        //
         if (
-          // typeof paintToStreamCanvas === "function" &&
-          mediaRecorder?.state !== "paused" &&
-          mediaRecorderStartTime !== undefined
-          // frameCount % 2n === 0n
+          typeof resizeToStreamCanvas === "function" &&
+          mediaRecorder?.state !== "paused" // &&
+          //frameCount % 2n === 0n
         ) {
-          // Dump each frame frame if we are recording.
-          recordedFrames.push([
-            performance.now() - mediaRecorderStartTime,
-            ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height),
-          ]);
-          //paintToStreamCanvas();
+          resizeToStreamCanvas();
         }
 
         paintOverlays["tapeProgressBar"]?.(); // tape progress
@@ -4317,8 +4142,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 }
 
 // Utilities
-
-// Convert an img or blob object to an ac formatted bitmap  / "painting".
 async function toBitmap(imgOrBlob) {
   const img = await createImageBitmap(imgOrBlob);
   const canvas = document.createElement("canvas");
@@ -4334,7 +4157,6 @@ async function toBitmap(imgOrBlob) {
   };
 }
 
-// Unzip a file.
 async function unzip(data) {
   try {
     const zip = await window.JSZip.loadAsync(data);
@@ -4374,16 +4196,6 @@ async function unzip(data) {
     console.error("🤐 Error reading ZIP:", err);
     return record;
   }
-}
-
-// Convert a blob oobject to an ArrayBuffer.
-function blobToArrayBuffer(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsArrayBuffer(blob);
-  });
 }
 
 export { boot };
