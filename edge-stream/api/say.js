@@ -107,12 +107,7 @@ function corsHeaders(request) {
   const dev = process.env.VERCEL_ENV === "development";
   const production = !dev;
   let allowedOrigin = production ? "https://aesthetic.computer" : "*";
-
-  if (request.headers.origin === "https://ipfs.decentralized-content.com")
-    allowedOrigin = request.headers.origin; // Whitelist `textfence` ipfs origin for Zora.
-
-  if (request.headers.origin === "https://zora.co")
-    allowedOrigin = request.headers.origin;
+  if (request.headers.origin === null) allowedOrigin = "*";
 
   return {
     "Access-Control-Allow-Methods": "GET,OPTIONS,PATCH,DELETE,POST,PUT",
