@@ -64,8 +64,9 @@ function paint({
       wipe(0, 100).ink(255, 200).write("||", { center: "xy " });
     }
 
+    if (playing) wipe(0, 0);
+
     if (presentProgress) {
-      if (playing) wipe(0, 0);
       ink(0).box(0, screen.height - 1, screen.width, screen.height - 1);
       ink(playing ? undefined : 64).box(
         0,
@@ -108,7 +109,9 @@ function act({ event: e, rec, download, num, jump }) {
     // Download or print (render) a video.
     btn?.act(e, {
       push: () => {
-        download(`tape-${num.timestamp()}.mp4`);
+        rec.print();
+
+        // download(`tape-${num.timestamp()}.mp4`);
         // Transcode and then upload.
         // isPrinting = true;
         // rec.print(async () => {
