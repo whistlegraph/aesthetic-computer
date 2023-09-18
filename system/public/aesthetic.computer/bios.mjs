@@ -963,7 +963,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const module = await import(`./lib/disk.mjs`);
       module.noWorker.postMessage = (e) => onMessage(e); // Define the disk's postMessage replacement.
       send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
-      window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
+      window.acSEND = send;
       send(firstMessage);
       // } else {
       // TODO: Try and save the crash here by restarting the worker
@@ -983,6 +983,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     const module = await import(`./lib/disk.mjs`);
     module.noWorker.postMessage = (e) => onMessage(e); // Define the disk's postMessage replacement.
     send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
+    window.acSEND = send;
   }
 
   // The initial message sends the path and host to load the disk.
