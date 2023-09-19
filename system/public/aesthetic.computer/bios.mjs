@@ -845,7 +845,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // 🌡️ TODO; Performance: Cache these buffers per sound effect in each piece?
 
       const gainNode = audioContext.createGain();
-      gainNode.gain.value = options?.volume || 1;
+      gainNode.gain.value = options?.volume !== undefined ? options.volume : 1;
 
       const panNode = audioContext.createStereoPanner();
       panNode.pan.value = options?.pan || 0; // -1 for left, 0 for center, 1 for right

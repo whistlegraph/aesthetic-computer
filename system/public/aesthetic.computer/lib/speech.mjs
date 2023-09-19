@@ -73,7 +73,7 @@ function speak(words, voice, mode = "local", opts = {}) {
       speakAPI.playSfx(
         id,
         label,
-        { reverse: opts.reverse, pan: opts.pan },
+        { reverse: opts.reverse, pan: opts.pan, volume: opts.volume },
         () => {
           if (!opts.skipCompleted) window.acSEND({ type: "speech:completed" });
         },

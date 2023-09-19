@@ -76,9 +76,11 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** `tape` ***
+  - [] Fix letterboxing again / changing window size while recording and
+       playing back.
   - [] "Processing..." progress bar cosmetics. 
-  - [] Fix letterboxing again / changing window size while recording.
   - [] Final iOS testing.
+  - [] Get audio / voice-over working good.
   - [] Code cleanup.
  + Done
   - [x] Fix progress bar.
@@ -119,18 +121,6 @@
   - [c] downloadable `baktok` video.
   - [x] system-wide `tape` command to record voice with everything else.
         (Default 30 seconds with progress bar of some kind)
-
-*** Remove Back Button ***
-  - [🥰] But add a hot spot corner?
-  + Done
-  - [x] Remove back button
-
-*** textfence ***
-  - [] Title of tab is merely "textfence".
-  - [] Fix duplicate playback of phrases.
-  - [] Write an IPFS compatible exporter.
-  - [] Dump all phrases to static audio and use them on a flag / with
-       the exporter.
 
 *** iOS ***
   - [🟡] Audio loads inconsistently / slowly on iOS. 

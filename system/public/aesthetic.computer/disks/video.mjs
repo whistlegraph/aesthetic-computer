@@ -77,7 +77,6 @@ function paint({
     }
 
     if (isPrinting) {
-      console.log("printing:", printProgress);
       const h = 16; // Paint a printing / transcoding progress bar.
       let text = "PROCESSING";
       text += ellipsisTicker.text(help.repeat);

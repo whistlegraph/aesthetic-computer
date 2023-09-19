@@ -1,5 +1,12 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** Remove Back Button ***
+  - [x] Remove back button
+
+*** textfence ***
+  - [x] Title of tab is merely "textfence".
+  - [x] Fix duplicate playback of phrases.
+
 *** Onboarding Bugs ***
   + Done
   - [x] Using the backspace command reloads the font?
