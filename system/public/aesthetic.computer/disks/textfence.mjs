@@ -87,6 +87,7 @@ let speaking = false;
 let needsGen = false;
 let voiceFemale, voiceMale;
 let curtain = false;
+let muted = false;
 
 let l = 0,
   r = 0;
@@ -172,6 +173,10 @@ function paint({ wipe, ink, write, screen, typeface, num }) {
 
   const rightX = cx - rightMinX + gap;
   ink(curtain ? 128 : textColor).write(r, { center: "y", x: rightX });
+
+  if (muted) {
+    ink([255, 0, 0, 127]).write("MUTE", { x: 6, y: screen.height - 14 });
+  }
 }
 
 // 🎪 Act
@@ -182,6 +187,10 @@ function act($) {
     speak,
     num,
   } = $;
+
+  if (e.is("lift") && speaking) {
+    muted = !muted;
+  }
 
   if (e.is("touch") && !speaking) {
     curtain = true;
@@ -219,10 +228,12 @@ function act($) {
         const completed = flip();
         speak(femaleUtterance, `female:${voiceFemale}`, "cloud", {
           pan: -panSway,
+          volume: muted ? 0 : 1,
           skipCompleted: !completed,
         });
         speak(maleUtterance, `male:${voiceMale}`, "cloud", {
           pan: panSway,
+          volume: muted ? 0 : 1,
           skipCompleted: completed,
         });
       };
@@ -254,7 +265,7 @@ function act($) {
         textColor = "white";
       }
       const utterance = utteranceFor(voice, `${l} ${r}`, num);
-      speak(utterance, voice, "cloud", { pan });
+      speak(utterance, voice, "cloud", { pan, volume: muted ? 0 : 1 });
     }
   }
   // Respond to user input here.
