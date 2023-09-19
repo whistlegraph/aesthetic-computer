@@ -76,13 +76,20 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** `tape` ***
-  - [🟥] Try a new strategy where frames are dumped
+  - [] "Processing..." progress bar cosmetics. 
+  - [] Fix letterboxing again / changing window size while recording.
+  - [] Final iOS testing.
+  - [] Code cleanup.
+ + Done
+  - [x] Fix progress bar.
+  - [x] Get the stamp typography just right.
+  - [x] Make the red recording progress bar decrease. 
+  - [x] Cache download link. 
+  - [x] Try a new strategy where frames are dumped
        and then playback occurs through a live mediastream that
        composes the frames and the sound. This can be captured
        when download is tapped?
-  - [-] Test tape.
-    (Audio disables weirdly.)
- + Done
+  - [x] Fix any the synchronization errors.
   - [x] Show mouse cursor / touches in the recordings.
   - [c] See if tape addition works via concatenating stored tape now?
   - [x] Make better / more interactive `tap to play` call to action.

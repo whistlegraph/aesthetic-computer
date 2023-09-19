@@ -427,9 +427,9 @@ class Recorder {
     send({ type: "recorder:print" });
   }
 
-  present() {
+  present(noplay = false) {
     this.presentProgress = 0;
-    send({ type: "recorder:present" });
+    send({ type: "recorder:present", content: { noplay } });
   }
 
   unpresent() {
@@ -4297,13 +4297,19 @@ async function makeFrame({ data: { type, content } }) {
       // Tack on the tape progress bar pixel buffer if necessary.
       if ($api.rec.tapeProgress) {
         const tapeProgressBar = $api.painting($api.screen.width, 1, ($) => {
-          $.ink("red").box(0, 0, $api.screen.width * $api.rec.tapeProgress, 1);
+          $.ink(0).box(0, 0, $api.screen.width, 1);
+          $.ink("red").box(
+            0,
+            0,
+            $api.screen.width * (1 - $api.rec.tapeProgress),
+            1,
+          );
         });
 
         if (tapeProgressBar)
           sendData.tapeProgressBar = {
             x: 0,
-            y: 0,
+            y: screen.height - 1,
             img: tapeProgressBar,
           };
       }

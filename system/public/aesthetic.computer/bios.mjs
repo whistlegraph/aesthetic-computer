@@ -94,7 +94,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // An extra canvas reference for passing through or buffering video recording streams.
   let streamCanCtx;
   let paintToStreamCanvas = false;
-  let startTapePlayback, stopTapePlayback;
+  let startTapePlayback,
+    stopTapePlayback,
+    pauseTapePlayback,
+    resumeTapePlayback;
 
   // A layer for modal messages such as "audio engine is off".
   const modal = document.createElement("div");
@@ -475,6 +478,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   const sfx = {}; // Buffers of sound effects that have been loaded.
   const sfxPlaying = {}; // Sound sources that are currently playing.
+  const sfxCancel = [];
   speakAPI.sfx = sfx;
   // TODO: Some of these need to be kept (like system ones) and others need to
   // be destroyed after pieces change.
@@ -830,6 +834,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
       }
 
+      // if (sfxCancel.includes(id)) {
+      //   sfxCancel.length = 0;
+      //   return;
+      // }
+
       if (sfx[sound] instanceof ArrayBuffer) return;
       // If decoding has failed or no sound is present then silently fail.
 
@@ -841,7 +850,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const panNode = audioContext.createStereoPanner();
       panNode.pan.value = options?.pan || 0; // -1 for left, 0 for center, 1 for right
 
-      const source = audioContext.createBufferSource();
+      let source = audioContext.createBufferSource();
       const buffer = sfx[sound];
 
       // Reverse the playback if specified.
@@ -866,25 +875,34 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         source.buffer = buffer;
       }
 
-      if (options?.loop) source.loop = true; // Loop playback.
+      let paused = false;
 
-      source.connect(panNode);
-      panNode.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      gainNode.connect(options?.stream || audioStreamDest);
+      function connect() {
+        if (options?.loop) source.loop = true; // Loop playback.
 
-      source.addEventListener("ended", () => {
-        source.disconnect();
-        gainNode.disconnect();
-        panNode.disconnect();
-        completed?.();
-        delete sfxPlaying[id];
-      });
+        source.connect(panNode);
+        panNode.connect(gainNode);
+        if (!options?.stream) {
+          gainNode.connect(audioContext.destination);
+        }
+        gainNode.connect(options?.stream || audioStreamDest);
+
+        source.addEventListener("ended", () => {
+          source.disconnect();
+          gainNode.disconnect();
+          panNode.disconnect();
+          completed?.();
+          if (paused === false) delete sfxPlaying[id];
+        });
+      }
+
+      connect();
 
       if (debug && logs.audio) console.log("🔈 Playing:", sound);
 
-      const startTime = audioContext.currentTime;
+      let startTime = audioContext.currentTime;
       source.start();
+      let pausedAt;
 
       // Return a playback handle here to be able to pause or kill the sample.
       sfxPlaying[id] = {
@@ -894,6 +912,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           gainNode.disconnect();
           panNode.disconnect();
           delete sfxPlaying[id];
+        },
+        pause: () => {
+          if (debug && logs.audio) console.log("🔈 Pausing...", id);
+          paused = true;
+          source.stop();
+          pausedAt = audioContext.currentTime - startTime;
+        },
+        resume: () => {
+          if (debug && logs.audio) console.log("🔈 Resuming...", id);
+          paused = false;
+          source.disconnect(); // Disconnect the old source first
+          gainNode.disconnect();
+          panNode.disconnect();
+          source = audioContext.createBufferSource(); // New source from buffer.
+          source.buffer = buffer;
+          connect();
+          source.start(0, pausedAt); // Start from the paused time
+          startTime = audioContext.currentTime - pausedAt;
         },
         progress: () => {
           const elapsed = audioContext.currentTime - startTime;
@@ -2315,247 +2351,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       let options = { mimeType };
 
-      // const svgCursor = new Image();
-
-      /*
-      if (content === "audio") {
-        options = {
-          audioBitsPerSecond: 128000,
-          mimeType,
-        };
-        mediaRecorder = new MediaRecorder(audioStreamDest.stream, options);
-      } else if (content === "video") {
-        // Currently always includes an audio track by default.
-        options = {
-          audioBitsPerSecond: audioContext.sampleRate * 16,
-          // videoBitsPerSecond: 2500000,
-          // videoBitsPerSecond: 9000000,
-          mimeType,
-        };
-
-        // *** streamCanvas Recording Settings ***
-        // TODO: Examine the canvas stream resolution?
-
-        // TODO: Duplicate / resize canvas as needed?
-        // TODO: What happens upon resize?
-        // TODO: Only set the streamCanvas here if it is below a certain
-        //       resolution.
-
-        // TODO: If we aren't using TikTok, then just find a good resolution / double
-        // the pixels as needed. 22.08.11.03.38
-
-        streamCanCtx = document.createElement("canvas").getContext("2d", {
-          alpha: false,
-          willReadFrequently: true,
-        });
-
-        const sctx = streamCanCtx;
-
-        if (tiktokVideo) {
-          // Portrait Mode / TikTok (this is the default for recording)
-          // This is hardcoded at half 720p for TikTok right now.
-          sctx.canvas.width = canvas.width * 2; //720 / 2;
-          sctx.canvas.height = canvas.height * 2; //1280 / 2;
-        } else {
-          const originalWidth = canvas.width;
-          const originalHeight = canvas.height;
-          const aspectRatio = originalWidth / originalHeight;
-
-          let newWidth = originalWidth * 4;
-          let newHeight = originalHeight * 4;
-
-          if (newWidth > 1080) {
-            newWidth = originalWidth * 2;
-            newHeight = newWidth / aspectRatio;
-          }
-
-          if (newHeight > 1920) {
-            newHeight = originalHeight * 2;
-            newWidth = newHeight * aspectRatio;
-          }
-          sctx.canvas.width = newWidth;
-          sctx.canvas.height = newHeight;
-        }
-
-        sctx.imageSmoothingEnabled = false; // Must be set after resize.
-
-        // Draw into the streamCanvas buffer from the normal canvas,
-        // Leaves black bars, resizing it to the frame of the streamCanvas.
-        paintToStreamCanvas = function () {
-          const frameWidth = sctx.canvas.width;
-          const frameHeight = sctx.canvas.height;
-          const frameAspectRatio = frameHeight / frameWidth;
-          const aspectRatio = canvas.height / canvas.width;
-
-          sctx.clearRect(0, 0, frameWidth, frameHeight);
-
-          let can = canvas;
-          // if (glaze.on) can = Glaze.getCan();
-
-          let x = 0,
-            y = 0,
-            width,
-            height;
-
-          if (frameAspectRatio > aspectRatio) {
-            height = sctx.canvas.width * aspectRatio;
-            y = floor(frameHeight / 2 - height / 2);
-            width = sctx.canvas.width;
-          } else {
-            width = sctx.canvas.height / aspectRatio;
-            x = floor(frameWidth / 2 - width / 2);
-            height = sctx.canvas.height;
-          }
-
-          if (ThreeD)
-            sctx.drawImage(ThreeD.getCan(), x, y, floor(width), floor(height));
-
-          sctx.drawImage(can, x, y, floor(width), floor(height));
-
-          if (pen.pointers[1]) {
-            const originalX = pen.pointers[1].x;
-            const originalY = pen.pointers[1].y;
-            const scaledX = (originalX / canvas.width) * width + x;
-            const scaledY = (originalY / canvas.height) * height + y;
-
-            if (pen.pointers[1].device === "mouse") {
-              sctx.drawImage(
-                svgCursor,
-                floor(scaledX - 12),
-                floor(scaledY - 12),
-                svgCursor.naturalWidth,
-                svgCursor.naturalHeight,
-              );
-            } else {
-              // Draw a soft tap.
-              // const circleRadius = 16; // example value, adjust as needed
-              // shuffleInPlace(["magenta", "lime", "white"]).forEach((color) => {
-              //   const ox = choose(-4, -2, 0, 2, 4);
-              //   const oy = choose(-4, -2, 0, 2, 4);
-              //   sctx.globalAlpha = 0.15 + Math.random() * 0.25;
-              //   sctx.beginPath();
-              //   sctx.arc(
-              //     scaledX + ox,
-              //     scaledY + oy,
-              //     circleRadius,
-              //     0,
-              //     2 * Math.PI,
-              //   );
-              //   sctx.fillStyle = color; // or any desired color
-              //   sctx.fill();
-              //   sctx.closePath();
-              // });
-              // sctx.globalAlpha = 1;
-            }
-          }
-
-          // if (pen.pointers[1]) {
-          // console.log(pen.pointers[1]);
-
-          // TODO: Draw a circle based on pen.points[1].x and y
-          //       that fits inside of the scaled can drawImage
-          //       below, because these ranges are within
-          //       the original width and height before the aspect
-          //       ratio scale.
-          // }
-
-          // 2. Set up the font.
-          const typeSize = min(24, max(12, floor(sctx.canvas.height / 28)));
-          // const textHeight = typeSize;
-          const gap = typeSize * 0.75;
-
-          sctx.save(); // Save the current state of the canvas
-
-          drawTextAtPosition(0, 90); // Left
-          drawTextAtPosition(sctx.canvas.width, -90); // Right
-
-          sctx.restore();
-          sctx.globalAlpha = 1;
-
-          function drawTextAtPosition(positionX, deg) {
-            sctx.save();
-            sctx.translate(positionX, 0);
-            sctx.rotate(radians(deg));
-            const yDist = 0.1;
-
-            sctx.font = `${typeSize}px YWFTProcessing-Regular`;
-            const text = "aesthetic.computer";
-            const measured = sctx.measureText(text);
-            const textWidth = measured.width;
-
-            ["red", "lime", "blue", "white"].forEach((color) => {
-              let offsetX, offsetY;
-              if (color !== "white") {
-                sctx.globalAlpha = 0.45;
-                offsetX = choose(-2, -4, 0, 2, 4);
-                offsetY = choose(-2, -4, 0, 2, 4);
-              } else {
-                sctx.globalAlpha = choose(0.5, 0.4, 0.6);
-                offsetX = choose(-1, 0, 1);
-                offsetY = choose(-1, 0, 1);
-                color = choose("white", "white", "white", "magenta", "yellow");
-              }
-
-              sctx.fillStyle = color;
-
-              if (deg === 90) {
-                sctx.fillText(
-                  text,
-                  floor(sctx.canvas.height * (1 - yDist) - textWidth + offsetY),
-                  -floor(offsetX + gap),
-                );
-              } else if (deg === -90) {
-                sctx.fillText(
-                  text,
-                  -floor(sctx.canvas.height * yDist + textWidth + offsetY),
-                  floor(offsetX - gap),
-                );
-              }
-            });
-
-            if (HANDLE) {
-              // sctx.font = `normal 10 ${typeSize / 1.5}px Berkeley Mono Variable`;
-              sctx.font = `${typeSize * 1.25}px YWFTProcessing-Light`;
-              sctx.fillStyle = choose("yellow", "red", "blue");
-              let offsetX, offsetY;
-              const handleWidth =
-                textWidth / 2 + sctx.measureText(HANDLE).width / 2;
-              const handleSpace = typeSize * 1.35;
-              offsetX = choose(-1, 0, 1);
-              offsetY = choose(-1, 0, 1);
-
-              if (deg === 90) {
-                // Handle
-                sctx.fillText(
-                  HANDLE,
-                  floor(
-                    sctx.canvas.height * (1 - yDist) - handleWidth + offsetY,
-                  ),
-                  -floor(offsetX + handleSpace + gap),
-                );
-              } else if (deg === -90) {
-                sctx.fillText(
-                  HANDLE,
-                  -floor(sctx.canvas.height * yDist + handleWidth + offsetY),
-                  floor(offsetX - handleSpace - gap),
-                );
-              }
-            }
-
-            sctx.restore();
-          }
-        };
-
-        //const canvasStream = sctx.canvas.captureStream();
-
-        // audioStreamDest.stream.getAudioTracks().forEach((track) => {
-        //   canvasStream.addTrack(track);
-        // });
-
-        mediaRecorder = new MediaRecorder(audioStreamDest.stream, options);
-      }
-      */
-
       if (content === "video") {
         // Start recording audio.
         mediaRecorder = new MediaRecorder(audioStreamDest.stream, options);
@@ -2721,12 +2516,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "recorder:present") {
-      let retrievedTape;
-      if (!mediaRecorder) retrievedTape = await Store.get("tape");
+      // let retrievedTape;
+      // if (!mediaRecorder) retrievedTape = await Store.get("tape");
 
       if (
-        retrievedTape ||
-        (mediaRecorder && mediaRecorder.state === "paused")
+        // retrievedTape ||
+        mediaRecorder &&
+        mediaRecorder.state === "paused"
       ) {
         // const type = retrievedTape
         //   ? "video"
@@ -2767,43 +2563,62 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           let playbackStart;
           let playbackProgress = 0;
           let continuePlaying = true;
+          let stopped = false;
 
           const tapeSoundId = "tape:audio_" + performance.now();
 
           stopTapePlayback = () => {
             continuePlaying = false;
+            stopped = true;
             sfxPlaying[tapeSoundId]?.kill();
-            console.log(sfxPlaying[tapeSoundId]);
+            sfxCancel.push(tapeSoundId);
           };
 
-          window.requestAnimationFrame(function update() {
-            // console.log("playing...", f);
+          let pauseStart;
+
+          pauseTapePlayback = () => {
+            continuePlaying = false;
+            pauseStart = performance.now();
+            sfxPlaying[tapeSoundId]?.pause();
+            send({ type: "recorder:present-paused" });
+          };
+
+          resumeTapePlayback = () => {
+            if (stopped) {
+              send({ type: "recorder:present-playing" });
+              return startTapePlayback(true);
+            }
+            continuePlaying = true;
+            window.requestAnimationFrame(update);
+            console.log(sfxPlaying[tapeSoundId]);
+            sfxPlaying[tapeSoundId]?.resume();
+            playbackStart += performance.now() - pauseStart;
+            send({ type: "recorder:present-playing" });
+          };
+
+          async function update() {
+            if (!continuePlaying || !underlayFrame) return;
 
             if (f === 0) {
-              playSfx(tapeSoundId, "tape:audio", {
-                stream,
-              });
+              playSfx(tapeSoundId, "tape:audio", { stream });
+              // Will be silent if stream is here. ^
               playbackStart = performance.now();
               playbackProgress = 0;
-            } else {
-              playbackProgress = performance.now() - playbackStart;
             }
 
             fctx.putImageData(recordedFrames[f][1], 0, 0);
             render?.(frameCan, playbackProgress / mediaRecorderDuration); // Render a video as needed, using this canvas.
 
-            f = (f + 1) % recordedFrames.length;
+            playbackProgress = performance.now() - playbackStart;
 
-            // if (playbackProgress > f)
-
-            //console.log(playbackProgress, recordedFrames[f][0]);
-
-            // while (recordedFrames[f][0] < playbackProgress && f > 0) {
-            //   f = (f + 1) % recordedFrames.length;
-            //   console.log(f);
-            // }
+            // Advance frames.
+            if (f === 0) f += 1;
+            while (playbackProgress > recordedFrames[f][0] && f !== 0) {
+              f = (f + 1) % recordedFrames.length;
+            } // Skip any necessary frames to better match the audio.
 
             if (f === 0 && doneCb) {
+              send({ type: "recorder:present-progress", content: 1 });
               return doneCb(); // Completed a cycle.
             }
 
@@ -2814,9 +2629,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               });
             }
 
-            if (continuePlaying && underlayFrame)
-              window.requestAnimationFrame(update);
-          });
+            window.requestAnimationFrame(update);
+          }
+
+          update();
         };
 
         startTapePlayback();
@@ -2923,16 +2739,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "recorder:present:play") {
       if (underlayFrame) {
-        const media = underlayFrame.querySelector("video, audio");
-        media.play();
+        // const media = underlayFrame.querySelector("video, audio");
+        // media.play();
+        resumeTapePlayback?.();
       }
       return;
     }
 
     if (type === "recorder:present:pause") {
       if (underlayFrame) {
-        const media = underlayFrame.querySelector("video, audio");
-        media.pause();
+        //const media = underlayFrame.querySelector("video, audio");
+        //media.pause();
+        pauseTapePlayback?.();
       }
       return;
     }
@@ -2957,6 +2775,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // It should just linearly record everything, and then
       // download a video file after rendering...
+      send({ type: "recorder:present-playing" });
 
       let mimeType;
       const content = "video";
@@ -2976,31 +2795,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // TODO: `tiktokVideo` could eventually be defined by an export option
       //        instead of in `recorder:rolling`.
-      if (tiktokVideo) {
-        // Portrait Mode / TikTok (this is the default for recording)
-        // This is hardcoded at half 720p for TikTok right now.
-        sctx.canvas.width = 1080; //720 / 2;
-        sctx.canvas.height = 1920; //1280 / 2;
-      } else {
-        const originalWidth = canvas.width;
-        const originalHeight = canvas.height;
-        const aspectRatio = originalWidth / originalHeight;
+      //if (tiktokVideo) {
+      // Portrait Mode / TikTok (this is the default for recording)
+      // This is hardcoded at half 720p for TikTok right now.
+      // sctx.canvas.width = 1080; //720 / 2;
+      // sctx.canvas.height = 1920; //1280 / 2;
+      //} else {
+      const originalWidth = canvas.width;
+      const originalHeight = canvas.height;
+      const aspectRatio = originalWidth / originalHeight;
 
-        let newWidth = originalWidth * 4;
-        let newHeight = originalHeight * 4;
+      let newWidth = originalWidth * 4;
+      let newHeight = originalHeight * 4;
 
-        if (newWidth > 1080) {
-          newWidth = originalWidth * 2;
-          newHeight = newWidth / aspectRatio;
-        }
-
-        if (newHeight > 1920) {
-          newHeight = originalHeight * 2;
-          newWidth = newHeight * aspectRatio;
-        }
-        sctx.canvas.width = newWidth;
-        sctx.canvas.height = newHeight;
+      if (newWidth > 1080) {
+        newWidth = originalWidth * 2;
+        newHeight = newWidth / aspectRatio;
       }
+
+      if (newHeight > 1920) {
+        newHeight = originalHeight * 2;
+        newWidth = newHeight * aspectRatio;
+      }
+      sctx.canvas.width = newWidth;
+      sctx.canvas.height = newHeight;
+      //}
 
       sctx.imageSmoothingEnabled = false; // Must be set after resize.
 
@@ -3011,7 +2830,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         canvasStream.addTrack(track);
       });
 
-      const options = { mimeType };
+      const options = {
+        mimeType,
+        videoBitsPerSecond: 5000000,
+        audioBitsPerSecond: 256000,
+      };
+
       const videoRecorder = new MediaRecorder(canvasStream, options);
 
       const chunks = [];
@@ -3021,11 +2845,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       };
 
       function startRendering() {
-        videoRecorder.start(50);
         stopTapePlayback?.();
+        videoRecorder.start(100);
         startTapePlayback(
           true,
-          () => videoRecorder.stop(),
+          () => {
+            setTimeout(function () {
+              videoRecorder.stop();
+            }, 250); // Seems like this is necessary or recordings get cut-off.
+          },
           tapeRenderStreamDest,
           // 🎫 Renders and watermarks the frames for export.
           function renderTape(can, progress) {
@@ -3112,7 +2940,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // }
 
             // 2. Set up the font.
-            const typeSize = min(24, max(12, floor(sctx.canvas.height / 28)));
+            const typeSize = min(32, max(24, floor(sctx.canvas.height / 20)));
             // const textHeight = typeSize;
             const gap = typeSize * 0.75;
 
@@ -3128,7 +2956,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               sctx.save();
               sctx.translate(positionX, 0);
               sctx.rotate(radians(deg));
-              const yDist = 0.1;
+              const yDist = 0.05;
 
               sctx.font = `${typeSize}px YWFTProcessing-Regular`;
               const text = "aesthetic.computer";
@@ -3203,7 +3031,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
               sctx.restore();
             }
-            send({ type: "recorder:transcode-progress", content: progress });
+
+            const transcodeProgress = progress > 0.98 ? 1 : progress;
+            send({
+              type: "recorder:transcode-progress",
+              content: transcodeProgress,
+            });
           },
         );
       }
@@ -3213,15 +3046,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       svgCursor.src = "/aesthetic.computer/cursors/precise.svg";
 
       // Video rendered, now download...
-      videoRecorder.onstop = function (e) {
+      videoRecorder.onstop = async function (e) {
         const blob = new Blob(chunks, { type: videoRecorder.mimeType });
         const filename = `tape-${timestamp()}.mp4`;
+
+        await receivedChange({
+          data: {
+            type: "store:persist",
+            content: {
+              key: "tape",
+              method: "local:db",
+              data: { blob, duration: mediaRecorderDuration },
+            },
+          },
+        });
 
         // 📥 Download the video.
         receivedDownload({ filename, data: blob });
         send({ type: "recorder:printed", content: { id: filename } });
         stopTapePlayback?.();
-        startTapePlayback(true);
+        send({ type: "recorder:present-paused" });
+        // startTapePlayback(true);
+        // pauseTapePlayback?.();
       };
 
       send({ type: "recorder:printing:started" });
