@@ -106,7 +106,8 @@ export default async function handler(req, res) {
 function corsHeaders(request) {
   const dev = process.env.VERCEL_ENV === "development";
   const production = !dev;
-  const allowedOrigin = production ? "https://aesthetic.computer" : "*";
+  let allowedOrigin = production ? "https://aesthetic.computer" : "*";
+  if (request.headers.origin === "null") allowedOrigin = "*";
 
   return {
     "Access-Control-Allow-Methods": "GET,OPTIONS,PATCH,DELETE,POST,PUT",
