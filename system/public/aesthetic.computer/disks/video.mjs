@@ -78,7 +78,7 @@ function paint({
 
     if (isPrinting) {
       const h = 16; // Paint a printing / transcoding progress bar.
-      let text = "PROCESSING";
+      let text = "RENDERING";
       text += ellipsisTicker.text(help.repeat);
       wipe(0, 0, 80, 180)
         .ink(0)
@@ -109,20 +109,10 @@ function act({ event: e, rec, download, num, jump }) {
     // Download or print (render) a video.
     btn?.act(e, {
       push: () => {
-        rec.print();
-
-        // download(`tape-${num.timestamp()}.mp4`);
-        // Transcode and then upload.
-        // isPrinting = true;
-        // rec.print(async () => {
-        // });
-        // let uploaded;
-        // try {
-        //   uploaded = await upload(".mp4");
-        // } catch (e) {
-        //   console.error("Upload failed:", e);
-        //   uploaded = { slug: "local" };
-        // }
+        isPrinting = true;
+        rec.print(() => {
+          isPrinting = false;
+        });
       },
     });
 
