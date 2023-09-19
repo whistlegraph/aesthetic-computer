@@ -77,8 +77,9 @@ function paint({
     }
 
     if (isPrinting) {
+      console.log("printing:", printProgress);
       const h = 16; // Paint a printing / transcoding progress bar.
-      let text = "RENDERING";
+      let text = "PROCESSING";
       text += ellipsisTicker.text(help.repeat);
       wipe(0, 0, 80, 180)
         .ink(0)
@@ -103,20 +104,47 @@ function sim() {
   ellipsisTicker?.sim();
 }
 
+let printed = false;
+
 // ✒ Act (Runs once per user interaction)
-function act({ event: e, rec, download, num, jump }) {
+function act({ event: e, rec, download, num, jump, sound: { synth } }) {
   if (!rec.printing) {
     // Download or print (render) a video.
     btn?.act(e, {
+      down: () => {
+        synth({
+          type: "sine",
+          tone: 600,
+          attack: 0.1,
+          decay: 0.99,
+          volume: 0.75,
+          duration: 0.001,
+        });
+      },
       push: () => {
-        isPrinting = true;
-        rec.print(() => {
-          isPrinting = false;
+        if (!printed) {
+          isPrinting = true;
+          btn.disabled = true;
+          rec.print(() => {
+            printed = true;
+            btn.disabled = false;
+            isPrinting = false;
+          });
+        } else {
+          download(`tape-${num.timestamp()}.mp4`);
+        }
+        synth({
+          type: "sine",
+          tone: 800,
+          attack: 0.1,
+          decay: 0.99,
+          volume: 0.75,
+          duration: 0.005,
         });
       },
     });
 
-    if (!btn?.down) {
+    if (!btn?.down && !btn?.disabled) {
       if (e.is("touch:1") && !rec.playing) rec.play();
       if (e.is("touch:1") && rec.playing) rec.pause();
     }
