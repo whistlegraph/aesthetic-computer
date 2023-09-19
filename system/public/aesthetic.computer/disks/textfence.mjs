@@ -1,17 +1,18 @@
 // Textfence, 2023.8.09.14.21.22
 // A dynamic poem for two characters and two words.
+// Text by Georgica Pettus
 
 /* #region 📚 README 
 #endregion */
 
 /* #region 🏁 TODO 
   + Launch Process
-  - [] Mint on Zora using the production URL. 
   + Next Version
   - [] The speakers / pan channels should be reversed for iOS?
        (This is probably an audio processor thing.)
   - [] Preload the audio for the next step before showing the words.
   + Done
+  - [x] Mint on Zora using the production URL. 
   - [x] Finalize words / great narrative.
   - [x] Make sure there are no repeats.
   - [x] Experiment with ssml.
