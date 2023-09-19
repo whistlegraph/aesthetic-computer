@@ -428,6 +428,7 @@ class Recorder {
   }
 
   present() {
+    this.presentProgress = 0;
     send({ type: "recorder:present" });
   }
 
