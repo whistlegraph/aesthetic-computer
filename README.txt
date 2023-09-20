@@ -75,59 +75,22 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `tape` ***
-  - [] Fix letterboxing again / changing window size while recording and
-       playing back.
-  - [] "Processing..." progress bar cosmetics. 
-  - [] Final iOS testing.
-  - [] Get audio / voice-over working good.
-  - [] Code cleanup.
- + Done
-  - [x] Fix progress bar.
-  - [x] Get the stamp typography just right.
-  - [x] Make the red recording progress bar decrease. 
-  - [x] Cache download link. 
-  - [x] Try a new strategy where frames are dumped
-       and then playback occurs through a live mediastream that
-       composes the frames and the sound. This can be captured
-       when download is tapped?
-  - [x] Fix any the synchronization errors.
-  - [x] Show mouse cursor / touches in the recordings.
-  - [c] See if tape addition works via concatenating stored tape now?
-  - [x] Make better / more interactive `tap to play` call to action.
-        (No longer necessary right now because it should always auto-play?)
-        (And test it with the buttons)
-  - [x] Wire up corner hotspot even though video covers it.
-    - [x] First just keep the button but prevent it from rendering.
-  - [x] Add timestamps to tape file names
-  - [x] Add a special 1080x1920 flag if needed. `tape:tt`.
-  - [x] disable stackable recordings
-        (Put behind a `tape:add` flag.)
-  - [x] Test in iOS to see if videos can actually be uploaded to TikTok.
-  - [x] And stop it from flickering.
-  - [x] Wire up download button for downloading the file with the proper extension.
-  - [x] Add `HANDLE` watermark if a handle exists.
-  - [x] Make tape progress bar global for the tape, and superimposed. 
-  - [x] Stop the start flickering.
-  - [x] Overlay a global progress bar on the recording. 
-  - [x] Also see if glaze can be swapped in on the fly if it's enabled. (📓 Not enabling, wait until full GPU renderer.)
-  - [x] Clear the screen each frame.
-  - [x] Add a stamp while superimposing.
-  - [x] Hide it from the actual recorded pixels.
-  - [x] Check to see if mic is already connected in BakTok and skip starting
-        screen if it is.
-    - [x] and also if the freaky-flowers / 3D buffer can work, if enabled.
-    - [x] Put download button on bottom right of `video` page, removing the other lame buttons and skipping the `download` page.
-  - [c] downloadable `baktok` video.
-  - [x] system-wide `tape` command to record voice with everything else.
-        (Default 30 seconds with progress bar of some kind)
+*** `booted-by` ***
+  - [] 10 tappable bars with decoration.
+  - [] `booted-by` - your text and your url
+    - [] Make this a nice payment page
+
+*** camera backdrop ***
+  - [] Add background painting to camera.
 
 *** iOS ***
-  - [🟡] Audio loads inconsistently / slowly on iOS. 
-    (Debug on the actual device.)
   - [] Test camera facing mode / get swap working.
   - [] Page sometimes doesn't load on iOS, so what's the hangup?
   - [] Camera should be aligned to the canvas size...
+    - [] Rotation when using camera should not break.
+  + Done
+  - [x] Audio loads inconsistently / slowly on iOS. 
+    (Debug on the actual device.)
 
 *** landing page ***
   - [] Add support for transparent animation. (Starfield)
@@ -141,15 +104,7 @@
 *** fairy pond ***
   - [] a place where connected cursors can communicate with disappearing lines
 
-*** `booted-by` ***
-  - [] 10 tappable bars with decoration.
-  - [] `booted-by` - your text and your url
-    - [] Make this a nice payment page
-
-*** camera backdrop ***
-  - [] Add background painting to camera.
-
-*** painting forking ***
+*** painting forking & remixing ***
 
 *** painting listings ***
   - [] `profile` should be table to <- -> on a user's paintings 
@@ -182,32 +137,11 @@
   - [x] Implement for `rect`
   - [x] Add basic rainbow for `rect` and `line`.
 
-*** Networking ***
-  - [] Remove periods from all buckets on DigitalOcean so that certificates 
-       behind the CDNs work.
-      - [] user.aesthetic.computer
-      - [] sotce.aesthetic.computer
-      - [] assets.aesthetic.computer
-      - [] wand.aesthetic.computer
-      - [] art.aesthetic.computer
-      + Done
-      - [x] logo.aesthetic.computer -> pals-aesthetic-computer
-
-*** BakTok ***
-  - [] Make the audio scrubbable.
-
-*** Logo ***
-  - [] Add ice cream pals to `pals.aesthetic.computer.`
-  - [] See if this starts working: https://logo.aesthetic.computer/painting-2023.8.01.14.04.png
-
 *** Painting Listing Pages ***
   - [] Scrape all user media and add records to the database.
     - [] Write a one-time runnable task for this.
   - [] Add a new record whenever something is uploaded.
     - [] See `bios` -> where `presigned-upload-url` succeeds.
-
-*** word -> write ***
-  - [] What other commands should be renamed now?
 
 *** painting page ***
   - [🧡] Shorten the corner word on painting pages / remove the timestamp
@@ -231,69 +165,6 @@
   - [x] Static image on page.
   - [x] Painting pages need a [Mint] button.
   - [x] Move buttons above progress bar (action area)
-
-*** Prompt / Piece Cache ***
-  - [] Fonts sometimes don't load all the way on prompt.
-  - [] The piece cache doesn't seem to work / loading times are always
-       present on iOS?
-
-*** rainbow bot text ***
-  - [] Stop printing rainbow text on the bot replies.
-
-*** prompt ***
-  - [] The main page prompt should be removed... it kills the feedback loop,
-       and instead a help bot should replace it.
-  - [] Entering an incorrect command should flash the screen red but
-       not clear the text. This also needs to be a negative sound.
-  - [] Entering correct things should make a positive sound.
-
-*** Profiles ***
-  - [x] Typing in a handle on the prompt and visiting it should work.
-  - [x] Make sure setting a @handle actually works.
-  - [x] @handle pages should show the current version of the user's painting. 
-        (Upload and replace the file in S3, then send a redis sub ping for
-        that user.)
-
-*** tape ***
-  - [] Enable limitless recording.
-  - [] Red indicator circle in top right while recording is happening.
-  - [] tapping circle jumps to video page / pauses recording
-  - [] Tap to pause
-  - [] Add scrubbing
-  - [] stackable recordings
-  - [] Integrate direct-to-tiktok posting: https://developers.tiktok.com.
-  - [] Potentially use cloudinary to transcode if the above is not so smooth.
-       (This could also speed up recording by not composing in the client?)
-       (And simplify long-term storage of video?)
-
-*** @aesthetic.computer ***
-  - [] Make the first instagram grid post.
-  - [] Have "word" be wrapped and centered based on the painting by default.
-
-*** user generated media ***
-  - [] You can do version updates on code but old versions are kept of the same
-       name and new versions are auto-incremented but the original name
-       always points to the newest version, and there will be a way to get
-       a list of versions.
-  - [] Paintings cannot be modified but maybe deleted. 
-  - [] Same goes for all other media.
-
-*** typing `print` ***
-  - [] Should be the same as `done` and then typing `print`.
-  - [] `user/prints` -> goes to folder and adds a record to the database
-                        metadata on how many times this image has been printed
-
-*** picture call ***
-  - [] `snaptok` (^-^)
-  - [] `meet`, `talk`, `say`
-  - [] Implement voice calls with: https://console.agora.io/
-
-*** etude ***
-  - [] Play an automated musical piece designed to express the functionality
-       of a.c.
-
-*** ✨ Rattle ***
-  - [] Make rattle prototype functional.
 
 *** Recordable Paintings ***
   How-to: Enter `painting:start` to start.
@@ -326,6 +197,87 @@
       - [x] Upload zips to S3? 
     - [x] `painting` to play back the current recording.
     - [x] `painting:record` to start a recording.
+
+*** Logo ***
+  - [] Add ice cream pals to `pals.aesthetic.computer.`
+  - [] See if this starts working: https://logo.aesthetic.computer/painting-2023.8.01.14.04.png
+
+*** word -> write ***
+  - [] What other commands should be renamed now?
+
+*** Networking ***
+  - [] Remove periods from all buckets on DigitalOcean so that certificates 
+       behind the CDNs work.
+      - [] user.aesthetic.computer
+      - [] sotce.aesthetic.computer
+      - [] assets.aesthetic.computer
+      - [] wand.aesthetic.computer
+      - [] art.aesthetic.computer
+      + Done
+      - [x] logo.aesthetic.computer -> pals-aesthetic-computer
+
+*** BakTok ***
+  - [] Make the audio scrubbable.
+
+*** `tape` ***
+  + Later
+  - [] Bring back mouse and touch cursor support, by recording during frame
+       capture.
+  - [] Work more on recording subtleties.
+    - [] Mic playback gain removal.
+  - [] Code cleanup.
+  - [] Automatically increase playback in `baktok` / mix mic / playback
+       special for baktok?
+  - [] Implement the TikTok API: https://developers.tiktok.com/doc/login-kit-web
+    - [] This should allow users to post draft directly inside of the app?
+    - [] https://developers.tiktok.com/app/7280753774627768325
+  - [] How can I integrate with whisper to auto-add subtitles?
+  - [] Re-enable multi-clip recording.
+  - [] Re-enable page refresh support / store previous clips.
+
+*** Prompt / Piece Cache ***
+  - [] Fonts sometimes don't load all the way on prompt.
+  - [] The piece cache doesn't seem to work / loading times are always
+       present on iOS?
+
+*** rainbow bot text ***
+  - [] Stop printing rainbow text on the bot replies.
+
+*** prompt ***
+  - [] The main page prompt should be removed... it kills the feedback loop,
+       and instead a help bot should replace it.
+  - [] Entering an incorrect command should flash the screen red but
+       not clear the text. This also needs to be a negative sound.
+  - [] Entering correct things should make a positive sound.
+
+*** @aesthetic.computer ***
+  - [] Make the first instagram grid post.
+  - [] Have "word" be wrapped and centered based on the painting by default.
+
+*** user generated media ***
+  - [] You can do version updates on code but old versions are kept of the same
+       name and new versions are auto-incremented but the original name
+       always points to the newest version, and there will be a way to get
+       a list of versions.
+  - [] Paintings cannot be modified but maybe deleted. 
+  - [] Same goes for all other media.
+
+*** typing `print` ***
+  - [] Should be the same as `done` and then typing `print`.
+  - [] `user/prints` -> goes to folder and adds a record to the database
+                        metadata on how many times this image has been printed
+
+*** picture call ***
+  - [] `snaptok` (^-^)
+  - [] `meet`, `talk`, `say`
+  - [] Implement voice calls with: https://console.agora.io/
+
+*** etude ***
+  - [] Play an automated musical piece designed to express the functionality
+       of a.c.
+
+*** ✨ Rattle ***
+  - [] Make rattle prototype functional.
 
 *** Apple Pencil Painting Support ***
   - [🍏] Hook iPad into a MacBook to fix apple pencil support for brushes.
