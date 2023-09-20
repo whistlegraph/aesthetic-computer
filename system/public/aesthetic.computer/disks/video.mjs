@@ -60,10 +60,6 @@ function paint({
   paintCount,
 }) {
   if (presenting) {
-    if (!playing) {
-      wipe(0, 100).ink(255, 200).write("||", { center: "xy " });
-    }
-
     if (playing) wipe(0, 0);
 
     if (presentProgress) {
@@ -76,6 +72,12 @@ function paint({
       ); // Present a progress bar.
     }
 
+    if (!playing) {
+      wipe(0, 100).ink(255, 200).write("||", { center: "xy " });
+      ink(255, 75).box(0, 0, screen.width, screen.height, "inline");
+    }
+
+
     if (isPrinting) {
       const h = 16; // Paint a printing / transcoding progress bar.
       let text = "PROCESSING";
@@ -83,7 +85,7 @@ function paint({
       wipe(0, 0, 80, 180)
         .ink(0)
         .box(0, screen.height / 2 - h / 2, screen.width, h)
-        .ink(255, 0, 0)
+        .ink(0, 0, 255)
         .box(0, screen.height / 2 - h / 2, printProgress * screen.width, h)
         .ink(255, 200)
         .write(text, { center: "xy" });

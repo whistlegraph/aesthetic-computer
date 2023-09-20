@@ -100,6 +100,19 @@ form {
   background: rgb(32, 32, 32);
 }
 
+/* Always letterbox the `tape` canvas. */
+#underlay canvas {
+  display: block;
+  margin: 0 auto;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center;
+  /* background-color: rgba(255, 0, 0, 0.5); */
+}
+
 #recordings {
   position: absolute;
   top: 0;

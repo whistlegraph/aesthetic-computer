@@ -1,5 +1,61 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** Profiles ***
+  - [x] Typing in a handle on the prompt and visiting it should work.
+  - [x] Make sure setting a @handle actually works.
+  - [x] @handle pages should show the current version of the user's painting. 
+        (Upload and replace the file in S3, then send a redis sub ping for
+        that user.)
+
+ *** `tape` ***
+ + Done
+  - [x] Always show white border on pause.
+  - [x] Final iOS testing.
+  - [x] Get audio / voice-over working good.
+    - [x] Why does audio get louder while starting a `tape` on iOS?
+  - [x] Audio slides.
+  - [x] "Processing..." progress bar cosmetics. 
+  - [x] Fix letterboxing again / changing window size while recording and
+       playing back.
+  - [x] Fix progress bar.
+  - [x] Get the stamp typography just right.
+  - [x] Make the red recording progress bar decrease. 
+  - [x] Cache download link. 
+  - [x] Try a new strategy where frames are dumped
+       and then playback occurs through a live mediastream that
+       composes the frames and the sound. This can be captured
+       when download is tapped?
+  - [x] Fix any the synchronization errors.
+  - [x] Show mouse cursor / touches in the recordings.
+  - [c] See if tape addition works via concatenating stored tape now?
+  - [x] Make better / more interactive `tap to play` call to action.
+        (No longer necessary right now because it should always auto-play?)
+        (And test it with the buttons)
+  - [x] Wire up corner hotspot even though video covers it.
+    - [x] First just keep the button but prevent it from rendering.
+  - [x] Add timestamps to tape file names
+  - [x] Add a special 1080x1920 flag if needed. `tape:tt`.
+  - [x] disable stackable recordings
+        (Put behind a `tape:add` flag.)
+  - [x] Test in iOS to see if videos can actually be uploaded to TikTok.
+  - [x] And stop it from flickering.
+  - [x] Wire up download button for downloading the file with the proper extension.
+  - [x] Add `HANDLE` watermark if a handle exists.
+  - [x] Make tape progress bar global for the tape, and superimposed. 
+  - [x] Stop the start flickering.
+  - [x] Overlay a global progress bar on the recording. 
+  - [x] Also see if glaze can be swapped in on the fly if it's enabled. (📓 Not enabling, wait until full GPU renderer.)
+  - [x] Clear the screen each frame.
+  - [x] Add a stamp while superimposing.
+  - [x] Hide it from the actual recorded pixels.
+  - [x] Check to see if mic is already connected in BakTok and skip starting
+        screen if it is.
+    - [x] and also if the freaky-flowers / 3D buffer can work, if enabled.
+    - [x] Put download button on bottom right of `video` page, removing the other lame buttons and skipping the `download` page.
+  - [c] downloadable `baktok` video.
+  - [x] system-wide `tape` command to record voice with everything else.
+        (Default 30 seconds with progress bar of some kind)
+
 *** Remove Back Button ***
   - [x] Remove back button
 
