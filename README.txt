@@ -81,7 +81,15 @@
     - [] Make this a nice payment page
 
 *** camera backdrop ***
+  - [] Rename `camera` to `cam`
+  - [] `cam:selfie` with a `selfie` alias
+  - [] Pixels fill only the painting frame.
   - [] Add background painting to camera.
+  - [] Add [Switch] button. (Cycle through all webcams.)
+  - [] `camera`
+  + Later
+  - [] Zoom in and out?
+  - [] More filters with top-level semantics such as `hellscape`.
 
 *** iOS ***
   - [] Test camera facing mode / get swap working.
@@ -220,7 +228,6 @@
   - [] Make the audio scrubbable.
 
 *** `tape` ***
-  + Later
   - [] Bring back mouse and touch cursor support, by recording during frame
        capture.
   - [] Work more on recording subtleties.
