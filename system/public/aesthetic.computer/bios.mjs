@@ -496,7 +496,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     attachMicrophone,
     detachMicrophone,
     audioContext,
-    audioStreamDest;
+    audioStreamDest,
+    sfxStreamGain,
+    micStreamGain,
+    micGainNode,
+    speakerGain;
 
   let requestMicrophoneAmplitude,
     requestMicrophoneWaveform,
@@ -552,6 +556,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   function startSound() {
+    if (navigator.audioSession) navigator.audioSession.type = "ambient";
+
+    // Main audio feed
+    audioContext = new AudioContext({
+      latencyHint: "interactive",
+      // TODO: Eventually choose a good sample rate and/or make it settable via
+      //       the current disk.
+      // sampleRate: 44100,
+      // sampleRate: 48000,
+      // sampleRate: 96000,
+      // sampleRate: 192000,
+    });
+
     // BGM Analyser
     analyserCtx = new AudioContext();
     analyserSrc = analyserCtx.createMediaElementSource(backgroundMusicEl);
@@ -562,17 +579,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     analyser.connect(analyserCtx.destination);
     frequencyData = new Uint8Array(analyser.frequencyBinCount);
 
-    // Main audio feed
-    audioContext = new AudioContext({
-      // latencyHint: "interactive",
-      // TODO: Eventually choose a good sample rate and/or make it settable via
-      //       the current disk.
-      // sampleRate: 44100,
-      // sampleRate: 48000,
-      // sampleRate: 96000,
-      // sampleRate: 192000,
-    });
-
     // console.log("Sound started.");
 
     speakAPI.audioContext = audioContext; // Make audioContext global, for
@@ -580,6 +586,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     //                                       modules. 23.08.17.12.31
 
     audioStreamDest = audioContext.createMediaStreamDestination();
+    sfxStreamGain = audioContext.createGain();
+    sfxStreamGain.gain.value = 1;
+    sfxStreamGain.connect(audioStreamDest);
+
+    speakerGain = audioContext.createGain();
+    speakerGain.gain.value = 1;
+    speakerGain.connect(audioContext.destination);
 
     if (audioContext.state === "running") {
       // audioContext.suspend();
@@ -591,22 +604,30 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Microphone Input Processor
     // (Gets attached via a message from the running disk.)
     attachMicrophone = async (data) => {
+      // if (navigator.audioSession)
+      //   navigator.audioSession.type = "play-and-record";
+      if (navigator.audioSession)
+        navigator.audioSession.type = "play-and-record"; //play-and-record";
+
       let micStream;
       try {
         micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            echoCancellation: true, // Eventually put this behind a flag.
+            echocancellation: true, // put this behind a flag?
             latency: 0,
-            noiseSuppression: true,
-            autoGainControl: true,
+            noisesuppression: true,
+            autogaincontrol: true,
           },
         });
       } catch (err) {
         if (debug) console.warn("🎙 Microphone disabled:", err);
       }
 
+      // send({ type: "microphone:connect:success" });
+      // return;
+
       if (!micStream) {
-        send({ type: "microphone-connect:failure" });
+        send({ type: "microphone:connect:failure" });
         return;
       }
 
@@ -627,8 +648,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           processorOptions: { debug },
         },
       );
-
-      micNode.connect(micProcessorNode);
 
       // Receive messages from the microphone processor thread.
       micProcessorNode.port.onmessage = (e) => {
@@ -695,8 +714,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         micProcessorNode.port.postMessage({ type: "get-pitch" });
       };
 
+      micStreamGain = audioContext.createGain();
+      micGainNode = audioContext.createGain();
+
       // Connect mic to the mediaStream.
-      micProcessorNode.connect(audioStreamDest);
+
+      // TODO: How to automatically dip the mic gain node?
+
+      // micNode.connect(micProcessorNode);
+      micNode.connect(micGainNode);
+      micGainNode.connect(micProcessorNode);
+
+      micProcessorNode.connect(micStreamGain);
+      micStreamGain.connect(audioStreamDest);
+      speakerGain.gain.value = 0.35;
+      // micStreamGain.gain.value = 1.5;
+
+      micGainNode.gain.value = 1;
+      micStreamGain.gain.value = 1;
+      sfxStreamGain.gain.value = 1;
 
       // Connect to the speaker if we are monitoring audio.
       if (data?.monitor === true)
@@ -704,14 +740,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Setup microphone detachment function.
       detachMicrophone = () => {
+        if (navigator.audioSession) navigator.audioSession.type = "ambient";
         micProcessorNode.disconnect();
         micNode.disconnect();
         micStream.getTracks().forEach((t) => t.stop());
+        speakerGain.gain.value = 1;
+        sfxStreamGain.gain.value = 1;
         if (debug) console.log("🎙💀 Microphone:", "Detached");
+        send({ type: "microphone:disconnect" });
       };
 
       // Send a message back to `disk` saying the microphone is connected.
-      send({ type: "microphone-connect:success" });
+      send({ type: "microphone:connect:success" });
       if (debug) console.log("🎙 Microphone connected:", data);
     };
 
@@ -781,8 +821,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         };
 
-        soundProcessor.connect(audioStreamDest); // Connect to the mediaStream.
-        soundProcessor.connect(audioContext.destination);
+        soundProcessor.connect(sfxStreamGain); // Connect to the mediaStream.
+        soundProcessor.connect(speakerGain);
 
         // Run any held audio on resume / sounds on initial button presses or taps.
         // audioContext.onstatechange = function () {
@@ -808,13 +848,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     //enableAudioPlayback(true);
-    window.addEventListener("pointerdown", enableAudioPlayback);
-    window.addEventListener("keydown", enableAudioPlayback);
+    window.addEventListener("pointerdown", () => enableAudioPlayback());
+    window.addEventListener("keydown", () => enableAudioPlayback());
   }
 
   // Play a sound back through the sfx system.
   async function playSfx(id, sound, options, completed) {
     if (audioContext) {
+      if (sfxCancel.includes(id)) {
+        console.log(sfxCancel, "cancelling...", id);
+        sfxCancel.length = 0;
+        return;
+      }
+
       // Instantly decode the audio before playback if it hasn't been already.
       // 🌡️ TODO: `sfx` could be scraped for things that need to be decoded
       //          upon audio activation. This would probably be helpful
@@ -833,11 +879,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           console.error("🔉 Error: ", err, sfx[sound]);
         }
       }
-
-      // if (sfxCancel.includes(id)) {
-      //   sfxCancel.length = 0;
-      //   return;
-      // }
 
       if (sfx[sound] instanceof ArrayBuffer) return;
       // If decoding has failed or no sound is present then silently fail.
@@ -883,9 +924,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         source.connect(panNode);
         panNode.connect(gainNode);
         if (!options?.stream) {
-          gainNode.connect(audioContext.destination);
+          gainNode.connect(speakerGain);
         }
-        gainNode.connect(options?.stream || audioStreamDest);
+        gainNode.connect(options?.stream || sfxStreamGain);
 
         source.addEventListener("ended", () => {
           source.disconnect();
@@ -2322,6 +2363,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         return;
       }
 
+      if (mediaRecorder && mediaRecorder.state !== "paused") {
+        stop();
+      }
+
+      function stop() {
+        recordedFrames.length = 0;
+        startTapePlayback = undefined;
+        mediaRecorder = undefined; // ❌ Trash the recorder.
+        mediaRecorderStartTime = undefined;
+        mediaRecorderDuration = null;
+        mediaRecorderChunks.length = 0;
+      }
+
       let mimeType;
 
       // if (content === "audio" || content === "video") {
@@ -2376,6 +2430,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // 🗺️ mediaRecorder:Stop (Recorder Printing)
       mediaRecorder.onstop = async function (evt) {
+        stop();
         // recordingDuration = (performance.now() - recordingStartTime) / 1000;
 
         // Reset global streamCanvas state.
@@ -2457,8 +2512,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // TODO: Can send the download code back here...
         // send({ type: "recorder:uploaded", code });
 
-        recordedFrames.length = 0;
-
         // mediaRecorderBlob = new Blob(mediaRecorderChunks, {
         //   type: mediaRecorder.mimeType,
         // });
@@ -2479,17 +2532,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         //   });
         // }
 
-        startTapePlayback = undefined;
-        mediaRecorder = undefined; // ❌ Trash the recorder.
-        mediaRecorderStartTime = undefined;
-        mediaRecorderDuration = null;
-        mediaRecorderChunks.length = 0;
         // send({ type: "recorder:rolling:ended" });
       };
 
       mediaRecorder.ondataavailable = function (e) {
         if (e.data && e.data.size > 0) mediaRecorderChunks.push(e.data);
       };
+
+      // Always cut off mediaRecorders on unload.
+      window.addEventListener("unload", function () {
+        mediaRecorder?.stop();
+      });
+
+      window.addEventListener("beforeunload", function () {
+        mediaRecorder?.stop();
+      });
 
       //if (content === "video") {
       // Start media recorder once svg loads.
@@ -2546,8 +2603,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         frameCan.width = recordedFrames[0][1].width;
         frameCan.height = recordedFrames[0][1].height;
-        frameCan.style.width = "100%";
-        frameCan.style.height = "100%";
+        // frameCan.style.width = "100%";
+        // frameCan.style.height = "100%";
         // TODO: ^ Letterbox this canvas appropriately when the screen
         //         resizes.
 
@@ -2565,13 +2622,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           let continuePlaying = true;
           let stopped = false;
 
-          const tapeSoundId = "tape:audio_" + performance.now();
+          let tapeSoundId;
 
           stopTapePlayback = () => {
             continuePlaying = false;
             stopped = true;
             sfxPlaying[tapeSoundId]?.kill();
-            sfxCancel.push(tapeSoundId);
+            //sfxCancel.push(tapeSoundId);
           };
 
           let pauseStart;
@@ -2590,7 +2647,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
             continuePlaying = true;
             window.requestAnimationFrame(update);
-            console.log(sfxPlaying[tapeSoundId]);
             sfxPlaying[tapeSoundId]?.resume();
             playbackStart += performance.now() - pauseStart;
             send({ type: "recorder:present-playing" });
@@ -2600,13 +2656,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (!continuePlaying || !underlayFrame) return;
 
             if (f === 0) {
-              playSfx(tapeSoundId, "tape:audio", { stream });
+              tapeSoundId = "tape:audio_" + performance.now();
+              await playSfx(tapeSoundId, "tape:audio", { stream });
               // Will be silent if stream is here. ^
               playbackStart = performance.now();
               playbackProgress = 0;
             }
 
+            // Resize fctx here if the width and
+            // height is different.
+            const pic = recordedFrames[f][1];
+            if (
+              fctx.canvas.width !== pic.width ||
+              fctx.canvas.height !== pic.height
+            ) {
+              fctx.canvas.width = pic.width;
+              fctx.canvas.height = pic.height;
+
+              // TODO: Set the css style of the canvas so that it always letterboxes
+              //       inside of the window and is centered horizontally
+            }
+
             fctx.putImageData(recordedFrames[f][1], 0, 0);
+
             render?.(frameCan, playbackProgress / mediaRecorderDuration); // Render a video as needed, using this canvas.
 
             playbackProgress = performance.now() - playbackStart;
@@ -2733,6 +2805,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         //} else if (type === "audio") {
         //  console.log("🎵🙁 Audio recorder playback unimplemented.");
         //}
+      } else {
+        console.error("No media recorder to present from!");
+        send({ type: "recorder:presented:failure" });
       }
       return;
     }
@@ -2852,7 +2927,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           () => {
             setTimeout(function () {
               videoRecorder.stop();
-            }, 250); // Seems like this is necessary or recordings get cut-off.
+            }, 350); // Seems like this is necessary or recordings get cut-off.
           },
           tapeRenderStreamDest,
           // 🎫 Renders and watermarks the frames for export.
@@ -3367,7 +3442,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         //
         if (
           // typeof paintToStreamCanvas === "function" &&
-          mediaRecorder?.state !== "paused" &&
+          mediaRecorder?.state === "recording" &&
           mediaRecorderStartTime !== undefined
           // frameCount % 2n === 0n
         ) {
@@ -3376,7 +3451,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             performance.now() - mediaRecorderStartTime,
             ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height),
           ]);
-          //paintToStreamCanvas();
         }
 
         paintOverlays["tapeProgressBar"]?.(); // tape progress
@@ -4270,6 +4344,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Window Visibility
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) wrapper.classList.remove("reloading");
+    // if (document.hidden) mediaRecorder?.stop();
     send({
       type: "visibility-change",
       content: !document.hidden,

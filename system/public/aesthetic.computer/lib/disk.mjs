@@ -2794,6 +2794,11 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "microphone:disconnect") {
+    microphone.connected = false;
+    return;
+  }
+
   // if (type === "hand-tracking-data") {
   // $commonApi.hand = { mediapipe: content };
   // return;
@@ -2990,6 +2995,11 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "recorder:presented:failure") {
+    $commonApi.rec.presenting = false;
+    return;
+  }
+
   if (type === "recorder:present-progress") {
     $commonApi.rec.presentProgress = content;
     return;
@@ -3071,15 +3081,15 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
-  if (type === "microphone-connect:success") {
+  if (type === "microphone:connect:success") {
     microphone.connected = true;
-    actAlerts.push("microphone-connect:success");
+    actAlerts.push("microphone:connect:success");
     return;
   }
 
-  if (type === "microphone-connect:failure") {
+  if (type === "microphone:connect:failure") {
     microphone.connected = false;
-    actAlerts.push("microphone-connect:failure");
+    actAlerts.push("microphone:connect:failure");
     return;
   }
 
@@ -4309,7 +4319,7 @@ async function makeFrame({ data: { type, content } }) {
         if (tapeProgressBar)
           sendData.tapeProgressBar = {
             x: 0,
-            y: screen.height - 1,
+            y: 0, // screen.height - 1,
             img: tapeProgressBar,
           };
       }

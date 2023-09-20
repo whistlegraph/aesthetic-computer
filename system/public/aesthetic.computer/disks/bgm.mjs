@@ -2,6 +2,7 @@
 // Play indexed background music and run a visualizer.
 
 /* #region 🏁 todo
+ - [] Two tracks meant to play together as a musical system.
  - [] Add a clickable play button overlay if bgm is used as a landing page.
   - [] Draw a rasterized, filled triangle for the play button!
   - [] Draw thicker rasterized lines for the visualizer?

@@ -250,9 +250,9 @@ async function halt($, text) {
       tapePromiseResolve = resolve;
       tapePromiseReject = reject;
     });
-    setTimeout(function () {
-      sound.microphone.connect(); // Connect the mic.
-    }, 500);
+    // setTimeout(function () {
+    sound.microphone.connect(); // Connect the mic.
+    // }, 500);
     try {
       await tapePromise;
       let duration = parseFloat(params[0]);
@@ -1028,12 +1028,12 @@ function act({
   handle,
 }) {
   // 📼 Taping
-  if (e.is("microphone-connect:success")) {
+  if (e.is("microphone:connect:success")) {
     console.log("📼 Taping...");
     tapePromiseResolve?.();
   }
 
-  if (e.is("microphone-connect:failure")) {
+  if (e.is("microphone:connect:failure")) {
     console.warn("📼 🟡 Microphone failed to connect. Not taping.");
     // TODO: How to re-approve permission here in a cross-browser way?
     tapePromiseReject?.();
