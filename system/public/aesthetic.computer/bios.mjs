@@ -556,7 +556,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   function startSound() {
-    if (navigator.audioSession) navigator.audioSession.type = "ambient";
+    if (navigator.audioSession) navigator.audioSession.type = "playback";
 
     // Main audio feed
     audioContext = new AudioContext({
@@ -740,7 +740,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Setup microphone detachment function.
       detachMicrophone = () => {
-        if (navigator.audioSession) navigator.audioSession.type = "ambient";
+        if (navigator.audioSession) navigator.audioSession.type = "playback";
         micProcessorNode.disconnect();
         micNode.disconnect();
         micStream.getTracks().forEach((t) => t.stop());
