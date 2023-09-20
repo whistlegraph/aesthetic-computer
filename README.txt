@@ -92,10 +92,8 @@
   - [] More filters with top-level semantics such as `hellscape`.
 
 *** iOS ***
-  - [] Test camera facing mode / get swap working.
   - [] Page sometimes doesn't load on iOS, so what's the hangup?
-  - [] Camera should be aligned to the canvas size...
-    - [] Rotation when using camera should not break.
+    - [] Debug the hang.
   + Done
   - [x] Audio loads inconsistently / slowly on iOS. 
     (Debug on the actual device.)
