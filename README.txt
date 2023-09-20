@@ -231,6 +231,7 @@
   - [] Implement the TikTok API: https://developers.tiktok.com/doc/login-kit-web
     - [] This should allow users to post draft directly inside of the app?
     - [] https://developers.tiktok.com/app/7280753774627768325
+    - [] Make a privacy policy and ToS permalink.
   - [] How can I integrate with whisper to auto-add subtitles?
   - [] Re-enable multi-clip recording.
   - [] Re-enable page refresh support / store previous clips.
