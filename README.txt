@@ -78,7 +78,19 @@
 *** `booted-by` ***
   - [] 10 tappable bars with decoration.
   - [] `booted-by` - your text and your url
-    - [] Make this a nice payment page
+  - [] overlay with text and buttons
+  - [] names / bars go underneath with booted by in top left
+  - [] ok button and demo video link within the text that takes you out of app to demo video 
+  - [] names and "unclaimed" or "empty" or "open" for open slots
+  - [] text jeffrey at xxx-xxx-xxxx to claim spot. urgent, legitimate, exciting 
+  - [] tapping bar brings back overlay
+
+  + Later?
+  - [] Make this a nice payment page
+  - [] date of boot after boot completed
+  - [] names link to people's profiles, invitation to make profile somewhere
+
+  
 
 *** camera backdrop ***
   - [] Rename `camera` to `cam`
