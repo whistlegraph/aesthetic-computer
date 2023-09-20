@@ -107,6 +107,11 @@
   - [] underlined and different colors
   - [] links to pieces and surround with ``. 
 
+*** screenshot / steal ***
+  - [] add ability to steal and automatically plant in painting page
+  - [] 5 finger discount or keyboard shortcut
+  - [] shift $ steals pixels and takes you to prompt, ctrl shift $ steals in background
+
 *** fairy pond ***
   - [] a place where connected cursors can communicate with disappearing lines
 
