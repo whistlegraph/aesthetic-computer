@@ -37,7 +37,7 @@ export async function prompt_boot(
     prompt,
     async (text) => {
       // Shortcuts for exiting back to the prompt if we are not in it.
-      const exits = ["q", "quit", "leave", "exit", "forget"];
+      const exits = ["q", "quit", "leave", "exit", "forget", "bye"];
       if (exits.indexOf(text) !== -1) {
         await conversation.forget();
         input.blank();
