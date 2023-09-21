@@ -77,16 +77,22 @@ function paint({
       ink(255, 75).box(0, 0, screen.width, screen.height, "inline");
     }
 
-
     if (isPrinting) {
       const h = 16; // Paint a printing / transcoding progress bar.
       let text = "PROCESSING";
       text += ellipsisTicker.text(help.repeat);
+
+      let barWidth = printProgress * screen.width;
+
+      if (printProgress > 0.98 && screen.width - barWidth >= 1) {
+        barWidth = screen.width;
+      }
+
       wipe(0, 0, 80, 180)
         .ink(0)
         .box(0, screen.height / 2 - h / 2, screen.width, h)
         .ink(0, 0, 255)
-        .box(0, screen.height / 2 - h / 2, printProgress * screen.width, h)
+        .box(0, screen.height / 2 - h / 2, barWidth, h)
         .ink(255, 200)
         .write(text, { center: "xy" });
     } else {
