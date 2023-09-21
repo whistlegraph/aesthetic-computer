@@ -76,6 +76,7 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** `booted-by` ***
+  - [🟠] record demo video
   - [] overlay with text and buttons
     - [] text jeffrey at xxx-xxx-xxxx to claim spot. urgent, legitimate, exciting 
     - [] 10 tappable bars with decoration.
