@@ -2719,7 +2719,7 @@ async function load(
       fromHistory,
       alias,
       meta,
-      taping: $commonApi.rec.loadCallback !== null, // 🎏 Hacky flag. 23.09.17.05.09
+      taping: $commonApi.rec.loadCallback !== null || $commonApi.rec.recording, // 🎏 Hacky flag. 23.09.17.05.09
       // noBeat: beat === defaults.beat,
     },
   });
