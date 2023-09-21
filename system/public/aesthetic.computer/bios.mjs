@@ -2927,7 +2927,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           () => {
             setTimeout(function () {
               videoRecorder.stop();
-            }, 350); // Seems like this is necessary or recordings get cut-off.
+            }, 500); // Seems like this is necessary or recordings get cut-off.
           },
           tapeRenderStreamDest,
           // 🎫 Renders and watermarks the frames for export.
@@ -3107,10 +3107,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               sctx.restore();
             }
 
-            const transcodeProgress = progress > 0.98 ? 1 : progress;
             send({
               type: "recorder:transcode-progress",
-              content: transcodeProgress,
+              content: progress,
             });
           },
         );
@@ -3770,7 +3769,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // users and guests.
   async function receivedDownload({ filename, data, modifiers }) {
     console.log("💾 Downloading:", filename);
-    if (data) console.log("Data:", typeof data);
+    // if (data) console.log("Data:", typeof data);
 
     let object;
     let MIME = "application/octet-stream"; // Default content type.
