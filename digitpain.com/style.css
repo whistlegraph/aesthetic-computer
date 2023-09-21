@@ -27,11 +27,13 @@ body {
   padding: 0.5em 0.5em 0.05em 0.5em;
 }
 
-a, a:visited:hover {
+a,
+a:visited:hover {
   color: rgb(255, 0, 0);
 }
 
-a:active, a:visited:active {
+a:active,
+a:visited:active {
   color: rgb(255, 230, 0);
 }
 
@@ -49,7 +51,7 @@ h2 {
 }
 
 mark {
-  color:rgb(166, 201, 208);
+  color: rgb(166, 201, 208);
   background: black;
 }
 

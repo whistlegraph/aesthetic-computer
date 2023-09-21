@@ -8,6 +8,7 @@
   + Later
   - [] Sound
   - [] Forwards and backwards directionality.
+  - [] Make right-click / tap to save available just in the "painting" command.
   + Done
   - [x] `done` should take you to the painting page after uploading.
   - [x] Automatically go to the `painting` page after a successful upload /
@@ -49,10 +50,21 @@ let imageCode, recordingCode;
 //let mintBtn; // A button to mint.
 
 // 🥾 Boot
-function boot({ system, params, get, net, ui, screen, dom: { html } }) {
+function boot({
+  system,
+  params,
+  get,
+  net,
+  ui,
+  screen,
+  display,
+  dom: { html },
+}) {
   if (params[0]?.length > 0) {
     interim = "Loading...";
     genSlug({ params });
+
+    console.log("Boot display:", display);
 
     net.waitForPreload();
     get
@@ -64,6 +76,9 @@ function boot({ system, params, get, net, ui, screen, dom: { html } }) {
         let slug = imageCode + ".png";
         if (handle && handle !== "anon")
           slug = handle + "/painting/" + imageCode + ".png";
+
+        const cssWidth = out.img.width * display.subdivisions;
+        const cssHeight = out.img.width * display.subdivisions;
 
         html`
           <img
@@ -79,9 +94,10 @@ function boot({ system, params, get, net, ui, screen, dom: { html } }) {
             }
             #hidden-painting {
               position: absolute;
-              top: 48px;
-              width: 100%;
-              height: calc(100% - 64px - 48px);
+              top: calc(calc(50% - calc(${cssHeight}px / 2)) - 32px);
+              left: calc(50% - calc(${cssWidth}px / 2));
+              width: ${cssWidth}px;
+              height: ${cssHeight}px;
               background: yellow;
               opacity: 0.25;
               object-fit: contain;
