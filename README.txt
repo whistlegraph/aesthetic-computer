@@ -153,6 +153,7 @@
   - [] A listing / gallery view.
 
 *** Painting ***
+  - [*] Add auto-resize back.
   - [-] Add Zoom for all brushes. 🔵
     - [🟠] `line` 
       (Read implementation in `rect`)
