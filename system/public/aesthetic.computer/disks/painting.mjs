@@ -106,6 +106,7 @@ function boot({ system, params, get, net, ui, screen, dom: { html } }) {
         .then((out) => {
           pastRecord = system.nopaint.record;
           system.nopaint.record = out;
+          advance(system);
         })
         .catch((err) => {
           // console.warn("Could not load recording.", err);
@@ -125,8 +126,8 @@ function boot({ system, params, get, net, ui, screen, dom: { html } }) {
     // mintBtn.disabled = true;
   } else {
     finalPainting = system.painting;
+    advance(system);
   }
-  advance(system);
   // if (query.notice === "success") printBtn = null; // Kill button after order.
 }
 
