@@ -588,28 +588,33 @@ const $commonApi = {
               encodeURI(`https://art.aesthetic.computer/${code}.${extension}`),
             );
           } else {
+            return $commonApi.net.preload(
+              encodeURI(
+                `https://aesthetic.computer/media/${handle}/painting/${code}.${extension}`,
+              ),
+            );
             // Get the user sub from the handle or email...
-            const url = `/user?from=${encodeURIComponent(handle)}`;
-            try {
-              const res = await fetch(url);
-              if (res.ok) {
-                const json = await res.json();
-                return $commonApi.net.preload(
-                  encodeURI(
-                    `https://user.aesthetic.computer/${json.sub}/painting/${code}.${extension}`,
-                  ),
-                );
-              } else {
-                console.error(`Error: ${res.status} ${res.statusText}`);
-                console.error(
-                  `Response headers: ${JSON.stringify(
-                    Array.from(res.headers.entries()),
-                  )}`,
-                );
-              }
-            } catch (error) {
-              console.error(`Fetch failed: ${error}`);
-            }
+            // const url = `/user?from=${encodeURIComponent(handle)}`;
+            // try {
+            //   const res = await fetch(url);
+            //   if (res.ok) {
+            //     const json = await res.json();
+            //     return $commonApi.net.preload(
+            //       encodeURI(
+            //         `https://user.aesthetic.computer/${json.sub}/painting/${code}.${extension}`,
+            //       ),
+            //     );
+            //   } else {
+            //     console.error(`Error: ${res.status} ${res.statusText}`);
+            //     console.error(
+            //       `Response headers: ${JSON.stringify(
+            //         Array.from(res.headers.entries()),
+            //       )}`,
+            //     );
+            //   }
+            // } catch (error) {
+            //   console.error(`Fetch failed: ${error}`);
+            // }
           }
         },
       };
