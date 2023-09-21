@@ -188,6 +188,8 @@ function nopaint_adjust(
   )
     return; // Stop auto-resizing if we are panned.
 
+  // TODO: Add auto-resizing back to paintings.
+
   if (size || !sys.painting) {
     // Check to see if size?.w has an x at the end.
     let width, height;
