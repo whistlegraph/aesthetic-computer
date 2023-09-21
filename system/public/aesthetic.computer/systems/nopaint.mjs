@@ -17,7 +17,7 @@ function nopaint_boot({ api, screen, system, painting, store }) {
     system.painting.height,
     (p) => {
       p.wipe(255, 255, 255, 0);
-    }
+    },
   );
 
   system.nopaint.present(api);
@@ -178,7 +178,7 @@ function nopaint_adjust(
   painting,
   store,
   size = null,
-  slug = "resize"
+  slug = "resize",
 ) {
   if (!size && store["painting:resolution-lock"] === true) return;
 
@@ -193,14 +193,24 @@ function nopaint_adjust(
     let width, height;
     if (size.w && size.h) {
       // Allow for "2x or 3x" modifiers.
-      width = size.w.endsWith("x")
-        ? parseFloat(size.w.slice(0, -1)) *
-          (sys.painting?.width || screen.width)
-        : parseInt(size.w);
-      height = size.h.endsWith("x")
-        ? parseFloat(size.h.slice(0, -1)) *
-          (sys.painting?.height || screen.height)
-        : parseInt(size.h);
+
+      if (typeof size.w === "string") {
+        width = size.w.endsWith("x")
+          ? parseFloat(size.w.slice(0, -1)) *
+            (sys.painting?.width || screen.width)
+          : parseInt(size.w);
+      } else {
+        width = size.w; // Assume number.
+      }
+
+      if (typeof size.h === "string") {
+        height = size.h.endsWith("x")
+          ? parseFloat(size.h.slice(0, -1)) *
+            (sys.painting?.height || screen.height)
+          : parseInt(size.h);
+      } else {
+        height = size.h; // Assume number.
+      }
     } else {
       width = screen.width;
       height = screen.height;
