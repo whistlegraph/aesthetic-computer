@@ -248,7 +248,8 @@ async function halt($, text) {
     slug === "tape:add" ||
     slug === "tape:tt" ||
     slug === "tape:nomic" ||
-    slug === "tape:mic"
+    slug === "tape:mic" ||
+    slug === "tapem"
   ) {
     if (slug !== "tape:add") rec.slate(); // Start a recording over.
     const defaultDuration = 15;
@@ -261,9 +262,14 @@ async function halt($, text) {
     let nomic;
     if (slug === "tape" || slug === "tape:tt") {
       nomic = iOS || Android ? false : true;
+      if (params[0] === "baktok" || params[1] == "baktok") {
+        nomic = false;
+      } else {
+        nomic = true;
+      }
     } else if (slug === "tape:nomic") {
       nomic = true;
-    } else if (slug === "tape:mic") {
+    } else if (slug === "tape:mic" || slug === "tapem") {
       nomic = false;
     }
 
