@@ -62,7 +62,7 @@ The word I'm entering is:
 const after = ``;
 const forgetful = true;
 
-import { MetaBrowser } from "../lib/platform.mjs";
+import { Android, MetaBrowser, iOS } from "../lib/platform.mjs";
 import { validateHandle } from "../lib/text.mjs";
 import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { parse } from "../lib/parse.mjs";
@@ -243,17 +243,38 @@ async function halt($, text) {
   // Each of these clips can be stored in indexedDB more easily and played
   // back or be rearranged.
   // 23.09.16.18.01
-  if (slug === "tape" || slug === "tape:add" || slug === "tape:tt") {
-    if (slug === "tape" || slug === "tape:tt") rec.slate(); // Start a recording over.
+  if (
+    slug === "tape" ||
+    slug === "tape:add" ||
+    slug === "tape:tt" ||
+    slug === "tape:nomic" ||
+    slug === "tape:mic"
+  ) {
+    if (slug !== "tape:add") rec.slate(); // Start a recording over.
     const defaultDuration = 15;
     const tapePromise = new Promise((resolve, reject) => {
       tapePromiseResolve = resolve;
       tapePromiseReject = reject;
     });
+
+    //const nomic = slug === "tape:nomic";
+    let nomic;
+    if (slug === "tape" || slug === "tape:tt") {
+      nomic = iOS || Android ? false : true;
+    } else if (slug === "tape:nomic") {
+      nomic = true;
+    } else if (slug === "tape:mic") {
+      nomic = false;
+    }
+
     // setTimeout(function () {
-    sound.microphone.connect(); // Connect the mic.
+    if (!nomic) sound.microphone.connect(); // Connect the mic.
     // }, 500);
     try {
+      if (nomic) {
+        console.log("📼 Taping...");
+        tapePromiseResolve?.();
+      }
       await tapePromise;
       let duration = parseFloat(params[0]);
 

@@ -89,6 +89,24 @@
   - [] date of boot after boot completed
   - [] names link to people's profiles, invitation to make profile somewhere
 
+*** `tape` ***
+  - [] Test recoding cutoff again / make sure it never happens.
+       (Possibly by measuring audio playback?)
+  - [] Bring back mouse and touch cursor support, by recording during frame
+       capture.
+  - [] Work more on recording subtleties.
+    - [] Mic playback gain removal.
+  - [] Code cleanup.
+  - [] Automatically increase playback in `baktok` / mix mic / playback
+       special for baktok?
+  - [] Implement the TikTok API: https://developers.tiktok.com/doc/login-kit-web
+    - [] This should allow users to post draft directly inside of the app?
+    - [] https://developers.tiktok.com/app/7280753774627768325
+    - [] Make a privacy policy and ToS permalink.
+  - [] How can I integrate with whisper to auto-add subtitles?
+  - [] Re-enable multi-clip recording.
+  - [] Re-enable page refresh support / store previous clips.
+
 *** camera backdrop ***
   - [] Rename `camera` to `cam`
   - [] `cam:selfie` with a `selfie` alias
@@ -238,24 +256,6 @@
 
 *** BakTok ***
   - [] Make the audio scrubbable.
-
-*** `tape` ***
-  - [] Test recoding cutoff again / make sure it never happens.
-       (Possibly by measuring audio playback?)
-  - [] Bring back mouse and touch cursor support, by recording during frame
-       capture.
-  - [] Work more on recording subtleties.
-    - [] Mic playback gain removal.
-  - [] Code cleanup.
-  - [] Automatically increase playback in `baktok` / mix mic / playback
-       special for baktok?
-  - [] Implement the TikTok API: https://developers.tiktok.com/doc/login-kit-web
-    - [] This should allow users to post draft directly inside of the app?
-    - [] https://developers.tiktok.com/app/7280753774627768325
-    - [] Make a privacy policy and ToS permalink.
-  - [] How can I integrate with whisper to auto-add subtitles?
-  - [] Re-enable multi-clip recording.
-  - [] Re-enable page refresh support / store previous clips.
 
 *** Prompt / Piece Cache ***
   - [] Fonts sometimes don't load all the way on prompt.
