@@ -318,17 +318,7 @@ async function halt($, text) {
     jump("sparkle");
     return true;
   } else if (slug === "painting:start") {
-    // Start recording paintings.
-    system.nopaint.record = []; // Clear any existing recording.
-    system.nopaint.recording = true;
-    system.nopaint.addToRecord({
-      label: "start",
-      painting: {
-        pixels: new Uint8ClampedArray(system.painting.pixels),
-        width: system.painting.width,
-        height: system.painting.height,
-      },
-    });
+    system.nopaint.startRecord();
     console.log("🖌️🔴 Now recording:", system.nopaint.record);
     flashColor = [200, 0, 200];
     makeFlash($);
@@ -816,14 +806,40 @@ async function halt($, text) {
     flashColor = [0, 0, 255];
     makeFlash($);
     return true;
+  } else if (slug === "new") {
+    // Combines "no!" and "painting:start";
+    const w = parseInt(params[0]),
+      h = parseInt(params[1]) || w;
+
+    let size;
+    if (!isNaN(w) && !isNaN(h)) size = { w, h };
+    await system.nopaint.noBang(
+      {
+        system,
+        store,
+        screen,
+        needsPaint,
+        painting,
+      },
+      size, // Set a custom resolution to start.
+    );
+    let fullText = slug;
+    if (params.length > 0) fullText += "~" + params.join("~");
+    nopaint_adjust(screen, system, painting, store, size, fullText);
+    system.nopaint.startRecord(fullText); // Start recording paintings.
+    flashColor = [200, 0, 200];
+    makeFlash($);
+    return true;
   } else if (text === "painting:reset" || text === "no!") {
-    const deleted = system.nopaint.noBang({
+    const deleted = await system.nopaint.noBang({
       system,
       store,
       screen,
       needsPaint,
       painting,
     });
+
+    system.nopaint.startRecord("new"); // Start recording paintings.
 
     if (deleted) {
       flashColor = [0, 0, 255]; // Blue for succesful deletion.

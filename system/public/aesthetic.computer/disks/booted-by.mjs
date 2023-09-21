@@ -5,6 +5,18 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [🧡] overlay with text and buttons
+    - [] text jeffrey at xxx-xxx-xxxx to claim spot. urgent, legitimate, exciting 
+    - [] 10 tappable bars with decoration.
+  - [] `booted-by` - your text and your url
+  - [] names / bars go underneath with booted by in top left
+  - [] ok button and demo video link within the text that takes you out of app to demo video 
+  - [] names and "unclaimed" or "empty" or "open" for open slots
+  - [] tapping bar brings back overlay
+  + Later?
+  - [] Make this a nice payment page
+  - [] date of boot after boot completed
+  - [] names link to people's profiles, invitation to make profile somewhere
 #endregion */
 
 // 🥾 Boot

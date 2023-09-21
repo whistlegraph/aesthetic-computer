@@ -17,7 +17,12 @@ import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket
 // import { UDP } from "./udp.mjs"; // TODO: Eventually expand to `net.Socket`
 import { notArray, defaultTemplateStringProcessor } from "./helpers.mjs";
 const { round, sin, random, max, floor, abs, ceil } = Math;
-import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
+import {
+  nopaint_boot,
+  nopaint_act,
+  nopaint_is,
+  nopaint_adjust,
+} from "../systems/nopaint.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
 import { headers } from "./console-headers.mjs";
 import { logs } from "./logs.mjs";
@@ -690,6 +695,20 @@ const $commonApi = {
       recording: false,
       record: [], // Store a recording here.
       gestureRecord: [], // Store the active gesture.
+      startRecord: function (fullText) {
+        const sys = $commonApi.system;
+        sys.nopaint.record = []; // Clear any existing recording.
+        sys.nopaint.recording = true;
+        sys.nopaint.addToRecord({
+          label: fullText || "start",
+          painting: {
+            pixels: new Uint8ClampedArray(sys.painting.pixels),
+            width: sys.painting.width,
+            height: sys.painting.height,
+          },
+        });
+        console.log("🖌️🔴 Now recording:", sys.nopaint.record);
+      },
       addToRecord: function (record) {
         record.timestamp = num.timestamp(); // Insert the timestamp data.
         record.gesture = $commonApi.system.nopaint.gestureRecord.slice();
@@ -915,7 +934,10 @@ const $commonApi = {
         };
       },
       // Kill an existing painting.
-      noBang: async ({ system, store, needsPaint, painting }) => {
+      noBang: async (
+        { system, store, needsPaint, painting },
+        res = { w: screen.width, h: screen.height },
+      ) => {
         const deleted = await store.delete("painting", "local:db");
         await store.delete("painting:resolution-lock", "local:db");
         await store.delete("painting:transform", "local:db");
@@ -925,9 +947,11 @@ const $commonApi = {
         needsPaint();
 
         // Make a blank painting.
-        system.painting = painting(screen.width, screen.height, ($) => {
+        // I don't like that these getters will not re-associate.
+        system.painting = painting(res.w, res.h, ($) => {
           $.wipe(64);
         });
+        store["painting"] = $commonApi.system.painting;
 
         // Clear any existing painting recording in RAM and
         // storage.
@@ -4004,15 +4028,19 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         const sys = $commonApi.system;
+        sys.painting = store["painting"];
 
         // Set the painting record if one is in storage.
-        if (sys.nopaint.record?.length === 0 && !sys.nopaint.recording) {
+        if (!sys.nopaint.recording) {
           sys.nopaint.record =
             (await store.retrieve("painting:record", "local:db")) || [];
+
+          if (sys.nopaint.record.length === 0) {
+            $commonApi.system.nopaint.startRecord("new");
+          }
+
           sys.nopaint.recording = sys.nopaint.record.length > 0;
         }
-
-        sys.painting = store["painting"];
 
         sys.nopaint.translation =
           store["painting:transform"]?.translation || sys.nopaint.translation;
@@ -4197,7 +4225,7 @@ async function makeFrame({ data: { type, content } }) {
           pieceHistoryIndex > -1 &&
           !loading
         ) {
-          ink("red").box(screen.width - 3, 1, 2);
+          // ink("red").box(screen.width - 3, 1, 2);
         }
 
         // Show a notice if necessary.
