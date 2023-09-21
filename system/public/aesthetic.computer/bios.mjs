@@ -2151,8 +2151,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // For images: https://hacks.mozilla.org/2012/02/storing-images-and-files-in-indexeddb/
       // Using: https://github.com/jakearchibald/idb
       // See also: web.dev/indexeddb-best-practices
-      // TODO: Implement basic indexedDB storage and retrieval for the
-      //       painting / array buffer.
       if (content.method === "local:db") {
         await Store.set(content.key, content.data);
         // const set = await Store.set(content.key, content.data);

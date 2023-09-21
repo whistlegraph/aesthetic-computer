@@ -123,6 +123,8 @@ function boot({ system, params, get, net, ui, screen, dom: { html } }) {
     //   screen,
     // });
     // mintBtn.disabled = true;
+  } else {
+    finalPainting = system.painting;
   }
   advance(system);
   // if (query.notice === "success") printBtn = null; // Kill button after order.
@@ -147,7 +149,10 @@ function paint({ wipe, ink, system, screen, num, paste }) {
   ink(96).box(0, screen.height - 1 - btnBar, screen.width, 1);
 
   // Executes every display frame.
-  if (system.nopaint.record?.length > 0) {
+  if (
+    (pastRecord && system.nopaint.record?.length > 0) ||
+    system.nopaint.record?.length > 1
+  ) {
     ink().write(label, { size: 2 });
 
     if (painting) {
@@ -211,7 +216,7 @@ function act({ event: e, screen, print, mint, delay }) {
       await print(slug);
       delay(() => {
         printBtn.disabled = false;
-      }, 0.1)
+      }, 0.1);
       printBtn.reposition(
         { right: butSide, bottom: butBottom, screen },
         "Print",
