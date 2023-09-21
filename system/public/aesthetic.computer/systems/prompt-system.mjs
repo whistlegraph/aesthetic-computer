@@ -22,7 +22,7 @@ export async function prompt_boot(
   scheme,
   wrap,
   copied,
-  activated
+  activated,
 ) {
   messageComplete = true;
   processing = false;
@@ -38,12 +38,10 @@ export async function prompt_boot(
     async (text) => {
       // Shortcuts for exiting back to the prompt if we are not in it.
       const exits = ["q", "quit", "leave", "exit", "forget", "bye"];
-      if (exits.indexOf(text) !== -1) {
+      if (exits.indexOf(text) !== -1 && $.slug !== "prompt") {
         await conversation.forget();
         input.blank();
-        if ($.slug !== "prompt") {
-          return $.jump("prompt");
-        } else return;
+        return $.jump("prompt");
       }
 
       input.lock = true;
@@ -78,7 +76,7 @@ export async function prompt_boot(
         if ($.leaving()) {
           input.lock = false;
           return; // Keep the screen emptied out if we are leaving.
-        } 
+        }
 
         // Otherwise set the reply state now.
         reply?.(input.text);
@@ -146,7 +144,7 @@ export async function prompt_boot(
             messageComplete = true;
             input.showButton($);
           }
-        }
+        },
       );
     },
     {
@@ -158,7 +156,7 @@ export async function prompt_boot(
       didReset: () => {
         messageComplete = true;
       },
-    }
+    },
   );
 
   $.needsPaint();
