@@ -12,7 +12,7 @@ export async function authorize({ authorization }) {
   try {
     const { got } = await import("got");
     return (
-      await got("https://auth0.aesthetic.computer/userinfo", {
+      await got("https://aesthetic.us.auth0.com/userinfo", {
         headers: {
           Authorization: authorization,
         },
