@@ -6,11 +6,11 @@
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({ alias, colon, params }) {
-  alias("happy-hands-assembler", colon, params);
+  alias("wave", colon, params);
 }
 
 export { boot };
-export { meta } from "../disks/happy-hands-assembler.mjs";
+export { meta } from "../disks/wave.mjs";
 
 // 📚 Library (Useful functions used throughout the piece)
 // ...
