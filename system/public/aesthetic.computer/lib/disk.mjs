@@ -1423,7 +1423,8 @@ const $paintApi = {
         pos.y =
           $activePaintApi.screen.height / 2 -
           (lines.length * blockHeight) / 2 +
-          blockHeight / 2;
+          blockHeight / 2 +
+          (pos.y || 0);
       }
 
       lines.forEach((line, index) => {
