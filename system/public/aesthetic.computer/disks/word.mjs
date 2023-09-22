@@ -10,6 +10,7 @@
     - [] (Implement here then generalize for other brushes that parse
           color.) See `line` for an existing implementation.
   + Done
+    - [x] Fix multi-line offset bug.
     - [x] Upgrade to new `paint` api.
     - [x] Add new color parameters.
     - [x] Add thickness as a secondary colon parameter / colon param 2.
@@ -93,15 +94,18 @@ function boot($) {
   thickness = parseInt(colon[1]) || thickness;
 
   x = screen.width / 2; // Default position is the center of the display.
-  y = screen.height / 2;
+  // y = screen.height / 2;
   // x = num.randInt(screen.width);
   // y = num.randInt(screen.height);
+  y = 0;
 }
 
 // 🎨 Paint (Executes every display frame)
 function paint({ ink, system: { nopaint, painting } }) {
   // Rendering commands to write to screen and painting.
   function print({ x, y }) {
+    console.log(x, y);
+
     // Shadow
     const shadow = 1;
     ink(0, 50).write(
@@ -117,8 +121,6 @@ function paint({ ink, system: { nopaint, painting } }) {
       undefined,
       painting.width * 0.85,
     );
-
-    console.log(x, y);
 
     // Text
     ink(color).write(
