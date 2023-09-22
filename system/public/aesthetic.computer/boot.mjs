@@ -42,7 +42,7 @@ if (!sandboxed && window.auth0) {
   // #region 🔐 Auth0: Universal Login & Authentication
   const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
   const auth0Client = await window.auth0?.createAuth0Client({
-    domain: "https://aesthetic.us.auth0.com",
+    domain: "https://hi.aesthetic.computer",
     clientId,
     cacheLocation: "localstorage",
     useRefreshTokens: true,
