@@ -25,6 +25,7 @@
 
 const labelFadeSpeed = 80;
 const advanceSpeed = 120n;
+let advanceCount = 0n;
 
 let painting,
   finalPainting,
@@ -46,6 +47,8 @@ const butSide = 6;
 
 let handle;
 let imageCode, recordingCode;
+let timeout;
+let running;
 
 //let mintBtn; // A button to mint.
 
@@ -120,9 +123,12 @@ function boot({
         .painting(recordingCode, { record: true })
         .by(handle)
         .then((out) => {
-          pastRecord = system.nopaint.record;
-          system.nopaint.record = out;
-          advance(system);
+          timeout = setTimeout(() => {
+            pastRecord = system.nopaint.record;
+            system.nopaint.record = out;
+            running = true;
+            advance(system);
+          }, 1500);
         })
         .catch((err) => {
           // console.warn("Could not load recording.", err);
@@ -142,7 +148,10 @@ function boot({
     // mintBtn.disabled = true;
   } else {
     finalPainting = system.painting;
-    advance(system);
+    timeout = setTimeout(() => {
+      running = true;
+      advance(system);
+    }, 1500);
   }
   // if (query.notice === "success") printBtn = null; // Kill button after order.
 }
@@ -168,7 +177,7 @@ function paint({ wipe, ink, system, screen, num, paste }) {
   // Executes every display frame.
   if (
     (pastRecord && system.nopaint.record?.length > 0) ||
-    system.nopaint.record?.length > 1
+    (system.nopaint.record?.length > 1 && running)
   ) {
     ink().write(label, { size: 2 });
 
@@ -262,7 +271,10 @@ function act({ event: e, screen, print, mint, delay }) {
 
 // 🧮 Sim
 function sim({ simCount, system }) {
-  if (simCount % advanceSpeed === 0n) advance(system);
+  if (running) {
+    advanceCount += 1n;
+    if (advanceCount % advanceSpeed === 0n) advance(system);
+  }
   if (labelFade > 0) labelFade--;
 }
 
@@ -274,6 +286,7 @@ function sim({ simCount, system }) {
 // 👋 Leave
 function leave({ system }) {
   if (pastRecord) system.nopaint.record = pastRecord;
+  clearTimeout(timeout);
 }
 
 // 📰 Meta
