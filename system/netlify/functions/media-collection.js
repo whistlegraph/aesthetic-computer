@@ -28,6 +28,9 @@ export async function handler(event, context) {
 
   let files;
   try {
+    // TODO: Resort zip/png files / sort files by extension by making new
+    //       directories in the buckets and migrating everything.
+    //       https://chat.openai.com/c/c77b1bca-223b-49ec-bf93-f64bf7cccf05
     const data = await client.s3.send(new ListObjectsV2Command(params));
     const splitPath = path.split("/"); // Chop up the path.
     const id = await getHandleOrEmail(splitPath[0]); // Get human readable id.

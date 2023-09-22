@@ -85,7 +85,8 @@ async function boot({ params, user, handle, debug, hud, net, get }) {
         const lastPaintingCode = lastPainting
           .split("/")
           .pop()
-          .replace(".png", "");
+          .replace(".png", "")
+          .replace(".zip", ""); // Strip either extension off after fetching.
 
         // net.preload(lastPainting).then((img) => (painting = img)); // This doesn't work because of CORS errors in the Cloudflare worker.
         return get.painting(lastPaintingCode).by(visiting);
