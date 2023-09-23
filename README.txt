@@ -76,7 +76,6 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** `booted-by` ***
-  - [🟠] record demo video
   - [] overlay with text and buttons
     - [] text jeffrey at xxx-xxx-xxxx to claim spot. urgent, legitimate, exciting 
     - [] 10 tappable bars with decoration.
@@ -89,6 +88,25 @@
   - [] Make this a nice payment page
   - [] date of boot after boot completed
   - [] names link to people's profiles, invitation to make profile somewhere
+  + Done
+  - [🟠] record demo video
+
+*** important user reported errors ***
+  - [] Make sure camera landscape mode works.
+  - [] Fix android errors with keyboard.
+  - [] simulate a galaxy s10
+
+*** camera backdrop ***
+  - [] Rename `camera` to `cam`
+  - [] `cam:selfie` with a `selfie` alias
+  - [] Pixels fill only the painting frame.
+  - [] Add background painting to camera.
+  - [] Add [Switch] button. (Cycle through all webcams.)
+  - [] `camera`
+  + Later
+  - [] Zoom in and out?
+  - [] More filters with top-level semantics such as `hellscape`.
+
 
 *** `tape` ***
   - [] Test recoding cutoff again / make sure it never happens.
@@ -107,17 +125,6 @@
   - [] How can I integrate with whisper to auto-add subtitles?
   - [] Re-enable multi-clip recording.
   - [] Re-enable page refresh support / store previous clips.
-
-*** camera backdrop ***
-  - [] Rename `camera` to `cam`
-  - [] `cam:selfie` with a `selfie` alias
-  - [] Pixels fill only the painting frame.
-  - [] Add background painting to camera.
-  - [] Add [Switch] button. (Cycle through all webcams.)
-  - [] `camera`
-  + Later
-  - [] Zoom in and out?
-  - [] More filters with top-level semantics such as `hellscape`.
 
 *** iOS ***
   - [] Page sometimes doesn't load on iOS, so what's the hangup?
