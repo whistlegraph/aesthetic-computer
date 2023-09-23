@@ -129,6 +129,7 @@
 *** iOS ***
   - [] Page sometimes doesn't load on iOS, so what's the hangup?
     - [] Debug the hang.
+  - [] Review new Safari release notes: https://webkit.org/blog/14445/webkit-features-in-safari-17-0
   + Done
   - [x] Audio loads inconsistently / slowly on iOS. 
     (Debug on the actual device.)

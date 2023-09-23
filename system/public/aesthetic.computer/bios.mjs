@@ -4117,7 +4117,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             const sizeChange = !isNaN(width) && !isNaN(height);
             if (sizeChange) {
-              if (iOS) {
+              if (iOS || Android) {
                 const temp = width;
                 width = height;
                 height = temp;
