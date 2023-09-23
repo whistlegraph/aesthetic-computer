@@ -127,6 +127,7 @@
   - [] Re-enable page refresh support / store previous clips.
 
 *** iOS ***
+  - [] Properly handle device rotation with camera...
   - [] Page sometimes doesn't load on iOS, so what's the hangup?
     - [] Debug the hang.
   - [] Review new Safari release notes: https://webkit.org/blog/14445/webkit-features-in-safari-17-0
