@@ -934,6 +934,9 @@ async function halt($, text) {
   } else if (text === "browserstack" || text === "bs") {
     jump("https://live.browserstack.com");
     return true;
+  } else if (text === "gpt") {
+    jump("https://chat.openai.com");
+    return true;
   } else if (text === "help") {
     // Go to the Discord for now if anyone types help.
     jump("https://discord.gg/aesthetic-computer");

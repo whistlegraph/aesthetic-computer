@@ -52,7 +52,7 @@ function cached(ctx) {
   // Bottom Left option.
   ctx.translate(
     0,
-    round(ctx.canvas.height / window.devicePixelRatio - s * 2 + 2)
+    round(ctx.canvas.height / window.devicePixelRatio - s * 2 + 2),
   );
 
   ctx.beginPath();
@@ -215,31 +215,32 @@ class TextButton {
 
     if (pos.center === "xy") {
       return {
-        x: pos.screen.width / 2 - w / 2,
-        y: pos.screen.height / 2 - h / 2,
+        x: (pos.x || 0) + pos.screen.width / 2 - w / 2,
+        y: (pos.y || 0) + pos.screen.height / 2 - h / 2,
         w,
         h,
       };
     }
 
-    if (pos.x !== undefined && pos.y !== undefined) {
-      // Position from top left if x and y are set on pos
-      x = pos.x;
-      y = pos.y;
-    } else {
-      // Compute "bottom" and "right" properties if they exist.
-      if (pos.bottom !== undefined) {
-        y = pos.screen.height - pos.bottom - this.#h;
-      } else {
-        y = pos.top || 0;
-      }
+    //if (pos.x !== undefined && pos.y !== undefined) {
+    // Position from top left if x and y are set on pos
+    x = (pos.screen?.x || 0) + (pos.x || 0);
+    y = (pos.screen?.y || 0) + (pos.y || 0);
+    //} else {
+    // Compute "bottom" and "right" properties if they exist.
 
-      if (pos.right !== undefined) {
-        x = pos.screen.width - pos.right - w;
-      } else {
-        x = pos.left || 0;
-      }
+    if (pos.bottom !== undefined) {
+      y += pos.screen.height - pos.bottom - this.#h;
+    } else {
+      y += pos.top || 0;
     }
+
+    if (pos.right !== undefined) {
+      x += pos.screen.width - pos.right - w;
+    } else {
+      x += pos.left || 0;
+    }
+    //}
 
     return { x, y, w, h };
   }
@@ -259,7 +260,7 @@ class TextButton {
     // ],
     scheme = [0, 255, 255, 0],
     hoverScheme = [255, 0, 0, 255],
-    disabledScheme = [64, 127, 127, 64]
+    disabledScheme = [64, 127, 127, 64],
   ) {
     let s;
     if (this.btn.disabled) {
