@@ -1023,6 +1023,45 @@ const $commonApi = {
   // },
   text: {
     capitalize: text.capitalize,
+    box: (text, pos, bounds, scale) => {
+      let run = 0;
+      const blockWidth = 6 * scale; // TODO: Replace this `6`. 23.09.13.15.31
+      const words = text.split(" ");
+      const lines = [[]];
+      let line = 0;
+
+      words.forEach((word) => {
+        const len = (word.length + 1) * blockWidth;
+
+        if (run + len >= bounds) {
+          run = 0;
+          line += 1;
+          lines[line] = [];
+        }
+
+        lines[line].push(word);
+        run += len;
+      });
+
+      const blockHeight = 11 * scale; // TODO: Replace `11`. 23.09.13.15.31
+
+      if (lines.length > 1 && pos.center && pos.center.indexOf("y") !== -1) {
+        pos.y =
+          $activePaintApi.screen.height / 2 -
+          (lines.length * blockHeight) / 2 +
+          blockHeight / 2 +
+          (pos.y || 0);
+      }
+
+      if (lines.length > 1 && pos.center && pos.center.indexOf("x") !== -1) {
+        pos.x = $activePaintApi.screen.width / 2;
+      }
+
+      const height = lines.length * blockHeight;
+      const box = { x: pos.x, y: pos.y, width: bounds, height };
+
+      return { box, lines };
+    },
   },
   num: {
     add: num.add,
@@ -1348,6 +1387,10 @@ function color() {
         args = num.rainbow(); // Cycle through roygbiv in a linear sequence.
       } else {
         args = num.cssColors[args[0]]; // Try to match it to a table.
+        if (!args) {
+          args = num.randIntArr(255, 3);
+          args.push(255);
+        }
       }
       // TODO: Add an error message here. 22.08.29.13.03
     }
@@ -1399,35 +1442,10 @@ const $paintApi = {
     const scale = pos?.size || 1;
 
     if (bounds) {
-      let run = 0;
-      const blockWidth = 6 * scale; // TODO: Replace this `6`. 23.09.13.15.31
-      const words = text.split(" ");
-      const lines = [[]];
-      let line = 0;
+      const tb = $commonApi.text.box(text, pos, bounds, scale);
+      // $activePaintApi.ink(255, 0, 0, 127).box(tb.box);
 
-      words.forEach((word) => {
-        const len = (word.length + 1) * blockWidth;
-
-        if (run + len >= bounds) {
-          run = 0;
-          line += 1;
-          lines[line] = [];
-        }
-
-        lines[line].push(word);
-        run += len;
-      });
-
-      if (lines.length > 1 && pos.center.indexOf("y") !== -1) {
-        const blockHeight = 11 * scale; // TODO: Replace `11`. 23.09.13.15.31
-        pos.y =
-          $activePaintApi.screen.height / 2 -
-          (lines.length * blockHeight) / 2 +
-          blockHeight / 2 +
-          (pos.y || 0);
-      }
-
-      lines.forEach((line, index) => {
+      tb.lines.forEach((line, index) => {
         tf?.print($activePaintApi, pos, index, line.join(" "), bg);
       });
     } else {
