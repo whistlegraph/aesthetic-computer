@@ -19,22 +19,65 @@
   - [] names link to people's profiles, invitation to make profile somewhere
 #endregion */
 
+const copy = `We're at the beginning of a computer age where the advent of AI and text-to-media interfaces means that everyone can be a programmer. Aesthetic computer aims to lead this paradigm shift as an accessible and evolving social platform for art and media creation. We need funding to usher in the new age.`;
+
+const blockWidth = 6;
+const blockHeight = 11;
+let ok;
+
 // 🥾 Boot
-function boot({ wipe, ink, line }) {
-  // Runs once at the start.
-  wipe(0);
+function boot({ ui }) {
+  ok = new ui.TextButton("Fund");
 }
 
 // 🎨 Paint
-function paint({ ink }) {
-  // Executes every display frame.
-  return false; // Uncomment for an animation loop.
+function paint({ api, ink, wipe, text, screen }) {
+  wipe(0);
+
+  // Overlay
+  const marg = 4;
+  const bound = screen.width - blockWidth * 3;
+
+  const x = screen.width / 2 - bound / 2,
+    y = blockHeight * 2.5;
+
+  // Copy
+  const pos = { x, y, screen };
+  const tb = text.box(copy, pos, bound, 1);
+
+  tb.box.height += 32;
+  pos.y = screen.height / 2 - tb.box.height / 2;
+  tb.box.y = pos.y;
+
+  ink(64).write(copy, pos, undefined, bound);
+  tb.box.x -= marg;
+  tb.box.width += marg * 2;
+  tb.box.y -= marg * 2;
+  tb.box.height += marg;
+  ink(255, 0, 0, 64).box(tb.box);
+
+  // Link
+  // Button
+
+  ink(0, 100, 0, 192).box(
+    tb.box.x,
+    tb.box.y,
+    tb.box.width,
+    tb.box.height,
+    "inline",
+  );
+  ok?.reposition({ bottom: 6, right: 6, screen: tb.box });
+  ok?.paint(api, [[0, 128, 0], 255, 255, [0, 128, 0]]);
 }
 
 // 🎪 Act
-// function act({ event }) {
-//  // Respond to user input here.
-// }
+function act({ event: e }) {
+  ok?.btn.act(e, {
+    push: () => {
+      console.log("Hi");
+    },
+  });
+}
 
 // 🧮 Sim
 // function sim() {
@@ -54,7 +97,7 @@ function paint({ ink }) {
 // 📰 Meta
 function meta() {
   return {
-    title: "Booted-by",
+    title: "Booted by",
     desc: "Aesthetic was booted by...",
   };
 }
@@ -69,7 +112,7 @@ function meta() {
 // Render an application icon, aka favicon.
 // }
 
-export { boot, paint, meta };
+export { boot, paint, act, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)

@@ -556,7 +556,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   function startSound() {
-    if (navigator.audioSession) navigator.audioSession.type = "playback";
+    if (navigator.audioSession) navigator.audioSession.type = "ambient";
 
     // Main audio feed
     audioContext = new AudioContext({
@@ -740,7 +740,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Setup microphone detachment function.
       detachMicrophone = () => {
-        if (navigator.audioSession) navigator.audioSession.type = "playback";
+        if (navigator.audioSession) navigator.audioSession.type = "ambient";
         micProcessorNode.disconnect();
         micNode.disconnect();
         micStream.getTracks().forEach((t) => t.stop());
@@ -4116,6 +4116,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const constraints = {};
 
             const sizeChange = !isNaN(width) && !isNaN(height);
+
             if (sizeChange) {
               if (iOS || Android) {
                 const temp = width;
@@ -4140,7 +4141,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             if (facing) constraints.facing = { ideal: facing };
             video.srcObject = null; // Refresh the video `srcObject`.
-            console.log(constraints);
             await videoTrack.applyConstraints(constraints);
             video.srcObject = stream;
             if (!sizeChange) process();

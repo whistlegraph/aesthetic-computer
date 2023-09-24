@@ -14,9 +14,9 @@ function boot({ wipe, ink, line }) {
 }
 
 // 🎨 Paint
-function paint({ ink }) {
-  // Executes every display frame.
-  return false; // Uncomment for an animation loop.
+function paint({ ink, wipe, pen }) {
+  wipe("blue");
+  ink("red").line(0, 0, pen.x, pen.y);
 }
 
 // 🎪 Act
