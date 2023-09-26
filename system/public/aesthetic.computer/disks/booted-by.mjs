@@ -109,7 +109,7 @@ function paint({ api, ink, help, text, screen, num: { randIntArr } }) {
   }
 
   if (overlay) {
-    const marg = screen.width < 200 ? 8 : 12;
+    const marg = screen.width < 250 ? 8 : 12;
     const bound = min(320, screen.width - blockWidth * 4);
     const x = screen.width / 2 - bound / 2,
       y = blockHeight * 2.5;
