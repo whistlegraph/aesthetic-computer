@@ -5,11 +5,13 @@
 #endregion */
 
 /* #region 🏁 TODO 
-    - [] text jeffrey at xxx-xxx-xxxx to claim spot. urgent, legitimate, exciting 
-    - [] 10 tappable bars with decoration.
-  - [] names and "unclaimed" or "empty" or "open" for open slots
-  - [] tapping bar brings back overlay
+  - [-] Send to Sean.
   + Done
+  - [x] add screen flash
+  - [x] names and "unclaimed" or "empty" or "open" for open slots
+  - [x] tapping bar brings back overlay
+  - [x] 10 tappable bars with decoration.
+  - [x] text jeffrey at xxx-xxx-xxxx to claim spot. urgent, legitimate, exciting 
   - [x] overlay with text and buttons
   - [x] ok button and demo video link within the text that takes you out of app to demo video 
   + Later?
@@ -18,7 +20,7 @@
   - [] names link to people's profiles, invitation to make profile somewhere
 #endregion */
 
-const copy = `We're at the beginning of a computer age where the advent of AI and text-to-media interfaces means that everyone can be a programmer.\n\nAesthetic computer aims to lead this paradigm shift as an accessible and evolving social platform for art and media creation. We need funding to usher in the new age.`;
+const copy = `We're at the beginning of a computer age where the advent of AI and text-to-media interfaces means that everyone can be a programmer.\n\nAesthetic Computer aims to lead this paradigm shift as an accessible and evolving social platform for art and media creation. We need to fill 10 funding slots to boot up.`;
 
 const blockWidth = 6;
 const blockHeight = 11;
@@ -39,12 +41,16 @@ let ok,
   bars = [];
 let overlay = true;
 let startupSfx;
+let claim = true,
+  claimBlink;
+let flashing = false;
+
 const { min } = Math;
 
 import * as starfield from "./starfield.mjs";
 
 // 🥾 Boot
-function boot({ ui, net }) {
+function boot({ ui, net, help }) {
   ok = new ui.TextButton("Fund");
   demo = new ui.TextButton("Demo");
 
@@ -58,7 +64,7 @@ function boot({ ui, net }) {
 }
 
 // 🎨 Paint
-function paint({ api, ink, wipe, text, screen, num: { randInt, randIntArr } }) {
+function paint({ api, ink, help, text, screen, num: { randIntArr } }) {
   starfield.paint(api); // Starfield
 
   // Bars
@@ -70,40 +76,50 @@ function paint({ api, ink, wipe, text, screen, num: { randInt, randIntArr } }) {
   function paintBars(bars, x) {
     const totalHeight = rowH * bars.length;
     bars.forEach((bar, index) => {
-      bar.tb.paint(api, [bar.color, flashColor, flashColor, bar.color]);
-      bar.tb.reposition({
-        x: x - bar.tb.width / 2,
-        y: index * rowH + (screen.height / 2 - totalHeight / 2),
-        screen,
-      });
+      let color = [bar.color, flashColor, flashColor, bar.color];
+      if (!claim && !overlay) color = ["green", "white", "white", "green"];
+      bar.tb.paint(api, color);
+
+      bar.tb.reposition(
+        {
+          x: x - bar.tb.width / 2,
+          y: index * rowH + (screen.height / 2 - totalHeight / 2),
+          screen,
+        },
+        bar.tb.btn.down ? undefined : claim ? "CLAIM" : "$10k+",
+      );
     });
   }
 
   if (rowH * bars.length > screen.height) {
-    // Two vertical rows.
-    const rowDist = 40;
+    const rowDist = 40; // Two vertical rows.
     paintBars(bars.slice(0, 5), screen.width / 2 - rowDist);
     paintBars(bars.slice(-5), screen.width / 2 + rowDist);
   } else {
-    // Single vertical row.
-    paintBars(bars, screen.width / 2);
+    paintBars(bars, screen.width / 2); // Single vertical row.
+  }
+
+  if (!overlay) {
+    ink(help.choose([200], [160])).write(
+      "Text 1-508-728-4043 to CLAIM - @jeffrey",
+      { center: "x", y: screen.height - 32 },
+      "black",
+      screen.width - 32,
+    );
   }
 
   if (overlay) {
-    const marg = 4;
-    const bound = min(300, screen.width - blockWidth * 4);
-
+    const marg = 12;
+    const bound = min(320, screen.width - blockWidth * 4);
     const x = screen.width / 2 - bound / 2,
       y = blockHeight * 2.5;
 
-    // Copy
-    const pos = { x, y, screen };
+    const pos = { x, y, screen }; // Copy
     const tb = text.box(copy, pos, bound, 1);
-    tb.box.height += 38;
+    tb.box.height += 11;
     pos.y = screen.height / 2 - tb.box.height / 2;
     tb.box.y = pos.y;
 
-    // pos.center = "x";
     tb.box.x -= marg;
     tb.box.width += marg * 2;
     tb.box.y -= marg;
@@ -121,16 +137,19 @@ function paint({ api, ink, wipe, text, screen, num: { randInt, randIntArr } }) {
     ); // Outline
 
     // Buttons
-    ok?.reposition({ bottom: 6, right: 6, screen: tb.box });
+    const buttonMarg = 9;
+    ok?.reposition({ bottom: -28, right: buttonMarg, screen: tb.box });
     ok?.paint(api, [[0, 128, 0], "lime", "lime", [0, 128, 0]]);
 
-    demo?.reposition({ bottom: 6, left: 6, screen: tb.box });
+    demo?.reposition({ bottom: -28, left: buttonMarg, screen: tb.box });
     demo?.paint(api, [[0, 0, 128], 200, 200, [0, 0, 128]]);
   }
+
+  if (flashing) ink().box(0, 0, screen.width, screen.height);
 }
 
 // 🎪 Act
-function act({ event: e, jump, sound }) {
+function act({ event: e, jump, sound, gizmo, seconds, delay }) {
   if (overlay) {
     ok?.btn.act(e, {
       down: () => downSound(sound),
@@ -138,9 +157,18 @@ function act({ event: e, jump, sound }) {
         pushSound(sound);
         sound.play(startupSfx); // Play startup sound...
         overlay = false;
-        setTimeout(() => {
+        flashing = true;
+        delay(() => {
           starfield.wipe(overlay);
-        }, 50);
+          flashing = false;
+        }, 8);
+        claim = true;
+        claimBlink = new gizmo.Hourglass(seconds(1.25), {
+          flipped: () => {
+            claim = !claim;
+          },
+          autoFlip: true,
+        });
       },
     });
     demo?.btn.act(e, {
@@ -162,35 +190,34 @@ function act({ event: e, jump, sound }) {
         },
       });
     });
-
-    // if (e.is("lift")) overlay = true;
   }
 }
 
 // 🧮 Sim
 function sim($) {
   starfield.sim($);
+  claimBlink?.step();
 }
 
 // 📰 Meta
 function meta() {
   return {
-    title: "Booted by",
+    title: "booted by",
     desc: "Aesthetic was booted by...",
   };
 }
 
 // 🖼️ Preview
-// function preview({ ink, wipe }) {
-// Render a custom thumbnail image.
-// }
+function preview({ wipe, slug }) {
+  wipe(0, 15, 25).ink(0, 125, 25).write(slug, { center: "xy", size: 1 });
+}
 
 // 🪷 Icon
 // function icon() {
 // Render an application icon, aka favicon.
 // }
 
-export { boot, paint, act, sim, meta };
+export { boot, paint, act, sim, meta, preview };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
