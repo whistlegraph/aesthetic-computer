@@ -16,7 +16,7 @@ import { parse, metadata } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
 // import { UDP } from "./udp.mjs"; // TODO: Eventually expand to `net.Socket`
 import { notArray, defaultTemplateStringProcessor } from "./helpers.mjs";
-const { round, sin, random, max, floor, abs, ceil } = Math;
+const { round, sin, random, max, floor } = Math;
 import {
   nopaint_boot,
   nopaint_act,
@@ -29,7 +29,7 @@ import { logs } from "./logs.mjs";
 import { soundWhitelist } from "./sound/sound-whitelist.mjs";
 
 import { Typeface } from "../lib/type.mjs";
-let tf; // Typeface global.
+let tf; // Active typeface global.
 
 export const noWorker = { onMessage: undefined, postMessage: undefined };
 
@@ -43,7 +43,7 @@ const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading 
 import { setDebug } from "../disks/common/debug.mjs";
 
 const defaults = {
-  boot: ({ resize, cursor, screen: { width, height }, resolution }) => {
+  boot: ({ cursor, screen: { width, height }, resolution }) => {
     // resize(width / 2, height / 2);
     if (location.host.indexOf("botce") > -1) resolution(width, height, 0);
     cursor("native");
@@ -1022,7 +1022,7 @@ const $commonApi = {
   //   },
   // },
   text: {
-    capitalize: text.capitalize,
+    capitalinze: text.capitalize,
     box: (text, pos, bounds, scale) => {
       let run = 0;
       const blockWidth = 6 * scale; // TODO: Replace this `6`. 23.09.13.15.31
@@ -1030,17 +1030,28 @@ const $commonApi = {
       const lines = [[]];
       let line = 0;
 
+      function newLine() {
+        run = 0;
+        line += 1;
+        lines[line] = [];
+      }
+
+      // Word-wrapping with new line support.
       words.forEach((word) => {
-        const len = (word.length + 1) * blockWidth;
-
-        if (run + len >= bounds) {
-          run = 0;
-          line += 1;
-          lines[line] = [];
+        const wordLen = (word.length + 1) * blockWidth;
+        if (word.includes("\n")) {
+          const segs = word.split("\n");
+          segs.forEach((seg, i) => {
+            const segLen = (seg.length + 1) * blockWidth;
+            if (run + segLen >= bounds || i > 0) newLine();
+            lines[line].push(seg);
+            run += segLen;
+          });
+        } else {
+          if (run + wordLen >= bounds) newLine();
+          lines[line].push(word);
+          run += wordLen;
         }
-
-        lines[line].push(word);
-        run += len;
       });
 
       const blockHeight = 11 * scale; // TODO: Replace `11`. 23.09.13.15.31
@@ -2328,9 +2339,9 @@ async function load(
   // Add host to the networking api.
   $commonApi.net.host = host;
 
-  // Add web to the networking api.
-  $commonApi.net.web = (url) => {
-    send({ type: "web", content: url }); // Jump the browser to a new url.
+  // Jump the browser to a new url.
+  $commonApi.net.web = (url, jumpOut) => {
+    send({ type: "web", content: { url, blank: jumpOut } });
   };
 
   $commonApi.net.waitForPreload = () => {
@@ -2490,7 +2501,10 @@ async function load(
     leaving = true;
 
     let url;
-    if (to.startsWith("http")) {
+    const jumpOut = to.startsWith("out:");
+
+    if (to.startsWith("http") || jumpOut) {
+      to = to.replace("out:", "");
       try {
         url = new URL(to);
       } catch (e) {
@@ -2505,7 +2519,7 @@ async function load(
 
     let callback;
     leaveLoad = url
-      ? () => $commonApi.net.web(to)
+      ? () => $commonApi.net.web(to, jumpOut)
       : () => {
           // Intercept returns to the prompt when taping from a piece directly.
           if ($commonApi.rec.videoOnLeave && to.split("~")[0] === "prompt") {
