@@ -1,12 +1,16 @@
 // Booted-by, 2023.9.13.19.43.52.028
-// Aesthetic was booted by...
+// Aesthetic Computer was booted by...
 
 /* #region 📚 README 
 #endregion */
 
 /* #region 🏁 TODO 
-  - [-] Send to Sean.
+  + Later?
+  - [] Make this a nice payment page
+  - [] date of boot after boot completed
+  - [] names link to people's profiles, invitation to make profile somewhere
   + Done
+  - [x] Send to Sean.
   - [x] add screen flash
   - [x] names and "unclaimed" or "empty" or "open" for open slots
   - [x] tapping bar brings back overlay
@@ -14,10 +18,6 @@
   - [x] text jeffrey at xxx-xxx-xxxx to claim spot. urgent, legitimate, exciting 
   - [x] overlay with text and buttons
   - [x] ok button and demo video link within the text that takes you out of app to demo video 
-  + Later?
-  - [] Make this a nice payment page
-  - [] date of boot after boot completed
-  - [] names link to people's profiles, invitation to make profile somewhere
 #endregion */
 
 const copy = `We're at the beginning of a computer age where the advent of AI and text-to-media interfaces means that everyone can be a programmer.\n\nAesthetic Computer aims to lead this paradigm shift as an accessible and evolving social platform for art and media creation. We need to fill 10 funding slots to boot up.`;
@@ -204,7 +204,7 @@ function sim($) {
 function meta() {
   return {
     title: "booted by",
-    desc: "Aesthetic was booted by...",
+    desc: "Aesthetic Computer was booted by...",
   };
 }
 

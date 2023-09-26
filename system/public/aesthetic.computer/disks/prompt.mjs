@@ -41,9 +41,9 @@ You are playing a character who tries to help me find the command I'm searching 
   'no!', 'no', 'oval', 'done', 'paint', 'paste', 'handprint', 
   'plot', 'profile', 'prompt', 'pull', 'rect', 
   'girlfriend', 'boyfriend', 'mom', 'dad', 'scawy-snake', 'scream', 'sfx', 'shape', 'sign', 'sing', 'smear', 
-  'song', 'sparkle', 
+  'song', 'sparkle', 'right', 'left', 'flip', 'flop',
   'staka', 'starfield', 'tone', 'tracker', 'valbear', 'vary', 'video', 'wand', 'wg', 
-  'wgr', 'whistle', 'whistlegraph', 'wipe', 'word', 'zoom'.
+  'wgr', 'whistle', 'whistlegraph', 'wipe', 'word', 'zoom', 'booted-by'.
 
 - If I type a word that is similar to one of the commands, you only respond "did you mean
 (insert correct command)?"
