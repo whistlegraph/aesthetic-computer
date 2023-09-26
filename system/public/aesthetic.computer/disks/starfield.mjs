@@ -1,27 +1,31 @@
-let width, height;
+// Starfield, 2021
+// A classic starfield effect.
 
-export function boot ($) {
-  $.resize({gap: 0});
+let starfield;
+let nowipe = false;
+const { tan, floor, random } = Math;
+
+export function boot($) {
+  starfield = new Starfield($);
 }
 
 // 🧮 Sim(ulate)
-export function sim({ screen }) {
-  ({ width, height } = screen);
-  starfield.update();
+export function sim($) {
+  starfield.update($);
 }
 
 // 🎨 Paint
 export function paint($) {
-  $.wipe(0);
+  if (!nowipe) $.wipe(0);
+  if (nowipe) $.ink(0, 32).box(0, 0, $.screen.width, $.screen.height);
   starfield.paint($);
 }
 
-// 📚 Library
-
-// TODO: Use radians from num. 2022.01.17.02.37
-function radians(deg) {
-  return deg * (Math.PI / 180);
+export function wipe(state) {
+  nowipe = !state;
 }
+
+// 📚 Library
 
 class Starfield {
   numStars = 128;
@@ -40,7 +44,7 @@ class Starfield {
     }
   }
 
-  update() {
+  update($) {
     for (let i = 0; i < this.numStars; i += 1) {
       this.stars.z[i] -= 0.01 * this.speed;
 
@@ -48,50 +52,43 @@ class Starfield {
         this.reset(i);
       }
 
-      const p = this.projection(i);
+      const p = this.projection($, i);
       const x = p[0];
       const y = p[1];
 
-      if (x < 0 || x >= width || y < 0 || y >= height) {
+      if (x < 0 || x >= $.screen.width || y < 0 || y >= $.screen.height) {
         this.reset(i);
       }
     }
   }
 
-  paint({ ink, num: { randInt: r }, plot }) {
+  paint({ ink, num: { randInt: r }, plot, api }) {
     for (let i = 0; i < this.numStars; i += 1) {
-      ink(r(255), r(255), r(255)).plot(...this.projection(i));
+      ink(r(255), r(255), r(255)).plot(...this.projection(api, i));
     }
   }
 
   reset(i) {
-    this.stars.x[i] = 2 * (Math.random() - 0.5) * this.spread;
-    this.stars.y[i] = 2 * (Math.random() - 0.5) * this.spread;
-    this.stars.z[i] = (Math.random() + 0.00001) * this.spread;
+    this.stars.x[i] = 2 * (random() - 0.5) * this.spread;
+    this.stars.y[i] = 2 * (random() - 0.5) * this.spread;
+    this.stars.z[i] = (random() + 0.00001) * this.spread;
   }
 
-  projection(i) {
+  projection($, i) {
     const fov = 105;
-    const tanHalfFov = Math.tan(radians(fov / 2));
+    const tanHalfFov = tan($.num.radians(fov / 2));
 
-    const halfWidth = width / 2;
-    const halfHeight = height / 2;
+    const halfWidth = $.screen.width / 2;
+    const halfHeight = $.screen.height / 2;
     return [
-      Math.floor(
+      floor(
         (this.stars.x[i] / (this.stars.z[i] * tanHalfFov)) * halfWidth +
-          halfWidth
+          halfWidth,
       ),
-      Math.floor(
+      floor(
         (this.stars.y[i] / (this.stars.z[i] * tanHalfFov)) * halfHeight +
-          halfHeight
+          halfHeight,
       ),
     ];
   }
 }
-
-const starfield = new Starfield();
-
-// 💗 Beat
-//export function beat($api) {
-//  const { num, help, sound } = $api;
-//}

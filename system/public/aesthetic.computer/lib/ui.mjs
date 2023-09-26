@@ -203,6 +203,14 @@ class TextButton {
     return (this.btn.down = d);
   }
 
+  get width() {
+    return this.txt.length * this.#cw + this.#gap * 2;
+  }
+
+  get height() {
+    return this.#h;
+  }
+
   // Compute position for box.
   // pos: {x, y} or { top, left } for positioning.
   // pos: {bottom, right} for bottom right...
