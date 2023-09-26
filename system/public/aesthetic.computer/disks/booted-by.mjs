@@ -161,14 +161,14 @@ function act({ event: e, jump, sound, gizmo, seconds, delay }) {
         delay(() => {
           starfield.wipe(overlay);
           flashing = false;
+          claimBlink = new gizmo.Hourglass(seconds(1.25), {
+            flipped: () => {
+              claim = !claim;
+            },
+            autoFlip: true,
+          });
         }, 8);
         claim = true;
-        claimBlink = new gizmo.Hourglass(seconds(1.25), {
-          flipped: () => {
-            claim = !claim;
-          },
-          autoFlip: true,
-        });
       },
     });
     demo?.btn.act(e, {
