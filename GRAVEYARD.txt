@@ -1,5 +1,10 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** `booted-by` ***
+  + Done
+  - [x] complete page
+  - [🟠] record demo video
+
 *** Profiles ***
   - [x] Typing in a handle on the prompt and visiting it should work.
   - [x] Make sure setting a @handle actually works.

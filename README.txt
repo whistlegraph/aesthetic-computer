@@ -75,22 +75,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `booted-by` ***
-  - [] overlay with text and buttons
-    - [] text jeffrey at xxx-xxx-xxxx to claim spot. urgent, legitimate, exciting 
-    - [] 10 tappable bars with decoration.
-  - [] `booted-by` - your text and your url
-  - [] names / bars go underneath with booted by in top left
-  - [] ok button and demo video link within the text that takes you out of app to demo video 
-  - [] names and "unclaimed" or "empty" or "open" for open slots
-  - [] tapping bar brings back overlay
-  + Later?
-  - [] Make this a nice payment page
-  - [] date of boot after boot completed
-  - [] names link to people's profiles, invitation to make profile somewhere
-  + Done
-  - [🟠] record demo video
-
 *** important user reported errors ***
   - [] Make sure camera landscape mode works.
   - [] Fix android errors with keyboard.
@@ -106,7 +90,6 @@
   + Later
   - [] Zoom in and out?
   - [] More filters with top-level semantics such as `hellscape`.
-
 
 *** `tape` ***
   - [] Test recoding cutoff again / make sure it never happens.
@@ -144,6 +127,12 @@
   - [] underlined and different colors
   - [] links to pieces and surround with ``. 
 
+*** `moods` ***
+  - [] Show a live-updated list of user moods.
+
+*** `painters` ***
+  - [] A listing / gallery view.
+
 *** screenshot / steal ***
   - [] add ability to steal and automatically plant in painting page
   - [] 5 finger discount or keyboard shortcut
@@ -158,9 +147,6 @@
   - [] `profile` should be table to <- -> on a user's paintings 
        (tap into lightbox for painting / playback)
   - [] move `mood` to be to the top left to the right of username
-
-*** `painters` ***
-  - [] A listing / gallery view.
 
 *** Painting ***
   - [*] Add auto-resize back.
