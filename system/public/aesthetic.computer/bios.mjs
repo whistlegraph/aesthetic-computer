@@ -1578,9 +1578,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         form.style.opacity = 0;
         // form.style.opacity = 1;
         input.style.position = "absolute";
-        input.style.top = "50px";
-        input.style.left = "0px";
-        input.style.zIndex = 100;
+        // input.style.top = "50px";
+        // input.style.left = "0px";
+        // input.style.zIndex = 100;
 
         input.id = "software-keyboard-input";
         // input.type = "text";
@@ -1839,6 +1839,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (currentPiece !== null) firstPiece = false;
       currentPiece = content.path;
       currentPieceHasKeyboard = false;
+      if (keyboard) keyboard.input.value = "";
 
       if (!content.taping) {
         detachMicrophone?.(); // Remove any attached microphone unless we
@@ -4124,7 +4125,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // firstVideo = false;
           }
 
-          constaints.width = { ideal: cWidth };
+          constraints.width = { ideal: cWidth };
           constraints.height = { ideal: cHeight };
 
           stream = await navigator.mediaDevices.getUserMedia({

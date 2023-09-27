@@ -1306,6 +1306,7 @@ class TextInput {
     if (e.is("prompt:text:replace")) {
       this.text = e.text;
       this.#prompt.snapTo(e.text.slice(0, e.cursor));
+      this.runnable = true;
       this.blink.flip(true);
       this.selection = null;
     }
