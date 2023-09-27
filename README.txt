@@ -41,19 +41,21 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** important user reported errors ***
-  - [] Fix android errors with keyboard.
-    - [] Double entry (reported somehow)
-    - [] Backspace (reproducible via @ida)
+  - [-] Fix android errors with keyboard.
+    - [?] Double entry (reported somehow)
+    - [?] Backspace (reproducible via @ida)
   + Done
   - [x] Fix Android portrait mode stretching.
   - [x] Make sure camera landscape mode works on an iPhone.
 
 *** iOS ***
-  - [] iOS keyboard auto-suggestions should work.
-  - [] Page sometimes doesn't load on iOS, so what's the hangup?
+  - [-] Page sometimes doesn't load on iOS, so what's the hangup?
     - [] Debug the hang to see if it still exists.
   - [] Review new Safari release notes: https://webkit.org/blog/14445/webkit-features-in-safari-17-0
   + Done
+  - [x] Some highlighted text also breaks.
+  - [x] Fix delete key not working.
+  - [x] iOS keyboard auto-suggestions should work.
   - [x] Properly handle device rotation with camera...
   - [x] Audio loads inconsistently / slowly on iOS. 
     (Debug on the actual device.)

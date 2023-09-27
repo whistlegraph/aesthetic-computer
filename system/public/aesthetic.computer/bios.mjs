@@ -1572,23 +1572,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
          */
         let keyboardOpen = false;
         let keyboardOpenMethod;
-        const input = document.createElement("input");
+        const input = document.createElement("textarea");
         const form = document.createElement("form");
         form.id = "software-keyboard-input-form";
         form.style.opacity = 0;
-        input.style.width = 0;
-        input.style.height = 0;
+        // form.style.opacity = 1;
         input.style.position = "absolute";
+        input.style.top = "50px";
+        input.style.left = "0px";
+        input.style.zIndex = 100;
 
         input.id = "software-keyboard-input";
-        input.type = "text";
+        // input.type = "text";
         input.autocapitalize = "none";
         input.autocomplete = "off";
         input.style.opacity = 0;
-        input.style.width = 0;
-        input.style.height = 0;
+        // input.style.opacity = 1;
+        input.style.width = 0 + "px";
+        input.style.height = 0 + "px";
+        // input.style.width = 200 + "px";
+        // input.style.height = 50 + "px";
 
-        input.value = "_";
+        // input.value = "_";
 
         form.append(input);
         wrapper.append(form);
@@ -1645,28 +1650,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         input.addEventListener("beforeinput", (e) => {
           let input = e.data;
 
+          // console.log("Input Type:", e.inputType, input, e);
+
           const pressedKeys = [];
 
           if (e.inputType === "deleteContentBackward") {
             // console.log(e.inputType, e.target.value);
             // alert(e.inputType);
-            pressedKeys.push("Backspace");
+            // pressedKeys.push("Backspace");
           } else if (
             ["insertText", "insertCompositionText"].includes(e.inputType)
           ) {
             // Sanitize input if it arrives in chunks... like if it was dictated.
             // This is still basic, and is usable in the Meta Quest Browser. 22.10.24.17.07
-            let sanitizedInput = input;
-            if (input.length > 1) {
-              sanitizedInput = input
-                .trim()
-                .toLowerCase()
-                .replace(",", "")
-                .replace(".", "");
-              console.log("👄 Spoken / pasted input:", sanitizedInput);
-            }
-
-            [...sanitizedInput].forEach((chr) => pressedKeys.push(chr));
+            // let sanitizedInput = input;
+            // if (input.length > 1) {
+            //   sanitizedInput = input
+            //     .trim()
+            //     .toLowerCase()
+            //     .replace(",", "")
+            //     .replace(".", "");
+            //   console.log("👄 Spoken / pasted input:", sanitizedInput);
+            // }
+            // [...sanitizedInput].forEach((chr) => pressedKeys.push(chr));
           }
 
           pressedKeys.forEach((pk) => {
@@ -1682,8 +1688,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         input.addEventListener("input", (e) => {
-          e.target.value = "";
-          e.target.value = "_";
+          send({
+            type: "prompt:text:replace",
+            content: {
+              text: e.target.value,
+              cursor: input.selectionStart,
+            },
+          });
+        });
+
+        input.addEventListener("keyup", (e) => {
+          if (input.selectionStart !== input.selectionEnd) {
+            send({
+              type: "prompt:text:select",
+              content: {
+                cursor: input.selectionStart,
+                cursorEnd: input.selectionEnd,
+              },
+            });
+          }
         });
 
         window.addEventListener("blur", (e) => {
@@ -2056,6 +2079,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "keyboard:unlock") {
       keyboardFocusLock = false;
       if (logs.hid && debug) console.log("⌨️ Virtual Keyboard: Unlocked");
+      return;
+    }
+
+    if (type === "keyboard:cursor") {
+      const input = keyboard.input;
+      const currentPosition = input.selectionStart;
+      let newPosition = currentPosition + content;
+      if (newPosition < 0) newPosition = 0;
+      if (newPosition > input.value.length) newPosition = input.value.length;
+      input.setSelectionRange(newPosition, newPosition);
+      return;
+    }
+
+    if (type === "keyboard:text:replace") {
+      const input = keyboard.input;
+      input.value = content.text;
+      if (content.cursor)
+        input.setSelectionRange(content.cursor, content.cursor);
       return;
     }
 
@@ -3997,7 +4038,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // features like hand-tracking.
   let videoResize; // Holds a function defined after initialization.
   let handAPI;
-  let firstVideo = true;
   //let handLandmarker, HandLandmarker, FilesetResolver, vision;
   async function receivedVideo({ type, options }) {
     // if (debug) console.log("🎥 Type:", type, options);
@@ -4065,7 +4105,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Set a height / width aspect ratio on iOS because
           // of implementation differences.
 
-          console.log("Trying: Width:", cWidth, "Height:", cHeight);
+          // console.log("Trying: Width:", cWidth, "Height:", cHeight);
 
           const constraints = {
             facingMode: facingModeChoice,
@@ -4097,12 +4137,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const capabilities = videoTrack.getCapabilities();
           settings = videoTrack.getSettings();
 
-          console.log(
-            "Got: Width:",
-            settings.width,
-            "Height:",
-            settings.height,
-          ); // ❤️‍🔥
+          // console.log(
+          //   "Got: Width:",
+          //   settings.width,
+          //   "Height:",
+          //   settings.height,
+          // ); // ❤️‍🔥
 
           // Update global facingMode in case different from requested.
           facingMode = videoTrack.getConstraints().facingMode;
