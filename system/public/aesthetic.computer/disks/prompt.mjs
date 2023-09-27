@@ -341,6 +341,19 @@ async function halt($, text) {
   } else if (slug === "me") {
     jump("profile");
     return true;
+  } else if (slug === "selfie") {
+    jump("camera~me");
+    return true;
+  } else if (
+    slug === "cam" ||
+    text.startsWith === "cam " ||
+    text.startsWith("cam:")
+  ) {
+    jump(text.replace("cam", "camera"));
+    return true;
+  } else if (slug === "camu") {
+    jump("camera:under");
+    return true;
   } else if (slug === "@maya/sparkle") {
     jump("sparkle");
     return true;

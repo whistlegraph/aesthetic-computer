@@ -346,6 +346,9 @@ let web3Response;
 
 // Other
 let activeVideo; // TODO: Eventually this can be a bank to store video textures.
+let videoDeviceCount = 0;
+let lastActiveVideo;
+let videoSwitching = false;
 let preloadPromises = {};
 let inFocus;
 let loadFailure;
@@ -2565,33 +2568,59 @@ async function load(
    * @param {string} type - "camera" or "camera-update" or see below. 💡
    * @param {object} options - *unimplemented* { src, width, height }
    */
+
+  let videoTimeout;
+
   $commonApi.video = function (type, options) {
+    // TODO: ❤️‍🔥 Prevent fast multiple taps while camera is updating...
+
     // TODO: Options could eventually be { src, width, height }
     // const vid = video("youtube-link");
     // const vid = video("tiktok:@whistlegraph");
     // https://codepen.io/oceangermanique/pen/LqaPgO
-    if (type === "camera:update") activeVideo = null;
 
-    send({ type: "video", content: { type, options } });
+    if (videoSwitching === false) {
+      if (type === "camera:update") {
+        lastActiveVideo = activeVideo || lastActiveVideo;
+        activeVideo = null;
+      }
+
+      clearTimeout(videoTimeout);
+      videoTimeout = setTimeout(() => {
+        send({ type: "video", content: { type, options } });
+      }, 50);
+
+      if (type === "camera:update") videoSwitching = true;
+    }
 
     // Return an object that can grab whatever the most recent frame of
     // video was.
-    return function videoFrame(shader) {
-      if (activeVideo) {
-        const { width, pixels } = activeVideo;
+    return videoFrame;
+  };
 
-        if (shader) {
-          for (let i = 0; i < pixels.length; i += 4) {
-            const c = pixels.subarray(i, i + 4);
-            const p = { x: (i / 4) % width, y: floor(i / 4 / width) };
-            shader(p, c);
-          }
+  function videoFrame(shader) {
+    if (activeVideo) {
+      const { width, pixels } = activeVideo;
+
+      if (shader) {
+        for (let i = 0; i < pixels.length; i += 4) {
+          const c = pixels.subarray(i, i + 4);
+          const p = { x: (i / 4) % width, y: floor(i / 4 / width) };
+          shader(p, c);
         }
       }
-
-      return activeVideo;
-    };
-  };
+    } else if (lastActiveVideo) {
+      // Make it all red...
+      const { pixels } = lastActiveVideo;
+      for (let i = 0; i < pixels.length; i += 4) {
+        pixels[i] = 255;
+        pixels[i + 1] = 0;
+        pixels[i + 2] = 0;
+        pixels[i + 3] = 255;
+      }
+    }
+    return activeVideo || lastActiveVideo;
+  }
 
   // This function actually hotSwaps out the piece via a callback from `bios` once fully loaded via the `loading-complete` message.
   hotSwap = () => {
@@ -2699,6 +2728,8 @@ async function load(
     booted = false;
     // initialSim = true;
     activeVideo = null;
+    videoSwitching = false;
+    lastActiveVideo = null;
     preloadPromises = {};
     noPaint = false;
     formsSent = {}; // Clear 3D list for GPU.
@@ -3263,7 +3294,24 @@ async function makeFrame({ data: { type, content } }) {
 
   // 1b. Video frames.
   if (type === "video-frame") {
-    activeVideo = content;
+    if (!videoSwitching) activeVideo = content;
+    return;
+  }
+
+  if (type === "video-devices") {
+    videoDeviceCount = content;
+    $commonApi.cameras = videoDeviceCount;
+    return;
+  }
+
+  if (type === "camera:updated") {
+    videoSwitching = false;
+    actAlerts.push("camera:mode:" + content);
+    return;
+  }
+
+  if (type === "camera:denied") {
+    actAlerts.push("camera:denied");
     return;
   }
 
@@ -3774,7 +3822,10 @@ async function makeFrame({ data: { type, content } }) {
               send({ type: "keyboard:enabled" }); // Enable keyboard flag.
               send({ type: "keyboard:unlock" });
               $api.needsPaint();
-              masked = true;
+
+              // Mask unless we are in the camera.
+              if ($api.slug !== "camera") masked = true;
+
               $api.sound.synth({
                 tone: 300,
                 beats: 0.1,
