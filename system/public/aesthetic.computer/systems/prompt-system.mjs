@@ -203,6 +203,7 @@ export function prompt_act($) {
     e.is("keyboard:open") ||
     e.is("keyboard:close") ||
     e.is("pasted:text") ||
+    e.is("prompt:text:replace") ||
     e.of?.("clipboard")
   ) {
     input?.act($);

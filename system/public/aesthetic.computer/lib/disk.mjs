@@ -2918,6 +2918,24 @@ async function makeFrame({ data: { type, content } }) {
   // 🗣️ An act that fires when an utterance has ended in the Web Speech API.
   if (type === "speech:completed") {
     actAlerts.push("speech:completed");
+    return;
+  }
+
+  // When inputting text into the prompt.
+  if (type === "prompt:text:replace" || type === "prompt:text:select") {
+    const $api = cachedAPI;
+    const data = { ...content };
+    Object.assign(data, {
+      device: "none",
+      is: (e) => e === type,
+    });
+    $api.event = data;
+    try {
+      act($api);
+    } catch (e) {
+      console.warn("️ ✒ Act failure...", e);
+    }
+    return;
   }
 
   // Handles: clipboard:paste:pasted, clipboard:paste:pasted:empty
