@@ -457,6 +457,32 @@ let cachedAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
 
 const hourGlasses = [];
 
+async function uploadPainting(picture, progress, handle, filename) {
+  if (typeof picture === "string") {
+    return { url: picture }; // Assume a URL and just return it.
+  } else {
+    // Assume picture is a buffer with `{ pixels, width, height }`
+    // Upload it to the temporary bucket.
+    filename ||= `painting-${num.timestamp()}.png`;
+
+    try {
+      const data = await $commonApi.upload(
+        filename,
+        picture,
+        (p) => {
+          console.log("Painting upload progress:", p);
+          progress?.(p);
+        },
+        !handle ? "art" : undefined, // Store in temporary if no HANDLE.
+      );
+      console.log("🪄 Painting uploaded:", data.slug, data.ext, data.url);
+      return data;
+    } catch (err) {
+      console.error("🪄 Painting upload failed:", err);
+    }
+  }
+}
+
 // For every function to access.
 const $commonApi = {
   handle: () => {
@@ -475,43 +501,73 @@ const $commonApi = {
   },
   // 🪙 Mint a url or the `pixels` that get passed into the argument to a
   // network of choice.
-  mint: async (picture) => {
+  mint: async (picture, progress, params) => {
     console.log("🪙 Minting...", picture);
-    $commonApi.jump("https://zora.co/create/edition"); // Redirect to Zora create.
+
+    // Determine if picture is a string or an object.
+
+    // A record will be attached if one exists via the prompt and the user is
+    // logged in.
+    let filename;
+    let zipped;
+    if (picture.record && HANDLE) {
+      const record = picture.record;
+      filename = `painting-${record[record.length - 1].timestamp}.png`;
+      // Set filename based on record.
+
+      zipped = await $commonApi.zip(
+        { destination: "upload", painting: { record } },
+        (p) => {
+          console.log("🤐 Zip progress:", p);
+          progress?.(p);
+        },
+      );
+
+      console.log("🤐 Zipped:", zipped);
+    }
+
+    const data = await uploadPainting(picture, progress, HANDLE, filename);
+
+    let description;
+
+    if (picture.width && picture.height) {
+      description = `A ${picture.width}x${picture.height} pixel painting made on [aesthetic computer](https://aesthetic.computer).`;
+    } else {
+      description = `A painting made on [aesthetic computer](https://aesthetic.computer).`;
+    }
+
+    if (data) {
+      // Redirect to Zora.
+      if (HANDLE && zipped) {
+        description = `[\` ${HANDLE}/${data.slug}\`](https://aesthetic.computer/painting~${HANDLE}/${data.slug})\n\n${description}`;
+      }
+
+      if (HANDLE) data.slug = `${HANDLE}/painting/${data.slug}`;
+
+      const pixels = `https://aesthetic.computer/api/pixel/2048:contain/${data.slug}.${data.ext}`;
+
+      // TODO: Also add the `zip` here?
+      // Look into writing custom chunks into PNGS: https://chat.openai.com/c/0ed77e57-c5d2-4827-a733-c024da4bebd7
+
+      $commonApi.jump(
+        encodeURI(
+          `https://zora.co/create/single-edition?file=blah7image=${pixels}&name=${
+            params[0] || "Untitled Painting"
+          }&symbol=$${data.slug}&description=${description}`,
+        ),
+      );
+    }
   },
   // 🖨️ Print either a url or the `pixels` that get passed into
   // the argument, with N quantity.
   print: async (picture, quantity = 1, progress) => {
     console.log("🖨️ Printing:", picture, "Quantity:", quantity);
-
-    // Determine if picture is a string or an object.
+    const data = await uploadPainting(picture, progress);
     let pixels;
-    if (typeof picture === "string") {
-      pixels = picture; // Assume picture is a URL to an image.
-    } else {
-      // Assume picture is a buffer with `{ pixels, width, height }`
-      // Upload it to the temporary bucket.
-      const filename = `painting-${num.timestamp()}.png`;
-
-      try {
-        const data = await $commonApi.upload(
-          filename,
-          picture,
-          (p) => {
-            console.log("Painting upload progress:", p);
-            progress?.(p);
-          },
-          "art", // Store in temporary bucket no matter what.
-        );
-        console.log("🪄 Painting uploaded:", data.slug, data.ext, data.url);
-        pixels = `${data.slug}.${data.ext}`;
-      } catch (err) {
-        console.error("🪄 Painting upload failed:", err);
-      }
-
-      // ❤️‍🔥 Standardize the waiting...
-      // - [💛] Uploading stuff image from the prompt should be easy and have
-      //      working progress bars.
+    if (data && data.slug) {
+      pixels = `${data.slug}.${data.ext}`;
+    } else if (data) {
+      pixels = data.url;
     }
 
     try {
