@@ -482,6 +482,14 @@ class TextInput {
         const pic = this.typeface.glyphs[char];
         if (pic) $.ink(this.pal.blockHi).draw(pic, prompt.pos());
       }
+
+      if (this.selection) {
+        for (let i = this.selection[0]; i < this.selection[1]; i += 1) {
+          const c = prompt.textToCursorMap[i];
+          const p = prompt.pos(c);
+          $.ink(255, 255, 0, 64).box(p);
+        }
+      }
     }
 
     if (this.cursor === "stop" && !this.canType) {
@@ -726,7 +734,9 @@ class TextInput {
       } else {
         // Other keys.
         if (e.key === "Delete") {
+          // Deprecated, now handled via `prompt:text:replace`.
           // Delete the character under the cursor.
+          /*
           const index = this.#prompt.textPos();
           if (index !== undefined) {
             if (
@@ -751,6 +761,7 @@ class TextInput {
                 this.text.slice(0, bi) + this.text.slice(bi + 1) || "";
             }
           }
+          */
         } else if (e.key === "Backspace") {
           const prompt = this.#prompt;
 
@@ -861,6 +872,11 @@ class TextInput {
           this.text = history[this.historyDepth];
           this.#prompt.snapTo(this.text);
           this.historyDepth = (this.historyDepth + 1) % history.length;
+          $.send({
+            type: "keyboard:text:replace",
+            content: { text: this.text },
+          });
+          this.selection = null;
         }
 
         // ... and forwards.
@@ -870,13 +886,33 @@ class TextInput {
           this.#prompt.snapTo(this.text);
           this.historyDepth -= 1;
           if (this.historyDepth < 0) this.historyDepth = history.length - 1;
+          $.send({
+            type: "keyboard:text:replace",
+            content: { text: this.text },
+          });
+          this.selection = null;
         }
 
         // Move cursor forward.
-        if (e.key === "ArrowRight") this.#prompt.crawlForward();
+        if (e.key === "ArrowRight") {
+          if (!e.shift && this.selection) {
+            this.selection = null;
+          } else {
+            this.#prompt.crawlForward();
+          }
+        }
 
         // Move cursor backward.
-        if (e.key === "ArrowLeft") this.#prompt.crawlBackward();
+        if (e.key === "ArrowLeft") {
+          if (!e.shift && this.selection) {
+            this.#prompt.cursor = {
+              ...this.#prompt.textToCursorMap[this.selection[0]],
+            };
+            this.selection = null;
+          } else {
+            this.#prompt.crawlBackward();
+          }
+        }
       }
 
       if (e.key !== "Enter" && e.key !== "`") {
@@ -923,6 +959,10 @@ class TextInput {
               this.#prompt.cursor.y += 1;
             }
           }
+          $.send({
+            type: "keyboard:text:replace",
+            content: { text: this.text, cursor: this.#prompt.textPos() },
+          });
         } else if (this.runnable) {
           // 💻 Execute a command!
           sound.synth({
@@ -1263,6 +1303,19 @@ class TextInput {
       this.blink.flip(true);
     }
 
+    if (e.is("prompt:text:replace")) {
+      this.text = e.text;
+      this.#prompt.snapTo(e.text.slice(0, e.cursor));
+      this.blink.flip(true);
+      this.selection = null;
+    }
+
+    if (e.is("prompt:text:select")) {
+      this.selection = [e.cursor, e.cursorEnd];
+      console.log(this.selection);
+      this.blink.flip(true);
+    }
+
     if (e.is("touch") && !this.lock) this.blink.flip(true);
 
     if (e.is("lift") && !this.lock) {
@@ -1297,11 +1350,15 @@ class TextInput {
       while (this.#moveDeltaX <= -this.#moveThreshold) {
         this.#moveDeltaX += this.#moveThreshold;
         this.#prompt.crawlBackward();
+        this.selection = null;
+        $.send({ type: "keyboard:cursor", content: -1 });
       }
 
       while (this.#moveDeltaX >= this.#moveThreshold) {
         this.#moveDeltaX -= this.#moveThreshold;
         this.#prompt.crawlForward();
+        this.selection = null;
+        $.send({ type: "keyboard:cursor", content: 1 });
       }
 
       this.blink.flip(true);
