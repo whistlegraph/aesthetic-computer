@@ -13,7 +13,7 @@ import { apiObject, extension } from "./lib/helpers.mjs";
 import { choose, shuffleInPlace } from "./lib/help.mjs";
 import { parse, slug } from "./lib/parse.mjs";
 import * as Store from "./lib/store.mjs";
-import { MetaBrowser, iOS, TikTok } from "./lib/platform.mjs";
+import { MetaBrowser, iOS, Android, TikTok } from "./lib/platform.mjs";
 import { headers } from "./lib/console-headers.mjs";
 import { logs } from "./lib/logs.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
@@ -3997,6 +3997,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // features like hand-tracking.
   let videoResize; // Holds a function defined after initialization.
   let handAPI;
+  let firstVideo = true;
   //let handLandmarker, HandLandmarker, FilesetResolver, vision;
   async function receivedVideo({ type, options }) {
     // if (debug) console.log("🎥 Type:", type, options);
@@ -4050,31 +4051,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       buffer.style = `position: absolute;
                       opacity: 0;`;
 
-      // List the user's potential video devices. (Front & Back Camera)
-      // try {
-      // const devices = await navigator.mediaDevices.enumerateDevices();
-      // const videoInputDevices = devices.filter(
-      //   (device) => device.kind === "videoinput"
-      // );
-      // if (debug)
-      //   console.log(
-      //     "🎥 Available constraints: ",
-      //     navigator.mediaDevices.getSupportedConstraints()
-      //   );
-      // if (debug)
-      //   console.log("🎥 Available video devices: ", videoInputDevices);
-      // } catch (error) {
-      // console.log(error.name + ": " + error.message);
-      // }
-
-      // Swap width and height on iOS. (Implementation default differences.)
-      // Set a height / width aspect ratio on iOS because
-      // of implementation differences.
-      if (iOS) {
-        const temp = options.width;
-        options.width = options.height;
-        options.height = temp;
-      }
+      let settings, stream, videoTrack;
+      let facingModeChange = false;
 
       try {
         // Grab video from the user using a requested width and height based
@@ -4082,24 +4060,78 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         let cWidth = options.width,
           cHeight = options.height;
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode,
-            width: { ideal: cWidth },
-            height: { ideal: cHeight },
+        async function getDevice(facingModeChoice) {
+          // Swap width and height on iOS. (Implementation default differences.)
+          // Set a height / width aspect ratio on iOS because
+          // of implementation differences.
+
+          console.log("Trying: Width:", cWidth, "Height:", cHeight);
+
+          const constraints = {
+            facingMode: facingModeChoice,
             frameRate: { ideal: 30 },
-          },
-          audio: false,
-        });
+          };
 
-        video.srcObject = stream;
-        const videoTrack = stream.getVideoTracks()[0];
-        // const capabilities = videoTrack.getCapabilities();
+          if (
+            (iOS || Android) &&
+            window.matchMedia("(orientation: portrait)").matches &&
+            facingModeChoice === "environment" // &&
+            // firstVideo
+          ) {
+            const temp = cWidth;
+            cWidth = cHeight;
+            cHeight = temp;
+            // firstVideo = false;
+          }
 
-        // Update the global facingMode in case it's different from
-        // what was requested.
-        facingMode = videoTrack.getConstraints().facingMode;
-        // console.log(videoTrack.getConstraints());
+          constaints.width = { ideal: cWidth };
+          constraints.height = { ideal: cHeight };
+
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { ...constraints },
+            audio: false,
+          });
+
+          video.srcObject = stream;
+          videoTrack = stream.getVideoTracks()[0];
+          const capabilities = videoTrack.getCapabilities();
+          settings = videoTrack.getSettings();
+
+          console.log(
+            "Got: Width:",
+            settings.width,
+            "Height:",
+            settings.height,
+          ); // ❤️‍🔥
+
+          // Update global facingMode in case different from requested.
+          facingMode = videoTrack.getConstraints().facingMode;
+
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter(
+            (device) => device.kind === "videoinput",
+          );
+
+          send({ type: "video-devices", content: videoDevices.length });
+
+          if (debug) {
+            videoDevices.forEach((device, index) => {
+              if (index === 0) {
+                console.log(
+                  `Camera ${index + 1} (usually environment):`,
+                  device.label,
+                  device,
+                );
+              } else if (index === 1) {
+                console.log(`Camera ${index + 1} (usually user):`, device);
+              } else {
+                console.log(`Camera ${index + 1} (additional camera):`, device);
+              }
+            });
+          }
+        }
+
+        await getDevice(facingMode);
 
         video.addEventListener(
           "loadedmetadata",
@@ -4116,40 +4148,54 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           cancelAnimationFrame(getAnimationRequest());
 
           try {
-            const constraints = {};
-
             const sizeChange = !isNaN(width) && !isNaN(height);
 
             if (sizeChange) {
-              if (iOS || Android) {
-                const temp = width;
-                width = height;
-                height = temp;
-              }
-              constraints.width = { ideal: width };
-              constraints.height = { ideal: height };
-
               video.addEventListener(
                 "loadedmetadata",
                 () => {
-                  buffer.width = width;
-                  buffer.height = height;
+                  buffer.width = cWidth;
+                  buffer.height = cHeight;
                   process();
+                  send({ type: "camera:updated" });
                   if (debug)
                     console.log("🎥 Resolution:", buffer.width, buffer.height);
                 },
                 { once: true },
               );
+
+              if (iOS || Android) {
+                await getDevice(facing);
+              } else {
+                video.srcObject = null; // Refresh the video `srcObject`.
+                await videoTrack.applyConstraints({
+                  width: { ideal: cWidth },
+                  height: { ideal: cHeight },
+                });
+              }
             }
 
-            if (facing) constraints.facing = { ideal: facing };
-            video.srcObject = null; // Refresh the video `srcObject`.
-            await videoTrack.applyConstraints(constraints);
-            video.srcObject = stream;
-            if (!sizeChange) process();
+            if (settings.facingMode !== facing) {
+              facingModeChange = true;
+              await getDevice(facing);
+              facingModeChange = false;
+
+              video.addEventListener(
+                "canplay",
+                () => {
+                  process();
+                  send({ type: "camera:updated", content: facingMode });
+                },
+                { once: true },
+              );
+            } else {
+            }
+
+            // video.srcObject = stream;
+            // if (!sizeChange && !facingModeChange) process();
           } catch (error) {
             process();
-            if (debug) console.warn("🎥 Resolution update failed.");
+            if (debug) console.warn("🎥 Resolution update failed.", error);
           }
         };
 
@@ -4226,6 +4272,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         process(); // Start processing data.
       } catch (err) {
+        send({ type: "camera:denied" });
         console.log(err);
       }
 
@@ -4243,32 +4290,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       function process() {
+        cancelAnimationFrame(getAnimationRequest());
+        if (facingModeChange) return;
+        // cancelAnimationFrame(getAnimationRequest());
         // TODO: Video effects / filter kernels could be added here...
-        // zoom += 0.001;
-
-        // 💡 For potentially higher quality visuals. 23.04.29.20.47 ...
-        // Drawing a video frame to the buffer (mirrored, proportion adjusted).
-        // const videoAR = video.videoWidth / video.videoHeight;
-        // const bufferAR = buffer.width / buffer.height;
-        // let outWidth, outHeight, outX = 0, outY = 0;
-
-        // if (videoAR <= bufferAR) {
-        //   // Tall to wide.
-        //   outWidth = buffer.width;
-        //   outHeight = outWidth / videoAR;
-        // } else {
-        //   // Wide to tall.
-        //   outHeight = buffer.height;
-        //   outWidth = outHeight * videoAR;
-        // }
-
-        // outY = ((buffer.height - outHeight) / 2); // Adjusting position.
-        // outX = ((buffer.width - outWidth) / 2);
-
-        // bufferCtx.save();
-        // bufferCtx.scale(-1, 1); // Draw mirrored.
-        // bufferCtx.drawImage(video, -outX - outWidth, outY, outWidth, outHeight);
-        // bufferCtx.restore();
+        // 💡 For GPU backed visuals. 23.04.29.20.47
 
         // 🤚 Track Hands on the GPU if flagged.
         if (hands === true && handAPI) {
@@ -4292,20 +4318,38 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Send frames by default.
         if (options.hidden !== true) {
-          if (facingMode === "user") {
+          if (facingMode === "user" || (!iOS && !Android)) {
             bufferCtx.translate(buffer.width / 2, buffer.height / 2);
+            const zoom = 1;
             bufferCtx.scale(-zoom, zoom);
             bufferCtx.translate(-buffer.width / 2, -buffer.height / 2);
           }
-          bufferCtx.drawImage(video, 0, 0, buffer.width, buffer.height);
+
+          // Drawing a video frame to the buffer (mirrored, proportion adjusted).
+          const videoAR = video.videoWidth / video.videoHeight;
+          const bufferAR = buffer.width / buffer.height;
+          let outWidth,
+            outHeight,
+            outX = 0,
+            outY = 0;
+
+          if (videoAR <= bufferAR) {
+            // Tall to wide.
+            outWidth = buffer.width;
+            outHeight = outWidth / videoAR;
+          } else {
+            // Wide to tall.
+            outHeight = buffer.height;
+            outWidth = outHeight * videoAR;
+          }
+
+          outY = (buffer.height - outHeight) / 2; // Adjusting position.
+          outX = (buffer.width - outWidth) / 2;
+
+          bufferCtx.drawImage(video, outX, outY, outWidth, outHeight);
+
           bufferCtx.resetTransform();
-          // if (facingMode === "user") {
-          //   bufferCtx.translate(buffer.width / 2, buffer.height / 2);
-          //   bufferCtx.scale(-zoom, zoom);
-          //   bufferCtx.translate(-buffer.width / 2, -buffer.height / 2);
-          // }
-          // bufferCtx.drawImage(video, 0, 0, buffer.width, buffer.height);
-          // bufferCtx.resetTransform();
+
           const pixels = bufferCtx.getImageData(
             0,
             0,

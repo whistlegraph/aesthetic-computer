@@ -48,6 +48,7 @@ let flashing = false;
 const { min } = Math;
 
 import * as starfield from "./starfield.mjs";
+import * as sfx from "./common/sfx.mjs";
 
 // 🥾 Boot
 function boot({ ui, net, help }) {
@@ -152,9 +153,9 @@ function paint({ api, ink, help, text, screen, num: { randIntArr } }) {
 function act({ event: e, jump, sound, gizmo, seconds, delay }) {
   if (overlay) {
     ok?.btn.act(e, {
-      down: () => downSound(sound),
+      down: () => sfx.down(sound),
       push: () => {
-        pushSound(sound);
+        sfx.push(sound);
         sound.play(startupSfx); // Play startup sound...
         overlay = false;
         flashing = true;
@@ -173,7 +174,7 @@ function act({ event: e, jump, sound, gizmo, seconds, delay }) {
     });
     demo?.btn.act(e, {
       push: () => {
-        pushSound(sound);
+        sfx.push(sound);
         jump(
           "out:https://www.dropbox.com/scl/fi/3cmnkp3oqoth9by99fieh/aesthetic-computer-demo.mov?rlkey=amzo78pi2qrrctiy434tle3nq&dl=0",
           // "out:https://www.tiktok.com/@whistlegraph/video/7281664540314438955",
@@ -183,9 +184,9 @@ function act({ event: e, jump, sound, gizmo, seconds, delay }) {
   } else {
     bars.forEach((bar) => {
       bar.tb.btn.act(e, {
-        down: () => downSound(sound),
+        down: () => sfx.down(sound),
         push: () => {
-          pushSound(sound);
+          sfx.push(sound);
           overlay = true;
           starfield.wipe(overlay);
         },
@@ -221,26 +222,3 @@ function preview({ wipe, slug }) {
 export { boot, paint, act, sim, meta, preview };
 
 // 📚 Library
-//   (Useful functions used throughout the piece)
-
-function pushSound(sound) {
-  sound.synth({
-    type: "sine",
-    tone: 800,
-    attack: 0.1,
-    decay: 0.99,
-    volume: 0.75,
-    duration: 0.005,
-  });
-}
-
-function downSound(sound) {
-  sound.synth({
-    type: "sine",
-    tone: 600,
-    attack: 0.1,
-    decay: 0.99,
-    volume: 0.75,
-    duration: 0.001,
-  });
-}
