@@ -1,5 +1,25 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** add zora prefilled `mint` command ***
+  - [x] https://zora.co/create/single-edition?image=https://upload.wikimedia.org/wikipedia/en/c/cc/Wojak_cropped.jpg
+
+*** iOS ***
+  + Done
+  - [x] Some highlighted text also breaks.
+  - [x] Fix delete key not working.
+  - [x] iOS keyboard auto-suggestions should work.
+  - [x] Properly handle device rotation with camera...
+  - [x] Audio loads inconsistently / slowly on iOS. 
+    (Debug on the actual device.)
+
+*** important user reported errors ***
+  + Done
+  - [x] Fix android errors with keyboard.
+    - [x] Double entry (reported somehow)
+    - [x] Backspace (reproducible via @ida)
+  - [x] Fix Android portrait mode stretching.
+  - [x] Make sure camera landscape mode works on an iPhone.
+
 *** `booted-by` ***
   + Done
   - [x] complete page

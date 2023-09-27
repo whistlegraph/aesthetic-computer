@@ -182,6 +182,7 @@ class Typeface {
 
 // An interactive text prompt object.
 class TextInput {
+  $; // a reference to the api.
   #text; // text content
   #lastPrintedText = ""; // a place to cache a previous reply.
   #lastUserText = ""; // cache the user's in-progress edited text.
@@ -256,6 +257,8 @@ class TextInput {
   ) {
     this.key = `${$.slug}:history`; // This is "per-piece" and should
     //                                be per TextInput object...23.05.23.12.50
+
+    this.$ = $;
 
     this.copiedCallback = options.copied;
 
@@ -606,6 +609,7 @@ class TextInput {
     this.text = "";
     this.#prompt.cursor = { x: 0, y: 0 };
     this.blink?.flip(true);
+    this.$.send({ type: "keyboard:text:replace", content: { text: "" } });
   }
 
   // Set the UI state to be that of a completed reply.

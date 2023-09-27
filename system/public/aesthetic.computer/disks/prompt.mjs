@@ -195,6 +195,7 @@ async function halt($, text) {
     help,
     zip,
     print,
+    mint,
     rec,
     sound,
   } = $;
@@ -363,7 +364,7 @@ async function halt($, text) {
     flashColor = [200, 0, 200];
     makeFlash($);
     return true;
-  } else if (slug === "print") {
+  } else if (slug === "print" || slug === "mint") {
     progressBar = 0;
 
     progressTrick = new gizmo.Hourglass(24, {
@@ -372,9 +373,25 @@ async function halt($, text) {
     });
 
     try {
-      await print(system.painting, params[0], (p) => (progressBar = p)); // Print a sticker.
+      if (slug === "print") {
+        // 🏚️ Print a sticker.
+        await print(system.painting, params[0], (p) => (progressBar = p));
+      } else if (slug === "mint") {
+        // 🪙 Mint on Zora.
+        await mint(
+          {
+            ...system.painting,
+            record: system.nopaint.recording
+              ? system.nopaint.record
+              : undefined,
+          },
+          (p) => (progressBar = p),
+          params,
+        );
+      }
       flashColor = [0, 200, 0];
     } catch (err) {
+      console.warn(err);
       flashColor = [200, 0, 0];
     }
     progressTrick = null;
@@ -401,7 +418,6 @@ async function halt($, text) {
           autoFlip: true,
         });
       }
-      // TODO: How to have zip upload progress?
 
       const zipped = await zip({ destination, painting: { record } }, (p) => {
         console.log("🤐 Zip progress:", p);
@@ -1312,7 +1328,9 @@ function makeFlash($, clear = true) {
 
   flashPresent = true;
   flashShow = true;
-  if (clear) $.system.prompt.input.blank(); // Clear the prompt.
+  if (clear) {
+    $.system.prompt.input.blank(); // Clear the prompt.
+  }
 }
 
 function positionWelcomeButtons(screen) {
