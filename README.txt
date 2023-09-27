@@ -38,83 +38,23 @@
 
 😀 TODO 😆
 
-🐞 Annoying Bugs & Regressions 🪱
-  - [] android keyboard not opening while taping
-  - [] android backspace bug
-  - [] Test huawei web browser.
-  - [] `video` In-progress transcoding does not cancel when leaving a piece.
-  - [] Alt / Meta shortcut needs to work for mac to reset pan.
-  - [] Live reload: boot will not paint again if paint returns false in a contrived example
-  - [] Video download `local` fix.
-  - [] Favicon CORS fix (generate the icon / use a data uri)
-    - [] Get SharedArrayBuffer Working again.
-  - [] Apple Pencil is no longer working with brushes.
-  - [] Fix painting device rotate / resize cropping issue.
-  - [] Fix `spray` multiplayer / socket messages not being sent regression.
-  + In Production
-  - [🍽️] Fix Firefox AudioWorklet Initialization Bug `Error: Module resolve hook not set`
-  - [] https://gist.github.com/lukaslihotzki/b50ccb61ff3a44b48fc4d5ed7e54303f
-  - [] Zooming in on the page a lot will make the margin too large
-       and squash the main display.
-  + Dev Only
-  - [] `error: invalid data - Reloading edge functions...
-    at https://6494585a67d46e0008867e60--edge.netlify.app/bootstrap/cache.ts:1:32` (On Tina's MacBook)
-  - [] `sfx` do not decode in Safari when using the development servers.
-       (Probably due to a local IP address or a CORS issue?)
-       - [] Confirm that it's a Safari bug.
-  - [] `npm run code` does not work offline, due to netlify relying on online conectivity.
-    - [-] How can be sure I can run the whole stack without an internet
-        connection?
-  + Done
-  - [x] S3 Developer Onboarding Sync Not Working
-  - [x] Rename $api.upload to $api.open? or $api.importFile? 
-  - [x] Research the use of "requestProvider.js.map" and work it into `index.js`.
-  - [x] The back button does not work in the Instagram in-app browser.
-  - [x] Jumping back to the prompt from `word` no longer stamps the word.
-  - [x] Fix tap focus / unfocus regression in `type`.
-
 🌟 Projects in Progress (PIP) 🌟
 
 *** important user reported errors ***
-  - [] Make sure camera landscape mode works.
   - [] Fix android errors with keyboard.
-  - [] simulate a galaxy s10
-
-*** camera backdrop ***
-  - [] Rename `camera` to `cam`
-  - [] `cam:selfie` with a `selfie` alias
-  - [] Pixels fill only the painting frame.
-  - [] Add background painting to camera.
-  - [] Add [Switch] button. (Cycle through all webcams.)
-  - [] `camera`
-  + Later
-  - [] Zoom in and out?
-  - [] More filters with top-level semantics such as `hellscape`.
-
-*** `tape` ***
-  - [] Test recoding cutoff again / make sure it never happens.
-       (Possibly by measuring audio playback?)
-  - [] Bring back mouse and touch cursor support, by recording during frame
-       capture.
-  - [] Work more on recording subtleties.
-    - [] Mic playback gain removal.
-  - [] Code cleanup.
-  - [] Automatically increase playback in `baktok` / mix mic / playback
-       special for baktok?
-  - [] Implement the TikTok API: https://developers.tiktok.com/doc/login-kit-web
-    - [] This should allow users to post draft directly inside of the app?
-    - [] https://developers.tiktok.com/app/7280753774627768325
-    - [] Make a privacy policy and ToS permalink.
-  - [] How can I integrate with whisper to auto-add subtitles?
-  - [] Re-enable multi-clip recording.
-  - [] Re-enable page refresh support / store previous clips.
+    - [] Double entry (reported somehow)
+    - [] Backspace (reproducible via @ida)
+  + Done
+  - [x] Fix Android portrait mode stretching.
+  - [x] Make sure camera landscape mode works on an iPhone.
 
 *** iOS ***
-  - [] Properly handle device rotation with camera...
+  - [] iOS keyboard auto-suggestions should work.
   - [] Page sometimes doesn't load on iOS, so what's the hangup?
-    - [] Debug the hang.
+    - [] Debug the hang to see if it still exists.
   - [] Review new Safari release notes: https://webkit.org/blog/14445/webkit-features-in-safari-17-0
   + Done
+  - [x] Properly handle device rotation with camera...
   - [x] Audio loads inconsistently / slowly on iOS. 
     (Debug on the actual device.)
 
@@ -123,15 +63,18 @@
     - (Dont show if logged in.)
   - [] ### signups so far
 
-*** mood links ***
-  - [] underlined and different colors
-  - [] links to pieces and surround with ``. 
-
 *** `moods` ***
   - [] Show a live-updated list of user moods.
 
 *** `painters` ***
   - [] A listing / gallery view.
+
+*** mood links ***
+  - [] underlined and different colors
+  - [] links to pieces and surround with ``. 
+
+*** add zora prefilled `mint` command ***
+  - [] https://zora.co/create/single-edition?image=https://upload.wikimedia.org/wikipedia/en/c/cc/Wojak_cropped.jpg
 
 *** screenshot / steal ***
   - [] add ability to steal and automatically plant in painting page
@@ -261,6 +204,23 @@
 
 *** rainbow bot text ***
   - [] Stop printing rainbow text on the bot replies.
+
+*** `tape` ***
+  - [] Test recoding cutoff again / make sure it never happens.
+       (Possibly by measuring audio playback?)
+  - [] Bring back mouse and touch cursor support, by recording during frame
+       capture.
+  - [] Work more on recording subtleties.
+    - [] Mic playback gain removal.
+  - [] Automatically increase playback in `baktok` / mix mic / playback
+       special for baktok?
+  - [] Implement the TikTok API: https://developers.tiktok.com/doc/login-kit-web
+    - [] This should allow users to post draft directly inside of the app?
+    - [] https://developers.tiktok.com/app/7280753774627768325
+    - [] Make a privacy policy and ToS permalink.
+  - [] How can I integrate with whisper to auto-add subtitles?
+  - [] Re-enable multi-clip recording.
+  - [] Re-enable page refresh support / store previous clips.
 
 *** prompt ***
   - [] The main page prompt should be removed... it kills the feedback loop,
@@ -1832,6 +1792,31 @@
   - Make it flicker.
   - Have presets.
   - Very useful for making videos with an extra device!
+
+🐞 Annoying Bugs & Regressions 🪱
+  - [] Alt / Meta shortcut needs to work for mac to reset pan.
+  - [] Live reload: boot will not paint again if paint returns false in a contrived example
+  + In Production
+  - [] https://gist.github.com/lukaslihotzki/b50ccb61ff3a44b48fc4d5ed7e54303f
+  - [] Zooming in on the page a lot will make the margin too large
+       and squash the main display.
+  + Dev Only
+  - [] `sfx` do not decode in Safari when using the development servers.
+       (Probably due to a local IP address or a CORS issue?)
+  + Done
+  - [x] Fix `spray` multiplayer / socket messages not being sent regression.
+  - [x] Fix painting device rotate / resize cropping issue.
+  - [x️] Fix Firefox AudioWorklet Initialization Bug `Error: Module resolve hook not set`
+  - [x] Video download `local` fix.
+  - [x] Favicon CORS fix (generate the icon / use a data uri)
+    - [x] Get SharedArrayBuffer Working again.
+  - [x] `video` In-progress transcoding does not cancel when leaving a piece.
+  - [x] S3 Developer Onboarding Sync Not Working
+  - [x] Rename $api.upload to $api.open? or $api.importFile? 
+  - [x] Research the use of "requestProvider.js.map" and work it into `index.js`.
+  - [x] The back button does not work in the Instagram in-app browser.
+  - [x] Jumping back to the prompt from `word` no longer stamps the word.
+  - [x] Fix tap focus / unfocus regression in `type`.
 
 ❤️ Side Missions ❤️
   - [] Finish learning about Tezos, LIGO: https://academy.ligolang.org/pascal/chapter-types
