@@ -40,28 +40,8 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** important user reported errors ***
-  - [-] Fix android errors with keyboard.
-    - [?] Double entry (reported somehow)
-    - [?] Backspace (reproducible via @ida)
-  + Done
-  - [x] Fix Android portrait mode stretching.
-  - [x] Make sure camera landscape mode works on an iPhone.
-
-*** iOS ***
-  - [-] Page sometimes doesn't load on iOS, so what's the hangup?
-    - [] Debug the hang to see if it still exists.
-  - [] Review new Safari release notes: https://webkit.org/blog/14445/webkit-features-in-safari-17-0
-  + Done
-  - [x] Some highlighted text also breaks.
-  - [x] Fix delete key not working.
-  - [x] iOS keyboard auto-suggestions should work.
-  - [x] Properly handle device rotation with camera...
-  - [x] Audio loads inconsistently / slowly on iOS. 
-    (Debug on the actual device.)
-
 *** landing page ***
-  - [] Add support for transparent animation. (Starfield)
+  - [-] Add support for transparent animation. (Starfield)
     - (Dont show if logged in.)
   - [] ### signups so far
 
@@ -74,9 +54,6 @@
 *** mood links ***
   - [] underlined and different colors
   - [] links to pieces and surround with ``. 
-
-*** add zora prefilled `mint` command ***
-  - [] https://zora.co/create/single-edition?image=https://upload.wikimedia.org/wikipedia/en/c/cc/Wojak_cropped.jpg
 
 *** screenshot / steal ***
   - [] add ability to steal and automatically plant in painting page
@@ -234,6 +211,10 @@
 *** @aesthetic.computer ***
   - [] Make the first instagram grid post.
   - [] Have "word" be wrapped and centered based on the painting by default.
+
+- [-] Page sometimes doesn't load on iOS, so what's the hangup?
+  - [] Debug the hang to see if it still exists.
+- [] Review new Safari release notes: https://webkit.org/blog/14445/webkit-features-in-safari-17-0
 
 *** user generated media ***
   - [] You can do version updates on code but old versions are kept of the same
