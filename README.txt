@@ -40,9 +40,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `bb` -> `booted-by` ***
-  - [] make bb a short name for booted-by
-
 *** `moods` ***
   - [-] Show a live-updated list of user moods
 
