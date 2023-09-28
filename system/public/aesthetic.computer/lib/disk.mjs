@@ -2978,7 +2978,11 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   // When inputting text into the prompt.
-  if (type === "prompt:text:replace" || type === "prompt:text:select") {
+  if (
+    type === "prompt:text:replace" ||
+    type === "prompt:text:select" ||
+    type === "prompt:text:cursor"
+  ) {
     const $api = cachedAPI;
     const data = { ...content };
     Object.assign(data, {

@@ -1,5 +1,13 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+ - [x] Fix regional text selection delay support.
+ - [x] immediate first key entry no longer works.
+
+*** landing page ***
+  + Done
+  - [x] ### handles set 
+  - [x] Add support for transparent animation. (Starfield)
+
 *** add zora prefilled `mint` command ***
   - [x] https://zora.co/create/single-edition?image=https://upload.wikimedia.org/wikipedia/en/c/cc/Wojak_cropped.jpg
 

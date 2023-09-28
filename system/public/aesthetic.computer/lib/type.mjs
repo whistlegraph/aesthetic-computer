@@ -380,9 +380,10 @@ class TextInput {
 
   latentFirstPrint(text) {
     if (!this.inputStarted && !this.commandSentOnce) {
-      this.print(text);
+      // this.print(text);
+      this.text = text;
     } else if (!this.commandSentOnce) {
-      this.#lastPrintedText = text;
+      // this.#lastPrintedText = text;
     }
   }
 
@@ -898,25 +899,38 @@ class TextInput {
         }
 
         // Move cursor forward.
-        if (e.key === "ArrowRight") {
-          if (!e.shift && this.selection) {
-            this.selection = null;
-          } else {
-            this.#prompt.crawlForward();
-          }
-        }
+        // if (e.key === "ArrowRight") {
+        //   if (!e.shift && this.selection) {
+        //     this.selection = null;
+        //   } else {
+        //     this.#prompt.crawlForward();
+        //     // if (this.selection) {
+        //     //   this.selection[1] += 1;
+        //     //   if (this.selection[1] === this.text.length) {
+        //     //     this.selection[1] = this.text.length - 1;
+        //     //   }
+        //     // }
+        //   }
+        // }
 
         // Move cursor backward.
-        if (e.key === "ArrowLeft") {
-          if (!e.shift && this.selection) {
-            this.#prompt.cursor = {
-              ...this.#prompt.textToCursorMap[this.selection[0]],
-            };
-            this.selection = null;
-          } else {
-            this.#prompt.crawlBackward();
-          }
-        }
+        // if (e.key === "ArrowLeft") {
+        //   if (!e.shift && this.selection) {
+        //     this.#prompt.cursor = {
+        //       ...this.#prompt.textToCursorMap[this.selection[0]],
+        //     };
+        //     this.selection = null;
+        //   } else {
+        //     this.#prompt.crawlBackward();
+        //     // if (e.shift && this.selection) {
+        //     //   this.selection[0] -= 1;
+        //     //   if (this.selection[0] < 0) this.selection[0] = 0;
+        //     // } else if (e.shift) {
+        //     //   const index = this.#prompt.textPos();
+        //     //   if (index > 0) this.selection = [index - 1, index];
+        //     // }
+        //   }
+        // }
       }
 
       if (e.key !== "Enter" && e.key !== "`") {
@@ -1030,12 +1044,13 @@ class TextInput {
         ti.copy.btn.removeFromDom($, "copy");
       }
       ti.canType = true;
-      ti.#lastPrintedText = ti.text;
+
       if (ti.#lastUserText.length > 0) {
         ti.text = ti.#lastUserText;
         ti.runnable = true;
       } else {
-        ti.blank("blink");
+        if (ti.#lastPrintedText) ti.blank("blink");
+
         ti.enter.btn.disabled = true;
         ti.paste.btn.disabled = false;
       }
@@ -1074,7 +1089,8 @@ class TextInput {
       ti.#lastUserText = ti.text;
       ti.backdropTouchOff = false;
 
-      ti.text = ti.#lastPrintedText;
+      ti.text = ti.#lastPrintedText || ti.text;
+
       if (ti.#lastPrintedText.length > 0 && ti.commandSentOnce) {
         ti.copy.btn.disabled = false;
         ti.#coatedCopy = ti.#coatCopy(ti.text); // Wrap text to be copied.
@@ -1315,9 +1331,24 @@ class TextInput {
       this.selection = null;
     }
 
-    if (e.is("prompt:text:select")) {
-      this.selection = [e.cursor, e.cursorEnd];
-      console.log(this.selection);
+    // if (e.is("prompt:text:select")) {
+    //   this.selection = [e.cursor, e.cursorEnd];
+    //   this.blink.flip(true);
+    // }
+
+    if (e.is("prompt:text:cursor")) {
+      if (e.cursor === this.text.length) {
+        this.snap();
+      } else {
+        this.#prompt.cursor = { ...this.#prompt.textToCursorMap[e.cursor] };
+      }
+
+      if (e.start !== undefined && e.end !== undefined) {
+        this.selection = [e.start, e.end];
+      } else {
+        this.selection = null;
+      }
+
       this.blink.flip(true);
     }
 

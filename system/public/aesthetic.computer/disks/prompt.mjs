@@ -90,6 +90,10 @@ let startupSfx, keyboardSfx;
 
 let tapePromiseResolve, tapePromiseReject;
 
+let handles; // Keep track of total handles set.
+
+import * as starfield from "./starfield.mjs";
+
 // 🥾 Boot
 async function boot({
   glaze,
@@ -106,13 +110,26 @@ async function boot({
 }) {
   glaze({ on: true });
 
+  // Fetch handle count.
+  fetch("/handle?count=true")
+    .then((res) => res.json())
+    .then((data) => {
+      handles = data.handles;
+    })
+    .catch((err) => {
+      console.warn("Could not get handles:", err);
+    });
+
+  // Boot starfield with a clear backdrop.
+  starfield.boot();
+  starfield.wipe(false);
+
   // TODO: How could I not keep reloading these sounds?
   //       Are they already cached?
-  net.preload("startup").then((sfx) => (startupSfx = sfx)); //  Load startup
+  net.preload("startup").then((sfx) => (startupSfx = sfx)); // Load startup
   net.preload("compkey").then((sfx) => (keyboardSfx = sfx)); // and key sounds.
 
   // Create login & signup buttons.
-  // if (pieceCount === 0) {
   if (!user) {
     login = new ui.TextButton("Log in", { center: "xy", screen });
     signup = new ui.TextButton("I'm new", { center: "xy", screen });
@@ -123,7 +140,6 @@ async function boot({
       center: "xy",
       screen,
     });
-  // }
 
   // Only if prompt is set to recall conversations.
   if (
@@ -1030,6 +1046,19 @@ function paint($) {
     }
   }
 
+  if (!login?.btn.disabled || (profile && !profile.btn.disabled)) {
+    starfield.paint($, { alpha: 0.4, color: [255, 0, 200] });
+    if (handles && screen.height > 200)
+      ink(255, 0, 255, 128).write(
+        `${handles} HANDLES SET`,
+        {
+          center: "x",
+          y: screen.height / 2 + screen.height / 2.75 - 11,
+        },
+        [255, 50, 200, 24],
+      );
+  }
+
   // Paint UI Buttons
   if (!login?.btn.disabled) login?.paint($, [[0, 0, 64], 255, 255, [0, 0, 64]]);
   if (!signup?.btn.disabled)
@@ -1069,6 +1098,10 @@ function paint($) {
 function sim($) {
   const input = $.system.prompt.input;
   progressTrick?.step();
+  if (!login?.btn.disabled || !profile?.btn.disabled) {
+    starfield.sim($);
+    $.needsPaint();
+  }
 
   if (
     $.store["handle:received"] // &&
