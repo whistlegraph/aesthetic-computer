@@ -1,22 +1,32 @@
-// $NAME, $TIMESTAMP
-// $THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES
+// Moods, 2023.9.28.01.40.14.735
+// A live list of all our moods.
 
 /* #region 📚 README 
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] Render moods.
 #endregion */
 
 // 🥾 Boot
-function boot({ wipe }) {
+function boot({ wipe, ink, line }) {
   // Runs once at the start.
   wipe(0);
+
+  fetch("/api/mood/all")
+    .then((res) => res.json())
+    .then((body) => {
+      if (body.moods) {
+        console.log("Moods:", body);
+      } else {
+        throw new Error(body.message);
+      }
+    })
+    .catch((err) => console.warn("📶🙁 Mood error:", err));
 }
 
 // 🎨 Paint
-function paint({ ink }) {
-  return false; // Uncomment for a frame loop.
-}
+function paint({ ink, wipe, pen }) {}
 
 // 🎪 Act
 // function act({ event }) {
@@ -41,8 +51,8 @@ function paint({ ink }) {
 // 📰 Meta
 function meta() {
   return {
-    title: "$NAME",
-    desc: "$THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES",
+    title: "Moods",
+    desc: "A live list of all our moods.",
   };
 }
 

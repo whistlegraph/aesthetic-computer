@@ -30,7 +30,7 @@ import {
   authorize,
   userIDFromHandleOrEmail,
 } from "../../backend/authorization.mjs";
-import { connect, moodFor } from "../../backend/database.mjs";
+import { connect, moodFor, allMoods } from "../../backend/database.mjs";
 import { respond, pathParams } from "../../backend/http.mjs";
 // const dev = process.env.CONTEXT === "dev";
 
@@ -38,18 +38,28 @@ export async function handler(event, context) {
   if (event.httpMethod === "GET") {
     // 1. GET: Look up moods for user.
     const database = await connect();
-    const user = await userIDFromHandleOrEmail(
-      pathParams(event.path)[2],
-      database
-    );
-    if (user) {
-      const mood = await moodFor(user, database);
-      await database.disconnect();
-      return mood
-        ? respond(200, mood)
+    const slug = pathParams(event.path)[2];
+
+    if (slug === "all") {
+      // List all moods from the database and return
+      // them as { moods }.
+      const moods = await allMoods(database);
+      database.disconnect();
+      return moods
+        ? respond(200, { moods })
         : respond(500, { message: "No mood found." });
     } else {
-      return respond(401, { message: "User not found." });
+      const user = await userIDFromHandleOrEmail(slug, database);
+      console.log("User:", user);
+      if (user && user.length > 0) {
+        const mood = await moodFor(user, database);
+        database.disconnect();
+        return mood
+          ? respond(200, mood)
+          : respond(500, { message: "No mood found." });
+      } else {
+        return respond(401, { message: "User not found." });
+      }
     }
   } else if (event.httpMethod !== "POST") {
     return respond(405, { message: "Method Not Allowed" });
