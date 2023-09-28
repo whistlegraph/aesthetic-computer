@@ -15,10 +15,10 @@ export function sim($) {
 }
 
 // 🎨 Paint
-export function paint($) {
+export function paint($, options) {
   if (!nowipe) $.wipe(0);
   if (nowipe) $.ink(0, 32).box(0, 0, $.screen.width, $.screen.height);
-  starfield.paint($);
+  starfield.paint($, options);
 }
 
 export function wipe(state) {
@@ -62,9 +62,12 @@ class Starfield {
     }
   }
 
-  paint({ ink, num: { randInt: r }, plot, api }) {
+  paint({ ink, num: { randInt: r }, plot, api }, options) {
     for (let i = 0; i < this.numStars; i += 1) {
-      ink(r(255), r(255), r(255)).plot(...this.projection(api, i));
+      ink(
+        ...(options?.color || [r(255), r(255), r(255)]),
+        floor((options?.alpha || 1) * 255),
+      ).plot(...this.projection(api, i));
     }
   }
 

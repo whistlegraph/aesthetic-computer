@@ -1697,13 +1697,54 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
         });
 
-        input.addEventListener("keyup", (e) => {
-          if (input.selectionStart !== input.selectionEnd) {
+        // input.addEventListener("keyup", (e) => {
+        //   if (input.selectionStart !== input.selectionEnd) {
+        //     send({
+        //       type: "prompt:text:select",
+        //       content: {
+        //         cursor: input.selectionStart,
+        //         cursorEnd: input.selectionEnd,
+        //       },
+        //     });
+        //   }
+        // });
+
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+            let cursor =
+              input.selectionDirection === "backward"
+                ? input.selectionStart
+                : input.selectionEnd;
+
+            const selectionLength = input.selectionEnd - input.selectionStart;
+
+            if (!e.shiftKey && selectionLength > 1) {
+              cursor =
+                e.key === "ArrowLeft"
+                  ? max(0, input.selectionStart - 1)
+                  : input.selectionEnd;
+            } else {
+              cursor += e.key === "ArrowLeft" ? -1 : 1;
+              cursor = max(0, min(input.value.length, cursor));
+            }
+
+            let start, end;
+            if (e.shiftKey) {
+              if (e.key === "ArrowLeft") {
+                start = cursor;
+                end = input.selectionEnd;
+              } else {
+                start = input.selectionStart;
+                end = cursor;
+              }
+            }
+
             send({
-              type: "prompt:text:select",
+              type: "prompt:text:cursor",
               content: {
-                cursor: input.selectionStart,
-                cursorEnd: input.selectionEnd,
+                cursor,
+                start,
+                end,
               },
             });
           }
@@ -2085,7 +2126,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "keyboard:cursor") {
       const input = keyboard.input;
-      const currentPosition = input.selectionStart;
+      // Get the current position of the caret
+      const currentPosition =
+        input.selectionDirection === "backward"
+          ? input.selectionStart
+          : input.selectionEnd;
       let newPosition = currentPosition + content;
       if (newPosition < 0) newPosition = 0;
       if (newPosition > input.value.length) newPosition = input.value.length;

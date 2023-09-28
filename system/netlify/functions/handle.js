@@ -16,15 +16,36 @@ const dev = process.env.CONTEXT === "dev";
 
 export async function handler(event, context) {
   // A GET request to get a handle from a user `sub`.
+  const database = await connect(); // 📕 Database
+  const collection = database.db.collection("@handles");
+
+  // A GET request to get a handle from a user `sub`.
   if (event.httpMethod === "GET") {
-    const id = event.queryStringParameters.for;
-    const result = await handleFor(id);
-    if (typeof result === "string") {
-      return respond(200, { handle: result });
-    } else if (Array.isArray(result) && result.length > 0) {
-      return respond(200, { handles: result });
+    const count = event.queryStringParameters.count;
+
+    if (count) {
+      // Return total handle count.
+      try {
+        const handles = await collection.estimatedDocumentCount();
+        await database.disconnect();
+        return respond(200, { handles });
+      } catch (error) {
+        await database.disconnect();
+        return respond(500, { message: "Failed to retrieve handle count." });
+      }
     } else {
-      return respond(400, { message: "No handle(s) found." });
+      // Get handle `for`
+      const id = event.queryStringParameters.for;
+      const result = await handleFor(id);
+      await database.disconnect();
+
+      if (typeof result === "string") {
+        return respond(200, { handle: result });
+      } else if (Array.isArray(result) && result.length > 0) {
+        return respond(200, { handles: result });
+      } else {
+        return respond(400, { message: "No handle(s) found." });
+      }
     }
   } else if (event.httpMethod !== "POST")
     return respond(405, { message: "Method Not Allowed" });
