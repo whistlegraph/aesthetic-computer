@@ -40,11 +40,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** landing page ***
-  - [-] Add support for transparent animation. (Starfield)
-    - (Dont show if logged in.)
-  - [] ### signups so far
-
 *** `moods` ***
   - [] Show a live-updated list of user moods.
 

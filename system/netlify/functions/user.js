@@ -16,7 +16,6 @@ export async function handler(event, context) {
   }
 
   const handleOrEmail = event.queryStringParameters.from;
-
   if (!handleOrEmail) {
     return {
       statusCode: 400,
