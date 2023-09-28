@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** `bb` -> `booted-by` ***
+  - [x] make bb a short name for booted-by
+
 *** text entry regressions ***
   + Done
   - [x] Fix regional text selection delay support.
