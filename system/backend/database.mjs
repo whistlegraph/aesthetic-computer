@@ -36,7 +36,29 @@ async function moodFor(sub, database) {
   return record;
 }
 
-export { connect, moodFor };
+// Get all moods with handles included.
+// 🗒️ There will be no `\\n` filtering here, so it should happen on client rendering.
+async function allMoods(database) {
+  const collection = database.db.collection("moods");
+  const pipeline = [
+    {
+      $lookup: {
+        from: "@handles",
+        localField: "user",
+        foreignField: "_id",
+        as: "handleInfo",
+      },
+    },
+    { $unwind: "$handleInfo" },
+    { $project: { _id: 0, mood: 1, when: 1, handle: "$handleInfo.handle" } },
+    { $sort: { when: -1 } },
+  ];
+
+  const records = await collection.aggregate(pipeline).toArray();
+  return records;
+}
+
+export { connect, moodFor, allMoods };
 
 // Demo code from MongoDB's connection page: (23.08.15.19.59)
 
