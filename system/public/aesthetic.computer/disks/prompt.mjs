@@ -117,7 +117,7 @@ async function boot({
       handles = data.handles;
     })
     .catch((err) => {
-      console.warn("Could not get handles:", err);
+      console.warn("💁 Could not get handle count.");
     });
 
   // Boot starfield with a clear backdrop.
@@ -157,11 +157,13 @@ async function boot({
   }
 
   if (params[0]) {
-    const text = params[0].replaceAll("~", " ");
+    const text = params.join(" ");
+    // const text = params[0].replaceAll("~", " ");
     system.prompt.input.text = text;
     system.prompt.input.runnable = true;
     system.prompt.input.addUserText(text);
     system.prompt.input.snap();
+    send({ type: "keyboard:text:replace", content: { text } });
   } else {
     system.prompt.input.text = "";
   }
@@ -1232,9 +1234,19 @@ function act({
 
   if (e.is("pasted:text")) firstActivation = false;
 
-  if (e.is("keyboard:down") && e.key !== "Enter") {
-    play(keyboardSfx, { volume: 0.2 + (num.randInt(100) / 100) * 0.4 });
+  if (
+    e.is("prompt:text:replace") &&
+    !firstActivation &&
+    system.prompt.input.canType
+  ) {
+    if (!e.mute)
+      play(keyboardSfx, { volume: 0.2 + (num.randInt(100) / 100) * 0.4 });
   }
+
+  // if (e.is("keyboard:down") && e.key !== "Enter") {
+  // console.log("down key...");
+  // play(keyboardSfx, { volume: 0.2 + (num.randInt(100) / 100) * 0.4 });
+  // }
 
   // 💾 Piece / disk loading
   if (e.is("load-error")) {

@@ -204,7 +204,7 @@ class TextInput {
 
   canType = false;
 
-  #autolock = true;
+  //#autolock = true;
   lock = false;
 
   #prompt;
@@ -239,6 +239,7 @@ class TextInput {
   activate; // Hook to `activate` inside of act.
   activated; // Optional callback for when the the text input becomes
   //            activated via pushing the Enter button or typing a key.
+  activatedOnce = true;
   backdropTouchOff = false; // Determines whether to activate the input
   //                           after tapping the backdrop.
   commandSentOnce = false; // 🏴
@@ -251,7 +252,7 @@ class TextInput {
     options = {
       palette: undefined,
       font: font1,
-      autolock: true,
+      //autolock: true,
       wrap: "char",
     },
   ) {
@@ -272,7 +273,7 @@ class TextInput {
     }
 
     this.activated = options.activated;
-    this.#autolock = options.autolock;
+    //this.#autolock = options.autolock;
     this.didReset = options.didReset;
 
     const blockWidth = 6;
@@ -355,13 +356,19 @@ class TextInput {
   // Run a command
   async run(store) {
     this.#prompt.snapTo(this.text);
+    this.submittedText = "";
     await this.#execute(store); // Send a command.
   }
 
   // Set the text and reflow it.
   set text(str) {
+    if (str === this.#text) {
+      // console.warn("Redundant text");
+      return;
+    }
     this.#text = str;
     this.flow();
+    // console.log("📝 Setting text to:", str);
   }
 
   // Return the prompt.
@@ -595,13 +602,13 @@ class TextInput {
     // console.log("📚 Stored prompt history:", store[key]);
     store.persist(this.key); // Persist the history stack across tabs.
     // 🍎 Process commands for a given context, passing the text input.
-    if (this.#autolock) this.lock = true; // TODO: This might be redundant now. 23.06.07.23.32
+    //if (this.#autolock) this.lock = true; // TODO: This might be redundant now. 23.06.07.23.32
     // this.#processingCommand = true;
     await this.#processCommand?.(this.text);
     // this.#processingCommand = false;
     this.commandSentOnce = true;
     // this.enter.btn.down = false; // Make sure the Enter button is released.
-    if (this.#autolock) this.lock = false;
+    //if (this.#autolock) this.lock = false;
   }
 
   // Clear the TextInput object and flip the cursor to ON.
@@ -868,6 +875,7 @@ class TextInput {
           this.activate(this);
           $.send({ type: "keyboard:open" });
           this.text = "";
+          $.send({ type: "keyboard:text:replace", content: { text: "" } });
           this.#prompt.cursor = { x: 0, y: 0 };
         }
 
@@ -1038,7 +1046,7 @@ class TextInput {
 
       ti.activated?.($, true);
       ti.enter.btn.down = false;
-      // ti.activatedOnce = true;
+      ti.activatedOnce = true;
       if (ti.text.length > 0) {
         ti.copy.btn.disabled = true;
         ti.copy.btn.removeFromDom($, "copy");
@@ -1323,9 +1331,15 @@ class TextInput {
       this.blink.flip(true);
     }
 
-    if (e.is("prompt:text:replace")) {
+    // This should only be possible when the text box is locked, unless
+    // it's the first activation.
+    if (
+      e.is("prompt:text:replace") &&
+      (!this.activatedOnce || this.lock === false)
+    ) {
       this.text = e.text;
-      this.#prompt.snapTo(e.text.slice(0, e.cursor));
+      this.#lastUserText = e.text;
+      this.#prompt.snapTo(this.text.slice(0, e.cursor));
       this.runnable = true;
       this.blink.flip(true);
       this.selection = null;
@@ -1336,7 +1350,7 @@ class TextInput {
     //   this.blink.flip(true);
     // }
 
-    if (e.is("prompt:text:cursor")) {
+    if (e.is("prompt:text:cursor") && this.lock === false) {
       if (e.cursor === this.text.length) {
         this.snap();
       } else {
