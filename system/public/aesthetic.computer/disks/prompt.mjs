@@ -507,6 +507,9 @@ async function halt($, text) {
   } else if (slug === "bf") {
     jump("boyfriend");
     return true;
+  } else if (slug === "bb") {
+    jump("booted-by");
+    return true;
   } else if (slug === "load") {
     // Load a file via URL.
     // Images:
