@@ -40,11 +40,8 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** text entry regressions ***
-  - [🧡] Backspace shortcut. 
-  - [] Pressing tilde while processing can be weird, and
-      so can typing while processing.
-  - [] `prompt~line` shortcut no longer works...
+*** `bb` -> `booted-by` ***
+  - [] make bb a short name for booted-by
 
 *** `moods` ***
   - [-] Show a live-updated list of user moods

@@ -21,7 +21,7 @@ async function connect() {
 }
 
 async function disconnect() {
-  await client?.close();
+  await client?.close?.();
 }
 
 // Re-usable calls to the application.

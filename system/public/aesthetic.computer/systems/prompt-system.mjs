@@ -45,6 +45,7 @@ export async function prompt_boot(
       }
 
       input.lock = true;
+      $.send({ type: "keyboard:lock" });
       input.enter.btn.disabled = true;
 
       // Disable any paste button.
@@ -55,7 +56,10 @@ export async function prompt_boot(
       input.canType = false;
 
       const halted = await halt?.($, text);
-      if (!$.leaving()) input.lock = false;
+      if (!$.leaving()) {
+        input.lock = false;
+        $.send({ type: "keyboard:unlock" });
+      }
 
       if (halted) {
         messageComplete = true;
@@ -65,6 +69,7 @@ export async function prompt_boot(
         // (Immediate bot-style reply)
         if (halted.replied) {
           input.lock = false;
+          $.send({ type: "keyboard:unlock" });
           input.runnable = false;
           input.bakePrintedText();
           input.showButton($);
@@ -75,6 +80,7 @@ export async function prompt_boot(
 
         if ($.leaving()) {
           input.lock = false;
+          $.send({ type: "keyboard:unlock" });
           return; // Keep the screen emptied out if we are leaving.
         }
 
@@ -103,6 +109,10 @@ export async function prompt_boot(
         abortMessage = "";
         abort?.(); // Prevent fail from running here...
         input.activate(input);
+        $.send({
+          type: "keyboard:text:replace",
+          content: { text: abortMessage },
+        });
       };
 
       abort = conversation.ask(
@@ -116,6 +126,7 @@ export async function prompt_boot(
         function done() {
           messageComplete = true;
           processing = input.lock = false;
+          $.send({ type: "keyboard:unlock" });
           reply?.(input.text, input);
           input.bakePrintedText();
           input.clearUserText();
@@ -134,10 +145,12 @@ export async function prompt_boot(
         },
         function fail() {
           input.text = abortMessage;
+          input.snap();
           $.needsPaint();
           reply?.(input.text);
           input.submittedText = "";
           processing = input.lock = false;
+          $.send({ type: "keyboard:unlock" });
           input.bakePrintedText();
           input.runnable = false;
           if (input.text.length > 0) {
@@ -148,7 +161,7 @@ export async function prompt_boot(
       );
     },
     {
-      autolock: false,
+      // autolock: false,
       wrap,
       scheme,
       copied,
@@ -181,8 +194,9 @@ export function prompt_act($) {
   if (
     !messageComplete &&
     processing &&
-    (e.is("keyboard:down:escape") ||
-      (e.is("keyboard:down:`") && slug === "prompt"))
+    e.is("keyboard:down")
+    //(e.is("keyboard:down:escape") ||
+    //  (e.is("keyboard:down:`") && slug === "prompt"))
   ) {
     cancel();
   }
