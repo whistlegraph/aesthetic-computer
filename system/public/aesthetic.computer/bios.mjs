@@ -1543,7 +1543,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "bgm-change") {
-      playBackgroundMusic(content.trackNumber, content.volume);
+      playBackgroundMusic(content.trackNumber, content.volume || 1);
       return;
     }
 
@@ -1576,30 +1576,30 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const form = document.createElement("form");
         form.id = "software-keyboard-input-form";
         form.style.opacity = 0;
-        // form.style.opacity = 1;
         input.style.position = "absolute";
-        // input.style.top = "50px";
-        // input.style.left = "0px";
-        // input.style.zIndex = 100;
-
         input.id = "software-keyboard-input";
-        // input.type = "text";
         input.autocapitalize = "none";
+        // input.type = "text";
         input.autocomplete = "off";
         input.style.opacity = 0;
-        // input.style.opacity = 1;
         input.style.width = 0 + "px";
         input.style.height = 0 + "px";
+
+        // 📓 Uncomment to debug text editing form synchronization.
+        // form.style.opacity = 1;
+        // input.style.zIndex = 100;
+        // input.style.top = "50px";
+        // input.style.left = "0px";
+        // input.style.opacity = 1;
         // input.style.width = 200 + "px";
         // input.style.height = 50 + "px";
-
-        // input.value = "_";
 
         form.append(input);
         wrapper.append(form);
 
         keyboard.focusHandler = function (e) {
           if (!currentPieceHasKeyboard) return;
+          if (keyboardFocusLock) return;
           if (
             document.activeElement !== input &&
             e.key !== "`" &&
@@ -1607,6 +1607,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           ) {
             keyboardOpenMethod = "keyboard";
             input.focus();
+
+            if (e.key.length !== 1 || e.ctrl) {
+              send({
+                type: "prompt:text:replace",
+                content: { text: "", cursor: 0, mute: true },
+              });
+            }
+
             return true;
           } else if (e.key === "Enter" && e.shiftKey === false) {
             // input.blur(); // Deprecated 23.07.29.17.44
@@ -1710,6 +1718,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // });
 
         input.addEventListener("keydown", (e) => {
+          if (keyboardFocusLock) {
+            e.preventDefault();
+            return;
+          }
           if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
             let cursor =
               input.selectionDirection === "backward"
@@ -2101,11 +2113,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "keyboard:close") {
+      if (keyboardFocusLock) return;
       keyboard?.input.blur();
       return;
     }
 
     if (type === "keyboard:open") {
+      if (keyboardFocusLock) return;
       currentPieceHasKeyboard = true;
       keyboard?.input.focus();
       // if (keyboard) keyboard.needsImmediateOpen = true; // For iOS.
@@ -4364,13 +4378,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       function diagram(hand) {
         if (facingMode === "user") {
-          hand.screen.forEach((l) => (l.x = 1 - l.x));
+          // hand.screen.forEach((l) => (l.x = 1 - l.x));
           // Reverse handedness because our data is mirrored.
-          if (hand.handedness === "left") {
-            hand.handedness = "right";
-          } else if (hand.handedness === "right") {
-            hand.handedness = "left";
-          }
+          // if (hand.handedness === "left") {
+          //   hand.handedness = "right";
+          // } else if (hand.handedness === "right") {
+          //   hand.handedness = "left";
+          // }
         }
         handData = hand;
       }
@@ -4382,12 +4396,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // TODO: Video effects / filter kernels could be added here...
         // 💡 For GPU backed visuals. 23.04.29.20.47
 
+        // Send frames by default.
+        if (facingMode === "user" || (!iOS && !Android)) {
+          bufferCtx.translate(buffer.width / 2, buffer.height / 2);
+          const zoom = 1;
+          // if (hands) {
+          // bufferCtx.scale(zoom, zoom);
+          // } else {
+          bufferCtx.scale(-zoom, zoom);
+          // }
+          bufferCtx.translate(-buffer.width / 2, -buffer.height / 2);
+        }
+
         // 🤚 Track Hands on the GPU if flagged.
         if (hands === true && handAPI) {
           if (handVideoTime !== video.currentTime && video.videoWidth > 0) {
             handVideoTime = video.currentTime;
             if (useLegacyHandsAPI && !handAPI?.legacyProcessing) {
-              handAPI.hands?.send({ image: video }).then(() => {
+              handAPI.hands?.send({ image: bufferCtx.canvas }).then(() => {
                 handAPI.legacyProcessing = false;
                 // Don't process more than one frame at a time.
               });
@@ -4402,40 +4428,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         }
 
-        // Send frames by default.
+        // Drawing a video frame to the buffer (mirrored, proportion adjusted).
+        const videoAR = video.videoWidth / video.videoHeight;
+        const bufferAR = buffer.width / buffer.height;
+        let outWidth,
+          outHeight,
+          outX = 0,
+          outY = 0;
+
+        if (videoAR <= bufferAR) {
+          // Tall to wide.
+          outWidth = buffer.width;
+          outHeight = outWidth / videoAR;
+        } else {
+          // Wide to tall.
+          outHeight = buffer.height;
+          outWidth = outHeight * videoAR;
+        }
+
+        outY = (buffer.height - outHeight) / 2; // Adjusting position.
+        outX = (buffer.width - outWidth) / 2;
+
+        bufferCtx.drawImage(video, outX, outY, outWidth, outHeight);
+        bufferCtx.resetTransform();
+
         if (options.hidden !== true) {
-          if (facingMode === "user" || (!iOS && !Android)) {
-            bufferCtx.translate(buffer.width / 2, buffer.height / 2);
-            const zoom = 1;
-            bufferCtx.scale(-zoom, zoom);
-            bufferCtx.translate(-buffer.width / 2, -buffer.height / 2);
-          }
-
-          // Drawing a video frame to the buffer (mirrored, proportion adjusted).
-          const videoAR = video.videoWidth / video.videoHeight;
-          const bufferAR = buffer.width / buffer.height;
-          let outWidth,
-            outHeight,
-            outX = 0,
-            outY = 0;
-
-          if (videoAR <= bufferAR) {
-            // Tall to wide.
-            outWidth = buffer.width;
-            outHeight = outWidth / videoAR;
-          } else {
-            // Wide to tall.
-            outHeight = buffer.height;
-            outWidth = outHeight * videoAR;
-          }
-
-          outY = (buffer.height - outHeight) / 2; // Adjusting position.
-          outX = (buffer.width - outWidth) / 2;
-
-          bufferCtx.drawImage(video, outX, outY, outWidth, outHeight);
-
-          bufferCtx.resetTransform();
-
           const pixels = bufferCtx.getImageData(
             0,
             0,

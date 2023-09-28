@@ -1,7 +1,21 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
- - [x] Fix regional text selection delay support.
- - [x] immediate first key entry no longer works.
+*** text entry regressions ***
+  + Done
+  - [x] Fix regional text selection delay support.
+  - [x] immediate first key entry no longer works.
+  - [x] Clear response highlighted text.
+  - [x] NETWORK FAILURE does not reset the text.
+  - [x] Backspace shortcut. 
+  - [x] `prompt~line` shortcut no longer works...
+  - [x] sounds no longer function
+  - [x] starting with left or right arrow keys doesn't clear prompt
+  - [x] Pressing tilde while processing can be weird, and
+      so can typing while processing.
+  - [x] moving arrow keys left and right...
+
+*** `wave` *** 
+  - [x] `wave` pixels are still stretched on Android.
 
 *** landing page ***
   + Done
