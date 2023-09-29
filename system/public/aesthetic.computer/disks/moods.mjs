@@ -36,7 +36,7 @@ const { floor, min, abs, ceil, sin } = Math;
 
 // 🥾 Boot
 function boot({ wipe, screen, colon, params }) {
-  scale = parseInt(colon[0]) || (params[0] ? 2 : 1);
+  scale = parseInt(colon[0]) || 1;
   if (scale === 2) moodRingY *= scale / 1.5;
   moodRingRow *= scale;
   wipe(0);
@@ -135,9 +135,9 @@ function meta() {
 }
 
 // 🖼️ Preview
-// function preview({ ink, wipe }) {
-// Render a custom thumbnail image.
-// }
+function preview({ wipe, slug }) {
+  wipe("purple").ink("red").write(slug, { center: "xy", size: 1 });
+}
 
 // 🪷 Icon
 // function icon() {

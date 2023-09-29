@@ -40,16 +40,21 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** screenshot / steal ***
+  - [] keyboard shortcut
+  - [] 5 finger grab
+  - [] Play sound and immediately download image.
+  - [] Play sound and immediately replace painting and jump to prompt.
+
+*** prompt annoyances ***
+  - [] deprecate `NETWORK FAILURE` in favor of a notify.
+  - [] jumping from shortcut to shortcut is a little jarring
+
 *** `painters` ***
   - [] A listing / gallery view.
 
-*** screenshot / steal ***
-  - [] add ability to steal and automatically plant in painting page
-  - [] 5 finger discount or keyboard shortcut
-  - [] shift $ steals pixels and takes you to prompt, ctrl shift $ steals in background
-
 *** fairy pond ***
-  - [] a place where connected cursors can communicate with disappearing lines
+  - [] a 2d place where connected cursors can communicate with disappearing lines
 
 *** painting forking & remixing ***
   - [] Finish `brush` template for paint brushes.
@@ -60,8 +65,9 @@
   - [] move `mood` to be to the top left to the right of username
 
 *** Painting ***
-  - [*] Add auto-resize back.
+  - [*] Add auto-resize back?
   - [] fix `vary`
+  - [] Add a `pull` brush.
   - [-] Add Zoom for all brushes. 🔵
     - [🟠] `line` 
       (Read implementation in `rect`)
