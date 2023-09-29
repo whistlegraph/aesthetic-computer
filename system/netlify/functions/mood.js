@@ -68,7 +68,7 @@ export async function handler(event, context) {
   // 2. POST: Set / post a mood.
   try {
     const body = JSON.parse(event.body);
-    const mood = body.mood;
+    const mood = body.mood.trim(); // Trim extra whitespace off mood.
     const user = await authorize(event.headers);
     if (user) {
       // 📕 Database

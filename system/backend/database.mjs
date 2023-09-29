@@ -50,7 +50,14 @@ async function allMoods(database) {
       },
     },
     { $unwind: "$handleInfo" },
-    { $project: { _id: 0, mood: 1, when: 1, handle: "$handleInfo.handle" } },
+    {
+      $project: {
+        _id: 0,
+        mood: 1,
+        when: 1,
+        handle: { $concat: ["@", "$handleInfo.handle"] },
+      },
+    },
     { $sort: { when: -1 } },
   ];
 
