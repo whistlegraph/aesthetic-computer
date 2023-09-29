@@ -36,7 +36,7 @@ const { floor, min, abs, ceil, sin } = Math;
 
 // 🥾 Boot
 function boot({ wipe, screen, colon, params }) {
-  scale = parseInt(colon[0]) || 2;
+  scale = parseInt(colon[0]) || (params[0] ? 2 : 1);
   if (scale === 2) moodRingY *= scale / 1.5;
   moodRingRow *= scale;
   wipe(0);
@@ -71,7 +71,7 @@ function boot({ wipe, screen, colon, params }) {
 
 // 🎨 Paint
 function paint({ wipe, ink, text, pan, unpan, screen, num, help: { choose } }) {
-  wipe(0);
+  scale > 1 ? ink(0, 64).box(screen) : wipe(0);
   if (retrieving) ink(choose(64, 127)).write("retrieving...", { center: "xy" });
   if (failed) ink("red").write("failed", { center: "xy" });
   if (moodRing.length > 0) {
