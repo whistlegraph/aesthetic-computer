@@ -69,7 +69,7 @@
     Content-Security-Policy = "script-src 'self' blob: 'unsafe-eval';"
     Vary = "*"
 [[edge_functions]]
-  path = "/media/*"
+  path = "/new-media/*"
   function = "media"
 [[redirects]]
    from = "https://botce.ac/wPyYL4osf6Cw0pkHn_E5I-botce"
@@ -81,12 +81,12 @@
    to = "https://sotce.com"
    status = 301
    force = true
-# [[redirects]]
-#   from = "/media/*"
-#   to = "https://aesthetic-computer-router.aesthetic-computer.workers.dev/media/:splat"
-#   # to = "http://localhost:8787/media/:splat" # Uncomment for developing the Cloudflare worker.
-#   status = 200
-#   force = true
+[[redirects]]
+  from = "/media/*"
+  to = "https://aesthetic-computer-router.aesthetic-computer.workers.dev/media/:splat"
+  # to = "http://localhost:8787/media/:splat" # Uncomment for developing the Cloudflare worker.
+  status = 200
+  force = true
 # [[redirects]]
 #   from = "/assets/*"
 #   to = "https://assets.aesthetic.computer/:splat"
