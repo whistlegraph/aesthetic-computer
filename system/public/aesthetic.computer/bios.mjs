@@ -1623,13 +1623,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         input.style.height = 0 + "px";
 
         // 📓 Uncomment to debug text editing form synchronization.
-        form.style.opacity = 1;
-        input.style.zIndex = 100;
-        input.style.top = "50px";
-        input.style.left = "0px";
-        input.style.opacity = 1;
-        input.style.width = 200 + "px";
-        input.style.height = 50 + "px";
+        // form.style.opacity = 1;
+        // input.style.zIndex = 100;
+        // input.style.top = "50px";
+        // input.style.left = "0px";
+        // input.style.opacity = 1;
+        // input.style.width = 200 + "px";
+        // input.style.height = 50 + "px";
 
         form.append(input);
         wrapper.append(form);
