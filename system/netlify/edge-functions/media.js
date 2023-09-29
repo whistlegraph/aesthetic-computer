@@ -1,9 +1,9 @@
-// File location: netlify/edge-functions/media-handler.js
+export const config = { path: "/media/*" };
 
-export default async (event) => {
-  const { request } = event;
-  let url = new URL(request.url);
-  let path = url.pathname.split("/");
+export default async function handleRequest(event) {
+  const request = event;
+  const url = new URL(request.url);
+  const path = url.pathname.split("/");
   let newUrl;
 
   if (path[1] === "media") {
@@ -11,26 +11,21 @@ export default async (event) => {
       newUrl = `https://art.aesthetic.computer/${path[2]}`;
     } else {
       const userId = await queryUserID(path[2]);
-      let newPath = `${userId}/${path.slice(3).join("/")}`;
+      const newPath = `${userId}/${path.slice(3).join("/")}`;
 
       if (newPath.split("/").pop().split(".")[1]?.length > 0) {
         newUrl = `https://user.aesthetic.computer/${newPath}`;
+        return fetch(encodeURI(newUrl));
       } else {
-        const path = encodeURIComponent(newPath.replace("/media", ""));
-        newUrl = `https://aesthetic.computer/media-collection?for=${path}`;
+        const path = newPath.replace("/media", "");
+        newUrl = `/media-collection?for=${path}`;
+        return new URL(newUrl, request.url);
       }
     }
-
-    return fetch(newUrl, {
-      method: request.method,
-      headers: request.headers,
-    });
   } else {
     return new Response("💾 Not a `media` path.", { status: 500 });
   }
-};
-
-export const config = { path: "/media/*" };
+}
 
 async function queryUserID(username) {
   const host = "https://aesthetic.computer";

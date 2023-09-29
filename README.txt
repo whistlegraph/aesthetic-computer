@@ -59,6 +59,7 @@
   - [] a place where connected cursors can communicate with disappearing lines
 
 *** painting forking & remixing ***
+  - [] Finish `brush` template for paint brushes.
 
 *** painting listings ***
   - [] `profile` should be table to <- -> on a user's paintings 
