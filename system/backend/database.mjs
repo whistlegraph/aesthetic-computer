@@ -38,12 +38,15 @@ async function moodFor(sub, database) {
 
 // Get all moods with handles included.
 // 🗒️ There will be no `\\n` filtering here, so it should happen on client rendering.
-async function allMoods(database) {
+async function allMoods(database, handle = null) {
   const collection = database.db.collection("moods");
+  const matchStage = { deleted: { $ne: true } };
+
+  if (handle) {
+    matchStage["handleInfo.handle"] = handle.replace(/^@/, "");
+  }
+
   const pipeline = [
-    {
-      $match: { deleted: { $ne: true } },
-    },
     {
       $lookup: {
         from: "@handles",
@@ -53,6 +56,9 @@ async function allMoods(database) {
       },
     },
     { $unwind: "$handleInfo" },
+    {
+      $match: matchStage,
+    },
     {
       $project: {
         _id: 0,
@@ -65,6 +71,7 @@ async function allMoods(database) {
   ];
 
   const records = await collection.aggregate(pipeline).toArray();
+  console.log(records);
   return records;
 }
 
