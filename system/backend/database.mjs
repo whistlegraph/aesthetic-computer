@@ -42,6 +42,9 @@ async function allMoods(database) {
   const collection = database.db.collection("moods");
   const pipeline = [
     {
+      $match: { deleted: { $ne: true } },
+    },
+    {
       $lookup: {
         from: "@handles",
         localField: "user",
