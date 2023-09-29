@@ -988,7 +988,7 @@ async function halt($, text) {
     makeFlash($, false);
     flashColor = [255, 0, 0];
     return true;
-  } else if (text === "github" || text === "gh") {
+  } else if (text.toLowerCase() === "github" || text === "gh") {
     jump("https://github.com/digitpain/aesthetic.computer");
     return true;
   } else if (text === "browserstack" || text === "bs") {
