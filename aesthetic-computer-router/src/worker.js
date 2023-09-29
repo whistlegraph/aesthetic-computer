@@ -57,13 +57,12 @@ async function handleRequest(request) {
 			}
 		}
 
-		console.log(newUrl);
-
 		// Use the resolveOverride property to rewrite the request instead
 		// of fetching the whole file.
+		const domainOverride = new URL(newUrl).hostname;
 		request = new Request(newUrl, {
 			...request,
-			cf: { ...request.cf, resolveOverride: newUrl },
+			cf: { ...request.cf, resolveOverride: domainOverride },
 		});
 
 		const response = await fetch(request);
