@@ -68,9 +68,9 @@
     Access-Control-Allow-Origin = "*"
     Content-Security-Policy = "script-src 'self' blob: 'unsafe-eval';"
     Vary = "*"
-[[edge_functions]]
-  path = "/new-media/*"
-  function = "new-media"
+# [[edge_functions]]
+#   path = "/new-media/*"
+#   function = "new-media"
 [[redirects]]
    from = "https://botce.ac/wPyYL4osf6Cw0pkHn_E5I-botce"
    to = "https://aesthetic.computer/wPyYL4osf6Cw0pkHn_E5I-botce"
