@@ -3851,19 +3851,19 @@ async function makeFrame({ data: { type, content } }) {
       }
 
       // Keyboard Paste Event
-      if (content.clipboardText) {
-        const data = { text: content.clipboardText };
-        Object.assign(data, {
-          device: "none",
-          is: (e) => e === "pasted:text",
-        });
-        $api.event = data;
-        try {
-          act($api);
-        } catch (e) {
-          console.warn("️ ✒ Act failure...", e);
-        }
-      }
+      // if (content.clipboardText) {
+      //   const data = { text: content.clipboardText };
+      //   Object.assign(data, {
+      //     device: "none",
+      //     is: (e) => e === "pasted:text",
+      //   });
+      //   $api.event = data;
+      //   try {
+      //     act($api);
+      //   } catch (e) {
+      //     console.warn("️ ✒ Act failure...", e);
+      //   }
+      // }
 
       // *** Pen Events ***
       // Ingest all pen input events by running act for each event.
