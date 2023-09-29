@@ -5,7 +5,7 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Move extra long moods left and right horizontally.
+  - [-] Move extra long moods left and right horizontally.
   - [] Add time information.
   - [] Filter out new line characters.
   + Done
@@ -13,18 +13,22 @@
   - [x] Render moods.
 #endregion */
 
-let retrieving = true;
-let failed = false;
 let moods;
+
+let retrieving = true,
+  failed = false;
+
 const scrollDelay = 60;
 let scroll = -scrollDelay;
-const { floor, min, abs, ceil } = Math;
 
-let moodRing = [];
-const moodRingY = 18;
-const moodRingRow = 12;
-let ringSpots = 8;
-let calcRingSpots;
+const moodRing = [],
+  moodRingY = 18,
+  moodRingRow = 12;
+
+let ringSpots = 8,
+  calcRingSpots;
+
+const { floor, min, abs, ceil } = Math;
 
 // 🥾 Boot
 function boot({ wipe, ink, line, screen }) {
@@ -35,19 +39,16 @@ function boot({ wipe, ink, line, screen }) {
     .then((res) => res.json())
     .then((body) => {
       if (body.moods) {
-        console.log("Moods:", body);
         moods = body.moods;
-
+        // console.log("😃 Moods:", moods);
         calcRingSpots = (screen) => {
           ringSpots = ceil(
             min(moods.length, (screen.height - moodRingY) / moodRingRow),
           );
-          console.log("new ring spots:", ringSpots);
           for (let i = moodRing.length - 1; i < ringSpots; i += 1) {
             moodRing.push(moods.shift());
           }
         };
-
         calcRingSpots(screen);
         retrieving = false;
       } else {
@@ -79,7 +80,6 @@ function paint({ wipe, ink, text, pan, unpan, screen }) {
     moodRing.forEach((m, i) => {
       const mood = m.mood.trim();
       const bounds = text.box(mood);
-      // console.log(bounds);
       const y = moodRingY + i * moodRingRow;
       ink().write(mood, { x: 6, y });
       ink(64).write(m.handle, { x: 6 + bounds.box.width - 6, y });
@@ -92,7 +92,6 @@ function paint({ wipe, ink, text, pan, unpan, screen }) {
       moods.push(moodRing.shift());
       moodRing.push(moods.shift());
     }
-    //scroll = (scroll - 0.5) % (moodRing.length * 12);
     ink(0, 127).box(0, 0, screen.width, moodRingY);
   }
 }
