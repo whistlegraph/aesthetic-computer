@@ -40,15 +40,8 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `moods` ***
-  - [-] Show a live-updated list of user moods...
-
 *** `painters` ***
   - [] A listing / gallery view.
-
-*** mood links ***
-  - [] underlined and different colors
-  - [] links to pieces and surround with ``. 
 
 *** screenshot / steal ***
   - [] add ability to steal and automatically plant in painting page
@@ -68,6 +61,7 @@
 
 *** Painting ***
   - [*] Add auto-resize back.
+  - [] fix `vary`
   - [-] Add Zoom for all brushes. 🔵
     - [🟠] `line` 
       (Read implementation in `rect`)
@@ -168,6 +162,10 @@
       - [] art.aesthetic.computer
       + Done
       - [x] logo.aesthetic.computer -> pals-aesthetic-computer
+
+*** mood links ***
+  - [] underlined and different colors
+  - [] links to pieces and surround with ``. 
 
 *** BakTok ***
   - [] Make the audio scrubbable.

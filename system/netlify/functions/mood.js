@@ -39,13 +39,14 @@ export async function handler(event, context) {
     // 1. GET: Look up moods for user.
     const database = await connect();
     const slug = pathParams(event.path)[2];
+    const handle = event.queryStringParameters?.for || null;
 
     if (slug === "all") {
       // List all moods from the database and return
       // them as { moods }.
-      const moods = await allMoods(database);
+      const moods = await allMoods(database, handle);
       database.disconnect();
-      return moods
+      return moods && moods.length > 0
         ? respond(200, { moods })
         : respond(500, { message: "No mood found." });
     } else {
