@@ -41,7 +41,7 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** `moods` ***
-  - [-] Show a live-updated list of user moods
+  - [-] Show a live-updated list of user moods...
 
 *** `painters` ***
   - [] A listing / gallery view.
