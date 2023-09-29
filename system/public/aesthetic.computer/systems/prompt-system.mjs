@@ -146,6 +146,8 @@ export async function prompt_boot(
         function fail() {
           input.text = abortMessage;
           input.snap();
+          // just use notice here
+          // $.send({ type: "keyboard:text:replace", content: { text: "" } });
           $.needsPaint();
           reply?.(input.text);
           input.submittedText = "";
