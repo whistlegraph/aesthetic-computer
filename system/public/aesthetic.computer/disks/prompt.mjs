@@ -536,7 +536,6 @@ async function halt($, text) {
     const nuke = slug === "mood:nuke";
     const label = slug === "mood:nuke" ? "NUKE" : "DENUKE";
     const res = await userJSONRequest("POST", "/api/mood", { nuke });
-    console.log("RES", res);
     flashColor = res?.deleted ? [0, 255, 0] : [255, 0, 0];
     if (res?.altered >= 0) {
       notice(`${label}D MOODS`);
