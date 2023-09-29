@@ -1298,38 +1298,38 @@ class TextInput {
       }, 500);
     }
 
-    if (e.is("pasted:text") && !this.canType) {
-      activate(this); // Activate on pasted text if necessary.
-    }
+    // if (e.is("pasted:text") && !this.canType) {
+    //   activate(this); // Activate on pasted text if necessary.
+    // }
 
     // 🗞️ Pasted text from user clipboard.
-    if (e.is("pasted:text") && this.lock === false && this.canType) {
-      const paste = e.text;
-      const index = this.#prompt.textPos();
+    // if (e.is("pasted:text") && this.lock === false && this.canType) {
+    //   const paste = e.text;
+    //   const index = this.#prompt.textPos();
 
-      // Just add the text to the end.
-      if (index === undefined || this.text.length === 0) {
-        this.text += paste;
-        this.#prompt.snapTo(this.text);
-      } else {
-        // Or inside.
-        let sliceIndex = index;
-        const onChar = this.#prompt.posHasVisibleCharacter();
-        if (!onChar) sliceIndex += 1;
-        this.text =
-          this.text.slice(0, sliceIndex) + paste + this.text.slice(sliceIndex);
-        const newCursor = this.#prompt.textToCursorMap[index + paste.length];
-        this.#prompt.cursor = { ...newCursor };
-        if (!onChar) this.#prompt.forward();
-      }
+    //   // Just add the text to the end.
+    //   if (index === undefined || this.text.length === 0) {
+    //     this.text += paste;
+    //     this.#prompt.snapTo(this.text);
+    //   } else {
+    //     // Or inside.
+    //     let sliceIndex = index;
+    //     const onChar = this.#prompt.posHasVisibleCharacter();
+    //     if (!onChar) sliceIndex += 1;
+    //     this.text =
+    //       this.text.slice(0, sliceIndex) + paste + this.text.slice(sliceIndex);
+    //     const newCursor = this.#prompt.textToCursorMap[index + paste.length];
+    //     this.#prompt.cursor = { ...newCursor };
+    //     if (!onChar) this.#prompt.forward();
+    //   }
 
-      if (this.text.length > 0) {
-        this.enter.btn.disabled = false;
-        this.runnable = true;
-      }
+    //   if (this.text.length > 0) {
+    //     this.enter.btn.disabled = false;
+    //     this.runnable = true;
+    //   }
 
-      this.blink.flip(true);
-    }
+    //   this.blink.flip(true);
+    // }
 
     // This should only be possible when the text box is locked, unless
     // it's the first activation.
