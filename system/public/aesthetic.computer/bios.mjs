@@ -1380,10 +1380,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               pastedText = await navigator.clipboard.readText();
               // This routes through to the `pasted:text` event in `disk`.
               // where `pastedText` is sent on the next frame.
-              send({
-                type:
-                  pastedText.length > 0 ? "paste:pasted" : "paste:pasted:empty",
-              });
+              if (pastedText.length === 0) {
+                send({ type: "paste:pasted:empty" });
+              } else {
+                // Insert pasted text at current caret position.
+                if (keyboard) {
+                  const start = input.selectionStart;
+                  const end = input.selectionEnd;
+
+                  const beforeCursor = keyboard.input.value.substring(0, start);
+                  const afterCursor =
+                    selLen > 0
+                      ? keyboard.input.value.substring(end)
+                      : keyboard.input.value.substring(start);
+
+                  keyboard.input.value =
+                    beforeCursor + pastedText + afterCursor;
+
+                  const newCursorPosition = start + pastedText.length;
+                  input.setSelectionRange(newCursorPosition, newCursorPosition);
+                }
+              }
+              // send({
+              //   type:
+              //     pastedText.length > 0 ? "paste:pasted" : "paste:pasted:empty",
+              // });
             } catch (err) {
               send({ type: "paste:failed" });
             }
@@ -1835,9 +1856,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
       // 📋 User pasting of content.
-      window.addEventListener("paste", (event) => {
-        pastedText = event.clipboardData.getData("text/plain");
-      });
+      //window.addEventListener("paste", (event) => {
+      // pastedText = event.clipboardData.getData("text/plain");
+      //});
 
       // 🖥️ Display (Load the display, with 0 margin if sandboxed)
       frame(resolution?.width, resolution?.height, sandboxed ? 0 : undefined);

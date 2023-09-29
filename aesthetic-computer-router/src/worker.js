@@ -65,14 +65,14 @@ async function handleRequest(request) {
 			cf: { ...request.cf, resolveOverride: domainOverride },
 		});
 
-		const response = await fetch(request);
+		// const response = await fetch(request);
 		// Clone the response so you can modify the headers
-		const newResponse = new Response(response.body, response);
-		newResponse.headers.set('Access-Control-Allow-Origin', '*');
-		newResponse.headers.set('Access-Control-Allow-Methods', 'GET, HEAD, POST, OPTIONS');
-		newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-		return newResponse; // Return the modified response
-		// return fetch(request);
+		// const newResponse = new Response(response.body, response);
+		// newResponse.headers.set('Access-Control-Allow-Origin', '*');
+		// newResponse.headers.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+		// newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+		//return newResponse; // Return the modified response
+		return fetch(request);
 	} else {
 		// For other paths, just return a response.
 		return new Response('💾 Not a `media` path.', { status: 500 });
