@@ -72,7 +72,7 @@
     "http-server": "^14.1.1",
     "jest": "^29.6.4",
     "kill-port": "^2.0.1",
-    "netlify-cli": "^16.2.0",
+    "netlify-cli": "^16.4.2",
     "npm-check-updates": "^16.13.2",
     "parcel": "^2.9.3",
     "parcel-reporter-static-files-copy": "^1.5.2",
