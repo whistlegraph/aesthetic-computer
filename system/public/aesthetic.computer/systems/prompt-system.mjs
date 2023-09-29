@@ -216,7 +216,7 @@ export function prompt_act($) {
     e.is("defocus") ||
     e.is("keyboard:open") ||
     e.is("keyboard:close") ||
-    e.is("pasted:text") ||
+    // e.is("pasted:text") ||
     e.is("prompt:text:replace") ||
     e.is("prompt:text:select") ||
     e.is("prompt:text:cursor") ||

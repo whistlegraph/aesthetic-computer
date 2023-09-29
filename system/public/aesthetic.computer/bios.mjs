@@ -66,7 +66,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // let mediaRecorderFirstRetrieval = true;
 
   // Clipboard
-  let pastedText;
+  // let pastedText;
 
   // Events
   let whens = {};
@@ -1171,7 +1171,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           pen3d: ThreeD?.pollControllers(), // TODO: Implement pointers in 3D.
           hand: handData,
           keyboard: keyboard.events,
-          clipboardText: pastedText,
+          // clipboardText: pastedText,
         },
       },
       transferrableObjects,
@@ -1181,7 +1181,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     //   console.log(pen.events, pen.pointers);
     // }
 
-    pastedText = undefined; // Clear any pasted text.
+    //pastedText = undefined; // Clear any pasted text.
 
     pen.updatePastPositions();
 
@@ -1377,7 +1377,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Paste should always happen on a pointerdown.
           if (content.label === "paste") {
             try {
-              pastedText = await navigator.clipboard.readText();
+              const pastedText = await navigator.clipboard.readText();
               // This routes through to the `pasted:text` event in `disk`.
               // where `pastedText` is sent on the next frame.
               if (pastedText.length === 0) {
@@ -1385,20 +1385,35 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               } else {
                 // Insert pasted text at current caret position.
                 if (keyboard) {
-                  const start = input.selectionStart;
-                  const end = input.selectionEnd;
+                  const start = keyboard.input.selectionStart;
+                  const end = keyboard.input.selectionEnd;
+                  const selLen = end - start;
 
                   const beforeCursor = keyboard.input.value.substring(0, start);
-                  const afterCursor =
-                    selLen > 0
-                      ? keyboard.input.value.substring(end)
-                      : keyboard.input.value.substring(start);
+                  const afterCursor = keyboard.input.value.substring(
+                    selLen > 0 ? end : start,
+                  );
 
                   keyboard.input.value =
                     beforeCursor + pastedText + afterCursor;
 
                   const newCursorPosition = start + pastedText.length;
-                  input.setSelectionRange(newCursorPosition, newCursorPosition);
+                  keyboard.input.setSelectionRange(
+                    newCursorPosition,
+                    newCursorPosition,
+                  );
+
+                  send({
+                    type: "prompt:text:replace",
+                    content: {
+                      text: keyboard.input.value,
+                      cursor: keyboard.input.selectionStart,
+                    },
+                  });
+
+                  if (document.activeElement !== keyboard.input) {
+                    keyboard.input.focus();
+                  }
                 }
               }
               // send({
@@ -1406,6 +1421,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               //     pastedText.length > 0 ? "paste:pasted" : "paste:pasted:empty",
               // });
             } catch (err) {
+              console.warn(err);
               send({ type: "paste:failed" });
             }
           }
@@ -1607,13 +1623,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         input.style.height = 0 + "px";
 
         // 📓 Uncomment to debug text editing form synchronization.
-        // form.style.opacity = 1;
-        // input.style.zIndex = 100;
-        // input.style.top = "50px";
-        // input.style.left = "0px";
-        // input.style.opacity = 1;
-        // input.style.width = 200 + "px";
-        // input.style.height = 50 + "px";
+        form.style.opacity = 1;
+        input.style.zIndex = 100;
+        input.style.top = "50px";
+        input.style.left = "0px";
+        input.style.opacity = 1;
+        input.style.width = 200 + "px";
+        input.style.height = 50 + "px";
 
         form.append(input);
         wrapper.append(form);

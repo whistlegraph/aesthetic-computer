@@ -1235,7 +1235,7 @@ function act({
     firstActivation = false;
   }
 
-  if (e.is("pasted:text")) firstActivation = false;
+  // if (e.is("pasted:text")) firstActivation = false;
 
   if (
     e.is("prompt:text:replace") &&
