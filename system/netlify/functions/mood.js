@@ -68,17 +68,30 @@ export async function handler(event, context) {
   // 2. POST: Set / post a mood.
   try {
     const body = JSON.parse(event.body);
-    const mood = body.mood.trim(); // Trim extra whitespace off mood.
     const user = await authorize(event.headers);
+
     if (user) {
-      // 📕 Database
       const database = await connect();
       const collection = database.db.collection("moods"); // Make tweet-like collection.
-      await collection.createIndex({ user: 1 }); // Index for `user`.
-      await collection.createIndex({ when: 1 }); // Index for `when`.
-      await collection.insertOne({ user: user.sub, mood, when: new Date() });
-      await database.disconnect();
-      return respond(200, { mood: body.mood }); // Successful mood change.
+      // Assume a mood update.
+      if (body.mood) {
+        const mood = body.mood.trim(); // Trim extra whitespace off mood.
+        // 📕 Database
+        await collection.createIndex({ user: 1 }); // Index for `user`.
+        await collection.createIndex({ when: 1 }); // Index for `when`.
+        await collection.insertOne({ user: user.sub, mood, when: new Date() });
+        await database.disconnect();
+        return respond(200, { mood }); // Successful mood change.
+      } else if (body.nuke !== undefined) {
+        // Flag all a user's moods as deleted.
+        const result = await collection.updateMany(
+          { user: user.sub },
+          { $set: { deleted: body.nuke } },
+        );
+        await database.disconnect();
+        return respond(200, { altered: result.modifiedCount });
+        // Reply with number of moods modified.
+      }
     } else {
       return respond(401, { message: "Authorization failure..." });
     }

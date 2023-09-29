@@ -532,15 +532,26 @@ async function halt($, text) {
       makeFlash($);
       return true;
     }
-  }
-  if (slug === "mood") {
+  } else if (slug === "mood:nuke" || slug === "mood:denuke") {
+    const nuke = slug === "mood:nuke";
+    const label = slug === "mood:nuke" ? "NUKE" : "DENUKE";
+    const res = await userJSONRequest("POST", "/api/mood", { nuke });
+    console.log("RES", res);
+    flashColor = res?.deleted ? [0, 255, 0] : [255, 0, 0];
+    if (res?.altered >= 0) {
+      notice(`${label}D MOODS`);
+    } else {
+      notice(`${label} FAILED`, ["yellow", "red"]);
+    }
+    makeFlash($, true);
+    return true;
+  } else if (slug === "mood") {
     let res;
     if (params.join(" ").trim().length > 0) {
       res = await userJSONRequest("POST", "/api/mood", {
         mood: params.join(" "),
       });
     }
-    console.log("RES", res);
 
     flashColor = res?.mood ? [0, 255, 0] : [255, 0, 0];
     if (res?.mood) {
