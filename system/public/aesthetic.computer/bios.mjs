@@ -2493,7 +2493,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // mediaRecorderBlob = null; // Clear the current blob when we start recording.
 
       const colonSplit = content.split(":");
-      tiktokVideo = colonSplit[1] === "tiktok";
+      // tiktokVideo = colonSplit[1] === "tiktok";
       content = colonSplit[0];
 
       if (mediaRecorder && mediaRecorder.state === "paused") {
