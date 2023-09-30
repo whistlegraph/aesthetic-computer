@@ -1293,7 +1293,7 @@ function activated($, state) {
 
 // 💬 Receive each response in full.
 function reply(text) {
-  firstCommandSent = true;
+  // firstCommandSent = true;
   // console.log("😀 Replied with:", text || "Halted?");
 }
 

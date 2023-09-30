@@ -1035,7 +1035,11 @@ const $commonApi = {
       },
       // Replace a painting entirely, remembering the last one.
       // (This will always enable fixed resolution mode.)
-      replace: ({ system, screen, store, needsPaint }, painting) => {
+      replace: (
+        { system, screen, store, needsPaint },
+        painting,
+        message = "(replace)",
+      ) => {
         system.painting = painting; // Update references.
         store["painting"] = system.painting;
         store.persist("painting", "local:db"); // Persist to storage.
@@ -1043,7 +1047,7 @@ const $commonApi = {
         store.persist("painting:resolution-lock", "local:db");
         system.nopaint.resetTransform({ system, screen }); // Reset transform.
         system.nopaint.storeTransform(store, system);
-        system.nopaint.addUndoPainting(system.painting, "(replace)");
+        system.nopaint.addUndoPainting(system.painting, message);
         system.nopaint.needsPresent = true;
         needsPaint();
       },
@@ -3516,8 +3520,25 @@ async function makeFrame({ data: { type, content } }) {
         //     // $api.load("prompt"); Disabled on 2022.05.07.03.45
         //   }
         // }
-
-        if (data.key === "$") downloadScreenshot(); // 🖼️ Take a screenshot.
+        if (data.key === "$" || data.key === "Home") {
+          if (data.ctrl) {
+            const sys = $commonApi.system;
+            // Make it a painting.
+            // store["painting"] = graph.cloneBuffer(screen);
+            // $commonApi.system.nopaint.painting = store["painting"];
+            // sys.painting = graph.cloneBuffer(screen);
+            // store["painting"] = sys.painting;
+            // sys.nopaint.addUndoPainting(sys.painting, "$creenshot");
+            sys.nopaint.replace(
+              cachedAPI,
+              graph.cloneBuffer(screen),
+              "$creenshot",
+            );
+            $commonApi.jump("prompt");
+          } else {
+            downloadScreenshot(); // 🖼️ Take a screenshot.
+          }
+        }
 
         // ⛈️ Jump back to the `prompt` from anywhere..
         if (
