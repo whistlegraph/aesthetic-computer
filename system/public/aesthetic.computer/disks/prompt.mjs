@@ -83,7 +83,7 @@ let login, // A login button in the center of the display.
   profile; // A profile page button.
 let ruler = false; // Paint a line down the center of the display.
 //                   (for measuring the login / signup centering).
-let firstCommandSent = false; // 🏳️
+// let firstCommandSent = false; // 🏳️
 let firstActivation = true; // 🏳️ Used to trigger a startup 🔊🎆
 
 let startupSfx, keyboardSfx;
@@ -277,7 +277,6 @@ async function halt($, text) {
       tapePromiseReject = reject;
     });
 
-    //const nomic = slug === "tape:nomic";
     let nomic;
     if (slug === "tape" || slug === "tape:tt") {
       nomic = iOS || Android ? false : true;
@@ -292,9 +291,7 @@ async function halt($, text) {
       nomic = false;
     }
 
-    // setTimeout(function () {
     if (!nomic) sound.microphone.connect(); // Connect the mic.
-    // }, 500);
     try {
       if (nomic) {
         console.log("📼 Taping...");

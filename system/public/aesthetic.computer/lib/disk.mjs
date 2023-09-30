@@ -3491,6 +3491,14 @@ async function makeFrame({ data: { type, content } }) {
   // 2. Frame
   // Where each piece action (boot, sim, paint, etc...) is run.
   if (type === "frame") {
+    // Take hold of a previously worker transferrable screen buffer
+    // and re-assign it.
+    let pixels;
+    if (content.pixels) {
+      pixels = new Uint8ClampedArray(content.pixels);
+      if (screen) screen.pixels = pixels;
+    }
+
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
       if (data.name.indexOf("keyboard:down") === 0) {
@@ -3509,6 +3517,9 @@ async function makeFrame({ data: { type, content } }) {
         //   }
         // }
 
+        if (data.key === "$") downloadScreenshot(); // 🖼️ Take a screenshot.
+
+        // ⛈️ Jump back to the `prompt` from anywhere..
         if (
           (data.key === "`" ||
             (data.key === "Enter" && system !== "prompt") ||
@@ -3541,14 +3552,6 @@ async function makeFrame({ data: { type, content } }) {
         }
       }
     });
-
-    // Take hold of a previously worker transferrable screen buffer
-    // and re-assign it.
-    let pixels;
-    if (content.pixels) {
-      pixels = new Uint8ClampedArray(content.pixels);
-      if (screen) screen.pixels = pixels;
-    }
 
     // Add 'loading' status to $commonApi.
     $commonApi.loading = loading; // Let the piece know if we are already
@@ -3601,7 +3604,7 @@ async function makeFrame({ data: { type, content } }) {
       if (pointersValues.length > 1 && primaryPointer)
         primaryPointer.multipen = true; // Set a flag for multipen activity on main pen API object.
 
-      $commonApi.pen = primaryPointer; // || { x: undefined, y: undefined };
+      $commonApi.pen = primaryPointer;
 
       if (
         primaryPointer &&
@@ -3891,6 +3894,7 @@ async function makeFrame({ data: { type, content } }) {
         });
         //console.log(data)
         $api.event = data;
+        // 🌐🖋️️ Global pen events.
         try {
           // Always check to see if there was a tap on the corner.
           const { event: e, jump, send } = $api;
@@ -3898,7 +3902,9 @@ async function makeFrame({ data: { type, content } }) {
 
           let masked = false;
 
-          // TODO: Show keyboard immediately when returning to prompt.
+          if (e.is("touch:5")) downloadScreenshot();
+
+          // Corner prompt button.
           currentHUDButton?.act(e, {
             down: () => {
               originalColor = currentHUDTextColor;
@@ -4665,6 +4671,25 @@ async function handle() {
       console.error(error);
     }
   }
+}
+
+// Tell the `bios` to pull a screenshot of the next frame.
+function downloadScreenshot() {
+  send({
+    type: "$creenshot",
+    content: {
+      filename: `$creenshot-${num.timestamp()}.png`,
+      modifiers: { scale: 6 },
+    },
+  });
+
+  $commonApi.sound.synth({
+    tone: 800,
+    duration: 0.02,
+    attack: 0.01,
+    decay: 0.5,
+    volume: 0.25,
+  });
 }
 
 // Run the piece's "leave" function which will trigger

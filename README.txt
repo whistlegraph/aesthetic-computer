@@ -40,12 +40,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** screenshot / steal ***
-  - [] keyboard shortcut
-  - [] 5 finger grab
-  - [] Play sound and immediately download image.
-  - [] Play sound and immediately replace painting and jump to prompt.
-
 *** `painters` ***
   - [] A listing / gallery view.
 
