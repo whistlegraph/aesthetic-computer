@@ -40,6 +40,9 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** annoyance ***
+  - [] Up arrow key does not load previous commands on first run.
+
 *** `pond` ***
   - [] a 2d place where connected cursors can communicate with disappearing lines
 
