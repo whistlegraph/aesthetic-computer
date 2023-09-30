@@ -673,6 +673,8 @@ class TextInput {
       needsPaint();
     }
 
+    console.log(e);
+
     // ⌨️ Add text via the keyboard.
     if (e.is("keyboard:down") && this.#lock === false && !this.enter.btn.down) {
       // 🔡 Inserting an individual character.
@@ -764,6 +766,8 @@ class TextInput {
           if (newCursor) this.#prompt.cursor = { ...newCursor };
         }
       } else {
+
+        console.log(e);
         // Other keys.
         if (e.key === "Delete") {
           // Deprecated, now handled via `prompt:text:replace`.
@@ -901,6 +905,7 @@ class TextInput {
 
         // Move backwards through history stack.
         if (e.key === "ArrowUp") {
+          console.log("up");
           const history = (await store.retrieve(this.key)) || [""];
           this.text = history[this.historyDepth];
           this.#prompt.snapTo(this.text);
