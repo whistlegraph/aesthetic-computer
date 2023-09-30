@@ -2559,7 +2559,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // 🗺️ mediaRecorder:Start
       mediaRecorder.onstart = function () {
-        mediaRecorderResized = false;
+        // mediaRecorderResized = false;
         mediaRecorderStartTime = performance.now();
         send({
           type: "recorder:rolling:started",
@@ -2570,9 +2570,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
         if (debug) console.log("🔴 Recorder: Rolling", content);
 
-        window.addEventListener("resize", () => (mediaRecorderResized = true), {
-          once: true,
-        });
+        // window.addEventListener("resize", () => (mediaRecorderResized = true), {
+          // once: true,
+        // });
       };
 
       // 🗺️ mediaRecorder:Stop (Recorder Printing)
