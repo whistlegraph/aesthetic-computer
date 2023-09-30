@@ -2490,7 +2490,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Audio-visual recording of the main audio track and microphone.
     if (type === "recorder:rolling") {
-      mediaRecorderBlob = null; // Clear the current blob when we start recording.
+      // mediaRecorderBlob = null; // Clear the current blob when we start recording.
 
       const colonSplit = content.split(":");
       tiktokVideo = colonSplit[1] === "tiktok";
