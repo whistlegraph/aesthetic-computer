@@ -3520,8 +3520,9 @@ async function makeFrame({ data: { type, content } }) {
         //     // $api.load("prompt"); Disabled on 2022.05.07.03.45
         //   }
         // }
+
         if (data.key === "$" || data.key === "Home") {
-          if (data.ctrl) {
+          if (data.ctrl || data.alt) {
             const sys = $commonApi.system;
             // Make it a painting.
             // store["painting"] = graph.cloneBuffer(screen);
@@ -3562,8 +3563,12 @@ async function makeFrame({ data: { type, content } }) {
             volume: 0.15,
           });
 
+          send({ type: "keyboard:unlock" });
+
           // Jump to prompt if the backtic is pressed.
-          $commonApi.jump(promptSlug)(() => send({ type: "keyboard:open" }));
+          $commonApi.jump(promptSlug)(() => {
+            send({ type: "keyboard:open" });
+          });
         }
 
         // [Ctrl + X]

@@ -40,10 +40,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** annoyance ***
-  - [] Up arrow key does not load previous commands on first run.
-  - [] Make a mac friendly $creenshot -> painting shortcut.
-
 *** `pond` ***
   - [] a 2d place where connected cursors can communicate with disappearing lines
 

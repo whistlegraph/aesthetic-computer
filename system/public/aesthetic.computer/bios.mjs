@@ -1758,10 +1758,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // });
 
         input.addEventListener("keydown", (e) => {
+
+          console.log(e);
+
           if (keyboardFocusLock) {
             e.preventDefault();
             return;
           }
+
           if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
             let cursor =
               input.selectionDirection === "backward"
@@ -2165,6 +2169,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "keyboard:open") {
       if (keyboardFocusLock) return;
+      keyboardFocusLock = false;
       currentPieceHasKeyboard = true;
       keyboard?.input.focus();
       // if (keyboard) keyboard.needsImmediateOpen = true; // For iOS.
