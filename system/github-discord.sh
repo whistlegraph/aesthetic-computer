@@ -3,12 +3,18 @@
 WEBHOOK_URL=$DISCORD_WEBHOOK_URL # Define the Discord webhook URL
 COMMIT_URL="$REPOSITORY_URL/commit/$COMMIT_REF"
 
-# Escape backticks, double quotes, backslashes, and dollar signs
-COMMIT_MESSAGE=$(git log -1 --pretty=%B | sed 's/\\/\\\\/g' | sed 's/`/\\`/g' | sed 's/"/\\"/g' | sed 's/\$/\\$/g')
+# Get the last commit message
+COMMIT_MESSAGE=$(git log -1 --pretty=%B)
 
+# Get the short hash
 SHORT_HASH="${COMMIT_REF:0:7}"
+
+# Create the Discord message
 DISCORD_MESSAGE="$COMMIT_MESSAGE️ ([$SHORT_HASH](<$COMMIT_URL>))️"
-FLAGS="\"2\"" # Define the message flags (SUPPRESS_EMBEDS) - https://discord.com/developers/docs/resources/channel#message-object-message-flags
+FLAGS="2"  # Define the message flags (SUPPRESS_EMBEDS)
+
+# Use Python to generate a properly escaped JSON payload
+JSON_PAYLOAD=$(python -c "import json; print(json.dumps({'content': '''$DISCORD_MESSAGE''', 'flags': $FLAGS}))")
 
 # Send the POST request to the Discord webhook URL
-curl -H "Content-Type: application/json" -X POST -d "{\"content\":\"$DISCORD_MESSAGE\",\"flags\":$FLAGS}" $WEBHOOK_URL
+curl -H "Content-Type: application/json" -X POST -d "$JSON_PAYLOAD" $WEBHOOK_URL
