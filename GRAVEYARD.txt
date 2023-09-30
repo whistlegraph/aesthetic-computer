@@ -1,5 +1,9 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** prompt annoyances ***
+  - [x] jumping from shortcut to shortcut is a little jarring
+  - [x] deprecate `NETWORK FAILURE` in favor of a notify.
+
 *** `moods` ***
   - [x] Show a live-updated list of user moods...
 

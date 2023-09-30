@@ -205,7 +205,9 @@ class TextInput {
   canType = false;
 
   //#autolock = true;
-  lock = false;
+  #lock = false;
+  #lockTimeout;
+  #showSpinner = false;
 
   #prompt;
 
@@ -326,6 +328,22 @@ class TextInput {
   // Stretches the gutter to be the screen width minus two slots.
   fullGutter($) {
     this.gutter = floor($.screen.width / this.#prompt.blockWidth) - 2;
+  }
+
+  set lock(bool) {
+    this.#lock = bool;
+    if (bool) {
+      this.#lockTimeout = setTimeout(() => {
+        this.#showSpinner = true;
+      }, 100);
+    } else {
+      clearTimeout(this.#lockTimeout);
+      this.#showSpinner = false;
+    }
+  }
+
+  get lock() {
+    return this.#lock;
   }
 
   // Adjust the gutter width for text wrapping.
@@ -466,25 +484,27 @@ class TextInput {
       $.ink(127).box(0, 0, $.screen.width, $.screen.height, "inline"); // Focus
     }
 
-    if (this.lock) {
-      // Show a spinner if the prompt is "locked".
-      const center = $.geo.Box.from(prompt.pos()).center;
-      const distance = 2; // You can adjust this value as per your needs
+    if (this.#lock) {
+      if (this.#showSpinner) {
+        // Show a spinner if the prompt is "locked".
+        const center = $.geo.Box.from(prompt.pos()).center;
+        const distance = 2; // You can adjust this value as per your needs
 
-      const topL = [center.x - distance, center.y - distance];
-      const topR = [center.x + distance, center.y - distance];
-      const bottomL = [center.x - distance, center.y + distance];
-      const bottomR = [center.x + distance, center.y + distance];
-      const middleL = [center.x - distance, center.y];
-      const middleR = [center.x + distance, center.y];
+        const topL = [center.x - distance, center.y - distance];
+        const topR = [center.x + distance, center.y - distance];
+        const bottomL = [center.x - distance, center.y + distance];
+        const bottomR = [center.x + distance, center.y + distance];
+        const middleL = [center.x - distance, center.y];
+        const middleR = [center.x + distance, center.y];
 
-      $.ink(this.pal.block);
-      if ($.paintCount % 60 < 20) {
-        $.line(...topR, ...bottomL);
-      } else if ($.paintCount % 60 < 40) {
-        $.line(...middleL, ...middleR);
-      } else {
-        $.line(...topL, ...bottomR);
+        $.ink(this.pal.block);
+        if ($.paintCount % 60 < 20) {
+          $.line(...topR, ...bottomL);
+        } else if ($.paintCount % 60 < 40) {
+          $.line(...middleL, ...middleR);
+        } else {
+          $.line(...topL, ...bottomR);
+        }
       }
     } else {
       if (this.cursor === "blink" && this.showBlink && this.canType) {
@@ -572,7 +592,7 @@ class TextInput {
         autoFlip: true,
       });
 
-    if (this.lock) needsPaint();
+    if (this.#lock) needsPaint();
     if (this.canType) this.blink.step();
   }
 
@@ -654,7 +674,7 @@ class TextInput {
     }
 
     // ⌨️ Add text via the keyboard.
-    if (e.is("keyboard:down") && this.lock === false && !this.enter.btn.down) {
+    if (e.is("keyboard:down") && this.#lock === false && !this.enter.btn.down) {
       // 🔡 Inserting an individual character.
       if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
         // if (this.text === "" && e.key === " ") {
@@ -1011,12 +1031,12 @@ class TextInput {
 
     // Handle activation / focusing of the input
     // (including os-level software keyboard overlays)
-    if (e.is("keyboard:open") && !this.lock) activate(this);
-    if (e.is("keyboard:close") && !this.lock) deactivate(this);
+    if (e.is("keyboard:open") && !this.#lock) activate(this);
+    if (e.is("keyboard:close") && !this.#lock) deactivate(this);
 
     if (
       e.is("touch") &&
-      !this.lock &&
+      !this.#lock &&
       !this.inputStarted &&
       !this.canType &&
       !this.backdropTouchOff &&
@@ -1135,7 +1155,7 @@ class TextInput {
     if (e.is("lift")) this.backdropTouchOff = false;
 
     // UI Button Actions
-    if (!this.lock) {
+    if (!this.#lock) {
       // TODO: This could be part of rollover also.
 
       // Enter Button...
@@ -1335,7 +1355,7 @@ class TextInput {
     // it's the first activation.
     if (
       e.is("prompt:text:replace") &&
-      (!this.activatedOnce || this.lock === false)
+      (!this.activatedOnce || this.#lock === false)
     ) {
       this.text = e.text;
       this.#lastUserText = e.text;
@@ -1350,7 +1370,7 @@ class TextInput {
     //   this.blink.flip(true);
     // }
 
-    if (e.is("prompt:text:cursor") && this.lock === false) {
+    if (e.is("prompt:text:cursor") && this.#lock === false) {
       if (e.cursor === this.text.length) {
         this.snap();
       } else {
@@ -1366,9 +1386,9 @@ class TextInput {
       this.blink.flip(true);
     }
 
-    if (e.is("touch") && !this.lock) this.blink.flip(true);
+    if (e.is("touch") && !this.#lock) this.blink.flip(true);
 
-    if (e.is("lift") && !this.lock) {
+    if (e.is("lift") && !this.#lock) {
       if (this.#shifting) {
         this.moveDeltaX = 0;
         this.#shifting = false;
@@ -1378,7 +1398,7 @@ class TextInput {
 
     if (
       e.is("draw") &&
-      !this.lock &&
+      !this.#lock &&
       this.canType &&
       !this.enter.btn.down &&
       !this.paste.btn.down

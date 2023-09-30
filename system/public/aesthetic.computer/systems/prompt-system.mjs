@@ -9,7 +9,6 @@ let conversation,
   input,
   abort,
   messageComplete = true,
-  abortMessage = "NETWORK FAILURE",
   processing = false;
 
 let cancel;
@@ -56,6 +55,7 @@ export async function prompt_boot(
       input.canType = false;
 
       const halted = await halt?.($, text);
+
       if (!$.leaving()) {
         input.lock = false;
         $.send({ type: "keyboard:unlock" });
@@ -64,6 +64,12 @@ export async function prompt_boot(
       if (halted) {
         messageComplete = true;
         if (halted.left) return; // Ditch if we already loaded a piece.
+
+        if ($.leaving()) {
+          // input.lock = true;
+          //$.send({ type: "keyboard:unlock" });
+          return; // Keep the screen emptied out if we are leaving.
+        }
 
         // Assume we set custom replied state via `TextInput -> replied`.
         // (Immediate bot-style reply)
@@ -78,12 +84,6 @@ export async function prompt_boot(
           return;
         }
 
-        if ($.leaving()) {
-          input.lock = false;
-          $.send({ type: "keyboard:unlock" });
-          return; // Keep the screen emptied out if we are leaving.
-        }
-
         // Otherwise set the reply state now.
         reply?.(input.text);
         input.bakePrintedText();
@@ -96,7 +96,6 @@ export async function prompt_boot(
       }
 
       processing = input.lock = true;
-      abortMessage = "NETWORK FAILURE";
 
       $.send({ type: "keyboard:close" });
       $.send({ type: "keyboard:lock" });
@@ -106,13 +105,7 @@ export async function prompt_boot(
 
       // Cancel a request (via `act`)
       cancel = function () {
-        abortMessage = "";
         abort?.(); // Prevent fail from running here...
-        input.activate(input);
-        $.send({
-          type: "keyboard:text:replace",
-          content: { text: abortMessage },
-        });
       };
 
       abort = conversation.ask(
@@ -130,6 +123,7 @@ export async function prompt_boot(
           reply?.(input.text, input);
           input.bakePrintedText();
           input.clearUserText();
+          $.send({ type: "keyboard:text:replace", content: { text: "" } });
           // input.submittedText = "";
           input.runnable = false;
           input.showButton($);
@@ -144,10 +138,11 @@ export async function prompt_boot(
           });
         },
         function fail() {
-          input.text = abortMessage;
+          input.activate(input);
+          input.text = "";
           input.snap();
-          // just use notice here
-          // $.send({ type: "keyboard:text:replace", content: { text: "" } });
+          $.notice("NETWORK FAILURE", ["yellow", "red"]);
+          $.send({ type: "keyboard:text:replace", content: { text: "" } });
           $.needsPaint();
           reply?.(input.text);
           input.submittedText = "";
