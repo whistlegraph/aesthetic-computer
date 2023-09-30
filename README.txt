@@ -40,10 +40,7 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `painters` ***
-  - [] A listing / gallery view.
-
-*** fairy pond ***
+*** `pond` ***
   - [] a 2d place where connected cursors can communicate with disappearing lines
 
 *** painting forking & remixing ***
@@ -53,6 +50,17 @@
   - [] `profile` should be table to <- -> on a user's paintings 
        (tap into lightbox for painting / playback)
   - [] move `mood` to be to the top left to the right of username
+
+*** `paintings` ***
+  - [] Should show all non-anon paintings as they are being made.
+  - [] Existing user paintings need to be added to the database via a migration
+       script, then some code that adds the record to the database for each
+       makes sense.
+  - [] Also painting .zip files need to be sorted into a different directory
+       in user buckets.
+
+*** `painters` ***
+  - [] A linked list of users and their paintings by count. 
 
 *** Painting ***
   - [*] Add auto-resize back?
