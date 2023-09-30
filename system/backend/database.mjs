@@ -71,7 +71,6 @@ async function allMoods(database, handle = null) {
   ];
 
   const records = await collection.aggregate(pipeline).toArray();
-  console.log(records);
   return records;
 }
 

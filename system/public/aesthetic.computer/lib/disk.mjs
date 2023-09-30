@@ -483,8 +483,13 @@ async function uploadPainting(picture, progress, handle, filename) {
   }
 }
 
+function isLeaving() {
+  return leaving;
+}
+
 // For every function to access.
 const $commonApi = {
+  leaving: isLeaving,
   handle: () => {
     return HANDLE;
   },
@@ -3548,7 +3553,6 @@ async function makeFrame({ data: { type, content } }) {
     // Add 'loading' status to $commonApi.
     $commonApi.loading = loading; // Let the piece know if we are already
     //                               loading another piece.
-    $commonApi.leaving = () => leaving; // Set a flag to tell whether we are leaving.
 
     // Globalize any background music data, retrievable via bgm.data
     $commonApi.bgm.data = {
@@ -4667,7 +4671,7 @@ async function handle() {
 // a new load before sending off the final frame.
 function maybeLeave() {
   // 🚪 Leave (Skips act and sim and paint...)
-  if (leaving) {
+  if (leaving && leaveLoad) {
     // End the socket connection before switching pieces if one exists.
     socket?.kill();
     socket = undefined;
@@ -4677,8 +4681,8 @@ function maybeLeave() {
     } catch (e) {
       console.warn("👋 Leave failure...", e);
     }
-    leaving = false;
-    leaveLoad?.();
+    leaveLoad();
+    leaveLoad = null;
   }
 }
 

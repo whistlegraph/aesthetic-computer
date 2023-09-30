@@ -46,10 +46,6 @@
   - [] Play sound and immediately download image.
   - [] Play sound and immediately replace painting and jump to prompt.
 
-*** prompt annoyances ***
-  - [] deprecate `NETWORK FAILURE` in favor of a notify.
-  - [] jumping from shortcut to shortcut is a little jarring
-
 *** `painters` ***
   - [] A listing / gallery view.
 
@@ -150,6 +146,8 @@
       - [x] Upload zips to S3? 
     - [x] `painting` to play back the current recording.
     - [x] `painting:record` to start a recording.
+
+--------------------------
 
 *** Logo ***
   - [] Add ice cream pals to `pals.aesthetic.computer.`
