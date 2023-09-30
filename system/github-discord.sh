@@ -3,8 +3,8 @@
 WEBHOOK_URL=$DISCORD_WEBHOOK_URL # Define the Discord webhook URL
 COMMIT_URL="$REPOSITORY_URL/commit/$COMMIT_REF"
 
-# Escape backticks, double quotes, and backslashes
-COMMIT_MESSAGE=$(git log -1 --pretty=%B | sed 's/\\/\\\\/g' | sed 's/`/\\`/g' | sed 's/"/\\"/g')
+# Escape backticks, double quotes, backslashes, and dollar signs
+COMMIT_MESSAGE=$(git log -1 --pretty=%B | sed 's/\\/\\\\/g' | sed 's/`/\\`/g' | sed 's/"/\\"/g' | sed 's/\$/\\$/g')
 
 SHORT_HASH="${COMMIT_REF:0:7}"
 DISCORD_MESSAGE="$COMMIT_MESSAGE️ ([$SHORT_HASH](<$COMMIT_URL>))️"
