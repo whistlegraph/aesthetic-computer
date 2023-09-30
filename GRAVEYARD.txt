@@ -1,5 +1,9 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** screenshot / steal ***
+  - [x] Global keyboard shortcut
+  - [x] 5 finger discount
+
 *** prompt annoyances ***
   - [x] jumping from shortcut to shortcut is a little jarring
   - [x] deprecate `NETWORK FAILURE` in favor of a notify.
