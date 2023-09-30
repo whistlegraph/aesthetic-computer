@@ -51,7 +51,6 @@ export async function handler(event, context) {
         : respond(500, { message: "No mood found." });
     } else {
       const user = await userIDFromHandleOrEmail(slug, database);
-      console.log("User:", user);
       if (user && user.length > 0) {
         const mood = await moodFor(user, database);
         database.disconnect();
