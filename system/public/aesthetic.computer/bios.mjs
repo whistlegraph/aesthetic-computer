@@ -48,25 +48,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let handData; // Hand-tracking.
 
   let frameCount = 0n;
-  // let timePassed = 0;
   let now = 0;
 
   let diskSupervisor;
   let currentPiece = null; // Gets set to a path after `loaded`.
-  let firstPiece = true;
   let currentPieceHasKeyboard = false;
 
   // Media Recorder
-  let mediaRecorder, mediaRecorderBlob, tiktokVideo;
+  let mediaRecorder;
   let recordedFrames = [];
   const mediaRecorderChunks = [];
   let mediaRecorderDuration = 0,
-    mediaRecorderStartTime,
-    mediaRecorderResized = false;
-  // let mediaRecorderFirstRetrieval = true;
-
-  // Clipboard
-  // let pastedText;
+    mediaRecorderStartTime;
+  let needs$creenshot = false; // Flag when a capture is requested.
 
   // Events
   let whens = {};
@@ -1926,7 +1920,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Clear any active parameters once the disk has been loaded.
       window.history.replaceState({}, "", window.location.pathname);
 
-      if (currentPiece !== null) firstPiece = false;
+      // if (currentPiece !== null) firstPiece = false;
       currentPiece = content.path;
       currentPieceHasKeyboard = false;
       if (keyboard) keyboard.input.value = "";
@@ -2136,6 +2130,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //   content: { width: screen.width, height: screen.height, pixels },
       // }, [pixels]);
 
+      return;
+    }
+
+    if (type === "$creenshot") {
+      needs$creenshot = (data) => receivedDownload({ ...content, data });
       return;
     }
 
@@ -3572,7 +3571,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (db) {
         ctx.drawImage(dirtyBoxBitmapCan, db.x, db.y);
         if (glaze.on) Glaze.update(dirtyBoxBitmapCan, db.x, db.y);
-      } else if (pixelsDidChange) {
+      } else if (
+        pixelsDidChange ||
+        needs$creenshot ||
+        mediaRecorder?.state === "recording"
+      ) {
         ctx.putImageData(imageData, 0, 0); // Comment out for a `dirtyBox` visualization.
 
         paintOverlays["label"]?.(); // label
@@ -3589,6 +3592,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             performance.now() - mediaRecorderStartTime,
             ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height),
           ]);
+        }
+
+        if (needs$creenshot) {
+          needs$creenshot(
+            ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height),
+          );
+          needs$creenshot = null;
         }
 
         paintOverlays["tapeProgressBar"]?.(); // tape progress
@@ -3635,7 +3645,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       uiCtx.resetTransform();
     }
 
-    if (pixelsDidChange || pen.changedInPiece) {
+    if (
+      pixelsDidChange ||
+      needs$creenshot ||
+      mediaRecorder?.state === "recording" ||
+      pen.changedInPiece
+    ) {
       frameCached = false;
       pen.changedInPiece = false;
       draw();
@@ -4022,8 +4037,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     let can;
     // Encode a pixel buffer as a png.
     // See also: https://stackoverflow.com/questions/11112321/how-to-save-canvas-as-png-image
-    const img = data;
-    const imageData = new ImageData(img.pixels, img.width, img.height);
+
+    const imageData = data.data
+      ? data
+      : new ImageData(data.pixels, data.width, data.height);
+    // Convert to imageData if it isn't already.
 
     can = document.createElement("canvas");
     const ctx = can.getContext("2d");
@@ -4032,8 +4050,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       can.width = screen.width;
       can.height = screen.height;
     } else {
-      can.width = img.width;
-      can.height = img.height;
+      can.width = imageData.width;
+      can.height = imageData.height;
     }
 
     if (modifiers?.crop === "square") {

@@ -117,10 +117,20 @@ function bake() {
   snap?.();
 }
 
-function act({ event: e, jump, video, hud, cameras, sound, notice, leaving }) {
+function act({
+  event: e,
+  jump,
+  send,
+  video,
+  hud,
+  cameras,
+  sound,
+  notice,
+  leaving,
+}) {
   if (e.is("lift") && !leaving() && swap.btn.down === false) {
     sfx.push(sound);
-    jump("prompt");
+    jump("prompt")(() => send({ type: "keyboard:open" }));
   }
 
   if (cameras > 1) {
