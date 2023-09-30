@@ -1684,6 +1684,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             enter.ctrl = e.ctrlKey;
             keyboard.events.push(enter);
           }
+
+          if (e.key === "Home") {
+            e.preventDefault();
+            const home = { name: "keyboard:down:home", key: "Home" };
+            home.shift = e.shiftKey;
+            home.alt = e.altKey;
+            home.ctrl = e.ctrlKey;
+            keyboard.events.push(home);
+          }
         });
 
         input.addEventListener("beforeinput", (e) => {
