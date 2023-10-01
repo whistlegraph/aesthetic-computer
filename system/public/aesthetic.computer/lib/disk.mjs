@@ -3928,7 +3928,7 @@ async function makeFrame({ data: { type, content } }) {
         // 🌐🖋️️ Global pen events.
         try {
           // Always check to see if there was a tap on the corner.
-          const { event: e, jump, send, sound } = $api;
+          const { event: e, jump, send, sound, system, screen } = $api;
           let originalColor;
 
           let masked = false;
@@ -3941,7 +3941,7 @@ async function makeFrame({ data: { type, content } }) {
               decay: 0.5,
               volume: 0.25,
             });
-            sys.nopaint.replace(
+            system.nopaint.replace(
               cachedAPI,
               graph.cloneBuffer(screen),
               "$creenshot",
