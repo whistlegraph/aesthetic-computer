@@ -40,25 +40,20 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `paintings` ***
-  - [🟠] Should be able to show all non-anon paintings as they are being made.
-    - [🟠] And the download / retrieval code in `profile`, but not necessarily
-        in painting.
-    - [x] Existing user paintings need to be added to the database via a migration
-        script, then some code that adds the record to the database for each
-        makes sense.
-    - [x] I need to adjust the upload code to post a record to the database too.
-    - [x] I need some kind of a scripts directory or admin command for these
-
 *** painting listings ***
-  - [] `profile` should be table to <- -> on a user's paintings 
+  - [🧡] `profile` should be table to <- -> on a user's paintings 
        (tap into lightbox for painting / playback)
   - [] move `mood` to be to the top left to the right of username
 
 *** painting forking & remixing ***
+  - [] "Stolen from: @user/20323:4";
 
 *** `painters` ***
   - [] A linked list of users and their paintings by count. 
+
+*** pond awareness ***
+  - [] Set ambient pen pointer color to cyan / flicker cyan if the user
+       is in the pond.
 
 *** Painting ***
   - [] Finish `brush` template for paint brushes.

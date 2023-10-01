@@ -41,6 +41,8 @@ let painting,
 let printBtn, // Sticker button.
   slug; // A url to the loaded image for printing.
 
+let noadvance = false;
+
 const btnBar = 32;
 const butBottom = 6;
 const butSide = 6;
@@ -283,6 +285,7 @@ function sim({ simCount, system }) {
 
 // 👋 Leave
 function leave({ system }) {
+  noadvance = true;
   if (pastRecord) system.nopaint.record = pastRecord;
   clearTimeout(timeout);
 }
@@ -330,6 +333,7 @@ export { boot, paint, sim, act, leave, meta, preview, icon };
 //   (Useful functions used throughout the piece)
 
 function advance(system) {
+  if (noadvance) return;
   if (system.nopaint.record.length === 0) return;
   if (stepIndex === system.nopaint.record.length) stepIndex = 0;
 
