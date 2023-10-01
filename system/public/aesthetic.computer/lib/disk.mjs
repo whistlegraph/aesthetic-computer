@@ -2348,7 +2348,7 @@ async function load(
       clearTimeout(socketStartDelay);
       startSocket();
     } else {
-      receive(socket.id, "connected:already");
+      if (socket?.id) receive(socket.id, "connected:already");
     }
     return socket;
   };

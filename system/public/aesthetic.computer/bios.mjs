@@ -1758,9 +1758,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // });
 
         input.addEventListener("keydown", (e) => {
-
-          console.log(e);
-
           if (keyboardFocusLock) {
             e.preventDefault();
             return;
