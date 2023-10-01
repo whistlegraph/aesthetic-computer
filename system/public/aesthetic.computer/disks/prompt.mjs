@@ -673,6 +673,11 @@ async function halt($, text) {
     }
     makeFlash($, true);
     return true;
+  } else if (slug === "admin:migrate-paintings") {
+    const res = await userJSONRequest("GET", "/api/admin");
+    flashColor = res && res.status === 200 ? [0, 255, 0] : [255, 0, 0];
+    makeFlash($);
+    return true;
   } else if (text.startsWith("handle")) {
     // Set username handle.
     // TODO: This could eventually be abstracted for more API calls.
