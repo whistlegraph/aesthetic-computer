@@ -42,16 +42,23 @@
 
 *** `paintings` ***
   - [🟠] Should be able to show all non-anon paintings as they are being made.
+
     - [] Existing user paintings need to be added to the database via a migration
         script, then some code that adds the record to the database for each
         makes sense.
+
     - [] Then all existing S3 code that lists them should list them from the
         database.
+
     - [] I need some kind of a scripts directory or admin command for these
         tasks. 
+    
+
     - [] I need to adjust the upload code to post a record to the database too.
+
     - [] And the download / retrieval code in `profile`, but not necessarily
         in painting.
+
     - [] Anonymous paintings should not be added to the database for now,
         can just keep the bucket list to make a feed there.
 

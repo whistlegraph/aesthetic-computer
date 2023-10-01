@@ -100,3 +100,63 @@ export { connect, moodFor, allMoods };
 //   }
 // }
 // run().catch(console.dir);
+
+import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
+
+const s3User = new S3Client({
+  endpoint: "https://" + process.env.USER_ENDPOINT,
+  credentials: {
+    accessKeyId: process.env.ART_KEY,
+    secretAccessKey: process.env.ART_SECRET,
+  },
+});
+
+async function listAndSavePaintings() {
+  // const { db, disconnect } = await connect();
+  // const collection = db.collection("paintings");
+  // await collection.createIndex({ user: 1 }); // Index for `user`.
+  // await collection.createIndex({ when: 1 }); // Index for `when`.
+
+  // Iterate through each user's sub-id (this is a simplification, actual logic might need pagination)
+  const userDirectories = await listDirectories({
+    s3: s3User,
+    bucket: process.env.USER_SPACE_NAME,
+  });
+
+  for (const dir of userDirectories) {
+    if (dir.includes("/painting/")) {
+      const files = await listFiles(
+        { s3: s3User, bucket: process.env.USER_SPACE_NAME },
+        dir,
+      );
+      for (const file of files) {
+        // console.log(file);
+        const record = {
+          slug: file.split("/").pop(), // Extract the slug from the file path
+          user: dir.split("/")[0], // Extract the userId from the dir
+          when: new Date(), // The slugs should be date sortable...
+        };
+        console.log(record);
+        // await collection.insertOne(record);
+      }
+    }
+  }
+
+  disconnect();
+}
+
+// Helper function to list directories for a given S3 client
+async function listDirectories(client) {
+  const params = { Bucket: client.bucket, Delimiter: "/" };
+  const response = await client.s3.send(new ListObjectsV2Command(params));
+  return response.CommonPrefixes.map((prefix) => prefix.Prefix);
+}
+
+// Helper function to list files for a given S3 client and prefix
+async function listFiles(client, prefix) {
+  const params = { Bucket: client.bucket, Prefix: prefix };
+  const response = await client.s3.send(new ListObjectsV2Command(params));
+  return response.Contents.map((file) => file.Key);
+}
+
+export { listAndSavePaintings };
