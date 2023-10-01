@@ -187,6 +187,11 @@
   to = "/.netlify/functions/mood"
   status = 200
 [[redirects]]
+  from = "/api/admin"
+  to = "/.netlify/functions/admin"
+  status = 200
+  force = false
+[[redirects]]
   from = "/api/profile/*"
   to = "/.netlify/functions/profile"
   status = 200

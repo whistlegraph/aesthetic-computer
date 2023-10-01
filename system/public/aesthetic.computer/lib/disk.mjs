@@ -556,7 +556,7 @@ const $commonApi = {
 
       $commonApi.jump(
         encodeURI(
-          `https://zora.co/create/single-edition?file=blah7image=${pixels}&name=${
+          `https://zora.co/create/single-edition?image=${pixels}&name=${
             params[0] || "Untitled Painting"
           }&symbol=$${data.slug}&description=${description}`,
         ),
