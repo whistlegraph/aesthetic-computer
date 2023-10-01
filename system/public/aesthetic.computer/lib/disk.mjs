@@ -3928,7 +3928,7 @@ async function makeFrame({ data: { type, content } }) {
         // 🌐🖋️️ Global pen events.
         try {
           // Always check to see if there was a tap on the corner.
-          const { event: e, jump, send, sound, system, screen } = $api;
+          const { event: e, jump, send, sound, system } = $api;
           let originalColor;
 
           let masked = false;
