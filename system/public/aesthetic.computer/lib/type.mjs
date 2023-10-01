@@ -673,8 +673,6 @@ class TextInput {
       needsPaint();
     }
 
-    console.log(e);
-
     // ⌨️ Add text via the keyboard.
     if (e.is("keyboard:down") && this.#lock === false && !this.enter.btn.down) {
       // 🔡 Inserting an individual character.
@@ -766,8 +764,6 @@ class TextInput {
           if (newCursor) this.#prompt.cursor = { ...newCursor };
         }
       } else {
-
-        console.log(e);
         // Other keys.
         if (e.key === "Delete") {
           // Deprecated, now handled via `prompt:text:replace`.
