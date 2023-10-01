@@ -2573,7 +2573,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (debug) console.log("🔴 Recorder: Rolling", content);
 
         // window.addEventListener("resize", () => (mediaRecorderResized = true), {
-          // once: true,
+        // once: true,
         // });
       };
 
@@ -3756,9 +3756,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     const headers = {};
 
     // If no bucket is specified, then try and use the "user" bucket.
+    let userMedia = false,
+      token;
     if (!bucket) {
-      const token = await authorize();
+      token = await authorize();
       if (token) {
+        userMedia = true;
         bucket = "user";
         headers.Authorization = `Bearer ${token}`;
         // This filename gets sorted into the user bucket via their own
@@ -3810,8 +3813,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Browser is online, send the request
         xhr.onerror = error;
 
-        xhr.onreadystatechange = function () {
+        xhr.onreadystatechange = async function () {
           if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+            if (userMedia && token && ext === "png") {
+              // TODO: Go ahead and add this media to the database.
+              if (debug)
+                console.log(
+                  "🗞️ Adding painting PNG to database:",
+                  slug,
+                  path,
+                  ext,
+                );
+
+              // TODO: Write an authorized POST request that contains the slug
+              //       to "api/painting/store"
+              const headers = {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              };
+
+              const options = { method: "POST", headers };
+              options.body = JSON.stringify({ slug });
+              const added = await fetch("api/painting", options);
+              if (debug) console.log("🗞️ Added to database...", added);
+            }
+
             send({
               type: callbackMessage,
               content: {

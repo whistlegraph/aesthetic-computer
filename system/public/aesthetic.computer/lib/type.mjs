@@ -901,9 +901,8 @@ class TextInput {
 
         // Move backwards through history stack.
         if (e.key === "ArrowUp") {
-          console.log("up");
           const history = (await store.retrieve(this.key)) || [""];
-          this.text = history[this.historyDepth];
+          this.text = history[this.historyDepth] || "";
           this.#prompt.snapTo(this.text);
           this.historyDepth = (this.historyDepth + 1) % history.length;
           $.send({
@@ -916,7 +915,7 @@ class TextInput {
         // ... and forwards.
         if (e.key === "ArrowDown") {
           const history = (await store.retrieve(this.key)) || [""];
-          this.text = history[this.historyDepth];
+          this.text = history[this.historyDepth] || "";
           this.#prompt.snapTo(this.text);
           this.historyDepth -= 1;
           if (this.historyDepth < 0) this.historyDepth = history.length - 1;

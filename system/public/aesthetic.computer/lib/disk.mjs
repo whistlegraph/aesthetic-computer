@@ -653,9 +653,7 @@ const $commonApi = {
             );
           } else {
             return $commonApi.net.preload(
-              encodeURI(
-                `https://aesthetic.computer/media/${handle}/painting/${code}.${extension}`,
-              ),
+              `/media/${handle}/painting/${code}.${extension}`,
             );
             // Get the user sub from the handle or email...
             // const url = `/user?from=${encodeURIComponent(handle)}`;
@@ -2479,7 +2477,7 @@ async function load(
       if (path.indexOf("/") === 0) path = path.slice(1);
 
       // This is a hack for now. The only thing that should be encoded is the file slug.
-      if (!path.startsWith("https://")) path = encodeURIComponent(path);
+      // if (!path.startsWith("https://")) path = encodeURIComponent(path);
 
       try {
         const url = new URL(path);
@@ -3539,6 +3537,13 @@ async function makeFrame({ data: { type, content } }) {
           } else {
             downloadScreenshot(); // 🖼️ Take a screenshot.
           }
+          $commonApi.sound.synth({
+            tone: 800,
+            duration: 0.02,
+            attack: 0.01,
+            decay: 0.5,
+            volume: 0.25,
+          });
         }
 
         // ⛈️ Jump back to the `prompt` from anywhere..
@@ -3923,12 +3928,26 @@ async function makeFrame({ data: { type, content } }) {
         // 🌐🖋️️ Global pen events.
         try {
           // Always check to see if there was a tap on the corner.
-          const { event: e, jump, send } = $api;
+          const { event: e, jump, send, sound } = $api;
           let originalColor;
 
           let masked = false;
 
-          if (e.is("touch:5")) downloadScreenshot();
+          if (e.is("touch:5")) {
+            sound.synth({
+              tone: 800,
+              duration: 0.02,
+              attack: 0.01,
+              decay: 0.5,
+              volume: 0.25,
+            });
+            sys.nopaint.replace(
+              cachedAPI,
+              graph.cloneBuffer(screen),
+              "$creenshot",
+            );
+            jump("prompt");
+          }
 
           // Corner prompt button.
           currentHUDButton?.act(e, {
@@ -4707,14 +4726,6 @@ function downloadScreenshot() {
       filename: `$creenshot-${num.timestamp()}.png`,
       modifiers: { scale: 6 },
     },
-  });
-
-  $commonApi.sound.synth({
-    tone: 800,
-    duration: 0.02,
-    attack: 0.01,
-    decay: 0.5,
-    volume: 0.25,
   });
 }
 

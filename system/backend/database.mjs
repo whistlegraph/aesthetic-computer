@@ -21,7 +21,7 @@ async function connect() {
 }
 
 async function disconnect() {
-  await client?.close?.();
+  if (client) await client.close?.();
 }
 
 // Re-usable calls to the application.
@@ -101,43 +101,72 @@ export { connect, moodFor, allMoods };
 // }
 // run().catch(console.dir);
 
+// 🧻🖌️ Paintings media migrations:
+
 import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 
-const s3User = new S3Client({
-  endpoint: "https://" + process.env.USER_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.ART_KEY,
-    secretAccessKey: process.env.ART_SECRET,
-  },
-});
-
 async function listAndSavePaintings() {
-  // const { db, disconnect } = await connect();
-  // const collection = db.collection("paintings");
-  // await collection.createIndex({ user: 1 }); // Index for `user`.
-  // await collection.createIndex({ when: 1 }); // Index for `when`.
+  const s3User = new S3Client({
+    endpoint: "https://" + process.env.USER_ENDPOINT,
+    credentials: {
+      accessKeyId: process.env.ART_KEY,
+      secretAccessKey: process.env.ART_SECRET,
+    },
+  });
 
-  // Iterate through each user's sub-id (this is a simplification, actual logic might need pagination)
+  const { db, disconnect } = await connect();
+  const collection = db.collection("paintings");
+  await collection.createIndex({ user: 1 });
+  await collection.createIndex({ when: 1 });
+  await collection.createIndex({ slug: 1 });
+  await collection.createIndex({ slug: 1, user: 1 }, { unique: true });
+
+  // Iterate through each user's top-level directory
   const userDirectories = await listDirectories({
     s3: s3User,
     bucket: process.env.USER_SPACE_NAME,
   });
 
   for (const dir of userDirectories) {
-    if (dir.includes("/painting/")) {
-      const files = await listFiles(
+    // Check for `auth0` prefix and list its subdirectories
+    if (dir.startsWith("auth0")) {
+      console.log("Dir:", dir);
+
+      const subDirectories = await listDirectories(
         { s3: s3User, bucket: process.env.USER_SPACE_NAME },
         dir,
       );
-      for (const file of files) {
-        // console.log(file);
-        const record = {
-          slug: file.split("/").pop(), // Extract the slug from the file path
-          user: dir.split("/")[0], // Extract the userId from the dir
-          when: new Date(), // The slugs should be date sortable...
-        };
-        console.log(record);
-        // await collection.insertOne(record);
+
+      // console.log("Subs:", subDirectories);
+
+      // Check if the `painting` subdirectory exists
+      if (subDirectories.includes(dir + "painting/")) {
+        const files = await listFiles(
+          { s3: s3User, bucket: process.env.USER_SPACE_NAME },
+          dir + "painting/",
+        );
+
+        // console.log("Found paintings in:", dir);
+
+        for (const file of files) {
+          // Ignore the .zips.
+          if (file.endsWith(".png")) {
+            const slug = file.split("/").pop().replace(".png", "");
+            const user = dir.split("/")[0];
+            const existingRecord = await collection.findOne({ slug, user });
+            if (!existingRecord) {
+              const record = {
+                slug,
+                user,
+                when: new Date(),
+              };
+              await collection.insertOne(record);
+              console.log("✅ Added painting entry for:", slug);
+            } else {
+              console.log("⚠️ Painting already exists for:", slug);
+            }
+          }
+        }
       }
     }
   }
@@ -146,10 +175,12 @@ async function listAndSavePaintings() {
 }
 
 // Helper function to list directories for a given S3 client
-async function listDirectories(client) {
-  const params = { Bucket: client.bucket, Delimiter: "/" };
+async function listDirectories(client, prefix = "") {
+  const params = { Bucket: client.bucket, Delimiter: "/", Prefix: prefix };
   const response = await client.s3.send(new ListObjectsV2Command(params));
-  return response.CommonPrefixes.map((prefix) => prefix.Prefix);
+  return response.CommonPrefixes
+    ? response.CommonPrefixes.map((prefix) => prefix.Prefix)
+    : [];
 }
 
 // Helper function to list files for a given S3 client and prefix
