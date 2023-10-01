@@ -4,15 +4,7 @@
 
 import { getHandleOrEmail } from "../../backend/authorization.mjs";
 import { respond } from "../../backend/http.mjs";
-import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
-
-const s3User = new S3Client({
-  endpoint: "https://" + process.env.USER_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.ART_KEY,
-    secretAccessKey: process.env.ART_SECRET,
-  },
-});
+import { connect } from "../../backend/database.mjs";
 
 // GET `/media/{@userHandleOrEmail}` will list files.
 export async function handler(event, context) {
@@ -20,30 +12,33 @@ export async function handler(event, context) {
   if (event.httpMethod !== "GET")
     return respond(405, { error: "Wrong request type!" });
 
-  const client = { s3: s3User, bucket: process.env.USER_SPACE_NAME };
   const path = decodeURIComponent(event.queryStringParameters.for);
+  const splitPath = path.split("/"); // Chop up the path.
+  const sub = splitPath[0];
+  const userId = await getHandleOrEmail(sub); // Get human readable id.
 
-  // List all objects prefixed with `path` in the bucket.
-  let params = { Bucket: client.bucket, Prefix: path };
+  // TODO: Eventually adapt to colletions other than `paintings`. 23.10.01.17.26
+  console.log(path, splitPath, userId);
 
   let files;
   try {
-    // TODO: Resort zip/png files / sort files by extension by making new
-    //       directories in the buckets and migrating everything.
-    //       https://chat.openai.com/c/c77b1bca-223b-49ec-bf93-f64bf7cccf05
-    const data = await client.s3.send(new ListObjectsV2Command(params));
-    const splitPath = path.split("/"); // Chop up the path.
-    const id = await getHandleOrEmail(splitPath[0]); // Get human readable id.
-    const route = splitPath.slice(1).join("/"); // Get collection route.
-    files = data.Contents.map((file) => {
-      // return `https://${process.env.USER_SPACE_NAME}/${file.Key}`; // Original bucket path.
-      // Canonical url for this resource, routing through Cloudflare worker.
-      const filename = file.Key.split("/").pop();
-      return `https://aesthetic.computer/media/${id}/${route}/${filename}`;
+    const { db, disconnect } = await connect();
+    const paintingsCollection = db.collection("paintings");
+
+    // Query the paintings collection for the specific user
+    const paintings = await paintingsCollection.find({ user: sub }).toArray();
+
+    // Format the response
+    files = paintings.map((painting) => {
+      return `https://aesthetic.computer/media/${userId}/painting/${painting.slug}.png`;
     });
+
+    disconnect();
   } catch (err) {
     console.log("Error", err);
-    return respond(500, { error: "Failed to list files 😩" });
+    return respond(500, {
+      error: "Failed to fetch paintings from the database 😩",
+    });
   }
 
   return respond(200, { files }); // Return a list of all the files.
