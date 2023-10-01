@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** `pond` ***
+  - [x] a 2d place where connected cursors can communicate with disappearing lines
+
 *** annoyance ***
   - [x] Up arrow key does not load previous commands on first run.
   - [x] Make a mac friendly $creenshot -> painting shortcut.

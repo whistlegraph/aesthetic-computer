@@ -82,7 +82,7 @@ function paint($) {
       $,
       otherPoints,
       g,
-      myHand.gesture(otherPoints)
+      myHand.gesture(otherPoints),
     );
     $.ink(ti ? "pink" : "lime").box(...midpoint, 12, "fill*center");
 
@@ -91,7 +91,7 @@ function paint($) {
         otherPoints[j][0],
         otherPoints[j][1],
         5,
-        "fill*center"
+        "fill*center",
       );
     }
   }
@@ -108,7 +108,7 @@ function paint($) {
       $,
       points,
       gesture,
-      myHand.interactions
+      myHand.interactions,
     );
     $.ink(ti ? "blue" : "red").box(...midpoint, 9, "fill*center");
   }
@@ -116,11 +116,11 @@ function paint($) {
   // Loop through every lines.
   Object.keys(otherGestures).forEach((g) => {
     otherGestures[g].lines.forEach((mark) =>
-      $.ink(255, $.num.map(mark.fade, 0, FADE, 0, 255)).poly(mark.points, 10)
+      $.ink(255, $.num.map(mark.fade, 0, FADE, 0, 255)).poly(mark.points),
     );
   });
   gesture.lines.forEach((mark) =>
-    $.ink(255, $.num.map(mark.fade, 0, FADE, 0, 255)).poly(mark.points, 10)
+    $.ink(255, $.num.map(mark.fade, 0, FADE, 0, 255)).poly(mark.points),
   );
 }
 
