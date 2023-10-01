@@ -66,9 +66,7 @@ function boot({
   if (params[0]?.length > 0) {
     interim = "Loading...";
     genSlug({ params });
-
-    console.log("Boot display:", display);
-
+    // console.log("Boot display:", display);
     net.waitForPreload();
     get
       .painting(imageCode)

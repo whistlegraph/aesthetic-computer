@@ -246,7 +246,12 @@ async function halt($, text) {
         // throw new Error(`🚫 Bad response: ${text}`);
         return { message: "error" };
       } else {
-        return await response.json(); // Success!
+        const clonedResponse = response.clone();
+        try {
+          return await clonedResponse.json();
+        } catch {
+          return { status: response.status, body: await response.text() };
+        }
       }
     } catch (error) {
       console.error("🚫 Error:", error);
@@ -675,7 +680,10 @@ async function halt($, text) {
     return true;
   } else if (slug === "admin:migrate-paintings") {
     const res = await userJSONRequest("GET", "/api/admin");
-    flashColor = res && res.status === 200 ? [0, 255, 0] : [255, 0, 0];
+    flashColor = res && res.status === 202 ? [0, 255, 0] : [255, 0, 0];
+    if (res && res.status === 202) {
+      notice("MIGRATION STARTED ;)");
+    }
     makeFlash($);
     return true;
   } else if (text.startsWith("handle")) {
