@@ -81,6 +81,7 @@ async function boot({ params, user, handle, debug, hud, net, get }) {
       .then((res) => res.json())
       .then((data) => {
         const paintings = data?.files;
+        console.log(paintings);
         const lastPainting = paintings?.[paintings?.length - 1];
         const lastPaintingCode = lastPainting
           .split("/")

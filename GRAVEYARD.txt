@@ -1,5 +1,15 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** `paintings` ***
+  - [x] Put all paintings in a database, with new ones being added. 
+    - [x] And the download / retrieval code in `profile`, but not necessarily
+        in painting.
+    - [x] Existing user paintings need to be added to the database via a migration
+        script, then some code that adds the record to the database for each
+        makes sense.
+    - [x] I need to adjust the upload code to post a record to the database too.
+    - [x] I need some kind of a scripts directory or admin command for these
+
 *** `pond` ***
   - [x] a 2d place where connected cursors can communicate with disappearing lines
 
