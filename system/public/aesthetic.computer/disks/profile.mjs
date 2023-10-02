@@ -6,7 +6,17 @@
 
 /* #region 🏁 TODO 
   - [🧡] `profile` should be table to <- -> on a user's paintings 
-       (tap into lightbox for painting / playback)
+       - [] Cache the bitmaps.
+       - [] Loading paintings should make a beep.
+       - [] Tap into lightbox for painting / playback)
+       - [] Add left and right tap buttons.
+       + Done
+       - [x] Move mood.
+       - [x] Wire up arrow keys.
+  - [] Modify `api/profile` request to show a full text response
+       if json is not returned.
+  + Done
+  + Later
   - ☁️ General thoughts:
     - [] Should @handle eventually be a code piece in the system for every user?
     - [] And then they can edit it?
@@ -24,10 +34,11 @@
 #endregion */
 
 const RETRIEVING = "retrieving...";
+let debug;
 let profile,
   noprofile = RETRIEVING;
 
-let visiting, painting, paintings, paintingIndex;
+let visiting, code, painting, paintings, paintingIndex;
 const { max, min } = Math;
 
 // 📰 Meta
@@ -40,8 +51,9 @@ function meta({ piece }) {
 }
 
 // 🥾 Boot
-async function boot({ params, user, handle, debug, hud, net, get }) {
+async function boot({ params, user, handle, debug, hud, net, get, debug: d }) {
   // Mask from `profile` if we are logged in.
+  debug = d;
 
   visiting = params[0] || handle();
 
@@ -121,39 +133,45 @@ function paint({ params, wipe, ink, pen, user, screen, paste }) {
     );
   }
 
-  // if (!retrieving && !profile && user?.name) {
-  //   ink("yellow").write(
-  //     "enter 'handle @urnamehere'",
-  //     { center: "x", y: screen.height / 2 + 5 + 24 },
-  //     "blue",
-  //     screen.width - 8,
-  //   );
-  // }
-
   if (profile) {
     ink(255).write(
       profile.mood || "no mood",
-      { center: "xy" },
+      { center: "x", y: 6 },
       "black",
       screen.width - 8,
     );
   }
+
+  if (profile && !painting && paintings) {
+    ink(255).write("retrieving...", { center: "xy" }, "black");
+  }
+
+  if (paintings) {
+    ink(0).line(0, screen.height - 1, screen.width, screen.height - 1);
+    ink("yellow").line(
+      0,
+      screen.height - 1,
+      (paintingIndex / (paintings.length - 1)) * screen.width,
+      screen.height - 1,
+    );
+
+    ink(200).write(code, { x: 3, y: screen.height - 13 });
+  }
+
   // return false;
 }
 
 // 🎪 Act
 function act({ event: e, get }) {
- // Respond to user input here.
- if (e.is("keyboard:down:leftarrow")) {
-  console.log("left");
-  paintingIndex = max(0, paintingIndex - 1);
-  loadPainting(get, paintingIndex, visiting);
- }
- if (e.is("keyboard:down:rightarrow")) {
-  paintingIndex = min(paintingIndex + 1, paintings.length - 1);
-  loadPainting(get, paintingIndex, visiting);
- }
-
+  // Respond to user input here.
+  if (e.is("keyboard:down:arrowleft")) {
+    paintingIndex = max(0, paintingIndex - 1);
+    loadPainting(get, paintingIndex, visiting);
+  }
+  if (e.is("keyboard:down:arrowright")) {
+    paintingIndex = min(paintingIndex + 1, paintings.length - 1);
+    loadPainting(get, paintingIndex, visiting);
+  }
 }
 
 // 🧮 Sim
@@ -177,8 +195,25 @@ export { boot, paint, act, meta };
 //   (Useful functions used throughout the piece)
 
 // Load a painting from paintings via the index.
+let controller = null;
 async function loadPainting(get, index, from) {
-  const code = paintings[index].split("/").pop().replace(".png", "");
-  const got = await get.painting(code).by(from);
-  painting = got.img;
+  painting = undefined; // Clear the current picture.
+
+  if (controller) controller.abort(); // Abort any ongoing requests.
+
+  // Create a new controller for the current request.
+  controller = new AbortController();
+  const signal = controller.signal;
+
+  try {
+    code = paintings[index].split("/").pop().replace(".png", "");
+    const got = await get.painting(code).by(from, { signal }); // Assuming `get.painting` is based on fetch and can accept a signal
+    painting = got.img;
+  } catch (err) {
+    if (err.name === "AbortError") {
+      if (debug) console.log("Request was aborted");
+    } else {
+      console.error("Some other error occurred:", err);
+    }
+  }
 }
