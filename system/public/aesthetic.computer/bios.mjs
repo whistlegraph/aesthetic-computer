@@ -65,10 +65,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Events
   let whens = {};
 
-  // 0. Video storage
+  // Video storage
   const videos = [];
 
-  // 1. Rendering
+  // Media preloading tracker (for cancellations).
+  const mediaPathsLoading = {};
+
+  // Rendering
 
   // Wrap everything in an #aesthetic-computer div.
   const wrapper = document.createElement("div");
@@ -3305,11 +3308,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Load a bitmap off the network.
     if (type === "load-bitmap") {
+      const controller = new AbortController();
+      mediaPathsLoading[content] = controller;
+
       const img = document.createElement("img");
       img.src = content;
       img.crossOrigin = "anonymous";
-      img.addEventListener("load", async () => {
+
+      const onLoad = async () => {
         const bitmap = await toBitmap(img);
         send(
           {
@@ -3318,12 +3326,34 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           },
           [bitmap.pixels.buffer],
         );
-      });
-      img.addEventListener("error", (err) => {
+        img.removeEventListener("error", onError);
+      };
+
+      const onError = (err) => {
         console.error(err);
         send({ type: "loaded-bitmap-rejection", content: { url: content } });
+        img.removeEventListener("load", onLoad); // Remove the other listener too
+      };
+
+      img.addEventListener("load", onLoad);
+      img.addEventListener("error", onError);
+
+      controller.signal.addEventListener("abort", () => {
+        if (debug) console.log("🖼️ Aborted image load:", content);
+        img.removeEventListener("load", onLoad);
+        img.removeEventListener("error", onError);
+        // Update src to stop current loading.
+        img.src =
+          "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
       });
 
+      return;
+    }
+
+    // Abort a loading piece of media if it exists.
+    // TODO: Only implemented on bitmaps for now. 23.10.02.15.13
+    if (type === "load:abort") {
+      mediaPathsLoading[content]?.abort();
       return;
     }
 
