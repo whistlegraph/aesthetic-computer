@@ -644,16 +644,22 @@ const $commonApi = {
   get: {
     painting: (code, opts) => {
       return {
-        by: async (handle = "anon") => {
+        by: async (handle = "anon", { signal }) => {
           // Add support for pulling paintings from the `art` bucket...
           const extension = opts?.record ? "zip" : "png";
           if (handle === "anon") {
             return $commonApi.net.preload(
               encodeURI(`https://art.aesthetic.computer/${code}.${extension}`),
+              true,
+              undefined,
+              { signal },
             );
           } else {
             return $commonApi.net.preload(
               `/media/${handle}/painting/${code}.${extension}`,
+              true,
+              undefined,
+              { signal },
             );
             // Get the user sub from the handle or email...
             // const url = `/user?from=${encodeURIComponent(handle)}`;
@@ -2456,52 +2462,52 @@ async function load(
     path,
     parseJSON = true,
     progressReport,
+    options = {},
   ) {
     let extension;
+
+    const rejection = (reject) => {
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+
     if (soundWhitelist.includes(path)) {
-      // Use shortnames for system sounds that are in the `preloadWhitelist`.
       extension = "m4a";
     } else {
-      // Overload path with an object that can set a custom extension.
-      // Implemented in `ordfish`. 23.05.08.14.07
       if (typeof path === "object") {
-        extension = path.extension; // Custom extension.
-        path = path.path; // Remap path reference to a string.
+        extension = path.extension;
+        path = path.path;
       } else {
-        // Assume path is a string with a file extension,
-        // filtering out any query parameters.
         extension = path.split(".").pop().split("?")[0];
       }
 
-      // Remove any prepending "/" because it's already relative to root.
       if (path.indexOf("/") === 0) path = path.slice(1);
-
-      // This is a hack for now. The only thing that should be encoded is the file slug.
-      // if (!path.startsWith("https://")) path = encodeURIComponent(path);
 
       try {
         const url = new URL(path);
         if (url.protocol === "demo:") {
-          // Load from aesthetic.computer host.
           path = `/demo/${url.pathname}`;
-        } else if (url.protocol === "https:") {
-          // No need to change path because an original URL was specified.
+        } else if (url.protocol !== "https:") {
         }
       } catch {
-        // Not a valid URL so assume local file on disk server.
         path = `${location.protocol}//${$commonApi.net.host}/${path}`;
       }
     }
 
-    // If we are loading a .json file then we can parse or not parse it here.
     if (extension === "json") {
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
+
+        options.signal?.addEventListener("abort", () => {
+          xhr.abort();
+          rejection(reject);
+        });
+
         xhr.open("GET", path, true);
         xhr.onprogress = function (event) {
           const progress = Math.min(event.loaded / event.total, 1);
-          if (debug && logs.download)
+          if (debug && logs.download) {
             console.log(`💈 JSON Download: ${progress * 100}%`);
+          }
           progressReport?.(progress);
         };
         xhr.onload = function () {
@@ -2515,25 +2521,51 @@ async function load(
         xhr.send();
       });
     } else if (
-      // 🖼️ Image files.
       extension === "webp" ||
       extension === "jpg" ||
       extension === "png"
     ) {
       return new Promise((resolve, reject) => {
+        if (options.signal?.aborted) {
+          rejection(reject);
+          return;
+        }
+
         send({ type: "load-bitmap", content: path });
         preloadPromises[path] = { resolve, reject };
+
+        options.signal?.addEventListener("abort", () => {
+          send({ type: "load:abort", content: path });
+          rejection(reject);
+        });
       });
     } else if (extension === "m4a") {
-      // 🔈 Audio files
       return new Promise((resolve, reject) => {
+        if (options.signal?.aborted) {
+          rejection(reject);
+          return;
+        }
+
         send({ type: "sfx:load", content: path });
         preloadPromises[path] = { resolve, reject };
+
+        options.signal?.addEventListener("abort", () => {
+          rejection(reject);
+        });
       });
     } else if (extension === "zip") {
       return new Promise((resolve, reject) => {
+        if (options.signal?.aborted) {
+          rejection(reject);
+          return;
+        }
+
         send({ type: "zip:load", content: path });
         preloadPromises[path] = { resolve, reject };
+
+        options.signal?.addEventListener("abort", () => {
+          rejection(reject);
+        });
       });
     }
   };
