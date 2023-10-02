@@ -5,6 +5,8 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [🧡] `profile` should be table to <- -> on a user's paintings 
+       (tap into lightbox for painting / playback)
   - ☁️ General thoughts:
     - [] Should @handle eventually be a code piece in the system for every user?
     - [] And then they can edit it?
@@ -25,7 +27,8 @@ const RETRIEVING = "retrieving...";
 let profile,
   noprofile = RETRIEVING;
 
-let painting;
+let visiting, painting, paintings, paintingIndex;
+const { max, min } = Math;
 
 // 📰 Meta
 function meta({ piece }) {
@@ -40,7 +43,7 @@ function meta({ piece }) {
 async function boot({ params, user, handle, debug, hud, net, get }) {
   // Mask from `profile` if we are logged in.
 
-  const visiting = params[0] || handle();
+  visiting = params[0] || handle();
 
   console.log("Visiting:", visiting);
 
@@ -73,6 +76,7 @@ async function boot({ params, user, handle, debug, hud, net, get }) {
     })
     .catch((error) => {
       console.error("Error:", error);
+      noprofile = "error loading profile";
     });
 
   if (visiting) {
@@ -80,20 +84,11 @@ async function boot({ params, user, handle, debug, hud, net, get }) {
     fetch(`/media/${visiting}/painting`)
       .then((res) => res.json())
       .then((data) => {
-        const paintings = data?.files;
-        console.log(paintings);
-        const lastPainting = paintings?.[paintings?.length - 1];
-        const lastPaintingCode = lastPainting
-          .split("/")
-          .pop()
-          .replace(".png", "")
-          .replace(".zip", ""); // Strip either extension off after fetching.
-
-        // net.preload(lastPainting).then((img) => (painting = img)); // This doesn't work because of CORS errors in the Cloudflare worker.
-        return get.painting(lastPaintingCode).by(visiting);
-      })
-      .then(({ img }) => {
-        painting = img;
+        paintings = data?.files;
+        if (paintings) {
+          paintingIndex = paintings.length - 1;
+          loadPainting(get, paintingIndex, visiting);
+        }
       })
       .catch((err) => {
         console.warn("Could not load painting or fetch media.", err);
@@ -147,9 +142,19 @@ function paint({ params, wipe, ink, pen, user, screen, paste }) {
 }
 
 // 🎪 Act
-// function act({ event }) {
-//  // Respond to user input here.
-// }
+function act({ event: e, get }) {
+ // Respond to user input here.
+ if (e.is("keyboard:down:leftarrow")) {
+  console.log("left");
+  paintingIndex = max(0, paintingIndex - 1);
+  loadPainting(get, paintingIndex, visiting);
+ }
+ if (e.is("keyboard:down:rightarrow")) {
+  paintingIndex = min(paintingIndex + 1, paintings.length - 1);
+  loadPainting(get, paintingIndex, visiting);
+ }
+
+}
 
 // 🧮 Sim
 // function sim() {
@@ -166,7 +171,14 @@ function paint({ params, wipe, ink, pen, user, screen, paste }) {
 //  // Runs once before the piece is unloaded.
 // }
 
-export { boot, paint, meta };
+export { boot, paint, act, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
+
+// Load a painting from paintings via the index.
+async function loadPainting(get, index, from) {
+  const code = paintings[index].split("/").pop().replace(".png", "");
+  const got = await get.painting(code).by(from);
+  painting = got.img;
+}

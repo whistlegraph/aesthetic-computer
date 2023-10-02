@@ -1088,7 +1088,7 @@ const $commonApi = {
   //   },
   // },
   text: {
-    capitalinze: text.capitalize,
+    capitalize: text.capitalize,
     box: (text, pos = { x: 0, y: 0 }, bounds, scale = 1) => {
       let run = 0;
       const blockWidth = 6 * scale; // TODO: Replace this `6`. 23.09.13.15.31
