@@ -14,7 +14,12 @@ DISCORD_MESSAGE="$COMMIT_MESSAGE️ ([$SHORT_HASH](<$COMMIT_URL>))️"
 FLAGS="2"  # Define the message flags (SUPPRESS_EMBEDS)
 
 # Use Python to generate a properly escaped JSON payload
-JSON_PAYLOAD=$(python -c "import json; print(json.dumps({'content': '''$DISCORD_MESSAGE''', 'flags': $FLAGS}))")
+JSON_PAYLOAD=$(python -c "
+import json
+import sys
+message = sys.argv[1]
+print(json.dumps({'content': message, 'flags': $FLAGS}))
+" "$DISCORD_MESSAGE")
 
 # Send the POST request to the Discord webhook URL
 curl -H "Content-Type: application/json" -X POST -d "$JSON_PAYLOAD" $WEBHOOK_URL
