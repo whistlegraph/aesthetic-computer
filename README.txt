@@ -40,16 +40,24 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** pre-hell_ world production ***
-  - [] Fix `shape yellow 0.1` being opaque for some reason...
-       - After what action? 
-  - [] Fix no not working after first attempt regression.
-  - [] Fix instant typing after wrong respnse regression.
-  - [] Fix `done` progress bar repeating and repeating over and over on the
-       bigger zip file. (Not taking into account full math?)
-  - [] Fix up arrow down arrow not showing a blank entry in the loop.
-  - [] Watch one of the sample painting playbacks and check for other errors.
+*** pre-`hell_ world` production ***
+  - [] Try to see if I can hit the ineffective `no` error.
+  - [] Watch some more of the sample painting playbacks and check for other
+       errors like the in-effective no?
+  - [] Capture gestures and put their display behind a flag.
+    - [] Make sure it works locally first.
+      - [] `line`
+      - [] `crop`
+      - [] `rect`
+      - [] `bits`
   + Done
+  - [x] Fix `done` progress bar repeating and repeating over and over on the
+        bigger zip file. (Not taking into account full math?)
+  - [x] Fix up down arrow not showing a blank entry in the loop.
+  - [x] Fix instant typing after wrong response regression.
+  - [x] Fix `shape yellow 0.1` being opaque for some reason...
+       - After what action? `line rainbow` 
+  - [x] Fix `no` not working after first attempt regression.
   - [x] Fix zip file loading on `painting`.
 
 *** painting listings ***

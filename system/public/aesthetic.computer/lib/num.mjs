@@ -323,7 +323,7 @@ export class Track {
     if (this.#quantize) {
       const index = min(
         floor(progress * this.#values.length),
-        this.#values.length - 1
+        this.#values.length - 1,
       );
       this.#result(this.#values[index]);
     } else {
@@ -361,7 +361,6 @@ export function parseColor(params) {
     return rangedInts(params);
   } else {
     let name = params[0].toLowerCase(); // Assume a css color string.
-
 
     let alpha = calculateAlpha(params[1]); // Calculate alpha param.
 
@@ -593,7 +592,7 @@ const rainbowColors = [
 export function rainbow() {
   const color = rainbowColors[currentRainbowIndex];
   currentRainbowIndex = (currentRainbowIndex + 1) % rainbowColors.length;
-  return color;
+  return color.slice();
 }
 
 // Find a color inside of `cssColors` by value.

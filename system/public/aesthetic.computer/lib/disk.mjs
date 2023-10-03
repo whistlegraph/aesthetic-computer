@@ -2276,7 +2276,7 @@ async function load(
 
   // Requests a session-backend and connects via websockets.
   function startSocket() {
-    if (debug) console.log("🧦 Initializing socket server...");
+    if (debug && logs.session) console.log("🧦 Initializing socket server...");
     socket?.kill(); // Kill any already open socket from a previous disk.
     socket = new Socket(debug); // Then redefine and make a new socket.
 
