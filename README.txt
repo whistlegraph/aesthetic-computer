@@ -41,16 +41,11 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** pre-`hell_ world` production ***
-  - [] Try to see if I can hit the ineffective `no` error.
   - [] Watch some more of the sample painting playbacks and check for other
-       errors like the in-effective no?
-  - [] Capture gestures and put their display behind a flag.
-    - [] Make sure it works locally first.
-      - [] `line`
-      - [] `crop`
-      - [] `rect`
-      - [] `bits`
+       errors like the ineffective no?
+  - [] Try to see if I can hit the ineffective `no` error.
   + Done
+  - [x] Capture timestamped gesture data from first pointer.
   - [x] Fix `done` progress bar repeating and repeating over and over on the
         bigger zip file. (Not taking into account full math?)
   - [x] Fix up down arrow not showing a blank entry in the loop.

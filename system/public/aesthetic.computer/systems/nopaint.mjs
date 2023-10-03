@@ -67,27 +67,49 @@ function nopaint_act({
     // TODO:
     // 🔥 Add this to the current gestures, which will be packed
     //    when `addToRecord` is run.
-    // system.nopaint.gestureRecord.push("gesture:start");
+    system.nopaint.gestureRecord.push([
+      num.timestamp(),
+      "touch:1",
+      system.nopaint.brush.x,
+      system.nopaint.brush.y,
+    ]);
   }
 
   // Track
-  // if (nopaint_is("painting") && (e.is("move") || e.is("draw"))) {
-  if (nopaint_is("painting") && (e.is("move") || e.is("draw"))) {
+  if (nopaint_is("painting") && (e.is("move") || e.is("draw:1"))) {
     // if (debug) console.log("Updating brush...");
     system.nopaint.updateBrush(api, "draw");
-    // TODO: system.nopaint.gestureRecord.push("gesture:mark");
+
+    const rec = system.nopaint.gestureRecord;
+
+    if (
+      system.nopaint.brush.x !== rec[rec.length - 1][2] ||
+      system.nopaint.brush.y !== rec[rec.length - 1][3]
+    ) {
+      rec.push([
+        num.timestamp(),
+        "draw:1",
+        system.nopaint.brush.x,
+        system.nopaint.brush.y,
+      ]);
+    }
   }
 
   // Stop
   if (
     nopaint_is("painting") &&
-    e.is("lift") &&
+    e.is("lift:1") &&
     (e.device === "mouse" || pens().length === 0)
   ) {
     state = "idle";
     if (!system.nopaint.bakeOnLeave) system.nopaint.needsBake = true;
     if (debug) console.log("🖌️ Not painting...");
-    // TODO: system.nopaint.gestureRecord.push("gesture:stop");
+    system.nopaint.gestureRecord.push([
+      num.timestamp(),
+      "lift:1",
+      system.nopaint.brush.x,
+      system.nopaint.brush.y,
+    ]);
   }
 
   // 🔭 Zooming...

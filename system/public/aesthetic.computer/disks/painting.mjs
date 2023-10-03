@@ -24,8 +24,11 @@
 #endregion */
 
 const labelFadeSpeed = 80;
-const advanceSpeed = 120n;
+const advanceSpeed = 240n;
 let advanceCount = 0n;
+let gestureIndex = 0;
+let brush;
+let brushPaints = [];
 
 let painting,
   finalPainting,
@@ -125,8 +128,9 @@ function boot({
           timeout = setTimeout(() => {
             pastRecord = system.nopaint.record;
             system.nopaint.record = out;
-            running = true;
+            console.log("Record", system.nopaint.record);
             advance(system);
+            running = true;
           }, 1500);
         })
         .catch((err) => {
@@ -149,6 +153,7 @@ function boot({
     finalPainting = system.painting;
     timeout = setTimeout(() => {
       running = true;
+      console.log("Record", system.nopaint.record);
       advance(system);
     }, 1500);
   }
@@ -156,7 +161,7 @@ function boot({
 }
 
 // 🎨 Paint
-function paint({ wipe, ink, system, screen, num, paste }) {
+function paint({ api, wipe, ink, system, screen, num, paste }) {
   wipe(0);
   ink(0, 127).box(0, 0, screen.width, screen.height);
 
@@ -181,6 +186,12 @@ function paint({ wipe, ink, system, screen, num, paste }) {
     ink().write(label, { size: 2 });
 
     if (painting) {
+      brushPaints.forEach((brushPaint) => {
+        brushPaint(api);
+      });
+
+      brushPaints.length = 0;
+
       const x = screen.width / 2 - painting.width / 2;
       const y = screen.height / 2 - painting.height / 2;
       ink(64).box(x, y - btnBar / 2, painting.width, painting.height);
@@ -269,11 +280,74 @@ function act({ event: e, screen, print, mint, delay }) {
 }
 
 // 🧮 Sim
-function sim({ simCount, system }) {
+async function sim({ simCount, system, net, api }) {
+  //if (running && !step.gesture) {
   if (running) {
     advanceCount += 1n;
     if (advanceCount % advanceSpeed === 0n) advance(system);
   }
+
+  /*
+  if (running && step.gesture) {
+    if (gestureIndex === step.gesture.length) {
+      console.log("DONE simulating gesture... ready for next step?");
+      advance(system);
+    } else {
+      if (gestureIndex === 0 && !brush) {
+        console.log(step.label);
+
+        const name = step.label.split(" ")[0].split(":")[0];
+        // Load the brush name after stripping.
+        import(`${net.pieces}/${name}.mjs`)
+          .then((module) => {
+            console.log("Brush loaded:", brush);
+            brush = module;
+            // TODO: Add params here...
+            const colon = step.label.split(" ")[0].split(":").slice(1);
+            const params = step.label.split(" ").slice(1);
+            console.log("Params:", params, "Colon:", colon);
+            brush.boot({ ...api, colon, params });
+          })
+          .catch((err) => {
+            console.log("Failed to load brush code:", err);
+          });
+
+        // // Set the params for the brush.
+        // const bootApi = { ...api };
+        // bootApi.params = [];
+        // brush?.boot?.(bootApi); // Initialize the brush.
+      }
+
+      if (brush) {
+        const frame = step.gesture[gestureIndex];
+        brushPaints.push((api) => {
+          // Paint here...
+          const bapi = { ...api };
+
+          // Translate the pen to the current painting position.
+          bapi.system = {
+            nopaint: {
+              is: (state) => state === "painting",
+              translation: { ...api.system.nopaint.translation },
+            },
+          };
+          // TODO: Add the `mode` in here
+          //       for the gesture.
+          // api.system.nopaint.updateBrush(api); // Set the current transform of brush.
+
+          bapi.pen = { x: frame[2], y: frame[3] };
+          bapi.page(painting);
+          // bapi.ink("red").line();
+          brush.paint(bapi);
+          bapi.page(bapi.screen);
+        });
+
+        gestureIndex += 1;
+      }
+    }
+  }
+  */
+
   if (labelFade > 0) labelFade--;
 }
 
@@ -338,11 +412,15 @@ function advance(system) {
   if (stepIndex === system.nopaint.record.length) stepIndex = 0;
 
   step = record[stepIndex];
+
   label = step.label.replaceAll("~", " ");
   labelFade = labelFadeSpeed;
 
   if (step.painting) {
     painting = step.painting;
+    // if (!step.gesture) painting = step.painting; // Don't change painting
+    //                                                 if there is a gesture
+    //                                                 to simulate.
     paintingIndex = stepIndex;
   } else {
     if (label === "no") {

@@ -763,6 +763,7 @@ const $commonApi = {
       addToRecord: function (record) {
         record.timestamp = num.timestamp(); // Insert the timestamp data.
         record.gesture = $commonApi.system.nopaint.gestureRecord.slice();
+        if (record.gesture.length === 0) delete record.gesture;
         $commonApi.system.nopaint.gestureRecord = [];
         $commonApi.system.nopaint.record.push(record);
         store["painting:record"] = $commonApi.system.nopaint.record;
@@ -3533,11 +3534,6 @@ async function makeFrame({ data: { type, content } }) {
           if (data.ctrl || data.alt) {
             const sys = $commonApi.system;
             // Make it a painting.
-            // store["painting"] = graph.cloneBuffer(screen);
-            // $commonApi.system.nopaint.painting = store["painting"];
-            // sys.painting = graph.cloneBuffer(screen);
-            // store["painting"] = sys.painting;
-            // sys.nopaint.addUndoPainting(sys.painting, "$creenshot");
             sys.nopaint.replace(
               cachedAPI,
               graph.cloneBuffer(screen),
