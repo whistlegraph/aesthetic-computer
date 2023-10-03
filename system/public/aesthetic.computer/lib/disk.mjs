@@ -644,7 +644,7 @@ const $commonApi = {
   get: {
     painting: (code, opts) => {
       return {
-        by: async (handle = "anon", { signal }) => {
+        by: async function (handle = "anon", byOpts) {
           // Add support for pulling paintings from the `art` bucket...
           const extension = opts?.record ? "zip" : "png";
           if (handle === "anon") {
@@ -652,37 +652,15 @@ const $commonApi = {
               encodeURI(`https://art.aesthetic.computer/${code}.${extension}`),
               true,
               undefined,
-              { signal },
+              byOpts,
             );
           } else {
             return $commonApi.net.preload(
               `/media/${handle}/painting/${code}.${extension}`,
               true,
               undefined,
-              { signal },
+              byOpts,
             );
-            // Get the user sub from the handle or email...
-            // const url = `/user?from=${encodeURIComponent(handle)}`;
-            // try {
-            //   const res = await fetch(url);
-            //   if (res.ok) {
-            //     const json = await res.json();
-            //     return $commonApi.net.preload(
-            //       encodeURI(
-            //         `https://user.aesthetic.computer/${json.sub}/painting/${code}.${extension}`,
-            //       ),
-            //     );
-            //   } else {
-            //     console.error(`Error: ${res.status} ${res.statusText}`);
-            //     console.error(
-            //       `Response headers: ${JSON.stringify(
-            //         Array.from(res.headers.entries()),
-            //       )}`,
-            //     );
-            //   }
-            // } catch (error) {
-            //   console.error(`Fetch failed: ${error}`);
-            // }
           }
         },
       };
@@ -3443,7 +3421,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // 1d. Loading Bitmaps
   if (type === "loaded-bitmap-success") {
-    if (debug) console.log("Bitmap load success:", content);
+    if (debug) console.log("Bitmap loaded:", content);
     preloadPromises[content.url].resolve(content);
     delete preloadPromises[content];
     return;
