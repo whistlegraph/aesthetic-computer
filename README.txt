@@ -40,6 +40,18 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** pre-hell_ world production ***
+  - [] Fix `shape yellow 0.1` being opaque for some reason...
+       - After what action? 
+  - [] Fix no not working after first attempt regression.
+  - [] Fix instant typing after wrong respnse regression.
+  - [] Fix `done` progress bar repeating and repeating over and over on the
+       bigger zip file. (Not taking into account full math?)
+  - [] Fix up arrow down arrow not showing a blank entry in the loop.
+  - [] Watch one of the sample painting playbacks and check for other errors.
+  + Done
+  - [x] Fix zip file loading on `painting`.
+
 *** painting listings ***
   - [🧡] `profile` should be table to <- -> on a user's paintings 
        (tap into lightbox for painting / playback)

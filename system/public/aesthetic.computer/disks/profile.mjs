@@ -6,9 +6,9 @@
 
 /* #region 🏁 TODO 
   - [🧡] `profile` should be table to <- -> on a user's paintings 
+       - [] Tap into lightbox for painting / playback.
        - [] Cache the bitmaps.
        - [] Loading paintings should make a beep.
-       - [] Tap into lightbox for painting / playback)
        - [] Add left and right tap buttons.
        + Done
        - [x] Move mood.
