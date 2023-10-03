@@ -81,7 +81,7 @@ export async function handleFor(id) {
   let cachedID = await KeyValue.get("userIDs", id);
 
   if (cachedID) {
-    console.log("ID: Found in redis...");
+    // console.log("ID: Found in redis...");
     await KeyValue.disconnect();
     return cachedID;
   }
@@ -101,7 +101,7 @@ export async function handleFor(id) {
 
     // Cache the handle in redis...
     if (existingUser?.handle) {
-      console.log("Caching in redis...", id);
+      // console.log("Caching in redis...", id);
       await KeyValue.set("userIDs", id, existingUser.handle);
     }
 

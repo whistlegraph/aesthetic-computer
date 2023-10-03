@@ -36,16 +36,19 @@ async function fun(event, context) {
     //       23.09.06.02.27
     const resolution = pre.split("x").map((n) => parseInt(n));
     const slug = params.slice(1).join("/");
-    const imageUrl = `https://${domain}/media/${slug}`;
-
-    console.log(imageUrl);
+    const imageUrl = `https://${event.headers["host"]}/media/${slug}`;
 
     // console.log("Image URL:", imageUrl);
     if (!imageUrl) return respond(400, { message: "Image URL not provided." });
 
     try {
       const { got } = await import("got");
-      const response = await got(imageUrl, { responseType: "buffer" });
+      const response = await got(imageUrl, {
+        responseType: "buffer",
+        https: {
+          rejectUnauthorized: !dev,
+        },
+      });
 
       // Resize the image using nearest neighbor filtering with "sharp"
       // Docs: https://sharp.pixelplumbing.com/api-resize
