@@ -1232,7 +1232,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         content.painting.record.forEach((step) => {
           const format = `${step.timestamp} - ${step.label}`;
           const encodedStep = { step: format };
-          if (step.gesture.length > 0) encodedStep.gesture = step.gesture;
+          if (step.gesture?.length > 0) encodedStep.gesture = step.gesture;
           steps.push(encodedStep);
           if (step.painting) {
             images[format] = bufferToBlob(step.painting, "image/png");
