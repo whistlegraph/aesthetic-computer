@@ -2162,7 +2162,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "keyboard:close") {
-      if (keyboardFocusLock) return;
+      // if (keyboardFocusLock) return; // Deprecated: 23.10.02.23.18
       keyboard?.input.blur();
       return;
     }
@@ -3832,8 +3832,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         xhr.setRequestHeader("Content-Disposition", "inline");
         xhr.setRequestHeader("x-amz-acl", "public-read");
 
+        const blob = new Blob([data]);
+
         xhr.upload.addEventListener("progress", (event) => {
-          console.log(`Uploaded ${event.loaded} of ${event.total} bytes...`);
+          console.log(`Uploaded ${event.loaded} of ${blob.size} bytes...`);
           send({
             type: "upload:progress",
             content: event.loaded / event.total,
@@ -3881,7 +3883,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         };
 
         try {
-          xhr.send(new Blob([data], { type: MIME }));
+          xhr.send(blob, { type: MIME });
         } catch (err) {
           error(err);
         }

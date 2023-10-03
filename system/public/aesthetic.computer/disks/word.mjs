@@ -104,8 +104,6 @@ function boot($) {
 function paint({ ink, system: { nopaint, painting } }) {
   // Rendering commands to write to screen and painting.
   function print({ x, y }) {
-    console.log(x, y);
-
     // Shadow
     const shadow = 1;
     ink(0, 50).write(

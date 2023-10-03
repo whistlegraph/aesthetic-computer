@@ -332,11 +332,12 @@ export { boot, paint, sim, act, leave, meta, preview, icon };
 //   (Useful functions used throughout the piece)
 
 function advance(system) {
+  const record = system.nopaint.record;
   if (noadvance) return;
-  if (system.nopaint.record.length === 0) return;
+  if (record.length === 0) return;
   if (stepIndex === system.nopaint.record.length) stepIndex = 0;
 
-  step = system.nopaint.record[stepIndex];
+  step = record[stepIndex];
   label = step.label.replaceAll("~", " ");
   labelFade = labelFadeSpeed;
 
@@ -346,23 +347,31 @@ function advance(system) {
   } else {
     if (label === "no") {
       paintingIndex = paintingIndex - 1;
+      while (paintingIndex >= 0 && !record[paintingIndex].painting) {
+        paintingIndex -= 1;
+      }
     } else if (label === "yes") {
       paintingIndex = paintingIndex + 1;
+      while (paintingIndex < record.length && !record[paintingIndex].painting) {
+        paintingIndex += 1;
+      }
     }
-    painting = system.nopaint.record[paintingIndex].painting;
+
+    if (record[paintingIndex]) painting = record[paintingIndex].painting;
   }
 
-  // if (direction > 0) {
   stepIndex = stepIndex + 1;
-  //if (stepIndex === system.nopaint.record.length - 1) {
-  // stepIndex = system.nopaint.record.length - 1;
-  // direction = -1;
-  //}
-  //} else {
-  // stepIndex -= 1;
-  // if (stepIndex === 0) direction = 1;
-  //}
 }
+
+// if (direction > 0) {
+//if (stepIndex === system.nopaint.record.length - 1) {
+// stepIndex = system.nopaint.record.length - 1;
+// direction = -1;
+//}
+//} else {
+// stepIndex -= 1;
+// if (stepIndex === 0) direction = 1;
+//}
 
 function genSlug({ params }) {
   // User string (@user/timestamp)
