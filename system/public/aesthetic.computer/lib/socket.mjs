@@ -4,6 +4,8 @@
 /* #region 🏁 todo
 #endregion */
 
+import { logs } from "./logs.mjs";
+
 const { min } = Math;
 
 export class Socket {
@@ -46,11 +48,13 @@ export class Socket {
 
     // Recursively re-connect after every second upon close or failed connection.
     ws.onclose = (e) => {
-      console.warn("📡 Disconnected...", e.currentTarget?.url);
+      if (logs.session)
+        console.warn("📡 Disconnected...", e.currentTarget?.url);
       clearTimeout(this.pingTimeout);
       // Only reconnect if we are not killing the socket and not in development mode.
       if (socket.#killSocket === false) {
-        console.log("📡 Reconnecting in:", socket.#reconnectTime, "ms");
+        if (logs.session)
+          console.log("📡 Reconnecting in:", socket.#reconnectTime, "ms");
         setTimeout(() => {
           socket.connect(host, receive, reload, protocol, connectCallback);
         }, socket.#reconnectTime);
@@ -89,13 +93,14 @@ export class Socket {
       const c = JSON.parse(content);
       this.id = c.id; // Set the user identifier.
       // Send a self-connection message here. (You are connected as...)
-      console.log(
-        `📡 You joined: ${c.ip} id: ${c.id} 🤹 Connections open: ${c.playerCount}`
-      );
+      if (logs.session)
+        console.log(
+          `📡 You joined: ${c.ip} id: ${c.id} 🤹 Connections open: ${c.playerCount}`,
+        );
       receive?.(id, type, c);
     } else if (type === "joined") {
       const c = JSON.parse(content);
-      console.log(`📡 ${c.text || c}`); // Someone else has connected as...
+      if (logs.session) console.log(`📡 ${c.text || c}`); // Someone else has connected as...
       receive?.(id, type, c);
     } else if (type === "reload" && reload && this.#debug) {
       // Only respond to global `reload` signals when in debug mode.
@@ -118,9 +123,10 @@ export class Socket {
         });
       }
     } else if (type === "left") {
-      console.log(
-        `📡 ${content.id} has left. Connections open: ${content.count}`
-      );
+      if (logs.session)
+        console.log(
+          `📡 ${content.id} has left. Connections open: ${content.count}`,
+        );
       receive?.(content.id, type, content);
     } else {
       receive?.(id, type, content); // Finally send the message to the client.

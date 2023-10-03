@@ -449,9 +449,10 @@ async function halt($, text) {
       console.log("🤐 Zipped:", zipped);
       recordingSlug = zipped.slug;
 
-      system.nopaint.recording = false;
-      system.nopaint.record = [];
-      await store.delete("painting:record", "local:db");
+      // TODO: Don't delete painting record unless `new` is entered. 23.10.03.01.51
+      // system.nopaint.recording = false;
+      // system.nopaint.record = [];
+      // await store.delete("painting:record", "local:db");
 
       flashColor = [0, 255, 0];
     } else {

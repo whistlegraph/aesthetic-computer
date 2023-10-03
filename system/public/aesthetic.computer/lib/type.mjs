@@ -217,7 +217,8 @@ class TextInput {
 
   #processCommand; // text processing callback
   // #processingCommand = false;
-  historyDepth = 0;
+  historyDepth = -1;
+  #prehistory;
 
   inputStarted = false; // Flipped when the TextInput is first activated.
   //                       (To clear any starting text.)
@@ -899,12 +900,30 @@ class TextInput {
           this.#prompt.cursor = { x: 0, y: 0 };
         }
 
+        // Assuming you've initialized somewhere in your class:
+        // this.prehistory = "";
+        // this.showingPrehistory = false;
+
         // Move backwards through history stack.
         if (e.key === "ArrowUp") {
+          // TODO: Check to see if this is the first history traversal,
+          //       and store the current text if it is...
           const history = (await store.retrieve(this.key)) || [""];
-          this.text = history[this.historyDepth] || "";
+          if (this.#prehistory === undefined) this.#prehistory = this.text;
+
+          this.historyDepth += 1;
+          if (this.historyDepth === history.length) {
+            this.historyDepth = -1;
+          }
+
+          if (this.historyDepth === -1) {
+            this.text = this.#prehistory;
+          } else {
+            this.text = history[this.historyDepth] || "";
+          }
+
           this.#prompt.snapTo(this.text);
-          this.historyDepth = (this.historyDepth + 1) % history.length;
+
           $.send({
             type: "keyboard:text:replace",
             content: { text: this.text },
@@ -915,10 +934,18 @@ class TextInput {
         // ... and forwards.
         if (e.key === "ArrowDown") {
           const history = (await store.retrieve(this.key)) || [""];
-          this.text = history[this.historyDepth] || "";
-          this.#prompt.snapTo(this.text);
+          if (this.#prehistory === undefined) this.#prehistory = this.text;
+
           this.historyDepth -= 1;
-          if (this.historyDepth < 0) this.historyDepth = history.length - 1;
+          if (this.historyDepth < -1) this.historyDepth = history.length - 1;
+
+          if (this.historyDepth === -1) {
+            this.text = this.#prehistory;
+          } else {
+            this.text = history[this.historyDepth] || "";
+          }
+
+          this.#prompt.snapTo(this.text);
           $.send({
             type: "keyboard:text:replace",
             content: { text: this.text },
@@ -1363,6 +1390,7 @@ class TextInput {
       this.runnable = true;
       this.blink.flip(true);
       this.selection = null;
+      if (this.#prehistory !== undefined) this.#prehistory = this.text;
     }
 
     // if (e.is("prompt:text:select")) {
