@@ -47,6 +47,7 @@ canvas {
 input,
 form {
   pointer-events: none;
+  user-select: none;
 }
 
 #aesthetic-computer {

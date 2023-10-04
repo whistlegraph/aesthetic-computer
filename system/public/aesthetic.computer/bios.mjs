@@ -116,6 +116,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const ffCtx = freezeFrameCan.getContext("2d");
   freezeFrameCan.dataset.type = "freeze";
 
+
+  // A buffer for corner label overlays.
+  const overlayCan = document.createElement("canvas");
+  const octx = overlayCan.getContext("2d");
+
   let imageData;
   let fixedWidth, fixedHeight;
   let projectedWidth, projectedHeight;
@@ -3586,9 +3591,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     let paintOverlays = {};
     function buildOverlay(name, o) {
       if (!o) return;
-      const overlayCan = document.createElement("canvas");
-      const octx = overlayCan.getContext("2d");
-
       octx.imageSmoothingEnabled = false;
 
       overlayCan.width = o.img.width;
