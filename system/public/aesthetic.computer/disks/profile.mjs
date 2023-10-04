@@ -6,7 +6,7 @@
 
 /* #region 🏁 TODO 
   - [🧡] `profile` should be table to <- -> on a user's paintings 
-       - [] Tap into lightbox for painting / playback.
+       - [x] Tap into lightbox for painting / playback.
        - [] Cache the bitmaps.
        - [] Loading paintings should make a beep.
        - [] Add left and right tap buttons.
@@ -38,8 +38,10 @@ let debug;
 let profile,
   noprofile = RETRIEVING;
 
+let paintingBtn;
 let visiting, code, painting, paintings, paintingIndex;
 const { max, min } = Math;
+import * as sfx from "./common/sfx.mjs";
 
 // 📰 Meta
 function meta({ piece }) {
@@ -109,7 +111,7 @@ async function boot({ params, user, handle, debug, hud, net, get, debug: d }) {
 }
 
 // 🎨 Paint
-function paint({ params, wipe, ink, pen, user, screen, paste }) {
+function paint({ api, wipe, ink, pen, user, screen, ui, text, paste }) {
   if (!pen?.drawing) wipe(98);
   ink(127).line();
   if (profile) ink().line().ink().line().ink().line();
@@ -155,14 +157,29 @@ function paint({ params, wipe, ink, pen, user, screen, paste }) {
       screen.height - 1,
     );
 
-    ink(200).write(code, { x: 3, y: screen.height - 13 });
+    const pos = { x: 3, y: screen.height - 13 };
+
+    const box = text.box(code, pos).box;
+    const blockWidth = 6;
+    box.width -= blockWidth * 2;
+
+    if (!paintingBtn) paintingBtn = new ui.Button(box);
+    paintingBtn.paint((btn) => {
+      ink(btn.down ? "orange" : 255).write(code, pos);
+    });
   }
 
   // return false;
 }
 
 // 🎪 Act
-function act({ event: e, get }) {
+function act({ event: e, get, sound, jump }) {
+
+  paintingBtn?.act(e, () => {
+    sfx.push(sound);
+    jump(`painting ${visiting}/${code}`);
+  });
+
   // Respond to user input here.
   if (e.is("keyboard:down:arrowleft")) {
     paintingIndex = max(0, paintingIndex - 1);
