@@ -24,8 +24,6 @@ export async function handler(event, context) {
 
     const slug = body.slug;
 
-    console.log("SLUG", slug, body);
-
     // And that we are logged in...
     const user = await authorize(event.headers);
     if (user) {

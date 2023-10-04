@@ -41,6 +41,9 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** pre-`hell_ world` production ***
+  - [] Production Log
+  - [] 1.  
+  ----
   - [] Watch some more of the sample painting playbacks and check for other
        errors like the ineffective no?
   - [] Try to see if I can hit the ineffective `no` error.

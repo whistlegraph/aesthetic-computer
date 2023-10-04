@@ -74,7 +74,7 @@ export class Box {
     if (Array.isArray(box)) {
       return new Box(...box);
     } else {
-      return new Box(box.x, box.y, box.w, box.h);
+      return new Box(box.x, box.y, box.w || box.width, box.h || box.height);
     }
   }
 
