@@ -75,7 +75,7 @@ export async function getHandleOrEmail(sub) {
 // Connects to the MongoDB database to obtain a user's handle from their ID.
 // (With redis cache)
 export async function handleFor(id) {
-  const time = performance.now();
+  // const time = performance.now();
 
   await KeyValue.connect();
   let cachedID = await KeyValue.get("userIDs", id);
@@ -108,7 +108,7 @@ export async function handleFor(id) {
     await database.disconnect();
     await KeyValue.disconnect();
 
-    console.log("Time taken...", performance.now() - time);
+    // console.log("Time taken...", performance.now() - time);
     return existingUser?.handle;
   }
 }
