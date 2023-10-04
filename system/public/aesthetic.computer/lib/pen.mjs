@@ -129,6 +129,7 @@ export class Pen {
       const pointerId = getPointerId(e);
 
       // Make sure the pointer we are using is already being tracked.
+      // Always make a new pointer on pointerdown. 23.10.03.19.39
       let pointer = pen.pointers[pointerId];
 
       // If it doesn't exist, then make a new pointer and push to pointers.
@@ -138,7 +139,6 @@ export class Pen {
 
         // Assign data to individual pointer.
         assign(pointer, point(e.x, e.y));
-
         pointer.px = pointer.x;
         pointer.py = pointer.y;
         pointer.saveDeltaP();
@@ -160,10 +160,22 @@ export class Pen {
 
         pen.pointers[pointerId] = pointer;
       } else {
+        assign(pointer, point(e.x, e.y));
+        pointer.px = pointer.x;
+        pointer.py = pointer.y;
+        pointer.saveDeltaP();
+
+        pointer.untransformedPosition = { x: e.x, y: e.y };
+        pointer.pressure = reportPressure(e);
+
+        pointer.drawing = true;
+
         pointer.button = e.button; // Should this be deprecated? 22.11.07.22.13
         pointer.buttons = [e.button];
-        pointer.drawing = true;
+
         pointer.penDragStartPos = { x: pointer.x, y: pointer.y };
+
+        pointer.device = e.pointerType;
       }
 
       pointer.dragBox = {
@@ -216,8 +228,6 @@ export class Pen {
       pointer.saveDelta();
 
       if (pointer.drawing) {
-        // console.log("drawing...");
-
         const penDragAmount = {
           x: pointer.x - pointer.penDragStartPos.x,
           y: pointer.y - pointer.penDragStartPos.y,
@@ -270,8 +280,9 @@ export class Pen {
       if (e.pointerType !== "mouse") pen.penCursor = false;
 
       // Delete pointer only if we are using touch.
-      if (e.pointerType === "touch" || e.pointerType === "pen")
+      if (e.pointerType === "touch" || e.pointerType === "pen") {
         delete this.pointers[pointerId];
+      }
 
       // if (debug)
       // console.log("Removed pointer by ID:", e.pointerId, this.pointers);

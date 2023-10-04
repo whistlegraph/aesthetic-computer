@@ -177,7 +177,7 @@ export function rand() {
 
 // Generates an integer from 0-n (inclusive)
 export function randInt(n) {
-  return floor(random() * (n + 1));
+  return floor(rand() * (n + 1));
 }
 
 // Generates an array of random integers from 0-n (inclusive)

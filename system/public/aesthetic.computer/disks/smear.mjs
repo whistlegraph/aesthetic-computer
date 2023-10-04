@@ -61,8 +61,6 @@ function paint({
     pan(brush.x, brush.y);
     samples.forEach((sample) => {
       // TODO: Physically drift sample positions based on gesture.
-      //sample.x += clamp(sample.x + rr(-1, 1), 0, radius * 2);
-      //sample.y += clamp(sample.y + rr(-1, 1), 0, radius * 2);
       sample.x += rr(-1, 1);
       sample.y += rr(-1, 1);
       // TODO: Drift color.

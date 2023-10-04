@@ -100,6 +100,7 @@ function paint({ pen, ink, num, system: { nopaint } }) {
 
     // Draw the current gesture up to the current pen point.
     if (thickness === 1) {
+      // console.log(pen, points);
       ink(colorParams).pppline([...points.slice(), pen], { color });
     } else {
       ink(colorParams).pline([...points.slice(), pen], thickness, { color });
@@ -138,13 +139,14 @@ function bake({ paste, screen }) {
 // ✒ Act
 function act({ event: e, pen, num }) {
   // Start .
-  if (e.is("touch:1") && pen) {
+  if (e.is("touch:1")) {
+    // console.log("empty points");
     points.length = 0;
-    race.start([pen.x, pen.y]);
-    addPoint(num, pen.x, pen.y);
+    race.start([e.x, e.y]);
+    addPoint(num, e.x, e.y);
   }
 
-  if (e.is("draw:1") && pen) race.goal = [pen.x, pen.y];
+  if (e.is("draw:1")) race.goal = [e.x, e.y];
 }
 
 const system = "nopaint";

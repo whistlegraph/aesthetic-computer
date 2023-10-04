@@ -76,7 +76,7 @@ function nopaint_act({
   }
 
   // Track
-  if (nopaint_is("painting") && (e.is("move") || e.is("draw:1"))) {
+  if (nopaint_is("painting") && e.is("draw:1")) {
     // if (debug) console.log("Updating brush...");
     system.nopaint.updateBrush(api, "draw");
 
@@ -143,12 +143,15 @@ function nopaint_act({
   }
 
   // Track
-  if (nopaint_is("panning") && (e.is("move") || e.is("draw"))) {
+  if (
+    nopaint_is("panning") &&
+    ((e.is("move") && e.device === "mouse") || e.is("draw"))
+  ) {
     system.nopaint.translate(api, e.delta.x, e.delta.y);
 
     const p = pens();
     if (p.length === 2) {
-      console.log(p); // TODO: Set the zoom level here.
+      // console.log(p); // TODO: Set the zoom level here.
     }
 
     system.nopaint.present(api);
