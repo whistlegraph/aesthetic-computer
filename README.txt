@@ -44,6 +44,10 @@
   - [] Production Log
   - [] 1.  
   ----
+  Bugs
+  ----
+  - [] `word` multi line centering not working on panned canvas 
+  ----
   - [] Watch some more of the sample painting playbacks and check for other
        errors like the ineffective no?
   - [] Try to see if I can hit the ineffective `no` error.
