@@ -9,6 +9,7 @@ export default async function handleRequest(event) {
   if (path[1] === "media") {
     if (path[2].indexOf("@") === -1) {
       newUrl = `https://art.aesthetic.computer/${path[2]}`;
+      return fetch(encodeURI(newUrl));
     } else {
       const userId = await queryUserID(path[2]);
       const newPath = `${userId}/${path.slice(3).join("/")}`;
