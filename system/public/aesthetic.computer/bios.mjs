@@ -116,7 +116,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const ffCtx = freezeFrameCan.getContext("2d");
   freezeFrameCan.dataset.type = "freeze";
 
-
   // A buffer for corner label overlays.
   const overlayCan = document.createElement("canvas");
   const octx = overlayCan.getContext("2d");
@@ -4301,7 +4300,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (
             (iOS || Android) &&
             window.matchMedia("(orientation: portrait)").matches &&
-            facingModeChoice === "environment" // &&
+            (facingModeChoice === "environment" || facingModeChoice === "user")
+            // &&
             // firstVideo
           ) {
             const temp = cWidth;
@@ -4309,6 +4309,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             cHeight = temp;
             // firstVideo = false;
           }
+
+          // alert(cWidth + " " + cHeight);
 
           constraints.width = { ideal: cWidth };
           constraints.height = { ideal: cHeight };
@@ -4320,7 +4322,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           video.srcObject = stream;
           videoTrack = stream.getVideoTracks()[0];
-          const capabilities = videoTrack.getCapabilities();
+          // const capabilities = videoTrack.getCapabilities();
           settings = videoTrack.getSettings();
 
           // console.log(
