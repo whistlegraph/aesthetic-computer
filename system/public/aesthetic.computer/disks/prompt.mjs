@@ -513,6 +513,11 @@ async function halt($, text) {
   } else if (slug === "bb") {
     jump("booted-by");
     return true;
+  } else if (slug === "demo") {
+    jump(
+      "https://www.dropbox.com/scl/fi/3cmnkp3oqoth9by99fieh/aesthetic-computer-demo.mov?rlkey=amzo78pi2qrrctiy434tle3nq&dl=0",
+    );
+    return true;
   } else if (slug === "p" || slug === "pain") {
     jump("painting");
     return true;
