@@ -52,14 +52,16 @@ function act({
       page(screen);
       const hsl = rgbToHsl(...color);
       const pan = 1 - (x / screen.width) * 2;
+
       console.log("Pan:", pan);
+      console.log("HSL:", hsl);
 
       sound.synth({
-        type: "sine",
-        tone: map(hsl[0], 0, 360, 400, 800),
+        type: "square",
+        tone: map(hsl[0], 0, 360, 200, 1000),
         attack: 0.001,
         decay: 0.98,
-        volume: 1, // + hsl[2] / 100 / 2,
+        volume: 0.75, // + hsl[2] / 100 / 2,
         pan,
         duration: 0.5,
       });
