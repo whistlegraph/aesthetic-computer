@@ -45,7 +45,7 @@ export async function handler(event, context) {
       // List all moods from the database and return
       // them as { moods }.
       const moods = await allMoods(database, handle);
-      database.disconnect();
+      await database.disconnect();
       return moods && moods.length > 0
         ? respond(200, { moods })
         : respond(500, { message: "No mood found." });
@@ -53,7 +53,7 @@ export async function handler(event, context) {
       const user = await userIDFromHandleOrEmail(slug, database);
       if (user && user.length > 0) {
         const mood = await moodFor(user, database);
-        database.disconnect();
+        await database.disconnect();
         return mood
           ? respond(200, mood)
           : respond(500, { message: "No mood found." });
