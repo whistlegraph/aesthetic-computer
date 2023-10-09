@@ -3590,19 +3590,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     let paintOverlays = {};
     function buildOverlay(name, o) {
       if (!o) return;
-      octx.imageSmoothingEnabled = false;
 
-      overlayCan.width = o.img.width;
-      overlayCan.height = o.img.height;
+      paintOverlays[name] = () => {
+        octx.imageSmoothingEnabled = false;
 
-      octx.putImageData(
-        new ImageData(o.img.pixels, o.img.width, o.img.height),
-        0,
-        0,
-      );
+        overlayCan.width = o.img.width;
+        overlayCan.height = o.img.height;
 
-      paintOverlays[name] = () => ctx.drawImage(overlayCan, o.x, o.y);
+        octx.putImageData(
+          new ImageData(o.img.pixels, o.img.width, o.img.height),
+          0,
+          0,
+        );
+        ctx.drawImage(overlayCan, o.x, o.y);
+      };
     }
+
     buildOverlay("label", content.label);
     buildOverlay("tapeProgressBar", content.tapeProgressBar);
 
