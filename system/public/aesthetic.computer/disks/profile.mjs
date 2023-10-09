@@ -148,7 +148,7 @@ function paint({ api, wipe, ink, pen, user, screen, ui, text, paste }) {
     ink(255).write("retrieving...", { center: "xy" }, "black");
   }
 
-  if (paintings) {
+  if (paintings?.length > 0) {
     ink(0).line(0, screen.height - 1, screen.width, screen.height - 1);
     ink("yellow").line(
       0,
@@ -174,7 +174,6 @@ function paint({ api, wipe, ink, pen, user, screen, ui, text, paste }) {
 
 // 🎪 Act
 function act({ event: e, get, sound, jump }) {
-
   paintingBtn?.act(e, () => {
     sfx.push(sound);
     jump(`painting ${visiting}/${code}`);
@@ -230,7 +229,7 @@ async function loadPainting(get, index, from) {
     if (err.name === "AbortError") {
       if (debug) console.log("Request was aborted");
     } else {
-      console.error("Some other error occurred:", err);
+      console.error("Painting load failure:", err);
     }
   }
 }

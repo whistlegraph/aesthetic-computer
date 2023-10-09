@@ -1520,6 +1520,7 @@ const $paintApi = {
   },
   // 2. Image Utilities
   clonePixels: graph.cloneBuffer,
+  colorsMatch: graph.colorsMatch,
   color,
   resize: graph.resize,
   // 3. 3D Classes & Objects
@@ -1699,6 +1700,7 @@ const $paintApiUnwrapped = {
   },
   copy: graph.copy,
   paste: graph.paste,
+  pixel: graph.pixel,
   plot: function () {
     if (arguments.length === 1) {
       graph.plot(arguments[0].x, arguments[0].y);
@@ -1706,6 +1708,7 @@ const $paintApiUnwrapped = {
       graph.plot(...arguments);
     }
   }, // TODO: Should this be renamed to set?
+  flood: graph.flood,
   point: graph.point,
   line: function () {
     const out = graph.line(...arguments);
@@ -3785,10 +3788,10 @@ async function makeFrame({ data: { type, content } }) {
 
       $api.inFocus = inFocus;
 
-      // Don't pass pixels to updates.
       $api.screen = {
         width: content.width,
         height: content.height,
+        pixels: screen.pixels,
       };
 
       $api.cursor = (code) => (cursorCode = code);
