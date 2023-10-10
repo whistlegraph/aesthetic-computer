@@ -143,7 +143,7 @@ function boot($) {
   (gridWidth = num.randIntRange(1, 6)), (gridHeight = num.randIntRange(1, 6));
 
   if (params.length === 1) {
-    if (params[0] === "phand") {
+    if (params[0] === "phand" || params[0] === "wild") {
       gridWidth = 4;
       gridHeight = 1;
       // 🧚 `peter-hand` specific tones... 23.03.09.17.38 (for HOOK screening)
@@ -224,7 +224,7 @@ function act($) {
           needsPaint();
         },
       },
-      pens?.()
+      pens?.(),
     ); // Passing pens here enables multi-touch support for ui buttons.
   });
 }
