@@ -1712,7 +1712,10 @@ const $paintApiUnwrapped = {
   point: graph.point,
   line: function () {
     const out = graph.line(...arguments);
-    twoDCommands.push(["line", ...out]);
+    // console.log(out);
+    if (out) {
+      twoDCommands.push(["line", ...out]);
+    }
   },
   lineAngle: graph.lineAngle,
   pline: graph.pline,
