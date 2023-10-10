@@ -167,6 +167,11 @@
 
 --------------------------
 
+Right now I am typing some words.
+
+*** Research ***
+  - [] Piczo
+
 *** Logo ***
   - [] Add ice cream pals to `pals.aesthetic.computer.`
   - [] See if this starts working: https://logo.aesthetic.computer/painting-2023.8.01.14.04.png
