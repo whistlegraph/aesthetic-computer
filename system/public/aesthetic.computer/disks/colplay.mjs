@@ -38,7 +38,8 @@ function act({
 
   if (e.is("touch") || e.is("draw")) {
     //  Get the color pixel from the painting under the cursor.
-    const { x, y } = system.nopaint.brush;
+    const { x, y } = system.nopaint.pointToPainting({ system, pen: e });
+
     const color = pixel(x, y, system.painting);
     // Make sure the pixel isn't transparent.
     // And the color is different from lastColor.

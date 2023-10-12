@@ -40,18 +40,9 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** pre-`hell_ world` production ***
-  - [] Production Log
-  - [] 1.  
-  ----
-  Bugs
-  ----
-  - [] `word` multi line centering not working on panned canvas 
-  ----
-  - [] Watch some more of the sample painting playbacks and check for other
-       errors like the ineffective no?
-  - [] Try to see if I can hit the ineffective `no` error.
-  + Done
+*** `hell_ world` production ***
+  - [👿] Paint > 200 pictures on @jeffrey.
+  - [] Alias them to a `hell_-world` command with `hw` for short.
   - [x] Capture timestamped gesture data from first pointer.
   - [x] Fix `done` progress bar repeating and repeating over and over on the
         bigger zip file. (Not taking into account full math?)
@@ -61,6 +52,19 @@
        - After what action? `line rainbow` 
   - [x] Fix `no` not working after first attempt regression.
   - [x] Fix zip file loading on `painting`.
+
+*** colplay ***
+  - [🟡] Add multi-touch support.
+
+*** brush bugs ***
+  - [] `word` multi line centering not working on panned canvas 
+  - [] Watch some more of the sample painting playbacks and check for other
+       errors like the ineffective no?
+  - [] Try to see if I can hit the ineffective `no` error.
+
+*** readme switch ***
+  - [] Split README off from TODO.
+  - [] Make it markdown? Or leave it .txt?
 
 *** painting listings ***
   - [🧡] `profile` should be table to <- -> on a user's paintings 

@@ -911,8 +911,23 @@ const $commonApi = {
           y: (p.y - nopaintAPI.translation.y) / nopaintAPI.zoomLevel,
         };
       },
-      updateBrush: ({ pen, system, num }, act) => {
-        let zoom = system.nopaint.zoomLevel;
+      // Similar to `updateBrush` but for arbitrary points,
+      // with no change to `system.nopaint.brush`.
+      pointToPainting: ({ system, pen }) => {
+        const zoom = system.nopaint.zoomLevel;
+        const x = Math.floor(
+          ((pen?.x || 0) - system.nopaint.translation.x) / zoom,
+        );
+        const y = Math.floor(
+          ((pen?.y || 0) - system.nopaint.translation.y) / zoom,
+        );
+
+        return { x, y };
+      },
+      updateBrush: ({ pen, system }, act) => {
+        // TODO: Use `pointToPainting` above. 23.10.11.08.49
+        // let { x, y } = system.nopaint.pointToPainting({ system });
+        const zoom = system.nopaint.zoomLevel;
         const x = Math.floor(
           ((pen?.x || 0) - system.nopaint.translation.x) / zoom,
         );
@@ -933,7 +948,7 @@ const $commonApi = {
             (y >= system.nopaint.startDrag.y ? 1 : -1),
         );
 
-        system.nopaint.brush = { x: x, y: y, dragBox };
+        system.nopaint.brush = { x, y, dragBox };
       },
 
       // Helper to display the existing painting on the screen, with an
