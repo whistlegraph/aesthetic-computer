@@ -92,6 +92,7 @@ function pixel(x, y, painting = { width, height, pixels }) {
 
 // Helper function to check if two colors are the same
 function colorsMatch(color1, color2) {
+  if (!color1) return false;
   return (
     color1[0] === color2[0] &&
     color1[1] === color2[1] &&
