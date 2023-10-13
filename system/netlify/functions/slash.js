@@ -16,6 +16,8 @@ export async function handler(event) {
 
   console.log("Timestamp:", timestamp, "Signature:", signature);
 
+  console.log(event.headers);
+
   if (!timestamp && !signature)
     return respond(500, { message: "😈 Unauthorized." });
 
