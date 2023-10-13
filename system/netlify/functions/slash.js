@@ -34,7 +34,7 @@ export async function handler(event) {
     process.env.DISCORD_PAL_PUBLIC,
   );
 
-  console.log("Valid request:", isValidRequest);
+  // console.log("Valid request:", isValidRequest);
 
   if (!isValidRequest) {
     return respond(401, { message: "😫 Invalid request signature." });
@@ -42,27 +42,29 @@ export async function handler(event) {
 
   const body = JSON.parse(event.body);
 
-  console.log("Body:", body);
+  // console.log("Body:", body);
 
   if (body.type === InteractionType.PING) {
     return respond(200, { type: InteractionResponseType.PONG });
   }
 
-  console.log("Types:", body.type, InteractionType.APPLICATION_COMMAND);
+  // console.log("Types:", body.type, InteractionType.APPLICATION_COMMAND);
 
   if (
     body.type === InteractionType.APPLICATION_COMMAND &&
     body.data.name === "ac"
   ) {
     const userInput = body.data.options[0].value; // Assuming the input is the first option
-    const transformedInput = userInput + " 😀";
+    const transformedInput = `:mushroom: [${userInput}](https://prompt.ac/~${userInput
+      .split(" ")
+      .join("~")})`;
 
-    console.log("Options:", body.data.options);
-    console.log("Input:", userInput, "Out:", transformedInput);
-    console.log(
-      "Response type:",
-      InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-    );
+    // console.log("Options:", body.data.options);
+    // console.log("Input:", userInput, "Out:", transformedInput);
+    // console.log(
+    //   "Response type:",
+    //   InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    // );
 
     return respond(200, {
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
