@@ -1,6 +1,5 @@
 // Slash, 23.10.13.00.08
 // A helpful Discord webhook for auto-linking AC pieces.
-
 // TODO: Test via the Netlify logs.
 
 import { respond } from "../../backend/http.mjs";
@@ -48,10 +47,10 @@ export async function handler(event) {
 
   if (
     body.type === InteractionType.APPLICATION_COMMAND &&
-    body.data.name === "ac"
+    body.data.name === "enter"
   ) {
     const slug = body.data.options[0].value; // Assume user input is 1st option.
-    const content = `[${slug}](<https://prompt.ac/${slug
+    const content = `[${slug}](<https://aesthetic.computer/${slug
       .split(" ")
       .join("~")}>)`;
 
@@ -102,13 +101,13 @@ const createACCommand = async (clientId) => {
   };
 
   const commandData = {
-    name: "ac",
+    name: "enter",
     description: "Jump to any piece.",
     options: [
       {
         name: "piece",
         type: 3,
-        description: "Type as you would on aesthetic.computer to make a link.",
+        description: "Enter an aesthetic.computer piece to make a link.",
         required: true,
       },
     ],
