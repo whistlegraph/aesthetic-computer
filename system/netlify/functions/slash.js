@@ -58,6 +58,10 @@ export async function handler(event) {
     const transformedInput = userInput + " 😀";
 
     console.log("Input:", userInput, "Out:", transformedInput);
+    console.log(
+      "Response type:",
+      InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    );
 
     return respond(200, {
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
