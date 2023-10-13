@@ -71,6 +71,9 @@
 [[edge_functions]]
   path = "/media/*"
   function = "media"
+[[edge_functions]]
+  path = "/slash"
+  function = "slash"
 [[redirects]]
    from = "https://botce.ac/wPyYL4osf6Cw0pkHn_E5I-botce"
    to = "https://aesthetic.computer/wPyYL4osf6Cw0pkHn_E5I-botce"
