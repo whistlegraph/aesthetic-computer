@@ -40,6 +40,8 @@
   external_node_modules = ["got", "crypto", "patreon"]
 [functions.vary]
   external_node_modules = ["got", "multiparty", "openai"]
+[functions.slash]
+  external_node_modules = ["crypto"]
 [dev]
   NODE_ENV = "development"
   publish = "public/"
@@ -71,9 +73,6 @@
 [[edge_functions]]
   path = "/media/*"
   function = "media"
-[[edge_functions]]
-  path = "/slash"
-  function = "slash"
 [[redirects]]
    from = "https://botce.ac/wPyYL4osf6Cw0pkHn_E5I-botce"
    to = "https://aesthetic.computer/wPyYL4osf6Cw0pkHn_E5I-botce"
@@ -87,6 +86,11 @@
 [[redirects]]
   from = "/media-collection/*"
   to = "/.netlify/functions/media-collection"
+  status = 200
+  force = true
+[[redirects]]
+  from = "/slash"
+  to = "/.netlify/functions/slash"
   status = 200
   force = true
 [[redirects]]
