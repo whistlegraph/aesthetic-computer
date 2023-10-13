@@ -57,6 +57,7 @@ export async function handler(event) {
     const userInput = body.data.options[0].value; // Assuming the input is the first option
     const transformedInput = userInput + " 😀";
 
+    console.log("Options:", body.data.options);
     console.log("Input:", userInput, "Out:", transformedInput);
     console.log(
       "Response type:",
