@@ -14,8 +14,15 @@ export async function handler(event) {
   const timestamp = event.headers["x-signature-timestamp"];
   const signature = event.headers["x-signature-ed25519"];
 
-  // console.log("Env:", process.env.DISCORD_PAL_PUBLIC);
-  // console.log("Timestamp:", timestamp, "Signature:", signature);
+  // if (event.httpMethod === "DELETE") {
+  //   await deleteAllCommands(process.env.DISCORD_PAL_APP_ID);
+  //   return respond(200, { message: "Commands deleted successfully." });
+  // }
+
+  if (event.httpMethod === "PUT") {
+    await createACCommand(process.env.DISCORD_PAL_APP_ID);
+    return respond(200, { message: "Command created successfully!" });
+  }
 
   if (!timestamp && !signature)
     return respond(500, { message: "😈 Unauthorized." });
@@ -41,7 +48,12 @@ export async function handler(event) {
     return respond(200, { type: InteractionResponseType.PONG });
   }
 
-  if (body.type === InteractionType.APPLICATION_COMMAND) {
+  console.log("Types:", body.type, InteractionType.APPLICATION_COMMAND);
+
+  if (
+    body.type === InteractionType.APPLICATION_COMMAND &&
+    body.data.name === "ac"
+  ) {
     return respond(200, {
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: { content: "hello world 🗺️" },
@@ -50,3 +62,63 @@ export async function handler(event) {
 
   return respond(400, { message: "🫠 Unhandled interaction type." });
 }
+
+// Removes all discord commands.
+const deleteAllCommands = async (clientId) => {
+  // Guild-specific commands URL
+  // const url = `https://discord.com/api/v10/applications/${clientId}/guilds/${process.env.DISCORD_SERVER_ID}/commands`;
+
+  // Global commands URL
+  const url = `https://discord.com/api/v10/applications/${clientId}/commands`;
+
+  console.log(url);
+
+  const headers = {
+    Authorization: `Bot ${process.env.DISCORD_PAL_BOT}`,
+    "Content-Type": "application/json",
+  };
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: headers,
+  });
+
+  const commands = await response.json();
+
+  console.log("Commands available:", commands.errors);
+
+  for (const command of commands) {
+    await fetch(`${url}/${command.id}`, {
+      method: "DELETE",
+      headers: headers,
+    });
+  }
+};
+
+const createACCommand = async (clientId) => {
+  const url = `https://discord.com/api/v10/applications/${clientId}/commands`;
+
+  const headers = {
+    Authorization: `Bot ${process.env.DISCORD_PAL_BOT}`,
+    "Content-Type": "application/json",
+  };
+
+  const commandData = {
+    name: "ac",
+    description: "The catch-all aesthetic.computer command!",
+    options: [
+      {
+        name: "input",
+        type: 3,
+        description: "Surround pieces like: `piece`.",
+        required: true,
+      },
+    ],
+  };
+
+  await fetch(url, {
+    method: "POST",
+    headers: headers,
+    body: JSON.stringify(commandData),
+  });
+};
