@@ -1,7 +1,8 @@
+// Media
+
 export const config = { path: "/media/*" };
 
-export default async function handleRequest(event) {
-  const request = event;
+export default async function handleRequest(request) {
   const url = new URL(request.url);
   const path = url.pathname.split("/");
   let newUrl;

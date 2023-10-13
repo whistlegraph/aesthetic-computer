@@ -40,14 +40,16 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** translation *** 
+  - [] Implement an empty discord slash command webhook.
+
 *** user pieces ***
   - [-] Consider the versioning of published pieces /
        how they should be added to the database.
+  - [] Jump to any user space with admin:space @handle
+       - https://cloud.digitalocean.com/spaces/user.aesthetic.computer?path=auth0%7C650ef5167fd48ae4910e048c%2F&deleteObject=&type=
   - [x] Add user pieces to the database and wire up the
         media collection endpoint.
-
-*** translation *** 
-  - [] Implement an empty discord slash command webhook.
 
 *** `hell_ world` production ***
   - [👿] Paint > 200 pictures on @jeffrey.
