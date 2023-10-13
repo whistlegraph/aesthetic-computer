@@ -59,13 +59,13 @@ export async function handler(event) {
 
     console.log("In:", userInput, "Out:", transformedInput);
 
-    const body = {
+    const b = {
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: { content: transformedInput },
     };
 
-    console.log("Body:", body);
-    return respond(200, body);
+    console.log("Body:", b);
+    return respond(200, b);
   }
 
   return respond(400, { message: "🫠 Unhandled interaction type." });
