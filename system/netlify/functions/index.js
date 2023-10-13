@@ -11,7 +11,9 @@ async function fun(event, context) {
   if (dev) console.log("Node version:", process.version);
   // TODO: Return a 500 or 404 for everything that does not exist...
   //       - [] Like for example if the below import fails...
-  if (event.path === "/favicon.ico") return { statusCode: 500 };
+  if (event.path === "/favicon.ico") {
+    return { statusCode: 500 };
+  }
 
   let slug = event.path.slice(1) || "prompt";
 
@@ -68,28 +70,14 @@ async function fun(event, context) {
     } else {
       // Locally hosted piece.
       try {
-        // Just whitelist freaky-flowers for now 22.11.28.13.36.
-        // Also whitelist wg 22.12.25.20.28
-        if (
-          !parsed.text.startsWith("requestProvider.js.map") // &&
-          // (parsed.text.startsWith("ff") ||
-          //   parsed.text.startsWith("freaky-flowers") ||
-          //   parsed.text.startsWith("wg") ||
-          //   parsed.text.startsWith("prompt") ||
-          //   parsed.text.startsWith("botce") ||
-          //   parsed.text.startsWith("baktok") ||
-          //   parsed.text.startsWith("painting") ||
-          //   parsed.text.startsWith("textfence") ||
-          //   parsed.text.startsWith("valbear") ||
-          //   parsed.text.startsWith("ordfish") ||
-          //   parsed.text === "")
-        ) {
+        if (!parsed.text.startsWith("requestProvider.js.map")) {
           const path = parsed.path.replace("aesthetic.computer/disks/", "");
           const m = await import(
             `../../public/aesthetic.computer/disks/${path}.mjs`
           );
+
           meta = m.meta?.(parsed); // Parse any special piece metadata if it exists.
-          console.log("Metadata:", meta);
+          console.log("📰 Metadata:", meta, "Path:", parsed.text);
         }
       } catch (e) {
         console.log(e);
@@ -108,7 +96,7 @@ async function fun(event, context) {
     meta,
   );
 
-  const assetURI = dev ? "/assets/" : "https://assets.aesthetic.computer/";
+  // const assetURI = dev ? "/assets/" : "https://assets.aesthetic.computer/";
 
   const body = html`
     <!doctype html>
