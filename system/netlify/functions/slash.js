@@ -15,10 +15,13 @@ export async function handler(event) {
   const signature = event.headers["x-signature-ed25519"];
 
   // ⚠️ Uncomment these routes for manual initialization.
+  // Run with httpie: `https DELETE :8888/slash`
   // if (event.httpMethod === "DELETE") {
   //   await deleteAllCommands(process.env.DISCORD_PAL_APP_ID);
   //   return respond(200, { message: "Commands deleted successfully." });
   // }
+
+  // Run with httpie: `https PUT :8888/slash`
   // if (event.httpMethod === "PUT") {
   //   await createACCommand(process.env.DISCORD_PAL_APP_ID);
   //   return respond(200, { message: "Command created successfully!" });
@@ -34,41 +37,28 @@ export async function handler(event) {
     process.env.DISCORD_PAL_PUBLIC,
   );
 
-  // console.log("Valid request:", isValidRequest);
-
   if (!isValidRequest) {
     return respond(401, { message: "😫 Invalid request signature." });
   }
 
   const body = JSON.parse(event.body);
 
-  // console.log("Body:", body);
-
   if (body.type === InteractionType.PING) {
     return respond(200, { type: InteractionResponseType.PONG });
   }
-
-  // console.log("Types:", body.type, InteractionType.APPLICATION_COMMAND);
 
   if (
     body.type === InteractionType.APPLICATION_COMMAND &&
     body.data.name === "ac"
   ) {
-    const userInput = body.data.options[0].value; // Assuming the input is the first option
-    const transformedInput = `:mushroom: [${userInput}](https://prompt.ac/~${userInput
+    const slug = body.data.options[0].value; // Assume user input is 1st option.
+    const content = `[${userInput}](<https://prompt.ac/~${slug
       .split(" ")
-      .join("~")})`;
-
-    // console.log("Options:", body.data.options);
-    // console.log("Input:", userInput, "Out:", transformedInput);
-    // console.log(
-    //   "Response type:",
-    //   InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-    // );
+      .join("~")}>)`;
 
     return respond(200, {
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-      data: { content: transformedInput },
+      data: { content },
     });
   }
 
@@ -78,12 +68,9 @@ export async function handler(event) {
 // Removes all discord commands.
 const deleteAllCommands = async (clientId) => {
   // Guild-specific commands URL
-  // const url = `https://discord.com/api/v10/applications/${clientId}/guilds/${process.env.DISCORD_SERVER_ID}/commands`;
-
+  const url = `https://discord.com/api/v10/applications/${clientId}/guilds/${process.env.DISCORD_SERVER_ID}/commands`;
   // Global commands URL
-  const url = `https://discord.com/api/v10/applications/${clientId}/commands`;
-
-  console.log(url);
+  // const url = `https://discord.com/api/v10/applications/${clientId}/commands`;
 
   const headers = {
     Authorization: `Bot ${process.env.DISCORD_PAL_BOT}`,
@@ -117,12 +104,12 @@ const createACCommand = async (clientId) => {
 
   const commandData = {
     name: "ac",
-    description: "The catch-all aesthetic.computer command!",
+    description: "Jump to any piece.",
     options: [
       {
         name: "piece",
         type: 3,
-        description: "Surround pieces like: `piece`.",
+        description: "Type as you would on aesthetic.computer to make a link.",
         required: true,
       },
     ],
