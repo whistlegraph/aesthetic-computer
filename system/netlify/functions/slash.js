@@ -2,7 +2,11 @@
 // A helpful Discord webhook for auto-linking AC pieces.
 
 import { respond } from "../../backend/http.mjs";
-import { verifyKey, InteractionResponseType } from "discord-interactions";
+import {
+  verifyKey,
+  InteractionResponseType,
+  InteractionType,
+} from "discord-interactions";
 
 export async function handler(event) {
   const timestamp = event.headers["X-Signature-Timestamp"];
@@ -22,8 +26,18 @@ export async function handler(event) {
     return respond(401, { message: "😫 Invalid request signature." });
   }
 
-  return respond(200, {
-    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-    data: { content: "hello world 🗺️" },
-  });
+  const body = JSON.parse(event.body);
+
+  if (body.type === InteractionType.PING) {
+    return respond(200, { type: InteractionResponseType.PONG });
+  }
+
+  if (body.type === InteractionType.APPLICATION_COMMAND) {
+    return respond(200, {
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { content: "hello world 🗺️" },
+    });
+  }
+
+  return respond(400, { message: "🫠 Unhandled interaction type." });
 }
