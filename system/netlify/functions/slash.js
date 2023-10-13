@@ -14,9 +14,8 @@ export async function handler(event) {
   const timestamp = event.headers["x-signature-timestamp"];
   const signature = event.headers["x-signature-ed25519"];
 
-  console.log("Timestamp:", timestamp, "Signature:", signature);
-
-  console.log(event.headers);
+  // console.log("Env:", process.env.DISCORD_PAL_PUBLIC);
+  // console.log("Timestamp:", timestamp, "Signature:", signature);
 
   if (!timestamp && !signature)
     return respond(500, { message: "😈 Unauthorized." });
