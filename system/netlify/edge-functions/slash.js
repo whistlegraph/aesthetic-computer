@@ -22,7 +22,7 @@ export default async function handleRequest(request) {
     }
 
     // Respond to Discord
-    return new Response(JSON.stringify({ out }), {
+    return new Response(JSON.stringify({ type: 4, data: { content: out } }), {
       headers: { "Content-Type": "application/json" },
     });
   }
