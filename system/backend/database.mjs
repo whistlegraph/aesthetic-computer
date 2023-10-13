@@ -105,7 +105,13 @@ export { connect, moodFor, allMoods };
 
 import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 
-async function listAndSavePaintings() {
+async function listAndSaveMedia(mediaType) {
+  if (!["painting", "piece"].includes(mediaType)) {
+    throw new Error(
+      'Invalid media type provided. Expected "painting" or "piece"',
+    );
+  }
+
   const s3User = new S3Client({
     endpoint: "https://" + process.env.USER_ENDPOINT,
     credentials: {
@@ -115,7 +121,7 @@ async function listAndSavePaintings() {
   });
 
   const { db, disconnect } = await connect();
-  const collection = db.collection("paintings");
+  const collection = db.collection(mediaType + "s"); // Adjust collection name based on media type
   await collection.createIndex({ user: 1 });
   await collection.createIndex({ when: 1 });
   await collection.createIndex({ slug: 1 });
@@ -137,21 +143,19 @@ async function listAndSavePaintings() {
         dir,
       );
 
-      // console.log("Subs:", subDirectories);
-
-      // Check if the `painting` subdirectory exists
-      if (subDirectories.includes(dir + "painting/")) {
+      // Check if the media type subdirectory exists
+      if (subDirectories.includes(dir + mediaType + "/")) {
         const files = await listFiles(
           { s3: s3User, bucket: process.env.USER_SPACE_NAME },
-          dir + "painting/",
+          dir + mediaType + "/",
         );
 
-        // console.log("Found paintings in:", dir);
-
         for (const file of files) {
-          // Ignore the .zips.
-          if (file.endsWith(".png")) {
-            const slug = file.split("/").pop().replace(".png", "");
+          const extension = mediaType === "painting" ? ".png" : ".mjs";
+          // TODO: Eventually add other media types...
+
+          if (file.endsWith(extension)) {
+            const slug = file.split("/").pop().replace(extension, "");
             const user = dir.split("/")[0];
             const existingRecord = await collection.findOne({ slug, user });
             if (!existingRecord) {
@@ -161,9 +165,9 @@ async function listAndSavePaintings() {
                 when: new Date(),
               };
               await collection.insertOne(record);
-              console.log("✅ Added painting entry for:", slug);
+              console.log(`✅ Added ${mediaType} entry for:`, slug);
             } else {
-              console.log("⚠️ Painting already exists for:", slug);
+              console.log(`⚠️ ${mediaType} already exists for:`, slug);
             }
           }
         }
@@ -190,4 +194,4 @@ async function listFiles(client, prefix) {
   return response.Contents.map((file) => file.Key);
 }
 
-export { listAndSavePaintings };
+export { listAndSaveMedia };
