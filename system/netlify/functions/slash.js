@@ -52,7 +52,7 @@ export async function handler(event) {
     body.data.name === "ac"
   ) {
     const slug = body.data.options[0].value; // Assume user input is 1st option.
-    const content = `[${userInput}](<https://prompt.ac/~${slug
+    const content = `[${slug}](<https://prompt.ac/~${slug
       .split(" ")
       .join("~")}>)`;
 
