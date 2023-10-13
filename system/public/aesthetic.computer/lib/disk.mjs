@@ -1090,6 +1090,7 @@ const $commonApi = {
   text: {
     capitalize: text.capitalize,
     box: (text, pos = { x: 0, y: 0 }, bounds, scale = 1) => {
+      pos = { ...pos }; // Copy pos because it gets mutated.
       let run = 0;
       const blockWidth = 6 * scale; // TODO: Replace this `6`. 23.09.13.15.31
       const words = text.split(" ");
@@ -1132,14 +1133,10 @@ const $commonApi = {
           (pos.y || 0);
       }
 
-      if (lines.length > 1 && pos.center && pos.center.indexOf("x") !== -1) {
-        pos.x = $activePaintApi.screen.width / 2;
-      }
-
       const height = lines.length * blockHeight;
       const box = { x: pos.x, y: pos.y, width: bounds, height };
 
-      return { box, lines };
+      return { pos, box, lines };
     },
   },
   num: {
@@ -1522,10 +1519,10 @@ const $paintApi = {
 
     if (bounds) {
       const tb = $commonApi.text.box(text, pos, bounds, scale);
-      // $activePaintApi.ink(255, 0, 0, 127).box(tb.box);
-
+      // TODO: Get the current ink color, memoize it, and make it static here.
+      //       23.10.12.22.04
       tb.lines.forEach((line, index) => {
-        tf?.print($activePaintApi, pos, index, line.join(" "), bg);
+        tf?.print($activePaintApi, tb.pos, index, line.join(" "), bg);
       });
     } else {
       tf?.print($activePaintApi, pos, 0, text, bg);

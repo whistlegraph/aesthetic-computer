@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** brush bugs ***
+  - [x] `word` multi line centering not working on panned canvas 
+
 *** `paintings` ***
   - [x] Put all paintings in a database, with new ones being added. 
     - [x] And the download / retrieval code in `profile`, but not necessarily
