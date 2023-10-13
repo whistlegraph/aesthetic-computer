@@ -3,8 +3,8 @@
 WEBHOOK_URL=$DISCORD_WEBHOOK_URL # Define the Discord webhook URL
 COMMIT_URL="$REPOSITORY_URL/commit/$COMMIT_REF"
 
-# Get the last commit message
-COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+# Get the last commit message and escape backticks
+COMMIT_MESSAGE=$(git log -1 --pretty=%B | sed 's/`/\\`/g')
 
 # Get the short hash
 SHORT_HASH="${COMMIT_REF:0:7}"

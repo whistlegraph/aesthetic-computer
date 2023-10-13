@@ -41,7 +41,7 @@
 [functions.vary]
   external_node_modules = ["got", "multiparty", "openai"]
 [functions.slash]
-  external_node_modules = ["crypto"]
+  external_node_modules = ["discord-interactions"]
 [dev]
   NODE_ENV = "development"
   publish = "public/"
