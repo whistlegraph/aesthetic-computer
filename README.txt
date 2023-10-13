@@ -40,6 +40,15 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** user pieces ***
+  - [-] Consider the versioning of published pieces /
+       how they should be added to the database.
+  - [x] Add user pieces to the database and wire up the
+        media collection endpoint.
+
+*** translation *** 
+  - [] Implement an empty discord slash command webhook.
+
 *** `hell_ world` production ***
   - [👿] Paint > 200 pictures on @jeffrey.
   - prelaunch -

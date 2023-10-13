@@ -15,29 +15,32 @@ export async function handler(event, context) {
   const path = decodeURIComponent(event.queryStringParameters.for);
   const splitPath = path.split("/"); // Chop up the path.
   const sub = splitPath[0];
+  const mediaType = splitPath[1];
   const userId = await getHandleOrEmail(sub); // Get human readable id.
 
-  // TODO: Eventually adapt to colletions other than `paintings`. 23.10.01.17.26
-  console.log(path, splitPath, userId);
+  console.log("📕 Media collection query:", path, splitPath, userId);
 
   let files;
   try {
     const { db, disconnect } = await connect();
-    const paintingsCollection = db.collection("paintings");
+    const mediaCollection = db.collection(`${mediaType}s`);
 
-    // Query the paintings collection for the specific user
-    const paintings = await paintingsCollection.find({ user: sub }).toArray();
+    // Query the media collection for the specific user.
+    const media = await mediaCollection.find({ user: sub }).toArray();
+
+    // Only expect `painting` and `piece` for now. 23.10.12.22.32
+    const extension = mediaType === "painting" ? "png" : "mjs";
 
     // Format the response
-    files = paintings.map((painting) => {
-      return `https://aesthetic.computer/media/${userId}/painting/${painting.slug}.png`;
+    files = media.map((file) => {
+      return `https://aesthetic.computer/media/${userId}/${mediaType}/${file.slug}.${extension}`;
     });
 
     disconnect();
   } catch (err) {
     console.log("Error", err);
     return respond(500, {
-      error: "Failed to fetch paintings from the database 😩",
+      error: "Failed to fetch media from the database 😩",
     });
   }
 

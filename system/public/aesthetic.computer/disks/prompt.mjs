@@ -684,8 +684,13 @@ async function halt($, text) {
     }
     makeFlash($, true);
     return true;
-  } else if (slug === "admin:migrate-paintings") {
-    const res = await userJSONRequest("GET", "/api/admin");
+  } else if (slug.startsWith("admin:migrate-")) {
+    // Usage: `admin:migrate-painting`
+    //        `admin:migrate-piece`
+    const res = await userJSONRequest(
+      "GET",
+      `/api/admin?migrate=${slug.split("-")[1]}`,
+    );
     flashColor = res && res.status === 202 ? [0, 255, 0] : [255, 0, 0];
     if (res && res.status === 202) {
       notice("MIGRATION STARTED ;)");
