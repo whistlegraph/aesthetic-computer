@@ -11,9 +11,6 @@ import {
 } from "discord-interactions";
 
 export async function handler(event) {
-  const timestamp = event.headers["x-signature-timestamp"];
-  const signature = event.headers["x-signature-ed25519"];
-
   // ⚠️ Uncomment these routes for manual initialization.
   // if (event.httpMethod === "DELETE") {
   //   await deleteAllCommands(process.env.DISCORD_PAL_APP_ID);
@@ -24,8 +21,12 @@ export async function handler(event) {
   //   return respond(200, { message: "Command created successfully!" });
   // }
 
-  if (!timestamp && !signature)
+  const timestamp = event.headers["x-signature-timestamp"];
+  const signature = event.headers["x-signature-ed25519"];
+
+  if (!timestamp && !signature) {
     return respond(500, { message: "😈 Unauthorized." });
+  }
 
   const isValidRequest = verifyKey(
     Buffer.from(event.body, "utf8"),
@@ -41,7 +42,6 @@ export async function handler(event) {
   }
 
   const body = JSON.parse(event.body);
-
   console.log("Body:", body);
 
   if (body.type === InteractionType.PING) {
@@ -50,26 +50,45 @@ export async function handler(event) {
 
   console.log("Types:", body.type, InteractionType.APPLICATION_COMMAND);
 
+  // Check for proprt slash command, translate, and reply.
   if (
     body.type === InteractionType.APPLICATION_COMMAND &&
     body.data.name === "ac"
   ) {
-    const userInput = body.data.options[0].value; // Assuming the input is the first option
+    // Respond with a deferred message
+    const deferredResponse = respond(200, {
+      type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+    });
+
+    // Simulate some processing delay
+    await new Promise((resolve) => setTimeout(resolve, 2000)); // 2 seconds delay
+
+    const userInput = body.data.options[0].value;
     const transformedInput = userInput + " 😀";
+    await sendFollowUpMessage(body.token, transformedInput);
 
-    console.log("In:", userInput, "Out:", transformedInput);
-
-    const b = {
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-      data: { content: transformedInput },
-    };
-
-    console.log("Body:", b);
-    return respond(200, b);
+    return deferredResponse;
   }
 
   return respond(400, { message: "🫠 Unhandled interaction type." });
 }
+
+const sendFollowUpMessage = async (interactionToken, content) => {
+  const url = `https://discord.com/api/v10/webhooks/${process.env.DISCORD_PAL_APP_ID}/${interactionToken}`;
+
+  const headers = {
+    Authorization: `Bot ${process.env.DISCORD_PAL_BOT}`,
+    "Content-Type": "application/json",
+  };
+
+  await fetch(url, {
+    method: "POST",
+    headers: headers,
+    body: JSON.stringify({
+      content: content,
+    }),
+  });
+};
 
 // Removes all discord commands.
 const deleteAllCommands = async (clientId) => {
