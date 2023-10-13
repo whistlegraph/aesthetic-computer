@@ -44,6 +44,7 @@
     "@mediapipe/tasks-vision": "^0.10.4",
     "busboy": "^1.6.0",
     "crypto": "^1.0.1",
+    "discord-interactions": "^3.4.0",
     "express-oauth2-jwt-bearer": "^1.5.0",
     "gl-matrix": "^3.4.3",
     "got": "^13.0.0",
