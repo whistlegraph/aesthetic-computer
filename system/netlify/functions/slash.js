@@ -118,7 +118,7 @@ const createACCommand = async (clientId) => {
     description: "The catch-all aesthetic.computer command!",
     options: [
       {
-        name: "input",
+        name: "piece",
         type: 3,
         description: "Surround pieces like: `piece`.",
         required: true,
