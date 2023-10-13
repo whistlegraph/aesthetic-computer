@@ -11,8 +11,8 @@ import {
 } from "discord-interactions";
 
 export async function handler(event) {
-  const timestamp = event.headers["X-Signature-Timestamp"];
-  const signature = event.headers["X-Signature-Ed25519"];
+  const timestamp = event.headers["x-signature-timestamp"];
+  const signature = event.headers["x-signature-ed25519"];
 
   console.log("Timestamp:", timestamp, "Signature:", signature);
 
