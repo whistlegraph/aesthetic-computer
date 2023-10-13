@@ -37,9 +37,8 @@ export async function handler(event) {
     process.env.DISCORD_PAL_PUBLIC,
   );
 
-  if (!isValidRequest) {
+  if (!isValidRequest)
     return respond(401, { message: "😫 Invalid request signature." });
-  }
 
   const body = JSON.parse(event.body);
 
@@ -52,7 +51,7 @@ export async function handler(event) {
     body.data.name === "ac"
   ) {
     const slug = body.data.options[0].value; // Assume user input is 1st option.
-    const content = `[${slug}](<https://prompt.ac/~${slug
+    const content = `[${slug}](<https://prompt.ac/${slug
       .split(" ")
       .join("~")}>)`;
 
@@ -68,9 +67,9 @@ export async function handler(event) {
 // Removes all discord commands.
 const deleteAllCommands = async (clientId) => {
   // Guild-specific commands URL
-  const url = `https://discord.com/api/v10/applications/${clientId}/guilds/${process.env.DISCORD_SERVER_ID}/commands`;
+  // const url = `https://discord.com/api/v10/applications/${clientId}/guilds/${process.env.DISCORD_SERVER_ID}/commands`;
   // Global commands URL
-  // const url = `https://discord.com/api/v10/applications/${clientId}/commands`;
+  const url = `https://discord.com/api/v10/applications/${clientId}/commands`;
 
   const headers = {
     Authorization: `Bot ${process.env.DISCORD_PAL_BOT}`,
