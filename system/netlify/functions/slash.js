@@ -14,15 +14,15 @@ export async function handler(event) {
   const timestamp = event.headers["x-signature-timestamp"];
   const signature = event.headers["x-signature-ed25519"];
 
+  // ⚠️ Uncomment these routes for manual initialization.
   // if (event.httpMethod === "DELETE") {
   //   await deleteAllCommands(process.env.DISCORD_PAL_APP_ID);
   //   return respond(200, { message: "Commands deleted successfully." });
   // }
-
-  if (event.httpMethod === "PUT") {
-    await createACCommand(process.env.DISCORD_PAL_APP_ID);
-    return respond(200, { message: "Command created successfully!" });
-  }
+  // if (event.httpMethod === "PUT") {
+  //   await createACCommand(process.env.DISCORD_PAL_APP_ID);
+  //   return respond(200, { message: "Command created successfully!" });
+  // }
 
   if (!timestamp && !signature)
     return respond(500, { message: "😈 Unauthorized." });
@@ -57,12 +57,15 @@ export async function handler(event) {
     const userInput = body.data.options[0].value; // Assuming the input is the first option
     const transformedInput = userInput + " 😀";
 
-    console.log("Input:", userInput, transformedInput);
+    console.log("In:", userInput, "Out:", transformedInput);
 
-    return respond(200, {
+    const body = {
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: { content: transformedInput },
-    });
+    };
+
+    console.log("Body:", body);
+    return respond(200, body);
   }
 
   return respond(400, { message: "🫠 Unhandled interaction type." });
