@@ -54,9 +54,14 @@ export async function handler(event) {
     body.type === InteractionType.APPLICATION_COMMAND &&
     body.data.name === "ac"
   ) {
+    const userInput = body.data.options[0].value; // Assuming the input is the first option
+    const transformedInput = userInput + " 😀";
+
+    console.log("Input:", userInput, transformedInput);
+
     return respond(200, {
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-      data: { content: "hello world 🗺️" },
+      data: { content: transformedInput },
     });
   }
 
