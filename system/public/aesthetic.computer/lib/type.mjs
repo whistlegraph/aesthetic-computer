@@ -162,9 +162,7 @@ class Typeface {
     const rn = $.inkrn(); // Remember the current ink color.
 
     // Background
-    if (bg !== null) {
-      $.ink(bg).box(x, y, fullWidth, blockHeight);
-    }
+    if (bg !== null) $.ink(bg).box(x, y, fullWidth, blockHeight);
 
     $.ink(rn).printLine(
       text,
