@@ -1703,8 +1703,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         input.addEventListener("beforeinput", (e) => {
-          let input = e.data;
-
           // console.log("Input Type:", e.inputType, input, e);
 
           const pressedKeys = [];
@@ -1742,15 +1740,40 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
         });
 
-        input.addEventListener("input", (e) => {
+        // input.addEventListener("input", (e) => {
+        //   send({
+        //     type: "prompt:text:replace",
+        //     content: {
+        //       text: e.target.value,
+        //       cursor: input.selectionStart,
+        //     },
+        //   });
+        // });
+
+        function handleInput(e) {
+          input.removeEventListener("input", handleInput);
+
+          let text = e.target.value;
+
+          // Replace curly single and double quotes with straight quotes
+          text = text
+            .replace(/[\u2018\u2019]/g, "'")
+            .replace(/[\u201C\u201D]/g, '"');
+
+          e.target.value = text;
+
           send({
             type: "prompt:text:replace",
             content: {
-              text: e.target.value,
+              text: text,
               cursor: input.selectionStart,
             },
           });
-        });
+
+          input.addEventListener("input", handleInput);
+        }
+
+        input.addEventListener("input", handleInput);
 
         // input.addEventListener("keyup", (e) => {
         //   if (input.selectionStart !== input.selectionEnd) {

@@ -1125,7 +1125,7 @@ const $commonApi = {
 
       const blockHeight = 11 * scale; // TODO: Replace `11`. 23.09.13.15.31
 
-      if (lines.length > 1 && pos.center && pos.center.indexOf("y") !== -1) {
+      if (lines.length >= 1 && pos.center && pos.center.indexOf("y") !== -1) {
         pos.y =
           $activePaintApi.screen.height / 2 -
           (lines.length * blockHeight) / 2 +
