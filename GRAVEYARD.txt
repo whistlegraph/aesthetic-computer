@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** `enter` *** 
+  - [x] Implement a discord slash command webhook.
+
 *** brush bugs ***
   - [x] `word` multi line centering not working on panned canvas 
 

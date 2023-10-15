@@ -40,9 +40,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** translation *** 
-  - [] Implement an empty discord slash command webhook.
-
 *** user pieces ***
   - [-] Consider the versioning of published pieces /
        how they should be added to the database.
@@ -67,6 +64,10 @@
        - After what action? `line rainbow` 
   - [x] Fix `no` not working after first attempt regression.
   - [x] Fix zip file loading on `painting`.
+
+*** handles ***
+  - [] Setting your initial handle always seems to show TAKEN
+       even if the handle is not taken and succeeds on the first try?
 
 *** colplay ***
   - [🟡] Add multi-touch support.
