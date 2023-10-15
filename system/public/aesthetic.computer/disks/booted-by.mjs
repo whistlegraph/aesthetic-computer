@@ -20,7 +20,7 @@
   - [x] ok button and demo video link within the text that takes you out of app to demo video 
 #endregion */
 
-const copy = `We're at the beginning of a computer age where the advent of AI and text-to-media interfaces means that everyone can be a programmer.\n\nAesthetic Computer aims to lead this paradigm shift as an accessible and evolving social platform for art and media creation. We need to fill 10 funding slots to boot up.`;
+const copy = `We're at the beginning of a computer age where the advent of AI and text-to-media interfaces means that everyone can be a programmer.\n\nAesthetic Computer aims to lead this paradigm shift as an accessible and evolving social platform for art and media creation. We need to fill 10 patron slots to boot up.`;
 
 const blockWidth = 6;
 const blockHeight = 11;
