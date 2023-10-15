@@ -65,6 +65,10 @@
   - [x] Fix `no` not working after first attempt regression.
   - [x] Fix zip file loading on `painting`.
 
+*** but suite ***
+  - `helikesmebut`, `helikesmybut`
+  - `ilikeubut`, `ilikeurbut`
+
 *** handles ***
   - [] Setting your initial handle always seems to show TAKEN
        even if the handle is not taken and succeeds on the first try?
