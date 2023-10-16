@@ -21,10 +21,10 @@ export async function handler(event) {
   // }
 
   // Run with httpie: `https PUT :8888/slash`
-  if (event.httpMethod === "PUT") {
-    await createACCommand(process.env.DISCORD_PAL_APP_ID);
-    return respond(200, { message: "Command created successfully!" });
-  }
+  // if (event.httpMethod === "PUT") {
+  //   await createACCommand(process.env.DISCORD_PAL_APP_ID);
+  //   return respond(200, { message: "Command created successfully!" });
+  // }
 
   if (!timestamp && !signature)
     return respond(500, { message: "😈 Unauthorized." });
