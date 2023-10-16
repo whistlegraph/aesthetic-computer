@@ -64,13 +64,16 @@ export async function handler(event) {
         return respond(500, { message: "Failed to fetch remote script." });
       }
 
-      // Convert the fetched content into a data URL
+      // Read the content of the fetched JavaScript file
       const scriptContent = await response.text();
-      const blob = new Blob([scriptContent], {
-        type: "application/javascript",
-      });
-      const dataURL = URL.createObjectURL(blob);
-      const { Divali } = await import(dataURL);
+
+      // Convert the fetched content into a data URI
+      const dataURI = `data:text/javascript;base64,${Buffer.from(
+        scriptContent,
+      ).toString("base64")}`;
+
+      // Import the Divali function dynamically from the data URI
+      const { Divali } = await import(dataURI);
       console.log(Divali);
       content = Divali(slug);
     }
