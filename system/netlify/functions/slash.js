@@ -45,10 +45,7 @@ export async function handler(event) {
     return respond(200, { type: InteractionResponseType.PONG });
   }
 
-  if (
-    body.type === InteractionType.APPLICATION_COMMAND &&
-    body.data.name === "enter"
-  ) {
+  if (body.type === InteractionType.APPLICATION_COMMAND) {
     let content;
     const slug = body.data.options[0].value; // Assume user input is 1st option.
     if (body.data.name === "enter") {
