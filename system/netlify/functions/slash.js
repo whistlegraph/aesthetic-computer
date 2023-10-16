@@ -53,10 +53,24 @@ export async function handler(event) {
         .split(" ")
         .join("~")}>)`;
     } else if (body.data.name === "divali") {
-      console.log("Executing divali...");
-      const { Divali } = await import(
-        "https://raw.githubusercontent.com/rackodo/acPieces/main/divali.mjs"
-      );
+      console.log("Loading divali code...");
+
+      // Fetch the remote JavaScript file
+      const remoteUrl =
+        "https://raw.githubusercontent.com/rackodo/acPieces/main/divali.mjs";
+      const response = await fetch(remoteUrl);
+
+      if (!response.ok) {
+        return respond(500, { message: "Failed to fetch remote script." });
+      }
+
+      // Convert the fetched content into a data URL
+      const scriptContent = await response.text();
+      const blob = new Blob([scriptContent], {
+        type: "application/javascript",
+      });
+      const dataURL = URL.createObjectURL(blob);
+      const { Divali } = await import(dataURL);
       console.log(Divali);
       content = Divali(slug);
     }
