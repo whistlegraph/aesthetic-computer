@@ -57,7 +57,7 @@ export async function handler(event) {
 
       // Fetch the remote JavaScript file
       const remoteUrl =
-        "https://raw.githubusercontent.com/rackodo/acPieces/main/divali.mjs";
+        "https://raw.githubusercontent.com/rackodo/acPieces/parser/divali.mjs";
       const response = await fetch(remoteUrl);
 
       if (!response.ok) {
