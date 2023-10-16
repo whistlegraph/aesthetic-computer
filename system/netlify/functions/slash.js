@@ -1,6 +1,6 @@
 // Slash, 23.10.13.00.08
 // A helpful Discord webhook for auto-linking AC pieces.
-// TODO: Test via the Netlify logs.
+// 🔗 Log: https://app.netlify.com/sites/aesthetic-computer/logs/functions/slash
 
 import { respond } from "../../backend/http.mjs";
 import {
@@ -56,9 +56,11 @@ export async function handler(event) {
         .split(" ")
         .join("~")}>)`;
     } else if (body.data.name === "divali") {
+      console.log("Executing divali...");
       const { Divali } = await import(
         "https://raw.githubusercontent.com/rackodo/acPieces/main/divali.mjs"
       );
+      console.log(Divali);
       content = Divali(slug);
     }
 
