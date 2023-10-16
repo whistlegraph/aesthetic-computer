@@ -21,10 +21,10 @@ export async function handler(event) {
   // }
 
   // Run with httpie: `https PUT :8888/slash`
-  // if (event.httpMethod === "PUT") {
-  //   await createACCommand(process.env.DISCORD_PAL_APP_ID);
-  //   return respond(200, { message: "Command created successfully!" });
-  // }
+  if (event.httpMethod === "PUT") {
+    await createACCommand(process.env.DISCORD_PAL_APP_ID);
+    return respond(200, { message: "Command created successfully!" });
+  }
 
   if (!timestamp && !signature)
     return respond(500, { message: "😈 Unauthorized." });
@@ -49,10 +49,18 @@ export async function handler(event) {
     body.type === InteractionType.APPLICATION_COMMAND &&
     body.data.name === "enter"
   ) {
+    let content;
     const slug = body.data.options[0].value; // Assume user input is 1st option.
-    const content = `[${slug}](<https://aesthetic.computer/${slug
-      .split(" ")
-      .join("~")}>)`;
+    if (body.data.name === "enter") {
+      content = `[${slug}](<https://aesthetic.computer/${slug
+        .split(" ")
+        .join("~")}>)`;
+    } else if (body.data.name === "divali") {
+      const { Divali } = await import(
+        "https://raw.githubusercontent.com/rackodo/acPieces/main/divali.mjs"
+      );
+      content = Divali(slug);
+    }
 
     return respond(200, {
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -101,17 +109,30 @@ const createACCommand = async (clientId) => {
   };
 
   const commandData = {
-    name: "enter",
-    description: "Jump to any piece.",
+    name: "divali",
+    description: "An experimental parser.",
     options: [
       {
-        name: "piece",
+        name: "code",
         type: 3,
-        description: "Enter an aesthetic.computer piece to make a link.",
+        description: "Enter `Divali` code to make a link.",
         required: true,
       },
     ],
   };
+
+  // const commandData = {
+  //   name: "enter",
+  //   description: "Jump to any piece.",
+  //   options: [
+  //     {
+  //       name: "piece",
+  //       type: 3,
+  //       description: "Enter an aesthetic.computer piece to make a link.",
+  //       required: true,
+  //     },
+  //   ],
+  // };
 
   await fetch(url, {
     method: "POST",
