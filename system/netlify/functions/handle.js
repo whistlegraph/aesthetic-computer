@@ -94,7 +94,7 @@ export async function handler(event, context) {
         await KeyValue.connect();
         if (dev) console.log("Setting in redis:", handle);
 
-        if (existingUser.handle)
+        if (existingUser?.handle)
           await KeyValue.del("@handles", existingUser.handle);
 
         await KeyValue.set("@handles", handle, user.sub);
