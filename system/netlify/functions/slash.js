@@ -53,11 +53,11 @@ export async function handler(event) {
         .split(" ")
         .join("~")}>)`;
     } else if (body.data.name === "divali") {
-      console.log("Loading divali code...");
+      console.log("Loading mparse code...");
 
       // Fetch the remote JavaScript file
       const remoteUrl =
-        "https://raw.githubusercontent.com/rackodo/acPieces/parser/divali.mjs";
+        "https://raw.githubusercontent.com/rackodo/acPieces/parser/mparse.mjs";
       const response = await fetch(remoteUrl);
 
       if (!response.ok) {
@@ -72,10 +72,8 @@ export async function handler(event) {
         scriptContent,
       ).toString("base64")}`;
 
-      // Import the Divali function dynamically from the data URI
-      const { Divali } = await import(dataURI);
-      console.log(Divali);
-      content = Divali(slug);
+      const { mparse } = await import(dataURI);
+      content = mparse(slug);
     }
 
     return respond(200, {
@@ -90,9 +88,9 @@ export async function handler(event) {
 // Removes all discord commands.
 const deleteAllCommands = async (clientId) => {
   // Guild-specific commands URL
-  // const url = `https://discord.com/api/v10/applications/${clientId}/guilds/${process.env.DISCORD_SERVER_ID}/commands`;
+  const url = `https://discord.com/api/v10/applications/${clientId}/guilds/${process.env.DISCORD_SERVER_ID}/commands`;
   // Global commands URL
-  const url = `https://discord.com/api/v10/applications/${clientId}/commands`;
+  // const url = `https://discord.com/api/v10/applications/${clientId}/commands`;
 
   const headers = {
     Authorization: `Bot ${process.env.DISCORD_PAL_BOT}`,
@@ -124,31 +122,31 @@ const createACCommand = async (clientId) => {
     "Content-Type": "application/json",
   };
 
-  const commandData = {
-    name: "divali",
-    description: "An experimental parser.",
-    options: [
-      {
-        name: "code",
-        type: 3,
-        description: "Enter `Divali` code to make a link.",
-        required: true,
-      },
-    ],
-  };
-
   // const commandData = {
-  //   name: "enter",
-  //   description: "Jump to any piece.",
+  //   name: "mparse",
+  //   description: "An experimental parser.",
   //   options: [
   //     {
-  //       name: "piece",
+  //       name: "code",
   //       type: 3,
-  //       description: "Enter an aesthetic.computer piece to make a link.",
+  //       description: "Enter `mparse` code to make a link.",
   //       required: true,
   //     },
   //   ],
   // };
+
+  const commandData = {
+    name: "enter",
+    description: "Jump to any piece.",
+    options: [
+      {
+        name: "piece",
+        type: 3,
+        description: "Enter an aesthetic.computer piece to make a link.",
+        required: true,
+      },
+    ],
+  };
 
   await fetch(url, {
     method: "POST",
