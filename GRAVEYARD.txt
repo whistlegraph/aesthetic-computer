@@ -1,5 +1,20 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** Networking ***
+  - [x] Remove periods from all buckets on DigitalOcean so that certificates 
+       behind the CDNs work.
+    - [x] And transfer all the data.
+      - [x] user.aesthetic.computer
+            (In progress...)
+      - [x] sotce.aesthetic.computer
+      - [x] assets.aesthetic.computer
+      - [x] wand.aesthetic.computer
+      - [x] art.aesthetic.computer
+      - [x] Update all cloudflare DNS settings for these buckets...
+        - [x] user, sotce, assets, wand, art
+      + Done
+      - [x] logo.aesthetic.computer -> pals-aesthetic-computer
+
 *** `enter` *** 
   - [x] Implement a discord slash command webhook.
 

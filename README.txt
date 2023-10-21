@@ -197,17 +197,6 @@ Right now I am typing some words.
 *** word -> write ***
   - [] What other commands should be renamed now?
 
-*** Networking ***
-  - [] Remove periods from all buckets on DigitalOcean so that certificates 
-       behind the CDNs work.
-      - [] user.aesthetic.computer
-      - [] sotce.aesthetic.computer
-      - [] assets.aesthetic.computer
-      - [] wand.aesthetic.computer
-      - [] art.aesthetic.computer
-      + Done
-      - [x] logo.aesthetic.computer -> pals-aesthetic-computer
-
 *** mood links ***
   - [] underlined and different colors
   - [] links to pieces and surround with ``. 
