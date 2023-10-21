@@ -52,7 +52,7 @@ export async function handler(event) {
       content = `[${slug}](<https://aesthetic.computer/${slug
         .split(" ")
         .join("~")}>)`;
-    } else if (body.data.name === "divali") {
+    } else if (body.data.name === "mparse") {
       console.log("Loading mparse code...");
 
       // Fetch the remote JavaScript file
