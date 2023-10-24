@@ -2361,13 +2361,7 @@ async function load(
 
   if (alias === false) {
     // Parse any special piece metadata.
-    const {
-      title,
-      desc,
-      ogImage,
-      twitterImage,
-      icon: iconUrl,
-    } = metadata(
+    const { title, desc, ogImage, twitterImage, icon } = metadata(
       location.host, // "aesthetic.computer",
       slug,
       // Adding the num API here is a little hacky, but needed for Freaky Flowers random metadata generation. 22.12.27
@@ -2384,7 +2378,7 @@ async function load(
       img: {
         og: ogImage,
         twitter: twitterImage,
-        icon: iconUrl,
+        icon,
       },
       url: "https://aesthetic.computer/" + slug,
     };
