@@ -20,7 +20,6 @@ const { builder } = require("@netlify/functions");
 import sharp from "sharp";
 import { respond } from "../../backend/http.mjs";
 const dev = process.env.CONTEXT === "dev";
-const domain = "aesthetic.computer"; // Always use the production assets.
 
 async function fun(event, context) {
   if (

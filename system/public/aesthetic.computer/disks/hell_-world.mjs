@@ -2,11 +2,13 @@
 // This piece is a router that loads a specific `hell_ world` token in `painting` by sending it a sequence starting with the current piece.
 
 /* #region 🏁 todo
-  - [] Add metadata icon / check preview links.
-  - [] Get the hud display correct...
-  - [] Somehow add set to the metadata?
+  - [] Get the hud display correctly / nice formatting.
   - [] Implement a custom `hell_ world` player / add a flag to `painting`.
+  + Later
+  - [] Display the set somehow / add a set filter? 
   + Done
+  - [x] Test preview link in iMessage.
+  - [x] Add metadata favicon.
   - [x] Send off spreadsheet.
   - [x] Implement a `hw` shortcut?
 #endregion */
@@ -740,27 +742,28 @@ export function tokenID($) {
   return param1 >= 0 && param1 < tokens.length ? param1 : randomToken;
 }
 
-const baseURL = "https://aesthetic.computer/api/pixel/2048:conform";
-const handle = "jeffrey";
-
 // Generates metadata fields for this piece.
 // (Run by the server.)
 export function meta({ params, num }) {
+  const baseURL = "https://aesthetic.computer/api/pixel";
+  // https://aesthetic.computer/api/pixel/2048:conform/@jeffrey/painting/2023.10.19.13.04.18.088.png
+  const handle = "@jeffrey";
+
   const i = tokenID({ params, num });
   let out;
   if (i === -1) {
     out = {
-      image_url: `${baseURL}/${handle}/painting/${tokens[i]}.png`,
+      image_url: `${baseURL}/2048:conform/${handle}/painting/${tokens[i]}.png`,
+      icon_url: `/api/pixel/128:contain/${handle}/painting/${tokens[i]}.png`,
       title: "Random",
       desc: "Shows a random hell_ world painting!",
-      // https://aesthetic.computer/api/pixel/2048:conform/@jeffrey/painting/2023.10.19.13.04.18.088.png
     };
   } else {
     out = {
-      image_url: `${baseURL}/${handle}/painting/${tokens[i]}.png`,
+      image_url: `${baseURL}/2048:conform/${handle}/painting/${tokens[i]}.png`,
+      icon_url: `/api/pixel/128:contain/${handle}/painting/${tokens[i]}.png`,
       title: tokenTitlesAndDescriptions[i][0],
       desc: tokenTitlesAndDescriptions[i][1],
-      // https://aesthetic.computer/api/pixel/2048:conform/@jeffrey/painting/2023.10.19.13.04.18.088.png
     };
   }
   return out;

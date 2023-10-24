@@ -138,7 +138,7 @@ function metadata(host, slug, pieceMetadata) {
     twitterImage = `https://${host}/thumbnail/1800x900/${slug}.png`;
   }
 
-  icon = `https://${host}/icon/128x128/${slug}.png`;
+  icon = pieceMetadata.icon_url || `https://${host}/icon/128x128/${slug}.png`;
 
   return { title, desc, ogImage, twitterImage, icon };
 }
