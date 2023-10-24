@@ -3,8 +3,6 @@
 // sending it a sequence starting with the current piece.
 
 /* #region 🏁 todo
- - [] Show a special webp for the "random" url.
- - [] Abe's Chrome browser showed half filled triangles... why was that?
 #endregion */
 
 // #region 🧮 data
