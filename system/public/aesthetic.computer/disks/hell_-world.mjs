@@ -2,13 +2,13 @@
 // This piece is a router that loads a specific `hell_ world` token in `painting` by sending it a sequence starting with the current piece.
 
 /* #region 🏁 todo
-  - [] Implement an `hw` shortcut?`
   - [] Add metadata icon / check preview links.
   - [] Get the hud display correct...
   - [] Somehow add set to the metadata?
   - [] Implement a custom `hell_ world` player / add a flag to `painting`.
   + Done
   - [x] Send off spreadsheet.
+  - [x] Implement a `hw` shortcut?
 #endregion */
 
 // #region 🧮 data
@@ -766,4 +766,4 @@ export function meta({ params, num }) {
   return out;
 }
 
-export const nohud = true;
+// export const nohud = true;
