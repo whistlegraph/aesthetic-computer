@@ -40,14 +40,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** user pieces ***
-  - [-] Consider the versioning of published pieces /
-       how they should be added to the database.
-  - [] Jump to any user space with admin:space @handle
-       - https://cloud.digitalocean.com/spaces/user.aesthetic.computer?path=auth0%7C650ef5167fd48ae4910e048c%2F&deleteObject=&type=
-  - [x] Add user pieces to the database and wire up the
-        media collection endpoint.
-
 *** `hell_ world` production ***
   - [👿] Paint > 200 pictures on @jeffrey.
   - prelaunch -
@@ -64,6 +56,21 @@
        - After what action? `line rainbow` 
   - [x] Fix `no` not working after first attempt regression.
   - [x] Fix zip file loading on `painting`.
+
+*** scream ***
+  - [-] Word-wrapping.
+  - [] Voice should scream it.
+
+*** global `chat` ***
+  - [] Top right tap to enter text, then be able to chat. 
+
+*** user pieces ***
+  - [-] Consider the versioning of published pieces /
+       how they should be added to the database.
+  - [] Jump to any user space with admin:space @handle
+       - https://cloud.digitalocean.com/spaces/user.aesthetic.computer?path=auth0%7C650ef5167fd48ae4910e048c%2F&deleteObject=&type=
+  - [x] Add user pieces to the database and wire up the
+        media collection endpoint.
 
 *** but suite ***
   - `helikesmebut`, `helikesmybut`
