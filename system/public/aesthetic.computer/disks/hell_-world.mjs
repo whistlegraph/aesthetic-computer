@@ -3,6 +3,15 @@
 
 /* #region 🏁 todo
   - [-] Update metadata when arrow keys change a painting.
+
+  (organize)
+  - [] title second line underneath hell_world #
+  - [] add autoscaling to painting process page
+  - [] jump straight to the process when going to the painting page
+  - [] arrow keys also move you through process
+  - [] force top left button go back to the slideshow view
+  - [] show a "drag to inspect" message
+
   - [] Delay the title / description / set.
   - [] Display the set somehow / add a set filter? 
   + Later
