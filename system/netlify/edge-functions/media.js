@@ -18,18 +18,18 @@ export default async function handleRequest(request) {
       if (newPath.split("/").pop().split(".")[1]?.length > 0) {
         newUrl = `https://user.aesthetic.computer/${newPath}`;
         // TODO: How can I ensure that Allow-Origin * can be here?
-        // const response = await fetch(encodeURI(newUrl));
+        const response = await fetch(encodeURI(newUrl));
         // // Create a new Response object using the fetched response's body
-        // const moddedResponse = new Response(response.body, {
-        //   // Copy all the fetched response's headers
-        //   headers: { ...response.headers },
-        //   status: response.status,
-        //   statusText: response.statusText,
-        // });
+        const moddedResponse = new Response(response.body, {
+          // Copy all the fetched response's headers
+          headers: { ...response.headers },
+          status: response.status,
+          statusText: response.statusText,
+        });
         // // Set the Access-Control-Allow-Origin header to *
-        // moddedResponse.headers.set("Access-Control-Allow-Origin", "*");
-        // return moddedResponse;
-        return fetch(encodeURI(newUrl));
+        moddedResponse.headers.set("Access-Control-Allow-Origin", "*");
+        return moddedResponse;
+        // return fetch(encodeURI(newUrl));
       } else {
         const path = newPath.replace("/media", "");
         newUrl = `/media-collection?for=${path}`;
