@@ -2,7 +2,7 @@
 // This piece is a router that loads a specific `hell_ world` token in `painting` by sending it a sequence starting with the current piece.
 
 /* #region 🏁 todo
-  - [] Get the hud display correctly / nice formatting.
+  - [🟠] Get the hud display correctly / nice formatting.
   - [] Implement a custom `hell_ world` player / add a flag to `painting`.
   + Later
   - [] Display the set somehow / add a set filter? 
@@ -36,7 +36,7 @@ const tokens = [
   "2023.10.07.18.09.35.673",
   "2023.10.22.11.29.17.481",
   "2023.10.18.12.30.27.509",
-  "2023.10.19.15.48.43.875",
+  "2023.8.24.14.26.54.544",
   "2023.10.19.20.03.24.734",
   "2023.10.05.16.07.57.467",
   "2023.10.21.16.04.09.633",

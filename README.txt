@@ -40,13 +40,15 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `hell_ world` production ***
-  - [👿] Paint > 200 pictures on @jeffrey.
-  - prelaunch -
-  - [] Alias them to a `hell_-world` command with `hw` for short.
-  - [] Watch some more of the sample painting playbacks and check for other
+*** `hell_ world` - oct. 30 ***
+  + Prelaunch...
+  - [🟠] Finish player. See `hell_-world.mjs`.
+  + Done
+  - [x] Watch some more of the sample painting playbacks and check for other
        errors like the ineffective no?
-  - [] Try to see if I can hit the ineffective `no` error.
+  - [?] Try to see if I can hit the ineffective `no` error.
+  - [x] Alias them to a `hell_-world` command with `hw` for short.
+  - [x] Paint > 200 pictures on @jeffrey.
   - [x] Capture timestamped gesture data from first pointer.
   - [x] Fix `done` progress bar repeating and repeating over and over on the
         bigger zip file. (Not taking into account full math?)
@@ -56,6 +58,10 @@
        - After what action? `line rainbow` 
   - [x] Fix `no` not working after first attempt regression.
   - [x] Fix zip file loading on `painting`.
+
+*** `botce` launch - oct. 31 ***
+ - [] Review / check Patreon gate code. 
+ - [] Figure out how to handle auth on the piece.
 
 *** scream ***
   - [-] Word-wrapping.
