@@ -216,7 +216,6 @@ async function loadPainting(get, index, from) {
   painting = undefined; // Clear the current picture.
 
   if (controller) controller.abort(); // Abort any ongoing requests.
-
   // Create a new controller for the current request.
   controller = new AbortController();
   const signal = controller.signal;
@@ -225,9 +224,10 @@ async function loadPainting(get, index, from) {
     code = paintings[index].split("/").pop().replace(".png", "");
     const got = await get.painting(code).by(from, { signal }); // Assuming `get.painting` is based on fetch and can accept a signal
     painting = got.img;
+    controller = null;
   } catch (err) {
     if (err.name === "AbortError") {
-      if (debug) console.log("Request was aborted");
+      if (debug) console.log("❌ Request was aborted.");
     } else {
       console.error("Painting load failure:", err);
     }

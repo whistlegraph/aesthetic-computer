@@ -2,16 +2,21 @@
 // This piece is a router that loads a specific `hell_ world` token in `painting` by sending it a sequence starting with the current piece.
 
 /* #region 🏁 todo
-  - [🟠] Get the hud display correctly / nice formatting.
-  - [] Implement a custom `hell_ world` player / add a flag to `painting`.
-  + Later
+  - [-] Update metadata when arrow keys change a painting.
+  - [] Delay the title / description / set.
   - [] Display the set somehow / add a set filter? 
+  + Later
   + Done
+  - [x] Implement a custom `hell_ world` player / add a flag to `painting`.
+  - [x] Get the hud display correctly / nice formatting.
   - [x] Test preview link in iMessage.
   - [x] Add metadata favicon.
   - [x] Send off spreadsheet.
   - [x] Implement a `hw` shortcut?
 #endregion */
+
+const { min, max } = Math;
+import * as sfx from "./common/sfx.mjs";
 
 // #region 🧮 data
 // 0-199
@@ -688,11 +693,21 @@ const tokenSets = {
 
 // #endregion
 
-// 🥾 Boot (Runs once before first paint and sim)
-export function boot({ wipe, params, jump, store, num }) {
-  const i = tokenID({ params, num });
+let index,
+  painting,
+  headers,
+  controller = null;
+let zoomed = false;
+let debug;
 
-  const headers = (id) => {
+let timestampBtn;
+
+// 🥾 Boot
+function boot({ wipe, params, jump, store, get, num, hud, net, debug: d }) {
+  index = tokenID({ params, num });
+  debug = d;
+
+  headers = (id) => {
     console.log(
       `%chell_ world`,
       `background: rgba(50, 10, 10);
@@ -705,7 +720,7 @@ export function boot({ wipe, params, jump, store, num }) {
     );
 
     console.log(
-      `%cPainting No. ${id}/${tokens.length - 1}`,
+      `%cPainting Index: ${id}/${tokens.length - 1}`,
       `background: rgba(0, 10, 10);
      color: rgb(150, 150, 150);
      font-size: 120%;
@@ -716,35 +731,89 @@ export function boot({ wipe, params, jump, store, num }) {
     );
   };
 
+  getPainting(index, { get, hud, net });
+
   // TODO: Do I need this for `hell_ world`?
   // store["hell_-world"] = { tokenID: i, tokens, headers, meta };
 
   // if (store["hw"]) store["hell_-world"].hook = "hw";
   // else store["hell_-world"].hook = "hell_-world";
-
-  jump(
-    `painting~@jeffrey/${tokens[i]}` +
-      params
-        .slice(1)
-        .map((p) => `~` + p)
-        .join(""),
-    true, // ahistorical (skip the web history stack)
-    true, // alias (don't change the address bar url)
-  );
   wipe();
 }
 
-// Retrieve or generate a token index, given this piece's parameter list.
-export function tokenID($) {
-  const canRandomize = $.num ? true : false; // Return -1 if there is no randomization function (on server)
-  const randomToken = canRandomize ? $.num.randInt(tokens.length - 1) : -1;
-  const param1 = parseInt($.params[0]);
-  return param1 >= 0 && param1 < tokens.length ? param1 : randomToken;
+// 🎨 Paint
+function paint({ ink, text, screen, paste, wipe, noise16DIGITPAIN, pen, ui }) {
+  if (painting) {
+    const margin = 20;
+    const wScale = (screen.width - margin * 2) / painting.width;
+    const hScale = (screen.height - margin * 2) / painting.height;
+    let scale = min(wScale, hScale, 1);
+    let x = screen.width / 2 - (painting.width * scale) / 2;
+    let y = screen.height / 2 - (painting.height * scale) / 2;
+
+    if (pen && zoomed) {
+      const imgX = (pen.x - x) / scale;
+      const imgY = (pen.y - y) / scale;
+
+      // Adjust scale and position for zoom anchored at pen position
+      scale = 1;
+      x = pen.x - imgX;
+      y = pen.y - imgY;
+      ink(0, 64).box(0, 0, screen.width, screen.height);
+    } else {
+      wipe(0);
+    }
+
+    paste(painting, x, y, { scale });
+
+    const pos = { x: 3, y: screen.height - 13 };
+    const box = text.box(tokens[index], pos).box;
+    const blockWidth = 6;
+    box.width -= blockWidth * 2;
+    if (!timestampBtn) timestampBtn = new ui.Button(box);
+    timestampBtn.paint((btn) => {
+      ink(btn.down ? "orange" : 255).write(tokens[index], pos);
+    });
+  } else {
+    noise16DIGITPAIN();
+    ink("white").write(tokenTitlesAndDescriptions[index][0], { center: "xy" });
+  }
+}
+
+// 🎪 Act
+function act({ event: e, get, hud, net, sound, jump, params }) {
+  timestampBtn?.act(e, () => {
+    sfx.push(sound);
+    // jump(`painting ${visiting}/${code}`);
+    jump(
+      `painting~@jeffrey/${tokens[index]}` +
+        params
+          .slice(1)
+          .map((p) => `~` + p)
+          .join(""),
+      // true, // ahistorical (skip the web history stack)
+      // true, // alias (don't change the address bar url)
+    );
+  });
+
+  if (e.is("touch:1") && !timestampBtn?.down) zoomed = true;
+
+  if (e.is("lift:1")) zoomed = false;
+
+  if (e.is("keyboard:down:arrowright")) {
+    index = (index + 1) % tokens.length;
+    getPainting(index, { get, hud, net });
+  }
+
+  if (e.is("keyboard:down:arrowleft")) {
+    index = max(0, index - 1);
+    getPainting(index, { get, hud, net });
+  }
 }
 
 // Generates metadata fields for this piece.
 // (Run by the server.)
-export function meta({ params, num }) {
+function meta({ params, num }) {
   const baseURL = "https://aesthetic.computer/api/pixel";
   // https://aesthetic.computer/api/pixel/2048:conform/@jeffrey/painting/2023.10.19.13.04.18.088.png
   const handle = "@jeffrey";
@@ -769,4 +838,37 @@ export function meta({ params, num }) {
   return out;
 }
 
-// export const nohud = true;
+// Retrieve or generate a token index, given this piece's parameter list.
+function tokenID($) {
+  const canRandomize = $.num ? true : false; // Return -1 if there is no randomization function (on server)
+  const randomToken = canRandomize ? $.num.randInt(tokens.length - 1) : -1;
+  const param1 = parseInt($.params[0]);
+  return param1 >= 0 && param1 < tokens.length ? param1 : randomToken;
+}
+
+export { boot, paint, act, meta, tokenID };
+
+// 📚 Library
+async function getPainting(i, { get, hud, net }) {
+  hud.label(`hell_ world ${index}`, [255, 255, 0, 255]);
+  net.rewrite(`hell_-world~${i}`);
+  headers(index);
+
+  painting = null;
+
+  if (controller) controller.abort();
+  controller = new AbortController();
+  const signal = controller.signal;
+
+  try {
+    const got = await get.painting(tokens[i]).by("@jeffrey", { signal });
+    painting = got.img;
+    controller = null;
+  } catch (err) {
+    if (err.name === "AbortError") {
+      if (debug) console.log("❌ Request was aborted.");
+    } else {
+      console.error("Painting load failure:", err);
+    }
+  }
+}
