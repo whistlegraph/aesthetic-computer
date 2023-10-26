@@ -376,6 +376,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Used by `disk` to set the metatags by default when a piece loads. It can
   // be overridden using `meta` inside of `boot` for any given piece.
+  // TODO: Some meta tags in practice use image_url & icon_url it seems.
+  //       (Like in `hell_-world` or `freaky-flowers`) 23.10.25.20.32
   function setMetatags(meta) {
     if (meta?.title) {
       document.title = meta.title;
@@ -392,7 +394,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       document.querySelector('meta[name="twitter:image"]').content =
         meta.img.twitter;
     }
-    if (meta?.img?.icon) {
+    if (meta?.icon_url) {
+      document.querySelector('link[rel="icon"]').href = meta.icon_url;
+    } else if (meta?.img?.icon) {
       document.querySelector('link[rel="icon"]').href = meta.img.icon;
     }
     if (meta?.url) {
@@ -2416,7 +2420,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           content: deleted,
         });
       }
-
       return;
     }
 

@@ -23,8 +23,10 @@
       the image centered.
 #endregion */
 
+const { min } = Math;
+
 const labelFadeSpeed = 80;
-const advanceSpeed = 240n;
+const advanceSpeed = 120n;
 let advanceCount = 0n;
 let gestureIndex = 0;
 let brush;
@@ -46,7 +48,7 @@ let printBtn, // Sticker button.
 
 let noadvance = false;
 
-const btnBar = 32;
+let btnBar = 32;
 const butBottom = 6;
 const butSide = 6;
 
@@ -54,6 +56,8 @@ let handle;
 let imageCode, recordingCode;
 let timeout;
 let running;
+let zoomed = false;
+let showMode = false;
 
 //let mintBtn; // A button to mint.
 
@@ -61,13 +65,22 @@ let running;
 function boot({
   system,
   params,
+  colon,
   get,
   net,
   ui,
   screen,
   display,
+  hud,
   dom: { html },
 }) {
+  showMode = colon[0] === "show"; // A special lightbox mode with no bottom bar.
+
+  if (showMode) {
+    hud.labelBack();
+    btnBar = 0;
+  }
+
   if (params[0]?.length > 0) {
     interim = "Loading...";
     genSlug({ params });
@@ -81,6 +94,7 @@ function boot({
         let slug = imageCode + ".png";
         if (handle && handle !== "anon")
           slug = handle + "/painting/" + imageCode + ".png";
+        if (showMode) return; // Skip download in showMode.
 
         const cssWidth = out.img.width * display.subdivisions;
         const cssHeight = out.img.width * display.subdivisions;
@@ -131,18 +145,20 @@ function boot({
             console.log("Record", system.nopaint.record);
             advance(system);
             running = true;
-          }, 1500);
+          }, 250);
         })
         .catch((err) => {
           // console.warn("Could not load recording.", err);
         });
     }
 
-    printBtn = new ui.TextButton(`Print`, {
-      bottom: butBottom,
-      right: butSide,
-      screen,
-    });
+    if (!showMode) {
+      printBtn = new ui.TextButton(`Print`, {
+        bottom: butBottom,
+        right: butSide,
+        screen,
+      });
+    }
     // mintBtn = new ui.TextButton(`Mint`, {
     //   bottom: butBottom,
     //   left: butSide,
@@ -161,7 +177,7 @@ function boot({
 }
 
 // 🎨 Paint
-function paint({ api, wipe, ink, system, screen, num, paste }) {
+function paint({ api, wipe, ink, system, screen, num, paste, pen }) {
   wipe(0);
   ink(0, 127).box(0, 0, screen.width, screen.height);
 
@@ -176,6 +192,33 @@ function paint({ api, wipe, ink, system, screen, num, paste }) {
     //mintBtn?.paint({ ink });
   }
 
+  function paintPainting(p) {
+    const margin = 20;
+    const wScale = (screen.width - margin * 2) / p.width;
+    const hScale = (screen.height - margin * 2) / p.height;
+    let scale = min(wScale, hScale, 1);
+    let w = p.width * scale;
+    let h = p.height * scale;
+    let x = screen.width / 2 - w / 2;
+    let y = screen.height / 2 - h / 2;
+
+    if (pen && zoomed) {
+      const imgX = (pen.x - x) / scale;
+      const imgY = (pen.y - y) / scale;
+
+      // Adjust scale and position for zoom anchored at pen position
+      scale = 1;
+      x = pen.x - imgX;
+      y = pen.y - imgY;
+      w = p.width * scale;
+      h = p.height * scale;
+    }
+
+    ink(64).box(x, y - btnBar / 2, w, h);
+    paste(p, x, y - btnBar / 2, { scale });
+    ink().box(x, y - btnBar / 2, w, h, "outline");
+  }
+
   ink(96).box(0, screen.height - 1 - btnBar, screen.width, 1);
 
   // Executes every display frame.
@@ -183,7 +226,7 @@ function paint({ api, wipe, ink, system, screen, num, paste }) {
     (pastRecord && system.nopaint.record?.length > 0) ||
     (system.nopaint.record?.length > 1 && running)
   ) {
-    ink().write(label, { size: 2 });
+    if (!showMode) ink().write(label, { size: 2 });
 
     if (painting) {
       brushPaints.forEach((brushPaint) => {
@@ -192,18 +235,22 @@ function paint({ api, wipe, ink, system, screen, num, paste }) {
 
       brushPaints.length = 0;
 
-      const x = screen.width / 2 - painting.width / 2;
-      const y = screen.height / 2 - painting.height / 2;
-      ink(64).box(x, y - btnBar / 2, painting.width, painting.height);
-      paste(painting, x, y - btnBar / 2);
-      ink().box(x, y - btnBar / 2, painting.width, painting.height, "outline");
+      paintPainting(painting);
     }
 
-    ink(num.map(labelFade, 0, labelFadeSpeed, 0, 255)).write(
-      label,
-      { y: 32, center: "x" },
-      "black",
-    );
+    if (showMode) {
+      ink(num.map(labelFade, 0, labelFadeSpeed, 0, 255)).write(
+        label,
+        { x: 6, y: 18 },
+        "black",
+      );
+    } else {
+      ink(num.map(labelFade, 0, labelFadeSpeed, 0, 255)).write(
+        label,
+        { y: 32, center: "x" },
+        "black",
+      );
+    }
 
     if (system.nopaint.record[stepIndex - 1]?.timestamp) {
       ink(200).write(
@@ -223,17 +270,7 @@ function paint({ api, wipe, ink, system, screen, num, paste }) {
 
     paintUi();
   } else if (finalPainting) {
-    const x = screen.width / 2 - finalPainting.width / 2;
-    const y = screen.height / 2 - finalPainting.height / 2;
-    ink(64).box(x, y - btnBar / 2, finalPainting.width, finalPainting.height);
-    paste(finalPainting, x, y - btnBar / 2);
-    ink().box(
-      x,
-      y - btnBar / 2,
-      finalPainting.width,
-      finalPainting.height,
-      "outline",
-    );
+    paintPainting(finalPainting);
     paintUi();
   } else {
     ink().write(interim, { center: "xy" });
@@ -259,6 +296,11 @@ function act({ event: e, screen, print, mint, delay }) {
       );
     },
   });
+
+  if (showMode) {
+    if (e.is("touch:1")) zoomed = true;
+    if (e.is("lift:1")) zoomed = false;
+  }
 
   // mintBtn?.act(e, {
   //   push: async () => {
