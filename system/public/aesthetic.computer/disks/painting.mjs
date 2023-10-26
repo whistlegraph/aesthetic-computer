@@ -193,7 +193,7 @@ function paint({ api, wipe, ink, system, screen, num, paste, pen }) {
   }
 
   function paintPainting(p) {
-    const margin = 20;
+    const margin = 34;
     const wScale = (screen.width - margin * 2) / p.width;
     const hScale = (screen.height - margin * 2) / p.height;
     let scale = min(wScale, hScale, 1);
