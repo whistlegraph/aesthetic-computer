@@ -13,6 +13,7 @@
     - [] 33: Bloody Forest
     - [] 67: Glitch Quilt 
     - [] 197, 18, 31, 78, 97: Hell Holes  
+    - [] 188: City Smile (@bash/rainbowcascade)
     - [] Hell Holes DIY! 
 
   - [🟠] The arrow keys should also move you through process in the `painting`.
