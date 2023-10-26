@@ -248,6 +248,7 @@ let simCount = 0n;
 let booted = false;
 // let initialSim = true;
 let noPaint = false;
+let labelBack = false;
 
 let storeRetrievalResolution, storeDeletionResolution;
 
@@ -723,6 +724,9 @@ const $commonApi = {
       currentHUDOffset = offset;
     },
     currentLabel: () => ({ text: currentHUDTxt, btn: currentHUDButton }),
+    labelBack: () => {
+      labelBack = true;
+    },
   },
   send,
   platform,
@@ -2835,6 +2839,7 @@ async function load(
     glazeEnabled = null;
     soundClear = null;
     hourGlasses.length = 0;
+    labelBack = false;
 
     // 🪧 See if notice needs to be shown.
     if ($commonApi.query.notice === "success") {
@@ -3996,8 +4001,14 @@ async function makeFrame({ data: { type, content } }) {
                 volume: 0.15,
               });
               // send({ type: "keyboard:open" });
-              //send({ type: "keyboard:open" });
-              jump("prompt");
+              // send({ type: "keyboard:open" });
+
+              if (!labelBack) {
+                jump("prompt");
+              } else {
+                send({ type: "back-to-piece" });
+              }
+
               // pieceHistoryIndex > 0
               //   ? send({ type: "back-to-piece" })
               //   : jump("prompt");

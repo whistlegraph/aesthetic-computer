@@ -2,20 +2,26 @@
 // This piece is a router that loads a specific `hell_ world` token in `painting` by sending it a sequence starting with the current piece.
 
 /* #region 🏁 todo
-  - [-] Update metadata when arrow keys change a painting.
-
   (organize)
-  - [] title second line underneath hell_world #
-  - [] add autoscaling to painting process page
-  - [] jump straight to the process when going to the painting page
-  - [] arrow keys also move you through process
-  - [] force top left button go back to the slideshow view
-  - [] show a "drag to inspect" message
+  - [🟠] The arrow keys should also move you through process in the `painting`.
+  - [] Hide the display when zooming and dragging or after an idle time of
+       no interaction.
+  - [] make the process view zoomable / change how tap to download works?
+  - [] show a "drag to inspect" message if the scale is < 1
 
-  - [] Delay the title / description / set.
-  - [] Display the set somehow / add a set filter? 
+  - [] Test on mobile.
+  - [] Test in embedded views:
+    - [] https://testnets.opensea.io/assets/sepolia/0x2703a4C880a486CAb720770e490c68FD60E1Fa23/0 
+    - [] https://wildxyz-git-oct-final-testing-wildxyz.vercel.app/jeffrey-scudder/hell-world/7/?_vercel_share=sEyI6YwmMlk13VZb7neOO1i3XzGrHyvM
   + Later
   + Done
+  - [x] Display the set somehow... maybe on a third line? 
+  - [x] force top left button go back to the slideshow view
+  - [x] don't change the slug when going to the painting page
+  - [x] add autoscaling to painting process page
+  - [x] also turn off the print module on the painting process page
+  - [x] title second line underneath hell_world #
+  - [x] Update metadata when arrow keys change a painting.
   - [x] Implement a custom `hell_ world` player / add a flag to `painting`.
   - [x] Get the hud display correctly / nice formatting.
   - [x] Test preview link in iMessage.
@@ -712,7 +718,7 @@ let debug;
 let timestampBtn;
 
 // 🥾 Boot
-function boot({ wipe, params, jump, store, get, num, hud, net, debug: d }) {
+function boot({ wipe, params, num, jump, store, get, api, debug: d }) {
   index = tokenID({ params, num });
   debug = d;
 
@@ -740,7 +746,7 @@ function boot({ wipe, params, jump, store, get, num, hud, net, debug: d }) {
     );
   };
 
-  getPainting(index, { get, hud, net });
+  getPainting(index, api);
 
   // TODO: Do I need this for `hell_ world`?
   // store["hell_-world"] = { tokenID: i, tokens, headers, meta };
@@ -760,7 +766,7 @@ function paint({ ink, text, screen, paste, wipe, noise16DIGITPAIN, pen, ui }) {
     let x = screen.width / 2 - (painting.width * scale) / 2;
     let y = screen.height / 2 - (painting.height * scale) / 2;
 
-    if (pen && zoomed) {
+    if (pen && zoomed && scale < 1) {
       const imgX = (pen.x - x) / scale;
       const imgY = (pen.y - y) / scale;
 
@@ -775,7 +781,9 @@ function paint({ ink, text, screen, paste, wipe, noise16DIGITPAIN, pen, ui }) {
 
     paste(painting, x, y, { scale });
 
-    const pos = { x: 3, y: screen.height - 13 };
+    if (controller) ink(0, 127).box(0, 0, screen.width, screen.height);
+
+    const pos = { x: 6, y: screen.height - 15 };
     const box = text.box(tokens[index], pos).box;
     const blockWidth = 6;
     box.width -= blockWidth * 2;
@@ -783,40 +791,46 @@ function paint({ ink, text, screen, paste, wipe, noise16DIGITPAIN, pen, ui }) {
     timestampBtn.paint((btn) => {
       ink(btn.down ? "orange" : 255).write(tokens[index], pos);
     });
+    ink("white").write(tokenTitlesAndDescriptions[index][0], { x: 6, y: 18 });
+
+    const tokenSet = findTokenSet(index);
+    if (tokenSet) {
+      ink(255, 0, 0, 127).write(tokenSet, { x: 6, y: screen.height - 15 - 14 });
+    }
   } else {
     noise16DIGITPAIN();
-    ink("white").write(tokenTitlesAndDescriptions[index][0], { center: "xy" });
   }
 }
 
 // 🎪 Act
-function act({ event: e, get, hud, net, sound, jump, params }) {
+function act({ event: e, api, sound, jump, params }) {
   timestampBtn?.act(e, () => {
     sfx.push(sound);
     // jump(`painting ${visiting}/${code}`);
     jump(
-      `painting~@jeffrey/${tokens[index]}` +
+      `painting:show~@jeffrey/${tokens[index]}` +
         params
           .slice(1)
           .map((p) => `~` + p)
           .join(""),
+      false,
+      true,
       // true, // ahistorical (skip the web history stack)
       // true, // alias (don't change the address bar url)
     );
   });
 
   if (e.is("touch:1") && !timestampBtn?.down) zoomed = true;
-
   if (e.is("lift:1")) zoomed = false;
 
   if (e.is("keyboard:down:arrowright")) {
     index = (index + 1) % tokens.length;
-    getPainting(index, { get, hud, net });
+    getPainting(index, api);
   }
 
   if (e.is("keyboard:down:arrowleft")) {
     index = max(0, index - 1);
-    getPainting(index, { get, hud, net });
+    getPainting(index, api);
   }
 }
 
@@ -858,12 +872,11 @@ function tokenID($) {
 export { boot, paint, act, meta, tokenID };
 
 // 📚 Library
-async function getPainting(i, { get, hud, net }) {
+async function getPainting(i, { get, hud, num, net, meta: refreshMetadata }) {
   hud.label(`hell_ world ${index}`, [255, 255, 0, 255]);
   net.rewrite(`hell_-world~${i}`);
   headers(index);
-
-  painting = null;
+  refreshMetadata(meta({ params: [index], num })); // Update metadata through the system.
 
   if (controller) controller.abort();
   controller = new AbortController();
@@ -880,4 +893,11 @@ async function getPainting(i, { get, hud, net }) {
       console.error("Painting load failure:", err);
     }
   }
+}
+
+function findTokenSet(index) {
+  for (let key in tokenSets) {
+    if (tokenSets[key].includes(index)) return key;
+  }
+  return null;
 }
