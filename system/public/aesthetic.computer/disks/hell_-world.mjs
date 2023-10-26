@@ -8,7 +8,6 @@
        no interaction.
   - [] make the process view zoomable / change how tap to download works?
   - [] show a "drag to inspect" message if the scale is < 1
-
   - [] Test on mobile.
   - [] Test in embedded views:
     - [] https://testnets.opensea.io/assets/sepolia/0x2703a4C880a486CAb720770e490c68FD60E1Fa23/0 
@@ -759,7 +758,7 @@ function boot({ wipe, params, num, jump, store, get, api, debug: d }) {
 // 🎨 Paint
 function paint({ ink, text, screen, paste, wipe, noise16DIGITPAIN, pen, ui }) {
   if (painting) {
-    const margin = 20;
+    const margin = 34;
     const wScale = (screen.width - margin * 2) / painting.width;
     const hScale = (screen.height - margin * 2) / painting.height;
     let scale = min(wScale, hScale, 1);
