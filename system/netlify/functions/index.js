@@ -89,7 +89,7 @@ async function fun(event, context) {
     return redirect;
   }
 
-  // *** Server Metadata Fields***
+  // *** Server Metadata Fields ***
   const { title, desc, ogImage, icon, twitterImage } = metadata(
     event.headers["host"],
     slug,
