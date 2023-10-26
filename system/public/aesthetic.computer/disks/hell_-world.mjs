@@ -724,6 +724,7 @@ let index,
   headers,
   controller = null;
 let zoomed = false;
+let zoomLevel = 1;
 let debug;
 
 let timestampBtn;
@@ -777,14 +778,15 @@ function paint({ ink, text, screen, paste, wipe, noise16DIGITPAIN, pen, ui }) {
     let x = screen.width / 2 - (painting.width * scale) / 2;
     let y = screen.height / 2 - (painting.height * scale) / 2;
 
-    if (pen && zoomed && scale < 1) {
+    if (pen && zoomed && (scale < 1 || scale === 1)) {
       const imgX = (pen.x - x) / scale;
       const imgY = (pen.y - y) / scale;
 
+      scale = zoomLevel;
       // Adjust scale and position for zoom anchored at pen position
-      scale = 1;
-      x = pen.x - imgX;
-      y = pen.y - imgY;
+
+      x = pen.x - imgX * scale;
+      y = pen.y - imgY * scale;
       ink(0, 64).box(0, 0, screen.width, screen.height);
     } else {
       wipe(0);
@@ -833,6 +835,11 @@ function act({ event: e, api, sound, jump, params }) {
 
   if (e.is("touch:1") && !timestampBtn?.down) zoomed = true;
   if (e.is("lift:1")) zoomed = false;
+
+  if (e.is("keyboard:down:space")) {
+    zoomLevel += 1;
+    if (zoomLevel > 3) zoomLevel = 1;
+  }
 
   if (e.is("keyboard:down:arrowright")) {
     index = (index + 1) % tokens.length;
