@@ -3,6 +3,18 @@
 
 /* #region 🏁 todo
   (organize)
+  - [🟡] Live Demo 
+    - [] 61, 107, 187, 189, 194: Holy Bunnies 
+    - [] 117: Cute White Kitty
+    - [] 72: Alien Kid
+    - [] 171: Only Code 
+    - [] 132: Obby
+    - [] 175: Slitscan Spirit
+    - [] 33: Bloody Forest
+    - [] 67: Glitch Quilt 
+    - [] 197, 18, 31, 78, 97: Hell Holes  
+    - [] Hell Holes DIY! 
+
   - [🟠] The arrow keys should also move you through process in the `painting`.
   - [] Hide the display when zooming and dragging or after an idle time of
        no interaction.
