@@ -26,7 +26,7 @@
 const { min } = Math;
 
 const labelFadeSpeed = 80;
-const advanceSpeed = 60n;
+const advanceSpeed = 100n;
 let advanceCount = 0n;
 let gestureIndex = 0;
 let brush;
