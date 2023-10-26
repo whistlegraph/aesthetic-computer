@@ -40,7 +40,7 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `hell_ world` - oct. 30 ***
+*** 😈 `hell_ world` - oct. 30 ***
   + Prelaunch...
   - [🟠] Finish player. See `hell_-world.mjs`.
   + Done
@@ -59,7 +59,7 @@
   - [x] Fix `no` not working after first attempt regression.
   - [x] Fix zip file loading on `painting`.
 
-*** `botce` launch - oct. 31 ***
+*** 🪷 `botce` launch - oct. 31 ***
  - [] Review / check Patreon gate code. 
  - [] Figure out how to handle auth on the piece.
 
