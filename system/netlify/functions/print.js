@@ -293,7 +293,7 @@ export async function handler(event, context) {
 
       const sig = event.headers["stripe-signature"];
       const secret = dev
-        ? "whsec_181bbe48c808731616de39c5c75fc670c83c6ef554409b8c770170b718fbd3b0"
+        ? process.env.STRIPE_ENDPOINT_DEV_SECRET 
         : process.env.STRIPE_ENDPOINT_SECRET;
       let hookEvent;
 
