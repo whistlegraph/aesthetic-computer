@@ -80,7 +80,7 @@ import Stripe from "stripe";
 const dev = process.env.CONTEXT === "dev";
 const printfulKey = process.env.PRINTFUL_API_TOKEN;
 const stripeKey = dev
-  ? process.env.STRIPE_API_TEST_KEY
+  ? process.env.STRIPE_API_TEST_PRIV_KEY
   : process.env.STRIPE_API_PRIV_KEY; // Uncomment for real orders.
 
 import { authorize } from "../../backend/authorization.mjs";
