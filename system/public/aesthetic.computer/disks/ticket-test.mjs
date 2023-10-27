@@ -5,17 +5,18 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [-] Make sure to clear the ticket screen whenever piece changes.
   - [] Set up expiring links on the email / in the database.
     - [] Send an email.
     - [] Would I need to respond to Stripe webhooks here?
+  + Done
+  - [?] Make sure to clear the ticket screen whenever piece changes.
 #endregion */
 
 let needsWipe = true;
 
 // 🥾 Boot
 function boot({ ticket, query }) {
-  if (query?.notice !== "PAID!") ticket({ from: "sotce", item: "botce" });
+  if (query?.notice !== "check your email") ticket({ from: "sotce", item: "botce" });
 }
 
 // 🎨 Paint
