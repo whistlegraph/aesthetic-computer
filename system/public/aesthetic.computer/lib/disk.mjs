@@ -505,11 +505,15 @@ const $commonApi = {
   delay: (fun, time) => {
     hourGlasses.push(new gizmo.Hourglass(time, { completed: () => fun() }));
   },
+  // 🎟️ Open a ticketed paywall on the page.
+  // TODO: Get confirmation or cancellation of payment. 23.10.26.20.57
+  ticket: (content) => {
+    send({ type: "ticket-wall", content });
+  },
   // 🪙 Mint a url or the `pixels` that get passed into the argument to a
   // network of choice.
   mint: async (picture, progress, params) => {
     console.log("🪙 Minting...", picture);
-
     // Determine if picture is a string or an object.
 
     // A record will be attached if one exists via the prompt and the user is
@@ -2852,6 +2856,7 @@ async function load(
       noticeBell(cachedAPI, { tone: 300 });
     } else if ($commonApi.query.notice?.length > 0) {
       notice = $commonApi.query.notice;
+      noticeColor = ["white", "green"];
       noticeBell(cachedAPI, { tone: 300 });
     } else {
       // Clear any existing notice on disk change.
