@@ -24,15 +24,10 @@ export async function handler(event, context) {
     const { items, from } = data; // Get the items from the body
 
     let key;
-    if (from === "sotce") {
-      key = dev
-        ? process.env.SOTCE_STRIPE_API_TEST_PRIV_KEY
-        : process.env.SOTCE_STRIPE_API_PRIV_KEY;
-    } else {
-      key = dev
-        ? process.env.STRIPE_API_TEST_PRIV_KEY
-        : process.env.STRIPE_API_PRIV_KEY;
-    }
+    const envKey = from === "sotce" ? "SOTCE_" : "";
+    key = dev
+      ? process.env[`${envKey}STRIPE_API_TEST_PRIV_KEY`]
+      : process.env[`${envKey}STRIPE_API_PRIV_KEY`];
 
     const stripe = Stripe(key);
 
@@ -55,19 +50,12 @@ export async function handler(event, context) {
     let prodSecret, devSecret, key;
     // TODO: How to know here if sotce or not?
     const fromSotce = event.path.endsWith("sotce");
-    if (fromSotce) {
-      prodSecret = process.env.SOTCE_STRIPE_ENDPOINT_SECRET;
-      devSecret = process.env.SOTCE_STRIPE_ENDPOINT_DEV_SECRET;
-      key = dev
-        ? process.env.SOTCE_STRIPE_API_TEST_PRIV_KEY
-        : process.env.SOTCE_STRIPE_API_PRIV_KEY;
-    } else {
-      prodSecret = process.env.STRIPE_ENDPOINT_SECRET;
-      devSecret = process.env.STRIPE_ENDPOINT_DEV_SECRET;
-      key = dev
-        ? process.env.STRIPE_API_TEST_PRIV_KEY
-        : process.env.STRIPE_API_PRIV_KEY;
-    }
+    const prefix = fromSotce ? "SOTCE_" : "";
+    prodSecret = process.env[`${prefix}STRIPE_ENDPOINT_SECRET`];
+    devSecret = process.env[`${prefix}STRIPE_ENDPOINT_DEV_SECRET`];
+    key = dev
+      ? process.env[`${prefix}STRIPE_API_TEST_PRIV_KEY`]
+      : process.env[`${prefix}STRIPE_API_PRIV_KEY`];
 
     const stripe = Stripe(key);
 
@@ -75,27 +63,25 @@ export async function handler(event, context) {
     const secret = dev ? devSecret : prodSecret;
     let hookEvent;
 
-    console.log("Event:", event, context);
-    console.log("Path:", event.path);
-    console.log("Sig:", sig);
+    // console.log("Event:", event, context);
+    // console.log("Path:", event.path);
+    // console.log("Sig:", sig);
 
     try {
       hookEvent = stripe.webhooks.constructEvent(event.body, sig, secret);
     } catch (err) {
       const msg = { message: `Webhook Error: ${err.message}` };
-      console.log(msg);
+      // console.log(msg);
       return respond(400, msg);
     }
 
     // console.log(hookEvent.type);
-
     if (hookEvent.type === "charge.succeeded") {
       console.log("😃 Charge succeeeded!");
-
-      console.log("Hook Event:", hookEvent);
+      // console.log("Hook Event:", hookEvent);
 
       const emailOptions = {
-        to: "hellosotce@gmail.com",
+        to: hookEvent.receipt_email,
         subject: "🪷 hello",
         html: `
           <img src="#" width="250">
@@ -114,10 +100,9 @@ export async function handler(event, context) {
       }
 
       const emailSent = await email(emailOptions);
-
-      console.log("Email:", emailSent);
+      console.log("📧 Email sent:", emailSent);
     }
 
-    return respond(200, { message: "Webhook..." });
+    return respond(200, { message: `Webhook: ${hookEvent.type}` });
   }
 }
