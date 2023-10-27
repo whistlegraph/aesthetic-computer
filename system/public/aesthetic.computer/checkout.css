@@ -1,20 +1,17 @@
-/* Variables */
-* {
-  box-sizing: border-box;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 16px;
-  -webkit-font-smoothing: antialiased;
+#ticket {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5; /* Above the `#content` frame from `style.css` */
   display: flex;
   justify-content: center;
   align-content: center;
-  height: 100vh;
   width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
 }
 
-form {
+#payment-form {
   width: 30vw;
   min-width: 500px;
   align-self: center;
@@ -22,9 +19,15 @@ form {
     0px 2px 5px 0px rgba(50, 50, 93, 0.1), 0px 1px 1.5px 0px rgba(0, 0, 0, 0.07);
   border-radius: 7px;
   padding: 40px;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  pointer-events: all;
 }
 
-.hidden {
+#payment-message.hidden,
+#spinner.hidden {
   display: none;
 }
 
@@ -41,7 +44,7 @@ form {
 }
 
 /* Buttons and links */
-button {
+#payment-form button {
   background: #5469d4;
   font-family: Arial, sans-serif;
   color: #ffffff;
@@ -56,21 +59,24 @@ button {
   box-shadow: 0px 4px 5.5px 0px rgba(0, 0, 0, 0.07);
   width: 100%;
 }
-button:hover {
+
+#payment-form button:hover {
   filter: contrast(115%);
 }
-button:disabled {
+
+#payment-form button:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
 /* spinner/processing state, errors */
-.spinner,
-.spinner:before,
-.spinner:after {
+#spinner.spinner,
+#spinner.spinner:before,
+#spinner.spinner:after {
   border-radius: 50%;
 }
-.spinner {
+
+#spinner.spinner {
   color: #ffffff;
   font-size: 22px;
   text-indent: -99999px;
@@ -83,12 +89,14 @@ button:disabled {
   -ms-transform: translateZ(0);
   transform: translateZ(0);
 }
-.spinner:before,
-.spinner:after {
+
+#spinner.spinner:before,
+#spinner.spinner:after {
   position: absolute;
   content: "";
 }
-.spinner:before {
+
+#spinner.spinner:before {
   width: 10.4px;
   height: 20.4px;
   background: #5469d4;
@@ -97,10 +105,11 @@ button:disabled {
   left: -0.2px;
   -webkit-transform-origin: 10.4px 10.2px;
   transform-origin: 10.4px 10.2px;
-  -webkit-animation: loading 2s infinite ease 1.5s;
-  animation: loading 2s infinite ease 1.5s;
+  -webkit-animation: payment-loading 2s infinite ease 1.5s;
+  animation: payment-loading 2s infinite ease 1.5s;
 }
-.spinner:after {
+
+#spinner.spinner:after {
   width: 10.4px;
   height: 10.2px;
   background: #5469d4;
@@ -109,25 +118,28 @@ button:disabled {
   left: 10.2px;
   -webkit-transform-origin: 0px 10.2px;
   transform-origin: 0px 10.2px;
-  -webkit-animation: loading 2s infinite ease;
-  animation: loading 2s infinite ease;
+  -webkit-animation: payment-loading 2s infinite ease;
+  animation: payment-loading 2s infinite ease;
 }
 
-@-webkit-keyframes loading {
+@-webkit-keyframes payment-loading {
   0% {
     -webkit-transform: rotate(0deg);
     transform: rotate(0deg);
   }
+
   100% {
     -webkit-transform: rotate(360deg);
     transform: rotate(360deg);
   }
 }
-@keyframes loading {
+
+@keyframes payment-loading {
   0% {
     -webkit-transform: rotate(0deg);
     transform: rotate(0deg);
   }
+
   100% {
     -webkit-transform: rotate(360deg);
     transform: rotate(360deg);
@@ -135,7 +147,7 @@ button:disabled {
 }
 
 @media only screen and (max-width: 600px) {
-  form {
+  #payment-form {
     width: 80vw;
     min-width: initial;
   }
