@@ -30,7 +30,7 @@ export function ticket(from, item) {
   let emailAddress = "";
   // Fetches a payment intent and captures the client secret
   async function initialize() {
-    const response = await fetch("/api/create-payment-intent", {
+    const response = await fetch("/api/ticket?new=true", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ items, from }),
@@ -66,7 +66,7 @@ export function ticket(from, item) {
       elements,
       confirmParams: {
         // Make sure to change this to your payment completion page
-        return_url: window.location.href + "?notice=PAID!",
+        return_url: window.location.href + "?notice=check your email",
         receipt_email: emailAddress,
       },
     });

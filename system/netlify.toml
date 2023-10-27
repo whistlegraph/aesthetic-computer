@@ -154,8 +154,8 @@
   to = "/.netlify/functions/print"
   status = 200
 [[redirects]]
-  from = "/api/create-payment-intent"
-  to = "/.netlify/functions/create-payment-intent"
+  from = "/api/ticket/*"
+  to = "/.netlify/functions/ticket"
   status = 200
 [[redirects]]
   from = "/api/logo/*"
