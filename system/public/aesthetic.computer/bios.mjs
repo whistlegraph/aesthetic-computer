@@ -445,6 +445,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     });
   }
 
+  async function loadStripe() {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://js.stripe.com/v3/";
+
+      script.onerror = function (err) {
+        reject(err, s);
+      };
+
+      script.onload = function handleScriptLoaded() {
+        if (debug && logs.deps)
+          console.log("🦓 Stripe has loaded.", window.Stripe);
+        resolve(window.Stripe);
+      };
+
+      document.head.appendChild(script);
+    });
+  }
+
   // THREE.JS (With a thin wrapper called ThreeD).
   let ThreeD;
   let ThreeDBakeQueue = [];
@@ -1213,17 +1232,44 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let pixelsDidChange = false; // TODO: Can this whole thing be removed? 2021.11.28.03.50
 
   let contentFrame;
+  let ticketWrapper;
   let underlayFrame;
   let underlayCan;
 
-  //const bakedCan = document.createElement("canvas", {
+  // const bakedCan = document.createElement("canvas", {
   //  willReadFrequently: true,
-  //});
+  // });
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+    if (type === "ticket-wall") {
+      if (!window.Stripe) await loadStripe();
+      const color = "pink";
+      const template = `
+        <link rel="stylesheet" href="aesthetic.computer/checkout.css" />
+        <form style="background: ${color}" id="payment-form">
+          <div id="link-authentication-element">
+          </div>
+          <div id="payment-element">
+          </div>
+          <button id="submit">
+            <div class="spinner hidden" id="spinner"></div>
+            <span id="button-text">sotce, how do i...</span>
+          </button>
+          <div id="payment-message" class="hidden"></div>
+        </form>
+      `;
+      ticketWrapper = document.createElement("div");
+      ticketWrapper.id = "ticket";
+      ticketWrapper.innerHTML = template;
+      wrapper.appendChild(ticketWrapper);
+      const { ticket } = await import(`./lib/ticket.mjs`);
+      ticket(content.from, content.item); // Open the ticket overlay.
+      return;
+    }
+
     if (type === "handle") {
-      HANDLE = content;
+      HANDLE = content; // Set the global HANDLE const to the user handle.
       return;
     }
 
@@ -2003,6 +2049,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       contentFrame?.remove(); // Remove the contentFrame if it exists.
       contentFrame = undefined;
 
+      // Clear any ticket overlay that was added by a piece.
+      ticketWrapper?.remove();
+      ticketWrapper = undefined;
+
       underlayFrame?.remove(); // Remove the underlayFrame if it exists.
       underlayFrame = undefined;
       underlayCan = undefined;
@@ -2250,7 +2300,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "content-create") {
       // Create a DOM container, if it doesn't already exist,
       // and add it here along with the requested content in the
-      // template.
+      // template
       if (!contentFrame) {
         contentFrame = document.createElement("div");
         contentFrame.id = "content";
