@@ -81,13 +81,15 @@ function paint({ api, ink, help, text, screen, num: { randIntArr } }) {
       if (!claim && !overlay) color = ["green", "white", "white", "green"];
       bar.tb.paint(api, color);
 
+      const text = index === 4 ? "Sean Moss-Pultz" : bar.tb.btn.down ? undefined : claim ? "CLAIM" : "$10k+";
+
       bar.tb.reposition(
         {
           x: x - bar.tb.width / 2,
           y: index * rowH + (screen.height / 2 - totalHeight / 2),
           screen,
         },
-        bar.tb.btn.down ? undefined : claim ? "CLAIM" : "$10k+",
+        text,
       );
     });
   }
