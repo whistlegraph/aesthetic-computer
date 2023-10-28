@@ -13,7 +13,6 @@ export async function email(options) {
   options.from = process.env.SMTP_USER;
   if (options.auth) {
     config.auth = options.auth;
-    console.log("Email auth:", config.auth);
     delete options.auth;
   }
 
