@@ -2978,6 +2978,18 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Jump to any piece slug from the bios.
+  if (type === "jump") {
+    $commonApi.jump(content.piece, true, true);
+    return;
+  }
+
+  // Create a notice.
+  if (type === "notice") {
+    $commonApi.notice(content, ["white", "maroon"]);
+    return;
+  }
+
   if (type === "loading-complete") {
     loading = false;
     leaving = false;

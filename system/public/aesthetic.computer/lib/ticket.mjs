@@ -19,9 +19,10 @@ export function ticket(from, item) {
   const items = [{ id: item }]; // Items to buy...
 
   let elements;
+  let clientSecret;
 
   initialize();
-  checkStatus();
+  // checkStatus();
 
   document
     .querySelector("#payment-form")
@@ -35,13 +36,10 @@ export function ticket(from, item) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ items, from }),
     });
-    const { clientSecret } = await response.json();
 
-    console.log("Secret:", clientSecret);
-
-    const appearance = {
-      theme: "stripe",
-    };
+    const body = await response.json();
+    clientSecret = body.clientSecret;
+    const appearance = { theme: "stripe" };
 
     elements = stripe.elements({ appearance, clientSecret });
 
@@ -58,34 +56,62 @@ export function ticket(from, item) {
     paymentElement.mount("#payment-element");
   }
 
+  function deinitialize() {
+    const ticketWrapper = document.getElementById("ticket");
+    ticketWrapper?.remove();
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
 
     const { error } = await stripe.confirmPayment({
       elements,
-      confirmParams: {
-        // Make sure to change this to your payment completion page
-        return_url: window.location.href + "?notice=check your email",
-        receipt_email: emailAddress,
-      },
+      redirect: "if_required",
+      confirmParams: { receipt_email: emailAddress },
     });
 
-    // This point will only be reached if there is an immediate error when
-    // confirming the payment. Otherwise, your customer will be redirected to
-    // your `return_url`. For some payment methods like iDEAL, your customer will
-    // be redirected to an intermediate site first to authorize the payment, then
-    // redirected to the `return_url`.
-    if (error.type === "card_error" || error.type === "validation_error") {
-      showMessage(error.message);
+    if (error) {
+      if (error.type === "card_error" || error.type === "validation_error") {
+        showMessage(error.message);
+      } else {
+        showMessage("An unexpected error occurred.");
+      }
+      setLoading(false);
     } else {
-      showMessage("An unexpected error occurred.");
+      checkTicketStatus(); // Start polling for ticket status...
     }
+  }
 
-    setLoading(false);
+  async function checkTicketStatus() {
+    try {
+      const response = await fetch(
+        `/api/ticket?check=true&pid=${clientSecret.split("_secret_")[0]}`,
+      );
+      const { ticketed, ticket, piece } = await response.json();
+      if (ticketed) {
+        setLoading(false);
+        deinitialize(); // Remove paywall here.
+        // Add the ticket to localStorage (under the hood).
+        localStorage.setItem(
+          `ticket:${ticket.for}`,
+          JSON.stringify({ key: ticket.key, time: new Date() }),
+        );
+        if (window.acDEBUG) console.log("🎟️ Ticket:", ticket);
+        window.acSEND({ type: "jump", content: { piece } }); // Jump to target.
+        window.acSEND({ type: "notice", content: "Welcome!" }); // Notify.
+      } else {
+        // Optionally, you can set a timeout to check again
+        setTimeout(checkTicketStatus, 3000); // Check every 3 seconds
+      }
+    } catch (error) {
+      console.error("Error checking payment status:", error);
+      setLoading(false);
+    }
   }
 
   // Fetches the payment intent status after payment submission
+  /*
   async function checkStatus() {
     const clientSecret = new URLSearchParams(window.location.search).get(
       "payment_intent_client_secret",
@@ -112,6 +138,7 @@ export function ticket(from, item) {
         break;
     }
   }
+  */
 
   // ------- UI helpers -------
 
