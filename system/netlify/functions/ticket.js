@@ -1,10 +1,12 @@
-// Ticker, 23.10.26.19.26
+// Ticket, 23.10.26.19.26
 // This file is for supporting stripe pop-up checkout functionality across AC.
 
 import Stripe from "stripe";
 import { respond } from "../../backend/http.mjs";
 import { email } from "../../backend/email.mjs";
+import { connect } from "../../backend/database.mjs";
 const dev = process.env.CONTEXT === "dev";
+const botcePiece = "wPyYL4osf6Cw0pkHn_E5I-botce";
 
 // 💲 A utility function to calculate the order amount
 const calculateOrderAmount = (items) => {
@@ -14,7 +16,65 @@ const calculateOrderAmount = (items) => {
 };
 
 export async function handler(event, context) {
-  // Only allow POST
+  const database = await connect(); // 📕 Database
+  const collection = database.db.collection("tickets");
+
+  if (event.httpMethod === "GET") {
+    // Confirm a previously set payment by checking for a ticker
+    // that matches the payment intent id.
+    if (event.queryStringParameters.check === "true") {
+      console.log(event.queryStringParameters);
+      const ticket = await collection.findOne({
+        pid: event.queryStringParameters.pid,
+      });
+      console.log("🎟️ Ticket from payment id:", ticket);
+      if (ticket) {
+        return respond(200, { ticketed: true, ticket, piece: botcePiece });
+      } else {
+        return respond(200, { ticketed: false });
+      }
+    }
+
+    // Or grab a ticket.
+    const key = event.path.split("/").pop();
+    let ticket = await collection.findOne({ key });
+
+    if (!ticket) {
+      console.log("No ticket found...");
+      return respond(401, { message: "No ticket found. 😢" });
+    }
+
+    if (ticket.uses === 0) {
+      return respond(403, { message: "Ticket expired. 🎟️" });
+    }
+
+    // Don't decrement the ticket counter if one was already found.
+    if (event.queryStringParameters.found !== "true") {
+      await collection.updateOne({ key }, { $inc: { uses: -1 } }); // Dec uses.
+      ticket = await collection.findOne({ key });
+    }
+
+    console.log("🎟️ Ticket:", ticket);
+    await database.disconnect();
+
+    const body = { ticket };
+
+    if (ticket.for === "botce") {
+      // Include the paid `botce` prompt.
+
+      // TODO: How could this data eventually be pulled live from
+      //       a source that anyone could easily edit, like
+      //       a google spreadsheet.
+      //     - And some keys stored in the ENV variables.
+
+      // body.botce = { before: "Hello...", after: "Goodbye..." };
+      body.botce = { piece: botcePiece };
+    }
+
+    return respond(200, body);
+  }
+
+  // Only allow POST from here on.
   if (event.httpMethod !== "POST")
     return respond(405, { message: "Method Not Allowed" });
 
@@ -63,10 +123,6 @@ export async function handler(event, context) {
     const secret = dev ? devSecret : prodSecret;
     let hookEvent;
 
-    // console.log("Event:", event, context);
-    // console.log("Path:", event.path);
-    // console.log("Sig:", sig);
-
     try {
       hookEvent = stripe.webhooks.constructEvent(event.body, sig, secret);
     } catch (err) {
@@ -78,17 +134,34 @@ export async function handler(event, context) {
     // console.log(hookEvent.type);
     if (hookEvent.type === "charge.succeeded") {
       console.log("😃 Charge succeeeded!");
-      // console.log("Hook Event:", hookEvent);
+      const emailAddress = hookEvent.data.object.receipt_email;
+
+      console.log("HOOK:", hookEvent);
+
+      // Create an expiring link via a "tickets" collection in the db.
+      const database = await connect(); // 📕 Database
+      const collection = database.db.collection("tickets");
+      const { nanoid } = await import("nanoid");
+      const ticketKey = nanoid();
+      await collection.insertOne({
+        key: ticketKey,
+        for: fromSotce ? "botce" : "aesthetic",
+        email: emailAddress,
+        uses: 10,
+        pid: hookEvent.data.object.payment_intent,
+      });
+      await database.disconnect();
+
+      const link = `https://${
+        dev ? "localhost:8888/botce" : "botce.ac"
+      }?ticket=${ticketKey}`;
 
       const emailOptions = {
-        to: hookEvent.receipt_email,
+        to: hookEvent.data.object.receipt_email,
         subject: "🪷 hello",
         html: `
-          <img src="#" width="250">
-          <p>you can use this link 10 times: <a href="#">botce</a></p>
-          <b><a href="https://sotce.com">sotce.com</a></b>
-          <br>
-          <code>hello ;)</code>
+          <p>Ask <code>botce</code> again (up to 10 times) using <a href="${link}">this link</a>.</p>
+          <b><a href="https://sotce.com">sotce</a></b>
         `,
       };
 
