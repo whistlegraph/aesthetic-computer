@@ -49,12 +49,13 @@
     - [] Setting your initial handle always seems to show TAKEN
         even if the handle is not taken and succeeds on the first try?
 
-*** 🤑 hell_ world sale ***
-  - [-] Add `d` to download keyboard shortcut.
+*** 🤑 `hell_-world` / `hw` sale day ***
   - [] Review UX w/ @ida.
   - [] Test player / functionality throughout the day.
   - [] Take in user feedback:
     - [] ...
+  + Done
+  - [x] Add `d` to download keyboard shortcut.
 
 *** scream ***
   - [🟠] Word-wrapping.

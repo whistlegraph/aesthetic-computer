@@ -32,7 +32,7 @@
 const { min } = Math;
 import * as sfx from "./common/sfx.mjs";
 
-const labelFadeSpeed = 80;
+const labelFadeSpeed = 100;
 const advanceSpeed = 100n;
 let advanceCount = 0n;
 let gestureIndex = 0;
@@ -155,7 +155,7 @@ function boot({
             console.log("Record", system.nopaint.record);
             advance(system);
             running = true;
-          }, 250);
+          }, 750);
         })
         .catch((err) => {
           // console.warn("Could not load recording.", err);
