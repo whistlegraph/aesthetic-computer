@@ -5,15 +5,17 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Wire up arrow buttons to work.
-  - [] Arrow keys should also work.
-  - [] They should pause the show?
-  - [] Make the zoom function the same as in `hell_-world`.
   + Later
   - [] Sound
-  - [] Forwards and backwards directionality.
-  - [] Make right-click / tap to save available just in the "painting" command.
   + Done
+  - [x] Forwards and backwards directionality.
+  - [x] Make right-click / tap to save available just in the "painting" command.
+       without show.
+  - [x] Make sure that the arrows are in the center Y.
+  - [x] They should pause the show?
+  - [x] Make the zoom function the same as in `hell_-world`.
+  - [x] Wire up arrow buttons to work.
+  - [x] Arrow keys should also work.
   - [x] `done` should take you to the painting page after uploading.
   - [x] Automatically go to the `painting` page after a successful upload /
        return the proper code.
@@ -28,6 +30,7 @@
 #endregion */
 
 const { min } = Math;
+import * as sfx from "./common/sfx.mjs";
 
 const labelFadeSpeed = 80;
 const advanceSpeed = 100n;
@@ -41,7 +44,7 @@ let painting,
   step,
   label,
   labelFade = labelFadeSpeed,
-  stepIndex = 0,
+  stepIndex = -1,
   interim = "No recording found.",
   // direction = 1,
   paintingIndex = stepIndex,
@@ -64,6 +67,7 @@ let zoomed = false;
 let showMode = false;
 
 let prevBtn, nextBtn;
+let zoomLevel = 1;
 
 //let mintBtn; // A button to mint.
 
@@ -213,7 +217,8 @@ function paint({ api, wipe, ink, system, screen, num, paste, pen, ui, geo }) {
       const imgY = (pen.y - y) / scale;
 
       // Adjust scale and position for zoom anchored at pen position
-      scale = 1;
+      scale = zoomLevel;
+
       x = pen.x - imgX;
       y = pen.y - imgY;
       w = p.width * scale;
@@ -222,7 +227,7 @@ function paint({ api, wipe, ink, system, screen, num, paste, pen, ui, geo }) {
 
     ink(64).box(x, y - btnBar / 2, w, h);
     paste(p, x, y - btnBar / 2, { scale });
-    ink().box(x, y - btnBar / 2, w, h, "outline");
+    ink(running ? undefined : "white").box(x, y - btnBar / 2, w, h, "outline");
   }
 
   ink(96).box(0, screen.height - 1 - btnBar, screen.width, 1);
@@ -267,10 +272,10 @@ function paint({ api, wipe, ink, system, screen, num, paste, pen, ui, geo }) {
     }
 
     // Progress bar.
-    ink().box(
+    ink(running ? undefined : "white").box(
       0,
       screen.height - 1 - btnBar,
-      screen.width * (stepIndex / system.nopaint.record.length),
+      screen.width * ((stepIndex + 1) / system.nopaint.record.length),
       1,
     );
 
@@ -280,7 +285,7 @@ function paint({ api, wipe, ink, system, screen, num, paste, pen, ui, geo }) {
 
     if (!prevBtn) {
       prevBtn = new ui.Button();
-      if (stepIndex === 0) prevBtn.disabled = true;
+      if (stepIndex <= 0) prevBtn.disabled = true;
     }
 
     prevBtn.box = new geo.Box(
@@ -294,9 +299,15 @@ function paint({ api, wipe, ink, system, screen, num, paste, pen, ui, geo }) {
       prevBtn.paint((btn) => {
         ink(btn.down ? "orange" : 255).write("<", {
           x: 6,
-          y: screen.height / 2,
+          y: screen.height / 2 - 4,
         });
       });
+      // ink(0, 255, 0, 127).line(
+      //   0,
+      //   screen.height / 2,
+      //   screen.width,
+      //   screen.height / 2,
+      // );
       ink(255, 255, 0, 8).box(prevBtn.box);
     }
 
@@ -315,7 +326,7 @@ function paint({ api, wipe, ink, system, screen, num, paste, pen, ui, geo }) {
       nextBtn.paint((btn) => {
         ink(btn.down ? "orange" : 255).write(">", {
           x: screen.width - 10,
-          y: screen.height / 2,
+          y: screen.height / 2 - 4,
         });
       });
       ink(255, 255, 0, 8).box(nextBtn.box);
@@ -331,13 +342,23 @@ function paint({ api, wipe, ink, system, screen, num, paste, pen, ui, geo }) {
 }
 
 // 🎪 Act
-function act({ event: e, screen, print, mint, delay }) {
-  nextBtn?.act(e, () => {
-    console.log("Next...");
-  });
-  prevBtn?.act(e, () => {
-    console.log("Prev...");
-  });
+function act({ event: e, screen, print, mint, delay, system, sound }) {
+  function next() {
+    sfx.push(sound);
+    running = false;
+    advance(system, 1, "manual");
+  }
+
+  function prev() {
+    sfx.push(sound);
+    running = false;
+    advance(system, -1, "manual");
+  }
+
+  nextBtn?.act(e, next);
+  prevBtn?.act(e, prev);
+  if (e.is("keyboard:down:arrowright")) next();
+  if (e.is("keyboard:down:arrowleft")) prev();
 
   printBtn?.act(e, {
     push: async () => {
@@ -358,8 +379,13 @@ function act({ event: e, screen, print, mint, delay }) {
   });
 
   if (showMode) {
-    if (e.is("touch:1")) zoomed = true;
+    if (e.is("touch:1") && !prevBtn?.down && !nextBtn?.down) zoomed = true;
     if (e.is("lift:1")) zoomed = false;
+  }
+
+  if (e.is("keyboard:down:space")) {
+    zoomLevel += 1;
+    if (zoomLevel > 3) zoomLevel = 1;
   }
 
   // mintBtn?.act(e, {
@@ -507,11 +533,32 @@ export { boot, paint, sim, act, leave, meta, preview, icon };
 // 📚 Library
 //   (Useful functions used throughout the piece)
 
-function advance(system) {
+function advance(system, direction = 1, mode = "auto") {
   const record = system.nopaint.record;
   if (noadvance) return;
   if (record.length === 0) return;
-  if (stepIndex === system.nopaint.record.length) stepIndex = 0;
+  stepIndex = stepIndex + direction;
+
+  if (stepIndex === record.length)
+    stepIndex = mode === "auto" ? 0 : record.length - 1;
+
+  if (stepIndex === -1) stepIndex = 0;
+
+  if (prevBtn) {
+    if (stepIndex > 0) {
+      prevBtn.disabled = false;
+    } else {
+      prevBtn.disabled = true;
+    }
+  }
+
+  if (nextBtn) {
+    if (stepIndex === record.length - 1) {
+      nextBtn.disabled = true;
+    } else {
+      nextBtn.disabled = false;
+    }
+  }
 
   step = record[stepIndex];
 
@@ -520,27 +567,30 @@ function advance(system) {
 
   if (step.painting) {
     painting = step.painting;
-    // if (!step.gesture) painting = step.painting; // Don't change painting
-    //                                                 if there is a gesture
-    //                                                 to simulate.
     paintingIndex = stepIndex;
   } else {
     if (label === "no") {
-      paintingIndex = paintingIndex - 1;
-      while (paintingIndex >= 0 && !record[paintingIndex].painting) {
-        paintingIndex -= 1;
+      paintingIndex = paintingIndex - direction;
+      while (
+        paintingIndex >= 0 &&
+        paintingIndex < record.length &&
+        !record[paintingIndex].painting
+      ) {
+        paintingIndex -= direction;
       }
     } else if (label === "yes") {
-      paintingIndex = paintingIndex + 1;
-      while (paintingIndex < record.length && !record[paintingIndex].painting) {
-        paintingIndex += 1;
+      paintingIndex = paintingIndex + direction;
+      while (
+        paintingIndex >= 0 &&
+        paintingIndex < record.length &&
+        !record[paintingIndex].painting
+      ) {
+        paintingIndex += direction;
       }
     }
 
     if (record[paintingIndex]) painting = record[paintingIndex].painting;
   }
-
-  stepIndex = stepIndex + 1;
 }
 
 // if (direction > 0) {
