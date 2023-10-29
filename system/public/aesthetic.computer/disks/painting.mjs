@@ -5,6 +5,10 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] Wire up arrow buttons to work.
+  - [] Arrow keys should also work.
+  - [] They should pause the show?
+  - [] Make the zoom function the same as in `hell_-world`.
   + Later
   - [] Sound
   - [] Forwards and backwards directionality.
@@ -58,6 +62,8 @@ let timeout;
 let running;
 let zoomed = false;
 let showMode = false;
+
+let prevBtn, nextBtn;
 
 //let mintBtn; // A button to mint.
 
@@ -177,7 +183,7 @@ function boot({
 }
 
 // 🎨 Paint
-function paint({ api, wipe, ink, system, screen, num, paste, pen }) {
+function paint({ api, wipe, ink, system, screen, num, paste, pen, ui, geo }) {
   wipe(0);
   ink(0, 127).box(0, 0, screen.width, screen.height);
 
@@ -268,6 +274,53 @@ function paint({ api, wipe, ink, system, screen, num, paste, pen }) {
       1,
     );
 
+    // Prev & Next Buttons
+    const prevNextMarg = 32;
+    const prevNextWidth = 32;
+
+    if (!prevBtn) {
+      prevBtn = new ui.Button();
+      if (stepIndex === 0) prevBtn.disabled = true;
+    }
+
+    prevBtn.box = new geo.Box(
+      0,
+      prevNextMarg,
+      prevNextWidth,
+      screen.height - prevNextMarg * 2,
+    );
+
+    if (!prevBtn.disabled) {
+      prevBtn.paint((btn) => {
+        ink(btn.down ? "orange" : 255).write("<", {
+          x: 6,
+          y: screen.height / 2,
+        });
+      });
+      ink(255, 255, 0, 8).box(prevBtn.box);
+    }
+
+    if (!nextBtn) {
+      nextBtn = new ui.Button();
+    }
+
+    nextBtn.box = new geo.Box(
+      screen.width - prevNextWidth,
+      prevNextMarg,
+      screen.width,
+      screen.height - prevNextMarg * 2,
+    );
+
+    if (!nextBtn.disabled) {
+      nextBtn.paint((btn) => {
+        ink(btn.down ? "orange" : 255).write(">", {
+          x: screen.width - 10,
+          y: screen.height / 2,
+        });
+      });
+      ink(255, 255, 0, 8).box(nextBtn.box);
+    }
+
     paintUi();
   } else if (finalPainting) {
     paintPainting(finalPainting);
@@ -279,6 +332,13 @@ function paint({ api, wipe, ink, system, screen, num, paste, pen }) {
 
 // 🎪 Act
 function act({ event: e, screen, print, mint, delay }) {
+  nextBtn?.act(e, () => {
+    console.log("Next...");
+  });
+  prevBtn?.act(e, () => {
+    console.log("Prev...");
+  });
+
   printBtn?.act(e, {
     push: async () => {
       printBtn.disabled = true;
