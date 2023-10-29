@@ -59,13 +59,19 @@
   - [x] Fix `no` not working after first attempt regression.
   - [x] Fix zip file loading on `painting`.
 
-*** 🪷 `botce` launch - oct. 31 ***
- - [] Review / check Patreon gate code. 
- - [] Figure out how to handle auth on the piece.
+*** wizards ***
+  - [] Use the "|" operator to make stepped wizards.
 
 *** scream ***
   - [-] Word-wrapping.
   - [] Voice should scream it.
+
+*** 🪷 `botce` launch (ticketed pieces) - friday nov. 8 ***
+  - [] Go over UX w/ Ida + Amelia.
+    - [] Ticket per session? / (If transaction UX is cheap, then why not just
+         sell individual 24hr expiring sessions at a price where someone
+         would buy 1 or 2)
+  - [] See `botce.mjs`.
 
 *** global `chat` ***
   - [] Top right tap to enter text, then be able to chat. 

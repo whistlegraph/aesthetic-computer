@@ -37,8 +37,6 @@ async function fun(event, context) {
     const slug = params.slice(1).join("/");
     const imageUrl = `https://${event.headers["host"]}/media/${slug}`;
 
-    // console.log("Image URL:", imageUrl);
-    // console.log("Image URL:", imageUrl);
     if (!imageUrl) return respond(400, { message: "Image URL not provided." });
 
     try {
@@ -55,12 +53,14 @@ async function fun(event, context) {
       let buffer;
 
       const original = await sharp(response.body);
-      const metadata = await original.metadata();
+      const md = await original.metadata();
+      console.log("Resolution:", resolution, "Image:", imageUrl);
+      console.log("Metadata:", md);
       const width = resolution[0];
       const height = resolution[1] || resolution[0];
-      const long = Math.max(metadata.width, metadata.height);
+      const long = Math.max(md.width, md.height);
       const kernel =
-        width > metadata.width || height > metadata.height
+        width > md.width || height > md.height
           ? sharp.kernel.nearest // For scaling up.
           : sharp.kernel.lanczos3; // For scaling down.
 
@@ -74,8 +74,8 @@ async function fun(event, context) {
         if (!clear) {
           combinedImage = await sharp({
             create: {
-              width: metadata.width,
-              height: metadata.height,
+              width: md.width,
+              height: md.height,
               channels: 4,
               background: { r: 32, g: 32, b: 32, alpha: 1 },
             },
@@ -89,9 +89,7 @@ async function fun(event, context) {
         let resolution;
         if (mode === "conform") {
           resolution =
-            metadata.width >= metadata.height
-              ? { width: width }
-              : { height: height };
+            md.width >= md.height ? { width: width } : { height: height };
           mode = "inside";
         } else {
           resolution = { width, height };
@@ -109,23 +107,20 @@ async function fun(event, context) {
       } else if (mode === "sticker") {
         // 🟠 Complex sticker mockup.
         const scalingFactor =
-          metadata.width > metadata.height
-            ? width / metadata.width
-            : height / metadata.height;
+          md.width > md.height ? width / md.width : height / md.height;
 
         const margin = 0.1;
         // const marginPx = 128;//Math.floor(long * scalingFactor * margin);
         const marginPx = Math.floor(long * scalingFactor * margin);
-        const rectWidth = Math.floor(metadata.width * scalingFactor) - marginPx;
-        const rectHeight =
-          Math.floor(metadata.height * scalingFactor) - marginPx;
+        const rectWidth = Math.floor(md.width * scalingFactor) - marginPx;
+        const rectHeight = Math.floor(md.height * scalingFactor) - marginPx;
 
         let combinedImage;
         if (!clear) {
           combinedImage = await sharp({
             create: {
-              width: metadata.width,
-              height: metadata.height,
+              width: md.width,
+              height: md.height,
               channels: 4,
               background: { r: 32, g: 32, b: 32, alpha: 1 },
             },

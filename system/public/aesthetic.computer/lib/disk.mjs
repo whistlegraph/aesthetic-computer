@@ -1215,7 +1215,7 @@ const $commonApi = {
     each: help.each,
     shuffleInPlace: help.shuffleInPlace,
   },
-  gizmo: { Hourglass: gizmo.Hourglass },
+  gizmo: { Hourglass: gizmo.Hourglass, EllipsisTicker: gizmo.EllipsisTicker },
   rec: new Recorder(),
   net: {
     signup: () => {
