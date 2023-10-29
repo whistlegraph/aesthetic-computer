@@ -3,20 +3,13 @@
 
 /* #region 🏁 todo
   (organize)
-  - [🟡] Live Demo 
-    - [] 61, 107, 187, 189, 194: Holy Bunnies 
-    - [] 117: Cute White Kitty
-    - [] 72: Alien Kid
-    - [] 171: Only Code 
-    - [] 132: Obby
-    - [] 175: Slitscan Spirit
-    - [] 33: Bloody Forest
-    - [] 67: Glitch Quilt 
-    - [] 197, 18, 31, 78, 97: Hell Holes  
-    - [] 188: City Smile (@bash/rainbowcascade)
-    - [] Hell Holes DIY! 
-
   - [🟠] The arrow keys should also move you through process in the `painting`.
+    - [] And there needs to be arrow buttons here and there.
+      - [x] Here
+        - [x] Add a loading display...
+      - [🟡] There
+
+  ------------
   - [] Hide the display when zooming and dragging or after an idle time of
        no interaction.
   - [] make the process view zoomable / change how tap to download works?
@@ -27,6 +20,18 @@
     - [] https://wildxyz-git-oct-final-testing-wildxyz.vercel.app/jeffrey-scudder/hell-world/7/?_vercel_share=sEyI6YwmMlk13VZb7neOO1i3XzGrHyvM
   + Later
   + Done
+  - [x] Live Demo 
+    - [x] 61, 107, 187, 189, 194: Holy Bunnies 
+    - [x] 117: Cute White Kitty
+    - [x] 72: Alien Kid
+    - [x] 171: Only Code 
+    - [x] 132: Obby
+    - [x] 175: Slitscan Spirit
+    - [x] 33: Bloody Forest
+    - [x] 67: Glitch Quilt 
+    - [x] 197, 18, 31, 78, 97: Hell Holes  
+    - [x] 188: City Smile (@bash/rainbowcascade)
+    - [x] Hell Holes DIY! 
   - [x] Display the set somehow... maybe on a third line? 
   - [x] force top left button go back to the slideshow view
   - [x] don't change the slug when going to the painting page
@@ -728,12 +733,16 @@ let zoomed = false;
 let zoomLevel = 1;
 let debug;
 
-let timestampBtn;
+let timestampBtn, prevBtn, nextBtn;
+
+let ellipsisTicker;
 
 // 🥾 Boot
-function boot({ wipe, params, num, jump, store, get, api, debug: d }) {
+function boot({ wipe, params, num, jump, store, get, api, debug: d, gizmo }) {
   index = tokenID({ params, num });
   debug = d;
+
+  ellipsisTicker = new gizmo.EllipsisTicker();
 
   headers = (id) => {
     console.log(
@@ -770,7 +779,18 @@ function boot({ wipe, params, num, jump, store, get, api, debug: d }) {
 }
 
 // 🎨 Paint
-function paint({ ink, text, screen, paste, wipe, noise16DIGITPAIN, pen, ui }) {
+function paint({
+  ink,
+  text,
+  screen,
+  paste,
+  wipe,
+  noise16DIGITPAIN,
+  pen,
+  geo,
+  ui,
+  help,
+}) {
   if (painting) {
     const margin = 34;
     const wScale = (screen.width - margin * 2) / painting.width;
@@ -795,12 +815,79 @@ function paint({ ink, text, screen, paste, wipe, noise16DIGITPAIN, pen, ui }) {
 
     paste(painting, x, y, { scale });
 
-    if (controller) ink(0, 127).box(0, 0, screen.width, screen.height);
+    if (controller) {
+      ink(0, prevBtn?.down || nextBtn?.down ? 200 : 127).box(
+        0,
+        0,
+        screen.width,
+        screen.height,
+      );
+      ink("pink").write(`Fetching${ellipsisTicker.text(help.repeat)}`, {
+        center: "xy",
+      });
+    }
 
     const pos = { x: 6, y: screen.height - 15 };
     const box = text.box(tokens[index], pos).box;
     const blockWidth = 6;
     box.width -= blockWidth * 2;
+
+    // Prev & Next Buttons
+    const prevNextMarg = 32;
+    const prevNextWidth = 32;
+
+    if (!prevBtn) {
+      prevBtn = new ui.Button();
+      if (index === 0) prevBtn.disabled = true;
+    }
+
+    prevBtn.box = new geo.Box(
+      0,
+      prevNextMarg,
+      prevNextWidth,
+      screen.height - prevNextMarg * 2,
+    );
+
+    if (!prevBtn.disabled) {
+      prevBtn.paint((btn) => {
+        ink(btn.down ? "orange" : 255).write("<", {
+          x: 6,
+          y: screen.height / 2,
+        });
+      });
+      ink(255, 255, 0, 8).box(prevBtn.box);
+    }
+
+    if (!nextBtn) {
+      nextBtn = new ui.Button();
+    }
+
+    nextBtn.box = new geo.Box(
+      screen.width - prevNextWidth,
+      prevNextMarg,
+      screen.width,
+      screen.height - prevNextMarg * 2,
+    );
+
+    if (!nextBtn.disabled) {
+      nextBtn.paint((btn) => {
+        ink(btn.down ? "orange" : 255).write(">", {
+          x: screen.width - 10,
+          y: screen.height / 2,
+        });
+      });
+      ink(255, 255, 0, 8).box(nextBtn.box);
+    }
+
+    // Rulers
+    // ink(0, 255, 0, 64).line(6, 0, 6, screen.height);
+    // ink(0, 255, 0, 64).line(
+    //   screen.width - 6,
+    //   0,
+    //   screen.width - 6,
+    //   screen.height,
+    // );
+
     if (!timestampBtn) timestampBtn = new ui.Button(box);
     timestampBtn.paint((btn) => {
       ink(btn.down ? "orange" : 255).write(tokens[index], pos);
@@ -818,9 +905,11 @@ function paint({ ink, text, screen, paste, wipe, noise16DIGITPAIN, pen, ui }) {
 
 // 🎪 Act
 function act({ event: e, api, sound, jump, params }) {
+  if (e.is("reframed")) {
+  }
+
   timestampBtn?.act(e, () => {
     sfx.push(sound);
-    // jump(`painting ${visiting}/${code}`);
     jump(
       `painting:show~@jeffrey/${tokens[index]}` +
         params
@@ -829,28 +918,56 @@ function act({ event: e, api, sound, jump, params }) {
           .join(""),
       false,
       true,
-      // true, // ahistorical (skip the web history stack)
-      // true, // alias (don't change the address bar url)
     );
   });
 
-  if (e.is("touch:1") && !timestampBtn?.down) zoomed = true;
+  function next() {
+    sfx.push(sound);
+    index += 1;
+    if (index > tokens.length - 1) {
+      index = tokens.length - 1;
+    } else {
+      getPainting(index, api);
+    }
+    if (index === tokens.length - 1) nextBtn.disabled = true;
+  }
+
+  function prev() {
+    sfx.push(sound);
+    index -= 1;
+    if (index < 0) {
+      index = 0;
+    } else {
+      getPainting(index, api);
+    }
+    if (index === 0) prevBtn.disabled = true;
+  }
+
+  nextBtn?.act(e, next);
+  prevBtn?.act(e, prev);
+
+  if (e.is("keyboard:down:arrowright")) next();
+  if (e.is("keyboard:down:arrowleft")) prev();
+
+  if (
+    e.is("touch:1") &&
+    !timestampBtn?.down &&
+    !prevBtn?.down &&
+    !nextBtn?.down
+  ) {
+    zoomed = true;
+  }
+
   if (e.is("lift:1")) zoomed = false;
 
   if (e.is("keyboard:down:space")) {
     zoomLevel += 1;
     if (zoomLevel > 3) zoomLevel = 1;
   }
+}
 
-  if (e.is("keyboard:down:arrowright")) {
-    index = (index + 1) % tokens.length;
-    getPainting(index, api);
-  }
-
-  if (e.is("keyboard:down:arrowleft")) {
-    index = max(0, index - 1);
-    getPainting(index, api);
-  }
+function sim() {
+  ellipsisTicker?.sim();
 }
 
 // Generates metadata fields for this piece.
@@ -888,14 +1005,18 @@ function tokenID($) {
   return param1 >= 0 && param1 < tokens.length ? param1 : randomToken;
 }
 
-export { boot, paint, act, meta, tokenID };
+export { boot, paint, act, sim, meta, tokenID };
 
 // 📚 Library
-async function getPainting(i, { get, hud, num, net, meta: refreshMetadata }) {
+async function getPainting(
+  i,
+  { get, gizmo, hud, num, net, meta: refreshMetadata },
+) {
   hud.label(`hell_ world ${index}`, [255, 255, 0, 255]);
   net.rewrite(`hell_-world~${i}`);
   headers(index);
   refreshMetadata(meta({ params: [index], num })); // Update metadata through the system.
+  // ellipsisTicker = new gizmo.EllipsisTicker();
 
   if (controller) controller.abort();
   controller = new AbortController();

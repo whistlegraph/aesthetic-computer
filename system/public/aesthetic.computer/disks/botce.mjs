@@ -6,6 +6,7 @@
 
 /* #region 🏁 TODO 
   - [🟠] Test the full behavior, also live.
+    - [] Test w/ Ida.
   - [] Get botce.ac working again.
   - [] How does the botce.ac domain fit in.
   - [] Do some security checks / put the `botce` prompt text behind a private
