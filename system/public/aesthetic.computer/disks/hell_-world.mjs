@@ -1,25 +1,21 @@
-// hell_ world, 23.10.23.19.37
+// hell_ world, 23.10.23.19.37 😈
 // This piece is a router that loads a specific `hell_ world` token in `painting` by sending it a sequence starting with the current piece.
 
 /* #region 🏁 todo
-  (organize)
-  - [🟠] The arrow keys should also move you through process in the `painting`.
-    - [] And there needs to be arrow buttons here and there.
+  + Done
+  - [x] make the process view zoomable / change how tap to download works?
+  - [c] show a "drag to inspect" message if the scale is < 1
+  - [c] Hide the display when zooming and dragging or after an idle time of
+       no interaction.
+  - [x] Test on mobile.
+  - [x] Test in embedded views:
+    - [x] https://testnets.opensea.io/assets/sepolia/0x2703a4C880a486CAb720770e490c68FD60E1Fa23/0 
+    - [x] https://wildxyz-git-oct-final-testing-wildxyz.vercel.app/jeffrey-scudder/hell-world/7/?_vercel_share=sEyI6YwmMlk13VZb7neOO1i3XzGrHyvM
+  - [x] The arrow keys should also move you through process in the `painting`.
+    - [x] And there needs to be arrow buttons here and there.
       - [x] Here
         - [x] Add a loading display...
-      - [🟡] There
-
-  ------------
-  - [] Hide the display when zooming and dragging or after an idle time of
-       no interaction.
-  - [] make the process view zoomable / change how tap to download works?
-  - [] show a "drag to inspect" message if the scale is < 1
-  - [] Test on mobile.
-  - [] Test in embedded views:
-    - [] https://testnets.opensea.io/assets/sepolia/0x2703a4C880a486CAb720770e490c68FD60E1Fa23/0 
-    - [] https://wildxyz-git-oct-final-testing-wildxyz.vercel.app/jeffrey-scudder/hell-world/7/?_vercel_share=sEyI6YwmMlk13VZb7neOO1i3XzGrHyvM
-  + Later
-  + Done
+      - [x] There
   - [x] Live Demo 
     - [x] 61, 107, 187, 189, 194: Holy Bunnies 
     - [x] 117: Cute White Kitty
@@ -47,10 +43,11 @@
   - [x] Implement a `hw` shortcut?
 #endregion */
 
-const { min, max } = Math;
+const { min } = Math;
 import * as sfx from "./common/sfx.mjs";
 
 // #region 🧮 data
+
 // 0-199
 const tokens = [
   "2023.10.02.18.46.07.749",
@@ -803,8 +800,8 @@ function paint({
       const imgX = (pen.x - x) / scale;
       const imgY = (pen.y - y) / scale;
 
-      scale = zoomLevel;
       // Adjust scale and position for zoom anchored at pen position
+      scale = zoomLevel;
 
       x = pen.x - imgX * scale;
       y = pen.y - imgY * scale;
@@ -852,10 +849,16 @@ function paint({
       prevBtn.paint((btn) => {
         ink(btn.down ? "orange" : 255).write("<", {
           x: 6,
-          y: screen.height / 2,
+          y: screen.height / 2 - 4,
         });
       });
       ink(255, 255, 0, 8).box(prevBtn.box);
+      // ink(0, 255, 0, 127).line(
+      //   0,
+      //   screen.height / 2,
+      //   screen.width,
+      //   screen.height / 2,
+      // ); // 📏
     }
 
     if (!nextBtn) {
@@ -873,13 +876,13 @@ function paint({
       nextBtn.paint((btn) => {
         ink(btn.down ? "orange" : 255).write(">", {
           x: screen.width - 10,
-          y: screen.height / 2,
+          y: screen.height / 2 - 4,
         });
       });
       ink(255, 255, 0, 8).box(nextBtn.box);
     }
 
-    // Rulers
+    // 📏 Rulers
     // ink(0, 255, 0, 64).line(6, 0, 6, screen.height);
     // ink(0, 255, 0, 64).line(
     //   screen.width - 6,
@@ -904,10 +907,7 @@ function paint({
 }
 
 // 🎪 Act
-function act({ event: e, api, sound, jump, params }) {
-  if (e.is("reframed")) {
-  }
-
+function act({ event: e, api, sound, jump, params, download }) {
   timestampBtn?.act(e, () => {
     sfx.push(sound);
     jump(
@@ -963,6 +963,11 @@ function act({ event: e, api, sound, jump, params }) {
   if (e.is("keyboard:down:space")) {
     zoomLevel += 1;
     if (zoomLevel > 3) zoomLevel = 1;
+  }
+
+  if (e.is("keyboard:down:d") && painting) {
+    // Download a scaled version of the painting...
+    download(`hw-${index}-${tokens[index]}.png`, painting, { scale: 6 });
   }
 }
 

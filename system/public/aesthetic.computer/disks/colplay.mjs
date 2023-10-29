@@ -5,6 +5,7 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] Add multi-touch support.
 #endregion */
 
 const clones = {};

@@ -40,31 +40,37 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** 😈 `hell_ world` - oct. 30 ***
-  + Prelaunch...
-  - [🟠] Finish player. See `hell_-world.mjs`.
-  + Done
-  - [x] Watch some more of the sample painting playbacks and check for other
-       errors like the ineffective no?
-  - [?] Try to see if I can hit the ineffective `no` error.
-  - [x] Alias them to a `hell_-world` command with `hw` for short.
-  - [x] Paint > 200 pictures on @jeffrey.
-  - [x] Capture timestamped gesture data from first pointer.
-  - [x] Fix `done` progress bar repeating and repeating over and over on the
-        bigger zip file. (Not taking into account full math?)
-  - [x] Fix up down arrow not showing a blank entry in the loop.
-  - [x] Fix instant typing after wrong response regression.
-  - [x] Fix `shape yellow 0.1` being opaque for some reason...
-       - After what action? `line rainbow` 
-  - [x] Fix `no` not working after first attempt regression.
-  - [x] Fix zip file loading on `painting`.
+*** 🐛 ***
+  *** char prompt regressions ***
+    - [] Entering text / typing on bots seems to sometimes not bring the prompt
+        into open mode.
+        
+  *** handles ***
+    - [] Setting your initial handle always seems to show TAKEN
+        even if the handle is not taken and succeeds on the first try?
+
+*** 🤑 hell_ world sale ***
+  - [-] Add `d` to download keyboard shortcut.
+  - [] Review UX w/ @ida.
+  - [] Test player / functionality throughout the day.
+  - [] Take in user feedback:
+    - [] ...
+
+*** scream ***
+  - [🟠] Word-wrapping.
+  - [] Scream should go through voice.
+
+*** database ***
+  - [] Add database setting and clearing on a per-piece basis.
+    - [] Need to be able to verify what piece is running in a way that
+         is not easily tamperable. (Validate by system or handle based piece / what URL it was loaded from.)
+    - [] Need `set` and `clear` and `get` API.
 
 *** wizards ***
   - [] Use the "|" operator to make stepped wizards.
 
-*** scream ***
-  - [-] Word-wrapping.
-  - [] Voice should scream it.
+*** global `chat` ***
+  - [] Top right tap to enter text, then be able to chat. 
 
 *** 🪷 `botce` launch (ticketed pieces) - friday nov. 8 ***
   - [] Go over UX w/ Ida + Amelia.
@@ -73,8 +79,10 @@
          would buy 1 or 2)
   - [] See `botce.mjs`.
 
-*** global `chat` ***
-  - [] Top right tap to enter text, then be able to chat. 
+** tmi thoughts from amelia ***
+  - [] "Nobody else wants to do this."
+  - [] "There is too much information."
+  - [] "Why does it have to look like this?"
 
 *** user pieces ***
   - [-] Consider the versioning of published pieces /
@@ -84,24 +92,14 @@
   - [x] Add user pieces to the database and wire up the
         media collection endpoint.
 
-*** but suite ***
-  - `helikesmebut`, `helikesmybut`
-  - `ilikeubut`, `ilikeurbut`
-
-*** handles ***
-  - [] Setting your initial handle always seems to show TAKEN
-       even if the handle is not taken and succeeds on the first try?
-
-*** colplay ***
-  - [🟡] Add multi-touch support.
-
 *** readme switch ***
   - [] Split README off from TODO.
   - [] Make it markdown? Or leave it .txt?
 
-*** painting listings ***
-  - [🧡] `profile` should be table to <- -> on a user's paintings 
-       (tap into lightbox for painting / playback)
+*** profile page updates ***
+  - [🧡] `profile` should be able to <- -> on a user's paintings 
+          (tap into lightbox for painting / playback)
+    - [] Add buttons logic from `hell_-world.js`.         
   - [] move `mood` to be to the top left to the right of username
 
 *** painting forking & remixing ***
@@ -113,6 +111,10 @@
 *** pond awareness ***
   - [] Set ambient pen pointer color to cyan / flicker cyan if the user
        is in the pond.
+
+*** but suite ***
+  - `helikesmebut`, `helikesmybut`
+  - `ilikeubut`, `ilikeurbut`
 
 *** Painting ***
   - [] Finish `brush` template for paint brushes.

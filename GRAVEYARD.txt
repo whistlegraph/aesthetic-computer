@@ -1,5 +1,23 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** 😈 `hell_ world` - oct. 30 ***
+  + Done
+  - [x] Finish player. See `hell_-world.mjs`.
+  - [x] Watch some more of the sample painting playbacks and check for other
+       errors like the ineffective no?
+  - [?] Try to see if I can hit the ineffective `no` error.
+  - [x] Alias them to a `hell_-world` command with `hw` for short.
+  - [x] Paint > 200 pictures on @jeffrey.
+  - [x] Capture timestamped gesture data from first pointer.
+  - [x] Fix `done` progress bar repeating and repeating over and over on the
+        bigger zip file. (Not taking into account full math?)
+  - [x] Fix up down arrow not showing a blank entry in the loop.
+  - [x] Fix instant typing after wrong response regression.
+  - [x] Fix `shape yellow 0.1` being opaque for some reason...
+       - After what action? `line rainbow` 
+  - [x] Fix `no` not working after first attempt regression.
+  - [x] Fix zip file loading on `painting`.
+
 *** Networking ***
   - [x] Remove periods from all buckets on DigitalOcean so that certificates 
        behind the CDNs work.
