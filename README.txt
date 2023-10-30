@@ -40,6 +40,10 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** scream ***
+  - [🟠] Word-wrapping.
+  - [] Scream should go through voice.
+
 *** 🐛 ***
   *** char prompt regressions ***
     - [] Entering text / typing on bots seems to sometimes not bring the prompt
@@ -56,10 +60,6 @@
     - [] ...
   + Done
   - [x] Add `d` to download keyboard shortcut.
-
-*** scream ***
-  - [🟠] Word-wrapping.
-  - [] Scream should go through voice.
 
 *** database ***
   - [] Add database setting and clearing on a per-piece basis.
