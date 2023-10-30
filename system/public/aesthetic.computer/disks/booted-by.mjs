@@ -81,7 +81,14 @@ function paint({ api, ink, help, text, screen, num: { randIntArr } }) {
       if (!claim && !overlay) color = ["green", "white", "white", "green"];
       bar.tb.paint(api, color);
 
-      const text = index === 4 ? "Sean Moss-Pultz" : bar.tb.btn.down ? undefined : claim ? "CLAIM" : "$10k+";
+      let text;
+      if (bar.color === "red") {
+        text = "Mitchell F. Chan";
+      } else if (bar.color === "blue") {
+        text = "Sean Moss-Pultz";
+      } else {
+        text = bar.tb.btn.down ? undefined : claim ? "CLAIM" : "$10k+";
+      }
 
       bar.tb.reposition(
         {
@@ -95,7 +102,7 @@ function paint({ api, ink, help, text, screen, num: { randIntArr } }) {
   }
 
   if (rowH * bars.length > screen.height) {
-    const rowDist = 40; // Two vertical rows.
+    const rowDist = 60; // Two vertical rows.
     paintBars(bars.slice(0, 5), screen.width / 2 - rowDist);
     paintBars(bars.slice(-5), screen.width / 2 + rowDist);
   } else {
