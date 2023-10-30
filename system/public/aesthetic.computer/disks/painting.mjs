@@ -45,7 +45,7 @@ let painting,
   label,
   labelFade = labelFadeSpeed,
   stepIndex = -1,
-  interim = "No recording found.",
+  interim = "No recording found",
   // direction = 1,
   paintingIndex = stepIndex,
   pastRecord; // In case we load a record off the network.
@@ -69,6 +69,8 @@ let showMode = false;
 let prevBtn, nextBtn;
 let zoomLevel = 1;
 
+let ellipsisTicker;
+
 //let mintBtn; // A button to mint.
 
 // 🥾 Boot
@@ -82,9 +84,12 @@ function boot({
   screen,
   display,
   hud,
+  gizmo,
   dom: { html },
 }) {
   showMode = colon[0] === "show"; // A special lightbox mode with no bottom bar.
+
+  ellipsisTicker = new gizmo.EllipsisTicker();
 
   if (showMode) {
     hud.labelBack();
@@ -92,7 +97,7 @@ function boot({
   }
 
   if (params[0]?.length > 0) {
-    interim = "Loading...";
+    interim = "Fetching";
     genSlug({ params });
     net.waitForPreload();
     get
@@ -187,7 +192,19 @@ function boot({
 }
 
 // 🎨 Paint
-function paint({ api, wipe, ink, system, screen, num, paste, pen, ui, geo }) {
+function paint({
+  help,
+  api,
+  wipe,
+  ink,
+  system,
+  screen,
+  num,
+  paste,
+  pen,
+  ui,
+  geo,
+}) {
   wipe(0);
   ink(0, 127).box(0, 0, screen.width, screen.height);
 
@@ -337,7 +354,15 @@ function paint({ api, wipe, ink, system, screen, num, paste, pen, ui, geo }) {
     paintPainting(finalPainting);
     paintUi();
   } else {
-    ink().write(interim, { center: "xy" });
+    ink().write(`${interim}${ellipsisTicker.text(help.repeat)}`, {
+      center: "xy",
+    });
+  }
+
+  if (recordingCode && !pastRecord && finalPainting) {
+    ink().write(`Fetching${ellipsisTicker.text(help.repeat)}`, {
+      center: "xy",
+    });
   }
 }
 
@@ -414,6 +439,8 @@ async function sim({ simCount, system, net, api }) {
     advanceCount += 1n;
     if (advanceCount % advanceSpeed === 0n) advance(system);
   }
+
+  ellipsisTicker?.sim();
 
   /*
   if (running && step.gesture) {

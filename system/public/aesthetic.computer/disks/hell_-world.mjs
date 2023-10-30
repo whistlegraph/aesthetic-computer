@@ -731,6 +731,8 @@ let zoomLevel = 1;
 let debug;
 
 let timestampBtn, prevBtn, nextBtn;
+let timestampColor = "white";
+let timestampColorBlinker;
 
 let ellipsisTicker;
 
@@ -740,6 +742,12 @@ function boot({ wipe, params, num, jump, store, get, api, debug: d, gizmo }) {
   debug = d;
 
   ellipsisTicker = new gizmo.EllipsisTicker();
+  timestampColorBlinker = new gizmo.Hourglass(120, {
+    flipped: () => {
+      timestampColor = timestampColor === "white" ? [255, 255, 190] : "white";
+    },
+    autoFlip: true,
+  });
 
   headers = (id) => {
     console.log(
@@ -787,6 +795,7 @@ function paint({
   geo,
   ui,
   help,
+  paintCount,
 }) {
   if (painting) {
     const margin = 34;
@@ -893,8 +902,9 @@ function paint({
 
     if (!timestampBtn) timestampBtn = new ui.Button(box);
     timestampBtn.paint((btn) => {
-      ink(btn.down ? "orange" : 255).write(tokens[index], pos);
+      ink(btn.down ? "orange" : timestampColor).write(tokens[index], pos);
     });
+
     ink("white").write(tokenTitlesAndDescriptions[index][0], { x: 6, y: 18 });
 
     const tokenSet = findTokenSet(index);
@@ -973,6 +983,7 @@ function act({ event: e, api, sound, jump, params, download }) {
 
 function sim() {
   ellipsisTicker?.sim();
+  timestampColorBlinker.step();
 }
 
 // Generates metadata fields for this piece.

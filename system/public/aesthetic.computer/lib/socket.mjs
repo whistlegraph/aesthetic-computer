@@ -74,8 +74,10 @@ export class Socket {
   // Passes silently on no connection.
   send(type, content) {
     if (this.#ws?.readyState === WebSocket.OPEN) {
+      if (logs.session) console.log("🧦 Sent:", type, content);
       this.#ws.send(JSON.stringify({ type, content }));
     } else {
+      if (logs.session) console.log("⌛ Queued:", type, content);
       this.#queue.push([type, content]);
     }
   }
