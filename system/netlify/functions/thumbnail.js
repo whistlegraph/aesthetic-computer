@@ -11,7 +11,10 @@ const dev = process.env.CONTEXT === "dev";
 // Only allow a few given resolutions to prevent spam.
 const acceptedResolutions = ["1200x630", "1800x900"]; // og:image, twitter:image
 
+
 async function fun(event, context) {
+  console.log("🖼️ Getting thumbnail...");
+
   const [resolution, ...filepath] = event.path
     .replace("/thumbnail/", "")
     .split("/"); // yields nxn and the command, if it exists

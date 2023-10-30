@@ -40,13 +40,9 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** scream ***
-  - [🟠] Word-wrapping.
-  - [] Scream should go through voice.
-
 *** 🐛 ***
   *** char prompt regressions ***
-    - [] Entering text / typing on bots seems to sometimes not bring the prompt
+    - [🟠] Entering text / typing on bots seems to sometimes not bring the prompt
         into open mode.
         
   *** handles ***
