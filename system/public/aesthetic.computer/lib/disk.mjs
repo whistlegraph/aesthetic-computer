@@ -2303,6 +2303,14 @@ async function load(
 
   // Requests a session-backend and connects via websockets.
   function startSocket() {
+    if (
+      parsed.search?.startsWith("preview") ||
+      parsed.search?.startsWith("icon")
+    ) {
+      console.log("🧦 Sockets disabled, just grabbing screenshots. 😃");
+      return;
+    }
+    // Never open socket server in icon / preview mode.
     if (debug && logs.session) console.log("🧦 Initializing socket server...");
     socket = new Socket(debug); // Then redefine and make a new socket.
 
@@ -2319,7 +2327,7 @@ async function load(
             if (type === "scream" && socket.id !== id) {
               console.log("😱 Scream:", content, "❗");
               scream = content;
-              return;
+              // return;
             }
 
             // 🧚 Ambient cursor (fairies) support.
@@ -2832,9 +2840,8 @@ async function load(
     currentPath = path;
     currentHost = host;
     currentSearch = search;
-    previewMode = parsed.search?.startsWith("preview") || false; // TODO: Parse all search params. 23.07.23.12.06
+    // console.log("Set currentSearch to:", search);
     firstPreviewOrIcon = true;
-    iconMode = parsed.search?.startsWith("icon") || false;
     hideLabel = parsed.search?.startsWith("nolabel") || false;
     currentColon = colon;
     currentParams = params;
@@ -2844,6 +2851,8 @@ async function load(
     soundClear = null;
     hourGlasses.length = 0;
     labelBack = false;
+    previewMode = parsed.search?.startsWith("preview") || false;
+    iconMode = parsed.search?.startsWith("icon") || false;
 
     // 🪧 See if notice needs to be shown.
     if ($commonApi.query.notice === "success") {
@@ -2991,9 +3000,9 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "loading-complete") {
-    loading = false;
     leaving = false;
     hotSwap?.(); // Actually swap out the piece functions and reset the state.
+    loading = false;
     return;
   }
 
@@ -4371,6 +4380,7 @@ async function makeFrame({ data: { type, content } }) {
             if (currentSearch === "icon") {
               $api.resolution(128, 128, 0);
             } else {
+              console.log("Current:", currentSearch);
               $api.resolution(
                 ...currentSearch
                   .split("=")[1]

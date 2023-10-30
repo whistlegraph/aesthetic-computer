@@ -1,5 +1,9 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** scream ***
+  - [x] Word-wrapping.
+  - [x] Fix socket stuff.
+
 *** 😈 `hell_ world` - oct. 30 ***
   + Done
   - [x] Finish player. See `hell_-world.mjs`.
