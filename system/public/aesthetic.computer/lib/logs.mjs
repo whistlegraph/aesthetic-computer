@@ -6,7 +6,7 @@ export const logs = {
   store: false, // Storage (local, etc.)
   frame: false, // Screen information / rendering framing.
   loading: false, // Preloading
-  session: false, // Socket session.
+  session: true, // Socket session.
   download: false, // Download progress, etc. (JSON)
   audio: false,
   hid: false,
