@@ -16,9 +16,12 @@
 let server;
 
 // 🥾 Boot
-async function boot({ net: { socket }, params }) {
-  server = await socket();
+function boot({ net: { socket }, params, jump }) {
+  server = socket();
   server.send("scream", params.join(" ") || "Ahh!");
+  // jump("prompt");
+  // setTimeout(function () {
+  // }, 500);
 }
 
 // 🎨 Paint

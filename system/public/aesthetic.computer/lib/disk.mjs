@@ -690,7 +690,7 @@ const $commonApi = {
       store.persist("code-channel");
       console.log("💻 Code channel set to:", codeChannel);
       socket.send("code-channel:sub", codeChannel);
-      //       ❤️‍🔥
+      // ❤️‍🔥
       // TODO: Should return a promise here, and wait for a `code-channel:subbed`
       //       event, that way users get better confirmation if the socket
       //       doesn't go through / there is a server issue. 23.07.04.18.01
@@ -2304,7 +2304,6 @@ async function load(
   // Requests a session-backend and connects via websockets.
   function startSocket() {
     if (debug && logs.session) console.log("🧦 Initializing socket server...");
-    socket?.kill(); // Kill any already open socket from a previous disk.
     socket = new Socket(debug); // Then redefine and make a new socket.
 
     const monolith = "monolith"; // or undefined for horizontal scaling.
@@ -2317,7 +2316,7 @@ async function load(
             // Globally receivable messages...
             // (There are also some messages handled in `Socket`)
             // 😱 Scream at everyone who is connected!
-            if (type === "scream") {
+            if (type === "scream" && socket.id !== id) {
               console.log("😱 Scream:", content, "❗");
               scream = content;
               return;
@@ -2348,6 +2347,7 @@ async function load(
   // Delay session server by .75 seconds in order to prevent redundant
   //  connections being opened as pieces are quickly re-routing and jumping.
   clearTimeout(socketStartDelay);
+  socket?.kill(); // Kill any already open socket from a previous disk.
   socketStartDelay = setTimeout(() => startSocket(), 250);
 
   $commonApi.net.socket = function (receive) {
@@ -2357,7 +2357,7 @@ async function load(
       clearTimeout(socketStartDelay);
       startSocket();
     } else {
-      if (socket?.id) receive(socket.id, "connected:already");
+      if (socket?.id) receiver(socket.id, "connected:already");
     }
     return socket;
   };
@@ -3456,14 +3456,14 @@ async function makeFrame({ data: { type, content } }) {
 
   // 1d. Loading Bitmaps
   if (type === "loaded-bitmap-success") {
-    if (debug) console.log("Bitmap loaded:", content);
+    if (debug) console.log("🖼️ Bitmap loaded:", content);
     preloadPromises[content.url].resolve(content);
     delete preloadPromises[content];
     return;
   }
 
   if (type === "loaded-bitmap-rejection") {
-    if (debug) console.error("Bitmap load failure:", content);
+    if (debug) console.error("🖼️ Bitmap load failure:", content);
     preloadPromises[content.url].reject(content.url);
     delete preloadPromises[content.url];
     return;
@@ -4227,7 +4227,6 @@ async function makeFrame({ data: { type, content } }) {
         // graph.depthBuffer.fill(Number.MAX_VALUE);
 
         graph.writeBuffer.length = screen.width * screen.height;
-
         graph.writeBuffer.fill(0);
       }
 
@@ -4465,8 +4464,13 @@ async function makeFrame({ data: { type, content } }) {
         if (scream || screaming) {
           ink(255)
             .wipe(255, 0, 0)
-            .write(scream, { center: "xy", size: 3, thickness: 1 });
-          needsPaint();
+            .write(
+              scream,
+              { center: "xy", size: 3, thickness: 1 },
+              undefined,
+              $api.screen.width - 8,
+              needsPaint(),
+            );
           if (!screaming) {
             screaming = true;
             clearTimeout(screamingTimer);
