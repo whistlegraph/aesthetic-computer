@@ -360,9 +360,13 @@ function paint({
   }
 
   if (recordingCode && !pastRecord && finalPainting) {
-    ink().write(`Fetching${ellipsisTicker.text(help.repeat)}`, {
-      center: "xy",
-    });
+    ink().write(
+      `Fetching${ellipsisTicker.text(help.repeat)}`,
+      {
+        center: "xy",
+      },
+      [0, 127],
+    );
   }
 }
 
