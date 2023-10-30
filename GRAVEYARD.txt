@@ -4,6 +4,14 @@
   - [x] Word-wrapping.
   - [x] Fix socket stuff.
 
+*** handles ***
+  - [x] Setting your initial handle always seems to show TAKEN
+        even if the handle is not taken and succeeds on the first try?
+        (Could not reproduce.)
+*** char prompt regressions ***
+  - [x] Entering text / typing on bots seems to sometimes not bring the prompt
+        into open mode.
+
 *** 😈 `hell_ world` - oct. 30 ***
   + Done
   - [x] Finish player. See `hell_-world.mjs`.

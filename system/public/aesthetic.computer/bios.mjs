@@ -1733,11 +1733,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         form.addEventListener("submit", (e) => {
           e.preventDefault();
-          //console.log("SUBMIT", e);
-          //if (!sandboxed) keyboard.events.push(enterEvent);
         });
 
-        //if (sandboxed) {
         form.addEventListener("keydown", (e) => {
           if (e.key === "Enter") {
             e.preventDefault();
@@ -1830,18 +1827,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         input.addEventListener("input", handleInput);
-
-        // input.addEventListener("keyup", (e) => {
-        //   if (input.selectionStart !== input.selectionEnd) {
-        //     send({
-        //       type: "prompt:text:select",
-        //       content: {
-        //         cursor: input.selectionStart,
-        //         cursorEnd: input.selectionEnd,
-        //       },
-        //     });
-        //   }
-        // });
 
         input.addEventListener("keydown", (e) => {
           if (keyboardFocusLock) {
@@ -2240,6 +2225,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "keyboard:enabled") {
       currentPieceHasKeyboard = true;
+      keyboardFocusLock = false;
       return;
     }
 
