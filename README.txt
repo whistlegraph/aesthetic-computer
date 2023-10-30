@@ -40,21 +40,11 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** 🐛 ***
-  *** char prompt regressions ***
-    - [🟠] Entering text / typing on bots seems to sometimes not bring the prompt
-        into open mode.
-        
-  *** handles ***
-    - [] Setting your initial handle always seems to show TAKEN
-        even if the handle is not taken and succeeds on the first try?
-
 *** 🤑 `hell_-world` / `hw` sale day ***
-  - [] Review UX w/ @ida.
-  - [] Test player / functionality throughout the day.
-  - [] Take in user feedback:
-    - [] ...
+  - [] Alert users in `#help` to take a peek (on oct. 31)
   + Done
+  - [x] Review UX w/ @ida.
+  - [x] Test player / functionality throughout the day.
   - [x] Add `d` to download keyboard shortcut.
 
 *** database ***
@@ -63,11 +53,11 @@
          is not easily tamperable. (Validate by system or handle based piece / what URL it was loaded from.)
     - [] Need `set` and `clear` and `get` API.
 
-*** wizards ***
-  - [] Use the "|" operator to make stepped wizards.
-
 *** global `chat` ***
   - [] Top right tap to enter text, then be able to chat. 
+
+*** wizards ***
+  - [] Use the "|" operator to make stepped wizards.
 
 *** 🪷 `botce` launch (ticketed pieces) - friday nov. 8 ***
   - [] Go over UX w/ Ida + Amelia.

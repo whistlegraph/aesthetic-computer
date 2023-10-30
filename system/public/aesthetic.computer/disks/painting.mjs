@@ -236,8 +236,8 @@ function paint({
       // Adjust scale and position for zoom anchored at pen position
       scale = zoomLevel;
 
-      x = pen.x - imgX;
-      y = pen.y - imgY;
+      x = pen.x - imgX * scale;
+      y = pen.y - imgY * scale;
       w = p.width * scale;
       h = p.height * scale;
     }
