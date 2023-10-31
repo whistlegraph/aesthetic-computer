@@ -224,6 +224,7 @@ function paint({
     const wScale = (screen.width - margin * 2) / p.width;
     const hScale = (screen.height - margin * 2) / p.height;
     let scale = min(wScale, hScale, 1);
+    if (wScale >= 2 && hScale >= 2) scale = 2;
     let w = p.width * scale;
     let h = p.height * scale;
     let x = screen.width / 2 - w / 2;
@@ -234,7 +235,7 @@ function paint({
       const imgY = (pen.y - y) / scale;
 
       // Adjust scale and position for zoom anchored at pen position
-      scale = zoomLevel;
+      scale = scale >= 1 ? 1 + zoomLevel : zoomLevel;
 
       x = pen.x - imgX * scale;
       y = pen.y - imgY * scale;
