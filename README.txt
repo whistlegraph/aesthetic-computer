@@ -40,24 +40,17 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** 🤑 `hell_-world` / `hw` sale day ***
-  - [] Alert users in `#help` to take a peek (on oct. 31)
-  + Done
-  - [x] Review UX w/ @ida.
-  - [x] Test player / functionality throughout the day.
-  - [x] Add `d` to download keyboard shortcut.
+*** global `chat` ***
+  - [] Top right tap to enter text, then be able to chat. 
+
+*** wizards ***
+  - [] Use the "|" operator to make stepped wizards.
 
 *** database ***
   - [] Add database setting and clearing on a per-piece basis.
     - [] Need to be able to verify what piece is running in a way that
          is not easily tamperable. (Validate by system or handle based piece / what URL it was loaded from.)
     - [] Need `set` and `clear` and `get` API.
-
-*** global `chat` ***
-  - [] Top right tap to enter text, then be able to chat. 
-
-*** wizards ***
-  - [] Use the "|" operator to make stepped wizards.
 
 *** 🪷 `botce` launch (ticketed pieces) - friday nov. 8 ***
   - [] Go over UX w/ Ida + Amelia.
