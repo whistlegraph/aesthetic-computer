@@ -3603,12 +3603,6 @@ async function makeFrame({ data: { type, content } }) {
             (data.key === "Escape" && system !== "prompt")) &&
           currentPath !== "aesthetic.computer/disks/prompt"
         ) {
-          // $api.send({ type: "keyboard:enabled" }); // Enable keyboard flag.
-          // $api.send({ type: "keyboard:unlock" });
-
-          let promptSlug = "prompt";
-          if (data.key === "Backspace") promptSlug += "~" + currentText;
-
           $commonApi.sound.synth({
             tone: data.key === "Backspace" ? 400 : 600,
             beats: 0.1,
@@ -3619,10 +3613,21 @@ async function makeFrame({ data: { type, content } }) {
 
           send({ type: "keyboard:unlock" });
 
-          // Jump to prompt if the backtic is pressed.
-          $commonApi.jump(promptSlug)(() => {
-            send({ type: "keyboard:open" });
-          });
+          if (!labelBack) {
+            let promptSlug = "prompt";
+            if (data.key === "Backspace") promptSlug += "~" + currentText;
+            $commonApi.jump(promptSlug)(() => {
+              send({ type: "keyboard:open" });
+            });
+          } else {
+            if ($commonApi.history.length > 0) {
+              send({ type: "back-to-piece" });
+            } else {
+              $commonApi.jump(promptSlug)(() => {
+                send({ type: "keyboard:open" });
+              });
+            }
+          }
         }
 
         // [Ctrl + X]
