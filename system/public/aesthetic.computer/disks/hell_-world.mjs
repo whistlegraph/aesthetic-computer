@@ -932,6 +932,7 @@ function paint({
       // );
 
       if (!timestampBtn) timestampBtn = new ui.Button(box);
+      timestampBtn.box = geo.Box.from(box);
       timestampBtn.paint((btn) => {
         ink(btn.down ? "orange" : timestampColor).write(tokens[index], pos);
       });

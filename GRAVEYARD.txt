@@ -1,5 +1,13 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** 🤑 `hell_-world` / `hw` sale day ***
+  + Done
+  - [x] Adjust timestamp button on page resize.
+  - [x] Alert users in `#help` to take a peek (on oct. 31)
+  - [x] Review UX w/ @ida.
+  - [x] Test player / functionality throughout the day.
+  - [x] Add `d` to download keyboard shortcut.
+
 *** scream ***
   - [x] Word-wrapping.
   - [x] Fix socket stuff.
