@@ -3621,7 +3621,10 @@ async function makeFrame({ data: { type, content } }) {
             });
           } else {
             if ($commonApi.history.length > 0) {
-              send({ type: "back-to-piece" });
+              // send({ type: "back-to-piece" });
+              $commonApi.jump(
+                $commonApi.history[$commonApi.history.length - 1],
+              );
             } else {
               $commonApi.jump(promptSlug)(() => {
                 send({ type: "keyboard:open" });
@@ -4038,7 +4041,8 @@ async function makeFrame({ data: { type, content } }) {
                 jump("prompt");
               } else {
                 if ($commonApi.history.length > 0) {
-                  send({ type: "back-to-piece" });
+                  // send({ type: "back-to-piece" });
+                  jump($commonApi.history[$commonApi.history.length - 1]);
                 } else {
                   jump("prompt");
                 }

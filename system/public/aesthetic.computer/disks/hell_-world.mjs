@@ -766,10 +766,7 @@ function boot({
     );
   };
 
-  console.log("History:", history);
-
   jumpingToProcess = params[1] === "process" || history.length === 0;
-
   if (jumpingToProcess) process();
 
   ellipsisTicker = new gizmo.EllipsisTicker();
