@@ -916,18 +916,21 @@ function paint({
     //   screen.height,
     // );
 
-    if (!timestampBtn) timestampBtn = new ui.Button(box);
-    timestampBtn.paint((btn) => {
-      ink(btn.down ? "orange" : timestampColor).write(tokens[index], pos);
-    });
-
     if (params[1] !== "process") {
-      ink("white").write(tokenTitlesAndDescriptions[index][0], { x: 6, y: 18 });
-    }
+      if (!timestampBtn) timestampBtn = new ui.Button(box);
+      timestampBtn.paint((btn) => {
+        ink(btn.down ? "orange" : timestampColor).write(tokens[index], pos);
+      });
 
-    const tokenSet = findTokenSet(index);
-    if (tokenSet) {
-      ink(255, 0, 0, 127).write(tokenSet, { x: 6, y: screen.height - 15 - 14 });
+      ink("white").write(tokenTitlesAndDescriptions[index][0], { x: 6, y: 18 });
+
+      const tokenSet = findTokenSet(index);
+      if (tokenSet) {
+        ink(255, 0, 0, 127).write(tokenSet, {
+          x: 6,
+          y: screen.height - 15 - 14,
+        });
+      }
     }
   } else {
     noise16DIGITPAIN();
