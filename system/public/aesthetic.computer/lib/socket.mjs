@@ -22,6 +22,7 @@ export class Socket {
 
   // Connects a WebSocket object and takes a handler for messages.
   connect(host, receive, reload, protocol = "wss", connectCallback) {
+    // if (this.#debug && logs.session) console.log("📡 Connecting...");
     try {
       this.#ws = new WebSocket(`${protocol}://${host}`);
     } catch {
@@ -34,8 +35,9 @@ export class Socket {
 
     // Send a message to the console after the first connection.
     ws.onopen = (e) => {
-      // if (this.#debug) console.log("📡 Connected."); // Redundant log given an initial message from the server.
+      if (this.#debug && logs.session) console.log("📡 Connected."); // Redundant log given an initial message from the server.
       socket.#queue.forEach((q) => socket.send(...q)); // Send any held messages.
+      socket.#queue.length = 0; // Clear out the full queue.
       socket.#reconnectTime = 1; // 1ms reconnect on drop, doubled each time.
       connectCallback?.(); // Run any post-connection logic, like setting codeChannel for example.
     };
@@ -74,8 +76,10 @@ export class Socket {
   // Passes silently on no connection.
   send(type, content) {
     if (this.#ws?.readyState === WebSocket.OPEN) {
+      // if (logs.session) console.log("🧦 Sent:", type, content);
       this.#ws.send(JSON.stringify({ type, content }));
     } else {
+      // if (logs.session) console.log("⌛ Queued:", type, content);
       this.#queue.push([type, content]);
     }
   }

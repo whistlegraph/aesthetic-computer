@@ -37,7 +37,7 @@ function parse(text, location = self?.location) {
 
   if (text[0] === "?") {
     // Special case for empty path with a search param.
-    search = text;
+    search = text.slice(1);
     text = window?.acSTARTING_PIECE || "prompt";
   } else {
     // TODO: This does not keep the question marks on this string but it should... https://localhost:8888/line:5~?~?~?

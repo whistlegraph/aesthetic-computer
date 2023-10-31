@@ -1,32 +1,33 @@
-// hell_ world, 23.10.23.19.37
+// hell_ world, 23.10.23.19.37 😈
 // This piece is a router that loads a specific `hell_ world` token in `painting` by sending it a sequence starting with the current piece.
 
 /* #region 🏁 todo
-  (organize)
-  - [🟡] Live Demo 
-    - [] 61, 107, 187, 189, 194: Holy Bunnies 
-    - [] 117: Cute White Kitty
-    - [] 72: Alien Kid
-    - [] 171: Only Code 
-    - [] 132: Obby
-    - [] 175: Slitscan Spirit
-    - [] 33: Bloody Forest
-    - [] 67: Glitch Quilt 
-    - [] 197, 18, 31, 78, 97: Hell Holes  
-    - [] 188: City Smile (@bash/rainbowcascade)
-    - [] Hell Holes DIY! 
-
-  - [🟠] The arrow keys should also move you through process in the `painting`.
-  - [] Hide the display when zooming and dragging or after an idle time of
-       no interaction.
-  - [] make the process view zoomable / change how tap to download works?
-  - [] show a "drag to inspect" message if the scale is < 1
-  - [] Test on mobile.
-  - [] Test in embedded views:
-    - [] https://testnets.opensea.io/assets/sepolia/0x2703a4C880a486CAb720770e490c68FD60E1Fa23/0 
-    - [] https://wildxyz-git-oct-final-testing-wildxyz.vercel.app/jeffrey-scudder/hell-world/7/?_vercel_share=sEyI6YwmMlk13VZb7neOO1i3XzGrHyvM
-  + Later
   + Done
+  - [x] make the process view zoomable / change how tap to download works?
+  - [c] show a "drag to inspect" message if the scale is < 1
+  - [c] Hide the display when zooming and dragging or after an idle time of
+       no interaction.
+  - [x] Test on mobile.
+  - [x] Test in embedded views:
+    - [x] https://testnets.opensea.io/assets/sepolia/0x2703a4C880a486CAb720770e490c68FD60E1Fa23/0 
+    - [x] https://wildxyz-git-oct-final-testing-wildxyz.vercel.app/jeffrey-scudder/hell-world/7/?_vercel_share=sEyI6YwmMlk13VZb7neOO1i3XzGrHyvM
+  - [x] The arrow keys should also move you through process in the `painting`.
+    - [x] And there needs to be arrow buttons here and there.
+      - [x] Here
+        - [x] Add a loading display...
+      - [x] There
+  - [x] Live Demo 
+    - [x] 61, 107, 187, 189, 194: Holy Bunnies 
+    - [x] 117: Cute White Kitty
+    - [x] 72: Alien Kid
+    - [x] 171: Only Code 
+    - [x] 132: Obby
+    - [x] 175: Slitscan Spirit
+    - [x] 33: Bloody Forest
+    - [x] 67: Glitch Quilt 
+    - [x] 197, 18, 31, 78, 97: Hell Holes  
+    - [x] 188: City Smile (@bash/rainbowcascade)
+    - [x] Hell Holes DIY! 
   - [x] Display the set somehow... maybe on a third line? 
   - [x] force top left button go back to the slideshow view
   - [x] don't change the slug when going to the painting page
@@ -42,10 +43,11 @@
   - [x] Implement a `hw` shortcut?
 #endregion */
 
-const { min, max } = Math;
+const { min } = Math;
 import * as sfx from "./common/sfx.mjs";
 
 // #region 🧮 data
+
 // 0-199
 const tokens = [
   "2023.10.02.18.46.07.749",
@@ -725,14 +727,55 @@ let index,
   headers,
   controller = null;
 let zoomed = false;
+let zoomLevel = 1;
 let debug;
 
-let timestampBtn;
+let timestampBtn, prevBtn, nextBtn;
+let timestampColor = "white";
+let timestampColorBlinker;
+
+let ellipsisTicker;
+let process;
+let jumpingToProcess = false;
 
 // 🥾 Boot
-function boot({ wipe, params, num, jump, store, get, api, debug: d }) {
+function boot({
+  wipe,
+  params,
+  num,
+  jump,
+  store,
+  history,
+  get,
+  api,
+  debug: d,
+  gizmo,
+}) {
   index = tokenID({ params, num });
   debug = d;
+
+  process = () => {
+    jump(
+      `painting:show~@jeffrey/${tokens[index]}` +
+        params
+          .slice(1)
+          .map((p) => `~` + p)
+          .join(""),
+      false,
+      true,
+    );
+  };
+
+  jumpingToProcess = history.length === 0;
+  if (jumpingToProcess) process();
+
+  ellipsisTicker = new gizmo.EllipsisTicker();
+  timestampColorBlinker = new gizmo.Hourglass(120, {
+    flipped: () => {
+      timestampColor = timestampColor === "white" ? [255, 255, 190] : "white";
+    },
+    autoFlip: true,
+  });
 
   headers = (id) => {
     console.log(
@@ -769,23 +812,38 @@ function boot({ wipe, params, num, jump, store, get, api, debug: d }) {
 }
 
 // 🎨 Paint
-function paint({ ink, text, screen, paste, wipe, noise16DIGITPAIN, pen, ui }) {
+function paint({
+  params,
+  ink,
+  text,
+  screen,
+  paste,
+  wipe,
+  noise16DIGITPAIN,
+  pen,
+  geo,
+  ui,
+  help,
+  paintCount,
+}) {
   if (painting) {
     const margin = 34;
     const wScale = (screen.width - margin * 2) / painting.width;
     const hScale = (screen.height - margin * 2) / painting.height;
-    let scale = min(wScale, hScale, 1);
+    let scale = Math.min(wScale, hScale, 1);
+    if (wScale >= 2 && hScale >= 2) scale = 2;
     let x = screen.width / 2 - (painting.width * scale) / 2;
     let y = screen.height / 2 - (painting.height * scale) / 2;
 
-    if (pen && zoomed && scale < 1) {
+    if (pen && zoomed && (scale < 1 || scale === 1)) {
       const imgX = (pen.x - x) / scale;
       const imgY = (pen.y - y) / scale;
 
       // Adjust scale and position for zoom anchored at pen position
-      scale = 1;
-      x = pen.x - imgX;
-      y = pen.y - imgY;
+      scale = scale >= 1 ? 1 + zoomLevel : zoomLevel;
+
+      x = pen.x - imgX * scale;
+      y = pen.y - imgY * scale;
       ink(0, 64).box(0, 0, screen.width, screen.height);
     } else {
       wipe(0);
@@ -793,21 +851,101 @@ function paint({ ink, text, screen, paste, wipe, noise16DIGITPAIN, pen, ui }) {
 
     paste(painting, x, y, { scale });
 
-    if (controller) ink(0, 127).box(0, 0, screen.width, screen.height);
+    if (controller) {
+      ink(0, prevBtn?.down || nextBtn?.down ? 200 : 127).box(
+        0,
+        0,
+        screen.width,
+        screen.height,
+      );
+      ink("pink").write(`Fetching${ellipsisTicker.text(help.repeat)}`, {
+        center: "xy",
+      });
+    }
 
-    const pos = { x: 6, y: screen.height - 15 };
-    const box = text.box(tokens[index], pos).box;
-    const blockWidth = 6;
-    box.width -= blockWidth * 2;
-    if (!timestampBtn) timestampBtn = new ui.Button(box);
-    timestampBtn.paint((btn) => {
-      ink(btn.down ? "orange" : 255).write(tokens[index], pos);
-    });
-    ink("white").write(tokenTitlesAndDescriptions[index][0], { x: 6, y: 18 });
+    if (!jumpingToProcess) {
+      const pos = { x: 6, y: screen.height - 15 };
+      const box = text.box(tokens[index], pos).box;
+      const blockWidth = 6;
+      box.width -= blockWidth * 2;
 
-    const tokenSet = findTokenSet(index);
-    if (tokenSet) {
-      ink(255, 0, 0, 127).write(tokenSet, { x: 6, y: screen.height - 15 - 14 });
+      // Prev & Next Buttons
+      const prevNextMarg = 32;
+      const prevNextWidth = 32;
+
+      if (!prevBtn) {
+        prevBtn = new ui.Button();
+        if (index === 0) prevBtn.disabled = true;
+      }
+
+      prevBtn.box = new geo.Box(
+        0,
+        prevNextMarg,
+        prevNextWidth,
+        screen.height - prevNextMarg * 2,
+      );
+
+      if (!prevBtn.disabled) {
+        prevBtn.paint((btn) => {
+          ink(btn.down ? "orange" : 255).write("<", {
+            x: 6,
+            y: screen.height / 2 - 4,
+          });
+        });
+        ink(255, 255, 0, 8).box(prevBtn.box);
+        // ink(0, 255, 0, 127).line(
+        //   0,
+        //   screen.height / 2,
+        //   screen.width,
+        //   screen.height / 2,
+        // ); // 📏
+      }
+
+      if (!nextBtn) {
+        nextBtn = new ui.Button();
+      }
+
+      nextBtn.box = new geo.Box(
+        screen.width - prevNextWidth,
+        prevNextMarg,
+        screen.width,
+        screen.height - prevNextMarg * 2,
+      );
+
+      if (!nextBtn.disabled) {
+        nextBtn.paint((btn) => {
+          ink(btn.down ? "orange" : 255).write(">", {
+            x: screen.width - 10,
+            y: screen.height / 2 - 4,
+          });
+        });
+        ink(255, 255, 0, 8).box(nextBtn.box);
+      }
+
+      // 📏 Rulers
+      // ink(0, 255, 0, 64).line(6, 0, 6, screen.height);
+      // ink(0, 255, 0, 64).line(
+      //   screen.width - 6,
+      //   0,
+      //   screen.width - 6,
+      //   screen.height,
+      // );
+
+      if (!timestampBtn) timestampBtn = new ui.Button(box);
+      timestampBtn.box = geo.Box.from(box);
+      timestampBtn.paint((btn) => {
+        ink(btn.down ? "orange" : timestampColor).write(tokens[index], pos);
+      });
+
+      ink("white").write(tokenTitlesAndDescriptions[index][0], { x: 6, y: 18 });
+
+      const tokenSet = findTokenSet(index);
+      if (tokenSet) {
+        ink(255, 0, 0, 127).write(tokenSet, {
+          x: 6,
+          y: screen.height - 15 - 14,
+        });
+      }
     }
   } else {
     noise16DIGITPAIN();
@@ -815,35 +953,76 @@ function paint({ ink, text, screen, paste, wipe, noise16DIGITPAIN, pen, ui }) {
 }
 
 // 🎪 Act
-function act({ event: e, api, sound, jump, params }) {
+function act({ event: e, api, sound, jump, params, download }) {
   timestampBtn?.act(e, () => {
     sfx.push(sound);
-    // jump(`painting ${visiting}/${code}`);
-    jump(
-      `painting:show~@jeffrey/${tokens[index]}` +
-        params
-          .slice(1)
-          .map((p) => `~` + p)
-          .join(""),
-      false,
-      true,
-      // true, // ahistorical (skip the web history stack)
-      // true, // alias (don't change the address bar url)
-    );
+    process();
   });
 
-  if (e.is("touch:1") && !timestampBtn?.down) zoomed = true;
+  function next() {
+    sfx.push(sound);
+    index += 1;
+    if (index > tokens.length - 1) {
+      index = tokens.length - 1;
+    } else {
+      getPainting(index, api);
+    }
+    if (index === tokens.length - 1) nextBtn.disabled = true;
+  }
+
+  function prev() {
+    sfx.push(sound);
+    index -= 1;
+    if (index < 0) {
+      index = 0;
+    } else {
+      getPainting(index, api);
+    }
+    if (index === 0) prevBtn.disabled = true;
+  }
+
+  nextBtn?.act(e, next);
+  prevBtn?.act(e, prev);
+
+  if (e.is("keyboard:down:arrowright")) next();
+  if (e.is("keyboard:down:arrowleft")) prev();
+
+  if (
+    e.is("touch:1") &&
+    !timestampBtn?.down &&
+    !prevBtn?.down &&
+    !nextBtn?.down &&
+    e.button === 0
+  ) {
+    console.log(e);
+    zoomed = true;
+  }
+
   if (e.is("lift:1")) zoomed = false;
 
-  if (e.is("keyboard:down:arrowright")) {
-    index = (index + 1) % tokens.length;
-    getPainting(index, api);
+  if (e.is("keyboard:down:space")) {
+    zoomLevel += 1;
+    if (zoomLevel > 3) zoomLevel = 1;
   }
 
-  if (e.is("keyboard:down:arrowleft")) {
-    index = max(0, index - 1);
-    getPainting(index, api);
+  if (e.is("keyboard:down:p")) {
+    process();
+    sfx.push(sound);
   }
+
+  if (
+    painting &&
+    (e.is("keyboard:down:d") ||
+      (e.is("touch") && e.device === "mouse" && e.button === 2))
+  ) {
+    // Download a scaled version of the painting...
+    download(`hw-${index}-${tokens[index]}.png`, painting, { scale: 6 });
+  }
+}
+
+function sim() {
+  ellipsisTicker?.sim();
+  timestampColorBlinker.step();
 }
 
 // Generates metadata fields for this piece.
@@ -881,14 +1060,18 @@ function tokenID($) {
   return param1 >= 0 && param1 < tokens.length ? param1 : randomToken;
 }
 
-export { boot, paint, act, meta, tokenID };
+export { boot, paint, act, sim, meta, tokenID };
 
 // 📚 Library
-async function getPainting(i, { get, hud, num, net, meta: refreshMetadata }) {
+async function getPainting(
+  i,
+  { get, gizmo, hud, num, net, meta: refreshMetadata },
+) {
   hud.label(`hell_ world ${index}`, [255, 255, 0, 255]);
   net.rewrite(`hell_-world~${i}`);
   headers(index);
   refreshMetadata(meta({ params: [index], num })); // Update metadata through the system.
+  // ellipsisTicker = new gizmo.EllipsisTicker();
 
   if (controller) controller.abort();
   controller = new AbortController();
