@@ -14,8 +14,6 @@
   - [x] Upload and receive image from `api/vary`.
 #endregion */
 
-import { EllipsisTicker } from "../lib/ellipsis-ticker.mjs";
-
 let picture;
 let message = "PROCESSING";
 
@@ -25,7 +23,7 @@ let ellipsisTicker;
 
 // 🥾 Boot (Runs once before first paint and sim)
 async function boot({ system, encode, gizmo }) {
-  ellipsisTicker = new EllipsisTicker(gizmo.Hourglass);
+  ellipsisTicker = new gizmo.EllipsisTicker();
 
   // Encode a png from the current painting and upload it to the server.
   const png = await encode({

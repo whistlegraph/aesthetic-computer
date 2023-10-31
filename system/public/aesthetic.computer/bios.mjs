@@ -394,11 +394,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       document.querySelector('meta[name="twitter:image"]').content =
         meta.img.twitter;
     }
-    if (meta?.icon_url) {
-      document.querySelector('link[rel="icon"]').href = meta.icon_url;
-    } else if (meta?.img?.icon) {
-      document.querySelector('link[rel="icon"]').href = meta.img.icon;
+
+    const icon = document.querySelector('link[rel="icon"]');
+
+    if (icon) {
+      if (meta?.icon_url) {
+        if (icon.href !== meta.icon_url) icon.href = meta.icon_url;
+      } else if (meta?.img?.icon) {
+        if (icon.href !== meta.img.icon) icon.href = meta.img.icon;
+      }
     }
+
     if (meta?.url) {
       // This might need to be conditional / opt-in?
       // document.querySelector('meta[name="twitter:player"').content = meta.url;
@@ -439,6 +445,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (debug && logs.deps)
           console.log("🤐 JSZip has loaded.", window.JSZip);
         resolve(window.JSZip);
+      };
+
+      document.head.appendChild(script);
+    });
+  }
+
+  async function loadStripe() {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://js.stripe.com/v3/";
+
+      script.onerror = function (err) {
+        reject(err, s);
+      };
+
+      script.onload = function handleScriptLoaded() {
+        if (debug && logs.deps)
+          console.log("🦓 Stripe has loaded.", window.Stripe);
+        resolve(window.Stripe);
       };
 
       document.head.appendChild(script);
@@ -1213,17 +1238,44 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let pixelsDidChange = false; // TODO: Can this whole thing be removed? 2021.11.28.03.50
 
   let contentFrame;
+  let ticketWrapper;
   let underlayFrame;
   let underlayCan;
 
-  //const bakedCan = document.createElement("canvas", {
+  // const bakedCan = document.createElement("canvas", {
   //  willReadFrequently: true,
-  //});
+  // });
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+    if (type === "ticket-wall") {
+      if (!window.Stripe) await loadStripe();
+      const color = "pink";
+      const template = `
+        <link rel="stylesheet" href="aesthetic.computer/checkout.css" />
+        <form style="background: ${color}" id="payment-form">
+          <div id="link-authentication-element">
+          </div>
+          <div id="payment-element">
+          </div>
+          <button id="submit">
+            <div class="spinner hidden" id="spinner"></div>
+            <span id="button-text">sotce, how do i...</span>
+          </button>
+          <div id="payment-message" class="hidden"></div>
+        </form>
+      `;
+      ticketWrapper = document.createElement("div");
+      ticketWrapper.id = "ticket";
+      ticketWrapper.innerHTML = template;
+      wrapper.appendChild(ticketWrapper);
+      const { ticket } = await import(`./lib/ticket.mjs`);
+      ticket(content.from, content.item); // Open the ticket overlay.
+      return;
+    }
+
     if (type === "handle") {
-      HANDLE = content;
+      HANDLE = content; // Set the global HANDLE const to the user handle.
       return;
     }
 
@@ -1681,11 +1733,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         form.addEventListener("submit", (e) => {
           e.preventDefault();
-          //console.log("SUBMIT", e);
-          //if (!sandboxed) keyboard.events.push(enterEvent);
         });
 
-        //if (sandboxed) {
         form.addEventListener("keydown", (e) => {
           if (e.key === "Enter") {
             e.preventDefault();
@@ -1778,18 +1827,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         input.addEventListener("input", handleInput);
-
-        // input.addEventListener("keyup", (e) => {
-        //   if (input.selectionStart !== input.selectionEnd) {
-        //     send({
-        //       type: "prompt:text:select",
-        //       content: {
-        //         cursor: input.selectionStart,
-        //         cursorEnd: input.selectionEnd,
-        //       },
-        //     });
-        //   }
-        // });
 
         input.addEventListener("keydown", (e) => {
           if (keyboardFocusLock) {
@@ -2003,6 +2040,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       contentFrame?.remove(); // Remove the contentFrame if it exists.
       contentFrame = undefined;
 
+      // Clear any ticket overlay that was added by a piece.
+      ticketWrapper?.remove();
+      ticketWrapper = undefined;
+
       underlayFrame?.remove(); // Remove the underlayFrame if it exists.
       underlayFrame = undefined;
       underlayCan = undefined;
@@ -2184,6 +2225,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "keyboard:enabled") {
       currentPieceHasKeyboard = true;
+      keyboardFocusLock = false;
       return;
     }
 
@@ -2250,7 +2292,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "content-create") {
       // Create a DOM container, if it doesn't already exist,
       // and add it here along with the requested content in the
-      // template.
+      // template
       if (!contentFrame) {
         contentFrame = document.createElement("div");
         contentFrame.id = "content";

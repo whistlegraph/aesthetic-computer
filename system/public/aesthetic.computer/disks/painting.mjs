@@ -7,9 +7,15 @@
 /* #region 🏁 TODO 
   + Later
   - [] Sound
-  - [] Forwards and backwards directionality.
-  - [] Make right-click / tap to save available just in the "painting" command.
   + Done
+  - [x] Forwards and backwards directionality.
+  - [x] Make right-click / tap to save available just in the "painting" command.
+       without show.
+  - [x] Make sure that the arrows are in the center Y.
+  - [x] They should pause the show?
+  - [x] Make the zoom function the same as in `hell_-world`.
+  - [x] Wire up arrow buttons to work.
+  - [x] Arrow keys should also work.
   - [x] `done` should take you to the painting page after uploading.
   - [x] Automatically go to the `painting` page after a successful upload /
        return the proper code.
@@ -24,9 +30,10 @@
 #endregion */
 
 const { min } = Math;
+import * as sfx from "./common/sfx.mjs";
 
-const labelFadeSpeed = 80;
-const advanceSpeed = 120n;
+const labelFadeSpeed = 100;
+const advanceSpeed = 100n;
 let advanceCount = 0n;
 let gestureIndex = 0;
 let brush;
@@ -37,8 +44,8 @@ let painting,
   step,
   label,
   labelFade = labelFadeSpeed,
-  stepIndex = 0,
-  interim = "No recording found.",
+  stepIndex = -1,
+  interim = "No recording found",
   // direction = 1,
   paintingIndex = stepIndex,
   pastRecord; // In case we load a record off the network.
@@ -59,6 +66,11 @@ let running;
 let zoomed = false;
 let showMode = false;
 
+let prevBtn, nextBtn;
+let zoomLevel = 1;
+
+let ellipsisTicker;
+
 //let mintBtn; // A button to mint.
 
 // 🥾 Boot
@@ -72,9 +84,12 @@ function boot({
   screen,
   display,
   hud,
+  gizmo,
   dom: { html },
 }) {
   showMode = colon[0] === "show"; // A special lightbox mode with no bottom bar.
+
+  ellipsisTicker = new gizmo.EllipsisTicker();
 
   if (showMode) {
     hud.labelBack();
@@ -82,7 +97,7 @@ function boot({
   }
 
   if (params[0]?.length > 0) {
-    interim = "Loading...";
+    interim = "Fetching";
     genSlug({ params });
     net.waitForPreload();
     get
@@ -145,7 +160,7 @@ function boot({
             console.log("Record", system.nopaint.record);
             advance(system);
             running = true;
-          }, 250);
+          }, 750);
         })
         .catch((err) => {
           // console.warn("Could not load recording.", err);
@@ -177,7 +192,19 @@ function boot({
 }
 
 // 🎨 Paint
-function paint({ api, wipe, ink, system, screen, num, paste, pen }) {
+function paint({
+  help,
+  api,
+  wipe,
+  ink,
+  system,
+  screen,
+  num,
+  paste,
+  pen,
+  ui,
+  geo,
+}) {
   wipe(0);
   ink(0, 127).box(0, 0, screen.width, screen.height);
 
@@ -197,6 +224,7 @@ function paint({ api, wipe, ink, system, screen, num, paste, pen }) {
     const wScale = (screen.width - margin * 2) / p.width;
     const hScale = (screen.height - margin * 2) / p.height;
     let scale = min(wScale, hScale, 1);
+    if (wScale >= 2 && hScale >= 2) scale = 2;
     let w = p.width * scale;
     let h = p.height * scale;
     let x = screen.width / 2 - w / 2;
@@ -207,16 +235,17 @@ function paint({ api, wipe, ink, system, screen, num, paste, pen }) {
       const imgY = (pen.y - y) / scale;
 
       // Adjust scale and position for zoom anchored at pen position
-      scale = 1;
-      x = pen.x - imgX;
-      y = pen.y - imgY;
+      scale = scale >= 1 ? 1 + zoomLevel : zoomLevel;
+
+      x = pen.x - imgX * scale;
+      y = pen.y - imgY * scale;
       w = p.width * scale;
       h = p.height * scale;
     }
 
     ink(64).box(x, y - btnBar / 2, w, h);
     paste(p, x, y - btnBar / 2, { scale });
-    ink().box(x, y - btnBar / 2, w, h, "outline");
+    ink(running ? undefined : "white").box(x, y - btnBar / 2, w, h, "outline");
   }
 
   ink(96).box(0, screen.height - 1 - btnBar, screen.width, 1);
@@ -261,24 +290,105 @@ function paint({ api, wipe, ink, system, screen, num, paste, pen }) {
     }
 
     // Progress bar.
-    ink().box(
+    ink(running ? undefined : "white").box(
       0,
       screen.height - 1 - btnBar,
-      screen.width * (stepIndex / system.nopaint.record.length),
+      screen.width * ((stepIndex + 1) / system.nopaint.record.length),
       1,
     );
+
+    // Prev & Next Buttons
+    const prevNextMarg = 32;
+    const prevNextWidth = 32;
+
+    if (!prevBtn) {
+      prevBtn = new ui.Button();
+      if (stepIndex <= 0) prevBtn.disabled = true;
+    }
+
+    prevBtn.box = new geo.Box(
+      0,
+      prevNextMarg,
+      prevNextWidth,
+      screen.height - prevNextMarg * 2,
+    );
+
+    if (!prevBtn.disabled) {
+      prevBtn.paint((btn) => {
+        ink(btn.down ? "orange" : 255).write("<", {
+          x: 6,
+          y: screen.height / 2 - 4,
+        });
+      });
+      // ink(0, 255, 0, 127).line(
+      //   0,
+      //   screen.height / 2,
+      //   screen.width,
+      //   screen.height / 2,
+      // );
+      ink(255, 255, 0, 8).box(prevBtn.box);
+    }
+
+    if (!nextBtn) {
+      nextBtn = new ui.Button();
+    }
+
+    nextBtn.box = new geo.Box(
+      screen.width - prevNextWidth,
+      prevNextMarg,
+      screen.width,
+      screen.height - prevNextMarg * 2,
+    );
+
+    if (!nextBtn.disabled) {
+      nextBtn.paint((btn) => {
+        ink(btn.down ? "orange" : 255).write(">", {
+          x: screen.width - 10,
+          y: screen.height / 2 - 4,
+        });
+      });
+      ink(255, 255, 0, 8).box(nextBtn.box);
+    }
 
     paintUi();
   } else if (finalPainting) {
     paintPainting(finalPainting);
     paintUi();
   } else {
-    ink().write(interim, { center: "xy" });
+    ink().write(`${interim}${ellipsisTicker.text(help.repeat)}`, {
+      x: 6,
+      y: 18,
+    });
+  }
+
+  if (recordingCode && !pastRecord && finalPainting) {
+    ink().write(
+      `Fetching${ellipsisTicker.text(help.repeat)}`,
+      { x: 6, y: 18 },
+      [0, 127],
+    );
   }
 }
 
 // 🎪 Act
-function act({ event: e, screen, print, mint, delay }) {
+function act({ event: e, screen, print, mint, delay, system, sound }) {
+  function next() {
+    sfx.push(sound);
+    running = false;
+    advance(system, 1, "manual");
+  }
+
+  function prev() {
+    sfx.push(sound);
+    running = false;
+    advance(system, -1, "manual");
+  }
+
+  nextBtn?.act(e, next);
+  prevBtn?.act(e, prev);
+  if (e.is("keyboard:down:arrowright")) next();
+  if (e.is("keyboard:down:arrowleft")) prev();
+
   printBtn?.act(e, {
     push: async () => {
       printBtn.disabled = true;
@@ -298,8 +408,13 @@ function act({ event: e, screen, print, mint, delay }) {
   });
 
   if (showMode) {
-    if (e.is("touch:1")) zoomed = true;
+    if (e.is("touch:1") && !prevBtn?.down && !nextBtn?.down) zoomed = true;
     if (e.is("lift:1")) zoomed = false;
+  }
+
+  if (e.is("keyboard:down:space")) {
+    zoomLevel += 1;
+    if (zoomLevel > 3) zoomLevel = 1;
   }
 
   // mintBtn?.act(e, {
@@ -328,6 +443,8 @@ async function sim({ simCount, system, net, api }) {
     advanceCount += 1n;
     if (advanceCount % advanceSpeed === 0n) advance(system);
   }
+
+  ellipsisTicker?.sim();
 
   /*
   if (running && step.gesture) {
@@ -447,11 +564,32 @@ export { boot, paint, sim, act, leave, meta, preview, icon };
 // 📚 Library
 //   (Useful functions used throughout the piece)
 
-function advance(system) {
+function advance(system, direction = 1, mode = "auto") {
   const record = system.nopaint.record;
   if (noadvance) return;
   if (record.length === 0) return;
-  if (stepIndex === system.nopaint.record.length) stepIndex = 0;
+  stepIndex = stepIndex + direction;
+
+  if (stepIndex === record.length)
+    stepIndex = mode === "auto" ? 0 : record.length - 1;
+
+  if (stepIndex === -1) stepIndex = 0;
+
+  if (prevBtn) {
+    if (stepIndex > 0) {
+      prevBtn.disabled = false;
+    } else {
+      prevBtn.disabled = true;
+    }
+  }
+
+  if (nextBtn) {
+    if (stepIndex === record.length - 1) {
+      nextBtn.disabled = true;
+    } else {
+      nextBtn.disabled = false;
+    }
+  }
 
   step = record[stepIndex];
 
@@ -460,27 +598,30 @@ function advance(system) {
 
   if (step.painting) {
     painting = step.painting;
-    // if (!step.gesture) painting = step.painting; // Don't change painting
-    //                                                 if there is a gesture
-    //                                                 to simulate.
     paintingIndex = stepIndex;
   } else {
     if (label === "no") {
-      paintingIndex = paintingIndex - 1;
-      while (paintingIndex >= 0 && !record[paintingIndex].painting) {
-        paintingIndex -= 1;
+      paintingIndex = paintingIndex - direction;
+      while (
+        paintingIndex >= 0 &&
+        paintingIndex < record.length &&
+        !record[paintingIndex].painting
+      ) {
+        paintingIndex -= direction;
       }
     } else if (label === "yes") {
-      paintingIndex = paintingIndex + 1;
-      while (paintingIndex < record.length && !record[paintingIndex].painting) {
-        paintingIndex += 1;
+      paintingIndex = paintingIndex + direction;
+      while (
+        paintingIndex >= 0 &&
+        paintingIndex < record.length &&
+        !record[paintingIndex].painting
+      ) {
+        paintingIndex += direction;
       }
     }
 
     if (record[paintingIndex]) painting = record[paintingIndex].painting;
   }
-
-  stepIndex = stepIndex + 1;
 }
 
 // if (direction > 0) {

@@ -2,10 +2,11 @@
 // Tell everyone something.
 
 /* #region 📚 README 
-  - [] Tell the main user they screamed, and return them to the prompt. 
-  - [] Ignore the scream for the main user.
-  - [] Smartly synchronize that message for all users by looking ahead a bit?
+  - [] Vocalize all screams / make a sound?
+  - [] Smartly time-synchronize that message for all users by looking ahead?
   + Done
+  - [x] Tell the main user they screamed, and return them to the prompt. 
+  - [x] Ignore the scream for the main user.
   - [x] Alert every connected user with a message that
        covers their screen.
 #endregion */
@@ -16,9 +17,11 @@
 let server;
 
 // 🥾 Boot
-async function boot({ net: { socket }, params }) {
-  server = await socket();
-  server.send("scream", params.join(" ") || "Ahh!");
+function boot({ net: { socket }, params, jump }) {
+  server = socket((type) => {
+    if (type === "scream") jump("prompt");
+  });
+  server?.send("scream", params.join(" ") || "Ahh!");
 }
 
 // 🎨 Paint
