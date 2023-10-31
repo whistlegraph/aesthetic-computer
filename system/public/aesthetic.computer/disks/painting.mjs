@@ -356,16 +356,15 @@ function paint({
     paintUi();
   } else {
     ink().write(`${interim}${ellipsisTicker.text(help.repeat)}`, {
-      center: "xy",
+      x: 6,
+      y: 18,
     });
   }
 
   if (recordingCode && !pastRecord && finalPainting) {
     ink().write(
       `Fetching${ellipsisTicker.text(help.repeat)}`,
-      {
-        center: "xy",
-      },
+      { x: 6, y: 18 },
       [0, 127],
     );
   }
