@@ -766,7 +766,7 @@ function boot({
     );
   };
 
-  jumpingToProcess = params[1] === "process" || history.length === 0;
+  jumpingToProcess = history.length === 0;
   if (jumpingToProcess) process();
 
   ellipsisTicker = new gizmo.EllipsisTicker();
