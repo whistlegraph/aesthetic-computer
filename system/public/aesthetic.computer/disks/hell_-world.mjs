@@ -735,11 +735,26 @@ let timestampColor = "white";
 let timestampColorBlinker;
 
 let ellipsisTicker;
+let process;
 
 // 🥾 Boot
 function boot({ wipe, params, num, jump, store, get, api, debug: d, gizmo }) {
   index = tokenID({ params, num });
   debug = d;
+
+  process = () => {
+    jump(
+      `painting:show~@jeffrey/${tokens[index]}` +
+        params
+          .slice(1)
+          .map((p) => `~` + p)
+          .join(""),
+      false,
+      true,
+    );
+  };
+
+  if (params[1] === "process") process();
 
   ellipsisTicker = new gizmo.EllipsisTicker();
   timestampColorBlinker = new gizmo.Hourglass(120, {
@@ -920,15 +935,7 @@ function paint({
 function act({ event: e, api, sound, jump, params, download }) {
   timestampBtn?.act(e, () => {
     sfx.push(sound);
-    jump(
-      `painting:show~@jeffrey/${tokens[index]}` +
-        params
-          .slice(1)
-          .map((p) => `~` + p)
-          .join(""),
-      false,
-      true,
-    );
+    process();
   });
 
   function next() {
