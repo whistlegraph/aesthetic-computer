@@ -849,74 +849,74 @@ function paint({
       });
     }
 
-    const pos = { x: 6, y: screen.height - 15 };
-    const box = text.box(tokens[index], pos).box;
-    const blockWidth = 6;
-    box.width -= blockWidth * 2;
-
-    // Prev & Next Buttons
-    const prevNextMarg = 32;
-    const prevNextWidth = 32;
-
-    if (!prevBtn) {
-      prevBtn = new ui.Button();
-      if (index === 0) prevBtn.disabled = true;
-    }
-
-    prevBtn.box = new geo.Box(
-      0,
-      prevNextMarg,
-      prevNextWidth,
-      screen.height - prevNextMarg * 2,
-    );
-
-    if (!prevBtn.disabled) {
-      prevBtn.paint((btn) => {
-        ink(btn.down ? "orange" : 255).write("<", {
-          x: 6,
-          y: screen.height / 2 - 4,
-        });
-      });
-      ink(255, 255, 0, 8).box(prevBtn.box);
-      // ink(0, 255, 0, 127).line(
-      //   0,
-      //   screen.height / 2,
-      //   screen.width,
-      //   screen.height / 2,
-      // ); // 📏
-    }
-
-    if (!nextBtn) {
-      nextBtn = new ui.Button();
-    }
-
-    nextBtn.box = new geo.Box(
-      screen.width - prevNextWidth,
-      prevNextMarg,
-      screen.width,
-      screen.height - prevNextMarg * 2,
-    );
-
-    if (!nextBtn.disabled) {
-      nextBtn.paint((btn) => {
-        ink(btn.down ? "orange" : 255).write(">", {
-          x: screen.width - 10,
-          y: screen.height / 2 - 4,
-        });
-      });
-      ink(255, 255, 0, 8).box(nextBtn.box);
-    }
-
-    // 📏 Rulers
-    // ink(0, 255, 0, 64).line(6, 0, 6, screen.height);
-    // ink(0, 255, 0, 64).line(
-    //   screen.width - 6,
-    //   0,
-    //   screen.width - 6,
-    //   screen.height,
-    // );
-
     if (params[1] !== "process") {
+      const pos = { x: 6, y: screen.height - 15 };
+      const box = text.box(tokens[index], pos).box;
+      const blockWidth = 6;
+      box.width -= blockWidth * 2;
+
+      // Prev & Next Buttons
+      const prevNextMarg = 32;
+      const prevNextWidth = 32;
+
+      if (!prevBtn) {
+        prevBtn = new ui.Button();
+        if (index === 0) prevBtn.disabled = true;
+      }
+
+      prevBtn.box = new geo.Box(
+        0,
+        prevNextMarg,
+        prevNextWidth,
+        screen.height - prevNextMarg * 2,
+      );
+
+      if (!prevBtn.disabled) {
+        prevBtn.paint((btn) => {
+          ink(btn.down ? "orange" : 255).write("<", {
+            x: 6,
+            y: screen.height / 2 - 4,
+          });
+        });
+        ink(255, 255, 0, 8).box(prevBtn.box);
+        // ink(0, 255, 0, 127).line(
+        //   0,
+        //   screen.height / 2,
+        //   screen.width,
+        //   screen.height / 2,
+        // ); // 📏
+      }
+
+      if (!nextBtn) {
+        nextBtn = new ui.Button();
+      }
+
+      nextBtn.box = new geo.Box(
+        screen.width - prevNextWidth,
+        prevNextMarg,
+        screen.width,
+        screen.height - prevNextMarg * 2,
+      );
+
+      if (!nextBtn.disabled) {
+        nextBtn.paint((btn) => {
+          ink(btn.down ? "orange" : 255).write(">", {
+            x: screen.width - 10,
+            y: screen.height / 2 - 4,
+          });
+        });
+        ink(255, 255, 0, 8).box(nextBtn.box);
+      }
+
+      // 📏 Rulers
+      // ink(0, 255, 0, 64).line(6, 0, 6, screen.height);
+      // ink(0, 255, 0, 64).line(
+      //   screen.width - 6,
+      //   0,
+      //   screen.width - 6,
+      //   screen.height,
+      // );
+
       if (!timestampBtn) timestampBtn = new ui.Button(box);
       timestampBtn.paint((btn) => {
         ink(btn.down ? "orange" : timestampColor).write(tokens[index], pos);
