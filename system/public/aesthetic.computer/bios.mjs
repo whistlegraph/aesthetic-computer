@@ -3544,7 +3544,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "back-to-piece") {
       history.back();
-      console.log("Going back a piece...");
       return false;
     }
 
