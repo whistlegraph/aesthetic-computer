@@ -30,8 +30,6 @@
     - [] Show a little game or helpful hint. (💡 @alex)
 #endregion */
 
-import { EllipsisTicker } from "../lib/ellipsis-ticker.mjs";
-
 let btn;
 let isPrinting = false;
 let ellipsisTicker;
@@ -45,7 +43,7 @@ function boot({ wipe, rec, gizmo, jump, notice }) {
   }
   wipe(0);
   rec.present(); // Visually present a recording right away if one exists.
-  ellipsisTicker = new EllipsisTicker(gizmo.Hourglass);
+  ellipsisTicker = new gizmo.EllipsisTicker();
 }
 
 // 🎨 Paint (Executes every display frame)

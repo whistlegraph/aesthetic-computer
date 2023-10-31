@@ -22,6 +22,8 @@
   external_node_modules = ["got", "stripe", "nodemailer"]
 [functions.pixel]
   external_node_modules = ["got", "sharp"]
+[functions.ticket]
+  external_node_modules = ["stripe", "nanoid"]
 [functions.user]
   included_files = ["backend/**/*.mjs"]
   external_node_modules = ["got", "mongodb"]
@@ -61,14 +63,15 @@
     Access-Control-Allow-Origin = "*"
     # These headers are required in order for SharedArrayBuffer to be enabled.
     # Currently used by ffmpeg.wasm. 22.08.06.11.01
-    Cross-Origin-Embedder-Policy = "require-corp"
-    Cross-Origin-Opener-Policy = "same-origin"
+    # Cross-Origin-Embedder-Policy = "require-corp"
+    # Cross-Origin-Opener-Policy = "same-origin"
     Cross-Origin-Resource-Policy = "cross-origin"
 [[headers]]
   for = "/*.mjs|/*.js"
   [headers.values]
     Access-Control-Allow-Origin = "*"
     Content-Security-Policy = "script-src 'self' blob: 'unsafe-eval';"
+    # Cross-Origin-Resource-Policy = "cross-origin"
     Vary = "*"
 [[edge_functions]]
   path = "/media/*"
@@ -149,6 +152,10 @@
 [[redirects]]
   from = "/api/print/*"
   to = "/.netlify/functions/print"
+  status = 200
+[[redirects]]
+  from = "/api/ticket/*"
+  to = "/.netlify/functions/ticket"
   status = 200
 [[redirects]]
   from = "/api/logo/*"

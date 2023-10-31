@@ -81,19 +81,28 @@ function paint({ api, ink, help, text, screen, num: { randIntArr } }) {
       if (!claim && !overlay) color = ["green", "white", "white", "green"];
       bar.tb.paint(api, color);
 
+      let text;
+      if (bar.color === "red") {
+        text = "Mitchell F. Chan";
+      } else if (bar.color === "blue") {
+        text = "Sean Moss-Pultz";
+      } else {
+        text = bar.tb.btn.down ? undefined : claim ? "CLAIM" : "$10k+";
+      }
+
       bar.tb.reposition(
         {
           x: x - bar.tb.width / 2,
           y: index * rowH + (screen.height / 2 - totalHeight / 2),
           screen,
         },
-        bar.tb.btn.down ? undefined : claim ? "CLAIM" : "$10k+",
+        text,
       );
     });
   }
 
   if (rowH * bars.length > screen.height) {
-    const rowDist = 40; // Two vertical rows.
+    const rowDist = 60; // Two vertical rows.
     paintBars(bars.slice(0, 5), screen.width / 2 - rowDist);
     paintBars(bars.slice(-5), screen.width / 2 + rowDist);
   } else {

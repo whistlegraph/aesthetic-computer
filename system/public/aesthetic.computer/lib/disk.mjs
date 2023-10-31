@@ -505,11 +505,15 @@ const $commonApi = {
   delay: (fun, time) => {
     hourGlasses.push(new gizmo.Hourglass(time, { completed: () => fun() }));
   },
+  // 🎟️ Open a ticketed paywall on the page.
+  // TODO: Get confirmation or cancellation of payment. 23.10.26.20.57
+  ticket: (content) => {
+    send({ type: "ticket-wall", content });
+  },
   // 🪙 Mint a url or the `pixels` that get passed into the argument to a
   // network of choice.
   mint: async (picture, progress, params) => {
     console.log("🪙 Minting...", picture);
-
     // Determine if picture is a string or an object.
 
     // A record will be attached if one exists via the prompt and the user is
@@ -686,7 +690,7 @@ const $commonApi = {
       store.persist("code-channel");
       console.log("💻 Code channel set to:", codeChannel);
       socket.send("code-channel:sub", codeChannel);
-      //       ❤️‍🔥
+      // ❤️‍🔥
       // TODO: Should return a promise here, and wait for a `code-channel:subbed`
       //       event, that way users get better confirmation if the socket
       //       doesn't go through / there is a server issue. 23.07.04.18.01
@@ -1211,7 +1215,7 @@ const $commonApi = {
     each: help.each,
     shuffleInPlace: help.shuffleInPlace,
   },
-  gizmo: { Hourglass: gizmo.Hourglass },
+  gizmo: { Hourglass: gizmo.Hourglass, EllipsisTicker: gizmo.EllipsisTicker },
   rec: new Recorder(),
   net: {
     signup: () => {
@@ -2299,8 +2303,15 @@ async function load(
 
   // Requests a session-backend and connects via websockets.
   function startSocket() {
+    if (
+      parsed.search?.startsWith("preview") ||
+      parsed.search?.startsWith("icon")
+    ) {
+      console.log("🧦 Sockets disabled, just grabbing screenshots. 😃");
+      return;
+    }
+    // Never open socket server in icon / preview mode.
     if (debug && logs.session) console.log("🧦 Initializing socket server...");
-    socket?.kill(); // Kill any already open socket from a previous disk.
     socket = new Socket(debug); // Then redefine and make a new socket.
 
     const monolith = "monolith"; // or undefined for horizontal scaling.
@@ -2313,10 +2324,10 @@ async function load(
             // Globally receivable messages...
             // (There are also some messages handled in `Socket`)
             // 😱 Scream at everyone who is connected!
-            if (type === "scream") {
+            if (type === "scream" && socket.id !== id) {
               console.log("😱 Scream:", content, "❗");
               scream = content;
-              return;
+              // return;
             }
 
             // 🧚 Ambient cursor (fairies) support.
@@ -2344,6 +2355,7 @@ async function load(
   // Delay session server by .75 seconds in order to prevent redundant
   //  connections being opened as pieces are quickly re-routing and jumping.
   clearTimeout(socketStartDelay);
+  socket?.kill(); // Kill any already open socket from a previous disk.
   socketStartDelay = setTimeout(() => startSocket(), 250);
 
   $commonApi.net.socket = function (receive) {
@@ -2353,7 +2365,7 @@ async function load(
       clearTimeout(socketStartDelay);
       startSocket();
     } else {
-      if (socket?.id) receive(socket.id, "connected:already");
+      if (socket?.id) receiver(socket.id, "connected:already");
     }
     return socket;
   };
@@ -2828,9 +2840,8 @@ async function load(
     currentPath = path;
     currentHost = host;
     currentSearch = search;
-    previewMode = parsed.search?.startsWith("preview") || false; // TODO: Parse all search params. 23.07.23.12.06
+    // console.log("Set currentSearch to:", search);
     firstPreviewOrIcon = true;
-    iconMode = parsed.search?.startsWith("icon") || false;
     hideLabel = parsed.search?.startsWith("nolabel") || false;
     currentColon = colon;
     currentParams = params;
@@ -2840,6 +2851,8 @@ async function load(
     soundClear = null;
     hourGlasses.length = 0;
     labelBack = false;
+    previewMode = parsed.search?.startsWith("preview") || false;
+    iconMode = parsed.search?.startsWith("icon") || false;
 
     // 🪧 See if notice needs to be shown.
     if ($commonApi.query.notice === "success") {
@@ -2852,6 +2865,7 @@ async function load(
       noticeBell(cachedAPI, { tone: 300 });
     } else if ($commonApi.query.notice?.length > 0) {
       notice = $commonApi.query.notice;
+      noticeColor = ["white", "green"];
       noticeBell(cachedAPI, { tone: 300 });
     } else {
       // Clear any existing notice on disk change.
@@ -2973,10 +2987,22 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Jump to any piece slug from the bios.
+  if (type === "jump") {
+    $commonApi.jump(content.piece, true, true);
+    return;
+  }
+
+  // Create a notice.
+  if (type === "notice") {
+    $commonApi.notice(content, ["white", "maroon"]);
+    return;
+  }
+
   if (type === "loading-complete") {
-    loading = false;
     leaving = false;
     hotSwap?.(); // Actually swap out the piece functions and reset the state.
+    loading = false;
     return;
   }
 
@@ -3439,14 +3465,14 @@ async function makeFrame({ data: { type, content } }) {
 
   // 1d. Loading Bitmaps
   if (type === "loaded-bitmap-success") {
-    if (debug) console.log("Bitmap loaded:", content);
+    if (debug) console.log("🖼️ Bitmap loaded:", content);
     preloadPromises[content.url].resolve(content);
     delete preloadPromises[content];
     return;
   }
 
   if (type === "loaded-bitmap-rejection") {
-    if (debug) console.error("Bitmap load failure:", content);
+    if (debug) console.error("🖼️ Bitmap load failure:", content);
     preloadPromises[content.url].reject(content.url);
     delete preloadPromises[content.url];
     return;
@@ -3577,12 +3603,6 @@ async function makeFrame({ data: { type, content } }) {
             (data.key === "Escape" && system !== "prompt")) &&
           currentPath !== "aesthetic.computer/disks/prompt"
         ) {
-          // $api.send({ type: "keyboard:enabled" }); // Enable keyboard flag.
-          // $api.send({ type: "keyboard:unlock" });
-
-          let promptSlug = "prompt";
-          if (data.key === "Backspace") promptSlug += "~" + currentText;
-
           $commonApi.sound.synth({
             tone: data.key === "Backspace" ? 400 : 600,
             beats: 0.1,
@@ -3593,10 +3613,24 @@ async function makeFrame({ data: { type, content } }) {
 
           send({ type: "keyboard:unlock" });
 
-          // Jump to prompt if the backtic is pressed.
-          $commonApi.jump(promptSlug)(() => {
-            send({ type: "keyboard:open" });
-          });
+          if (!labelBack) {
+            let promptSlug = "prompt";
+            if (data.key === "Backspace") promptSlug += "~" + currentText;
+            $commonApi.jump(promptSlug)(() => {
+              send({ type: "keyboard:open" });
+            });
+          } else {
+            if ($commonApi.history.length > 0) {
+              // send({ type: "back-to-piece" });
+              $commonApi.jump(
+                $commonApi.history[$commonApi.history.length - 1],
+              );
+            } else {
+              $commonApi.jump(promptSlug)(() => {
+                send({ type: "keyboard:open" });
+              });
+            }
+          }
         }
 
         // [Ctrl + X]
@@ -4006,7 +4040,12 @@ async function makeFrame({ data: { type, content } }) {
               if (!labelBack) {
                 jump("prompt");
               } else {
-                send({ type: "back-to-piece" });
+                if ($commonApi.history.length > 0) {
+                  // send({ type: "back-to-piece" });
+                  jump($commonApi.history[$commonApi.history.length - 1]);
+                } else {
+                  jump("prompt");
+                }
               }
 
               // pieceHistoryIndex > 0
@@ -4210,7 +4249,6 @@ async function makeFrame({ data: { type, content } }) {
         // graph.depthBuffer.fill(Number.MAX_VALUE);
 
         graph.writeBuffer.length = screen.width * screen.height;
-
         graph.writeBuffer.fill(0);
       }
 
@@ -4355,6 +4393,7 @@ async function makeFrame({ data: { type, content } }) {
             if (currentSearch === "icon") {
               $api.resolution(128, 128, 0);
             } else {
+              console.log("Current:", currentSearch);
               $api.resolution(
                 ...currentSearch
                   .split("=")[1]
@@ -4448,8 +4487,13 @@ async function makeFrame({ data: { type, content } }) {
         if (scream || screaming) {
           ink(255)
             .wipe(255, 0, 0)
-            .write(scream, { center: "xy", size: 3, thickness: 1 });
-          needsPaint();
+            .write(
+              scream,
+              { center: "xy", size: 3, thickness: 1 },
+              undefined,
+              $api.screen.width - 8,
+              needsPaint(),
+            );
           if (!screaming) {
             screaming = true;
             clearTimeout(screamingTimer);

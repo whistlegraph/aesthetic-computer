@@ -22,6 +22,7 @@ export class Keyboard {
 
       const keyboardFocused = this.focusHandler(e); // Focus DOM input field
       //                                               as neded for text entry.
+
       if (keyboardFocused) return;
       // Skip any initial keyboard event.
 
@@ -81,7 +82,7 @@ export class Keyboard {
               key: key,
               bubbles: true,
               cancelable: true,
-            })
+            }),
           );
         });
       }
