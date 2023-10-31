@@ -800,6 +800,7 @@ function boot({ wipe, params, num, jump, store, get, api, debug: d, gizmo }) {
 
 // 🎨 Paint
 function paint({
+  params,
   ink,
   text,
   screen,
@@ -920,7 +921,9 @@ function paint({
       ink(btn.down ? "orange" : timestampColor).write(tokens[index], pos);
     });
 
-    ink("white").write(tokenTitlesAndDescriptions[index][0], { x: 6, y: 18 });
+    if (params[1] !== "process") {
+      ink("white").write(tokenTitlesAndDescriptions[index][0], { x: 6, y: 18 });
+    }
 
     const tokenSet = findTokenSet(index);
     if (tokenSet) {
