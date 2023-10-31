@@ -987,6 +987,11 @@ function act({ event: e, api, sound, jump, params, download }) {
     if (zoomLevel > 3) zoomLevel = 1;
   }
 
+  if (e.is("keyboard:down:p")) {
+    process();
+    sfx.push(sound);
+  }
+
   if (
     painting &&
     (e.is("keyboard:down:d") ||
