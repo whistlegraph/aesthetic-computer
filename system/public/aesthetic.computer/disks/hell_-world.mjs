@@ -736,9 +736,21 @@ let timestampColorBlinker;
 
 let ellipsisTicker;
 let process;
+let jumpingToProcess = false;
 
 // 🥾 Boot
-function boot({ wipe, params, num, jump, store, get, api, debug: d, gizmo }) {
+function boot({
+  wipe,
+  params,
+  num,
+  jump,
+  store,
+  history,
+  get,
+  api,
+  debug: d,
+  gizmo,
+}) {
   index = tokenID({ params, num });
   debug = d;
 
@@ -754,7 +766,11 @@ function boot({ wipe, params, num, jump, store, get, api, debug: d, gizmo }) {
     );
   };
 
-  if (params[1] === "process") process();
+  console.log("History:", history);
+
+  jumpingToProcess = params[1] === "process" || history.length === 0;
+
+  if (jumpingToProcess) process();
 
   ellipsisTicker = new gizmo.EllipsisTicker();
   timestampColorBlinker = new gizmo.Hourglass(120, {
@@ -817,7 +833,8 @@ function paint({
     const margin = 34;
     const wScale = (screen.width - margin * 2) / painting.width;
     const hScale = (screen.height - margin * 2) / painting.height;
-    let scale = min(wScale, hScale, 1);
+    let scale = Math.min(wScale, hScale, 1);
+    if (wScale >= 2 && hScale >= 2) scale = 2;
     let x = screen.width / 2 - (painting.width * scale) / 2;
     let y = screen.height / 2 - (painting.height * scale) / 2;
 
@@ -826,7 +843,7 @@ function paint({
       const imgY = (pen.y - y) / scale;
 
       // Adjust scale and position for zoom anchored at pen position
-      scale = zoomLevel;
+      scale = scale >= 1 ? 1 + zoomLevel : zoomLevel;
 
       x = pen.x - imgX * scale;
       y = pen.y - imgY * scale;
@@ -849,7 +866,7 @@ function paint({
       });
     }
 
-    if (params[1] !== "process") {
+    if (!jumpingToProcess) {
       const pos = { x: 6, y: screen.height - 15 };
       const box = text.box(tokens[index], pos).box;
       const blockWidth = 6;
