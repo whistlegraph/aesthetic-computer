@@ -963,8 +963,10 @@ function act({ event: e, api, sound, jump, params, download }) {
     e.is("touch:1") &&
     !timestampBtn?.down &&
     !prevBtn?.down &&
-    !nextBtn?.down
+    !nextBtn?.down &&
+    e.button === 0
   ) {
+    console.log(e);
     zoomed = true;
   }
 
@@ -975,7 +977,11 @@ function act({ event: e, api, sound, jump, params, download }) {
     if (zoomLevel > 3) zoomLevel = 1;
   }
 
-  if (e.is("keyboard:down:d") && painting) {
+  if (
+    painting &&
+    (e.is("keyboard:down:d") ||
+      (e.is("touch") && e.device === "mouse" && e.button === 2))
+  ) {
     // Download a scaled version of the painting...
     download(`hw-${index}-${tokens[index]}.png`, painting, { scale: 6 });
   }

@@ -4032,7 +4032,11 @@ async function makeFrame({ data: { type, content } }) {
               if (!labelBack) {
                 jump("prompt");
               } else {
-                send({ type: "back-to-piece" });
+                if ($commonApi.history.length > 0) {
+                  send({ type: "back-to-piece" });
+                } else {
+                  jump("prompt");
+                }
               }
 
               // pieceHistoryIndex > 0
