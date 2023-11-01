@@ -5,6 +5,7 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [🟠] Add `d` and `p` shortcuts for download and process jumping.
   + Done
   - [x] Add zooming, similar to `hw`.
   - [x] `profile` should be table to <- -> on a user's paintings 
@@ -273,11 +274,13 @@ function paint({ geo, wipe, help, ink, pen, user, screen, ui, text, paste }) {
 }
 
 // 🎪 Act
-function act({ event: e, get, jump, sound }) {
-  timestampBtn?.act(e, () => {
+function act({ event: e, get, jump, sound, download }) {
+  function process() {
     sfx.push(sound);
     jump(`painting ${visiting}/${code}`);
-  });
+  }
+
+  timestampBtn?.act(e, process);
 
   function next() {
     if (index === paintings.length - 1) return;
@@ -321,6 +324,17 @@ function act({ event: e, get, jump, sound }) {
   if (e.is("keyboard:down:space")) {
     zoomLevel += 1;
     if (zoomLevel > 3) zoomLevel = 1;
+  }
+
+  if (e.is("keyboard:down:p")) process();
+
+  if (
+    painting &&
+    (e.is("keyboard:down:d") ||
+      (e.is("touch") && e.device === "mouse" && e.button === 2))
+  ) {
+    // Download a scaled version of the painting...
+    download(`painting-${visiting}-${code}.png`, painting, { scale: 6 });
   }
 }
 
