@@ -71,7 +71,8 @@ async function fun(event, context) {
       // Locally hosted piece.
       try {
         if (!parsed.text.startsWith("requestProvider.js.map")) {
-          const path = parsed.path.replace("aesthetic.computer/disks/", "");
+          let path = parsed.path.replace("aesthetic.computer/disks/", "");
+          if (path.startsWith("@")) path = "profile";
           const m = await import(
             `../../public/aesthetic.computer/disks/${path}.mjs`
           );
