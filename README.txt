@@ -52,6 +52,9 @@
          is not easily tamperable. (Validate by system or handle based piece / what URL it was loaded from.)
     - [] Need `set` and `clear` and `get` API.
 
+*** webgl2 renderer ***
+  - [] Get working and turned on for `botce.ac` launch.
+
 *** 🪷 `botce` launch (ticketed pieces) - friday nov. 8 ***
   - [] Go over UX w/ Ida + Amelia.
     - [] Ticket per session? / (If transaction UX is cheap, then why not just
@@ -59,7 +62,7 @@
          would buy 1 or 2)
   - [] See `botce.mjs`.
 
-** tmi thoughts from amelia ***
+** tmi thoughts from amelia on seeing code ***
   - [] "Nobody else wants to do this."
   - [] "There is too much information."
   - [] "Why does it have to look like this?"
