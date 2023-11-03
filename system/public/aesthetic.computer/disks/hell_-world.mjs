@@ -903,6 +903,7 @@ function paint({
 
       if (!nextBtn) {
         nextBtn = new ui.Button();
+        if (index === tokens.length - 1) nextBtn.disabled = true;
       }
 
       nextBtn.box = new geo.Box(
@@ -960,6 +961,7 @@ function act({ event: e, api, sound, jump, params, download }) {
   });
 
   function next() {
+    if (index === tokens.length - 1) return;
     sfx.push(sound);
     index += 1;
     if (index > tokens.length - 1) {
@@ -967,10 +969,13 @@ function act({ event: e, api, sound, jump, params, download }) {
     } else {
       getPainting(index, api);
     }
+    prevBtn.disabled = false;
+    nextBtn.disabled = false;
     if (index === tokens.length - 1) nextBtn.disabled = true;
   }
 
   function prev() {
+    if (index === 0) return;
     sfx.push(sound);
     index -= 1;
     if (index < 0) {
@@ -978,6 +983,8 @@ function act({ event: e, api, sound, jump, params, download }) {
     } else {
       getPainting(index, api);
     }
+    prevBtn.disabled = false;
+    nextBtn.disabled = false;
     if (index === 0) prevBtn.disabled = true;
   }
 
@@ -994,7 +1001,6 @@ function act({ event: e, api, sound, jump, params, download }) {
     !nextBtn?.down &&
     e.button === 0
   ) {
-    console.log(e);
     zoomed = true;
   }
 

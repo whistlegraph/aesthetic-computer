@@ -20,14 +20,17 @@ export async function handler(event, context) {
   const collection = database.db.collection("tickets");
 
   if (event.httpMethod === "GET") {
-    // Confirm a previously set payment by checking for a ticker
+    // Confirm a previously set payment by checking for a ticket
     // that matches the payment intent id.
     if (event.queryStringParameters.check === "true") {
-      console.log(event.queryStringParameters);
       const ticket = await collection.findOne({
         pid: event.queryStringParameters.pid,
       });
-      console.log("🎟️ Ticket from payment id:", ticket);
+      console.log(
+        "🎟️ Ticket from payment id:",
+        ticket,
+        event.queryStringParameters.pid,
+      );
       if (ticket) {
         return respond(200, { ticketed: true, ticket, piece: botcePiece });
       } else {
@@ -40,7 +43,7 @@ export async function handler(event, context) {
     let ticket = await collection.findOne({ key });
 
     if (!ticket) {
-      console.log("No ticket found...");
+      console.log("🚫🎟️ No ticket found...");
       return respond(401, { message: "No ticket found. 😢" });
     }
 
@@ -87,7 +90,8 @@ export async function handler(event, context) {
     const envKey = from === "sotce" ? "SOTCE_" : "";
     key = dev
       ? process.env[`${envKey}STRIPE_API_TEST_PRIV_KEY`]
-      : process.env[`${envKey}STRIPE_API_PRIV_KEY`];
+      : process.env[`${envKey}STRIPE_API_TEST_PRIV_KEY`];
+    //: process.env[`${envKey}STRIPE_API_PRIV_KEY`];
 
     const stripe = Stripe(key);
 
@@ -99,12 +103,15 @@ export async function handler(event, context) {
         automatic_payment_methods: { enabled: true },
       });
 
+      // console.log("Payment intent:", paymentIntent);
+
       return respond(200, { clientSecret: paymentIntent.client_secret });
     } catch (error) {
       return respond(400, { error: error.message });
     }
   } else {
     // ↪️ Receive webhook events...
+    // ✅ charge.succeeded
     // ✅ payment_intent.succeeded
 
     let prodSecret, devSecret, key;
@@ -115,12 +122,14 @@ export async function handler(event, context) {
     devSecret = process.env[`${prefix}STRIPE_ENDPOINT_DEV_SECRET`];
     key = dev
       ? process.env[`${prefix}STRIPE_API_TEST_PRIV_KEY`]
-      : process.env[`${prefix}STRIPE_API_PRIV_KEY`];
+      : process.env[`${prefix}STRIPE_API_TEST_PRIV_KEY`];
+    //: process.env[`${prefix}STRIPE_API_PRIV_KEY`];
 
     const stripe = Stripe(key);
 
     const sig = event.headers["stripe-signature"];
-    const secret = dev ? devSecret : prodSecret;
+    // const secret = dev ? devSecret : prodSecret;
+    const secret = prodSecret;
     let hookEvent;
 
     try {
@@ -131,12 +140,11 @@ export async function handler(event, context) {
       return respond(400, msg);
     }
 
-    // console.log(hookEvent.type);
+    console.log("Hook:", hookEvent.type);
+
     if (hookEvent.type === "charge.succeeded") {
       console.log("😃 Charge succeeeded!");
       const emailAddress = hookEvent.data.object.receipt_email;
-
-      console.log("HOOK:", hookEvent);
 
       // Create an expiring link via a "tickets" collection in the db.
       const database = await connect(); // 📕 Database
