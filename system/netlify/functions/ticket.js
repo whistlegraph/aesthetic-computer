@@ -23,7 +23,6 @@ export async function handler(event, context) {
     // Confirm a previously set payment by checking for a ticker
     // that matches the payment intent id.
     if (event.queryStringParameters.check === "true") {
-      console.log(event.queryStringParameters);
       const ticket = await collection.findOne({
         pid: event.queryStringParameters.pid,
       });
@@ -87,7 +86,8 @@ export async function handler(event, context) {
     const envKey = from === "sotce" ? "SOTCE_" : "";
     key = dev
       ? process.env[`${envKey}STRIPE_API_TEST_PRIV_KEY`]
-      : process.env[`${envKey}STRIPE_API_PRIV_KEY`];
+      : process.env[`${envKey}STRIPE_API_TEST_PRIV_KEY`];
+      // : process.env[`${envKey}STRIPE_API_PRIV_KEY`];
 
     const stripe = Stripe(key);
 
@@ -115,12 +115,14 @@ export async function handler(event, context) {
     devSecret = process.env[`${prefix}STRIPE_ENDPOINT_DEV_SECRET`];
     key = dev
       ? process.env[`${prefix}STRIPE_API_TEST_PRIV_KEY`]
-      : process.env[`${prefix}STRIPE_API_PRIV_KEY`];
+      : process.env[`${prefix}STRIPE_API_TEST_PRIV_KEY`];
+      // : process.env[`${prefix}STRIPE_API_PRIV_KEY`];
 
     const stripe = Stripe(key);
 
     const sig = event.headers["stripe-signature"];
-    const secret = dev ? devSecret : prodSecret;
+    const secret = dev ? devSecret : devSecret;
+    // const secret = dev ? devSecret : prodSecret;
     let hookEvent;
 
     try {
