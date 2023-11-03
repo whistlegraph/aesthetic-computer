@@ -41,7 +41,8 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** global `chat` ***
-  - [] Top right tap to enter text, then be able to chat. 
+  - [] Top right tap to enter text, then be able to chat, from any
+       piece. 
 
 *** wizards ***
   - [] Use the "|" operator to make stepped wizards.
@@ -52,6 +53,13 @@
          is not easily tamperable. (Validate by system or handle based piece / what URL it was loaded from.)
     - [] Need `set` and `clear` and `get` API.
 
+*** readme switch ***
+  - [] Split README off from TODO.
+  - [] Make it markdown? Or leave it .txt?
+
+*** webgl2 renderer ***
+  - [] Get working and turned on for `botce.ac` launch.
+
 *** 🪷 `botce` launch (ticketed pieces) - friday nov. 8 ***
   - [] Don't send multiple emails for some reason...
   - [] Go over UX w/ Ida + Amelia.
@@ -60,7 +68,12 @@
          would buy 1 or 2)
   - [] See `botce.mjs`.
 
-** tmi thoughts from amelia ***
+*** delete-able paintings ***
+
+*** `scream` ***
+  - [] There seems to be a long delay at times.
+
+** tmi thoughts from amelia on seeing code ***
   - [] "Nobody else wants to do this."
   - [] "There is too much information."
   - [] "Why does it have to look like this?"
@@ -73,14 +86,10 @@
   - [x] Add user pieces to the database and wire up the
         media collection endpoint.
 
-*** readme switch ***
-  - [] Split README off from TODO.
-  - [] Make it markdown? Or leave it .txt?
-
 *** profile page updates ***
   - [🧡] `profile` should be able to <- -> on a user's paintings 
-          (tap into lightbox for painting / playback)
-    - [] Add buttons logic from `hell_-world.js`.         
+          (and still tap into lightbox for painting / playback)
+  - [-] Add buttons logic from `hell_-world.js`.         
   - [] move `mood` to be to the top left to the right of username
 
 *** painting forking & remixing ***
