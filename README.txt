@@ -67,6 +67,11 @@
          would buy 1 or 2)
   - [] See `botce.mjs`.
 
+*** delete-able paintings ***
+
+*** `scream` ***
+  - [] There seems to be a long delay at times.
+
 ** tmi thoughts from amelia on seeing code ***
   - [] "Nobody else wants to do this."
   - [] "There is too much information."

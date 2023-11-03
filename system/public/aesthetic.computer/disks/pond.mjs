@@ -65,12 +65,14 @@ function paint({ wipe, ink, screen, help }) {
 
   Object.keys(activeMarks).forEach((m) => {
     const mark = activeMarks[m];
-    ink(0, 255, 255).poly(
-      mark.gesture.map((point) => [
-        point[0] * screen.width,
-        point[1] * screen.height,
-      ]),
-    );
+    if (mark.gesture) {
+      ink(0, 255, 255).poly(
+        mark.gesture.map((point) => [
+          point[0] * screen.width,
+          point[1] * screen.height,
+        ]),
+      );
+    }
   });
 }
 
