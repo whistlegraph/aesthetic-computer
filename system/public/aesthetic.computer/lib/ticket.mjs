@@ -6,14 +6,12 @@
 
 export function ticket(from, item) {
   let pubKey;
-  if (window.acDEBUG) {
-    pubKey =
-      from === "sotce"
-        ? SOTCE_STRIPE_API_TEST_PUB_KEY
-        : STRIPE_API_TEST_PUB_KEY;
-  } else {
-    pubKey = from === "sotce" ? SOTCE_STRIPE_API_PUB_KEY : STRIPE_API_PUB_KEY;
-  }
+  //if (window.acDEBUG) {
+  pubKey =
+    from === "sotce" ? SOTCE_STRIPE_API_TEST_PUB_KEY : STRIPE_API_TEST_PUB_KEY;
+  //} else {
+  //pubKey = from === "sotce" ? SOTCE_STRIPE_API_PUB_KEY : STRIPE_API_PUB_KEY;
+  //}
 
   const stripe = Stripe(pubKey);
   const items = [{ id: item }]; // Items to buy...

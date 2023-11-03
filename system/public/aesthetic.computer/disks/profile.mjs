@@ -5,17 +5,18 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🧡] `profile` should be table to <- -> on a user's paintings 
-       - [x] Tap into lightbox for painting / playback.
-       - [] Cache the bitmaps.
-       - [] Loading paintings should make a beep.
-       - [] Add left and right tap buttons.
-       + Done
-       - [x] Move mood.
-       - [x] Wire up arrow keys.
-  - [] Modify `api/profile` request to show a full text response
-       if json is not returned.
+  - [🟠] Add `d` and `p` shortcuts for download and process jumping.
   + Done
+  - [x] Add zooming, similar to `hw`.
+  - [x] `profile` should be table to <- -> on a user's paintings 
+  - [c] Cache the bitmaps.
+  - [x] Add left and right tap buttons.
+  - [x] Loading paintings should make a beep.
+  - [x] Tap into lightbox for painting / playback.
+  - [x] Move mood.
+  - [x] Wire up arrow keys.
+  - [] Modify `api/profile` request to show a full text response
+      if json is not returned.
   + Later
   - ☁️ General thoughts:
     - [] Should @handle eventually be a code piece in the system for every user?
@@ -33,13 +34,17 @@
       - [] Or if they are offline... using tiny LEDs?
 #endregion */
 
-const RETRIEVING = "retrieving...";
+const FETCHING = "Fetching";
 let debug;
 let profile,
-  noprofile = RETRIEVING;
+  noprofile = FETCHING;
 
-let paintingBtn;
-let visiting, code, painting, paintings, paintingIndex;
+let timestampBtn, prevBtn, nextBtn;
+let ellipsisTicker;
+let visiting, code, painting, paintings, index;
+let zoomed = false;
+let zoomLevel = 1;
+
 const { max, min } = Math;
 import * as sfx from "./common/sfx.mjs";
 
@@ -53,13 +58,25 @@ function meta({ piece }) {
 }
 
 // 🥾 Boot
-async function boot({ params, user, handle, debug, hud, net, get, debug: d }) {
+async function boot({
+  params,
+  user,
+  gizmo,
+  handle,
+  debug,
+  hud,
+  net,
+  get,
+  debug: d,
+}) {
   // Mask from `profile` if we are logged in.
   debug = d;
 
   visiting = params[0] || handle();
 
   console.log("Visiting:", visiting);
+
+  ellipsisTicker = new gizmo.EllipsisTicker();
 
   if (visiting) {
     hud.label(visiting);
@@ -100,8 +117,8 @@ async function boot({ params, user, handle, debug, hud, net, get, debug: d }) {
       .then((data) => {
         paintings = data?.files;
         if (paintings) {
-          paintingIndex = paintings.length - 1;
-          loadPainting(get, paintingIndex, visiting);
+          index = paintings.length - 1;
+          loadPainting(get, index, visiting);
         }
       })
       .catch((err) => {
@@ -111,25 +128,48 @@ async function boot({ params, user, handle, debug, hud, net, get, debug: d }) {
 }
 
 // 🎨 Paint
-function paint({ api, wipe, ink, pen, user, screen, ui, text, paste }) {
+function paint({ geo, wipe, help, ink, pen, user, screen, ui, text, paste }) {
   if (!pen?.drawing) wipe(98);
   ink(127).line();
   if (profile) ink().line().ink().line().ink().line();
-
   if (profile) ink().write(profile?.mood || "no mood");
 
   if (painting) {
-    const x = screen.width / 2 - painting.width / 2;
-    const y = screen.height / 2 - painting.height / 2;
-    ink(64).box(x, y, painting.width, painting.height);
-    paste(painting, x, y);
-    ink().box(x, y, painting.width, painting.height, "outline");
+    const margin = 34;
+    const wScale = (screen.width - margin * 2) / painting.width;
+    const hScale = (screen.height - margin * 2) / painting.height;
+    let scale = Math.min(wScale, hScale, 1);
+    if (wScale >= 2 && hScale >= 2) scale = 2;
+    let x = screen.width / 2 - (painting.width * scale) / 2;
+    let y = screen.height / 2 - (painting.height * scale) / 2;
+
+    if (pen && zoomed && (scale < 1 || scale === 1)) {
+      const imgX = (pen.x - x) / scale;
+      const imgY = (pen.y - y) / scale;
+
+      // Adjust scale and position for zoom anchored at pen position
+      scale = scale >= 1 ? 1 + zoomLevel : zoomLevel;
+
+      x = pen.x - imgX * scale;
+      y = pen.y - imgY * scale;
+      ink(0, 64).box(0, 0, screen.width, screen.height);
+    }
+
+    paste(painting, x, y, { scale });
+
+    // const x = screen.width / 2 - painting.width / 2;
+    // const y = screen.height / 2 - painting.height / 2;
+    // ink(64).box(x, y, painting.width, painting.height);
+    // paste(painting, x, y);
+    // ink().box(x, y, painting.width, painting.height, "outline");
   }
 
-  const retrieving = noprofile === RETRIEVING;
+  const retrieving = noprofile === FETCHING;
   if (!profile) {
+    let text = profile?.handle || noprofile || user?.name;
+    if (retrieving) text += ellipsisTicker.text(help.repeat);
     ink(profile ? undefined : 255).write(
-      profile?.handle || noprofile || user?.name,
+      text,
       { center: "xy" },
       retrieving ? 64 : "black",
     );
@@ -145,17 +185,24 @@ function paint({ api, wipe, ink, pen, user, screen, ui, text, paste }) {
   }
 
   if (profile && !painting && paintings) {
-    ink(255).write("retrieving...", { center: "xy" }, "black");
+    ink(255).write(
+      `${FETCHING}${ellipsisTicker.text(help.repeat)}`,
+      { center: "xy" },
+      "black",
+    );
   }
 
   if (paintings?.length > 0) {
     ink(0).line(0, screen.height - 1, screen.width, screen.height - 1);
-    ink("yellow").line(
-      0,
-      screen.height - 1,
-      (paintingIndex / (paintings.length - 1)) * screen.width,
-      screen.height - 1,
-    );
+
+    if (paintings.length > 1) {
+      ink("yellow").line(
+        0,
+        screen.height - 1,
+        (index / (paintings.length - 1)) * screen.width,
+        screen.height - 1,
+      );
+    }
 
     const pos = { x: 3, y: screen.height - 13 };
 
@@ -163,37 +210,138 @@ function paint({ api, wipe, ink, pen, user, screen, ui, text, paste }) {
     const blockWidth = 6;
     box.width -= blockWidth * 2;
 
-    if (!paintingBtn) paintingBtn = new ui.Button(box);
-    paintingBtn.paint((btn) => {
+    if (!timestampBtn) timestampBtn = new ui.Button(box);
+    timestampBtn.paint((btn) => {
       ink(btn.down ? "orange" : 255).write(code, pos);
     });
+
+    // Prev & Next Buttons
+    const prevNextMarg = 32;
+    const prevNextWidth = 32;
+
+    if (!prevBtn) {
+      prevBtn = new ui.Button();
+      if (index === 0) prevBtn.disabled = true;
+    }
+
+    prevBtn.box = new geo.Box(
+      0,
+      prevNextMarg,
+      prevNextWidth,
+      screen.height - prevNextMarg * 2,
+    );
+
+    if (!prevBtn.disabled) {
+      prevBtn.paint((btn) => {
+        ink(btn.down ? "orange" : 255).write("<", {
+          x: 6,
+          y: screen.height / 2 - 4,
+        });
+      });
+      ink(255, 255, 0, 8).box(prevBtn.box);
+      // ink(0, 255, 0, 127).line(
+      //   0,
+      //   screen.height / 2,
+      //   screen.width,
+      //   screen.height / 2,
+      // ); // 📏
+    }
+
+    if (!nextBtn) {
+      nextBtn = new ui.Button();
+      if (index === paintings.length - 1) nextBtn.disabled = true;
+    }
+
+    nextBtn.box = new geo.Box(
+      screen.width - prevNextWidth,
+      prevNextMarg,
+      screen.width,
+      screen.height - prevNextMarg * 2,
+    );
+
+    if (!nextBtn.disabled) {
+      nextBtn.paint((btn) => {
+        ink(btn.down ? "orange" : 255).write(">", {
+          x: screen.width - 10,
+          y: screen.height / 2 - 4,
+        });
+      });
+      ink(255, 255, 0, 8).box(nextBtn.box);
+    }
   }
 
   // return false;
 }
 
 // 🎪 Act
-function act({ event: e, get, sound, jump }) {
-  paintingBtn?.act(e, () => {
+function act({ event: e, get, jump, sound, download }) {
+  function process() {
     sfx.push(sound);
     jump(`painting ${visiting}/${code}`);
-  });
-
-  // Respond to user input here.
-  if (e.is("keyboard:down:arrowleft")) {
-    paintingIndex = max(0, paintingIndex - 1);
-    loadPainting(get, paintingIndex, visiting);
   }
-  if (e.is("keyboard:down:arrowright")) {
-    paintingIndex = min(paintingIndex + 1, paintings.length - 1);
-    loadPainting(get, paintingIndex, visiting);
+
+  timestampBtn?.act(e, process);
+
+  function next() {
+    if (index === paintings.length - 1) return;
+    sfx.push(sound);
+    index = min(index + 1, paintings.length - 1);
+    loadPainting(get, index, visiting);
+    prevBtn.disabled = false;
+    nextBtn.disabled = false;
+    if (index === paintings.length - 1) nextBtn.disabled = true;
+  }
+
+  function prev() {
+    if (index === 0) return;
+    sfx.push(sound);
+    index = max(0, index - 1);
+    loadPainting(get, index, visiting);
+    prevBtn.disabled = false;
+    nextBtn.disabled = false;
+    if (index === 0) prevBtn.disabled = true;
+  }
+
+  nextBtn?.act(e, next);
+  prevBtn?.act(e, prev);
+
+  if (e.is("keyboard:down:arrowleft")) prev();
+  if (e.is("keyboard:down:arrowright")) next();
+
+  // Zooming
+  if (
+    e.is("touch:1") &&
+    !timestampBtn?.down &&
+    !prevBtn?.down &&
+    !nextBtn?.down &&
+    e.button === 0
+  ) {
+    zoomed = true;
+  }
+
+  if (e.is("lift:1")) zoomed = false;
+
+  if (e.is("keyboard:down:space")) {
+    zoomLevel += 1;
+    if (zoomLevel > 3) zoomLevel = 1;
+  }
+
+  if (e.is("keyboard:down:p")) process();
+
+  if (
+    painting &&
+    (e.is("keyboard:down:d") ||
+      (e.is("touch") && e.device === "mouse" && e.button === 2))
+  ) {
+    // Download a scaled version of the painting...
+    download(`painting-${visiting}-${code}.png`, painting, { scale: 6 });
   }
 }
 
 // 🧮 Sim
-// function sim() {
-//  // Runs once per logic frame. (120fps locked.)
-// }
+function sim() {
+  ellipsisTicker?.sim();
+}
 
 // 🥁 Beat
 // function beat() {
@@ -205,7 +353,7 @@ function act({ event: e, get, sound, jump }) {
 //  // Runs once before the piece is unloaded.
 // }
 
-export { boot, paint, act, meta };
+export { boot, paint, act, sim, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
