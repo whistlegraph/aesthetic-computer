@@ -10,7 +10,7 @@ export function ticket(from, item) {
   pubKey =
     from === "sotce" ? SOTCE_STRIPE_API_TEST_PUB_KEY : STRIPE_API_TEST_PUB_KEY;
   //} else {
-  //  pubKey = from === "sotce" ? SOTCE_STRIPE_API_PUB_KEY : STRIPE_API_PUB_KEY;
+  //pubKey = from === "sotce" ? SOTCE_STRIPE_API_PUB_KEY : STRIPE_API_PUB_KEY;
   //}
 
   const stripe = Stripe(pubKey);
