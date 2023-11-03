@@ -149,9 +149,13 @@ function act({ event: e, pen, num }) {
   if (e.is("draw:1")) race.goal = [e.x, e.y];
 }
 
+function preview({ ink, wipe }) {
+  wipe("red").ink("blue").write("line", { center: "xy" });
+}
+
 const system = "nopaint";
 
-export { about, boot, paint, sim, act, bake, system };
+export { about, boot, paint, sim, act, bake, system, preview };
 
 // 📚 Library (Useful functions used throughout the piece)
 
