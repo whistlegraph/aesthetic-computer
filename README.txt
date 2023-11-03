@@ -53,6 +53,7 @@
     - [] Need `set` and `clear` and `get` API.
 
 *** 🪷 `botce` launch (ticketed pieces) - friday nov. 8 ***
+  - [] Don't send multiple emails for some reason...
   - [] Go over UX w/ Ida + Amelia.
     - [] Ticket per session? / (If transaction UX is cheap, then why not just
          sell individual 24hr expiring sessions at a price where someone
