@@ -43,7 +43,6 @@
   - [x] Implement a `hw` shortcut?
 #endregion */
 
-const { min } = Math;
 import * as sfx from "./common/sfx.mjs";
 
 // #region 🧮 data
@@ -739,19 +738,13 @@ let process;
 let jumpingToProcess = false;
 
 // 🥾 Boot
-function boot({
-  wipe,
-  params,
-  num,
-  jump,
-  store,
-  history,
-  get,
-  api,
-  debug: d,
-  gizmo,
-}) {
+function boot({ wipe, params, num, pieceCount, jump, api, debug: d, gizmo }) {
   index = tokenID({ params, num });
+
+  //if (params[0] === undefined) {
+    // net.rewrite(`${piece}~${index}`, true); // Set the URL to the current param.
+  //}
+
   debug = d;
 
   process = () => {
@@ -766,7 +759,7 @@ function boot({
     );
   };
 
-  jumpingToProcess = history.length === 0;
+  jumpingToProcess = pieceCount === 0 && params[0] !== undefined;
   if (jumpingToProcess) process();
 
   ellipsisTicker = new gizmo.EllipsisTicker();
@@ -813,7 +806,6 @@ function boot({
 
 // 🎨 Paint
 function paint({
-  params,
   ink,
   text,
   screen,
@@ -1039,11 +1031,12 @@ function meta({ params, num }) {
   const handle = "@jeffrey";
 
   const i = tokenID({ params, num });
+  console.log("Token ID:", i);
   let out;
   if (i === -1) {
     out = {
-      image_url: `${baseURL}/2048:conform/${handle}/painting/${tokens[i]}.png`,
-      icon_url: `/api/pixel/128:contain/${handle}/painting/${tokens[i]}.png`,
+      // image_url: `${baseURL}/2048:conform/${handle}/painting/${tokens[i]}.png`,
+      // icon_url: `/api/pixel/128:contain/${handle}/painting/${tokens[i]}.png`,
       title: "Random",
       desc: "Shows a random hell_ world painting!",
     };
