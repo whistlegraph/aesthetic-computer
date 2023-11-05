@@ -1631,8 +1631,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "rewrite-url-path") {
       const newPath = content.path;
-      if (window.origin !== "null")
-        history.replaceState("", document.title, newPath);
+      // if (window.origin !== "null") {
+        if (content.historical) {
+          console.log("Rewriting to:", newPath);
+          history.pushState("", document.title, newPath);
+        } else {
+          history.replaceState("", document.title, newPath);
+        }
+      // }
       return;
     }
 
@@ -2143,8 +2149,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Emit a push state for the old disk if it was not the first. This is so
       // a user can use browser history to switch between disks.
-      if (content.pieceCount > 0) {
-        if (content.fromHistory === false && window.origin !== "null") {
+      if (content.pieceCount > 0 || content.alias === true) {
+        if (content.fromHistory === false /*&& window.origin !== "null"*/) {
           history.pushState(
             "",
             document.title,
@@ -2157,8 +2163,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Note: History state changes do not work in a sandboxed iframe!
         if (
           content.fromHistory === true &&
-          content.alias === false &&
-          window.origin !== "null"
+          content.alias === false //&&
+          // window.origin !== "null"
         ) {
           try {
             history.replaceState(

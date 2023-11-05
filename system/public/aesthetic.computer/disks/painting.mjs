@@ -157,7 +157,7 @@ function boot({
           timeout = setTimeout(() => {
             pastRecord = system.nopaint.record;
             system.nopaint.record = out;
-            console.log("Record", system.nopaint.record);
+            // console.log("Record", system.nopaint.record);
             advance(system);
             running = true;
           }, 750);

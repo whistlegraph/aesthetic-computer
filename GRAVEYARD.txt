@@ -1,5 +1,17 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** `hw` ***
+  - [x] Landing on `hw` (random) and then going backwards after the
+       auto-jump does not jump back to the chosen token. 
+       - [x] Tapping the top left corner switches the token when going back.
+  - [x] There is a weird jumpy infinite redirect loop in `hw` that appears
+       sometimes. Try to reproduce and fix it.
+  - [x] Using backspace after landing on any `hw` does not go back to
+       the prompt, but always should, no matter what.
+
+*** `scream` ***
+  - [x] There seems to be a long delay at times.
+
 *** 🤑 `hell_-world` / `hw` sale day ***
   + Done
   - [x] Adjust timestamp button on page resize.
