@@ -2413,8 +2413,9 @@ async function load(
   };
 
   // Rewrite a new URL / parameter path without affecting the history.
-  $commonApi.net.rewrite = (path) => {
-    send({ type: "rewrite-url-path", content: { path } }); // Jump the browser to a new url.
+  $commonApi.net.rewrite = (path, historical = false) => {
+    if (historical) $commonApi.history.push(path);
+    send({ type: "rewrite-url-path", content: { path, historical } }); // Jump the browser to a new url.
   };
 
   // Add host to the networking api.
@@ -2578,6 +2579,7 @@ async function load(
   };
 
   $commonApi.slug = slug;
+  $commonApi.piece = slug.split("~")[0];
   $commonApi.query = Object.fromEntries(new URLSearchParams(search));
   $commonApi.params = params || [];
   $commonApi.colon = colon;
@@ -2646,7 +2648,7 @@ async function load(
         colon.map((c) => `:` + c).join("") +
         params.map((p) => `~` + p).join(""),
       true,
-      false,
+      true,
     );
   };
 
@@ -2659,7 +2661,7 @@ async function load(
     }
   };
 
-  $commonApi.pieceCount += 1;
+  if (!alias) $commonApi.pieceCount += 1; // Don't bump pieceCount if aliased.
 
   // Load typeface if it hasn't been yet.
   // (This only has to happen when the first piece loads.)
@@ -3165,7 +3167,8 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "dark-mode") {
     const current = await store.retrieve("dark-mode");
-    if (current !== null) {
+    // console.log("Dark mode:", "now:", current, "to:", content);
+    if (current !== null && current !== undefined) {
       darkMode(current);
     } else {
       darkMode(content.enabled);
@@ -3613,18 +3616,19 @@ async function makeFrame({ data: { type, content } }) {
 
           send({ type: "keyboard:unlock" });
 
-          if (!labelBack) {
+          if (!labelBack || data.key === "Backspace") {
             let promptSlug = "prompt";
-            if (data.key === "Backspace") promptSlug += "~" + currentText;
+            if (data.key === "Backspace")
+              promptSlug += "~" + (currentHUDTxt || currentText);
             $commonApi.jump(promptSlug)(() => {
               send({ type: "keyboard:open" });
             });
           } else {
             if ($commonApi.history.length > 0) {
-              // send({ type: "back-to-piece" });
-              $commonApi.jump(
-                $commonApi.history[$commonApi.history.length - 1],
-              );
+              send({ type: "back-to-piece" });
+              // $commonApi.jump(
+              //   $commonApi.history[$commonApi.history.length - 1],
+              // );
             } else {
               $commonApi.jump(promptSlug)(() => {
                 send({ type: "keyboard:open" });
@@ -4041,8 +4045,8 @@ async function makeFrame({ data: { type, content } }) {
                 jump("prompt");
               } else {
                 if ($commonApi.history.length > 0) {
-                  // send({ type: "back-to-piece" });
-                  jump($commonApi.history[$commonApi.history.length - 1]);
+                  send({ type: "back-to-piece" });
+                  // jump($commonApi.history[$commonApi.history.length - 1]);
                 } else {
                   jump("prompt");
                 }

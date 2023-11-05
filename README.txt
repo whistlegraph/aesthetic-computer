@@ -40,12 +40,29 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** global `chat` ***
-  - [] Top right tap to enter text, then be able to chat, from any
-       piece. 
+*** delete-able paintings ***
+  - [] Add a keyboard shortcut / endpoint to flag a painting as nuked. 
+       (With a `notice`)
+  - [] Prevent nuked paintings from showing up in the profile list / consider
+       how to hide them. 
+
+*** vscode extension params ***
+  - [] Add support for params and piece renaming to the VS code extension.
+  - [] Make sure going to prompt and returning to the piece / entering new
+       params will still work and that piece name replaces other pieces.
+  - [] Make sure the page can be refreshed and the connection / new code
+       still persists.
+
+*** discord reported bugs ***
+  - [-] Entering `hw` twice in a row will yield the weird "helo" / "halo" bug.
+        (Could not reproduce.)
 
 *** wizards ***
-  - [] Use the "|" operator to make stepped wizards.
+  - [] Use the "|" operator to make stepped wizards / looped pieces.
+
+*** global `chat` / activity log ***
+  - [] Top right tap to enter text, then be able to chat, from any
+       piece. 
 
 *** database ***
   - [] Add database setting and clearing on a per-piece basis.
@@ -67,11 +84,6 @@
          sell individual 24hr expiring sessions at a price where someone
          would buy 1 or 2)
   - [] See `botce.mjs`.
-
-*** delete-able paintings ***
-
-*** `scream` ***
-  - [] There seems to be a long delay at times.
 
 ** tmi thoughts from amelia on seeing code ***
   - [] "Nobody else wants to do this."
