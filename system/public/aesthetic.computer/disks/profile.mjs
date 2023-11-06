@@ -5,8 +5,8 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🟠] Add `d` and `p` shortcuts for download and process jumping.
   + Done
+  - [x] Add `d` and `p` shortcuts for download and process jumping.
   - [x] Add zooming, similar to `hw`.
   - [x] `profile` should be table to <- -> on a user's paintings 
   - [c] Cache the bitmaps.
@@ -274,7 +274,7 @@ function paint({ geo, wipe, help, ink, pen, user, screen, ui, text, paste }) {
 }
 
 // 🎪 Act
-function act({ event: e, get, jump, sound, download }) {
+function act({ event: e, get, jump, sound, download, user, net, notice }) {
   function process() {
     sfx.push(sound);
     jump(`painting ${visiting}/${code}`);
@@ -335,6 +335,26 @@ function act({ event: e, get, jump, sound, download }) {
   ) {
     // Download a scaled version of the painting...
     download(`painting-${visiting}-${code}.png`, painting, { scale: 6 });
+  }
+
+  // Nuke a painting using an authorized user request.
+  if (painting && e.is("keyboard:down:n") && user) {
+    console.log("💣 Nuking painting:", code, user);
+    net
+      .userRequest("PUT", "/api/painting", { slug: code, nuke: true })
+      .then((res) => {
+        console.log(res);
+        if (res.status === 200) {
+          console.log("🖌️ Painting record updated:", res);
+          notice("NUKED :>", ["yellow", "red"]);
+        } else {
+          throw new Error(res.status);
+        }
+      })
+      .catch((err) => {
+        console.warn("🖌️ Painting record update failure:", err);
+        notice(`${err.message} ERROR :(`, ["white", "red"]);
+      });
   }
 }
 

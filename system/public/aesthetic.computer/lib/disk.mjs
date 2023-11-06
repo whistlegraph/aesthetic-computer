@@ -1223,6 +1223,39 @@ const $commonApi = {
     logout: () => send({ type: "logout" }),
     pieces: `${location.protocol}//${location.host}/aesthetic.computer/disks`,
     parse, // Parse a piece slug.
+    // Make a user authorized / signed request to the api.
+    // Used both in `motd` and `handle`.
+    userRequest: async (method, endpoint, body) => {
+      try {
+        const token = await $commonApi.authorize(); // Get user token.
+        if (!token) throw new Error("🧖 Not logged in.");
+
+        const headers = {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        };
+
+        const options = { method, headers };
+        if (body) options.body = JSON.stringify(body);
+        const response = await fetch(endpoint, options);
+
+        if (response.status === 500) {
+          // const text = await response.text();
+          // throw new Error(`🚫 Bad response: ${text}`);
+          return { message: "error" };
+        } else {
+          const clonedResponse = response.clone();
+          try {
+            return await { ...clonedResponse.json(), status: response.status };
+          } catch {
+            return { status: response.status, body: await response.text() };
+          }
+        }
+      } catch (error) {
+        console.error("🚫 Error:", error);
+        return { message: "unauthorized" };
+      }
+    },
   },
   needsPaint: () => {
     noPaint = false;

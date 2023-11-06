@@ -225,39 +225,6 @@ async function halt($, text) {
   const params = tokens.slice(1);
   const input = $.system.prompt.input; // Reference to the TextInput.
 
-  // Make a user authorized / signed request to the api.
-  // Used both in `motd` and `handle`.
-  async function userJSONRequest(method, endpoint, body) {
-    try {
-      const token = await authorize(); // Get user token.
-      if (!token) throw new Error("🧖 Not logged in.");
-
-      const headers = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      };
-
-      const options = { method, headers };
-      if (body) options.body = JSON.stringify(body);
-      const response = await fetch(endpoint, options);
-
-      if (response.status === 500) {
-        // const text = await response.text();
-        // throw new Error(`🚫 Bad response: ${text}`);
-        return { message: "error" };
-      } else {
-        const clonedResponse = response.clone();
-        try {
-          return await clonedResponse.json();
-        } catch {
-          return { status: response.status, body: await response.text() };
-        }
-      }
-    } catch (error) {
-      console.error("🚫 Error:", error);
-      return { message: "unauthorized" };
-    }
-  }
   // 📼 Start taping.
   // Note: Right now, tapes get saved on refresh but can't be concatenated to,
   // and they start over when using `tape`.
@@ -541,7 +508,7 @@ async function halt($, text) {
   } else if (slug === "mood:nuke" || slug === "mood:denuke") {
     const nuke = slug === "mood:nuke";
     const label = slug === "mood:nuke" ? "NUKE" : "DENUKE";
-    const res = await userJSONRequest("POST", "/api/mood", { nuke });
+    const res = await net.userRequest("POST", "/api/mood", { nuke });
     flashColor = res?.deleted ? [0, 255, 0] : [255, 0, 0];
     if (res?.altered >= 0) {
       notice(`${label}D MOODS`);
@@ -553,7 +520,7 @@ async function halt($, text) {
   } else if (slug === "mood") {
     let res;
     if (params.join(" ").trim().length > 0) {
-      res = await userJSONRequest("POST", "/api/mood", {
+      res = await net.userRequest("POST", "/api/mood", {
         mood: params.join(" "),
       });
     }
@@ -664,7 +631,7 @@ async function halt($, text) {
     // Set user email.
     const email = text.split(" ")[1];
     if (email) {
-      const res = await userJSONRequest("POST", "/api/email", { email });
+      const res = await net.userRequest("POST", "/api/email", { email });
       console.log(res);
       if (res.email) {
         flashColor = [0, 255, 0];
@@ -682,7 +649,7 @@ async function halt($, text) {
   } else if (slug.startsWith("admin:migrate-")) {
     // Usage: `admin:migrate-painting`
     //        `admin:migrate-piece`
-    const res = await userJSONRequest(
+    const res = await net.userRequest(
       "GET",
       `/api/admin?migrate=${slug.split("-")[1]}`,
     );
@@ -711,7 +678,7 @@ async function halt($, text) {
 
     // And a handle has been specified.
     if (handle?.length > 0 && validateHandle(handle)) {
-      const res = await userJSONRequest("POST", "/handle", { handle });
+      const res = await net.userRequest("POST", "/handle", { handle });
       const handleChanged = res?.handle;
       flashColor = handleChanged ? [0, 255, 0] : [255, 0, 0];
       if (handleChanged) {
