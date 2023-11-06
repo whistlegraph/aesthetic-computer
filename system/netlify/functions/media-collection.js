@@ -26,7 +26,10 @@ export async function handler(event, context) {
     const mediaCollection = db.collection(`${mediaType}s`);
 
     // Query the media collection for the specific user.
-    const media = await mediaCollection.find({ user: sub }).toArray();
+    // (Ignoring the `nuked` flag.)
+    const media = await mediaCollection
+      .find({ user: sub, nuked: { $ne: true } })
+      .toArray();
 
     // Only expect `painting` and `piece` for now. 23.10.12.22.32
     const extension = mediaType === "painting" ? "png" : "mjs";

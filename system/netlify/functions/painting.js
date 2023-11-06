@@ -12,46 +12,64 @@ import { respond } from "../../backend/http.mjs";
 const dev = process.env.CONTEXT === "dev";
 
 export async function handler(event, context) {
-  if (event.httpMethod !== "POST")
+  if (!["POST", "PUT"].includes(event.httpMethod))
     return respond(405, { message: "Method Not Allowed" });
 
-  // A POST request to create the painting.
-  // Parse the body of the HTTP request
   let body;
   try {
-    // Make sure we have a username present to set.
     body = JSON.parse(event.body);
-
-    const slug = body.slug;
-
-    // And that we are logged in...
     const user = await authorize(event.headers);
-    if (user) {
-      // 🔑 We are logged in!
-      const database = await connect(); // 📕 Database
-      const collection = database.db.collection("paintings");
-      await collection.createIndex({ user: 1 });
-      await collection.createIndex({ when: 1 });
-      await collection.createIndex({ slug: 1 });
-      await collection.createIndex({ slug: 1, user: 1 }, { unique: true });
+    const database = await connect();
+    const collection = database.db.collection("paintings");
 
-      // Insert or update the handle using the `provider|id` key from auth0.
+    if (event.httpMethod === "POST") {
+      // POST logic for creating a new painting record
+      const slug = body.slug;
+      if (user) {
+        await collection.createIndex({ user: 1 });
+        await collection.createIndex({ when: 1 });
+        await collection.createIndex({ slug: 1 });
+        await collection.createIndex({ slug: 1, user: 1 }, { unique: true });
+
+        try {
+          await collection.insertOne({
+            slug,
+            user: user.sub,
+            when: new Date(),
+          });
+          return respond(200, { slug });
+        } catch (error) {
+          return respond(500, { message: error });
+        } finally {
+          await database.disconnect();
+        }
+      } else {
+        return respond(401, { message: "Unauthorized" });
+      }
+    } else if (event.httpMethod === "PUT") {
+      // PUT logic for updating an existing painting record
+      const { slug, nuke } = body;
+      if (!slug || !nuke) {
+        return respond(400, {
+          message: "Slug & nuke must be provided for update.",
+        });
+      }
+
       try {
-        // Check if a document with this user's sub already exists
-        // Add a new `@handles` document for this user.
-        await collection.insertOne({ slug, user: user.sub, when: new Date() });
+        const result = await collection.updateOne(
+          { slug, user: user.sub },
+          { $set: { nuked: true } },
+        );
+
+        if (result.matchedCount === 0) {
+          return respond(404, { message: "Painting not found." });
+        } else if (result.modifiedCount === 1) {
+          return respond(200, { message: "Painting nuked successfully." });
+        }
       } catch (error) {
         return respond(500, { message: error });
       } finally {
         await database.disconnect();
-      }
-      // Successful handle change...
-      return respond(200, { slug });
-    } else {
-      if (user) {
-        return respond(401, { message: "unverified" });
-      } else {
-        return respond(401, { message: "unauthorized" });
       }
     }
   } catch (error) {

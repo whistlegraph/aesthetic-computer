@@ -1,5 +1,12 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** delete-able paintings ***
+    (hide from profiles)
+  - [x] Add a keyboard shortcut / endpoint to flag a painting as nuked. 
+       (With a `notice`)
+  - [x] Prevent nuked paintings from showing up in the profile list / consider
+       how to hide them. 
+
 *** `hw` ***
   - [x] Landing on `hw` (random) and then going backwards after the
        auto-jump does not jump back to the chosen token. 
