@@ -40,12 +40,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** delete-able paintings ***
-  - [] Add a keyboard shortcut / endpoint to flag a painting as nuked. 
-       (With a `notice`)
-  - [] Prevent nuked paintings from showing up in the profile list / consider
-       how to hide them. 
-
 *** vscode extension params ***
   - [] Add support for params and piece renaming to the VS code extension.
   - [] Make sure going to prompt and returning to the piece / entering new
