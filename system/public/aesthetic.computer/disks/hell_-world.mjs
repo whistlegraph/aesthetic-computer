@@ -742,7 +742,7 @@ function boot({ wipe, params, num, pieceCount, jump, api, debug: d, gizmo }) {
   index = tokenID({ params, num });
 
   //if (params[0] === undefined) {
-    // net.rewrite(`${piece}~${index}`, true); // Set the URL to the current param.
+  // net.rewrite(`${piece}~${index}`, true); // Set the URL to the current param.
   //}
 
   debug = d;
@@ -1031,7 +1031,7 @@ function meta({ params, num }) {
   const handle = "@jeffrey";
 
   const i = tokenID({ params, num });
-  console.log("Token ID:", i);
+  // console.log("Token ID:", i);
   let out;
   if (i === -1) {
     out = {

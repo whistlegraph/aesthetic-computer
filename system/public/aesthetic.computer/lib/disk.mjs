@@ -17,12 +17,8 @@ import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket
 // import { UDP } from "./udp.mjs"; // TODO: Eventually expand to `net.Socket`
 import { notArray, defaultTemplateStringProcessor } from "./helpers.mjs";
 const { round, sin, random, max, floor } = Math;
-import {
-  nopaint_boot,
-  nopaint_act,
-  nopaint_is,
-  nopaint_adjust,
-} from "../systems/nopaint.mjs";
+const { keys } = Object;
+import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
 import { headers } from "./console-headers.mjs";
 import { logs } from "./logs.mjs";
@@ -2324,14 +2320,14 @@ async function load(
             // Globally receivable messages...
             // (There are also some messages handled in `Socket`)
             // 😱 Scream at everyone who is connected!
-            if (type === "scream" && socket.id !== id) {
+            if (type === "scream" && socket?.id !== id) {
               console.log("😱 Scream:", content, "❗");
               scream = content;
               // return;
             }
 
             // 🧚 Ambient cursor (fairies) support.
-            if (type === "ambient-pen:point" && socket.id !== id && visible) {
+            if (type === "ambient-pen:point" && socket?.id !== id && visible) {
               fairies.push({ x: content.x, y: content.y });
               return;
             }
@@ -2343,7 +2339,7 @@ async function load(
           "wss",
           () => {
             // Post-connection logic.
-            if (codeChannel) socket.send("code-channel:sub", codeChannel);
+            if (codeChannel) socket?.send("code-channel:sub", codeChannel);
           },
         );
       })
@@ -2836,6 +2832,7 @@ async function load(
     activeVideo = null;
     videoSwitching = false;
     lastActiveVideo = null;
+    keys(preloadPromises).forEach((key) => preloadPromises[key].reject(key));
     preloadPromises = {};
     noPaint = false;
     formsSent = {}; // Clear 3D list for GPU.
@@ -3469,14 +3466,14 @@ async function makeFrame({ data: { type, content } }) {
   // 1d. Loading Bitmaps
   if (type === "loaded-bitmap-success") {
     if (debug) console.log("🖼️ Bitmap loaded:", content);
-    preloadPromises[content.url].resolve(content);
+    preloadPromises[content.url]?.resolve(content);
     delete preloadPromises[content];
     return;
   }
 
   if (type === "loaded-bitmap-rejection") {
     if (debug) console.error("🖼️ Bitmap load failure:", content);
-    preloadPromises[content.url].reject(content.url);
+    preloadPromises[content.url]?.reject(content.url);
     delete preloadPromises[content.url];
     return;
   }
@@ -3484,14 +3481,14 @@ async function makeFrame({ data: { type, content } }) {
   // 1e. Loading Sound Effects
   if (type === "loaded-sfx-success") {
     if (debug && logs.sound) console.log("Sound load success:", content);
-    preloadPromises[content.sfx].resolve(content.sfx);
+    preloadPromises[content.sfx]?.resolve(content.sfx);
     delete preloadPromises[content];
     return;
   }
 
   if (type === "loaded-sfx-rejection") {
     if (debug && logs.sound) console.error("Sound load failure:", content);
-    preloadPromises[content.sfx].reject(content.sfx);
+    preloadPromises[content.sfx]?.reject(content.sfx);
     delete preloadPromises[content.sfx];
     return;
   }
@@ -3499,14 +3496,14 @@ async function makeFrame({ data: { type, content } }) {
   // 1f. Loading ZIP files.
   if (type === "loaded-zip-success") {
     if (debug) console.log("🤐 Zip load success:", content.url);
-    preloadPromises[content.url].resolve(content.data);
+    preloadPromises[content.url]?.resolve(content.data);
     delete preloadPromises[content.url];
     return;
   }
 
   if (type === "loaded-zip-rejection") {
     if (debug) console.warn("🤐 Zip load failure:", content.url);
-    preloadPromises[content.url].reject(content.url);
+    preloadPromises[content.url]?.reject(content.url);
     delete preloadPromises[content.url];
     return;
   }
@@ -3828,11 +3825,9 @@ async function makeFrame({ data: { type, content } }) {
     // Act & Sim (Occurs after first boot and paint, `boot` occurs below.)
     if (booted && paintCount > 0n /*&& !leaving*/) {
       const $api = {};
-      Object.keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
-      Object.keys($updateApi).forEach((key) => ($api[key] = $updateApi[key]));
-      Object.keys(painting.api).forEach(
-        (key) => ($api[key] = painting.api[key]),
-      );
+      keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
+      keys($updateApi).forEach((key) => ($api[key] = $updateApi[key]));
+      keys(painting.api).forEach((key) => ($api[key] = painting.api[key]));
       $api.api = $api; // Add a reference to the whole API.
 
       cachedAPI = $api; // Remember this API for any other acts outside
@@ -4188,10 +4183,8 @@ async function makeFrame({ data: { type, content } }) {
     // 🖼 Paint
     if (content.needsRender) {
       const $api = {};
-      Object.keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
-      Object.keys(painting.api).forEach(
-        (key) => ($api[key] = painting.api[key]),
-      );
+      keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
+      keys(painting.api).forEach((key) => ($api[key] = painting.api[key]));
       $api.api = $api; // Add a reference to the whole API.
 
       cachedAPI = $api; // Remember this API for any other acts outside
