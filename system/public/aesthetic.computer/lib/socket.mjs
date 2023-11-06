@@ -93,6 +93,7 @@ export class Socket {
   // Before passing messages to disk code, handle some system messages here.
   // Note: "reload" should only be defined when in development / debug mode.
   #preReceive({ id, type, content }, receive, reload) {
+    if (this.#killSocket) return;
     if (type === "connected") {
       const c = JSON.parse(content);
       this.id = c.id; // Set the user identifier.

@@ -1632,12 +1632,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "rewrite-url-path") {
       const newPath = content.path;
       // if (window.origin !== "null") {
-        if (content.historical) {
-          console.log("Rewriting to:", newPath);
-          history.pushState("", document.title, newPath);
-        } else {
-          history.replaceState("", document.title, newPath);
-        }
+      if (content.historical) {
+        console.log("Rewriting to:", newPath);
+        history.pushState("", document.title, newPath);
+      } else {
+        history.replaceState("", document.title, newPath);
+      }
       // }
       return;
     }
@@ -2016,6 +2016,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         detachMicrophone?.(); // Remove any attached microphone unless we
         //                       are taping 📼.
       }
+
+      // Kill any previously loading media.
+      keys(mediaPathsLoading).forEach((key) => mediaPathsLoading[key].abort());
 
       killAllSound?.(); // Kill any pervasive sounds in `speaker`.
 
