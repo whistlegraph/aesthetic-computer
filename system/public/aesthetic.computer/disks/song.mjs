@@ -8,7 +8,7 @@
 
 /* #region 🏁 TODO 
   * Slides
-  - [] Pre-program `pgtw`. 
+  - [🧡] Fade the ending note so there is no pop.
   - [] How would I capture a tone and then add it to the list of notes in
        my song... / compose.
   * Volume + Pan
@@ -17,6 +17,7 @@
         can be for a secondary finger.
   - [] Dragging left and right adjusts the pan.
   + Done
+  - [x] Pre-program `pgtw`. 
   - [x] Add big button for starting a continuous sine wave.
   - [x] Pushing the button down starts a tone and letting go ends it.
   - [x] Dragging up and down adjusts the pitch.
