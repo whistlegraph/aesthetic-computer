@@ -1,5 +1,9 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** discord reported bugs ***
+  - [x] Entering `hw` twice in a row will yield the weird "helo" / "halo" bug.
+        (Could not reproduce.)
+
 *** delete-able paintings ***
     (hide from profiles)
   - [x] Add a keyboard shortcut / endpoint to flag a painting as nuked. 

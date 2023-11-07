@@ -11,7 +11,6 @@ const dev = process.env.CONTEXT === "dev";
 // Only allow a few given resolutions to prevent spam.
 const acceptedResolutions = ["128x128"];
 
-
 async function fun(event, context) {
   console.log("🖼️ Getting icon...");
 
@@ -57,23 +56,17 @@ async function fun(event, context) {
   }
 
   try {
-    await page.goto(
-      `${url}/${
-        filepath.join("/").replace(".png", "") || ""
-      }?icon=${width}x${height}`,
-      {
-        waitUntil: "networkidle2",
-        timeout: 3000,
-      }
-    );
+    const fullUrl = `${url}/${
+      filepath.join("/").replace(".png", "") || ""
+    }?icon=${width}x${height}`;
+
+    await page.goto(fullUrl, { waitUntil: "networkidle2", timeout: 3000 });
   } catch {
     console.log("🔴 Failed to stop networking.");
   }
 
   try {
-    await page.waitForFunction("window.preloaded === true", {
-      timeout: 8000,
-    });
+    await page.waitForFunction("window.preloaded === true", { timeout: 8000 });
   } catch {
     console.log("🔴 Failed window.preloaded timer.");
   }

@@ -5,28 +5,8 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  + Later
-  - [] Sound
-  + Done
-  - [x] Forwards and backwards directionality.
-  - [x] Make right-click / tap to save available just in the "painting" command.
-       without show.
-  - [x] Make sure that the arrows are in the center Y.
-  - [x] They should pause the show?
-  - [x] Make the zoom function the same as in `hell_-world`.
-  - [x] Wire up arrow buttons to work.
-  - [x] Arrow keys should also work.
-  - [x] `done` should take you to the painting page after uploading.
-  - [x] Automatically go to the `painting` page after a successful upload /
-       return the proper code.
-       - [x] Generally smooth out the `painting:done` and `yes` feedback.
-  - [x] Add `print` button.
-  - [x] Load provisional / non-user paintings.
-  - [x] If there is no recording then still load and show the `.png`.
-  - [x] Playback all an existing painting's steps in a loop, with
-  - [x] Save and load painting recordings with steps 2 remote storage somehow.
-  - [x] Ordered text file, combined with bitmaps labeled with their commands and indices.
-      the image centered.
+  - [🟠] Add ability to `nuke` a painting via a tappable context menu that
+       only appears if the logged in user is the owner of the painting.
 #endregion */
 
 const { min } = Math;
@@ -52,6 +32,9 @@ let painting,
 
 let printBtn, // Sticker button.
   slug; // A url to the loaded image for printing.
+let menuBtn; // A context (...) button that appears for the owner.
+let nukeBtn; // A button inside of the context menu to hide / delete the media.
+let menuOpen = false;
 
 let noadvance = false;
 
@@ -85,6 +68,8 @@ function boot({
   display,
   hud,
   gizmo,
+  query,
+  handle: getHandle,
   dom: { html },
 }) {
   showMode = colon[0] === "show"; // A special lightbox mode with no bottom bar.
@@ -109,10 +94,18 @@ function boot({
         let slug = imageCode + ".png";
         if (handle && handle !== "anon")
           slug = handle + "/painting/" + imageCode + ".png";
-        if (showMode) return; // Skip download in showMode.
+
+        if (handle === getHandle() && !showMode) {
+          console.log("✅ This is your painting!");
+          menuBtn = new ui.Button();
+        }
+
+        // Skip download overlay in showMode or icon / preview mode (which breaks local).
+        if (showMode || "icon" in query || "preview" in query) return;
 
         const cssWidth = out.img.width * display.subdivisions;
         const cssHeight = out.img.width * display.subdivisions;
+        const downloadURL = "/api/pixel/2048:conform/" + encodeURI(slug);
 
         html`
           <img
@@ -120,7 +113,7 @@ function boot({
             height="${out.img.height}"
             id="hidden-painting"
             crossorigin
-            src=${"/api/pixel/2048:conform/" + encodeURI(slug)}
+            src=${downloadURL}
           />
           <style>
             #content {
@@ -164,6 +157,7 @@ function boot({
         })
         .catch((err) => {
           // console.warn("Could not load recording.", err);
+          recordingCode = null;
         });
     }
 
@@ -217,6 +211,26 @@ function paint({
     );
     printBtn?.paint({ ink });
     //mintBtn?.paint({ ink });
+
+    if (menuBtn) {
+      menuBtn.box = new geo.Box(5, 18, 18, 12);
+      menuBtn.paint((btn) => {
+        if (btn.down) ink(255, 255, 0, 32).box(btn.box);
+        ink(btn.down ? "yellow" : "white").write("...", {
+          x: btn.box.x,
+          y: btn.box.y,
+        });
+      });
+    }
+
+    if (menuOpen) {
+      ink(0, 200).box(0, 32, screen.width, screen.height);
+      ink(255, 64).line(0, 32, screen.width, 32);
+      if (!nukeBtn) nukeBtn = new ui.TextButton();
+      nukeBtn.box = new geo.Box(4);
+      nukeBtn.reposition({ left: 6, y: 40, screen }, "Nuke");
+      nukeBtn.paint({ ink }, ["maroon", "red", "red", "maroon"]);
+    }
   }
 
   function paintPainting(p) {
@@ -263,7 +277,6 @@ function paint({
       });
 
       brushPaints.length = 0;
-
       paintPainting(painting);
     }
 
@@ -371,64 +384,98 @@ function paint({
 }
 
 // 🎪 Act
-function act({ event: e, screen, print, mint, delay, system, sound }) {
-  function next() {
-    sfx.push(sound);
-    running = false;
-    advance(system, 1, "manual");
+function act({
+  event: e,
+  screen,
+  print,
+  mint,
+  delay,
+  system,
+  sound,
+  net,
+  notice,
+  user,
+}) {
+  menuBtn?.act(e, () => (menuOpen = !menuOpen));
+
+  if (!menuOpen) {
+    function next() {
+      sfx.push(sound);
+      running = false;
+      advance(system, 1, "manual");
+    }
+
+    function prev() {
+      sfx.push(sound);
+      running = false;
+      advance(system, -1, "manual");
+    }
+
+    nextBtn?.act(e, next);
+    prevBtn?.act(e, prev);
+    if (e.is("keyboard:down:arrowright")) next();
+    if (e.is("keyboard:down:arrowleft")) prev();
+
+    printBtn?.act(e, {
+      push: async () => {
+        printBtn.disabled = true;
+        printBtn.reposition(
+          { right: butSide, bottom: butBottom, screen },
+          "Printing...",
+        );
+        await print(slug);
+        delay(() => {
+          printBtn.disabled = false;
+        }, 0.1);
+        printBtn.reposition(
+          { right: butSide, bottom: butBottom, screen },
+          "Print",
+        );
+      },
+    });
+
+    if (e.is("keyboard:down:space")) {
+      zoomLevel += 1;
+      if (zoomLevel > 3) zoomLevel = 1;
+    }
+
+    // mintBtn?.act(e, {
+    //   push: async () => {
+    //     mintBtn.disabled = true;
+    //     mintBtn.reposition(
+    //       { right: butSide, bottom: butBottom, screen },
+    //       "Minting...",
+    //     );
+    //     await mint(slug);
+    //     mintBtn.disabled = false;
+    //     mintBtn.reposition({ right: butSide, bottom: butBottom, screen }, "Mint");
+    //   },
+    // });
+  } else {
+    nukeBtn?.act(e, () => {
+      console.log("💣 Nuking painting:", imageCode, user);
+      net
+        .userRequest("PUT", "/api/painting", { slug: imageCode, nuke: true })
+        .then((res) => {
+          console.log(res);
+          if (res.status === 200) {
+            console.log("🖌️ Painting record updated:", res);
+            notice("NUKED :>", ["yellow", "red"]);
+          } else {
+            throw new Error(res.status);
+          }
+        })
+        .catch((err) => {
+          console.warn("🖌️ Painting record update failure:", err);
+          notice(`${err.message} ERROR :(`, ["white", "red"]);
+        });
+    });
   }
-
-  function prev() {
-    sfx.push(sound);
-    running = false;
-    advance(system, -1, "manual");
-  }
-
-  nextBtn?.act(e, next);
-  prevBtn?.act(e, prev);
-  if (e.is("keyboard:down:arrowright")) next();
-  if (e.is("keyboard:down:arrowleft")) prev();
-
-  printBtn?.act(e, {
-    push: async () => {
-      printBtn.disabled = true;
-      printBtn.reposition(
-        { right: butSide, bottom: butBottom, screen },
-        "Printing...",
-      );
-      await print(slug);
-      delay(() => {
-        printBtn.disabled = false;
-      }, 0.1);
-      printBtn.reposition(
-        { right: butSide, bottom: butBottom, screen },
-        "Print",
-      );
-    },
-  });
 
   if (showMode) {
     if (e.is("touch:1") && !prevBtn?.down && !nextBtn?.down) zoomed = true;
     if (e.is("lift:1")) zoomed = false;
   }
-
-  if (e.is("keyboard:down:space")) {
-    zoomLevel += 1;
-    if (zoomLevel > 3) zoomLevel = 1;
-  }
-
-  // mintBtn?.act(e, {
-  //   push: async () => {
-  //     mintBtn.disabled = true;
-  //     mintBtn.reposition(
-  //       { right: butSide, bottom: butBottom, screen },
-  //       "Minting...",
-  //     );
-  //     await mint(slug);
-  //     mintBtn.disabled = false;
-  //     mintBtn.reposition({ right: butSide, bottom: butBottom, screen }, "Mint");
-  //   },
-  // });
 
   if (e.is("reframed")) {
     printBtn?.reposition({ right: butSide, bottom: butBottom, screen });
