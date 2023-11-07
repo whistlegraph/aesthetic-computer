@@ -49,16 +49,14 @@ export async function handler(event, context) {
     } else if (event.httpMethod === "PUT") {
       // PUT logic for updating an existing painting record
       const { slug, nuke } = body;
-      if (!slug || !nuke) {
-        return respond(400, {
-          message: "Slug & nuke must be provided for update.",
-        });
+      if (!slug || nuke === undefined || nuke === null) {
+        return respond(400, { message: "Slug & nuke must be set for update." });
       }
 
       try {
         const result = await collection.updateOne(
           { slug, user: user.sub },
-          { $set: { nuked: true } },
+          { $set: { nuked: nuke } },
         );
 
         if (result.matchedCount === 0) {
@@ -70,6 +68,7 @@ export async function handler(event, context) {
         return respond(500, { message: error });
       } finally {
         await database.disconnect();
+        return respond(200, { message: "No effect."})
       }
     }
   } catch (error) {
