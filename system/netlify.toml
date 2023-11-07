@@ -70,7 +70,7 @@
   for = "/*.mjs|/*.js"
   [headers.values]
     Access-Control-Allow-Origin = "*"
-    Content-Security-Policy = "script-src 'self' blob: 'unsafe-eval';"
+    Content-Security-Policy = "script-src 'self' https://aesthetic.computer blob: 'unsafe-eval';"
     # Cross-Origin-Resource-Policy = "cross-origin"
     Vary = "*"
 [[edge_functions]]
