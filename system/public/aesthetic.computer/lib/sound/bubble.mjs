@@ -2,8 +2,6 @@
 // A translation of C code that physically models a simple bubble sound.
 // See also: https://github.com/SkAT-VG/SDT/blob/master/src/SDT/SDTLiquids.h
 
-import { noteOrFreq } from "./note.mjs";
-
 export default class Bubble {
   // Generic for all instruments.
   playing = true;
