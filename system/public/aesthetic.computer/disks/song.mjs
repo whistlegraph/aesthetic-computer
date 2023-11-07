@@ -9,6 +9,8 @@
 /* #region 🏁 TODO 
   * Slides
   - [🧡] Fade the ending note so there is no pop.
+  - [] Add keyboard shortcut.
+  - [] Add large "hold" key with "shift" keyboard shortcut.
   - [] How would I capture a tone and then add it to the list of notes in
        my song... / compose.
   * Volume + Pan
