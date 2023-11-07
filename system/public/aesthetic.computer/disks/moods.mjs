@@ -72,7 +72,7 @@ function boot({ wipe, screen, colon, params }) {
 // 🎨 Paint
 function paint({ wipe, ink, text, pan, unpan, screen, num, help: { choose } }) {
   scale > 1 ? ink(0, 64).box(screen) : wipe(0);
-  if (retrieving) ink(choose(64, 127)).write("retrieving...", { center: "xy" });
+  if (retrieving) ink(choose(64, 127)).write("Retrieving...", { center: "xy" });
   if (failed) ink("red").write("failed", { center: "xy" });
   if (moodRing.length > 0) {
     bounceCount += 1;
