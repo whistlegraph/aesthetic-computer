@@ -19,7 +19,10 @@ export default async function handleRequest(request) {
         newUrl = `https://user.aesthetic.computer/${newPath}`;
         // TODO: How can I ensure that Allow-Origin * can be here?
         const response = await fetch(encodeURI(newUrl));
-        // // Create a new Response object using the fetched response's body
+        // Create a new Response object using the fetched response's body
+
+        const contentType = response.headers.get("Content-Type");
+
         const moddedResponse = new Response(response.body, {
           // Copy all the fetched response's headers
           headers: { ...response.headers },
@@ -28,6 +31,7 @@ export default async function handleRequest(request) {
         });
         // // Set the Access-Control-Allow-Origin header to *
         moddedResponse.headers.set("Access-Control-Allow-Origin", "*");
+        moddedResponse.headers.set("Content-Type", contentType);
         return moddedResponse;
         // return fetch(encodeURI(newUrl));
       } else {
