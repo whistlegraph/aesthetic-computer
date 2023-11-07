@@ -40,25 +40,13 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** vscode extension params ***
-  - [] Add support for params and piece renaming to the VS code extension.
-  - [] Make sure going to prompt and returning to the piece / entering new
-       params will still work and that piece name replaces other pieces.
-  - [] Make sure the page can be refreshed and the connection / new code
-       still persists.
+*** 🪷 `botce` launch (ticketed pieces) - Nov. 8 ***
+  - [🟠] See `botce.mjs`.
+  + Done
+  - [x] Don't send multiple emails for some reason...
+  - [x] Go over UX w/ Ida
 
-*** discord reported bugs ***
-  - [-] Entering `hw` twice in a row will yield the weird "helo" / "halo" bug.
-        (Could not reproduce.)
-
-*** wizards ***
-  - [] Use the "|" operator to make stepped wizards / looped pieces.
-
-*** global `chat` / activity log ***
-  - [] Top right tap to enter text, then be able to chat, from any
-       piece. 
-
-*** database ***
+*** Database ***
   - [] Add database setting and clearing on a per-piece basis.
     - [] Need to be able to verify what piece is running in a way that
          is not easily tamperable. (Validate by system or handle based piece / what URL it was loaded from.)
@@ -71,13 +59,19 @@
 *** webgl2 renderer ***
   - [] Get working and turned on for `botce.ac` launch.
 
-*** 🪷 `botce` launch (ticketed pieces) - friday nov. 8 ***
-  - [] Don't send multiple emails for some reason...
-  - [] Go over UX w/ Ida + Amelia.
-    - [] Ticket per session? / (If transaction UX is cheap, then why not just
-         sell individual 24hr expiring sessions at a price where someone
-         would buy 1 or 2)
-  - [] See `botce.mjs`.
+*** vscode extension params ***
+  - [] Make sure the page can be refreshed and the connection / new code
+       still persists.
+  - [] Make sure going to prompt and returning to the piece / entering new
+       params will still work and that piece name replaces other pieces.
+  - [] Add support for params and piece renaming to the VS code extension.
+
+*** wizards ***
+  - [] Use the "|" operator to make stepped wizards / looped pieces.
+
+*** global `chat` / activity log ***
+  - [] Top right tap to enter text, then be able to chat, from any
+       piece. 
 
 ** tmi thoughts from amelia on seeing code ***
   - [] "Nobody else wants to do this."
