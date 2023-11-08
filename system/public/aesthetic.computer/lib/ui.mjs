@@ -78,6 +78,7 @@ class Button {
   icon;
   dom = false;
   over = false; // Keep track of rollover state.
+  multitouch = true; // Toggle to false to make a single touch button.
 
   // (x, y, width, height) or Box
   constructor() {
@@ -113,15 +114,17 @@ class Button {
     // If only a single function is sent, then assume it's a button push callback.
     if (typeof callbacks === "function") callbacks = { push: callbacks };
 
+    const t = this.multitouch ? "any" : "1";
+
     // 1. Down: Enable the button if we touched over it. (Repeatable)
-    if (e.is("touch:any") && btn.box.contains(e) /*&& !btn.down*/) {
+    if (e.is(`touch:${t}`) && btn.box.contains(e) && !btn.down) {
       callbacks.down?.(btn);
       btn.down = true;
       btn.over = true;
     }
 
     // 3. Push: Trigger the button if we push it.
-    if (e.is("lift:any") && btn.down) {
+    if (e.is(`lift:${t}`) && btn.down) {
       if (
         (pens.length > 0 && btn.box.onlyContains(e.pointer - 1, pens)) ||
         btn.box.contains(e)
@@ -141,14 +144,14 @@ class Button {
 
     // 4. Rollover: Run a rollover event if dragged on.
     // if (e.is("draw:any") && !this.down && this.box.contains(e)) {
-    if (e.is("draw:any") && !btn.over && btn.box.contains(e)) {
+    if (e.is(`draw:${t}`) && !btn.over && btn.box.contains(e)) {
       callbacks.rollover?.(btn);
       btn.over = true;
     }
 
     // 5. Rollout: Run a rollout event if dragged off.
     if (
-      e.is("draw:any") &&
+      e.is(`draw:${t}`) &&
       btn.over &&
       !btn.box.contains(e) &&
       btn.box.containsNone(pens)

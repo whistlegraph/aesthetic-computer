@@ -8,8 +8,7 @@
 
 /* #region 🏁 TODO 
   * Slides
-  - [🧡] Fade the ending note so there is no pop.
-  - [] Add keyboard shortcut.
+  - [x] Fade the ending note so there is no pop.
   - [] Add large "hold" key with "shift" keyboard shortcut.
   - [] How would I capture a tone and then add it to the list of notes in
        my song... / compose.
@@ -19,6 +18,9 @@
         can be for a secondary finger.
   - [] Dragging left and right adjusts the pan.
   + Done
+  - [x] Add space keyboard shortcut for playback that triggers the button.
+        (With no conflicts)
+  - [x] Fix multi-touch.
   - [x] Pre-program `pgtw`. 
   - [x] Add big button for starting a continuous sine wave.
   - [x] Pushing the button down starts a tone and letting go ends it.
@@ -49,6 +51,7 @@ function boot({ ink, wipe, screen, ui }) {
   wipe(127);
   const m = 24;
   btn = new ui.Button(m, m, screen.width - m * 2, screen.height - m * 2);
+  btn.multitouch = false;
 
   tone = freq(song[index]); // Set starting tone.
 }
@@ -71,9 +74,11 @@ function paint({ ink, screen }) {
       ((index + 1) / song.length) * screen.width,
       screen.height - 1,
     );
-    return false; // Uncomment for an animation loop.
   });
+  return false; // Uncomment for an animation loop.
 }
+
+let keyHeld = false;
 
 // 🎪 Act
 function act({ event: e, sound: { synth }, needsPaint, num }) {
@@ -85,32 +90,44 @@ function act({ event: e, sound: { synth }, needsPaint, num }) {
     needsPaint();
   }
 
-  btn.act(
-    e,
-    {
-      push: () => {
-        sound?.kill();
-        needsPaint();
-        index = (index + 1) % song.length; // Cycle through notes.
-        tone = freq(song[index]);
-      },
-      down: () => {
-        sound = synth({ type: "sine", tone, volume: 1.0, beats: Infinity });
-        needsPaint();
-      },
-      rollover: () => {
-        // needsPaint();
-      },
-      rollout: () => {
-        // needsPaint();
-      },
-      cancel: () => {
-        sound?.kill();
-        needsPaint();
-      },
-    },
-    // pens?.() // Enables multi-touch support for this button.
-  );
+  function push() {
+    sound?.kill();
+    needsPaint();
+    index = (index + 1) % song.length; // Cycle through notes.
+    tone = freq(song[index]);
+  }
+
+  function down() {
+    sound = synth({ type: "sine", tone, volume: 1.0, beats: Infinity });
+    needsPaint();
+  }
+
+  function cancel() {
+    sound?.kill();
+    needsPaint();
+  }
+
+  if (e.is("keyboard:down:space") && !btn.down) {
+    btn.down = true;
+    keyHeld = true;
+    down();
+  }
+
+  if (keyHeld && e.is("keyboard:up:space")) {
+    btn.down = false;
+    keyHeld = false;
+    push();
+  }
+
+  if (!keyHeld) {
+    btn.act(e, {
+      push: () => push(),
+      down: () => down(),
+      cancel: () => cancel(),
+    });
+  }
+
+  if (e.is("defocus")) cancel();
 }
 
 // 🧮 Sim
