@@ -59,12 +59,16 @@
 *** webgl2 renderer ***
   - [] Get working and turned on for `botce.ac` launch.
 
-*** vscode extension params ***
-  - [] Make sure the page can be refreshed and the connection / new code
-       still persists.
+*** VSCode Extension Improvements ***
+    (See also: https://discord.com/channels/890376329957081138/890376329957081144/1171956446641016932)
   - [] Make sure going to prompt and returning to the piece / entering new
        params will still work and that piece name replaces other pieces.
   - [] Add support for params and piece renaming to the VS code extension.
+  - [] Make sure the page can be refreshed and the connection / new code
+       still persists.
+  - [] Make sure piece-halting errors will still auto-refresh.
+  - [] Add / research support for packages.
+       (Published groups of `.zip` files based on a directory)
 
 *** wizards ***
   - [] Use the "|" operator to make stepped wizards / looped pieces.
