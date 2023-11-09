@@ -5,10 +5,17 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🟠] Test the full behavior, also live.
-    - [] Test w/ Ida.
+  - [] Add to ticket prompt:
+    (image of happy amelia)
+    ask and botce will answer you
+
+    text on pay button:
+    purchase 10 sessions for $15
+
+    under pay button:
+    check 💌 for 🎟️hellobotce@gmail.com for help
   - [] Get botce.ac working again.
-  - [] How does the botce.ac domain fit in.
+  - [] Fix mobile offset not being centered.
   - [] Do some security checks / put the `botce` prompt text behind a private
        store... or in the database?
   ------------

@@ -8,7 +8,7 @@
 
 /* #region 🏁 TODO 
   * Slides
-  - [x] Fade the ending note so there is no pop.
+  - [🧡] Fade the ending note so there is no pop.
   - [] Add large "hold" key with "shift" keyboard shortcut.
   - [] How would I capture a tone and then add it to the list of notes in
        my song... / compose.
@@ -92,6 +92,7 @@ function act({ event: e, sound: { synth }, needsPaint, num }) {
 
   function push() {
     sound?.kill();
+    // sound?.kill();
     needsPaint();
     index = (index + 1) % song.length; // Cycle through notes.
     tone = freq(song[index]);

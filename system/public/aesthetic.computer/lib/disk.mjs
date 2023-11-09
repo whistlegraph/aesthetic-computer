@@ -3790,8 +3790,12 @@ async function makeFrame({ data: { type, content } }) {
       send({ type: "sfx:play", content: { sfx, id, options } });
 
       return {
-        kill: () => {
+        kill: (/*fade = false*/) => {
+          // if (!fade) {
           send({ type: "sfx:kill", content: { id } });
+          // } else {
+          // send({ type: "sfx:kill-fade", content: { fade } });
+          // }
         },
         progress: async () => {
           const prom = new Promise((resolve, reject) => {
