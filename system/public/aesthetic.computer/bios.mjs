@@ -814,6 +814,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         };
 
         killSound = function (id) {
+          // console.log("kill"); // TODO: Add fade here...
           soundProcessor.port.postMessage({ type: "kill", data: id });
         };
 
@@ -3507,6 +3508,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       sfxPlaying[content.id]?.kill();
       return;
     }
+
+    //if (type === "sfx:kill-fade") {
+      // sfxPlaying[content.id]?.kill();
+    //  return;
+    //}
 
     // Report progress of a playing sound back to the disk.
     if (type === "sfx:progress") {
