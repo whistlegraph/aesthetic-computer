@@ -41,7 +41,8 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** onboarding "taken" bug ***
-  - [🧧] Sometimes when users sign up, their untaken handle reports
+  - [-] Test in production.
+  - [x] Sometimes when users sign up, their untaken handle reports
          as taken even though it has not been...
          (`mood` also seems to fail here...)
 
