@@ -41,14 +41,18 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** onboarding "taken" bug ***
-  - [] Sometimes when users sign up, their untaken handle reports
-       as taken even though it has not been...
+  - [🧧] Sometimes when users sign up, their untaken handle reports
+         as taken even though it has not been...
+         (`mood` also seems to fail here...)
 
 *** 🪷 `botce` launch (ticketed pieces) - Nov. ? ***
   - [🟠] See `botce.mjs`.
   + Done
   - [x] Don't send multiple emails for some reason...
   - [x] Go over UX w/ Ida
+
+*** prutti poems ***
+  - [🩷] See `prutti.mjs`
 
 *** Database ***
   - [] Add database setting and clearing on a per-piece basis.
@@ -59,7 +63,6 @@
 *** readme switch ***
   - [] Split README off from TODO.
   - [] Make it markdown? Or leave it .txt?
-
 
 *** VSCode Extension Improvements ***
     (See also: https://discord.com/channels/890376329957081138/890376329957081144/1171956446641016932)
