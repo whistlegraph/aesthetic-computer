@@ -40,7 +40,11 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** 🪷 `botce` launch (ticketed pieces) - Nov. 8 ***
+*** onboarding "taken" bug ***
+  - [] Sometimes when users sign up, their untaken handle reports
+       as taken even though it has not been...
+
+*** 🪷 `botce` launch (ticketed pieces) - Nov. ? ***
   - [🟠] See `botce.mjs`.
   + Done
   - [x] Don't send multiple emails for some reason...
@@ -56,8 +60,6 @@
   - [] Split README off from TODO.
   - [] Make it markdown? Or leave it .txt?
 
-*** webgl2 renderer ***
-  - [] Get working and turned on for `botce.ac` launch.
 
 *** VSCode Extension Improvements ***
     (See also: https://discord.com/channels/890376329957081138/890376329957081144/1171956446641016932)
@@ -76,6 +78,8 @@
 *** global `chat` / activity log ***
   - [] Top right tap to enter text, then be able to chat, from any
        piece. 
+
+*** webgl2 renderer ***
 
 ** tmi thoughts from amelia on seeing code ***
   - [] "Nobody else wants to do this."
@@ -106,7 +110,7 @@
   - [] Set ambient pen pointer color to cyan / flicker cyan if the user
        is in the pond.
 
-*** but suite ***
+*** `but` suite ***
   - `helikesmebut`, `helikesmybut`
   - `ilikeubut`, `ilikeurbut`
 
