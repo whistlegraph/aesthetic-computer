@@ -1,10 +1,13 @@
-// Lnl, 2023.11.09.16.36.06.537
-// Lessons NOT Learnt by goodiepal
+// Prutti, 2023.11.09.16.36.06.537
+// Lessons NOT Learnt by pruttipal aka goodiepal
 
 /* #region 📚 README 
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] Make params for prutti 1, prutti 2, etc.
+  - [] Print out scrolling text for each.
+  - [] Attach images via the asset url: https://assets.aesthetic.computer/pruttipal/lnl/lnl1.jpeg
 #endregion */
 
 /* #region 📃 CONTENT 
