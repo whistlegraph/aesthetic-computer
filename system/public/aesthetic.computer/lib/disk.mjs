@@ -1246,7 +1246,10 @@ const $commonApi = {
         } else {
           const clonedResponse = response.clone();
           try {
-            return await { ...clonedResponse.json(), status: response.status };
+            return {
+              ...(await clonedResponse.json()),
+              status: response.status,
+            };
           } catch {
             return { status: response.status, body: await response.text() };
           }
