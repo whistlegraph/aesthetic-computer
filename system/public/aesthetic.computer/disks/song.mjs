@@ -33,10 +33,10 @@ let btn,
   tone = 800;
 
 //const pgtw = "F F G G A 6C A F C F F G 6C A".split(" ");
-const pgtw = `4G C C D D E G E C
-              4G C C D D E C
-              C C D D E G E C
-              A D F E C`.split(/\s+/);
+const pgtw = `G 6C 6C 6D 6D 6E 6G 6E 6C
+              G 6C 6C 6D 6D 6E 6C
+              6C 6C 6D 6D 6E 6G 6E 6C
+              6A 6D 6F 6E 6C`.split(/\s+/);
 
 const lyrics = `oh up and down the ci- -i- -ty road
                 and in and out the ea- -gle 
