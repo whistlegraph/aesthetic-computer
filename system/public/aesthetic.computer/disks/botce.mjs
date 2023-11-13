@@ -51,17 +51,17 @@ let needsWipe = true;
 async function boot({ ticket, query, notice, store, jump }) {
   // Check for a local stub and use that to validate with the API.
   let storedTicket = await store.retrieve("ticket:botce");
-  let noMessage = "no ticket";
+  let noMessage = "botce";
 
   if (storedTicket) {
     // Expire if over a day.
     const hoursPassed = (new Date() - storedTicket.time) / (1000 * 60 * 60);
     console.log("🎟️ Ticket found! Hours passed:", hoursPassed, storedTicket);
-    if (hoursPassed > 24) {
+    if (true || hoursPassed > 24) {
       await store.delete("ticket:botce");
       storedTicket = null;
       console.warn("🎟️ Ticket stub expired.");
-      noMessage = "old ticket :(";
+      noMessage = "old ticket :/";
     }
   }
 
@@ -85,7 +85,7 @@ async function boot({ ticket, query, notice, store, jump }) {
       })
       .then((data) => {
         console.log("✅ 🎟️ Ticket accepted:", data);
-        notice(`ticket accepted ${data.ticket.uses}/10`);
+        notice(`ticket ${data.ticket.uses}`);
         store["ticket:botce"] = { key: ticketToCheck, time: new Date() };
         store.persist("ticket:botce"); // Store stub with current time.
         setTimeout(() => jump(data.botce.piece, true, true), 500); // Actually
@@ -93,7 +93,7 @@ async function boot({ ticket, query, notice, store, jump }) {
       })
       .catch((err) => {
         console.log("Error:", err);
-        notice("ACCESS DENIED", ["yellow", "red"]);
+        notice("nothing left.", ["yellow", "red"]);
         setTimeout(() => ticket({ from: "sotce", item: "botce" }), 1500);
       });
   } else {
