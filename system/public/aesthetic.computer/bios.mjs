@@ -1307,7 +1307,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         </style>
         `;
 
-        button = "$5";
+        button = "$9";
         color = "rgb(255, 200, 200, 0.95)";
       }
 
