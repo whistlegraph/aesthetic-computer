@@ -77,14 +77,9 @@
   path = "/media/*"
   function = "media"
 [[redirects]]
-   from = "https://botce.ac/wPyYL4osf6Cw0pkHn_E5I-botce"
-   to = "https://aesthetic.computer/wPyYL4osf6Cw0pkHn_E5I-botce"
-   status = 200
-   force = true
-[[redirects]]
    from = "https://botce.ac"
-   to = "https://sotce.com"
-   status = 301
+   to = "https://aesthetic.computer/botce"
+   status = 200
    force = true
 [[redirects]]
   from = "/media-collection/*"

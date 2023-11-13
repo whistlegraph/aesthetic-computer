@@ -331,8 +331,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       wrapper.addEventListener(
         "touchstart",
         function (event) {
-          if (event.target.tagName !== "A" && event.target.tagName !== "IMG")
-            event.preventDefault();
+          if (!ticketWrapper) {
+            if (event.target.tagName !== "A" && event.target.tagName !== "IMG")
+              event.preventDefault();
+          }
         },
         false,
       );
@@ -1251,27 +1253,91 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   async function receivedChange({ data: { type, content } }) {
     if (type === "ticket-wall") {
       if (!window.Stripe) await loadStripe();
-      const color = "pink";
+      let pretext = ``;
+      let button = `buy ticket`;
+      let color = `white;`;
+      let desc = `Check your email for tickets.`;
+
+      if (content.item === "botce") {
+        pretext = `
+        <div id="pretext">
+          <img style="image-rendering: pixelated;" src="https://sotce-media.aesthetic.computer/botce-b.gif">
+          <div id="pretext-bullets">
+            <span id="desc" >talk to <code>botce</code></span>
+            <ul id="features">
+              <li><code>botce</code> is a helpful ai</li>
+              <li><code>botce</code> has advice 24/7</li>
+              <li><code>botce</code> is available until 11/23</li>
+            </ul>
+          </div>
+        </div>
+        <style>
+         #pretext {
+           display: flex;
+           flex-direction: row;
+           padding-bottom: 1.5em;
+         }
+         #pretext-bullets {
+          display: flex;
+           flex-direction: column;
+           color: black;
+         }
+         #pretext img {
+          /* border: 2px solid white; */
+          border-radius: 10%;
+          max-width: 30%;
+          width: 100%;
+          height: 100%;
+         }
+         #features {
+          padding-left: 1.7em;
+          margin-top: 0.4em;
+          list-style-type: none;
+         }
+         #desc {
+          color: #30313D;
+          margin: 0 auto 0 1em;
+          background: rgba(255, 100, 100, 0.5);
+          border-radius: 6px;
+          padding: 8px 12px;
+         }
+         code {
+          font-weight: bold;
+         }
+        </style>
+        `;
+
+        button = "$5";
+        color = "rgb(255, 200, 200, 0.95)";
+      }
+
       const template = `
         <link rel="stylesheet" href="aesthetic.computer/checkout.css" />
-        <form style="background: ${color}" id="payment-form">
+        <form style="background: ${color};" id="payment-form" class=${content.item}>
+          ${pretext}
           <div id="link-authentication-element">
           </div>
           <div id="payment-element">
           </div>
           <button id="submit">
-            <div class="spinner hidden" id="spinner"></div>
-            <span id="button-text">sotce, how do i...</span>
+            <div class="spinner hidden" id="spinner">Processing...</div>
+            <span id="button-text">${button}</span>
           </button>
-          <div id="payment-message" class="hidden"></div>
+          <div id="payment-description">${desc}</div>
+          <div id="payment-message-wrapper">
+            <div id="payment-message" class="hidden"></div>
+          </div>
         </form>
       `;
       ticketWrapper = document.createElement("div");
       ticketWrapper.id = "ticket";
       ticketWrapper.innerHTML = template;
+      ticketWrapper.classList.add("hidden");
       wrapper.appendChild(ticketWrapper);
       const { ticket } = await import(`./lib/ticket.mjs`);
-      ticket(content.from, content.item); // Open the ticket overlay.
+      ticket(content.from, content.item, () => {
+        ticketWrapper.classList.remove("hidden");
+      }); // Open the ticket overlay.
       return;
     }
 
@@ -3510,7 +3576,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     //if (type === "sfx:kill-fade") {
-      // sfxPlaying[content.id]?.kill();
+    // sfxPlaying[content.id]?.kill();
     //  return;
     //}
 
