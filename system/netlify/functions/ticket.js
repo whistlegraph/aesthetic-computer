@@ -99,6 +99,7 @@ export async function handler(event, context) {
       const paymentIntent = await stripe.paymentIntents.create({
         amount: calculateOrderAmount(items),
         currency: "usd",
+        description: "Botce",
         automatic_payment_methods: { enabled: true },
       });
 
