@@ -57,7 +57,7 @@ async function boot({ ticket, query, notice, store, jump }) {
     // Expire if over a day.
     const hoursPassed = (new Date() - storedTicket.time) / (1000 * 60 * 60);
     console.log("🎟️ Ticket found! Hours passed:", hoursPassed, storedTicket);
-    if (true || hoursPassed > 24) {
+    if (hoursPassed > 24) {
       await store.delete("ticket:botce");
       storedTicket = null;
       console.warn("🎟️ Ticket stub expired.");
