@@ -268,7 +268,7 @@ function act({ event: e, sound: { play }, num }) {
   }
 }
 
-const forgetful = true;
+const forgetful = false;
 export {
   boot,
   sim,

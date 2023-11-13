@@ -11,7 +11,7 @@ const botcePiece = "wPyYL4osf6Cw0pkHn_E5I-botce";
 // 💲 A utility function to calculate the order amount
 const calculateOrderAmount = (items) => {
   console.log("💲 Items:", items);
-  if (items[0].id === "botce") return 1400; // Assume just one item for now...
+  if (items[0].id === "botce") return 900; // Assume just one item for now...
   return 0; // Free!
 };
 
@@ -90,8 +90,7 @@ export async function handler(event, context) {
     const envKey = from === "sotce" ? "SOTCE_" : "";
     key = dev
       ? process.env[`${envKey}STRIPE_API_TEST_PRIV_KEY`]
-      : process.env[`${envKey}STRIPE_API_TEST_PRIV_KEY`];
-    //: process.env[`${envKey}STRIPE_API_PRIV_KEY`];
+      : process.env[`${envKey}STRIPE_API_PRIV_KEY`];
 
     const stripe = Stripe(key);
 
@@ -122,8 +121,8 @@ export async function handler(event, context) {
     devSecret = process.env[`${prefix}STRIPE_ENDPOINT_DEV_SECRET`];
     key = dev
       ? process.env[`${prefix}STRIPE_API_TEST_PRIV_KEY`]
-      : process.env[`${prefix}STRIPE_API_TEST_PRIV_KEY`];
-    //: process.env[`${prefix}STRIPE_API_PRIV_KEY`];
+      : process.env[`${prefix}STRIPE_API_PRIV_KEY`];
+    // : process.env[`${prefix}STRIPE_API_TEST_PRIV_KEY`];
 
     const stripe = Stripe(key);
 
