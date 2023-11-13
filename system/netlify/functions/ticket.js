@@ -166,9 +166,12 @@ export async function handler(event, context) {
 
       const emailOptions = {
         to: hookEvent.data.object.receipt_email,
-        subject: "🪷 hello",
+        subject: "🪷 visit me again?",
         html: `
-          <p>Ask <code>botce</code> again (up to 10 times) using <a href="${link}">this link</a>.</p>
+          <p>This email contains three tickets for <code>botce</code>. Each click opens a chat for 24 hours.
+          <br>
+          <br>
+          <a href="${link}">Click here to visit with botce.</a></p>
           <b><a href="https://sotce.com">sotce</a></b>
         `,
       };
