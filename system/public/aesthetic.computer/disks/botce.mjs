@@ -6,6 +6,13 @@
 #endregion */
 
 /* #region 🏁 TODO 
+
+  - [] Three remaining.
+  - [] Lowercase tickets. 
+  - [] Add gutter bar 2 the right.
+  - [] Test a centered layout that's low resolution.
+  - [] More distant line spacing. 
+
     Under pay button:
   - [] Do some security checks / put the `botce` prompt text behind a private
        store... or in the database?
@@ -44,7 +51,7 @@ let needsWipe = true;
 async function boot({ ticket, query, notice, store, jump }) {
   // Check for a local stub and use that to validate with the API.
   let storedTicket = await store.retrieve("ticket:botce");
-  let noMessage = "NO TICKET";
+  let noMessage = "no ticket";
 
   if (storedTicket) {
     // Expire if over a day.
@@ -54,16 +61,16 @@ async function boot({ ticket, query, notice, store, jump }) {
       await store.delete("ticket:botce");
       storedTicket = null;
       console.warn("🎟️ Ticket stub expired.");
-      noMessage = "EXPIRED TICKET";
+      noMessage = "old ticket :(";
     }
   }
 
   const ticketToCheck = query?.ticket || storedTicket?.key;
-  // notice(!ticketToCheck ? noMessage : "CHECKING TICKET");
+  if (!ticketToCheck) notice(noMessage);
 
   // Check for a ticket stub using the API.
   if (ticketToCheck) {
-    notice("CHECKING TICKET");
+    notice("checking ticket :(");
     let slug = `/api/ticket/${ticketToCheck}`;
     if (storedTicket) slug += "?found=true";
 
@@ -78,7 +85,7 @@ async function boot({ ticket, query, notice, store, jump }) {
       })
       .then((data) => {
         console.log("✅ 🎟️ Ticket accepted:", data);
-        notice(`TICKET ACCEPTED ${data.ticket.uses}/10`);
+        notice(`ticket accepted ${data.ticket.uses}/10`);
         store["ticket:botce"] = { key: ticketToCheck, time: new Date() };
         store.persist("ticket:botce"); // Store stub with current time.
         setTimeout(() => jump(data.botce.piece, true, true), 500); // Actually

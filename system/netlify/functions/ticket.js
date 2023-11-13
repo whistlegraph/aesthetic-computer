@@ -168,10 +168,18 @@ export async function handler(event, context) {
         to: hookEvent.data.object.receipt_email,
         subject: "🪷 visit me again?",
         html: `
-          <p>This email contains three tickets for <code>botce</code>. Each click opens a chat for 24 hours.
+          <p>click the ticket to visit with me, <code>botce</code>.
           <br>
           <br>
-          <a href="${link}">Click here to visit with botce.</a></p>
+          🎟️ <a href="${link}">ticket</a>
+          <br>
+          <br>
+          you have three clicks.
+          <br>
+          <br>
+          each visit lasts 24 hours.
+          <br>
+          <br>
           <b><a href="https://sotce.com">sotce</a></b>
         `,
       };
