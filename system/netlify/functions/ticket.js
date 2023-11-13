@@ -155,7 +155,7 @@ export async function handler(event, context) {
         key: ticketKey,
         for: fromSotce ? "botce" : "aesthetic",
         email: emailAddress,
-        uses: 10,
+        uses: 3,
         pid: hookEvent.data.object.payment_intent,
       });
       await database.disconnect();
@@ -167,8 +167,7 @@ export async function handler(event, context) {
       const emailOptions = {
         to: hookEvent.data.object.receipt_email,
         subject: "🪷 visit me again?",
-        html: `
-          <p>click the ticket to visit with me, <code>botce</code>.
+        html: `<p>click the ticket to visit with me, <code>botce</code>.
           <br>
           <br>
           🎟️ <a href="${link}">ticket</a>
