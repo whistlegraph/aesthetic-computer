@@ -122,13 +122,11 @@ export async function handler(event, context) {
     key = dev
       ? process.env[`${prefix}STRIPE_API_TEST_PRIV_KEY`]
       : process.env[`${prefix}STRIPE_API_PRIV_KEY`];
-    // : process.env[`${prefix}STRIPE_API_TEST_PRIV_KEY`];
 
     const stripe = Stripe(key);
 
     const sig = event.headers["stripe-signature"];
-    // const secret = dev ? devSecret : prodSecret;
-    const secret = prodSecret;
+    const secret = dev ? devSecret : prodSecret;
     let hookEvent;
 
     try {
