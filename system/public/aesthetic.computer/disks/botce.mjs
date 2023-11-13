@@ -71,7 +71,7 @@ async function boot({ ticket, query, notice, store, jump }) {
   // Check for a ticket stub using the API.
   if (ticketToCheck) {
     // notice("checking ticket :(");
-    let slug = `/api/ticket/${ticketToCheck}`;
+    let slug = `https://aesthetic.computer/api/ticket/${ticketToCheck}`;
     if (storedTicket) slug += "?found=true";
 
     fetch(slug)

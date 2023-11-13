@@ -84,6 +84,8 @@ export function ticket(from, item, ready) {
     }
   }
 
+  let timeout;
+
   async function checkTicketStatus() {
     try {
       const response = await fetch(
@@ -99,13 +101,15 @@ export function ticket(from, item, ready) {
           JSON.stringify({ key: ticket.key, time: new Date() }),
         );
         if (window.acDEBUG) console.log("🎟️ Ticket:", ticket);
+        clearTimeout(timeout);
         window.acSEND({ type: "jump", content: { piece } }); // Jump to target.
         // window.acSEND({ type: "notice", content: "welcome" }); // Notify.
       } else {
         // Optionally, you can set a timeout to check again
-        setTimeout(checkTicketStatus, 3000); // Check every 3 seconds
+        timeout = setTimeout(checkTicketStatus, 3000); // Check every 3 seconds
       }
     } catch (error) {
+      clearTimeout(timeout);
       console.error("Error checking payment status:", error);
       setLoading(false);
     }
