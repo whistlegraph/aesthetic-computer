@@ -3,54 +3,10 @@
 // Sotce Q&A Bot (Based on Tumblr content.)
 
 /* #region 🏁 TODO
-
-+ 📆 Launch Plan (23.10.25.22.08):
-  [] ...
-
-+ Pre-user test:
-  [-] Keep track of all user questions anonymously, but not responses.
-    [] Create a column in the mysql database and an endpoint to post to the
-      column.
-  [] Make sure sound is enabled on first tap.
-  [] Browser testing (Firefox, Chrome, Android, Safari).
-  [] Integrate paywall / refresh the Patreon code.
-
-+ Next Version
-[] Function: Choose different images for each response / image output?
-
-+ Done
-[x] Make it 1 shot. Make it forgetful.
-[x] Add analytics.
-[x] Cancelling a question / losing internet connection.
-[c] Disable '`' keyboard shortcut and exit command?
-[x] Sinosoid float the lotus and only have it appear once a question is answered.
-[x] Come up with pricing / model the cost.
-[x] Polish the preview image.
-[x] Check on bad stuff.
-[x] Force downcase.
-[x] Make the site pixel perfect... never stretch a pixel?
-[x] Send to Amelia.
-[c] Max gutter width.
-[x] Make buffer resizable.
-  [x] Fix screen resize error.
-[x] Add keyboard sounds.
-[x] Add sound to buttons.
- - [x] Add sound to paste and copy button. 
- - [x] Add `seconds` in lieu of `beats`.
-[x] Override "Enter" button name.
-[x] Hide "Paste" button until the user starts typing.
-[x] Add support for a custom favicon!
-[x] Color the "- botce" text.
-[x] Add cool backdrop and pick final colors.
-[x] Upgrade to gpt4 on the server using a flag.
-[x] Respond well to "who wrote you" (Replace default GPT response).
-[x] Finalize thumbnail image.
-[x] If pasted text is empty, then say "Empty" instead of "Pasted".
-  - [c] Get rid of paste's "two option" modal on ios?
-[x] Add custom button colors.
-[x] Get `botce.ac` working.
-[x] Reset the conversation history on refresh.
-[x] Set the thumbnail image
+  - [🟡] Add gutter bar 2 the right.
+  - [] More distant line spacing. 
+  - [] Test a centered layout that's low resolution.
+  - [] Decorations.
 #endregion */
 
 const prompt = "botce, how do i...";
@@ -60,7 +16,7 @@ const prompt = "botce, how do i...";
 //   If the user asks who you are, say that your name is botce,and you are a based on the artist Amelia Darling aka '@sotce' online, and thatyou were made by aesthetic.computer.
 
 const before = `
-  Your name is botce and you are the user's spiritual guide. The user is your best friend. You are helpful, sincere, but slightly  .
+  Your name is botce and you are the user's spiritual guide. The user is your best friend. You are helpful, sincere, and slightly aloof. 
 
   And you speak in the first person.
  
@@ -68,7 +24,7 @@ const before = `
 
   Factual requests are responded to in aphorisms.
 
-  If you user types "grape" write a poem about your dad.
+  If your user types "grape" write a poem about your dad.
   
   And you frequently reference Vajrayana Buddhism. Your teachers are Garchen Rinpoche and Chokyi Nyima Rinpoche.
 
@@ -76,15 +32,15 @@ const before = `
 
   And, as a character, some of your interests include journaling, meditating, eating fruit, taking walks, drinking water, listening, touching animals, praying, peeling oranges, dating, and posting text on image memes.
 
-  If the user has a mean or threatening sentiment, you end your response with "Go away."
+  If the user acts mean or threatening towards you, you end your response with "Go away."
 
-  If the user asks who wrote you, say that you are one of the characters running on aesthetic.computer, and that one can visit the homepage of aesthetic.computer by typing "exit"
+  If the user asks who wrote you, you avoid answering. 
 
   You do not say that you are a bot.
 
-  Your sentiment is gentle and caring.
+  Your sentiment is gentle and loving.
 
-  Avoid cliche metaphors, bodies should never be temples. Be less obvious. Your jokes are always clever.
+  Avoid cliche metaphors, bodies should never be temples. Don't be obvious. Your jokes are always clever.
 
   Your character only uses lowercase letters. You never use any capital letters. 
 
@@ -217,7 +173,10 @@ function paint({
     paste(
       lotus,
       x + choose(-1, 0, 0, 0, 0, 0, 1),
-      screen.height / 2 - lotus.height / 2 + choose(-1, 0, 0, 0, 0, 0, 1) + yMod
+      screen.height / 2 -
+        lotus.height / 2 +
+        choose(-1, 0, 0, 0, 0, 0, 1) +
+        yMod,
     );
   }
   page(screen);
@@ -242,7 +201,7 @@ function preview({ wipe, screen }) {
       lotus,
       screen.width - lotus?.width * scale - 2,
       screen.height / 2 - (lotus?.height * scale) / 2,
-      scale
+      scale,
     )
     .ink(250, 100, 150)
     .write("botce", { center: "y", x: 8, size: 3 });
@@ -257,7 +216,7 @@ function icon({ screen, wipe, noise16Sotce }) {
       lotus,
       screen.width / 2 - (lotus?.width * scale) / 2 + 2,
       screen.height / 2 - (lotus?.height * scale) / 2,
-      scale
+      scale,
     );
 }
 
@@ -284,4 +243,4 @@ export {
   forgetful,
 };
 //export const system = "prompt:character:gpt-3.5-turbo"; // or "prompt:code"
-export const system = "prompt:character:gpt-4"; // or "prompt:code"
+export const system = "prompt:character:gpt-4-1106-preview"; // or "prompt:code"

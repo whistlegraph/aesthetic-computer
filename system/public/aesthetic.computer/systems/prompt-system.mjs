@@ -40,7 +40,11 @@ export async function prompt_boot(
       if (exits.indexOf(text) !== -1 && $.slug !== "prompt") {
         await conversation.forget();
         input.blank();
-        return $.jump("prompt");
+        if ($.slug.indexOf("botce") > -1) {
+          return $.net.refresh();
+        } else {
+          return $.jump("prompt");
+        }
       }
 
       input.lock = true;
