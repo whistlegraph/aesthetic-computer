@@ -70,7 +70,7 @@ async function boot({ ticket, query, notice, store, jump }) {
 
   // Check for a ticket stub using the API.
   if (ticketToCheck) {
-    notice("checking ticket :(");
+    // notice("checking ticket :(");
     let slug = `/api/ticket/${ticketToCheck}`;
     if (storedTicket) slug += "?found=true";
 
@@ -85,7 +85,7 @@ async function boot({ ticket, query, notice, store, jump }) {
       })
       .then((data) => {
         console.log("✅ 🎟️ Ticket accepted:", data);
-        notice(`ticket ${data.ticket.uses}`);
+        notice(`ticket ${4 - data.ticket.uses}`);
         store["ticket:botce"] = { key: ticketToCheck, time: new Date() };
         store.persist("ticket:botce"); // Store stub with current time.
         setTimeout(() => jump(data.botce.piece, true, true), 500); // Actually
