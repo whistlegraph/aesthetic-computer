@@ -135,7 +135,7 @@ if (window.location.pathname.length > 1) {
 if (location.hostname === "m2w2.whistlegraph.com")
   window.acSTARTING_PIECE = "wg~m2w2";
 if (location.hostname === "botce.ac")
-  window.acSTARTING_PIECE = "wPyYL4osf6Cw0pkHn_E5I-botce";
+  window.acSTARTING_PIECE = "botce";
 
 if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";
 
