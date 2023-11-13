@@ -155,7 +155,7 @@ export async function handler(event, context) {
         key: ticketKey,
         for: fromSotce ? "botce" : "aesthetic",
         email: emailAddress,
-        uses: 3,
+        uses: 2,
         pid: hookEvent.data.object.payment_intent,
       });
       await database.disconnect();
