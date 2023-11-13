@@ -2458,6 +2458,10 @@ async function load(
     send({ type: "web", content: { url, blank: jumpOut } });
   };
 
+  $commonApi.net.refresh = () => {
+    send({ type: "refresh" });
+  };
+
   $commonApi.net.waitForPreload = () => {
     send({ type: "wait-for-preload", content: true }); // Tell the browser to wait until preloading is finished before painting.
   };
@@ -3593,6 +3597,7 @@ async function makeFrame({ data: { type, content } }) {
 
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
+      if (currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
       if (data.name.indexOf("keyboard:down") === 0) {
         // [Escape] (Deprecated on 23.05.22.19.33)
         // If not on prompt, then move backwards through the history of

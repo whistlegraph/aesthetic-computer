@@ -52,9 +52,9 @@ export default async function handler(req) {
 
       const model = hint.split(":")[1] || "gpt-3.5-turbo";
 
-      if (model === "gpt-4") {
+      if (model.startsWith("gpt-4")) {
         top_p = 1;
-        max_tokens = 256;
+        max_tokens = 350;
       }
 
       // Request streaming response

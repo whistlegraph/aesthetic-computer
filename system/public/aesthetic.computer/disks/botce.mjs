@@ -5,15 +5,7 @@
 /* #region 📚 README 
 #endregion */
 
-/* #region 🏁 TODO 
-
-  - [] Three remaining.
-  - [] Lowercase tickets. 
-  - [] Add gutter bar 2 the right.
-  - [] Test a centered layout that's low resolution.
-  - [] More distant line spacing. 
-
-    Under pay button:
+/* #region 🏁 TODO
   - [] Do some security checks / put the `botce` prompt text behind a private
        store... or in the database?
   ------------
