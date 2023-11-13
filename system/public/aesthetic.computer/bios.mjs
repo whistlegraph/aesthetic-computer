@@ -1266,8 +1266,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             <span id="desc" >talk to <code>botce</code></span>
             <ul id="features">
               <li><code>botce</code> is a helpful ai</li>
-              <li><code>botce</code> has advice 24/7</li>
-              <li><code>botce</code> is available until 11/23</li>
+              <li><code>botce</code> has advice</li>
+              <li><code>botce</code> is here until 11/23</li>
             </ul>
           </div>
         </div>
