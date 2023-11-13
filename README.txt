@@ -40,12 +40,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** onboarding "taken" bug ***
-  - [-] Test in production.
-  - [x] Sometimes when users sign up, their untaken handle reports
-         as taken even though it has not been...
-         (`mood` also seems to fail here...)
-
 *** 🪷 `botce` launch (ticketed pieces) - Nov. ? ***
   - [🟠] See `botce.mjs`.
   + Done
@@ -54,6 +48,11 @@
 
 *** prutti poems ***
   - [🩷] See `prutti.mjs`
+
+*** `Paste` for image ***
+  - [] Tie the Paste button to image drag and drop.
+  - [] Make sure `paste` works on mobile and desktop / could rename it to import?
+  - [] Resize dragged in images to fit the display width and height / have a max?
 
 *** Database ***
   - [] Add database setting and clearing on a per-piece basis.
