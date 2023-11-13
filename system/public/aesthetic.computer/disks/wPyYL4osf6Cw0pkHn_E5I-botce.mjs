@@ -3,6 +3,7 @@
 // Sotce Q&A Bot (Based on Tumblr content.)
 
 /* #region 🏁 TODO
+  - [] Check ticket expiration logic / paywall.
   - [🟡] Add gutter bar 2 the right.
   - [] More distant line spacing. 
   - [] Test a centered layout that's low resolution.
