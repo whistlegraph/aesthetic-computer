@@ -1,5 +1,11 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** onboarding "taken" bug ***
+  - [x] Test in production.
+  - [x] Sometimes when users sign up, their untaken handle reports
+         as taken even though it has not been...
+         (`mood` also seems to fail here...)
+
 *** discord reported bugs ***
   - [x] Entering `hw` twice in a row will yield the weird "helo" / "halo" bug.
         (Could not reproduce.)

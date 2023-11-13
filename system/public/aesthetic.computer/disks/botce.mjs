@@ -1,26 +1,21 @@
-// Ticket-Test, 2023.10.26.21.00.12.436
-// A pay-walled ticket test implementation using `ticket` from the disk API.
+// Botce, 2023.10.26.21.00.12.436
+// A paywall for botce, and...
+// a paywalled ticket test implementation using `ticket` from the disk API.
 
 /* #region 📚 README 
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Add to ticket prompt:
-    (image of happy amelia)
-    ask and botce will answer you
-
-    text on pay button:
-    purchase 10 sessions for $15
-
-    under pay button:
-    check 💌 for 🎟️hellobotce@gmail.com for help
-  - [] Get botce.ac working again.
-  - [] Fix mobile offset not being centered.
+    Under pay button:
   - [] Do some security checks / put the `botce` prompt text behind a private
        store... or in the database?
   ------------
-  - [] Transcribe a new monospace font.
   + Done
+  - [x] Fix mobile offset not being centered.
+  - [x] Add to ticket prompt:
+    - [x] Get botce.ac working again.
+    - [x] Add image of happy Amelia.
+    - [x] ask and botce will answer you
   - [x] When a user clicks the link... 
   `/?ticket=botce_{key}`
   - [x] It should check for the localStorage token and
@@ -65,10 +60,11 @@ async function boot({ ticket, query, notice, store, jump }) {
   }
 
   const ticketToCheck = query?.ticket || storedTicket?.key;
-  notice(!ticketToCheck ? noMessage : "USING TICKET");
+  // notice(!ticketToCheck ? noMessage : "CHECKING TICKET");
 
   // Check for a ticket stub using the API.
   if (ticketToCheck) {
+    notice("CHECKING TICKET");
     let slug = `/api/ticket/${ticketToCheck}`;
     if (storedTicket) slug += "?found=true";
 
@@ -86,12 +82,13 @@ async function boot({ ticket, query, notice, store, jump }) {
         notice(`TICKET ACCEPTED ${data.ticket.uses}/10`);
         store["ticket:botce"] = { key: ticketToCheck, time: new Date() };
         store.persist("ticket:botce"); // Store stub with current time.
-        setTimeout(() => jump(data.botce.piece, true, true), 500); // Actually go to botce.
+        setTimeout(() => jump(data.botce.piece, true, true), 500); // Actually
+        //                                                            go to botce.
       })
       .catch((err) => {
         console.log("Error:", err);
         notice("ACCESS DENIED", ["yellow", "red"]);
-        setTimeout(() => ticket({ from: "sotce", item: "botce" }), 500);
+        setTimeout(() => ticket({ from: "sotce", item: "botce" }), 1500);
       });
   } else {
     ticket({ from: "sotce", item: "botce" });
@@ -130,8 +127,8 @@ function act({ event: e }) {
 // 📰 Meta
 function meta() {
   return {
-    title: "Ticket-test",
-    desc: "A pay-walled ticket test implementation using `ticket` from the disk API.",
+    title: "Botce",
+    desc: "Ask questions and botce will answer you.",
   };
 }
 

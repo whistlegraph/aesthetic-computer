@@ -19,7 +19,7 @@ if (window.acDEBUG === true || window.acDEBUG === false) {
   debug = window.acDEBUG;
 } else if (
   window.location.hostname === "aesthetic.computer" ||
-  window.location.hostname === "botce.ac" ||
+  window.location.hostname.endsWith(".ac") ||
   window.location.hostname === "m2w2.whistlegraph.com"
 ) {
   debug = false; // Turn debugging off by default in production.
