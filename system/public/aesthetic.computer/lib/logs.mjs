@@ -8,7 +8,7 @@ export const logs = {
   loading: false, // Preloading
   session: false, // Socket session.
   download: false, // Download progress, etc. (JSON)
-  audio: true,
+  audio: false,
   hid: false,
   painting: false, // System wallpaper / paint related logs.
   glaze: false,
