@@ -58,7 +58,7 @@ function act({ event: e, store }) {
 
   if (e.is("dropped:bitmap")) {
     sheet = e.painting;
-    fw = sheet.width / 4;
+    fw = sheet.width / 16;
     fh = fw;
     store["sprite:sheet"] = { sheet, fw, fh };
     frames = sheet.height / fh; // Frame support dropped for now.
