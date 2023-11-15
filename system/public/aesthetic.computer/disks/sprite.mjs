@@ -14,7 +14,7 @@ let view = 0; // From 0 -> 15
 let viewSpeed = 0.15;
 
 let frames, fw, fh; // Animation frames.
-let frameSpeed = 0.25;
+let frameSpeed = 0.15;
 let frame = 0;
 
 const { floor } = Math;
@@ -23,7 +23,7 @@ const { floor } = Math;
 function boot({ wipe, params, store }) {
   viewSpeed = parseFloat(params[0]) || viewSpeed;
   frame = parseFloat(params[1]) || frame;
-  // frameSpeed = parseFloat(params[2]) || frameSpeed;
+  frameSpeed = parseFloat(params[2]) || frameSpeed;
   if (store["sprite:sheet"]) ({ sheet, fw, fh } = store["sprite:sheet"]);
   wipe(64).ink(127).write("drop a 16xN square sheet png", { center: "xy" });
 }
