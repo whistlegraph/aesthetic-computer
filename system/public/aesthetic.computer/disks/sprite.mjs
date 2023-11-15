@@ -13,10 +13,10 @@ const rows = 12;
 
 let viewing = true; // Rotating view frames.
 let view = 0; // From 0 -> 12
-let viewSpeed = 0.15;
+let viewSpeed = 0.28;
 
 let frames, fw, fh; // Animation frames.
-let frameSpeed = 0.15;
+let frameSpeed = 0;
 let frame = 0;
 
 const { floor } = Math;
@@ -74,9 +74,7 @@ function act({ event: e, store }) {
 // 🧮 Sim
 function sim() {
   if (viewing) view = (view + viewSpeed) % rows;
-  frame = (frame + frameSpeed) % (frames + 1);
-  //console.log(floor(frame));
-  frame += 0.01;
+  frame += frameSpeed;
   if (frame > frames) frame = 0;
 }
 
