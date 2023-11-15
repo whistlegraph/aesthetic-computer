@@ -75,6 +75,8 @@ let passthrough;
 export function init(wrapper) {
   canvas = document.createElement("canvas");
   canvas.dataset.type = "glaze";
+  canvas.classList.add("first-glaze");
+  canvas.style.opacity = 0;
 
   gl = canvas.getContext("webgl2", {
     alpha: false,
@@ -84,13 +86,20 @@ export function init(wrapper) {
     antialias: false,
   });
 
-  // Blending & Culling
-  gl.enable(gl.BLEND);
-  gl.blendEquation(gl.FUNC_ADD);
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  // gl = null;
+  // canvas = null;
 
-  // Make sure that this gets added before the uiCanvas.
-  wrapper.append(canvas);
+  if (gl) {
+    // Blending & Culling
+    gl.enable(gl.BLEND);
+    gl.blendEquation(gl.FUNC_ADD);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    // Make sure that this gets added before the uiCanvas.
+    wrapper.append(canvas);
+  } else {
+    off();
+  }
 }
 
 let customProgram, computeProgram, displayProgram;
@@ -126,6 +135,8 @@ export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
   if (canvas === undefined) {
     init(wrapper);
   }
+
+  if (offed) return; // If glaze could not initialize then don't run a frame.
 
   // Set the native canvas width and height.
   canvas.width = nativeWidth * window.devicePixelRatio;
@@ -307,7 +318,10 @@ export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
 
 // Turn glaze off if it has already been turned on.
 export function off() {
-  if (offed && canvas) canvas.style.opacity = 0;
+  if (offed && canvas) {
+    canvas.classList.remove("first-glaze");
+    canvas.style.opacity = 0;
+  }
   offed = true;
 }
 
@@ -326,8 +340,6 @@ export async function on(
   type,
   loaded,
 ) {
-  //console.log("Starting a glaze...", glaze, arguments);
-
   if (
     glaze &&
     (glaze.type === type || type === undefined) &&
@@ -350,8 +362,8 @@ export async function on(
     glaze = new Glaze(type, w, h, rect);
 
     await glaze.load(() => {
-      frame(w, h, rect, nativeWidth, nativeHeight, wrapper);
       offed = false;
+      frame(w, h, rect, nativeWidth, nativeHeight, wrapper);
       loaded();
     });
     return glaze;
