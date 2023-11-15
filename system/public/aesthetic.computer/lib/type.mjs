@@ -326,7 +326,10 @@ class TextInput {
 
   // Stretches the gutter to be the screen width minus two slots.
   fullGutter($) {
+
+    // TODO: Set gutter width...
     this.gutter = floor($.screen.width / this.#prompt.blockWidth) - 2;
+
   }
 
   set lock(bool) {
@@ -1032,7 +1035,7 @@ class TextInput {
           }
           $.send({
             type: "keyboard:text:replace",
-            content: { text: this.text, cursor: this.#prompt.textPos() },
+            content: { text: this.text /*cursor: this.#prompt.textPos()*/ },
           });
         } else if (this.runnable) {
           // 💻 Execute a command!
