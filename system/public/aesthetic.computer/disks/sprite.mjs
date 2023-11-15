@@ -9,7 +9,7 @@
 
 let sheet;
 
-const rows = 24;
+const rows = 12;
 let viewing = true; // Rotating view frames.
 let view = 0; // From 0 -> rows
 let viewSpeed = 0.18;

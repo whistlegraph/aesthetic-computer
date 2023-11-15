@@ -7,7 +7,7 @@
 /* #region 🏁 TODO 
 #endregion */
 
-const { min } = Math;
+const { min, floor } = Math;
 
 const ball = {
   x: 0,
@@ -33,7 +33,7 @@ function boot({ wipe }) {
 }
 
 // 🎨 Paint
-function paint({ screen, wipe, ink, pan, unpan, write }) {
+function paint({ screen, wipe, ink, pan, unpan, write, paste }) {
   const short = min(screen.width, screen.height); // Longest view w/ margin.
   const cam = { x: screen.width / 2, y: screen.height / 2, scale: 1 };
 
@@ -53,17 +53,22 @@ function paint({ screen, wipe, ink, pan, unpan, write }) {
   ink(255, 64).circle(ball.x, ball.y, ball.radius, true, 1, 0.1);
   ink(255, 128).circle(ball.x, ball.y, ball.radius + 1, false, 1, 0.01);
 
+  // Draw snowball frame...
+  const rows = 24;
+  // paste({painting: ballPix, crop: {x: tx y: tx w: , h: }, ball.x, ball.y);
+
   unpan();
 
   // 🧮 Data
-  ink("yellow").write(`xang: ${ball.xang}`, { x: 6, y: 18 });
+  ink("yellow").write(`xang: ${floor(ball.xang)}`, { x: 6, y: 18 });
+  ink("yellow").write(`yang: ${floor(ball.yang)}`, { x: 6, y: 18 + 11 });
 }
 
 // 🧮 Sim
 function sim({ num }) {
   if (!disc) return;
 
-  const step = 0.05;
+  const step = 0.025;
 
   // Accelerate the ball as needed.
   if (LEFT) ball.xvel -= step;
