@@ -103,7 +103,7 @@ export function ticket(from, item, ready) {
         if (window.acDEBUG) console.log("🎟️ Ticket:", ticket);
         clearTimeout(timeout);
         window.acSEND({ type: "jump", content: { piece } }); // Jump to target.
-        // window.acSEND({ type: "notice", content: "welcome" }); // Notify.
+        window.acSEND({ type: "notice", content: "hello :)" }); // Notify.
       } else {
         // Optionally, you can set a timeout to check again
         timeout = setTimeout(checkTicketStatus, 3000); // Check every 3 seconds

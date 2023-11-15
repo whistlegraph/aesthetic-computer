@@ -6,35 +6,6 @@
 #endregion */
 
 /* #region 🏁 TODO
-  - [] Do some security checks / put the `botce` prompt text behind a private
-       store... or in the database?
-  ------------
-  + Done
-  - [x] Fix mobile offset not being centered.
-  - [x] Add to ticket prompt:
-    - [x] Get botce.ac working again.
-    - [x] Add image of happy Amelia.
-    - [x] ask and botce will answer you
-  - [x] When a user clicks the link... 
-  `/?ticket=botce_{key}`
-  - [x] It should check for the localStorage token and
-       validate on the server.
-      - [x] If the local token exists and is less than 24 hours old, then do not
-           decrement the `uses`.
-      - [x] Otherwise, decrement and then store the key in localStorage.
-  - [x] If validated, it should return the botce prompt
-       source code content / piece name from the server to unlock it.
-    - [x] Use the ticket api endpoint to validate,
-         and returns the prompt.
-  - [x] And load the piece.
-  - [x] Format email.
-  - [x] Make sure to clear the ticket screen whenever piece changes.
-  - [x] Set up expiring links.
-    - [x] Add link to the db via `tickets` collection.
-    - [x] Get links to function via a getter endpoint of
-         `api/ticket/{key}`
-  - [x] After each successful sale, produce a special hash link
-        tied to a database record that has only a certain number of clicks.
 #endregion */
 
 let needsWipe = true;
@@ -58,11 +29,10 @@ async function boot({ ticket, query, notice, store, jump }) {
   }
 
   const ticketToCheck = query?.ticket || storedTicket?.key;
-  if (!ticketToCheck) notice(noMessage);
+  if (!ticketToCheck) notice(noMessage, [[48, 49, 61], [250, 146, 146]]);
 
   // Check for a ticket stub using the API.
   if (ticketToCheck) {
-    // notice("checking ticket :(");
     let slug = `/api/ticket/${ticketToCheck}`;
     if (storedTicket) slug += "?found=true";
 
@@ -94,12 +64,15 @@ async function boot({ ticket, query, notice, store, jump }) {
 }
 
 // 🎨 Paint
-function paint({ wipe, ink, help: { choose } }) {
+function paint({ wipe, ink, help: { choose }, screen }) {
   if (needsWipe) {
-    wipe("orange");
+    wipe("gray");
     needsWipe = false;
   }
-  ink().write(choose("sotce", "botce"));
+  ink(choose("pink", "blue"))
+    .write(choose("sotce", "botce"))
+    .ink(128, 6)
+    .box(0, 0, screen.width, screen.height);
 }
 
 // 🎪 Act
