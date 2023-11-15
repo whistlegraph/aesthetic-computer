@@ -23,8 +23,10 @@ const { floor } = Math;
 function boot({ wipe, params, store }) {
   viewSpeed = parseFloat(params[0]) || viewSpeed;
   frame = parseFloat(params[1]) || frame;
-  // frameSpeed = parseFloat(params[2]) || frameSpeed;
-  if (store["sprite:sheet"]) ({ sheet, fw, fh } = store["sprite:sheet"]);
+  frameSpeed = parseFloat(params[2]) || frameSpeed;
+
+  if (store["sprite:sheet"])
+    ({ sheet, fw, fh, frames } = store["sprite:sheet"]);
   wipe(64).ink(127).write("drop a 16xN square sheet png", { center: "xy" });
 }
 
@@ -58,17 +60,20 @@ function act({ event: e, store }) {
 
   if (e.is("dropped:bitmap")) {
     sheet = e.painting;
-    fw = sheet.width / 4;
+    fw = sheet.width / 16;
     fh = fw;
-    store["sprite:sheet"] = { sheet, fw, fh };
     frames = sheet.height / fh; // Frame support dropped for now.
+    store["sprite:sheet"] = { sheet, fw, fh, frames };
   }
 }
 
 // 🧮 Sim
 function sim() {
-  if (viewing) view = (view + viewSpeed) % 15;
-  // if (frame < frames) frame = (frame + frameSpeed) % frames;
+  if (viewing) view = (view + viewSpeed) % 16;
+  frame = (frame + frameSpeed) % (frames + 1);
+  //console.log(floor(frame));
+  frame += 0.01;
+  if (frame > frames) frame = 0;
 }
 
 // 🥁 Beat

@@ -200,7 +200,7 @@ function paint({ ink }) {
 function meta() {
   return {
     title: "Lnl",
-    desc: "Lessons NOT Learnt by goodiepal",
+    desc: "Lessons NOT Learnt by pruttipal aka goodiepal",
   };
 }
 
