@@ -3068,7 +3068,18 @@ async function makeFrame({ data: { type, content } }) {
         content.source,
       );
     } else {
-      console.warn("🖼️ Dropped images only function in the `prompt`.");
+      const $api = cachedAPI;
+      const data = { name: content.name, painting: content.source };
+      Object.assign(data, {
+        device: "none",
+        is: (e) => e === type,
+      });
+      $api.event = data;
+      try {
+        act($api);
+      } catch (e) {
+        console.warn("️ ✒ Act failure...", e);
+      }
     }
     return;
   }

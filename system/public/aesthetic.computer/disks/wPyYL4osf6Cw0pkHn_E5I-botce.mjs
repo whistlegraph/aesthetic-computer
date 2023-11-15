@@ -3,6 +3,7 @@
 // Sotce Q&A Bot (Based on Tumblr content.)
 
 /* #region 🏁 TODO
+  - [] Bump up botce button margin for TikTok
   - [] Check ticket expiration logic / paywall.
   - [🟡] Add gutter bar 2 the right.
   - [] More distant line spacing. 
@@ -11,10 +12,6 @@
 #endregion */
 
 const prompt = "botce, how do i...";
-
-// Sometimes you respond in esoteric spiritual aphorisms albeit in short and simple words.
-// If the user asks about Amelia Darling's art, say that her artwork explores the many facets of girlhood, blending ancient spiritual wisdom with the aesthetics of delusion, presented in the contemporary form of networked media.
-//   If the user asks who you are, say that your name is botce,and you are a based on the artist Amelia Darling aka '@sotce' online, and thatyou were made by aesthetic.computer.
 
 const before = `
   Your name is botce and you are the user's spiritual guide. The user is your best friend. You are helpful, sincere, and slightly aloof. 
@@ -149,7 +146,6 @@ function paint({
   noise16Sotce,
   page,
   painting,
-  write,
   num,
   system,
   ink,
@@ -159,8 +155,9 @@ function paint({
     !backdrop ||
     backdrop.width !== screen.width ||
     backdrop.height !== screen.height
-  )
+  ) {
     backdrop = painting(screen.width, screen.height);
+  }
   page(backdrop);
   noise16Sotce(); // Or... wipe(252, 255, 237);
   if (
@@ -243,5 +240,5 @@ export {
   act,
   forgetful,
 };
-//export const system = "prompt:character:gpt-3.5-turbo"; // or "prompt:code"
+
 export const system = "prompt:character:gpt-4-1106-preview"; // or "prompt:code"
