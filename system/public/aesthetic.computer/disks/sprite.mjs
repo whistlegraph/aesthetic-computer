@@ -67,8 +67,8 @@ function act({ event: e, store }) {
 
 // 🧮 Sim
 function sim() {
-  if (viewing) view = (view + viewSpeed) % 15;
-  if (frame < frames) frame = (frame + frameSpeed) % frames;
+  if (viewing) view = (view + viewSpeed) % 16;
+  frame = (frame + frameSpeed) % frames;
 }
 
 // 🥁 Beat
