@@ -10,12 +10,13 @@
 let sheet;
 
 const rows = 24;
-
 let viewing = true; // Rotating view frames.
-let view = 0; // From 0 -> 12
-let viewSpeed = 0.28;
+let view = 0; // From 0 -> rows
+let viewSpeed = 0.18;
 
-let frames, fw, fh; // Animation frames.
+let fw, fh;
+
+let frames; // Animation frames.
 let frameSpeed = 0;
 let frame = 0;
 
@@ -55,9 +56,13 @@ function act({ event: e, store }) {
   if (e.is("touch")) viewing = false;
 
   if (e.is("draw")) {
-    view += e.delta.x * 0.1;
+    view -= e.delta.x * 0.1;
     if (view < 0) view += rows - 1;
     if (view > rows - 1) view -= rows - 1;
+
+    frame += e.delta.y * 0.1;
+    if (frame < 0) frame += frames - 1;
+    if (frame > frames - 1) frame -= frames - 1;
   }
 
   if (e.is("lift")) viewing = true;
@@ -73,9 +78,11 @@ function act({ event: e, store }) {
 
 // 🧮 Sim
 function sim() {
-  if (viewing) view = (view + viewSpeed) % rows;
-  frame += frameSpeed;
-  if (frame > frames) frame = 0;
+  if (viewing) {
+    view = (view + viewSpeed) % rows;
+    frame += frameSpeed;
+    if (frame > frames) frame = 0;
+  }
 }
 
 // 🥁 Beat
