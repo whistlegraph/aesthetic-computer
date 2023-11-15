@@ -5,9 +5,11 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] https://chat.openai.com/c/eb76388c-dc83-48fd-acdf-b5500668848d
+  - [] Get proper rotation mapped to a sprite sheet.
 #endregion */
 
-const { min, floor } = Math;
+const { abs, min, floor } = Math;
 
 const ball = {
   x: 0,
@@ -19,6 +21,7 @@ const ball = {
   yang: 0,
   radius: undefined,
 };
+let ballSheet;
 
 let disc;
 
@@ -33,7 +36,7 @@ function boot({ wipe }) {
 }
 
 // 🎨 Paint
-function paint({ screen, wipe, ink, pan, unpan, write, paste }) {
+function paint({ screen, wipe, ink, pan, unpan, write, paste, num }) {
   const short = min(screen.width, screen.height); // Longest view w/ margin.
   const cam = { x: screen.width / 2, y: screen.height / 2, scale: 1 };
 
@@ -47,21 +50,33 @@ function paint({ screen, wipe, ink, pan, unpan, write, paste }) {
     .ink(255) // w/ outline.
     .circle(disc.x, disc.y, cam.scale * disc.radius, false, 1, 1);
 
-
   // ⚾ Snowball
   ball.radius = disc.radius / 12;
   ink(255, 64).circle(ball.x, ball.y, ball.radius, true, 1, 0.1);
   ink(255, 128).circle(ball.x, ball.y, ball.radius + 1, false, 1, 0.01);
 
   // Draw snowball frame...
-  const rows = 24;
-  // paste({painting: ballPix, crop: {x: tx y: tx w: , h: }, ball.x, ball.y);
+  if (ballSheet) {
+    const rows = 12;
+    const tile = ballSheet.width / rows;
+    let tx = floor(ball.xang);
+    let ty = floor(ball.yang);
+    if (tx < 0) tx = rows + tx;
+    if (ty < 0) ty = rows + ty;
+    tx = rows - 1 - tx;
+
+    paste(
+      { painting: ballSheet, crop: { x: tx * tile, y: ty * tile, w: tile, h: tile } },
+      ball.x - tile / 2,
+      ball.y - tile / 2,
+    );
+  }
 
   unpan();
 
   // 🧮 Data
-  ink("yellow").write(`xang: ${floor(ball.xang)}`, { x: 6, y: 18 });
-  ink("yellow").write(`yang: ${floor(ball.yang)}`, { x: 6, y: 18 + 11 });
+  ink("yellow").write(`xang: ${num.radians(ball.xang)}`, { x: 6, y: 18 });
+  ink("yellow").write(`yang: ${num.radians(ball.yang)}`, { x: 6, y: 18 + 11 });
 }
 
 // 🧮 Sim
@@ -83,10 +98,10 @@ function sim({ num }) {
   if (num.p2.dist(ball, disc) > disc.radius) {
     ball.xvel *= ball.dec / 1.1;
     ball.yvel *= ball.dec / 1.1;
-  } 
+  }
 
-  ball.xang = ball.xang + ball.xvel;
-  ball.yang = ball.yang + ball.yvel;
+  ball.xang = (ball.xang + ball.xvel) % 360;
+  ball.yang = (ball.yang + ball.yvel) % 360;
 
   // Apply decceleration no matter what.
   ball.xvel *= ball.dec;
@@ -107,6 +122,8 @@ function act({ event: e }) {
 
   if (e.is("keyboard:down:s") || e.is("keyboard:down:arrowdown")) DOWN = true;
   if (e.is("keyboard:up:s") || e.is("keyboard:up:arrowdown")) DOWN = false;
+
+  if (e.is("dropped:bitmap")) ballSheet = e.painting; // Load a spritesheet.
 }
 
 // 🥁 Beat
