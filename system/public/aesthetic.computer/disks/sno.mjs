@@ -19,6 +19,9 @@ const ball = {
   yang: 0,
   radius: undefined,
 };
+
+let disc;
+
 let LEFT,
   RIGHT,
   UP,
@@ -34,15 +37,16 @@ function paint({ screen, wipe, ink, pan, unpan, write }) {
   const short = min(screen.width, screen.height); // Longest view w/ margin.
   const cam = { x: screen.width / 2, y: screen.height / 2, scale: 1 };
 
+  pan(cam.x, cam.y);
+
   // 🥏 Playground Disc
-  const disc = { x: cam.x, y: cam.y, radius: short / 2.5 };
+  disc = { x: 0, y: 0, radius: short / 2.5 };
   wipe(64)
     .ink(255, 25) // Snow disc filled,
     .circle(disc.x, disc.y, cam.scale * disc.radius, true, 1, 1)
     .ink(255) // w/ outline.
     .circle(disc.x, disc.y, cam.scale * disc.radius, false, 1, 1);
 
-  pan(disc.x, disc.y);
 
   // ⚾ Snowball
   ball.radius = disc.radius / 12;
@@ -56,23 +60,32 @@ function paint({ screen, wipe, ink, pan, unpan, write }) {
 }
 
 // 🧮 Sim
-function sim() {
-  // Runs once per logic frame. (120fps locked.)
-  const step = 0.1;
+function sim({ num }) {
+  if (!disc) return;
 
+  const step = 0.05;
+
+  // Accelerate the ball as needed.
   if (LEFT) ball.xvel -= step;
   if (RIGHT) ball.xvel += step;
   if (UP) ball.yvel -= step;
   if (DOWN) ball.yvel += step;
 
-  ball.xvel *= ball.dec;
-  ball.yvel *= ball.dec;
-
   ball.x += ball.xvel;
   ball.y += ball.yvel;
 
-  ball.xang = ball.xang + (ball.xvel % 360);
-  ball.yang = ball.yang + (ball.yvel % 360);
+  // Check for any collision with the edges, and slow down the ball if needed.
+  if (num.p2.dist(ball, disc) > disc.radius) {
+    ball.xvel *= ball.dec / 1.1;
+    ball.yvel *= ball.dec / 1.1;
+  } 
+
+  ball.xang = ball.xang + ball.xvel;
+  ball.yang = ball.yang + ball.yvel;
+
+  // Apply decceleration no matter what.
+  ball.xvel *= ball.dec;
+  ball.yvel *= ball.dec;
 }
 
 // 🎪 Act
