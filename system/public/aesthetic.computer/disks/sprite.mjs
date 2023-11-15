@@ -14,7 +14,7 @@ let view = 0; // From 0 -> 15
 let viewSpeed = 0.15;
 
 let frames, fw, fh; // Animation frames.
-let frameSpeed = 0.15;
+let frameSpeed = 0.25;
 let frame = 0;
 
 const { floor } = Math;
@@ -68,7 +68,7 @@ function act({ event: e, store }) {
 // 🧮 Sim
 function sim() {
   if (viewing) view = (view + viewSpeed) % 15;
-  // if (frame < frames) frame = (frame + frameSpeed) % frames;
+  if (frame < frames) frame = (frame + frameSpeed) % frames;
 }
 
 // 🥁 Beat
