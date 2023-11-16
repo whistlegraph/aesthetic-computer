@@ -5,9 +5,8 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] https://chat.openai.com/c/eb76388c-dc83-48fd-acdf-b5500668848d
-  - [] Get proper rotation mapped to a sprite sheet.
-    - [] Create a basic angle axis rotation matrix.
+  - [-] Get proper rotation mapped to a sprite sheet.
+    - [🟠] Transcribe @mxsage's rotation mapping from C++.  
 #endregion */
 
 const { min, floor } = Math;
