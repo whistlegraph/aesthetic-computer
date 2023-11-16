@@ -5,11 +5,10 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [x] Get proper rotation mapped to a sprite sheet.
-    - [x] Transcribe @mxsage's rotation mapping from C++.  
+  - [] Generate more points for the ball, and add the sprite.
 #endregion */
 
-const { min, floor, abs } = Math;
+const { min, floor, abs, acos, sin, cos, sqrt, PI } = Math;
 
 const ball = {
   x: 0,
@@ -58,7 +57,7 @@ function paint({ screen, wipe, ink, pan, unpan, paste, num }) {
 
   // ⚾ Snowball
   const b = ball;
-  b.radius = disc.radius / 3;
+  b.radius = disc.radius / 5;
   ink(255, 64).circle(b.x, b.y, b.radius, true, 1, 0.1);
   ink(255, 128).circle(b.x, b.y, b.radius + 1, false, 1, 0.01);
 
@@ -92,8 +91,8 @@ function paint({ screen, wipe, ink, pan, unpan, paste, num }) {
   // }
 
   if (b.points?.length > 0) {
-    b.points.forEach((p) => {
-      ink(255, 0, 0, 255 * p[2]).box(
+    b.points.forEach(({ point: p, color: c }) => {
+      ink(...c, 127 - 127 * p[2]).box(
         b.x + p[0] * b.radius,
         b.y + p[1] * b.radius,
         3,
@@ -161,43 +160,54 @@ function sim({ num: { p2, vec3, vec4, quat, mat4 } }) {
     const normedRotation = quat.normalize(quat.create(), ball.rot);
     const m4 = mat4.fromQuat(mat4.create(), normedRotation);
 
-    const up = vec4.transformMat4(
-      vec4.create(),
-      vec4.fromValues(0, 0, 1, 1),
-      m4,
-    );
+    const permutations = [
+      // [0, 0, 1, 1],
+      // [0, 0.5, 0, 1],
+      // [1, 0, 0, 1],
+      // [-1, 0, 0, 1],
+      // [0, -1, 0, 1],
+      // [0, 0, -1, -1],
+    ];
 
-    const left = vec4.transformMat4(
-      vec4.create(),
-      vec4.fromValues(0, 1, 0, 1),
-      m4,
-    );
+    const numPoints = 100; // Number of points you want to add
+    const radius = 1; // Assuming a unit sphere for simplicity
 
-    const right = vec4.transformMat4(
-      vec4.create(),
-      vec4.fromValues(1, 0, 0, 1),
-      m4,
-    );
+    // Generate points in spherical coordinates and convert them to Cartesian coordinates
+    for (let i = 0; i < numPoints; i++) {
+      const phi = acos(1 - 2 * (i / numPoints)); // Polar angle
+      const theta = PI * (3 - sqrt(5)) * i; // Azimuthal angle (Golden Angle)
 
-    const umm = vec4.transformMat4(
-      vec4.create(),
-      vec4.fromValues(-1, 0, 0, 1),
-      m4,
-    );
+      const x = radius * sin(phi) * cos(theta);
+      const y = radius * sin(phi) * sin(theta);
+      const z = radius * cos(phi);
 
-    const ummy = vec4.transformMat4(
-      vec4.create(),
-      vec4.fromValues(0, -1, 0, 1),
-      m4,
-    );
+      // Add the new point to the permutations array
+      permutations.push([x, y, z, 1]); // Assuming w-component as 1
+    }
 
-    const ummyy = vec4.transformMat4(
-      vec4.create(),
-      vec4.fromValues(0, 0, -1, -1),
-      m4,
-    );
+    const colors = [
+      [255, 0, 0],
+      [0, 255, 0],
+      [0, 0, 255],
+      [255, 255, 0],
+      [0, 255, 255],
+      [255, 0, 255],
+      [255, 255, 255],
+    ];
 
-    ball.points = [up, left, right, umm, ummy, ummyy];
+    const results = [];
+
+    for (let i = 0; i < permutations.length; i++) {
+      const p = permutations[i];
+      const result = vec4.transformMat4(
+        vec4.create(),
+        vec4.fromValues(p[0], p[1], p[2], p[3]),
+        m4,
+      );
+      results.push({ point: result, color: colors[i % colors.length] });
+    }
+
+    ball.points = results;
   } else {
     ball.axis = undefined;
   }
