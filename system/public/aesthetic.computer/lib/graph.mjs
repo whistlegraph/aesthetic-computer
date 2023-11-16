@@ -789,9 +789,9 @@ function line3d(a, b, lineColor, gradients) {
 
 // TODO: Implement a nice filled option here...
 //       Something pixel-perfect with the outline... like a flood?
-function circle(x0, y0, radius, filled = false) {
-  if (filled) {
-    oval(x0, y0, radius, radius, filled);
+function circle(x0, y0, radius, filled = false, thickness, precision) {
+  if (filled || thickness > 1) {
+    oval(x0, y0, radius, radius, filled, thickness, precision);
     return;
   }
 
@@ -832,8 +832,16 @@ function circle(x0, y0, radius, filled = false) {
 }
 
 // TODO: Generate sampled points around a circle then use
-function oval(x0, y0, radiusX, radiusY, filled = false, thickness = 1) {
-  const points = generateEllipsePoints(x0, y0, radiusX, radiusY);
+function oval(
+  x0,
+  y0,
+  radiusX,
+  radiusY,
+  filled = false,
+  thickness = 1,
+  precision,
+) {
+  const points = generateEllipsePoints(x0, y0, radiusX, radiusY, precision);
   shape({ points, filled, thickness });
 }
 
