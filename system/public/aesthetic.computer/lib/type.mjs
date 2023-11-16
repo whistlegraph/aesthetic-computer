@@ -209,6 +209,9 @@ class TextInput {
 
   #prompt;
 
+  #gutterMax;
+  #activatingPress = false;
+
   typeface;
   pal; // color palette
   scheme;
@@ -258,7 +261,7 @@ class TextInput {
     },
   ) {
     this.key = `${$.slug}:history`; // This is "per-piece" and should
-    //                                be per TextInput object...23.05.23.12.50
+    //                                 be per TextInput object...23.05.23.12.50
 
     this.$ = $;
 
@@ -278,12 +281,15 @@ class TextInput {
     this.didReset = options.didReset;
 
     const blockWidth = 6;
+    this.#gutterMax = options.gutterMax;
 
     this.#prompt = new Prompt(
       blockWidth,
       blockWidth,
       options.wrap, // "char" or "word"
-      $.store["gutter:lock"] || floor($.screen.width / blockWidth) - 2,
+      $.store["gutter:lock"] ||
+        this.#gutterMax ||
+        floor($.screen.width / blockWidth) - 2,
     );
 
     this.print(text); // Set initial text.
@@ -326,10 +332,8 @@ class TextInput {
 
   // Stretches the gutter to be the screen width minus two slots.
   fullGutter($) {
-
-    // TODO: Set gutter width...
-    this.gutter = floor($.screen.width / this.#prompt.blockWidth) - 2;
-
+    this.gutter =
+      this.#gutterMax || floor($.screen.width / this.#prompt.blockWidth) - 2;
   }
 
   set lock(bool) {
@@ -544,7 +548,7 @@ class TextInput {
       this.enter.paint($, btnScheme, btnHvrScheme);
 
       // Outline the whole screen.
-      if (this.enter.btn.down) {
+      if (this.#activatingPress) {
         const color = pal.fg ? [...pal.fg.slice(0, 3), 128] : [255, 0, 200, 64];
         $.ink(color).box(0, 0, $.screen.width, $.screen.height, "in");
       }
@@ -1071,7 +1075,8 @@ class TextInput {
       (this.copy.btn.disabled === true || !this.copy.btn.box.contains(e)) &&
       (this.paste.btn.disabled === true || !this.paste.btn.box.contains(e))
     ) {
-      this.enter.btn.down = true;
+      // this.enter.btn.down = true;
+      this.#activatingPress = true;
       $.send({ type: "keyboard:unlock" });
       sound.synth({
         type: "sine",
@@ -1093,7 +1098,8 @@ class TextInput {
       }
 
       ti.activated?.($, true);
-      ti.enter.btn.down = false;
+      ti.#activatingPress = false;
+      // ti.enter.btn.down = false;
       ti.activatedOnce = true;
       if (ti.text.length > 0) {
         ti.copy.btn.disabled = true;
@@ -1107,7 +1113,7 @@ class TextInput {
       } else {
         if (ti.#lastPrintedText) ti.blank("blink");
 
-        ti.enter.btn.disabled = true;
+        // ti.enter.btn.disabled = true;
         ti.paste.btn.disabled = false;
       }
       ti.inputStarted = true;
@@ -1224,7 +1230,7 @@ class TextInput {
             await this.run(store);
           } else {
             activate(this);
-            // $.send({ type: "keyboard:lock" });
+            if (this.runnable) await this.run(store);
           }
         },
         cancel: () => {
