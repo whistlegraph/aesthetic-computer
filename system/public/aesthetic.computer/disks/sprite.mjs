@@ -9,12 +9,15 @@
 
 let sheet;
 
+const rows = 12;
 let viewing = true; // Rotating view frames.
-let view = 0; // From 0 -> 15
-let viewSpeed = 0.15;
+let view = 0; // From 0 -> rows
+let viewSpeed = 0.18;
 
-let frames, fw, fh; // Animation frames.
-let frameSpeed = 0.15;
+let fw, fh;
+
+let frames; // Animation frames.
+let frameSpeed = 0;
 let frame = 0;
 
 const { floor } = Math;
@@ -27,7 +30,9 @@ function boot({ wipe, params, store }) {
 
   if (store["sprite:sheet"])
     ({ sheet, fw, fh, frames } = store["sprite:sheet"]);
-  wipe(64).ink(127).write("drop a 16xN square sheet png", { center: "xy" });
+  wipe(64)
+    .ink(127)
+    .write(`drop a ${rows}xN square sheet png`, { center: "xy" });
 }
 
 // 🎨 Paint
@@ -51,16 +56,20 @@ function act({ event: e, store }) {
   if (e.is("touch")) viewing = false;
 
   if (e.is("draw")) {
-    view += e.delta.x * 0.1;
-    if (view < 0) view += 15;
-    if (view > 15) view -= 15;
+    view -= e.delta.x * 0.1;
+    if (view < 0) view += rows - 1;
+    if (view > rows - 1) view -= rows - 1;
+
+    frame += e.delta.y * 0.1;
+    if (frame < 0) frame += frames - 1;
+    if (frame > frames - 1) frame -= frames - 1;
   }
 
   if (e.is("lift")) viewing = true;
 
   if (e.is("dropped:bitmap")) {
     sheet = e.painting;
-    fw = sheet.width / 16;
+    fw = sheet.width / rows;
     fh = fw;
     frames = sheet.height / fh; // Frame support dropped for now.
     store["sprite:sheet"] = { sheet, fw, fh, frames };
@@ -69,11 +78,11 @@ function act({ event: e, store }) {
 
 // 🧮 Sim
 function sim() {
-  if (viewing) view = (view + viewSpeed) % 16;
-  frame = (frame + frameSpeed) % (frames + 1);
-  //console.log(floor(frame));
-  frame += 0.01;
-  if (frame > frames) frame = 0;
+  if (viewing) {
+    view = (view + viewSpeed) % rows;
+    frame += frameSpeed;
+    if (frame > frames) frame = 0;
+  }
 }
 
 // 🥁 Beat

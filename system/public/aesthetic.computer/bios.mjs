@@ -366,6 +366,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       );
     } else {
       Glaze.off();
+      glaze.on = false;
+      canvas.style.removeProperty("opacity");
     }
 
     needsReframe = false;
@@ -2182,7 +2184,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Turn off glaze.
       glaze.on = false;
-
       canvas.style.removeProperty("opacity");
 
       // Clear pen events.
@@ -3815,6 +3816,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         Glaze.render(now, pen.normalizedPosition(canvasRect));
       } else {
         Glaze.off();
+        canvas.style.removeProperty("opacity");
       }
 
       // 🅱️ Draw anything from the system UI layer on top.
@@ -3868,7 +3870,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Hide the freezeFrame.
     if (freezeFrame && freezeFrameFrozen) {
       if (glaze.on === false) {
-        //canvas.style.removeProperty("opacity");
+        canvas.style.removeProperty("opacity");
       }
       //freezeFrameCan.style.opacity = 0;
       freezeFrameCan.remove();
