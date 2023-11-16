@@ -5,8 +5,9 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [🟠] Add a 16-directionally rotating character.
+  - [x] Transcribe @mxsage's rotation mapping from C++.  
   - [-] Get proper rotation mapped to a sprite sheet.
-    - [🟠] Transcribe @mxsage's rotation mapping from C++.  
 #endregion */
 
 const { min, floor } = Math;
@@ -31,7 +32,7 @@ let LEFT,
   DOWN = false;
 
 // 🥾 Boot
-function boot({ wipe }) {
+function boot({ wipe,  }) {
   // Runs once at the start.
 }
 
