@@ -7,9 +7,10 @@
 /* #region 🏁 TODO 
   - [] https://chat.openai.com/c/eb76388c-dc83-48fd-acdf-b5500668848d
   - [] Get proper rotation mapped to a sprite sheet.
+    - [] Create a basic angle axis rotation matrix.
 #endregion */
 
-const { abs, min, floor } = Math;
+const { min, floor } = Math;
 
 const ball = {
   x: 0,
@@ -21,8 +22,8 @@ const ball = {
   yang: 0,
   radius: undefined,
 };
-let ballSheet;
 
+let ballSheet;
 let disc;
 
 let LEFT,
@@ -66,7 +67,10 @@ function paint({ screen, wipe, ink, pan, unpan, write, paste, num }) {
     tx = rows - 1 - tx;
 
     paste(
-      { painting: ballSheet, crop: { x: tx * tile, y: ty * tile, w: tile, h: tile } },
+      {
+        painting: ballSheet,
+        crop: { x: tx * tile, y: ty * tile, w: tile, h: tile },
+      },
       ball.x - tile / 2,
       ball.y - tile / 2,
     );
