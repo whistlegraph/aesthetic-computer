@@ -15,7 +15,7 @@ let cancel;
 
 export async function prompt_boot(
   $,
-  { prompt, program, hint, forgetful, gutterMax },
+  { prompt, program, hint, forgetful, gutterMax, lineSpacing },
   reply,
   halt,
   scheme,
@@ -171,6 +171,7 @@ export async function prompt_boot(
         messageComplete = true;
       },
       gutterMax,
+      lineSpacing,
     },
   );
 

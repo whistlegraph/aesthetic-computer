@@ -2814,6 +2814,7 @@ async function load(
             hint: module.system.split(":").slice(1).join(":"), // See `ask.ts`.
             forgetful: module.forgetful || false,
             gutterMax: module.gutterMax,
+            lineSpacing: module.lineSpacing,
           },
           module.reply,
           module.halt,
