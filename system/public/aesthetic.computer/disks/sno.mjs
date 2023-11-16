@@ -97,6 +97,8 @@ function boot({
       if (others[id]) {
         others[id].x = content.x;
         others[id].y = content.y;
+        others[id].step = content.step;
+        others[id].dir = content.dir;
       }
     }
   });
@@ -233,7 +235,7 @@ function sim({ num: { p2, vec3, vec4, quat, mat4 } }) {
     if (DOWN && LEFT) self.dir = 7;
     if (DOWN && RIGHT) self.dir = 9;
 
-    const movement = { x: self.x, y: self.y, step: self.step };
+    const movement = { x: self.x, y: self.y, step: self.step, dir: self.dir };
     server.send("sno:move", movement);
   }
 
