@@ -24,6 +24,10 @@ body {
   cursor: url('cursors/precise.svg') 12 12, auto;
 }
 
+body.nogap {
+  background-image: none;
+}
+
 * {
   -webkit-tap-highlight-color: transparent;
 }
@@ -54,6 +58,10 @@ form {
   position: relative;
   overflow: hidden;
   border-radius: 2.5px;
+}
+
+body.nogap #aesthetic-computer {
+  border-radius: 0px;
 }
 
 #aesthetic-computer.hidden {

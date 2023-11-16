@@ -145,8 +145,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let lastGap = 0;
   let density = 2; // added to window.devicePixelRatio
 
+  const startGap = location.host.indexOf("botce") > -1 ? 0 : 0;
+
   // Runs one on boot & every time display resizes to adjust the framebuffer.
-  function frame(width, height, gap = 8) {
+  function frame(width, height, gap = startGap) {
+    gap === 0
+      ? document.body.classList.add("nogap")
+      : document.body.classList.remove("nogap");
+
     lastGap = gap;
 
     // Cache the current canvas if needed.
@@ -218,10 +224,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       subdivisions = ratio;
 
       width =
-        round(window.innerWidth / subdivisions) - round(gapSize / subdivisions);
+        floor(window.innerWidth / subdivisions) - floor(gapSize / subdivisions);
       height =
-        round(window.innerHeight / subdivisions) -
-        round(gapSize / subdivisions);
+        floor(window.innerHeight / subdivisions) -
+        floor(gapSize / subdivisions);
 
       if (TikTok) height -= gap * 3;
 
@@ -263,13 +269,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Horizontal and vertical offsetting of the wrapper.
 
     if (TikTok) {
-      wrapper.style.top = `${gap * 1.5}px`;
+      wrapper.style.top = `${8 * 1.5}px`;
     } else {
-      wrapper.style.top =
-        round((window.innerHeight - projectedHeight) / 2) + "px";
+      wrapper.style.top = (window.innerHeight - projectedHeight) / 2 + "px";
     }
 
-    wrapper.style.left = round((window.innerWidth - projectedWidth) / 2) + "px";
+    wrapper.style.left = (window.innerWidth - projectedWidth) / 2 + "px";
     wrapper.style.width = projectedWidth + "px";
     wrapper.style.height = projectedHeight + "px";
 
