@@ -5,63 +5,130 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Add a 16-directionally rotating character.
-  - [x] Transcribe @mxsage's rotation mapping from C++.  
-  - [-] Get proper rotation mapped to a sprite sheet.
+  - [] Add character sprites
+  multiplayer support.
+    - [] Spritesheet sheet.height / 16 = tilesize
 #endregion */
 
-const { min, floor } = Math;
+const { min, floor, abs, acos, sin, cos, sqrt, PI, random } = Math;
+const { keys } = Object;
 
-const ball = {
-  x: 0,
-  y: 0,
-  xvel: 0,
-  yvel: 0,
-  dec: 0.97,
-  xang: 0,
-  yang: 0,
-  radius: undefined,
-};
-
-let ballSheet;
-let disc;
+let server;
+let self;
 
 let LEFT,
   RIGHT,
   UP,
   DOWN = false;
 
+let others = {};
+
+const ball = {
+  x: 0,
+  y: 0,
+  px: 0,
+  py: 0,
+  xvel: 0,
+  yvel: 0,
+  dec: 0.97,
+  xang: 0,
+  yang: 0,
+  radius: undefined,
+  axis: undefined,
+  rot: undefined,
+  points: [],
+};
+
+let ballSheet;
+
+let BLEFT,
+  BRIGHT,
+  BUP,
+  BDOWN = false;
+
+let disc;
+
 // 🥾 Boot
-function boot({ wipe,  }) {
-  // Runs once at the start.
+function boot({ wipe, num: { quat }, help, net: { socket }, handle }) {
+  self = kid(
+    handle() || "nub",
+    help.choose("orange", "yellow", "cyan", "blue", "lime"),
+  );
+
+  server = socket((id, type, content) => {
+    if (type === "left") {
+      console.log("️✌️ Goodbye:", id);
+      delete others[id];
+    }
+
+    if (type === "joined") {
+      console.log("️👋 Hello:", id);
+    }
+
+    if (type.startsWith("connected")) {
+      server.send("sno:join", { handle: self.handle, color: self.color });
+      console.log("⛄ Welcome:", self.handle, `(${id})`);
+      self.id = id;
+    }
+
+    if (server.id !== id) {
+      if (type === "sno:join") {
+        console.log(`sno:join:${id}`, content);
+        if (!others[id]) {
+          others[id] = kid(content.handle, content.color);
+          server.send("sno:join", { handle: self.handle, color: self.color });
+        }
+      }
+    }
+    if (type === "sno:move") {
+      if (others[id]) {
+        others[id].x = content.x;
+        others[id].y = content.y;
+      }
+    }
+  });
+
+  ball.rot = quat.setAxisAngle(quat.create(), [1, 0, 0], 0);
 }
 
 // 🎨 Paint
-function paint({ screen, wipe, ink, pan, unpan, write, paste, num }) {
+function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
   const short = min(screen.width, screen.height); // Longest view w/ margin.
   const cam = { x: screen.width / 2, y: screen.height / 2, scale: 1 };
+
+  wipe(64);
+
+  // Horizon
+  ink(200).box(0, screen.height / 8, screen.width, screen.height);
+  ink(250).box(0, screen.height / 4, screen.width, screen.height);
+  ink(0).box(0, 0, screen.width, screen.height / 8);
 
   pan(cam.x, cam.y);
 
   // 🥏 Playground Disc
   disc = { x: 0, y: 0, radius: short / 2.5 };
-  wipe(64)
-    .ink(255, 25) // Snow disc filled,
+  // wipe(64)
+  ink(255, 5) // Snow disc filled,
     .circle(disc.x, disc.y, cam.scale * disc.radius, true, 1, 1)
-    .ink(255) // w/ outline.
+    .ink(255, 8) // w/ outline.
     .circle(disc.x, disc.y, cam.scale * disc.radius, false, 1, 1);
 
+  unpan();
+  layer(1);
+  pan(cam.x, cam.y);
+
   // ⚾ Snowball
-  ball.radius = disc.radius / 12;
-  ink(255, 64).circle(ball.x, ball.y, ball.radius, true, 1, 0.1);
-  ink(255, 128).circle(ball.x, ball.y, ball.radius + 1, false, 1, 0.01);
+  const b = ball;
+  b.radius = disc.radius / 5;
+  ink(255, 64).circle(b.x, b.y, b.radius, true, 1, 0.1);
+  ink(255, 128).circle(b.x, b.y, b.radius + 1, false, 1, 0.01);
 
   // Draw snowball frame...
   if (ballSheet) {
     const rows = 12;
     const tile = ballSheet.width / rows;
-    let tx = floor(ball.xang);
-    let ty = floor(ball.yang);
+    let tx = floor(b.xang);
+    let ty = floor(b.yang);
     if (tx < 0) tx = rows + tx;
     if (ty < 0) ty = rows + ty;
     tx = rows - 1 - tx;
@@ -71,35 +138,84 @@ function paint({ screen, wipe, ink, pan, unpan, write, paste, num }) {
         painting: ballSheet,
         crop: { x: tx * tile, y: ty * tile, w: tile, h: tile },
       },
-      ball.x - tile / 2,
-      ball.y - tile / 2,
+      b.x - tile / 2,
+      b.y - tile / 2,
     );
   }
 
+  if (b.points?.length > 0) {
+    b.points.forEach(({ point: p, color: c }) => {
+      ink(...c, 127 - 127 * p[2]).box(
+        b.x + p[0] * b.radius,
+        b.y + p[1] * b.radius,
+        3,
+        "center",
+      );
+    });
+  }
+
+  unpan();
+  layer(0);
+  pan(cam.x, cam.y);
+
+  // 🧑‍🤝‍🧑 Self & Pals
+  const all = { ...others };
+  all[self.id] = self;
+  const allk = keys(all).sort();
+
+  allk.forEach((k, i) => {
+    const kid = all[k];
+    ink(kid.color).box(kid.x, kid.y, 16, "center");
+  });
+
   unpan();
 
+  // 📏 HUD
+  allk.forEach((k, i) => {
+    const row = i * 10;
+    ink("black").write(all[k].handle, { x: 7, y: 18 + 1 + row });
+    ink(all[k].color).write(all[k].handle, { x: 6, y: 18 + row });
+  });
+
   // 🧮 Data
-  ink("yellow").write(`xang: ${num.radians(ball.xang)}`, { x: 6, y: 18 });
-  ink("yellow").write(`yang: ${num.radians(ball.yang)}`, { x: 6, y: 18 + 11 });
+  // ink("yellow").write(`xang: ${num.radians(b.xang)}`, { x: 6, y: 18 });
+  // ink("yellow").write(`yang: ${num.radians(b.yang)}`, { x: 6, y: 18 + 11 });
 }
 
 // 🧮 Sim
-function sim({ num }) {
+function sim({ num: { p2, vec3, vec4, quat, mat4 } }) {
   if (!disc) return;
 
-  const step = 0.025;
+  const sstep = 1;
 
-  // Accelerate the ball as needed.
-  if (LEFT) ball.xvel -= step;
-  if (RIGHT) ball.xvel += step;
-  if (UP) ball.yvel -= step;
-  if (DOWN) ball.yvel += step;
+  if (LEFT) self.x -= sstep; // Walk self as needed.
+  if (RIGHT) self.x += sstep;
+  if (UP) self.y -= sstep;
+  if (DOWN) self.y += sstep;
 
+  if (LEFT || RIGHT || UP || DOWN)
+    server.send("sno:move", { x: self.x, y: self.y });
+
+  const bstep = 0.015;
+
+  // Randomly adjust the ball force.
+  if (random() > 0.99) BLEFT = !BLEFT;
+  if (random() > 0.99) BRIGHT = !BRIGHT;
+  if (random() > 0.99) BUP = !BUP;
+  if (random() > 0.99) BDOWN = !BDOWN;
+
+  if (BLEFT) ball.xvel -= bstep; // Accelerate the ball as needed.
+  if (BRIGHT) ball.xvel += bstep;
+  if (BUP) ball.yvel -= bstep;
+  if (BDOWN) ball.yvel += bstep;
+
+  ball.px = ball.x;
+  ball.py = ball.y;
   ball.x += ball.xvel;
   ball.y += ball.yvel;
 
   // Check for any collision with the edges, and slow down the ball if needed.
-  if (num.p2.dist(ball, disc) > disc.radius) {
+  if (p2.dist(ball, disc) > disc.radius) {
     ball.xvel *= ball.dec / 1.1;
     ball.yvel *= ball.dec / 1.1;
   }
@@ -107,8 +223,85 @@ function sim({ num }) {
   ball.xang = (ball.xang + ball.xvel) % 360;
   ball.yang = (ball.yang + ball.yvel) % 360;
 
-  // Apply decceleration no matter what.
-  ball.xvel *= ball.dec;
+  const dist = bstep * 2 * p2.dist(ball, { x: ball.px, y: ball.py });
+
+  // Set ball axis.
+  if (dist > 0.0001) {
+    ball.axis = vec3.cross(
+      vec3.create(),
+      vec3.fromValues(0, 0, 1),
+      vec3.normalize(
+        vec3.create(),
+        vec3.subtract(
+          vec3.create(),
+          vec3.fromValues(ball.px, ball.py, 0),
+          vec3.fromValues(ball.x, ball.y, 0),
+        ),
+      ),
+    );
+
+    ball.rot = quat.multiply(
+      quat.create(),
+      quat.setAxisAngle(quat.create(), ball.axis, dist),
+      ball.rot,
+    );
+
+    const normedRotation = quat.normalize(quat.create(), ball.rot);
+    const m4 = mat4.fromQuat(mat4.create(), normedRotation);
+
+    const permutations = [
+      // [0, 0, 1, 1],
+      // [0, 0.5, 0, 1],
+      // [1, 0, 0, 1],
+      // [-1, 0, 0, 1],
+      // [0, -1, 0, 1],
+      // [0, 0, -1, -1],
+    ];
+
+    const numPoints = 100; // Number of points you want to add
+    const radius = 1; // Assuming a unit sphere for simplicity
+
+    // Generate points in spherical coordinates and convert them to Cartesian coordinates
+    for (let i = 0; i < numPoints; i++) {
+      const phi = acos(1 - 2 * (i / numPoints)); // Polar angle
+      const theta = PI * (3 - sqrt(5)) * i; // Azimuthal angle (Golden Angle)
+
+      const x = radius * sin(phi) * cos(theta);
+      const y = radius * sin(phi) * sin(theta);
+      const z = radius * cos(phi);
+
+      // Add the new point to the permutations array
+      permutations.push([x, y, z, 1]); // Assuming w-component as 1
+    }
+
+    const colors = [
+      [255, 0, 0],
+      [0, 255, 0],
+      [0, 0, 255],
+      [255, 255, 0],
+      [0, 255, 255],
+      [255, 0, 255],
+      [255, 255, 255],
+    ];
+
+    const results = [];
+
+    for (let i = 0; i < permutations.length; i++) {
+      const p = permutations[i];
+      const result = vec4.transformMat4(
+        vec4.create(),
+        vec4.fromValues(p[0], p[1], p[2], p[3]),
+        m4,
+      );
+      results.push({ point: result, color: colors[i % colors.length] });
+    }
+
+    ball.points = results;
+  } else {
+    ball.axis = undefined;
+  }
+
+  ball.xvel *= ball.dec; // Apply decceleration no matter what.
   ball.yvel *= ball.dec;
 }
 
@@ -162,3 +355,7 @@ export { boot, paint, sim, act, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
+
+function kid(handle, color) {
+  return { handle, x: 0, y: 0, state: "still", color };
+}

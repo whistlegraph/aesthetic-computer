@@ -15,7 +15,6 @@ const fadeMax = 1200;
 
 // 🥾 Boot
 function boot({ wipe, net: { socket } }) {
-  // Runs once at the start.
   wipe(0);
   server = socket((id, type, content) => {
     if (type === "left") {
