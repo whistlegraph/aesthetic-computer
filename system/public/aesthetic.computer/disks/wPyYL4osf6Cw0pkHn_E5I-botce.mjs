@@ -3,12 +3,16 @@
 // Sotce Q&A Bot (Based on Tumblr content.)
 
 /* #region 🏁 TODO
-  - [🟡] Add gutter bar 2 the right.
-  - [] More distant line spacing. 
-  - [] Test a centered layout that's low resolution.
-  - [] Decorations.
+  - [-] More distant line spacing. 
   - [] Check ticket expiration time logic / paywall logic.
-  - [] Bump up botce button margin for TikTok
+  - [] Decorations.
+  - [] Test for jailbreaks.
+  - [-] Bump up botce button margin for TikTok / fix TikTok detection.
+  + Done
+  - [x] Fullscreen gap testing.
+  - [x] Add static gutter bar 2 the right.
+  - [x] Tapping "ask" directly if any data has been sent should just send the
+       question as opposed to entering the keyboard.
 #endregion */
 
 const prompt = "botce, how do i...";
@@ -226,6 +230,8 @@ function act({ event: e, sound: { play }, num }) {
 }
 
 const forgetful = false;
+const gutterMax = 48;
+
 export {
   boot,
   sim,
@@ -239,6 +245,7 @@ export {
   icon,
   act,
   forgetful,
+  gutterMax,
 };
 
 export const system = "prompt:character:gpt-4-1106-preview"; // or "prompt:code"

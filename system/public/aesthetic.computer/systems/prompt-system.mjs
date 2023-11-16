@@ -15,7 +15,7 @@ let cancel;
 
 export async function prompt_boot(
   $,
-  { prompt, program, hint, forgetful },
+  { prompt, program, hint, forgetful, gutterMax },
   reply,
   halt,
   scheme,
@@ -170,6 +170,7 @@ export async function prompt_boot(
       didReset: () => {
         messageComplete = true;
       },
+      gutterMax,
     },
   );
 

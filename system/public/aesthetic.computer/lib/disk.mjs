@@ -2813,6 +2813,7 @@ async function load(
             },
             hint: module.system.split(":").slice(1).join(":"), // See `ask.ts`.
             forgetful: module.forgetful || false,
+            gutterMax: module.gutterMax,
           },
           module.reply,
           module.halt,
