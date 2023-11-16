@@ -5,7 +5,7 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🟠] Add a 16-directionally rotating character.
+  - [] Add a 16-directionally rotating character.
   - [x] Transcribe @mxsage's rotation mapping from C++.  
   - [-] Get proper rotation mapped to a sprite sheet.
 #endregion */
