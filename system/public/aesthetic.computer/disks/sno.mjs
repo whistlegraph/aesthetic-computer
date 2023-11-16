@@ -5,9 +5,9 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Add character sprites
+  - [-] Add character sprites
   multiplayer support.
-    - [] Spritesheet sheet.height / 16 = tilesize
+    - [-] Spritesheet sheet.height / 16 = tilesize
 #endregion */
 
 const { min, floor, abs, acos, sin, cos, sqrt, PI, random } = Math;
@@ -39,7 +39,7 @@ const ball = {
   points: [],
 };
 
-let ballSheet;
+let ballSheet, kidSheet;
 
 let BLEFT,
   BRIGHT,
@@ -49,7 +49,20 @@ let BLEFT,
 let disc;
 
 // 🥾 Boot
-function boot({ wipe, num: { quat }, help, net: { socket }, handle }) {
+function boot({
+  num: { quat },
+  help,
+  net: { socket, preload },
+  handle,
+  debug,
+}) {
+  // Load sprite assets from the server.
+  const path = debug ? "/assets/sno" : "https://assets.aesthetic.computer/sno";
+  // preload(`${path}/sprite1k.png`).then((file) => {
+  preload(`${path}/spriteWispy2k.png`).then((file) => {
+    kidSheet = file.img;
+  });
+
   self = kid(
     handle() || "nub",
     help.choose("orange", "yellow", "cyan", "blue", "lime"),
@@ -99,8 +112,8 @@ function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
   wipe(64);
 
   // Horizon
-  ink(200).box(0, screen.height / 8, screen.width, screen.height);
-  ink(250).box(0, screen.height / 4, screen.width, screen.height);
+  ink(40).box(0, screen.height / 8, screen.width, screen.height);
+  ink(25).box(0, screen.height / 4, screen.width, screen.height);
   ink(0).box(0, 0, screen.width, screen.height / 8);
 
   pan(cam.x, cam.y);
@@ -165,7 +178,21 @@ function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
 
   allk.forEach((k, i) => {
     const kid = all[k];
-    ink(kid.color).box(kid.x, kid.y, 16, "center");
+    ink(kid.color).box(kid.x, kid.y - 48, 2, "outline*center");
+
+    if (kidSheet) {
+      const tile = kidSheet.height / 16;
+      const tx = floor(kid.step);
+      const ty = floor(kid.dir);
+      paste(
+        {
+          painting: kidSheet,
+          crop: { x: tx * tile, y: ty * tile, w: tile, h: tile },
+        },
+        kid.x - tile / 2,
+        kid.y - tile / 2,
+      );
+    }
   });
 
   unpan();
@@ -193,8 +220,22 @@ function sim({ num: { p2, vec3, vec4, quat, mat4 } }) {
   if (UP) self.y -= sstep;
   if (DOWN) self.y += sstep;
 
-  if (LEFT || RIGHT || UP || DOWN)
-    server.send("sno:move", { x: self.x, y: self.y });
+  if (LEFT || RIGHT || UP || DOWN) {
+    self.step = (self.step + 0.2) % 8;
+
+    if (UP) self.dir = 0;
+    if (LEFT) self.dir = 3;
+    if (RIGHT) self.dir = 12;
+    if (DOWN) self.dir = 8;
+
+    if (UP && LEFT) self.dir = 1;
+    if (UP && RIGHT) self.dir = 15;
+    if (DOWN && LEFT) self.dir = 7;
+    if (DOWN && RIGHT) self.dir = 9;
+
+    const movement = { x: self.x, y: self.y, step: self.step };
+    server.send("sno:move", movement);
+  }
 
   const bstep = 0.015;
 
@@ -320,7 +361,10 @@ function act({ event: e }) {
   if (e.is("keyboard:down:s") || e.is("keyboard:down:arrowdown")) DOWN = true;
   if (e.is("keyboard:up:s") || e.is("keyboard:up:arrowdown")) DOWN = false;
 
-  if (e.is("dropped:bitmap")) ballSheet = e.painting; // Load a spritesheet.
+  if (e.is("dropped:bitmap")) {
+    if (e.name.startsWith("sprite")) kidSheet = e.painting;
+    // ballSheet = e.painting; // Load a spritesheet.
+  }
 }
 
 // 🥁 Beat
@@ -357,5 +401,5 @@ export { boot, paint, sim, act, meta };
 //   (Useful functions used throughout the piece)
 
 function kid(handle, color) {
-  return { handle, x: 0, y: 0, state: "still", color };
+  return { handle, x: 0, y: 0, state: "still", step: 0, dir: 0, color };
 }
