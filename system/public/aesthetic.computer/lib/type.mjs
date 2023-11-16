@@ -290,7 +290,10 @@ class TextInput {
       $.store["gutter:lock"] ||
         this.#gutterMax ||
         floor($.screen.width / blockWidth) - 2,
+      options.lineSpacing,
     );
+
+    if (options.lineSpacing) this.#prompt.lineSpacing;
 
     this.print(text); // Set initial text.
 
@@ -514,16 +517,16 @@ class TextInput {
       }
     } else {
       if (this.cursor === "blink" && this.showBlink && this.canType) {
-        $.ink(this.pal.block).box(prompt.pos()); // Draw blinking cursor.
+        $.ink(this.pal.block).box(prompt.pos(undefined, true)); // Draw blinking cursor.
         const char = this.text[this.#prompt.textPos()];
         const pic = this.typeface.glyphs[char];
-        if (pic) $.ink(this.pal.blockHi).draw(pic, prompt.pos());
+        if (pic) $.ink(this.pal.blockHi).draw(pic, prompt.pos(undefined, true));
       }
 
       if (this.selection) {
         for (let i = this.selection[0]; i < this.selection[1]; i += 1) {
           const c = prompt.textToCursorMap[i];
-          const p = prompt.pos(c);
+          const p = prompt.pos(c, true);
           $.ink(255, 255, 0, 64).box(p);
         }
       }
@@ -1481,8 +1484,6 @@ class Prompt {
   scale = 1;
   blockWidth = 6;
   blockHeight = 10;
-  letterWidth = this.blockWidth * this.scale;
-  letterHeight = this.blockHeight * this.scale;
 
   colWidth = 48; // Maximum character width of each line before wrapping.
 
@@ -1498,7 +1499,9 @@ class Prompt {
 
   #mappedTo = ""; // Text that has been mapped.
 
-  constructor(top = 0, left = 0, wrap, colWidth = 48) {
+  constructor(top = 0, left = 0, wrap, colWidth = 48, lineSpacing = 0) {
+    this.letterWidth = this.blockWidth * this.scale;
+    this.letterHeight = this.blockHeight * this.scale + lineSpacing;
     this.top = top;
     this.left = left;
     this.wrap = wrap;
@@ -1685,10 +1688,15 @@ class Prompt {
 
   // Caluclate the screen x, y position of the top left of the cursor.
   // (Also include the width and height of the block.)
-  pos(cursor = this.cursor) {
+  pos(cursor = this.cursor, bh = false) {
     const x = this.top + cursor.x * this.letterWidth;
     const y = this.left + cursor.y * this.letterHeight;
-    return { x, y, w: this.letterWidth, h: this.letterHeight };
+    return {
+      x,
+      y,
+      w: this.letterWidth,
+      h: bh ? this.blockHeight : this.letterHeight,
+    };
   }
 
   // Move the cursor forward, optionally input an override cursor.
