@@ -145,7 +145,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let lastGap = 0;
   let density = 2; // added to window.devicePixelRatio
 
-  const startGap = location.host.indexOf("botce") > -1 ? 0 : 0;
+  const startGap = location.host.indexOf("botce") > -1 ? 0 : 8;
 
   // Runs one on boot & every time display resizes to adjust the framebuffer.
   function frame(width, height, gap = startGap) {

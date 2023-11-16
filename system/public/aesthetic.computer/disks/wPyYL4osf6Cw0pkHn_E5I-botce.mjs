@@ -3,12 +3,12 @@
 // Sotce Q&A Bot (Based on Tumblr content.)
 
 /* #region 🏁 TODO
-  - [-] More distant line spacing. 
-  - [] Check ticket expiration time logic / paywall logic.
-  - [] Decorations.
-  - [] Test for jailbreaks.
-  - [-] Bump up botce button margin for TikTok / fix TikTok detection.
+  - [🟠] Check ticket expiration time logic / paywall logic.
+  - [] Test for jailbreaks / optimize content.
   + Done
+  - [x] Bump up botce button margin for TikTok / fix TikTok detection.
+  - [x] More distant line spacing. 
+    - [x] Increase line spacing...
   - [x] Fullscreen gap testing.
   - [x] Add static gutter bar 2 the right.
   - [x] Tapping "ask" directly if any data has been sent should just send the
@@ -231,6 +231,7 @@ function act({ event: e, sound: { play }, num }) {
 
 const forgetful = false;
 const gutterMax = 48;
+const lineSpacing = 3;
 
 export {
   boot,
@@ -246,6 +247,7 @@ export {
   act,
   forgetful,
   gutterMax,
+  lineSpacing,
 };
 
 export const system = "prompt:character:gpt-4-1106-preview"; // or "prompt:code"
