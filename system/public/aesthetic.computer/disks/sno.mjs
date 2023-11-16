@@ -24,6 +24,7 @@ const ball = {
   radius: undefined,
   axis: undefined,
   rot: undefined,
+  points: [],
 };
 
 let ballSheet;
@@ -41,7 +42,7 @@ function boot({ wipe, num: { quat } }) {
 }
 
 // 🎨 Paint
-function paint({ screen, wipe, ink, pan, unpan, write, paste, num }) {
+function paint({ screen, wipe, ink, pan, unpan, paste, num }) {
   const short = min(screen.width, screen.height); // Longest view w/ margin.
   const cam = { x: screen.width / 2, y: screen.height / 2, scale: 1 };
 
@@ -81,35 +82,31 @@ function paint({ screen, wipe, ink, pan, unpan, write, paste, num }) {
     );
   }
 
-  if (b.axis) {
-    ink(255, 64).line(
-      b.x,
-      b.y,
-      b.x + b.axis[0] * b.radius,
-      b.y + b.axis[1] * b.radius,
-    );
-  }
+  // if (b.axis) {
+  //   ink(255, 64).line(
+  //     b.x,
+  //     b.y,
+  //     b.x + b.axis[0] * b.radius,
+  //     b.y + b.axis[1] * b.radius,
+  //   );
+  // }
 
-  if (b.up) {
-    ink(255, 0, 0, 255 * b.up[2]).box(
-      b.x + b.up[0] * b.radius,
-      b.y + b.up[1] * b.radius,
-      4,
-      "center",
-    );
-    ink(127, 32).line(
-      b.x,
-      b.y,
-      b.x + b.up[0] * b.radius,
-      b.y + b.up[2] * b.radius,
-    );
+  if (b.points?.length > 0) {
+    b.points.forEach((p) => {
+      ink(255, 0, 0, 255 * p[2]).box(
+        b.x + p[0] * b.radius,
+        b.y + p[1] * b.radius,
+        3,
+        "center",
+      );
+    });
   }
 
   unpan();
 
   // 🧮 Data
-  ink("yellow").write(`xang: ${num.radians(b.xang)}`, { x: 6, y: 18 });
-  ink("yellow").write(`yang: ${num.radians(b.yang)}`, { x: 6, y: 18 + 11 });
+  // ink("yellow").write(`xang: ${num.radians(b.xang)}`, { x: 6, y: 18 });
+  // ink("yellow").write(`yang: ${num.radians(b.yang)}`, { x: 6, y: 18 + 11 });
 }
 
 // 🧮 Sim
@@ -170,7 +167,37 @@ function sim({ num: { p2, vec3, vec4, quat, mat4 } }) {
       m4,
     );
 
-    ball.up = up;
+    const left = vec4.transformMat4(
+      vec4.create(),
+      vec4.fromValues(0, 1, 0, 1),
+      m4,
+    );
+
+    const right = vec4.transformMat4(
+      vec4.create(),
+      vec4.fromValues(1, 0, 0, 1),
+      m4,
+    );
+
+    const umm = vec4.transformMat4(
+      vec4.create(),
+      vec4.fromValues(-1, 0, 0, 1),
+      m4,
+    );
+
+    const ummy = vec4.transformMat4(
+      vec4.create(),
+      vec4.fromValues(0, -1, 0, 1),
+      m4,
+    );
+
+    const ummyy = vec4.transformMat4(
+      vec4.create(),
+      vec4.fromValues(0, 0, -1, -1),
+      m4,
+    );
+
+    ball.points = [up, left, right, umm, ummy, ummyy];
   } else {
     ball.axis = undefined;
   }
