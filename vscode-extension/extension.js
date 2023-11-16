@@ -50,7 +50,7 @@ async function activate(context) {
     let editor = vscode.window.activeTextEditor;
     let source = editor.document.getText();
     const piece = editor.document.fileName
-      .split("/")
+      .split(/\/|\\/) // Split on both forward slash and backslash
       .slice(-1)[0]
       .replace(".mjs", "");
 
