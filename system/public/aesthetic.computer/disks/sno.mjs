@@ -5,7 +5,8 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] 
+  - [] Random character assignment. 
+  - [] Much better multiplayer.
 #endregion */
 
 const { min, floor, abs, acos, sin, cos, sqrt, PI, random, round } = Math;
@@ -68,7 +69,9 @@ function boot({
   const path = debug ? "/assets/sno" : "https://assets.aesthetic.computer/sno";
   // preload(`${path}/sprite1k.png`).then((file) => {
   // preload(`${path}/spriteWispy1k.png`).then((file) => {
-  preload(`${path}/spriteWispy2k.png`).then((file) => {
+  // preload(`${path}/spriteSpike2k.png`).then((file) => {
+  preload(`${path}/spriteBunny2k.png`).then((file) => {
+  // preload(`${path}/spriteWispy2k.png`).then((file) => {
     kidSheet = file.img;
   });
 
