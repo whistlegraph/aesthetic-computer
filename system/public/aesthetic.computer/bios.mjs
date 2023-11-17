@@ -1263,7 +1263,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let pretext = ``;
       let button = `buy ticket`;
       let color = `white;`;
-      let desc = `Check your email for tickets.`;
+      let desc = `Check your email for tickets.<br><br><span id="stripe">Processed by <a href="https://stripe.com">Stripe</a></span>`;
 
       if (content.item === "botce") {
         pretext = `
