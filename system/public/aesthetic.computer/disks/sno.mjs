@@ -5,12 +5,15 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🧡] Random character assignment. 
-  - [] Chat / tap to add text above your head.
+  - [🟠] Chat / tap to add text above your head.
+    - [] See `prompt-system` to implement a TextInput object that can
+         bring the keyboard up and back down.
   - [] Put the ball on the server, and instantiate it / simulate it.
     - [] Make a place for the ball to be kicked / simulate the ball on
           the server.
+    - [] Basic collision detection.
   + Done
+  - [x] Random character assignment. 
   - [x] Z-sorting.
 #endregion */
 
@@ -44,7 +47,9 @@ const ball = {
   points: [],
 };
 
-let ballSheet, kidSheet, moundPainting;
+let ballSheet,
+  kidSheets = {},
+  moundPainting;
 
 const mounds = [
   { x: 0, y: 150, type: "mound" },
@@ -73,12 +78,16 @@ function boot({
   debug = false;
   // Load sprite assets from the server.
   const path = debug ? "/assets/sno" : "https://assets.aesthetic.computer/sno";
-  // preload(`${path}/sprite1k.png`).then((file) => {
-  // preload(`${path}/spriteWispy1k.png`).then((file) => {
-  // preload(`${path}/spriteSpike2k.png`).then((file) => {
-  // preload(`${path}/spriteBunny2k.png`).then((file) => {
   preload(`${path}/spriteWispy2k.png`).then((file) => {
-    kidSheet = file.img;
+    kidSheets["wispy"] = file.img;
+  });
+
+  preload(`${path}/spriteBunny2k.png`).then((file) => {
+    kidSheets["bunny"] = file.img;
+  });
+
+  preload(`${path}/spriteSpike2k.png`).then((file) => {
+    kidSheets["spike"] = file.img;
   });
 
   preload(`${path}/moundFinalSmall.png`).then((file) => {
@@ -88,6 +97,7 @@ function boot({
   self = kid(
     handle() || "nub",
     help.choose("orange", "yellow", "cyan", "blue", "lime"),
+    help.choose("wispy", "bunny", "spike"),
   );
 
   server = socket((id, type, content) => {
@@ -101,7 +111,7 @@ function boot({
     }
 
     if (type.startsWith("connected")) {
-      server.send("sno:join", { handle: self.handle, color: self.color });
+      server.send("sno:join", { handle: self.handle, color: self.color, body: self.body });
       console.log("⛄ Welcome:", self.handle, `(${id})`);
       self.id = id;
     }
@@ -110,8 +120,12 @@ function boot({
       if (type === "sno:join") {
         console.log(`sno:join:${id}`, content);
         if (!others[id]) {
-          others[id] = kid(content.handle, content.color);
-          server.send("sno:join", { handle: self.handle, color: self.color });
+          others[id] = kid(content.handle, content.color, content.body);
+          server.send("sno:join", {
+            handle: self.handle,
+            color: self.color,
+            body: self.body,
+          });
         }
       }
     }
@@ -197,13 +211,13 @@ function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
   function paintKid(kid) {
     ink(kid.color).box(kid.x, kid.y - 48, 2, "outline*center");
 
-    if (kidSheet) {
-      const tile = kidSheet.height / 16;
+    if (kidSheets[kid.body]) {
+      const tile = kidSheets[kid.body].height / 16;
       const tx = floor(kid.step);
       const ty = floor(kid.dir);
       paste(
         {
-          painting: kidSheet,
+          painting: kidSheets[kid.body],
           crop: { x: tx * tile, y: ty * tile, w: tile, h: tile },
         },
         kid.x - tile / 2,
@@ -445,10 +459,10 @@ function act({ event: e, screen }) {
     lead.y += e.delta.y;
   }
 
-  if (e.is("dropped:bitmap")) {
-    if (e.name.startsWith("sprite")) kidSheet = e.painting;
-    // ballSheet = e.painting; // Load a spritesheet.
-  }
+  // if (e.is("dropped:bitmap")) {
+  // if (e.name.startsWith("sprite")) kidSheet = e.painting;
+  // ballSheet = e.painting; // Load a spritesheet.
+  // }
 }
 
 // 🥁 Beat
@@ -484,9 +498,10 @@ export { boot, paint, sim, act, meta };
 // 📚 Library
 //   (Useful functions used throughout the piece)
 
-function kid(handle, color) {
+function kid(handle, color, body = "wispy") {
   return {
     type: "kid",
+    body,
     handle,
     x: 0,
     y: 0,
