@@ -10,11 +10,12 @@
     - [-] Spritesheet sheet.height / 16 = tilesize
 #endregion */
 
-const { min, floor, abs, acos, sin, cos, sqrt, PI, random } = Math;
+const { min, floor, abs, acos, sin, cos, sqrt, PI, random, round } = Math;
 const { keys } = Object;
 
 let server;
 let self;
+const lead = { x: 0, y: 0 };
 
 let LEFT,
   RIGHT,
@@ -46,7 +47,7 @@ let BLEFT,
   BUP,
   BDOWN = false;
 
-let disc;
+let cam, disc;
 
 // 🥾 Boot
 function boot({
@@ -109,7 +110,7 @@ function boot({
 // 🎨 Paint
 function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
   const short = min(screen.width, screen.height); // Longest view w/ margin.
-  const cam = { x: screen.width / 2, y: screen.height / 2, scale: 1 };
+  cam = { x: screen.width / 2, y: screen.height / 2, scale: 1 };
 
   wipe(64);
 
@@ -197,6 +198,9 @@ function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
     }
   });
 
+  // 🦮 Self leed
+  ink(self.color).box(lead.x, lead.y - 48, 9, "outline*center");
+
   unpan();
 
   // 📏 HUD
@@ -212,32 +216,39 @@ function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
 }
 
 // 🧮 Sim
-function sim({ num: { p2, vec3, vec4, quat, mat4 } }) {
+function sim({ num: { p2, vec3, vec4, quat, mat4, lerp, degrees, map } }) {
   if (!disc) return;
 
-  const sstep = 1;
+  const sstep = 2;
 
-  if (LEFT) self.x -= sstep; // Walk self as needed.
-  if (RIGHT) self.x += sstep;
-  if (UP) self.y -= sstep;
-  if (DOWN) self.y += sstep;
+  if (LEFT) lead.x -= sstep; // Walk self as needed.
+  if (RIGHT) lead.x += sstep;
+  if (UP) lead.y -= sstep;
+  if (DOWN) lead.y += sstep;
 
-  if (LEFT || RIGHT || UP || DOWN) {
+  const newSelf = {
+    x: lerp(self.x, lead.x, 0.05),
+    y: lerp(self.y, lead.y, 0.05),
+  };
+
+  if (p2.dist(self, newSelf) > 0.1) {
     self.step = (self.step + 0.2) % 8;
-
-    if (UP) self.dir = 0;
-    if (LEFT) self.dir = 3;
-    if (RIGHT) self.dir = 12;
-    if (DOWN) self.dir = 8;
-
-    if (UP && LEFT) self.dir = 1;
-    if (UP && RIGHT) self.dir = 15;
-    if (DOWN && LEFT) self.dir = 7;
-    if (DOWN && RIGHT) self.dir = 9;
-
     const movement = { x: self.x, y: self.y, step: self.step, dir: self.dir };
     server.send("sno:move", movement);
   }
+
+  self.x = newSelf.x;
+  self.y = newSelf.y;
+
+  const deg = degrees(Math.atan2(self.x - lead.x, self.y - lead.y));
+  let norm = (deg + 180) / 360;
+  norm += 0.5 + 0.02;
+  norm = norm - floor(norm);
+  const angle = floor(norm * 16);
+
+  console.log("Sprite angle:", angle);
+
+  self.dir = angle;
 
   const bstep = 0.015;
 
@@ -349,7 +360,7 @@ function sim({ num: { p2, vec3, vec4, quat, mat4 } }) {
 }
 
 // 🎪 Act
-function act({ event: e }) {
+function act({ event: e, screen }) {
   // Respond to user input here.
   if (e.is("keyboard:down:a") || e.is("keyboard:down:arrowleft")) LEFT = true;
   if (e.is("keyboard:up:a") || e.is("keyboard:up:arrowleft")) LEFT = false;
@@ -362,6 +373,11 @@ function act({ event: e }) {
 
   if (e.is("keyboard:down:s") || e.is("keyboard:down:arrowdown")) DOWN = true;
   if (e.is("keyboard:up:s") || e.is("keyboard:up:arrowdown")) DOWN = false;
+
+  if (e.is("draw") || e.is("touch")) {
+    lead.x = cam.x - (screen.width - e.x);
+    lead.y = cam.y - (screen.height - e.y);
+  }
 
   if (e.is("dropped:bitmap")) {
     if (e.name.startsWith("sprite")) kidSheet = e.painting;
