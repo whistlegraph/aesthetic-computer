@@ -259,21 +259,21 @@ function sim({
   if (UP) lead.y -= sstep;
   if (DOWN) lead.y += sstep;
 
+  keys(others).forEach((k) => {
+    const dir = p2.sub(self, others[k]);
+    const dist = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
+    const influenceDst = 20;
+    const forceMultiplier = 0.5;
+    if (dist < influenceDst && dist > 0.1) {
+      self.x += forceMultiplier * (influenceDst - dist) * dir.x;
+      self.y += forceMultiplier * (influenceDst - dist) * dir.y;
+    }
+  });
+
   const newSelf = {
     x: lerp(self.x, lead.x, 0.015),
     y: lerp(self.y, lead.y, 0.015),
   };
-
-  keys(others).forEach((k) => {
-    const dir = p2.sub(self, others[k]);
-    const dist = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
-    const influenceDst = 10;
-    const forceMultiplier = 0.5;
-    if (dist < influenceDst && dist > 0.1) {
-      newSelf.x += forceMultiplier * (influenceDst - dist) * dir.x;
-      newSelf.y += forceMultiplier * (influenceDst - dist) * dir.y;
-    }
-  });
 
   const speed = p2.dist(self, newSelf);
 
