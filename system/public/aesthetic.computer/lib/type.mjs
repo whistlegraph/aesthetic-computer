@@ -281,7 +281,7 @@ class TextInput {
     this.didReset = options.didReset;
 
     const blockWidth = 6;
-    this.#gutterMax = options.gutterMax || 0;
+    this.#gutterMax = options.gutterMax || 48;
 
     this.#prompt = new Prompt(
       blockWidth,
