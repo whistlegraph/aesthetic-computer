@@ -45,7 +45,7 @@ const ball = {
 let ballSheet, kidSheet, moundPainting;
 
 const mounds = [
-  { x: 0, y: 0, type: "mound" },
+  { x: 0, y: 150, type: "mound" },
   { x: 150, y: 0, type: "mound" },
   { x: -70, y: -80, type: "mound" },
 ];
@@ -263,6 +263,17 @@ function sim({
 
   keys(others).forEach((k) => {
     const dir = p2.sub(self, others[k]);
+    const dist = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
+    const influenceDst = 30;
+    const forceMultiplier = 0.1;
+    if (dist < influenceDst && dist > 0.1) {
+      newSelf.x += forceMultiplier * (influenceDst - dist) * dir.x;
+      newSelf.y += forceMultiplier * (influenceDst - dist) * dir.y;
+    }
+  });
+
+  mounds.forEach((mound) => {
+    const dir = p2.sub(self, mound);
     const dist = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
     const influenceDst = 30;
     const forceMultiplier = 0.1;
