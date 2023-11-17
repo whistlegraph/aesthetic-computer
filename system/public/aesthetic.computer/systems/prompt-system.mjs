@@ -115,6 +115,19 @@ export async function prompt_boot(
       abort = conversation.ask(
         { prompt: text, program, hint },
         function and(msg) {
+          // Replace curly single and double quotes with straight quotes.
+          msg = msg.replace(/[\u2018\u2019\u201C\u201D]/g, (match) => {
+            if (match === "\u2018" || match === "\u2019") {
+              // Replace single curly quotes
+              return "'";
+            } else {
+              // Replace double curly quotes
+              return '"';
+            }
+          });
+
+          msg = msg.replace(/—/g, "-"); // Replace em dash with hyphen.
+
           if (firstAnd) input.submittedText = input.text;
           input.text = firstAnd ? input.text + "\n\n" + msg : input.text + msg;
           input.snap();
