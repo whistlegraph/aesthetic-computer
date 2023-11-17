@@ -5,7 +5,9 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Random character assignment. 
+  - [🧡] Random character assignment. 
+  - [] Z-sorting.
+  - [] Chat
   - [] Much better multiplayer.
 #endregion */
 
@@ -70,8 +72,8 @@ function boot({
   // preload(`${path}/sprite1k.png`).then((file) => {
   // preload(`${path}/spriteWispy1k.png`).then((file) => {
   // preload(`${path}/spriteSpike2k.png`).then((file) => {
-  preload(`${path}/spriteBunny2k.png`).then((file) => {
-    // preload(`${path}/spriteWispy2k.png`).then((file) => {
+  // preload(`${path}/spriteBunny2k.png`).then((file) => {
+  preload(`${path}/spriteWispy2k.png`).then((file) => {
     kidSheet = file.img;
   });
 
