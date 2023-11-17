@@ -281,15 +281,14 @@ class TextInput {
     this.didReset = options.didReset;
 
     const blockWidth = 6;
-    this.#gutterMax = options.gutterMax;
+    this.#gutterMax = options.gutterMax || 0;
 
     this.#prompt = new Prompt(
       blockWidth,
       blockWidth,
       options.wrap, // "char" or "word"
       $.store["gutter:lock"] ||
-        this.#gutterMax ||
-        floor($.screen.width / blockWidth) - 2,
+        Math.min(this.#gutterMax, floor($.screen.width / blockWidth) - 2),
       options.lineSpacing,
     );
 
@@ -335,8 +334,10 @@ class TextInput {
 
   // Stretches the gutter to be the screen width minus two slots.
   fullGutter($) {
-    this.gutter =
-      this.#gutterMax || floor($.screen.width / this.#prompt.blockWidth) - 2;
+    this.gutter = Math.min(
+      this.#gutterMax,
+      floor($.screen.width / this.#prompt.blockWidth) - 2,
+    );
   }
 
   set lock(bool) {
