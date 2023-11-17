@@ -180,6 +180,11 @@ export function randInt(n) {
   return floor(rand() * (n + 1));
 }
 
+// Generates a random index from an array.
+export function randInd(arr) {
+  return randInt(arr.length - 1);
+}
+
 // Generates an array of random integers from 0-n (inclusive)
 // TODO: How could this be made more generic? 22.1.5
 // TODO: How to make this account for range? 2022.01.17.00.33
