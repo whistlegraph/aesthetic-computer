@@ -6,9 +6,10 @@
 
 /* #region 🏁 TODO 
   - [🧡] Random character assignment. 
-  - [] Z-sorting.
   - [] Chat
   - [] Much better multiplayer.
+  + Done
+  - [x] Z-sorting.
 #endregion */
 
 const { min, floor, abs, acos, sin, cos, sqrt, PI, random, round } = Math;
@@ -44,9 +45,9 @@ const ball = {
 let ballSheet, kidSheet, moundPainting;
 
 const mounds = [
-  { x: 0, y: 0 },
-  { x: 150, y: 0 },
-  { x: -70, y: -80 },
+  { x: 0, y: 0, type: "mound" },
+  { x: 150, y: 0, type: "mound" },
+  { x: -70, y: -80, type: "mound" },
 ];
 
 let BLEFT,
@@ -67,6 +68,7 @@ function boot({
 }) {
   cam = { x: screen.width / 2, y: screen.height / 2, scale: 1 };
 
+  debug = false;
   // Load sprite assets from the server.
   const path = debug ? "/assets/sno" : "https://assets.aesthetic.computer/sno";
   // preload(`${path}/sprite1k.png`).then((file) => {
@@ -130,22 +132,10 @@ function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
 
   wipe(90);
 
-  // Horizon
-  // ink(40).box(0, screen.height / 8, screen.width, screen.height);
-  // ink(25).box(0, screen.height / 4, screen.width, screen.height);
-  // ink(0).box(0, 0, screen.width, screen.height / 8);
-
-  pan(cam.x, cam.y);
-
-  // 🥏 Playground Disc
+  // pan(cam.x, cam.y);
+  // // 🥏 Playground Disc
   disc = { x: 0, y: 0, radius: short / 2.5 };
-  // wipe(64)
-  // ink(255, 5) // Snow disc filled,
-  // .circle(disc.x, disc.y, cam.scale * disc.radius, true, 1, 1)
-  // .ink(255, 8) // w/ outline.
-  // .circle(disc.x, disc.y, cam.scale * disc.radius, false, 1, 1);
-
-  unpan();
+  // unpan();
   layer(1);
   pan(cam.x, cam.y);
 
@@ -191,24 +181,18 @@ function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
   pan(cam.x, cam.y);
 
   // 🏔️ Mounds
-  if (moundPainting) {
-    mounds.forEach((mound) => {
+  function paintMound(mound) {
+    if (moundPainting) {
       paste(
         moundPainting,
         mound.x - moundPainting.width / 2,
-        mound.y - moundPainting.height / 2,
+        mound.y - moundPainting.height / 2 + 16,
         { scale: 1 },
       );
-    });
+    }
   }
 
-  // 🧑‍🤝‍🧑 Self & Pals
-  const all = { ...others };
-  all[self.id] = self;
-  const allk = keys(all).sort();
-
-  allk.forEach((k, i) => {
-    const kid = all[k];
+  function paintKid(kid) {
     ink(kid.color).box(kid.x, kid.y - 48, 2, "outline*center");
 
     if (kidSheet) {
@@ -224,6 +208,23 @@ function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
         kid.y - tile / 2,
       );
     }
+  }
+
+  // 🧑‍🤝‍🧑 Self & Pals
+  const all = { ...others };
+  all[self.id] = self;
+  const allk = keys(all).sort();
+
+  // Collect all mounds and kids into a single list.
+  const gameObjects = [...mounds];
+  allk.forEach((k) => gameObjects.push(all[k]));
+
+  // TODO: Sort all gameObjects by Y
+  gameObjects.sort((a, b) => a.y - b.y);
+
+  gameObjects.forEach((go, i) => {
+    if (go.type === "mound") paintMound(go);
+    else if (go.type === "kid") paintKid(go);
   });
 
   // 🦮 Self leed
@@ -263,6 +264,17 @@ function sim({
     y: lerp(self.y, lead.y, 0.015),
   };
 
+  keys(others).forEach((k) => {
+    const dir = p2.sub(self, others[k]);
+    const dist = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
+    const influenceDst = 10;
+    const forceMultiplier = 0.5;
+    if (dist < influenceDst && dist > 0.1) {
+      newSelf.x += forceMultiplier * (influenceDst - dist) * dir.x;
+      newSelf.y += forceMultiplier * (influenceDst - dist) * dir.y;
+    }
+  });
+
   const speed = p2.dist(self, newSelf);
 
   if (speed > 0.01) {
@@ -271,12 +283,15 @@ function sim({
     if (simCount % 6n === 0n) server.send("sno:move", movement);
   }
 
+  // Adjust the camera.
   cam.x += self.x - newSelf.x;
   cam.y += self.y - newSelf.y;
 
+  // Update the position.
   self.x = newSelf.x;
   self.y = newSelf.y;
 
+  // Adjust the sprite direction.
   const deg = degrees(Math.atan2(self.x - lead.x, self.y - lead.y));
   let norm = (deg + 180) / 360;
   norm += 0.5 + 0.02;
@@ -284,10 +299,6 @@ function sim({
 
   const angle = floor(norm * 16);
   self.dir = angle;
-
-  // Camera follows self...
-  // cam.x = lerp(cam.x, self.x - cam.x, 0.01);
-  // cam.y = lerp(cam.y, self.y - cam.y, 0.01);
 
   // ⚾ Ball
   const bstep = 0.015;
@@ -459,5 +470,14 @@ export { boot, paint, sim, act, meta };
 //   (Useful functions used throughout the piece)
 
 function kid(handle, color) {
-  return { handle, x: 0, y: 0, state: "still", step: 0, dir: 0, color };
+  return {
+    type: "kid",
+    handle,
+    x: 0,
+    y: 0,
+    state: "still",
+    step: 0,
+    dir: 0,
+    color,
+  };
 }
