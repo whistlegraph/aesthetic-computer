@@ -1046,16 +1046,18 @@ class TextInput {
             content: { text: this.text /*cursor: this.#prompt.textPos()*/ },
           });
         } else if (this.runnable) {
-          // 💻 Execute a command!
-          sound.synth({
-            type: "sine",
-            tone: 850,
-            attack: 0.1,
-            decay: 0.96,
-            volume: 0.65,
-            duration: 0.005,
-          });
-          await this.run(store);
+          if (this.text.trim().length > 0) {
+            // 💻 Execute a command!
+            sound.synth({
+              type: "sine",
+              tone: 850,
+              attack: 0.1,
+              decay: 0.96,
+              volume: 0.65,
+              duration: 0.005,
+            });
+            await this.run(store);
+          }
         } else {
           activate(this);
         }
@@ -1231,7 +1233,9 @@ class TextInput {
         },
         push: async () => {
           if (this.runnable) {
-            await this.run(store);
+            if (this.text.trim().length > 0) {
+              await this.run(store);
+            }
           } else {
             activate(this);
             if (this.runnable) await this.run(store);

@@ -6,6 +6,10 @@
 #endregion */
 
 /* #region 🏁 TODO
+  + Done
+  - [x] Add "Powered by Stripe"
+  - [x] Replace all curly quotes with single quote. 
+  - [x] Question marks end of sentence spacing.
 #endregion */
 
 let needsWipe = true;
