@@ -31,6 +31,14 @@
   margin: auto;
 }
 
+#payment-form a, #payment-form a:visited {
+  color: rgba(48, 49, 61);
+}
+
+#stripe {
+  opacity: 0.5;
+}
+
 #payment-message.hidden,
 #spinner.hidden,
 #button-text.hidden {
