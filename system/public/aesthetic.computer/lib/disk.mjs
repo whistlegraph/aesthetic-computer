@@ -1151,6 +1151,7 @@ const $commonApi = {
     clamp: num.clamp,
     rand: num.rand,
     randInt: num.randInt,
+    randInd: num.randInd,
     randIntArr: num.randIntArr,
     randIntRange: num.randIntRange,
     rangedInts: num.rangedInts,
@@ -2567,6 +2568,8 @@ async function load(
     } else if (
       extension === "webp" ||
       extension === "jpg" ||
+      extension === "gif" ||
+      extension === "jpeg" ||
       extension === "png"
     ) {
       return new Promise((resolve, reject) => {
@@ -2583,7 +2586,7 @@ async function load(
           rejection(reject);
         });
       });
-    } else if (extension === "m4a") {
+    } else if (extension === "m4a" || extension === "wav") {
       return new Promise((resolve, reject) => {
         if (options.signal?.aborted) {
           rejection(reject);
