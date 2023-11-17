@@ -5,9 +5,7 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [-] Add character sprites
-  multiplayer support.
-    - [-] Spritesheet sheet.height / 16 = tilesize
+  - [] 
 #endregion */
 
 const { min, floor, abs, acos, sin, cos, sqrt, PI, random, round } = Math;
@@ -40,7 +38,13 @@ const ball = {
   points: [],
 };
 
-let ballSheet, kidSheet;
+let ballSheet, kidSheet, moundPainting;
+
+const mounds = [
+  { x: 0, y: 0 },
+  { x: 150, y: 0 },
+  { x: -70, y: -80 },
+];
 
 let BLEFT,
   BRIGHT,
@@ -56,12 +60,20 @@ function boot({
   net: { socket, preload },
   handle,
   debug,
+  screen,
 }) {
+  cam = { x: screen.width / 2, y: screen.height / 2, scale: 1 };
+
   // Load sprite assets from the server.
   const path = debug ? "/assets/sno" : "https://assets.aesthetic.computer/sno";
   // preload(`${path}/sprite1k.png`).then((file) => {
+  // preload(`${path}/spriteWispy1k.png`).then((file) => {
   preload(`${path}/spriteWispy2k.png`).then((file) => {
     kidSheet = file.img;
+  });
+
+  preload(`${path}/moundFinalSmall.png`).then((file) => {
+    moundPainting = file.img;
   });
 
   self = kid(
@@ -110,24 +122,23 @@ function boot({
 // 🎨 Paint
 function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
   const short = min(screen.width, screen.height); // Longest view w/ margin.
-  cam = { x: screen.width / 2, y: screen.height / 2, scale: 1 };
 
-  wipe(64);
+  wipe(90);
 
   // Horizon
-  ink(40).box(0, screen.height / 8, screen.width, screen.height);
-  ink(25).box(0, screen.height / 4, screen.width, screen.height);
-  ink(0).box(0, 0, screen.width, screen.height / 8);
+  // ink(40).box(0, screen.height / 8, screen.width, screen.height);
+  // ink(25).box(0, screen.height / 4, screen.width, screen.height);
+  // ink(0).box(0, 0, screen.width, screen.height / 8);
 
   pan(cam.x, cam.y);
 
   // 🥏 Playground Disc
   disc = { x: 0, y: 0, radius: short / 2.5 };
   // wipe(64)
-  ink(255, 5) // Snow disc filled,
-    .circle(disc.x, disc.y, cam.scale * disc.radius, true, 1, 1)
-    .ink(255, 8) // w/ outline.
-    .circle(disc.x, disc.y, cam.scale * disc.radius, false, 1, 1);
+  // ink(255, 5) // Snow disc filled,
+  // .circle(disc.x, disc.y, cam.scale * disc.radius, true, 1, 1)
+  // .ink(255, 8) // w/ outline.
+  // .circle(disc.x, disc.y, cam.scale * disc.radius, false, 1, 1);
 
   unpan();
   layer(1);
@@ -135,9 +146,9 @@ function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
 
   // ⚾ Snowball
   const b = ball;
-  b.radius = disc.radius / 5;
-  ink(255, 64).circle(b.x, b.y, b.radius, true, 1, 0.1);
-  ink(255, 128).circle(b.x, b.y, b.radius + 1, false, 1, 0.01);
+  b.radius = disc.radius / 8;
+  ink(127, 64).circle(b.x, b.y, b.radius, true, 1, 0.1);
+  ink(127, 128).circle(b.x, b.y, b.radius + 1, false, 1, 0.01);
 
   // Draw snowball frame...
   if (ballSheet) {
@@ -161,10 +172,10 @@ function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
 
   if (b.points?.length > 0) {
     b.points.forEach(({ point: p, color: c }) => {
-      ink(...c, 127 - 127 * p[2]).box(
+      ink(200, 127 - 127 * p[2]).box(
         b.x + p[0] * b.radius,
         b.y + p[1] * b.radius,
-        3,
+        1,
         "center",
       );
     });
@@ -173,6 +184,18 @@ function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
   unpan();
   layer(0);
   pan(cam.x, cam.y);
+
+  // 🏔️ Mounds
+  if (moundPainting) {
+    mounds.forEach((mound) => {
+      paste(
+        moundPainting,
+        mound.x - moundPainting.width / 2,
+        mound.y - moundPainting.height / 2,
+        { scale: 1 },
+      );
+    });
+  }
 
   // 🧑‍🤝‍🧑 Self & Pals
   const all = { ...others };
@@ -219,6 +242,7 @@ function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
 function sim({ num: { p2, vec3, vec4, quat, mat4, lerp, degrees, map } }) {
   if (!disc) return;
 
+  // 🚶 Walking...
   const sstep = 2;
 
   if (LEFT) lead.x -= sstep; // Walk self as needed.
@@ -227,15 +251,20 @@ function sim({ num: { p2, vec3, vec4, quat, mat4, lerp, degrees, map } }) {
   if (DOWN) lead.y += sstep;
 
   const newSelf = {
-    x: lerp(self.x, lead.x, 0.05),
-    y: lerp(self.y, lead.y, 0.05),
+    x: lerp(self.x, lead.x, 0.03),
+    y: lerp(self.y, lead.y, 0.03),
   };
 
-  if (p2.dist(self, newSelf) > 0.1) {
-    self.step = (self.step + 0.2) % 8;
+  const speed = p2.dist(self, newSelf);
+
+  if (speed > 0.01) {
+    self.step = (self.step + speed / 7) % 8;
     const movement = { x: self.x, y: self.y, step: self.step, dir: self.dir };
     server.send("sno:move", movement);
   }
+
+  cam.x += self.x - newSelf.x;
+  cam.y += self.y - newSelf.y;
 
   self.x = newSelf.x;
   self.y = newSelf.y;
@@ -244,12 +273,15 @@ function sim({ num: { p2, vec3, vec4, quat, mat4, lerp, degrees, map } }) {
   let norm = (deg + 180) / 360;
   norm += 0.5 + 0.02;
   norm = norm - floor(norm);
+
   const angle = floor(norm * 16);
-
-  console.log("Sprite angle:", angle);
-
   self.dir = angle;
 
+  // Camera follows self...
+  // cam.x = lerp(cam.x, self.x - cam.x, 0.01);
+  // cam.y = lerp(cam.y, self.y - cam.y, 0.01);
+
+  // ⚾ Ball
   const bstep = 0.015;
 
   // Randomly adjust the ball force.
@@ -374,9 +406,10 @@ function act({ event: e, screen }) {
   if (e.is("keyboard:down:s") || e.is("keyboard:down:arrowdown")) DOWN = true;
   if (e.is("keyboard:up:s") || e.is("keyboard:up:arrowdown")) DOWN = false;
 
-  if (e.is("draw") || e.is("touch")) {
-    lead.x = cam.x - (screen.width - e.x);
-    lead.y = cam.y - (screen.height - e.y);
+  if (e.is("draw")) {
+    console.log(e);
+    lead.x += e.delta.x;
+    lead.y += e.delta.y;
   }
 
   if (e.is("dropped:bitmap")) {
