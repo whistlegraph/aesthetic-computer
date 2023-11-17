@@ -384,7 +384,7 @@ function calculateAlpha(alphaParam) {
   if (alphaParam === "?") return randIntRange(5, 255); // Always show a bit.
   let alpha = parseFloat(alphaParam);
   if (alpha >= 0 && alpha <= 1) {
-    alpha = Math.round(alpha * 255); // Convert a float alpha from 0->1.
+    alpha = round(alpha * 255); // Convert a float alpha from 0->1.
   } else {
     alpha = rangedInts([alphaParam]) || 255;
   }

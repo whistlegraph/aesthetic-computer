@@ -5,10 +5,23 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Generate more points for the ball, and add the sprite.
+  - [] Random character assignment. 
+  - [] Much better multiplayer.
 #endregion */
 
-const { min, floor, abs, acos, sin, cos, sqrt, PI } = Math;
+const { min, floor, abs, acos, sin, cos, sqrt, PI, random, round } = Math;
+const { keys } = Object;
+
+let server;
+let self;
+const lead = { x: 0, y: 0 };
+
+let LEFT,
+  RIGHT,
+  UP,
+  DOWN = false;
+
+let others = {};
 
 const ball = {
   x: 0,
@@ -26,40 +39,119 @@ const ball = {
   points: [],
 };
 
-let ballSheet;
-let disc;
+let ballSheet, kidSheet, moundPainting;
 
-let LEFT,
-  RIGHT,
-  UP,
-  DOWN = false;
+const mounds = [
+  { x: 0, y: 0 },
+  { x: 150, y: 0 },
+  { x: -70, y: -80 },
+];
+
+let BLEFT,
+  BRIGHT,
+  BUP,
+  BDOWN = false;
+
+let cam, disc;
 
 // 🥾 Boot
-function boot({ wipe, num: { quat } }) {
-  // Runs once at the start.
+function boot({
+  num: { quat },
+  help,
+  net: { socket, preload },
+  handle,
+  debug,
+  screen,
+}) {
+  cam = { x: screen.width / 2, y: screen.height / 2, scale: 1 };
+
+  // Load sprite assets from the server.
+  const path = debug ? "/assets/sno" : "https://assets.aesthetic.computer/sno";
+  // preload(`${path}/sprite1k.png`).then((file) => {
+  // preload(`${path}/spriteWispy1k.png`).then((file) => {
+  // preload(`${path}/spriteSpike2k.png`).then((file) => {
+  preload(`${path}/spriteBunny2k.png`).then((file) => {
+    // preload(`${path}/spriteWispy2k.png`).then((file) => {
+    kidSheet = file.img;
+  });
+
+  preload(`${path}/moundFinalSmall.png`).then((file) => {
+    moundPainting = file.img;
+  });
+
+  self = kid(
+    handle() || "nub",
+    help.choose("orange", "yellow", "cyan", "blue", "lime"),
+  );
+
+  server = socket((id, type, content) => {
+    if (type === "left") {
+      console.log("️✌️ Goodbye:", id);
+      delete others[id];
+    }
+
+    if (type === "joined") {
+      console.log("️👋 Hello:", id);
+    }
+
+    if (type.startsWith("connected")) {
+      server.send("sno:join", { handle: self.handle, color: self.color });
+      console.log("⛄ Welcome:", self.handle, `(${id})`);
+      self.id = id;
+    }
+
+    if (server.id !== id) {
+      if (type === "sno:join") {
+        console.log(`sno:join:${id}`, content);
+        if (!others[id]) {
+          others[id] = kid(content.handle, content.color);
+          server.send("sno:join", { handle: self.handle, color: self.color });
+        }
+      }
+    }
+    if (type === "sno:move") {
+      if (others[id]) {
+        others[id].x = content.x;
+        others[id].y = content.y;
+        others[id].step = content.step;
+        others[id].dir = content.dir;
+      }
+    }
+  });
+
   ball.rot = quat.setAxisAngle(quat.create(), [1, 0, 0], 0);
 }
 
 // 🎨 Paint
-function paint({ screen, wipe, ink, pan, unpan, paste, num }) {
+function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
   const short = min(screen.width, screen.height); // Longest view w/ margin.
-  const cam = { x: screen.width / 2, y: screen.height / 2, scale: 1 };
+
+  wipe(90);
+
+  // Horizon
+  // ink(40).box(0, screen.height / 8, screen.width, screen.height);
+  // ink(25).box(0, screen.height / 4, screen.width, screen.height);
+  // ink(0).box(0, 0, screen.width, screen.height / 8);
 
   pan(cam.x, cam.y);
 
   // 🥏 Playground Disc
   disc = { x: 0, y: 0, radius: short / 2.5 };
-  wipe(64)
-    .ink(255, 25) // Snow disc filled,
-    .circle(disc.x, disc.y, cam.scale * disc.radius, true, 1, 1)
-    .ink(255) // w/ outline.
-    .circle(disc.x, disc.y, cam.scale * disc.radius, false, 1, 1);
+  // wipe(64)
+  // ink(255, 5) // Snow disc filled,
+  // .circle(disc.x, disc.y, cam.scale * disc.radius, true, 1, 1)
+  // .ink(255, 8) // w/ outline.
+  // .circle(disc.x, disc.y, cam.scale * disc.radius, false, 1, 1);
+
+  unpan();
+  layer(1);
+  pan(cam.x, cam.y);
 
   // ⚾ Snowball
   const b = ball;
-  b.radius = disc.radius / 5;
-  ink(255, 64).circle(b.x, b.y, b.radius, true, 1, 0.1);
-  ink(255, 128).circle(b.x, b.y, b.radius + 1, false, 1, 0.01);
+  b.radius = disc.radius / 8;
+  ink(127, 64).circle(b.x, b.y, b.radius, true, 1, 0.1);
+  ink(127, 128).circle(b.x, b.y, b.radius + 1, false, 1, 0.01);
 
   // Draw snowball frame...
   if (ballSheet) {
@@ -81,27 +173,68 @@ function paint({ screen, wipe, ink, pan, unpan, paste, num }) {
     );
   }
 
-  // if (b.axis) {
-  //   ink(255, 64).line(
-  //     b.x,
-  //     b.y,
-  //     b.x + b.axis[0] * b.radius,
-  //     b.y + b.axis[1] * b.radius,
-  //   );
-  // }
-
   if (b.points?.length > 0) {
     b.points.forEach(({ point: p, color: c }) => {
-      ink(...c, 127 - 127 * p[2]).box(
+      ink(200, 127 - 127 * p[2]).box(
         b.x + p[0] * b.radius,
         b.y + p[1] * b.radius,
-        3,
+        1,
         "center",
       );
     });
   }
 
   unpan();
+  layer(0);
+  pan(cam.x, cam.y);
+
+  // 🏔️ Mounds
+  if (moundPainting) {
+    mounds.forEach((mound) => {
+      paste(
+        moundPainting,
+        mound.x - moundPainting.width / 2,
+        mound.y - moundPainting.height / 2,
+        { scale: 1 },
+      );
+    });
+  }
+
+  // 🧑‍🤝‍🧑 Self & Pals
+  const all = { ...others };
+  all[self.id] = self;
+  const allk = keys(all).sort();
+
+  allk.forEach((k, i) => {
+    const kid = all[k];
+    ink(kid.color).box(kid.x, kid.y - 48, 2, "outline*center");
+
+    if (kidSheet) {
+      const tile = kidSheet.height / 16;
+      const tx = floor(kid.step);
+      const ty = floor(kid.dir);
+      paste(
+        {
+          painting: kidSheet,
+          crop: { x: tx * tile, y: ty * tile, w: tile, h: tile },
+        },
+        kid.x - tile / 2,
+        kid.y - tile / 2,
+      );
+    }
+  });
+
+  // 🦮 Self leed
+  ink(self.color).box(lead.x, lead.y - 48, 9, "outline*center");
+
+  unpan();
+
+  // 📏 HUD
+  allk.forEach((k, i) => {
+    const row = i * 10;
+    ink("black").write(all[k].handle, { x: 7, y: 18 + 1 + row });
+    ink(all[k].color).write(all[k].handle, { x: 6, y: 18 + row });
+  });
 
   // 🧮 Data
   // ink("yellow").write(`xang: ${num.radians(b.xang)}`, { x: 6, y: 18 });
@@ -109,16 +242,64 @@ function paint({ screen, wipe, ink, pan, unpan, paste, num }) {
 }
 
 // 🧮 Sim
-function sim({ num: { p2, vec3, vec4, quat, mat4 } }) {
+function sim({
+  num: { p2, vec3, vec4, quat, mat4, lerp, degrees, map },
+  simCount,
+}) {
   if (!disc) return;
 
-  const step = 0.055;
+  // 🚶 Walking...
+  const sstep = 2;
 
-  // Accelerate the ball as needed.
-  if (LEFT) ball.xvel -= step;
-  if (RIGHT) ball.xvel += step;
-  if (UP) ball.yvel -= step;
-  if (DOWN) ball.yvel += step;
+  if (LEFT) lead.x -= sstep; // Walk self as needed.
+  if (RIGHT) lead.x += sstep;
+  if (UP) lead.y -= sstep;
+  if (DOWN) lead.y += sstep;
+
+  const newSelf = {
+    x: lerp(self.x, lead.x, 0.015),
+    y: lerp(self.y, lead.y, 0.015),
+  };
+
+  const speed = p2.dist(self, newSelf);
+
+  if (speed > 0.01) {
+    self.step = (self.step + speed / 7) % 8;
+    const movement = { x: self.x, y: self.y, step: self.step, dir: self.dir };
+    if (simCount % 6n === 0n) server.send("sno:move", movement);
+  }
+
+  cam.x += self.x - newSelf.x;
+  cam.y += self.y - newSelf.y;
+
+  self.x = newSelf.x;
+  self.y = newSelf.y;
+
+  const deg = degrees(Math.atan2(self.x - lead.x, self.y - lead.y));
+  let norm = (deg + 180) / 360;
+  norm += 0.5 + 0.02;
+  norm = norm - floor(norm);
+
+  const angle = floor(norm * 16);
+  self.dir = angle;
+
+  // Camera follows self...
+  // cam.x = lerp(cam.x, self.x - cam.x, 0.01);
+  // cam.y = lerp(cam.y, self.y - cam.y, 0.01);
+
+  // ⚾ Ball
+  const bstep = 0.015;
+
+  // Randomly adjust the ball force.
+  if (random() > 0.99) BLEFT = !BLEFT;
+  if (random() > 0.99) BRIGHT = !BRIGHT;
+  if (random() > 0.99) BUP = !BUP;
+  if (random() > 0.99) BDOWN = !BDOWN;
+
+  if (BLEFT) ball.xvel -= bstep; // Accelerate the ball as needed.
+  if (BRIGHT) ball.xvel += bstep;
+  if (BUP) ball.yvel -= bstep;
+  if (BDOWN) ball.yvel += bstep;
 
   ball.px = ball.x;
   ball.py = ball.y;
@@ -134,10 +315,10 @@ function sim({ num: { p2, vec3, vec4, quat, mat4 } }) {
   ball.xang = (ball.xang + ball.xvel) % 360;
   ball.yang = (ball.yang + ball.yvel) % 360;
 
-  const dist = step * p2.dist(ball, { x: ball.px, y: ball.py });
+  const dist = bstep * 2 * p2.dist(ball, { x: ball.px, y: ball.py });
 
   // Set ball axis.
-  if (dist > 0.001) {
+  if (dist > 0.0001) {
     ball.axis = vec3.cross(
       vec3.create(),
       vec3.fromValues(0, 0, 1),
@@ -212,13 +393,12 @@ function sim({ num: { p2, vec3, vec4, quat, mat4 } }) {
     ball.axis = undefined;
   }
 
-  // Apply decceleration no matter what.
-  ball.xvel *= ball.dec;
+  ball.xvel *= ball.dec; // Apply decceleration no matter what.
   ball.yvel *= ball.dec;
 }
 
 // 🎪 Act
-function act({ event: e }) {
+function act({ event: e, screen }) {
   // Respond to user input here.
   if (e.is("keyboard:down:a") || e.is("keyboard:down:arrowleft")) LEFT = true;
   if (e.is("keyboard:up:a") || e.is("keyboard:up:arrowleft")) LEFT = false;
@@ -232,7 +412,15 @@ function act({ event: e }) {
   if (e.is("keyboard:down:s") || e.is("keyboard:down:arrowdown")) DOWN = true;
   if (e.is("keyboard:up:s") || e.is("keyboard:up:arrowdown")) DOWN = false;
 
-  if (e.is("dropped:bitmap")) ballSheet = e.painting; // Load a spritesheet.
+  if (e.is("draw")) {
+    lead.x += e.delta.x;
+    lead.y += e.delta.y;
+  }
+
+  if (e.is("dropped:bitmap")) {
+    if (e.name.startsWith("sprite")) kidSheet = e.painting;
+    // ballSheet = e.painting; // Load a spritesheet.
+  }
 }
 
 // 🥁 Beat
@@ -267,3 +455,7 @@ export { boot, paint, sim, act, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
+
+function kid(handle, color) {
+  return { handle, x: 0, y: 0, state: "still", step: 0, dir: 0, color };
+}
