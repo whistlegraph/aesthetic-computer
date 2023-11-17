@@ -71,7 +71,7 @@ function boot({
   // preload(`${path}/spriteWispy1k.png`).then((file) => {
   // preload(`${path}/spriteSpike2k.png`).then((file) => {
   preload(`${path}/spriteBunny2k.png`).then((file) => {
-  // preload(`${path}/spriteWispy2k.png`).then((file) => {
+    // preload(`${path}/spriteWispy2k.png`).then((file) => {
     kidSheet = file.img;
   });
 
@@ -242,7 +242,10 @@ function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
 }
 
 // 🧮 Sim
-function sim({ num: { p2, vec3, vec4, quat, mat4, lerp, degrees, map } }) {
+function sim({
+  num: { p2, vec3, vec4, quat, mat4, lerp, degrees, map },
+  simCount,
+}) {
   if (!disc) return;
 
   // 🚶 Walking...
@@ -254,8 +257,8 @@ function sim({ num: { p2, vec3, vec4, quat, mat4, lerp, degrees, map } }) {
   if (DOWN) lead.y += sstep;
 
   const newSelf = {
-    x: lerp(self.x, lead.x, 0.03),
-    y: lerp(self.y, lead.y, 0.03),
+    x: lerp(self.x, lead.x, 0.015),
+    y: lerp(self.y, lead.y, 0.015),
   };
 
   const speed = p2.dist(self, newSelf);
@@ -263,7 +266,7 @@ function sim({ num: { p2, vec3, vec4, quat, mat4, lerp, degrees, map } }) {
   if (speed > 0.01) {
     self.step = (self.step + speed / 7) % 8;
     const movement = { x: self.x, y: self.y, step: self.step, dir: self.dir };
-    server.send("sno:move", movement);
+    if (simCount % 6n === 0n) server.send("sno:move", movement);
   }
 
   cam.x += self.x - newSelf.x;
@@ -410,7 +413,6 @@ function act({ event: e, screen }) {
   if (e.is("keyboard:up:s") || e.is("keyboard:up:arrowdown")) DOWN = false;
 
   if (e.is("draw")) {
-    console.log(e);
     lead.x += e.delta.x;
     lead.y += e.delta.y;
   }
