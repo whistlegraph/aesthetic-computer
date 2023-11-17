@@ -6,8 +6,10 @@
 
 /* #region 🏁 TODO 
   - [🧡] Random character assignment. 
-  - [] Chat
-  - [] Much better multiplayer.
+  - [] Chat / tap to add text above your head.
+  - [] Put the ball on the server, and instantiate it / simulate it.
+    - [] Make a place for the ball to be kicked / simulate the ball on
+          the server.
   + Done
   - [x] Z-sorting.
 #endregion */
