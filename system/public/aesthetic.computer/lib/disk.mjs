@@ -2538,7 +2538,7 @@ async function load(
         } else if (url.protocol !== "https:") {
         }
       } catch {
-        path = `${location.protocol}//${$commonApi.net.host}/${path}`;
+        path = `${location.protocol}//${location.host}/${path}`;
       }
     }
 

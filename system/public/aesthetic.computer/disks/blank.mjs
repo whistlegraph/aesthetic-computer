@@ -8,7 +8,7 @@
 #endregion */
 
 // 🥾 Boot
-function boot({ wipe }) {
+function boot({ wipe, jump }) {
   // Runs once at the start.
   wipe(0);
 }
