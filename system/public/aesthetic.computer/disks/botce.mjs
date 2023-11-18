@@ -7,7 +7,8 @@
 
 /* #region 🏁 TODO
   + Done
-  - [🟠] Add domain to payment methods: https://dashboard.stripe.com/login?redirect=%2Fsettings%2Fpayment_method_domains
+  - [🟠] Add botce.ac and aesthetic.computer domain to payment methods: https://dashboard.stripe.com/login?redirect=%2Fsettings%2Fpayment_method_domains
+  - [-] Test Google Pay / Apple Pay
   - [x] Move protected code to a separate pieces server.
   - [x] Add "Powered by Stripe"
   - [x] Replace all curly quotes with single quote. 
