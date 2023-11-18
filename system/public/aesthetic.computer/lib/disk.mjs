@@ -2190,7 +2190,11 @@ async function load(
   try {
     // If this is a reload (with no source change) then just create a new
     // blobURL off the old source.
-    if (slug.split("~")[0] === currentText?.split("~")[0] && !devReload) {
+    if (
+      slug.split("~")[0] === currentText?.split("~")[0] &&
+      sourceCode == currentCode &&
+      !devReload
+    ) {
       const blob = new Blob([currentCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);
       sourceCode = currentCode;
