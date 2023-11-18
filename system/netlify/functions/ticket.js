@@ -6,7 +6,6 @@ import { respond } from "../../backend/http.mjs";
 import { email } from "../../backend/email.mjs";
 import { connect } from "../../backend/database.mjs";
 const dev = process.env.CONTEXT === "dev";
-const botcePiece = "wPyYL4osf6Cw0pkHn_E5I-botce";
 
 // 💲 A utility function to calculate the order amount
 const calculateOrderAmount = (items) => {
@@ -18,6 +17,10 @@ const calculateOrderAmount = (items) => {
 export async function handler(event, context) {
   const database = await connect(); // 📕 Database
   const collection = database.db.collection("tickets");
+
+  const botcePieceURI = dev
+    ? `${event.headers.host}/assets/ticketed-pieces/botce.mjs`
+    : `${process.env.TICKETED_PIECES_ROOT}/botce.mjs`;
 
   if (event.httpMethod === "GET") {
     // Confirm a previously set payment by checking for a ticket
@@ -32,7 +35,7 @@ export async function handler(event, context) {
         event.queryStringParameters.pid,
       );
       if (ticket) {
-        return respond(200, { ticketed: true, ticket, piece: botcePiece });
+        return respond(200, { ticketed: true, ticket, piece: botcePieceURI });
       } else {
         return respond(200, { ticketed: false });
       }
@@ -71,7 +74,7 @@ export async function handler(event, context) {
       //     - And some keys stored in the ENV variables.
 
       // body.botce = { before: "Hello...", after: "Goodbye..." };
-      body.botce = { piece: botcePiece };
+      body.botce = { piece: botcePieceURI };
     }
 
     return respond(200, body);

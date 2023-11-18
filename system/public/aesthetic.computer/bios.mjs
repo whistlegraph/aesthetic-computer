@@ -1326,6 +1326,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           </div>
           <div id="payment-element">
           </div>
+          <!-- <div id="payment-request-button"></div> -->
           <button id="submit">
             <div class="spinner hidden" id="spinner">Processing...</div>
             <span id="button-text">${button}</span>
