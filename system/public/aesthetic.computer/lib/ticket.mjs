@@ -43,6 +43,57 @@ export function ticket(from, item, ready) {
 
     elements = stripe.elements({ appearance, clientSecret });
 
+    // Add Payment Request Button
+    // const paymentRequest = stripe.paymentRequest({
+    //   country: "US",
+    //   currency: "usd",
+    //   total: {
+    //     label: "Botce",
+    //     amount: 900, // Example amount in cents
+    //   },
+    //   //   requestPayerName: true,
+    //   requestPayerEmail: true,
+    // });
+
+    // const prButton = elements.create("paymentRequestButton", {
+    //   paymentRequest: paymentRequest,
+    // });
+
+    // // Check if the Payment Request API can make payments
+    // paymentRequest.canMakePayment().then(function (result) {
+    //   if (result) {
+    //     prButton.mount("#payment-request-button");
+    //   } else {
+    //     document.getElementById("payment-request-button").style.display =
+    //       "none";
+    //   }
+    // });
+
+    // Add an event listener for when a payment method is selected
+    // paymentRequest.on("paymentmethod", async (event) => {
+    //   // Confirm the payment on the server
+    //   emailAddress = event.payerEmail;
+
+    //   const { error, paymentIntent } = await stripe.confirmPayment({
+    //     elements,
+    //     redirect: "if_required",
+    //     confirmParams: { receipt_email: emailAddress },
+    //   });
+
+    //   console.log(error, paymentIntent);
+
+    //   if (error) {
+    //     // Show error in your UI
+    //     showMessage(error.message);
+    //   } else {
+    //     if (paymentIntent.status === "succeeded") {
+    //       // Payment succeeded, handle accordingly
+    //       showMessage("Payment succeeded!");
+    //       checkTicketStatus(); // Start polling for ticket status...
+    //     }
+    //   }
+    // });
+
     const linkAuthenticationElement = elements.create("linkAuthentication");
     linkAuthenticationElement.mount("#link-authentication-element");
 

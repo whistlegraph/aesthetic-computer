@@ -21,6 +21,15 @@
 function parse(text, location = self?.location) {
   let path, host, params, search, hash;
 
+  // Extract remote path from text if it begins with https and ends with `.mjs`.
+  let externalPath;
+  if (text.startsWith("https") && text.endsWith(".mjs")) {
+    const url = new URL(text);
+    location = { hostname: url.hostname, port: url.port };
+    externalPath = url.pathname.split("/").slice(0, -1).join("/").slice(1);
+    text = text.split("https://")[1].split(".mjs")[0].split("/").pop();
+  }
+
   // -1. Clear any spaces.
   text = text.trim();
 
@@ -29,7 +38,7 @@ function parse(text, location = self?.location) {
   text = text.replace(/ /g, "~"); // Replace all spaces with "~".
   text = decodeURIComponent(text); // Decode any URL encoded characters.
 
-  // 0. Pull of any "hash" from text.
+  // 0. Pull off any "hash" from text.
   [text, hash] = text.split("#");
 
   // 1. Pull off any "search" from `text`, ignoring any question mark
@@ -56,10 +65,10 @@ function parse(text, location = self?.location) {
   const tokens = text.split("~");
 
   // 3. Determine the host and path.
-  let customHost = false;
+  let handlePiece = false;
   // Set a `customHost` flag if we are loading a @user/piece.
   if (tokens[0].indexOf("@") === 0 && tokens[0].indexOf("/") !== -1) {
-    customHost = true;
+    handlePiece = true;
     // tokens[0] = tokens[0].substring(1);
   }
 
@@ -74,19 +83,7 @@ function parse(text, location = self?.location) {
 
   const piece = tokens[0];
 
-  if (customHost) {
-    // ⚠️ Custom user hosts can be deprecated for now. 23.07.04.20.16
-    // [host, ...path] = tokens[0].split("/");
-    // path = path.join("/");
-
-    // // Default to `index` if no piece path is specified for the custom host.
-    // if (path.length === 0) path = "index";
-
-    // // Default to *.aesthetic.computer if no `.` is present in the custom host.
-    // if (host.indexOf(".") === -1) {
-    //   host += ".aesthetic.computer";
-    // }
-
+  if (handlePiece) {
     // Route the piece to the local `/media/@handle/code/piece-name` path.
     host = location.hostname;
     if (location.port) host += ":" + location.port;
@@ -95,11 +92,14 @@ function parse(text, location = self?.location) {
   } else {
     host = location.hostname;
     if (location.port) host += ":" + location.port;
-    // TODO: Will this allow jumping from one disk to
-    //       another on a different host just by
-    //       typing the name? 22.07.15.00.12
 
-    path = "aesthetic.computer/disks/" + tokens[0];
+    if (externalPath) {
+      path = externalPath + "/" + tokens[0];
+    } else {
+      path = "aesthetic.computer/disks/" + tokens[0];
+    }
+
+    console.log("Path:", path, "Host:", host);
   }
 
   // 4. Get params. (Everything that comes after the path and host)

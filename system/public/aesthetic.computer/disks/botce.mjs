@@ -7,6 +7,8 @@
 
 /* #region 🏁 TODO
   + Done
+  - [🟠] Add domain to payment methods: https://dashboard.stripe.com/login?redirect=%2Fsettings%2Fpayment_method_domains
+  - [x] Move protected code to a separate pieces server.
   - [x] Add "Powered by Stripe"
   - [x] Replace all curly quotes with single quote. 
   - [x] Question marks end of sentence spacing.
@@ -33,7 +35,11 @@ async function boot({ ticket, query, notice, store, jump }) {
   }
 
   const ticketToCheck = query?.ticket || storedTicket?.key;
-  if (!ticketToCheck) notice(noMessage, [[48, 49, 61], [250, 146, 146]]);
+  if (!ticketToCheck)
+    notice(noMessage, [
+      [48, 49, 61],
+      [250, 146, 146],
+    ]);
 
   // Check for a ticket stub using the API.
   if (ticketToCheck) {
