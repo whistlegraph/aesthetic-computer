@@ -2648,7 +2648,7 @@ async function load(
     let url;
     const jumpOut = to.startsWith("out:");
 
-    if (to.startsWith("http") || jumpOut) {
+    if ((to.startsWith("http") && !to.endsWith(".mjs")) || jumpOut) {
       to = to.replace("out:", "");
       try {
         url = new URL(to);

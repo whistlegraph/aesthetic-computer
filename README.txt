@@ -46,12 +46,6 @@
   - [x] Don't send multiple emails for some reason...
   - [x] Go over UX w/ Ida
 
-*** prutti poems ***
-  - [🩷] See `prutti.mjs`
-
-*** `prompt` issues ***
-  - [] Shift + Enter is broken now.
-
 *** `Paste` for image ***
   - [] Tie the Paste button to image drag and drop.
   - [] Make sure `paste` works on mobile and desktop / could rename it to import?

@@ -1,5 +1,11 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** `prompt` issues ***
+  - [x] Shift + Enter is broken now.
+
+*** prutti poems ***
+  - [x] See `prutti.mjs`
+
 *** onboarding "taken" bug ***
   - [x] Test in production.
   - [x] Sometimes when users sign up, their untaken handle reports
