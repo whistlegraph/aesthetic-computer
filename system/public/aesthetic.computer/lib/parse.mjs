@@ -98,8 +98,6 @@ function parse(text, location = self?.location) {
     } else {
       path = "aesthetic.computer/disks/" + tokens[0];
     }
-
-    console.log("Path:", path, "Host:", host);
   }
 
   // 4. Get params. (Everything that comes after the path and host)
