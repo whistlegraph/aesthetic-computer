@@ -24,7 +24,8 @@ async function boot({ ticket, query, notice, store, jump }) {
 
   if (storedTicket) {
     // Expire if over a day.
-    const hoursPassed = (new Date() - storedTicket.time) / (1000 * 60 * 60);
+    const hoursPassed =
+      (new Date() - new Date(storedTicket.time)) / (1000 * 60 * 60);
     console.log("🎟️ Ticket found! Hours passed:", hoursPassed, storedTicket);
     if (hoursPassed > 24) {
       await store.delete("ticket:botce");
@@ -60,8 +61,9 @@ async function boot({ ticket, query, notice, store, jump }) {
         notice(`ticket ${3 - data.ticket.uses}`);
         store["ticket:botce"] = { key: ticketToCheck, time: new Date() };
         store.persist("ticket:botce"); // Store stub with current time.
-        setTimeout(() => jump(data.botce.piece, true, true), 500); // Actually
-        //                                                            go to botce.
+        //setTimeout(() => jump(data.botce.piece, true, true), 500); // Actually
+        setTimeout(() => jump(data.botce.piece), 500); // Actually
+        //                                                go to botce.
       })
       .catch((err) => {
         console.log("Error:", err);
