@@ -8,6 +8,8 @@
   - [🟠] Chat / tap to add text above your head.
     - [] See `prompt-system` to implement a TextInput object that can
          bring the keyboard up and back down.
+  - [] Add in `allPeople_sprite2k.png` and `simPeople_sprite2k.png`.
+    - [] Each animation is 8 frames long.
   - [] Put the ball on the server, and instantiate it / simulate it.
     - [] Make a place for the ball to be kicked / simulate the ball on
          the server.
