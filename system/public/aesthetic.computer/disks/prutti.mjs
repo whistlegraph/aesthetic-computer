@@ -180,9 +180,37 @@ const lessons = [
     pictures: ["lnl10"],
   },
   {
-    title: "lnl 11 - what punk is not about.wav",
+    title: "Lesson NOT Learnt 11 - what punk is not about.m4a",
     text: `[listen 2 the audio...]`,
     sounds: ["what punk is not about"],
+  },
+  {
+    title: "Lesson NOT Learnt 12",
+    text: `
+    __Nobody can handle the wistful Goodiepal instrument-collection just like an: Eysturstein'er!__
+
+    I have decided to create a small  SYNTH LIBRARY  on the Faro islands, or rather I have decided to put all, the music instruments, not just SYNTH's - that I own into a closet/ vetrine and make it all for ** FREE USE ** - you can come and take out what ever you like, bring it on the road to perform or home to play/ re·build just as long as you handle the ''TECH'' whit relative respect & care ________> and return it back and place it nedly into the same closet - when your actions are done whit.
+    //------//
+    You see, we as so called KLANG-artist's collect instruments like DRAGONS nesting on gold, & we never use the shit we collect - but why is it so?? Is it some strange left-over's from old picture's of Prog-Rock Bands, youtube-gear and videos & the insides of old Jean-Michel jarre record covers? 
+
+    ### BRING YOU SHIT TO USE ###
+
+    I have always been ALL about FREE music and FREE this and that - and I will keep sharing whatever that I got, so that's why we are doing this - the KEY and coordinates to the collection is located at:
+
+    BAR Sirkus Föroyar 
+    2 Gríms Kambansgøta
+    Tórshavn 100, 
+    The Faroe Islands 
+
+    Yes - just ask for: Sunneva Eysturstein,  She has the key and will handle it over to you...
+
+    $$$$$$ JUST SAY NO $$$$$$
+
+    Normal Synth Library's work whit Donations, and Memberships and so on bla. bla. - But that already marginalize the concept, and the people who use it - lets make it totally free - ( NO ) DONATIONS - ( NO ) FUNDING, if something breaks let's meet once a year and fix it together ...
+
+    now that should be all... //////// -- come join the guild of the viking klokkers... & lsiten to: The Franciscan Hobbies
+    `,
+    pictures: ["lnl12"],
   },
 ];
 
@@ -331,8 +359,8 @@ function loadLesson(api) {
 
   // Load and play sample for lesson 11.
   lessons[lesson].sounds?.forEach((name) => {
-    api.net.preload(`${path}/${name}.wav`).then((sfx) => {
-      api.sound.play(sfx); // Immediately play '.wav' after loading it.
+    api.net.preload(`${path}/${name}.m4a`).then((sfx) => {
+      api.sound.play(sfx); // Immediately play '.m4a' after loading it.
     });
   });
 }
