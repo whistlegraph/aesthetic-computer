@@ -1,4 +1,4 @@
-// Merchant ID Domain Association, 23.11.20.14.49
+// Apple Developer Merchant ID Domain Association, 23.11.20.14.49
 // This fulfills the requirements here: https://dashboard.stripe.com/login?redirect=%2Fsettings%2Fpayment_method_domains
 
 import fs from "fs";
@@ -9,10 +9,11 @@ export async function handler(event) {
 
   let filename;
   if (host.includes("botce.ac")) {
-    filename = "botce.ac-merchant-id-domain-association";
+    filename = "botce.ac-apple-developer-merchantid-domain-association";
     //} else if (host.includes("aesthetic.computer")) {
   } else {
-    filename = "aesthetic.computer-merchant-id-domain-association";
+    filename =
+      "aesthetic.computer-apple-developer-merchantid-domain-association";
     //} else {
     //  return { statusCode: 404, body: "Not Found" };
   }

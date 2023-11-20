@@ -4,7 +4,7 @@
   # command = "echo 'Building...'"
 [functions]
   node_bundler = "esbuild"
-[functions.merchant-id-domain-association]
+[functions.apple-developer-merchantid-domain-association]
   included_files = ["public/.well-known/*"]
 [functions.index]
   included_files = ["public/aesthetic.computer/disks/**/*.mjs",
@@ -89,8 +89,8 @@
   status = 200
   force = true
 [[redirects]]
-  from = "/.well-known/merchant-id-domain-association"
-  to = "/.netlify/functions/merchant-id-domain-association"
+  from = "/.well-known/apple-developer-merchantid-domain-association"
+  to = "/.netlify/functions/apple-developer-merchantid-domain-association"
   status = 200
   force = true
 [[redirects]]
