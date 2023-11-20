@@ -4,6 +4,8 @@
   # command = "echo 'Building...'"
 [functions]
   node_bundler = "esbuild"
+[functions.merchant-id-domain-association]
+  included_files = ["public/.well-known/*"]
 [functions.index]
   included_files = ["public/aesthetic.computer/disks/**/*.mjs",
                     "public/aesthetic.computer/dep/**/*.mjs",
@@ -84,6 +86,11 @@
 [[redirects]]
   from = "/media-collection/*"
   to = "/.netlify/functions/media-collection"
+  status = 200
+  force = true
+[[redirects]]
+  from = "/.well-known/merchant-id-domain-association"
+  to = "/.netlify/functions/merchant-id-domain-association"
   status = 200
   force = true
 [[redirects]]
