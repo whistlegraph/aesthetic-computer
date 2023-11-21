@@ -1263,7 +1263,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let pretext = ``;
       let button = `buy ticket`;
       let color = `white;`;
-      let desc = `Check your email for tickets.<br><br><span id="stripe">Processed by <a href="https://stripe.com">Stripe</a></span>`;
+      let desc = `visit now and check your email for tickets<br><br><span id="stripe">Processed by <a href="https://stripe.com">Stripe</a></span>`;
 
       if (content.item === "botce") {
         pretext = `
@@ -1274,7 +1274,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             <ul id="features">
               <li><code>botce</code> is a helpful ai</li>
               <li><code>botce</code> has advice</li>
-              <li><code>botce</code> is here until 11/23</li>
+              <li><code>botce</code> is here until 11/25</li>
             </ul>
           </div>
         </div>
@@ -1314,7 +1314,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         </style>
         `;
 
-        button = "$9";
+        button = "$8";
         color = "rgb(255, 200, 200, 0.95)";
       }
 
