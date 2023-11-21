@@ -70,7 +70,7 @@ async function boot({ ticket, query, notice, store, jump }) {
         setTimeout(() => ticket({ from: "sotce", item: "botce" }), 1500);
       });
   } else {
-    jump("https://aesthetic.computer/ticketed-pieces/botce.mjs", true, true);
+    jump("https://assets.aesthetic.computer/ticketed-pieces/botce.mjs", true, true);
     // ticket({ from: "sotce", item: "botce" });
   }
 }
