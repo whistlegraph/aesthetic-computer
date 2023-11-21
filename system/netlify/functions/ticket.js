@@ -41,7 +41,7 @@ export async function handler(event, context) {
       }
     }
 
-    // Or grab a ticket.
+    // Or grab a ticket from the path to check it.
     const key = event.path.split("/").pop();
     let ticket = await collection.findOne({ key });
 
@@ -50,7 +50,7 @@ export async function handler(event, context) {
       return respond(401, { message: "No ticket found. 😢" });
     }
 
-    if (ticket.uses === 0) {
+    if (event.queryStringParameters.found !== "true" && ticket.uses === 0) {
       return respond(403, { message: "Ticket expired. 🎟️" });
     }
 
@@ -61,6 +61,7 @@ export async function handler(event, context) {
     }
 
     console.log("🎟️ Ticket:", ticket);
+
     await database.disconnect();
 
     const body = { ticket };
