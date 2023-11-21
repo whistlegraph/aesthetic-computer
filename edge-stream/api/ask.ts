@@ -53,7 +53,7 @@ export default async function handler(req) {
       const model = hint.split(":")[1] || "gpt-3.5-turbo";
 
       if (model.startsWith("gpt-4")) {
-        top_p = 1;
+        top_p = 0.8;
         max_tokens = 350;
       }
 
