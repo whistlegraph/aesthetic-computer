@@ -1304,7 +1304,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
          #desc {
           color: #30313D;
           margin: 0 auto 0 1em;
-          background: rgba(255, 100, 100, 0.5);
+          background: rgba(255, 100, 100, 0.5);me
           border-radius: 6px;
           padding: 8px 12px;
          }
