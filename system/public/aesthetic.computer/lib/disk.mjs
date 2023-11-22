@@ -2820,6 +2820,7 @@ async function load(
             },
             hint: module.system.split(":").slice(1).join(":"), // See `ask.ts`.
             forgetful: module.forgetful || false,
+            memory: module.memory || Infinity,
             gutterMax: module.gutterMax,
             lineSpacing: module.lineSpacing,
           },

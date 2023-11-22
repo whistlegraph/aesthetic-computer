@@ -3,16 +3,18 @@ import { DEBUG } from "../disks/common/debug.mjs";
 export class Conversation {
   messages = [];
   forgetful = false;
+  memory;
   controller;
 
   // from the `disk` api
   store;
   key;
 
-  constructor(store, slug, forgetful = false) {
+  constructor(store, slug, forgetful = false, memory = Infinity) {
     this.store = store;
     this.key = slug + ":conversation";
     this.forgetful = forgetful;
+    this.memory = memory;
   }
 
   // Retrieve messages from the store.
@@ -46,7 +48,9 @@ export class Conversation {
       ({ prompt, program, hint } = options);
     }
 
-    const messageLength = this.messages.length;
+    let messageLength = this.messages.length;
+
+    if (messageLength > this.memory) this.messages.length = messageLength = 0;
 
     if (messageLength === 0) {
       program.before = program.before?.trim(); // Sanitize prompt program.
