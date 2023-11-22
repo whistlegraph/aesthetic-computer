@@ -15,7 +15,7 @@ let cancel;
 
 export async function prompt_boot(
   $,
-  { prompt, program, hint, forgetful, gutterMax, lineSpacing },
+  { prompt, program, hint, forgetful, memory, gutterMax, lineSpacing },
   reply,
   halt,
   scheme,
@@ -26,7 +26,7 @@ export async function prompt_boot(
   messageComplete = true;
   processing = false;
 
-  conversation = new Conversation($.store, $.slug, forgetful);
+  conversation = new Conversation($.store, $.slug, forgetful, memory);
   const messages = []; //await conversation.retrieve();
 
   if (messages.length > 0) prompt = messages[messages.length - 1].text;
