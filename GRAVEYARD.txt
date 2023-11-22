@@ -1,5 +1,17 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** 🪷 `botce` launch (ticketed pieces) - Nov. 21 ***
+  + Done
+  - [x] See `botce.mjs`.
+  - [x] Don't send multiple emails for some reason...
+  - [x] Go over UX w/ Ida
+
+*** profile page updates ***
+  - [x] `profile` should be able to <- -> on a user's paintings 
+          (and still tap into lightbox for painting / playback)
+  - [x] Add buttons logic from `hell_-world.js`.         
+  - [x] move `mood` to be to the top left to the right of username
+
 *** `prompt` issues ***
   - [x] Shift + Enter is broken now.
 
