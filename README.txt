@@ -40,11 +40,8 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** 🪷 `botce` launch (ticketed pieces) - Nov. ? ***
-  - [🟠] See `botce.mjs`.
-  + Done
-  - [x] Don't send multiple emails for some reason...
-  - [x] Go over UX w/ Ida
+*** `sno` launch - Dec 1? ***
+  - [] See `sno.mjs`.
 
 *** `Paste` for image ***
   - [] Tie the Paste button to image drag and drop.
@@ -81,11 +78,6 @@
 
 *** webgl2 renderer ***
 
-** tmi thoughts from amelia on seeing code ***
-  - [] "Nobody else wants to do this."
-  - [] "There is too much information."
-  - [] "Why does it have to look like this?"
-
 *** user pieces ***
   - [-] Consider the versioning of published pieces /
        how they should be added to the database.
@@ -93,12 +85,6 @@
        - https://cloud.digitalocean.com/spaces/user.aesthetic.computer?path=auth0%7C650ef5167fd48ae4910e048c%2F&deleteObject=&type=
   - [x] Add user pieces to the database and wire up the
         media collection endpoint.
-
-*** profile page updates ***
-  - [🧡] `profile` should be able to <- -> on a user's paintings 
-          (and still tap into lightbox for painting / playback)
-  - [-] Add buttons logic from `hell_-world.js`.         
-  - [] move `mood` to be to the top left to the right of username
 
 *** painting forking & remixing ***
   - [] "Stolen from: @user/20323:4";
@@ -202,9 +188,10 @@
     - [x] `painting` to play back the current recording.
     - [x] `painting:record` to start a recording.
 
---------------------------
-
-Right now I am typing some words.
+** tmi thoughts from amelia on seeing code ***
+  - [] "Nobody else wants to do this."
+  - [] "There is too much information."
+  - [] "Why does it have to look like this?"
 
 *** Research ***
   - [] Piczo
