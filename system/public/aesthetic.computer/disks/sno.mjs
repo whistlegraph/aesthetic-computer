@@ -17,6 +17,7 @@
   + Done
   - [x] Random character assignment. 
   - [x] Z-sorting.
+
 #endregion */
 
 const { min, floor, abs, acos, sin, cos, sqrt, PI, random, round } = Math;
@@ -25,6 +26,9 @@ const { keys } = Object;
 let server;
 let self;
 const lead = { x: 0, y: 0 };
+let touchedAt; // For tap-to-jump.
+let idleCycles = 0; // For counting idle animations until lie an
+let postStandState = "idle";
 
 let LEFT,
   RIGHT,
@@ -80,26 +84,37 @@ function boot({
   debug = false;
   // Load sprite assets from the server.
   const path = debug ? "/assets/sno" : "https://assets.aesthetic.computer/sno";
-  preload(`${path}/spriteWispy2k.png`).then((file) => {
-    kidSheets["wispy"] = file.img;
+
+  preload(`${path}/allPeople_sprite2k.webp`).then((file) => {
+    kidSheets["all"] = file.img;
   });
 
-  preload(`${path}/spriteBunny2k.png`).then((file) => {
-    kidSheets["bunny"] = file.img;
+  preload(`${path}/simPeople_sprite2k.webp`).then((file) => {
+    kidSheets["sim"] = file.img;
   });
 
-  preload(`${path}/spriteSpike2k.png`).then((file) => {
-    kidSheets["spike"] = file.img;
-  });
+  // preload(`${path}/spriteWispy2k.png`).then((file) => {
+  //   kidSheets["wispy"] = file.img;
+  // });
+
+  // preload(`${path}/spriteBunny2k.png`).then((file) => {
+  //   kidSheets["bunny"] = file.img;
+  // });
+
+  // preload(`${path}/spriteSpike2k.png`).then((file) => {
+  //   kidSheets["spike"] = file.img;
+  // });
 
   preload(`${path}/moundFinalSmall.png`).then((file) => {
     moundPainting = file.img;
   });
 
+  // Create a new `kid` with a character type.
   self = kid(
     handle() || "nub",
     help.choose("orange", "yellow", "cyan", "blue", "lime"),
-    help.choose("wispy", "bunny", "spike"),
+    help.choose("all", "sim"),
+    // help.choose("wispy", "bunny", "spike"),
   );
 
   server = socket((id, type, content) => {
@@ -113,7 +128,11 @@ function boot({
     }
 
     if (type.startsWith("connected")) {
-      server.send("sno:join", { handle: self.handle, color: self.color, body: self.body });
+      server.send("sno:join", {
+        handle: self.handle,
+        color: self.color,
+        body: self.body,
+      });
       console.log("⛄ Welcome:", self.handle, `(${id})`);
       self.id = id;
     }
@@ -137,6 +156,7 @@ function boot({
         others[id].y = content.y;
         others[id].step = content.step;
         others[id].dir = content.dir;
+        others[id].state = content.state;
       }
     }
   });
@@ -215,7 +235,19 @@ function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
 
     if (kidSheets[kid.body]) {
       const tile = kidSheets[kid.body].height / 16;
-      const tx = floor(kid.step);
+
+      const states = {
+        walk: 0,
+        idle: 1,
+        lie: 2,
+        sleep: 3,
+        stand: 4,
+        jump: 5,
+        lift: 6,
+        throw: 7,
+      };
+
+      const tx = floor(kid.step) + states[kid.state] * 8;
       const ty = floor(kid.dir);
       paste(
         {
@@ -272,6 +304,8 @@ function sim({
   // 🚶 Walking...
   const sstep = 2;
 
+  const lastLead = { ...lead };
+
   if (LEFT) lead.x -= sstep; // Walk self as needed.
   if (RIGHT) lead.x += sstep;
   if (UP) lead.y -= sstep;
@@ -301,17 +335,58 @@ function sim({
     }
   });
 
-  newSelf = {
-    x: lerp(newSelf.x, lead.x, 0.015),
-    y: lerp(newSelf.y, lead.y, 0.015),
-  };
+  newSelf = { x: self.x, y: self.y };
 
-  const speed = p2.dist(self, newSelf);
+  if (self.state === "walk" || self.state === "jump") {
+    newSelf = {
+      x: lerp(newSelf.x, lead.x, 0.015),
+      y: lerp(newSelf.y, lead.y, 0.015),
+    };
+  }
 
-  if (speed > 0.01) {
-    self.step = (self.step + speed / 7) % 8;
-    const movement = { x: self.x, y: self.y, step: self.step, dir: self.dir };
-    if (simCount % 6n === 0n) server.send("sno:move", movement);
+  if (self.state === "walk") {
+    const speed = p2.dist(self, newSelf);
+
+    if (speed > 0.01) {
+      self.step = (self.step + speed / 7) % 8;
+      const movement = {
+        x: self.x,
+        y: self.y,
+        step: self.step,
+        dir: self.dir,
+        state: self.state,
+      };
+      if (simCount % 6n === 0n) server.send("sno:move", movement);
+    }
+  } else if (self.state === "idle") {
+    self.step = self.step + 1 / 12;
+
+    if (self.step >= 8) {
+      self.step %= 8;
+      idleCycles += 1;
+    }
+
+    if (idleCycles > 2) {
+      idleCycles = 0;
+      self.state = "lie";
+    }
+  } else if (self.state === "jump") {
+    self.step = self.step + 1 / 8;
+    if (self.step >= 8) state(self, "walk");
+  } else if (self.state === "lie") {
+    self.step = self.step + 1 / 8;
+    if (self.step >= 8) state(self, "sleep");
+  } else if (self.state === "sleep") {
+    self.step = (self.step + 1 / 16) % 8;
+  } else if (self.state === "throw") {
+    self.step = self.step + 1 / 12;
+    if (self.step >= 8) state(self, "idle");
+  } else if (self.state === "stand") {
+    self.step = self.step + 1 / 16;
+    if (self.step >= 8) {
+      self.step = 0;
+      state(self, postStandState);
+    }
   }
 
   // Adjust the camera.
@@ -442,23 +517,80 @@ function sim({
 }
 
 // 🎪 Act
-function act({ event: e, screen }) {
+function act({ event: e, screen, num }) {
   // Respond to user input here.
-  if (e.is("keyboard:down:a") || e.is("keyboard:down:arrowleft")) LEFT = true;
-  if (e.is("keyboard:up:a") || e.is("keyboard:up:arrowleft")) LEFT = false;
+  if (e.is("keyboard:down:a") || e.is("keyboard:down:arrowleft")) {
+    LEFT = true;
+    checkMovementKey();
+  }
 
-  if (e.is("keyboard:down:d") || e.is("keyboard:down:arrowright")) RIGHT = true;
-  if (e.is("keyboard:up:d") || e.is("keyboard:up:arrowright")) RIGHT = false;
+  if (e.is("keyboard:up:a") || e.is("keyboard:up:arrowleft")) {
+    LEFT = false;
+    checkMovementKey();
+  }
 
-  if (e.is("keyboard:down:w") || e.is("keyboard:down:arrowup")) UP = true;
-  if (e.is("keyboard:up:w") || e.is("keyboard:up:arrowup")) UP = false;
+  if (e.is("keyboard:down:d") || e.is("keyboard:down:arrowright")) {
+    RIGHT = true;
+    checkMovementKey();
+  }
 
-  if (e.is("keyboard:down:s") || e.is("keyboard:down:arrowdown")) DOWN = true;
-  if (e.is("keyboard:up:s") || e.is("keyboard:up:arrowdown")) DOWN = false;
+  if (e.is("keyboard:up:d") || e.is("keyboard:up:arrowright")) {
+    RIGHT = false;
+    checkMovementKey();
+  }
+
+  if (e.is("keyboard:down:w") || e.is("keyboard:down:arrowup")) {
+    UP = true;
+    checkMovementKey();
+  }
+
+  if (e.is("keyboard:up:w") || e.is("keyboard:up:arrowup")) {
+    UP = false;
+    checkMovementKey();
+  }
+
+  if (e.is("keyboard:down:s") || e.is("keyboard:down:arrowdown")) {
+    DOWN = true;
+    checkMovementKey();
+  }
+
+  if (e.is("keyboard:up:s") || e.is("keyboard:up:arrowdown")) {
+    DOWN = false;
+    checkMovementKey();
+  }
+
+  if (e.is("keyboard:down:t")) state(self, "throw");
+
+  function checkMovementKey() {
+    if (self.state === "jump") return;
+    if (!LEFT && !RIGHT && !UP && !DOWN) {
+      idle();
+    } else {
+      state(self, "walk");
+    }
+  }
+
+  function idle() {
+    lead.x = num.lerp(lead.x, self.x, 0.99);
+    lead.y = num.lerp(lead.y, self.y, 0.99);
+    state(self, "idle");
+  }
+
+  // 🛸 Jumping
+  if (e.is("keyboard:down:space") && self.state !== "jump") state(self, "jump"); // Spacebar
+  if (e.is("touch")) touchedAt = { x: e.x, y: e.y }; // Tap
+  if (e.is("lift")) {
+    if (num.p2.dist(e, touchedAt) === 0) {
+      state(self, "jump");
+    } else {
+      idle();
+    }
+  }
 
   if (e.is("draw")) {
     lead.x += e.delta.x;
     lead.y += e.delta.y;
+    state(self, "walk");
   }
 
   // if (e.is("dropped:bitmap")) {
@@ -500,6 +632,27 @@ export { boot, paint, sim, act, meta };
 // 📚 Library
 //   (Useful functions used throughout the piece)
 
+// `state(self, "lie")`
+function state(kid, nextState) {
+  if (
+    (kid.state === "throw" && nextState === "throw") ||
+    (kid.state === "jump" && nextState === "jump")
+  ) {
+    return;
+  }
+
+  if (kid.state === "sleep") {
+    postStandState = nextState;
+    kid.state = "stand";
+  } else {
+    kid.state = nextState;
+  }
+
+  if (kid.state === "idle" || kid.state === "jump" || kid.state === "throw")
+    kid.step = 0;
+  idleCycles = 0;
+}
+
 function kid(handle, color, body = "wispy") {
   return {
     type: "kid",
@@ -507,7 +660,7 @@ function kid(handle, color, body = "wispy") {
     handle,
     x: 0,
     y: 0,
-    state: "still",
+    state: "idle", // "walk", "idle", "lie", "sleep", "stand", "jump", "lift", "throw"
     step: 0,
     dir: 0,
     color,
