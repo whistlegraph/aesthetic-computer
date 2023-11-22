@@ -21,13 +21,19 @@ let melodyIndex = 0;
 let square;
 let firstBeat = true;
 
-function boot() {
-}
+function boot() {}
 
 // 💗 Beat
 function beat({ sound, params, store }) {
   // Set the system metronome using `store`.
-  store["metronome:bpm"] = sound.bpm(params[0] || store["metronome:bpm"] || 200);
+
+  let newBpm;
+  if (params[0] === "fast") newBpm = 300;
+  else if (params[0] === "medium") newBpm = 120;
+  else if (params[0] === "slow") newBpm = 80;
+  else newBpm = parseInt(params[0]);
+
+  store["metronome:bpm"] = sound.bpm(newBpm || store["metronome:bpm"] || 200);
   // console.log("🎼 BPM:", sound.bpm(), "Time:", sound.time.toFixed(2));
 
   square = sound.synth({
@@ -81,7 +87,8 @@ const paint = ({ wipe, ink, line, screen, num: { lerp } }) => {
   const left = baseAngle - 20;
   const right = baseAngle + 20;
 
-  let angle = melodyIndex === 0 ? lerp(left, right, squareP) : lerp(right, left, squareP);
+  let angle =
+    melodyIndex === 0 ? lerp(left, right, squareP) : lerp(right, left, squareP);
 
   if (firstBeat) angle = left;
 
@@ -89,7 +96,7 @@ const paint = ({ wipe, ink, line, screen, num: { lerp } }) => {
     screen.width / 2,
     screen.height - screen.height / 4,
     screen.height / 2,
-    angle
+    angle,
   );
 };
 
