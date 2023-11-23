@@ -1,21 +1,27 @@
-//import geckos from "../dep/@geckos.io/client/index.js";
+import Geckos from "../dep/geckos.io-client.2.3.2.min.js";
 
-// or add a minified version to your index.html file
-// https://github.com/geckosio/geckos.io/tree/master/bundles
+/* #region 🏁 todo
+  - [] Production ICE / TURN Servers.
+  - [] Set up room system.
+#endregion */
 
-//const channel = geckos({ port: 3000 }); // default port is 9208
-//
-//channel.onConnect(error => {
-//  if (error) {
-//    console.error(error.message);
-//    return;
-//  }
-//
-//  channel.on('chat message', data => {
-//    console.log(`You got the message ${data}`);
-//  });
-//
-//  channel.emit('chat message', 'a short message sent to the server');
-//});
+export const UDP = {
+  connect: (port = 8889) => {
+    const channel = Geckos({ port }); // default port is 9208
 
-export const UDP = "he";
+    channel.onConnect((error) => {
+      if (error) {
+        console.error("🩰", error.message);
+        return;
+      }
+
+      console.log("🩰 Connected to UDP!");
+
+      channel.on("chat message", (data) => {
+        console.log(`🩰 You got the message: ${data}`);
+      });
+
+      channel.emit("chat message", "a short message sent to the server");
+    });
+  },
+};
