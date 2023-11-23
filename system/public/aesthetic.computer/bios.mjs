@@ -18,6 +18,7 @@ import { headers } from "./lib/console-headers.mjs";
 import { logs } from "./lib/logs.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 import { timestamp, radians } from "./lib/num.mjs";
+import { UDP } from "./lib/udp.mjs";
 
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
@@ -1258,6 +1259,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+
+    // Connect to a UDP server,
+    // which will pass messages to the disk runner.
+    if (type === "udp:connect") {
+      UDP.connect(content.port);
+      return;
+    }
+
     if (type === "ticket-wall") {
       if (!window.Stripe) await loadStripe();
       let pretext = ``;

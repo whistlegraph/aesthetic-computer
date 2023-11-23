@@ -98,7 +98,7 @@ try {
 
 fastify.get("/", async () => {
   return {
-    msg: "Hello, you've reached an aesthetic.computer session server instance!",
+    msg: "Hello, and welcom to an aesthetic.computer session server instance!",
   };
 });
 
@@ -141,7 +141,7 @@ wss = new WebSocketServer({ server });
 console.log(
   `🤖 session.aesthetic.computer (${
     dev ? "Development" : "Production"
-  }) socket: wss://${ip.address()}:${info.port}`
+  }) socket: wss://${ip.address()}:${info.port}`,
 );
 
 // Pack messages into a simple object protocol of `{type, content}`.
@@ -196,8 +196,9 @@ wss.on("connection", (ws, req) => {
   ws.send(
     pack(
       "connected",
-      JSON.stringify({ id, ip, playerCount: content.playerCount }), id
-    )
+      JSON.stringify({ id, ip, playerCount: content.playerCount }),
+      id,
+    ),
   );
 
   // Send a join message to everyone else.
@@ -207,8 +208,8 @@ wss.on("connection", (ws, req) => {
       JSON.stringify({
         text: `${connectionId} has joined. Connections open: ${content.playerCount}`,
       }),
-      id
-    )
+      id,
+    ),
   );
 
   connectionId += 1;
@@ -267,6 +268,30 @@ function subscribers(subs, msg) {
     connections[connectionId]?.send(msg);
   });
 }
+// #endregion
+
+// 🧚 UDP Server (using Twilio ICE servers)
+// #region udp
+
+import geckos from "@geckos.io/server";
+
+const io = geckos();
+
+io.addServer(server);
+
+io.onConnection((channel) => {
+  channel.onDisconnect(() => {
+    console.log(`🩰 ${channel.id} got disconnected`);
+  });
+
+  channel.on("chat message", (data) => {
+    console.log(`🩰 got ${data} from "chat message"`);
+    // emit the "chat message" data to all channels in the same room
+    io.room(channel.roomId).emit("chat message", data);
+  });
+});
+
+// #endregion
 
 // 🚧 File Watching in Local Development Mode
 // File watching uses: https://github.com/paulmillr/chokidar
@@ -291,4 +316,3 @@ if (dev) {
         everyone(pack("reload", { piece: "*refresh*" }, "local"));
     });
 }
-// #endregion
