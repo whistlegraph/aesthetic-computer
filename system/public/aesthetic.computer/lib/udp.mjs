@@ -6,8 +6,10 @@ import Geckos from "../dep/geckos.io-client.2.3.2.min.js";
 #endregion */
 
 export const UDP = {
-  connect: (port = 8889) => {
-    const channel = Geckos({ port }); // default port is 9208
+  connect: (port = 8889, url = undefined) => {
+    console.log("🩰 Connecting to UDP:", url, "on:", port);
+
+    const channel = Geckos({ url, port }); // default port is 9208
 
     channel.onConnect((error) => {
       if (error) {
@@ -15,7 +17,7 @@ export const UDP = {
         return;
       }
 
-      console.log("🩰 Connected to UDP!");
+      console.log("🩰 Connected to UDP:", channel);
 
       channel.on("chat message", (data) => {
         console.log(`🩰 You got the message: ${data}`);
