@@ -1,4 +1,4 @@
-FROM node:lts-gallium
+FROM node:lts-hydrogen
 WORKDIR /app
 COPY .env .
 COPY session.mjs .
