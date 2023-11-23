@@ -86,6 +86,8 @@ function paint({ api, ink, help, text, screen, num: { randIntArr } }) {
         text = "Mitchell F. Chan";
       } else if (bar.color === "blue") {
         text = "Sean Moss-Pultz";
+      } else if (bar.color === "green") {
+        text = "@wiltchamberlain";
       } else {
         text = bar.tb.btn.down ? undefined : claim ? "CLAIM" : "$10k+";
       }
