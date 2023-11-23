@@ -2354,12 +2354,20 @@ async function load(
 
     session(slug, forceProd, monolith)
       .then((sesh) => {
-        // UDP... (via `bios`)
-        send({ type: "udp:connect", content: { port: debug ? 8889 : 443 } });
+        const url = new URL(sesh.url);
 
-        // Web Sockets
+        // 🩰 UDP... (via `bios`)
+        send({
+          type: "udp:connect",
+          content: {
+            url: `https://${url.hostname}`,
+            port: debug ? 8889 : 443,
+          },
+        });
+
+        // 🕸️ Web Sockets
         socket?.connect(
-          new URL(sesh.url).host,
+          url.host,
           (id, type, content) => {
             // Globally receivable messages...
             // (There are also some messages handled in `Socket`)

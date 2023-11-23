@@ -1263,7 +1263,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Connect to a UDP server,
     // which will pass messages to the disk runner.
     if (type === "udp:connect") {
-      UDP.connect(content.port);
+      UDP.connect(content.port, content.url);
       return;
     }
 
