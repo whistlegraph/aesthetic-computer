@@ -14,7 +14,6 @@ import * as help from "./help.mjs";
 import * as platform from "./platform.mjs";
 import { parse, metadata } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
-// import { UDP } from "./udp.mjs"; // TODO: Eventually expand to `net.Socket`
 import { notArray, defaultTemplateStringProcessor } from "./helpers.mjs";
 const { round, sin, random, max, floor } = Math;
 const { keys } = Object;
@@ -2355,6 +2354,10 @@ async function load(
 
     session(slug, forceProd, monolith)
       .then((sesh) => {
+        // UDP... (via `bios`)
+        send({ type: "udp:connect", content: { port: debug ? 8889 : 443 } });
+
+        // Web Sockets
         socket?.connect(
           new URL(sesh.url).host,
           (id, type, content) => {
@@ -2385,7 +2388,7 @@ async function load(
         );
       })
       .catch((err) => {
-        console.error("Socket connection error:", err);
+        console.error("Session connection error:", err);
       });
   }
 
