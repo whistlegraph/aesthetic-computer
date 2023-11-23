@@ -277,7 +277,7 @@ import geckos from "@geckos.io/server";
 
 const io = geckos();
 
-io.addServer(server);
+io.addServer(server); // Hook up to the HTTP Server.
 
 io.onConnection((channel) => {
   channel.onDisconnect(() => {
