@@ -256,7 +256,7 @@ const lessons = [
     title: "Lesson NOT Learnt 16 * a PAST not remembered *",
     text: `
     .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. 
-    o0OoO0o Owls & BLACK fanthom helicopters = as replacement meory, Damascus steel & viking hands - for the viking times, when it is just around viking o’ klok — the guild of the Viking klo0OoO0okkers
+    o0OoO0o Owls & BLACK fanthom helicopters = as replacement memory, Damascus steel & viking hands - for the viking times, when it is just around viking o’ klok — the guild of the Viking klo0OoO0okkers
     .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. 
     `,
     pictures: ["lnl16-1", "lnl16-2"],
