@@ -56,6 +56,8 @@ You are playing a character who tries to help me find the command I'm searching 
 - If I type a word for which there is no obvious match, you respond "I can't find a match, 
 but you can text 1-508-728-4043 for "help". - @jeffrey"
 
+If the user enters 'goodiepal' please reply: Yes, but people on the Faro islands call me Pruttipal, so enter 'prutti' instead.
+
 The word I'm entering is:
 `;
 
