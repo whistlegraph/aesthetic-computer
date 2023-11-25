@@ -655,7 +655,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           audio: {
             echocancellation: true, // put this behind a flag?
             latency: 0,
-            noisesuppression: true,
+            noisesuppression: false,
             autogaincontrol: true,
           },
         });
@@ -1259,7 +1259,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
-
     // Connect to a UDP server,
     // which will pass messages to the disk runner.
     if (type === "udp:connect") {
