@@ -73,7 +73,7 @@ const lessons = [
     title: "Lesson NOT Learnt 04",
     text: `
     —————— Fact: ——————	———————————
-    Rasmus Sørnes just joined: The Guild of the Viking Klokkers 
+    Rasmus Sørnes just joined: The Guild of the Viking Klokkers 
     —————— Dansk ——————	————————
     Tænd for: Teksti-TV 666
     Nej hved du nu hvad Nyhil er lukket, jo da har du / de overhovedet flere bolsjer i posen ???
@@ -211,6 +211,79 @@ const lessons = [
     now that should be all... //////// -- come join the guild of the viking klokkers... & lsiten to: The Franciscan Hobbies
     `,
     pictures: ["lnl12"],
+  },
+  {
+    title: "Lesson NOT Learnt 13",
+    text: `
+    .. clocks and music and life - is my speciality ..
+
+    >ON rainy days - ( like most days out here)  - ROTOR's is all that I do, _ I'am definitely one of the most adventure's ROTOR make's around - & I puts great pride into this little craft - I mean I do rep. the guild OF THE VIKING KLOKKER'S after all, right? —- Let's just make thing's there is around us better, that's all that I would like to share whit my daughter and the people around me …
+
+    >>> HAANDSKULPTUR…HAANDSKULPTUR..HAANDSKULPTUR.HAANDSKULPTR >>>
+
+    N.B. now a days I hardly sign any of creation's — as I do think that my work should do the talk-ing & I have never really been a artist, in the first place -  I'am more like a UPdate'er - I take things and makes them better…
+
+    If you stay around me just for a little while, things in your life improves drastically —YES - it is true, it is a mystical (also to me) gift that  i inherited when i was very small - - — in watche's people always talk about, unique thing's — but you, just as what I create is a PIECE UNIQUE 
+
+    0 - ROTOR's —0 ROTOR's - 0 - ROTOR's - - 0 - ROTOR's - 0
+    `,
+    pictures: ["lnl13-1", "lnl13-2", "lnl13-3"],
+  },
+  {
+    title: "Lesson NOT Learnt 14 - Distribution",
+    text: `
+    Do You Want To Know A Sick-Rat << TORA DALSENG is one of the BEST >> 
+    yes yes - we have done some kissing in the distant past, but that is of the point, as I would KISS the whole world if it ever gave me the change!
+
+    'NOW' better then the 'BEST' is: distribution,  most fine-loveley-fumbling art-works, first come's to life when they are distributed … ### Some individual's produce to much and distribute to little ### - If it was not for other people's story-telling of my craft's and life, my work would only be one and the same as “various crap-forms of old manliness”= not something the world would fined particularly HOT——— SO——— YOU, yes all of YOU distributer's continue to make me shine, by altering my output — Danke Schoen!
+    -THE DALSENG-
+    NOW back to: ms. DALSENG = When you meet the BEST, you should always UPDATE, whit-out destroy'ing the work, —— & by doing so taking the art and the life of the artist into your heart - - - You know that people actually did this for the first 3 - 4 seconds of social media web—2.0 before the distribution of ideas - was eschewed and replaced w. self-promotion & identity bla. bla. bla.
+    I will try to still be all about distro, — like Atlantic- I got them works flyin- '-aesthetic computer'ly-' -cross the Atlantic (Woo!)  & -00- LOOK the DALSENG-work  is though it may seem strange, even better now, but no NOT for me flagging it up, no no = simply for context-flipping it - embrace: Stanley Brouwn
+    `,
+    pictures: ["lnl14-1", "lnl14-2", "lnl14-3"],
+  },
+  {
+    title: "Lesson NOT Learnt 15 - The Drug of WAR destroys EVERYTHING!",
+    text: `
+    [under the drugs belvie me.m4a]
+
+    §§ Ohh Prutti, §§ Ohh Pruttipal - this is the Kitchi-Man >' Vladimir Obradovic ' … The picture is a 1990's sel-fi - from when he was young & full of MTV-music knowledge & dreams… — —- §§ ohh young prutti, ohh young prutti  §§ > the Yugoslav Wars was hard on the Kitchi-Man, he never fully recovered - - the WAR-drug destroy's EVERYTHING, war-info-drugs destroy's all there is good - but I will carry Vladimir, in my heart and will forever sing his unwritten & unfinished songs - no further info is needed there...
+    `,
+    pictures: ["lnl15"],
+    sounds: ["under the drugs belvie me"],
+  },
+  {
+    title: "Lesson NOT Learnt 16 * a PAST not remembered *",
+    text: `
+    .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. 
+    o0OoO0o Owls & BLACK fanthom helicopters = as replacement meory, Damascus steel & viking hands - for the viking times, when it is just around viking o’ klok — the guild of the Viking klo0OoO0okkers
+    .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. 
+    `,
+    pictures: ["lnl16-1", "lnl16-2"],
+  },
+  {
+    title: "Lesson NOT Learnt 17 - Das real IRDIAL's",
+    text: `
+    Most Euro-crafts is about: avoiding nature - but let me tell you I was painting one of my bicykle's the other day in: Velbastaður - I was using some wild & crazy chemical-paint that I had mixed from leftovers found at an abandoned construction site, and the rain was pouring down & interacting w. the paint - the result was so so so beautiful -
+    
+    I enjoy the act of painting bicykle's in the rain - BUT now > back to watch-making ... take a look at the unfinished experiments w. Damascus dial's here // - let nature - o0OoO0o rpl-memory and black phantom helicopters o0OoO0o - take part in your craft-making >--- what comes from the outside is often much better, then what come's from the inside - the outside world is THE real inside 'YES' & this unfinished dial's are the real irdial's - Me·chan·ics and interruption from nature is what's usually missing in the digital art's --- NOW go get a skeletonized pocket watch my friend, - - - they come fancy and they come cheap, BUT get 1 and start to think of civilization vs. nature - until you fall asleep…
+    `,
+    pictures: ["lnl17-1", "lnl17-2"],
+  },
+  {
+    title: "Lesson NOT Learnt 18 __Euro-Bell__",
+    text: `
+    ————…………….
+    Would you like to hear a a real electro-akustic-contemprary bell struck? - § made by my music-friend: V-Lars - Villads von Possel ?? §
+    #WELL# here you go - IN - life & music I hardly, see myself as taking part anymore, I am just the one who is ringing the BELL… YES the same right now I just start and maintain the output of in this case the musical action . .  bla. BLA. bla. BLA. bla. 
+    ————
+    Ohh do you know the reason for this tintinnabulation - ? ? ? - §IT IS because§ —Stanley Brouwn— just joined: the GUILD of the viking KLOKKER's
+    ………………§……….§……….§……….§:……..§:………………………………..
+
+    [v-lars.m4a]
+    `,
+    pictures: ["lnl18"],
+    sounds: ["v-lars"],
   },
 ];
 
@@ -360,7 +433,7 @@ function loadLesson(api) {
   // Load and play sample for lesson 11.
   lessons[lesson].sounds?.forEach((name) => {
     api.net.preload(`${path}/${name}.m4a`).then((sfx) => {
-      api.sound.play(sfx); // Immediately play '.m4a' after loading it.
+      api.sound.play(sfx, { loop: true }); // Immediately play '.m4a' after loading it, and looping it.
     });
   });
 }
