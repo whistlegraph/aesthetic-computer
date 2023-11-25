@@ -84,7 +84,7 @@ class Microphone extends AudioWorkletProcessor {
 // 🐦
 // Pitch recognition via: https://github.com/bojan88/WASM-vs-JS-Pitch-detector
 {
-  const LOWER_PITCH_CUTOFF = 20.0;
+  const LOWER_PITCH_CUTOFF = 10.0;
   const SMALL_CUTOFF = 0.5;
   const CUTOFF = 0.93;
 
