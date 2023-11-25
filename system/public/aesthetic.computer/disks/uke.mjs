@@ -5,7 +5,9 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Detect and report ukelele pitch. 
+  - [-] Detect a sustained pitch.
+  + Done
+  - [x] Detect and report ukelele pitch. 
 #endregion */
 
 let mic,
