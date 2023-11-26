@@ -39,8 +39,10 @@ async function boot({ ticket, query, notice, store, jump }) {
   const ticketToCheck = query?.ticket || storedTicket?.key;
   if (!ticketToCheck)
     notice(noMessage, [
-      [48, 49, 61],
-      [250, 146, 146],
+      "pink",
+      "black"
+      // [48, 49, 61],
+      // [250, 146, 146],
     ]);
 
   // Check for a ticket stub using the API.
@@ -70,19 +72,22 @@ async function boot({ ticket, query, notice, store, jump }) {
         setTimeout(() => ticket({ from: "sotce", item: "botce" }), 1500);
       });
   } else {
-    ticket({ from: "sotce", item: "botce" });
+    setTimeout(() => {
+      notice("has left us", ["pink", "black"]);
+    }, 1000);
+    // ticket({ from: "sotce", item: "botce" });
   }
 }
 
 // 🎨 Paint
 function paint({ wipe, ink, help: { choose }, screen }) {
   if (needsWipe) {
-    wipe("gray");
+    wipe(20, 30, 100);
     needsWipe = false;
   }
-  ink(choose("pink", "blue"))
-    .write(choose("sotce", "botce"))
-    .ink(128, 6)
+  ink(choose("maroon", "blue", "gray"))
+    .write(choose("no sotce :(", "bye botce :)"))
+    .ink(10, 30, 80, 6)
     .box(0, 0, screen.width, screen.height);
 }
 

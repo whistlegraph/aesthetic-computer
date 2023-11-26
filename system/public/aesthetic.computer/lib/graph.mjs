@@ -298,12 +298,12 @@ function shadePixels(points, shader, shaderArgs = []) {
     p.x = floor(p.x); // Floor position and check bounds.
     p.y = floor(p.y);
 
-    const n = p.y * width + p.x;
+    const n = p.x + p.y * width;
 
-    if (writeBuffer[n] === 0) {
+    if (writeBuffer[n] !== 1) {
       writeBuffer[n] = 1; // Remember this point in the frame's writeBuffer.
       // 🪄 Pixel Shader
-      const i = floor((p.x + p.y * width) * 4); // Get current pixel under p.
+      const i = floor(p.x + p.y * width) * 4; // Get current pixel under p.
       const pixel = pixels.subarray(i, i + 4);
       // TODO: Put p.color into shaderArgs or some other automated thing?
       shader.color({ x: p.x, y: p.y }, pixel, c, p.color); // Modify color.
