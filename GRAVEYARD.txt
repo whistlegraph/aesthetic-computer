@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** Connection Status ***
+  - [x] Show connection status on prompt and as color of corner labels.
+
 *** 🪷 `botce` launch (ticketed pieces) - Nov. 21 ***
   + Done
   - [x] See `botce.mjs`.

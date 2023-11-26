@@ -1086,6 +1086,13 @@ function paint($) {
     }
   }
 
+  // Paint current status color.
+  // if (!$.system.prompt.input.canType) {
+  let statusColor = $.hud.currentStatusColor();
+  if (statusColor)
+    ink(statusColor).box(screen.width - 3, 2, 1);
+  // }
+
   // Trigger a red or green screen flash with a timer.
   if (flashShow) {
     let color = firstActivation ? scheme.dark.block : flashColor;

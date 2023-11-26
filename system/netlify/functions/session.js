@@ -55,24 +55,41 @@ async function fun(event, context) {
     // Check to see if a backend is already available...
     const currentBackend = await client.HGET("backends", slug);
 
+    console.log("🫂  Current backend:", currentBackend);
+
     if (currentBackend) {
-      out = await got(
-        `https://api.jamsocket.com/backend/${currentBackend}/status`
-      ).json();
-      out.url = `https://${currentBackend}.jamsocket.run`; // Add URL for client.
+      try {
+        out = await got(
+          `https://api.jamsocket.com/backend/${currentBackend}/status`,
+        ).json();
+        out.url = `https://${currentBackend}.jamsocket.run`; // Add URL for client.
+        console.log("Out:", out);
+      } catch (err) {
+        console.error("🔴 Error:", err);
+        status = 500;
+        out = err;
+      }
     }
 
     if (out?.state !== "Ready") {
       // Make a new session backend if one doesn't already exist.
-      const session = await got
-        .post({
-          url: "https://api.jamsocket.com/user/jas/service/session-server/spawn",
-          json: { grace_period_seconds: 60 }, // jamsocket api settings
-          headers: { Authorization: `Bearer ${jamSocketToken}` },
-        })
-        .json(); // Note: A failure will yield a 500 code here to the client.
-      await client.HSET("backends", slug, session.name); // Store the session name in redis using the 'slug' key.
-      out = session;
+      try {
+        console.log("🟡 Spawning a new session for:", slug);
+        const session = await got
+          .post({
+            url: "https://api.jamsocket.com/user/jas/service/session-server/spawn",
+            json: { grace_period_seconds: 60 }, // jamsocket api settings
+            headers: { Authorization: `Bearer ${jamSocketToken}` },
+          })
+          .json(); // Note: A failure will yield a 500 code here to the client.
+
+        await client.HSET("backends", slug, session.name); // Store the session name in redis using the 'slug' key.
+        out = session;
+      } catch (err) {
+        console.error("🔴 Error:", err);
+        status = 500;
+        out = err;
+      }
     }
 
     await client.quit(); // Disconnect from redis client.

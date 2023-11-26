@@ -221,6 +221,7 @@ let currentPath,
   currentCode,
   currentHUDTxt,
   currentHUDTextColor,
+  currentHUDStatusColor = "red",
   currentHUDButton,
   currentHUDOffset;
 //currentPromptButton;
@@ -722,6 +723,7 @@ const $commonApi = {
       currentHUDTextColor = color;
       currentHUDOffset = offset;
     },
+    currentStatusColor: () => currentHUDStatusColor,
     currentLabel: () => ({ text: currentHUDTxt, btn: currentHUDButton }),
     labelBack: () => {
       labelBack = true;
@@ -1296,12 +1298,26 @@ async function session(slug, forceProduction = false, service) {
 
   const req = await fetch(endPoint);
 
-  const session = await req.json();
+  let session;
+  if (req.status === 200) {
+    session = await req.text().then((text) => {
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        return text;
+      }
+    });
+  } else {
+    session = await req.text();
+  }
 
-  if (debug && logs.session)
+  if (typeof session === "string") return session;
+
+  if (debug && logs.session) {
     console.log(
       `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`,
     );
+  }
   // Return the active session if the server knows it's "Ready", otherwise
   // wait for the one we requested to spin up.
   // (And in debug mode we just get a local url from "/session" so no need
@@ -1324,11 +1340,23 @@ async function session(slug, forceProduction = false, service) {
         };
         const color = colors[update.state] || "🔵";
         console.log(color + " Backend:", update.state);
+
+        if (update.state === "Loading") {
+          currentHUDStatusColor = "red";
+        } else if (update.state === "Ready") {
+          currentHUDStatusColor = "yellow";
+        } else if (update.state === "Starting") {
+          currentHUDStatusColor = "orange";
+        } else {
+          currentHUDStatusColor = "brown";
+        }
+
         if (update.state === "Ready") {
+          eventSource.close(); // Close the event stream handler.
           resolve(session);
         } else {
           if (update.state !== "Loading" && update.state !== "Starting") {
-            eventSource = null; // Clears the event stream handler.
+            eventSource.close(); // Close the event stream handler.
           }
         }
       };
@@ -2347,14 +2375,15 @@ async function load(
       return;
     }
     // Never open socket server in icon / preview mode.
-    if (debug && logs.session) console.log("🧦 Initializing socket server...");
+    if (debug && logs.session) console.log("🫂 Finding session server...");
     socket = new Socket(debug); // Then redefine and make a new socket.
 
     const monolith = undefined; //"monolith"; // or undefined for horizontal scaling.
 
     session(slug, forceProd, monolith)
       .then((sesh) => {
-        const url = new URL(sesh.url);
+        if (typeof sesh === "string") throw new Error(sesh); // Cancel if error.
+        const url = new URL(sesh.url); // Parse the url.
 
         // 🩰 UDP... (via `bios`)
         send({
@@ -2392,11 +2421,17 @@ async function load(
           () => {
             // Post-connection logic.
             if (codeChannel) socket?.send("code-channel:sub", codeChannel);
+            currentHUDStatusColor = "lime";
+            // setTimeout(function () {
+            //   currentHUDStatusColor = undefined;
+            // }, 250);
           },
         );
       })
       .catch((err) => {
-        console.error("Session connection error:", err);
+        console.error("Session connection:", {
+          Error: JSON.parse(err?.message) || err,
+        });
       });
   }
 
@@ -2936,6 +2971,7 @@ async function load(
     if (module.nohud) currentHUDTxt = undefined;
     currentHUDOffset = undefined; // Always reset these to the defaults.
     currentHUDTextColor = undefined;
+    currentHUDStatusColor = "red"; //undefined;
     currentHUDButton = undefined;
     //currentPromptButton = undefined;
 
@@ -4322,14 +4358,14 @@ async function makeFrame({ data: { type, content } }) {
         // graph.depthBuffer.length = screen.width * screen.height;
         // graph.depthBuffer.fill(Number.MAX_VALUE);
 
-        graph.writeBuffer.length = screen.width * screen.height;
-        graph.writeBuffer.fill(0);
+        graph.writeBuffer.length = 0; //screen.width * screen.height;
+        // graph.writeBuffer.fill(0);
       }
 
       // TODO: Disable the depth buffer for now... it doesn't need to be
       //       regenerated on every frame.
       // graph.depthBuffer.fill(Number.MAX_VALUE); // Clear depthbuffer.
-      graph.writeBuffer.fill(0); // Clear writebuffer.
+      graph.writeBuffer.length = 0; //fill(0); // Clear writebuffer.
 
       $api.screen = screen;
       $api.screen.center = { x: screen.width / 2, y: screen.height / 2 };
@@ -4669,7 +4705,9 @@ async function makeFrame({ data: { type, content } }) {
 
         label = $api.painting(w, h, ($) => {
           let c;
-          if (currentHUDTextColor) {
+          if (currentHUDStatusColor) {
+            c = currentHUDStatusColor;
+          } else if (currentHUDTextColor) {
             c = num.shiftRGB(currentHUDTextColor, [255, 255, 255], 0.75);
           } else {
             c = [255, 200, 240];
