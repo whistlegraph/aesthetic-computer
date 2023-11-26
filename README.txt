@@ -40,6 +40,10 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** UDP ***
+  - [] Set up UDP Server.
+  - [] Tie it into the connection status indicator color.
+
 *** `sno` launch - Dec 1? ***
   - [] See `sno.mjs`.
 

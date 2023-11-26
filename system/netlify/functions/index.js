@@ -106,7 +106,7 @@ async function fun(event, context) {
       <head>
         <meta charset="utf-8" />
         <title>${title}</title>
-        <!-- <link rel="icon" href="${icon}" type="image/png" /> -->
+        <link rel="icon" href="${icon}" type="image/png" />
         <link
           rel="stylesheet"
           crossorigin="anonymous"
