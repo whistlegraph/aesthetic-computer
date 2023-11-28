@@ -63,7 +63,7 @@ async function fun(event, context) {
           `https://api.jamsocket.com/backend/${currentBackend}/status`,
         ).json();
         out.url = `https://${currentBackend}.jamsocket.run`; // Add URL for client.
-        console.log("Out:", out);
+        // console.log("Out:", out);
       } catch (err) {
         console.error("🔴 Error:", err);
         status = 500;
@@ -86,7 +86,7 @@ async function fun(event, context) {
         await client.HSET("backends", slug, session.name); // Store the session name in redis using the 'slug' key.
         out = session;
       } catch (err) {
-        console.error("🔴 Error:", err);
+        // console.error("🔴 Error:", err);
         status = 500;
         out = err;
       }
