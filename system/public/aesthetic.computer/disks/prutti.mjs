@@ -342,7 +342,7 @@ const lessons = [
     [ingen tid - ingen saaar.m4a]
     `,
     pictures: ["lnl22-1", "lnl22-2", "lnl22-3"],
-    sounds: ["ingen tid - ingen saar"],
+    sounds: ["ingen tid - ingen saaar"],
   },
   {
     title: `Lesson NOT Learnt 23`,
@@ -379,7 +379,6 @@ const lessons = [
 
     Sanātana Dāsa 
     `,
-    pictures: [""],
     sounds: ["life is liv"],
   },
   {
@@ -392,6 +391,7 @@ const lessons = [
     §§§§ Plat Nipper _ Pruttipal
     `,
     pictures: ["lnl25"],
+    sounds: ["flap-nipper-main"],
   },
   {
     title: `Lesson NOT Learnt 26 - Pause`,
@@ -409,8 +409,8 @@ const lessons = [
     ANGEL's mandolin-ium bum BuM
     [angel mandolinur.m4a]
     `,
-    pictures: [],
-    sounds: ["angel mandolinur.m4a"],
+    pictures: ["lnl27"],
+    sounds: ["angel mandolinur"],
   },
   {
     title: `Lesson NOT Learnt 28`,
