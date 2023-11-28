@@ -428,7 +428,7 @@ const lessons = [
     ———————————————-
     THE REAL ANGEL EYE's
     - - N.B.THIS IS were the Angel Eye's song really comes to its right- - 
-    :_*:_*:_*:_*: This version of: Angel Eyes is done by §§ Koolroc'e §§ — She dos also go by the name:  ````ULRIKKE'''''' & probably a thousand other names - who knows?;:_;_:;
+    :_*:_*:_*:_*: This version of: Angel Eyes is done by §§ Koolroc'e §§ — She dos also go by the name:  ''''ULRIKKE'''''' & probably a thousand other names - who knows?;:_;_:;
     She is insanely bright and I love hear Energy and spirit -! ^'^'^'^^' The outcome of this lady's produce is manifold and baroque - in the true meaning of the word - ! ^'^'^'^
     She is one of the reasons why I am still alive and here today - - - A Fantasitc young artist - ready-made for the times to come… trust a Pruttipal . . . 
     ^'§^'§^'Ohhhh - I am not a big fan of cigarettes - but in this world, - differences is what make life a better place, then the grave. ^§'^§'^^'§^§'^
