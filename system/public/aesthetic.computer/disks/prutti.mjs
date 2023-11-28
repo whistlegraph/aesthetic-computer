@@ -304,7 +304,7 @@ const lessons = [
     - I was: Kommunal Klon Komputer 02 then I was: Kommunal Klon Komputer 04 - now i am just: Pruttie - but at least I am still: Prutti - - - Because even though: My robotic skills have failed, time and again - Baldur & Jesus' blood never failed me YET - Oh yes & that's why I stand w. Aesthetic.Computer as an experiment, - 50 years of age & still just “Pruttipal” - -PRUT -- PRUT…
     `,
     pictures: ["lnl19"],
-    sounds: ["robotic.m4a"],
+    sounds: ["robotic"],
   },
   {
     title: `Lesson NOT Learnt 20`,
@@ -329,20 +329,20 @@ const lessons = [
     [ingen tid - ingen mandolin.m4a]
     `,
     pictures: ["lnl21"],
-    sounds: ["ingen tid - ingen mandolin.m4a"],
+    sounds: ["ingen tid - ingen mandolin"],
   },
   {
     title: `Lesson NOT Learnt 22`,
     text: `
     ——————————————————————————————————
-    RAP-music
+    RAP-music & Roll-play Games
     ——————————————————————————————————
     good song, good for you… 
     ——————————————————————————————————
     [ingen tid - ingen saaar.m4a]
     `,
     pictures: ["lnl22-1", "lnl22-2", "lnl22-3"],
-    sounds: ["ingen tid - ingen saar.m4a"],
+    sounds: ["ingen tid - ingen saar"],
   },
   {
     title: `Lesson NOT Learnt 23`,
@@ -355,7 +355,7 @@ const lessons = [
     [life is mandolin.m4a]
     `,
     pictures: ["lnl23"],
-    sounds: ["life is mandolin.m4a"],
+    sounds: ["life is mandolin"],
   },
   {
     title: `Lesson NOT Learnt 24`,
@@ -380,7 +380,7 @@ const lessons = [
     Sanātana Dāsa 
     `,
     pictures: [""],
-    sounds: ["life is liv.m4a"],
+    sounds: ["life is liv"],
   },
   {
     title: `Lesson NOT Learnt 25`,
@@ -420,7 +420,7 @@ const lessons = [
     [angel eyes.m4a]
     `,
     pictures: ["lnl28"],
-    sounds: ["angel eyes.m4a"],
+    sounds: ["angel eyes"],
   },
   {
     title: `Lesson NOT Learnt 29`,
@@ -439,7 +439,7 @@ const lessons = [
     [new recording 16.m4a]
     `,
     pictures: ["lnl29"],
-    sounds: ["new recording 16.mp3"],
+    sounds: ["new recording 16"],
   },
   {
     title: `Lesson NOT Learnt 30`,
@@ -453,7 +453,7 @@ const lessons = [
     [i love you kat - mandolin.m4a]
     `,
     pictures: ["lnl30-1", "lnl30-2"],
-    sounds: ["i love you kat - mandolin.m4a"],
+    sounds: ["i love you kat - mandolin"],
   },
   {
     title: `Lesson NOT Learnt 31`,
@@ -469,7 +469,7 @@ const lessons = [
     [i love you pop.m4a]
     `,
     pictures: ["lnl31-1", "lnl31-2"],
-    sounds: ["i love you pop.m4a"],
+    sounds: ["i love you pop"],
   },
   {
     title: `Lesson NOT Learnt 32`,
@@ -486,7 +486,7 @@ const lessons = [
     —— Why is there no picture? = the program is defunct - & de-composed. . . Like the old Franck Muller - we are 0oO0O0O= The VikInG Klokkers, so peaceful & we are Master of Complication's
     ———————————————-
     `,
-    sounds: ["popcorn.m4a"],
+    sounds: ["popcorn"],
   },
   {
     title: `Lesson NOT Learnt 33 - Should I make some pornography?`,
