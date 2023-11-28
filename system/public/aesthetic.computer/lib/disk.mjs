@@ -2363,7 +2363,7 @@ async function load(
   // Start the socket server
   // TODO: Before we load the disk, in case of needing to reload remotely on failure? 23.01.27.12.48
   let receiver; // Handles incoming messages from the socket.
-  const forceProd = true; // For testing prod socket servers in development.
+  const forceProd = false; // For testing prod socket servers in development.
 
   // Requests a session-backend and connects via websockets.
   function startSocket() {
@@ -2378,7 +2378,8 @@ async function load(
     if (debug && logs.session) console.log("🫂 Finding session server...");
     socket = new Socket(debug); // Then redefine and make a new socket.
 
-    const monolith = undefined; //"monolith"; // or undefined for horizontal scaling.
+    const monolith = "monolith"; // or `undefined` for horizontal scaling via
+    // jamstack
 
     session(slug, forceProd, monolith)
       .then((sesh) => {

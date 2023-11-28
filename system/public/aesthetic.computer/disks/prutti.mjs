@@ -285,6 +285,219 @@ const lessons = [
     pictures: ["lnl18"],
     sounds: ["v-lars"],
   },
+  {
+    title: "Lesson NOT Learnt 19 - 50 years - Energy & why Aesthetic.computer?",
+    text: `
+    [robotic.m4a]
+    -…————…………….. 
+    ***************************
+    *_JUST STOP OIL_*
+    *************************** 
+    You know that I started all that Kommunal Klon Komputer 02 -SHIT- for ONE simple reason:  —: to find: //  aesthetics & beauty in e-energy-saving, travel & the self-generating of Electricity ——— NOW here many years later, I Iive off the Grid in the outskirts of Velbastaður……IS hated on by the Copenhagen’ers….§§§§§§§§ - & the sole reason why I joined the development of: aesthetic.computer, is to keep experimenting with the same things, as years back:  - DATA reduction = more INFO —vs.— LESS info = MORE data…
+    ***************************
+    *—STILL PRUTTIPAL—*
+    ***************************
+    All my so called activist-friends just get bigger and bigger flat’s and houses - & is more and more on high-energy using social-media, yes & it is so It's ironic, but social media platforms consume a very significant amounts of energy, and this contributes to greenhouse gas emissions which exacerbates the climate change problem & bla. BLA. bla. BLA. but let’s not get fanatic here, no no, but let's just try to go: LITTLE DATA ---Many of my younger friends also get’s in a mentally exhausted state of so called “cognitive overload” Since using social-media puts you in this state because you are constantly evaluating different types of text-, photo-  & video-posts from so many different people. again let’s try to go: LITTLE DATA! - Lil Data - Lil Data lil dat.a
+
+    I will still stand up for ALL of us, just being a part of nature and this little-universe, & still here where I turn 50 I will try stand up for new innovations and real dreams, in the field of an interesting co-existing future: animals, plants, minerals, cosmic-entities, dwarfs, elf’s —— you name it ..- That is what I would like to share with my daughter and others that I might be able to inspire, - if just a little bit. 
+    ####
+    - I was: Kommunal Klon Komputer 02 then I was: Kommunal Klon Komputer 04 - now i am just: Pruttie - but at least I am still: Prutti - - - Because even though: My robotic skills have failed, time and again - Baldur & Jesus' blood never failed me YET - Oh yes & that’s why I stand w. Aesthetic.Computer as an experiment, - 50 years of age & still just “Pruttipal” - -PRUT -- PRUT…
+    `,
+    pictures: ["lnl19"],
+    sounds: ["robotic.m4a"],
+  },
+  {
+    title: `Lesson NOT Learnt 20`,
+    text: `
+    §————————————————§
+    …Some Classic Pruttipal -/- Goodiepal Talk…
+    §————————————————§
+    000 §§§ — if you do not have a house, then never should you have more things then, what you can store-away unnoticed in a middle-sized Euro-art-gallery -  
+    Today SO much SPACE is used in handling and storing art - & Since the cost of living is getting higher and higher in most places - t.t.to hide your belongings among museum & gallery-things might not be a bad idea… — §§§ 000
+    `,
+    pictures: ["lnl20"],
+  },
+  {
+    title: `Lesson NOT Learnt 21`,
+    text: `
+    $$——————————————————$$$$
+    Best background music for boring lecture videos
+    _______—______ peak mandolin ———§§$$$$
+    ingen tid - Ingen saaar 
+    WARNING - to not listen to this mu-sick, as it is a NO GO!
+
+    [ingen tid - ingen mandolin.m4a]
+    `,
+    pictures: ["lnl21"],
+    sounds: ["ingen tid - ingen mandolin.m4a"],
+  },
+  {
+    title: `Lesson NOT Learnt 22`,
+    text: `
+    ——————————————————————————————————
+    RAP-music
+    ——————————————————————————————————
+    good song, good for you… 
+    ——————————————————————————————————
+    [ingen tid - ingen saaar.m4a]
+    `,
+    pictures: ["lnl22-1", "lnl22-2", "lnl22-3"],
+    sounds: ["ingen tid - ingen saar.m4a"],
+  },
+  {
+    title: `Lesson NOT Learnt 23`,
+    text: `
+    ——————————————————————————————————
+    Mandolin Cafe
+    ——————————————————————————————————
+    Welcome - please do not listen…
+
+    [life is mandolin.m4a]
+    `,
+    pictures: ["lnl23"],
+    sounds: ["life is mandolin.m4a"],
+  },
+  {
+    title: `Lesson NOT Learnt 24`,
+    text: `
+    ———————————————
+    Music From: B-tar for: LIV
+    ———————————————
+    §§ Pruttipal-music-distro-pro 
+    black-dystopian-swiss-cheese §§Lesson NOT Learnt 24
+    ———————————————
+    Music From: B-tar for: LIV
+    ———————————————
+    §§ Pruttipal-music-distro-pro 
+    black-dystopian-swiss-cheese §§
+    __________________________________
+    2023- 2024 Pruttipal - When you visited Fleisher/Ollman Gallery in Philadelphia (maybe in/around 2006), you mentioned that computers would "Neeeeever be able to tell" (emphasis yours) what is written in a distorted captcha.  Despite my tragically terrible memory, I remember much of the event at F/OG quite clearly (and fondly). I believe in expansive thought and experimentation, so I was enthralled. With all the developments in AI over these past few years, do you still believe this to be true? Are you willing to concede that you were incorrect on this point? - I appreciate your time and your ideas. Also, you mentioned "Trust your heart, not what your phone tells you." I have a thought on this: in this world, 'heart' is generally synonymous with 'desire' (I would equate these words to the Sanskrit word 'chitta'). Even now, phones are able to recommend, with relative accuracy, what content a user may be interested in. I suggest that recommendations are nothing more than attempts at fulfilling the 'desires' of the user.__________________________________
+    Given the rate of technological change and the current global investment in AI, do you feel that it is possible for a phone to more accurately predict the user's desires to a point where there is very little distinction between the two? Could it get to the point where our phones know us better than ourselves? And would this nourish our own understanding of ourselves, thus potentially bettering society?__________________________________
+    Like I said, I'm a curious, thinking person. Sorry for the possibly irrelevant ideas and questions.
+
+    Sanātana Dāsa 
+    `,
+    pictures: [""],
+    sounds: ["life is liv.m4a"],
+  },
+  {
+    title: `Lesson NOT Learnt 25`,
+    text: `
+    Narc Beacon - Nag Nag Bacon
+
+    §§§§ Flap Nipper _ Goodiepal 
+    §§§§ Flap Nipper _ Mainpal Inv. 
+    §§§§ Plat Nipper _ Pruttipal
+    `,
+    pictures: ["lnl25"],
+    sounds: [],
+  },
+  {
+    title: `Lesson NOT Learnt 26 - Pause`,
+    text: `
+    ————————————— 
+    '//**Clip Talk**//'' 2 
+    —<HERE you will have no audio - for this 2 wonders of this world>— - The %%world is full of good things… NO music is good - Good music is NO - often I find myself whit so much love inside, that even my space-friends can not hold me back .. & why should They ??? - you are my space friend - i'am your time friend & time never really existed in the first place %%
+    `,
+    pictures: ["lnl26-1", "lnl26-2"],
+    sounds: [],
+  },
+  {
+    title: `Lesson NOT Learnt 27`,
+    text: `
+    ———————————————
+    ANGEL's mandolin-ium bum BuM
+    [angel mandolinur.m4a]
+    `,
+    pictures: [],
+    sounds: ["angel mandolinur.m4a"],
+  },
+  {
+    title: `Lesson NOT Learnt 28`,
+    text: `
+    ———————————————-
+    ANGEL EYES for angel's in the sky & angel's under the sea. . .
+    [angel eyes.m4a]
+    `,
+    pictures: ["lnl28"],
+    sounds: ["angel eyes.m4a"],
+  },
+  {
+    title: `Lesson NOT Learnt 29`,
+    text: `
+    ———————————————-
+    THE REAL ANGEL EYE's
+    - - N.B.THIS IS were the Angel Eye's song really comes to its right- - 
+    :_*:_*:_*:_*: This version of: Angel Eyes is done by §§ Koolroc'e §§ — She dos also go by the name:  ````ULRIKKE'''''' & probably a thousand other names - who knows?;:_;_:;
+    She is insanely bright and I love hear Energy and spirit -! ^'^'^'^^' The outcome of this lady's produce is manifold and baroque - in the true meaning of the word - ! ^'^'^'^
+    She is one of the reasons why I am still alive and here today - - - A Fantasitc young artist - ready-made for the times to come… trust a Pruttipal . . . 
+    ^'§^'§^'Ohhhh - I am not a big fan of cigarettes - but in this world, - differences is what make life a better place, then the grave. ^§'^§'^^'§^§'^
+    *_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:
+    - ANGEL EYE's - ANGEL EYE's - ANGEL EYE's - ANGEL EYE's -
+    ^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?
+
+    [new recording 16.m4a]
+    `,
+    pictures: ["lnl29"],
+    sounds: ["new recording 16.mp3"],
+  },
+  {
+    title: `Lesson NOT Learnt 30`,
+    text: `
+    ———————————————-
+    L.O.V.E. RAP-rock : §§§—LOVE-YOU-POP—
+    ^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?….:::::..:::……..
+    En*Kat*Kat*Kat —som— er en*Kat*Kat*Kat —som—er en*Kat*Kat*Kat —som— er en* ——WAW—— Mandolin'er version
+    ^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?'
+  
+    [i love you kat - mandolin.m4a]
+    `,
+    pictures: ["lnl30-1", "lnl30-2"],
+    sounds: ["i love you kat - mandolin.m4a"],
+  },
+  {
+    title: `Lesson NOT Learnt 31`,
+    text: `
+    ———————————————-
+    LOVE You dad
+    Original Version - B-tar = very good…
+    !—!—^*^_!0^0_*0—!—^*^!_!0^0_!*0_!
+    *_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:
+    I still travel to places and record music with the young ones, to learn about passion-living art's-&-tech - people think that I make this super advanced music or musical-ideas, but in reality- I just help-out, listen-in and try to make things better-  whatever that means... since I was young and until today I have alway's just done so, because even after all this years i am still just: Pruttipal - 
+    *_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:
+
+    [i love you pop.m4a]
+    `,
+    pictures: ["lnl31-1", "lnl31-2"],
+    sounds: ["i love you pop.m4a"],
+  },
+  {
+    title: `Lesson NOT Learnt 32`,
+    text: `
+    Everybody would like to play: POPCORN
+
+    __.*_-:*__:***_—:__'''___''__:_**___**__*__*
+
+    Here first a few seconds (maybe 6?) of digital-silence before I perform: Gershon Kingsley's melody Popcorn - just like that ——But w. extra beat's!
+    'WarninG' *YES*YES*YES*YES*YES*YES*- the sounds first start in a few. sec. - Making computer-programs defunct is an §§artform§§ taht only few masters & even fewer than that can a appreciate…
+    //* : * : * :'* *-':_-****.:_'_-:-****_-*
+    <no no no no picture>
+    **** : * : * :'* *-':_-****.:_'_-:-****_-******
+    —— Why is there no picture? = the program is defunct - & de-composed. . . Like the old Franck Muller - we are 0oO0O0O= The VikInG Klokkers, so peaceful & we are Master of Complication's
+    ———————————————-
+    `,
+    sounds: ["popcorn.m4a"],
+  },
+  {
+    title: `Lesson NOT Learnt 33 - Should I make some pornography?`,
+    text: `
+    In cold country's you will typically find coloured poles by the side of the road %%% - * These poles are typically used as markers for: - snow-plow-drivers- * to follow during snowstorms. They help the drivers stay on the road and avoid going too far to the side, where they might hit lets say a ditch or a tree… Additionally, ON-top they can also be used as guides for drivers in low visibility conditions. // //
+    —bla. bla. bla. bla. bla. bla. bla.—
+    now last-early evening I was going on my bicikel, downtown Torshavn, and there behind a interactive-Bus-info-map, was 3 lusty road poles engaing in xxx-activities, and I was just thinking that at my AGE, there is Not much to be seen, or for some poeple to much to be seen? ? — But maybe I should make some content, looking at a BEAR-like me, would be for the few, YES only for the people with the most distinct and perverted sexual DREAMS, — AND there should be something for them as well, ROAD POLES and OLD BEAR's - uhhh so perverted you are Pruttipal'ur… - WELL you just hit START in your head and, you will never come back…
+    ———————————————
+    `,
+    pictures: ["lnl33"],
+  },
 ];
 
 let lesson = 0,
