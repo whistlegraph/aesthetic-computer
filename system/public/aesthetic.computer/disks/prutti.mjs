@@ -293,15 +293,15 @@ const lessons = [
     ***************************
     *_JUST STOP OIL_*
     *************************** 
-    You know that I started all that Kommunal Klon Komputer 02 -SHIT- for ONE simple reason:  —: to find: //  aesthetics & beauty in e-energy-saving, travel & the self-generating of Electricity ——— NOW here many years later, I Iive off the Grid in the outskirts of Velbastaður……IS hated on by the Copenhagen’ers….§§§§§§§§ - & the sole reason why I joined the development of: aesthetic.computer, is to keep experimenting with the same things, as years back:  - DATA reduction = more INFO —vs.— LESS info = MORE data…
+    You know that I started all that Kommunal Klon Komputer 02 -SHIT- for ONE simple reason:  —: to find: //  aesthetics & beauty in e-energy-saving, travel & the self-generating of Electricity ——— NOW here many years later, I Iive off the Grid in the outskirts of Velbastaður……IS hated on by the Copenhagen'ers….§§§§§§§§ - & the sole reason why I joined the development of: aesthetic.computer, is to keep experimenting with the same things, as years back:  - DATA reduction = more INFO —vs.— LESS info = MORE data…
     ***************************
     *—STILL PRUTTIPAL—*
     ***************************
-    All my so called activist-friends just get bigger and bigger flat’s and houses - & is more and more on high-energy using social-media, yes & it is so It's ironic, but social media platforms consume a very significant amounts of energy, and this contributes to greenhouse gas emissions which exacerbates the climate change problem & bla. BLA. bla. BLA. but let’s not get fanatic here, no no, but let's just try to go: LITTLE DATA ---Many of my younger friends also get’s in a mentally exhausted state of so called “cognitive overload” Since using social-media puts you in this state because you are constantly evaluating different types of text-, photo-  & video-posts from so many different people. again let’s try to go: LITTLE DATA! - Lil Data - Lil Data lil dat.a
+    All my so called activist-friends just get bigger and bigger flat's and houses - & is more and more on high-energy using social-media, yes & it is so It's ironic, but social media platforms consume a very significant amounts of energy, and this contributes to greenhouse gas emissions which exacerbates the climate change problem & bla. BLA. bla. BLA. but let's not get fanatic here, no no, but let's just try to go: LITTLE DATA ---Many of my younger friends also get's in a mentally exhausted state of so called “cognitive overload” Since using social-media puts you in this state because you are constantly evaluating different types of text-, photo-  & video-posts from so many different people. again let's try to go: LITTLE DATA! - Lil Data - Lil Data lil dat.a
 
-    I will still stand up for ALL of us, just being a part of nature and this little-universe, & still here where I turn 50 I will try stand up for new innovations and real dreams, in the field of an interesting co-existing future: animals, plants, minerals, cosmic-entities, dwarfs, elf’s —— you name it ..- That is what I would like to share with my daughter and others that I might be able to inspire, - if just a little bit. 
+    I will still stand up for ALL of us, just being a part of nature and this little-universe, & still here where I turn 50 I will try stand up for new innovations and real dreams, in the field of an interesting co-existing future: animals, plants, minerals, cosmic-entities, dwarfs, elf's —— you name it ..- That is what I would like to share with my daughter and others that I might be able to inspire, - if just a little bit. 
     ####
-    - I was: Kommunal Klon Komputer 02 then I was: Kommunal Klon Komputer 04 - now i am just: Pruttie - but at least I am still: Prutti - - - Because even though: My robotic skills have failed, time and again - Baldur & Jesus' blood never failed me YET - Oh yes & that’s why I stand w. Aesthetic.Computer as an experiment, - 50 years of age & still just “Pruttipal” - -PRUT -- PRUT…
+    - I was: Kommunal Klon Komputer 02 then I was: Kommunal Klon Komputer 04 - now i am just: Pruttie - but at least I am still: Prutti - - - Because even though: My robotic skills have failed, time and again - Baldur & Jesus' blood never failed me YET - Oh yes & that's why I stand w. Aesthetic.Computer as an experiment, - 50 years of age & still just “Pruttipal” - -PRUT -- PRUT…
     `,
     pictures: ["lnl19"],
     sounds: ["robotic.m4a"],
@@ -371,7 +371,9 @@ const lessons = [
     §§ Pruttipal-music-distro-pro 
     black-dystopian-swiss-cheese §§
     __________________________________
-    2023- 2024 Pruttipal - When you visited Fleisher/Ollman Gallery in Philadelphia (maybe in/around 2006), you mentioned that computers would "Neeeeever be able to tell" (emphasis yours) what is written in a distorted captcha.  Despite my tragically terrible memory, I remember much of the event at F/OG quite clearly (and fondly). I believe in expansive thought and experimentation, so I was enthralled. With all the developments in AI over these past few years, do you still believe this to be true? Are you willing to concede that you were incorrect on this point? - I appreciate your time and your ideas. Also, you mentioned "Trust your heart, not what your phone tells you." I have a thought on this: in this world, 'heart' is generally synonymous with 'desire' (I would equate these words to the Sanskrit word 'chitta'). Even now, phones are able to recommend, with relative accuracy, what content a user may be interested in. I suggest that recommendations are nothing more than attempts at fulfilling the 'desires' of the user.__________________________________
+    2023- 2024 Pruttipal - When you visited Fleisher/Ollman Gallery in Philadelphia (maybe in/around 2006), you mentioned that computers would "Neeeeever be able to tell" (emphasis yours) what is written in a distorted captcha.
+
+    Despite my tragically terrible memory, I remember much of the event at F/OG quite clearly (and fondly). I believe in expansive thought and experimentation, so I was enthralled. With all the developments in AI over these past few years, do you still believe this to be true? Are you willing to concede that you were incorrect on this point? - I appreciate your time and your ideas. Also, you mentioned "Trust your heart, not what your phone tells you." I have a thought on this: in this world, 'heart' is generally synonymous with 'desire' (I would equate these words to the Sanskrit word 'chitta'). Even now, phones are able to recommend, with relative accuracy, what content a user may be interested in. I suggest that recommendations are nothing more than attempts at fulfilling the 'desires' of the user.__________________________________
     Given the rate of technological change and the current global investment in AI, do you feel that it is possible for a phone to more accurately predict the user's desires to a point where there is very little distinction between the two? Could it get to the point where our phones know us better than ourselves? And would this nourish our own understanding of ourselves, thus potentially bettering society?__________________________________
     Like I said, I'm a curious, thinking person. Sorry for the possibly irrelevant ideas and questions.
 
@@ -390,7 +392,6 @@ const lessons = [
     §§§§ Plat Nipper _ Pruttipal
     `,
     pictures: ["lnl25"],
-    sounds: [],
   },
   {
     title: `Lesson NOT Learnt 26 - Pause`,
@@ -400,7 +401,6 @@ const lessons = [
     —<HERE you will have no audio - for this 2 wonders of this world>— - The %%world is full of good things… NO music is good - Good music is NO - often I find myself whit so much love inside, that even my space-friends can not hold me back .. & why should They ??? - you are my space friend - i'am your time friend & time never really existed in the first place %%
     `,
     pictures: ["lnl26-1", "lnl26-2"],
-    sounds: [],
   },
   {
     title: `Lesson NOT Learnt 27`,
