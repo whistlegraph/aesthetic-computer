@@ -1,29 +1,69 @@
 import Geckos from "../dep/geckos.io-client.2.3.2.min.js";
+import { logs } from "./logs.mjs";
 
 /* #region 🏁 todo
   - [] Production ICE / TURN Servers.
   - [] Set up room system.
 #endregion */
 
-export const UDP = {
-  connect: (port = 8889, url = undefined) => {
-    console.log("🩰 Connecting to UDP:", url, "on:", port);
+const RECONNECT_START_TIME = 500; // Gets doubled on subsequent attempts.
+let channel, reconnectingTimeout;
+let reconnectTime = RECONNECT_START_TIME;
+// const debug = window.acDEBUG;
 
-    const channel = Geckos({ url, port }); // default port is 9208
+let reconnect;
 
-    channel.onConnect((error) => {
-      if (error) {
-        console.error("🩰", error.message);
-        return;
-      }
+function connect(port = 8889, url = undefined, send) {
+  console.log("🩰 Connecting to UDP:", url, "on:", port);
 
-      console.log("🩰 Connected to UDP:", channel);
+  channel = Geckos({ url, port }); // default port is 9208
 
-      channel.on("chat message", (data) => {
-        console.log(`🩰 You got the message: ${data}`);
+  reconnect = () => {
+    reconnectingTimeout = setTimeout(() => {
+      connect(port, url, send);
+    }, reconnectTime);
+    reconnectTime *= 2;
+  };
+
+  channel.onConnect((error) => {
+    clearTimeout(reconnectingTimeout);
+
+    if (error) {
+      console.error("🩰", error.message);
+      reconnect();
+      return;
+    }
+
+    console.log("🩰 Connected to UDP:", channel.url);
+    reconnectTime = RECONNECT_START_TIME;
+    send({ type: "udp:connected" });
+
+    channel.on("fairy:point", (content) => {
+      content = JSON.parse(content);
+      if (logs.udp) console.log(`🩰 UDP Received:`, content);
+      send({
+        type: "udp:receive",
+        content: { type: "fairy:point", content },
       });
-
-      channel.emit("chat message", "a short message sent to the server");
     });
+  });
+
+  channel.onDisconnect((error) => {
+    console.log("🩰 Disconnected from UDP");
+    if (error) {
+      console.warn("🩰 Reconnecting:", error);
+      reconnect();
+    }
+  });
+}
+
+export const UDP = {
+  connect,
+  disconnect: () => {
+    channel?.close();
+  },
+  send: ({ type, content }) => {
+    if (logs.udp) console.log(`🩰 UDP Sent:`, { type, content });
+    channel?.emit(type, JSON.stringify(content));
   },
 };

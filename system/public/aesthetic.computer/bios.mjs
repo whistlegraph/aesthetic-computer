@@ -1262,7 +1262,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Connect to a UDP server,
     // which will pass messages to the disk runner.
     if (type === "udp:connect") {
-      UDP.connect(content.port, content.url);
+      UDP.connect(content.port, content.url, send);
+      return;
+    }
+
+    // Send a message to the UDP server.
+    if (type === "udp:send") {
+      UDP.send(content);
+      return;
+    }
+
+    if (type === "udp:disconnect") {
+      UDP.disconnect();
       return;
     }
 

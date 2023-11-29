@@ -309,6 +309,9 @@ function subscribers(subs, msg) {
 // 🧚 UDP Server (using Twilio ICE servers)
 // #region udp
 
+// Note: This currently works off of a monolith via `udp.aesthetic.computer`
+//       as the ports are blocked on jamstack.
+
 import geckos from "@geckos.io/server";
 
 const io = geckos();
@@ -321,10 +324,14 @@ io.onConnection((channel) => {
     console.log(`🩰 ${channel.id} got disconnected`);
   });
 
-  channel.on("chat message", (data) => {
-    console.log(`🩰 got ${data} from "chat message"`);
-    // emit the "chat message" data to all channels in the same room
-    io.room(channel.roomId).emit("chat message", data);
+  // Just for testing via the aesthetic `udp` piece for now.
+  channel.on("fairy:point", (data) => {
+    // See docs here: https://github.com/geckosio/geckos.io#reliable-messages
+    // TODO: - [] Learn about the differences between channels and rooms.
+
+    // emit the to all channels in the same room except the sender
+    // console.log(`🩰 fairy:point - ${data}`);
+    channel.broadcast.emit("fairy:point", data);
   });
 });
 

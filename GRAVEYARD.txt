@@ -1,5 +1,12 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** Monolithic UDP ***
+  + Done
+  - [x] Switch to using UDP for fairy positioning (since it's now monolithic).
+  - [x] Set up a UDP-working version of the session-server monolith.
+        (udp.aesthetic.computer)
+  - [x] Automatically pull git changes for the UDP server.
+
 *** Connection Status ***
   - [x] Show connection status on prompt and as color of corner labels.
 
