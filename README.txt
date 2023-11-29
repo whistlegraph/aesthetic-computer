@@ -40,10 +40,10 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** UDP ***
-  - [x] Set up a UDP only version of the session-server monolith?
-  - [] Automatically pull git changes for the UDP server.
-  + Done
+*** `go` ***
+  - [🔥] Make `field`.
+  - [] Walk to another field.
+  - [] Check the networking / position shifting.
 
 *** automate honest fabric checkout ***
   - [] https://www.honestfabric.com/shop/checkout
