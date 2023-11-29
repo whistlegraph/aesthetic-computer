@@ -41,8 +41,11 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** UDP ***
-  - [] Set up UDP Server.
+  - [] Set up a UDP Server - Monolith?
   - [] Tie it into the connection status indicator color.
+
+*** automate honest fabric checkout ***
+  - [] https://www.honestfabric.com/shop/checkout
 
 *** `sno` launch - Dec 1? ***
   - [] See `sno.mjs`.
