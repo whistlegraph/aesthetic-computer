@@ -66,13 +66,13 @@ const codeChannels = {}; // Used to filter `code` updates from redis to
 
 // *** Start up two `redis` clients. (One for subscribing, and for publishing)
 const sub = !dev
-  ? createClient({ url: redisConnectionString })
-  : createClient();
+ ? createClient({ url: redisConnectionString })
+ : createClient();
 sub.on("error", (err) => console.log("🔴 Redis subscriber client error!", err));
 
 const pub = !dev
-  ? createClient({ url: redisConnectionString })
-  : createClient();
+ ? createClient({ url: redisConnectionString })
+ : createClient();
 pub.on("error", (err) => console.log("🔴 Redis publisher client error!", err));
 
 try {
@@ -98,7 +98,7 @@ try {
 
 fastify.get("/", async () => {
   return {
-    msg: "Hello, and welcom to an aesthetic.computer session server instance!",
+    msg: "Hello, and welcome to an aesthetic.computer session server instance!",
   };
 });
 
