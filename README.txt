@@ -41,8 +41,9 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** UDP ***
-  - [] Set up a UDP Server - Monolith?
-  - [] Tie it into the connection status indicator color.
+  - [x] Set up a UDP only version of the session-server monolith?
+  - [] Automatically pull git changes for the UDP server.
+  + Done
 
 *** automate honest fabric checkout ***
   - [] https://www.honestfabric.com/shop/checkout

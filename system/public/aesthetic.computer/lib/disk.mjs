@@ -2385,15 +2385,14 @@ async function load(
       .then((sesh) => {
         if (typeof sesh === "string") throw new Error(sesh); // Cancel if error.
         const url = new URL(sesh.url); // Parse the url.
+        const udpUrl = new URL(sesh.udp); // Parse the udp url.
 
         // 🩰 UDP... (via `bios`)
         send({
           type: "udp:connect",
           content: {
-            url: `https://udp.aesthetic.computer`,
-            port: 443,
-            // url: `https://${url.hostname}`,
-            // port: debug && !forceProd ? 8889 : 443, //9208, //443,
+            url: `https://${udpUrl.hostname}`,
+            port: debug && !forceProd ? 8889 : 443,
           },
         });
 

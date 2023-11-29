@@ -29,7 +29,10 @@ import { WebSocket, WebSocketServer } from "ws";
 import ip from "ip";
 import chokidar from "chokidar";
 import fs from "fs";
+import crypto from "crypto";
 import dotenv from "dotenv";
+import { exec } from "child_process";
+
 dotenv.config();
 
 import { createClient } from "redis";
@@ -66,13 +69,13 @@ const codeChannels = {}; // Used to filter `code` updates from redis to
 
 // *** Start up two `redis` clients. (One for subscribing, and for publishing)
 const sub = !dev
- ? createClient({ url: redisConnectionString })
- : createClient();
+  ? createClient({ url: redisConnectionString })
+  : createClient();
 sub.on("error", (err) => console.log("🔴 Redis subscriber client error!", err));
 
 const pub = !dev
- ? createClient({ url: redisConnectionString })
- : createClient();
+  ? createClient({ url: redisConnectionString })
+  : createClient();
 pub.on("error", (err) => console.log("🔴 Redis publisher client error!", err));
 
 try {
@@ -96,9 +99,42 @@ try {
   console.error("🔴 Could not connect to `redis` instance.");
 }
 
+const secret = process.env.GITHUB_WEBHOOK_SECRET;
+
+fastify.post("/update", (request, reply) => {
+  const signature = request.headers["x-hub-signature"];
+  const hash =
+    "sha1=" +
+    crypto
+      .createHmac("sha1", secret)
+      .update(JSON.stringify(request.body))
+      .digest("hex");
+
+  if (hash !== signature) {
+    reply.status(401).send({ error: "Invalid signature" });
+    return;
+  }
+
+  // Process the webhook payload
+  console.log("Webhook received:", request.body);
+  // Your logic to handle the webhook event goes here
+
+  // Execute git pull
+  exec("git pull", (error, stdout, stderr) => {
+    if (error) {
+      console.error(`exec error: ${error}`);
+      return;
+    }
+    console.log(`stdout: ${stdout}`);
+    console.error(`stderr: ${stderr}`);
+  });
+
+  reply.send({ status: "ok" });
+});
+
 fastify.get("/", async () => {
   return {
-    msg: "Hello, and welcome to an aesthetic.computer session server instance!",
+    msg: "Hello, and welcome to an aesthetic.computer session server instance!?",
   };
 });
 
