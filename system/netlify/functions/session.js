@@ -19,6 +19,8 @@ import { createClient } from "redis";
 const dev = process.env.NETLIFY_DEV;
 const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
 
+const udpUrl = `https://udp.aesthetic.computer`;
+
 async function fun(event, context) {
   let out,
     status = 200,
@@ -26,9 +28,13 @@ async function fun(event, context) {
 
   if (dev && !forceProd) {
     const host = event.headers.host.split(":")[0];
-    out = { url: `http://${host}:8889` };
+    out = { url: `http://${host}:8889`, udp: `http://${host}:8889` };
   } else if (event.queryStringParameters.service === "monolith") {
-    out = { url: `https://session-server.aesthetic.computer`, state: "Ready" };
+    out = {
+      url: `https://session-server.aesthetic.computer`,
+      udp: udpUrl,
+      state: "Ready",
+    };
   } else {
     const { got } = await import("got");
     const slug = event.path.replace("/session/", ""); // Take everything after the path.
@@ -63,6 +69,7 @@ async function fun(event, context) {
           `https://api.jamsocket.com/backend/${currentBackend}/status`,
         ).json();
         out.url = `https://${currentBackend}.jamsocket.run`; // Add URL for client.
+        out.udp = udpUrl;
         // console.log("Out:", out);
       } catch (err) {
         console.error("🔴 Error:", err);
@@ -85,6 +92,7 @@ async function fun(event, context) {
 
         await client.HSET("backends", slug, session.name); // Store the session name in redis using the 'slug' key.
         out = session;
+        out.udp = udpUrl;
       } catch (err) {
         // console.error("🔴 Error:", err);
         status = 500;
