@@ -2378,7 +2378,7 @@ async function load(
     if (debug && logs.session) console.log("🫂 Finding session server...");
     socket = new Socket(debug); // Then redefine and make a new socket.
 
-    const monolith = "monolith"; // or `undefined` for horizontal scaling via
+    const monolith = undefined; // "monolith"; // or `undefined` for horizontal scaling via
     // jamstack
 
     session(slug, forceProd, monolith)
