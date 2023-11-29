@@ -2390,8 +2390,10 @@ async function load(
         send({
           type: "udp:connect",
           content: {
-            url: `https://${url.hostname}`,
-            port: debug && !forceProd ? 8889 : 443,
+            url: `https://udp.aesthetic.computer`,
+            port: 443,
+            // url: `https://${url.hostname}`,
+            // port: debug && !forceProd ? 8889 : 443, //9208, //443,
           },
         });
 
