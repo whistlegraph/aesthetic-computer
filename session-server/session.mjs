@@ -134,7 +134,7 @@ fastify.post("/update", (request, reply) => {
 
 fastify.get("/", async () => {
   return {
-    msg: "Hello, and welcome to an aesthetic.computer session server instance!?",
+    msg: "Hello, and welcome to an aesthetic.computer session... server instance!?",
   };
 });
 
