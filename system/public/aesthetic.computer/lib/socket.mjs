@@ -10,6 +10,7 @@ const { min } = Math;
 
 export class Socket {
   id; // Will be filled in with the user identifier after the first message.
+  connected = false;
   #debug;
   #killSocket = false;
   #ws;
@@ -37,6 +38,7 @@ export class Socket {
     ws.onopen = (e) => {
       if (this.#debug && logs.session) console.log("📡 Connected."); // Redundant log given an initial message from the server.
       socket.#queue.forEach((q) => socket.send(...q)); // Send any held messages.
+      socket.connected = true;
       socket.#queue.length = 0; // Clear out the full queue.
       socket.#reconnectTime = 1; // 1ms reconnect on drop, doubled each time.
       connectCallback?.(); // Run any post-connection logic, like setting codeChannel for example.
@@ -60,6 +62,7 @@ export class Socket {
         setTimeout(() => {
           socket.connect(host, receive, reload, protocol, connectCallback);
         }, socket.#reconnectTime);
+        socket.connected = false;
         socket.#reconnectTime = min(socket.#reconnectTime, 16000);
         socket.#reconnectTime *= 2;
       }

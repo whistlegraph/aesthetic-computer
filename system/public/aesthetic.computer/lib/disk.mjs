@@ -225,6 +225,13 @@ let currentPath,
   currentHUDButton,
   currentHUDOffset;
 //currentPromptButton;
+
+function updateHUDStatus() {
+  if (udp.connected && socket?.connected) {
+    currentHUDStatusColor = "lime";
+  }
+}
+
 let loading = false;
 let reframe;
 
@@ -249,6 +256,27 @@ let labelBack = false;
 let storeRetrievalResolution, storeDeletionResolution;
 
 let socket, socketStartDelay;
+let udp = {
+    send: (type, content) => {
+      send({ type: "udp:send", content: { type, content } });
+    },
+    receive: ({ type, content }) => {
+      // console.log("🩰 Received `piece` message from UDP:", content);
+
+      // 🧚 Ambient cursor (fairies) support.
+      if (type === "fairy:point" /*&& socket?.id !== id*/ && visible) {
+        fairies.push({ x: content.x, y: content.y });
+        return;
+      }
+      udpReceive?.(content);
+    },
+    kill: () => {
+      udp.connected = false;
+      send({ type: "udp:disconnect" });
+    },
+    connected: false,
+  },
+  udpReceive = undefined;
 let scream = null; // 😱 Allow priviledged users to send alerts to everyone.
 //                       (A great end<->end socket + redis test.)
 let screaming = false;
@@ -1261,6 +1289,11 @@ const $commonApi = {
         return { message: "unauthorized" };
       }
     },
+    // Loosely connect the UDP receiver.
+    udp: (receive) => {
+      udpReceive = receive;
+      return udp;
+    },
   },
   needsPaint: () => {
     noPaint = false;
@@ -1350,6 +1383,8 @@ async function session(slug, forceProduction = false, service) {
         } else {
           currentHUDStatusColor = "brown";
         }
+
+        $commonApi.needsPaint(); // Make sure the label gets updated.
 
         if (update.state === "Ready") {
           eventSource.close(); // Close the event stream handler.
@@ -2410,10 +2445,10 @@ async function load(
             }
 
             // 🧚 Ambient cursor (fairies) support.
-            if (type === "ambient-pen:point" && socket?.id !== id && visible) {
-              fairies.push({ x: content.x, y: content.y });
-              return;
-            }
+            // if (type === "ambient-pen:point" && socket?.id !== id && visible) {
+            // fairies.push({ x: content.x, y: content.y });
+            // return;
+            // }
 
             // 🧩 Pieces get all other messages not caught in `Socket`.
             receiver?.(id, type, content); // Run the piece receiver.
@@ -2423,7 +2458,8 @@ async function load(
           () => {
             // Post-connection logic.
             if (codeChannel) socket?.send("code-channel:sub", codeChannel);
-            currentHUDStatusColor = "lime";
+            updateHUDStatus();
+            $commonApi.needsPaint();
             // setTimeout(function () {
             //   currentHUDStatusColor = undefined;
             // }, 250);
@@ -2441,6 +2477,7 @@ async function load(
   //  connections being opened as pieces are quickly re-routing and jumping.
   clearTimeout(socketStartDelay);
   socket?.kill(); // Kill any already open socket from a previous disk.
+  udp?.kill();
   socketStartDelay = setTimeout(() => startSocket(), 250);
 
   $commonApi.net.socket = function (receive) {
@@ -3101,6 +3138,18 @@ async function makeFrame({ data: { type, content } }) {
     leaving = false;
     hotSwap?.(); // Actually swap out the piece functions and reset the state.
     loading = false;
+    return;
+  }
+
+  if (type === "udp:receive") {
+    udp.receive(content);
+    return;
+  }
+
+  if (type === "udp:connected") {
+    udp.connected = true;
+    updateHUDStatus();
+    $commonApi.needsPaint();
     return;
   }
 
@@ -3810,7 +3859,8 @@ async function makeFrame({ data: { type, content } }) {
         primaryPointer &&
         (primaryPointer.delta?.x !== 0 || primaryPointer.delta?.y !== 0)
       ) {
-        socket?.send("ambient-pen:point", {
+        //socket?.send("ambient-pen:point", {
+        udp?.send("fairy:point", {
           x: primaryPointer.x / screen.width,
           y: primaryPointer.y / screen.height,
         });
@@ -4923,6 +4973,7 @@ function maybeLeave() {
   if (leaving && leaveLoad) {
     // End the socket connection before switching pieces if one exists.
     socket?.kill();
+    udp?.kill();
     socket = undefined;
 
     try {
