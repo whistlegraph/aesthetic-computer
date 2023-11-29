@@ -98,7 +98,7 @@ try {
 
 fastify.get("/", async () => {
   return {
-    msg: "Hello, and welcom to an aesthetic.computer session server instance!",
+    msg: "Hello, and welcome to an aesthetic.computer session server instance!",
   };
 });
 
@@ -278,6 +278,7 @@ import geckos from "@geckos.io/server";
 const io = geckos();
 
 io.addServer(server); // Hook up to the HTTP Server.
+// io.listen(9208); // default port is 9208
 
 io.onConnection((channel) => {
   channel.onDisconnect(() => {
