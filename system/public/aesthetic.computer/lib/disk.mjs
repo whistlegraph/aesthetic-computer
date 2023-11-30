@@ -2675,7 +2675,7 @@ async function load(
           rejection(reject);
         });
       });
-    } else if (extension === "m4a" || extension === "wav") {
+    } else if (extension === "m4a" || extension === "wav" || extension === "mp3") {
       return new Promise((resolve, reject) => {
         if (options.signal?.aborted) {
           rejection(reject);
