@@ -1579,6 +1579,8 @@ function color() {
     // rainbow, alpha
     if (args[0] === "rainbow") {
       args = [...num.rainbow(), computeAlpha(args[1])];
+    } else if (typeof args[0] === "string") {
+      args = [...num.cssColors[args[0]], computeAlpha(args[1])];
     } else {
       // rgb, a
       args = [args[0], args[0], args[0], args[1]];
@@ -2475,11 +2477,17 @@ async function load(
       });
   }
 
+  // End the socket connection before switching pieces if one exists.
+  // socket?.kill();
+  // udp?.kill();
+  // socket = undefined;
+
   // Delay session server by .75 seconds in order to prevent redundant
   //  connections being opened as pieces are quickly re-routing and jumping.
   clearTimeout(socketStartDelay);
   socket?.kill(); // Kill any already open socket from a previous disk.
   udp?.kill();
+  socket = undefined;
   socketStartDelay = setTimeout(() => startSocket(), 250);
 
   $commonApi.net.socket = function (receive) {
@@ -4978,11 +4986,6 @@ function downloadScreenshot() {
 function maybeLeave() {
   // 🚪 Leave (Skips act and sim and paint...)
   if (leaving && leaveLoad) {
-    // End the socket connection before switching pieces if one exists.
-    socket?.kill();
-    udp?.kill();
-    socket = undefined;
-
     try {
       leave({ ...painting.api, screen, ...$commonApi }); // Trigger leave.
     } catch (e) {
