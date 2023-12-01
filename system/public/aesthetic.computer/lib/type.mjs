@@ -247,6 +247,8 @@ class TextInput {
   //                           after tapping the backdrop.
   commandSentOnce = false; // 🏴
 
+  closeOnEmptyEnter = false;
+
   // Add support for loading from preloaded system typeface.
   constructor(
     $,
@@ -263,6 +265,9 @@ class TextInput {
     //                                 be per TextInput object...23.05.23.12.50
 
     this.$ = $;
+
+    this.closeOnEmptyEnter = options.closeOnEmptyEnter || false;
+    // ^ Close keyboard on empty entry.
 
     this.copiedCallback = options.copied;
 
@@ -376,11 +381,15 @@ class TextInput {
   // Snap cursor to the end of text.
   snap() {
     this.#prompt.snapTo(this.text);
+    this.$.send({
+      type: "keyboard:cursor",
+      content: { cursor: this.#text.length },
+    });
   }
 
   // Run a command
   async run(store) {
-    this.#prompt.snapTo(this.text);
+    this.snap();
     this.submittedText = "";
     await this.#execute(store); // Send a command.
   }
@@ -827,7 +836,7 @@ class TextInput {
               this.text.slice(0, currentTextIndex) +
               this.text.slice(currentTextIndex + 1);
             if (this.text.length === currentTextIndex) {
-              prompt.snapTo(this.text);
+              this.snap();
             } else {
               prompt.crawlBackward();
               if (prompt.posHasVisibleCharacter()) prompt.forward();
@@ -941,7 +950,7 @@ class TextInput {
             this.text = history[this.historyDepth] || "";
           }
 
-          this.#prompt.snapTo(this.text);
+          this.snap();
 
           $.send({
             type: "keyboard:text:replace",
@@ -964,7 +973,7 @@ class TextInput {
             this.text = history[this.historyDepth] || "";
           }
 
-          this.#prompt.snapTo(this.text);
+          this.snap();
           $.send({
             type: "keyboard:text:replace",
             content: { text: this.text },
@@ -1031,7 +1040,7 @@ class TextInput {
           ) {
             this.text += `\n`;
             this.#prompt.newLine();
-            this.#prompt.snapTo(this.text);
+            this.snap();
           } else {
             const hasVis = this.#prompt.posHasVisibleCharacter();
 
@@ -1068,7 +1077,7 @@ class TextInput {
             });
             await this.run(store);
           }
-        } else {
+        } else if (!this.canType) {
           activate(this);
         }
       }
@@ -1080,7 +1089,9 @@ class TextInput {
     // Handle activation / focusing of the input
     // (including os-level software keyboard overlays)
     if (e.is("keyboard:open") && !this.#lock) activate(this);
-    if (e.is("keyboard:close") && !this.#lock) deactivate(this);
+    if (e.is("keyboard:close") && !this.#lock) {
+      deactivate(this);
+    }
 
     if (
       e.is("touch") &&
@@ -1106,6 +1117,8 @@ class TextInput {
 
     // Begin the prompt input mode / leave the splash.
     function activate(ti) {
+      // console.log("😃 Activating TextInput...");
+
       if (ti.canType) {
         // if (debug) console.log("✔️✍️ TextInput already activated.");
         // (This redundancy check is because this behavior is tied to
@@ -1219,7 +1232,6 @@ class TextInput {
         !this.enter.btn.down
       ) {
         $.send({ type: "keyboard:lock" });
-        // ^ TODO: This is repetitive, 23.12.01.01.48
       }
 
       // Copy Button...
@@ -1249,10 +1261,16 @@ class TextInput {
           if (this.runnable) {
             if (this.text.trim().length > 0) {
               await this.run(store);
+            } else if (this.closeOnEmptyEnter) {
+              $.send({ type: "keyboard:close" });
             }
           } else {
             activate(this);
-            if (this.runnable) await this.run(store);
+            if (this.runnable && this.text.trim().length > 0) {
+              await this.run(store);
+            } else if (this.closeOnEmptyEnter) {
+              $.send({ type: "keyboard:close" });
+            }
           }
         },
         cancel: () => {
@@ -1438,7 +1456,8 @@ class TextInput {
 
     if (e.is("prompt:text:cursor") && this.#lock === false) {
       if (e.cursor === this.text.length) {
-        this.snap();
+        // this.snap();
+        this.#prompt.snapTo(this.text);
       } else {
         this.#prompt.cursor = { ...this.#prompt.textToCursorMap[e.cursor] };
       }
@@ -1469,10 +1488,12 @@ class TextInput {
       !this.enter.btn.down &&
       !this.paste.btn.down
     ) {
-      $.send({ type: "keyboard:lock" });
+      if (!this.#shifting) {
+        $.send({ type: "keyboard:lock" });
 
-      this.#shifting = true;
-      this.backdropTouchOff = true;
+        this.#shifting = true;
+        this.backdropTouchOff = true;
+      }
 
       if (
         (this.#moveDeltaX > 0 && e.delta.x < 0) ||

@@ -2011,6 +2011,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         input.addEventListener("pointerdown", (e) => {});
 
         input.addEventListener("focus", (e) => {
+          if (keyboardOpen) return;
           keyboardOpen = true;
           keyboard.events.push({
             name: "keyboard:open",
@@ -2379,14 +2380,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "keyboard:cursor") {
       const input = keyboard.input;
       // Get the current position of the caret
-      const currentPosition =
-        input.selectionDirection === "backward"
-          ? input.selectionStart
-          : input.selectionEnd;
-      let newPosition = currentPosition + content;
-      if (newPosition < 0) newPosition = 0;
-      if (newPosition > input.value.length) newPosition = input.value.length;
-      input.setSelectionRange(newPosition, newPosition);
+
+      if (typeof content === "number") {
+        const currentPosition =
+          input.selectionDirection === "backward"
+            ? input.selectionStart
+            : input.selectionEnd;
+        let newPosition = currentPosition + content;
+        if (newPosition < 0) newPosition = 0;
+        if (newPosition > input.value.length) newPosition = input.value.length;
+        input.setSelectionRange(newPosition, newPosition);
+      } else {
+        // Set based on a specific value.
+        input.setSelectionRange(content.cursor, content.cursor);
+      }
       return;
     }
 
