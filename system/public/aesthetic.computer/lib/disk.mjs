@@ -660,6 +660,7 @@ const $commonApi = {
   },
   // Broadcast an event through the entire act system.
   act: (event, data = {}) => {
+    // console.log("Acted:", event); Show the synthetic event.
     data.is = (e) => e === event;
     cachedAPI.event = data;
     try {
@@ -2955,7 +2956,7 @@ async function load(
       beat = module.beat || defaults.beat;
       act = module.act || defaults.act;
       leave = module.leave || defaults.leave;
-      system = null;
+      system = module.system || null;
 
       // delete $commonApi.system.name; // No system in use.
     }
@@ -3763,10 +3764,11 @@ async function makeFrame({ data: { type, content } }) {
         // ⛈️ Jump back to the `prompt` from anywhere..
         if (
           (data.key === "`" ||
-            (data.key === "Enter" && system !== "prompt") ||
-            (data.key === "Backspace" && system !== "prompt") ||
-            (data.key === "Escape" && system !== "prompt")) &&
-          currentPath !== "aesthetic.computer/disks/prompt"
+            data.key === "Enter" ||
+            data.key === "Backspace" ||
+            data.key === "Escape") &&
+          system !== "prompt" &&
+          system !== "world"
         ) {
           $commonApi.sound.synth({
             tone: data.key === "Backspace" ? 400 : 600,

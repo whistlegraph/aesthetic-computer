@@ -6,6 +6,9 @@
 
 /* #region 🏁 TODO 
   - [🟠] Add an overhead chat ability.
+    - [🔥] Paste button does not appear when going back to the prompt
+         from another piece after entering a single key.
+    - [x] `Enter` button appears and disappears at weird times.
   - [] Make the world scrollable.
   - [] Get multi-user networking online. 
   - [] Move common functionality to a `world.mjs` library file.
@@ -50,13 +53,13 @@ class Kid {
 
     if (e.is("touch:1")) leash.start = { x: e.x, y: e.y };
 
-    if (e.is("draw:1")) {
+    if (e.is("draw:1") && leash.start) {
       leash.x = e.x - leash.start.x;
       leash.y = e.y - leash.start.y;
       this.#snapLeash(num);
     }
 
-    if (e.is("lift:1")) me.leash.start = null;
+    if (e.is("lift:1")) leash.start = null;
   }
 
   // Simulate the kid's movement.
@@ -96,6 +99,13 @@ class Kid {
       leash.y *= scale;
     }
   }
+
+  // Kill all controls.
+  off() {
+    const k = this.#keys;
+    k.U = k.D = k.L = k.R = false;
+    this.leash.start = null;
+  }
 }
 
 // 🌎
@@ -125,7 +135,7 @@ class Cam {
 let me, world, cam, input;
 
 // 🥾 Boot
-function boot({ api, wipe, handle, screen, ui }) {
+function boot({ api, wipe, handle, screen, ui, send }) {
   wipe(0);
   world = new World();
   me = new Kid(handle(), { x: world.size.width / 2, y: world.size.height / 2 });
@@ -148,7 +158,7 @@ function boot({ api, wipe, handle, screen, ui }) {
     api,
     "chat here...",
     async (text) => {
-      console.log("Text was input!", text);
+      send({ type: "keyboard:close" });
     }, //,
     {
       // autolock: false,
@@ -163,6 +173,8 @@ function boot({ api, wipe, handle, screen, ui }) {
       // lineSpacing,
     },
   );
+
+  send({ type: "keyboard:soft-lock" });
 }
 
 // 🎨 Paint
@@ -194,9 +206,19 @@ function paint({ api, ink, pan, unpan, pen, screen }) {
 }
 
 // 🎪 Act
-function act({ api }) {
-  me.act(api); // 🧒 Controls
-  input.act(api);
+function act({ event: e, api, send }) {
+  if (!input.canType && e.is("touch")) {
+    me.off();
+    send({ type: "keyboard:open" });
+  } else if (!input.canType) {
+    me.act(api); // 🧒 Kid controls
+  }
+
+  if (e.is("keyboard:open") || e.is("keyboard:close")) input.act(api);
+
+  if (input.canType) {
+    input.act(api); // 💬 Text input
+  }
 }
 
 // 🧮 Sim
@@ -233,6 +255,7 @@ function meta() {
 // Render an application icon, aka favicon.
 // }
 
+export const system = "world";
 export { boot, paint, act, sim, meta };
 
 // 📚 Library
