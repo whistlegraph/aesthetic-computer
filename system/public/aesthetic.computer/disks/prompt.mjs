@@ -155,7 +155,7 @@ async function boot({
       firstActivation = false; // Assume we've activated if returning from
       //                          elsewhere.
     }
-    system.prompt.input.showButton(api, { nocopy: true, nopaste: true });
+    system.prompt.input.showButton(api, { nocopy: true, nopaste: pieceCount === 0 });
   }
 
   if (params[0]) {

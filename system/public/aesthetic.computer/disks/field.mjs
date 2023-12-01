@@ -6,7 +6,8 @@
 
 /* #region 🏁 TODO 
   - [🟠] Add an overhead chat ability.
-    - [🔥] Paste button does not appear when going back to the prompt
+    - [🩵] Wire up good button to activate the text input.
+    - [x] Paste button does not appear when going back to the prompt
          from another piece after entering a single key.
     - [x] `Enter` button appears and disappears at weird times.
   - [] Make the world scrollable.
