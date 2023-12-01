@@ -5,14 +5,17 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🟠] Add an overhead chat ability.
-    - [🩵] Wire up good button to activate the text input.
-    - [] Don't snap the cursor all the way back after hitting return
-         / keep it at its position.
-  - [] Make the world scrollable.
   - [] Get multi-user networking online. 
+  - [] Add a "special" command 😉. 
+  - [] Make the world scrollable.
   - [] Move common functionality to a `world.mjs` library file.
   + Done
+  - [x] Add an overhead chat display.
+  - [x] Wire up tappable character button to activate the text input.
+  - [x] Enter button should close empty prompt.
+  - [x] Escape key should close prompt no matter what.
+  - [x] Don't snap the cursor all the way back after hitting return
+        / keep it at its position.
   - [x] Paste button does not appear when going back to the prompt
         from another piece after entering a single key.
   - [x] `Enter` button appears and disappears at weird times.
@@ -21,25 +24,47 @@
 // 🧒
 class Kid {
   pos = { x: 0, y: 0 };
+  size = 16;
   leash = { x: 0, y: 0, len: 0, max: 12, deadzone: 8 };
   #keys = { U: false, D: false, L: false, R: false };
+  #message;
+  #messageDuration;
+  #messageProgress = 0;
 
   constructor(handle, pos = this.pos) {
     console.log("🧒 From:", handle);
     this.pos = pos;
   }
 
+  // Show a message above the kid's head for `time` frames.
+  write(text, time = 240) {
+    this.#message = text;
+    this.#messageDuration = 120;
+  }
+
   // Render the kid.
-  paint({ ink, pan }) {
+  paint({ ink, pan, text, typeface }) {
     const leash = this.leash;
     pan(this.pos.x, this.pos.y);
-    ink("white").circle(0, 0, 16);
+    ink("white").circle(0, 0, this.size);
     ink(leash.len > leash.deadzone ? "yellow" : "red").line(
       0,
       0,
       leash.x,
       leash.y,
     );
+    if (this.#message) {
+      const blockWidth = typeface.glyphs["0"].resolution[0];
+      const tb = text.box(
+        this.#message,
+        undefined,
+        this.#message.length * blockWidth,
+      );
+      ink("yellow").write(this.#message, {
+        x: -tb.box.width / 2,
+        y: -this.size - 12,
+      });
+    }
   }
 
   // Control the kid.
@@ -66,8 +91,19 @@ class Kid {
     if (e.is("lift:1")) leash.start = null;
   }
 
-  // Simulate the kid's movement.
+  // Simulate the kid's movement and time messages.
   sim({ num }) {
+    // 🗨️ Message
+    if (this.#message) {
+      if (this.#messageProgress < this.#messageDuration) {
+        this.#messageProgress += 1;
+      } else {
+        this.#message = null;
+        this.#messageProgress = 0;
+      }
+    }
+
+    // 🏃 Movement
     const k = this.#keys,
       leash = this.leash,
       pos = this.pos;
@@ -110,6 +146,11 @@ class Kid {
     k.U = k.D = k.L = k.R = false;
     this.leash.start = null;
   }
+
+  // Return the screen position of this kid, given a camera and world,
+  screenPos(cam, world) {
+    return { x: cam.x + this.pos.x, y: cam.y + this.pos.y };
+  }
 }
 
 // 🌎
@@ -136,7 +177,7 @@ class Cam {
   }
 }
 
-let me, world, cam, input;
+let me, world, cam, input, inputBtn;
 
 // 🥾 Boot
 function boot({ api, wipe, handle, screen, ui, send }) {
@@ -162,9 +203,12 @@ function boot({ api, wipe, handle, screen, ui, send }) {
     api,
     ">",
     async (text) => {
-      send({ type: "keyboard:close" });
+      // Clear the text, hide the cursor block, and close the keyboard.
+      me.write(input.text); // Activate a timed display message on 🧒.
       input.text = "";
-    }, //,
+      input.showBlink = false;
+      send({ type: "keyboard:close" });
+    },
     {
       // autolock: false,
       // wrap,
@@ -176,8 +220,11 @@ function boot({ api, wipe, handle, screen, ui, send }) {
       // },
       // gutterMax,
       // lineSpacing,
+      closeOnEmptyEnter: true,
     },
   );
+
+  inputBtn = new ui.Button();
 
   send({ type: "keyboard:soft-lock" });
 }
@@ -211,30 +258,57 @@ function paint({ api, wipe, ink, pan, unpan, pen, screen }) {
       height: screen.height - 18,
     });
   }
+
+  inputBtn.paint((btn) => {
+    ink("yellow", btn.down && btn.over ? 128 : 64).box(btn.box);
+  });
 }
 
 // 🎪 Act
 function act({ event: e, api, send }) {
-  // TODO: - [] Add `Enter` activation keyboard shortcut.
-  //       - [] Or can character to chat... or enter special commands like
-  //            outfit change or smile.
+  if (!input.canType) {
+    me.act(api);
 
-  if (!input.canType && e.is("keyboard:down:enter")) {
-    me.off();
-    send({ type: "keyboard:open" });
+    function open() {
+      me.off();
+      send({ type: "keyboard:open" });
+    }
+
+    inputBtn.act(e, { push: () => open() });
+    if (e.is("keyboard:down:enter")) open();
   }
 
-  // if (e.is("keyboard:up:enter") && !input.canType)
+  if (
+    input.canType &&
+    (e.is("keyboard:down:escape") ||
+      (input.text.trim().length === 0 &&
+        e.is("keyboard:down:enter") &&
+        !e.shift))
+  ) {
+    send({ type: "keyboard:close" });
+  }
 
-  if (!input.canType) me.act(api);
-  if (e.is("keyboard:open") || e.is("keyboard:close") || input.canType)
+  if (
+    e.is("keyboard:open") ||
+    e.is("keyboard:close") ||
+    (input.canType && !e.is("keyboard:down:escape"))
+  ) {
+    if (e.is("keyboard:close")) input.text = "";
     input.act(api);
+  }
 }
 
 // 🧮 Sim
-function sim({ api }) {
+function sim({ api, geo }) {
   me.sim(api); // 🧒 Movement
   input.sim(api); // 💬 Chat
+
+  const btnPos = me.screenPos(cam, world); // Button to activate prompt.
+  inputBtn.box = new geo.Box(
+    btnPos.x - me.size,
+    btnPos.y - me.size,
+    me.size * 2,
+  );
 }
 
 // 🥁 Beat
