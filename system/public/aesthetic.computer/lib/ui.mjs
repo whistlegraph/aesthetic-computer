@@ -224,22 +224,25 @@ class TextButton {
     const w = text.length * this.#cw + this.#g2;
     const h = this.#h;
 
+    if (pos.screen) {
+      pos.screen.x = pos.screen.x || 0;
+      pos.screen.y = pos.screen.y || 0;
+    }
+
     if (pos.center === "xy") {
       return {
-        x: (pos.x || 0) + pos.screen.width / 2 - w / 2,
-        y: (pos.y || 0) + pos.screen.height / 2 - h / 2,
+        x: pos.screen.x + (pos.x || 0) + pos.screen.width / 2 - w / 2,
+        y: pos.screen.y + (pos.y || 0) + pos.screen.height / 2 - h / 2,
         w,
         h,
       };
     }
 
-    //if (pos.x !== undefined && pos.y !== undefined) {
     // Position from top left if x and y are set on pos
     x = (pos.screen?.x || 0) + (pos.x || 0);
     y = (pos.screen?.y || 0) + (pos.y || 0);
-    //} else {
-    // Compute "bottom" and "right" properties if they exist.
 
+    // Compute "bottom" and "right" properties if they exist.
     if (pos.bottom !== undefined) {
       y += pos.screen.height - pos.bottom - this.#h;
     } else {
@@ -251,7 +254,6 @@ class TextButton {
     } else {
       x += pos.left || 0;
     }
-    //}
 
     return { x, y, w, h };
   }
