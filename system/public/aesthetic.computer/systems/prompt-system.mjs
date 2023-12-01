@@ -51,7 +51,6 @@ export async function prompt_boot(
       input.enter.btn.disabled = true;
 
       // Disable any paste button.
-      console.log("DISABLED PASTE");
       input.paste.btn.disabled = true;
       input.paste.btn.removeFromDom($, "paste");
 

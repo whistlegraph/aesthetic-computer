@@ -7,12 +7,15 @@
 /* #region 🏁 TODO 
   - [🟠] Add an overhead chat ability.
     - [🩵] Wire up good button to activate the text input.
-    - [x] Paste button does not appear when going back to the prompt
-         from another piece after entering a single key.
-    - [x] `Enter` button appears and disappears at weird times.
+    - [] Don't snap the cursor all the way back after hitting return
+         / keep it at its position.
   - [] Make the world scrollable.
   - [] Get multi-user networking online. 
   - [] Move common functionality to a `world.mjs` library file.
+  + Done
+  - [x] Paste button does not appear when going back to the prompt
+        from another piece after entering a single key.
+  - [x] `Enter` button appears and disappears at weird times.
 #endregion */
 
 // 🧒
@@ -44,12 +47,12 @@ class Kid {
     const k = this.#keys;
     const leash = this.leash;
     if (e.is("keyboard:down:w") || e.is("keyboard:down:arrowup")) k.U = true;
-    if (e.is("keyboard:down:a") || e.is("keyboard:down:arrowdown")) k.D = true;
-    if (e.is("keyboard:down:s") || e.is("keyboard:down:arrowleft")) k.L = true;
+    if (e.is("keyboard:down:s") || e.is("keyboard:down:arrowdown")) k.D = true;
+    if (e.is("keyboard:down:a") || e.is("keyboard:down:arrowleft")) k.L = true;
     if (e.is("keyboard:down:d") || e.is("keyboard:down:arrowright")) k.R = true;
     if (e.is("keyboard:up:w") || e.is("keyboard:up:arrowup")) k.U = false;
-    if (e.is("keyboard:up:a") || e.is("keyboard:up:arrowdown")) k.D = false;
-    if (e.is("keyboard:up:s") || e.is("keyboard:up:arrowleft")) k.L = false;
+    if (e.is("keyboard:up:s") || e.is("keyboard:up:arrowdown")) k.D = false;
+    if (e.is("keyboard:up:a") || e.is("keyboard:up:arrowleft")) k.L = false;
     if (e.is("keyboard:up:d") || e.is("keyboard:up:arrowright")) k.R = false;
 
     if (e.is("touch:1")) leash.start = { x: e.x, y: e.y };
@@ -157,9 +160,10 @@ function boot({ api, wipe, handle, screen, ui, send }) {
 
   input = new ui.TextInput(
     api,
-    "chat here...",
+    ">",
     async (text) => {
       send({ type: "keyboard:close" });
+      input.text = "";
     }, //,
     {
       // autolock: false,
@@ -179,8 +183,9 @@ function boot({ api, wipe, handle, screen, ui, send }) {
 }
 
 // 🎨 Paint
-function paint({ api, ink, pan, unpan, pen, screen }) {
-  //🌎 + 🧒 World & Players
+function paint({ api, wipe, ink, pan, unpan, pen, screen }) {
+  wipe(0); // Backdrop
+  // 🌎 + 🧒 World & Players
   pan(cam.x, cam.y);
   world.paint(api);
   me.paint(api);
@@ -198,28 +203,32 @@ function paint({ api, ink, pan, unpan, pen, screen }) {
     );
   }
 
-  input.paint(api, false, {
-    x: 0,
-    y: 18,
-    width: screen.width,
-    height: screen.height - 18,
-  });
+  if (input.canType) {
+    input.paint(api, false, {
+      x: 0,
+      y: 18,
+      width: screen.width,
+      height: screen.height - 18,
+    });
+  }
 }
 
 // 🎪 Act
 function act({ event: e, api, send }) {
-  if (!input.canType && e.is("touch")) {
+  // TODO: - [] Add `Enter` activation keyboard shortcut.
+  //       - [] Or can character to chat... or enter special commands like
+  //            outfit change or smile.
+
+  if (!input.canType && e.is("keyboard:down:enter")) {
     me.off();
     send({ type: "keyboard:open" });
-  } else if (!input.canType) {
-    me.act(api); // 🧒 Kid controls
   }
 
-  if (e.is("keyboard:open") || e.is("keyboard:close")) input.act(api);
+  // if (e.is("keyboard:up:enter") && !input.canType)
 
-  if (input.canType) {
-    input.act(api); // 💬 Text input
-  }
+  if (!input.canType) me.act(api);
+  if (e.is("keyboard:open") || e.is("keyboard:close") || input.canType)
+    input.act(api);
 }
 
 // 🧮 Sim
