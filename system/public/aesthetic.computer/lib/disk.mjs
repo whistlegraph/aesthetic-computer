@@ -23,7 +23,7 @@ import { headers } from "./console-headers.mjs";
 import { logs } from "./logs.mjs";
 import { soundWhitelist } from "./sound/sound-whitelist.mjs";
 
-import { Typeface } from "../lib/type.mjs";
+import { TextInput, Typeface } from "../lib/type.mjs";
 let tf; // Active typeface global.
 
 export const noWorker = { onMessage: undefined, postMessage: undefined };
@@ -1229,6 +1229,7 @@ const $commonApi = {
   ui: {
     Button: ui.Button,
     TextButton: ui.TextButton,
+    TextInput: TextInput,
   },
   help: {
     choose: help.choose,
@@ -2675,7 +2676,11 @@ async function load(
           rejection(reject);
         });
       });
-    } else if (extension === "m4a" || extension === "wav" || extension === "mp3") {
+    } else if (
+      extension === "m4a" ||
+      extension === "wav" ||
+      extension === "mp3"
+    ) {
       return new Promise((resolve, reject) => {
         if (options.signal?.aborted) {
           rejection(reject);

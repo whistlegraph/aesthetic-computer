@@ -15,6 +15,10 @@ let reconnect;
 
 function connect(port = 8889, url = undefined, send) {
   console.log("🩰 Connecting to UDP:", url, "on:", port);
+  if (channel) {
+    console.log("🩰 UDP Channel already exists:", channel);
+    return;
+  }
 
   channel = Geckos({ url, port }); // default port is 9208
 
@@ -30,6 +34,7 @@ function connect(port = 8889, url = undefined, send) {
 
     if (error) {
       console.error("🩰", error.message);
+      channel = null;
       reconnect();
       return;
     }
@@ -52,6 +57,7 @@ function connect(port = 8889, url = undefined, send) {
     console.log("🩰 Disconnected from UDP");
     if (error) {
       console.warn("🩰 Reconnecting:", error);
+      channel = null;
       reconnect();
     }
   });
@@ -61,6 +67,7 @@ export const UDP = {
   connect,
   disconnect: () => {
     channel?.close();
+    channel = null;
   },
   send: ({ type, content }) => {
     if (logs.udp) console.log(`🩰 UDP Sent:`, { type, content });

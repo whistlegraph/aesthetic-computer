@@ -276,6 +276,8 @@ class TextInput {
       this.typeface = $.typeface; // Set to system typeface.
     }
 
+    console.log(this.typeface);
+
     this.activated = options.activated;
     //this.#autolock = options.autolock;
     this.didReset = options.didReset;
@@ -286,13 +288,11 @@ class TextInput {
     this.#prompt = new Prompt(
       blockWidth,
       blockWidth,
-      options.wrap, // "char" or "word"
+      options.wrap || "char", // "char" or "word"
       $.store["gutter:lock"] ||
         Math.min(this.#gutterMax, floor($.screen.width / blockWidth) - 2),
       options.lineSpacing,
     );
-
-    if (options.lineSpacing) this.#prompt.lineSpacing;
 
     this.print(text); // Set initial text.
 
@@ -437,8 +437,11 @@ class TextInput {
   }
 
   // Paint the TextInput, with an optional `frame` for placement.
-  // TODO: Provide a full frame along with an x, y position..
-  paint($, clear = false, frame = $.screen) {
+  paint(
+    $,
+    clear = false,
+    frame = { x: 0, y: 0, width: $.screen.width, height: $.screen.height },
+  ) {
     this.pal = this.scheme[$.dark ? "dark" : "light"] || this.scheme;
 
     if (!clear && this.pal.bg !== undefined) $.ink(this.pal.bg).box(frame); // Paint bg.
@@ -458,6 +461,7 @@ class TextInput {
     }
 
     // 🗺️ Render the text from the maps! (Can go both ways...)
+    if (frame.x || frame.y) $.pan(frame.x, frame.y);
 
     // A. Draw all text from displayToTextMap.
     let submittedIndex = 0;
@@ -491,7 +495,7 @@ class TextInput {
         prompt.gutter,
         $.screen.height,
       ); // Ruler
-      $.ink(127).box(0, 0, $.screen.width, $.screen.height, "inline"); // Focus
+      $.ink(127).box(0, 0, frame.width, frame.height, "inline"); // Focus
     }
 
     if (this.#lock) {
@@ -546,16 +550,24 @@ class TextInput {
     if (pal.btnHvr && pal.btnHvrTxt)
       btnHvrScheme = [pal.btnHvr, pal.btnHvrTxt, pal.btnHvrTxt, pal.btnHvr];
 
+
     // Enter Button
+    if (!this.enter.btn.disabled) {
+      // Outline the whole screen.
+      if (this.#activatingPress) {
+        const color = Array.isArray(pal.fg)
+          ? [...pal.fg.slice(0, 3), 128]
+          : [255, 0, 200, 64];
+
+        $.ink(color).box(0, 0, frame.width, frame.height, "in");
+      }
+    }
+
+    if (frame.x || frame.y) $.unpan();
+
     if (!this.enter.btn.disabled) {
       this.enter.reposition({ right: 6, bottom: 6, screen: frame });
       this.enter.paint($, btnScheme, btnHvrScheme);
-
-      // Outline the whole screen.
-      if (this.#activatingPress) {
-        const color = pal.fg ? [...pal.fg.slice(0, 3), 128] : [255, 0, 200, 64];
-        $.ink(color).box(0, 0, $.screen.width, $.screen.height, "in");
-      }
     }
 
     // Copy Button
@@ -579,6 +591,7 @@ class TextInput {
         btnHvrScheme,
       );
     }
+
 
     // Return false if we have loaded every glyph.
     // (Can be wired up to the return value of the parent's `paint`)

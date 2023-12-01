@@ -41,8 +41,9 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** `go` ***
-  - [🔥] Make `field`.
-  - [] Walk to another field.
+  - [❤️‍🔥] Make `field`
+  - [] Walk to `horizon`
+  - [] And then `cave:entrance`
   - [] Check the networking / position shifting.
 
 *** automate honest fabric checkout ***

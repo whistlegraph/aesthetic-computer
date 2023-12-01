@@ -1272,6 +1272,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Disconect from the UDP server.
     if (type === "udp:disconnect") {
       UDP.disconnect();
       return;
