@@ -2,7 +2,6 @@
 // This module contains all of the prompt system functionality.
 // Prompts are language in<->out services.
 
-import { TextInput } from "../lib/type.mjs";
 import { Conversation } from "../lib/ask.mjs";
 
 let conversation,
@@ -31,7 +30,7 @@ export async function prompt_boot(
 
   if (messages.length > 0) prompt = messages[messages.length - 1].text;
 
-  input = new TextInput(
+  input = new $.ui.TextInput(
     $,
     prompt,
     async (text) => {

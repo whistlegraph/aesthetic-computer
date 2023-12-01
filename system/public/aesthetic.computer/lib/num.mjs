@@ -30,6 +30,10 @@ export const p2 = {
   of: function (x, y) {
     return { x, y };
   },
+  // Get the length of the point as a vector.
+  len: function (pA) {
+    return Math.hypot(pA.x, pA.y);
+  },
   // Check for the equality of two points.
   eq: function (p1, p2) {
     return p1.x === p2.x && p1.y === p2.y;
