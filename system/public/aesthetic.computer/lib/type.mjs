@@ -628,6 +628,8 @@ class TextInput {
       // Force turning off the paste button.
       this.paste.btn.disabled = true; // Disable paste button.
       this.paste.btn.removeFromDom($, "paste");
+    } else {
+      this.paste.btn.disabled = false; // Enable paste button.
     }
   }
 
