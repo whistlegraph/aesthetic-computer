@@ -1219,6 +1219,7 @@ class TextInput {
         !this.enter.btn.down
       ) {
         $.send({ type: "keyboard:lock" });
+        // ^ TODO: This is repetitive, 23.12.01.01.48
       }
 
       // Copy Button...
