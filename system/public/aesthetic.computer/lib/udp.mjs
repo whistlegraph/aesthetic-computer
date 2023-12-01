@@ -66,7 +66,7 @@ function connect(port = 8889, url = undefined, send) {
 export const UDP = {
   connect,
   disconnect: () => {
-    channel?.close();
+    if (channel) channel?.close();
     channel = null;
   },
   send: ({ type, content }) => {

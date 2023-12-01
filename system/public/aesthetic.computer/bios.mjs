@@ -45,7 +45,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   let pen,
     keyboard,
-    keyboardFocusLock = false;
+    keyboardFocusLock = false,
+    keyboardSoftLock = false;
   let handData; // Hand-tracking.
 
   let frameCount = 0n;
@@ -1794,7 +1795,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         keyboard.focusHandler = function (e) {
           if (!currentPieceHasKeyboard) return;
-          if (keyboardFocusLock) return;
+          if (keyboardFocusLock || keyboardSoftLock) return;
           if (
             document.activeElement !== input &&
             e.key !== "`" &&
@@ -1993,7 +1994,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           if (e.target === window) return; // This prevents.
 
-          if (currentPieceHasKeyboard && !keyboardFocusLock) {
+          if (
+            currentPieceHasKeyboard &&
+            !keyboardFocusLock &&
+            !keyboardSoftLock
+          ) {
             if (keyboardOpen) {
               input.blur();
             } else {
@@ -2329,6 +2334,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "keyboard:enabled") {
       currentPieceHasKeyboard = true;
       keyboardFocusLock = false;
+      keyboardSoftLock = false;
       return;
     }
 
@@ -2350,6 +2356,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       keyboard?.input.focus();
       // if (keyboard) keyboard.needsImmediateOpen = true; // For iOS.
       return;
+    }
+
+    // Prevents any touch or keyboard activation events directly on the input.
+    if (type === "keyboard:soft-lock") {
+      keyboardSoftLock = true;
+      if (logs.hid && debug) console.log("⌨️ Virtual Keyboard: Soft locked.");
     }
 
     if (type === "keyboard:lock") {

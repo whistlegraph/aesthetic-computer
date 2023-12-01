@@ -223,7 +223,6 @@ class TextInput {
 
   inputStarted = false; // Flipped when the TextInput is first activated.
   //                       (To clear any starting text.)
-  //               using the arrow keys.
   #moveThreshold = 6; // Drag threshold.
   #moveDeltaX = 0;
 
@@ -275,8 +274,6 @@ class TextInput {
     } else {
       this.typeface = $.typeface; // Set to system typeface.
     }
-
-    console.log(this.typeface);
 
     this.activated = options.activated;
     //this.#autolock = options.autolock;
@@ -550,7 +547,6 @@ class TextInput {
     if (pal.btnHvr && pal.btnHvrTxt)
       btnHvrScheme = [pal.btnHvr, pal.btnHvrTxt, pal.btnHvrTxt, pal.btnHvr];
 
-
     // Enter Button
     if (!this.enter.btn.disabled) {
       // Outline the whole screen.
@@ -591,7 +587,6 @@ class TextInput {
         btnHvrScheme,
       );
     }
-
 
     // Return false if we have loaded every glyph.
     // (Can be wired up to the return value of the parent's `paint`)
@@ -1129,6 +1124,7 @@ class TextInput {
       if (ti.#lastUserText.length > 0) {
         ti.text = ti.#lastUserText;
         ti.runnable = true;
+        ti.paste.btn.disabled = false;
       } else {
         if (ti.#lastPrintedText) ti.blank("blink");
 
@@ -1152,6 +1148,8 @@ class TextInput {
 
     // Leave the prompt input mode.
     function deactivate(ti) {
+      // console.log("🙁 Deactivating TextInput...");
+
       if (ti.canType === false) {
         // Assume we are already deactivated.
         if (debug) console.log("❌✍️ TextInput already deactivated.");
@@ -1415,9 +1413,18 @@ class TextInput {
       this.text = e.text;
       this.#lastUserText = e.text;
       this.#prompt.snapTo(this.text.slice(0, e.cursor));
-      this.runnable = true;
+      // this.runnable = true;
       this.blink.flip(true);
       this.selection = null;
+
+      if (this.text.length > 0) {
+        this.enter.btn.disabled = false;
+        this.runnable = true;
+      } else {
+        this.enter.btn.disabled = true;
+        this.runnable = false;
+      }
+
       if (this.#prehistory !== undefined) this.#prehistory = this.text;
     }
 
