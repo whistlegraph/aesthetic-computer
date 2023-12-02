@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** `prompt` star status ***
+  - [x] Use the colors of the starfield to represent connectivity status.
+
 *** Regression ***
   - [x] Tapping on `prompt` breaks after getting a GPT reply. 
 
