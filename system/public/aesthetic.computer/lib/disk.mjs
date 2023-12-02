@@ -3906,6 +3906,7 @@ async function makeFrame({ data: { type, content } }) {
       $commonApi.pen = primaryPointer;
 
       if (
+        screen &&
         primaryPointer &&
         (primaryPointer.delta?.x !== 0 || primaryPointer.delta?.y !== 0)
       ) {
