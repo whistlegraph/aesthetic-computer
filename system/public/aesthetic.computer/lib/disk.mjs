@@ -2497,7 +2497,10 @@ async function load(
       clearTimeout(socketStartDelay);
       startSocket();
     } else {
-      if (socket?.id) receiver(socket.id, "connected:already");
+      // Return the server then send an already connected message.
+      setTimeout(() => {
+        if (socket?.id) receiver(socket.id, "connected:already");
+      }, 10);
     }
     return socket;
   };

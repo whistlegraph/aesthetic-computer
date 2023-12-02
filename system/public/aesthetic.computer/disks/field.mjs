@@ -5,11 +5,14 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Get multi-user networking online. 
-  - [] Add a "special" command 😉. 
+  - [] Add a "special", `smile`, `frown` and `meh` command 😉. 
+    - [] Add color words to change face.
+    - [] Make sure these can be written like: `smile: chat` / using a 
+         simple character on the keyboard.
   - [] Make the world scrollable.
   - [] Move common functionality to a `world.mjs` library file.
   + Done
+  - [x] Get multi-user networking online. 
   - [x] Add an overhead chat display.
   - [x] Wire up tappable character button to activate the text input.
   - [x] Enter button should close empty prompt.
@@ -92,7 +95,7 @@ class Kid {
   }
 
   // Simulate the kid's movement and time messages.
-  sim({ num }) {
+  sim({ num }, net) {
     // 🗨️ Message
     if (this.#message) {
       if (this.#messageProgress < this.#messageDuration) {
@@ -100,6 +103,7 @@ class Kid {
       } else {
         this.#message = null;
         this.#messageProgress = 0;
+        net?.({ clear: true });
       }
     }
 
@@ -120,13 +124,20 @@ class Kid {
       leash.x *= 0.97;
     }
 
+    const newPos = { ...pos };
     if (leash.len > leash.deadzone) {
-      pos.x = num.lerp(pos.x, pos.x + leash.x, 0.075);
-      pos.y = num.lerp(pos.y, pos.y + leash.y, 0.075);
+      newPos.x = num.lerp(pos.x, pos.x + leash.x, 0.075);
+      newPos.y = num.lerp(pos.y, pos.y + leash.y, 0.075);
     } else if (leash.len > 1) {
-      pos.x = num.lerp(pos.x, pos.x + leash.x, 0.025);
-      pos.y = num.lerp(pos.y, pos.y + leash.y, 0.025);
+      newPos.x = num.lerp(pos.x, pos.x + leash.x, 0.025);
+      newPos.y = num.lerp(pos.y, pos.y + leash.y, 0.025);
     }
+
+    // Run the net callback whenever the position changes.
+    if (newPos.x !== pos.x || newPos.y !== pos.y) net?.({ pos });
+
+    pos.x = newPos.x;
+    pos.y = newPos.y;
   }
 
   // Limit the kid's movement leash.
@@ -177,10 +188,14 @@ class Cam {
   }
 }
 
-let me, world, cam, input, inputBtn;
+let me, world, cam, input, inputBtn, server;
+const kids = {};
+
+const { keys } = Object;
 
 // 🥾 Boot
-function boot({ api, wipe, handle, screen, ui, send }) {
+function boot({ api, wipe, handle, screen, ui, send, net: { socket } }) {
+  // ✨ Initialization & Interface
   wipe(0);
   world = new World();
   me = new Kid(handle(), { x: world.size.width / 2, y: world.size.height / 2 });
@@ -201,10 +216,12 @@ function boot({ api, wipe, handle, screen, ui, send }) {
 
   input = new ui.TextInput(
     api,
-    ">",
+    "...",
     async (text) => {
-      // Clear the text, hide the cursor block, and close the keyboard.
-      me.write(input.text); // Activate a timed display message on 🧒.
+      me.write(input.text); // Display message on 🧒.
+      server.send("field:write", input.text); // Send to server.
+
+      // Clear text, hide cursor block, and close keyboard.
       input.text = "";
       input.showBlink = false;
       send({ type: "keyboard:close" });
@@ -225,18 +242,66 @@ function boot({ api, wipe, handle, screen, ui, send }) {
   );
 
   inputBtn = new ui.Button();
-
   send({ type: "keyboard:soft-lock" });
+
+  // Socket Networking
+  server = socket((id, type, content) => {
+    if (type === "left") {
+      console.log("️✌️ Goodbye:", id);
+      delete kids[id];
+    }
+
+    if (type === "joined") {
+      console.log("️👋 Hello:", id);
+    }
+
+    if (type.startsWith("connected")) {
+      server.send("field:join", { handle: me.handle, pos: me.pos });
+      console.log("🪴 Welcome:", me.handle, `(${id})`);
+    }
+
+    if (server.id !== id) {
+      if (type === "field:write") {
+        const kid = kids[id];
+        if (kid) kid.write(content);
+      }
+
+      if (type === "field:write:clear") {
+        const kid = kids[id];
+        if (kid) kid.write(null);
+      }
+
+      if (type === "field:join") {
+        if (!kids[id]) {
+          kids[id] = new Kid(content.handle || id, content.pos);
+          server.send("field:join", { handle: me.handle, pos: me.pos });
+        }
+      }
+
+      if (type === "field:move") {
+        const kid = kids[id];
+        if (kid) kid.pos = content.pos;
+      }
+    }
+  });
 }
 
 // 🎨 Paint
 function paint({ api, wipe, ink, pan, unpan, pen, screen }) {
-  wipe(0); // Backdrop
+  wipe(0); // 🖼️ Backdrop
   // 🌎 + 🧒 World & Players
   pan(cam.x, cam.y);
   world.paint(api);
   me.paint(api);
+
   unpan();
+
+  keys(kids).forEach((key) => {
+    pan(cam.x, cam.y);
+    const kid = kids[key];
+    kid.paint(api);
+    unpan();
+  });
 
   // 💻 Screen UI
   const l = me.leash;
@@ -300,7 +365,10 @@ function act({ event: e, api, send }) {
 
 // 🧮 Sim
 function sim({ api, geo }) {
-  me.sim(api); // 🧒 Movement
+  me.sim(api, function net(kid) {
+    if (kid.pos) server.send("field:move", kid);
+    if (kid.clear) server.send("field:write:clear", kid);
+  }); // 🧒 Movement
   input.sim(api); // 💬 Chat
 
   const btnPos = me.screenPos(cam, world); // Button to activate prompt.
