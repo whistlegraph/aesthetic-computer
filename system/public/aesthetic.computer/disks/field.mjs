@@ -7,6 +7,7 @@
 /* #region 🏁 TODO 
   - [-] Keyboard stops working after tabbing out and returning. 
     - [🔴] Android debugger session with @ida's phone.
+  - [] Fix instagram not connecting error.
   - [] Always lerp towards next character positions from the network.
   - [] Make the world scrollable with some background grass.
   - [] Move common functionality to a `world.mjs` library file.

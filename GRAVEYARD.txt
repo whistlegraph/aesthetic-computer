@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** Regression ***
+  - [x] Tapping on `prompt` breaks after getting a GPT reply. 
+
 *** Monolithic UDP ***
   + Done
   - [x] Switch to using UDP for fairy positioning (since it's now monolithic).

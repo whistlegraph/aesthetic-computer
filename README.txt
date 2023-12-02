@@ -40,9 +40,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Regression ***
-  - [❤️‍🔥] Tapping on `prompt` breaks after getting a GPT reply. 
-
 *** star status ***
   - [] Use the colors of the starfield to represent connectivity status.
 
