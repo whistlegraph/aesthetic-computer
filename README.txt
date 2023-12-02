@@ -40,6 +40,9 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Regression ***
+  - [❤️‍🔥] Tapping on `prompt` breaks after getting a GPT reply. 
+
 *** qr ***
   - [-] Enter `qr pond` to show a scannable QR code that would join
        pond, both on lan (properly) and in production, in addition to
