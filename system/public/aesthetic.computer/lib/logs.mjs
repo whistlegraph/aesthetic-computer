@@ -10,7 +10,7 @@ export const logs = {
   udp: false, // UDP message logs.
   download: false, // Download progress, etc. (JSON)
   audio: false,
-  hid: true, // Keyboard, Pen, etc.
+  hid: false, // Keyboard, Pen, etc.
   painting: false, // System wallpaper / paint related logs.
   glaze: false,
   deps: false, // Dependency loading and injection.

@@ -5,14 +5,15 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🟠] Make the world scrollable with some background grass.
-  - [] Keyboard stops working after tabbing out and returning. 
-  - [-] Add enter key hint.
+  - [-] Keyboard stops working after tabbing out and returning. 
+    - [🔴] Android debugger session with @ida's phone.
+  - [] Make the world scrollable with some background grass.
   - [] Move common functionality to a `world.mjs` library file.
   - [] Store persistent position on the server / in the database. 
     - [] What is the grass was grown on the server / grown according to
         server time / (how how do I synchronize server time to everyone?)
   + Done
+  - [?] Add enter key hint.
   - [x] Tapping the word in the top left corner should not flash the keyboard. 
   - [x] Get keyboard opening on Mobile Safari.
   - [x] `Escape` key should still go back to the `prompt`.
@@ -467,6 +468,10 @@ function act({ event: e, api, send, jump, hud, piece }) {
         e.is("keyboard:down:enter") &&
         !e.shift))
   ) {
+    send({ type: "keyboard:close" });
+  }
+
+  if (input.canType && e.is("lift") && !input.shifting) {
     send({ type: "keyboard:close" });
   }
 
