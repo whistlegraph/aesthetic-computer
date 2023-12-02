@@ -164,12 +164,14 @@ export async function prompt_boot(
           input.submittedText = "";
           processing = input.lock = false;
           $.send({ type: "keyboard:unlock" });
-          input.bakePrintedText();
+          $.send({ type: "keyboard:open" }); // Will not auto-open on iOS? 23.12.02.13.01
+          // input.bakePrintedText();
           input.runnable = false;
-          if (input.text.length > 0) {
-            messageComplete = true;
-            input.showButton($);
-          }
+          console.log(input);
+          //if (input.text.length > 0) {
+          // messageComplete = true;
+          // input.showButton($);
+          //}
         },
       );
     },
@@ -205,6 +207,7 @@ export function prompt_leave() {
 
 export function prompt_act($) {
   const { event: e, slug } = $;
+
   // Cancel any existing request on tap.
   if (
     !messageComplete &&

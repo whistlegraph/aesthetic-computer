@@ -2001,6 +2001,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             !keyboardSoftLock
           ) {
             if (keyboardOpen) {
+              console.log("keyboard is open, so blurring now...");
               input.blur();
             } else {
               keyboardOpenMethod = "pointer";
@@ -2347,11 +2348,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "keyboard:close") {
       // if (keyboardFocusLock) return; // Deprecated: 23.10.02.23.18
+      // console.log("⌨️ Keyboard closing...");
       keyboard?.input.blur();
       return;
     }
 
     if (type === "keyboard:open") {
+      // console.log("⌨️ Keyboard opening...");
       if (keyboardFocusLock) return;
       keyboardFocusLock = false;
       currentPieceHasKeyboard = true;
@@ -2387,6 +2390,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const input = keyboard.input;
       // Get the current position of the caret
 
+      // Quit if keyboard is not open.
+      if (document.activeElement !== keyboard.input) return;
+
       if (typeof content === "number") {
         const currentPosition =
           input.selectionDirection === "backward"
@@ -2406,7 +2412,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "keyboard:text:replace") {
       const input = keyboard.input;
       input.value = content.text;
-      if (content.cursor)
+      if (content.cursor && document.activeElement === keyboard.input)
         input.setSelectionRange(content.cursor, content.cursor);
       return;
     }
