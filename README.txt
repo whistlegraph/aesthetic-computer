@@ -43,6 +43,9 @@
 *** Regression ***
   - [❤️‍🔥] Tapping on `prompt` breaks after getting a GPT reply. 
 
+*** star status ***
+  - [] Use the colors of the starfield to represent connectivity status.
+
 *** qr ***
   - [-] Enter `qr pond` to show a scannable QR code that would join
        pond, both on lan (properly) and in production, in addition to
