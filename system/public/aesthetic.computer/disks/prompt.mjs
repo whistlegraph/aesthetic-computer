@@ -123,7 +123,7 @@ async function boot({
     });
 
   // Boot starfield with a clear backdrop.
-  starfield.boot();
+  starfield.boot(api, { stars: 128 });
   starfield.wipe(false);
 
   // TODO: How could I not keep reloading these sounds?

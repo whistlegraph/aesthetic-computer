@@ -6,7 +6,7 @@ async function constructUrl() {
   const ifaces = networkInterfaces();
   let ipAddress;
 
-  // Iterate over network interfaces to find the first non-internal IPv4 address
+  // Iterate over network interfaces to find the 1st non-internal IPv4 address
   Object.keys(ifaces).forEach((ifname) => {
     ifaces[ifname].forEach((iface) => {
       if (iface.family === "IPv4" && !iface.internal) {

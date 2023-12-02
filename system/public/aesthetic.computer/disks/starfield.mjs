@@ -5,8 +5,8 @@ let starfield;
 let nowipe = false;
 const { tan, floor, random } = Math;
 
-export function boot($) {
-  starfield = new Starfield($);
+export function boot($, options) {
+  starfield = new Starfield($, options?.stars);
 }
 
 // 🧮 Sim(ulate)
@@ -38,7 +38,8 @@ class Starfield {
     z: Array(this.numStars),
   };
 
-  constructor() {
+  constructor($, numStars) {
+    this.numStars = numStars || this.numStars;
     for (let i = 0; i < this.numStars; i += 1) {
       this.reset(i);
     }
