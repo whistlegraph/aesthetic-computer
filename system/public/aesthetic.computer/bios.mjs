@@ -1780,6 +1780,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         input.style.opacity = 0;
         input.style.width = 0 + "px";
         input.style.height = 0 + "px";
+        // input.enterkeyhint = "go"; // Why doesn't this work?
 
         // 📓 Uncomment to debug text editing form synchronization.
         // form.style.opacity = 1;
@@ -2362,7 +2363,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Prevents any touch or keyboard activation events directly on the input.
     if (type === "keyboard:soft-lock") {
       keyboardSoftLock = true;
-      if (logs.hid && debug) console.log("⌨️ Virtual Keyboard: Soft locked.");
+      if (logs.hid && debug) console.log("⌨️ Virtual Keyboard: Soft-locked.");
+    }
+
+    if (type === "keyboard:soft-unlock") {
+      keyboardSoftLock = false;
+      if (logs.hid && debug) console.log("⌨️ Virtual Keyboard: Soft-unlocked.");
     }
 
     if (type === "keyboard:lock") {
@@ -2373,7 +2379,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "keyboard:unlock") {
       keyboardFocusLock = false;
-      keyboardSoftLock = false;
       if (logs.hid && debug) console.log("⌨️ Virtual Keyboard: Unlocked");
       return;
     }
