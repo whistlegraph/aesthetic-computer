@@ -448,7 +448,10 @@ class TextInput {
     clear = false,
     frame = { x: 0, y: 0, width: $.screen.width, height: $.screen.height },
   ) {
-    this.pal = this.scheme[$.dark ? "dark" : "light"] || this.scheme;
+    this.pal =
+      this.scheme[$.dark ? "dark" : "light"] ||
+      this.scheme["dark"] ||
+      this.scheme;
 
     if (!clear && this.pal.bg !== undefined) $.ink(this.pal.bg).box(frame); // Paint bg.
     const ti = this;
