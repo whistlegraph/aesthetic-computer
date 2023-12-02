@@ -186,6 +186,8 @@ class TextInput {
   #lastUserText = ""; // cache the user's in-progress edited text.
   submittedText = ""; // cache the user's submitted text.
 
+  mute = false; // Whether to prevent sounds from playing.
+
   shifting = false; // Whether we are emoving the cursor or not.
 
   #renderSpaces = false; // Whether to render invisible space characters. " "
@@ -1070,14 +1072,16 @@ class TextInput {
         } else if (this.runnable) {
           if (this.text.trim().length > 0) {
             // 💻 Execute a command!
-            sound.synth({
-              type: "sine",
-              tone: 850,
-              attack: 0.1,
-              decay: 0.96,
-              volume: 0.65,
-              duration: 0.005,
-            });
+            if (!this.mute) {
+              sound.synth({
+                type: "sine",
+                tone: 850,
+                attack: 0.1,
+                decay: 0.96,
+                volume: 0.65,
+                duration: 0.005,
+              });
+            }
             await this.run(store);
           }
         } else if (!this.canType) {
@@ -1108,14 +1112,16 @@ class TextInput {
       // this.enter.btn.down = true;
       this.#activatingPress = true;
       $.send({ type: "keyboard:unlock" });
-      sound.synth({
-        type: "sine",
-        tone: 400,
-        attack: 0.1,
-        decay: 0.96,
-        volume: 0.5,
-        duration: 0.01,
-      });
+      if (!this.mute) {
+        sound.synth({
+          type: "sine",
+          tone: 400,
+          attack: 0.1,
+          decay: 0.96,
+          volume: 0.5,
+          duration: 0.01,
+        });
+      }
     }
 
     // Begin the prompt input mode / leave the splash.
@@ -1152,14 +1158,16 @@ class TextInput {
       ti.inputStarted = true;
       $.act("text-input:editable");
 
-      sound.synth({
-        type: "sine",
-        tone: 600,
-        attack: 0.1,
-        decay: 0.96,
-        volume: 0.5,
-        duration: 0.005,
-      });
+      if (!ti.mute) {
+        sound.synth({
+          type: "sine",
+          tone: 600,
+          attack: 0.1,
+          decay: 0.96,
+          volume: 0.5,
+          duration: 0.005,
+        });
+      }
     }
 
     this.activate = activate;
@@ -1199,14 +1207,19 @@ class TextInput {
       $.act("text-input:uneditable");
       needsPaint();
 
-      sound.synth({
-        type: "sine",
-        tone: 250,
-        attack: 0.1,
-        decay: 0.99,
-        volume: 0.75,
-        duration: 0.001,
-      });
+      if (!ti.mute) {
+        sound.synth({
+          type: "sine",
+          tone: 250,
+          attack: 0.1,
+          decay: 0.99,
+          volume: 0.75,
+          duration: 0.001,
+        });
+      }
+
+      ti.mute = false; // Always unmute on deactivation,
+      //                  for `field`. 23.12.02.00.43
     }
 
     // TODO: Touching background as a button (but no other button)
@@ -1294,24 +1307,28 @@ class TextInput {
       this.copy.btn.act(e, {
         down: () => {
           needsPaint();
-          sound.synth({
-            type: "sine",
-            tone: 600,
-            attack: 0.1,
-            decay: 0.99,
-            volume: 0.75,
-            duration: 0.001,
-          });
+          if (!this.mute) {
+            sound.synth({
+              type: "sine",
+              tone: 600,
+              attack: 0.1,
+              decay: 0.99,
+              volume: 0.75,
+              duration: 0.001,
+            });
+          }
         },
         push: () => {
-          sound.synth({
-            type: "sine",
-            tone: 800,
-            attack: 0.1,
-            decay: 0.99,
-            volume: 0.75,
-            duration: 0.005,
-          });
+          if (!this.mute) {
+            sound.synth({
+              type: "sine",
+              tone: 800,
+              attack: 0.1,
+              decay: 0.99,
+              volume: 0.75,
+              duration: 0.005,
+            });
+          }
           needsPaint();
         },
         cancel: () => needsPaint(),
@@ -1321,24 +1338,28 @@ class TextInput {
       this.paste.btn.act(e, {
         down: () => {
           needsPaint();
-          sound.synth({
-            type: "sine",
-            tone: 600,
-            attack: 0.1,
-            decay: 0.99,
-            volume: 0.75,
-            duration: 0.001,
-          });
+          if (!this.mute) {
+            sound.synth({
+              type: "sine",
+              tone: 600,
+              attack: 0.1,
+              decay: 0.99,
+              volume: 0.75,
+              duration: 0.001,
+            });
+          }
         },
         push: () => {
-          sound.synth({
-            type: "sine",
-            tone: 800,
-            attack: 0.1,
-            decay: 0.99,
-            volume: 0.75,
-            duration: 0.005,
-          });
+          if (!this.mute) {
+            sound.synth({
+              type: "sine",
+              tone: 800,
+              attack: 0.1,
+              decay: 0.99,
+              volume: 0.75,
+              duration: 0.005,
+            });
+          }
           needsPaint();
         },
         cancel: () => needsPaint(),
