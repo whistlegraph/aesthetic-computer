@@ -40,6 +40,11 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** qr ***
+  - [] Enter `qr pond` to show a scannable QR code that would join
+       pond, both on lan (properly) and in production, in addition to
+       reading out the IP address.
+
 *** `go` ***
   - [❤️‍🔥] Make `field`
   - [] Walk to `horizon`

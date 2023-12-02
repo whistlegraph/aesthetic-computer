@@ -34,7 +34,6 @@ function connect(port = 8889, url = undefined, send) {
 
     if (error) {
       console.error("🩰", error.message);
-      channel = null;
       reconnect();
       return;
     }
@@ -55,9 +54,9 @@ function connect(port = 8889, url = undefined, send) {
 
   channel.onDisconnect((error) => {
     console.log("🩰 Disconnected from UDP");
+    channel = null;
     if (error) {
       console.warn("🩰 Reconnecting:", error);
-      channel = null;
       reconnect();
     }
   });
@@ -66,8 +65,7 @@ function connect(port = 8889, url = undefined, send) {
 export const UDP = {
   connect,
   disconnect: () => {
-    if (channel) channel?.close?.();
-    channel = null;
+    channel?.close();
   },
   send: ({ type, content }) => {
     if (logs.udp) console.log(`🩰 UDP Sent:`, { type, content });

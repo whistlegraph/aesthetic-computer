@@ -235,6 +235,8 @@ function updateHUDStatus() {
 let loading = false;
 let reframe;
 
+let keyboardOpen = false; // A flag that gets flipped
+
 const sfxProgressReceivers = {};
 
 const signals = []; // Easy messages from embedded DOM content.
@@ -3733,6 +3735,16 @@ async function makeFrame({ data: { type, content } }) {
 
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
+      if (data.name === "keyboard:open") {
+        keyboardOpen = true;
+        return;
+      }
+
+      if (data.name === "keyboard:close") {
+        keyboardOpen = false;
+        return;
+      }
+
       if (currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
       if (data.name.indexOf("keyboard:down") === 0) {
         // [Escape] (Deprecated on 23.05.22.19.33)
@@ -3779,7 +3791,11 @@ async function makeFrame({ data: { type, content } }) {
             data.key === "Backspace" ||
             data.key === "Escape") &&
           system !== "prompt" &&
-          system !== "world"
+          system !== "world" &&
+          // !keyboardOpen &&
+          // system === "world" &&
+          // data.key === "Enter" &&
+          currentPath !== "aesthetic.computer/disks/prompt"
         ) {
           $commonApi.sound.synth({
             tone: data.key === "Backspace" ? 400 : 600,
@@ -4775,10 +4791,10 @@ async function makeFrame({ data: { type, content } }) {
 
         label = $api.painting(w, h, ($) => {
           let c;
-          if (currentHUDStatusColor) {
-            c = currentHUDStatusColor;
-          } else if (currentHUDTextColor) {
+          if (currentHUDTextColor) {
             c = num.shiftRGB(currentHUDTextColor, [255, 255, 255], 0.75);
+          } else if (currentHUDStatusColor) {
+            c = currentHUDStatusColor;
           } else {
             c = [255, 200, 240];
           }

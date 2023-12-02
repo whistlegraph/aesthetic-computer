@@ -2373,6 +2373,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "keyboard:unlock") {
       keyboardFocusLock = false;
+      keyboardSoftLock = false;
       if (logs.hid && debug) console.log("⌨️ Virtual Keyboard: Unlocked");
       return;
     }
