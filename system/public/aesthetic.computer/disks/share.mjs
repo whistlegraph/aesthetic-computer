@@ -1,43 +1,40 @@
-// QR, 2023.12.01.23.27.31.234
-// Generate a QR code of an AC piece.
+// Share, 2023.12.01.23.27.31.234
+// Share a link with a QR code of an AC piece.
 
 /* #region 📚 README 
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] Add `Enter` button.
+  - [] Is https:// necessary for local display?
 #endregion */
 
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 import * as starfield from "./starfield.mjs";
 
-let cells;
+let cells, enter, slug, url, alt = false;
 
 // 🥾 Boot
-function boot({ api, hud, params, net }) {
-  let url = `${net.lan || net.host}`;
-  const slug = params.join("~");
+function boot({ api, hud, params, net, ui, blink }) {
+  url = `${net.lan || net.host}`;
+  slug = params.join("~");
   if (slug) url += `/${slug}`;
-  console.log(url);
-  hud.label(`qr ${url}`);
+  // hud.label(`share ${url.replace("https://", "")}`);
   cells = qr(url).modules;
-
   starfield.boot(api, { stars: 512 });
   starfield.wipe(false);
+  enter = new ui.TextButton("Enter");
+  blink(80, () => (alt = !alt));
 }
 
 const { floor, min, max } = Math;
 
 // 🎨 Paint
 function paint({ api, wipe, ink, screen }) {
-  wipe(32, 0, 64); // Clear the screen
+  wipe(alt ? [32, 0, 64] : [16, 8, 48]); // Clear the screen.
+  starfield.paint(api, { alpha: 0.8, color: [255, 0, 200] }); // 🌟 backdrop.
 
-  starfield.paint(api, {
-    alpha: 0.8,
-    color: [255, 0, 200],
-  });
-
-  // 🔳 Paint the QR code.
-  let margin = screen.width / screen.height > 0.8 ? 32 : 6;
+  let margin = screen.width / screen.height > 0.8 ? 32 : 6; // 🔳 Paint QR Code
   const width = screen.width - margin * 2;
   const height = screen.height - margin * 2;
   let scale = max(floor(min(width, height) / cells.length), 1); // At least 1.
@@ -48,22 +45,28 @@ function paint({ api, wipe, ink, screen }) {
 
   for (let y = 0; y < cells.length; y += 1) {
     for (let x = 0; x < cells.length; x += 1) {
-      ink(cells[y][x] ? "white" : "black").box(
-        ox + x * scale,
-        oy + y * scale,
-        scale,
-      );
+      ink(cells[y][x]).box(ox + x * scale, oy + y * scale, scale);
     }
   }
 
   ink(undefined).box(ox - 2, oy - 2, size + 4, size + 4, "outline");
   ink("purple").box(ox - 4, oy - 4, size + 8, size + 8, "outline:4");
+
+  ink("magenta", 180).write(url.replace("https://", ""), {
+    x: 6,
+    y: 18,
+  });
+
+  if (!enter.btn.disabled) {
+    enter.reposition({ right: 6, bottom: 6, screen });
+    enter.paint(api);
+  }
 }
 
 // 🎪 Act
-// function act({ event: e }) {
-//  // Respond to user input here.
-// }
+function act({ event: e, jump }) {
+  enter.btn.act(e, { push: () => jump(slug) });
+}
 
 // 🧮 Sim
 function sim($) {
@@ -83,8 +86,8 @@ function sim($) {
 // 📰 Meta
 function meta() {
   return {
-    title: "QR",
-    desc: "Generate a QR code of an AC piece.",
+    title: "Share",
+    desc: "Share a link with a QR code of an AC piece.",
   };
 }
 
@@ -98,7 +101,7 @@ function meta() {
 // Render an application icon, aka favicon.
 // }
 
-export { boot, paint, sim, meta };
+export { boot, paint, act, sim, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
