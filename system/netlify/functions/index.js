@@ -4,6 +4,7 @@ import https from "https";
 import { URLSearchParams } from "url";
 import { parse, metadata } from "../../public/aesthetic.computer/lib/parse.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
+import { networkInterfaces } from "os";
 
 const dev = process.env.CONTEXT === "dev";
 
@@ -31,7 +32,26 @@ async function fun(event, context) {
 
   const parsed = parse(slug, { hostname: event.headers["host"] });
 
-  if (process.env.CONTEXT === "dev") console.log(slug, parsed);
+  if (dev) console.log(slug, parsed);
+
+  // Get local IP.
+  let lanHost;
+  if (dev) {
+    const ifaces = networkInterfaces();
+    let ipAddress;
+
+    // Iterate over network interfaces to find the 1st non-internal IPv4 address
+    Object.keys(ifaces).forEach((ifname) => {
+      ifaces[ifname].forEach((iface) => {
+        if (iface.family === "IPv4" && !iface.internal) {
+          ipAddress = iface.address;
+          return;
+        }
+      });
+    });
+
+    lanHost = `https://${ipAddress}:8888`;
+  }
 
   // Remote host.
   // TODO: Node currently doesn't support dynamic imports from http/s - 22.07.19.05.25
@@ -171,7 +191,7 @@ async function fun(event, context) {
           gtag("config", "G-B4TLVYKXVF");
         </script>
       </head>
-      <body class="native-cursor">
+      <body class="native-cursor" ${lanHost ? " data-lan-host=" + lanHost : ""}>
         <script>
           if (window.self !== window.top) document.body.classList.add("embed");
         </script>
