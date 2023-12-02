@@ -211,6 +211,7 @@ class TextInput {
 
   #prompt;
 
+  hideGutter = false;
   #gutterMax;
   #activatingPress = false;
 
@@ -269,6 +270,7 @@ class TextInput {
     this.$ = $;
 
     this.closeOnEmptyEnter = options.closeOnEmptyEnter || false;
+    this.hideGutter = options.hideGutter || false;
     // ^ Close keyboard on empty entry.
 
     this.copiedCallback = options.copied;
@@ -500,12 +502,14 @@ class TextInput {
     // });
 
     if (this.canType) {
-      $.ink(this.pal.line).line(
-        prompt.gutter,
-        0,
-        prompt.gutter,
-        $.screen.height,
-      ); // Ruler
+      if (!this.hideGutter) {
+        $.ink(this.pal.line).line(
+          prompt.gutter,
+          0,
+          prompt.gutter,
+          $.screen.height,
+        ); // Ruler
+      }
       $.ink(127).box(0, 0, frame.width, frame.height, "inline"); // Focus
     }
 
