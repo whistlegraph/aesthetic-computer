@@ -2001,7 +2001,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             !keyboardSoftLock
           ) {
             if (keyboardOpen) {
-              console.log("keyboard is open, so blurring now...");
               input.blur();
             } else {
               keyboardOpenMethod = "pointer";
