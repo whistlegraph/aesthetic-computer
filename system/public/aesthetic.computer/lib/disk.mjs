@@ -529,9 +529,15 @@ const $commonApi = {
     if (color[0] === "yellow" && color[1] === "red") sound.tone = 300;
     noticeBell(cachedAPI, sound);
   },
-  // ⌛
+  // ⌛ Delay a function by `time` number of sim steps.
   delay: (fun, time) => {
     hourGlasses.push(new gizmo.Hourglass(time, { completed: () => fun() }));
+  },
+  // Different syntax than `delay` but the same with looped behavior.
+  blink: (time, fun) => {
+    hourGlasses.push(
+      new gizmo.Hourglass(time, { completed: () => fun(), autoFlip: true }),
+    );
   },
   // 🎟️ Open a ticketed paywall on the page.
   // TODO: Get confirmation or cancellation of payment. 23.10.26.20.57
@@ -1538,6 +1544,11 @@ function color() {
     const isNumber = () => typeof args[0] === "number";
     const isArray = () => Array.isArray(args[0]);
     const isString = () => typeof args[0] === "string";
+    const isBool = typeof args[0] === "boolean";
+
+    if (isBool) {
+      return args[0] ? [255, 255, 255, 255] : [0, 0, 0, 255];
+    }
 
     // If it's not a Number or Array or String, then assume it's an object,
     // randomly pick a key & re-run.
@@ -3131,7 +3142,6 @@ async function makeFrame({ data: { type, content } }) {
     USER = content.user;
     LAN_HOST = content.lanHost;
     $commonApi.net.lan = LAN_HOST;
-    console.log("HOST:", $commonApi.net.host);
     $commonApi.user = USER;
 
     codeChannel = await store.retrieve("code-channel");
@@ -4074,10 +4084,11 @@ async function makeFrame({ data: { type, content } }) {
           try {
             sim($api);
             noticeTimer?.step(); // Globally tick the noticeTimer if it exists.
-            // Run through the global hourglass timers.
+            // ⌛ Run through all the global hourglass timers.
             for (let i = hourGlasses.length - 1; i >= 0; i--) {
               hourGlasses[i].step();
-              if (hourGlasses[i].complete) hourGlasses.splice(i, 1);
+              if (hourGlasses[i].complete && !hourGlasses[i].autoFlip)
+                hourGlasses.splice(i, 1);
             }
             $api.rec.tapeTimerStep($api);
           } catch (e) {
