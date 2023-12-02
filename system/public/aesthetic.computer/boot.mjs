@@ -36,6 +36,9 @@ if (window.location.hash === "#nodebug") debug = false;
 window.acDEBUG = debug; // Set window.acDEBUG again just in case any code relies
 // on it down the line. Should it need to? 22.07.15.00.21
 
+// Get the current LAN host if it exists...
+if (window.acDEBUG) window.acLAN_HOST = document.body.dataset.lanHost;
+
 let sandboxed = window.origin === "null";
 
 if (!sandboxed && window.auth0) {
@@ -134,8 +137,7 @@ if (window.location.pathname.length > 1) {
 // Or it can be set by a custom host...
 if (location.hostname === "m2w2.whistlegraph.com")
   window.acSTARTING_PIECE = "wg~m2w2";
-if (location.hostname === "botce.ac")
-  window.acSTARTING_PIECE = "botce";
+if (location.hostname === "botce.ac") window.acSTARTING_PIECE = "botce";
 
 if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";
 

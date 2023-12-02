@@ -30,6 +30,8 @@ export const noWorker = { onMessage: undefined, postMessage: undefined };
 
 let ROOT_PIECE = "prompt"; // This gets set straight from the host html file for the ac.
 let USER; // A holder for the logged in user. (Defined in `boot`)
+let LAN_HOST; // The IP address of the hosting machine on the local network.
+// (For development and IRL workshops)
 let debug = false; // This can be overwritten on boot.
 let visible = true; // Is aesthetic.computer visibly rendering or not?
 
@@ -1257,6 +1259,8 @@ const $commonApi = {
     logout: () => send({ type: "logout" }),
     pieces: `${location.protocol}//${location.host}/aesthetic.computer/disks`,
     parse, // Parse a piece slug.
+    // lan: // Set dynamically.
+    // host: // Set dynamically.
     // Make a user authorized / signed request to the api.
     // Used both in `motd` and `handle`.
     userRequest: async (method, endpoint, body) => {
@@ -3123,9 +3127,11 @@ async function makeFrame({ data: { type, content } }) {
   if (type === "init-from-bios") {
     debug = content.debug;
     setDebug(content.debug);
-    graph.setDebug(content.debug);
     ROOT_PIECE = content.rootPiece;
     USER = content.user;
+    LAN_HOST = content.lanHost;
+    $commonApi.net.lan = LAN_HOST;
+    console.log("HOST:", $commonApi.net.host);
     $commonApi.user = USER;
 
     codeChannel = await store.retrieve("code-channel");
@@ -4799,8 +4805,12 @@ async function makeFrame({ data: { type, content } }) {
             c = [255, 200, 240];
           }
           if (piece !== "video") {
-            $.ink(0).write(currentHUDTxt?.replaceAll("~", " "), { x: 1, y: 1 });
-            $.ink(c).write(currentHUDTxt?.replaceAll("~", " "), { x: 0, y: 0 });
+            let text = currentHUDTxt;
+            if (currentHUDTxt.split(" ")[1]?.indexOf("http") !== 0) {
+              text = currentHUDTxt?.replaceAll("~", " ");
+            }
+            $.ink(0).write(text, { x: 1, y: 1 });
+            $.ink(c).write(text, { x: 0, y: 0 });
           } else {
             $.ink(0).line(1, 1, 1, h - 1);
             $.ink(c).line(0, 0, 0, h - 2);
