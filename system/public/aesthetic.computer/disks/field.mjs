@@ -474,7 +474,7 @@ function act({ event: e, api, send, jump, hud, piece }) {
         send({ type: "keyboard:soft-lock" });
       },
       rollover: () => {
-        send({ type: "keyboard:soft-unlock" });
+        if (inputBtn.down) send({ type: "keyboard:soft-unlock" });
       },
     });
 
