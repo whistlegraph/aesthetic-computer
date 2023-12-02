@@ -155,7 +155,10 @@ async function boot({
       firstActivation = false; // Assume we've activated if returning from
       //                          elsewhere.
     }
-    system.prompt.input.showButton(api, { nocopy: true, nopaste: pieceCount === 0 });
+    system.prompt.input.showButton(api, {
+      nocopy: true,
+      nopaste: pieceCount === 0,
+    });
   }
 
   if (params[0]) {
@@ -1050,7 +1053,12 @@ function paint($) {
   }
 
   if (!login?.btn.disabled || (profile && !profile.btn.disabled)) {
-    starfield.paint($, { alpha: 0.4, color: [255, 0, 200] });
+    // Paint current status color.
+    // if (!$.system.prompt.input.canType) {
+    starfield.paint($, {
+      alpha: 0.3,
+      color: $.hud.currentStatusColor() || [255, 0, 200],
+    });
     if (handles && screen.height > 200)
       ink(255, 0, 255, 128).write(
         `${handles} HANDLES SET`,
@@ -1085,13 +1093,6 @@ function paint($) {
       );
     }
   }
-
-  // Paint current status color.
-  // if (!$.system.prompt.input.canType) {
-  let statusColor = $.hud.currentStatusColor();
-  if (statusColor)
-    ink(statusColor).box(screen.width - 3, 2, 1);
-  // }
 
   // Trigger a red or green screen flash with a timer.
   if (flashShow) {
