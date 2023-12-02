@@ -13,6 +13,7 @@
     - [] What is the grass was grown on the server / grown according to
         server time / (how how do I synchronize server time to everyone?)
   + Done
+  - [x] Add world bounds.
   - [?] Add enter key hint.
   - [x] Tapping the word in the top left corner should not flash the keyboard. 
   - [x] Get keyboard opening on Mobile Safari.
@@ -177,6 +178,11 @@ class Kid {
 
     pos.x = newPos.x;
     pos.y = newPos.y;
+
+    if (pos.x < 0) pos.x = 0;
+    if (pos.x > world.size.width) pos.x = world.size.width;
+    if (pos.y < 0) pos.y = 0;
+    if (pos.y > world.size.height) pos.y = world.size.height;
   }
 
   // Limit the kid's movement leash.
@@ -233,7 +239,17 @@ const kids = {};
 const { keys } = Object;
 
 // 🥾 Boot
-function boot({ api, help, wipe, handle, screen, ui, send, net: { socket } }) {
+function boot({
+  api,
+  help,
+  wipe,
+  handle,
+  screen,
+  ui,
+  send,
+  net: { socket },
+  sound,
+}) {
   // ✨ Initialization & Interface
   wipe(0);
   world = new World();
@@ -264,8 +280,10 @@ function boot({ api, help, wipe, handle, screen, ui, send, net: { socket } }) {
       if (
         input.text === "smile" ||
         input.text === "frown" ||
+        input.text === "sad" ||
         input.text === "meh"
       ) {
+        if (input.text === "sad") input.text = "frown";
         me.mood(input.text);
         server.send("field:mood", me.face); // Send to server.
       } else if (
@@ -274,6 +292,7 @@ function boot({ api, help, wipe, handle, screen, ui, send, net: { socket } }) {
         input.text === "orange" ||
         input.text === "black" ||
         input.text === "brown" ||
+        input.text === "purple" ||
         input.text === "pink" ||
         input.text === "blue" ||
         input.text === "lime" ||
@@ -289,6 +308,7 @@ function boot({ api, help, wipe, handle, screen, ui, send, net: { socket } }) {
       // Clear text, hide cursor block, and close keyboard.
       input.text = "";
       input.showBlink = false;
+      input.mute = true;
       send({ type: "keyboard:close" });
     },
     {
@@ -339,7 +359,17 @@ function boot({ api, help, wipe, handle, screen, ui, send, net: { socket } }) {
 
       if (type === "field:write") {
         const kid = kids[id];
-        if (kid) kid.write(content);
+        if (kid) {
+          kid.write(content);
+          sound.synth({
+            type: "sine",
+            tone: 950,
+            attack: 0.1,
+            decay: 0.96,
+            volume: 0.65,
+            duration: 0.015,
+          });
+        }
       }
 
       if (type === "field:write:clear") {
