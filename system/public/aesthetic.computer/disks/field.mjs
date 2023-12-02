@@ -6,6 +6,8 @@
 
 /* #region 🏁 TODO 
   - [🟠] Make the world scrollable with some background grass.
+  - [] Keyboard stops working after tabbing out and returning. 
+  - [-] Add enter key hint.
   - [] Move common functionality to a `world.mjs` library file.
   - [] Store persistent position on the server / in the database. 
     - [] What is the grass was grown on the server / grown according to
@@ -428,7 +430,7 @@ function act({ event: e, api, send, jump, hud, piece }) {
 
     inputBtn.act(e, {
       down: () => {
-        send({ type: "keyboard:unlock" });
+        send({ type: "keyboard:soft-unlock" });
       },
       push: () => {
         open();
@@ -441,7 +443,7 @@ function act({ event: e, api, send, jump, hud, piece }) {
         send({ type: "keyboard:soft-lock" });
       },
       rollover: () => {
-        send({ type: "keyboard:unlock" });
+        send({ type: "keyboard:soft-unlock" });
       },
     });
 
