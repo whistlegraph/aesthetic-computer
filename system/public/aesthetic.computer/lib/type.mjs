@@ -186,7 +186,7 @@ class TextInput {
   #lastUserText = ""; // cache the user's in-progress edited text.
   submittedText = ""; // cache the user's submitted text.
 
-  #shifting = false; // Whether we ar emoving the cursor or not.
+  shifting = false; // Whether we are emoving the cursor or not.
 
   #renderSpaces = false; // Whether to render invisible space characters. " "
   //                        For debugging purposes.
@@ -1477,9 +1477,9 @@ class TextInput {
     if (e.is("touch") && !this.#lock) this.blink.flip(true);
 
     if (e.is("lift") && !this.#lock) {
-      if (this.#shifting) {
+      if (this.shifting) {
         this.moveDeltaX = 0;
-        this.#shifting = false;
+        this.shifting = false;
       }
       $.send({ type: "keyboard:unlock" });
     }
@@ -1491,10 +1491,10 @@ class TextInput {
       !this.enter.btn.down &&
       !this.paste.btn.down
     ) {
-      if (!this.#shifting) {
+      if (!this.shifting) {
         $.send({ type: "keyboard:lock" });
 
-        this.#shifting = true;
+        this.shifting = true;
         this.backdropTouchOff = true;
       }
 
