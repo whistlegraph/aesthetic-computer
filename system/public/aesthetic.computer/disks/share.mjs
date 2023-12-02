@@ -5,33 +5,40 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Add `Enter` button.
-  - [] Is https:// necessary for local display?
 #endregion */
 
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 import * as starfield from "./starfield.mjs";
 
-let cells, enter, slug, url, alt = false;
+let cells,
+  enter,
+  slug,
+  url,
+  alt = false,
+  alt2 = false;
 
 // 🥾 Boot
 function boot({ api, hud, params, net, ui, blink }) {
   url = `${net.lan || net.host}`;
   slug = params.join("~");
   if (slug) url += `/${slug}`;
-  // hud.label(`share ${url.replace("https://", "")}`);
+  if (slug.length === 0) {
+    slug = "prompt";
+    hud.label(`share prompt`);
+  }
   cells = qr(url).modules;
   starfield.boot(api, { stars: 512 });
   starfield.wipe(false);
   enter = new ui.TextButton("Enter");
-  blink(80, () => (alt = !alt));
+  blink(120, () => (alt = !alt));
+  blink(200, () => (alt2 = !alt2));
 }
 
 const { floor, min, max } = Math;
 
 // 🎨 Paint
-function paint({ api, wipe, ink, screen }) {
-  wipe(alt ? [32, 0, 64] : [16, 8, 48]); // Clear the screen.
+function paint({ api, wipe, ink, screen, help: { choose } }) {
+  wipe(alt ? [32, 0, 64] : [20, 8, 54]); // Clear the screen.
   starfield.paint(api, { alpha: 0.8, color: [255, 0, 200] }); // 🌟 backdrop.
 
   let margin = screen.width / screen.height > 0.8 ? 32 : 6; // 🔳 Paint QR Code
@@ -45,11 +52,35 @@ function paint({ api, wipe, ink, screen }) {
 
   for (let y = 0; y < cells.length; y += 1) {
     for (let x = 0; x < cells.length; x += 1) {
-      ink(cells[y][x]).box(ox + x * scale, oy + y * scale, scale);
+      const black = cells[y][x];
+      if (!alt2) {
+        if (black) {
+          ink(choose(0, 16, 24, "purple")).box(
+            ox + x * scale,
+            oy + y * scale,
+            scale,
+          );
+        } else {
+          ink(choose(255, 240, 230, "yellow")).box(
+            ox + x * scale,
+            oy + y * scale,
+            scale,
+          );
+        }
+      } else {
+        ink(!black).box(ox + x * scale, oy + y * scale, scale);
+      }
     }
   }
 
-  ink(undefined).box(ox - 2, oy - 2, size + 4, size + 4, "outline");
+  ink("white").box(ox, oy, size, size, "outline:2");
+  ink(!alt2 ? undefined : "red").box(
+    ox - 2,
+    oy - 2,
+    size + 4,
+    size + 4,
+    "outline",
+  );
   ink("purple").box(ox - 4, oy - 4, size + 8, size + 8, "outline:4");
 
   ink("magenta", 180).write(url.replace("https://", ""), {
