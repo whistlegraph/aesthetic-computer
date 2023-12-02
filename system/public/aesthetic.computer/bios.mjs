@@ -318,7 +318,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Trigger it to re-draw whenever the window resizes.
       let timeout;
+      let lastWidth = window.innerWidth;
+      let lastHeight = window.innerHeight;
+
       window.addEventListener("resize", (e) => {
+        if (
+          lastWidth === window.innerWidth &&
+          lastHeight === window.innerHeight
+        ) {
+          return;
+        }
+
+        lastWidth = window.innerWidth;
+        lastHeight = window.innerHeight;
+
         // Check to see if we are in "native-cursor" mode and hide
         // #aesthetic.computer for the resize if we aren't.
         if (document.body.classList.contains("native-cursor") === false) {
@@ -326,7 +339,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         window.clearTimeout(timeout); // Small timer to save on performance.
-
         timeout = setTimeout(() => {
           needsReframe = true; // This makes zooming work / not work.
           curReframeDelay = REFRAME_DELAY;
@@ -1053,7 +1065,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       debug,
       rootPiece: window.acSTARTING_PIECE,
       user: window.acUSER,
-      lanHost: window.acLAN_HOST
+      lanHost: window.acLAN_HOST,
     },
   };
 
