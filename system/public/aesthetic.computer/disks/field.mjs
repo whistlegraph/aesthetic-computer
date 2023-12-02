@@ -13,6 +13,7 @@
     - [] What is the grass was grown on the server / grown according to
         server time / (how how do I synchronize server time to everyone?)
   + Done
+  - [x] Remove gutter. 
   - [x] Add world bounds.
   - [?] Add enter key hint.
   - [x] Tapping the word in the top left corner should not flash the keyboard. 
@@ -322,6 +323,7 @@ function boot({
       // },
       // gutterMax,
       // lineSpacing,
+      hideGutter: true,
       closeOnEmptyEnter: true,
     },
   );
@@ -449,7 +451,12 @@ function paint({ api, wipe, layer, ink, pan, unpan, pen, screen, leaving }) {
 }
 
 // 🎪 Act
-function act({ event: e, api, send, jump, hud, piece }) {
+function act({ event: e, api, send, jump, hud, piece, screen }) {
+  if (e.is("reframed")) {
+    cam.x = screen.width / 2 - world.size.width / 2;
+    cam.y = screen.height / 2 - world.size.width / 2;
+  }
+
   if (!input.canType) {
     me.act(api);
 
