@@ -5,13 +5,20 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Add a "special", `smile`, `frown` and `meh` command 😉. 
-    - [] Add color words to change face.
-    - [] Make sure these can be written like: `smile: chat` / using a 
-         simple character on the keyboard.
-  - [] Make the world scrollable.
+  - [🟠] Make the world scrollable with some background grass.
   - [] Move common functionality to a `world.mjs` library file.
+  - [] Store persistent position on the server / in the database. 
+    - [] What is the grass was grown on the server / grown according to
+        server time / (how how do I synchronize server time to everyone?)
   + Done
+  - [x] Tapping the word in the top left corner should not flash the keyboard. 
+  - [x] Get keyboard opening on Mobile Safari.
+  - [x] `Escape` key should still go back to the `prompt`.
+  - [x] (`) key should still go back to the `prompt`.
+  - [x] Add a "special", `smile`, `frown` and `meh` command 😉. 
+    - [x] Add color words to change face.
+    - [x] Make sure these can be written like: `smile: chat` / using a 
+         simple character on the keyboard.
   - [x] Get multi-user networking online. 
   - [x] Add an overhead chat display.
   - [x] Wire up tappable character button to activate the text input.
@@ -29,41 +36,70 @@ class Kid {
   pos = { x: 0, y: 0 };
   size = 16;
   leash = { x: 0, y: 0, len: 0, max: 12, deadzone: 8 };
+  face = "meh";
+  color = "white";
   #keys = { U: false, D: false, L: false, R: false };
-  #message;
+  message;
   #messageDuration;
   #messageProgress = 0;
 
-  constructor(handle, pos = this.pos) {
+  constructor(handle, pos = this.pos, face) {
     console.log("🧒 From:", handle);
     this.pos = pos;
+    this.face = face || this.face;
   }
 
   // Show a message above the kid's head for `time` frames.
   write(text, time = 240) {
-    this.#message = text;
+    this.message = text;
     this.#messageDuration = 120;
+  }
+
+  // Change the mood (face) of the kid.
+  mood(face) {
+    this.face = face;
+  }
+
+  // Change the color of the kid.
+  tint(c) {
+    this.color = c;
   }
 
   // Render the kid.
   paint({ ink, pan, text, typeface }) {
     const leash = this.leash;
     pan(this.pos.x, this.pos.y);
-    ink("white").circle(0, 0, this.size);
-    ink(leash.len > leash.deadzone ? "yellow" : "red").line(
+    ink(this.color).circle(0, 0, this.size); // Head
+
+    // Face
+    // Eyes
+    ink(this.color).point(-6, -6);
+    ink(this.color).point(6, -6);
+    // Mouth
+    if (this.face === "smile") {
+      ink(this.color).line(0, 6, -6, 3);
+      ink(this.color).line(0, 6, 6, 3);
+    } else if (this.face === "frown") {
+      ink(this.color).line(0, 3, -6, 8);
+      ink(this.color).line(0, 3, 6, 8);
+    } else if (this.face === "meh") {
+      ink(this.color).line(-6, 6, 6, 6);
+    }
+
+    ink(leash.len > leash.deadzone ? this.color : [this.color, 128]).line(
       0,
       0,
       leash.x,
       leash.y,
     );
-    if (this.#message) {
+    if (this.message) {
       const blockWidth = typeface.glyphs["0"].resolution[0];
       const tb = text.box(
-        this.#message,
+        this.message,
         undefined,
-        this.#message.length * blockWidth,
+        this.message.length * blockWidth,
       );
-      ink("yellow").write(this.#message, {
+      ink(this.color).write(this.message, {
         x: -tb.box.width / 2,
         y: -this.size - 12,
       });
@@ -97,11 +133,11 @@ class Kid {
   // Simulate the kid's movement and time messages.
   sim({ num }, net) {
     // 🗨️ Message
-    if (this.#message) {
+    if (this.message) {
       if (this.#messageProgress < this.#messageDuration) {
         this.#messageProgress += 1;
       } else {
-        this.#message = null;
+        this.message = null;
         this.#messageProgress = 0;
         net?.({ clear: true });
       }
@@ -194,11 +230,15 @@ const kids = {};
 const { keys } = Object;
 
 // 🥾 Boot
-function boot({ api, wipe, handle, screen, ui, send, net: { socket } }) {
+function boot({ api, help, wipe, handle, screen, ui, send, net: { socket } }) {
   // ✨ Initialization & Interface
   wipe(0);
   world = new World();
-  me = new Kid(handle(), { x: world.size.width / 2, y: world.size.height / 2 });
+  me = new Kid(
+    handle(),
+    { x: world.size.width / 2, y: world.size.height / 2 },
+    help.choose("meh", "smile", "frown"),
+  );
   cam = new Cam(
     screen.width / 2 - world.size.width / 2,
     screen.height / 2 - world.size.height / 2,
@@ -218,8 +258,30 @@ function boot({ api, wipe, handle, screen, ui, send, net: { socket } }) {
     api,
     "...",
     async (text) => {
-      me.write(input.text); // Display message on 🧒.
-      server.send("field:write", input.text); // Send to server.
+      if (
+        input.text === "smile" ||
+        input.text === "frown" ||
+        input.text === "meh"
+      ) {
+        me.mood(input.text);
+        server.send("field:mood", me.face); // Send to server.
+      } else if (
+        input.text === "red" ||
+        input.text === "yellow" ||
+        input.text === "orange" ||
+        input.text === "black" ||
+        input.text === "brown" ||
+        input.text === "pink" ||
+        input.text === "blue" ||
+        input.text === "lime" ||
+        input.text === "white"
+      ) {
+        me.tint(input.text);
+        server.send("field:tint", me.color); // Send to server.
+      } else {
+        me.write(input.text); // Display message on 🧒.
+        server.send("field:write", me.message); // Send to server.
+      }
 
       // Clear text, hide cursor block, and close keyboard.
       input.text = "";
@@ -242,6 +304,7 @@ function boot({ api, wipe, handle, screen, ui, send, net: { socket } }) {
   );
 
   inputBtn = new ui.Button();
+
   send({ type: "keyboard:soft-lock" });
 
   // Socket Networking
@@ -261,6 +324,16 @@ function boot({ api, wipe, handle, screen, ui, send, net: { socket } }) {
     }
 
     if (server.id !== id) {
+      if (type === "field:tint") {
+        const kid = kids[id];
+        if (kid) kid.tint(content);
+      }
+
+      if (type === "field:mood") {
+        const kid = kids[id];
+        if (kid) kid.mood(content);
+      }
+
       if (type === "field:write") {
         const kid = kids[id];
         if (kid) kid.write(content);
@@ -287,11 +360,24 @@ function boot({ api, wipe, handle, screen, ui, send, net: { socket } }) {
 }
 
 // 🎨 Paint
-function paint({ api, wipe, ink, pan, unpan, pen, screen }) {
+function paint({ api, wipe, layer, ink, pan, unpan, pen, screen, leaving }) {
   wipe(0); // 🖼️ Backdrop
+
+  layer(0);
   // 🌎 + 🧒 World & Players
   pan(cam.x, cam.y);
   world.paint(api);
+  // layer(1);
+
+  inputBtn.paint((btn) => {
+    ink("white", btn.down && btn.over ? 128 : 64).circle(
+      me.pos.x,
+      me.pos.y,
+      btn.box.w / 2,
+      true,
+    );
+  });
+
   me.paint(api);
 
   unpan();
@@ -315,7 +401,7 @@ function paint({ api, wipe, ink, pan, unpan, pen, screen }) {
     );
   }
 
-  if (input.canType) {
+  if (input.canType && !leaving()) {
     input.paint(api, false, {
       x: 0,
       y: 18,
@@ -324,23 +410,52 @@ function paint({ api, wipe, ink, pan, unpan, pen, screen }) {
     });
   }
 
-  inputBtn.paint((btn) => {
-    ink("yellow", btn.down && btn.over ? 128 : 64).box(btn.box);
-  });
+  // layer(0);
+  // pan(cam.x, cam.y);
+  // unpan();
 }
 
 // 🎪 Act
-function act({ event: e, api, send }) {
+function act({ event: e, api, send, jump, hud, piece }) {
   if (!input.canType) {
     me.act(api);
 
     function open() {
       me.off();
-      send({ type: "keyboard:open" });
+      // send({ type: "keyboard:open" }); // Keyboard will open automatically
+      //                                     because of the unlocking logic.
     }
 
-    inputBtn.act(e, { push: () => open() });
-    if (e.is("keyboard:down:enter")) open();
+    inputBtn.act(e, {
+      down: () => {
+        send({ type: "keyboard:unlock" });
+      },
+      push: () => {
+        open();
+        send({ type: "keyboard:soft-lock" });
+      },
+      cancel: () => {
+        send({ type: "keyboard:soft-lock" });
+      },
+      rollout: () => {
+        send({ type: "keyboard:soft-lock" });
+      },
+      rollover: () => {
+        send({ type: "keyboard:unlock" });
+      },
+    });
+
+    if (e.is("keyboard:down:enter")) {
+      send({ type: "keyboard:open" });
+      open();
+    }
+
+    if (e.is("keyboard:down:escape") || e.is("keyboard:down:`")) jump("prompt");
+    if (e.is("keyboard:down:backspace")) {
+      jump(`prompt~${hud.currentLabel.text || piece}`)(() => {
+        send({ type: "keyboard:open" });
+      });
+    }
   }
 
   if (

@@ -36,6 +36,7 @@
   },
   "homepage": "https://github.com/whistlegraph/system#readme",
   "dependencies": {
+    "@akamfoad/qr": "^0.4.0",
     "@ffmpeg/core": "^0.12.3",
     "@ffmpeg/ffmpeg": "^0.12.6",
     "@geckos.io/client": "^2.3.2",
