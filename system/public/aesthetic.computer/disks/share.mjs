@@ -19,7 +19,9 @@ let cells,
 
 // 🥾 Boot
 function boot({ api, hud, params, net, ui, blink }) {
-  url = `${net.lan || net.host}`;
+  let url;
+  if (net.lan) url = net.lan;
+  if (net.host) url = `https://${net.host}`;
   slug = params.join("~");
   if (slug) url += `/${slug}`;
   if (slug.length === 0) {
