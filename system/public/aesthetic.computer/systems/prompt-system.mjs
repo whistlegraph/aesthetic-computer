@@ -54,7 +54,7 @@ export async function prompt_boot(
       input.paste.btn.disabled = true;
       input.paste.btn.removeFromDom($, "paste");
 
-      input.inputStarted = false;
+      //input.inputStarted = false;
       input.canType = false;
 
       const halted = await halt?.($, text);
@@ -94,7 +94,7 @@ export async function prompt_boot(
         input.showButton($);
         $.needsPaint();
         input.canType = true;
-        input.inputStarted = true;
+        //input.inputStarted = true;
         return; // No more processing necessary.
       }
 

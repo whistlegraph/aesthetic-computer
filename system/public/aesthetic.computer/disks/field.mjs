@@ -6,9 +6,6 @@
 
 /* #region 🏁 TODO 
   - [-] Fix instagram not connecting error.
-
-  - [-] Keyboard stops working after tabbing out and returning. 
-    - [🔴] Android debugger session with @ida's phone.
   - [] Always lerp towards next character positions from the network.
   - [] Make the world scrollable with some background grass.
   - [] Move common functionality to a `world.mjs` library file.
@@ -16,6 +13,8 @@
     - [] What is the grass was grown on the server / grown according to
         server time / (how how do I synchronize server time to everyone?)
   + Done
+  - [x] Keyboard stops working after tabbing out and returning. 
+    - [x] Android debugger session with @ida's phone.
   - [x] Remove gutter. 
   - [x] Add world bounds.
   - [?] Add enter key hint.

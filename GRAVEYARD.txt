@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** motd is now editable regression ***
+  - [x] :()
+
 *** share (qr) ***
   - [x] Enter `qr pond` to show a scannable QR code that would join
        pond, both on lan (properly) and in production, in addition to
