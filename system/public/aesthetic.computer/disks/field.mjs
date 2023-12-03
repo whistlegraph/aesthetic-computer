@@ -5,7 +5,9 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [-] Fix instagram not connecting error.
+  - [🧡] Fix instagram not connecting error.
+  - [-] Test join `field` simultaneously (with forceProd on) and ensure
+        there are no race conditions or conflicts. (Implement jamsocket's locks?)
   - [] Always lerp towards next character positions from the network.
   - [] Make the world scrollable with some background grass.
   - [] Move common functionality to a `world.mjs` library file.
