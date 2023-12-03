@@ -290,6 +290,7 @@ export class Pen {
 
     // Automatically dispatch a pointer release when hidden.
     document.addEventListener("visibilitychange", function () {
+      console.log("pen lifted weirdly...")
       if (document.hidden) pen.up();
     });
 

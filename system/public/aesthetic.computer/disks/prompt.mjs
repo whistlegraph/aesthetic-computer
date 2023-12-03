@@ -179,7 +179,7 @@ async function boot({
     system.prompt.input.canType = true;
 
     // system.prompt.input.enter.btn.disabled = true; // Disable button.
-    system.prompt.input.inputStarted = true;
+    //system.prompt.input.inputStarted = true;
 
     // 🍫 Create a pleasurable blinking cursor delay.
     // system.prompt.input.showBlink = false;

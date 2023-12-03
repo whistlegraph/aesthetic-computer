@@ -224,7 +224,7 @@ class TextInput {
   historyDepth = -1;
   #prehistory;
 
-  inputStarted = false; // Flipped when the TextInput is first activated.
+  //inputStarted = false; // Flipped when the TextInput is first activated.
   //                       (To clear any starting text.)
   #moveThreshold = 6; // Drag threshold.
   #moveDeltaX = 0;
@@ -424,7 +424,7 @@ class TextInput {
   }
 
   latentFirstPrint(text) {
-    if (!this.inputStarted && !this.commandSentOnce) {
+    if (!this.activatedOnce /*!this.inputStarted && !this.commandSentOnce*/) {
       // this.print(text);
       this.text = text;
     } else if (!this.commandSentOnce) {
@@ -681,7 +681,7 @@ class TextInput {
   // Set the UI state to be that of a completed reply.
   replied($) {
     this.runnable = false;
-    this.inputStarted = false;
+    //this.inputStarted = false;
     this.canType = false;
     this.clearUserText();
     this.showButton($);
@@ -1107,7 +1107,7 @@ class TextInput {
     if (
       e.is("touch") &&
       !this.#lock &&
-      !this.inputStarted &&
+      //!this.inputStarted &&
       !this.canType &&
       !this.backdropTouchOff &&
       (this.copy.btn.disabled === true || !this.copy.btn.box.contains(e)) &&
@@ -1159,7 +1159,7 @@ class TextInput {
         // ti.enter.btn.disabled = true;
         ti.paste.btn.disabled = false;
       }
-      ti.inputStarted = true;
+      //ti.inputStarted = true;
       $.act("text-input:editable");
 
       if (!ti.mute) {
@@ -1192,7 +1192,7 @@ class TextInput {
 
       ti.enter.btn.disabled = false;
       ti.paste.btn.disabled = false;
-      ti.inputStarted = false;
+      //ti.inputStarted = false;
       ti.canType = false;
       ti.runnable = false;
       ti.#lastUserText = ti.text;
