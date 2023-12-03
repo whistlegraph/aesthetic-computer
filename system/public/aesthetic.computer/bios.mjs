@@ -350,9 +350,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       wrapper.addEventListener(
         "touchstart",
         function (event) {
-          if (!ticketWrapper) {
-            if (event.target.tagName !== "A" && event.target.tagName !== "IMG")
-              event.preventDefault();
+          if (
+            document.hasFocus() &&
+            !ticketWrapper &&
+            event.target.tagName !== "A" &&
+            event.target.tagName !== "IMG"
+          ) {
+            event.preventDefault();
           }
         },
         false,
@@ -1774,6 +1778,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // ⌨️ Keyboard
       keyboard = new Keyboard();
       {
+        console.log("⌨️ 🤖 Initializing Virtual Keyboard");
         /**
          * Insert a hidden input element that is used to toggle the software
          * keyboard on touchscreen devices like iPhones and iPads.
@@ -1788,6 +1793,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         input.style.position = "absolute";
         input.id = "software-keyboard-input";
         input.autocapitalize = "none";
+        // input.autofocus = true;
         // input.type = "text";
         input.autocomplete = "off";
         input.style.opacity = 0;
@@ -1995,7 +2001,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         window.addEventListener("pointerdown", (e) => {
-          if (currentPieceHasKeyboard) e.preventDefault();
+          if (currentPieceHasKeyboard) {
+            e.preventDefault();
+          }
         });
 
         window.addEventListener("pointerup", (e) => {
@@ -2017,12 +2025,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               input.blur();
             } else {
               keyboardOpenMethod = "pointer";
+              // console.log("Active Element:", document.activeElement);
+              window.focus();
               input.focus();
             }
           }
         });
-
-        input.addEventListener("pointerdown", (e) => {});
 
         input.addEventListener("focus", (e) => {
           if (keyboardOpen) return;
@@ -2037,6 +2045,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         input.addEventListener("blur", (e) => {
           keyboardOpen = false;
           keyboard.events.push({ name: "keyboard:close" });
+        });
+
+        window.addEventListener("blur", (e) => {
+          //console.log("blurred window...");
+          // keyboardOpen = false;
+          // keyboard.events.push({ name: "keyboard:close" });
         });
       }
 
@@ -2360,13 +2374,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "keyboard:close") {
       // if (keyboardFocusLock) return; // Deprecated: 23.10.02.23.18
-      // console.log("⌨️ Keyboard closing...");
+      console.log("⌨️ Keyboard closing...");
       keyboard?.input.blur();
       return;
     }
 
     if (type === "keyboard:open") {
-      // console.log("⌨️ Keyboard opening...");
+      console.log("⌨️ Keyboard opening...");
       if (keyboardFocusLock) return;
       keyboardFocusLock = false;
       currentPieceHasKeyboard = true;
@@ -4842,6 +4856,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Window Visibility
   document.addEventListener("visibilitychange", function () {
+    console.log("window visible again...");
     if (!document.hidden) wrapper.classList.remove("reloading");
     // if (document.hidden) mediaRecorder?.stop();
     send({

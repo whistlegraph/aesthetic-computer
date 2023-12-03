@@ -3761,7 +3761,7 @@ async function makeFrame({ data: { type, content } }) {
         return;
       }
 
-      if (currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
+      if (currentText && currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
       if (data.name.indexOf("keyboard:down") === 0) {
         // [Escape] (Deprecated on 23.05.22.19.33)
         // If not on prompt, then move backwards through the history of
