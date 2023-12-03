@@ -498,6 +498,18 @@ const lessons = [
     `,
     pictures: ["lnl33"],
   },
+  {
+    title: "Lesson NOT Learnt 34 - Loin-El Glitchie-Banan",
+    text: `
+    WOW *** Glitch today has started to be  ——enjoyed as some fancy wine uhh uhh - and ALL the NFT losers tell funny refs. to the subject ! — NFT's was a BIG JOKE - do not NFT - BUT but let me share with you the real deal… yOu see ^^Real Glitch* takes the OUTput of malfunctioning technology and crafts it into adventurous new things & bla. bla. bla. bla. or so they say -%%%%% BUT — NO o no NO no -that is not the whole story, you need to live the Glitchie life - §§§§ YES Squelchy & glitshiiii §§§§ - In order to understand it - !!§§§ and some of the best to do so has been my heart-friend's:- Yaloopop, Rosa Menkman & Legacy Russell - there you have words and lives to dive into -WARNING - could be A bumpy ride…but output =  FANTASTIC . . ._:___ Now a days Computer people in the U.S. has a lot to say about acting Glitchie, in gender - and life and YES YES —But —People in: New York S.F. & the tech-valley took years and years to understand us Glitch'ers  ——   :_*:_*:_:*:*: — Well I guess if you are interested in function & composing it takes you years and years to learn to: DE-compose - and DE-function - now Rosa Menkman was very good at that especially in life - she is fantasic you should go and experience hear work . …&”/!&”!/“&! “&/“  All my Beo_Bio_Lystrup Syre-tapes & DAT*s & Mini-disc's was send to mailing lists in Japan -that is hove I got not know wUnders as  Toshiyuki Kobayashi - Timepoco - OHHH those recordings - they were all different renditions of my Glitchy Lystrup set-up . __ 
+
+    Glitch Feminism §§ init ding §§ Glitch Studies Manifesto - || beyond resolution §§ Ten Minute Painting & maybe just maybe my lanscape paintings in my book: El Camino del Hardcore  rejsen TIL nordens INDRE! §§ ohh and everything  by: Yaloopop §§ — $$ N.B. When the academy's joined the fun was over real Glitchie's should never go for the PHD!
+
+    [nice dvvvvice and glitch.m4a]
+    `,
+    pictures: ["lnl34"],
+    sounds: ["nice dvvvvice and glitch"],
+  },
 ];
 
 let lesson = 0,
