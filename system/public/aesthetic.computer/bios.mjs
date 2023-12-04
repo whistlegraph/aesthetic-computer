@@ -4856,7 +4856,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Window Visibility
   document.addEventListener("visibilitychange", function () {
-    console.log("window visible again...");
     if (!document.hidden) wrapper.classList.remove("reloading");
     // if (document.hidden) mediaRecorder?.stop();
     send({

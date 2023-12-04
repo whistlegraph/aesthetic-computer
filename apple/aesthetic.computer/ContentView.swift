@@ -1,5 +1,6 @@
 import SwiftUI
 import WebKit
+import AVFoundation
 
 let grey: CGFloat = 32 / 255;
 
@@ -8,6 +9,7 @@ struct WebView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let webConfiguration = WKWebViewConfiguration()
+        webConfiguration.allowsInlineMediaPlayback = true
         let webView = WKWebView(frame: .zero, configuration: webConfiguration)
         webView.backgroundColor = UIColor(red: grey, green: grey, blue: grey, alpha: 1)
         webView.isOpaque = false
@@ -23,7 +25,7 @@ struct WebView: UIViewRepresentable {
 struct ContentView: View {
     var body: some View {
         VStack {
-            WebView(url: "https://www.aesthetic.computer")
+            WebView(url: "https://aesthetic.computer")
         }
         .padding(4)
         .ignoresSafeArea(.keyboard)
