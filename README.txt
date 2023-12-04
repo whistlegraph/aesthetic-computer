@@ -40,6 +40,19 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** IOS release ***
+  - [X] Sign up work
+  - [] Logging out 
+  - [] Notification 
+  - [] Notification for scream 
+  - [] Offline access
+  - [] Download popup native share interface 
+  - [X] Enable camera access 
+  - [X] Enable microphone access 
+  - [] Reload when crashing
+  - [] Customize allow messages (camera, microphone, notifications)
+  - [] Test ordering a sticker (check if that is illegal) 
+
 *** `go` ***
   - [❤️‍🔥] Make `field`
   - [] Walk to `horizon`
