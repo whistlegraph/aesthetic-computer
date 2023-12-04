@@ -23,7 +23,6 @@
 		412BAFB82A1D4447000A41B0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		412BAFBB2A1D4447000A41B0 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		418FD22E2A5528B500CA6ABA /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
-		418FD2322A552B5A00CA6ABA /* aesthetic.computer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = aesthetic.computer.entitlements; sourceTree = "<group>"; };
 		419EB1602A550EAE004D9F5D /* aesthetic-computer-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "aesthetic-computer-Info.plist"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -59,7 +58,6 @@
 		412BAFB32A1D4446000A41B0 /* aesthetic.computer */ = {
 			isa = PBXGroup;
 			children = (
-				418FD2322A552B5A00CA6ABA /* aesthetic.computer.entitlements */,
 				418FD22E2A5528B500CA6ABA /* GoogleService-Info.plist */,
 				419EB1602A550EAE004D9F5D /* aesthetic-computer-Info.plist */,
 				412BAFB42A1D4446000A41B0 /* aesthetic_computerApp.swift */,
@@ -292,6 +290,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "aesthetic-computer-Info.plist";
+				INFOPLIST_KEY_NSCameraUsageDescription = "";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -317,7 +316,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = aesthetic.computer/aesthetic.computerRelease.entitlements;
+				CODE_SIGN_ENTITLEMENTS = aesthetic.computer/aesthetic.computer.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -326,6 +325,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "aesthetic-computer-Info.plist";
+				INFOPLIST_KEY_NSCameraUsageDescription = "";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

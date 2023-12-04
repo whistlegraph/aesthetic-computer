@@ -23,7 +23,7 @@ struct WebView: UIViewRepresentable {
 struct ContentView: View {
     var body: some View {
         VStack {
-            WebView(url: "https://www.aesthetic.computer")
+            WebView(url: "https://aesthetic.computer")
         }
         .padding(4)
         .ignoresSafeArea(.keyboard)
