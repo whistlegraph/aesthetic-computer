@@ -5,6 +5,7 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] Add user list.
   - [] Better backdrops / make sounds after a gesture is made.
 #endregion */
 
