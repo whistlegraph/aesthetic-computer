@@ -50,7 +50,7 @@
   - [X] Enable camera access 
   - [X] Enable microphone access 
   - [] Reload when crashing
-  - [] Customize allow messages (camera, microphone, notifications)
+  - [X] Customize allow messages (camera, microphone, notifications)
   - [] Test ordering a sticker (check if that is illegal) 
 
 *** `go` ***
