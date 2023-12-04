@@ -510,6 +510,51 @@ const lessons = [
     pictures: ["lnl34"],
     sounds: ["nice dvvvvice and glitch"],
   },
+  {
+    title: `Lesson NOT Learnt 35`,
+    text: `
+    …. & raD & Mandolin'ur
+
+    V54ttur, Nissar, Dv54rgir, Viking'ur, Picts ——— V54ttur, Nissar, Dv54rgir, Viking'ur, Picts ——— V54ttur, Nissar, Dv54rgir, Viking'ur, Picts  
+
+    <<< Pict's …. & raD >>> <<< …. & raD >>> <<< Pict's …. & raD >>> <<< …. & raD >>> <<< …. & raD >>> <<< …. & raD >>> <<< Pict's …. & raD >>> 
+
+    Sometimes it's just too hard to work in music-archaeology, YOU  are up at libraries & in the field day and night - YOU find things that is not listed anywhere, & if you are good as the Goodiepal / Pruttipal - you try to bring it back into life, because you know that only true bringing you finds on the road - people will unlock a interest in your most §§§cryptik and obscure artifacts§§§
+    - NOW - Listen 
+    THis is: def - N- RAD - an  VERY VERY early Pictish rap-duo-from the orkney islands - later, much much later one of the members would move to mainland Europe and become SUPER happening in the art's of Wien & München  the name was: MISS le BOMB — 
+
+    The Pict's had it all and still has it & this is why you should care and research this fantastic duo…
+
+    BIG BIG big LOVE TO the Orkney Islands for always being a safe-harbor for the pruttipal - …. & raD …. & raD …. & raD …. & raD …. & raD …. & raD …. & raD 
+    V54ttur, Nissar, Dv54rgir, Viking'ur, Picts ——— V54ttur, Nissar, Dv54rgir, Viking'ur, Picts ——— V54ttur, Nissar, Dv54rgir, Viking'ur, Picts  
+
+    <<< …. & raD >>> <<< Pict's …. & raD >>> <<< …. & raD >>> <<< …. & raD >>> <<<  Pict's …. & raD >>> <<< …. & raD >>> <<< Pict's …. & raD >>> 
+
+    [pictish_dsc_str.m4a]
+    `,
+    pictures: ["lnl35-1", "lnl35-2", "lnl35-3"],
+    sounds: ["pictish_dsc_str"],
+  },
+  {
+    title: `Lesson NOT Learnt 36`,
+    text: `
+    Mxyzptlk - D0ni or D0ny - 
+
+    §§§§ Do you dare to scroll up and down on this entity? §§§§ up ^ & > over —— & bacK <<<< 
+    V54ttur, Nissar, Dv54rgir, Viking'ur, V54ttur, Nissar, Dv54rgir, Viking'ur,
+    Mxyzptlk Madness is D0ni or D0ny - the master of asymmetric dis-fuctional music behaviour '_*:__ & :_;:__; D0ni is something that exists apart from other things, D0ny is having its own independent existence. - Mxyzptlk DOni =  master of the strange and A stranger to MASTER's**… - I do hold this entity close to my heart and I think that it's output is on the level of: Karlheinz - Fucking - RRRecords - RRR-KARL - and Jessica Rylan --- Little Boy Blue and the likes… *YES ;:_;:;_YES:_*:_'
+    V54ttur, Nissar, Dv54rgir, Viking'ur, V54ttur, Nissar, Dv54rgir, Viking'ur,
+    — This sounds & -> THIS entity should inspire you to go out and say:  I know where I am going and I know that I am talking the wrong way there, 
+    but I really do not care, because you are somehow not there… 
+    V54ttur, Nissar, Dv54rgir, Viking'ur, V54ttur, Nissar, Dv54rgir, Viking'ur,
+
+    —JUST LIKe THaT—be kind to the world's- it all come's back around… A Key 2.snd Eurobot distro...
+
+    [snakkende_shadow_d0nni.m4a]
+    `,
+    pictures: ["lnl36-1", "lnl36-2"],
+    sounds: ["snakkende_shadow_d0nni"],
+  },
 ];
 
 let lesson = 0,
@@ -557,6 +602,7 @@ function paint({ wipe, ink, paste, screen, text: txt, help, noiseTinted }) {
 
   let lastHeight = 0;
   lessonPaintings.forEach((painting) => {
+    // if (!painting) return;
     const width = min(picWidth, screen.width - 12);
     const height = (painting.height / painting.width) * width;
     paste(painting, 6, 10 + textBox.pos.y + textBox.box.height + lastHeight, {
@@ -642,14 +688,12 @@ function loadLesson(api) {
     ? "/assets/pruttipal/lnl"
     : "https://assets.aesthetic.computer/pruttipal/lnl";
 
-  lessons[lesson].pictures?.forEach((name) => {
+  lessons[lesson].pictures?.forEach((name, index) => {
     api.net.preload(`${path}/${name}.jpeg`).then((file) => {
-      lessonPaintings.push(
-        api.resize(
-          file.img,
-          picWidth,
-          (file.img.height / file.img.width) * picWidth,
-        ),
+      lessonPaintings[index] = api.resize(
+        file.img,
+        picWidth,
+        (file.img.height / file.img.width) * picWidth,
       );
       api.needsPaint();
     });
