@@ -14,6 +14,7 @@
 		418FD22F2A5528B500CA6ABA /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 418FD22E2A5528B500CA6ABA /* GoogleService-Info.plist */; };
 		419EB15D2A550D7D004D9F5D /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 419EB15C2A550D7D004D9F5D /* FirebaseAnalyticsWithoutAdIdSupport */; };
 		419EB15F2A550D7D004D9F5D /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 419EB15E2A550D7D004D9F5D /* FirebaseMessaging */; };
+		842410332B1E8938005A30C0 /* html in Resources */ = {isa = PBXBuildFile; fileRef = 842410322B1E8938005A30C0 /* html */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,6 +25,7 @@
 		412BAFBB2A1D4447000A41B0 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		418FD22E2A5528B500CA6ABA /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		419EB1602A550EAE004D9F5D /* aesthetic-computer-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "aesthetic-computer-Info.plist"; sourceTree = SOURCE_ROOT; };
+		842410322B1E8938005A30C0 /* html */ = {isa = PBXFileReference; lastKnownFileType = folder; path = html; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,6 +65,7 @@
 				412BAFB42A1D4446000A41B0 /* aesthetic_computerApp.swift */,
 				412BAFB62A1D4446000A41B0 /* ContentView.swift */,
 				412BAFB82A1D4447000A41B0 /* Assets.xcassets */,
+				842410322B1E8938005A30C0 /* html */,
 				412BAFBA2A1D4447000A41B0 /* Preview Content */,
 			);
 			path = aesthetic.computer;
@@ -142,6 +145,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				412BAFBC2A1D4447000A41B0 /* Preview Assets.xcassets in Resources */,
+				842410332B1E8938005A30C0 /* html in Resources */,
 				412BAFB92A1D4447000A41B0 /* Assets.xcassets in Resources */,
 				418FD22F2A5528B500CA6ABA /* GoogleService-Info.plist in Resources */,
 			);
