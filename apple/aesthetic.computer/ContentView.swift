@@ -1,8 +1,9 @@
 import SwiftUI
 import WebKit
-import AVFoundation
+import Network
 
-let grey: CGFloat = 32 / 255;
+
+let grey: CGFloat = 32/255;
 
 struct WebView: UIViewRepresentable {
     var url: String
@@ -15,24 +16,47 @@ struct WebView: UIViewRepresentable {
         webView.isOpaque = false
         return webView
     }
-    
+
     func updateUIView(_ webView: WKWebView, context: Context) {
+        print("URL: ", url)
         let request = URLRequest(url: URL(string: url)!)
         webView.load(request)
     }
 }
 
 struct ContentView: View {
+    @State private var isOnline: Bool? = nil
+
     var body: some View {
         VStack {
-            WebView(url: "https://aesthetic.computer")
+            if let isOnline = isOnline {
+                if isOnline {
+                    WebView(url: "https://aesthetic.computer")
+                } else {
+                    let test = (Bundle.main.url(forResource: "offline", withExtension: "html", subdirectory: "html")?.absoluteString ?? "")
+                    WebView(url: test)
+                }
+            } else {
+                Text("Checking network status...")
+                    .foregroundColor(.white)
+            }
+        }
+        .onAppear {
+            let monitor = NWPathMonitor()
+            monitor.pathUpdateHandler = { path in
+                self.isOnline = path.status == .satisfied
+                if self.isOnline == true {
+                    monitor.cancel() //stops monitoring once you are online
+                }
+            }
+            let queue = DispatchQueue(label: "NetworkMonitor")
+            monitor.start(queue: queue)
         }
         .padding(4)
         .ignoresSafeArea(.keyboard)
         .background(Color(red: grey, green: grey, blue: grey))
     }
 }
-
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()

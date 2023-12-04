@@ -41,17 +41,25 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** IOS release ***
+  + Version 1
+  - [] Download popup native share interface 
   - [X] Sign up work
-  - [] Logging out 
+    - [-] Logging out (broken) 
   - [] Notification 
   - [] Notification for scream 
-  - [] Offline access
-  - [] Download popup native share interface 
+  - [] Test ordering a sticker (check if that is illegal) 
+  - [] Change app name
+  - [] Make Offline access page compliant with apple submission guidelines + beautify 
+  - [] Sticker pack
+  + Done
   - [X] Enable camera access 
   - [X] Enable microphone access 
-  - [] Reload when crashing
   - [X] Customize allow messages (camera, microphone, notifications)
-  - [] Test ordering a sticker (check if that is illegal) 
+  - [X] Offline access 
+  - [X] App icon
+
+  + Later Versio
+  - [] Reload when crashing
 
 *** `go` ***
   - [❤️‍🔥] Make `field`
