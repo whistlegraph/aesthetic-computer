@@ -3,6 +3,8 @@
 
 /* #region todo 📓 
 + Done
+- [x] Fix simultaneous joins in this implementation and also
+       implement jamsocket's locks function.
 - [x] Add a "local" redis database also, once it's actually necessary...
   (It should work, just gotta make sure Redis is runnin')
   - https://redis.io/docs/getting-started
@@ -14,10 +16,10 @@
 - [x] Produce a local URL when in development.
 #endregion */
 
-import { createClient } from "redis";
+// import { createClient } from "redis";
 
 const dev = process.env.NETLIFY_DEV;
-const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
+// const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
 
 const udpUrl = `https://udp.aesthetic.computer`;
 
@@ -52,55 +54,57 @@ async function fun(event, context) {
     // Check to see if an "existing" backend for this slug is still alive.
 
     // Connect to redis...
-    const client = !dev
-      ? createClient({ url: redisConnectionString })
-      : createClient();
-    client.on("error", (err) => console.log("🔴 Redis client error!", err));
-    await client.connect();
+    // const client = !dev
+    // ? createClient({ url: redisConnectionString })
+    // : createClient();
+    // client.on("error", (err) => console.log("🔴 Redis client error!", err));
+    // await client.connect();
 
     // Check to see if a backend is already available...
-    const currentBackend = await client.HGET("backends", slug);
+    // const currentBackend = await client.HGET("backends", slug);
 
-    console.log("🫂  Current backend:", currentBackend);
+    // console.log("🫂  Current backend:", currentBackend);
 
-    if (currentBackend) {
-      try {
-        out = await got(
-          `https://api.jamsocket.com/backend/${currentBackend}/status`,
-        ).json();
-        out.url = `https://${currentBackend}.jamsocket.run`; // Add URL for client.
-        out.udp = udpUrl;
-        // console.log("Out:", out);
-      } catch (err) {
-        console.error("🔴 Error:", err);
-        status = 500;
-        out = err;
-      }
+    // if (currentBackend) {
+    // try {
+    //   out = await got(
+    //     `https://api.jamsocket.com/backend/${currentBackend}/status`,
+    //   ).json();
+    //   out.url = `https://${currentBackend}.jamsocket.run`; // Add URL for client.
+    //   out.udp = udpUrl;
+    //   // console.log("Out:", out);
+    // } catch (err) {
+    //   console.error("🔴 Error:", err);
+    //   status = 500;
+    //   out = err;
+    // }
+    // }
+
+    // if (out?.state !== "Ready") {
+    // Make a new session backend if one doesn't already exist.
+    try {
+      console.log("🟡 Spawning a new session for:", slug);
+      const session = await got
+        .post({
+          url: "https://api.jamsocket.com/user/jas/service/session-server/spawn",
+          json: { grace_period_seconds: 60, lock: slug }, // jamsocket api settings
+          headers: { Authorization: `Bearer ${jamSocketToken}` },
+        })
+        .json(); // Note: A failure will yield a 500 code here to the client.
+
+      // console.log("🫂 Session:", session);
+      // await client.HSET("backends", slug, session.name); // Store the session name in redis using the 'slug' key.
+
+      out = session;
+      out.udp = udpUrl;
+    } catch (err) {
+      // console.error("🔴 Error:", err);
+      status = 500;
+      out = err;
     }
+    // }
 
-    if (out?.state !== "Ready") {
-      // Make a new session backend if one doesn't already exist.
-      try {
-        console.log("🟡 Spawning a new session for:", slug);
-        const session = await got
-          .post({
-            url: "https://api.jamsocket.com/user/jas/service/session-server/spawn",
-            json: { grace_period_seconds: 60 }, // jamsocket api settings
-            headers: { Authorization: `Bearer ${jamSocketToken}` },
-          })
-          .json(); // Note: A failure will yield a 500 code here to the client.
-
-        await client.HSET("backends", slug, session.name); // Store the session name in redis using the 'slug' key.
-        out = session;
-        out.udp = udpUrl;
-      } catch (err) {
-        // console.error("🔴 Error:", err);
-        status = 500;
-        out = err;
-      }
-    }
-
-    await client.quit(); // Disconnect from redis client.
+    // await client.quit(); // Disconnect from redis client.
   }
 
   return {

@@ -5,9 +5,6 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🧡] Fix instagram not connecting error.
-  - [-] Test join `field` simultaneously (with forceProd on) and ensure
-        there are no race conditions or conflicts. (Implement jamsocket's locks?)
   - [] Always lerp towards next character positions from the network.
   - [] Make the world scrollable with some background grass.
   - [] Move common functionality to a `world.mjs` library file.
@@ -15,6 +12,9 @@
     - [] What is the grass was grown on the server / grown according to
         server time / (how how do I synchronize server time to everyone?)
   + Done
+  - [x] Test join `field` simultaneously (with forceProd on) and ensure
+        there are no race conditions or conflicts. (Implement jamsocket's locks?)
+  - [x] Fix instagram not connecting error.
   - [x] Keyboard stops working after tabbing out and returning. 
     - [x] Android debugger session with @ida's phone.
   - [x] Remove gutter. 
