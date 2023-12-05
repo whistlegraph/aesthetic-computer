@@ -22,7 +22,14 @@ export class Socket {
   }
 
   // Connects a WebSocket object and takes a handler for messages.
-  connect(host, receive, reload, protocol = "wss", connectCallback) {
+  connect(
+    host,
+    receive,
+    reload,
+    protocol = "wss",
+    connectCallback,
+    disconnectCallback,
+  ) {
     if (this.#debug && logs.session) console.log("📡 Connecting...", host);
     try {
       this.#ws = new WebSocket(`${protocol}://${host}`);
@@ -55,6 +62,8 @@ export class Socket {
       if (logs.session)
         console.warn("📡 Disconnected...", e.currentTarget?.url);
       clearTimeout(this.pingTimeout);
+
+      socket.connected = false;
       // Only reconnect if we are not killing the socket and not in development mode.
       if (socket.#killSocket === false) {
         if (logs.session)
@@ -62,10 +71,10 @@ export class Socket {
         setTimeout(() => {
           socket.connect(host, receive, reload, protocol, connectCallback);
         }, socket.#reconnectTime);
-        socket.connected = false;
         socket.#reconnectTime = min(socket.#reconnectTime, 16000);
         socket.#reconnectTime *= 2;
       }
+      disconnectCallback?.();
     };
 
     // Close on error.

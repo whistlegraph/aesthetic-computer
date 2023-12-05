@@ -40,15 +40,16 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** IOS release ***
+*** iOS Release ***
   + Version 1
-  - [] Download popup native share interface 
+  - [] `download` popup native share interface for storing image.
+    - [] Make sure `camera` works good with the swap button.
   - [X] Sign up work
     - [-] Logging out (broken) 
-  - [] Notification 
-  - [] Notification for scream 
+  - [] Notification for `scream`. (via the integrated GCP account) 
+  - [] Notification invite for `pond`.
   - [] Test ordering a sticker (check if that is illegal) 
-  - [] Change app name
+  - [] Change app short name as it appears on homescreen to "aesthetic".
   - [] Make Offline access page compliant with apple submission guidelines + beautify 
   - [] Sticker pack
   + Done
@@ -62,9 +63,11 @@
   - [] Reload when crashing
 
 *** `go` ***
-  - [❤️‍🔥] Make `field`
-  - [] Show an orange or red status if UDP or sockets get disconnected while
-       aesthetic is in use.
+  - [🟢] Show an orange or red status if UDP or sockets get disconnected while
+        aesthetic is in use.
+    - [] Both `socket` and `udp` need disconnect messages /
+         prevent big fish list.
+  - [❤️‍🔥] Finish `field`.
   - [] Walk to `horizon`
   - [] And then `cave:entrance`
   - [] Check the networking / position shifting.
@@ -77,7 +80,7 @@
   - [] Finish the basics in `go`.
   - [] See `pond.mjs`.
 
-*** automate honest fabric checkout ***
+*** Automate Honest Fabric's checkout page via backend puppeteer control. ***
   - [] https://www.honestfabric.com/shop/checkout
 
 *** `sno` launch - Dec 1? ***
