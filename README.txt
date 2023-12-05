@@ -49,11 +49,15 @@
   - [] Notification for `scream`. (via the integrated GCP account) 
   - [] Notification invite for `pond`.
   - [] Test ordering a sticker (check if that is illegal) 
-  - [] Change app short name as it appears on homescreen to "aesthetic".
   - [] Make Offline access page compliant with apple submission guidelines + beautify 
   - [] Sticker pack
+  - [] Custom keyboard 
   + Done
+  - [X] Change app short name as it appears on homescreen to "aesthetic".
   - [X] Enable camera access 
+  - [X] iMessage plugin (is webview allowed there?)
+  - [X] Launch screen
+  - [X] Screen formatting (margins, padding)
   - [X] Enable microphone access 
   - [X] Customize allow messages (camera, microphone, notifications)
   - [X] Offline access 
