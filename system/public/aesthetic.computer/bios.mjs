@@ -13,7 +13,13 @@ import { apiObject, extension } from "./lib/helpers.mjs";
 import { choose, shuffleInPlace } from "./lib/help.mjs";
 import { parse, slug } from "./lib/parse.mjs";
 import * as Store from "./lib/store.mjs";
-import { MetaBrowser, iOS, Android, TikTok } from "./lib/platform.mjs";
+import {
+  MetaBrowser,
+  iOS,
+  Android,
+  TikTok,
+  AestheticExtension,
+} from "./lib/platform.mjs";
 import { headers } from "./lib/headers.mjs";
 import { logs } from "./lib/logs.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
@@ -147,7 +153,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let lastGap = 0;
   let density = 2; // added to window.devicePixelRatio
 
-  const startGap = location.host.indexOf("botce") > -1 ? 0 : 8;
+  const startGap =
+    location.host.indexOf("botce") > -1 || AestheticExtension ? 0 : 8;
 
   // Runs one on boot & every time display resizes to adjust the framebuffer.
   function frame(width, height, gap = startGap) {

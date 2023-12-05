@@ -8,23 +8,27 @@
   - [] Draw a purple line.
 #endregion */
 
+let needsWipe = false;
+
 // 🥾 Boot
-function boot({ wipe }) {
+function boot({ wipe, screen, resolution }) {
   // Runs once at the start.
   wipe("blue"); // Clear's the screen. Can use R, G, B or CSS colors.
 }
 
 // 🎨 Paint
-function paint({ api, ink, line, pen, box }) {
+function paint({ api, wipe, ink, line, pen, box }) {
+  if (needsWipe) {
+    wipe("blue");
+    needsWipe = false;
+  }
   ink().write("iMessage");
-  // ink("red").line(0, 0, 100, 100); Would draw a diagonal line.
-  // return false; // Uncomment for proce55ing's "noLoop" functionality.
 }
 
 // 🎪 Act
-// function act({ event: e }) {
-//  // Respond to user input here.
-// }
+function act({ event: e }) {
+  if (e.is("reframed")) needsWipe = true;
+}
 
 // 🧮 Sim
 // function sim() {

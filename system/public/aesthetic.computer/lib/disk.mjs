@@ -40,9 +40,9 @@ const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading 
 import { setDebug } from "../disks/common/debug.mjs";
 
 const defaults = {
-  boot: ({ cursor, screen: { width, height }, resolution }) => {
-    // resize(width / 2, height / 2);
+  boot: ({ cursor, screen: { width, height }, resolution, api }) => {
     if (location.host.indexOf("botce") > -1) resolution(width, height, 0);
+    if (platform.AestheticExtension) resolution(width, height, 0);
     cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
