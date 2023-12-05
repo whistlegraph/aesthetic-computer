@@ -48,7 +48,7 @@ function act({ event: e }) {
 // 📰 Meta
 function meta() {
   return {
-    title: "Imessage",
+    title: "iMessage",
     desc: "A piece that loads for Apple's iMessage app extension.",
   };
 }
