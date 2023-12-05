@@ -5,8 +5,10 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Add user list.
+  - [] Don't allow a user to send marks unless they are connected.
   - [] Better backdrops / make sounds after a gesture is made.
+  + Done
+  - [x] Add user list.
 #endregion */
 
 let server;
