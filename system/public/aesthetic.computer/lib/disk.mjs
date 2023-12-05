@@ -19,7 +19,7 @@ const { round, sin, random, max, floor } = Math;
 const { keys } = Object;
 import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
-import { headers } from "./console-headers.mjs";
+import { headers } from "./headers.mjs";
 import { logs } from "./logs.mjs";
 import { soundWhitelist } from "./sound/sound-whitelist.mjs";
 
@@ -2421,7 +2421,7 @@ async function load(
   // Start the socket server
   // TODO: Before we load the disk, in case of needing to reload remotely on failure? 23.01.27.12.48
   let receiver; // Handles incoming messages from the socket.
-  const forceProd = false; // For testing prod socket servers in development.
+  const forceProd = true; // For testing prod socket servers in development.
 
   // Requests a session-backend and connects via websockets.
   function startSocket() {
@@ -3195,7 +3195,6 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "udp:disconnected") {
-    console.log("udp disconnected via bios");
     udp.connected = false;
     updateHUDStatus();
     $commonApi.needsPaint();

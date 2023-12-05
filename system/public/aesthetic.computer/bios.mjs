@@ -14,7 +14,7 @@ import { choose, shuffleInPlace } from "./lib/help.mjs";
 import { parse, slug } from "./lib/parse.mjs";
 import * as Store from "./lib/store.mjs";
 import { MetaBrowser, iOS, Android, TikTok } from "./lib/platform.mjs";
-import { headers } from "./lib/console-headers.mjs";
+import { headers } from "./lib/headers.mjs";
 import { logs } from "./lib/logs.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 import { timestamp, radians } from "./lib/num.mjs";
