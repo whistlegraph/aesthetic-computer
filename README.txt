@@ -55,6 +55,8 @@
 
 *** `go` ***
   - [❤️‍🔥] Make `field`
+  - [] Show an orange or red status if UDP or sockets get disconnected while
+       aesthetic is in use.
   - [] Walk to `horizon`
   - [] And then `cave:entrance`
   - [] Check the networking / position shifting.
