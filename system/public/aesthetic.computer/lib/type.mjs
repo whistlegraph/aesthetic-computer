@@ -245,7 +245,7 @@ class TextInput {
   activate; // Hook to `activate` inside of act.
   activated; // Optional callback for when the the text input becomes
   //            activated via pushing the Enter button or typing a key.
-  activatedOnce = true;
+  activatedOnce = false;
   backdropTouchOff = false; // Determines whether to activate the input
   //                           after tapping the backdrop.
   commandSentOnce = false; // 🏴

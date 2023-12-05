@@ -2,9 +2,12 @@ import Geckos from "../dep/geckos.io-client.2.3.2.min.js";
 import { logs } from "./logs.mjs";
 
 /* #region 🏁 todo
-  - [] Production ICE / TURN Servers.
+  + Later
+  - [] Use better production ICE / TURN Servers (once things are scalable).
   - [] Set up room system.
 #endregion */
+
+// 📓 geckos docs: https://github.com/geckosio/geckos.io
 
 const RECONNECT_START_TIME = 500; // Gets doubled on subsequent attempts.
 let channel, reconnectingTimeout;
@@ -15,31 +18,33 @@ let reconnect;
 let dontreconnect = false;
 
 function connect(port = 8889, url = undefined, send) {
-  console.log("🩰 Connecting to UDP:", url, "on:", port);
   if (channel) {
-    console.log("🩰 UDP Channel already exists:", channel);
+    console.log("🩰 Connection already exists:", channel);
     return;
   }
+
+  console.log("🩰 Connecting to UDP:", url, "on:", port);
+
+  dontreconnect = false;
 
   channel = Geckos({ url, port }); // default port is 9208
 
   reconnect = () => {
     reconnectingTimeout = setTimeout(() => {
+      channel = null;
       connect(port, url, send);
     }, reconnectTime);
     reconnectTime *= 2;
   };
 
   channel.onConnect((error) => {
-    clearTimeout(reconnectingTimeout);
-
     if (error) {
       console.error("🩰", error.message);
       reconnect();
       return;
     }
 
-    console.log("🩰 Connected to UDP:", channel.url);
+    console.log("🩰 Connected:", channel.url);
     reconnectTime = RECONNECT_START_TIME;
     send({ type: "udp:connected" });
 
@@ -59,7 +64,7 @@ function connect(port = 8889, url = undefined, send) {
     send({ type: "udp:disconnected" });
     channel = null;
     if (error || !dontreconnect) {
-      console.warn("🩰 Reconnecting:", error);
+      console.warn("🩰 Reconnecting...");
       reconnect();
     }
   });
@@ -68,7 +73,6 @@ function connect(port = 8889, url = undefined, send) {
 export const UDP = {
   connect,
   disconnect: () => {
-    console.log("disconnecting from udp...");
     dontreconnect = true;
     channel?.close();
   },
