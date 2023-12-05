@@ -13,3 +13,5 @@ export const MetaBrowser = /(OculusBrowser)/g.test(nav.userAgent);
 export const Desktop = !iOS && !Android && !MetaBrowser;
 export const Instagram = /(Instagram)/g.test(nav.userAgent);
 export const TikTok = /BytedanceWebview/i.test(nav.userAgent);
+export const Aesthetic = /Aesthetic/i.test(nav.userAgent);
+export const AestheticExtension = /AestheticExtension/i.test(nav.userAgent);
