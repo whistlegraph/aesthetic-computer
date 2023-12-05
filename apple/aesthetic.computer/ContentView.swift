@@ -7,16 +7,18 @@ let grey: CGFloat = 32/255;
 
 struct WebView: UIViewRepresentable {
     var url: String
-
+    
     func makeUIView(context: Context) -> WKWebView {
         let webConfiguration = WKWebViewConfiguration()
         webConfiguration.allowsInlineMediaPlayback = true
         let webView = WKWebView(frame: .zero, configuration: webConfiguration)
         webView.backgroundColor = UIColor(red: grey, green: grey, blue: grey, alpha: 1)
         webView.isOpaque = false
+        
+        webView.customUserAgent = "Aesthetic"
         return webView
     }
-
+    
     func updateUIView(_ webView: WKWebView, context: Context) {
         print("URL: ", url)
         let request = URLRequest(url: URL(string: url)!)
@@ -24,39 +26,46 @@ struct WebView: UIViewRepresentable {
     }
 }
 
-struct ContentView: View {
-    @State private var isOnline: Bool? = nil
+struct ContentView: View
 
+
+{
+    
+    @State private var isOnline: Bool? = nil
+    
     var body: some View {
-        VStack {
-            if let isOnline = isOnline {
-                if isOnline {
-                    WebView(url: "https://aesthetic.computer")
+        GeometryReader { geometry in
+            VStack {
+                if let isOnline = isOnline {
+                    if isOnline {
+                        WebView(url: "https://aesthetic.computer")
+                    } else {
+                        let test = (Bundle.main.url(forResource: "offline", withExtension: "html", subdirectory: "html")?.absoluteString ?? "")
+                        WebView(url: test)
+                    }
                 } else {
-                    let test = (Bundle.main.url(forResource: "offline", withExtension: "html", subdirectory: "html")?.absoluteString ?? "")
-                    WebView(url: test)
-                }
-            } else {
-                Text("Checking network status...")
-                    .foregroundColor(.white)
-            }
-        }
-        .onAppear {
-            let monitor = NWPathMonitor()
-            monitor.pathUpdateHandler = { path in
-                self.isOnline = path.status == .satisfied
-                if self.isOnline == true {
-                    monitor.cancel() //stops monitoring once you are online
+                    Color(red: grey, green: grey, blue: grey)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            let queue = DispatchQueue(label: "NetworkMonitor")
-            monitor.start(queue: queue)
+            .onAppear {
+                let monitor = NWPathMonitor()
+                monitor.pathUpdateHandler = { path in
+                    self.isOnline = path.status == .satisfied
+                    if self.isOnline == true {
+                        monitor.cancel() //stops monitoring once you are online
+                    }
+                }
+                let queue = DispatchQueue(label: "NetworkMonitor")
+                monitor.start(queue: queue)
+            }
+            .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 24 : 0)
+            .background(Color(red: grey, green: grey, blue: grey))
+            .ignoresSafeArea(.keyboard, edges: .bottom)
         }
-        .padding(4)
-        .ignoresSafeArea(.keyboard)
-        .background(Color(red: grey, green: grey, blue: grey))
     }
 }
+
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
