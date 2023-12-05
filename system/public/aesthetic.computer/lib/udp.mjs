@@ -12,6 +12,7 @@ let reconnectTime = RECONNECT_START_TIME;
 // const debug = window.acDEBUG;
 
 let reconnect;
+let dontreconnect = false;
 
 function connect(port = 8889, url = undefined, send) {
   console.log("🩰 Connecting to UDP:", url, "on:", port);
@@ -54,8 +55,10 @@ function connect(port = 8889, url = undefined, send) {
 
   channel.onDisconnect((error) => {
     console.log("🩰 Disconnected from UDP");
+    console.log("Don't reconnect:", dontreconnect);
+    send({ type: "udp:disconnected" });
     channel = null;
-    if (error) {
+    if (error || !dontreconnect) {
       console.warn("🩰 Reconnecting:", error);
       reconnect();
     }
@@ -65,6 +68,8 @@ function connect(port = 8889, url = undefined, send) {
 export const UDP = {
   connect,
   disconnect: () => {
+    console.log("disconnecting from udp...");
+    dontreconnect = true;
     channel?.close();
   },
   send: ({ type, content }) => {

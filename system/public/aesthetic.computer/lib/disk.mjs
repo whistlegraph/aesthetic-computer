@@ -231,6 +231,8 @@ let currentPath,
 function updateHUDStatus() {
   if (udp.connected && socket?.connected) {
     currentHUDStatusColor = "lime";
+  } else if (currentHUDStatusColor === "lime") {
+    currentHUDStatusColor = "red";
   }
 }
 
@@ -2485,6 +2487,10 @@ async function load(
             //   currentHUDStatusColor = undefined;
             // }, 250);
           },
+          () => {
+            // Post-disconnection logic.
+            updateHUDStatus();
+          },
         );
       })
       .catch((err) => {
@@ -3183,6 +3189,14 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "udp:connected") {
     udp.connected = true;
+    updateHUDStatus();
+    $commonApi.needsPaint();
+    return;
+  }
+
+  if (type === "udp:disconnected") {
+    console.log("udp disconnected via bios");
+    udp.connected = false;
     updateHUDStatus();
     $commonApi.needsPaint();
     return;

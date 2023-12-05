@@ -5,6 +5,7 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [-] Change title of tab / page to use parameters after a dot or dash?
   - [] Don't allow a user to send marks unless they are connected.
   - [] Better backdrops / make sounds after a gesture is made.
   + Done
