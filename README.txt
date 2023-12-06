@@ -40,6 +40,10 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** sharing ***
+  - [🍊] Make sure `shareFile` will always be populated / prevent the
+       race condition.
+
 *** iOS Release ***
   + Version 1
   - [] `download` popup native share interface for storing image.

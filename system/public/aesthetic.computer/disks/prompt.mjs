@@ -94,6 +94,8 @@ let tapePromiseResolve, tapePromiseReject;
 
 let handles; // Keep track of total handles set.
 
+let defaultDownloadScale = 6;
+
 import * as starfield from "./starfield.mjs";
 
 // 🥾 Boot
@@ -221,6 +223,7 @@ async function halt($, text) {
     mint,
     rec,
     sound,
+    canShare,
   } = $;
   motdController?.abort(); // Abort any motd update.
 
@@ -818,13 +821,12 @@ async function halt($, text) {
     return true;
   } else if (text.startsWith("dl") || text.startsWith("download")) {
     if (store["painting"]) {
-      download(`painting-${num.timestamp()}.png`, store["painting"], {
-        scale: abs(parseInt(text.split(" ")[1])) || 6,
-        // Read an integer parameter for scale.
-        cropToScreen: !(store["painting:resolution-lock"] === true),
-        // Only cut the download off at screen-size if user never
-        // set a resolution.
-      });
+      if (!canShare) {
+        downloadPainting(
+          api,
+          abs(parseInt(text.split(" ")[1])) || defaultDownloadScale,
+        );
+      }
       // Show a green flash if we succesfully download the file.
       flashColor = [0, 255, 0];
     } else {
@@ -1140,11 +1142,13 @@ function act({
   num,
   jump,
   system,
+  store,
   sound: { play, synth },
   rec,
   user,
   send,
   handle,
+  canShare,
 }) {
   // 📼 Taping
   if (e.is("microphone:connect:success")) {
@@ -1248,8 +1252,17 @@ function act({
     !firstActivation &&
     system.prompt.input.canType
   ) {
-    if (!e.mute)
+    if (!e.mute) {
       play(keyboardSfx, { volume: 0.2 + (num.randInt(100) / 100) * 0.4 });
+    }
+
+    if (
+      (e.text === "dl" || e.text === "download") &&
+      canShare &&
+      store["painting"]
+    ) {
+      downloadPainting(api, defaultDownloadScale, true); // Trigger early download response.
+    }
   }
 
   // if (e.is("keyboard:down") && e.key !== "Enter") {
@@ -1399,4 +1412,15 @@ function positionWelcomeButtons(screen) {
   }
 
   if (profile) profile.reposition({ center: "xy", screen });
+}
+
+function downloadPainting({ download, num, store }, scale, sharing = false) {
+  download(`painting-${num.timestamp()}.png`, store["painting"], {
+    scale,
+    // Read an integer parameter for scale.
+    cropToScreen: !(store["painting:resolution-lock"] === true),
+    // Only cut the download off at screen-size if user never
+    // set a resolution.
+    sharing,
+  });
 }
