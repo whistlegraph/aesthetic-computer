@@ -104,6 +104,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     pauseTapePlayback,
     resumeTapePlayback;
 
+  let shareFile; // A temporary storage container for a pre-prepped
+  // file download to use on a user interaction.
+
   // A layer for modal messages such as "audio engine is off".
   const modal = document.createElement("div");
   modal.id = "modal";
@@ -1077,6 +1080,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       rootPiece: window.acSTARTING_PIECE,
       user: window.acUSER,
       lanHost: window.acLAN_HOST,
+      shareSupported: navigator.share !== undefined,
     },
   };
 
@@ -1867,14 +1871,33 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         form.addEventListener("keydown", (e) => {
           if (e.key === "Enter") {
             e.preventDefault();
+
             const enter = { ...enterEvent };
             enter.shift = e.shiftKey;
             enter.alt = e.altKey;
             enter.ctrl = e.ctrlKey;
             keyboard.events.push(enter);
-          }
 
-          if (e.key === "Home") {
+            if (
+              (input.value === "dl" || input.value === "download") &&
+              shareFile
+            ) {
+              navigator
+                .share({
+                  files: [shareFile],
+                  title: "Share Painting",
+                  text: "Share your painting!",
+                })
+                .then(() => {
+                  console.log("📥 Share was successful.");
+                  shareFile = null;
+                })
+                .catch((error) => {
+                  console.log("📥 Sharing failed:", error);
+                  shareFile = null;
+                });
+            }
+          } else if (e.key === "Home") {
             e.preventDefault();
             const home = { name: "keyboard:down:home", key: "Home" };
             home.shift = e.shiftKey;
@@ -4239,8 +4262,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   async function receivedDownload({ filename, data, modifiers }) {
     console.log("💾 Downloading:", filename);
     // if (data) console.log("Data:", typeof data);
+    // if (modifiers.sharing === true) presharingFile = true;
 
-    let object;
+    let object, blob;
     let MIME = "application/octet-stream"; // Default content type.
     const ext = extension(filename);
 
@@ -4273,7 +4297,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       if (data) {
         // Download locally if data is provided.
-        const blob = await bufferToBlob(data, MIME, modifiers);
+        blob = await bufferToBlob(data, MIME, modifiers);
         object = URL.createObjectURL(blob, { type: MIME });
       } else {
         // Or from the storage network.
@@ -4325,12 +4349,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
-    const a = document.createElement("a");
-    a.href = object;
-    a.target = "_blank";
-    a.download = filename.split("/").pop(); // Remove any extra paths.
-    a.click();
-    if (typeof a.href !== "string") URL.revokeObjectURL(a.href);
+    // const a = document.createElement("a");
+    // a.href = object;
+    // a.target = "_blank";
+    // a.download = filename.split("/").pop(); // Remove any extra paths.
+    // a.click();
+    // if (typeof a.href !== "string") URL.revokeObjectURL(a.href);
+
+    // Check if navigator.share is supported
+    if (modifiers.sharing === true && navigator.share) {
+      shareFile = new File(
+        [blob || new Blob([data], { type: MIME })],
+        filename.split("/").pop(),
+        {
+          type: MIME,
+          lastModified: new Date().getTime(),
+        },
+      );
+    } else {
+      // Fallback to download if navigator.share is not supported
+      const a = document.createElement("a");
+      a.href = object;
+      a.target = "_blank";
+      a.download = filename.split("/").pop(); // Remove any extra paths.
+      a.click();
+      if (typeof a.href !== "string") URL.revokeObjectURL(a.href);
+    }
 
     // Picture in Picture: Image Download UI? 22.11.24.08.51
     //const container = document.createElement('div');

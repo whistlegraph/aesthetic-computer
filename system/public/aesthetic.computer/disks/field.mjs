@@ -254,6 +254,15 @@ class Cam {
 }
 
 let me, world, cam, input, inputBtn, server;
+const scenery = {
+  grasses: [
+    { x: 190, y: 170 },
+    { x: 256, y: 256 },
+    { x: 128, y: 128 },
+    { x: 400, y: 400 },
+    { x: 500, y: 512 },
+  ],
+};
 const kids = {};
 
 const { keys } = Object;
@@ -272,7 +281,7 @@ function boot({
 }) {
   // ✨ Initialization & Interface
   wipe(0);
-  world = new World();
+  world = new World(512, 512);
   me = new Kid(
     handle(),
     { x: world.size.width / 2, y: world.size.height / 2 },
@@ -425,6 +434,14 @@ function paint({ api, wipe, layer, ink, pan, unpan, pen, screen, leaving }) {
   // 🌎 + 🧒 World & Players
   pan(cam.x, cam.y);
   world.paint(api);
+
+  scenery.grasses.forEach((grass) => {
+    ink("lime")
+      .line(grass.x, grass.y, grass.x, grass.y - 10)
+      .line(grass.x, grass.y, grass.x - 5, grass.y - 6)
+      .line(grass.x, grass.y, grass.x + 5, grass.y - 6);
+  });
+
   // layer(1);
 
   inputBtn.paint((btn) => {
@@ -546,7 +563,7 @@ function act({ event: e, api, send, jump, hud, piece, screen }) {
 }
 
 // 🧮 Sim
-function sim({ api, geo, simCount }) {
+function sim({ api, geo, simCount, screen }) {
   me.sim(api, function net(kid) {
     if (simCount % 4n === 0n) {
       // Send network updates at a rate of 30hz  (120 / 4).
@@ -554,6 +571,13 @@ function sim({ api, geo, simCount }) {
       if (kid.clear) server.send("field:write:clear", kid);
     }
   }); // 🧒 Movement
+
+  console.log(cam, me);
+  // cam.x = me.pos.x;
+  // cam.y = me.pos.y;
+
+  cam.x = screen.width / 2 - world.size.width + me.pos.x;
+  cam.y = screen.height / 2 - world.size.width + me.pos.y;
 
   // Networked kids.
   keys(kids).forEach((key) => kids[key].sim(api));
