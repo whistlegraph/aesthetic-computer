@@ -30,11 +30,11 @@ export class Socket {
     connectCallback,
     disconnectCallback,
   ) {
-    if (this.#debug && logs.session) console.log("📡 Connecting...", host);
+    if (this.#debug && logs.session) console.log("🧦 Connecting...", host);
     try {
       this.#ws = new WebSocket(`${protocol}://${host}`);
     } catch {
-      console.warn("📡 Connection failed.");
+      console.warn("🧦 Connection failed.");
       return;
     }
 
@@ -43,7 +43,7 @@ export class Socket {
 
     // Send a message to the console after the first connection.
     ws.onopen = (e) => {
-      if (this.#debug && logs.session) console.log("📡 Connected."); // Redundant log given an initial message from the server.
+      if (this.#debug && logs.session) console.log("🧦 Connected."); // Redundant log given an initial message from the server.
       socket.#queue.forEach((q) => socket.send(...q)); // Send any held messages.
       socket.connected = true;
       socket.#queue.length = 0; // Clear out the full queue.
@@ -60,14 +60,14 @@ export class Socket {
     // Recursively re-connect after every second upon close or failed connection.
     ws.onclose = (e) => {
       if (logs.session)
-        console.warn("📡 Disconnected...", e.currentTarget?.url);
+        console.warn("🧦 Disconnected...", e.currentTarget?.url);
       clearTimeout(this.pingTimeout);
 
       socket.connected = false;
       // Only reconnect if we are not killing the socket and not in development mode.
       if (socket.#killSocket === false) {
         if (logs.session)
-          console.log("📡 Reconnecting in:", socket.#reconnectTime, "ms");
+          console.log("🧦 Reconnecting in:", socket.#reconnectTime, "ms");
         setTimeout(() => {
           socket.connect(host, receive, reload, protocol, connectCallback);
         }, socket.#reconnectTime);
@@ -79,7 +79,7 @@ export class Socket {
 
     // Close on error.
     ws.onerror = (err) => {
-      console.error("📡 Error:", err);
+      console.error("🧦 Error:", err);
       ws.close();
     };
   }
@@ -112,12 +112,12 @@ export class Socket {
       // Send a self-connection message here. (You are connected as...)
       if (logs.session)
         console.log(
-          `📡 You joined: ${c.ip} id: ${c.id} 🤹 Connections open: ${c.playerCount}`,
+          `🧦 You joined: ${c.ip} id: ${c.id} 🤹 Connections open: ${c.playerCount}`,
         );
       receive?.(id, type, c);
     } else if (type === "joined") {
       const c = JSON.parse(content);
-      if (logs.session) console.log(`📡 ${c.text || c}`); // Someone else has connected as...
+      if (logs.session) console.log(`🧦 ${c.text || c}`); // Someone else has connected as...
       receive?.(id, type, c);
     } else if (type === "reload" && reload && this.#debug) {
       // Only respond to global `reload` signals when in debug mode.
@@ -142,11 +142,15 @@ export class Socket {
     } else if (type === "left") {
       if (logs.session)
         console.log(
-          `📡 ${content.id} has left. Connections open: ${content.count}`,
+          `🧦 ${content.id} has left. Connections open: ${content.count}`,
         );
       receive?.(content.id, type, content);
     } else {
-      receive?.(id, type, content); // Finally send the message to the client.
+      try {
+        receive?.(id, type, content); // Finally send the message to the client.
+      } catch (err) {
+        console.error("🧦 Socket message error:", err);
+      }
     }
   }
 }
