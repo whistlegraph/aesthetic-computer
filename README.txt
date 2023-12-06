@@ -62,8 +62,7 @@
   - [X] Customize allow messages (camera, microphone, notifications)
   - [X] Offline access 
   - [X] App icon
-
-  + Later Versio
+  + Later Version
   - [] Reload when crashing
 
 *** `go` ***
@@ -77,13 +76,13 @@
   - [x] Both `socket` and `udp` need disconnect messages /
         prevent big fish list?
 
-*** dockerize the dev environment ***
-  - [] How difficult would it be to containerize the whole development
-       environment to help contributors?
-
 *** `pond` production ***
   - [] Finish the basics in `go`.
   - [] See `pond.mjs`.
+
+*** dockerize the dev environment ***
+  - [] How difficult would it be to containerize the whole development
+       environment to help contributors?
 
 *** Automate Honest Fabric's checkout page via backend puppeteer control. ***
   - [] https://www.honestfabric.com/shop/checkout

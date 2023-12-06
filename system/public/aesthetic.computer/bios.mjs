@@ -2381,13 +2381,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "keyboard:close") {
       // if (keyboardFocusLock) return; // Deprecated: 23.10.02.23.18
-      console.log("⌨️ Keyboard closing...");
+      // console.log("⌨️ Keyboard closing...");
       keyboard?.input.blur();
       return;
     }
 
     if (type === "keyboard:open") {
-      console.log("⌨️ Keyboard opening...");
+      // console.log("⌨️ Keyboard opening...");
       if (keyboardFocusLock) return;
       keyboardFocusLock = false;
       currentPieceHasKeyboard = true;

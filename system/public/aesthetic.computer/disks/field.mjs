@@ -5,13 +5,13 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Always lerp towards next character positions from the network.
-  - [] Make the world scrollable with some background grass.
+  - [🟡] Make the world scrollable with some background grass.
   - [] Move common functionality to a `world.mjs` library file.
   - [] Store persistent position on the server / in the database. 
     - [] What is the grass was grown on the server / grown according to
         server time / (how how do I synchronize server time to everyone?)
   + Done
+  - [x] Always lerp towards next character positions from the network.
   - [x] Test join `field` simultaneously (with forceProd on) and ensure
         there are no race conditions or conflicts. (Implement jamsocket's locks?)
   - [x] Fix instagram not connecting error.
@@ -42,7 +42,9 @@
 
 // 🧒
 class Kid {
+  net;
   pos = { x: 0, y: 0 };
+  netPos;
   size = 16;
   leash = { x: 0, y: 0, len: 0, max: 12, deadzone: 8 };
   face = "meh";
@@ -52,10 +54,14 @@ class Kid {
   #messageDuration;
   #messageProgress = 0;
 
-  constructor(handle, pos = this.pos, face) {
+  constructor(handle, pos = this.pos, face, net = false) {
     console.log("🧒 From:", handle);
+
     this.pos = pos;
+    if (net) this.netPos = { ...pos };
+
     this.face = face || this.face;
+    this.net = net; // Is it from the network?
   }
 
   // Show a message above the kid's head for `time` frames.
@@ -141,6 +147,15 @@ class Kid {
 
   // Simulate the kid's movement and time messages.
   sim({ num }, net) {
+    // 🗼 Network Prediction
+    if (this.net && this.netPos) {
+      this.pos.x = num.lerp(this.pos.x, this.netPos.x, 0.25);
+      this.pos.y = num.lerp(this.pos.y, this.netPos.y, 0.25);
+      return; // No need to compute movements, locally.
+    }
+
+    // Local simulation.
+
     // 🗨️ Message
     if (this.message) {
       if (this.#messageProgress < this.#messageDuration) {
@@ -385,14 +400,18 @@ function boot({
 
       if (type === "field:join") {
         if (!kids[id]) {
-          kids[id] = new Kid(content.handle || id, content.pos);
-          server.send("field:join", { handle: me.handle, pos: me.pos });
+          kids[id] = new Kid(content.handle || id, content.pos, me.face, true);
+          server.send("field:join", {
+            handle: me.handle,
+            pos: me.pos,
+            face: me.face,
+          });
         }
       }
 
       if (type === "field:move") {
         const kid = kids[id];
-        if (kid) kid.pos = content.pos;
+        if (kid) kid.netPos = content.pos;
       }
     }
   });
@@ -527,11 +546,18 @@ function act({ event: e, api, send, jump, hud, piece, screen }) {
 }
 
 // 🧮 Sim
-function sim({ api, geo }) {
+function sim({ api, geo, simCount }) {
   me.sim(api, function net(kid) {
-    if (kid.pos) server.send("field:move", kid);
-    if (kid.clear) server.send("field:write:clear", kid);
+    if (simCount % 4n === 0n) {
+      // Send network updates at a rate of 30hz  (120 / 4).
+      if (kid.pos) server.send("field:move", kid);
+      if (kid.clear) server.send("field:write:clear", kid);
+    }
   }); // 🧒 Movement
+
+  // Networked kids.
+  keys(kids).forEach((key) => kids[key].sim(api));
+
   input.sim(api); // 💬 Chat
 
   const btnPos = me.screenPos(cam, world); // Button to activate prompt.
