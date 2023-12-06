@@ -104,7 +104,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     pauseTapePlayback,
     resumeTapePlayback;
 
-  let shareFile; // A temporary storage container for a pre-prepped
+  let shareFile, shareFileCallback; // A temporary storage container for a pre-prepped
   // file download to use on a user interaction.
 
   // A layer for modal messages such as "audio engine is off".
@@ -1882,20 +1882,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               (input.value === "dl" || input.value === "download") &&
               shareFile
             ) {
-              navigator
-                .share({
-                  files: [shareFile],
-                  title: "Share Painting",
-                  text: "Share your painting!",
-                })
-                .then(() => {
-                  console.log("📥 Share was successful.");
-                  shareFile = null;
-                })
-                .catch((error) => {
-                  console.log("📥 Sharing failed:", error);
-                  shareFile = null;
-                });
+              const share = () => {
+                navigator
+                  .share({
+                    files: [shareFile],
+                    title: "Share Painting",
+                    text: "Share your painting!",
+                  })
+                  .then(() => {
+                    console.log("📥 Share was successful.");
+                    shareFile = null;
+                  })
+                  .catch((error) => {
+                    console.log("📥 Sharing failed:", error);
+                    shareFile = null;
+                  });
+                shareFileCallback = null;
+              };
+
+              if (shareFile) {
+                share();
+              } else {
+                shareFileCallback = share;
+              }
             }
           } else if (e.key === "Home") {
             e.preventDefault();
@@ -4349,23 +4358,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
-    // const a = document.createElement("a");
-    // a.href = object;
-    // a.target = "_blank";
-    // a.download = filename.split("/").pop(); // Remove any extra paths.
-    // a.click();
-    // if (typeof a.href !== "string") URL.revokeObjectURL(a.href);
-
     // Check if navigator.share is supported
     if (modifiers.sharing === true && navigator.share) {
       shareFile = new File(
         [blob || new Blob([data], { type: MIME })],
         filename.split("/").pop(),
-        {
-          type: MIME,
-          lastModified: new Date().getTime(),
-        },
+        { type: MIME, lastModified: new Date().getTime() },
       );
+      shareFileCallback?.(); // Run the callback if necessary, which should 
+                             // prevent any special race conditions.
     } else {
       // Fallback to download if navigator.share is not supported
       const a = document.createElement("a");
