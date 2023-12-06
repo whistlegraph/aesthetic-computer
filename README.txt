@@ -40,9 +40,16 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** sharing ***
-  - [🍊] Make sure `shareFile` will always be populated / prevent the
-       race condition.
+*** `go` ***
+  - [❤️‍🔥] Finish `field`.
+  - [] Walk to `horizon`
+  - [] And then `cave:entrance`
+  - [] Check the networking / position shifting.
+  + Done
+  - [x] Show an orange or red status if UDP or sockets get disconnected while
+        aesthetic is in use.
+  - [x] Both `socket` and `udp` need disconnect messages /
+        prevent big fish list?
 
 *** iOS Release ***
   + Version 1
@@ -68,17 +75,6 @@
   - [X] App icon
   + Later Version
   - [] Reload when crashing
-
-*** `go` ***
-  - [❤️‍🔥] Finish `field`.
-  - [] Walk to `horizon`
-  - [] And then `cave:entrance`
-  - [] Check the networking / position shifting.
-  + Done
-  - [x] Show an orange or red status if UDP or sockets get disconnected while
-        aesthetic is in use.
-  - [x] Both `socket` and `udp` need disconnect messages /
-        prevent big fish list?
 
 *** `pond` production ***
   - [] Finish the basics in `go`.
