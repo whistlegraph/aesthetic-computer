@@ -53,7 +53,6 @@ class MessagesViewController: MSMessagesAppViewController {
     
     override func didCancelSending(_ message: MSMessage, conversation: MSConversation) {
         // Called when the user deletes the message without sending it.
-    
         // Use this to clean up state related to the deleted message.
     }
     
