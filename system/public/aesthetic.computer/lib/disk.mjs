@@ -31,6 +31,7 @@ export const noWorker = { onMessage: undefined, postMessage: undefined };
 let ROOT_PIECE = "prompt"; // This gets set straight from the host html file for the ac.
 let USER; // A holder for the logged in user. (Defined in `boot`)
 let LAN_HOST; // The IP address of the hosting machine on the local network.
+let SHARE_SUPPORTED; // Whether navigator.share is supported. (For `dl`)
 // (For development and IRL workshops)
 let debug = false; // This can be overwritten on boot.
 let visible = true; // Is aesthetic.computer visibly rendering or not?
@@ -520,6 +521,7 @@ function isLeaving() {
 
 // For every function to access.
 const $commonApi = {
+  canShare: false,
   leaving: isLeaving,
   handle: () => {
     return HANDLE;
@@ -2421,8 +2423,8 @@ async function load(
   // Start the socket server
   // TODO: Before we load the disk, in case of needing to reload remotely on failure? 23.01.27.12.48
   let receiver; // Handles incoming messages from the socket.
-  const forceProd = true; // For testing prod socket servers in development.
-                          // TOOD: Hoist this to an environment variable?
+  const forceProd = false; // For testing prod socket servers in development.
+  // TOOD: Hoist this to an environment variable?
 
   // Requests a session-backend and connects via websockets.
   function startSocket() {
@@ -3148,6 +3150,8 @@ async function makeFrame({ data: { type, content } }) {
     ROOT_PIECE = content.rootPiece;
     USER = content.user;
     LAN_HOST = content.lanHost;
+    SHARE_SUPPORTED = content.shareSupported;
+    $commonApi.canShare = SHARE_SUPPORTED;
     $commonApi.net.lan = LAN_HOST;
     $commonApi.user = USER;
 
