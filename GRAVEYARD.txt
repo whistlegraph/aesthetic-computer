@@ -1,5 +1,9 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** sharing ***
+  - [x] Make sure `shareFile` will always be populated / prevent the
+       race condition.
+
 *** motd is now editable regression ***
   - [x] :()
 
