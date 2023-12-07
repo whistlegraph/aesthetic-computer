@@ -53,17 +53,17 @@
 
 *** iOS Release ***
   + Version 1
-  - [] `download` popup native share interface for storing image.
-    - [] Make sure `camera` works good with the swap button.
+  - [] Make sure `camera` works good with the swap button.
   - [X] Sign up work
     - [-] Logging out (broken) 
   - [] Notification for `scream`. (via the integrated GCP account) 
   - [] Notification invite for `pond`.
   - [] Test ordering a sticker (check if that is illegal) 
   - [] Make Offline access page compliant with apple submission guidelines + beautify 
-  - [] Sticker pack
   - [] Custom keyboard 
   + Done
+  - [X] Sending Pixel Grab images in iMessage Extension 
+  - [X] `download` popup native share interface for storing image.
   - [X] Change app short name as it appears on homescreen to "aesthetic".
   - [X] Enable camera access 
   - [X] iMessage plugin (is webview allowed there?)
@@ -75,6 +75,8 @@
   - [X] App icon
   + Later Version
   - [] Reload when crashing
+  - [] Classic Sticker pack
+
 
 *** `pond` production ***
   - [] Finish the basics in `go`.

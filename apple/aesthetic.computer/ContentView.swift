@@ -62,7 +62,7 @@ struct ContentView: View {
             VStack {
                 if let isOnline = isOnline {
                     if isOnline {
-                        WebView(url: "https://local.aesthetic.computer", isOnline: true)
+                        WebView(url: "https://aesthetic.computer", isOnline: true)
                     } else {
                         let test = (Bundle.main.url(forResource: "offline", withExtension: "html", subdirectory: "html")?.absoluteString ?? "")
                         WebView(url: test, isOnline: false)
