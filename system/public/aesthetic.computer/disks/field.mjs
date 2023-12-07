@@ -5,12 +5,12 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🟡] Make the world scrollable with some background grass.
-  - [] Move common functionality to a `world.mjs` library file.
-  - [] Store persistent position on the server / in the database. 
+  - [-] Store persistent position on the server / in the database. 
     - [] What is the grass was grown on the server / grown according to
         server time / (how how do I synchronize server time to everyone?)
+  - [] Move common functionality to a `world.mjs` library file.
   + Done
+  - [x] Make the world scrollable with some background grass.
   - [x] Always lerp towards next character positions from the network.
   - [x] Test join `field` simultaneously (with forceProd on) and ensure
         there are no race conditions or conflicts. (Implement jamsocket's locks?)
@@ -571,17 +571,12 @@ function sim({ api, geo, simCount, screen }) {
       if (kid.clear) server.send("field:write:clear", kid);
     }
   }); // 🧒 Movement
+  me.screenPos(cam, world);
 
-  console.log(cam, me);
-  // cam.x = me.pos.x;
-  // cam.y = me.pos.y;
+  cam.x = screen.width / 2 - me.pos.x; //world.size.width / 2;// - me.pos.x;
+  cam.y = screen.height / 2 - me.pos.y; //world.size.height / 2;// - me.pos.y;
 
-  cam.x = screen.width / 2 - world.size.width + me.pos.x;
-  cam.y = screen.height / 2 - world.size.width + me.pos.y;
-
-  // Networked kids.
-  keys(kids).forEach((key) => kids[key].sim(api));
-
+  keys(kids).forEach((key) => kids[key].sim(api)); // Networked kids.
   input.sim(api); // 💬 Chat
 
   const btnPos = me.screenPos(cam, world); // Button to activate prompt.
