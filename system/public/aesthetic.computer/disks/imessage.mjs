@@ -63,7 +63,7 @@ function meta() {
 // Render an application icon, aka favicon.
 // }
 
-export { boot, paint, meta };
+export { boot, act, paint, meta };
 export const nohud = true;
 
 // 📚 Library
