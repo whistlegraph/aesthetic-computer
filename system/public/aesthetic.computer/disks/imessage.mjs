@@ -17,16 +17,38 @@ function boot({ wipe, screen, resolution }) {
 }
 
 // 🎨 Paint
-function paint({ api, wipe, ink, line, pen, box }) {
-  if (needsWipe) {
-    wipe("blue");
-    needsWipe = false;
-  }
-  ink().write("iMessage");
+function paint({ api, wipe, ink, line, pen, box, help: { choose } }) {
+  //if (needsWipe) {
+  //  wipe("blue");
+  //  needsWipe = false;
+  //}
+  wipe("black");
+  ink().write(choose("hello", "goodbye", "i love u"), {
+    y: 32,
+    center: "x",
+    size: 2,
+  });
 }
 
 // 🎪 Act
-function act({ event: e }) {
+function act({ event: e, send, painting, help: { choose } }) {
+  if (e.is("touch")) {
+    const pixels = painting(128, 128, ({ wipe, ink }) => {
+      wipe(0);
+      ink().write(choose("hello", "goodbye", "i love u"), {
+        center: "xy",
+        size: 2,
+      });
+    });
+
+    console.log(pixels);
+
+    send({
+      type: "imessage-extension:send",
+      content: { type: "tap", body: { pixels } },
+    });
+  }
+
   if (e.is("reframed")) needsWipe = true;
 }
 
