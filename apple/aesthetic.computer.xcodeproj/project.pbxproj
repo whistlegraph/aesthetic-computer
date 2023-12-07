@@ -14,19 +14,20 @@
 		419EB15D2A550D7D004D9F5D /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 419EB15C2A550D7D004D9F5D /* FirebaseAnalyticsWithoutAdIdSupport */; };
 		419EB15F2A550D7D004D9F5D /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 419EB15E2A550D7D004D9F5D /* FirebaseMessaging */; };
 		842410332B1E8938005A30C0 /* html in Resources */ = {isa = PBXBuildFile; fileRef = 842410322B1E8938005A30C0 /* html */; };
-		84E732CB2B1FA9E3004464B0 /* Messages.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 84E732B42B1FA696004464B0 /* Messages.framework */; };
-		84E732CE2B1FA9E3004464B0 /* MessagesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E732CD2B1FA9E3004464B0 /* MessagesViewController.swift */; };
-		84E732D12B1FA9E3004464B0 /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 84E732CF2B1FA9E3004464B0 /* MainInterface.storyboard */; };
-		84E732D32B1FA9E5004464B0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 84E732D22B1FA9E5004464B0 /* Assets.xcassets */; };
-		84E732D72B1FA9E5004464B0 /* aesthetic.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 84E732CA2B1FA9E3004464B0 /* aesthetic.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		8495A6A62B222B0700A8CF9A /* Messages.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 84E732B42B1FA696004464B0 /* Messages.framework */; };
+		8495A6A92B222B0700A8CF9A /* MessagesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8495A6A82B222B0700A8CF9A /* MessagesViewController.swift */; };
+		8495A6AC2B222B0700A8CF9A /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 8495A6AA2B222B0700A8CF9A /* MainInterface.storyboard */; };
+		8495A6AE2B222B0900A8CF9A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8495A6AD2B222B0900A8CF9A /* Assets.xcassets */; };
+		8495A6B22B222B0900A8CF9A /* aesthetic.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8495A6A52B222B0700A8CF9A /* aesthetic.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		8495A6B72B223F1000A8CF9A /* sticker.png in Resources */ = {isa = PBXBuildFile; fileRef = 8495A6B62B223F1000A8CF9A /* sticker.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		84E732D52B1FA9E5004464B0 /* PBXContainerItemProxy */ = {
+		8495A6B02B222B0900A8CF9A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 412BAFA92A1D4446000A41B0 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 84E732C92B1FA9E3004464B0;
+			remoteGlobalIDString = 8495A6A42B222B0700A8CF9A;
 			remoteInfo = aesthetic;
 		};
 /* End PBXContainerItemProxy section */
@@ -38,7 +39,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				84E732D72B1FA9E5004464B0 /* aesthetic.appex in Embed Foundation Extensions */,
+				8495A6B22B222B0900A8CF9A /* aesthetic.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -53,12 +54,13 @@
 		418FD22E2A5528B500CA6ABA /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		419EB1602A550EAE004D9F5D /* aesthetic-computer-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "aesthetic-computer-Info.plist"; sourceTree = SOURCE_ROOT; };
 		842410322B1E8938005A30C0 /* html */ = {isa = PBXFileReference; lastKnownFileType = folder; path = html; sourceTree = "<group>"; };
+		8495A6A52B222B0700A8CF9A /* aesthetic.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = aesthetic.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		8495A6A82B222B0700A8CF9A /* MessagesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesViewController.swift; sourceTree = "<group>"; };
+		8495A6AB2B222B0700A8CF9A /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/MainInterface.storyboard; sourceTree = "<group>"; };
+		8495A6AD2B222B0900A8CF9A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		8495A6AF2B222B0900A8CF9A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		8495A6B62B223F1000A8CF9A /* sticker.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = sticker.png; sourceTree = "<group>"; };
 		84E732B42B1FA696004464B0 /* Messages.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Messages.framework; path = System/Library/Frameworks/Messages.framework; sourceTree = SDKROOT; };
-		84E732CA2B1FA9E3004464B0 /* aesthetic.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = aesthetic.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		84E732CD2B1FA9E3004464B0 /* MessagesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesViewController.swift; sourceTree = "<group>"; };
-		84E732D02B1FA9E3004464B0 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/MainInterface.storyboard; sourceTree = "<group>"; };
-		84E732D22B1FA9E5004464B0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		84E732D42B1FA9E5004464B0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -71,11 +73,11 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		84E732C72B1FA9E3004464B0 /* Frameworks */ = {
+		8495A6A22B222B0700A8CF9A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				84E732CB2B1FA9E3004464B0 /* Messages.framework in Frameworks */,
+				8495A6A62B222B0700A8CF9A /* Messages.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -86,7 +88,7 @@
 			isa = PBXGroup;
 			children = (
 				412BAFB32A1D4446000A41B0 /* aesthetic.computer */,
-				84E732CC2B1FA9E3004464B0 /* aesthetic */,
+				8495A6A72B222B0700A8CF9A /* aesthetic */,
 				84E732B32B1FA696004464B0 /* Frameworks */,
 				412BAFB22A1D4446000A41B0 /* Products */,
 			);
@@ -96,7 +98,7 @@
 			isa = PBXGroup;
 			children = (
 				412BAFB12A1D4446000A41B0 /* aesthetic.computer.app */,
-				84E732CA2B1FA9E3004464B0 /* aesthetic.appex */,
+				8495A6A52B222B0700A8CF9A /* aesthetic.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -108,10 +110,22 @@
 				419EB1602A550EAE004D9F5D /* aesthetic-computer-Info.plist */,
 				412BAFB42A1D4446000A41B0 /* aesthetic_computerApp.swift */,
 				412BAFB62A1D4446000A41B0 /* ContentView.swift */,
+				8495A6B62B223F1000A8CF9A /* sticker.png */,
 				412BAFB82A1D4447000A41B0 /* Assets.xcassets */,
 				842410322B1E8938005A30C0 /* html */,
 			);
 			path = aesthetic.computer;
+			sourceTree = "<group>";
+		};
+		8495A6A72B222B0700A8CF9A /* aesthetic */ = {
+			isa = PBXGroup;
+			children = (
+				8495A6A82B222B0700A8CF9A /* MessagesViewController.swift */,
+				8495A6AA2B222B0700A8CF9A /* MainInterface.storyboard */,
+				8495A6AD2B222B0900A8CF9A /* Assets.xcassets */,
+				8495A6AF2B222B0900A8CF9A /* Info.plist */,
+			);
+			path = aesthetic;
 			sourceTree = "<group>";
 		};
 		84E732B32B1FA696004464B0 /* Frameworks */ = {
@@ -120,17 +134,6 @@
 				84E732B42B1FA696004464B0 /* Messages.framework */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		84E732CC2B1FA9E3004464B0 /* aesthetic */ = {
-			isa = PBXGroup;
-			children = (
-				84E732CD2B1FA9E3004464B0 /* MessagesViewController.swift */,
-				84E732CF2B1FA9E3004464B0 /* MainInterface.storyboard */,
-				84E732D22B1FA9E5004464B0 /* Assets.xcassets */,
-				84E732D42B1FA9E5004464B0 /* Info.plist */,
-			);
-			path = aesthetic;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -148,7 +151,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				84E732D62B1FA9E5004464B0 /* PBXTargetDependency */,
+				8495A6B12B222B0900A8CF9A /* PBXTargetDependency */,
 			);
 			name = aesthetic.computer;
 			packageProductDependencies = (
@@ -159,13 +162,13 @@
 			productReference = 412BAFB12A1D4446000A41B0 /* aesthetic.computer.app */;
 			productType = "com.apple.product-type.application";
 		};
-		84E732C92B1FA9E3004464B0 /* aesthetic */ = {
+		8495A6A42B222B0700A8CF9A /* aesthetic */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 84E732D82B1FA9E5004464B0 /* Build configuration list for PBXNativeTarget "aesthetic" */;
+			buildConfigurationList = 8495A6B32B222B0900A8CF9A /* Build configuration list for PBXNativeTarget "aesthetic" */;
 			buildPhases = (
-				84E732C62B1FA9E3004464B0 /* Sources */,
-				84E732C72B1FA9E3004464B0 /* Frameworks */,
-				84E732C82B1FA9E3004464B0 /* Resources */,
+				8495A6A12B222B0700A8CF9A /* Sources */,
+				8495A6A22B222B0700A8CF9A /* Frameworks */,
+				8495A6A32B222B0700A8CF9A /* Resources */,
 			);
 			buildRules = (
 			);
@@ -173,7 +176,7 @@
 			);
 			name = aesthetic;
 			productName = aesthetic;
-			productReference = 84E732CA2B1FA9E3004464B0 /* aesthetic.appex */;
+			productReference = 8495A6A52B222B0700A8CF9A /* aesthetic.appex */;
 			productType = "com.apple.product-type.app-extension.messages";
 		};
 /* End PBXNativeTarget section */
@@ -183,14 +186,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1500;
+				LastSwiftUpdateCheck = 1430;
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
 					412BAFB02A1D4446000A41B0 = {
 						CreatedOnToolsVersion = 14.3;
 					};
-					84E732C92B1FA9E3004464B0 = {
-						CreatedOnToolsVersion = 15.0.1;
+					8495A6A42B222B0700A8CF9A = {
+						CreatedOnToolsVersion = 14.3;
 					};
 				};
 			};
@@ -211,7 +214,7 @@
 			projectRoot = "";
 			targets = (
 				412BAFB02A1D4446000A41B0 /* aesthetic.computer */,
-				84E732C92B1FA9E3004464B0 /* aesthetic */,
+				8495A6A42B222B0700A8CF9A /* aesthetic */,
 			);
 		};
 /* End PBXProject section */
@@ -223,16 +226,17 @@
 			files = (
 				842410332B1E8938005A30C0 /* html in Resources */,
 				412BAFB92A1D4447000A41B0 /* Assets.xcassets in Resources */,
+				8495A6B72B223F1000A8CF9A /* sticker.png in Resources */,
 				418FD22F2A5528B500CA6ABA /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		84E732C82B1FA9E3004464B0 /* Resources */ = {
+		8495A6A32B222B0700A8CF9A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				84E732D32B1FA9E5004464B0 /* Assets.xcassets in Resources */,
-				84E732D12B1FA9E3004464B0 /* MainInterface.storyboard in Resources */,
+				8495A6AE2B222B0900A8CF9A /* Assets.xcassets in Resources */,
+				8495A6AC2B222B0700A8CF9A /* MainInterface.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -248,29 +252,29 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		84E732C62B1FA9E3004464B0 /* Sources */ = {
+		8495A6A12B222B0700A8CF9A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				84E732CE2B1FA9E3004464B0 /* MessagesViewController.swift in Sources */,
+				8495A6A92B222B0700A8CF9A /* MessagesViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		84E732D62B1FA9E5004464B0 /* PBXTargetDependency */ = {
+		8495A6B12B222B0900A8CF9A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 84E732C92B1FA9E3004464B0 /* aesthetic */;
-			targetProxy = 84E732D52B1FA9E5004464B0 /* PBXContainerItemProxy */;
+			target = 8495A6A42B222B0700A8CF9A /* aesthetic */;
+			targetProxy = 8495A6B02B222B0900A8CF9A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
-		84E732CF2B1FA9E3004464B0 /* MainInterface.storyboard */ = {
+		8495A6AA2B222B0700A8CF9A /* MainInterface.storyboard */ = {
 			isa = PBXVariantGroup;
 			children = (
-				84E732D02B1FA9E3004464B0 /* Base */,
+				8495A6AB2B222B0700A8CF9A /* Base */,
 			);
 			name = MainInterface.storyboard;
 			sourceTree = "<group>";
@@ -470,63 +474,52 @@
 			};
 			name = Release;
 		};
-		84E732D92B1FA9E5004464B0 /* Debug */ = {
+		8495A6B42B222B0900A8CF9A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "iMessage App Icon";
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = FB5948YR3S;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = aesthetic/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = aesthetic;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSStickerSharingLevel = OS;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer.aesthetic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
-		84E732DA2B1FA9E5004464B0 /* Release */ = {
+		8495A6B52B222B0900A8CF9A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "iMessage App Icon";
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = FB5948YR3S;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = aesthetic/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = aesthetic;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSStickerSharingLevel = OS;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer.aesthetic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -558,11 +551,11 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		84E732D82B1FA9E5004464B0 /* Build configuration list for PBXNativeTarget "aesthetic" */ = {
+		8495A6B32B222B0900A8CF9A /* Build configuration list for PBXNativeTarget "aesthetic" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				84E732D92B1FA9E5004464B0 /* Debug */,
-				84E732DA2B1FA9E5004464B0 /* Release */,
+				8495A6B42B222B0900A8CF9A /* Debug */,
+				8495A6B52B222B0900A8CF9A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
