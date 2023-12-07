@@ -1949,8 +1949,12 @@ class Painting {
       const oldActivePaintApi = $activePaintApi;
       const painting = new Painting();
       $activePaintApi = painting.api;
-      const pix = graph.makeBuffer(...arguments, painting, painting.api);
-
+      // Mock out the screen here using the arguments.
+      $activePaintApi.screen = {
+        width: arguments[0],
+        height: arguments[1],
+      };
+      const pix = graph.makeBuffer(...arguments, painting, $activePaintApi);
       $activePaintApi = oldActivePaintApi;
       return pix;
     };
