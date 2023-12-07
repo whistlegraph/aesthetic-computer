@@ -5,7 +5,8 @@
 
 /* #region todo 📓 
  + Later
-- [] `code.channel` should return a promise, and wait for a `code-channel:subbed`
+ - [] `code.channel` should return a promise, and wait for a
+      `code-channel:subbed`.
     event here? This way users get better confirmation if the socket
     doesn't go through or if there is a server issue. 23.07.04.18.01
     (Might not actually be that necessary.)
@@ -270,6 +271,21 @@ wss.on("connection", (ws, req) => {
       if (!codeChannels[codeChannel]) codeChannels[codeChannel] = new Set();
       codeChannels[codeChannel].add(id);
     } else {
+      // 🔥
+      // Pick up piece-specific / app-specific messages here
+      // by parsing their type?
+
+      // Or... how...
+
+      // `world:field`
+      if (msg.type.startsWith("world:field")) {
+        const label = (msg.label = msg.type.split(":").pop());
+
+        if (label === "move") {
+          console.log("Move:", msg.content);
+        }
+      }
+
       everyone(JSON.stringify(msg)); // Relay any other message to every user.
     }
   });
