@@ -5,9 +5,9 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [-] Store persistent position on the server / in the database. 
-    - [] What is the grass was grown on the server / grown according to
-        server time / (how how do I synchronize server time to everyone?)
+  - [💙] Store persistent position on the server / in the database. 
+
+
   - [] Move common functionality to a `world.mjs` library file.
   + Done
   - [x] Make the world scrollable with some background grass.
@@ -314,7 +314,7 @@ function boot({
       ) {
         if (input.text === "sad") input.text = "frown";
         me.mood(input.text);
-        server.send("field:mood", me.face); // Send to server.
+        server.send("world:field:mood", me.face); // Send to server.
       } else if (
         input.text === "red" ||
         input.text === "yellow" ||
@@ -328,10 +328,10 @@ function boot({
         input.text === "white"
       ) {
         me.tint(input.text);
-        server.send("field:tint", me.color); // Send to server.
+        server.send("world:field:tint", me.color); // Send to server.
       } else {
         me.write(input.text); // Display message on 🧒.
-        server.send("field:write", me.message); // Send to server.
+        server.send("world:field:write", me.message); // Send to server.
       }
 
       // Clear text, hide cursor block, and close keyboard.
@@ -372,22 +372,22 @@ function boot({
     }
 
     if (type.startsWith("connected")) {
-      server.send("field:join", { handle: me.handle, pos: me.pos });
+      server.send("world:field:join", { handle: me.handle, pos: me.pos });
       console.log("🪴 Welcome:", me.handle, `(${id})`);
     }
 
     if (server.id !== id) {
-      if (type === "field:tint") {
+      if (type === "world:field:tint") {
         const kid = kids[id];
         if (kid) kid.tint(content);
       }
 
-      if (type === "field:mood") {
+      if (type === "world:field:mood") {
         const kid = kids[id];
         if (kid) kid.mood(content);
       }
 
-      if (type === "field:write") {
+      if (type === "world:field:write") {
         const kid = kids[id];
         if (kid) {
           kid.write(content);
@@ -402,15 +402,15 @@ function boot({
         }
       }
 
-      if (type === "field:write:clear") {
+      if (type === "world:field:write:clear") {
         const kid = kids[id];
         if (kid) kid.write(null);
       }
 
-      if (type === "field:join") {
+      if (type === "world:field:join") {
         if (!kids[id]) {
           kids[id] = new Kid(content.handle || id, content.pos, me.face, true);
-          server.send("field:join", {
+          server.send("world:field:join", {
             handle: me.handle,
             pos: me.pos,
             face: me.face,
@@ -418,7 +418,7 @@ function boot({
         }
       }
 
-      if (type === "field:move") {
+      if (type === "world:field:move") {
         const kid = kids[id];
         if (kid) kid.netPos = content.pos;
       }
@@ -567,8 +567,8 @@ function sim({ api, geo, simCount, screen }) {
   me.sim(api, function net(kid) {
     if (simCount % 4n === 0n) {
       // Send network updates at a rate of 30hz  (120 / 4).
-      if (kid.pos) server.send("field:move", kid);
-      if (kid.clear) server.send("field:write:clear", kid);
+      if (kid.pos) server.send("world:field:move", kid);
+      if (kid.clear) server.send("world:field:write:clear", kid);
     }
   }); // 🧒 Movement
   me.screenPos(cam, world);

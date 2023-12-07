@@ -1288,6 +1288,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+    // Respond to a request to send a message through to the iMessage extension.
+    if (type === "imessage-extension:send") {
+      let body = content.body.pixels
+        ? await bufferToBlob(content.body.pixels, undefined, {
+            scale: 6,
+            dataURL: true,
+          })
+        : content.body;
+      const message = { type: content.type, body };
+      const packedMessage = JSON.stringify(message);
+      // if (debug) console.log("👋 Sending to iMessage:", packedMessage);
+      window.webkit?.messageHandlers?.iMessageExtension.postMessage(
+        packedMessage,
+      );
+      return;
+    }
+
     // Connect to a UDP server,
     // which will pass messages to the disk runner.
     if (type === "udp:connect") {
@@ -4365,8 +4382,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         filename.split("/").pop(),
         { type: MIME, lastModified: new Date().getTime() },
       );
-      shareFileCallback?.(); // Run the callback if necessary, which should 
-                             // prevent any special race conditions.
+      shareFileCallback?.(); // Run the callback if necessary, which should
+      // prevent any special race conditions.
     } else {
       // Fallback to download if navigator.share is not supported
       const a = document.createElement("a");
@@ -4393,7 +4410,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Add a crop to square modifier.
 
-  async function bufferToBlob(data, MIME, modifiers) {
+  async function bufferToBlob(data, MIME = "image/png", modifiers) {
     let can;
     // Encode a pixel buffer as a png.
     // See also: https://stackoverflow.com/questions/11112321/how-to-save-canvas-as-png-image
@@ -4438,7 +4455,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       can = can2;
     }
 
-    const blob = await new Promise((resolve) => can.toBlob(resolve, MIME, 100));
+    const blob = await new Promise((resolve) => {
+      if (modifiers.dataURL === true) {
+        resolve(can.toDataURL(MIME));
+      } else {
+        can.toBlob(resolve, MIME, 100);
+      }
+    });
     return blob;
   }
 
@@ -5134,5 +5157,10 @@ function blobToArrayBuffer(blob) {
     reader.readAsArrayBuffer(blob);
   });
 }
+
+window.iMessageExtensionResize = (mode) => {
+  console.log("💚 iMessage Extension Resized:", mode);
+  send({ type: "imessage-extension:resized", content: { mode } });
+};
 
 export { boot };
