@@ -1298,7 +1298,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         : content.body;
       const message = { type: content.type, body };
       const packedMessage = JSON.stringify(message);
-      if (debug) console.log("👋 Sending to iMessage:", packedMessage);
+      // if (debug) console.log("👋 Sending to iMessage:", packedMessage);
       window.webkit?.messageHandlers?.iMessageExtension.postMessage(
         packedMessage,
       );
