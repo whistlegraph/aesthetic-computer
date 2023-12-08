@@ -6,8 +6,9 @@
 
 /* #region 🏁 TODO 
   (Released)
-  - [] Add wheel based scrolling to pruttis.
+  - [] Better scroll limiting related to the bottom of the screen. 
   + Done
+  - [x] Add wheel based scrolling to pruttis.
   - [x] Make params for prutti 1, prutti 2, etc.
   - [x] Print out scrolling text for each.
   - [x] Attach images via the asset url: https://assets.aesthetic.computer/pruttipal/lnl/lnl1.jpeg
