@@ -479,6 +479,12 @@ async function halt($, text) {
   } else if (slug === "petal") {
     jump("lmn-petal");
     return true;
+  } else if (slug === "bro") {
+    jump("brother");
+    return true;
+  } else if (slug === "sis") {
+    jump("sister");
+    return true;
   } else if (slug === "gf") {
     jump("girlfriend");
     return true;
