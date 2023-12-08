@@ -3172,6 +3172,23 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Capture the browser scroll wheel / scroll effect.
+  if (type === "scroll") {
+    const $api = cachedAPI;
+    const data = { ...content };
+    Object.assign(data, {
+      device: "wheel",
+      is: (e) => e === type,
+    });
+    $api.event = data;
+    try {
+      act($api);
+    } catch (e) {
+      console.warn("️ ✒ Act failure...", e);
+    }
+    return;
+  }
+
   // Jump to any piece slug from the bios.
   if (type === "jump") {
     $commonApi.jump(content.piece, true, true);

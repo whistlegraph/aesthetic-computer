@@ -150,6 +150,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     freezeFrameGlaze = false;
 
   const screen = apiObject("pixels", "width", "height");
+  let subdivisions = 1; // Gets set in frame.
 
   const REFRAME_DELAY = 250;
   let curReframeDelay = REFRAME_DELAY;
@@ -226,7 +227,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     const gapSize = gap * window.devicePixelRatio;
 
-    let subdivisions = 1;
+    subdivisions = 1;
 
     if (width === undefined && height === undefined) {
       // Automatically set and frame a reasonable resolution.
@@ -4919,6 +4920,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
   }
+
+  // Window Scroll 📜
+  window.addEventListener("wheel", function (event) {
+    send({
+      type: "scroll",
+      content: {
+        x: event.deltaX / subdivisions,
+        y: event.deltaY / subdivisions,
+      },
+    });
+  });
 
   // Window Focus
   window.addEventListener("focus", function (e) {
