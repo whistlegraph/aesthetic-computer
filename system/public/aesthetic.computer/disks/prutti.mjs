@@ -725,6 +725,12 @@ function act({ event: e, needsPaint, jump }) {
   if (e.is("keyboard:down:arrowleft")) {
     if (lesson > 0) jump(`prutti ${lesson - 1 + 1}`);
   }
+
+  if (e.is("scroll")) {
+    scroll -= e.y;
+    checkScroll();
+    needsPaint();
+  }
 }
 
 // 🧮 Sim
