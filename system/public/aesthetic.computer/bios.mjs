@@ -1260,9 +1260,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     //console.log("Update Budget: ", round((updateDelta / updateRate) * 100));
     // TODO: Output this number graphically.
 
-    //const renderNow = performance.now();
-    //const renderDelta = performance.now() - renderNow;
-    //console.log("Render Budget: ", round((renderDelta / renderRate) * 100));
+    // const renderNow = performance.now();
+    // const renderDelta = performance.now() - renderNow;
+    // console.log("Render Budget: ", round((renderDelta / renderRate) * 100));
+
     // TODO: Output this number graphically.
 
     //render3d();
@@ -4456,7 +4457,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     const blob = await new Promise((resolve) => {
-      if (modifiers.dataURL === true) {
+      if (modifiers?.dataURL === true) {
         resolve(can.toDataURL(MIME));
       } else {
         can.toBlob(resolve, MIME, 100);
