@@ -41,22 +41,22 @@
 🌟 Projects in Progress (PIP) 🌟
 
 Bots Library --> characters piece
-Alphapoet
-Angel
-Botce
-Boyfriend 
-Brother
-Dad
-Decode
-Encode
-Gargoyle 
-Girlfriend
-Husband
-Kid
-Liar
-Mom
-Sister
-Wife
+alphapoet
+angel
+botce
+boyfriend 
+brother
+dad
+decode
+encode
+gargoyle 
+girlfriend
+husband
+kid
+liar
+mom
+sister
+wife
 
 *** `go` ***
   - [❤️‍🔥] Finish `field`.

@@ -5,23 +5,25 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Draw a purple line.
+  - [] Two buttons: [Moods] [Paintings]
+  - [] Tapping Moods will show a flashable list of moods.
+  - [] Tapping Paintings will show a flashable list of paintings.
+  - [] Tapping either a mood or painting will compose the pixels and then
+       send them up.
+    - [] Paintings and moods should both include a by line with the user's
+         handle if one exists, or say `anon` if one doesn't.
 #endregion */
 
 let needsWipe = false;
 
 // 🥾 Boot
-function boot({ wipe, screen, resolution }) {
+function boot({ wipe, screen, resolution, jump }) {
   // Runs once at the start.
   wipe("blue"); // Clear's the screen. Can use R, G, B or CSS colors.
 }
 
 // 🎨 Paint
-function paint({ api, wipe, ink, line, pen, box, help: { choose } }) {
-  //if (needsWipe) {
-  //  wipe("blue");
-  //  needsWipe = false;
-  //}
+function paint({ api, wipe, ink, help: { choose } }) {
   wipe("black");
   ink().write(choose("hello", "goodbye", "i love u"), {
     y: 32,
@@ -40,8 +42,6 @@ function act({ event: e, send, painting, help: { choose } }) {
         size: 2,
       });
     });
-
-    console.log(pixels);
 
     send({
       type: "imessage-extension:send",
