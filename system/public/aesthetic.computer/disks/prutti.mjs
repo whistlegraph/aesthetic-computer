@@ -1,7 +1,18 @@
 // Prutti, 2023.11.09.16.36.06.537
 // Lessons NOT Learnt by pruttipal aka goodiepal
 
-/* #region 📚 README 
+/* #region 📚 README
+5
+7
+8
+11
+13
+14
+20
+26
+28
+31
+39
 #endregion */
 
 /* #region 🏁 TODO 
