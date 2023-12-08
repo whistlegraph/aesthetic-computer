@@ -282,7 +282,9 @@ wss.on("connection", (ws, req) => {
         const label = (msg.label = msg.type.split(":").pop());
 
         if (label === "move") {
-          console.log("Move:", msg.content);
+          console.log("🚶‍♂️", msg.content);
+        } else {
+          console.log(`${label}:`, msg.content);
         }
       }
 

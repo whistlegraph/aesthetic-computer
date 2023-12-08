@@ -7,7 +7,6 @@
 /* #region 🏁 TODO 
   - [💙] Store persistent position on the server / in the database. 
 
-
   - [] Move common functionality to a `world.mjs` library file.
   + Done
   - [x] Make the world scrollable with some background grass.
