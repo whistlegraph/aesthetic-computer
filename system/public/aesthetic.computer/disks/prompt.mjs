@@ -470,7 +470,6 @@ async function halt($, text) {
     } else {
       makeFlash($);
     }
-
     progressBar = -1;
     return true;
   } else if (slug === "flower") {

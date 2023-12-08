@@ -40,24 +40,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-Bots Library --> characters piece
-alphapoet
-angel
-botce
-boyfriend 
-brother
-dad
-decode
-encode
-gargoyle 
-girlfriend
-husband
-kid
-liar
-mom
-sister
-wife
-
 *** `go` ***
   - [❤️‍🔥] Finish `field`.
   - [] Walk to `horizon`
@@ -68,6 +50,24 @@ wife
         aesthetic is in use.
   - [x] Both `socket` and `udp` need disconnect messages /
         prevent big fish list?
+
+*** `bots` list ***
+  - [] alphapoet
+  - [] angel
+  - [] botce
+  - [] boyfriend 
+  - [] brother
+  - [] dad
+  - [] decode
+  - [] encode
+  - [] gargoyle 
+  - [] girlfriend
+  - [] husband
+  - [] kid
+  - [] liar
+  - [] mom
+  - [] sister
+  - [] wife
 
 *** iOS Release ***
   + Version 1
