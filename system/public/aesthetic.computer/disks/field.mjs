@@ -6,9 +6,10 @@
 
 /* #region 🏁 TODO 
   - [💙] Store persistent position on the server / in the database. 
-
+  - [] Finish "world:fields:list".
   - [] Move common functionality to a `world.mjs` library file.
   + Done
+  - [x] Store local position in store.
   - [x] Make the world scrollable with some background grass.
   - [x] Always lerp towards next character positions from the network.
   - [x] Test join `field` simultaneously (with forceProd on) and ensure
@@ -54,7 +55,7 @@ class Kid {
   #messageProgress = 0;
 
   constructor(handle, pos = this.pos, face, net = false) {
-    console.log("🧒 From:", handle);
+    console.log("🧒 From:", handle || "nub");
 
     this.pos = pos;
     if (net) this.netPos = { ...pos };
@@ -66,7 +67,7 @@ class Kid {
   // Show a message above the kid's head for `time` frames.
   write(text, time = 240) {
     this.message = text;
-    this.#messageDuration = 120;
+    this.#messageDuration = time;
   }
 
   // Change the mood (face) of the kid.
@@ -256,7 +257,7 @@ let me, world, cam, input, inputBtn, server;
 const scenery = {
   grasses: [
     { x: 190, y: 170 },
-    { x: 256, y: 256 },
+    { x: 276, y: 286 },
     { x: 128, y: 128 },
     { x: 400, y: 400 },
     { x: 500, y: 512 },
@@ -267,7 +268,7 @@ const kids = {};
 const { keys } = Object;
 
 // 🥾 Boot
-function boot({
+async function boot({
   api,
   help,
   wipe,
@@ -277,13 +278,16 @@ function boot({
   send,
   net: { socket },
   sound,
+  store,
 }) {
   // ✨ Initialization & Interface
   wipe(0);
   world = new World(512, 512);
+  const pos = await store.retrieve("field:pos");
+
   me = new Kid(
     handle(),
-    { x: world.size.width / 2, y: world.size.height / 2 },
+    { x: pos.x || world.size.width / 2, y: pos.y || world.size.height / 2 },
     help.choose("meh", "smile", "frown"),
   );
   cam = new Cam(
@@ -364,15 +368,27 @@ function boot({
     if (type === "left") {
       console.log("️✌️ Goodbye:", id);
       delete kids[id];
+      return;
     }
 
     if (type === "joined") {
       console.log("️👋 Hello:", id);
+      return;
     }
 
     if (type.startsWith("connected")) {
       server.send("world:field:join", { handle: me.handle, pos: me.pos });
-      console.log("🪴 Welcome:", me.handle, `(${id})`);
+      console.log("🪴 Welcome:", me.handle || "nub", `(${id})`);
+      return;
+    }
+
+    // TODO: How can this be oriented around storing a server list.
+    if (type === "world:field:list") {
+      console.log("🗞️ Listing all field clients...");
+      keys(content).forEach((key) => {
+        console.log(key, content[key]);
+      });
+      return;
     }
 
     if (server.id !== id) {
@@ -565,10 +581,10 @@ function act({ event: e, api, send, jump, hud, piece, screen }) {
 function sim({ api, geo, simCount, screen }) {
   me.sim(api, function net(kid) {
     if (simCount % 4n === 0n) {
-      // Send network updates at a rate of 30hz  (120 / 4).
+      // Send position updates at a rate of 30hz  (120 / 4).
       if (kid.pos) server.send("world:field:move", kid);
-      if (kid.clear) server.send("world:field:write:clear", kid);
     }
+    if (kid.clear) server.send("world:field:write:clear", kid);
   }); // 🧒 Movement
   me.screenPos(cam, world);
 
@@ -592,9 +608,11 @@ function sim({ api, geo, simCount, screen }) {
 // }
 
 // 👋 Leave
-// function leave() {
-//  // Runs once before the piece is unloaded.
-// }
+function leave({ store }) {
+  // Persist current position.
+  store["field:pos"] = me.pos;
+  store.persist("field:pos");
+}
 
 // 📰 Meta
 function meta() {
@@ -615,7 +633,7 @@ function meta() {
 // }
 
 export const system = "world";
-export { boot, paint, act, sim, meta };
+export { boot, paint, act, sim, leave, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)

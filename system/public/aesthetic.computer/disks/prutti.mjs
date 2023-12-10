@@ -51,7 +51,7 @@ const lessons = [
     title:
       "Lesson NOT Learnt 03 - Purano Sei Diner Kothis & The Guild of the Viking Klokkers",
     text: `
-    I only like words in songs and not _general sytax—> as it is the destroy'er of EMO ideas. << For: Bananskolen I tryed NOT to be: Karin Hansson & Åse Andersson's: _TED (Beta 0.3)__ but was / is still iinternally in the gruppe sean as that person (& as I become of age, I really DO hate being in focus - - - -belive it or not), - - - - But all this brings something interesting to the table, a lot of current intellectualism and Academic discussion’s is actually not about the subject but more about hove the gruppe feels internaly.
+    I only like words in songs and not _general sytax—> as it is the destroy'er of EMO ideas. << For: Bananskolen I tryed NOT to be: Karin Hansson & Åse Andersson's: _TED (Beta 0.3)__ but was / is still iinternally in the gruppe sean as that person (& as I become of age, I really DO hate being in focus - - - -belive it or not), - - - - But all this brings something interesting to the table, a lot of current intellectualism and Academic discussion's is actually not about the subject but more about hove the gruppe feels internaly.
 
     This = the failure of modern debate in general
     - As it is the unspoken-gruppe stucture that makes the individuals spar·kle and not the $ rules $ that govern hove the gruppe is organised; who is allowed to speak etc. & I do really believe that any political idea is just another power system waiting to be put into place. . .
@@ -581,7 +581,7 @@ const lessons = [
 
     —THE time is here: 'Kick'Back'For'The'HYGGE and make the sounds from the Faro islands bring you here - and back to Colchester.
 
-    >>>21th of January = Save this mystery date<<< 50 years old and stil living off the grid. * No Mortgage, No Utilities * ((no daughter (sadly) ))
+    >>>20th of January = Save this mystery date<<< 50 years old and stil living off the grid. * No Mortgage, No Utilities * ((no daughter (sadly) ))
 
     V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars
    
