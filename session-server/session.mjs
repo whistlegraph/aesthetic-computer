@@ -169,7 +169,8 @@ await start();
 // *** Socket Server Initialization ***
 // #region socket
 let wss;
-let connections = {};
+let connections = {}; // All active websocket connections.
+const worldClients = {}; // All connected 🧒 to a space like `field`.
 
 let connectionId = 0; // TODO: Eventually replace with a username arrived at through
 //                             a client <-> server authentication function.
@@ -271,17 +272,21 @@ wss.on("connection", (ws, req) => {
       if (!codeChannels[codeChannel]) codeChannels[codeChannel] = new Set();
       codeChannels[codeChannel].add(id);
     } else {
-      // 🔥
-      // Pick up piece-specific / app-specific messages here
-      // by parsing their type?
-
-      // Or... how...
-
       // `world:field`
       if (msg.type.startsWith("world:field")) {
         const label = (msg.label = msg.type.split(":").pop());
 
-        if (label === "move") {
+        // TODO:
+        // Keep serverside userlist specific to field.
+        // Store client position on disconnect, based on their handle.
+
+        if (label === "join") {
+          // Add user to world client list.
+          worldClients[msg.id] = { pos: msg.content.pos };
+
+          // TODO: Could now send the client list directly back to this user.
+          ws.send(pack("world:field:list", worldClients, id));
+        } else if (label === "move") {
           console.log("🚶‍♂️", msg.content);
         } else {
           console.log(`${label}:`, msg.content);
@@ -295,6 +300,10 @@ wss.on("connection", (ws, req) => {
   // More info: https://stackoverflow.com/a/49791634/8146077
   ws.on("close", () => {
     console.log("🚪 Someone left:", id, "Online:", wss.clients.size, "🫂");
+
+    console.log("Left...", id, worldClients);
+    delete worldClients[id];
+
     everyone(pack("left", { id, count: wss.clients.size }));
     delete connections[id];
 
@@ -316,7 +325,7 @@ function everyone(string) {
 }
 
 // Sends a message to a particular set of client ids on
-// this instance that have are part of the `subs` Set.
+// this instance that are part of the `subs` Set.
 function subscribers(subs, msg) {
   subs.forEach((connectionId) => {
     connections[connectionId]?.send(msg);

@@ -14,11 +14,12 @@ let channel, reconnectingTimeout;
 let reconnectTime = RECONNECT_START_TIME;
 // const debug = window.acDEBUG;
 
+let connected = false;
 let reconnect;
 let dontreconnect = false;
 
 function connect(port = 8889, url = undefined, send) {
-  if (channel) {
+  if (connected) {
     console.log("🩰 Connection already exists:", channel);
     return;
   }
@@ -31,7 +32,6 @@ function connect(port = 8889, url = undefined, send) {
 
   reconnect = () => {
     reconnectingTimeout = setTimeout(() => {
-      channel = null;
       connect(port, url, send);
     }, reconnectTime);
     reconnectTime *= 2;
@@ -47,6 +47,7 @@ function connect(port = 8889, url = undefined, send) {
     console.log("🩰 Connected:", channel.url);
     reconnectTime = RECONNECT_START_TIME;
     send({ type: "udp:connected" });
+    connected = true;
 
     channel.on("fairy:point", (content) => {
       content = JSON.parse(content);
@@ -61,8 +62,8 @@ function connect(port = 8889, url = undefined, send) {
   channel.onDisconnect((error) => {
     console.log("🩰 Disconnected from UDP");
     console.log("Don't reconnect:", dontreconnect);
+    connected = false;
     send({ type: "udp:disconnected" });
-    channel = null;
     if (error || !dontreconnect) {
       console.warn("🩰 Reconnecting...");
       reconnect();
@@ -74,10 +75,10 @@ export const UDP = {
   connect,
   disconnect: () => {
     dontreconnect = true;
-    channel?.close();
+    if (connected) channel.close();
   },
   send: ({ type, content }) => {
     if (logs.udp) console.log(`🩰 UDP Sent:`, { type, content });
-    channel?.emit(type, JSON.stringify(content));
+    if (connected) channel.emit(type, JSON.stringify(content));
   },
 };
