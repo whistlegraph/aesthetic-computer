@@ -98,6 +98,8 @@ let defaultDownloadScale = 6;
 
 import * as starfield from "./starfield.mjs";
 
+let server;
+
 // 🥾 Boot
 async function boot({
   glaze,
@@ -111,8 +113,13 @@ async function boot({
   user,
   handle,
   params,
+  net: { socket },
 }) {
   glaze({ on: true });
+
+  server = socket((type) => {
+    console.log("🧦 Got message:", type);
+  });
 
   // Fetch handle count.
   fetch("/handle?count=true")
@@ -336,6 +343,14 @@ async function halt($, text) {
     return true;
   } else if (slug === "me") {
     jump("profile");
+    return true;
+  } else if (slug === "scream") {
+    // TODO: Scream additions. 23.12.11.12.53
+    // - [] Vocalize all screams / make a sound?
+    // - [] Smartly time-synchronize that message for all users by looking ahead?
+    server?.send("scream", params.join(" ") || "Ahh!");
+    flashColor = [255, 0, 0];
+    makeFlash($);
     return true;
   } else if (slug === "selfie") {
     jump("camera~me");
