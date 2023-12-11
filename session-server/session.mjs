@@ -106,6 +106,9 @@ try {
       .send({
         notification: { title: "😱 Scream", body: message },
         topic: "scream",
+        data: {
+          screamURL: "https://aesthetic.computer/scream",
+        }
       })
       .then((response) => {
         console.log("☎️ Successfully sent notification:", response);
