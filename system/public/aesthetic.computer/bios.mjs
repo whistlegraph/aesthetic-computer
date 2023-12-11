@@ -5181,12 +5181,12 @@ function blobToArrayBuffer(blob) {
 
 window.iMessageExtensionResize = (mode) => {
   console.log("📱 iMessage Extension Resized:", mode);
-  send({ type: "imessage-extension:resized", content: { mode } });
+  window.acSEND({ type: "imessage-extension:resized", content: { mode } });
 };
 
 window.iOSAppSwitchPiece = (piece) => {
   console.log("📱 iOS Switch Piece:", piece);
-  send({ type: "jump", content: { piece } });
+  window.acSEND({ type: "jump", content: { piece } });
 };
 
 export { boot };
