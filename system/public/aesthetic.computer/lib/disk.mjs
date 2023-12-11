@@ -1364,11 +1364,11 @@ async function session(slug, forceProduction = false, service) {
 
   if (typeof session === "string") return session;
 
-  if (debug && logs.session) {
-    console.log(
-      `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`,
-    );
-  }
+  //if (debug && logs.session) {
+  console.log(
+    `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`,
+  );
+  //}
   // Return the active session if the server knows it's "Ready", otherwise
   // wait for the one we requested to spin up.
   // (And in debug mode we just get a local url from "/session" so no need
