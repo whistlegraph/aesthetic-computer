@@ -91,9 +91,7 @@ export async function handler(event, context) {
         await collection.insertOne({ user: user.sub, mood, when: new Date() });
 
         if (!notifications) {
-          const serviceAccount = require(
-            `../../aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json`,
-          );
+          const serviceAccount = JSON.parse(process.env.GCM_FIREBASE_CONFIG);
           notifications = initializeApp({ credential: cert(serviceAccount) }); // Send a notification.
         }
 
