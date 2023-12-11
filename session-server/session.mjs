@@ -266,19 +266,17 @@ wss.on("connection", (ws, req) => {
     if (msg.type === "scream") {
       // TODO: Alert all connected users via redis pub/sub to the scream.
       console.log("😱 About to scream...");
-      pub.publish("scream", msg.content, (error, reply) => {
-        if (error) {
-          console.error("Error publishing message:", error);
-        } else {
-          console.log(`Message published to channel ${channel}`);
-          // Send a notification to all devices subscribed to the `scream` topic.
+      pub
+        .publish("scream", msg.content)
+        .then((result) => {
+          console.log("😱 Scream succesfully published:", result);
           getMessaging()
             .send({
-              notification: { title: "SCREAM", body: message.content },
+              notification: { title: "SCREAM", body: msg.content },
               topic: "scream",
               data: {
                 test: "test data",
-                piece: message.content.indexOf("pond") > -1 ? "pond" : "",
+                piece: msg.content.indexOf("pond") > -1 ? "pond" : "",
               },
             })
             .then((response) => {
@@ -287,8 +285,11 @@ wss.on("connection", (ws, req) => {
             .catch((error) => {
               console.log("📵  Error sending notification:", error);
             });
-        }
-      });
+        })
+        .catch((error) => {
+          console.log("🙅‍♀️ Error publishing scream:", error);
+        });
+      // Send a notification to all devices subscribed to the `scream` topic.
     } else if (msg.type === "code-channel:sub") {
       // Filter code-channel updates based on this user.
       codeChannel = msg.content;
