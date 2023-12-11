@@ -294,8 +294,8 @@ async function boot({
     help.choose("meh", "smile", "frown"),
   );
   cam = new Cam(
-    screen.width / 2 - world.size.width / 2,
-    screen.height / 2 - world.size.height / 2,
+    screen.width / 2 - me.pos.x,
+    screen.height / 2 - me.pos.y,
   );
 
   const scheme = {
