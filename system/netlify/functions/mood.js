@@ -29,10 +29,17 @@
 import {
   authorize,
   userIDFromHandleOrEmail,
+  getHandleOrEmail,
 } from "../../backend/authorization.mjs";
 import { connect, moodFor, allMoods } from "../../backend/database.mjs";
 import { respond, pathParams } from "../../backend/http.mjs";
 // const dev = process.env.CONTEXT === "dev";
+
+import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
+import serviceAccount from "../../aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json" assert { type: "json" };
+import { getMessaging } from "firebase-admin/messaging";
+
+initializeApp({ credential: cert(serviceAccount) }); // Send a notification.
 
 export async function handler(event, context) {
   if (event.httpMethod === "GET") {
@@ -80,6 +87,21 @@ export async function handler(event, context) {
         await collection.createIndex({ user: 1 }); // Index for `user`.
         await collection.createIndex({ when: 1 }); // Index for `when`.
         await collection.insertOne({ user: user.sub, mood, when: new Date() });
+
+        console.log("💕 Setting a mood for:", user);
+        const handle = await getHandleOrEmail(user.sub);
+        getMessaging()
+          .send({
+            notification: { title: `${handle}`, body: `${mood}` },
+            topic: "mood",
+            // data: { piece: msg.content.indexOf("pond") > -1 ? "pond" : "" },
+          })
+          .then((response) => {
+            console.log("☎️  Successfully sent notification:", response);
+          })
+          .catch((error) => {
+            console.log("📵  Error sending notification:", error);
+          });
         await database.disconnect();
         return respond(200, { mood }); // Successful mood change.
       } else if (body.nuke !== undefined) {

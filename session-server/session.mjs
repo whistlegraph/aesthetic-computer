@@ -272,7 +272,7 @@ wss.on("connection", (ws, req) => {
           console.log("😱 Scream succesfully published:", result);
           getMessaging()
             .send({
-              notification: { title: "SCREAM", body: msg.content },
+              notification: { title: "😱", body: msg.content },
               topic: "scream",
               data: {
                 piece: msg.content.indexOf("pond") > -1 ? "pond" : "",
