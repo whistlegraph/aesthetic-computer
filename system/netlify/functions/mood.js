@@ -92,7 +92,7 @@ export async function handler(event, context) {
 
         if (!notifications) {
           const serviceAccountFilePath =
-            "./aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json";
+            "../../aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json";
           const serviceAccount = await loadJSON(serviceAccountFilePath);
           notifications = initializeApp({ credential: cert(serviceAccount) }); // Send a notification.
         }
@@ -133,7 +133,8 @@ export async function handler(event, context) {
 
 async function loadJSON(filePath) {
   try {
-    const absolutePath = path.resolve(filePath);
+    // Construct the absolute path using __dirname
+    const absolutePath = path.resolve(__dirname, filePath);
     const data = await fs.readFile(absolutePath, "utf8");
     return JSON.parse(data);
   } catch (error) {
