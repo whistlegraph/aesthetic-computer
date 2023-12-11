@@ -97,7 +97,6 @@
   - [] Classic Sticker pack
   
 
-
 *** `pond` production ***
   - [] Finish the basics in `go`.
   - [] See `pond.mjs`.

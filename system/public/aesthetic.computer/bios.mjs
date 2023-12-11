@@ -1307,6 +1307,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "ios:send") {
+      // const message = { type: content.type, body };
+      // const packedMessage = JSON.stringify(message);
+      // // if (debug) console.log("👋 Sending to iMessage:", packedMessage);
+      // window.webkit?.messageHandlers?.iMessageExtension.postMessage(
+      //   packedMessage,
+      // );
+      return;
+    }
+
     // Connect to a UDP server,
     // which will pass messages to the disk runner.
     if (type === "udp:connect") {
@@ -5172,8 +5182,13 @@ function blobToArrayBuffer(blob) {
 }
 
 window.iMessageExtensionResize = (mode) => {
-  console.log("💚 iMessage Extension Resized:", mode);
+  console.log("📱 iMessage Extension Resized:", mode);
   send({ type: "imessage-extension:resized", content: { mode } });
+};
+
+window.iOSSwitchPiece = (piece) => {
+  console.log("📱 iOS Switch Piece:", piece);
+  send({ type: "jump", content: { piece } });
 };
 
 export { boot };
