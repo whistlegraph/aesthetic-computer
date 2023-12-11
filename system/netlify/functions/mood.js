@@ -39,7 +39,7 @@ import { initializeApp, cert } from "firebase-admin/app"; // Firebase notificati
 import serviceAccount from "../../aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json" assert { type: "json" };
 import { getMessaging } from "firebase-admin/messaging";
 
-initializeApp({ credential: cert(serviceAccount) }); // Send a notification.
+let notifications;
 
 export async function handler(event, context) {
   if (event.httpMethod === "GET") {
@@ -87,6 +87,10 @@ export async function handler(event, context) {
         await collection.createIndex({ user: 1 }); // Index for `user`.
         await collection.createIndex({ when: 1 }); // Index for `when`.
         await collection.insertOne({ user: user.sub, mood, when: new Date() });
+
+        if (!notifications) {
+          notifications = initializeApp({ credential: cert(serviceAccount) }); // Send a notification.
+        }
 
         console.log("💕 Setting a mood for:", user);
         const handle = await getHandleOrEmail(user.sub);
