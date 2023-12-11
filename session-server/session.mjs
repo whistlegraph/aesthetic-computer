@@ -275,7 +275,6 @@ wss.on("connection", (ws, req) => {
               notification: { title: "SCREAM", body: msg.content },
               topic: "scream",
               data: {
-                test: "test data",
                 piece: msg.content.indexOf("pond") > -1 ? "pond" : "",
               },
             })
