@@ -283,7 +283,10 @@ async function boot({
   // ✨ Initialization & Interface
   wipe(0);
   world = new World(512, 512);
-  const pos = await store.retrieve("field:pos");
+  const pos = (await store.retrieve("field:pos")) || {
+    x: undefined,
+    y: undefined,
+  };
 
   me = new Kid(
     handle(),
