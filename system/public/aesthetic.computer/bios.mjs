@@ -5186,7 +5186,10 @@ window.iMessageExtensionResize = (mode) => {
 
 window.iOSAppSwitchPiece = (piece) => {
   console.log("📱 iOS Switch Piece:", piece);
-  window.acSEND({ type: "jump", content: { piece } });
+  window.acSEND({
+    type: "jump",
+    content: { piece, ahistorical: false, alias: false },
+  });
 };
 
 export { boot };
