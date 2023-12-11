@@ -101,21 +101,6 @@ try {
 
   await sub.subscribe("scream", (message) => {
     everyone(pack("scream", message, "screamer")); // Socket back to everyone.
-    // Send a notification to all devices subscribed to the `scream` topic.
-    getMessaging()
-      .send({
-        notification: { title: "😱 Scream", body: message },
-        topic: "scream",
-        data: {
-          piece: message.indexOf("pond") > -1 ? "pond" : "",
-        },
-      })
-      .then((response) => {
-        console.log("☎️  Successfully sent notification:", response);
-      })
-      .catch((error) => {
-        console.log("📵  Error sending notification:", error);
-      });
   });
 } catch (err) {
   console.error("🔴 Could not connect to `redis` instance.");
@@ -285,6 +270,21 @@ wss.on("connection", (ws, req) => {
           console.error("Error publishing message:", error);
         } else {
           console.log(`Message published to channel ${channel}`);
+          // Send a notification to all devices subscribed to the `scream` topic.
+          getMessaging()
+            .send({
+              notification: { title: "😱 Scream", body: message.content },
+              topic: "scream",
+              data: {
+                piece: message.content.indexOf("pond") > -1 ? "pond" : "",
+              },
+            })
+            .then((response) => {
+              console.log("☎️  Successfully sent notification:", response);
+            })
+            .catch((error) => {
+              console.log("📵  Error sending notification:", error);
+            });
         }
       });
     } else if (msg.type === "code-channel:sub") {
