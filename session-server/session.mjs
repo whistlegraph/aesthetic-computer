@@ -34,6 +34,12 @@ import crypto from "crypto";
 import dotenv from "dotenv";
 import { exec } from "child_process";
 
+// FCM (Firebase Cloud Messaging)
+import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
+import serviceAccount from "./aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json" assert { type: "json" };
+import { getMessaging } from "firebase-admin/messaging";
+initializeApp({ credential: cert(serviceAccount) });
+
 dotenv.config();
 
 import { createClient } from "redis";
@@ -94,7 +100,22 @@ try {
   });
 
   await sub.subscribe("scream", (message) => {
-    everyone(pack("scream", message, "screamer"));
+    everyone(pack("scream", message, "screamer")); // Socket back to everyone.
+    // Send a notification to all devices subscribed to the `scream` topic.
+    getMessaging()
+      .send({
+        notification: { title: "😱 Scream", body: message },
+        topic: "scream",
+        data: {
+          piece: message.indexOf("pond") > -1 ? "pond" : "",
+        },
+      })
+      .then((response) => {
+        console.log("☎️  Successfully sent notification:", response);
+      })
+      .catch((error) => {
+        console.log("📵  Error sending notification:", error);
+      });
   });
 } catch (err) {
   console.error("🔴 Could not connect to `redis` instance.");
