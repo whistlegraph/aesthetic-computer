@@ -3191,6 +3191,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // Jump to any piece slug from the bios.
   if (type === "jump") {
+    console.log("🏃 Jumping to:", content.piece);
     $commonApi.jump(content.piece, true, true);
     return;
   }
