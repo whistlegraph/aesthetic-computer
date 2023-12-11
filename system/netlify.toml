@@ -13,7 +13,6 @@
                     "public/aesthetic.computer/lib/**/*.mjs",
                     "backend/**/*.mjs"]
 [functions.mood]
-  included_files = ["aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json"]
   external_node_modules = ["firebase-admin"]
 [functions.handle]
   included_files = [
