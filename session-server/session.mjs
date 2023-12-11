@@ -265,6 +265,7 @@ wss.on("connection", (ws, req) => {
     msg.id = id; // TODO: When sending a server generated message, use a special id.
     if (msg.type === "scream") {
       // TODO: Alert all connected users via redis pub/sub to the scream.
+      console.log("😱 About to scream...");
       pub.publish("scream", msg.content, (error, reply) => {
         if (error) {
           console.error("Error publishing message:", error);
@@ -276,6 +277,7 @@ wss.on("connection", (ws, req) => {
               notification: { title: "😱 Scream", body: message.content },
               topic: "scream",
               data: {
+                test: "test data",
                 piece: message.content.indexOf("pond") > -1 ? "pond" : "",
               },
             })
