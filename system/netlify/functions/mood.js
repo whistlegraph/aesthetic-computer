@@ -36,8 +36,10 @@ import { respond, pathParams } from "../../backend/http.mjs";
 // const dev = process.env.CONTEXT === "dev";
 
 import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
-import serviceAccount from "../../aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json" assert { type: "json" };
 import { getMessaging } from "firebase-admin/messaging";
+
+import { promises as fs } from "fs";
+import path from "path";
 
 let notifications;
 
@@ -89,6 +91,9 @@ export async function handler(event, context) {
         await collection.insertOne({ user: user.sub, mood, when: new Date() });
 
         if (!notifications) {
+          const serviceAccountFilePath =
+            "./aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json";
+          const serviceAccount = await loadJSON(serviceAccountFilePath);
           notifications = initializeApp({ credential: cert(serviceAccount) }); // Send a notification.
         }
 
@@ -123,5 +128,16 @@ export async function handler(event, context) {
     }
   } catch (error) {
     return respond(500, { message: error });
+  }
+}
+
+async function loadJSON(filePath) {
+  try {
+    const absolutePath = path.resolve(filePath);
+    const data = await fs.readFile(absolutePath, "utf8");
+    return JSON.parse(data);
+  } catch (error) {
+    console.error("Error reading the JSON file:", error);
+    // Handle the error appropriately
   }
 }
