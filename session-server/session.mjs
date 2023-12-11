@@ -107,14 +107,14 @@ try {
         notification: { title: "😱 Scream", body: message },
         topic: "scream",
         data: {
-          screamURL: "https://aesthetic.computer/scream",
-        }
+          piece: message.indexOf("pond") > -1 ? "pond" : "",
+        },
       })
       .then((response) => {
-        console.log("☎️ Successfully sent notification:", response);
+        console.log("☎️  Successfully sent notification:", response);
       })
       .catch((error) => {
-        console.log("📵 Error sending notification:", error);
+        console.log("📵  Error sending notification:", error);
       });
   });
 } catch (err) {
