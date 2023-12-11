@@ -37,7 +37,7 @@ struct WebView: UIViewRepresentable {
         
         // Add a script message handler to handle messages from JavaScript
         userContentController.add(context.coordinator, name: "shareImage")
-        
+        AppDelegate.shared?.appWebView = webView // Set the shared appWebView
         return webView
     }
     

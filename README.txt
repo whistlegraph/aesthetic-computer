@@ -72,13 +72,12 @@
 *** iOS Release ***
   + Version 1
   - [] Make sure `camera` works good with the swap button.
-  - [X] Sign up work
-    - [-] Logging out (broken) 
   - [] Notification for `scream`. (via the integrated GCP account) 
   - [] Notification invite for `pond`.
   - [] Test ordering a sticker (check if that is illegal) 
   - [] Make Offline access page compliant with apple submission guidelines + beautify 
   - [] Custom keyboard 
+  - [] Privacy policy page 
   + Done
   - [X] Sending Pixel Grab images in iMessage Extension 
   - [X] `download` popup native share interface for storing image.
@@ -91,9 +90,12 @@
   - [X] Customize allow messages (camera, microphone, notifications)
   - [X] Offline access 
   - [X] App icon
+  - [X] Sign up work
+  - [X] Logging out (broken) 
   + Later Version
   - [] Reload when crashing
   - [] Classic Sticker pack
+  
 
 
 *** `pond` production ***
