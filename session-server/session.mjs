@@ -274,7 +274,7 @@ wss.on("connection", (ws, req) => {
           // Send a notification to all devices subscribed to the `scream` topic.
           getMessaging()
             .send({
-              notification: { title: "😱 Scream", body: message.content },
+              notification: { title: "SCREAM", body: message.content },
               topic: "scream",
               data: {
                 test: "test data",
@@ -323,8 +323,7 @@ wss.on("connection", (ws, req) => {
   // More info: https://stackoverflow.com/a/49791634/8146077
   ws.on("close", () => {
     console.log("🚪 Someone left:", id, "Online:", wss.clients.size, "🫂");
-
-    console.log("Left...", id, worldClients);
+    // console.log("Left...", id, worldClients);
     delete worldClients[id];
 
     everyone(pack("left", { id, count: wss.clients.size }));
