@@ -35,3 +35,6 @@ system/types/
 
 # Parcel's caching folder (I don't even really use parcel.)
 .parcel-cache/
+
+# Any firebase configuration.
+aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json

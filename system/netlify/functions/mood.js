@@ -29,10 +29,19 @@
 import {
   authorize,
   userIDFromHandleOrEmail,
+  getHandleOrEmail,
 } from "../../backend/authorization.mjs";
 import { connect, moodFor, allMoods } from "../../backend/database.mjs";
 import { respond, pathParams } from "../../backend/http.mjs";
 // const dev = process.env.CONTEXT === "dev";
+
+import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
+import { getMessaging } from "firebase-admin/messaging";
+
+// import { promises as fs } from "fs";
+// import path from "path";
+
+let notifications;
 
 export async function handler(event, context) {
   if (event.httpMethod === "GET") {
@@ -80,6 +89,34 @@ export async function handler(event, context) {
         await collection.createIndex({ user: 1 }); // Index for `user`.
         await collection.createIndex({ when: 1 }); // Index for `when`.
         await collection.insertOne({ user: user.sub, mood, when: new Date() });
+
+        if (!notifications) {
+          const { got } = await import("got");
+
+          const serviceAccount = (
+            await got(process.env.GCM_FIREBASE_CONFIG_URL, {
+              responseType: "json",
+            })
+          ).body;
+
+          notifications = initializeApp({ credential: cert(serviceAccount) }); // Send a notification.
+        }
+
+        console.log("💕 Setting a mood for:", user);
+        const handle = await getHandleOrEmail(user.sub);
+        getMessaging()
+          .send({
+            notification: { title: `${handle}`, body: `${mood}` },
+            topic: "mood",
+            // data: { piece: msg.content.indexOf("pond") > -1 ? "pond" : "" },
+          })
+          .then((response) => {
+            console.log("☎️  Successfully sent notification:", response);
+          })
+          .catch((error) => {
+            console.log("📵  Error sending notification:", error);
+          });
+
         await database.disconnect();
         return respond(200, { mood }); // Successful mood change.
       } else if (body.nuke !== undefined) {
@@ -99,3 +136,15 @@ export async function handler(event, context) {
     return respond(500, { message: error });
   }
 }
+
+// async function loadJSON(filePath) {
+//   try {
+//     // Construct the absolute path using __dirname
+//     const absolutePath = path.resolve(__dirname, filePath);
+//     const data = await fs.readFile(absolutePath, "utf8");
+//     return JSON.parse(data);
+//   } catch (error) {
+//     console.error("Error reading the JSON file:", error);
+//     // Handle the error appropriately
+//   }
+// }
