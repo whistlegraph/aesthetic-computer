@@ -69,6 +69,15 @@
   - [] sister
   - [] wife
 
+*** botce xmas ***
+  - [] Baby blue background and wite text.
+  - [] Snowflake backdrop in paywall. 
+  - [] 6$ 
+  - [] Dec. 23 - Jan ?. 
+  - [] Snowflake Image
+  - [] Share button for screenshotting.
+  - [] Test Instagram share.
+
 *** iOS Release ***
   + Version 1
   - [] Make sure `camera` works good with the swap button.
