@@ -38,8 +38,8 @@ import { respond, pathParams } from "../../backend/http.mjs";
 import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
 import { getMessaging } from "firebase-admin/messaging";
 
-import { promises as fs } from "fs";
-import path from "path";
+// import { promises as fs } from "fs";
+// import path from "path";
 
 let notifications;
 
@@ -91,7 +91,14 @@ export async function handler(event, context) {
         await collection.insertOne({ user: user.sub, mood, when: new Date() });
 
         if (!notifications) {
-          const serviceAccount = JSON.parse(process.env.GCM_FIREBASE_CONFIG);
+          const { got } = await import("got");
+
+          const serviceAccount = (
+            await got(process.env.GCM_FIREBASE_CONFIG_URL, {
+              responseType: "json",
+            })
+          ).body;
+
           notifications = initializeApp({ credential: cert(serviceAccount) }); // Send a notification.
         }
 
@@ -109,6 +116,7 @@ export async function handler(event, context) {
           .catch((error) => {
             console.log("📵  Error sending notification:", error);
           });
+
         await database.disconnect();
         return respond(200, { mood }); // Successful mood change.
       } else if (body.nuke !== undefined) {
@@ -129,14 +137,14 @@ export async function handler(event, context) {
   }
 }
 
-async function loadJSON(filePath) {
-  try {
-    // Construct the absolute path using __dirname
-    const absolutePath = path.resolve(__dirname, filePath);
-    const data = await fs.readFile(absolutePath, "utf8");
-    return JSON.parse(data);
-  } catch (error) {
-    console.error("Error reading the JSON file:", error);
-    // Handle the error appropriately
-  }
-}
+// async function loadJSON(filePath) {
+//   try {
+//     // Construct the absolute path using __dirname
+//     const absolutePath = path.resolve(__dirname, filePath);
+//     const data = await fs.readFile(absolutePath, "utf8");
+//     return JSON.parse(data);
+//   } catch (error) {
+//     console.error("Error reading the JSON file:", error);
+//     // Handle the error appropriately
+//   }
+// }
