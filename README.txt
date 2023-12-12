@@ -81,9 +81,7 @@
 *** iOS Release ***
   + Version 1
   - [] Privacy policy page 
-  - [] Provide a method in your app for a user to opt out from receiving notifs
   - [] Make sure `camera` works good with the swap button.
-  - [] Custom keyboard 
   + Done
   - [X] Sending Pixel Grab images in iMessage Extension 
   - [X] `download` popup native share interface for storing image.
@@ -102,10 +100,15 @@
   - [X] Notification invite for `pond`.
   - [X] Test ordering a sticker (check if that is illegal) 
   - [X] Make Offline access page compliant with apple submission guidelines + beautify 
+  - [X] Disable landscape mode 
+  - [X] Provide a method in your app for a user to opt out from receiving notifs
+
 
   + Later Version
   - [] Reload when crashing
   - [] Classic Sticker pack
+  - [] Custom keyboard
+
   
 
 *** `pond` production ***
