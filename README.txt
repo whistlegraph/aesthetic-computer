@@ -71,13 +71,10 @@
 
 *** iOS Release ***
   + Version 1
-  - [] Make sure `camera` works good with the swap button.
-  - [] Notification for `scream`. (via the integrated GCP account) 
-  - [] Notification invite for `pond`.
-  - [] Test ordering a sticker (check if that is illegal) 
-  - [] Make Offline access page compliant with apple submission guidelines + beautify 
-  - [] Custom keyboard 
   - [] Privacy policy page 
+  - [] Provide a method in your app for a user to opt out from receiving notifs
+  - [] Make sure `camera` works good with the swap button.
+  - [] Custom keyboard 
   + Done
   - [X] Sending Pixel Grab images in iMessage Extension 
   - [X] `download` popup native share interface for storing image.
@@ -92,6 +89,11 @@
   - [X] App icon
   - [X] Sign up work
   - [X] Logging out (broken) 
+  - [X] Notification for `scream`. (via the integrated GCP account) 
+  - [X] Notification invite for `pond`.
+  - [X] Test ordering a sticker (check if that is illegal) 
+  - [X] Make Offline access page compliant with apple submission guidelines + beautify 
+
   + Later Version
   - [] Reload when crashing
   - [] Classic Sticker pack
