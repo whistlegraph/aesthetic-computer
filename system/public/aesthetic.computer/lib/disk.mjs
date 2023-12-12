@@ -1364,11 +1364,11 @@ async function session(slug, forceProduction = false, service) {
 
   if (typeof session === "string") return session;
 
-  if (debug && logs.session) {
-    console.log(
-      `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`,
-    );
-  }
+  //if (debug && logs.session) {
+  console.log(
+    `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`,
+  );
+  //}
   // Return the active session if the server knows it's "Ready", otherwise
   // wait for the one we requested to spin up.
   // (And in debug mode we just get a local url from "/session" so no need
@@ -3191,7 +3191,15 @@ async function makeFrame({ data: { type, content } }) {
 
   // Jump to any piece slug from the bios.
   if (type === "jump") {
-    $commonApi.jump(content.piece, true, true);
+    console.log("🏃 Jumping to:", content);
+    let ahistorical, alias;
+    if (content.ahistorical === undefined) {
+      ahistorical = true;
+    } else ahistorical = content.ahistorical;
+    if (content.alias === undefined) {
+      alias = true;
+    } else alias = content.alias;
+    $commonApi.jump(content.piece, ahistorical, alias);
     return;
   }
 

@@ -1300,7 +1300,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         : content.body;
       const message = { type: content.type, body };
       const packedMessage = JSON.stringify(message);
-      // if (debug) console.log("👋 Sending to iMessage:", packedMessage);
+      if (debug) console.log("🗨️ Sending to iMessage:", packedMessage);
       window.webkit?.messageHandlers?.iMessageExtension.postMessage(
         packedMessage,
       );
@@ -1308,12 +1308,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "ios:send") {
-      // const message = { type: content.type, body };
-      // const packedMessage = JSON.stringify(message);
-      // // if (debug) console.log("👋 Sending to iMessage:", packedMessage);
-      // window.webkit?.messageHandlers?.iMessageExtension.postMessage(
-      //   packedMessage,
-      // );
+      const message = { type: content.type, body };
+      const packedMessage = JSON.stringify(message);
+      if (debug) console.log("📱 Sending to iOS App:", packedMessage);
+      window.webkit?.messageHandlers?.iOSApp.postMessage(packedMessage);
       return;
     }
 
@@ -5183,12 +5181,15 @@ function blobToArrayBuffer(blob) {
 
 window.iMessageExtensionResize = (mode) => {
   console.log("📱 iMessage Extension Resized:", mode);
-  send({ type: "imessage-extension:resized", content: { mode } });
+  window.acSEND({ type: "imessage-extension:resized", content: { mode } });
 };
 
-window.iOSSwitchPiece = (piece) => {
+window.iOSAppSwitchPiece = (piece) => {
   console.log("📱 iOS Switch Piece:", piece);
-  send({ type: "jump", content: { piece } });
+  window.acSEND({
+    type: "jump",
+    content: { piece, ahistorical: false, alias: false },
+  });
 };
 
 export { boot };
