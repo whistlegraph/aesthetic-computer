@@ -69,6 +69,8 @@
   - [] sister
   - [] wife
 
+*** bring back the 404 page ***
+
 *** botce xmas ***
   - [] Baby blue background and wite text.
   - [] Snowflake backdrop in paywall. 
@@ -77,6 +79,7 @@
   - [] Snowflake Image
   - [] Share button for screenshotting.
   - [] Test Instagram share.
+  - [] Add `about` credits.
 
 *** iOS Release ***
   + Version 1
