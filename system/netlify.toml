@@ -12,6 +12,8 @@
                     "public/aesthetic.computer/systems/**/*.mjs",
                     "public/aesthetic.computer/lib/**/*.mjs",
                     "backend/**/*.mjs"]
+[functions.mood]
+  external_node_modules = ["got", "firebase-admin"]
 [functions.handle]
   included_files = [
     "public/aesthetic.computer/lib/text.mjs",

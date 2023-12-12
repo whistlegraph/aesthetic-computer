@@ -101,21 +101,6 @@ try {
 
   await sub.subscribe("scream", (message) => {
     everyone(pack("scream", message, "screamer")); // Socket back to everyone.
-    // Send a notification to all devices subscribed to the `scream` topic.
-    getMessaging()
-      .send({
-        notification: { title: "😱 Scream", body: message },
-        topic: "scream",
-        data: {
-          piece: message.indexOf("pond") > -1 ? "pond" : "",
-        },
-      })
-      .then((response) => {
-        console.log("☎️  Successfully sent notification:", response);
-      })
-      .catch((error) => {
-        console.log("📵  Error sending notification:", error);
-      });
   });
 } catch (err) {
   console.error("🔴 Could not connect to `redis` instance.");
@@ -280,13 +265,30 @@ wss.on("connection", (ws, req) => {
     msg.id = id; // TODO: When sending a server generated message, use a special id.
     if (msg.type === "scream") {
       // TODO: Alert all connected users via redis pub/sub to the scream.
-      pub.publish("scream", msg.content, (error, reply) => {
-        if (error) {
-          console.error("Error publishing message:", error);
-        } else {
-          console.log(`Message published to channel ${channel}`);
-        }
-      });
+      console.log("😱 About to scream...");
+      pub
+        .publish("scream", msg.content)
+        .then((result) => {
+          console.log("😱 Scream succesfully published:", result);
+          getMessaging()
+            .send({
+              notification: { title: "😱", body: msg.content },
+              topic: "scream",
+              data: {
+                piece: msg.content.indexOf("pond") > -1 ? "pond" : "",
+              },
+            })
+            .then((response) => {
+              console.log("☎️  Successfully sent notification:", response);
+            })
+            .catch((error) => {
+              console.log("📵  Error sending notification:", error);
+            });
+        })
+        .catch((error) => {
+          console.log("🙅‍♀️ Error publishing scream:", error);
+        });
+      // Send a notification to all devices subscribed to the `scream` topic.
     } else if (msg.type === "code-channel:sub") {
       // Filter code-channel updates based on this user.
       codeChannel = msg.content;
@@ -321,8 +323,7 @@ wss.on("connection", (ws, req) => {
   // More info: https://stackoverflow.com/a/49791634/8146077
   ws.on("close", () => {
     console.log("🚪 Someone left:", id, "Online:", wss.clients.size, "🫂");
-
-    console.log("Left...", id, worldClients);
+    // console.log("Left...", id, worldClients);
     delete worldClients[id];
 
     everyone(pack("left", { id, count: wss.clients.size }));
