@@ -1020,6 +1020,9 @@ async function halt($, text) {
   } else if (text.toLowerCase() === "github" || text === "gh") {
     jump("https://github.com/digitpain/aesthetic.computer");
     return true;
+  } else if (text.toLowerCase() === "pp") {
+    jump("https://aesthetic.computer/privacy-policy");
+    return true;
   } else if (text === "browserstack" || text === "bs") {
     jump("https://live.browserstack.com");
     return true;
