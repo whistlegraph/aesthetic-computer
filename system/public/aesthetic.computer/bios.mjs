@@ -1308,7 +1308,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "ios:send") {
-      const message = { type: content.type, body };
+      const message = { type: content.type, body: content.body };
       const packedMessage = JSON.stringify(message);
       if (debug) console.log("📱 Sending to iOS App:", packedMessage);
       window.webkit?.messageHandlers?.iOSApp.postMessage(packedMessage);

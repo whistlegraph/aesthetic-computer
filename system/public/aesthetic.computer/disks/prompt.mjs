@@ -352,6 +352,22 @@ async function halt($, text) {
     flashColor = [255, 0, 0];
     makeFlash($);
     return true;
+  } else if (slug === "nonotifs") {
+    send({
+      type: "ios:send",
+      content: { type: "notifications", body: false },
+    });
+    flashColor = [0, 0, 255];
+    makeFlash($);
+    return true;
+  } else if (slug === "notifs") {
+    send({
+      type: "ios:send",
+      content: { type: "notifications", body: true },
+    });
+    flashColor = [0, 0, 255];
+    makeFlash($);
+    return true;
   } else if (slug === "selfie") {
     jump("camera~me");
     return true;
