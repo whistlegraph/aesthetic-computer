@@ -7,10 +7,9 @@ let grey: CGFloat = 32/255;
 class Coordinator: NSObject, WKScriptMessageHandler {
     // Handle JavaScript messages here
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        if message.name == "shareImageCallback" {
-            // Handle callback from JavaScript function
-            print("Received message from JavaScript")
-        }
+        if message.name == "iOSAppLog" {
+                print("JavaScript Log: \(message.body)")
+            } 
     }
 }
 
@@ -23,20 +22,22 @@ struct WebView: UIViewRepresentable {
     }
     
     func makeUIView(context: Context) -> WKWebView {
-        let webConfiguration = WKWebViewConfiguration()
-        webConfiguration.allowsInlineMediaPlayback = true
-        let webView = WKWebView(frame: .zero, configuration: webConfiguration)
+        let config = WKWebViewConfiguration()
+        let userScript = WKUserScript(source: "console.log = function() { window.webkit.messageHandlers.iOSAppLog.postMessage([...arguments].join(' ')); }",
+                                      injectionTime: .atDocumentStart,
+                                      forMainFrameOnly: false)
+        config.allowsInlineMediaPlayback = true
+        config.userContentController.addUserScript(userScript)
+        config.userContentController.add(context.coordinator, name: "iOSAppLog")
+        config.userContentController.add(context.coordinator, name: "iOSApp")
+        let webView = WKWebView(frame: .zero, configuration: config)
         webView.backgroundColor = UIColor(red: grey, green: grey, blue: grey, alpha: 1)
         webView.isOpaque = false
         
         webView.customUserAgent = "Aesthetic"
         
-        // Set up a user content controller to handle JavaScript events
-        let userContentController = WKUserContentController()
-        webView.configuration.userContentController = userContentController
         
         // Add a script message handler to handle messages from JavaScript
-        userContentController.add(context.coordinator, name: "shareImage")
         AppDelegate.shared?.appWebView = webView // Set the shared appWebView
         return webView
     }
@@ -66,6 +67,7 @@ struct ContentView: View {
                     } else {
                         let test = (Bundle.main.url(forResource: "offline", withExtension: "html", subdirectory: "html")?.absoluteString ?? "")
                         WebView(url: test, isOnline: false)
+                        
                     }
                 } else {
                     Color(red: grey, green: grey, blue: grey)
