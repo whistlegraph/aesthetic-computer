@@ -87,7 +87,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     ) {
         print("APNs token retrieved: \(deviceToken)")
         Messaging.messaging().apnsToken = deviceToken  // With swizzling disabled you must set the APNs token here.
-        //TOPICS for Notifications:
+        //TOPICS for Notifications, decided when the app first boots on a phone
+        subscribeToTopics()
+    }
+    func subscribeToTopics() {
         Messaging.messaging().subscribe(toTopic: "scream") { error in
             print("Subscribed to scream topic")
         }
@@ -95,6 +98,31 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             print("Subscribed to mood topic")
         }
     }
+    func unsubscribe(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        // Unsubscribing from the 'scream' topic
+        Messaging.messaging().unsubscribe(fromTopic: "scream") { error in
+            if let error = error {
+                print("Error unsubscribing from scream topic: \(error)")
+            } else {
+                print("Unsubscribed from scream topic")
+            }
+        }
+        // Unsubscribing from the 'mood' topic
+        Messaging.messaging().unsubscribe(fromTopic: "mood") { error in
+            if let error = error {
+                print("Error unsubscribing from mood topic: \(error)")
+            } else {
+                print("Unsubscribed from mood topic")
+            }
+        }
+    }
+    func triggerSubscribe() {
+        subscribeToTopics()
+    }
+    func triggerUnsubscribe() {
+        unsubscribe(UIApplication.shared, didRegisterForRemoteNotificationsWithDeviceToken: Data())
+    }
+
 }
 
 extension AppDelegate: UNUserNotificationCenterDelegate {
