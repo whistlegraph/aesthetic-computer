@@ -87,8 +87,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     ) {
         print("APNs token retrieved: \(deviceToken)")
         Messaging.messaging().apnsToken = deviceToken  // With swizzling disabled you must set the APNs token here.
+        //TOPICS for Notifications:
         Messaging.messaging().subscribe(toTopic: "scream") { error in
             print("Subscribed to scream topic")
+        }
+        Messaging.messaging().subscribe(toTopic: "mood") { error in
+            print("Subscribed to mood topic")
         }
     }
 }
@@ -116,7 +120,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         // Change this to your preferred presentation option.
         return [[.sound]]  // return [[.banner, .sound]]
     }
-    //App notification when app isn't open, you get banner and tip
+    //App notification when app isn't open, you get banner and tap
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
@@ -130,9 +134,9 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         // Print Data String
         if let pieceData = userInfo["piece"] as? String {
             if pieceData != ""{
-                        let script = "iOSSwitchPiece('\(pieceData)');"
-                        appWebView?.evaluateJavaScript(script, completionHandler: nil)
-                    }
+                let script = "iOSAppSwitchPiece('\(pieceData)');"
+                appWebView?.evaluateJavaScript(script, completionHandler: nil)
+            }
         }
         
         Messaging.messaging().appDidReceiveMessage(userInfo)  // With swizzling disabled you must let Messaging know about the message, for Analytics

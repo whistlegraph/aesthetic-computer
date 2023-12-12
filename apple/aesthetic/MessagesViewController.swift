@@ -34,6 +34,9 @@ class MessagesViewController: MSMessagesAppViewController, WKScriptMessageHandle
                 }
             }
         }
+        else if message.name == "iMessageExtensionLog" {
+            print("JavaScript Log: \(message.body)")
+        }
     }
     
     func convertDataUrlToImage(dataUrl: String) -> UIImage? {
