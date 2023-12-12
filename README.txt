@@ -69,8 +69,6 @@
   - [] sister
   - [] wife
 
-*** bring back the 404 page ***
-
 *** botce xmas ***
   - [] Baby blue background and wite text.
   - [] Snowflake backdrop in paywall. 

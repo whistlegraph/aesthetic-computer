@@ -1,5 +1,9 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** bring back the 404 page ***
+  - [x] Visiting an unresolved piece on first load should
+       redirect to 404. 
+
 *** sharing ***
   - [x] Make sure `shareFile` will always be populated / prevent the
        race condition.

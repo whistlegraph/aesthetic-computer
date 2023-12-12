@@ -521,7 +521,47 @@ function isLeaving() {
 
 // For every function to access.
 const $commonApi = {
-  canShare: false,
+  // A wrapper for `load(parse(...))`
+  // Make it `ahistorical` to prevent a url change.
+  // Make it an `alias` to prevent a metadata change for writing landing or
+  // router pieces such as `freaky-flowers` -> `wand`. 22.11.23.16.29
+  // Jump delay...
+  jump: function jump(to, ahistorical = false, alias = false) {
+    leaving = true;
+
+    let url;
+    const jumpOut = to.startsWith("out:");
+
+    if ((to.startsWith("http") && !to.endsWith(".mjs")) || jumpOut) {
+      to = to.replace("out:", "");
+      try {
+        url = new URL(to);
+      } catch (e) {
+        // Could not construct a valid url from the jump, so we will be
+        // running a local aesthetic.computer piece.
+      }
+    }
+
+    function loadLine() {
+      load(parse(to), ahistorical, alias, false, callback);
+    }
+
+    let callback;
+    leaveLoad = url
+      ? () => $commonApi.net.web(to, jumpOut)
+      : () => {
+          // Intercept returns to the prompt when taping from a piece directly.
+          if ($commonApi.rec.videoOnLeave && to.split("~")[0] === "prompt") {
+            to = "video";
+            $commonApi.rec.videoOnLeave = false;
+            $commonApi.rec.cut(loadLine);
+          } else {
+            loadLine(); // Or just load normally.
+          }
+        };
+    return (cb) => (callback = cb);
+  },
+  canShare: false, // Whether navigator.share is enabled for mobile devices.
   leaving: isLeaving,
   handle: () => {
     return HANDLE;
@@ -2299,6 +2339,7 @@ async function load(
         sourceToRun = source;
       }
 
+      /*
       if (sourceToRun.startsWith("// 404")) {
         let found = false;
         try {
@@ -2322,6 +2363,7 @@ async function load(
           }
         }
       }
+      */
 
       // Automatically replace relative imports with absolute ones.
       const twoDots =
@@ -2358,9 +2400,11 @@ async function load(
     module = await import(blobUrl);
   } catch (err) {
     // 🧨 Continue with current module if one has already loaded.
-    console.error(`😡 "${path}" load failure:`, err);
+    console.error(`😡 "${path}" load failure:`, err, "first load:", firstLoad);
     loadFailure = err;
     loading = false;
+
+    if (firstLoad) $commonApi.jump("404");
     return false;
   }
   // console.log("Module load time:", performance.now() - moduleLoadTime, module);
@@ -2775,47 +2819,6 @@ async function load(
   // 💡 Eventually this could merge with net.web so there is one command
   //    to either go to a piece within the system if one loads... or an entirely
   //    different url somehow! 23.02.07.21.21
-
-  // A wrapper for `load(parse(...))`
-  // Make it `ahistorical` to prevent a url change.
-  // Make it an `alias` to prevent a metadata change for writing landing or
-  // router pieces such as `freaky-flowers` -> `wand`. 22.11.23.16.29
-  // Jump delay...
-  $commonApi.jump = function jump(to, ahistorical = false, alias = false) {
-    leaving = true;
-
-    let url;
-    const jumpOut = to.startsWith("out:");
-
-    if ((to.startsWith("http") && !to.endsWith(".mjs")) || jumpOut) {
-      to = to.replace("out:", "");
-      try {
-        url = new URL(to);
-      } catch (e) {
-        // Could not construct a valid url from the jump, so we will be
-        // running a local aesthetic.computer piece.
-      }
-    }
-
-    function loadLine() {
-      load(parse(to), ahistorical, alias, false, callback);
-    }
-
-    let callback;
-    leaveLoad = url
-      ? () => $commonApi.net.web(to, jumpOut)
-      : () => {
-          // Intercept returns to the prompt when taping from a piece directly.
-          if ($commonApi.rec.videoOnLeave && to.split("~")[0] === "prompt") {
-            to = "video";
-            $commonApi.rec.videoOnLeave = false;
-            $commonApi.rec.cut(loadLine);
-          } else {
-            loadLine(); // Or just load normally.
-          }
-        };
-    return (cb) => (callback = cb);
-  };
 
   $commonApi.alias = function alias(name, colon, params) {
     $commonApi.jump(
