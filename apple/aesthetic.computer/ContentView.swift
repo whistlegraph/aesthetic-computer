@@ -4,7 +4,7 @@ import Network
 
 let grey: CGFloat = 32/255;
 
-class Coordinator: NSObject, WKScriptMessageHandler {
+class Coordinator: NSObject, WKScriptMessageHandler/*, WKNavigationDelegate, WKUIDelegate*/ {
     // Handle JavaScript messages here
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         if message.name == "iOSAppLog" {
@@ -21,14 +21,24 @@ class Coordinator: NSObject, WKScriptMessageHandler {
                         print("JSON as dictionary: \(dictionary)")
                         
                         // Handle the dictionary as needed
-                        if let type = dictionary["type"] as? String, type == "notifications" {
-                            if let body = dictionary["body"] as? Bool, body == true{
-                                AppDelegate.shared?.triggerSubscribe()
-                                showAlert(title: "SUBSCRIBED", message: "You have successfully subscribed to notifications. Type \"nonotifs\" to unsubscribe.")
-                            }
-                            else if let body = dictionary["body"] as? Bool, body == false{
-                                AppDelegate.shared?.triggerUnsubscribe()
-                                showAlert(title: "UNSUBSCRIBED", message: "You have successfully unsubscribed to notifications. Type \"notifs\" to subscribe.")
+                        if let type = dictionary["type"] as? String {
+                            switch type {
+                            case "notifications":
+                                if let body = dictionary["body"] as? Bool, body == true {
+                                    AppDelegate.shared?.triggerSubscribe()
+                                    showAlert(title: "SUBSCRIBED", message: "You have successfully subscribed to notifications. Type \"nonotifs\" to unsubscribe.")
+                                } else if let body = dictionary["body"] as? Bool, body == false {
+                                    AppDelegate.shared?.triggerUnsubscribe()
+                                    showAlert(title: "UNSUBSCRIBED", message: "You have successfully unsubscribed to notifications. Type \"notifs\" to subscribe.")
+                                }
+
+                            case "url":
+                                if let urlString = dictionary["body"] as? String, let url = URL(string: urlString) {
+                                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                                }
+
+                            default:
+                                print("Unhandled type: \(type)")
                             }
                         }
                     }
@@ -38,6 +48,7 @@ class Coordinator: NSObject, WKScriptMessageHandler {
             }
         }
     }
+    
     func showAlert(title: String, message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
@@ -54,6 +65,25 @@ class Coordinator: NSObject, WKScriptMessageHandler {
             currentController.present(alert, animated: true, completion: nil)
         }
     }
+    
+//     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+//         print("link clicked...");
+//         if navigationAction.targetFrame == nil, let url = navigationAction.request.url {
+//             print("opening...")
+//             UIApplication.shared.open(url, options: [:], completionHandler: nil)
+//             decisionHandler(.cancel)
+//             return
+//         }
+//         decisionHandler(.allow)
+//     }
+//    
+//    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+//          if let url = navigationAction.request.url {
+//              webView.load(URLRequest(url: url))
+//          }
+//          return nil
+//      }
+    
 }
     
     struct WebView: UIViewRepresentable {
@@ -76,9 +106,9 @@ class Coordinator: NSObject, WKScriptMessageHandler {
             let webView = WKWebView(frame: .zero, configuration: config)
             webView.backgroundColor = UIColor(red: grey, green: grey, blue: grey, alpha: 1)
             webView.isOpaque = false
-            
+//            webView.navigationDelegate = context.coordinator
+//            webView.uiDelegate = context.coordinator
             webView.customUserAgent = "Aesthetic"
-            
             
             // Add a script message handler to handle messages from JavaScript
             AppDelegate.shared?.appWebView = webView // Set the shared appWebView
@@ -86,16 +116,12 @@ class Coordinator: NSObject, WKScriptMessageHandler {
         }
         
         func updateUIView(_ webView: WKWebView, context: Context) {
-            print("URL: ", url)
-            let request = URLRequest(url: URL(string: url)!)
-            webView.load(request)
-            
-            // Call JavaScript function if online
-            if isOnline {
-                let script = "shareImage();" // Assuming the JavaScript function is named 'shareImage'
-                webView.evaluateJavaScript(script, completionHandler: nil)
-            }
+//            let testHTML = "<html><script>window.ontouchstart = () => { console.log('hi'); const a = document.createElement('a'); a.href = 'https://example.com'; a.innerText = 'OKAY'; document.body.appendChild(a); a.click(); }</script><body></body></html>"
+//            webView.loadHTMLString(testHTML, baseURL: nil)
+             let request = URLRequest(url: URL(string: url)!)
+             webView.load(request)
         }
+       
     }
     
     struct ContentView: View {
