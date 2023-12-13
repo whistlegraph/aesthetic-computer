@@ -528,7 +528,8 @@ const $commonApi = {
   // Jump delay...
   jump: function jump(to, ahistorical = false, alias = false) {
     let url;
-    const jumpOut = to.startsWith("out:") || platform.Aesthetic;
+    const jumpOut =
+      to.startsWith("out:") || (to.startsWith("http") && platform.Aesthetic);
 
     if ((to.startsWith("http") && !to.endsWith(".mjs")) || jumpOut) {
       to = to.replace("out:", "");
