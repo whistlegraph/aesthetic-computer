@@ -1020,31 +1020,39 @@ async function halt($, text) {
     return true;
   } else if (text.toLowerCase() === "github" || text === "gh") {
     jump("https://github.com/digitpain/aesthetic.computer");
+    makeFlash($);
     return true;
   } else if (text.toLowerCase() === "pp") {
     jump("https://aesthetic.computer/privacy-policy");
+    makeFlash($);
     return true;
   } else if (text === "browserstack" || text === "bs") {
     jump("https://live.browserstack.com");
+    makeFlash($);
     return true;
   } else if (text === "gpt") {
     jump("https://chat.openai.com");
+    makeFlash($);
     return true;
   } else if (text === "help") {
     // Go to the Discord for now if anyone types help.
     jump("https://discord.gg/aesthetic-computer");
+    makeFlash($);
     return true;
   } else if (text === "shillball" || text === "sb") {
     // Shortcuts for Yeche's Shillball game.
     jump("https://galerie-yechelange.baby/ball");
+    makeFlash($);
     return true;
   } else if (text === "prod") {
     jump("https://prompt.ac"); // Visit the live site.
+    makeFlash($);
     return true;
   } else if (text === "local" || text.startsWith("local")) {
     const param = text.replace("local", "").trim().replaceAll(" ", "~");
     const slug = param.length > 0 ? `/${param}` : "";
     jump("https://localhost:8888" + slug); // Go to the local dev server, passing any params as a piece.
+    makeFlash($);
     return true;
   } else if (text.split(" ")[0] === "of") {
     // Ordfish shortcuts.
