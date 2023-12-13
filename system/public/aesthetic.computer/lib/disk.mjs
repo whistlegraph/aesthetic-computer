@@ -530,7 +530,7 @@ const $commonApi = {
     leaving = true;
 
     let url;
-    const jumpOut = to.startsWith("out:");
+    const jumpOut = to.startsWith("out:") || platform.Aesthetic;
 
     if ((to.startsWith("http") && !to.endsWith(".mjs")) || jumpOut) {
       to = to.replace("out:", "");

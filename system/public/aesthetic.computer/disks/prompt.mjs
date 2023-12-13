@@ -205,6 +205,7 @@ async function halt($, text) {
     notice,
     handle,
     authorize,
+    platform,
     load,
     download,
     darkMode,
