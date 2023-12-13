@@ -527,8 +527,6 @@ const $commonApi = {
   // router pieces such as `freaky-flowers` -> `wand`. 22.11.23.16.29
   // Jump delay...
   jump: function jump(to, ahistorical = false, alias = false) {
-    leaving = true;
-
     let url;
     const jumpOut = to.startsWith("out:") || platform.Aesthetic;
 
@@ -536,10 +534,15 @@ const $commonApi = {
       to = to.replace("out:", "");
       try {
         url = new URL(to);
+        $commonApi.net.web(to, jumpOut);
+        return;
       } catch (e) {
         // Could not construct a valid url from the jump, so we will be
         // running a local aesthetic.computer piece.
+        return;
       }
+    } else {
+      leaving = true;
     }
 
     function loadLine() {
@@ -547,18 +550,16 @@ const $commonApi = {
     }
 
     let callback;
-    leaveLoad = url
-      ? () => $commonApi.net.web(to, jumpOut)
-      : () => {
-          // Intercept returns to the prompt when taping from a piece directly.
-          if ($commonApi.rec.videoOnLeave && to.split("~")[0] === "prompt") {
-            to = "video";
-            $commonApi.rec.videoOnLeave = false;
-            $commonApi.rec.cut(loadLine);
-          } else {
-            loadLine(); // Or just load normally.
-          }
-        };
+    leaveLoad = () => {
+      // Intercept returns to the prompt when taping from a piece directly.
+      if ($commonApi.rec.videoOnLeave && to.split("~")[0] === "prompt") {
+        to = "video";
+        $commonApi.rec.videoOnLeave = false;
+        $commonApi.rec.cut(loadLine);
+      } else {
+        loadLine(); // Or just load normally.
+      }
+    };
     return (cb) => (callback = cb);
   },
   canShare: false, // Whether navigator.share is enabled for mobile devices.
