@@ -2702,6 +2702,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "web") {
+      console.log("Jumping to:", content.url, content.blank);
       if (content.blank === true) {
         window.open(content.url, "_blank"); // Open URL in a new tab
       } else {
