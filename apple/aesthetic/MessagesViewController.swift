@@ -73,7 +73,7 @@ class MessagesViewController: MSMessagesAppViewController, WKScriptMessageHandle
         
         view.addSubview(webView)
         
-        webView.backgroundColor = .orange
+        webView.backgroundColor = .black
     }
     
     func displayFixedImageSticker(picture: UIImage) {

@@ -7,39 +7,42 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		412BAFB52A1D4446000A41B0 /* aesthetic_computerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 412BAFB42A1D4446000A41B0 /* aesthetic_computerApp.swift */; };
-		412BAFB72A1D4446000A41B0 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 412BAFB62A1D4446000A41B0 /* ContentView.swift */; };
-		412BAFB92A1D4447000A41B0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 412BAFB82A1D4447000A41B0 /* Assets.xcassets */; };
-		418FD22F2A5528B500CA6ABA /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 418FD22E2A5528B500CA6ABA /* GoogleService-Info.plist */; };
-		419EB15D2A550D7D004D9F5D /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 419EB15C2A550D7D004D9F5D /* FirebaseAnalyticsWithoutAdIdSupport */; };
-		419EB15F2A550D7D004D9F5D /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 419EB15E2A550D7D004D9F5D /* FirebaseMessaging */; };
-		842410332B1E8938005A30C0 /* html in Resources */ = {isa = PBXBuildFile; fileRef = 842410322B1E8938005A30C0 /* html */; };
-		8495A6A62B222B0700A8CF9A /* Messages.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 84E732B42B1FA696004464B0 /* Messages.framework */; };
-		8495A6A92B222B0700A8CF9A /* MessagesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8495A6A82B222B0700A8CF9A /* MessagesViewController.swift */; };
-		8495A6AC2B222B0700A8CF9A /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 8495A6AA2B222B0700A8CF9A /* MainInterface.storyboard */; };
-		8495A6AE2B222B0900A8CF9A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8495A6AD2B222B0900A8CF9A /* Assets.xcassets */; };
-		8495A6B22B222B0900A8CF9A /* aesthetic.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8495A6A52B222B0700A8CF9A /* aesthetic.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		8495A6B72B223F1000A8CF9A /* sticker.png in Resources */ = {isa = PBXBuildFile; fileRef = 8495A6B62B223F1000A8CF9A /* sticker.png */; };
+		41F5CDC72B2931AF00F7FF87 /* aesthetic_computerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41F5CDC62B2931AF00F7FF87 /* aesthetic_computerApp.swift */; };
+		41F5CDC92B2931AF00F7FF87 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41F5CDC82B2931AF00F7FF87 /* ContentView.swift */; };
+		41F5CDCB2B2931B000F7FF87 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 41F5CDCA2B2931B000F7FF87 /* Assets.xcassets */; };
+		41F5CDCE2B2931B000F7FF87 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 41F5CDCD2B2931B000F7FF87 /* Preview Assets.xcassets */; };
+		41F5CDD62B29333300F7FF87 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 41F5CDD52B29333300F7FF87 /* FirebaseAnalytics */; };
+		41F5CDD82B29333300F7FF87 /* FirebaseAnalyticsOnDeviceConversion in Frameworks */ = {isa = PBXBuildFile; productRef = 41F5CDD72B29333300F7FF87 /* FirebaseAnalyticsOnDeviceConversion */; };
+		41F5CDDA2B29333300F7FF87 /* FirebaseAnalyticsSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 41F5CDD92B29333300F7FF87 /* FirebaseAnalyticsSwift */; };
+		41F5CDDC2B29333300F7FF87 /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 41F5CDDB2B29333300F7FF87 /* FirebaseAnalyticsWithoutAdIdSupport */; };
+		41F5CDDE2B29333300F7FF87 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = 41F5CDDD2B29333300F7FF87 /* FirebaseAppCheck */; };
+		41F5CDE12B29348800F7FF87 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 41F5CDE02B29348800F7FF87 /* FirebaseMessaging */; };
+		41F5CDE82B29356F00F7FF87 /* Messages.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 41F5CDE72B29356F00F7FF87 /* Messages.framework */; };
+		41F5CDEB2B29356F00F7FF87 /* MessagesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41F5CDEA2B29356F00F7FF87 /* MessagesViewController.swift */; };
+		41F5CDEE2B29356F00F7FF87 /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 41F5CDEC2B29356F00F7FF87 /* MainInterface.storyboard */; };
+		41F5CDF02B29356F00F7FF87 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 41F5CDEF2B29356F00F7FF87 /* Assets.xcassets */; };
+		41F5CDF42B29356F00F7FF87 /* aesthetic.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 41F5CDE62B29356F00F7FF87 /* aesthetic.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		41F5CDFA2B2937D600F7FF87 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 41F5CDF92B2937D600F7FF87 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		8495A6B02B222B0900A8CF9A /* PBXContainerItemProxy */ = {
+		41F5CDF22B29356F00F7FF87 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 412BAFA92A1D4446000A41B0 /* Project object */;
+			containerPortal = 41F5CDBB2B2931AF00F7FF87 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 8495A6A42B222B0700A8CF9A;
+			remoteGlobalIDString = 41F5CDE52B29356F00F7FF87;
 			remoteInfo = aesthetic;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		84E732C52B1FA698004464B0 /* Embed Foundation Extensions */ = {
+		41F5CDF82B29357000F7FF87 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				8495A6B22B222B0900A8CF9A /* aesthetic.appex in Embed Foundation Extensions */,
+				41F5CDF42B29356F00F7FF87 /* aesthetic.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -47,128 +50,144 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		412BAFB12A1D4446000A41B0 /* aesthetic.computer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = aesthetic.computer.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		412BAFB42A1D4446000A41B0 /* aesthetic_computerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = aesthetic_computerApp.swift; sourceTree = "<group>"; };
-		412BAFB62A1D4446000A41B0 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		412BAFB82A1D4447000A41B0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		418FD22E2A5528B500CA6ABA /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
-		419EB1602A550EAE004D9F5D /* aesthetic-computer-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "aesthetic-computer-Info.plist"; sourceTree = SOURCE_ROOT; };
-		842410322B1E8938005A30C0 /* html */ = {isa = PBXFileReference; lastKnownFileType = folder; path = html; sourceTree = "<group>"; };
-		8495A6A52B222B0700A8CF9A /* aesthetic.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = aesthetic.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		8495A6A82B222B0700A8CF9A /* MessagesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesViewController.swift; sourceTree = "<group>"; };
-		8495A6AB2B222B0700A8CF9A /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/MainInterface.storyboard; sourceTree = "<group>"; };
-		8495A6AD2B222B0900A8CF9A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		8495A6AF2B222B0900A8CF9A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		8495A6B62B223F1000A8CF9A /* sticker.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = sticker.png; sourceTree = "<group>"; };
-		84E732B42B1FA696004464B0 /* Messages.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Messages.framework; path = System/Library/Frameworks/Messages.framework; sourceTree = SDKROOT; };
+		41F5CDC32B2931AF00F7FF87 /* aesthetic.computer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = aesthetic.computer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		41F5CDC62B2931AF00F7FF87 /* aesthetic_computerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = aesthetic_computerApp.swift; sourceTree = "<group>"; };
+		41F5CDC82B2931AF00F7FF87 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		41F5CDCA2B2931B000F7FF87 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		41F5CDCD2B2931B000F7FF87 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		41F5CDE62B29356F00F7FF87 /* aesthetic.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = aesthetic.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		41F5CDE72B29356F00F7FF87 /* Messages.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Messages.framework; path = System/Library/Frameworks/Messages.framework; sourceTree = SDKROOT; };
+		41F5CDEA2B29356F00F7FF87 /* MessagesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesViewController.swift; sourceTree = "<group>"; };
+		41F5CDED2B29356F00F7FF87 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/MainInterface.storyboard; sourceTree = "<group>"; };
+		41F5CDEF2B29356F00F7FF87 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		41F5CDF12B29356F00F7FF87 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		41F5CDF92B2937D600F7FF87 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		41F5CDFB2B2937E300F7FF87 /* aesthetic.computer-release.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "aesthetic.computer-release.entitlements"; sourceTree = "<group>"; };
+		41F5CDFC2B2937E300F7FF87 /* aesthetic.computer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = aesthetic.computer.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		412BAFAE2A1D4446000A41B0 /* Frameworks */ = {
+		41F5CDC02B2931AF00F7FF87 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				419EB15F2A550D7D004D9F5D /* FirebaseMessaging in Frameworks */,
-				419EB15D2A550D7D004D9F5D /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */,
+				41F5CDE12B29348800F7FF87 /* FirebaseMessaging in Frameworks */,
+				41F5CDDA2B29333300F7FF87 /* FirebaseAnalyticsSwift in Frameworks */,
+				41F5CDD62B29333300F7FF87 /* FirebaseAnalytics in Frameworks */,
+				41F5CDD82B29333300F7FF87 /* FirebaseAnalyticsOnDeviceConversion in Frameworks */,
+				41F5CDDE2B29333300F7FF87 /* FirebaseAppCheck in Frameworks */,
+				41F5CDDC2B29333300F7FF87 /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		8495A6A22B222B0700A8CF9A /* Frameworks */ = {
+		41F5CDE32B29356F00F7FF87 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8495A6A62B222B0700A8CF9A /* Messages.framework in Frameworks */,
+				41F5CDE82B29356F00F7FF87 /* Messages.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		412BAFA82A1D4446000A41B0 = {
+		41F5CDBA2B2931AF00F7FF87 = {
 			isa = PBXGroup;
 			children = (
-				412BAFB32A1D4446000A41B0 /* aesthetic.computer */,
-				8495A6A72B222B0700A8CF9A /* aesthetic */,
-				84E732B32B1FA696004464B0 /* Frameworks */,
-				412BAFB22A1D4446000A41B0 /* Products */,
+				41F5CDC52B2931AF00F7FF87 /* aesthetic.computer */,
+				41F5CDE92B29356F00F7FF87 /* aesthetic */,
+				41F5CDC42B2931AF00F7FF87 /* Products */,
+				41F5CDDF2B29348800F7FF87 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
-		412BAFB22A1D4446000A41B0 /* Products */ = {
+		41F5CDC42B2931AF00F7FF87 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				412BAFB12A1D4446000A41B0 /* aesthetic.computer.app */,
-				8495A6A52B222B0700A8CF9A /* aesthetic.appex */,
+				41F5CDC32B2931AF00F7FF87 /* aesthetic.computer.app */,
+				41F5CDE62B29356F00F7FF87 /* aesthetic.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		412BAFB32A1D4446000A41B0 /* aesthetic.computer */ = {
+		41F5CDC52B2931AF00F7FF87 /* aesthetic.computer */ = {
 			isa = PBXGroup;
 			children = (
-				418FD22E2A5528B500CA6ABA /* GoogleService-Info.plist */,
-				419EB1602A550EAE004D9F5D /* aesthetic-computer-Info.plist */,
-				412BAFB42A1D4446000A41B0 /* aesthetic_computerApp.swift */,
-				412BAFB62A1D4446000A41B0 /* ContentView.swift */,
-				8495A6B62B223F1000A8CF9A /* sticker.png */,
-				412BAFB82A1D4447000A41B0 /* Assets.xcassets */,
-				842410322B1E8938005A30C0 /* html */,
+				41F5CDFB2B2937E300F7FF87 /* aesthetic.computer-release.entitlements */,
+				41F5CDFC2B2937E300F7FF87 /* aesthetic.computer.entitlements */,
+				41F5CDF92B2937D600F7FF87 /* GoogleService-Info.plist */,
+				41F5CDC62B2931AF00F7FF87 /* aesthetic_computerApp.swift */,
+				41F5CDC82B2931AF00F7FF87 /* ContentView.swift */,
+				41F5CDCA2B2931B000F7FF87 /* Assets.xcassets */,
+				41F5CDCC2B2931B000F7FF87 /* Preview Content */,
 			);
 			path = aesthetic.computer;
 			sourceTree = "<group>";
 		};
-		8495A6A72B222B0700A8CF9A /* aesthetic */ = {
+		41F5CDCC2B2931B000F7FF87 /* Preview Content */ = {
 			isa = PBXGroup;
 			children = (
-				8495A6A82B222B0700A8CF9A /* MessagesViewController.swift */,
-				8495A6AA2B222B0700A8CF9A /* MainInterface.storyboard */,
-				8495A6AD2B222B0900A8CF9A /* Assets.xcassets */,
-				8495A6AF2B222B0900A8CF9A /* Info.plist */,
+				41F5CDCD2B2931B000F7FF87 /* Preview Assets.xcassets */,
 			);
-			path = aesthetic;
+			path = "Preview Content";
 			sourceTree = "<group>";
 		};
-		84E732B32B1FA696004464B0 /* Frameworks */ = {
+		41F5CDDF2B29348800F7FF87 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				84E732B42B1FA696004464B0 /* Messages.framework */,
+				41F5CDE72B29356F00F7FF87 /* Messages.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		41F5CDE92B29356F00F7FF87 /* aesthetic */ = {
+			isa = PBXGroup;
+			children = (
+				41F5CDEA2B29356F00F7FF87 /* MessagesViewController.swift */,
+				41F5CDEC2B29356F00F7FF87 /* MainInterface.storyboard */,
+				41F5CDEF2B29356F00F7FF87 /* Assets.xcassets */,
+				41F5CDF12B29356F00F7FF87 /* Info.plist */,
+			);
+			path = aesthetic;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		412BAFB02A1D4446000A41B0 /* aesthetic.computer */ = {
+		41F5CDC22B2931AF00F7FF87 /* aesthetic.computer */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 412BAFBF2A1D4447000A41B0 /* Build configuration list for PBXNativeTarget "aesthetic.computer" */;
+			buildConfigurationList = 41F5CDD12B2931B000F7FF87 /* Build configuration list for PBXNativeTarget "aesthetic.computer" */;
 			buildPhases = (
-				412BAFAD2A1D4446000A41B0 /* Sources */,
-				412BAFAE2A1D4446000A41B0 /* Frameworks */,
-				412BAFAF2A1D4446000A41B0 /* Resources */,
-				84E732C52B1FA698004464B0 /* Embed Foundation Extensions */,
+				41F5CDBF2B2931AF00F7FF87 /* Sources */,
+				41F5CDC02B2931AF00F7FF87 /* Frameworks */,
+				41F5CDC12B2931AF00F7FF87 /* Resources */,
+				41F5CDF82B29357000F7FF87 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				8495A6B12B222B0900A8CF9A /* PBXTargetDependency */,
+				41F5CDF32B29356F00F7FF87 /* PBXTargetDependency */,
 			);
 			name = aesthetic.computer;
 			packageProductDependencies = (
-				419EB15C2A550D7D004D9F5D /* FirebaseAnalyticsWithoutAdIdSupport */,
-				419EB15E2A550D7D004D9F5D /* FirebaseMessaging */,
+				41F5CDD52B29333300F7FF87 /* FirebaseAnalytics */,
+				41F5CDD72B29333300F7FF87 /* FirebaseAnalyticsOnDeviceConversion */,
+				41F5CDD92B29333300F7FF87 /* FirebaseAnalyticsSwift */,
+				41F5CDDB2B29333300F7FF87 /* FirebaseAnalyticsWithoutAdIdSupport */,
+				41F5CDDD2B29333300F7FF87 /* FirebaseAppCheck */,
+				41F5CDE02B29348800F7FF87 /* FirebaseMessaging */,
 			);
 			productName = aesthetic.computer;
-			productReference = 412BAFB12A1D4446000A41B0 /* aesthetic.computer.app */;
+			productReference = 41F5CDC32B2931AF00F7FF87 /* aesthetic.computer.app */;
 			productType = "com.apple.product-type.application";
 		};
-		8495A6A42B222B0700A8CF9A /* aesthetic */ = {
+		41F5CDE52B29356F00F7FF87 /* aesthetic */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 8495A6B32B222B0900A8CF9A /* Build configuration list for PBXNativeTarget "aesthetic" */;
+			buildConfigurationList = 41F5CDF52B29357000F7FF87 /* Build configuration list for PBXNativeTarget "aesthetic" */;
 			buildPhases = (
-				8495A6A12B222B0700A8CF9A /* Sources */,
-				8495A6A22B222B0700A8CF9A /* Frameworks */,
-				8495A6A32B222B0700A8CF9A /* Resources */,
+				41F5CDE22B29356F00F7FF87 /* Sources */,
+				41F5CDE32B29356F00F7FF87 /* Frameworks */,
+				41F5CDE42B29356F00F7FF87 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -176,28 +195,28 @@
 			);
 			name = aesthetic;
 			productName = aesthetic;
-			productReference = 8495A6A52B222B0700A8CF9A /* aesthetic.appex */;
+			productReference = 41F5CDE62B29356F00F7FF87 /* aesthetic.appex */;
 			productType = "com.apple.product-type.app-extension.messages";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		412BAFA92A1D4446000A41B0 /* Project object */ = {
+		41F5CDBB2B2931AF00F7FF87 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1430;
-				LastUpgradeCheck = 1500;
+				LastSwiftUpdateCheck = 1510;
+				LastUpgradeCheck = 1510;
 				TargetAttributes = {
-					412BAFB02A1D4446000A41B0 = {
-						CreatedOnToolsVersion = 14.3;
+					41F5CDC22B2931AF00F7FF87 = {
+						CreatedOnToolsVersion = 15.1;
 					};
-					8495A6A42B222B0700A8CF9A = {
-						CreatedOnToolsVersion = 14.3;
+					41F5CDE52B29356F00F7FF87 = {
+						CreatedOnToolsVersion = 15.1;
 					};
 				};
 			};
-			buildConfigurationList = 412BAFAC2A1D4446000A41B0 /* Build configuration list for PBXProject "aesthetic.computer" */;
+			buildConfigurationList = 41F5CDBE2B2931AF00F7FF87 /* Build configuration list for PBXProject "aesthetic.computer" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -205,76 +224,75 @@
 				en,
 				Base,
 			);
-			mainGroup = 412BAFA82A1D4446000A41B0;
+			mainGroup = 41F5CDBA2B2931AF00F7FF87;
 			packageReferences = (
-				419EB15B2A550D7D004D9F5D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				41F5CDD42B29333300F7FF87 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
-			productRefGroup = 412BAFB22A1D4446000A41B0 /* Products */;
+			productRefGroup = 41F5CDC42B2931AF00F7FF87 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				412BAFB02A1D4446000A41B0 /* aesthetic.computer */,
-				8495A6A42B222B0700A8CF9A /* aesthetic */,
+				41F5CDC22B2931AF00F7FF87 /* aesthetic.computer */,
+				41F5CDE52B29356F00F7FF87 /* aesthetic */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		412BAFAF2A1D4446000A41B0 /* Resources */ = {
+		41F5CDC12B2931AF00F7FF87 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				842410332B1E8938005A30C0 /* html in Resources */,
-				412BAFB92A1D4447000A41B0 /* Assets.xcassets in Resources */,
-				8495A6B72B223F1000A8CF9A /* sticker.png in Resources */,
-				418FD22F2A5528B500CA6ABA /* GoogleService-Info.plist in Resources */,
+				41F5CDCE2B2931B000F7FF87 /* Preview Assets.xcassets in Resources */,
+				41F5CDCB2B2931B000F7FF87 /* Assets.xcassets in Resources */,
+				41F5CDFA2B2937D600F7FF87 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		8495A6A32B222B0700A8CF9A /* Resources */ = {
+		41F5CDE42B29356F00F7FF87 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8495A6AE2B222B0900A8CF9A /* Assets.xcassets in Resources */,
-				8495A6AC2B222B0700A8CF9A /* MainInterface.storyboard in Resources */,
+				41F5CDF02B29356F00F7FF87 /* Assets.xcassets in Resources */,
+				41F5CDEE2B29356F00F7FF87 /* MainInterface.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		412BAFAD2A1D4446000A41B0 /* Sources */ = {
+		41F5CDBF2B2931AF00F7FF87 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				412BAFB72A1D4446000A41B0 /* ContentView.swift in Sources */,
-				412BAFB52A1D4446000A41B0 /* aesthetic_computerApp.swift in Sources */,
+				41F5CDC92B2931AF00F7FF87 /* ContentView.swift in Sources */,
+				41F5CDC72B2931AF00F7FF87 /* aesthetic_computerApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		8495A6A12B222B0700A8CF9A /* Sources */ = {
+		41F5CDE22B29356F00F7FF87 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8495A6A92B222B0700A8CF9A /* MessagesViewController.swift in Sources */,
+				41F5CDEB2B29356F00F7FF87 /* MessagesViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		8495A6B12B222B0900A8CF9A /* PBXTargetDependency */ = {
+		41F5CDF32B29356F00F7FF87 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 8495A6A42B222B0700A8CF9A /* aesthetic */;
-			targetProxy = 8495A6B02B222B0900A8CF9A /* PBXContainerItemProxy */;
+			target = 41F5CDE52B29356F00F7FF87 /* aesthetic */;
+			targetProxy = 41F5CDF22B29356F00F7FF87 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
-		8495A6AA2B222B0700A8CF9A /* MainInterface.storyboard */ = {
+		41F5CDEC2B29356F00F7FF87 /* MainInterface.storyboard */ = {
 			isa = PBXVariantGroup;
 			children = (
-				8495A6AB2B222B0700A8CF9A /* Base */,
+				41F5CDED2B29356F00F7FF87 /* Base */,
 			);
 			name = MainInterface.storyboard;
 			sourceTree = "<group>";
@@ -282,7 +300,7 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		412BAFBD2A1D4447000A41B0 /* Debug */ = {
+		41F5CDCF2B2931B000F7FF87 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -319,7 +337,8 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -333,17 +352,18 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;
 		};
-		412BAFBE2A1D4447000A41B0 /* Release */ = {
+		41F5CDD02B2931B000F7FF87 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -380,7 +400,8 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -388,37 +409,32 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
-		412BAFC02A1D4447000A41B0 /* Debug */ = {
+		41F5CDD22B2931B000F7FF87 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = aesthetic.computer/aesthetic.computer.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"aesthetic.computer\"";
+				DEVELOPMENT_ASSET_PATHS = "\"aesthetic.computer/Preview Content\"";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "aesthetic-computer-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = aesthetic;
-				INFOPLIST_KEY_NSCameraUsageDescription = "for playing with handtracking and making pictures.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "for playing with pieces like \"baktok\"";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = "Launch Screen.storyboard";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -426,36 +442,30 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer;
+				PRODUCT_BUNDLE_IDENTIFIER = "aesthetic.computer.aesthetic-computer";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
-		412BAFC12A1D4447000A41B0 /* Release */ = {
+		41F5CDD32B2931B000F7FF87 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = aesthetic.computer/aesthetic.computer.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"aesthetic.computer\"";
+				DEVELOPMENT_ASSET_PATHS = "\"aesthetic.computer/Preview Content\"";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "aesthetic-computer-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = aesthetic;
-				INFOPLIST_KEY_NSCameraUsageDescription = "for playing with handtracking and making pictures.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "for playing with pieces like \"baktok\"";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = "Launch Screen.storyboard";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -463,20 +473,18 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer;
+				PRODUCT_BUNDLE_IDENTIFIER = "aesthetic.computer.aesthetic-computer";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
-		8495A6B42B222B0900A8CF9A /* Debug */ = {
+		41F5CDF62B29357000F7FF87 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "iMessage App Icon";
-				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = FB5948YR3S;
@@ -491,7 +499,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer.aesthetic;
+				PRODUCT_BUNDLE_IDENTIFIER = "aesthetic.computer.aesthetic-computer.aesthetic";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -500,11 +508,10 @@
 			};
 			name = Debug;
 		};
-		8495A6B52B222B0900A8CF9A /* Release */ = {
+		41F5CDF72B29357000F7FF87 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "iMessage App Icon";
-				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = FB5948YR3S;
@@ -519,7 +526,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer.aesthetic;
+				PRODUCT_BUNDLE_IDENTIFIER = "aesthetic.computer.aesthetic-computer.aesthetic";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -531,29 +538,29 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		412BAFAC2A1D4446000A41B0 /* Build configuration list for PBXProject "aesthetic.computer" */ = {
+		41F5CDBE2B2931AF00F7FF87 /* Build configuration list for PBXProject "aesthetic.computer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				412BAFBD2A1D4447000A41B0 /* Debug */,
-				412BAFBE2A1D4447000A41B0 /* Release */,
+				41F5CDCF2B2931B000F7FF87 /* Debug */,
+				41F5CDD02B2931B000F7FF87 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		412BAFBF2A1D4447000A41B0 /* Build configuration list for PBXNativeTarget "aesthetic.computer" */ = {
+		41F5CDD12B2931B000F7FF87 /* Build configuration list for PBXNativeTarget "aesthetic.computer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				412BAFC02A1D4447000A41B0 /* Debug */,
-				412BAFC12A1D4447000A41B0 /* Release */,
+				41F5CDD22B2931B000F7FF87 /* Debug */,
+				41F5CDD32B2931B000F7FF87 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		8495A6B32B222B0900A8CF9A /* Build configuration list for PBXNativeTarget "aesthetic" */ = {
+		41F5CDF52B29357000F7FF87 /* Build configuration list for PBXNativeTarget "aesthetic" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				8495A6B42B222B0900A8CF9A /* Debug */,
-				8495A6B52B222B0900A8CF9A /* Release */,
+				41F5CDF62B29357000F7FF87 /* Debug */,
+				41F5CDF72B29357000F7FF87 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -561,28 +568,48 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		419EB15B2A550D7D004D9F5D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+		41F5CDD42B29333300F7FF87 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 10.0.0;
+				minimumVersion = 10.19.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		419EB15C2A550D7D004D9F5D /* FirebaseAnalyticsWithoutAdIdSupport */ = {
+		41F5CDD52B29333300F7FF87 /* FirebaseAnalytics */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 419EB15B2A550D7D004D9F5D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			package = 41F5CDD42B29333300F7FF87 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		41F5CDD72B29333300F7FF87 /* FirebaseAnalyticsOnDeviceConversion */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41F5CDD42B29333300F7FF87 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalyticsOnDeviceConversion;
+		};
+		41F5CDD92B29333300F7FF87 /* FirebaseAnalyticsSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41F5CDD42B29333300F7FF87 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalyticsSwift;
+		};
+		41F5CDDB2B29333300F7FF87 /* FirebaseAnalyticsWithoutAdIdSupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41F5CDD42B29333300F7FF87 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseAnalyticsWithoutAdIdSupport;
 		};
-		419EB15E2A550D7D004D9F5D /* FirebaseMessaging */ = {
+		41F5CDDD2B29333300F7FF87 /* FirebaseAppCheck */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 419EB15B2A550D7D004D9F5D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			package = 41F5CDD42B29333300F7FF87 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAppCheck;
+		};
+		41F5CDE02B29348800F7FF87 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41F5CDD42B29333300F7FF87 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseMessaging;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = 412BAFA92A1D4446000A41B0 /* Project object */;
+	rootObject = 41F5CDBB2B2931AF00F7FF87 /* Project object */;
 }
