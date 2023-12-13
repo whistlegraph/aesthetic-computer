@@ -1036,7 +1036,7 @@ async function halt($, text) {
     return true;
   } else if (text === "help") {
     // Go to the Discord for now if anyone types help.
-    jump("https://discord.gg/aesthetic-computer");
+    jump("out:https://discord.gg/aesthetic-computer");
     makeFlash($);
     return true;
   } else if (text === "shillball" || text === "sb") {
