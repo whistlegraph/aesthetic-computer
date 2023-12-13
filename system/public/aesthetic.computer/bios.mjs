@@ -18,6 +18,7 @@ import {
   iOS,
   Android,
   TikTok,
+  Aesthetic,
   AestheticExtension,
 } from "./lib/platform.mjs";
 import { headers } from "./lib/headers.mjs";
@@ -1308,10 +1309,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "ios:send") {
-      const message = { type: content.type, body: content.body };
-      const packedMessage = JSON.stringify(message);
-      if (debug) console.log("📱 Sending to iOS App:", packedMessage);
-      window.webkit?.messageHandlers?.iOSApp.postMessage(packedMessage);
+      iOSAppSend({ type: content.type, body: content.body });
       return;
     }
 
@@ -2702,8 +2700,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "web") {
+      // console.log("Jumping to:", content.url, content.blank);
       if (content.blank === true) {
-        window.open(content.url, "_blank"); // Open URL in a new tab
+        if (Aesthetic) {
+          iOSAppSend({ type: "url", body: content.url });
+        } else {
+          window.open(content.url, "_blank"); // Open URL in a new tab
+        }
       } else {
         window.location.href = content.url; // Redirect in the current tab
       }
@@ -5191,5 +5194,11 @@ window.iOSAppSwitchPiece = (piece) => {
     content: { piece, ahistorical: false, alias: false },
   });
 };
+
+function iOSAppSend(message) {
+  const packedMessage = JSON.stringify(message);
+  console.log("📱 Sending to iOS App:", packedMessage);
+  window.webkit?.messageHandlers?.iOSApp.postMessage(packedMessage);
+}
 
 export { boot };
