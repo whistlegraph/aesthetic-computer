@@ -1,12 +1,25 @@
 // Prutti, 2023.11.09.16.36.06.537
 // Lessons NOT Learnt by pruttipal aka goodiepal
 
-/* #region 📚 README 
+/* #region 📚 README
+5
+7
+8
+11
+13
+14
+20
+26
+28
+31
+39
 #endregion */
 
 /* #region 🏁 TODO 
   (Released)
+  - [] Better scroll limiting related to the bottom of the screen. 
   + Done
+  - [x] Add wheel based scrolling to pruttis.
   - [x] Make params for prutti 1, prutti 2, etc.
   - [x] Print out scrolling text for each.
   - [x] Attach images via the asset url: https://assets.aesthetic.computer/pruttipal/lnl/lnl1.jpeg
@@ -49,7 +62,7 @@ const lessons = [
     title:
       "Lesson NOT Learnt 03 - Purano Sei Diner Kothis & The Guild of the Viking Klokkers",
     text: `
-    I only like words in songs and not _general sytax—> as it is the destroy'er of EMO ideas. << For: Bananskolen I tryed NOT to be: Karin Hansson & Åse Andersson's: _TED (Beta 0.3)__ but was / is still iinternally in the gruppe sean as that person (& as I become of age, I really DO hate being in focus - - - -belive it or not), - - - - But all this brings something interesting to the table, a lot of current intellectualism and Academic discussion’s is actually not about the subject but more about hove the gruppe feels internaly.
+    I only like words in songs and not _general sytax—> as it is the destroy'er of EMO ideas. << For: Bananskolen I tryed NOT to be: Karin Hansson & Åse Andersson's: _TED (Beta 0.3)__ but was / is still iinternally in the gruppe sean as that person (& as I become of age, I really DO hate being in focus - - - -belive it or not), - - - - But all this brings something interesting to the table, a lot of current intellectualism and Academic discussion's is actually not about the subject but more about hove the gruppe feels internaly.
 
     This = the failure of modern debate in general
     - As it is the unspoken-gruppe stucture that makes the individuals spar·kle and not the $ rules $ that govern hove the gruppe is organised; who is allowed to speak etc. & I do really believe that any political idea is just another power system waiting to be put into place. . .
@@ -555,6 +568,87 @@ const lessons = [
     pictures: ["lnl36-1", "lnl36-2"],
     sounds: ["snakkende_shadow_d0nni"],
   },
+  {
+    title: "Lesson NOT Learnt 37",
+    text: `
+    more on distro…
+
+    take notes of almost everything… — but not all… 
+    Trust: din Nisse - Trust: THE GUILD OF THE VIKIGN klokker's
+
+    [09_distribution-manfler.m4a]
+    `,
+    pictures: ["lnl37"],
+    sounds: ["09_distribution-manfler"],
+  },
+  {
+    title: "Lesson NOT Learnt 38",
+    text: `
+    Hygge (Injected With a Poison)
+
+    V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars
+
+    My old old ancient friends of Cholchester, you want that V-lars London feeling - you wonna have that god old V-Lars - TIMMERs<>Drunkard feeling. §§§ Well also if you are living somewhere else you probably still wonna have the same feeling????  
+
+    —THE time is here: 'Kick'Back'For'The'HYGGE and make the sounds from the Faro islands bring you here - and back to Colchester.
+
+    >>>20th of January = Save this mystery date<<< 50 years old and stil living off the grid. * No Mortgage, No Utilities * ((no daughter (sadly) ))
+
+    V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars
+   
+    [dsj.m4a]
+    `,
+    pictures: ["lnl38-1", "lnl38-2"],
+    sounds: ["dsj"],
+  },
+  {
+    title: "Lesson NOT Learnt 39 - Cosmic Entities of Pure Energy",
+    text: `
+    §_§ MAgisKE nisser hates WAR - The Viking Klokker's hates WAR & is down w. monsters, vættur & d.d.dragons = WAR_is_shit_!
+
+    - It takes 5 UFO's to construct an: ANGEL…
+
+    it takes 9 GOODIEBAGS to form 9 demonbags §_§_
+    -come, come & join the guild of the viking klokkers!
+    `,
+    pictures: ["lnl39-1", "lnl39-2", "lnl39-3"],
+  },
+  {
+    title: "Lesson NOT Learnt 40",
+    text: `
+    Bolle Borgen - via. Lasserne > p.r.u.t.t.i
+
+    Fredag's bar'en
+    My Name is: Lasser'ne I am a young Scandi^^^^taken true THE PRUTTI's of Aesthetic.COMPUERrrr, Goodiepal loves me - he surely does - Goodiepal is A mirror, - I come whit a warning…——>>>>>>> § Warning, § Warning, $ Warning: people of:  Scandinavia  you  can  easily * lose 12 years of your life to: Bolle Borgen —— S.U. + U.S.A. culture = long talks > no original thoughts & opinions … YOu are nearly reiterateing the -.brain -.work of -.others - far away from you in culture and time…
+
+    you know what they say when it's: the Wrong Time Capsule 
+
+    § Bend the machine § See the pendulum swing and go in between §
+    § Bend the machine § See the pendulum swing and go in between §
+    _When you hunger number one_
+    _It's no wonderland of fun_
+    _Don't be mean to see “Bolle Borgen”_
+    _You get caught in the machine_
+    _You're caught in the machine_
+    ____________________________________
+    _Here's a message they would say_
+    _Don't forget me yesterday_
+    _'Cause today's no place to stay_
+    _Will you spirit me away?_
+    _You spirit me away_
+    ____________________________________
+    _Bend the machine, Bend the machine_
+    _See the pendulum swing and go in between_
+    _Skip the waves, syncopate_
+    _Forwards backwards_
+
+    and so on…. As *Lasser'ne* I think that I would like to join the guild of the Viking KLOKKER's they say that they have a seat waiting for me at there table…
+
+    [rider_G_las_prut_slip.m4a]
+    `,
+    pictures: ["lnl40-1", "lnl40-2"],
+    sounds: ["rider_G_las_prut_slip"],
+  },
 ];
 
 let lesson = 0,
@@ -642,6 +736,12 @@ function act({ event: e, needsPaint, jump }) {
 
   if (e.is("keyboard:down:arrowleft")) {
     if (lesson > 0) jump(`prutti ${lesson - 1 + 1}`);
+  }
+
+  if (e.is("scroll")) {
+    scroll -= e.y;
+    checkScroll();
+    needsPaint();
   }
 }
 

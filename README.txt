@@ -41,21 +41,81 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** `go` ***
-  - [❤️‍🔥] Make `field`
+  - [❤️‍🔥] Finish `field`.
   - [] Walk to `horizon`
   - [] And then `cave:entrance`
   - [] Check the networking / position shifting.
 
+  + Done
+  - [x] Show an orange or red status if UDP or sockets get disconnected while
+        aesthetic is in use.
+  - [x] Both `socket` and `udp` need disconnect messages /
+        prevent big fish list?
+
+*** `bots` list ***
+  - [] alphapoet
+  - [] angel
+  - [] botce
+  - [] boyfriend 
+  - [] brother
+  - [] dad
+  - [] decode
+  - [] encode
+  - [] gargoyle 
+  - [] girlfriend
+  - [] husband
+  - [] kid
+  - [] liar
+  - [] mom
+  - [] sister
+  - [] wife
+
+*** botce xmas ***
+  - [] Baby blue background and wite text.
+  - [] Snowflake backdrop in paywall. 
+  - [] 6$ 
+  - [] Dec. 23 - Jan ?. 
+  - [] Snowflake Image
+  - [] Share button for screenshotting.
+  - [] Test Instagram share.
+  - [] Add `about` credits.
+
+*** iOS Release ***
+  + Version 1
+  - [] Privacy policy page 
+  - [] Make sure `camera` works good with the swap button.
+  + Done
+  - [X] Sending Pixel Grab images in iMessage Extension 
+  - [X] `download` popup native share interface for storing image.
+  - [X] Change app short name as it appears on homescreen to "aesthetic".
+  - [X] Enable camera access 
+  - [X] iMessage plugin (is webview allowed there?)
+  - [X] Launch screen
+  - [X] Screen formatting (margins, padding)
+  - [X] Enable microphone access 
+  - [X] Customize allow messages (camera, microphone, notifications)
+  - [X] Offline access 
+  - [X] App icon
+  - [X] Sign up work
+  - [X] Logging out (broken) 
+  - [X] Notification for `scream`. (via the integrated GCP account) 
+  - [X] Notification invite for `pond`.
+  - [X] Test ordering a sticker (check if that is illegal) 
+  - [X] Make Offline access page compliant with apple submission guidelines + beautify 
+  - [X] Disable landscape mode 
+  - [X] Provide a method in your app for a user to opt out from receiving notifs
+
+
+  + Later Version
+  - [] Reload when crashing
+  - [] Classic Sticker pack
+  - [] Custom keyboard
+
+  
+
 *** `pond` production ***
   - [] Finish the basics in `go`.
   - [] See `pond.mjs`.
-
-*** commit shortcut ***
-  - [] Shortcut for committing.
-
-*** dockerize the dev environment ***
-  - [] How difficult would it be to containerize the whole development
-       environment to help contributors?
 
 *** automate honest fabric checkout ***
   - [] https://www.honestfabric.com/shop/checkout

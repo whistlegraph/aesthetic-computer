@@ -5,7 +5,8 @@
 
 /* #region todo 📓 
  + Later
-- [] `code.channel` should return a promise, and wait for a `code-channel:subbed`
+ - [] `code.channel` should return a promise, and wait for a
+      `code-channel:subbed`.
     event here? This way users get better confirmation if the socket
     doesn't go through or if there is a server issue. 23.07.04.18.01
     (Might not actually be that necessary.)
@@ -32,6 +33,12 @@ import fs from "fs";
 import crypto from "crypto";
 import dotenv from "dotenv";
 import { exec } from "child_process";
+
+// FCM (Firebase Cloud Messaging)
+import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
+import serviceAccount from "./aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json" assert { type: "json" };
+import { getMessaging } from "firebase-admin/messaging";
+initializeApp({ credential: cert(serviceAccount) });
 
 dotenv.config();
 
@@ -93,7 +100,7 @@ try {
   });
 
   await sub.subscribe("scream", (message) => {
-    everyone(pack("scream", message, "screamer"));
+    everyone(pack("scream", message, "screamer")); // Socket back to everyone.
   });
 } catch (err) {
   console.error("🔴 Could not connect to `redis` instance.");
@@ -168,7 +175,8 @@ await start();
 // *** Socket Server Initialization ***
 // #region socket
 let wss;
-let connections = {};
+let connections = {}; // All active websocket connections.
+const worldClients = {}; // All connected 🧒 to a space like `field`.
 
 let connectionId = 0; // TODO: Eventually replace with a username arrived at through
 //                             a client <-> server authentication function.
@@ -257,19 +265,57 @@ wss.on("connection", (ws, req) => {
     msg.id = id; // TODO: When sending a server generated message, use a special id.
     if (msg.type === "scream") {
       // TODO: Alert all connected users via redis pub/sub to the scream.
-      pub.publish("scream", msg.content, (error, reply) => {
-        if (error) {
-          console.error("Error publishing message:", error);
-        } else {
-          console.log(`Message published to channel ${channel}`);
-        }
-      });
+      console.log("😱 About to scream...");
+      pub
+        .publish("scream", msg.content)
+        .then((result) => {
+          console.log("😱 Scream succesfully published:", result);
+          getMessaging()
+            .send({
+              notification: { title: "😱", body: msg.content },
+              topic: "scream",
+              data: {
+                piece: msg.content.indexOf("pond") > -1 ? "pond" : "",
+              },
+            })
+            .then((response) => {
+              console.log("☎️  Successfully sent notification:", response);
+            })
+            .catch((error) => {
+              console.log("📵  Error sending notification:", error);
+            });
+        })
+        .catch((error) => {
+          console.log("🙅‍♀️ Error publishing scream:", error);
+        });
+      // Send a notification to all devices subscribed to the `scream` topic.
     } else if (msg.type === "code-channel:sub") {
       // Filter code-channel updates based on this user.
       codeChannel = msg.content;
       if (!codeChannels[codeChannel]) codeChannels[codeChannel] = new Set();
       codeChannels[codeChannel].add(id);
     } else {
+      // `world:field`
+      if (msg.type.startsWith("world:field")) {
+        const label = (msg.label = msg.type.split(":").pop());
+
+        // TODO:
+        // Keep serverside userlist specific to field.
+        // Store client position on disconnect, based on their handle.
+
+        if (label === "join") {
+          // Add user to world client list.
+          worldClients[msg.id] = { pos: msg.content.pos };
+
+          // TODO: Could now send the client list directly back to this user.
+          ws.send(pack("world:field:list", worldClients, id));
+        } else if (label === "move") {
+          console.log("🚶‍♂️", msg.content);
+        } else {
+          console.log(`${label}:`, msg.content);
+        }
+      }
+
       everyone(JSON.stringify(msg)); // Relay any other message to every user.
     }
   });
@@ -277,6 +323,9 @@ wss.on("connection", (ws, req) => {
   // More info: https://stackoverflow.com/a/49791634/8146077
   ws.on("close", () => {
     console.log("🚪 Someone left:", id, "Online:", wss.clients.size, "🫂");
+    // console.log("Left...", id, worldClients);
+    delete worldClients[id];
+
     everyone(pack("left", { id, count: wss.clients.size }));
     delete connections[id];
 
@@ -298,7 +347,7 @@ function everyone(string) {
 }
 
 // Sends a message to a particular set of client ids on
-// this instance that have are part of the `subs` Set.
+// this instance that are part of the `subs` Set.
 function subscribers(subs, msg) {
   subs.forEach((connectionId) => {
     connections[connectionId]?.send(msg);

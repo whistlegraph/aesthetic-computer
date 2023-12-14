@@ -286,10 +286,11 @@ function paint({ screen, wipe, ink, pan, unpan, paste, layer }) {
   unpan();
 
   // 📏 HUD
+  // TODO: Make this a generic module for printing user lists? 23.12.04.15.47
   allk.forEach((k, i) => {
-    const row = i * 10;
-    ink("black").write(all[k].handle, { x: 7, y: 18 + 1 + row });
-    ink(all[k].color).write(all[k].handle, { x: 6, y: 18 + row });
+    const row = i * 12;
+    ink("black").write(all[k].handle, { x: 7, y: 21 + 1 + row });
+    ink(all[k].color).write(all[k].handle, { x: 6, y: 21 + row });
   });
 
   // 🧮 Data

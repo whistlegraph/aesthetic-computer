@@ -19,7 +19,7 @@ const { round, sin, random, max, floor } = Math;
 const { keys } = Object;
 import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
-import { headers } from "./console-headers.mjs";
+import { headers } from "./headers.mjs";
 import { logs } from "./logs.mjs";
 import { soundWhitelist } from "./sound/sound-whitelist.mjs";
 
@@ -31,6 +31,7 @@ export const noWorker = { onMessage: undefined, postMessage: undefined };
 let ROOT_PIECE = "prompt"; // This gets set straight from the host html file for the ac.
 let USER; // A holder for the logged in user. (Defined in `boot`)
 let LAN_HOST; // The IP address of the hosting machine on the local network.
+let SHARE_SUPPORTED; // Whether navigator.share is supported. (For `dl`)
 // (For development and IRL workshops)
 let debug = false; // This can be overwritten on boot.
 let visible = true; // Is aesthetic.computer visibly rendering or not?
@@ -40,9 +41,9 @@ const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading 
 import { setDebug } from "../disks/common/debug.mjs";
 
 const defaults = {
-  boot: ({ cursor, screen: { width, height }, resolution }) => {
-    // resize(width / 2, height / 2);
+  boot: ({ cursor, screen: { width, height }, resolution, api }) => {
     if (location.host.indexOf("botce") > -1) resolution(width, height, 0);
+    if (platform.AestheticExtension) resolution(width, height, 0);
     cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
@@ -231,6 +232,8 @@ let currentPath,
 function updateHUDStatus() {
   if (udp.connected && socket?.connected) {
     currentHUDStatusColor = "lime";
+  } else if (currentHUDStatusColor === "lime") {
+    currentHUDStatusColor = "red";
   }
 }
 
@@ -518,6 +521,49 @@ function isLeaving() {
 
 // For every function to access.
 const $commonApi = {
+  // A wrapper for `load(parse(...))`
+  // Make it `ahistorical` to prevent a url change.
+  // Make it an `alias` to prevent a metadata change for writing landing or
+  // router pieces such as `freaky-flowers` -> `wand`. 22.11.23.16.29
+  // Jump delay...
+  jump: function jump(to, ahistorical = false, alias = false) {
+    let url;
+    const jumpOut =
+      to.startsWith("out:") || (to.startsWith("http") && platform.Aesthetic);
+
+    if ((to.startsWith("http") && !to.endsWith(".mjs")) || jumpOut) {
+      to = to.replace("out:", "");
+      try {
+        url = new URL(to);
+        $commonApi.net.web(to, jumpOut);
+        return;
+      } catch (e) {
+        // Could not construct a valid url from the jump, so we will be
+        // running a local aesthetic.computer piece.
+        return;
+      }
+    } else {
+      leaving = true;
+    }
+
+    function loadLine() {
+      load(parse(to), ahistorical, alias, false, callback);
+    }
+
+    let callback;
+    leaveLoad = () => {
+      // Intercept returns to the prompt when taping from a piece directly.
+      if ($commonApi.rec.videoOnLeave && to.split("~")[0] === "prompt") {
+        to = "video";
+        $commonApi.rec.videoOnLeave = false;
+        $commonApi.rec.cut(loadLine);
+      } else {
+        loadLine(); // Or just load normally.
+      }
+    };
+    return (cb) => (callback = cb);
+  },
+  canShare: false, // Whether navigator.share is enabled for mobile devices.
   leaving: isLeaving,
   handle: () => {
     return HANDLE;
@@ -1360,11 +1406,11 @@ async function session(slug, forceProduction = false, service) {
 
   if (typeof session === "string") return session;
 
-  if (debug && logs.session) {
-    console.log(
-      `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`,
-    );
-  }
+  //if (debug && logs.session) {
+  console.log(
+    `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`,
+  );
+  //}
   // Return the active session if the server knows it's "Ready", otherwise
   // wait for the one we requested to spin up.
   // (And in debug mode we just get a local url from "/session" so no need
@@ -1945,8 +1991,12 @@ class Painting {
       const oldActivePaintApi = $activePaintApi;
       const painting = new Painting();
       $activePaintApi = painting.api;
-      const pix = graph.makeBuffer(...arguments, painting, painting.api);
-
+      // Mock out the screen here using the arguments.
+      $activePaintApi.screen = {
+        width: arguments[0],
+        height: arguments[1],
+      };
+      const pix = graph.makeBuffer(...arguments, painting, $activePaintApi);
       $activePaintApi = oldActivePaintApi;
       return pix;
     };
@@ -2291,6 +2341,7 @@ async function load(
         sourceToRun = source;
       }
 
+      /*
       if (sourceToRun.startsWith("// 404")) {
         let found = false;
         try {
@@ -2314,6 +2365,7 @@ async function load(
           }
         }
       }
+      */
 
       // Automatically replace relative imports with absolute ones.
       const twoDots =
@@ -2350,9 +2402,11 @@ async function load(
     module = await import(blobUrl);
   } catch (err) {
     // 🧨 Continue with current module if one has already loaded.
-    console.error(`😡 "${path}" load failure:`, err);
+    console.error(`😡 "${path}" load failure:`, err, "first load:", firstLoad);
     loadFailure = err;
     loading = false;
+
+    if (firstLoad) $commonApi.jump("404");
     return false;
   }
   // console.log("Module load time:", performance.now() - moduleLoadTime, module);
@@ -2420,6 +2474,7 @@ async function load(
   // TODO: Before we load the disk, in case of needing to reload remotely on failure? 23.01.27.12.48
   let receiver; // Handles incoming messages from the socket.
   const forceProd = false; // For testing prod socket servers in development.
+  // TOOD: Hoist this to an environment variable?
 
   // Requests a session-backend and connects via websockets.
   function startSocket() {
@@ -2484,6 +2539,10 @@ async function load(
             // setTimeout(function () {
             //   currentHUDStatusColor = undefined;
             // }, 250);
+          },
+          () => {
+            // Post-disconnection logic.
+            updateHUDStatus();
           },
         );
       })
@@ -2762,47 +2821,6 @@ async function load(
   // 💡 Eventually this could merge with net.web so there is one command
   //    to either go to a piece within the system if one loads... or an entirely
   //    different url somehow! 23.02.07.21.21
-
-  // A wrapper for `load(parse(...))`
-  // Make it `ahistorical` to prevent a url change.
-  // Make it an `alias` to prevent a metadata change for writing landing or
-  // router pieces such as `freaky-flowers` -> `wand`. 22.11.23.16.29
-  // Jump delay...
-  $commonApi.jump = function jump(to, ahistorical = false, alias = false) {
-    leaving = true;
-
-    let url;
-    const jumpOut = to.startsWith("out:");
-
-    if ((to.startsWith("http") && !to.endsWith(".mjs")) || jumpOut) {
-      to = to.replace("out:", "");
-      try {
-        url = new URL(to);
-      } catch (e) {
-        // Could not construct a valid url from the jump, so we will be
-        // running a local aesthetic.computer piece.
-      }
-    }
-
-    function loadLine() {
-      load(parse(to), ahistorical, alias, false, callback);
-    }
-
-    let callback;
-    leaveLoad = url
-      ? () => $commonApi.net.web(to, jumpOut)
-      : () => {
-          // Intercept returns to the prompt when taping from a piece directly.
-          if ($commonApi.rec.videoOnLeave && to.split("~")[0] === "prompt") {
-            to = "video";
-            $commonApi.rec.videoOnLeave = false;
-            $commonApi.rec.cut(loadLine);
-          } else {
-            loadLine(); // Or just load normally.
-          }
-        };
-    return (cb) => (callback = cb);
-  };
 
   $commonApi.alias = function alias(name, colon, params) {
     $commonApi.jump(
@@ -3141,6 +3159,8 @@ async function makeFrame({ data: { type, content } }) {
     ROOT_PIECE = content.rootPiece;
     USER = content.user;
     LAN_HOST = content.lanHost;
+    SHARE_SUPPORTED = content.shareSupported;
+    $commonApi.canShare = SHARE_SUPPORTED;
     $commonApi.net.lan = LAN_HOST;
     $commonApi.user = USER;
 
@@ -3157,9 +3177,34 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Capture the browser scroll wheel / scroll effect.
+  if (type === "scroll") {
+    const $api = cachedAPI;
+    const data = { ...content };
+    Object.assign(data, {
+      device: "wheel",
+      is: (e) => e === type,
+    });
+    $api.event = data;
+    try {
+      act($api);
+    } catch (e) {
+      console.warn("️ ✒ Act failure...", e);
+    }
+    return;
+  }
+
   // Jump to any piece slug from the bios.
   if (type === "jump") {
-    $commonApi.jump(content.piece, true, true);
+    console.log("🏃 Jumping to:", content);
+    let ahistorical, alias;
+    if (content.ahistorical === undefined) {
+      ahistorical = true;
+    } else ahistorical = content.ahistorical;
+    if (content.alias === undefined) {
+      alias = true;
+    } else alias = content.alias;
+    $commonApi.jump(content.piece, ahistorical, alias);
     return;
   }
 
@@ -3183,6 +3228,13 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "udp:connected") {
     udp.connected = true;
+    updateHUDStatus();
+    $commonApi.needsPaint();
+    return;
+  }
+
+  if (type === "udp:disconnected") {
+    udp.connected = false;
     updateHUDStatus();
     $commonApi.needsPaint();
     return;
