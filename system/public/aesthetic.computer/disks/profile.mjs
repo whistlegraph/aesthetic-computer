@@ -184,12 +184,17 @@ function paint({ geo, wipe, help, ink, pen, user, screen, ui, text, paste }) {
     );
   }
 
-  if (profile && !painting && paintings) {
+  if (profile && !painting && !paintings) {
+    console.log("Paintings:", paintings);
     ink(255).write(
       `${FETCHING}${ellipsisTicker.text(help.repeat)}`,
       { center: "xy" },
       "black",
     );
+  }
+
+  if (profile && !painting && paintings?.length === 0) {
+    ink(255).write(`No paintings completed.`, { center: "xy" }, "black");
   }
 
   if (paintings?.length > 0) {

@@ -5,16 +5,16 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🧡] Fix instagram not connecting error.
-  - [-] Test join `field` simultaneously (with forceProd on) and ensure
-        there are no race conditions or conflicts. (Implement jamsocket's locks?)
-  - [] Always lerp towards next character positions from the network.
-  - [] Make the world scrollable with some background grass.
+  - [💙] Store persistent position on the server / in the database. 
+  - [] Finish "world:fields:list".
   - [] Move common functionality to a `world.mjs` library file.
-  - [] Store persistent position on the server / in the database. 
-    - [] What is the grass was grown on the server / grown according to
-        server time / (how how do I synchronize server time to everyone?)
   + Done
+  - [x] Store local position in store.
+  - [x] Make the world scrollable with some background grass.
+  - [x] Always lerp towards next character positions from the network.
+  - [x] Test join `field` simultaneously (with forceProd on) and ensure
+        there are no race conditions or conflicts. (Implement jamsocket's locks?)
+  - [x] Fix instagram not connecting error.
   - [x] Keyboard stops working after tabbing out and returning. 
     - [x] Android debugger session with @ida's phone.
   - [x] Remove gutter. 
@@ -42,7 +42,9 @@
 
 // 🧒
 class Kid {
+  net;
   pos = { x: 0, y: 0 };
+  netPos;
   size = 16;
   leash = { x: 0, y: 0, len: 0, max: 12, deadzone: 8 };
   face = "meh";
@@ -52,16 +54,20 @@ class Kid {
   #messageDuration;
   #messageProgress = 0;
 
-  constructor(handle, pos = this.pos, face) {
-    console.log("🧒 From:", handle);
+  constructor(handle, pos = this.pos, face, net = false) {
+    console.log("🧒 From:", handle || "nub");
+
     this.pos = pos;
+    if (net) this.netPos = { ...pos };
+
     this.face = face || this.face;
+    this.net = net; // Is it from the network?
   }
 
   // Show a message above the kid's head for `time` frames.
   write(text, time = 240) {
     this.message = text;
-    this.#messageDuration = 120;
+    this.#messageDuration = time;
   }
 
   // Change the mood (face) of the kid.
@@ -141,6 +147,15 @@ class Kid {
 
   // Simulate the kid's movement and time messages.
   sim({ num }, net) {
+    // 🗼 Network Prediction
+    if (this.net && this.netPos) {
+      this.pos.x = num.lerp(this.pos.x, this.netPos.x, 0.25);
+      this.pos.y = num.lerp(this.pos.y, this.netPos.y, 0.25);
+      return; // No need to compute movements, locally.
+    }
+
+    // Local simulation.
+
     // 🗨️ Message
     if (this.message) {
       if (this.#messageProgress < this.#messageDuration) {
@@ -239,12 +254,21 @@ class Cam {
 }
 
 let me, world, cam, input, inputBtn, server;
+const scenery = {
+  grasses: [
+    { x: 190, y: 170 },
+    { x: 276, y: 286 },
+    { x: 128, y: 128 },
+    { x: 400, y: 400 },
+    { x: 500, y: 512 },
+  ],
+};
 const kids = {};
 
 const { keys } = Object;
 
 // 🥾 Boot
-function boot({
+async function boot({
   api,
   help,
   wipe,
@@ -254,18 +278,24 @@ function boot({
   send,
   net: { socket },
   sound,
+  store,
 }) {
   // ✨ Initialization & Interface
   wipe(0);
-  world = new World();
+  world = new World(512, 512);
+  const pos = (await store.retrieve("field:pos")) || {
+    x: undefined,
+    y: undefined,
+  };
+
   me = new Kid(
     handle(),
-    { x: world.size.width / 2, y: world.size.height / 2 },
+    { x: pos.x || world.size.width / 2, y: pos.y || world.size.height / 2 },
     help.choose("meh", "smile", "frown"),
   );
   cam = new Cam(
-    screen.width / 2 - world.size.width / 2,
-    screen.height / 2 - world.size.height / 2,
+    screen.width / 2 - me.pos.x,
+    screen.height / 2 - me.pos.y,
   );
 
   const scheme = {
@@ -290,7 +320,7 @@ function boot({
       ) {
         if (input.text === "sad") input.text = "frown";
         me.mood(input.text);
-        server.send("field:mood", me.face); // Send to server.
+        server.send("world:field:mood", me.face); // Send to server.
       } else if (
         input.text === "red" ||
         input.text === "yellow" ||
@@ -304,10 +334,10 @@ function boot({
         input.text === "white"
       ) {
         me.tint(input.text);
-        server.send("field:tint", me.color); // Send to server.
+        server.send("world:field:tint", me.color); // Send to server.
       } else {
         me.write(input.text); // Display message on 🧒.
-        server.send("field:write", me.message); // Send to server.
+        server.send("world:field:write", me.message); // Send to server.
       }
 
       // Clear text, hide cursor block, and close keyboard.
@@ -341,29 +371,41 @@ function boot({
     if (type === "left") {
       console.log("️✌️ Goodbye:", id);
       delete kids[id];
+      return;
     }
 
     if (type === "joined") {
       console.log("️👋 Hello:", id);
+      return;
     }
 
     if (type.startsWith("connected")) {
-      server.send("field:join", { handle: me.handle, pos: me.pos });
-      console.log("🪴 Welcome:", me.handle, `(${id})`);
+      server.send("world:field:join", { handle: me.handle, pos: me.pos });
+      console.log("🪴 Welcome:", me.handle || "nub", `(${id})`);
+      return;
+    }
+
+    // TODO: How can this be oriented around storing a server list.
+    if (type === "world:field:list") {
+      console.log("🗞️ Listing all field clients...");
+      keys(content).forEach((key) => {
+        console.log(key, content[key]);
+      });
+      return;
     }
 
     if (server.id !== id) {
-      if (type === "field:tint") {
+      if (type === "world:field:tint") {
         const kid = kids[id];
         if (kid) kid.tint(content);
       }
 
-      if (type === "field:mood") {
+      if (type === "world:field:mood") {
         const kid = kids[id];
         if (kid) kid.mood(content);
       }
 
-      if (type === "field:write") {
+      if (type === "world:field:write") {
         const kid = kids[id];
         if (kid) {
           kid.write(content);
@@ -378,21 +420,25 @@ function boot({
         }
       }
 
-      if (type === "field:write:clear") {
+      if (type === "world:field:write:clear") {
         const kid = kids[id];
         if (kid) kid.write(null);
       }
 
-      if (type === "field:join") {
+      if (type === "world:field:join") {
         if (!kids[id]) {
-          kids[id] = new Kid(content.handle || id, content.pos);
-          server.send("field:join", { handle: me.handle, pos: me.pos });
+          kids[id] = new Kid(content.handle || id, content.pos, me.face, true);
+          server.send("world:field:join", {
+            handle: me.handle,
+            pos: me.pos,
+            face: me.face,
+          });
         }
       }
 
-      if (type === "field:move") {
+      if (type === "world:field:move") {
         const kid = kids[id];
-        if (kid) kid.pos = content.pos;
+        if (kid) kid.netPos = content.pos;
       }
     }
   });
@@ -406,6 +452,14 @@ function paint({ api, wipe, layer, ink, pan, unpan, pen, screen, leaving }) {
   // 🌎 + 🧒 World & Players
   pan(cam.x, cam.y);
   world.paint(api);
+
+  scenery.grasses.forEach((grass) => {
+    ink("lime")
+      .line(grass.x, grass.y, grass.x, grass.y - 10)
+      .line(grass.x, grass.y, grass.x - 5, grass.y - 6)
+      .line(grass.x, grass.y, grass.x + 5, grass.y - 6);
+  });
+
   // layer(1);
 
   inputBtn.paint((btn) => {
@@ -527,11 +581,20 @@ function act({ event: e, api, send, jump, hud, piece, screen }) {
 }
 
 // 🧮 Sim
-function sim({ api, geo }) {
+function sim({ api, geo, simCount, screen }) {
   me.sim(api, function net(kid) {
-    if (kid.pos) server.send("field:move", kid);
-    if (kid.clear) server.send("field:write:clear", kid);
+    if (simCount % 4n === 0n) {
+      // Send position updates at a rate of 30hz  (120 / 4).
+      if (kid.pos) server.send("world:field:move", kid);
+    }
+    if (kid.clear) server.send("world:field:write:clear", kid);
   }); // 🧒 Movement
+  me.screenPos(cam, world);
+
+  cam.x = screen.width / 2 - me.pos.x; //world.size.width / 2;// - me.pos.x;
+  cam.y = screen.height / 2 - me.pos.y; //world.size.height / 2;// - me.pos.y;
+
+  keys(kids).forEach((key) => kids[key].sim(api)); // Networked kids.
   input.sim(api); // 💬 Chat
 
   const btnPos = me.screenPos(cam, world); // Button to activate prompt.
@@ -548,9 +611,11 @@ function sim({ api, geo }) {
 // }
 
 // 👋 Leave
-// function leave() {
-//  // Runs once before the piece is unloaded.
-// }
+function leave({ store }) {
+  // Persist current position.
+  store["field:pos"] = me.pos;
+  store.persist("field:pos");
+}
 
 // 📰 Meta
 function meta() {
@@ -571,7 +636,7 @@ function meta() {
 // }
 
 export const system = "world";
-export { boot, paint, act, sim, meta };
+export { boot, paint, act, sim, leave, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)

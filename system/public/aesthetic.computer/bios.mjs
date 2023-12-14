@@ -13,8 +13,15 @@ import { apiObject, extension } from "./lib/helpers.mjs";
 import { choose, shuffleInPlace } from "./lib/help.mjs";
 import { parse, slug } from "./lib/parse.mjs";
 import * as Store from "./lib/store.mjs";
-import { MetaBrowser, iOS, Android, TikTok } from "./lib/platform.mjs";
-import { headers } from "./lib/console-headers.mjs";
+import {
+  MetaBrowser,
+  iOS,
+  Android,
+  TikTok,
+  Aesthetic,
+  AestheticExtension,
+} from "./lib/platform.mjs";
+import { headers } from "./lib/headers.mjs";
 import { logs } from "./lib/logs.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 import { timestamp, radians } from "./lib/num.mjs";
@@ -98,6 +105,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     pauseTapePlayback,
     resumeTapePlayback;
 
+  let shareFile, shareFileCallback; // A temporary storage container for a pre-prepped
+  // file download to use on a user interaction.
+
   // A layer for modal messages such as "audio engine is off".
   const modal = document.createElement("div");
   modal.id = "modal";
@@ -141,13 +151,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     freezeFrameGlaze = false;
 
   const screen = apiObject("pixels", "width", "height");
+  let subdivisions = 1; // Gets set in frame.
 
   const REFRAME_DELAY = 250;
   let curReframeDelay = REFRAME_DELAY;
   let lastGap = 0;
   let density = 2; // added to window.devicePixelRatio
 
-  const startGap = location.host.indexOf("botce") > -1 ? 0 : 8;
+  const startGap =
+    location.host.indexOf("botce") > -1 || AestheticExtension ? 0 : 8;
 
   // Runs one on boot & every time display resizes to adjust the framebuffer.
   function frame(width, height, gap = startGap) {
@@ -216,7 +228,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     const gapSize = gap * window.devicePixelRatio;
 
-    let subdivisions = 1;
+    subdivisions = 1;
 
     if (width === undefined && height === undefined) {
       // Automatically set and frame a reasonable resolution.
@@ -1070,6 +1082,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       rootPiece: window.acSTARTING_PIECE,
       user: window.acUSER,
       lanHost: window.acLAN_HOST,
+      shareSupported: navigator.share !== undefined,
     },
   };
 
@@ -1249,9 +1262,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     //console.log("Update Budget: ", round((updateDelta / updateRate) * 100));
     // TODO: Output this number graphically.
 
-    //const renderNow = performance.now();
-    //const renderDelta = performance.now() - renderNow;
-    //console.log("Render Budget: ", round((renderDelta / renderRate) * 100));
+    // const renderNow = performance.now();
+    // const renderDelta = performance.now() - renderNow;
+    // console.log("Render Budget: ", round((renderDelta / renderRate) * 100));
+
     // TODO: Output this number graphically.
 
     //render3d();
@@ -1277,6 +1291,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+    // Respond to a request to send a message through to the iMessage extension.
+    if (type === "imessage-extension:send") {
+      let body = content.body.pixels
+        ? await bufferToBlob(content.body.pixels, undefined, {
+            scale: 6,
+            dataURL: true,
+          })
+        : content.body;
+      const message = { type: content.type, body };
+      const packedMessage = JSON.stringify(message);
+      if (debug) console.log("🗨️ Sending to iMessage:", packedMessage);
+      window.webkit?.messageHandlers?.iMessageExtension.postMessage(
+        packedMessage,
+      );
+      return;
+    }
+
+    if (type === "ios:send") {
+      iOSAppSend({ type: content.type, body: content.body });
+      return;
+    }
+
     // Connect to a UDP server,
     // which will pass messages to the disk runner.
     if (type === "udp:connect") {
@@ -1860,14 +1896,42 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         form.addEventListener("keydown", (e) => {
           if (e.key === "Enter") {
             e.preventDefault();
+
             const enter = { ...enterEvent };
             enter.shift = e.shiftKey;
             enter.alt = e.altKey;
             enter.ctrl = e.ctrlKey;
             keyboard.events.push(enter);
-          }
 
-          if (e.key === "Home") {
+            if (
+              (input.value === "dl" || input.value === "download") &&
+              shareFile
+            ) {
+              const share = () => {
+                navigator
+                  .share({
+                    files: [shareFile],
+                    title: "Share Painting",
+                    text: "Share your painting!",
+                  })
+                  .then(() => {
+                    console.log("📥 Share was successful.");
+                    shareFile = null;
+                  })
+                  .catch((error) => {
+                    console.log("📥 Sharing failed:", error);
+                    shareFile = null;
+                  });
+                shareFileCallback = null;
+              };
+
+              if (shareFile) {
+                share();
+              } else {
+                shareFileCallback = share;
+              }
+            }
+          } else if (e.key === "Home") {
             e.preventDefault();
             const home = { name: "keyboard:down:home", key: "Home" };
             home.shift = e.shiftKey;
@@ -2374,13 +2438,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "keyboard:close") {
       // if (keyboardFocusLock) return; // Deprecated: 23.10.02.23.18
-      console.log("⌨️ Keyboard closing...");
+      // console.log("⌨️ Keyboard closing...");
       keyboard?.input.blur();
       return;
     }
 
     if (type === "keyboard:open") {
-      console.log("⌨️ Keyboard opening...");
+      // console.log("⌨️ Keyboard opening...");
       if (keyboardFocusLock) return;
       keyboardFocusLock = false;
       currentPieceHasKeyboard = true;
@@ -2636,8 +2700,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "web") {
+      // console.log("Jumping to:", content.url, content.blank);
       if (content.blank === true) {
-        window.open(content.url, "_blank"); // Open URL in a new tab
+        if (Aesthetic) {
+          iOSAppSend({ type: "url", body: content.url });
+        } else {
+          window.open(content.url, "_blank"); // Open URL in a new tab
+        }
       } else {
         window.location.href = content.url; // Redirect in the current tab
       }
@@ -4232,8 +4301,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   async function receivedDownload({ filename, data, modifiers }) {
     console.log("💾 Downloading:", filename);
     // if (data) console.log("Data:", typeof data);
+    // if (modifiers.sharing === true) presharingFile = true;
 
-    let object;
+    let object, blob;
     let MIME = "application/octet-stream"; // Default content type.
     const ext = extension(filename);
 
@@ -4266,7 +4336,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       if (data) {
         // Download locally if data is provided.
-        const blob = await bufferToBlob(data, MIME, modifiers);
+        blob = await bufferToBlob(data, MIME, modifiers);
         object = URL.createObjectURL(blob, { type: MIME });
       } else {
         // Or from the storage network.
@@ -4318,12 +4388,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
-    const a = document.createElement("a");
-    a.href = object;
-    a.target = "_blank";
-    a.download = filename.split("/").pop(); // Remove any extra paths.
-    a.click();
-    if (typeof a.href !== "string") URL.revokeObjectURL(a.href);
+    // Check if navigator.share is supported
+    if (modifiers.sharing === true && navigator.share) {
+      shareFile = new File(
+        [blob || new Blob([data], { type: MIME })],
+        filename.split("/").pop(),
+        { type: MIME, lastModified: new Date().getTime() },
+      );
+      shareFileCallback?.(); // Run the callback if necessary, which should
+      // prevent any special race conditions.
+    } else {
+      // Fallback to download if navigator.share is not supported
+      const a = document.createElement("a");
+      a.href = object;
+      a.target = "_blank";
+      a.download = filename.split("/").pop(); // Remove any extra paths.
+      a.click();
+      if (typeof a.href !== "string") URL.revokeObjectURL(a.href);
+    }
 
     // Picture in Picture: Image Download UI? 22.11.24.08.51
     //const container = document.createElement('div');
@@ -4341,7 +4423,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Add a crop to square modifier.
 
-  async function bufferToBlob(data, MIME, modifiers) {
+  async function bufferToBlob(data, MIME = "image/png", modifiers) {
     let can;
     // Encode a pixel buffer as a png.
     // See also: https://stackoverflow.com/questions/11112321/how-to-save-canvas-as-png-image
@@ -4386,7 +4468,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       can = can2;
     }
 
-    const blob = await new Promise((resolve) => can.toBlob(resolve, MIME, 100));
+    const blob = await new Promise((resolve) => {
+      if (modifiers?.dataURL === true) {
+        resolve(can.toDataURL(MIME));
+      } else {
+        can.toBlob(resolve, MIME, 100);
+      }
+    });
     return blob;
   }
 
@@ -4844,6 +4932,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
   }
 
+  // Window Scroll 📜
+  window.addEventListener("wheel", function (event) {
+    send({
+      type: "scroll",
+      content: {
+        x: event.deltaX / subdivisions,
+        y: event.deltaY / subdivisions,
+      },
+    });
+  });
+
   // Window Focus
   window.addEventListener("focus", function (e) {
     send({ type: "focus-change", content: true });
@@ -5081,6 +5180,25 @@ function blobToArrayBuffer(blob) {
     reader.onerror = reject;
     reader.readAsArrayBuffer(blob);
   });
+}
+
+window.iMessageExtensionResize = (mode) => {
+  console.log("📱 iMessage Extension Resized:", mode);
+  window.acSEND({ type: "imessage-extension:resized", content: { mode } });
+};
+
+window.iOSAppSwitchPiece = (piece) => {
+  console.log("📱 iOS Switch Piece:", piece);
+  window.acSEND({
+    type: "jump",
+    content: { piece, ahistorical: false, alias: false },
+  });
+};
+
+function iOSAppSend(message) {
+  const packedMessage = JSON.stringify(message);
+  console.log("📱 Sending to iOS App:", packedMessage);
+  window.webkit?.messageHandlers?.iOSApp.postMessage(packedMessage);
 }
 
 export { boot };
