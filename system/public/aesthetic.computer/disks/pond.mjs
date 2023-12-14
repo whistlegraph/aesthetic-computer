@@ -5,46 +5,65 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Add user list.
+  - [-] Change title of tab / page to use parameters after a dot or dash?
+  - [] Don't allow a user to send marks unless they are connected.
   - [] Better backdrops / make sounds after a gesture is made.
+  + Done
+  - [x] Add user list.
 #endregion */
 
 let server;
 const activeMarks = {};
 const fadingMarks = [];
 const fadeMax = 1200;
+const all = {};
+
+const { keys } = Object;
 
 // 🥾 Boot
-function boot({ wipe, net: { socket } }) {
+function boot({ wipe, net: { socket }, handle }) {
   wipe(0);
   server = socket((id, type, content) => {
     if (type === "left") {
       console.log("️✌️ Goodbye:", id);
       delete activeMarks[id];
+      delete all[id];
     }
     if (type === "joined") {
       console.log("️👋 Hello:", id);
     }
     if (type.startsWith("connected")) {
-      // Respond to: "connected" or "connected:already"
       console.log("Your ID is:", id);
+      all[id] = { handle: handle() || "fish" };
+      server.send("pond:join", { ...all[id] });
     }
 
     if (server.id !== id) {
+      if (type === "pond:join") {
+        if (!all[id]) {
+          all[id] = { ...content };
+          server.send("pond:join", { ...all[id] });
+        }
+        return;
+      }
+
       if (type === "pond:new") {
         //pointers[id] = content;
         activeMarks[id] = { gesture: [content] };
+        return;
       }
 
       if (type === "pond:draw") {
         //pointers[id] = content;
         activeMarks[id]?.gesture.push(content);
+        return;
       }
 
       if (type === "pond:lift") {
         //pointers[id] = content;
         fadingMarks.push({ ...activeMarks[id], fade: fadeMax });
         delete activeMarks[id];
+        return;
       }
     }
   });
@@ -63,7 +82,7 @@ function paint({ wipe, ink, screen, help }) {
     );
   });
 
-  Object.keys(activeMarks).forEach((m) => {
+  keys(activeMarks).forEach((m) => {
     const mark = activeMarks[m];
     if (mark.gesture) {
       ink(0, 255, 255).poly(
@@ -73,6 +92,13 @@ function paint({ wipe, ink, screen, help }) {
         ]),
       );
     }
+  });
+
+  // TODO: Make this a generic module for printing user lists? 23.12.04.15.47
+  keys(all).forEach((k, i) => {
+    const row = i * 12;
+    ink("black").write(all[k].handle, { x: 7, y: 21 + 1 + row });
+    ink("cyan").write(all[k].handle, { x: 6, y: 21 + row });
   });
 }
 

@@ -12,6 +12,8 @@
                     "public/aesthetic.computer/systems/**/*.mjs",
                     "public/aesthetic.computer/lib/**/*.mjs",
                     "backend/**/*.mjs"]
+[functions.mood]
+  external_node_modules = ["got", "firebase-admin"]
 [functions.handle]
   included_files = [
     "public/aesthetic.computer/lib/text.mjs",
@@ -148,6 +150,10 @@
   to = "/.netlify/builders/thumbnail"
   status = 200
 [[redirects]]
+  from = "/privacy-policy"
+  to = "/privacy-policy.html"
+  status = 200
+[[redirects]]
   from = "/icon/*"
   to = "/.netlify/builders/icon"
   status = 200
@@ -250,11 +256,11 @@
   status = 200
   force = true
 # Catch any unfound disk paths to the blank disk.
-[[redirects]]
-  from = "/aesthetic.computer/disks/*"
-  to = "/aesthetic.computer/disks/404.mjs"
-  status = 404
-  force = false
+# [[redirects]]
+#   from = "/aesthetic.computer/disks/*"
+#   to = "/aesthetic.computer/disks/404.mjs"
+#   status = 404
+#   force = false
 # Reroute any other unfound file to the index.
 # TODO: This should be a 404...
 [[redirects]]

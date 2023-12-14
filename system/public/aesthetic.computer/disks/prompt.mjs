@@ -94,7 +94,11 @@ let tapePromiseResolve, tapePromiseReject;
 
 let handles; // Keep track of total handles set.
 
+let defaultDownloadScale = 6;
+
 import * as starfield from "./starfield.mjs";
+
+let server;
 
 // 🥾 Boot
 async function boot({
@@ -109,8 +113,13 @@ async function boot({
   user,
   handle,
   params,
+  net: { socket },
 }) {
   glaze({ on: true });
+
+  server = socket((type) => {
+    console.log("🧦 Got message:", type);
+  });
 
   // Fetch handle count.
   fetch("/handle?count=true")
@@ -196,6 +205,7 @@ async function halt($, text) {
     notice,
     handle,
     authorize,
+    platform,
     load,
     download,
     darkMode,
@@ -221,6 +231,7 @@ async function halt($, text) {
     mint,
     rec,
     sound,
+    canShare,
   } = $;
   motdController?.abort(); // Abort any motd update.
 
@@ -333,6 +344,30 @@ async function halt($, text) {
     return true;
   } else if (slug === "me") {
     jump("profile");
+    return true;
+  } else if (slug === "scream") {
+    // TODO: Scream additions. 23.12.11.12.53
+    // - [] Vocalize all screams / make a sound?
+    // - [] Smartly time-synchronize that message for all users by looking ahead?
+    server?.send("scream", params.join(" ") || "Ahh!");
+    flashColor = [255, 0, 0];
+    makeFlash($);
+    return true;
+  } else if (slug === "nonotifs") {
+    send({
+      type: "ios:send",
+      content: { type: "notifications", body: false },
+    });
+    flashColor = [0, 0, 255];
+    makeFlash($);
+    return true;
+  } else if (slug === "notifs") {
+    send({
+      type: "ios:send",
+      content: { type: "notifications", body: true },
+    });
+    flashColor = [0, 0, 255];
+    makeFlash($);
     return true;
   } else if (slug === "selfie") {
     jump("camera~me");
@@ -467,7 +502,6 @@ async function halt($, text) {
     } else {
       makeFlash($);
     }
-
     progressBar = -1;
     return true;
   } else if (slug === "flower") {
@@ -475,6 +509,12 @@ async function halt($, text) {
     return true;
   } else if (slug === "petal") {
     jump("lmn-petal");
+    return true;
+  } else if (slug === "bro") {
+    jump("brother");
+    return true;
+  } else if (slug === "sis") {
+    jump("sister");
     return true;
   } else if (slug === "gf") {
     jump("girlfriend");
@@ -818,13 +858,12 @@ async function halt($, text) {
     return true;
   } else if (text.startsWith("dl") || text.startsWith("download")) {
     if (store["painting"]) {
-      download(`painting-${num.timestamp()}.png`, store["painting"], {
-        scale: abs(parseInt(text.split(" ")[1])) || 6,
-        // Read an integer parameter for scale.
-        cropToScreen: !(store["painting:resolution-lock"] === true),
-        // Only cut the download off at screen-size if user never
-        // set a resolution.
-      });
+      if (!canShare) {
+        downloadPainting(
+          api,
+          abs(parseInt(text.split(" ")[1])) || defaultDownloadScale,
+        );
+      }
       // Show a green flash if we succesfully download the file.
       flashColor = [0, 255, 0];
     } else {
@@ -981,28 +1020,39 @@ async function halt($, text) {
     return true;
   } else if (text.toLowerCase() === "github" || text === "gh") {
     jump("https://github.com/digitpain/aesthetic.computer");
+    makeFlash($);
+    return true;
+  } else if (text.toLowerCase() === "pp") {
+    jump("https://aesthetic.computer/privacy-policy");
+    makeFlash($);
     return true;
   } else if (text === "browserstack" || text === "bs") {
     jump("https://live.browserstack.com");
+    makeFlash($);
     return true;
   } else if (text === "gpt") {
     jump("https://chat.openai.com");
+    makeFlash($);
     return true;
   } else if (text === "help") {
     // Go to the Discord for now if anyone types help.
-    jump("https://discord.gg/aesthetic-computer");
+    jump("out:https://discord.gg/aesthetic-computer");
+    makeFlash($);
     return true;
   } else if (text === "shillball" || text === "sb") {
     // Shortcuts for Yeche's Shillball game.
     jump("https://galerie-yechelange.baby/ball");
+    makeFlash($);
     return true;
   } else if (text === "prod") {
     jump("https://prompt.ac"); // Visit the live site.
+    makeFlash($);
     return true;
   } else if (text === "local" || text.startsWith("local")) {
     const param = text.replace("local", "").trim().replaceAll(" ", "~");
     const slug = param.length > 0 ? `/${param}` : "";
     jump("https://localhost:8888" + slug); // Go to the local dev server, passing any params as a piece.
+    makeFlash($);
     return true;
   } else if (text.split(" ")[0] === "of") {
     // Ordfish shortcuts.
@@ -1140,11 +1190,13 @@ function act({
   num,
   jump,
   system,
+  store,
   sound: { play, synth },
   rec,
   user,
   send,
   handle,
+  canShare,
 }) {
   // 📼 Taping
   if (e.is("microphone:connect:success")) {
@@ -1248,8 +1300,17 @@ function act({
     !firstActivation &&
     system.prompt.input.canType
   ) {
-    if (!e.mute)
+    if (!e.mute) {
       play(keyboardSfx, { volume: 0.2 + (num.randInt(100) / 100) * 0.4 });
+    }
+
+    if (
+      (e.text === "dl" || e.text === "download") &&
+      canShare &&
+      store["painting"]
+    ) {
+      downloadPainting(api, defaultDownloadScale, true); // Trigger early download response.
+    }
   }
 
   // if (e.is("keyboard:down") && e.key !== "Enter") {
@@ -1399,4 +1460,15 @@ function positionWelcomeButtons(screen) {
   }
 
   if (profile) profile.reposition({ center: "xy", screen });
+}
+
+function downloadPainting({ download, num, store }, scale, sharing = false) {
+  download(`painting-${num.timestamp()}.png`, store["painting"], {
+    scale,
+    // Read an integer parameter for scale.
+    cropToScreen: !(store["painting:resolution-lock"] === true),
+    // Only cut the download off at screen-size if user never
+    // set a resolution.
+    sharing,
+  });
 }
