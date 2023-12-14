@@ -102,7 +102,7 @@ function colorsMatch(color1, color2) {
 }
 
 // Fill pixels with a color using a flood fill technique.
-function flood(x, y, fillColor) {
+function flood(x, y, fillColor = c) {
   // Get the target color of the pixel at (x, y)
   const targetColor = pixel(x, y);
   if (targetColor[3] === 0) {
