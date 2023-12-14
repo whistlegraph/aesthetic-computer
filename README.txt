@@ -40,6 +40,10 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `contain` ***
+  - [] Contain the random positions in the drawing API for things like
+       `line()` etc.
+
 *** `go` ***
   - [❤️‍🔥] Finish `field`.
   - [] Walk to `horizon`
