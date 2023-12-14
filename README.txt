@@ -46,13 +46,16 @@
   - [] And then `cave:entrance`
   - [] Check the networking / position shifting.
 
-*** dockerize the dev environment ***
-  - [] How difficult would it be to containerize the whole development
-       environment to help contributors?
-
 *** `pond` production ***
   - [] Finish the basics in `go`.
   - [] See `pond.mjs`.
+
+*** commit shortcut ***
+  - [] Shortcut for committing.
+
+*** dockerize the dev environment ***
+  - [] How difficult would it be to containerize the whole development
+       environment to help contributors?
 
 *** automate honest fabric checkout ***
   - [] https://www.honestfabric.com/shop/checkout
