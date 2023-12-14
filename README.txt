@@ -49,6 +49,7 @@
   - [] Walk to `horizon`
   - [] And then `cave:entrance`
   - [] Check the networking / position shifting.
+
   + Done
   - [x] Show an orange or red status if UDP or sockets get disconnected while
         aesthetic is in use.
@@ -120,11 +121,7 @@
   - [] Finish the basics in `go`.
   - [] See `pond.mjs`.
 
-*** dockerize the dev environment ***
-  - [] How difficult would it be to containerize the whole development
-       environment to help contributors?
-
-*** Automate Honest Fabric's checkout page via backend puppeteer control. ***
+*** automate honest fabric checkout ***
   - [] https://www.honestfabric.com/shop/checkout
 
 *** `sno` launch - Dec 1? ***
