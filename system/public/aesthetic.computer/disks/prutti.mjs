@@ -2,17 +2,6 @@
 // Lessons NOT Learnt by pruttipal aka goodiepal
 
 /* #region 📚 README
-5
-7
-8
-11
-13
-14
-20
-26
-28
-31
-39
 #endregion */
 
 /* #region 🏁 TODO 
@@ -648,6 +637,13 @@ const lessons = [
     `,
     pictures: ["lnl40-1", "lnl40-2"],
     sounds: ["rider_G_las_prut_slip"],
+  },
+  {
+    title: "Lesson NOT Learnt 41 * Tele *",
+    text: `
+    §§ The best ideas for performing, might be right at your hand(y) - tele-communix has long been the means of ultra-dimentinal > idea > exchange...§§
+    `,
+    pictures: ["lnl41-1", "lnl41-2"],
   },
 ];
 
