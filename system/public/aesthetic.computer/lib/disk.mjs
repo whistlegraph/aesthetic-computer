@@ -1371,16 +1371,24 @@ const nopaintAPI = $commonApi.system.nopaint;
 const channel = new BroadcastChannel("aesthetic.computer");
 
 channel.onmessage = (event) => {
-  if (debug) console.log(`🗼 Got broadcast: ${event.data}`);
-  if (event.data.startsWith("handle:updated")) {
+  console.log(`🗼 Got broadcast: ${event.data}`);
+  processMessage(event.data);
+};
+
+function processMessage(msg) {
+  console.log(`🗼 Processing broadcast: ${msg}`);
+  if (msg.startsWith("handle:updated")) {
     // 👰‍♀️ Update the user handle if it changed.
-    HANDLE = "@" + event.data.split(":").pop();
+    HANDLE = "@" + msg.split(":").pop();
     send({ type: "handle", content: HANDLE });
     store["handle:received"] = true;
   }
-};
+}
 
-$commonApi.broadcast = (msg) => channel.postMessage(msg);
+$commonApi.broadcast = (msg) => {
+  processMessage(msg); // Process locally.
+  channel.postMessage(msg);
+};
 
 // Spawn a session backend for a piece.
 async function session(slug, forceProduction = false, service) {

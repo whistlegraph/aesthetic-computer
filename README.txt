@@ -40,6 +40,9 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** sign up flow ***
+  - [] Say "email verified" as a notice after email verification is tapped.
+
 *** `contain` ***
   - [] Contain the random positions in the drawing API for things like
        `line()` etc.
@@ -75,7 +78,7 @@
   - [] wife
 
 *** botce xmas ***
-  - [] Baby blue background and wite text.
+  - [] Baby blue background and white text.
   - [] Snowflake backdrop in paywall. 
   - [] 6$ 
   - [] Dec. 23 - Jan ?. 
