@@ -43,6 +43,24 @@
 *** sign up flow ***
   - [] Say "email verified" as a notice after email verification is tapped.
 
+*** `bots` list (add colored text) ***
+  - [] alphapoet
+  - [x] angel
+  - [x] botce
+  - [x] boyfriend
+  - [x] brother
+  - [x] dad
+  - [x] decode
+  - [x] encode
+  - [x] gargoyle
+  - [x] girlfriend
+  - [x] husband
+  - [x] kid
+  - [x] liar
+  - [x] mom
+  - [x] sister
+  - [x] wife
+
 *** `contain` ***
   - [] Contain the random positions in the drawing API for things like
        `line()` etc.
@@ -58,24 +76,6 @@
         aesthetic is in use.
   - [x] Both `socket` and `udp` need disconnect messages /
         prevent big fish list?
-
-*** `bots` list ***
-  - [] alphapoet
-  - [] angel
-  - [] botce
-  - [] boyfriend 
-  - [] brother
-  - [] dad
-  - [] decode
-  - [] encode
-  - [] gargoyle 
-  - [] girlfriend
-  - [] husband
-  - [] kid
-  - [] liar
-  - [] mom
-  - [] sister
-  - [] wife
 
 *** botce xmas ***
   - [] Baby blue background and white text.

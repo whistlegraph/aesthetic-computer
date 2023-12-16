@@ -20,6 +20,7 @@ const forgetful = true
     dark: {
       fg: [10, 90, 180],
       bg: [244, 234, 210],
+      fgu: [0, 0, 100], // User reply foreground color.
       block: [240, 230, 10],
       blockHi: [255, 255, 255],
       line: [240, 230, 10],
