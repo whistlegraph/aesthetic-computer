@@ -215,6 +215,30 @@ export async function setEmailAndReverify(id, email) {
   }
 }
 
+// Deletes a user from auth0.
+export async function deleteUser(userId) {
+  try {
+    const { got } = await import("got");
+    const token = await getAccessToken(got);
+
+    await got(
+      `https://aesthetic.us.auth0.com/api/v2/users/${encodeURIComponent(
+        userId,
+      )}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    console.log(`❌ User with ID ${userId} deleted from Auth0.`);
+    return { success: true, message: "User deleted successfully from Auth0." };
+  } catch (error) {
+    console.error(`⚠️  Error deleting user from Auth0: ${error}`);
+    return { success: false, message: error.message };
+  }
+}
+
 // 📚 Library (Useful functions used throughout the file.)
 // Obtain an auth0 access token for our M2M API.
 async function getAccessToken(got) {
