@@ -12,6 +12,8 @@
                     "public/aesthetic.computer/systems/**/*.mjs",
                     "public/aesthetic.computer/lib/**/*.mjs",
                     "backend/**/*.mjs"]
+[functions.delete-erase-and-forget-me]
+  external_node_modules = ["@aws-sdk-client-s3"]
 [functions.mood]
   external_node_modules = ["got", "firebase-admin"]
 [functions.handle]
@@ -196,6 +198,10 @@
 [[redirects]]
   from = "/api/mood/*"
   to = "/.netlify/functions/mood"
+  status = 200
+[[redirects]]
+  from = "/api/delete-erase-and-forget-me"
+  to = "/.netlify/functions/delete-erase-and-forget-me"
   status = 200
 [[redirects]]
   from = "/api/admin"
