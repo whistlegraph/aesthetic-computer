@@ -1,5 +1,24 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** `bots` list (add colored text) ***
+  - [] alphapoet
+  - [x] angel
+  - [x] botce
+  - [x] boyfriend
+  - [x] brother
+  - [x] dad
+  - [x] decode
+  - [x] encode
+  - [x] gargoyle
+  - [x] girlfriend
+  - [x] husband
+  - [x] kid
+  - [x] liar
+  - [x] mom
+  - [x] sister
+  - [x] wife
+
+
 *** bring back the 404 page ***
   - [x] Visiting an unresolved piece on first load should
        redirect to 404. 
