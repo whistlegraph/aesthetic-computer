@@ -40,30 +40,12 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** sign up flow ***
-  - [] Say "email verified" as a notice after email verification is tapped.
-
-*** `bots` list (add colored text) ***
-  - [] alphapoet
-  - [x] angel
-  - [x] botce
-  - [x] boyfriend
-  - [x] brother
-  - [x] dad
-  - [x] decode
-  - [x] encode
-  - [x] gargoyle
-  - [x] girlfriend
-  - [x] husband
-  - [x] kid
-  - [x] liar
-  - [x] mom
-  - [x] sister
-  - [x] wife
-
-*** `contain` ***
-  - [] Contain the random positions in the drawing API for things like
-       `line()` etc.
+*** ios resubmission ***
+  - [-] App Completeness (Mic and Camera Regression)
+  - [] Access to non-account Based features. (Clarification? / Did they know?)
+  - [] Supply a more decent Support URL.
+  + Done
+  - [x] Account Deletion
 
 *** `go` ***
   - [❤️‍🔥] Finish `field`.
@@ -76,6 +58,13 @@
         aesthetic is in use.
   - [x] Both `socket` and `udp` need disconnect messages /
         prevent big fish list?
+
+*** `contain` ***
+  - [] Contain the random positions in the drawing API for things like
+       `line()` etc.
+       
+*** sign up flow ***
+ - [] Say "email verified" as a notice after email verification is tapped.
 
 *** botce xmas ***
   - [] Baby blue background and white text.
