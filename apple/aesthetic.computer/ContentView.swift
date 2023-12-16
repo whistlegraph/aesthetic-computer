@@ -4,7 +4,16 @@ import Network
 
 let grey: CGFloat = 32/255;
 
-class Coordinator: NSObject, WKScriptMessageHandler/*, WKNavigationDelegate, WKUIDelegate*/ {
+class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate {
+   
+    //@available(iOS 15.0, *)
+    func webView(_ webView: WKWebView,
+        decideMediaCapturePermissionsFor origin: WKSecurityOrigin,
+        initiatedBy frame: WKFrameInfo,
+        type: WKMediaCaptureType) async -> WKPermissionDecision {
+            return .grant;
+    }
+    
     // Handle JavaScript messages here
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         if message.name == "iOSAppLog" {
@@ -107,7 +116,7 @@ class Coordinator: NSObject, WKScriptMessageHandler/*, WKNavigationDelegate, WKU
             webView.backgroundColor = UIColor(red: grey, green: grey, blue: grey, alpha: 1)
             webView.isOpaque = false
 //            webView.navigationDelegate = context.coordinator
-//            webView.uiDelegate = context.coordinator
+            webView.uiDelegate = context.coordinator
             webView.customUserAgent = "Aesthetic"
             
             // Add a script message handler to handle messages from JavaScript
