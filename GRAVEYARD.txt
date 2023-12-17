@@ -1,5 +1,12 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** ios resubmission ***
+  + Done
+  - [?] Access to non-account Based features. (Clarification? / Did they know?)
+  - [x] Supply a more decent Support URL.
+  - [x] App Completeness (Mic and Camera Regression)
+  - [x] Account Deletion
+
 *** `bots` list (add colored text) ***
   - [] alphapoet
   - [x] angel

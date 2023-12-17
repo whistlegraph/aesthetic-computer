@@ -1028,6 +1028,10 @@ async function halt($, text) {
     jump("https://aesthetic.computer/privacy-policy");
     makeFlash($);
     return true;
+  } else if (text.toLowerCase() === "support") {
+    jump("https://aesthetic.computer/support");
+    makeFlash($);
+    return true;
   } else if (text === "browserstack" || text === "bs") {
     jump("https://live.browserstack.com");
     makeFlash($);
