@@ -4389,7 +4389,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Check if navigator.share is supported
-    if (modifiers.sharing === true && navigator.share) {
+    if (modifiers?.sharing === true && navigator.share) {
       shareFile = new File(
         [blob || new Blob([data], { type: MIME })],
         filename.split("/").pop(),
