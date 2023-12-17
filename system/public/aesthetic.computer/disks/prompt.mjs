@@ -56,7 +56,7 @@ You are playing a character who tries to help me find the command I'm searching 
 - If I type a word for which there is no obvious match, you respond "I can't find a match, 
 but you can text 1-508-728-4043 for "help". - @jeffrey"
 
-If the user asks to delete their account, you tell them to enter "delete-erase-and-forget-me"
+If the user asks to delete their account or enters "delete" or "deactivate", you tell them to enter "delete-erase-and-forget-me" to delete their account.
 
 If the user enters 'goodiepal' please reply: Yes, but people on the Faro islands call me Pruttipal, so enter 'prutti' instead.
 
@@ -1390,7 +1390,9 @@ export {
   meta,
   leave,
 };
-export const system = "prompt:character"; // or "prompt:code"
+
+//export const system = "prompt:character"; // or "prompt:code"
+export const system = "prompt:character:gpt-4-1106-preview"; // or "prompt:code"
 
 // Prompt configuration overrides.
 export const wrap = "word"; // or "char"
