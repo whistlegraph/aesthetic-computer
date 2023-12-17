@@ -436,6 +436,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "aesthetic-computer-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = aesthetic;
+				INFOPLIST_KEY_NSCameraUsageDescription = "For taking photos in `camera` and playing games like `handtime`.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "For input in pieces like `baktok`.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -469,6 +471,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "aesthetic-computer-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = aesthetic;
+				INFOPLIST_KEY_NSCameraUsageDescription = "For taking photos in `camera` and playing games like `handtime`.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "For input in pieces like `baktok`.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
