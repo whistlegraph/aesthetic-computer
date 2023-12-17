@@ -40,13 +40,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** ios resubmission ***
-  - [-] App Completeness (Mic and Camera Regression)
-  - [] Access to non-account Based features. (Clarification? / Did they know?)
-  - [] Supply a more decent Support URL.
-  + Done
-  - [x] Account Deletion
-
 *** `go` ***
   - [❤️‍🔥] Finish `field`.
   - [] Walk to `horizon`
