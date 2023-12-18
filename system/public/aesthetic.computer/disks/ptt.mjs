@@ -1,18 +1,14 @@
-// Ptt, 2023.12.17.16.19.47.977
+// PTT, 2023.12.17.16.19.47.977
 // Push to talk, with others.
 
 /* #region 📚 README 
-  - Welcome to your first aesthetic.computer piece.
-  - You can `console.log(api);` to explore,
-    and then destructure additional api commands
-    to try them out!
-  - Top-level commands make up each piece's application flow.
-    Uncomment and export them to invoke their behavior and use their apis.
-  - Enter `help` for the AC #help and ping @helper for additional explanation.
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Draw a purple line.
+  - [] Repair `microphone` somehow and than integrate it here.
+  - [] Also re-read `baktok`.
+  - [-] Record a message from the microphone, upload it and let everyone
+        receive it via sockets... 
 #endregion */
 
 // 🥾 Boot
@@ -50,7 +46,7 @@ function paint({ api, ink, line, pen, box }) {
 // 📰 Meta
 function meta() {
   return {
-    title: "Ptt",
+    title: "PTT",
     desc: "Push to talk, with others.",
   };
 }

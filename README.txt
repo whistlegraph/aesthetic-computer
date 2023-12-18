@@ -51,16 +51,19 @@
   - [x] Both `socket` and `udp` need disconnect messages /
         prevent big fish list?
 
-*** `ptt` ***
-  - [-] Make `ptt` prototype.
+*** load performance ***
+  - [] Spend a half day just on getting the site to load faster.
 
+*** `ptt` ***
+  - [-] Make `ptt` voice chat prototype.
 
 *** `contain` ***
   - [] Contain the random positions in the drawing API for things like
        `line()` etc.
        
-*** sign up flow ***
- - [] Say "email verified" as a notice after email verification is tapped.
+*** better email verification flow... ***
+  - [] Say "email verified" as a notice after email verification is tapped?
+  - [] https://chat.openai.com/c/c9898bf6-62f6-4654-a54e-9c8ba47f5681
 
 *** botce xmas ***
   - [] Baby blue background and white text.
@@ -71,40 +74,7 @@
   - [] Share button for screenshotting.
   - [] Test Instagram share.
   - [] Add `about` credits.
-
-*** iOS Release ***
-  + Version 1
-  - [] Privacy policy page 
-  - [] Make sure `camera` works good with the swap button.
-  + Done
-  - [X] Sending Pixel Grab images in iMessage Extension 
-  - [X] `download` popup native share interface for storing image.
-  - [X] Change app short name as it appears on homescreen to "aesthetic".
-  - [X] Enable camera access 
-  - [X] iMessage plugin (is webview allowed there?)
-  - [X] Launch screen
-  - [X] Screen formatting (margins, padding)
-  - [X] Enable microphone access 
-  - [X] Customize allow messages (camera, microphone, notifications)
-  - [X] Offline access 
-  - [X] App icon
-  - [X] Sign up work
-  - [X] Logging out (broken) 
-  - [X] Notification for `scream`. (via the integrated GCP account) 
-  - [X] Notification invite for `pond`.
-  - [X] Test ordering a sticker (check if that is illegal) 
-  - [X] Make Offline access page compliant with apple submission guidelines + beautify 
-  - [X] Disable landscape mode 
-  - [X] Provide a method in your app for a user to opt out from receiving notifs
-
-
-  + Later Version
-  - [] Reload when crashing
-  - [] Classic Sticker pack
-  - [] Custom keyboard
-
   
-
 *** `pond` production ***
   - [] Finish the basics in `go`.
   - [] See `pond.mjs`.
@@ -112,7 +82,7 @@
 *** automate honest fabric checkout ***
   - [] https://www.honestfabric.com/shop/checkout
 
-*** `sno` launch - Dec 1? ***
+*** `sno` launch - Dec ?? ***
   - [] See `sno.mjs`.
 
 *** `Paste` for image ***
@@ -144,11 +114,16 @@
 *** wizards ***
   - [] Use the "|" operator to make stepped wizards / looped pieces.
 
-*** global `chat` / activity log ***
+*** `log` ***
+  - [-] Print a live global activity log than anyone can watch.
+    - [] Choose some good events to broadcast.
+  - [] This should eventually be streamable from any piece or visible
+       on the prompt.
   - [] Top right tap to enter text, then be able to chat, from any
        piece. 
 
 *** webgl2 renderer ***
+  - [] More work on webgl2 renderer.
 
 *** user pieces ***
   - [-] Consider the versioning of published pieces /

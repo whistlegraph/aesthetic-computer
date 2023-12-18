@@ -59,6 +59,7 @@ if (!sandboxed && window.auth0) {
     (location.search.includes("code=") || location.search.includes("error="))
   ) {
     try {
+      console.log("🔐 Handling auth0 redirect...");
       await auth0Client.handleRedirectCallback();
     } catch (e) {
       console.error("🔐", e);
