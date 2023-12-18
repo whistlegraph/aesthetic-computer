@@ -34,6 +34,11 @@ export const p2 = {
   len: function (pA) {
     return Math.hypot(pA.x, pA.y);
   },
+  // Normalize a vector to have a length of 1
+  norm: function (p) {
+    let len = this.len(p);
+    return len === 0 ? { x: 0, y: 0 } : { x: p.x / len, y: p.y / len };
+  },
   // Check for the equality of two points.
   eq: function (p1, p2) {
     return p1.x === p2.x && p1.y === p2.y;

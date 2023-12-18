@@ -1938,7 +1938,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             home.alt = e.altKey;
             home.ctrl = e.ctrlKey;
             keyboard.events.push(home);
-          }
+          } /*else if (
+            // Don't send the backtick unless we are on the prompt.
+            e.key === "`" &&
+            currentPiece.split("/").pop() !== "prompt"
+          ) {
+            e.preventDefault();
+            keyboard.events.push({ name: "keyboard:down:`", key: "`" });
+          }*/
         });
 
         input.addEventListener("beforeinput", (e) => {
