@@ -5,10 +5,18 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [💙] Store persistent position on the server / in the database. 
-  - [] Finish "world:fields:list".
-  - [] Move common functionality to a `world.mjs` library file.
+  - [🍊] Move common functionality to a `world.mjs` library file.
+  - [] Store something persistent on the server...
+  + Later
   + Done
+  - [x] Slow camera following.
+  - [x] Add user list support.
+  - [x] Finish "world:fields:list".
+    - [x] When you join you get the full list,
+    - [x] Then when anyone else joins or leaves you get
+         the individual joins and leaves.
+  - [c] Store persistent position on the server / in the database. 
+  - [x] Fix up lerping a bit...
   - [x] Store local position in store.
   - [x] Make the world scrollable with some background grass.
   - [x] Always lerp towards next character positions from the network.
@@ -42,6 +50,7 @@
 
 // 🧒
 class Kid {
+  handle;
   net;
   pos = { x: 0, y: 0 };
   netPos;
@@ -54,8 +63,9 @@ class Kid {
   #messageDuration;
   #messageProgress = 0;
 
-  constructor(handle, pos = this.pos, face, net = false) {
-    console.log("🧒 From:", handle || "nub");
+  constructor(handle = "?", pos = this.pos, face, net = false) {
+    this.handle = handle;
+    console.log("🧒 From:", this.handle, face);
 
     this.pos = pos;
     if (net) this.netPos = { ...pos };
@@ -65,9 +75,10 @@ class Kid {
   }
 
   // Show a message above the kid's head for `time` frames.
-  write(text, time = 240) {
+  write(text, time = 320) {
     this.message = text;
     this.#messageDuration = time;
+    this.#messageProgress = 0; // Reset message progress.
   }
 
   // Change the mood (face) of the kid.
@@ -149,8 +160,15 @@ class Kid {
   sim({ num }, net) {
     // 🗼 Network Prediction
     if (this.net && this.netPos) {
-      this.pos.x = num.lerp(this.pos.x, this.netPos.x, 0.25);
-      this.pos.y = num.lerp(this.pos.y, this.netPos.y, 0.25);
+      const p2 = num.p2;
+      const STEP_SIZE = 1;
+      const direction = p2.norm(p2.sub(this.netPos, this.pos));
+      const distance = p2.len(p2.sub(this.netPos, this.pos));
+      if (distance < STEP_SIZE) {
+        this.pos = this.netPos; // Set position to target.
+      } else {
+        this.pos = p2.inc(this.pos, p2.scl(direction, STEP_SIZE));
+      }
       return; // No need to compute movements, locally.
     }
 
@@ -246,10 +264,12 @@ class World {
 class Cam {
   x = 0;
   y = 0;
+  dolly = { x: 0, y: 0 };
 
-  constructor(x, y) {
+  constructor(x, y, dolly) {
     this.x = x;
     this.y = y;
+    this.dolly = { ...dolly };
   }
 }
 
@@ -265,7 +285,7 @@ const scenery = {
 };
 const kids = {};
 
-const { keys } = Object;
+const { keys, values } = Object;
 
 // 🥾 Boot
 async function boot({
@@ -293,9 +313,11 @@ async function boot({
     { x: pos.x || world.size.width / 2, y: pos.y || world.size.height / 2 },
     help.choose("meh", "smile", "frown"),
   );
+
   cam = new Cam(
     screen.width / 2 - me.pos.x,
     screen.height / 2 - me.pos.y,
+    me.pos,
   );
 
   const scheme = {
@@ -366,7 +388,7 @@ async function boot({
 
   send({ type: "keyboard:soft-lock" });
 
-  // Socket Networking
+  // 🧦 Socket Networking
   server = socket((id, type, content) => {
     if (type === "left") {
       console.log("️✌️ Goodbye:", id);
@@ -380,67 +402,89 @@ async function boot({
     }
 
     if (type.startsWith("connected")) {
-      server.send("world:field:join", { handle: me.handle, pos: me.pos });
-      console.log("🪴 Welcome:", me.handle || "nub", `(${id})`);
+      if (me.handle === "?") me.handle = `nub${id}`;
+      server.send("world:field:join", {
+        handle: me.handle,
+        pos: me.pos,
+        face: me.face,
+      });
+      console.log("🪴 Welcome:", me.handle, `(${id})`);
       return;
     }
 
     // TODO: How can this be oriented around storing a server list.
     if (type === "world:field:list") {
-      console.log("🗞️ Listing all field clients...");
+      // console.log("🗞️ Listing all field clients...");
       keys(content).forEach((key) => {
-        console.log(key, content[key]);
+        if (!kids[key]) {
+          const data = content[key];
+          console.log("🧒 Joined:", data.handle || id, data);
+          kids[key] = new Kid(
+            data.handle || `nub${id}`,
+            data.pos,
+            data.face,
+            true,
+          );
+        }
       });
       return;
     }
 
-    if (server.id !== id) {
-      if (type === "world:field:tint") {
-        const kid = kids[id];
-        if (kid) kid.tint(content);
-      }
+    if (type === "world:field:join") {
+      if (!kids[id]) {
+        kids[id] = new Kid(
+          content.handle || `nub${id}`,
+          content.pos,
+          content.face,
+          true,
+        );
 
-      if (type === "world:field:mood") {
-        const kid = kids[id];
-        if (kid) kid.mood(content);
-      }
-
-      if (type === "world:field:write") {
-        const kid = kids[id];
-        if (kid) {
-          kid.write(content);
-          sound.synth({
-            type: "sine",
-            tone: 950,
-            attack: 0.1,
-            decay: 0.96,
-            volume: 0.65,
-            duration: 0.015,
-          });
-        }
-      }
-
-      if (type === "world:field:write:clear") {
-        const kid = kids[id];
-        if (kid) kid.write(null);
-      }
-
-      if (type === "world:field:join") {
-        if (!kids[id]) {
-          kids[id] = new Kid(content.handle || id, content.pos, me.face, true);
-          server.send("world:field:join", {
-            handle: me.handle,
-            pos: me.pos,
-            face: me.face,
-          });
-        }
-      }
-
-      if (type === "world:field:move") {
-        const kid = kids[id];
-        if (kid) kid.netPos = content.pos;
+        // Send a join message back?
+        // server.send("world:field:join", {
+        //   handle: me.handle,
+        //   pos: me.pos,
+        //   face: me.face,
+        // });
       }
     }
+
+    // TODO: Stop receiving own messages?
+    // if (server.id !== id) {
+    if (type === "world:field:tint") {
+      const kid = kids[id];
+      if (kid) kid.tint(content);
+    }
+
+    if (type === "world:field:mood") {
+      const kid = kids[id];
+      if (kid) kid.mood(content);
+    }
+
+    if (type === "world:field:write") {
+      const kid = kids[id];
+      if (kid) {
+        kid.write(content);
+        sound.synth({
+          type: "sine",
+          tone: 950,
+          attack: 0.1,
+          decay: 0.96,
+          volume: 0.65,
+          duration: 0.015,
+        });
+      }
+    }
+
+    if (type === "world:field:write:clear") {
+      const kid = kids[id];
+      if (kid) kid.write(null);
+    }
+
+    if (type === "world:field:move") {
+      const kid = kids[id];
+      if (kid) kid.netPos = content.pos;
+    }
+    // }
   });
 }
 
@@ -482,6 +526,13 @@ function paint({ api, wipe, layer, ink, pan, unpan, pen, screen, leaving }) {
     unpan();
   });
 
+  // TODO: Make this a generic module for printing user lists? 23.12.04.15.47
+  [me, ...values(kids)].forEach((kid, i) => {
+    const row = i * 12;
+    ink("black").write(kid.handle, { x: 7, y: 21 + 1 + row });
+    ink("cyan").write(kid.handle, { x: 6, y: 21 + row });
+  });
+
   // 💻 Screen UI
   const l = me.leash;
   if (l.start) {
@@ -511,8 +562,8 @@ function paint({ api, wipe, layer, ink, pan, unpan, pen, screen, leaving }) {
 // 🎪 Act
 function act({ event: e, api, send, jump, hud, piece, screen }) {
   if (e.is("reframed")) {
-    cam.x = screen.width / 2 - world.size.width / 2;
-    cam.y = screen.height / 2 - world.size.width / 2;
+    cam.x = screen.width / 2 - dolly.x;
+    cam.y = screen.height / 2 - dolly.y;
   }
 
   if (!input.canType) {
@@ -543,12 +594,18 @@ function act({ event: e, api, send, jump, hud, piece, screen }) {
       },
     });
 
-    if (e.is("keyboard:down:enter")) {
+    if (
+      (!input.canType && e.is("keyboard:down:enter")) ||
+      e.is("keyboard:down:escape") ||
+      e.is("keyboard:down:`")
+    ) {
       send({ type: "keyboard:open" });
       open();
     }
 
-    if (e.is("keyboard:down:escape") || e.is("keyboard:down:`")) jump("prompt");
+    // if (e.is("keyboard:down:escape")) jump("prompt");
+
+    // Backspace back to `prompt`.
     if (e.is("keyboard:down:backspace")) {
       jump(`prompt~${hud.currentLabel.text || piece}`)(() => {
         send({ type: "keyboard:open" });
@@ -558,7 +615,8 @@ function act({ event: e, api, send, jump, hud, piece, screen }) {
 
   if (
     input.canType &&
-    (e.is("keyboard:down:escape") ||
+    (e.is("keyboard:down:`") ||
+      e.is("keyboard:down:escape") ||
       (input.text.trim().length === 0 &&
         e.is("keyboard:down:enter") &&
         !e.shift))
@@ -566,7 +624,7 @@ function act({ event: e, api, send, jump, hud, piece, screen }) {
     send({ type: "keyboard:close" });
   }
 
-  if (input.canType && e.is("lift") && !input.shifting) {
+  if (input.canType && e.is("lift") && !input.shifting && !input.paste.down) {
     send({ type: "keyboard:close" });
   }
 
@@ -575,13 +633,13 @@ function act({ event: e, api, send, jump, hud, piece, screen }) {
     e.is("keyboard:close") ||
     (input.canType && !e.is("keyboard:down:escape"))
   ) {
-    if (e.is("keyboard:close")) input.text = "";
+    // if (e.is("keyboard:close")) input.text = "";
     input.act(api);
   }
 }
 
 // 🧮 Sim
-function sim({ api, geo, simCount, screen }) {
+function sim({ api, geo, simCount, screen, num }) {
   me.sim(api, function net(kid) {
     if (simCount % 4n === 0n) {
       // Send position updates at a rate of 30hz  (120 / 4).
@@ -589,10 +647,12 @@ function sim({ api, geo, simCount, screen }) {
     }
     if (kid.clear) server.send("world:field:write:clear", kid);
   }); // 🧒 Movement
-  me.screenPos(cam, world);
 
-  cam.x = screen.width / 2 - me.pos.x; //world.size.width / 2;// - me.pos.x;
-  cam.y = screen.height / 2 - me.pos.y; //world.size.height / 2;// - me.pos.y;
+  cam.dolly.x = num.lerp(cam.dolly.x, me.pos.x, 0.05);
+  cam.dolly.y = num.lerp(cam.dolly.y, me.pos.y, 0.05);
+
+  cam.x = screen.width / 2 - cam.dolly.x;
+  cam.y = screen.height / 2 - cam.dolly.y;
 
   keys(kids).forEach((key) => kids[key].sim(api)); // Networked kids.
   input.sim(api); // 💬 Chat
