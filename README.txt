@@ -45,12 +45,15 @@
   - [] Walk to `horizon`
   - [] And then `cave:entrance`
   - [] Check the networking / position shifting.
-
   + Done
   - [x] Show an orange or red status if UDP or sockets get disconnected while
         aesthetic is in use.
   - [x] Both `socket` and `udp` need disconnect messages /
         prevent big fish list?
+
+*** `ptt` ***
+  - [-] Make `ptt` prototype.
+
 
 *** `contain` ***
   - [] Contain the random positions in the drawing API for things like

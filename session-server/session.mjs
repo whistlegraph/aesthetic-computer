@@ -4,8 +4,10 @@
 // that requests it.
 
 /* #region todo 📓 
- + Later
- - [] `code.channel` should return a promise, and wait for a
+ + Now
+ - [] ... 
+ + Possible Concerns
+ - [?] `code.channel` should return a promise, and wait for a
       `code-channel:subbed`.
     event here? This way users get better confirmation if the socket
     doesn't go through or if there is a server issue. 23.07.04.18.01
@@ -299,21 +301,23 @@ wss.on("connection", (ws, req) => {
       if (msg.type.startsWith("world:field")) {
         const label = (msg.label = msg.type.split(":").pop());
 
-        // TODO:
-        // Keep serverside userlist specific to field.
-        // Store client position on disconnect, based on their handle.
+        // TODO: Store client position on disconnect, based on their handle.
 
         if (label === "join") {
-          // Add user to world client list.
-          worldClients[msg.id] = { pos: msg.content.pos };
-
-          // TODO: Could now send the client list directly back to this user.
           ws.send(pack("world:field:list", worldClients, id));
+          // ^ Send existing list to everyone but this user.
+          worldClients[msg.id] = { ...msg.content }; // Add user client list.
+          others(JSON.stringify(msg)); // Alert everyone else about the join.
+          return;
         } else if (label === "move") {
           console.log("🚶‍♂️", msg.content);
         } else {
           console.log(`${label}:`, msg.content);
         }
+
+        // All world:field messages are only broadcast to "others".
+        others(JSON.stringify(msg));
+        return;
       }
 
       everyone(JSON.stringify(msg)); // Relay any other message to every user.
