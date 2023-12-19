@@ -19,6 +19,7 @@ const { round, sin, random, max, floor } = Math;
 const { keys } = Object;
 import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
+import * as world from "../systems/world.mjs";
 import { headers } from "./headers.mjs";
 import { logs } from "./logs.mjs";
 import { soundWhitelist } from "./sound/sound-whitelist.mjs";
@@ -2481,7 +2482,7 @@ async function load(
   // Start the socket server
   // TODO: Before we load the disk, in case of needing to reload remotely on failure? 23.01.27.12.48
   let receiver; // Handles incoming messages from the socket.
-  const forceProd = false; // For testing prod socket servers in development.
+  const forceProd = true; // For testing prod socket servers in development.
   // TOOD: Hoist this to an environment variable?
 
   // Requests a session-backend and connects via websockets.
@@ -3003,6 +3004,37 @@ async function load(
       };
 
       system = "prompt";
+    } else if (module.system?.startsWith("world")) {
+      boot = async ($) => {
+        await world.world_boot($);
+        await module.boot?.($);
+      };
+
+      sim = ($) => {
+        world.world_sim($);
+        module.sim?.($);
+      };
+
+      paint = ($) => {
+        // Paint behind the world first.
+        let noPaint = module.paint?.($);
+        noPaint = noPaint || world.world_paint($);
+        return noPaint;
+      };
+
+      beat = module.beat || defaults.beat;
+
+      act = ($) => {
+        world.world_act($);
+        module.act?.($);
+      };
+
+      leave = ($) => {
+        world.world_leave($);
+        module.leave?.($);
+      };
+
+      system = "world";
     } else {
       boot = module.boot || defaults.boot;
       sim = module.sim || defaults.sim;

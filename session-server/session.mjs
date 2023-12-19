@@ -64,6 +64,24 @@ if (dev) {
   fastify = Fastify({ logger: true }); // Still log in production. No reason not to?
 }
 
+// Insert `cors` headers as needed. 23.12.19.16.31
+// TODO: Is this even necessary?
+fastify.options("*", async (req, reply) => {
+  const allowedOrigins = [
+    "https://aesthetic.local:8888",
+    "https://aesthetic.computer",
+  ];
+
+  const origin = req.headers.origin;
+  console.log("✈️ Preflight origin:", origin);
+  // Check if the incoming origin is allowed
+  if (allowedOrigins.includes(origin)) {
+    reply.header("Access-Control-Allow-Origin", origin);
+  }
+  reply.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+  reply.send();
+});
+
 const server = fastify.server;
 
 const info = {
@@ -297,14 +315,16 @@ wss.on("connection", (ws, req) => {
       if (!codeChannels[codeChannel]) codeChannels[codeChannel] = new Set();
       codeChannels[codeChannel].add(id);
     } else {
-      // `world:field`
-      if (msg.type.startsWith("world:field")) {
-        const label = (msg.label = msg.type.split(":").pop());
+      // Filter for `world:${piece}:${label}` type messages.
+      if (msg.type.startsWith("world:")) {
+        const parsed = msg.type.split(":");
+        const piece = parsed[1];
+        const label = parsed.pop();
 
         // TODO: Store client position on disconnect, based on their handle.
 
         if (label === "join") {
-          ws.send(pack("world:field:list", worldClients, id));
+          ws.send(pack(`world:${piece}:list`, worldClients, id));
           // ^ Send existing list to everyone but this user.
           worldClients[msg.id] = { ...msg.content }; // Add user client list.
           others(JSON.stringify(msg)); // Alert everyone else about the join.
