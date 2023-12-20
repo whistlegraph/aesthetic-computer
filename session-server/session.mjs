@@ -326,7 +326,7 @@ wss.on("connection", (ws, req) => {
         if (label === "join") {
           ws.send(pack(`world:${piece}:list`, worldClients, id));
           // ^ Send existing list to everyone but this user.
-          worldClients[msg.id] = { ...msg.content }; // Add user client list.
+          worldClients[id] = { ...msg.content }; // Add user client list.
           others(JSON.stringify(msg)); // Alert everyone else about the join.
           return;
         } else if (label === "move") {
@@ -335,7 +335,7 @@ wss.on("connection", (ws, req) => {
           console.log(`${label}:`, msg.content);
         }
 
-        // All world:field messages are only broadcast to "others".
+        // All world: messages are only broadcast to "others".
         others(JSON.stringify(msg));
         return;
       }
