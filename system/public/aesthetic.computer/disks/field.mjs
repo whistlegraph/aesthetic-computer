@@ -29,8 +29,8 @@ function background({ wipe }) {
 // 🎨 Paint
 function paint({ ink }, world) {
   ink("green").box(0, 0, world.width, world.height);
-  ink("black").line(0, 0, world.width, world.height);
-  ink("red").line(0, world.height, world.width, 0);
+  //ink("black").line(0, 0, world.width, world.height);
+  //ink("red").line(0, world.height, world.width, 0);
 
   // Scenery
   scenery.grasses.forEach((grass) => {
@@ -43,7 +43,7 @@ function paint({ ink }, world) {
 
 // 🚿 Curtain
 function curtain({ ink }) {
-  ink().line();
+  // ink().line();
 }
 
 // 🎪 Act
