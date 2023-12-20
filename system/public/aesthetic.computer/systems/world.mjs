@@ -4,15 +4,6 @@
 
 let me, world, cam, input, inputBtn, server;
 
-const scenery = {
-  grasses: [
-    { x: 190, y: 170 },
-    { x: 276, y: 286 },
-    { x: 128, y: 128 },
-    { x: 400, y: 400 },
-    { x: 500, y: 512 },
-  ],
-};
 const kids = {};
 
 const { keys, values } = Object;
@@ -209,29 +200,15 @@ async function world_boot({
   });
 }
 
-function world_paint({
-  api,
-  wipe,
-  layer,
-  ink,
-  pan,
-  unpan,
-  pen,
-  screen,
-  leaving,
-}) {
+function world_paint(
+  { api, ink, pan, unpan, pen, screen, leaving },
+  paint,
+  curtain,
+) {
   // 🌎 + 🧒 World & Players
   pan(cam.x, cam.y);
 
-  world.paint(api);
-
-  // Scenery.
-  scenery.grasses.forEach((grass) => {
-    ink("lime")
-      .line(grass.x, grass.y, grass.x, grass.y - 10)
-      .line(grass.x, grass.y, grass.x - 5, grass.y - 6)
-      .line(grass.x, grass.y, grass.x + 5, grass.y - 6);
-  });
+  paint?.(api, world);
 
   inputBtn.paint((btn) => {
     ink("white", btn.down && btn.over ? 128 : 64).circle(
@@ -272,6 +249,8 @@ function world_paint({
       l.start.y + me.leash.y,
     );
   }
+
+  curtain?.(api); // Paint anything on top of world but under input.
 
   if (input.canType && !leaving()) {
     input.paint(api, false, {
@@ -387,7 +366,25 @@ function world_leave({ store, piece }) {
   store.persist(`world:${piece}:pos`);
 }
 
-export { world_boot, world_paint, world_sim, world_act, world_leave };
+// Determines whether the world covers the whole screen or not.
+// (Used to toggling backdrop.)
+function coversScreen(screen) {
+  return (
+    cam.x <= 0 &&
+    cam.y <= 0 &&
+    cam.x + world.size.width > screen.width &&
+    cam.y + world.size.height > screen.height
+  );
+}
+
+export {
+  world_boot,
+  world_paint,
+  world_sim,
+  world_act,
+  world_leave,
+  coversScreen,
+};
 
 // 🧒
 class Kid {
@@ -595,9 +592,12 @@ class World {
     this.size.width = width;
     this.size.height = height;
   }
+  get width() {
+    return this.size.width;
+  }
 
-  paint({ ink }) {
-    ink("green").box(0, 0, this.size.width, this.size.height);
+  get height() {
+    return this.size.height;
   }
 }
 

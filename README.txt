@@ -41,18 +41,33 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** `go` ***
-  - [❤️‍🔥] Finish `field`.
   - [] Walk to `horizon`
   - [] And then `cave:entrance`
-  - [] Check the networking / position shifting.
+  - [] Go always returns you to your last worldly location.
   + Done
+  - [x] Finish `field`.
   - [x] Show an orange or red status if UDP or sockets get disconnected while
         aesthetic is in use.
   - [x] Both `socket` and `udp` need disconnect messages /
         prevent big fish list?
 
+*** botce xmas ***
+  - [] Baby blue background and white text.
+  - [] Snowflake backdrop in paywall. 
+  - [] 6$ 
+  - [] Dec. 23 - Jan ?. 
+  - [] Snowflake Image
+  - [] Share button for screenshotting.
+  - [] Test Instagram share.
+  - [] Add `about` credits.
+
 *** load performance ***
   - [] Spend a half day just on getting the site to load faster.
+
+*** new session request ***
+  - [] When / if a session server goes offline, try to request a new one.
+  - [-] This can be done by running an http get request on the endpoint to
+        see if it's still online and also checking against navigator.online
 
 *** `ptt` ***
   - [-] Make `ptt` voice chat prototype.
@@ -64,16 +79,6 @@
 *** better email verification flow... ***
   - [] Say "email verified" as a notice after email verification is tapped?
   - [] https://chat.openai.com/c/c9898bf6-62f6-4654-a54e-9c8ba47f5681
-
-*** botce xmas ***
-  - [] Baby blue background and white text.
-  - [] Snowflake backdrop in paywall. 
-  - [] 6$ 
-  - [] Dec. 23 - Jan ?. 
-  - [] Snowflake Image
-  - [] Share button for screenshotting.
-  - [] Test Instagram share.
-  - [] Add `about` credits.
   
 *** `pond` production ***
   - [] Finish the basics in `go`.
