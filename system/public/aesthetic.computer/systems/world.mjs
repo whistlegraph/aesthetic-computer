@@ -268,8 +268,8 @@ function world_paint(
 
 function world_act({ event: e, api, send, jump, hud, piece, screen }) {
   if (e.is("reframed")) {
-    cam.x = screen.width / 2 - dolly.x;
-    cam.y = screen.height / 2 - dolly.y;
+    cam.x = screen.width / 2 - cam.dolly.x;
+    cam.y = screen.height / 2 - cam.dolly.y;
   }
 
   if (!input.canType) {
