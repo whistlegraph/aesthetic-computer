@@ -2482,7 +2482,7 @@ async function load(
   // Start the socket server
   // TODO: Before we load the disk, in case of needing to reload remotely on failure? 23.01.27.12.48
   let receiver; // Handles incoming messages from the socket.
-  const forceProd = true; // For testing prod socket servers in development.
+  const forceProd = false; // For testing prod socket servers in development.
   // TOOD: Hoist this to an environment variable?
 
   // Requests a session-backend and connects via websockets.
@@ -3016,10 +3016,8 @@ async function load(
       };
 
       paint = ($) => {
-        // Paint behind the world first.
-        let noPaint = module.paint?.($);
-        noPaint = noPaint || world.world_paint($);
-        return noPaint;
+        if (!world.coversScreen($.screen)) module.background?.($);
+        world.world_paint($, module.paint, module.curtain);
       };
 
       beat = module.beat || defaults.beat;
