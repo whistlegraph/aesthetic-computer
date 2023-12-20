@@ -2,6 +2,10 @@
 // This module contains all of the world system functionality.
 // Worlds are multi-user, interconnected rooms.
 
+/* #region 🏁 TODO 
+  - [] Camera snap after move. 
+#endregion */
+
 let me, world, cam, input, inputBtn, server;
 
 const kids = {};

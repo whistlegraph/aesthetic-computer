@@ -40,8 +40,13 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `rain` ***
+  - [] Add Aspen's graphic.
+  - [] Add rain.
+  - [] Add the song notes for "rain, rain, go away".
+
 *** `go` ***
-  - [] Walk to `horizon`
+  - [-] Walk to `horizon`
   - [] And then `cave:entrance`
   - [] Go always returns you to your last worldly location.
   + Done
