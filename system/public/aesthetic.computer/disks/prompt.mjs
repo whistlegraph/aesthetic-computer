@@ -1024,6 +1024,10 @@ async function halt($, text) {
     jump("https://github.com/digitpain/aesthetic.computer");
     makeFlash($);
     return true;
+  } else if (text.toLowerCase() === "app" || text === "ios") {
+    jump("https://apps.apple.com/app/aesthetic-computer/id6450940883");
+    makeFlash($);
+    return true;
   } else if (text.toLowerCase() === "pp") {
     jump("https://aesthetic.computer/privacy-policy");
     makeFlash($);
