@@ -78,8 +78,9 @@ export async function handler(event, context) {
   try {
     const body = JSON.parse(event.body);
     const user = await authorize(event.headers);
+    const handle = await getHandleOrEmail(user.sub);
 
-    if (user) {
+    if (user && handle?.startsWith("@")) {
       const database = await connect();
       const collection = database.db.collection("moods"); // Make tweet-like collection.
       // Assume a mood update.
@@ -103,7 +104,6 @@ export async function handler(event, context) {
         }
 
         console.log("💕 Setting a mood for:", user);
-        const handle = await getHandleOrEmail(user.sub);
         getMessaging()
           .send({
             notification: { title: `${handle}`, body: `${mood}` },
