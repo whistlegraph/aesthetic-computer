@@ -1246,7 +1246,7 @@ function act({
     });
   };
 
-  if (!platform.Aesthetic) {
+  // if (!platform.Aesthetic) {
     login?.btn.act(e, {
       down: () => downSound(),
       push: () => {
@@ -1262,7 +1262,7 @@ function act({
         net.signup();
       },
     });
-  }
+  // }
 
   profile?.btn.act(e, {
     down: () => downSound(),
