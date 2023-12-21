@@ -106,7 +106,7 @@ export async function handler(event, context) {
         console.log("💕 Setting a mood for:", user);
         getMessaging()
           .send({
-            notification: { title: `${handle}`, body: `${mood}` },
+            notification: { title: `${handle}'s mood is`, body: `${mood}` },
             topic: "mood",
             // data: { piece: msg.content.indexOf("pond") > -1 ? "pond" : "" },
           })
