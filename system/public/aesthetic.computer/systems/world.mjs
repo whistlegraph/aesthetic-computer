@@ -4,6 +4,9 @@
 
 /* #region 🏁 TODO 
   - [] Camera snap after move. 
+  + Done
+  - [x] While holding arrow keys and then tapping, the elastic line is extended.
+       (Play around with the difference.)
 #endregion */
 
 let me, world, cam, input, inputBtn, server;
@@ -348,8 +351,8 @@ function world_sim({ api, geo, simCount, screen, num }) {
     if (kid.clear) server.send("world:field:write:clear", kid);
   }); // 🧒 Movement
 
-  cam.dolly.x = num.lerp(cam.dolly.x, me.pos.x, 0.05);
-  cam.dolly.y = num.lerp(cam.dolly.y, me.pos.y, 0.05);
+  cam.dolly.x = num.lerp(cam.dolly.x, me.pos.x, 0.035);
+  cam.dolly.y = num.lerp(cam.dolly.y, me.pos.y, 0.035);
 
   cam.x = screen.width / 2 - cam.dolly.x;
   cam.y = screen.height / 2 - cam.dolly.y;
@@ -478,16 +481,26 @@ class Kid {
   act({ event: e, num }) {
     const k = this.#keys;
     const leash = this.leash;
-    if (e.is("keyboard:down:w") || e.is("keyboard:down:arrowup")) k.U = true;
-    if (e.is("keyboard:down:s") || e.is("keyboard:down:arrowdown")) k.D = true;
-    if (e.is("keyboard:down:a") || e.is("keyboard:down:arrowleft")) k.L = true;
-    if (e.is("keyboard:down:d") || e.is("keyboard:down:arrowright")) k.R = true;
-    if (e.is("keyboard:up:w") || e.is("keyboard:up:arrowup")) k.U = false;
-    if (e.is("keyboard:up:s") || e.is("keyboard:up:arrowdown")) k.D = false;
-    if (e.is("keyboard:up:a") || e.is("keyboard:up:arrowleft")) k.L = false;
-    if (e.is("keyboard:up:d") || e.is("keyboard:up:arrowright")) k.R = false;
+    if (!this.drag) {
+      if (e.is("keyboard:down:w") || e.is("keyboard:down:arrowup")) k.U = true;
+      if (e.is("keyboard:down:s") || e.is("keyboard:down:arrowdown"))
+        k.D = true;
+      if (e.is("keyboard:down:a") || e.is("keyboard:down:arrowleft"))
+        k.L = true;
+      if (e.is("keyboard:down:d") || e.is("keyboard:down:arrowright"))
+        k.R = true;
+      if (e.is("keyboard:up:w") || e.is("keyboard:up:arrowup")) k.U = false;
+      if (e.is("keyboard:up:s") || e.is("keyboard:up:arrowdown")) k.D = false;
+      if (e.is("keyboard:up:a") || e.is("keyboard:up:arrowleft")) k.L = false;
+      if (e.is("keyboard:up:d") || e.is("keyboard:up:arrowright")) k.R = false;
+    }
 
-    if (e.is("touch:1")) leash.start = { x: e.x, y: e.y };
+    if (e.is("touch:1")) {
+      k.U = k.D = k.L = k.R = false;
+      leash.start = { x: e.x, y: e.y };
+      leash.x = leash.y = 0;
+      this.drag = true;
+    }
 
     if (e.is("draw:1") && leash.start) {
       leash.x = e.x - leash.start.x;
@@ -495,7 +508,10 @@ class Kid {
       this.#snapLeash(num);
     }
 
-    if (e.is("lift:1")) leash.start = null;
+    if (e.is("lift:1")) {
+      leash.start = null;
+      this.drag = false;
+    }
   }
 
   // Simulate the kid's movement and time messages.

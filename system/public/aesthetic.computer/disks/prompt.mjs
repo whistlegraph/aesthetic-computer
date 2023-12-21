@@ -1127,13 +1127,12 @@ function paint($) {
   }
 
   // Paint UI Buttons
-  if (!$.platform.Aesthetic) {
-    if (!login?.btn.disabled)
-      login?.paint($, [[0, 0, 64], 255, 255, [0, 0, 64]]);
-    if (!signup?.btn.disabled)
-      signup?.paint($, [[0, 64, 0], 255, 255, [0, 64, 0]]);
-    if (!profile?.btn.disabled) profile?.paint($);
-  }
+  // if (!$.platform.Aesthetic) {
+  if (!login?.btn.disabled) login?.paint($, [[0, 0, 64], 255, 255, [0, 0, 64]]);
+  if (!signup?.btn.disabled)
+    signup?.paint($, [[0, 64, 0], 255, 255, [0, 64, 0]]);
+  if (!profile?.btn.disabled) profile?.paint($);
+  // }
 
   // 📏 Paint a measurement line in the center of the display.
   if (ruler) {
