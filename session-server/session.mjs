@@ -290,13 +290,16 @@ wss.on("connection", (ws, req) => {
         .publish("scream", msg.content)
         .then((result) => {
           console.log("😱 Scream succesfully published:", result);
+
+          let piece = "";
+          if (msg.content.indexOf("pond") > -1) piece = "pond";
+          else if (msg.content.indexOf("field") > -1) piece = "field";
+
           getMessaging()
             .send({
-              notification: { title: "😱", body: msg.content },
+              notification: { title: "😱 Scream", body: msg.content },
               topic: "scream",
-              data: {
-                piece: msg.content.indexOf("pond") > -1 ? "pond" : "",
-              },
+              data: { piece },
             })
             .then((response) => {
               console.log("☎️  Successfully sent notification:", response);
