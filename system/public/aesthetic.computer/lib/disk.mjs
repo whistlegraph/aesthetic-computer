@@ -4791,7 +4791,7 @@ async function makeFrame({ data: { type, content } }) {
         // TODO: Should this overlay after the fact and not force a paint? 23.05.23.19.21
         //       Yes probably, because of layering issues?
         if (scream || screaming) {
-          ink("red").write(scream, { x: 6, y: 18 }, "yellow");
+          ink("yellow").write(scream, { x: 6, y: 18 }, "red");
           //ink("red").write(scream, { x: 6 + 1, y: 18 + 1 });
 
           /*
