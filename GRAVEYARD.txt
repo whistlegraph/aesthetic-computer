@@ -1,5 +1,9 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** filtering obscenities with underscores ***
+  - [x] Add `obscenity` to session-server.
+  - [x] Add `obscenity` to backend for moods.
+
 *** `field` ***
   + Done
   - [x] Localize world geometry to this file.
