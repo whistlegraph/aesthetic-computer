@@ -54,7 +54,6 @@ export async function prompt_boot(
       input.paste.btn.disabled = true;
       input.paste.btn.removeFromDom($, "paste");
 
-      //input.inputStarted = false;
       input.canType = false;
 
       const halted = await halt?.($, text);
@@ -167,7 +166,6 @@ export async function prompt_boot(
           $.send({ type: "keyboard:open" }); // Will not auto-open on iOS? 23.12.02.13.01
           // input.bakePrintedText();
           input.runnable = false;
-          console.log(input);
           //if (input.text.length > 0) {
           // messageComplete = true;
           // input.showButton($);

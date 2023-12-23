@@ -5,7 +5,7 @@
 
 /* #region todo 📓 
  + Now
- - [] ... 
+ - [] Add `obscenity` filter. 
  + Possible Concerns
  - [?] `code.channel` should return a promise, and wait for a
       `code-channel:subbed`.
@@ -41,6 +41,8 @@ import { initializeApp, cert } from "firebase-admin/app"; // Firebase notificati
 import serviceAccount from "./aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json" assert { type: "json" };
 import { getMessaging } from "firebase-admin/messaging";
 initializeApp({ credential: cert(serviceAccount) });
+
+import { filter } from "./filter.mjs"; // Profanity filtering.
 
 dotenv.config();
 
@@ -284,29 +286,32 @@ wss.on("connection", (ws, req) => {
     const msg = JSON.parse(data.toString());
     msg.id = id; // TODO: When sending a server generated message, use a special id.
     if (msg.type === "scream") {
-      // TODO: Alert all connected users via redis pub/sub to the scream.
+      // Alert all connected users via redis pub/sub to the scream.
       console.log("😱 About to scream...");
+      const out = filter(msg.content);
       pub
-        .publish("scream", msg.content)
+        .publish("scream", out)
         .then((result) => {
           console.log("😱 Scream succesfully published:", result);
 
           let piece = "";
-          if (msg.content.indexOf("pond") > -1) piece = "pond";
-          else if (msg.content.indexOf("field") > -1) piece = "field";
+          if (out.indexOf("pond") > -1) piece = "pond";
+          else if (out.indexOf("field") > -1) piece = "field";
 
-          getMessaging()
-            .send({
-              notification: { title: "😱 Scream", body: msg.content },
-              topic: "scream",
-              data: { piece },
-            })
-            .then((response) => {
-              console.log("☎️  Successfully sent notification:", response);
-            })
-            .catch((error) => {
-              console.log("📵  Error sending notification:", error);
-            });
+          if (!dev) {
+            getMessaging()
+              .send({
+                notification: { title: "😱 Scream", body: out },
+                topic: "scream",
+                data: { piece },
+              })
+              .then((response) => {
+                console.log("☎️  Successfully sent notification:", response);
+              })
+              .catch((error) => {
+                console.log("📵  Error sending notification:", error);
+              });
+          }
         })
         .catch((error) => {
           console.log("🙅‍♀️ Error publishing scream:", error);
