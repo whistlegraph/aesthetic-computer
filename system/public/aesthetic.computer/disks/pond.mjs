@@ -5,6 +5,7 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] Update `pond` to use world-like user lists.
   - [-] Change title of tab / page to use parameters after a dot or dash?
   - [] Don't allow a user to send marks unless they are connected.
   - [] Better backdrops / make sounds after a gesture is made.
@@ -74,12 +75,14 @@ function paint({ wipe, ink, screen, help }) {
   wipe("darkblue");
 
   fadingMarks.forEach((mark) => {
-    ink(0, 255, 255, 255 * (mark.fade / fadeMax)).poly(
-      mark.gesture.map((point) => [
-        point[0] * screen.width + help.choose(-1, 0, 1),
-        point[1] * screen.height + help.choose(-1, 0, 1),
-      ]),
-    );
+    if (mark.gesture) {
+      ink(0, 255, 255, 255 * (mark.fade / fadeMax)).poly(
+        mark.gesture.map((point) => [
+          point[0] * screen.width + help.choose(-1, 0, 1),
+          point[1] * screen.height + help.choose(-1, 0, 1),
+        ]),
+      );
+    }
   });
 
   keys(activeMarks).forEach((m) => {
