@@ -4791,6 +4791,10 @@ async function makeFrame({ data: { type, content } }) {
         // TODO: Should this overlay after the fact and not force a paint? 23.05.23.19.21
         //       Yes probably, because of layering issues?
         if (scream || screaming) {
+          ink("red").write(scream, { x: 6, y: 18 }, "yellow");
+          //ink("red").write(scream, { x: 6 + 1, y: 18 + 1 });
+
+          /*
           ink(255)
             .wipe(255, 0, 0)
             .write(
@@ -4800,6 +4804,7 @@ async function makeFrame({ data: { type, content } }) {
               $api.screen.width - 8,
               needsPaint(),
             );
+          */
           if (!screaming) {
             screaming = true;
             clearTimeout(screamingTimer);
