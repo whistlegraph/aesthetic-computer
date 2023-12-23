@@ -217,6 +217,7 @@ async function halt($, text) {
     connect,
     bgm,
     needsPaint,
+    leaving,
     system,
     gizmo,
     screen,
@@ -1074,6 +1075,9 @@ async function halt($, text) {
   } else {
     // 🟠 Local and remote pieces...
     const loaded = await load(parse(text)); // Execute the current command.
+    if (!loaded) {
+      leaving(false);
+    }
     return loaded ? { left: true } : loaded;
   }
 }
@@ -1247,21 +1251,21 @@ function act({
   };
 
   // if (!platform.Aesthetic) {
-    login?.btn.act(e, {
-      down: () => downSound(),
-      push: () => {
-        pushSound();
-        net.login();
-      },
-    });
+  login?.btn.act(e, {
+    down: () => downSound(),
+    push: () => {
+      pushSound();
+      net.login();
+    },
+  });
 
-    signup?.btn.act(e, {
-      down: () => downSound(),
-      push: () => {
-        pushSound();
-        net.signup();
-      },
-    });
+  signup?.btn.act(e, {
+    down: () => downSound(),
+    push: () => {
+      pushSound();
+      net.signup();
+    },
+  });
   // }
 
   profile?.btn.act(e, {

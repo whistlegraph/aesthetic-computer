@@ -40,6 +40,19 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** filtering obscenities with underscores ***
+  - [] Add `obscenity` to session-server.
+  - [] Add `obscenity` to backend for moods.
+  - [] Run it through bot prompts also / filter it in client?
+
+*** `chanel` ***
+  - [] Entering `chanel` will take you to a dress picture.
+  - [] Title text:
+  - [] Copy text:
+  - [] [Dress photos.]
+  - [] Button in the corner that says [$256].
+  - [] Custom email.
+
 *** `rain` ***
   - [] Add Aspen's graphic.
   - [] Add rain.

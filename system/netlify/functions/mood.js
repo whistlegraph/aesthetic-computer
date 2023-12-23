@@ -38,6 +38,7 @@ import { respond, pathParams } from "../../backend/http.mjs";
 import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
 import { getMessaging } from "firebase-admin/messaging";
 
+import { filter } from "../../backend/filter.mjs"; // Profanity filtering.
 // import { promises as fs } from "fs";
 // import path from "path";
 
@@ -85,7 +86,8 @@ export async function handler(event, context) {
       const collection = database.db.collection("moods"); // Make tweet-like collection.
       // Assume a mood update.
       if (body.mood) {
-        const mood = body.mood.trim(); // Trim extra whitespace off mood.
+        const mood = filter(body.mood.trim()); // Trim extra whitespace off mood.
+
         // 📕 Database
         await collection.createIndex({ user: 1 }); // Index for `user`.
         await collection.createIndex({ when: 1 }); // Index for `when`.
