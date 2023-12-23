@@ -516,7 +516,9 @@ async function uploadPainting(picture, progress, handle, filename) {
   }
 }
 
-function isLeaving() {
+// Returns whether leaving a piece and also can overwrite the value.
+function isLeaving(set) {
+  if (set === true || set === false) leaving = set;
   return leaving;
 }
 

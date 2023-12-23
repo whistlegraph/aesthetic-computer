@@ -40,7 +40,7 @@ async function boot({ ticket, query, notice, store, jump }) {
   if (!ticketToCheck)
     notice(noMessage, [
       "pink",
-      "black"
+      "black",
       // [48, 49, 61],
       // [250, 146, 146],
     ]);
@@ -72,10 +72,10 @@ async function boot({ ticket, query, notice, store, jump }) {
         setTimeout(() => ticket({ from: "sotce", item: "botce" }), 1500);
       });
   } else {
-    setTimeout(() => {
-      notice("has left us", ["pink", "black"]);
-    }, 1000);
-    // ticket({ from: "sotce", item: "botce" });
+    // setTimeout(() => {
+    // notice("has left us", ["pink", "black"]);
+    // }, 1000);
+    ticket({ from: "sotce", item: "botce" });
   }
 }
 
