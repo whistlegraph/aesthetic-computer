@@ -40,6 +40,11 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `android app` ***
+  - [] Set up / start android app / make sure android studio
+       is installed.
+  - [] Add support for notifications.
+
 *** `chanel` ***
   - [] Entering `chanel` will take you to a dress picture.
   - [] Title text:
