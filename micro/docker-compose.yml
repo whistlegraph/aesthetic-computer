@@ -1,0 +1,14 @@
+services:
+  aesthetic:
+    image: aesthetic-micro
+    build: .
+    platform: linux/amd64
+    user: me
+    hostname: aesthetic
+    ports:
+      - "8888:8888"
+    env_file:
+      - .env
+    volumes:
+      - ./system:/home/me/system
+      - ./pieces:/home/me/pieces

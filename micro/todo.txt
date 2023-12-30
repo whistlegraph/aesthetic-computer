@@ -1,0 +1,8 @@
+*** aesthetic mini todo ***
+
+- [🟠] Get visual memory mapped output from the `processor.wasm`.
+- [] Get sound output from the `processor.wasm`.
+- [] Run more than one processor simultaneously.
+
++ Done
+- [x] Set up the websocket connection for live reloading.
