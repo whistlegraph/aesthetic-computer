@@ -1,2 +1,0 @@
-#!/usr/bin/env fish
-docker-compose run --build aesthetic
