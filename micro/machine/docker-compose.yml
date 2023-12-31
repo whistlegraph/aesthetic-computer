@@ -10,5 +10,4 @@ services:
     env_file:
       - .env
     volumes:
-      - ./system:/home/me/system
-      - ./pieces:/home/me/pieces
+      - ..:/home/me/micro

@@ -3,14 +3,19 @@ FROM fedora:latest
 # Update all packages.
 RUN dnf update -y
 
-# Install git, gcc, and clang
-RUN dnf install -y git gcc clang
+# Install git, gcc, clang, and emacs (without x support) and python
+RUN dnf install -y git gcc clang emacs-nox python3 python3-pip
 
 # Install procps to get the 'ps' command (required for linux brew)
 RUN dnf install -y procps
 
 # Add 'me' user.
-RUN useradd -m me
+RUN useradd -m me && \
+    # Optional: Set password for the user (replace 'password' with your desired password)
+    # echo "me:micro" | chpasswd && \
+    # Give 'me' sudo privileges without password
+    echo "me ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
 # Install fish shell
 RUN dnf install -y fish
 # And set it as default.
@@ -21,17 +26,24 @@ RUN chsh -s /usr/bin/fish me
 RUN mkdir -p /home/linuxbrew/.linuxbrew && \
     chown -R me:me /home/linuxbrew/.linuxbrew
 
-
 # Switch to current user.
 USER me
 
-# Set working directory.
+# Set working directory to me user.
 WORKDIR /home/me
 
-# Copy the fish configuration.
+# Install shell-gpt for the user.
+RUN pip3 install shell-gpt
+
+# Copy the fish configuration and entry point script.
 RUN mkdir -p .config/fish
 RUN mkdir -p .config/fish/conf.d
 COPY config.fish .config/fish/config.fish 
+COPY entry.fish /entry.fish
+
+# Move emacs config.
+RUN mkdir -p .emacs.d
+COPY init.el .emacs.d/init.el
 
 # Install linux brew.
 RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -43,9 +55,12 @@ ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
 RUN brew install wabt
 
 # Install node version manager and a good LTS node version (18).
-RUN brew install fnm
+RUN brew install fnm && \
+    fnm install lts-hydrogen
 RUN echo "fnm env --use-on-cd | source" >> /home/me/.config/fish/conf.d/fnm.fish
-RUN fnm install lts-hydrogen
 
 # Set the default command.
 CMD ["/usr/bin/fish"]
+
+# Set the entry point script.
+ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]
