@@ -11,5 +11,7 @@ npm install --no-fund --no-audit --silent
 
 cd ..
 
+clear
+
 # Execute the provided command.
 exec $argv
