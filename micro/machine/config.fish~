@@ -1,7 +1,10 @@
 # empty greeting
 function fish_greeting
-  echo "🧩 welcome 2 aesthetic micro ;)"
+  printf "\n  🧩 welcome 2 aesthetic micro ;)\n\n"
 end
+
+# rebuild the container after exiting with a special code ;)
+alias reload 'exit 0' 
 
 # set default editor to emacs
 set -gx EDITOR emacs

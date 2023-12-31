@@ -1,5 +1,7 @@
 *** aesthetic mini todo ***
 
+- [-] Set up a faster / symlinked dotfiles scenario with emacs.
+- [-] Get an emacs development loop working.
 - [🟠] Get visual memory mapped output from the `processor.wasm`.
 - [] Get sound output from the `processor.wasm`.
 - [] Run more than one processor simultaneously.
