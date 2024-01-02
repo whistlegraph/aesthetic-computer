@@ -88,6 +88,11 @@
    status = 200
    force = true
 [[redirects]]
+   from = "https://whistlegraph.com"
+   to = "https://trio.whistlegraph.com"
+   status = 200
+   force = true
+[[redirects]]
   from = "/media-collection/*"
   to = "/.netlify/functions/media-collection"
   status = 200
