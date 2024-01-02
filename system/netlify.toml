@@ -90,7 +90,7 @@
 [[redirects]]
    from = "https://whistlegraph.com"
    to = "https://trio.whistlegraph.com"
-   status = 200
+   status = 301
    force = true
 [[redirects]]
   from = "/media-collection/*"
