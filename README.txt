@@ -53,11 +53,6 @@
   - [] Button in the corner that says [$256].
   - [] Custom email.
 
-*** `rain` ***
-  - [] Add Aspen's graphic.
-  - [] Add rain.
-  - [] Add the song notes for "rain, rain, go away".
-
 *** `go` ***
   - [-] Walk to `horizon`
   - [] And then `cave:entrance`
