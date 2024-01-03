@@ -15,11 +15,12 @@ let drops = [],
   guy;
 
 // 🥾 Boot
-function boot({ api, wipe, net: { preload } }) {
+function boot({ net: { preload }, debug }) {
   // Runs once at the start.
-  preload(`/assets/rain/aspens-rain-guy-nobg.png`).then(
-    ({ img }) => (guy = img),
-  );
+  const path = debug
+    ? "/assets/rain"
+    : "https://assets.aesthetic.computer/rain";
+  preload(`${path}/aspens-rain-guy-nobg.png`).then(({ img }) => (guy = img));
 }
 
 // 🧮 Sim
