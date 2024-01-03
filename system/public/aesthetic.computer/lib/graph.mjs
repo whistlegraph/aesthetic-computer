@@ -196,7 +196,6 @@ function clear() {
  * (2) (x, y)
  */
 // Where a pixel is a region in which we draw from the upper left corner. (2D)
-
 function plot(x, y) {
   x = floor(x);
   y = floor(y);
