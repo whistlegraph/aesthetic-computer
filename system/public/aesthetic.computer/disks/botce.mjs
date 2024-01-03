@@ -85,8 +85,8 @@ function paint({ wipe, ink, help: { choose }, screen }) {
     wipe(20, 30, 100);
     needsWipe = false;
   }
-  ink(choose("maroon", "blue", "gray"))
-    .write(choose("no sotce :(", "bye botce :)"))
+  ink(choose("pink", "gray", "blue"))
+    .write(choose("hey sotce :)", "sup botce :D"))
     .ink(10, 30, 80, 6)
     .box(0, 0, screen.width, screen.height);
 }
