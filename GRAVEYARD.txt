@@ -1,5 +1,17 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** botce xmas ***
+  + Done
+  - [x] 6$ 
+  - [x] Dec. 23 - Jan ?. 
+  + Postponed
+  - [c] Baby blue background and white text.
+  - [c] Snowflake backdrop in paywall. 
+  - [c] Snowflake Image
+  - [c] Share button for screenshotting.
+  - [c] Test Instagram share.
+  - [c] Add `about` credits.
+
 *** filtering obscenities with underscores ***
   - [x] Add `obscenity` to session-server.
   - [x] Add `obscenity` to backend for moods.
