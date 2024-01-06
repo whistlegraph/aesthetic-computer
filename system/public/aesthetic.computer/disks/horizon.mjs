@@ -1,12 +1,10 @@
-// Field, 2023.11.30.16.05.21.050
-// An open place to walk around.
+// Horizon, 2024.1.06.13.10.52.413
+// Walk left or right here.
 
 /* #region 📚 README 
 #endregion */
 
 /* #region 🏁 TODO 
-  + Future
-  - [] Store something persistent on the server.
 #endregion */
 
 const scenery = {
@@ -24,18 +22,18 @@ async function boot() {}
 
 // 🏔️ Background
 function background({ wipe }) {
-  wipe("olive");
+  wipe("blue");
 }
 
 // 🎨 Paint
 function paint({ ink }, world) {
-  ink("green").box(0, 0, world.width, world.height);
+  ink("brown").box(0, 0, world.width, world.height);
   //ink("black").line(0, 0, world.width, world.height);
   //ink("red").line(0, world.height, world.width, 0);
 
   // Scenery
   scenery.grasses.forEach((grass) => {
-    ink("lime")
+    ink("red")
       .line(grass.x, grass.y, grass.x, grass.y - 10)
       .line(grass.x, grass.y, grass.x - 5, grass.y - 6)
       .line(grass.x, grass.y, grass.x + 5, grass.y - 6);
@@ -64,8 +62,8 @@ function leave() {}
 // 📰 Meta
 function meta() {
   return {
-    title: "Field",
-    desc: "An open place to walk around.",
+    title: "Horizon",
+    desc: "Walk left or right here.",
   };
 }
 
