@@ -40,6 +40,18 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `go` ***
+  - [-] Walk to `horizon`.
+    - [🟠] Make `horizon`.
+  - [] And then `cave:entrance`
+  - [] Go always returns you to your last worldly location.
+  + Done
+  - [x] Finish `field`.
+  - [x] Show an orange or red status if UDP or sockets get disconnected while
+        aesthetic is in use.
+  - [x] Both `socket` and `udp` need disconnect messages /
+        prevent big fish list?
+
 *** `android app` ***
   - [] Set up / start android app / make sure android studio
        is installed.
@@ -52,27 +64,6 @@
   - [] [Dress photos.]
   - [] Button in the corner that says [$256].
   - [] Custom email.
-
-*** `go` ***
-  - [-] Walk to `horizon`
-  - [] And then `cave:entrance`
-  - [] Go always returns you to your last worldly location.
-  + Done
-  - [x] Finish `field`.
-  - [x] Show an orange or red status if UDP or sockets get disconnected while
-        aesthetic is in use.
-  - [x] Both `socket` and `udp` need disconnect messages /
-        prevent big fish list?
-
-*** botce xmas ***
-  - [] Baby blue background and white text.
-  - [] Snowflake backdrop in paywall. 
-  - [] 6$ 
-  - [] Dec. 23 - Jan ?. 
-  - [] Snowflake Image
-  - [] Share button for screenshotting.
-  - [] Test Instagram share.
-  - [] Add `about` credits.
 
 *** load performance ***
   - [] Spend a half day just on getting the site to load faster.
