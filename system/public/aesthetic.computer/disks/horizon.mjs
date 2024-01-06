@@ -5,6 +5,7 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] Define a custom world size that only allows for lateral movement,
 #endregion */
 
 const scenery = {
