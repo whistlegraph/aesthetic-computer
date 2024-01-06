@@ -52,7 +52,19 @@
         aesthetic is in use.
   - [x] Both `socket` and `udp` need disconnect messages /
         prevent big fish list?
-  
+
+*** `ten` ***
+  - [] Some kind of Pong clone with 2 player matching and also
+       spectators / round-based play?
+  - [] Should be visitable from the world.
+
+*** `blog` ***
+  - [] Build CRUD pages. 
+  - [] Maybe use a vscode instance / route it through piece publishing?
+  - [] So a piece type can be considered a "post".
+  - [] Add the ability to include high resolution text easily.
+  - [] Editor
+  - [] Viewer
 
 *** `android app` ***
   - [] Set up / start android app / make sure android studio
