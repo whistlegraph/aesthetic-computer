@@ -88,8 +88,8 @@
    status = 200
    force = true
 [[redirects]]
-   from = "https://whistlegraph.com"
-   to = "https://trio.whistlegraph.com"
+   from = "https://whistlegraph.com/*"
+   to = "https://trio.whistlegraph.com/:splat"
    status = 301
    force = true
 [[redirects]]

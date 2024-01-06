@@ -44,13 +44,15 @@
   - [-] Walk to `horizon`.
     - [🟠] Make `horizon`.
   - [] And then `cave:entrance`
-  - [] Go always returns you to your last worldly location.
+  - [] Create a `go` command that always returns you to your last worldly
+       location.
   + Done
   - [x] Finish `field`.
   - [x] Show an orange or red status if UDP or sockets get disconnected while
         aesthetic is in use.
   - [x] Both `socket` and `udp` need disconnect messages /
         prevent big fish list?
+  
 
 *** `android app` ***
   - [] Set up / start android app / make sure android studio
