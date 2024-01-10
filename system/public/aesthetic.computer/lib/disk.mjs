@@ -831,6 +831,9 @@ const $commonApi = {
   },
   system: {
     // prompt: { input: undefined }, Gets set in `prompt_boot`.
+    world: {
+      // Populated in `world_boot` of `world.mjs`.
+    },
     nopaint: {
       //boot: nopaint_boot, // TODO: Why are these in the commonApi? 23.02.12.14.26
       // act: nopaint_act,
@@ -3008,7 +3011,7 @@ async function load(
       system = "prompt";
     } else if (module.system?.startsWith("world")) {
       boot = async ($) => {
-        await world.world_boot($);
+        await world.world_boot($, module.world);
         await module.boot?.($);
       };
 

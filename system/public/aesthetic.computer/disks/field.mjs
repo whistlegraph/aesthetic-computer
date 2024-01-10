@@ -33,6 +33,8 @@ function paint({ ink }, world) {
   //ink("black").line(0, 0, world.width, world.height);
   //ink("red").line(0, world.height, world.width, 0);
 
+  ink("yellow").line(world.width, 0, world.width, world.height);
+
   // Scenery
   scenery.grasses.forEach((grass) => {
     ink("lime")
@@ -51,7 +53,12 @@ function curtain({ ink }) {
 function act() {}
 
 // 🧮 Sim
-function sim() {}
+function sim({ system: { world }, jump }) {
+  if (world.me.pos.x === world.size.width) {
+    world.me.pos.x -= 1;
+    jump("horizon");
+  }
+}
 
 // 🥁 Beat
 // function beat() {
@@ -79,6 +86,7 @@ function meta() {
 // Render an application icon, aka favicon.
 // }
 
+export const world = { width: 512, height: 512 };
 export const system = "world";
 export { boot, background, paint, curtain, act, sim, leave, meta };
 

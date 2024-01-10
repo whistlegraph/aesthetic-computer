@@ -15,30 +15,41 @@ const kids = {};
 
 const { keys, values } = Object;
 
-async function world_boot({
-  api,
-  help,
-  handle,
-  screen,
-  ui,
-  send,
-  net: { socket },
-  sound,
-  store,
-  piece,
-}) {
+async function world_boot(
+  {
+    api,
+    help,
+    handle,
+    screen,
+    ui,
+    send,
+    net: { socket },
+    sound,
+    store,
+    piece,
+    system,
+  },
+  worldData,
+) {
   // ✨ Initialization & Interface
-  world = new World(512, 512);
-  const pos = (await store.retrieve(`${piece}:pos`)) || {
+  world = new World(worldData?.width, worldData?.height);
+  const pos = (await store.retrieve(`world:${piece}:pos`)) || {
     x: undefined,
     y: undefined,
   };
+
+  console.log("🗺️ Loaded position:", pos);
 
   me = new Kid(
     handle(),
     { x: pos.x || world.size.width / 2, y: pos.y || world.size.height / 2 },
     help.choose("meh", "smile", "frown"),
   );
+
+  // Define the global system.world object that will share data amongst all
+  // world-inherited pieces.
+  system.world.me = me;
+  system.world.size = world.size;
 
   cam = new Cam(
     screen.width / 2 - me.pos.x,
@@ -407,6 +418,7 @@ class Kid {
   message;
   #messageDuration;
   #messageProgress = 0;
+  // movedOnce = false;
 
   constructor(handle = "?", pos = this.pos, face, net = false) {
     this.handle = handle;
@@ -493,6 +505,10 @@ class Kid {
       if (e.is("keyboard:up:s") || e.is("keyboard:up:arrowdown")) k.D = false;
       if (e.is("keyboard:up:a") || e.is("keyboard:up:arrowleft")) k.L = false;
       if (e.is("keyboard:up:d") || e.is("keyboard:up:arrowright")) k.R = false;
+
+      // if (k.U === true || k.D === true || k.L === true || k.R === true) {
+        // this.movedOnce = true;
+      // }
     }
 
     if (e.is("touch:1")) {
@@ -505,6 +521,7 @@ class Kid {
     if (e.is("draw:1") && leash.start) {
       leash.x = e.x - leash.start.x;
       leash.y = e.y - leash.start.y;
+      // this.movedOnce = true;
       this.#snapLeash(num);
     }
 
