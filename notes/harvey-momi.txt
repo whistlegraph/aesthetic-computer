@@ -1,4 +1,4 @@
-// 🌟 Setting up an auto-running game in Windows
+// 🌟 Setting up an auto-running games in Windows
 //    (For the Auriea Harvey retrospective at MOMI)
 
 // 1. Disable Windows Game Overlay / Xbox Game Bar
@@ -26,4 +26,20 @@ while ($true) {
     Start-Sleep -Seconds 1
 }
 
-// 4. Reboot Test
+// 4. Reboot to test!
+
+// 🌟 Specific Application Settings
+
+// 🌒 Bientot
+
+(Add `skip.ahk` to the Desktop after installing AutoHotkey)
+SetTitleMatchMode(2)
+if !WinWait("Bien", , 10) {
+  	ExitApp
+}
+WinActivate("Bien")
+Sleep(250)
+Send("{Enter}")
+
+(add to the ps1 script above the other `Start-Process` line)
+Start-Process "C:\Program Files\AutoHotkey\v2\AutoHotkey.exe" -ArgumentList "`"C:\Users\Digital CPU\Desktop\skip.ahk`""
