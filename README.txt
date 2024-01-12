@@ -41,17 +41,21 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** `go` ***
-  - [-] Walk to `horizon`.
-    - [🟠] Make `horizon`.
+  - [-] Polish spatial linking.
   - [] And then `cave:entrance`
   - [] Create a `go` command that always returns you to your last worldly
        location.
   + Done
+  - [x] Walk to `horizon`.
+    - [x] Make `horizon`.
   - [x] Finish `field`.
   - [x] Show an orange or red status if UDP or sockets get disconnected while
         aesthetic is in use.
   - [x] Both `socket` and `udp` need disconnect messages /
         prevent big fish list?
+
+*** `list` ***
+  - [] Add a big list / auto-generated list of available commands.
 
 *** `ten` ***
   - [] Some kind of Pong clone with 2 player matching and also
