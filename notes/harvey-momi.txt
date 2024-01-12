@@ -1,0 +1,29 @@
+// 🌟 Setting up an auto-running game in Windows
+//    (For the Auriea Harvey retrospective at MOMI)
+
+// 1. Disable Windows Game Overlay / Xbox Game Bar
+  - Found in Settings > Gaming
+
+// 2. Set up Powershell Shortcut via Windows + R then entering `shell:startup`.
+
+C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -windowstyle hidden -ExecutionPolicy ByPass -File "C:\Users\Digital CPU\Desktop\script.ps1"
+
+// 3. Set up Powershell Script (script.ps1)
+
+$firstRun = $true;
+
+while ($true) {
+    $process = Get-Process "Sunset" -ErrorAction SilentlyContinue
+    if (-not $process) {
+        if ($firstRun) {
+          Start-Process "C:\Program Files (x86)\Sunset\Sunset.exe"
+          $firstRun = $false
+        } else {
+          Restart-computer
+          break
+        }
+    }
+    Start-Sleep -Seconds 1
+}
+
+// 4. Reboot Test
