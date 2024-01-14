@@ -132,7 +132,7 @@ export function midp(a, b) {
 
 // Determine if the value is a number or not.
 export function number(maybeNumber) {
-  return typeof maybeNumber === "number" ? maybeNumber : null;
+  return typeof maybeNumber === "number";
 }
 
 // Ceil an integer (ignoring its sign)

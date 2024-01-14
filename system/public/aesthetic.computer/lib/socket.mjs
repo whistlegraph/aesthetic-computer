@@ -30,6 +30,10 @@ export class Socket {
     connectCallback,
     disconnectCallback,
   ) {
+    if (this.connected) {
+      console.warn("🧦 Already connected...")
+      return;
+    }
     if (this.#debug && logs.session) console.log("🧦 Connecting...", host);
     try {
       this.#ws = new WebSocket(`${protocol}://${host}`);

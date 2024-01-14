@@ -338,7 +338,7 @@ wss.on("connection", (ws, req) => {
           others(JSON.stringify(msg)); // Alert everyone else about the join.
           return;
         } else if (label === "move") {
-          console.log("🚶‍♂️", msg.content);
+          // console.log("🚶‍♂️", msg.content);
         } else {
           console.log(`${label}:`, msg.content);
         }

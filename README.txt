@@ -41,11 +41,12 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** `go` ***
-  - [-] Polish spatial linking.
   - [] And then `cave:entrance`
   - [] Create a `go` command that always returns you to your last worldly
        location.
   + Done
+  - [x] Fix double listing issue (seen via sat)
+  - [x] Polish spatial linking.
   - [x] Walk to `horizon`.
     - [x] Make `horizon`.
   - [x] Finish `field`.
@@ -53,6 +54,14 @@
         aesthetic is in use.
   - [x] Both `socket` and `udp` need disconnect messages /
         prevent big fish list?
+
+*** `dia` ***
+  - [] Run a written / readable dialogue for two.
+  - [] JSON structure with two characters.
+
+*** `uke` ***
+  - [] Make a 4-string uke simulator with chords that can
+       also play the words through of a song. 
 
 *** `list` ***
   - [] Add a big list / auto-generated list of available commands.

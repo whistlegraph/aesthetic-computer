@@ -61,7 +61,7 @@ function connect(port = 8889, url = undefined, send) {
 
   channel.onDisconnect((error) => {
     console.log("🩰 Disconnected from UDP");
-    console.log("Don't reconnect:", dontreconnect);
+    // console.log("Don't reconnect:", dontreconnect);
     connected = false;
     send({ type: "udp:disconnected" });
     if (error || !dontreconnect) {
