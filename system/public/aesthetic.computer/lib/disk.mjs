@@ -530,14 +530,18 @@ const $commonApi = {
   // router pieces such as `freaky-flowers` -> `wand`. 22.11.23.16.29
   // Jump delay...
   jump: function jump(to, ahistorical = false, alias = false) {
-    let url;
+    // let url;
+    if (leaving) {
+      console.log("🚪🙅 Jump cancelled, already leaving...")
+      return;
+    }
     const jumpOut =
       to.startsWith("out:") || (to.startsWith("http") && platform.Aesthetic);
 
     if ((to.startsWith("http") && !to.endsWith(".mjs")) || jumpOut) {
       to = to.replace("out:", "");
       try {
-        url = new URL(to);
+        // url = new URL(to);
         $commonApi.net.web(to, jumpOut);
         return;
       } catch (e) {
@@ -833,6 +837,13 @@ const $commonApi = {
     // prompt: { input: undefined }, Gets set in `prompt_boot`.
     world: {
       // Populated in `world_boot` of `world.mjs`.
+      teleported: false,
+      telepos: undefined,
+      teleport: (to, telepos) => {
+        $commonApi.system.world.teleported = true;
+        $commonApi.system.world.telepos = telepos;
+        $commonApi.jump(to);
+      },
     },
     nopaint: {
       //boot: nopaint_boot, // TODO: Why are these in the commonApi? 23.02.12.14.26
@@ -1260,6 +1271,7 @@ const $commonApi = {
     timestamp: num.timestamp,
     p2: num.p2,
     midp: num.midp,
+    number: num.number,
     signedCeil: num.signedCeil,
     signedFloor: num.signedFloor,
     vec2: num.vec2,
@@ -2928,6 +2940,9 @@ async function load(
 
     $commonApi.rec.loadCallback?.(); // Start any queued tape.
     $commonApi.rec.loadCallback = null;
+
+    if (!module.system?.startsWith("world"))
+      $commonApi.system.world.teleported = false;
 
     if (module.system?.startsWith("nopaint")) {
       // If there is no painting is in ram, then grab it from the local store,

@@ -30,7 +30,7 @@ function paint({ ink }, world) {
   ink("brown").box(0, 0, world.width, world.height);
   //ink("black").line(0, 0, world.width, world.height);
   //ink("red").line(0, world.height, world.width, 0);
-  ink("lime").line(0, 0, 0, world.height)
+  ink("lime").line(0, 0, 0, world.height - 1);
 
   // Scenery
   scenery.grasses.forEach((grass) => {
@@ -50,11 +50,9 @@ function curtain({ ink }) {
 function act() {}
 
 // 🧮 Sim
-function sim({ system: { world }, jump }) {
-  if (world.me.pos.x === 0) {
-    world.me.pos.x += 1;
-    jump("field");
-  }
+function sim({ system: { world } }) {
+  if (world.me.moved && world.me.pos.x === 0)
+    world.teleport("field", { x: 512, y: 256 });
 }
 
 // 🥁 Beat

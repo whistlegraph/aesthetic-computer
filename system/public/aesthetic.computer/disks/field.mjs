@@ -33,7 +33,7 @@ function paint({ ink }, world) {
   //ink("black").line(0, 0, world.width, world.height);
   //ink("red").line(0, world.height, world.width, 0);
 
-  ink("yellow").line(world.width, 0, world.width, world.height);
+  ink("yellow").line(world.width, 0, world.width, world.height - 1);
 
   // Scenery
   scenery.grasses.forEach((grass) => {
@@ -53,11 +53,9 @@ function curtain({ ink }) {
 function act() {}
 
 // 🧮 Sim
-function sim({ system: { world }, jump }) {
-  if (world.me.pos.x === world.size.width) {
-    world.me.pos.x -= 1;
-    jump("horizon");
-  }
+function sim({ system: { world } }) {
+  if (world.me.moved && world.me.pos.x === world.size.width)
+    world.teleport("horizon", { x: 0, y: 10 });
 }
 
 // 🥁 Beat
