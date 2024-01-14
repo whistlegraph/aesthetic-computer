@@ -3,7 +3,8 @@
 // Worlds are multi-user, interconnected rooms.
 
 /* #region 🏁 TODO 
-  - [] Camera snap after move. 
+  - [🟠] Fix duplicate joins when switching areas.
+  - [?] Camera snap after move. 
   + Done
   - [x] While holding arrow keys and then tapping, the elastic line is extended.
        (Play around with the difference.)
@@ -28,26 +29,36 @@ async function world_boot(
     store,
     piece,
     system,
+    num: { number },
   },
   worldData,
 ) {
   // ✨ Initialization & Interface
   world = new World(worldData?.width, worldData?.height);
-  const pos = (await store.retrieve(`world:${piece}:pos`)) || {
-    x: undefined,
-    y: undefined,
-  };
+
+  let pos;
+  if (system.world.teleported === false) {
+    pos = (await store.retrieve(`world:${piece}:pos`)) || {
+      x: undefined,
+      y: undefined,
+    };
+  } else {
+    pos = { ...system.world.telepos };
+  }
 
   console.log("🗺️ Loaded position:", pos);
 
   me = new Kid(
     handle(),
-    { x: pos.x || world.size.width / 2, y: pos.y || world.size.height / 2 },
+    {
+      x: number(pos.x) ? pos.x : world.size.width / 2,
+      y: number(pos.y) ? pos.y : world.size.height / 2,
+    },
     help.choose("meh", "smile", "frown"),
   );
 
-  // Define the global system.world object that will share data amongst all
-  // world-inherited pieces.
+  // Define the global system.world object that will share data amongst
+  // all world-inherited pieces.
   system.world.me = me;
   system.world.size = world.size;
 
@@ -418,7 +429,6 @@ class Kid {
   message;
   #messageDuration;
   #messageProgress = 0;
-  // movedOnce = false;
 
   constructor(handle = "?", pos = this.pos, face, net = false) {
     this.handle = handle;
@@ -505,10 +515,6 @@ class Kid {
       if (e.is("keyboard:up:s") || e.is("keyboard:up:arrowdown")) k.D = false;
       if (e.is("keyboard:up:a") || e.is("keyboard:up:arrowleft")) k.L = false;
       if (e.is("keyboard:up:d") || e.is("keyboard:up:arrowright")) k.R = false;
-
-      // if (k.U === true || k.D === true || k.L === true || k.R === true) {
-        // this.movedOnce = true;
-      // }
     }
 
     if (e.is("touch:1")) {
@@ -521,7 +527,6 @@ class Kid {
     if (e.is("draw:1") && leash.start) {
       leash.x = e.x - leash.start.x;
       leash.y = e.y - leash.start.y;
-      // this.movedOnce = true;
       this.#snapLeash(num);
     }
 
@@ -586,8 +591,11 @@ class Kid {
       newPos.y = num.lerp(pos.y, pos.y + leash.y, 0.025);
     }
 
-    // Run the net callback whenever the position changes.
-    if (newPos.x !== pos.x || newPos.y !== pos.y) net?.({ pos });
+    // When the position has changed...
+    if (newPos.x !== pos.x || newPos.y !== pos.y) {
+      net?.({ pos }); // Run the net callback.
+      this.moved = true;
+    }
 
     pos.x = newPos.x;
     pos.y = newPos.y;
