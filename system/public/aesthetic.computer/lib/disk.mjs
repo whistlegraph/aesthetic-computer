@@ -532,7 +532,7 @@ const $commonApi = {
   jump: function jump(to, ahistorical = false, alias = false) {
     // let url;
     if (leaving) {
-      console.log("🚪🙅 Jump cancelled, already leaving...")
+      console.log("🚪🙅 Jump cancelled, already leaving...");
       return;
     }
     const jumpOut =
@@ -4048,12 +4048,63 @@ async function makeFrame({ data: { type, content } }) {
     };
 
     // 🔈 Sound
+    // TODO: Most of $sound doesn't need to be generated per
+    //       frame. 24.01.14.15.19
+
+    // For reference in `freq` below.
+    const noteFrequencies = {
+      c: 16.35,
+      "c#": 17.32,
+      db: 17.32,
+      d: 18.35,
+      "d#": 19.45,
+      eb: 19.45,
+      e: 20.6,
+      f: 21.83,
+      "f#": 23.12,
+      gb: 23.12,
+      g: 24.5,
+      "g#": 25.96,
+      ab: 25.96,
+      a: 27.5,
+      "a#": 29.14,
+      bb: 29.14,
+      b: 30.87,
+    };
+
     const $sound = {
       time: content.audioTime,
       // Get the bpm with bpm() or set the bpm with bpm(newBPM).
       bpm: function (newBPM) {
         if (newBPM) sound.bpm = newBPM;
         return sound.bpm;
+      },
+      freq: function (noteString) {
+        let octave;
+        let note;
+
+        // Downcase everything.
+        if (typeof noteString === "string") noteString = noteString.toLowerCase();
+
+        // Check if the first character is a digit to determine if an octave is provided
+        if (!isNaN(noteString.charAt(0))) {
+          // If the first character is a digit, it's the octave
+          octave = parseInt(noteString.charAt(0), 10);
+          note = noteString.substring(1);
+        } else {
+          // If no octave is provided, default to octave 5
+          octave = 5;
+          note = noteString;
+        }
+
+        // Look up the frequency for the note
+        let frequency = noteFrequencies[note];
+        if (!frequency) {
+          throw new Error("Note not found in the list");
+        }
+
+        // Calculate the frequency for the given octave
+        return frequency * Math.pow(2, octave - 1);
       },
     };
 

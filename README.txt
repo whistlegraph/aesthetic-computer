@@ -40,6 +40,10 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `chord` ***
+  - [] Make a 4-string simulator with chords that can
+       also play the words through of a song. 
+
 *** `go` ***
   - [] And then `cave:entrance`
   - [] Create a `go` command that always returns you to your last worldly
@@ -58,10 +62,6 @@
 *** `dia` ***
   - [] Run a written / readable dialogue for two.
   - [] JSON structure with two characters.
-
-*** `uke` ***
-  - [] Make a 4-string uke simulator with chords that can
-       also play the words through of a song. 
 
 *** `list` ***
   - [] Add a big list / auto-generated list of available commands.
