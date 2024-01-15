@@ -47,13 +47,13 @@ let index = 0;
 let song = pgtw;
 
 // 🥾 Boot
-function boot({ ink, wipe, screen, ui }) {
+function boot({ ink, wipe, screen, ui, sound }) {
   wipe(127);
   const m = 24;
   btn = new ui.Button(m, m, screen.width - m * 2, screen.height - m * 2);
   btn.multitouch = false;
 
-  tone = freq(song[index]); // Set starting tone.
+  tone = sound.freq(song[index]); // Set starting tone.
 }
 
 // 🎨 Paint
@@ -81,7 +81,7 @@ function paint({ ink, screen }) {
 let keyHeld = false;
 
 // 🎪 Act
-function act({ event: e, sound: { synth }, needsPaint, num }) {
+function act({ event: e, sound: { synth, freq }, needsPaint, num }) {
   // Drag up and down to change pitch.
   if (btn.down && e.is("draw")) {
     tone = num.clamp(tone - e.delta.y, 100, 1200);
@@ -147,47 +147,3 @@ function meta() {
 export { boot, paint, act, meta };
 
 // 📚 Library
-const noteFrequencies = {
-  C: 16.35,
-  "C#": 17.32,
-  Db: 17.32,
-  D: 18.35,
-  "D#": 19.45,
-  Eb: 19.45,
-  E: 20.6,
-  F: 21.83,
-  "F#": 23.12,
-  Gb: 23.12,
-  G: 24.5,
-  "G#": 25.96,
-  Ab: 25.96,
-  A: 27.5,
-  "A#": 29.14,
-  Bb: 29.14,
-  B: 30.87,
-};
-
-function freq(noteString) {
-  let octave;
-  let note;
-
-  // Check if the first character is a digit to determine if an octave is provided
-  if (!isNaN(noteString.charAt(0))) {
-    // If the first character is a digit, it's the octave
-    octave = parseInt(noteString.charAt(0), 10);
-    note = noteString.substring(1);
-  } else {
-    // If no octave is provided, default to octave 5
-    octave = 5;
-    note = noteString;
-  }
-
-  // Look up the frequency for the note
-  let frequency = noteFrequencies[note];
-  if (!frequency) {
-    throw new Error("Note not found in the list");
-  }
-
-  // Calculate the frequency for the given octave
-  return frequency * Math.pow(2, octave - 1);
-}
