@@ -10,55 +10,95 @@
   - [x] Add parameters for chord generation.
 #endregion */
 
-const chord = ["6G", "6B", "6D"];
+const chord = ["6G", "6B", "6D"]; // Musical information (strings).
+const graph = { frame: null, chords: {} }; // On-screen geometry (via `layout`).
+const pluck = []; // Input "plucking" gesture.
 
 // 🥾 Boot
-function boot({ wipe, params }) {
-  // Try to populate the chord with the params.
+function boot({ params, screen }) {
   if (params.length > 0) {
-    chord.length = 0;
+    chord.length = 0; // Populate chord via params.
     params.forEach((note) => chord.push(note));
   }
+  layout({ screen });
 }
 
 // 🎨 Paint
-function paint({ wipe, ink, line, screen }) {
+function paint({ wipe, ink, text }) {
   wipe("gray");
-  // TODO: Set up bounds.
-  const bounds = {
-    x: 16,
-    y: 32,
-    width: screen.width - 32,
-    height: screen.height - 64,
-  };
-  ink(255, 0, 0, 64).box(16, 32, screen.width - 32, screen.height - 64);
-  ink("lime");
-  chord.forEach((note, index) => {
-    const y = ((screen.height - 32) / chord.length) * index + 32;
-    line(16, y, screen.width - 16, y);
-    ink("yellow").write(note, { x: 16, y: y + 3 });
+  ink(255, 0, 0, 32).box(graph.frame);
+  chord.forEach((note) => {
+    const string = graph.chords[note];
+    ink("lime").line(string);
+    ink(string.lit ? "lime" : "yellow").write(note, {
+      x: string.x0 - text.box(note).box.width / 4 + 1,
+      y: string.y0 + graph.frame.h + 3,
+    });
   });
+  if (pluck.length > 1) ink("maroon", 128).line(pluck[0], pluck[1]);
 }
 
 // 🎪 Act
-function act({ event: e, sound }) {
-  // TODO: Play a chord.
-  if (e.is("touch")) {
-    chord.forEach((note) => {
-      sound.synth({
-        type: "sine",
-        tone: sound.freq(note),
-        volume: 1.0,
-        duration: 0.1,
-      });
-    });
+function act({
+  event: e,
+  sound: { synth, freq },
+  screen,
+  num: { intersects },
+}) {
+  // Play a chord with a single touch.
+  // if (e.is("touch")) {
+  //   chord.forEach((note) => {
+  //     synth({ type: "sine", tone: freq(note), volume: 1.0, duration: 0.1 });
+  //   });
+  //   pluck.length = 0;
+  //   pluck.push({ x: e.x, y: e.y });
+  // }
+
+  if (e.is("draw")) {
+    if (pluck.length > 1) pluck.length = 1;
+    pluck.push({ x: e.x, y: e.y });
+
+    // Check if any line in graph.chords intersects with the pluck line
+    if (pluck.length > 1) {
+      const pl = {
+        x0: pluck[pluck.length - 2].x,
+        y0: pluck[pluck.length - 2].y,
+        x1: pluck[pluck.length - 1].x,
+        y1: pluck[pluck.length - 1].y,
+      };
+
+      for (const note in graph.chords) {
+        const s = graph.chords[note];
+        if (intersects(pl, s)) {
+          s.sound = synth({
+            type: "sine",
+            tone: freq(note),
+            volume: 1.0,
+            duration: 0.15,
+          });
+          s.lit = true;
+          pluck.length = 0;
+          pluck.push({ x: e.x, y: e.y });
+        }
+      }
+    }
   }
+
+  if (e.is("lift")) pluck.length = 0;
+  if (e.is("reframed")) layout({ screen }); // Redistribute strings on resize.
 }
 
 // 🧮 Sim
-// function sim() {
-//  // Runs once per logic frame. (120fps locked.)
-// }
+function sim({ sound: { time } }) {
+  for (const note in graph.chords) {
+    const s = graph.chords[note];
+    if (s.sound) {
+      if (s.sound.progress(time) === 1) {
+        s.lit = false;
+      }
+    }
+  }
+}
 
 // 🥁 Beat
 // function beat() {
@@ -88,7 +128,25 @@ function meta() {
 // Render an application icon, aka favicon.
 // }
 
-export { boot, paint, act, meta };
+export { boot, paint, act, sim, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
+
+// Visually layout the strings and store the geometry for `paint` and `act`.
+function layout({ screen }) {
+  const m = 32, // Margins
+    m2 = m * 2;
+  const frame = { x: m, y: m, w: screen.width - m2, h: screen.height - m2 };
+  const stripe = frame.w / chord.length; // Center strings within the bounds.
+  const width = stripe * (chord.length - 1);
+  const startX = frame.x + (frame.w - width) / 2; // Offset all stripes.
+
+  chord.forEach((note, index) => {
+    const x = startX + stripe * index,
+      y = frame.y;
+    graph.chords[note] = { x0: x, y0: y, x1: x, y1: frame.y + frame.h };
+  });
+
+  graph.frame = frame;
+}

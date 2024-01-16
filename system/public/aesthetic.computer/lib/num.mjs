@@ -135,6 +135,43 @@ export function number(maybeNumber) {
   return typeof maybeNumber === "number";
 }
 
+// Line Intersection
+// https://stackoverflow.com/a/24392281
+// accepts 8 arguments or 2 {x0, y0, x1, y1} describing 2 lines
+// returns true if the line from (a,b)->(c,d) intersects with (p,q)->(r,s)
+export function intersects() {
+  let a, b, c, d, p, q, r, s;
+  if (
+    arguments.length === 2 &&
+    typeof arguments[0] === "object" &&
+    typeof arguments[1] === "object"
+  ) {
+    a = arguments[0].x0;
+    b = arguments[0].y0;
+    c = arguments[0].x1;
+    d = arguments[0].y1;
+    p = arguments[1].x0;
+    q = arguments[1].y0;
+    r = arguments[1].x1;
+    s = arguments[1].y1;
+  } else if (arguments.length === 8) {
+    [a, b, c, d, p, q, r, s] = arguments;
+  } else {
+    console.warn("Invalid intersection input.");
+    return false;
+  }
+
+  let det, lambda, gamma;
+  det = (c - a) * (s - q) - (r - p) * (d - b);
+  if (det === 0) {
+    return false;
+  } else {
+    lambda = ((s - q) * (r - a) + (p - r) * (s - b)) / det;
+    gamma = ((b - d) * (r - a) + (c - a) * (s - b)) / det;
+    return 0 < lambda && lambda < 1 && 0 < gamma && gamma < 1;
+  }
+}
+
 // Ceil an integer (ignoring its sign)
 // export function signedCeil(n) {
 //   return n < 0 ? floor(n) : ceil(n);

@@ -1272,6 +1272,7 @@ const $commonApi = {
     p2: num.p2,
     midp: num.midp,
     number: num.number,
+    intersects: num.intersects,
     signedCeil: num.signedCeil,
     signedFloor: num.signedFloor,
     vec2: num.vec2,
@@ -4084,7 +4085,8 @@ async function makeFrame({ data: { type, content } }) {
         let note;
 
         // Downcase everything.
-        if (typeof noteString === "string") noteString = noteString.toLowerCase();
+        if (typeof noteString === "string")
+          noteString = noteString.toLowerCase();
 
         // Check if the first character is a digit to determine if an octave is provided
         if (!isNaN(noteString.charAt(0))) {
