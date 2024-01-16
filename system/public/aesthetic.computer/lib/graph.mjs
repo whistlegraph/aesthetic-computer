@@ -596,8 +596,12 @@ function lineh(x0, x1, y) {
 // TODO: Automatically use lineh if possible. 22.10.05.18.27
 function line() {
   let x0, y0, x1, y1;
-
-  if (arguments.length === 4) {
+  if (arguments.length === 1) {
+    x0 = arguments[0].x0; // Assume an object { x0, y0, x1, y1 }
+    y0 = arguments[0].y0;
+    x1 = arguments[0].x1;
+    y1 = arguments[0].y1;
+  } else if (arguments.length === 4) {
     x0 = arguments[0]; // Set all `undefined` or `null` values to 0.
     y0 = arguments[1];
     x1 = arguments[2];

@@ -4,10 +4,10 @@
 // TODO: Jeffrey
 // - [] Polish off touch based controls for phone.
 // - [] Add the ability to have words drawn on the screen.
-// - [] Typing in and entering words. 
+// - [] Typing in and entering words.
 //   - [] Something that reacts, like a `grow` word to get longer?
 //   - [] Need word ideas...
-//   - []  
+//   - []
 /*
 
 
@@ -37,7 +37,7 @@ class I {
   vel = { x: 0, y: 0 };
   len = 3;
   constructor() {
-    this.pos = { x: 15, y: 10 }
+    this.pos = { x: 15, y: 10 };
   }
 
   get geometry() {
@@ -45,9 +45,9 @@ class I {
       point: [this.pos.x, this.pos.y - this.len - 2], // Head
       line: [
         [this.pos.x, this.pos.y - this.len], // Top of body.
-        [this.pos.x, this.pos.y] // Bottom of body.
-      ]
-    }
+        [this.pos.x, this.pos.y], // Bottom of body.
+      ],
+    };
   }
 }
 
@@ -62,7 +62,7 @@ function boot({ density, resize, cursor, screen }) {
 }
 
 // 🎨 Paint (Executes every display frame)
-function paint({ wipe, ink, pan, unpan, line, point }) {
+function paint({ wipe, ink, line, point, num: { intersects } }) {
   wipe(255, 50, 0); // Draw a gray background.
 
   // TODO: How to collide with red?
@@ -108,7 +108,7 @@ function paint({ wipe, ink, pan, unpan, line, point }) {
   //line(0, 0, 0, i.len);
   //unpan();
 
-  // Draw the center point of i in PINK. 
+  // Draw the center point of i in PINK.
   if (debug) ink(255, 0, 255).point(i.pos.x, i.pos.y);
 
   return false; // Only once.
@@ -132,7 +132,6 @@ function sim({ needsPaint }) {
 
 // ✒ Act (Runs once per user interaction)
 function act({ event: e }) {
-
   // Pen Controls
   if (e.is("draw")) {
     i.dir.x = sign(e.delta.x);
@@ -140,7 +139,7 @@ function act({ event: e }) {
 
     i.dir.y = sign(e.delta.y);
     i.vel.y = 0.1;
-  };
+  }
 
   if (e.is("lift")) {
     i.vel.x = 0;
@@ -197,23 +196,4 @@ function beat($api) {
 }
 
 // 📚 Library (Useful functions used throughout the piece)
-
-// Note:
-// I haven't fully researched this function... but it should work for a prototype
-// of collision.
-
-// https://stackoverflow.com/a/24392281 
-// returns true if the line from (a,b)->(c,d) intersects with (p,q)->(r,s)
-function intersects(a, b, c, d, p, q, r, s) {
-  var det, gamma, lambda;
-  det = (c - a) * (s - q) - (r - p) * (d - b);
-  if (det === 0) {
-    return false;
-  } else {
-    lambda = ((s - q) * (r - a) + (p - r) * (s - b)) / det;
-    gamma = ((b - d) * (r - a) + (c - a) * (s - b)) / det;
-    return (0 < lambda && lambda < 1) && (0 < gamma && gamma < 1);
-  }
-};
-
 export { boot, sim, paint, act, beat };
