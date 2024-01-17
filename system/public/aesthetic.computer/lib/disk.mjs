@@ -4094,8 +4094,8 @@ async function makeFrame({ data: { type, content } }) {
           octave = parseInt(noteString.charAt(0), 10);
           note = noteString.substring(1);
         } else {
-          // If no octave is provided, default to octave 5
-          octave = 5;
+          // If no octave is provided, default to octave 4
+          octave = 4;
           note = noteString;
         }
 
