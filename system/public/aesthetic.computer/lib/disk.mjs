@@ -4106,7 +4106,7 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         // Calculate the frequency for the given octave
-        return frequency * Math.pow(2, octave - 1);
+        return frequency * Math.pow(2, octave);
       },
     };
 
