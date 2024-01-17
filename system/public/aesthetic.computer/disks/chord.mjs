@@ -5,9 +5,13 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🟠] Draggable user interaction
-       for the chord. 
+  - [🟠] Parse octave after the note and make sure
+         `#` sharps work function in urls using an `s`
+         replacement.
+         Also allow `f` and `b` and `s` synonyms.
   - [x] Add parameters for chord generation.
+  - [x] Draggable user interaction
+       for the chord. 
 #endregion */
 
 const chord = ["6G", "6B", "6D"]; // Musical information (strings).
