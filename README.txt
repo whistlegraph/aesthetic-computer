@@ -40,6 +40,9 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `review any text editing bugs` ***
+  - [] 
+
 *** `chord` ***
   - [] Make a 4-string simulator with chords that can
        also play the words through of a song. 

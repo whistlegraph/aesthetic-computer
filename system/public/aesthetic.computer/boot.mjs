@@ -44,6 +44,9 @@ let sandboxed = window.origin === "null";
 if (!sandboxed && window.auth0) {
   // #region 🔐 Auth0: Universal Login & Authentication
   const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
+
+  const before = performance.now();
+
   const auth0Client = await window.auth0?.createAuth0Client({
     domain: "https://hi.aesthetic.computer",
     clientId,
@@ -53,6 +56,8 @@ if (!sandboxed && window.auth0) {
   });
 
   window.auth0Client = auth0Client;
+
+  //console.log(performance.now());
 
   if (
     location.search.includes("state=") &&
@@ -67,7 +72,7 @@ if (!sandboxed && window.auth0) {
     window.history.replaceState({}, document.title, "/");
   }
 
-  const isAuthenticated = await auth0Client.isAuthenticated();
+  const isAuthenticated = false; //await auth0Client.isAuthenticated();
 
   window.acLOGIN = async (mode) => {
     const opts = { prompt: "login" }; // Never skip the login screen.
@@ -109,6 +114,9 @@ if (!sandboxed && window.auth0) {
     console.log('to... "chaos in a system"');
     window.acUSER = userProfile; // Will get passed to the first message by the piece runner.
   }
+
+  const after = performance.now();
+  console.log("🗝️ Auth took:", (after - before) / 1000, "seconds.");
 }
 // #endregion
 
@@ -159,11 +167,11 @@ const bpm = 120; // Set the starting bpm. Is this still necessary?
 // TODO: Add params, search, and hash in here. 22.07.15.00.46
 
 // Wait for fonts to load before booting.
-if ("fonts" in document) {
-  await document.fonts.load("1em YWFTProcessing-Light");
-  await document.fonts.load("1em YWFTProcessing-Regular");
-  // await document.fonts.load("1em Berkeley Mono Variable");
-}
+// if ("fonts" in document) {
+//  await document.fonts.load("1em YWFTProcessing-Light");
+//  await document.fonts.load("1em YWFTProcessing-Regular");
+//  await document.fonts.load("1em Berkeley Mono Variable");
+// }
 
 boot(parsed, bpm, undefined, debug);
 
