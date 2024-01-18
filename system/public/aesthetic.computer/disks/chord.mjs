@@ -50,13 +50,13 @@ function act({
   num: { intersects },
 }) {
   // Play a chord with a single touch.
-  // if (e.is("touch")) {
-  //   chord.forEach((note) => {
-  //     synth({ type: "sine", tone: freq(note), volume: 1.0, duration: 0.1 });
-  //   });
-  //   pluck.length = 0;
-  //   pluck.push({ x: e.x, y: e.y });
-  // }
+  if (e.is("touch")) {
+    chord.forEach((note) => {
+      synth({ type: "sine", tone: freq(note), volume: 1.0, duration: 0.1 });
+    });
+    pluck.length = 0;
+    pluck.push({ x: e.x, y: e.y });
+  }
 
   if (e.is("draw")) {
     if (pluck.length > 1) pluck.length = 1;
