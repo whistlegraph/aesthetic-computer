@@ -144,19 +144,18 @@ fastify.post("/update", (request, reply) => {
     return;
   }
 
-  // Process the webhook payload
-  console.log("Webhook received:", request.body);
-  // Your logic to handle the webhook event goes here
-
   // Execute git pull
-  exec("git pull", (error, stdout, stderr) => {
-    if (error) {
-      console.error(`exec error: ${error}`);
-      return;
-    }
-    console.log(`stdout: ${stdout}`);
-    console.error(`stderr: ${stderr}`);
-  });
+  exec(
+    "pm2 stop all; git pull; npm install; pm2 start all",
+    (error, stdout, stderr) => {
+      if (error) {
+        console.error(`exec error: ${error}`);
+        return;
+      }
+      console.log(`stdout: ${stdout}`);
+      console.error(`stderr: ${stderr}`);
+    },
+  );
 
   reply.send({ status: "ok" });
 });
