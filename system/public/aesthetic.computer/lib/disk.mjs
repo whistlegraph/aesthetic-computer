@@ -4080,6 +4080,7 @@ async function makeFrame({ data: { type, content } }) {
         if (newBPM) sound.bpm = newBPM;
         return sound.bpm;
       },
+      // Calculate the frequency of a musical note.
       freq: function (noteString) {
         let octave;
         let note;
@@ -4088,25 +4089,28 @@ async function makeFrame({ data: { type, content } }) {
         if (typeof noteString === "string")
           noteString = noteString.toLowerCase();
 
-        // Check if the first character is a digit to determine if an octave is provided
-        if (!isNaN(noteString.charAt(0))) {
-          // If the first character is a digit, it's the octave
-          octave = parseInt(noteString.charAt(0), 10);
-          note = noteString.substring(1);
+        // Check if the last character is a digit to determine if an octave is provided
+        if (!isNaN(noteString.charAt(noteString.length - 1))) {
+          // The last character is the octave
+          octave = parseInt(noteString.charAt(noteString.length - 1), 10);
+          note = noteString.substring(0, noteString.length - 1);
         } else {
           // If no octave is provided, default to octave 4
           octave = 4;
           note = noteString;
         }
 
-        // Look up the frequency for the note
-        let frequency = noteFrequencies[note];
-        if (!frequency) {
-          throw new Error("Note not found in the list");
+        // Replace 's' with '#' and trailing 'f' with 'b', but only for note strings of length 2
+        if (note.length === 2) {
+          note = note.replace("s", "#").replace(/f$/, "b");
         }
 
+        const frequency = noteFrequencies[note]; // Look up freq for the note.
+        if (!frequency) throw new Error("Note not found in the list");
+
         // Calculate the frequency for the given octave
-        return frequency * Math.pow(2, octave);
+        const finalFreq = frequency * Math.pow(2, octave);
+        return finalFreq;
       },
     };
 

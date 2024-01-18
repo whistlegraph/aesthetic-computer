@@ -32,11 +32,15 @@ let btn,
   sound,
   tone = 800;
 
-//const pgtw = "F F G G A 6C A F C F F G 6C A".split(" ");
-const pgtw = `G 6C 6C 6D 6D 6E 6G 6E 6C
-              G 6C 6C 6D 6D 6E 6C
-              6C 6C 6D 6D 6E 6G 6E 6C
-              6A 6D 6F 6E 6C`.split(/\s+/);
+// G C6 C6 D6 D6 E6 G6 E6 C6
+// G -1 C6 C6 D6 D6 E6 G6 E6 C6
+// G C6 C D D E G E C
+
+//const pgtw = "F F G G A C6 A F C F F G C6 A".split(" ");
+const pgtw = `G C6 C6 D6 D6 E6 G6 E6 C6
+              G C6 C6 D6 D6 E6 C6
+              C6 C6 D6 D6 E6 G6 E6 C6
+              A6 D6 F6 E6 C6`.split(/\s+/);
 
 const lyrics = `oh up and down the ci- -i- -ty road
                 and in and out the ea- -gle 
