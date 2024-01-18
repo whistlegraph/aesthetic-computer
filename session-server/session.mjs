@@ -144,7 +144,7 @@ fastify.post("/update", (request, reply) => {
     return;
   }
 
-  // Execute git pull
+  // Restart service in production.
   exec(
     "pm2 stop all; git pull; npm install; pm2 start all",
     (error, stdout, stderr) => {
