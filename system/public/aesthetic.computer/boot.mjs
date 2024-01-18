@@ -72,7 +72,7 @@ if (!sandboxed && window.auth0) {
     window.history.replaceState({}, document.title, "/");
   }
 
-  const isAuthenticated = false; //await auth0Client.isAuthenticated();
+  const isAuthenticated = await auth0Client.isAuthenticated();
 
   window.acLOGIN = async (mode) => {
     const opts = { prompt: "login" }; // Never skip the login screen.
