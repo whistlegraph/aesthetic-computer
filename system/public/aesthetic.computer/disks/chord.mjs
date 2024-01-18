@@ -14,15 +14,17 @@
        for the chord. 
 #endregion */
 
-const chord = ["6G", "6B", "6D"]; // Musical information (strings).
+const chord = ["G6", "B6", "D6"]; // Musical information (strings).
 const graph = { frame: null, chords: {} }; // On-screen geometry (via `layout`).
 const pluck = []; // Input "plucking" gesture.
 
 // 🥾 Boot
-function boot({ params, screen }) {
+function boot({ params, screen, net }) {
   if (params.length > 0) {
     chord.length = 0; // Populate chord via params.
     params.forEach((note) => chord.push(note));
+    // Re-write the url replacing all "#" with "s".
+    // net.rewrite("chord~", +params.join("~").replaceAll("#", "s"));
   }
   layout({ screen });
 }
@@ -33,6 +35,7 @@ function paint({ wipe, ink, text }) {
   ink(255, 0, 0, 32).box(graph.frame);
   chord.forEach((note) => {
     const string = graph.chords[note];
+    if (!string) return;
     ink("lime").line(string);
     ink(string.lit ? "lime" : "yellow").write(note, {
       x: string.x0 - text.box(note).box.width / 4 + 1,

@@ -40,8 +40,16 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `review any text editing bugs` ***
+*** `review any text editing bugs in the main prompt` ***
   - [] 
+
+*** general speed up ***
+
+*** `dync` ***
+  - [] Hit a button on an XY axis that maps a percussive sine wave
+       to white noise on one axis and pitch on the other.
+  - [] Multi touchable.
+  - [] Tilt for volume with visual feedback.
 
 *** `chord` ***
   - [] Make a 4-string simulator with chords that can
