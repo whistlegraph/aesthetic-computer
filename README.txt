@@ -40,10 +40,59 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `review any text editing bugs in the main prompt` ***
-  - [] 
+Today:
+*** `list` ***
+  - [🔴] Add a big categorized list.
+  - [] Enter list to view existing commands.
+*** load performance ***
+  - [🟡] Spend a half day just on getting the site to load faster.
+*** `pic` `pix` ***
+  - [] 164 / 128 3x4
+  - [] https://prompt.ac/pic~here~is~my~cat 
 
-*** general speed up ***
+48 Hours:
+*** webgl2 renderer ***
+  - [] More work on webgl2 renderer.
+
+Full day:
+*** `log` ***
+  - [-] Print a live global activity log than anyone can watch.
+    - [] Choose some good events to broadcast.
+  - [] This should eventually be streamable from any piece or visible
+       on the prompt.
+  - [] Top right tap to enter text, then be able to chat, from any
+       piece. 
+  - [] Add filtering like `log:scream`.
+
+2-3 days:
+*** `android app` ***
+  - [] Set up / start android app / make sure android studio
+       is installed.
+  - [] Add support for notifications.
+
+1 day
+*** `paintings` ***
+  - [] Show a feed of user made paintings in order, only showing one per
+       user.
+
+2-3 hrs
+*** `painters` ***
+  - [] A linked list of users and their paintings by count. 
+
+1 day
+*** `blog` ***
+  - [] Build CRUD pages. 
+  - [] Maybe use a vscode instance / route it through piece publishing?
+  - [] So a piece type can be considered a "post".
+  - [] Add the ability to include high resolution text easily.
+  - [] Editor
+  - [] Viewer
+
+2 days
+*** `autocomplete` ***
+  - [] `review any text editing bugs in the main prompt`
+  - [] Preview commands / show all possible comands like auto-complete.
+  - [] How to deal with commands that are textual subsets: `but, butter`.
 
 *** `dync` ***
   - [] Hit a button on an XY axis that maps a percussive sine wave
@@ -74,26 +123,10 @@
   - [] Run a written / readable dialogue for two.
   - [] JSON structure with two characters.
 
-*** `list` ***
-  - [] Add a big list / auto-generated list of available commands.
-
 *** `ten` ***
   - [] Some kind of Pong clone with 2 player matching and also
        spectators / round-based play?
   - [] Should be visitable from the world.
-
-*** `blog` ***
-  - [] Build CRUD pages. 
-  - [] Maybe use a vscode instance / route it through piece publishing?
-  - [] So a piece type can be considered a "post".
-  - [] Add the ability to include high resolution text easily.
-  - [] Editor
-  - [] Viewer
-
-*** `android app` ***
-  - [] Set up / start android app / make sure android studio
-       is installed.
-  - [] Add support for notifications.
 
 *** `chanel` ***
   - [] Entering `chanel` will take you to a dress picture.
@@ -102,9 +135,6 @@
   - [] [Dress photos.]
   - [] Button in the corner that says [$256].
   - [] Custom email.
-
-*** load performance ***
-  - [] Spend a half day just on getting the site to load faster.
 
 *** new session request ***
   - [] When / if a session server goes offline, try to request a new one.
@@ -161,17 +191,6 @@
 *** wizards ***
   - [] Use the "|" operator to make stepped wizards / looped pieces.
 
-*** `log` ***
-  - [-] Print a live global activity log than anyone can watch.
-    - [] Choose some good events to broadcast.
-  - [] This should eventually be streamable from any piece or visible
-       on the prompt.
-  - [] Top right tap to enter text, then be able to chat, from any
-       piece. 
-
-*** webgl2 renderer ***
-  - [] More work on webgl2 renderer.
-
 *** user pieces ***
   - [-] Consider the versioning of published pieces /
        how they should be added to the database.
@@ -182,9 +201,6 @@
 
 *** painting forking & remixing ***
   - [] "Stolen from: @user/20323:4";
-
-*** `painters` ***
-  - [] A linked list of users and their paintings by count. 
 
 *** pond awareness ***
   - [] Set ambient pen pointer color to cyan / flicker cyan if the user

@@ -57,8 +57,6 @@ if (!sandboxed && window.auth0) {
 
   window.auth0Client = auth0Client;
 
-  //console.log(performance.now());
-
   if (
     location.search.includes("state=") &&
     (location.search.includes("code=") || location.search.includes("error="))
