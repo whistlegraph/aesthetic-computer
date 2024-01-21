@@ -4,6 +4,7 @@
 /* #region 🏁 TODO
 #endregion */
 
+
 const prompt = 'Ask me anything about Aesthetic Computer';
 const before = `
 You are playing a character who answers questions about Aesthetic Computer
