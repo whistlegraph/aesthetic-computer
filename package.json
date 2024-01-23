@@ -31,12 +31,7 @@
     "server:session:deploy": "cd session-server; npm run deploy",
     "server:session:spawn": "cd session-server; npm run spawn",
     "server:session:logs": "f() { cd session-server; npm run watch-prod $1; };f",
-    "install:system": "cd system; npm install",
-    "install:socket-server": "cd socket-server; npm install",
-    "install:thumbnail-server": "cd thumbnail-server; npm install",
-    "install:stream": "cd stream; npm install",
-    "install:figjam": "cd figjam; npm install",
-    "postinstall": "run-p install:*",
+    "postinstall": "node install.mjs",
     "watch": "cd system; npm run watch"
   },
   "repository": {
@@ -55,7 +50,6 @@
     "http-server": "^14.1.1",
     "kill-port": "^2.0.1",
     "npm-check-updates": "^16.13.2",
-    "npm-run-all": "^4.1.5",
     "prettier": "^3.0.3",
     "qrcode-terminal": "^0.12.0",
     "vercel": "^33.0.1"
