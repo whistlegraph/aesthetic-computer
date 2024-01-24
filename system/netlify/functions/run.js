@@ -18,6 +18,20 @@ async function fun(event) {
 
   console.log("Running a piece...");
 
+  // Handle OPTIONS request
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Access-Control-Allow-Origin": "*", // Specify allowed origins or use '*' for all
+        "Access-Control-Allow-Methods": "POST, OPTIONS", // Specify allowed methods
+        "Access-Control-Allow-Headers": "Content-Type", // Specify allowed headers
+      },
+      body: JSON.stringify({ status: "OK" }),
+    };
+  }
+
   if (event.httpMethod !== "POST") {
     status = 405;
     out = { status: "Wrong request type!" };
@@ -37,8 +51,8 @@ async function fun(event) {
         JSON.stringify({
           piece: body.piece,
           source: body.source,
-          codeChannel: body.codeChannel
-        })
+          codeChannel: body.codeChannel,
+        }),
       );
       out = { result: "Piece code received!" };
       return { statusCode: 200, body: "Reloaded!" };

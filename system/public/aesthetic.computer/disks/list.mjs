@@ -1,30 +1,27 @@
-// $NAME, $TIMESTAMP
-// $THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES
+// List, 2024.1.23.22.58.33.239
+// A directory of all pieces and commands.
 
 /* #region 📚 README 
-  - Welcome to your first aesthetic.computer piece.
-  - You can `console.log(api);` to explore,
-    and then destructure additional api commands
-    to try them out!
-  - Top-level commands make up each piece's application flow.
-    Uncomment and export them to invoke their behavior and use their apis.
-  - Enter `help` for the AC #help and ping @helper for additional explanation.
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Draw a purple line.
+  - [] Make list here in comments...
+
+
+
+  - [] Add scrollability behavior from the `prutti` pages.
+       (Maybe also generalize this scrollable behavior?)
 #endregion */
 
 // 🥾 Boot
 function boot({ api, wipe }) {
-  // Runs once at the start.
   wipe("blue"); // Clear's the screen. Can use R, G, B or CSS colors.
 }
 
 // 🎨 Paint
 function paint({ api, ink, line, pen, box }) {
-  // ink("red").line(0, 0, 100, 100); // Would draw a diagonal line.
-  // return false; // Uncomment for proce55ing's "noLoop" functionality.
+  ink("red").line(0, 0, 100, 100);
+  return false; // Uncomment for proce55ing's "noLoop" functionality.
 }
 
 // 🎪 Act
@@ -50,8 +47,8 @@ function paint({ api, ink, line, pen, box }) {
 // 📰 Meta
 function meta() {
   return {
-    title: "$NAME",
-    desc: "$THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES",
+    title: "List",
+    desc: "A directory of all pieces and commands.",
   };
 }
 
