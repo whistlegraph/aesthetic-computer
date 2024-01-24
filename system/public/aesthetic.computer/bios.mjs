@@ -940,11 +940,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (sfx[sound] instanceof ArrayBuffer) {
         let audioBuffer;
         try {
-          let buf = sfx[sound];
+          const buf = sfx[sound];
           sfx[sound] = null;
-          audioBuffer = await audioContext.decodeAudioData(buf);
-          if (debug && logs.audio) console.log("🔈 Decoded:", sound);
-          sfx[sound] = audioBuffer;
+          if (buf) {
+            audioBuffer = await audioContext.decodeAudioData(buf);
+            if (debug && logs.audio) console.log("🔈 Decoded:", sound);
+            sfx[sound] = audioBuffer;
+          }
         } catch (err) {
           console.error("🔉 Error: ", err, sfx[sound]);
         }

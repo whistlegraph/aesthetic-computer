@@ -2576,6 +2576,7 @@ async function load(
             if (codeChannel) socket?.send("code-channel:sub", codeChannel);
             updateHUDStatus();
             $commonApi.needsPaint();
+            codeChannelAutoLoader?.();
             // setTimeout(function () {
             //   currentHUDStatusColor = undefined;
             // }, 250);
@@ -3162,7 +3163,6 @@ async function load(
       // firstPiece = path;
       // firstParams = params;
       // firstSearch = search;
-      codeChannelAutoLoader?.();
     }
   };
 
@@ -3248,6 +3248,7 @@ async function makeFrame({ data: { type, content } }) {
           type: "post-to-parent",
           content: { type: "setCode", value: codeChannel },
         });
+        codeChannelAutoLoader = null;
       };
     }
 
