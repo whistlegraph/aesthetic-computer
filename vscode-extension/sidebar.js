@@ -20,13 +20,17 @@
   // });
 
   // publishButton.addEventListener("click", () => {
-    // vscode.postMessage({ type: "publishPiece" });
+  // vscode.postMessage({ type: "publishPiece" });
   // });
 
   // Handle messages sent from the extension to the webview
   window.addEventListener("message", (event) => {
     const message = event.data; // The json data that the extension sent
+    console.log("📶 Received message:", message);
     switch (message.type) {
+      case "externallyAuthenticate": {
+        vscode.env.openExternal(vscode.Uri.parse(message.authUrl));
+      }
       case "setCode": {
         vscode.postMessage({ type: "setCode", value: message.value });
       }

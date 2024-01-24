@@ -81,15 +81,22 @@ if (!sandboxed && window.auth0) {
     if (!iframe) {
       auth0Client.loginWithRedirect({ authorizationParams: opts });
     } else {
-      console.log("🔐 Logging in with popup...");
-      auth0Client
-        .loginWithPopup()
-        .then(() => {
-          console.log("🔐 Logged in with popup");
-        })
-        .catch((error) => {
-          console.error("🔐 Popup login error:", error);
-        });
+      window.parent.postMessage(
+        {
+          type: "externallyAuthenticate",
+          authUrl: "https://hi.aesthetic.computer",
+        },
+        "*",
+      );
+      // console.log("🔐 Logging in with popup...");
+      // auth0Client
+      // .loginWithPopup()
+      // .then(() => {
+      // console.log("🔐 Logged in with popup");
+      // })
+      // .catch((error) => {
+      // console.error("🔐 Popup login error:", error);
+      // });
     }
   };
 
