@@ -1116,7 +1116,7 @@ function paint($) {
 
   $.layer(1); // 🅱️ And above it...
 
-  const { screen, ink, history } = $;
+  const { screen, ink, history, net } = $;
 
   if ($.system.prompt.input.canType) {
     let historyTexts =
@@ -1155,12 +1155,13 @@ function paint($) {
   }
 
   // Paint UI Buttons
-  // if (!$.platform.Aesthetic) {
-  if (!login?.btn.disabled) login?.paint($, [[0, 0, 64], 255, 255, [0, 0, 64]]);
-  if (!signup?.btn.disabled)
-    signup?.paint($, [[0, 64, 0], 255, 255, [0, 64, 0]]);
-  if (!profile?.btn.disabled) profile?.paint($);
-  // }
+  if (!net.iframe) {
+    if (!login?.btn.disabled)
+      login?.paint($, [[0, 0, 64], 255, 255, [0, 0, 64]]);
+    if (!signup?.btn.disabled)
+      signup?.paint($, [[0, 64, 0], 255, 255, [0, 64, 0]]);
+    if (!profile?.btn.disabled) profile?.paint($);
+  }
 
   // 📏 Paint a measurement line in the center of the display.
   if (ruler) {
@@ -1228,12 +1229,12 @@ function act({
   system,
   store,
   sound: { play, synth },
-  rec,
-  user,
+  // rec,
+  // user,
   send,
   handle,
   canShare,
-  platform,
+  // platform
 }) {
   // 📼 Taping
   if (e.is("microphone:connect:success")) {
@@ -1270,23 +1271,23 @@ function act({
     });
   };
 
-  // if (!platform.Aesthetic) {
-  login?.btn.act(e, {
-    down: () => downSound(),
-    push: () => {
-      pushSound();
-      net.login();
-    },
-  });
+  if (!net.iframe) {
+    login?.btn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        net.login();
+      },
+    });
 
-  signup?.btn.act(e, {
-    down: () => downSound(),
-    push: () => {
-      pushSound();
-      net.signup();
-    },
-  });
-  // }
+    signup?.btn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        net.signup();
+      },
+    });
+  }
 
   profile?.btn.act(e, {
     down: () => downSound(),

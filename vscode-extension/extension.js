@@ -122,6 +122,12 @@ class AestheticViewProvider {
 
     webviewView.webview.onDidReceiveMessage((data) => {
       switch (data.type) {
+        case "publish": {
+          if (data.url) {
+            // vscode.env.openExternal(vscode.Uri.parse(data.url));
+          }
+          break;
+        }
         case "setCode": {
           codeChannel = data.value;
           vscode.commands.executeCommand("aestheticComputer.runPiece");
