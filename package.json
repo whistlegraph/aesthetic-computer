@@ -8,6 +8,7 @@
     "upgrade": "ncu -u",
     "url": "node generate-local-url.js",
     "ac": "npm run aesthetic",
+    "admin:udp": "ssh root@157.245.134.225",
     "admin:firebase": "xdg-open https://console.firebase.google.com/?pli=1",
     "tunnel": "ngrok http https://localhost:8888 --domain local.aesthetic.computer",
     "aesthetic": "concurrently --raw \"npm run code\" \"npm run server:session\" \"npm run edge\" \"npm run stripe\" \"npm run url\"",
