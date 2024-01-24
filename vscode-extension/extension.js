@@ -66,11 +66,12 @@ async function activate(context) {
       headers: { "Content-Type": "application/json" },
     })
       .then((res) => {
-        console.log("Success:", res);
+        // console.log("Success:", res);
+        console.clear();
         vscode.window.showInformationMessage(res);
       })
       .catch((error) => {
-        console.error("Error:", error);
+        // console.error("Error:", error);
         vscode.window.showInformationMessage(error);
       });
 
@@ -120,7 +121,6 @@ class AestheticViewProvider {
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage((data) => {
-      console.log("Message:", data);
       switch (data.type) {
         case "setCode": {
           codeChannel = data.value;

@@ -16,15 +16,14 @@
 #endregion */
 
 // 🥾 Boot
-function boot({ api, wipe }) {
+// function boot({ api }) {
   // Runs once at the start.
-  wipe("blue"); // Clear's the screen. Can use R, G, B or CSS colors.
-}
+// }
 
 // 🎨 Paint
-function paint({ api, ink, line, pen, box }) {
-  // ink("red").line(0, 0, 100, 100); // Would draw a diagonal line.
-  // return false; // Uncomment for proce55ing's "noLoop" functionality.
+function paint({ wipe, ink }) {
+  wipe(64);
+  ink("blue").line(0, 0, 100, 100); // Would draw a diagonal line.
 }
 
 // 🎪 Act
@@ -65,7 +64,7 @@ function meta() {
 // Render an application icon, aka favicon.
 // }
 
-export { boot, paint, meta };
+export { paint, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
