@@ -1316,7 +1316,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Post a message to a potential iframe parent, like in the VSCode extension.
     if (type === "post-to-parent") {
       if (debug) console.log("🏃‍♂️ Posting up to parent...");
-      if (window.parent) window.parent.postMessage({ command: "runPiece" }, "*");
+      if (window.parent) window.parent.postMessage(content, "*");
       return;
     }
 

@@ -26,10 +26,11 @@
   // Handle messages sent from the extension to the webview
   window.addEventListener("message", (event) => {
     const message = event.data; // The json data that the extension sent
-    console.log(event);
     switch (message.type) {
+      case "setCode": {
+        vscode.postMessage({ type: "setCode", value: message.value });
+      }
       case "runPiece": {
-        console.log("RUNNING");
         vscode.postMessage({ type: "runPiece" });
         break;
       }
