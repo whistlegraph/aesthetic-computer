@@ -78,7 +78,7 @@ if (!sandboxed && window.auth0) {
     const opts = { prompt: "login" }; // Never skip the login screen.
     if (mode === "signup") opts.screen_hint = mode;
 
-    if (frame) {
+    if (iframe) {
       auth0Client.loginWithRedirect({ authorizationParams: opts });
     } else {
       console.log("🔐 Logging in with popup...");
