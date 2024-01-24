@@ -2370,7 +2370,7 @@ async function load(
       firstLoad,
     );
     loadFailure = err;
-    $commonApi.net.loadFailureText = err.message;
+    $commonApi.net.loadFailureText = err.message + "\n" + sourceCode;
     loading = false;
     // Only return a 404 if the error type is correct.
     if (firstLoad && err.message === "404") {
@@ -2378,6 +2378,8 @@ async function load(
     } else {
       $commonApi.notice(":(", ["red", "yellow"]);
     }
+    loading = false;
+    leaving = false;
     return false;
   }
 
@@ -2386,6 +2388,7 @@ async function load(
   // 🧨 Fail out if no module is found.
   if (loadedModule === undefined) {
     loading = false;
+    leaving = false;
     return false;
   }
 
