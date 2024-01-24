@@ -43,6 +43,10 @@
 Today:
 
 - [x] More immediate coding.
+  - [] Add connection flashes to coding.
+  - [] Any code that doesn't parse just print out if no piece is running
+       or show an error notice if a piece is.
+  - [] Get tab-flipping to work properly if a piece hasn't been loaded succesfully yet.
 
 - [] Add connection flash to world.
 - [] User world persistence with floating command notifications.
