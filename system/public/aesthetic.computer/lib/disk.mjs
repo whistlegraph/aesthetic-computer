@@ -33,6 +33,7 @@ let ROOT_PIECE = "prompt"; // This gets set straight from the host html file for
 let USER; // A holder for the logged in user. (Defined in `boot`)
 let LAN_HOST; // The IP address of the hosting machine on the local network.
 let SHARE_SUPPORTED; // Whether navigator.share is supported. (For `dl`)
+//let IFRAME; // Flag if this aesthetic client is hosted in an iframe.
 // (For development and IRL workshops)
 let debug = false; // This can be overwritten on boot.
 let visible = true; // Is aesthetic.computer visibly rendering or not?
@@ -2378,8 +2379,6 @@ async function load(
     } else {
       $commonApi.notice(":(", ["red", "yellow"]);
     }
-    loading = false;
-    leaving = false;
     return false;
   }
 
@@ -3170,9 +3169,11 @@ async function makeFrame({ data: { type, content } }) {
     USER = content.user;
     LAN_HOST = content.lanHost;
     SHARE_SUPPORTED = content.shareSupported;
+    // IFRAME = content.iframe;
     $commonApi.canShare = SHARE_SUPPORTED;
     $commonApi.net.lan = LAN_HOST;
     $commonApi.user = USER;
+    $commonApi.net.iframe = content.iframe;
 
     codeChannelAutoLoader = null;
     codeChannel = await store.retrieve("code-channel");
