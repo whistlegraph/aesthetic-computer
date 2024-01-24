@@ -41,8 +41,8 @@ async function activate(context) {
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       AestheticViewProvider.viewType,
-      provider
-    )
+      provider,
+    ),
   );
 
   function upload() {
@@ -84,9 +84,9 @@ async function activate(context) {
     vscode.commands.registerCommand("aestheticComputer.localServer", () => {
       local = !local;
       vscode.window.showInformationMessage(
-        `Local Mode: ${local ? "Enabled" : "Disabled"}`
+        `Local Mode: ${local ? "Enabled" : "Disabled"}`,
       );
-    })
+    }),
   );
 
   // Automatically re-run the piece when saving.
@@ -142,27 +142,27 @@ class AestheticViewProvider {
 
   _getHtmlForWebview(webview) {
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, "sidebar.js")
+      vscode.Uri.joinPath(this._extensionUri, "sidebar.js"),
     );
 
     const nonce = getNonce();
     const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, "main.css")
+      vscode.Uri.joinPath(this._extensionUri, "main.css"),
     );
 
     const resetStyleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, "reset.css")
+      vscode.Uri.joinPath(this._extensionUri, "reset.css"),
     );
 
     const vscodeStyleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, "vscode.css")
+      vscode.Uri.joinPath(this._extensionUri, "vscode.css"),
     );
 
     return `<!DOCTYPE html>
 			<html lang="en">
 			<head>
 				<meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://hi.aesthetic.computer https://aesthetic.local; child-src child-src https://aesthetic.computer; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				<link href="${styleUri}" rel="stylesheet">
 				<link href="${resetStyleUri}" rel="stylesheet">
@@ -178,13 +178,14 @@ class AestheticViewProvider {
         <br>
         <h3>💻 Code</h3>
         <p>Run any piece in your active editor.</p>
-				<button id="run">Run Piece</button>
+				<!-- <button id="run">Run Piece</button> -->
         <br>
         <br>
         <h3>🧩 Publish</h3>
         <p>
         Type <code>publish</code> on the <code>prompt</code> to make it public.
         </p>
+        <iframe src="https://aesthetic.computer"></iframe>
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
