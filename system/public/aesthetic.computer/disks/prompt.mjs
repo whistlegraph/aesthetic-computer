@@ -130,24 +130,7 @@ async function boot({
       atob(decodeURIComponent(query["publish"])),
     );
     console.log("🛎️ Should be publishing...", slug, source.length);
-    upload("piece-" + slug + ".mjs", source)
-      .then((data) => {
-        console.log("🪄 Code uploaded:", data);
-        flashColor = [0, 255, 0];
-        const route = handle() ? `${handle()}/${data.slug}` : data.slug;
-        makeFlash($);
-        send({ type: "alert", content: `\`${route}\` was published!` });
-        jump(route);
-      })
-      .catch((err) => {
-        console.error("🪄 Code upload failed:", err);
-        send({
-          type: "alert",
-          content: `😥 Piece: \`${slug}\` failed to publish.`,
-        });
-        flashColor = [255, 0, 0];
-        makeFlash($);
-      });
+    publishPiece({ send, jump, handle }, slug, source);
   }
 
   server = socket((id, type, content) => {
@@ -629,15 +612,23 @@ async function halt($, text) {
 
     console.log("Publishing:", publishablePiece);
 
-    send({
-      type: "post-to-parent",
-      content: {
-        type: "publish",
-        url: `https://aesthetic.computer?publish=${encodeURIComponent(
-          btoa(JSON.stringify(publishablePiece)),
-        )}`,
-      },
-    });
+    if (net.iframe) {
+      send({
+        type: "post-to-parent",
+        content: {
+          type: "publish",
+          url: `https://aesthetic.computer?publish=${encodeURIComponent(
+            btoa(JSON.stringify(publishablePiece)),
+          )}`,
+        },
+      });
+    } else {
+      publishPiece(
+        { send, jump, handle },
+        publishPiece.slug,
+        publishablePiece.source,
+      );
+    }
 
     makeFlash($);
     return true;
@@ -1522,4 +1513,25 @@ function downloadPainting({ download, num, store }, scale, sharing = false) {
     // set a resolution.
     sharing,
   });
+}
+
+function publishPiece({ send, jump, handle }, slug, source) {
+  upload("piece-" + slug + ".mjs", source)
+    .then((data) => {
+      console.log("🪄 Code uploaded:", data);
+      flashColor = [0, 255, 0];
+      const route = handle() ? `${handle()}/${data.slug}` : data.slug;
+      makeFlash($);
+      send({ type: "alert", content: `\`${route}\` was published!` });
+      jump(route);
+    })
+    .catch((err) => {
+      console.error("🪄 Code upload failed:", err);
+      send({
+        type: "alert",
+        content: `😥 Piece: \`${slug}\` failed to publish.`,
+      });
+      flashColor = [255, 0, 0];
+      makeFlash($);
+    });
 }
