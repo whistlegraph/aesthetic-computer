@@ -51,6 +51,10 @@ Today:
   - [] 164 / 128 3x4
   - [] https://prompt.ac/pic~here~is~my~cat 
 
+*** `world` ***
+  - [] Make shaped worlds using inner poly collision and points for boundaries.
+    - [] And then this can be passed instead of width and height?
+
 48 Hours:
 *** webgl2 renderer ***
   - [] More work on webgl2 renderer.
