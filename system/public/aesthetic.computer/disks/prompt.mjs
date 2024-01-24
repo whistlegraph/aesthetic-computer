@@ -115,17 +115,19 @@ async function boot({
   user,
   handle,
   params,
-  // query,
+  query,
   // code,
   net: { socket },
   notice,
 }) {
-  /*
-  if (query["channel"]) {
-    code.channel(query["channel"]);
-    notice(query["channel"]);
-  } 
-  */
+  if (query["publish"]) {
+    console.log(
+      "Should be publishing...",
+      decodeURIComponent(query["publish"]),
+    );
+    notice("PUBLISHING...");
+    // TODO: Grab logic from old publish command.
+  }
 
   glaze({ on: true });
 
@@ -597,6 +599,20 @@ async function halt($, text) {
     }
     makeFlash($);
     return true;
+  } else if (text === "publish2") {
+    const publishablePiece = store["publishable-piece"];
+    console.log("Publishing:", publishablePiece.length);
+    send({
+      type: "post-to-parent",
+      content: {
+        type: "publish",
+        url: `https://aesthetic.computer?publish=${encodeURIComponent(
+          publishablePiece,
+        )}`,
+      },
+    });
+    makeFlash($);
+    return true;
   } else if (text === "publish") {
     // Publish the last devReload'ed or dragged piece.
     const publishablePiece = store["publishable-piece"];
@@ -613,6 +629,7 @@ async function halt($, text) {
     console.log("📥 Now publishing...", slug);
 
     // Upload to the user's "piece-" directory if possible.
+    // TODO: 🧧 Run this code if the query matches.
     upload("piece-" + slug + ".mjs", source)
       .then((data) => {
         console.log("🪄 Code uploaded:", data);
