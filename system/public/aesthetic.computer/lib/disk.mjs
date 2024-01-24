@@ -49,13 +49,21 @@ const defaults = {
     cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
-  paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe }) => {
+  paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe, ink, screen }) => {
     // TODO: Make this a boot choice via the index.html file?
     if (!projectionMode) {
       if (slug?.indexOf("botce") > -1) {
         noise16Sotce();
       } else {
         noise16Aesthetic();
+        if (loadFailureText) {
+          ink("white").write(
+            loadFailureText,
+            { x: 6, y: 6 },
+            [64, 32],
+            screen.width - 6,
+          );
+        }
       }
     }
   },
@@ -385,7 +393,7 @@ let lastActiveVideo;
 let videoSwitching = false;
 let preloadPromises = {};
 let inFocus;
-let loadFailure;
+let loadFailure, loadFailureText;
 
 // 1. ✔ API
 
@@ -1615,96 +1623,8 @@ let SCREEN;
 // TODO: Add transparency and short hex to hex support.
 // TODO: Add better hex support via: https://stackoverflow.com/a/53936623/8146077
 
-function computeAlpha(alpha) {
-  if (alpha >= 0 && alpha <= 1) alpha = round(alpha * 255);
-  return alpha;
-}
-
-function color() {
-  let args = [...arguments];
-
-  if (args.length === 1 && args[0] !== undefined) {
-    const isNumber = () => typeof args[0] === "number";
-    const isArray = () => Array.isArray(args[0]);
-    const isString = () => typeof args[0] === "string";
-    const isBool = typeof args[0] === "boolean";
-
-    if (isBool) {
-      return args[0] ? [255, 255, 255, 255] : [0, 0, 0, 255];
-    }
-
-    // If it's not a Number or Array or String, then assume it's an object,
-    // randomly pick a key & re-run.
-    if (!isNumber() && !isArray() && !isString())
-      return color(help.any(args[0]));
-
-    // Single number argument.
-    if (isNumber()) {
-      // Treat as raw hex if we hit a certain limit.
-      if (args[0] > 255) {
-        args = num.hexToRgb(args[0]);
-      } else {
-        // Otherwise, replicate the first number across all three fields.
-        args = Array.from(args);
-        args.push(args[0], args[0]);
-      }
-    } else if (isArray()) {
-      // Or if it's an array, then spread it out and re-ink.
-      // args = args[0];
-      return color(...args[0]);
-    } else if (isString()) {
-      // See if it's a hex.
-      const cleanedHex = args[0].replace("#", "").replace("0x", "");
-      if (num.isHexString(cleanedHex) === true) {
-        args = num.hexToRgb(cleanedHex);
-      } else if (args[0] === "erase") {
-        // TODO: Add better alpha support here... 23.09.11.22.10
-        //       ^ See `parseColor` in `num`.
-        // let alpha = 255;
-        // if (args[1]) alpha = parseFloat(args[1]);
-        args = [-1, -1, -1];
-        if (args[1]) args.push(computeAlpha(args[1]));
-      } else if (args[0] === "rainbow") {
-        args = num.rainbow(); // Cycle through roygbiv in a linear sequence.
-      } else {
-        args = num.cssColors[args[0]]; // Try to match it to a table.
-        if (!args) {
-          args = num.randIntArr(255, 3);
-          args.push(255);
-        }
-      }
-      // TODO: Add an error message here. 22.08.29.13.03
-    }
-  } else if (args.length === 2) {
-    // rainbow, alpha
-    if (args[0] === "rainbow") {
-      args = [...num.rainbow(), computeAlpha(args[1])];
-    } else if (typeof args[0] === "string") {
-      args = [...num.cssColors[args[0]], computeAlpha(args[1])];
-    } else {
-      // rgb, a
-      args = [args[0], args[0], args[0], args[1]];
-    }
-  } else if (
-    args.length === 0 ||
-    (args.length === 1 && args[0] === undefined)
-  ) {
-    args = num.randIntArr(255, 3);
-    args.push(255); // Generate random values here, always leave alpha 255.
-  }
-
-  if (args.length === 3) args = [...args, 255]; // Always be sure we have alpha.
-
-  // Randomized any undefined or null values across all 4 arguments.
-  args.forEach((a, i) => {
-    if (isNaN(args[i])) args[i] = num.randInt(255);
-  });
-
-  return args;
-}
-
 function ink() {
-  return graph.color(...color(...arguments));
+  return graph.color(...graph.findColor(...arguments));
 }
 
 // 🔎 PAINTAPI
@@ -1740,7 +1660,7 @@ const $paintApi = {
   // 2. Image Utilities
   clonePixels: graph.cloneBuffer,
   colorsMatch: graph.colorsMatch,
-  color,
+  color: graph.findColor,
   resize: graph.resize,
   // 3. 3D Classes & Objects
   Camera: graph.Camera,
@@ -2442,13 +2362,24 @@ async function load(
     loadedModule = await import(blobUrl);
   } catch (err) {
     // 🧨 Continue with current module if one has already loaded.
-    console.error(`😡 "${path}" load failure:`, err, "first load:", firstLoad);
+    console.error(
+      `😡 "${path}" load failure:`,
+      err,
+      "💾 First load:",
+      firstLoad,
+    );
     loadFailure = err;
+    loadFailureText = err.message;
     loading = false;
     // Only return a 404 if the error type is correct.
-    if (firstLoad && err.message === "404") $commonApi.jump(`404~${slug}`);
+    if (firstLoad && err.message === "404") {
+      $commonApi.jump(`404~${slug}`);
+    } else {
+      $commonApi.notice(":(", ["red", "yellow"]);
+    }
     return false;
   }
+
   // console.log("Module load time:", performance.now() - moduleLoadTime, module);
 
   // 🧨 Fail out if no module is found.

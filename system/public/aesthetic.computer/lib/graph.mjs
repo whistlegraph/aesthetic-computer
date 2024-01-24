@@ -12,12 +12,16 @@ import {
   radians,
   lerp,
   randIntRange,
+  randIntArr,
   clamp,
   signedCeil,
   rainbow,
+  isHexString,
+  hexToRgb,
+  cssColors,
 } from "./num.mjs";
 
-import { repeat, nonvalue, flip } from "./help.mjs";
+import { any, repeat, nonvalue, flip } from "./help.mjs";
 import { Box } from "./geo.mjs";
 import { nanoid } from "../dep/nanoid/nanoid.js";
 
@@ -147,6 +151,95 @@ function flood(x, y, fillColor = c) {
   };
 }
 
+// Parse a color from a variety of parameters.
+function findColor() {
+  let args = [...arguments];
+
+  if (args.length === 1 && args[0] !== undefined) {
+    const isNumber = () => typeof args[0] === "number";
+    const isArray = () => Array.isArray(args[0]);
+    const isString = () => typeof args[0] === "string";
+    const isBool = typeof args[0] === "boolean";
+
+    if (isBool) {
+      return args[0] ? [255, 255, 255, 255] : [0, 0, 0, 255];
+    }
+
+    // If it's not a Number or Array or String, then assume it's an object,
+    // randomly pick a key & re-run.
+    if (!isNumber() && !isArray() && !isString())
+      return findColor(any(args[0]));
+
+    // Single number argument.
+    if (isNumber()) {
+      // Treat as raw hex if we hit a certain limit.
+      if (args[0] > 255) {
+        args = hexToRgb(args[0]);
+      } else {
+        // Otherwise, replicate the first number across all three fields.
+        args = Array.from(args);
+        args.push(args[0], args[0]);
+      }
+    } else if (isArray()) {
+      // Or if it's an array, then spread it out and re-ink.
+      // args = args[0];
+      return findColor(...args[0]);
+    } else if (isString()) {
+      // See if it's a hex.
+      const cleanedHex = args[0].replace("#", "").replace("0x", "");
+      if (isHexString(cleanedHex) === true) {
+        args = hexToRgb(cleanedHex);
+      } else if (args[0] === "erase") {
+        // TODO: Add better alpha support here... 23.09.11.22.10
+        //       ^ See `parseColor` in `num`.
+        // let alpha = 255;
+        // if (args[1]) alpha = parseFloat(args[1]);
+        args = [-1, -1, -1];
+        if (args[1]) args.push(computeAlpha(args[1]));
+      } else if (args[0] === "rainbow") {
+        args = rainbow(); // Cycle through roygbiv in a linear sequence.
+      } else {
+        args = cssColors[args[0]]; // Try to match it to a table.
+        if (!args) {
+          args = randIntArr(255, 3);
+          args.push(255);
+        }
+      }
+      // TODO: Add an error message here. 22.08.29.13.03
+    }
+  } else if (args.length === 2) {
+    // rainbow, alpha
+    if (args[0] === "rainbow") {
+      args = [...rainbow(), computeAlpha(args[1])];
+    } else if (typeof args[0] === "string") {
+      args = [...cssColors[args[0]], computeAlpha(args[1])];
+    } else {
+      // rgb, a
+      args = [args[0], args[0], args[0], args[1]];
+    }
+  } else if (
+    args.length === 0 ||
+    (args.length === 1 && args[0] === undefined)
+  ) {
+    args = randIntArr(255, 3);
+    args.push(255); // Generate random values here, always leave alpha 255.
+  }
+
+  if (args.length === 3) args = [...args, 255]; // Always be sure we have alpha.
+
+  // Randomized any undefined or null values across all 4 arguments.
+  args.forEach((a, i) => {
+    if (isNaN(args[i])) args[i] = randInt(255);
+  });
+
+  return args;
+}
+
+function computeAlpha(alpha) {
+  if (alpha >= 0 && alpha <= 1) alpha = round(alpha * 255);
+  return alpha;
+}
+
 // Set global color.
 // Send 0 arguements to retrieve the current one.
 function color(r, g, b, a = 255) {
@@ -167,6 +260,7 @@ export {
   depthBuffer,
   writeBuffer,
   color,
+  findColor,
   c, // currentColor
   pixel,
 };
@@ -1748,6 +1842,7 @@ function noise16Sotce() {
 
 function noiseTinted(tint, amount, saturation) {
   // console.log("Tinting:", tint, amount, saturation);
+  tint = findColor(tint);
   for (let i = 0; i < pixels.length; i += 4) {
     const grayscale = randInt(255);
     pixels[i] = lerp(
