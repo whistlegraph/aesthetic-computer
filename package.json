@@ -8,6 +8,7 @@
     "upgrade": "ncu -u",
     "url": "node generate-local-url.js",
     "ac": "npm run aesthetic",
+    "admin:firebase": "xdg-open https://console.firebase.google.com/?pli=1",
     "tunnel": "ngrok http https://localhost:8888 --domain local.aesthetic.computer",
     "aesthetic": "concurrently --raw \"npm run code\" \"npm run server:session\" \"npm run edge\" \"npm run stripe\" \"npm run url\"",
     "ext": "cd vscode-extension; npm run reload;",
@@ -52,6 +53,6 @@
     "npm-check-updates": "^16.13.2",
     "prettier": "^3.0.3",
     "qrcode-terminal": "^0.12.0",
-    "vercel": "^33.0.1"
+    "vercel": "^33.2.0"
   }
 }
