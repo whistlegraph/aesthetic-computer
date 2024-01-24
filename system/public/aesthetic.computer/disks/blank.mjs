@@ -17,12 +17,12 @@
 
 // 🥾 Boot
 // function boot({ api }) {
-  // Runs once at the start.
+// Runs once at the start.
 // }
 
 // 🎨 Paint
 function paint({ wipe, ink }) {
-  wipe("yellow");
+  wipe("orange");
   ink("blue").line(0, 0, 100, 100); // Would draw a diagonal line.
 }
 

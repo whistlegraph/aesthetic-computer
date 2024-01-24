@@ -123,7 +123,7 @@ async function boot({
   if (query["publish"]) {
     console.log(
       "🛎️ Should be publishing...",
-      JSON.parse(decodeURIComponent(query["publish"])),
+      JSON.parse(atob(decodeURIComponent(query["publish"]))),
     );
     notice("PUBLISHING...");
     // TODO: Grab logic from old publish command.
@@ -607,7 +607,7 @@ async function halt($, text) {
       content: {
         type: "publish",
         url: `https://aesthetic.computer?publish=${encodeURIComponent(
-          JSON.stringify(publishablePiece),
+          btoa(JSON.stringify(publishablePiece)),
         )}`,
       },
     });
