@@ -15,13 +15,13 @@
   //  vscode.postMessage({ type: "setCode", value: codeInput.value });
   //});
 
-  pieceButton.addEventListener("click", () => {
-    vscode.postMessage({ type: "runPiece" });
-  });
+  // pieceButton.addEventListener("click", () => {
+  //  vscode.postMessage({ type: "runPiece" });
+  // });
 
-  publishButton.addEventListener("click", () => {
-    vscode.postMessage({ type: "publishPiece" });
-  });
+  // publishButton.addEventListener("click", () => {
+    // vscode.postMessage({ type: "publishPiece" });
+  // });
 
   // Handle messages sent from the extension to the webview
   window.addEventListener("message", (event) => {
