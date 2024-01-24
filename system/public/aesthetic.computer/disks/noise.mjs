@@ -15,9 +15,10 @@ function paint({
   screen,
   resolution,
   params,
+  hud,
 }) {
   if (params[0] === "code") {
-    noiseTinted([64, 64, 64], 0.6, 0.8);
+    noiseTinted(hud.currentStatusColor(), 0.15, 0.1);
   } else {
     resolution(display.width / 4, display.height / 4, 0);
     noise16DIGITPAIN();

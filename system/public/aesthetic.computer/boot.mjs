@@ -72,10 +72,25 @@ if (!sandboxed && window.auth0) {
 
   const isAuthenticated = await auth0Client.isAuthenticated();
 
+  const iframe = window.self !== window.top;
+
   window.acLOGIN = async (mode) => {
     const opts = { prompt: "login" }; // Never skip the login screen.
     if (mode === "signup") opts.screen_hint = mode;
-    auth0Client.loginWithRedirect({ authorizationParams: opts });
+
+    if (frame) {
+      auth0Client.loginWithRedirect({ authorizationParams: opts });
+    } else {
+      console.log("🔐 Logging in with popup...");
+      auth0Client
+        .loginWithPopup()
+        .then(() => {
+          console.log("🔐 Logged in with popup");
+        })
+        .catch((error) => {
+          console.error("🔐 Popup login error:", error);
+        });
+    }
   };
 
   window.acLOGOUT = () => {
