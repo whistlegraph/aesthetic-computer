@@ -229,7 +229,7 @@ async function world_boot(
 }
 
 function world_paint(
-  { api, ink, pan, unpan, pen, screen, leaving },
+  { api, ink, pan, unpan, pen, screen, leaving, hud },
   paint,
   curtain,
 ) {
@@ -265,6 +265,11 @@ function world_paint(
     ink("black").write(kid.handle, { x: 7, y: 21 + 1 + row });
     ink(me === kid ? "white" : "cyan").write(kid.handle, { x: 6, y: 21 + row });
   });
+
+  const statusColor = hud.currentStatusColor();
+  if (typeof statusColor === "string" && statusColor !== "lime") {
+    ink(statusColor, 128).box(0, 0, screen.width, screen.height);
+  }
 
   // 💻 Screen UI
   const l = me.leash;
