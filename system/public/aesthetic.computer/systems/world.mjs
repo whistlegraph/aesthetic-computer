@@ -10,9 +10,7 @@
        (Play around with the difference.)
 #endregion */
 
-let me, world, cam, input, inputBtn, server;
-
-const kids = {};
+let me, kids, world, cam, input, inputBtn, server;
 
 const { keys, values } = Object;
 
@@ -34,6 +32,7 @@ async function world_boot(
   worldData,
 ) {
   // ✨ Initialization & Interface
+  kids = {}; // Empty any kids that may be left over from a previous region.
   world = new World(worldData?.width, worldData?.height);
 
   let pos;
@@ -162,7 +161,7 @@ async function world_boot(
 
     // TODO: How can this be oriented around storing a server list.
     if (type === `world:${piece}:list`) {
-      // console.log("🗞️ Listing all field clients...");
+      console.log(`🗞️ Listing all ${piece} clients...`, content);
       keys(content).forEach((key) => {
         if (!kids[key]) {
           const data = content[key];
@@ -179,6 +178,7 @@ async function world_boot(
     }
 
     if (type === `world:${piece}:join`) {
+      console.log("😂", type, content);
       if (!kids[id]) {
         kids[id] = new Kid(
           content.handle || `nub${id}`,
@@ -189,8 +189,6 @@ async function world_boot(
       }
     }
 
-    // TODO: Stop receiving own messages?
-    // if (server.id !== id) {
     if (type === `world:${piece}:tint`) {
       const kid = kids[id];
       if (kid) kid.tint(content);
@@ -222,6 +220,7 @@ async function world_boot(
     }
 
     if (type === `world:${piece}:move`) {
+      console.log(type, id, content);
       const kid = kids[id];
       if (kid) kid.netPos = content.pos;
     }
@@ -264,7 +263,7 @@ function world_paint(
   [me, ...values(kids)].forEach((kid, i) => {
     const row = i * 12;
     ink("black").write(kid.handle, { x: 7, y: 21 + 1 + row });
-    ink("cyan").write(kid.handle, { x: 6, y: 21 + row });
+    ink(me === kid ? "white" : "cyan").write(kid.handle, { x: 6, y: 21 + row });
   });
 
   // 💻 Screen UI
@@ -364,13 +363,13 @@ function world_act({ event: e, api, send, jump, hud, piece, screen }) {
   }
 }
 
-function world_sim({ api, geo, simCount, screen, num }) {
+function world_sim({ api, piece, geo, simCount, screen, num }) {
   me.sim(api, function net(kid) {
     if (simCount % 4n === 0n) {
       // Send position updates at a rate of 30hz  (120 / 4).
-      if (kid.pos) server.send("world:field:move", kid);
+      if (kid.pos) server.send(`world:${piece}:move`, kid);
     }
-    if (kid.clear) server.send("world:field:write:clear", kid);
+    if (kid.clear) server.send(`world:${piece}:write:clear`, kid);
   }); // 🧒 Movement
 
   cam.dolly.x = num.lerp(cam.dolly.x, me.pos.x, 0.035);

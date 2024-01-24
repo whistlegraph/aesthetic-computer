@@ -322,6 +322,8 @@ wss.on("connection", (ws, req) => {
       if (!codeChannels[codeChannel]) codeChannels[codeChannel] = new Set();
       codeChannels[codeChannel].add(id);
     } else {
+      // TODO: Should all messages be prefixed with their piece?
+
       // Filter for `world:${piece}:${label}` type messages.
       if (msg.type.startsWith("world:")) {
         const parsed = msg.type.split(":");
@@ -331,13 +333,17 @@ wss.on("connection", (ws, req) => {
         // TODO: Store client position on disconnect, based on their handle.
 
         if (label === "join") {
-          ws.send(pack(`world:${piece}:list`, worldClients, id));
           // ^ Send existing list to everyone but this user.
-          worldClients[id] = { ...msg.content }; // Add user client list.
+          if (!worldClients[piece]) worldClients[piece] = {};
+          ws.send(pack(`world:${piece}:list`, worldClients[piece], id));
+          worldClients[piece][id] = { ...msg.content }; // Add user client list.
+          console.log("Clients in piece:", piece, worldClients[piece]);
           others(JSON.stringify(msg)); // Alert everyone else about the join.
           return;
         } else if (label === "move") {
-          // console.log("🚶‍♂️", msg.content);
+          console.log("🚶‍♂️", piece, msg.content);
+          if (typeof worldClients?.[piece]?.[id] === "object")
+            worldClients[piece][id].pos = msg.content.pos;
         } else {
           console.log(`${label}:`, msg.content);
         }
@@ -354,8 +360,12 @@ wss.on("connection", (ws, req) => {
   // More info: https://stackoverflow.com/a/49791634/8146077
   ws.on("close", () => {
     console.log("🚪 Someone left:", id, "Online:", wss.clients.size, "🫂");
-    // console.log("Left...", id, worldClients);
-    delete worldClients[id];
+
+    Object.keys(worldClients).forEach((piece) => {
+      delete worldClients[piece][id];
+      if (Object.keys(worldClients[piece]).length === 0)
+        delete worldClients[piece];
+    });
 
     everyone(pack("left", { id, count: wss.clients.size }));
     delete connections[id];
@@ -431,6 +441,7 @@ if (dev) {
   chokidar
     .watch([
       "../system/public/aesthetic.computer/lib",
+      "../system/public/aesthetic.computer/systems", // This doesn't need a full reload / could just reload the disk module?
       "../system/public/aesthetic.computer/boot.js",
       "../system/public/aesthetic.computer/bios.js",
       "../system/public/aesthetic.computer/style.css",

@@ -41,6 +41,7 @@
 🌟 Projects in Progress (PIP) 🌟
 
 Today:
+
 *** `list` ***
   - [🔴] Add a big categorized list.
   - [] Enter list to view existing commands.
@@ -53,6 +54,11 @@ Today:
 48 Hours:
 *** webgl2 renderer ***
   - [] More work on webgl2 renderer.
+
+*** migrate netlify functions ***
+  - [] Move ask off of vercel to a netlify 2.0 streaming function.
+    - [] https://twitter.com/biilmann/status/1712527635975385165
+  - [] https://www.netlify.com/blog/introducing-netlify-functions-2-0/?utm_source=twitter&utm_medium=social&utm_campaign=netlifyfunctions
 
 Full day:
 *** `log` ***

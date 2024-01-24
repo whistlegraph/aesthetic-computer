@@ -1,5 +1,10 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** `field -> horizon` transition fix ***
+  - [x] Be able to follow other users.
+  - [x] Prevent doubling.
+  - [?] Aspen found a piece infinite reload bug...
+
 *** botce xmas ***
   + Done
   - [x] 6$ 
