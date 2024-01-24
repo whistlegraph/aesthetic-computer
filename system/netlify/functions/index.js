@@ -32,7 +32,7 @@ async function fun(event, context) {
 
   const parsed = parse(slug, { hostname: event.headers["host"] });
 
-  if (dev) console.log(slug, parsed);
+  // if (dev) console.log(slug, parsed);
 
   // Get local IP.
   let lanHost;
@@ -79,8 +79,11 @@ async function fun(event, context) {
     body: '<a href="https://aesthetic.computer">https://aesthetic.computer</a>',
   };
 
-  // Externally hosted pieces always start with @.
+  let statusCode = 200; // Might change if a piece can't load.
+
+  // Load a piece.
   try {
+    // Externally hosted pieces always start with @.
     if (slug.startsWith("@") && slug.indexOf("/") !== -1) {
       const externalPiece = await getPage(
         `https://${parsed.host}/${parsed.path}.mjs`,
@@ -102,7 +105,8 @@ async function fun(event, context) {
           console.log("📰 Metadata:", meta, "Path:", parsed.text);
         }
       } catch (e) {
-        console.log(e);
+        console.log("🔴 Piece load failure:", e);
+        statusCode = 404;
       }
     }
   } catch {
@@ -199,7 +203,7 @@ async function fun(event, context) {
     </html>
   `;
   return {
-    statusCode: 200,
+    statusCode,
     headers: {
       "Content-Type": "text/html",
       // "Cross-Origin-Embedder-Policy": "require-corp",

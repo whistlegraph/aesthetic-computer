@@ -214,7 +214,7 @@ let iconMode = false; // Detects ?icon on a piece and yields its
 //                          icon function if it exists.
 let hideLabel = false;
 
-let module; // Currently loaded piece module code.
+let module, loadedModule; // Currently loaded piece module code with an extra reference for `hotSwap`.
 let currentPath,
   currentHost,
   currentSearch,
@@ -2363,6 +2363,9 @@ async function load(
       if (fullUrl) {
         // console.log("Attempting to load from local url:", fullUrl);
         response = await fetch(fullUrl);
+        if (response.status === 404) {
+          throw new Error("404");
+        }
         sourceToRun = await response.text();
       } else {
         sourceToRun = source;
@@ -2426,20 +2429,20 @@ async function load(
       sourceCode = updatedCode;
     }
 
-    module = await import(blobUrl);
+    loadedModule = await import(blobUrl);
   } catch (err) {
     // 🧨 Continue with current module if one has already loaded.
     console.error(`😡 "${path}" load failure:`, err, "first load:", firstLoad);
     loadFailure = err;
     loading = false;
-
-    if (firstLoad) $commonApi.jump("404");
+    // Only return a 404 if the error type is correct.
+    if (firstLoad && err.message === "404") $commonApi.jump(`404~${slug}`);
     return false;
   }
   // console.log("Module load time:", performance.now() - moduleLoadTime, module);
 
   // 🧨 Fail out if no module is found.
-  if (module === undefined) {
+  if (loadedModule === undefined) {
     loading = false;
     return false;
   }
@@ -2619,7 +2622,7 @@ async function load(
       location.host, // "aesthetic.computer",
       slug,
       // Adding the num API here is a little hacky, but needed for Freaky Flowers random metadata generation. 22.12.27
-      module.meta?.({
+      loadedModule.meta?.({
         ...parsed,
         num: $commonApi.num,
         store: $commonApi.store,
@@ -2941,6 +2944,8 @@ async function load(
 
     $commonApi.rec.loadCallback?.(); // Start any queued tape.
     $commonApi.rec.loadCallback = null;
+
+    module = loadedModule;
 
     if (!module.system?.startsWith("world"))
       $commonApi.system.world.teleported = false;
