@@ -47,6 +47,10 @@ Today:
        the piece in the browser (to make sure the user is logged in).
   - [🚗] Get tab-flipping to work properly if a piece hasn't been loaded succesfully yet.
   - [🟠] Disable some commands like `hi` if the app is running in an iframe.
+
+    // TODO: Still allow dragged in / external
+    //       code-channel pieces to be published? 24.01.24.14.41
+
   - [c] Get authorization / login working (for publishing).
   - [x] Add connection flashes to noise.
   - [x] Any code that doesn't parse just print out if no piece is running
