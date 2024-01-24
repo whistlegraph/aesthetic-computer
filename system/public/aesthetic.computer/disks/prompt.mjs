@@ -634,10 +634,10 @@ async function halt($, text) {
     return true;
   } else if (text.startsWith("code-channel")) {
     // Set a `code-channel` for piece writing.
-    if (!params[0]) {
+    code.channel(params.join(" "));
+    if (params.length === 0) {
       flashColor = [255, 0, 0];
     } else {
-      code.channel(params.join(" "));
       flashColor = [0, 255, 0];
     }
     makeFlash($);
