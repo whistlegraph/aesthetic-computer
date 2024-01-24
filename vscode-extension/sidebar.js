@@ -5,12 +5,12 @@
     const message = event.data; // The json data that the extension sent
     console.log("📶 Received message:", message);
     switch (message.type) {
-      // case "externallyAuthenticate": {
-      //   vscode.postMessage({
-      //     type: "openExternal",
-      //     url: message.authUrl,
-      //   });
-      // }
+      case "publish": {
+        vscode.postMessage({
+          type: "publish",
+          url: message.url,
+        });
+      }
       case "setCode": {
         vscode.postMessage({ type: "setCode", value: message.value });
       }
