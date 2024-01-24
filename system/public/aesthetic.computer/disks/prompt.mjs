@@ -113,23 +113,42 @@ async function boot({
   ui,
   screen,
   user,
+  upload,
   handle,
   params,
   query,
+  jump,
   // code,
   net: { socket },
   notice,
 }) {
-  if (query["publish"]) {
-    console.log(
-      "🛎️ Should be publishing...",
-      JSON.parse(atob(decodeURIComponent(query["publish"]))),
-    );
-    notice("PUBLISHING...");
-    // TODO: Grab logic from old publish command.
-  }
-
   glaze({ on: true });
+
+  if (query["publish"]) {
+    notice("PUBLISHING...");
+    const { slug, source } = JSON.parse(
+      atob(decodeURIComponent(query["publish"])),
+    );
+    console.log("🛎️ Should be publishing...", slug, source.length);
+    upload("piece-" + slug + ".mjs", source)
+      .then((data) => {
+        console.log("🪄 Code uploaded:", data);
+        flashColor = [0, 255, 0];
+        const route = handle() ? `${handle()}/${data.slug}` : data.slug;
+        makeFlash($);
+        send({ type: "alert", content: `\`${route}\` was published!` });
+        jump(route);
+      })
+      .catch((err) => {
+        console.error("🪄 Code upload failed:", err);
+        send({
+          type: "alert",
+          content: `😥 Piece: \`${slug}\` failed to publish.`,
+        });
+        flashColor = [255, 0, 0];
+        makeFlash($);
+      });
+  }
 
   server = socket((id, type, content) => {
     console.log("🧦 Got message:", id, type, content);
@@ -599,9 +618,17 @@ async function halt($, text) {
     }
     makeFlash($);
     return true;
-  } else if (text === "publish2") {
+  } else if (text === "publish") {
     const publishablePiece = store["publishable-piece"];
+    if (!publishablePiece) {
+      flashColor = [255, 0, 0];
+      makeFlash($);
+      console.error("🪄 No publishable piece found!");
+      return true;
+    }
+
     console.log("Publishing:", publishablePiece);
+
     send({
       type: "post-to-parent",
       content: {
@@ -611,43 +638,8 @@ async function halt($, text) {
         )}`,
       },
     });
+
     makeFlash($);
-    return true;
-  } else if (text === "publish") {
-    // Publish the last devReload'ed or dragged piece.
-    const publishablePiece = store["publishable-piece"];
-
-    if (!publishablePiece) {
-      flashColor = [255, 0, 0];
-      makeFlash($);
-      console.error("🪄 No publishable piece found!");
-      return true;
-    }
-
-    const { slug, source } = publishablePiece;
-
-    console.log("📥 Now publishing...", slug);
-
-    // Upload to the user's "piece-" directory if possible.
-    // TODO: 🧧 Run this code if the query matches.
-    upload("piece-" + slug + ".mjs", source)
-      .then((data) => {
-        console.log("🪄 Code uploaded:", data);
-        flashColor = [0, 255, 0];
-        const route = handle() ? `${handle()}/${data.slug}` : data.slug;
-        makeFlash($);
-        send({ type: "alert", content: `\`${route}\` was published!` });
-        jump(route);
-      })
-      .catch((err) => {
-        console.error("🪄 Code upload failed:", err);
-        send({
-          type: "alert",
-          content: `😥 Piece: \`${slug}\` failed to publish.`,
-        });
-        flashColor = [255, 0, 0];
-        makeFlash($);
-      });
     return true;
   } else if (text.startsWith("code-channel")) {
     // Set a `code-channel` for piece writing.
