@@ -118,9 +118,8 @@ async function boot({
   // query,
   // code,
   net: { socket },
-  notice
+  notice,
 }) {
-
   /*
   if (query["channel"]) {
     code.channel(query["channel"]);
@@ -644,7 +643,7 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text === "run") {
-    send({ type: "post-to-parent" });
+    send({ type: "post-to-parent", content: { type: "runPiece" } });
     makeFlash($);
     return true;
   } else if (text.startsWith("code")) {
