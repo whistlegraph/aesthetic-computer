@@ -42,6 +42,16 @@
 
 Today:
 
+- [x] More immediate coding.
+
+- [] Add connection flash to world.
+- [] User world persistence with floating command notifications.
+- [] How to handle multiple handled users in the same room.
+     (Make primary vs. a ghost type of view-only behavior?)
+- [] How to have two windows or machines up and use a put command while
+     modifying pixels. (Always store current painting in the cloud for a registered user.)
+- [] Implement `paste` and send the pixels through the backend.
+
 *** `list` ***
   - [🔴] Add a big categorized list.
   - [] Enter list to view existing commands.
@@ -50,6 +60,8 @@ Today:
 *** `pic` `pix` ***
   - [] 164 / 128 3x4
   - [] https://prompt.ac/pic~here~is~my~cat 
+
+- [] Zoom in on painting in mobile.
 
 *** `world` ***
   - [] Make shaped worlds using inner poly collision and points for boundaries.

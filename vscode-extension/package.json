@@ -4,7 +4,7 @@
   "displayName": "aesthetic.computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.8.0",
+  "version": "1.11.0",
   "description": "An extension for loading and running aesthetic.computer pieces in VS Code.",
   "engines": {
     "vscode": "^1.74.2"
@@ -13,9 +13,12 @@
     "reload": "npm run build; npm run install:ext;",
     "build": "vsce package",
     "install:ext": "code --install-extension aesthetic-computer-code-1.8.0.vsix",
-    "publish": "vsce publish minor"
+    "publish": "vsce publish minor",
+    "login": "vsce login",
+    "token": "echo \"Get token from: https://dev.azure.com/aesthetic-computer/_usersSettings/tokens\""
   },
   "main": "./extension.js",
+  "browser": "./extension.js",
   "activationEvents": [],
   "contributes": {
     "commands": [
@@ -51,9 +54,6 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/digitpain/aesthetic-computer.git"
-  },
-  "dependencies": {
-    "node-fetch": "^2.6.12"
   },
   "devDependencies": {
     "@vscode/vsce": "^2.22.0"

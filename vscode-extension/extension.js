@@ -28,7 +28,6 @@
 #endregion */
 
 const vscode = require("vscode");
-const fetch = require("node-fetch");
 
 let local = false;
 let activeEditor, codeChannel;

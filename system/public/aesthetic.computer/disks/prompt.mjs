@@ -633,6 +633,12 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text.startsWith("code")) {
+    jump(
+      "out:https://vscode.dev/github/digitpain/aesthetic.computer-code/blob/main/blank.mjs",
+    );
+    makeFlash($);
+    return true;
+  } else if (text.startsWith("source")) {
     // Try to grab the piece requested in param[0] or just load blank.
     const piece = params[0] || "blank";
     const { host, path } = parse(piece);
@@ -1062,7 +1068,7 @@ async function halt($, text) {
   } else if (text === "local" || text.startsWith("local")) {
     const param = text.replace("local", "").trim().replaceAll(" ", "~");
     const slug = param.length > 0 ? `/${param}` : "";
-    jump("https://localhost:8888" + slug); // Go to the local dev server, passing any params as a piece.
+    jump("https://aesthetic.local:8888" + slug); // Go to the local dev server, passing any params as a piece.
     makeFlash($);
     return true;
   } else if (text.split(" ")[0] === "of") {
