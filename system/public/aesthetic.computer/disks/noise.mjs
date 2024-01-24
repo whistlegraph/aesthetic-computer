@@ -16,9 +16,19 @@ function paint({
   resolution,
   params,
   hud,
+  ink,
+  net: { loadFailureText },
 }) {
   if (params[0] === "code") {
     noiseTinted(hud.currentStatusColor(), 0.15, 0.1);
+    if (loadFailureText) {
+      ink("white").write(
+        loadFailureText,
+        { x: 6, y: 6 },
+        [64, 128],
+        screen.width - 6,
+      );
+    }
   } else {
     resolution(display.width / 4, display.height / 4, 0);
     noise16DIGITPAIN();
