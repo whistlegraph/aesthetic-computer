@@ -122,8 +122,8 @@ async function boot({
 }) {
   if (query["publish"]) {
     console.log(
-      "Should be publishing...",
-      decodeURIComponent(query["publish"]),
+      "🛎️ Should be publishing...",
+      JSON.parse(decodeURIComponent(query["publish"])),
     );
     notice("PUBLISHING...");
     // TODO: Grab logic from old publish command.
@@ -601,13 +601,13 @@ async function halt($, text) {
     return true;
   } else if (text === "publish2") {
     const publishablePiece = store["publishable-piece"];
-    console.log("Publishing:", publishablePiece.length);
+    console.log("Publishing:", publishablePiece);
     send({
       type: "post-to-parent",
       content: {
         type: "publish",
         url: `https://aesthetic.computer?publish=${encodeURIComponent(
-          publishablePiece,
+          JSON.stringify(publishablePiece),
         )}`,
       },
     });
