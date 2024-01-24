@@ -8,9 +8,20 @@
 #endregion */
 
 // 🎨 Paint
-function paint({ noise16DIGITPAIN, display, screen, resolution }) {
-  resolution(display.width / 4, display.height / 4, 0);
-  noise16DIGITPAIN();
+function paint({
+  noise16DIGITPAIN,
+  noiseTinted,
+  display,
+  screen,
+  resolution,
+  params,
+}) {
+  if (params[0] === "code") {
+    noiseTinted([64, 64, 64], 0.6, 0.8);
+  } else {
+    resolution(display.width / 4, display.height / 4, 0);
+    noise16DIGITPAIN();
+  }
 }
 
 // 📰 Meta

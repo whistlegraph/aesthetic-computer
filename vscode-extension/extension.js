@@ -189,7 +189,7 @@ class AestheticViewProvider {
         Type <code>publish</code> on the <code>prompt</code> to make it public.
         </p>
         -->
-        <iframe src="https://aesthetic.computer"></iframe>
+        <iframe src="https://aesthetic.computer/noise~code?nolabel"></iframe>
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
