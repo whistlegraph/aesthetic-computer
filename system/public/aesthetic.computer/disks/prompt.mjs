@@ -632,6 +632,10 @@ async function halt($, text) {
     }
     makeFlash($);
     return true;
+  } else if (text === "run") {
+    send({ type: "post-to-parent"});
+    makeFlash($);
+    return true;
   } else if (text.startsWith("code")) {
     jump(
       "out:https://vscode.dev/github/digitpain/aesthetic.computer-code/blob/main/blank.mjs",

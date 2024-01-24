@@ -15,7 +15,7 @@
 
 // 🥾 Boot
 function boot({ api, wipe }) {
-  wipe("blue"); // Clear's the screen. Can use R, G, B or CSS colors.
+  wipe("teal"); // Clear's the screen. Can use R, G, B or CSS colors.
 }
 
 // 🎨 Paint
