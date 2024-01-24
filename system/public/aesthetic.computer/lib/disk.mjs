@@ -49,18 +49,18 @@ const defaults = {
     cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
-  paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe, ink, screen }) => {
+  paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe, ink, screen, net }) => {
     // TODO: Make this a boot choice via the index.html file?
     if (!projectionMode) {
       if (slug?.indexOf("botce") > -1) {
         noise16Sotce();
       } else {
         noise16Aesthetic();
-        if (loadFailureText) {
+        if (net.loadFailureText) {
           ink("white").write(
-            loadFailureText,
+            net.loadFailureText,
             { x: 6, y: 6 },
-            [64, 32],
+            [64, 64],
             screen.width - 6,
           );
         }
@@ -393,7 +393,7 @@ let lastActiveVideo;
 let videoSwitching = false;
 let preloadPromises = {};
 let inFocus;
-let loadFailure, loadFailureText;
+let loadFailure;
 
 // 1. ✔ API
 
@@ -1350,6 +1350,7 @@ const $commonApi = {
     parse, // Parse a piece slug.
     // lan: // Set dynamically.
     // host: // Set dynamically.
+    // loadFailureText: // Set dynamically.
     // Make a user authorized / signed request to the api.
     // Used both in `motd` and `handle`.
     userRequest: async (method, endpoint, body) => {
@@ -2369,7 +2370,7 @@ async function load(
       firstLoad,
     );
     loadFailure = err;
-    loadFailureText = err.message;
+    $commonApi.net.loadFailureText = err.message;
     loading = false;
     // Only return a 404 if the error type is correct.
     if (firstLoad && err.message === "404") {
