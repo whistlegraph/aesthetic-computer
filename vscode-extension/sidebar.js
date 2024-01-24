@@ -1,19 +1,19 @@
 (function () {
   const vscode = acquireVsCodeApi();
-  const savedState = vscode.getState() || { code: "" };
+  //const savedState = vscode.getState() || { code: "" };
   const pieceButton = document.querySelector("#run");
   const publishButton = document.querySelector("#publish");
-  const codeInput = document.querySelector("#code");
+  //const codeInput = document.querySelector("#code");
 
-  codeInput.value = savedState.code || ""; // Remember code input.
-  if (codeInput.value.length > 0) {
-    vscode.postMessage({ type: "setCode", value: codeInput.value });
-  }
+  //codeInput.value = savedState.code || ""; // Remember code input.
+  //if (codeInput.value.length > 0) {
+  //  vscode.postMessage({ type: "setCode", value: codeInput.value });
+  //}
 
-  codeInput.addEventListener("change", () => {
-    vscode.setState({ code: codeInput.value });
-    vscode.postMessage({ type: "setCode", value: codeInput.value });
-  });
+  //codeInput.addEventListener("change", () => {
+  //  vscode.setState({ code: codeInput.value });
+  //  vscode.postMessage({ type: "setCode", value: codeInput.value });
+  //});
 
   pieceButton.addEventListener("click", () => {
     vscode.postMessage({ type: "runPiece" });

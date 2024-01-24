@@ -120,6 +120,7 @@ class AestheticViewProvider {
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage((data) => {
+      console.log("Message:", data);
       switch (data.type) {
         case "setCode": {
           codeChannel = data.value;
