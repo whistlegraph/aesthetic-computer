@@ -144,6 +144,7 @@ fastify.post("/update", (request, reply) => {
     return;
   }
 
+
   console.log("Path:", process.env.PATH);
 
   // Restart service in production.
