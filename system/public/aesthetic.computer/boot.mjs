@@ -72,13 +72,13 @@ if (!sandboxed && window.auth0) {
 
   const isAuthenticated = await auth0Client.isAuthenticated();
 
-  //const iframe = window.self !== window.top;
+  const iframe = window.self !== window.top;
 
   window.acLOGIN = async (mode) => {
     const opts = { prompt: "login" }; // Never skip the login screen.
     if (mode === "signup") opts.screen_hint = mode;
 
-    if (true) {
+    if (!iframe) {
       auth0Client.loginWithRedirect({ authorizationParams: opts });
     } else {
       console.log("🔐 Logging in with popup...");
