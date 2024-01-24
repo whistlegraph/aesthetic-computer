@@ -1084,6 +1084,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       rootPiece: window.acSTARTING_PIECE,
       user: window.acUSER,
       lanHost: window.acLAN_HOST,
+      iframe: window.self !== window.top,
       shareSupported: navigator.share !== undefined,
     },
   };

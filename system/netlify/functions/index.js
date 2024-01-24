@@ -170,7 +170,7 @@ async function fun(event, context) {
         <meta name="twitter:image" content="${twitterImage}" />
         <script
           crossorigin="anonymous"
-          src="/aesthetic.computer/dep/cdn.auth0.com_js_auth0-spa-js_2.0_auth0-spa-js.production.js"
+          src="/aesthetic.computer/dep/cdn.auth0.com_js_auth0-spa-js_2.1_auth0-spa-js.production.js"
         ></script>
         ${dev
           ? ""
