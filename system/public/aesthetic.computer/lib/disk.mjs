@@ -3162,6 +3162,7 @@ async function load(
       // firstPiece = path;
       // firstParams = params;
       // firstSearch = search;
+      codeChannelAutoLoader?.();
     }
   };
 
@@ -3210,7 +3211,7 @@ function send(data, shared = []) {
 }
 
 // Used to subscribe to live coding / development reloads.
-let codeChannel;
+let codeChannel, codeChannelAutoLoader;
 
 // 4. ✔ Respond to incoming messages, and probably produce a frame.
 // Boot procedure:
@@ -3238,14 +3239,16 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.net.lan = LAN_HOST;
     $commonApi.user = USER;
 
+    codeChannelAutoLoader = null;
     codeChannel = await store.retrieve("code-channel");
     if (!codeChannel || codeChannel?.length === 0) {
       codeChannel = nanoid();
-      // Tell any parent iframes that the channel has been generated.
-      send({
-        type: "post-to-parent",
-        content: { type: "setCode", value: codeChannel },
-      });
+      codeChannelAutoLoader = () => {
+        send({
+          type: "post-to-parent",
+          content: { type: "setCode", value: codeChannel },
+        });
+      };
     }
 
     console.log("💻 Code channel:", codeChannel);
