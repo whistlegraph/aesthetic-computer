@@ -777,7 +777,11 @@ const $commonApi = {
       codeChannel = chan; // Set the current `codeChannel`.
       store["code-channel"] = codeChannel; // Store and keep it in the browser.
       store.persist("code-channel");
-      console.log("💻 Code channel set to:", codeChannel);
+      if (!codeChannel || codeChannel?.length === 0) {
+        console.log("📭 Code channel cleared!");
+      } else {
+        console.log("📬 Code channel set to:", codeChannel);
+      }
       socket.send("code-channel:sub", codeChannel);
       // Tell any parent iframes that the channel has been updated.
       send({
