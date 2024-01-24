@@ -37,4 +37,4 @@ system/types/
 .parcel-cache/
 
 # Any firebase configuration.
-aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json
+aesthetic-computer-firebase-adminsdk*.json

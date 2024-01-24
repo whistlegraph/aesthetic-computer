@@ -119,8 +119,8 @@ async function boot({
 }) {
   glaze({ on: true });
 
-  server = socket((type) => {
-    console.log("🧦 Got message:", type);
+  server = socket((id, type, content) => {
+    console.log("🧦 Got message:", id, type, content);
   });
 
   // Fetch handle count.
@@ -1173,7 +1173,7 @@ function paint($) {
 
 // 🧮 Sim
 function sim($) {
-  const input = $.system.prompt.input;
+  // const input = $.system.prompt.input;
   progressTrick?.step();
   if (!login?.btn.disabled || !profile?.btn.disabled) {
     starfield.sim($);
