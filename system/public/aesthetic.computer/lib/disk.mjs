@@ -40,6 +40,7 @@ let visible = true; // Is aesthetic.computer visibly rendering or not?
 const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading noise.
 
 import { setDebug } from "../disks/common/debug.mjs";
+import { nanoid } from "../dep/nanoid/nanoid.js";
 
 const defaults = {
   boot: ({ cursor, screen: { width, height }, resolution, api }) => {
@@ -778,6 +779,11 @@ const $commonApi = {
       store.persist("code-channel");
       console.log("💻 Code channel set to:", codeChannel);
       socket.send("code-channel:sub", codeChannel);
+      // Tell any parent iframes that the channel has been updated.
+      send({
+        type: "post-to-parent",
+        content: { type: "setCode", value: codeChannel },
+      });
       // ❤️‍🔥
       // TODO: Should return a promise here, and wait for a `code-channel:subbed`
       //       event, that way users get better confirmation if the socket
@@ -3229,7 +3235,17 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.user = USER;
 
     codeChannel = await store.retrieve("code-channel");
-    if (codeChannel?.length > 0) console.log("💻 Code channel:", codeChannel);
+    if (!codeChannel || codeChannel?.length === 0) {
+      codeChannel = nanoid();
+      // Tell any parent iframes that the channel has been generated.
+      send({
+        type: "post-to-parent",
+        content: { type: "setCode", value: codeChannel },
+      });
+    }
+
+    console.log("💻 Code channel:", codeChannel);
+
     await handle(); // Get the user's handle.
     originalHost = content.parsed.host;
     loadAfterPreamble = () => {

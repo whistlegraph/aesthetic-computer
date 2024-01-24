@@ -115,8 +115,19 @@ async function boot({
   user,
   handle,
   params,
+  // query,
+  // code,
   net: { socket },
+  notice
 }) {
+
+  /*
+  if (query["channel"]) {
+    code.channel(query["channel"]);
+    notice(query["channel"]);
+  } 
+  */
+
   glaze({ on: true });
 
   server = socket((id, type, content) => {
@@ -633,7 +644,7 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text === "run") {
-    send({ type: "post-to-parent"});
+    send({ type: "post-to-parent" });
     makeFlash($);
     return true;
   } else if (text.startsWith("code")) {

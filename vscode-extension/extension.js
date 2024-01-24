@@ -123,6 +123,7 @@ class AestheticViewProvider {
       switch (data.type) {
         case "setCode": {
           codeChannel = data.value;
+          vscode.commands.executeCommand("aestheticComputer.runPiece");
           break;
         }
         case "runPiece": {
@@ -170,6 +171,7 @@ class AestheticViewProvider {
 				<title>aesthetic.computer</title>
 			</head>
 			<body>
+        <!--
         <h3>⚙️ Setup</h3>
         <p>
         Set a <code>code-channel</code> on the <code>prompt</code> and enter it here.
@@ -178,13 +180,14 @@ class AestheticViewProvider {
         <br>
         <h3>💻 Code</h3>
         <p>Run any piece in your active editor.</p>
-				<!-- <button id="run">Run Piece</button> -->
+				<button id="run">Run Piece</button>
         <br>
         <br>
         <h3>🧩 Publish</h3>
         <p>
         Type <code>publish</code> on the <code>prompt</code> to make it public.
         </p>
+        -->
         <iframe src="https://aesthetic.computer"></iframe>
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
