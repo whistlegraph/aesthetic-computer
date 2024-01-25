@@ -42,7 +42,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       const session = await vscode.authentication.getSession("aesthetic", [], {
         createIfNone: true,
       });
-      console.log("Aesthetic Session:", session);
     }),
   );
 
@@ -55,16 +54,12 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       { createIfNone: false },
     );
 
-    console.log("Here is your session!", session);
-    // TODO: How can I share my session data with my iframe to
-    //       https://aesthetic.computer which uses auth0-spa so that
-    //       it authenticates me when i load it up?
-
     if (session) {
       vscode.window.showInformationMessage(
         `Welcome back ${session.account.label}`,
       );
     }
+
     return session;
   };
 
@@ -72,12 +67,12 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     vscode.authentication.onDidChangeSessions(async (e) => {
       console.log("Changed sessions:", e);
       if (e.provider.id === "aesthetic") {
-        getAestheticSession();
+        await getAestheticSession();
       }
     }),
   );
 
-  const session = getAestheticSession();
+  const session = await getAestheticSession();
   const provider = new AestheticViewProvider(context.extensionUri, session);
 
   context.subscriptions.push(
@@ -115,7 +110,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       .then((res) => res.text()) // Convert the response to text
       .then((text) => {
         // Now 'text' is a string that can be used in showInformationMessage
-        console.clear();
         vscode.window.showInformationMessage(text);
       })
       .catch((error) => {
