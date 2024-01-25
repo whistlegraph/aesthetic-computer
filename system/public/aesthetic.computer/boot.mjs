@@ -212,7 +212,7 @@ function receive(event) {
     // Use the session information to authenticate
     const session = event.data.session;
     window.auth0Token = session.accessToken;
-    window.acUSER = { name: session.account.id }; // Will get passed to the first message by the piece runner.
+    window.acUSER = { name: session.account.name, sub: session.account.sub }; // Will get passed to the first message by the piece runner.
     console.log(
       "Got session from a message:",
       window.auth0Token,
