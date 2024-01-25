@@ -2,23 +2,25 @@
   const vscode = acquireVsCodeApi();
 
   // Send session data to iframe
-  function sendSessionToIframe() {
+  function sendSessionToIframe(session) {
     const iframe = document.getElementById("aesthetic");
-    if (iframe && window.aestheticSession) {
-      iframe.contentWindow.postMessage(
-        { type: "setSession", session: window.aestheticSession },
-        "*",
-      );
+    if (iframe && session) {
+      iframe.contentWindow.postMessage({ type: "setSession", session }, "*");
     }
   }
 
-  window.addEventListener("load", sendSessionToIframe);
+  window.addEventListener("load", () => {
+    sendSessionToIframe(window.aestheticSession);
+  });
 
   // Handle messages sent from the extension to the webview
   window.addEventListener("message", (event) => {
     const message = event.data; // The json data that the extension sent
     console.log("📶 Received message:", message);
     switch (message.type) {
+      case "setSession": {
+        sendSessionToIframe(message.session);
+      }
       case "publish": {
         vscode.postMessage({
           type: "publish",
