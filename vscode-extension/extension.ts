@@ -67,7 +67,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     vscode.authentication.onDidChangeSessions(async (e) => {
       console.log("Changed sessions:", e);
       if (e.provider.id === "aesthetic") {
-        await getAestheticSession();
+        const session = await getAestheticSession();
+        provider.sendMessageToWebview({ type: "setSession", session });
       }
     }),
   );
@@ -155,6 +156,13 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
     this._sessionData = sessionData;
   }
 
+  // Method to send message to the webview
+  public sendMessageToWebview(message: any) {
+    if (this._view && this._view.webview) {
+      this._view.webview.postMessage(message);
+    }
+  }
+
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
     context: vscode.WebviewViewResolveContext<unknown>,
@@ -218,7 +226,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 			<html lang="en">
 			<head>
 				<meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://hi.aesthetic.computer https://aesthetic.local:8888; child-src https://aesthetic.computer; style-src ${
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://hi.aesthetic.computer https://aesthetic.local:8888; child-src https://aesthetic.computer https://aesthetic.local:8888; style-src ${
           webview.cspSource
         }; script-src 'nonce-${nonce}';">
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
