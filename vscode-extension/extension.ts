@@ -27,16 +27,58 @@
        check for a file that was already added.
 #endregion */
 
-const vscode = require("vscode");
+// Import necessary modules from vscode
+import * as vscode from "vscode";
+import { AestheticAuthenticationProvider } from "./aestheticAuthenticationProvider";
 
-let local = false;
-let activeEditor, codeChannel;
+let local: boolean = false;
+let activeEditor: vscode.TextEditor | undefined;
+let codeChannel: string | undefined;
 
-async function activate(context) {
-  // const fetch = (...args) =>
-  //   import("node-fetch").then(({ default: fetch }) => fetch(...args));
+async function activate(context: vscode.ExtensionContext): Promise<void> {
+  // Authorization
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aestheticComputer.signIn", async () => {
+      const session = await vscode.authentication.getSession("aesthetic", [], {
+        createIfNone: true,
+      });
+      console.log("Aesthetic Session:", session);
+    }),
+  );
 
-  const provider = new AestheticViewProvider(context.extensionUri);
+  context.subscriptions.push(new AestheticAuthenticationProvider(context));
+
+  const getAestheticSession = async () => {
+    const session = await vscode.authentication.getSession(
+      "aesthetic",
+      ["profile"],
+      { createIfNone: false },
+    );
+
+    console.log("Here is your session!", session);
+    // TODO: How can I share my session data with my iframe to
+    //       https://aesthetic.computer which uses auth0-spa so that
+    //       it authenticates me when i load it up?
+
+    if (session) {
+      vscode.window.showInformationMessage(
+        `Welcome back ${session.account.label}`,
+      );
+    }
+    return session;
+  };
+
+  context.subscriptions.push(
+    vscode.authentication.onDidChangeSessions(async (e) => {
+      console.log("Changed sessions:", e);
+      if (e.provider.id === "aesthetic") {
+        getAestheticSession();
+      }
+    }),
+  );
+
+  const session = getAestheticSession();
+  const provider = new AestheticViewProvider(context.extensionUri, session);
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -45,8 +87,13 @@ async function activate(context) {
     ),
   );
 
+  // Send piece code through the code channel.
   function upload() {
     let editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      return;
+    }
+
     let source = editor.document.getText();
     const piece = editor.document.fileName
       .split(/\/|\\/) // Split on both forward slash and backslash
@@ -65,14 +112,15 @@ async function activate(context) {
       body: JSON.stringify({ piece, source, codeChannel }),
       headers: { "Content-Type": "application/json" },
     })
-      .then((res) => {
-        // console.log("Success:", res);
+      .then((res) => res.text()) // Convert the response to text
+      .then((text) => {
+        // Now 'text' is a string that can be used in showInformationMessage
         console.clear();
-        vscode.window.showInformationMessage(res);
+        vscode.window.showInformationMessage(text);
       })
       .catch((error) => {
-        // console.error("Error:", error);
-        vscode.window.showInformationMessage(error);
+        // If you catch an error, make sure to convert it to a string if it isn't already
+        vscode.window.showInformationMessage(error.toString());
       });
 
     activeEditor = editor; // Set the active editor for live updates.
@@ -80,7 +128,7 @@ async function activate(context) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("aestheticComputer.runPiece", () => {
-      upload({ publish: false });
+      upload();
     }),
     vscode.commands.registerCommand("aestheticComputer.localServer", () => {
       local = !local;
@@ -102,15 +150,22 @@ async function activate(context) {
   });
 }
 
-class AestheticViewProvider {
-  static viewType = "aestheticComputer.sidebarView";
+class AestheticViewProvider implements vscode.WebviewViewProvider {
+  public static readonly viewType = "aestheticComputer.sidebarView";
+  private _extensionUri: vscode.Uri;
+  private _view?: vscode.WebviewView;
+  private _sessionData: any;
 
-  constructor(_extensionUri) {
-    this._extensionUri = _extensionUri;
-    this._view = undefined;
+  constructor(extensionUri: vscode.Uri, sessionData: any) {
+    this._extensionUri = extensionUri;
+    this._sessionData = sessionData;
   }
 
-  resolveWebviewView(webviewView, context, _token) {
+  public resolveWebviewView(
+    webviewView: vscode.WebviewView,
+    context: vscode.WebviewViewResolveContext<unknown>,
+    _token: vscode.CancellationToken,
+  ): void {
     this._view = webviewView;
 
     webviewView.webview.options = {
@@ -118,7 +173,10 @@ class AestheticViewProvider {
       localResourceRoots: [this._extensionUri],
     };
 
-    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+    webviewView.webview.html = this._getHtmlForWebview(
+      webviewView.webview,
+      this._sessionData,
+    );
 
     webviewView.webview.onDidReceiveMessage((data) => {
       switch (data.type) {
@@ -139,14 +197,7 @@ class AestheticViewProvider {
     });
   }
 
-  // runPiece() {
-  //   if (this._view) {
-  //     this._view.show?.(true);
-  //     this._view.webview.postMessage({ type: "runPiece" });
-  //   }
-  // }
-
-  _getHtmlForWebview(webview) {
+  private _getHtmlForWebview(webview: vscode.Webview, session: any): string {
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, "sidebar.js"),
     );
@@ -164,11 +215,18 @@ class AestheticViewProvider {
       vscode.Uri.joinPath(this._extensionUri, "vscode.css"),
     );
 
+    // Include the session data as a global variable in the webview
+    const sessionData = `<script nonce="${nonce}">window.aestheticSession = ${JSON.stringify(
+      session,
+    )};</script>`;
+
     return `<!DOCTYPE html>
 			<html lang="en">
 			<head>
 				<meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://hi.aesthetic.computer https://aesthetic.local; child-src https://aesthetic.computer; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://hi.aesthetic.computer https://aesthetic.local; child-src https://aesthetic.computer; style-src ${
+          webview.cspSource
+        }; script-src 'nonce-${nonce}';">
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				<link href="${styleUri}" rel="stylesheet">
 				<link href="${resetStyleUri}" rel="stylesheet">
@@ -176,31 +234,17 @@ class AestheticViewProvider {
 				<title>aesthetic.computer</title>
 			</head>
 			<body>
-        <!--
-        <h3>⚙️ Setup</h3>
-        <p>
-        Set a <code>code-channel</code> on the <code>prompt</code> and enter it here.
-        </p>
-        <input id="code" placeholder="Enter Code Channel" type="text"></input>
-        <br>
-        <h3>💻 Code</h3>
-        <p>Run any piece in your active editor.</p>
-				<button id="run">Run Piece</button>
-        <br>
-        <br>
-        <h3>🧩 Publish</h3>
-        <p>
-        Type <code>publish</code> on the <code>prompt</code> to make it public.
-        </p>
-        -->
-        <iframe src="https://aesthetic.computer/noise~code?nolabel"></iframe>
+        ${sessionData}
+        <iframe id="aesthetic" src="https://${
+          local ? "aesthetic.local:8888" : "aesthetic.computer"
+        }/noise~code?nolabel"></iframe>
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
   }
 }
 
-function getNonce() {
+function getNonce(): string {
   let text = "";
   const possible =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -210,4 +254,4 @@ function getNonce() {
   return text;
 }
 
-module.exports = { activate };
+export { activate, AestheticViewProvider };
