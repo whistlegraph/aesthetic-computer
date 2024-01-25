@@ -92,15 +92,20 @@ export class AestheticAuthenticationProvider
         throw new Error(`Aesthetic Computer login failure`);
       }
 
-      const userinfo: { name: string; email: string } =
-        await this.getUserInfo(token);
+      const userinfo: {
+        name: string;
+        email: string;
+        sub: string;
+      } = await this.getUserInfo(token);
+
+      console.log("👱 User info:", userinfo);
 
       const session: AuthenticationSession = {
         id: uuid(),
         accessToken: token,
         account: {
           label: userinfo.name,
-          id: userinfo.email,
+          id: userinfo.sub, // Use auth0's `sub` field as the id.
         },
         scopes: [],
       };
