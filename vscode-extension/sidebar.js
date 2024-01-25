@@ -4,7 +4,6 @@
   // Send session data to iframe
   function sendSessionToIframe() {
     const iframe = document.getElementById("aesthetic");
-    console.log("From panel:", iframe, window.aestheticSession)
     if (iframe && window.aestheticSession) {
       iframe.contentWindow.postMessage(
         { type: "setSession", session: window.aestheticSession },
