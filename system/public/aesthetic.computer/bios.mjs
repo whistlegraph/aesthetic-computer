@@ -4303,7 +4303,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   async function authorize() {
     let token;
     try {
-      token = await window.auth0Client.getTokenSilently();
+      // Retrieve a stored token from a hosted application or
+      // get one from our auth methods.
+      token = window.auth0Token || await window.auth0Client.getTokenSilently();
       console.log("🔐 Authorized");
     } catch (err) {
       console.log("🔐️ ❌ Unauthorized", err);
