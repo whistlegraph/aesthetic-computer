@@ -206,6 +206,13 @@ function receive(event) {
   if (event.data?.type === "figma-image-input") {
     // TODO: Build image with width and height.
     console.log("Bytes:", event.data.bytes.length);
+    return;
+  }
+  if (event.data.type === "setSession") {
+    // Use the session information to authenticate
+    const session = event.data.session;
+    console.log("Got session from a message:", session);
+    return;
   }
 }
 window.addEventListener("message", receive);
