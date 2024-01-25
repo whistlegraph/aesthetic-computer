@@ -43,14 +43,14 @@
 Today:
 
 - [x] More immediate coding.
-  - [🧡] The `publish` command should open an external url that tries to publish
-       the piece in the browser (to make sure the user is logged in).
+  - [] Implement passwordless login https://auth0.com/docs/libraries/auth0js#passwordless-login
+    - (To be used for the vscode extension publishing flow.)
+
   - [🚗] Get tab-flipping to work properly if a piece hasn't been loaded succesfully yet.
   - [🟠] Disable some commands like `hi` if the app is running in an iframe.
-
-    // TODO: Still allow dragged in / external
-    //       code-channel pieces to be published? 24.01.24.14.41
-
+  
+  - [c] The `publish` command should open an external url that tries to publish
+       the piece in the browser (to make sure the user is logged in).
   - [c] Get authorization / login working (for publishing).
   - [x] Add connection flashes to noise.
   - [x] Any code that doesn't parse just print out if no piece is running

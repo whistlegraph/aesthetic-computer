@@ -10,19 +10,24 @@
     "vscode": "^1.74.2"
   },
   "scripts": {
+    "compile": "tsc",
     "reload": "npm run build; npm run uninstall:ext; npm run install:ext;",
-    "build": "vsce package",
+    "build": "npm run compile; vsce package",
     "uninstall:ext": "code --uninstall-extension aesthetic-computer.aesthetic-computer-code",
     "install:ext": "code --install-extension `ls -v *.vsix | tail -n 1`",
     "publish": "vsce publish minor",
     "login": "vsce login",
     "token": "echo \"Get token from: https://dev.azure.com/aesthetic-computer/_usersSettings/tokens\""
   },
-  "main": "./extension.js",
-  "browser": "./extension.js",
+  "main": "./out/extension.js",
+  "browser": "./out/extension.js",
   "activationEvents": [],
   "contributes": {
     "commands": [
+      {
+        "command": "aestheticComputer.signIn",
+        "title": "aesthetic.computer: Sign In 🔐"
+      },
       {
         "command": "aestheticComputer.runPiece",
         "title": "aesthetic.computer: Run Piece 🏃"
@@ -57,6 +62,13 @@
     "url": "git+https://github.com/digitpain/aesthetic-computer.git"
   },
   "devDependencies": {
-    "@vscode/vsce": "^2.22.0"
+    "@types/node": "^20.11.6",
+    "@types/uuid": "^9.0.7",
+    "@types/vscode": "^1.74.2",
+    "@vscode/vsce": "^2.22.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "uuid": "^9.0.1"
   }
 }
