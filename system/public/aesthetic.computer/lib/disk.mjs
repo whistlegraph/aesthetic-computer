@@ -3201,6 +3201,14 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Update the logged in user after initialization.
+  if (type === "session:update") {
+    console.log("🤩 Session being updated!", content);
+    USER = content.user;
+    $commonApi.user = USER;
+    return;
+  }
+
   // Capture the browser scroll wheel / scroll effect.
   if (type === "scroll") {
     const $api = cachedAPI;

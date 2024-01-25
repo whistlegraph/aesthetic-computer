@@ -73,6 +73,15 @@ Today:
   - [] 164 / 128 3x4
   - [] https://prompt.ac/pic~here~is~my~cat 
 
+*** birthday ***
+  - [] Add a `birthday` command that taps through the birthday
+       and also takes their name and age.
+
+*** aspen suggestions ***
+  - [] `tree` command with `tree summer` `tree winter` etc.
+  - [] `hurricane` natural disaster sim. (dark)
+  - [] downcase / case-match commands in the prompt and world
+
 - [] Zoom in on painting in mobile.
 
 *** `world` ***
