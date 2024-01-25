@@ -127,7 +127,7 @@ async function boot({
   if (query["publish"]) {
     notice("PUBLISHING...");
     const { slug, source } = JSON.parse(
-      atob(decodeURIComponent(query["publish"])),
+      base64ToUnicode(decodeURIComponent(query["publish"])),
     );
     console.log("🛎️ Should be publishing...", slug, source.length);
     publishPiece({ send, jump, handle }, slug, source);
@@ -618,7 +618,7 @@ async function halt($, text) {
         content: {
           type: "publish",
           url: `https://aesthetic.computer?publish=${encodeURIComponent(
-            btoa(JSON.stringify(publishablePiece)),
+            unicodeToBase64(JSON.stringify(publishablePiece)),
           )}`,
         },
       });
@@ -629,7 +629,6 @@ async function halt($, text) {
         publishablePiece.source,
       );
     }
-
     makeFlash($);
     return true;
   } else if (text.startsWith("code-channel")) {
@@ -1534,4 +1533,35 @@ function publishPiece({ send, jump, handle }, slug, source) {
       flashColor = [255, 0, 0];
       makeFlash($);
     });
+}
+
+// For encoding and decoding published piece source code that
+// includes unicode characters like emoji.
+
+// Convert a Unicode string to a Base64 string
+function unicodeToBase64(str) {
+  // Firstly, encode the string as UTF-8
+  const utf8Bytes = new TextEncoder().encode(str);
+
+  // Then, convert these bytes to a Base64 string
+  let binaryStr = "";
+  utf8Bytes.forEach((byte) => {
+    binaryStr += String.fromCharCode(byte);
+  });
+  return btoa(binaryStr);
+}
+
+// Assuming 'receivedString' is the URL-decoded parameter
+function base64ToUnicode(str) {
+  // Decode from Base64
+  const binaryStr = atob(str);
+
+  // Convert binary string to a Uint8Array
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) {
+    bytes[i] = binaryStr.charCodeAt(i);
+  }
+
+  // Decode the Uint8Array as a UTF-8 string
+  return new TextDecoder().decode(bytes);
 }
