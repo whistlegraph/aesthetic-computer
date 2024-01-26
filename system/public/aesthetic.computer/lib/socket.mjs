@@ -125,7 +125,7 @@ export class Socket {
       const c = JSON.parse(content);
       if (logs.session) console.log(`🧦 ${c.text || c}`); // Someone else has connected as...
       receive?.(id, type, c);
-    } else if (type === "vscode-extension:reload" && this.#debug) {
+    } else if (type === "vscode-extension:reload") {
       sendToBIOS({
         type: "post-to-parent",
         content: { type: "vscode-extension:reload" },
