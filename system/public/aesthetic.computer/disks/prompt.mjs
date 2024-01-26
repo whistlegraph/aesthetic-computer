@@ -1526,7 +1526,7 @@ function publishPiece({ api, send, jump, handle, upload }, slug, source) {
       flashColor = [0, 255, 0];
       const route = handle() ? `${handle()}/${data.slug}` : data.slug;
       makeFlash(api);
-      send({ type: "alert", content: `\`${route}\` was published!` });
+      // send({ type: "alert", content: `\`${route}\` was published!` });
       jump(route);
     })
     .catch((err) => {
