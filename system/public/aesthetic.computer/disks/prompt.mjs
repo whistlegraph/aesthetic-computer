@@ -1154,13 +1154,13 @@ function paint($) {
   }
 
   // Paint UI Buttons
-  if (!net.iframe) {
+  //if (!net.iframe) {
     if (!login?.btn.disabled)
       login?.paint($, [[0, 0, 64], 255, 255, [0, 0, 64]]);
     if (!signup?.btn.disabled)
       signup?.paint($, [[0, 64, 0], 255, 255, [0, 64, 0]]);
     if (!profile?.btn.disabled) profile?.paint($);
-  }
+  //}
 
   // 📏 Paint a measurement line in the center of the display.
   if (ruler) {
@@ -1270,7 +1270,7 @@ function act({
     });
   };
 
-  if (!net.iframe) {
+  //if (!net.iframe) {
     login?.btn.act(e, {
       down: () => downSound(),
       push: () => {
@@ -1286,7 +1286,7 @@ function act({
         net.signup();
       },
     });
-  }
+  //}
 
   profile?.btn.act(e, {
     down: () => downSound(),

@@ -213,11 +213,7 @@ function receive(event) {
     const session = event.data.session;
     window.auth0Token = session.accessToken;
     window.acUSER = { name: session.account.label, sub: session.account.id }; // Will get passed to the first message by the piece runner.
-    console.log(
-      "Got session from a message:",
-      window.auth0Token,
-      window.acUSER,
-    );
+    // console.log( "Got session from a message:", window.auth0Token, window.acUSER);
     window.acSEND({ type: "session:update", content: { user: window.acUSER } });
     return;
   }
