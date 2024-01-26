@@ -36,6 +36,8 @@ let activeEditor: vscode.TextEditor | undefined;
 let codeChannel: string | undefined;
 
 async function activate(context: vscode.ExtensionContext): Promise<void> {
+  local = context.globalState.get("aesthetic:local", false); // Retrieve env.
+
   // Authorization
   context.subscriptions.push(
     vscode.commands.registerCommand("aestheticComputer.signIn", async () => {
@@ -127,6 +129,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     }),
     vscode.commands.registerCommand("aestheticComputer.localServer", () => {
       local = !local;
+      context.globalState.update("aesthetic:local", local);
+      // Refresh the webview with the new local state
+      provider.refreshWebview();
       vscode.window.showInformationMessage(
         `Local Mode: ${local ? "Enabled" : "Disabled"}`,
       );
@@ -140,6 +145,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       vscode.window.activeTextEditor &&
       activeEditor.document === document
     ) {
+      console.log("did save document...");
       vscode.commands.executeCommand("aestheticComputer.runPiece");
     }
   });
@@ -163,12 +169,23 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  public refreshWebview(): void {
+    if (this._view) {
+      this._view.title = local ? "Local" : ""; // Update the title if local.
+      this._view.webview.html = this._getHtmlForWebview(
+        this._view.webview,
+        this._sessionData,
+      );
+    }
+  }
+
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
     context: vscode.WebviewViewResolveContext<unknown>,
     _token: vscode.CancellationToken,
   ): void {
     this._view = webviewView;
+    this._view.title = local ? "Local" : ""; // Update the title if local.
 
     webviewView.webview.options = {
       enableScripts: true,
@@ -188,10 +205,15 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
         }
         case "setCode": {
           codeChannel = data.value;
-          vscode.commands.executeCommand("aestheticComputer.runPiece");
+          // vscode.commands.executeCommand("aestheticComputer.runPiece");
+          break;
+        }
+        case "vscode-extension:reload": {
+          vscode.commands.executeCommand("workbench.action.reloadWindow");
           break;
         }
         case "runPiece": {
+          console.log("Running piece...");
           vscode.commands.executeCommand("aestheticComputer.runPiece");
           break;
         }
@@ -226,7 +248,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 			<html lang="en">
 			<head>
 				<meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://hi.aesthetic.computer https://aesthetic.local:8888; child-src https://aesthetic.computer https://aesthetic.local:8888; style-src ${
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://hi.aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; child-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; style-src ${
           webview.cspSource
         }; script-src 'nonce-${nonce}';">
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -238,8 +260,8 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 			<body>
         ${sessionData}
         <iframe id="aesthetic" src="https://${
-          local ? "aesthetic.local:8888" : "aesthetic.computer"
-        }/noise~code?nolabel"></iframe>
+          local ? "localhost:8888" : "aesthetic.computer"
+        }"></iframe>
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;

@@ -144,7 +144,6 @@ fastify.post("/update", (request, reply) => {
     return;
   }
 
-
   console.log("Path:", process.env.PATH);
 
   // Restart service in production.
@@ -437,7 +436,10 @@ if (dev) {
   chokidar
     .watch("../system/public/aesthetic.computer/disks")
     .on("all", (event, path) => {
-      if (event === "change") everyone(pack("reload", { piece: "*" }, "local"));
+      if (event === "change") {
+        const piece = path.split("/").pop().replace(".mjs", "");
+        everyone(pack("reload", { piece: piece || "*" }, "local"));
+      }
     });
 
   // 2. Watch base system files.
@@ -453,4 +455,10 @@ if (dev) {
       if (event === "change")
         everyone(pack("reload", { piece: "*refresh*" }, "local"));
     });
+
+  // 3. Watch vscode extension
+  chokidar.watch("../vscode-extension/out").on("all", (event, path) => {
+    if (event === "change")
+      everyone(pack("vscode-extension:reload", { reload: true }, "local"));
+  });
 }
