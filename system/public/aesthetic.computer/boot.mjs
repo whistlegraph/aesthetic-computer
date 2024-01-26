@@ -100,6 +100,9 @@ if (!sandboxed && window.auth0) {
     //}
   };
 
+  // Redirect to signup with a query parameter.
+  if (location.search.startsWith("?signup")) window.acLOGIN("signup");
+
   window.acLOGOUT = () => {
     if (isAuthenticated) {
       console.log("🔐 Logging out...");
@@ -211,14 +214,23 @@ function receive(event) {
   if (event.data.type === "setSession") {
     // Use the session information to authenticate
     const session = event.data.session;
-    window.auth0Token = session.accessToken;
+    window.acTOKEN = session.accessToken; // Only set using this flow.
     window.acUSER = { name: session.account.label, sub: session.account.id }; // Will get passed to the first message by the piece runner.
-    // console.log( "Got session from a message:", window.auth0Token, window.acUSER);
+    console.log(
+      "🌻 Got session from a message:",
+      window.acTOKEN,
+      window.acUSER,
+    );
     window.acSEND({ type: "session:update", content: { user: window.acUSER } });
+    return;
+  } else if (event.data.type === "clearSession" && window.acTOKEN) {
+    window.location.reload();
     return;
   }
 }
 window.addEventListener("message", receive);
+
+console.log(window.aestheticSession);
 
 // TODO: Rewrite this snippet.
 // Decoding an image can be done by sticking it in an HTML

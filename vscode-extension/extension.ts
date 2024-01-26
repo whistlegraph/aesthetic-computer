@@ -2,10 +2,12 @@
 // A VSCode extension for live reloading aesthetic.computer pieces.
 
 /* #region todo 📓 
-  - [-] Replace the SVG.
-  - [] Make a web extension.
-       (https://code.visualstudio.com/api/extension-guides/web-extensions)
+  - [] Finish login flow.
+  - [] Add custom code channel.
   + Done
+  - [x] Replace the SVG.
+  - [x] Make a web extension.
+       (https://code.visualstudio.com/api/extension-guides/web-extensions)
   - [x] Write better sidebar docs.
   - [x] Publish should no longer publish everywhere / only publish to
        active user.
@@ -38,15 +40,34 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   local = context.globalState.get("aesthetic:local", false); // Retrieve env.
 
   // Authorization
-  context.subscriptions.push(
-    vscode.commands.registerCommand("aestheticComputer.signIn", async () => {
-      const session = await vscode.authentication.getSession("aesthetic", [], {
-        createIfNone: true,
-      });
-    }),
-  );
+  const ap = new AestheticAuthenticationProvider(context);
+  context.subscriptions.push(ap);
 
-  context.subscriptions.push(new AestheticAuthenticationProvider(context));
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aestheticComputer.logIn", async () => {
+      const session = await vscode.authentication.getSession(
+        "aesthetic",
+        ["profile"],
+        {
+          createIfNone: true,
+        },
+      );
+    }),
+    // vscode.commands.registerCommand("aestheticComputer.logOut", async () => {
+    //   try {
+    //     // const session = await vscode.authentication.getSession(
+    //     //   "aesthetic",
+    //     //   ["profile"],
+    //     //   { createIfNone: false },
+    //     // );
+    //     await ap.removeSession("aesthetic");
+    //     vscode.window.showInformationMessage("🚪 Logged out successfully.");
+    //     provider.refreshWebview();
+    //   } catch (error) {
+    //     vscode.window.showErrorMessage(`Logout failed: ${error}`);
+    //   }
+    // }),
+  );
 
   const getAestheticSession = async () => {
     const session = await vscode.authentication.getSession(
@@ -56,10 +77,11 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     );
 
     if (session) {
-      vscode.window.showInformationMessage(
-        `Welcome back ${session.account.label}`,
-      );
+      // vscode.window.showInformationMessage(`👋 Hi ${session.account.label}`);
+      vscode.window.showInformationMessage(`👋 Welcome back!`);
     }
+
+    provider.sessionData = session;
 
     return session;
   };
@@ -69,13 +91,17 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       console.log("Changed sessions:", e);
       if (e.provider.id === "aesthetic") {
         const session = await getAestheticSession();
-        provider.sendMessageToWebview({ type: "setSession", session });
+        //if (session) {
+        //  provider.sendMessageToWebview({ type: "setSession", session });
+        //} else {
+          provider.refreshWebview();
+        //}
       }
     }),
   );
 
-  const session = await getAestheticSession();
-  const provider = new AestheticViewProvider(context.extensionUri, session);
+  const provider = new AestheticViewProvider(context.extensionUri);
+  await getAestheticSession();
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -149,11 +175,10 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "aestheticComputer.sidebarView";
   private _extensionUri: vscode.Uri;
   private _view?: vscode.WebviewView;
-  private _sessionData: any;
+  public sessionData: any = {};
 
-  constructor(extensionUri: vscode.Uri, sessionData: any) {
+  constructor(extensionUri: vscode.Uri) {
     this._extensionUri = extensionUri;
-    this._sessionData = sessionData;
   }
 
   // Method to send message to the webview
@@ -168,7 +193,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
       this._view.title = local ? "Local" : ""; // Update the title if local.
       this._view.webview.html = this._getHtmlForWebview(
         this._view.webview,
-        this._sessionData,
+        this.sessionData,
       );
     }
   }
@@ -188,7 +213,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this._getHtmlForWebview(
       webviewView.webview,
-      this._sessionData,
+      this.sessionData,
     );
 
     webviewView.webview.onDidReceiveMessage((data) => {
@@ -207,10 +232,25 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
           break;
         }
         case "runPiece": {
-          console.log("Running piece...");
+          console.log("🏃 Running piece...");
           vscode.commands.executeCommand("aestheticComputer.runPiece");
           break;
         }
+        case "login": {
+          console.log("📂 Logging in...");
+          vscode.commands.executeCommand("aestheticComputer.logIn");
+          break;
+        }
+        case "signup": {
+          console.log("🔏 Signing up...");
+          vscode.commands.executeCommand("aestheticComputer.signUp");
+          break;
+        }
+        // case "logout": {
+        // console.log("🚪 Logging out...");
+        // vscode.commands.executeCommand("aestheticComputer.logOut");
+        // break;
+        // }
       }
     });
   }
@@ -232,6 +272,8 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
     const vscodeStyleUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, "vscode.css"),
     );
+
+    console.log("Building session html with:", session);
 
     // Include the session data as a global variable in the webview
     const sessionData = `<script nonce="${nonce}">window.aestheticSession = ${JSON.stringify(
