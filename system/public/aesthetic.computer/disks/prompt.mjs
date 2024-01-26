@@ -124,14 +124,14 @@ async function boot({
 }) {
   glaze({ on: true });
 
-  if (query["publish"]) {
-    notice("PUBLISHING...");
-    const { slug, source } = JSON.parse(
-      base64ToUnicode(decodeURIComponent(query["publish"])),
-    );
-    console.log("🛎️ Should be publishing...", slug, source.length);
-    publishPiece({ send, jump, handle }, slug, source);
-  }
+  // if (query["publish"]) {
+  //   notice("PUBLISHING...");
+  //   const { slug, source } = JSON.parse(
+  //     base64ToUnicode(decodeURIComponent(query["publish"])),
+  //   );
+  //   console.log("🛎️ Should be publishing...", slug, source.length);
+  //   publishPiece({ send, jump, handle, upload }, slug, source);
+  // }
 
   server = socket((id, type, content) => {
     console.log("🧦 Got message:", id, type, content);
@@ -610,25 +610,25 @@ async function halt($, text) {
       return true;
     }
 
-    console.log("Publishing:", publishablePiece);
+    // console.log("Publishing:", publishablePiece);
 
-    if (net.iframe) {
-      send({
-        type: "post-to-parent",
-        content: {
-          type: "publish",
-          url: `https://aesthetic.computer?publish=${encodeURIComponent(
-            unicodeToBase64(JSON.stringify(publishablePiece)),
-          )}`,
-        },
-      });
-    } else {
-      publishPiece(
-        { send, jump, handle },
-        publishPiece.slug,
-        publishablePiece.source,
-      );
-    }
+    // if (net.iframe) {
+    //   send({
+    //     type: "post-to-parent",
+    //     content: {
+    //       type: "publish",
+    //       url: `https://aesthetic.computer?publish=${encodeURIComponent(
+    //         unicodeToBase64(JSON.stringify(publishablePiece)),
+    //       )}`,
+    //     },
+    //   });
+    // } else {
+    publishPiece(
+      { send, jump, handle, upload },
+      publishablePiece.slug,
+      publishablePiece.source,
+    );
+    //}
     makeFlash($);
     return true;
   } else if (text.startsWith("code-channel")) {
@@ -1494,10 +1494,11 @@ function makeFlash($, clear = true) {
 }
 
 function positionWelcomeButtons(screen, iframe) {
-  if (login && signup && !iframe) {
+  if (login && signup) {
     login.reposition({ center: "xy", screen });
     signup.reposition({ center: "xy", screen });
     // Nudge signup and login by half their width.
+    if (iframe) return; // But not if embedded in an iframe (where only login appears)
     let offset = 5; // With a fixed pixel offset.
     signup.btn.box.x += signup.btn.box.w / 2 + offset;
     login.btn.box.x -= login.btn.box.w / 2 + offset;
@@ -1518,7 +1519,7 @@ function downloadPainting({ download, num, store }, scale, sharing = false) {
   });
 }
 
-function publishPiece({ send, jump, handle }, slug, source) {
+function publishPiece({ send, jump, handle, upload }, slug, source) {
   upload("piece-" + slug + ".mjs", source)
     .then((data) => {
       console.log("🪄 Code uploaded:", data);

@@ -2278,10 +2278,10 @@ async function load(
     path = "aesthetic.computer/disks/" + slug;
     // 📓 Might need to fill in hash, path, or slug here. 23.06.24.18.49
 
-    if (devReload) {
-      // Remember the source and slug for the `publish` command.
-      store["publishable-piece"] = { source, slug };
-    }
+    // if (devReload) {
+    // Remember the source and slug for the `publish` command.
+    // store["publishable-piece"] = { source, slug };
+    // }
   }
 
   // 🅱️ Load the piece.
@@ -2309,6 +2309,11 @@ async function load(
         sourceToRun = await response.text();
       } else {
         sourceToRun = source;
+      }
+
+      if (devReload) {
+        // Remember the source and slug for the `publish` command.
+        store["publishable-piece"] = { source: sourceToRun, slug };
       }
 
       /*
@@ -2452,6 +2457,7 @@ async function load(
     } else if (piece !== undefined) {
       // TODO: Make this happen...
       console.log(piece, currentText);
+      $commonApi.load(parse(piece), false, false, true);
       if (debug)
         console.log(
           "⚠️ Could jump instantly to another piece here in development...",
