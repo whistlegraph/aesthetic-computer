@@ -4075,7 +4075,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     { filename, data, bucket },
     callbackMessage = "upload",
   ) {
-    console.log("📤 Uploading globally:", filename, typeof data || "...");
+    console.log("📤 Uploading piece:", filename, typeof data || "...");
     const ext = extension(filename);
     let MIME = "application/octet-stream"; // Default content type.
 
