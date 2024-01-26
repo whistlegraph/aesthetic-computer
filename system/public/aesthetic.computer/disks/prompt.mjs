@@ -624,7 +624,7 @@ async function halt($, text) {
     //   });
     // } else {
     publishPiece(
-      { send, jump, handle, upload },
+      { api, send, jump, handle, upload },
       publishablePiece.slug,
       publishablePiece.source,
     );
@@ -1519,13 +1519,13 @@ function downloadPainting({ download, num, store }, scale, sharing = false) {
   });
 }
 
-function publishPiece({ send, jump, handle, upload }, slug, source) {
+function publishPiece({ api, send, jump, handle, upload }, slug, source) {
   upload("piece-" + slug + ".mjs", source)
     .then((data) => {
       console.log("🪄 Code uploaded:", data);
       flashColor = [0, 255, 0];
       const route = handle() ? `${handle()}/${data.slug}` : data.slug;
-      makeFlash($);
+      makeFlash(api);
       send({ type: "alert", content: `\`${route}\` was published!` });
       jump(route);
     })
@@ -1536,7 +1536,7 @@ function publishPiece({ send, jump, handle, upload }, slug, source) {
         content: `😥 Piece: \`${slug}\` failed to publish.`,
       });
       flashColor = [255, 0, 0];
-      makeFlash($);
+      makeFlash(api);
     });
 }
 

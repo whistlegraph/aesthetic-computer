@@ -22,7 +22,7 @@
 
 // 🎨 Paint
 function paint({ wipe, ink }) {
-  wipe("purple");
+  wipe("orange");
   ink().line(); // Would draw a diagonal line.
 }
 
