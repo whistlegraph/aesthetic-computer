@@ -202,7 +202,7 @@ boot(parsed, bpm, undefined, debug);
 // TODO: Finish FigJam Widget with iframe message based input & output.
 //         See also: https://www.figma.com/plugin-docs/working-with-images/
 function receive(event) {
-  console.log("🌟 Event:", event);
+  // console.log("🌟 Event:", event);
   if (event.data?.type === "figma-image-input") {
     // TODO: Build image with width and height.
     console.log("Bytes:", event.data.bytes.length);
