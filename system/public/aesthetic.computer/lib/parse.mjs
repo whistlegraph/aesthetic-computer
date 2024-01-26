@@ -30,6 +30,15 @@ function parse(text, location = self?.location) {
     text = text.split("https://")[1].split(".mjs")[0].split("/").pop();
   }
 
+  // Check for any anon path (begins with $).
+  if (text.startsWith("$")) {
+    text = text.slice(1);
+    const url = new URL(`https://art.aesthetic.computer/${text}.mjs`);
+    location = { hostname: url.hostname, port: url.port };
+    externalPath = ""; //url.pathname.split("/").slice(0, -1).join("/").slice(1);
+    console.log(location, externalPath);
+  }
+
   // -1. Clear any spaces.
   text = text.trim();
 
@@ -93,8 +102,12 @@ function parse(text, location = self?.location) {
     host = location.hostname;
     if (location.port) host += ":" + location.port;
 
-    if (externalPath) {
-      path = externalPath + "/" + tokens[0];
+    if (externalPath !== undefined) {
+      if (externalPath.length === 0) {
+        path = tokens[0];
+      } else {
+        path = externalPath + "/" + tokens[0];
+      }
     } else {
       path = "aesthetic.computer/disks/" + tokens[0];
     }
@@ -102,6 +115,8 @@ function parse(text, location = self?.location) {
 
   // 4. Get params. (Everything that comes after the path and host)
   params = tokens.slice(1);
+
+  console.log("host path piece:", host, path, piece);
 
   return { host, path, piece, colon: colonParam, params, search, hash, text };
 }

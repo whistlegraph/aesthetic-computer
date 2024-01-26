@@ -4075,7 +4075,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     { filename, data, bucket },
     callbackMessage = "upload",
   ) {
-    console.log("📤 Uploading piece:", filename, typeof data || "...");
+    console.log("📤 Uploading file:", filename, typeof data || "...");
     const ext = extension(filename);
     let MIME = "application/octet-stream"; // Default content type.
 
@@ -4205,13 +4205,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               if (debug) console.log("🗞️ Added to database...", added);
             }
 
+            let data = { slug, url, ext };
+
+            if (!userMedia && ext === "mjs") {
+              data.url =
+                "https://art.aesthetic.computer/" + data.slug + "." + data.ext;
+              data.slug = "$" + data.slug;
+            }
+
             send({
               type: callbackMessage,
-              content: {
-                result: "success",
-                // TODO: Write url properly here... 23.10.21.14.21
-                data: { slug, url: "https://" + path, ext },
-              },
+              content: { result: "success", data },
             });
 
             if (debug) console.log("✔️ File uploaded:", xhr.responseURL);
