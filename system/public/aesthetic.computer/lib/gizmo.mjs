@@ -69,10 +69,10 @@ export class EllipsisTicker {
   }
 
   // Get the current ellipses with a padded end.
-  text(repeat) {
+  text(repeat, opts) {
     let ellipsis = "";
     repeat(this.#ellipsisDots, () => (ellipsis += "."));
-    return ellipsis.padEnd(3, " ");
+    return opts.pad === false ? ellipsis : ellipsisellipsis.padEnd(3, " ");
   }
 
   sim() {

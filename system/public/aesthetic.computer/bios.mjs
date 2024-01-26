@@ -1673,18 +1673,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Authenticate / signup or login a user.
     if (type === "login") {
-      window.acLOGIN?.();
+      if (window.self !== window.top) {
+        window.parent.postMessage({ type: "login" }, "*");
+      } else {
+        window.acLOGIN?.();
+      }
       return;
     }
 
     if (type === "signup") {
-      window.acLOGIN?.("signup");
+      if (window.self === window.top) {
+        window.acLOGIN?.("signup");
+      }
       return;
     }
 
     if (type === "logout") {
-      window.acLOGOUT?.();
-      window.flutter_inappwebview?.callHandler("closeWebview"); // Close A.C. webview on logout inside of Autonomy wallet.
+      if (window.acTOKEN) {
+        // window.parent.postMessage({ type: "logout" }, "*");
+        // Just use the logout services of the host.
+      } else {
+        window.acLOGOUT?.();
+        window.flutter_inappwebview?.callHandler("closeWebview"); // Close A.C. webview on logout inside of Autonomy wallet.
+      }
       return;
     }
 
@@ -4305,7 +4316,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     try {
       // Retrieve a stored token from a hosted application or
       // get one from our auth methods.
-      token = window.auth0Token || await window.auth0Client.getTokenSilently();
+      token = window.acTOKEN || (await window.auth0Client.getTokenSilently());
       console.log("🔐 Authorized");
     } catch (err) {
       console.log("🔐️ ❌ Unauthorized", err);

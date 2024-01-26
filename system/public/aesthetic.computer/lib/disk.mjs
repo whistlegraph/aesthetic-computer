@@ -1216,10 +1216,19 @@ const $commonApi = {
   text: {
     capitalize: text.capitalize,
     box: (text, pos = { x: 0, y: 0 }, bounds, scale = 1) => {
-      pos = { ...pos }; // Copy pos because it gets mutated.
+      pos = { ...pos };
       let run = 0;
-      const blockWidth = 6 * scale; // TODO: Replace this `6`. 23.09.13.15.31
-      const words = text.split(" ");
+      const blockWidth = 6 * scale;
+      const splitWords = text.split(" ");
+      const words = [];
+      for (let i = 0; i < splitWords.length; i++) {
+        if (splitWords[i] === "" && i > 0 && splitWords[i - 1] === "") {
+          words[words.length - 1] += " ";
+        } else {
+          words.push(splitWords[i]);
+        }
+      }
+
       const lines = [[]];
       let line = 0;
 
@@ -1231,7 +1240,6 @@ const $commonApi = {
         lines[line] = [];
       }
 
-      // Word-wrapping with new line support.
       words.forEach((word) => {
         const wordLen = (word.length + 1) * blockWidth;
         if (word.includes("\n")) {
@@ -1249,7 +1257,7 @@ const $commonApi = {
         }
       });
 
-      const blockHeight = 11 * scale; // TODO: Replace `11`. 23.09.13.15.31
+      const blockHeight = 11 * scale;
 
       if (lines.length >= 1 && pos.center && pos.center.indexOf("y") !== -1) {
         pos.y =
@@ -2444,7 +2452,10 @@ async function load(
     } else if (piece !== undefined) {
       // TODO: Make this happen...
       console.log(piece, currentText);
-      if (debug) console.log("⚠️ Could jump instantly to another piece here in development...");
+      if (debug)
+        console.log(
+          "⚠️ Could jump instantly to another piece here in development...",
+        );
     }
   };
 
@@ -3207,9 +3218,11 @@ async function makeFrame({ data: { type, content } }) {
 
   // Update the logged in user after initialization.
   if (type === "session:update") {
-    // console.log("🤩 Session being updated!", content);
+    console.log("🤩 Session being updated!", content);
     USER = content.user;
     $commonApi.user = USER;
+    await handle(); // Get the user's handle.
+    // $commonApi.reload?.(); // Reload the current piece.
     return;
   }
 

@@ -160,7 +160,7 @@ async function boot({
   if (!user) {
     login = new ui.TextButton("Log in", { center: "xy", screen });
     signup = new ui.TextButton("I'm new", { center: "xy", screen });
-    positionWelcomeButtons(screen);
+    positionWelcomeButtons(screen, net.iframe);
   }
   if (user)
     profile = new ui.TextButton(handle() || user.name, {
@@ -905,11 +905,13 @@ async function halt($, text) {
     net.login();
     flashColor = [255, 255, 0, 100]; // Yellow
     makeFlash($);
+    // if (net.iframe) jump("login-wait");
     return true;
   } else if (slug === "hi") {
     net.login();
     flashColor = [255, 255, 0, 100]; // Yellow
     makeFlash($);
+    // if (net.iframe) jump("login-wait");
     return true;
   } else if (slug === "signup" || slug === "imnew") {
     net.signup();
@@ -1155,11 +1157,12 @@ function paint($) {
 
   // Paint UI Buttons
   //if (!net.iframe) {
-    if (!login?.btn.disabled)
-      login?.paint($, [[0, 0, 64], 255, 255, [0, 0, 64]]);
+  if (!login?.btn.disabled) login?.paint($, [[0, 0, 64], 255, 255, [0, 0, 64]]);
+  if (!net.iframe) {
     if (!signup?.btn.disabled)
       signup?.paint($, [[0, 64, 0], 255, 255, [0, 64, 0]]);
-    if (!profile?.btn.disabled) profile?.paint($);
+  }
+  if (!profile?.btn.disabled) profile?.paint($);
   //}
 
   // 📏 Paint a measurement line in the center of the display.
@@ -1270,15 +1273,16 @@ function act({
     });
   };
 
-  //if (!net.iframe) {
-    login?.btn.act(e, {
-      down: () => downSound(),
-      push: () => {
-        pushSound();
-        net.login();
-      },
-    });
+  login?.btn.act(e, {
+    down: () => downSound(),
+    push: () => {
+      pushSound();
+      net.login();
+      // if (net.iframe) jump("login-wait");
+    },
+  });
 
+  if (!net.iframe) {
     signup?.btn.act(e, {
       down: () => downSound(),
       push: () => {
@@ -1286,7 +1290,7 @@ function act({
         net.signup();
       },
     });
-  //}
+  }
 
   profile?.btn.act(e, {
     down: () => downSound(),
@@ -1325,7 +1329,7 @@ function act({
   //          to allow for manual optimizations. 23.06.20.00.30
 
   // 🖥️ Screen
-  if (e.is("reframed")) positionWelcomeButtons(screen);
+  if (e.is("reframed")) positionWelcomeButtons(screen, net.iframe);
 
   // ⌨️ Keyboard (Skip startup sound if a key is pressed or text is pasted.)
   if (e.is("keyboard:open") && firstActivation && e.method !== "pointer") {
@@ -1489,8 +1493,8 @@ function makeFlash($, clear = true) {
   }
 }
 
-function positionWelcomeButtons(screen) {
-  if (login && signup) {
+function positionWelcomeButtons(screen, iframe) {
+  if (login && signup && !iframe) {
     login.reposition({ center: "xy", screen });
     signup.reposition({ center: "xy", screen });
     // Nudge signup and login by half their width.
