@@ -13,6 +13,7 @@
     "compile": "tsc",
     "reload": "npm run build; npm run uninstall:ext; npm run install:ext;",
     "build": "npm run compile; vsce package",
+    "watch": "nodemon --on-change-only --ext 'js,ts,css' --ignore 'out/*' --exec 'npm run reload'",
     "uninstall:ext": "code --uninstall-extension aesthetic-computer.aesthetic-computer-code",
     "install:ext": "code --install-extension `ls -v *.vsix | tail -n 1`",
     "publish": "vsce publish minor",
@@ -34,7 +35,7 @@
       },
       {
         "command": "aestheticComputer.localServer",
-        "title": "aesthetic.computer: Local Server 💻"
+        "title": "aesthetic.computer: Toggle Local Development 💻"
       }
     ],
     "viewsContainers": {

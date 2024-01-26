@@ -16,19 +16,26 @@
   // Handle messages sent from the extension to the webview
   window.addEventListener("message", (event) => {
     const message = event.data; // The json data that the extension sent
-    console.log("📶 Received message:", message);
+    // console.log("📶 Received message:", message);
     switch (message.type) {
+      case "vscode-extension:reload": {
+        vscode.postMessage({ type: "vscode-extension:reload" });
+        break;
+      }
       case "setSession": {
         sendSessionToIframe(message.session);
+        break;
       }
       case "publish": {
         vscode.postMessage({
           type: "publish",
           url: message.url,
         });
+        break;
       }
       case "setCode": {
         vscode.postMessage({ type: "setCode", value: message.value });
+        break;
       }
       case "runPiece": {
         vscode.postMessage({ type: "runPiece" });

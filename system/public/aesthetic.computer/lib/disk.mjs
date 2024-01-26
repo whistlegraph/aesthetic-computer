@@ -2421,7 +2421,7 @@ async function load(
       // Note: This is used for live development via the socket server.
       $commonApi.load({ source, name, codeChannel }, false, false, true); // Load source code.
     } else if (piece === "*" || piece === undefined || currentText === piece) {
-      console.log("💾️ Reloading piece...", piece);
+      console.log("💾️ Reloading current piece...", piece);
       const devReload = true;
       $commonApi.pieceCount = -1; // Reset pieceCount on developer reload.
       //                             (This can be disabled while testing pieces
@@ -2441,6 +2441,10 @@ async function load(
         alias,
         devReload,
       );
+    } else if (piece !== undefined) {
+      // TODO: Make this happen...
+      console.log(piece, currentText);
+      if (debug) console.log("⚠️ Could jump instantly to another piece here in development...");
     }
   };
 
@@ -2461,7 +2465,7 @@ async function load(
     }
     // Never open socket server in icon / preview mode.
     if (debug && logs.session) console.log("🫂 Finding session server...");
-    socket = new Socket(debug); // Then redefine and make a new socket.
+    socket = new Socket(debug, send); // Then redefine and make a new socket.
 
     const monolith = undefined; // "monolith"; // or `undefined` for horizontal scaling via
     // jamstack

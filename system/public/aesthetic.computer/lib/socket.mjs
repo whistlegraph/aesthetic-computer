@@ -11,14 +11,16 @@ const { min } = Math;
 export class Socket {
   id; // Will be filled in with the user identifier after the first message.
   connected = false;
+  #sendToBIOS;
   #debug;
   #killSocket = false;
   #ws;
   #reconnectTime = 1000;
   #queue = [];
 
-  constructor(debug) {
+  constructor(debug, sendToBIOS) {
     this.#debug = debug;
+    this.#sendToBIOS = sendToBIOS;
   }
 
   // Connects a WebSocket object and takes a handler for messages.
@@ -31,7 +33,7 @@ export class Socket {
     disconnectCallback,
   ) {
     if (this.connected) {
-      console.warn("🧦 Already connected...")
+      console.warn("🧦 Already connected...");
       return;
     }
     if (this.#debug && logs.session) console.log("🧦 Connecting...", host);
@@ -58,7 +60,7 @@ export class Socket {
     // Respond to incoming messages and assume `e.data` is a JSON String.
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
-      socket.#preReceive(msg, receive, reload);
+      socket.#preReceive(msg, receive, reload, this.#sendToBIOS);
     };
 
     // Recursively re-connect after every second upon close or failed connection.
@@ -108,7 +110,7 @@ export class Socket {
 
   // Before passing messages to disk code, handle some system messages here.
   // Note: "reload" should only be defined when in development / debug mode.
-  #preReceive({ id, type, content }, receive, reload) {
+  #preReceive({ id, type, content }, receive, reload, sendToBIOS) {
     if (this.#killSocket) return;
     if (type === "connected") {
       const c = JSON.parse(content);
@@ -123,6 +125,11 @@ export class Socket {
       const c = JSON.parse(content);
       if (logs.session) console.log(`🧦 ${c.text || c}`); // Someone else has connected as...
       receive?.(id, type, c);
+    } else if (type === "vscode-extension:reload" && this.#debug) {
+      sendToBIOS({
+        type: "post-to-parent",
+        content: { type: "vscode-extension:reload" },
+      });
     } else if (type === "reload" && reload && this.#debug) {
       // Only respond to global `reload` signals when in debug mode.
       let c;

@@ -1,3 +1,5 @@
+// Install all dependencies of various aesthetic.computer sub-projects.
+
 import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
