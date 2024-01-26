@@ -43,12 +43,11 @@
 Today:
 
 - [x] More immediate coding.
-  - [] Implement passwordless login https://auth0.com/docs/libraries/auth0js#passwordless-login
-    - (To be used for the vscode extension publishing flow.)
-
-  - [🚗] Get tab-flipping to work properly if a piece hasn't been loaded succesfully yet.
-  - [🟠] Disable some commands like `hi` if the app is running in an iframe.
-  
+  - [🟠] Get anonymous publishing to work.
+  - [] Get user authorized publishing to work.
+  - [x] Finish authorization flow.
+  - [x] Disable some commands like `hi` if the app is running in an iframe.
+  - [c] Get tab-flipping to work properly if a piece hasn't been loaded succesfully yet.
   - [c] The `publish` command should open an external url that tries to publish
        the piece in the browser (to make sure the user is logged in).
   - [c] Get authorization / login working (for publishing).
