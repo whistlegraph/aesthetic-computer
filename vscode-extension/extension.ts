@@ -32,7 +32,6 @@ import * as vscode from "vscode";
 import { AestheticAuthenticationProvider } from "./aestheticAuthenticationProvider";
 
 let local: boolean = false;
-let activeEditor: vscode.TextEditor | undefined;
 let codeChannel: string | undefined;
 
 async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -103,7 +102,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
     let url = `https://${host}/run`;
 
-    vscode.window.showInformationMessage("Running via: " + url);
+    // vscode.window.showInformationMessage("Running via: " + url);
+    // vscode.window.showInformationMessage("🟠");
 
     fetch(url, {
       method: "POST",
@@ -113,14 +113,12 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       .then((res) => res.text()) // Convert the response to text
       .then((text) => {
         // Now 'text' is a string that can be used in showInformationMessage
-        vscode.window.showInformationMessage(text);
+        // vscode.window.showInformationMessage("🟢");
       })
       .catch((error) => {
         // If you catch an error, make sure to convert it to a string if it isn't already
-        vscode.window.showInformationMessage(error.toString());
+        vscode.window.showInformationMessage("🔴" + error.toString());
       });
-
-    activeEditor = editor; // Set the active editor for live updates.
   }
 
   context.subscriptions.push(
@@ -140,12 +138,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   // Automatically re-run the piece when saving.
   vscode.workspace.onDidSaveTextDocument((document) => {
-    if (
-      activeEditor &&
-      vscode.window.activeTextEditor &&
-      activeEditor.document === document
-    ) {
-      console.log("did save document...");
+    if (vscode.window.activeTextEditor?.document === document) {
+      console.log("Did save document...");
       vscode.commands.executeCommand("aestheticComputer.runPiece");
     }
   });

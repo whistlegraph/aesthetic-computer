@@ -3207,7 +3207,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // Update the logged in user after initialization.
   if (type === "session:update") {
-    console.log("🤩 Session being updated!", content);
+    // console.log("🤩 Session being updated!", content);
     USER = content.user;
     $commonApi.user = USER;
     return;
