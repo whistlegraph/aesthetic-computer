@@ -26,8 +26,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "aestheticComputer.signIn",
-        "title": "aesthetic.computer: Sign In 🔐"
+        "command": "aestheticComputer.logIn",
+        "title": "aesthetic.computer: Hi 👋 (Log in)"
       },
       {
         "command": "aestheticComputer.runPiece",
