@@ -94,7 +94,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         //if (session) {
         //  provider.sendMessageToWebview({ type: "setSession", session });
         //} else {
-          provider.refreshWebview();
+        provider.refreshWebview();
         //}
       }
     }),
@@ -134,7 +134,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
     let url = `https://${host}/run`;
 
-    vscode.window.showInformationMessage("Running via: " + url);
+    vscode.window.showInformationMessage(`🧩 ${piece}`);
 
     fetch(url, {
       method: "POST",
@@ -144,7 +144,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       .then((res) => res.text()) // Convert the response to text
       .then((text) => {
         // Now 'text' is a string that can be used in showInformationMessage
-        // vscode.window.showInformationMessage("🟢");
+        // vscode.window.showInformationMessage(`🧩 \`${piece}\``);
       })
       .catch((error) => {
         // If you catch an error, make sure to convert it to a string if it isn't already
@@ -163,7 +163,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       // Refresh the webview with the new local state
       provider.refreshWebview();
       vscode.window.showInformationMessage(
-        `Local Mode: ${local ? "Enabled" : "Disabled"}`,
+        `💻 Local Development: ${local ? "Enabled" : "Disabled"}`,
       );
     }),
   );
@@ -229,7 +229,9 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
         }
         case "setCode": {
           codeChannel = data.value;
-          // vscode.commands.executeCommand("aestheticComputer.runPiece");
+          // const currentTitle = webviewView.title;
+          // webviewView.title = currentTitle?.split(" · ")[0] + " · " + codeChannel;
+          // ^ Disabled because it's always rendered uppercase. 24.01.27.17.26
           break;
         }
         case "vscode-extension:reload": {

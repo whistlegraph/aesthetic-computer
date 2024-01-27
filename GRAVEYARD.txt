@@ -1,5 +1,29 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** New VSCode Embedded Extension ***
+- [x] More immediate coding.
+  + Done
+  - [x] Publish new version of extension.
+    - [x] Update instructions and Microsoft Store page. 
+  - [x] Rename `code-channel` to a full on `channel` piece
+       and entering empty channel
+       will share the current channel code, while entering a new
+       one will join an existing channel and also share the code.
+  - [x] Check on the differences between coding things in local and production
+       while being both signed in and signed out.
+  - [x] Make a publishing command progress bar / better workflow...
+  - [x] Get user authorized publishing to work.
+  - [x] Get anonymous publishing to work.
+  - [x] Finish authorization flow.
+  - [x] Disable some commands like `hi` if the app is running in an iframe.
+  - [c] Get tab-flipping to work properly if a piece hasn't been loaded succesfully yet.
+  - [c] The `publish` command should open an external url that tries to publish
+       the piece in the browser (to make sure the user is logged in).
+  - [c] Get authorization / login working (for publishing).
+  - [x] Add connection flashes to noise.
+  - [x] Any code that doesn't parse just print out if no piece is running
+       or show an error notice if a piece is.
+
 *** `field -> horizon` transition fix ***
   - [x] Be able to follow other users.
   - [x] Prevent doubling.
