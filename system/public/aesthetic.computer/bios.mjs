@@ -4011,13 +4011,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       pen.render(uiCtx, canvasRect); // ️ 🐭 Draw the cursor.
 
-      // Show the spinner on any piece other than the first.
-      if (content.loading === true && currentPiece !== null) {
+      // Show the spinner on any piece other than the first, and never
+      // on the prompt.
+      if (
+        content.loading === true &&
+        currentPiece !== null &&
+        currentPiece !== "aesthetic.computer/disks/prompt"
+      ) {
         UI.spinner(uiCtx, now);
       }
 
       if (debug && frameCached && content.loading !== true) UI.cached(uiCtx); // Pause icon.
-
       uiCtx.resetTransform();
     }
 

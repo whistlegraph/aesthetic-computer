@@ -40,13 +40,24 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+- [] Be able to easily complete a painting and then include it in a piece
+     in a single line...
+  - [] Maybe I could overload `paste` to include user strings...
+  - [] Add the ability to name a painting so it can more
+       easily be referenced, like for example in a `stamp @jeffrey/flower` tool.
+       Or especially like old CS 1.5 sprays.
+  - [] Should be able to say `done flower` to make the alias.
+  - [] Also should be able to remove and change aliases.
+  - [] Then a logged in user can `paste flower`.
+  - [] There should be a command to set temporary names without persisting
+       them to the network? Well... that's just empty `show` or maybe
+       there could be a buffer of paintings in progress, similar to how
+       text editors have buffers.
+       
+
 Today:
-
-- [🔴] Fix `Share your painting!`. 
-
 - [x] More immediate coding.
-  - [🟠] Make a publishing command progress bar / better workflow...
-  - [] Check on the differences between coding things in local and production
+  - [🔴] Check on the differences between coding things in local and production
        while being both signed in and signed out.
   - [] Rename `code-channel` to a full on `channel` piece
        and entering empty channel
@@ -55,6 +66,7 @@ Today:
   - [] Publish new version of extension.
   - [] Test in vscode.dev.
   + Done
+  - [x] Make a publishing command progress bar / better workflow...
   - [x] Get user authorized publishing to work.
   - [x] Get anonymous publishing to work.
   - [x] Finish authorization flow.
