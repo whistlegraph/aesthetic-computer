@@ -4205,12 +4205,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               if (debug) console.log("🗞️ Added to database...", added);
             }
 
-            let data = { slug, url, ext };
+            let data = { slug, url: url.toString(), ext };
 
             if (!userMedia && ext === "mjs") {
               data.url =
                 "https://art.aesthetic.computer/" + data.slug + "." + data.ext;
-              // data.slug = "$" + data.slug;
             }
 
             send({

@@ -45,15 +45,16 @@ Today:
 - [🔴] Landing routes other than `/` do not upgrade the connection colors?
 
 - [x] More immediate coding.
-  - [🟠] Get anonymous publishing to work.
-    - [] Make it nice.
-    - [-] How to drop in a share-able QR code?
-  - [] Get user authorized publishing to work.
+  - [🟠] Make a publishing command progress bar / better workflow...
   - [] Rename `code-channel` to a full on `channel` piece
        and entering empty channel
        will share the current channel code, while entering a new
        one will join an existing channel and also share the code.
+  - [] Publish new version of extension.
+  - [] Test in vscode.dev.
   + Done
+  - [x] Get user authorized publishing to work.
+  - [x] Get anonymous publishing to work.
   - [x] Finish authorization flow.
   - [x] Disable some commands like `hi` if the app is running in an iframe.
   - [c] Get tab-flipping to work properly if a piece hasn't been loaded succesfully yet.
