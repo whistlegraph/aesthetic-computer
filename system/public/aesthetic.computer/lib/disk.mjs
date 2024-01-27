@@ -15,7 +15,7 @@ import * as platform from "./platform.mjs";
 import { parse, metadata } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
 import { notArray, defaultTemplateStringProcessor } from "./helpers.mjs";
-const { round, sin, random, max, floor } = Math;
+const { abs, round, sin, random, max, floor } = Math;
 const { keys } = Object;
 import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
@@ -1215,19 +1215,11 @@ const $commonApi = {
   // },
   text: {
     capitalize: text.capitalize,
-    box: (text, pos = { x: 0, y: 0 }, bounds, scale = 1) => {
+    box: (text, pos = { x: 0, y: 0 }, bounds, scale = 1, wordWrap = true) => {
       pos = { ...pos };
       let run = 0;
-      const blockWidth = 6 * scale;
-      const splitWords = text.split(" ");
-      const words = [];
-      for (let i = 0; i < splitWords.length; i++) {
-        if (splitWords[i] === "" && i > 0 && splitWords[i - 1] === "") {
-          words[words.length - 1] += " ";
-        } else {
-          words.push(splitWords[i]);
-        }
-      }
+      // scale = abs(scale);
+      const blockWidth = 6 * abs(scale);
 
       const lines = [[]];
       let line = 0;
@@ -1240,22 +1232,54 @@ const $commonApi = {
         lines[line] = [];
       }
 
-      words.forEach((word) => {
-        const wordLen = (word.length + 1) * blockWidth;
-        if (word.includes("\n")) {
-          const segs = word.split("\n");
-          segs.forEach((seg, i) => {
-            const segLen = (seg.length + 1) * blockWidth;
-            if (run + segLen >= bounds || i > 0) newLine();
-            lines[line].push(seg);
-            run += segLen;
-          });
-        } else {
-          if (run + wordLen >= bounds) newLine();
-          lines[line].push(word);
-          run += wordLen;
+      if (wordWrap) {
+        // Original word wrapping logic
+        const splitWords = text.split(" ");
+        const words = [];
+        for (let i = 0; i < splitWords.length; i++) {
+          if (splitWords[i] === "" && i > 0 && splitWords[i - 1] === "") {
+            words[words.length - 1] += " ";
+          } else {
+            words.push(splitWords[i]);
+          }
         }
-      });
+
+        words.forEach((word) => {
+          const wordLen = (word.length + 1) * blockWidth;
+          if (word.includes("\n")) {
+            const segs = word.split("\n");
+            segs.forEach((seg, i) => {
+              const segLen = (seg.length + 1) * blockWidth;
+              if (run + segLen >= bounds || i > 0) newLine();
+              lines[line].push(seg);
+              run += segLen;
+            });
+          } else {
+            if (run + wordLen >= bounds) newLine();
+            lines[line].push(word);
+            run += wordLen;
+          }
+        });
+      } else {
+        // Character wrapping logic
+        for (let i = 0; i < text.length; i++) {
+          const char = text[i];
+          const charLen = blockWidth;
+          if (char === "\n") {
+            newLine();
+          } else {
+            if (run + charLen > bounds) {
+              newLine();
+            }
+            if (!lines[line].length) {
+              lines[line].push(char);
+            } else {
+              lines[line][lines[line].length - 1] += char;
+            }
+            run += charLen;
+          }
+        }
+      }
 
       const blockHeight = 11 * scale;
 
@@ -1645,7 +1669,7 @@ const $paintApi = {
   // Prints a line of text using the default / current global font.
   // Argument options:
   // text, pos: {x, y, center}, bg (optional)
-  write: function (text, pos, bg, bounds) {
+  write: function (text, pos, bg, bounds, wordWrap = true) {
     if (!text || !tf) return $activePaintApi; // Fail silently if no text.
     text = text.toString();
 
@@ -1655,7 +1679,7 @@ const $paintApi = {
     const scale = pos?.size || 1;
 
     if (bounds) {
-      const tb = $commonApi.text.box(text, pos, bounds, scale);
+      const tb = $commonApi.text.box(text, pos, bounds, scale, wordWrap);
       // TODO: Get the current ink color, memoize it, and make it static here.
       //       23.10.12.22.04
       tb.lines.forEach((line, index) => {
@@ -3915,6 +3939,7 @@ async function makeFrame({ data: { type, content } }) {
             data.key === "Escape") &&
           system !== "prompt" &&
           system !== "world" &&
+          currentText !== "sign" &&
           // !keyboardOpen &&
           // system === "world" &&
           // data.key === "Enter" &&
