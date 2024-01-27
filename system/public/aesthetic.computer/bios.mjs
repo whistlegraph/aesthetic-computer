@@ -1933,7 +1933,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   .share({
                     files: [shareFile],
                     title: "Share Painting",
-                    text: "Share your painting!",
+                    // text: "Share your painting!",
                   })
                   .then(() => {
                     console.log("📥 Share was successful.");
