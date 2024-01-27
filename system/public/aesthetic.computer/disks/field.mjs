@@ -9,6 +9,7 @@
   - [] Store something persistent on the server.
 #endregion */
 
+
 const scenery = {
   grasses: [
     { x: 190, y: 170 },
