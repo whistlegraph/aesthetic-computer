@@ -12,9 +12,8 @@ import {
   UriHandler,
   window,
 } from "vscode";
-import { v4 as uuid } from "uuid";
 import { PromiseAdapter, promiseFromEvent } from "./util";
-//import fetch from 'node-fetch';
+import crypto from "crypto";
 
 export const AUTH_TYPE = `aesthetic`;
 const AUTH_NAME = `Aesthetic Computer`;
@@ -101,7 +100,7 @@ export class AestheticAuthenticationProvider
       console.log("👱 User info:", userinfo);
 
       const session: AuthenticationSession = {
-        id: uuid(),
+        id: nanoid(),
         accessToken: token,
         account: {
           label: userinfo.name,
@@ -173,7 +172,7 @@ export class AestheticAuthenticationProvider
         cancellable: true,
       },
       async (_, token) => {
-        const stateId = uuid();
+        const stateId = nanoid();
 
         this._pendingStates.push(stateId);
 
@@ -280,3 +279,22 @@ export class AestheticAuthenticationProvider
     return await response.json();
   }
 }
+
+// 📚 Library
+
+// Inlined `nanoid` dependency.
+const nanoid = (t = 21) =>
+  crypto
+    .getRandomValues(new Uint8Array(t))
+    .reduce(
+      (t, e) =>
+        (t +=
+          (e &= 63) < 36
+            ? e.toString(36)
+            : e < 62
+            ? (e - 26).toString(36).toUpperCase()
+            : e > 62
+            ? "-"
+            : "_"),
+      "",
+    );

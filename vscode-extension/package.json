@@ -73,8 +73,5 @@
     "@vscode/vsce": "^2.23.0",
     "esbuild": "^0.20.0",
     "typescript": "^5.3.3"
-  },
-  "dependencies": {
-    "uuid": "^9.0.1"
   }
 }
