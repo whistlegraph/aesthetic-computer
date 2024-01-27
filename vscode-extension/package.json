@@ -10,9 +10,12 @@
     "vscode": "^1.74.2"
   },
   "scripts": {
-    "compile": "tsc",
+    "esbuild-base": "esbuild ./extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
+    "esbuild": "npm run esbuild-base -- --sourcemap",
+    "compile": "npm run esbuild",
     "reload": "npm run build; npm run uninstall:ext; npm run install:ext;",
     "build": "npm run compile; vsce package",
+    "browser": "vscode-test-web --extensionDevelopmentPath=. .",
     "watch": "nodemon --on-change-only --ext 'js,ts,css' --ignore 'out/*' --exec 'npm run reload'",
     "uninstall:ext": "code --uninstall-extension aesthetic-computer.aesthetic-computer-code",
     "install:ext": "code --install-extension `ls -v *.vsix | tail -n 1`",
@@ -42,7 +45,7 @@
       "activitybar": [
         {
           "id": "piece",
-          "title": "aesthetic computer",
+          "title": "Aesthetic Computer",
           "icon": "resources/aesthetic-computer.svg"
         }
       ]
@@ -66,7 +69,9 @@
     "@types/node": "^20.11.6",
     "@types/uuid": "^9.0.7",
     "@types/vscode": "^1.74.2",
+    "@vscode/test-web": "^0.0.51",
     "@vscode/vsce": "^2.23.0",
+    "esbuild": "^0.20.0",
     "typescript": "^5.3.3"
   },
   "dependencies": {

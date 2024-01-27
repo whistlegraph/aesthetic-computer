@@ -2,39 +2,15 @@
 // A VSCode extension for live reloading aesthetic.computer pieces.
 
 /* #region todo 📓 
-  - [] Finish login flow.
-  - [] Add custom code channel.
-  + Done
-  - [x] Replace the SVG.
-  - [x] Make a web extension.
-       (https://code.visualstudio.com/api/extension-guides/web-extensions)
-  - [x] Write better sidebar docs.
-  - [x] Publish should no longer publish everywhere / only publish to
-       active user.
-       - [x] Add a `publish` command to the main prompt.
-       - [x] Remove publish from here
-  - [x] Add aesthetic.computer extension launch configuration for debugging.
-  - [x] Add flag in the extension for local server. 
-        (VSCode yields SSL errors.)
-  - [x] Add publish button.
-  - [x] Fix the extension manifest.
-  - [x] Add instructions to the html view.
-  - [x] Publish the first version of the extension.
-  - [x] Don't update everyone at the same time.
-    - [x] Run an AC command to link to the service.
-  - [x] Test with the production url.
-  - [x] Run npm outdated in this repo to see if install can be fixed
-        or reload of the extension can be automated.
-  - [x] Only add autoreload after making the `Run Piece` link once...
-       check for a file that was already added.
 #endregion */
 
 // Import necessary modules from vscode
 import * as vscode from "vscode";
-import { AestheticAuthenticationProvider } from "./aestheticAuthenticationProvider";
 
 let local: boolean = false;
 let codeChannel: string | undefined;
+
+import { AestheticAuthenticationProvider } from "./aestheticAuthenticationProvider";
 
 async function activate(context: vscode.ExtensionContext): Promise<void> {
   local = context.globalState.get("aesthetic:local", false); // Retrieve env.
@@ -53,20 +29,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         },
       );
     }),
-    // vscode.commands.registerCommand("aestheticComputer.logOut", async () => {
-    //   try {
-    //     // const session = await vscode.authentication.getSession(
-    //     //   "aesthetic",
-    //     //   ["profile"],
-    //     //   { createIfNone: false },
-    //     // );
-    //     await ap.removeSession("aesthetic");
-    //     vscode.window.showInformationMessage("🚪 Logged out successfully.");
-    //     provider.refreshWebview();
-    //   } catch (error) {
-    //     vscode.window.showErrorMessage(`Logout failed: ${error}`);
-    //   }
-    // }),
   );
 
   const getAestheticSession = async () => {
@@ -101,7 +63,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   );
 
   const provider = new AestheticViewProvider(context.extensionUri);
-  await getAestheticSession();
+  // await getAestheticSession();
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
