@@ -5,7 +5,9 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🟠] Add ability to `nuke` a painting via a tappable context menu that
+  - [] Add a shortcut button for `Done` from the local painting page.
+  + Done
+  - [x] Add ability to `nuke` a painting via a tappable context menu that
        only appears if the logged in user is the owner of the painting.
 #endregion */
 
@@ -31,6 +33,7 @@ let painting,
   pastRecord; // In case we load a record off the network.
 
 let printBtn, // Sticker button.
+  downloadBtn, // Download button.
   slug; // A url to the loaded image for printing.
 let menuBtn; // A context (...) button that appears for the owner.
 let nukeBtn; // A button inside of the context menu to hide / delete the media.
@@ -168,19 +171,28 @@ function boot({
         screen,
       });
     }
+  } else {
+    finalPainting = system.painting;
+    timeout = setTimeout(() => {
+      pastRecord = system.nopaint.record;
+      console.log("Record", system.nopaint.record);
+      advance(system);
+      running = true;
+    }, 1500);
+  }
+
+  if (!showMode) {
+    downloadBtn = new ui.TextButton(`Download`, {
+      bottom: butBottom,
+      left: butSide,
+      screen,
+    });
     // mintBtn = new ui.TextButton(`Mint`, {
     //   bottom: butBottom,
     //   left: butSide,
     //   screen,
     // });
     // mintBtn.disabled = true;
-  } else {
-    finalPainting = system.painting;
-    timeout = setTimeout(() => {
-      running = true;
-      console.log("Record", system.nopaint.record);
-      advance(system);
-    }, 1500);
   }
   // if (query.notice === "success") printBtn = null; // Kill button after order.
 }
@@ -210,6 +222,7 @@ function paint({
       screen.height - btnBar,
     );
     printBtn?.paint({ ink });
+    downloadBtn?.paint({ ink });
     //mintBtn?.paint({ ink });
 
     if (menuBtn) {
@@ -395,6 +408,8 @@ function act({
   net,
   notice,
   user,
+  canShare,
+  download,
 }) {
   menuBtn?.act(e, () => (menuOpen = !menuOpen));
 
@@ -431,6 +446,19 @@ function act({
           { right: butSide, bottom: butBottom, screen },
           "Print",
         );
+      },
+    });
+
+    downloadBtn?.act(e, {
+      push: async () => {
+        let code = system.nopaint.record[stepIndex - 1]?.timestamp || imageCode;
+        let slug = `painting-${handle}-${code}.png`;
+        if (!handle) {
+          slug = `painting-${handle}-${code}.png`;
+        } else if (!code) {
+          slug = `painting.png`;
+        }
+        download(slug, painting, { scale: 6, sharing: canShare });
       },
     });
 
