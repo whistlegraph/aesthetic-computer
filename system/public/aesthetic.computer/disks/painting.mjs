@@ -5,6 +5,8 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] Add a `steal` button for taking the current frame and making it yours. 
+    - [] Steal should add a step to the current painting.
   - [] Add a shortcut button for `Done` from the local painting page.
   + Done
   - [x] Add ability to `nuke` a painting via a tappable context menu that
