@@ -105,8 +105,14 @@ async function fun(event, context) {
           console.log("📰 Metadata:", meta, "Path:", parsed.text);
         }
       } catch (e) {
-        console.log("🔴 Piece load failure:", e);
-        statusCode = 404;
+        console.log("🔴 Piece load failure...");
+        console.log(e);
+        const anonUrl = `https://art.aesthetic.computer/${
+          parsed.path.split("/").pop().mjs
+        }`;
+        console.log("📥 Attempting to load piece from anon:", anonUrl);
+        const externalPiece = await getPage(anonUrl);
+        if (externalPiece?.code !== 200) statusCode = 404;
       }
     }
   } catch {
