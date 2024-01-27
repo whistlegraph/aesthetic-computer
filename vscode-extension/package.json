@@ -68,8 +68,5 @@
     "@types/vscode": "^1.74.2",
     "@vscode/vsce": "^2.23.0",
     "typescript": "^5.3.3"
-  },
-  "dependencies": {
-    "uuid": "^9.0.1"
   }
 }
