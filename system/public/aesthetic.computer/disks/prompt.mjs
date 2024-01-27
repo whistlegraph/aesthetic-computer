@@ -124,15 +124,6 @@ async function boot({
 }) {
   glaze({ on: true });
 
-  // if (query["publish"]) {
-  //   notice("PUBLISHING...");
-  //   const { slug, source } = JSON.parse(
-  //     base64ToUnicode(decodeURIComponent(query["publish"])),
-  //   );
-  //   console.log("🛎️ Should be publishing...", slug, source.length);
-  //   publishPiece({ send, jump, handle, upload }, slug, source);
-  // }
-
   server = socket((id, type, content) => {
     console.log("🧦 Got message:", id, type, content);
   });
@@ -609,27 +600,11 @@ async function halt($, text) {
       console.error("🪄 No publishable piece found!");
       return true;
     }
-
-    // console.log("Publishing:", publishablePiece);
-
-    // if (net.iframe) {
-    //   send({
-    //     type: "post-to-parent",
-    //     content: {
-    //       type: "publish",
-    //       url: `https://aesthetic.computer?publish=${encodeURIComponent(
-    //         unicodeToBase64(JSON.stringify(publishablePiece)),
-    //       )}`,
-    //     },
-    //   });
-    // } else {
-    publishPiece(
+    await publishPiece(
       { api, send, jump, handle, upload },
       publishablePiece.slug,
       publishablePiece.source,
     );
-    //}
-    makeFlash($);
     return true;
   } else if (text.startsWith("code-channel")) {
     // Set a `code-channel` for piece writing.
@@ -1500,8 +1475,11 @@ function makeFlash($, clear = true) {
 
   flashPresent = true;
   flashShow = true;
-  if (clear) {
+  if (clear === true) {
     $.system.prompt.input.blank(); // Clear the prompt.
+  } else if (typeof clear === "string") {
+    $.system.prompt.input.text = clear;
+    $.system.prompt.input.snap();
   }
 }
 
@@ -1531,25 +1509,28 @@ function downloadPainting({ download, num, store }, scale, sharing = false) {
   });
 }
 
-function publishPiece({ api, send, jump, handle, upload }, slug, source) {
-  upload("piece-" + slug + ".mjs", source)
-    .then((data) => {
-      console.log("🪄 Code uploaded:", data);
-      flashColor = [0, 255, 0];
-      const route = handle() ? `${handle()}/${data.slug}` : data.slug;
-      makeFlash(api);
-      // send({ type: "alert", content: `\`${route}\` was published!` });
-      jump(route);
-    })
-    .catch((err) => {
-      console.error("🪄 Code upload failed:", err);
-      send({
-        type: "alert",
-        content: `😥 Piece: \`${slug}\` failed to publish.`,
-      });
-      flashColor = [255, 0, 0];
-      makeFlash(api);
+async function publishPiece({ api, send, jump, handle, upload }, slug, source) {
+  progressBar = 0; // Trigger progress bar rendering.
+  try {
+    const data = await upload("piece-" + slug + ".mjs", source, (p) => {
+      console.log("🎁️ Publishing progress:", p);
+      progressBar = p;
     });
+    console.log("🪄 Code uploaded:", data);
+    flashColor = [0, 255, 0];
+    const route = handle() ? `${handle()}/${data.slug}` : data.slug;
+    makeFlash(api, route);
+    console.log(`\`${route}\` was published!`);
+    jump(route);
+  } catch (err) {
+    console.error("🪄 Code upload failed:", err);
+    send({
+      type: "alert",
+      content: `😥 Piece: \`${slug}\` failed to publish.`,
+    });
+    flashColor = [255, 0, 0];
+    makeFlash(api);
+  }
 }
 
 // For encoding and decoding published piece source code that

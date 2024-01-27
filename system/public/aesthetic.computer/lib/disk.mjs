@@ -241,7 +241,6 @@ let currentPath,
 //currentPromptButton;
 
 function updateHUDStatus() {
-  console.log("updating hud status...", udp, socket);
   if (udp.connected && socket?.connected) {
     currentHUDStatusColor = "lime";
   } else if (currentHUDStatusColor === "lime") {
@@ -2317,6 +2316,8 @@ async function load(
   try {
     // If this is a reload (with no source change) then just create a new
     // blobURL off the old source.
+    // TODO: Cache piece code locally / in an intelligent way,
+    //       and then receive socket updates when it changes on the server? 
     if (
       slug.split("~")[0] === currentText?.split("~")[0] &&
       sourceCode == currentCode &&
@@ -2494,12 +2495,8 @@ async function load(
       );
     } else if (piece !== undefined) {
       // TODO: Make this happen...
-      console.log(piece, currentText);
+      console.log("Jump instantly to:", piece);
       $commonApi.load(parse(piece), false, false, true);
-      if (debug)
-        console.log(
-          "⚠️ Could jump instantly to another piece here in development...",
-        );
     }
   };
 

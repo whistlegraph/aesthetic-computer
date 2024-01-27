@@ -22,9 +22,10 @@
 
 // 🎨 Paint
 function paint({ wipe, ink }) {
-  wipe("orange");
+  wipe("red");
   ink(0).line(); // Would draw a diagonal line.
 }
+
 
 // 🎪 Act
 // function act({ event: e }) {
