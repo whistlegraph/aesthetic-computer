@@ -230,8 +230,6 @@ function receive(event) {
 }
 window.addEventListener("message", receive);
 
-console.log(window.aestheticSession);
-
 // TODO: Rewrite this snippet.
 // Decoding an image can be done by sticking it in an HTML
 // canvas, as we can read individual pixels off the canvas.
