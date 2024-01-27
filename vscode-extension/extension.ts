@@ -112,6 +112,11 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   // Send piece code through the code channel.
   function upload() {
+    if (local) {
+      console.log("😊 Skipping `/run` api endpoint. (In local mode.)");
+      return;
+    }
+
     let editor = vscode.window.activeTextEditor;
     if (!editor) {
       return;
@@ -123,13 +128,13 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       .slice(-1)[0]
       .replace(".mjs", "");
 
-    // 📓 The `local` probably won't work due to VSCode's Proxy.
+    // 📓 The `local` won't work due to VSCode's Proxy, but the option
+    // is here just in case it's ever possible again.
     const host = local === false ? "aesthetic.computer" : "localhost:8888";
 
     let url = `https://${host}/run`;
 
-    // vscode.window.showInformationMessage("Running via: " + url);
-    // vscode.window.showInformationMessage("🟠");
+    vscode.window.showInformationMessage("Running via: " + url);
 
     fetch(url, {
       method: "POST",
@@ -143,7 +148,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       })
       .catch((error) => {
         // If you catch an error, make sure to convert it to a string if it isn't already
-        vscode.window.showInformationMessage("🔴" + error.toString());
+        console.log(error);
+        vscode.window.showInformationMessage("🔴" + "Piece error.");
       });
   }
 
@@ -165,7 +171,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   // Automatically re-run the piece when saving.
   vscode.workspace.onDidSaveTextDocument((document) => {
     if (vscode.window.activeTextEditor?.document === document) {
-      console.log("Did save document...");
       vscode.commands.executeCommand("aestheticComputer.runPiece");
     }
   });

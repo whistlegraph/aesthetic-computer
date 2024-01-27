@@ -20,7 +20,10 @@ let cells,
 // 🥾 Boot
 function boot({ api, hud, params, net, ui, blink }) {
   if (net.lan) url = net.lan;
+
+  // TODO: How can I get the lan ip here in dev mode? 24.01.27.14.50
   if (net.host) url = `https://${net.host}`;
+
   console.log("URL:", url);
   slug = params.join("~");
   if (slug) url += `/${slug}`;
