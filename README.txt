@@ -44,7 +44,13 @@ Today:
 
 - [x] More immediate coding.
   - [🟠] Get anonymous publishing to work.
+    - [-] How to drop in a share-able QR code?
   - [] Get user authorized publishing to work.
+  - [] Rename `code-channel` to a full on `channel` piece
+       and entering empty channel
+       will share the current channel code, while entering a new
+       one will join an existing channel and also share the code.
+  + Done
   - [x] Finish authorization flow.
   - [x] Disable some commands like `hi` if the app is running in an iframe.
   - [c] Get tab-flipping to work properly if a piece hasn't been loaded succesfully yet.
