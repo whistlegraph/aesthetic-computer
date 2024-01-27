@@ -40,52 +40,32 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-- [] Be able to easily complete a painting and then include it in a piece
-     in a single line...
+*** `world` <-> `painting` integrations ***
+  - [] Be able to easily complete a painting and then include it in a piece
+      in a single line...
   - [] Maybe I could overload `paste` to include user strings...
   - [] Add the ability to name a painting so it can more
-       easily be referenced, like for example in a `stamp @jeffrey/flower` tool.
-       Or especially like old CS 1.5 sprays.
+        easily be referenced, like for example in a `stamp @jeffrey/flower` tool.
+        Or especially like old CS 1.5 sprays.
   - [] Should be able to say `done flower` to make the alias.
   - [] Also should be able to remove and change aliases.
   - [] Then a logged in user can `paste flower`.
   - [] There should be a command to set temporary names without persisting
-       them to the network? Well... that's just empty `show` or maybe
-       there could be a buffer of paintings in progress, similar to how
-       text editors have buffers.
-       
-
-Today:
-- [x] More immediate coding.
-  - [🔴] Check on the differences between coding things in local and production
-       while being both signed in and signed out.
-  - [] Rename `code-channel` to a full on `channel` piece
-       and entering empty channel
-       will share the current channel code, while entering a new
-       one will join an existing channel and also share the code.
-  - [] Publish new version of extension.
-  - [] Test in vscode.dev.
+        them to the network? Well... that's just empty `show` or maybe
+        there could be a buffer of paintings in progress, similar to how
+        text editors have buffers.
+  - [] User world persistence with floating command notifications.
+  - [] How to handle multiple handled users in the same room.
+      (Make primary vs. a ghost type of view-only behavior?)
+  - [] How to have two windows or machines up and use a put command while
+      modifying pixels. (Always store current painting in the cloud for a registered user.)
+  - [] Implement `paste` and send the pixels through the backend.
   + Done
-  - [x] Make a publishing command progress bar / better workflow...
-  - [x] Get user authorized publishing to work.
-  - [x] Get anonymous publishing to work.
-  - [x] Finish authorization flow.
-  - [x] Disable some commands like `hi` if the app is running in an iframe.
-  - [c] Get tab-flipping to work properly if a piece hasn't been loaded succesfully yet.
-  - [c] The `publish` command should open an external url that tries to publish
-       the piece in the browser (to make sure the user is logged in).
-  - [c] Get authorization / login working (for publishing).
-  - [x] Add connection flashes to noise.
-  - [x] Any code that doesn't parse just print out if no piece is running
-       or show an error notice if a piece is.
+  - [x] Add connection flash to world.
 
-- [x] Add connection flash to world.
-- [] User world persistence with floating command notifications.
-- [] How to handle multiple handled users in the same room.
-     (Make primary vs. a ghost type of view-only behavior?)
-- [] How to have two windows or machines up and use a put command while
-     modifying pixels. (Always store current painting in the cloud for a registered user.)
-- [] Implement `paste` and send the pixels through the backend.
+*** Extension Post ***       
+  - [🟠] Test in vscode.dev.
+  - [] Add api docs and auto-complete via the VSCode extension. 
 
 *** `list` ***
   - [🔴] Add a big categorized list.

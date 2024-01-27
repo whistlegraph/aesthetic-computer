@@ -14,7 +14,6 @@
   }
 
   window.addEventListener("load", () => {
-    console.log("Loaded window...", window.aestheticSession);
     if (window.aestheticSession) sendSessionToIframe(window.aestheticSession);
   });
 
