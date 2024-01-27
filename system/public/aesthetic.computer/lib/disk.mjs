@@ -2325,10 +2325,21 @@ async function load(
     } else {
       let response, sourceToRun;
       if (fullUrl) {
-        // console.log("Attempting to load from local url:", fullUrl);
+        console.log("📥 Attempting to load piece from url:", fullUrl);
         response = await fetch(fullUrl);
         if (response.status === 404) {
-          throw new Error("404");
+          const anonUrl =
+            location.protocol +
+            "//" +
+            "art.aesthetic.computer" +
+            "/" +
+            path.split("/").pop() +
+            ".mjs" +
+            "#" +
+            Date.now();
+          console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
+          response = await fetch(anonUrl);
+          if (response.status === 404) throw new Error("404");
         }
         sourceToRun = await response.text();
       } else {
