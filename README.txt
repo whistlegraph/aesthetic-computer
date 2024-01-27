@@ -42,10 +42,12 @@
 
 Today:
 
-- [🔴] Landing routes other than `/` do not upgrade the connection colors?
+- [🔴] Fix `Share your painting!`. 
 
 - [x] More immediate coding.
   - [🟠] Make a publishing command progress bar / better workflow...
+  - [] Check on the differences between coding things in local and production
+       while being both signed in and signed out.
   - [] Rename `code-channel` to a full on `channel` piece
        and entering empty channel
        will share the current channel code, while entering a new
