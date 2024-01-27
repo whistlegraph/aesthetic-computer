@@ -72,7 +72,7 @@ export class EllipsisTicker {
   text(repeat, opts) {
     let ellipsis = "";
     repeat(this.#ellipsisDots, () => (ellipsis += "."));
-    return opts.pad === false ? ellipsis : ellipsisellipsis.padEnd(3, " ");
+    return opts?.pad === false ? ellipsis : ellipsis.padEnd(3, " ");
   }
 
   sim() {
