@@ -34,7 +34,7 @@ You are playing a character who tries to help me find the command I'm searching 
 
 - The following is a data set of all possible options for commands:
   - 'bgm', 'bits', 'blank', 'bleep', 'bubble', 'camera', 
-  'code-channel', 'decode', 'baktok', 'painting'
+  'channel', 'decode', 'baktok', 'painting'
   'download', 'encode', 'ff', 'freaky-flowers', 'gargoyle', 'handle',
   'happy-hands-assembler', 'hha', 'liar', 'line', 'login', 
   'logout', 'm2w2', 'melody', 'metronome', 'microphone',
@@ -606,13 +606,34 @@ async function halt($, text) {
       publishablePiece.source,
     );
     return true;
-  } else if (text.startsWith("code-channel")) {
+  } else if (text.startsWith("channel") || text.startsWith("code-channel")) {
     // Set a `code-channel` for piece writing.
-    code.channel(params.join(" "));
-    if (params.length === 0) {
+    let newChannel = params.join(" ") || "";
+    let isNone = false;
+    console.log("new channel:", newChannel);
+    if (newChannel === "") {
+      const currentChannel = await store.retrieve("code-channel");
+      isNone = true;
+      const text = currentChannel || "no channel";
+      notice(
+        text,
+        text === "no channel" ? ["yellow", "red"] : ["white", "blue"],
+        { wrap: "char" },
+      );
+    } else if (newChannel === "none") {
+      newChannel = "";
+      isNone = true;
+      notice("no channel", ["yellow", "red"]);
+      code.channel(newChannel);
+    } else {
+      notice(newChannel, ["white", "blue"]);
+      code.channel(newChannel);
+    }
+
+    if (isNone) {
       flashColor = [255, 0, 0];
     } else {
-      flashColor = [0, 255, 0];
+      flashColor = [0, 0, 255];
     }
     makeFlash($);
     return true;

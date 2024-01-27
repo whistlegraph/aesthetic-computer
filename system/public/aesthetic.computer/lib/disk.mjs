@@ -41,7 +41,11 @@ let visible = true; // Is aesthetic.computer visibly rendering or not?
 const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading noise.
 
 import { setDebug } from "../disks/common/debug.mjs";
-import { nanoid } from "../dep/nanoid/nanoid.js";
+
+import { customAlphabet } from "../dep/nanoid/nanoid.js";
+const alphabet =
+  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const nanoid = customAlphabet(alphabet, 4);
 
 const defaults = {
   boot: ({ cursor, screen: { width, height }, resolution, api }) => {
@@ -585,9 +589,10 @@ const $commonApi = {
   handle: () => {
     return HANDLE;
   },
-  notice: (msg, color = ["white", "green"]) => {
+  notice: (msg, color = ["white", "green"], opts) => {
     notice = msg;
     noticeColor = color;
+    noticeOpts = opts;
     const sound = {};
     if (color[0] === "yellow" && color[1] === "red") sound.tone = 300;
     noticeBell(cachedAPI, sound);
@@ -2217,7 +2222,7 @@ const microphone = new Microphone();
 let originalHost;
 let firstLoad = true;
 
-let notice, noticeTimer, noticeColor; // Renders a full-screen notice on piece-load if present.
+let notice, noticeTimer, noticeColor, noticeOpts; // Renders a full-screen notice on piece-load if present.
 
 async function load(
   parsed, // If parsed is not an object, then assume it's source code.
@@ -2317,7 +2322,7 @@ async function load(
     // If this is a reload (with no source change) then just create a new
     // blobURL off the old source.
     // TODO: Cache piece code locally / in an intelligent way,
-    //       and then receive socket updates when it changes on the server? 
+    //       and then receive socket updates when it changes on the server?
     if (
       slug.split("~")[0] === currentText?.split("~")[0] &&
       sourceCode == currentCode &&
@@ -3235,16 +3240,20 @@ async function makeFrame({ data: { type, content } }) {
     codeChannel = await store.retrieve("code-channel");
     if (!codeChannel || codeChannel?.length === 0) {
       codeChannel = nanoid();
-      codeChannelAutoLoader = () => {
-        send({
-          type: "post-to-parent",
-          content: { type: "setCode", value: codeChannel },
-        });
-        codeChannelAutoLoader = null;
-      };
+      store["code-channel"] = codeChannel;
+      store.persist("code-channel");
     }
 
     console.log("💻 Code channel:", codeChannel);
+
+    // Always send the codeChannel up to any parent window.
+    codeChannelAutoLoader = () => {
+      send({
+        type: "post-to-parent",
+        content: { type: "setCode", value: codeChannel },
+      });
+      codeChannelAutoLoader = null;
+    };
 
     await handle(); // Get the user's handle.
     originalHost = content.parsed.host;
@@ -4953,6 +4962,7 @@ async function makeFrame({ data: { type, content } }) {
               // { center: "x", y: 32, size: 2 },
               noticeColor[1],
               $api.screen.width - 8,
+              noticeOpts?.wrap === "char" ? false : true,
             );
           //.unpan();
         }
@@ -5253,6 +5263,7 @@ const noticeBell = (api, { tone } = { tone: 600 }) => {
   noticeTimer = new gizmo.Hourglass(160, {
     completed: () => {
       notice = "";
+      noticeOpts = null;
       noticeTimer = null;
       $commonApi.needsPaint();
     },
