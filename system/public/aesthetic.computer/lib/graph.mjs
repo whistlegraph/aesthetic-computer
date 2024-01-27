@@ -404,7 +404,6 @@ function shadePixels(points, shader, shaderArgs = []) {
   }); // Paint each filtered pixel.
 }
 
-// TODO: Implement panTranslation for primitives other than line?
 function pan(x, y) {
   if (typeof x === "object") {
     x = x.x;
@@ -418,6 +417,21 @@ function pan(x, y) {
 function unpan() {
   panTranslation.x = 0;
   panTranslation.y = 0;
+}
+
+let savedPanTranslation;
+
+// Save the local transform.
+function savepan() {
+  savedPanTranslation = { ...panTranslation };
+}
+
+// Restore it.
+function loadpan() {
+  if (savedPanTranslation) {
+    panTranslation.x = savedPanTranslation.x;
+    panTranslation.y = savedPanTranslation.y;
+  }
 }
 
 function copy(destX, destY, srcX, srcY, src, alpha = 1.0) {
@@ -1872,6 +1886,8 @@ export {
   colorsMatch,
   pan,
   unpan,
+  savepan,
+  loadpan,
   skip,
   copy,
   resize,
