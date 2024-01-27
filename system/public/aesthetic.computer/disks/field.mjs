@@ -9,6 +9,7 @@
   - [] Store something persistent on the server.
 #endregion */
 
+import { paint as dragon } from "https://aesthetic.computer/media/@dreamdealer/piece/dragon.mjs";
 
 const scenery = {
   grasses: [
@@ -29,8 +30,10 @@ function background({ wipe }) {
 }
 
 // 🎨 Paint
-function paint({ ink }, world) {
-  ink("green").box(0, 0, world.width, world.height);
+function paint($, world) {
+  const { ink, api, savepan, loadpan, pan, unpan } = $;
+
+  ink("darkgreen").box(0, 0, world.width, world.height);
   //ink("black").line(0, 0, world.width, world.height);
   //ink("red").line(0, world.height, world.width, 0);
 
@@ -43,6 +46,22 @@ function paint({ ink }, world) {
       .line(grass.x, grass.y, grass.x - 5, grass.y - 6)
       .line(grass.x, grass.y, grass.x + 5, grass.y - 6);
   });
+
+  savepan();
+  pan(-40, -40);
+  pan(256, 256);
+  pan(-40, 20);
+
+  ink("green").write("@dreamdealer/dragon", {x: -16, y: -12});
+
+  // Filtered api based on `@dreamdealer/dragon` code.
+  const f$ = { ...$ };
+  f$.screen = { ...$.screen };
+  f$.screen.width = 80;
+  f$.screen.height = 80;
+  dragon(f$);
+
+  loadpan();
 }
 
 // 🚿 Curtain

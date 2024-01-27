@@ -241,6 +241,7 @@ let currentPath,
 //currentPromptButton;
 
 function updateHUDStatus() {
+  console.log("updating hud status...", udp, socket);
   if (udp.connected && socket?.connected) {
     currentHUDStatusColor = "lime";
   } else if (currentHUDStatusColor === "lime") {
@@ -1904,6 +1905,8 @@ const $paintApiUnwrapped = {
   form,
   pan: graph.pan,
   unpan: graph.unpan,
+  savepan: graph.savepan,
+  loadpan: graph.loadpan,
   skip: graph.skip,
   noise16: graph.noise16,
   noise16DIGITPAIN: graph.noise16DIGITPAIN,
