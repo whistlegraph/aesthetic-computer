@@ -672,8 +672,20 @@ async function halt($, text) {
     }
 
     try {
-      const result = await fetch(`https://${host}/${path}.mjs`);
-      if (result.status === 404) throw new Error("📄🚫 Piece not found.");
+      const fullUrl = `https://${host}/${path}.mjs`;
+      console.log("📥 Attempting to load source from url:", fullUrl);
+      let result = await fetch(fullUrl);
+
+      if (result.status === 404) {
+        const anonUrl =
+          "https://art.aesthetic.computer/" + path.split("/").pop() + ".mjs";
+        console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
+        result = await fetch(anonUrl);
+        if (result.status === 404) {
+          throw new Error("📄🚫 Piece not found.");
+        }
+      }
+
       let body = await result.text();
       if (piece === "blank") body = inject(body, `A blank piece.`);
       download(`${piece}.mjs`, body);

@@ -42,8 +42,11 @@
 
 Today:
 
+- [🔴] Landing routes other than `/` do not upgrade the connection colors?
+
 - [x] More immediate coding.
   - [🟠] Get anonymous publishing to work.
+    - [] Make it nice.
     - [-] How to drop in a share-able QR code?
   - [] Get user authorized publishing to work.
   - [] Rename `code-channel` to a full on `channel` piece
@@ -61,7 +64,7 @@ Today:
   - [x] Any code that doesn't parse just print out if no piece is running
        or show an error notice if a piece is.
 
-- [-] Add connection flash to world.
+- [x] Add connection flash to world.
 - [] User world persistence with floating command notifications.
 - [] How to handle multiple handled users in the same room.
      (Make primary vs. a ghost type of view-only behavior?)

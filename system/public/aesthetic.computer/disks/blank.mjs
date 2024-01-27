@@ -22,8 +22,8 @@
 
 // 🎨 Paint
 function paint({ wipe, ink }) {
-  wipe("orange");
-  ink().line(); // Would draw a diagonal line.
+  wipe("blue");
+  ink(0).line(); // Would draw a diagonal line.
 }
 
 // 🎪 Act
