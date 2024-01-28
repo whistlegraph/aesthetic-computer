@@ -264,9 +264,10 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 			</head>
 			<body>
         ${sessionData}
-      <iframe id="aesthetic" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" sandbox="allow-scripts" src="https://${
-        local ? "localhost:8888" : "aesthetic.computer"
-      }" frameborder="0"></iframe>
+        <iframe id="aesthetic" src="https://${
+          local ? "localhost:8888" : "aesthetic.computer"
+        }"></iframe>
+       	<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
   }
