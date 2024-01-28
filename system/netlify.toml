@@ -243,6 +243,10 @@
   to = "/.netlify/functions/run"
   status = 200
 [[redirects]]
+  from = "/redirect-proxy"
+  to = "/.netlify/functions/redirect-proxy"
+  status = 200
+[[redirects]]
   from = "/presigned-upload-url/*"
   to = "/.netlify/functions/presigned-url"
   status = 200
