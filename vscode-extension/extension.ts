@@ -15,6 +15,25 @@ import { AestheticAuthenticationProvider } from "./aestheticAuthenticationProvid
 async function activate(context: vscode.ExtensionContext): Promise<void> {
   local = context.globalState.get("aesthetic:local", false); // Retrieve env.
 
+  if (context.extensionMode === vscode.ExtensionMode.Development) {
+    // Running in development mode
+    console.log("Development");
+    console.log("extensionUri", context.extensionUri);
+  } else if (context.extensionMode === vscode.ExtensionMode.Test) {
+    // Running in test mode
+  } else {
+    // Running in production mode
+    console.log("Production");
+    console.log("extensionUri", context.extensionUri);
+  }
+
+  if (
+    context.extensionUri.path.startsWith("/aesthetic-computer") &&
+    context.extensionUri.scheme === "https"
+  ) {
+    console.log("are we in vscode.dev!?");
+  }
+
   // Authorization
   const ap = new AestheticAuthenticationProvider(context);
   context.subscriptions.push(ap);
