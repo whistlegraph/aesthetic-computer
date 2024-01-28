@@ -40,6 +40,13 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** Extension Post ***       
+  - [🟠] Test and make sure auth works in vscode.dev.
+  - [] Add api docs and auto-complete via the VSCode extension. 
+  - [] Whitelist some of the APIs for the docs.
+  - [] Screen user pieces for fetch requests. (Don't allow them.)
+  - [] Write a great example.
+
 *** `world` <-> `painting` integrations ***
   - [] Be able to easily complete a painting and then include it in a piece
       in a single line...
@@ -62,10 +69,6 @@
   - [] Implement `paste` and send the pixels through the backend.
   + Done
   - [x] Add connection flash to world.
-
-*** Extension Post ***       
-  - [🟠] Test in vscode.dev.
-  - [] Add api docs and auto-complete via the VSCode extension. 
 
 *** `list` ***
   - [🔴] Add a big categorized list.
