@@ -56,15 +56,15 @@ export class AestheticAuthenticationProvider
   }
 
   get redirectUri() {
-    console.log("Window:", window);
-    console.log("Context:", this.context);
+    // Determine if we are hosted in a cloud instance of VS code.
     if (
       this.context.extensionUri.path.startsWith("/aesthetic-computer") &&
       this.context.extensionUri.scheme === "https"
     ) {
       // We are on https://vscode.dev or an associated TLD.
-      return `https://vscode.dev`;
+      return `https://vscode.dev/redirect`;
     } else {
+      // We are running in desktop.
       const publisher = this.context.extension.packageJSON.publisher;
       const name = this.context.extension.packageJSON.name;
       return `${env.uriScheme}://${publisher}.${name}`;
