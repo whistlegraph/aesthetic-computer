@@ -138,15 +138,3 @@ export async function handler(event, context) {
     return respond(500, { message: error });
   }
 }
-
-// async function loadJSON(filePath) {
-//   try {
-//     // Construct the absolute path using __dirname
-//     const absolutePath = path.resolve(__dirname, filePath);
-//     const data = await fs.readFile(absolutePath, "utf8");
-//     return JSON.parse(data);
-//   } catch (error) {
-//     console.error("Error reading the JSON file:", error);
-//     // Handle the error appropriately
-//   }
-// }
