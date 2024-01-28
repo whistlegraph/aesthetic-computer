@@ -4,6 +4,11 @@
 
 function respond(statusCode, body, headers = {}) {
   headers["Content-Type"] = "application/json"; // Always return a JSON reply.
+
+  if (!headers["Access-Control-Allow-Origin"]) {
+    headers["Access-Control-Allow-Origin"] = "*";
+  }
+
   const res = { statusCode, headers };
   if (body) res.body = JSON.stringify(body);
   return res;
