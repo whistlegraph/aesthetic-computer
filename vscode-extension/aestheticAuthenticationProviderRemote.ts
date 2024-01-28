@@ -11,20 +11,24 @@ import {
   UIKind,
   Uri,
   UriHandler,
-  window,
+  window as win,
 } from "vscode";
 import { PromiseAdapter, promiseFromEvent } from "./util";
-// import fetch from 'node-fetch';
-import * as crypto from "crypto";
+
+// Isomorphic use of web `crypto` api across desktop (node) and
+// a web worker (vscode.dev).
+if (typeof crypto === "undefined" && typeof self === "undefined") {
+  var crypto = require("crypto").webcrypto;
+}
 
 export const AUTH_TYPE = `aesthetic`;
 const AUTH_NAME = `Aesthetic Computer`;
 const CLIENT_ID = `LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt`;
 const AUTH0_DOMAIN = `hi.aesthetic.computer`;
 const SESSIONS_SECRET_KEY = `${AUTH_TYPE}.sessions`;
-let REDIRECT_URL : string;
+let REDIRECT_URL: string;
 
-let remoteOutput = window.createOutputChannel("aesthetic");
+let remoteOutput = win.createOutputChannel("aesthetic");
 
 interface TokenInformation {
   access_token: string;
@@ -63,7 +67,6 @@ export class AestheticAuthenticationProvider
     REDIRECT_URL = `https://${
       local ? "localhost:8888" : "aesthetic.computer"
     }/redirect-proxy`;
-
     this._disposable = Disposable.from(
       authentication.registerAuthenticationProvider(
         AUTH_TYPE,
@@ -71,7 +74,7 @@ export class AestheticAuthenticationProvider
         this,
         { supportsMultipleAccounts: false },
       ),
-      window.registerUriHandler(this._uriHandler),
+      win.registerUriHandler(this._uriHandler),
     );
   }
 
@@ -154,16 +157,16 @@ export class AestheticAuthenticationProvider
         throw new Error(`Aesthetic Computer login failure`);
       }
 
-      const userinfo: { name: string; email: string } =
+      const userinfo: { name: string; email: string; sub: string } =
         await this.getUserInfo(access_token);
 
       const session: AestheticAuthenticationSession = {
-        id: dateid(),
+        id: generateRandomString(12),
         accessToken: access_token,
         refreshToken: refresh_token,
         account: {
           label: userinfo.name,
-          id: userinfo.email,
+          id: userinfo.sub,
         },
         scopes: this.getScopes(scopes),
       };
@@ -181,7 +184,7 @@ export class AestheticAuthenticationProvider
 
       return session;
     } catch (e) {
-      window.showErrorMessage(`Sign in failed: ${e}`);
+      win.showErrorMessage(`🔴 Log in failed: ${e}`);
       throw e;
     }
   }
@@ -224,22 +227,22 @@ export class AestheticAuthenticationProvider
    * Log in to Aesthetic Computer
    */
   private async login(scopes: string[] = []): Promise<TokenInformation> {
-    return await window.withProgress<TokenInformation>(
+    return await win.withProgress<TokenInformation>(
       {
         location: ProgressLocation.Notification,
-        title: "Signing in to Aesthetic Computer...",
+        title: "🟡 Logging in to Aesthetic Computer...",
         cancellable: true,
       },
       async (_, token) => {
-        const nonceId = dateid();
+        const nonceId = generateRandomString(12);
 
         const scopeString = scopes.join(" ");
 
         // Retrieve all required scopes
         scopes = this.getScopes(scopes);
 
-        const codeVerifier = toBase64UrlEncoding(crypto.randomBytes(32));
-        const codeChallenge = toBase64UrlEncoding(sha256(codeVerifier));
+        const codeVerifier = generateRandomString(32);
+        const codeChallenge = await sha256(codeVerifier);
 
         let callbackUri = await env.asExternalUri(Uri.parse(this.redirectUri));
 
@@ -441,19 +444,36 @@ export class AestheticAuthenticationProvider
   }
 }
 
-export function toBase64UrlEncoding(buffer: Buffer) {
-  return buffer
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
-}
-
-export function sha256(buffer: string | Uint8Array): Buffer {
-  return crypto.createHash("sha256").update(buffer).digest();
-}
-
 // 📚 Library
-function dateid() {
-  return new Date().toString();
+
+function generateRandomString(n: number): string {
+  const buffer = new Uint8Array(n);
+  crypto.getRandomValues(buffer);
+  return toBase64UrlEncoding(buffer);
+}
+
+export function toBase64UrlEncoding(buffer: Uint8Array): string {
+  let base64String;
+
+  if (typeof Buffer !== "undefined") {
+    // Node.js environment
+    base64String = Buffer.from(buffer).toString("base64");
+  } else {
+    // Browser environment
+    const binaryString = Array.from(buffer)
+      .map((byte) => {
+        return String.fromCharCode(byte);
+      })
+      .join("");
+    base64String = btoa(binaryString);
+  }
+
+  return base64String.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+export async function sha256(buffer: string | Uint8Array): Promise<string> {
+  const data =
+    typeof buffer === "string" ? new TextEncoder().encode(buffer) : buffer;
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return toBase64UrlEncoding(new Uint8Array(hashBuffer));
 }
