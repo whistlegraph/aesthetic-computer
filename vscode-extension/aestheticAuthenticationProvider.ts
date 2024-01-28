@@ -56,9 +56,19 @@ export class AestheticAuthenticationProvider
   }
 
   get redirectUri() {
-    const publisher = this.context.extension.packageJSON.publisher;
-    const name = this.context.extension.packageJSON.name;
-    return `${env.uriScheme}://${publisher}.${name}`;
+    console.log("Window:", window);
+    console.log("Context:", this.context);
+    if (
+      this.context.extensionUri.path.startsWith("/aesthetic-computer") &&
+      this.context.extensionUri.scheme === "https"
+    ) {
+      // We are on https://vscode.dev or an associated TLD.
+      return `https://vscode.dev`;
+    } else {
+      const publisher = this.context.extension.packageJSON.publisher;
+      const name = this.context.extension.packageJSON.name;
+      return `${env.uriScheme}://${publisher}.${name}`;
+    }
   }
 
   /**
