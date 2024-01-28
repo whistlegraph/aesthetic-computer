@@ -17,9 +17,12 @@ import { PromiseAdapter, promiseFromEvent } from "./util";
 
 // Isomorphic use of web `crypto` api across desktop (node) and
 // a web worker (vscode.dev).
-if (typeof crypto === "undefined" && typeof self === "undefined") {
-  var crypto = require("crypto").webcrypto;
-}
+let icrypto : any;
+if (typeof self === "undefined") {
+  icrypto = require("crypto").webcrypto;
+} else {
+  icrypto = crypto;
+} 
 
 export const AUTH_TYPE = `aesthetic`;
 const AUTH_NAME = `Aesthetic Computer`;
@@ -448,7 +451,7 @@ export class AestheticAuthenticationProvider
 
 function generateRandomString(n: number): string {
   const buffer = new Uint8Array(n);
-  crypto.getRandomValues(buffer);
+  icrypto.getRandomValues(buffer);
   return toBase64UrlEncoding(buffer);
 }
 
@@ -474,6 +477,6 @@ export function toBase64UrlEncoding(buffer: Uint8Array): string {
 export async function sha256(buffer: string | Uint8Array): Promise<string> {
   const data =
     typeof buffer === "string" ? new TextEncoder().encode(buffer) : buffer;
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashBuffer = await icrypto.subtle.digest("SHA-256", data);
   return toBase64UrlEncoding(new Uint8Array(hashBuffer));
 }

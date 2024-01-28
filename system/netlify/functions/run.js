@@ -70,7 +70,7 @@ async function fun(event) {
     statusCode: status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      //"Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": "*",
     },
     body: JSON.stringify(out),
   };
