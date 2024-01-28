@@ -67,7 +67,6 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.6",
-    "@types/uuid": "^9.0.7",
     "@types/vscode": "^1.74.2",
     "@vscode/test-web": "^0.0.51",
     "@vscode/vsce": "^2.23.0",

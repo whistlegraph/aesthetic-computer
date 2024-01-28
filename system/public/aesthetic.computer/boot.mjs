@@ -214,10 +214,11 @@ function receive(event) {
   if (event.data.type === "setSession") {
     // Use the session information to authenticate
     const session = event.data.session;
+    console.log("🥀 Session data:", session);
     window.acTOKEN = session.accessToken; // Only set using this flow.
     window.acUSER = { name: session.account.label, sub: session.account.id }; // Will get passed to the first message by the piece runner.
     console.log(
-      "🌻 Got session from a message:",
+      "🌻 Picked up session!",
       window.acTOKEN,
       window.acUSER,
     );
