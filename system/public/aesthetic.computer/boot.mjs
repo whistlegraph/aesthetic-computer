@@ -212,17 +212,18 @@ function receive(event) {
     return;
   }
   if (event.data.type === "setSession") {
-    // Use the session information to authenticate
+    // Use the session information to authenticate, if it exists.
     const session = event.data.session;
     console.log("🥀 Session data:", session);
-    window.acTOKEN = session.accessToken; // Only set using this flow.
-    window.acUSER = { name: session.account.label, sub: session.account.id }; // Will get passed to the first message by the piece runner.
-    console.log(
-      "🌻 Picked up session!",
-      window.acTOKEN,
-      window.acUSER,
-    );
-    window.acSEND({ type: "session:update", content: { user: window.acUSER } });
+    if (session.accessToken && session.account) {
+      window.acTOKEN = session.accessToken; // Only set using this flow.
+      window.acUSER = { name: session.account.label, sub: session.account.id }; // Will get passed to the first message by the piece runner.
+      console.log("🌻 Picked up session!", window.acTOKEN, window.acUSER);
+      window.acSEND({
+        type: "session:update",
+        content: { user: window.acUSER },
+      });
+    }
     return;
   } else if (event.data.type === "clearSession" && window.acTOKEN) {
     window.location.reload();

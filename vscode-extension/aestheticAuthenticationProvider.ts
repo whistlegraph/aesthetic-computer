@@ -121,7 +121,7 @@ export class AestheticAuthenticationProvider
 
       return session;
     } catch (e) {
-      window.showErrorMessage(`Sign in failed: ${e}`);
+      window.showErrorMessage(`🔴 Log in failed: ${e}`);
       throw e;
     }
   }
