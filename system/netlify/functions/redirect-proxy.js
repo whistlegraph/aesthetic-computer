@@ -35,16 +35,43 @@ async function fun(event, context) {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>aesthetic.computer</title>
         <style>
-          body { background: rgb(32, 32, 32); }
+          body {
+             /* background: rgb(32, 32, 32); */
+             background: rgb(50, 30, 60);
+             color: rgb(220, 30, 100);
+             font-family: monospace;
+             display: flex;
+             width: 100vw;
+             height: 100vh;
+          }
+          h1 {
+            font-family: sans-serif;
+            font-weight: normal;
+          }
+          code {
+            font-size: 120%;
+            color: pink;
+            opacity: 0.75;
+          }
+          a {
+            color: white;
+          }
+          #wrapper {
+            margin: auto;
+          }
+          mark {
+            background-color: maroon;
+            color: pink;
+          }
         </style>
     </head>
     <body>
-        <div>
-            <h1>You'll be redirected to Visual Studio Code!</h1>
+        <div id="wrapper">
+            <h1>Redirecting to <code>Visual Studio Code!</code></h1>
             <p>${
               url
                 ? `In case you are not redirected, <a href="${url}" title="Open Visual Studio Code">click here</a>.`
-                : "No redirect URL provided"
+                : "<mark>No redirect URL provided</mark>"
             }</p>
         </div>
         <script>

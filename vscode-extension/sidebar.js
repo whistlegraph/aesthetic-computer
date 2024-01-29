@@ -4,11 +4,39 @@
   // Send session data to iframe
   function sendSessionToIframe(session) {
     const iframe = document.getElementById("aesthetic");
+    console.log("Iframe:", iframe, "Session:", session, iframe && session);
     if (iframe && session) {
-      iframe.contentWindow.postMessage({ type: "setSession", session }, "*");
+      console.log(
+        "sending to boot...",
+        iframe.contentWindow,
+        iframe.src,
+        "top",
+        window.top,
+        "parent:",
+        window.parent,
+      );
+      // x production has a window.top but no window.parent
+      // x and so does local...
+      // so how do i know if i'm in production or not?
+      console.log("Location origin:", window.location.origin);
+      let origin;
+      if (
+        window.location.href.startsWith("vscode-webview") ||
+        window.location.href.startsWith("http://")
+      ) {
+        origin = "https://aesthetic.computer";
+      } else {
+        // not window.top.origin;
+        // not https://vscode.dev
+        // not window.parent.origin
+        // not window.location.origin
+        origin = "*";
+      }
+      console.log("Computed origin:", origin);
+      iframe.contentWindow.postMessage({ type: "setSession", session }, origin);
     } else if (iframe) {
       console.log("🔴 Clearing session...");
-      iframe.contentWindow.postMessage({ type: "clearSession" }, "*");
+      iframe.contentWindow.postMessage({ type: "clearSession" }, origin);
       window.aestheticSession = null;
     }
   }
