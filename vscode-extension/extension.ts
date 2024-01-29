@@ -45,12 +45,15 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
     provider.sessionData = session;
 
+    console.log("Session received:", session);
+    console.log(provider);
+
     return session;
   };
 
   context.subscriptions.push(
     vscode.authentication.onDidChangeSessions(async (e) => {
-      console.log("Changed sessions:", e);
+      // console.log("Changed sessions:", e);
       if (e.provider.id === "aesthetic") {
         const session = await getAestheticSession();
         //if (session) {
