@@ -252,6 +252,12 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
       session,
     )};</script>`;
 
+    let param = "";
+    if (Object.keys(session).length > 0) {
+      const base64EncodedSession = btoa(JSON.stringify(session));
+      param = "?session=" + encodeURIComponent(base64EncodedSession);
+    }
+
     return `<!DOCTYPE html>
 			<html lang="en">
 			<head>
@@ -269,7 +275,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
         ${sessionData}
         <iframe id="aesthetic" sandbox="allow-scripts allow-same-origin" src="https://${
           local ? "localhost:8888" : "aesthetic.computer"
-        }"></iframe>
+        }${param}"></iframe>
        	<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;

@@ -33,7 +33,7 @@ async function fun(event, context) {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>aesthetic.computer</title>
+        <title>🚪 aesthetic.computer</title>
         <style>
           body {
              /* background: rgb(32, 32, 32); */
