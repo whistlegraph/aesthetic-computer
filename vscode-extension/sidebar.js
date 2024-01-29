@@ -47,15 +47,15 @@
   // }
 
   // window.addEventListener("load", () => {
-    // console.log("Loaded webview...", window.aestheticSession);
-    // if (window.aestheticSession) sendSessionToIframe(window.aestheticSession);
+  // console.log("Loaded webview...", window.aestheticSession);
+  // if (window.aestheticSession) sendSessionToIframe(window.aestheticSession);
   // });
 
   // Handle messages sent from the extension to the webview
   window.addEventListener("message", (event) => {
     const message = event.data; // The json data that the extension sent
-    console.log("📶 Received message:", message);
-    console.log("Message type:", message.type);
+    // console.log("📶 Received message:", message);
+    // console.log("Message type:", message.type);
     switch (message.type) {
       case "vscode-extension:reload": {
         vscode.postMessage({ type: "vscode-extension:reload" });
