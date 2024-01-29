@@ -2334,7 +2334,7 @@ async function load(
     } else {
       let response, sourceToRun;
       if (fullUrl) {
-        console.log("📥 Attempting to load piece from url:", fullUrl);
+        console.log("📥 Loading from url:", fullUrl);
         response = await fetch(fullUrl);
         if (response.status === 404) {
           const anonUrl =

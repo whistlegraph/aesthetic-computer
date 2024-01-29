@@ -24,9 +24,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       const session = await vscode.authentication.getSession(
         "aesthetic",
         ["profile"],
-        {
-          createIfNone: true,
-        },
+        { createIfNone: true },
       );
     }),
   );
@@ -39,34 +37,32 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     );
 
     if (session) {
-      // vscode.window.showInformationMessage(`👋 Hi ${session.account.label}`);
-      vscode.window.showInformationMessage(`👋 Welcome back!`);
+      vscode.window.showInformationMessage(
+        `👋 Welcome back! (${session.account.label})`,
+      );
+      context.globalState.update("aesthetic:session", session);
+    } else {
+      context.globalState.update("aesthetic:session", undefined);
+      console.log("😀 Erased session!");
     }
-
-    provider.sessionData = session;
-
-    console.log("Session received:", session);
-    console.log(provider);
 
     return session;
   };
 
   context.subscriptions.push(
     vscode.authentication.onDidChangeSessions(async (e) => {
-      // console.log("Changed sessions:", e);
+      console.log("🏃 Sessions changed:", e);
       if (e.provider.id === "aesthetic") {
-        const session = await getAestheticSession();
-        //if (session) {
-        //  provider.sendMessageToWebview({ type: "setSession", session });
-        //} else {
+        await getAestheticSession();
         provider.refreshWebview();
-        //}
       }
     }),
   );
 
-  const provider = new AestheticViewProvider(context.extensionUri);
-  // await getAestheticSession();
+  const provider = new AestheticViewProvider(
+    context.extensionUri,
+    context.globalState,
+  );
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -145,10 +141,12 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "aestheticComputer.sidebarView";
   private _extensionUri: vscode.Uri;
   private _view?: vscode.WebviewView;
-  public sessionData: any = {};
+  private _globalState: vscode.Memento;
+  // public sessionData: any = {};
 
-  constructor(extensionUri: vscode.Uri) {
+  constructor(extensionUri: vscode.Uri, globalState: vscode.Memento) {
     this._extensionUri = extensionUri;
+    this._globalState = globalState;
   }
 
   // Method to send message to the webview
@@ -161,10 +159,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
   public refreshWebview(): void {
     if (this._view) {
       this._view.title = local ? "Local" : ""; // Update the title if local.
-      this._view.webview.html = this._getHtmlForWebview(
-        this._view.webview,
-        this.sessionData,
-      );
+      this._view.webview.html = this._getHtmlForWebview(this._view.webview);
     }
   }
 
@@ -176,15 +171,13 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
     this._view = webviewView;
     this._view.title = local ? "Local" : ""; // Update the title if local.
 
-    webviewView.webview.options = {
+    // Set retainContextWhenHidden to true
+    this._view.webview.options = {
       enableScripts: true,
       localResourceRoots: [this._extensionUri],
     };
 
-    webviewView.webview.html = this._getHtmlForWebview(
-      webviewView.webview,
-      this.sessionData,
-    );
+    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage((data) => {
       switch (data.type) {
@@ -227,7 +220,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  private _getHtmlForWebview(webview: vscode.Webview, session: any): string {
+  private _getHtmlForWebview(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, "sidebar.js"),
     );
@@ -245,17 +238,21 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
       vscode.Uri.joinPath(this._extensionUri, "vscode.css"),
     );
 
+    const session = this._globalState.get("aesthetic:session", undefined);
+
     console.log("Building session html with:", session);
 
     // Include the session data as a global variable in the webview
-    const sessionData = `<script nonce="${nonce}">window.aestheticSession = ${JSON.stringify(
-      session,
-    )};</script>`;
+    // const sessionData = `<script nonce="${nonce}">window.aestheticSession = ${JSON.stringify(
+    //   session,
+    // )};</script>`;
 
     let param = "";
-    if (Object.keys(session).length > 0) {
-      const base64EncodedSession = btoa(JSON.stringify(session));
-      param = "?session=" + encodeURIComponent(base64EncodedSession);
+    if (typeof session === "object") {
+      if (Object.keys(session)?.length > 0) {
+        const base64EncodedSession = btoa(JSON.stringify(session));
+        param = "?session=" + encodeURIComponent(base64EncodedSession);
+      }
     }
 
     return `<!DOCTYPE html>
@@ -272,10 +269,9 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 				<title>aesthetic.computer</title>
 			</head>
 			<body>
-        ${sessionData}
         <iframe id="aesthetic" sandbox="allow-scripts allow-same-origin" src="https://${
           local ? "localhost:8888" : "aesthetic.computer"
-        }${param}"></iframe>
+        }${param}" border="none"></iframe>
        	<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
