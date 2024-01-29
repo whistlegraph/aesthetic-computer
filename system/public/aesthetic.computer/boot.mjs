@@ -70,23 +70,27 @@ if (!sandboxed && window.auth0) {
     window.history.replaceState({}, document.title, "/");
   }
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const encodedSession = urlParams.get("session");
+  const url = new URL(window.location);
+  const params = url.searchParams;
+  const encodedSession = params.get("session");
   if (encodedSession) {
     const sessionJsonString = atob(decodeURIComponent(encodedSession));
     const session = JSON.parse(sessionJsonString);
-    console.log("Session retrieved:", session);
     // Use the session information to authenticate, if it exists.
     console.log("🥀 Session data:", session);
     if (session.accessToken && session.account) {
       window.acTOKEN = session.accessToken; // Only set using this flow.
-      window.acUSER = { name: session.account.label, sub: session.account.id }; // Will get passed to the first message by the piece runner.
+      window.acUSER = { name: session.account.label, sub: session.account.id };
+      // Will get passed to the first message by the piece runner.
       // console.log("🌻 Picked up session!", window.acTOKEN, window.acUSER);
       // window.acSEND({
       //  type: "session:update",
       //  content: { user: window.acUSER },
       // });
     }
+    params.delete("session"); // Remove the 'session' parameter
+    // Update the URL without reloading the page
+    history.pushState({}, "", url.pathname + "?" + params.toString());
   }
 
   const isAuthenticated = await auth0Client.isAuthenticated();
