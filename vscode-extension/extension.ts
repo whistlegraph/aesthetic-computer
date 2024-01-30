@@ -288,7 +288,7 @@ class AestheticCodeLensProvider implements vscode.CodeLensProvider {
       return word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     }
 
-    const escapedWords = codeLensWords.map(escapeRegExp);
+    const escapedWords = Object.keys(docs.top).map(escapeRegExp);
     const regex = new RegExp(`\\b(${escapedWords.join("|")})\\b`, "gi");
 
     for (let i = 0; i < document.lineCount; i++) {
