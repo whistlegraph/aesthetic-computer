@@ -13,6 +13,27 @@ export async function handler(event, context) {
     return respond(405, { error: "Wrong request type." });
   }
 
+  const boxBody = `
+  <ul>
+  <mark><li>box() <em>A random box</em></li></mark>
+  <li>box(x, y, size) <em>Square from top left corner</em></li>
+  <li>box(x, y, w, h) <em>Rectangle from top left corner</em></li>
+  <li>box(x, y, size, mode) <em>Square with <code>mode</code></em></li>
+  <li>box(x, y, w, h, mode) <em>Rectangle with <code>mode</code></em></li>
+  <li class="subsection"><code>mode</code></li>
+  <em class="small">
+  center &nbsp;- paints a box from the center<br>
+  <hr>
+  outline - paints the outline of a box<br>
+  inline &nbsp;- the opposite of outline<br>
+  <em class="tiny">(thicken with <code>:</code> like <code>outline:4</code>)</em>
+
+  <br>
+  combine modes with <code>*</code> like <code>outline*center</code> or <code>inline:3*center</code> 
+  </em>
+  </ul>
+  `.trim();
+
   return respond(200, {
     top: {
       // 🧩 Top Level Piece Functions
@@ -64,6 +85,16 @@ export async function handler(event, context) {
     },
     // Commands for programming inside of pieces.
     api: {
+      // Generic
+      api: {
+        sig: "api",
+        desc: "Contains all built-in functionality for a piece.",
+      },
+      // Input
+      pen: {
+        sig: "pen: { x, y, ... }",
+        desc: "Contains active mouse + touch pointer data.",
+      },
       // Graphics
       wipe: {
         sig: "wipe(color)",
@@ -76,6 +107,11 @@ export async function handler(event, context) {
       line: {
         sig: "line(x1, y1, x2, y2)",
         desc: "Paint straight a 1px line from two points.",
+      },
+      box: {
+        sig: "box(x, y, w, [h], [mode])",
+        desc: "Paint a box of a given size.",
+        body: boxBody,
       },
     },
     // Pieces that can be entered into the prompt.

@@ -245,10 +245,12 @@ class AestheticDocumentationProvider
   implements vscode.TextDocumentContentProvider
 {
   provideTextDocumentContent(uri: vscode.Uri): string {
-    return `# ${uri.path}\n\`\`\`javascript\n${docs[uri.path].sig}\n\`\`\`\n${
-      docs[uri.path].desc
-    }`;
-    // TODO: Add support for long description here or insert a footer.
+    let out = `# ${uri.path}\n\`\`\`javascript\n${
+      docs[uri.path].sig
+    }\n\`\`\`\n${docs[uri.path].desc}`;
+    if (docs[uri.path].body) out += "\n\n" + docs[uri.path].body;
+    // TODO: Insert a footer here? 24.01.30.12.19
+    return out;
   }
 }
 
