@@ -15,7 +15,7 @@ export async function handler(event, context) {
 
   return respond(200, {
     top: {
-      // Top Level
+      // 🧩 Top Level Piece Functions
       boot: {
         label: "🥾 Boot",
         sig: "boot({ ... })",
@@ -61,13 +61,14 @@ export async function handler(event, context) {
         sig: "icon(api)",
         desc: "Runs once when a piece starts.",
       },
+    },
+    // Commands for programming inside of pieces.
+    api: {
+      // Graphics
       wipe: {
         sig: "wipe(color)",
         desc: "Paint all pixels the same `color`.",
       },
-    },
-    api: {
-      // Graphics
       ink: {
         sig: "ink(color)",
         desc: "Select a `color` for painting with.",
@@ -75,6 +76,20 @@ export async function handler(event, context) {
       line: {
         sig: "line(x1, y1, x2, y2)",
         desc: "Paint straight a 1px line from two points.",
+      },
+    },
+    // Pieces that can be entered into the prompt.
+    pieces: {
+      line: {
+        sig: "line:thickness color",
+        desc: "",
+      },
+    },
+    // Commands for entering into the prompt.
+    prompt: {
+      no: {
+        sig: "no",
+        desc: "",
       },
     },
   });
