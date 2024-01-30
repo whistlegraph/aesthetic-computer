@@ -23,43 +23,43 @@ export async function handler(event, context) {
       },
       paint: {
         label: "🎨 Paint",
-        sig: "paint(api)",
-        desc: "Runs once when a piece starts.",
+        sig: "paint({ ... })",
+        desc: "Repeatedly draw to the screen at the hardware refresh rate.",
       },
       act: {
         label: "🎪 Act",
-        sig: "act(api)",
-        desc: "Runs once when a piece starts.",
+        sig: "act({ ... })",
+        desc: "Respond to user and system input.",
       },
       sim: {
         label: "🧮 Sim",
-        sig: "sim(api)",
-        desc: "Runs once when a piece starts.",
+        sig: "sim({ ... })",
+        desc: "For calculations occurring once per logic frame. (120fps)",
       },
       beat: {
         label: "🥁 Beat",
-        sig: "beat(api)",
-        desc: "Runs once when a piece starts.",
+        sig: "beat({ ... })",
+        desc: "Runs once per system metronome tick, for rhythmic coordination.",
       },
       leave: {
         label: "👋 Leave",
-        sig: "leave(api)",
-        desc: "Runs once when a piece starts.",
+        sig: "leave({ ... })",
+        desc: "Execute code right before the piece is unloaded.",
       },
       meta: {
         label: " 📰 Meta",
-        sig: "meta(api)",
+        sig: "meta({ ... })",
         desc: "Runs once when a piece starts.",
       },
       preview: {
         label: "🖼️ Preview",
-        sig: "preview(api)",
-        desc: "Runs once when a piece starts.",
+        sig: "preview({ ... })",
+        desc: "Paint a custom thumbnail image.",
       },
       icon: {
         label: "🪷 Icon",
-        sig: "icon(api)",
-        desc: "Runs once when a piece starts.",
+        sig: "icon({ ... })",
+        desc: "Paint a piece icon, AKA `favicon`",
       },
     },
     // Commands for programming inside of pieces.
@@ -82,14 +82,22 @@ export async function handler(event, context) {
     pieces: {
       line: {
         sig: "line:thickness color",
-        desc: "",
+        desc: "Paint freehand lines in any `thickness` or `color`",
+      },
+      rect: {
+        sig: "rect color",
+        desc: "Paint rectangles in any `color`",
       },
     },
     // Commands for entering into the prompt.
     prompt: {
       no: {
         sig: "no",
-        desc: "",
+        desc: "Undo the last step of the system painting.",
+      },
+      yes: {
+        sig: "yes",
+        desc: "Redo the last step of the system painting.",
       },
     },
   });
