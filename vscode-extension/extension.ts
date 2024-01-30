@@ -7,7 +7,6 @@
 
 // Import necessary modules from vscode
 import * as vscode from "vscode";
-import fetch from "node-fetch";
 
 import { AestheticAuthenticationProvider } from "./aestheticAuthenticationProviderRemote";
 
@@ -40,27 +39,29 @@ const codeLensLabels: { [key: string]: string } = {
   icon: "🪷 Icon",
 };
 
-let apiWords: any;
+let docsKeys: any;
+let docs: any;
 
 async function activate(context: vscode.ExtensionContext): Promise<void> {
   local = context.globalState.get("aesthetic:local", false); // Retrieve env.
 
-  // Try and populate apiWords from json.
+  // Load the docs from the web.
   try {
-    const url = `https://${
-      local ? "localhost:8888" : "aesthetic.computer"
-    }/api/docs`;
-    console.log("Fetching from...", url);
+    //const url = `https://${ // local ? "localhost:8888" : "aesthetic.computer" }/api/docs`;
+    const url = `https://aesthetic.computer/api/docs`;
     const response = await fetch(url);
-    if (!response.ok)
-      throw new Error(`🔴 Couldn't load docs: ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     const data: any = await response.json();
     console.log("📚 Docs loaded:", data);
-    apiWords = data.apiWords;
+    docsKeys = Object.keys(data.api);
+    docs = data.api;
   } catch (error) {
-    console.error(`🔴 Couldn't fetch docs: ${error}`);
+    console.error("Failed to fetch documentation:", error);
   }
 
+  // Register the command in your extension
   const docScheme = "aesthetic"; // A unique scheme for your documentation
   const docProvider = new AestheticDocumentationProvider();
   vscode.workspace.registerTextDocumentContentProvider(docScheme, docProvider);
@@ -76,7 +77,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       ): vscode.ProviderResult<
         vscode.CompletionItem[] | vscode.CompletionList
       > {
-        return apiWords.map((word) => new vscode.CompletionItem(word));
+        return docsKeys.map((word: string) => new vscode.CompletionItem(word));
       },
     },
   );
@@ -88,12 +89,12 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       const range = document.getWordRangeAtPosition(position);
       const word = document.getText(range);
 
-      if (apiWords.indexOf(word) > -1) {
+      if (docsKeys.indexOf(word) > -1) {
         const contents = new vscode.MarkdownString();
         contents.isTrusted = true; // Enable for custom markdown.
-        contents.appendCodeblock(`${word}(COLOR)`, "javascript");
+        contents.appendCodeblock(`${docs[word].sig}`, "javascript");
         contents.appendText("\n\n");
-        contents.appendMarkdown(`Fills the screen with a solid \`COLOR\``);
+        contents.appendMarkdown(`${docs[word].desc}`);
         return new vscode.Hover(contents, range);
       }
     },
@@ -112,7 +113,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         const range = document.getWordRangeAtPosition(position);
         const word = document.getText(range);
 
-        if (apiWords.indexOf(word) > -1) {
+        if (docsKeys.indexOf(word) > -1) {
           const uri = vscode.Uri.parse(`${docScheme}:${word}`);
           vscode.workspace.openTextDocument(uri).then((doc) => {
             // This will open the document as Markdown
@@ -268,8 +269,10 @@ class AestheticDocumentationProvider
   implements vscode.TextDocumentContentProvider
 {
   provideTextDocumentContent(uri: vscode.Uri): string {
-    console.log("Providing text for:", uri);
-    return `# ${uri.path}\n\`\`\`javascript\nwipe(COLOR)\n\`\`\`\nFills the screen with a solid color.`;
+    return `# ${uri.path}\n\`\`\`javascript\n${docs[uri.path].sig}\n\`\`\`\n${
+      docs[uri.path].desc
+    }`;
+    // TODO: Add support for long description here or insert a footer.
   }
 }
 
