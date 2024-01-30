@@ -201,6 +201,10 @@
   to = "/.netlify/functions/auth"
   status = 200
 [[redirects]]
+  from = "/api/docs"
+  to = "/.netlify/functions/docs"
+  status = 200
+[[redirects]]
   from = "/api/vary"
   to = "/.netlify/functions/vary"
   status = 200
