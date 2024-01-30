@@ -42,10 +42,13 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   const docProvider = new AestheticDocumentationProvider();
   vscode.workspace.registerTextDocumentContentProvider(docScheme, docProvider);
   const codeLensProvider = new AestheticCodeLensProvider();
-  vscode.languages.registerCodeLensProvider("javascript", codeLensProvider);
+  vscode.languages.registerCodeLensProvider(
+    { language: "javascript", pattern: "**/*.mjs" },
+    codeLensProvider,
+  );
 
   const completionProvider = vscode.languages.registerCompletionItemProvider(
-    "javascript",
+    { language: "javascript", pattern: "**/*.mjs" },
     {
       provideCompletionItems(
         document: vscode.TextDocument,
@@ -60,26 +63,29 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   context.subscriptions.push(completionProvider);
 
-  const hoverProvider = vscode.languages.registerHoverProvider("javascript", {
-    provideHover(document, position) {
-      const range = document.getWordRangeAtPosition(position);
-      const word = document.getText(range);
+  const hoverProvider = vscode.languages.registerHoverProvider(
+    { language: "javascript", pattern: "**/*.mjs" },
+    {
+      provideHover(document, position) {
+        const range = document.getWordRangeAtPosition(position);
+        const word = document.getText(range);
 
-      if (Object.keys(mergedDocs).indexOf(word) > -1) {
-        const contents = new vscode.MarkdownString();
-        contents.isTrusted = true; // Enable for custom markdown.
-        contents.appendCodeblock(`${mergedDocs[word].sig}`, "javascript");
-        contents.appendText("\n\n");
-        contents.appendMarkdown(`${mergedDocs[word].desc}`);
-        return new vscode.Hover(contents, range);
-      }
+        if (Object.keys(mergedDocs).indexOf(word) > -1) {
+          const contents = new vscode.MarkdownString();
+          contents.isTrusted = true; // Enable for custom markdown.
+          contents.appendCodeblock(`${mergedDocs[word].sig}`, "javascript");
+          contents.appendText("\n\n");
+          contents.appendMarkdown(`${mergedDocs[word].desc}`);
+          return new vscode.Hover(contents, range);
+        }
+      },
     },
-  });
+  );
 
   context.subscriptions.push(hoverProvider);
 
   const definitionProvider = vscode.languages.registerDefinitionProvider(
-    "javascript",
+    { language: "javascript", pattern: "**/*.mjs" },
     {
       provideDefinition(
         document,
@@ -249,6 +255,17 @@ class AestheticDocumentationProvider
       mergedDocs[uri.path].sig
     }\n\`\`\`\n${mergedDocs[uri.path].desc}`;
     if (mergedDocs[uri.path].body) out += "\n\n" + mergedDocs[uri.path].body;
+
+    // function getSvgUri(
+    //   extensionUri: vscode.Uri,
+    //   relativePath: string,
+    // ): vscode.Uri {
+    //   const svgPath = vscode.Uri.joinPath(extensionUri, relativePath);
+    //   const svgUri = svgPath.with({ scheme: "vscode-resource" });
+    //   return svgUri;
+    // }
+
+    out += `\n\n <center><img width="128" src="https://assets.aesthetic.computer/images/purple-pals.svg"></center>`;
     // TODO: Insert a footer here? 24.01.30.12.19
     return out;
   }
