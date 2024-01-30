@@ -1,19 +1,71 @@
 // VSCode Extension, 23.06.24.18.58
-// A VSCode extension for live reloading aesthetic.computer pieces.
+// A VSCode extension for live coding aesthetic.computer pieces and
+// exploring the system documentation.
 
-/* #region todo 📓 
+/* #region TODO 📓 
 #endregion */
 
 // Import necessary modules from vscode
 import * as vscode from "vscode";
+import fetch from "node-fetch";
+
+import { AestheticAuthenticationProvider } from "./aestheticAuthenticationProviderRemote";
 
 let local: boolean = false;
 let codeChannel: string | undefined;
 
-import { AestheticAuthenticationProvider } from "./aestheticAuthenticationProviderRemote";
+let codeLensWords = [
+  "boot",
+  "paint",
+  "act",
+  "sim",
+  "beat",
+  "leave",
+  "meta",
+  "preview",
+  "icon",
+];
+
+// Top level functions.
+codeLensWords = codeLensWords.map((word) => "function " + word);
+const codeLensLabels: { [key: string]: string } = {
+  boot: "🥾 Boot",
+  paint: "🎨 Paint",
+  act: "🎪 Act",
+  sim: "🧮 Sim",
+  beat: "🥁 Beat",
+  leave: "👋 Leave",
+  meta: " 📰 Meta",
+  preview: "🖼️ Preview",
+  icon: "🪷 Icon",
+};
+
+let apiWords: any;
 
 async function activate(context: vscode.ExtensionContext): Promise<void> {
   local = context.globalState.get("aesthetic:local", false); // Retrieve env.
+
+  // Try and populate apiWords from json.
+  try {
+    const url = `https://${
+      local ? "localhost:8888" : "aesthetic.computer"
+    }/api/docs`;
+    console.log("Fetching from...", url);
+    const response = await fetch(url);
+    if (!response.ok)
+      throw new Error(`🔴 Couldn't load docs: ${response.status}`);
+    const data: any = await response.json();
+    console.log("📚 Docs loaded:", data);
+    apiWords = data.apiWords;
+  } catch (error) {
+    console.error(`🔴 Couldn't fetch docs: ${error}`);
+  }
+
+  const docScheme = "aesthetic"; // A unique scheme for your documentation
+  const docProvider = new AestheticDocumentationProvider();
+  vscode.workspace.registerTextDocumentContentProvider(docScheme, docProvider);
+  const codeLensProvider = new AestheticCodeLensProvider();
+  vscode.languages.registerCodeLensProvider("javascript", codeLensProvider);
 
   const completionProvider = vscode.languages.registerCompletionItemProvider(
     "javascript",
@@ -77,12 +129,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   context.subscriptions.push(
     vscode.commands.registerCommand("extension.openDoc", (functionName) => {
       const uri = vscode.Uri.parse(`${docScheme}:${functionName}`);
-      vscode.workspace.openTextDocument(uri).then((doc) => {
-        vscode.window.showTextDocument(doc, {
-          preview: true,
-          viewColumn: vscode.ViewColumn.Beside,
-        });
-      });
+      vscode.commands.executeCommand("markdown.showPreviewToSide", uri);
     }),
   );
 
@@ -217,34 +264,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
 // 📓 Documentation
 
-let codeLensWords = [
-  "boot",
-  "paint",
-  "act",
-  "sim",
-  "beat",
-  "leave",
-  "meta",
-  "preview",
-  "icon",
-];
-
-// Top level functions.
-codeLensWords = codeLensWords.map((word) => "function " + word);
-const codeLensLabels: { [key: string]: string } = {
-  boot: "🥾 Boot",
-  paint: "🎨 Paint",
-  act: "🎪 Act",
-  sim: "🧮 Sim",
-  beat: "🥁 Beat",
-  leave: "👋 Leave",
-  meta: " 📰 Meta",
-  preview: "🖼️ Preview",
-  icon: "🪷 Icon",
-};
-
-const apiWords = ["ink", "wipe"];
-
 class AestheticDocumentationProvider
   implements vscode.TextDocumentContentProvider
 {
@@ -254,6 +273,7 @@ class AestheticDocumentationProvider
   }
 }
 
+// This is just for top-level functions and maybe something at the very top?
 class AestheticCodeLensProvider implements vscode.CodeLensProvider {
   provideCodeLenses(
     document: vscode.TextDocument,
@@ -293,12 +313,6 @@ class AestheticCodeLensProvider implements vscode.CodeLensProvider {
     return codeLenses;
   }
 }
-
-const docScheme = "aesthetic"; // A unique scheme for your documentation
-const docProvider = new AestheticDocumentationProvider();
-vscode.workspace.registerTextDocumentContentProvider(docScheme, docProvider);
-const codeLensProvider = new AestheticCodeLensProvider();
-vscode.languages.registerCodeLensProvider("javascript", codeLensProvider);
 
 // 🪟 Panel Rendering
 

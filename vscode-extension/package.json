@@ -83,5 +83,8 @@
     "@vscode/vsce": "^2.23.0",
     "esbuild": "^0.20.0",
     "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
   }
 }
