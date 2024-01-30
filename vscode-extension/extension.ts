@@ -265,7 +265,7 @@ class AestheticDocumentationProvider
     //   return svgUri;
     // }
 
-    out += `\n\n <center><img width="128" src="https://assets.aesthetic.computer/images/purple-pals.svg"></center>`;
+    out += `\n\n <img align="right" width="48" src="https://assets.aesthetic.computer/images/purple-pals.svg">`;
     // TODO: Insert a footer here? 24.01.30.12.19
     return out;
   }

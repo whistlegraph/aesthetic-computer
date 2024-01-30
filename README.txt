@@ -39,18 +39,20 @@
 😀 TODO 😆
 
 🌟 Projects in Progress (PIP) 🌟
-*** Extension Post ***       
-    - [] Wire up the API data so it's live and remote.
-  - [] Whitelist some of the APIs for the docs and for usage.
-    - [] Screen user pieces for fetch requests. (Don't allow them.)
-    - [] Write a great example.
-  - [] The API data should be loaded remotely so docs can reploy with
-       site changes and the extension doesn't need a version bump to 
-       keep up.
-  - [x] Test and make sure auth works in vscode.dev.
-  - [x] Add api docs and auto-complete via the VSCode extension. 
 
-*** `world` <-> `painting` integrations ***
+*** `list` ***
+  - [🔴] Add a big categorized `list` command that pulls from `api/docs`.
+  - [-] Enter `list` to view existing commands.
+
+*** docs ***
+  - [] Whitelist some of the APIs for the docs and for usage in user pieces.
+  - [] I guess this means it needs to load the api once whenever a user piece loads?
+    - [] Screen user pieces for fetch requests. (Don't allow them.)
+    - [] Write a great example / polish the pieces repo.
+  - [] Can I programmatically use `api/doc` to whitelist the api
+       if it's code running from a user piece and the `run` endpoint?
+
+*** `world` <-> `painting` <-> piece integrations ***
   - [] Be able to easily complete a painting and then include it in a piece
       in a single line...
   - [] Maybe I could overload `paste` to include user strings...
@@ -73,9 +75,6 @@
   + Done
   - [x] Add connection flash to world.
 
-*** `list` ***
-  - [🔴] Add a big categorized list.
-  - [] Enter list to view existing commands.
 *** load performance ***
   - [🟡] Spend a half day just on getting the site to load faster.
 *** `pic` `pix` ***
