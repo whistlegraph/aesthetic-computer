@@ -13,33 +13,7 @@ import { AestheticAuthenticationProvider } from "./aestheticAuthenticationProvid
 let local: boolean = false;
 let codeChannel: string | undefined;
 
-let codeLensWords = [
-  "boot",
-  "paint",
-  "act",
-  "sim",
-  "beat",
-  "leave",
-  "meta",
-  "preview",
-  "icon",
-];
-
-// Top level functions.
-codeLensWords = codeLensWords.map((word) => "function " + word);
-const codeLensLabels: { [key: string]: string } = {
-  boot: "🥾 Boot",
-  paint: "🎨 Paint",
-  act: "🎪 Act",
-  sim: "🧮 Sim",
-  beat: "🥁 Beat",
-  leave: "👋 Leave",
-  meta: " 📰 Meta",
-  preview: "🖼️ Preview",
-  icon: "🪷 Icon",
-};
-
-let docsKeys: any;
+let apiKeys: any;
 let docs: any;
 
 async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -55,8 +29,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     }
     const data: any = await response.json();
     console.log("📚 Docs loaded:", data);
-    docsKeys = Object.keys(data.api);
-    docs = data.api;
+    apiKeys = Object.keys(data.api);
+    docs = data;
   } catch (error) {
     console.error("Failed to fetch documentation:", error);
   }
@@ -77,7 +51,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       ): vscode.ProviderResult<
         vscode.CompletionItem[] | vscode.CompletionList
       > {
-        return docsKeys.map((word: string) => new vscode.CompletionItem(word));
+        return apiKeys.map((word: string) => new vscode.CompletionItem(word));
       },
     },
   );
@@ -89,7 +63,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       const range = document.getWordRangeAtPosition(position);
       const word = document.getText(range);
 
-      if (docsKeys.indexOf(word) > -1) {
+      if (apiKeys.indexOf(word) > -1) {
         const contents = new vscode.MarkdownString();
         contents.isTrusted = true; // Enable for custom markdown.
         contents.appendCodeblock(`${docs[word].sig}`, "javascript");
@@ -113,7 +87,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         const range = document.getWordRangeAtPosition(position);
         const word = document.getText(range);
 
-        if (docsKeys.indexOf(word) > -1) {
+        if (apiKeys.indexOf(word) > -1) {
           const uri = vscode.Uri.parse(`${docScheme}:${word}`);
           vscode.workspace.openTextDocument(uri).then((doc) => {
             // This will open the document as Markdown
@@ -305,7 +279,7 @@ class AestheticCodeLensProvider implements vscode.CodeLensProvider {
         const docKey = word.toLowerCase().replace("function ", "");
 
         const command = {
-          title: codeLensLabels[docKey],
+          title: docs.top[docKey].label,
           command: "extension.openDoc",
           arguments: [docKey],
         };
