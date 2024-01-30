@@ -14,18 +14,67 @@ export async function handler(event, context) {
   }
 
   return respond(200, {
-    api: {
+    top: {
+      // Top Level
+      boot: {
+        label: "🥾 Boot",
+        sig: "boot({ ... })",
+        desc: "Runs once when a piece starts.",
+      },
+      paint: {
+        label: "🎨 Paint",
+        sig: "paint(api)",
+        desc: "Runs once when a piece starts.",
+      },
+      act: {
+        label: "🎪 Act",
+        sig: "act(api)",
+        desc: "Runs once when a piece starts.",
+      },
+      sim: {
+        label: "🧮 Sim",
+        sig: "sim(api)",
+        desc: "Runs once when a piece starts.",
+      },
+      beat: {
+        label: "🥁 Beat",
+        sig: "beat(api)",
+        desc: "Runs once when a piece starts.",
+      },
+      leave: {
+        label: "👋 Leave",
+        sig: "leave(api)",
+        desc: "Runs once when a piece starts.",
+      },
+      meta: {
+        label: " 📰 Meta",
+        sig: "meta(api)",
+        desc: "Runs once when a piece starts.",
+      },
+      preview: {
+        label: "🖼️ Preview",
+        sig: "preview(api)",
+        desc: "Runs once when a piece starts.",
+      },
+      icon: {
+        label: "🪷 Icon",
+        sig: "icon(api)",
+        desc: "Runs once when a piece starts.",
+      },
       wipe: {
         sig: "wipe(color)",
         desc: "Paint all pixels the same `color`.",
       },
+    },
+    api: {
+      // Graphics
       ink: {
         sig: "ink(color)",
-        desc: "Select a `color` for painting with."
+        desc: "Select a `color` for painting with.",
       },
       line: {
         sig: "line(x1, y1, x2, y2)",
-        desc: "Paint straight a 1px line from two points."
+        desc: "Paint straight a 1px line from two points.",
       },
     },
   });
