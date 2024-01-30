@@ -14,6 +14,7 @@ let local: boolean = false;
 let codeChannel: string | undefined;
 
 let apiKeys: any;
+let hoverDocs: any;
 let docs: any;
 
 async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -30,6 +31,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     const data: any = await response.json();
     console.log("📚 Docs loaded:", data);
     apiKeys = Object.keys(data.api);
+    hoverDocs = { ...data.api, ...data.top };
     docs = data;
   } catch (error) {
     console.error("Failed to fetch documentation:", error);
@@ -63,12 +65,12 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       const range = document.getWordRangeAtPosition(position);
       const word = document.getText(range);
 
-      if (apiKeys.indexOf(word) > -1) {
+      if (Object.keys(hoverDocs).indexOf(word) > -1) {
         const contents = new vscode.MarkdownString();
         contents.isTrusted = true; // Enable for custom markdown.
-        contents.appendCodeblock(`${docs[word].sig}`, "javascript");
+        contents.appendCodeblock(`${hoverDocs[word].sig}`, "javascript");
         contents.appendText("\n\n");
-        contents.appendMarkdown(`${docs[word].desc}`);
+        contents.appendMarkdown(`${hoverDocs[word].desc}`);
         return new vscode.Hover(contents, range);
       }
     },
@@ -262,7 +264,9 @@ class AestheticCodeLensProvider implements vscode.CodeLensProvider {
       return word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     }
 
-    const escapedWords = Object.keys(docs.top).map(escapeRegExp);
+    const escapedWords = Object.keys(docs.top)
+      .map((word) => "function " + word)
+      .map(escapeRegExp);
     const regex = new RegExp(`\\b(${escapedWords.join("|")})\\b`, "gi");
 
     for (let i = 0; i < document.lineCount; i++) {
