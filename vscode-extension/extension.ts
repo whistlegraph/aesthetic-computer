@@ -14,7 +14,7 @@ let local: boolean = false;
 let codeChannel: string | undefined;
 
 let apiKeys: any;
-let hoverDocs: any;
+let mergedDocs: any;
 let docs: any;
 
 async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -31,7 +31,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     const data: any = await response.json();
     console.log("📚 Docs loaded:", data);
     apiKeys = Object.keys(data.api);
-    hoverDocs = { ...data.api, ...data.top };
+    mergedDocs = { ...data.api, ...data.top };
     docs = data;
   } catch (error) {
     console.error("Failed to fetch documentation:", error);
@@ -65,12 +65,12 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       const range = document.getWordRangeAtPosition(position);
       const word = document.getText(range);
 
-      if (Object.keys(hoverDocs).indexOf(word) > -1) {
+      if (Object.keys(mergedDocs).indexOf(word) > -1) {
         const contents = new vscode.MarkdownString();
         contents.isTrusted = true; // Enable for custom markdown.
-        contents.appendCodeblock(`${hoverDocs[word].sig}`, "javascript");
+        contents.appendCodeblock(`${mergedDocs[word].sig}`, "javascript");
         contents.appendText("\n\n");
-        contents.appendMarkdown(`${hoverDocs[word].desc}`);
+        contents.appendMarkdown(`${mergedDocs[word].desc}`);
         return new vscode.Hover(contents, range);
       }
     },
@@ -246,9 +246,9 @@ class AestheticDocumentationProvider
 {
   provideTextDocumentContent(uri: vscode.Uri): string {
     let out = `# ${uri.path}\n\`\`\`javascript\n${
-      docs[uri.path].sig
-    }\n\`\`\`\n${docs[uri.path].desc}`;
-    if (docs[uri.path].body) out += "\n\n" + docs[uri.path].body;
+      mergedDocs[uri.path].sig
+    }\n\`\`\`\n${mergedDocs[uri.path].desc}`;
+    if (mergedDocs[uri.path].body) out += "\n\n" + mergedDocs[uri.path].body;
     // TODO: Insert a footer here? 24.01.30.12.19
     return out;
   }
