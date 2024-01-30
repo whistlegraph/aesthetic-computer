@@ -1,28 +1,25 @@
-// List, 2024.1.23.22.58.33.239
-// A directory of all pieces and commands.
+// List, 2024.1.30.13.18.29.955
+// A directory of all system pieces and prompt commands.
 
 /* #region 📚 README 
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Make list here in comments...
-
-
-
-  - [] Add scrollability behavior from the `prutti` pages.
-       (Maybe also generalize this scrollable behavior?)
+  - [] Draw a purple line.
 #endregion */
 
 // 🥾 Boot
-function boot({ api, wipe }) {
-  wipe("teal"); // Clear's the screen. Can use R, G, B or CSS colors.
-}
+// function boot({ api }) {
+// Runs once at the start.
+// }
 
 // 🎨 Paint
-function paint({ api, ink, line, pen, box }) {
-  ink("red").line(0, 0, 100, 100);
-  return false; // Uncomment for proce55ing's "noLoop" functionality.
+function paint({ wipe, ink }) {
+  wipe("red");
+  ink(0).line(); // Would draw a diagonal line.
 }
+
+
 
 // 🎪 Act
 // function act({ event: e }) {
@@ -48,7 +45,7 @@ function paint({ api, ink, line, pen, box }) {
 function meta() {
   return {
     title: "List",
-    desc: "A directory of all pieces and commands.",
+    desc: "A directory of all system pieces and prompt commands.",
   };
 }
 
@@ -62,7 +59,7 @@ function meta() {
 // Render an application icon, aka favicon.
 // }
 
-export { boot, paint, meta };
+export { paint, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
