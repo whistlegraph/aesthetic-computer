@@ -14,18 +14,18 @@ export async function handler(event, context) {
   }
 
   const boxBody = `
-  <mark><code>box()</code> <em>A random box</em></li></mark><br>
+  <code>box()</code> <em>A random box</em></li><br>
   <code>box(x, y, size)</code></code> <em>Square from top left corner</em><br>
-  <code>box(x, y, w, h)</code> <em>Rectangle from top left corner</em><br>
+  <mark><code>box(x, y, w, h)</code> <em>Rectangle from top left corner</em></mark><br>
   <code>box(x, y, size, mode)</code> <em>Square with <code>mode</code></em><br>
   <code>box(x, y, w, h, mode)</code> <em>Rectangle with <code>mode</code></em><br>
   <br>
+  <hr>
   <code>mode</code>
   <br>
-  center &nbsp;- paints a box from the center<br>
-  <hr>
-  outline - paints the outline of a box<br>
-  inline &nbsp;- the opposite of outline<br>
+  <code>center</code> &nbsp;- paints a box from the center<br>
+  <code>outline</code> - paints the outline of a box<br>
+  <code>inline</code> &nbsp;- the opposite of outline<br>
   <em>(thicken with <code>:</code> like <code>outline:4</code>)</em>
   <br>
   combine modes with <code>*</code> like <code>outline*center</code> or <code>inline:3*center</code> 
@@ -106,7 +106,7 @@ export async function handler(event, context) {
         desc: "Paint straight a 1px line from two points.",
       },
       box: {
-        sig: "box(x, y, w, [h], [mode])",
+        sig: "box(x, y, w, h)",
         desc: "Paint a box of a given size.",
         body: boxBody,
       },
