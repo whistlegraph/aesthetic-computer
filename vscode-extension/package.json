@@ -4,7 +4,7 @@
   "displayName": "Aesthetic Computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.52.0",
+  "version": "1.53.0",
   "description": "Code, run, and publish your pieces.",
   "engines": {
     "vscode": "^1.74.2"
@@ -26,8 +26,18 @@
   },
   "main": "./out/extension.js",
   "browser": "./out/extension.js",
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:javascript"
+  ],
   "contributes": {
+    "languages": [
+      {
+        "id": "javascript",
+        "extensions": [
+          ".mjs"
+        ]
+      }
+    ],
     "commands": [
       {
         "command": "aestheticComputer.logIn",

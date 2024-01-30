@@ -39,13 +39,15 @@
 😀 TODO 😆
 
 🌟 Projects in Progress (PIP) 🌟
-
 *** Extension Post ***       
-  - [🟠] Test and make sure auth works in vscode.dev.
   - [] Add api docs and auto-complete via the VSCode extension. 
-  - [] Whitelist some of the APIs for the docs.
-  - [] Screen user pieces for fetch requests. (Don't allow them.)
-  - [] Write a great example.
+  - [] Whitelist some of the APIs for the docs and for usage.
+    - [] Screen user pieces for fetch requests. (Don't allow them.)
+    - [] Write a great example.
+  - [] The API data should be loaded remotely so docs can reploy with
+       site changes and the extension doesn't need a version bump to 
+       keep up.
+  - [x] Test and make sure auth works in vscode.dev.
 
 *** `world` <-> `painting` integrations ***
   - [] Be able to easily complete a painting and then include it in a piece

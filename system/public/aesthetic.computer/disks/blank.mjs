@@ -27,6 +27,7 @@ function paint({ wipe, ink }) {
 }
 
 
+
 // 🎪 Act
 // function act({ event: e }) {
 //  // Respond to user input here.
