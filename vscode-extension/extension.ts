@@ -15,7 +15,81 @@ import { AestheticAuthenticationProvider } from "./aestheticAuthenticationProvid
 async function activate(context: vscode.ExtensionContext): Promise<void> {
   local = context.globalState.get("aesthetic:local", false); // Retrieve env.
 
-  // Authorization
+  const completionProvider = vscode.languages.registerCompletionItemProvider(
+    "javascript",
+    {
+      provideCompletionItems(
+        document: vscode.TextDocument,
+        position: vscode.Position,
+      ): vscode.ProviderResult<
+        vscode.CompletionItem[] | vscode.CompletionList
+      > {
+        return apiWords.map((word) => new vscode.CompletionItem(word));
+      },
+    },
+  );
+
+  context.subscriptions.push(completionProvider);
+
+  const hoverProvider = vscode.languages.registerHoverProvider("javascript", {
+    provideHover(document, position) {
+      const range = document.getWordRangeAtPosition(position);
+      const word = document.getText(range);
+
+      if (apiWords.indexOf(word) > -1) {
+        const contents = new vscode.MarkdownString();
+        contents.isTrusted = true; // Enable for custom markdown.
+        contents.appendCodeblock(`${word}(COLOR)`, "javascript");
+        contents.appendText("\n\n");
+        contents.appendMarkdown(`Fills the screen with a solid \`COLOR\``);
+        return new vscode.Hover(contents, range);
+      }
+    },
+  });
+
+  context.subscriptions.push(hoverProvider);
+
+  const definitionProvider = vscode.languages.registerDefinitionProvider(
+    "javascript",
+    {
+      provideDefinition(
+        document,
+        position,
+        token,
+      ): vscode.ProviderResult<vscode.Definition | vscode.DefinitionLink[]> {
+        const range = document.getWordRangeAtPosition(position);
+        const word = document.getText(range);
+
+        if (apiWords.indexOf(word) > -1) {
+          const uri = vscode.Uri.parse(`${docScheme}:${word}`);
+          vscode.workspace.openTextDocument(uri).then((doc) => {
+            // This will open the document as Markdown
+            vscode.commands.executeCommand("markdown.showPreviewToSide", uri);
+          });
+          return null;
+        }
+
+        return null;
+      },
+    },
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("extension.openDoc", (functionName) => {
+      const uri = vscode.Uri.parse(`${docScheme}:${functionName}`);
+      vscode.workspace.openTextDocument(uri).then((doc) => {
+        vscode.window.showTextDocument(doc, {
+          preview: true,
+          viewColumn: vscode.ViewColumn.Beside,
+        });
+      });
+    }),
+  );
+
+  // Add definitionProvider to context.subscriptions if necessary
+  context.subscriptions.push(definitionProvider);
+
+  // 🗝️ Authorization
   const ap = new AestheticAuthenticationProvider(context, local);
   context.subscriptions.push(ap);
 
@@ -59,6 +133,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     }),
   );
 
+  // GUI
+
   const provider = new AestheticViewProvider(
     context.extensionUri,
     context.globalState,
@@ -70,6 +146,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       provider,
     ),
   );
+
+  // 🧩 Piece Running
 
   // Send piece code through the code channel.
   function upload() {
@@ -136,6 +214,93 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     }
   });
 }
+
+// 📓 Documentation
+
+let codeLensWords = [
+  "boot",
+  "paint",
+  "act",
+  "sim",
+  "beat",
+  "leave",
+  "meta",
+  "preview",
+  "icon",
+];
+
+// Top level functions.
+codeLensWords = codeLensWords.map((word) => "function " + word);
+const codeLensLabels: { [key: string]: string } = {
+  boot: "🥾 Boot",
+  paint: "🎨 Paint",
+  act: "🎪 Act",
+  sim: "🧮 Sim",
+  beat: "🥁 Beat",
+  leave: "👋 Leave",
+  meta: " 📰 Meta",
+  preview: "🖼️ Preview",
+  icon: "🪷 Icon",
+};
+
+const apiWords = ["ink", "wipe"];
+
+class AestheticDocumentationProvider
+  implements vscode.TextDocumentContentProvider
+{
+  provideTextDocumentContent(uri: vscode.Uri): string {
+    console.log("Providing text for:", uri);
+    return `# ${uri.path}\n\`\`\`javascript\nwipe(COLOR)\n\`\`\`\nFills the screen with a solid color.`;
+  }
+}
+
+class AestheticCodeLensProvider implements vscode.CodeLensProvider {
+  provideCodeLenses(
+    document: vscode.TextDocument,
+    // token: vscode.CancellationToken,
+  ): vscode.CodeLens[] {
+    let codeLenses: vscode.CodeLens[] = [];
+
+    function escapeRegExp(word: string) {
+      return word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    const escapedWords = codeLensWords.map(escapeRegExp);
+    const regex = new RegExp(`\\b(${escapedWords.join("|")})\\b`, "gi");
+
+    for (let i = 0; i < document.lineCount; i++) {
+      const line = document.lineAt(i);
+      let matches;
+      while ((matches = regex.exec(line.text)) !== null) {
+        const word = matches[0];
+        const range = new vscode.Range(
+          i,
+          matches.index,
+          i,
+          matches.index + word.length,
+        );
+        const docKey = word.toLowerCase().replace("function ", "");
+
+        const command = {
+          title: codeLensLabels[docKey],
+          command: "extension.openDoc",
+          arguments: [docKey],
+        };
+        codeLenses.push(new vscode.CodeLens(range, command));
+      }
+    }
+
+    return codeLenses;
+  }
+}
+
+const docScheme = "aesthetic"; // A unique scheme for your documentation
+const docProvider = new AestheticDocumentationProvider();
+vscode.workspace.registerTextDocumentContentProvider(docScheme, docProvider);
+const codeLensProvider = new AestheticCodeLensProvider();
+vscode.languages.registerCodeLensProvider("javascript", codeLensProvider);
+
+// 🪟 Panel Rendering
 
 class AestheticViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "aestheticComputer.sidebarView";
@@ -277,6 +442,8 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 			</html>`;
   }
 }
+
+// 📚 Library
 
 function getNonce(): string {
   let text = "";
