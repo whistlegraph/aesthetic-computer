@@ -13,5 +13,20 @@ export async function handler(event, context) {
     return respond(405, { error: "Wrong request type." });
   }
 
-  return respond(200, { apiWords: ["line", "ink", "dog"], whatever: "ok" });
+  return respond(200, {
+    api: {
+      wipe: {
+        sig: "wipe(color)",
+        desc: "Paint all pixels the same `color`.",
+      },
+      ink: {
+        sig: "ink(color)",
+        desc: "Select a `color` for painting with."
+      },
+      line: {
+        sig: "line(x1, y1, x2, y2)",
+        desc: "Paint straight a 1px line from two points."
+      },
+    },
+  });
 }
