@@ -14,24 +14,21 @@ export async function handler(event, context) {
   }
 
   const boxBody = `
-  <ul>
-  <mark><li>box() <em>A random box</em></li></mark>
-  <li>box(x, y, size) <em>Square from top left corner</em></li>
-  <li>box(x, y, w, h) <em>Rectangle from top left corner</em></li>
-  <li>box(x, y, size, mode) <em>Square with <code>mode</code></em></li>
-  <li>box(x, y, w, h, mode) <em>Rectangle with <code>mode</code></em></li>
-  <li class="subsection"><code>mode</code></li>
-  <em class="small">
+  <mark><code>box()</code> <em>A random box</em></li></mark><br>
+  <code>box(x, y, size)</code></code> <em>Square from top left corner</em><br>
+  <code>box(x, y, w, h)</code> <em>Rectangle from top left corner</em><br>
+  <code>box(x, y, size, mode)</code> <em>Square with <code>mode</code></em><br>
+  <code>box(x, y, w, h, mode)</code> <em>Rectangle with <code>mode</code></em><br>
+  <br>
+  <code>mode</code>
+  <br>
   center &nbsp;- paints a box from the center<br>
   <hr>
   outline - paints the outline of a box<br>
   inline &nbsp;- the opposite of outline<br>
-  <em class="tiny">(thicken with <code>:</code> like <code>outline:4</code>)</em>
-
+  <em>(thicken with <code>:</code> like <code>outline:4</code>)</em>
   <br>
   combine modes with <code>*</code> like <code>outline*center</code> or <code>inline:3*center</code> 
-  </em>
-  </ul>
   `.trim();
 
   return respond(200, {
