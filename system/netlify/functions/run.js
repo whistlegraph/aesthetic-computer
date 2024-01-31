@@ -58,7 +58,13 @@ async function fun(event) {
       );
       out = { result: "Piece code received!" };
       console.log(out);
-      return { statusCode: 200, body: "Reloaded!" };
+      return {
+        statusCode: 200,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: "Reloaded!",
+      };
     } catch (err) {
       status = 500;
       out = { result: `Error receiving piece code: ${err.message}` };

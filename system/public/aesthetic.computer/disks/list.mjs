@@ -5,43 +5,58 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Draw a purple line.
+  - [-] Grab list from api. 
 #endregion */
 
-// 🥾 Boot
-// function boot({ api }) {
-// Runs once at the start.
-// }
+let docs;
 
-// 🎨 Paint
-function paint({ wipe, ink }) {
-  wipe("red");
-  ink(0).line(); // Would draw a diagonal line.
+function boot({ net }) {
+  // 📔 Get the docs off the api.
+  fetch("https://" + net.host + "/api/docs")
+    .then((response) => {
+      if (response.status !== 200) {
+        throw new Error("Network failure: " + response.status);
+      } else return response.json();
+    })
+    .then((json) => {
+      console.log("📚 Got docs:", json);
+      docs = json;
+    })
+    .catch((err) => console.error("🔴 📚 Couldn't get docs:", err));
 }
 
+const { keys } = Object;
 
+function paint({ wipe, ink, screen, text }) {
+  wipe("black");
+  if (!docs) return;
+  // TODO: Reference `prutti`
+  ink("white").write(
+    keys(docs.pieces).join("\n"),
+    { x: 6, y: 22 },
+    undefined,
+    screen.width,
+    false,
+  );
 
-// 🎪 Act
+}
+
 // function act({ event: e }) {
 //  // Respond to user input here.
 // }
 
-// 🧮 Sim
 // function sim() {
 //  // Runs once per logic frame. (120fps locked.)
 // }
 
-// 🥁 Beat
 // function beat() {
 //   // Runs once per metronomic BPM.
 // }
 
-// 👋 Leave
 // function leave() {
 //  // Runs once before the piece is unloaded.
 // }
 
-// 📰 Meta
 function meta() {
   return {
     title: "List",
@@ -49,17 +64,15 @@ function meta() {
   };
 }
 
-// 🖼️ Preview
 // function preview({ ink, wipe }) {
 // Render a custom thumbnail image.
 // }
 
-// 🪷 Icon
 // function icon() {
 // Render an application icon, aka favicon.
 // }
 
-export { paint, meta };
+export { boot, paint, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
