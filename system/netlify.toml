@@ -122,6 +122,11 @@
   to = "https://aesthetic-computer.netlify.app/wand"
   status = 301
   force = true
+[[redirects]]
+  from = "https://edit.ac"
+  to = "https://vscode.dev/github/digitpain/aesthetic.computer-code/blob/main/blank.mjs"
+  status = 301
+  force = true
 # [[redirects]]
 #   from = "https://aesthetic.direct"
 #   to = "https://tiktok.com/@aesthetic.direct"
