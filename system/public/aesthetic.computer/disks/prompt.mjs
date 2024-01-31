@@ -641,7 +641,7 @@ async function halt($, text) {
     send({ type: "post-to-parent", content: { type: "runPiece" } });
     makeFlash($);
     return true;
-  } else if (text.startsWith("code")) {
+  } else if (text.startsWith("code") || text.startsWith("edit")) {
     jump(
       "out:https://vscode.dev/github/digitpain/aesthetic.computer-code/blob/main/blank.mjs",
     );
