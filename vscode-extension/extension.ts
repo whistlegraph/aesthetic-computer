@@ -39,7 +39,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   // Register the command in your extension
   const docScheme = "aesthetic"; // A unique scheme for your documentation
-  const docProvider = new AestheticDocumentationProvider();
+  const docProvider = new AestheticDocumentationProvider(context.extensionUri);
   vscode.workspace.registerTextDocumentContentProvider(docScheme, docProvider);
   const codeLensProvider = new AestheticCodeLensProvider();
   vscode.languages.registerCodeLensProvider(
@@ -250,22 +250,19 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 class AestheticDocumentationProvider
   implements vscode.TextDocumentContentProvider
 {
+  private _extensionUri: vscode.Uri;
+
+  constructor(extensionUri: vscode.Uri) {
+    this._extensionUri = extensionUri;
+  }
+
   provideTextDocumentContent(uri: vscode.Uri): string {
+
     let out = `# ${uri.path}\n\`\`\`javascript\n${
       mergedDocs[uri.path].sig
     }\n\`\`\`\n${mergedDocs[uri.path].desc}`;
     if (mergedDocs[uri.path].body) out += "\n\n" + mergedDocs[uri.path].body;
-
-    // function getSvgUri(
-    //   extensionUri: vscode.Uri,
-    //   relativePath: string,
-    // ): vscode.Uri {
-    //   const svgPath = vscode.Uri.joinPath(extensionUri, relativePath);
-    //   const svgUri = svgPath.with({ scheme: "vscode-resource" });
-    //   return svgUri;
-    // }
-
-    out += `\n\n <img align="right" width="48" src="https://assets.aesthetic.computer/images/purple-pals.svg">`;
+    out += `\n\n <img align="right" width="49" src="https://aesthetic.computer/purple-pals.svg">`;
     // TODO: Insert a footer here? 24.01.30.12.19
     return out;
   }
