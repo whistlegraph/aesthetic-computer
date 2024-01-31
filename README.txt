@@ -44,6 +44,11 @@
   - [🔴] Add a big categorized `list` command that pulls from `api/docs`.
   - [-] Enter `list` to view existing commands.
 
+*** casting ***
+  - [] Get a nice headset that I can actually record Fedora screencasts with so
+       I can start posting simple tutorials from my laptop / possibly edited
+       on my phone or even on AC through screen recording?
+
 *** docs ***
   - [] Whitelist some of the APIs for the docs and for usage in user pieces.
   - [] I guess this means it needs to load the api once whenever a user piece loads?
