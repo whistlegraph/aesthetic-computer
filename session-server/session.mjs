@@ -5,7 +5,6 @@
 
 /* #region todo 📓 
  + Now
- - [] Add `obscenity` filter. 
  + Possible Concerns
  - [?] `code.channel` should return a promise, and wait for a
       `code-channel:subbed`.
@@ -13,6 +12,7 @@
     doesn't go through or if there is a server issue. 23.07.04.18.01
     (Might not actually be that necessary.)
  + Done
+ - [x] Add `obscenity` filter. 
  - [x] Conditional redis sub to dev updates. (Will save bandwidth if extension
        gets lots of use, also would be more secure.) 
  - [x] Secure the "code" path to require a special string.
@@ -350,6 +350,9 @@ wss.on("connection", (ws, req) => {
           console.log(`${label}:`, msg.content);
         }
 
+        // Intercept chats and filter them.
+        if (label === "write") msg.content = filter(msg.content);
+
         // All world: messages are only broadcast to "others".
         others(JSON.stringify(msg));
         return;
@@ -445,6 +448,7 @@ if (dev) {
   // 2. Watch base system files.
   chokidar
     .watch([
+      "../system/netlify/functions",
       "../system/public/aesthetic.computer/lib",
       "../system/public/aesthetic.computer/systems", // This doesn't need a full reload / could just reload the disk module?
       "../system/public/aesthetic.computer/boot.js",

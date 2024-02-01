@@ -3,14 +3,14 @@
 // written.
 
 function respond(statusCode, body, headers = {}) {
-  headers["Content-Type"] = "application/json"; // Always return a JSON reply.
+  if (!headers["Content-Type"]) headers["Content-Type"] = "application/json"; // Default return a JSON reply.
 
   if (!headers["Access-Control-Allow-Origin"]) {
     headers["Access-Control-Allow-Origin"] = "*";
   }
 
   const res = { statusCode, headers };
-  if (body) res.body = JSON.stringify(body);
+  res.body = typeof body === "object" ? JSON.stringify(body) : body;
   return res;
 }
 

@@ -5,7 +5,6 @@ import { URLSearchParams } from "url";
 import { parse, metadata } from "../../public/aesthetic.computer/lib/parse.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { networkInterfaces } from "os";
-
 const dev = process.env.CONTEXT === "dev";
 
 async function fun(event, context) {
@@ -213,7 +212,7 @@ async function fun(event, context) {
     headers: {
       "Content-Type": "text/html",
       "Cross-Origin-Embedder-Policy": "require-corp",
-      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
       "Cross-Origin-Resource-Policy": "cross-origin",
     },
     body,

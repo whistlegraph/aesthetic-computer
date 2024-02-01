@@ -641,6 +641,10 @@ async function halt($, text) {
     send({ type: "post-to-parent", content: { type: "runPiece" } });
     makeFlash($);
     return true;
+  } else if (text.startsWith("docs")) {
+    jump("out:/docs");
+    makeFlash($);
+    return true;
   } else if (text.startsWith("code") || text.startsWith("edit")) {
     jump(
       "out:https://vscode.dev/github/digitpain/aesthetic.computer-code/blob/main/blank.mjs",
@@ -1411,7 +1415,7 @@ function reply(text) {
 // 📰 Meta
 function meta() {
   return {
-    title: "prompt · aesthetic.computer",
+    title: "prompt · Aesthetic Computer",
     desc: "Type anything to get started.",
   };
 }

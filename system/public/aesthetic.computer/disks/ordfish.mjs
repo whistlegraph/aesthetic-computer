@@ -265,10 +265,10 @@ function beat({ num, sound: { bpm, synth } }) {
 function meta({ params }) {
   let title;
   if (!params[0]) {
-    title = "Ordfish · aesthetic.computer";
+    title = "Ordfish · Aesthetic Computer";
   } else {
     parseParams(params);
-    title = `Ordfish - ${code} · aesthetic.computer`;
+    title = `Ordfish - ${code} · Aesthetic Computer`;
   }
   return {
     title,
