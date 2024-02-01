@@ -15,6 +15,7 @@ let codeChannel: string | undefined;
 
 let apiKeys: any;
 let mergedDocs: any;
+let docsTemplate: any;
 let docs: any;
 
 async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -22,8 +23,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   // Load the docs from the web.
   try {
-    //const url = `https://${ // local ? "localhost:8888" : "aesthetic.computer" }/api/docs`;
-    const url = `https://aesthetic.computer/api/docs`;
+    // const url = `https://${ // local ? "localhost:8888" : "aesthetic.computer" }/api/docs`;
+    const url = `https://aesthetic.computer/api/docs.json`;
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -32,6 +33,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     console.log("📚 Docs loaded:", data);
     apiKeys = Object.keys(data.api);
     mergedDocs = { ...data.api, ...data.top };
+    docsTemplate = data.template;
     docs = data;
   } catch (error) {
     console.error("Failed to fetch documentation:", error);
@@ -98,8 +100,37 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         if (apiKeys.indexOf(word) > -1) {
           const uri = vscode.Uri.parse(`${docScheme}:${word}`);
           vscode.workspace.openTextDocument(uri).then((doc) => {
-            // This will open the document as Markdown
-            vscode.commands.executeCommand("markdown.showPreviewToSide", uri);
+            const content = doc.getText();
+            const panel = vscode.window.createWebviewPanel(
+              "docView",
+              "📚 " + word + " · Aesthetic Computer",
+              vscode.ViewColumn.Two,
+              { enableScripts: true },
+            );
+
+            // Function to get the current theme kind (light, dark, or high contrast)
+            function getThemeKind() {
+              switch (vscode.window.activeColorTheme.kind) {
+                case vscode.ColorThemeKind.Light:
+                  return "light";
+                case vscode.ColorThemeKind.Dark:
+                  return "dark";
+                case vscode.ColorThemeKind.HighContrast:
+                  return "high-contrast";
+                default:
+                  return "dark"; // Default to dark theme
+              }
+            }
+
+            // Send the initial theme to the webview
+            panel.webview.postMessage({ theme: getThemeKind() });
+
+            // Listen for theme changes and send updates to the webview
+            vscode.window.onDidChangeActiveColorTheme(() => {
+              panel.webview.postMessage({ theme: getThemeKind() });
+            });
+
+            panel.webview.html = content; // Set the webview's HTML content
           });
           return null;
         }
@@ -251,13 +282,12 @@ class AestheticDocumentationProvider
   implements vscode.TextDocumentContentProvider
 {
   provideTextDocumentContent(uri: vscode.Uri): string {
-    let out = `# ${uri.path}\n\`\`\`javascript\n${
-      mergedDocs[uri.path].sig
-    }\n\`\`\`\n${mergedDocs[uri.path].desc}`;
-    if (mergedDocs[uri.path].body) out += "\n\n" + mergedDocs[uri.path].body;
-    out += `\n\n<img align="right" width="49" src="https://aesthetic.computer/purple-pals.svg">`;
-    // TODO: Insert a footer here? 24.01.30.12.19
-    return out;
+    const name = uri.path;
+    const doc = mergedDocs[name];
+    return docsTemplate
+      .replaceAll("$name", name)
+      .replaceAll("$sig", doc.sig)
+      .replaceAll("$desc", doc.desc);
   }
 }
 

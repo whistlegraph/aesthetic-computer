@@ -407,7 +407,7 @@ async function act($) {
 // 📰 Meta
 function meta() {
   return {
-    title: "prompt · aesthetic.computer",
+    title: "prompt · Aesthetic Computer",
     desc: "Type a command to get started.",
   };
 }

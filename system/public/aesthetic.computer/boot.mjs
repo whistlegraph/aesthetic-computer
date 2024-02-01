@@ -234,7 +234,7 @@ function receive(event) {
     console.log("Bytes:", event.data.bytes.length);
     return;
   }
-  if (event.data.type === "setSession") {
+  if (event.data?.type === "setSession") {
     // Use the session information to authenticate, if it exists.
     const session = event.data.session;
     console.log("🥀 Session data:", session);
@@ -248,8 +248,15 @@ function receive(event) {
       });
     }
     return;
-  } else if (event.data.type === "clearSession" && window.acTOKEN) {
+  } else if (event.data?.type === "clearSession" && window.acTOKEN) {
     window.location.reload();
+    return;
+  } else if (event.data?.startsWith?.("docs:")) {
+    console.log("Docs link got!");
+    window.acSEND({
+      type: "docs:link",
+      content: event.data.split(":").pop(),
+    });
     return;
   }
 }

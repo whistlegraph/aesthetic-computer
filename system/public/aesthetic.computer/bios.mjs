@@ -2733,7 +2733,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (Aesthetic) {
           iOSAppSend({ type: "url", body: content.url });
         } else {
-          window.open(content.url, "_blank"); // Open URL in a new tab
+          window.open(content.url); // Open URL in a new tab
         }
       } else {
         window.location.href = content.url; // Redirect in the current tab
