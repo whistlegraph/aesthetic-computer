@@ -3276,6 +3276,13 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Capture a link from the docs system.
+  if (type === "docs:link") {
+    console.log("📚 Doc link captured:", content);
+    $commonApi.jump("prompt~" + content);
+    return;
+  }
+
   // Capture the browser scroll wheel / scroll effect.
   if (type === "scroll") {
     const $api = cachedAPI;

@@ -32,7 +32,7 @@ function paint({ wipe, ink, screen, text }) {
   if (!docs) return;
   // TODO: Reference `prutti`
   ink("white").write(
-    keys(docs.pieces).join("\n"),
+    keys(docs.pieces).map((key) => key + " - " + docs.pieces[key].desc.replaceAll("`", "")).join("\n"),
     { x: 6, y: 22 },
     undefined,
     screen.width,

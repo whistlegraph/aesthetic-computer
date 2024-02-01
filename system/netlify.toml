@@ -70,7 +70,7 @@
     # These headers are required in order for SharedArrayBuffer to be enabled.
     # Currently used by ffmpeg.wasm. 22.08.06.11.01
     Cross-Origin-Embedder-Policy = "require-corp"
-    # Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Opener-Policy = "same-origin-allow-popups"
     Cross-Origin-Resource-Policy = "cross-origin"
 [[headers]]
   for = "/*.mjs|/*.js"
@@ -206,8 +206,16 @@
   to = "/.netlify/functions/auth"
   status = 200
 [[redirects]]
-  from = "/api/docs"
+  from = "/docs/*"
+  to = "/.netlify/functions/docs/:splat"
+  status = 200
+[[redirects]]
+  from = "/api/docs.json"
   to = "/.netlify/functions/docs"
+  status = 200
+[[redirects]]
+  from = "/api/docs/*"
+  to = "/.netlify/functions/docs/:splat"
   status = 200
 [[redirects]]
   from = "/api/vary"

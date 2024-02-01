@@ -44,18 +44,20 @@
   - [🔴] Add a big categorized `list` command that pulls from `api/docs`.
   - [-] Enter `list` to view existing commands.
 
-*** casting ***
-  - [] Get a nice headset that I can actually record Fedora screencasts with so
-       I can start posting simple tutorials from my laptop / possibly edited
-       on my phone or even on AC through screen recording?
-
 *** docs ***
+  - [] Build `docs` pages.
+  - [] Should it be called docs?
   - [] Whitelist some of the APIs for the docs and for usage in user pieces.
   - [] I guess this means it needs to load the api once whenever a user piece loads?
     - [] Screen user pieces for fetch requests. (Don't allow them.)
     - [] Write a great example / polish the pieces repo.
   - [] Can I programmatically use `api/doc` to whitelist the api
        if it's code running from a user piece and the `run` endpoint?
+
+*** casting ***
+  - [] Get a nice headset that I can actually record Fedora screencasts with so
+       I can start posting simple tutorials from my laptop / possibly edited
+       on my phone or even on AC through screen recording?
 
 *** `world` <-> `painting` <-> piece integrations ***
   - [] Be able to easily complete a painting and then include it in a piece

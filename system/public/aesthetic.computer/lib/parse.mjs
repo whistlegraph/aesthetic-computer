@@ -134,9 +134,9 @@ function metadata(host, slug, pieceMetadata) {
   // Use a default title if there is no override.
   const title =
     pieceMetadata?.title ||
-    (slug !== "prompt" ? slug + " · aesthetic.computer" : "aesthetic.computer");
+    (slug !== "prompt" ? slug + " · Aesthetic Computer" : "Aesthetic Computer");
   // Use existing or default description.
-  const desc = pieceMetadata?.desc || "An aesthetic.computer piece.";
+  const desc = pieceMetadata?.desc || "An Aesthetic Computer piece.";
 
   // See also: `index.js`
   let ogImage, twitterImage;
