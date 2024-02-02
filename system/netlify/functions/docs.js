@@ -15,6 +15,7 @@
 import { respond } from "../../backend/http.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 const dev = process.env.CONTEXT === "dev";
+const { keys } = Object;
 
 // GET A user's `sub` id from either their handle or email address.
 export async function handler(event, context) {
@@ -43,116 +44,155 @@ export async function handler(event, context) {
   `.trim();
 
   const docs = {
-    top: {
-      // 🧩 Top Level Piece Functions
-      boot: {
-        label: "🥾 Boot",
-        sig: "boot({ ... })",
-        desc: "Runs once when a piece starts.",
-      },
-      paint: {
-        label: "🎨 Paint",
-        sig: "paint({ ... })",
-        desc: "Repeatedly draw to the screen at the hardware refresh rate.",
-      },
-      act: {
-        label: "🎪 Act",
-        sig: "act({ ... })",
-        desc: "Respond to user and system input.",
-      },
-      sim: {
-        label: "🧮 Sim",
-        sig: "sim({ ... })",
-        desc: "For calculations occurring once per logic frame. (120fps)",
-      },
-      beat: {
-        label: "🥁 Beat",
-        sig: "beat({ ... })",
-        desc: "Runs once per system metronome tick, for rhythmic coordination.",
-      },
-      leave: {
-        label: "👋 Leave",
-        sig: "leave({ ... })",
-        desc: "Execute code right before the piece is unloaded.",
-      },
-      meta: {
-        label: " 📰 Meta",
-        sig: "meta({ ... })",
-        desc: "Runs once when a piece starts.",
-      },
-      preview: {
-        label: "🖼️ Preview",
-        sig: "preview({ ... })",
-        desc: "Paint a custom thumbnail image.",
-      },
-      icon: {
-        label: "🪷 Icon",
-        sig: "icon({ ... })",
-        desc: "Paint a piece icon, AKA `favicon`",
-      },
-    },
     // Commands for programming inside of pieces.
     api: {
-      // Generic
-      api: {
-        sig: "api",
-        desc: "Contains all built-in functionality for a piece.",
+      // 🏛️ Generic
+      structure: {
+        // 🧩 Top Level Piece Functions
+        boot: {
+          label: "🥾 Boot",
+          sig: "boot({ ... })",
+          desc: "Runs once when a piece starts.",
+          done: false,
+        },
+        paint: {
+          label: "🎨 Paint",
+          sig: "paint({ ... })",
+          desc: "Repeatedly draw to the screen at the hardware refresh rate.",
+          done: false,
+        },
+        act: {
+          label: "🎪 Act",
+          sig: "act({ ... })",
+          desc: "Respond to user and system input.",
+          done: false,
+        },
+        sim: {
+          label: "🧮 Sim",
+          sig: "sim({ ... })",
+          desc: "For calculations occurring once per logic frame. (120fps)",
+          done: false,
+        },
+        beat: {
+          label: "🥁 Beat",
+          sig: "beat({ ... })",
+          desc: "Runs once per system metronome tick, for rhythmic coordination.",
+          done: false,
+        },
+        leave: {
+          label: "👋 Leave",
+          sig: "leave({ ... })",
+          desc: "Execute code right before the piece is unloaded.",
+          done: false,
+        },
+        meta: {
+          label: " 📰 Meta",
+          sig: "meta({ ... })",
+          desc: "Runs once when a piece starts.",
+          done: false,
+        },
+        preview: {
+          label: "🖼️ Preview",
+          sig: "preview({ ... })",
+          desc: "Paint a custom thumbnail image.",
+          done: false,
+        },
+        icon: {
+          label: "🪷 Icon",
+          sig: "icon({ ... })",
+          desc: "Paint a piece icon, AKA `favicon`",
+          done: false,
+        },
+        api: {
+          sig: "api",
+          desc: "References all built-in functionality for a top-level function.",
+          done: false,
+        },
       },
-      // Input
-      pen: {
-        sig: "pen: { x, y, ... }",
-        desc: "Contains active mouse + touch pointer data.",
+      // 🖱️ Interaction
+      interaction: {
+        pen: {
+          sig: "pen: { x, y, ... }",
+          desc: "Contains active mouse + touch pointer data.",
+          done: false,
+        },
       },
-      // Graphics
-      wipe: {
-        sig: "wipe(color)",
-        desc: "Paint all pixels the same `color`.",
+      // 🖌️ Graphics
+      graphics: {
+        wipe: {
+          sig: "wipe(color)",
+          desc: "Paint all pixels the same `color`.",
+          done: false,
+        },
+        ink: {
+          sig: "ink(color)",
+          desc: "Select a `color` for painting with.",
+          done: false,
+        },
+        line: {
+          sig: "line(x1, y1, x2, y2)",
+          desc: "Paint straight a 1px line from two points.",
+          done: false,
+        },
+        box: {
+          sig: "box(x, y, w, h)",
+          desc: "Paint a box of a given size.",
+          body: boxBody,
+          done: false,
+        },
       },
-      ink: {
-        sig: "ink(color)",
-        desc: "Select a `color` for painting with.",
+      number: {
+        randInt: {
+          sig: "randInt(n)",
+          desc: "Gets a random integer.",
+          done: false,
+        },
       },
-      line: {
-        sig: "line(x1, y1, x2, y2)",
-        desc: "Paint straight a 1px line from two points.",
-      },
-      box: {
-        sig: "box(x, y, w, h)",
-        desc: "Paint a box of a given size.",
-        body: boxBody,
+      help: {
+        choose: {
+          sig: "choose(a, b, ...)",
+          desc: "Randomly return one of the arguments.",
+          done: false,
+        },
       },
     },
-    // Pieces that can be entered into the prompt.
+    // 🧩 Pieces that can be entered into the prompt.
     pieces: {
       // Brushes
       line: {
         sig: "line:thickness color",
         desc: "Paint freehand lines in any `thickness` or `color`",
+        done: false,
       },
       rect: {
         sig: "rect color",
         desc: "Paint rectangles in any `color`",
+        done: false,
       },
       smear: {
         sig: "smear size",
         desc: "Smear pixels on your painting.",
+        done: false,
       },
       crop: {
         sig: "crop",
         desc: "Crop your painting.",
+        done: false,
       },
       // Characters
       // ...
     },
-    // Commands for entering into the prompt.
+    // 😱 Commands for entering into the prompt.
     prompts: {
       no: {
         sig: "no",
         desc: "Undo the last step of the system painting.",
+        done: false,
       },
       yes: {
         sig: "yes",
         desc: "Redo the last step of the system painting.",
+        done: false,
       },
     },
   };
@@ -178,23 +218,49 @@ export async function handler(event, context) {
         body {
           margin: 0;
           font-size: 22px;
-        }
-        body,
-        p {
           font-family: monospace;
-          padding-right: 16px;
         }
-        h1 a,
-        h1 a:visited {
+        body.doc {
+          overflow-x: hidden;
+        }
+        h1 a, h1 a:visited {
           color: inherit;
-          text-decoration: none;
           cursor: inherit;
+          text-decoration: none;
+        }
+        .links a[data-done=false] {
+          text-decoration: line-through; 
         }
         h1 {
           font-weight: normal;
           font-size: 22px;
           margin: 0;
           position: fixed;
+        }
+        h1:after {
+          content: "";
+          height: 2.5em;
+          width: 100vw;
+          position: absolute;
+          z-index: -1;
+          top: -16px;
+          left: -16px;
+        }
+        h1[data-done=false]:after {
+          content: "wip";
+          color: yellow;
+          background: maroon;
+          position: absolute;
+          right: -32px;
+          top: 0px;
+          display: block;
+          font-size: 50%;
+          padding: 0px 3px 2px 3px;
+          border-radius: 2px;
+        }
+        h2 {
+          font-weight: normal;
+          font-size: 18px;
         }
         iframe {
           position: fixed;
@@ -213,12 +279,18 @@ export async function handler(event, context) {
           position: fixed;
           bottom: 5px;
           right: 16px;
+          user-select: none;
         }
         p {
           margin-top: 0;
         }
+        #command-list, #docs-welcome {
+          margin-top: 1.5em;
+        }
+        #docs-welcome {
+          padding: 0;
+        }
         #title {
-          position: relative;
           display: inline-block;
         }
         #title.block:after {
@@ -243,6 +315,48 @@ export async function handler(event, context) {
           opacity: 0.25;
           font-size: 100%;
         }
+        .code-doc {
+          padding-top: 2.5em;
+          font-size: 65%;
+          padding-left: 1px;
+        }
+        .code-doc-welcome {
+          padding-top: 2.75em;
+          font-size: 65%;
+          padding-bottom: 3em;
+        }
+        pre {
+          margin-top: 1em;
+          margin-bottom: 1em;
+        }
+        pre code.hljs.language-javascript {
+          padding: 0.2em 0em;
+          position: relative;
+          overflow-x: visible;
+        }
+        pre code.hljs.language-javascript:after {
+          content: "";
+          height: 100%;
+          top: 0;
+          right: -16px;
+          width: 16;
+          background-color: #f3f3f3;
+          position: absolute;
+        }
+        pre code.hljs.language-javascript:before {
+          content: "";
+          height: 100%;
+          top: 0;
+          left: -16px;
+          width: 16px;
+          background-color: #f3f3f3;
+          position: absolute;
+        }
+        .links a {
+          text-decoration: none;
+          /* border: 1px solid; */
+          padding: 4px;
+        }
         @media (prefers-color-scheme: dark) {
           body {
             background-color: rgb(64, 56, 74);
@@ -251,14 +365,48 @@ export async function handler(event, context) {
           h1 a:hover {
             color: rgb(205, 92, 155);
           }
+          h1:after {
+            background-image: linear-gradient(to bottom, rgba(64, 56, 74, 0.75) 80%, transparent);
+          }
+          .hljs-title.function_ {
+            color: rgb(225, 105, 175);
+          }
+          .language-javascript.hljs {
+            color: white;
+          }
+          pre code.hljs.language-javascript,
+          pre code.hljs.language-javascript:after,
+          pre code.hljs.language-javascript:before {
+            background: rgb(25, 0, 25);
+          }
+          .links a {
+            color: rgb(205, 92, 155);
+          }
+          .links a.top-level {
+            color: rgb(92, 205, 155);
+          }
         }
         @media (prefers-color-scheme: light) {
           body {
-            background-color: rgba(255, 255, 255, 0.85);
+            background-color: rgba(244, 235, 250);
+          }
+          a.prompt, a.prompt:visited {
             color: rgb(64, 56, 74);
           }
-          h1 a:hover {
+          h1 a:hover, a.prompt:hover {
             color: rgb(205, 92, 155);
+          }
+          h1:after {
+            background-image: linear-gradient(to bottom, rgba(244, 235, 250, 0.75) 80%, transparent);
+          }
+          .hljs-title.function_ {
+            color: rgb(205, 92, 155);
+          }
+          .links a {
+            color: rgb(180, 72, 135);
+          }
+          .links a.top-level {
+            color: green;
           }
         }
         /* body.light {
@@ -289,16 +437,14 @@ export async function handler(event, context) {
         hljs.highlightAll();
       </script>
     </head>
-    <body>
+    <body$bodyclass>
       <section>$content</section>
       <img
         id="pals"
         width="64"
         src="https://${event.headers["host"]}/purple-pals.svg"
       />
-      <!--<iframe src="https://${event.headers[
-        "host"
-      ]}/prompt~docs"></iframe>-->
+      <!--<iframe src="https://${event.headers["host"]}/prompt~docs"></iframe>-->
       <script>
         window.addEventListener("message", (event) => {
           const message = event.data; // The JSON data our extension sent
@@ -359,18 +505,17 @@ export async function handler(event, context) {
   </html>`.trim();
 
   const content = `
-    <h1>$name</h1>
-    <p>
-      <code class="language-javascript">$sig</code>
-      <br>
-      $desc
-    </p>
-  `;
+    <h1 data-done="$done" id="title"><a href="/docs">$name</a></h1>
+    <div class="code-doc">
+      <pre><code class="language-javascript">$sig</code></pre>
+      <p>$desc</p>
+    </div>
+  `.trim();
 
   const commands = { ...docs.prompts, ...docs.pieces };
   let commandList = "";
   // ➿ Loop through all commands and generate HTML.
-  Object.keys(commands)
+  keys(commands)
     .sort()
     .forEach((c) => {
       commandList += `
@@ -379,7 +524,93 @@ export async function handler(event, context) {
       `;
     });
 
+  // Generate doc links for a given category.
+  function genLinks(category) {
+    return keys(docs.api[category] || [])
+      .map(
+        (k) =>
+          `<a href="/docs/${category}:${k}" data-done="${docs.api[category][k].done}">${k}</a>`,
+      )
+      .join(" ");
+  }
+
   const indexContent = html`
+    <h1 id="title">
+      <a
+        href="https://${event.headers["host"]}"
+        onclick="if (window.opener) window.close();"
+        >docs</a
+      >
+    </h1>
+    <div class="code-doc-welcome">
+      <h2>Graphics</h2>
+      <span class="links">
+        <a
+          data-done="${docs.api.structure.paint.done}"
+          class="top-level"
+          href="/docs/structure:paint"
+          >paint</a
+        >
+        ${genLinks("graphics")}
+      </span>
+      <h2>Number</h2>
+      <span class="links">
+        <a
+          data-done="${docs.api.structure.sim.done}"
+          class="top-level"
+          href="/docs/structure:sim"
+          >sim</a
+        >
+        ${genLinks("number")}
+      </span>
+      <h2>Sound</h2>
+      <span class="links">
+        <a
+          data-done="${docs.api.structure.beat.done}"
+          class="top-level"
+          href="/docs/structure:beat"
+          >beat</a
+        >
+        ${genLinks("sound")}
+        <h2>Interaction</h2>
+        <span class="links">
+          <a
+            data-done="${docs.api.structure.act.done}"
+            class="top-level"
+            href="/docs/structure:act"
+            >act</a
+          >
+          ${genLinks("interaction")}
+        </span>
+        <h2>Network</h2>
+        <span class="links">
+          <a
+            data-done="${docs.api.structure.meta.done}"
+            class="top-level"
+            href="/docs/structure:meta"
+            >meta</a
+          >
+          <a
+            data-done="${docs.api.structure.icon.done}"
+            class="top-level"
+            href="/docs/structure:icon"
+            >icon</a
+          >
+          <a
+            data-done="${docs.api.structure.preview.done}"
+            class="top-level"
+            href="/docs/structure:preview"
+            >preview</a
+          >
+          ${genLinks("network")}
+        </span>
+      </span>
+      <h2>Help</h2>
+      <span class="links">${genLinks("help")}</span>
+    </div>
+  `.trim();
+
+  const commandsContent = html`
     <h1 id="title">
       <a
         href="https://${event.headers["host"]}"
@@ -387,7 +618,9 @@ export async function handler(event, context) {
         >$name</a
       >
     </h1>
-    <p style="white-space: nowrap; display: inline-block;">${commandList}</p>
+    <p id="command-list" style="white-space: nowrap; display: inline-block;">
+      ${commandList}
+    </p>
     <script>
       function send(message) {
         if (window.opener) {
@@ -412,27 +645,60 @@ export async function handler(event, context) {
         });
       });
     </script>
-  `;
+  `.trim();
 
-  docs.template = page;
+  docs.template = page
+    .replace("$bodyclass", " class='doc'")
+    .replace("$content", content);
 
   const splitPath = event.path.split("/");
 
-  if (splitPath.length === 4) {
-    const word = splitPath.pop();
-    const doc =
-      docs.api[word] ||
-      docs.top[word] ||
-      docs.pieces[word] ||
-      docs.prompts[word];
+  if (
+    splitPath.length === 4 ||
+    (splitPath.length === 3 && splitPath[1] !== "api")
+  ) {
+    let mergedDocs;
+    keys(docs.api).forEach((key) => {
+      mergedDocs = {
+        ...mergedDocs,
+        ...docs.api[key],
+      };
+    });
+
+    mergedDocs = { ...mergedDocs, ...docs.pieces, ...docs.prompts };
+
+    // TODO:
+    // Use a "colon" here for parsing and building pages from. api, pieces,
+    // and "prompts".
+
+    // 🔦 What should have overlap and what should not?
+
+    // /docs/structure:paint
+    // /docs/pieces:line
+    // /docs/graphics:line
+
+    const [category, word] = splitPath.pop().split(":");
+
+    let doc;
+    if (category !== "pieces" && category !== "prompts") {
+      doc = docs.api[category][word];
+    } else if (category) {
+      doc = docs[category][word];
+    } else {
+      return respond(404, "Not found. :(", {
+        "Content-Type": "text/html; charset=UTF-8",
+      });
+    }
 
     return respond(
       200,
       page
-        .replaceAll("$content", content)
+        .replace("$bodyclass", " class='doc'")
+        .replace("$content", content)
         .replaceAll("$name", word)
         .replaceAll("$sig", doc?.sig)
-        .replaceAll("$desc", doc?.desc),
+        .replaceAll("$desc", doc?.desc)
+        .replaceAll("$done", doc?.done),
       { "Content-Type": "text/html; charset=UTF-8" },
     );
   }
@@ -443,7 +709,10 @@ export async function handler(event, context) {
   } else {
     return respond(
       200,
-      page.replaceAll("$content", indexContent).replaceAll("$name", "docs"),
+      page
+        .replace("$bodyclass", "")
+        .replaceAll("$content", indexContent)
+        .replaceAll("$name", "docs"),
       { "Content-Type": "text/html; charset=UTF-8" },
     );
   }

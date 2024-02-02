@@ -9,11 +9,11 @@
 import * as vscode from "vscode";
 
 import { AestheticAuthenticationProvider } from "./aestheticAuthenticationProviderRemote";
+const { keys } = Object;
 
 let local: boolean = false;
 let codeChannel: string | undefined;
 
-let apiKeys: any;
 let mergedDocs: any;
 let docsTemplate: any;
 let docs: any;
@@ -24,15 +24,21 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   // Load the docs from the web.
   try {
     // const url = `https://${ // local ? "localhost:8888" : "aesthetic.computer" }/api/docs`;
-    const url = `https://aesthetic.computer/api/docs.json`;
+    const url = `https://aesthetic.computer/docs.json`;
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const data: any = await response.json();
     console.log("📚 Docs loaded:", data);
-    apiKeys = Object.keys(data.api);
-    mergedDocs = { ...data.api, ...data.top };
+
+    keys(data.api).forEach((key) => {
+      mergedDocs = {
+        ...mergedDocs,
+        ...data.api[key],
+      };
+    });
+
     docsTemplate = data.template;
     docs = data;
   } catch (error) {
@@ -58,7 +64,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       ): vscode.ProviderResult<
         vscode.CompletionItem[] | vscode.CompletionList
       > {
-        return apiKeys.map((word: string) => new vscode.CompletionItem(word));
+        return keys(mergedDocs).map(
+          (word: string) => new vscode.CompletionItem(word),
+        );
       },
     },
   );
@@ -72,7 +80,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         const range = document.getWordRangeAtPosition(position);
         const word = document.getText(range);
 
-        if (Object.keys(mergedDocs).indexOf(word) > -1) {
+        if (keys(mergedDocs).indexOf(word) > -1) {
           const contents = new vscode.MarkdownString();
           contents.isTrusted = true; // Enable for custom markdown.
           contents.appendCodeblock(`${mergedDocs[word].sig}`, "javascript");
@@ -97,7 +105,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         const range = document.getWordRangeAtPosition(position);
         const word = document.getText(range);
 
-        if (apiKeys.indexOf(word) > -1) {
+        if (mergedDocs[word]) {
           const uri = vscode.Uri.parse(`${docScheme}:${word}`);
           vscode.workspace.openTextDocument(uri).then((doc) => {
             const content = doc.getText();
@@ -303,7 +311,7 @@ class AestheticCodeLensProvider implements vscode.CodeLensProvider {
       return word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     }
 
-    const escapedWords = Object.keys(docs.top)
+    const escapedWords = keys(docs.top)
       .map((word) => "function " + word)
       .map(escapeRegExp);
     const regex = new RegExp(`\\b(${escapedWords.join("|")})\\b`, "gi");
@@ -448,7 +456,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 
     let param = "";
     if (typeof session === "object") {
-      if (Object.keys(session)?.length > 0) {
+      if (keys(session)?.length > 0) {
         const base64EncodedSession = btoa(JSON.stringify(session));
         param = "?session=" + encodeURIComponent(base64EncodedSession);
       }

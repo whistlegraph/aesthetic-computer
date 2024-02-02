@@ -12,7 +12,7 @@ let docs;
 
 function boot({ net }) {
   // 📔 Get the docs off the api.
-  fetch("https://" + net.host + "/api/docs")
+  fetch("https://" + net.host + "/docs.json")
     .then((response) => {
       if (response.status !== 200) {
         throw new Error("Network failure: " + response.status);
