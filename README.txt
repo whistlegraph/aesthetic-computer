@@ -40,6 +40,15 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** notes ***
+  - [] `docs` and `list` should be different
+    - [] `list` should render inside of aesthetic and it should be easy to jump
+      - [] `docs` should only be about javascript docs and other information
+         in and out.
+      - [🟠] Move current functonality that `docs` main page has into the `list`
+           command.
+      - [-] Factor out the current simple list code or repeat it in another spot.
+
 *** `list` ***
   - [🔴] Add a big categorized `list` command that pulls from `api/docs`.
   - [-] Enter `list` to view existing commands.

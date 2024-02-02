@@ -210,12 +210,8 @@
   to = "/.netlify/functions/docs/:splat"
   status = 200
 [[redirects]]
-  from = "/api/docs.json"
+  from = "/docs.json"
   to = "/.netlify/functions/docs"
-  status = 200
-[[redirects]]
-  from = "/api/docs/*"
-  to = "/.netlify/functions/docs/:splat"
   status = 200
 [[redirects]]
   from = "/api/vary"

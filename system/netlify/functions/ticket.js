@@ -20,7 +20,7 @@ export async function handler(event, context) {
 
   const botcePieceURI = dev
     ? `${event.headers.host}/assets/ticketed-pieces/botce.mjs`
-    : `${process.env.TICKETED_PIECES_ROOT}/botce.mjs`;
+    : `https://assets.aesthetic.computer/ticketed-pieces/botce.mjs`;
 
   if (event.httpMethod === "GET") {
     // Confirm a previously set payment by checking for a ticket
