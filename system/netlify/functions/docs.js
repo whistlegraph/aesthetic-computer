@@ -2,14 +2,15 @@
 // Return up to date data for the aesthetic.computer pieces api.
 
 /* #region 🏁 TODO 
-  - [🟡] Build a nice scrollable index page.
-  - [] Finish docs pages.
+  - [] Fill out an initial range of identifiers.
+    - [] Can always hide unnecessary / incomplete ones later.
   - [] Handle flashing screen / subtle cosmetics.
-  - [] Rename `docs` to `help` ?
   - [] Wire it up to the VS code extension so it fills in the prompt / opens it.
   - [] Wire this endpoint up to a prompt auto-complete as well. 
   - [] Pals should bump upwards on hover and animate scroll to top on tap.
-  - [] And be faded / only appear when scrolled past 0.
+  - [] And be faded / only fade up when scrolled past 0.
+  + Done
+  - [x] Build a nice scrollable index page.
 #endregion */
 
 import { respond } from "../../backend/http.mjs";
