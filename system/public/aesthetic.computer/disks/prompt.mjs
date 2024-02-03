@@ -641,7 +641,7 @@ async function halt($, text) {
     send({ type: "post-to-parent", content: { type: "runPiece" } });
     makeFlash($);
     return true;
-  } else if (text.startsWith("docs")) {
+  } else if (text === "docs") {
     jump("out:/docs");
     makeFlash($);
     return true;

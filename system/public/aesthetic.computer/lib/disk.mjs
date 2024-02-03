@@ -608,9 +608,8 @@ const $commonApi = {
     );
   },
   // 🎟️ Open a ticketed paywall on the page.
-  // TODO: Get confirmation or cancellation of payment. 23.10.26.20.57
-  ticket: (content) => {
-    send({ type: "ticket-wall", content });
+  ticket: (name) => {
+    send({ type: "ticket-wall", content: name });
   },
   // 🪙 Mint a url or the `pixels` that get passed into the argument to a
   // network of choice.
@@ -733,6 +732,7 @@ const $commonApi = {
     },
     current: {}, // Will get replaced by an update event.
   },
+  // Speak an `utterance` aloud.
   speak: (utterance, voice, mode, opts) => {
     send({ type: "speak", content: { utterance, voice, mode, opts } });
   },
@@ -832,7 +832,8 @@ const $commonApi = {
     send({ type: "authorization:request" });
     return prom;
   }, // Get a token for a logged in user.
-  hand: { mediapipe: { screen: [], world: [], hand: "None" } }, // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
+   // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
+  hand: { mediapipe: { screen: [], world: [], hand: "None" } },
   hud: {
     label: (text, color, offset) => {
       currentHUDTxt = text;
@@ -1890,10 +1891,7 @@ const $paintApiUnwrapped = {
   point: graph.point,
   line: function () {
     const out = graph.line(...arguments);
-    // console.log(out);
-    if (out) {
-      twoDCommands.push(["line", ...out]);
-    }
+    if (out) twoDCommands.push(["line", ...out]);
   },
   lineAngle: graph.lineAngle,
   pline: graph.pline,
@@ -2650,15 +2648,6 @@ async function load(
   // Add meta to the common api so the data can be overridden as needed.
   $commonApi.meta = (data) => send({ type: "meta", content: data });
 
-  $commonApi.gap = function (newGap) {
-    console.log("🟡 Gap has been deprecated. Use `resize` instead.");
-  };
-
-  // TODO: Eventually remove this deprecation notice. 22.09.29.11.07
-  $commonApi.density = function (newDensity) {
-    console.log("Density has been deprecated. Use `resize` instead.");
-  };
-
   // Rewrite a new URL / parameter path without affecting the history.
   $commonApi.net.rewrite = (path, historical = false) => {
     if (historical) $commonApi.history.push(path);
@@ -2677,12 +2666,14 @@ async function load(
     send({ type: "refresh" });
   };
 
+  // Tell the system to wait until preloading is finished before painting.
   $commonApi.net.waitForPreload = () => {
-    send({ type: "wait-for-preload", content: true }); // Tell the browser to wait until preloading is finished before painting.
+    send({ type: "wait-for-preload", content: true });
   };
 
+  // Tell the system that all preloading is done.
   $commonApi.net.preloaded = () => {
-    send({ type: "preload-ready", content: true }); // Tell the browser that all preloading is done.
+    send({ type: "preload-ready", content: true });
   };
 
   $commonApi.content = new Content();

@@ -70,6 +70,7 @@ function cached(ctx) {
   ctx.restore();
 }
 
+// An interactive button model.
 class Button {
   btn;
   box;

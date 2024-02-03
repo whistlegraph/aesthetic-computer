@@ -64,6 +64,7 @@ function makeBuffer(width, height, fillProcess, painting, api) {
   return buffer;
 }
 
+// Returns a cloned pixel buffer.
 function cloneBuffer(buffer) {
   return {
     width: buffer.width,
@@ -151,7 +152,7 @@ function flood(x, y, fillColor = c) {
   };
 }
 
-// Parse a color from a variety of parameters.
+// Parse a color from a variety of inputs..
 function findColor() {
   let args = [...arguments];
 

@@ -27,10 +27,8 @@ async function boot({
   fps,
   resolution,
   glaze,
-  gap,
 }) {
   resolution(1000, 1250); // 3x5
-  gap(0);
   cursor("native");
 
   waitForPreload();
