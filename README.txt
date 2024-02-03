@@ -40,8 +40,11 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** pray ***
+  - [] An altrnative to "Scream".
+
 *** notes ***
-  - [] `docs` and `list` should be different
+  - [-] `docs` and `list` should be different
     - [] `list` should render inside of aesthetic and it should be easy to jump
       - [] `docs` should only be about javascript docs and other information
          in and out.

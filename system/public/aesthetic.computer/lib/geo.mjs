@@ -417,12 +417,14 @@ export class DirtyBox {
   }
 }
 
+// Project a line outwards from an origin point at dist, and degrees to get the other point.
 export function linePointsFromAngle(x1, y1, dist, degrees) {
   const x2 = x1 + dist * cos(radians(degrees));
   const y2 = y1 + dist * sin(radians(degrees));
   return [x1, y1, x2, y2];
 }
 
+// Project outwards from a point at an `angle` and `dist` and get the resulting point.
 export function pointFrom(x, y, angle, dist) {
   return [x + dist * cos(radians(angle)), y + dist * sin(radians(angle))];
 }
@@ -505,7 +507,7 @@ export class Race {
   }
 }
 
-// A simple model without lazy following.
+// A simple model for lazy following.
 // Originally programmed for `3dline`.
 // TODO: Generalize the output so only individual points
 //       (not line segment vertices with repeated points)

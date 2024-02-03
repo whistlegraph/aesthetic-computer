@@ -117,9 +117,69 @@ export async function handler(event, context) {
           desc: "Contains active mouse + touch pointer data.",
           done: false,
         },
+        pens: {
+          sig: "pens(n)",
+          desc: "Get all active pen pointers or a specific one, for multi-touch.",
+          done: false,
+        },
+        pen3d: {
+          sig: "pen3d",
+          desc: "A reference to the active XR pen pointer.",
+          done: false,
+        },
+        event: {
+          sig: "event",
+          desc: "A reference to the currently running `event`.",
+          done: false,
+        },
       },
       // 🖌️ Graphics
       graphics: {
+        "abstract.bresenham": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        layer: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        painting: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        pixel: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        inkrn: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        notice: {
+          sig: "notice(msg, color, opts)",
+          desc: "",
+          done: false,
+        },
+        blend: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        page: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        edit: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
         wipe: {
           sig: "wipe(color)",
           desc: "Paint all pixels the same `color`.",
@@ -130,9 +190,69 @@ export async function handler(event, context) {
           desc: "Select a `color` for painting with.",
           done: false,
         },
+        copy: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        paste: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        pixel: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        plot: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        point: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        flood: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
         line: {
           sig: "line(x1, y1, x2, y2)",
           desc: "Paint straight a 1px line from two points.",
+          done: false,
+        },
+        lineAngle: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        pline: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        pppline: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        oval: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        circle: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        poly: {
+          sig: "",
+          desc: "",
           done: false,
         },
         box: {
@@ -141,11 +261,760 @@ export async function handler(event, context) {
           body: boxBody,
           done: false,
         },
+        shape: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        grid: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        draw: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        printLine: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        form: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        pan: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        unpan: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        savepan: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        loadpan: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        skip: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        glaze: {
+          sig: "glaze({ on: bool})",
+          desc: "Enable a fullscreen shader `glaze` effect.",
+          done: false,
+        },
+        paintCount: {
+          sig: "paintCount",
+          desc: "The number of `paint` frames that have passed.",
+          done: false,
+        },
+        screen: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        display: {
+          sig: "display",
+          desc: "A reference to the current display information.",
+          done: false,
+        },
+        fps: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        cursor: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        resolution: {
+          sig: "resolution(width, height = width, gap = 8)",
+          desc: "Adjust the display resolution.",
+          done: false,
+        },
+        video: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        rec: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        needsPaint: {
+          sig: "needsPaint()",
+          desc: "",
+          done: false,
+        },
+        noise16: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        noise16DIGITPAIN: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        noise16Aesthetic: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        noise16Sotce: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        noiseTinted: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        write: {
+          sig: "write(text, pos, b, bounds, wordWrap)",
+          desc: "Returns a clones pixel buffer (painting)",
+          done: false,
+        },
+        "text.capitalize": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        "text.box": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        clonePixels: {
+          sig: "clonePixels(buffer)",
+          desc: "Returns a clones pixel buffer (painting)",
+          done: false,
+        },
+        colorsMatch: {
+          sig: "colorsMatch(color1, color2)",
+          desc: "Checks if two colors `[r, g, b, a]` are the same.",
+          done: false,
+        },
+        color: {
+          sig: "color(?)",
+          desc: "Return a color `[r, g, b, a]` from a variety of inputs.",
+          done: false,
+        },
+        resize: {
+          sig: "resize(bitmap, width, height)",
+          desc: "Get a fresh resized bitmap with nearest neighbor scaling.",
+          done: false,
+        },
+        Camera: {
+          sig: "N/A",
+          desc: "N/A",
+          done: false,
+        },
+        Form: {
+          sig: "N/A",
+          desc: "N/A",
+          done: false,
+        },
+        Dolly: {
+          sig: "N/A",
+          desc: "N/A",
+          done: false,
+        },
+        TRI: {
+          sig: "N/A",
+          desc: "N/A",
+          done: false,
+        },
+        QUAD: {
+          sig: "N/A",
+          desc: "N/A",
+          done: false,
+        },
+        LINE: {
+          sig: "N/A",
+          desc: "N/A",
+          done: false,
+        },
+        CUBEL: {
+          sig: "N/A",
+          desc: "N/A",
+          done: false,
+        },
+        ORIGIN: {
+          sig: "N/A",
+          desc: "N/A",
+          done: false,
+        },
+        "ui.Button": {
+          sig: "new Button(box)",
+          desc: "An interactive button model with a text label.",
+          done: false,
+        },
+        "ui.TextButton": {
+          sig: "new TextButton(text, pos)",
+          desc: "An interactive button model with a text label.",
+          done: false,
+        },
+        "ui.TextInput": {
+          sig: "new TextInput($, text, processCommand, options = { palette, font, wrap })",
+          desc: "An interactive text prompt object.",
+          done: false,
+        },
+        "content.add": {
+          sig: "add(content)",
+          desc: "Make a request to add content to the DOM.",
+          done: false,
+        },
+        "dom.html": {
+          sig: "html(src)",
+          desc: "Add `html` content to the DOM.",
+          done: false,
+        },
+        "dom.css": {
+          sig: "css(src)",
+          desc: "Add `css` content to the DOM.",
+          done: false,
+        },
+        "dom.javascript": {
+          sig: "javascript(src)",
+          desc: "Add `javascript` content to the DOM.",
+          done: false,
+        },
+        typeface: {
+          sig: "typeface",
+          desc: "A reference to the default system typeface.",
+          done: false,
+        },
+        cursor: {
+          sig: "cursor(code)",
+          desc: "Set the system mouse cursor to a different graphic.",
+          done: false,
+        },
+      },
+      sound: {
+        "sound.time": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        "sound.bpm": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        "sound.freq": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        "sound.microphone": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        "sound.speaker": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        "sound.play": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        "sound.synth": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        "sound.bubble": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        "sound.kill": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+      },
+      network: {
+        "net.lan": {
+          sig: "lan",
+          desc: "A reference to the local area network IP if it is available.",
+          done: false,
+        },
+        "net.iframe": {
+          sig: "iframe",
+          desc: "Whether or not the system is running hosted within an `iframe`.",
+          done: false,
+        },
+        back: {
+          sig: "back()",
+          desc: "Go back to the previous piece or prompt if there is no history.",
+          done: false,
+        },
+        alias: {
+          sig: "alias(name, colon, params)",
+          desc: "Jump to a piece without changing the corner label or url, and ignoring the history stack.",
+          done: false,
+        },
+        load: {
+          sig: "async load(parsed, fromHistory, alias, devReload, loadedCallback)",
+          desc: "Load a piece after parsing a slug, with various options.",
+          done: false,
+        },
+        slug: {
+          sig: "slug",
+          desc: "The full piece address containing its name, colon parameters, and space separated parameters.",
+          done: false,
+        },
+        piece: {
+          sig: "piece",
+          desc: "The name of the running piece.",
+          done: false,
+        },
+        query: {
+          sig: "query",
+          desc: "An object containing the system's URL query parameters.",
+          done: false,
+        },
+        params: {
+          sig: "params",
+          desc: "",
+          done: false,
+        },
+        colon: {
+          sig: "colon",
+          desc: "An array of colon paramaters for a piece.",
+          done: false,
+        },
+        preload: {
+          sig: "async preload(path, parseJSON = true, progressReport, options)",
+          desc: "Preload a media asset from the network.",
+          done: false,
+        },
+        download: {
+          sig: "download(filename, data, modifiers)",
+          desc: "Download a file.",
+          done: false,
+        },
+        jump: {
+          sig: "jump(to)",
+          desc: "Gets a random integer.",
+          done: false,
+        },
+        leaving: {
+          sig: "leaving()",
+          desc: "Returns true if a piece is leaving / a `jump` is in process.",
+          done: false,
+        },
+        broadcast: {
+          sig: "broadcast(msg)",
+          desc: "Send a message to other open `aesthetic.computer` tabs.",
+          done: false,
+        },
+        "net.socket": {
+          sig: "socket(receive)",
+          desc: "Hook into the piece's socket server with a receive callback.",
+          done: false,
+        },
+        "net.web": {
+          sig: "web(url, jumpOut)",
+          desc: "Jump the browser to a new url.",
+          done: false,
+        },
+        "net.host": {
+          sig: "host",
+          desc: "The current hetwork host.",
+          done: false,
+        },
+        "net.rewrite": {
+          sig: "rewrite(path, historical = false)",
+          desc: "Rewrite a new URL / parameter path without affecting the history.",
+          done: false,
+        },
+        "net.refresh": {
+          sig: "refresh()",
+          desc: "Refresh the page / restart `aesthetic.computer`.",
+          done: false,
+        },
+        "net.waitForPreload": {
+          sig: "waitForPreload()",
+          desc: "Tell the system to wait until preloading is finished before painting.",
+          done: false,
+        },
+        "net.preloaded": {
+          sig: "preloaded()",
+          desc: "Tell the system that all preloading is done.",
+          done: false,
+        },
       },
       number: {
-        randInt: {
+        simCount: {
+          sig: "simCount",
+          desc: "The number of simulation frames passed.",
+          done: false,
+        },
+        seconds: {
+          sig: "seconds(s)",
+          desc: "Convert seconds to `sim` frames.",
+          done: false,
+        },
+        "num.add": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        "num.wrap": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        "num.even": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        "num.odd": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        "num.clamp": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        "num.rand": {
+          sig: "",
+          desc: "",
+          done: false,
+        },
+        "num.randInt": {
           sig: "randInt(n)",
           desc: "Gets a random integer.",
+          done: false,
+        },
+        "num.randInd": {
+          sig: "randInd(arr)",
+          desc: "Generates a random index from an array.",
+          done: false,
+        },
+        "num.randIntArr": {
+          sig: "randIntArr(n, count)",
+          desc: "Generates an array of random integers from 0-n (inclusive)",
+          done: false,
+        },
+        "num.randIntRange": {
+          sig: "randIntRange(low, high)",
+          desc: "Generates an integer from low-high (inclusive)",
+          done: false,
+        },
+        "num.rangedInts": {
+          sig: "rangedInts(ints)",
+          desc: "Converts an array of strings formatted like 1-100 into an array of random integer ranges. Useful for color ranges.",
+          done: false,
+        },
+        "num.multiply": {
+          sig: "multiply(operands, n)",
+          desc: "Multiplies one or more [] operands by n and returns a Number or Array.",
+          done: false,
+        },
+        "num.dist": {
+          sig: "dist(x1, y1, x2, y2)",
+          desc: "Compute the distance between two 2D points.",
+          done: false,
+        },
+        "num.dist3d": {
+          sig: "dist3d(p1, p2)",
+          desc: "Compute the distance between two 3D points as [x, y z]",
+          done: false,
+        },
+        "num.radians": {
+          sig: "radians(deg)",
+          desc: "Convert degrees to radians.",
+          done: false,
+        },
+        "num.degrees": {
+          sig: "degrees(rad)",
+          desc: "Convert radians to degrees.",
+          done: false,
+        },
+        "num.lerp": {
+          sig: "lerp(a, b, amount)",
+          desc: "Slides a number between a and b by a normalized amount.",
+          done: false,
+        },
+        "num.map": {
+          sig: "map(num, inMin, inMax, outMin, outMax)",
+          desc: "Maps a number within a range to a new range.",
+          done: false,
+        },
+        "num.arrMax": {
+          sig: "arrMax(arr)",
+          desc: "Return the maximum number in an array.",
+          done: false,
+        },
+        "num.arrCompress": {
+          sig: "arrCompress(arr, n)",
+          desc: "Return a new array with every nth index missing.",
+          done: false,
+        },
+        "num.Track": {
+          sig: "new Track(values, result)",
+          desc: "Lerp a value using a stepping function, with optional quantization.",
+          done: false,
+        },
+        "num.p2.of": {
+          sig: "of(x, y)",
+          desc: "Turns two values into an {x, y} point.",
+          done: false,
+        },
+        "num.p2.len": {
+          sig: "len(pA)",
+          desc: "Gets the length of the point as a vector.",
+          done: false,
+        },
+        "num.p2.norm": {
+          sig: "norm(p)",
+          desc: "Normalizes a vector to have a length of 1.",
+          done: false,
+        },
+        "num.p2.eq": {
+          sig: "eq(p1, p2)",
+          desc: "Checks for the equality of two points.",
+          done: false,
+        },
+        "num.p2.inc": {
+          sig: "inc(pout, pin)",
+          desc: "Mutably adds P->in to P->out.",
+          done: false,
+        },
+        "num.p2.scl": {
+          sig: "scl(pout, pin)",
+          desc: "Mutably scales P->out by P->in.",
+          done: false,
+        },
+        "num.p2.add": {
+          sig: "add(pA, pB)",
+          desc: "Immutably adds pA + pB.",
+          done: false,
+        },
+        "num.p2.sub": {
+          sig: "sub(pA, pB)",
+          desc: "Immutably subtracts pA - pB.",
+          done: false,
+        },
+        "num.p2.rot": {
+          sig: "rot(p, angle)",
+          desc: "Immutably rotates p by angle in radians.",
+          done: false,
+        },
+        "num.p2.mul": {
+          sig: "mul(pA, pB)",
+          desc: "Immutably multiplies pA * pB.",
+          done: false,
+        },
+        "num.p2.div": {
+          sig: "div(pA, pB)",
+          desc: "Immutably divides pA / pB. Expands pA to an {x, y} if it is a single number.",
+          done: false,
+        },
+        "num.p2.mid": {
+          sig: "mid(pA, pB)",
+          desc: "Calculates the midpoint between two points.",
+          done: false,
+        },
+        "num.p2.dist": {
+          sig: "dist(pA, pB)",
+          desc: "Calculates the distance between two points.",
+          done: false,
+        },
+        "num.p2.angle": {
+          sig: "angle(pA, pB)",
+          desc: "Calculates the angle between two points.",
+          done: false,
+        },
+        "num.p2.dot": {
+          sig: "dot(pA, pB)",
+          desc: "Calculates the dot product of two points.",
+          done: false,
+        },
+        "num.p2.floor": {
+          sig: "floor(p)",
+          desc: "Applies the floor function to both x and y coordinates of a point.",
+          done: false,
+        },
+        "num.midp": {
+          sig: "midp(a, b)",
+          desc: "Find the midpoint between two [x, y] coordinates.",
+          done: false,
+        },
+        "num.number": {
+          sig: "number(maybeNumber)",
+          desc: "Determine if the value is a number or not.",
+          done: false,
+        },
+        "num.intersects": {
+          sig: "intersects(line1, line2)",
+          desc: "Compute whether two lines intersect. A line is: `{x0, y0, x1, y1}`",
+          done: false,
+        },
+        "num.signedCeil": {
+          sig: "signedCeil(n)",
+          desc: "Ceil a number away from 0.",
+          done: false,
+        },
+        "num.signedFloor": {
+          sig: "signedFloor(val)",
+          desc: "Floor a number towards 0.",
+          done: false,
+        },
+        "num.vec2": {
+          sig: "vec2.?",
+          desc: "All the `vec2` functions from the `glMatrix` library.",
+          done: false,
+        },
+        "num.vec3": {
+          sig: "vec3.?",
+          desc: "All the `vec3` functions form the `glMatrix` library.",
+          done: false,
+        },
+        "num.vec4": {
+          sig: "vec4.?",
+          desc: "All the `vec4` functions from the `glMatrix` library.",
+          done: false,
+        },
+        "num.mat3": {
+          sig: "mat3.?",
+          desc: "All the `mat3` functions from the `glMatrix` library.",
+          done: false,
+        },
+        "num.mat4": {
+          sig: "mat4.?",
+          desc: "All the `mat4` functions from the `glMatrix` library.",
+          done: false,
+        },
+        "num.quat": {
+          sig: "quat.?",
+          desc: "All the `quat` (quaternion) functions from the `glMatrix` library.",
+          done: false,
+        },
+        "num.parseColor": {
+          sig: "parseColor(params)",
+          desc: "Parses a color from piece params.",
+          done: false,
+        },
+        "num.findColor": {
+          sig: "findColor(rgb)",
+          desc: "Find a color inside of `cssColors` by value",
+          done: false,
+        },
+        "num.saturate": {
+          sig: "saturate(rgb, amount = 1)",
+          desc: "Saturate a color by `amount`.",
+          done: false,
+        },
+        "num.desaturate": {
+          sig: "desaturate(rgb, amount = 1)",
+          desc: "Desaturate a color by `amount`",
+          done: false,
+        },
+        "num.shiftRGB": {
+          sig: 'shiftRGB(a, b, step, mode = "lerp", range = 255)',
+          desc: "Lerp two RGBA arrays, skipping alpha and rounding the output.",
+          done: false,
+        },
+        "num.rgbToHexStr": {
+          sig: "rgbToHex(r, g, b)",
+          desc: "Convert separate rgb values to a single integer.",
+          done: false,
+        },
+        "num.hexToRgb": {
+          sig: "hexToRgb(h)",
+          desc: "Takes either a string hex or a number hex and outputs and [RGB] array.",
+          done: false,
+        },
+        "num.blend": {
+          sig: "blend(dst, src, alphaIn = 1)",
+          desc: "Alpha blends two colors, mutating and returning `dst`.",
+          done: false,
+        },
+        "num.rgbToHsl": {
+          sig: "rgbToHsl(r, g, b)",
+          desc: "Convert rgb to hsl.",
+          done: false,
+        },
+        "num.rainbow": {
+          sig: "rainbow()",
+          desc: "Return a cycled color from the `rainbow` template.",
+          done: false,
+        },
+        delay: {
+          sig: "delay(fun, time)",
+          desc: "Delay a function by `time` number of sim steps.",
+          done: false,
+        },
+        blink: {
+          sig: "blink(time, fun)",
+          desc: "A looped `delay`.",
+          done: false,
+        },
+        "geo.Box": {
+          sig: "new Box()",
+          desc: "A dynamic box with helpful methods.",
+          done: false,
+        },
+        "geo.DirtyBox": {
+          sig: "new DirtyBox()",
+          desc: "A box model implementing dirty rectangle optimization.",
+          done: false,
+        },
+        "geo.Grid": {
+          sig: "new Grid(x, y, w, h, s = 1)",
+          desc: "A 2 dimensional uniform grid, using a box as the frame (with scaling).",
+          done: false,
+        },
+        "geo.Circle": {
+          sig: "new Circle(x, y, radius = 8)",
+          desc: "A generic circle model.",
+          done: false,
+        },
+        "geo.linePointsFromAngle": {
+          sig: "linePointsFromAngle(x1, y1, dist, degrees)",
+          desc: "Project outwards from an origin point at dist, and degrees to get the full line.",
+          done: false,
+        },
+        "geo.pointFrom": {
+          sig: "pointFrom(x, y, angle, dist)",
+          desc: "Project outwards from a point at an `angle` and `dist` and get the resulting point.",
+          done: false,
+        },
+        "geo.Race": {
+          sig: "new Race(opts = { quantized: true })",
+          desc: "Follows a point over time.",
+          done: false,
+        },
+        "geo.Quantizer": {
+          sig: "new Quantizer(opts)",
+          desc: "A simple model for lazy following of a 3D point.",
           done: false,
         },
       },
@@ -153,6 +1022,298 @@ export async function handler(event, context) {
         choose: {
           sig: "choose(a, b, ...)",
           desc: "Randomly return one of the arguments.",
+          done: false,
+        },
+        flip: {
+          sig: "flip()",
+          desc: "Flip a coin, returning true or false.",
+          done: false,
+        },
+        repeat: {
+          sig: "repeat(n, fn)",
+          desc: "Run a function `n` times, passing in `i` on each iteration and returning an array of the results (like map).",
+          done: false,
+        },
+        every: {
+          sig: "every(obj, value)",
+          desc: "Set every property of an object to a certain value.",
+          done: false,
+        },
+        any: {
+          sig: "any(objOrArray)",
+          desc: "Returns a random value from an object, or array.",
+          done: false,
+        },
+        anyIndex: {
+          sig: "anyIndex(array)",
+          desc: "Returns a random index value from an array.",
+          done: false,
+        },
+        anyKey: {
+          sig: "anyKey(obj)",
+          desc: "Returns a random key from an object.",
+          done: false,
+        },
+        each: {
+          sig: "each(obj, fun)",
+          desc: "Run a function on every value in an object.",
+          done: false,
+        },
+        shuffleInPlace: {
+          sig: "shuffleInPlace(array)",
+          desc: "Shuffles an array, mutating it.",
+          done: false,
+        },
+        "gizmo.Hourglass": {
+          sig: "new Hourglass(max, { completed, flipped, every, autoFlip = false }, startingTicks = 0)",
+          desc: "A repeatable timer with callbacks.",
+          done: false,
+        },
+        "gizmo.EllipsisTicker": {
+          sig: "new EllipsisTicker()",
+          desc: "An animated `...` string for showing processing indicators.",
+          done: false,
+        },
+      },
+      system: {
+        signal: {
+          sig: "signal(content)",
+          desc: "Send a message through the `signal` system, good for communicating with added DOM content.",
+          done: false,
+        },
+        sideload: {
+          sig: "sideload(type)",
+          desc: "Open a file chooser to load a file.",
+          done: false,
+        },
+        user: {
+          sig: "user",
+          desc: "A reference to the currently logged in user.",
+          done: false,
+        },
+        meta: {
+          sig: "meta(data)",
+          desc: "Add meta to the common api so the data can be overridden as needed.",
+          done: false,
+        },
+        reload: {
+          sig: "reload({ piece, name, source, codeChannel })",
+          desc: "Reload / start a piece in various ways. Used especially in live development.",
+          done: false,
+        },
+        pieceCount: {
+          sig: "pieceCount",
+          desc: "Keeps track of how many pieces have been run so far in a session.",
+          done: false,
+        },
+        store: {
+          sig: "store",
+          desc: "An object for keeping data in across piece jumps.",
+          done: false,
+        },
+        "store.persist": {
+          sig: 'store.persist(key, method = "local")',
+          desc: "Save a storage key with associated data in the user's browser.",
+          done: false,
+        },
+        "store.retrieve": {
+          sig: 'store.retrieve(key, method = "local")',
+          desc: "Load a storage key with associated data.",
+          done: false,
+        },
+        "store.delete": {
+          sig: 'store.persist(key, method = "local")',
+          desc: "Remove a storage key and any saved data.",
+          done: false,
+        },
+        debug: {
+          sig: "debug",
+          desc: "Reports whether the system is in debug / development mode.",
+          done: false,
+        },
+        canShare: {
+          sig: "canShare",
+          desc: "",
+          done: false,
+        },
+        handle: {
+          sig: "handle()",
+          desc: "Returns the user's handle, if one exists.",
+          done: false,
+        },
+        ticket: {
+          sig: "ticket(name)",
+          desc: "Open a ticketed paywall by its name.",
+          done: false,
+        },
+        mint: {
+          sig: "mint(picture, progress, params)",
+          desc: "Mint a picture on an external service.",
+          done: false,
+        },
+        print: {
+          sig: "print(picture, quantity, progress)",
+          desc: "Print the `pixels` that get passed in via an external service. Stickers only right now.",
+          done: false,
+        },
+        zip: {
+          sig: "zip(content, progress)",
+          desc: "Create a zip file of the content. Auto-encodes paintings.",
+          done: false,
+        },
+        "motion.start": {
+          sig: "start()",
+          desc: "Start tracking device motion.",
+          done: false,
+        },
+        "motion.stop": {
+          sig: "stop()",
+          desc: "Stop tracking device motion.",
+          done: false,
+        },
+        "motion.current": {
+          sig: "current",
+          desc: "Populated with the device motion data upon `motion.start()`.",
+          done: false,
+        },
+        speak: {
+          sig: "speak(utterance, voice, mode, opts)",
+          desc: "Speak an `utterance` aloud.",
+          done: false,
+        },
+        act: {
+          sig: "act(event, data)",
+          desc: "Broadcast an `act` event through the system.",
+          done: false,
+        },
+        "get.painting().by()": {
+          sig: "get.painting(code, opts).by(handle, opts)",
+          desc: "Retrieve a painting from network storage.",
+          done: false,
+        },
+        upload: {
+          sig: "async upload(filename, data, progress, bucket)",
+          desc: "Upload a media file to network storage.",
+          done: false,
+        },
+        "code.channel": {
+          sig: "channel(chan)",
+          desc: "Set the current code chnnel for live development.",
+          done: false,
+        },
+        encode: {
+          sig: "async encode(file)",
+          desc: "File should be { type, data } where type is `png`, `webp`, or `jpg`, etc.",
+          done: false,
+        },
+        file: {
+          sig: "async file()",
+          desc: "Request a file from the user.",
+          done: false,
+        },
+        authorize: {
+          sig: "async authorize()",
+          desc: "Authorize a user.",
+          done: false,
+        },
+        "hand.mediapipe": {
+          sig: "mediapipe",
+          desc: "A reference to the mediapipe hand tracking data. Enable through `video`.",
+          done: false,
+        },
+        "hud.label": {
+          sig: "label(text, color, offset)",
+          desc: "Override the piece corner label.",
+          done: false,
+        },
+        "hud.currentStatusColor": {
+          sig: "currentStatusColor()",
+          desc: "Get the current connection status label color.",
+          done: false,
+        },
+        "hud.currentLabel": {
+          sig: "currentLabel()",
+          desc: "Get the current label content and button.",
+          done: false,
+        },
+        "hud.labelBack": {
+          sig: "labelBack()",
+          desc: "Jump to the `prompt` with the current label applied.",
+          done: false,
+        },
+        send: {
+          sig: "send({type, content})",
+          desc: "Send a message to the bios.",
+          done: false,
+        },
+        platform: {
+          sig: "platform",
+          desc: "Get the current host platform.",
+          done: false,
+        },
+        history: {
+          sig: "history",
+          desc: "An array of previously visited pieces in a session.",
+          done: false,
+        },
+        "bgm.set": {
+          sig: "set(trackNumber, volume)",
+          desc: "Start a background music track, persisting across jumps.",
+          done: false,
+        },
+        "bgm.stop": {
+          sig: "stop()",
+          desc: "Stop a background music track.",
+          done: false,
+        },
+        "bgm.data": {
+          sig: "data",
+          desc: "Gets live analysis data from the current background track.",
+          done: false,
+        },
+        "system.world": {
+          sig: "system.world",
+          desc: "A reference to the world system state if a piece is using it.",
+          done: false,
+        },
+        "system.nopaint": {
+          sig: "system.nopaint",
+          desc: "A refrence to the `nopaint` system state that all brushes use.",
+          done: false,
+        },
+        flatten: {
+          sig: "flatten()",
+          desc: "Paint (bake) all graphics commands immediately.",
+          done: false,
+        },
+        connect: {
+          sig: "connect()",
+          desc: "Connect with external wallet software.",
+          done: false,
+        },
+        wiggle: {
+          sig: "wiggle(n, level, speed)",
+          desc: "Oscillate a value over time using a sine wave.",
+          done: false,
+        },
+        dark: {
+          sig: "dark",
+          desc: "Gets whether the system is in dark mode.",
+          done: false,
+        },
+        darkMode: {
+          sig: "darkMode(enabled)",
+          desc: "Toggle dark mode on or off with a boolean.",
+          done: false,
+        },
+        gpuReady: {
+          sig: "gpuReady",
+          desc: "Whether the system GPU is ready for rendering.",
+          done: false,
+        },
+        "gpu.message": {
+          sig: "message(content)",
+          desc: "Send a message to the GPU driver.",
           done: false,
         },
       },
@@ -608,6 +1769,8 @@ export async function handler(event, context) {
       </span>
       <h2>Help</h2>
       <span class="links">${genLinks("help")}</span>
+      <h2>System</h2>
+      <span class="links">${genLinks("system")}</span>
     </div>
   `.trim();
 

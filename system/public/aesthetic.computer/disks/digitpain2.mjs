@@ -11,12 +11,10 @@ async function boot({
   net: { waitForPreload, preload, preloaded },
   cursor,
   resize,
-  gap,
   help: { repeat },
 }) {
   cursor("native");
   resize(600, 859);
-  gap(0);
 
   // Preload all images (by name).
   waitForPreload();

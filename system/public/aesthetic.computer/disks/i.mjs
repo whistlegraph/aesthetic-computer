@@ -55,7 +55,6 @@ const i = new I();
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({ density, resize, cursor, screen }) {
-  //density(8); // TODO: Should density be replaced with zoom or accept fractions?
   // TODO: Runs only once!
   cursor("none");
   //resize(screen.width / 2, screen.height / 2);
