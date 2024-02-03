@@ -1,7 +1,7 @@
 // ⚙️ Gizmos
 // These are designed to work well with 'sim' and run off of ticks.
 
-// TODO: Why does this need both completed AND flipped callbacks?  23.01.29.13.08
+// A repeatable timer with callbacks.
 export class Hourglass {
   ticks = 0;
   max = 1;
@@ -55,6 +55,7 @@ export class Hourglass {
   }
 }
 
+// An animated "..." string.
 export class EllipsisTicker {
   #hourglass;
   #ellipsisDots = 0;

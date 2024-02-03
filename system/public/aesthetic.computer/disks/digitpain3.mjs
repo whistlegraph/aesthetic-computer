@@ -10,12 +10,10 @@ async function boot({
   net: { waitForPreload, preload, preloaded },
   cursor,
   resolution,
-  gap,
   help: { repeat },
 }) {
   cursor("native");
   resolution(1000, 1250);
-  gap(0);
   // Preload all images.
   waitForPreload();
   repeat(frames.count, (n) => {

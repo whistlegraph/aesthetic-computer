@@ -137,9 +137,6 @@ function buildBleeps($, bespokes) {
 function boot($) {
   const { params, num, hud } = $;
 
-  // TODO: Density does not change `screen` right away... 22.08.29.22.13
-  // $.density(2);
-
   (gridWidth = num.randIntRange(1, 6)), (gridHeight = num.randIntRange(1, 6));
 
   if (params.length === 1) {

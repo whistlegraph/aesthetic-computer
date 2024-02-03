@@ -269,7 +269,7 @@ export function multiply(operands, n) {
 }
 
 // Gets the distance between two points.
-// (4) x1, y1, x2, y1
+// (4) x1, y1, x2, y2
 // (2) {x, y}, {x, y}
 export function dist() {
   let x1, y1, x2, y2;
@@ -731,6 +731,7 @@ export function hexToRgb(h) {
 // The below was adapted from: https://codepen.io/Elliotclyde/pen/MWyRezZ
 
 // TODO: The two functions below could be refactored and combined pretty easily. 22.11.19.00.30
+// Saturate a color by `amount`
 export function saturate(rgb, amount = 1) {
   const hadAlpha = rgb.length === 4;
   const alpha = rgb[3];
@@ -754,7 +755,7 @@ export function saturate(rgb, amount = 1) {
   if (hadAlpha) out[3] = alpha; // Add alpha channel back if it exists.
   return out;
 }
-
+// Desaturate a color by `amount`
 export function desaturate(rgb, amount = 1) {
   const hadAlpha = rgb.length === 4;
   const alpha = rgb[3];
