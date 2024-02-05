@@ -1959,6 +1959,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             home.alt = e.altKey;
             home.ctrl = e.ctrlKey;
             keyboard.events.push(home);
+          } else if (e.key === "Tab") {
+            e.preventDefault();
+            const tab = { name: "keyboard:down:tab", key: "Tab" };
+            tab.shift = e.shiftKey;
+            tab.alt = e.altKey;
+            tab.ctrl = e.ctrlKey;
+            keyboard.events.push(tab);
           } /*else if (
             // Don't send the backtick unless we are on the prompt.
             e.key === "`" &&

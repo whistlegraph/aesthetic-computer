@@ -555,6 +555,41 @@ export async function handler(event, context) {
         },
       },
       network: {
+        "net.signup": {
+          sig: "signup()",
+          desc: "Redirect a user to the signup screen.",
+          done: false
+        },
+        "net.login": {
+          sig: "login()",
+          desc: "Redirect a user to the login screen.",
+          done: false
+        },
+        "net.logout": {
+          sig: "logout()",
+          desc: "Log a user out and redirect them to the `prompt`.",
+          done: false
+        },
+        "net.pieces": {
+          sig: "pieces",
+          desc: "The system path to all built-in piece code.",
+          done: false
+        },
+        "net.parse": {
+          sig: "parse(slug)",
+          desc: "Parse a textual piece slug.",
+          done: false
+        },
+        "net.userRequest": {
+          sig: "userRequest(method, endpoint, body)",
+          desc: "Make an authorized request for a logged in user.",
+          done: false
+        },
+        "net.udp": {
+          sig: "udp(receive)",
+          desc: "Loosely connect the UDP receiver.",
+          done: false
+        },
         "net.lan": {
           sig: "lan",
           desc: "A reference to the local area network IP if it is available.",
@@ -1399,7 +1434,7 @@ export async function handler(event, context) {
           margin: 0;
           position: fixed;
         }
-        h1:after {
+        h1:before {
           content: "";
           height: 2.5em;
           width: 100vw;
@@ -1527,7 +1562,7 @@ export async function handler(event, context) {
           h1 a:hover {
             color: rgb(205, 92, 155);
           }
-          h1:after {
+          h1:before {
             background-image: linear-gradient(to bottom, rgba(64, 56, 74, 0.75) 80%, transparent);
           }
           .hljs-title.function_ {
@@ -1558,7 +1593,7 @@ export async function handler(event, context) {
           h1 a:hover, a.prompt:hover {
             color: rgb(205, 92, 155);
           }
-          h1:after {
+          h1:before {
             background-image: linear-gradient(to bottom, rgba(244, 235, 250, 0.75) 80%, transparent);
           }
           .hljs-title.function_ {

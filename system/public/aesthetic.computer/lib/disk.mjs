@@ -402,6 +402,16 @@ let loadFailure;
 
 // 1. ✔ API
 
+// let docs;
+// try {
+//   docs = await fetch("/docs.json");
+//   if (docs.status !== 200) {
+//     throw new Error()
+//   }
+// } catch (err) {
+//   console.error("🔴📚 Could not load docs:", err);
+// }
+
 // TODO: Eventually add a wiggle bank so all wiggles are indexed
 //       and start at random angles.
 // let wiggler = 0;
@@ -535,6 +545,8 @@ function isLeaving(set) {
   if (set === true || set === false) leaving = set;
   return leaving;
 }
+
+let docs; // Memorized by `requestDocs`.
 
 // For every function to access.
 const $commonApi = {
@@ -832,12 +844,13 @@ const $commonApi = {
     send({ type: "authorization:request" });
     return prom;
   }, // Get a token for a logged in user.
-   // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
+  // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
   hand: { mediapipe: { screen: [], world: [], hand: "None" } },
   hud: {
     label: (text, color, offset) => {
       currentHUDTxt = text;
-      currentHUDTextColor = color;
+      currentHUDTextColor = graph.findColor(color);
+      console.log(currentHUDTextColor);
       currentHUDOffset = offset;
     },
     currentStatusColor: () => currentHUDStatusColor,
@@ -1392,6 +1405,21 @@ const $commonApi = {
     // loadFailureText: // Set dynamically.
     // Make a user authorized / signed request to the api.
     // Used both in `motd` and `handle`.
+    requestDocs: async () => {
+      if (typeof docs === "object") return Promise.resolve(docs);
+      return fetch("/docs.json")
+        .then((response) => {
+          if (response.status !== 200) {
+            throw new Error("Network failure: " + response.status);
+          }
+          return response.json();
+        })
+        .then((d) => {
+          docs = d;
+          return docs;
+        })
+        .catch((err) => console.error("🔴 📚 Couldn't get docs:", err));
+    },
     userRequest: async (method, endpoint, body) => {
       try {
         const token = await $commonApi.authorize(); // Get user token.

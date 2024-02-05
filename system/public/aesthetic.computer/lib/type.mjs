@@ -1543,6 +1543,11 @@ class TextInput {
         this.#moveDeltaX -= this.#moveThreshold;
         this.#prompt.crawlForward();
         this.selection = null;
+        if (this.prompt.textPos() === undefined) {
+          $.act("textinput:shift-right:empty"); // Send a signal when we shift
+          // to the right past the edge of the text, for autocomplete
+          // implementations in pieces that use `TextInput`.
+        }
         $.send({ type: "keyboard:cursor", content: 1 });
       }
 
