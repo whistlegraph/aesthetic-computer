@@ -72,6 +72,7 @@ import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { parse } from "../lib/parse.mjs";
 import { ordfish } from "./ordfish.mjs";
 const { abs, max, min } = Math;
+const { keys } = Object;
 
 // Error / feedback flash on command entry.
 let flash;
@@ -102,6 +103,9 @@ import * as starfield from "./starfield.mjs";
 
 let server;
 
+let autocompletions;
+const activeCompletions = [];
+
 // 🥾 Boot
 async function boot({
   glaze,
@@ -113,16 +117,17 @@ async function boot({
   ui,
   screen,
   user,
-  upload,
   handle,
   params,
-  query,
-  jump,
   // code,
   net: { socket },
-  notice,
 }) {
   glaze({ on: true });
+
+  net.requestDocs().then((d) => {
+    autocompletions = { ...d.pieces, ...d.prompts };
+    console.log("✍️ Autocompletions built:", autocompletions);
+  });
 
   server = socket((id, type, content) => {
     console.log("🧦 Got message:", id, type, content);
@@ -1132,6 +1137,7 @@ function paint($) {
   const { screen, ink, history, net } = $;
 
   if ($.system.prompt.input.canType) {
+    // History
     let historyTexts =
       history.length === 0 ? [] : history.map((h) => h.replaceAll("~", " "));
 
@@ -1139,6 +1145,22 @@ function paint($) {
       const ii = i + 1;
       ink(140, 90, 235, 80 / ii).write(t, { x: 6, y: 18 + 12 * i });
     });
+
+    // Autocompetions
+    if (activeCompletions)
+      activeCompletions.forEach((completion, i) => {
+        $.system.prompt.input.text;
+        const diff =
+          completion.length -
+          (completion.length - $.system.prompt.input.text.length);
+        ink("white", 32).write(
+          completion.replace($.system.prompt.input.text, " ".repeat(diff)),
+          {
+            x: 6,
+            y: 6 + i * 12,
+          },
+        );
+      });
   }
 
   if (progressBar >= 0) {
@@ -1350,6 +1372,7 @@ function act({
 
   // if (e.is("pasted:text")) firstActivation = false;
 
+  // Whenever the text input is edited.
   if (
     e.is("prompt:text:replace") &&
     !firstActivation &&
@@ -1359,14 +1382,55 @@ function act({
       play(keyboardSfx, { volume: 0.2 + (num.randInt(100) / 100) * 0.4 });
     }
 
+    // Compute autocompletions...
+    activeCompletions.length = 0;
+    if (e.text.length > 0) {
+      keys(autocompletions).forEach((key) => {
+        if (key.startsWith(e.text)) activeCompletions.push(key);
+      });
+      // oif (activeCompletions.length > 0)
+      //  console.log("✍️ Completions:", activeCompletions);
+    }
+
     if (
       (e.text === "dl" || e.text === "download") &&
       canShare &&
       store["painting"]
     ) {
-      downloadPainting(api, defaultDownloadScale, true); // Trigger early download response.
+      downloadPainting(api, defaultDownloadScale, true); // Trigger early download response, before the user enters.
     }
   }
+
+  if (e.is("keyboard:down:tab") && e.key === "Tab" && activeCompletions[0]) {
+    console.log("Tab completing:", activeCompletions[0]);
+    // TODO: The text input object needs to be updated here also...
+    system.prompt.input.text = activeCompletions[0];
+    system.prompt.input.snap();
+    send({
+      type: "keyboard:text:replace",
+      content: { text: system.prompt.input.text },
+    });
+  }
+
+  function autocompleteChar() {
+    const text = system.prompt.input.text;
+    const completion = activeCompletions[0];
+    if (text !== completion) {
+      const cursorX = system.prompt.input.prompt.cursor.x;
+      system.prompt.input.text = completion.slice(0, cursorX + 1);
+      system.prompt.input.snap();
+      send({
+        type: "keyboard:text:replace",
+        content: { text: system.prompt.input.text },
+      });
+    }
+  }
+
+  if (e.is("keyboard:down:arrowright")) {
+    if (system.prompt.input.prompt.textPos() === undefined) autocompleteChar();
+  }
+
+  if (e.is("textinput:shift-right:empty")) autocompleteChar();
 
   // if (e.is("keyboard:down") && e.key !== "Enter") {
   // console.log("down key...");

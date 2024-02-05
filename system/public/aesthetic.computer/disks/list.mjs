@@ -5,45 +5,100 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [-] Grab list from api. 
 #endregion */
 
 let docs;
+let prompts = [];
+let scroll = 0;
 
-function boot({ net }) {
+async function boot({ ui, typeface, store, net }) {
+  // Retrieve scroll if it exists.
+  scroll = (await store.retrieve("list:scroll")) || 0;
+
   // 📔 Get the docs off the api.
-  fetch("https://" + net.host + "/docs.json")
-    .then((response) => {
-      if (response.status !== 200) {
-        throw new Error("Network failure: " + response.status);
-      } else return response.json();
-    })
-    .then((json) => {
-      console.log("📚 Got docs:", json);
-      docs = json;
-    })
-    .catch((err) => console.error("🔴 📚 Couldn't get docs:", err));
+  net.requestDocs().then((d) => {
+    docs = d;
+    // Build buttons here.
+    keys(docs.pieces).forEach((key, i) => {
+      const [gw, gh] = typeface.glyphs[0].resolution;
+      const w = gw * key.length;
+      const h = gh + 1;
+      prompts.push({
+        word: key,
+        button: new ui.Button(6, scroll + 22 + 12 * i, w, h),
+      });
+    });
+  });
 }
 
 const { keys } = Object;
 
-function paint({ wipe, ink, screen, text }) {
+function paint({ wipe, ink, ui, hud }) {
   wipe("black");
   if (!docs) return;
-  // TODO: Reference `prutti`
-  ink("white").write(
-    keys(docs.pieces).map((key) => key + " - " + docs.pieces[key].desc.replaceAll("`", "")).join("\n"),
-    { x: 6, y: 22 },
-    undefined,
-    screen.width,
-    false,
-  );
-
+  keys(docs.pieces).forEach((key, i) => {
+    prompts[i].button.paint((b) => {
+      ink(b.down ? "yellow" : "white").write(key, {
+        x: 6,
+        y: scroll + 22 + 12 * i,
+      });
+      // ink("blue", 128).box(b.box);
+    });
+  });
+  if (anyDown) {
+    ink(/*"gray"*/ [200, 30, 100]).box(
+      6 + hud.currentLabel.text.length * 6,
+      6,
+      6,
+      10,
+    );
+  }
 }
 
-// function act({ event: e }) {
-//  // Respond to user input here.
-// }
+let anyDown = false;
+
+function act({ event: e, hud, piece, geo, jump }) {
+  // Respond to user input here.
+
+  if (!anyDown && e.is("draw:1")) {
+    scroll += e.delta.y;
+    if (scroll < -prompts.length * 12) scroll = -prompts.length * 12;
+    if (scroll > 0) scroll = 0;
+    prompts.forEach((p, i) => {
+      p.button.box = new geo.Box(
+        6,
+        scroll + 22 + 12 * i,
+        p.button.box.w,
+        p.button.box.h,
+      );
+    });
+  }
+
+  prompts.forEach((prompt, i) => {
+    prompt.button.act(e, {
+      push: () => {
+        jump("prompt~" + prompt.word);
+      },
+      rollover: (b) => {
+        if (anyDown) {
+          hud.label(prompt.word, "white");
+          prompts.forEach((p) => {
+            p.button.down = false;
+          });
+          b.down = true;
+        }
+      },
+      down: () => {
+        hud.label(prompt.word, "white");
+        anyDown = true;
+      },
+      cancel: () => {
+        anyDown = false;
+        hud.label(piece);
+      },
+    });
+  });
+}
 
 // function sim() {
 //  // Runs once per logic frame. (120fps locked.)
@@ -53,9 +108,10 @@ function paint({ wipe, ink, screen, text }) {
 //   // Runs once per metronomic BPM.
 // }
 
-// function leave() {
-//  // Runs once before the piece is unloaded.
-// }
+function leave({ store }) {
+  store["list:scroll"] = scroll;
+  store.persist("list:scroll");
+}
 
 function meta() {
   return {
@@ -72,7 +128,7 @@ function meta() {
 // Render an application icon, aka favicon.
 // }
 
-export { boot, paint, meta };
+export { boot, paint, act, leave, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)

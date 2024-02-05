@@ -40,31 +40,30 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `prutti 42` ***
+  - [] 
+
+*** `list` ***
+  - [🧡] Populate `list` with all kinds of existing commands.
+  - [x] Enter `list` to view existing commands.
+
 *** pray ***
   - [] An altrnative to "Scream".
 
-*** notes ***
-  - [-] `docs` and `list` should be different
-    - [] `list` should render inside of aesthetic and it should be easy to jump
-      - [] `docs` should only be about javascript docs and other information
-         in and out.
-      - [🟠] Move current functonality that `docs` main page has into the `list`
-           command.
-      - [-] Factor out the current simple list code or repeat it in another spot.
-
-*** `list` ***
-  - [🔴] Add a big categorized `list` command that pulls from `api/docs`.
-  - [-] Enter `list` to view existing commands.
+*** extension bugs ***
+  - [] can't swap files and reload more than once 
+  - [] new documentation errors related to hovering
 
 *** docs ***
-  - [] Build `docs` pages.
   - [] Should it be called docs?
+  - [] Remove or deprecate the old `list` html design from `docs`?
   - [] Whitelist some of the APIs for the docs and for usage in user pieces.
   - [] I guess this means it needs to load the api once whenever a user piece loads?
     - [] Screen user pieces for fetch requests. (Don't allow them.)
     - [] Write a great example / polish the pieces repo.
   - [] Can I programmatically use `api/doc` to whitelist the api
        if it's code running from a user piece and the `run` endpoint?
+  - [x] Build `docs` pages.
 
 *** casting ***
   - [] Get a nice headset that I can actually record Fedora screencasts with so
