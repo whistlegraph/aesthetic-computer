@@ -645,6 +645,20 @@ const lessons = [
     `,
     pictures: ["lnl41-1", "lnl41-2"],
   },
+  {
+    title: "Lesson NOT Learnt 42 - disfunkta-video-game's & sick prut's",
+    text: `
+    Rui Liu made a comput-arixur coded game about the story where the statement “once and once again” comes from. It’s about an old person, a collapsing village, and a sigh of eternal sadness. Everything in this series is an iteration of the sigh. 
+
+    What if it is the truth of everything?
+
+    ^Ŵ Once and Once Again - game, Once and Once Again - code ^¤-Z^ Once and Once Again - game, Once and Once Again - code ^§&"^ Once and Once Again - game, Once and Once Again - code ^&#^ Once and Once Again - game, Once and Once Again - code ^ - ^ Once and Once Again - game, Once and Once Again - code *
+
+    [prutti_the_sick.m4a]
+    `,
+    pictures: ["lnl42-1.png", "lnl42-2.png"],
+    sounds: ["prutti_the_sick"],
+  },
 ];
 
 let lesson = 0,
@@ -785,7 +799,8 @@ function loadLesson(api) {
     : "https://assets.aesthetic.computer/pruttipal/lnl";
 
   lessons[lesson].pictures?.forEach((name, index) => {
-    api.net.preload(`${path}/${name}.jpeg`).then((file) => {
+    const filename = name.endsWith(".png") ? name : `${name}.jpeg`;
+    api.net.preload(`${path}/${filename}`).then((file) => {
       lessonPaintings[index] = api.resize(
         file.img,
         picWidth,
