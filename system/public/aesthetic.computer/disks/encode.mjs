@@ -81,3 +81,4 @@ const altScheme = {
 export { boot, prompt, halt, act, copied };
 export const system = "prompt"; // or "prompt:code"
 export const wrap = "word";
+export const nohud = true;

@@ -348,3 +348,5 @@ function utteranceFor(voice, text, num) {
   </speak>
   `;
 }
+
+export const nohud = true;

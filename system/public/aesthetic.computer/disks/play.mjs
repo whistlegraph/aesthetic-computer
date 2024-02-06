@@ -54,6 +54,7 @@ function act($) {
   input?.act($);
 }
 
+export const nohud = true;
 export { boot, sim, paint, act };
 
 // 📚 Library (Useful functions used throughout the piece)

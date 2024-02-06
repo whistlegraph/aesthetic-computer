@@ -850,7 +850,7 @@ const $commonApi = {
     label: (text, color, offset) => {
       currentHUDTxt = text;
       currentHUDTextColor = graph.findColor(color);
-      console.log(currentHUDTextColor);
+      console.log(currentHUDTxt, currentHUDTextColor);
       currentHUDOffset = offset;
     },
     currentStatusColor: () => currentHUDStatusColor,
@@ -5024,24 +5024,7 @@ async function makeFrame({ data: { type, content } }) {
         !iconMode &&
         !hideLabel &&
         piece !== undefined &&
-        piece.length > 0 &&
-        piece !== "download:painting" &&
-        piece !== "prompt" &&
-        piece !== "play" &&
-        piece !== "gargoyle" &&
-        piece !== "girlfriend" &&
-        piece !== "textfence" &&
-        piece !== "boyfriend" &&
-        piece.indexOf("botce") === -1 &&
-        piece !== "angel" &&
-        piece !== "dad" &&
-        piece !== "kid" &&
-        piece !== "decode" &&
-        piece !== "liar" &&
-        piece !== "mom" &&
-        piece !== "encode" &&
-        piece !== "alphapoet" &&
-        piece !== "sing" // &&
+        piece.length > 0
       ) {
         let w = currentHUDTxt.length * 6;
         const h = 11;
@@ -5061,6 +5044,7 @@ async function makeFrame({ data: { type, content } }) {
             if (currentHUDTxt.split(" ")[1]?.indexOf("http") !== 0) {
               text = currentHUDTxt?.replaceAll("~", " ");
             }
+            console.log("Writing hud text:", text);
             $.ink(0).write(text, { x: 1, y: 1 });
             $.ink(c).write(text, { x: 0, y: 0 });
           } else {

@@ -40,8 +40,8 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `prutti 42` ***
-  - [] 
+*** `code words` ***
+  - [] A commission program for people to code ac nouns and verbs in their language of choice.
 
 *** `list` ***
   - [🧡] Populate `list` with all kinds of existing commands.
@@ -51,8 +51,8 @@
   - [] An altrnative to "Scream".
 
 *** extension bugs ***
-  - [] can't swap files and reload more than once 
-  - [] new documentation errors related to hovering
+  - [?] can't swap files and reload more than once 
+  - [?] new documentation errors related to hovering
 
 *** docs ***
   - [] Should it be called docs?
