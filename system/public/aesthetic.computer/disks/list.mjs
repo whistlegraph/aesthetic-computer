@@ -74,12 +74,9 @@ function paint({ wipe, ink, ui, hud, screen }) {
 let anyDown = false;
 
 function act({ event: e, hud, piece, geo, jump, send }) {
-  // Respond to user input here.
-
   if (!anyDown && e.is("draw:1")) {
     scroll += e.delta.y;
-    if (scroll < -prompts.length * 12) scroll = -prompts.length * 12;
-    if (scroll > 0) scroll = 0;
+    checkScroll();
     prompts.forEach((p, i) => {
       p.button.box = new geo.Box(
         6,
@@ -88,6 +85,12 @@ function act({ event: e, hud, piece, geo, jump, send }) {
         p.button.box.h,
       );
     });
+  }
+
+  if (e.is("scroll")) {
+    scroll -= e.y;
+    checkScroll();
+    needsPaint();
   }
 
   prompts.forEach((prompt, i) => {
@@ -156,3 +159,8 @@ export { boot, paint, act, leave, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
+
+function checkScroll() {
+  if (scroll < -prompts.length * 12) scroll = -prompts.length * 12;
+  if (scroll > 0) scroll = 0;
+}
