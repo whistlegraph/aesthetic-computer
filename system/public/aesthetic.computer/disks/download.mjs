@@ -130,5 +130,6 @@ function act({ event: e, num, download, colon, rec, params, jump, back }) {
 
 export { boot, paint, act };
 
+export const nohud = true;
 // 📚 Library (Useful functions used throughout the piece)
 // ...

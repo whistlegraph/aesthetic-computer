@@ -83,3 +83,4 @@ function sim({ needsPaint, simCount }) {
 export { boot, prompt, halt, act, paint, sim };
 export const system = "prompt"; // or "prompt:code"
 export const wrap = "word";
+export const nohud = true;

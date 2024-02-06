@@ -83,3 +83,4 @@ function paint({ screen, wipe, ink, paste }) {
 
 export { prompt, before, after, halt, reply, copied, boot, paint };
 export const system = "prompt:character"; // or "prompt:code"
+export const nohud = true;

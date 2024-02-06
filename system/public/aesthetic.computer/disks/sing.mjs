@@ -65,3 +65,4 @@ function beat({ sound: { synth } }) {
 
 export { reply, beat };
 export const system = "prompt:code";
+export const nohud = true;

@@ -90,3 +90,4 @@ function preview({ wipe, screen }) {
 
 export { prompt, before, after, halt, reply, copied, boot, paint, preview };
 export const system = "prompt:character"; // or "prompt:code"
+export const nohud = true;

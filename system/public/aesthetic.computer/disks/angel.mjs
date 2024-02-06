@@ -77,3 +77,4 @@ function paint({ screen, wipe, ink, paste }) {
 
 export { prompt, before, after, halt, reply, boot, paint, copied };
 export const system = "prompt:character:gpt-4"; // or "prompt:code"
+export const nohud = true;
