@@ -49,3 +49,4 @@ function reply(text) {
 
 export { prompt, before, after, halt, reply, forgetful };
 export const system = "prompt:character"; // or "prompt:code"
+export const nohud = true;

@@ -8,6 +8,7 @@
 #endregion */
 
 let docs;
+let merged;
 let prompts = [];
 let scroll = 0;
 
@@ -18,33 +19,48 @@ async function boot({ ui, typeface, store, net }) {
   // 📔 Get the docs off the api.
   net.requestDocs().then((d) => {
     docs = d;
-    // Build buttons here.
-    keys(docs.pieces).forEach((key, i) => {
-      const [gw, gh] = typeface.glyphs[0].resolution;
-      const w = gw * key.length;
-      const h = gh + 1;
-      prompts.push({
-        word: key,
-        button: new ui.Button(6, scroll + 22 + 12 * i, w, h),
-      });
+    merged = { ...docs.pieces, ...docs.prompts };
+
+    keys(merged).forEach((key) => {
+      if (merged[key].hidden) delete merged[key]; // Remove hidden commands.
     });
+
+    // Build buttons here.
+    keys(merged)
+      .sort()
+      .forEach((key, i) => {
+        const [gw, gh] = typeface.glyphs[0].resolution;
+        const w = gw * key.length;
+        const h = gh + 1;
+        prompts.push({
+          word: key,
+          button: new ui.Button(6, scroll + 22 + 12 * i, w, h),
+        });
+      });
   });
 }
 
 const { keys } = Object;
 
-function paint({ wipe, ink, ui, hud }) {
+function paint({ wipe, ink, ui, hud, screen }) {
   wipe("black");
   if (!docs) return;
-  keys(docs.pieces).forEach((key, i) => {
-    prompts[i].button.paint((b) => {
-      ink(b.down ? "yellow" : "white").write(key, {
-        x: 6,
-        y: scroll + 22 + 12 * i,
+  keys(merged)
+    .sort()
+    .forEach((key, i) => {
+      prompts[i].button.paint((b) => {
+        ink(b.down ? "yellow" : "white").write(key, {
+          x: 6,
+          y: scroll + 22 + 12 * i,
+        });
+        ink("gray").write(merged[key].desc, {
+          x: 6 + key.length * 6 + 6,
+          y: scroll + 22 + 12 * i,
+        });
+        // ink("blue", 128).box(b.box);
       });
-      // ink("blue", 128).box(b.box);
     });
-  });
+  ink(0, 128).box(0, 0, screen.width, 18);
   if (anyDown) {
     ink(/*"gray"*/ [200, 30, 100]).box(
       6 + hud.currentLabel.text.length * 6,
@@ -57,7 +73,7 @@ function paint({ wipe, ink, ui, hud }) {
 
 let anyDown = false;
 
-function act({ event: e, hud, piece, geo, jump }) {
+function act({ event: e, hud, piece, geo, jump, send }) {
   // Respond to user input here.
 
   if (!anyDown && e.is("draw:1")) {
@@ -77,6 +93,8 @@ function act({ event: e, hud, piece, geo, jump }) {
   prompts.forEach((prompt, i) => {
     prompt.button.act(e, {
       push: () => {
+        send({ type: "keyboard:enabled" }); // Enable keyboard flag.
+        send({ type: "keyboard:unlock" });
         jump("prompt~" + prompt.word);
       },
       rollover: (b) => {
@@ -89,6 +107,7 @@ function act({ event: e, hud, piece, geo, jump }) {
         }
       },
       down: () => {
+        console.log("Highlighting:", prompt.word);
         hud.label(prompt.word, "white");
         anyDown = true;
       },

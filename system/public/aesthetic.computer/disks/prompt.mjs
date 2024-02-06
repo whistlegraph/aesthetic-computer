@@ -1137,29 +1137,35 @@ function paint($) {
   const { screen, ink, history, net } = $;
 
   if ($.system.prompt.input.canType) {
-    // History
-    let historyTexts =
-      history.length === 0 ? [] : history.map((h) => h.replaceAll("~", " "));
+    if (activeCompletions.length === 0) {
+      // History
+      let historyTexts =
+        history.length === 0 ? [] : history.map((h) => h.replaceAll("~", " "));
 
-    historyTexts.reverse().forEach((t, i) => {
-      const ii = i + 1;
-      ink(140, 90, 235, 80 / ii).write(t, { x: 6, y: 18 + 12 * i });
-    });
+      historyTexts.reverse().forEach((t, i) => {
+        const ii = i + 1;
+        ink(140, 90, 235, 80 / ii).write(t, { x: 6, y: 18 + 12 * i });
+      });
+    }
 
     // Autocompetions
-    if (activeCompletions)
+    if (activeCompletions.length > 0)
       activeCompletions.forEach((completion, i) => {
         $.system.prompt.input.text;
         const diff =
           completion.length -
           (completion.length - $.system.prompt.input.text.length);
-        ink("white", 32).write(
-          completion.replace($.system.prompt.input.text, " ".repeat(diff)),
-          {
-            x: 6,
-            y: 6 + i * 12,
-          },
-        );
+        let text = completion;
+        if (i === 0) {
+          text = completion.replace(
+            $.system.prompt.input.text,
+            " ".repeat(diff),
+          );
+        }
+        ink("white", 32).write(text, {
+          x: 6,
+          y: 6 + i * 12,
+        });
       });
   }
 
@@ -1488,6 +1494,8 @@ function meta() {
 function leave() {
   motdController?.abort(); // Abort any motd update.
 }
+
+export const nohud = true;
 
 export {
   before,
