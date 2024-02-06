@@ -1418,7 +1418,7 @@ export async function handler(event, context) {
       },
       cam: {
         sig: "cam",
-        desc: "Open the camera",
+        desc: "Take a picture.",
         done: false,
       },
       camu: {
@@ -1477,12 +1477,12 @@ export async function handler(event, context) {
       },
       bro: {
         sig: "bro",
-        desc: "He's your little bro.",
+        desc: "Stay out of his room.",
         done: false,
       },
       sis: {
         sig: "sis",
-        desc: "She's your little sis.",
+        desc: "Don't steal her makeup.",
         done: false,
       },
       gf: {
@@ -1911,7 +1911,7 @@ export async function handler(event, context) {
       },
       bleep: {
         sig: "bleep",
-        desc: "Play tones on a grid. Try adding a #.",
+        desc: "Play notes on a grid. Try adding a #.",
         done: false,
       },
       "booted-by": {
@@ -1921,48 +1921,53 @@ export async function handler(event, context) {
       },
       botce: {
         sig: "botce",
-        desc: "",
+        desc: "Talk to sotce.",
         done: false,
       },
       boxes: {
         sig: "boxes",
         desc: "",
         done: false,
+        hidden: true,
       },
       boyfriend: {
         sig: "boyfriend",
-        desc: "",
+        desc: "He might care.",
         done: false,
       },
       "brick-breaker": {
         sig: "brick-breaker",
         desc: "",
         done: false,
+        hidden: true,
       },
       brother: {
         sig: "brother",
-        desc: "",
+        desc: "Stay out of his room.",
         done: false,
       },
       brush: {
         sig: "brush",
         desc: "",
         done: false,
+        hidden: true,
+        //TODO: add new templates repository
       },
       bubble: {
         sig: "bubble",
-        desc: "",
+        desc: "Make bubble boing. Sound on.",
         done: false,
       },
       camera: {
         sig: "camera",
-        desc: "",
+        desc: "Take a picture.",
         done: false,
       },
       chord: {
         sig: "chord",
         desc: "",
         done: false,
+        hidden: true,
       },
       colplay: {
         sig: "colplay",
@@ -2452,7 +2457,7 @@ export async function handler(event, context) {
       },
       sister: {
         sig: "sister",
-        desc: "",
+        desc: "Don't steal her makeup.",
         done: false,
       },
       smear: {
