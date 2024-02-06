@@ -103,7 +103,7 @@ import * as starfield from "./starfield.mjs";
 
 let server;
 
-let autocompletions;
+let autocompletions = {};
 const activeCompletions = [];
 
 // 🥾 Boot
