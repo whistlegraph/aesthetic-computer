@@ -5044,7 +5044,6 @@ async function makeFrame({ data: { type, content } }) {
             if (currentHUDTxt.split(" ")[1]?.indexOf("http") !== 0) {
               text = currentHUDTxt?.replaceAll("~", " ");
             }
-            console.log("Writing hud text:", text);
             $.ink(0).write(text, { x: 1, y: 1 });
             $.ink(c).write(text, { x: 0, y: 0 });
           } else {
