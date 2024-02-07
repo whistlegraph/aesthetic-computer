@@ -2648,46 +2648,52 @@ export async function handler(event, context) {
         sig: "wave",
         desc: "",
         done: false,
+        hidden: true,
       },
       wg: {
         sig: "wg",
-        desc: "",
+        desc: "Watch and learn whistlegraphs.",
         done: false,
       },
       wgr: {
         sig: "wgr",
         desc: "",
         done: false,
+        hidden: true,
       },
       whistlegraph: {
         sig: "whistlegraph",
         desc: "",
         done: false,
+        hidden: true,
       },
       whistle: {
         sig: "whistle",
-        desc: "",
+        desc: "Convert whistles to sine waves.",
         done: false,
       },
       wife: {
         sig: "wife",
-        desc: "",
+        desc: "Get ready for chores.",
         done: false,
       },
       wipe: {
         sig: "wipe",
         desc: "",
         done: false,
+        hidden: true,
+        //TODO: doesn't seem to clear the painting
       },
       word: {
         sig: "word",
-        desc: "",
+        desc: "Add text to your painting.",
         done: false,
       },
       zoom: {
         sig: "zoom",
         desc: "",
         done: false,
+        hidden: true,
       },
     },
   };
