@@ -2812,8 +2812,8 @@ export async function handler(event, context) {
         rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css"
       />
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
-      <script>
+      <script nonce="$nonce" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+      <script nonce="$nonce">
         hljs.highlightAll();
       </script>
     </head>
@@ -2825,7 +2825,7 @@ export async function handler(event, context) {
         src="https://${event.headers["host"]}/purple-pals.svg"
       />
       <!--<iframe src="https://${event.headers["host"]}/prompt~docs"></iframe>-->
-      <script>
+      <script nonce="$nonce">
         window.addEventListener("message", (event) => {
           const message = event.data; // The JSON data our extension sent
           switch (message.theme) {
