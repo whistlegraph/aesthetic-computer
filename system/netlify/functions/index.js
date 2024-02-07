@@ -211,7 +211,7 @@ async function fun(event, context) {
     statusCode,
     headers: {
       "Content-Type": "text/html",
-      // "Cross-Origin-Embedder-Policy": "require-corp",
+      "Cross-Origin-Embedder-Policy": "require-corp",
       "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
       "Cross-Origin-Resource-Policy": "cross-origin",
     },
