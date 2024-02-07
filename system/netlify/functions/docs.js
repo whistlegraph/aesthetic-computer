@@ -1389,7 +1389,7 @@ export async function handler(event, context) {
       },
       cut: {
         sig: "cut",
-        desc: "",
+        desc: "Stop a tape.",
         done: false,
       },
       me: {
@@ -1693,12 +1693,12 @@ export async function handler(event, context) {
       },
       nopan: {
         sig: "nopan",
-        desc: "",
+        desc: "Center your painting.",
         done: false,
       },
       new: {
         sig: "new",
-        desc: "",
+        desc: "Start a new painting.",
         done: false,
       },
       "painting:reset": {
