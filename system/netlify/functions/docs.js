@@ -2935,12 +2935,10 @@ export async function handler(event, context) {
       <!--<iframe src="https://${event.headers["host"]}/prompt~docs"></iframe>-->
       <script nonce="$nonce">
         const titleLink = document.querySelectorAll("#title a");
-        console.log("innerText:", titleLink.innerText);
+        console.log("innerText:", titleLink, titleLink.innerText, titleLink.innerHTML, titleLink.href);
         console.log("origin:", window.location.origin);
         console.log(window.self, window.top);
-        // if (window.self !== window.top && titleLink.innerText === "docs") {
-        if (window.location.origin === null && titleLink.innerText === "docs") {
-          console.log("is an iframe...")
+        if (window.self !== window.top && titleLink.innerText === "docs") {
           title.classList.add("nolink");
         }
         // 🌠 Live editing (while developing aesthetic locally)
