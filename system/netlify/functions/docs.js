@@ -1530,7 +1530,7 @@ export async function handler(event, context) {
       },
       mood: {
         sig: "mood",
-        desc: "Say your mood.",
+        desc: "Set your mood.",
         done: false,
       },
       publish: {
@@ -2136,7 +2136,7 @@ export async function handler(event, context) {
       },
       "hell-world": {
         sig: "hell-world",
-        desc: "View the hell-world collection.",
+        desc: "View the hell_ world collection.",
         done: false,
         //TODO: doesn't seem to work?
       },
@@ -2158,43 +2158,49 @@ export async function handler(event, context) {
       },
       hw: {
         sig: "hw",
-        desc: "",
+        desc: "View the hell_ world collection.",
         done: false,
       },
       icon: {
         sig: "icon",
         desc: "",
         done: false,
+        hidden: true,
       },
       images: {
         sig: "images",
         desc: "",
         done: false,
+        hidden: true,
       },
       imessage: {
         sig: "imessage",
         desc: "",
         done: false,
+        hidden: true,
       },
       i: {
         sig: "i",
         desc: "",
         done: false,
+        hidden: true,
       },
       kid: {
         sig: "kid",
-        desc: "",
+        desc: "Maybe a unicorn.",
         done: false,
       },
       lang: {
         sig: "lang",
         desc: "",
         done: false,
+        hidden: true,
       },
       learn: {
         sig: "learn",
         desc: "",
         done: false,
+        hidden: true,
       },
       "legacy-prompt": {
         sig: "legacy-prompt",
@@ -2204,7 +2210,7 @@ export async function handler(event, context) {
       },
       liar: {
         sig: "liar",
-        desc: "",
+        desc: "Incredibly honest and trustworthy.",
         done: false,
       },
       line: {
@@ -2214,48 +2220,54 @@ export async function handler(event, context) {
       },
       list: {
         sig: "list",
-        desc: "",
+        desc: "View all commands.",
         done: false,
       },
       "lmn-flower": {
         sig: "lmn-flower",
         desc: "",
         done: false,
+        hidden: true,
       },
       "lmn-petal": {
         sig: "lmn-petal",
         desc: "",
         done: false,
+        hidden: true,
       },
       "login-pattern": {
         sig: "login-pattern",
         desc: "",
         done: false,
+        hidden: true,
       },
       "login-wait": {
         sig: "login-wait",
         desc: "",
         done: false,
+        hidden: true,
       },
       m2w2: {
         sig: "m2w2",
-        desc: "",
+        desc: "Music 2 Whistlegraph 2.",
         done: false,
       },
       melody: {
         sig: "melody",
-        desc: "",
+        desc: "Plays a sequence.",
         done: false,
       },
       metronome: {
         sig: "metronome",
-        desc: "",
+        desc: "Keep time.",
         done: false,
       },
       microphone: {
         sig: "microphone",
         desc: "",
         done: false,
+        hidden: true,
+        //TODO: try to fix
       },
       mom: {
         sig: "mom",
@@ -2264,27 +2276,29 @@ export async function handler(event, context) {
       },
       mood: {
         sig: "mood",
-        desc: "",
+        desc: "Set your mood.",
         done: false,
       },
       moods: {
         sig: "moods",
-        desc: "",
+        desc: "Read all the moods.",
         done: false,
       },
       multipen: {
         sig: "multipen",
         desc: "",
         done: false,
+        hidden: true,
       },
       nail: {
         sig: "nail",
         desc: "",
         done: false,
+        hidden: true,
       },
       noise: {
         sig: "noise",
-        desc: "",
+        desc: "Some nice noise.",
         done: false,
       },
       nopaint: {
@@ -2564,7 +2578,7 @@ export async function handler(event, context) {
       },
       tracker: {
         sig: "tracker",
-        desc: "",
+        desc: "A simple music tracker.",
         done: false,
       },
       udp: {
