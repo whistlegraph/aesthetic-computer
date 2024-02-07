@@ -14,7 +14,7 @@ const { keys } = Object;
 let local: boolean = false;
 let codeChannel: string | undefined;
 
-let mergedDocs: any;
+let mergedDocs: any = {};
 let docsTemplate: any;
 let docs: any;
 
@@ -33,6 +33,12 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     console.log("📚 Docs loaded:", data);
 
     keys(data.api).forEach((key) => {
+      // Add the category to each doc before smushing them.
+      // Such as `structure` so doc pages can be found like `structure:boot`.
+      keys(data.api[key]).forEach((k) => {
+        data.api[key][k].category = key;
+      });
+      // 😛 Smush them.
       mergedDocs = {
         ...mergedDocs,
         ...data.api[key],
@@ -46,9 +52,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   }
 
   // Register the command in your extension
-  const docScheme = "aesthetic"; // A unique scheme for your documentation
-  const docProvider = new AestheticDocumentationProvider();
-  vscode.workspace.registerTextDocumentContentProvider(docScheme, docProvider);
+  // const docScheme = "aesthetic"; // A unique scheme for your documentation
+  // const docProvider = new AestheticDocumentationProvider();
+  // vscode.workspace.registerTextDocumentContentProvider(docScheme, docProvider);
   const codeLensProvider = new AestheticCodeLensProvider();
   vscode.languages.registerCodeLensProvider(
     { language: "javascript", pattern: "**/*.mjs" },
@@ -106,40 +112,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         const word = document.getText(range);
 
         if (mergedDocs[word]) {
-          const uri = vscode.Uri.parse(`${docScheme}:${word}`);
-          vscode.workspace.openTextDocument(uri).then((doc) => {
-            const content = doc.getText();
-            const panel = vscode.window.createWebviewPanel(
-              "docView",
-              "📚 " + word + " · Aesthetic Computer",
-              vscode.ViewColumn.Two,
-              { enableScripts: true },
-            );
-
-            // Function to get the current theme kind (light, dark, or high contrast)
-            function getThemeKind() {
-              switch (vscode.window.activeColorTheme.kind) {
-                case vscode.ColorThemeKind.Light:
-                  return "light";
-                case vscode.ColorThemeKind.Dark:
-                  return "dark";
-                case vscode.ColorThemeKind.HighContrast:
-                  return "high-contrast";
-                default:
-                  return "dark"; // Default to dark theme
-              }
-            }
-
-            // Send the initial theme to the webview
-            panel.webview.postMessage({ theme: getThemeKind() });
-
-            // Listen for theme changes and send updates to the webview
-            vscode.window.onDidChangeActiveColorTheme(() => {
-              panel.webview.postMessage({ theme: getThemeKind() });
-            });
-
-            panel.webview.html = content; // Set the webview's HTML content
-          });
+          console.log("OPENING word:", word);
+          vscode.commands.executeCommand("extension.openDoc", [word]);
           return null;
         }
 
@@ -150,8 +124,47 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("extension.openDoc", (functionName) => {
-      const uri = vscode.Uri.parse(`${docScheme}:${functionName}`);
-      vscode.commands.executeCommand("markdown.showPreviewToSide", uri);
+      // const uri = vscode.Uri.parse(`${docScheme}:${functionName}`);
+
+      const path = mergedDocs[functionName].category + ":" + functionName;
+
+      // Create and show a new webview
+      const panel = vscode.window.createWebviewPanel(
+        "aestheticDoc", // Identifies the type of the webview. Used internally
+        "📚 " + path + " · Aesthetic Computer", // Title of the panel displayed to the user
+        vscode.ViewColumn.Beside, // Editor column to show the new webview panel in.
+        { enableScripts: true }, // Webview options.
+      );
+
+      const nonce = getNonce();
+
+      // And set its HTML content
+      panel.webview.html = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; child-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
+          <style nonce="${nonce}">
+            body {
+              margin: 0;
+              padding: 0;
+              overflow: hidden;"
+            }
+            iframe {
+              border: none;
+              width: 100vw;
+              height: 100vh;
+            }
+          </style>
+        </head>
+        <body>
+          <iframe sandbox="allow-scripts" src="https://aesthetic.computer/docs/${path}">
+        </body>
+        </html>
+      `.trim();
+
+      // vscode.commands.executeCommand("markdown.showPreviewToSide", uri);
     }),
   );
 
@@ -286,20 +299,21 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
 // 📓 Documentation
 
-class AestheticDocumentationProvider
-  implements vscode.TextDocumentContentProvider
-{
-  provideTextDocumentContent(uri: vscode.Uri): string {
-    const name = uri.path;
-    const doc = mergedDocs[name];
-    const nonce = getNonce();
-    return docsTemplate
-      .replaceAll("$name", name)
-      .replaceAll("$sig", doc.sig)
-      .replaceAll("$desc", doc.desc)
-      .replaceAll("$nonce", nonce);
-  }
-}
+// class AestheticDocumentationProvider
+//   implements vscode.TextDocumentContentProvider
+// {
+//   provideTextDocumentContent(uri: vscode.Uri): string {
+//     const name = uri.path;
+//     const doc = mergedDocs[name];
+//     const nonce = getNonce();
+//     //return;
+//     // return docsTemplate
+//     //   .replaceAll("$name", name)
+//     //   .replaceAll("$sig", doc.sig)
+//     //   .replaceAll("$desc", doc.desc)
+//     //   .replaceAll("$nonce", nonce);
+//   }
+// }
 
 // This is just for top-level functions and maybe something at the very top?
 class AestheticCodeLensProvider implements vscode.CodeLensProvider {
