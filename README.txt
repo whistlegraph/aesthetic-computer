@@ -40,46 +40,8 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `pal` ***
-  - [] Make a palette syntax for sharing a list with tap back functionality.
-  
-
-*** `prompt` improvements ***
-  - [🟠] rewrite typo reply
-  + Done
-  - [x] hardcode typo reply
-
-*** `code words` ***
-  - [] A commission program for people to code ac nouns and verbs in their language of choice.
-
-*** `list` ***
-  - [🧡] Populate `list` with all kinds of existing commands.
-  - [x] Enter `list` to view existing commands.
-
-*** pray ***
-  - [] An altrnative to "Scream".
-
-*** extension bugs ***
-  - [?] can't swap files and reload more than once 
-  - [?] new documentation errors related to hovering
-
-*** docs ***
-  - [] Should it be called docs?
-  - [] Remove or deprecate the old `list` html design from `docs`?
-  - [] Whitelist some of the APIs for the docs and for usage in user pieces.
-  - [] I guess this means it needs to load the api once whenever a user piece loads?
-    - [] Screen user pieces for fetch requests. (Don't allow them.)
-    - [] Write a great example / polish the pieces repo.
-  - [] Can I programmatically use `api/doc` to whitelist the api
-       if it's code running from a user piece and the `run` endpoint?
-  - [x] Build `docs` pages.
-
-*** casting ***
-  - [] Get a nice headset that I can actually record Fedora screencasts with so
-       I can start posting simple tutorials from my laptop / possibly edited
-       on my phone or even on AC through screen recording?
-
 *** `world` <-> `painting` <-> piece integrations ***
+  - [🍏] Share current painting in `world` using a `show` command.
   - [] Be able to easily complete a painting and then include it in a piece
       in a single line...
   - [] Maybe I could overload `paste` to include user strings...
@@ -102,11 +64,39 @@
   + Done
   - [x] Add connection flash to world.
 
+
+*** casting ***
+  - [] Get a nice headset that I can actually record Fedora screencasts with so
+       I can start posting simple tutorials from my laptop / possibly edited
+       on my phone or even on AC through screen recording?
+
+*** `pal` ***
+  - [] Make a palette syntax for sharing a list with tap back functionality.
+
 *** load performance ***
   - [🟡] Spend a half day just on getting the site to load faster.
 *** `pic` `pix` ***
   - [] 164 / 128 3x4
   - [] https://prompt.ac/pic~here~is~my~cat 
+
+*** API design ***
+  - [] Whitelist some of the APIs for the docs and for usage in user pieces.
+  - [] I guess this means it needs to load the api once whenever a user piece loads?
+    - [] Screen user pieces for fetch requests. (Don't allow them.)
+    - [] Write a great example / polish the pieces repo.
+  - [] Can I programmatically use `api/doc` to whitelist the api
+       if it's code running from a user piece and the `run` endpoint?
+  + Done
+  - [x] Build `docs` pages.
+  - [x] Should it be called docs?
+  - [x] Remove or deprecate the old `list` html design from `docs`?
+
+*** `code words` ***
+  - [] A commission program for people to code ac nouns and verbs in their
+       language of choice.
+
+*** pray ***
+  - [] An altrnative to `scream`.
 
 *** birthday ***
   - [] Add a `birthday` command that taps through the birthday

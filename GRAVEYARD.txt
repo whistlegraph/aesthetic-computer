@@ -1,5 +1,14 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** `list` ***
+  - [x] Populate `list` with all kinds of existing commands.
+  - [x] Enter `list` to view existing commands.
+
+*** `prompt` improvements ***
+  - [x] rewrite typo reply
+  + Done
+  - [x] hardcode typo reply
+
 *** Extension Post ***       
   - [x] The API data should be loaded remotely so docs can reploy with
         site changes and the extension doesn't need a version bump to 

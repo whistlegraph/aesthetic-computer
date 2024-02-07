@@ -125,6 +125,11 @@ async function boot({
 
   net.requestDocs().then((d) => {
     autocompletions = { ...d.pieces, ...d.prompts };
+    // Remove hidden autocompleteions.
+    keys(autocompletions).forEach((key) => {
+      if (autocompletions[key].hidden) delete autocompletions[key];
+    });
+
     console.log("✍️ Autocompletions built:", autocompletions);
   });
 
