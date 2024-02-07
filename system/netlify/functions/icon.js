@@ -82,6 +82,8 @@ async function fun(event, context) {
     headers: {
       "Content-Type": "image/png",
       "Content-Length": buffer.length.toString(),
+      "Cross-Origin-Embedder-Policy": "require-corp",
+      "Cross-Origin-Resource-Policy": "cross-origin",
     },
     body: buffer.toString("base64"),
     ttl: 60,
