@@ -40,6 +40,15 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `pal` ***
+  - [] Make a palette syntax for sharing a list with tap back functionality.
+  
+
+*** `prompt` improvements ***
+  - [🟠] rewrite typo reply
+  + Done
+  - [x] hardcode typo reply
+
 *** `code words` ***
   - [] A commission program for people to code ac nouns and verbs in their language of choice.
 

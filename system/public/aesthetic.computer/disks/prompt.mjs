@@ -53,18 +53,17 @@ You are playing a character who tries to help me find the command I'm searching 
   - if I type "hife" you do not suggest "life" because that is not a command in the data set 
   - you do not respond with any additional information
 
-- If I type a word for which there is no obvious match, you respond "I can't find a match, 
-but you can text 1-508-728-4043 for "help". - @jeffrey"
-
 If the user asks to delete their account or enters "delete" or "deactivate", you tell them to enter "delete-erase-and-forget-me" to delete their account.
 
 If the user enters 'goodiepal' please reply: Yes, but people on the Faro islands call me Pruttipal, so enter 'prutti' instead.
 
-The word I'm entering is:
-`;
+The word I'm entering is:`;
 
 const after = ``;
 const forgetful = true;
+
+const TYPO_REPLY = `
+Use Aesthetic Computer by entering a correct word.\n\nEnter "list" for available words.\n\nText 1-508-728-4043 for "help".\n\n - @jeffrey`.trim();
 
 import { Android, MetaBrowser, iOS } from "../lib/platform.mjs";
 import { validateHandle } from "../lib/text.mjs";
@@ -246,6 +245,7 @@ async function halt($, text) {
     sound,
     canShare,
   } = $;
+  activeCompletions.length = 0; // Reset activeCompletions on every halt.
   motdController?.abort(); // Abort any motd update.
 
   // Roughly parse out the text (could also do a full `parse` here.)
@@ -1112,11 +1112,19 @@ async function halt($, text) {
     return true;
   } else {
     // 🟠 Local and remote pieces...
-    const loaded = await load(parse(text)); // Execute the current command.
+    let loaded = await load(parse(text)); // Execute the current command.
     if (!loaded) {
       leaving(false);
+      if (text.indexOf(" ") === -1 && text !== "goodiepal") {
+        system.prompt.input.text = TYPO_REPLY;
+        system.prompt.input.replied($); // Set the UI state back to normal.
+        loaded = { replied: true };
+      }
+    } else {
+      loaded = { left: true };
     }
-    return loaded ? { left: true } : loaded;
+    console.log(loaded);
+    return loaded;
   }
 }
 

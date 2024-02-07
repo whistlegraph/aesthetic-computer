@@ -292,10 +292,12 @@ class AestheticDocumentationProvider
   provideTextDocumentContent(uri: vscode.Uri): string {
     const name = uri.path;
     const doc = mergedDocs[name];
+    const nonce = getNonce();
     return docsTemplate
       .replaceAll("$name", name)
       .replaceAll("$sig", doc.sig)
-      .replaceAll("$desc", doc.desc);
+      .replaceAll("$desc", doc.desc)
+      .replaceAll("$nonce", nonce);
   }
 }
 
@@ -311,7 +313,7 @@ class AestheticCodeLensProvider implements vscode.CodeLensProvider {
       return word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     }
 
-    const escapedWords = keys(docs.top)
+    const escapedWords = keys(docs.api.structure)
       .map((word) => "function " + word)
       .map(escapeRegExp);
     const regex = new RegExp(`\\b(${escapedWords.join("|")})\\b`, "gi");
@@ -330,7 +332,7 @@ class AestheticCodeLensProvider implements vscode.CodeLensProvider {
         const docKey = word.toLowerCase().replace("function ", "");
 
         const command = {
-          title: docs.top[docKey].label,
+          title: docs.api.structure[docKey].label,
           command: "extension.openDoc",
           arguments: [docKey],
         };
