@@ -1921,7 +1921,7 @@ export async function handler(event, context) {
       },
       botce: {
         sig: "botce",
-        desc: "Talk to sotce.",
+        desc: "Talk to sotce. ",
         done: false,
       },
       boxes: {
@@ -1971,78 +1971,88 @@ export async function handler(event, context) {
       },
       colplay: {
         sig: "colplay",
-        desc: "",
+        desc: "Turn colors into notes.",
         done: false,
       },
       common: {
         sig: "common",
         desc: "",
         done: false,
+        hidden: true,
       },
       crop: {
         sig: "crop",
-        desc: "",
+        desc: "Crop your painting.",
         done: false,
       },
       dad: {
         sig: "dad",
-        desc: "",
+        desc: "A dad-icated and punny guy.",
         done: false,
       },
       debug: {
         sig: "debug",
         desc: "",
         done: false,
+        hidden: true,
       },
       deck: {
         sig: "deck",
         desc: "",
         done: false,
+        hidden: true,
       },
       decode: {
         sig: "decode",
-        desc: "",
+        desc: "Reveal an encoded message. See encode.",
         done: false,
       },
       "delete-erase-and-forget-me": {
         sig: "delete-erase-and-forget-me",
-        desc: "",
+        desc: "Delete your account.",
         done: false,
       },
       demo: {
         sig: "demo",
-        desc: "",
+        desc: "Watch a demo of AC.",
         done: false,
+        hidden: true,
       },
       description: {
         sig: "description",
         desc: "",
         done: false,
+        hidden: true,
       },
       digitpain0: {
         sig: "digitpain0",
         desc: "",
         done: false,
+        hidden: true,
       },
       digitpain1: {
         sig: "digitpain1",
         desc: "",
         done: false,
+        hidden: true,
       },
       digitpain2: {
         sig: "digitpain2",
         desc: "",
         done: false,
+        hidden: true,
       },
       digitpain3: {
         sig: "digitpain3",
         desc: "",
         done: false,
+        hidden: true,
       },
       docgen: {
         sig: "docgen",
         desc: "",
         done: false,
+        hidden: true,
       },
       dolls: {
         sig: "dolls",
