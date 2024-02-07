@@ -2935,7 +2935,10 @@ export async function handler(event, context) {
       <!--<iframe src="https://${event.headers["host"]}/prompt~docs"></iframe>-->
       <script nonce="$nonce">
         const titleLink = document.querySelectorAll("#title a");
+        console.log(titleLink);
+        console.log(window.self, window.top);
         if (window.self !== window.top && titleLink.innerText === "docs") {
+          console.log("is an iframe...")
           title.classList.add("nolink");
         }
         // 🌠 Live editing (while developing aesthetic locally)
