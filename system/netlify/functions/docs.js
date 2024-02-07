@@ -1487,7 +1487,7 @@ export async function handler(event, context) {
       },
       gf: {
         sig: "gf",
-        desc: "She loves you.",
+        desc: "Caring confidant.",
         done: false,
       },
       bf: {
@@ -1711,8 +1711,8 @@ export async function handler(event, context) {
         desc: "Abandon your painting.",
         done: false,
       },
-      "3dline:reset": {
-        sig: "3dline:reset",
+      "3ine:reset": {
+        sig: "3ine:reset",
         desc: "",
         done: false,
         hidden: true,
@@ -2058,95 +2058,102 @@ export async function handler(event, context) {
         sig: "dolls",
         desc: "",
         done: false,
+        hidden: true,
       },
       doodle: {
         sig: "doodle",
         desc: "",
         done: false,
+        hidden: true,
       },
       download: {
         sig: "download",
-        desc: "",
+        desc: "Download your painting.",
         done: false,
       },
       drawings: {
         sig: "drawings",
         desc: "",
         done: false,
+        hidden: true,
       },
       dync: {
         sig: "dync",
         desc: "",
         done: false,
+        hidden: true,
       },
       encode: {
         sig: "encode",
-        desc: "",
+        desc: "Encrypt a secret message.",
         done: false,
       },
       ff: {
         sig: "ff",
-        desc: "",
+        desc: "View the Freaky Flowers collection.",
         done: false,
       },
       field: {
         sig: "field",
-        desc: "",
+        desc: "Play in the field with others.",
         done: false,
       },
       fly: {
         sig: "fly",
         desc: "",
         done: false,
+        hidden: true,
       },
       "freaky-flowers": {
         sig: "freaky-flowers",
-        desc: "",
+        desc: "View the Freaky Flowers collection.",
         done: false,
       },
       gargoyle: {
         sig: "gargoyle",
-        desc: "",
+        desc: "A steadfast guardian.",
         done: false,
       },
       girlfriend: {
         sig: "girlfriend",
-        desc: "",
+        desc: "Caring confidant.",
         done: false,
       },
       gostop: {
         sig: "gostop",
-        desc: "",
+        desc: "Stop and go.",
         done: false,
       },
       handprint: {
         sig: "handprint",
-        desc: "",
+        desc: "Track your hand.",
         done: false,
       },
       handtime: {
         sig: "handtime",
-        desc: "",
+        desc: "Draw with a pinch.",
         done: false,
       },
       "hell-world": {
         sig: "hell-world",
-        desc: "",
+        desc: "View the hell-world collection.",
         done: false,
+        //TODO: doesn't seem to work?
       },
       hha: {
         sig: "hha",
         desc: "",
         done: false,
+        hidden: true,
       },
       horizon: {
         sig: "horizon",
-        desc: "",
+        desc: "Walk on the horizon.",
         done: false,
       },
       husband: {
         sig: "husband",
-        desc: "",
+        desc: "Absent-minded but well-meaning.",
         done: false,
       },
       hw: {
@@ -2252,7 +2259,7 @@ export async function handler(event, context) {
       },
       mom: {
         sig: "mom",
-        desc: "",
+        desc: "Why does she love this way?",
         done: false,
       },
       mood: {
