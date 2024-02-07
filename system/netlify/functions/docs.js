@@ -2404,9 +2404,8 @@ export async function handler(event, context) {
       },
       prompt: {
         sig: "prompt",
-        desc: "",
+        desc: "Go to the prompt.",
         done: false,
-        hidden: true,
       },
       prutti: {
         sig: "prutti",
@@ -2460,48 +2459,54 @@ export async function handler(event, context) {
       },
       "scawy-snake": {
         sig: "scawy-snake",
-        desc: "",
+        desc: "The classic game of snake.",
         done: false,
+        //TODO: need replay button
       },
       screentest: {
         sig: "screentest",
         desc: "",
         done: false,
+        hidden: true,
       },
       selfie: {
         sig: "selfie",
-        desc: "",
+        desc: "Open the front camera.",
         done: false,
       },
       sfx: {
         sig: "sfx",
         desc: "",
         done: false,
+        hidden: true,
       },
       shape: {
         sig: "shape",
-        desc: "",
+        desc: "Draw a freehand polygon.",
         done: false,
       },
       share: {
         sig: "share",
-        desc: "",
+        desc: "Generate a QR code to share.",
         done: false,
       },
       signature: {
         sig: "signature",
         desc: "",
         done: false,
+        hidden: true,
       },
       sign: {
         sig: "sign",
         desc: "",
         done: false,
+        hidden: true,
       },
       sing: {
         sig: "sing",
         desc: "",
         done: false,
+        hidden: true,
       },
       sister: {
         sig: "sister",
@@ -2510,87 +2515,94 @@ export async function handler(event, context) {
       },
       smear: {
         sig: "smear",
-        desc: "",
+        desc: "Move pixels around.",
         done: false,
       },
       sno: {
         sig: "sno",
-        desc: "",
+        desc: "Walk around and fall asleep.",
         done: false,
       },
       song: {
         sig: "song",
-        desc: "",
+        desc: "Learn a song.",
         done: false,
+        //TODO: adjust song , default octave thing
       },
       "sparkle-brush": {
         sig: "sparkle-brush",
-        desc: "",
+        desc: "Paint with Maya's really fun brush.",
         done: false,
       },
       sparkle: {
         sig: "sparkle",
-        desc: "",
+        desc: "Paint with Maya's really fun brush.",
         done: false,
       },
       spline: {
         sig: "spline",
-        desc: "",
+        desc: "A springy wave.",
         done: false,
       },
       spray: {
         sig: "spray",
         desc: "",
         done: false,
+        hidden: true,
       },
       sprinkles: {
         sig: "sprinkles",
-        desc: "",
+        desc: "Watch the pretty sprinkles.",
         done: false,
       },
       sprite: {
         sig: "sprite",
         desc: "",
         done: false,
+        hidden: true,
       },
       squaresong: {
         sig: "squaresong",
-        desc: "",
+        desc: "Mmmm squaresong.",
         done: false,
       },
       stage: {
         sig: "stage",
         desc: "",
         done: false,
+        hidden: true,
       },
       "stage-setup.html": {
         sig: "stage-setup.html",
         desc: "",
         done: false,
+        hidden: true,
       },
       staka: {
         sig: "staka",
         desc: "",
         done: false,
+        hidden: true,
       },
       starfield: {
         sig: "starfield",
-        desc: "",
+        desc: "A celestial experience.",
         done: false,
       },
       test: {
         sig: "test",
         desc: "",
         done: false,
+        hidden: true,
       },
       textfence: {
         sig: "textfence",
-        desc: "",
+        desc: "Watch a play by Jeffrey and Georgica.",
         done: false,
       },
       tone: {
         sig: "tone",
-        desc: "",
+        desc: "Listen to a tone.",
         done: false,
       },
       tracker: {
@@ -2602,31 +2614,35 @@ export async function handler(event, context) {
         sig: "udp",
         desc: "",
         done: false,
+        hidden: true,
       },
       uke: {
         sig: "uke",
-        desc: "",
+        desc: "Standard note meter.",
         done: false,
       },
       valbear: {
         sig: "valbear",
-        desc: "",
+        desc: "Make a V-Day card.",
         done: false,
       },
       vary: {
         sig: "vary",
         desc: "",
         done: false,
+        hidden: true,
       },
       video: {
         sig: "video",
         desc: "",
         done: false,
+        hidden: true,
       },
       wand: {
         sig: "wand",
         desc: "",
         done: false,
+        hidden: true,
       },
       wave: {
         sig: "wave",
