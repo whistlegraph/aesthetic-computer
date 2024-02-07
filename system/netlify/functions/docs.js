@@ -2143,9 +2143,9 @@ export async function handler(event, context) {
       },
       hha: {
         sig: "hha",
-        desc: "",
+        desc: "Happy Hands Assembler",
         done: false,
-        hidden: true,
+        hidden: false,
       },
       horizon: {
         sig: "horizon",
@@ -2159,7 +2159,7 @@ export async function handler(event, context) {
       },
       hw: {
         sig: "hw",
-        desc: "View the hell_ world collection.",
+        desc: "View the hell_ world paintings.",
         done: false,
       },
       icon: {
@@ -2530,14 +2530,14 @@ export async function handler(event, context) {
         done: false,
         //TODO: adjust song , default octave thing
       },
-      "sparkle-brush": {
-        sig: "sparkle-brush",
-        desc: "Paint with Maya's really fun brush.",
-        done: false,
-      },
+      // "sparkle-brush": {
+      //   sig: "sparkle-brush",
+      //   desc: "Paint with Maya's really fun brush.",
+      //   done: false,
+      // },
       sparkle: {
         sig: "sparkle",
-        desc: "Paint with Maya's really fun brush.",
+        desc: "Paint with @maya's really fun brush.",
         done: false,
       },
       spline: {
@@ -2573,12 +2573,12 @@ export async function handler(event, context) {
         done: false,
         hidden: true,
       },
-      "stage-setup.html": {
-        sig: "stage-setup.html",
-        desc: "",
-        done: false,
-        hidden: true,
-      },
+      // "stage-setup.html": {
+      //   sig: "stage-setup.html",
+      //   desc: "",
+      //   done: false,
+      //   hidden: true,
+      // },
       staka: {
         sig: "staka",
         desc: "",
@@ -2598,7 +2598,7 @@ export async function handler(event, context) {
       },
       textfence: {
         sig: "textfence",
-        desc: "Watch a play by Jeffrey and Georgica.",
+        desc: "A tiny play by @jeffrey and @georgica.",
         done: false,
       },
       tone: {
@@ -2641,15 +2641,15 @@ export async function handler(event, context) {
       },
       wand: {
         sig: "wand",
-        desc: "",
+        desc: "Sculpt in XR.",
         done: false,
-        hidden: true,
+        hidden: false,
       },
       wave: {
         sig: "wave",
-        desc: "",
+        desc: "Wave using your hand.",
         done: false,
-        hidden: true,
+        hidden: false,
       },
       wg: {
         sig: "wg",
@@ -2658,15 +2658,15 @@ export async function handler(event, context) {
       },
       wgr: {
         sig: "wgr",
-        desc: "",
+        desc: "Whistlegraph recorder.",
         done: false,
-        hidden: true,
+        hidden: false,
       },
       whistlegraph: {
         sig: "whistlegraph",
-        desc: "",
+        desc: "Whistlegraph index.",
         done: false,
-        hidden: true,
+        hidden: false,
       },
       whistle: {
         sig: "whistle",
