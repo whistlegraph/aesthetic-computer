@@ -2,14 +2,15 @@
 // Return up to date data for the aesthetic.computer pieces api.
 
 /* #region 🏁 TODO 
-  - [] Fill out an initial range of identifiers.
-    - [] Can always hide unnecessary / incomplete ones later.
+  - [-] Check ida's descriptions.
   - [] Handle flashing screen / subtle cosmetics.
   - [] Wire it up to the VS code extension so it fills in the prompt / opens it.
   - [] Wire this endpoint up to a prompt auto-complete as well. 
   - [] Pals should bump upwards on hover and animate scroll to top on tap.
   - [] And be faded / only fade up when scrolled past 0.
   + Done
+  - [x] Fill out an initial range of identifiers.
+    - [x] Can always hide unnecessary / incomplete ones later.
   - [x] Build a nice scrollable index page.
 #endregion */
 
@@ -1530,7 +1531,7 @@ export async function handler(event, context) {
       },
       mood: {
         sig: "mood",
-        desc: "Say your mood.",
+        desc: "Express your mood.",
         done: false,
       },
       publish: {
@@ -1564,24 +1565,24 @@ export async function handler(event, context) {
       },
       code: {
         sig: "code",
-        desc: "Write code for aesthetic computer.",
+        desc: "Write a piece.",
         done: false,
       },
       edit: {
         sig: "edit",
-        desc: "Edit your aesthetic computer code.",
+        desc: "Edit a piece.",
         done: false,
       },
       source: {
         sig: "source",
-        desc: "Download the source code.",
+        desc: "Download piece code.",
         done: false,
       },
       email: {
         sig: "email",
-        desc: "",
+        desc: "Update your email.",
         done: false,
-        hidden: true,
+        hidden: false,
       },
       "admin:migrate-": {
         sig: "admin:migrate-",
@@ -1799,7 +1800,7 @@ export async function handler(event, context) {
       },
       help: {
         sig: "help",
-        desc: "Join the AC Discord.",
+        desc: "Join a help channel.",
         done: false,
       },
       shillball: {
@@ -1828,7 +1829,7 @@ export async function handler(event, context) {
       },
       of: {
         sig: "of",
-        desc: "View Ordfish painting collection.",
+        desc: "View ordfish paintings.",
         done: false,
         //TODO: fix swimming count, stuck on 56
       },
@@ -2850,24 +2851,10 @@ export async function handler(event, context) {
             color: green;
           }
         }
-        /* body.light {
-          background-color: rgba(255, 255, 255, 0.25);
+        .nolink {
+          user-select: none;
+          pointer-events: none;
         }
-        body.dark {
-          background-color: rgba(0, 0, 0, 0.25);
-        }
-        body.high-contrast {
-          background-color: none;
-        } */
-        /* body.light #pals {
-          filter: brightness(0%);
-        }
-        body.dark #pals {
-          filter: brightness(200%);
-        }
-        body.high-contrast #pals {
-          filter: saturate(0%);
-        } */
       </style>
       <link
         rel="stylesheet"
@@ -2887,24 +2874,10 @@ export async function handler(event, context) {
       />
       <!--<iframe src="https://${event.headers["host"]}/prompt~docs"></iframe>-->
       <script nonce="$nonce">
-        window.addEventListener("message", (event) => {
-          const message = event.data; // The JSON data our extension sent
-          switch (message.theme) {
-            case "light":
-              document.body.classList.add("light");
-              document.body.classList.remove("dark", "high-contrast");
-              break;
-            case "dark":
-              document.body.classList.add("dark");
-              document.body.classList.remove("light", "high-contrast");
-              break;
-            case "high-contrast":
-              document.body.classList.add("high-contrast");
-              document.body.classList.remove("dark", "light");
-              break;
-          }
-        });
-
+        const titleLink = document.querySelectorAll("#title a");
+        if (window.self !== window.top && titleLink.innerText === "docs") {
+          title.classList.add("nolink");
+        }
         // 🌠 Live editing (while developing aesthetic locally)
         if (${dev}) {
           var socket = new WebSocket("ws://localhost:8889");
@@ -3049,6 +3022,12 @@ export async function handler(event, context) {
       <h2>Help</h2>
       <span class="links">${genLinks("help")}</span>
       <h2>System</h2>
+      <a
+        data-done="${docs.api.structure.boot.done}"
+        class="top-level"
+        href="/docs/structure:boot"
+        >boot</a
+      >
       <span class="links">${genLinks("system")}</span>
     </div>
   `.trim();
