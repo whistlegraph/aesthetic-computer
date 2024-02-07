@@ -2932,12 +2932,9 @@ export async function handler(event, context) {
         width="64"
         src="https://${event.headers["host"]}/purple-pals.svg"
       />
-      <!--<iframe src="https://${event.headers["host"]}/prompt~docs"></iframe>-->
       <script nonce="$nonce">
-        const titleLink = document.querySelectorAll("#title a");
-        console.log("innerText:", titleLink, titleLink.innerText, titleLink.innerHTML, titleLink.href);
-        console.log("origin:", window.location.origin);
-        console.log(window.self, window.top);
+        const titleLink = document.querySelector("#title a");
+        console.log(titleLink, titleLink.innerText, titleLink.innerHTML, titleLink.href);
         if (window.self !== window.top && titleLink.innerText === "docs") {
           title.classList.add("nolink");
         }
