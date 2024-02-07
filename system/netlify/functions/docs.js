@@ -3181,7 +3181,12 @@ export async function handler(event, context) {
         .replaceAll("$sig", doc?.sig)
         .replaceAll("$desc", doc?.desc)
         .replaceAll("$done", doc?.done),
-      { "Content-Type": "text/html; charset=UTF-8" },
+      {
+        "Content-Type": "text/html; charset=UTF-8",
+        "Cross-Origin-Embedder-Policy": "require-corp",
+        "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+        "Cross-Origin-Resource-Policy": "cross-origin",
+      },
     );
   }
 
@@ -3195,7 +3200,12 @@ export async function handler(event, context) {
         .replace("$bodyclass", "")
         .replaceAll("$content", indexContent)
         .replaceAll("$name", "docs"),
-      { "Content-Type": "text/html; charset=UTF-8" },
+      {
+        "Content-Type": "text/html; charset=UTF-8",
+        "Cross-Origin-Embedder-Policy": "require-corp",
+        "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+        "Cross-Origin-Resource-Policy": "cross-origin",
+      },
     );
   }
 }
