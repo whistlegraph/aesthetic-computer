@@ -40,6 +40,12 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** making things alive ***
+  - [] Pasting graphics in `field` is important.
+
+*** making the aliveness visible ***
+  - [] Build a simple version of `log` now that we have list.
+
 *** `world` <-> `painting` <-> piece integrations ***
   - [🍏] Share current painting in `world` using a `show` command.
   - [] Be able to easily complete a painting and then include it in a piece
@@ -64,7 +70,6 @@
   + Done
   - [x] Add connection flash to world.
 
-
 *** casting ***
   - [] Get a nice headset that I can actually record Fedora screencasts with so
        I can start posting simple tutorials from my laptop / possibly edited
@@ -75,6 +80,7 @@
 
 *** load performance ***
   - [🟡] Spend a half day just on getting the site to load faster.
+
 *** `pic` `pix` ***
   - [] 164 / 128 3x4
   - [] https://prompt.ac/pic~here~is~my~cat 
