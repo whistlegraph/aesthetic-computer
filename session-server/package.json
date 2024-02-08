@@ -14,7 +14,8 @@
     "deploy": "jamsocket push session-server session-server-image",
     "spawn": "jamsocket spawn session-server",
     "spawn-token": "jamsocket spawn-token create session-server",
-    "watch-prod": "f() { jamsocket logs $1; };f"
+    "list": "jamsocket backend list",
+    "logs": "f() { jamsocket logs $1; };f"
   },
   "author": "Jeffrey Alan Scudder",
   "dependencies": {
@@ -24,7 +25,7 @@
     "fastify": "^4.19.2",
     "firebase-admin": "^12.0.0",
     "ip": "^1.1.8",
-    "jamsocket": "^0.7.4",
+    "jamsocket": "^0.8.3",
     "obscenity": "^0.1.4",
     "redis": "^4.6.7",
     "ws": "^8.13.0"
