@@ -2731,7 +2731,7 @@ export async function handler(event, context) {
           text-decoration: none;
         }
         .links a[data-done=false] {
-          text-decoration: line-through; 
+          /* text-decoration: line-through; */
         }
         h1 {
           font-weight: normal;

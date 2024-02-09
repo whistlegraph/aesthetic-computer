@@ -41,7 +41,13 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** making things alive ***
-  - [] Pasting graphics in `field` is important.
+  - [-] Pasting graphics in `field` is important.
+  - [] Add `show` and `hide` for temporary show and tell.
+  - [] Add `paste` for permanent bitmap pasting, maybe in
+       a piece called `graf` that can be linked to from `field`?
+
+*** load performance ***
+  - [🟡] Spend a half day just on getting the site to load faster.
 
 *** making the aliveness visible ***
   - [] Build a simple version of `log` now that we have list.
@@ -77,9 +83,6 @@
 
 *** `pal` ***
   - [] Make a palette syntax for sharing a list with tap back functionality.
-
-*** load performance ***
-  - [🟡] Spend a half day just on getting the site to load faster.
 
 *** `pic` `pix` ***
   - [] 164 / 128 3x4
