@@ -3082,13 +3082,15 @@ export async function handler(event, context) {
       <h2>Help</h2>
       <span class="links">${genLinks("help")}</span>
       <h2>System</h2>
-      <a
-        data-done="${docs.api.structure.boot.done}"
-        class="top-level"
-        href="/docs/structure:boot"
-        >boot</a
-      >
-      <span class="links">${genLinks("system")}</span>
+      <span class="links">
+        <a
+          data-done="${docs.api.structure.boot.done}"
+          class="top-level"
+          href="/docs/structure:boot"
+          >boot</a
+        >
+        ${genLinks("system")}
+      </span>
     </div>
   `.trim();
 
