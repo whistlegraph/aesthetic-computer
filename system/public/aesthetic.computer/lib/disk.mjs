@@ -148,6 +148,11 @@ const nopaint = {
 
     NPnoOnLeave = false;
   },
+  // 🥞 Bake (to the painting)
+  bake: function bake({ paste, system }) {
+    console.log("pasting buffer...")
+    paste(system.nopaint.buffer);
+  },
 };
 
 const undoPaintings = []; // Stores the last two paintings.
@@ -212,6 +217,7 @@ let boot = defaults.boot;
 let sim = defaults.sim;
 let paint = defaults.paint;
 let beat = defaults.beat;
+let brush; // Only set in the `nopaint` system.
 let act = defaults.act;
 let leave = defaults.leave;
 let preview = defaults.preview;
@@ -2986,6 +2992,7 @@ async function load(
       sim = module.sim || defaults.sim;
       paint = module.paint || (() => undefined);
       beat = module.beat || defaults.beat;
+      brush = module.brush;
       act = ($) => {
         nopaint_act($); // Inherit base functionality.
         if (module.act) {
@@ -4877,8 +4884,21 @@ async function makeFrame({ data: { type, content } }) {
             const np = $api.system.nopaint;
             // No Paint: baking
 
+            if (brush) {
+              const brushApi = { ...$api };
+              if ($api.pen?.drawing && currentHUDButton.down === false) {
+                brushApi.pen = $api.system.nopaint.brush;
+              } else {
+                brushApi.pen = undefined;
+              }
+              $api.page($api.system.nopaint.buffer);//.wipe(255, 0);
+              brush(brushApi);
+              $api.page(screen);
+            }
+
             if (np.needsBake === true && bake) {
               $api.page($api.system.painting);
+              console.log("baking...");
               bake($api);
               $api.page($api.screen);
               np.present($api);

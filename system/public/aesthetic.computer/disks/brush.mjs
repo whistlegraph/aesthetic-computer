@@ -10,33 +10,17 @@
 #endregion */
 
 // 🥾 Boot
-function boot() {}
+// function boot() {}
 
-// 🎨 Paint
-function paint({ screen, system, ink, pen, page }) {
-  if (pen?.drawing) {
-    const brush = system.nopaint.brush;
-    page(system.nopaint.buffer).wipe(255, 0);
-    ink().line(brush.x, brush.y + 10, brush.x, brush.y - 10);
-    page(screen);
+// 🖌️ Brush
+function brush({ pen, ink }) {
+  if (pen) {
+    ink().line(pen.x, pen.y + 10, pen.x, pen.y - 10);
   }
 }
 
-// 🥞 Bake (to the painting)
-function bake({ system, paste }) {
-  paste(system.nopaint.buffer);
-}
-
-// 📰 Meta
-function meta() {
-  return {
-    title: "Brush",
-    desc: "An extremely simple brush.",
-  };
-}
-
 export const system = "nopaint";
-export { boot, paint, bake, meta };
+export { brush };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
