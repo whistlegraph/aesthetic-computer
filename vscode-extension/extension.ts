@@ -289,9 +289,12 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     }),
   );
 
-  // Automatically re-run the piece when saving.
+  // Automatically re-run the piece when saving any .mjs file.
   vscode.workspace.onDidSaveTextDocument((document) => {
-    if (vscode.window.activeTextEditor?.document === document) {
+    if (
+      vscode.window.activeTextEditor?.document === document &&
+      document.uri.fsPath.endsWith(".mjs")
+    ) {
       vscode.commands.executeCommand("aestheticComputer.runPiece");
     }
   });
