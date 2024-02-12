@@ -1922,7 +1922,7 @@ export async function handler(event, context) {
       },
       botce: {
         sig: "botce",
-        desc: "Talk to sotce. ",
+        desc: "Get spiritual advice.",
         done: false,
       },
       boxes: {
