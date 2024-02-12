@@ -159,7 +159,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
           </style>
         </head>
         <body>
-          <iframe sandbox="allow-scripts" src="https://aesthetic.computer/docs/${path}">
+          <iframe credentialless sandbox="allow-scripts" src="https://aesthetic.computer/docs/${path}">
         </body>
         </html>
       `.trim();
@@ -495,7 +495,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 				<title>aesthetic.computer</title>
 			</head>
 			<body>
-        <iframe id="aesthetic" sandbox="allow-scripts allow-same-origin" src="https://${
+        <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin" src="https://${
           local ? "localhost:8888" : "aesthetic.computer"
         }${param}" border="none"></iframe>
        	<script nonce="${nonce}" src="${scriptUri}"></script>
