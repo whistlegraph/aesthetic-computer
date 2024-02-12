@@ -494,6 +494,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     return new Promise((resolve, reject) => {
       const script = document.createElement("script");
       script.src = "https://js.stripe.com/v3/";
+      script.crossOrigin = "anonymous";
 
       script.onerror = function (err) {
         reject(err, s);
@@ -1352,7 +1353,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (content.item === "botce") {
         pretext = `
         <div id="pretext">
-          <img style="image-rendering: pixelated;" src="https://sotce-media.aesthetic.computer/botce-b.gif">
+          <img style="image-rendering: pixelated;" cross-origin="anonymous" src="https://sotce-media.aesthetic.computer/botce-b.gif">
           <div id="pretext-bullets">
             <span id="desc">visit with <code>botce</code></span>
             <ul id="features">
