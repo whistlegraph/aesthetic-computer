@@ -45,8 +45,8 @@
   - [] Publishing the same piece more than once / overwriting a piece doesn't
        work in the editor.
   - [] Multiple templates for different types of pieces.
-    - [] "Blank" piece template.
-    - [] "Brush" piece template.
+    - [🍏] "Brush" piece template.
+    - [🟠] "Blank" piece template.
     - [] "3D" template.
     - [] "Networked" template.
     - [] "Character" template.
