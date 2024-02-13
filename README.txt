@@ -45,11 +45,11 @@
   - [] Publishing the same piece more than once / overwriting a piece doesn't
        work in the editor.
   - [] Multiple templates for different types of pieces.
-    - [🍏] "Brush" piece template.
     - [🟠] "Blank" piece template.
     - [] "3D" template.
     - [] "Networked" template.
     - [] "Character" template.
+    - [x] "Brush" piece template.
   - [] Add param to `publish` to rename the file.
   - [] Overloaded functions and commands > different function names.
   - [] One should be able to view source code / use `source` from inside vscode.
