@@ -40,11 +40,8 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+
 *** workshop with casey ***
-  - [x] Publishing the same piece more than once / overwriting a piece doesn't
-         work in the editor.
-    - [🟠] Decide on a new media caching strategy in `media`.
-  - [] Add param to `publish` to rename the file.
   - [] Multiple templates for different types of pieces.
     - [-] "Stamp" template.
     - [] "3D" template.
@@ -55,6 +52,12 @@
   - [] One should be able to view source code / use `source` from inside vscode.
     - [] Can this produce a new file tab inside of vscode?
     - [] So in order to draw from a template, you can say `new brush` or `new painting`.
+  + Done
+  - [x] Add param to `publish` to rename the file.
+  - [x] Publishing the same piece more than once / overwriting a piece doesn't
+         work in the editor.
+
+- [] `load` should load a photo / be similar to `paste` and work on mobile.
 
 *** media variables ***
   - [] Set "variable" names when using `done`, helpful for show and tell.

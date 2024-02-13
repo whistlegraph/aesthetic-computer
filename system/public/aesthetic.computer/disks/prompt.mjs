@@ -602,17 +602,18 @@ async function halt($, text) {
     }
     makeFlash($);
     return true;
-  } else if (text === "publish") {
+  } else if (text.startsWith("publish")) {
     const publishablePiece = store["publishable-piece"];
     if (!publishablePiece) {
       flashColor = [255, 0, 0];
       makeFlash($);
+      notice("No piece found!", ["yellow", "red"]);
       console.error("🪄 No publishable piece found!");
       return true;
     }
     await publishPiece(
       { api, send, jump, handle, upload },
-      publishablePiece.slug,
+      params[0] || publishablePiece.slug,
       publishablePiece.source,
     );
     return true;

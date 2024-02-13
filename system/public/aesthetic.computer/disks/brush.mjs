@@ -12,7 +12,7 @@
 
 // 🖌️ Brush
 function brush({ pen, ink }) {
-  ink("yellow").circle(pen.x, pen.y, 16, true);
+  ink().circle(pen.x, pen.y, 16, true);
 }
 
 export { brush };
