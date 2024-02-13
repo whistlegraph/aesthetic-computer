@@ -16,7 +16,8 @@ export default async function handleRequest(request) {
       const newPath = `${userId}/${path.slice(3).join("/")}`;
 
       if (newPath.split("/").pop().split(".")[1]?.length > 0) {
-        if (newPath.endsWidth(".mjs")) {
+        console.log(newPath);
+        if (newPath.split(".").pop() === "mjs") {
           newUrl = `https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/${newPath}`;
         } else {
           newUrl = `https://user.aesthetic.computer/${newPath}`;
