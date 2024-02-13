@@ -2397,7 +2397,7 @@ async function load(
 
       if (devReload) {
         // Remember the source and slug for the `publish` command.
-        console.log("📦 Setting publishable piece to:", sourceToRun);
+        // console.log("📦 Setting publishable piece to:", slug);
         store["publishable-piece"] = { source: sourceToRun, slug };
       }
 
