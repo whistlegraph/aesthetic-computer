@@ -16,7 +16,11 @@ export default async function handleRequest(request) {
       const newPath = `${userId}/${path.slice(3).join("/")}`;
 
       if (newPath.split("/").pop().split(".")[1]?.length > 0) {
-        newUrl = `https://user.aesthetic.computer/${newPath}`;
+        if (newPath.endsWidth(".mjs")) {
+          newUrl = `https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/${newPath}`;
+        } else {
+          newUrl = `https://user.aesthetic.computer/${newPath}`;
+        }
         // TODO: How can I ensure that Allow-Origin * can be here?
         const response = await fetch(encodeURI(newUrl));
         // Create a new Response object using the fetched response's body

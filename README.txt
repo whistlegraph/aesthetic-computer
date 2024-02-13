@@ -41,20 +41,22 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** workshop with casey ***
-  - [] Using `back()` should work consistently.
-  - [] Publishing the same piece more than once / overwriting a piece doesn't
-       work in the editor.
+  - [x] Publishing the same piece more than once / overwriting a piece doesn't
+         work in the editor.
+    - [🟠] Decide on a new media caching strategy in `media`.
+  - [] Add param to `publish` to rename the file.
   - [] Multiple templates for different types of pieces.
-    - [🟠] "Blank" piece template.
+    - [-] "Stamp" template.
     - [] "3D" template.
     - [] "Networked" template.
     - [] "Character" template.
     - [x] "Brush" piece template.
-  - [] Add param to `publish` to rename the file.
-  - [] Overloaded functions and commands > different function names.
+    - [x] "Blank" piece template.
   - [] One should be able to view source code / use `source` from inside vscode.
     - [] Can this produce a new file tab inside of vscode?
     - [] So in order to draw from a template, you can say `new brush` or `new painting`.
+
+*** media variables ***
   - [] Set "variable" names when using `done`, helpful for show and tell.
 
 *** making things alive ***
@@ -107,6 +109,7 @@
 
 *** API design ***
   - [] Whitelist some of the APIs for the docs and for usage in user pieces.
+  - [] Overloaded functions and commands > different function names.
   - [] I guess this means it needs to load the api once whenever a user piece loads?
     - [] Screen user pieces for fetch requests. (Don't allow them.)
     - [] Write a great example / polish the pieces repo.
