@@ -2,17 +2,9 @@
 // $THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES
 
 /* #region 📚 README 
-  - Welcome to your first aesthetic.computer piece.
-  - You can `console.log(api);` to explore,
-    and then destructure additional api commands
-    to try them out!
-  - Top-level commands make up each piece's application flow.
-    Uncomment and export them to invoke their behavior and use their apis.
-  - Enter `help` for the AC #help and ping @helper for additional explanation.
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Draw a purple line.
 #endregion */
 
 // 🥾 Boot
@@ -22,11 +14,8 @@
 
 // 🎨 Paint
 function paint({ wipe, ink }) {
-  wipe("red");
-  ink(0).line(); // Would draw a diagonal line.
+  wipe("gray").ink(0).line(); // Would draw a diagonal line.
 }
-
-
 
 // 🎪 Act
 // function act({ event: e }) {
