@@ -2397,6 +2397,7 @@ async function load(
 
       if (devReload) {
         // Remember the source and slug for the `publish` command.
+        console.log("📦 Setting publishable piece to:", sourceToRun);
         store["publishable-piece"] = { source: sourceToRun, slug };
       }
 
@@ -4898,20 +4899,14 @@ async function makeFrame({ data: { type, content } }) {
 
             if (brush && $api.pen?.drawing && currentHUDButton.down === false) {
               const brushApi = { ...$api };
-              //if ($api.pen?.drawing && currentHUDButton.down === false) {
               brushApi.pen = $api.system.nopaint.brush;
-              //} else {
-              //  brushApi.pen = undefined;
-              //}
               $api.page($api.system.nopaint.buffer);
-              console.log("brush");
               brush(brushApi);
               $api.page(screen);
             }
 
             if (np.needsBake === true && bake) {
               $api.page($api.system.painting);
-              console.log("bake");
               bake($api);
               $api.page($api.screen);
               np.present($api);
