@@ -2685,6 +2685,12 @@ export async function handler(event, context) {
         hidden: true,
         //TODO: doesn't seem to clear the painting
       },
+      clear: {
+        sig: "clear",
+        desc: "",
+        dont: false,
+        hidden: true,
+      },
       word: {
         sig: "word",
         desc: "Add text to your painting.",

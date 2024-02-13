@@ -150,7 +150,6 @@ const nopaint = {
   },
   // 🥞 Bake (to the painting)
   bake: function bake({ paste, system }) {
-    console.log("pasting buffer...")
     paste(system.nopaint.buffer);
   },
 };
@@ -1908,8 +1907,17 @@ const $paintApiUnwrapped = {
   // inkrn: () => graph.c.slice(), // Get current inkColor.
   // 2D
   wipe: function () {
+    const cc = graph.c.slice(0);
     ink(...arguments);
     graph.clear();
+    ink(...cc);
+  },
+  // Erase the screen.
+  clear: function () {
+    const cc = graph.c.slice(0);
+    ink(0, 0);
+    graph.clear();
+    ink(...cc);
   },
   copy: graph.copy,
   paste: graph.paste,
@@ -2981,12 +2989,16 @@ async function load(
     if (!module.system?.startsWith("world"))
       $commonApi.system.world.teleported = false;
 
-    if (module.system?.startsWith("nopaint")) {
+    if (
+      module.system?.startsWith("nopaint") ||
+      typeof module?.brush === "function"
+    ) {
       // If there is no painting is in ram, then grab it from the local store,
       // or generate one.
+      const modsys = module.system || "nopaint";
 
       $commonApi.system.nopaint.bakeOnLeave =
-        module.system.split(":")[1] === "bake-on-leave"; // The default is to `bake` at the end of each gesture aka `bake-on-lift`.
+        modsys.split(":")[1] === "bake-on-leave"; // The default is to `bake` at the end of each gesture aka `bake-on-lift`.
 
       boot = module.boot || nopaint_boot;
       sim = module.sim || defaults.sim;
@@ -4884,21 +4896,22 @@ async function makeFrame({ data: { type, content } }) {
             const np = $api.system.nopaint;
             // No Paint: baking
 
-            if (brush) {
+            if (brush && $api.pen?.drawing && currentHUDButton.down === false) {
               const brushApi = { ...$api };
-              if ($api.pen?.drawing && currentHUDButton.down === false) {
-                brushApi.pen = $api.system.nopaint.brush;
-              } else {
-                brushApi.pen = undefined;
-              }
-              $api.page($api.system.nopaint.buffer);//.wipe(255, 0);
+              //if ($api.pen?.drawing && currentHUDButton.down === false) {
+              brushApi.pen = $api.system.nopaint.brush;
+              //} else {
+              //  brushApi.pen = undefined;
+              //}
+              $api.page($api.system.nopaint.buffer);
+              console.log("brush");
               brush(brushApi);
               $api.page(screen);
             }
 
             if (np.needsBake === true && bake) {
               $api.page($api.system.painting);
-              console.log("baking...");
+              console.log("bake");
               bake($api);
               $api.page($api.screen);
               np.present($api);
