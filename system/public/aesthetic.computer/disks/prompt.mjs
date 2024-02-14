@@ -400,7 +400,7 @@ async function halt($, text) {
   } else if (slug === "camu") {
     jump("camera:under");
     return true;
-  } else if (slug === "@maya/sparkle") {
+  } else if (slug === "@maya" + "/sparkle") {
     jump("sparkle");
     return true;
   } else if (slug === "painting:start") {
