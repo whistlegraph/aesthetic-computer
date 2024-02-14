@@ -3222,7 +3222,7 @@ async function load(
     currentHUDTextColor = undefined;
     currentHUDStatusColor = "red"; //undefined;
     currentHUDButton = undefined;
-    //currentPromptButton = undefined;
+    // currentPromptButton = undefined;
 
     // Push last piece to a history list, skipping prompt and repeats.
     if (
