@@ -580,6 +580,11 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
   }
 }
 
+// Similar to `paste` but always centered.
+function stamp(from, x, y) {
+  paste(from, x - from.width / 2, y - from.height / 2);
+}
+
 let blendingMode = "blend";
 function blendMode(mode = "blend") {
   blendingMode = mode;
@@ -1893,6 +1898,7 @@ export {
   copy,
   resize,
   paste,
+  stamp,
   line,
   pline,
   pixelPerfectPolyline,

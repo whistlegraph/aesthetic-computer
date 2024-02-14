@@ -44,9 +44,9 @@
 *** workshop with casey ***
   - [] Multiple templates for different types of pieces.
     - [-] "Stamp" template.
+    - [] "Character" template.
     - [] "3D" template.
     - [] "Networked" template.
-    - [] "Character" template.
     - [x] "Brush" piece template.
     - [x] "Blank" piece template.
   - [] One should be able to view source code / use `source` from inside vscode.
