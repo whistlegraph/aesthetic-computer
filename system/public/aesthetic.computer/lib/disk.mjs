@@ -269,6 +269,8 @@ const actAlerts = []; // Messages that get put into act and cleared after
 // every frame.
 let reframed = false;
 
+let paintings = {}; // Cached bitmaps from a piece.
+
 let screen;
 let currentDisplay; // TODO: Remove this? 22.09.29.11.38
 let cursorCode;
@@ -1892,6 +1894,20 @@ function form(
   }
 }
 
+// Used by `paste` and `stamp` to prefetch bitmaps of the network as needed.
+// Occurs also when loading a piece's source code.
+function prefetchPainting(code) {
+  if (paintings[code] === "fetching") return;
+  console.log("🖼️ Prefetching...", code);
+  paintings[code] = "fetching";
+  const [author, timestamp] = code.split("/");
+  $commonApi.get
+    .painting(timestamp)
+    .by(author)
+    .then(({ img }) => (paintings[code] = img))
+    .catch(() => delete paintings[code]);
+}
+
 const $paintApiUnwrapped = {
   // Shortcuts
   // l: graph.line,
@@ -1920,7 +1936,32 @@ const $paintApiUnwrapped = {
     ink(...cc);
   },
   copy: graph.copy,
-  paste: graph.paste,
+  paste: function paste() {
+    if (typeof arguments[0] === "string") {
+      // Check to see if the bitmap has been cached by this piece already.
+      const code = arguments[0];
+      if (paintings[code] && paintings[code] !== "fetching") {
+        graph.paste(paintings[code], ...[...arguments].slice(1));
+      } else if (paintings[code] !== "fetching") {
+        prefetchPainting(code);
+      }
+    } else {
+      graph.paste(...arguments);
+    }
+  },
+  stamp: function stamp() {
+    if (typeof arguments[0] === "string") {
+      // Check to see if the bitmap has been cached by this piece already.
+      const code = arguments[0];
+      if (paintings[code] && paintings[code] !== "fetching") {
+        graph.stamp(paintings[code], ...[...arguments].slice(1));
+      } else if (paintings[code] !== "fetching") {
+        prefetchPainting(code);
+      }
+    } else {
+      graph.stamp(...arguments);
+    }
+  },
   pixel: graph.pixel,
   plot: function () {
     if (arguments.length === 1) {
@@ -2355,6 +2396,8 @@ async function load(
     // }
   }
 
+  let prefetches; // Will be acted on after `hotSwap`.
+
   // 🅱️ Load the piece.
   // const moduleLoadTime = performance.now();
   let blobUrl, sourceCode;
@@ -2452,8 +2495,12 @@ async function load(
 
       // 💉 Constant Injection (for pieces to use)
       // Inject the DEBUG constant into the updatedCode
+      // ⚠️ Always make sure to document 📚 added constants in `docs`!
       updatedCode = `const DEBUG = ${debug};\n${updatedCode}`;
-
+      // 📥 Hunt for and preloading any user media.
+      prefetches = updatedCode
+        .match(/"(@\w[\w.]*\/[^"]*)"/g)
+        ?.map((match) => match.slice(1, -1)); // for "@name/code".
       const blob = new Blob([updatedCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);
       sourceCode = updatedCode;
@@ -3148,6 +3195,8 @@ async function load(
     labelBack = false;
     previewMode = parsed.search?.startsWith("preview") || false;
     iconMode = parsed.search?.startsWith("icon") || false;
+    paintings = {}; // Reset painting cache.
+    prefetches?.forEach((p) => prefetchPainting(p)); // Prefetch parsed media.
 
     // 🪧 See if notice needs to be shown.
     if ($commonApi.query.notice === "success") {

@@ -50,7 +50,7 @@ export async function handler(event, context) {
     api: {
       // 🏛️ Generic
       structure: {
-        // 🧩 Top Level Piece Functions
+        // 🧩 Top Level Piece Functions / meta-level imports.
         boot: {
           label: "🥾 Boot",
           sig: "boot({ ... })",
@@ -105,11 +105,22 @@ export async function handler(event, context) {
           desc: "Paint a piece icon, AKA `favicon`",
           done: false,
         },
+        brush: {
+          label: "brush",
+          sig: "brush({ ... })",
+          desc: "For implementing brushes in the `nopaint` system.",
+          done: false,
+        },
         api: {
           sig: "api",
           desc: "References all built-in functionality for a top-level function.",
           done: false,
         },
+        DEBUG: {
+          sig: "DEBUG",
+          desc: "A global constant that determines if `AC` is in debug mode.",
+          done: false
+        }
       },
       // 🖱️ Interaction
       interaction: {
@@ -194,6 +205,11 @@ export async function handler(event, context) {
         paste: {
           sig: "",
           desc: "",
+          done: false,
+        },
+        stamp: {
+          sig: "",
+          desc: "Similar to paste but always centered.",
           done: false,
         },
         pixel: {
