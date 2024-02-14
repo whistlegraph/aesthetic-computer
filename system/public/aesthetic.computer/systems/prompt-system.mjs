@@ -28,7 +28,13 @@ export async function prompt_boot(
   conversation = new Conversation($.store, $.slug, forgetful, memory);
   const messages = []; //await conversation.retrieve();
 
-  if (messages.length > 0) prompt = messages[messages.length - 1].text;
+  if (messages.length > 0) {
+    prompt = messages[messages.length - 1].text;
+  } else {
+    prompt = prompt?.replaceAll("@", $.handle() || "pal");
+  }
+
+  console.log("Prompt:", prompt);
 
   input = new $.ui.TextInput(
     $,

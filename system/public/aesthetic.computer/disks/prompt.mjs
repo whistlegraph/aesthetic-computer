@@ -1129,7 +1129,6 @@ async function halt($, text) {
     } else {
       loaded = { left: true };
     }
-    console.log(loaded);
     return loaded;
   }
 }
