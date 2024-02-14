@@ -1527,7 +1527,7 @@ export {
 };
 
 //export const system = "prompt:character"; // or "prompt:code"
-export const system = "prompt:character:gpt-4-1106-preview"; // or "prompt:code"
+export const system = "prompt:character"; // or "prompt:code"
 
 // Prompt configuration overrides.
 export const wrap = "word"; // or "char"

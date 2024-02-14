@@ -43,8 +43,7 @@
 
 *** workshop with casey ***
   - [] Multiple templates for different types of pieces.
-    - [-] "Stamp" template.
-    - [] "Character" template.
+    - [🟠] "Character" template.
     - [] "3D" template.
     - [] "Networked" template.
     - [x] "Brush" piece template.
@@ -53,6 +52,7 @@
     - [] Can this produce a new file tab inside of vscode?
     - [] So in order to draw from a template, you can say `new brush` or `new painting`.
   + Done
+  - [x] "Stamp" template.
   - [x] Add param to `publish` to rename the file.
   - [x] Publishing the same piece more than once / overwriting a piece doesn't
          work in the editor.
