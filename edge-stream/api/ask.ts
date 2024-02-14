@@ -50,7 +50,8 @@ export default async function handler(req) {
         max_tokens = 256;
       }
 
-      const model = hint.split(":")[1] || "gpt-3.5-turbo";
+      // const model = hint.split(":")[1] || "gpt-3.5-turbo";
+      const model = hint.split(":")[1] || "gpt-4-0125-preview";
 
       if (model.startsWith("gpt-4")) {
         top_p = 1;

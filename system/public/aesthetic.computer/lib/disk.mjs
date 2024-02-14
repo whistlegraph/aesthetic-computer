@@ -3217,7 +3217,7 @@ async function load(
     }
 
     if (!alias) currentHUDTxt = slug; // Update hud if this is not an alias.
-    if (module.nohud) currentHUDTxt = undefined;
+    if (module.nohud || system === "prompt") currentHUDTxt = undefined;
     currentHUDOffset = undefined; // Always reset these to the defaults.
     currentHUDTextColor = undefined;
     currentHUDStatusColor = "red"; //undefined;

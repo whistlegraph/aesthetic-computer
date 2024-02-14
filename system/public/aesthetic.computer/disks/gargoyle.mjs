@@ -1,5 +1,5 @@
 // Gargoyle, 23.05.21.17.59
-// A character playground for Georgica.
+// A character playground for @georgica.
 
 /* #region 🏁 TODO
   - [] How to replace the "@" with the current user?
