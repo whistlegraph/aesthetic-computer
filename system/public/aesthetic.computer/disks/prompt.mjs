@@ -1137,12 +1137,12 @@ async function halt($, text) {
 function paint($) {
   // 🅰️ Paint below the prompt || scheme.
   if ($.store["painting"]) {
-    $.wipe(scheme.dark.bg); // Render the backdrop.
+    $.wipe(scheme.dark.background); // Render the backdrop.
     $.system.nopaint.present($); // Render the painting.
-    scheme.dark.bg[3] = 176; // Half semi-opaque palette background.
-    scheme.light.bg[3] = 176;
+    scheme.dark.background[3] = 176; // Half semi-opaque palette background.
+    scheme.light.background[3] = 176;
   } else {
-    $.wipe(scheme.dark.bg);
+    $.wipe(scheme.dark.background);
   }
 
   $.layer(1); // 🅱️ And above it...
@@ -1434,7 +1434,7 @@ function act({
   function autocompleteChar() {
     const text = system.prompt.input.text;
     const completion = activeCompletions[0];
-    if (text !== completion) {
+    if (completion && text !== completion) {
       const cursorX = system.prompt.input.prompt.cursor.x;
       system.prompt.input.text = completion.slice(0, cursorX + 1);
       system.prompt.input.snap();
@@ -1525,27 +1525,26 @@ export {
   leave,
 };
 
-//export const system = "prompt:character"; // or "prompt:code"
 export const system = "prompt:character"; // or "prompt:code"
 
 // Prompt configuration overrides.
 export const wrap = "word"; // or "char"
 export const scheme = {
   dark: {
-    fg: [255, 100],
-    fgu: [200, 30, 100, 200],
-    bg: [70, 50, 100],
+    text: [255, 100],
+    background: [70, 50, 100],
+    prompt: [200, 30, 100, 200],
     block: [200, 30, 100],
-    blockHi: [255, 100, 0],
-    line: [0, 0, 255, 64],
+    highlight: [255, 100, 0],
+    guideline: [0, 0, 255, 64],
   },
   light: {
-    fg: [0, 200],
-    fgu: [100, 200],
-    bg: [170, 150, 200],
+    text: [0, 200],
+    prompt: [100, 200],
+    background: [170, 150, 200],
     block: [30, 200, 200],
-    blockHi: [200, 200, 30],
-    line: [0, 0, 0, 128],
+    highlight: [200, 200, 30],
+    guideline: [0, 0, 0, 128],
   },
 };
 

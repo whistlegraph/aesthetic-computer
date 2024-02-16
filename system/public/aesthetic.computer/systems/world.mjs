@@ -69,11 +69,11 @@ async function world_boot(
 
   const scheme = {
     dark: {
-      fg: 255,
-      bg: [0, 100],
+      text: 255,
+      background: [0, 100],
       block: 255,
-      blockHi: 0,
-      line: 255,
+      highlight: 0,
+      guideline: 255,
     },
   };
 

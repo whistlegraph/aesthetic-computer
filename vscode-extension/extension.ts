@@ -159,7 +159,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
           </style>
         </head>
         <body>
-          <iframe credentialless sandbox="allow-scripts" src="https://aesthetic.computer/docs/${path}">
+          <iframe allow="clipboard-write; clipboard-read" credentialless sandbox="allow-scripts" src="https://aesthetic.computer/docs/${path}">
         </body>
         </html>
       `.trim();
@@ -407,6 +407,14 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.onDidReceiveMessage((data) => {
       switch (data.type) {
+        case "clipboard:copy": {
+          vscode.env.clipboard.writeText(data.value).then(() => {
+            // console.log("📋 Copied text to clipboard!");
+            webviewView.webview.postMessage({
+              type: "clipboard:copy:confirmation",
+            });
+          });
+        }
         case "publish": {
           if (data.url) vscode.env.openExternal(vscode.Uri.parse(data.url));
           break;
@@ -495,7 +503,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 				<title>aesthetic.computer</title>
 			</head>
 			<body>
-        <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin" src="https://${
+        <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin" allow="clipboard-write; clipboard-read; camera; microphone; gyroscope" src="https://${
           local ? "localhost:8888" : "aesthetic.computer"
         }${param}" border="none"></iframe>
        	<script nonce="${nonce}" src="${scriptUri}"></script>

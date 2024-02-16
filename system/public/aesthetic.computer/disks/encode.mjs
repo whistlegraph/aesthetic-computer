@@ -46,35 +46,35 @@ function copied(text) {
 
 export const scheme = {
   dark: {
-    fg: [50, 255, 0],
-    bg: [10, 20, 20],
+    text: [50, 255, 0],
+    background: [10, 20, 20],
     block: [255, 255, 255],
-    blockHi: [0, 0, 0],
-    line: [0, 0, 10],
+    highlight: [0, 0, 0],
+    guideline: [0, 0, 10],
   },
   light: {
-    fg: [0, 200],
-    bg: [170, 150, 200],
+    text: [0, 200],
+    background: [170, 150, 200],
     block: [30, 200, 200],
-    blockHi: [200, 200, 30],
-    line: [0, 0, 0, 128],
+    highlight: [200, 200, 30],
+    guideline: [0, 0, 0, 128],
   },
 };
 
 const altScheme = {
   dark: {
-    fg: [0, 0, 0],
-    bg: [210, 255, 40],
+    text: [0, 0, 0],
+    background: [210, 255, 40],
     block: [0, 0, 0],
-    blockHi: [255, 255, 255],
-    line: [0, 0, 10],
+    highlight: [255, 255, 255],
+    guideline: [0, 0, 10],
   },
   light: {
-    fg: [0, 200],
-    bg: [230, 255, 40],
+    text: [0, 200],
+    background: [230, 255, 40],
     block: [30, 200, 200],
-    blockHi: [200, 200, 30],
-    line: [0, 0, 0, 128],
+    highlight: [200, 200, 30],
+    guideline: [0, 0, 0, 128],
   },
 };
 

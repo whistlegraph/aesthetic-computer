@@ -18,19 +18,19 @@ const after = `
 
 export const scheme = {
   dark: {
-    fg: [235, 221, 191],
-    bg: [164, 57, 102, 80],
-    fgu: [70, 70, 90],
+    text: [235, 221, 191],
+    background: [164, 57, 102, 80],
+    prompt: [70, 70, 90],
     block: [179, 136, 124],
-    blockHi: [245, 13, 162],
-    line: [255, 255, 100, 100],
+    highlight: [245, 13, 162],
+    guideline: [255, 255, 100, 100],
   },
   light: {
-    fg: [0, 200],
-    bg: [170, 150, 200],
+    text: [0, 200],
+    background: [170, 150, 200],
     block: [30, 200, 200],
-    blockHi: [200, 200, 30],
-    line: [0, 0, 0, 128],
+    highlight: [200, 200, 30],
+    guideline: [0, 0, 0, 128],
   },
 };
 
