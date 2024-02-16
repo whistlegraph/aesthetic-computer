@@ -119,8 +119,8 @@ export async function handler(event, context) {
         DEBUG: {
           sig: "DEBUG",
           desc: "A global constant that determines if `AC` is in debug mode.",
-          done: false
-        }
+          done: false,
+        },
       },
       // 🖱️ Interaction
       interaction: {
@@ -1486,11 +1486,13 @@ export async function handler(event, context) {
         sig: "flower",
         desc: "He loves me.",
         done: false,
+        hidden: true,
       },
       petal: {
         sig: "petal",
         desc: "He loves me not.",
         done: false,
+        hidden: true,
       },
       bro: {
         sig: "bro",
@@ -1912,13 +1914,13 @@ export async function handler(event, context) {
         sig: "bgm",
         desc: "Background music visualizer.",
         done: false,
-        hidden: true,
+        hidden: false,
       },
       bits: {
         sig: "bits",
         desc: "",
         done: false,
-        hidden: true,
+        hidden: false,
       },
       blank: {
         sig: "blank",
@@ -1984,7 +1986,7 @@ export async function handler(event, context) {
         sig: "chord",
         desc: "",
         done: false,
-        hidden: true,
+        hidden: false,
       },
       colplay: {
         sig: "colplay",
@@ -2015,9 +2017,9 @@ export async function handler(event, context) {
       },
       deck: {
         sig: "deck",
-        desc: "",
+        desc: "A little slide deck!",
         done: false,
-        hidden: true,
+        hidden: false,
       },
       decode: {
         sig: "decode",
@@ -2033,7 +2035,7 @@ export async function handler(event, context) {
         sig: "demo",
         desc: "Watch a demo of AC.",
         done: false,
-        hidden: true,
+        hidden: false,
       },
       description: {
         sig: "description",
@@ -2698,14 +2700,8 @@ export async function handler(event, context) {
         sig: "wipe",
         desc: "",
         done: false,
-        hidden: true,
+        hidden: false,
         //TODO: doesn't seem to clear the painting
-      },
-      clear: {
-        sig: "clear",
-        desc: "",
-        dont: false,
-        hidden: true,
       },
       word: {
         sig: "word",
