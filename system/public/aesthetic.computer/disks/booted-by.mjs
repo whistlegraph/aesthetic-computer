@@ -65,7 +65,15 @@ function boot({ ui, net, help }) {
 }
 
 // 🎨 Paint
-function paint({ api, ink, help, text, screen, num: { randIntArr } }) {
+function paint({
+  api,
+  ink,
+  help,
+  text,
+  screen,
+  help: { choose },
+  num: { randIntArr },
+}) {
   starfield.paint(api); // Starfield
 
   // Bars
@@ -104,6 +112,22 @@ function paint({ api, ink, help, text, screen, num: { randIntArr } }) {
         },
         text,
       );
+
+      if (text === "@wiltchamberlain") {
+        console.log(bar);
+
+        ink()
+          .pan(choose(0, 1, -1), choose(0, 1, -1))
+          .box(bar.tb.btn.box, "out")
+          .unpan();
+        if (!claim && !overlay)
+          bar.tb.paint(api, [
+            "green",
+            choose("white", "yellow"),
+            choose("white", "yellow"),
+            "green",
+          ]);
+      }
     });
   }
 
