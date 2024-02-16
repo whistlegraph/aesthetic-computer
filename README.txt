@@ -40,6 +40,10 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** cab meeting ***
+  - [] Set up DMARC for emails.
+  - [] Always trim whitespace for commands so they don't fail.
+
 *** prompt regression ***
   - [🔴] ⚠️ Sometimes the default reply text can become editable and not be
           cleared...
