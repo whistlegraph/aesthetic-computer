@@ -42,8 +42,6 @@ import { filter } from "../../backend/filter.mjs"; // Profanity filtering.
 // import { promises as fs } from "fs";
 // import path from "path";
 
-let notifications;
-
 export async function handler(event, context) {
   if (event.httpMethod === "GET") {
     // 1. GET: Look up moods for user.
@@ -91,9 +89,19 @@ export async function handler(event, context) {
         // 📕 Database
         await collection.createIndex({ user: 1 }); // Index for `user`.
         await collection.createIndex({ when: 1 }); // Index for `when`.
-        await collection.insertOne({ user: user.sub, mood, when: new Date() });
 
-        if (!notifications) {
+        const lastMood = await collection.findOne(
+          { user: user.sub },
+          { sort: { when: -1 } },
+        );
+
+        if (!lastMood || lastMood.mood !== mood) {
+          await collection.insertOne({
+            user: user.sub,
+            mood,
+            when: new Date(),
+          });
+
           const { got } = await import("got");
 
           const serviceAccount = (
@@ -102,22 +110,23 @@ export async function handler(event, context) {
             })
           ).body;
 
-          notifications = initializeApp({ credential: cert(serviceAccount) }); // Send a notification.
-        }
+          initializeApp({
+            credential: cert(serviceAccount),
+          }); // Send a notification.
 
-        console.log("💕 Setting a mood for:", user);
-        getMessaging()
-          .send({
-            notification: { title: `${handle}'s mood is`, body: `${mood}` },
-            topic: "mood",
-            // data: { piece: msg.content.indexOf("pond") > -1 ? "pond" : "" },
-          })
-          .then((response) => {
-            console.log("☎️  Successfully sent notification:", response);
-          })
-          .catch((error) => {
-            console.log("📵  Error sending notification:", error);
-          });
+          console.log("💕 Setting a mood for:", user);
+          getMessaging()
+            .send({
+              notification: { title: `${handle}'s mood is`, body: `${mood}` },
+              topic: "mood",
+            })
+            .then((response) => {
+              console.log("☎️  Successfully sent notification:", response);
+            })
+            .catch((error) => {
+              console.log("📵  Error sending notification:", error);
+            });
+        }
 
         await database.disconnect();
         return respond(200, { mood }); // Successful mood change.
