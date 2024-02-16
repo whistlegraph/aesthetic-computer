@@ -14,7 +14,7 @@ const prompt = "Enter numbers to decode.";
 
 // 🥾 Boot
 async function boot({ store, system, params, resolution, screen }) {
-  resolution(screen.width/1.2, screen.height/1.2)
+  resolution(screen.width / 1.2, screen.height / 1.2);
   if (params.length === 0) return;
   system.prompt.input.text = params.join(" ");
   await system.prompt.input.run(store);
@@ -38,47 +38,46 @@ function act({ system: { prompt }, event: e }) {
 
 export const scheme = {
   dark: {
-    fg: [230, 274, 224],
-    bg: [189, 164, 166, 100],
+    text: [230, 274, 224],
+    background: [189, 164, 166, 100],
     block: [0, 0, 0],
-    blockHi: [255, 255, 255],
-    line: [0, 0, 10],
+    highlight: [255, 255, 255],
+    guideline: [0, 0, 10],
   },
   light: {
-    fg: [0, 200],
-    bg: [179, 164, 166],
+    text: [0, 200],
+    background: [179, 164, 166],
     block: [30, 200, 200],
-    blockHi: [200, 200, 30],
-    line: [0, 0, 0, 128],
+    highlight: [200, 200, 30],
+    guideline: [0, 0, 0, 128],
   },
 };
 
 const altScheme = {
   dark: {
-    fg: [123, 66,102, 120],
-    bg: [230, 234, 224, 200],
-    block: [123, 66,102, 120],
-    blockHi: [0, 0, 0],
-    line: [230, 234, 224, 120],
+    text: [123, 66, 102, 120],
+    background: [230, 234, 224, 200],
+    block: [123, 66, 102, 120],
+    highlight: [0, 0, 0],
+    guideline: [230, 234, 224, 120],
   },
   light: {
-    fg: [0, 200],
-    bg: [230, 255, 40],
+    text: [0, 200],
+    background: [230, 255, 40],
     block: [30, 200, 200],
-    blockHi: [200, 200, 30],
-    line: [0, 0, 0, 128],
+    highlight: [200, 200, 30],
+    guideline: [0, 0, 0, 128],
   },
 };
 
 // 🎨 Paint
 function paint({ noiseTinted }) {
-noiseTinted([189, 164, 166], 0.8, 0.6)
+  noiseTinted([189, 164, 166], 0.8, 0.6);
 }
 
 function sim({ needsPaint, simCount }) {
   if (simCount % 4n === 0n) needsPaint();
 }
-
 
 export { boot, prompt, halt, act, paint, sim };
 export const system = "prompt"; // or "prompt:code"

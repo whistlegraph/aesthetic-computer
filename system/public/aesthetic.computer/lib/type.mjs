@@ -1,59 +1,9 @@
 // Type, 22.12.10.14.06
 // Abstraction for typography and text input.
 
-/* #region 🏁 todo
-  + Next Version of `TextInput` (before recording)
-  - [-] Add multi-select / shift+select to replace or modify whole regions. 
-  + Later
-  - [] Add tab auto-completion feature that can be side-loaded with contextual
-       data based on where the text module is used.
-  - [] Make history on message input optional?
+/* #region 🏁 TODO
+  + Future
   - [] Gracefully allow for multiple instances of TextInput in a single piece? 
-  + Done
-  - [x] Add support for spaces to be inserted before the
-       first character.
-  - [x] Add support for creating line breaks.
-  - [x] Word break edge cases.
-    (Insertion + Deletion)
-    - [x] Backspacing characters at the start character of the broken
-          word should remove all extraneous space before the next word...
-    - [x] Adding spaces on the start character of a broken word *should*
-          increase the number of spaces by default...
-    - [x] A full length word appearing on a line after a break
-          will jump the line wrong and the cursor wrong.
-    - [x] Creating new lines (SHIFT+ENTER) at the start of broken words should
-          create an extra new line.
-  - [x] Enter after a reply does not clear the cursor posiiton Enter after a reply does not clear the cursor position.
-  - [x] Don't Backspace when cursor is on first character. 
-  - [x] Test line break printing again.
-   - [x] Word wrapping.
-   - [x] Character wrapping.
-  - [x] Get character wrapping working.
-  - [x] Can't move cursor to the right when under a single character text.
-  - [x] Disallow opening spaces.
-  - [x] Rewrite paste to work. 
-  - [x] Test movable cursor again.
-  - [x] Add debug flag for drawing of spaces.
-  - [x️‍] Scrubbing does not respect word wrapping.
-  - [x] Infinite loop while adding spaces before the first character of the
-        first line.
-  - [x] Adding space between two words / causing a break from inside will
-        shove the cursor to the top left.
-  - [x] Backspacing the cursor on the first character of any line
-        doesn't work.
-  - [x] The cursor does not jump accordingly when inserting a character
-        inside a word that will break it to the next line.
-  - [x‍] Re-calculate gutter on resize.
-  - [x] Add a gutter command to change the prompt gutter.
-  - [x] Moving cursor to the right does not respect word breaks
-  - [x] Draw glyphs under the moved cursor.
-  - [x] "`" hotkeying back should start with the cursor non-visible.
-  - [x] Receiving a bot reply should update the spinner. 
-  - [x] Pressing return should reset the cursor and just work...
-  - [😃] Rewrite Prompt with index maps to finish word wrapping support.
-  - [x] Upcycling commands should reset the cursor position.
-  - [x] Add different colors to "print" / storing the ink color / writing
-       a backdrop somehow... maybe using layer?
 endregion */
 
 import { font1 } from "../disks/common/fonts.mjs";
@@ -305,18 +255,18 @@ class TextInput {
     this.startingInput = this.text;
     this.scheme = options.scheme || {
       dark: {
-        fg: 255,
-        bg: 0,
+        text: 255,
+        background: 0,
         block: 255,
-        blockHi: 0,
-        line: 255,
+        highlight: 0,
+        guideline: 255,
       },
       light: {
-        fg: 0,
-        bg: 255,
+        text: 0,
+        background: 255,
         block: 0,
-        blockHi: 255,
-        line: 0,
+        highlight: 255,
+        guideline: 0,
       },
     };
 
@@ -457,7 +407,8 @@ class TextInput {
       this.scheme["dark"] ||
       this.scheme;
 
-    if (!clear && this.pal.bg !== undefined) $.ink(this.pal.bg).box(frame); // Paint bg.
+    if (!clear && this.pal.background !== undefined)
+      $.ink(this.pal.background).box(frame); // Paint bg.
     const ti = this;
     const prompt = this.#prompt;
 
@@ -467,7 +418,7 @@ class TextInput {
       } else if (char !== " " && char.charCodeAt(0) !== 10) {
         const pic = ti.typeface.glyphs[char] || ti.typeface.glyphs["?"];
 
-        $.ink(!alt ? ti.pal.fg : ti.pal.fgu).draw(pic, pos, prompt.scale); // Draw each character.
+        $.ink(!alt ? ti.pal.text : ti.pal.prompt).draw(pic, pos, prompt.scale); // Draw each character.
       } else if (ti.#renderSpaces) {
         $.ink([0, 255, 0, 127]).box(pos.x, pos.y, 3);
       }
@@ -475,6 +426,14 @@ class TextInput {
 
     // 🗺️ Render the text from the maps! (Can go both ways...)
     if (frame.x || frame.y) $.pan(frame.x, frame.y);
+
+    if (!this.#lock && this.selection && this.canType) {
+      for (let i = this.selection[0]; i < this.selection[1]; i += 1) {
+        const c = prompt.textToCursorMap[i];
+        const p = prompt.pos(c, true);
+        $.ink(this.pal.selection || [255, 255, 0, 64]).box(p);
+      }
+    }
 
     // A. Draw all text from displayToTextMap.
     let submittedIndex = 0;
@@ -503,7 +462,7 @@ class TextInput {
 
     if (this.canType) {
       if (!this.hideGutter) {
-        $.ink(this.pal.line).line(
+        $.ink(this.pal.guideline).line(
           prompt.gutter,
           0,
           prompt.gutter,
@@ -540,15 +499,8 @@ class TextInput {
         $.ink(this.pal.block).box(prompt.pos(undefined, true)); // Draw blinking cursor.
         const char = this.text[this.#prompt.textPos()];
         const pic = this.typeface.glyphs[char];
-        if (pic) $.ink(this.pal.blockHi).draw(pic, prompt.pos(undefined, true));
-      }
-
-      if (this.selection) {
-        for (let i = this.selection[0]; i < this.selection[1]; i += 1) {
-          const c = prompt.textToCursorMap[i];
-          const p = prompt.pos(c, true);
-          $.ink(255, 255, 0, 64).box(p);
-        }
+        if (pic)
+          $.ink(this.pal.highlight).draw(pic, prompt.pos(undefined, true));
       }
     }
 
@@ -569,8 +521,8 @@ class TextInput {
     if (!this.enter.btn.disabled) {
       // Outline the whole screen.
       if (this.#activatingPress) {
-        const color = Array.isArray(pal.fg)
-          ? [...pal.fg.slice(0, 3), 128]
+        const color = Array.isArray(pal.text)
+          ? [...pal.text.slice(0, 3), 128]
           : [255, 0, 200, 64];
 
         $.ink(color).box(0, 0, frame.width, frame.height, "in");
@@ -608,7 +560,6 @@ class TextInput {
 
     // Return false if we have loaded every glyph.
     // (Can be wired up to the return value of the parent's `paint`)
-    // TODO: This causes some extra paints on startup.
     return !(
       keys(this.typeface.glyphs).length === keys(this.typeface.glyphData).length
     );
@@ -637,12 +588,9 @@ class TextInput {
     if (!nocopy && this.text.length > 0) {
       this.#coatedCopy = this.#coatCopy(this.text); // Wrap text to be copied.
       this.copy.btn.disabled = false;
-      // console.log("enabled copy...");
-
       this.paste.btn.disabled = true; // Disable paste button.
       this.paste.btn.removeFromDom($, "paste");
-    }
-    if (nopaste) {
+    } else if (nopaste) {
       // Force turning off the paste button.
       this.paste.btn.disabled = true; // Disable paste button.
       this.paste.btn.removeFromDom($, "paste");
@@ -660,13 +608,8 @@ class TextInput {
     // console.log("📚 Stored prompt history:", store[key]);
     store.persist(this.key); // Persist the history stack across tabs.
     // 🍎 Process commands for a given context, passing the text input.
-    //if (this.#autolock) this.lock = true; // TODO: This might be redundant now. 23.06.07.23.32
-    // this.#processingCommand = true;
     await this.#processCommand?.(this.text);
-    // this.#processingCommand = false;
     this.commandSentOnce = true;
-    // this.enter.btn.down = false; // Make sure the Enter button is released.
-    //if (this.#autolock) this.lock = false;
   }
 
   // Clear the TextInput object and flip the cursor to ON.
@@ -803,36 +746,7 @@ class TextInput {
         }
       } else {
         // Other keys.
-        if (e.key === "Delete") {
-          // Deprecated, now handled via `prompt:text:replace`.
-          // Delete the character under the cursor.
-          /*
-          const index = this.#prompt.textPos();
-          if (index !== undefined) {
-            if (
-              !(
-                this.text[index]?.charCodeAt(0) === 10 &&
-                index === this.text.length - 1
-              )
-            ) {
-              // quit
-              this.text =
-                this.text.slice(0, index) + this.text.slice(index + 1) || "";
-            }
-          } else {
-            const back = this.#prompt.backward({ ...this.#prompt.cursor });
-            const backIndex = this.#prompt.textPos(back);
-            if (this.text.length - 1 !== backIndex) {
-              // Do nothing, we are at the end.
-              // If we are on the first character or if there is
-              // text before the cursor.
-              const bi = backIndex === undefined ? 0 : backIndex + 1;
-              this.text =
-                this.text.slice(0, bi) + this.text.slice(bi + 1) || "";
-            }
-          }
-          */
-        } else if (e.key === "Backspace") {
+        if (e.key === "Backspace") {
           const prompt = this.#prompt;
 
           // Detect if the cursor is on a `\n` new line character.
@@ -937,10 +851,6 @@ class TextInput {
           this.#prompt.cursor = { x: 0, y: 0 };
         }
 
-        // Assuming you've initialized somewhere in your class:
-        // this.prehistory = "";
-        // this.showingPrehistory = false;
-
         // Move backwards through history stack.
         if (e.key === "ArrowUp") {
           // TODO: Check to see if this is the first history traversal,
@@ -989,46 +899,9 @@ class TextInput {
           });
           this.selection = null;
         }
-
-        // Move cursor forward.
-        // if (e.key === "ArrowRight") {
-        //   if (!e.shift && this.selection) {
-        //     this.selection = null;
-        //   } else {
-        //     this.#prompt.crawlForward();
-        //     // if (this.selection) {
-        //     //   this.selection[1] += 1;
-        //     //   if (this.selection[1] === this.text.length) {
-        //     //     this.selection[1] = this.text.length - 1;
-        //     //   }
-        //     // }
-        //   }
-        // }
-
-        // Move cursor backward.
-        // if (e.key === "ArrowLeft") {
-        //   if (!e.shift && this.selection) {
-        //     this.#prompt.cursor = {
-        //       ...this.#prompt.textToCursorMap[this.selection[0]],
-        //     };
-        //     this.selection = null;
-        //   } else {
-        //     this.#prompt.crawlBackward();
-        //     // if (e.shift && this.selection) {
-        //     //   this.selection[0] -= 1;
-        //     //   if (this.selection[0] < 0) this.selection[0] = 0;
-        //     // } else if (e.shift) {
-        //     //   const index = this.#prompt.textPos();
-        //     //   if (index > 0) this.selection = [index - 1, index];
-        //     // }
-        //   }
-        // }
       }
 
       if (e.key !== "Enter" && e.key !== "`") {
-        // this.copy.btn.disabled = true;
-        // this.copy.btn.removeFromDom($, "copy");
-        // this.paste.btn.disabled = false;
         if (this.text.length > 0) {
           this.enter.btn.disabled = false;
           this.runnable = true;
@@ -1113,7 +986,6 @@ class TextInput {
       (this.copy.btn.disabled === true || !this.copy.btn.box.contains(e)) &&
       (this.paste.btn.disabled === true || !this.paste.btn.box.contains(e))
     ) {
-      // this.enter.btn.down = true;
       this.#activatingPress = true;
       $.send({ type: "keyboard:unlock" });
       if (!this.mute) {
@@ -1192,7 +1064,6 @@ class TextInput {
 
       ti.enter.btn.disabled = false;
       ti.paste.btn.disabled = false;
-      //ti.inputStarted = false;
       ti.canType = false;
       ti.runnable = false;
       ti.#lastUserText = ti.text;
@@ -1226,9 +1097,6 @@ class TextInput {
       //                  for `field`. 23.12.02.00.43
     }
 
-    // TODO: Touching background as a button (but no other button)
-    //       should activate the prompt.
-
     if (
       e.is("touch") &&
       ((this.enter.btn.disabled === false && this.enter.btn.box.contains(e)) ||
@@ -1242,8 +1110,6 @@ class TextInput {
 
     // UI Button Actions
     if (!this.#lock) {
-      // TODO: This could be part of rollover also.
-
       // Enter Button...
       if (
         e.is("draw") &&
@@ -1420,39 +1286,6 @@ class TextInput {
       }, 500);
     }
 
-    // if (e.is("pasted:text") && !this.canType) {
-    //   activate(this); // Activate on pasted text if necessary.
-    // }
-
-    // 🗞️ Pasted text from user clipboard.
-    // if (e.is("pasted:text") && this.lock === false && this.canType) {
-    //   const paste = e.text;
-    //   const index = this.#prompt.textPos();
-
-    //   // Just add the text to the end.
-    //   if (index === undefined || this.text.length === 0) {
-    //     this.text += paste;
-    //     this.#prompt.snapTo(this.text);
-    //   } else {
-    //     // Or inside.
-    //     let sliceIndex = index;
-    //     const onChar = this.#prompt.posHasVisibleCharacter();
-    //     if (!onChar) sliceIndex += 1;
-    //     this.text =
-    //       this.text.slice(0, sliceIndex) + paste + this.text.slice(sliceIndex);
-    //     const newCursor = this.#prompt.textToCursorMap[index + paste.length];
-    //     this.#prompt.cursor = { ...newCursor };
-    //     if (!onChar) this.#prompt.forward();
-    //   }
-
-    //   if (this.text.length > 0) {
-    //     this.enter.btn.disabled = false;
-    //     this.runnable = true;
-    //   }
-
-    //   this.blink.flip(true);
-    // }
-
     // This should only be possible when the text box is locked, unless
     // it's the first activation.
     if (
@@ -1476,11 +1309,6 @@ class TextInput {
 
       if (this.#prehistory !== undefined) this.#prehistory = this.text;
     }
-
-    // if (e.is("prompt:text:select")) {
-    //   this.selection = [e.cursor, e.cursorEnd];
-    //   this.blink.flip(true);
-    // }
 
     if (e.is("prompt:text:cursor") && this.#lock === false) {
       if (e.cursor === this.text.length) {
@@ -1729,10 +1557,6 @@ class Prompt {
     if (newLine) key = key + ":\\n";
     this.cursorToTextMap[key] = textIndex;
   }
-
-  // resize(newColWidth) {
-  //   this.colWidth = newColWidth;
-  // }
 
   // Get the current text index given a cursor position.
   textPos(cursor = this.cursor) {

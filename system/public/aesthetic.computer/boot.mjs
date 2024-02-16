@@ -234,6 +234,12 @@ function receive(event) {
     console.log("Bytes:", event.data.bytes.length);
     return;
   }
+  if (event.data?.type === "clipboard:copy:confirmation") {
+    // Receive a clipboard copy confirmation from a hosted frame.
+    // (vscode extension)
+    window.acSEND({ type: "copy:copied" });
+    return;
+  }
   if (event.data?.type === "setSession") {
     // Use the session information to authenticate, if it exists.
     const session = event.data.session;

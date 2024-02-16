@@ -1,4 +1,4 @@
-// Wife, 
+// Wife,
 // Nagging wife.
 
 /* #region 🏁 TODO
@@ -19,23 +19,23 @@ const after = `
   - and your responses are only one sentence.
   `;
 
-  export const scheme = {
-    dark: {
-      fg: [226, 250, 205],
-      bg: [164, 19, 35, 150],
-      fgu: [220, 100, 110],
-      block: [227, 24, 78, 100],
-      blockHi: [254, 53, 47],
-      line: [227, 24, 78, 100],
-    },
-    light: {
-      fg: [0, 200],
-      bg: [170, 150, 200],
-      block: [30, 200, 200],
-      blockHi: [200, 200, 30],
-      line: [0, 0, 0, 128],
-    },
-  };
+export const scheme = {
+  dark: {
+    text: [226, 250, 205],
+    background: [164, 19, 35, 150],
+    prompt: [220, 100, 110],
+    block: [227, 24, 78, 100],
+    highlight: [254, 53, 47],
+    guideline: [227, 24, 78, 100],
+  },
+  light: {
+    text: [0, 200],
+    background: [170, 150, 200],
+    block: [30, 200, 200],
+    highlight: [200, 200, 30],
+    guideline: [0, 0, 0, 128],
+  },
+};
 
 // 🛑 Intercept specific input text with a custom reply.
 function halt($, text) {

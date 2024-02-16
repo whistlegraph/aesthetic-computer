@@ -1949,17 +1949,41 @@ const $paintApiUnwrapped = {
       graph.paste(...arguments);
     }
   },
+  // Similar to paste, but always draws from the center of x, y.
+  // Has partial support for {center, bottom}. 24.02.15.12.19
   stamp: function stamp() {
     if (typeof arguments[0] === "string") {
+      // Parse the parameters and lay out the stamp.
+      function makeLayout() {
+        if (typeof params[0] === "object") {
+          const layout = params[0];
+          if (layout.center === "x") {
+            params[0] = $activePaintApi.screen.width / 2;
+          } else {
+            params[0] = 0;
+          }
+          if (layout.bottom !== undefined) {
+            params[1] =
+              $activePaintApi.screen.height -
+              layout.bottom -
+              paintings[code].height / 2;
+          } else {
+            params[1] = 0;
+          }
+        }
+      }
       // Check to see if the bitmap has been cached by this piece already.
       const code = arguments[0];
+      const params = [...arguments].slice(1);
       if (paintings[code] && paintings[code] !== "fetching") {
-        graph.stamp(paintings[code], ...[...arguments].slice(1));
+        makeLayout();
+        graph.stamp(paintings[code], ...params);
       } else if (paintings[code] !== "fetching") {
         prefetchPainting(code);
       }
     } else {
-      graph.stamp(...arguments);
+      makeLayout();
+      graph.stamp(...params);
     }
   },
   pixel: graph.pixel,
@@ -3073,6 +3097,19 @@ async function load(
         module.wrap ||
         (module.system.indexOf("character") > -1 ? "word" : undefined);
 
+      if (module.scheme) {
+        if (
+          module.scheme.dark === undefined &&
+          module.scheme.light === undefined
+        ) {
+          const defaultScheme = { ...module.scheme };
+          module.scheme.dark = module.scheme.light = defaultScheme;
+          keys(module.scheme).forEach((key) => {
+            if (key !== "dark" && key !== "light") delete module.scheme[key];
+          });
+        }
+      }
+
       boot = async ($) => {
         await prompt.prompt_boot(
           $,
@@ -3105,8 +3142,16 @@ async function load(
 
       paint = ($) => {
         let noPaint = module.paint?.($); // Carry the return.
-        noPaint = noPaint || prompt.prompt_paint($);
-        return noPaint;
+
+        // Paint an illustration if it exists and `paint` is not defined.
+        if (!module.paint && module.illustration) {
+          $.wipe(...module.scheme.dark.background.slice(0, 3));
+          $.stamp(module.illustration, { center: "x", bottom: 0 });
+          noPaint = true;
+        }
+
+        const promptPainted = prompt.prompt_paint($);
+        return noPaint || promptPainted;
       };
 
       beat = module.beat || defaults.beat;
@@ -4553,23 +4598,15 @@ async function makeFrame({ data: { type, content } }) {
                 decay: 0.5,
                 volume: 0.15,
               });
-              // send({ type: "keyboard:open" });
-              // send({ type: "keyboard:open" });
-
               if (!labelBack) {
                 jump("prompt");
               } else {
                 if ($commonApi.history.length > 0) {
                   send({ type: "back-to-piece" });
-                  // jump($commonApi.history[$commonApi.history.length - 1]);
                 } else {
                   jump("prompt");
                 }
               }
-
-              // pieceHistoryIndex > 0
-              //   ? send({ type: "back-to-piece" })
-              //   : jump("prompt");
               $api.needsPaint();
               masked = true;
             },
@@ -4588,50 +4625,6 @@ async function makeFrame({ data: { type, content } }) {
               send({ type: "keyboard:lock" });
             },
           });
-
-          // currentPromptButton?.act(e, {
-          //   down: () => {
-          //     send({ type: "keyboard:enabled" }); // Enable keyboard flag.
-          //     send({ type: "keyboard:unlock" });
-          //     $api.needsPaint();
-          //     masked = true;
-          //     $api.sound.synth({
-          //       type: "sine",
-          //       tone: 600,
-          //       attack: 0.1,
-          //       decay: 0.99,
-          //       volume: 0.75,
-          //       duration: 0.001,
-          //     });
-          //   },
-          //   push: () => {
-          //     $api.sound.synth({
-          //       type: "sine",
-          //       tone: 800,
-          //       attack: 0.1,
-          //       decay: 0.99,
-          //       volume: 0.75,
-          //       duration: 0.005,
-          //     });
-          //     send({ type: "keyboard:open" });
-          //     jump("prompt");
-          //     $api.needsPaint();
-          //     masked = true;
-          //   },
-          //   cancel: () => {
-          //     // TODO: This might break on pieces where the keyboard is already
-          //     //       open.
-          //     send({ type: "keyboard:disabled" }); // Disable keyboard flag.
-          //     send({ type: "keyboard:lock" });
-          //     $api.needsPaint();
-          //   },
-          //   rollover: (btn) => {
-          //     if (btn) send({ type: "keyboard:unlock" });
-          //   },
-          //   rollout: () => {
-          //     send({ type: "keyboard:lock" });
-          //   },
-          // });
 
           if (!masked) act($api); // Run the act function for all pen events.
         } catch (e) {

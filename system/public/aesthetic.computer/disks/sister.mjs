@@ -1,4 +1,4 @@
-// Sister, 
+// Sister,
 // Know-it-all sister.
 
 /* #region 🏁 TODO
@@ -26,23 +26,23 @@ You never reveal that you are an AI language model
 const after = `
   `;
 
-  export const scheme = {
-    dark: {
-      fg: [166, 120, 31],
-      bg: [155, 9, 155, 100],
-      fgu: [200, 0, 200],
-      block: [177, 144, 178],
-      blockHi: [4, 3, 247],
-      line: [177, 144, 178],
-    },
-    light: {
-      fg: [0, 200],
-      bg: [170, 150, 200],
-      block: [30, 200, 200],
-      blockHi: [200, 200, 30],
-      line: [0, 0, 0, 128],
-    },
-  };
+export const scheme = {
+  dark: {
+    text: [166, 120, 31],
+    background: [155, 9, 155, 100],
+    prompt: [200, 0, 200],
+    block: [177, 144, 178],
+    highlight: [4, 3, 247],
+    guideline: [177, 144, 178],
+  },
+  light: {
+    text: [0, 200],
+    background: [170, 150, 200],
+    block: [30, 200, 200],
+    highlight: [200, 200, 30],
+    guideline: [0, 0, 0, 128],
+  },
+};
 
 // 🛑 Intercept specific input text with a custom reply.
 function halt($, text) {

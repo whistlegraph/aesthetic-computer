@@ -451,8 +451,8 @@ if (dev) {
       "../system/netlify/functions",
       "../system/public/aesthetic.computer/lib",
       "../system/public/aesthetic.computer/systems", // This doesn't need a full reload / could just reload the disk module?
-      "../system/public/aesthetic.computer/boot.js",
-      "../system/public/aesthetic.computer/bios.js",
+      "../system/public/aesthetic.computer/boot.mjs",
+      "../system/public/aesthetic.computer/bios.mjs",
       "../system/public/aesthetic.computer/style.css",
     ])
     .on("all", (event, path) => {
