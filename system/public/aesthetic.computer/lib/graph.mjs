@@ -25,7 +25,7 @@ import { any, repeat, nonvalue, flip } from "./help.mjs";
 import { Box } from "./geo.mjs";
 import { nanoid } from "../dep/nanoid/nanoid.js";
 
-const { sign, abs, ceil, floor, sin, cos, min, max, random, PI } = Math;
+const { round, sign, abs, ceil, floor, sin, cos, min, max } = Math;
 
 let width, height, pixels;
 const depthBuffer = [];
@@ -1957,7 +1957,7 @@ class Camera {
   #transformMatrix;
 
   // Takes x, y, z position and an optional scale (xyz) array.
-  constructor(fov = 80, { x, y, z, scale }) {
+  constructor(fov = 80, { x, y, z, scale } = { x: 0, y: 0, z: 0, scale: 1 }) {
     this.fov = fov;
 
     this.x = x;
@@ -2648,7 +2648,7 @@ class Vertex {
   // TODO: Optimize this function for large vertex counts. 22.10.13.00.14
   transform(matrix) {
     // Camera
-    return new Vertex(
+    const vert = new Vertex(
       vec4.transformMat4(
         vec4.create(),
         [
@@ -2662,6 +2662,8 @@ class Vertex {
       this.color,
       this.texCoords,
     );
+    // console.log(matrix, vert);
+    return vert;
   }
 
   transformWorld(matrix) {
@@ -3031,7 +3033,7 @@ function drawLine3d(a, b, color = c, gradients) {
 
   if (aInside && bInside) {
     line3d(a, b, color, gradients);
-    return;
+   return;
   }
 
   // Don't draw anything if we are completely outside.

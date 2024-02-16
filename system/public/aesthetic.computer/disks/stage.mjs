@@ -81,14 +81,13 @@ let playingLetter;
 const { abs } = Math;
 
 export function boot({
-  query,
   Camera,
   Form,
   painting,
-  SQUARE,
-  TRIANGLE,
-  wipe,
+  QUAD,
+  TRI,
   screen,
+  params,
   help: { each },
 }) {
   // Load some initial parameters.
@@ -121,7 +120,7 @@ export function boot({
 
   for (const l of "ABCDEFG") // Add each colored block.
     blocks[l] = new Form(
-      SQUARE,
+      QUAD,
       {
         texture: painting(32, 32, (p) => {
           p.wipe(...blocksColors[l]);
@@ -134,7 +133,7 @@ export function boot({
 
   // Add indicator arrow.
   arrow = new Form(
-    TRIANGLE,
+    TRI,
     { texture: painting(32, 32, (p) => p.wipe(32)) },
     [blocksX[notes[0].letter], 4, 4],
     [0, 0, 180],
@@ -208,10 +207,10 @@ export function paint({
       ink(48); // Grey backdrop as usual.
     }
   }
-  wipe();
+  wipe(0);
 
   // 2. Blocks & Arrow
-  each(blocks, (block) => form(block, cam)); // Paint every block.
+  each(blocks, (block) => form(block, cam, { cpu: true })); // Paint every block.
 
   // TODO: Fix this for looping.
   if (noteI < 0 && noteI > -countIn) {
@@ -222,7 +221,7 @@ export function paint({
       arrow.position[1] = 2.25;
     }
 
-    form(arrow, cam); // Paint arrow.
+    form(arrow, cam, { cpu: true }); // Paint arrow.
   }
 
   if (noteI > 0 && songFinished === false) {
@@ -349,7 +348,7 @@ export function beat({
   help: { every, each, choose, repeat },
   sound: { bpm, time, synth },
   num: { lerp, Track },
-  graph: { painting, ink, wipe, line },
+  painting,
 }) {
   bpm(BPM);
 

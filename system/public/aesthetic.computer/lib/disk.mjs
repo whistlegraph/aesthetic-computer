@@ -1689,8 +1689,6 @@ const LINE = {
   indices: [0, 1],
 };
 
-let SCREEN;
-
 // Inputs: (r, g, b), (r, g, b, a) or an array of those.
 //         (rgb) for grayscale or (rgb, a) for grayscale with alpha.
 //         Or hex with "#000000" or "0x000000" or 0x000000.
@@ -4769,8 +4767,6 @@ async function makeFrame({ data: { type, content } }) {
 
       $api.screen = screen;
       $api.screen.center = { x: screen.width / 2, y: screen.height / 2 };
-
-      SCREEN = screen;
 
       $api.fps = function (newFps) {
         send({ type: "fps-change", content: newFps });
