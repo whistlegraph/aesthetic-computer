@@ -28,7 +28,7 @@ function paint({ wipe, Camera, Dolly, Form, QUAD, CUBEL, form }) {
     { pos: [0, 0.5, -4], rot: [0, 0, 0], scale: 1 },
   );
 
-  wipe("gray").ink().line();
+  wipe("gray").ink(0).line();
   form(square, doll.cam, { cpu: true });
 }
 
