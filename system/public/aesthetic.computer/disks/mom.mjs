@@ -1,4 +1,4 @@
-// Mom, 
+// Mom,
 // Doting mother.
 
 /* #region 🏁 TODO
@@ -26,23 +26,23 @@ const after = `
   - your responses are limited to 100 characters.
   `;
 
-  export const scheme = {
-    dark: {
-      fg: [172, 49, 117, 190],
-      bg: [215, 181, 74, 200],
-      fgu: [20, 140, 140],
-      block: [172, 49, 117, 190],
-      blockHi: [234, 213, 166],
-      line: [228, 162, 131],
-    },
-    light: {
-      fg: [0, 200],
-      bg: [170, 150, 200],
-      block: [30, 200, 200],
-      blockHi: [200, 200, 30],
-      line: [0, 0, 0, 128],
-    },
-  };
+export const scheme = {
+  dark: {
+    text: [172, 49, 117, 190],
+    background: [215, 181, 74, 200],
+    prompt: [20, 140, 140],
+    block: [172, 49, 117, 190],
+    highlight: [234, 213, 166],
+    guideline: [228, 162, 131],
+  },
+  light: {
+    text: [0, 200],
+    background: [170, 150, 200],
+    block: [30, 200, 200],
+    highlight: [200, 200, 30],
+    guideline: [0, 0, 0, 128],
+  },
+};
 
 // 🛑 Intercept specific input text with a custom reply.
 function halt($, text) {
@@ -79,10 +79,9 @@ function boot({ get, needsPaint }) {
 function paint({ screen, wipe, ink, paste }) {
   wipe(215, 181, 74);
   if (!painting) return;
-  const xposition = screen.width/2 - painting.width/2;
+  const xposition = screen.width / 2 - painting.width / 2;
   paste(painting, xposition, screen.height - painting.height);
 }
-
 
 export { prompt, before, after, halt, reply, boot, paint, copied };
 export const system = "prompt:character"; // or "prompt:code"

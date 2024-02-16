@@ -1587,7 +1587,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               await navigator.clipboard.writeText(content.message);
               send({ type: "copy:copied" });
             } catch (err) {
-              send({ type: "copy:failed" });
+              console.warn("📋 Clipboard copy failed:", err);
+              if (window.parent) {
+                console.log("📋 Trying via message...");
+                window.parent.postMessage(
+                  { type: "clipboard:copy", value: content.message },
+                  "*",
+                );
+              } else {
+                send({ type: "copy:failed" });
+              }
             }
           }
 
@@ -2015,16 +2024,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
         });
 
-        // input.addEventListener("input", (e) => {
-        //   send({
-        //     type: "prompt:text:replace",
-        //     content: {
-        //       text: e.target.value,
-        //       cursor: input.selectionStart,
-        //     },
-        //   });
-        // });
-
         function handleInput(e) {
           input.removeEventListener("input", handleInput);
 
@@ -2067,7 +2066,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (!e.shiftKey && selectionLength > 1) {
               cursor =
                 e.key === "ArrowLeft"
-                  ? max(0, input.selectionStart - 1)
+                  ? max(0, input.selectionStart)
                   : input.selectionEnd;
             } else {
               cursor += e.key === "ArrowLeft" ? -1 : 1;
@@ -2077,11 +2076,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             let start, end;
             if (e.shiftKey) {
               if (e.key === "ArrowLeft") {
-                start = cursor;
-                end = input.selectionEnd;
+                if (input.selectionDirection === "backward") {
+                  start = cursor;
+                  end = input.selectionEnd;
+                } else {
+                  start = input.selectionStart;
+                  end =
+                    cursor > input.selectionStart ? cursor : input.selectionEnd;
+                }
               } else {
-                start = input.selectionStart;
-                end = cursor;
+                if (input.selectionDirection === "forward") {
+                  start = input.selectionStart;
+                  end = cursor;
+                } else {
+                  end =
+                    cursor < input.selectionEnd ? cursor : input.selectionStart;
+                  start = cursor;
+                }
               }
             }
 

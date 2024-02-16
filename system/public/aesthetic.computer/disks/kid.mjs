@@ -1,4 +1,4 @@
-// Kid, 
+// Kid,
 // Asky software kid.
 
 /* #region 🏁 TODO
@@ -12,7 +12,7 @@ const q3 = "Who made the moon?";
 const q4 = "When will the world end?";
 const q5 = "Why do dogs bark?";
 const q6 = "Why is lava so hot?";
-const q7 = ""
+const q7 = "";
 
 const prompt = choose(q1, q2, q3, q4, q5, q6);
 const before = `
@@ -27,23 +27,23 @@ const after = `
   - your responses are limited to 100 characters.
   `;
 
-  export const scheme = {
-    dark: {
-      fg: [125, 125, 0],
-      bg: [255, 165, 0, 100],
-      fgu: [220, 10, 10],
-      block: [218, 112, 214],
-      blockHi: [234, 213, 166],
-      line: [218, 112, 214],
-    },
-    light: {
-      fg: [0, 200],
-      bg: [170, 150, 200],
-      block: [30, 200, 200],
-      blockHi: [200, 200, 30],
-      line: [0, 0, 0, 128],
-    },
-  };
+export const scheme = {
+  dark: {
+    text: [125, 125, 0],
+    background: [255, 165, 0, 100],
+    prompt: [220, 10, 10],
+    block: [218, 112, 214],
+    highlight: [234, 213, 166],
+    guideline: [218, 112, 214],
+  },
+  light: {
+    text: [0, 200],
+    background: [170, 150, 200],
+    block: [30, 200, 200],
+    highlight: [200, 200, 30],
+    guideline: [0, 0, 0, 128],
+  },
+};
 
 // 🛑 Intercept specific input text with a custom reply.
 function halt($, text) {
@@ -80,10 +80,9 @@ function boot({ get, needsPaint }) {
 function paint({ screen, wipe, ink, paste }) {
   wipe(255, 165, 0);
   if (!painting) return;
-  const xposition = screen.width/2 - painting.width/2;
+  const xposition = screen.width / 2 - painting.width / 2;
   paste(painting, xposition, screen.height - painting.height);
 }
-
 
 export { prompt, before, after, halt, reply, boot, paint, copied };
 export const system = "prompt:character"; // or "prompt:code"

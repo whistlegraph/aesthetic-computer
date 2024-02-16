@@ -1,4 +1,4 @@
-// Husband, 
+// Husband,
 // Forgetful husband.
 
 /* #region 🏁 TODO
@@ -20,23 +20,23 @@ const after = `
 
   `;
 
-  export const scheme = {
-    dark: {
-      fg: [166, 200, 111],
-      bg: [224, 224, 224, 100],
-      fgu: [230, 230, 230],
-      block: [177, 214, 78],
-      blockHi: [4, 3, 247],
-      line: [177, 214, 78],
-    },
-    light: {
-      fg: [0, 200],
-      bg: [170, 150, 200],
-      block: [30, 200, 200],
-      blockHi: [200, 200, 30],
-      line: [0, 0, 0, 128],
-    },
-  };
+export const scheme = {
+  dark: {
+    text: [166, 200, 111],
+    background: [224, 224, 224, 100],
+    prompt: [230, 230, 230],
+    block: [177, 214, 78],
+    highlight: [4, 3, 247],
+    guideline: [177, 214, 78],
+  },
+  light: {
+    text: [0, 200],
+    background: [170, 150, 200],
+    block: [30, 200, 200],
+    highlight: [200, 200, 30],
+    guideline: [0, 0, 0, 128],
+  },
+};
 
 // 🛑 Intercept specific input text with a custom reply.
 function halt($, text) {

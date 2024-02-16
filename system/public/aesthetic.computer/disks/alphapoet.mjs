@@ -18,19 +18,19 @@ const forgetful = true
 
   export const scheme = {
     dark: {
-      fg: [10, 90, 180],
-      bg: [244, 234, 210],
-      fgu: [0, 0, 100], // User reply foreground color.
+      text: [10, 90, 180],
+      background: [244, 234, 210],
+      prompt: [0, 0, 100], // User reply foreground color.
       block: [240, 230, 10],
-      blockHi: [255, 255, 255],
-      line: [240, 230, 10],
+      highlight: [255, 255, 255],
+      guideline: [240, 230, 10],
     },
     light: {
-      fg: [0, 200],
-      bg: [170, 150, 200],
+      text: [0, 200],
+      background: [170, 150, 200],
       block: [30, 200, 200],
-      blockHi: [200, 200, 30],
-      line: [0, 0, 0, 128],
+      highlight: [200, 200, 30],
+      guideline: [0, 0, 0, 128],
     },
   };
 
