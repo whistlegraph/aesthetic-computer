@@ -2098,7 +2098,7 @@ Make sure `git` is installed, (you can do that through `homebrew`) and then get 
   0.0a Open new terminal window and cd into aesthetic.computer directory install node version 
   1. Check `ssl-dev/readme.txt` to generate and add local SSL certificates.
   2. `npm install` from the project directory.
-  3. `cd` into `session-server` and `npm install` as well.
+  3. `cd` into `session-server` and ask Jeffrey for Firebase json file 
   4. Get added to the Netlify project as a collaborator.
   5. `cd` into `system` and run `npx netlify login` and then `npx netlify link`
   6. Now from the `aesthetic computer` directory run `npm run code` and in another shell `npm run server:session`.
