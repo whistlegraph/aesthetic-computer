@@ -2107,7 +2107,7 @@ Make sure `git` is installed, (you can do that through `homebrew`) and then get 
      and you can slurp them from S3 so you can run the below.
 
 Static Assets
-  0. Squadmates can use `npm run assets:sync` after configuring `aws-cli` with
+  0. Squadmates can use `npm run assets:sync:down` after configuring `aws-cli` with
      the aesthetic.computer storage keys provided by Jeffrey.
 
 🧩 Making a new included piece.
