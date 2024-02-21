@@ -24,6 +24,8 @@ import { headers } from "./headers.mjs";
 import { logs } from "./logs.mjs";
 import { soundWhitelist } from "./sound/sound-whitelist.mjs";
 
+import { CamDoll } from "./cam-doll.mjs";
+
 import { TextInput, Typeface } from "../lib/type.mjs";
 let tf; // Active typeface global.
 
@@ -1759,7 +1761,7 @@ let formsSent = {}; // TODO: This should be cleared more often...
 // `cpu: true` enabled software rendering
 function form(
   forms,
-  cam,
+  cam = $commonApi.system.fps.doll.cam,
   { cpu, background } = {
     cpu: true,
     keep: true,
@@ -3199,6 +3201,34 @@ async function load(
       };
 
       system = "world";
+    } else if (module.system.startsWith("fps")) {
+      let doll;
+
+      boot = ($) => {
+        doll = new CamDoll($.Camera, $.Dolly, {
+          fov: 80,
+          z: 0,
+          y: 0,
+          sensitivity: 0.002,
+        });
+        $commonApi.system.fps = { doll };
+        module?.boot($);
+      };
+
+      sim = ($) => {
+        doll?.sim();
+        module?.sim?.($);
+      };
+
+      act = ($) => {
+        doll?.act($.event);
+        module?.act($);
+      };
+
+      paint = module.paint || defaults.paint;
+      leave = module.leave || defaults.leave;
+
+      system = "fps";
     } else {
       boot = module.boot || defaults.boot;
       sim = module.sim || defaults.sim;
