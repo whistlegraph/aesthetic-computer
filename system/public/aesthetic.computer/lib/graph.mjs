@@ -2318,6 +2318,17 @@ class Form {
     // 🌩️ Ingest positions and turn them into vertices.
     // ("Import" a model...)
 
+    // Switch fill to transform if the was skipped.
+    if (fill?.pos || fill?.rot || fill?.scale) {
+      transform = fill;
+      fill = undefined;
+    }
+
+    // Assign texture or color.
+    if (fill?.tex) this.texture = fill.tex;
+    if (fill?.color) this.color = fill.color || c.slice();
+    if (fill?.alpha) this.alpha = fill.alpha;
+
     // TODO: There is no maxed out notice here.
     if (positions?.length > 0)
       this.addPoints({ positions, colors }, this.indices);
@@ -2327,17 +2338,6 @@ class Form {
       this.vertices = vertices;
       this.uvs = uvs;
     }
-
-    // Switch fill to transform if the was skipped.
-    if (fill?.pos || fill?.rot || fill?.scale) {
-      transform = fill;
-      fill = undefined;
-    }
-
-    // Assign texture or color.
-    if (fill?.tex) this.texture = fill.tex;
-    if (fill?.color) this.color = fill.color;
-    if (fill?.alpha) this.alpha = fill.alpha;
 
     this.position = transform?.pos || [0, 0, 0];
     this.rotation = transform?.rot || [0, 0, 0];
@@ -2567,10 +2567,13 @@ class Form {
       for (let i = 0; i < this.indices.length - posLimit * 2; i += 2) {
         // Draw each line by applying the screen transform &
         // perspective divide (with clipping).
+        //console.log( || this.color)
+        // console.log(transformedVertices[this.indices[i]].color)
+
         drawLine3d(
           transformedVertices[this.indices[i]],
           transformedVertices[this.indices[i + 1]],
-          transformedVertices[this.indices[i]].color || this.color,
+          transformedVertices[this.indices[i]].color || c,
           this.gradients,
         );
       }
@@ -2635,12 +2638,12 @@ class Vertex {
 
   constructor(
     pos = [0, 0, 0, 1],
-    color = [...c, 1.0],
+    color,// = [...c, 1.0],
     texCoords = [0, 0, 0, 0],
     normal = [0, 0, 0],
   ) {
     this.pos = vec4.fromValues(...pos);
-    this.color = vec4.fromValues(...color);
+    if (color) this.color = vec4.fromValues(...color);
     this.texCoords = vec4.fromValues(...texCoords);
     this.normal = vec3.fromValues(...normal);
   }
@@ -2698,7 +2701,7 @@ class Vertex {
 
   lerp(other, lerpAmt) {
     const pos = vec4.lerp(vec4.create(), this.pos, other.pos, lerpAmt);
-    const col = vec4.lerp(vec4.create(), this.color, other.color, lerpAmt);
+    const col = this.color ? vec4.lerp(vec4.create(), this.color, other.color, lerpAmt) : undefined;
     const texCoords = vec4.lerp(
       vec4.create(),
       this.texCoords,
@@ -3033,7 +3036,7 @@ function drawLine3d(a, b, color = c, gradients) {
 
   if (aInside && bInside) {
     line3d(a, b, color, gradients);
-   return;
+    return;
   }
 
   // Don't draw anything if we are completely outside.
