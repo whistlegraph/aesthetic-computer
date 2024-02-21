@@ -268,6 +268,7 @@ const signals = []; // Easy messages from embedded DOM content.
 const actAlerts = []; // Messages that get put into act and cleared after
 // every frame.
 let reframed = false;
+let formReframing = false; // Just for 3D camera updates.
 
 let paintings = {}; // Cached bitmaps from a piece.
 
@@ -1760,7 +1761,7 @@ function form(
   forms,
   cam,
   { cpu, background } = {
-    cpu: false,
+    cpu: true,
     keep: true,
     background: backgroundColor3D,
   },
@@ -1769,6 +1770,10 @@ function form(
   if (forms === undefined || forms?.length === 0) return;
 
   if (cpu === true) {
+    if (formReframing) {
+      cam.resize();
+      formReframing = false;
+    }
     if (Array.isArray(forms))
       forms.filter(Boolean).forEach((form) => form.graph(cam));
     else forms.graph(cam);
@@ -4009,7 +4014,10 @@ async function makeFrame({ data: { type, content } }) {
 
     // Only trigger a reframe event if we have already passed `boot` (painted
     // at least once)
-    if (booted) reframed = true;
+    if (booted) {
+      reframed = true;
+      formReframing = true;
+    }
     return;
   }
 
