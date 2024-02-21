@@ -2,17 +2,15 @@
 // The most basic 3d environment.
 
 /* #region 🏁 TODO 
-  - [🟠] Optimize API.
-    - [x] 3D Graphics should use the `ink` color by default if a color isn't
-        specified.
-  - [x] Set up a simple 3d environment demo.
+  - [x] Resize doesn't adjust camera...
+  - [] Abstract this into some kind of FPS system?
 #endregion */
 
 import { CamDoll } from "../lib/cam-doll.mjs";
 
 let doll, cube;
 
-function boot({ Camera, Dolly, CUBEL, Form }) {
+function boot({ Camera, Dolly, CUBEL, QUAD, Form }) {
   doll = new CamDoll(Camera, Dolly, {
     fov: 80,
     z: 0,
@@ -21,17 +19,15 @@ function boot({ Camera, Dolly, CUBEL, Form }) {
   });
 
   cube = new Form(
-    // QUAD,
-    CUBEL,
+    CUBEL, // or try `QUAD`
     // { color: [0, 255, 0, 255] },
     { pos: [0, 0.5, -4], rot: [0, 0, 0], scale: 1 },
   );
 }
 
 // 🎨 Paint
-function paint({ wipe, form }) {
-  wipe("gray").ink("darkgrey").line().ink();
-  form(cube, doll.cam, { cpu: true });
+function paint({ wipe }) {
+  wipe("gray").ink("darkgrey").line().ink("red").form(cube, doll.cam);
 }
 
 // 🎪 Act

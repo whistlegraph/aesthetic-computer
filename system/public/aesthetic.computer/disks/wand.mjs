@@ -1369,7 +1369,9 @@ function paint({
       { scale: [1, 1, 1] },
     );
 
-    form([trackerForm, diffPrevForm, diffForm, raceForm], camdoll.cam);
+    form([trackerForm, diffPrevForm, diffForm, raceForm], camdoll.cam, {
+      cpu: false,
+    });
   }
   // #endregion
 
@@ -1502,12 +1504,12 @@ function paint({
       !player ? wandForm : null,
     ],
     camdoll.cam,
-    { background },
+    { background, cpu: false },
   );
 
-  if (stageOn) form(stage, camdoll.cam);
-  if (measuringCubeOn) form(measuringCube, camdoll.cam);
-  if (originOn) form(origin, camdoll.cam);
+  if (stageOn) form(stage, camdoll.cam, { cpu: false });
+  if (measuringCubeOn) form(measuringCube, camdoll.cam, { cpu: false });
+  if (originOn) form(origin, camdoll.cam, { cpu: false });
 }
 
 function act({

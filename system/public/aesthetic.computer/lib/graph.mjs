@@ -1951,7 +1951,7 @@ class Camera {
   rotation = [0, 0, 0];
   scale = [1, 1, 1];
 
-  centerCached; // Saved after each call to `center()`.
+  // centerCached; // Saved after each call to `center()`.
 
   perspectiveMatrix;
   #transformMatrix;
@@ -2081,6 +2081,13 @@ class Camera {
 
   get perspective() {
     return this.perspectiveMatrix;
+  }
+
+  // Recalculate the camera matrix for a new display constraint.
+  // TODO: Eventually this should be redundant for custom cameras
+  //       that don't hook into the `screen`. 24.02.21.15.26
+  resize() {
+    this.forward(0);
   }
 
   // Get an XYZ position on a plane at a given depth,
@@ -2638,7 +2645,7 @@ class Vertex {
 
   constructor(
     pos = [0, 0, 0, 1],
-    color,// = [...c, 1.0],
+    color, // = [...c, 1.0],
     texCoords = [0, 0, 0, 0],
     normal = [0, 0, 0],
   ) {
@@ -2694,14 +2701,16 @@ class Vertex {
         this.pos[Z] / this.pos[W],
         this.pos[W],
       ),
-      this.color,
+      this.color || c.slice(),
       this.texCoords,
     );
   }
 
   lerp(other, lerpAmt) {
     const pos = vec4.lerp(vec4.create(), this.pos, other.pos, lerpAmt);
-    const col = this.color ? vec4.lerp(vec4.create(), this.color, other.color, lerpAmt) : undefined;
+    const col = this.color
+      ? vec4.lerp(vec4.create(), this.color, other.color, lerpAmt)
+      : undefined;
     const texCoords = vec4.lerp(
       vec4.create(),
       this.texCoords,
