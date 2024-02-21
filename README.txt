@@ -40,13 +40,10 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** cab meeting ***
-  - [] Set up DMARC for emails.
-  - [] Always trim whitespace for commands so they don't fail.
-
 *** prompt regression ***
   - [🔴] ⚠️ Sometimes the default reply text can become editable and not be
           cleared...
+  - [] Always trim whitespace for commands so they don't fail.
 
 *** workshop with casey ***
   - [] Multiple templates for different types of pieces.
@@ -67,8 +64,10 @@
   - [x] Add param to `publish` to rename the file.
   - [x] Publishing the same piece more than once / overwriting a piece doesn't
          work in the editor.
-
 - [] `load` should load a photo / be similar to `paste` and work on mobile.
+
+*** cab meeting ***
+  - [] Set up DMARC for emails.
 
 *** media variables ***
   - [] Set "variable" names when using `done`, helpful for show and tell.
