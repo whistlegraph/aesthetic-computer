@@ -2097,16 +2097,17 @@ Make sure `git` is installed, (you can do that through `homebrew`) and then get 
   0.0a Open new terminal window and cd into aesthetic.computer directory install node version 
   1. Check `ssl-dev/readme.txt` to generate and add local SSL certificates.
   2. `npm install` from the project directory.
-  3. `cd` into `session-server` and `npm install` as well.
+  3. `cd` into `session-server` and ask Jeffrey for Firebase json file 
   4. Get added to the Netlify project as a collaborator.
-  5. `cd` into `system` and run `npx netlify login` and then `npx netlify link`
+  5. `cd` into `system` and run `npx netlify login` 
+  5a. run `npx netlify link`
   6. Now from the `aesthetic computer` directory run `npm run code` and in another shell `npm run server:session`.
   7. Visit `https://localhost:8888` to view the running site! 
   8. If you need local copies of the site's rich media `assets` then ask Jeffrey
      and you can slurp them from S3 so you can run the below.
 
 Static Assets
-  0. Squadmates can use `npm run assets:sync` after configuring `aws-cli` with
+  0. Squadmates can use `npm run assets:sync:down` after configuring `aws-cli` with
      the aesthetic.computer storage keys provided by Jeffrey.
 
 🧩 Making a new included piece.
