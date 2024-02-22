@@ -3201,7 +3201,7 @@ async function load(
       };
 
       system = "world";
-    } else if (module.system.startsWith("fps")) {
+    } else if (module.system?.startsWith("fps")) {
       let doll;
 
       boot = ($) => {
