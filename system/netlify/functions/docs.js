@@ -111,6 +111,18 @@ export async function handler(event, context) {
           desc: "For implementing brushes in the `nopaint` system.",
           done: false,
         },
+        curtain: {
+          label: "curtain",
+          sig: "curtain({ ... })",
+          desc: "A top layer paint for pieces in the `world` system",
+          done: false,
+        },
+        background: {
+          label: "🏔️ background",
+          sig: "background({ ... })",
+          desc: "A backdrop for pieces in the `world` system",
+          done: false,
+        },
         api: {
           sig: "api",
           desc: "References all built-in functionality for a top-level function.",
