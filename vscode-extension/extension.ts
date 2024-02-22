@@ -51,10 +51,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     console.error("Failed to fetch documentation:", error);
   }
 
-  // Register the command in your extension
-  // const docScheme = "aesthetic"; // A unique scheme for your documentation
-  // const docProvider = new AestheticDocumentationProvider();
-  // vscode.workspace.registerTextDocumentContentProvider(docScheme, docProvider);
+  // Set up all the autocompletion and doc hints.
   const codeLensProvider = new AestheticCodeLensProvider();
   vscode.languages.registerCodeLensProvider(
     { language: "javascript", pattern: "**/*.mjs" },
@@ -70,6 +67,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       ): vscode.ProviderResult<
         vscode.CompletionItem[] | vscode.CompletionList
       > {
+        if (document.lineCount > 500 || !docs) return []; // Skip for long files.
         return keys(mergedDocs).map(
           (word: string) => new vscode.CompletionItem(word),
         );
@@ -83,6 +81,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     { language: "javascript", pattern: "**/*.mjs" },
     {
       provideHover(document, position) {
+        if (document.lineCount > 500 || !docs) return; // Skip for long files.
+
         const range = document.getWordRangeAtPosition(position);
         const word = document.getText(range);
 
@@ -108,6 +108,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         position,
         token,
       ): vscode.ProviderResult<vscode.Definition | vscode.DefinitionLink[]> {
+        if (document.lineCount > 500) return; // Skip for large documents.
+
         const range = document.getWordRangeAtPosition(position);
         const word = document.getText(range);
 
@@ -142,7 +144,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
           // Create and show a new webview
           docsPanel = vscode.window.createWebviewPanel(
             "aestheticDoc", // Identifies the type of the webview. Used internally
-            "📚 " + title + " · Aesthetic Computer", // Title of the panel displayed to the user
+            "📚 " + title.replace("/", "") + " · Aesthetic Computer", // Title of the panel displayed to the user
             vscode.ViewColumn.Beside, // Editor column to show the new webview panel in.
             { enableScripts: true }, // Webview options.
           );
@@ -320,22 +322,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
 // 📓 Documentation
 
-// class AestheticDocumentationProvider
-//   implements vscode.TextDocumentContentProvider
-// {
-//   provideTextDocumentContent(uri: vscode.Uri): string {
-//     const name = uri.path;
-//     const doc = mergedDocs[name];
-//     const nonce = getNonce();
-//     //return;
-//     // return docsTemplate
-//     //   .replaceAll("$name", name)
-//     //   .replaceAll("$sig", doc.sig)
-//     //   .replaceAll("$desc", doc.desc)
-//     //   .replaceAll("$nonce", nonce);
-//   }
-// }
-
 // This is just for top-level functions and maybe something at the very top?
 class AestheticCodeLensProvider implements vscode.CodeLensProvider {
   provideCodeLenses(
@@ -347,6 +333,8 @@ class AestheticCodeLensProvider implements vscode.CodeLensProvider {
     function escapeRegExp(word: string) {
       return word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     }
+
+    if (document.lineCount > 500 || !docs) return codeLenses; // Don't compute for large documents.
 
     const escapedWords = keys(docs.api.structure)
       .map((word) => "function " + word)
