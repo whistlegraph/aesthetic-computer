@@ -77,18 +77,15 @@ class Typeface {
       pos = { x: pos[0], y: pos[1] };
     }
 
+    const width = $.system?.world ? $.system.world.size.width : $.screen.width;
+    const height = $.system?.world ? $.system.world.size.height : $.screen.height;
+
     // Randomize pos.x and pos.y if undefined.
     if (pos.center === undefined) {
       if (pos.x === undefined)
-        pos.x = $.num.randIntRange(
-          -fullWidth / 2,
-          $.screen.width + fullWidth / 2,
-        );
+        pos.x = $.num.randIntRange(-fullWidth / 2, width + fullWidth / 2);
       if (pos.y === undefined)
-        pos.y = $.num.randIntRange(
-          -blockHeight / 2,
-          $.screen.height + blockHeight / 2,
-        );
+        pos.y = $.num.randIntRange(-blockHeight / 2, height + blockHeight / 2);
     }
 
     // Set x, y position and override if centering is specified.
@@ -99,12 +96,12 @@ class Typeface {
 
     if (pos.center.includes("x")) {
       const hw = (text.length * blockWidth * size) / 2;
-      x = pos.x === undef ? $.screen.width / 2 - hw : x - hw;
+      x = pos.x === undef ? width / 2 - hw : x - hw;
     }
 
     if (pos.center.includes("y")) {
       const hh = Math.floor(blockHeight / 2);
-      y = pos.y === undef ? $.screen.height / 2 - hh : y - hh;
+      y = pos.y === undef ? height / 2 - hh : y - hh;
     }
 
     y += lineNumber * blockHeight;
