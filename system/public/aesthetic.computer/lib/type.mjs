@@ -77,8 +77,12 @@ class Typeface {
       pos = { x: pos[0], y: pos[1] };
     }
 
-    const width = $.system?.world ? $.system.world.size.width : $.screen.width;
-    const height = $.system?.world ? $.system.world.size.height : $.screen.height;
+    const width = $.system?.world?.size
+      ? $.system.world.size.width
+      : $.screen.width;
+    const height = $.system?.world?.size
+      ? $.system.world.size.height
+      : $.screen.height;
 
     // Randomize pos.x and pos.y if undefined.
     if (pos.center === undefined) {
