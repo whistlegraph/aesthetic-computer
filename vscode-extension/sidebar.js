@@ -63,6 +63,10 @@
         vscode.postMessage({ type: "runPiece" });
         break;
       }
+      case "openDocs": {
+        vscode.postMessage({ type: "openDocs" });
+        break;
+      }
       case "login": {
         vscode.postMessage({ type: "login" });
         break;

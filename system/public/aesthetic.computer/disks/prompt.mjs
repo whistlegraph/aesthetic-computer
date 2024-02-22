@@ -653,7 +653,11 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text === "docs") {
-    jump("out:/docs");
+    if (net.iframe) {
+      send({ type: "post-to-parent", content: { type: "openDocs" } });
+    } else {
+      jump("out:/docs");
+    }
     makeFlash($);
     return true;
   } else if (text.startsWith("code") || text.startsWith("edit")) {
