@@ -41,14 +41,14 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** workshop with casey ***
-  - [🟠] Entering `docs` in the vscode extension should pop open the docs pane.
-  - [] vscode extension should somehow ignore system files like `bios` and `boot`.
+  - [🧡] vscode extension should somehow ignore system files like `bios` and `boot`.
     - [] or just not run auto-complete while in local mode / ignore files over 1k lines.
   - [] One should be able to view source code / use `source` from inside vscode.
     - [] Can this produce a new file tab inside of vscode?
     - [] So in order to draw from a template, you can say `new brush` or `new painting`.
   - [] Refreshing the page (opening and closing the pane) should be able to work better.
   + Done
+  - [x] Entering `docs` in the vscode extension should pop open the docs pane.
   - [x] Multiple templates for different types of pieces.
     - [x] "world" template.
     - [x] "3D" template.

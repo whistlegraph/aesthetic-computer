@@ -112,8 +112,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         const word = document.getText(range);
 
         if (mergedDocs[word]) {
-          console.log("OPENING word:", word);
-          vscode.commands.executeCommand("extension.openDoc", [word]);
+          vscode.commands.executeCommand("aestheticComputer.openDoc", [word]);
           return null;
         }
 
@@ -122,24 +121,42 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     },
   );
 
+  let docsPanel: any = null; // Only keep one docs panel open.
+
   context.subscriptions.push(
-    vscode.commands.registerCommand("extension.openDoc", (functionName) => {
-      // const uri = vscode.Uri.parse(`${docScheme}:${functionName}`);
+    vscode.commands.registerCommand(
+      "aestheticComputer.openDoc",
+      (functionName) => {
+        // const uri = vscode.Uri.parse(`${docScheme}:${functionName}`);
 
-      const path = mergedDocs[functionName].category + ":" + functionName;
+        let path = "";
+        if (functionName)
+          path = "/" + mergedDocs[functionName].category + ":" + functionName;
 
-      // Create and show a new webview
-      const panel = vscode.window.createWebviewPanel(
-        "aestheticDoc", // Identifies the type of the webview. Used internally
-        "📚 " + path + " · Aesthetic Computer", // Title of the panel displayed to the user
-        vscode.ViewColumn.Beside, // Editor column to show the new webview panel in.
-        { enableScripts: true }, // Webview options.
-      );
+        const title = path || "docs";
 
-      const nonce = getNonce();
+        // Check if the panel already exists. If so, reveal it.
+        if (docsPanel) {
+          docsPanel.reveal(vscode.ViewColumn.Beside);
+        } else {
+          // Create and show a new webview
+          docsPanel = vscode.window.createWebviewPanel(
+            "aestheticDoc", // Identifies the type of the webview. Used internally
+            "📚 " + title + " · Aesthetic Computer", // Title of the panel displayed to the user
+            vscode.ViewColumn.Beside, // Editor column to show the new webview panel in.
+            { enableScripts: true }, // Webview options.
+          );
 
-      // And set its HTML content
-      panel.webview.html = `
+          // Reset when the current panel is closed
+          docsPanel.onDidDispose(() => {
+            docsPanel = null;
+          }, null);
+        }
+
+        const nonce = getNonce();
+
+        // And set its HTML content
+        docsPanel.webview.html = `
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -159,13 +176,14 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
           </style>
         </head>
         <body>
-          <iframe allow="clipboard-write; clipboard-read" credentialless sandbox="allow-scripts" src="https://aesthetic.computer/docs/${path}">
+          <iframe allow="clipboard-write; clipboard-read" credentialless sandbox="allow-scripts" src="https://aesthetic.computer/docs${path}">
         </body>
         </html>
       `.trim();
 
-      // vscode.commands.executeCommand("markdown.showPreviewToSide", uri);
-    }),
+        // vscode.commands.executeCommand("markdown.showPreviewToSide", uri);
+      },
+    ),
   );
 
   // Add definitionProvider to context.subscriptions if necessary
@@ -350,7 +368,7 @@ class AestheticCodeLensProvider implements vscode.CodeLensProvider {
 
         const command = {
           title: docs.api.structure[docKey].label,
-          command: "extension.openDoc",
+          command: "aestheticComputer.openDoc",
           arguments: [docKey],
         };
         codeLenses.push(new vscode.CodeLens(range, command));
@@ -428,6 +446,11 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
         }
         case "vscode-extension:reload": {
           vscode.commands.executeCommand("workbench.action.reloadWindow");
+          break;
+        }
+        case "openDocs": {
+          console.log("🏃 Opening docs...");
+          vscode.commands.executeCommand("aestheticComputer.openDoc");
           break;
         }
         case "runPiece": {
