@@ -40,19 +40,8 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** prompt regression ***
-  - [🔴] ⚠️ Sometimes the default reply text can become editable and not be
-          cleared...
-  - [] Always trim whitespace for commands so they don't fail.
-
 *** workshop with casey ***
-  - [] Multiple templates for different types of pieces.
-    - [🟠] "3D" template.
-    - [] "Networked" template.
-    - [x] "Bot" template.
-    - [x] "Brush" piece template.
-    - [x] "Blank" piece template.
-  - [] Entering `docs` in the vscode extension should pop open the docs pane.
+  - [🟠] Entering `docs` in the vscode extension should pop open the docs pane.
   - [] vscode extension should somehow ignore system files like `bios` and `boot`.
     - [] or just not run auto-complete while in local mode / ignore files over 1k lines.
   - [] One should be able to view source code / use `source` from inside vscode.
@@ -60,11 +49,22 @@
     - [] So in order to draw from a template, you can say `new brush` or `new painting`.
   - [] Refreshing the page (opening and closing the pane) should be able to work better.
   + Done
+  - [x] Multiple templates for different types of pieces.
+    - [x] "world" template.
+    - [x] "3D" template.
+    - [x] "Bot" template.
+    - [x] "Brush" piece template.
+    - [x] "Blank" piece template.
   - [x] "Stamp" template.
   - [x] Add param to `publish` to rename the file.
   - [x] Publishing the same piece more than once / overwriting a piece doesn't
          work in the editor.
 - [] `load` should load a photo / be similar to `paste` and work on mobile.
+
+*** prompt regression ***
+  - [🔴] ⚠️ Sometimes the default reply text can become editable and not be
+          cleared...
+  - [] Always trim whitespace for commands so they don't fail.
 
 *** cab meeting ***
   - [] Set up DMARC for emails.
