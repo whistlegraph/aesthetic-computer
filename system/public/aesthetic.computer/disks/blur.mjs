@@ -15,6 +15,9 @@ function meta() {
 
 const blurRad = 2;
 const featherRad = 10;
+const minBlurSamples = 64;
+const sampleScalingFactor = 4;
+
 let radius;
 
 function paint({ ink, num, pen, params, page, pixel, screen, system }) {
@@ -24,9 +27,7 @@ function paint({ ink, num, pen, params, page, pixel, screen, system }) {
   }
   const nopaint = system.nopaint;
 
-  const numBlurSamples = Math.max(64, radius * 4);
-
-  // console.log(system.painting);
+  const numBlurSamples = Math.max(minBlurSamples, radius * sampleScalingFactor);
 
   if (nopaint.is("painting")) {
     page(screen);
@@ -38,8 +39,6 @@ function paint({ ink, num, pen, params, page, pixel, screen, system }) {
     const paintingWidth = system.painting.width;
     const paintingHeight = system.painting.height;
 
-    let srcColor = pixel(brush.x, brush.y, system.painting);
-
     for (let i = 0; i < numBlurSamples; i++) {
       const angle = Math.random() * 2 * Math.PI;
       const distance = Math.random() * radius;
@@ -47,9 +46,11 @@ function paint({ ink, num, pen, params, page, pixel, screen, system }) {
       const randomY = Math.sin(angle) * distance;
       const xy = [brush.x + randomX, brush.y + randomY];
 
+      const srcColor = pixel(...xy, system.painting);
+
       const distToCenter = Math.sqrt(randomX * randomX + randomY * randomY);
-      const distFromRadius = Math.abs(distToCenter - radius);
-      
+      const distFromRadius = radius - distToCenter;
+
       let avgCol = [0, 0, 0, 0];
 
       let numSamples = 0;
@@ -74,14 +75,14 @@ function paint({ ink, num, pen, params, page, pixel, screen, system }) {
       }
 
       for (let i = 0; i < 4; i++) avgCol[i] /= numSamples;
+      
       avgCol[3] = 255;
 
-      //lerp from avgCol to srcColor based on distFromRadius and featherRad
-      // const lerpAmt = Math.min(1, distFromRadius / featherRad);
-      // //use num.lerp
-      // for (let i = 0; i < 4; i++) {
-      //   avgCol[i] = num.lerp(avgCol[i], srcColor[i], lerpAmt);
-      // }
+      const lerpAmt = Math.min(1, distFromRadius / featherRad);
+
+      for (let i = 0; i < 4; i++) {
+        avgCol[i] = num.lerp(srcColor[i], avgCol[i], lerpAmt);
+      }
 
       ink(...avgCol).point(...xy);
     }
