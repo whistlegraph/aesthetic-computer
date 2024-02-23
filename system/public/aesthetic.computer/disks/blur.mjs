@@ -13,16 +13,20 @@ function meta() {
   };
 }
 
+const blurRad = 2;
+const featherRad = 10;
 let radius;
 
-function paint({ ink, pen, params, page, pixel, screen, system }) {
+function paint({ ink, num, pen, params, page, pixel, screen, system }) {
   if (!radius) {
     params = params.map((str) => parseInt(str));
     radius = params[0] || 16;
   }
   const nopaint = system.nopaint;
 
-  const numBlurSamples = Math.max(128, radius * 8);
+  const numBlurSamples = Math.max(64, radius * 4);
+
+  // console.log(system.painting);
 
   if (nopaint.is("painting")) {
     page(screen);
@@ -30,14 +34,22 @@ function paint({ ink, pen, params, page, pixel, screen, system }) {
     page(system.painting);
 
     const brush = nopaint.brush;
-    const blurRad = 2;
+
+    const paintingWidth = system.painting.width;
+    const paintingHeight = system.painting.height;
 
     let srcColor = pixel(brush.x, brush.y, system.painting);
 
     for (let i = 0; i < numBlurSamples; i++) {
-      const randomX = Math.floor(Math.random() * (2 * radius)) - radius;
-      const randomY = Math.floor(Math.random() * (2 * radius)) - radius;
+      const angle = Math.random() * 2 * Math.PI;
+      const distance = Math.random() * radius;
+      const randomX = Math.cos(angle) * distance;
+      const randomY = Math.sin(angle) * distance;
       const xy = [brush.x + randomX, brush.y + randomY];
+
+      const distToCenter = Math.sqrt(randomX * randomX + randomY * randomY);
+      const distFromRadius = Math.abs(distToCenter - radius);
+      
       let avgCol = [0, 0, 0, 0];
 
       let numSamples = 0;
@@ -45,8 +57,14 @@ function paint({ ink, pen, params, page, pixel, screen, system }) {
       for (let bx = -blurRad; bx < blurRad; bx++) {
         for (let by = -blurRad; by < blurRad; by++) {
           if (bx * bx + by * by < blurRad * blurRad) {
-            const sampleXY = [xy[0] + bx, xy[1] + by];
+
+            const sampleXY = [
+              Math.max(1, Math.min(xy[0] + bx, paintingWidth-1)),
+              Math.max(1, Math.min(xy[1] + by, paintingHeight-1))
+            ];
+
             const sampleCol = pixel(...sampleXY, system.painting);
+
             for (let i = 0; i < 4; i++) {
               avgCol[i] += sampleCol[i];
             }
@@ -57,6 +75,14 @@ function paint({ ink, pen, params, page, pixel, screen, system }) {
 
       for (let i = 0; i < 4; i++) avgCol[i] /= numSamples;
       avgCol[3] = 255;
+
+      //lerp from avgCol to srcColor based on distFromRadius and featherRad
+      // const lerpAmt = Math.min(1, distFromRadius / featherRad);
+      // //use num.lerp
+      // for (let i = 0; i < 4; i++) {
+      //   avgCol[i] = num.lerp(avgCol[i], srcColor[i], lerpAmt);
+      // }
+
       ink(...avgCol).point(...xy);
     }
   }
