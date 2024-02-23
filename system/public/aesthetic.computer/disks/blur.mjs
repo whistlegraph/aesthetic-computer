@@ -1,32 +1,21 @@
-/* #region ✅ TODO
-  - [] can't switch buffers in brush
+// Blur, 24.02.23.13.06
+// Blur pixels with a given radius.
 
+/* #region ✅ TODO
+  - [] @jeffrey: can't switch buffers in `brush` function so defaulted to paint
 #endregion */
 
 // 📰 Meta
 function meta() {
   return {
     title: "Blur",
-    desc: "Blur pixels under brush.",
+    desc: "Blur pixels with a given radius.",
   };
 }
 
 let radius;
 
-function paint({
-  ink,
-  pan,
-  pen,
-  unpan,
-  params,
-  page,
-  pixel,
-  screen,
-  system,
-  num: { randInt: r, randIntRange: rr },
-  geo: { pointFrom },
-  help: { repeat },
-}) {
+function paint({ ink, pen, params, page, pixel, screen, system }) {
   if (!radius) {
     params = params.map((str) => parseInt(str));
     radius = params[0] || 16;
@@ -34,24 +23,17 @@ function paint({
   const nopaint = system.nopaint;
 
   if (nopaint.is("painting")) {
-
     page(screen);
     ink(255, 0, 0).circle(pen.x, pen.y, radius); // Circle overlay.
     page(system.painting);
 
-
     const brush = nopaint.brush;
-
     const blurRad = 2;
 
     for (let x = -radius; x < radius; x++) {
       for (let y = -radius; y < radius; y++) {
         if (x * x + y * y < radius * radius) {
-
           const xy = [brush.x + x, brush.y + y];
-
-          let pixelCol = pixel(...xy, system.painting);
-
           let avgCols = [0, 0, 0, 0];
 
           let numSamples = 0;
@@ -64,18 +46,13 @@ function paint({
                 for (let i = 0; i < 4; i++) {
                   avgCols[i] += sampleCol[i];
                 }
-
                 numSamples++;
               }
             }
           }
 
-          for (let i = 0; i < 4; i++) {
-            avgCols[i] /= numSamples;
-          }
-
+          for (let i = 0; i < 4; i++) avgCols[i] /= numSamples;
           avgCols[3] = 255;
-
           ink(...avgCols).point(...xy);
         }
       }
@@ -85,4 +62,3 @@ function paint({
 
 export const system = "nopaint";
 export { paint };
-
