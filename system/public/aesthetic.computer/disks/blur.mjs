@@ -37,7 +37,7 @@ function brush({
 
   const brush = nopaint.brush;
 
-  const blurRad = 3;
+  const blurRad = 2;
 
   for( let x = -radius; x < radius; x++ ) {
     for( let y = -radius; y < radius; y++ ) {
