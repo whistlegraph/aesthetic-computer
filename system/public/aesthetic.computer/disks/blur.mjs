@@ -15,6 +15,8 @@ function meta() {
 
 const blurRad = 2;
 const featherRad = 10;
+
+//🏃‍♀️ These params control the speed of the blur.
 const minBlurSamples = 64;
 const sampleScalingFactor = 4;
 
