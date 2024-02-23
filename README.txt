@@ -41,7 +41,7 @@
 🌟 Projects in Progress (PIP) 🌟
 
 *** workshop with casey ***
-  - [] So in order to draw from a template, you can say `new brush` or `new painting`.
+  - [🟠] So in order to draw from a template, you can say `new brush` or `new painting`.
   - [] Refreshing the page (opening and closing the pane) should be able to work better / reload the last-run code?
   + Done
   - [x] One should be able to view source code / use `source` from inside vscode.

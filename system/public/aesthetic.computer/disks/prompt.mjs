@@ -986,6 +986,20 @@ async function halt($, text) {
     return true;
   } else if (slug === "new") {
     // Combines "no!" and "painting:start";
+
+    // console.log(slug)
+    // console.log(params);
+
+    // 🔥 
+    // TODO: Write `prompted` javascript that will compile and run against any
+    //       LLM version 24.02.22.19.38
+    // Call it `.pjs` ?
+    // piece, processing, prompted
+
+    //if (!net.iframe && params[0]^does not start with^) {
+    //  return;
+    //}
+    
     const w = parseInt(params[0]),
       h = parseInt(params[1]) || w;
 
