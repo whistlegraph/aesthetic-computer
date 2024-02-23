@@ -67,6 +67,14 @@
         vscode.postMessage({ type: "openDocs" });
         break;
       }
+      case "openSource": {
+        vscode.postMessage({
+          type: "openSource",
+          title: message.title,
+          source: message.source,
+        });
+        break;
+      }
       case "login": {
         vscode.postMessage({ type: "login" });
         break;
