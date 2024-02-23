@@ -703,7 +703,16 @@ async function halt($, text) {
 
       let body = await result.text();
       if (piece === "blank") body = inject(body, `A blank piece.`);
-      download(`${piece}.mjs`, body);
+
+      if (!net.iframe) {
+        download(`${piece}.mjs`, body);
+      } else {
+        send({
+          type: "post-to-parent",
+          content: { type: "openSource", title: `${piece}.mjs`, source: body },
+        });
+      }
+
       flashColor = [0, 0, 255];
     } catch (err) {
       console.error("📄🤯", err);
@@ -719,6 +728,7 @@ async function halt($, text) {
       download(`${piece}.mjs`, body);
       flashColor = [0, 0, 255];
     }
+
     makeFlash($);
     return true;
   } else if (text.startsWith("email")) {

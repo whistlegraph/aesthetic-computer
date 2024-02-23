@@ -441,6 +441,27 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
           vscode.commands.executeCommand("aestheticComputer.openDoc");
           break;
         }
+        case "openSource": {
+          console.log("📃 Opening a new source file...", data);
+          console.log(data.title, data.source);
+          console.log("📃 Opening a new source file...", data);
+          // const tempUri = document.uri.with({ path: document.uri.path + '.mjs' });
+          vscode.workspace
+            .openTextDocument({
+              content: data.source,
+              // language: "javascript",
+            })
+            .then((document) => {
+              vscode.window
+                .showTextDocument(document, { preview: false })
+                .then(() => {
+                  vscode.window.showInformationMessage(
+                    "🟡 Save this file with a `.mjs` extension to run it.",
+                  );
+                });
+            });
+          break;
+        }
         case "runPiece": {
           console.log("🏃 Running piece...");
           vscode.commands.executeCommand("aestheticComputer.runPiece");
