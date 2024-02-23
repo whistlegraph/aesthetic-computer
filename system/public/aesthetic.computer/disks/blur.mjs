@@ -83,8 +83,6 @@ function paint({
   }
 }
 
-// export { paint };
-
 export const system = "nopaint";
 export { paint };
 
