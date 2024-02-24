@@ -2,94 +2,75 @@
 // Blur pixels with a given radius.
 
 /* #region ✅ TODO
-  - [] @jeffrey: can't switch buffers in `brush` function so defaulted to paint
+  + Done
+  - [x] @jeffrey: can't switch buffers in `brush` function so defaulted to paint
 #endregion */
+
+const blurRad = 2; // 🍃 These params control the form of the blur,
+const featherRad = 10;
+const minBlurSamples = 64; // 🏃‍♀️ and these affect the speed of the blur.
+const sampleScalingFactor = 4;
+
+let radius;
+
+const { random, cos, sin, sqrt, max, min, PI } = Math;
+
+function paint({ ink, pen }) {
+  if (pen.drawing) ink("red").circle(pen.x, pen.y, radius); // Red Cursor.
+}
+
+function brush({ ink, num, pen, params, pixel, system }) {
+  if (!radius) {
+    params = params.map((str) => parseInt(str));
+    radius = params[0] || 16;
+  }
+  const numBlurSamples = max(minBlurSamples, radius * sampleScalingFactor);
+
+  for (let i = 0; i < numBlurSamples; i++) {
+    const angle = random() * 2 * PI;
+    const distance = random() * radius;
+    const randomX = cos(angle) * distance;
+    const randomY = sin(angle) * distance;
+    const xy = [pen.x + randomX, pen.y + randomY];
+    const srcColor = pixel(...xy, system.painting);
+    const distToCenter = sqrt(randomX * randomX + randomY * randomY);
+    const distFromRadius = radius - distToCenter;
+
+    let avgCol = [0, 0, 0, 0],
+      numSamples = 0;
+
+    for (let bx = -blurRad; bx < blurRad; bx += 1) {
+      for (let by = -blurRad; by < blurRad; by++) {
+        if (bx * bx + by * by < blurRad * blurRad) {
+          const sampleXY = [
+            max(1, min(xy[0] + bx, system.painting.width - 1)),
+            max(1, min(xy[1] + by, system.painting.height - 1)),
+          ];
+          const sampleCol = pixel(...sampleXY, system.painting);
+          for (let i = 0; i < 4; i++) avgCol[i] += sampleCol[i];
+          numSamples++;
+        }
+      }
+    }
+
+    for (let i = 0; i < 4; i++) avgCol[i] /= numSamples;
+    avgCol[3] = 255;
+    const lerpAmt = min(1, distFromRadius / featherRad);
+
+    for (let i = 0; i < 4; i++) {
+      avgCol[i] = num.lerp(srcColor[i], avgCol[i], lerpAmt);
+    }
+
+    ink(...avgCol).point(...xy);
+  }
+}
 
 // 📰 Meta
 function meta() {
   return {
     title: "Blur",
-    desc: "Blur pixels.",
+    desc: "Blur pixels with a given radius.",
   };
 }
 
-const blurRad = 2;
-const featherRad = 10;
-
-//🏃‍♀️ These params control the speed of the blur.
-const minBlurSamples = 64;
-const sampleScalingFactor = 4;
-
-let radius;
-
-function paint({ ink, num, pen, params, page, pixel, screen, system }) {
-  if (!radius) {
-    params = params.map((str) => parseInt(str));
-    radius = params[0] || 16;
-  }
-  const nopaint = system.nopaint;
-
-  const numBlurSamples = Math.max(minBlurSamples, radius * sampleScalingFactor);
-
-  if (nopaint.is("painting")) {
-    page(screen);
-    ink(255, 0, 0).circle(pen.x, pen.y, radius); // Circle overlay.
-    page(system.painting);
-
-    const brush = nopaint.brush;
-
-    const paintingWidth = system.painting.width;
-    const paintingHeight = system.painting.height;
-
-    for (let i = 0; i < numBlurSamples; i++) {
-      const angle = Math.random() * 2 * Math.PI;
-      const distance = Math.random() * radius;
-      const randomX = Math.cos(angle) * distance;
-      const randomY = Math.sin(angle) * distance;
-      const xy = [brush.x + randomX, brush.y + randomY];
-
-      const srcColor = pixel(...xy, system.painting);
-
-      const distToCenter = Math.sqrt(randomX * randomX + randomY * randomY);
-      const distFromRadius = radius - distToCenter;
-
-      let avgCol = [0, 0, 0, 0];
-
-      let numSamples = 0;
-
-      for (let bx = -blurRad; bx < blurRad; bx++) {
-        for (let by = -blurRad; by < blurRad; by++) {
-          if (bx * bx + by * by < blurRad * blurRad) {
-
-            const sampleXY = [
-              Math.max(1, Math.min(xy[0] + bx, paintingWidth-1)),
-              Math.max(1, Math.min(xy[1] + by, paintingHeight-1))
-            ];
-
-            const sampleCol = pixel(...sampleXY, system.painting);
-
-            for (let i = 0; i < 4; i++) {
-              avgCol[i] += sampleCol[i];
-            }
-            numSamples++;
-          }
-        }
-      }
-
-      for (let i = 0; i < 4; i++) avgCol[i] /= numSamples;
-      
-      avgCol[3] = 255;
-
-      const lerpAmt = Math.min(1, distFromRadius / featherRad);
-
-      for (let i = 0; i < 4; i++) {
-        avgCol[i] = num.lerp(srcColor[i], avgCol[i], lerpAmt);
-      }
-
-      ink(...avgCol).point(...xy);
-    }
-  }
-}
-
-export const system = "nopaint";
-export { paint };
+export { paint, brush, meta };
