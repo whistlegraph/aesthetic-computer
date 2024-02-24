@@ -2403,15 +2403,14 @@ async function load(
     // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
     if (debug) console.log("🕸", fullUrl);
   } else {
-    // 📃 Loading with provided local source code.
-    //    Check to see if we are subscribed to thr right codeChannel only
-    //    on devReload (coming from the server)
+    // 📃 Loading with provided source code.
     if (
       devReload === true &&
-      (parsed.codeChannel === undefined || parsed.codeChannel !== codeChannel)
+      parsed.codeChannel &&
+      parsed.codeChannel !== codeChannel
     ) {
       console.warn(
-        "🙅 Not reloading, code signal invalid:",
+        "🙅 Not reloading, code channel invalid:",
         codeChannel || "N/A",
       );
       return;
@@ -2473,7 +2472,15 @@ async function load(
       if (devReload) {
         // Remember the source and slug for the `publish` command.
         // console.log("📦 Setting publishable piece to:", slug);
-        store["publishable-piece"] = { source: sourceToRun, slug };
+        store["publishable-piece"] = { slug, source: sourceToRun };
+
+        // 🔥
+        // One should be able to drag a piece in, then be able to load the piece
+        // go back to the prompt, and return to it and it should still load
+        // the modded code!
+
+        // ♻️
+        // Then refresh should be able to function as well?
       }
 
       /*
@@ -2752,7 +2759,21 @@ async function load(
         ...parsed,
         num: $commonApi.num,
         store: $commonApi.store,
-      }),
+      }) ||
+        (() => {
+          // Parse the source for a potential title and description.
+          let title = "",
+            desc = "";
+          const lines = sourceCode.split("\n");
+
+          if (lines[1].startsWith("//")) {
+            title = lines[1].split(",")[0].slice(3).trim();
+          }
+
+          if (lines[2].startsWith("//")) desc = lines[2].slice(3).trim();
+
+          return { title, desc };
+        })(),
     );
 
     meta = {
