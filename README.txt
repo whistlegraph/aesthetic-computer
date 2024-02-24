@@ -59,6 +59,8 @@
 *** automatically read metadata tags from top two lines of a piece if
     the meta function does not exist? ***
 
+*** wire up web notifications ***
+
 *** workshop with casey ***
   - [🟠] Refreshing the page (opening and closing the pane) should be able to work better / reload the last-run code?
     - [-] Test dragging and dropping...
