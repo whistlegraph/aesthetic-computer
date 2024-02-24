@@ -1,5 +1,31 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** piece authoriship improvements: workshop with casey ***
+  + Done
+  - [x] Refreshing the page (opening and closing the pane) should be able to work better / reload the last-run code?
+    - [x] Reloading from prompt. 
+      - [x] See `disk.mjs` line 2477.
+    - [x] Refreshing the page should show a 404 message if the piece doesn't
+         exist possibly with a simple call to action. 
+  - [x] Drag and drop should rename the url path.
+  - [x] Fix dragging and dropping of piece code.
+  - [x] So in order to draw from a template, you can say `new brush` or `new bot` or `new piece frogger`.
+  - [x] One should be able to view source code / use `source` from inside vscode.
+  - [x] Can this produce a new file tab inside of vscode?
+  - [x] vscode extension should somehow ignore system files like `bios` and `boot`.
+    - [x] or just not run auto-complete while in local mode / ignore files over 500 lines.
+  - [x] Entering `docs` in the vscode extension should pop open the docs pane.
+  - [x] Multiple templates for different types of pieces.
+    - [x] "world" template.
+    - [x] "3D" template.
+    - [x] "Bot" template.
+    - [x] "Brush" piece template.
+    - [x] "Blank" piece template.
+  - [x] "Stamp" template.
+  - [x] Add param to `publish` to rename the file.
+  - [x] Publishing the same piece more than once / overwriting a piece doesn't
+         work in the editor.
+
 *** - [x] automatically read metadata tags from top two lines of a piece if
     the meta function does not exist? ***
 
