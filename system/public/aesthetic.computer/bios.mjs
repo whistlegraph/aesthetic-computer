@@ -5115,6 +5115,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   });
 
   document.body.addEventListener("drop", async function (e) {
+    console.log("DROP!");
     e.stopPropagation();
     e.preventDefault();
     const files = e.dataTransfer.files; // Get the file(s).
@@ -5124,6 +5125,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const ext = extension(file.name);
       // 🗒️ Source code file.
       if (extension === "mjs") {
+        console.log("MJS DROPPED!");
         const reader = new FileReader();
         reader.onload = function (e) {
           send({
