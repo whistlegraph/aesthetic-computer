@@ -55,17 +55,15 @@
     //  return;
     //}
 
-// 😫
-*** automatically read metadata tags from top two lines of a piece if
-    the meta function does not exist? ***
-
-*** wire up web notifications ***
-
-*** workshop with casey ***
-  - [🟠] Refreshing the page (opening and closing the pane) should be able to work better / reload the last-run code?
-    - [-] Test dragging and dropping...
-
+*** piece authoriship improvements: workshop with casey ***
+  - [🟡] Refreshing the page (opening and closing the pane) should be able to work better / reload the last-run code?
+    - [🧡] Drag and drop should rename the url path.
+      - [] See `disk.mjs` line 2477.
+    - [] Reloading from prompt. 
+    - [] Refreshing the page should show a 404 message if the piece doesn'tab
+         exist possibly with a simple call to action. 
   + Done
+  - [x] Fix dragging and dropping of piece code.
   - [x] So in order to draw from a template, you can say `new brush` or `new bot` or `new piece frogger`.
   - [x] One should be able to view source code / use `source` from inside vscode.
   - [x] Can this produce a new file tab inside of vscode?
@@ -84,6 +82,9 @@
          work in the editor.
 
   - [] `load` should load a photo / be similar to `paste` and work on mobile.
+
+*** Web Notifications ***
+  - [] Get web notifications working and tie them directly to push notifications.
 
 *** prompt regression ***
   - [🔴] ⚠️ Sometimes the default reply text can become editable and not be

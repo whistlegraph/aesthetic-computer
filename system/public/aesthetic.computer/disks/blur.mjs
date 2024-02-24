@@ -16,7 +16,7 @@ let radius;
 const { random, cos, sin, sqrt, max, min, PI } = Math;
 
 function paint({ ink, pen }) {
-  if (pen.drawing) ink("red").circle(pen.x, pen.y, radius); // Red Cursor.
+  if (pen?.drawing) ink("red").circle(pen.x, pen.y, radius); // Red Cursor.
 }
 
 function brush({ ink, num, pen, params, pixel, system }) {
@@ -65,12 +65,4 @@ function brush({ ink, num, pen, params, pixel, system }) {
   }
 }
 
-// 📰 Meta
-function meta() {
-  return {
-    title: "Blur",
-    desc: "Blur pixels with a given radius.",
-  };
-}
-
-export { paint, brush, meta };
+export { paint, brush };

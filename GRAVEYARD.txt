@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** - [x] automatically read metadata tags from top two lines of a piece if
+    the meta function does not exist? ***
+
 *** `list` ***
   - [x] Populate `list` with all kinds of existing commands.
   - [x] Enter `list` to view existing commands.

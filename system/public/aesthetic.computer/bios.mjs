@@ -425,6 +425,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
     if (meta?.desc) {
       document.querySelector('meta[name="og:description"]').content = meta.desc;
+      document.querySelector('meta[name="description"]').content = meta.desc;
     }
     if (meta?.img?.og) {
       document.querySelector('meta[name="og:image"]').content = meta.img.og;
@@ -5115,7 +5116,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   });
 
   document.body.addEventListener("drop", async function (e) {
-    console.log("DROP!");
     e.stopPropagation();
     e.preventDefault();
     const files = e.dataTransfer.files; // Get the file(s).
@@ -5123,9 +5123,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (files.length > 0) {
       const file = files[0];
       const ext = extension(file.name);
+      console.log("💧 Dropped:", file.name, ext);
       // 🗒️ Source code file.
-      if (extension === "mjs") {
-        console.log("MJS DROPPED!");
+      if (ext === "mjs") {
         const reader = new FileReader();
         reader.onload = function (e) {
           send({
