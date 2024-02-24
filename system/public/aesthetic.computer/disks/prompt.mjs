@@ -997,7 +997,20 @@ async function halt($, text) {
         const response = await fetch(
           `https://raw.githubusercontent.com/digitpain/aesthetic.computer-code/main/${params[0]}.mjs`,
         );
-        const body = await response.text();
+        let body = await response.text();
+
+        const lines = body.split("\n"); // Split the body into lines.
+        if (
+          lines.length >= 2 && // Check if the first two lines are comments...
+          lines[0].startsWith("//") &&
+          lines[1].startsWith("//")
+        ) {
+          lines[0] = `// ${capitalize(params[1]) || ""}, ${num.timestamp()}`;
+          const desc = params.slice(2).join(" ");
+          if (desc) lines[1] = `// ${desc}`;
+          body = lines.join("\n");
+        }
+
         const name = params[1] || params[0];
         if (!net.iframe) {
           download(`${name}.mjs`, body);
@@ -1010,11 +1023,15 @@ async function halt($, text) {
               source: body,
             },
           });
-          return;
+          flashColor = [0, 0, 255];
+          makeFlash($);
+          return true;
         }
       } catch (error) {
         console.error("Error fetching source:", error);
-        return;
+        flashColor = [255, 0, 0];
+        makeFlash($);
+        return true;
       }
     }
 
