@@ -1001,6 +1001,7 @@ async function halt($, text) {
 
         const lines = body.split("\n"); // Split the body into lines.
         if (
+          params[1] &&
           lines.length >= 2 && // Check if the first two lines are comments...
           lines[0].startsWith("//") &&
           lines[1].startsWith("//")

@@ -61,8 +61,7 @@
 
 *** workshop with casey ***
   - [🟠] Refreshing the page (opening and closing the pane) should be able to work better / reload the last-run code?
-    - [] Test dragging and dropping...
-    - [] Making new pieces.
+    - [-] Test dragging and dropping...
 
   + Done
   - [x] So in order to draw from a template, you can say `new brush` or `new bot` or `new piece frogger`.
