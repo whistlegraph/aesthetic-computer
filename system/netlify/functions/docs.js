@@ -1945,6 +1945,11 @@ export async function handler(event, context) {
         desc: "Play notes on a grid. Try adding a #.",
         done: false,
       },
+      blur: {
+        sig: "blur",
+        desc: "Blur pixels.",
+        done: false,
+      },
       "booted-by": {
         sig: "booted-by",
         desc: "AC fundraiser.",
