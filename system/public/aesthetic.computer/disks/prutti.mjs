@@ -659,6 +659,25 @@ const lessons = [
     pictures: ["lnl42-1.png", "lnl42-2.png"],
     sounds: ["prutti_the_sick"],
   },
+  {
+    title: "Lesson NOT Learnt 43 - use HANDS of dvb TIME",
+    text: `
+    I live to make dials, rotors, & other watch parts with my new expert-friends.
+
+    I see the time pieces that we create as objects, and I love to compare these objects with paintings that mostly other people have done. - IT'S FUN and adds so much.
+
+    I Sometimes also make instruments and things, you see creating things w. purpose is important in a purpose-lacking life-environment.
+
+    YES YES - what we & I create is pretty good and more more people are joining the gang, why not you?
+
+    We have a Klokker party at Pachinko - Grønlandsleiret 47C and that is in Oslo…
+
+    ---29th of FEB. 2024 at 17:30 later a little aesthetic computer concerto---
+
+    - N.B: FUCK the Danes & do not call me: KRISTIAN - never ever! € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € 
+    `,
+    pictures: ["lnl43-1.png","lnl43-2","lnl43-3","lnl43-4","lnl43-5"]
+  },
 ];
 
 let lesson = 0,
