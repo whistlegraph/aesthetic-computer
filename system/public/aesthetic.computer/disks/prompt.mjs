@@ -985,21 +985,39 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (slug === "new") {
-    // Combines "no!" and "painting:start";
+    // Combines "no!" and "painting:start" in a graphics context;
+    // Or jumps to the creation of a new piece of code given a textual parameter.
 
-    // console.log(slug)
-    // console.log(params);
+    // ❓ How could this UX be improved for a better in-editor experience? 24.02.23.19.12
 
-    // 🔥 
-    // TODO: Write `prompted` javascript that will compile and run against any
-    //       LLM version 24.02.22.19.38
-    // Call it `.pjs` ?
-    // piece, processing, prompted
+    if (
+      ["piece", "bot", "brush", "fps", "space", "stamp"].includes(params[0])
+    ) {
+      try {
+        const response = await fetch(
+          `https://raw.githubusercontent.com/digitpain/aesthetic.computer-code/main/${params[0]}.mjs`,
+        );
+        const body = await response.text();
+        const name = params[1] || params[0];
+        if (!net.iframe) {
+          download(`${name}.mjs`, body);
+        } else {
+          send({
+            type: "post-to-parent",
+            content: {
+              type: "openSource",
+              title: `${name}.mjs`,
+              source: body,
+            },
+          });
+          return;
+        }
+      } catch (error) {
+        console.error("Error fetching source:", error);
+        return;
+      }
+    }
 
-    //if (!net.iframe && params[0]^does not start with^) {
-    //  return;
-    //}
-    
     const w = parseInt(params[0]),
       h = parseInt(params[1]) || w;
 

@@ -443,8 +443,6 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
         }
         case "openSource": {
           console.log("📃 Opening a new source file...", data);
-          console.log(data.title, data.source);
-          console.log("📃 Opening a new source file...", data);
           // const tempUri = document.uri.with({ path: document.uri.path + '.mjs' });
           vscode.workspace
             .openTextDocument({
