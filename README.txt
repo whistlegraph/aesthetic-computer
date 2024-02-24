@@ -40,20 +40,8 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** .pjs compiler ***
-  - [] Break the below down into steps and get it compiling on each load.
-    - [] Add syntax support to the vscode extension for the .pjs files / metaprocessor.
-    - [] Write the metaprocessor in that slurps the .pjs to OpenAI
-         at runtime.
-    // 🔥 
-    // TODO: Write `prompted` javascript that will compile and run against any
-    //       LLM version 24.02.22.19.38
-    // Call it `.pjs` ?
-    // piece, processing, prompted
-
-    //if (!net.iframe && params[0]^does not start with^) {
-    //  return;
-    //}
+*** `blur` ***
+  - [⚠️] Red crosshair drags when pressing corner label.
 
 *** piece authoriship improvements: workshop with casey ***
   - [🟡] Refreshing the page (opening and closing the pane) should be able to work better / reload the last-run code?
@@ -80,8 +68,22 @@
   - [x] Add param to `publish` to rename the file.
   - [x] Publishing the same piece more than once / overwriting a piece doesn't
          work in the editor.
-
   - [] `load` should load a photo / be similar to `paste` and work on mobile.
+
+*** .pjs compiler ***
+  - [] Break the below down into steps and get it compiling on each load.
+    - [] Add syntax support to the vscode extension for the .pjs files / metaprocessor.
+    - [] Write the metaprocessor in that slurps the .pjs to OpenAI
+         at runtime.
+    // 🔥 
+    // TODO: Write `prompted` javascript that will compile and run against any
+    //       LLM version 24.02.22.19.38
+    // Call it `.pjs` ?
+    // piece, processing, prompted
+
+    //if (!net.iframe && params[0]^does not start with^) {
+    //  return;
+    //}
 
 *** Web Notifications ***
   - [] Get web notifications working and tie them directly to push notifications.
