@@ -257,6 +257,7 @@ export {
   makeBuffer,
   cloneBuffer,
   setBuffer,
+  getBuffer,
   changePixels,
   depthBuffer,
   writeBuffer,

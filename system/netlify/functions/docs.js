@@ -179,6 +179,11 @@ export async function handler(event, context) {
           desc: "",
           done: false,
         },
+        pagern: {
+          sig: "",
+          desc: "",
+          done: false,
+        },
         notice: {
           sig: "notice(msg, color, opts)",
           desc: "",
