@@ -40,10 +40,28 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** .pjs compiler ***
+  - [] Break the below down into steps and get it compiling on each load.
+    - [] Add syntax support to the vscode extension for the .pjs files / metaprocessor.
+    - [] Write the metaprocessor in that slurps the .pjs to OpenAI
+         at runtime.
+    // 🔥 
+    // TODO: Write `prompted` javascript that will compile and run against any
+    //       LLM version 24.02.22.19.38
+    // Call it `.pjs` ?
+    // piece, processing, prompted
+
+    //if (!net.iframe && params[0]^does not start with^) {
+    //  return;
+    //}
+
 *** workshop with casey ***
-  - [🟠] So in order to draw from a template, you can say `new brush` or `new painting`.
-  - [] Refreshing the page (opening and closing the pane) should be able to work better / reload the last-run code?
+  - [🟠] Refreshing the page (opening and closing the pane) should be able to work better / reload the last-run code?
+    - [] Test dragging and dropping...
+    - [] Making new pieces.
+
   + Done
+  - [x] So in order to draw from a template, you can say `new brush` or `new bot` or `new piece frogger`.
   - [x] One should be able to view source code / use `source` from inside vscode.
   - [x] Can this produce a new file tab inside of vscode?
   - [x] vscode extension should somehow ignore system files like `bios` and `boot`.
