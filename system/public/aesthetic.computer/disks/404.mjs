@@ -8,12 +8,13 @@
 #endregion */
 
 // 🥾 Boot
-function boot({ wipe, screen, params }) {
+function boot({ wipe, screen }) {
   // Runs once at the start.
-  // TODO: Does this sometimes not show up?
-  wipe(96)
-    .ink(128)
-    .write(`Not Found ${params.join("~")}`, { center: "xy" });
+  wipe("teal")
+    .ink("aqua")
+    .write(`Piece Not Found`, { center: "x", y: screen.height / 2 - 8})
+    .ink("pink")
+    .write(`Drag one in?`, { center: "x", y: screen.height / 2 + 8})
 }
 
 // 🎨 Paint
