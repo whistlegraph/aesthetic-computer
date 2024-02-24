@@ -1,6 +1,7 @@
 // Serves HTML from a template for every landing route on aesthetic.computer.
 
 import https from "https";
+import { promises as fs } from "fs";
 import { URLSearchParams } from "url";
 import { parse, metadata } from "../../public/aesthetic.computer/lib/parse.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
@@ -99,8 +100,34 @@ async function fun(event, context) {
           const m = await import(
             `../../public/aesthetic.computer/disks/${path}.mjs`
           );
+          // Now read the source code from the module file.
+          let sourceCode;
+          try {
+            sourceCode = await fs.readFile(
+              `./public/aesthetic.computer/disks/${path}.mjs`,
+              "utf8",
+            );
+            // console.log("📜 Source code:", sourceCode);
+          } catch (err) {
+            console.error("📃 Error reading source code:", err);
+          }
 
-          meta = m.meta?.(parsed); // Parse any special piece metadata if it exists.
+          meta =
+            m.meta?.(parsed, sourceCode) ||
+            (() => {
+              // Parse the source for a potential title and description.
+              let title = "",
+                desc = "";
+              const lines = sourceCode.split("\n");
+
+              if (lines[0].startsWith("//")) {
+                title = lines[0].split(",")[0].slice(3).trim();
+              }
+
+              if (lines[1].startsWith("//")) desc = lines[1].slice(3).trim();
+
+              return { title, desc };
+            })(); // Parse any special piece metadata if it exists.
           console.log("📰 Metadata:", meta, "Path:", parsed.text);
         }
       } catch (e) {
