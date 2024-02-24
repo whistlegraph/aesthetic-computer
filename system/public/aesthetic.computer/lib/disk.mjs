@@ -2053,6 +2053,7 @@ class Painting {
     paintingAPIid += 1n;
 
     p.inkrn = graph.c.slice(); // Init global state machine read-outs.
+    p.pagern = graph.getBuffer();
 
     // Filter for and then wrap every rendering behavior of $paintApi into a
     // system to be deferred in groups, using layer.
@@ -2060,6 +2061,7 @@ class Painting {
 
     function globals(k, args) {
       if (k === "ink") p.inkrn = [...args].flat();
+      if (k === "page") p.pagern = args[0];
       // TODO: 😅 Add other state globals like line thickness? 23.1.25
     }
 
@@ -2114,6 +2116,7 @@ class Painting {
     };
 
     this.api.inkrn = () => this.inkrn; // Return current ink color.
+    this.api.pagern = () => this.pagern; // Return current page buffer.
 
     // This links to abstract, solitary graph functions that do not need
     // to be wrapped or deferred for rendering.
