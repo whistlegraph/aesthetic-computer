@@ -9,7 +9,7 @@
 function meta() {
   return {
     title: "Blur",
-    desc: "Blur pixels with a given radius.",
+    desc: "Blur pixels.",
   };
 }
 
