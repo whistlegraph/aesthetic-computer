@@ -123,6 +123,8 @@ if (!sandboxed && window.auth0) {
     //}
   };
 
+  if (location.pathname === "/hi") window.acLOGIN();
+
   // Redirect to signup with a query parameter.
   if (location.search.startsWith("?signup")) window.acLOGIN("signup");
 
