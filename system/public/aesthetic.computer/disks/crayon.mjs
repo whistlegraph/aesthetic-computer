@@ -20,7 +20,10 @@ const maxColChange = 5;
 
 const intervalSpacing = 5;
 
-const noiseScale = 100.0;
+const minOpacity = 0.05;
+
+const noiseScale = 300.0;
+const noisePow = 3.0; //Higher makes the brush softer, lower makes it more harder.
 
 let pPen = { x: -1, y: -1 };
 
@@ -89,17 +92,7 @@ function brush({ ink, num, pen }) {
       let x = interpolatedX + (Math.cos(angle) * scatterRadius);
       let y = interpolatedY + (Math.sin(angle) * scatterRadius);
 
-      let dotOpacity = Math.pow(num.perlin(x * noiseScale, y * noiseScale), 2.0);
-
-      if(dotOpacity < 0.1) {
-        continue;
-      }
-
-      // console.log(dotOpacity);
-
-      // let thisDotCol = baseCol.map((col, index) => {
-      //   return num.clamp(col + num.randInt(-maxColChange, maxColChange), 0, 255);
-      // });
+      let dotOpacity = Math.max(Math.pow(num.perlin(x * noiseScale, y * noiseScale), noisePow), minOpacity);
 
       let thisDotCol = baseCol;
 
