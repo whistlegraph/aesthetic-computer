@@ -27,7 +27,8 @@
   "main": "./out/extension.js",
   "browser": "./out/extension.js",
   "activationEvents": [
-    "onLanguage:javascript"
+    "onLanguage:javascript",
+    "onLanguage:pjs"
   ],
   "contributes": {
     "languages": [
@@ -36,6 +37,12 @@
         "extensions": [
           ".mjs"
         ]
+      },
+      {
+        "id": "pjs",
+        "aliases": ["PeaceScript", "pjs"],
+        "extensions": [".pjs"],
+        "configuration": "./syntaxes/pjs-configuration.json"
       }
     ],
     "commands": [
@@ -50,6 +57,21 @@
       {
         "command": "aestheticComputer.localServer",
         "title": "aesthetic.computer: Toggle Local Development 💻"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "pjs",
+        "scopeName": "source.pjs",
+        "path": "./syntaxes/PeaceScript.tmGrammar.json"
+      }
+    ],
+    "textMateRules": [
+      {
+        "scope": "string.quoted.other.peacescript",
+        "settings": {
+          "foreground": "#C678DD"
+        }
       }
     ],
     "viewsContainers": {
