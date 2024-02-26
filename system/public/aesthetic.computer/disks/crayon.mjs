@@ -9,14 +9,20 @@
 
 const randColChangeInterval = 100;
 
-const minNumDots = 30;
+const minNumDots = 50;
 const maxNumDots = 100;
 
 const minDotRadius = 1;
-const maxDotRadius = 3;
+const maxDotRadius = 2;
 
 const maxScatterRadius = 7;
-const maxColChange = 25;
+const maxColChange = 5;
+
+const intervalSpacing = 5;
+
+const noiseScale = 100.0;
+
+let pPen = { x: -1, y: -1 };
 
 let colorParams;
 let gotColor = false;
@@ -42,12 +48,15 @@ function boot({ params, num }) {
 function brush({ ink, num, pen }) {
   frameCount++;
 
+  if(pPen.x == -1 && pPen.y == -1) {
+    pPen = {x: pen.x, y: pen.y};
+  }
+
   let baseCol;
 
   if (gotColor) {
     baseCol = colorParams;
-  }
-  else {
+  } else {
     if (frameCount % randColChangeInterval == 0) {
       randCol = [...num.randIntArr(255, 3), 255];
     }
@@ -57,29 +66,64 @@ function brush({ ink, num, pen }) {
     baseCol = rainbowCrayonCol;
   }
 
-  let numDots = num.randInt(minNumDots, maxNumDots);
+  const dx = pen.x - pPen.x;
+  const dy = pen.y - pPen.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  
+  const numInterpolations = Math.floor(distance / intervalSpacing);
+  
+  for (let j = 0; j <= numInterpolations; j++) {
+    const t = numInterpolations === 0 ? 0 : j / numInterpolations;
+    const interpolatedX = pPen.x + dx * t;
+    const interpolatedY = pPen.y + dy * t;
 
-  for (let i = 0; i < numDots; i++) {
-    let dotRadius = num.randIntRange(minDotRadius, maxDotRadius);
+    let numDots = num.randInt(minNumDots, maxNumDots);
 
-    let angle = num.rand() * Math.PI * 2;
+    for (let i = 0; i < numDots; i++) {
+      let dotRadius = num.randIntRange(minDotRadius, maxDotRadius);
 
-    let scatterRadius = num.randIntRange(0, maxScatterRadius);
+      let angle = num.rand() * Math.PI * 2;
 
-    let x = pen.x + (Math.cos(angle) * scatterRadius);
-    let y = pen.y + (Math.sin(angle) * scatterRadius);
+      let scatterRadius = num.randIntRange(0, maxScatterRadius);
 
-    let thisDotCol = baseCol;
+      let x = interpolatedX + (Math.cos(angle) * scatterRadius);
+      let y = interpolatedY + (Math.sin(angle) * scatterRadius);
 
-    thisDotCol = thisDotCol.map((col, index) => {
-      return num.clamp(col + num.randInt(-maxColChange, maxColChange), 0, 255);
-    });
+      let dotOpacity = Math.pow(num.perlin(x * noiseScale, y * noiseScale), 2.0);
 
-    ink(thisDotCol).circle(x, y, dotRadius, true);
+      if(dotOpacity < 0.1) {
+        continue;
+      }
+
+      // console.log(dotOpacity);
+
+      // let thisDotCol = baseCol.map((col, index) => {
+      //   return num.clamp(col + num.randInt(-maxColChange, maxColChange), 0, 255);
+      // });
+
+      let thisDotCol = baseCol;
+
+      for (let index = 0; index < 3; index++) {
+        thisDotCol[index] = baseCol[index] + num.randIntRange(-maxColChange, maxColChange);
+      }
+
+      thisDotCol[3] = dotOpacity * 255;
+
+      ink(thisDotCol).circle(x, y, dotRadius, true);
+    }
+  }
+
+  pPen = {x: pen.x, y: pen.y};
+}
+
+
+function act($) {
+  if ($.event.is("lift")) {
+    pPen = {x: -1, y: -1};
   }
 }
 
-// 📰 Meta
+
 function meta() {
   return {
     title: "Crayon",
@@ -87,7 +131,7 @@ function meta() {
   };
 }
 
-export { boot, brush, meta };
+export { boot, brush, meta, act };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
