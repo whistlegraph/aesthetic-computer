@@ -5,6 +5,7 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [x] Make sure work with any url.
 #endregion */
 
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
@@ -19,14 +20,22 @@ let cells,
 
 // 🥾 Boot
 function boot({ api, hud, params, net, ui, blink }) {
-  url = net.lan ? net.lan : `https://${net.host}`;
-  console.log("👐 Sharing:", url);
-  slug = params.join("~");
-  if (slug) url += `/${slug}`;
-  if (slug.length === 0) {
-    slug = "prompt";
-    hud.label(`share prompt`);
+  console.log("Params:", params);
+  if (params[0]?.startsWith("https://") || params[0]?.startsWith("http://")) {
+    url = params[0];
+    hud.label(`share ${params[0]}`);
+  } else {
+    url = net.lan ? net.lan : `https://${net.host}`;
+    slug = params.join("~");
+    if (slug) url += `/${slug}`;
+    if (slug.length === 0) {
+      slug = "prompt";
+      hud.label(`share prompt`);
+    }
   }
+
+  console.log("👐 Sharing:", url);
+
   cells = qr(url).modules;
   starfield.boot(api, { stars: 512 });
   starfield.wipe(false);
@@ -97,7 +106,7 @@ function paint({ api, wipe, ink, screen, help: { choose } }) {
 
 // 🎪 Act
 function act({ event: e, jump }) {
-  enter.btn.act(e, { push: () => jump(slug) });
+  enter.btn.act(e, { push: () => jump(slug || url) });
 }
 
 // 🧮 Sim

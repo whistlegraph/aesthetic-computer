@@ -2400,6 +2400,16 @@ async function load(
     return true;
   }
 
+  // Reload a previously sideloaded piece on subsequent loads.
+  if (
+    !parsed.source &&
+    store["publishable-piece"] &&
+    parsed.piece === store["publishable-piece"].slug
+  ) {
+    parsed.source = store["publishable-piece"].source;
+    parsed.name = store["publishable-piece"].slug;
+  }
+
   // 🕸️ Loading over the network from a parsed path object with no source code.
   if (!parsed.source) {
     params = parsed.params;
@@ -2496,7 +2506,8 @@ async function load(
             Date.now();
           console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
           response = await fetch(anonUrl);
-          if (response.status === 404) throw new Error("404");
+          if (response.status === 404 || response.status === 403)
+            throw new Error("404");
         }
         sourceToRun = await response.text();
       } else {
