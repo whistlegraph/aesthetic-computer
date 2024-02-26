@@ -806,6 +806,11 @@ export async function handler(event, context) {
           desc: "Compute the distance between two 3D points as [x, y z]",
           done: false,
         },
+        "num.perlin": {
+          sig: "perlin(x, y)",
+          desc: "Compute a 2D perlin noise value.",
+          done: false,
+        },
         "num.radians": {
           sig: "radians(deg)",
           desc: "Convert degrees to radians.",
