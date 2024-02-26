@@ -1342,6 +1342,7 @@ const $commonApi = {
     randIntRange: num.randIntRange,
     rangedInts: num.rangedInts,
     multiply: num.multiply,
+    perlin: num.perlin,
     dist: num.dist,
     dist3d: num.dist3d,
     radians: num.radians,
