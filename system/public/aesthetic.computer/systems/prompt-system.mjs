@@ -34,8 +34,6 @@ export async function prompt_boot(
     prompt = prompt?.replaceAll("@", $.handle() || "pal");
   }
 
-  console.log("Prompt:", prompt);
-
   input = new $.ui.TextInput(
     $,
     prompt,
