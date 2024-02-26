@@ -5,6 +5,9 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] Depth based aggregation, waxy feel. 
+  - [] Size parameter.
+  - [] Easter egg colors like sparkle.
 #endregion */
 
 const randColChangeInterval = 100;
