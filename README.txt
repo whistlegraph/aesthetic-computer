@@ -40,8 +40,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
          
-  - [] `load` should load a photo / be similar to `paste` and work on mobile.
-
 - Miles (Sunday)
   *** `blur` ***
     - [⚠️] Red crosshair drags when pressing corner label.
@@ -61,12 +59,12 @@
       //}
 
 *** Web Notifications ***
-  - [] Get web notifications working and tie them directly to push notifications.
+  - [🟠] Get web notifications working and tie them directly to push notifications.
 
 *** prompt regression ***
   - [🔴] ⚠️ Sometimes the default reply text can become editable and not be
           cleared...
-  - [] Always trim whitespace for commands so they don't fail.
+  - [] `load` should load a photo / be similar to `paste` and work on mobile.
 
 *** cab meeting ***
   - [] Set up DMARC for emails.
