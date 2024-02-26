@@ -44,8 +44,6 @@ function paint({ ink, num, pen }) {
   frameCount++;
 
   if (pen?.drawing) {
-
-    // let baseCol = gotColor ? colorParams : [...num.randIntArr(255, 3), 255];
  
     let baseCol;
 
@@ -71,8 +69,6 @@ function paint({ ink, num, pen }) {
 
       let scatterRadius = num.randIntRange(0, maxScatterRadius);
 
-      console.log(scatterRadius)
-
       let x = pen.x + (Math.cos(angle) * scatterRadius);
       let y = pen.y + (Math.sin(angle) * scatterRadius);
 
@@ -84,35 +80,8 @@ function paint({ ink, num, pen }) {
 
       ink(thisDotCol).circle(x, y, dotRadius, true);
     }
-
-
-    // ink(baseCol).circle(pen.x, pen.y, 10, true);
   }
-
-
-
-
 }
-
-// 🎪 Act
-// function act({ event: e }) {
-//  // Respond to user input here.
-// }
-
-// 🧮 Sim
-// function sim() {
-//  // Runs once per logic frame. (120fps locked.)
-// }
-
-// 🥁 Beat
-// function beat() {
-//   // Runs once per metronomic BPM.
-// }
-
-// 👋 Leave
-// function leave() {
-//  // Runs once before the piece is unloaded.
-// }
 
 // 📰 Meta
 function meta() {
@@ -121,16 +90,6 @@ function meta() {
     desc: "Draw with a crayon.",
   };
 }
-
-// 🖼️ Preview
-// function preview({ ink, wipe }) {
-// Render a custom thumbnail image.
-// }
-
-// 🪷 Icon
-// function icon() {
-// Render an application icon, aka favicon.
-// }
 
 export { boot, paint, meta };
 
