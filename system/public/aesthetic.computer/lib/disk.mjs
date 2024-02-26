@@ -27,6 +27,9 @@ import { soundWhitelist } from "./sound/sound-whitelist.mjs";
 import { CamDoll } from "./cam-doll.mjs";
 
 import { TextInput, Typeface } from "../lib/type.mjs";
+
+import { Conversation } from "./ask.mjs";
+
 let tf; // Active typeface global.
 
 export const noWorker = { onMessage: undefined, postMessage: undefined };
@@ -45,6 +48,7 @@ const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading 
 import { setDebug } from "../disks/common/debug.mjs";
 
 import { customAlphabet } from "../dep/nanoid/nanoid.js";
+import { update } from "./glaze.mjs";
 const alphabet =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const nanoid = customAlphabet(alphabet, 4);
@@ -289,25 +293,25 @@ let storeRetrievalResolution, storeDeletionResolution;
 
 let socket, socketStartDelay;
 let udp = {
-    send: (type, content) => {
-      send({ type: "udp:send", content: { type, content } });
-    },
-    receive: ({ type, content }) => {
-      // console.log("🩰 Received `piece` message from UDP:", content);
-
-      // 🧚 Ambient cursor (fairies) support.
-      if (type === "fairy:point" /*&& socket?.id !== id*/ && visible) {
-        fairies.push({ x: content.x, y: content.y });
-        return;
-      }
-      udpReceive?.(content);
-    },
-    kill: () => {
-      udp.connected = false;
-      send({ type: "udp:disconnect" });
-    },
-    connected: false,
+  send: (type, content) => {
+    send({ type: "udp:send", content: { type, content } });
   },
+  receive: ({ type, content }) => {
+    // console.log("🩰 Received `piece` message from UDP:", content);
+
+    // 🧚 Ambient cursor (fairies) support.
+    if (type === "fairy:point" /*&& socket?.id !== id*/ && visible) {
+      fairies.push({ x: content.x, y: content.y });
+      return;
+    }
+    udpReceive?.(content);
+  },
+  kill: () => {
+    udp.connected = false;
+    send({ type: "udp:disconnect" });
+  },
+  connected: false,
+},
   udpReceive = undefined;
 let scream = null; // 😱 Allow priviledged users to send alerts to everyone.
 //                       (A great end<->end socket + redis test.)
@@ -452,7 +456,7 @@ class Recorder {
 
   videoOnLeave = false;
 
-  constructor() {}
+  constructor() { }
 
   tapeTimerSet(seconds, time) {
     this.tapeTimerStart = time;
@@ -684,8 +688,7 @@ const $commonApi = {
 
       $commonApi.jump(
         encodeURI(
-          `https://zora.co/create/single-edition?image=${pixels}&name=${
-            params[0] || "Untitled Painting"
+          `https://zora.co/create/single-edition?image=${pixels}&name=${params[0] || "Untitled Painting"
           }&symbol=$${data.slug}&description=${description}`,
         ),
       );
@@ -709,7 +712,7 @@ const $commonApi = {
         // Include authorization token if logged in.
         const token = await $commonApi.authorize(); // Get user token.
         if (token) headers.Authorization = `Bearer ${token}`;
-      } catch (err) {} // Handled up-stream.
+      } catch (err) { } // Handled up-stream.
 
       const res = await fetch(`/api/print?new=true&pixels=${pixels}`, {
         method: "POST",
@@ -1096,11 +1099,11 @@ const $commonApi = {
           system.nopaint.startDrag.x,
           system.nopaint.startDrag.y,
           x -
-            system.nopaint.startDrag.x +
-            (x >= system.nopaint.startDrag.x ? 1 : -1),
+          system.nopaint.startDrag.x +
+          (x >= system.nopaint.startDrag.x ? 1 : -1),
           y -
-            system.nopaint.startDrag.y +
-            (y >= system.nopaint.startDrag.y ? 1 : -1),
+          system.nopaint.startDrag.y +
+          (y >= system.nopaint.startDrag.y ? 1 : -1),
         );
 
         system.nopaint.brush = { x, y, dragBox };
@@ -1339,6 +1342,7 @@ const $commonApi = {
     randIntRange: num.randIntRange,
     rangedInts: num.rangedInts,
     multiply: num.multiply,
+    perlin: num.perlin,
     dist: num.dist,
     dist3d: num.dist3d,
     radians: num.radians,
@@ -2239,7 +2243,7 @@ class Content {
   nodes = [];
   #id = 0;
 
-  constructor() {}
+  constructor() { }
 
   // Make a request to add new content to the DOM.
   add(content) {
@@ -2336,6 +2340,37 @@ let originalHost;
 let firstLoad = true;
 
 let notice, noticeTimer, noticeColor, noticeOpts; // Renders a full-screen notice on piece-load if present.
+
+function updateCode(sourceToRun, host, debug) {
+  // Automatically replace relative imports with absolute ones.
+  const twoDots =
+    /^(import|export) {([^{}]*?)} from ["'](\.\.\/|\.\.|\.\/)(.*?)["'];?/gm;
+  const oneDot =
+    /^(import|export) \* as ([^ ]+) from ["']\.?\/(.*?)["'];?/gm;
+
+  let updatedCode = sourceToRun.replace(
+    twoDots,
+    (match, p1, p2, p3, p4) => {
+      let url = `${location.protocol}//${host}/aesthetic.computer${p3 === "./" ? "/disks" : ""
+        }/${p4.replace(/\.\.\//g, "")}`;
+      return `${p1} { ${p2} } from "${url}";`;
+    },
+  );
+
+  updatedCode = updatedCode.replace(oneDot, (match, p1, p2, p3) => {
+    let url = `${location.protocol}//${host}/aesthetic.computer${p3.startsWith("disks/") ? "" : "/disks"
+      }/${p3.replace(/^disks\//, "")}`;
+    return `${p1} * as ${p2} from "${url}";`;
+  });
+
+  // 💉 Constant Injection (for pieces to use)
+  // Inject the DEBUG constant into the updatedCode
+  // ⚠️ Always make sure to document 📚 added constants in `docs`!
+  updatedCode = `const DEBUG = ${debug};\n${updatedCode}`;
+  // 📥 Hunt for and preloading any user media.
+
+  return updatedCode;
+}
 
 async function load(
   parsed, // If parsed is not an object, then assume it's source code.
@@ -2520,37 +2555,12 @@ async function load(
       }
       */
 
-      // Automatically replace relative imports with absolute ones.
-      const twoDots =
-        /^(import|export) {([^{}]*?)} from ["'](\.\.\/|\.\.|\.\/)(.*?)["'];?/gm;
-      const oneDot =
-        /^(import|export) \* as ([^ ]+) from ["']\.?\/(.*?)["'];?/gm;
+      const updatedCode = updateCode(sourceToRun, host, debug);
 
-      let updatedCode = sourceToRun.replace(
-        twoDots,
-        (match, p1, p2, p3, p4) => {
-          let url = `${location.protocol}//${host}/aesthetic.computer${
-            p3 === "./" ? "/disks" : ""
-          }/${p4.replace(/\.\.\//g, "")}`;
-          return `${p1} { ${p2} } from "${url}";`;
-        },
-      );
-
-      updatedCode = updatedCode.replace(oneDot, (match, p1, p2, p3) => {
-        let url = `${location.protocol}//${host}/aesthetic.computer${
-          p3.startsWith("disks/") ? "" : "/disks"
-        }/${p3.replace(/^disks\//, "")}`;
-        return `${p1} * as ${p2} from "${url}";`;
-      });
-
-      // 💉 Constant Injection (for pieces to use)
-      // Inject the DEBUG constant into the updatedCode
-      // ⚠️ Always make sure to document 📚 added constants in `docs`!
-      updatedCode = `const DEBUG = ${debug};\n${updatedCode}`;
-      // 📥 Hunt for and preloading any user media.
       prefetches = updatedCode
-        .match(/"(@\w[\w.]*\/[^"]*)"/g)
-        ?.map((match) => match.slice(1, -1)); // for "@name/code".
+      .match(/"(@\w[\w.]*\/[^"]*)"/g)
+      ?.map((match) => match.slice(1, -1)); // for "@name/code".
+  
       const blob = new Blob([updatedCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);
       sourceCode = updatedCode;
@@ -2558,23 +2568,118 @@ async function load(
 
     loadedModule = await import(blobUrl);
   } catch (err) {
-    // 🧨 Continue with current module if one has already loaded.
-    console.error(
-      `😡 "${path}" load failure:`,
-      err,
-      "💾 First load:",
-      firstLoad,
-    );
-    loadFailure = err;
-    $commonApi.net.loadFailureText = err.message + "\n" + sourceCode;
-    loading = false;
-    // Only return a 404 if the error type is correct.
-    if (firstLoad && err.message === "404") {
-      $commonApi.jump(`404~${slug}`);
-    } else {
-      $commonApi.notice(":(", ["red", "yellow"]);
+
+    console.log(err);
+
+    let response, sourceToRun;
+
+    // Look for pjs files if the mjs file is not found.
+    try {
+      fullUrl = fullUrl.replace(".mjs", ".pjs");
+
+      if (
+        slug.split("~")[0] === currentText?.split("~")[0] &&
+        sourceCode == currentCode &&
+        !devReload
+      ) {
+        const blob = new Blob([currentCode], { type: "application/javascript" });
+        blobUrl = URL.createObjectURL(blob);
+        sourceCode = currentCode;
+      } else {
+        let response, sourceToRun;
+        if (fullUrl) {
+          console.log("📥 Loading from url:", fullUrl);
+          response = await fetch(fullUrl);
+          if (response.status === 404) {
+            const anonUrl =
+              location.protocol +
+              "//" +
+              "art.aesthetic.computer" +
+              "/" +
+              path.split("/").pop() +
+              ".pjs" +
+              "#" +
+              Date.now();
+            console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
+            response = await fetch(anonUrl);
+            if (response.status === 404) throw new Error("404");
+          }
+          sourceToRun = await response.text();
+        } else {
+          sourceToRun = source;
+        }
+
+        // Compile pjs to js using GPT.
+        // let preprompt = `The following code contains JavaScript mixed with natural language English. Please replace any instances of natural language with JavaScript, and return the whole file, including the original JavaScript. Natural language sections are enclosed by two @ characters. Return only the compiled code and nothing else. For requests to do anything visual, you can use “ink(r, g, b, a).box(pen.x, pen.y, w, h) or ink(r, g, b, a).circle(pen.x, pen.y, radius). ”`;
+
+        // let pjsPrompt = preprompt + sourceToRun;
+
+        // let conversation = new Conversation();
+
+        // let program = {
+        //   before: '',
+        //   after: '',
+        // }
+        
+        // let compiledCode = ``;
+
+        // conversation.ask(
+        //   { prompt: pjsPrompt, program },
+        //   function and(msg) {
+        //     compiledCode += msg;
+        //   },
+        //   function done() {
+        //     console.log('🤖 pjs compilation done.')
+        //     console.log(compiledCode);
+
+        //     sourceToRun = compiledCode;
+
+        //     if (devReload) {
+        //       store["publishable-piece"] = { slug, source: sourceToRun };
+        //     }
+      
+        //     const updatedCode = updateCode(sourceToRun, host, debug);
+      
+        //     prefetches = updatedCode
+        //     .match(/"(@\w[\w.]*\/[^"]*)"/g)
+        //     ?.map((match) => match.slice(1, -1)); // for "@name/code".
+        
+        //     const blob = new Blob([updatedCode], { type: "application/javascript" });
+        //     blobUrl = URL.createObjectURL(blob);
+        //     sourceCode = updatedCode;
+    
+        //     // loadedModule = await import(blobUrl);
+
+        //   },
+        //   function fail() {
+        //     console.log('🤖 pjs compilation failed.')
+        //   }
+        // );
+        
+      }
+  
+      loadedModule = await import(blobUrl);
     }
-    return false;
+
+    catch (err) {
+      // 🧨 Continue with current module if one has already loaded.
+      console.error(
+        `😡 "${path}" load failure:`,
+        err,
+        "💾 First load:",
+        firstLoad,
+      );
+      loadFailure = err;
+      $commonApi.net.loadFailureText = err.message + "\n" + sourceCode;
+      loading = false;
+      // Only return a 404 if the error type is correct.
+      if (firstLoad && err.message === "404") {
+        $commonApi.jump(`404~${slug}`);
+      } else {
+        $commonApi.notice(":(", ["red", "yellow"]);
+      }
+      return false;
+    }
   }
 
   // console.log("Module load time:", performance.now() - moduleLoadTime, module);
@@ -2743,7 +2848,7 @@ async function load(
   socketStartDelay = setTimeout(() => startSocket(), 250);
 
   $commonApi.net.socket = function (receive) {
-    receiver = receive || (() => {});
+    receiver = receive || (() => { });
     if (!socket) {
       // Just in case we init. in a `boot` before the timeout fires above.
       clearTimeout(socketStartDelay);
@@ -2773,20 +2878,20 @@ async function load(
         num: $commonApi.num,
         store: $commonApi.store,
       }) ||
-        (() => {
-          // Parse the source for a potential title and description.
-          let title = "",
-            desc = "";
-          const lines = sourceCode.split("\n");
+      (() => {
+        // Parse the source for a potential title and description.
+        let title = "",
+          desc = "";
+        const lines = sourceCode.split("\n");
 
-          if (lines[1].startsWith("//")) {
-            title = lines[1].split(",")[0].slice(3).trim();
-          }
+        if (lines[1].startsWith("//")) {
+          title = lines[1].split(",")[0].slice(3).trim();
+        }
 
-          if (lines[2].startsWith("//")) desc = lines[2].slice(3).trim();
+        if (lines[2].startsWith("//")) desc = lines[2].slice(3).trim();
 
-          return { title, desc };
-        })(),
+        return { title, desc };
+      })(),
     );
 
     meta = {
@@ -3008,8 +3113,8 @@ async function load(
   $commonApi.alias = function alias(name, colon, params) {
     $commonApi.jump(
       name +
-        colon.map((c) => `:` + c).join("") +
-        params.map((p) => `~` + p).join(""),
+      colon.map((c) => `:` + c).join("") +
+      params.map((p) => `~` + p).join(""),
       true,
       true,
     );
@@ -4500,7 +4605,7 @@ async function makeFrame({ data: { type, content } }) {
 
       if (content.updateCount > 0 && paintCount > 0n) {
         // Run `sim` the number of times as requested from `bios`.
-        for (let i = content.updateCount; i--; ) {
+        for (let i = content.updateCount; i--;) {
           simCount += 1n;
           $api.simCount = simCount;
           try {
