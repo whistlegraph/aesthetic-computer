@@ -39,51 +39,26 @@
 😀 TODO 😆
 
 🌟 Projects in Progress (PIP) 🌟
-
-*** `blur` ***
-  - [⚠️] Red crosshair drags when pressing corner label.
-
-*** piece authoriship improvements: workshop with casey ***
-  - [🟡] Refreshing the page (opening and closing the pane) should be able to work better / reload the last-run code?
-    - [🧡] Drag and drop should rename the url path.
-      - [] See `disk.mjs` line 2477.
-    - [] Reloading from prompt. 
-    - [] Refreshing the page should show a 404 message if the piece doesn'tab
-         exist possibly with a simple call to action. 
-  + Done
-  - [x] Fix dragging and dropping of piece code.
-  - [x] So in order to draw from a template, you can say `new brush` or `new bot` or `new piece frogger`.
-  - [x] One should be able to view source code / use `source` from inside vscode.
-  - [x] Can this produce a new file tab inside of vscode?
-  - [x] vscode extension should somehow ignore system files like `bios` and `boot`.
-    - [x] or just not run auto-complete while in local mode / ignore files over 500 lines.
-  - [x] Entering `docs` in the vscode extension should pop open the docs pane.
-  - [x] Multiple templates for different types of pieces.
-    - [x] "world" template.
-    - [x] "3D" template.
-    - [x] "Bot" template.
-    - [x] "Brush" piece template.
-    - [x] "Blank" piece template.
-  - [x] "Stamp" template.
-  - [x] Add param to `publish` to rename the file.
-  - [x] Publishing the same piece more than once / overwriting a piece doesn't
-         work in the editor.
+         
   - [] `load` should load a photo / be similar to `paste` and work on mobile.
 
-*** .pjs compiler ***
-  - [] Break the below down into steps and get it compiling on each load.
-    - [] Add syntax support to the vscode extension for the .pjs files / metaprocessor.
-    - [] Write the metaprocessor in that slurps the .pjs to OpenAI
-         at runtime.
-    // 🔥 
-    // TODO: Write `prompted` javascript that will compile and run against any
-    //       LLM version 24.02.22.19.38
-    // Call it `.pjs` ?
-    // piece, processing, prompted
+- Miles (Sunday)
+  *** `blur` ***
+    - [⚠️] Red crosshair drags when pressing corner label.
+  *** .pjs compiler ***
+    - [] Break the below down into steps and get it compiling on each load.
+      - [] Add syntax support to the vscode extension for the .pjs files / metaprocessor.
+      - [] Write the metaprocessor in that slurps the .pjs to OpenAI
+          at runtime.
+      // 🔥 
+      // TODO: Write `prompted` javascript that will compile and run against any
+      //       LLM version 24.02.22.19.38
+      // Call it `.pjs` ?
+      // piece, processing, prompted
 
-    //if (!net.iframe && params[0]^does not start with^) {
-    //  return;
-    //}
+      //if (!net.iframe && params[0]^does not start with^) {
+      //  return;
+      //}
 
 *** Web Notifications ***
   - [] Get web notifications working and tie them directly to push notifications.
