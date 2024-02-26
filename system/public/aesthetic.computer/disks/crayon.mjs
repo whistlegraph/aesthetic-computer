@@ -29,7 +29,7 @@ function boot({ params, num }) {
   // Runs once at the start.
   colorParams = num.parseColor(params);
 
-  if(colorParams.length > 0) {
+  if (colorParams.length > 0) {
     gotColor = true;
   }
 
@@ -39,47 +39,43 @@ function boot({ params, num }) {
   }
 }
 
-// 🎨 Paint
-function paint({ ink, num, pen }) {
+function brush({ ink, num, pen }) {
   frameCount++;
 
-  if (pen?.drawing) {
- 
-    let baseCol;
+  let baseCol;
 
-    if(gotColor) {
-      baseCol = colorParams;
-    }
-    else {
-      if(frameCount % randColChangeInterval == 0) {
-        randCol = [...num.randIntArr(255, 3), 255];
-      }
-
-      rainbowCrayonCol = rainbowCrayonCol.map((col, index) => num.lerp(col, randCol[index], 0.01));
-
-      baseCol = rainbowCrayonCol;
+  if (gotColor) {
+    baseCol = colorParams;
+  }
+  else {
+    if (frameCount % randColChangeInterval == 0) {
+      randCol = [...num.randIntArr(255, 3), 255];
     }
 
-    let numDots = num.randInt(minNumDots, maxNumDots);
+    rainbowCrayonCol = rainbowCrayonCol.map((col, index) => num.lerp(col, randCol[index], 0.01));
 
-    for(let i = 0; i < numDots; i++) {
-      let dotRadius = num.randIntRange(minDotRadius, maxDotRadius);
+    baseCol = rainbowCrayonCol;
+  }
 
-      let angle = num.rand() * Math.PI * 2;
+  let numDots = num.randInt(minNumDots, maxNumDots);
 
-      let scatterRadius = num.randIntRange(0, maxScatterRadius);
+  for (let i = 0; i < numDots; i++) {
+    let dotRadius = num.randIntRange(minDotRadius, maxDotRadius);
 
-      let x = pen.x + (Math.cos(angle) * scatterRadius);
-      let y = pen.y + (Math.sin(angle) * scatterRadius);
+    let angle = num.rand() * Math.PI * 2;
 
-      let thisDotCol = baseCol;
+    let scatterRadius = num.randIntRange(0, maxScatterRadius);
 
-      thisDotCol = thisDotCol.map((col, index) => {
-        return num.clamp(col + num.randInt(-maxColChange, maxColChange), 0, 255);
-      });
+    let x = pen.x + (Math.cos(angle) * scatterRadius);
+    let y = pen.y + (Math.sin(angle) * scatterRadius);
 
-      ink(thisDotCol).circle(x, y, dotRadius, true);
-    }
+    let thisDotCol = baseCol;
+
+    thisDotCol = thisDotCol.map((col, index) => {
+      return num.clamp(col + num.randInt(-maxColChange, maxColChange), 0, 255);
+    });
+
+    ink(thisDotCol).circle(x, y, dotRadius, true);
   }
 }
 
@@ -91,7 +87,7 @@ function meta() {
   };
 }
 
-export { boot, paint, meta };
+export { boot, brush, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
