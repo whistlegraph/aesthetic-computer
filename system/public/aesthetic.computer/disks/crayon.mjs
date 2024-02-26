@@ -23,7 +23,7 @@ const intervalSpacing = 5;
 const minOpacity = 0.05;
 
 const noiseScale = 300.0;
-const noisePow = 3.0; //Higher makes the brush softer, lower makes it more harder.
+const noisePow = 2.0; //Higher makes the brush softer, lower makes it more harder.
 
 let pPen = { x: -1, y: -1 };
 
