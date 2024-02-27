@@ -187,6 +187,10 @@
   to = "/.netlify/functions/ticket"
   status = 200
 [[redirects]]
+  from = "/api/subscribe-to-topic"
+  to = "/.netlify/functions/subscribe-to-topic"
+  status = 200
+[[redirects]]
   from = "/api/logo/*"
   to = "/.netlify/functions/logo/:splat"
   status = 200

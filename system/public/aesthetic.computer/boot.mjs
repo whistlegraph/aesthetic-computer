@@ -1,6 +1,5 @@
 // `aesthetic.computer` Bootstrap, 23.02.16.19.23
 // Included as a <script> tag to boot the system on a webpage. (Loads `bios`)
-
 import { boot } from "./bios.mjs";
 import { parse, slug } from "./lib/parse.mjs";
 
@@ -41,8 +40,12 @@ if (window.acDEBUG) window.acLAN_HOST = document.body.dataset.lanHost;
 
 let sandboxed = window.origin === "null";
 
+const previewOrIcon =
+  window.location.search.startsWith("icon=") ||
+  window.location.search.startsWith("preview=");
+
 // #region 🔐 Auth0: Universal Login & Authentication
-if (!sandboxed && window.auth0) {
+if (!sandboxed && window.auth0 && !previewOrIcon) {
   const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
 
   const before = performance.now();
@@ -290,24 +293,9 @@ async function decode(canvas, ctx, bytes) {
 }
 */
 
-// 🔔 Subscribe to web notifications.
-// if ("Notification" in window) {
-//   Notification.requestPermission().then((result) => {
-//     if (result === "granted") console.log("️🔔 Notifications enabled.");
-//   });
-// }
-
-// // Register the service worker.
-// if ("serviceWorker" in navigator) {
-//   navigator.serviceWorker
-//     .register("/service-worker.js")
-//     .then(function (registration) {
-//       console.log("🤖 Service Worker registered:", registration.scope);
-//     })
-//     .catch(function (error) {
-//       console.warn("⚠️ Service Worker registration failed:", error);
-//     });
-// }
+// 🔔 Subscribe to web / client notifications.
+// TODO: Test this to make sure it's skipped in the native apps,
+//       and factor it out. 24.02.26.19.29
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {
@@ -316,39 +304,62 @@ import {
   getToken,
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging.js";
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyBZJ4b5KaHUW0q__FDUwHPrDd0NX2umJ3A",
-  authDomain: "aesthetic-computer.firebaseapp.com",
-  projectId: "aesthetic-computer",
-  storageBucket: "aesthetic-computer.appspot.com",
-  messagingSenderId: "839964586768",
-  appId: "1:839964586768:web:466139ee473df1954ceb95",
-};
+function initNotifications() {
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyBZJ4b5KaHUW0q__FDUwHPrDd0NX2umJ3A",
+    authDomain: "aesthetic-computer.firebaseapp.com",
+    projectId: "aesthetic-computer",
+    storageBucket: "aesthetic-computer.appspot.com",
+    messagingSenderId: "839964586768",
+    appId: "1:839964586768:web:466139ee473df1954ceb95",
+  };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const messaging = getMessaging(app);
+  const app = initializeApp(firebaseConfig);
+  const messaging = getMessaging(app);
 
-getToken(messaging, {
-  vapidKey:
-    "BDEh3JDD1xZo7eQU00TgsYb_o8ENJlpU-ovbZzWoCOu4AOeFJD8PVbZ3pif_7rMEk65Uj00-lwdXgc3qJVLp4ys",
-})
-  .then((token) => {
-    if (token) {
-      // Send the token to your server and update the UI if necessary
-      console.log("App:", app, "Messaging:", messaging, "Token:", token);
-      onMessage((payload) => {
-        console.log("🗨️ Message received. ", payload);
-      });
-    } else {
-      // Show permission request UI
-      console.warn(
-        "No registration token available. Request permission to generate one.",
-      );
-    }
+  getToken(messaging, {
+    vapidKey:
+      "BDEh3JDD1xZo7eQU00TgsYb_o8ENJlpU-ovbZzWoCOu4AOeFJD8PVbZ3pif_7rMEk65Uj00-lwdXgc3qJVLp4ys",
   })
-  .catch((err) => {
-    console.warn("An error occurred while retrieving token. ", err);
-  });
+    .then((token) => {
+      if (token) {
+        // Send the token to your server and update the UI if necessary
+        function subscribe(token, topic, then) {
+          fetch("/api/subscribe-to-topic", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token, topic }),
+          })
+            .then((response) => {
+              if (!response.ok) throw new Error("Bad response.");
+              return response.json(); // Parse the JSON in the response
+            })
+            .then((data) => {
+              console.log("📶 Subscribed to:", data);
+              then?.(); // Subscribe to another topic if necessary.
+            })
+            .catch((error) => {
+              console.error("🚫 Topic subscription error:", error);
+            });
+        }
+
+        subscribe(token, "scream", () => subscribe(token, "mood"));
+
+        onMessage(messaging, (payload) => {
+          console.log(
+            "🗨️ Client notification received. ",
+            payload.notification,
+          );
+        });
+      } else {
+        console.warn("🔔 No registration token available.");
+      }
+    })
+    .catch((err) => {
+      console.warn("🔔 An error occurred while retrieving token.", err);
+    });
+}
+
+if (!previewOrIcon) initNotifications();

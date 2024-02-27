@@ -298,7 +298,7 @@ wss.on("connection", (ws, req) => {
           if (out.indexOf("pond") > -1) piece = "pond";
           else if (out.indexOf("field") > -1) piece = "field";
 
-          if (!dev) {
+          //if (!dev) {
             getMessaging()
               .send({
                 notification: { title: "😱 Scream", body: out },
@@ -311,7 +311,7 @@ wss.on("connection", (ws, req) => {
               .catch((error) => {
                 console.log("📵  Error sending notification:", error);
               });
-          }
+          //}
         })
         .catch((error) => {
           console.log("🙅‍♀️ Error publishing scream:", error);
