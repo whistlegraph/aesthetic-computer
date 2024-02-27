@@ -40,7 +40,7 @@ export async function handler(event, context) {
         body.topic,
       );
       console.log(`Successfully subscribed to topic: ${body.topic}`, response);
-      return respond(200, { status: "subscribed" });
+      return respond(200, { status: "subscribed", topic: body.topic });
     } catch (err) {
       console.log("Error subscribing to topic:", error);
       throw new Error(error);
