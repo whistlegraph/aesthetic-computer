@@ -1353,6 +1353,7 @@ const $commonApi = {
     randIntRange: num.randIntRange,
     rangedInts: num.rangedInts,
     multiply: num.multiply,
+    perlin: num.perlin,
     dist: num.dist,
     dist3d: num.dist3d,
     radians: num.radians,
@@ -2782,6 +2783,8 @@ async function load(
         const url = new URL(sesh.url); // Parse the url.
         const udpUrl = new URL(sesh.udp); // Parse the udp url.
 
+        // console.log("Session URL:", url);
+
         // 🩰 UDP... (via `bios`)
         send({
           type: "udp:connect",
@@ -2793,7 +2796,7 @@ async function load(
 
         // 🕸️ Web Sockets
         socket?.connect(
-          url.host,
+          url.host + url.pathname,
           (id, type, content) => {
             // Globally receivable messages...
             // (There are also some messages handled in `Socket`)
