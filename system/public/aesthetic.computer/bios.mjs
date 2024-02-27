@@ -337,6 +337,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (debug) wrapper.append(debugCanvas);
       document.body.append(wrapper);
 
+      const fonts = [
+        "berkeley-mono-variable.css",
+        "ywft-processing-regular.css",
+        "ywft-processing-light.css",
+        "ywft-processing-bold.css",
+      ];
+
+      // Load fonts post-boot.
+      fonts.forEach((font) => {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.crossOrigin = "anonymous";
+        link.href = "/type/webfonts/" + font;
+        document.body.append(link);
+      });
+
       // Trigger it to re-draw whenever the window resizes.
       let timeout;
       let lastWidth = window.innerWidth;
