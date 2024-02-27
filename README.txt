@@ -40,9 +40,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** Web Notifications ***
-  - [🟠] Get web notifications working and tie them directly to push notifications.
-         
 - Miles (Sunday)
   *** `blur` ***
     - [⚠️] Red crosshair drags when pressing corner label.
