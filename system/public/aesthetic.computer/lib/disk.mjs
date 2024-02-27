@@ -2776,7 +2776,7 @@ async function load(
         const url = new URL(sesh.url); // Parse the url.
         const udpUrl = new URL(sesh.udp); // Parse the udp url.
 
-        console.log("Session URL:", url);
+        // console.log("Session URL:", url);
 
         // 🩰 UDP... (via `bios`)
         send({
