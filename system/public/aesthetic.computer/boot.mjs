@@ -41,8 +41,8 @@ if (window.acDEBUG) window.acLAN_HOST = document.body.dataset.lanHost;
 
 let sandboxed = window.origin === "null";
 
+// #region 🔐 Auth0: Universal Login & Authentication
 if (!sandboxed && window.auth0) {
-  // #region 🔐 Auth0: Universal Login & Authentication
   const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
 
   const before = performance.now();
@@ -230,7 +230,7 @@ boot(parsed, bpm, undefined, debug);
 // TODO: Finish FigJam Widget with iframe message based input & output.
 //         See also: https://www.figma.com/plugin-docs/working-with-images/
 function receive(event) {
-  console.log("🌟 Event:", event);
+  // console.log("🌟 Event:", event);
   if (event.data?.type === "figma-image-input") {
     // TODO: Build image with width and height.
     console.log("Bytes:", event.data.bytes.length);
@@ -289,3 +289,66 @@ async function decode(canvas, ctx, bytes) {
   return imageData;
 }
 */
+
+// 🔔 Subscribe to web notifications.
+// if ("Notification" in window) {
+//   Notification.requestPermission().then((result) => {
+//     if (result === "granted") console.log("️🔔 Notifications enabled.");
+//   });
+// }
+
+// // Register the service worker.
+// if ("serviceWorker" in navigator) {
+//   navigator.serviceWorker
+//     .register("/service-worker.js")
+//     .then(function (registration) {
+//       console.log("🤖 Service Worker registered:", registration.scope);
+//     })
+//     .catch(function (error) {
+//       console.warn("⚠️ Service Worker registration failed:", error);
+//     });
+// }
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import {
+  getMessaging,
+  onMessage,
+  getToken,
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging.js";
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBZJ4b5KaHUW0q__FDUwHPrDd0NX2umJ3A",
+  authDomain: "aesthetic-computer.firebaseapp.com",
+  projectId: "aesthetic-computer",
+  storageBucket: "aesthetic-computer.appspot.com",
+  messagingSenderId: "839964586768",
+  appId: "1:839964586768:web:466139ee473df1954ceb95",
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const messaging = getMessaging(app);
+
+getToken(messaging, {
+  vapidKey:
+    "BDEh3JDD1xZo7eQU00TgsYb_o8ENJlpU-ovbZzWoCOu4AOeFJD8PVbZ3pif_7rMEk65Uj00-lwdXgc3qJVLp4ys",
+})
+  .then((token) => {
+    if (token) {
+      // Send the token to your server and update the UI if necessary
+      console.log("App:", app, "Messaging:", messaging, "Token:", token);
+      onMessage((payload) => {
+        console.log("🗨️ Message received. ", payload);
+      });
+    } else {
+      // Show permission request UI
+      console.warn(
+        "No registration token available. Request permission to generate one.",
+      );
+    }
+  })
+  .catch((err) => {
+    console.warn("An error occurred while retrieving token. ", err);
+  });
