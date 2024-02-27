@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** Web Notifications ***
+  - [x] Get web notifications working and tie them directly to push notifications.
+
 *** piece authoriship improvements: workshop with casey ***
   + Done
   - [x] Refreshing the page (opening and closing the pane) should be able to work better / reload the last-run code?
