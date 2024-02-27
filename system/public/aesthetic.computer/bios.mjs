@@ -2180,18 +2180,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         window.matchMedia &&
         window.matchMedia("(prefers-color-scheme: dark)").matches
       ) {
+        console.log("User is currently in dark mode");
         send({ type: "dark-mode", content: { enabled: true } });
+      } else {
+        console.log("User is currently in light mode");
+        send({ type: "dark-mode", content: { enabled: false } });
       }
-
-      window
-        .matchMedia("(prefers-color-scheme: dark)")
-        .addEventListener("change", (event) => {
-          if (event.matches) {
-            send({ type: "dark-mode", content: { enabled: true } });
-          } else {
-            send({ type: "dark-mode", content: { enabled: false } });
-          }
-        });
+    
+    window
+      .matchMedia("(prefers-color-scheme: dark)")
+      .addEventListener("change", (event) => {
+        if (event.matches) {
+          console.log("User switched to dark mode");
+          send({ type: "dark-mode", content: { enabled: true } });
+        } else {
+          console.log("User switched to light mode");
+          send({ type: "dark-mode", content: { enabled: false } });
+        }
+      });
 
       // 📋 User pasting of content.
       //window.addEventListener("paste", (event) => {

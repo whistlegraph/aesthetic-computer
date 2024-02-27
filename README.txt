@@ -41,6 +41,8 @@
 🌟 Projects in Progress (PIP) 🌟
          
   - [] `load` should load a photo / be similar to `paste` and work on mobile.
+- Tina 
+  - color change for buttons in Light Mode
 
 - Miles (Sunday)
   *** `blur` ***

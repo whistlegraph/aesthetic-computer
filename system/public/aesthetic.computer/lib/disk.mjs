@@ -293,25 +293,25 @@ let storeRetrievalResolution, storeDeletionResolution;
 
 let socket, socketStartDelay;
 let udp = {
-  send: (type, content) => {
-    send({ type: "udp:send", content: { type, content } });
-  },
-  receive: ({ type, content }) => {
-    // console.log("🩰 Received `piece` message from UDP:", content);
+    send: (type, content) => {
+      send({ type: "udp:send", content: { type, content } });
+    },
+    receive: ({ type, content }) => {
+      // console.log("🩰 Received `piece` message from UDP:", content);
 
-    // 🧚 Ambient cursor (fairies) support.
-    if (type === "fairy:point" /*&& socket?.id !== id*/ && visible) {
-      fairies.push({ x: content.x, y: content.y });
-      return;
-    }
-    udpReceive?.(content);
+      // 🧚 Ambient cursor (fairies) support.
+      if (type === "fairy:point" /*&& socket?.id !== id*/ && visible) {
+        fairies.push({ x: content.x, y: content.y });
+        return;
+      }
+      udpReceive?.(content);
+    },
+    kill: () => {
+      udp.connected = false;
+      send({ type: "udp:disconnect" });
+    },
+    connected: false,
   },
-  kill: () => {
-    udp.connected = false;
-    send({ type: "udp:disconnect" });
-  },
-  connected: false,
-},
   udpReceive = undefined;
 let scream = null; // 😱 Allow priviledged users to send alerts to everyone.
 //                       (A great end<->end socket + redis test.)
@@ -323,20 +323,30 @@ const fairies = []; // Render cursor points of other active users,
 
 let glazeEnabled = false; // Keep track of whether glaze is on or off.
 
+let darkModeWipeNum = 32; 
+let darkModeWipeBG = 32; 
 // *** Dark Mode ***
 // Pass `true` or `false` to override or `default` to the system setting.
 function darkMode(enabled = !$commonApi.dark) {
   if (enabled === "default") {
-    // default
+    darkMode(!$commonApi.dark);
     store.delete("dark-mode");
-    console.log("🌜 Dark mode:", $commonApi.dark);
     return $commonApi.dark;
   } else {
     // true or false
     store["dark-mode"] = enabled;
     store.persist("dark-mode");
     $commonApi.dark = enabled;
-    console.log("🌜 Dark mode:", $commonApi.dark);
+    if (enabled === true) {
+      darkModeWipeBG = 32;
+      darkModeWipeNum = 64;
+      console.log("🌜 Dark mode: enabled");
+    }
+    if (enabled === false) {
+      darkModeWipeBG = 150;
+      darkModeWipeNum = 200;
+      console.log("🌞 Light mode: enabled");
+    }
     return enabled;
   }
 }
@@ -456,7 +466,7 @@ class Recorder {
 
   videoOnLeave = false;
 
-  constructor() { }
+  constructor() {}
 
   tapeTimerSet(seconds, time) {
     this.tapeTimerStart = time;
@@ -688,7 +698,8 @@ const $commonApi = {
 
       $commonApi.jump(
         encodeURI(
-          `https://zora.co/create/single-edition?image=${pixels}&name=${params[0] || "Untitled Painting"
+          `https://zora.co/create/single-edition?image=${pixels}&name=${
+            params[0] || "Untitled Painting"
           }&symbol=$${data.slug}&description=${description}`,
         ),
       );
@@ -712,7 +723,7 @@ const $commonApi = {
         // Include authorization token if logged in.
         const token = await $commonApi.authorize(); // Get user token.
         if (token) headers.Authorization = `Bearer ${token}`;
-      } catch (err) { } // Handled up-stream.
+      } catch (err) {} // Handled up-stream.
 
       const res = await fetch(`/api/print?new=true&pixels=${pixels}`, {
         method: "POST",
@@ -1099,11 +1110,11 @@ const $commonApi = {
           system.nopaint.startDrag.x,
           system.nopaint.startDrag.y,
           x -
-          system.nopaint.startDrag.x +
-          (x >= system.nopaint.startDrag.x ? 1 : -1),
+            system.nopaint.startDrag.x +
+            (x >= system.nopaint.startDrag.x ? 1 : -1),
           y -
-          system.nopaint.startDrag.y +
-          (y >= system.nopaint.startDrag.y ? 1 : -1),
+            system.nopaint.startDrag.y +
+            (y >= system.nopaint.startDrag.y ? 1 : -1),
         );
 
         system.nopaint.brush = { x, y, dragBox };
@@ -1134,8 +1145,8 @@ const $commonApi = {
           paste(system.painting).paste(system.nopaint.buffer);
         } else {
           // If we are panned or the painting is a custom resolution.
-
-          wipe(32)
+          
+          wipe(darkModeWipeBG)
             .paste(system.painting, x, y, system.nopaint.zoomLevel)
             .paste(system.nopaint.buffer, x, y, system.nopaint.zoomLevel)
             .ink(128)
@@ -1174,7 +1185,7 @@ const $commonApi = {
         // Make a blank painting.
         // I don't like that these getters will not re-associate.
         system.painting = painting(res.w, res.h, ($) => {
-          $.wipe(64);
+          $.wipe(darkModeWipeNum);
         });
         store["painting"] = $commonApi.system.painting;
 
@@ -2242,7 +2253,7 @@ class Content {
   nodes = [];
   #id = 0;
 
-  constructor() { }
+  constructor() {}
 
   // Make a request to add new content to the DOM.
   add(content) {
@@ -2344,21 +2355,19 @@ function updateCode(sourceToRun, host, debug) {
   // Automatically replace relative imports with absolute ones.
   const twoDots =
     /^(import|export) {([^{}]*?)} from ["'](\.\.\/|\.\.|\.\/)(.*?)["'];?/gm;
-  const oneDot =
-    /^(import|export) \* as ([^ ]+) from ["']\.?\/(.*?)["'];?/gm;
+  const oneDot = /^(import|export) \* as ([^ ]+) from ["']\.?\/(.*?)["'];?/gm;
 
-  let updatedCode = sourceToRun.replace(
-    twoDots,
-    (match, p1, p2, p3, p4) => {
-      let url = `${location.protocol}//${host}/aesthetic.computer${p3 === "./" ? "/disks" : ""
-        }/${p4.replace(/\.\.\//g, "")}`;
-      return `${p1} { ${p2} } from "${url}";`;
-    },
-  );
+  let updatedCode = sourceToRun.replace(twoDots, (match, p1, p2, p3, p4) => {
+    let url = `${location.protocol}//${host}/aesthetic.computer${
+      p3 === "./" ? "/disks" : ""
+    }/${p4.replace(/\.\.\//g, "")}`;
+    return `${p1} { ${p2} } from "${url}";`;
+  });
 
   updatedCode = updatedCode.replace(oneDot, (match, p1, p2, p3) => {
-    let url = `${location.protocol}//${host}/aesthetic.computer${p3.startsWith("disks/") ? "" : "/disks"
-      }/${p3.replace(/^disks\//, "")}`;
+    let url = `${location.protocol}//${host}/aesthetic.computer${
+      p3.startsWith("disks/") ? "" : "/disks"
+    }/${p3.replace(/^disks\//, "")}`;
     return `${p1} * as ${p2} from "${url}";`;
   });
 
@@ -2557,9 +2566,9 @@ async function load(
       const updatedCode = updateCode(sourceToRun, host, debug);
 
       prefetches = updatedCode
-      .match(/"(@\w[\w.]*\/[^"]*)"/g)
-      ?.map((match) => match.slice(1, -1)); // for "@name/code".
-  
+        .match(/"(@\w[\w.]*\/[^"]*)"/g)
+        ?.map((match) => match.slice(1, -1)); // for "@name/code".
+
       const blob = new Blob([updatedCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);
       sourceCode = updatedCode;
@@ -2567,7 +2576,6 @@ async function load(
 
     loadedModule = await import(blobUrl);
   } catch (err) {
-
     console.log(err);
 
     let response, sourceToRun;
@@ -2581,7 +2589,9 @@ async function load(
         sourceCode == currentCode &&
         !devReload
       ) {
-        const blob = new Blob([currentCode], { type: "application/javascript" });
+        const blob = new Blob([currentCode], {
+          type: "application/javascript",
+        });
         blobUrl = URL.createObjectURL(blob);
         sourceCode = currentCode;
       } else {
@@ -2619,7 +2629,7 @@ async function load(
         //   before: '',
         //   after: '',
         // }
-        
+
         // let compiledCode = ``;
 
         // conversation.ask(
@@ -2636,17 +2646,17 @@ async function load(
         //     if (devReload) {
         //       store["publishable-piece"] = { slug, source: sourceToRun };
         //     }
-      
+
         //     const updatedCode = updateCode(sourceToRun, host, debug);
-      
+
         //     prefetches = updatedCode
         //     .match(/"(@\w[\w.]*\/[^"]*)"/g)
         //     ?.map((match) => match.slice(1, -1)); // for "@name/code".
-        
+
         //     const blob = new Blob([updatedCode], { type: "application/javascript" });
         //     blobUrl = URL.createObjectURL(blob);
         //     sourceCode = updatedCode;
-    
+
         //     // loadedModule = await import(blobUrl);
 
         //   },
@@ -2654,13 +2664,10 @@ async function load(
         //     console.log('🤖 pjs compilation failed.')
         //   }
         // );
-        
       }
-  
-      loadedModule = await import(blobUrl);
-    }
 
-    catch (err) {
+      loadedModule = await import(blobUrl);
+    } catch (err) {
       // 🧨 Continue with current module if one has already loaded.
       console.error(
         `😡 "${path}" load failure:`,
@@ -2845,7 +2852,7 @@ async function load(
   socketStartDelay = setTimeout(() => startSocket(), 250);
 
   $commonApi.net.socket = function (receive) {
-    receiver = receive || (() => { });
+    receiver = receive || (() => {});
     if (!socket) {
       // Just in case we init. in a `boot` before the timeout fires above.
       clearTimeout(socketStartDelay);
@@ -2875,20 +2882,20 @@ async function load(
         num: $commonApi.num,
         store: $commonApi.store,
       }) ||
-      (() => {
-        // Parse the source for a potential title and description.
-        let title = "",
-          desc = "";
-        const lines = sourceCode.split("\n");
+        (() => {
+          // Parse the source for a potential title and description.
+          let title = "",
+            desc = "";
+          const lines = sourceCode.split("\n");
 
-        if (lines[1].startsWith("//")) {
-          title = lines[1].split(",")[0].slice(3).trim();
-        }
+          if (lines[1].startsWith("//")) {
+            title = lines[1].split(",")[0].slice(3).trim();
+          }
 
-        if (lines[2].startsWith("//")) desc = lines[2].slice(3).trim();
+          if (lines[2].startsWith("//")) desc = lines[2].slice(3).trim();
 
-        return { title, desc };
-      })(),
+          return { title, desc };
+        })(),
     );
 
     meta = {
@@ -3110,8 +3117,8 @@ async function load(
   $commonApi.alias = function alias(name, colon, params) {
     $commonApi.jump(
       name +
-      colon.map((c) => `:` + c).join("") +
-      params.map((p) => `~` + p).join(""),
+        colon.map((c) => `:` + c).join("") +
+        params.map((p) => `~` + p).join(""),
       true,
       true,
     );
@@ -3821,9 +3828,8 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "dark-mode") {
     const current = await store.retrieve("dark-mode");
-    // console.log("Dark mode:", "now:", current, "to:", content);
     if (current !== null && current !== undefined) {
-      darkMode(current);
+      darkMode("default");
     } else {
       darkMode(content.enabled);
     }
@@ -4602,7 +4608,7 @@ async function makeFrame({ data: { type, content } }) {
 
       if (content.updateCount > 0 && paintCount > 0n) {
         // Run `sim` the number of times as requested from `bios`.
-        for (let i = content.updateCount; i--;) {
+        for (let i = content.updateCount; i--; ) {
           simCount += 1n;
           $api.simCount = simCount;
           try {

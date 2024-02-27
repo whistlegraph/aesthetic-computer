@@ -55,6 +55,6 @@
     "npm-check-updates": "^16.13.2",
     "prettier": "^3.0.3",
     "qrcode-terminal": "^0.12.0",
-    "vercel": "^33.2.0"
+    "vercel": "^33.5.2"
   }
 }

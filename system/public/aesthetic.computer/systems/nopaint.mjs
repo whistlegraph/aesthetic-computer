@@ -250,7 +250,7 @@ function nopaint_adjust(
         p.paste(sys.painting, 0, 0, { width, height });
       } else {
         // TODO: Put in some custom noise function here...
-        p.wipe(64).paste(sys.painting);
+        p.paste(sys.painting);
       }
     });
 
