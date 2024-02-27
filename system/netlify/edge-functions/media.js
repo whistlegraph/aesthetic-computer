@@ -69,3 +69,6 @@ async function queryUserID(username) {
     console.error(`Fetch failed: ${error}`);
   }
 }
+// export default () => new Response("Hello world");
+
+// export const config = { path: "/test" };
