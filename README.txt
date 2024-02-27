@@ -41,13 +41,14 @@
 🌟 Projects in Progress (PIP) 🌟
          
 - Tina 
-  - color change for buttons in Light Mode
-  - starfield connection colors should be different in light mode
-  - autocompletions no longer appear / are too light in light mode 
+  - [] color change for buttons in Light Mode
+  - [] starfield connection colors should be different in light mode
+  - [] autocompletions no longer appear / are too light in light mode 
+  - [] HANDLES SET warning should have different colors in light mode
 
 - Miles (Sunday)
   *** `blur` ***
-    - [⚠️] Red crosshair drags when pressing corner label.
+    - [️🟠] Red crosshair drags when pressing corner label.
   *** .pjs compiler ***
     - [] Break the below down into steps and get it compiling on each load.
       - [] Add syntax support to the vscode extension for the .pjs files / metaprocessor.
