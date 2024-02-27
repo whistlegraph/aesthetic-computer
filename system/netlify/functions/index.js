@@ -200,10 +200,10 @@ async function fun(event, context) {
         <meta name="twitter:title" content="${title}" />
         <meta name="twitter:site" content="aesthetic.computer" />
         <meta name="twitter:image" content="${twitterImage}" />
-        <script
+        <!-- <script
           crossorigin="anonymous"
           src="/aesthetic.computer/dep/cdn.auth0.com_js_auth0-spa-js_2.1_auth0-spa-js.production.js"
-        ></script>
+        ></script> -->
         ${dev
           ? ""
           : `<!-- <script crossorigin="anonymous" src="https://js.sentry-cdn.com/ef4704c0df6a410e972bca14d69e1898.min.js"></script> -->`}

@@ -34,6 +34,15 @@ let JSZip; // Dynamic import of `jszip` as needed.
 const { assign, keys } = Object;
 const { round, floor, min, max } = Math;
 
+const diskSends = [];
+window.acDISK_SEND = function (message) {
+  diskSends.push(message);
+};
+function consumeDiskSends(send) {
+  diskSends.forEach((message) => send(message));
+  diskSends.length = 0;
+}
+
 // 💾 Boot the system and load a disk.
 async function boot(parsed, bpm = 60, resolution, debug) {
   headers(); // Print console headers.
@@ -1123,6 +1132,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
       window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
       send(firstMessage);
+      consumeDiskSends(send);
       // } else {
       // TODO: Try and save the crash here by restarting the worker
       //       without a full system reload?
@@ -1146,6 +1156,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // The initial message sends the path and host to load the disk.
   send(firstMessage);
+  consumeDiskSends(send);
 
   // Beat
 
@@ -2180,24 +2191,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         window.matchMedia &&
         window.matchMedia("(prefers-color-scheme: dark)").matches
       ) {
-        console.log("User is currently in dark mode");
+        // console.log("User is currently in dark mode");
         send({ type: "dark-mode", content: { enabled: true } });
       } else {
-        console.log("User is currently in light mode");
+        // console.log("User is currently in light mode");
         send({ type: "dark-mode", content: { enabled: false } });
       }
-    
-    window
-      .matchMedia("(prefers-color-scheme: dark)")
-      .addEventListener("change", (event) => {
-        if (event.matches) {
-          console.log("User switched to dark mode");
-          send({ type: "dark-mode", content: { enabled: true } });
-        } else {
-          console.log("User switched to light mode");
-          send({ type: "dark-mode", content: { enabled: false } });
-        }
-      });
+
+      window
+        .matchMedia("(prefers-color-scheme: dark)")
+        .addEventListener("change", (event) => {
+          if (event.matches) {
+            console.log("User switched to dark mode");
+            send({ type: "dark-mode", content: { enabled: true } });
+          } else {
+            console.log("User switched to light mode");
+            send({ type: "dark-mode", content: { enabled: false } });
+          }
+        });
 
       // 📋 User pasting of content.
       //window.addEventListener("paste", (event) => {
@@ -3827,6 +3838,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         window.preloaded = true;
       if (debug && logs.loading)
         console.log("⏳ Preloaded:", window.preloaded ? "✅" : "❌");
+      consumeDiskSends(send);
       return;
     }
 
