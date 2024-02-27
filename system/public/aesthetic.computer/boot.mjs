@@ -38,161 +38,7 @@ window.acDEBUG = debug; // Set window.acDEBUG again just in case any code relies
 // Get the current LAN host if it exists...
 if (window.acDEBUG) window.acLAN_HOST = document.body.dataset.lanHost;
 
-let sandboxed = window.origin === "null";
-
-const previewOrIcon =
-  window.location.search.startsWith("icon=") ||
-  window.location.search.startsWith("preview=");
-
-// #region 🔐 Auth0: Universal Login & Authentication
-if (!sandboxed && window.auth0 && !previewOrIcon) {
-  const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
-
-  const before = performance.now();
-
-  const auth0Client = await window.auth0?.createAuth0Client({
-    domain: "https://hi.aesthetic.computer",
-    clientId,
-    cacheLocation: "localstorage",
-    useRefreshTokens: true,
-    authorizationParams: { redirect_uri: window.location.origin },
-  });
-
-  window.auth0Client = auth0Client;
-
-  if (
-    location.search.includes("state=") &&
-    (location.search.includes("code=") || location.search.includes("error="))
-  ) {
-    try {
-      console.log("🔐 Handling auth0 redirect...");
-      await auth0Client.handleRedirectCallback();
-    } catch (e) {
-      console.error("🔐", e);
-    }
-    window.history.replaceState({}, document.title, "/");
-  }
-
-  const url = new URL(window.location);
-  const params = url.searchParams;
-  const encodedSession = params.get("session");
-  if (encodedSession) {
-    const sessionJsonString = atob(decodeURIComponent(encodedSession));
-    const session = JSON.parse(sessionJsonString);
-    // Use the session information to authenticate, if it exists.
-    console.log("🥀 Session data:", session);
-    if (session.accessToken && session.account) {
-      window.acTOKEN = session.accessToken; // Only set using this flow.
-      window.acUSER = { name: session.account.label, sub: session.account.id };
-      // Will get passed to the first message by the piece runner.
-      // console.log("🌻 Picked up session!", window.acTOKEN, window.acUSER);
-      // window.acSEND({
-      //  type: "session:update",
-      //  content: { user: window.acUSER },
-      // });
-    }
-    params.delete("session"); // Remove the 'session' parameter
-    // Update the URL without reloading the page
-    history.pushState({}, "", url.pathname + "?" + params.toString());
-  }
-
-  const isAuthenticated = await auth0Client.isAuthenticated();
-
-  // const iframe = window.self !== window.top;
-
-  window.acLOGIN = async (mode) => {
-    const opts = { prompt: "login" }; // Never skip the login screen.
-    if (mode === "signup") opts.screen_hint = mode;
-
-    //if (!iframe) {
-    auth0Client.loginWithRedirect({ authorizationParams: opts });
-    //} else {
-    // window.parent.postMessage(
-    //   {
-    //     type: "externallyAuthenticate",
-    //     authUrl: "https://hi.aesthetic.computer",
-    //   },
-    //   "*",
-    // );
-    // console.log("🔐 Logging in with popup...");
-    // auth0Client
-    // .loginWithPopup()
-    // .then(() => {
-    // console.log("🔐 Logged in with popup");
-    // })
-    // .catch((error) => {
-    // console.error("🔐 Popup login error:", error);
-    // });
-    //}
-  };
-
-  if (location.pathname === "/hi") window.acLOGIN();
-
-  // Redirect to signup with a query parameter.
-  if (location.search.startsWith("?signup")) window.acLOGIN("signup");
-
-  window.acLOGOUT = () => {
-    if (isAuthenticated) {
-      console.log("🔐 Logging out...");
-      auth0Client.logout({
-        logoutParams: { returnTo: window.location.origin },
-      });
-    } else {
-      console.log("🔐 Already logged out!");
-    }
-  };
-
-  // Redirect the user to login if the token has failed.
-  if (isAuthenticated) {
-    try {
-      await window.auth0Client.getTokenSilently();
-      console.log("🔐 Authorized");
-    } catch (error) {
-      console.log("🔐️ ❌ Unauthorized", error);
-      console.error("Failed to retrieve token silently. Logging out.", error);
-      auth0Client.logout();
-      isAuthenticated = false;
-      // auth0Client.logout({
-      //   logoutParams: { returnTo: window.location.origin },
-      // });
-    }
-  }
-
-  if (isAuthenticated) {
-    // TODO: How long does this await actually take? 23.07.11.18.55
-    const userProfile = await auth0Client.getUser();
-    console.log("🔐 Welcome,", userProfile.name, "!");
-    console.log('to... "chaos in a system"');
-    window.acUSER = userProfile; // Will get passed to the first message by the piece runner.
-  }
-
-  const after = performance.now();
-  console.log("🗝️ Auth took:", (after - before) / 1000, "seconds.");
-}
-// #endregion
-
-// 🥾
-// 2. Boot the aesthetic.computer system.
-
-// If IPFS Exporting is revisited, then the below code should be rewritten
-// and probably moved into `lib/parse.js`. 22.07.15.00.14
-
-// TODO: This code is leftover from IPFS exporting... but shouldn't be adding on
-//       to anything called "host" from this point on.
-//       It might need to be revisited / refactored when new static
-//       builds become necessary.
-/*
-if (window.location.pathname.length > 1) {
-  const pathSegments = window.location.pathname.split("/");
-  if (pathSegments[pathSegments.length - 1].endsWith(".html")) {
-    pathSegments.pop();
-  }
-  host += pathSegments.join("/");
-}
-*/
-
-// Set first input text to the default starting piece, which can be set in
-// index.html via `window.acSTARTING_PIECE` or default to `prompt`.
+// 🥾 Boot the aesthetic.computer system.
 
 // Or it can be set by a custom host...
 if (location.hostname === "m2w2.whistlegraph.com")
@@ -200,31 +46,198 @@ if (location.hostname === "m2w2.whistlegraph.com")
 if (location.hostname === "botce.ac") window.acSTARTING_PIECE = "botce";
 
 if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";
-
-// Boot the machine with the specified root piece, or a #piece route if one
-// is in the url.
-/*
-if (debug)
-  console.log(
-    "Parsed:",
-    parse(slug(window.location.href) || window.acSTARTING_PIECE)
-  );
-*/
-
 const parsed = parse(slug(window.location.href) || window.acSTARTING_PIECE);
-
 const bpm = 120; // Set the starting bpm. Is this still necessary?
-
-// TODO: Add params, search, and hash in here. 22.07.15.00.46
-
 // Wait for fonts to load before booting.
 // if ("fonts" in document) {
 //  await document.fonts.load("1em YWFTProcessing-Light");
 //  await document.fonts.load("1em YWFTProcessing-Regular");
 //  await document.fonts.load("1em Berkeley Mono Variable");
 // }
-
 boot(parsed, bpm, undefined, debug);
+
+let sandboxed = window.origin === "null";
+
+const previewOrIcon =
+  window.location.search.startsWith("icon=") ||
+  window.location.search.startsWith("preview=");
+
+// #region 🔐 Auth0: Universal Login & Authentication
+function loadAuth0Script() {
+  return new Promise((resolve, reject) => {
+    // Create a new script element
+    const script = document.createElement("script");
+
+    // Set the src attribute to the URL of the Auth0 script
+    script.src =
+      "/aesthetic.computer/dep/cdn.auth0.com_js_auth0-spa-js_2.1_auth0-spa-js.production.js";
+    script.crossOrigin = "anonymous";
+
+    // Optional: Set the type attribute if needed
+    // script.type = "text/javascript";
+
+    // Append the script to the document
+    document.head.appendChild(script);
+
+    // Resolve the promise once the script is loaded
+    script.onload = () => {
+      console.log("Auth0 script loaded successfully.");
+      resolve();
+    };
+
+    // Reject the promise if the script fails to load
+    script.onerror = () => {
+      console.error("Error loading the Auth0 script.");
+      reject(new Error("Script loading failed"));
+    };
+  });
+}
+
+// Call this function at the desired point in your application
+loadAuth0Script()
+  .then(async () => {
+    if (!sandboxed && window.auth0 && !previewOrIcon) {
+      const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
+
+      const before = performance.now();
+
+      const auth0Client = await window.auth0?.createAuth0Client({
+        domain: "https://hi.aesthetic.computer",
+        clientId,
+        cacheLocation: "localstorage",
+        useRefreshTokens: true,
+        authorizationParams: { redirect_uri: window.location.origin },
+      });
+
+      window.auth0Client = auth0Client;
+
+      if (
+        location.search.includes("state=") &&
+        (location.search.includes("code=") ||
+          location.search.includes("error="))
+      ) {
+        try {
+          console.log("🔐 Handling auth0 redirect...");
+          await auth0Client.handleRedirectCallback();
+        } catch (e) {
+          console.error("🔐", e);
+        }
+        window.history.replaceState({}, document.title, "/");
+      }
+
+      const url = new URL(window.location);
+      const params = url.searchParams;
+      const encodedSession = params.get("session");
+      if (encodedSession) {
+        const sessionJsonString = atob(decodeURIComponent(encodedSession));
+        const session = JSON.parse(sessionJsonString);
+        // Use the session information to authenticate, if it exists.
+        console.log("🥀 Session data:", session);
+        if (session.accessToken && session.account) {
+          window.acTOKEN = session.accessToken; // Only set using this flow.
+          window.acUSER = {
+            name: session.account.label,
+            sub: session.account.id,
+          };
+          // Will get passed to the first message by the piece runner.
+          // console.log("🌻 Picked up session!", window.acTOKEN, window.acUSER);
+          // window.acSEND({
+          //  type: "session:update",
+          //  content: { user: window.acUSER },
+          // });
+        }
+        params.delete("session"); // Remove the 'session' parameter
+        // Update the URL without reloading the page
+        history.pushState({}, "", url.pathname + "?" + params.toString());
+      }
+
+      const isAuthenticated = await auth0Client.isAuthenticated();
+
+      // const iframe = window.self !== window.top;
+
+      window.acLOGIN = async (mode) => {
+        const opts = { prompt: "login" }; // Never skip the login screen.
+        if (mode === "signup") opts.screen_hint = mode;
+
+        //if (!iframe) {
+        auth0Client.loginWithRedirect({ authorizationParams: opts });
+        //} else {
+        // window.parent.postMessage(
+        //   {
+        //     type: "externallyAuthenticate",
+        //     authUrl: "https://hi.aesthetic.computer",
+        //   },
+        //   "*",
+        // );
+        // console.log("🔐 Logging in with popup...");
+        // auth0Client
+        // .loginWithPopup()
+        // .then(() => {
+        // console.log("🔐 Logged in with popup");
+        // })
+        // .catch((error) => {
+        // console.error("🔐 Popup login error:", error);
+        // });
+        //}
+      };
+
+      if (location.pathname === "/hi") window.acLOGIN();
+
+      // Redirect to signup with a query parameter.
+      if (location.search.startsWith("?signup")) window.acLOGIN("signup");
+
+      window.acLOGOUT = () => {
+        if (isAuthenticated) {
+          console.log("🔐 Logging out...");
+          auth0Client.logout({
+            logoutParams: { returnTo: window.location.origin },
+          });
+        } else {
+          console.log("🔐 Already logged out!");
+        }
+      };
+
+      // Redirect the user to login if the token has failed.
+      if (isAuthenticated) {
+        try {
+          await window.auth0Client.getTokenSilently();
+          console.log("🔐 Authorized");
+        } catch (error) {
+          console.log("🔐️ ❌ Unauthorized", error);
+          console.error(
+            "Failed to retrieve token silently. Logging out.",
+            error,
+          );
+          auth0Client.logout();
+          isAuthenticated = false;
+          // auth0Client.logout({
+          //   logoutParams: { returnTo: window.location.origin },
+          // });
+        }
+      }
+
+      if (isAuthenticated) {
+        // TODO: How long does this await actually take? 23.07.11.18.55
+        const userProfile = await auth0Client.getUser();
+        console.log("🔐 Welcome,", userProfile.name, "!");
+        console.log('to... "chaos in a system"');
+        window.acUSER = userProfile; // Will get passed to the first message by the piece runner.
+        window.acDISK_SEND({
+          type: "session:update",
+          content: { user: window.acUSER },
+        });
+      } else {
+        console.log("🗝️ Not authenticated.");
+      }
+
+      const after = performance.now();
+      console.log("🗝️ Auth took:", (after - before) / 1000, "seconds.");
+    }
+  })
+  .catch((error) => {
+    console.error("Failed to load Auth0 script:", error);
+  });
+// #endregion
 
 // ***Incoming Message Responder***
 
@@ -272,26 +285,6 @@ function receive(event) {
   }
 }
 window.addEventListener("message", receive);
-
-// TODO: Rewrite this snippet.
-// Decoding an image can be done by sticking it in an HTML
-// canvas, as we can read individual pixels off the canvas.
-/*
-async function decode(canvas, ctx, bytes) {
-  const url = URL.createObjectURL(new Blob([bytes]));
-  const image = await new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject();
-    img.src = url;
-  });
-  canvas.width = image.width;
-  canvas.height = image.height;
-  ctx.drawImage(image, 0, 0);
-  const imageData = ctx.getImageData(0, 0, image.width, image.height);
-  return imageData;
-}
-*/
 
 // 🔔 Subscribe to web / client notifications.
 // TODO: Test this to make sure it's skipped in the native apps,
