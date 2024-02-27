@@ -312,6 +312,7 @@ async function decode(canvas, ctx, bytes) {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {
   getMessaging,
+  onMessage,
   getToken,
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging.js";
 
@@ -328,17 +329,19 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-// const analytics = getAnalytics(app);
 const messaging = getMessaging(app);
 
 getToken(messaging, {
   vapidKey:
-    "BDEh3JDD1xZo7eQU00TgsYb_o8ENJlpU - ovbZzWoCOu4AOeFJD8PVbZ3pif_7rMEk65Uj00 - lwdXgc3qJVLp4ys",
+    "BDEh3JDD1xZo7eQU00TgsYb_o8ENJlpU-ovbZzWoCOu4AOeFJD8PVbZ3pif_7rMEk65Uj00-lwdXgc3qJVLp4ys",
 })
   .then((token) => {
     if (token) {
       // Send the token to your server and update the UI if necessary
       console.log("App:", app, "Messaging:", messaging, "Token:", token);
+      onMessage((payload) => {
+        console.log("🗨️ Message received. ", payload);
+      });
     } else {
       // Show permission request UI
       console.warn(
