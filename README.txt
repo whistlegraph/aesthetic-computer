@@ -40,9 +40,10 @@
 
 🌟 Projects in Progress (PIP) 🌟
          
-  - [] `load` should load a photo / be similar to `paste` and work on mobile.
 - Tina 
   - color change for buttons in Light Mode
+  - starfield connection colors should be different in light mode
+  - autocompletions no longer appear / are too light in light mode 
 
 - Miles (Sunday)
   *** `blur` ***
@@ -61,6 +62,8 @@
       //if (!net.iframe && params[0]^does not start with^) {
       //  return;
       //}
+
+  - [] `load` should load a photo / be similar to `paste` and work on mobile.
 
 *** prompt regression ***
   - [🔴] ⚠️ Sometimes the default reply text can become editable and not be
