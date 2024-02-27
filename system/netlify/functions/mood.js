@@ -42,6 +42,8 @@ import { filter } from "../../backend/filter.mjs"; // Profanity filtering.
 // import { promises as fs } from "fs";
 // import path from "path";
 
+let app;
+
 export async function handler(event, context) {
   if (event.httpMethod === "GET") {
     // 1. GET: Look up moods for user.
@@ -110,9 +112,7 @@ export async function handler(event, context) {
             })
           ).body;
 
-          initializeApp({
-            credential: cert(serviceAccount),
-          }); // Send a notification.
+          app ||= initializeApp({ credential: cert(serviceAccount) }); // Send a notification.
 
           console.log("💕 Setting a mood for:", user);
           getMessaging()

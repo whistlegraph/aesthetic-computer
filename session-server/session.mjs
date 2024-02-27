@@ -40,7 +40,7 @@ import { exec } from "child_process";
 import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
 import serviceAccount from "./aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json" assert { type: "json" };
 import { getMessaging } from "firebase-admin/messaging";
-initializeApp({ credential: cert(serviceAccount) });
+initializeApp({ credential: cert(serviceAccount) }, "aesthetic" + ~~performance.now());
 
 import { filter } from "./filter.mjs"; // Profanity filtering.
 
