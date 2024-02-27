@@ -39,6 +39,9 @@
 😀 TODO 😆
 
 🌟 Projects in Progress (PIP) 🌟
+
+*** Web Notifications ***
+  - [🟠] Get web notifications working and tie them directly to push notifications.
          
 - Miles (Sunday)
   *** `blur` ***
@@ -57,9 +60,6 @@
       //if (!net.iframe && params[0]^does not start with^) {
       //  return;
       //}
-
-*** Web Notifications ***
-  - [🟠] Get web notifications working and tie them directly to push notifications.
 
 *** prompt regression ***
   - [🔴] ⚠️ Sometimes the default reply text can become editable and not be
