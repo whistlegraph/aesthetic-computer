@@ -32,7 +32,6 @@ export async function handler(event, context) {
   });
 
   const base64Logo = Buffer.from(response.body, "binary").toString("base64");
-  const dataUrl = `data:image/png;base64,${base64Logo}`;
 
   const userAgent = event.headers["user-agent"] || "";
   const isServer =
@@ -40,7 +39,7 @@ export async function handler(event, context) {
     userAgent.includes("wget") ||
     userAgent.includes("python-requests") ||
     userAgent.includes("node-fetch");
-  const isPngEndpoint = event.path.split("/").pop() === "png";
+  const isPngEndpoint = event.path.split("/").pop() === "logo.png";
 
   if (isServer || isPngEndpoint) {
     return {

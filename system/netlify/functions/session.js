@@ -95,6 +95,7 @@ async function fun(event, context) {
       // console.log("🫂 Session:", session);
       // await client.HSET("backends", slug, session.name); // Store the session name in redis using the 'slug' key.
 
+      console.log("Session:", session);
       out = session;
       out.udp = udpUrl;
     } catch (err) {

@@ -76,7 +76,7 @@
   for = "/*.mjs|/*.js"
   [headers.values]
     Access-Control-Allow-Origin = "*"
-    Content-Security-Policy = "script-src 'self' https://aesthetic.computer blob: 'unsafe-eval';"
+    Content-Security-Policy = "script-src 'self' https://www.gstatic.com https://aesthetic.computer blob: 'unsafe-eval';"
     # Cross-Origin-Resource-Policy = "cross-origin"
     Vary = "*"
 [[edge_functions]]
@@ -189,6 +189,10 @@
 [[redirects]]
   from = "/api/logo/*"
   to = "/.netlify/functions/logo/:splat"
+  status = 200
+[[redirects]]
+  from = "/api/logo.png"
+  to = "/.netlify/functions/logo"
   status = 200
 [[redirects]]
   from = "/api/pixel/*"

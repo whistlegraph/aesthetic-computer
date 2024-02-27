@@ -88,9 +88,8 @@ const server = fastify.server;
 
 const info = {
   port: process.env.PORT, // 8889 in development via `package.json`
-  name: process.env.SPAWNER_NAME,
-  url: process.env.SPAWNER_URL,
-  service: process.env.SPAWNER_SERVICE,
+  name: process.env.SESSION_BACKEND_ID,
+  service: process.env.JAMSOCKET_SERVICE,
 };
 
 const codeChannels = {}; // Used to filter `code` updates from redis to
