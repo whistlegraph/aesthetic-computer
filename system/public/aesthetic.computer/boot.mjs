@@ -65,29 +65,19 @@ const previewOrIcon =
 // #region 🔐 Auth0: Universal Login & Authentication
 function loadAuth0Script() {
   return new Promise((resolve, reject) => {
-    // Create a new script element
     const script = document.createElement("script");
-
-    // Set the src attribute to the URL of the Auth0 script
     script.src =
       "/aesthetic.computer/dep/cdn.auth0.com_js_auth0-spa-js_2.1_auth0-spa-js.production.js";
     script.crossOrigin = "anonymous";
-
-    // Optional: Set the type attribute if needed
-    // script.type = "text/javascript";
-
-    // Append the script to the document
     document.head.appendChild(script);
 
-    // Resolve the promise once the script is loaded
     script.onload = () => {
-      console.log("Auth0 script loaded successfully.");
+      console.log("🟢 Auth0 loaded.");
       resolve();
     };
 
-    // Reject the promise if the script fails to load
     script.onerror = () => {
-      console.error("Error loading the Auth0 script.");
+      console.error("🔴 Error loading Auth0.");
       reject(new Error("Script loading failed"));
     };
   });
@@ -98,7 +88,6 @@ loadAuth0Script()
   .then(async () => {
     if (!sandboxed && window.auth0 && !previewOrIcon) {
       const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
-
       const before = performance.now();
 
       const auth0Client = await window.auth0?.createAuth0Client({
