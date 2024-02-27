@@ -121,7 +121,7 @@ async function boot({
   // code,
   net: { socket },
 }) {
-  glaze({ on: true });
+  // glaze({ on: true });
 
   net.requestDocs().then((d) => {
     autocompletions = { ...d.pieces, ...d.prompts };
@@ -1090,20 +1090,14 @@ async function halt($, text) {
     makeFlash($);
     needsPaint();
     return true;
-  } else if (text === "dark" || text === "dark:reset") {
-    if (text === "dark:reset") {
+  } else if (text === "dark" || text === "light") {
+    if (text === "light") {
       store.delete("dark-mode");
-      darkMode("default");
-      flashColor = [127, 127, 127]; // Gray for system setting.
+      darkMode(false);
+      flashColor = [255, 255, 255];
     } else {
-      let current = await store.retrieve("dark-mode");
-      current = current === true ? false : true;
-      darkMode(current);
-      if (current) {
-        flashColor = [0, 0, 0]; // Black for dark mode enabled.
-      } else {
-        flashColor = [255, 255, 255]; // White for dark mode disabled.
-      }
+      flashColor = [0, 0, 0];
+      darkMode(true);
     }
     makeFlash($);
     return true;
@@ -1204,7 +1198,7 @@ function paint($) {
     $.wipe(scheme.dark.background); // Render the backdrop.
     $.system.nopaint.present($); // Render the painting.
     scheme.dark.background[3] = 176; // Half semi-opaque palette background.
-    scheme.light.background[3] = 176;
+    scheme.light.background[3] = 230;
   } else {
     $.wipe(scheme.dark.background);
   }
@@ -1603,12 +1597,12 @@ export const scheme = {
     guideline: [0, 0, 255, 64],
   },
   light: {
-    text: [0, 200],
-    prompt: [100, 200],
-    background: [170, 150, 200],
-    block: [30, 200, 200],
-    highlight: [200, 200, 30],
-    guideline: [0, 0, 0, 128],
+    text: [255, 128, 128],
+    background: [255, 255, 255],
+    prompt: [255, 128, 128],
+    block: [56, 122, 223],
+    highlight: [246, 253, 195],
+    guideline: [255, 207, 105],
   },
 };
 
