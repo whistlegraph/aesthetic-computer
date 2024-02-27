@@ -129,13 +129,12 @@ async function boot({
     keys(autocompletions).forEach((key) => {
       if (autocompletions[key].hidden) delete autocompletions[key];
     });
-
-    console.log("✍️ Autocompletions built:", autocompletions);
+    // console.log("✍️ Autocompletions built:", autocompletions);
   });
 
-  server = socket((id, type, content) => {
-    console.log("🧦 Got message:", id, type, content);
-  });
+  //server = socket((id, type, content) => {
+    // console.log("🧦 Got message:", id, type, content);
+  //});
 
   // Fetch handle count.
   fetch("/handle?count=true")
