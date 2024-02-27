@@ -163,31 +163,6 @@ async function fun(event, context) {
         <meta charset="utf-8" />
         <title>${title}</title>
         <link rel="icon" href="${icon}" type="image/png" />
-        <link
-          rel="stylesheet"
-          crossorigin="anonymous"
-          href="/type/webfonts/berkeley-mono-variable.css"
-        />
-        <link
-          rel="stylesheet"
-          crossorigin="anonymous"
-          href="/type/webfonts/ywft-processing-regular.css"
-        />
-        <link
-          rel="stylesheet"
-          crossorigin="anonymous"
-          href="/type/webfonts/ywft-processing-light.css"
-        />
-        <link
-          rel="stylesheet"
-          crossorigin="anonymous"
-          href="/type/webfonts/ywft-processing-bold.css"
-        />
-        <link
-          rel="stylesheet"
-          crossorigin="anonymous"
-          href="/aesthetic.computer/style.css"
-        />
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
@@ -226,6 +201,11 @@ async function fun(event, context) {
           gtag("js", new Date());
           gtag("config", "G-B4TLVYKXVF");
         </script>
+        <link
+          rel="stylesheet"
+          crossorigin="anonymous"
+          href="/aesthetic.computer/style.css"
+        />
       </head>
       <body class="native-cursor" ${lanHost ? " data-lan-host=" + lanHost : ""}>
         <script>

@@ -62,7 +62,7 @@ function paint({
 
     if (presentProgress) {
       ink(0).box(0, screen.height - 1, screen.width, screen.height - 1);
-      ink(playing ? undefined : 64).box(
+      ink(playing ? "red" : 64).box(
         0,
         screen.height - 1,
         screen.width * presentProgress,
