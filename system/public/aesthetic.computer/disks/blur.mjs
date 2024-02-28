@@ -15,8 +15,9 @@ let radius;
 
 const { random, cos, sin, sqrt, max, min, PI } = Math;
 
-function paint({ ink, pen }) {
-  if (pen?.drawing) ink("red").circle(pen.x, pen.y, radius); // Red Cursor.
+function paint({ ink, pen, hud }) {
+  if (pen?.drawing && !hud.currentLabel.btn.down)
+    ink("red").circle(pen.x, pen.y, radius); // Red Cursor.
 }
 
 function brush({ ink, num, pen, params, pixel, system }) {
