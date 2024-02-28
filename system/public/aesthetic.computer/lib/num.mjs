@@ -1,13 +1,14 @@
 // 🧮 Numbers
-import * as quat from "../dep/gl-matrix/quat.mjs";
-import * as mat3 from "../dep/gl-matrix/mat3.mjs";
-import * as mat4 from "../dep/gl-matrix/mat4.mjs";
-import * as vec2 from "../dep/gl-matrix/vec2.mjs";
-import * as vec3 from "../dep/gl-matrix/vec3.mjs";
-import * as vec4 from "../dep/gl-matrix/vec4.mjs";
+// import * as quat from "../dep/gl-matrix/quat.mjs";
+// import * as mat3 from "../dep/gl-matrix/mat3.mjs";
+// import * as mat4 from "../dep/gl-matrix/mat4.mjs";
+// import * as vec2 from "../dep/gl-matrix/vec2.mjs";
+// import * as vec3 from "../dep/gl-matrix/vec3.mjs";
+// import * as vec4 from "../dep/gl-matrix/vec4.mjs";
 import { anyKey } from "./help.mjs";
 
-export { vec2, vec3, vec4, mat3, mat4, quat };
+// export { vec2, vec3, vec4, mat3, mat4, quat };
+
 const {
   abs,
   round,
@@ -298,7 +299,13 @@ export function dist3d(p1, p2) {
   // on my Float32Array values.
   if (p1.buffer) p1 = p1.map((p) => p.toPrecision(4));
   if (p2.buffer) p2 = p2.map((p) => p.toPrecision(4));
-  return Number(vec3.dist(p1, p2).toPrecision(4));
+
+  //get dist directly by using p1.x - p2.x, p1.y - p2.y, p1.z - p2.z
+  const dx = p1[0] - p2[0];
+  const dy = p1[1] - p2[1];
+  const dz = p1[2] - p2[2];
+  return sqrt(dx * dx + dy * dy + dz * dz);
+  // return Number(vec3.dist(p1, p2).toPrecision(4));
 }
 
 // Converts degrees to radians.
