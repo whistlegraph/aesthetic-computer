@@ -41,8 +41,6 @@
 🌟 Projects in Progress (PIP) 🌟
 
 - Jeffrey
-  *** `blur` ***
-    - [️🟠] Red crosshair drags when pressing corner label.
 
 - Tina 
   - [] Color change for the border when tapping from the login. 

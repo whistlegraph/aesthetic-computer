@@ -3235,7 +3235,13 @@ async function load(
 
       boot = module.boot || nopaint_boot;
       sim = module.sim || defaults.sim;
-      paint = module.paint || (() => undefined);
+      paint = ($) => {
+        if (module.paint) {
+          const painted = module.paint($);
+          $.system.nopaint.needsPresent = true;
+          return painted;
+        }
+      };
       beat = module.beat || defaults.beat;
       brush = module.brush;
       act = ($) => {
