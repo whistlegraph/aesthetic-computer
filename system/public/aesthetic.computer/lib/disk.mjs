@@ -330,8 +330,8 @@ const fairies = []; // Render cursor points of other active users,
 
 let glazeEnabled = false; // Keep track of whether glaze is on or off.
 
-let darkModeWipeNum = 32; 
-let darkModeWipeBG = 32; 
+let darkModeWipeNum = 32;
+let darkModeWipeBG = 32;
 // *** Dark Mode ***
 // Pass `true` or `false` to override or `default` to the system setting.
 function darkMode(enabled = !$commonApi.dark) {
@@ -1152,7 +1152,7 @@ const $commonApi = {
           paste(system.painting).paste(system.nopaint.buffer);
         } else {
           // If we are panned or the painting is a custom resolution.
-          
+
           wipe(darkModeWipeBG)
             .paste(system.painting, x, y, system.nopaint.zoomLevel)
             .paste(system.nopaint.buffer, x, y, system.nopaint.zoomLevel)
@@ -5128,11 +5128,14 @@ async function makeFrame({ data: { type, content } }) {
             const np = $api.system.nopaint;
             // No Paint: baking
 
-            if (brush && $api.pen?.drawing && currentHUDButton.down === false) {
+            if (
+              brush &&
+              $api.pen?.drawing /*&& currentHUDButton.down === false*/
+            ) {
               const brushApi = { ...$api };
               brushApi.pen = $api.system.nopaint.brush;
               $api.page($api.system.nopaint.buffer);
-              brush(brushApi);
+              if (currentHUDButton.down === false) brush(brushApi);
               $api.page(screen);
             }
 
