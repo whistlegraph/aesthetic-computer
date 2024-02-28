@@ -4,6 +4,13 @@
 /* #region 🏁 todo
 #endregion */
 
+import * as quat from "../dep/gl-matrix/quat.mjs";
+import * as mat3 from "../dep/gl-matrix/mat3.mjs";
+import * as mat4 from "../dep/gl-matrix/mat4.mjs";
+import * as vec2 from "../dep/gl-matrix/vec2.mjs";
+import * as vec3 from "../dep/gl-matrix/vec3.mjs";
+import * as vec4 from "../dep/gl-matrix/vec4.mjs";
+
 import * as graph from "./graph.mjs";
 import * as num from "./num.mjs";
 import * as text from "./text.mjs";
@@ -1370,12 +1377,12 @@ const $commonApi = {
     intersects: num.intersects,
     signedCeil: num.signedCeil,
     signedFloor: num.signedFloor,
-    vec2: num.vec2,
-    vec3: num.vec3,
-    vec4: num.vec4,
-    mat3: num.mat3,
-    mat4: num.mat4,
-    quat: num.quat,
+    vec2: vec2,
+    vec3: vec3,
+    vec4: vec4,
+    mat3: mat3,
+    mat4: mat4,
+    quat: quat,
     parseColor: num.parseColor,
     findColor: num.findColor,
     saturate: num.saturate,
