@@ -662,21 +662,55 @@ const lessons = [
   {
     title: "Lesson NOT Learnt 43 - use HANDS of dvb TIME",
     text: `
-    I live to make dials, rotors, & other watch parts with my new expert-friends.
+    The current Estate of the Viking Klokkers at Pachinko calculated by: the Hands of dvb TIME
 
-    I see the time pieces that we create as objects, and I love to compare these objects with paintings that mostly other people have done. - IT'S FUN and adds so much.
+    I love to make things that I collect into sets, I have a huge art collection, but my own passion is music and to make dials, rotors, & other watch parts with my expert-friends. 
 
-    I Sometimes also make instruments and things, you see creating things w. purpose is important in a purpose-lacking life-environment.
+    ==  set of 2 pieces ==
 
-    YES YES - what we & I create is pretty good and more more people are joining the gang, why not you?
+    01. Teppop = Amandus Rock - just that, no need to add anything, not even a watch
 
-    We have a Klokker party at Pachinko - Grønlandsleiret 47C and that is in Oslo…
+    02. Miki Skak = Omega, early tarmkreft modification Watch
 
-    ---29th of FEB. 2024 at 17:30 later a little aesthetic computer concerto---
+    03. Lady Lucy = BLANCPAIN PLATINUM lever POCKET WATCH w. Heavy Purttipal SPECIAL dial
 
-    - N.B: FUCK the Danes & do not call me: KRISTIAN - never ever! € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € mathilde carbel € tora dalseng € 
+    04. Símun Poulsen = Piaget w. PRUTTIPAL ultra small ACID dial
+
+    05. Anna Munk = Patek Philippe Golden Ellipse w. PRUTTIPAL extreme ACID dial
+
+    06. Tora Dalseng = JLC triple date - Pruttipal BURN YOUR BANK dial & much more  
+    ( Tik Tak Ure Ålborg & Steven Stapleton ) 
+
+    ==  set of 3 pieces (or more) ==
+
+    01.(07) Sufie Elmgreen = Teppop = Open Face Ultra-Thin Platinum //r0ver// Pocket Watch
+
+    02.(08) David Shrigley = Tora Dalseng & Prut = Patrik Sjögren PIECE UNIQUE w. Pruttipal Roter & dial 
+
+    03.(09) Jonathan Monk = Daniel Cabrillos Jacobsen = Jaeger-LeCoultre Memovox Alarm Pruttipal Case
+
+    == in the making ( as of right now! ) ==
+
+    01.(10) Henrik Plenge = Piaget Beta 21 w. Special Pruttipal zzzzZUPER engraved dial
+
+    02.(11) Claus Carstensen = Franck Muller w. Special Pruttipal engraved DIAL
+
+    N.B. I Sometimes also make instruments and things, you see creating things w. purpose is important in a purpose-lacking life-environment.
+
+    == instruments ==
+
+    01.(-) Kasper & Peter Schmeichel guitar w. Pruttipal anti-Dane embellishment
+
+    02.(-) The Goodiepal FREE instrument library ( prutti 12 ) 
+    ___________________
+    ALL klokk's comes whit 2 years Carl Oppermann & pruttipal service warranty
+
+    -
+
+    f0dselsdags havna-tek by SUPERVISJÓN - f0dselsdags havna-tek by SUPERVISJÓN - f0dselsdags havna-tek by SUPERVISJÓN - f0dselsdags havna-tek by SUPERVISJÓN - f0dselsdags havna-tek by SUPERVISJÓN - f0dselsdags havna-tek by SUPERVISJÓN - f0dselsdags havna-tek by SUPERVISJÓN - f0dselsdags havna-tek by SUPERVISJÓN - f0dselsdags havna-tek by SUPERVISJÓN - f0dselsdags havna-tek by SUPERVISJÓN
     `,
-    pictures: ["lnl43-1.png","lnl43-2","lnl43-3","lnl43-4","lnl43-5"]
+    pictures: ["lnl43-1", "lnl43-2", "lnl43-3", "lnl43-4"],
+    sounds: ["tillukku_prut_prut"],
   },
 ];
 
