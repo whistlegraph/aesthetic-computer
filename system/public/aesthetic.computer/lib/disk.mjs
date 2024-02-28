@@ -21,7 +21,12 @@ import * as help from "./help.mjs";
 import * as platform from "./platform.mjs";
 import { parse, metadata } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
-import { notArray, defaultTemplateStringProcessor } from "./helpers.mjs";
+import {
+  notArray,
+  defaultTemplateStringProcessor,
+  uint8ArrayToBase64,
+  base64ToUint8Array,
+} from "./helpers.mjs";
 const { abs, round, sin, random, max, floor } = Math;
 const { keys } = Object;
 import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
@@ -1419,6 +1424,16 @@ const $commonApi = {
     anyKey: help.anyKey,
     each: help.each,
     shuffleInPlace: help.shuffleInPlace,
+    serializePainting: (painting) => {
+      if (!painting) return;
+      const pixels = uint8ArrayToBase64(painting.pixels);
+      return { width: painting.width, height: painting.height, pixels };
+    },
+    deserializePainting: (painting) => {
+      if (!painting) return;
+      const pixels = base64ToUint8Array(painting.pixels);
+      return { width: painting.width, height: painting.height, pixels };
+    },
   },
   gizmo: { Hourglass: gizmo.Hourglass, EllipsisTicker: gizmo.EllipsisTicker },
   rec: new Recorder(),
@@ -1979,29 +1994,30 @@ const $paintApiUnwrapped = {
   // Similar to paste, but always draws from the center of x, y.
   // Has partial support for {center, bottom}. 24.02.15.12.19
   stamp: function stamp() {
-    if (typeof arguments[0] === "string") {
-      // Parse the parameters and lay out the stamp.
-      function makeLayout() {
-        if (typeof params[0] === "object") {
-          const layout = params[0];
-          if (layout.center === "x") {
-            params[0] = $activePaintApi.screen.width / 2;
-          } else {
-            params[0] = 0;
-          }
-          if (layout.bottom !== undefined) {
-            params[1] =
-              $activePaintApi.screen.height -
-              layout.bottom -
-              paintings[code].height / 2;
-          } else {
-            params[1] = 0;
-          }
+    let params;
+    // Parse the parameters and lay out the stamp.
+    function makeLayout() {
+      if (typeof params[0] === "object") {
+        const layout = params[0];
+        if (layout.center === "x") {
+          params[0] = $activePaintApi.screen.width / 2;
+        } else {
+          params[0] = 0;
+        }
+        if (layout.bottom !== undefined) {
+          params[1] =
+            $activePaintApi.screen.height -
+            layout.bottom -
+            paintings[code].height / 2;
+        } else {
+          params[1] = 0;
         }
       }
+    }
+    if (typeof arguments[0] === "string") {
       // Check to see if the bitmap has been cached by this piece already.
       const code = arguments[0];
-      const params = [...arguments].slice(1);
+      params = [...arguments].slice(1);
       if (paintings[code] && paintings[code] !== "fetching") {
         makeLayout();
         graph.stamp(paintings[code], ...params);
@@ -2009,8 +2025,10 @@ const $paintApiUnwrapped = {
         prefetchPainting(code);
       }
     } else {
+      params = [...arguments].slice(1);
+      if (params.length === 0) params = [0, 0];
       makeLayout();
-      graph.stamp(...params);
+      graph.stamp(arguments[0], ...params);
     }
   },
   pixel: graph.pixel,

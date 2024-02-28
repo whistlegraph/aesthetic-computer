@@ -82,30 +82,53 @@ async function world_boot(
     "...",
     async (text) => {
       if (
-        input.text === "smile" ||
-        input.text === "frown" ||
-        input.text === "sad" ||
-        input.text === "meh"
+        text === "smile" ||
+        text === "frown" ||
+        text === "sad" ||
+        text === "meh"
       ) {
-        if (input.text === "sad") input.text = "frown";
-        me.mood(input.text);
+        if (text === "sad") text = "frown";
+        me.mood(text);
         server.send(`world:${piece}:mood`, me.face); // Send to server.
       } else if (
-        input.text === "red" ||
-        input.text === "yellow" ||
-        input.text === "orange" ||
-        input.text === "black" ||
-        input.text === "brown" ||
-        input.text === "purple" ||
-        input.text === "pink" ||
-        input.text === "blue" ||
-        input.text === "lime" ||
-        input.text === "white"
+        text === "red" ||
+        text === "yellow" ||
+        text === "orange" ||
+        text === "black" ||
+        text === "brown" ||
+        text === "purple" ||
+        text === "pink" ||
+        text === "blue" ||
+        text === "lime" ||
+        text === "white"
       ) {
-        me.tint(input.text);
+        me.tint(text);
         server.send(`world:${piece}:tint`, me.color); // Send to server.
+      } else if (text === "show") {
+        // TODO: Stamp pixels underneath the player, that persist on
+        //       the server instance.
+
+        if (system.painting) {
+          console.log("🖼️ Showing:", system.painting);
+
+          server.send(
+            `world:${piece}:show`,
+            help.serializePainting(system.painting),
+          );
+
+          me.showing = system.painting;
+        } else {
+          console.log("❌🖼️ Nothing to show.");
+        }
+
+        // } else if (text === "paste") {
+        // TODO: Stamp pixels underneath the player, that persist on
+        //       the server instance.
+      } else if (text === "hide") {
+        server.send(`world:${piece}:hide`);
+        me.showing = null;
       } else {
-        me.write(input.text); // Display message on 🧒.
+        me.write(text); // Display message on 🧒.
         server.send(`world:${piece}:write`, me.message); // Send to server.
       }
 
@@ -154,6 +177,7 @@ async function world_boot(
         handle: me.handle,
         pos: me.pos,
         face: me.face,
+        showing: help.serializePainting(me.showing),
       });
       console.log("🪴 Welcome:", me.handle, `(${id})`);
       return;
@@ -172,6 +196,8 @@ async function world_boot(
             data.face,
             true,
           );
+          if (data.showing)
+            kids[key].showing = help.deserializePainting(data.showing);
         }
       });
       return;
@@ -186,17 +212,23 @@ async function world_boot(
           content.face,
           true,
         );
+        console.log(content);
+        if (content.showing)
+          kids[id].showing = help.deserializePainting(content.showing);
       }
+      return;
     }
 
     if (type === `world:${piece}:tint`) {
       const kid = kids[id];
       if (kid) kid.tint(content);
+      return;
     }
 
     if (type === `world:${piece}:mood`) {
       const kid = kids[id];
       if (kid) kid.mood(content);
+      return;
     }
 
     if (type === `world:${piece}:write`) {
@@ -212,19 +244,33 @@ async function world_boot(
           duration: 0.015,
         });
       }
+      return;
     }
 
     if (type === `world:${piece}:write:clear`) {
       const kid = kids[id];
       if (kid) kid.write(null);
+      return;
     }
 
     if (type === `world:${piece}:move`) {
       console.log(type, id, content);
       const kid = kids[id];
       if (kid) kid.netPos = content.pos;
+      return;
     }
-    // }
+
+    if (type === `world:${piece}:show`) {
+      const kid = kids[id];
+      if (kid) kid.showing = help.deserializePainting(content);
+      return;
+    }
+
+    if (type === `world:${piece}:hide`) {
+      const kid = kids[id];
+      if (kid) kid.showing = null;
+      return;
+    }
   });
 }
 
@@ -431,6 +477,7 @@ class Kid {
   color = "white";
   #keys = { U: false, D: false, L: false, R: false };
   message;
+  showing; // Contains a buffer to be showing.
   #messageDuration;
   #messageProgress = 0;
 
@@ -463,24 +510,29 @@ class Kid {
   }
 
   // Render the kid.
-  paint({ ink, pan, text, typeface }) {
+  paint({ ink, pan, text, typeface, stamp }) {
     const leash = this.leash;
     pan(this.pos.x, this.pos.y);
-    ink(this.color).circle(0, 0, this.size); // Head
 
-    // Face
-    // Eyes
-    ink(this.color).point(-6, -6);
-    ink(this.color).point(6, -6);
-    // Mouth
-    if (this.face === "smile") {
-      ink(this.color).line(0, 6, -6, 3);
-      ink(this.color).line(0, 6, 6, 3);
-    } else if (this.face === "frown") {
-      ink(this.color).line(0, 3, -6, 8);
-      ink(this.color).line(0, 3, 6, 8);
-    } else if (this.face === "meh") {
-      ink(this.color).line(-6, 6, 6, 6);
+    if (this.showing) stamp(this.showing); // Show a bitmap.
+
+    if (!this.showing) {
+      ink(this.color).circle(0, 0, this.size); // Head
+
+      // Face
+      // Eyes
+      ink(this.color).point(-6, -6);
+      ink(this.color).point(6, -6);
+      // Mouth
+      if (this.face === "smile") {
+        ink(this.color).line(0, 6, -6, 3);
+        ink(this.color).line(0, 6, 6, 3);
+      } else if (this.face === "frown") {
+        ink(this.color).line(0, 3, -6, 8);
+        ink(this.color).line(0, 3, 6, 8);
+      } else if (this.face === "meh") {
+        ink(this.color).line(-6, 6, 6, 6);
+      }
     }
 
     ink(leash.len > leash.deadzone ? this.color : [this.color, 128]).line(
@@ -489,6 +541,7 @@ class Kid {
       leash.x,
       leash.y,
     );
+
     if (this.message) {
       const blockWidth = typeface.glyphs["0"].resolution[0];
       const tb = text.box(
@@ -496,6 +549,10 @@ class Kid {
         undefined,
         this.message.length * blockWidth,
       );
+      ink("black").write(this.message, {
+        x: -tb.box.width / 2 + 1,
+        y: -this.size - 12 + 1,
+      });
       ink(this.color).write(this.message, {
         x: -tb.box.width / 2,
         y: -this.size - 12,
