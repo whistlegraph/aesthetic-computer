@@ -1722,34 +1722,3 @@ async function publishPiece({ api, send, jump, handle, upload }, slug, source) {
     makeFlash(api);
   }
 }
-
-// For encoding and decoding published piece source code that
-// includes unicode characters like emoji.
-
-// Convert a Unicode string to a Base64 string
-function unicodeToBase64(str) {
-  // Firstly, encode the string as UTF-8
-  const utf8Bytes = new TextEncoder().encode(str);
-
-  // Then, convert these bytes to a Base64 string
-  let binaryStr = "";
-  utf8Bytes.forEach((byte) => {
-    binaryStr += String.fromCharCode(byte);
-  });
-  return btoa(binaryStr);
-}
-
-// Assuming 'receivedString' is the URL-decoded parameter
-function base64ToUnicode(str) {
-  // Decode from Base64
-  const binaryStr = atob(str);
-
-  // Convert binary string to a Uint8Array
-  const bytes = new Uint8Array(binaryStr.length);
-  for (let i = 0; i < binaryStr.length; i++) {
-    bytes[i] = binaryStr.charCodeAt(i);
-  }
-
-  // Decode the Uint8Array as a UTF-8 string
-  return new TextDecoder().decode(bytes);
-}
