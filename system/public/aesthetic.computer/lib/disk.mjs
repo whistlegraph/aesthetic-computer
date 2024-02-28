@@ -3596,7 +3596,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // Update the logged in user after initialization.
   if (type === "session:update") {
-    console.log("🤩 Session being updated!", content);
+    // console.log("🤩 Session being updated!", content);
     USER = content.user;
     $commonApi.user = USER;
     await handle(); // Get the user's handle.
@@ -5495,9 +5495,11 @@ async function handle() {
         }
       } else {
         console.warn(await response.text());
+        store["handle:failed"] = true;
       }
     } catch (error) {
       console.error(error);
+      store["handle:failed"] = true;
     }
   }
 }

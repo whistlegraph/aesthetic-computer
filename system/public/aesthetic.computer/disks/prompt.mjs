@@ -133,7 +133,7 @@ async function boot({
   });
 
   //server = socket((id, type, content) => {
-    // console.log("🧦 Got message:", id, type, content);
+  // console.log("🧦 Got message:", id, type, content);
   //});
 
   // Fetch handle count.
@@ -161,11 +161,22 @@ async function boot({
     signup = new ui.TextButton("I'm new", { center: "xy", screen });
     positionWelcomeButtons(screen, net.iframe);
   }
-  if (user)
-    profile = new ui.TextButton(handle() || user.name, {
+  if (user) {
+    const hand = handle();
+    let label = hand,
+      disable = false;
+    if (!label) {
+      label = user.name;
+      disable = true;
+    }
+
+    profile = new ui.TextButton(label, {
       center: "xy",
       screen,
     });
+
+    if (disable) profile.btn.disabled = true;
+  }
 
   // Only if prompt is set to recall conversations.
   if (
@@ -1326,6 +1337,13 @@ function sim($) {
     delete $.store["handle:received"];
     $.needsPaint();
   }
+
+  if ($.store["handle:failed"]) {
+    profile.btn.disabled = false;
+    delete $.store["handle:failed"];
+    $.needsPaint();
+  }
+
   if (flashPresent) flash.step();
 }
 
@@ -1348,6 +1366,12 @@ function act({
   canShare,
   // platform
 }) {
+  // 👱 Handle Callback
+  if (e.is("handle:request:completed")) {
+    console.log("Handle request completed:", profile);
+    profile.btn.disabled = false;
+  }
+
   // 📼 Taping
   if (e.is("microphone:connect:success")) {
     console.log("📼 Taping...");
