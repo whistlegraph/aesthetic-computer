@@ -1,7 +1,8 @@
 // 🧮 Geometry
 
 const { abs, cos, sin, floor, sqrt } = Math;
-import { dist, vec4, radians, randIntRange } from "./num.mjs";
+import * as vec4 from "../dep/gl-matrix/vec4.mjs";
+import { dist, radians, randIntRange } from "./num.mjs";
 
 // A generic circle model for algorithmic use.
 export class Circle {
