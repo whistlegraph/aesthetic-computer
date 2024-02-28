@@ -4,10 +4,6 @@ import {
   wrap,
   randInt,
   byteInterval17,
-  vec2,
-  vec3,
-  vec4,
-  mat4,
   even,
   radians,
   lerp,
@@ -20,6 +16,11 @@ import {
   hexToRgb,
   cssColors,
 } from "./num.mjs";
+
+import * as mat4 from "../dep/gl-matrix/mat4.mjs";
+import * as vec2 from "../dep/gl-matrix/vec2.mjs";
+import * as vec3 from "../dep/gl-matrix/vec3.mjs";
+import * as vec4 from "../dep/gl-matrix/vec4.mjs";
 
 import { any, repeat, nonvalue, flip } from "./help.mjs";
 import { Box } from "./geo.mjs";
