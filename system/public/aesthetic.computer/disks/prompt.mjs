@@ -102,6 +102,10 @@ import * as starfield from "./starfield.mjs";
 
 let server;
 
+let darkModeOn;
+let pal;
+// let schemeAll;
+
 let autocompletions = {};
 const activeCompletions = [];
 
@@ -133,7 +137,7 @@ async function boot({
   });
 
   //server = socket((id, type, content) => {
-    // console.log("🧦 Got message:", id, type, content);
+  // console.log("🧦 Got message:", id, type, content);
   //});
 
   // Fetch handle count.
@@ -1092,10 +1096,12 @@ async function halt($, text) {
   } else if (text === "dark" || text === "light") {
     if (text === "light") {
       store.delete("dark-mode");
+      darkModeOn = false;
       darkMode(false);
       flashColor = [255, 255, 255];
     } else {
       flashColor = [0, 0, 0];
+      darkModeOn = true;
       darkMode(true);
     }
     makeFlash($);
@@ -1196,6 +1202,7 @@ function paint($) {
   if ($.store["painting"]) {
     $.wipe(scheme.dark.background); // Render the backdrop.
     $.system.nopaint.present($); // Render the painting.
+    pal = $.system.prompt.input.pal;
     scheme.dark.background[3] = 176; // Half semi-opaque palette background.
     scheme.light.background[3] = 230;
   } else {
@@ -1232,7 +1239,7 @@ function paint($) {
             " ".repeat(diff),
           );
         }
-        ink("white", 32).write(text, {
+        ink(pal.auto, 32).write(text, {
           x: 6,
           y: 6 + i * 12,
         });
@@ -1247,6 +1254,8 @@ function paint($) {
     }
   }
 
+
+
   if (!login?.btn.disabled || (profile && !profile.btn.disabled)) {
     // Paint current status color.
     // if (!$.system.prompt.input.canType) {
@@ -1254,8 +1263,9 @@ function paint($) {
       alpha: 0.3,
       color: $.hud.currentStatusColor() || [255, 0, 200],
     });
+
     if (handles && screen.height > 200)
-      ink(255, 0, 255, 128).write(
+      ink(pal.handleColor).write(
         `${handles} HANDLES SET`,
         {
           center: "x",
@@ -1267,10 +1277,25 @@ function paint($) {
 
   // Paint UI Buttons
   //if (!net.iframe) {
-  if (!login?.btn.disabled) login?.paint($, [[0, 0, 64], 255, 255, [0, 0, 64]]);
+
+  //what we actually want for login and signup is pal.signup / pal.login
+  //currently gives an error, I think because of paint (works fine with ink)
+  if (!login?.btn.disabled) {
+    if (darkModeOn) {
+      login?.paint($, scheme.dark.login);
+    } else {
+      login?.paint($, scheme.light.login);
+    }
+  }
+
   if (!net.iframe) {
-    if (!signup?.btn.disabled)
-      signup?.paint($, [[0, 64, 0], 255, 255, [0, 64, 0]]);
+    if (!signup?.btn.disabled) {
+      if (darkModeOn) {
+        signup?.paint($, scheme.dark.signup);
+      } else {
+        signup?.paint($, scheme.light.signup);
+      }
+    }
   }
   if (!profile?.btn.disabled) profile?.paint($);
   //}
@@ -1594,6 +1619,11 @@ export const scheme = {
     block: [200, 30, 100],
     highlight: [255, 100, 0],
     guideline: [0, 0, 255, 64],
+    login: [[0, 0, 64], 255, 255, [0, 0, 64]],
+    signup: [[0, 64, 0], 255, 255, [0, 64, 0]],
+    handleColor: [255, 0, 255, 128],
+    auto: "white",
+    statusColor: "lime",
   },
   light: {
     text: [255, 128, 128],
@@ -1602,6 +1632,11 @@ export const scheme = {
     block: [56, 122, 223],
     highlight: [246, 253, 195],
     guideline: [255, 207, 105],
+    login: [255, [0, 0, 64], [0, 0, 64], 255],
+    signup: [255, [0, 64, 0], [0, 64, 0], 255],
+    handleColor: [0, 0, 255, 128],
+    auto: "red",
+    statusColor: "darkgreen",
   },
 };
 
