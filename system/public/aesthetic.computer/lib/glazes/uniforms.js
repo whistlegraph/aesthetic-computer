@@ -32,6 +32,7 @@ uniforms.prompt = {
   "3f:lightColor": [1, 1, 1], // r, g, b
   "3f:lightDirection": [-1, -1, -0.05], // x, y, z
   "3f:bgColor": [0.084, 0.0533, 0.078], // r, g, b,
+  //"3f:bgColor": [0.1, 0.1, 0.1], // r, g, b,
 };
 
 export default uniforms;
