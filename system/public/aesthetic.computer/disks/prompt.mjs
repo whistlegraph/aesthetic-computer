@@ -118,10 +118,11 @@ async function boot({
   user,
   handle,
   params,
+  dark,
   // code,
   net: { socket },
 }) {
-  // glaze({ on: true });
+  if (dark) glaze({ on: true });
 
   net.requestDocs().then((d) => {
     autocompletions = { ...d.pieces, ...d.prompts };
@@ -132,9 +133,9 @@ async function boot({
     // console.log("✍️ Autocompletions built:", autocompletions);
   });
 
-  //server = socket((id, type, content) => {
-  // console.log("🧦 Got message:", id, type, content);
-  //});
+  server = socket((id, type, content) => {
+    console.log("🧦 Got message:", id, type, content);
+  });
 
   // Fetch handle count.
   fetch("/handle?count=true")
@@ -244,6 +245,7 @@ async function halt($, text) {
     leaving,
     system,
     gizmo,
+    glaze,
     screen,
     painting,
     net,
@@ -377,6 +379,7 @@ async function halt($, text) {
     // TODO: Scream additions. 23.12.11.12.53
     // - [] Vocalize all screams / make a sound?
     // - [] Smartly time-synchronize that message for all users by looking ahead?
+    // console.log("😱 Screaming...");
     server?.send("scream", params.join(" ") || "Ahh!");
     flashColor = [255, 0, 0];
     makeFlash($);
@@ -1104,10 +1107,12 @@ async function halt($, text) {
     if (text === "light") {
       store.delete("dark-mode");
       darkMode(false);
+      glaze({ on: false });
       flashColor = [255, 255, 255];
     } else {
       flashColor = [0, 0, 0];
       darkMode(true);
+      glaze({ on: true });
     }
     makeFlash($);
     return true;
@@ -1205,12 +1210,12 @@ async function halt($, text) {
 function paint($) {
   // 🅰️ Paint below the prompt || scheme.
   if ($.store["painting"]) {
-    $.wipe(scheme.dark.background); // Render the backdrop.
+    $.wipe($.dark ? scheme.dark.background : scheme.light.background);
     $.system.nopaint.present($); // Render the painting.
     scheme.dark.background[3] = 176; // Half semi-opaque palette background.
-    scheme.light.background[3] = 230;
+    scheme.light.background[3] = 190;
   } else {
-    $.wipe(scheme.dark.background);
+    $.wipe($.dark ? scheme.dark.background : scheme.light.background);
   }
 
   $.layer(1); // 🅱️ And above it...
@@ -1243,7 +1248,7 @@ function paint($) {
             " ".repeat(diff),
           );
         }
-        ink("white", 32).write(text, {
+        ink($.dark ? "white" : "red", 32).write(text, {
           x: 6,
           y: 6 + i * 12,
         });
@@ -1620,8 +1625,8 @@ export const scheme = {
     guideline: [0, 0, 255, 64],
   },
   light: {
-    text: [255, 128, 128],
-    background: [255, 255, 255],
+    text: [255, 90, 90],
+    background: [255, 255, 0],
     prompt: [255, 128, 128],
     block: [56, 122, 223],
     highlight: [246, 253, 195],

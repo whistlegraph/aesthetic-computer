@@ -301,20 +301,20 @@ wss.on("connection", (ws, req) => {
           if (out.indexOf("pond") > -1) piece = "pond";
           else if (out.indexOf("field") > -1) piece = "field";
 
-          //if (!dev) {
-          getMessaging()
-            .send({
-              notification: { title: "😱 Scream", body: out },
-              topic: "scream",
-              data: { piece },
-            })
-            .then((response) => {
-              console.log("☎️  Successfully sent notification:", response);
-            })
-            .catch((error) => {
-              console.log("📵  Error sending notification:", error);
-            });
-          //}
+          if (!dev) {
+            getMessaging()
+              .send({
+                notification: { title: "😱 Scream", body: out },
+                topic: "scream",
+                data: { piece },
+              })
+              .then((response) => {
+                console.log("☎️  Successfully sent notification:", response);
+              })
+              .catch((error) => {
+                console.log("📵  Error sending notification:", error);
+              });
+          }
         })
         .catch((error) => {
           console.log("🙅‍♀️ Error publishing scream:", error);
