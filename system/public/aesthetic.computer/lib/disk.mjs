@@ -262,13 +262,17 @@ let currentPath,
   currentHUDOffset;
 //currentPromptButton;
 
+
+//what we actually want is $.system.input.prompt.pal.statusColor
+//DMStatusColor is being set in darkMode function, not good for changing modes 
 function updateHUDStatus() {
   if (udp.connected && socket?.connected) {
-    currentHUDStatusColor = "lime";
-  } else if (currentHUDStatusColor === "lime") {
+    currentHUDStatusColor = DMStatusColor;
+  } else if (currentHUDStatusColor === DMStatusColor) {
     currentHUDStatusColor = "red";
   }
 }
+
 
 let loading = false;
 let reframe;
@@ -331,8 +335,11 @@ const fairies = []; // Render cursor points of other active users,
 let glazeEnabled = false; // Keep track of whether glaze is on or off.
 
 let darkModeWipeNum = 32; 
-let darkModeWipeBG = 32; 
+let darkModeWipeBG = 32;
+let DMStatusColor; 
+
 // *** Dark Mode ***
+//tarighian
 // Pass `true` or `false` to override or `default` to the system setting.
 function darkMode(enabled = !$commonApi.dark) {
   if (enabled === "default") {
@@ -345,11 +352,13 @@ function darkMode(enabled = !$commonApi.dark) {
     store.persist("dark-mode");
     $commonApi.dark = enabled;
     if (enabled === true) {
+      DMStatusColor = "lime";
       darkModeWipeBG = 32;
       darkModeWipeNum = 64;
       console.log("🌜 Dark mode: enabled");
     }
     if (enabled === false) {
+      DMStatusColor = "teal";
       darkModeWipeBG = 150;
       darkModeWipeNum = 200;
       console.log("🌞 Light mode: enabled");
