@@ -39,16 +39,30 @@
 😀 TODO 😆
 
 🌟 Projects in Progress (PIP) 🌟
-         
+
+- Jeffrey
+
 - Tina 
-  - [] color change for buttons in Light Mode
-  - [] starfield connection colors should be different in light mode
+  - [] Color change for the border when tapping from the login. 
+  - [] Color change for buttons in Light Mode. See `ui.mjs`.
+    - [] Login buttons. 
+    - [] Invert all black and white buttons via the `ui.mjs`. Button default
+         schemes. By setting and updating global in `disk.mjs` on the `ui` module that is red when buttons are painted.
+  - [] Starfield connection colors should be different in light mode.
   - [] autocompletions no longer appear / are too light in light mode 
   - [] HANDLES SET warning should have different colors in light mode
+  - [] Put glaze back on. 
+    - [] Modify glaze with different uniforms depending on the mode.
+         (This may require help from sage.)
 
 - Miles (Sunday)
-  *** `blur` ***
-    - [️🟠] Red crosshair drags when pressing corner label.
+  *** load performance ***
+    - [🟡] Spend a half day just on getting the site to load faster.
+  *** `crayon` ***
+    - [] Fix the double buffer.
+    - [] Colors drift too much.
+    - [] A little splotchy, marks should feel uniform.
+    - [] Interpolate gesture using a Catmull-Rom spline or based on speed / physics using a leash.
   *** .pjs compiler ***
     - [] Break the below down into steps and get it compiling on each load.
       - [] Add syntax support to the vscode extension for the .pjs files / metaprocessor.
@@ -64,36 +78,16 @@
       //  return;
       //}
 
-  - [] `load` should load a photo / be similar to `paste` and work on mobile.
-
-*** prompt regression ***
-  - [🔴] ⚠️ Sometimes the default reply text can become editable and not be
-          cleared...
-  - [] `load` should load a photo / be similar to `paste` and work on mobile.
-
-*** cab meeting ***
-  - [] Set up DMARC for emails.
-
-*** media variables ***
-  - [] Set "variable" names when using `done`, helpful for show and tell.
-
 *** making things alive ***
   - [-] Pasting graphics in `field` is important.
   - [] Add `show` and `hide` for temporary show and tell.
   - [] Add `paste` for permanent bitmap pasting, maybe in
        a piece called `graf` that can be linked to from `field`?
 
-*** load performance ***
-  - [🟡] Spend a half day just on getting the site to load faster.
-
-*** making the aliveness visible ***
-  - [] Build a simple version of `log` now that we have list.
-
 *** `world` <-> `painting` <-> piece integrations ***
-  - [🍏] Share current painting in `world` using a `show` command.
+  - [🧡] User world persistence with floating command notifications.
   - [] Be able to easily complete a painting and then include it in a piece
       in a single line...
-  - [] Maybe I could overload `paste` to include user strings...
   - [] Add the ability to name a painting so it can more
         easily be referenced, like for example in a `stamp @jeffrey/flower` tool.
         Or especially like old CS 1.5 sprays.
@@ -104,14 +98,19 @@
         them to the network? Well... that's just empty `show` or maybe
         there could be a buffer of paintings in progress, similar to how
         text editors have buffers.
-  - [] User world persistence with floating command notifications.
   - [] How to handle multiple handled users in the same room.
       (Make primary vs. a ghost type of view-only behavior?)
   - [] How to have two windows or machines up and use a put command while
       modifying pixels. (Always store current painting in the cloud for a registered user.)
   - [] Implement `paste` and send the pixels through the backend.
   + Done
+  - [x] Maybe I could overload `paste` to include user strings...
+  - [x] Share current painting in `world` using a `show` command.
+    - [x] Also add `hide` command.
   - [x] Add connection flash to world.
+
+*** making the aliveness visible ***
+  - [] Build a simple version of `log` now that we have list.
 
 *** casting ***
   - [] Get a nice headset that I can actually record Fedora screencasts with so
@@ -141,6 +140,12 @@
 *** `code words` ***
   - [] A commission program for people to code ac nouns and verbs in their
        language of choice.
+
+*** prompt regression ***
+  - [] `load` should load a photo / be similar to `paste` and work on mobile.
+
+*** media variables ***
+  - [] Set "variable" names when using `done`, helpful for show and tell.
 
 *** pray ***
   - [] An altrnative to `scream`.
@@ -273,6 +278,9 @@ Full day:
 
 *** automate honest fabric checkout ***
   - [] https://www.honestfabric.com/shop/checkout
+
+*** cab meeting ***
+  - [] Set up DMARC for emails.
 
 *** `sno` launch - Dec ?? ***
   - [] See `sno.mjs`.

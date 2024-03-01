@@ -122,10 +122,11 @@ async function boot({
   user,
   handle,
   params,
+  dark,
   // code,
   net: { socket },
 }) {
-  // glaze({ on: true });
+  if (dark) glaze({ on: true });
 
   net.requestDocs().then((d) => {
     autocompletions = { ...d.pieces, ...d.prompts };
@@ -136,9 +137,9 @@ async function boot({
     // console.log("✍️ Autocompletions built:", autocompletions);
   });
 
-  //server = socket((id, type, content) => {
-  // console.log("🧦 Got message:", id, type, content);
-  //});
+  server = socket((id, type, content) => {
+    console.log("🧦 Got message:", id, type, content);
+  });
 
   // Fetch handle count.
   fetch("/handle?count=true")
@@ -165,11 +166,22 @@ async function boot({
     signup = new ui.TextButton("I'm new", { center: "xy", screen });
     positionWelcomeButtons(screen, net.iframe);
   }
-  if (user)
-    profile = new ui.TextButton(handle() || user.name, {
+  if (user) {
+    const hand = handle();
+    let label = hand,
+      disable = false;
+    if (!label) {
+      label = user.name;
+      disable = true;
+    }
+
+    profile = new ui.TextButton(label, {
       center: "xy",
       screen,
     });
+
+    if (disable) profile.btn.disabled = true;
+  }
 
   // Only if prompt is set to recall conversations.
   if (
@@ -237,6 +249,7 @@ async function halt($, text) {
     leaving,
     system,
     gizmo,
+    glaze,
     screen,
     painting,
     net,
@@ -370,6 +383,7 @@ async function halt($, text) {
     // TODO: Scream additions. 23.12.11.12.53
     // - [] Vocalize all screams / make a sound?
     // - [] Smartly time-synchronize that message for all users by looking ahead?
+    // console.log("😱 Screaming...");
     server?.send("scream", params.join(" ") || "Ahh!");
     flashColor = [255, 0, 0];
     makeFlash($);
@@ -1098,11 +1112,13 @@ async function halt($, text) {
       store.delete("dark-mode");
       darkModeOn = false;
       darkMode(false);
+      glaze({ on: false });
       flashColor = [255, 255, 255];
     } else {
       flashColor = [0, 0, 0];
       darkModeOn = true;
       darkMode(true);
+      glaze({ on: true });
     }
     makeFlash($);
     return true;
@@ -1200,13 +1216,13 @@ async function halt($, text) {
 function paint($) {
   // 🅰️ Paint below the prompt || scheme.
   if ($.store["painting"]) {
-    $.wipe(scheme.dark.background); // Render the backdrop.
+    $.wipe($.dark ? scheme.dark.background : scheme.light.background);
     $.system.nopaint.present($); // Render the painting.
     pal = $.system.prompt.input.pal;
     scheme.dark.background[3] = 176; // Half semi-opaque palette background.
-    scheme.light.background[3] = 230;
+    scheme.light.background[3] = 190;
   } else {
-    $.wipe(scheme.dark.background);
+    $.wipe($.dark ? scheme.dark.background : scheme.light.background);
   }
 
   $.layer(1); // 🅱️ And above it...
@@ -1239,7 +1255,7 @@ function paint($) {
             " ".repeat(diff),
           );
         }
-        ink(pal.auto, 32).write(text, {
+        ink($.dark ? "white" : "red", 32).write(text, {
           x: 6,
           y: 6 + i * 12,
         });
@@ -1351,6 +1367,13 @@ function sim($) {
     delete $.store["handle:received"];
     $.needsPaint();
   }
+
+  if ($.store["handle:failed"]) {
+    profile.btn.disabled = false;
+    delete $.store["handle:failed"];
+    $.needsPaint();
+  }
+
   if (flashPresent) flash.step();
 }
 
@@ -1373,6 +1396,12 @@ function act({
   canShare,
   // platform
 }) {
+  // 👱 Handle Callback
+  if (e.is("handle:request:completed")) {
+    console.log("Handle request completed:", profile);
+    profile.btn.disabled = false;
+  }
+
   // 📼 Taping
   if (e.is("microphone:connect:success")) {
     console.log("📼 Taping...");
@@ -1626,8 +1655,8 @@ export const scheme = {
     statusColor: "lime",
   },
   light: {
-    text: [255, 128, 128],
-    background: [255, 255, 255],
+    text: [255, 90, 90],
+    background: [255, 255, 0],
     prompt: [255, 128, 128],
     block: [56, 122, 223],
     highlight: [246, 253, 195],
@@ -1732,35 +1761,4 @@ async function publishPiece({ api, send, jump, handle, upload }, slug, source) {
     flashColor = [255, 0, 0];
     makeFlash(api);
   }
-}
-
-// For encoding and decoding published piece source code that
-// includes unicode characters like emoji.
-
-// Convert a Unicode string to a Base64 string
-function unicodeToBase64(str) {
-  // Firstly, encode the string as UTF-8
-  const utf8Bytes = new TextEncoder().encode(str);
-
-  // Then, convert these bytes to a Base64 string
-  let binaryStr = "";
-  utf8Bytes.forEach((byte) => {
-    binaryStr += String.fromCharCode(byte);
-  });
-  return btoa(binaryStr);
-}
-
-// Assuming 'receivedString' is the URL-decoded parameter
-function base64ToUnicode(str) {
-  // Decode from Base64
-  const binaryStr = atob(str);
-
-  // Convert binary string to a Uint8Array
-  const bytes = new Uint8Array(binaryStr.length);
-  for (let i = 0; i < binaryStr.length; i++) {
-    bytes[i] = binaryStr.charCodeAt(i);
-  }
-
-  // Decode the Uint8Array as a UTF-8 string
-  return new TextDecoder().decode(bytes);
 }

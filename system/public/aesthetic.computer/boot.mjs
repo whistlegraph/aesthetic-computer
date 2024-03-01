@@ -117,6 +117,7 @@ loadAuth0Script()
       const url = new URL(window.location);
       const params = url.searchParams;
       const encodedSession = params.get("session");
+      let pickedUpSession;
       if (encodedSession) {
         const sessionJsonString = atob(decodeURIComponent(encodedSession));
         const session = JSON.parse(sessionJsonString);
@@ -129,18 +130,19 @@ loadAuth0Script()
             sub: session.account.id,
           };
           // Will get passed to the first message by the piece runner.
-          // console.log("🌻 Picked up session!", window.acTOKEN, window.acUSER);
-          // window.acSEND({
-          //  type: "session:update",
-          //  content: { user: window.acUSER },
-          // });
+          console.log("🌻 Picked up session!", window.acTOKEN, window.acUSER);
+          window.acSEND({
+            type: "session:update",
+            content: { user: window.acUSER },
+          });
+          pickedUpSession = true;
         }
         params.delete("session"); // Remove the 'session' parameter
         // Update the URL without reloading the page
         history.pushState({}, "", url.pathname + "?" + params.toString());
       }
 
-      const isAuthenticated = await auth0Client.isAuthenticated();
+      let isAuthenticated = await auth0Client.isAuthenticated();
 
       // const iframe = window.self !== window.top;
 
@@ -187,7 +189,7 @@ loadAuth0Script()
       };
 
       // Redirect the user to login if the token has failed.
-      if (isAuthenticated) {
+      if (isAuthenticated && !pickedUpSession) {
         try {
           await window.auth0Client.getTokenSilently();
           console.log("🔐 Authorized");
@@ -199,13 +201,10 @@ loadAuth0Script()
           );
           auth0Client.logout();
           isAuthenticated = false;
-          // auth0Client.logout({
-          //   logoutParams: { returnTo: window.location.origin },
-          // });
         }
       }
 
-      if (isAuthenticated) {
+      if (isAuthenticated && !pickedUpSession) {
         // TODO: How long does this await actually take? 23.07.11.18.55
         const userProfile = await auth0Client.getUser();
         console.log("🔐 Welcome,", userProfile.name, "!");
@@ -215,7 +214,7 @@ loadAuth0Script()
           type: "session:update",
           content: { user: window.acUSER },
         });
-      } else {
+      } else if (!pickedUpSession) {
         console.log("🗝️ Not authenticated.");
       }
 
@@ -319,7 +318,7 @@ function initNotifications() {
               return response.json(); // Parse the JSON in the response
             })
             .then((data) => {
-              console.log("📶 Subscribed to:", data);
+              console.log("📶 Subscribed to:", data.topic);
               then?.(); // Subscribe to another topic if necessary.
             })
             .catch((error) => {
