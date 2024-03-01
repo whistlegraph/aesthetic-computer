@@ -56,8 +56,6 @@
          (This may require help from sage.)
 
 - Miles (Sunday)
-  *** load performance ***
-    - [🟡] Spend a half day just on getting the site to load faster.
   *** `crayon` ***
     - [] Fix the double buffer.
     - [] Colors drift too much.
@@ -77,6 +75,8 @@
       //if (!net.iframe && params[0]^does not start with^) {
       //  return;
       //}
+  *** load performance ***
+    - [x] Spend a half day just on getting the site to load faster.
 
 *** making things alive ***
   - [-] Pasting graphics in `field` is important.
