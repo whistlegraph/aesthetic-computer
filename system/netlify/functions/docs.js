@@ -674,6 +674,11 @@ export async function handler(event, context) {
           desc: "Download a file.",
           done: false,
         },
+        dark: {
+          sig: "dark",
+          desc: "If the system is in dark mode.",
+          done: false,
+        },
         jump: {
           sig: "jump(to)",
           desc: "Gets a random integer.",

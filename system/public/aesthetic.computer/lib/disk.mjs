@@ -591,6 +591,7 @@ const $commonApi = {
   // Make it an `alias` to prevent a metadata change for writing landing or
   // router pieces such as `freaky-flowers` -> `wand`. 22.11.23.16.29
   // Jump delay...
+  dark: undefined, // If we are in dark mode.
   jump: function jump(to, ahistorical = false, alias = false) {
     // let url;
     if (leaving) {
