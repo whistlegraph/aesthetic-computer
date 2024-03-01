@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** `blur` ***
+  - [️x] Red crosshair drags when pressing corner label.
+
 *** Web Notifications ***
   - [x] Get web notifications working and tie them directly to push notifications.
 

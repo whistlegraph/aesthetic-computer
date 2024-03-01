@@ -40,7 +40,10 @@ import { exec } from "child_process";
 import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
 import serviceAccount from "./aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json" assert { type: "json" };
 import { getMessaging } from "firebase-admin/messaging";
-initializeApp({ credential: cert(serviceAccount) }, "aesthetic" + ~~performance.now());
+initializeApp(
+  { credential: cert(serviceAccount) },
+  "aesthetic" + ~~performance.now(),
+);
 
 import { filter } from "./filter.mjs"; // Profanity filtering.
 
@@ -298,7 +301,7 @@ wss.on("connection", (ws, req) => {
           if (out.indexOf("pond") > -1) piece = "pond";
           else if (out.indexOf("field") > -1) piece = "field";
 
-          //if (!dev) {
+          if (!dev) {
             getMessaging()
               .send({
                 notification: { title: "😱 Scream", body: out },
@@ -311,7 +314,7 @@ wss.on("connection", (ws, req) => {
               .catch((error) => {
                 console.log("📵  Error sending notification:", error);
               });
-          //}
+          }
         })
         .catch((error) => {
           console.log("🙅‍♀️ Error publishing scream:", error);
@@ -333,6 +336,19 @@ wss.on("connection", (ws, req) => {
 
         // TODO: Store client position on disconnect, based on their handle.
 
+        if (label === "show") {
+          // Store any existing show picture in clients list.
+          worldClients[piece][id].showing = msg.content;
+        }
+
+        if (label === "hide") {
+          // Store any existing show picture in clients list.
+          worldClients[piece][id].showing = null;
+        }
+
+        // Intercept chats and filter them.
+        if (label === "write") msg.content = filter(msg.content);
+
         if (label === "join") {
           // ^ Send existing list to everyone but this user.
           if (!worldClients[piece]) worldClients[piece] = {};
@@ -348,9 +364,6 @@ wss.on("connection", (ws, req) => {
         } else {
           console.log(`${label}:`, msg.content);
         }
-
-        // Intercept chats and filter them.
-        if (label === "write") msg.content = filter(msg.content);
 
         // All world: messages are only broadcast to "others".
         others(JSON.stringify(msg));

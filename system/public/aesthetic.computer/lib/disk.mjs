@@ -21,7 +21,12 @@ import * as help from "./help.mjs";
 import * as platform from "./platform.mjs";
 import { parse, metadata } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
-import { notArray, defaultTemplateStringProcessor } from "./helpers.mjs";
+import {
+  notArray,
+  defaultTemplateStringProcessor,
+  uint8ArrayToBase64,
+  base64ToUint8Array,
+} from "./helpers.mjs";
 const { abs, round, sin, random, max, floor } = Math;
 const { keys } = Object;
 import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
@@ -595,6 +600,7 @@ const $commonApi = {
   // Make it an `alias` to prevent a metadata change for writing landing or
   // router pieces such as `freaky-flowers` -> `wand`. 22.11.23.16.29
   // Jump delay...
+  dark: undefined, // If we are in dark mode.
   jump: function jump(to, ahistorical = false, alias = false) {
     // let url;
     if (leaving) {
@@ -1161,7 +1167,7 @@ const $commonApi = {
           paste(system.painting).paste(system.nopaint.buffer);
         } else {
           // If we are panned or the painting is a custom resolution.
-          
+
           wipe(darkModeWipeBG)
             .paste(system.painting, x, y, system.nopaint.zoomLevel)
             .paste(system.nopaint.buffer, x, y, system.nopaint.zoomLevel)
@@ -1428,6 +1434,16 @@ const $commonApi = {
     anyKey: help.anyKey,
     each: help.each,
     shuffleInPlace: help.shuffleInPlace,
+    serializePainting: (painting) => {
+      if (!painting) return;
+      const pixels = uint8ArrayToBase64(painting.pixels);
+      return { width: painting.width, height: painting.height, pixels };
+    },
+    deserializePainting: (painting) => {
+      if (!painting) return;
+      const pixels = base64ToUint8Array(painting.pixels);
+      return { width: painting.width, height: painting.height, pixels };
+    },
   },
   gizmo: { Hourglass: gizmo.Hourglass, EllipsisTicker: gizmo.EllipsisTicker },
   rec: new Recorder(),
@@ -1988,29 +2004,30 @@ const $paintApiUnwrapped = {
   // Similar to paste, but always draws from the center of x, y.
   // Has partial support for {center, bottom}. 24.02.15.12.19
   stamp: function stamp() {
-    if (typeof arguments[0] === "string") {
-      // Parse the parameters and lay out the stamp.
-      function makeLayout() {
-        if (typeof params[0] === "object") {
-          const layout = params[0];
-          if (layout.center === "x") {
-            params[0] = $activePaintApi.screen.width / 2;
-          } else {
-            params[0] = 0;
-          }
-          if (layout.bottom !== undefined) {
-            params[1] =
-              $activePaintApi.screen.height -
-              layout.bottom -
-              paintings[code].height / 2;
-          } else {
-            params[1] = 0;
-          }
+    let params;
+    // Parse the parameters and lay out the stamp.
+    function makeLayout() {
+      if (typeof params[0] === "object") {
+        const layout = params[0];
+        if (layout.center === "x") {
+          params[0] = $activePaintApi.screen.width / 2;
+        } else {
+          params[0] = 0;
+        }
+        if (layout.bottom !== undefined) {
+          params[1] =
+            $activePaintApi.screen.height -
+            layout.bottom -
+            paintings[code].height / 2;
+        } else {
+          params[1] = 0;
         }
       }
+    }
+    if (typeof arguments[0] === "string") {
       // Check to see if the bitmap has been cached by this piece already.
       const code = arguments[0];
-      const params = [...arguments].slice(1);
+      params = [...arguments].slice(1);
       if (paintings[code] && paintings[code] !== "fetching") {
         makeLayout();
         graph.stamp(paintings[code], ...params);
@@ -2018,8 +2035,10 @@ const $paintApiUnwrapped = {
         prefetchPainting(code);
       }
     } else {
+      params = [...arguments].slice(1);
+      if (params.length === 0) params = [0, 0];
       makeLayout();
-      graph.stamp(...params);
+      graph.stamp(arguments[0], ...params);
     }
   },
   pixel: graph.pixel,
@@ -3244,7 +3263,13 @@ async function load(
 
       boot = module.boot || nopaint_boot;
       sim = module.sim || defaults.sim;
-      paint = module.paint || (() => undefined);
+      paint = ($) => {
+        if (module.paint) {
+          const painted = module.paint($);
+          $.system.nopaint.needsPresent = true;
+          return painted;
+        }
+      };
       beat = module.beat || defaults.beat;
       brush = module.brush;
       act = ($) => {
@@ -3599,7 +3624,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // Update the logged in user after initialization.
   if (type === "session:update") {
-    console.log("🤩 Session being updated!", content);
+    // console.log("🤩 Session being updated!", content);
     USER = content.user;
     $commonApi.user = USER;
     await handle(); // Get the user's handle.
@@ -5137,11 +5162,14 @@ async function makeFrame({ data: { type, content } }) {
             const np = $api.system.nopaint;
             // No Paint: baking
 
-            if (brush && $api.pen?.drawing && currentHUDButton.down === false) {
+            if (
+              brush &&
+              $api.pen?.drawing /*&& currentHUDButton.down === false*/
+            ) {
               const brushApi = { ...$api };
               brushApi.pen = $api.system.nopaint.brush;
               $api.page($api.system.nopaint.buffer);
-              brush(brushApi);
+              if (currentHUDButton.down === false) brush(brushApi);
               $api.page(screen);
             }
 
@@ -5495,9 +5523,11 @@ async function handle() {
         }
       } else {
         console.warn(await response.text());
+        store["handle:failed"] = true;
       }
     } catch (error) {
       console.error(error);
+      store["handle:failed"] = true;
     }
   }
 }
