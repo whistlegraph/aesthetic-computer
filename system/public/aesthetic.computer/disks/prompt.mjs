@@ -1273,7 +1273,7 @@ function paint($) {
     // Paint current status color.
     // if (!$.system.prompt.input.canType) {
     starfield.paint($, {
-      alpha: 0.3,
+      alpha: $.dark ? 0.3 : 0.9,
       color: $.hud.currentStatusColor() || [255, 0, 200],
     });
 

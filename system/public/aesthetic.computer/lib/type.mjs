@@ -544,29 +544,35 @@ class TextInput {
 
     if (!this.enter.btn.disabled) {
       this.enter.reposition({ right: 6, bottom: 6, screen: frame });
+      $.layer(2);
       this.enter.paint($, btnScheme, btnHvrScheme);
+      $.layer(1);
     }
 
     // Copy Button
     if (!this.copy.btn.disabled) {
       this.copy.reposition({ left: 6, bottom: 6, screen: frame });
       this.copy.btn.publishToDom($, "copy", this.#coatedCopy);
+      $.layer(2);
       this.copy.paint(
         { ink: $.ink },
         this.#copyPasteScheme || btnScheme,
         btnHvrScheme,
       );
+      $.layer(1);
     }
 
     // Paste Button
     if (!this.paste.btn.disabled) {
       this.paste.reposition({ left: 6, bottom: 6, screen: frame });
       this.paste.btn.publishToDom($, "paste");
+      $.layer(2);
       this.paste.paint(
         { ink: $.ink },
         this.#copyPasteScheme || btnScheme,
         btnHvrScheme,
       );
+      $.layer(1);
     }
 
     // Return false if we have loaded every glyph.
