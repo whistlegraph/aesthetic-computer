@@ -470,7 +470,13 @@ class TextInput {
           $.screen.height,
         ); // Ruler
       }
-      $.ink(127).box(0, 0, frame.width, frame.height, "inline"); // Focus
+      $.ink($.dark ? 127 : "teal").box(
+        0,
+        0,
+        frame.width,
+        frame.height,
+        "inline",
+      ); // Focus
     }
 
     if (this.#lock) {
