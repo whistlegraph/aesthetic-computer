@@ -1110,13 +1110,11 @@ async function halt($, text) {
   } else if (text === "dark" || text === "light") {
     if (text === "light") {
       store.delete("dark-mode");
-      darkModeOn = false;
       darkMode(false);
       glaze({ on: false });
       flashColor = [255, 255, 255];
     } else {
       flashColor = [0, 0, 0];
-      darkModeOn = true;
       darkMode(true);
       glaze({ on: true });
     }
@@ -1270,8 +1268,6 @@ function paint($) {
     }
   }
 
-
-
   if (!login?.btn.disabled || (profile && !profile.btn.disabled)) {
     // Paint current status color.
     // if (!$.system.prompt.input.canType) {
@@ -1297,20 +1293,12 @@ function paint($) {
   //what we actually want for login and signup is pal.signup / pal.login
   //currently gives an error, I think because of paint (works fine with ink)
   if (!login?.btn.disabled) {
-    if (darkModeOn) {
-      login?.paint($, scheme.dark.login);
-    } else {
-      login?.paint($, scheme.light.login);
-    }
+    login?.paint($, $.dark ? scheme.dark.login : scheme.light.login);
   }
 
   if (!net.iframe) {
     if (!signup?.btn.disabled) {
-      if (darkModeOn) {
-        signup?.paint($, scheme.dark.signup);
-      } else {
-        signup?.paint($, scheme.light.signup);
-      }
+      signup?.paint($, $.dark ? scheme.dark.signup : scheme.light.signup);
     }
   }
   if (!profile?.btn.disabled) profile?.paint($);
@@ -1661,8 +1649,10 @@ export const scheme = {
     block: [56, 122, 223],
     highlight: [246, 253, 195],
     guideline: [255, 207, 105],
-    login: [255, [0, 0, 64], [0, 0, 64], 255],
-    signup: [255, [0, 64, 0], [0, 64, 0], 255],
+    // login: [255, [0, 0, 64], [0, 0, 64], 255],
+    login: [[0, 0, 128], 255, 255, [0, 0, 128]],
+    // signup: [255, [0, 64, 0], [0, 64, 0], 255],
+    signup: [[0, 128, 0], 255, 255, [0, 128, 0]],
     handleColor: [0, 0, 255, 128],
     auto: "red",
     statusColor: "darkgreen",
