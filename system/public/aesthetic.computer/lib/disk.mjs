@@ -267,22 +267,18 @@ let currentPath,
   currentHUDOffset;
 //currentPromptButton;
 
-
-//what we actually want is $.system.input.prompt.pal.statusColor
-//DMStatusColor is being set in darkMode function, not good for changing modes 
 function updateHUDStatus() {
   if (udp.connected && socket?.connected) {
-    currentHUDStatusColor = DMStatusColor;
-  } else if (currentHUDStatusColor === DMStatusColor) {
+    currentHUDStatusColor = "lime";
+  } else if (udp.connected || socket?.connected) {
+    currentHUDStatusColor = "orange";
+  } else {
     currentHUDStatusColor = "red";
   }
 }
 
-
 let loading = false;
 let reframe;
-
-let keyboardOpen = false; // A flag that gets flipped
 
 const sfxProgressReceivers = {};
 
@@ -339,9 +335,9 @@ const fairies = []; // Render cursor points of other active users,
 
 let glazeEnabled = false; // Keep track of whether glaze is on or off.
 
-let darkModeWipeNum = 32; 
+let darkModeWipeNum = 32;
 let darkModeWipeBG = 32;
-let DMStatusColor; 
+// let DMStatusColor;
 
 // *** Dark Mode ***
 //tarighian
@@ -357,13 +353,13 @@ function darkMode(enabled = !$commonApi.dark) {
     store.persist("dark-mode");
     $commonApi.dark = enabled;
     if (enabled === true) {
-      DMStatusColor = "lime";
+      // DMStatusColor = "lime";
       darkModeWipeBG = 32;
       darkModeWipeNum = 64;
       console.log("🌜 Dark mode: enabled");
     }
     if (enabled === false) {
-      DMStatusColor = "teal";
+      // DMStatusColor = "teal";
       darkModeWipeBG = 150;
       darkModeWipeNum = 200;
       console.log("🌞 Light mode: enabled");
@@ -4267,16 +4263,6 @@ async function makeFrame({ data: { type, content } }) {
 
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
-      if (data.name === "keyboard:open") {
-        keyboardOpen = true;
-        return;
-      }
-
-      if (data.name === "keyboard:close") {
-        keyboardOpen = false;
-        return;
-      }
-
       if (currentText && currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
       if (data.name.indexOf("keyboard:down") === 0) {
         // [Escape] (Deprecated on 23.05.22.19.33)
@@ -4325,9 +4311,6 @@ async function makeFrame({ data: { type, content } }) {
           system !== "prompt" &&
           system !== "world" &&
           currentText !== "sign" &&
-          // !keyboardOpen &&
-          // system === "world" &&
-          // data.key === "Enter" &&
           currentPath !== "aesthetic.computer/disks/prompt"
         ) {
           $commonApi.sound.synth({

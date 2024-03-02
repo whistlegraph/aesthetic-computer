@@ -40,17 +40,6 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
- *** light mode ***
-  - [🔴] Color change for the border when tapping from the login. 
-  - [] Color change for buttons in Light Mode. See `ui.mjs`.
-    - [] Login buttons. 
-    - [] Invert all black and white buttons via the `ui.mjs`. Button default
-         schemes. By setting and updating global in `disk.mjs` on the `ui` module that is red when buttons are painted.
-  - [] Starfield connection colors should be different in light mode.
-  - [] autocompletions no longer appear / are too light in light mode 
-  - [x] HANDLES SET warning should have different colors in light mode
-  - [x] Put glaze back on. 
-
 - Miles (Sunday)
   *** `crayon` ***
     - [] Fix the double buffer.
