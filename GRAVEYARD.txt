@@ -1,5 +1,17 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+ *** light mode ***
+  - [x] Starfield should paint behind the paste and enter buttons.
+  - [x] Starfield connection colors should be different in light mode.
+  - [x] autocompletions no longer appear / are too light in light mode 
+  - [x] Color change for buttons in Light Mode. See `ui.mjs`.
+    - [x] Login buttons. 
+    - [c] Invert all black and white buttons via the `ui.mjs`. Button default
+         schemes. By setting and updating global in `disk.mjs` on the `ui` module that is red when buttons are painted.
+  - [x] Color change for the border when tapping from the login. 
+  - [x] HANDLES SET warning should have different colors in light mode
+  - [x] Put glaze back on. 
+
 *** `blur` ***
   - [️x] Red crosshair drags when pressing corner label.
 
