@@ -528,11 +528,13 @@ class TextInput {
     if (!this.enter.btn.disabled) {
       // Outline the whole screen.
       if (this.#activatingPress) {
+
         const color = Array.isArray(pal.text)
           ? [...pal.text.slice(0, 3), 128]
           : [255, 0, 200, 64];
 
-        $.ink(color).box(0, 0, frame.width, frame.height, "in");
+        // Highlight outline.
+        $.ink(color).box(0, 0, frame.width, frame.height, "inline");
       }
     }
 

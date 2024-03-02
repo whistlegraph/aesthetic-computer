@@ -166,6 +166,7 @@ async function boot({
     signup = new ui.TextButton("I'm new", { center: "xy", screen });
     positionWelcomeButtons(screen, net.iframe);
   }
+
   if (user) {
     const hand = handle();
     let label = hand,
@@ -1351,6 +1352,8 @@ function sim($) {
       center: "xy",
       screen: $.screen,
     });
+    if (login) login.btn.disabled = true;
+    if (signup) signup.btn.disabled = true;
     // if (firstCommandSent === true) profile.btn.disabled = true;
     delete $.store["handle:received"];
     $.needsPaint();
