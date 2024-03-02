@@ -1644,6 +1644,7 @@ export const scheme = {
     handleColor: [255, 0, 255, 128],
     auto: "white",
     statusColor: "lime",
+    focusOutline: "brown"
   },
   light: {
     text: [255, 90, 90],
@@ -1659,6 +1660,7 @@ export const scheme = {
     handleColor: [0, 0, 255, 128],
     auto: "red",
     statusColor: "darkgreen",
+    focusOutline: "aqua"
   },
 };
 
