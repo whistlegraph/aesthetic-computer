@@ -440,7 +440,11 @@ function world_sim({ api, piece, geo, simCount, screen, num }) {
   );
 }
 
+
+// Leaving the world... and logging / saving the position of the user as a ghost.
 function world_leave({ store, piece }) {
+  console.log("🗺️ Leaving world, storing position.")
+  server.send(`world:${piece}:persist`, me);
   store[`world:${piece}:pos`] = me.pos; // Persist current position.
   store.persist(`world:${piece}:pos`);
 }

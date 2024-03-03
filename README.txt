@@ -40,39 +40,24 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-- Miles (Sunday)
-  *** `crayon` ***
-    - [] Fix the double buffer.
-    - [] Colors drift too much.
-    - [] A little splotchy, marks should feel uniform.
-    - [] Interpolate gesture using a Catmull-Rom spline or based on speed / physics using a leash.
-  *** .pjs compiler ***
-    - [] Break the below down into steps and get it compiling on each load.
-      - [] Add syntax support to the vscode extension for the .pjs files / metaprocessor.
-      - [] Write the metaprocessor in that slurps the .pjs to OpenAI
-          at runtime.
-      // 🔥 
-      // TODO: Write `prompted` javascript that will compile and run against any
-      //       LLM version 24.02.22.19.38
-      // Call it `.pjs` ?
-      // piece, processing, prompted
+- Jeffrey (Sat)
 
-      //if (!net.iframe && params[0]^does not start with^) {
-      //  return;
-      //}
-  *** load performance ***
-    - [x] Spend a half day just on getting the site to load faster.
-
-*** making things alive ***
-  - [-] Pasting graphics in `field` is important.
-  - [] Add `show` and `hide` for temporary show and tell.
-  - [] Add `paste` for permanent bitmap pasting, maybe in
-       a piece called `graf` that can be linked to from `field`?
+*** song demo idea from rip it up party ***
+ - [] Add a forward and backward button to song.
+ - [] Add different wavetypes to song. (Wavetype per note). 
+ - [] Add more melodies to song.
+ - [] Release a track with song that kind of works like a sampler.
+  - [] With a title screen that has [ Play -> `x` | Record -> `tape x` ]
 
 *** `world` <-> `painting` <-> piece integrations ***
-  - [🧡] User world persistence with floating command notifications.
+  - [] User world persistence with floating command notifications.
+    - [🟠] User world persistence.
+      - [] Keep a ghost / location of the user once they leave field or whatever world position.
+      - [] This should require a handle.
+    - [] Floating command notifications.
+
   - [] Be able to easily complete a painting and then include it in a piece
-      in a single line...
+       in a single line...
   - [] Add the ability to name a painting so it can more
         easily be referenced, like for example in a `stamp @jeffrey/flower` tool.
         Or especially like old CS 1.5 sprays.
@@ -93,6 +78,37 @@
   - [x] Share current painting in `world` using a `show` command.
     - [x] Also add `hide` command.
   - [x] Add connection flash to world.
+
+  *** .pjs compiler ***
+    - [🟠] Write the metaprocessor in that slurps the .pjs to OpenAI
+        at runtime.
+    - [x] Break the below down into steps and get it compiling on each load.
+      - [x] Add syntax support to the vscode extension for the .pjs files / metaprocessor.
+      // 🔥 
+      // TODO: Write `prompted` javascript that will compile and run against any
+      //       LLM version 24.02.22.19.38
+      // Call it `.pjs` ?
+      // piece, processing, prompted
+
+      //if (!net.iframe && params[0]^does not start with^) {
+      //  return;
+      //}
+
+- Miles (Sunday)
+  *** `crayon` ***
+    - [] Fix the double buffer paint after each gesture.
+    - [] Colors drift too much from their original value permanently after
+         making a gesture.
+    - [] A little splotchy, marks should feel uniform.
+    - [] Interpolate gesture using a Catmull-Rom spline or based on speed / physics using a leash.
+  *** load performance ***
+    - [x] Spend a half day just on getting the site to load faster.
+
+*** making things alive ***
+  - [-] Pasting graphics in `field` is important.
+  - [] Add `show` and `hide` for temporary show and tell.
+  - [] Add `paste` for permanent bitmap pasting, maybe in
+       a piece called `graf` that can be linked to from `field`?
 
 *** making the aliveness visible ***
   - [] Build a simple version of `log` now that we have list.

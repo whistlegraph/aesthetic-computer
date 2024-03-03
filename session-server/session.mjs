@@ -365,6 +365,10 @@ wss.on("connection", (ws, req) => {
           console.log(`${label}:`, msg.content);
         }
 
+        if (label === "persist") {
+          console.log("🧮 Persisting this client...", msg.content);
+        }
+
         // All world: messages are only broadcast to "others".
         others(JSON.stringify(msg));
         return;
