@@ -42,13 +42,6 @@
 
 - Jeffrey (Sat)
 
-*** song demo idea from rip it up party ***
- - [] Add a forward and backward button to song.
- - [] Add different wavetypes to song. (Wavetype per note). 
- - [] Add more melodies to song.
- - [] Release a track with song that kind of works like a sampler.
-  - [] With a title screen that has [ Play -> `x` | Record -> `tape x` ]
-
 *** `world` <-> `painting` <-> piece integrations ***
   - [] User world persistence with floating command notifications.
     - [🟠] User world persistence.
@@ -93,6 +86,16 @@
       //if (!net.iframe && params[0]^does not start with^) {
       //  return;
       //}
+
+*** fix auth0 logo route ***
+  - [] There is an ssl error on: https://logo.aesthetic.computer.nyc3.cdn.digitaloceanspaces.com/painting-2023.8.21.10.25.png 
+
+*** song demo idea from rip it up party ***
+ - [] Add a forward and backward button to song.
+ - [] Add different wavetypes to song. (Wavetype per note). 
+ - [] Add more melodies to song.
+ - [] Release a track with song that kind of works like a sampler.
+  - [] With a title screen that has [ Play -> `x` | Record -> `tape x` ]
 
 - Miles (Sunday)
   *** `crayon` ***
