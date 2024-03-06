@@ -441,11 +441,13 @@ function world_sim({ api, piece, geo, simCount, screen, num }) {
 }
 
 // Leaving the world... and logging / saving the position of the user as a ghost.
-function world_leave({ store, piece }) {
+function world_leave({ system, store, piece }) {
   console.log("🗺️ Leaving world, storing position.");
   server.send(`world:${piece}:persist`, { handle: me.handle, pos: me.pos });
   store[`world:${piece}:pos`] = me.pos; // Persist current position.
   store.persist(`world:${piece}:pos`);
+  delete system.world.size; // Clear the system world data set in `boot`.
+  delete system.world.me;
 }
 
 // Determines whether the world covers the whole screen or not.
