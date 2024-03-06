@@ -38,7 +38,7 @@ const diskSends = [];
 let diskSendsConsumed = false;
 
 window.acDISK_SEND = function (message) {
-  !diskSendsConsumed ? diskSends.push(message) : send(message);
+  !diskSendsConsumed ? diskSends.push(message) : window.acSEND(message);
 };
 
 function consumeDiskSends(send) {
@@ -169,18 +169,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   const REFRAME_DELAY = 250;
   let curReframeDelay = REFRAME_DELAY;
-  let lastGap = 0;
+  let lastGap = undefined;
   let density = 2; // added to window.devicePixelRatio
 
   const startGap =
     location.host.indexOf("botce") > -1 || AestheticExtension ? 0 : 8;
 
   // Runs one on boot & every time display resizes to adjust the framebuffer.
-  function frame(width, height, gap = startGap) {
+  function frame(width, height, gap) {
     gap === 0
       ? document.body.classList.add("nogap")
       : document.body.classList.remove("nogap");
 
+    if (gap === undefined) gap = lastGap ?? startGap;
     lastGap = gap;
 
     // Cache the current canvas if needed.
