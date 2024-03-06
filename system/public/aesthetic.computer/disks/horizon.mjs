@@ -51,7 +51,7 @@ function act() {}
 
 // 🧮 Sim
 function sim({ system: { world } }) {
-  if (world.me.moved && world.me.pos.x === 0)
+  if (world.me && world.size && world.me.moved && world.me.pos.x === 0)
     world.teleport("field", { x: 512, y: 256 });
 }
 

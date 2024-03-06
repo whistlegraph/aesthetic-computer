@@ -53,6 +53,8 @@ import { createClient } from "redis";
 const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
 const dev = process.env.NODE_ENV === "development";
 
+const { keys } = Object;
+
 let fastify;
 
 if (dev) {
@@ -146,7 +148,7 @@ fastify.post("/update", (request, reply) => {
     return;
   }
 
-  console.log("Path:", process.env.PATH);
+  // console.log("Path:", process.env.PATH);
 
   // Restart service in production.
   exec(
@@ -250,7 +252,13 @@ wss.on("connection", (ws, req) => {
   const id = connectionId;
   let codeChannel; // Used to subscribe to incoming piece code.
 
-  console.log("🧏 Someone joined:", `${id}:${ip}`, wss.clients.size, "🫂");
+  console.log(
+    "🧏 Someone joined:",
+    `${id}:${ip}`,
+    "Online:",
+    wss.clients.size,
+    "🫂",
+  );
 
   const content = { id, playerCount: wss.clients.size };
 
@@ -350,15 +358,34 @@ wss.on("connection", (ws, req) => {
         if (label === "write") msg.content = filter(msg.content);
 
         if (label === "join") {
-          // ^ Send existing list to everyone but this user.
           if (!worldClients[piece]) worldClients[piece] = {};
           ws.send(pack(`world:${piece}:list`, worldClients[piece], id));
-          worldClients[piece][id] = { ...msg.content }; // Add user client list.
-          console.log("Clients in piece:", piece, worldClients[piece]);
+          // ^ Send existing list to everyone but this user.
+
+          // let pickedUpConnection = false;
+          // TODO: Check to see if the client handle matches.
+          keys(worldClients[piece]).forEach((clientID) => {
+            const client = worldClients[piece][clientID];
+            if (
+              client["handle"].startsWith("@") &&
+              client["handle"] === msg.content.handle
+            ) {
+              console.log("Handle match found!", msg.content.handle);
+              // pickedUpConnection = true;
+              delete worldClients[piece][clientID];
+            }
+          });
+
+          /*if (!pickedUpConnection)*/ worldClients[piece][id] = {
+            ...msg.content,
+          };
+          // ^ Add to clients list.
+
+          console.log("🧩 Clients in piece:", piece, worldClients[piece]);
           others(JSON.stringify(msg)); // Alert everyone else about the join.
           return;
         } else if (label === "move") {
-          console.log("🚶‍♂️", piece, msg.content);
+          // console.log("🚶‍♂️", piece, msg.content);
           if (typeof worldClients?.[piece]?.[id] === "object")
             worldClients[piece][id].pos = msg.content.pos;
         } else {
@@ -382,13 +409,39 @@ wss.on("connection", (ws, req) => {
   ws.on("close", () => {
     console.log("🚪 Someone left:", id, "Online:", wss.clients.size, "🫂");
 
-    Object.keys(worldClients).forEach((piece) => {
-      delete worldClients[piece][id];
-      if (Object.keys(worldClients[piece]).length === 0)
-        delete worldClients[piece];
+    // Delete the user from the worldClients pieces index.
+    // keys(worldClients).forEach((piece) => {
+    //   delete worldClients[piece][id];
+    //   if (keys(worldClients[piece]).length === 0)
+    //     delete worldClients[piece];
+    // });
+
+    // Send a message to everyone else on the server that this client left.
+
+    let ghosted = false;
+
+    // Turn this client into a ghost.
+    keys(worldClients).forEach((piece) => {
+      if (worldClients[piece][id]) {
+        if (worldClients[piece][id].handle.startsWith("@")) {
+          console.log("👻 Ghosted:", worldClients[piece][id].handle);
+          worldClients[piece][id].ghost = true;
+          ghosted = true;
+          // Send a message to everyone on the server that this client is a ghost.
+          everyone(pack(`world:${piece}:ghost`, { id }));
+        } else {
+          // Delete the user from the worldClients pieces index.
+          delete worldClients[piece][id];
+          if (keys(worldClients[piece]).length === 0)
+            delete worldClients[piece];
+        }
+      }
     });
 
-    everyone(pack("left", { id, count: wss.clients.size }));
+    // Send a message to everyone else on the server that this client left.
+    if (!ghosted) everyone(pack("left", { id, count: wss.clients.size }));
+
+    // Delete from the connection index.
     delete connections[id];
 
     // Clear out the codeChannel if the last user disconnects from it.

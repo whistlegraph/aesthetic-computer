@@ -80,7 +80,12 @@ function act() {}
 
 // 🧮 Sim
 function sim({ system: { world } }) {
-  if (world.me.moved && world.me.pos.x === world.size.width)
+  if (
+    world.me &&
+    world.size &&
+    world.me.moved &&
+    world.me.pos.x === world.size.width
+  )
     world.teleport("horizon", { x: 0, y: 10 });
 }
 

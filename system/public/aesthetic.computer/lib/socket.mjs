@@ -158,7 +158,7 @@ export class Socket {
       receive?.(content.id, type, content);
     } else {
       try {
-        receive?.(id, type, content); // Finally send the message to the client.
+        receive?.(id || content.id, type, content); // Finally send the message to the client.
       } catch (err) {
         console.error("🧦 Socket message error:", err);
       }
