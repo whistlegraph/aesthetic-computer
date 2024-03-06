@@ -42,6 +42,19 @@
 
 - Jeffrey (Sat)
 
+*** split ***
+  - [] finish basic split to test world persistence.
+
+*** yuehao demo ***
+  - [] Scream notification after sign up didn't work?
+  - [] Don't overload `share` anymore / it's different from download.
+
+*** Meeting with Petra ***
+  - [] Add support for CMYK, with a special prefix?
+  + Done
+  - [x] Allow hashtag in first color parameter. 
+  - [x] Downcase hex colors.
+
 *** `world` <-> `painting` <-> piece integrations ***
   - [] User world persistence with floating command notifications.
     - [🟠] User world persistence.

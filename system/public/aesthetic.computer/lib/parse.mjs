@@ -47,8 +47,8 @@ function parse(text, location = self?.location) {
   text = text.replace(/ /g, "~"); // Replace all spaces with "~".
   text = decodeURIComponent(text); // Decode any URL encoded characters.
 
-  // 0. Pull off any "hash" from text.
-  [text, hash] = text.split("#");
+  // 0. Pull off any "hash" from text, filtering the edge case for #hex colors.
+  [text, hash] = text.replaceAll("~#", "~0x").split("#");
 
   // 1. Pull off any "search" from `text`, ignoring any question mark
   //    characters that were part of the piece slug.

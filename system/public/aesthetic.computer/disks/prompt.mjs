@@ -1112,12 +1112,10 @@ async function halt($, text) {
     if (text === "light") {
       store.delete("dark-mode");
       darkMode(false);
-      glaze({ on: false });
       flashColor = [255, 255, 255];
     } else {
       flashColor = [0, 0, 0];
       darkMode(true);
-      glaze({ on: true });
     }
     makeFlash($);
     return true;
@@ -1360,7 +1358,7 @@ function sim($) {
   }
 
   if ($.store["handle:failed"]) {
-    profile.btn.disabled = false;
+    profile.btn.disabled = true;
     delete $.store["handle:failed"];
     $.needsPaint();
   }
@@ -1384,9 +1382,14 @@ function act({
   // user,
   send,
   handle,
+  glaze,
   canShare,
   // platform
 }) {
+  // Light and dark mode glaze shift.
+  if (e.is("dark-mode")) glaze({ on: true });
+  if (e.is("light-mode")) glaze({ on: false });
+
   // 👱 Handle Callback
   if (e.is("handle:request:completed")) {
     console.log("Handle request completed:", profile);
@@ -1644,7 +1647,7 @@ export const scheme = {
     handleColor: [255, 0, 255, 128],
     auto: "white",
     statusColor: "lime",
-    focusOutline: "brown"
+    focusOutline: "brown",
   },
   light: {
     text: [255, 90, 90],
@@ -1660,7 +1663,7 @@ export const scheme = {
     handleColor: [0, 0, 255, 128],
     auto: "red",
     statusColor: "darkgreen",
-    focusOutline: "aqua"
+    focusOutline: "aqua",
   },
 };
 

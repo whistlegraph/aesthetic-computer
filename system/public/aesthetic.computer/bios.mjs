@@ -35,12 +35,17 @@ const { assign, keys } = Object;
 const { round, floor, min, max } = Math;
 
 const diskSends = [];
+let diskSendsConsumed = false;
+
 window.acDISK_SEND = function (message) {
-  diskSends.push(message);
+  !diskSendsConsumed ? diskSends.push(message) : send(message);
 };
+
 function consumeDiskSends(send) {
+  if (diskSendsConsumed) return;
   diskSends.forEach((message) => send(message));
   diskSends.length = 0;
+  diskSendsConsumed = true;
 }
 
 // 💾 Boot the system and load a disk.
@@ -2203,28 +2208,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // See also: https://flaviocopes.com/javascript-detect-dark-mode,
       //           https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme
 
-      if (
-        window.matchMedia &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches
-      ) {
-        // console.log("User is currently in dark mode");
-        send({ type: "dark-mode", content: { enabled: true } });
-      } else {
-        // console.log("User is currently in light mode");
-        send({ type: "dark-mode", content: { enabled: false } });
-      }
+      if (window.matchMedia) {
+        if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+          send({ type: "dark-mode", content: { enabled: true } });
+        } else {
+          send({ type: "dark-mode", content: { enabled: false } });
+        }
 
-      window
-        .matchMedia("(prefers-color-scheme: dark)")
-        .addEventListener("change", (event) => {
-          if (event.matches) {
-            console.log("User switched to dark mode");
-            send({ type: "dark-mode", content: { enabled: true } });
-          } else {
-            console.log("User switched to light mode");
-            send({ type: "dark-mode", content: { enabled: false } });
-          }
-        });
+        window
+          .matchMedia("(prefers-color-scheme: dark)")
+          .addEventListener("change", (event) => {
+            if (event.matches) {
+              send({ type: "dark-mode", content: { enabled: true } });
+            } else {
+              send({ type: "dark-mode", content: { enabled: false } });
+            }
+          });
+      }
 
       // 📋 User pasting of content.
       //window.addEventListener("paste", (event) => {
@@ -2232,7 +2232,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //});
 
       // 🖥️ Display (Load the display, with 0 margin if sandboxed)
-      frame(resolution?.width, resolution?.height, sandboxed ? 0 : undefined);
+      frame(
+        resolution?.width,
+        resolution?.height,
+        resolution?.gap ?? (sandboxed ? 0 : undefined),
+      );
 
       // 🔊 Sound
       // TODO: Disable sound engine entirely... unless it is enabled by a disk. 2022.04.07.03.33
