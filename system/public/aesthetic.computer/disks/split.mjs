@@ -30,21 +30,25 @@ function boot({ params, dom: { html } }) {
         border: none;
         background: black;
       }
+      #split-top {
+
+      }
     </style>
-    <iframe src="/${params[0] || ''}?nogap"></iframe>
+    <iframe id="split-top" src="/${params[0] || ''}?nogap"></iframe>
     <iframe src="/${params[0] || params[1] || ''}?nogap"></iframe>
   `;
 }
 
 // 🎨 Paint
-function paint({ wipe }) {
-  // wipe("gray");
+function paint({ wipe, dark }) {
+  wipe(dark ? "purple" : "yellow");
   return false;
 }
 
 // 🎪 Act
-// function act({ event: e }) {
-//  // Respond to user input here.
-// }
+function act({ event: e, needsPaint }) {
+ // Respond to user input here.
+ if (e.is("dark-mode") || e.is("light-mode")) needsPaint();
+}
 
-export { boot, paint };
+export { boot, paint, act };
