@@ -42,6 +42,9 @@
 
 - Jeffrey (Sat)
 
+*** text centering issue ***
+  - [🍊] seems to happen only after entering `field`? and also baktok is affected.
+
 *** split ***
   - [] finish basic split to test world persistence.
 
