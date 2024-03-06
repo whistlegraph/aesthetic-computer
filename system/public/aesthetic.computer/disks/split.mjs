@@ -12,7 +12,6 @@
 // export const nohud = true;
 
 function boot({ params, dom: { html }, resolution, screen }) {
-  resolution(screen.width, screen.height, 0);
   html`
     <style>
       #content {
@@ -29,8 +28,8 @@ function boot({ params, dom: { html }, resolution, screen }) {
         background: black;
       }
     </style>
-    <iframe src="/${params[0] || ''}"></iframe>
-    <iframe src="/${params[0] || params[1] || ''}"></iframe>
+    <iframe src="/${params[0] || ''}?nogap"></iframe>
+    <iframe src="/${params[0] || params[1] || ''}?nogap"></iframe>
   `;
 }
 
