@@ -42,23 +42,8 @@
 
 - Jeffrey (Sat)
 
-*** text centering issue ***
-  - [🍊] seems to happen only after entering `field`? and also baktok is affected.
-
 *** split ***
-  - [] finish basic split to test world persistence.
-
-*** note ***
-  - [] add note and notes and 'noted' notification
-
-*** yuehao demo ***
-  - [] Scream notification after sign up didn't work...
-
-*** Meeting with Petra ***
-  - [] Add support for CMYK, with a special prefix?
-  + Done
-  - [x] Allow hashtag in first color parameter. 
-  - [x] Downcase hex colors.
+  - [🧡] finish basic split to test world persistence.
 
 *** `world` <-> `painting` <-> piece integrations ***
   - [] User world persistence with floating command notifications.
@@ -105,8 +90,17 @@
       //  return;
       //}
 
-*** fix auth0 logo route ***
-  - [] There is an ssl error on: https://logo.aesthetic.computer.nyc3.cdn.digitaloceanspaces.com/painting-2023.8.21.10.25.png 
+*** note ***
+  - [] add note and notes and 'noted' notification
+
+*** yuehao demo ***
+  - [] Scream notification after sign up didn't work...
+
+*** Meeting with Petra ***
+  - [] Add support for CMYK, with a special prefix?
+  + Done
+  - [x] Allow hashtag in first color parameter. 
+  - [x] Downcase hex colors.
 
 *** song demo idea from rip it up party ***
  - [] Add a forward and backward button to song.

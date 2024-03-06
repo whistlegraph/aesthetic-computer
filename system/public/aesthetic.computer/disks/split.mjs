@@ -5,6 +5,7 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] Fix white style flash.
   - [] Add an extra line / separator between the frames.
   - [] Add parameter support.
   + Done

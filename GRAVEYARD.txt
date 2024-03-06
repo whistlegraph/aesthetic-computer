@@ -1,5 +1,11 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** fix auth0 logo route ***
+  - [x] There is an ssl error on: https://logo.aesthetic.computer.nyc3.cdn.digitaloceanspaces.com/painting-2023.8.21.10.25.png 
+
+*** text centering issue ***
+  - [x] seems to happen only after entering `field`? and also baktok is affected.
+
 *** dark mode updates ***
   - [x] and switches every refresh...
   - [x] Switching between dark and light mode in the system settings

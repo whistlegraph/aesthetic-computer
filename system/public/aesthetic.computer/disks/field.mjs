@@ -9,8 +9,6 @@
   - [] Store something persistent on the server.
 #endregion */
 
-import { paint as dragon } from "https://aesthetic.computer/media/@dreamdealer/piece/dragon.mjs";
-
 const scenery = {
   grasses: [
     { x: 190, y: 170 },
@@ -21,8 +19,16 @@ const scenery = {
   ],
 };
 
+let dragon;
+
 // 🥾 Boot
-async function boot() {}
+async function boot() {
+  try {
+    dragon = await import(`/media/@dreamdealer/piece/dragon.mjs`);
+  } catch (err) {
+    console.warn("Could not load dragon.");
+  }
+}
 
 // 🏔️ Background
 function background({ wipe }) {
@@ -47,21 +53,21 @@ function paint($, world) {
       .line(grass.x, grass.y, grass.x + 5, grass.y - 6);
   });
 
-  savepan();
-  pan(-40, -40);
-  pan(256, 256);
-  pan(-40, 20);
+  // @dreamdealer/dragon 🐲
+  if (dragon) {
+    savepan();
+    pan(-40, -40);
+    pan(256, 256);
+    pan(-40, 20);
 
-  ink("green").write("@dreamdealer/dragon", {x: -16, y: -12});
-
-  // Filtered api based on `@dreamdealer/dragon` code.
-  const f$ = { ...$ };
-  f$.screen = { ...$.screen };
-  f$.screen.width = 80;
-  f$.screen.height = 80;
-  dragon(f$);
-
-  loadpan();
+    ink("green").write("@dreamdealer/dragon", { x: -16, y: -12 });
+    const f$ = { ...$ };
+    f$.screen = { ...$.screen };
+    f$.screen.width = 80;
+    f$.screen.height = 80;
+    dragon?.paint(f$);
+    loadpan();
+  }
 }
 
 // 🚿 Curtain
