@@ -183,6 +183,12 @@ async function world_boot(
       return;
     }
 
+    if (type === `world:${piece}:ghost`) {
+      console.log("👻 GHOSTED:", id, type, content);
+      if (kids[id]) kids[id].ghost = true;
+      return;
+    }
+
     // TODO: How can this be oriented around storing a server list.
     if (type === `world:${piece}:list`) {
       console.log(`🗞️ Listing all ${piece} clients...`, content);
@@ -254,7 +260,7 @@ async function world_boot(
     }
 
     if (type === `world:${piece}:move`) {
-      console.log(type, id, content);
+      // console.log(type, id, content);
       const kid = kids[id];
       if (kid) kid.netPos = content.pos;
       return;
@@ -483,6 +489,7 @@ class Kid {
   #keys = { U: false, D: false, L: false, R: false };
   message;
   showing; // Contains a buffer to be showing.
+  ghost = false;
   #messageDuration;
   #messageProgress = 0;
 
@@ -515,7 +522,7 @@ class Kid {
   }
 
   // Render the kid.
-  paint({ ink, pan, text, typeface, stamp }) {
+  paint({ ink, line, point, pan, text, typeface, stamp }) {
     const leash = this.leash;
     pan(this.pos.x, this.pos.y);
 
@@ -525,9 +532,14 @@ class Kid {
       ink(this.color).circle(0, 0, this.size); // Head
 
       // Face
+
       // Eyes
-      ink(this.color).point(-6, -6);
-      ink(this.color).point(6, -6);
+      if (this.ghost) {
+        line(-6, -6, -10, -6).line(6, -6, 10, -6);
+      } else {
+        point(-6, -6).point(6, -6);
+      }
+
       // Mouth
       if (this.face === "smile") {
         ink(this.color).line(0, 6, -6, 3);

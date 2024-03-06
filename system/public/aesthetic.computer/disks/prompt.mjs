@@ -138,7 +138,7 @@ async function boot({
   });
 
   server = socket((id, type, content) => {
-    console.log("🧦 Got message:", id, type, content);
+    // console.log("🧦 Got message:", id, type, content);
   });
 
   // Fetch handle count.

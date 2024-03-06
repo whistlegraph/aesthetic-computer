@@ -5,7 +5,7 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Fix white style flash.
+  - [-] Fix white style flash.
   - [] Add an extra line / separator between the frames.
   - [] Add parameter support.
   + Done
@@ -29,10 +29,10 @@ function boot({ params, dom: { html } }) {
         width: 100%;
         height: 50%;
         border: none;
-        background: black;
       }
       #split-top {
-
+        border: none;
+        border-bottom: 6px solid rgb(64, 64, 96);
       }
     </style>
     <iframe id="split-top" src="/${params[0] || ''}?nogap"></iframe>
@@ -42,7 +42,7 @@ function boot({ params, dom: { html } }) {
 
 // 🎨 Paint
 function paint({ wipe, dark }) {
-  wipe(dark ? "purple" : "yellow");
+  wipe(96);
   return false;
 }
 
