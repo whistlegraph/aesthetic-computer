@@ -5,19 +5,22 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [-] Make it so that `split` has an escape of some kind?
-  - [] Take care of `gap` spacing.
+  - [] Add an extra line / separator between the frames.
+  - [] Add parameter support.
+  + Done
+  - [x] Make it so that `split` has an escape of some kind?
+  - [x] Take care of `gap` spacing.
 #endregion */
 
 // export const nohud = true;
 
-function boot({ params, dom: { html }, resolution, screen }) {
+function boot({ params, dom: { html } }) {
   html`
     <style>
       #content {
         display; flex;
         flex-direction: column;
-        padding-top: 2.75em;
+        padding-top: 3em;
         box-sizing: border-box;
       }
       iframe {
@@ -35,7 +38,7 @@ function boot({ params, dom: { html }, resolution, screen }) {
 
 // 🎨 Paint
 function paint({ wipe }) {
-  wipe("gray");
+  // wipe("gray");
   return false;
 }
 
