@@ -49,7 +49,9 @@
   - [] User world persistence with floating command notifications.
     - [🟠] User world persistence.
       - [] Keep a ghost / location of the user once they leave field or whatever world position.
-      - [] This should require a handle.
+      - [] This should require a handle, to reassociate the user?
+      - [] Joining field and being on the same handle would enter a spectate / take control
+           sort of situation.
     - [] Floating command notifications.
 
   - [] Be able to easily complete a painting and then include it in a piece
