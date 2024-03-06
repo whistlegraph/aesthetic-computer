@@ -188,7 +188,10 @@ function findColor() {
       return findColor(...args[0]);
     } else if (isString()) {
       // See if it's a hex.
-      const cleanedHex = args[0].replace("#", "").replace("0x", "");
+      const cleanedHex = args[0]
+        .replace("#", "")
+        .replace("0x", "")
+        .toUpperCase();
       if (isHexString(cleanedHex) === true) {
         args = hexToRgb(cleanedHex);
       } else if (args[0] === "erase") {

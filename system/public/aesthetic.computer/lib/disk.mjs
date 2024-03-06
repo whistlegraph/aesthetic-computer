@@ -342,10 +342,11 @@ let darkModeWipeBG = 32;
 // *** Dark Mode ***
 //tarighian
 // Pass `true` or `false` to override or `default` to the system setting.
-function darkMode(enabled = !$commonApi.dark) {
+function darkMode(enabled) {
   if (enabled === "default") {
-    darkMode(!$commonApi.dark);
+    darkMode($commonApi.dark || false);
     store.delete("dark-mode");
+    actAlerts.push($commonApi.dark ? "dark-mode" : "light-mode");
     return $commonApi.dark;
   } else {
     // true or false
@@ -356,14 +357,15 @@ function darkMode(enabled = !$commonApi.dark) {
       // DMStatusColor = "lime";
       darkModeWipeBG = 32;
       darkModeWipeNum = 64;
-      console.log("🌜 Dark mode: enabled");
+      console.log("🌜 Dark Mode");
     }
     if (enabled === false) {
       // DMStatusColor = "teal";
       darkModeWipeBG = 150;
       darkModeWipeNum = 200;
-      console.log("🌞 Light mode: enabled");
+      console.log("🌞 Light Mode");
     }
+    actAlerts.push($commonApi.dark ? "dark-mode" : "light-mode");
     return enabled;
   }
 }
@@ -597,6 +599,12 @@ const $commonApi = {
   // router pieces such as `freaky-flowers` -> `wand`. 22.11.23.16.29
   // Jump delay...
   dark: undefined, // If we are in dark mode.
+  glaze: function (content) {
+    if (glazeEnabled === content.on) return; // Prevent glaze from being fired twice...
+    glazeEnabled = content.on;
+    glazeAfterReframe = { type: "glaze", content };
+  },
+
   jump: function jump(to, ahistorical = false, alias = false) {
     // let url;
     if (leaving) {
@@ -3867,12 +3875,7 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "dark-mode") {
-    const current = await store.retrieve("dark-mode");
-    if (current !== null && current !== undefined) {
-      darkMode("default");
-    } else {
-      darkMode(content.enabled);
-    }
+    darkMode(content.enabled);
     return;
   }
 
@@ -4917,12 +4920,6 @@ async function makeFrame({ data: { type, content } }) {
       $api.paintCount = Number(paintCount);
 
       $api.inFocus = content.inFocus;
-
-      $api.glaze = function (content) {
-        if (glazeEnabled === content.on) return; // Prevent glaze from being fired twice...
-        glazeEnabled = content.on;
-        glazeAfterReframe = { type: "glaze", content };
-      };
 
       // Make a screen buffer or resize it automatically if it doesn't exist.
 

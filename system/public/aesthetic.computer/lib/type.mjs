@@ -528,7 +528,6 @@ class TextInput {
     if (!this.enter.btn.disabled) {
       // Outline the whole screen.
       if (this.#activatingPress) {
-        console.log("Focus outline:", pal.focusOutline);
         const color =
           pal.focusOutline ||
           (Array.isArray(pal.text)

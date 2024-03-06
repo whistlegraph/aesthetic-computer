@@ -1,5 +1,10 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** dark mode updates ***
+  - [x] and switches every refresh...
+  - [x] Switching between dark and light mode in the system settings
+       always switches the mode no matter what, even if they are out of sync.
+
  *** light mode ***
   - [x] Starfield should paint behind the paste and enter buttons.
   - [x] Starfield connection colors should be different in light mode.

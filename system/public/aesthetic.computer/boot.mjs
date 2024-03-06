@@ -46,7 +46,7 @@ if (location.hostname === "m2w2.whistlegraph.com")
 if (location.hostname === "botce.ac") window.acSTARTING_PIECE = "botce";
 
 if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";
-const parsed = parse(slug(window.location.href) || window.acSTARTING_PIECE);
+const parsed = parse(slug(location.href) || window.acSTARTING_PIECE);
 const bpm = 120; // Set the starting bpm. Is this still necessary?
 // Wait for fonts to load before booting.
 // if ("fonts" in document) {
@@ -54,13 +54,15 @@ const bpm = 120; // Set the starting bpm. Is this still necessary?
 //  await document.fonts.load("1em YWFTProcessing-Regular");
 //  await document.fonts.load("1em Berkeley Mono Variable");
 // }
-boot(parsed, bpm, undefined, debug);
+
+const nogap = location.search.startsWith("?nogap");
+boot(parsed, bpm, { gap: nogap ? 0 : undefined }, debug);
 
 let sandboxed = window.origin === "null";
 
 const previewOrIcon =
-  window.location.search.startsWith("icon=") ||
-  window.location.search.startsWith("preview=");
+  location.search.startsWith("?icon=") ||
+  location.search.startsWith("?preview=");
 
 // #region 🔐 Auth0: Universal Login & Authentication
 function loadAuth0Script() {

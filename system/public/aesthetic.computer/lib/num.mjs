@@ -462,7 +462,7 @@ export class Track {
 }
 
 function cleanHexString(h) {
-  return h.replace("#", "").replace("0x", "");
+  return h.replace("#", "").replace("0x", "").toUpperCase();
 }
 
 // Determines if a string is a valid hex value.
