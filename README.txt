@@ -45,6 +45,9 @@
 *** split ***
   - [] finish basic split to test world persistence.
 
+*** note ***
+  - [] add note and notes and 'noted' notification
+
 *** yuehao demo ***
   - [] Scream notification after sign up didn't work...
 
