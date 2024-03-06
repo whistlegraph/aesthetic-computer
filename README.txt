@@ -46,8 +46,7 @@
   - [] finish basic split to test world persistence.
 
 *** yuehao demo ***
-  - [] Scream notification after sign up didn't work?
-  - [] Don't overload `share` anymore / it's different from download.
+  - [] Scream notification after sign up didn't work...
 
 *** Meeting with Petra ***
   - [] Add support for CMYK, with a special prefix?
