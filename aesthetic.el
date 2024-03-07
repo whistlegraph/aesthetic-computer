@@ -7,8 +7,17 @@
 ;; ✍️ Basic Emacs Configuration
 (setq explicit-shell-file-name "/usr/share/fish")
 
+;; (setq default-frame-alist '((undecorated . t))) ;; Hide title bar.
+
+(setq initial-frame-alist
+      '((width . 90)   ; Width set in characters
+        (height . 45))) ; Height set in lines
+
 (setq inhibit-startup-screen t) ;; Disable startup message.
 (setq eshell-banner-message "") ;; No eshell banner.
+
+(set-face-attribute 'default nil :font "FiraCode Nerd Font Mono-10")
+(setq-default line-spacing 0)
 
 (menu-bar-mode -1) ;; Disable the menu bar.
 (tool-bar-mode -1) ;; Disable the tool bar.
@@ -18,6 +27,10 @@
 
 (fringe-mode 0) ;; Disable fringe indicators.
 (scroll-bar-mode -1) ;; Disable scroll bar.
+
+(xterm-mouse-mode 1)
+(defun track-mouse (e))
+(setq mouse-sel-mode t)
 
 ;; 🤖 Aesthetic Servers
 (defun start-eshell-with-command (buffer-name command)
