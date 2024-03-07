@@ -18,7 +18,7 @@
 function boot({ params, dom: { html } }) {
   html`
     <style>
-      #content {
+      #content 
         display; flex;
         flex-direction: column;
         padding-top: 3em;

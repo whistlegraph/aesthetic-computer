@@ -42,6 +42,13 @@
 
 - Jeffrey (Sat)
 
+*** field notes ***
+  - [] name in field should be positions on the other player instead of in the
+       list so long as they are visible on screen.
+
+*** aspen demo ***
+  - [] Screenshot needs to work / resize if necessary from a webgl / 3d view.
+
 *** split ***
   - [🧡] finish basic split to test world persistence.
 
