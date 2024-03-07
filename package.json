@@ -13,6 +13,8 @@
     "tunnel": "ngrok http https://localhost:8888 --domain local.aesthetic.computer",
     "aesthetic-emacs": "emacs -q -l aesthetic.el",
     "aesthetic": "concurrently --raw \"npm run code\" \"npm run server:session\" \"npm run edge\" \"npm run stripe\" \"npm run url\"",
+    "aesthetic-emacs-top": "concurrently --raw \"npm run code\" \"npm run edge\" \"npm run stripe\" \"npm run url\"",
+    "aesthetic-emacs-bottom": "npm run server:session",
     "ext": "cd vscode-extension; npm run reload;",
     "ext:watch": "cd vscode-extension; npm run watch;",
     "ext:publish": "cd vscode-extension; npm run publish;",
