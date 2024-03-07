@@ -314,8 +314,14 @@ function world_paint(
   // TODO: Make this a generic module for printing user lists? 23.12.04.15.47
   [me, ...values(kids)].forEach((kid, i) => {
     const row = i * 12;
-    ink("black").write(kid.handle, { x: 7, y: 21 + 1 + row });
-    ink(me === kid ? "white" : "cyan").write(kid.handle, { x: 6, y: 21 + row });
+    const handleText = i === 0 ? `you are ${kid.handle}` : kid.handle;
+    ink("black").write(handleText, { x: 7, y: 21 + 1 + row });
+    ink(me === kid ? "white" : "cyan").write(handleText, { x: 6, y: 21 + row });
+    if (i === 0)
+      ink("yellow").write(handleText.replace(kid.handle, "").trim(), {
+        x: 6,
+        y: 21 + row,
+      });
   });
 
   const statusColor = hud.currentStatusColor();

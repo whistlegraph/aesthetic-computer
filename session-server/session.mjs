@@ -359,33 +359,45 @@ wss.on("connection", (ws, req) => {
 
         if (label === "join") {
           if (!worldClients[piece]) worldClients[piece] = {};
-          ws.send(pack(`world:${piece}:list`, worldClients[piece], id));
-          // ^ Send existing list to everyone but this user.
 
-          // let pickedUpConnection = false;
-          // TODO: Check to see if the client handle matches.
+          // Check to see if the client handle matches and a connection can
+          // be reassociated.
+          let pickedUpConnection = false;
           keys(worldClients[piece]).forEach((clientID) => {
             const client = worldClients[piece][clientID];
             if (
               client["handle"].startsWith("@") &&
               client["handle"] === msg.content.handle
             ) {
-              console.log("Handle match found!", msg.content.handle);
-              // pickedUpConnection = true;
+              console.log("😃 Handle match found!", msg.content.handle);
+              console.log("🎁 clientID:", clientID, "id:", id);
+              pickedUpConnection = true;
+
               delete worldClients[piece][clientID];
+              ws.send(pack(`world:${piece}:list`, worldClients[piece], id));
+
+              // Replace the old client with the new data.
+              worldClients[piece][clientID] = { ...msg.content };
+              // Reassociate the current connection to the old one.
+              connections[clientID] = connections[id];
+              delete connections[id];
             }
           });
 
-          /*if (!pickedUpConnection)*/ worldClients[piece][id] = {
-            ...msg.content,
-          };
-          // ^ Add to clients list.
+          if (!pickedUpConnection)
+            ws.send(pack(`world:${piece}:list`, worldClients[piece], id));
+          // ^ Send existing list to just this user.
+
+          if (!pickedUpConnection) {
+            worldClients[piece][id] = { ...msg.content };
+            // ^ Add to clients list.
+            others(JSON.stringify(msg)); // Alert everyone else about the join.
+          }
 
           console.log("🧩 Clients in piece:", piece, worldClients[piece]);
-          others(JSON.stringify(msg)); // Alert everyone else about the join.
           return;
         } else if (label === "move") {
-          // console.log("🚶‍♂️", piece, msg.content);
+          console.log("🚶‍♂️", piece, msg.content);
           if (typeof worldClients?.[piece]?.[id] === "object")
             worldClients[piece][id].pos = msg.content.pos;
         } else {
