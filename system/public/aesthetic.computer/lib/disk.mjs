@@ -2833,6 +2833,8 @@ async function load(
           },
         });
 
+        let slugBroadcastInterval;
+
         // 🕸️ Web Sockets
         socket?.connect(
           url.host + url.pathname,
@@ -2847,6 +2849,7 @@ async function load(
             }
 
             // 🧚 Ambient cursor (fairies) support.
+            // This now runs through UDP.
             // if (type === "ambient-pen:point" && socket?.id !== id && visible) {
             // fairies.push({ x: content.x, y: content.y });
             // return;
@@ -2858,8 +2861,25 @@ async function load(
           $commonApi.reload,
           "wss",
           () => {
-            // Post-connection logic.
+            // 🔩 Connected! (Post-connection logic.)
+            // Broadcast current location.
+            if (HANDLE) {
+              console.log("🗼 Broadcasting slug:", currentText, "for:", HANDLE);
+              socket?.send("location:broadcast", {
+                handle: HANDLE,
+                slug: currentText,
+              });
+              slugBroadcastInterval = setInterval(() => {
+                socket?.send("location:broadcast", {
+                  handle: HANDLE,
+                  slug: "*keep-alive*",
+                });
+              }, 2500);
+            }
+
+            // Subscribe to code-channel as needed.
             if (codeChannel) socket?.send("code-channel:sub", codeChannel);
+
             updateHUDStatus();
             $commonApi.needsPaint();
             codeChannelAutoLoader?.();
@@ -2868,8 +2888,9 @@ async function load(
             // }, 250);
           },
           () => {
-            // Post-disconnection logic.
+            // 💔 Disconnected! (Post-disconnection logic.)
             updateHUDStatus();
+            clearInterval(slugBroadcastInterval); 
           },
         );
       })
