@@ -3,6 +3,7 @@
 
 ;; 📚 Notes
 ;; for installing on fedora 39, do: `sudo dnf copr enable stevenlin/emacs-pgtk-nativecomp`
+;; also a tiling window manager may be preferred `sudo dnf install gnome-shell-extension-forge`
 
 ;; ✍️ Basic Emacs Configuration
 (setq explicit-shell-file-name "/usr/share/fish")

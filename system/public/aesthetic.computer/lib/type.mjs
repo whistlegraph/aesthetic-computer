@@ -33,6 +33,10 @@ class Typeface {
     return glyphsOnly;
   }
 
+  get blockWidth() {
+    return this.glyphs.a.resolution[0];
+  }
+
   async load($preload) {
     // 1. Ignore any keys with a "glyph" prefix because these are settings.
     const glyphsToLoad = entries(this.data).filter(
@@ -77,19 +81,30 @@ class Typeface {
       pos = { x: pos[0], y: pos[1] };
     }
 
-    const width = $.system?.world?.size
-      ? $.system.world.size.width
-      : $.screen.width;
-    const height = $.system?.world?.size
-      ? $.system.world.size.height
-      : $.screen.height;
+    const width = $.screen.width; // $.system?.world?.size
+    // ? $.system.world.size.width
+    // : $.screen.width;
+    const height = $.screen.height; // $.system?.world?.size
+    // ? $.system.world.size.height
+    // : $.screen.height;
 
     // Randomize pos.x and pos.y if undefined.
     if (pos.center === undefined) {
-      if (pos.x === undefined)
+      if (pos.right !== undefined) {
+        pos.x = width - blockWidth - pos.right;
+      } else if (pos.left !== undefined) {
+        pos.x = pos.left;
+      } else if (pos.x === undefined) {
         pos.x = $.num.randIntRange(-fullWidth / 2, width + fullWidth / 2);
-      if (pos.y === undefined)
+      }
+
+      if (pos.bottom !== undefined) {
+        pos.y = height - blockHeight - pos.bottom;
+      } else if (pos.top !== undefined) {
+        pos.y = pos.top;
+      } else if (pos.y === undefined) {
         pos.y = $.num.randIntRange(-blockHeight / 2, height + blockHeight / 2);
+      }
     }
 
     // Set x, y position and override if centering is specified.

@@ -42,24 +42,19 @@
 
 - Jeffrey (Sat)
 
-*** field notes ***
-  - [] name in field should be positions on the other player instead of in the
-       list so long as they are visible on screen.
-
 *** aspen demo ***
   - [] Screenshot needs to work / resize if necessary from a webgl / 3d view.
-
-*** split ***
-  - [🧡] finish basic split to test world persistence.
 
 *** `world` <-> `painting` <-> piece integrations ***
   - [] User world persistence with floating command notifications.
     - [🟠] User world persistence.
-      - [] Keep a ghost / location of the user once they leave field or whatever world position.
-      - [] This should require a handle, to reassociate the user?
-      - [] Joining field and being on the same handle would enter a spectate / take control
+      - [🟡] Better visual list of users / skip lines.
+      - [🔴] Joining field and being on the same handle would enter a spectate / take control
            sort of situation.
-    - [] Floating command notifications.
+      + Done
+      - [x] Keep a ghost / location of the user once they leave field or whatever world position.
+      - [x] This should require a handle, to reassociate the user?
+      - [x] Floating command notifications.
 
   - [] Be able to easily complete a painting and then include it in a piece
        in a single line...

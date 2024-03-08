@@ -103,7 +103,7 @@ function nopaint_act({
   ) {
     state = "idle";
     if (!system.nopaint.bakeOnLeave) system.nopaint.needsBake = true;
-    if (debug) console.log("🖌️ Not painting...");
+    // if (debug) console.log("🖌️ Not painting...");
     system.nopaint.gestureRecord.push([
       num.timestamp(),
       "lift:1",
