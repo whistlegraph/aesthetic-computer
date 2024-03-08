@@ -1,5 +1,12 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** field notes ***
+  - [x] name in field should be positions on the other player instead of in the
+       list so long as they are visible on screen.
+
+*** split ***
+  - [🧡] finish basic split to test world persistence.
+
 *** fix auth0 logo route ***
   - [x] There is an ssl error on: https://logo.aesthetic.computer.nyc3.cdn.digitaloceanspaces.com/painting-2023.8.21.10.25.png 
 

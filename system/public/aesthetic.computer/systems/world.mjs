@@ -3,14 +3,21 @@
 // Worlds are multi-user, interconnected rooms.
 
 /* #region 🏁 TODO 
-  - [🟠] Fix duplicate joins when switching areas.
+  - [x] Fix duplicate joins when switching areas.
   - [?] Camera snap after move. 
   + Done
   - [x] While holding arrow keys and then tapping, the elastic line is extended.
        (Play around with the difference.)
 #endregion */
 
-let me, kids, world, cam, input, inputBtn, server;
+let me,
+  kids,
+  world,
+  cam,
+  input,
+  inputBtn,
+  server,
+  map = false;
 
 const { keys, values } = Object;
 
@@ -127,6 +134,8 @@ async function world_boot(
       } else if (text === "hide") {
         server.send(`world:${piece}:hide`);
         me.showing = null;
+      } else if (text === "map") {
+        map = !map;
       } else {
         me.write(text); // Display message on 🧒.
         server.send(`world:${piece}:write`, me.message); // Send to server.
@@ -161,13 +170,14 @@ async function world_boot(
   // 🧦 Socket Networking
   server = socket((id, type, content) => {
     if (type === "left") {
-      console.log("️✌️ Goodbye:", id);
+      console.log("️✌️ Goodbye:", id, kids[id]?.handle);
       delete kids[id];
       return;
     }
 
     if (type === "joined") {
-      console.log("️👋 Hello:", id);
+      console.log("️👋 Hello:", id, type, content);
+      // TODO: Potentially reassociate a ghost here?
       return;
     }
 
@@ -178,14 +188,23 @@ async function world_boot(
         pos: me.pos,
         face: me.face,
         showing: help.serializePainting(me.showing),
+        ghost: me.ghost
       });
       console.log("🪴 Welcome:", me.handle, `(${id})`);
       return;
     }
 
     if (type === `world:${piece}:ghost`) {
-      console.log("👻 GHOSTED:", id, type, content);
-      if (kids[id]) kids[id].ghost = true;
+      if (kids[id]) {
+        kids[id].ghost = true;
+        console.log("👻 Ghosted:", kids[id].handle);
+      }
+      return;
+    }
+
+    // 👻🪦 Remove a dead ghost.
+    if (type === `world:${piece}:kick`) {
+      delete kids[id];
       return;
     }
 
@@ -202,6 +221,7 @@ async function world_boot(
             data.face,
             true,
           );
+          if (data.ghost) kids[key].ghost = data.ghost;
           if (data.showing)
             kids[key].showing = help.deserializePainting(data.showing);
         }
@@ -210,15 +230,33 @@ async function world_boot(
     }
 
     if (type === `world:${piece}:join`) {
-      console.log("😂", type, content);
+      console.log("🗺️ Joining world:", type, content);
       if (!kids[id]) {
+        if (content.handle.startsWith("@")) {
+          keys(kids).forEach((key) => {
+            const kid = kids[key];
+            // If there is a handle match...
+            if (content.handle === kid.handle) {
+              // Remove a kid's ghost.
+              if (kid.ghost) {
+                console.log("👻 Unghosting:", kid.handle);
+                delete kids[key];
+              } else {
+                // Enter spectate mode.
+                console.log("👓 Spectating:", kid.handle);
+                // TODO: Implement spectating.
+              }
+            }
+          });
+        }
+
         kids[id] = new Kid(
           content.handle || `nub${id}`,
           content.pos,
           content.face,
           true,
         );
-        console.log(content);
+        if (content.ghost) kids[id].ghost = true;
         if (content.showing)
           kids[id].showing = help.deserializePainting(content.showing);
       }
@@ -234,6 +272,12 @@ async function world_boot(
     if (type === `world:${piece}:mood`) {
       const kid = kids[id];
       if (kid) kid.mood(content);
+      return;
+    }
+
+    if (type === `world:${piece}:slug`) {
+      const kid = kids[id];
+      if (kid) kid.slug(content.slug);
       return;
     }
 
@@ -281,7 +325,7 @@ async function world_boot(
 }
 
 function world_paint(
-  { api, ink, pan, unpan, pen, screen, leaving, hud },
+  { api, ink, pan, unpan, pen, screen, leaving, hud, typeface },
   paint,
   curtain,
 ) {
@@ -315,10 +359,23 @@ function world_paint(
   [me, ...values(kids)].forEach((kid, i) => {
     const row = i * 12;
     const handleText = i === 0 ? `you are ${kid.handle}` : kid.handle;
-    ink("black").write(handleText, { x: 7, y: 21 + 1 + row });
-    ink(me === kid ? "white" : "cyan").write(handleText, { x: 6, y: 21 + row });
+
+    const kidOnScreen = i !== 0 && onScreen(kid, world, cam, screen);
+
+    const pos = kidOnScreen
+      ? {
+          x: kid.pos.x - (handleText.length / 2) * typeface.blockWidth,
+          y: kid.pos.y + 22,
+        }
+      : { x: 6, y: 21 + row };
+
+    if (kidOnScreen) pan(cam.x, cam.y);
+    ink("black").write(handleText, { x: pos.x + 1, y: pos.y + 1 });
+    ink(me === kid ? "yellow" : kid.color).write(handleText, pos);
+    if (kidOnScreen) unpan();
+
     if (i === 0)
-      ink("yellow").write(handleText.replace(kid.handle, "").trim(), {
+      ink(kid.color).write(handleText.replace(kid.handle, "").trim(), {
         x: 6,
         y: 21 + row,
       });
@@ -350,6 +407,52 @@ function world_paint(
       width: screen.width,
       height: screen.height - 18,
     });
+  }
+
+  // 🗺️ Minimap
+
+  if (map) {
+    const worldAspect = world.width / world.height;
+    const screenAspect = screen.width / screen.height;
+
+    const scale =
+      (worldAspect > screenAspect
+        ? screen.width / world.width
+        : screen.height / world.height) * 0.5;
+
+    const bw = world.width * scale,
+      bh = world.height * scale;
+
+    const x = screen.width / 2 - bw / 2,
+      y = screen.height / 2 - bh / 2;
+
+    // World
+    ink("white", 96).box(x, y, bw, bh);
+
+    // Camera
+    ink("red", 64).box(
+      x + cam.dolly.x * scale,
+      y + cam.dolly.y * scale,
+      screen.width * scale,
+      screen.height * scale,
+      "center",
+    );
+    // ink("red").box(x + cam.dolly.x * scale - 1, y + cam.dolly.y * scale - 1, 3);
+
+    // Paint dots for all kids.
+    [me, ...values(kids)].forEach((kid, i) => {
+      ink(kid.color).box(x + kid.pos.x * 0.25 - 1, y + kid.pos.y * 0.25 - 1, 3);
+    });
+
+    ink("orange").write(
+      `kid x:${me.pos.x.toFixed(1)}  y:${me.pos.y.toFixed(1)}`,
+      { x: 6, bottom: 4 + 12 },
+    );
+
+    ink("pink").write(
+      `cam x:${cam.dolly.x.toFixed(1)}  y:${cam.dolly.y.toFixed(1)}`,
+      { x: 6, bottom: 4 },
+    );
   }
 }
 
@@ -501,7 +604,7 @@ class Kid {
 
   constructor(handle = "?", pos = this.pos, face, net = false) {
     this.handle = handle;
-    console.log("🧒 From:", this.handle, face);
+    console.log("🧒 *New* kid from:", this.handle, "Feeling:", face);
 
     this.pos = pos;
     if (net) this.netPos = { ...pos };
@@ -515,6 +618,12 @@ class Kid {
     this.message = text;
     this.#messageDuration = time;
     this.#messageProgress = 0; // Reset message progress.
+  }
+
+  // Show a message above the kid's head for an unending period.
+  // 🐛 Used only if they are `ghosted` for slug updates.
+  slug(text) {
+    this.write(text, Infinity);
   }
 
   // Change the mood (face) of the kid.
@@ -574,11 +683,11 @@ class Kid {
       );
       ink("black").write(this.message, {
         x: -tb.box.width / 2 + 1,
-        y: -this.size - 12 + 1,
+        y: -this.size - 14 + 1,
       });
       ink(this.color).write(this.message, {
         x: -tb.box.width / 2,
-        y: -this.size - 12,
+        y: -this.size - 14,
       });
     }
   }
@@ -741,4 +850,23 @@ class Cam {
     this.y = y;
     this.dolly = { ...dolly };
   }
+}
+
+function onScreen(obj, world, cam, screen) {
+  const halfWidth = screen.width / 2;
+  const halfHeight = screen.height / 2;
+
+  const viewport = {
+    left: cam.dolly.x - halfWidth,
+    right: cam.dolly.x + halfWidth,
+    top: cam.dolly.y - halfHeight,
+    bottom: cam.dolly.y + halfHeight,
+  };
+
+  return (
+    obj.pos.x >= viewport.left &&
+    obj.pos.x <= viewport.right &&
+    obj.pos.y >= viewport.top &&
+    obj.pos.y <= viewport.bottom
+  );
 }

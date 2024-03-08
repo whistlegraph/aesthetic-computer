@@ -333,7 +333,29 @@ wss.on("connection", (ws, req) => {
       codeChannel = msg.content;
       if (!codeChannels[codeChannel]) codeChannels[codeChannel] = new Set();
       codeChannels[codeChannel].add(id);
+    } else if (msg.type === "location:broadcast") {
+      // Receive a slug location for this handle.
+      console.log("🗼 Slug:", msg.content.slug, "from:", msg.content.handle);
+
+      // Publish to redis...
+      pub
+        .publish("slug:" + msg.content.handle, msg.content.slug)
+        .then((result) => {
+          console.log(
+            "🐛 Slug succesfully published for:",
+            msg.content.handle,
+            msg.content.slug,
+          );
+        })
+        .catch((error) => {
+          console.log("🙅‍♀️ Error publishing slug:", error);
+        });
+
+      // TODO: - [] When a user is ghosted, then subscribe to their location
+      //            updates.
+      //       - [] And stop subscribing when they are unghosted.
     } else {
+      // 🗺️ World Messages
       // TODO: Should all messages be prefixed with their piece?
 
       // Filter for `world:${piece}:${label}` type messages.
@@ -369,18 +391,37 @@ wss.on("connection", (ws, req) => {
               client["handle"].startsWith("@") &&
               client["handle"] === msg.content.handle
             ) {
-              console.log("😃 Handle match found!", msg.content.handle);
-              console.log("🎁 clientID:", clientID, "id:", id);
+              console.log(
+                "👻 Unghosting:",
+                msg.content.handle,
+                "old id:",
+                clientID,
+                "new id:",
+                id,
+              );
               pickedUpConnection = true;
+
+              sub
+                .unsubscribe("slug:" + msg.content.handle)
+                .then(() => {
+                  console.log(
+                    "🐛 Unsubscribed from slug for:",
+                    msg.content.handle,
+                  );
+                })
+                .catch((err) => {
+                  console.error(
+                    "🐛 Could not unsubscribe from slug for:",
+                    msg.content.handle,
+                    err,
+                  );
+                });
 
               delete worldClients[piece][clientID];
               ws.send(pack(`world:${piece}:list`, worldClients[piece], id));
 
               // Replace the old client with the new data.
-              worldClients[piece][clientID] = { ...msg.content };
-              // Reassociate the current connection to the old one.
-              connections[clientID] = connections[id];
-              delete connections[id];
+              worldClients[piece][id] = { ...msg.content };
             }
           });
 
@@ -388,16 +429,13 @@ wss.on("connection", (ws, req) => {
             ws.send(pack(`world:${piece}:list`, worldClients[piece], id));
           // ^ Send existing list to just this user.
 
-          if (!pickedUpConnection) {
-            worldClients[piece][id] = { ...msg.content };
-            // ^ Add to clients list.
-            others(JSON.stringify(msg)); // Alert everyone else about the join.
-          }
+          if (!pickedUpConnection) worldClients[piece][id] = { ...msg.content };
+          others(JSON.stringify(msg)); // Alert everyone else about the join.
 
           console.log("🧩 Clients in piece:", piece, worldClients[piece]);
           return;
         } else if (label === "move") {
-          console.log("🚶‍♂️", piece, msg.content);
+          // console.log("🚶‍♂️", piece, msg.content);
           if (typeof worldClients?.[piece]?.[id] === "object")
             worldClients[piece][id].pos = msg.content.pos;
         } else {
@@ -436,9 +474,51 @@ wss.on("connection", (ws, req) => {
     keys(worldClients).forEach((piece) => {
       if (worldClients[piece][id]) {
         if (worldClients[piece][id].handle.startsWith("@")) {
-          console.log("👻 Ghosted:", worldClients[piece][id].handle);
+          const handle = worldClients[piece][id].handle;
+          console.log("👻 Ghosted:", handle);
           worldClients[piece][id].ghost = true;
           ghosted = true;
+
+          function kick() {
+            console.log("👻 Ghost timeout for:", handle);
+            sub
+              .unsubscribe("slug:" + handle)
+              .then(() => {
+                console.log("🐛 Unsubscribed from slug for:", handle);
+              })
+              .catch((err) => {
+                console.error(
+                  "🐛 Could not unsubscribe from slug for:",
+                  handle,
+                  err,
+                );
+              });
+            // Delete the user from the worldClients pieces index.
+            delete worldClients[piece][id];
+            if (keys(worldClients[piece]).length === 0)
+              delete worldClients[piece];
+            everyone(pack(`world:${piece}:kick`, { id })); // Kick this ghost.
+          }
+
+          let kickTimer = setTimeout(kick, 5000);
+
+          // Subscribe to slug updates from redis.
+          sub
+            .subscribe("slug:" + handle, (slug) => {
+              if (slug !== "*keep-alive*") {
+                console.log(`🐛 ${handle} is now in:`, slug);
+                everyone(pack(`world:${piece}:slug`, { id, handle, slug }));
+              }
+              clearTimeout(kickTimer);
+              kickTimer = setTimeout(kick, 5000);
+            })
+            .then(() => {
+              console.log("🐛 Subscribed to slug updates from:", handle);
+            })
+            .catch((err) =>
+              console.error("🐛 Could not subscribe to slug for:", handle, err),
+            );
+
           // Send a message to everyone on the server that this client is a ghost.
           everyone(pack(`world:${piece}:ghost`, { id }));
         } else {
