@@ -42,9 +42,6 @@
 
 - Jeffrey (Sat)
 
-*** aspen demo ***
-  - [] Screenshot needs to work / resize if necessary from a webgl / 3d view.
-
 *** `world` <-> `painting` <-> piece integrations ***
   - [] User world persistence with floating command notifications.
     - [🟠] User world persistence.
@@ -93,6 +90,12 @@
       //if (!net.iframe && params[0]^does not start with^) {
       //  return;
       //}
+
+*** swipe to share ***
+  - [] dragging the corner label all the way to the right should always reveal a "share" prefix and then letting go will jump to `share x`.
+
+*** aspen demo ***
+  - [] Screenshot needs to work / resize if necessary from a webgl / 3d view.
 
 *** note ***
   - [] add note and notes and 'noted' notification

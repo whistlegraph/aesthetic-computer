@@ -54,8 +54,7 @@ const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
 const dev = process.env.NODE_ENV === "development";
 
 const { keys } = Object;
-
-let fastify;
+let fastify, termkit, term;
 
 if (dev) {
   // Load local ssl certs in development mode.
@@ -67,6 +66,13 @@ if (dev) {
     },
     logger: true,
   });
+
+  // Import the `terminal-kit` library if dev is true.
+  try {
+    termkit = (await import("terminal-kit")).default;
+  } catch (err) {
+    error("Failed to load terminal-kit", error);
+  }
 } else {
   fastify = Fastify({ logger: true }); // Still log in production. No reason not to?
 }
@@ -80,7 +86,7 @@ fastify.options("*", async (req, reply) => {
   ];
 
   const origin = req.headers.origin;
-  console.log("✈️ Preflight origin:", origin);
+  log("✈️ Preflight origin:", origin);
   // Check if the incoming origin is allowed
   if (allowedOrigins.includes(origin)) {
     reply.header("Access-Control-Allow-Origin", origin);
@@ -104,12 +110,12 @@ const codeChannels = {}; // Used to filter `code` updates from redis to
 const sub = !dev
   ? createClient({ url: redisConnectionString })
   : createClient();
-sub.on("error", (err) => console.log("🔴 Redis subscriber client error!", err));
+sub.on("error", (err) => log("🔴 Redis subscriber client error!", err));
 
 const pub = !dev
   ? createClient({ url: redisConnectionString })
   : createClient();
-pub.on("error", (err) => console.log("🔴 Redis publisher client error!", err));
+pub.on("error", (err) => log("🔴 Redis publisher client error!", err));
 
 try {
   await sub.connect();
@@ -129,7 +135,7 @@ try {
     everyone(pack("scream", message, "screamer")); // Socket back to everyone.
   });
 } catch (err) {
-  console.error("🔴 Could not connect to `redis` instance.");
+  error("🔴 Could not connect to `redis` instance.");
 }
 
 const secret = process.env.GITHUB_WEBHOOK_SECRET;
@@ -148,18 +154,18 @@ fastify.post("/update", (request, reply) => {
     return;
   }
 
-  // console.log("Path:", process.env.PATH);
+  // log("Path:", process.env.PATH);
 
   // Restart service in production.
   exec(
     "cd /home/aesthetic.computer/session-server; pm2 stop all; git pull; npm install; pm2 start all",
     (error, stdout, stderr) => {
       if (error) {
-        console.error(`exec error: ${error}`);
+        error(`exec error: ${error}`);
         return;
       }
-      console.log(`stdout: ${stdout}`);
-      console.error(`stderr: ${stderr}`);
+      log(`stdout: ${stdout}`);
+      error(`stderr: ${stderr}`);
     },
   );
 
@@ -209,7 +215,7 @@ let connectionId = 0; // TODO: Eventually replace with a username arrived at thr
 //                             a client <-> server authentication function.
 
 wss = new WebSocketServer({ server });
-console.log(
+log(
   `🤖 session.aesthetic.computer (${
     dev ? "Development" : "Production"
   }) socket: wss://${ip.address()}:${info.port}`,
@@ -252,13 +258,7 @@ wss.on("connection", (ws, req) => {
   const id = connectionId;
   let codeChannel; // Used to subscribe to incoming piece code.
 
-  console.log(
-    "🧏 Someone joined:",
-    `${id}:${ip}`,
-    "Online:",
-    wss.clients.size,
-    "🫂",
-  );
+  log("🧏 Someone joined:", `${id}:${ip}`, "Online:", wss.clients.size, "🫂");
 
   const content = { id, playerCount: wss.clients.size };
 
@@ -298,12 +298,12 @@ wss.on("connection", (ws, req) => {
     msg.id = id; // TODO: When sending a server generated message, use a special id.
     if (msg.type === "scream") {
       // Alert all connected users via redis pub/sub to the scream.
-      console.log("😱 About to scream...");
+      log("😱 About to scream...");
       const out = filter(msg.content);
       pub
         .publish("scream", out)
         .then((result) => {
-          console.log("😱 Scream succesfully published:", result);
+          log("😱 Scream succesfully published:", result);
 
           let piece = "";
           if (out.indexOf("pond") > -1) piece = "pond";
@@ -317,15 +317,15 @@ wss.on("connection", (ws, req) => {
                 data: { piece },
               })
               .then((response) => {
-                console.log("☎️  Successfully sent notification:", response);
+                log("☎️  Successfully sent notification:", response);
               })
               .catch((error) => {
-                console.log("📵  Error sending notification:", error);
+                log("📵  Error sending notification:", error);
               });
           }
         })
         .catch((error) => {
-          console.log("🙅‍♀️ Error publishing scream:", error);
+          log("🙅‍♀️ Error publishing scream:", error);
         });
       // Send a notification to all devices subscribed to the `scream` topic.
     } else if (msg.type === "code-channel:sub") {
@@ -335,20 +335,24 @@ wss.on("connection", (ws, req) => {
       codeChannels[codeChannel].add(id);
     } else if (msg.type === "location:broadcast") {
       // Receive a slug location for this handle.
-      console.log("🗼 Slug:", msg.content.slug, "from:", msg.content.handle);
+      if (msg.content.slug !== "*keep-alive*") {
+        log("🗼 Slug:", msg.content.slug, "from:", msg.content.handle);
+      }
 
       // Publish to redis...
       pub
         .publish("slug:" + msg.content.handle, msg.content.slug)
         .then((result) => {
-          console.log(
-            "🐛 Slug succesfully published for:",
-            msg.content.handle,
-            msg.content.slug,
-          );
+          if (msg.content.slug !== "*keep-alive*") {
+            log(
+              "🐛 Slug succesfully published for:",
+              msg.content.handle,
+              msg.content.slug,
+            );
+          }
         })
         .catch((error) => {
-          console.log("🙅‍♀️ Error publishing slug:", error);
+          log("🙅‍♀️ Error publishing slug:", error);
         });
 
       // TODO: - [] When a user is ghosted, then subscribe to their location
@@ -384,14 +388,19 @@ wss.on("connection", (ws, req) => {
 
           // Check to see if the client handle matches and a connection can
           // be reassociated.
+
           let pickedUpConnection = false;
           keys(worldClients[piece]).forEach((clientID) => {
+            // TODO: Break out of this loop early.
             const client = worldClients[piece][clientID];
             if (
               client["handle"].startsWith("@") &&
-              client["handle"] === msg.content.handle
+              client["handle"] === msg.content.handle &&
+              client.ghosted
             ) {
-              console.log(
+              // log("👻 Ghosted?", client);
+
+              log(
                 "👻 Unghosting:",
                 msg.content.handle,
                 "old id:",
@@ -404,13 +413,10 @@ wss.on("connection", (ws, req) => {
               sub
                 .unsubscribe("slug:" + msg.content.handle)
                 .then(() => {
-                  console.log(
-                    "🐛 Unsubscribed from slug for:",
-                    msg.content.handle,
-                  );
+                  log("🐛 Unsubscribed from slug for:", msg.content.handle);
                 })
                 .catch((err) => {
-                  console.error(
+                  error(
                     "🐛 Could not unsubscribe from slug for:",
                     msg.content.handle,
                     err,
@@ -425,6 +431,8 @@ wss.on("connection", (ws, req) => {
             }
           });
 
+          // ❤️‍🔥 TODO: No need to send the current user back via `list` here.
+
           if (!pickedUpConnection)
             ws.send(pack(`world:${piece}:list`, worldClients[piece], id));
           // ^ Send existing list to just this user.
@@ -432,18 +440,18 @@ wss.on("connection", (ws, req) => {
           if (!pickedUpConnection) worldClients[piece][id] = { ...msg.content };
           others(JSON.stringify(msg)); // Alert everyone else about the join.
 
-          console.log("🧩 Clients in piece:", piece, worldClients[piece]);
+          log("🧩 Clients in piece:", piece, worldClients[piece]);
           return;
         } else if (label === "move") {
-          // console.log("🚶‍♂️", piece, msg.content);
+          // log("🚶‍♂️", piece, msg.content);
           if (typeof worldClients?.[piece]?.[id] === "object")
             worldClients[piece][id].pos = msg.content.pos;
         } else {
-          console.log(`${label}:`, msg.content);
+          log(`${label}:`, msg.content);
         }
 
         if (label === "persist") {
-          console.log("🧮 Persisting this client...", msg.content);
+          log("🧮 Persisting this client...", msg.content);
         }
 
         // All world: messages are only broadcast to "others".
@@ -457,7 +465,7 @@ wss.on("connection", (ws, req) => {
 
   // More info: https://stackoverflow.com/a/49791634/8146077
   ws.on("close", () => {
-    console.log("🚪 Someone left:", id, "Online:", wss.clients.size, "🫂");
+    log("🚪 Someone left:", id, "Online:", wss.clients.size, "🫂");
 
     // Delete the user from the worldClients pieces index.
     // keys(worldClients).forEach((piece) => {
@@ -470,28 +478,30 @@ wss.on("connection", (ws, req) => {
 
     let ghosted = false;
 
-    // Turn this client into a ghost.
     keys(worldClients).forEach((piece) => {
       if (worldClients[piece][id]) {
-        if (worldClients[piece][id].handle.startsWith("@")) {
+        // Turn this client into a ghost, unless it's the last one in the
+        // world region.
+        if (
+          worldClients[piece][id].handle.startsWith("@") &&
+          keys(worldClients[piece]).length > 1
+        ) {
           const handle = worldClients[piece][id].handle;
-          console.log("👻 Ghosted:", handle);
+          log("👻 Ghosted:", handle);
+          log("World clients after ghosting:", worldClients[piece]);
           worldClients[piece][id].ghost = true;
           ghosted = true;
 
           function kick() {
-            console.log("👻 Ghost timeout for:", handle);
+            log("👢 Kicked:", handle, id);
+            clearTimeout(kickTimer);
             sub
               .unsubscribe("slug:" + handle)
               .then(() => {
-                console.log("🐛 Unsubscribed from slug for:", handle);
+                log("🐛 Unsubscribed from slug for:", handle);
               })
               .catch((err) => {
-                console.error(
-                  "🐛 Could not unsubscribe from slug for:",
-                  handle,
-                  err,
-                );
+                error("🐛 Could not unsubscribe from slug for:", handle, err);
               });
             // Delete the user from the worldClients pieces index.
             delete worldClients[piece][id];
@@ -502,21 +512,32 @@ wss.on("connection", (ws, req) => {
 
           let kickTimer = setTimeout(kick, 5000);
 
+          const worlds = ["field", "horizon"]; // Whitelist for worlds...
+          // This could eventually be communicated based on a parameter in
+          // the subscription? 24.03.09.15.05
+
           // Subscribe to slug updates from redis.
           sub
             .subscribe("slug:" + handle, (slug) => {
               if (slug !== "*keep-alive*") {
-                console.log(`🐛 ${handle} is now in:`, slug);
-                everyone(pack(`world:${piece}:slug`, { id, handle, slug }));
+                log(`🐛 ${handle} is now in:`, slug);
+                if (!worlds.includes(slug))
+                  everyone(pack(`world:${piece}:slug`, { id, handle, slug }));
               }
-              clearTimeout(kickTimer);
-              kickTimer = setTimeout(kick, 5000);
+
+              if (worlds.includes(slug)) {
+                kick();
+              } else {
+                clearTimeout(kickTimer);
+                kickTimer = setTimeout(kick, 5000);
+              }
+              // Whitelist slugs here
             })
             .then(() => {
-              console.log("🐛 Subscribed to slug updates from:", handle);
+              log("🐛 Subscribed to slug updates from:", handle);
             })
             .catch((err) =>
-              console.error("🐛 Could not subscribe to slug for:", handle, err),
+              error("🐛 Could not subscribe to slug for:", handle, err),
             );
 
           // Send a message to everyone on the server that this client is a ghost.
@@ -577,7 +598,7 @@ io.addServer(server); // Hook up to the HTTP Server.
 
 io.onConnection((channel) => {
   channel.onDisconnect(() => {
-    console.log(`🩰 ${channel.id} got disconnected`);
+    log(`🩰 ${channel.id} got disconnected`);
   });
 
   // Just for testing via the aesthetic `udp` piece for now.
@@ -586,7 +607,7 @@ io.onConnection((channel) => {
     // TODO: - [] Learn about the differences between channels and rooms.
 
     // emit the to all channels in the same room except the sender
-    // console.log(`🩰 fairy:point - ${data}`);
+    // log(`🩰 fairy:point - ${data}`);
     channel.broadcast.emit("fairy:point", data);
   });
 });
@@ -626,4 +647,112 @@ if (dev) {
     if (event === "change")
       everyone(pack("vscode-extension:reload", { reload: true }, "local"));
   });
+}
+
+if (termkit) {
+  term = termkit.terminal;
+
+  const doc = term.createDocument({
+    palette: new termkit.Palette(),
+  });
+
+  // Create left (log) and right (client list) columns
+  const leftColumn = new termkit.Container({
+    parent: doc,
+    x: 0,
+    width: "70%",
+    height: "100%",
+  });
+
+  const rightColumn = new termkit.Container({
+    parent: doc,
+    x: "70%",
+    width: "30%",
+    height: "100%",
+  });
+
+  term.grabInput();
+
+  console.log("grabbed input");
+
+  term.on("key", function (name, matches, data) {
+    console.log("'key' event:", name);
+
+    // Detect CTRL-C and exit 'manually'
+    if (name === "CTRL_C") {
+      process.exit();
+    }
+  });
+
+  term.on("mouse", function (name, data) {
+    console.log("'mouse' event:", name, data);
+  });
+
+  // Log box in the left column
+  const logBox = new termkit.TextBox({
+    parent: leftColumn,
+    content: "Your logs will appear here...\n",
+    scrollable: true,
+    vScrollBar: true,
+    x: 0,
+    y: 0,
+    width: "100%",
+    height: "100%",
+    mouse: true, // to allow mouse interactions if needed
+  });
+
+  // Static list box in the right column
+  const clientList = new termkit.TextBox({
+    parent: rightColumn,
+    content: "Client List:\n",
+    x: 0,
+    y: 0,
+    width: "100%",
+    height: "100%",
+  });
+
+  // Example functions to update contents
+  function addLog(message) {
+    logBox.setContent(logBox.getContent() + message + "\n");
+    // logBox.scrollBottom();
+    doc.draw();
+  }
+
+  function updateClientList(clients) {
+    clientList.setContent("Client List:\n" + clients.join("\n"));
+    doc.draw();
+  }
+
+  // Example usage
+  addLog("Server started...");
+  updateClientList(["Client1", "Client2"]);
+
+  // Handle input for graceful exit
+  // term.grabInput();
+  // term.on("key", (key) => {
+  // if (key === "CTRL_C") {
+  // process.exit();
+  // }
+  // });
+
+  // doc.draw();
+}
+
+// ✍️ Logs
+function log() {
+  if (!term) {
+    console.log(...arguments);
+    return;
+  }
+
+  // tkit
+}
+
+function error() {
+  if (!term) {
+    console.error(...arguments);
+    return;
+  }
+
+  // tkit
 }
