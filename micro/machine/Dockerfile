@@ -3,8 +3,8 @@ FROM fedora:latest
 # Update all packages.
 RUN dnf update -y
 
-# Install git, gcc, clang, and emacs (without x support) and python
-RUN dnf install -y git gcc clang emacs-nox python3 python3-pip
+# Install git, gcc, clang, and emacs (without x support) and python and the github cli
+RUN dnf install -y git gcc clang emacs-nox python3 python3-pip gh
 
 # Install procps to get the 'ps' command (required for linux brew)
 RUN dnf install -y procps
@@ -39,11 +39,13 @@ RUN pip3 install shell-gpt
 RUN mkdir -p .config/fish
 RUN mkdir -p .config/fish/conf.d
 COPY config.fish .config/fish/config.fish 
+COPY setup.fish /setup.fish
 COPY entry.fish /entry.fish
 
-# Move emacs config.
-RUN mkdir -p .emacs.d
-COPY init.el .emacs.d/init.el
+# Copy emacs config.
+COPY init.el .emacs
+RUN sudo chown me:me .emacs
+# RUN mkdir -p .emacs.d
 
 # Install linux brew.
 RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -64,3 +66,9 @@ CMD ["/usr/bin/fish"]
 
 # Set the entry point script.
 ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]
+
+# Set the TERM environment variable to xterm.
+ENV TERM=xterm
+
+# Run the fish entry.
+RUN fish /setup.fish
