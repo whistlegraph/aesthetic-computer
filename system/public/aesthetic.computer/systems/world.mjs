@@ -17,6 +17,8 @@ let me,
   input,
   inputBtn,
   server,
+  spectating = false,
+  spectatingKid,
   map = false;
 
 const { keys, values } = Object;
@@ -188,7 +190,7 @@ async function world_boot(
         pos: me.pos,
         face: me.face,
         showing: help.serializePainting(me.showing),
-        ghost: me.ghost
+        ghost: me.ghost,
       });
       console.log("🪴 Welcome:", me.handle, `(${id})`);
       return;
@@ -210,10 +212,21 @@ async function world_boot(
 
     // TODO: How can this be oriented around storing a server list.
     if (type === `world:${piece}:list`) {
-      console.log(`🗞️ Listing all ${piece} clients...`, content);
+      console.log(`🗞️ Got list of all '${piece}' clients...`, content);
       keys(content).forEach((key) => {
         if (!kids[key]) {
           const data = content[key];
+
+          // Drop in to spectating mode if necessary.
+          if (
+            content[key].handle.startsWith("@") &&
+            content[key].handle === me.handle
+          ) {
+            spectating = true;
+            spectatingKid = key;
+            console.log("👓 Spectating:", spectatingKid);
+          }
+
           console.log("🧒 Joined:", data.handle || id, data);
           kids[key] = new Kid(
             data.handle || `nub${id}`,
@@ -233,21 +246,23 @@ async function world_boot(
       console.log("🗺️ Joining world:", type, content);
       if (!kids[id]) {
         if (content.handle.startsWith("@")) {
-          keys(kids).forEach((key) => {
-            const kid = kids[key];
-            // If there is a handle match...
-            if (content.handle === kid.handle) {
-              // Remove a kid's ghost.
-              if (kid.ghost) {
+          if (content.handle === me.handle) {
+            // If joining to view oneself, set the joined user as
+            // a spectator.
+            console.log("👓 Spectator joined:", content);
+            return;
+          } else {
+            // Otherwise iterate through all kids and unghost any.
+            keys(kids).forEach((key) => {
+              const kid = kids[key];
+              // If there is a handle match...
+              console.log(kid, content.handle, kid.handle);
+              if (content.handle === kid.handle && kid.ghost) {
                 console.log("👻 Unghosting:", kid.handle);
                 delete kids[key];
-              } else {
-                // Enter spectate mode.
-                console.log("👓 Spectating:", kid.handle);
-                // TODO: Implement spectating.
               }
-            }
-          });
+            });
+          }
         }
 
         kids[id] = new Kid(
@@ -334,16 +349,18 @@ function world_paint(
 
   paint?.(api, world);
 
-  inputBtn.paint((btn) => {
-    ink("white", btn.down && btn.over ? 128 : 64).circle(
-      me.pos.x,
-      me.pos.y,
-      btn.box.w / 2,
-      true,
-    );
-  });
+  if (!spectating) {
+    inputBtn.paint((btn) => {
+      ink("white", btn.down && btn.over ? 128 : 64).circle(
+        me.pos.x,
+        me.pos.y,
+        btn.box.w / 2,
+        true,
+      );
+    });
+  }
 
-  me.paint(api);
+  if (!spectating) me.paint(api);
 
   unpan();
 
@@ -454,6 +471,9 @@ function world_paint(
       { x: 6, bottom: 4 },
     );
   }
+
+  // Spectating
+  if (spectating) ink("red").write("Spectating", { x: 6, y: 32 });
 }
 
 function world_act({ event: e, api, send, jump, hud, piece, screen }) {
@@ -461,6 +481,8 @@ function world_act({ event: e, api, send, jump, hud, piece, screen }) {
     cam.x = screen.width / 2 - cam.dolly.x;
     cam.y = screen.height / 2 - cam.dolly.y;
   }
+
+  if (spectating) return; // Don't allow any input if in spectator mode.
 
   if (!input.canType) {
     me.act(api);
@@ -530,29 +552,40 @@ function world_act({ event: e, api, send, jump, hud, piece, screen }) {
 }
 
 function world_sim({ api, piece, geo, simCount, screen, num }) {
-  me.sim(api, function net(kid) {
-    if (simCount % 4n === 0n) {
-      // Send position updates at a rate of 30hz  (120 / 4).
-      if (kid.pos) server.send(`world:${piece}:move`, kid);
-    }
-    if (kid.clear) server.send(`world:${piece}:write:clear`, kid);
-  }); // 🧒 Movement
-
-  cam.dolly.x = num.lerp(cam.dolly.x, me.pos.x, 0.035);
-  cam.dolly.y = num.lerp(cam.dolly.y, me.pos.y, 0.035);
-
-  cam.x = screen.width / 2 - cam.dolly.x;
-  cam.y = screen.height / 2 - cam.dolly.y;
-
   keys(kids).forEach((key) => kids[key].sim(api)); // Networked kids.
-  input.sim(api); // 💬 Chat
 
-  const btnPos = me.screenPos(cam, world); // Button to activate prompt.
-  inputBtn.box = new geo.Box(
-    btnPos.x - me.size,
-    btnPos.y - me.size,
-    me.size * 2,
-  );
+  if (!spectating) {
+    me.sim(api, function net(kid) {
+      if (simCount % 4n === 0n) {
+        // Send position updates at a rate of 30hz  (120 / 4).
+        if (kid.pos) server.send(`world:${piece}:move`, kid);
+      }
+      if (kid.clear) server.send(`world:${piece}:write:clear`, kid);
+    }); // 🧒 Movement
+
+    cam.dolly.x = num.lerp(cam.dolly.x, me.pos.x, 0.035);
+    cam.dolly.y = num.lerp(cam.dolly.y, me.pos.y, 0.035);
+
+    cam.x = screen.width / 2 - cam.dolly.x;
+    cam.y = screen.height / 2 - cam.dolly.y;
+
+    input.sim(api); // 💬 Chat
+
+    const btnPos = me.screenPos(cam, world); // Button to activate prompt.
+    inputBtn.box = new geo.Box(
+      btnPos.x - me.size,
+      btnPos.y - me.size,
+      me.size * 2,
+    );
+  } else if (spectating && kids[spectatingKid]) {
+    const sk = kids[spectatingKid];
+    cam.dolly.x = num.lerp(cam.dolly.x, sk.pos.x, 0.035);
+    cam.dolly.y = num.lerp(cam.dolly.y, sk.pos.y, 0.035);
+
+    cam.x = screen.width / 2 - cam.dolly.x;
+    cam.y = screen.height / 2 - cam.dolly.y;
+    // console.log("Spectaing:", cam);
+  }
 }
 
 // Leaving the world... and logging / saving the position of the user as a ghost.
