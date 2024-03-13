@@ -10,4 +10,4 @@ services:
     env_file:
       - .env
     volumes:
-      - ..:/home/me/micro
+      - ../..:/home/me/aesthetic-computer
