@@ -1,6 +1,6 @@
 # empty greeting
 function fish_greeting
-  printf "\n  🧩 welcome 2 aesthetic micro ;)"
+  printf "\n  🧩 hi $AESTHETIC welcome 2 aesthetic micro ;)"
   printf "\n     ask with 'umm' and forget with 'nvm'\n\n"
 end
 
