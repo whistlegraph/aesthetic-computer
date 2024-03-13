@@ -15,7 +15,7 @@ end
 if not test -d /home/me/aesthetic-computer-vault
   git clone https://github.com/whistlegraph/aesthetic-computer-vault
   cd aesthetic-computer-vault
-  fish devault.fish
+  sudo fish devault.fish
 end
 
 # Initialize fnm and use the specified Node.js version.
