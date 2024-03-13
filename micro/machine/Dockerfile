@@ -39,7 +39,6 @@ RUN pip3 install shell-gpt
 RUN mkdir -p .config/fish
 RUN mkdir -p .config/fish/conf.d
 COPY config.fish .config/fish/config.fish 
-COPY setup.fish /setup.fish
 COPY entry.fish /entry.fish
 
 # Copy emacs config.
@@ -64,11 +63,8 @@ RUN echo "fnm env --use-on-cd | source" >> /home/me/.config/fish/conf.d/fnm.fish
 # Set the default command.
 CMD ["/usr/bin/fish"]
 
+# Login to Gitgub.
+RUN gh auth login
+
 # Set the entry point script.
 ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]
-
-# Set the TERM environment variable to xterm.
-ENV TERM=xterm
-
-# Run the fish entry.
-RUN fish /setup.fish
