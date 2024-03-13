@@ -6,6 +6,9 @@ echo "*** Aesthetic Computer is Initializing... ***"
 # Go to the user's directory.
 cd /home/me
 
+# Login to Github.
+gh auth login --with-token
+
 # TODO: Apply the 'vault' credentials to the mounted aesthetic-computer volume.
 git clone https://github.com/whistlegraph/aesthetic-computer-vault
 
