@@ -7,10 +7,16 @@ echo "*** Aesthetic Computer is Initializing... ***"
 cd /home/me
 
 # Login to Github.
-gh auth login --with-token
+if not gh auth status
+  gh auth login --web
+end
 
 # TODO: Apply the 'vault' credentials to the mounted aesthetic-computer volume.
-git clone https://github.com/whistlegraph/aesthetic-computer-vault
+if not test -d /home/me/aesthetic-computer-vault
+  git clone https://github.com/whistlegraph/aesthetic-computer-vault
+  cd aesthetic-computer-vault
+  fish devault.fish
+end
 
 # Initialize fnm and use the specified Node.js version.
 cd /home/me/aesthetic-computer
@@ -18,8 +24,8 @@ cd /home/me/aesthetic-computer
 # Install latest npm version before doing anything.
 npm install -g npm@latest --no-fund --no-audit
 
-# Install npm packages for emacs support.
-npm install -g prettier typescript-language-server javascript-typescript-langserver
+# Install npm packages for eglot emacs language support.
+npm install -g prettier typescript-language-server
 
 # Install Node.js dependencies
 npm install --no-fund --no-audit

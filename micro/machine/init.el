@@ -1,47 +1,75 @@
+;; Aesthetic Computer Emacs Configuration, 2024.3.13.12.51
+
 (setq inhibit-startup-screen t) ;; Disable startup message.
 (setq eshell-banner-message "") ;; No eshell banner.
 
-;; (load-theme 'wombat t) ;; Set a dark theme.
+(load-theme 'wombat t) ;; Set a dark theme.
+
+(when (window-system)
+  (menu-bar-mode -1) ;; Disable the menu bar.
+  (tool-bar-mode -1) ;; Disable the tool bar.
+  (fringe-mode 0) ;; Disable fringe indicators.
+  (scroll-bar-mode -1)) ;; Disable scroll bar.
+
 (setq-default line-spacing 0)
-
-(when (fboundp 'menu-bar-mode) (menu-bar-mode -1))
-(when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
-(when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
-(when (fboundp 'fringe-mode) (fringe-mode 0))
-
-;; Set up mouse in terminal.
+(xterm-mouse-mode 1)
 (defun track-mouse (e))
 (setq mouse-sel-mode t)
-(xterm-mouse-mode 1)
-
 (setq ring-bell-function 'ignore) ;; Ignore scroll bell.
 
-;; Check if evil is installed, if not, set up package.el for MELPA and install evil.
+;; Set-up a better backup directory.
+(defvar my-backup-directory "~/.emacs.d/backups/")
+(unless (file-exists-p my-backup-directory)
+  (make-directory my-backup-directory t))
+(setq backup-directory-alist `(("." . ,my-backup-directory)))
+
+(setq-default indent-tabs-mode nil)
+(setq-default tab-width 2)
+(setq vc-follow-symlinks t)
+
+;; Initialize package sources
 (require 'package)
-(unless (package-installed-p 'tree-sitter-lands)
-  (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/"))
-  (package-initialize)
+(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
+(package-initialize)
+
+;; Install and configure use-package
+(unless (package-installed-p 'use-package)
   (package-refresh-contents)
-  (package-install 'evil)
-  ;; Requires these node packages: prettier typescript-language-server javascript-typescript-langserver
-  (package-install 'prettier-js)
-  (package-install 'lsp-mode)
-  (package-install 'typescript-mode)
-  (package-install 'tree-sitter)
-  (package-install 'tree-sitter-langs))
+  (package-install 'use-package))
+(require 'use-package)
+(setq use-package-always-ensure t)
 
-(require 'evil) ;; Enable evil.
-(evil-mode 1)
+;; Evil mode configuration
+(use-package evil
+  :config
+  (evil-mode 1)
+  (setq-default evil-shift-width 2))
 
-;; Enable JavaScript support.
-(require 'tree-sitter)
-(require 'tree-sitter-langs)
-(add-hook 'js-mode-hook 'prettier-js-mode) ;; Enable prettier-js.
-(add-hook 'js-mode-hook #'tree-sitter-hl-mode)
-(add-hook 'js-mode-hook #'lsp) ;; Enable lsp on js.
-(add-hook 'js-mode-hook #'lsp-deferred) ;; Enable lsp on js.
+;; Dockerfile mode configuration with a depdency on `s`.
+(use-package s :ensure t)
+(use-package dockerfile-mode :ensure t)
 
-(global-display-line-numbers-mode t) ;; Line numbers everywhere.
-;; (add-hook 'prog-mode-hook 'display-line-numbers-mode) ;; Or only when programming.
+;; Prettier-js configuration
+(use-package prettier-js
+  :hook (js-mode . prettier-js-mode)
+  :bind ("C-c p" . prettier-js))
+
+;; Dockerfile mode configuration
+;; (use-package dockerfile-mode
+;;  :mode "Dockerfile\\'")
+
+;; Add more use-package blocks for other packages as needed
 
 (add-to-list 'auto-mode-alist '("\\.mjs\\'" . js-mode)) ;; Support mjs files.
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(package-selected-packages '(prettier-js evil)))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ )
