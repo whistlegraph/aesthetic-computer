@@ -1,0 +1,16 @@
+{
+  "name": "aesthetic-computer-micro",
+  "version": "1.0.0",
+  "description": "A portable Fedora based environment for running and hacking on aesthetic-computer.",
+  "type": "module",
+  "scripts": {
+    "loop": "cd machine; node boot.mjs",
+    "boot": "cd machine; docker compose run aesthetic",
+    "build": "cd machine; docker-compose run --build aesthetic",
+    "reset": "cd machine; docker-compose down; docker rm -f $(docker ps -aq --filter 'name=aesthetic-run'); docker rmi aesthetic-micro -f"
+  },
+  "author": "Jeffrey Alan Scudder",
+  "devDependencies": {
+    "chokidar": "^3.6.0"
+  }
+}

@@ -4,7 +4,7 @@ function rebuild_aesthetic
     # Stop and remove containers and networks created by 'docker-compose up'
     docker-compose down
     # Remove any containers created by 'docker-compose run'
-    docker rm -f (docker ps -aq --filter "name=aesthetic-run")
+    docker rm -f $(docker ps -aq --filter "name=aesthetic-run")
     # Remove the specific Docker image for the aesthetic service
     docker rmi aesthetic-micro -f
     # Rebuild and run the service
