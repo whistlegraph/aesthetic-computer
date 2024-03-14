@@ -60,6 +60,11 @@ RUN brew install fnm && \
     fnm install lts-hydrogen
 RUN echo "fnm env --use-on-cd | source" >> /home/me/.config/fish/conf.d/fnm.fish
 
+# Install redis
+RUN sudo dnf install -y redis 
+RUN sudo systemctl start redis 
+RUN sudo systemctl enable redis
+
 # Copy over a custom xdg-open for opening browser URLs on the host.
 COPY xdg-open.fish /usr/local/bin/xdg-open
 RUN sudo chmod +x /usr/local/bin/xdg-open
