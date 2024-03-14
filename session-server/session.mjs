@@ -649,6 +649,7 @@ if (dev) {
   });
 }
 
+/*
 if (termkit) {
   term = termkit.terminal;
 
@@ -737,6 +738,7 @@ if (termkit) {
 
   // doc.draw();
 }
+*/
 
 // ✍️ Logs
 function log() {
