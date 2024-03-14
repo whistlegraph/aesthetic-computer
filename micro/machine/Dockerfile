@@ -64,6 +64,9 @@ RUN echo "fnm env --use-on-cd | source" >> /home/me/.config/fish/conf.d/fnm.fish
 COPY xdg-open.fish /usr/local/bin/xdg-open
 RUN sudo chmod +x /usr/local/bin/xdg-open
 
+# Add a .authinfo file for emacs `gptel` support.
+# RUN echo "machine api.openai.com login apikey password $OPENAI_API_KEY" > /home/me/.authinfo
+
 # Set the default command.
 CMD ["/usr/bin/fish"]
 

@@ -3,10 +3,13 @@
 (setq inhibit-startup-screen t) ;; Disable startup message.
 (setq eshell-banner-message "") ;; No eshell banner.
 
-(load-theme 'wombat t) ;; Set a dark theme.
+;; (load-theme 'wombat t) ;; Set a dark theme.
+(setq initial-scratch-message nil) ;; Empty scratch buffer message.
+(global-display-line-numbers-mode) ;; Always show line numbers.
+
+(menu-bar-mode -1) ;; Disable the menu bar.
 
 (when (window-system)
-  (menu-bar-mode -1) ;; Disable the menu bar.
   (tool-bar-mode -1) ;; Disable the tool bar.
   (fringe-mode 0) ;; Disable fringe indicators.
   (scroll-bar-mode -1)) ;; Disable scroll bar.
@@ -45,18 +48,22 @@
   (evil-mode 1)
   (setq-default evil-shift-width 2))
 
-;; Dockerfile mode configuration with a depdency on `s`.
-(use-package s :ensure t)
-(use-package dockerfile-mode :ensure t)
+(use-package s :ensure t) ;; `dockerfile-mode` depends on `s`.
+(use-package dockerfile-mode :ensure t) ;; Dockerfile support.
+(use-package fish-mode :ensure t) ;; Fish shell syntax.
+;; (use-package gptel :ensure t) ;; ChatGPT / LLM support. 
+(use-package chatgpt-shell
+  :ensure t
+  :custom
+  ((chatgpt-shell-openai-key
+    (lambda ()
+      (getenv "OPENAI_API_KEY")))))
+;; ^ Set via `set -Ux OPENAI_API_KEY "your_api_key_here"` in fish shell.
 
 ;; Prettier-js configuration
 (use-package prettier-js
   :hook (js-mode . prettier-js-mode)
   :bind ("C-c p" . prettier-js))
-
-;; Dockerfile mode configuration
-;; (use-package dockerfile-mode
-;;  :mode "Dockerfile\\'")
 
 ;; Add more use-package blocks for other packages as needed
 
@@ -66,10 +73,11 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(package-selected-packages '(prettier-js evil)))
+ '(package-selected-packages '(gptel prettier-js evil)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  )
+(put 'erase-buffer 'disabled nil)
