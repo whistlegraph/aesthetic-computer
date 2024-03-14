@@ -3,16 +3,38 @@
 (setq inhibit-startup-screen t) ;; Disable startup message.
 (setq eshell-banner-message "") ;; No eshell banner.
 
-;; (load-theme 'wombat t) ;; Set a dark theme.
+(load-theme 'wombat t) ;; Set a dark theme.
 (setq initial-scratch-message nil) ;; Empty scratch buffer message.
 (global-display-line-numbers-mode) ;; Always show line numbers.
 
+(defun disable-line-numbers-in-eshell () ;; Except when in an `eshell`.
+  "Disable line numbers in eshell."
+  (when (derived-mode-p 'eshell-mode)
+    (display-line-numbers-mode -1)))
+
+(add-hook 'eshell-mode-hook 'disable-line-numbers-in-eshell)
+
 (menu-bar-mode -1) ;; Disable the menu bar.
+
+;; Only show emergency warnings.
+(add-hook 'after-init-hook
+          (lambda ()
+            (setq warning-minimum-level :emergency)))
 
 (when (window-system)
   (tool-bar-mode -1) ;; Disable the tool bar.
   (fringe-mode 0) ;; Disable fringe indicators.
   (scroll-bar-mode -1)) ;; Disable scroll bar.
+
+;; TODO: This should only be on linux.
+;; (setq interprogram-cut-function
+;;       (lambda (text &optional push)
+;;         (with-temp-buffer
+;;           (insert text)
+;;           (call-process-region (point-min) (point-max) "wl-copy"))))
+;; (setq interprogram-paste-function
+;;       (lambda ()
+;;         (shell-command-to-string "wl-paste")))
 
 (setq-default line-spacing 0)
 (xterm-mouse-mode 1)
@@ -74,7 +96,7 @@
   "Open eshell and run redis-server."
   (interactive)
   (eshell)
-  (insert "redis-server")
+  (insert "python3 -m http.server 8888")
   (eshell-send-input))
 
 ;; (global-set-key (kbd "C-c r") 'aesthetic) ;; Bind the function to Ctrl+c r.

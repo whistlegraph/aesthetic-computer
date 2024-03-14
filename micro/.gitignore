@@ -4,3 +4,5 @@ node_modules/
 
 trigger.txt
 url.txt
+
+*.env

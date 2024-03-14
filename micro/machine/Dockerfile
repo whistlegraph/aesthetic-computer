@@ -4,10 +4,9 @@ FROM fedora:latest
 RUN dnf update -y
 
 # Install git, gcc, clang, and emacs (without x support) and python and the github cli
-RUN dnf install -y git gcc clang emacs-nox python3 python3-pip gh
-
-# Install procps to get the 'ps' command (required for linux brew)
-RUN dnf install -y procps
+# And procps for the `ps` command that linux brew requires.
+# And the fish shell, and redis.
+RUN dnf install -y git gcc clang emacs-nox python3 python3-pip gh procps fish util-linux-user redis
 
 # Add 'me' user.
 RUN useradd -m me && \
@@ -16,10 +15,6 @@ RUN useradd -m me && \
     # Give 'me' sudo privileges without password
     echo "me ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Install fish shell
-RUN dnf install -y fish
-# And set it as default.
-RUN dnf install -y util-linux-user
 RUN chsh -s /usr/bin/fish me
 
 # Set up homebrew permissions.
@@ -36,8 +31,8 @@ WORKDIR /home/me
 RUN pip3 install shell-gpt
 
 # Copy the fish configuration and entry point script.
-RUN mkdir -p .config/fish
-RUN mkdir -p .config/fish/conf.d
+RUN mkdir -p .config/fish && \
+    mkdir -p .config/fish/conf.d
 COPY config.fish .config/fish/config.fish 
 COPY entry.fish /entry.fish
 
@@ -55,15 +50,15 @@ ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
 # Install web assembly tools.
 # RUN brew install wabt
 
-# Install node version manager and a good LTS node version (18).
+# Install fnm, configure it, install Node.js, and global npm packages
 RUN brew install fnm && \
-    fnm install lts-hydrogen
-RUN echo "fnm env --use-on-cd | source" >> /home/me/.config/fish/conf.d/fnm.fish
+    eval "$(fnm env)" && \
+    fnm install lts-hydrogen && \
+    fnm use lts-hydrogen && \
+    npm install -g prettier typescript-language-server
 
-# Install redis
-RUN sudo dnf install -y redis 
-# RUN sudo systemctl start redis 
-# RUN sudo systemctl enable redis
+# Add fnm configuration to Fish shell startup script
+RUN echo "fnm env --use-on-cd | source" >> /home/me/.config/fish/conf.d/fnm.fish
 
 # Copy over a custom xdg-open for opening browser URLs on the host.
 COPY xdg-open.fish /usr/local/bin/xdg-open
@@ -74,3 +69,6 @@ CMD ["/usr/bin/fish"]
 
 # Set the entry point script.
 ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]
+
+# Expose the web port.
+EXPOSE 8888

@@ -27,10 +27,6 @@ end
 # Initialize fnm and use the specified Node.js version.
 cd /home/me/aesthetic-computer
 
-# Install npm packages for eglot emacs language support.
-# TODO: This should only have to happen once?
-RUN npm install -g prettier typescript-language-server
-
 # Check if node_modules directory is present and not empty
 if not test -d node_modules || not count (ls node_modules) > /dev/null
   echo "node_modules directory is empty or missing, running npm install."
@@ -46,8 +42,9 @@ cd ..
 
 clear
 
-# Boot straight into emacs.
-emacs
+# Boot straight into emacs,
+# And execute the `aesthetic` command after my init.el runs. 
+emacs -f aesthetic
 
 # Execute the provided command.
 # exec $argv
