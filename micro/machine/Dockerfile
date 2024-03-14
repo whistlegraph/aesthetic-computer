@@ -67,8 +67,8 @@ RUN sudo chmod +x /usr/local/bin/xdg-open
 # Set the default command.
 CMD ["/usr/bin/fish"]
 
-# Set the entry point script.
-ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]
-
 # Expose the web port.
 EXPOSE 8888
+
+# Set the entry point script.
+ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]
