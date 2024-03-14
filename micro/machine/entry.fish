@@ -8,18 +8,13 @@ cd /home/me
 
 # Login to Github.
 if not gh auth status
-  gh auth login --web
+  echo "Not logged into GitHub, exiting to shell."
+  return
 end
-
-# Login to Vercel
-// ...
-
-# Login to Netlify
-// ...
 
 # Apply the 'vault' credentials to the mounted aesthetic-computer volume.
 if not test -d /home/me/aesthetic-computer/aesthetic-computer-vault
-  git clone https://github.com/whistlegraph/aesthetic-computer-vault
+  gh repo clone whistlegraph/aesthetic-computer-vault
   cd aesthetic-computer/aesthetic-computer-vault
   sudo fish devault.fish
 end
