@@ -1,8 +1,6 @@
-// Install all dependencies of various aesthetic.computer sub-projects.
-
 import fs from "fs";
 import path from "path";
-import { exec } from "child_process";
+import { spawn } from "child_process";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 
@@ -10,16 +8,15 @@ import { dirname } from "path";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Function to execute npm install
+// Function to execute npm install using spawn for real-time output
 const runNpmInstall = (dir) => {
   return new Promise((resolve, reject) => {
-    const childProcess = exec(`npm install`, { cwd: dir });
+    const childProcess = spawn("npm", ["install"], {
+      cwd: dir,
+      stdio: "inherit",
+    });
 
-    // Stream the output to console
-    childProcess.stdout.pipe(process.stdout);
-    childProcess.stderr.pipe(process.stderr);
-
-    childProcess.on("exit", (code) => {
+    childProcess.on("close", (code) => {
       if (code === 0) {
         console.log(`npm install completed in ${dir}`);
         resolve();

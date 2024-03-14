@@ -2,8 +2,14 @@
 system/public/assets/*/
 !system/public/assets/*/readme.txt
 
+# any instance of the aesthetic-computer-vault repository
+aesthetic-computer-vault/
+
 # built vscode extension packages
 vscode-extension/*.vsix
+
+# Any emacs or vim backups.
+*~
 
 # NPM
 node_modules/

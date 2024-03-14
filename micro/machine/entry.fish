@@ -12,9 +12,9 @@ if not gh auth status
 end
 
 # TODO: Apply the 'vault' credentials to the mounted aesthetic-computer volume.
-if not test -d /home/me/aesthetic-computer-vault
+if not test -d /home/me/aesthetic-computer/aesthetic-computer-vault
   git clone https://github.com/whistlegraph/aesthetic-computer-vault
-  cd aesthetic-computer-vault
+  cd aesthetic-computer/aesthetic-computer-vault
   sudo fish devault.fish
 end
 
