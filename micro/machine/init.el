@@ -68,6 +68,17 @@
 ;; Add more use-package blocks for other packages as needed
 
 (add-to-list 'auto-mode-alist '("\\.mjs\\'" . js-mode)) ;; Support mjs files.
+
+;; Function to open eshell and run redis-server
+(defun aesthetic ()
+  "Open eshell and run redis-server."
+  (interactive)
+  (eshell)
+  (insert "redis-server")
+  (eshell-send-input))
+
+;; (global-set-key (kbd "C-c r") 'aesthetic) ;; Bind the function to Ctrl+c r.
+
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.

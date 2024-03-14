@@ -53,7 +53,7 @@ RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/instal
 ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
 
 # Install web assembly tools.
-RUN brew install wabt
+# RUN brew install wabt
 
 # Install node version manager and a good LTS node version (18).
 RUN brew install fnm && \
@@ -62,15 +62,12 @@ RUN echo "fnm env --use-on-cd | source" >> /home/me/.config/fish/conf.d/fnm.fish
 
 # Install redis
 RUN sudo dnf install -y redis 
-RUN sudo systemctl start redis 
-RUN sudo systemctl enable redis
+# RUN sudo systemctl start redis 
+# RUN sudo systemctl enable redis
 
 # Copy over a custom xdg-open for opening browser URLs on the host.
 COPY xdg-open.fish /usr/local/bin/xdg-open
 RUN sudo chmod +x /usr/local/bin/xdg-open
-
-# Add a .authinfo file for emacs `gptel` support.
-# RUN echo "machine api.openai.com login apikey password $OPENAI_API_KEY" > /home/me/.authinfo
 
 # Set the default command.
 CMD ["/usr/bin/fish"]

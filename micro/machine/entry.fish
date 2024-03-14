@@ -11,7 +11,13 @@ if not gh auth status
   gh auth login --web
 end
 
-# TODO: Apply the 'vault' credentials to the mounted aesthetic-computer volume.
+# Login to Vercel
+// ...
+
+# Login to Netlify
+// ...
+
+# Apply the 'vault' credentials to the mounted aesthetic-computer volume.
 if not test -d /home/me/aesthetic-computer/aesthetic-computer-vault
   git clone https://github.com/whistlegraph/aesthetic-computer-vault
   cd aesthetic-computer/aesthetic-computer-vault
@@ -21,18 +27,27 @@ end
 # Initialize fnm and use the specified Node.js version.
 cd /home/me/aesthetic-computer
 
-# Install latest npm version before doing anything.
-npm install -g npm@latest --no-fund --no-audit
-
 # Install npm packages for eglot emacs language support.
-npm install -g prettier typescript-language-server
+# TODO: This should only have to happen once?
+RUN npm install -g prettier typescript-language-server
 
-# Install Node.js dependencies
-npm install --no-fund --no-audit
+# Check if node_modules directory is present and not empty
+if not test -d node_modules || not count (ls node_modules) > /dev/null
+  echo "node_modules directory is empty or missing, running npm install."
+  # Install latest npm version before doing anything.
+  npm install -g npm@latest --no-fund --no-audit
+  # Install Node.js dependencies
+  npm install --no-fund --no-audit --no-save
+else
+  echo "node_modules directory is present, skipping npm install."
+end
 
 cd ..
 
 clear
 
+# Boot straight into emacs.
+emacs
+
 # Execute the provided command.
-exec $argv
+# exec $argv
