@@ -2,6 +2,7 @@
 // Screenshots of aesthetic computer development.
 
 /* #region 🏁 TODO 
+  - [] Remove `june 21 2023` from assets.
   - [] Re-arrange token numbers based on minting?
   - [] Test reflowing of caption text (15)
   - [] Add link to token.
@@ -21,7 +22,7 @@ async function boot({ api, params, num, debug }) {
   const response = await fetch(
     `${
       debug ? "/assets/" : "https://assets.aesthetic.computer"
-    }/screenshots/metadata2.json`,
+    }/screenshots/metadata3.json`,
   );
   metadata = await response.json();
 
