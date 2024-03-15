@@ -21,7 +21,7 @@ async function boot({ api, params, num, debug }) {
   const response = await fetch(
     `${
       debug ? "/assets/" : "https://assets.aesthetic.computer"
-    }/screenshots/metadata.json`,
+    }/screenshots/metadata2.json`,
   );
   metadata = await response.json();
 
