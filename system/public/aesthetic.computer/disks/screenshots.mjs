@@ -2,7 +2,13 @@
 // Screenshots of aesthetic computer development.
 
 /* #region 🏁 TODO 
-  - [] Load in the /assets/screenshots/metadata.json to parse param
+  - [] Re-arrange token numbers based on minting?
+  - [] Test reflowing of caption text (15)
+  - [] Add link to token.
+  - [] Add big button for tapping between slides.
+  - [] Dogfood with a new GL renderer.
+  + Done
+  - [+] Load in the /assets/screenshots/metadata.json to parse param
        integers with filenames.
 #endregion */
 
@@ -11,14 +17,15 @@ let shot;
 let metadata;
 const { max, min } = Math;
 
-async function boot({ api, params, num }) {
-  const response = await fetch("https://assets.aesthetic.computer/screenshots/metadata.json");
+async function boot({ api, params, num, debug }) {
+  const response = await fetch(
+    `${
+      debug ? "/assets/" : "https://assets.aesthetic.computer"
+    }/screenshots/metadata.json`,
+  );
   metadata = await response.json();
 
-  // Runs once at the start.
-  console.log("Params:", params[0]);
   shot = parseInt(params[0]) || num.randIntRange(1, shots);
-
   goToShot(api, shot);
 }
 
@@ -33,16 +40,20 @@ function act({ api, event: e, jump }) {
   if (e.is("keyboard:down:arrowright")) goToShot(api, min(shot + 1, shots));
 }
 
-function goToShot({ dom: { html, clear }, hud, net, needsPaint }, n) {
+function goToShot({ dom: { html, clear }, hud, net, needsPaint, debug }, n) {
   shot = n;
   clear();
   const record = metadata[shot - 1];
   html`
     <img
       id="screenshot"
-      src="https://assets.aesthetic.computer/screenshots/images/${record.imageRef}"
+      src="${debug
+        ? "/assets"
+        : "https://assets.aesthetic.computer"}/screenshots/images/${record.imageRef}"
     />
-    <h1 id="screenshot-title">${record.name}${record.description ? " - " + record.description : ""}</h1>
+    <h1 id="screenshot-title">
+      ${record.name}${record.description ? " - " + record.description : ""}
+    </h1>
     <style>
       #screenshot-title {
         font-family: YWFTProcessing-Regular;
