@@ -12,7 +12,7 @@ let metadata;
 const { max, min } = Math;
 
 async function boot({ api, params, num }) {
-  const response = await fetch("/assets/screenshots/metadata.json");
+  const response = await fetch("https://assets.aesthetic.computer/screenshots/metadata.json");
   metadata = await response.json();
 
   // Runs once at the start.
@@ -40,7 +40,7 @@ function goToShot({ dom: { html, clear }, hud, net, needsPaint }, n) {
   html`
     <img
       id="screenshot"
-      src="/assets/screenshots/images/${record.imageRef}"
+      src="https://assets.aesthetic.computer/screenshots/images/${record.imageRef}"
     />
     <h1 id="screenshot-title">${record.name}${record.description ? " - " + record.description : ""}</h1>
     <style>
