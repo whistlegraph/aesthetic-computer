@@ -900,7 +900,6 @@ const $commonApi = {
     label: (text, color, offset) => {
       currentHUDTxt = text;
       currentHUDTextColor = graph.findColor(color);
-      console.log(currentHUDTxt, currentHUDTextColor);
       currentHUDOffset = offset;
     },
     currentStatusColor: () => currentHUDStatusColor,
@@ -2890,7 +2889,7 @@ async function load(
           () => {
             // 💔 Disconnected! (Post-disconnection logic.)
             updateHUDStatus();
-            clearInterval(slugBroadcastInterval); 
+            clearInterval(slugBroadcastInterval);
           },
         );
       })
@@ -3007,6 +3006,10 @@ async function load(
   $commonApi.content = new Content();
 
   $commonApi.dom = {};
+
+  $commonApi.dom.clear = () => {
+    $commonApi.content.remove();
+  };
 
   $commonApi.dom.html = (strings, ...vars) => {
     const processed = defaultTemplateStringProcessor(strings, ...vars);

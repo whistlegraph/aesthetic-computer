@@ -520,6 +520,11 @@ export async function handler(event, context) {
           desc: "Add `javascript` content to the DOM.",
           done: false,
         },
+        "dom.clear": {
+          sig: "clear()",
+          desc: "Clear (remove) all DOM content.",
+          done: false,
+        },
         typeface: {
           sig: "typeface",
           desc: "A reference to the default system typeface.",
