@@ -26,22 +26,15 @@ const after = `
   - your responses are limited to 100 characters.
   `;
 
+// TODO: Remove light and dark options from all other schemes,
+//       preferring dark.
 export const scheme = {
-  dark: {
-    text: [172, 49, 117, 190],
-    background: [215, 181, 74, 200],
-    prompt: [20, 140, 140],
-    block: [172, 49, 117, 190],
-    highlight: [234, 213, 166],
-    guideline: [228, 162, 131],
-  },
-  light: {
-    text: [0, 200],
-    background: [170, 150, 200],
-    block: [30, 200, 200],
-    highlight: [200, 200, 30],
-    guideline: [0, 0, 0, 128],
-  },
+  text: [172, 49, 117, 190],
+  background: [215, 181, 74, 200],
+  prompt: [20, 140, 140],
+  block: [172, 49, 117, 190],
+  highlight: [234, 213, 166],
+  guideline: [228, 162, 131],
 };
 
 // 🛑 Intercept specific input text with a custom reply.

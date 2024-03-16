@@ -433,8 +433,11 @@ class TextInput {
         $.ink([255, 0, 0, 127]).box(pos.x, pos.y, 4);
       } else if (char !== " " && char.charCodeAt(0) !== 10) {
         const pic = ti.typeface.glyphs[char] || ti.typeface.glyphs["?"];
-
-        $.ink(!alt ? ti.pal.text : ti.pal.prompt).draw(pic, pos, prompt.scale); // Draw each character.
+        $.ink(!alt ? ti.pal.text : ti.pal.prompt || ti.pal.text).draw(
+          pic,
+          pos,
+          prompt.scale,
+        ); // Draw each character.
       } else if (ti.#renderSpaces) {
         $.ink([0, 255, 0, 127]).box(pos.x, pos.y, 3);
       }
