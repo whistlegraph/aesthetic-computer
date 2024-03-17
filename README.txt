@@ -42,6 +42,10 @@
 
 - Jeffrey (Sat)
 
+*** bot color schemes ***
+  - [] Fix color schemes for bots, based on `mom`.
+       (No more light mode schemes / just use one.)
+
 *** `world` <-> `painting` <-> piece integrations ***
   - [] User world persistence with floating command notifications.
     - [🟠] User world persistence.

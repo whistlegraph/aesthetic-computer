@@ -25,8 +25,11 @@ const lessons = [
     Most identity politics is based on getting a place at the power and capitalist-table on the expense of any scientific or historical facts - YES - This is wonderfull and I can only bee-sing it and enjoy as I myself has changed my acent, history, origin etc. — many a time, in order to fit in and make myself intereting and doing so in a way there was playing whit fact the same way as the already mentioned the Saga's. (((Were is The Goodiepal from etc.)))
 
     ______Just as K-omputer hacking was inteligent and realativly harmless to begin whit,  it is now a days turned into only being about getting money out of old and lesser informed on-liner's - The Academic identity hacking and story building people use today could be said to share the same faith ((—- maybe?? —)) At least almost all Scandinavien academics only research in fields they are payed in Capital to researh and people in the needs of power ar desperate to build new world views and history's to fit into … just look at teh Balkan changes over the last 30 years for another example - and I guess it is more or less the same anywere else… Butthen agian  this is only some Celtic fantasy thought's - they have no relevance now, but give them a few years…
+
+    [the_prut_is_old_01.m4a]
     `,
     pictures: ["lnl1"],
+    sounds: ["the_prut_is_old_01"],
   },
   {
     title: "Lesson NOT Learnt 02 - Hang whit the wrong",
@@ -44,8 +47,11 @@ const lessons = [
     Cryptic: KovBoyFilm Ref. 
 
     https://www.youtube.com/watch?v=GhIhJ8w4e2U
+
+    [carl_signe_is_prut_02.m4a]
     `,
     pictures: ["lnl2-1", "lnl2-2"],
+    sounds: ["carl_signe_is_prut_02"],
   },
   {
     title:
@@ -68,8 +74,11 @@ const lessons = [
     We are the Viking Klokkers 
     - 3 X Play
     - 6 X Father's
+
+    [bananskolen_was_prut_03.m4a]
     `,
     pictures: ["lnl3"],
+    sounds: ["bananskolen_was_prut_03"],
   },
   {
     title: "Lesson NOT Learnt 04",
@@ -101,8 +110,11 @@ const lessons = [
     ——————————————————————————  
     ——————————————————————————  
     who arkived it?
+
+    [acid.talk_and_forest.folk_04.m4a]
     `,
     pictures: ["lnl4"],
+    sounds: ["acid.talk_and_forest.folk_04"],
   },
   {
     title: "Lesson NOT Learnt 05",
@@ -114,16 +126,22 @@ const lessons = [
 
     Mike Burrows, just joined the Guild the Viking Klokkers
     ————————————————
+
+    [fuck_politikens_boghandel_05.m4a]
     `,
     pictures: ["lnl5"],
+    sounds: ["fuck_politikens_boghandel_05"],
   },
   {
     title:
       "Lesson NOT Learnt 06 *Silence is the power of any overclass, anywere*",
     text: `
     & Fansy political ideas is all the same - just power structures waiting to be put into place... — well educated Euro's who jumps on a fashionable idea.. and talk to a lower class in order to highen them to another >>mille plateaux<<- But fails to interact whit the class whit's way of life the well educated Euro's certainly can't stand.. Just Like the fishers living in Vorupør and the bikers who en·gaged in a fight of 300 people around 30 years ago in that little town -  and the white institutional overclass only had silence as a comment - since silence is the way that intelectualisem deals whit ideas it dos not like... = silence is wrong & conceptual high modernism was a dead - NO it is / was not!
+
+    [still_to0_old_to_cold_at_the_age_of_silence_06.m4a]
     `,
     pictures: ["lnl6"],
+    sounds: ["still_to0_old_to_cold_at_the_age_of_silence_06"],
   },
   {
     title: "Lesson NOT Learnt 07",
@@ -135,8 +153,10 @@ const lessons = [
     call me up as: We are the Viking KLOKKERS—
     <Rainbow>
     ———————————————
+    [nothing_to_prove_so_Call_Me_Maybe_07.m4a]
     `,
     pictures: ["lnl7"],
+    sounds: ["nothing_to_prove_so_Call_Me_Maybe_07"],
   },
   {
     title: "Lesson NOT Learnt 08 - w/ 02 variation",
@@ -153,8 +173,12 @@ const lessons = [
     ding / dong - ding aling long for you in sound and haanskulptur - I will skulture you, not your body but who you were and is . . Gender is a human joke, you = always the most beautifull of light in gold and silver…
     Manchester & Edgeley made you, I sing your name out over: Velbastað
     we are the Viking Klokkers - we are the Viking Klokkers
+
+
+    [rip_angel_simon_was_a_man_became_a_woman_became_a_man_08.m4a]
     `,
     pictures: ["lnl8"],
+    sounds: ["rip_angel_simon_was_a_man_became_a_woman_became_a_man_08"],
   },
   {
     title: "Lesson NOT Learnt 09",
@@ -167,8 +191,10 @@ const lessons = [
     Dungeon & Draogns cost-play and (gay) culture > Industrial - revesed signals culture > Cyber Punk > Internet > Tekno  > Global Village Dreams > Social Media & web 2.0  > The curret Politcal Art-scene…
 
     and that current art-scene would never accept a man·ly Dungeon & Dragons cost-play picture like this:
+    [never_call-me_by_the_name_kristian_09.m4a]
     `,
     pictures: ["lnl9"],
+    sounds: ["never_call-me_by_the_name_kristian_09"],
   },
   {
     title: "Lesson NOT Learnt 10",
@@ -178,8 +204,11 @@ const lessons = [
     and the best place to leave ideas for the time to come is in pryramidiums
 
     We are the Viking Klokkers have trust a old goodiepal'ium
+
+    [limerick_you_are_pyramide_lady_10.m4a]
     `,
     pictures: ["lnl10"],
+    sounds: ["limerick_you_are_pyramide_lady_10"],
   },
   {
     title: "Lesson NOT Learnt 11 - what punk is not about.m4a",
