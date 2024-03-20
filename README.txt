@@ -46,6 +46,10 @@
   - [🎃] Take out emacs support and instead connect to the
        running container from some sub-buffers in an emacs
        layout that would always be self-hosted.
+    - [] Combine url code and prompt into one pane / tab.
+    - [] Make the `scratch` open the readme.
+    - [] Auto-switch to the `prompt` tab.
+    - [] Use my own emacs lisp file / move dotfiles over.
   + Done
   - [x] Get a basic http server punching through the container.
 
