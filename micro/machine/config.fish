@@ -48,8 +48,33 @@ function umm
     sgpt --chat umm "$args"
 end
 
+function code
+    if set -q argv[1]
+        set -l args (string join " " $argv)
+        sgpt --code --chat code "$args" 
+    else
+        sgpt --code --editor --chat code
+    end
+end
+
+function copy
+    # Extract everything from the chat after the last "assistant: " line.
+    set content (sgpt --show-chat code | tac | sed '/^assistant: /q' | tac | sed '1s/^assistant: //')
+    printf "%s\n" $content | xclip -selection clipboard
+end
+
+function done 
+    rm /tmp/chat_cache/code 2>/dev/null
+    echo "bye :)"
+end
+
+function ok
+  rm /tmp/chat_cache/umm 2>/dev/null
+  echo "bye :)"
+end
+
 function forget
-  rm /tmp/chat_cache/umm
+  rm /tmp/chat_cache/umm 2>/dev/null
   echo "umm, i forgot :)"
 end
 
