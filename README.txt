@@ -42,9 +42,42 @@
 
 - Jeffrey (Sat)
 
+*** micro ***
+  - [🫠] Get a basic http server punching through the container.
+  - [] Take out emacs support and instead connect to the
+       running container from some sub-buffers in an emacs
+       layout that would always be self-hosted.
+
+*** dotfiles ***
+  - [] Move my own dotfiles to the ac repo?
+
 *** bot color schemes ***
-  - [] Fix color schemes for bots, based on `mom`.
+  - [🟡] Fix color schemes for bots, based on `mom`.
        (No more light mode schemes / just use one.)
+    - [x] mom
+    - [] dad 
+    - [] kid 
+    - [] gargoyle 
+    - [] brother 
+    - [] sister 
+    - [] wife 
+    - [] husband 
+    - [] boyfriend
+    - [] girlfriend
+
+*** [] light & dark autocomplete ***
+
+*** chat ***
+  - [] Add a `chat` command.
+  - [] Use the TextInput implementation from `world` for input.
+    - [] The default should send the user to th 
+  - [] Prototype a scrollback output on the main screen.
+  - [] But `chat` should be everywhere?
+    - [] Then abstract `chat` from that view. 
+  - [] Make a panel in the logs to watch it stream in.
+  - [] It should persist in the database under a table.
+  - [] Then appear for other users and the current user.
+       (Just make the text fully synchronized for now.)
 
 *** `world` <-> `painting` <-> piece integrations ***
   - [] User world persistence with floating command notifications.
