@@ -43,10 +43,11 @@
 - Jeffrey (Sat)
 
 *** micro ***
-  - [🫠] Get a basic http server punching through the container.
-  - [] Take out emacs support and instead connect to the
+  - [🎃] Take out emacs support and instead connect to the
        running container from some sub-buffers in an emacs
        layout that would always be self-hosted.
+  + Done
+  - [x] Get a basic http server punching through the container.
 
 *** dotfiles ***
   - [] Move my own dotfiles to the ac repo?
