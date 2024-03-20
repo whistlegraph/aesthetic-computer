@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "docker build -t aesthetic-micro machine",
-    "boot": "cd machine; if [ -z \"$(docker ps -aq -f name=aesthetic-container)\" ]; then npm run build && docker run -d -p 8888:8888 --hostname aesthetic --env-file .env --env-file github.env --env-file netlify.env --env-file vercel.env --volume ~/Desktop/code/aesthetic-computer:/home/me/aesthetic-computer --user me --platform linux/amd64 --name aesthetic-container -it aesthetic-micro /usr/bin/fish entry.fish; else docker start aesthetic-container; fi",
+    "boot": "cd machine; if [ -z \"$(docker ps -aq -f name=aesthetic-container)\" ]; then npm run build && docker run -d -p 8888:8888 -p 8889:8889 --hostname aesthetic --env-file .env --env-file github.env --env-file netlify.env --env-file vercel.env --volume ~/Desktop/code/aesthetic-computer:/home/me/aesthetic-computer --user me --platform linux/amd64 --name aesthetic-container -it aesthetic-micro /usr/bin/fish entry.fish; else docker start aesthetic-container; fi",
     "emacs": "echo hi",
     "shell": "docker exec -it aesthetic-container /usr/bin/fish",
     "redis": "docker exec -it aesthetic-container /usr/bin/fish -c 'redis-server'",
