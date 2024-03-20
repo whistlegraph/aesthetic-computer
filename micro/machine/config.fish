@@ -31,11 +31,12 @@ fish_add_path ~/.local/bin
 fish_add_path ~/.cargo/bin
 
 alias ac 'cd ~/aesthetic-computer'
-alias ac-code 'cd ~/aesthetic-computer; npm run code'
-alias ac-session 'cd ~/aesthetic-computer; npm run server:session'
-alias ac-edge 'cd ~/aesthetic-computer; npm run edge'
-alias ac-stripe 'cd ~/aesthetic-computer; npm run stripe'
-alias ac-url 'cd ~/aesthetic-computer; npm run url'
+alias ac-code 'cd ~/aesthetic-computer; clear; npm run code'
+alias ac-session 'cd ~/aesthetic-computer; clear; npm run server:session'
+alias ac-edge 'cd ~/aesthetic-computer; clear; npm run edge-micro'
+alias ac-stripe-print 'cd ~/aesthetic-computer; clear; npm run stripe-print-micro'
+alias ac-stripe-ticket 'cd ~/aesthetic-computer; clear; npm run stripe-ticket-micro'
+alias ac-url 'cd ~/aesthetic-computer; clear; npm run url'
 
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 
@@ -87,3 +88,5 @@ function forget
 end
 
 alias nvm 'forget'
+
+clear
