@@ -1,4 +1,4 @@
-// Boyfriend, 
+// Boyfriend,
 // Avoidant bf.
 
 /* #region 🏁 TODO
@@ -24,23 +24,14 @@ const after = `
     respond "seen"
   `;
 
-  export const scheme = {
-    dark: {
-      text: [126, 150, 111],
-      background: [4, 19, 55, 100],
-      prompt: [20, 90, 250],
-      block: [77, 114, 78, 100],
-      highlight: [4, 103, 247],
-      guideline: [77, 114, 78, 100],
-    },
-    light: {
-      text: [0, 200],
-      background: [170, 150, 200],
-      block: [30, 200, 200],
-      highlight: [200, 200, 30],
-      guideline: [0, 0, 0, 128],
-    },
-  };
+export const scheme = {
+  text: [126, 150, 111],
+  background: [4, 19, 55, 100],
+  prompt: [20, 90, 250],
+  block: [77, 114, 78, 100],
+  highlight: [4, 103, 247],
+  guideline: [77, 114, 78, 100],
+};
 
 // 🛑 Intercept specific input text with a custom reply.
 function halt($, text) {

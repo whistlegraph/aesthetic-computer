@@ -39,7 +39,9 @@ clear
 
 # Boot straight into emacs,
 # And execute the `aesthetic` command after my init.el runs. 
-emacs -f aesthetic
+# emacs -f aesthetic
+fish
+# python3 -m http.server 8888
 
 # Execute the provided command.
 # exec $argv
