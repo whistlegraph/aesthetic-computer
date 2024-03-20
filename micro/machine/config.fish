@@ -30,6 +30,15 @@ fish_add_path ~/.local/bin
 # add rust binaries to the shell path
 fish_add_path ~/.cargo/bin
 
+alias ac 'cd ~/aesthetic-computer'
+alias ac-code 'cd ~/aesthetic-computer; npm run code'
+alias ac-session 'cd ~/aesthetic-computer; npm run server:session'
+alias ac-edge 'cd ~/aesthetic-computer; npm run edge'
+alias ac-stripe 'cd ~/aesthetic-computer; npm run stripe'
+alias ac-url 'cd ~/aesthetic-computer; npm run url'
+
+alias acw 'cd ~/aesthetic-computer/system; npm run watch'
+
 # a shell-gpt shortcut (must be all lowercase / otherwise quoted)
 function umm
     # Use string escape to handle special characters

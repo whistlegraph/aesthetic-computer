@@ -1,12 +1,11 @@
 services:
   aesthetic:
     image: aesthetic-micro
+    ports:
+      - "3000:4000"
     build: .
     platform: linux/amd64
     user: me
-    hostname: aesthetic
-    ports:
-      - "8888:8888"
     env_file:
       - .env
       - github.env

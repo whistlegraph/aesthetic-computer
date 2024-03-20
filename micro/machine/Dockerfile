@@ -37,8 +37,8 @@ COPY config.fish .config/fish/config.fish
 COPY entry.fish /entry.fish
 
 # Copy emacs config.
-COPY init.el .emacs
-RUN sudo chown me:me .emacs
+# COPY init.el .emacs
+# RUN sudo chown me:me .emacs
 # RUN mkdir -p .emacs.d
 
 # Install linux brew.
@@ -68,7 +68,7 @@ RUN sudo chmod +x /usr/local/bin/xdg-open
 CMD ["/usr/bin/fish"]
 
 # Expose the web port.
-EXPOSE 8888
+# EXPOSE 8888
 
 # Set the entry point script.
 ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]

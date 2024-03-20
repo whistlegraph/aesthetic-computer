@@ -4,11 +4,18 @@
   "description": "A portable Fedora based environment for running and hacking on aesthetic-computer.",
   "type": "module",
   "scripts": {
-    "reset-and-build": "npm run reset && npm run build",
+    "build": "docker build -t aesthetic-micro machine",
+    "boot": "cd machine; if [ -z \"$(docker ps -aq -f name=aesthetic-container)\" ]; then npm run build && docker run -d -p 8888:8888 --hostname aesthetic --env-file .env --env-file github.env --env-file netlify.env --env-file vercel.env --volume ~/Desktop/code/aesthetic-computer:/home/me/aesthetic-computer --user me --platform linux/amd64 --name aesthetic-container -it aesthetic-micro /usr/bin/fish entry.fish; else docker start aesthetic-container; fi",
+    "emacs": "echo hi",
+    "shell": "docker exec -it aesthetic-container /usr/bin/fish",
+    "redis": "docker exec -it aesthetic-container /usr/bin/fish -c 'redis-server'",
+    "code": "docker exec -it aesthetic-container /usr/bin/fish -c 'ac-code'",
+    "session": "docker exec -it aesthetic-container /usr/bin/fish -c 'ac-session'",
+    "edge": "docker exec -it aesthetic-container /usr/bin/fish -c 'ac-edge'",
+    "stripe": "docker exec -it aesthetic-container /usr/bin/fish -c 'ac-stripe'",
+    "url": "docker exec -it aesthetic-container /usr/bin/fish -c 'ac-url'",
     "watch": "cd machine; node watch.mjs",
-    "boot": "cd machine; docker compose run aesthetic",
-    "build": "cd machine; docker compose run --build aesthetic",
-    "reset": "cd machine; docker compose down; docker rm -f $(docker ps -aq --filter 'name=aesthetic-run'); docker rmi aesthetic-micro -f"
+    "reset": "cd machine; docker ps -q -a --filter 'name=aesthetic-container' | xargs -r docker rm -f; docker rmi aesthetic-micro -f"
   },
   "author": "Jeffrey Alan Scudder",
   "devDependencies": {
