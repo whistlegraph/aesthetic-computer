@@ -40,6 +40,14 @@ alias ac-url 'cd ~/aesthetic-computer; clear; npm run url'
 
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 
+if test -n "$GIT_USER_EMAIL"
+    git config --global user.email $GIT_USER_EMAIL
+end
+
+if test -n "$GIT_USER_NAME"
+    git config --global user.name $GIT_USER_NAME
+end
+
 # a shell-gpt shortcut (must be all lowercase / otherwise quoted)
 function umm
     # Use string escape to handle special characters
