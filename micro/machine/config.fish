@@ -1,7 +1,7 @@
 # empty greeting
 function fish_greeting
-  printf "\n  🧩 hi $AESTHETIC welcome 2 aesthetic micro ;)"
-  printf "\n     ask with 'umm' and forget with 'nvm'\n\n"
+  printf "\n🧩 Hi @$AESTHETIC!\n\n"
+  printf "Ask with 'umm' and forget with 'nvm'\nor use 'code' and 'done' with 'copy'\nto generate and get code.\n\n"
 end
 
 # rebuild the container after exiting with a special code ;)
@@ -88,5 +88,3 @@ function forget
 end
 
 alias nvm 'forget'
-
-clear
