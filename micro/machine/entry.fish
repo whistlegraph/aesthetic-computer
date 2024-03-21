@@ -12,11 +12,15 @@ if not gh auth status
   return
 end
 
-# Apply the 'vault' credentials to the mounted aesthetic-computer volume.
-if not test -d /home/me/aesthetic-computer/aesthetic-computer-vault
-  gh repo clone whistlegraph/aesthetic-computer-vault
-  cd aesthetic-computer/aesthetic-computer-vault
-  sudo fish devault.fish
+# Apply the 'vault' credentials to the mounted aesthetic-computer volume, and make sure it exists.
+if test -d /home/me/aesthetic-computer
+  if not test -d /home/me/aesthetic-computer/aesthetic-computer-vault
+    gh repo clone whistlegraph/aesthetic-computer-vault /home/me/aesthetic-computer/aesthetic-computer-vault
+    cd /home/me/aesthetic-computer/aesthetic-computer-vault
+    sudo fish devault.fish
+  end
+else
+  echo "aesthetic-computer source code not mounted"
 end
 
 # Initialize fnm and use the specified Node.js version.
