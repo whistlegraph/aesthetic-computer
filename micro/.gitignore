@@ -1,8 +1,16 @@
-.local/
+# javascript dependencies
 node_modules/
+
+# docker artifacts
+.local/
 .log/
 
+# potential escape trigger files for host actions
 trigger.txt
 url.txt
 
+# copied from ../dotfiles/dot_config
+emacs.el
+
+# stores secrets
 *.env
