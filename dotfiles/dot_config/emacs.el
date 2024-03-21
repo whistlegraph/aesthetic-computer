@@ -39,6 +39,14 @@
 (add-hook 'eshell-mode-hook 'disable-line-numbers-in-modes)
 (add-hook 'vterm-mode-hook 'disable-line-numbers-in-modes)
 
+;; Set the default shell for Windows to use bash on WSL. 
+(when (eq system-type 'windows-nt)
+  (setq explicit-shell-file-name "C:/Windows/System32/bash.exe")
+  (setq shell-file-name explicit-shell-file-name)
+  (setenv "SHELL" shell-file-name)
+  (add-to-list 'exec-path "C:/Windows/System32")
+  )
+
 ;; Only show emergency warnings.
 (add-hook 'after-init-hook
           (lambda ()
@@ -111,6 +119,8 @@
   (load bootstrap-file nil 'nomessage))
 
 (setq straight-use-package-by-default t)
+
+;; (use-package eat)
 
 (use-package helm ;; Add helm: https://github.com/emacs-helm/helm/wiki#from-melpa  
   ;; :straight t
@@ -209,8 +219,9 @@
 ;; (setq desktop-save 'if-exists)
 ;; (setq desktop-dirname "~/.emacs.d/desktop/")
 
-;; sudo dnf install cmake libtool libvterm
-;; (use-package vterm)
+;; fedora: sudo dnf install cmake libtool libvterm
+;; windows:  choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+(use-package vterm)
 
 ;; (defun open-fish-or-eshell-if-no-file ()
 ;;   "Open vterm with fish shell or eshell if no file is specified in the arguments."
@@ -230,6 +241,15 @@
 
 ;; Kill any active processes when quitting emacs.
 (setq confirm-kill-processes nil)
+
+(defun aesthetic-internal ()
+  "Run aesthetic servers in a docker container that's running emacs."
+  (interactive)
+  ;; Open a terminal.
+  (vterm)
+  (vterm-send-string (format "ac-code\n" cmd))
+  (rename-buffer (format "vterm-code" cmd) t)
+)
 
 (defun aesthetic-backend ()
   "Run npm commands in vterm, each in a new tab named after the command. Use 'prompt' for 'shell' and 'url' in split panes, and 'stripe' for 'stripe-print' and 'stripe-ticket'."

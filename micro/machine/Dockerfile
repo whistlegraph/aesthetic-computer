@@ -40,9 +40,9 @@ COPY config.fish .config/fish/config.fish
 COPY entry.fish /entry.fish
 
 # Copy emacs config.
-# COPY init.el .emacs
-# RUN sudo chown me:me .emacs
-# RUN mkdir -p .emacs.d
+COPY emacs.el .emacs
+RUN sudo chown me:me .emacs
+RUN mkdir -p .emacs.d
 
 # Install linux brew.
 RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
