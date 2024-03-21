@@ -2657,7 +2657,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "signal") {
       if (debug) console.log("📻 Signal received:", content);
-      if (whens[content]) whens[content]();
+      if (typeof content === "string") content = { type: content };
+      if (whens[content.type]) whens[content.type](content.content);
     }
 
     // 📦 Storage
@@ -5074,6 +5075,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Receive signals from the piece & assign callbacks.
   // These get flushed between pieces.
+  // Note: These are useful for
   window.when = function (message, callback) {
     whens[message] = callback;
   };

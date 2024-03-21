@@ -42,6 +42,21 @@
 
 - Jeffrey (Sat)
 
+*** emacs fixes ***
+    - [-] Include "assets" directory in ctrl+p helm search.
+    - [] Add gutter at 80 character width.
+    - [] JavaScript auto-indent needs to be 2 spaces wide
+    - [] Javascript auto-close braces / brackets not working.
+    - [] Add gpt mode for inline text replacement.
+    - [] Add code-folding (check out origami or vimdiff mode?)
+
+*** screenshots ***
+    - [🟡] Map new token ids to screenshot numbers.
+           (https://highlight.xyz/mint/65f5e86427e22afacb0972e7/marketplace)
+    - [] Add left + right tap buttons that take up the full half-width. 
+    + Done
+    - [x] Fix font loading issue.
+
 *** micro ***
     - [-] Implement a `boot` command that will begin the rebuild process
          from the docker container / or it could be an emacs command even...
