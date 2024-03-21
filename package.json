@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "from-scratch": "npm run reset; npm run build-boot-and-edit",
-    "build-boot-and-edit": "npm run boot; nohup emacs --eval '(aesthetic-backend)' &",
+    "build-boot-and-edit": "npm run boot; pkill emacs; nohup emacs --eval '(aesthetic-backend)' &",
     "reset": "cd micro; npm run reset",
     "boot": "cd micro; npm run boot",
     "upgrade": "ncu -u",
