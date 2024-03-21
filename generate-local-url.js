@@ -2,6 +2,15 @@ import { networkInterfaces } from "os";
 import qrcode from "qrcode-terminal";
 import got from "got";
 
+let bootUps = 0;
+const bootUpTimer = setInterval(() => {
+  process.stdout.write("\x1Bc"); // Clear terminal.
+  console.log(
+    bootUps % 2 === 0 ? `\n 🫠 Booting up...` : `\n 🥲 Booting up. . .`,
+  );
+  bootUps += 1;
+}, 250);
+
 async function constructUrl() {
   const ifaces = networkInterfaces();
   let ipAddress;
@@ -25,8 +34,10 @@ async function constructUrl() {
         https: { rejectUnauthorized: false },
       });
       if (response.statusCode === 200) {
+        clearInterval(bootUpTimer);
+        process.stdout.write("\x1Bc"); // Clear terminal.
+        console.log(`😃 Welcome to Aesthetic Computer 😃`);
         qrcode.generate(url, { small: true });
-        console.log(`😃 Welcome to aesthetic.computer!`);
         console.log(`Local 💻️ https://localhost:8888`);
         console.log(`  LAN 🫂 ${url} (QR code above)`);
         console.log(`World 🌎 https://prompt.ac`);
@@ -34,6 +45,8 @@ async function constructUrl() {
       }
     } catch (error) {
       // console.error("❌ An error occurred:", error);
+      // clearInterval(bootUpTimer);
+      // 🔄 Just go forever...
     }
     await new Promise((res) => setTimeout(res, 500)); // Hang out half a sec.
   }
