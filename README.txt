@@ -43,9 +43,10 @@
 - Jeffrey (Sat)
 
 *** micro ***
-    - [🟡] Make the `source` open the readme by default.
-    - [] Implement a `boot` command. 
+    - [-] Implement a `boot` command that will begin the rebuild process
+         from the docker container / or it could be an emacs command even...
     + Done
+    - [x] Make the `source` open the readme by default.
     - [x] Take out emacs support and instead connect to the
         running container from some sub-buffers in an emacs
         layout that would always be self-hosted.

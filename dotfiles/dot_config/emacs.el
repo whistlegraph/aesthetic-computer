@@ -224,6 +224,7 @@
         prompt-tab-created stripe-tab-created)
     ;; Iterate over the commands
     (tab-rename "source")
+    (find-file "~/Desktop/code/aesthetic-computer/README.txt")
     (dolist (cmd commands)
       (cond
        ;; For 'shell' and 'url', split the 'prompt' tab
