@@ -48,6 +48,9 @@ if test -n "$GIT_USER_NAME"
     git config --global user.name $GIT_USER_NAME
 end
 
+# Make sure git is setup and authorized for making commits via `gh`.
+gh auth setup-git
+
 # a shell-gpt shortcut (must be all lowercase / otherwise quoted)
 function umm
     # Use string escape to handle special characters
