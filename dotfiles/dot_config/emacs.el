@@ -207,13 +207,7 @@
 ;; (add-hook 'vterm-mode-hook 'disable-evil-in-vterm)
 
 ;; Kill any active processes when quitting emacs.
-(add-hook 'kill-emacs-query-functions
-          (lambda ()
-            (let ((process-list (process-list)))
-              (dolist (proc process-list)
-                (when (process-live-p proc)
-                  (delete-process proc)))
-              t)))
+(setq confirm-kill-processes nil)
 
 (defun aesthetic-backend ()
   "Run npm commands in vterm, each in a new tab named after the command. Use 'prompt' for 'shell' and 'url' in split panes, and 'stripe' for 'stripe-print' and 'stripe-ticket'."
