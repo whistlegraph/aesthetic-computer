@@ -210,7 +210,7 @@
 
 ;; fedora: sudo dnf install cmake libtool libvterm
 ;; windows:  choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
-(straight-use-package vterm)
+(straight-use-package 'vterm)
 (setq vterm-shell "/usr/bin/fish") ;; Use fish as the default vterm shell.
 
 ;; (desktop-save-mode 1)
