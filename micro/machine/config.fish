@@ -31,7 +31,7 @@ fish_add_path ~/.local/bin
 fish_add_path ~/.cargo/bin
 
 alias ac 'cd ~/aesthetic-computer'
-alias ac-code 'cd ~/aesthetic-computer; clear; npm run code'
+alias ac-site 'cd ~/aesthetic-computer; clear; npm run site'
 alias ac-session 'cd ~/aesthetic-computer; clear; npm run server:session'
 alias ac-edge 'cd ~/aesthetic-computer; clear; npm run edge-micro'
 alias ac-stripe-print 'cd ~/aesthetic-computer; clear; npm run stripe-print-micro'
