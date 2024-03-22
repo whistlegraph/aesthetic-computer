@@ -135,6 +135,7 @@
 (global-set-key (kbd "C-x r b") #'helm-filtered-bookmarks)
 (global-set-key (kbd "C-x C-f") #'helm-find-files)
 (global-set-key (kbd "C-p") #'project-find-file) ;; C-p everywhere
+(global-set-key (kbd "C-x C-p") #'project-find-file)
 
 (defun my/helm-find-files-directory-handler ()
   "Open helm-find-files if Emacs is started with a directory."
@@ -210,6 +211,7 @@
 ;; fedora: sudo dnf install cmake libtool libvterm
 ;; windows:  choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
 (straight-use-package vterm)
+(setq vterm-shell "/usr/bin/fish") ;; Use fish as the default vterm shell.
 
 ;; (desktop-save-mode 1)
 ;; (setq desktop-save 'if-exists)

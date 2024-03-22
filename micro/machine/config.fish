@@ -48,6 +48,7 @@ if test -n "$GIT_USER_NAME"
     git config --global user.name $GIT_USER_NAME
 end
 
+# Add aesthetic-computer as the "safe" directory.
 git config --global --add safe.directory /home/me/aesthetic-computer 
 
 # Make sure git is setup and authorized for making commits via `gh`.

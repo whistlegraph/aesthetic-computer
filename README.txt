@@ -49,13 +49,15 @@
   - [] ac openings can be a thing / do a feral-file opening
 
 *** emacs fixes ***
+  - [] make ctrl+p open instantly
+  - [] Add gutter at 80 character width.
   - [-] Include "assets" directory in ctrl+p helm search.
   - [] Save on leave buffer / clicking out of buffer.
-  - [] Add gutter at 80 character width.
   - [] JavaScript auto-indent needs to be 2 spaces wide
   - [] Javascript auto-close braces / brackets not working.
   - [] Add gpt mode for inline text replacement.
   - [] Add code-folding (check out origami or vimdiff mode?)
+  - [] Speed up docker?
 
 *** micro ***
   - [] Autogenerate local ssl certificates when first building / booting if they are not present
