@@ -42,35 +42,34 @@
 
 - Jeffrey (Sat)
 
-*** emacs fixes ***
-    - [-] Include "assets" directory in ctrl+p helm search.
-    - [] Save on leave buffer / clicking out of buffer.
-    - [] Add gutter at 80 character width.
-    - [] JavaScript auto-indent needs to be 2 spaces wide
-    - [] Javascript auto-close braces / brackets not working.
-    - [] Add gpt mode for inline text replacement.
-    - [] Add code-folding (check out origami or vimdiff mode?)
+*** sean meeting w/ ida ***
+  - [] system update notification feed 
+  - [] computer needs to say how it gets better
+  - [] moat of learning on the fringes
+  - [] ac openings can be a thing / do a feral-file opening
 
-*** screenshots ***
-    - [🟡] Map new token ids to screenshot numbers.
-           (https://highlight.xyz/mint/65f5e86427e22afacb0972e7/marketplace)
-    - [] Add left + right tap buttons that take up the full half-width. 
-    + Done
-    - [x] Fix font loading issue.
+*** emacs fixes ***
+  - [-] Include "assets" directory in ctrl+p helm search.
+  - [] Save on leave buffer / clicking out of buffer.
+  - [] Add gutter at 80 character width.
+  - [] JavaScript auto-indent needs to be 2 spaces wide
+  - [] Javascript auto-close braces / brackets not working.
+  - [] Add gpt mode for inline text replacement.
+  - [] Add code-folding (check out origami or vimdiff mode?)
 
 *** micro ***
-    - [-] Implement a `boot` command that will begin the rebuild process
-         from the docker container / or it could be an emacs command even...
-    + Done
-    - [x] Make the `source` open the readme by default.
-    - [x] Take out emacs support and instead connect to the
-        running container from some sub-buffers in an emacs
-        layout that would always be self-hosted.
-    - [x] Combine url code and prompt into one pane / tab.
-    - [x] Auto-switch to the `prompt` tab.
-    - [x] Use my own emacs lisp file / move dotfiles over.
+  - [-] Implement a `boot` command that will begin the rebuild process
+       from the docker container / or it could be an emacs command even...
   + Done
-  - [x] Get a basic http server punching through the container.
+  - [x] Make the `source` open the readme by default.
+  - [x] Take out emacs support and instead connect to the
+      running container from some sub-buffers in an emacs
+      layout that would always be self-hosted.
+  - [x] Combine url code and prompt into one pane / tab.
+  - [x] Auto-switch to the `prompt` tab.
+  - [x] Use my own emacs lisp file / move dotfiles over.
++ Done
+- [x] Get a basic http server punching through the container.
 
 *** dotfiles ***
   - [] Move my own dotfiles to the ac repo?
