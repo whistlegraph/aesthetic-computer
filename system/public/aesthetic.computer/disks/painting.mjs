@@ -226,6 +226,8 @@ function paint({
     printBtn?.paint({ ink });
     downloadBtn?.paint({ ink });
     //mintBtn?.paint({ ink });
+    printBtn?.reposition({ right: 6, bottom: 6, screen });
+    downloadBtn?.reposition({ left: 6, bottom: 6, screen });
 
     if (menuBtn) {
       menuBtn.box = new geo.Box(5, 18, 18, 12);
@@ -348,12 +350,6 @@ function paint({
           y: screen.height / 2 - 4,
         });
       });
-      // ink(0, 255, 0, 127).line(
-      //   0,
-      //   screen.height / 2,
-      //   screen.width,
-      //   screen.height / 2,
-      // );
       ink(255, 255, 0, 8).box(prevBtn.box);
     }
 

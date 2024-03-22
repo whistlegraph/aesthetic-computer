@@ -899,7 +899,11 @@ const $commonApi = {
   hud: {
     label: (text, color, offset) => {
       currentHUDTxt = text;
-      currentHUDTextColor = graph.findColor(color);
+      if (!color) {
+        currentHUDTextColor = currentHUDTextColor || graph.findColor(color);
+      } else {
+        currentHUDTextColor = graph.findColor(color);
+      }
       currentHUDOffset = offset;
     },
     currentStatusColor: () => currentHUDStatusColor,
