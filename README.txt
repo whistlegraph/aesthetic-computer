@@ -44,6 +44,7 @@
 
 *** emacs fixes ***
     - [-] Include "assets" directory in ctrl+p helm search.
+    - [] Save on leave buffer / clicking out of buffer.
     - [] Add gutter at 80 character width.
     - [] JavaScript auto-indent needs to be 2 spaces wide
     - [] Javascript auto-close braces / brackets not working.

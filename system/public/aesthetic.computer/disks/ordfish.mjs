@@ -146,6 +146,8 @@ const baseUrl = `https://assets.aesthetic.computer/ordfish`;
 //const baseUrl = `https://assets.aesthetic.computer.sfo3.cdn.digitaloceanspaces.com`;
 // Or `https://cdn.ordinalswallet.com/inscription/content`;
 
+let needsWipe = false;
+
 async function boot({ params, wipe, ink, help, resize, screen, hud, net }) {
   // Look up an ordfish code from the first param.
   parseParams(params);
@@ -167,17 +169,23 @@ async function boot({ params, wipe, ink, help, resize, screen, hud, net }) {
 
   wipe();
 
+  /*
   counter = (gap = 13) => {
     const msg = `swimming: ${fishCount}/100`;
     ink(0).write(msg, { x: 4 + 1, y: screen.height - gap + 1 });
     ink(255).write(msg, { x: 4, y: screen.height - gap });
   };
   counter(); // Paint the total ordfish count onto the screen.
+  */
 
   dir = help.choose(1, -1);
 }
 
 function paint({ screen, ink, wipe, paste, paintCount, ui, noise16 }) {
+  if (needsWipe) {
+    wipe();
+    needsWipe = false;
+  }
   if (pix && ready >= GO + 1) {
     const osc = sin(paintCount / 60);
     const osc2 = sin(paintCount / 40);
@@ -194,13 +202,11 @@ function paint({ screen, ink, wipe, paste, paintCount, ui, noise16 }) {
       screen.height,
     );
     paste(pix, x, y, { scale, angle });
-    counter();
+    // counter();
 
     if (!chain)
-      chain = new ui.TextButton("chain", {
-        x: screen.width - 40 - 6,
-        y: screen.height - 20 - 6,
-      });
+      chain = new ui.TextButton("chain", { right: 6, bottom: 6, screen });
+    chain.reposition({ right: 6, bottom: 6, screen });
     chain.paint({ ink }, [0, 255, 255, 0]);
   } else if (ready <= GO) {
     ready += 1;
@@ -222,6 +228,8 @@ function act({ event: e, jump, help, screen }) {
     bip = true;
     jump(`ordfish~${newCode}`);
   }
+
+  if (e.is("reframed")) needsWipe = true;
 
   chain?.btn.act(e, () => {
     jump(`https://ordinalswallet.com/inscription/${ordf}`);
