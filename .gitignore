@@ -44,3 +44,6 @@ system/types/
 
 # Any firebase configuration.
 aesthetic-computer-firebase-adminsdk*.json
+
+# The .emacs.d directory in micro/machine
+micro/machine/.emacs.d
