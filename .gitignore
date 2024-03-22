@@ -10,6 +10,7 @@ vscode-extension/*.vsix
 
 # Any emacs or vim backups.
 *~
+.#*
 
 # NPM
 node_modules/
