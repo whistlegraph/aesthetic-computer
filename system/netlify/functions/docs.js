@@ -2519,6 +2519,11 @@ export async function handler(event, context) {
         done: false,
         //TODO: need replay button
       },
+      screenshots: {
+        sig: "screenshots",
+        desc: "",
+        done: false,
+      },
       screentest: {
         sig: "screentest",
         desc: "",
