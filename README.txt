@@ -58,9 +58,11 @@
   - [] Add code-folding (check out origami or vimdiff mode?)
 
 *** micro ***
-  - [-] Implement a `boot` command that will begin the rebuild process
-       from the docker container / or it could be an emacs command even...
+  - [] Autogenerate local ssl certificates when first building / booting if they are not present
+       in ssl-dev/.
   + Done
+  - [x] Implement a `boot` command that will begin the rebuild process
+       from the docker container / or it could be an emacs command even.
   - [x] Make the `source` open the readme by default.
   - [x] Take out emacs support and instead connect to the
       running container from some sub-buffers in an emacs
