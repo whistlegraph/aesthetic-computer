@@ -13,12 +13,38 @@
 (setq tab-bar-close-button-show nil)
 ;; (setq tab-line-tab-max-width 20) ; Adjust the number as needed
 
-;;(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
-;; '(tab-bar ((t (:height 1.0)))))
+(setq scroll-step 1)
+
+(setq-default display-fill-column-indicator-column 80) ;; Vertical guide-line.
+(add-hook 'prog-mode-hook (lambda () (display-fill-column-indicator-mode 1)))
+
+;; (custom-set-faces
+;;  '(fill-column-indicator ((t (:foreground "yellow")))))
+;;  (electric-pair-local-mode 1))
+
+;; Enable electric-pair mode in prog modes.
+(defun enable-electric-pairs ()
+  (setq-local electric-pair-pairs '((?\{ . ?\}) (?\( . ?\)) (?\[ . ?\]) (?' . ?') (?` . ?`)))
+  (electric-pair-local-mode 1))
+(add-hook 'prog-mode-hook 'enable-electric-pairs)
+
+;; Auto-save support while editing files derived from prog-mode or in text-mode;
+(auto-save-visited-mode 1)
+(add-hook 'before-save-hook 'delete-trailing-whitespace)
+
+(defun auto-save-buffer ()
+  (when (or (derived-mode-p 'prog-mode)
+            (derived-mode-p 'text-mode))
+    (save-buffer)))
+
+(add-hook 'window-configuration-change-hook
+          (lambda ()
+            (unless (minibuffer-window-active-p (minibuffer-window))
+              (auto-save-buffer))))
+(add-hook 'focus-out-hook 'auto-save-buffer)
+
+(custom-set-faces
+ '(tab-bar ((t (:height 1.1)))))
 
 (setq inhibit-startup-screen t) ;; Disable startup message.
 (setq eshell-banner-message "") ;; No eshell banner.
@@ -39,7 +65,7 @@
 (add-hook 'eshell-mode-hook 'disable-line-numbers-in-modes)
 (add-hook 'vterm-mode-hook 'disable-line-numbers-in-modes)
 
-;; Set the default shell for Windows to use bash on WSL. 
+;; Set the default shell for Windows to use bash on WSL.
 (when (eq system-type 'windows-nt)
   (setq explicit-shell-file-name "C:/Windows/System32/bash.exe")
   (setq shell-file-name explicit-shell-file-name)
@@ -77,11 +103,17 @@
   (make-directory my-auto-save-directory t))
 (setq auto-save-file-name-transforms `((".*" ,my-auto-save-directory t)))
 
+;; Set-up a directory for lock files
+(defvar my-lockfiles-directory "~/.emacs.d/lockfiles/")
+(unless (file-exists-p my-lockfiles-directory)
+  (make-directory my-lockfiles-directory t))
+(setq lock-file-name-transforms `((".*" ,my-lockfiles-directory t)))
+
 (setq-default indent-tabs-mode nil)
 (setq-default tab-width 2)
 (setq vc-follow-symlinks t)
 
-(global-set-key (kbd "M-z") 'toggle-truncate-lines) ;; Line truncation. 
+(global-set-key (kbd "M-z") 'toggle-truncate-lines) ;; Line truncation.
 (add-hook 'after-init-hook (lambda () (setq-default truncate-lines t)))
 
 (global-set-key (kbd "C-=") 'text-scale-increase)
@@ -104,25 +136,23 @@
 ;; Add 'straight package manager.
 (defvar bootstrap-version)
 (let ((bootstrap-file
-       (expand-file-name
-		    "straight/repos/straight.el/bootstrap.el"
-			  (or (bound-and-true-p straight-base-dir)
-					  user-emacs-directory)))
+	(expand-file-name
+	  "straight/repos/straight.el/bootstrap.el"
+	  (or (bound-and-true-p straight-base-dir)
+	      user-emacs-directory)))
       (bootstrap-version 7))
   (unless (file-exists-p bootstrap-file)
     (with-current-buffer
-	      (url-retrieve-synchronously
-		     "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
-				 'silent 'inhibit-cookies)
-		  (goto-char (point-max))
-			(eval-print-last-sexp)))
+      (url-retrieve-synchronously
+	"https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
+	'silent 'inhibit-cookies)
+      (goto-char (point-max))
+      (eval-print-last-sexp)))
   (load bootstrap-file nil 'nomessage))
 
 (setq straight-use-package-by-default t)
 
-;; (use-package eat)
-
-(use-package helm ;; Add helm: https://github.com/emacs-helm/helm/wiki#from-melpa  
+(use-package helm ;; Add helm: https://github.com/emacs-helm/helm/wiki#from-melpa
   ;; :straight t
   :config
   (setq helm-M-x-fuzzy-match t) ;; Optional: Fuzzy match for M-x
@@ -149,7 +179,7 @@
 (use-package s) ;; `dockerfile-mode` depends on `s`.
 (use-package dockerfile-mode) ;; Dockerfile support.
 (use-package fish-mode) ;; Fish shell syntax.
-;; (use-package gptel) ;; ChatGPT / LLM support. 
+;; (use-package gptel) ;; ChatGPT / LLM support.
 (use-package chatgpt-shell
   :custom
   ((chatgpt-shell-openai-key
@@ -181,7 +211,7 @@
         (require 'evil-terminal-cursor-changer)
         (evil-terminal-cursor-changer-activate))
 
-(use-package restart-emacs) ;; Fully restart emacs: https://github.com/iqbalansari/restart-emacs 
+(use-package restart-emacs) ;; Fully restart emacs: https://github.com/iqbalansari/restart-emacs
 (setq restart-emacs-restore-frames t)
 (global-set-key (kbd "C-c C-r") 'restart-emacs)
 
@@ -210,8 +240,9 @@
 
 ;; fedora: sudo dnf install cmake libtool libvterm
 ;; windows:  choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
-(straight-use-package 'vterm)
-(setq vterm-shell "/usr/bin/fish") ;; Use fish as the default vterm shell.
+(use-package vterm)
+(use-package eat)
+;; (setq vterm-shell "/usr/bin/fish") ;; Use fish as the default vterm shell.
 
 ;; (desktop-save-mode 1)
 ;; (setq desktop-save 'if-exists)
@@ -225,7 +256,7 @@
 ;;       (if fish-path
 ;;           (vterm fish-path "fish")
 ;;         (eshell)))))
-;; 
+;;
 ;; (add-hook 'emacs-startup-hook 'open-fish-or-eshell-if-no-file)
 
 ;; (defun disable-evil-in-vterm ()
@@ -240,13 +271,13 @@
   "Run aesthetic servers in a docker container that's running emacs."
   (interactive)
   ;; Open a terminal.
-  (vterm)
-  (vterm-send-string (format "ac-site\n" cmd))
-  (rename-buffer (format "vterm-site" cmd) t)
+  ;; (eat)
+  ;; (eat-line-send-input "echo 'hi'")
+  ;; (rename-buffer "eat-site")
 )
 
 (defun aesthetic-backend ()
-  "Run npm commands in vterm, each in a new tab named after the command. Use 'prompt' for 'shell' and 'url' in split panes, and 'stripe' for 'stripe-print' and 'stripe-ticket'."
+  "Run npm commands in eat, each in a new tab named after the command. Use 'prompt' for 'shell' and 'url' in split panes, and 'stripe' for 'stripe-print' and 'stripe-ticket'."
   (interactive)
   ;; Define the directory path
   (let ((directory-path "~/Desktop/code/aesthetic-computer/micro")
@@ -257,21 +288,6 @@
     (find-file "~/Desktop/code/aesthetic-computer/README.txt")
     (dolist (cmd commands)
       (cond
-       ;; For 'shell' and 'url', split the 'prompt' tab
-       ;;((or (string= cmd "shell") (string= cmd "url"))
-       ;; (unless prompt-tab-created
-       ;;   (tab-new)
-       ;;   (tab-rename "prompt")
-       ;;   (setq prompt-tab-created t))
-       ;; (when (string= cmd "url")
-       ;;   ;;(split-window-right)
-       ;;   (split-window-below)
-       ;;   (other-window 1))
-       ;; (let ((default-directory directory-path))
-       ;;   ;; Open a new vterm and send the command
-       ;;   (vterm)
-       ;;   (vterm-send-string (format "npm run %s\n" cmd))
-       ;;   (rename-buffer (format "vterm-%s" cmd) t)))
        ;; For 'stripe-print' and 'stripe-ticket', split the 'stripe' tab vertically
        ((or (string= cmd "stripe-print") (string= cmd "stripe-ticket"))
         (unless stripe-tab-created
@@ -285,16 +301,16 @@
           ;; Open a new vterm and send the command
           (vterm)
           (vterm-send-string (format "npm run %s\n" cmd))
-          (rename-buffer (format "vterm-%s" cmd) t)))
-       ;; For other commands, create new tabs
+          (rename-buffer (format "%s" cmd) t)))
+       ;; For all other commands, create new tabs.
        (t
         (tab-new)
         (tab-rename (format "%s" cmd))
         (let ((default-directory directory-path))
-          ;; Open a new vterm and send the command
+          ;; Open a new terminal and send the command
           (vterm)
           (vterm-send-string (format "npm run %s\n" cmd))
-          (rename-buffer (format "vterm-%s" cmd) t)))))
+          (rename-buffer (format "%s" cmd) t)))))
     )
   ;; Switch to the tab named "scratch"
   (let ((tabs (tab-bar-tabs)))

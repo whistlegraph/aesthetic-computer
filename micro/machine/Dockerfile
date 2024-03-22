@@ -40,11 +40,6 @@ RUN mkdir -p .config/fish && \
 COPY config.fish .config/fish/config.fish 
 COPY entry.fish /entry.fish
 
-# Copy emacs config.
-COPY emacs.el .emacs
-RUN sudo chown me:me .emacs
-RUN mkdir -p .emacs.d
-
 # Install linux brew.
 RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
@@ -70,6 +65,11 @@ RUN echo "fnm env --use-on-cd | source" >> /home/me/.config/fish/conf.d/fnm.fish
 # Copy over a custom xdg-open for opening browser URLs on the host.
 COPY xdg-open.fish /usr/local/bin/xdg-open
 RUN sudo chmod +x /usr/local/bin/xdg-open
+
+# Copy emacs config.
+COPY emacs.el .emacs
+RUN sudo chown me:me .emacs
+RUN mkdir -p .emacs.d
 
 # Set the default command.
 CMD ["/usr/bin/fish"]
