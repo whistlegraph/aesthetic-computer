@@ -12,5 +12,8 @@ url.txt
 # copied from ../dotfiles/dot_config
 emacs.el
 
+machine/.emacs.d/*
+!machine/.emacs.d/.gitignore
+
 # stores secrets
 *.env
