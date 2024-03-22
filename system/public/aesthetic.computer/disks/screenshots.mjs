@@ -2,6 +2,7 @@
 // Screenshots of aesthetic computer development.
 
 /* #region 🏁 TODO 
+  - [c] Pause autoAdvance timer when image is loading.
   - [c] Dogfood with a new GL renderer.
   + Done
   - [x] Metadata change.

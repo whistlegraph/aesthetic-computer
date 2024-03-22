@@ -1,5 +1,12 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** screenshots ***
+    - [x] Map new token ids to screenshot numbers.
+           (https://highlight.xyz/mint/65f5e86427e22afacb0972e7/marketplace)
+    - [x] Add left + right tap buttons that take up the full half-width. 
+    + Done
+    - [x] Fix font loading issue.
+
 *** field notes ***
   - [x] name in field should be positions on the other player instead of in the
        list so long as they are visible on screen.
