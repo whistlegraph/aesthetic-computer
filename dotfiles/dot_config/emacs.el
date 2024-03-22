@@ -207,21 +207,13 @@
   (insert "python3 -m http.server 8888")
   (eshell-send-input))
 
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(package-selected-packages
-   '(vterm evil-terminal-cursor-changer restart-emacs prettier-js helm fish-mode evil dockerfile-mode clipetty chatgpt-shell)))
+;; fedora: sudo dnf install cmake libtool libvterm
+;; windows:  choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+(straight-use-package vterm)
 
 ;; (desktop-save-mode 1)
 ;; (setq desktop-save 'if-exists)
 ;; (setq desktop-dirname "~/.emacs.d/desktop/")
-
-;; fedora: sudo dnf install cmake libtool libvterm
-;; windows:  choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
-(use-package vterm)
 
 ;; (defun open-fish-or-eshell-if-no-file ()
 ;;   "Open vterm with fish shell or eshell if no file is specified in the arguments."

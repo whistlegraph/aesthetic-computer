@@ -6,7 +6,8 @@ RUN dnf update -y
 # Install git, gcc, clang, and emacs (without x support) and python and the github cli
 # And procps for the `ps` command that linux brew requires.
 # And the fish shell, and redis.
-RUN dnf install -y git gcc clang emacs-nox python3 python3-pip gh procps fish util-linux-user redis
+# And emacs vterm.
+RUN dnf install -y git gcc clang emacs-nox python3 python3-pip gh procps fish util-linux-user redis cmake libtool libvterm
 
 # Add 'me' user.
 RUN useradd -m me && \
@@ -52,6 +53,9 @@ ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
 
 # Install web assembly tools.
 # RUN brew install wabt
+
+# Install local ssl certificate generator.
+RUN brew install mkcert
 
 # Install fnm, configure it, install Node.js, and global npm packages
 RUN brew install fnm && \
