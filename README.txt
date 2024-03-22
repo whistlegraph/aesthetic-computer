@@ -3,7 +3,7 @@
   A *new* computing environment that...
 
   (Technical Summary)
-    - Works in updated web browsers on all major devices, including VR headsets! 
+    - Works in updated web browsers on all major devices, including VR headsets!
     - Runs "pieces" instead of "apps" or "programs".
     - Pieces are written in a proce55ing-inspired API that's fun to learn and fast
       to code in.
@@ -25,14 +25,14 @@
       - Low overhead hypervisor that runs one piece at a time.
         (similar to a disk based operating system)
       - Pieces can transition from one to another (instantly) without refreshing
-        the page or losing context. 
+        the page or losing context.
       - Pieces can load remotely off any `https://` url so applications can be
         distributed over a network.
       - 2D/3D Software renderer for spatial display of programs as planes and
         ease of accessing pixels while coding a piece and learning graphics.
       - 3D WebGL renderer for VR.
 
-🖥️ Running locally: 
+🖥️ Running locally:
   1. Scroll to the bottom of this file and follow the setup instructions.
   2. From the `aesthetic.computer` directory, run `npm run aesthetic`.
 
@@ -43,21 +43,22 @@
 - Jeffrey (Sat)
 
 *** sean meeting w/ ida ***
-  - [] system update notification feed 
+  - [] system update notification feed
   - [] computer needs to say how it gets better
   - [] moat of learning on the fringes
   - [] ac openings can be a thing / do a feral-file opening
 
 *** emacs fixes ***
-  - [] make ctrl+p open instantly
-  - [] Add gutter at 80 character width.
-  - [-] Include "assets" directory in ctrl+p helm search.
-  - [] Save on leave buffer / clicking out of buffer.
-  - [] JavaScript auto-indent needs to be 2 spaces wide
-  - [] Javascript auto-close braces / brackets not working.
-  - [] Add gpt mode for inline text replacement.
   - [] Add code-folding (check out origami or vimdiff mode?)
-  - [] Speed up docker?
+    - [] It should use `zc` and respect my #region marks.
+  - [] JavaScript auto-indent needs to be 2 spaces wide
+  - [] Make ctrl+p open instantly in a terminal mode.
+  - [-] Include "assets" directory in ctrl+p helm search?
+  - [] Add some kind of gpt mode for inline source replacement.
+  + Done
+  - [x] Javascript auto-close braces / brackets not working.
+  - [x] Add gutter at 80 character width.
+  - [x] Save on leave buffer / clicking out of buffer.
 
 *** micro ***
   - [] Autogenerate local ssl certificates when first building / booting if they are not present
@@ -82,13 +83,13 @@
   - [🟡] Fix color schemes for bots, based on `mom`.
        (No more light mode schemes / just use one.)
     - [x] mom
-    - [] dad 
-    - [] kid 
-    - [] gargoyle 
-    - [] brother 
-    - [] sister 
-    - [] wife 
-    - [] husband 
+    - [] dad
+    - [] kid
+    - [] gargoyle
+    - [] brother
+    - [] sister
+    - [] wife
+    - [] husband
     - [] boyfriend
     - [] girlfriend
 
@@ -97,10 +98,10 @@
 *** chat ***
   - [] Add a `chat` command.
   - [] Use the TextInput implementation from `world` for input.
-    - [] The default should send the user to th 
+    - [] The default should send the user to th
   - [] Prototype a scrollback output on the main screen.
   - [] But `chat` should be everywhere?
-    - [] Then abstract `chat` from that view. 
+    - [] Then abstract `chat` from that view.
   - [] Make a panel in the logs to watch it stream in.
   - [] It should persist in the database under a table.
   - [] Then appear for other users and the current user.
@@ -145,7 +146,7 @@
         at runtime.
     - [x] Break the below down into steps and get it compiling on each load.
       - [x] Add syntax support to the vscode extension for the .pjs files / metaprocessor.
-      // 🔥 
+      // 🔥
       // TODO: Write `prompted` javascript that will compile and run against any
       //       LLM version 24.02.22.19.38
       // Call it `.pjs` ?
@@ -170,12 +171,12 @@
 *** Meeting with Petra ***
   - [] Add support for CMYK, with a special prefix?
   + Done
-  - [x] Allow hashtag in first color parameter. 
+  - [x] Allow hashtag in first color parameter.
   - [x] Downcase hex colors.
 
 *** song demo idea from rip it up party ***
  - [] Add a forward and backward button to song.
- - [] Add different wavetypes to song. (Wavetype per note). 
+ - [] Add different wavetypes to song. (Wavetype per note).
  - [] Add more melodies to song.
  - [] Release a track with song that kind of works like a sampler.
   - [] With a title screen that has [ Play -> `x` | Record -> `tape x` ]
@@ -209,7 +210,7 @@
 
 *** `pic` `pix` ***
   - [] 164 / 128 3x4
-  - [] https://prompt.ac/pic~here~is~my~cat 
+  - [] https://prompt.ac/pic~here~is~my~cat
 
 *** API design ***
   - [] Whitelist some of the APIs for the docs and for usage in user pieces.
@@ -268,7 +269,7 @@ Full day:
   - [] This should eventually be streamable from any piece or visible
        on the prompt.
   - [] Top right tap to enter text, then be able to chat, from any
-       piece. 
+       piece.
   - [] Add filtering like `log:scream`.
 
 2-3 days:
@@ -284,11 +285,11 @@ Full day:
 
 2-3 hrs
 *** `painters` ***
-  - [] A linked list of users and their paintings by count. 
+  - [] A linked list of users and their paintings by count.
 
 1 day
 *** `blog` ***
-  - [] Build CRUD pages. 
+  - [] Build CRUD pages.
   - [] Maybe use a vscode instance / route it through piece publishing?
   - [] So a piece type can be considered a "post".
   - [] Add the ability to include high resolution text easily.
@@ -309,7 +310,7 @@ Full day:
 
 *** `chord` ***
   - [] Make a 4-string simulator with chords that can
-       also play the words through of a song. 
+       also play the words through of a song.
 
 *** `go` ***
   - [] And then `cave:entrance`
@@ -354,11 +355,11 @@ Full day:
 *** `contain` ***
   - [] Contain the random positions in the drawing API for things like
        `line()` etc.
-       
+
 *** better email verification flow... ***
   - [] Say "email verified" as a notice after email verification is tapped?
   - [] https://chat.openai.com/c/c9898bf6-62f6-4654-a54e-9c8ba47f5681
-  
+
 *** `pond` production ***
   - [] Finish the basics in `go`.
   - [] See `pond.mjs`.
@@ -426,7 +427,7 @@ Full day:
   - [] fix `vary`
   - [] Add a `pull` brush.
   - [-] Add Zoom for all brushes. 🔵
-    - [🟠] `line` 
+    - [🟠] `line`
       (Read implementation in `rect`)
     - [] `oval`
     - [] `word`
@@ -443,7 +444,7 @@ Full day:
           (Is `pan` much slower now because of the new blend?)
   - [x] `rect erase` no longer works
   - [x] Contextually show whether we are zoomed or not, perhaps with a border?
-  - [x] Make sure `nopan` centers a zoomed canvas. 
+  - [x] Make sure `nopan` centers a zoomed canvas.
   - [x] Implement for `rect`
   - [x] Add basic rainbow for `rect` and `line`.
 
@@ -458,7 +459,7 @@ Full day:
        especially if it will be seen in the corner.
        (Word wrap it)
   - [] Single finger pan.
-  - [] Painting pages need a left and right screen tap to advance or retreat. 
+  - [] Painting pages need a left and right screen tap to advance or retreat.
   - [] Always record a painting by default now?
   - [] Make a nicer loading transition for painting pages that load
        an animation (Always show the last frame for a given duration.)
@@ -478,13 +479,13 @@ Full day:
 
 *** Recordable Paintings ***
   How-to: Enter `painting:start` to start.
-          Enter `painting` to view the history so far. 
+          Enter `painting` to view the history so far.
           Enter `painting:done` to download the complete history
           of your painting. Or `painting:done upload` or `u` to upload it,
           along with the current painting.
 
   - [🟠] Store gesture data in the recording.
-  - [] Of each current step... 
+  - [] Of each current step...
     - [] See `nopaint.mjs` line 56...
     - [] And the gestures translated to the painting itself needs to be tracked.
     - [] So that live playback can occur if necessary.
@@ -498,13 +499,13 @@ Full day:
   - [x] Add `timestamp` to the text data format.
   - [x] The `painting` viewer should have the timestamp in the corner.
   - [x] Store recorded painting steps in idb so they persist
-        across refreshes. 
+        across refreshes.
   - [x] Add recording indicator.
   - [x] `painting insert-code-here` to play back an uploaded recording.
   - [x] Drag in a zip to unpack and play back a recording.
   - [x] Add a special mode for making "recordable paintings".
     - [x] `painting:done` to complete and download a zip of the recording.
-      - [x] Upload zips to S3? 
+      - [x] Upload zips to S3?
     - [x] `painting` to play back the current recording.
     - [x] `painting:record` to start a recording.
 
@@ -525,7 +526,7 @@ Full day:
 
 *** mood links ***
   - [] underlined and different colors
-  - [] links to pieces and surround with ``. 
+  - [] links to pieces and surround with ``.
 
 *** BakTok ***
   - [] Make the audio scrubbable.
@@ -575,7 +576,7 @@ Full day:
        name and new versions are auto-incremented but the original name
        always points to the newest version, and there will be a way to get
        a list of versions.
-  - [] Paintings cannot be modified but maybe deleted. 
+  - [] Paintings cannot be modified but maybe deleted.
   - [] Same goes for all other media.
 
 *** typing `print` ***
@@ -603,7 +604,7 @@ Full day:
 
 *** artur painting story ***
   - [] Truncate or fade long prompt corner strings if they go past the screen
-       width. 
+       width.
 
 *** faster user media urls ***
   - [x] Why is the handle lookup being so goddamn slow?
@@ -617,16 +618,16 @@ Full day:
 
  - [-] Clean media urls should just go to a painting "viewer" type of page.
  - [] https://docs.netlify.com/edge-functions/limits
- - [] https://answers.netlify.com/t/new-syntax-for-rewrites-in-edge-functions/88257 
+ - [] https://answers.netlify.com/t/new-syntax-for-rewrites-in-edge-functions/88257
  - [x] Have local requests use the user bucket directly.
 
 *** Mintable Paintings ***
   - [] Hook it all up to a marketplace instance?
-  - [] Everyone should be able to mint? 
+  - [] Everyone should be able to mint?
     - [] Add mint button in playback corner?
 
 *** General Brush Notes ***
-  - [] Make sure `left`, `right`, `flip` and `flop` are all added to 
+  - [] Make sure `left`, `right`, `flip` and `flop` are all added to
        piece history.
     😱 (All commands should be?)
 
@@ -638,7 +639,7 @@ Full day:
   - [] There is an indicator line or box around the screen the whole game.
   - [] Game ends when typing `yes!`.
     - [] Record the resulting bitmap after each command that modifies it, using
-         the `slug` of what was entered as the key. 
+         the `slug` of what was entered as the key.
     - [] Capture the "gestures" for each brush via a global "gesture",
          function of some kind? `system.nopaint.gesture`
     - [] Step through each command, and if a gesture exists, then it can
@@ -664,7 +665,7 @@ Full day:
   - [] Add name to top left corner of all bots.
   - [-] Add countdown / progress overlay to no and yes?
   - [ ] Better "yes!" support / cooler download screen.
-  - [] Finish all todos in `botce`. 
+  - [] Finish all todos in `botce`.
     - [] Remove `botce` from intro text.
   - [🟠] Revisit `worker.js` to fix download link url names.
     - [] Files need to be stored in the database...
@@ -681,19 +682,19 @@ Full day:
   + Done
   - [x] Remove paste button from homepage on first appearance.
   - [x] Dragging a new image into a.c should reset the pan.
-  - [x] Eliminate Enter button download for painting and also N and P shortcuts. 
+  - [x] Eliminate Enter button download for painting and also N and P shortcuts.
   - [x] Better dynamic `preview` / thumbnail images.
   - [x] More forgivable colon spacing.
-  - [x] Shouldn't be able to load the prompt from the prompt / 
+  - [x] Shouldn't be able to load the prompt from the prompt /
       pressing the [`] shortcut stops the letters from loading / gets weird.
   - [x] Fix Shift+ENTER
-  - [x] Publishing should jump you directly to your finished piece url. 
+  - [x] Publishing should jump you directly to your finished piece url.
   - [x] Typing `profile` or jumping to `profile` should route you to your profile.
   - [c] Typing an email should also take you to the user's profile.
   - [x] Tapping the user profile button should take them to their profile.
   - [x] User profile button should be replaced with their current handle if it
   - [x] Put most recent mood on user's profile.
-  - [x] `mood` command / status updates per user 
+  - [x] `mood` command / status updates per user
         (visible on their profiles) homepage should show last @jeffrey mood.
   - [x] Typing @user on prompt goes to /@user instead of profile.
   - [x] Profile name at top left is user's username.
@@ -706,19 +707,19 @@ Full day:
   - [🧡] "?" appears after typing a valid word which jumps to a learn page for learning more about a command.
   - [] Start writing "learn" pages for some existing commands or bots.
 
-*** Characters *** 
+*** Characters ***
   - [] Polish bots with background images.
     - [x] boyfriend
     - [x] girlfriend
-    - [x] liar 
+    - [x] liar
     - [x] angel
     - [x] kid
-    - [x] mom, dad, gargoyle, botce 
+    - [x] mom, dad, gargoyle, botce
     - [x] Fix `liar` background image sizing code.
 
   - [x] `angel` bot
     - [x] "Pray to me"
-  
+
   - [x] `kid` bot
     - [x] "..."
 
@@ -729,7 +730,7 @@ Full day:
 
          Forgetful: Reply Screen
           ________________________________________
-         | 
+         |
          |    Blah blah.
          |
          |    Ble bleeee bleee blee blee.
@@ -740,11 +741,11 @@ Full day:
          |    [Back]                 [Share]
          |________________________________________
 
-  * Conversation sharing. 
+  * Conversation sharing.
   - [] `boyfriend / girlfriend` conversation share
     - [] Conversation: Reply Screen
           _____________________________________
-         | 
+         |
          |    Blah blah.
          |
          |    Ble bleeee bleee blee blee.
@@ -752,42 +753,42 @@ Full day:
          |    - bf/gf
          |
          |                              [Share]
-         |    [Copy]           <--- 4/4 [Reply]         
+         |    [Copy]           <--- 4/4 [Reply]
          |_____________________________________
-         |                              [Reply]          
-         |                     <--- 2/2 [Reply]          
-         |                     <--- 3/3 [Reply]          
-         |                     <--- 4/4 [Reply]          
-         |                     <--- 3/4 --->          
-         |                     <--- 2/4 --->          
-         |                          1/4 --->          
+         |                              [Reply]
+         |                     <--- 2/2 [Reply]
+         |                     <--- 3/3 [Reply]
+         |                     <--- 4/4 [Reply]
+         |                     <--- 3/4 --->
+         |                     <--- 2/4 --->
+         |                          1/4 --->
                   (Also include progress bar.)
 
   - [] `boyfriend` should be able to reply using a "Message read" receipt style
-        rendering mode on the reply that gets colored. 
+        rendering mode on the reply that gets colored.
 
-  * Multiple characters interacting. 
+  * Multiple characters interacting.
   - [] `relationship` dialogue screen
     - [] Where `boyfriend` and `girlfriend` are in an automated conversation.
       - Screen is separated vertically as two buttons, tapping either button
         sends a response to the other. Multiple sends from one is possible,
         but not while replying.
 
-       | girlfriend | 
+       | girlfriend |
        --------------
        | boyfriend  |
 
   + Done
   - [x] User's reply stays on screen while the response is being written.
   - [x] When bot is not forgetful, exiting chat should erase the history
-  - [x] Mom and Dad bots should at some point say "ask your mom / dad" 
+  - [x] Mom and Dad bots should at some point say "ask your mom / dad"
   - [x] Auto-expand the gutter.
   (Requires that gutter is always visible on screen by default.)
   - [x] Make `boyfriend` bot
   - [x] Fix `encode` input / enter regression.
   - [x] Start writing `learn` page content.
     - `rect` (A brush example)
-    - `liar` (A bot example) 
+    - `liar` (A bot example)
 
 *** ambient system-wide cursor movement. ***
   - [] Optimize rendering... move scream and label and ambientCursors
@@ -805,12 +806,12 @@ Full day:
         - [] Copies to a cached url for the current one.
        based on whether a user has a permission flag set, (for niki.)
   - [] Make a logo:load option that
-       opens the current logo as a painting. 
+       opens the current logo as a painting.
 
 *** CSS Background / Load + Login ***
   - [] Add a `splash` command that
        works similar to logo, for
-       a page backdrop that can be swapped out. 
+       a page backdrop that can be swapped out.
 
 *** `code` ***
   - [] https://github.com/yjs/yjs - Integrate CRDT with a provider.
@@ -838,7 +839,7 @@ Full day:
   - [-] Finish list in `scream`.
   - [] Use NTP for time synchronized delivery of messages.
     - [] Is this good enough for musical timing?
-  - [x] Get messaging working. 
+  - [x] Get messaging working.
   + Done
   - [x] Get iOS notifications working in the test app.
 
@@ -863,29 +864,29 @@ Full day:
 *** Hands ***
   📔 General
 - [] Better user acknowledgement of what instantiates or not related to hands,
-     and why. 
+     and why.
 - [] Fade hand alpha and possibly color based on distance from edge of safe zone.
 
  🧩 Pieces
    *** `staka` ***
     - [] See `staka`.
-    
+
   *** `handtime` ***
     - [💚] shared canvas (like digital touch)
     - [] `ht yellow blue` will start a 2 person call where a link is given and
-          guest 2 is blue and you are yellow. 
+          guest 2 is blue and you are yellow.
     + Done
     - [x] Socket joining errors. @jeffrey
     - [x] Hand-track re-entrance errors. @jeffrey
     - [x] Fix gesture interactions.  (Need a piece that will require it.)
-    - [x] Send data across the wire of all connected hands and render them. 
+    - [x] Send data across the wire of all connected hands and render them.
 
   *** `handprint` ***
-    - [] See `handprint` for features. 
+    - [] See `handprint` for features.
     - [❤️‍🔥] Panning the canvas should also pan the hand properly!
 
   *** `simon says` ***
-    - [] Combos of TIMOP flash hold on the screen until a user matches the combo. 
+    - [] Combos of TIMOP flash hold on the screen until a user matches the combo.
     - [] Then, another combo is shown.
 
   *** `hand piano` ***
@@ -900,7 +901,7 @@ Full day:
 *** nopaint ***
   - [] Refactor "test" to nopaint.
 
-*** Profiles and Handles *** 
+*** Profiles and Handles ***
   - [] Fix `handle` setting in all cases / make it work better.
   - [] Make /@handle profile pages actually live.
   - [] Allow people to set handle via profile page by jumping to the
@@ -914,7 +915,7 @@ Full day:
 
 *plot* (new launch fonts)
   - [-] Make the UI responsive based on grid and scale and window size.
-    - [] Print the resolution and the output number in the corner.     
+    - [] Print the resolution and the output number in the corner.
   - [] Set up preview / more UI so that new fonts can be produced.
     - [] Gamify it?
   - [] Allow the creation of a custom font using the current glyph set.
@@ -969,7 +970,7 @@ Full day:
   - [] There needs to be a system wide method of capturing a screenshot.
     - [] Both on desktop and on mobile.
   - [] These screenshots need to be published automatically upon getting
-       a confirmation modal. 
+       a confirmation modal.
 
 *** `prompt` system ***
   + UI Gripes
@@ -980,8 +981,8 @@ Full day:
   - [-] How to deal with longer responses?
     - [] Add 'copy" and "cancel" buttons?
   - [] Conversations that have history should be able to be forgotten with a bottom left button.
-  - [] `copy` button in the lower left to copy all of the response. 
-  - [] Keep track of replies somehow? 
+  - [] `copy` button in the lower left to copy all of the response.
+  - [] Keep track of replies somehow?
   - [] Keep character names in the corner?
   - [] Embed two "framed" prompts on a page, or a framed prompt with
        an image below... and with different styles!
@@ -1016,7 +1017,7 @@ Full day:
     - [x] Something weird is going on with focus / unfocus... / responses
          become editable somehow.
   - [x] Make sure history works among the different prompts.
-  - [x] Line breaks 
+  - [x] Line breaks
   - [x] Add some basic conversational support
   - [x] Write new characters / adapt old ones into separate commands.
   - [x] Fix mobile UI.
@@ -1025,19 +1026,19 @@ Full day:
   - [x] Add sound for `Music Box`
   - [x] Decide how to get back to main navigation page *especially on mobile
   - [x] Cancellable responses.
-  - [x] Movable cursor support, with arrow keys and touch to move or drag. 
+  - [x] Movable cursor support, with arrow keys and touch to move or drag.
     - [x] Draw character once more on top of cursor.
           $.ink(255, 0, 0).draw
     - [x] Reset cursor position on return.
     - [x] Paste needs to work on movable cursor.
   - [x] Auto-wrap the text by word in TextInput objects.
   - [x] Better text typing / replacing experience / autotype clear characters
-        and skip intro space. 
+        and skip intro space.
   - [x] Visual failure messages if offline or given a cancelled request.
   - [x] Progress spinner / prevent interaction.
-  - [x] @digitpain: Add conversational support. 
-  - [x] Tap / Escape to cancel a reply and blank the prompt. 
-  - [x] @ggcajp: Write a prompt program that suggests commands. 
+  - [x] @digitpain: Add conversational support.
+  - [x] Tap / Escape to cancel a reply and blank the prompt.
+  - [x] @ggcajp: Write a prompt program that suggests commands.
   - [x] Make the main `prompt` part of the prompt system now.
 
 *** Overall Rendering ***
@@ -1064,7 +1065,7 @@ Full day:
 
 *** `evolve` ***
   - [] Rename `vary` to `evolve`.
-  - [] Research more image net APIs. 
+  - [] Research more image net APIs.
     - Transform a painting from one state to another using ML.
       (https://chat.openai.com/chat/1c0e4f20-7cb5-441f-a7e4-7b77fb55135d)
   - [x] Integrate OpenAI imageVariation.
@@ -1077,7 +1078,7 @@ Full day:
   - [] Color code the output / perhaps even show it on the prompt?
 + Done
   - [x] Sketch a `learn` program that writes text and explains how different
-        commands work. 
+        commands work.
 
 *** `bleep` presets ***
   - [] Omnichord-like bleep presets in certain keys.
@@ -1133,13 +1134,13 @@ Full day:
       - [] The background of the webview / border margin around aesthetic.computer should be black.
     - [] Pass DIDs keys to aesthetic.computer on Autonomy "A" logo tap.
     - [] Function to call from JS to "close" the webview.
-    - [] If a.c has media / is logged in then show a list in the gallery view. 
+    - [] If a.c has media / is logged in then show a list in the gallery view.
         (Make a listing page that pulls json from https://aesthetic.computer/media/@user/painting) and displays the images uploaded.
-    - [] Single tap link from the "portfolio" view to fork / edit an already made painting / 
-        pop open an aesthetic.computer URL. 
+    - [] Single tap link from the "portfolio" view to fork / edit an already made painting /
+        pop open an aesthetic.computer URL.
     + Next
     - [] Aggregator page of everyone's published work.
-  🖌️️ aesthetic.computer side 
+  🖌️️ aesthetic.computer side
     + Now
     - [] Add custom MOTD greeting for Autonomy users when the open the prompt.
     - [] Authenticate user / create account automagically from DIDs key.
@@ -1205,7 +1206,7 @@ Full day:
       - [x] `oval`
       - [x] Work out a final API / new abstraction that makes sense for every 2D
           brush, taking into account a possible GPU renderer and eliminating
-          duplicated logic. 
+          duplicated logic.
         - [x] Make `rect` a final API example
       - [x] `rect` and `oval` both can drop a frame...
   + Later
@@ -1217,7 +1218,7 @@ Full day:
   - [x] Test two finger drag on mobile.
   - [x] Add a reset pan prompt command or button.
   - [x] Why does holding alt continue the drawing / why is there a frame
-        delay after pen?.drawing?   
+        delay after pen?.drawing?
         - [x] system.nopaint.present return data needs to be decoupled from
             rendering
   - [x] Keep `pan` position on reload?
@@ -1234,7 +1235,7 @@ Full day:
   - [x] Use `bits` as a case study.
   - [x] Center the rendering of the painting.
   - [x] Add command for setting a constant resolution, which avoids
-        any resize hooks on the painting. 
+        any resize hooks on the painting.
     - [x] Use "crop" brush or `resize` command for this?
   - [x] Make a minimal `bits` brush.
 
@@ -1268,7 +1269,7 @@ Full day:
 
 *** Tape & Tapes ***
   `tape`
-  - [] Type `tape` and start an audio recording. 
+  - [] Type `tape` and start an audio recording.
   - [] Recorded segments work with `no` and are built up on the `prompt`.
     - [] `no` removes / cuts a segment of a tape
   - [] Tapes can be `upload`ed and `download`ed just like paintings.
@@ -1285,7 +1286,7 @@ Full day:
   - A meta structure for organizing curated media types like `painting`
     or `tape` or `diary` or `whistlegraph` and playing them back in a
     consumable playlist like format.
-  - [] Decide on a name. 
+  - [] Decide on a name.
   - [] Implement commands for curating, something akin to TikTok's playlist
        feature where there is a 'current album' and you can add media
        to the current one upon visiting it via `paintings` or `tapes` etc.
@@ -1316,7 +1317,7 @@ Full day:
        - [x] Dark / Light Moods (via prompt)
        - [] Primary or major colors.
   *** Launch ***
-      - [] @mollysoda posts an instagram story of a finished camera pic with stuff drawn on 
+      - [] @mollysoda posts an instagram story of a finished camera pic with stuff drawn on
       - [] there is a call to action where viewers can swipe up
       - [] once they swipe up there shoud be like a "title" screen
 
@@ -1353,7 +1354,7 @@ Full day:
   - [] Skip what aliases lead to in the history list. (ff example)
   - [] Should be able to `no` a `no!` in other words `no!` should just
   + Done
-  - [x] Don't clear text automatically on sending input. 
+  - [x] Don't clear text automatically on sending input.
        be a wipe!
 
 *** '?' Params Generalization ***
@@ -1375,18 +1376,18 @@ Full day:
 
 *** VS Code Extension ***
   - [] Make VSCode extension / back-seat document API (maya).
-    - [🟡] Modify disk load to accept new source code. 
+    - [🟡] Modify disk load to accept new source code.
     + Done
-    - [x] Wire up extension to a backend route that pubs to a redis channel. 
-    - [x] Get icon made for extension (@ingo) 
-    - [x] Start work on VSCode extension. 
+    - [x] Wire up extension to a backend route that pubs to a redis channel.
+    - [x] Get icon made for extension (@ingo)
+    - [x] Start work on VSCode extension.
   - [😀] Passwordless login.
   - [] Home Screen / Better Nav
     - [] Upon leaving the prompt, a tappable ghost of the active
         command (with generated params) appears in the top left corner.
         - [] Tap the word to return to the prompt and leave the command as is.
         - [] Swipe the word in any direction to erase the command
-              and return to the prompt. 
+              and return to the prompt.
   - [] User Accounts
     - [👨‍🦰] How quickly could I tie this to user accounts and make it permanent
             rn? Could I do this all today?
@@ -1395,20 +1396,20 @@ Full day:
           is no existing conflict
         - [] Require confirmation from user via a button press or tap.
   - [] ✏️ Diary
-    - [] A simple diary tool / "performative poetry" piece. 
-      - [] Write entries which playback in realtime to show the typing, like recei-ving a DM. See:  
+    - [] A simple diary tool / "performative poetry" piece.
+      - [] Write entries which playback in realtime to show the typing, like recei-ving a DM. See:
     - [] Typing `diary` makes a new entry in your default diary.
     - [] Every entry of every user has a URL and a timestamp.
     - [] Every diary of every user has a URL.
-    - [] A user can make multiple labeled diaries via `diary secrets` 
+    - [] A user can make multiple labeled diaries via `diary secrets`
       - [] This will start a new entry in a labeled diary and make that diary
           if it doesn't already exist.
     🔐 Privacy
       - [] Private diaries just show a lock with a shortcut to log the user in.
       - [] Diaries can be marked `private` or public.
       - [] Entries can be moved from one diary to another. (Migrated or made private or public)
-      - [] `@user diary` should read the most recent entry by default. 
-      - [] Entering an entry into a private diary should be encrypted and 
+      - [] `@user diary` should read the most recent entry by default.
+      - [] Entering an entry into a private diary should be encrypted and
           unreadable by aesthetic.computer.
           - [] Moving an entry into a private diary will encrypt it.
           - [] aesthetic.computer will not track public diary entries were made
@@ -1423,7 +1424,7 @@ Full day:
       - [] Add DALLE2 / Image2Image API for generating / transforming stuff easily.
     - [] Get smart contract launched. See "Mintable Paintings" below.
   - [] Finish Freaky Flowers client
-    - [] Hook up multiplayer presence. 
+    - [] Hook up multiplayer presence.
     - [] Get nice UI
 
 *** lorecore ***
@@ -1436,7 +1437,7 @@ Full day:
     - [] Do research?
 
 *** Sotce ***
-  - [] Visit a url. 
+  - [] Visit a url.
   - [] Logging in.
   - [] Type in words and press enter.
   - [] Hit a done button to play back the words.
@@ -1447,7 +1448,7 @@ Full day:
   - [] Jeffrey sets up VScode plugin!
   - [] `bst` (Bouncy Square Pattern World)
     - [] Jeffrey will explore: Sketchmachine.net style auto-expanding blingee buffer.
-  - [] *** Ingo + Harrison coder cohort micro projects. *** 
+  - [] *** Ingo + Harrison coder cohort micro projects. ***
     - [] Ingo learns API etc along with Harrison.
   - [] *** Dollmath ***
     - [] Character creator software combined with character operation software.
@@ -1466,11 +1467,11 @@ Full day:
     - [] Frame is transparent.
     - [] Safe zones.
   + Later
-    - [] Arrow keys to jump between states. 
+    - [] Arrow keys to jump between states.
     - [] Hold to pause
 
 *** Hole / Fill Tool ***
-  - [] Hole / fill tool  
+  - [] Hole / fill tool
     Goop Bomber
     - Random hole appears on the painting.
     - Little creature comes out with mouth ma ma ma ma.
@@ -1497,7 +1498,7 @@ Full day:
   - [] Physics Simulation
     - [] A. Mujoco compiled to WASM.
       - [] Wouldn't have to change much, somebody may have already compiled to WASM.
-    - [] B. Or ammo.js which gets us networking. 
+    - [] B. Or ammo.js which gets us networking.
       - [] https://rawcdn.githack.com/kripken/ammo.js/99d0ec0b1e26d7ccc13e013caba8e8a5c98d953b/examples/webgl_demo_softbody_rope/index.html
       - [] https://lo-th.github.io/phy/index.html#ragdoll
 
@@ -1527,12 +1528,12 @@ Full day:
  + Done
   - [x] Add ability to stop bgm from playing.
   - [x] Add vf music to a bucket or a server / make the bgm piece to load a track.
-  - [x] This piece should have a common library that any piece can opt into in boot via a music() or track() function. 
+  - [x] This piece should have a common library that any piece can opt into in boot via a music() or track() function.
   - [x] Play it back via an audio tag in the bios audio-graph.
 
 *** Important 3D Details ***
   - [] Invert Y position in original constructor.
-  - [] vec3.dist from glMatrix yields innacurate numbers. Factor it out of the project. 
+  - [] vec3.dist from glMatrix yields innacurate numbers. Factor it out of the project.
   - [] The quaternions also don't seem to work?
 
 *** Painting ***
@@ -1546,7 +1547,7 @@ Full day:
     - [] "hand" event
 
 *** GIF Support ***
-  - [] Add keyboard shortcut to download a still frame of whatever you're 
+  - [] Add keyboard shortcut to download a still frame of whatever you're
       looking at, (a 100% accurate screenshot in the presented resolution).
       - [] Get working with normal buffer.
       - [] Get working with glaze and mouse.
@@ -1558,10 +1559,10 @@ Full day:
 
 *** Mintable Paintings (Screen Buffers) ***
   - [] 🅰️ Client
-    - [] Implement `connect` command in prompt. 
+    - [] Implement `connect` command in prompt.
     - [] Add ethereum based client identity authentication.
       - [] Include web3.min as a dependency.
-      - [] Then login via... 
+      - [] Then login via...
           const accounts = await window.ethereum.request({
             method: "eth_requestAccounts",
           });
@@ -1569,7 +1570,7 @@ Full day:
       + Later
       - [] Shop around a bit.
       - [] Examine token gate code on glitch: https://glitch.com/edit/#!/long-whistlegraph?path=public%2Fscript.js%3A14%3A23
-    - [] Write more clientside code to trigger the mint. 
+    - [] Write more clientside code to trigger the mint.
     - [] The data needs to be uploaded to the server and a signature
          for minting needs to be signed (payment processor).
     - [] Then a success or failure message needs to be shown to the user via the
@@ -1599,20 +1600,20 @@ Full day:
               },
               {
                 "trait_type": "Date" // See also: https://docs.opensea.io/docs/metadata-standards
-                "display_type": "date", 
+                "display_type": "date",
                 "value": 1546360800 (Must be a unix timestamp in seconds.)
               }
-            ] 
+            ]
           }
   - [] 🆑 Contract
     - [] Implement contract features: https://docs.openzeppelin.com/contracts/4.x/wizard
-    - [] Open contract, mintable by everyone. 
+    - [] Open contract, mintable by everyone.
     - [] Unlimited edition.
     - [] Charge a mint fee which goes back to the aesthetic.computer wallet and
          prevents spam and promotes quality.
     - [] Should I freeze the Metadata? https://docs.opensea.io/docs/metadata-standards#freezing-metadata
     - [] Add contract Metadata too: https://docs.opensea.io/docs/contract-level-metadata
-    - [] Have a function that allows me to update the mint fee. 
+    - [] Have a function that allows me to update the mint fee.
     - [] Make a special wallet for aesthetic.computer.
     - [] Deploy contract!
     - [] Add media and metadata to OpenSea.
@@ -1624,11 +1625,11 @@ Full day:
       - [] Filled circle and soft circle brush.
       - [] Clear / fill command.
       - [] A palette the first digitpain "styles".
-      - [] Add ability to add text to the piece. 
+      - [] Add ability to add text to the piece.
         - `text insert-text-here size`
       - [] Side mission: Add size modifier to dl.
     - [] Mint it.
-    - [] Use it as an avatar on @digitpain twitter. 
+    - [] Use it as an avatar on @digitpain twitter.
     - [] Point to @aesthetic_cpu in a tweet to launch the Twitter account.
 
 ***No Paint System***
@@ -1646,7 +1647,7 @@ Full day:
          - [] Esc: Autoflash red on loading prompt or on leave.
          - [] Return: Autoflash green on loading prompt or on leave.
   - [] There seems to be a backbuffer / transparency error
-       that's easy to find on mobile iOS but hard to 
+       that's easy to find on mobile iOS but hard to
        reproduce otherwise.
   - [] Add "sign" command which writes a timestamp with a signature.
        Should "sign" and mint be the same thing?
@@ -1693,7 +1694,7 @@ Full day:
 *** Developers ***
   - [] Move `maya` from glitch to ssh.
    - [] Document each step so that I can script adding new users in the future.
-  - [] Figure out how to best automate the addition of a new developer... 
+  - [] Figure out how to best automate the addition of a new developer...
   - [] Why isn't artur's ssh key working?
 
 *** New Repo / Asset Management ***
@@ -1708,19 +1709,19 @@ Full day:
        need to be rewritten in the future.
 
 *** i ***
- - [] Make `i` 2D multiplayer with UDP. 
+ - [] Make `i` 2D multiplayer with UDP.
 
 *** Ambient Presence ***
   - [] No matter what disk you're on... queue into the ambient presence of others. You should be able to meet others.
 
 *** Palette ***
-  - [] Create a basic palette that enables one finger drawing. 
+  - [] Create a basic palette that enables one finger drawing.
   - [] Add tools to palette that utilize existing toolset.
   - [] Add save button to palette. (Fix `tracker` buttions?)
   - [] Add "sign" and "mint" to palette as well.
 
 *** p1xelfool additions ***
-  - [] Complete TODOS @p1xelgool/blank. 
+  - [] Complete TODOS @p1xelgool/blank.
   - [x] Add ability to directly manipulate the buffer again. (Via `edit`)
 
 *** (`turtle` / `spider`) ***
@@ -1752,7 +1753,7 @@ Full day:
 
 *** Tongue ***
   - [] Make a tongue tracking game where you catch snowflakes.
-  
+
 *** Pieces in Pieces ***
   - [] Bring `bleep` into 3D.
   - [] Make a layout of more than one piece in the same buffer.
@@ -1762,13 +1763,13 @@ Full day:
 
 *** Slider ***
   - [] How to tie a slider on your phone to a value in a param.
-      1. On a device, type `slider 0-255` or just `slider` for the default. 
-      2. The slider will give you a special code. 
+      1. On a device, type `slider 0-255` or just `slider` for the default.
+      2. The slider will give you a special code.
       3. Use that code while entering parameters like `line CODE 255 255`
-          (Pieces do not accept remote controlled parameters fail to load.) 
+          (Pieces do not accept remote controlled parameters fail to load.)
           - The piece needs to send a request to the server to join
             the slider's room.
-      4. The slider can message the piece with a new value. 
+      4. The slider can message the piece with a new value.
       5. The piece can return other data, like color, for the slider.
 
 ***Walkie Talkie***
@@ -1828,7 +1829,7 @@ Full day:
    - [] Only send reload messages to all clients if `export const reload = true`; ?
    - [] Start moving individual glitch accounts over to pieces.aesthetic.computer.
    - [] People should be able to mint / submit their pieces from here.
-   - [] Parameterize "npm run reload-piece". 
+   - [] Parameterize "npm run reload-piece".
   + Done
    - [x] Make live reloading better.
         (Catch piece errors... see if errors can be reported?)
@@ -1854,7 +1855,7 @@ Full day:
      B. Done - Allows you to download the file immediately (if possible),
                and uploads it, giving you the code no matter what.
                                (The code page layout could be shared here.)
-  
+
    [] 2. After the file uploads...
      A. You can also have the option to "Post" or "Publish?" which
      will make the work available as part of an ever-growing collection.
@@ -1870,19 +1871,19 @@ Full day:
          - Tell the user their video is ready and they can visit
            aesthetic.computer/CODE in a browser
            to download their video, which expires after 5 minutes.
-  
+
            aesthetic.computer/microphone -> aesthetic.computer/dl.bn67gff5
            aesthetic.computer/get.dfcx4
-  
+
            After recording in the microphone, you get this...
-  
+
            aesthetic.computer/mic -> aesthetic.codes/bn67gff5
            ... or
            aesthetic.computer/mic -> codes.ac/bn67gff5
              (where codes.ac/bn67gff5 -> aesthetic.computer/codes.bn67gff5)
              (and the resource is stored at -> bin.aesthetic.computer/bn67gff5.ext)
                                                art.aesthetic.computer/...
-  
+
            A pop-up that shows a QR code / a code to enter into aesthetic.codes.
            Upon visiting aesthetic.codes...
        - iOS or Android Mobile Browser or Desktop Browser
@@ -1899,11 +1900,11 @@ Full day:
         These would be great for custom file properties likw
         what piece was used to make the art / object and what git commit
         of the project was used or something like that...
-      
+
 *** Pieces: Run&Gun ***
  - [] Make a basic character with multi-platform controls.
  - [] Make a ground for them to run on back and forth.
- - [] Make something dangerous that can easily kill them. 
+ - [] Make something dangerous that can easily kill them.
  - [] Add a timer.
  - [] Use screen.save and screen.load functionality for scorekeeping.
 
@@ -1968,7 +1969,7 @@ Full day:
                uniform2: 2,
              });
              return dirtyBox;
-           } 
+           }
      - [] Add "kiln" or "bake" function to bake in a glaze at the end of a
           nopaint buffer change.
      - [x] Be able to turn glaze on inside of remotely hosted pieces.
@@ -1976,11 +1977,11 @@ Full day:
   *** Pressure ***
     - [] Get pen and finger working together.
         (When finger is drawing and pen is touched... is it recognized as pen?)
-    - [] Pen: Get a good mapping for Apple Pencil / normalize the data. 
+    - [] Pen: Get a good mapping for Apple Pencil / normalize the data.
     - [] Touch: Two finger pressure. (Second finger regulates it via Y axis.)
-    - [] Mouse: Use scroll wheel for delta. 
+    - [] Mouse: Use scroll wheel for delta.
 
-*** Re-organize Repository *** 
+*** Re-organize Repository ***
   - [] Make a better entry point for this repository, consider how far the
        monorepo idea should extend and make better room for text files, such as
        splitting up README.txt with PROJECTS.txt, WIP.txt, and GRAVEYARD.txt.
@@ -1992,7 +1993,7 @@ Full day:
   - [] Clean up the use of "aesthetic.computer/disks/" across the whole project.
   - [] Refactor `wg` to make better use of thumbnails... what should the new structure be?
 
-*** Favicons ***  
+*** Favicons ***
   - [] How should I generate favicons for each page or treat favicons in general?
    - Maybe just design a favicon? Should each piece also be able to have an icon?
    - Maybe the system could use these icons if pieces defined them...
@@ -2001,7 +2002,7 @@ Full day:
   - [] Make `function terminal()` to render to a text mode layer.
 
 ***JtoA***
-  - [] Use web speech recognition API to make a program so that Artur and I can 
+  - [] Use web speech recognition API to make a program so that Artur and I can
       communicate more complex thoughts.
       - https://www.google.com/intl/en/chrome/demos/speech.html
   Note: It's only gonna work in Safari on iOS. <https://bugs.webkit.org/show_bug.cgi?id=225298> (And if Dictation is enabled.)
@@ -2036,7 +2037,7 @@ Full day:
   - [] How could this tie into publishing a blog or devlog?
 
 ***i***
-  - [] See `disks/i.mjs` 
+  - [] See `disks/i.mjs`
 
 ***Shortcuts / open a new URL ***
   - [] Figure out notation: ~user/piece, piece~param1, #notion
@@ -2077,7 +2078,7 @@ Full day:
             - Entering an activity is part of the room.
             - There should be a basic "shout" program for rooms.
 
- ***Socket Server*** 
+ ***Socket Server***
   - [] Fix server.aesthetic.computer... maybe just take it offline for now?
 
 ***World***
@@ -2095,7 +2096,7 @@ Full day:
   - [] Get the external thumbnail server running on a VPS to see how fast it is
        compared to the netlify function.
   - Provision a machine that can actually execute `npx playwright install chrome`.
-  - [] Optimize netlify function... switch to jpeg to see if it's any faster? 
+  - [] Optimize netlify function... switch to jpeg to see if it's any faster?
 
 ***Image Viewer / Media Viewer**
   - [] Write a great image-viewer that implements the `rdp` piece.
@@ -2149,7 +2150,7 @@ Full day:
     - [x] Get SharedArrayBuffer Working again.
   - [x] `video` In-progress transcoding does not cancel when leaving a piece.
   - [x] S3 Developer Onboarding Sync Not Working
-  - [x] Rename $api.upload to $api.open? or $api.importFile? 
+  - [x] Rename $api.upload to $api.open? or $api.importFile?
   - [x] Research the use of "requestProvider.js.map" and work it into `index.js`.
   - [x] The back button does not work in the Instagram in-app browser.
   - [x] Jumping back to the prompt from `word` no longer stamps the word.
@@ -2159,7 +2160,7 @@ Full day:
   - [] Finish learning about Tezos, LIGO: https://academy.ligolang.org/pascal/chapter-types
   - [] Chalkboard / material simulation.
   - [] Try and get fullscreen on iOS / iPadOS again... maybe sideload the app shim?
-  - [] Add `every("1s", () => {})` shortcut to the `sim` api. 
+  - [] Add `every("1s", () => {})` shortcut to the `sim` api.
   - [] How to limit the number of Frame's in the start of a disk?
        Perhaps I could have a hidden meta-programming setup line at the top?
   - [] (disk.js:28) Make this a boot choice via the index.html file?
@@ -2180,7 +2181,7 @@ Full day:
 
 `aesthetic.computer` is virtual computer environment / interface designed for
  creative exploration. development requires `nodejs`, an up-to-date web browser,
- and knowledge of javascript. if you're interested in learning how to contribute 
+ and knowledge of javascript. if you're interested in learning how to contribute
  visit https://discord.com/invite/aesthetic-computer and i'll help you out - jeffrey 2022.04.24.05.05
 
 macOS from scratch
@@ -2189,20 +2190,20 @@ macOS from scratch
  Redis
   0. You may need to install `redis` to get the live reload working properly
      on local.
-  1. You can use homebrew for this and a default install should be fine, so 
+  1. You can use homebrew for this and a default install should be fine, so
      long as `redis-cli` works.
 
 Make sure `git` is installed, (you can do that through `homebrew`) and then get set up for development:
   0. Also install `fnm` the node version manager. (and add environtment variables to your shell: https://github.com/Schniz/fnm#shell-setup)
-  0.0a Open new terminal window and cd into aesthetic.computer directory install node version 
+  0.0a Open new terminal window and cd into aesthetic.computer directory install node version
   1. Check `ssl-dev/readme.txt` to generate and add local SSL certificates.
   2. `npm install` from the project directory.
-  3. `cd` into `session-server` and ask Jeffrey for Firebase json file 
+  3. `cd` into `session-server` and ask Jeffrey for Firebase json file
   4. Get added to the Netlify project as a collaborator.
-  5. `cd` into `system` and run `npx netlify login` 
+  5. `cd` into `system` and run `npx netlify login`
   5a. run `npx netlify link`
   6. Now from the `aesthetic computer` directory run `npm run code` and in another shell `npm run server:session`.
-  7. Visit `https://localhost:8888` to view the running site! 
+  7. Visit `https://localhost:8888` to view the running site!
   8. If you need local copies of the site's rich media `assets` then ask Jeffrey
      and you can slurp them from S3 so you can run the below.
 
@@ -2211,7 +2212,7 @@ Static Assets
      the aesthetic.computer storage keys provided by Jeffrey.
 
 🧩 Making a new included piece.
-- Run `npm run new name-of-your-piece Description of your piece.` 
+- Run `npm run new name-of-your-piece Description of your piece.`
 - Then open the file in `system/public/aesthetic.computer/disks` and start working!
 
 In production: Add a "#debug" hash to the end of your URL for more verbose output.
