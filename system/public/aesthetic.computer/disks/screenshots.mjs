@@ -23,7 +23,7 @@ let shot, metadata, record;
 let chain;
 let autoAdvance = false,
   autoAdvanceProgress = 0;
-const autoAdvanceSteps = 600;
+const autoAdvanceSteps = 750;
 let currentTint;
 const tints = [
   "red",
