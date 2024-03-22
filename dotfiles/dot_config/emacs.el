@@ -247,8 +247,8 @@
   (interactive)
   ;; Open a terminal.
   (vterm)
-  (vterm-send-string (format "ac-code\n" cmd))
-  (rename-buffer (format "vterm-code" cmd) t)
+  (vterm-send-string (format "ac-site\n" cmd))
+  (rename-buffer (format "vterm-site" cmd) t)
 )
 
 (defun aesthetic-backend ()
@@ -256,7 +256,7 @@
   (interactive)
   ;; Define the directory path
   (let ((directory-path "~/Desktop/code/aesthetic-computer/micro")
-        (commands '("shell" "code" "session" "redis" "edge" "stripe-print" "stripe-ticket"))
+        (commands '("shell" "site" "session" "redis" "edge" "stripe-print" "stripe-ticket"))
         prompt-tab-created stripe-tab-created)
     ;; Iterate over the commands
     (tab-rename "source")
