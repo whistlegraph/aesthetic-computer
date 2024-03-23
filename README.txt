@@ -42,6 +42,16 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
+*** chat ***
+  - [-] Add a `chat` command.
+  - [] But `chat` should be everywhere?
+    - [] Then abstract `chat` from that view.
+  - [] Make a panel in the logs to watch it stream in.
+  - [] It should persist in the database under a table.
+  - [] Then appear for other users and the current user.
+       (Just make the text fully synchronized for now.)
+  + Done
+
 *** emacs fixes ***
   - [-] Make the `aesthetic-backend` function work in gui and terminal emacs.
        inside docker and outside.
@@ -100,18 +110,6 @@ but technically agnostic. (Choose your aesthetic!)
     - [] girlfriend
 
 *** [] light & dark autocomplete ***
-
-*** chat ***
-  - [] Add a `chat` command.
-  - [] Use the TextInput implementation from `world` for input.
-    - [] The default should send the user to th
-  - [] Prototype a scrollback output on the main screen.
-  - [] But `chat` should be everywhere?
-    - [] Then abstract `chat` from that view.
-  - [] Make a panel in the logs to watch it stream in.
-  - [] It should persist in the database under a table.
-  - [] Then appear for other users and the current user.
-       (Just make the text fully synchronized for now.)
 
 *** `world` <-> `painting` <-> piece integrations ***
   - [] User world persistence with floating command notifications.
