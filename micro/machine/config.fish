@@ -102,3 +102,5 @@ function forget
 end
 
 alias nvm 'forget'
+
+set -gx TERM xterm-256color
