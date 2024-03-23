@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+# boot up the platform in a terminal
+# running emacs inside
+
+echo -e "\n\033[1;37m*** Booting the Aesthetic Computer Platform ***\033[0m\n"
+cd micro
+./code.sh
+cd -
+echo -e "\n\033[1;35m*** Goodbye ***\033[0m\n"
+
+# todo boot up the platform in a
+# hosted emacs session

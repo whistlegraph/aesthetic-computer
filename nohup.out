@@ -12,3 +12,5 @@
 (emacs:292799): Gtk-WARNING **: 14:14:53.541: Failed to measure available space: The specified location is not supported
 
 (emacs:292799): Gtk-WARNING **: 14:14:59.496: Failed to measure available space: The specified location is not supported
+emacs: standard input is not a tty
+emacs: standard input is not a tty
