@@ -6,10 +6,11 @@
 echo -e "\n\033[1;37m*** Booting the Aesthetic Computer Platform ***\033[0m\n"
 cd micro
 
-# clear out everything inside .emacs.d
+# clear out everything inside .emacs.d except the .gitignore
 cd machine/.emacs.d
-shopt -s extglob
-rm -rf !(.gitignore)
+# shopt -s extglob
+# rm -rf !(.gitignore)
+find . -mindepth 1 -maxdepth 1 -not -name '.gitignore' -not -name '.' -not -name '..' | xargs rm -rf > /dev/null 2>&1 
 cd ../..
 
 ./code.sh
