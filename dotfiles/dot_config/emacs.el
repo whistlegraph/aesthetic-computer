@@ -7,6 +7,10 @@
 (when (window-system)
   (load-theme 'wombat t))
 
+(set-terminal-coding-system 'utf-8-unix)
+(set-keyboard-coding-system 'utf-8-unix)
+(set-selection-coding-system 'utf-8-unix)
+
 ;; Only show emergency warnings.
 (setq warning-minimum-level :emergency)
 
@@ -58,19 +62,15 @@
 
 (setq initial-scratch-message nil) ;; Empty scratch buffer message.
 
-(global-display-line-numbers-mode) ;; Always show line numbers.
+;; (global-display-line-numbers-mode) ;; Always show line numbers.
 
-(add-to-list 'auto-mode-alist '("\\.mjs\\'" . javascript-mode)) ;; Support mjs files.
+(add-to-list 'auto-mode-alist '("\\.mjs\\'" . typescript-ts-mode)) ;; Support mjs files.
 
 (defun disable-line-numbers-in-modes ()
   "Disable line numbers in eshell and vterm."
   (when (or (derived-mode-p 'eshell-mode)
             (derived-mode-p 'vterm-mode))
     (display-line-numbers-mode -1)))
-
-;; Adding hooks for both eshell and vterm
-(add-hook 'eshell-mode-hook 'disable-line-numbers-in-modes)
-(add-hook 'vterm-mode-hook 'disable-line-numbers-in-modes)
 
 ;; Set the default shell for Windows to use bash on WSL.
 (when (eq system-type 'windows-nt)
@@ -128,19 +128,32 @@
 (global-set-key (kbd "C-=") 'text-scale-increase)
 (global-set-key (kbd "C--") 'text-scale-decrease)
 
+;; Adjust character width for emojis
+(set-language-environment "UTF-8")
+(set-charset-priority 'unicode)
+(setq default-process-coding-system '(utf-8-unix . utf-8-unix))
+(defun set-emoji-width ()
+  "Set the character width of emojis to 2."
+  (setq char-width-table (make-char-table nil))
+  (let ((table (make-char-table nil)))
+    (dolist (range '(#x1F600 . #x1F64F)) ; Emoticons
+      (set-char-table-range table range 2))
+    (setq char-width-table table)))
+(add-hook 'after-init-hook 'set-emoji-width)
+
 ;; 🌳 Tree-Sitter
 
 ;; 🪄 Packages
-(require 'package)
-(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
-(package-initialize)
+;; (require 'package)
+;; (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
+;; (package-initialize)
 
 ;; Install and configure use-package
-(unless (package-installed-p 'use-package)
-  (package-refresh-contents)
-  (package-install 'use-package))
-(require 'use-package)
-(setq use-package-always-ensure t)
+;; (unless (package-installed-p 'use-package)
+;;  (package-refresh-contents)
+;;  (package-install 'use-package))
+;;(require 'use-package)
+;;(setq use-package-always-ensure t)
 
 (setq package-enable-at-startup nil)
 
@@ -161,35 +174,30 @@
       (eval-print-last-sexp)))
   (load bootstrap-file nil 'nomessage))
 
-; (setq straight-use-package-by-default t)
+(setq straight-use-package-by-default t)
 
 (when (window-system)
   (use-package auto-dark)
   (setq auto-dark-dark-theme 'wombat
-	auto-dark-light-theme 'whiteboard)
+  auto-dark-light-theme 'whiteboard)
   (auto-dark-mode t))
 
 ;; https://github.com/renzmann/treesit-auto
 (use-package treesit-auto
   :custom
-  (treesit-auto-install 'prompt)
+  (treesit-auto-install t) ;; or 'prompt
   :config
   (treesit-auto-add-to-auto-mode-alist 'all)
   (global-treesit-auto-mode))
 
-;; code-folding via tree-sitter
-(use-package ts-fold
- :straight (ts-fold :type git :host github :repo "emacs-tree-sitter/ts-fold")
- :hook (tree-sitter-mode . ts-fold-mode))
-
-(use-package helm ;; Add helm: https://github.com/emacs-helm/helm/wiki#from-melpa
-  ;; :straight t
-  :config
-  (setq helm-M-x-fuzzy-match t) ;; Optional: Fuzzy match for M-x
-  (setq helm-mode-fuzzy-match t) ;; Optional: Fuzzy match for helm-mode
-  (setq helm-split-window-in-side-p t) ;; Optional: Have helm open in current window.
-  (setq helm-ff-fuzzy-matching t) ;; Enable fuzzy matching for file and buffer names
-  (helm-mode 1))
+ (use-package helm ;; Add helm: https://github.com/emacs-helm/helm/wiki#from-melpa
+	      ;; :straight t
+	      :config
+	      (setq helm-M-x-fuzzy-match t) ;; Optional: Fuzzy match for M-x
+	      (setq helm-mode-fuzzy-match t) ;; Optional: Fuzzy match for helm-mode
+	      (setq helm-split-window-in-side-p t) ;; Optional: Have helm open in current window.
+	      (setq helm-ff-fuzzy-matching t) ;; Enable fuzzy matching for file and buffer names
+	      (helm-mode 1))
 
 (global-set-key (kbd "M-x") #'helm-M-x)
 (global-set-key (kbd "C-x r b") #'helm-filtered-bookmarks)
@@ -206,48 +214,109 @@
 
 (add-to-list 'command-line-functions 'my/helm-find-files-directory-handler)
 
+(use-package lsp-mode)
+(add-hook 'prog-mode-hook #'lsp)
+(setq lsp-auto-install-server t)
+
+(use-package origami)
+
+(use-package lsp-origami
+  :config
+  (add-hook 'lsp-after-open-hook #'lsp-origami-try-enable))
+
+;; (use-package dap-mode
+;;	     :config
+;;	     (dap-auto-configure-mode)
+;;	     :bind
+;;	     (("<f7>" . dap-step-in)
+;;	      ("<f8>" . dap-next)
+;;	      ("<f9>" . dap-continue)))
+
+(setq js-indent-level 2)
+
+;; if you are helm user
+(use-package helm-lsp :commands helm-lsp-workspace-symbol)
+
 (use-package s) ;; `dockerfile-mode` depends on `s`.
 (use-package dockerfile-mode) ;; Dockerfile support.
-;; (use-package fish-mode) ;; Fish shell syntax.
+(use-package fish-mode) ;; Fish shell syntax.
+
 ;; (use-package gptel) ;; ChatGPT / LLM support.
-(use-package chatgpt-shell
-  :custom
-  ((chatgpt-shell-openai-key
-    (lambda ()
-      (getenv "OPENAI_API_KEY")))))
+;;(use-package chatgpt-shell
+;;  :custom
+;;  ((chatgpt-shell-openai-key
+;;    (lambda ()
+;;      (getenv "OPENAI_API_KEY")))))
 ;; ^ Set via `set -Ux OPENAI_API_KEY "your_api_key_here"` in fish shell.
 
 ;; Prettier-js configuration
-(use-package prettier-js
-  :hook (js-mode . prettier-js-mode)
-  :bind ("C-c p" . prettier-js))
+;; (use-package prettier-js
+;;  :hook (js-mode . prettier-js-mode)
+;;  :bind ("C-c p" . prettier-js))
 
 ;; Use good clipboard system in terminal mode.
 (use-package clipetty
- :ensure t
- :hook (after-init . global-clipetty-mode))
+	     :ensure t
+	     :hook (after-init . global-clipetty-mode))
 
 ;; Evil mode configuration
 (use-package evil
-  :config
-  (evil-mode 1)
-  (setq-default evil-shift-width 2)
-  ;; override C-p in evil mode
-  (dolist (state '(normal insert visual motion emacs))
-    (evil-define-key state 'global (kbd "C-p") 'project-find-file)))
+	     :config
+	     (evil-mode 1)
+	     (setq-default evil-shift-width 2)
+	     ;; override C-p in evil mode
+	     (dolist (state '(normal insert visual motion emacs))
+	       (evil-define-key state 'global (kbd "C-p") 'project-find-file)))
 
-(unless (display-graphic-p)
-        (use-package evil-terminal-cursor-changer)
-        (require 'evil-terminal-cursor-changer)
-        (evil-terminal-cursor-changer-activate))
+;; (unless (display-graphic-p)
+;;  (use-package evil-terminal-cursor-changer)
+;;  (require 'evil-terminal-cursor-changer)
+;;  (evil-terminal-cursor-changer-activate))
 
-(use-package restart-emacs) ;; Fully restart emacs: https://github.com/iqbalansari/restart-emacs
-(setq restart-emacs-restore-frames t)
-(global-set-key (kbd "C-c C-r") 'restart-emacs)
+;; (use-package restart-emacs) ;; Fully restart emacs: https://github.com/iqbalansari/restart-emacs
+;; (setq restart-emacs-restore-frames t)
 
+;; (global-set-key (kbd "C-c C-r") 'restart-emacs)
 (global-set-key (kbd "C-c C-o") 'browse-url-at-point) ;; Open url.
 
 ;; (use-package burly)
+
+;; fedora: sudo dnf install cmake libtool libvterm
+;; windows: choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+;; (use-package vterm
+;;	     :config
+;;	     (setq vterm-always-compile-module t)
+;;	     (add-hook 'vterm-mode-hook 'disable-line-numbers-in-modes)
+;;	     (setq vterm-shell "/usr/bin/fish")) ;; Use fish as the default vterm shell.
+
+;; (use-package vterm
+	     ;; Update the module automatically:
+;;	     :straight (:post-build ((let ((vterm-always-compile-module t))
+;;				       (require 'vterm))))
+;;	     :config
+	     ;; Disable the highlighting of the current line
+	     ;; for the virtual terminal:
+;;	     (add-hook 'vterm-mode-hook 'disable-line-numbers-in-modes)
+;;	     (setq vterm-shell "/usr/bin/fish")) ;; Use fish as the default vterm shell.
+
+;; (use-package vterm
+;; 	     :straight t
+;; 	     :ensure t
+;; 	     :post-build (let ((vetrm-always-compile-module t))
+;; 			   (require 'vterm))
+;; 	     :config
+;; 	     (setq vterm-always-compile-module t)
+;; 	     (add-hook 'vterm-mode-hook 'disable-line-numbers-in-modes)
+;; 	     (setq vterm-shell "/usr/bin/fish")) ;; Use fish as the default vterm shell.
+
+;; (use-package eglot :hook (web-mode . eglot-ensure))
+
+;; (add-hook 'web-mode-hook 'eglot-ensure) ;; enable eglot for web mode automatically
+
+;; (use-package eat)
+
+;; Adding hooks for both eshell and vterm
+(add-hook 'eshell-mode-hook 'disable-line-numbers-in-modes)
 
 ;; This package breaks terminal rendering :(
 ;; (use-package gruvbox-theme)
@@ -262,14 +331,6 @@
   (eshell)
   (insert "python3 -m http.server 8888")
   (eshell-send-input))
-
-;; fedora: sudo dnf install cmake libtool libvterm
-;; windows: choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
-(use-package vterm)
-(setq vterm-always-compile-module t)
-
-(use-package eat)
-;; (setq vterm-shell "/usr/bin/fish") ;; Use fish as the default vterm shell.
 
 ;; (desktop-save-mode 1)
 ;; (setq desktop-save 'if-exists)
@@ -287,7 +348,7 @@
 ;; (add-hook 'emacs-startup-hook 'open-fish-or-eshell-if-no-file)
 
 ;; (defun disable-evil-in-vterm ()
-;;  (evil-local-mode -1))
+;; (evil-local-mode -1))
 
 ;; (add-hook 'vterm-mode-hook 'disable-evil-in-vterm)
 
