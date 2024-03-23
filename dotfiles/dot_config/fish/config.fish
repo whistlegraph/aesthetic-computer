@@ -174,3 +174,5 @@ end
 
 set PATH /home/jas/.fnm $PATH
 fnm env | source
+
+set -gx TERM xterm-256color
