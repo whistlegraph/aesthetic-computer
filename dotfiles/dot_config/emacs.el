@@ -166,12 +166,12 @@
 
 ;;(when (window-system)
 
-;;(if (display-graphic-p)
-;;  (use-package auto-dark)
-;;  (setq auto-dark-dark-theme 'wombat
-;;	auto-dark-light-theme 'whiteboard)
-;;  (auto-dark-mode t)
-;;  )
+(if (display-graphic-p)
+  (use-package auto-dark)
+  (setq auto-dark-dark-theme 'wombat
+	auto-dark-light-theme 'whiteboard)
+  (auto-dark-mode t)
+  )
 ;;)
 
 ;; (if (display-graphic-p)
