@@ -83,16 +83,16 @@
   (add-to-list 'exec-path "C:/Windows/System32")
   )
 
-(scroll-bar-mode -1)
-(fringe-mode 0)
+;;(scroll-bar-mode -1)
+;;(fringe-mode 0)
 
-;; (if (display-graphic-p)
-;;   (add-hook 'after-make-frame-functions
-;; 	    (lambda (frame)
-;; 	      (select-frame frame)
-;; 	      (when (display-graphic-p)
-;; 		(fringe-mode 0)
-;; 		(scroll-bar-mode -1)))))
+(if (display-graphic-p)
+  (add-hook 'after-make-frame-functions
+	    (lambda (frame)
+	      (select-frame frame)
+	      (when (display-graphic-p)
+		(fringe-mode 0)
+		(scroll-bar-mode -1)))))
 
 (menu-bar-mode -1) ;; Disable the menu bar.
 (tool-bar-mode -1) ;; Disable the tool bar.
@@ -165,11 +165,22 @@
 (setq straight-use-package-by-default t)
 
 ;;(when (window-system)
-(use-package auto-dark)
-(setq auto-dark-dark-theme 'wombat
-      auto-dark-light-theme 'whiteboard)
-(auto-dark-mode t)
+
+;;(if (display-graphic-p)
+;;  (use-package auto-dark)
+;;  (setq auto-dark-dark-theme 'wombat
+;;	auto-dark-light-theme 'whiteboard)
+;;  (auto-dark-mode t)
+;;  )
 ;;)
+
+;; (if (display-graphic-p)
+;;   (add-hook 'after-make-frame-functions
+;; 	    (lambda (frame)
+;; 	      (select-frame frame)
+;; 	      (when (display-graphic-p)
+;; 		(fringe-mode 0)
+;; 		(scroll-bar-mode -1)))))
 
 ;; fedora: sudo dnf install cmake libtool libvterm
 ;; windows: choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
