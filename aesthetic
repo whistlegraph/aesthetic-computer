@@ -5,6 +5,13 @@
 
 echo -e "\n\033[1;37m*** Booting the Aesthetic Computer Platform ***\033[0m\n"
 cd micro
+
+# clear out everything inside .emacs.d
+cd machine/.emacs.d
+shopt -s extglob
+rm -rf !(.gitignore)
+cd ../..
+
 ./code.sh
 cd -
 echo -e "\n\033[1;35m*** Goodbye ***\033[0m\n"

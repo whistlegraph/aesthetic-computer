@@ -3,7 +3,7 @@
 // which at the moment is run once for every "piece"
 // that requests it.
 
-/* #region todo 📓 
+/* #region todo 📓
  + Now
  + Possible Concerns
  - [?] `code.channel` should return a promise, and wait for a
@@ -12,14 +12,14 @@
     doesn't go through or if there is a server issue. 23.07.04.18.01
     (Might not actually be that necessary.)
  + Done
- - [x] Add `obscenity` filter. 
+ - [x] Add `obscenity` filter.
  - [x] Conditional redis sub to dev updates. (Will save bandwidth if extension
-       gets lots of use, also would be more secure.) 
+       gets lots of use, also would be more secure.)
  - [x] Secure the "code" path to require a special string.
- - [x] Secure the "reload" path (must be in dev mode, sorta okay) 
+ - [x] Secure the "reload" path (must be in dev mode, sorta okay)
  - [c] Speed up developer reload by using redis pub/sub.
  - [x] Send a signal to everyone once a user leaves.
- - [x] Get "developer" live reloading working again. 
+ - [x] Get "developer" live reloading working again.
  - [x] Add sockets back.
  - [x] Make a "local" option.
  - [x] Read through: https://redis.io/docs/data-types
@@ -41,7 +41,7 @@ import { initializeApp, cert } from "firebase-admin/app"; // Firebase notificati
 import serviceAccount from "./aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json" assert { type: "json" };
 import { getMessaging } from "firebase-admin/messaging";
 initializeApp(
-  { credential: cert(serviceAccount) },
+  { Credential: cert(serviceAccount) },
   "aesthetic" + ~~performance.now(),
 );
 
