@@ -53,14 +53,14 @@ ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
 RUN brew install mkcert
 
 # Install tree-sitter, for emacs parsing.
-RUN brew install tree-sitter
+# RUN brew install tree-sitter
 
 # Install fnm, configure it, install Node.js, and global npm packages
 RUN brew install fnm && \
     eval "$(fnm env)" && \
     fnm install lts-hydrogen && \
     fnm use lts-hydrogen && \
-    npm install -g prettier typescript-language-server
+    npm install -g prettier typescript typescript-language-server
 
 # Add fnm configuration to Fish shell startup script
 RUN echo "fnm env --use-on-cd | source" >> /home/me/.config/fish/conf.d/fnm.fish

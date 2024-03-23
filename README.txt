@@ -1,6 +1,4 @@
- 🧩 AESTHETIC.COMPUTER 🧩
-
-  A *new* computing environment that...
+A *new* computing environment that...
 
   (Technical Summary)
     - Works in updated web browsers on all major devices, including VR headsets!
@@ -8,7 +6,8 @@
     - Pieces are written in a proce55ing-inspired API that's fun to learn and fast
       to code in.
     - Screen defaults to an accessibly low resolution, great for learning
-      and counting pixels with, but technically agnostic. (Choose your aesthetic!)
+      and counting pixels with,
+but technically agnostic. (Choose your aesthetic!)
     - Batteries included with system tools and toys that emphasize creative activities
       with media content output.
       - Painting (line, smear, rect, @maya/tuesday, sparkle, [spray, pull])
@@ -28,7 +27,8 @@
         the page or losing context.
       - Pieces can load remotely off any `https://` url so applications can be
         distributed over a network.
-      - 2D/3D Software renderer for spatial display of programs as planes and
+      - 2D/3D Software renderer for spatial display of programs as planes
+      and
         ease of accessing pixels while coding a piece and learning graphics.
       - 3D WebGL renderer for VR.
 

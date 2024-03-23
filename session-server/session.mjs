@@ -3,7 +3,7 @@
 // which at the moment is run once for every "piece"
 // that requests it.
 
-/* #region todo 📓
+/* #region todo
  + Now
  + Possible Concerns
  - [?] `code.channel` should return a promise, and wait for a
@@ -740,7 +740,6 @@ if (termkit) {
 }
 */
 
-// ✍️ Logs
 function log() {
   if (!term) {
     console.log(...arguments);
