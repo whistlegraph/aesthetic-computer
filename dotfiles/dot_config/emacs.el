@@ -4,6 +4,11 @@
 ;; (add-to-list 'default-frame-alist '(fullscreen . maximized))
 ;; (add-to-list 'default-frame-alist '(undecorated . t))
 
+(load-theme 'wombat t)
+
+;; Only show emergency warnings.
+(setq warning-minimum-level :emergency)
+
 (tab-bar-mode t) ;; Enable the tab bar mode.
 (setq tab-bar-new-tab-choice "*scratch*")
 (setq tab-bar-hints t)
@@ -44,7 +49,7 @@
 (add-hook 'focus-out-hook 'auto-save-buffer)
 
 (custom-set-faces
- '(tab-bar ((t (:height 1.1)))))
+ '(tab-bar ((t (:height 1.0)))))
 
 (setq inhibit-startup-screen t) ;; Disable startup message.
 (setq eshell-banner-message "") ;; No eshell banner.
@@ -53,7 +58,7 @@
 
 (global-display-line-numbers-mode) ;; Always show line numbers.
 
-(add-to-list 'auto-mode-alist '("\\.mjs\\'" . js-mode)) ;; Support mjs files.
+(add-to-list 'auto-mode-alist '("\\.mjs\\'" . javascript-mode)) ;; Support mjs files.
 
 (defun disable-line-numbers-in-modes ()
   "Disable line numbers in eshell and vterm."
@@ -73,14 +78,19 @@
   (add-to-list 'exec-path "C:/Windows/System32")
   )
 
-;; Only show emergency warnings.
-(add-hook 'after-init-hook
-          (lambda ()
-            (setq warning-minimum-level :emergency)))
+;; (when (window-system)
+;;   (fringe-mode 0) ;; Disable fringe indicators.
+;;   (scroll-bar-mode -1)) ;; Disable scroll bar.
 
-(when (window-system)
-  (fringe-mode 0) ;; Disable fringe indicators.
-  (scroll-bar-mode -1)) ;; Disable scroll bar.
+(if (display-graphic-p)
+  (scroll-bar-mode -1)
+  (fringe-mode 0)
+  (add-hook 'after-make-frame-functions
+	    (lambda (frame)
+	      (select-frame frame)
+	      (when (display-graphic-p)
+		(fringe-mode 0)
+		(scroll-bar-mode -1)))))
 
 (menu-bar-mode -1) ;; Disable the menu bar.
 (tool-bar-mode -1) ;; Disable the tool bar.
@@ -119,38 +129,73 @@
 (global-set-key (kbd "C-=") 'text-scale-increase)
 (global-set-key (kbd "C--") 'text-scale-decrease)
 
+;; 🌳 Tree-Sitter
+
+;; (setq treesit-language-source-alist
+;;       '((bash "https://github.com/tree-sitter/tree-sitter-bash")
+;;         (css "https://github.com/tree-sitter/tree-sitter-css")
+;;         (elisp "https://github.com/Wilfred/tree-sitter-elisp")
+;;         (html "https://github.com/tree-sitter/tree-sitter-html")
+;;         (javascript "https://github.com/tree-sitter/tree-sitter-javascript" "master" "src")
+;;         (json "https://github.com/tree-sitter/tree-sitter-json")
+;;         (markdown "https://github.com/ikatyang/tree-sitter-markdown")
+;;         (toml "https://github.com/tree-sitter/tree-sitter-toml")
+;;         (fish "https://github.com/ram02z/tree-sitter-fish")
+;;         ;;(tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
+;;         (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
+;;         ))
+
+;; (mapc #'treesit-install-language-grammar (mapcar #'car treesit-language-source-alist))
+
+;; (require 'tree-sitter-langs)
+;; (add-to-list 'tree-sitter-major-mode-language-alist '(js-mode . javascript))
+
 ;; 🪄 Packages
 ;; (require 'package)
 ;; (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
 ;; (package-initialize)
-
-;; Install and configure use-package
+;;
+;; ;; Install and configure use-package
 ;; (unless (package-installed-p 'use-package)
 ;;   (package-refresh-contents)
 ;;   (package-install 'use-package))
 ;; (require 'use-package)
 ;; (setq use-package-always-ensure t)
-
+;;
 (setq package-enable-at-startup nil)
 
 ;; Add 'straight package manager.
 (defvar bootstrap-version)
 (let ((bootstrap-file
-	(expand-file-name
-	  "straight/repos/straight.el/bootstrap.el"
-	  (or (bound-and-true-p straight-base-dir)
-	      user-emacs-directory)))
+       (expand-file-name
+        "straight/repos/straight.el/bootstrap.el"
+        (or (bound-and-true-p straight-base-dir)
+            user-emacs-directory)))
       (bootstrap-version 7))
   (unless (file-exists-p bootstrap-file)
     (with-current-buffer
-      (url-retrieve-synchronously
-	"https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
-	'silent 'inhibit-cookies)
+        (url-retrieve-synchronously
+         "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
+         'silent 'inhibit-cookies)
       (goto-char (point-max))
       (eval-print-last-sexp)))
   (load bootstrap-file nil 'nomessage))
 
 (setq straight-use-package-by-default t)
+
+(use-package auto-dark)
+(setq auto-dark-dark-theme 'wombat
+      auto-dark-light-theme 'whiteboard)
+(auto-dark-mode t)
+
+(use-package treesit-auto
+  :config
+  (global-treesit-auto-mode))
+
+;; code-folding via tree-sitter
+(use-package ts-fold
+ :straight (ts-fold :type git :host github :repo "emacs-tree-sitter/ts-fold")
+ :hook (tree-sitter-mode . ts-fold-mode))
 
 (use-package helm ;; Add helm: https://github.com/emacs-helm/helm/wiki#from-melpa
   ;; :straight t
@@ -178,7 +223,7 @@
 
 (use-package s) ;; `dockerfile-mode` depends on `s`.
 (use-package dockerfile-mode) ;; Dockerfile support.
-(use-package fish-mode) ;; Fish shell syntax.
+;; (use-package fish-mode) ;; Fish shell syntax.
 ;; (use-package gptel) ;; ChatGPT / LLM support.
 (use-package chatgpt-shell
   :custom
@@ -217,11 +262,6 @@
 
 (global-set-key (kbd "C-c C-o") 'browse-url-at-point) ;; Open url.
 
-(use-package auto-dark)
-(setq auto-dark-dark-theme 'wombat
-      auto-dark-light-theme 'whiteboard)
-(auto-dark-mode t)
-
 ;; (use-package burly)
 
 ;; This package breaks terminal rendering :(
@@ -239,8 +279,10 @@
   (eshell-send-input))
 
 ;; fedora: sudo dnf install cmake libtool libvterm
-;; windows:  choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+;; windows: choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
 (use-package vterm)
+(setq vterm-always-compile-module t)
+
 (use-package eat)
 ;; (setq vterm-shell "/usr/bin/fish") ;; Use fish as the default vterm shell.
 
