@@ -165,9 +165,9 @@ async function world_boot(
     },
   );
 
-  inputBtn = new ui.Button();
-
   send({ type: "keyboard:soft-lock" });
+
+  inputBtn = new ui.Button();
 
   // 🧦 Socket Networking
   server = socket((id, type, content) => {
@@ -546,7 +546,6 @@ function world_act({ event: e, api, send, jump, hud, piece, screen }) {
     e.is("keyboard:close") ||
     (input.canType && !e.is("keyboard:down:escape"))
   ) {
-    // if (e.is("keyboard:close")) input.text = "";
     input.act(api);
   }
 }
