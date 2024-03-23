@@ -13,15 +13,15 @@ cd machine/.emacs.d
 find . -mindepth 1 -maxdepth 1 -not -name '.gitignore' -not -name '.' -not -name '..' | xargs rm -rf > /dev/null 2>&1 
 cd ../..
 
-if grep -q docker /proc/1/cgroup; then
-  echo "Running inside Docker."
+#if grep -q docker /proc/1/cgroup; then
+#  echo "Running inside Docker."
   ./code.sh
-else
-  echo "Not running inside Docker."
-  cd ..
-  npm run reset
-  npm run build-boot-and-edit
-fi
+#else
+#  echo "Not running inside Docker."
+#  cd ..
+#  npm run reset
+#  npm run build-boot-and-edit
+#fi
 
 
 cd -
