@@ -43,9 +43,10 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** emacs fixes ***
-  - [🟡] Add code-folding (check out origami or vimdiff mode?)
+  - [-] Make the `aesthetic-backend` function work in gui and terminal emacs.
+       inside docker and outside.
+  - [] Add code-folding (check out origami or vimdiff mode?)
     - [] It should use `zc` and respect my #region marks.
-  - [?] JavaScript auto-indent needs to be 2 spaces wide
   - [] `acr` should open emacs with a shell as well
        and also pop up the web browser somehow once it's ready,
        or show some kind of cool interstitial page while the platform
@@ -54,6 +55,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [-] Include "assets" directory in ctrl+p helm search?
   - [] Make ctrl+p open instantly in a terminal mode.
   + Done
+  - [x] JavaScript auto-indent needs to be 2 spaces wide
   - [x] Javascript auto-close braces / brackets not working.
   - [x] Add gutter at 80 character width.
   - [x] Save on leave buffer / clicking out of buffer.
