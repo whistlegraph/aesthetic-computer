@@ -4,7 +4,8 @@
 ;; (add-to-list 'default-frame-alist '(fullscreen . maximized))
 ;; (add-to-list 'default-frame-alist '(undecorated . t))
 
-(load-theme 'wombat t)
+(when (window-system)
+  (load-theme 'wombat t))
 
 ;; Only show emergency warnings.
 (setq warning-minimum-level :emergency)
@@ -79,19 +80,16 @@
   (add-to-list 'exec-path "C:/Windows/System32")
   )
 
-;; (when (window-system)
-;;   (fringe-mode 0) ;; Disable fringe indicators.
-;;   (scroll-bar-mode -1)) ;; Disable scroll bar.
-
-(if (display-graphic-p)
-  (scroll-bar-mode -1)
-  (fringe-mode 0)
-  (add-hook 'after-make-frame-functions
-	    (lambda (frame)
-	      (select-frame frame)
-	      (when (display-graphic-p)
-		(fringe-mode 0)
-		(scroll-bar-mode -1)))))
+(when (window-system)
+  (if (display-graphic-p)
+    (scroll-bar-mode -1)
+    (fringe-mode 0)
+    (add-hook 'after-make-frame-functions
+	      (lambda (frame)
+		(select-frame frame)
+		(when (display-graphic-p)
+		  (fringe-mode 0)
+		  (scroll-bar-mode -1))))))
 
 (menu-bar-mode -1) ;; Disable the menu bar.
 (tool-bar-mode -1) ;; Disable the tool bar.
@@ -184,10 +182,11 @@
 
 (setq straight-use-package-by-default t)
 
-(use-package auto-dark)
-(setq auto-dark-dark-theme 'wombat
-      auto-dark-light-theme 'whiteboard)
-(auto-dark-mode t)
+(when (window-system)
+  (use-package auto-dark)
+  (setq auto-dark-dark-theme 'wombat
+	auto-dark-light-theme 'whiteboard)
+  (auto-dark-mode t))
 
 (use-package treesit-auto
   :config
