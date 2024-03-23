@@ -130,37 +130,18 @@
 
 ;; 🌳 Tree-Sitter
 
-;; (setq treesit-language-source-alist
-;;       '((bash "https://github.com/tree-sitter/tree-sitter-bash")
-;;         (css "https://github.com/tree-sitter/tree-sitter-css")
-;;         (elisp "https://github.com/Wilfred/tree-sitter-elisp")
-;;         (html "https://github.com/tree-sitter/tree-sitter-html")
-;;         (javascript "https://github.com/tree-sitter/tree-sitter-javascript" "master" "src")
-;;         (json "https://github.com/tree-sitter/tree-sitter-json")
-;;         (markdown "https://github.com/ikatyang/tree-sitter-markdown")
-;;         (toml "https://github.com/tree-sitter/tree-sitter-toml")
-;;         (fish "https://github.com/ram02z/tree-sitter-fish")
-;;         ;;(tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
-;;         (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
-;;         ))
-
-;; (mapc #'treesit-install-language-grammar (mapcar #'car treesit-language-source-alist))
-
-;; (require 'tree-sitter-langs)
-;; (add-to-list 'tree-sitter-major-mode-language-alist '(js-mode . javascript))
-
 ;; 🪄 Packages
-;; (require 'package)
-;; (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
-;; (package-initialize)
-;;
-;; ;; Install and configure use-package
-;; (unless (package-installed-p 'use-package)
-;;   (package-refresh-contents)
-;;   (package-install 'use-package))
-;; (require 'use-package)
-;; (setq use-package-always-ensure t)
-;;
+(require 'package)
+(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
+(package-initialize)
+
+;; Install and configure use-package
+(unless (package-installed-p 'use-package)
+  (package-refresh-contents)
+  (package-install 'use-package))
+(require 'use-package)
+(setq use-package-always-ensure t)
+
 (setq package-enable-at-startup nil)
 
 ;; Add 'straight package manager.
@@ -180,7 +161,7 @@
       (eval-print-last-sexp)))
   (load bootstrap-file nil 'nomessage))
 
-(setq straight-use-package-by-default t)
+; (setq straight-use-package-by-default t)
 
 (when (window-system)
   (use-package auto-dark)
@@ -188,8 +169,12 @@
 	auto-dark-light-theme 'whiteboard)
   (auto-dark-mode t))
 
+;; https://github.com/renzmann/treesit-auto
 (use-package treesit-auto
+  :custom
+  (treesit-auto-install 'prompt)
   :config
+  (treesit-auto-add-to-auto-mode-alist 'all)
   (global-treesit-auto-mode))
 
 ;; code-folding via tree-sitter

@@ -37,7 +37,7 @@ RUN pip3 install shell-gpt
 # Copy the fish configuration and entry point script.
 RUN mkdir -p .config/fish && \
     mkdir -p .config/fish/conf.d
-COPY config.fish .config/fish/config.fish 
+COPY config.fish .config/fish/config.fish
 COPY entry.fish /entry.fish
 
 # Install linux brew.
@@ -51,6 +51,9 @@ ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
 
 # Install local ssl certificate generator.
 RUN brew install mkcert
+
+# Install tree-sitter, for emacs parsing.
+RUN brew install tree-sitter
 
 # Install fnm, configure it, install Node.js, and global npm packages
 RUN brew install fnm && \
