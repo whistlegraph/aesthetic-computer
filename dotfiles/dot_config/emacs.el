@@ -37,11 +37,12 @@
             (derived-mode-p 'text-mode))
     (save-buffer)))
 
-(add-hook 'window-configuration-change-hook
-          (lambda ()
-            (unless (minibuffer-window-active-p (minibuffer-window))
-              (auto-save-buffer))))
-(add-hook 'focus-out-hook 'auto-save-buffer)
+(when (window-system)
+  (add-hook 'window-configuration-change-hook
+	    (lambda ()
+	      (unless (minibuffer-window-active-p (minibuffer-window))
+		(auto-save-buffer))))
+  (add-hook 'focus-out-hook 'auto-save-buffer))
 
 (custom-set-faces
  '(tab-bar ((t (:height 1.1)))))
