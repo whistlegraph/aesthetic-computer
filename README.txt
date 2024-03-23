@@ -42,23 +42,27 @@
 
 - Jeffrey (Sat)
 
+*** emacs fixes ***
+  - [🟡] Add code-folding (check out origami or vimdiff mode?)
+    - [] It should use `zc` and respect my #region marks.
+  - [?] JavaScript auto-indent needs to be 2 spaces wide
+  - [] `acr` should open emacs with a shell as well
+       and also pop up the web browser somehow once it's ready,
+       or show some kind of cool interstitial page while the platform
+       loads on a different port?
+  - [] Add some kind of gpt mode for inline source replacement.
+  - [-] Include "assets" directory in ctrl+p helm search?
+  - [] Make ctrl+p open instantly in a terminal mode.
+  + Done
+  - [x] Javascript auto-close braces / brackets not working.
+  - [x] Add gutter at 80 character width.
+  - [x] Save on leave buffer / clicking out of buffer.
+
 *** sean meeting w/ ida ***
   - [] system update notification feed
   - [] computer needs to say how it gets better
   - [] moat of learning on the fringes
   - [] ac openings can be a thing / do a feral-file opening
-
-*** emacs fixes ***
-  - [] Add code-folding (check out origami or vimdiff mode?)
-    - [] It should use `zc` and respect my #region marks.
-  - [] JavaScript auto-indent needs to be 2 spaces wide
-  - [] Make ctrl+p open instantly in a terminal mode.
-  - [-] Include "assets" directory in ctrl+p helm search?
-  - [] Add some kind of gpt mode for inline source replacement.
-  + Done
-  - [x] Javascript auto-close braces / brackets not working.
-  - [x] Add gutter at 80 character width.
-  - [x] Save on leave buffer / clicking out of buffer.
 
 *** micro ***
   - [] Autogenerate local ssl certificates when first building / booting if they are not present

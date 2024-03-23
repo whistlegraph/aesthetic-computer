@@ -5,7 +5,7 @@
   + Future
   - [] Better freehand smoothing across the board.
   - [] Transform hold line before committing a gesture / making the next line?
-  - [] More optimized rendering / shader options. 
+  - [] More optimized rendering / shader options.
   + Done
   - [x] Full color support
   - [x] Adapt to new brush API.
