@@ -171,3 +171,6 @@ if type -q theme.sh
 	# Interactively load a dark theme
 	alias thd='theme.sh --dark -i'
 end
+
+set PATH /home/jas/.fnm $PATH
+fnm env | source
