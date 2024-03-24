@@ -6,11 +6,15 @@ echo "*** Aesthetic Computer is Initializing... ***"
 # Go to the user's directory.
 cd /home/me
 
+echo "switched dirs"
+
 # Login to Github.
 if not gh auth status
   echo "Not logged into GitHub, exiting to shell."
   return
 end
+
+echo "passed github..."
 
 # Apply the 'vault' credentials to the mounted aesthetic-computer volume, and make sure it exists.
 if test -d /home/me/aesthetic-computer
@@ -39,13 +43,15 @@ end
 
 cd ..
 
-clear
-
 # Boot straight into emacs,
 # And execute the `aesthetic` command after my init.el runs. 
 # emacs -f aesthetic
-fish
+# fish
 # python3 -m http.server 8888
 
 # Execute the provided command.
 # exec $argv
+
+echo "Done with entry..."
+
+fish

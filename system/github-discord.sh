@@ -10,7 +10,7 @@ COMMIT_MESSAGE=$(git log -1 --pretty=%B | sed 's/`/\\`/g')
 SHORT_HASH="${COMMIT_REF:0:7}"
 
 # Create the Discord message
-DISCORD_MESSAGE="$COMMIT_MESSAGE️ ($SHORT_HASH)️"
+DISCORD_MESSAGE="$COMMIT_MESSAGE️ <$SHORT_HASH>"
 FLAGS="2"  # Define the message flags (SUPPRESS_EMBEDS)
 
 # Use Python to generate a properly escaped JSON payload
