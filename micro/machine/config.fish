@@ -1,3 +1,5 @@
+set -gx TERM xterm-256color
+
 # empty greeting
 function fish_greeting
   printf "\n🧩 Hi @$AESTHETIC!\n\n"
@@ -37,24 +39,11 @@ alias ac-edge 'cd ~/aesthetic-computer; clear; npm run edge-micro'
 alias ac-stripe-print 'cd ~/aesthetic-computer; clear; npm run stripe-print-micro'
 alias ac-stripe-ticket 'cd ~/aesthetic-computer; clear; npm run stripe-ticket-micro'
 alias ac-url 'cd ~/aesthetic-computer; clear; npm run url'
-alias ac-shell 'echo ";)"'
+alias ac-shell 'fish'
+alias ac-redis 'redis-server' # ac monolith udp server management
 alias ac-udp 'ssh root@157.245.134.225' # ac monolith udp server management
 
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
-
-if test -n "$GIT_USER_EMAIL"
-    git config --global user.email $GIT_USER_EMAIL
-end
-
-if test -n "$GIT_USER_NAME"
-    git config --global user.name $GIT_USER_NAME
-end
-
-# Add aesthetic-computer as the "safe" directory.
-git config --global --add safe.directory /home/me/aesthetic-computer
-
-# Make sure git is setup and authorized for making commits via `gh`.
-gh auth setup-git
 
 # a shell-gpt shortcut (must be all lowercase / otherwise quoted)
 function umm
@@ -105,4 +94,3 @@ end
 
 alias nvm 'forget'
 
-set -gx TERM xterm-256color
