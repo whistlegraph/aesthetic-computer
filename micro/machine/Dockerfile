@@ -54,6 +54,8 @@ RUN brew install mkcert
 # Install tree-sitter, for emacs parsing.
 # RUN brew install tree-sitter
 
+RUN brew install deno
+
 # Install fnm, configure it, install Node.js, and global npm packages
 RUN brew install fnm && \
     eval "$(fnm env)" && \

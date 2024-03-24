@@ -39,7 +39,7 @@ alias ac-edge 'cd ~/aesthetic-computer; clear; npm run edge-micro'
 alias ac-stripe-print 'cd ~/aesthetic-computer; clear; npm run stripe-print-micro'
 alias ac-stripe-ticket 'cd ~/aesthetic-computer; clear; npm run stripe-ticket-micro'
 alias ac-url 'cd ~/aesthetic-computer; clear; npm run url'
-alias ac-shell 'fish'
+alias ac-shell 'ac-url; fish'
 alias ac-redis 'redis-server' # ac monolith udp server management
 alias ac-udp 'ssh root@157.245.134.225' # ac monolith udp server management
 
