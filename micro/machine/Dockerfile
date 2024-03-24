@@ -34,12 +34,6 @@ WORKDIR /home/me
 # Install shell-gpt for the user.
 RUN pip3 install shell-gpt
 
-# Copy the fish configuration and entry point script.
-RUN mkdir -p .config/fish && \
-    mkdir -p .config/fish/conf.d
-COPY config.fish .config/fish/config.fish
-COPY entry.fish /entry.fish
-
 # Install linux brew.
 RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
@@ -62,9 +56,6 @@ RUN brew install fnm && \
     fnm use lts-hydrogen && \
     npm install -g prettier typescript typescript-language-server
 
-# Add fnm configuration to Fish shell startup script
-RUN echo "fnm env --use-on-cd | source" >> /home/me/.config/fish/conf.d/fnm.fish
-
 # Copy over a custom xdg-open for opening browser URLs on the host.
 COPY xdg-open.fish /usr/local/bin/xdg-open
 RUN sudo chmod +x /usr/local/bin/xdg-open
@@ -74,11 +65,21 @@ COPY emacs.el .emacs
 RUN sudo chown me:me .emacs
 RUN mkdir -p .emacs.d
 
-# Set the default command.
-CMD ["/usr/bin/fish"]
-
 # Expose the web port.
 # EXPOSE 8888
+
+# Copy the fish configuration and entry point script.
+RUN mkdir -p .config/fish && \
+    mkdir -p .config/fish/conf.d
+COPY config.fish .config/fish/config.fish
+
+# Add fnm configuration to Fish shell startup script
+RUN echo "fnm env --use-on-cd | source" >> /home/me/.config/fish/conf.d/fnm.fish
+
+COPY entry.fish /entry.fish
+
+# Set the default command.
+CMD ["/usr/bin/fish"]
 
 # Set the entry point script.
 ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]

@@ -5,7 +5,7 @@ function fish_greeting
 end
 
 # rebuild the container after exiting with a special code ;)
-alias reload 'exit 70' 
+alias reload 'exit 70'
 
 # set default editor to emacs
 set -gx EDITOR emacs
@@ -37,6 +37,7 @@ alias ac-edge 'cd ~/aesthetic-computer; clear; npm run edge-micro'
 alias ac-stripe-print 'cd ~/aesthetic-computer; clear; npm run stripe-print-micro'
 alias ac-stripe-ticket 'cd ~/aesthetic-computer; clear; npm run stripe-ticket-micro'
 alias ac-url 'cd ~/aesthetic-computer; clear; npm run url'
+alias ac-shell 'echo ";)"'
 
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 
@@ -49,7 +50,7 @@ if test -n "$GIT_USER_NAME"
 end
 
 # Add aesthetic-computer as the "safe" directory.
-git config --global --add safe.directory /home/me/aesthetic-computer 
+git config --global --add safe.directory /home/me/aesthetic-computer
 
 # Make sure git is setup and authorized for making commits via `gh`.
 gh auth setup-git
@@ -70,7 +71,7 @@ end
 function code
     if set -q argv[1]
         set -l args (string join " " $argv)
-        sgpt --code --chat code "$args" 
+        sgpt --code --chat code "$args"
     else
         sgpt --code --editor --chat code
     end
@@ -86,7 +87,7 @@ function copy
     printf "%s\n" $content | xclip -selection clipboard
 end
 
-function done 
+function done
     rm /tmp/chat_cache/code 2>/dev/null
     echo "bye :)"
 end

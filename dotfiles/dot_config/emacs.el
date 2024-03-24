@@ -165,13 +165,12 @@
 (setq straight-use-package-by-default t)
 
 ;;(when (window-system)
-
-(if (display-graphic-p)
-  (use-package auto-dark)
-  (setq auto-dark-dark-theme 'wombat
-	auto-dark-light-theme 'whiteboard)
-  (auto-dark-mode t)
-  )
+;; (if (display-graphic-p)
+;;  (use-package auto-dark)
+;;  (setq auto-dark-dark-theme 'wombat
+;;	auto-dark-light-theme 'whiteboard)
+;;  (auto-dark-mode t)
+;;  )
 ;;)
 
 ;; (if (display-graphic-p)
@@ -346,16 +345,17 @@
 ;;  (eat "fish -c 'npm run site'")
 ;;  (with-current-buffer "*eat*" (rename-buffer "eat-site" t)))
 
+;; Must be run from the aesthetic-computer directory.
 (defun aesthetic-backend ()
   "Run npm commands in eat, each in a new tab named after the command. Use 'prompt' for 'shell' and 'url' in split panes, and 'stripe' for 'stripe-print' and 'stripe-ticket'."
   (interactive)
   ;; Define the directory path
-  (let ((directory-path "~/Desktop/code/aesthetic-computer/micro")
+  (let ((directory-path "~/aesthetic-computer/micro")
         (commands '("shell" "site" "session" "redis" "edge" "stripe-print" "stripe-ticket"))
         prompt-tab-created stripe-tab-created)
     ;; Iterate over the commands
     (tab-rename "source")
-    (find-file "~/Desktop/code/aesthetic-computer/README.txt")
+    (find-file "~/aesthetic-computer/README.txt")
     (dolist (cmd commands)
       (cond
        ;; For 'stripe-print' and 'stripe-ticket', split the 'stripe' tab vertically
@@ -369,7 +369,8 @@
           (other-window 1))
         (let ((default-directory directory-path))
           ;; Open a new vterm and send the command
-          (eat (format "fish -c 'npm run %s'" cmd))
+          ;; (eat (format "fish -c 'npm run %s'" cmd))
+          (eat (format "fish -c 'ac-%s'" cmd))
           (with-current-buffer "*eat*" (rename-buffer (format "eat-%s" cmd) t))
           ))
        ;; For all other commands, create new tabs.
@@ -378,7 +379,8 @@
         (tab-rename (format "%s" cmd))
         (let ((default-directory directory-path))
 	  ;; Open a new terminal and send the command
-	  (eat (format "fish -c 'npm run %s'" cmd))
+	  ;; (eat (format "fish -c 'npm run %s'" cmd))
+    (eat (format "fish -c 'ac-%s'" cmd))
 	  (with-current-buffer "*eat*" (rename-buffer (format "eat-%s" cmd) t))
 	  ))))
     )
@@ -387,11 +389,3 @@
     (dolist (tab tabs)
       (when (string= (alist-get 'name tab) "shell")
         (tab-bar-switch-to-tab (alist-get 'name tab))))))
-
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(package-selected-packages
-   '(restart-emacs evil clipetty prettier-js fish-mode dockerfile-mode helm-lsp lsp-mode helm treesit-auto vterm auto-dark)))
