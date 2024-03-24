@@ -23,8 +23,6 @@ cd ../..
 #  npm run build-boot-and-edit
 #fi
 
-
-cd -
 echo -e "\n\033[1;35m*** Goodbye ***\033[0m\n"
 
 # todo boot up the platform in a

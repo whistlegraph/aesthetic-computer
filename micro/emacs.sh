@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 
-echo "Emacs client here we go..."
 
-docker exec -it aesthetic-container //usr/bin/fish -c "fish"
+# docker exec -it aesthetic-container //usr/bin/fish
 
-# docker exec -it aesthetic-container //usr/bin/fish -c "emacsclient -e '(kill-emacs)'; emacs --daemon; emacsclient -c"
+#echo "Emacs client here we go..."
+# docker exec -it aesthetic-container //usr/bin/fish -c "emacs"
+#docker exec -it aesthetic-container //usr/bin/fish -c "emacsclient -e '(kill-emacs)'"
+#docker exec -it aesthetic-container //usr/bin/fish -c "emacs --daemon"
+#docker exec -it aesthetic-container //usr/bin/fish -c "emacsclient -c"
+
+# emacs --daemon; emacsclient -c"
 # docker exec -it aesthetic-container //usr/bin/fish -c "fish /entry.fish"
