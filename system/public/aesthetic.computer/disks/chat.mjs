@@ -179,7 +179,7 @@ function sim() {
 //  // Runs once before the piece is unloaded.
 // }
 
-export { boot, paint, act, sim, meta };
+export { boot, paint, act, sim };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
