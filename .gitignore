@@ -29,7 +29,7 @@ node_modules/
 remote-debug/
 
 # hosting for the frontend
-.vercel
+#.vercel # its okay in our case to leave this in
 
 # environment variables for the server
 *.env

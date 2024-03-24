@@ -82,4 +82,4 @@ COPY entry.fish /entry.fish
 CMD ["/usr/bin/fish"]
 
 # Set the entry point script.
-# ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]
+ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]

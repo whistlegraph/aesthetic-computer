@@ -1,22 +1,12 @@
 #!/usr/bin/env fish
 
+set -gx TERM xterm-256color
+
 # Send a welcome message!
 echo "*** Aesthetic Computer is Initializing... ***"
 
 # Go to the user's directory.
 cd /home/me
-
-echo "switched dirs"
-
-whereis gh
-
-# fish
-
-whoami
-
-gh auth status
-
-echo "printed status"
 
 # Login to Github.
 if not gh auth status
@@ -24,7 +14,19 @@ if not gh auth status
   return
 end
 
-echo "passed github..."
+if test -n "$GIT_USER_EMAIL"
+    git config --global user.email $GIT_USER_EMAIL
+end
+
+if test -n "$GIT_USER_NAME"
+    git config --global user.name $GIT_USER_NAME
+end
+
+# Add aesthetic-computer as the "safe" directory.
+git config --global --add safe.directory /home/me/aesthetic-computer
+
+# Make sure git is setup and authorized for making commits via `gh`.
+gh auth setup-git
 
 # Apply the 'vault' credentials to the mounted aesthetic-computer volume, and make sure it exists.
 if test -d /home/me/aesthetic-computer
@@ -33,11 +35,15 @@ if test -d /home/me/aesthetic-computer
     cd /home/me/aesthetic-computer/aesthetic-computer-vault
     sudo fish devault.fish
   else
-    echo "vault mounted!"  
+    echo "Vault mounted :)"  
   end
 else
-  echo "aesthetic-computer source code not mounted"
+  echo "Vault unmounted :("
 end
+
+# generate ssl certificates
+cd /home/me/aesthetic-computer/ssl-dev
+mkcert --cert-file localhost.pem --key-file localhost-key.pem localhost aesthetic.local 127.0.0.1 0.0.0.0
 
 # Initialize fnm and use the specified Node.js version.
 cd /home/me/aesthetic-computer
@@ -48,25 +54,10 @@ if not test -d node_modules || not count (ls node_modules) > /dev/null
   # Install latest npm version before doing anything.
   npm install -g npm@latest --no-fund --no-audit
   # Install Node.js dependencies
-  npm install --no-fund --no-audit --no-save
+  npm install --no-fund --no-audit
+  npm run install:everything-else
 else
   echo "node_modules directory is present, skipping npm install."
 end
 
-echo "Done with entry..."
-
-emacsclient -e '(kill-emacs)';
-emacs --daemon;
-emacsclient -c
-
-# fish
-# exec $argv
-
-# Boot straight into emacs,
-# And execute the `aesthetic` command after my init.el runs. 
-# emacs -f aesthetic
-# fish
-# python3 -m http.server 8888
-
-# Execute the provided command.
-
+fish
