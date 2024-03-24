@@ -31,6 +31,11 @@ USER me
 # Set working directory to me user.
 WORKDIR /home/me
 
+# Copy emacs config.
+COPY emacs.el .emacs
+RUN sudo chown me:me .emacs
+RUN mkdir -p .emacs.d
+
 # Install shell-gpt for the user.
 RUN pip3 install shell-gpt
 
@@ -60,11 +65,6 @@ RUN brew install fnm && \
 COPY xdg-open.fish /usr/local/bin/xdg-open
 RUN sudo chmod +x /usr/local/bin/xdg-open
 
-# Copy emacs config.
-COPY emacs.el .emacs
-RUN sudo chown me:me .emacs
-RUN mkdir -p .emacs.d
-
 # Expose the web port.
 # EXPOSE 8888
 
@@ -82,4 +82,4 @@ COPY entry.fish /entry.fish
 CMD ["/usr/bin/fish"]
 
 # Set the entry point script.
-ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]
+# ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]

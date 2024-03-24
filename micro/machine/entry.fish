@@ -8,6 +8,16 @@ cd /home/me
 
 echo "switched dirs"
 
+whereis gh
+
+# fish
+
+whoami
+
+gh auth status
+
+echo "printed status"
+
 # Login to Github.
 if not gh auth status
   echo "Not logged into GitHub, exiting to shell."
@@ -22,6 +32,8 @@ if test -d /home/me/aesthetic-computer
     gh repo clone whistlegraph/aesthetic-computer-vault /home/me/aesthetic-computer/aesthetic-computer-vault
     cd /home/me/aesthetic-computer/aesthetic-computer-vault
     sudo fish devault.fish
+  else
+    echo "vault mounted!"  
   end
 else
   echo "aesthetic-computer source code not mounted"
@@ -41,7 +53,14 @@ else
   echo "node_modules directory is present, skipping npm install."
 end
 
-cd ..
+echo "Done with entry..."
+
+emacsclient -e '(kill-emacs)';
+emacs --daemon;
+emacsclient -c
+
+# fish
+# exec $argv
 
 # Boot straight into emacs,
 # And execute the `aesthetic` command after my init.el runs. 
@@ -50,8 +69,4 @@ cd ..
 # python3 -m http.server 8888
 
 # Execute the provided command.
-# exec $argv
 
-echo "Done with entry..."
-
-fish

@@ -38,6 +38,7 @@ alias ac-stripe-print 'cd ~/aesthetic-computer; clear; npm run stripe-print-micr
 alias ac-stripe-ticket 'cd ~/aesthetic-computer; clear; npm run stripe-ticket-micro'
 alias ac-url 'cd ~/aesthetic-computer; clear; npm run url'
 alias ac-shell 'echo ";)"'
+alias ac-udp 'ssh root@157.245.134.225' # ac monolith udp server management
 
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 
