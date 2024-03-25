@@ -42,6 +42,24 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
+*** emacs fixes ***
+  - [-] Add code-folding (check out origami or vimdiff mode?)
+    - [] It should use `zc` and respect my #region marks.
+  - [] `acr` should open emacs with a shell as well
+       and also pop up the web browser somehow once it's ready,
+       or show some kind of cool interstitial page while the platform
+       loads on a different port?
+  - [] Add some kind of gpt mode for inline source replacement.
+  - [-] Include "assets" directory in ctrl+p helm search?
+  + Done
+  - [x] Make ctrl+p open instantly in a terminal mode.
+  - [x] Make the `aesthetic-backend` function work in gui and terminal emacs.
+       inside docker and outside.
+  - [x] JavaScript auto-indent needs to be 2 spaces wide
+  - [x] Javascript auto-close braces / brackets not working.
+  - [x] Add gutter at 80 character width.
+  - [x] Save on leave buffer / clicking out of buffer.
+
 *** chat ***
   - [-] Add a `chat` command.
   - [] But `chat` should be everywhere?
@@ -51,24 +69,6 @@ but technically agnostic. (Choose your aesthetic!)
   - [] Then appear for other users and the current user.
        (Just make the text fully synchronized for now.)
   + Done
-
-*** emacs fixes ***
-  - [-] Make the `aesthetic-backend` function work in gui and terminal emacs.
-       inside docker and outside.
-  - [] Add code-folding (check out origami or vimdiff mode?)
-    - [] It should use `zc` and respect my #region marks.
-  - [] `acr` should open emacs with a shell as well
-       and also pop up the web browser somehow once it's ready,
-       or show some kind of cool interstitial page while the platform
-       loads on a different port?
-  - [] Add some kind of gpt mode for inline source replacement.
-  - [-] Include "assets" directory in ctrl+p helm search?
-  - [] Make ctrl+p open instantly in a terminal mode.
-  + Done
-  - [x] JavaScript auto-indent needs to be 2 spaces wide
-  - [x] Javascript auto-close braces / brackets not working.
-  - [x] Add gutter at 80 character width.
-  - [x] Save on leave buffer / clicking out of buffer.
 
 *** sean meeting w/ ida ***
   - [] system update notification feed
@@ -93,7 +93,7 @@ but technically agnostic. (Choose your aesthetic!)
 - [x] Get a basic http server punching through the container.
 
 *** dotfiles ***
-  - [] Move my own dotfiles to the ac repo?
+  - [x] Move my own dotfiles to the ac repo?
 
 *** bot color schemes ***
   - [🟡] Fix color schemes for bots, based on `mom`.

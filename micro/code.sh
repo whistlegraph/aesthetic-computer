@@ -13,4 +13,4 @@ echo "*** -> Starting a development session..."
 
 docker exec -it aesthetic-container //usr/bin/fish -c "emacsclient -e '(kill-emacs)'"
 docker exec -it aesthetic-container //usr/bin/fish -c "emacs --daemon"
-docker exec -it aesthetic-container //usr/bin/fish -c "emacsclient -c --eval '(aesthetic-backend)'"
+docker exec --detach-keys='ctrl-z,z' -it aesthetic-container //usr/bin/fish -c "emacsclient -c --eval '(aesthetic-backend)'"
