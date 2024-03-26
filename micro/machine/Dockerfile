@@ -31,11 +31,6 @@ USER me
 # Set working directory to me user.
 WORKDIR /home/me
 
-# Copy emacs config.
-COPY emacs.el .emacs
-RUN sudo chown me:me .emacs
-RUN mkdir -p .emacs.d
-
 # Install shell-gpt for the user.
 RUN pip3 install shell-gpt
 
@@ -54,7 +49,7 @@ RUN brew install mkcert
 # Install tree-sitter, for emacs parsing.
 # RUN brew install tree-sitter
 
-RUN brew install deno
+# RUN brew install deno
 
 # Install fnm, configure it, install Node.js, and global npm packages
 RUN brew install fnm && \
@@ -67,8 +62,10 @@ RUN brew install fnm && \
 COPY xdg-open.fish /usr/local/bin/xdg-open
 RUN sudo chmod +x /usr/local/bin/xdg-open
 
-# Expose the web port.
-# EXPOSE 8888
+# Copy emacs config.
+COPY emacs.el .emacs
+RUN sudo chown me:me .emacs
+RUN mkdir -p .emacs.d
 
 # Copy the fish configuration and entry point script.
 RUN mkdir -p .config/fish && \
