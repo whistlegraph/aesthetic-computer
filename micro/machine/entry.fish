@@ -35,7 +35,7 @@ if test -d /home/me/aesthetic-computer
     cd /home/me/aesthetic-computer/aesthetic-computer-vault
     sudo fish devault.fish
   else
-    echo "Vault mounted :)"  
+    echo "Vault mounted :)"
   end
 else
   echo "Vault unmounted :("
