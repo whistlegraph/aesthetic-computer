@@ -58,8 +58,8 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  ;; '(fill-column-indicator ((t (:foreground "yellow"))))
- '(tab-bar ((t (:height 1.0))))
- '(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :background "color-16")))))
+ '(tab-bar ((t (:height 1.0)))))
+ ;;'(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :background "black")))))
 
 (setq inhibit-startup-screen t) ;; Disable startup message.
 (setq eshell-banner-message "") ;; No eshell banner.
@@ -118,6 +118,15 @@
                   ;; (scroll-bar-mode -1)
                   (fringe-mode 0)
                   ))))
+
+(when (not (display-graphic-p))
+  ;; Set internal border width for TUI
+  (setq default-frame-alist
+        (append default-frame-alist '((internal-border-width . 10))))
+
+  ;; Set fringes for TUI
+  (setq-default left-fringe-width  10)
+  (setq-default right-fringe-width 10))
 
 (setq-default scroll-bar-mode 'right)
 
@@ -219,6 +228,13 @@
 	     ;; for the virtual terminal:
 ;;	     (add-hook 'vterm-mode-hook 'disable-line-numbers-in-modes)
 ;;	     (setq vterm-shell "/usr/bin/fish")) ;; Use fish as the default vterm shell.
+
+(use-package yascroll :config (global-yascroll-bar-mode 1))
+
+(use-package mlscroll
+  :config
+  (setq mlscroll-shortfun-min-width 11) ;truncate which-func, for default mode-line-format's
+  (mlscroll-mode 1))
 
 ;; 🌳 Tree-Sitter
 ;; https://github.com/renzmann/treesit-auto
@@ -351,6 +367,7 @@
 
 (use-package eat)
 (setq-default eat-shell "/usr/bin/fish")
+(setq-default eat-term-name "xterm-256color")
 
 ;; This package breaks terminal rendering :(
 ;; (use-package gruvbox-theme)
@@ -429,7 +446,7 @@
        ((or (string= cmd "stripe-print") (string= cmd "stripe-ticket"))
         (unless stripe-tab-created
           (tab-new)
-          (tab-rename "💳stripe")
+          (tab-rename "💳 stripe")
           (setq stripe-tab-created t))
         (when (string= cmd "stripe-ticket")
           (split-window-below)
