@@ -4,7 +4,10 @@
 # set -e # quit after any error
 
 echo "*** -> Resetting Docker State..."
-./reset.sh # destory any existing container
+
+ # destory any existing container
+./reset.sh
+
 echo "*** -> Booting and Building AC..."
 ./boot.sh # rebuild the container from cache (or nothing)
           # and start it as a daemon

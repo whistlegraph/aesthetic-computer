@@ -26,12 +26,9 @@
 (setq-default display-fill-column-indicator-column 80) ;; Vertical guide-line.
 (add-hook 'prog-mode-hook (lambda () (display-fill-column-indicator-mode 1)))
 
-;; Adding hooks for eshell.
+;; Adding hooks for eat & eshell.
 (add-hook 'eshell-mode-hook 'disable-line-numbers-in-modes)
-
-;; Make the vertical bar yellow.
-;; (custom-set-faces
-;;  '(fill-column-indicator ((t (:foreground "yellow")))))
+(add-hook 'eat-mode-hook 'disable-line-numbers-in-modes)
 
 ;; Enable electric-pair mode in prog modes.
 (defun enable-electric-pairs ()
@@ -60,19 +57,21 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(tab-bar ((t (:height 1.0)))))
+ ;; '(fill-column-indicator ((t (:foreground "yellow"))))
+ '(tab-bar ((t (:height 1.0))))
+ '(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :background "color-16")))))
 
 (setq inhibit-startup-screen t) ;; Disable startup message.
 (setq eshell-banner-message "") ;; No eshell banner.
 
 (setq initial-scratch-message nil) ;; Empty scratch buffer message.
 
-;; (global-display-line-numbers-mode) ;; Always show line numbers.
+(global-display-line-numbers-mode) ;; Always show line numbers.
 
 (defun disable-line-numbers-in-modes ()
   "Disable line numbers in eshell and vterm."
-  (when (or (derived-mode-p 'eshell-mode))
-            ;; (derived-mode-p 'vterm-mode))
+  (when (or (derived-mode-p 'eshell-mode)
+            (derived-mode-p 'eat-mode))
     (display-line-numbers-mode -1)))
 
 ;; Set the default shell for Windows to use bash on WSL.
@@ -83,16 +82,25 @@
   (add-to-list 'exec-path "C:/Windows/System32")
   )
 
-;;(scroll-bar-mode -1)
-;;(fringe-mode 0)
+;; Scroll with trackpad on my thinkpad.
+(global-set-key (kbd "<mouse-4>") (lambda ()
+                                   (interactive)
+                                   (scroll-down 1)))
+
+(global-set-key (kbd "<mouse-5>") (lambda ()
+                                   (interactive)
+                                   (scroll-up 1)))
 
 (if (display-graphic-p)
-  (add-hook 'after-make-frame-functions
-	    (lambda (frame)
-	      (select-frame frame)
-	      (when (display-graphic-p)
-		(fringe-mode 0)
-		(scroll-bar-mode -1)))))
+    (add-hook 'after-make-frame-functions
+              (lambda (frame)
+                (select-frame frame)
+                (when (display-graphic-p)
+                  ;; (scroll-bar-mode -1)
+                  (fringe-mode 0)
+                  ))))
+
+(setq-default scroll-bar-mode 'right)
 
 (menu-bar-mode -1) ;; Disable the menu bar.
 (tool-bar-mode -1) ;; Disable the tool bar.
@@ -231,13 +239,8 @@
 (use-package lsp-mode)
 (add-hook 'prog-mode-hook #'lsp)
 (setq lsp-auto-install-server t)
-
-;; Has a `cl` is deprecated warning.
-;; (use-package origami)
-
-;; (use-package lsp-origami
-;;  :config
-;;  (add-hook 'lsp-after-open-hook #'lsp-origami-try-enable))
+(setq lsp-warn-no-matched-clients nil)
+(use-package origami :hook (after-init . global-origami-mode))
 
 ;; (use-package dap-mode
 ;;	     :config
@@ -270,9 +273,7 @@
   :bind ("C-c p" . prettier-js))
 
 ;; Use good clipboard system in terminal mode.
-(use-package clipetty
-     :ensure t
-     :hook (after-init . global-clipetty-mode))
+(use-package clipetty :hook (after-init . global-clipetty-mode))
 
 ;; Evil mode configuration
 (use-package evil
@@ -282,6 +283,35 @@
      ;; override C-p in evil mode
      (dolist (state '(normal insert visual motion emacs))
        (evil-define-key state 'global (kbd "C-p") 'project-find-file)))
+
+(define-key evil-normal-state-map (kbd "C-u") 'evil-scroll-up)
+
+(defun my/evil-quit ()
+  "Enhanced quit command for Evil mode in Emacs.
+   - Closes the current window unless it's the last window in the tab.
+   - Kills the buffer if it's the last window showing it.
+   - Closes the tab if it's the last window in the tab, unless it's the last tab.
+   - Never quits Emacs."
+  (interactive)
+  (let ((current-buffer (current-buffer))
+        (is-last-tab (eq 1 (length (tab-bar-tabs))))
+        (is-last-window (eq 1 (length (window-list)))))
+
+    ;; If it's not the last window in the tab, delete the window
+    (unless is-last-window
+      (delete-window))
+
+    ;; Kill the buffer if it's not displayed elsewhere
+    (unless (delq (selected-window) (get-buffer-window-list current-buffer nil t))
+      (kill-buffer current-buffer))
+
+    ;; If it's the last window in the tab but not the last tab, close the tab
+    (when (and is-last-window (not is-last-tab))
+      (tab-bar-close-tab))))
+
+;; Bind the function to :q in Evil mode
+(with-eval-after-load 'evil
+  (evil-ex-define-cmd "q[uit]" 'my/evil-quit))
 
 (unless (display-graphic-p)
 (use-package evil-terminal-cursor-changer)
@@ -301,10 +331,28 @@
 ;; (add-hook 'web-mode-hook 'eglot-ensure) ;; enable eglot for web mode automatically
 
 (use-package eat)
+(setq-default eat-shell "/usr/bin/fish")
 
 ;; This package breaks terminal rendering :(
 ;; (use-package gruvbox-theme)
 ;; (load-theme 'whiteboard t) ;; Set a theme.
+
+;; Auto open as splits.
+;; https://discourse.doomemacs.org/t/open-selected-completion-candidate-in-a-split/2525/8
+;; (defun cust/vsplit-file-open (f)
+;;   (let ((evil-vsplit-window-right t))
+;;     (+evil/window-vsplit-and-follow)
+;;     (find-file f)))
+;; 
+;; (defun cust/split-file-open (f)
+;;   (let ((evil-split-window-below t))
+;;     (+evil/window-split-and-follow)
+;;     (find-file f)))
+;; 
+;; (map! :after embark
+;;       :map embark-file-map
+;;       "V" #'cust/vsplit-file-open
+;;       "X" #'cust/split-file-open)
 
 ;; 🫀 Aesthetic Computer Layouts
 
@@ -362,7 +410,7 @@
        ((or (string= cmd "stripe-print") (string= cmd "stripe-ticket"))
         (unless stripe-tab-created
           (tab-new)
-          (tab-rename "stripe")
+          (tab-rename "💳stripe")
           (setq stripe-tab-created t))
         (when (string= cmd "stripe-ticket")
           (split-window-below)
@@ -371,7 +419,7 @@
           ;; Open a new vterm and send the command
           ;; (eat (format "fish -c 'npm run %s'" cmd))
           (eat (format "fish -c 'ac-%s'" cmd))
-          (with-current-buffer "*eat*" (rename-buffer (format "eat-%s" cmd) t))
+          (with-current-buffer "*eat*" (rename-buffer (format "📠-%s" cmd) t))
           ))
        ;; For all other commands, create new tabs.
        (t
