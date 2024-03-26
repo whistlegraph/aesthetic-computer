@@ -1,6 +1,3 @@
-set -gx TERM xterm-256color
-
-# empty greeting
 function fish_greeting
   printf "\n🧩 Hi @$AESTHETIC!\n\n"
   printf "Ask with 'umm' and forget with 'nvm'\nor use 'code' and 'done' with 'copy'\nto generate and get code.\n\n"
@@ -10,6 +7,7 @@ end
 alias reload 'exit 70'
 
 # set default editor to emacs
+set -gx TERM xterm-256color
 set -gx EDITOR emacs
 set -gx PATH $PATH /home/me/.local/bin
 
@@ -31,6 +29,10 @@ fish_add_path ~/.local/bin
 
 # add rust binaries to the shell path
 fish_add_path ~/.cargo/bin
+
+# Assume the daemon is running when entering emacs.
+# For fast config reloading.
+alias load "emacsclient -e '(kill-emacs)'; emacs --daemon; emacsclient -c --eval '(aesthetic-backend)'"
 
 alias ac 'cd ~/aesthetic-computer'
 alias ac-site 'cd ~/aesthetic-computer; clear; npm run site'
@@ -93,4 +95,3 @@ function forget
 end
 
 alias nvm 'forget'
-
