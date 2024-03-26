@@ -73,6 +73,7 @@ but technically agnostic. (Choose your aesthetic!)
     - [] No because that might prevent different rendering aesthetic, unless
          I have my own rendering layer...
     - [] Which could be text
+    - [] Emoji support via https://joypixels.com.
 
 *** chat ***
   - [-] Add a `chat` command.
