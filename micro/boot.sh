@@ -13,6 +13,7 @@ if [ -z "$(docker ps -aq -f name=aesthetic-container)" ]; then
     --env-file vercel.env --env-file stripe.env \
     -e GIT_USER_EMAIL="$(git config --global user.email)" \
     -e GIT_USER_NAME="$(git config --global user.name)" \
+    -v ~/.ssh:/home/me/.ssh \
     -v "${parentDir}/micro/machine/.emacs.d:/home/me/.emacs.d" \
     -v "${parentDir}:/home/me/aesthetic-computer" \
     --user me --platform linux/amd64 --name aesthetic-container \
