@@ -43,6 +43,7 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** emacs fixes ***
+  - [] fix ctrl+tab on windows
   - [] `./aesthetic` should open emacs with a shell as well
        and also pop up open the web browser somehow... and split
        the screen too?
