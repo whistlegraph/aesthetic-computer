@@ -58,8 +58,9 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  ;; '(fill-column-indicator ((t (:foreground "yellow"))))
- '(tab-bar ((t (:height 1.0)))))
- ;;'(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :background "black")))))
+ ;; '(origami-fold-face ((t (:inherit magenta :weight bold))))
+ '(tab-bar ((t (:height 1.0))))
+ '(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :background "black")))))
 
 (setq inhibit-startup-screen t) ;; Disable startup message.
 (setq eshell-banner-message "") ;; No eshell banner.

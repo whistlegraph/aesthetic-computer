@@ -59,6 +59,7 @@
   },
   "homepage": "https://github.com/digitpain/aesthetic.computer#readme",
   "devDependencies": {
+    "blessed": "^0.1.81",
     "concurrently": "^8.2.1",
     "got": "^13.0.0",
     "http-server": "^14.1.1",
