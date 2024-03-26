@@ -43,15 +43,20 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** emacs fixes ***
-  - [-] Add code-folding (check out origami or vimdiff mode?)
-    - [] It should use `zc` and respect my #region marks.
-  - [] `acr` should open emacs with a shell as well
-       and also pop up the web browser somehow once it's ready,
-       or show some kind of cool interstitial page while the platform
-       loads on a different port?
+  - [] `./aesthetic` should open emacs with a shell as well
+       and also pop up open the web browser somehow... and split
+       the screen too?
+  - [] it could show some kind of cool interstitial page while the platform
+        loads on a different port?
   - [] Add some kind of gpt mode for inline source replacement.
-  - [-] Include "assets" directory in ctrl+p helm search?
   + Done
+  - [c] Include "assets" directory in ctrl+p helm search?
+        (just use ctrl+x and ctrl+f to find file or whatever)
+  - [x] Add code-folding (check out origami or vimdiff mode?)
+    - [x] It should use `zc` and respect my #region marks.
+  - [x] Tab theme needs to make sense.
+  - [x] :q in evil mode should never quit emacs unless it's the last buffer?
+  - [x] Add line numbers back.
   - [x] Make ctrl+p open instantly in a terminal mode.
   - [x] Make the `aesthetic-backend` function work in gui and terminal emacs.
        inside docker and outside.
@@ -59,6 +64,15 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Javascript auto-close braces / brackets not working.
   - [x] Add gutter at 80 character width.
   - [x] Save on leave buffer / clicking out of buffer.
+
+*** webvm / xterm ***
+  - [] Explore using xterm: https://xtermjs.org/
+  - [] Explore webvm: https://labs.leaningtech.com/blog/mini-webvm-your-linux-box-from-dockerfile-via-wasm
+  - [] Could something like an xterm instance be somehow connected
+       to the `chat` feature?
+    - [] No because that might prevent different rendering aesthetic, unless
+         I have my own rendering layer...
+    - [] Which could be text
 
 *** chat ***
   - [-] Add a `chat` command.
