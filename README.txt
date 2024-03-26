@@ -43,8 +43,12 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** emacs fixes ***
-  - [-] fix ctrl+tab on windows
-  - [] Make sure I always have access to the production udp server.
+  - [-] Make sure I always have access to the production udp server.
+  - [] Color the tab-bar face differently.
+  - [] Add emoji to each tab-bar item.
+  - [] Get rid of terminal warning when opening 'eat'.
+  - [] Opening a new file should always open a new buffer that splits the current one.
+  - [] Add the 'chat' tab-bar item.
   - [] `./aesthetic` should open emacs with a shell as well
        and also pop up open the web browser somehow... and split
        the screen too?
@@ -52,6 +56,7 @@ but technically agnostic. (Choose your aesthetic!)
         loads on a different port?
   - [] Add some kind of gpt mode for inline source replacement.
   + Done
+  - [x] fix ctrl+tab on windows
   - [c] Include "assets" directory in ctrl+p helm search?
         (just use ctrl+x and ctrl+f to find file or whatever)
   - [x] Add code-folding (check out origami or vimdiff mode?)
