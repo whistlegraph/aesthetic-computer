@@ -91,8 +91,24 @@
                                    (interactive)
                                    (scroll-up 1)))
 
-(global-set-key (kbd "C-<tab>") 'tab-next)
-(global-set-key (kbd "C-S-<tab>") 'tab-previous)
+;; Tab Switch shortcuts should be built-in.
+;; (global-set-key (kbd "C-<tab>") 'tab-next)
+;; (global-set-key (kbd "C-S-<tab>") 'tab-previous)
+;; For running in Windows Terminal via WSL2 I needed to add this to the JSON:
+;; {
+;;   "command": {
+;;     "action": "sendInput",
+;;     "input": "\u001b[27;6;9~"
+;;   },
+;;   "keys": "ctrl+shift+tab"
+;; },
+;; {
+;;   "command": {
+;;     "action": "sendInput",
+;;     "input": "\u001b[27;5;9~"
+;;   },
+;;   "keys": "ctrl+tab"
+;; }
 
 (if (display-graphic-p)
     (add-hook 'after-make-frame-functions
