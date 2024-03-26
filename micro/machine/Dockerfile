@@ -6,8 +6,8 @@ RUN dnf update -y
 # Install git, gcc, clang, and emacs (without x support) and python and the github cli
 # And procps for the `ps` command that linux brew requires.
 # And the fish shell, and redis.
-# And emacs vterm.
-RUN dnf install -y git gcc clang emacs-nox python3 python3-pip gh procps fish util-linux-user redis cmake libtool libvterm
+# And the aws cli.
+RUN dnf install -y git gcc clang emacs-nox python3 python3-pip gh procps fish util-linux-user redis awscli
 
 # Add 'me' user.
 RUN useradd -m me && \
