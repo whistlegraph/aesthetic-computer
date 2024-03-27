@@ -105,7 +105,7 @@ function umms
     sgpt --show-chat umm
 end
 
-function code
+function codegen
     if set -q argv[1]
         set -l args (string join " " $argv)
         sgpt --code --chat code "$args" 

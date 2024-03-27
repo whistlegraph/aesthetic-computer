@@ -43,6 +43,7 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** emacs inside vscode features ***
+  - [] Make sure I can swap tabs with a keyboard shortcut in emacs.
   - [] Add a "tab" opening mode to the vs-code extension, to support dual
        monitor development where the bottom monitor is full-screen.
        (This should enable more immersive development / help with monitoring.)
