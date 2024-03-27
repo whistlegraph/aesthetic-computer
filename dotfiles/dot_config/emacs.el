@@ -64,9 +64,10 @@
  ;; If there is more than one, they won't work right.
  ;; '(fill-column-indicator ((t (:foreground "yellow"))))
  ;; '(origami-fold-face ((t (:inherit magenta :weight bold))))
- ;; '(tab-bar ((t (:height 1.0 :background "brightyellow"))))
- '(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :inverse-video t)))))
- ;; '(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :background "yellow")))))
+ '(tab-bar ((t (:height 1.0))))
+ ;;'(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :inverse-video t)))))
+ '(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :background "black")))))
+
 
 ;; (defun windows-custom-set-faces ()
 ;;  (when (eq system-type 'windows-nt)
@@ -105,9 +106,12 @@
                                    (interactive)
                                    (scroll-up 1)))
 
-;; Tab Switch shortcuts should be built-in.
-;; (global-set-key (kbd "C-<tab>") 'tab-next)
-;; (global-set-key (kbd "C-S-<tab>") 'tab-previous)
+;; Tab Switch shortcuts should be built-in for C-<tab> and C-S-<tab>,
+;; if available.
+(global-set-key (kbd "C-x <right>") 'tab-next)
+(global-set-key (kbd "C-x <left>") 'tab-previous)
+;;(global-set-key (kbd "C-<tab>") 'tab-next)
+;;(global-set-key (kbd "C-S-<tab>") 'tab-previous)
 ;; For running in Windows Terminal via WSL2 I needed to add this to the JSON:
 ;; {
 ;;   "command": {
@@ -350,6 +354,7 @@
 ;; (global-set-key (kbd "C-x C-f") #'helm-find-files)
 (global-set-key (kbd "C-p") #'project-find-file) ;; C-p everywhere
 (global-set-key (kbd "C-x C-p") #'project-find-file)
+(global-set-key (kbd "M-p") #'project-find-file)
 
 ;; (defun my/helm-find-files-directory-handler ()
 ;;   "Open helm-find-files if Emacs is started with a directory."
