@@ -43,7 +43,8 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** emacs fixes ***
-  - [] Opening a new file should always open a new buffer that splits the current one.
+  - [-] Opening a new file should always open a new buffer that splits the current one.
+  - [] Replace 'helm' with vertico / embark and other stuff: https://www.youtube.com/watch?v=d3aaxOqwHhI
   - [] Color the tab-bar face differently.
   - [] Add emoji to each tab-bar item.
   - [] Add the 'chat' tab-bar item.
