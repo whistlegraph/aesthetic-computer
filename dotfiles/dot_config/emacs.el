@@ -111,6 +111,8 @@
 (global-set-key (kbd "C-x <right>") 'tab-next)
 (global-set-key (kbd "C-x <left>") 'tab-previous)
 ;;(global-set-key (kbd "C-<tab>") 'tab-next)
+;;(global-set-key (kbd "<backtab>") 'tab-previous)
+;;(global-set-key (kbd "C-<tab>") 'tab-next)
 ;;(global-set-key (kbd "C-S-<tab>") 'tab-previous)
 ;; For running in Windows Terminal via WSL2 I needed to add this to the JSON:
 ;; {
@@ -138,7 +140,7 @@
                   ))))
 
 ;; (when (not (display-graphic-p))
-;; ;; Set internal border width for TUI
+;; ;; set internal border width for tui
 ;; (setq default-frame-alist
 ;;   (append default-frame-alist '((internal-border-width . 10))))
 ;; ;; Set fringes for TUI
@@ -527,56 +529,6 @@
 ;;  (eat "fish -c 'npm run site'")
 ;;  (with-current-buffer "*eat*" (rename-buffer "eat-site" t)))
 
-;;;; Must be run from the aesthetic-computer directory.
-;;(defun aesthetic-backend ()
-;;  "Run npm commands in eat, each in a new tab named after the command. Use 'prompt' for 'shell' and 'url' in split panes, and 'stripe' for 'stripe-print' and 'stripe-ticket'."
-;;  (interactive)
-;;  ;; Define the directory path
-;;  (let ((directory-path "~/aesthetic-computer/micro")
-;;        (commands '("shell" "site" "session" "redis" "edge" "stripe-print" "stripe-ticket"))
-;;        prompt-tab-created stripe-tab-created)
-;;    ;; Iterate over the commands
-;;    (tab-rename "source")
-;;    (find-file "~/aesthetic-computer/README.txt")
-;;    (dolist (cmd commands)
-;;      (cond
-;;       ;; For 'stripe-print' and 'stripe-ticket', split the 'stripe' tab vertically
-;;       ((or (string= cmd "stripe-print") (string= cmd "stripe-ticket"))
-;;        (unless stripe-tab-created
-;;          (tab-new)
-;;          (tab-rename " 💳 stripe")
-;;          (setq stripe-tab-created t))
-;;        (when (string= cmd "stripe-ticket")
-;;          (split-window-below)
-;;          (other-window 1))
-;;        (let ((default-directory directory-path))
-;;          ;; Open a new vterm and send the command
-;;          ;; (eat (format "fish -c 'npm run %s'" cmd))
-;;          (eat (format "fish -c 'ac-%s'" cmd))
-;;          (with-current-buffer "*eat*" (rename-buffer (format "📠-%s" cmd) t))
-;;          ))
-;;       ;; For all other commands, create new tabs.
-;;       (t
-;;        (tab-new)
-;;        ;; TODO: Match emojis to tab names here.
-;;        (tab-rename (format "%s" cmd))
-;;
-;;        (let ((default-directory directory-path))
-;;	  ;; Open a new terminal and send the command
-;;	  ;; (eat (format "fish -c 'npm run %s'" cmd))
-;;    (eat (format "fish -c 'ac-%s'" cmd))
-;;	  (with-current-buffer "*eat*" (rename-buffer (format "eat-%s" cmd) t))
-;;	  ))))
-;;    )
-;;  ;; Switch to the tab named "scratch"
-;;  (let ((tabs (tab-bar-tabs)))
-;;    (dolist (tab tabs)
-;;      (when (string= (alist-get 'name tab) "shell")
-;;        (tab-bar-switch-to-tab (alist-get 'name tab))))))
-
-;; Solve the todo above and rewrite the code.
-
-
 ;; Updated function with emojis for tab names
 (defun aesthetic-backend ()
   "Run npm commands in eat, each in a new tab named after the command. Use 'prompt' for 'shell' and 'url' in split panes, and 'stripe' for 'stripe-print' and 'stripe-ticket'."
@@ -596,7 +548,7 @@
           (tab-rename "💳 stripe")
           (setq stripe-tab-created t))
         (when (string= cmd "stripe-ticket")
-          (split-window-below)
+          (split-window-right)
           (other-window 1))
         (let ((default-directory directory-path))
           (eat (format "fish -c 'ac-%s'" cmd))

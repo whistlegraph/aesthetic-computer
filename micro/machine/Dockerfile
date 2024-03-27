@@ -7,7 +7,8 @@ RUN dnf update -y
 # And procps for the `ps` command that linux brew requires.
 # And the fish shell, and redis.
 # And the aws cli.
-RUN dnf install -y git gcc clang emacs-nox python3 python3-pip gh procps fish util-linux-user redis awscli
+# And add clipboard support.
+RUN dnf install -y git gcc clang emacs-nox python3 python3-pip gh procps fish util-linux-user redis awscli xclip xsel
 
 # Add 'me' user.
 RUN useradd -m me && \

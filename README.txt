@@ -49,12 +49,11 @@ but technically agnostic. (Choose your aesthetic!)
        (This should enable more immersive development / help with monitoring.)
        - In a week
        (https://github.com/microsoft/vscode/issues/208790)
-  - [x] Get tab cycling shortcuts working / find other potential shortcut issues.
-  - [] Split stripe tabs vertically.
   - [-] Add the 'chat' tab-bar item.
   - [] Notify with red dot on tab-name if terminal has spit output.
   - [] Autoscroll `eat` terminal?
   + Done
+  - [x] Get tab cycling shortcuts working / find other potential shortcut issues.
   - [c] How can I open the full one-window dev environment in one click?
   - [x] Subtle issues with buffer rendering after mixing eat terminals and splits... (had to do with emojis)
   - [x] Add emoji to each tab-bar item.
