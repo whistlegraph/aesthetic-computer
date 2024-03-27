@@ -40,8 +40,13 @@
       },
       {
         "id": "pjs",
-        "aliases": ["PeaceScript", "pjs"],
-        "extensions": [".pjs"],
+        "aliases": [
+          "PeaceScript",
+          "pjs"
+        ],
+        "extensions": [
+          ".pjs"
+        ],
         "configuration": "./syntaxes/pjs-configuration.json"
       }
     ],
@@ -102,7 +107,7 @@
     "@types/node": "^20.11.6",
     "@types/vscode": "^1.74.2",
     "@vscode/test-web": "^0.0.51",
-    "@vscode/vsce": "^2.23.0",
+    "@vscode/vsce": "^2.24.0",
     "esbuild": "^0.20.0",
     "typescript": "^5.3.3"
   },
