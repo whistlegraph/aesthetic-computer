@@ -490,6 +490,16 @@
 ;;       "V" #'cust/vsplit-file-open
 ;;       "X" #'cust/split-file-open)
 
+(defun scroll-eat-on-tab-change (original-fun &rest args)
+  (apply original-fun args)
+  (walk-windows (lambda (window)
+                  (with-current-buffer (window-buffer window)
+                    (when (or (eq major-mode 'eat-mode))
+                      (end-of-buffer))))
+               nil 'visible))
+
+(advice-add 'tab-bar-select-tab :around #'scroll-eat-on-tab-change)
+
 ;; 🫀 Aesthetic Computer Layouts
 
 ;; Function to open eshell and run redis-server
@@ -552,13 +562,13 @@
           (other-window 1))
         (let ((default-directory directory-path))
           (eat (format "fish -c 'ac-%s'" cmd))
-          (with-current-buffer "*eat*" (rename-buffer (format "%s-%s" (cdr (assoc cmd emoji-for-command)) cmd) t))
+          (with-current-buffer "*eat*" (rename-buffer (format "%s-%s" (cdr (assoc cmd emoji-for-command)) cmd) t) (end-of-buffer t))
           ))
        (t
         (tab-new)
         (tab-rename (format "%s %s" (cdr (assoc cmd emoji-for-command)) cmd))
         (let ((default-directory directory-path))
           (eat (format "fish -c 'ac-%s'" cmd))
-          (with-current-buffer "*eat*" (rename-buffer (format "%s-%s" (cdr (assoc cmd emoji-for-command)) cmd) t))
+          (with-current-buffer "*eat*" (rename-buffer (format "%s-%s" (cdr (assoc cmd emoji-for-command)) cmd) t) (end-of-buffer t))
           ))))
     (tab-bar-switch-to-tab "🐚 shell")))
