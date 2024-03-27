@@ -42,25 +42,10 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** emacs inside vscode features ***
-  - [] Add a "tab" opening mode to the vs-code extension, to support dual
-       monitor development where the bottom monitor is full-screen.
-       (This should enable more immersive development / help with monitoring.)
-       - 📆 In a week
-       (https://github.com/microsoft/vscode/issues/208790)
-  - [-] Add the 'chat' tab-bar item.
-  - [] Notify with red dot on tab-name if terminal has spit output.
-  + Done
-  - [x] Autoscroll `eat` terminal?
-  - [c] Choose a default emacs theme... perhaps gruvbox again?
-  - [x] Get tab cycling shortcuts working / find other potential shortcut issues.
-  - [c] How can I open the full one-window dev environment in one click?
-  - [x] Subtle issues with buffer rendering after mixing eat terminals and splits... (had to do with emojis)
-  - [x] Add emoji to each tab-bar item.
-    - [x] Use gptel.
-
 *** chat ***
+  - [-] Add the 'chat' tab-bar item.
   - [-] Add a `chat` command.
+  - [] Wire it into a new 2D renderer backend... try pixi.js?
   - [] But `chat` should be everywhere?
     - [] Then abstract `chat` from that view.
   - [] Make a panel in the logs to watch it stream in.
@@ -133,6 +118,13 @@ but technically agnostic. (Choose your aesthetic!)
       //if (!net.iframe && params[0]^does not start with^) {
       //  return;
       //}
+
+*** fps ***
+  - [] Add a draggable window to the vs-code extension, to support dual
+       monitor development where the bottom monitor is full-screen.
+       (This should enable more immersive development / help with monitoring.)
+       - 📆 In a week
+       (https://github.com/microsoft/vscode/issues/208790)
 
 *** sean meeting w/ ida ***
   - [] system update notification feed
