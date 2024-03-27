@@ -21,6 +21,13 @@
 
 *** emacs fixes ***
   + Done
+  - [x] Autoscroll `eat` terminal?
+  - [c] Choose a default emacs theme... perhaps gruvbox again?
+  - [x] Get tab cycling shortcuts working / find other potential shortcut issues.
+  - [c] How can I open the full one-window dev environment in one click?
+  - [x] Subtle issues with buffer rendering after mixing eat terminals and splits... (had to do with emojis)
+  - [x] Add emoji to each tab-bar item.
+    - [x] Use gptel.
   - [x] Replace 'helm' with vertico / embark and other stuff: https://www.youtube.com/watch?v=d3aaxOqwHhI
   - [c] Opening a new file should always open a new buffer that splits the current one.
   - [x] Get rid of terminal warning when opening 'eat'.
