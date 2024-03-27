@@ -42,28 +42,20 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** new emacs features ***
-  - [] Add emoji to each tab-bar item.
-    - [] Use gptel.
-  - [] Choose a default dark theme and make a manual switch.
+*** emacs inside vscode features ***
+  - [] Add a "tab" opening mode to the vs-code extension, to support dual
+       monitor development where the bottom monitor is full-screen.
+       (This should enable more immersive development / help with monitoring.)
+  - [] Choose a default emacs theme perhaps gruvbox again?
+  - [] Get tab cycling shortcuts working / find other potential shortcut issues.
+  - [] Split stripe tabs vertically.
+  - [] Notify with red dot on tab-name if terminal has spit output, auto-scroll?
   - [-] Add the 'chat' tab-bar item.
-  - [?] Subtle issues with buffer rendering after mixing eat terminals and splits...
-  - [] `./aesthetic` should open emacs with a shell as well
-       and also pop up open the web browser somehow... and split
-       the screen too?
-  - [] it could show some kind of cool interstitial page while the platform
-        loads on a different port?
-  - [] Add some kind of gpt mode for inline source replacement.
-
-*** webvm / xterm ***
-  - [] Explore using xterm: https://xtermjs.org/
-  - [] Explore webvm: https://labs.leaningtech.com/blog/mini-webvm-your-linux-box-from-dockerfile-via-wasm
-  - [] Could something like an xterm instance be somehow connected
-       to the `chat` feature?
-    - [] No because that might prevent different rendering aesthetic, unless
-         I have my own rendering layer...
-    - [] Which could be text
-    - [] Emoji support via https://joypixels.com.
+  + Done
+  - [c] How can I open the full one-window dev environment in one click?
+  - [x] Subtle issues with buffer rendering after mixing eat terminals and splits... (had to do with emojis)
+  - [x] Add emoji to each tab-bar item.
+    - [x] Use gptel.
 
 *** chat ***
   - [-] Add a `chat` command.
@@ -74,31 +66,6 @@ but technically agnostic. (Choose your aesthetic!)
   - [] Then appear for other users and the current user.
        (Just make the text fully synchronized for now.)
   + Done
-
-*** sean meeting w/ ida ***
-  - [] system update notification feed
-  - [] computer needs to say how it gets better
-  - [] moat of learning on the fringes
-  - [] ac openings can be a thing / do a feral-file opening
-
-*** micro ***
-  - [] Autogenerate local ssl certificates when first building / booting if they are not present
-       in ssl-dev/.
-  + Done
-  - [x] Implement a `boot` command that will begin the rebuild process
-       from the docker container / or it could be an emacs command even.
-  - [x] Make the `source` open the readme by default.
-  - [x] Take out emacs support and instead connect to the
-      running container from some sub-buffers in an emacs
-      layout that would always be self-hosted.
-  - [x] Combine url code and prompt into one pane / tab.
-  - [x] Auto-switch to the `prompt` tab.
-  - [x] Use my own emacs lisp file / move dotfiles over.
-+ Done
-- [x] Get a basic http server punching through the container.
-
-*** dotfiles ***
-  - [x] Move my own dotfiles to the ac repo?
 
 *** bot color schemes ***
   - [🟡] Fix color schemes for bots, based on `mom`.
@@ -164,6 +131,12 @@ but technically agnostic. (Choose your aesthetic!)
       //if (!net.iframe && params[0]^does not start with^) {
       //  return;
       //}
+
+*** sean meeting w/ ida ***
+  - [] system update notification feed
+  - [] computer needs to say how it gets better
+  - [] moat of learning on the fringes
+  - [] ac openings can be a thing / do a feral-file opening
 
 *** swipe to share ***
   - [] dragging the corner label all the way to the right should always reveal a "share" prefix and then letting go will jump to `share x`.
@@ -261,6 +234,16 @@ but technically agnostic. (Choose your aesthetic!)
 *** `world` ***
   - [] Make shaped worlds using inner poly collision and points for boundaries.
     - [] And then this can be passed instead of width and height?
+
+*** webvm / xterm ***
+  - [] Explore using xterm: https://xtermjs.org/
+  - [] Explore webvm: https://labs.leaningtech.com/blog/mini-webvm-your-linux-box-from-dockerfile-via-wasm
+  - [] Could something like an xterm instance be somehow connected
+       to the `chat` feature?
+    - [] No because that might prevent different rendering aesthetic, unless
+         I have my own rendering layer...
+    - [] Which could be text
+    - [] Emoji support via https://joypixels.com.
 
 48 Hours:
 *** webgl2 renderer ***

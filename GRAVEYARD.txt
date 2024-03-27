@@ -1,5 +1,24 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** micro ***
+  + Done
+  - [x] Autogenerate local ssl certificates when first building / booting if they are not present
+       in ssl-dev/.
+  - [x] Implement a `boot` command that will begin the rebuild process
+       from the docker container / or it could be an emacs command even.
+  - [x] Make the `source` open the readme by default.
+  - [x] Take out emacs support and instead connect to the
+      running container from some sub-buffers in an emacs
+      layout that would always be self-hosted.
+  - [x] Combine url code and prompt into one pane / tab.
+  - [x] Auto-switch to the `prompt` tab.
+  - [x] Use my own emacs lisp file / move dotfiles over.
++ Done
+- [x] Get a basic http server punching through the container.
+
+*** dotfiles ***
+  - [x] Move my own dotfiles to the ac repo?
+
 *** emacs fixes ***
   + Done
   - [x] Replace 'helm' with vertico / embark and other stuff: https://www.youtube.com/watch?v=d3aaxOqwHhI
