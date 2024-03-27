@@ -13,7 +13,7 @@
     "emacs": "cd micro; npm run emacs",
     "upgrade": "ncu -u",
     "url": "node generate-local-url.js",
-    "ac": "npm run from-scratch",
+    "ac": "./aesthetic",
     "admin:udp": "ssh root@157.245.134.225",
     "admin:firebase": "xdg-open https://console.firebase.google.com/?pli=1",
     "tunnel": "ngrok http https://localhost:8888 --domain local.aesthetic.computer",
