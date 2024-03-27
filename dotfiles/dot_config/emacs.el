@@ -23,6 +23,9 @@
 
 (setq scroll-step 1)
 
+;;(setq display-buffer-alist
+;;      '((".*" . (display-buffer-reuse-window display-buffer-below-selected))))
+
 (setq-default display-fill-column-indicator-column 80) ;; Vertical guide-line.
 (add-hook 'prog-mode-hook (lambda () (display-fill-column-indicator-mode 1)))
 
@@ -59,8 +62,9 @@
  ;; If there is more than one, they won't work right.
  ;; '(fill-column-indicator ((t (:foreground "yellow"))))
  ;; '(origami-fold-face ((t (:inherit magenta :weight bold))))
- '(tab-bar ((t (:height 1.0))))
- '(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :background "black")))))
+ '(tab-bar ((t (:height 1.0 :background "brightyellow"))))
+ '(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :inverse-video t)))))
+ ;; '(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :background "yellow")))))
 
 (setq inhibit-startup-screen t) ;; Disable startup message.
 (setq eshell-banner-message "") ;; No eshell banner.
@@ -248,29 +252,29 @@
 
 (add-to-list 'auto-mode-alist '("\\.mjs\\'" . typescript-ts-mode)) ;; Support mjs files.
 
-(use-package helm ;; Add helm: https://github.com/emacs-helm/helm/wiki#from-melpa
-      ;; :straight t
-      :config
-      (setq helm-M-x-fuzzy-match t) ;; Optional: Fuzzy match for M-x
-      (setq helm-mode-fuzzy-match t) ;; Optional: Fuzzy match for helm-mode
-      (setq helm-split-window-in-side-p t) ;; Optional: Have helm open in current window.
-      (setq helm-ff-fuzzy-matching t) ;; Enable fuzzy matching for file and buffer names
-      (helm-mode 1))
+;; (use-package helm ;; Add helm: https://github.com/emacs-helm/helm/wiki#from-melpa
+;;       ;; :straight t
+;;       :config
+;;       (setq helm-M-x-fuzzy-match t) ;; Optional: Fuzzy match for M-x
+;;       (setq helm-mode-fuzzy-match t) ;; Optional: Fuzzy match for helm-mode
+;;       (setq helm-split-window-in-side-p t) ;; Optional: Have helm open in current window.
+;;       (setq helm-ff-fuzzy-matching t) ;; Enable fuzzy matching for file and buffer names
+;;       (helm-mode 1))
 
-(global-set-key (kbd "M-x") #'helm-M-x)
-(global-set-key (kbd "C-x r b") #'helm-filtered-bookmarks)
-(global-set-key (kbd "C-x C-f") #'helm-find-files)
+;; (global-set-key (kbd "M-x") #'helm-M-x)
+;; (global-set-key (kbd "C-x r b") #'helm-filtered-bookmarks)
+;; (global-set-key (kbd "C-x C-f") #'helm-find-files)
 (global-set-key (kbd "C-p") #'project-find-file) ;; C-p everywhere
 (global-set-key (kbd "C-x C-p") #'project-find-file)
 
-(defun my/helm-find-files-directory-handler ()
-  "Open helm-find-files if Emacs is started with a directory."
-  (when (and command-line-args-left (file-directory-p (car command-line-args-left)))
-    (helm-find-files-1 (car command-line-args-left))
-    (setq command-line-args-left nil))
-  nil)
+;; (defun my/helm-find-files-directory-handler ()
+;;   "Open helm-find-files if Emacs is started with a directory."
+;;   (when (and command-line-args-left (file-directory-p (car command-line-args-left)))
+;;     (helm-find-files-1 (car command-line-args-left))
+;;     (setq command-line-args-left nil))
+;;   nil)
 
-(add-to-list 'command-line-functions 'my/helm-find-files-directory-handler)
+;; (add-to-list 'command-line-functions 'my/helm-find-files-directory-handler)
 
 (use-package lsp-mode)
 (add-hook 'prog-mode-hook #'lsp)
@@ -289,7 +293,7 @@
 (setq js-indent-level 2)
 
 ;; if you are helm user
-(use-package helm-lsp :commands helm-lsp-workspace-symbol)
+;; (use-package helm-lsp :commands helm-lsp-workspace-symbol)
 
 (use-package s) ;; `dockerfile-mode` depends on `s`.
 (use-package dockerfile-mode) ;; Dockerfile support.
@@ -447,7 +451,7 @@
        ((or (string= cmd "stripe-print") (string= cmd "stripe-ticket"))
         (unless stripe-tab-created
           (tab-new)
-          (tab-rename "💳 stripe")
+          (tab-rename " 💳stripe")
           (setq stripe-tab-created t))
         (when (string= cmd "stripe-ticket")
           (split-window-below)
