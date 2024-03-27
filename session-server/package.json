@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node session.mjs",
     "start-do": "PORT=80 node session.mjs",
-    "dev": "PORT=8889 NODE_ENV=development nodemon -I --watch session.mjs session.mjs",
+    "dev": "kill-port 8889; PORT=8889 NODE_ENV=development nodemon -I --watch session.mjs session.mjs",
     "create": "npx jamsocket service create session-server",
     "build": "echo Built 😄",
     "build:jamsocket": "docker build --platform linux/amd64 --tag session-server-image .",
@@ -31,6 +31,7 @@
     "ws": "^8.13.0"
   },
   "devDependencies": {
+    "kill-port": "^2.0.1",
     "nodemon": "^3.0.1",
     "terminal-kit": "^3.1.1"
   }

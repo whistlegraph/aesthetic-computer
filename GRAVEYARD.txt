@@ -1,9 +1,34 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** emacs fixes ***
+  + Done
+  - [x] Replace 'helm' with vertico / embark and other stuff: https://www.youtube.com/watch?v=d3aaxOqwHhI
+  - [c] Opening a new file should always open a new buffer that splits the current one.
+  - [x] Get rid of terminal warning when opening 'eat'.
+  - [x] Open 'eat' terminals to 'aesthetic-computer'.
+  - [x] Add ascii scroll bars.
+  - [x] Make sure I always have access to the production udp server.
+  - [x] fix ctrl+tab on windows
+  - [c] Include "assets" directory in ctrl+p helm search?
+        (just use ctrl+x and ctrl+f to find file or whatever)
+  - [x] Add code-folding (check out origami or vimdiff mode?)
+    - [x] It should use `zc` and respect my #region marks.
+  - [x] Tab theme needs to make sense.
+  - [x] :q in evil mode should never quit emacs unless it's the last buffer?
+  - [x] Add line numbers back.
+  - [x] Make ctrl+p open instantly in a terminal mode.
+  - [x] Make the `aesthetic-backend` function work in gui and terminal emacs.
+       inside docker and outside.
+  - [x] JavaScript auto-indent needs to be 2 spaces wide
+  - [x] Javascript auto-close braces / brackets not working.
+  - [x] Add gutter at 80 character width.
+  - [x] Save on leave buffer / clicking out of buffer.
+
+
 *** screenshots ***
     - [x] Map new token ids to screenshot numbers.
            (https://highlight.xyz/mint/65f5e86427e22afacb0972e7/marketplace)
-    - [x] Add left + right tap buttons that take up the full half-width. 
+    - [x] Add left + right tap buttons that take up the full half-width.
     + Done
     - [x] Fix font loading issue.
 
@@ -15,7 +40,7 @@
   - [🧡] finish basic split to test world persistence.
 
 *** fix auth0 logo route ***
-  - [x] There is an ssl error on: https://logo.aesthetic.computer.nyc3.cdn.digitaloceanspaces.com/painting-2023.8.21.10.25.png 
+  - [x] There is an ssl error on: https://logo.aesthetic.computer.nyc3.cdn.digitaloceanspaces.com/painting-2023.8.21.10.25.png
 
 *** text centering issue ***
   - [x] seems to happen only after entering `field`? and also baktok is affected.
@@ -28,14 +53,14 @@
  *** light mode ***
   - [x] Starfield should paint behind the paste and enter buttons.
   - [x] Starfield connection colors should be different in light mode.
-  - [x] autocompletions no longer appear / are too light in light mode 
+  - [x] autocompletions no longer appear / are too light in light mode
   - [x] Color change for buttons in Light Mode. See `ui.mjs`.
-    - [x] Login buttons. 
+    - [x] Login buttons.
     - [c] Invert all black and white buttons via the `ui.mjs`. Button default
          schemes. By setting and updating global in `disk.mjs` on the `ui` module that is red when buttons are painted.
-  - [x] Color change for the border when tapping from the login. 
+  - [x] Color change for the border when tapping from the login.
   - [x] HANDLES SET warning should have different colors in light mode
-  - [x] Put glaze back on. 
+  - [x] Put glaze back on.
 
 *** `blur` ***
   - [️x] Red crosshair drags when pressing corner label.
@@ -46,10 +71,10 @@
 *** piece authoriship improvements: workshop with casey ***
   + Done
   - [x] Refreshing the page (opening and closing the pane) should be able to work better / reload the last-run code?
-    - [x] Reloading from prompt. 
+    - [x] Reloading from prompt.
       - [x] See `disk.mjs` line 2477.
     - [x] Refreshing the page should show a 404 message if the piece doesn't
-         exist possibly with a simple call to action. 
+         exist possibly with a simple call to action.
   - [x] Drag and drop should rename the url path.
   - [x] Fix dragging and dropping of piece code.
   - [x] So in order to draw from a template, you can say `new brush` or `new bot` or `new piece frogger`.
@@ -81,19 +106,19 @@
   + Done
   - [x] hardcode typo reply
 
-*** Extension Post ***       
+*** Extension Post ***
   - [x] The API data should be loaded remotely so docs can reploy with
-        site changes and the extension doesn't need a version bump to 
+        site changes and the extension doesn't need a version bump to
         keep up.
   - [x] Wire up the API data so it's live and remote.
   - [x] Test and make sure auth works in vscode.dev.
-  - [x] Add api docs and auto-complete via the VSCode extension. 
+  - [x] Add api docs and auto-complete via the VSCode extension.
 
 *** New VSCode Embedded Extension ***
 - [x] More immediate coding.
   + Done
   - [x] Publish new version of extension.
-    - [x] Update instructions and Microsoft Store page. 
+    - [x] Update instructions and Microsoft Store page.
   - [x] Rename `code-channel` to a full on `channel` piece
        and entering empty channel
        will share the current channel code, while entering a new
@@ -120,11 +145,11 @@
 
 *** botce xmas ***
   + Done
-  - [x] 6$ 
-  - [x] Dec. 23 - Jan ?. 
+  - [x] 6$
+  - [x] Dec. 23 - Jan ?.
   + Postponed
   - [c] Baby blue background and white text.
-  - [c] Snowflake backdrop in paywall. 
+  - [c] Snowflake backdrop in paywall.
   - [c] Snowflake Image
   - [c] Share button for screenshotting.
   - [c] Test Instagram share.
@@ -137,7 +162,7 @@
 *** `field` ***
   + Done
   - [x] Localize world geometry to this file.
-  - [x] Move all functions over succesfully. 
+  - [x] Move all functions over succesfully.
   - [x] Move common functionality to a `world.mjs` library file.
   - [x] Slow camera following.
   - [x] Add user list support.
@@ -145,7 +170,7 @@
     - [x] When you join you get the full list,
     - [x] Then when anyone else joins or leaves you get
          the individual joins and leaves.
-  - [c] Store persistent position on the server / in the database. 
+  - [c] Store persistent position on the server / in the database.
   - [x] Fix up lerping a bit...
   - [x] Store local position in store.
   - [x] Make the world scrollable with some background grass.
@@ -153,20 +178,20 @@
   - [x] Test join `field` simultaneously (with forceProd on) and ensure
         there are no race conditions or conflicts. (Implement jamsocket's locks?)
   - [x] Fix instagram not connecting error.
-  - [x] Keyboard stops working after tabbing out and returning. 
+  - [x] Keyboard stops working after tabbing out and returning.
     - [x] Android debugger session with @ida's phone.
-  - [x] Remove gutter. 
+  - [x] Remove gutter.
   - [x] Add world bounds.
   - [?] Add enter key hint.
-  - [x] Tapping the word in the top left corner should not flash the keyboard. 
+  - [x] Tapping the word in the top left corner should not flash the keyboard.
   - [x] Get keyboard opening on Mobile Safari.
   - [x] `Escape` key should still go back to the `prompt`.
   - [x] (`) key should still go back to the `prompt`.
-  - [x] Add a "special", `smile`, `frown` and `meh` command 😉. 
+  - [x] Add a "special", `smile`, `frown` and `meh` command 😉.
     - [x] Add color words to change face.
-    - [x] Make sure these can be written like: `smile: chat` / using a 
+    - [x] Make sure these can be written like: `smile: chat` / using a
          simple character on the keyboard.
-  - [x] Get multi-user networking online. 
+  - [x] Get multi-user networking online.
   - [x] Add an overhead chat display.
   - [x] Wire up tappable character button to activate the text input.
   - [x] Enter button should close empty prompt.
@@ -180,25 +205,25 @@
 *** iOS Release ***
   + Version 1
   + Done
-  - [x] Privacy policy page 
-  - [X] Sending Pixel Grab images in iMessage Extension 
+  - [x] Privacy policy page
+  - [X] Sending Pixel Grab images in iMessage Extension
   - [X] `download` popup native share interface for storing image.
   - [X] Change app short name as it appears on homescreen to "aesthetic".
-  - [X] Enable camera access 
+  - [X] Enable camera access
   - [X] iMessage plugin (is webview allowed there?)
   - [X] Launch screen
   - [X] Screen formatting (margins, padding)
-  - [X] Enable microphone access 
+  - [X] Enable microphone access
   - [X] Customize allow messages (camera, microphone, notifications)
-  - [X] Offline access 
+  - [X] Offline access
   - [X] App icon
   - [X] Sign up work
-  - [X] Logging out (broken) 
-  - [X] Notification for `scream`. (via the integrated GCP account) 
+  - [X] Logging out (broken)
+  - [X] Notification for `scream`. (via the integrated GCP account)
   - [X] Notification invite for `pond`.
-  - [X] Test ordering a sticker (check if that is illegal) 
-  - [X] Make Offline access page compliant with apple submission guidelines + beautify 
-  - [X] Disable landscape mode 
+  - [X] Test ordering a sticker (check if that is illegal)
+  - [X] Make Offline access page compliant with apple submission guidelines + beautify
+  - [X] Disable landscape mode
   - [X] Provide a method in your app for a user to opt out from receiving notifs
 
 *** ios resubmission ***
@@ -229,7 +254,7 @@
 
 *** bring back the 404 page ***
   - [x] Visiting an unresolved piece on first load should
-       redirect to 404. 
+       redirect to 404.
 
 *** sharing ***
   - [x] Make sure `shareFile` will always be populated / prevent the
@@ -247,7 +272,7 @@
   - [x] Use the colors of the starfield to represent connectivity status.
 
 *** Regression ***
-  - [x] Tapping on `prompt` breaks after getting a GPT reply. 
+  - [x] Tapping on `prompt` breaks after getting a GPT reply.
 
 *** Monolithic UDP ***
   + Done
@@ -266,9 +291,9 @@
   - [x] Go over UX w/ Ida
 
 *** profile page updates ***
-  - [x] `profile` should be able to <- -> on a user's paintings 
+  - [x] `profile` should be able to <- -> on a user's paintings
           (and still tap into lightbox for painting / playback)
-  - [x] Add buttons logic from `hell_-world.js`.         
+  - [x] Add buttons logic from `hell_-world.js`.
   - [x] move `mood` to be to the top left to the right of username
 
 *** `prompt` issues ***
@@ -289,14 +314,14 @@
 
 *** delete-able paintings ***
     (hide from profiles)
-  - [x] Add a keyboard shortcut / endpoint to flag a painting as nuked. 
+  - [x] Add a keyboard shortcut / endpoint to flag a painting as nuked.
        (With a `notice`)
   - [x] Prevent nuked paintings from showing up in the profile list / consider
-       how to hide them. 
+       how to hide them.
 
 *** `hw` ***
   - [x] Landing on `hw` (random) and then going backwards after the
-       auto-jump does not jump back to the chosen token. 
+       auto-jump does not jump back to the chosen token.
        - [x] Tapping the top left corner switches the token when going back.
   - [x] There is a weird jumpy infinite redirect loop in `hw` that appears
        sometimes. Try to reproduce and fix it.
@@ -340,12 +365,12 @@
   - [x] Fix up down arrow not showing a blank entry in the loop.
   - [x] Fix instant typing after wrong response regression.
   - [x] Fix `shape yellow 0.1` being opaque for some reason...
-       - After what action? `line rainbow` 
+       - After what action? `line rainbow`
   - [x] Fix `no` not working after first attempt regression.
   - [x] Fix zip file loading on `painting`.
 
 *** Networking ***
-  - [x] Remove periods from all buckets on DigitalOcean so that certificates 
+  - [x] Remove periods from all buckets on DigitalOcean so that certificates
        behind the CDNs work.
     - [x] And transfer all the data.
       - [x] user.aesthetic.computer
@@ -359,14 +384,14 @@
       + Done
       - [x] logo.aesthetic.computer -> pals-aesthetic-computer
 
-*** `enter` *** 
+*** `enter` ***
   - [x] Implement a discord slash command webhook.
 
 *** brush bugs ***
-  - [x] `word` multi line centering not working on panned canvas 
+  - [x] `word` multi line centering not working on panned canvas
 
 *** `paintings` ***
-  - [x] Put all paintings in a database, with new ones being added. 
+  - [x] Put all paintings in a database, with new ones being added.
     - [x] And the download / retrieval code in `profile`, but not necessarily
         in painting.
     - [x] Existing user paintings need to be added to the database via a migration
@@ -402,7 +427,7 @@
   - [x] immediate first key entry no longer works.
   - [x] Clear response highlighted text.
   - [x] NETWORK FAILURE does not reset the text.
-  - [x] Backspace shortcut. 
+  - [x] Backspace shortcut.
   - [x] `prompt~line` shortcut no longer works...
   - [x] sounds no longer function
   - [x] starting with left or right arrow keys doesn't clear prompt
@@ -410,12 +435,12 @@
       so can typing while processing.
   - [x] moving arrow keys left and right...
 
-*** `wave` *** 
+*** `wave` ***
   - [x] `wave` pixels are still stretched on Android.
 
 *** landing page ***
   + Done
-  - [x] ### handles set 
+  - [x] ### handles set
   - [x] Add support for transparent animation. (Starfield)
 
 *** add zora prefilled `mint` command ***
@@ -427,7 +452,7 @@
   - [x] Fix delete key not working.
   - [x] iOS keyboard auto-suggestions should work.
   - [x] Properly handle device rotation with camera...
-  - [x] Audio loads inconsistently / slowly on iOS. 
+  - [x] Audio loads inconsistently / slowly on iOS.
     (Debug on the actual device.)
 
 *** important user reported errors ***
@@ -446,7 +471,7 @@
 *** Profiles ***
   - [x] Typing in a handle on the prompt and visiting it should work.
   - [x] Make sure setting a @handle actually works.
-  - [x] @handle pages should show the current version of the user's painting. 
+  - [x] @handle pages should show the current version of the user's painting.
         (Upload and replace the file in S3, then send a redis sub ping for
         that user.)
 
@@ -457,13 +482,13 @@
   - [x] Get audio / voice-over working good.
     - [x] Why does audio get louder while starting a `tape` on iOS?
   - [x] Audio slides.
-  - [x] "Processing..." progress bar cosmetics. 
+  - [x] "Processing..." progress bar cosmetics.
   - [x] Fix letterboxing again / changing window size while recording and
        playing back.
   - [x] Fix progress bar.
   - [x] Get the stamp typography just right.
-  - [x] Make the red recording progress bar decrease. 
-  - [x] Cache download link. 
+  - [x] Make the red recording progress bar decrease.
+  - [x] Cache download link.
   - [x] Try a new strategy where frames are dumped
        and then playback occurs through a live mediastream that
        composes the frames and the sound. This can be captured
@@ -484,9 +509,9 @@
   - [x] And stop it from flickering.
   - [x] Wire up download button for downloading the file with the proper extension.
   - [x] Add `HANDLE` watermark if a handle exists.
-  - [x] Make tape progress bar global for the tape, and superimposed. 
+  - [x] Make tape progress bar global for the tape, and superimposed.
   - [x] Stop the start flickering.
-  - [x] Overlay a global progress bar on the recording. 
+  - [x] Overlay a global progress bar on the recording.
   - [x] Also see if glaze can be swapped in on the fly if it's enabled. (📓 Not enabling, wait until full GPU renderer.)
   - [x] Clear the screen each frame.
   - [x] Add a stamp while superimposing.
@@ -513,7 +538,7 @@
        but pieces can opt out and only when coming from the prompt
   - [x] `enter` and `backspace` as primary keyboard shortcuts
   - [x] profile page when not logged in should say sign up to create profile
-  - [x] uploading media with no handle should still use email 
+  - [x] uploading media with no handle should still use email
   - [x] pressing back button requires extra prompt tap
   - [x] back button does not bring up keyboard... (same as above?)
   - [x] handle with no parameters should flash EMPTY
@@ -534,7 +559,7 @@
             (What are the possibilities here?)
 
 *** colplay ***
-  - [x] Tie a sound with a color. 
+  - [x] Tie a sound with a color.
 
 *** @maya/sparkle ***
   - [x] Get sparkle working again and add it to @maya.
@@ -544,7 +569,7 @@
 
 *** Stickers ***
   - [x] How do I treat alpha in images?
-  - [x] Make it black in both the mockup and in the actual resize setting. 
+  - [x] Make it black in both the mockup and in the actual resize setting.
        (This needs to be a url option in `pixel`)
 
 *** Fix `Painting` page in Firefox ***
@@ -555,7 +580,7 @@
          the large GCP environment variables.
 
 *** deck ***
-  - [x] Make a complete interactive deck prototype. 
+  - [x] Make a complete interactive deck prototype.
 
 *** better `paste` rotation ***
   - [x] Make paste rotation work pixel perfectly for all 90 degree increments.
@@ -564,12 +589,12 @@
 *** Decode / Encode (Issue) ***
 - [x] Text automatically copied to clipboard when typing `decode` and
      going to the piece.
-     
+
 *** nopaint ***
   - [x] Scaffold `nopaint`.
 
 *** Drag + Drop / Publishing ***
-  - [x] Test `publish` command by using new extension. 
+  - [x] Test `publish` command by using new extension.
   + Done
   - [x] Only publish to the correct user via the extension. (Not to everyone subscribed...) (See `extension.js`)
     (Make `publish` command)
@@ -577,7 +602,7 @@
   - [x] Local extension not working. (SSL Self-signed Error / Unsolvable)
   - [x] Get user hosted pieces to run.
     - [x] Fix cloudflare wrangler dev worker.
-  - [x] Get guest hosted pieces to run. 
+  - [x] Get guest hosted pieces to run.
   - [x] Add publish command underneath `Run Piece`.
   - [x] Test code-channel re-routing along with drag + drop.
   - [x] Filter codeChannel messages on the server.
@@ -608,7 +633,7 @@
       mesh creation
     1. `hhf` aka `happy-hand-factory` with an integer.
           - Tie us to working with a particular hand and jumps to step A by default.
-      - Go to another step with: `hhf:body 800` 
+      - Go to another step with: `hhf:body 800`
     - Viewing and Using
     1. `hh` or `happy-hand` takes you to using a random hand from 0-n.
     2. `hh 800` will view a hand
@@ -617,16 +642,16 @@
     - [x] Got hand data working!
     - [x] Fix framebuffer initialization error from mediapipe loading delay. (@jeffrey)
     Wednesday
-    - [x] Integrate `@mediapipe/hands` into the project. 
+    - [x] Integrate `@mediapipe/hands` into the project.
     Tuesday
     - [x] Draw and define the 2D mesh thingy inside `pattern`.
     Monday
     - [x] Define command set for pipeline.
     - [x] Create `hhf` piece. (hhf.mjs)
-    - [x] Onboard @ttarigh to the repo. 
+    - [x] Onboard @ttarigh to the repo.
     - [x] Set on the client a global variable that determines what
           hand we are "on".
-    - [x] Limit the count to 1024 or something like that. 
+    - [x] Limit the count to 1024 or something like that.
     - [x] Fail if no param.
     - [x] Find good name for this process...
     - [x] Creating `happy-hands-factory` with an alias `hhf`.
@@ -635,8 +660,8 @@
   - [x] Run on a device and send the first test notification.
     - [x] https://designcode.io/swiftui-advanced-handbook-push-notifications-part-2 (Halfway down page.)
   + Done
-  - [x] Set up `FCM` (Firebase Cloud Messaging) 
-  - [x] Add integration to iOS app. 
+  - [x] Set up `FCM` (Firebase Cloud Messaging)
+  - [x] Add integration to iOS app.
     - [x] https://github.com/firebase/quickstart-ios/tree/master/messaging
 
 *** lyrical melody finder / selector ***
@@ -658,13 +683,13 @@
       - [n] Match the samples / check the accuracy of the example.
       - [x] Example in : `spice-tensorflow.html`
       - [x] Why does this crash the tab? (Seems to crash on linux.)
-        - [x] Make the example async / frame-skipping. 
-    - [n] https://editor.p5js.org/ml5/sketches/PitchDetection 
-      - [n] See if this works better than `spice`. 
+        - [x] Make the example async / frame-skipping.
+    - [n] https://editor.p5js.org/ml5/sketches/PitchDetection
+      - [n] See if this works better than `spice`.
 
 
 *** `prompt` History ***
-  - [x] Move global keyboard shortcuts outside of `act` (to kill pieces mid-load / while swapping) 
+  - [x] Move global keyboard shortcuts outside of `act` (to kill pieces mid-load / while swapping)
   - [x] Don't add `tone` / ahistorical jumps to prompt history list.
 
 *** whistle & tone ***
@@ -720,7 +745,7 @@
   - [x] Drag and drop a `*.mjs` file onto aesthetic.computer to
        replace or add a piece with your version.
   - [x] Type `code piece-name` to get a template
-       piece downloaded, or get the current version of an existing piece. 
+       piece downloaded, or get the current version of an existing piece.
 
   // Flow... (How to expose this to users?)
   // 1. A Template file will be downloaded.
@@ -734,11 +759,11 @@
   //    `@handle/piece-name` into `aesthetic.computer` on any device.
   // 6. Publish your command to the world by submitting it with the
   //    `submit piece-name` command.
-  
+
 *** sfx ***
   + Done
   - [x] Test this sound playback on Firefox.
-  - [x] Add startup sound to first enter button press. 
+  - [x] Add startup sound to first enter button press.
   - [x] And add keyboard sounds to prompt system.
   - [x] Make sure `sfx` clears any remotely loaded sounds?
     - [x] Just whitelist sounds for now.
@@ -750,11 +775,11 @@
 
 *** Corner Word ***
   - [x] Tapping the word in the corner should bring up the keyboard by default.
-   
+
 *** Login + Sign-up Buttons ***
   + Done
   - [x] Get /@handle working. (Jeffrey)
-  - [x] Tapping the text at the top of the prompt should activate it. 
+  - [x] Tapping the text at the top of the prompt should activate it.
   - [x] CTRL & + should not make sign-up buttons go away.
   - [x] Show user handle on profile page if it exists.
   - [x] If the user is logged in, then add a `profile` button.
@@ -764,11 +789,11 @@
 *** Text Editing ***
   - [x] Pasting text at the beginning of a \n is broken.
 
-*** `Prompt Editing` *** 
-  - [x️‍] Scrubbable cursor.  
+*** `Prompt Editing` ***
+  - [x️‍] Scrubbable cursor.
 
 *** `paint` / `ask` ***
-  - [x] Why did `ask` stop working on local? Is it a `vercel dev` issue? 
+  - [x] Why did `ask` stop working on local? Is it a `vercel dev` issue?
     - [x] Put behind reverse proxy.
     - [x] What other options are there, should I run a node service again?
 
@@ -778,7 +803,7 @@
         I should keep a list of sats somewhere in a notebook,
         then sign drawings and upload them.
   + Done
-   - [x] Inscribe a test ordinal. 
+   - [x] Inscribe a test ordinal.
 
 *** (w)ordfish ***
 + Cancelled
@@ -811,7 +836,7 @@
 * 23.04.29.23.42 and ^
 
 *** Ranged Parameter Support ***
-  - [x] Generalize ranged parameters. 
+  - [x] Generalize ranged parameters.
     - [x] Extract the current implementation from `oval` into a general
          params parser that detects type and returns a filtered list.
 
@@ -826,8 +851,8 @@
  - [x] Re-read brush code, squashing down the api bit by bit.
  - [x] Starting a pan while mid stroke
        cancels the stroke but still stamps
-       a rectangle when the pan ends and the mouse lifts. 
- - [x] Abstract "needsBake" into nopaint. 
+       a rectangle when the pan ends and the mouse lifts.
+ - [x] Abstract "needsBake" into nopaint.
  - [x] I need an abstraction to know whether we are making a brush
        stroke or not, in order to manage panning and drawing logic
        across platforms.
@@ -866,14 +891,14 @@
     - [X] Remove bold from the button typography and the error messages.
     - [X] Text input and button typography must match.
     - [X] Match relative placement of form fields to the `prompt` text on
-         the a.c homepage. 
+         the a.c homepage.
     - [X] Style the borders / padding of the text input fields to be less visible.
       - [X] Make sure the type lines up with the buttons.
     - [X] "I'm New" -> "New Account" and place the buttons vertically.
          (Use the `valbear` screen as a visual / aesthetic guide)
       - [x] Try a border on just the Log In button, or both buttons?
   - [X] Custom email templates...
-    - [X] Replace `Welcome Email` and `Change Password` email templates with 
+    - [X] Replace `Welcome Email` and `Change Password` email templates with
          simple text options.
           auth0 Dashboard -> Branding -> Email Templates
        https://www.figma.com/file/2uw2Y2pAGMLFIi2XTpJy6w/login-page-notes?node-id=0%3A1&t=dmJ8wmL6IEd2CUwX-0
@@ -902,7 +927,7 @@
     "Activity"
     {
     - [x] Title Screen
-    - [x] Camera 
+    - [x] Camera
     - [x] Icon (preset palettes with preset graphics, similar to text changing words)
       - [x] Rename sparkle to icon.
     + Tonight
@@ -934,7 +959,7 @@
 
 *** No Paint QOL Shotcuts ***
   - [x] 'n' Shortcut to paint and reload the same brush.
-  - [x] 'p' Shortcut to reload the same brush without painting. 
+  - [x] 'p' Shortcut to reload the same brush without painting.
 
 *** Type ***
   - [x] Start up a `write` / `text` brush so I can print
@@ -945,7 +970,7 @@
 
 *** Better Logging ***
   - [x] Create a logs.mjs file that can enable / disable certain development log flags when working, such as disabling all "store" logs.
-  
+
 * (Outdated) Bugs / Improvements
   - Stop sending duplicate event data for "draw" and "touch" in `pen`.
     - e.is("draw") && e.is("touch") should not send duplicate event {x, y} data
@@ -981,19 +1006,19 @@
   - [x] Do away with hashtag routes entirely.
   - [x] Refactor ":" parameter encoding (see `wg`) into using classic url parameters.
     - [x] Or just use one of these special characters: `. _ ~ -`
-  
+
         aesthetic.computer/wg.fuzz
         aesthetic.computer/wg_fuzz
         aesthetic.computer/wg-fuzz
         aesthetic.computer/wg~fuzz
         aesthetic.computer/metronome~80~100
-  
+
         aesthetic.computer/~niki/plot~40~50
         aesthetic.computer/~niki/plot~40~50
-  
+
         // Maybe the special characters could be default parameters, or represent
         // types of some kind?
-  
+
         Available domains:
           - prompt.ac
           - wgr.ac (whistlegraph recorder)
@@ -1035,14 +1060,14 @@
        - [X] Add all the new Typefaces to CSS. (Berkeley Mono Variable, and Proce55ing)
 
 *** AV ***
-  - [x] Make sure that video encoding works on all platforms. 
+  - [x] Make sure that video encoding works on all platforms.
       - [x] Try implementing custom ffmpeg-core files
       : https://github.com/ffmpegwasm/ffmpeg.wasm/issues/299
   - [x] Add a "done" or "close" button to the recording UI / share sheet which
           re-activates the UI.
   - [x] Add a special UI for uploading the file / receiving a code...
       so it's a choice?
-  - [x] Make the recording process re-entrant. (Don't reload ffmpeg each time?)  
+  - [x] Make the recording process re-entrant. (Don't reload ffmpeg each time?)
   - [x] Add a progress bar / interstitial that runs while the file is encoding,
       preventing the user from being able to act.
       - [x] Test the interaction.
@@ -1059,7 +1084,7 @@
 *** Image Support ***
   *** Save ***
     - [x] Make it so that desktop uses the current "save-file" event route,
-          but mobile pops open a UI... 
+          but mobile pops open a UI...
         - Should this UI be shared on all platforms?
         Try web components here: https://developer.mozilla.org/en-US/docs/Web/Web_Components
         - What does it mean to "save" an image?
@@ -1081,16 +1106,16 @@
 
 *** Misc ***
 - [x] Prototype screen-based whistlegraph recorder tool.
-  - [x] Add it to the API and make a `wgr` disk. 
+  - [x] Add it to the API and make a `wgr` disk.
   - [x] Set up doodads like file hosting.
  - [x] Write micropage for the whistlegraph album. (m2w2)
  - [x] Fix image download function.
  - [x] Get developer live reload working again.
-  - [x] Deploy and test everything to see if it works. 
-  - [x] Add a post request edge function called "reload". 
+  - [x] Deploy and test everything to see if it works.
+  - [x] Add a post request edge function called "reload".
  - [x] Wire up plot for Amalia.
  - [x] Queue any sent socket messages to be sent once the socket
-      backend connects. 
+      backend connects.
  - [x] Turn 'sb' -> 'play'... a *tiny* recordable chat program in X turns.
  - [x] Retrofit `prompt` with the new abstraction in `type.mjs`
  - [x] Clear any prompt specifics in bios.
@@ -1123,30 +1148,30 @@
     - [x] Better optimization for mobile vertical view.
     - [x] Custom label offset for `ff`.
     - [x] Add a color param to `label` and feed wand color in with a lerp.
-    - [x] Make progress bar on top above label. 
+    - [x] Make progress bar on top above label.
     - [x] Be in spin mode until a key is pressed.
     - [x] Fix ` keyboard prompt typing bug.
-    - [x] Move sculpture back a tad. 
+    - [x] Move sculpture back a tad.
     - [x] Eliminate gap borders while embedded / sandboxed? (Fix OpenSea black bars.)
     - [x] Fix preview segment rendering when size changes.
     - [x] Add a button in VR (and keyboard shortcut) to reset the timelapse
-          without refreshing. 
+          without refreshing.
     - [x] VR timelapse should default to 1x.
     - [x] Colored stripey progress.
     - [x] Wand should be hidden when a player is running.
     - [x] All controller buttons should be disabled when a player is running.
     - [x] Make wand render again / get WebVR working.
     - [x] Kill any errors.
-    - [x] Zoom out a proper distance based on aspect ratio. 
+    - [x] Zoom out a proper distance based on aspect ratio.
     - [x] WebGL Layer and software Layer are off by 1 or a fraction of a pixel on iPhone. (Bottom)
-    - [x] Fix double reconstructing loading bar code. 
+    - [x] Fix double reconstructing loading bar code.
     - [x] Draw the full wand preview and include size changes!
     - [x] Add new Discord update script.
       - See also: https://github.com/fieu/discord.sh
     - [x] Don't advance a playing demo if tabbed out.
     - [x] Make "preview" mesh rotate correctly (90deg on one axis?)
       - [x] Use `ff 2 1` as a test case.
-    - [x] Don't cull the preview wand. 
+    - [x] Don't cull the preview wand.
     - [x] Loading `instant` style should be chunked to avoid crashes
          on lower end hardware and also to enable "..." animation on "Reconstructing...".
     - [x] Show progress bar for Reconstructing.
@@ -1156,14 +1181,14 @@
     - [x] Show capForm "preview" in demo mode.
     - [x] Wand should be "thicker".
     - [x] Get loading working much nicer both in playback mode and
-           in "instant" mode with a visual progress indicator of some kind. 
+           in "instant" mode with a visual progress indicator of some kind.
     - [x] Fetch progress bar.
       - [x] Don't show progress bar if things have already downloaded...
     - [x] Put yellow spinner on special little delay.
-    - [x] Make intial boot fuzz a much lower resolution. 
+    - [x] Make intial boot fuzz a much lower resolution.
     - [x] What isn't being auto-rotated?
         - [x] Capform
-    - [x] Start spinning, at a high rate, (about 30seconds max timelapse) 
+    - [x] Start spinning, at a high rate, (about 30seconds max timelapse)
     - [x] Add ability to hide / customize hud text.
     - [x] Make sure iframe mockup works for `ff`: https://localhost:8888/sandboxed-iframe-mockup.html
     - All Pieces
@@ -1174,7 +1199,7 @@
       - `sign`
         - [x] Paste a signature with timestamp in the corner.
               that is NOT opaque and in the bottom left corner.
-    - [x] Review spreadsheet metadata: https://docs.google.com/spreadsheets/d/10aeN4WyTQ1UQUT9-IUbKFdoeEfkumqM6_8mvFs5dVq8/edit#gid=1052521247 
+    - [x] Review spreadsheet metadata: https://docs.google.com/spreadsheets/d/10aeN4WyTQ1UQUT9-IUbKFdoeEfkumqM6_8mvFs5dVq8/edit#gid=1052521247
 
 *** Painting w/ Signature for Yeche Lange***
   + Done
@@ -1182,7 +1207,7 @@
   - `line`
     - [x] Add line thickness...
       - [x] Make pppline if thickness is 1
-    - [x] Fix color inconsistencies among screen and painting. 
+    - [x] Fix color inconsistencies among screen and painting.
     - [x] Add ? ? ? options with ? expansion?
   - `no`
     - [x] Undo / redo a step.
@@ -1256,13 +1281,13 @@
       eg. sage/piece
   - [x] Prompt
   - [x] Index
- - [x] Up arrow for previous command. 
- - [x] Update MOTD. 
+ - [x] Up arrow for previous command.
+ - [x] Update MOTD.
 
 *** Safari Day ***
 - [-] Thin lines appearing from `gap` and no gap in mobile Safari.
 - [x] Grey selection bubble appears in mobile Safari.
-- [x] Loading spinner not appearing in mobile Safari. 
+- [x] Loading spinner not appearing in mobile Safari.
 - [x] Fix iOS Safari page refresh bug. (Test on MacBook Pro)
   (Needed `Vary: *` http header, to prevent Safari's cache from bugging out
   on the SharedArrayBuffer / isolatedOrigin CORS headers.)
@@ -1287,11 +1312,11 @@
 - [x] Should og:image and twitter:image have file extensions?
 
 ***L8 Night***
-- [x] Get a debugger working. 
+- [x] Get a debugger working.
 
 ***2D Drawing Primitives for Niki***
  - [x] line from point... at angle with distance
- 
+
 ***Routing & Twitter Cards***
  - [X] Figure out how to get open-graph info and twitter cards working for all of a.c?
       - [X] How should the og:images be made? Perhaps a special tool is needed or screenshots
@@ -1313,7 +1338,7 @@
       - [x] follow the logic through to check for inconsistencies.
       - [x] Remove `search` from `disk.js` load. (Deprecrate reading queryParams
         at the disk level... they should only be reserved for system settings?)
-- [x] Also, the page can't refresh and the path gets rewritten improperly. 
+- [x] Also, the page can't refresh and the path gets rewritten improperly.
 - [x] Get `niki.aesthetic.computer` running.
 - [x] Get a prototype of Niki's piece working that she can actually edit as the first user.
 
@@ -1333,6 +1358,6 @@
 
 🐛 Completed Bugs & Regressions
 - [X] Check to see why custom thumbnails are broken for remote URL disks.
-- [X] `wg` disks no longer work 
+- [X] `wg` disks no longer work
 - [X] Kill any microphone (or video) connection after leaving a piece it's connected to.
 - [X] Routing: Check ~tilde~ key - don't push duplicate states in the history.

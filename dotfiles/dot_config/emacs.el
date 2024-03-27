@@ -4,8 +4,8 @@
 ;; (add-to-list 'default-frame-alist '(fullscreen . maximized))
 ;; (add-to-list 'default-frame-alist '(undecorated . t))
 
-(when (window-system)
-  (load-theme 'wombat t))
+;; (when (window-system)
+;;  (load-theme 'wombat t))
 
 ;; (load-theme 'wombat t)
 
@@ -22,6 +22,8 @@
 ;; (setq tab-line-tab-max-width 20) ; Adjust the number as needed
 
 (setq scroll-step 1)
+
+(global-auto-revert-mode 1) ;; Always keep buffers up to date with disk.
 
 ;;(setq display-buffer-alist
 ;;      '((".*" . (display-buffer-reuse-window display-buffer-below-selected))))
@@ -62,9 +64,16 @@
  ;; If there is more than one, they won't work right.
  ;; '(fill-column-indicator ((t (:foreground "yellow"))))
  ;; '(origami-fold-face ((t (:inherit magenta :weight bold))))
- '(tab-bar ((t (:height 1.0 :background "brightyellow"))))
+ ;; '(tab-bar ((t (:height 1.0 :background "brightyellow"))))
  '(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :inverse-video t)))))
  ;; '(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :background "yellow")))))
+
+;; (defun windows-custom-set-faces ()
+;;  (when (eq system-type 'windows-nt)
+    ;; Add your face remappings here. For example:
+;;  (add-to-list 'face-remapping-alist '(tab-bar-tab (:background "orange"))))
+
+;; (add-hook 'after-init-hook 'windows-custom-set-faces)
 
 (setq inhibit-startup-screen t) ;; Disable startup message.
 (setq eshell-banner-message "") ;; No eshell banner.
@@ -124,14 +133,13 @@
                   (fringe-mode 0)
                   ))))
 
-(when (not (display-graphic-p))
-  ;; Set internal border width for TUI
-  (setq default-frame-alist
-        (append default-frame-alist '((internal-border-width . 10))))
-
-  ;; Set fringes for TUI
-  (setq-default left-fringe-width  10)
-  (setq-default right-fringe-width 10))
+;; (when (not (display-graphic-p))
+;; ;; Set internal border width for TUI
+;; (setq default-frame-alist
+;;   (append default-frame-alist '((internal-border-width . 10))))
+;; ;; Set fringes for TUI
+;; (setq-default left-fringe-width  10)
+;; (setq-default right-fringe-width 10))
 
 (setq-default scroll-bar-mode 'right)
 
@@ -204,6 +212,82 @@
   (load bootstrap-file nil 'nomessage))
 
 (setq straight-use-package-by-default t)
+
+;; Enable vertico
+(use-package vertico
+  :init
+  (vertico-mode)
+
+  ;; Different scroll margin
+  ;; (setq vertico-scroll-margin 0)
+
+  ;; Show more candidates
+  ;; (setq vertico-count 20)
+
+  ;; Grow and shrink the Vertico minibuffer
+  ;; (setq vertico-resize t)
+
+  ;; Optionally enable cycling for `vertico-next' and `vertico-previous'.
+  ;; (setq vertico-cycle t)
+  )
+
+;; Persist history over Emacs restarts. Vertico sorts by history position.
+(use-package savehist
+  :init
+  (savehist-mode))
+
+;; A few more useful configurations...
+(use-package emacs
+  :init
+  ;; Add prompt indicator to `completing-read-multiple'.
+  ;; We display [CRM<separator>], e.g., [CRM,] if the separator is a comma.
+  (defun crm-indicator (args)
+    (cons (format "[CRM%s] %s"
+                  (replace-regexp-in-string
+                   "\\`\\[.*?]\\*\\|\\[.*?]\\*\\'" ""
+                   crm-separator)
+                  (car args))
+          (cdr args)))
+  (advice-add #'completing-read-multiple :filter-args #'crm-indicator)
+
+  ;; Do not allow the cursor in the minibuffer prompt
+  (setq minibuffer-prompt-properties
+        '(read-only t cursor-intangible t face minibuffer-prompt))
+  (add-hook 'minibuffer-setup-hook #'cursor-intangible-mode)
+
+  ;; Support opening new minibuffers from inside existing minibuffers.
+  (setq enable-recursive-minibuffers t)
+
+  ;; Emacs 28 and newer: Hide commands in M-x which do not work in the current
+  ;; mode.  Vertico commands are hidden in normal buffers. This setting is
+  ;; useful beyond Vertico.
+  (setq read-extended-command-predicate #'command-completion-default-include-p))
+
+;; Optionally use the `orderless' completion style.
+(use-package orderless
+  :init
+  ;; Configure a custom style dispatcher (see the Consult wiki)
+  ;; (setq orderless-style-dispatchers '(+orderless-consult-dispatch orderless-affix-dispatch)
+  ;;       orderless-component-separator #'orderless-escapable-split-on-space)
+  (setq completion-styles '(orderless basic)
+        completion-category-defaults nil
+        completion-category-overrides '((file (styles partial-completion)))))
+
+;; Enable rich annotations using the Marginalia package
+(use-package marginalia
+  ;; Bind `marginalia-cycle' locally in the minibuffer.  To make the binding
+  ;; available in the *Completions* buffer, add it to the
+  ;; `completion-list-mode-map'.
+  :bind (:map minibuffer-local-map
+         ("M-A" . marginalia-cycle))
+
+  ;; The :init section is always executed.
+  :init
+
+  ;; Marginalia must be activated in the :init section of use-package such that
+  ;; the mode gets enabled right away. Note that this forces loading the
+  ;; package.
+  (marginalia-mode))
 
 ;;(when (window-system)
 ;; (if (display-graphic-p)
@@ -299,7 +383,9 @@
 (use-package dockerfile-mode) ;; Dockerfile support.
 (use-package fish-mode) ;; Fish shell syntax.
 
-;; (use-package gptel) ;; ChatGPT / LLM support.
+(use-package gptel) ;; ChatGPT / LLM support.
+(setq gptel-api-key (getenv "OPENAI_API_KEY"))
+;; Optional: set `gptel-api-key` to the API key.
 ;; (use-package chatgpt-shell
 ;;  :custom
 ;;  ((chatgpt-shell-openai-key
@@ -346,8 +432,10 @@
       (kill-buffer current-buffer))
 
     ;; If it's the last window in the tab but not the last tab, close the tab
-    (when (and is-last-window (not is-last-tab))
-      (tab-bar-close-tab))))
+    ;; (when (and is-last-window (not is-last-tab))
+    ;;   (tab-bar-close-tab)))
+)
+  )
 
 ;; Bind the function to :q in Evil mode
 (with-eval-after-load 'evil
@@ -434,47 +522,86 @@
 ;;  (eat "fish -c 'npm run site'")
 ;;  (with-current-buffer "*eat*" (rename-buffer "eat-site" t)))
 
-;; Must be run from the aesthetic-computer directory.
+;;;; Must be run from the aesthetic-computer directory.
+;;(defun aesthetic-backend ()
+;;  "Run npm commands in eat, each in a new tab named after the command. Use 'prompt' for 'shell' and 'url' in split panes, and 'stripe' for 'stripe-print' and 'stripe-ticket'."
+;;  (interactive)
+;;  ;; Define the directory path
+;;  (let ((directory-path "~/aesthetic-computer/micro")
+;;        (commands '("shell" "site" "session" "redis" "edge" "stripe-print" "stripe-ticket"))
+;;        prompt-tab-created stripe-tab-created)
+;;    ;; Iterate over the commands
+;;    (tab-rename "source")
+;;    (find-file "~/aesthetic-computer/README.txt")
+;;    (dolist (cmd commands)
+;;      (cond
+;;       ;; For 'stripe-print' and 'stripe-ticket', split the 'stripe' tab vertically
+;;       ((or (string= cmd "stripe-print") (string= cmd "stripe-ticket"))
+;;        (unless stripe-tab-created
+;;          (tab-new)
+;;          (tab-rename " 💳 stripe")
+;;          (setq stripe-tab-created t))
+;;        (when (string= cmd "stripe-ticket")
+;;          (split-window-below)
+;;          (other-window 1))
+;;        (let ((default-directory directory-path))
+;;          ;; Open a new vterm and send the command
+;;          ;; (eat (format "fish -c 'npm run %s'" cmd))
+;;          (eat (format "fish -c 'ac-%s'" cmd))
+;;          (with-current-buffer "*eat*" (rename-buffer (format "📠-%s" cmd) t))
+;;          ))
+;;       ;; For all other commands, create new tabs.
+;;       (t
+;;        (tab-new)
+;;        ;; TODO: Match emojis to tab names here.
+;;        (tab-rename (format "%s" cmd))
+;;
+;;        (let ((default-directory directory-path))
+;;	  ;; Open a new terminal and send the command
+;;	  ;; (eat (format "fish -c 'npm run %s'" cmd))
+;;    (eat (format "fish -c 'ac-%s'" cmd))
+;;	  (with-current-buffer "*eat*" (rename-buffer (format "eat-%s" cmd) t))
+;;	  ))))
+;;    )
+;;  ;; Switch to the tab named "scratch"
+;;  (let ((tabs (tab-bar-tabs)))
+;;    (dolist (tab tabs)
+;;      (when (string= (alist-get 'name tab) "shell")
+;;        (tab-bar-switch-to-tab (alist-get 'name tab))))))
+
+;; Solve the todo above and rewrite the code.
+
+
+;; Updated function with emojis for tab names
 (defun aesthetic-backend ()
   "Run npm commands in eat, each in a new tab named after the command. Use 'prompt' for 'shell' and 'url' in split panes, and 'stripe' for 'stripe-print' and 'stripe-ticket'."
   (interactive)
-  ;; Define the directory path
   (let ((directory-path "~/aesthetic-computer/micro")
         (commands '("shell" "site" "session" "redis" "edge" "stripe-print" "stripe-ticket"))
+        (emoji-for-command
+         '(("shell" . "🐚") ("site" . "🌐") ("session" . "🔒") ("redis" . "🔄") ("edge" . "📶") ("stripe-print" . "💳 🖨️") ("stripe-ticket" . "💳🎫")))
         prompt-tab-created stripe-tab-created)
-    ;; Iterate over the commands
-    (tab-rename "source")
+    (tab-rename "📂 source")
     (find-file "~/aesthetic-computer/README.txt")
     (dolist (cmd commands)
       (cond
-       ;; For 'stripe-print' and 'stripe-ticket', split the 'stripe' tab vertically
        ((or (string= cmd "stripe-print") (string= cmd "stripe-ticket"))
         (unless stripe-tab-created
           (tab-new)
-          (tab-rename " 💳stripe")
+          (tab-rename "💳 stripe")
           (setq stripe-tab-created t))
         (when (string= cmd "stripe-ticket")
           (split-window-below)
           (other-window 1))
         (let ((default-directory directory-path))
-          ;; Open a new vterm and send the command
-          ;; (eat (format "fish -c 'npm run %s'" cmd))
           (eat (format "fish -c 'ac-%s'" cmd))
-          (with-current-buffer "*eat*" (rename-buffer (format "📠-%s" cmd) t))
+          (with-current-buffer "*eat*" (rename-buffer (format "%s-%s" (cdr (assoc cmd emoji-for-command)) cmd) t))
           ))
-       ;; For all other commands, create new tabs.
        (t
         (tab-new)
-        (tab-rename (format "%s" cmd))
+        (tab-rename (format "%s %s" (cdr (assoc cmd emoji-for-command)) cmd))
         (let ((default-directory directory-path))
-	  ;; Open a new terminal and send the command
-	  ;; (eat (format "fish -c 'npm run %s'" cmd))
-    (eat (format "fish -c 'ac-%s'" cmd))
-	  (with-current-buffer "*eat*" (rename-buffer (format "eat-%s" cmd) t))
-	  ))))
-    )
-  ;; Switch to the tab named "scratch"
-  (let ((tabs (tab-bar-tabs)))
-    (dolist (tab tabs)
-      (when (string= (alist-get 'name tab) "shell")
-        (tab-bar-switch-to-tab (alist-get 'name tab))))))
+          (eat (format "fish -c 'ac-%s'" cmd))
+          (with-current-buffer "*eat*" (rename-buffer (format "%s-%s" (cdr (assoc cmd emoji-for-command)) cmd) t))
+          ))))
+    (tab-bar-switch-to-tab "🐚 shell")))
