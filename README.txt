@@ -42,39 +42,18 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** emacs fixes ***
-  - [-] Opening a new file should always open a new buffer that splits the current one.
-  - [] Replace 'helm' with vertico / embark and other stuff: https://www.youtube.com/watch?v=d3aaxOqwHhI
-  - [] Color the tab-bar face differently.
+*** new emacs features ***
   - [] Add emoji to each tab-bar item.
-  - [] Add the 'chat' tab-bar item.
-  - [] Subtle issues with buffer rendering after mixing eat terminals and splits...
+    - [] Use gptel.
+  - [] Choose a default dark theme and make a manual switch.
+  - [-] Add the 'chat' tab-bar item.
+  - [?] Subtle issues with buffer rendering after mixing eat terminals and splits...
   - [] `./aesthetic` should open emacs with a shell as well
        and also pop up open the web browser somehow... and split
        the screen too?
   - [] it could show some kind of cool interstitial page while the platform
         loads on a different port?
   - [] Add some kind of gpt mode for inline source replacement.
-  + Done
-  - [x] Get rid of terminal warning when opening 'eat'.
-  - [x] Open 'eat' terminals to 'aesthetic-computer'.
-  - [x] Add ascii scroll bars.
-  - [x] Make sure I always have access to the production udp server.
-  - [x] fix ctrl+tab on windows
-  - [c] Include "assets" directory in ctrl+p helm search?
-        (just use ctrl+x and ctrl+f to find file or whatever)
-  - [x] Add code-folding (check out origami or vimdiff mode?)
-    - [x] It should use `zc` and respect my #region marks.
-  - [x] Tab theme needs to make sense.
-  - [x] :q in evil mode should never quit emacs unless it's the last buffer?
-  - [x] Add line numbers back.
-  - [x] Make ctrl+p open instantly in a terminal mode.
-  - [x] Make the `aesthetic-backend` function work in gui and terminal emacs.
-       inside docker and outside.
-  - [x] JavaScript auto-indent needs to be 2 spaces wide
-  - [x] Javascript auto-close braces / brackets not working.
-  - [x] Add gutter at 80 character width.
-  - [x] Save on leave buffer / clicking out of buffer.
 
 *** webvm / xterm ***
   - [] Explore using xterm: https://xtermjs.org/
