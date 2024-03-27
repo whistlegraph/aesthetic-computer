@@ -43,14 +43,17 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** emacs inside vscode features ***
+  - [] Choose a default emacs theme... perhaps gruvbox again?
   - [] Add a "tab" opening mode to the vs-code extension, to support dual
        monitor development where the bottom monitor is full-screen.
        (This should enable more immersive development / help with monitoring.)
-  - [] Choose a default emacs theme perhaps gruvbox again?
-  - [] Get tab cycling shortcuts working / find other potential shortcut issues.
+       - In a week
+       (https://github.com/microsoft/vscode/issues/208790)
+  - [x] Get tab cycling shortcuts working / find other potential shortcut issues.
   - [] Split stripe tabs vertically.
-  - [] Notify with red dot on tab-name if terminal has spit output, auto-scroll?
   - [-] Add the 'chat' tab-bar item.
+  - [] Notify with red dot on tab-name if terminal has spit output.
+  - [] Autoscroll `eat` terminal?
   + Done
   - [c] How can I open the full one-window dev environment in one click?
   - [x] Subtle issues with buffer rendering after mixing eat terminals and splits... (had to do with emojis)
