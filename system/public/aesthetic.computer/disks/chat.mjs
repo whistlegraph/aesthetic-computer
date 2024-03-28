@@ -12,7 +12,7 @@
 let input, inputBtn, server;
 
 // 🥾 Boot
-function boot({ api, ui, send }) {
+function boot({ api, ui, send, net: { socket } }) {
 
   // 🧦 Socket Networking
   server = socket((id, type, content) => {
@@ -71,21 +71,16 @@ function boot({ api, ui, send }) {
     },
   );
 
-  inputBtn = new ui.Button(0, 0, 32, 32);
+  inputBtn = new ui.Button(64, 64, 32, 32);
   send({ type: "keyboard:soft-lock" });
 }
 
 // 🎨 Paint
-function paint({ wipe, screen, leaving }) {
+function paint({ api, ink, wipe, screen, leaving }) {
   wipe("brown");
 
   inputBtn.paint((btn) => {
-    ink("white", btn.down && btn.over ? 128 : 64).circle(
-      btn.box.x,
-      btn.box.y,
-      btn.box.w / 2,
-      true,
-    );
+    ink("white", btn.down && btn.over ? 128 : 64).box(btn.box);
   });
 
   if (input.canType && !leaving()) {
@@ -99,7 +94,7 @@ function paint({ wipe, screen, leaving }) {
 }
 
 // 🎪 Act
- function act({ event: e, hud, piece, send }) {
+ function act({ api, event: e, hud, piece, send }) {
   if (!input.canType) {
     // me.act(api);
 
@@ -165,7 +160,7 @@ function paint({ wipe, screen, leaving }) {
  }
 
 // 🧮 Sim
-function sim() {
+function sim({ api }) {
   input.sim(api); // 💬 Chat
 }
 

@@ -1,5 +1,8 @@
 #!/usr/bin/fish
 
+# generate certificates
+mkcert --cert-file localhost.pem --key-file localhost-key.pem localhost aesthetic.local 127.0.0.1 0.0.0.0
+
 # Define the certificate file name
 set CERT_FILE "localhost.pem"
 
