@@ -41,9 +41,9 @@ else
   echo "Vault unmounted :("
 end
 
-# generate ssl certificates
+# generate ssl certificates (if they don't already exist)
 cd /home/me/aesthetic-computer/ssl-dev
-mkcert --cert-file localhost.pem --key-file localhost-key.pem localhost aesthetic.local 127.0.0.1 0.0.0.0
+[ ! -f localhost.pem ] && [ ! -f localhost-key.pem ] && sudo fish fedora-install.fish
 
 # Initialize fnm and use the specified Node.js version.
 cd /home/me/aesthetic-computer

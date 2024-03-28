@@ -4341,6 +4341,7 @@ async function makeFrame({ data: { type, content } }) {
             data.key === "Escape") &&
           system !== "prompt" &&
           system !== "world" &&
+          currentText !== "chat" &&
           currentText !== "sign" &&
           currentPath !== "aesthetic.computer/disks/prompt"
         ) {
