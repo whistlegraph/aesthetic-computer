@@ -8,7 +8,7 @@ fi
 
 if [ -z "$(docker ps -aq -f name=aesthetic-container)" ]; then
     npm run build && \
-    docker run -d -p 8888:8888 -p 8889:8889 --hostname aesthetic \
+    docker run -d -p 8888:8888 -p 8889:8889 -p 8083:8083 --hostname aesthetic \
     --env-file .env --env-file github.env --env-file netlify.env \
     --env-file vercel.env --env-file stripe.env \
     -e GIT_USER_EMAIL="$(git config --global user.email)" \

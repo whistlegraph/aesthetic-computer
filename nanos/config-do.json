@@ -1,0 +1,6 @@
+{
+  "CloudConfig": {
+    "BucketName": "aesthetic-nanos",
+    "Zone": "sfo3"
+  }
+}

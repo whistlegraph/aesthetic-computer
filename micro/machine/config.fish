@@ -3,6 +3,9 @@ function fish_greeting
   printf "Ask with 'umm' and forget with 'nvm'\nor use 'code' and 'done' with 'copy'\nto generate and get code.\n\n"
 end
 
+# always start in aesthetic-computer directory
+cd ~/aesthetic-computer
+
 # rebuild the container after exiting with a special code ;)
 alias reload 'exit 70'
 
@@ -30,22 +33,27 @@ fish_add_path ~/.local/bin
 # add rust binaries to the shell path
 fish_add_path ~/.cargo/bin
 
+# add nanos ops binaries to the shell path
+fish_add_path ~/.ops/bin
+
 # Assume the daemon is running when entering emacs.
 # For fast config reloading.
 alias load "emacsclient -e '(kill-emacs)'; emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el; emacsclient -c --eval '(aesthetic-backend)'"
 
 alias ac 'cd ~/aesthetic-computer'
-alias ac-site 'cd ~/aesthetic-computer; clear; npm run site'
-alias ac-session 'cd ~/aesthetic-computer; clear; npm run server:session'
-alias ac-edge 'cd ~/aesthetic-computer; clear; npm run edge-micro'
-alias ac-stripe-print 'cd ~/aesthetic-computer; clear; npm run stripe-print-micro'
-alias ac-stripe-ticket 'cd ~/aesthetic-computer; clear; npm run stripe-ticket-micro'
-alias ac-url 'cd ~/aesthetic-computer; clear; npm run url'
+alias ac-site 'npm run site'
+alias ac-session 'npm run server:session'
+alias ac-edge 'clear; npm run edge-micro'
+alias ac-stripe-print 'npm run stripe-print-micro'
+alias ac-stripe-ticket 'npm run stripe-ticket-micro'
+alias ac-url 'clear; npm run url'
 alias ac-shell 'ac-url; fish'
 alias ac-redis 'redis-server' # ac monolith udp server management
 alias ac-udp 'ssh root@157.245.134.225' # ac monolith udp server management
 
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
+
+alias cat 'bat -p' # use bat for syntax highlighting instead of the `cat` default
 
 # a shell-gpt shortcut (must be all lowercase / otherwise quoted)
 function umm

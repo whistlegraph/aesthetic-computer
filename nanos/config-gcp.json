@@ -1,0 +1,27 @@
+{
+  "CloudConfig": {
+    "ProjectID": "aesthetic-computer",
+    "Zone": "us-west1-a",
+    "BucketName": "aesthetic-nanos"
+  },
+  "RunConfig": {
+    "Memory": "2G",
+    "Ports": [
+      "8083"
+    ]
+  },
+  "Klibs": [
+    "gcp",
+    "tls"
+  ],
+  "ManifestPassthrough": {
+    "gcp": {
+      "metrics": {
+        "interval": "120"
+      },
+      "logging": {
+        "log_id": "my_log"
+      }
+    }
+  }
+}

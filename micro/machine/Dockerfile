@@ -3,12 +3,14 @@ FROM fedora:latest
 # Update all packages.
 RUN dnf update -y
 
-# Install git, gcc, clang, and emacs (without x support) and python and the github cli
+# Install tree, git, gcc, clang, and emacs (without x support) and python and the github cli
 # And procps for the `ps` command that linux brew requires.
 # And the fish shell, and redis.
 # And the aws cli.
 # And add clipboard support.
-RUN dnf install -y git gcc clang emacs-nox python3 python3-pip gh procps fish util-linux-user redis awscli xclip xsel
+# And qemu as a kvm for nanos support.
+# And sbcl, for turning into a nanos package image and running common lisp.
+RUN dnf install -y which tree bat git gcc clang emacs-nox python3 python3-pip gh procps fish util-linux-user redis awscli xclip xsel qemu-kvm qemu-img sbcl
 
 # Add 'me' user.
 RUN useradd -m me && \
@@ -77,7 +79,7 @@ RUN mkdir -p .config/fish && \
 COPY config.fish .config/fish/config.fish
 
 # Add fnm configuration to Fish shell startup script
-RUN echo "fnm env --use-on-cd | source" >> /home/me/.config/fish/conf.d/fnm.fish
+RUN echo "fnm env --use-on-cd --log-level=quiet | source" >> /home/me/.config/fish/conf.d/fnm.fish
 
 COPY entry.fish /entry.fish
 
