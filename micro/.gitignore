@@ -1,6 +1,9 @@
 # javascript dependencies
 node_modules/
 
+# redis dumps
+dump.rdb
+
 # docker artifacts
 .local/
 .log/

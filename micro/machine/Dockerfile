@@ -35,6 +35,9 @@ WORKDIR /home/me
 # Install shell-gpt for the user.
 RUN pip3 install shell-gpt
 
+# Install OPS and Nanos: https://nanos.org/getting_started
+RUN curl https://ops.city/get.sh -sSfL | sh
+
 # Install linux brew.
 RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
