@@ -43,10 +43,18 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** chat ***
-  - [-] Add the 'chat' tab-bar item.
-  - [-] Add a `chat` command.
+  - [🟠] Spin up a nanos unikernel test server for the chat.
+
+  - [-] Add the 'chat' tab-bar item / CLI client that can log the chat
+        and also send messages?
+
+  - [x] Add a `chat` command with a persistently paginated list of
+        messages.
+    - [] These messages should send notifications of a new type.
+
   - [] Wire it into a new 2D renderer backend... try pixi.js?
-  - [] But `chat` should be everywhere?
+
+  - [] Should chat be everywhere?
     - [] Then abstract `chat` from that view.
   - [] Make a panel in the logs to watch it stream in.
   - [] It should persist in the database under a table.
