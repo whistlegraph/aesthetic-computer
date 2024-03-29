@@ -1,0 +1,1 @@
+For Google Cloud Deployment details: https://docs.ops.city/ops/google_cloud

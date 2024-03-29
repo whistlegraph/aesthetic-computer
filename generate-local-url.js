@@ -6,7 +6,7 @@ let bootUps = 0;
 const bootUpTimer = setInterval(() => {
   process.stdout.write("\x1Bc"); // Clear terminal.
   console.log(
-    bootUps % 2 === 0 ? `\n 🫠 Booting up...` : `\n 🥲 Booting up. . .`,
+    bootUps % 2 === 0 ? `\n 🫠  Booting up...` : `\n 🥲  Booting up. . .`,
   );
   bootUps += 1;
 }, 250);
@@ -36,11 +36,11 @@ async function constructUrl() {
       if (response.statusCode === 200) {
         clearInterval(bootUpTimer);
         process.stdout.write("\x1Bc"); // Clear terminal.
-        console.log(`😃 Welcome to Aesthetic Computer 😃`);
+        console.log(`\n😱 Welcome to Aesthetic Computer 🫠`);
         qrcode.generate(url, { small: true });
         console.log(`Local 💻️ https://localhost:8888`);
-        console.log(`  LAN 🫂 ${url} (QR code above)`);
-        console.log(`World 🌎 https://prompt.ac`);
+        console.log(`  LAN 🤗 ${url} (QR code above)`);
+        console.log(`World 🌎 https://prompt.ac\n`);
         break;
       }
     } catch (error) {
