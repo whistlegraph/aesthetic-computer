@@ -11,7 +11,6 @@
 
 let input, inputBtn, server;
 
-// 🥾 Boot
 function boot({ api, ui, send, net: { socket } }) {
 
   // 🧦 Socket Networking
@@ -75,7 +74,6 @@ function boot({ api, ui, send, net: { socket } }) {
   send({ type: "keyboard:soft-lock" });
 }
 
-// 🎨 Paint
 function paint({ api, ink, wipe, screen, leaving }) {
   wipe("brown");
 
@@ -93,7 +91,6 @@ function paint({ api, ink, wipe, screen, leaving }) {
   }
 }
 
-// 🎪 Act
  function act({ api, event: e, hud, piece, send }) {
   if (!input.canType) {
     // me.act(api);
@@ -159,17 +156,14 @@ function paint({ api, ink, wipe, screen, leaving }) {
   }
  }
 
-// 🧮 Sim
 function sim({ api }) {
   input.sim(api); // 💬 Chat
 }
 
-// 🥁 Beat
 // function beat() {
 //   // Runs once per metronomic BPM.
 // }
 
-// 👋 Leave
 // function leave() {
 //  // Runs once before the piece is unloaded.
 // }
