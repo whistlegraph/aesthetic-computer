@@ -7,7 +7,7 @@
     "pkg:sbcl": "ops pkg from-run /usr/bin/sbcl --name sbcl --version 2.3.6-2.fc39",
     "pkg:sbcl:finish-a": "mkdir -p ~/.ops/local_packages/sbcl_2.3.6-2.fc39/sysroot/lib && cp -r /usr/lib/sbcl ~/.ops/local_packages/sbcl_2.3.6-2.fc39/sysroot/lib",
     "pkg:sbcl:finish-b": "curl -o ~/.ops/local_packages/sbcl_2.3.6-2.fc39/sysroot/lib/quicklisp.lisp https://beta.quicklisp.org/quicklisp.lisp",
-    "pkg:sbcl:load": "ops pkg load -l sbcl_2.3.6-2.fc39 -p 8083 -a '--load hello.lisp'",
+    "pkg:sbcl:load": "ops pkg load -l sbcl_2.3.6-2.fc39 -a hello.lisp -p 8083 -v",
     "pkg:sbcl:tree": "tree ~/.ops/local_packages/sbcl_2.3.6-2.fc39",
     "pkg:clear": "rm -rf ~/.ops/local_packages",
     "dev": "ops pkg load eyberg/node:20.5.0 -p 8083 -n -a hi.js",
