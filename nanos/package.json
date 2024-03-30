@@ -3,14 +3,7 @@
   "version": "1.0.0",
   "description": "A nanosvm unikernel module for Aesthetic Computer infrastructure.",
   "scripts": {
-    "sbcl": "npm run pkg:clear; npm run pkg:sbcl; npm run pkg:sbcl:finish-a; npm run pkg:sbcl:finish-b; npm run pkg:sbcl:tree; npm run pkg:sbcl:load",
-    "pkg:sbcl": "ops pkg from-run /usr/bin/sbcl --name sbcl --version 2.3.6-2.fc39",
-    "pkg:sbcl:finish-a": "mkdir -p ~/.ops/local_packages/sbcl_2.3.6-2.fc39/sysroot/lib && cp -r /usr/lib/sbcl ~/.ops/local_packages/sbcl_2.3.6-2.fc39/sysroot/lib",
-    "pkg:sbcl:finish-b": "curl -o ~/.ops/local_packages/sbcl_2.3.6-2.fc39/sysroot/quicklisp.lisp https://beta.quicklisp.org/quicklisp.lisp; cp hello.lisp ~/.ops/local_packages/sbcl_2.3.6-2.fc39/sysroot; cp package.manifest ~/.ops/local_packages/sbcl_2.3.6-2.fc39",
-    "pkg:sbcl:load": "ops pkg load -c config-lisp.json -l sbcl_2.3.6-2.fc39 -a hello.lisp -p 8083 -v",
-    "pkg:sbcl:tree": "tree ~/.ops/local_packages/sbcl_2.3.6-2.fc39",
-    "pkg:clear": "rm -rf ~/.ops/local_packages",
-    "dev": "ops pkg load eyberg/node:20.5.0 -p 8083 -n -a hi.js",
+    "dev": "ops pkg load eyberg/node:20.5.0 -c config-js.json -p 8083 -n -a hi.mjs",
     "gcp:key": "export GOOGLE_APPLICATION_CREDENTIALS=./gcp-service-key.json",
     "gcp:deploy:image": "export GOOGLE_APPLICATION_CREDENTIALS=./gcp-service-key.json; ops image create -c config-gcp.json --package eyberg/node:20.5.0 -a hi.js -i aesthetic-static -t gcp -c config-gcp.json",
     "gcp:deploy:image:list": "export GOOGLE_APPLICATION_CREDENTIALS=./gcp-service-key.json; ops image list -t gcp -c config-gcp.json",
@@ -23,7 +16,17 @@
     "do:deploy:image:delete": "ops delete aesthetic-static -t do -c config-do.json",
     "do:deploy:instance": "f() { ops instance create aesthetic-static -t do -c config-do.json -i $1; };f",
     "do:deploy:instance:list": "ops instance list -j -t do -c config-do.json",
-    "do:deploy:instance:delete": "f() { ops instance delete $1 -t do -c config-do.json; };f"
+    "do:deploy:instance:delete": "f() { ops instance delete $1 -t do -c config-do.json; };f",
+    "sbcl": "npm run pkg:clear; npm run pkg:sbcl; npm run pkg:sbcl:finish-a; npm run pkg:sbcl:finish-b; npm run pkg:sbcl:tree; npm run pkg:sbcl:load",
+    "pkg:sbcl": "ops pkg from-run /usr/bin/sbcl --name sbcl --version 2.3.6-2.fc39",
+    "pkg:sbcl:finish-a": "mkdir -p ~/.ops/local_packages/sbcl_2.3.6-2.fc39/sysroot/lib && cp -r /usr/lib/sbcl ~/.ops/local_packages/sbcl_2.3.6-2.fc39/sysroot/lib",
+    "pkg:sbcl:finish-b": "curl -o ~/.ops/local_packages/sbcl_2.3.6-2.fc39/sysroot/quicklisp.lisp https://beta.quicklisp.org/quicklisp.lisp; cp hello.lisp ~/.ops/local_packages/sbcl_2.3.6-2.fc39/sysroot; cp package.manifest ~/.ops/local_packages/sbcl_2.3.6-2.fc39; cp -r quicklisp ~/.ops/local_packages/sbcl_2.3.6-2.fc39/sysroot",
+    "pkg:sbcl:load": "ops pkg load -l sbcl_2.3.6-2.fc39 -a hello.lisp -p 8083 -v",
+    "pkg:sbcl:tree": "tree ~/.ops/local_packages/sbcl_2.3.6-2.fc39",
+    "pkg:clear": "rm -rf ~/.ops/local_packages"
   },
-  "author": "Jeffrey Alan Scudder"
+  "author": "Jeffrey Alan Scudder",
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
 }

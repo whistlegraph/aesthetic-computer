@@ -1,11 +1,8 @@
 {
   "Args": [
-    "sbcl", "--load"
+    "/usr/bin/sbcl", "--script"
   ],
-  "Program": "sbcl_2.3.6-2.fc39/sbcl",
+  "Program": "sbcl_2.3.6-2.fc39//usr/bin/sbcl",
   "Version": "2.3.6-2.fc39",
-  "BaseVolumeSz": "2g",
-  "RunConfig": {
-    "CPUs": 2
-  }
+  "BaseVolumeSz": "2g"
 }
