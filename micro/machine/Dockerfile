@@ -9,8 +9,9 @@ RUN dnf update -y
 # And the aws cli.
 # And add clipboard support.
 # And qemu as a kvm for nanos support.
-# And sbcl, for turning into a nanos package image and running common lisp.
-RUN dnf install -y which tree bat git gcc clang emacs-nox python3 python3-pip gh procps fish util-linux-user redis awscli xclip xsel qemu-kvm qemu-img sbcl
+# - And bzip2, required by roswell. 
+# - And sbcl?
+RUN dnf install -y which tree bat git gcc clang emacs-nox python3 python3-pip gh procps fish util-linux-user redis awscli xclip xsel qemu-kvm qemu-img
 
 # Add 'me' user.
 RUN useradd -m me && \
@@ -51,6 +52,9 @@ ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
 
 # Install local ssl certificate generator.
 RUN brew install mkcert
+
+# Install roswell lisp manager
+# RUN brew install roswell
 
 # Install tree-sitter, for emacs parsing.
 # RUN brew install tree-sitter

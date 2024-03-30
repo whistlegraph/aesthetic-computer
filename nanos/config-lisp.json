@@ -1,6 +1,0 @@
-{
-  "Args": [
-    "--load", "hello.lisp"
-  ],
-  "BaseVolumeSz": "2g"
-}
