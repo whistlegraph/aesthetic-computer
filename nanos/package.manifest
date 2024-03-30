@@ -1,0 +1,11 @@
+{
+  "Args": [
+    "sbcl", "--load"
+  ],
+  "Program": "sbcl_2.3.6-2.fc39/sbcl",
+  "Version": "2.3.6-2.fc39",
+  "BaseVolumeSz": "2g",
+  "RunConfig": {
+    "CPUs": 2
+  }
+}
