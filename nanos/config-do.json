@@ -1,6 +1,18 @@
 {
+  "Dirs": [
+    "node_modules"
+  ],
+  "Files": [
+    "package-lock.json"
+  ],
   "CloudConfig": {
     "BucketName": "aesthetic-nanos",
     "Zone": "sfo3"
+  },
+  "RunConfig": {
+    "Memory": "1G",
+    "Ports": [
+      "8083"
+    ]
   }
 }
