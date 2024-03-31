@@ -9,9 +9,10 @@ RUN dnf update -y
 # And the aws cli.
 # And add clipboard support.
 # And qemu as a kvm for nanos support.
-# - And bzip2, required by roswell. 
+# - And bzip2, required by roswell.
 # - And sbcl?
-RUN dnf install -y which tree bat git gcc clang emacs-nox python3 python3-pip gh procps fish util-linux-user redis awscli xclip xsel qemu-kvm qemu-img
+# - And jq for parsing json.
+RUN dnf install -y which tree bat git gcc clang emacs-nox python3 python3-pip gh procps fish util-linux-user redis awscli xclip xsel qemu-kvm qemu-img jq
 
 # Add 'me' user.
 RUN useradd -m me && \
@@ -52,6 +53,9 @@ ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
 
 # Install local ssl certificate generator.
 RUN brew install mkcert
+
+# Install cloudflared management cli.
+# RUN brew install cloudflared
 
 # Install roswell lisp manager
 # RUN brew install roswell
