@@ -4,9 +4,7 @@
   "description": "A nanosvm unikernel module for Aesthetic Computer infrastructure.",
   "type": "module",
   "scripts": {
-    "cf:update": "curl -X PUT \"https://api.cloudflare.com/client/v4/zones/da794a6ae8f17b80424907f81ed0db7c/dns_records/50f09be936575a0ec28a0d238d27f7a0\" -H \"X-Auth-Key: $CLOUDFLARE_API_TOKEN\" -H \"X-Auth-Email: $CLOUDFLARE_EMAIL\" -H \"Content-Type: application/json\" --data '{\"type\": \"A\",\"name\": \"chat.aesthetic.computer\", \"content\":\"34.82.236.59\", \"ttl\":1, \"proxied\":true}'",
-    "cf:zones": "curl -X GET \"https://api.cloudflare.com/client/v4/zones\" -H \"X-Auth-Email: $CLOUDFLARE_EMAIL\" -H \"X-Auth-Key: $CLOUDFLARE_API_TOKEN\" -H \"Content-Type: application/json\" | jq .",
-    "cf:zone": "curl -X GET \"https://api.cloudflare.com/client/v4/zones/da794a6ae8f17b80424907f81ed0db7c/dns_records?type=A&name=chat.aesthetic.computer\" -H \"X-Auth-Email: $CLOUDFLARE_EMAIL\" -H \"X-Auth-Key: $CLOUDFLARE_API_TOKEN\" -H \"Content-Type: application/json\" | jq .",
+    "cf:update": "node conductor.mjs", 
     "do:deploy": "npm run do:deploy:image; npm run do:deploy:instance chat; npm run do:deploy:image:list; npm run do:deploy:instance:list",
     "gcp:deploy": "npm run gcp:destroy; npm run gcp:deploy:image; npm run gcp:deploy:instance chat; npm run gcp:deploy:image:list; npm run gcp:deploy:instance:list",
     "do:destroy": "npm run do:deploy:instance:delete chat; npm run do:deploy:image:delete aesthetic-chat",
