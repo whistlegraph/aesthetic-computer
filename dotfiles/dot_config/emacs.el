@@ -65,8 +65,8 @@
  ;; '(fill-column-indicator ((t (:foreground "yellow"))))
  ;; '(origami-fold-face ((t (:inherit magenta :weight bold))))
  '(tab-bar ((t (:height 1.0))))
- ;;'(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :inverse-video t)))))
- '(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :background "black")))))
+ '(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :inverse-video t)))))
+ ;;'(tab-bar-tab-inactive ((t (:inherit tab-bar-tab :background "black")))))
 
 
 ;; (defun windows-custom-set-faces ()

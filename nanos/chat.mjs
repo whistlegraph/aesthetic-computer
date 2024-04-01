@@ -12,9 +12,13 @@ import http from "http";
 console.log("Environment:", process.env);
 
 const server = http.createServer((req, res) => {
+  const domain = req.headers.host; // Get the domain from the request
   res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end("😱 Aesthetic Computer\n");
+  res.end(`😱 Aesthetic Computer\nDomain: ${domain}`);
 });
+
+// Rest of your server code, like server.listen(...)
+
 
 const port = process.env.NODE_ENV === "development" ? 8083 : 80;
 
