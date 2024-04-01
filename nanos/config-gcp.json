@@ -9,8 +9,7 @@
     "Platform": "gcp",
     "ProjectID": "aesthetic-computer",
     "Zone": "us-west1-a",
-    "BucketName": "aesthetic-nanos",
-    "DomainName": "chat.aesthetic.computer"
+    "BucketName": "aesthetic-nanos"
   },
   "RunConfig": {
     "Memory": "1G",
