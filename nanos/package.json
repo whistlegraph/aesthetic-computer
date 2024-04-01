@@ -4,11 +4,11 @@
   "description": "A nanosvm unikernel module for Aesthetic Computer infrastructure.",
   "type": "module",
   "scripts": {
-    "cf:update": "node conductor.mjs", 
+    "cf:update": "node conductor.mjs",
     "do:deploy": "npm run do:deploy:image; npm run do:deploy:instance chat; npm run do:deploy:image:list; npm run do:deploy:instance:list",
-    "gcp:deploy": "npm run gcp:destroy; npm run gcp:deploy:image; npm run gcp:deploy:instance chat; npm run gcp:deploy:image:list; npm run gcp:deploy:instance:list",
+    "gcp:deploy": "f() { npm run gcp:destroy $1; npm run gcp:deploy:image; npm run gcp:deploy:instance $1; npm run gcp:deploy:image:list; npm run gcp:deploy:instance:list; };f",
     "do:destroy": "npm run do:deploy:instance:delete chat; npm run do:deploy:image:delete aesthetic-chat",
-    "gcp:destroy": "npm run gcp:deploy:instance:delete chat; npm run gcp:deploy:image:delete aesthetic-chat",
+    "gcp:destroy": "f() { npm run gcp:deploy:instance:delete $1; npm run gcp:deploy:image:delete aesthetic-chat; };f",
     "dev": "npm install; ops pkg load eyberg/node:20.5.0 -c config-gcp.json -n -e NODE_ENV=development -a chat.mjs",
     "gcp:key": "export GOOGLE_APPLICATION_CREDENTIALS=./gcp-service-key.json",
     "gcp:deploy:image": "export GOOGLE_APPLICATION_CREDENTIALS=./gcp-service-key.json; ops image create -c config-gcp.json --package eyberg/node:20.5.0 -a chat.mjs -i aesthetic-chat -t gcp",
@@ -34,5 +34,8 @@
   "author": "Jeffrey Alan Scudder",
   "dependencies": {
     "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.5"
   }
 }
