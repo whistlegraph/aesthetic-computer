@@ -54,6 +54,9 @@ ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
 # Install local ssl certificate generator.
 RUN brew install mkcert
 
+# Install local websocat cli testing tool.
+RUN brew install websocat
+
 # Install cloudflared management cli.
 # RUN brew install cloudflared
 
@@ -75,6 +78,10 @@ RUN brew install fnm && \
 # Copy over a custom xdg-open for opening browser URLs on the host.
 COPY xdg-open.fish /usr/local/bin/xdg-open
 RUN sudo chmod +x /usr/local/bin/xdg-open
+
+# Clone isomorphic copy.
+# Must also be cloned in ~ of host machine and add isomorphic_copy/bin to PATH
+RUN git clone https://github.com/ms-jpq/isomorphic_copy
 
 # Copy emacs config.
 COPY emacs.el .emacs
