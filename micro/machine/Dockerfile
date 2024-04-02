@@ -28,7 +28,7 @@ RUN mkdir -p /home/linuxbrew/.linuxbrew && \
     chown -R me:me /home/linuxbrew/.linuxbrew
 
 # Download and install the Stripe CLI
-RUN curl -sL https://github.com/stripe/stripe-cli/releases/download/v1.19.3/stripe_1.19.3_linux_x86_64.tar.gz | tar xz -C /usr/local/bin
+RUN curl -sL https://github.com/stripe/stripe-cli/releases/download/v1.19.4/stripe_1.19.4_linux_x86_64.tar.gz | tar xz -C /usr/local/bin
 
 # Switch to current user.
 USER me
