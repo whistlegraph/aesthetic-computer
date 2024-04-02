@@ -540,13 +540,13 @@
 ;;  (with-current-buffer "*eat*" (rename-buffer "eat-site" t)))
 
 ;; Updated function with emojis for tab names
-(defun aesthetic-backend ()
+(defun aesthetic-backend (target-tab)
   "Run npm commands in eat, each in a new tab named after the command. Use 'prompt' for 'shell' and 'url' in split panes, and 'stripe' for 'stripe-print' and 'stripe-ticket'."
   (interactive)
   (let ((directory-path "~/aesthetic-computer/micro")
-        (commands '("shell" "site" "session" "redis" "edge" "stripe-print" "stripe-ticket"))
+        (commands '("shell" "site" "session" "redis" "edge" "stripe-print" "stripe-ticket" "servers" "chat"))
         (emoji-for-command
-         '(("shell" . "🐚") ("site" . "🌐") ("session" . "🔒") ("redis" . "🔄") ("edge" . "📶") ("stripe-print" . "💳 🖨️") ("stripe-ticket" . "💳🎫")))
+         '(("shell" . "🐚") ("site" . "📰") ("session" . "🔒") ("redis" . "🔄") ("edge" . "📶") ("stripe-print" . "💳 🖨️") ("stripe-ticket" . "💳🎫") ("servers" . "🤖") ("chat" . "💬")))
         prompt-tab-created stripe-tab-created)
     (tab-rename "📂 source")
     (find-file "~/aesthetic-computer/README.txt")
@@ -571,4 +571,9 @@
           (eat (format "fish -c 'ac-%s'" cmd))
           (with-current-buffer "*eat*" (rename-buffer (format "%s-%s" (cdr (assoc cmd emoji-for-command)) cmd) t) (end-of-buffer t))
           ))))
-    (tab-bar-switch-to-tab "🐚 shell")))
+
+  (let ((tab-emoji (cdr (assoc target-tab emoji-for-command))))
+    (if tab-emoji
+        (let ((tab-name (format "%s %s" tab-emoji target-tab)))
+          (tab-bar-switch-to-tab tab-name))
+      (message "No such tab: %s" target-tab)))))
