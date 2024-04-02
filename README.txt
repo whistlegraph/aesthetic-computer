@@ -45,9 +45,9 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** chat ***
   - [🟠] Spin up a nanos unikernel test server for the chat.
-    - [-] Deploy it to the google cloud.
-      - [] https://console.cloud.google.com/compute/instances?project=aesthetic-computer
-    - [] Add https and ssl and a subdomain.
+    - [x] Deploy it to the google cloud.
+      - [x] https://console.cloud.google.com/compute/instances?project=aesthetic-computer
+    - [x] Add https and ssl and a subdomain.
   - [-] Add the 'chat' tab-bar item / CLI client that can log the chat
         and also send messages?
   - [x] Add a `chat` command with a persistently paginated list of

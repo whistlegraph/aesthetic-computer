@@ -2,17 +2,21 @@
 // Orchestrates Cloudlfare DNS updates and deployment of unikernel servers
 // on GCP that they point to.
 
-/* #region 🏁 TODO 
-  - [-] Make this script work end-to-end with deletion and error handling
-       from the console.
+/* #region 🏁 TODO
   - [] B. Instance Management
           Check to see if an instance exists under the label.
           If it does, then just return that instance.
-          Otherwise make a new instance.
-  - [] C. Development
-          Add command to force restart an instance.
-  - [] Remodel this script so it can be deployed in online from a container /
-       just run it off the old udp server?
+          Otherwise make a new instance or request one to be unpaused.
+
+    - [] Does the instance already exist at the requested url?
+      - [] Yes!
+        - [] Return information that the client can connect / success.
+      - [] No...
+        - [] Unpause an instance / boot an instance from the pool.
+        - [] Assign DNS to it.
+        - [] Return information that the client can connect / success.
+
+          
 #endregion */
 
 import { spawn } from "child_process";
@@ -36,7 +40,7 @@ const headers = {
 // #endregion
 
 async function deploy() {
-  const out = await gcpDeploy(process.argv[2], true);
+  const out = await gcpDeploy(process.argv[2], process.argv[3] === "false" ? false : true);
 
   const parsed = JSON.parse(out);
   const ip = parsed[0]?.PublicIps?.[0];
@@ -45,64 +49,47 @@ async function deploy() {
     const sub = `${process.argv[2] || "chat"}.aesthetic.computer`;
     if (await createOrUpdateARecord(sub, ip)) {
       // Retry `curl` for about 5 seconds
-      console.log("💻 Testing HTTP connection...");
 
-      {
-        let attempts = 0;
-        const maxAttempts = 5;
-        let success = false;
+      async function attempt(command) {
+        const maxAttempts = 15;
+        let attempts = 0, success = false;
 
         while (attempts < maxAttempts && !success) {
           try {
-            await run("curl", ["-s", `https://${sub}`]);
+            await command();
             success = true; // If curl succeeds, set success to true
             console.log("\n");
           } catch (error) {
-            attempts++;
-            console.error("🔴 Attempt", attempts, "`curl` failed:", error);
+            attempts += 1;
+            console.error("🔴 Attempt", attempts, "failed:", error);
             if (attempts < maxAttempts) {
-              await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second before retrying
+              await new Promise((resolve) => setTimeout(resolve, 1000));
             }
           }
         }
 
         if (!success) {
-          console.error("🔴 `curl` failed after", maxAttempts, "attempts");
-          // Additional error handling or instance destruction logic can go here
+          console.error("🔴 Failed after", maxAttempts, "attempts");
           return;
         }
       }
+
+      console.log("💻 Testing HTTP connection...");
+
+      await attempt(async () => {
+        await run("curl", ["-s", `https://${sub}`]);
+      });
 
       console.log("🧦 Testing WebSocket connection...");
 
-      {
-        let attempts = 0;
-        const maxAttempts = 5;
-        let success = false;
+      await attempt(async () => {
+        const websocatCommand = `echo "hello" | websocat -1 wss://${sub}`;
+        await run("bash", ["-c", websocatCommand]);
+      });
 
-        while (attempts < maxAttempts && !success) {
-          try {
-            const websocatCommand = `echo "hello" | websocat -1 wss://${sub}`;
-            await run("bash", ["-c", websocatCommand]);
-            success = true; // If curl succeeds, set success to true
-          } catch (error) {
-            attempts++;
-            console.error("🔴 Attempt", attempts, "`curl` failed:", error);
-            if (attempts < maxAttempts) {
-              await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second before retrying
-            }
-          }
-        }
-
-        if (!success) {
-          console.error("🔴 `websocat` failed after", maxAttempts, "attempts");
-          // Additional error handling or instance destruction logic can go here
-          return;
-        }
-      }
     } else {
-      // Or die if the record update fails?
-      // This should probably also destroy the instance...
+      console.error("🔴 Failed to update A record for instance:", sub, "->", ip);
+      // This should also maybe destroy the instance in certain conditions.  
       return;
     }
   }
@@ -111,7 +98,14 @@ async function deploy() {
 // 🌟 Initialization
 
 try {
+  const start = new Date();
+  const startMillis = performance.now();
+  console.log("-> Starting deployment:", start);
   await deploy();
+  const end = new Date();
+  const endMillis = performance.now();
+  console.log("-> Completed:", end);
+  console.log("-> Elapsed:", (endMillis - startMillis) / 1000, "seconds");
 } catch (err) {
   console.error("🔴 Deploy failed:", err);
 }
@@ -158,10 +152,12 @@ async function createOrUpdateARecord(
   ip = "3.3.3.3",
 ) {
   const zoneId = (await fetchZone("aesthetic.computer"))?.id;
+
   if (!zoneId) {
     console.error("🔴 Zone ID not found for aesthetic.computer. Halting.");
     return;
   }
+
   const recordResponse = await fetchARecord(zoneId, sub);
   const record = recordResponse.result?.[0];
 
@@ -198,42 +194,37 @@ async function createOrUpdateARecord(
 
 // #endregion
 
-// #region MongoDB Adapter
-async function storeImageIdInMongo(imageId) {
-  const client = new MongoClient(MONGODB_CONNECTION_STRING, {
-    // useNewUrlParser: true,
-    // useUnifiedTopology: true,
-  });
+// #region 🗺️ MongoDB
+
+async function makeMongoConnection() {
+  const client = new MongoClient(MONGODB_CONNECTION_STRING);
   await client.connect();
   const db = client.db(MONGODB_NAME);
+  return { client, db }
+}
+
+async function storeImageNameInMongo(imageId) {
+  const { client, db } = await makeMongoConnection();
 
   // Use an upsert operation to ensure only one record is stored
   const result = await db
-    .collection("imageIdentifiers")
+    .collection("servers")
     .updateOne(
-      { _id: "uniqueImageId" },
-      { $set: { imageId: imageId } },
-      { upsert: true },
+      { _id: "lastImage" }, { $set: { name: imageId } }, { upsert: true },
     );
 
-  console.log("Image ID stored:", result);
+  console.log(result);
+  console.log("📥 Image name cached in MongoDB:", imageId);
   await client.close();
 }
 
 async function getImageIdFromMongo() {
-  const client = new MongoClient(MONGODB_CONNECTION_STRING, {
-    //useNewUrlParser: true,
-    //useUnifiedTopology: true,
-  });
-  await client.connect();
-  const db = client.db(MONGODB_NAME);
+  const { client, db } = await makeMongoConnection();
 
-  const result = await db
-    .collection("imageIdentifiers")
-    .findOne({ _id: "uniqueImageId" });
+  const result = await db.collection("servers").findOne({ _id: "lastImage" });
 
   await client.close();
-  return result ? result.imageId : null;
+  return result ? result.name : null;
 }
 
 // #endregion
@@ -251,13 +242,14 @@ async function gcpDeploy(instanceName, newImage) {
   if (newImage) {
     imageName = "aesthetic-" + new Date().getTime();
     await gcpPublishImage(imageName); // Upload new image.
-    await storeImageIdInMongo(imageName); // Store the image name in MongoDB.
+    await storeImageNameInMongo(imageName); // Store the image name in MongoDB.
   } else {
     imageName = await getImageIdFromMongo(); // Try and retrieve from MongoDB...
     if (!imageName) {
       console.log("🟡 No existing image found... publishing a new one.");
       return await gcpDeploy(instanceName);
     }
+    console.log("🗺️ Retrieved image identifier from MongoDB:", imageName);
   }
 
   console.log("🟡 Deploying instance...", instanceName);
@@ -351,7 +343,7 @@ async function gcpDestroyInstance(instanceName) {
 
 //#endregion
 
-// ⚙️ Utilities
+// ⚙️  Utilities
 
 function run(command, args = []) {
   return new Promise((resolve, reject) => {
@@ -368,11 +360,10 @@ function run(command, args = []) {
     });
 
     childProcess.on("close", (code) => {
-      // console.log(`🛑 Child process exited with code ${code}`);
       if (code === 0) {
         resolve(lastOut); // Resolve the promise with lastOut
       } else {
-        reject(`🔴 Child process exited with code ${code}`);
+        reject(`Child process exit code ${code}`);
       }
     });
   });
