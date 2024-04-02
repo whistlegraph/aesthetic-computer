@@ -175,6 +175,8 @@ end
 set PATH /home/jas/.fnm $PATH
 fnm env | source
 
+set -gx PATH $PATH $HOME/isomorphic_copy/bin
+
 set -gx TERM xterm-256color
 # OPS config
 export OPS_DIR="$HOME/.ops"

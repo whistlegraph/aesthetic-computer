@@ -3,24 +3,120 @@
 // on GCP that they point to.
 
 /* #region 🏁 TODO 
-  - [] Add a function for making an image as well.
-  - [] Spawn a GCP instance from this script / run 'ops'. 
+  - [-] Make this script work end-to-end with deletion and error handling
+       from the console.
+  - [] B. Instance Management
+          Check to see if an instance exists under the label.
+          If it does, then just return that instance.
+          Otherwise make a new instance.
+  - [] C. Development
+          Add command to force restart an instance.
   - [] Remodel this script so it can be deployed in online from a container /
        just run it off the old udp server?
 #endregion */
 
-import { exec, spawn } from "child_process";
+import { spawn } from "child_process";
+import { MongoClient } from "mongodb";
+
 import "dotenv/config";
 
+// #region 📊 Configuration
 const CLOUDFLARE_EMAIL = process.env.CLOUDFLARE_EMAIL;
 const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
 const CLOUDFLARE_BASE_URL = "https://api.cloudflare.com/client/v4";
+
+const MONGODB_CONNECTION_STRING = process.env.MONGODB_CONNECTION_STRING;
+const MONGODB_NAME = process.env.MONGODB_NAME;
 
 const headers = {
   "X-Auth-Email": CLOUDFLARE_EMAIL,
   "X-Auth-Key": CLOUDFLARE_API_TOKEN,
   "Content-Type": "application/json",
 };
+// #endregion
+
+async function deploy() {
+  const out = await gcpDeploy(process.argv[2], true);
+
+  const parsed = JSON.parse(out);
+  const ip = parsed[0]?.PublicIps?.[0];
+  if (ip) {
+    console.log("🧲 Instance IP:", ip);
+    const sub = `${process.argv[2] || "chat"}.aesthetic.computer`;
+    if (await createOrUpdateARecord(sub, ip)) {
+      // Retry `curl` for about 5 seconds
+      console.log("💻 Testing HTTP connection...");
+
+      {
+        let attempts = 0;
+        const maxAttempts = 5;
+        let success = false;
+
+        while (attempts < maxAttempts && !success) {
+          try {
+            await run("curl", ["-s", `https://${sub}`]);
+            success = true; // If curl succeeds, set success to true
+            console.log("\n");
+          } catch (error) {
+            attempts++;
+            console.error("🔴 Attempt", attempts, "`curl` failed:", error);
+            if (attempts < maxAttempts) {
+              await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second before retrying
+            }
+          }
+        }
+
+        if (!success) {
+          console.error("🔴 `curl` failed after", maxAttempts, "attempts");
+          // Additional error handling or instance destruction logic can go here
+          return;
+        }
+      }
+
+      console.log("🧦 Testing WebSocket connection...");
+
+      {
+        let attempts = 0;
+        const maxAttempts = 5;
+        let success = false;
+
+        while (attempts < maxAttempts && !success) {
+          try {
+            const websocatCommand = `echo "hello" | websocat -1 wss://${sub}`;
+            await run("bash", ["-c", websocatCommand]);
+            success = true; // If curl succeeds, set success to true
+          } catch (error) {
+            attempts++;
+            console.error("🔴 Attempt", attempts, "`curl` failed:", error);
+            if (attempts < maxAttempts) {
+              await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second before retrying
+            }
+          }
+        }
+
+        if (!success) {
+          console.error("🔴 `websocat` failed after", maxAttempts, "attempts");
+          // Additional error handling or instance destruction logic can go here
+          return;
+        }
+      }
+    } else {
+      // Or die if the record update fails?
+      // This should probably also destroy the instance...
+      return;
+    }
+  }
+}
+
+// 🌟 Initialization
+
+try {
+  await deploy();
+} catch (err) {
+  console.error("🔴 Deploy failed:", err);
+}
+
+// #region 🌥️ Cloudflare
 
 async function fetchZones() {
   const response = await fetch(`${CLOUDFLARE_BASE_URL}/zones`, { headers });
@@ -29,7 +125,7 @@ async function fetchZones() {
 
 async function fetchZone(zoneName) {
   const zones = await fetchZones();
-  console.log("Zones:", zones);
+  // console.log("Zones:", zones);
   return zones.result?.find((zone) => zone.name === zoneName);
 }
 
@@ -44,11 +140,7 @@ async function fetchARecord(zoneId, recordName) {
 async function updateDNSRecord(zoneId, recordId, data) {
   const response = await fetch(
     `${CLOUDFLARE_BASE_URL}/zones/${zoneId}/dns_records/${recordId}`,
-    {
-      method: "PUT",
-      headers,
-      body: JSON.stringify(data),
-    },
+    { method: "PUT", headers, body: JSON.stringify(data) },
   );
   return response.json();
 }
@@ -56,16 +148,15 @@ async function updateDNSRecord(zoneId, recordId, data) {
 async function createDNSRecord(zoneId, data) {
   const response = await fetch(
     `${CLOUDFLARE_BASE_URL}/zones/${zoneId}/dns_records`,
-    {
-      method: "POST",
-      headers,
-      body: JSON.stringify(data),
-    },
+    { method: "POST", headers, body: JSON.stringify(data) },
   );
   return response.json();
 }
 
-async function update(sub = "chat.aesthetic.computer", ip = "3.3.3.3") {
+async function createOrUpdateARecord(
+  sub = "chat.aesthetic.computer",
+  ip = "3.3.3.3",
+) {
   const zoneId = (await fetchZone("aesthetic.computer"))?.id;
   if (!zoneId) {
     console.error("🔴 Zone ID not found for aesthetic.computer. Halting.");
@@ -94,7 +185,7 @@ async function update(sub = "chat.aesthetic.computer", ip = "3.3.3.3") {
 
   if (response.success) {
     console.log(
-      `🌟 Success: ${record ? "Updated" : "Created"} the record for ${sub}`,
+      `🟢 Success: ${record ? "Updated" : "Created"} the record for ${sub}`,
     );
     return true;
   } else {
@@ -105,21 +196,164 @@ async function update(sub = "chat.aesthetic.computer", ip = "3.3.3.3") {
   }
 }
 
-function executeCommand(command) {
-  return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        reject(`Error: ${error.message}`);
-      }
-      if (stderr) {
-        reject(`Stderr: ${stderr}`);
-      }
-      resolve(stdout);
-    });
+// #endregion
+
+// #region MongoDB Adapter
+async function storeImageIdInMongo(imageId) {
+  const client = new MongoClient(MONGODB_CONNECTION_STRING, {
+    // useNewUrlParser: true,
+    // useUnifiedTopology: true,
   });
+  await client.connect();
+  const db = client.db(MONGODB_NAME);
+
+  // Use an upsert operation to ensure only one record is stored
+  const result = await db
+    .collection("imageIdentifiers")
+    .updateOne(
+      { _id: "uniqueImageId" },
+      { $set: { imageId: imageId } },
+      { upsert: true },
+    );
+
+  console.log("Image ID stored:", result);
+  await client.close();
 }
 
-function streamCommand(command, args = []) {
+async function getImageIdFromMongo() {
+  const client = new MongoClient(MONGODB_CONNECTION_STRING, {
+    //useNewUrlParser: true,
+    //useUnifiedTopology: true,
+  });
+  await client.connect();
+  const db = client.db(MONGODB_NAME);
+
+  const result = await db
+    .collection("imageIdentifiers")
+    .findOne({ _id: "uniqueImageId" });
+
+  await client.close();
+  return result ? result.imageId : null;
+}
+
+// #endregion
+
+// #region 📚 Google Cloud
+
+async function gcpDeploy(instanceName, newImage) {
+  // A. Image Deployment
+  // Come up with a unique timestamp identifier string for the "current" image.
+
+  // Destroy any running instances. (Will cause down-time)
+  // await gcpDestroyInstance(instanceName);
+  let imageName;
+
+  if (newImage) {
+    imageName = "aesthetic-" + new Date().getTime();
+    await gcpPublishImage(imageName); // Upload new image.
+    await storeImageIdInMongo(imageName); // Store the image name in MongoDB.
+  } else {
+    imageName = await getImageIdFromMongo(); // Try and retrieve from MongoDB...
+    if (!imageName) {
+      console.log("🟡 No existing image found... publishing a new one.");
+      return await gcpDeploy(instanceName);
+    }
+  }
+
+  console.log("🟡 Deploying instance...", instanceName);
+  // Create this new instance.
+  await run("ops", [
+    "instance",
+    "create",
+    imageName,
+    "-t",
+    "gcp",
+    "-c",
+    "config-gcp.json",
+    "-i",
+    instanceName,
+  ]);
+
+  console.log("🟡 Deploy success:", instanceName);
+
+  // List instances.
+  return await run("ops", [
+    "instance",
+    "list",
+    "-j",
+    "-t",
+    "gcp",
+    "-c",
+    "config-gcp.json",
+  ]);
+}
+
+async function gcpPublishImage(imageName) {
+  // console.log("🟡 Deleting existing image...");
+  // Delete existing image.
+  // try {
+  //   await run("ops", [
+  //     "image",
+  //     "delete",
+  //     "aesthetic-chat",
+  //     "-t",
+  //     "gcp",
+  //     "-c",
+  //     "config-gcp.json",
+  //     "--assume-yes",
+  //   ]);
+  // } catch (err) {
+  //   console.log("🔴 Could not delete image:", err);
+  // }
+
+  // Upload new image.
+  console.log("📥️ Publishing new image:", imageName);
+  await run("ops", [
+    "image",
+    "create",
+    "-c",
+    "config-gcp.json",
+    "--package",
+    "eyberg/node:20.5.0",
+    "-a",
+    "chat.mjs",
+    "-i",
+    imageName,
+    "-t",
+    "gcp",
+  ]);
+
+  // List images.
+  await run("ops", ["image", "list", "-t", "gcp", "-c", "config-gcp.json"]);
+}
+
+async function gcpDestroyInstance(instanceName) {
+  console.log("🟡 Deleting instance:", instanceName);
+  try {
+    await run("ops", [
+      "instance",
+      "delete",
+      instanceName,
+      "-t",
+      "gcp",
+      "-c",
+      "config-gcp.json",
+    ]);
+  } catch (err) {
+    console.error("🔴 Could not delete instance:", err);
+  }
+}
+
+// async function rebootInstances() {
+// TODO: I would need to find all instances running this image, and then
+//       re-initialize / rebuild them?
+// }
+
+//#endregion
+
+// ⚙️ Utilities
+
+function run(command, args = []) {
   return new Promise((resolve, reject) => {
     const childProcess = spawn(command, args, { shell: true });
     let lastOut = "";
@@ -134,129 +368,12 @@ function streamCommand(command, args = []) {
     });
 
     childProcess.on("close", (code) => {
-      console.log(`🛑 Child process exited with code ${code}`);
-
+      // console.log(`🛑 Child process exited with code ${code}`);
       if (code === 0) {
-        console.log("🟡 Deploy success...");
         resolve(lastOut); // Resolve the promise with lastOut
       } else {
-        reject(`Child process exited with code ${code}`);
+        reject(`🔴 Child process exited with code ${code}`);
       }
     });
   });
-}
-
-// GCP
-
-async function gcpDeploy(instanceName) {
-  await gcpDestroy(instanceName);
-  await streamCommand("ops", [
-    "image",
-    "create",
-    "-c",
-    "config-gcp.json",
-    "--package",
-    "eyberg/node:20.5.0",
-    "-a",
-    "chat.mjs",
-    "-i",
-    "aesthetic-chat",
-    "-t",
-    "gcp",
-  ]);
-  await streamCommand("ops", [
-    "instance",
-    "create",
-    "aesthetic-chat",
-    "-t",
-    "gcp",
-    "-c",
-    "config-gcp.json",
-    "-i",
-    instanceName,
-  ]);
-  await streamCommand("ops", [
-    "image",
-    "list",
-    "-t",
-    "gcp",
-    "-c",
-    "config-gcp.json",
-  ]);
-  await streamCommand("ops", [
-    "instance",
-    "list",
-    "-j",
-    "-t",
-    "gcp",
-    "-c",
-    "config-gcp.json",
-  ]);
-}
-
-async function gcpDestroy(instanceName) {
-  await streamCommand("ops", [
-    "instance",
-    "delete",
-    instanceName,
-    "-t",
-    "gcp",
-    "-c",
-    "config-gcp.json",
-  ]);
-  await streamCommand("ops", [
-    "image",
-    "delete",
-    "aesthetic-chat",
-    "-t",
-    "gcp",
-    "-c",
-    "config-gcp.json",
-    "--assume-yes",
-  ]);
-}
-
-async function deploy() {
-  // const out = await streamCommand("npm", [
-  //   "run",
-  //   "gcp:deploy",
-  //   process.argv[2],
-  // ]);
-
-  const out = await gcpDeploy(process.argv[2]);
-
-  console.log("🟡 Deploy success...");
-  const parsed = JSON.parse(out);
-  const ip = parsed[0]?.PublicIps?.[0];
-  if (ip) {
-    console.log("🟢 IP:", ip);
-    const sub = `${process.argv[2] || "chat"}.aesthetic.computer`;
-    if (await update(sub, ip)) {
-      // TODO: Now try and curl and websocat.
-      console.log(`curl https://${sub}`);
-      console.log(`websocat wss://${sub}`);
-      try {
-        const curlOutput = await streamCommand("curl", [`https://${sub}`]);
-        console.log("curl output:", curlOutput);
-
-        const websocatOutput = await streamCommand("websocat", [`wss://${sub}`]);
-        console.log("websocat output:", websocatOutput);
-      } catch (error) {
-        console.error("Command failed:", error);
-      }
-    } else {
-      // Or die if the record update fails?
-      // This should probably also destroy the instance...
-      return;
-    }
-  }
-
-  // TODO: This needs to be divided into a series of steps.
-}
-
-// Call the function
-try {
-  await deploy();
-} catch (err) {
-  console.error("🔴 Deploy failed:", err);
 }

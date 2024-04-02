@@ -33,9 +33,8 @@
   },
   "author": "Jeffrey Alan Scudder",
   "dependencies": {
+    "dotenv": "^16.4.5",
+    "mongodb": "^6.5.0",
     "ws": "^8.16.0"
-  },
-  "devDependencies": {
-    "dotenv": "^16.4.5"
   }
 }

@@ -13,6 +13,7 @@ alias reload 'exit 70'
 set -gx TERM xterm-256color
 set -gx EDITOR emacs
 set -gx PATH $PATH /home/me/.local/bin
+set -gx PATH $PATH $HOME/isomorphic_copy/bin
 
 # enable vi support
 set fish_cursor_default block
