@@ -20,7 +20,7 @@ fi
 
 # TODO: Also add native flag.
 
-./code.sh
+./code.sh $1
 
 #if grep -q docker /proc/1/cgroup; then
 #  echo "Running inside Docker."

@@ -1,10 +1,18 @@
 function fish_greeting
-  printf "\n🧩 Hi @$AESTHETIC!\n\n"
-  printf "Ask with 'umm' and forget with 'nvm'\nor use 'code' and 'done' with 'copy'\nto generate and get code.\n\n"
+    if test "$nogreet" = "true"
+        return
+    end
+
+    printf "\n🧩 Hi @$AESTHETIC!\n\n"
+    printf "Ask with 'umm' and forget with 'nvm'\n"
+    printf "or use 'code' and 'done' with 'copy'\n"
+    printf "to generate and get code.\n\n"
 end
 
-# always start in aesthetic-computer directory
-cd ~/aesthetic-computer
+# always start in aesthetic-computer directory if there was a greeting
+if not test "$nogreet" = "true"
+    cd ~/aesthetic-computer
+end
 
 # rebuild the container after exiting with a special code ;)
 alias reload 'exit 70'
@@ -42,15 +50,17 @@ fish_add_path ~/.ops/bin
 alias load "emacsclient -e '(kill-emacs)'; emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el; emacsclient -c --eval '(aesthetic-backend)'"
 
 alias ac 'cd ~/aesthetic-computer'
-alias ac-site 'npm run site'
-alias ac-session 'npm run server:session'
-alias ac-edge 'clear; npm run edge-micro'
-alias ac-stripe-print 'npm run stripe-print-micro'
-alias ac-stripe-ticket 'npm run stripe-ticket-micro'
-alias ac-url 'clear; npm run url'
+alias ac-site 'npm run -s site'
+alias ac-session 'npm run -s server:session'
+alias ac-edge 'clear; npm run -s edge-micro'
+alias ac-stripe-print 'npm run -s stripe-print-micro'
+alias ac-stripe-ticket 'npm run -s stripe-ticket-micro'
+alias ac-url 'clear; npm run -s url'
 alias ac-shell 'ac-url; fish'
 alias ac-redis 'redis-server' # ac monolith udp server management
 alias ac-udp 'ssh root@157.245.134.225' # ac monolith udp server management
+alias ac-servers 'clear; npm run -s servers'
+alias ac-chat 'clear; npm run -s chat'
 
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 
