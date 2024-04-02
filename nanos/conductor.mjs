@@ -16,6 +16,8 @@
         - [] Assign DNS to it.
         - [] Return information that the client can connect / success.
 
+  - [] How will HTTP traffic be blocked / the ip be masked?
+  - [] Use bun instead of node?
           
 #endregion */
 
