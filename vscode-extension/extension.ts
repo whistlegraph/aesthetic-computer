@@ -188,6 +188,47 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     ),
   );
 
+
+  // context.subscriptions.push(
+  //   vscode.commands.registerCommand(
+  //     "aestheticComputer.openWindow",
+  //     (functionName) => {
+  //       // TODO: Open pop-up window.
+  //     },
+  //   ),
+  // );
+
+  context.subscriptions.push(
+  vscode.commands.registerCommand("aestheticComputer.openWindow", () => {
+    const panel = vscode.window.createWebviewPanel(
+      'webView',                 // Identifies the type of the webview. Used internally
+      'My Webview',              // Title of the panel displayed to the user
+      vscode.ViewColumn.One,     // Editor column to show the new webview panel in.
+      {}                         // Webview options.
+    );
+
+    // TODO: Eventually this will land in a VS Code version.  
+
+    panel.webview.html = getWebviewContent(); // Set the content of the webview
+  })
+);
+
+function getWebviewContent() {
+  // Define your HTML content here
+  return `<!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>My Webview</title>
+          </head>
+          <body>
+              <h1>Hello from my Webview!</h1>
+          </body>
+          </html>`;
+}
+
+
   // Add definitionProvider to context.subscriptions if necessary
   context.subscriptions.push(definitionProvider);
 
