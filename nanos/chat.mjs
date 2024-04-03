@@ -7,10 +7,13 @@
 // https://console.cloud.google.com/compute/instances?project=aesthetic-computer
 
 import { WebSocketServer } from "ws";
-import { readFileSync } from 'fs';
+import { readFileSync } from "fs";
 import http from "http";
 import https from "https";
-import { start } from "repl";
+
+import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
+import { getMessaging } from "firebase-admin/messaging";
+import { createClient } from "redis";
 
 console.log("\n🌟 Starting the Aesthetic Computer Chat Server 🌟\n");
 
@@ -20,17 +23,25 @@ let server;
 let connections = {}; // All active WebSocket connections.
 let connectionId = 0;
 
+const MONGODB_CONNECTION_STRING = process.env.MONGODB_CONNECTION_STRING;
+const MONGODB_NAME = process.env.MONGODB_NAME;
+const GCM_FIREBASE_CONFIG_URL = process.env.GCM_FIREBASE_CONFIG_URL;
+const redisConnectionString = process.env.REDIS_CONNECTION_STRING
+
 const request = (req, res) => {
   const domain = req.headers.host; // Get the domain from the request
-  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
   res.end(`😱 Aesthetic Computer\nHost: <mark>${domain}</mark>`);
-}
+};
 
 if (dev) {
-  server = https.createServer({
-    key: readFileSync('ssl/localhost-key.pem'),
-    cert: readFileSync('ssl/localhost.pem')
-  }, request);
+  server = https.createServer(
+    {
+      key: readFileSync("ssl/localhost-key.pem"),
+      cert: readFileSync("ssl/localhost.pem"),
+    },
+    request,
+  );
 } else {
   server = http.createServer(request);
 }
@@ -38,7 +49,9 @@ if (dev) {
 const port = dev ? 8083 : 80;
 
 server.listen(port, "0.0.0.0", () => {
-  console.log(`--> Web server running at ${dev ? "https" : "http"}://0.0.0.0:${port} 🕷️`);
+  console.log(
+    `--> Web server running at ${dev ? "https" : "http"}://0.0.0.0:${port} 🕷️`,
+  );
   startSocketServer();
 });
 
@@ -55,15 +68,57 @@ function startSocketServer() {
       ws.isAlive = true;
     }); // Receive a pong and stay alive!
 
-    console.log("🔌 New connection:", `${id}:${ip}`, "Online:", wss.clients.size, "🫂");
+    console.log(
+      "🔌 New connection:",
+      `${id}:${ip}`,
+      "Online:",
+      wss.clients.size,
+      "🫂",
+    );
 
-    ws.on("message", (data) => {
+    ws.on("message", async (data) => {
       const msg = JSON.parse(data.toString());
       msg.id = id;
-      console.log("💬 Received:", msg);
 
-      if (msg.type === "") {
+      console.log("💬 Received:", msg.type);
 
+      // 💬 Received an incoming chat message.
+      if (msg.type === "chat:message") {
+        // TODO: ❤️‍🔥 Add rate-limiting / maybe quit here if needed.
+
+        // 🔐 1. Authorization
+        const authorized = await authorize(msg.content.token);
+        // TODO (future): Maybe this could be cached at some point. 24.04.02.21.30
+        if (authorized) {
+          console.log("🔐 Authorized:", authorized);
+
+        // 📚 2. Persistence
+        // TODO:  Add this chat to MongoDB, using the domain. (Only allow requests from the domain.)
+
+        // Show cancellation if this fails.
+
+        // (Maybe?) 3. PUB via redis to all connected users.
+
+        // 4. Send a push notification with the type and channel with tap through.
+
+        //const serviceAccount = (
+        //  await got(GCM_FIREBASE_CONFIG_URL, {
+        //    responseType: "json",
+        //  })
+        //).body;
+        // - [] Web push will need an update.
+        // - [] iOS App will need an update.
+
+        } else {
+          console.error("🔴 Unauthorized:", msg.content);
+          ws.send(
+            pack(
+              "unauthorized",
+              { message: "Your message was unauthorized, please login again." },
+              id,
+            ),
+          );
+        }
       }
 
       // TODO: I need to... authorize the incoming message based on the
@@ -71,12 +126,11 @@ function startSocketServer() {
 
       // Message send process:
 
-      // 1. Authorize on new connection. See `authorization.mjs`. 
+      // 1. Authorize on new connection. See `authorization.mjs`.
       // 2. Only add to chatter list if authorized!
 
       // 3. Submit message to database in MongoDB.
-      // 4. Send through redis to all connected users. 
-      // 5 Send a notification with a new notification type.
+      // 4. Send through redis to all connected users.
       // 6. Show a cancellation if that occurs.
 
       // New connection process:
@@ -103,22 +157,59 @@ function startSocketServer() {
       // Delete from the connection index.
       clearInterval(interval);
       delete connections[id];
-      console.log("🚪 Closed connection:", id, "Online:", wss.clients.size, "🫂");
+      console.log(
+        "🚪 Closed connection:",
+        id,
+        "Online:",
+        wss.clients.size,
+        "🫂",
+      );
     });
 
-    ws.send(pack("connected", {
-      message: "Welcome to the Aesthetic Computer System Chat!",
-      chatters: wss.clients.size
-    }, id));
+    ws.send(
+      pack(
+        "connected",
+        {
+          message: "Welcome to the Aesthetic Computer System Chat!",
+          chatters: wss.clients.size,
+        },
+        id,
+      ),
+    );
   });
 
-  console.log(`--> Socket server running at ${dev ? "wss" : "ws"}://0.0.0.0:${port} 🧦 \n`);
+  console.log(
+    `--> Socket server running at ${
+      dev ? "wss" : "ws"
+    }://0.0.0.0:${port} 🧦 \n`,
+  );
 }
 
-// ⚙️ Utilities 
+// ⚙️ Utilities
 
 // Pack messages into a simple object protocol of `{type, content}`.
 function pack(type, content, id) {
   if (typeof content === "object") content = JSON.stringify(content);
   return JSON.stringify({ type, content, id });
+}
+
+// Authorize a user token against auth0.
+async function authorize(authorization) {
+  try {
+    const response = await fetch("https://aesthetic.us.auth0.com/userinfo", {
+      headers: {
+        Authorization: "Bearer " + authorization,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (response.status === 200) {
+      return response.json();
+    } else {
+      console.log(response);
+      throw new Error("🔴 Unauthorized");
+    }
+  } catch {
+    return undefined;
+  }
 }

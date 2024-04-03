@@ -1734,7 +1734,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "logout") {
       if (window.acTOKEN) {
-        // window.parent.postMessage({ type: "logout" }, "*");
+        if (window.parent) window.parent.postMessage({ type: "logout" }, "*");
         // Just use the logout services of the host.
       } else {
         window.acLOGOUT?.();
@@ -4343,47 +4343,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     });
   }
 
-  // Request and open local file from the user.
-  // TODO: Only supports images for now.
-  // async function openFile() {
-  //   pen?.up(); // Synthesize a pen `up` event so it doesn't stick
-  //   //            due to the modal.
-  //   const input = document.createElement("input");
-  //   input.type = "file";
-  //   input.accept = "image/*";
-  //   input.click();
-
-  //   return new Promise((resolve, reject) => {
-  //     input.onchange = () => {
-  //       const file = input.files[0];
-  //       if (!file) {
-  //         reject("No file was selected!");
-  //       } else if (!file.type.startsWith("image/")) {
-  //         reject("Selected file is not an image.");
-  //       } else {
-  //         const reader = new FileReader();
-
-  //         reader.onload = async () => {
-  //           const blob = new Blob([reader.result], { type: file.type });
-  //           resolve(await toBitmap(blob));
-  //         };
-  //         reader.onerror = (error) => {
-  //           reject(error);
-  //         };
-  //         reader.readAsArrayBuffer(file);
-  //       }
-  //     };
-  //   });
-  // }
-
-  // Gets an authorization token for the logged in user,
-  // which can be passed onto the server for further verification.
   async function authorize() {
     let token;
     try {
-      // Retrieve a stored token from a hosted application or
-      // get one from our auth methods.
-      token = window.acTOKEN || (await window.auth0Client.getTokenSilently());
+      token = window.acTOKEN;
+
+      if (token) {
+        console.log("🔐 Hosted token found...");
+
+        try {
+          // Attempt to fetch user info using the token
+          window.auth0Client.token = token;
+          await window.auth0Client.getUser();
+          console.log("✅ Token is valid");
+        } catch (error) {
+          console.error("🔴🎟️ Token is invalid or expired:", token);
+          if (window.parent) window.parent.postMessage({ type: "logout" }, "*");
+        }
+      } else {
+        // If acTOKEN is not available, get a new one
+        console.log("🔐 Retrieving auth token...");
+        token = await window.auth0Client.getTokenSilently();
+        // await window.auth0Client.getUser();
+        console.log("✅ Token is valid");
+      }
+
       console.log("🔐 Authorized");
     } catch (err) {
       console.log("🔐️ ❌ Unauthorized", err);
