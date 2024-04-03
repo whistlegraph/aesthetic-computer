@@ -1,0 +1,11 @@
+{
+  "autorun": true,
+  "terminals": [
+    {
+      "name": "aesthetic",
+      "description": "The Aesthetic Computer platform dashboard.",
+      "focus": true,
+      "command": "./aesthetic shell"
+    }
+  ]
+}

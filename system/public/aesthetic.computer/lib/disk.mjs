@@ -888,7 +888,7 @@ const $commonApi = {
   // Authorize a user.
   authorize: async () => {
     // TODO: This should always fail while running user code.
-    console.log("Sending auth request...");
+    // console.log("Sending auth request...");
     const prom = new Promise((resolve, reject) => {
       authorizationRequest = { resolve, reject };
     });

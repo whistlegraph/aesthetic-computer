@@ -14,6 +14,7 @@ import https from "https";
 import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
 import { getMessaging } from "firebase-admin/messaging";
 import { createClient } from "redis";
+import { MongoClient } from "mongodb";
 
 console.log("\n🌟 Starting the Aesthetic Computer Chat Server 🌟\n");
 
@@ -213,3 +214,31 @@ async function authorize(authorization) {
     return undefined;
   }
 }
+
+// #region 🗺️ MongoDB
+
+async function makeMongoConnection() {
+  const client = new MongoClient(MONGODB_CONNECTION_STRING);
+  await client.connect();
+  const db = client.db(MONGODB_NAME);
+  return { client, db }
+}
+
+// Prompt: Add the appropriate insert below for a table
+//         that can store chat messages.
+async function storeMessageInMongo(message) {
+  const { client, db } = await makeMongoConnection();
+
+  // Use an upsert operation to ensure only one record is stored
+  /*
+  const result = await db
+    .collection("servers")
+    .updateOne(
+      { _id: "lastImage" }, { $set: { name: imageId } }, { upsert: true },
+    );
+  */
+
+  await client.close();
+}
+
+// #endregion

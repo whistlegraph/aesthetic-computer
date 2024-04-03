@@ -28,8 +28,6 @@ async function boot({
   notice,
   authorize,
 }) {
-  // TODO: How could I make a second websocket connection here to the chat server?
-
   // 🗨️ Chat Networking
   const chatUrl = debug ? "localhost:8083" : "chat-system.aesthetic.computer";
 
@@ -85,6 +83,7 @@ async function boot({
     }
   });
 
+  // ✍️️️ Text Input
   input = new ui.TextInput(
     api,
     "...",
