@@ -16,6 +16,8 @@ let input,
   token,
   chatterCount = 0;
 
+let messages = [];
+
 import { Socket } from "../lib/socket.mjs";
 
 async function boot({
@@ -51,6 +53,14 @@ async function boot({
       if (type === "unauthorized") {
         console.log("🔴 Chat message unauthorized!", content);
         notice("Unauthorized", ["red", "yellow"]);
+        return;
+      }
+
+      if (type === "message") {
+        const msg = JSON.parse(content);
+        console.log("💬 Chat message received:", msg);
+        notice("RECEIVED");
+        messages.push(msg);
         return;
       }
 
@@ -129,9 +139,21 @@ async function boot({
   send({ type: "keyboard:soft-lock" });
 }
 
-function paint({ api, ink, wipe, screen, leaving }) {
+function paint({ api, ink, wipe, screen, leaving, typeface }) {
   wipe("brown");
 
+  // Messages
+  messages.forEach((message, i) => {
+    const x = 6;
+    const y = 6 + (i + 1) * 12;
+    ink("yellow").write(message.handle, { x, y });
+    ink("white").write(message.text, {
+      x: x + message.handle.length * typeface.blockWidth,
+      y,
+    });
+  });
+
+  // Interface
   inputBtn.paint((btn) => {
     ink("white", btn.down && btn.over ? 128 : 64).box(btn.box);
   });
