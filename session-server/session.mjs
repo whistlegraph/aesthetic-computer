@@ -208,7 +208,7 @@ await start();
 // *** Socket Server Initialization ***
 // #region socket
 let wss;
-let connections = {}; // All active websocket connections.
+let connections = {}; // All active WebSocket connections.
 const worldClients = {}; // All connected 🧒 to a space like `field`.
 
 let connectionId = 0; // TODO: Eventually replace with a username arrived at through
@@ -227,8 +227,8 @@ function pack(type, content, id) {
 }
 
 // Enable ping-pong behavior to keep connections persistently tracked.
-// Or just tie connections to logged in users or
-// persistent tokens to keep persistence.
+// (In the future could just tie connections to logged in users or
+// persistent tokens to keep persistence.)
 const interval = setInterval(function ping() {
   wss.clients.forEach((client) => {
     if (client.isAlive === false) {
