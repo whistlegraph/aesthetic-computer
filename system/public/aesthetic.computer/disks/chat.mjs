@@ -33,8 +33,12 @@ async function boot({
   // 🗨️ Chat Networking
   const chatUrl = debug ? "localhost:8083" : "chat-system.aesthetic.computer";
 
-  token = await authorize(); // Get user token.
-  console.log("🔐 Authorized token:", token);
+  try {
+    token = await authorize(); // Get user token.
+    console.log("🔐 Authorized token:", token);
+  } catch (err) {
+    console.error("🟥 Unauthorized.");
+  }
 
   chat = new Socket(debug, send);
   chat.connect(

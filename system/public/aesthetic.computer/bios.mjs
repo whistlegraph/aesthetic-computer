@@ -1767,7 +1767,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Send a user authorization token (or undefined) across the thread.
     if (type === "authorization:request") {
+      console.log("Getting token...");
       const token = await authorize();
+      console.log("Failure token:", token);
       send({
         type: "authorization:response",
         content: { data: token || null, result: token ? "success" : "error" },
