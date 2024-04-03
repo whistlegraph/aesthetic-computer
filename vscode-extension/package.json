@@ -70,6 +70,10 @@
       {
         "command": "aestheticComputer.openDoc",
         "title": "aesthetic.computer: Open Documentation 📚"
+      },
+      {
+        "command": "aestheticComputer.openWindow",
+        "title": "aesthetic.computer: Open Window 🧭"
       }
     ],
     "grammars": [

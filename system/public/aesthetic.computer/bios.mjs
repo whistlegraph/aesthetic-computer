@@ -1767,9 +1767,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Send a user authorization token (or undefined) across the thread.
     if (type === "authorization:request") {
-      console.log("Getting token...");
+      // console.log("Getting token...");
       const token = await authorize();
-      console.log("Failure token:", token);
+      // console.log("Failure token:", token);
       send({
         type: "authorization:response",
         content: { data: token || null, result: token ? "success" : "error" },
@@ -4357,9 +4357,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Attempt to fetch user info using the token
           window.auth0Client.token = token;
           await window.auth0Client.getUser();
-          console.log("✅ Token is valid");
+          console.log("✅🔐 Token is valid!");
         } catch (error) {
-          console.error("🔴🎟️ Token is invalid or expired:", token);
+          console.error("🔴🔐 Token is invalid or expired:", token);
           if (window.parent) window.parent.postMessage({ type: "logout" }, "*");
         }
       } else {

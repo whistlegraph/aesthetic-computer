@@ -44,13 +44,7 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** chat ***
-  - [🟠] Spin up a nanos unikernel test server for the chat.
-    - [x] Deploy it to the google cloud.
-      - [x] https://console.cloud.google.com/compute/instances?project=aesthetic-computer
-    - [x] Add https and ssl and a subdomain.
-  - [-] Add the 'chat' tab-bar item / CLI client that can log the chat
-        and also send messages?
-  - [x] Add a `chat` command with a persistently paginated list of
+  - [🟡] Add a `chat` command with a persistently paginated list of
         messages.
   - [] These messages should send notifications of a new type.
   - [] Wire it into a new 2D renderer backend... try pixi.js?
@@ -61,6 +55,12 @@ but technically agnostic. (Choose your aesthetic!)
   - [] Then appear for other users and the current user.
        (Just make the text fully synchronized for now.)
   + Done
+  - [x] Spin up a nanos unikernel test server for the chat.
+    - [x] Deploy it to the google cloud.
+      - [x] https://console.cloud.google.com/compute/instances?project=aesthetic-computer
+    - [x] Add https and ssl and a subdomain.
+  - [x] Add the 'chat' tab-bar item / CLI client that can log the chat
+        and also send messages?
 
 *** bot color schemes ***
   - [🟡] Fix color schemes for bots, based on `mom`.
