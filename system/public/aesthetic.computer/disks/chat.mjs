@@ -9,9 +9,32 @@
   - [...] Prototype a scrollback output on the main screen.
 #endregion */
 
-let input, inputBtn, server;
+let input, inputBtn, server, chat, token, chatterCount = 0;
 
-function boot({ api, ui, send, net: { socket } }) {
+import { Socket } from "../lib/socket.mjs";
+
+async function boot({ api, ui, send, net: { socket }, handle, debug, notice, authorize }) {
+
+  // TODO: How could I make a second websocket connection here to the chat server?
+
+  // 🗨️ Chat Networking
+  const chatUrl = debug ? "localhost:8083" : "chat-system.aesthetic.computer";
+
+  token = await authorize(); // Get user token.
+  console.log("🔐 Authorized token:", token);
+
+  chat = new Socket(debug, send);
+  chat.connect(chatUrl, (id, type, content) => {
+    if (type === "connected") {
+      console.log("🔌 Connected:", content);
+      chatterCount = content?.chatters || chatterCount;
+    } else {
+      console.log("🌠 Message received:", id, type, content);
+    }
+  }, undefined, "wss", undefined, () => {
+    console.log("🔌 Disconnected!");
+    chatterCount = 0;
+  });
 
   // 🧦 Socket Networking
   server = socket((id, type, content) => {
@@ -41,7 +64,15 @@ function boot({ api, ui, send, net: { socket } }) {
     api,
     "...",
     async (text) => {
-      server.send(`chat:message`, text); // Send the chat message.
+      const currentHandle = handle();
+
+      if (!currentHandle) {
+        notice("NO HANDLE", ["red", "yellow"]);
+      } else {
+        chat.send(`chat:message`, { text, handle: currentHandle, token }); // Send the chat message.
+        notice("SENT");
+      }
+
       // Clear text, hide cursor block, and close keyboard.
       input.text = "";
       input.showBlink = false;
@@ -89,9 +120,11 @@ function paint({ api, ink, wipe, screen, leaving }) {
       height: screen.height - 18,
     });
   }
+
+  ink("yellow").write("Chatters: " + chatterCount, { left: 6, bottom: 6 });
 }
 
- function act({ api, event: e, hud, piece, send }) {
+function act({ api, event: e, hud, piece, send }) {
   if (!input.canType) {
     // me.act(api);
 
@@ -154,7 +187,7 @@ function paint({ api, ink, wipe, screen, leaving }) {
   ) {
     input.act(api);
   }
- }
+}
 
 function sim({ api }) {
   input.sim(api); // 💬 Chat
@@ -164,11 +197,11 @@ function sim({ api }) {
 //   // Runs once per metronomic BPM.
 // }
 
-// function leave() {
-//  // Runs once before the piece is unloaded.
-// }
+function leave() {
+  chat?.kill();
+}
 
-export { boot, paint, act, sim };
+export { boot, paint, act, sim, leave };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)

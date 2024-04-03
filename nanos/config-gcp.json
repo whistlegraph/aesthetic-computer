@@ -1,6 +1,7 @@
 {
   "Dirs": [
-    "node_modules"
+    "node_modules",
+    "ssl"
   ],
   "Files": [
     "package-lock.json"

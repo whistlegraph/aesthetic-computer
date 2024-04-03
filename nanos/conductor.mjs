@@ -3,11 +3,21 @@
 // on GCP that they point to.
 
 /* #region 🏁 TODO
-  - [] B. Instance Management
+  - [] A. Chat System
+    - [] Can be a single instance for now.
+    - [] Sub is prefixed with chat-system.
+      - [] The database connects using the sub to make a record.
+      - [] It's a simple websocket connection.
+
+  - [] Deploy chat.
+
+        
+  - 🌟 
+  - [] B. Future Multi-Instance Management / 
           Check to see if an instance exists under the label.
           If it does, then just return that instance.
           Otherwise make a new instance or request one to be unpaused.
-
+    - [] Adapt conductor to be an http api.
     - [] Does the instance already exist at the requested url?
       - [] Yes!
         - [] Return information that the client can connect / success.
@@ -17,8 +27,6 @@
         - [] Return information that the client can connect / success.
 
   - [] How will HTTP traffic be blocked / the ip be masked?
-  - [] Use bun instead of node?
-          
 #endregion */
 
 import { spawn } from "child_process";
