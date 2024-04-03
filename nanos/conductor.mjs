@@ -10,7 +10,6 @@
       - [] It's a simple websocket connection.
 
   - [] Deploy chat.
-
         
   - 🌟 
   - [] B. Future Multi-Instance Management / 

@@ -6,7 +6,7 @@
 // Management:
 // https://console.cloud.google.com/compute/instances?project=aesthetic-computer
 
-import { WebSocketServer } from "ws";
+import { WebSocketServer, WebSocket } from "ws";
 import { readFileSync } from "fs";
 import http from "http";
 import https from "https";
@@ -15,6 +15,7 @@ import { initializeApp, cert } from "firebase-admin/app"; // Firebase notificati
 import { getMessaging } from "firebase-admin/messaging";
 import { createClient } from "redis";
 import { MongoClient } from "mongodb";
+import "dotenv/config";
 
 console.log("\n🌟 Starting the Aesthetic Computer Chat Server 🌟\n");
 
@@ -27,7 +28,7 @@ let connectionId = 0;
 const MONGODB_CONNECTION_STRING = process.env.MONGODB_CONNECTION_STRING;
 const MONGODB_NAME = process.env.MONGODB_NAME;
 const GCM_FIREBASE_CONFIG_URL = process.env.GCM_FIREBASE_CONFIG_URL;
-const redisConnectionString = process.env.REDIS_CONNECTION_STRING
+const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
 
 const request = (req, res) => {
   const domain = req.headers.host; // Get the domain from the request
@@ -56,7 +57,44 @@ server.listen(port, "0.0.0.0", () => {
   startSocketServer();
 });
 
-function startSocketServer() {
+async function startSocketServer() {
+  // #region 🏬 Redis
+  // *** Start up two `redis` clients. (One for subscribing, and for publishing)
+  // const sub = !dev
+  //   ? createClient({ url: redisConnectionString })
+  //   : createClient();
+  const sub = createClient({ url: redisConnectionString });
+  sub.on("error", (err) =>
+    console.log("🔴 Redis subscriber client error!", err),
+  );
+
+  // const pub = !dev
+  //   ? createClient({ url: redisConnectionString })
+  //   : createClient();
+  const pub = createClient({ url: redisConnectionString });
+  pub.on("error", (err) =>
+    console.log("🔴 Redis publisher client error!", err),
+  );
+
+  try {
+    await sub.connect();
+    await pub.connect();
+
+    // TODO: This needs to be sent only for a specific user or needs
+    //       some kind of special ID.
+
+    await sub.subscribe("chat-system", (message) => {
+      const parsed = JSON.parse(message);
+      console.log("Received chat from REDIS:", parsed, message);
+      // TODO: Pack a message.
+      everyone(pack(`message`, parsed));
+
+    });
+  } catch (err) {
+    console.error("🔴 Could not connect to `redis` instance.", err);
+  }
+  // #endregion
+
   const wss = new WebSocketServer({ server });
   wss.on("connection", (ws, req) => {
     connections[connectionId] = ws;
@@ -81,36 +119,23 @@ function startSocketServer() {
       const msg = JSON.parse(data.toString());
       msg.id = id;
 
-      console.log("💬 Received:", msg.type);
+      console.log(
+        "💬 Received:",
+        msg.type,
+        "from:",
+        msg.handle,
+        "of:",
+        msg.text,
+      );
 
       // 💬 Received an incoming chat message.
       if (msg.type === "chat:message") {
         // TODO: ❤️‍🔥 Add rate-limiting / maybe quit here if needed.
 
         // 🔐 1. Authorization
+        // 💡️ Maybe this could be cached at some point. 24.04.02.21.30
         const authorized = await authorize(msg.content.token);
-        // TODO (future): Maybe this could be cached at some point. 24.04.02.21.30
-        if (authorized) {
-          console.log("🔐 Authorized:", authorized);
-
-        // 📚 2. Persistence
-        // TODO:  Add this chat to MongoDB, using the domain. (Only allow requests from the domain.)
-
-        // Show cancellation if this fails.
-
-        // (Maybe?) 3. PUB via redis to all connected users.
-
-        // 4. Send a push notification with the type and channel with tap through.
-
-        //const serviceAccount = (
-        //  await got(GCM_FIREBASE_CONFIG_URL, {
-        //    responseType: "json",
-        //  })
-        //).body;
-        // - [] Web push will need an update.
-        // - [] iOS App will need an update.
-
-        } else {
+        if (!authorized) {
           console.error("🔴 Unauthorized:", msg.content);
           ws.send(
             pack(
@@ -119,6 +144,65 @@ function startSocketServer() {
               id,
             ),
           );
+          return;
+        }
+
+        console.log("🟢 🔐 Handle authorized:", authorized);
+
+        // 📚 2. Persistence
+        // TODO:  Add this chat to MongoDB, using the domain. (Only allow requests from the domain.)
+        try {
+          // const out = filter(msg.content); // TODO: Filter message for content.
+
+          const stored = await storeMessageInMongo(msg.content);
+          console.log("🟢 Message stored:", stored);
+
+          // 1. PUB via redis now or send back to others() ?
+
+          pub
+            .publish(
+              "chat-system",
+              JSON.stringify({
+                text: msg.content.text,
+                handle: msg.content.handle,
+              }),
+            )
+            .then((result) => {
+              console.log("💬 Message succesfully published:", result);
+              // if (!dev) {
+              //   getMessaging()
+              //     .send({
+              //       notification: { title: "😱 Scream", body: out },
+              //       topic: "scream",
+              //       data: { piece },
+              //     })
+              //     .then((response) => {
+              //       log("☎️  Successfully sent notification:", response);
+              //     })
+              //     .catch((error) => {
+              //       log("📵  Error sending notification:", error);
+              //     });
+              // }
+            })
+            .catch((error) => {
+              console.log("🙅‍♀️ Error publishing message:", error);
+            });
+
+          // How can I publish this to redis now?
+
+          // 2. Send a push notification.
+          //const serviceAccount = (
+          //  await got(GCM_FIREBASE_CONFIG_URL, {
+          //    responseType: "json",
+          //  })
+          //).body;
+          // - [] Web push will need an update.
+          // - [] iOS App will need an update.
+
+          // 3. Send a confirmation back to the user.
+        } catch (err) {
+          console.error("🔴 Message could not be stored:", err);
+          // TODO: Show cancellation of some kind to the user.
         }
       }
 
@@ -184,6 +268,13 @@ function startSocketServer() {
       dev ? "wss" : "ws"
     }://0.0.0.0:${port} 🧦 \n`,
   );
+
+  // Sends a message to all connected clients.
+  function everyone(string) {
+    wss.clients.forEach((c) => {
+      if (c?.readyState === WebSocket.OPEN) c.send(string);
+    });
+  }
 }
 
 // ⚙️ Utilities
@@ -221,24 +312,40 @@ async function makeMongoConnection() {
   const client = new MongoClient(MONGODB_CONNECTION_STRING);
   await client.connect();
   const db = client.db(MONGODB_NAME);
-  return { client, db }
+  return { client, db };
 }
 
-// Prompt: Add the appropriate insert below for a table
-//         that can store chat messages.
 async function storeMessageInMongo(message) {
+  console.log("🟡 Connecting to MongoDB...");
   const { client, db } = await makeMongoConnection();
 
-  // Use an upsert operation to ensure only one record is stored
-  /*
-  const result = await db
-    .collection("servers")
-    .updateOne(
-      { _id: "lastImage" }, { $set: { name: imageId } }, { upsert: true },
-    );
-  */
+  let user = null;
+
+  if (message.handle) {
+    // Extract handle name (assuming handle is in the format "@handleName")
+    const handleName = message.handle.slice(1);
+
+    // Query the `handles` collection to find the corresponding user _id
+    console.log("🟡 Looking up user record...");
+    const handle = await db
+      .collection("@handles")
+      .findOne({ handle: handleName });
+    if (handle) user = handle._id;
+  }
+
+  console.log("🟡 Storing message...");
+  const collection = db.collection("chat-system");
+  await collection.createIndex({ when: 1 }); // Index for `when`.
+
+  // Store the chat message
+  const inserted = await collection.insertOne({
+    user,
+    text: message.text,
+    when: new Date(),
+  });
 
   await client.close();
+  return inserted;
 }
 
 // #endregion
