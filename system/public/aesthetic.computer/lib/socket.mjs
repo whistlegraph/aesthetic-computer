@@ -16,6 +16,7 @@ export class Socket {
   #killSocket = false;
   #ws;
   #reconnectTime = 1000;
+  #reconnectTimeout;
   #queue = [];
 
   constructor(debug, sendToBIOS) {
@@ -74,7 +75,7 @@ export class Socket {
       if (socket.#killSocket === false) {
         if (logs.session)
           console.log("🧦 Reconnecting in:", socket.#reconnectTime, "ms");
-        setTimeout(() => {
+        this.#reconnectTimeout = setTimeout(() => {
           socket.connect(host, receive, reload, protocol, connectCallback);
         }, socket.#reconnectTime);
         socket.#reconnectTime = min(socket.#reconnectTime, 16000);
@@ -105,6 +106,7 @@ export class Socket {
   // Kills the socket permanently.
   kill() {
     this.#killSocket = true;
+    clearTimeout(this.#reconnectTimeout);
     this.#ws?.close();
   }
 

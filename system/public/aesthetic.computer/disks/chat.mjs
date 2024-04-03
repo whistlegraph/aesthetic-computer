@@ -9,12 +9,25 @@
   - [...] Prototype a scrollback output on the main screen.
 #endregion */
 
-let input, inputBtn, server, chat, token, chatterCount = 0;
+let input,
+  inputBtn,
+  server,
+  chat,
+  token,
+  chatterCount = 0;
 
 import { Socket } from "../lib/socket.mjs";
 
-async function boot({ api, ui, send, net: { socket }, handle, debug, notice, authorize }) {
-
+async function boot({
+  api,
+  ui,
+  send,
+  net: { socket },
+  handle,
+  debug,
+  notice,
+  authorize,
+}) {
   // TODO: How could I make a second websocket connection here to the chat server?
 
   // 🗨️ Chat Networking
@@ -24,17 +37,31 @@ async function boot({ api, ui, send, net: { socket }, handle, debug, notice, aut
   console.log("🔐 Authorized token:", token);
 
   chat = new Socket(debug, send);
-  chat.connect(chatUrl, (id, type, content) => {
-    if (type === "connected") {
-      console.log("🔌 Connected:", content);
-      chatterCount = content?.chatters || chatterCount;
-    } else {
+  chat.connect(
+    chatUrl,
+    (id, type, content) => {
+      if (type === "connected") {
+        console.log("🔌 Connected:", content);
+        chatterCount = content?.chatters || chatterCount;
+        return;
+      }
+
+      if (type === "unauthorized") {
+        console.log("🔴 Chat message unauthorized!", content);
+        notice("Unauthorized", ["red", "yellow"]);
+        return;
+      }
+
       console.log("🌠 Message received:", id, type, content);
-    }
-  }, undefined, "wss", undefined, () => {
-    console.log("🔌 Disconnected!");
-    chatterCount = 0;
-  });
+    },
+    undefined,
+    "wss",
+    undefined,
+    () => {
+      console.log("🔌 Disconnected!");
+      chatterCount = 0;
+    },
+  );
 
   // 🧦 Socket Networking
   server = socket((id, type, content) => {
@@ -52,13 +79,7 @@ async function boot({ api, ui, send, net: { socket }, handle, debug, notice, aut
       console.log("🪴 Welcome:", id);
       return;
     }
-
-    if (type === "chat:message") {
-      console.log("💬 Chat Received:", id, type, content);
-      return;
-    }
   });
-
 
   input = new ui.TextInput(
     api,

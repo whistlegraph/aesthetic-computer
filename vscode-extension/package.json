@@ -4,7 +4,7 @@
   "displayName": "Aesthetic Computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.74.0",
+  "version": "1.76.0",
   "description": "Code, run, and publish your pieces.",
   "engines": {
     "vscode": "^1.74.2"
@@ -21,7 +21,7 @@
     "uninstall:ext": "code --uninstall-extension aesthetic-computer.aesthetic-computer-code",
     "install:ext": "code --install-extension `ls -v *.vsix | tail -n 1`",
     "publish": "vsce publish minor",
-    "login": "vsce login",
+    "login": "vsce login aesthetic-computer",
     "token": "echo \"Get token from: https://dev.azure.com/aesthetic-computer/_usersSettings/tokens\""
   },
   "main": "./out/extension.js",
@@ -54,6 +54,10 @@
       {
         "command": "aestheticComputer.logIn",
         "title": "aesthetic.computer: Hi 👋 (Log in)"
+      },
+      {
+        "command": "aestheticComputer.logOut",
+        "title": "aesthetic.computer: Bye 🚪 (Log out)"
       },
       {
         "command": "aestheticComputer.runPiece",

@@ -118,7 +118,10 @@ loadAuth0Script()
 
       const url = new URL(window.location);
       const params = url.searchParams;
-      const encodedSession = params.get("session");
+      const sessionParams = params.get("session");
+      const encodedSession =
+        sessionParams || localStorage.getItem("acSessionParams");
+      localStorage.setItem("acSessionParams", sessionParams);
       let pickedUpSession;
       if (encodedSession) {
         const sessionJsonString = atob(decodeURIComponent(encodedSession));
@@ -139,9 +142,12 @@ loadAuth0Script()
           });
           pickedUpSession = true;
         }
-        params.delete("session"); // Remove the 'session' parameter
-        // Update the URL without reloading the page
-        history.pushState({}, "", url.pathname + "?" + params.toString());
+
+        if (sessionParams) {
+          params.delete("session"); // Remove the 'session' parameter
+          // Update the URL without reloading the page
+          history.pushState({}, "", url.pathname + "?" + params.toString());
+        }
       }
 
       let isAuthenticated = await auth0Client.isAuthenticated();

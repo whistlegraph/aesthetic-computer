@@ -205,6 +205,14 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     }),
   );
 
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aestheticComputer.logOut", async () => {
+      vscode.window.showInformationMessage(
+        "🟡 To log out, please use the profile icon in the VS Code UI.",
+      );
+    }),
+  );
+
   const getAestheticSession = async () => {
     const session = await vscode.authentication.getSession(
       "aesthetic",
@@ -475,11 +483,11 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
           vscode.commands.executeCommand("aestheticComputer.signUp");
           break;
         }
-        // case "logout": {
-        // console.log("🚪 Logging out...");
-        // vscode.commands.executeCommand("aestheticComputer.logOut");
-        // break;
-        // }
+        case "logout": {
+          console.log("🚪 Logging out...");
+          vscode.commands.executeCommand("aestheticComputer.logOut");
+          break;
+        }
       }
     });
   }
