@@ -4,7 +4,8 @@
     "ssl"
   ],
   "Files": [
-    "package-lock.json"
+    "package-lock.json",
+    ".env"
   ],
   "CloudConfig": {
     "Platform": "gcp",
