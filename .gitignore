@@ -23,7 +23,7 @@ node_modules/
 .DS_Store
 
 # redis dumps
-*.rdb
+dump.rdb
 
 # development certificates
 /ssl-dev/localhost.pem

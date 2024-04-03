@@ -13,9 +13,7 @@ export async function authorize({ authorization }) {
     const { got } = await import("got");
     return (
       await got("https://aesthetic.us.auth0.com/userinfo", {
-        headers: {
-          Authorization: authorization,
-        },
+        headers: { Authorization: authorization },
         responseType: "json",
       })
     ).body;
