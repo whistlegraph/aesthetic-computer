@@ -60,25 +60,30 @@ function startSocketServer() {
     ws.on("message", (data) => {
       const msg = JSON.parse(data.toString());
       msg.id = id;
-      console.log("💬 Received:", msg.content);
+      console.log("💬 Received:", msg);
+
+      if (msg.type === "") {
+
+      }
 
       // TODO: I need to... authorize the incoming message based on the
       //       token... and probably cache this somehow.
 
       // Message send process:
 
-      // 1. Authorize incoming message. See `authorization.mjs`. 
-      // 2. Submit message to database in MongoDB.
-      // 3. Send through redis to all connected users. 
-      // 3.5 Send a notification with a new notification type.
-      // 4. Show a cancellation if that occurs.
+      // 1. Authorize on new connection. See `authorization.mjs`. 
+      // 2. Only add to chatter list if authorized!
+
+      // 3. Submit message to database in MongoDB.
+      // 4. Send through redis to all connected users. 
+      // 5 Send a notification with a new notification type.
+      // 6. Show a cancellation if that occurs.
 
       // New connection process:
       // 1. On a new connection, get a paged list of messages from MongoDB,
       //    but also keep a cache here on the server so it just starts up
       //    and always stores the last 50 messages or something.
-
-      //    Create an http request on this endpoint for fetching more messages.
+      // 2. Create an http request on this endpoint for fetching more messages.
 
       // TODO: Depending on the message type, relay back to everyone
       //       and/or pass it into the chat log.

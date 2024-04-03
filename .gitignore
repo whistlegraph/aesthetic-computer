@@ -22,6 +22,9 @@ node_modules/
 # macOS
 .DS_Store
 
+# redis dumps
+*.rdb
+
 # development certificates
 /ssl-dev/localhost.pem
 /ssl-dev/localhost-key.pem
