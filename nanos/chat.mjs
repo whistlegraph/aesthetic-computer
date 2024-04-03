@@ -70,7 +70,15 @@ function startSocketServer() {
       // 1. Authorize incoming message. See `authorization.mjs`. 
       // 2. Submit message to database in MongoDB.
       // 3. Send through redis to all connected users. 
-      // 4. Make sure messages are always timestamped.
+      // 3.5 Send a notification with a new notification type.
+      // 4. Show a cancellation if that occurs.
+
+      // New connection process:
+      // 1. On a new connection, get a paged list of messages from MongoDB,
+      //    but also keep a cache here on the server so it just starts up
+      //    and always stores the last 50 messages or something.
+
+      //    Create an http request on this endpoint for fetching more messages.
 
       // TODO: Depending on the message type, relay back to everyone
       //       and/or pass it into the chat log.
