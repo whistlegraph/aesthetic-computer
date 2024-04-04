@@ -68,8 +68,7 @@ const previewOrIcon =
 function loadAuth0Script() {
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src =
-      "/aesthetic.computer/dep/cdn.auth0.com_js_auth0-spa-js_2.1_auth0-spa-js.production.js";
+    script.src = "/aesthetic.computer/dep/auth0-spa-js.production.js";
     script.crossOrigin = "anonymous";
     document.head.appendChild(script);
 
@@ -119,8 +118,9 @@ loadAuth0Script()
       const url = new URL(window.location);
       const params = url.searchParams;
       const sessionParams = params.get("session");
-      const encodedSession =
+      let encodedSession =
         sessionParams || localStorage.getItem("acSessionParams");
+      if (encodedSession === "null") encodedSession = undefined;
       localStorage.setItem("acSessionParams", sessionParams);
       let pickedUpSession;
       if (encodedSession) {

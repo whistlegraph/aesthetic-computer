@@ -3,11 +3,11 @@
 // But its first job is to be the chat server for AC.
 
 /* #region 🏁 TODO 
- - [🟡] Connect to production server.
-
- - [-] Get Firebase notification sent!
+ - [-] Get Firebase notifications fixed everywhere!
        (Maybe in production?)
+ - [] Get text filtering working. 
  + Done
+ - [x] Connect to production server.
  - [x] Disallow any req that isn't the chat-system.aesthetic.computer host when not in dev mode.
  - [x] New connection process:
     1. On a new connection, get a paged list of messages from MongoDB,
@@ -57,7 +57,7 @@ try {
 }
 
 initializeApp(
-  { Credential: cert(serviceAccount) }, //,
+  { credential: cert(serviceAccount) }, //,
   // "aesthetic" + ~~performance.now(),
 );
 
@@ -243,29 +243,26 @@ async function startChatServer() {
             )
             .then((result) => {
               console.log("💬 Message succesfully published:", result);
-              if (!dev) {
-                // ☎️ Send a notification
-                console.log("🟡 Sending notification...");
-                getMessaging()
-                  .send({
-                    notification: {
-                      title: "💬 Chat",
-                      body: handle + " " + msg.content.text,
-                    },
-                    topic: "scream", // <- Eventually replace.
-                    //topic: "chat-system",
-                    data: { piece: "chat" }, // This should send a tappable link to the chat piece.
-                  })
-                  .then((response) => {
-                    console.log(
-                      "☎️  Successfully sent notification:",
-                      response,
-                    );
-                  })
-                  .catch((error) => {
-                    console.log("📵  Error sending notification:", error);
-                  });
-              }
+              // if (!dev) {
+              // ☎️ Send a notification
+              console.log("🟡 Sending notification...");
+              getMessaging()
+                .send({
+                  notification: {
+                    title: "💬 Chat",
+                    body: handle + " " + msg.content.text,
+                  },
+                  topic: "mood", // <- Eventually replace.
+                  //t opic: "chat-system",
+                  // data: { piece: "chat" }, // This should send a tappable link to the chat piece.
+                })
+                .then((response) => {
+                  console.log("☎️  Successfully sent notification:", response);
+                })
+                .catch((error) => {
+                  console.log("📵  Error sending notification:", error);
+                });
+              //}
             })
             .catch((error) => {
               console.log("🙅‍♀️ Error publishing message:", error);
