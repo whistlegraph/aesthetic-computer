@@ -34,6 +34,8 @@ import chokidar from "chokidar";
 import fs from "fs";
 import crypto from "crypto";
 import dotenv from "dotenv";
+dotenv.config();
+
 import { exec } from "child_process";
 
 // FCM (Firebase Cloud Messaging)
@@ -59,8 +61,6 @@ initializeApp(
 );
 
 import { filter } from "./filter.mjs"; // Profanity filtering.
-
-dotenv.config();
 
 import { createClient } from "redis";
 const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
