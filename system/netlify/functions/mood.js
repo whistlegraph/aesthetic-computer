@@ -112,8 +112,6 @@ export async function handler(event, context) {
             })
           ).body;
 
-          console.log(serviceAccount, typeof serviceAccount);
-
           app ||= initializeApp({ credential: cert(serviceAccount) }); // Send a notification.
 
           console.log("💕 Setting a mood for:", user);
