@@ -151,8 +151,8 @@ async function startChatServer() {
 
     await sub.subscribe("chat-system", (message) => {
       const parsed = JSON.parse(message);
-      console.log("🗼 Received chat from redis:", parsed, message);
-      everyone(pack(`message`, parsed));
+      console.log("🗼 Received chat from redis:", parsed);
+      // everyone(pack(`message`, parsed));
     });
   } catch (err) {
     console.error("🔴 Could not connect to `redis` instance.", err);
@@ -250,17 +250,17 @@ async function startChatServer() {
             "@" + (await storeMessageInMongo(msg.content, filteredText));
           console.log("🟢 Message stored:", handle);
 
+          const update = {
+            text: filteredText,
+            handle,
+          };
+
           // 🏬 Publish to redis.
           pub
-            .publish(
-              "chat-system",
-              JSON.stringify({
-                text: filteredText,
-                handle,
-              }),
-            )
+            .publish("chat-system", JSON.stringify(update))
             .then((result) => {
               console.log("💬 Message succesfully published:", result);
+              everyone(pack(`message`, update));
               // if (!dev) {
               // ☎️ Send a notification
               console.log("🟡 Sending notification...");
