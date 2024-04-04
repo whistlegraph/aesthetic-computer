@@ -171,7 +171,7 @@ fastify.post("/update", (request, reply) => {
 
   // Restart service in production.
   exec(
-    "cd /home/aesthetic.computer/session-server; pm2 stop all; git pull; npm install; pm2 start all",
+    "cd /home/aesthetic-computer/session-server; pm2 stop all; git pull; npm install; pm2 start all",
     (err, stdout, stderr) => {
       if (err) {
         error(`exec error: ${error}`);
