@@ -44,17 +44,19 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** chat ***
-  - [🟡] Add a `chat` command with a persistently paginated list of
-        messages.
-  - [] These messages should send notifications of a new type.
+  - [] Add chat to the docs / `list` command.
+  - [] Fix email address could not be verified sign up message: https://discord.com/channels/890376329957081138/890376329957081144/1225363479649845352
   - [] Wire it into a new 2D renderer backend... try pixi.js?
   - [] Should chat be everywhere?
     - [] Then abstract `chat` from that view.
   - [] Make a panel in the logs to watch it stream in.
-  - [] It should persist in the database under a table.
   - [] Then appear for other users and the current user.
        (Just make the text fully synchronized for now.)
+  - [] Make a new "notification type" for chat and add it into an iOS app update.
   + Done
+  - [x] It should persist in the database under a table.
+  - [x] These messages should send notifications.
+  - [x] Add a `chat` command with a persistent list of messages.
   - [x] Spin up a nanos unikernel test server for the chat.
     - [x] Deploy it to the google cloud.
       - [x] https://console.cloud.google.com/compute/instances?project=aesthetic-computer
