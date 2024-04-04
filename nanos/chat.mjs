@@ -1,7 +1,20 @@
 // chat, 24.03.30.14.53
 // This file is a unikernal compatible chat server designed to eventually replace `session-server/session.mjs` by adding both websocket and udp support.
-
 // But its first job is to be the chat server for AC.
+
+/* #region 🏁 TODO 
+ - [🟡] Connect to production server.
+
+ - [-] Get Firebase notification sent!
+       (Maybe in production?)
+ + Done
+ - [x] Disallow any req that isn't the chat-system.aesthetic.computer host when not in dev mode.
+ - [x] New connection process:
+    1. On a new connection, get a paged list of messages from MongoDB,
+      but also keep a cache here on the server so it just starts up
+      and always stores the last 50 messages or something.
+    2. Create an http request on this endpoint for fetching more messages.
+#endregion */
 
 // Management:
 // https://console.cloud.google.com/compute/instances?project=aesthetic-computer
@@ -11,26 +24,68 @@ import { readFileSync } from "fs";
 import http from "http";
 import https from "https";
 
+import { createClient } from "redis"; // Redis
+import { MongoClient } from "mongodb"; // MongoDB
+// FCM (Firebase Cloud Messaging)
+
+import dotenv from "dotenv";
+dotenv.config({ path: "./chat.env" });
+
 import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
 import { getMessaging } from "firebase-admin/messaging";
-import { createClient } from "redis";
-import { MongoClient } from "mongodb";
-import "dotenv/config";
 
 console.log("\n🌟 Starting the Aesthetic Computer Chat Server 🌟\n");
 
+const allowedHost = "chat-system.aesthetic.computer";
+
 const dev = process.env.NODE_ENV === "development";
 
-let server;
-let connections = {}; // All active WebSocket connections.
-let connectionId = 0;
+const subsToHandles = {};
+const preAuthorized = {};
+// const messages = []; // An active buffer of the last 100 messages.
+
+let serviceAccount;
+try {
+  const response = await fetch(process.env.GCM_FIREBASE_CONFIG_URL);
+  if (!response.ok) {
+    throw new Error(`HTTP error! Status: ${response.status}`);
+  }
+  serviceAccount = await response.json();
+} catch (error) {
+  console.error("Error fetching service account:", error);
+  // Handle the error as needed
+}
+
+initializeApp(
+  { Credential: cert(serviceAccount) }, //,
+  // "aesthetic" + ~~performance.now(),
+);
+
+let server,
+  connections = {}, // All active socket connections.
+  connectionId = 0;
 
 const MONGODB_CONNECTION_STRING = process.env.MONGODB_CONNECTION_STRING;
 const MONGODB_NAME = process.env.MONGODB_NAME;
-const GCM_FIREBASE_CONFIG_URL = process.env.GCM_FIREBASE_CONFIG_URL;
+// const GCM_FIREBASE_CONFIG_URL = process.env.GCM_FIREBASE_CONFIG_URL;
 const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
 
+let client, db;
+
+await makeMongoConnection();
+
+const messages = [];
+await getLast100MessagesfromMongo();
+// Retrieve the last 100 messages and then buffer in the new ones.
+
+// The main HTTP route.
 const request = (req, res) => {
+  if (!dev && req.headers.host !== allowedHost) {
+    res.writeHead(403); // Forbidden
+    res.end("Access denied");
+    return;
+  }
+
   const domain = req.headers.host; // Get the domain from the request
   res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
   res.end(`😱 Aesthetic Computer\nHost: <mark>${domain}</mark>`);
@@ -54,10 +109,10 @@ server.listen(port, "0.0.0.0", () => {
   console.log(
     `--> Web server running at ${dev ? "https" : "http"}://0.0.0.0:${port} 🕷️`,
   );
-  startSocketServer();
+  startChatServer();
 });
 
-async function startSocketServer() {
+async function startChatServer() {
   // #region 🏬 Redis
   // *** Start up two `redis` clients. (One for subscribing, and for publishing)
   // const sub = !dev
@@ -85,10 +140,8 @@ async function startSocketServer() {
 
     await sub.subscribe("chat-system", (message) => {
       const parsed = JSON.parse(message);
-      console.log("Received chat from REDIS:", parsed, message);
-      // TODO: Pack a message.
+      console.log("🗼 Received chat from redis:", parsed, message);
       everyone(pack(`message`, parsed));
-
     });
   } catch (err) {
     console.error("🔴 Could not connect to `redis` instance.", err);
@@ -97,6 +150,11 @@ async function startSocketServer() {
 
   const wss = new WebSocketServer({ server });
   wss.on("connection", (ws, req) => {
+    if (!dev && req.headers.host !== allowedHost) {
+      ws.close(1008, "Policy violation"); // Close the WebSocket connection
+      return;
+    }
+
     connections[connectionId] = ws;
     connectionId += 1;
     const id = connectionId;
@@ -123,9 +181,9 @@ async function startSocketServer() {
         "💬 Received:",
         msg.type,
         "from:",
-        msg.handle,
+        msg.content.handle,
         "of:",
-        msg.text,
+        msg.content.text,
       );
 
       // 💬 Received an incoming chat message.
@@ -134,7 +192,22 @@ async function startSocketServer() {
 
         // 🔐 1. Authorization
         // 💡️ Maybe this could be cached at some point. 24.04.02.21.30
-        const authorized = await authorize(msg.content.token);
+
+        let authorized;
+
+        if (preAuthorized[msg.content.sub]?.token === msg.content.token) {
+          authorized = preAuthorized[msg.content.sub].user;
+          console.log("🟢 Preauthorization found.");
+        } else {
+          console.log("🟡 Authorizing...");
+          authorized = await authorize(msg.content.token);
+          if (authorized)
+            preAuthorized[authorized.sub] = {
+              token: msg.content.token,
+              user: authorized,
+            };
+        }
+
         if (!authorized) {
           console.error("🔴 Unauthorized:", msg.content);
           ws.send(
@@ -152,80 +225,58 @@ async function startSocketServer() {
         // 📚 2. Persistence
         // TODO:  Add this chat to MongoDB, using the domain. (Only allow requests from the domain.)
         try {
-          // const out = filter(msg.content); // TODO: Filter message for content.
+          // TODO: Filter message for content.
+          // const out = filter(msg.content);
 
-          const stored = await storeMessageInMongo(msg.content);
-          console.log("🟢 Message stored:", stored);
+          const handle = "@" + (await storeMessageInMongo(msg.content));
+          console.log("🟢 Message stored:", handle);
 
-          // 1. PUB via redis now or send back to others() ?
-
+          // 🏬 Publish to redis.
           pub
             .publish(
               "chat-system",
               JSON.stringify({
                 text: msg.content.text,
-                handle: msg.content.handle,
+                handle,
               }),
             )
             .then((result) => {
               console.log("💬 Message succesfully published:", result);
-              // if (!dev) {
-              //   getMessaging()
-              //     .send({
-              //       notification: { title: "😱 Scream", body: out },
-              //       topic: "scream",
-              //       data: { piece },
-              //     })
-              //     .then((response) => {
-              //       log("☎️  Successfully sent notification:", response);
-              //     })
-              //     .catch((error) => {
-              //       log("📵  Error sending notification:", error);
-              //     });
-              // }
+              if (!dev) {
+                // ☎️ Send a notification
+                console.log("🟡 Sending notification...");
+                getMessaging()
+                  .send({
+                    notification: {
+                      title: "💬 Chat",
+                      body: handle + " " + msg.content.text,
+                    },
+                    topic: "scream", // <- Eventually replace.
+                    //topic: "chat-system",
+                    data: { piece: "chat" }, // This should send a tappable link to the chat piece.
+                  })
+                  .then((response) => {
+                    console.log(
+                      "☎️  Successfully sent notification:",
+                      response,
+                    );
+                  })
+                  .catch((error) => {
+                    console.log("📵  Error sending notification:", error);
+                  });
+              }
             })
             .catch((error) => {
               console.log("🙅‍♀️ Error publishing message:", error);
             });
 
-          // How can I publish this to redis now?
-
-          // 2. Send a push notification.
-          //const serviceAccount = (
-          //  await got(GCM_FIREBASE_CONFIG_URL, {
-          //    responseType: "json",
-          //  })
-          //).body;
-          // - [] Web push will need an update.
-          // - [] iOS App will need an update.
-
           // 3. Send a confirmation back to the user.
+          // No need, as this comes through redis...
         } catch (err) {
           console.error("🔴 Message could not be stored:", err);
           // TODO: Show cancellation of some kind to the user.
         }
       }
-
-      // TODO: I need to... authorize the incoming message based on the
-      //       token... and probably cache this somehow.
-
-      // Message send process:
-
-      // 1. Authorize on new connection. See `authorization.mjs`.
-      // 2. Only add to chatter list if authorized!
-
-      // 3. Submit message to database in MongoDB.
-      // 4. Send through redis to all connected users.
-      // 6. Show a cancellation if that occurs.
-
-      // New connection process:
-      // 1. On a new connection, get a paged list of messages from MongoDB,
-      //    but also keep a cache here on the server so it just starts up
-      //    and always stores the last 50 messages or something.
-      // 2. Create an http request on this endpoint for fetching more messages.
-
-      // TODO: Depending on the message type, relay back to everyone
-      //       and/or pass it into the chat log.
     });
 
     const interval = setInterval(function ping() {
@@ -257,6 +308,7 @@ async function startSocketServer() {
         {
           message: "Welcome to the Aesthetic Computer System Chat!",
           chatters: wss.clients.size,
+          messages,
         },
         id,
       ),
@@ -298,8 +350,8 @@ async function authorize(authorization) {
     if (response.status === 200) {
       return response.json();
     } else {
-      console.log(response);
-      throw new Error("🔴 Unauthorized");
+      // console.log(response.text());
+      throw new Error("🔴 Unauthorized;", response.text());
     }
   } catch {
     return undefined;
@@ -309,43 +361,79 @@ async function authorize(authorization) {
 // #region 🗺️ MongoDB
 
 async function makeMongoConnection() {
-  const client = new MongoClient(MONGODB_CONNECTION_STRING);
+  console.log("🟡 Connecting to MongoDB...");
+  client = new MongoClient(MONGODB_CONNECTION_STRING);
   await client.connect();
-  const db = client.db(MONGODB_NAME);
-  return { client, db };
+  db = client.db(MONGODB_NAME);
+  // return { client, db };
+  console.log("🟢 Connected!");
 }
 
+// Also looks up the handle for the user and returns it.
 async function storeMessageInMongo(message) {
-  console.log("🟡 Connecting to MongoDB...");
-  const { client, db } = await makeMongoConnection();
-
-  let user = null;
-
-  if (message.handle) {
-    // Extract handle name (assuming handle is in the format "@handleName")
-    const handleName = message.handle.slice(1);
-
-    // Query the `handles` collection to find the corresponding user _id
-    console.log("🟡 Looking up user record...");
-    const handle = await db
-      .collection("@handles")
-      .findOne({ handle: handleName });
-    if (handle) user = handle._id;
-  }
+  const fromSub = message.sub;
 
   console.log("🟡 Storing message...");
   const collection = db.collection("chat-system");
   await collection.createIndex({ when: 1 }); // Index for `when`.
 
-  // Store the chat message
-  const inserted = await collection.insertOne({
-    user,
+  // Retrieve handle either from cache or MongoDB
+  const handle = await getHandleFromSub(fromSub);
+
+  const msg = {
+    user: message.sub,
     text: message.text,
     when: new Date(),
-  });
+  };
 
-  await client.close();
-  return inserted;
+  // Store the chat message
+  await collection.insertOne(msg);
+
+  messages.push({ handle: "@" + handle, text: msg.text, when: msg.when });
+  if (messages.length > 100) {
+    messages.shift();
+  }
+  // console.log("Messages:", messages);
+  return handle;
+}
+
+async function getLast100MessagesfromMongo() {
+  console.log("🟡 Retrieving last 100 messages...");
+  const chatCollection = db.collection("chat-system");
+  const collectedMessages = await chatCollection
+    .find({})
+    .sort({ when: 1 })
+    .limit(100)
+    .toArray();
+
+  for (const message of collectedMessages) {
+    const fromSub = message.user;
+    // Retrieve handle either from cache or MongoDB
+    const handle = await getHandleFromSub(fromSub);
+
+    messages.push({
+      handle: "@" + handle,
+      text: message.text,
+      when: message.when,
+    });
+  }
+}
+
+async function getHandleFromSub(fromSub) {
+  let handle;
+
+  console.log("🟡 Looking up user record for...", fromSub);
+  if (!subsToHandles[fromSub]) {
+    handle = (await db.collection("@handles").findOne({ _id: fromSub }))
+      ?.handle;
+    console.log("🟢 Got handle from MongoDB:", handle);
+    subsToHandles[fromSub] = handle;
+  } else {
+    handle = subsToHandles[fromSub];
+    console.log("🟢 Got handle from cache:", handle);
+  }
+
+  return handle;
 }
 
 // #endregion

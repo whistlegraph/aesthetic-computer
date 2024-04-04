@@ -38,11 +38,24 @@ import { exec } from "child_process";
 
 // FCM (Firebase Cloud Messaging)
 import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
-import serviceAccount from "./aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json" assert { type: "json" };
+//import serviceAccount from "./aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json" assert { type: "json" };
 import { getMessaging } from "firebase-admin/messaging";
+
+let serviceAccount;
+try {
+  const response = await fetch(process.env.GCM_FIREBASE_CONFIG_URL);
+  if (!response.ok) {
+    throw new Error(`HTTP error! Status: ${response.status}`);
+  }
+  serviceAccount = await response.json();
+} catch (error) {
+  console.error("Error fetching service account:", error);
+  // Handle the error as needed
+}
+
 initializeApp(
-  { Credential: cert(serviceAccount) },
-  "aesthetic" + ~~performance.now(),
+  { Credential: cert(serviceAccount) }, //,
+  //"aesthetic" + ~~performance.now(),
 );
 
 import { filter } from "./filter.mjs"; // Profanity filtering.

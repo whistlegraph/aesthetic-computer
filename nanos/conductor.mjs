@@ -33,6 +33,9 @@ import { MongoClient } from "mongodb";
 
 import "dotenv/config";
 
+import dotenv from "dotenv";
+dotenv.config({ path: "./conductor.env" });
+
 // #region 📊 Configuration
 const CLOUDFLARE_EMAIL = process.env.CLOUDFLARE_EMAIL;
 const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
