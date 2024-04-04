@@ -55,8 +55,10 @@ try {
   // Handle the error as needed
 }
 
+console.log(serviceAccount, typeof serviceAccount);
+
 initializeApp(
-  { Credential: cert(serviceAccount) }, //,
+  { credential: cert(serviceAccount) }, //,
   //"aesthetic" + ~~performance.now(),
 );
 
@@ -322,20 +324,20 @@ wss.on("connection", (ws, req) => {
           if (out.indexOf("pond") > -1) piece = "pond";
           else if (out.indexOf("field") > -1) piece = "field";
 
-          if (!dev) {
-            getMessaging()
-              .send({
-                notification: { title: "😱 Scream", body: out },
-                topic: "scream",
-                data: { piece },
-              })
-              .then((response) => {
-                log("☎️  Successfully sent notification:", response);
-              })
-              .catch((error) => {
-                log("📵  Error sending notification:", error);
-              });
-          }
+          //if (!dev) {
+          getMessaging()
+            .send({
+              notification: { title: "😱 Scream", body: out },
+              topic: "scream",
+              data: { piece },
+            })
+            .then((response) => {
+              log("☎️  Successfully sent notification:", response);
+            })
+            .catch((error) => {
+              log("📵  Error sending notification:", error);
+            });
+          //}
         })
         .catch((error) => {
           log("🙅‍♀️ Error publishing scream:", error);
