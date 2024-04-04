@@ -4,7 +4,7 @@
   "description": "A nanosvm unikernel module for Aesthetic Computer infrastructure.",
   "type": "module",
   "scripts": {
-    "chat-system:deploy": "node conductor.mjs chat-system",
+    "chat-system:deploy": "npm run gcp:deploy:instance:delete chat-system; node conductor.mjs chat-system",
     "chat-system:dev": "npm install; ops pkg load eyberg/node:20.5.0 -c config-gcp.json -n -e NODE_ENV=development -a chat.mjs",
     "cf:update": "node conductor.mjs",
     "do:deploy": "npm run do:deploy:image; npm run do:deploy:instance chat; npm run do:deploy:image:list; npm run do:deploy:instance:list",
