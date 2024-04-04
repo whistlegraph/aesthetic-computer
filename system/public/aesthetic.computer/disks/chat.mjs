@@ -23,6 +23,8 @@ const lineHeight = 12; // Height of each line
 const topMargin = 38; // Space from the top of the screen
 const bottomMargin = 33;
 
+let connecting = true;
+
 import { Socket } from "../lib/socket.mjs";
 
 async function boot({
@@ -52,6 +54,7 @@ async function boot({
     chatUrl,
     (id, type, content) => {
       if (type === "connected") {
+        connecting = false;
         console.log("🔌 Connected:", content);
         chatterCount = content?.chatters || chatterCount;
         console.log("💬 Messages so far:", content.messages);
@@ -81,6 +84,7 @@ async function boot({
     () => {
       console.log("🔌 Disconnected!");
       chatterCount = 0;
+      connecting = true;
     },
   );
 
@@ -162,6 +166,7 @@ async function boot({
 
 function paint({ api, ink, wipe, screen, leaving, typeface, geo: { Box } }) {
   wipe("brown");
+  if (connecting) ink("red").write("Connecting...", { center: "xy"});
 
   // Messages
   // Start from the bottom of the screen
@@ -211,7 +216,7 @@ function paint({ api, ink, wipe, screen, leaving, typeface, geo: { Box } }) {
       screen.height - bottomMargin + 2,
     );
 
-  ink("orange").write("Chatters: " + chatterCount, { left: 6, bottom: 10 });
+  if (!connecting) ink("orange").write("Chatters: " + chatterCount, { left: 6, bottom: 10 });
 
   if (input.canType && !leaving()) {
     input.paint(api, false, {
