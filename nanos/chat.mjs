@@ -252,9 +252,9 @@ async function startChatServer() {
                     title: "💬 Chat",
                     body: handle + " " + msg.content.text,
                   },
-                  topic: "mood", // <- Eventually replace.
-                  //t opic: "chat-system",
-                  // data: { piece: "chat" }, // This should send a tappable link to the chat piece.
+                  topic: "mood", // <- TODO: Eventually replace this.
+                  // topic: "chat-system",
+                  data: { piece: "chat" }, // This should send a tappable link to the chat piece.
                 })
                 .then((response) => {
                   console.log("☎️  Successfully sent notification:", response);
