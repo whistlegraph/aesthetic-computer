@@ -5,8 +5,9 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🍁] Use the TextInput implementation from `world` for input.
-  - [...] Prototype a scrollback output on the main screen.
+  - [🟡] Show better connectivity.
+  - [] Add basic sounds.
+  - [] Move connection so that updates appear in every piece?
 #endregion */
 
 let input,
