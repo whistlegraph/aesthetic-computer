@@ -37,6 +37,7 @@
     "dotenv": "^16.4.5",
     "firebase-admin": "^12.0.0",
     "mongodb": "^6.5.0",
+    "obscenity": "^0.2.1",
     "redis": "^4.6.13",
     "ws": "^8.16.0"
   }
