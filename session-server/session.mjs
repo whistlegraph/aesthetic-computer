@@ -5,13 +5,13 @@
 
 /* #region todo
  + Now
- + Possible Concerns
- - [?] `code.channel` should return a promise, and wait for a
+ - [-] Fix live reloading of in-production udp.
+ + Done
+ - [c] `code.channel` should return a promise, and wait for a
       `code-channel:subbed`.
     event here? This way users get better confirmation if the socket
     doesn't go through or if there is a server issue. 23.07.04.18.01
     (Might not actually be that necessary.)
- + Done
  - [x] Add `obscenity` filter.
  - [x] Conditional redis sub to dev updates. (Will save bandwidth if extension
        gets lots of use, also would be more secure.)
