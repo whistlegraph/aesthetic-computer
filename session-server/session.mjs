@@ -55,8 +55,6 @@ try {
   // Handle the error as needed
 }
 
-console.log(serviceAccount, typeof serviceAccount);
-
 initializeApp(
   { credential: cert(serviceAccount) }, //,
   //"aesthetic" + ~~performance.now(),
