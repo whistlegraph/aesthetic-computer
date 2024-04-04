@@ -23,6 +23,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { readFileSync } from "fs";
 import http from "http";
 import https from "https";
+import { filter } from "./filter.mjs"; // Profanity filtering.
 
 import { createClient } from "redis"; // Redis
 import { MongoClient } from "mongodb"; // MongoDB
@@ -227,9 +228,9 @@ async function startChatServer() {
         // TODO:  Add this chat to MongoDB, using the domain. (Only allow requests from the domain.)
         try {
           // TODO: Filter message for content.
-          // const out = filter(msg.content);
+          const filteredText = filter(msg.content.text);
 
-          const handle = "@" + (await storeMessageInMongo(msg.content));
+          const handle = "@" + (await storeMessageInMongo(msg.content, filteredText));
           console.log("🟢 Message stored:", handle);
 
           // 🏬 Publish to redis.
@@ -237,7 +238,7 @@ async function startChatServer() {
             .publish(
               "chat-system",
               JSON.stringify({
-                text: msg.content.text,
+                text: filteredText,
                 handle,
               }),
             )
@@ -250,7 +251,7 @@ async function startChatServer() {
                 .send({
                   notification: {
                     title: "💬 Chat",
-                    body: handle + " " + msg.content.text,
+                    body: handle + " " + filteredText,
                   },
                   topic: "mood", // <- TODO: Eventually replace this.
                   // topic: "chat-system",
@@ -368,7 +369,7 @@ async function makeMongoConnection() {
 }
 
 // Also looks up the handle for the user and returns it.
-async function storeMessageInMongo(message) {
+async function storeMessageInMongo(message, filteredText) {
   const fromSub = message.sub;
 
   console.log("🟡 Storing message...");
@@ -380,14 +381,19 @@ async function storeMessageInMongo(message) {
 
   const msg = {
     user: message.sub,
-    text: message.text,
+    text: message.text, // Store unfiltered text in the database.
     when: new Date(),
   };
 
   // Store the chat message
   await collection.insertOne(msg);
 
-  messages.push({ handle: "@" + handle, text: msg.text, when: msg.when });
+  messages.push({
+    handle: "@" + handle,
+    text: filteredText,
+    when: msg.when,
+  });
+
   if (messages.length > 100) {
     messages.shift();
   }
@@ -411,7 +417,7 @@ async function getLast100MessagesfromMongo() {
 
     messages.push({
       handle: "@" + handle,
-      text: message.text,
+      text: filter(message.text),
       when: message.when,
     });
   }
