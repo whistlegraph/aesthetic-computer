@@ -11,12 +11,16 @@
 
 let input,
   inputBtn,
-  server,
+  // server,
   chat,
   token,
   chatterCount = 0;
 
 let messages = [];
+
+const lineHeight = 12; // Height of each line
+const topMargin = 38; // Space from the top of the screen
+const bottomMargin = 33;
 
 import { Socket } from "../lib/socket.mjs";
 
@@ -29,6 +33,8 @@ async function boot({
   debug,
   notice,
   authorize,
+  user,
+  screen,
 }) {
   // 🗨️ Chat Networking
   const chatUrl = debug ? "localhost:8083" : "chat-system.aesthetic.computer";
@@ -47,6 +53,8 @@ async function boot({
       if (type === "connected") {
         console.log("🔌 Connected:", content);
         chatterCount = content?.chatters || chatterCount;
+        console.log("💬 Messages so far:", content.messages);
+        messages.push(...content.messages);
         return;
       }
 
@@ -76,6 +84,7 @@ async function boot({
   );
 
   // 🧦 Socket Networking
+  /*
   server = socket((id, type, content) => {
     if (type === "left") {
       console.log("️✌️ Goodbye:", id);
@@ -92,6 +101,7 @@ async function boot({
       return;
     }
   });
+  */
 
   // ✍️️️ Text Input
   input = new ui.TextInput(
@@ -103,7 +113,12 @@ async function boot({
       if (!currentHandle) {
         notice("NO HANDLE", ["red", "yellow"]);
       } else {
-        chat.send(`chat:message`, { text, handle: currentHandle, token }); // Send the chat message.
+        chat.send(`chat:message`, {
+          text,
+          // handle: currentHandle,
+          token,
+          sub: user.sub,
+        }); // Send the chat message.
         notice("SENT");
       }
 
@@ -135,28 +150,67 @@ async function boot({
     },
   );
 
-  inputBtn = new ui.Button(64, 64, 32, 32);
+  inputBtn = new ui.Button(
+    0,
+    topMargin,
+    screen.width,
+    screen.height - bottomMargin - topMargin + 2,
+  );
   send({ type: "keyboard:soft-lock" });
 }
 
-function paint({ api, ink, wipe, screen, leaving, typeface }) {
+function paint({ api, ink, wipe, screen, leaving, typeface, geo: { Box } }) {
   wipe("brown");
 
   // Messages
-  messages.forEach((message, i) => {
+  // Start from the bottom of the screen
+  let y = screen.height - lineHeight - bottomMargin;
+
+  // Iterate through the messages array backwards
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
     const x = 6;
-    const y = 6 + (i + 1) * 12;
+
+    // Draw the handle and text
     ink("yellow").write(message.handle, { x, y });
     ink("white").write(message.text, {
-      x: x + message.handle.length * typeface.blockWidth,
+      x: x + (message.handle.length + 1) * typeface.blockWidth,
       y,
     });
-  });
+
+    // Move up for the next message
+    y -= lineHeight;
+
+    // Break the loop if y goes below the top line
+    if (y < topMargin) {
+      break;
+    }
+  }
 
   // Interface
+
+  inputBtn.box = new Box(
+    0,
+    topMargin,
+    screen.width,
+    screen.height - bottomMargin - topMargin + 2,
+  );
   inputBtn.paint((btn) => {
-    ink("white", btn.down && btn.over ? 128 : 64).box(btn.box);
+    if (btn.down) {
+      ink("white", btn.down && btn.over ? 128 : 64).box(btn.box);
+    }
   });
+
+  ink("red")
+    .line(0, topMargin, screen.width, topMargin)
+    .line(
+      0,
+      screen.height - bottomMargin + 2,
+      screen.width,
+      screen.height - bottomMargin + 2,
+    );
+
+  ink("orange").write("Chatters: " + chatterCount, { left: 6, bottom: 10 });
 
   if (input.canType && !leaving()) {
     input.paint(api, false, {
@@ -166,8 +220,6 @@ function paint({ api, ink, wipe, screen, leaving, typeface }) {
       height: screen.height - 18,
     });
   }
-
-  ink("yellow").write("Chatters: " + chatterCount, { left: 6, bottom: 6 });
 }
 
 function act({ api, event: e, hud, piece, send }) {
