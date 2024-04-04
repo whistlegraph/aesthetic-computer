@@ -1,11 +1,9 @@
 {
-  "Dirs": [
-    "node_modules",
-    "ssl"
-  ],
+  "Dirs": ["node_modules", "ssl"],
   "Files": [
     "package-lock.json",
-    ".env"
+    "chat.env",
+    "aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json"
   ],
   "CloudConfig": {
     "Platform": "gcp",
@@ -15,16 +13,11 @@
   },
   "RunConfig": {
     "Memory": "1G",
-    "Ports": [
-      "8083", "80", "443"
-    ],
+    "Ports": ["8083", "80", "443"],
     "UDPPorts": ["60", "70-80", "6006"],
     "Verbose": true
   },
-  "Klibs": [
-    "gcp",
-    "tls"
-  ],
+  "Klibs": ["gcp", "tls"],
   "ManifestPassthrough": {
     "gcp": {
       "metrics": {
