@@ -81,16 +81,7 @@ but technically agnostic. (Choose your aesthetic!)
 *** [] light & dark autocomplete ***
 
 *** `world` <-> `painting` <-> piece integrations ***
-  - [] User world persistence with floating command notifications.
-    - [🟠] User world persistence.
-      - [🟡] Better visual list of users / skip lines.
-      - [🔴] Joining field and being on the same handle would enter a spectate / take control
-           sort of situation.
-      + Done
-      - [x] Keep a ghost / location of the user once they leave field or whatever world position.
-      - [x] This should require a handle, to reassociate the user?
-      - [x] Floating command notifications.
-
+  - [🔴] Joining field and being on the same handle would enter a spectate / take control sort of situation.
   - [] Be able to easily complete a painting and then include it in a piece
        in a single line...
   - [] Add the ability to name a painting so it can more
@@ -109,6 +100,14 @@ but technically agnostic. (Choose your aesthetic!)
       modifying pixels. (Always store current painting in the cloud for a registered user.)
   - [] Implement `paste` and send the pixels through the backend.
   + Done
+  - [x] User world persistence with floating command notifications.
+    - [x] User world persistence.
+      - [x] Better visual list of users / skip lines.
+      + Done
+      - [x] Keep a ghost / location of the user once they leave field or whatever world position.
+      - [x] This should require a handle, to reassociate the user?
+      - [x] Floating command notifications.
+
   - [x] Maybe I could overload `paste` to include user strings...
   - [x] Share current painting in `world` using a `show` command.
     - [x] Also add `hide` command.

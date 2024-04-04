@@ -3,10 +3,10 @@
 // But its first job is to be the chat server for AC.
 
 /* #region 🏁 TODO 
- - [-] Get Firebase notifications fixed everywhere!
-       (Maybe in production?)
- - [] Get text filtering working. 
  + Done
+ - [x] Get Firebase notifications fixed everywhere!
+       (Maybe in production?)
+ - [x] Get text filtering working. 
  - [x] Connect to production server.
  - [x] Disallow any req that isn't the chat-system.aesthetic.computer host when not in dev mode.
  - [x] New connection process:
@@ -121,7 +121,7 @@ async function startChatServer() {
     await sub.subscribe("chat-system", (message) => {
       const parsed = JSON.parse(message);
       console.log("🗼 Received chat from redis:", parsed);
-      everyone(pack(`message`, parsed));
+      // everyone(pack(`message`, parsed));
     });
     console.log("📰 Subscribed to `chat-system`!");
   }
@@ -143,7 +143,7 @@ async function startChatServer() {
 
     client.on("connect", async () => {
       console.log(`🟢 ${role} Redis client reconnected successfully`);
-      // await subscribe();
+      if (role === "subscriber") await subscribe();
     });
 
     client.on("error", (err) =>
@@ -159,11 +159,6 @@ async function startChatServer() {
   try {
     await sub.connect();
     await pub.connect();
-
-    // TODO: This needs to be sent only for a specific user or needs
-    //       some kind of special ID.
-
-    await subscribe();
   } catch (err) {
     console.error("🔴 Could not connect to `redis` instance.", err);
   }
@@ -174,6 +169,13 @@ async function startChatServer() {
     if (!dev && req.headers.host !== allowedHost) {
       ws.close(1008, "Policy violation"); // Close the WebSocket connection
       return;
+    }
+
+    // Send a message to all other clients except this one.
+    function others(string) {
+      wss.clients.forEach((c) => {
+        if (c !== ws && c?.readyState === WebSocket.OPEN) c.send(string);
+      });
     }
 
     connections[connectionId] = ws;
@@ -209,7 +211,7 @@ async function startChatServer() {
         "💬 Received:",
         msg.type,
         "from:",
-        msg.content.handle,
+        msg.content.sub,
         "of:",
         msg.content.text,
       );
@@ -270,7 +272,7 @@ async function startChatServer() {
             .publish("chat-system", JSON.stringify(update))
             .then((result) => {
               console.log("💬 Message succesfully published:", result);
-              // everyone(pack(`message`, update));
+              everyone(pack(`message`, update));
               // if (!dev) {
               // ☎️ Send a notification
               console.log("🟡 Sending notification...");
@@ -326,8 +328,10 @@ async function startChatServer() {
         wss.clients.size,
         "🫂",
       );
+      everyone(pack("left", { id, count: wss.clients.size }));
     });
 
+    // Send a connect message to the new client.
     ws.send(
       pack(
         "connected",
@@ -336,6 +340,17 @@ async function startChatServer() {
           chatters: wss.clients.size,
           messages,
         },
+        id,
+      ),
+    );
+
+    // Send a join message to everyone else.
+    others(
+      pack(
+        "joined",
+        JSON.stringify({
+          text: `${id} has joined. Connections open: ${wss.clients.size}`,
+        }),
         id,
       ),
     );
