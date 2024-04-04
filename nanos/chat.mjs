@@ -80,12 +80,6 @@ await getLast100MessagesfromMongo();
 
 // The main HTTP route.
 const request = (req, res) => {
-  if (!dev && req.headers.host !== allowedHost) {
-    res.writeHead(403); // Forbidden
-    res.end("Access denied");
-    return;
-  }
-
   const domain = req.headers.host; // Get the domain from the request
   res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
   res.end(`😱 Aesthetic Computer\nHost: <mark>${domain}</mark>`);
@@ -174,7 +168,14 @@ async function startChatServer() {
     );
 
     ws.on("message", async (data) => {
-      const msg = JSON.parse(data.toString());
+      let msg;
+      try {
+        msg = JSON.parse(data.toString());
+      } catch (err) {
+        console.log("🔴 Failed to parse message:", data.toString());
+        return;
+      }
+
       msg.id = id;
 
       console.log(
