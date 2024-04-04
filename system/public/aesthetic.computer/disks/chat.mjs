@@ -167,30 +167,32 @@ async function boot({
 
 function paint({ api, ink, wipe, screen, leaving, typeface, geo: { Box } }) {
   wipe("brown");
-  if (connecting) ink("red").write("Connecting...", { center: "xy"});
+  if (connecting) ink("red").write("Connecting...", { center: "xy" });
 
   // Messages
   // Start from the bottom of the screen
-  let y = screen.height - lineHeight - bottomMargin;
+  if (!connecting) {
+    let y = screen.height - lineHeight - bottomMargin;
 
-  // Iterate through the messages array backwards
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    const x = 6;
+    // Iterate through the messages array backwards
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i];
+      const x = 6;
 
-    // Draw the handle and text
-    ink("yellow").write(message.handle, { x, y });
-    ink("white").write(message.text, {
-      x: x + (message.handle.length + 1) * typeface.blockWidth,
-      y,
-    });
+      // Draw the handle and text
+      ink("yellow").write(message.handle, { x, y });
+      ink("white").write(message.text, {
+        x: x + (message.handle.length + 1) * typeface.blockWidth,
+        y,
+      });
 
-    // Move up for the next message
-    y -= lineHeight;
+      // Move up for the next message
+      y -= lineHeight;
 
-    // Break the loop if y goes below the top line
-    if (y < topMargin) {
-      break;
+      // Break the loop if y goes below the top line
+      if (y < topMargin) {
+        break;
+      }
     }
   }
 
@@ -217,7 +219,8 @@ function paint({ api, ink, wipe, screen, leaving, typeface, geo: { Box } }) {
       screen.height - bottomMargin + 2,
     );
 
-  if (!connecting) ink("orange").write("Chatters: " + chatterCount, { left: 6, bottom: 10 });
+  if (!connecting)
+    ink("orange").write("Chatters: " + chatterCount, { left: 6, bottom: 10 });
 
   if (input.canType && !leaving()) {
     input.paint(api, false, {
