@@ -423,6 +423,8 @@ wss.on("connection", (ws, req) => {
               );
               pickedUpConnection = true;
 
+              client.ghosted = false;
+
               sub
                 .unsubscribe("slug:" + msg.content.handle)
                 .then(() => {
@@ -437,6 +439,7 @@ wss.on("connection", (ws, req) => {
                 });
 
               delete worldClients[piece][clientID];
+
               ws.send(pack(`world:${piece}:list`, worldClients[piece], id));
 
               // Replace the old client with the new data.
@@ -444,13 +447,14 @@ wss.on("connection", (ws, req) => {
             }
           });
 
-          // ❤️‍🔥 TODO: No need to send the current user back via `list` here.
-
           if (!pickedUpConnection)
             ws.send(pack(`world:${piece}:list`, worldClients[piece], id));
+
+          // ❤️‍🔥 TODO: No need to send the current user back via `list` here.
+          if (!pickedUpConnection) worldClients[piece][id] = { ...msg.content };
+
           // ^ Send existing list to just this user.
 
-          if (!pickedUpConnection) worldClients[piece][id] = { ...msg.content };
           others(JSON.stringify(msg)); // Alert everyone else about the join.
 
           log("🧩 Clients in piece:", piece, worldClients[piece]);

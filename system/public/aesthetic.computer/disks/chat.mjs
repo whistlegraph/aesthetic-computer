@@ -77,6 +77,18 @@ async function boot({
         return;
       }
 
+      if (type === "left") {
+        console.log("️✌️ Goodbye:", id);
+        chatterCount -= 1;
+        return;
+      }
+
+      if (type === "joined") {
+        console.log("️👋 Hello:", id, type, content);
+        chatterCount += 1;
+        return;
+      }
+
       console.log("🌠 Message received:", id, type, content);
     },
     undefined,
@@ -174,6 +186,7 @@ function paint({ api, ink, wipe, screen, leaving, typeface, geo: { Box } }) {
   if (!connecting) {
     let y = screen.height - lineHeight - bottomMargin;
 
+
     // Iterate through the messages array backwards
     for (let i = messages.length - 1; i >= 0; i--) {
       const message = messages[i];
@@ -194,6 +207,8 @@ function paint({ api, ink, wipe, screen, leaving, typeface, geo: { Box } }) {
         break;
       }
     }
+
+
   }
 
   // Interface

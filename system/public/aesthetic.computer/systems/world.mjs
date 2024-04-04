@@ -220,7 +220,8 @@ async function world_boot(
           // Drop in to spectating mode if necessary.
           if (
             content[key].handle.startsWith("@") &&
-            content[key].handle === me.handle
+            content[key].handle === me.handle &&
+            content[key].ghost === false 
           ) {
             spectating = true;
             spectatingKid = key;
