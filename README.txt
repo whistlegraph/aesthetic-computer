@@ -43,8 +43,23 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
+*** bot color schemes ***
+  - [🟡] Fix color schemes for bots, based on `mom`.
+       (No more light mode schemes / just use one.)
+    - [x] mom
+    - [] dad
+    - [] kid
+    - [] gargoyle
+    - [] brother
+    - [] sister
+    - [] wife
+    - [] husband
+    - [] boyfriend
+    - [] girlfriend
+
 *** chat ***
-  - [] Add chat to the docs / `list` command.
+  - [] Add chat to the docs / `list` command and to autocomplete.
+  *** [] light & dark autocomplete ***
   - [] Fix email address could not be verified sign up message: https://discord.com/channels/890376329957081138/890376329957081144/1225363479649845352
   - [] Wire it into a new 2D renderer backend... try pixi.js?
   - [] Should chat be everywhere?
@@ -64,21 +79,13 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Add the 'chat' tab-bar item / CLI client that can log the chat
         and also send messages?
 
-*** bot color schemes ***
-  - [🟡] Fix color schemes for bots, based on `mom`.
-       (No more light mode schemes / just use one.)
-    - [x] mom
-    - [] dad
-    - [] kid
-    - [] gargoyle
-    - [] brother
-    - [] sister
-    - [] wife
-    - [] husband
-    - [] boyfriend
-    - [] girlfriend
-
-*** [] light & dark autocomplete ***
+*** dev / desktop usability ***
+  - [-] Add global ctrl+shift+ and ctrl+shift- shortcuts for 
+       zooming the pixel density of the ac renderer, keeping the crosshair
+       size (overall browser zoom) the same.
+  - [] The Ctrl+` shortcut should pass through to the VS Code extension
+       (by sending the host a message) which would unfocus it and refocus on either the editor or terminal... perhaps whichever had the focus?
+  - [] There should also be a shortcut to focus on AC immediately.
 
 *** `world` <-> `painting` <-> piece integrations ***
   - [🔴] Joining field and being on the same handle would enter a spectate / take control sort of situation.
