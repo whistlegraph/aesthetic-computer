@@ -1267,7 +1267,10 @@ function paint($) {
     }
   }
 
-  if (!login?.btn.disabled || (profile && !profile.btn.disabled)) {
+  if (
+    (!login?.btn.disabled && !profile) ||
+    (!login && !profile?.btn.disabled)
+  ) {
     // Paint current status color.
     // if (!$.system.prompt.input.canType) {
     starfield.paint($, {
