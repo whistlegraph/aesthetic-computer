@@ -117,6 +117,15 @@ async function startChatServer() {
   //   ? createClient({ url: redisConnectionString })
   //   : createClient();
 
+  async function subscribe() {
+    await sub.subscribe("chat-system", (message) => {
+      const parsed = JSON.parse(message);
+      console.log("🗼 Received chat from redis:", parsed);
+      everyone(pack(`message`, parsed));
+    });
+    console.log("📰 Subscribed to `chat-system`!");
+  }
+
   const createRedisClient = (role) => {
     const client = createClient({
       url: redisConnectionString,
@@ -130,6 +139,11 @@ async function startChatServer() {
           return new Error("Maximum number of retries reached");
         },
       },
+    });
+
+    client.on("connect", async () => {
+      console.log(`🟢 ${role} Redis client reconnected successfully`);
+      // await subscribe();
     });
 
     client.on("error", (err) =>
@@ -149,11 +163,7 @@ async function startChatServer() {
     // TODO: This needs to be sent only for a specific user or needs
     //       some kind of special ID.
 
-    await sub.subscribe("chat-system", (message) => {
-      const parsed = JSON.parse(message);
-      console.log("🗼 Received chat from redis:", parsed);
-      // everyone(pack(`message`, parsed));
-    });
+    await subscribe();
   } catch (err) {
     console.error("🔴 Could not connect to `redis` instance.", err);
   }
@@ -189,7 +199,7 @@ async function startChatServer() {
       try {
         msg = JSON.parse(data.toString());
       } catch (err) {
-        console.log("🔴 Failed to parse message:", data.toString());
+        console.log("🔴 Failed to parse JSON message...", data.toString());
         return;
       }
 
@@ -260,7 +270,7 @@ async function startChatServer() {
             .publish("chat-system", JSON.stringify(update))
             .then((result) => {
               console.log("💬 Message succesfully published:", result);
-              everyone(pack(`message`, update));
+              // everyone(pack(`message`, update));
               // if (!dev) {
               // ☎️ Send a notification
               console.log("🟡 Sending notification...");
