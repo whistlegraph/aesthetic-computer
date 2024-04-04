@@ -113,18 +113,34 @@ async function startChatServer() {
   // const sub = !dev
   //   ? createClient({ url: redisConnectionString })
   //   : createClient();
-  const sub = createClient({ url: redisConnectionString });
-  sub.on("error", (err) =>
-    console.log("🔴 Redis subscriber client error!", err),
-  );
-
   // const pub = !dev
   //   ? createClient({ url: redisConnectionString })
   //   : createClient();
-  const pub = createClient({ url: redisConnectionString });
-  pub.on("error", (err) =>
-    console.log("🔴 Redis publisher client error!", err),
-  );
+
+  const createRedisClient = (role) => {
+    const client = createClient({
+      url: redisConnectionString,
+      socket: {
+        reconnectStrategy: (retries) => {
+          console.log(`🔄 ${role} Redis client reconnect attempt: ${retries}`);
+          if (retries < 10) {
+            // Reconnect after this many milliseconds
+            return Math.min(retries * 100, 3000);
+          }
+          return new Error("Maximum number of retries reached");
+        },
+      },
+    });
+
+    client.on("error", (err) =>
+      console.log(`🔴 ${role} Redis client error!`, err),
+    );
+
+    return client;
+  };
+
+  const sub = createRedisClient("subscriber");
+  const pub = createRedisClient("publisher");
 
   try {
     await sub.connect();
@@ -230,7 +246,8 @@ async function startChatServer() {
           // TODO: Filter message for content.
           const filteredText = filter(msg.content.text);
 
-          const handle = "@" + (await storeMessageInMongo(msg.content, filteredText));
+          const handle =
+            "@" + (await storeMessageInMongo(msg.content, filteredText));
           console.log("🟢 Message stored:", handle);
 
           // 🏬 Publish to redis.
