@@ -5,9 +5,10 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🟡] Show better connectivity.
+  - [] Live chatter updates.
   - [] Add basic sounds.
   - [] Move connection so that updates appear in every piece?
+  - [x] Show better connectivity.
 #endregion */
 
 let input,
@@ -71,7 +72,7 @@ async function boot({
       if (type === "message") {
         const msg = JSON.parse(content);
         console.log("💬 Chat message received:", msg);
-        notice("RECEIVED");
+        // notice("RECEIVED");
         messages.push(msg);
         return;
       }
