@@ -4,7 +4,7 @@
 /* #region 🏁 TODO
 #endregion */
 
-const prompt = 'type 2 words in alphabetical order';
+const prompt = "type 2 words in alphabetical order";
 const before = `
   - You write a nonsensical poem based on input.
   - And all of the words in your poem are in alphabetical order.
@@ -14,25 +14,16 @@ const before = `
 const after = `
    
   `;
-const forgetful = true
+const forgetful = true;
 
-  export const scheme = {
-    dark: {
-      text: [10, 90, 180],
-      background: [244, 234, 210],
-      prompt: [0, 0, 100], // User reply foreground color.
-      block: [240, 230, 10],
-      highlight: [255, 255, 255],
-      guideline: [240, 230, 10],
-    },
-    light: {
-      text: [0, 200],
-      background: [170, 150, 200],
-      block: [30, 200, 200],
-      highlight: [200, 200, 30],
-      guideline: [0, 0, 0, 128],
-    },
-  };
+export const scheme = {
+  text: [10, 90, 180],
+  background: [244, 234, 210],
+  prompt: [0, 0, 100], // User reply foreground color.
+  block: [240, 230, 10],
+  highlight: [255, 255, 255],
+  guideline: [240, 230, 10],
+};
 
 // 🛑 Intercept specific input text with a custom reply.
 function halt($, text) {

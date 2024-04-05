@@ -4,6 +4,8 @@ system/public/assets/*/
 
 # any instance of the aesthetic-computer-vault repository
 aesthetic-computer-vault/
+# any instance of the aesthetic-computer-code repository
+aesthetic-computer-code/
 
 # built vscode extension packages
 vscode-extension/*.vsix

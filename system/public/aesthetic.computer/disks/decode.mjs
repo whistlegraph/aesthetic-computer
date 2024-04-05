@@ -37,37 +37,19 @@ function act({ system: { prompt }, event: e }) {
 }
 
 export const scheme = {
-  dark: {
-    text: [230, 274, 224],
-    background: [189, 164, 166, 100],
-    block: [0, 0, 0],
-    highlight: [255, 255, 255],
-    guideline: [0, 0, 10],
-  },
-  light: {
-    text: [0, 200],
-    background: [179, 164, 166],
-    block: [30, 200, 200],
-    highlight: [200, 200, 30],
-    guideline: [0, 0, 0, 128],
-  },
+  text: [230, 274, 224],
+  background: [189, 164, 166, 100],
+  block: [0, 0, 0],
+  highlight: [255, 255, 255],
+  guideline: [0, 0, 10],
 };
 
 const altScheme = {
-  dark: {
-    text: [123, 66, 102, 120],
-    background: [230, 234, 224, 200],
-    block: [123, 66, 102, 120],
-    highlight: [0, 0, 0],
-    guideline: [230, 234, 224, 120],
-  },
-  light: {
-    text: [0, 200],
-    background: [230, 255, 40],
-    block: [30, 200, 200],
-    highlight: [200, 200, 30],
-    guideline: [0, 0, 0, 128],
-  },
+  text: [123, 66, 102, 120],
+  background: [230, 234, 224, 200],
+  block: [123, 66, 102, 120],
+  highlight: [0, 0, 0],
+  guideline: [230, 234, 224, 120],
 };
 
 // 🎨 Paint
