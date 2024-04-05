@@ -1,9 +1,19 @@
 #!/usr/bin/env fish
-
 set -gx TERM xterm-256color
 
 # Send a welcome message!
 echo "*** Aesthetic Computer is Initializing... ***"
+
+# Install fnm only if it's not already installed
+if not test -f $HOME/.fnm/fnm
+    curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "/home/me/.fnm" --skip-shell
+    echo "fnm env --use-on-cd --log-level=quiet | source" >>/home/me/.config/fish/conf.d/fnm.fish
+    set -gx PATH $HOME/.fnm $PATH
+    fnm env | source
+    fnm install lts-hydrogen
+    fnm use lts-hydrogen
+    npm install -g prettier typescript typescript-language-server
+end
 
 # Go to the user's directory.
 cd /home/me
@@ -44,7 +54,6 @@ end
 if not test -d /home/me/aesthetic-computer/aesthetic-computer-code
     gh repo clone whistlegraph/aesthetic-computer-code /home/me/aesthetic-computer/aesthetic-computer-vault
 end
-
 
 # generate ssl certificates (if they don't already exist)
 cd /home/me/aesthetic-computer/ssl-dev

@@ -10,6 +10,7 @@ const dev = process.env.NODE_ENV !== "development";
 export default async function handler(req) {
   const headers = corsHeaders(req);
   const allowedOrigins = ["https://aesthetic.computer", "https://botce.ac"];
+  const origin = req.headers.get('Origin');
 
   // Allow requests in development environment or if the origin is in the allowed list
   if (dev && !allowedOrigins.includes(origin)) {

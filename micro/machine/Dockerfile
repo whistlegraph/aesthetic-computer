@@ -8,10 +8,11 @@ RUN dnf update -y
 # And the aws cli.
 # And add clipboard support.
 # And qemu as a kvm for nanos support.
-# - And bzip2, required by roswell.
-# - And sbcl?
-# - And jq for parsing json.
-RUN dnf install -y which tree bat git gcc clang emacs-nox python3 python3-pip gh fish util-linux-user redis awscli xclip xsel qemu-kvm qemu-img jq nodejs
+# And unzip for fnm support.
+# And bzip2, required by roswell.
+# And sbcl?
+# And jq for parsing json.
+RUN dnf install -y which tree procps-ng bat git gcc clang emacs-nox python3 python3-pip gh fish util-linux-user redis awscli xclip xsel qemu-kvm qemu-img jq unzip
 
 # Add 'me' user.
 RUN useradd -m me && \
@@ -29,11 +30,27 @@ RUN chsh -s /usr/bin/fish me
 # Download and install the Stripe CLI
 RUN curl -sL https://github.com/stripe/stripe-cli/releases/download/v1.19.4/stripe_1.19.4_linux_x86_64.tar.gz | tar xz -C /usr/local/bin
 
+# Install mkcert
+RUN curl -L https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64 -o /usr/local/bin/mkcert && \
+    chmod +x /usr/local/bin/mkcert
+
+# Install websocat
+RUN curl -L https://github.com/vi/websocat/releases/download/v1.13.0/websocat_amd64-linux -o /usr/local/bin/websocat && \
+    chmod +x /usr/local/bin/websocat
+
+
 # Switch to current user.
 USER me
 
 # Set working directory to me user.
 WORKDIR /home/me
+
+# Copy the fish configuration and entry point script.
+RUN mkdir -p .config/fish && \
+    mkdir -p .config/fish/conf.d
+
+# Install fnm
+# RUN curl -fsSL https://fnm.vercel.app/install | bash
 
 # Install shell-gpt for the user.
 RUN pip3 install shell-gpt
@@ -42,19 +59,19 @@ RUN pip3 install shell-gpt
 RUN curl https://ops.city/get.sh -sSfL | sh
 
 # Install linux brew.
-RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # Set environment variable for Homebrew
-ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
+# ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
 
 # Install web assembly tools.
 # RUN brew install wabt
 
 # Install local ssl certificate generator.
-RUN brew install mkcert
+# RUN brew install mkcert
 
 # Install local websocat cli testing tool.
-RUN brew install websocat
+# RUN brew install websocat
 
 # Install cloudflared management cli.
 # RUN brew install cloudflared
@@ -65,24 +82,13 @@ RUN brew install websocat
 # Install tree-sitter, for emacs parsing.
 # RUN brew install tree-sitter
 
-# Install mkcert
-RUN curl -L https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64 -o /usr/local/bin/mkcert && \
-    chmod +x /usr/local/bin/mkcert
-
-# Install websocat
-RUN curl -L https://github.com/vi/websocat/releases/download/v1.13.0/websocat_amd64-linux -o /usr/local/bin/websocat && \
-    chmod +x /usr/local/bin/websocat
-
-# Install fnm (Fast Node Manager) and configure it
-RUN npm install -g fnm && \
-    eval "$(fnm env)"
-
-# Install the latest LTS version of Node.js using fnm
-RUN fnm install lts-hydrogen && \
-    fnm use lts-hydrogen
-
+# Install fnm
+# RUN fnm install lts-hydrogen && \
+#    fnm use lts-hydrogen
 # Install global npm packages
-RUN npm install -g prettier typescript typescript-language-server
+# RUN npm install -g prettier typescript typescript-language-server
+
+# Add fnm configuration to Fish shell startup script
 
 # Install fnm, configure it, install Node.js, and global npm packages
 # RUN brew install fnm && \
@@ -104,18 +110,15 @@ COPY emacs.el .emacs
 RUN sudo chown me:me .emacs
 RUN mkdir -p .emacs.d
 
-# Copy the fish configuration and entry point script.
-RUN mkdir -p .config/fish && \
-    mkdir -p .config/fish/conf.d
 COPY config.fish .config/fish/config.fish
 
-# Add fnm configuration to Fish shell startup script
-RUN echo "fnm env --use-on-cd --log-level=quiet | source" >> /home/me/.config/fish/conf.d/fnm.fish
-
 COPY entry.fish /entry.fish
+
+# Final initialization.
+RUN fish /entry.fish
 
 # Set the default command.
 CMD ["/usr/bin/fish"]
 
 # Set the entry point script.
-ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]
+# ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]
