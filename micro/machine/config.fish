@@ -63,7 +63,8 @@ alias ac-shell 'ac-url; fish'
 alias ac-redis 'redis-server; export nogreet=true fish' # ac monolith udp server management
 alias ac-udp 'ssh root@157.245.134.225' # ac monolith udp server management
 alias ac-servers 'clear; npm run -s servers; cd nanos; export nogreet=true; fish'
-alias ac-chat 'clear; npm run -s chat; cd nanos; npm run chat-system:dev; export nogreet=true; fish'
+
+alias ac-chat 'clear; npm run -s chat; cd nanos; npm run chat-system:dev;'
 
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 

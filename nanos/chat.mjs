@@ -448,9 +448,9 @@ async function getLast100MessagesfromMongo() {
   const chatCollection = db.collection("chat-system");
   const collectedMessages = await chatCollection
     .find({})
-    .sort({ when: 1 })
+    .sort({ when: -1 })
     .limit(100)
-    .toArray();
+    .toArray().reverse();
 
   for (const message of collectedMessages) {
     const fromSub = message.user;
