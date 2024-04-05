@@ -52,8 +52,30 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** chat ***
   - [] Add chat to the docs / `list` command and to autocomplete.
+  - [] Add scroll with scroll bar.
+  - [] Add radio / background music. 
+  - [] Or show bgm waveform.
+  - [] `chat bgm` 
   *** [] light & dark autocomplete ***
+  - [] `chat` needs light and dark default
+  - [] Use a tinier font for usernames?
+  - [] Natural emojis could potentially be shown
+       in a Canvas2D or WebGL overlay.
+  - [] So then there should always be a full resolution buffer in the renderer?
+  - [] Chat would need to always be everywhere
+       even on "low resolution" pieces and the
+       UI event loop needs to remain on while pieces are switching out.
+  - [] Which means more than one framebuffer will be
+       needed - one for "display" and one for "piece".
   - [] Fix email address could not be verified sign up message: https://discord.com/channels/890376329957081138/890376329957081144/1225363479649845352
+  - [] Add the ability to show pixels in chat.
+    - [] Paintings should be resolution limited
+         and re-uploaded / copied to a bucket just
+         for that particular chat message. 
+  - [] Add a 'mask' / 'play' command for dramaturgy.
+    - [] How would this enter into the database?
+    - [] It should be unhandled but have an "admin" ?
+    - [] Just an extra field for what mask was used.
   - [] Wire it into a new 2D renderer backend... try pixi.js?
   - [] Should chat be everywhere?
     - [] Then abstract `chat` from that view.
