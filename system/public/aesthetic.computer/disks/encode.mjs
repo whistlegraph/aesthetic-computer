@@ -45,37 +45,19 @@ function copied(text) {
 }
 
 export const scheme = {
-  dark: {
-    text: [50, 255, 0],
-    background: [10, 20, 20],
-    block: [255, 255, 255],
-    highlight: [0, 0, 0],
-    guideline: [0, 0, 10],
-  },
-  light: {
-    text: [0, 200],
-    background: [170, 150, 200],
-    block: [30, 200, 200],
-    highlight: [200, 200, 30],
-    guideline: [0, 0, 0, 128],
-  },
+  text: [50, 255, 0],
+  background: [10, 20, 20],
+  block: [255, 255, 255],
+  highlight: [0, 0, 0],
+  guideline: [0, 0, 10],
 };
 
 const altScheme = {
-  dark: {
-    text: [0, 0, 0],
-    background: [210, 255, 40],
-    block: [0, 0, 0],
-    highlight: [255, 255, 255],
-    guideline: [0, 0, 10],
-  },
-  light: {
-    text: [0, 200],
-    background: [230, 255, 40],
-    block: [30, 200, 200],
-    highlight: [200, 200, 30],
-    guideline: [0, 0, 0, 128],
-  },
+  text: [0, 0, 0],
+  background: [210, 255, 40],
+  block: [0, 0, 0],
+  highlight: [255, 255, 255],
+  guideline: [0, 0, 10],
 };
 
 export { boot, prompt, halt, act, copied };
