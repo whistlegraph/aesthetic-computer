@@ -240,8 +240,11 @@ const lessons = [
     Normal Synth Library's work whit Donations, and Memberships and so on bla. bla. - But that already marginalize the concept, and the people who use it - lets make it totally free - ( NO ) DONATIONS - ( NO ) FUNDING, if something breaks let's meet once a year and fix it together ...
 
     now that should be all... //////// -- come join the guild of the viking klokkers... & lsiten to: The Franciscan Hobbies
+
+    [12_dollars_no_thanks.m4a]
     `,
     pictures: ["lnl12"],
+    sounds: ["12_dollars_no_thanks"],
   },
   {
     title: "Lesson NOT Learnt 13",
@@ -257,8 +260,11 @@ const lessons = [
     If you stay around me just for a little while, things in your life improves drastically —YES - it is true, it is a mystical (also to me) gift that  i inherited when i was very small - - — in watche's people always talk about, unique thing's — but you, just as what I create is a PIECE UNIQUE 
 
     0 - ROTOR's —0 ROTOR's - 0 - ROTOR's - - 0 - ROTOR's - 0
+
+    [13_keeping_the_tekno_rock_oath.m4a]
     `,
     pictures: ["lnl13-1", "lnl13-2", "lnl13-3"],
+    sounds: ["13_keeping_the_tekno_rock_oath"],
   },
   {
     title: "Lesson NOT Learnt 14 - Distribution",
@@ -270,8 +276,11 @@ const lessons = [
     -THE DALSENG-
     NOW back to: ms. DALSENG = When you meet the BEST, you should always UPDATE, whit-out destroy'ing the work, —— & by doing so taking the art and the life of the artist into your heart - - - You know that people actually did this for the first 3 - 4 seconds of social media web—2.0 before the distribution of ideas - was eschewed and replaced w. self-promotion & identity bla. bla. bla.
     I will try to still be all about distro, — like Atlantic- I got them works flyin- '-aesthetic computer'ly-' -cross the Atlantic (Woo!)  & -00- LOOK the DALSENG-work  is though it may seem strange, even better now, but no NOT for me flagging it up, no no = simply for context-flipping it - embrace: Stanley Brouwn
+
+    [14_let_them_files_fly.m4a]
     `,
     pictures: ["lnl14-1", "lnl14-2", "lnl14-3"],
+    sounds: ["14_let_them_files_fly"],
   },
   {
     title: "Lesson NOT Learnt 15 - The Drug of WAR destroys EVERYTHING!",
@@ -289,8 +298,10 @@ const lessons = [
     .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. 
     o0OoO0o Owls & BLACK fanthom helicopters = as replacement memory, Damascus steel & viking hands - for the viking times, when it is just around viking o’ klok — the guild of the Viking klo0OoO0okkers
     .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. 
+    [16_damask_dials_and_replacement_memory.m4a]
     `,
     pictures: ["lnl16-1", "lnl16-2"],
+    sounds: ["16_damask_dials_and_replacement_memory"],
   },
   {
     title: "Lesson NOT Learnt 17 - Das real IRDIAL's",
@@ -298,8 +309,11 @@ const lessons = [
     Most Euro-crafts is about: avoiding nature - but let me tell you I was painting one of my bicykle's the other day in: Velbastaður - I was using some wild & crazy chemical-paint that I had mixed from leftovers found at an abandoned construction site, and the rain was pouring down & interacting w. the paint - the result was so so so beautiful -
     
     I enjoy the act of painting bicykle's in the rain - BUT now > back to watch-making ... take a look at the unfinished experiments w. Damascus dial's here // - let nature - o0OoO0o rpl-memory and black phantom helicopters o0OoO0o - take part in your craft-making >--- what comes from the outside is often much better, then what come's from the inside - the outside world is THE real inside 'YES' & this unfinished dial's are the real irdial's - Me·chan·ics and interruption from nature is what's usually missing in the digital art's --- NOW go get a skeletonized pocket watch my friend, - - - they come fancy and they come cheap, BUT get 1 and start to think of civilization vs. nature - until you fall asleep…
+
+    [17_get_out.m4a]
     `,
     pictures: ["lnl17-1", "lnl17-2"],
+    sounds: ["17_get_out"],
   },
   {
     title: "Lesson NOT Learnt 18 __Euro-Bell__",
@@ -345,8 +359,11 @@ const lessons = [
     §————————————————§
     000 §§§ — if you do not have a house, then never should you have more things then, what you can store-away unnoticed in a middle-sized Euro-art-gallery -  
     Today SO much SPACE is used in handling and storing art - & Since the cost of living is getting higher and higher in most places - t.t.to hide your belongings among museum & gallery-things might not be a bad idea… — §§§ 000
+
+    [20_always_on_the_move.m4a]
     `,
     pictures: ["lnl20"],
+    sounds: ["20_always_on_the_move"],
   },
   {
     title: `Lesson NOT Learnt 21`,
@@ -526,8 +543,11 @@ const lessons = [
     —bla. bla. bla. bla. bla. bla. bla.—
     now last-early evening I was going on my bicikel, downtown Torshavn, and there behind a interactive-Bus-info-map, was 3 lusty road poles engaing in xxx-activities, and I was just thinking that at my AGE, there is Not much to be seen, or for some poeple to much to be seen? ? — But maybe I should make some content, looking at a BEAR-like me, would be for the few, YES only for the people with the most distinct and perverted sexual DREAMS, — AND there should be something for them as well, ROAD POLES and OLD BEAR's - uhhh so perverted you are Pruttipal'ur… - WELL you just hit START in your head and, you will never come back…
     ———————————————
+
+    [33_freaky_ts.m4a]
     `,
     pictures: ["lnl33"],
+    sounds: ["33_freaky_ts"],
   },
   {
     title: "Lesson NOT Learnt 34 - Loin-El Glitchie-Banan",
@@ -628,8 +648,11 @@ const lessons = [
 
     it takes 9 GOODIEBAGS to form 9 demonbags §_§_
     -come, come & join the guild of the viking klokkers!
+
+    [41_telemeterskive_Soap_Bubble_Fever_birthday.m4a]
     `,
     pictures: ["lnl39-1", "lnl39-2", "lnl39-3"],
+    sounds: ["41_telemeterskive_Soap_Bubble_Fever_birthday"],
   },
   {
     title: "Lesson NOT Learnt 40",
@@ -671,8 +694,11 @@ const lessons = [
     title: "Lesson NOT Learnt 41 * Tele *",
     text: `
     §§ The best ideas for performing, might be right at your hand(y) - tele-communix has long been the means of ultra-dimentinal > idea > exchange...§§
+
+    [41_telemeterskive_Soap_Bubble_Fever_birthday.m4a]
     `,
     pictures: ["lnl41-1", "lnl41-2"],
+    sounds: ["41_telemeterskive_Soap_Bubble_Fever_birthday"],
   },
   {
     title: "Lesson NOT Learnt 42 - disfunkta-video-game's & sick prut's",

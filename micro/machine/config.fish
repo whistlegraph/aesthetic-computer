@@ -1,3 +1,6 @@
+set -gx PATH $HOME/.fnm $PATH
+fnm env --use-on-cd --log-level=quiet | source
+
 function fish_greeting
     if test "$nogreet" = true
         return
@@ -31,10 +34,10 @@ set fish_vi_force_cursor true
 fish_vi_key_bindings
 
 # add homebrew to path (only if we are on linux)
-switch (uname)
-    case Linux
-        eval (/home/linuxbrew/.linuxbrew/bin/brew shellenv)
-end
+#switch (uname)
+#    case Linux
+#        eval (/home/linuxbrew/.linuxbrew/bin/brew shellenv)
+#end
 
 # include user binaries in the shell path
 fish_add_path ~/.local/bin
