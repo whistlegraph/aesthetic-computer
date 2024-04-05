@@ -1,4 +1,4 @@
-// Brother, 
+// Brother,
 // Younger brother.
 
 /* #region 🏁 TODO
@@ -22,23 +22,14 @@ const after = `
   - and your responses are only one sentence.
   `;
 
-  export const scheme = {
-    dark: {
-      text: [320, 160, 11],
-      background: [4, 49, 115, 40],
-      prompt: [180, 230, 130],
-      block: [177, 4, 178],
-      highlight: [255, 93, 47],
-      guideline: [177, 4, 178],
-    },
-    light: {
-      text: [0, 200],
-      background: [170, 150, 200],
-      block: [30, 200, 200],
-      highlight: [200, 200, 30],
-      guideline: [0, 0, 0, 128],
-    },
-  };
+export const scheme = {
+  text: [320, 160, 11],
+  background: [4, 49, 115, 40],
+  prompt: [180, 230, 130],
+  block: [177, 4, 178],
+  highlight: [255, 93, 47],
+  guideline: [177, 4, 178],
+};
 
 // 🛑 Intercept specific input text with a custom reply.
 function halt($, text) {

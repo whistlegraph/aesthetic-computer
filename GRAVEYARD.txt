@@ -1,5 +1,19 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** bot color schemes ***
+  - [x] Fix color schemes for bots, based on `mom`.
+       (No more light mode schemes / just use one.)
+    - [x] mom
+    - [x] dad
+    - [x] kid
+    - [x] gargoyle
+    - [x] brother
+    - [x] sister
+    - [x] wife
+    - [x] husband
+    - [x] boyfriend
+    - [x] girlfriend
+
 *** micro ***
   + Done
   - [x] Autogenerate local ssl certificates when first building / booting if they are not present

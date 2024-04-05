@@ -4,8 +4,7 @@
 /* #region 🏁 TODO
 #endregion */
 
-
-const prompt = 'Ask me anything about Aesthetic Computer';
+const prompt = "Ask me anything about Aesthetic Computer";
 const before = `
 You are playing a character who answers questions about Aesthetic Computer
 - Here is the information you may refer to:
@@ -37,22 +36,13 @@ about that, text 1-508-728-4043 for help."
 
 const forgetful = false;
 
-  export const scheme = {
-    dark: {
-      text: [0, 200, 0, 300],
-      background: [130, 20, 100],
-      block: [200, 130, 10],
-      highlight: [200, 100, 0],
-      guideline: [0, 200, 0, 300],
-    },
-    light: {
-      text: [0, 200],
-      background: [170, 150, 200],
-      block: [30, 200, 200],
-      highlight: [200, 200, 30],
-      guideline: [0, 0, 0, 128],
-    },
-  };
+export const scheme = {
+  text: [0, 200, 0, 300],
+  background: [130, 20, 100],
+  block: [200, 130, 10],
+  highlight: [200, 100, 0],
+  guideline: [0, 200, 0, 300],
+};
 
 // 🛑 Intercept specific input text with a custom reply.
 function halt($, text) {

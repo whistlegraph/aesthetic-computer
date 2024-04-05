@@ -43,19 +43,12 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** bot color schemes ***
-  - [🟡] Fix color schemes for bots, based on `mom`.
-       (No more light mode schemes / just use one.)
-    - [x] mom
-    - [] dad
-    - [] kid
-    - [] gargoyle
-    - [] brother
-    - [] sister
-    - [] wife
-    - [] husband
-    - [] boyfriend
-    - [] girlfriend
+*** fill ***
+  - [] Make a `fill` brush.
+  - [] Add it to the docs.
+
+*** make sure ai.aesthetic.computer only allows requets from either
+    aesthetic.computer or botce.ac ***
 
 *** chat ***
   - [] Add chat to the docs / `list` command and to autocomplete.

@@ -17,21 +17,12 @@ const after = `
   `;
 
 export const scheme = {
-  dark: {
-    text: [235, 221, 191],
-    background: [164, 57, 102, 80],
-    prompt: [70, 70, 90],
-    block: [179, 136, 124],
-    highlight: [245, 13, 162],
-    guideline: [255, 255, 100, 100],
-  },
-  light: {
-    text: [0, 200],
-    background: [170, 150, 200],
-    block: [30, 200, 200],
-    highlight: [200, 200, 30],
-    guideline: [0, 0, 0, 128],
-  },
+  text: [235, 221, 191],
+  background: [164, 57, 102, 80],
+  prompt: [70, 70, 90],
+  block: [179, 136, 124],
+  highlight: [245, 13, 162],
+  guideline: [255, 255, 100, 100],
 };
 
 // 🛑 Intercept specific input text with a custom reply.

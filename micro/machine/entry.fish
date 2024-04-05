@@ -41,6 +41,10 @@ else
     echo "Vault unmounted :("
 end
 
+if not test -d /home/me/aesthetic-computer/aesthetic-computer-code
+    gh repo clone whistlegraph/aesthetic-computer-code /home/me/aesthetic-computer/aesthetic-computer-vault
+end
+
 
 # generate ssl certificates (if they don't already exist)
 cd /home/me/aesthetic-computer/ssl-dev
