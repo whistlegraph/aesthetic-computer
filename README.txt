@@ -43,14 +43,16 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
+*** emacs + micro ***
+  - [] Bring `fnm` install back into the Dockerfile?
+  - [] C-c on the servers should always go back to a shell.
+
 *** fill ***
   - [] Make a `fill` brush.
   - [] Add it to the docs.
 
-*** make sure ai.aesthetic.computer only allows requets from either
-    aesthetic.computer or botce.ac ***
-
 *** chat ***
+  - [-] Fix initial db fetch order.
   - [] Add chat to the docs / `list` command and to autocomplete.
   - [] Add scroll with scroll bar.
   - [] Add radio / background music. 
