@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** -[x] make sure ai.aesthetic.computer only allows requets from either
+    aesthetic.computer or botce.ac ***
+
 *** bot color schemes ***
   - [x] Fix color schemes for bots, based on `mom`.
        (No more light mode schemes / just use one.)
