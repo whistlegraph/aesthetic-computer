@@ -5,8 +5,19 @@ import { corsHeaders } from "../help.mjs";
 // import { count } from "openai-gpt-token-counter";
 // ^ Would require moving to a different runtime. 23.05.29.18.02
 
+const dev = process.env.NODE_ENV !== "development";
+
 export default async function handler(req) {
   const headers = corsHeaders(req);
+  const allowedOrigins = ["https://aesthetic.computer", "https://botce.ac"];
+
+  // Allow requests in development environment or if the origin is in the allowed list
+  if (dev && !allowedOrigins.includes(origin)) {
+    return new Response("Access denied.", {
+      status: 403,
+      headers: { "Content-Type": "text/plain", ...headers },
+    });
+  }
 
   if (req.method === "GET") {
     return new Response("Wrong method.", {
