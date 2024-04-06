@@ -163,7 +163,7 @@ async function boot({
       // },
       // gutterMax,
       // lineSpacing,
-      hideGutter: true,
+      hideGutter: false,
       closeOnEmptyEnter: true,
     },
   );
