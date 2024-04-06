@@ -35,9 +35,7 @@ RUN curl -L https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcer
     chmod +x /usr/local/bin/mkcert
 
 # Install websocat
-RUN curl -L https://github.com/vi/websocat/releases/download/v1.13.0/websocat_amd64-linux -o /usr/local/bin/websocat && \
-    chmod +x /usr/local/bin/websocat
-
+RUN dnf copr enable atim/websocat -y && sudo dnf install websocat
 
 # Switch to current user.
 USER me
