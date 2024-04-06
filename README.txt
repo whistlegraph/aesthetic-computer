@@ -44,7 +44,7 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** chat ***
-  - [] Add scroll with scroll bar.
+  - [🟠] Add scroll with scroll bar.
   - [] Add radio / background music. 
   - [] Or show bgm waveform.
   - [] `chat bgm` 
