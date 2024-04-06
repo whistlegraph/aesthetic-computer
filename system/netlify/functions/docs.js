@@ -1553,12 +1553,12 @@ export async function handler(event, context) {
       },
       p: {
         sig: "p",
-        desc: "Finish your painting.",
+        desc: "View your current painting's steps.",
         done: false,
       },
       pain: {
         sig: "pain",
-        desc: "Finish your painting.",
+        desc: "View your current painting's steps.",
         done: false,
       },
       load: {
@@ -2019,6 +2019,12 @@ export async function handler(event, context) {
         desc: "Take a picture.",
         done: false,
       },
+      chat: {
+        sig: "chat",
+        desc: "Chat with handles.",
+        done: false,
+        hidden: false,
+      },
       chord: {
         sig: "chord",
         desc: "",
@@ -2400,7 +2406,7 @@ export async function handler(event, context) {
       },
       painting: {
         sig: "painting",
-        desc: "Finish your painting.",
+        desc: "View your current painting's steps.",
         done: false,
       },
       paint: {

@@ -43,12 +43,8 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** fill ***
-  - [] Make a `fill` brush.
-  - [] Add it to the docs.
-
 *** chat ***
-  - [] Add chat to the docs / `list` command and to autocomplete.
+  - [-] Add line breaks to chat.
   - [] Add scroll with scroll bar.
   - [] Add radio / background music. 
   - [] Or show bgm waveform.
@@ -81,6 +77,7 @@ but technically agnostic. (Choose your aesthetic!)
        (Just make the text fully synchronized for now.)
   - [] Make a new "notification type" for chat and add it into an iOS app update.
   + Done
+  - [x] Add chat to the docs / `list` command and to autocomplete.
   - [x] Fix initial db fetch order.
   - [x] It should persist in the database under a table.
   - [x] These messages should send notifications.
@@ -91,6 +88,10 @@ but technically agnostic. (Choose your aesthetic!)
     - [x] Add https and ssl and a subdomain.
   - [x] Add the 'chat' tab-bar item / CLI client that can log the chat
         and also send messages?
+
+*** fill ***
+  - [] Make a `fill` brush.
+  - [] Add it to the docs.
 
 *** dev / desktop usability ***
   - [-] Add global ctrl+shift+ and ctrl+shift- shortcuts for 
