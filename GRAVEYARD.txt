@@ -1,5 +1,9 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** emacs + micro ***
+  - [x] Bring `fnm` install back into the Dockerfile?
+  - [x] C-c on the servers should always go back to a shell.
+
 *** -[x] make sure ai.aesthetic.computer only allows requets from either
     aesthetic.computer or botce.ac ***
 

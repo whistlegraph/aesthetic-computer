@@ -52,11 +52,18 @@ RUN mkdir -p .config/fish && \
 # TODO: Bring fnm back here! ❤️‍🔥
 # Install fnm
 # RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "/home/me/.fnm" --skip-shell \
-#     set -gx PATH $HOME/.fnm $PATH \
-#     fnm env | source \
-#     fnm install lts-hydrogen \
-#     fnm use lts-hydrogen \
-#     npm install -g prettier typescript typescript-language-server
+#      set -gx PATH $HOME/.fnm $PATH \
+#      fnm env | source \
+#      fnm install lts-hydrogen \
+#      fnm use lts-hydrogen \
+#      npm install -g prettier typescript typescript-language-server
+
+# Install fnm
+RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "/home/me/.fnm" --skip-shell
+ENV PATH="/home/me/.fnm:$PATH"
+RUN eval "$(fnm env --use-on-cd)" && \
+    fnm install lts-hydrogen && fnm use lts-hydrogen && \
+    npm install -g prettier typescript typescript-language-server
 
 # Install shell-gpt for the user.
 RUN pip3 install shell-gpt
