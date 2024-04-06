@@ -30,7 +30,7 @@ import { MongoClient } from "mongodb"; // MongoDB
 // FCM (Firebase Cloud Messaging)
 
 import dotenv from "dotenv";
-dotenv.config({ path: "./chat.env" });
+dotenv.config({ path: "chat.env" });
 
 import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
 import { getMessaging } from "firebase-admin/messaging";

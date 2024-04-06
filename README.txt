@@ -43,16 +43,11 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** emacs + micro ***
-  - [?] Bring `fnm` install back into the Dockerfile?
-  - [x] C-c on the servers should always go back to a shell.
-
 *** fill ***
   - [] Make a `fill` brush.
   - [] Add it to the docs.
 
 *** chat ***
-  - [-] Fix initial db fetch order.
   - [] Add chat to the docs / `list` command and to autocomplete.
   - [] Add scroll with scroll bar.
   - [] Add radio / background music. 
@@ -86,6 +81,7 @@ but technically agnostic. (Choose your aesthetic!)
        (Just make the text fully synchronized for now.)
   - [] Make a new "notification type" for chat and add it into an iOS app update.
   + Done
+  - [x] Fix initial db fetch order.
   - [x] It should persist in the database under a table.
   - [x] These messages should send notifications.
   - [x] Add a `chat` command with a persistent list of messages.
