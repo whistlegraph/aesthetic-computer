@@ -44,8 +44,8 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** emacs + micro ***
-  - [] Bring `fnm` install back into the Dockerfile?
-  - [] C-c on the servers should always go back to a shell.
+  - [?] Bring `fnm` install back into the Dockerfile?
+  - [x] C-c on the servers should always go back to a shell.
 
 *** fill ***
   - [] Make a `fill` brush.
