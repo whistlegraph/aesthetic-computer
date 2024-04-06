@@ -25,7 +25,7 @@ export const scheme = {
   prompt: [220, 210, 10],
   block: [200, 130, 10],
   highlight: [200, 100, 0],
-  guideline: [0, 200, 0, 300],
+  guideline: [0, 200, 0, 300]
 };
 
 // 🛑 Intercept specific input text with a custom reply.

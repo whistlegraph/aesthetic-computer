@@ -1,5 +1,7 @@
-set -gx PATH $HOME/.fnm $PATH
-fnm env --use-on-cd --log-level=quiet | source
+if test -f $HOME/.fnm/fnm
+    set -gx PATH $HOME/.fnm $PATH
+    fnm env --use-on-cd --log-level=quiet | source
+end
 
 function fish_greeting
     if test "$nogreet" = true

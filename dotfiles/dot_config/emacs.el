@@ -8,6 +8,7 @@
 ;;  (load-theme 'wombat t))
 
 ;; (load-theme 'wombat t)
+(setq mac-option-modifier 'meta)
 
 ;; Only show emergency warnings.
 (setq warning-minimum-level :emergency)
