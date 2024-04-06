@@ -44,7 +44,6 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** chat ***
-  - [-] Add line breaks to chat.
   - [] Add scroll with scroll bar.
   - [] Add radio / background music. 
   - [] Or show bgm waveform.
@@ -77,6 +76,7 @@ but technically agnostic. (Choose your aesthetic!)
        (Just make the text fully synchronized for now.)
   - [] Make a new "notification type" for chat and add it into an iOS app update.
   + Done
+  - [x] Add line breaks to chat.
   - [x] Add chat to the docs / `list` command and to autocomplete.
   - [x] Fix initial db fetch order.
   - [x] It should persist in the database under a table.

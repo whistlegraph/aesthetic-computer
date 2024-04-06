@@ -177,29 +177,37 @@ async function boot({
   send({ type: "keyboard:soft-lock" });
 }
 
-function paint({ api, ink, wipe, screen, leaving, typeface, geo: { Box } }) {
-  wipe("brown");
-  if (connecting) ink("red").write("Connecting...", { center: "xy" });
+function paint({ api, ink, wipe, screen, leaving, text, typeface, geo: { Box } }) {
+  wipe(100, 100, 145);
+  if (connecting) ink("pink").write("Connecting...", { center: "xy" });
 
   // Messages
   // Start from the bottom of the screen
   if (!connecting) {
     let y = screen.height - lineHeight - bottomMargin;
 
-
     // Iterate through the messages array backwards
     for (let i = messages.length - 1; i >= 0; i--) {
       const message = messages[i];
       const x = 6;
 
-      // Draw the handle and text
-      ink("yellow").write(message.handle, { x, y });
-      ink("white").write(message.text, {
-        x: x + (message.handle.length + 1) * typeface.blockWidth,
-        y,
-      });
+      const fullMessage = message.handle + " " + message.text;
 
-      // Move up for the next message
+      const tb = text.box(fullMessage, {x, y}, screen.width - x, 1, true);
+
+      y -= lineHeight * (tb.lines.length - 1);
+
+      // Draw the handle and text
+      ink("white").write(
+        fullMessage,
+        { x: x, y },
+        undefined,
+        screen.width - x,
+      );
+
+      ink("pink").write(message.handle, { x, y });
+
+      // Move up one line for the next message
       y -= lineHeight;
 
       // Break the loop if y goes below the top line
@@ -207,8 +215,6 @@ function paint({ api, ink, wipe, screen, leaving, typeface, geo: { Box } }) {
         break;
       }
     }
-
-
   }
 
   // Interface
@@ -225,7 +231,7 @@ function paint({ api, ink, wipe, screen, leaving, typeface, geo: { Box } }) {
     }
   });
 
-  ink("red")
+  ink(90, 200, 150, 48)
     .line(0, topMargin, screen.width, topMargin)
     .line(
       0,
@@ -235,7 +241,7 @@ function paint({ api, ink, wipe, screen, leaving, typeface, geo: { Box } }) {
     );
 
   if (!connecting)
-    ink("orange").write("Chatters: " + chatterCount, { left: 6, bottom: 10 });
+    ink(160).write("Chatters: " + chatterCount, { left: 6, bottom: 10 });
 
   if (input.canType && !leaving()) {
     input.paint(api, false, {
