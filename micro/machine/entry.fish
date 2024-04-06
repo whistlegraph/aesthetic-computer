@@ -4,17 +4,6 @@ set -gx TERM xterm-256color
 # Send a welcome message!
 echo "*** Aesthetic Computer is Initializing... ***"
 
-# Install fnm only if it's not already installed
-if not test -f $HOME/.fnm/fnm
-    curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "/home/me/.fnm" --skip-shell
-    # echo "fnm env --use-on-cd --log-level=quiet | source" >>/home/me/.config/fish/conf.d/fnm.fish
-    set -gx PATH $HOME/.fnm $PATH
-    fnm env | source
-    fnm install lts-hydrogen
-    fnm use lts-hydrogen
-    npm install -g prettier typescript typescript-language-server
-end
-
 # Go to the user's directory.
 cd /home/me
 
