@@ -446,11 +446,11 @@ async function storeMessageInMongo(message, filteredText) {
 async function getLast100MessagesfromMongo() {
   console.log("🟡 Retrieving last 100 messages...");
   const chatCollection = db.collection("chat-system");
-  const collectedMessages = await chatCollection
+  const collectedMessages = (await chatCollection
     .find({})
     .sort({ when: -1 })
     .limit(100)
-    .toArray().reverse();
+    .toArray()).reverse();
 
   for (const message of collectedMessages) {
     const fromSub = message.user;
