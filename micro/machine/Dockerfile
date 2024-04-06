@@ -12,7 +12,7 @@ RUN dnf update -y
 # And bzip2, required by roswell.
 # And sbcl?
 # And jq for parsing json.
-RUN dnf install -y which tree procps-ng bat git gcc clang emacs-nox python3 python3-pip gh fish util-linux-user redis awscli xclip xsel qemu-kvm qemu-img jq unzip
+RUN dnf install -y which tree procps-ng bat git gcc clang emacs-nox python3 python3-pip gh fish util-linux-user redis awscli xclip xsel qemu-kvm qemu-img jq unzip coreutils openssl
 
 # Add 'me' user.
 RUN useradd -m me && \
