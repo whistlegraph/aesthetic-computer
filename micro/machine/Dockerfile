@@ -3,16 +3,11 @@ FROM fedora:latest
 # Update all packages.
 RUN dnf update -y
 
-# Install tree, git, gcc, clang, and emacs (without x support) and python and the github cli
-# And the fish shell, and redis.
-# And the aws cli.
-# And add clipboard support.
-# And qemu as a kvm for nanos support.
-# And unzip for fnm support.
-# And bzip2, required by roswell.
-# And sbcl?
-# And jq for parsing json.
-RUN dnf install -y which tree procps-ng bat git gcc clang emacs-nox python3 python3-pip gh fish util-linux-user redis awscli xclip xsel qemu-kvm qemu-img jq unzip coreutils openssl
+RUN dnf install -y which tree procps-ng coreutils xclip xsel unzip jq bat
+RUN dnf install -y git gh gcc clang python3 python3-pip emacs-nox fish util-linux-user
+RUN dnf install -y qemu-kvm qemu-img
+RUN dnf install -y openssl awscli redis
+RUN dnf install -y dnf-plugins-core
 
 # Add 'me' user.
 RUN useradd -m me && \
@@ -23,10 +18,6 @@ RUN useradd -m me && \
 
 RUN chsh -s /usr/bin/fish me
 
-# Set up homebrew permissions.
-# RUN mkdir -p /home/linuxbrew/.linuxbrew && \
-#    chown -R me:me /home/linuxbrew/.linuxbrew
-
 # Download and install the Stripe CLI
 RUN curl -sL https://github.com/stripe/stripe-cli/releases/download/v1.19.4/stripe_1.19.4_linux_x86_64.tar.gz | tar xz -C /usr/local/bin
 
@@ -35,7 +26,11 @@ RUN curl -L https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcer
     chmod +x /usr/local/bin/mkcert
 
 # Install websocat
-RUN dnf copr enable atim/websocat -y && sudo dnf install websocat
+RUN dnf copr enable atim/websocat -y && sudo dnf install -y websocat
+
+# Set up homebrew permissions.
+# RUN mkdir -p /home/linuxbrew/.linuxbrew && \
+#    chown -R me:me /home/linuxbrew/.linuxbrew
 
 # Switch to current user.
 USER me
