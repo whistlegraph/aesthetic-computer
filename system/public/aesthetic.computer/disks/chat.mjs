@@ -78,7 +78,7 @@ async function boot({
         true,
       );
       totalScrollHeight += msg.tb.lines.length * lineHeight;
-      chat.messages.push(msg);
+      chatSystem.messages.push(msg);
       return;
     }
 
@@ -166,6 +166,9 @@ function paint({
     // height and painting them if they are within the boundaries.
     for (let i = chat.messages.length - 1; i >= 0; i--) {
       const message = chat.messages[i];
+
+      if (!message.tb) return; // If `tb` is not defined then kill this. 👾
+
       const x = leftMargin;
 
       // ❇️ These are precomputed in computeScrollbar for each message.

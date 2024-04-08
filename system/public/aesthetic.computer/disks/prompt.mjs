@@ -1278,6 +1278,17 @@ function paint($) {
       color: $.hud.currentStatusColor() || [255, 0, 200],
     });
 
+    // 📊 Stats / Analytics
+
+    if ($.chat.messages.length > 0) {
+      const msg = $.chat.messages[$.chat.messages.length - 1];
+      const fullText = msg.handle + ": " + msg.text;
+      ink("teal", 128).write(fullText, {
+        center: "x",
+        y: screen.height / 2 + 38,
+      }, undefined, screen.width - 8);
+    }
+
     if (handles && screen.height > 200)
       ink(pal.handleColor).write(
         `${handles} HANDLES SET`,
