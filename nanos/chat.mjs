@@ -305,47 +305,50 @@ async function startChatServer() {
             .then((result) => {
               console.log("💬 Message succesfully published:", result);
               everyone(pack(`message`, update));
-              // if (!dev) {
-              // ☎️ Send a notification
-              console.log("🟡 Sending notification...");
+              if (!dev) {
+                // ☎️ Send a notification
+                console.log("🟡 Sending notification...");
 
-              // TODO: Test notification icons here.
-              // const topicName = "industry-tech";
+                // TODO: Test notification icons here.
+                // const topicName = "industry-tech";
 
-              getMessaging()
-                .send({
-                  notification: {
-                    title: handle + " 💬",
-                    body: filteredText, //,
-                  },
-                  // android: {
-                  //   notification: {
-                  //     imageUrl: "https://aesthetic.computer/api/logo.png",
-                  //   },
-                  apns: {
-                    payload: {
-                      aps: { "mutable-content": 1 },
+                getMessaging()
+                  .send({
+                    notification: {
+                      title: handle + " 💬",
+                      body: filteredText, //,
                     },
-                    fcm_options: {
-                      image: "https://aesthetic.computer/api/logo.png",
+                    // android: {
+                    //   notification: {
+                    //     imageUrl: "https://aesthetic.computer/api/logo.png",
+                    //   },
+                    apns: {
+                      payload: {
+                        aps: { "mutable-content": 1 },
+                      },
+                      fcm_options: {
+                        image: "https://aesthetic.computer/api/logo.png",
+                      },
                     },
-                  },
-                  webpush: {
-                    headers: {
-                      image: "https://aesthetic.computer/api/logo.png",
+                    webpush: {
+                      headers: {
+                        image: "https://aesthetic.computer/api/logo.png",
+                      },
                     },
-                  },
-                  topic: "mood", // <- TODO: Eventually replace this.
-                  // topic: "chat-system",
-                  data: { piece: "chat" }, // This should send a tappable link to the chat piece.
-                })
-                .then((response) => {
-                  console.log("☎️  Successfully sent notification:", response);
-                })
-                .catch((error) => {
-                  console.log("📵  Error sending notification:", error);
-                });
-              //}
+                    topic: "mood", // <- TODO: Eventually replace this.
+                    // topic: "chat-system",
+                    data: { piece: "chat" }, // This should send a tappable link to the chat piece.
+                  })
+                  .then((response) => {
+                    console.log(
+                      "☎️  Successfully sent notification:",
+                      response,
+                    );
+                  })
+                  .catch((error) => {
+                    console.log("📵  Error sending notification:", error);
+                  });
+              }
             })
             .catch((error) => {
               console.log("🙅‍♀️ Error publishing message:", error);
