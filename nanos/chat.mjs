@@ -345,8 +345,8 @@ async function startChatServer() {
                 .send({
                   notification: {
                     title: handle + " 💬",
-                    body: filteredText,
-                    icon: "https://aesthetic.computer/api/logo.png",
+                    body: filteredText//,
+                    // icon: "https://aesthetic.computer/api/logo.png",
                   },
                   topic: "mood", // <- TODO: Eventually replace this.
                   // topic: "chat-system",

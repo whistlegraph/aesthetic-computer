@@ -43,15 +43,17 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
+*** [🟠] light & dark autocomplete ***
+
 *** chat ***
-  - [🟠] Add scroll with scroll bar that auto-expands if you go back
-         too far.
+  - [] Be able to delete certain recent messages manually in MongoDB.
   - [] Show last chat message on homepage.
+  - [] Add custom / cool notification icons, and also sounds?
   - [] This could use the redis loop?
+  - [] Add high resolution / PIXIjs renderer to chat.
   - [] Add radio / background music.
-  - [] Or show bgm waveform.
-  - [] `chat bgm` 
-  *** [] light & dark autocomplete ***
+    - [] Or show bgm waveform.
+    - [] `chat bgm` 
   - [] `chat` needs light and dark default
   - [] Use a tinier font for usernames?
   - [] Natural emojis could potentially be shown
@@ -71,14 +73,13 @@ but technically agnostic. (Choose your aesthetic!)
     - [] How would this enter into the database?
     - [] It should be unhandled but have an "admin" ?
     - [] Just an extra field for what mask was used.
-  - [] Wire it into a new 2D renderer backend... try pixi.js?
-  - [] Should chat be everywhere?
-    - [] Then abstract `chat` from that view.
   - [] Make a panel in the logs to watch it stream in.
   - [] Then appear for other users and the current user.
        (Just make the text fully synchronized for now.)
   - [] Make a new "notification type" for chat and add it into an iOS app update.
   + Done
+  - [x] Add scroll with scroll bar that auto-expands if you go back
+        too far.
   - [x] Add line breaks to chat.
   - [x] Add chat to the docs / `list` command and to autocomplete.
   - [x] Fix initial db fetch order.
