@@ -1,5 +1,7 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** [🟠] light & dark autocomplete ***
+
 *** emacs + micro ***
   - [x] Bring `fnm` install back into the Dockerfile?
   - [x] C-c on the servers should always go back to a shell.

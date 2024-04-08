@@ -1770,16 +1770,13 @@ export async function handler(event, context) {
       },
       dark: {
         sig: "dark",
-        desc: "Toggle dark mode.",
+        desc: "Enable dark system theme.",
         done: false,
-        //switches between light and dark but needs light command also
-        //TODO: add corresponding light mode command
       },
-      "dark:reset": {
-        sig: "dark:reset",
-        desc: "",
+      light: {
+        sig: "light",
+        desc: "Enable light system theme.",
         done: false,
-        hidden: true,
       },
       2022: {
         sig: "2022",

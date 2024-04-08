@@ -43,10 +43,7 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** [🟠] light & dark autocomplete ***
-
 *** chat ***
-  - [] Be able to delete certain recent messages manually in MongoDB.
   - [] Show last chat message on homepage.
   - [] Add custom / cool notification icons, and also sounds?
   - [] This could use the redis loop?
@@ -78,6 +75,8 @@ but technically agnostic. (Choose your aesthetic!)
        (Just make the text fully synchronized for now.)
   - [] Make a new "notification type" for chat and add it into an iOS app update.
   + Done
+  - [x] Be able to delete certain recent messages manually in MongoDB.
+    - (Can be done through the atlas cloud interface)
   - [x] Add scroll with scroll bar that auto-expands if you go back
         too far.
   - [x] Add line breaks to chat.
