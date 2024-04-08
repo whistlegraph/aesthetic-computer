@@ -1,10 +1,10 @@
 // Chat, 2024.3.23.16.35.00.043
 // Chat with other handles.
 
-/* #region 📚 README 
+/* #region 📚 README
 #endregion */
 
-/* #region 🏁 TODO 
+/* #region 🏁 TODO
   - [🟠] Words longer than the width should be character-wrapped in word wrap
        mode of `write`.
   - [] Add basic sounds.
@@ -14,10 +14,10 @@
   - [x] Add scrolling.
     - [x] Only calculate the height of each existing message one time.
     - [x] Add a better reframing on scroll.
-    - [x] Add colored overlays for hiding the fold. 
+    - [x] Add colored overlays for hiding the fold.
     - [x] Prevent scrolling past top.
     - [x] Don't render lines that are under the bottomMargin.
-    - [x] Can't scroll past newest message. 
+    - [x] Can't scroll past newest message.
   - [x] Line breaks.
   - [x] Live chatter updates.
   - [x] Show better connectivity.
@@ -67,7 +67,7 @@ async function boot({
     }
 
     if (type === "message") {
-      const msg = JSON.parse(content);
+      const msg = content; // Pre-transformed and stored.
       console.log("💬 Chat message received:", msg);
       msg.fullMessage = msg.handle + " " + msg.text;
       msg.tb = text.box(
@@ -78,7 +78,7 @@ async function boot({
         true,
       );
       totalScrollHeight += msg.tb.lines.length * lineHeight;
-      chat.messages.push(msg);
+      // chat.messages.push(msg);
       return;
     }
 
@@ -257,7 +257,6 @@ function act({ api, event: e, hud, piece, send, screen }) {
   if (e.is("reframed")) {
     const lastScrollHeight = totalScrollHeight;
     const lastScroll = scroll;
-    // const lastChatHeight = chatHeight;
     ({ totalScrollHeight, chatHeight } = computeScrollbar(api));
     scroll = (lastScroll / lastScrollHeight) * totalScrollHeight;
     boundScroll();
@@ -376,7 +375,6 @@ function boundScroll() {
 
 function computeScrollbar({ text, screen, chat }) {
   let height = 0;
-  console.log("🤩 New width:", screen.width);
   // Iterate through the messages array.
   for (let i = 0; i < chat.messages.length; i += 1) {
     const message = chat.messages[i];
@@ -390,14 +388,11 @@ function computeScrollbar({ text, screen, chat }) {
     );
     message.tb = tb;
     message.fullMessage = fullMessage;
-    // TODO: ^ These can be memoized per reframe.
-
     height += tb.lines.length * lineHeight;
   }
-
-  console.log("📜 Computed scroll height:", height);
-  console.log("💻 Screen height:", screen.height);
-
+  // console.log("Messages:", chat.messages.length, chat.messages);
+  // console.log("📜 Computed scroll height:", height);
+  // console.log("💻 Screen height:", screen.height);
   const chatHeight = screen.height - bottomMargin - topMargin + 2;
   return { totalScrollHeight: height, chatHeight };
 }

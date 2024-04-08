@@ -327,7 +327,7 @@ const chatSystem = {
   },
 };
 
-{
+function connectToChat() {
   const chatUrl = debug ? "localhost:8083" : "chat-system.aesthetic.computer";
 
   chatSystem.server.connect(
@@ -352,6 +352,7 @@ const chatSystem = {
         const msg = JSON.parse(content);
         console.log("💬 Chat message received:", msg);
         chatSystem.messages.push(msg);
+        content = msg; // Pass the transformed message.
       }
 
       if (type === "left") {
@@ -3727,6 +3728,9 @@ async function makeFrame({ data: { type, content } }) {
       loadAfterPreamble = null;
       load(content.parsed); // Load after some of the default frames run.
     };
+
+    // Connect to chat.
+    connectToChat();
 
     send({ type: "disk-defaults-loaded" });
     return;
