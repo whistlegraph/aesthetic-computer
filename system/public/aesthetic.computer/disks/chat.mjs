@@ -78,7 +78,7 @@ async function boot({
         true,
       );
       totalScrollHeight += msg.tb.lines.length * lineHeight;
-      chatSystem.messages.push(msg);
+      chat.messages.push(msg);
       return;
     }
 
