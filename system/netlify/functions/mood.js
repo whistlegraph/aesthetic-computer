@@ -119,8 +119,24 @@ export async function handler(event, context) {
             .send({
               notification: {
                 title: `${handle}'s mood is`,
-                body: `${mood}`//,
-                // icon: "https://aesthetic.computer/api/logo.png",
+                body: `${mood}`, //,
+              },
+              // android: {
+              //   notification: {
+              //     imageUrl: "https://aesthetic.computer/api/logo.png",
+              //   },
+              apns: {
+                payload: {
+                  aps: { "mutable-content": 1 },
+                },
+                fcm_options: {
+                  image: "https://aesthetic.computer/api/logo.png",
+                },
+              },
+              webpush: {
+                headers: {
+                  image: "https://aesthetic.computer/api/logo.png",
+                },
               },
               topic: "mood",
             })
