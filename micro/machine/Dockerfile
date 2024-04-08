@@ -121,10 +121,10 @@ COPY config.fish .config/fish/config.fish
 COPY entry.fish /entry.fish
 
 # Final initialization.
-RUN fish /entry.fish
+# RUN fish /entry.fish
 
 # Set the default command.
 CMD ["/usr/bin/fish"]
 
 # Set the entry point script.
-# ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]
+ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]
