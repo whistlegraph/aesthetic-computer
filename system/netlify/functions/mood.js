@@ -117,7 +117,11 @@ export async function handler(event, context) {
           console.log("💕 Setting a mood for:", user);
           getMessaging()
             .send({
-              notification: { title: `${handle}'s mood is`, body: `${mood}` },
+              notification: {
+                title: `${handle}'s mood is`,
+                body: `${mood}`,
+                icon: "https://aesthetic.computer/api/logo.png",
+              },
               topic: "mood",
             })
             .then((response) => {

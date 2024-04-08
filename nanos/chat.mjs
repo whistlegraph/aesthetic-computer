@@ -307,11 +307,55 @@ async function startChatServer() {
               // if (!dev) {
               // ☎️ Send a notification
               console.log("🟡 Sending notification...");
+
+              // TODO: Test notification icons here.
+              // const topicName = "industry-tech";
+
+              /*
+              const message = {
+                notification: {
+                  title: "Sparky says hello!",
+                },
+                android: {
+                  notification: {
+                    imageUrl: "https://foo.bar.pizza-monster.png",
+                  },
+                },
+                apns: {
+                  payload: {
+                    aps: {
+                      "mutable-content": 1,
+                    },
+                  },
+                  fcm_options: {
+                    image: "https://foo.bar.pizza-monster.png",
+                  },
+                },
+                webpush: {
+                  headers: {
+                    image: "https://foo.bar.pizza-monster.png",
+                  },
+                },
+                topic: topicName,
+              };
+              */
+
+              getMessaging()
+                .send(message)
+                .then((response) => {
+                  // Response is a message ID string.
+                  console.log("Successfully sent message:", response);
+                })
+                .catch((error) => {
+                  console.log("Error sending message:", error);
+                });
+
               getMessaging()
                 .send({
                   notification: {
                     title: handle + " 💬",
                     body: filteredText,
+                    icon: "https://aesthetic.computer/api/logo.png"
                   },
                   topic: "mood", // <- TODO: Eventually replace this.
                   // topic: "chat-system",
