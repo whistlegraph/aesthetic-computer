@@ -342,16 +342,6 @@ async function startChatServer() {
               */
 
               getMessaging()
-                .send(message)
-                .then((response) => {
-                  // Response is a message ID string.
-                  console.log("Successfully sent message:", response);
-                })
-                .catch((error) => {
-                  console.log("Error sending message:", error);
-                });
-
-              getMessaging()
                 .send({
                   notification: {
                     title: handle + " 💬",
