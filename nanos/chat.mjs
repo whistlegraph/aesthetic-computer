@@ -274,7 +274,8 @@ async function startChatServer() {
             const collection = db.collection("chat-system");
             await collection.createIndex({ when: 1 }); // Index for `when`.
             await collection.insertOne(msg); // Store the chat message
-            console.log("🟢 Message stored:", handle);
+
+            console.log("🟢 Message stored:", msg);
           } else {
             console.log("🟡 Message not stored:", "Development");
           }
@@ -355,7 +356,7 @@ async function startChatServer() {
                   notification: {
                     title: handle + " 💬",
                     body: filteredText,
-                    icon: "https://aesthetic.computer/api/logo.png"
+                    icon: "https://aesthetic.computer/api/logo.png",
                   },
                   topic: "mood", // <- TODO: Eventually replace this.
                   // topic: "chat-system",
