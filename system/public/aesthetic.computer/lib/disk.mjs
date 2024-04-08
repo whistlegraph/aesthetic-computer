@@ -303,7 +303,84 @@ let labelBack = false;
 
 let storeRetrievalResolution, storeDeletionResolution;
 
-let socket, socketStartDelay;
+// There are two instances of Socket that run in parallel...
+let socket, socketStartDelay; // Socket server for each piece.
+
+let chat; // Global chat socket server that should stay connected across pieces.
+
+// ❤️‍🔥 TODO: Explose these somehow to the $commonApi.
+
+const chatSystem = {
+  server: new Socket(debug, send),
+  messages: [],
+  chatterCount: 0,
+  // receiver: // A custom receiver that can be defined in a piece.
+  //              like `chat` to get the events.
+  // disconnect: // A custom disconnection that triggers below.
+  connecting: true,
+  initialized: (cb) => {
+    if (!chatSystem.server.connected) {
+      chatSystem.initializedCallback = cb;
+    } else {
+      cb();
+    }
+  },
+};
+
+{
+  const chatUrl = debug ? "localhost:8083" : "chat-system.aesthetic.computer";
+
+  chatSystem.server.connect(
+    chatUrl, // host
+    (id, type, content) => {
+      // receive
+      if (type === "connected") {
+        chatSystem.connecting = false;
+        console.log("🔌 Connected:", content);
+        chatSystem.chatterCount = content?.chatters || chatSystem.chatterCount;
+        console.log("💬 Messages so far:", content.messages);
+        chatSystem.messages.push(...content.messages);
+        chatSystem.initializedCallback?.();
+      }
+
+      if (type === "unauthorized") {
+        console.log("🔴 Chat message unauthorized!", content);
+        notice("Unauthorized", ["red", "yellow"]);
+      }
+
+      if (type === "message") {
+        const msg = JSON.parse(content);
+        console.log("💬 Chat message received:", msg);
+        //chatSystem.messages.push(msg);
+      }
+
+      if (type === "left") {
+        console.log("️✌️ Goodbye:", id);
+        chatSystem.chatterCount -= 1;
+      }
+
+      if (type === "joined") {
+        console.log("️👋 Hello:", id, type, content);
+        chatSystem.chatterCount += 1;
+      }
+
+      chatSystem.receiver?.(id, type, content); // Run the piece receiver.
+
+      console.log("🌠 Message received:", id, type, content);
+    },
+    undefined, // reload
+    "wss", // protocol
+    undefined, // connectionCallback
+    () => {
+      // disconnectCallback
+      console.log("🔌 Disconnected!");
+      chatterCount = 0;
+      chatSystem.connecting = true;
+      chatSystem.disconnect?.();
+    },
+  );
+}
+
 let udp = {
     send: (type, content) => {
       send({ type: "udp:send", content: { type, content } });
@@ -593,11 +670,7 @@ let docs; // Memorized by `requestDocs`.
 
 // For every function to access.
 const $commonApi = {
-  // A wrapper for `load(parse(...))`
-  // Make it `ahistorical` to prevent a url change.
-  // Make it an `alias` to prevent a metadata change for writing landing or
-  // router pieces such as `freaky-flowers` -> `wand`. 22.11.23.16.29
-  // Jump delay...
+  chat: chatSystem,
   dark: undefined, // If we are in dark mode.
   glaze: function (content) {
     if (glazeEnabled === content.on) return; // Prevent glaze from being fired twice...

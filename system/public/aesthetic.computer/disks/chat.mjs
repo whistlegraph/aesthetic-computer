@@ -23,43 +23,30 @@
   - [x] Show better connectivity.
 #endregion */
 
-let input,
-  inputBtn,
-  // server,
-  chat,
-  token,
-  chatterCount = 0;
+let input, inputBtn, token;
 
-let messages = [];
-
-const lineHeight = 12; // Height of each line
-const topMargin = 38; // Space from the top of the screen
+const lineHeight = 12;
+const topMargin = 38;
 const bottomMargin = 33;
 const leftMargin = 6;
 
-let scroll = 0;
-let totalScrollHeight;
-let chatHeight;
-
-let connecting = true;
-
-import { Socket } from "../lib/socket.mjs";
+let scroll = 0,
+  totalScrollHeight,
+  chatHeight;
 
 async function boot({
   api,
   ui,
   send,
-  net: { socket },
   handle,
-  debug,
   text,
   notice,
   authorize,
   user,
   screen,
+  chat,
 }) {
   // 🗨️ Chat Networking
-  const chatUrl = debug ? "localhost:8083" : "chat-system.aesthetic.computer";
 
   try {
     token = await authorize(); // Get user token.
@@ -68,92 +55,37 @@ async function boot({
     console.error("🟥 Unauthorized.");
   }
 
-  chat = new Socket(debug, send);
-  chat.connect(
-    chatUrl,
-    (id, type, content) => {
-      if (type === "connected") {
-        connecting = false;
-        console.log("🔌 Connected:", content);
-        chatterCount = content?.chatters || chatterCount;
-        // console.log("💬 Messages so far:", content.messages);
-        messages.push(...content.messages);
-        ({ totalScrollHeight, chatHeight } = computeScrollbar(api));
-        return;
-      }
-
-      if (type === "unauthorized") {
-        console.log("🔴 Chat message unauthorized!", content);
-        notice("Unauthorized", ["red", "yellow"]);
-        return;
-      }
-
-      if (type === "message") {
-        const msg = JSON.parse(content);
-        console.log("💬 Chat message received:", msg);
-        // notice("RECEIVED");
-
-        // TODO: Compute this message's tb and fullMessage.
-        msg.fullMessage = msg.handle + " " + msg.text;
-        msg.tb = text.box(
-          msg.fullMessage,
-          { x: leftMargin, y: 0 },
-          screen.width - leftMargin,
-          1,
-          true,
-        );
-
-        console.log("BOX:", msg.tb);
-
-        totalScrollHeight += msg.tb.lines.length * lineHeight;
-
-        messages.push(msg);
-        return;
-      }
-
-      if (type === "left") {
-        console.log("️✌️ Goodbye:", id);
-        chatterCount -= 1;
-        return;
-      }
-
-      if (type === "joined") {
-        console.log("️👋 Hello:", id, type, content);
-        chatterCount += 1;
-        return;
-      }
-
-      console.log("🌠 Message received:", id, type, content);
-    },
-    undefined,
-    "wss",
-    undefined,
-    () => {
-      console.log("🔌 Disconnected!");
-      chatterCount = 0;
-      connecting = true;
-    },
-  );
-
-  // 🧦 Socket Networking
-  /*
-  server = socket((id, type, content) => {
-    if (type === "left") {
-      console.log("️✌️ Goodbye:", id);
-      return;
-    }
-
-    if (type === "joined") {
-      console.log("️👋 Hello:", id, type, content);
-      return;
-    }
-
-    if (type.startsWith("connected")) {
-      console.log("🪴 Welcome:", id);
-      return;
-    }
+  // Connected...
+  chat.initialized(() => {
+    ({ totalScrollHeight, chatHeight } = computeScrollbar(api));
   });
-  */
+
+  chat.receiver = (id, type, content) => {
+    if (type === "unauthorized") {
+      notice("Unauthorized", ["red", "yellow"]);
+      return;
+    }
+
+    if (type === "message") {
+      const msg = JSON.parse(content);
+      console.log("💬 Chat message received:", msg);
+      msg.fullMessage = msg.handle + " " + msg.text;
+      msg.tb = text.box(
+        msg.fullMessage,
+        { x: leftMargin, y: 0 },
+        screen.width - leftMargin,
+        1,
+        true,
+      );
+      totalScrollHeight += msg.tb.lines.length * lineHeight;
+      chat.messages.push(msg);
+      return;
+    }
+
+    console.log("🌠 Message received:", id, type, content);
+  };
+
+  // chat.disconnect = () => {}; // This is also part of the API.
 
   // ✍️️️ Text Input
   input = new ui.TextInput(
@@ -165,7 +97,7 @@ async function boot({
       if (!currentHandle) {
         notice("NO HANDLE", ["red", "yellow"]);
       } else {
-        chat.send(`chat:message`, {
+        chat.server.send(`chat:message`, {
           text,
           // handle: currentHandle,
           token,
@@ -219,20 +151,21 @@ function paint({
   leaving,
   text,
   typeface,
+  chat,
   geo: { Box },
 }) {
   wipe(100, 100, 145);
-  if (connecting) ink("pink").write("Connecting...", { center: "xy" });
+  if (chat.connecting) ink("pink").write("Connecting...", { center: "xy" });
 
   // Messages
   // Start from the bottom of the screen
-  if (!connecting) {
+  if (!chat.connecting) {
     let y = screen.height - lineHeight - bottomMargin + scroll;
 
     // Iterate through the messages array backwards, calculating their
     // height and painting them if they are within the boundaries.
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const message = messages[i];
+    for (let i = chat.messages.length - 1; i >= 0; i--) {
+      const message = chat.messages[i];
       const x = leftMargin;
 
       // ❇️ These are precomputed in computeScrollbar for each message.
@@ -301,8 +234,8 @@ function paint({
     }
   });
 
-  if (!connecting)
-    ink(160).write("Chatters: " + chatterCount, {
+  if (!chat.connecting)
+    ink(160).write("Chatters: " + chat.chatterCount, {
       left: leftMargin,
       bottom: 10,
     });
@@ -438,12 +371,12 @@ function boundScroll() {
   }
 }
 
-function computeScrollbar({ text, screen }) {
+function computeScrollbar({ text, screen, chat }) {
   let height = 0;
   console.log("🤩 New width:", screen.width);
   // Iterate through the messages array.
-  for (let i = 0; i < messages.length; i += 1) {
-    const message = messages[i];
+  for (let i = 0; i < chat.messages.length; i += 1) {
+    const message = chat.messages[i];
     const fullMessage = message.handle + " " + message.text;
     const tb = text.box(
       fullMessage,
