@@ -44,8 +44,10 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** chat ***
-  - [] Show last chat message on homepage.
+  - [🟠] Show last chat message on homepage.
+    - [] Have the chat server running as a separate websocket connection, then that number can be used for total users online.
   - [] Add custom / cool notification icons, and also sounds?
+    - [] Templated method from here didn't seem to work: https://firebase.google.com/docs/cloud-messaging/android/send-image
   - [] This could use the redis loop?
   - [] Add high resolution / PIXIjs renderer to chat.
   - [] Add radio / background music.
