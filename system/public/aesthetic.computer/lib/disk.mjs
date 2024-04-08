@@ -1289,6 +1289,10 @@ const $commonApi = {
   text: {
     capitalize: text.capitalize,
     box: (text, pos = { x: 0, y: 0 }, bounds, scale = 1, wordWrap = true) => {
+      if (!text) {
+        console.warn("⚠️ No text for `box`.");
+        return;
+      }
       pos = { ...pos };
       let run = 0;
       // scale = abs(scale);

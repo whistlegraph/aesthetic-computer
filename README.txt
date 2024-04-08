@@ -44,8 +44,11 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** chat ***
-  - [🟠] Add scroll with scroll bar.
-  - [] Add radio / background music. 
+  - [🟠] Add scroll with scroll bar that auto-expands if you go back
+         too far.
+  - [] Show last chat message on homepage.
+  - [] This could use the redis loop?
+  - [] Add radio / background music.
   - [] Or show bgm waveform.
   - [] `chat bgm` 
   *** [] light & dark autocomplete ***
