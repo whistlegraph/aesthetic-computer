@@ -258,14 +258,45 @@ async function startChatServer() {
           // TODO: Filter message for content.
           const filteredText = filter(msg.content.text);
 
-          const handle =
-            "@" + (await storeMessageInMongo(msg.content, filteredText));
-          console.log("🟢 Message stored:", handle);
+          const message = msg.content;
+          const fromSub = message.sub;
 
-          const update = {
-            text: filteredText,
+          console.log("🟡 Storing message...");
+
+          // Don't store any actual messages to the MongoDB in development.
+          if (!dev) {
+            const msg = {
+              user: message.sub,
+              text: message.text, // Store unfiltered text in the database.
+              when: new Date(),
+            };
+
+            const collection = db.collection("chat-system");
+            await collection.createIndex({ when: 1 }); // Index for `when`.
+            await collection.insertOne(msg); // Store the chat message
+            console.log("🟢 Message stored:", handle);
+          } else {
+            console.log("🟡 Message not stored:", "Development");
+          }
+
+          // Retrieve handle either from cache or MongoDB
+          const handle = "@" + (await getHandleFromSub(fromSub));
+
+          messages.push({
             handle,
-          };
+            text: filteredText,
+            when: msg.when,
+          });
+
+          if (messages.length > 100) messages.shift();
+          // console.log("Messages:", messages);
+
+          const update = { text: filteredText, handle };
+
+          if (dev) {
+            everyone(pack(`message`, update));
+            return; // Skip redis and notifications in development.
+          }
 
           // 🏬 Publish to redis.
           pub
@@ -279,8 +310,8 @@ async function startChatServer() {
               getMessaging()
                 .send({
                   notification: {
-                    title: "💬 Chat",
-                    body: handle + " " + filteredText,
+                    title: handle + " 💬",
+                    body: filteredText,
                   },
                   topic: "mood", // <- TODO: Eventually replace this.
                   // topic: "chat-system",
@@ -411,46 +442,14 @@ async function makeMongoConnection() {
 }
 
 // Also looks up the handle for the user and returns it.
-async function storeMessageInMongo(message, filteredText) {
-  const fromSub = message.sub;
-
-  console.log("🟡 Storing message...");
-  const collection = db.collection("chat-system");
-  await collection.createIndex({ when: 1 }); // Index for `when`.
-
-  // Retrieve handle either from cache or MongoDB
-  const handle = await getHandleFromSub(fromSub);
-
-  const msg = {
-    user: message.sub,
-    text: message.text, // Store unfiltered text in the database.
-    when: new Date(),
-  };
-
-  // Store the chat message
-  await collection.insertOne(msg);
-
-  messages.push({
-    handle: "@" + handle,
-    text: filteredText,
-    when: msg.when,
-  });
-
-  if (messages.length > 100) {
-    messages.shift();
-  }
-  // console.log("Messages:", messages);
-  return handle;
-}
+async function storeMessageInMongo(message, filteredText) {}
 
 async function getLast100MessagesfromMongo() {
   console.log("🟡 Retrieving last 100 messages...");
   const chatCollection = db.collection("chat-system");
-  const collectedMessages = (await chatCollection
-    .find({})
-    .sort({ when: -1 })
-    .limit(100)
-    .toArray()).reverse();
+  const collectedMessages = (
+    await chatCollection.find({}).sort({ when: -1 }).limit(100).toArray()
+  ).reverse();
 
   for (const message of collectedMessages) {
     const fromSub = message.user;

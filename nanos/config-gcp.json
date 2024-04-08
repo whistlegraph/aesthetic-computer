@@ -16,16 +16,5 @@
     "Ports": ["8083", "80", "443"],
     "UDPPorts": ["60", "70-80", "6006"],
     "Verbose": true
-  },
-  "Klibs": ["gcp", "tls"],
-  "ManifestPassthrough": {
-    "gcp": {
-      "metrics": {
-        "interval": "120"
-      },
-      "logging": {
-        "log_id": "my_log"
-      }
-    }
   }
 }

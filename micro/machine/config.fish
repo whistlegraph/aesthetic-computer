@@ -55,17 +55,17 @@ fish_add_path ~/.ops/bin
 alias load "emacsclient -e '(kill-emacs)'; emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el; emacsclient -c --eval '(aesthetic-backend)'"
 
 alias ac 'cd ~/aesthetic-computer'
-alias ac-site 'npm run -s site'
-alias ac-session 'npm run -s server:session'
-alias ac-edge 'clear; npm run -s edge-micro' # TODO: will not return to fish 24.04.05.19.53 :(
-alias ac-stripe-print 'npm run -s stripe-print-micro'
-alias ac-stripe-ticket 'npm run -s stripe-ticket-micro'
+alias ac-site 'npm run site'
+alias ac-session 'npm run server:session'
+alias ac-edge 'clear; npm run edge-micro' # TODO: will not return to fish 24.04.05.19.53 :(
+alias ac-stripe-print 'npm run stripe-print-micro'
+alias ac-stripe-ticket 'npm run stripe-ticket-micro'
 alias ac-url 'clear; npm run -s url'
 alias ac-shell 'ac-url; fish'
 alias ac-redis 'clear; npm run redis'
 alias ac-udp 'ssh root@157.245.134.225' # ac monolith udp server management
-alias ac-servers 'clear; npm run -s servers; cd nanos; env nogreet=true fish'
-alias ac-chat 'clear; npm run -s chat; cd nanos; npm run -s chat-system:dev; fish'
+alias ac-servers 'clear; npm run servers; cd nanos; env nogreet=true fish'
+alias ac-chat 'clear; npm run chat; cd nanos; npm run chat-system:dev; fish'
 
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 
