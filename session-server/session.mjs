@@ -327,8 +327,8 @@ wss.on("connection", (ws, req) => {
             .send({
               notification: {
                 title: "😱 Scream",
-                body: out,
-                icon: "https://aesthetic.computer/api/logo.png",
+                body: out//,
+                // icon: "https://aesthetic.computer/api/logo.png",
               },
               topic: "scream",
               data: { piece },

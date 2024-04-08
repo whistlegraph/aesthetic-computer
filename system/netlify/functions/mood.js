@@ -119,8 +119,8 @@ export async function handler(event, context) {
             .send({
               notification: {
                 title: `${handle}'s mood is`,
-                body: `${mood}`,
-                icon: "https://aesthetic.computer/api/logo.png",
+                body: `${mood}`//,
+                // icon: "https://aesthetic.computer/api/logo.png",
               },
               topic: "mood",
             })
