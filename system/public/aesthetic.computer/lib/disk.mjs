@@ -338,7 +338,7 @@ const chatSystem = {
         chatSystem.connecting = false;
         console.log("🔌 Connected:", content);
         chatSystem.chatterCount = content?.chatters || chatSystem.chatterCount;
-        console.log("💬 Messages so far:", content.messages);
+        // console.log("💬 Messages so far:", content.messages);
         chatSystem.messages.push(...content.messages);
         chatSystem.initializedCallback?.();
       }
@@ -348,10 +348,11 @@ const chatSystem = {
         notice("Unauthorized", ["red", "yellow"]);
       }
 
-      // if (type === "message") {
-        // const msg = JSON.parse(content);
-        //c onsole.log("💬 Chat message received:", msg);
-      // }
+      if (type === "message") {
+        const msg = JSON.parse(content);
+        console.log("💬 Chat message received:", msg);
+        chatSystem.messages.push(msg);
+      }
 
       if (type === "left") {
         console.log("️✌️ Goodbye:", id);
@@ -373,7 +374,7 @@ const chatSystem = {
     () => {
       // disconnectCallback
       console.log("🔌 Disconnected!");
-      chatterCount = 0;
+      chatSystem.chatterCount = 0;
       chatSystem.connecting = true;
       chatSystem.disconnect?.();
     },
