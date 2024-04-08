@@ -96,6 +96,8 @@ async function deploy() {
         const response = await fetch(`https://${sub}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
+        } else {
+          console.log(await response.text());
         }
       });
 
