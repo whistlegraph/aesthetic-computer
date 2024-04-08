@@ -52,7 +52,10 @@ const headers = {
 // #endregion
 
 async function deploy() {
-  const out = await gcpDeploy(process.argv[2], process.argv[3] === "false" ? false : true);
+  const out = await gcpDeploy(
+    process.argv[2],
+    process.argv[3] === "false" ? false : true,
+  );
 
   const parsed = JSON.parse(out);
   const ip = parsed[0]?.PublicIps?.[0];
@@ -64,7 +67,8 @@ async function deploy() {
 
       async function attempt(command) {
         const maxAttempts = 15;
-        let attempts = 0, success = false;
+        let attempts = 0,
+          success = false;
 
         while (attempts < maxAttempts && !success) {
           try {
@@ -86,10 +90,13 @@ async function deploy() {
         }
       }
 
-      console.log("💻 Testing HTTP connection...");
+      console.log("💻 Testing HTTPS connection...");
 
       await attempt(async () => {
-        await run("curl", ["-s", `https://${sub}`]);
+        const response = await fetch(`https://${sub}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
       });
 
       console.log("🧦 Testing WebSocket connection...");
@@ -98,10 +105,14 @@ async function deploy() {
         const websocatCommand = `echo "hello" | websocat -1 wss://${sub}`;
         await run("bash", ["-c", websocatCommand]);
       });
-
     } else {
-      console.error("🔴 Failed to update A record for instance:", sub, "->", ip);
-      // This should also maybe destroy the instance in certain conditions.  
+      console.error(
+        "🔴 Failed to update A record for instance:",
+        sub,
+        "->",
+        ip,
+      );
+      // This should also maybe destroy the instance in certain conditions.
       return;
     }
   }
@@ -212,7 +223,7 @@ async function makeMongoConnection() {
   const client = new MongoClient(MONGODB_CONNECTION_STRING);
   await client.connect();
   const db = client.db(MONGODB_NAME);
-  return { client, db }
+  return { client, db };
 }
 
 async function storeImageNameInMongo(imageId) {
@@ -222,7 +233,9 @@ async function storeImageNameInMongo(imageId) {
   const result = await db
     .collection("servers")
     .updateOne(
-      { _id: "lastImage" }, { $set: { name: imageId } }, { upsert: true },
+      { _id: "lastImage" },
+      { $set: { name: imageId } },
+      { upsert: true },
     );
 
   console.log(result);
