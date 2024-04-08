@@ -325,7 +325,11 @@ wss.on("connection", (ws, req) => {
           //if (!dev) {
           getMessaging()
             .send({
-              notification: { title: "😱 Scream", body: out },
+              notification: {
+                title: "😱 Scream",
+                body: out,
+                icon: "https://aesthetic.computer/api/logo.png",
+              },
               topic: "scream",
               data: { piece },
             })
