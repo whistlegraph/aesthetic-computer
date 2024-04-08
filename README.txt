@@ -45,9 +45,6 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** chat ***
   - [🟠] Show last chat message on homepage.
-
-    - [🟡] Have the chat server running as a separate websocket connection, then that number can be used for total users online.
-
   - [] Add custom / cool notification icons, and also sounds?
     - [] Templated method from here didn't seem to work: https://firebase.google.com/docs/cloud-messaging/android/send-image
   - [] This could use the redis loop?
@@ -79,6 +76,7 @@ but technically agnostic. (Choose your aesthetic!)
        (Just make the text fully synchronized for now.)
   - [] Make a new "notification type" for chat and add it into an iOS app update.
   + Done
+  - [x] Have the chat server running as a separate websocket connection, then that number can be used for total users online.
   - [x] Be able to delete certain recent messages manually in MongoDB.
     - (Can be done through the atlas cloud interface)
   - [x] Add scroll with scroll bar that auto-expands if you go back
