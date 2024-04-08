@@ -348,11 +348,10 @@ const chatSystem = {
         notice("Unauthorized", ["red", "yellow"]);
       }
 
-      if (type === "message") {
-        const msg = JSON.parse(content);
-        console.log("💬 Chat message received:", msg);
-        //chatSystem.messages.push(msg);
-      }
+      // if (type === "message") {
+        // const msg = JSON.parse(content);
+        //c onsole.log("💬 Chat message received:", msg);
+      // }
 
       if (type === "left") {
         console.log("️✌️ Goodbye:", id);
