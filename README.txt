@@ -43,6 +43,11 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
+*** obscenity ***
+  - [] Combine all 'filter.mjs' modules into one shared file somehow...
+  - [] Make sure they don't filter "rapper" / make an exception there.
+  - [] Write a little terminal test for trying certain combos?
+
 *** chat ***
   - [🟠] Show last chat message on homepage.
   - [] Add custom / cool notification icons, and also sounds?
@@ -51,7 +56,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [] Add high resolution / PIXIjs renderer to chat.
   - [] Add radio / background music.
     - [] Or show bgm waveform.
-    - [] `chat bgm` 
+    - [] `chat bgm`
   - [] `chat` needs light and dark default
   - [] Use a tinier font for usernames?
   - [] Natural emojis could potentially be shown
@@ -66,7 +71,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [] Add the ability to show pixels in chat.
     - [] Paintings should be resolution limited
          and re-uploaded / copied to a bucket just
-         for that particular chat message. 
+         for that particular chat message.
   - [] Add a 'mask' / 'play' command for dramaturgy.
     - [] How would this enter into the database?
     - [] It should be unhandled but have an "admin" ?
@@ -99,7 +104,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [] Add it to the docs.
 
 *** dev / desktop usability ***
-  - [-] Add global ctrl+shift+ and ctrl+shift- shortcuts for 
+  - [-] Add global ctrl+shift+ and ctrl+shift- shortcuts for
        zooming the pixel density of the ac renderer, keeping the crosshair
        size (overall browser zoom) the same.
   - [] The Ctrl+` shortcut should pass through to the VS Code extension
