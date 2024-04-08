@@ -8,6 +8,12 @@ set CERT_FILE "localhost.pem"
 
 # Check if the certificate file exists
 if test -f $CERT_FILE
+    # Copy the certificate to the nanos directory. 
+    mkdir -p ../nanos/ssl
+    cp localhost.pem ../nanos/ssl
+    cp localhost-key.pem ../nanos/ssl
+    echo "Certificateas copied to 'nanos'."
+
     # Copy the certificate to the trusted store
     sudo cp $CERT_FILE /etc/pki/ca-trust/source/anchors/
 
