@@ -327,8 +327,24 @@ wss.on("connection", (ws, req) => {
             .send({
               notification: {
                 title: "😱 Scream",
-                body: out//,
-                // icon: "https://aesthetic.computer/api/logo.png",
+                body: out, //,
+              },
+              // android: {
+              //   notification: {
+              //     imageUrl: "https://aesthetic.computer/api/logo.png",
+              //   },
+              apns: {
+                payload: {
+                  aps: { "mutable-content": 1 },
+                },
+                fcm_options: {
+                  image: "https://aesthetic.computer/api/logo.png",
+                },
+              },
+              webpush: {
+                headers: {
+                  image: "https://aesthetic.computer/api/logo.png",
+                },
               },
               topic: "scream",
               data: { piece },

@@ -312,41 +312,28 @@ async function startChatServer() {
               // TODO: Test notification icons here.
               // const topicName = "industry-tech";
 
-              /*
-              const message = {
-                notification: {
-                  title: "Sparky says hello!",
-                },
-                android: {
-                  notification: {
-                    imageUrl: "https://foo.bar.pizza-monster.png",
-                  },
-                },
-                apns: {
-                  payload: {
-                    aps: {
-                      "mutable-content": 1,
-                    },
-                  },
-                  fcm_options: {
-                    image: "https://foo.bar.pizza-monster.png",
-                  },
-                },
-                webpush: {
-                  headers: {
-                    image: "https://foo.bar.pizza-monster.png",
-                  },
-                },
-                topic: topicName,
-              };
-              */
-
               getMessaging()
                 .send({
                   notification: {
                     title: handle + " 💬",
-                    body: filteredText//,
-                    // icon: "https://aesthetic.computer/api/logo.png",
+                    body: filteredText, //,
+                  },
+                  // android: {
+                  //   notification: {
+                  //     imageUrl: "https://aesthetic.computer/api/logo.png",
+                  //   },
+                  apns: {
+                    payload: {
+                      aps: { "mutable-content": 1 },
+                    },
+                    fcm_options: {
+                      image: "https://aesthetic.computer/api/logo.png",
+                    },
+                  },
+                  webpush: {
+                    headers: {
+                      image: "https://aesthetic.computer/api/logo.png",
+                    },
                   },
                   topic: "mood", // <- TODO: Eventually replace this.
                   // topic: "chat-system",
