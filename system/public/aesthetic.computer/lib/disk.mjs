@@ -40,7 +40,7 @@ import { CamDoll } from "./cam-doll.mjs";
 
 import { TextInput, Typeface } from "../lib/type.mjs";
 
-import { Conversation } from "./ask.mjs";
+import * as chat from "../disks/chat.mjs"; // Import chat everywhere.
 
 let tf; // Active typeface global.
 
@@ -306,7 +306,7 @@ let storeRetrievalResolution, storeDeletionResolution;
 // There are two instances of Socket that run in parallel...
 let socket, socketStartDelay; // Socket server for each piece.
 
-let chat; // Global chat socket server that should stay connected across pieces.
+let chatServer; // Global chat socket server that should stay connected across pieces.
 
 // ❤️‍🔥 TODO: Explose these somehow to the $commonApi.
 
@@ -336,7 +336,7 @@ function connectToChat() {
       // receive
       if (type === "connected") {
         chatSystem.connecting = false;
-        console.log("🔌 Connected:", content);
+        // console.log("🔌 Connected:", content);
         chatSystem.chatterCount = content?.chatters || chatSystem.chatterCount;
         // console.log("💬 Messages so far:", content.messages);
         chatSystem.messages.push(...content.messages);
@@ -367,7 +367,7 @@ function connectToChat() {
 
       chatSystem.receiver?.(id, type, content); // Run the piece receiver.
 
-      console.log("🌠 Message received:", id, type, content);
+      // console.log("🌠 Message received:", id, type, content);
     },
     undefined, // reload
     "wss", // protocol
@@ -435,13 +435,13 @@ function darkMode(enabled) {
       // DMStatusColor = "lime";
       darkModeWipeBG = 32;
       darkModeWipeNum = 64;
-      console.log("🌜 Dark Mode");
+      // console.log("🌜 Dark Mode");
     }
     if (enabled === false) {
       // DMStatusColor = "teal";
       darkModeWipeBG = 150;
       darkModeWipeNum = 200;
-      console.log("🌞 Light Mode");
+      // console.log("🌞 Light Mode");
     }
     actAlerts.push($commonApi.dark ? "dark-mode" : "light-mode");
     return enabled;
@@ -1662,9 +1662,9 @@ async function session(slug, forceProduction = false, service) {
   if (typeof session === "string") return session;
 
   //if (debug && logs.session) {
-  console.log(
-    `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`,
-  );
+  // console.log(
+  //   `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`,
+  // );
   //}
   // Return the active session if the server knows it's "Ready", otherwise
   // wait for the one we requested to spin up.
@@ -2561,7 +2561,7 @@ async function load(
       path = [...path.split("/").slice(0, -1), hiddenSlug].join("/");
     }
 
-    if (debug) console.log(debug ? "🟡 Development" : "🟢 Production");
+    // if (debug) console.log(debug ? "🟡 Development" : "🟢 Production");
     if (host === "") host = originalHost;
     loadFailure = undefined;
     host = host.replace(/\/$/, ""); // Remove any trailing slash from host.
@@ -2575,7 +2575,7 @@ async function load(
     // The hash `time` parameter busts the cache so that the environment is
     // reset if a disk is re-entered while the system is running.
     // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
-    if (debug) console.log("🕸", fullUrl);
+    // if (debug) console.log("🕸", fullUrl);
   } else {
     // 📃 Loading with provided source code.
     if (
@@ -2622,7 +2622,7 @@ async function load(
     } else {
       let response, sourceToRun;
       if (fullUrl) {
-        console.log("📥 Loading from url:", fullUrl);
+        // console.log("📥 Loading from url:", fullUrl);
         response = await fetch(fullUrl);
         if (response.status === 404) {
           const anonUrl =
@@ -2828,7 +2828,7 @@ async function load(
     headers(); // Clear console and re-print headers if we are in production.
   }
 
-  console.log("🧩", path, "🌐", host);
+  // console.log("🧩", path, "🌐", host);
 
   // Add debug to the common api.
   $commonApi.debug = debug;
@@ -2891,7 +2891,7 @@ async function load(
       return;
     }
     // Never open socket server in icon / preview mode.
-    if (debug && logs.session) console.log("🫂 Finding session server...");
+    // if (debug && logs.session) console.log("🫂 Finding session server...");
     socket = new Socket(debug, send); // Then redefine and make a new socket.
 
     const monolith = undefined; // "monolith"; // or `undefined` for horizontal scaling via
@@ -2945,7 +2945,7 @@ async function load(
             // 🔩 Connected! (Post-connection logic.)
             // Broadcast current location.
             if (HANDLE) {
-              console.log("🗼 Broadcasting slug:", currentText, "for:", HANDLE);
+              // console.log("🗼 Broadcasting slug:", currentText, "for:", HANDLE);
               socket?.send("location:broadcast", {
                 handle: HANDLE,
                 slug: currentText,
@@ -3360,6 +3360,7 @@ async function load(
     if (!module.system?.startsWith("world"))
       $commonApi.system.world.teleported = false;
 
+    // 📚 nopaint system
     if (
       module.system?.startsWith("nopaint") ||
       typeof module?.brush === "function" ||
@@ -3369,10 +3370,18 @@ async function load(
       // or generate one.
       const modsys = module.system || "nopaint";
 
+      // TODO: 🖌️💬 Integrate nopaint system with chat.
+      // console.log(chat);
+
       $commonApi.system.nopaint.bakeOnLeave =
         modsys.split(":")[1] === "bake-on-leave"; // The default is to `bake` at the end of each gesture aka `bake-on-lift`.
 
-      boot = module.boot || nopaint_boot;
+      boot = ($) => {
+        const booter = module.boot || nopaint_boot;
+        booter($);
+        chat.boot($);
+      };
+
       sim = module.sim || defaults.sim;
       paint = ($) => {
         if (module.paint) {
@@ -3712,7 +3721,7 @@ async function makeFrame({ data: { type, content } }) {
       store.persist("code-channel");
     }
 
-    console.log("💻 Code channel:", codeChannel);
+    // console.log("💻 Code channel:", codeChannel);
 
     // Always send the codeChannel up to any parent window.
     codeChannelAutoLoader = () => {

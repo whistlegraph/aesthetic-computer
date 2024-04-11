@@ -73,7 +73,7 @@ function loadAuth0Script() {
     document.head.appendChild(script);
 
     script.onload = () => {
-      console.log("🟢 Auth0 loaded.");
+      // console.log("🟢 Auth0 loaded.");
       resolve();
     };
 
@@ -127,7 +127,7 @@ loadAuth0Script()
         const sessionJsonString = atob(decodeURIComponent(encodedSession));
         const session = JSON.parse(sessionJsonString);
         // Use the session information to authenticate, if it exists.
-        console.log("🥀 Session data:", session);
+        // console.log("🥀 Session data:", session);
         if (session.accessToken && session.account) {
           window.acTOKEN = session.accessToken; // Only set using this flow.
           window.acUSER = {
@@ -135,7 +135,7 @@ loadAuth0Script()
             sub: session.account.id,
           };
           // Will get passed to the first message by the piece runner.
-          console.log("🌻 Picked up session!", window.acTOKEN, window.acUSER);
+          // console.log("🌻 Picked up session!", window.acTOKEN, window.acUSER);
           window.acSEND({
             type: "session:update",
             content: { user: window.acUSER },
@@ -223,11 +223,11 @@ loadAuth0Script()
           content: { user: window.acUSER },
         });
       } else if (!pickedUpSession) {
-        console.log("🗝️ Not authenticated.");
+        // console.log("🗝️ Not authenticated.");
       }
 
-      const after = performance.now();
-      console.log("🗝️ Auth took:", (after - before) / 1000, "seconds.");
+      // const after = performance.now();
+      // console.log("🗝️ Auth took:", (after - before) / 1000, "seconds.");
     }
   })
   .catch((error) => {
@@ -347,7 +347,7 @@ function initNotifications() {
       }
     })
     .catch((err) => {
-      console.warn("🔔 An error occurred while retrieving token.", err);
+      // console.warn("🔔 An error occurred while retrieving token.", err);
     });
 }
 

@@ -54,7 +54,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   if (debug) {
     if (window.isSecureContext) {
-      console.log("🔒 Secure");
+      // console.log("🔒 Secure");
     } else {
       console.warn("🔓 Insecure");
     }
@@ -1162,7 +1162,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     };
 
     if (worker.postMessage) {
-      console.log("🟢 Worker");
+      // console.log("🟢 Worker");
       send = (e, shared) => worker.postMessage(e, shared);
       window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
       worker.onmessage = onMessage;
@@ -1881,7 +1881,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // ⌨️ Keyboard
       keyboard = new Keyboard();
       {
-        console.log("⌨️ 🤖 Initializing Virtual Keyboard");
+        // console.log("⌨️ 🤖 Initializing Virtual Keyboard");
         /**
          * Insert a hidden input element that is used to toggle the software
          * keyboard on touchscreen devices like iPhones and iPads.
@@ -4351,7 +4351,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       token = window.acTOKEN;
 
       if (token) {
-        console.log("🔐 Hosted token found...");
+        // console.log("🔐 Hosted token found...");
 
         try {
           // Attempt to fetch user info using the token
@@ -4364,15 +4364,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
       } else {
         // If acTOKEN is not available, get a new one
-        console.log("🔐 Retrieving auth token...");
+        // console.log("🔐 Retrieving auth token...");
         token = await window.auth0Client.getTokenSilently();
         // await window.auth0Client.getUser();
-        console.log("✅ Token is valid");
+        // console.log("✅ Token is valid");
       }
 
-      console.log("🔐 Authorized");
+      // console.log("🔐 Authorized");
     } catch (err) {
-      console.log("🔐️ ❌ Unauthorized", err);
+      // console.log("🔐️ ❌ Unauthorized", err);
     }
     return token;
   }
