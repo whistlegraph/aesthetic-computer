@@ -44,10 +44,10 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** @dreamdealer/grisaille ***
-  - [🟡] Entering preslashed urls should jump to the route on the `prompt`.
   - [] Get keyboard shortcuts working in vscode extension.
   - [] Fix weird auth things in the vscode extension. 
   + Done
+  - [x] Entering preslashed urls should jump to the actual url route on the `prompt`.
   - [x] Get the `media/@handle/pieces` JSON endpoint up and running.
 
 *** chat ***
