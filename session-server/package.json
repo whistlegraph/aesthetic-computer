@@ -10,7 +10,7 @@
     "dev": "kill-port 8889; PORT=8889 NODE_ENV=development nodemon -I --watch session.mjs session.mjs; env nogreet=true fish",
     "create": "npx jamsocket service create session-server",
     "build": "echo Built 😄",
-    "build:jamsocket": "docker build --platform linux/amd64 --tag session-server-image .",
+    "build:jamsocket": "cp ../shared/filter.mjs filter.mjs; docker build --platform linux/amd64 --tag session-server-image .",
     "deploy": "jamsocket push session-server session-server-image",
     "spawn": "jamsocket spawn session-server",
     "spawn-token": "jamsocket spawn-token create session-server",
@@ -25,7 +25,7 @@
     "fastify": "^4.19.2",
     "firebase-admin": "^12.0.0",
     "ip": "^1.1.8",
-    "jamsocket": "^0.8.8",
+    "jamsocket": "^0.8.14",
     "obscenity": "^0.1.4",
     "redis": "^4.6.7",
     "ws": "^8.13.0"

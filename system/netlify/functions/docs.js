@@ -106,9 +106,15 @@ export async function handler(event, context) {
           done: false,
         },
         brush: {
-          label: "brush",
+          label: "🖌️ Brush",
           sig: "brush({ ... })",
           desc: "For implementing brushes in the `nopaint` system.",
+          done: false,
+        },
+        filter: {
+          label: "🥤 Filter",
+          sig: "filter({ ... })",
+          desc: "For implementing filters in the `nopaint` system.",
           done: false,
         },
         curtain: {
@@ -2155,6 +2161,11 @@ export async function handler(event, context) {
       field: {
         sig: "field",
         desc: "Play in the field with others.",
+        done: false,
+      },
+      fill: {
+        sig: "fill",
+        desc: "Fill with solid color.",
         done: false,
       },
       fly: {

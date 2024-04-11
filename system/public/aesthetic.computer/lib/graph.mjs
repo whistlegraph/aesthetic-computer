@@ -123,7 +123,7 @@ function flood(x, y, fillColor = c) {
   const visited = new Set();
   const stack = [[x, y]];
 
-  color(...fillColor);
+  color(...findColor(fillColor));
   const oldColor = c;
   while (stack.length) {
     const [cx, cy] = stack.pop();
