@@ -1,5 +1,10 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** obscenity ***
+  - [x] Make sure they don't filter "rapper" / make an exception there.
+  + Done
+  - [x] Combine all 'filter.mjs' modules into one shared file somehow...
+
 *** [🟠] light & dark autocomplete ***
 
 *** emacs + micro ***

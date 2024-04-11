@@ -139,8 +139,8 @@ async function world_boot(
       } else if (text === "map") {
         map = !map;
       } else {
-        me.write(text); // Display message on 🧒.
-        server.send(`world:${piece}:write`, me.message); // Send to server.
+        //me.write(text); // Display message on 🧒.
+        server.send(`world:${piece}:write`, text); // Send to server.
       }
 
       // Clear text, hide cursor block, and close keyboard.
@@ -221,7 +221,7 @@ async function world_boot(
           if (
             content[key].handle.startsWith("@") &&
             content[key].handle === me.handle &&
-            content[key].ghost === false 
+            content[key].ghost === false
           ) {
             spectating = true;
             spectatingKid = key;
@@ -298,6 +298,11 @@ async function world_boot(
     }
 
     if (type === `world:${piece}:write`) {
+      console.log("Write message received from:", id, server.id);
+      if (id === server.id) {
+        me.write(content);
+        return;
+      }
       const kid = kids[id];
       if (kid) {
         kid.write(content);
