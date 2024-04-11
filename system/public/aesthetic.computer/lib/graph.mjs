@@ -1312,6 +1312,7 @@ function box() {
   if (nonvalue(h)) h = randInt(height);
 
   // Abs / normalize the parameters.
+  if (mode === undefined || mode === "") mode = "fill";
 
   // Check for "Center" at the end of mode.
   if (mode.endsWith(BOX_CENTER)) {
@@ -1319,8 +1320,6 @@ function box() {
     y -= h / 2;
     mode = mode.slice(0, -BOX_CENTER.length - 1); // Clear through separator: *
   }
-
-  if (mode === undefined || mode === "") mode = "fill";
 
   x = floor(x);
   y = floor(y);

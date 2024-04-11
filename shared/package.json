@@ -1,0 +1,14 @@
+{
+  "name": "shared",
+  "version": "1.0.0",
+  "description": "Shared JS modules with scripts to run them for the Aesthetic Computer.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Jeffrey Alan Scudder",
+  "license": "ISC",
+  "devDependencies": {
+    "obscenity": "^0.2.1"
+  }
+}
