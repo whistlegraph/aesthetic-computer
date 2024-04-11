@@ -200,7 +200,7 @@ loadAuth0Script()
       if (isAuthenticated && !pickedUpSession) {
         try {
           await window.auth0Client.getTokenSilently();
-          console.log("🔐 Authorized");
+          // console.log("🔐 Authorized");
         } catch (error) {
           console.log("🔐️ ❌ Unauthorized", error);
           console.error(
