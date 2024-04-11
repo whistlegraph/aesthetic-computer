@@ -48,6 +48,9 @@ RUN eval "$(fnm env --use-on-cd)" && \
 # Install shell-gpt for the user.
 RUN pip3 install shell-gpt
 
+# Install aider: https://github.com/paul-gauthier/aider?tab=readme-ov-file#getting-started
+RUN pip3 install aider-chat 
+
 # Install OPS and Nanos: https://nanos.org/getting_started
 RUN curl https://ops.city/get.sh -sSfL | sh
 
