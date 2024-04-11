@@ -215,7 +215,8 @@ function act({ event: e, jump, sound, gizmo, seconds, delay }) {
       push: () => {
         sfx.push(sound);
         jump(
-          "https://www.dropbox.com/scl/fi/3cmnkp3oqoth9by99fieh/aesthetic-computer-demo.mov?rlkey=amzo78pi2qrrctiy434tle3nq&dl=0",
+          "https://calendly.com/aesthetic-computer/demo"
+          // "https://www.dropbox.com/scl/fi/3cmnkp3oqoth9by99fieh/aesthetic-computer-demo.mov?rlkey=amzo78pi2qrrctiy434tle3nq&dl=0",
           // "out:https://www.tiktok.com/@whistlegraph/video/7281664540314438955",
         );
       },

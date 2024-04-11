@@ -57,6 +57,9 @@ but technically agnostic. (Choose your aesthetic!)
        the ability to steal pixels as well / remix.
   - [] Add high resolution / PIXIjs renderer to the `chat` piece only.
   ------------------------------------------------------------------------------
+  - [] Make `help` channel as the first 2nd instance for chat. 
+    - [] Users should be able to "swap" channels but just enable it in a separate
+        `help` piece similar to how `chat` is implemented.
   - [] Add custom / cool notification icons, and also sounds?
     - [] Templated method from here didn't seem to work: https://firebase.google.com/docs/cloud-messaging/android/send-image
   - [] This could use the redis loop?
