@@ -55,11 +55,16 @@ async function boot({
   sound,
   net,
 }) {
-
   console.log("💬 Chat booting...");
 
+  // TODO: Now make it so that you see the last chat message
+  //       as a button under the piece name.
+
   // 🥅 Preload messageReceived sound.
-  net.preload("compkey").then((sfx) => (messageSfx = sfx)); // and key sounds.
+  net
+    .preload("compkey")
+    .then((sfx) => (messageSfx = sfx))
+    .catch((err) => console.warn(err)); // and key sounds.
 
   // 🗨️ Chat Networking
 
@@ -159,8 +164,11 @@ async function boot({
   send({ type: "keyboard:soft-lock" });
 }
 
-function paint({ api, ink, wipe, screen, leaving, chat, geo: { Box } }) {
-  wipe(100, 100, 145); // TODO: ChatToDisk: Would have to prevent wipe here.
+function paint(
+  { api, ink, wipe, screen, leaving, chat, geo: { Box } },
+  options,
+) {
+  if (!options?.embedded) wipe(100, 100, 145); // TODO: ChatToDisk: Would have to prevent wipe here.
 
   if (chat.connecting) ink("pink").write("Connecting...", { center: "xy" });
 
@@ -230,9 +238,11 @@ function paint({ api, ink, wipe, screen, leaving, chat, geo: { Box } }) {
       screen.height - bottomMargin + 2,
     );
 
-  ink(100, 100, 145)
-    .box(0, 0, screen.width, topMargin)
-    .box(0, screen.height - bottomMargin + 3, screen.width, screen.height);
+  if (!options?.embedded) {
+    ink(100, 100, 145)
+      .box(0, 0, screen.width, topMargin)
+      .box(0, screen.height - bottomMargin + 3, screen.width, screen.height);
+  }
 
   inputBtn.paint((btn) => {
     if (btn.down) {

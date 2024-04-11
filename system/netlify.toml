@@ -244,8 +244,8 @@
   status = 200
   force = false
 [[redirects]]
-  from = "/api/painting"
-  to = "/.netlify/functions/painting"
+  from = "/api/track-media"
+  to = "/.netlify/functions/track-media"
   status = 200
   force = false
 [[redirects]]

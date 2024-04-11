@@ -481,7 +481,7 @@ function act({
     nukeBtn?.act(e, () => {
       console.log("💣 Nuking painting:", imageCode, user);
       net
-        .userRequest("PUT", "/api/painting", { slug: imageCode, nuke: true })
+        .userRequest("PUT", "/api/track-media", { slug: imageCode, nuke: true })
         .then((res) => {
           console.log(res);
           if (res.status === 200) {

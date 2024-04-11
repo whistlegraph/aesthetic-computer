@@ -303,7 +303,7 @@ function getWebviewContent() {
   // Send piece code through the code channel.
   function upload() {
     if (local) {
-      console.log("😊 Skipping `/run` api endpoint. (In local mode.)");
+      // console.log("😊 Skipping `/run` api endpoint. (In local mode.)");
       return;
     }
 

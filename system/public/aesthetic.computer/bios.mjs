@@ -981,7 +981,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             sfx[sound] = audioBuffer;
           }
         } catch (err) {
-          console.error("🔉 Error: ", err, sfx[sound]);
+          // console.error("🔉 Error: ", err, sfx[sound]);
         }
       }
 
@@ -4248,26 +4248,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         xhr.onreadystatechange = async function () {
           if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-            if (userMedia && token && ext === "png") {
+            if ((userMedia && token && ext === "png") || ext === "mjs") {
               // TODO: Go ahead and add this media to the database.
-              if (debug)
+              if (debug) {
                 console.log(
-                  "🗞️ Adding painting PNG to database:",
+                  "🗞️ Adding media to the database:",
                   slug,
                   path,
                   ext,
                 );
+              }
 
               // TODO: Write an authorized POST request that contains the slug
-              //       to "api/painting/store"
+              //       to "api/track-media"
               const headers = {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
               };
 
               const options = { method: "POST", headers };
-              options.body = JSON.stringify({ slug });
-              const added = await fetch("api/painting", options);
+              options.body = JSON.stringify({ slug, ext });
+              const added = await fetch("api/track-media", options);
               if (debug) console.log("🗞️ Added to database...", added);
             }
 
@@ -4357,7 +4358,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Attempt to fetch user info using the token
           window.auth0Client.token = token;
           await window.auth0Client.getUser();
-          console.log("✅🔐 Token is valid!");
+          // console.log("✅🔐 Token is valid!");
         } catch (error) {
           console.error("🔴🔐 Token is invalid or expired:", token);
           if (window.parent) window.parent.postMessage({ type: "logout" }, "*");
