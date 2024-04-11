@@ -157,8 +157,14 @@ async function boot({
 
   // TODO: How could I not keep reloading these sounds?
   //       Are they already cached?
-  net.preload("startup").then((sfx) => (startupSfx = sfx)); // Load startup
-  net.preload("compkey").then((sfx) => (keyboardSfx = sfx)); // and key sounds.
+  net
+    .preload("startup")
+    .then((sfx) => (startupSfx = sfx))
+    .catch((err) => console.warn(err)); // Load startup
+  net
+    .preload("compkey")
+    .then((sfx) => (keyboardSfx = sfx))
+    .catch((err) => console.warn(err)); // and key sounds.
 
   // Create login & signup buttons.
   if (!user) {
@@ -1283,10 +1289,15 @@ function paint($) {
     if ($.chat.messages.length > 0) {
       const msg = $.chat.messages[$.chat.messages.length - 1];
       const fullText = msg.handle + ": " + msg.text;
-      ink("teal", 128).write(fullText, {
-        center: "x",
-        y: screen.height / 2 + 38,
-      }, undefined, screen.width - 8);
+      ink("teal", 128).write(
+        fullText,
+        {
+          center: "x",
+          y: screen.height / 2 + 38,
+        },
+        undefined,
+        screen.width - 8,
+      );
     }
 
     if (handles && screen.height > 200)

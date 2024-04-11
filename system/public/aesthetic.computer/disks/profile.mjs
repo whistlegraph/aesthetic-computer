@@ -346,7 +346,7 @@ function act({ event: e, get, jump, sound, download, user, net, notice }) {
   if (painting && e.is("keyboard:down:n") && user) {
     console.log("💣 Nuking painting:", code, user);
     net
-      .userRequest("PUT", "/api/painting", { slug: code, nuke: true })
+      .userRequest("PUT", "/api/track-media", { slug: code, nuke: true })
       .then((res) => {
         console.log(res);
         if (res.status === 200) {
