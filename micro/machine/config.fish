@@ -12,6 +12,8 @@ function fish_greeting
     printf "Ask with 'umm' and forget with 'nvm'\n"
     printf "or use 'code' and 'done' with 'copy'\n"
     printf "to generate and get code.\n\n"
+
+    printf "🆕 Try 'aider' to make edits: https://github.com/paul-gauthier/aider?tab=readme-ov-file#usage\n\n"
 end
 
 # always start in aesthetic-computer directory if there was a greeting

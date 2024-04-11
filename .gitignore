@@ -56,3 +56,6 @@ micro/machine/.emacs.d
 
 # gcp keys for deploying services
 gcp-service-key.json
+
+# aider chat history and other potential state
+.aider*
