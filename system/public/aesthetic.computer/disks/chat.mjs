@@ -5,11 +5,11 @@
 #endregion */
 
 /* #region 🏁 TODO
-  - [🟠] Words longer than the width should be character-wrapped in word wrap
-       mode of `write`.
   - [] Add basic sounds.
   - [] Move connection so that updates appear in every piece?
   + Done
+  - [x] Words longer than the width should be character-wrapped in word wrap
+         mode of `write`.
   - [x] Don't push messages to the database on local / have an option for that.
   - [x] Add scrolling.
     - [x] Only calculate the height of each existing message one time.
@@ -48,18 +48,20 @@ async function boot({
 }) {
   // 🗨️ Chat Networking
 
+  // Get the user token for sending authorized messages.
   try {
-    token = await authorize(); // Get user token.
+    token = await authorize();
     console.log("🔐 Authorized token:", token);
   } catch (err) {
     console.error("🟥 Unauthorized.");
   }
 
-  // Connected...
+  // 🟢 Connected...
   chat.initialized(() => {
     ({ totalScrollHeight, chatHeight } = computeScrollbar(api));
   });
 
+  // 🤖 Runs on every message...
   chat.receiver = (id, type, content) => {
     if (type === "unauthorized") {
       notice("Unauthorized", ["red", "yellow"]);
@@ -90,19 +92,15 @@ async function boot({
   // ✍️️️ Text Input
   input = new ui.TextInput(
     api,
-    "...",
+    "...", // This empty call-to-action prompt will not be shown.
     async (text) => {
       const currentHandle = handle();
 
       if (!currentHandle) {
         notice("NO HANDLE", ["red", "yellow"]);
       } else {
-        chat.server.send(`chat:message`, {
-          text,
-          // handle: currentHandle,
-          token,
-          sub: user.sub,
-        }); // Send the chat message.
+        // Send the chat message.
+        chat.server.send(`chat:message`, { text, token, sub: user.sub });
         notice("SENT");
       }
 
@@ -143,18 +141,9 @@ async function boot({
   send({ type: "keyboard:soft-lock" });
 }
 
-function paint({
-  api,
-  ink,
-  wipe,
-  screen,
-  leaving,
-  text,
-  typeface,
-  chat,
-  geo: { Box },
-}) {
-  wipe(100, 100, 145);
+function paint({ api, ink, wipe, screen, leaving, chat, geo: { Box } }) {
+  wipe(100, 100, 145); // TODO: ChatToDisk: Would have to prevent wipe here.
+
   if (chat.connecting) ink("pink").write("Connecting...", { center: "xy" });
 
   // Messages
@@ -223,13 +212,9 @@ function paint({
       screen.height - bottomMargin + 2,
     );
 
-  ink(100, 100, 145).box(0, 0, screen.width, topMargin);
-  ink(100, 100, 145).box(
-    0,
-    screen.height - bottomMargin + 3,
-    screen.width,
-    screen.height,
-  );
+  ink(100, 100, 145)
+    .box(0, 0, screen.width, topMargin)
+    .box(0, screen.height - bottomMargin + 3, screen.width, screen.height);
 
   inputBtn.paint((btn) => {
     if (btn.down) {
@@ -253,7 +238,7 @@ function paint({
   }
 }
 
-function act({ api, event: e, hud, piece, send, screen }) {
+function act({ api, event: e, hud, piece, send }) {
   if (e.is("reframed")) {
     const lastScrollHeight = totalScrollHeight;
     const lastScroll = scroll;
@@ -263,9 +248,10 @@ function act({ api, event: e, hud, piece, send, screen }) {
     console.log("📜 Reframed scroll:", scroll);
   }
 
-  if (!input.canType) {
-    // me.act(api);
+  // TODO: ChatToDisk: The chat module will need some kind of "focus" in order
+  //                   to enable scroll and such.. maybe.
 
+  if (!input.canType) {
     // 📜 Scrolling
     if (e.is("draw")) {
       scroll += e.delta.y;
@@ -352,10 +338,6 @@ function act({ api, event: e, hud, piece, send, screen }) {
 function sim({ api }) {
   input.sim(api); // 💬 Chat
 }
-
-// function beat() {
-//   // Runs once per metronomic BPM.
-// }
 
 function leave() {
   chat?.kill();
