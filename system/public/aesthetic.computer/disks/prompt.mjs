@@ -242,8 +242,6 @@ async function halt($, text) {
     broadcast,
     notice,
     handle,
-    authorize,
-    platform,
     load,
     download,
     darkMode,
@@ -256,7 +254,6 @@ async function halt($, text) {
     leaving,
     system,
     gizmo,
-    glaze,
     screen,
     painting,
     net,
@@ -272,6 +269,7 @@ async function halt($, text) {
     rec,
     sound,
     canShare,
+    debug
   } = $;
   activeCompletions.length = 0; // Reset activeCompletions on every halt.
   motdController?.abort(); // Abort any motd update.
@@ -282,16 +280,20 @@ async function halt($, text) {
   const params = tokens.slice(1);
   const input = $.system.prompt.input; // Reference to the TextInput.
 
-  // 📼 Start taping.
-  // Note: Right now, tapes get saved on refresh but can't be concatenated to,
-  // and they start over when using `tape`.
-  // This could eventually be replaced by a system that makes a new
-  // video for every clip and then renders or stitches them together
-  // in the end, where `video` can evolve into more of a clip editor.
-  // Each of these clips can be stored in indexedDB more easily and played
-  // back or be rearranged.
-  // 23.09.16.18.01
-  if (
+  // 🕸️ Custom URL routing.
+  if (slug.startsWith("/")) {
+    jump(`https://${debug ? "localhost:8888" : "aesthetic.computer"}${slug}`);
+    return true;
+  } else if (
+    // 📼 Start taping.
+    // Note: Right now, tapes get saved on refresh but can't be concatenated to,
+    // and they start over when using `tape`.
+    // This could eventually be replaced by a system that makes a new
+    // video for every clip and then renders or stitches them together
+    // in the end, where `video` can evolve into more of a clip editor.
+    // Each of these clips can be stored in indexedDB more easily and played
+    // back or be rearranged.
+    // 23.09.16.18.01
     slug === "tape" ||
     slug === "tape:add" ||
     slug === "tape:tt" ||
