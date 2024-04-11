@@ -41,7 +41,7 @@ else
 end
 
 if not test -d /home/me/aesthetic-computer/aesthetic-computer-code
-    gh repo clone whistlegraph/aesthetic-computer-code /home/me/aesthetic-computer/aesthetic-computer-vault
+    gh repo clone whistlegraph/aesthetic-computer-code /home/me/aesthetic-computer/aesthetic-computer-code
 end
 
 # generate ssl certificates (if they don't already exist)
