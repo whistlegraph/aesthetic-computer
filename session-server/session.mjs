@@ -414,7 +414,9 @@ wss.on("connection", (ws, req) => {
         }
 
         // Intercept chats and filter them.
-        if (label === "write") msg.content = filter(msg.content);
+        if (label === "write") {
+          msg.content = filter(msg.content);
+        }
 
         if (label === "join") {
           if (!worldClients[piece]) worldClients[piece] = {};
@@ -491,8 +493,13 @@ wss.on("connection", (ws, req) => {
           log("🧮 Persisting this client...", msg.content);
         }
 
-        // All world: messages are only broadcast to "others".
-        others(JSON.stringify(msg));
+        // All world: messages are only broadcast to "others", with the
+        // exception of "write" with relays the filtered message back:
+        if (label === "write") {
+          everyone(JSON.stringify(msg));
+        } else {
+          others(JSON.stringify(msg));
+        }
         return;
       }
 
