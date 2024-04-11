@@ -31,11 +31,10 @@ export function filter(text) {
     console.log("🫢 Profanities found in:", text);
     const matches = matcher.getAllMatches(text, true);
     for (const match of matches) {
-      console.log("🧨 Match:", match);
+      // console.log("🧨 Match:", match);
       const phraseMetadata = englishDataset.getPayloadWithPhraseMetadata(match);
-      console.log("Match details:", phraseMetadata);
+      // console.log("🧨 Match details:", phraseMetadata);
       let { startIndex: start, endIndex: end } = phraseMetadata;
-
       // Extend end index to the next space or the end of the string
       const nextSpaceIndex = text.indexOf(" ", end);
       if (nextSpaceIndex !== -1) {
@@ -43,14 +42,12 @@ export function filter(text) {
       } else {
         end = text.length;
       }
-
       const len = end - start;
       const matchedSubstring = text.substring(start, end);
-      console.log("Matched substring:", matchedSubstring);
+      // console.log("🧨 Matched substring:", matchedSubstring);
 
       if (!whitelist.includes(matchedSubstring)) {
         out = out.substring(0, start) + "_".repeat(len) + out.substring(end);
-        console.log("Out:", out);
       }
     }
   }
