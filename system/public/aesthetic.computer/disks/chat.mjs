@@ -5,6 +5,8 @@
 #endregion */
 
 /* #region 🏁 TODO
+  - [] Include this file as an interface module inside of disk, so it can 
+       conditionally be run inside of any piece so chat can be everywhere!
   - [-] Search this file for `ChatToDisk` references and do them.
   - [] TOOD: Add custom message received sound.
   + Future
@@ -53,6 +55,9 @@ async function boot({
   sound,
   net,
 }) {
+
+  console.log("💬 Chat booting...");
+
   // 🥅 Preload messageReceived sound.
   net.preload("compkey").then((sfx) => (messageSfx = sfx)); // and key sounds.
 
@@ -61,9 +66,9 @@ async function boot({
   // Get the user token for sending authorized messages.
   try {
     token = await authorize();
-    console.log("🔐 Authorized token:", token);
+    // console.log("🔐 Authorized token:", token);
   } catch (err) {
-    console.error("🟥 Unauthorized.");
+    // console.error("🟥 Unauthorized.");
   }
 
   // 🟢 Connected...

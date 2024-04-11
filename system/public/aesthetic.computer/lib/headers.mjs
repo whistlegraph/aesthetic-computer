@@ -23,7 +23,7 @@ export function headers() {
 
   // Source code URL.
   console.log(
-    "%cgithub.com/digitpain/aesthetic.computer",
+    "%chttps://github.com/whistlegraph/aesthetic-computer",
     `color: rgb(200, 200, 200);
      background-color: black;
      padding: 0 0.25em;
