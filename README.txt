@@ -43,21 +43,21 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** fill ***
-  - [] Make a `fill` brush.
-  - [] Add it to the docs.
-
 *** chat ***
-  - [] Integrate chat into the `disk.mjs` file?
-  - [] Add high resolution / PIXIjs renderer to chat.
+  - [🪦] Integrate chat interface into the `disk.mjs` file,
+       using the `chat` piece as a flag for enabling the integration.
+  - [] Add high resolution / PIXIjs renderer to `chat` only.
+  - [] Try to enable it for some other pieces.
+
+
   - [] Add custom / cool notification icons, and also sounds?
     - [] Templated method from here didn't seem to work: https://firebase.google.com/docs/cloud-messaging/android/send-image
   - [] This could use the redis loop?
   - [] Add radio / background music.
     - [] Or show bgm waveform.
     - [] `chat bgm`
-  - [] `chat` needs light and dark default
   - [] Use a tinier font for usernames?
+  - [] `chat` needs light and dark default
   - [] Natural emojis could potentially be shown
        in a Canvas2D or WebGL overlay.
   - [] So then there should always be a full resolution buffer in the renderer?

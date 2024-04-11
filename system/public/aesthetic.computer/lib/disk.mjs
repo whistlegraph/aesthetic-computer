@@ -1369,8 +1369,7 @@ const $commonApi = {
       }
       pos = { ...pos };
       let run = 0;
-      // scale = abs(scale);
-      const blockWidth = 6 * abs(scale);
+      const blockWidth = 6 * Math.abs(scale);
 
       const lines = [[]];
       let line = 0;
@@ -1383,8 +1382,21 @@ const $commonApi = {
         lines[line] = [];
       }
 
+      function characterWrap(word) {
+        for (let i = 0; i < word.length; i++) {
+          const char = word[i];
+          const charLen = blockWidth;
+          if (run + charLen > bounds) newLine();
+          if (!lines[line].length) {
+            lines[line].push(char);
+          } else {
+            lines[line][lines[line].length - 1] += char;
+          }
+          run += charLen;
+        }
+      }
+
       if (wordWrap) {
-        // Original word wrapping logic
         const splitWords = text.split(" ");
         const words = [];
         for (let i = 0; i < splitWords.length; i++) {
@@ -1397,6 +1409,10 @@ const $commonApi = {
 
         words.forEach((word) => {
           const wordLen = (word.length + 1) * blockWidth;
+          if (wordLen >= bounds) {
+            characterWrap(word);
+            return;
+          }
           if (word.includes("\n")) {
             const segs = word.split("\n");
             segs.forEach((seg, i) => {
@@ -1412,24 +1428,7 @@ const $commonApi = {
           }
         });
       } else {
-        // Character wrapping logic
-        for (let i = 0; i < text.length; i++) {
-          const char = text[i];
-          const charLen = blockWidth;
-          if (char === "\n") {
-            newLine();
-          } else {
-            if (run + charLen > bounds) {
-              newLine();
-            }
-            if (!lines[line].length) {
-              lines[line].push(char);
-            } else {
-              lines[line][lines[line].length - 1] += char;
-            }
-            run += charLen;
-          }
-        }
+        characterWrap(text);
       }
 
       const blockHeight = 11 * scale;
