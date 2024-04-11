@@ -5,9 +5,12 @@
 #endregion */
 
 /* #region 🏁 TODO
-  - [] Add basic sounds.
-  - [] Move connection so that updates appear in every piece?
+  - [-] Search this file for `ChatToDisk` references and do them.
+  - [] TOOD: Add custom message received sound.
+  + Future
   + Done
+  - [x] Play a sound when chats come in by others.
+  - [x] Move connection so that updates appear in every piece.
   - [x] Words longer than the width should be character-wrapped in word wrap
          mode of `write`.
   - [x] Don't push messages to the database on local / have an option for that.
@@ -30,6 +33,8 @@ const topMargin = 38;
 const bottomMargin = 33;
 const leftMargin = 6;
 
+let messageSfx;
+
 let scroll = 0,
   totalScrollHeight,
   chatHeight;
@@ -45,7 +50,12 @@ async function boot({
   user,
   screen,
   chat,
+  sound,
+  net,
 }) {
+  // 🥅 Preload messageReceived sound.
+  net.preload("compkey").then((sfx) => (messageSfx = sfx)); // and key sounds.
+
   // 🗨️ Chat Networking
 
   // Get the user token for sending authorized messages.
@@ -81,6 +91,9 @@ async function boot({
       );
       totalScrollHeight += msg.tb.lines.length * lineHeight;
       // chat.messages.push(msg);
+      // TODO: Play sound...
+      console.log(sound);
+      sound.play(messageSfx);
       return;
     }
 
