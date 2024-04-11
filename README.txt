@@ -43,10 +43,18 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
+*** @dreamdealer/grisaille ***
+  - [🟡] Entering preslashed urls should jump to the route on the `prompt`.
+  - [] Get keyboard shortcuts working in vscode extension.
+  - [] Fix weird auth things in the vscode extension. 
+  + Done
+  - [x] Get the `media/@handle/pieces` JSON endpoint up and running.
+
 *** chat ***
-  - [🪦] Integrate chat interface into the `disk.mjs` file,
-       using the `chat` piece as a flag for enabling the integration.
-  - [🟠] Enable the chat ui overlay for all pieces in the `nopaint` system. 
+  - [🟠] Get the chat integration in `line` and `rect` and other brushes
+       to be an interactive pop-up.
+  - [] Add ability to show pixels in the chat / share current work, with
+       the ability to steal pixels as well / remix.
   - [] Add high resolution / PIXIjs renderer to the `chat` piece only.
   ------------------------------------------------------------------------------
   - [] Add custom / cool notification icons, and also sounds?
@@ -79,6 +87,9 @@ but technically agnostic. (Choose your aesthetic!)
        (Just make the text fully synchronized for now.)
   - [] Make a new "notification type" for chat and add it into an iOS app update.
   + Done
+  - [x] Integrate chat interface into the `disk.mjs` file,
+       using the `chat` piece as a flag for enabling the integration.
+  - [x] Enable the chat ui overlay for all pieces in the `nopaint` system. 
   - [x] Show last chat message on homepage.
   - [x] Have the chat server running as a separate websocket connection, then that number can be used for total users online.
   - [x] Be able to delete certain recent messages manually in MongoDB.

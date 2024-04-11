@@ -1,5 +1,7 @@
-// Painting 23.10.01.15.29
-// POST: Create a new record in the database for a user uploaded painting.
+// Track Media, 23.10.01.15.29
+// Formerly `Painting`
+
+// POST: Create a new record in the database for a user uploaded painting or piece.
 
 /* #region 🏁 TODO 
   - [] Eventually add metadata to paintings... like titles.
@@ -20,10 +22,20 @@ export async function handler(event, context) {
     body = JSON.parse(event.body);
     const user = await authorize(event.headers);
     const database = await connect();
-    const collection = database.db.collection("paintings");
+
+    let type;
+    if (body.ext === "png") {
+      type = "paintings";
+    } else if (body.ext === "mjs") {
+      type = "pieces";
+    } else {
+      throw new Error(`Unsupported media type via extension: ${body.ext}`);
+    }
+
+    const collection = database.db.collection(type);
 
     if (event.httpMethod === "POST") {
-      // POST logic for creating a new painting record
+      // POST logic for creating a new database record
       const slug = body.slug;
       if (user) {
         await collection.createIndex({ user: 1 });
@@ -60,15 +72,15 @@ export async function handler(event, context) {
         );
 
         if (result.matchedCount === 0) {
-          return respond(404, { message: "Painting not found." });
+          return respond(404, { message: "Media not found." });
         } else if (result.modifiedCount === 1) {
-          return respond(200, { message: "Painting nuked successfully." });
+          return respond(200, { message: "Media nuked successfully." });
         }
       } catch (error) {
         return respond(500, { message: error });
       } finally {
         await database.disconnect();
-        return respond(200, { message: "No effect."})
+        return respond(200, { message: "No effect." });
       }
     }
   } catch (error) {

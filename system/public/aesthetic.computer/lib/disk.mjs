@@ -3373,13 +3373,15 @@ async function load(
       // TODO: 🖌️💬 Integrate nopaint system with chat.
       // console.log(chat);
 
+      const chatEnabled = false;
+
       $commonApi.system.nopaint.bakeOnLeave =
         modsys.split(":")[1] === "bake-on-leave"; // The default is to `bake` at the end of each gesture aka `bake-on-lift`.
 
       boot = ($) => {
         const booter = module.boot || nopaint_boot;
         booter($);
-        chat.boot($);
+        if (chatEnabled) chat.boot($);
       };
 
       sim = module.sim || defaults.sim;
@@ -3387,6 +3389,10 @@ async function load(
         if (module.paint) {
           const painted = module.paint($);
           $.system.nopaint.needsPresent = true;
+
+          // TODO: Pass in extra arguments here that flag the wipe.
+          if (chatEnabled) chat.paint($, { embedded: true }); // Render any chat interface necessary.
+
           return painted;
         }
       };
