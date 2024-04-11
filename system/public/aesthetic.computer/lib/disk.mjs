@@ -234,7 +234,7 @@ let boot = defaults.boot;
 let sim = defaults.sim;
 let paint = defaults.paint;
 let beat = defaults.beat;
-let brush; // Only set in the `nopaint` system.
+let brush, filter; // Only set in the `nopaint` system.
 let act = defaults.act;
 let leave = defaults.leave;
 let preview = defaults.preview;
@@ -3363,7 +3363,8 @@ async function load(
 
     if (
       module.system?.startsWith("nopaint") ||
-      typeof module?.brush === "function"
+      typeof module?.brush === "function" ||
+      typeof module?.filter === "function"
     ) {
       // If there is no painting is in ram, then grab it from the local store,
       // or generate one.
@@ -3383,6 +3384,7 @@ async function load(
       };
       beat = module.beat || defaults.beat;
       brush = module.brush;
+      filter = module.filter;
       act = ($) => {
         nopaint_act($); // Inherit base functionality.
         if (module.act) {
@@ -5254,14 +5256,22 @@ async function makeFrame({ data: { type, content } }) {
             // No Paint: baking
 
             if (
-              brush &&
+              (brush || filter) &&
               $api.pen?.drawing /*&& currentHUDButton.down === false*/
             ) {
-              const brushApi = { ...$api };
-              brushApi.pen = $api.system.nopaint.brush;
-              $api.page($api.system.nopaint.buffer);
-              if (currentHUDButton.down === false) brush(brushApi);
-              $api.page(screen);
+              const brushFilterApi = { ...$api };
+              if (currentHUDButton.down === false) {
+                brushFilterApi.pen = $api.system.nopaint.brush;
+                if (brush) {
+                  $api.page($api.system.nopaint.buffer);
+                  brush(brushFilterApi);
+                }
+                if (filter) {
+                  $api.page($api.system.painting);
+                  filter(brushFilterApi);
+                }
+                $api.page(screen);
+              }
             }
 
             if (np.needsBake === true && bake) {

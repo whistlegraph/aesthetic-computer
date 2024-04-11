@@ -11,7 +11,7 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { timestamp } from "./system/public/aesthetic.computer/lib/num.mjs";
+import { timestamp } from "../system/public/aesthetic.computer/lib/num.mjs";
 
 async function generateNewPiece(name) {
   const capitalizedName = name.charAt(0).toUpperCase() + name.slice(1);
@@ -21,19 +21,21 @@ async function generateNewPiece(name) {
 
   const source = path.join(
     __dirname,
+    "..",
     "system",
     "public",
     "aesthetic.computer",
     "disks",
-    "blank.mjs"
+    "blank.mjs",
   );
   const destination = path.join(
     __dirname,
+    "..",
     "system",
     "public",
     "aesthetic.computer",
     "disks",
-    `${name}.mjs`
+    `${name}.mjs`,
   );
 
   await fs.promises.copyFile(source, destination);
@@ -45,7 +47,7 @@ async function generateNewPiece(name) {
   fileContents = fileContents.replace(/\$TIMESTAMP/g, timestamp());
   fileContents = fileContents.replace(
     /\$THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES/g,
-    process.argv.slice(3).join(" ")
+    process.argv.slice(3).join(" "),
   );
 
   await fs.promises.writeFile(destination, fileContents);
