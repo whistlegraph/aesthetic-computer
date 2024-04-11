@@ -20,7 +20,7 @@
   - [x] ok button and demo video link within the text that takes you out of app to demo video 
 #endregion */
 
-const copy = `We're at the beginning of a computer age where the advent of AI and text-to-media interfaces means that everyone can be a programmer.\n\nAesthetic Computer aims to lead this paradigm shift as an accessible and evolving social platform for art and media creation. We need to fill 10 patron slots to boot up.`;
+const copy = `We're at the beginning of a computer age where the advent of AI and text-to-media interfaces means that every user will become a programmer.\n\nAesthetic Computer aims to lead this paradigm shift as an accessible and evolving social platform for art and media creation.`
 
 const blockWidth = 6;
 const blockHeight = 11;
@@ -141,7 +141,7 @@ function paint({
 
   if (!overlay) {
     ink(help.choose([200], [160])).write(
-      "Text 1-508-728-4043 to CLAIM - @jeffrey",
+      "Mention @jeffrey in 'chat' to CLAIM",
       { center: "x", y: screen.height - 32 },
       "black",
       screen.width - 32,
@@ -250,7 +250,7 @@ function meta() {
 
 // 🖼️ Preview
 function preview({ wipe, slug }) {
-  wipe(0, 15, 25).ink(0, 125, 25).write(slug, { center: "xy", size: 1 });
+  wipe(0, 125, 25).ink(0, 15, 25).write(slug, { center: "xy", size: 2 });
 }
 
 // 🪷 Icon
