@@ -1,5 +1,9 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** fill ***
+  - [x] Make a `fill` brush.
+  - [x] Add it to the docs.
+
 *** obscenity ***
   - [x] Make sure they don't filter "rapper" / make an exception there.
   + Done
