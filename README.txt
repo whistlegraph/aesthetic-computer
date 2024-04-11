@@ -46,10 +46,9 @@ but technically agnostic. (Choose your aesthetic!)
 *** chat ***
   - [🪦] Integrate chat interface into the `disk.mjs` file,
        using the `chat` piece as a flag for enabling the integration.
-  - [] Add high resolution / PIXIjs renderer to `chat` only.
-  - [] Try to enable it for some other pieces.
-
-
+  - [🟠] Enable the chat ui overlay for all pieces in the `nopaint` system. 
+  - [] Add high resolution / PIXIjs renderer to the `chat` piece only.
+  ------------------------------------------------------------------------------
   - [] Add custom / cool notification icons, and also sounds?
     - [] Templated method from here didn't seem to work: https://firebase.google.com/docs/cloud-messaging/android/send-image
   - [] This could use the redis loop?

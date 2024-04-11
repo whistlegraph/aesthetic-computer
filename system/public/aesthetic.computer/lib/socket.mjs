@@ -37,7 +37,7 @@ export class Socket {
       console.warn("🧦 Already connected...");
       return;
     }
-    if (this.#debug && logs.session) console.log("🧦 Connecting...", host);
+    //if (this.#debug && logs.session) console.log("🧦 Connecting...", host);
     try {
       this.#ws = new WebSocket(`${protocol}://${host}`);
     } catch {
@@ -50,7 +50,7 @@ export class Socket {
 
     // Send a message to the console after the first connection.
     ws.onopen = (e) => {
-      if (this.#debug && logs.session) console.log("🧦 Connected."); // Redundant log given an initial message from the server.
+      // if (this.#debug && logs.session) console.log("🧦 Connected."); // Redundant log given an initial message from the server.
       socket.#queue.forEach((q) => socket.send(...q)); // Send any held messages.
       socket.connected = true;
       socket.#queue.length = 0; // Clear out the full queue.
@@ -119,10 +119,10 @@ export class Socket {
       this.id = c.id; // Set the user identifier.
       // Send a self-connection message here. (You are connected as...)
       if (logs.session)
-        console.log(
-          `🧦 You joined: ${c.ip} id: ${c.id} 🤹 Connections open: ${c.playerCount}`,
-        );
-      receive?.(id, type, c);
+        // console.log(
+        //   `🧦 You joined: ${c.ip} id: ${c.id} 🤹 Connections open: ${c.playerCount}`,
+        // );
+        receive?.(id, type, c);
     } else if (type === "joined") {
       const c = JSON.parse(content);
       if (logs.session) console.log(`🧦 ${c.text || c}`); // Someone else has connected as...
