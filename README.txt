@@ -44,13 +44,14 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** @dreamdealer/grisaille ***
-  - [] Get keyboard shortcuts working in vscode extension.
+  - [-] Get keyboard shortcuts working in vscode extension.
   - [] Fix weird auth things in the vscode extension. 
   + Done
   - [x] Entering preslashed urls should jump to the actual url route on the `prompt`.
   - [x] Get the `media/@handle/pieces` JSON endpoint up and running.
 
 *** chat ***
+  - [] Notification rollup.
   - [🟠] Get the chat integration in `line` and `rect` and other brushes
        to be an interactive pop-up.
   - [] Add ability to show pixels in the chat / share current work, with

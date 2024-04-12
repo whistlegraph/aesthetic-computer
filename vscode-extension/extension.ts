@@ -188,7 +188,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     ),
   );
 
-
   // context.subscriptions.push(
   //   vscode.commands.registerCommand(
   //     "aestheticComputer.openWindow",
@@ -199,23 +198,23 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   // );
 
   context.subscriptions.push(
-  vscode.commands.registerCommand("aestheticComputer.openWindow", () => {
-    const panel = vscode.window.createWebviewPanel(
-      'webView',                 // Identifies the type of the webview. Used internally
-      'My Webview',              // Title of the panel displayed to the user
-      vscode.ViewColumn.One,     // Editor column to show the new webview panel in.
-      {}                         // Webview options.
-    );
+    vscode.commands.registerCommand("aestheticComputer.openWindow", () => {
+      const panel = vscode.window.createWebviewPanel(
+        "webView", // Identifies the type of the webview. Used internally
+        "My Webview", // Title of the panel displayed to the user
+        vscode.ViewColumn.One, // Editor column to show the new webview panel in.
+        {}, // Webview options.
+      );
 
-    // TODO: Eventually this will land in a VS Code version.  
+      // TODO: Eventually this will land in a VS Code version.
 
-    panel.webview.html = getWebviewContent(); // Set the content of the webview
-  })
-);
+      panel.webview.html = getWebviewContent(); // Set the content of the webview
+    }),
+  );
 
-function getWebviewContent() {
-  // Define your HTML content here
-  return `<!DOCTYPE html>
+  function getWebviewContent() {
+    // Define your HTML content here
+    return `<!DOCTYPE html>
           <html lang="en">
           <head>
               <meta charset="UTF-8">
@@ -226,8 +225,7 @@ function getWebviewContent() {
               <h1>Hello from my Webview!</h1>
           </body>
           </html>`;
-}
-
+  }
 
   // Add definitionProvider to context.subscriptions if necessary
   context.subscriptions.push(definitionProvider);
@@ -553,12 +551,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 
     const session = this._globalState.get("aesthetic:session", undefined);
 
-    console.log("Building session html with:", session);
-
-    // Include the session data as a global variable in the webview
-    // const sessionData = `<script nonce="${nonce}">window.aestheticSession = ${JSON.stringify(
-    //   session,
-    // )};</script>`;
+    // console.log("Building session html with:", session);
 
     let param = "";
     if (typeof session === "object") {

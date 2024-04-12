@@ -1,21 +1,6 @@
 (function () {
   const vscode = acquireVsCodeApi();
 
-  //     let origin;
-  //     if (
-  //       window.location.href.startsWith("vscode-webview") ||
-  //       window.location.href.startsWith("http://")
-  //     ) {
-  //       origin = "https://aesthetic.computer";
-  //     } else {
-  //       // not window.top.origin;
-  //       // not https://vscode.dev
-  //       // not window.parent.origin
-  //       // not window.location.origin
-  //       // not "*"
-  //       origin = "https://aesthetic.computer";
-  //     }
-
   // Send session data to iframe
   const iframe = document.getElementById("aesthetic");
 
@@ -85,4 +70,22 @@
       }
     }
   });
-})();
+
+  // let iframeLoaded = false;
+
+  // // Function to reload the page
+  // function reloadPage() {
+  //   if (!iframeLoaded) {
+  //     console.log("♻️ Reloading page due to iframe load failure.");
+  //     window.location.reload();
+  //   }
+  // }
+
+  // setTimeout(reloadPage, 40); // Reload the page every second.
+
+  // // Add an event listener to the iframe to set the flag when it loads
+  // iframe.addEventListener("load", function () {
+  //   console.log("LOADED!!!!!!!!!!!!!!");
+  //   iframeLoaded = true;
+  // });
+});
