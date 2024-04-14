@@ -71,21 +71,33 @@
     }
   });
 
-  // let iframeLoaded = false;
+  //console.log("Starting refresh logic...");
 
-  // // Function to reload the page
-  // function reloadPage() {
-  //   if (!iframeLoaded) {
-  //     console.log("♻️ Reloading page due to iframe load failure.");
-  //     window.location.reload();
-  //   }
-  // }
+  //function refreshIframe() {
+  //  console.log("♻️ Refreshing iframe due to load failure...");
+  //  iframe.src += ""; // iframe.src.split("?")[0] + "?" + new Date().getTime();
+  //}
 
-  // setTimeout(reloadPage, 40); // Reload the page every second.
-
-  // // Add an event listener to the iframe to set the flag when it loads
-  // iframe.addEventListener("load", function () {
-  //   console.log("LOADED!!!!!!!!!!!!!!");
-  //   iframeLoaded = true;
-  // });
-});
+  // Add an event listener to the iframe to set the flag when it loads
+  //iframe.addEventListener("load", () => {
+  //console.log("♻️ Iframe load event detected. Verifying content...");
+  // Fetch the iframe src to make sure it returns 200, otherwise run refreshIframe
+  // fetch(iframe.src, { method: "GET" })
+  //   .then((response) => {
+  //     console.log(response);
+  //     if (response.ok) {
+  //       console.log("♻️ Content verification successful.");
+  //     } else {
+  //       console.log("♻️ Content verification failed, refreshing iframe...");
+  //       refreshIframe();
+  //       // setTimeout(refreshIframe, 3000);
+  //     }
+  //   })
+  //   .catch((error) => {
+  //     console.error("♻️ Error during content verification:", error);
+  //     // refreshIframe();
+  //     refreshIframe();
+  //     // setTimeout(refreshIframe, 1000);
+  //   });
+  //});
+})();

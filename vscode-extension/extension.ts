@@ -15,11 +15,11 @@ let local: boolean = false;
 let codeChannel: string | undefined;
 
 let mergedDocs: any = {};
-let docsTemplate: any;
 let docs: any;
 
 async function activate(context: vscode.ExtensionContext): Promise<void> {
   local = context.globalState.get("aesthetic:local", false); // Retrieve env.
+  console.log("🟢 Aesthetic Computer Extension Activated.");
 
   // Load the docs from the web.
   try {
@@ -45,7 +45,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       };
     });
 
-    docsTemplate = data.template;
     docs = data;
   } catch (error) {
     console.error("Failed to fetch documentation:", error);
