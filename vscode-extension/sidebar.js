@@ -68,36 +68,19 @@
         vscode.postMessage({ type: "logout" });
         break;
       }
+      case "ready": {
+        clearTimeout(readyTimeout);
+        break;
+      }
     }
   });
 
-  //console.log("Starting refresh logic...");
+  // ♻️ Refresh the iframe's src url until it loads successfully.
+  let readyTimeout = setTimeout(refresh, 1000);
 
-  //function refreshIframe() {
-  //  console.log("♻️ Refreshing iframe due to load failure...");
-  //  iframe.src += ""; // iframe.src.split("?")[0] + "?" + new Date().getTime();
-  //}
-
-  // Add an event listener to the iframe to set the flag when it loads
-  //iframe.addEventListener("load", () => {
-  //console.log("♻️ Iframe load event detected. Verifying content...");
-  // Fetch the iframe src to make sure it returns 200, otherwise run refreshIframe
-  // fetch(iframe.src, { method: "GET" })
-  //   .then((response) => {
-  //     console.log(response);
-  //     if (response.ok) {
-  //       console.log("♻️ Content verification successful.");
-  //     } else {
-  //       console.log("♻️ Content verification failed, refreshing iframe...");
-  //       refreshIframe();
-  //       // setTimeout(refreshIframe, 3000);
-  //     }
-  //   })
-  //   .catch((error) => {
-  //     console.error("♻️ Error during content verification:", error);
-  //     // refreshIframe();
-  //     refreshIframe();
-  //     // setTimeout(refreshIframe, 1000);
-  //   });
-  //});
+  function refresh() {
+    console.log("🫐 Awaiting...");
+    iframe.src = iframe.src.split("?")[0] + "?" + new Date().getTime();
+    readyTimeout = setTimeout(refresh, 1000);
+  }
 })();
