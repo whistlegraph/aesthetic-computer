@@ -261,7 +261,7 @@ function paint(
       x: 0,
       y: 18,
       width: screen.width,
-      height: screen.height - 18,
+      height: screen.height / 2, // - 18
     });
   }
 }
