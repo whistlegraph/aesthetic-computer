@@ -50,6 +50,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [] make a gui editor that stores sequences in s-expressions 
 
 *** chat ***
+  - [-] Move the paste button up half-way.
   - [] Notification rollup.
   - [🟠] Get the chat integration in `line` and `rect` and other brushes
        to be an interactive pop-up.
