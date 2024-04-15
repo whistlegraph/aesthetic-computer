@@ -43,12 +43,11 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** @dreamdealer/grisaille ***
-  - [-] Get keyboard shortcuts working in vscode extension.
-  - [] Fix weird auth things in the vscode extension. 
-  + Done
-  - [x] Entering preslashed urls should jump to the actual url route on the `prompt`.
-  - [x] Get the `media/@handle/pieces` JSON endpoint up and running.
+*** aesthetic lisp / s-expression parser and evaluator ***
+  - [] "piece"
+  - [] bracelet
+  - [] make a spatial editor / evaluator
+  - [] make a gui editor that stores sequences in s-expressions 
 
 *** chat ***
   - [] Notification rollup.
@@ -184,6 +183,9 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** swipe to share ***
   - [] dragging the corner label all the way to the right should always reveal a "share" prefix and then letting go will jump to `share x`.
+
+*** vscode extension ***
+- [] Fix weird auth things / loss of auth in the vscode extension? 
 
 *** aspen demo ***
   - [] Screenshot needs to work / resize if necessary from a webgl / 3d view.

@@ -1,5 +1,12 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** @dreamdealer/grisaille ***
+  + Done
+  - [x] Get a nice live reload working in vscode extension's local mode.
+  - [x] Get keyboard shortcuts working in vscode extension.
+  - [x] Entering preslashed urls should jump to the actual url route on the `prompt`.
+  - [x] Get the `media/@handle/pieces` JSON endpoint up and running.
+
 *** fill ***
   - [x] Make a `fill` brush.
   - [x] Add it to the docs.
