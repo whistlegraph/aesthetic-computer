@@ -2151,6 +2151,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (currentPieceHasKeyboard) {
             e.preventDefault();
           }
+          if (!document.hasFocus()) window.focus();
         });
 
         window.addEventListener("pointerup", (e) => {

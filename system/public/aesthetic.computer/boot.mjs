@@ -5,6 +5,9 @@ import { parse, slug } from "./lib/parse.mjs";
 
 // 0. Environment Configuration
 
+// Alert the parent /  we are ready.
+if (window.parent) window.parent.postMessage({ type: "ready" }, "*");
+
 let debug;
 
 window.preloaded = false; // This gets set to true either automatically or
