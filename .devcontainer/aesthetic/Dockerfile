@@ -1,5 +1,6 @@
 # Get the latest fedora version.
-FROM fedora:latest
+# FROM fedora:latest
+FROM mcr.microsoft.com/vscode/devcontainers/universal:2-focal
 # Update all packages.
 # RUN dnf update -y
 # 
