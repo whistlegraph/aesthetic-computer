@@ -4,6 +4,6 @@
   "name": "Aesthetic Computer (Default)",
   "build": {
     "dockerfile": "Dockerfile"
-  } //,
-  //"postCreateCommand": ["fish", "/entry.fish"]
+  },
+  "postCreateCommand": "fish /entry.fish"
 }
