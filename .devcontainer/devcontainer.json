@@ -18,6 +18,7 @@
     }
   },
   "runArgs": [
+    "--privileged",
     "--env-file",
     ".devcontainer/devcontainer.env",
     "--env-file",
