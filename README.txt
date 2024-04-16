@@ -19,7 +19,6 @@ but technically agnostic. (Choose your aesthetic!)
     - Tools can be creatively strung together to form adaptive sequenced workflows
       for media creation, like Unix.
 
-
   (More Tech)
       - Threaded logic, audio, and rendering.
       - Low overhead hypervisor that runs one piece at a time.
