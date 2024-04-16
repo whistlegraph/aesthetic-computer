@@ -3,9 +3,12 @@ if test -f $HOME/.fnm/fnm
     fnm env --use-on-cd --log-level=quiet | source
 end
 
+# Symlink a VSCode workspace as needed.
 if test -d /workspaces/aesthetic-computer
-    echo "Symlinking /workspaces/aesthetic-computer to ~"
-    ln -s /workspaces/aesthetic-computer ~
+    if test ! -L ~/aesthetic-computer
+        echo "Symlinking /workspaces/aesthetic-computer to ~"
+        ln -s /workspaces/aesthetic-computer ~
+    end
 end
 
 function fish_greeting
