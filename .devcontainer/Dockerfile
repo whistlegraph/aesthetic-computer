@@ -58,9 +58,9 @@ RUN curl https://ops.city/get.sh -sSfL | sh
 RUN git clone https://github.com/ms-jpq/isomorphic_copy
 
 # Copy emacs config.
-COPY emacs.el .emacs
-RUN sudo chown me:me .emacs
-RUN mkdir -p .emacs.d
+# COPY emacs.el .emacs
+# RUN sudo chown me:me .emacs
+# RUN mkdir -p .emacs.d
 
 # Copy fish configuration.
 RUN mkdir -p .config/fish && \

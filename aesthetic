@@ -22,13 +22,4 @@ fi
 
 ./code.sh $1
 
-#if grep -q docker /proc/1/cgroup; then
-#  echo "Running inside Docker."
-#else
-#  echo "Not running inside Docker."
-#  cd ..
-#  npm run reset
-#  npm run build-boot-and-edit
-#fi
-
 echo -e "\n\033[1;35m*** Goodbye ***\033[0m\n"

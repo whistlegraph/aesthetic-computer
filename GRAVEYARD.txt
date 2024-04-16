@@ -1,5 +1,11 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** local devcontainer support ***
+  + Done 
+  - [x] Get platform running locally.
+  - [x] Do the emacsd clone trick...
+  - [x] Get fish configs working.
+
 *** @dreamdealer/grisaille ***
   + Done
   - [x] Get a nice live reload working in vscode extension's local mode.
