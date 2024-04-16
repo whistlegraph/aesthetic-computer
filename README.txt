@@ -43,8 +43,8 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** codespaces integration with container ***
-  - [] Get fish configs working.
-  - [] Get platform running.
+  - [-] Get platform running.
+  - [x] Get fish configs working.
 
 *** aesthetic lisp / s-expression parser and evaluator ***
   - [] "piece"
