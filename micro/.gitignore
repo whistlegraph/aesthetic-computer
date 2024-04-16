@@ -20,3 +20,6 @@ machine/.emacs.d/*
 
 # stores secrets
 *.env
+
+# any .config dir
+.config/

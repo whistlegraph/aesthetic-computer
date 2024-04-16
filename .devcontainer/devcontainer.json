@@ -3,9 +3,9 @@
 {
   "name": "Aesthetic Computer (Default)",
   "build": { "dockerfile": "Dockerfile" },
-  //"mounts": [
-  //  "source=codespaces-linux-var-lib-docker,target=/var/lib/docker,type=volume"
-  //],
+  "mounts": [
+    "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind"
+  ],
   "runArgs": [
     "--env-file",
     ".devcontainer/devcontainer.env",
@@ -15,4 +15,5 @@
     "aesthetic"
   ],
   "postCreateCommand": "fish /entry.fish"
+  // "postStartCommand": "emacs --eval '(aesthetic-backend (quote \"shell\"))'"
 }
