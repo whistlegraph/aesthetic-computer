@@ -49,6 +49,9 @@ RUN pip3 install aider-chat
 # Install OPS and Nanos: https://nanos.org/getting_started
 RUN curl https://ops.city/get.sh -sSfL | sh
 
+# Install deno
+RUN curl -fsSL https://deno.land/install.sh | sh
+
 # Copy over a custom xdg-open for opening browser URLs on the host.
 # COPY xdg-open.fish /usr/local/bin/xdg-open
 # RUN sudo chmod +x /usr/local/bin/xdg-open
