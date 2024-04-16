@@ -3,9 +3,16 @@
 {
   "name": "Aesthetic Computer (Default)",
   "build": { "dockerfile": "Dockerfile" },
-  "mounts": [
-    "source=codespaces-linux-var-lib-docker,target=/var/lib/docker,type=volume"
+  //"mounts": [
+  //  "source=codespaces-linux-var-lib-docker,target=/var/lib/docker,type=volume"
+  //],
+  "runArgs": [
+    "--env-file",
+    ".devcontainer/devcontainer.env",
+    "--env-file",
+    ".devcontainer/devcontainer.git.env",
+    "--hostname",
+    "aesthetic"
   ],
-  "runArgs": ["--env-file", ".devcontainer/devcontainer.env", "--env-file", ".devcontainer/devcontainer.git.env", "--hostname", "aesthetic"],
   "postCreateCommand": "fish /entry.fish"
 }
