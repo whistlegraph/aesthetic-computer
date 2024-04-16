@@ -6,6 +6,15 @@
   "mounts": [
     "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind"
   ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+      "aesthetic-computer.aesthetic-computer-code",
+      "fabiospampinato.vscode-terminals",
+      "esbenp.prettier-vscode"
+      ]
+    }
+  },
   "runArgs": [
     "--env-file",
     ".devcontainer/devcontainer.env",
@@ -15,5 +24,4 @@
     "aesthetic"
   ],
   "postCreateCommand": "fish /entry.fish"
-  // "postStartCommand": "emacs --eval '(aesthetic-backend (quote \"shell\"))'"
 }

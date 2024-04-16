@@ -1,0 +1,11 @@
+{
+  "autorun": true,
+  "terminals": [
+    {
+      "name": "Aesthetic Computer",
+      "description": "The Aesthetic Computer platform.",
+      "focus": true,
+      "command": "platform"
+    }
+  ]
+}
