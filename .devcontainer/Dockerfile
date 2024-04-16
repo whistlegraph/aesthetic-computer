@@ -58,20 +58,20 @@ RUN curl https://ops.city/get.sh -sSfL | sh
 RUN git clone https://github.com/ms-jpq/isomorphic_copy
 
 # Copy emacs config.
-# COPY emacs.el .emacs
-# RUN sudo chown me:me .emacs
-# RUN mkdir -p .emacs.d
+COPY emacs.el .emacs
+RUN sudo chown me:me .emacs
+RUN mkdir -p .emacs.d
 
 # Copy fish configuration.
-# RUN mkdir -p .config/fish && \
-#    mkdir -p .config/fish/conf.d
-# COPY config.fish .config/fish/config.fish
+RUN mkdir -p .config/fish && \
+   mkdir -p .config/fish/conf.d
+COPY config.fish .config/fish/config.fish
 
 # Copy entry file.
-# COPY entry.fish /entry.fish
+COPY entry.fish /entry.fish
 
 # Set the default command.
 CMD ["/usr/bin/fish"]
 
 # Set the entry point script.
-# ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]
+ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]
