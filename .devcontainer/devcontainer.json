@@ -9,9 +9,11 @@
   "customizations": {
     "vscode": {
       "extensions": [
-      "aesthetic-computer.aesthetic-computer-code",
-      "fabiospampinato.vscode-terminals",
-      "esbenp.prettier-vscode"
+        "aesthetic-computer.aesthetic-computer-code",
+        "fabiospampinato.vscode-terminals",
+        "esbenp.prettier-vscode",
+        "ms-azuretools.vscode-docker",
+        "denoland.vscode-deno"
       ]
     }
   },
