@@ -21,11 +21,6 @@ if test -n "$GIT_USER_NAME"
     git config --global user.name $GIT_USER_NAME
 end
 
-if test -d /workspaces/aesthetic-computer
-    echo "Symlinking /workspaces/aesthetic-computer to ~"
-    ln -s /workspaces/aesthetic-computer ~
-end
-
 # Add aesthetic-computer as the "safe" directory.
 git config --global --add safe.directory /home/me/aesthetic-computer
 
