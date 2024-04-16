@@ -102,5 +102,3 @@ if not test -d node_modules || not count (ls node_modules) >/dev/null
 else
     echo "node_modules directory is present, skipping npm install."
 end
-
-fish
