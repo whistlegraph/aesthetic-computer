@@ -2,46 +2,7 @@
 // https://github.com/microsoft/vscode-dev-containers/tree/v0.241.1/containers/codespaces-linux
 {
   "name": "Aesthetic Computer (Default)",
-
   "build": {
     "dockerfile": "Dockerfile"
-  },
-
-  // Configure tool-specific properties.
-  "customizations": {
-    // Configure properties specific to VS Code.
-    "vscode": {
-      // Set *default* container specific settings.json values on container create.
-      "settings": {
-        "files.watcherExclude": {
-          "**/target/**": true
-        }
-      },
-
-      // Add the IDs of extensions you want installed when the container is created.
-      "extensions": ["GitHub.vscode-pull-request-github"]
-    }
-  },
-
-  "remoteUser": "codespace",
-
-  "overrideCommand": false,
-
-  "mounts": [
-    "source=codespaces-linux-var-lib-docker,target=/var/lib/docker,type=volume"
-  ],
-
-  "runArgs": [
-    "--cap-add=SYS_PTRACE",
-    "--security-opt",
-    "seccomp=unconfined",
-    "--privileged",
-    "--init"
-  ]
-
-  // Use 'forwardPorts' to make a list of ports inside the container available locally.
-  // "forwardPorts": [],
-
-  // "oryx build" will automatically install your dependencies and attempt to build your project
-  // "postCreateCommand": "oryx build -p virtualenv_name=.venv --log-file /tmp/oryx-build.log --manifest-dir /tmp || echo 'Could not auto-build. Skipping.'"
+  }
 }
