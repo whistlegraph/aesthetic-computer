@@ -42,10 +42,6 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** codespaces integration with container ***
-  - [-] Get platform running.
-  - [x] Get fish configs working.
-
 *** aesthetic lisp / s-expression parser and evaluator ***
   - [] "piece"
   - [] bracelet
