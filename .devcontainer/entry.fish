@@ -88,11 +88,11 @@ if test -f /home/me/aesthetic-computer/ssl-dev/localhost.pem; and test -f /home/
     install_and_trust_certificate /home/me/aesthetic-computer/ssl-dev/localhost.pem /home/me/aesthetic-computer/ssl-dev/localhost-key.pem
 end
 
-# Initialize fnm and use the specified Node.js version.
-cd /home/me/aesthetic-computer
 
 # Check if node_modules directory is present and not empty
-if not test -d node_modules || not count (ls node_modules) >/dev/null
+if not test -d /home/me/aesthetic-computer/node_modules || not count (ls /home/me/aesthetic-computer/node_modules) >/dev/null
+    # Initialize fnm and use the specified Node.js version.
+    cd /home/me/aesthetic-computer
     echo "node_modules directory is empty or missing, running npm install."
     # Install latest npm version before doing anything.
     npm install -g npm@latest --no-fund --no-audit
