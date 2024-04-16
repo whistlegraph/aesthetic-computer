@@ -41,9 +41,12 @@ alias vs 'vim (sk)'
 alias js 'vim (find . -name "*.js" -o -name "*.mjs" | sk -m -n !node_modules)'
 alias ff "vim (sk -c 'git ls-tree -r --name-only HEAD || ag -l -g \"\"')"
 
+# run aesthetic computer in vscode through a devcontainer
+alias aesthetic 'cd ~/Desktop/code/aesthetic-computer; devcontainer open --ozone-platform=wayland'
+
 # shortcuts for projects
 alias ac 'cd ~/Desktop/code/aesthetic-computer'
-alias acr 'cd ~/Desktop/code/aesthetic-computer; npm run ac'
+#alias acr 'cd ~/Desktop/code/aesthetic-computer; npm run ac'
 alias acw 'cd ~/Desktop/code/aesthetic-computer/system; npm run watch'
 
 # set default editor to nvim

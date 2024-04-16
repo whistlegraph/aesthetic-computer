@@ -62,7 +62,7 @@ fish_add_path ~/.ops/bin
 
 # Assume the daemon is running when entering emacs.
 # For fast config reloading.
-alias aesthetic "emacsclient -e '(kill-emacs)'; emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el; emacsclient -c --eval '(aesthetic-backend (quote \"shell\"))'"
+alias platform "emacsclient -e '(kill-emacs)'; emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el; emacsclient -c --eval '(aesthetic-backend (quote \"shell\"))'"
 
 alias ac 'cd ~/aesthetic-computer'
 alias ac-site 'npm run site'

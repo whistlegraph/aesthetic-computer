@@ -42,14 +42,25 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
+*** boot directly into devcontainer... ***
+
+*** brushes ***
+  - [] Add auto-interpolation to brushes.
+  - [] This could be done through...
+      `export const smoothing = "none"`
+      `export const smoothing = "linear"`
+      `export const smoothing = "curve"`
+
 *** aesthetic lisp / s-expression parser and evaluator ***
   - [] "piece"
   - [] bracelet
   - [] make a spatial editor / evaluator
+  - [] use the `pjs` mock work to support the new syntax / upload type?
+  - [] graphical editing with s-expression underneath?
+  - [] could it work off an actor model of some kind?
   - [] make a gui editor that stores sequences in s-expressions 
 
 *** chat ***
-  - [-] Move the paste button up half-way.
   - [] Notification rollup.
   - [🟠] Get the chat integration in `line` and `rect` and other brushes
        to be an interactive pop-up.
@@ -90,6 +101,7 @@ but technically agnostic. (Choose your aesthetic!)
        (Just make the text fully synchronized for now.)
   - [] Make a new "notification type" for chat and add it into an iOS app update.
   + Done
+  - [x] Move the paste button up half-way.
   - [x] Integrate chat interface into the `disk.mjs` file,
        using the `chat` piece as a flag for enabling the integration.
   - [x] Enable the chat ui overlay for all pieces in the `nopaint` system. 
