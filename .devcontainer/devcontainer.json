@@ -5,5 +5,5 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
-  "postCreateCommand": "fish /entry.fish"
+  "postCreateCommand": ["fish", "/entry.fish"]
 }
