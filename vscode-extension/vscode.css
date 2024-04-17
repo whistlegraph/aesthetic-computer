@@ -18,12 +18,3 @@ body {
   width: 100vw;
   height: 100vh;
 }
-
-iframe {
-  width: 100vw;
-  height: 100vh;
-  border: none;
-  box-sizing: border-box;
-  padding-bottom: 0px;
-  background-color: rgb(32, 32, 32);
-}

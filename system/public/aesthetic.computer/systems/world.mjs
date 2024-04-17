@@ -495,6 +495,8 @@ function world_act({ event: e, api, send, jump, hud, piece, screen }) {
 
     inputBtn.act(e, {
       down: () => {
+        send({ type: "keyboard:enabled" }); // In case corner was pressed,
+        //                                     which can disable the keyboard.
         send({ type: "keyboard:soft-unlock" });
       },
       push: () => {

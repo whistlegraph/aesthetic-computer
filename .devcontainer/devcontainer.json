@@ -13,6 +13,7 @@
         "fabiospampinato.vscode-terminals",
         "esbenp.prettier-vscode",
         "ms-azuretools.vscode-docker",
+        "mongodb.mongodb-vscode",
         "denoland.vscode-deno"
       ]
     }

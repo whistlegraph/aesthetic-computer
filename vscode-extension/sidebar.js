@@ -4,6 +4,8 @@
   // Send session data to iframe
   const iframe = document.getElementById("aesthetic");
 
+  iframe.classList.add("visible");
+
   // Handle messages sent from the extension to the webview
   window.addEventListener("message", (event) => {
     const message = event.data; // The json data that the extension sent
@@ -80,7 +82,9 @@
 
   function refresh() {
     console.log("🫐 Awaiting...");
-    iframe.src = iframe.src.split("?")[0] + "?" + new Date().getTime();
+    const url = new URL(iframe.src);
+    url.searchParams.set("ac-timestamp", new Date().getTime());
+    iframe.src = url.href;
     readyTimeout = setTimeout(refresh, 1000);
   }
 })();
