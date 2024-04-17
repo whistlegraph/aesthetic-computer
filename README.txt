@@ -42,14 +42,11 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** brushes ***
-  - [] Add auto-interpolation to brushes.
-  - [] This could be done through...
-      `export const smoothing = "none"`
-      `export const smoothing = "linear"`
-      `export const smoothing = "curve"`
-
 *** aesthetic lisp / s-expression parser and evaluator ***
+  - [] Make a source .lisp file in `disks`.
+  - [] Make a lisp.mjs file that exports a parser.
+  - [] Read the file in as a piece in load in side `disk.mjs`.
+
   - [] "piece"
   - [] bracelet
   - [] make a spatial editor / evaluator
@@ -57,6 +54,13 @@ but technically agnostic. (Choose your aesthetic!)
   - [] graphical editing with s-expression underneath?
   - [] could it work off an actor model of some kind?
   - [] make a gui editor that stores sequences in s-expressions 
+
+*** brushes ***
+  - [] Add auto-interpolation to brushes.
+  - [] This could be done through...
+      `export const smoothing = "none"`
+      `export const smoothing = "linear"`
+      `export const smoothing = "curve"`
 
 *** chat ***
   - [] Notification rollup.

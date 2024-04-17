@@ -40,6 +40,7 @@ import { CamDoll } from "./cam-doll.mjs";
 
 import { TextInput, Typeface } from "../lib/type.mjs";
 
+import * as lisp from "./lisp.mjs"; // Add lisp evaluator.
 import * as chat from "../disks/chat.mjs"; // Import chat everywhere.
 
 let tf; // Active typeface global.
@@ -2658,32 +2659,6 @@ async function load(
         // Then refresh should be able to function as well?
       }
 
-      /*
-      if (sourceToRun.startsWith("// 404")) {
-        let found = false;
-        try {
-          // Piece not found... try the guest server...
-          const fullUrl = `https://art.aesthetic.computer/${
-            path.split("/").slice(-1)[0]
-          }.mjs#${Date.now()}`;
-          console.warn("Local load failed. Attempting to run from: ", fullUrl);
-          response = await fetch(fullUrl);
-          sourceToRun = await response.text();
-          found = true; // Found a piece on the guest server!
-        } catch (err) {
-          console.warn("😢 No guest piece found.");
-        }
-
-        if (!found) {
-          if (!firstLoad) {
-            throw new Error("📄 Piece not found.");
-          } else {
-            console.log("📄🚫 Piece not found:", slug);
-          }
-        }
-      }
-      */
-
       const updatedCode = updateCode(sourceToRun, host, debug);
 
       prefetches = updatedCode
@@ -2701,93 +2676,37 @@ async function load(
 
     let response, sourceToRun;
 
-    // Look for pjs files if the mjs file is not found.
+    // Look for lisp files if the mjs file is not found.
     try {
-      fullUrl = fullUrl.replace(".mjs", ".pjs");
+      fullUrl = fullUrl.replace(".mjs", ".lisp");
 
-      if (
-        slug.split("~")[0] === currentText?.split("~")[0] &&
-        sourceCode == currentCode &&
-        !devReload
-      ) {
-        const blob = new Blob([currentCode], {
-          type: "application/javascript",
-        });
-        blobUrl = URL.createObjectURL(blob);
-        sourceCode = currentCode;
-      } else {
-        let response, sourceToRun;
-        if (fullUrl) {
-          console.log("📥 Loading from url:", fullUrl);
-          response = await fetch(fullUrl);
-          if (response.status === 404) {
-            const anonUrl =
-              location.protocol +
-              "//" +
-              "art.aesthetic.computer" +
-              "/" +
-              path.split("/").pop() +
-              ".pjs" +
-              "#" +
-              Date.now();
-            console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
-            response = await fetch(anonUrl);
-            if (response.status === 404) throw new Error("404");
-          }
-          sourceToRun = await response.text();
-        } else {
-          sourceToRun = source;
-        }
+      let response, sourceToRun;
+      console.log("📥 Loading from url:", fullUrl);
+      response = await fetch(fullUrl);
 
-        // Compile pjs to js using GPT.
-        // let preprompt = `The following code contains JavaScript mixed with natural language English. Please replace any instances of natural language with JavaScript, and return the whole file, including the original JavaScript. Natural language sections are enclosed by two @ characters. Return only the compiled code and nothing else. For requests to do anything visual, you can use “ink(r, g, b, a).box(pen.x, pen.y, w, h) or ink(r, g, b, a).circle(pen.x, pen.y, radius). ”`;
-
-        // let pjsPrompt = preprompt + sourceToRun;
-
-        // let conversation = new Conversation();
-
-        // let program = {
-        //   before: '',
-        //   after: '',
-        // }
-
-        // let compiledCode = ``;
-
-        // conversation.ask(
-        //   { prompt: pjsPrompt, program },
-        //   function and(msg) {
-        //     compiledCode += msg;
-        //   },
-        //   function done() {
-        //     console.log('🤖 pjs compilation done.')
-        //     console.log(compiledCode);
-
-        //     sourceToRun = compiledCode;
-
-        //     if (devReload) {
-        //       store["publishable-piece"] = { slug, source: sourceToRun };
-        //     }
-
-        //     const updatedCode = updateCode(sourceToRun, host, debug);
-
-        //     prefetches = updatedCode
-        //     .match(/"(@\w[\w.]*\/[^"]*)"/g)
-        //     ?.map((match) => match.slice(1, -1)); // for "@name/code".
-
-        //     const blob = new Blob([updatedCode], { type: "application/javascript" });
-        //     blobUrl = URL.createObjectURL(blob);
-        //     sourceCode = updatedCode;
-
-        //     // loadedModule = await import(blobUrl);
-
-        //   },
-        //   function fail() {
-        //     console.log('🤖 pjs compilation failed.')
-        //   }
-        // );
+      if (response.status === 404) {
+        const anonUrl =
+          location.protocol +
+          "//" +
+          "art.aesthetic.computer" +
+          "/" +
+          path.split("/").pop() +
+          ".lisp" +
+          "#" +
+          Date.now();
+        console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
+        response = await fetch(anonUrl);
+        if (response.status === 404) throw new Error("404");
       }
+      sourceToRun = await response.text();
 
-      loadedModule = await import(blobUrl);
+      console.log("LISP Source loaded:", sourceToRun);
+      const parsedLisp = lisp.parse(sourceToRun);
+      console.log("Parsed lisp:", parsedLisp);
+      const evaluatedLisp = lisp.evaluate(parsedLisp);
+      console.log("Evaluated lisp:", evaluatedLisp);
+
+      // loadedModule = await import(blobUrl);
     } catch (err) {
       // 🧨 Continue with current module if one has already loaded.
       console.error(
@@ -5281,7 +5200,12 @@ async function makeFrame({ data: { type, content } }) {
                   // 🔥
                   // TODO: Use the pen data here to get an interpolation,
                   // then pan to each interpolated point and repaint.
-                  console.log("🖌️ Brush:", brushFilterApi.pen, "🖊️ Pen:", $api.pen);
+                  console.log(
+                    "🖌️ Brush:",
+                    brushFilterApi.pen,
+                    "🖊️ Pen:",
+                    $api.pen,
+                  );
                   brush(brushFilterApi);
                 }
                 if (filter) {
