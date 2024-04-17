@@ -10,7 +10,7 @@ import { speak, speakAPI } from "./lib/speech.mjs";
 import * as UI from "./lib/ui.mjs";
 import * as Glaze from "./lib/glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
-import { choose, shuffleInPlace } from "./lib/help.mjs";
+import { choose } from "./lib/help.mjs";
 import { parse, slug } from "./lib/parse.mjs";
 import * as Store from "./lib/store.mjs";
 import {
@@ -1133,7 +1133,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Disable workers if we are in a sandboxed iframe.
   const workersEnabled = !sandboxed;
-  // const workersEnabled = false;
+  //const workersEnabled = false;
 
   if (!MetaBrowser && workersEnabled) {
     const worker = new Worker(new URL(fullPath, window.location.href), {
@@ -1170,7 +1170,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   } else {
     // B. No Worker Mode
     if (debug) console.log("🔴 No Worker");
-    const module = await import(`./lib/disk.mjs`);
+    let module;
+    try {
+      module = await import(`./lib/disk.mjs`);
+    } catch (err) {
+      console.warn("Module load error:", err);
+    }
     module.noWorker.postMessage = (e) => onMessage(e); // Define the disk's postMessage replacement.
     send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
     window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
@@ -2305,10 +2310,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       killAllSound?.(); // Kill any pervasive sounds in `speaker`.
 
       // ⚠️ Remove any sounds that aren't in the whitelist.
-      keys(sfx).forEach((key) => {
+      const sfxKeys = keys(sfx);
+      sfxKeys.forEach((key) => {
         if (key !== sound) delete sfx[key];
       });
-      if (logs.audio && debug) console.log("🔉 SFX Cleaned up:", sfx);
+      if (sfxKeys.length > 0 && logs.audio && debug) console.log("🔉 SFX Cleaned up:", sfx);
 
       // Stop any playing samples.
       keys(sfxPlaying).forEach((sfx) => sfxPlaying[sfx].kill());

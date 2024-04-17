@@ -219,6 +219,16 @@ async function startChatServer() {
       // 💬 Received an incoming chat message.
       if (msg.type === "chat:message") {
         // TODO: ❤️‍🔥 Add rate-limiting / maybe quit here if needed.
+        // 🧶 Length limiting.
+        const len = 64;
+        if (msg.content.text.length > len) {
+          ws.send(
+            pack("too-long", {
+              message: `Your message was too long, please limit it to ${len} characters.`,
+            }),
+          );
+          return; // Silently ignore long messages.
+        }
 
         // 🔐 1. Authorization
         // 💡️ Maybe this could be cached at some point. 24.04.02.21.30

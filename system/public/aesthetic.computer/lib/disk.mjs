@@ -2157,6 +2157,8 @@ const $paintApiUnwrapped = {
   unpan: graph.unpan,
   savepan: graph.savepan,
   loadpan: graph.loadpan,
+  mask: graph.mask,
+  unmask: graph.unmask,
   skip: graph.skip,
   noise16: graph.noise16,
   noise16DIGITPAIN: graph.noise16DIGITPAIN,
@@ -3678,6 +3680,13 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.user = USER;
     await handle(); // Get the user's handle.
     // $commonApi.reload?.(); // Reload the current piece.
+
+    if (USER) {
+      console.log(
+        `👋 Welcome back %c${HANDLE || USER.email}`,
+        `color: yellow; background: rgba(10, 20, 40);`,
+      );
+    }
     return;
   }
 
@@ -4231,14 +4240,14 @@ async function makeFrame({ data: { type, content } }) {
 
   // 1e. Loading Sound Effects
   if (type === "loaded-sfx-success") {
-    if (debug && logs.sound) console.log("Sound load success:", content);
+    if (debug && logs.audio) console.log("Sound load success:", content);
     preloadPromises[content.sfx]?.resolve(content.sfx);
     delete preloadPromises[content];
     return;
   }
 
   if (type === "loaded-sfx-rejection") {
-    if (debug && logs.sound) console.error("Sound load failure:", content);
+    if (debug && logs.audio) console.error("Sound load failure:", content);
     preloadPromises[content.sfx]?.reject(content.sfx);
     delete preloadPromises[content.sfx];
     return;

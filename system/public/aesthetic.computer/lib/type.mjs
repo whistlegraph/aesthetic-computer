@@ -60,6 +60,7 @@ class Typeface {
     return this;
   }
 
+  // 📓 tf.print
   print(
     $,
     pos = { x: undef, y: undef, size: 1, thickness: 1, rotation: 0 },
@@ -88,10 +89,12 @@ class Typeface {
     // ? $.system.world.size.height
     // : $.screen.height;
 
+    const w = text.length * blockWidth * size;
+
     // Randomize pos.x and pos.y if undefined.
     if (pos.center === undefined) {
       if (pos.right !== undefined) {
-        pos.x = width - blockWidth - pos.right;
+        pos.x = width - w - pos.right;
       } else if (pos.left !== undefined) {
         pos.x = pos.left;
       } else if (pos.x === undefined) {
@@ -113,8 +116,9 @@ class Typeface {
 
     pos.center = pos.center || "";
 
+
     if (pos.center.includes("x")) {
-      const hw = (text.length * blockWidth * size) / 2;
+      const hw = w / 2;
       x = pos.x === undef ? width / 2 - hw : x - hw;
     }
 
@@ -124,6 +128,18 @@ class Typeface {
     }
 
     y += lineNumber * blockHeight;
+
+    // Only print the line if it will be visible on screen now...
+    // y axis
+    if (
+      y < -blockHeight * size ||
+      y > $.screen.height ||
+      x > $.screen.width ||
+      x < -w
+    ) {
+      // Offscreen render.
+      return;
+    }
 
     const rn = $.inkrn(); // Remember the current ink color.
 

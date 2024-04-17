@@ -33,6 +33,8 @@ const depthBuffer = [];
 const writeBuffer = [];
 const c = [255, 255, 255, 255];
 const panTranslation = { x: 0, y: 0 }; // For 2d shifting using `pan` and `unpan`.
+let activeMask; // A box for totally masking the renderer.
+//                 This should work everywhere.
 const skips = [];
 
 let debug = false;
@@ -307,6 +309,9 @@ function plot(x, y) {
   if (y < 0) return;
   if (y >= height) return;
 
+  // And pixels in the active mask.
+  if (activeMask) if (y < activeMask.y || y >= activeMask.height || x >= activeMask.width || x < activeMask.x) return;
+
   for (const s of skips) if (x === s.x && y === s.y) return;
 
   // Plot our pixel.
@@ -438,6 +443,16 @@ function loadpan() {
     panTranslation.x = savedPanTranslation.x;
     panTranslation.y = savedPanTranslation.y;
   }
+}
+
+// 😷 Mask off pixels.
+function mask(box) {
+  activeMask = box; 
+}
+
+// 😄 Unmask pixels.
+function unmask() {
+  activeMask = null;
 }
 
 function copy(destX, destY, srcX, srcY, src, alpha = 1.0) {
@@ -668,7 +683,8 @@ function lineh(x0, x1, y) {
   x1 = floor(x1);
   y = floor(y);
 
-  if (y < 0 || y >= height || x0 >= width || x1 < 0) return;
+    if (y < 0 || y >= height || x0 >= width || x1 < 0) return;
+    if (activeMask && (y < activeMask.y || y >= activeMask.height || x0 >= activeMask.width || x1 < activeMask.x)) return;
 
   x0 = clamp(x0, 0, width - 1);
   x1 = clamp(x1, 0, width - 1);
@@ -1898,6 +1914,8 @@ export {
   unpan,
   savepan,
   loadpan,
+  mask,
+  unmask,
   skip,
   copy,
   resize,
