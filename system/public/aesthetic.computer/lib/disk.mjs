@@ -5281,6 +5281,7 @@ async function makeFrame({ data: { type, content } }) {
                   // 🔥
                   // TODO: Use the pen data here to get an interpolation,
                   // then pan to each interpolated point and repaint.
+                  console.log("🖌️ Brush:", brushFilterApi.pen, "🖊️ Pen:", $api.pen);
                   brush(brushFilterApi);
                 }
                 if (filter) {
