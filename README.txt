@@ -42,8 +42,6 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** boot directly into devcontainer... ***
-
 *** brushes ***
   - [] Add auto-interpolation to brushes.
   - [] This could be done through...
