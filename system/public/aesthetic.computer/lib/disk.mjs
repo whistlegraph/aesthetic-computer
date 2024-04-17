@@ -5278,6 +5278,9 @@ async function makeFrame({ data: { type, content } }) {
                 brushFilterApi.pen = $api.system.nopaint.brush;
                 if (brush) {
                   $api.page($api.system.nopaint.buffer);
+                  // 🔥
+                  // TODO: Use the pen data here to get an interpolation,
+                  // then pan to each interpolated point and repaint.
                   brush(brushFilterApi);
                 }
                 if (filter) {
