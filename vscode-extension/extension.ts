@@ -17,9 +17,13 @@ let codeChannel: string | undefined;
 let mergedDocs: any = {};
 let docs: any;
 
+let extContext: any;
+let webWindow: any;
+
 async function activate(context: vscode.ExtensionContext): Promise<void> {
   local = context.globalState.get("aesthetic:local", false); // Retrieve env.
   console.log("🟢 Aesthetic Computer Extension Activated.");
+  extContext = context;
 
   // Load the docs from the web.
   try {
@@ -181,50 +185,29 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         </body>
         </html>
       `.trim();
-
-        // vscode.commands.executeCommand("markdown.showPreviewToSide", uri);
       },
     ),
   );
-
-  // context.subscriptions.push(
-  //   vscode.commands.registerCommand(
-  //     "aestheticComputer.openWindow",
-  //     (functionName) => {
-  //       // TODO: Open pop-up window.
-  //     },
-  //   ),
-  // );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("aestheticComputer.openWindow", () => {
       const panel = vscode.window.createWebviewPanel(
         "webView", // Identifies the type of the webview. Used internally
-        "My Webview", // Title of the panel displayed to the user
+        "Aesthetic Computer", // Title of the panel displayed to the user
         vscode.ViewColumn.One, // Editor column to show the new webview panel in.
-        {}, // Webview options.
+        {
+          enableScripts: true,
+          localResourceRoots: [extContext.extensionUri],
+        }, // Webview options.
       );
 
-      // TODO: Eventually this will land in a VS Code version.
+      panel.title += local ? ": Local" : ""; // Update the title if local.
+      panel.webview.html = getWebViewContent(panel.webview);
+      webWindow = panel;
 
-      panel.webview.html = getWebviewContent(); // Set the content of the webview
+      panel.onDidDispose(() => (webWindow = null), null, context.subscriptions);
     }),
   );
-
-  function getWebviewContent() {
-    // Define your HTML content here
-    return `<!DOCTYPE html>
-          <html lang="en">
-          <head>
-              <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>My Webview</title>
-          </head>
-          <body>
-              <h1>Hello from my Webview!</h1>
-          </body>
-          </html>`;
-  }
 
   // Add definitionProvider to context.subscriptions if necessary
   context.subscriptions.push(definitionProvider);
@@ -277,16 +260,14 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       if (e.provider.id === "aesthetic") {
         await getAestheticSession();
         provider.refreshWebview();
+        refreshWebWindow();
       }
     }),
   );
 
   // GUI
 
-  const provider = new AestheticViewProvider(
-    context.extensionUri,
-    context.globalState,
-  );
+  const provider = new AestheticViewProvider();
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -349,6 +330,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       context.globalState.update("aesthetic:local", local);
       // Refresh the webview with the new local state
       provider.refreshWebview();
+      refreshWebWindow();
       vscode.window.showInformationMessage(
         `💻 Local Development: ${local ? "Enabled" : "Disabled"}`,
       );
@@ -417,15 +399,9 @@ class AestheticCodeLensProvider implements vscode.CodeLensProvider {
 
 class AestheticViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "aestheticComputer.sidebarView";
-  private _extensionUri: vscode.Uri;
   private _view?: vscode.WebviewView;
-  private _globalState: vscode.Memento;
-  // public sessionData: any = {};
 
-  constructor(extensionUri: vscode.Uri, globalState: vscode.Memento) {
-    this._extensionUri = extensionUri;
-    this._globalState = globalState;
-  }
+  constructor() {}
 
   // Method to send message to the webview
   public sendMessageToWebview(message: any) {
@@ -437,7 +413,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
   public refreshWebview(): void {
     if (this._view) {
       this._view.title = local ? "Local" : ""; // Update the title if local.
-      this._view.webview.html = this._getHtmlForWebview(this._view.webview);
+      this._view.webview.html = getWebViewContent(this._view.webview);
     }
   }
 
@@ -452,10 +428,10 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
     // Set retainContextWhenHidden to true
     this._view.webview.options = {
       enableScripts: true,
-      localResourceRoots: [this._extensionUri],
+      localResourceRoots: [extContext.extensionUri],
     };
 
-    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+    webviewView.webview.html = getWebViewContent(this._view.webview);
 
     webviewView.webview.onDidReceiveMessage((data) => {
       switch (data.type) {
@@ -529,38 +505,56 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
       }
     });
   }
+}
 
-  private _getHtmlForWebview(webview: vscode.Webview): string {
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, "sidebar.js"),
-    );
+// 📚 Library
 
-    const nonce = getNonce();
-    const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, "main.css"),
-    );
+function getNonce(): string {
+  let text = "";
+  const possible =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  for (let i = 0; i < 32; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
+}
 
-    const resetStyleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, "reset.css"),
-    );
+function refreshWebWindow() {
+  if (webWindow) {
+    webWindow.title = "Aesthetic Computer" + local ? ": Local" : ""; // Update the title if local.
+    webWindow.webview.html = getWebViewContent(webWindow.webview);
+  }
+}
 
-    const vscodeStyleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, "vscode.css"),
-    );
+function getWebViewContent(webview: any) {
+  const scriptUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extContext.extensionUri, "sidebar.js"),
+  );
 
-    const session = this._globalState.get("aesthetic:session", undefined);
+  const nonce = getNonce();
+  const styleUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extContext.extensionUri, "main.css"),
+  );
 
-    // console.log("Building session html with:", session);
+  const resetStyleUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extContext.extensionUri, "reset.css"),
+  );
 
-    let param = "";
-    if (typeof session === "object") {
-      if (keys(session)?.length > 0) {
-        const base64EncodedSession = btoa(JSON.stringify(session));
-        param = "?session=" + encodeURIComponent(base64EncodedSession);
-      }
+  const vscodeStyleUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extContext.extensionUri, "vscode.css"),
+  );
+
+  const session = extContext.globalState.get("aesthetic:session", undefined);
+
+  let param = "";
+  if (typeof session === "object") {
+    if (keys(session)?.length > 0) {
+      const base64EncodedSession = btoa(JSON.stringify(session));
+      param = "?session=" + encodeURIComponent(base64EncodedSession);
     }
+  }
 
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 			<html lang="en">
 			<head>
 				<meta charset="UTF-8">
@@ -580,19 +574,6 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
        	<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
-  }
-}
-
-// 📚 Library
-
-function getNonce(): string {
-  let text = "";
-  const possible =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  for (let i = 0; i < 32; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return text;
 }
 
 export { activate, AestheticViewProvider };
