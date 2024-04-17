@@ -1,7 +1,7 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
 // https://github.com/microsoft/vscode-dev-containers/tree/v0.241.1/containers/codespaces-linux
 {
-  "name": "Aesthetic Computer (Default)",
+  "name": "Default",
   "build": { "dockerfile": "Dockerfile" },
   "mounts": [
     "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind"
