@@ -103,6 +103,16 @@ but technically agnostic. (Choose your aesthetic!)
        (Just make the text fully synchronized for now.)
   - [] Make a new "notification type" for chat and add it into an iOS app update.
   + Done
+  - [x] Only render lines of text that appear inside the margin.
+  - [x] Keyboard does not reactivate / open after tapping corner word.
+  - [x] Show the user's handle in corner if it exists.
+  - [x] Move top margin up.
+  - [x] Don't render any text / long messages off-screen.
+  - [x] Limit chat message length, both on client and on server.
+    - [x] Server
+    - [x] Client
+      - [x] Numeric 0/n counter.
+      - [x] Notice
   - [x] Move the paste button up half-way.
   - [x] Integrate chat interface into the `disk.mjs` file,
        using the `chat` piece as a flag for enabling the integration.

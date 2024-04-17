@@ -30,10 +30,10 @@
 
 let input, inputBtn, token;
 
-const lineHeight = 12;
-const topMargin = 38;
-const bottomMargin = 33;
-const leftMargin = 6;
+const lineHeight = 12,
+  topMargin = 22,
+  bottomMargin = 33,
+  leftMargin = 6;
 
 let messageSfx;
 
@@ -55,7 +55,7 @@ async function boot({
   sound,
   net,
 }) {
-  console.log("💬 Chat booting...");
+  // console.log("💬 Chat booting...");
 
   // TODO: Now make it so that you see the last chat message
   //       as a button under the piece name.
@@ -64,7 +64,7 @@ async function boot({
   net
     .preload("compkey")
     .then((sfx) => (messageSfx = sfx))
-    .catch((err) => console.warn(err)); // and key sounds.
+    .catch((err) => console.warn("Could not preload:", err)); // and key sounds.
 
   // 🗨️ Chat Networking
 
@@ -83,6 +83,11 @@ async function boot({
 
   // 🤖 Runs on every message...
   chat.receiver = (id, type, content) => {
+    if (type === "too-long") {
+      notice("TOO LONG", ["red", "yellow"]);
+      return;
+    }
+
     if (type === "unauthorized") {
       notice("Unauthorized", ["red", "yellow"]);
       return;
@@ -165,7 +170,7 @@ async function boot({
 }
 
 function paint(
-  { api, ink, wipe, screen, leaving, chat, geo: { Box } },
+  { api, ink, wipe, screen, leaving, chat, mask, unmask, geo: { Box }, handle },
   options,
 ) {
   if (!options?.embedded) wipe(100, 100, 145); // TODO: ChatToDisk: Would have to prevent wipe here.
@@ -179,6 +184,9 @@ function paint(
 
     // Iterate through the messages array backwards, calculating their
     // height and painting them if they are within the boundaries.
+
+    mask({ x: 0, y: topMargin, width: screen.width, height: screen.height - bottomMargin + 3 });
+
     for (let i = chat.messages.length - 1; i >= 0; i--) {
       const message = chat.messages[i];
 
@@ -188,7 +196,7 @@ function paint(
 
       // ❇️ These are precomputed in computeScrollbar for each message.
       const fullMessage = message.fullMessage;
-      const tb = message.tb; //text.box(fullMessage, { x, y }, screen.width - x, 1, true);
+      const tb = message.tb;
 
       y -= lineHeight * (tb.lines.length - 1);
 
@@ -197,12 +205,14 @@ function paint(
         continue;
       }
 
-      ink("white").write(fullMessage, { x: x, y }, undefined, screen.width - x);
+      ink("white").write(fullMessage, { x, y }, undefined, screen.width - x);
       ink("pink").write(message.handle, { x, y });
 
       y -= lineHeight; // Move up one line for the next message.
       if (y < topMargin - lineHeight) break; // Break if y is below top line.
     }
+
+    unmask();
 
     // 📜 Scroll bar.
 
@@ -238,11 +248,11 @@ function paint(
       screen.height - bottomMargin + 2,
     );
 
-  if (!options?.embedded) {
-    ink(100, 100, 145)
-      .box(0, 0, screen.width, topMargin)
-      .box(0, screen.height - bottomMargin + 3, screen.width, screen.height);
-  }
+  // if (!options?.embedded) {
+  //   ink(100, 100, 145, 96)
+  //     .box(0, 0, screen.width, topMargin)
+  //     .box(0, screen.height - bottomMargin + 3, screen.width, screen.height);
+  // }
 
   inputBtn.paint((btn) => {
     if (btn.down) {
@@ -263,7 +273,19 @@ function paint(
       width: screen.width,
       height: screen.height / 2, // - 18
     });
+
+    // Character limit.
+    const len = 64;
+    ink(input.text.length > len ? "red" : "gray").write(
+      `${input.text.length}/${len}`,
+      { right: 6, top: 6 },
+    );
   }
+
+  const currentHandle = handle();
+  const msg = currentHandle || "no handle";
+  ink(0).write(msg, { bottom: 10 - 1, right: 6 - 1 });
+  ink(currentHandle ? "lime" : "red").write(msg, { bottom: 10, right: 6 });
 }
 
 function act({ api, event: e, hud, piece, send }) {
@@ -273,7 +295,7 @@ function act({ api, event: e, hud, piece, send }) {
     ({ totalScrollHeight, chatHeight } = computeScrollbar(api));
     scroll = (lastScroll / lastScrollHeight) * totalScrollHeight;
     boundScroll();
-    console.log("📜 Reframed scroll:", scroll);
+    // console.log("📜 Reframed scroll:", scroll);
   }
 
   // TODO: ChatToDisk: The chat module will need some kind of "focus" in order
@@ -304,6 +326,8 @@ function act({ api, event: e, hud, piece, send }) {
     // 🖥️ Keyboard / Text Input
     inputBtn.act(e, {
       down: () => {
+        send({ type: "keyboard:enabled" }); // In case corner was pressed,
+        //                                     which can disable the keyboard.
         send({ type: "keyboard:soft-unlock" });
       },
       push: () => {
@@ -367,11 +391,11 @@ function sim({ api }) {
   input.sim(api); // 💬 Chat
 }
 
-function leave() {
-  chat?.kill();
-}
+// function leave() {
+// chat?.kill();
+// }
 
-export { boot, paint, act, sim, leave };
+export { boot, paint, act, sim };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)

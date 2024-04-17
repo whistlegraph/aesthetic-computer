@@ -140,7 +140,7 @@ loadAuth0Script()
           };
           // Will get passed to the first message by the piece runner.
           // console.log("🌻 Picked up session!", window.acTOKEN, window.acUSER);
-          window.acSEND({
+          window.acDISK_SEND({
             type: "session:update",
             content: { user: window.acUSER },
           });
@@ -219,8 +219,8 @@ loadAuth0Script()
       if (isAuthenticated && !pickedUpSession) {
         // TODO: How long does this await actually take? 23.07.11.18.55
         const userProfile = await auth0Client.getUser();
-        console.log("🔐 Welcome,", userProfile.name, "!");
-        console.log('to... "chaos in a system"');
+        // console.log("🔐 Welcome,", userProfile.name, "!");
+        // console.log('to... "chaos in a system"');
         window.acUSER = userProfile; // Will get passed to the first message by the piece runner.
         window.acDISK_SEND({
           type: "session:update",
@@ -261,7 +261,7 @@ function receive(event) {
   if (event.data?.type === "setSession") {
     // Use the session information to authenticate, if it exists.
     const session = event.data.session;
-    console.log("🥀 Session data:", session);
+    // console.log("🥀 Session data:", session);
     if (session.accessToken && session.account) {
       window.acTOKEN = session.accessToken; // Only set using this flow.
       window.acUSER = { name: session.account.label, sub: session.account.id }; // Will get passed to the first message by the piece runner.
