@@ -1,12 +1,13 @@
 // `aesthetic.computer` Bootstrap, 23.02.16.19.23
+
+// Alert the parent /  we are ready.
+if (window.parent) window.parent.postMessage({ type: "ready" }, "*");
+
 // Included as a <script> tag to boot the system on a webpage. (Loads `bios`)
 import { boot } from "./bios.mjs";
 import { parse, slug } from "./lib/parse.mjs";
 
 // 0. Environment Configuration
-
-// Alert the parent /  we are ready.
-if (window.parent) window.parent.postMessage({ type: "ready" }, "*");
 
 let debug;
 
