@@ -201,7 +201,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         }, // Webview options.
       );
 
-      panel.title += local ? ": Local" : ""; // Update the title if local.
+      panel.title = "Aesthetic Computer" + (local ? ": Local" : ""); // Update the title if local.
       panel.webview.html = getWebViewContent(panel.webview);
       webWindow = panel;
 
@@ -521,7 +521,7 @@ function getNonce(): string {
 
 function refreshWebWindow() {
   if (webWindow) {
-    webWindow.title = "Aesthetic Computer" + local ? ": Local" : ""; // Update the title if local.
+    webWindow.title = "Aesthetic Computer" + (local ? ": Local" : ""); // Update the title if local.
     webWindow.webview.html = getWebViewContent(webWindow.webview);
   }
 }
