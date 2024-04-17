@@ -42,6 +42,8 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
+- [🧡] Fix `sfx` playback in extension. 
+
 *** aesthetic lisp / s-expression parser and evaluator ***
   - [] Make a source .lisp file in `disks`.
   - [] Make a lisp.mjs file that exports a parser.
@@ -63,6 +65,7 @@ but technically agnostic. (Choose your aesthetic!)
       `export const smoothing = "curve"`
 
 *** chat ***
+  - [-] Add message sounds.
   - [] Notification rollup.
   - [🟠] Get the chat integration in `line` and `rect` and other brushes
        to be an interactive pop-up.
