@@ -14,5 +14,5 @@
   ],
   "deno.unstable": true,
   "deno.importMap": ".netlify/edge-functions-import-map.json",
-  "deno.path": "/Users/jas/Library/Preferences/netlify/deno-cli/deno"
+  "deno.path": "/home/me/.deno/bin/deno"
 }
