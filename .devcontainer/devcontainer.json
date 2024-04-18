@@ -7,6 +7,7 @@
     "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind,consistency=cached",
     "source=${localWorkspaceFolder}/.devcontainer/envs,target=/home/me/envs,type=bind,consistency=cached"
   ],
+  "forwardPorts": [8888],
   "customizations": {
     "vscode": {
       "extensions": [
