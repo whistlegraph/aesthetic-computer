@@ -1,4 +1,8 @@
 #!/usr/bin/env fish
+
+source /home/me/envs/load_envs.fish
+load_envs # Load devcontainer envs conditionally.
+
 set -gx TERM xterm-256color
 
 # Send a welcome message!
@@ -15,10 +19,12 @@ end
 
 if test -n "$GIT_USER_EMAIL"
     git config --global user.email $GIT_USER_EMAIL
+    echo "Set git user email to: $GIT_USER_EMAIL"
 end
 
 if test -n "$GIT_USER_NAME"
     git config --global user.name $GIT_USER_NAME
+    echo "Set git user name to: $GIT_USER_NAME"
 end
 
 # Add aesthetic-computer as the "safe" directory.
