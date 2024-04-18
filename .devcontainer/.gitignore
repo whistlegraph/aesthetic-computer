@@ -1,2 +1,5 @@
 .emacs.d/*
 !.emacs.d/.gitignore
+
+envs/*
+!envs/.gitignore

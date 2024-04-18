@@ -1,3 +1,7 @@
+source /home/me/envs/load_envs.fish
+load_envs # Load devcontainer envs conditionally.
+
+# Enable `fnm` support.
 if test -f $HOME/.fnm/fnm
     set -gx PATH $HOME/.fnm $PATH
     fnm env --use-on-cd --log-level=quiet | source
