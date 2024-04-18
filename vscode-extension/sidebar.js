@@ -78,13 +78,13 @@
   });
 
   // ♻️ Refresh the iframe's src url until it loads successfully.
-  let readyTimeout = setTimeout(refresh, 1000);
+  let readyTimeout = setTimeout(refresh, 5000);
 
   function refresh() {
     console.log("🫐 Awaiting...");
     const url = new URL(iframe.src);
     url.searchParams.set("ac-timestamp", new Date().getTime());
     iframe.src = url.href;
-    readyTimeout = setTimeout(refresh, 1000);
+    readyTimeout = setTimeout(refresh, 5000);
   }
 })();
