@@ -5,7 +5,7 @@ RUN dnf update -y
 RUN dnf install -y which tree procps-ng coreutils xclip xsel unzip jq bat
 RUN dnf install -y git gh gcc clang python3 python3-pip emacs-nox fish util-linux-user
 RUN dnf install -y qemu-kvm qemu-img
-RUN dnf install -y openssl awscli redis
+RUN dnf install -y openssl openssl-devel awscli redis
 RUN dnf install -y dnf-plugins-core
 
 # Add 'me' user.
@@ -25,13 +25,29 @@ RUN curl -L https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcer
     chmod +x /usr/local/bin/mkcert
 
 # Install websocat
-RUN dnf copr enable atim/websocat -y && sudo dnf install -y websocat
+# TODO: Replace websocat copr install with installing the rust toolchain
+#       and subsequently building from source;
+# RUN dnf copr enable atim/websocat -y && sudo dnf install -y websocat
 
 # Switch to current user.
 USER me
 
 # Set working directory to me user.
 WORKDIR /home/me
+
+RUN mkdir -p .config/fish && \
+   mkdir -p .config/fish/conf.d
+
+# 🐈 websocat 
+# Install Rust toolchain &
+# Clone websocat repository to build from source.
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
+    && source $HOME/.cargo/env \
+    && git clone https://github.com/vi/websocat.git \
+    && cd websocat \
+    && cargo build --release
+# \
+#    && cp target/release/websocat /usr/local/bin/
 
 # Install fnm
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "/home/me/.fnm" --skip-shell
@@ -66,8 +82,6 @@ RUN git clone https://github.com/ms-jpq/isomorphic_copy
 # RUN mkdir -p .emacs.d
 
 # Copy fish configuration.
-RUN mkdir -p .config/fish && \
-   mkdir -p .config/fish/conf.d
 COPY config.fish .config/fish/config.fish
 
 # Copy entry file.
