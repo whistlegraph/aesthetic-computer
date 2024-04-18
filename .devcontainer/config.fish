@@ -1,5 +1,7 @@
-source /home/me/envs/load_envs.fish
-load_envs # Load devcontainer envs conditionally.
+if test -d /home/me/envs
+    source /home/me/envs/load_envs.fish
+    load_envs # Load devcontainer envs conditionally.
+end
 
 # Enable `fnm` support.
 if test -f $HOME/.fnm/fnm

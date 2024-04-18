@@ -4,8 +4,8 @@
   "name": "Default",
   "build": { "dockerfile": "Dockerfile" },
   "mounts": [
-    "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind",
-    "source=${localWorkspaceFolder}/.devcontainer/envs,target=/home/me/envs,type=bind"
+    "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/.devcontainer/envs,target=/home/me/envs,type=bind,consistency=cached"
   ],
   "customizations": {
     "vscode": {
@@ -20,10 +20,6 @@
       ]
     }
   },
-  "runArgs": [
-    "--privileged",
-    "--hostname",
-    "aesthetic"
-  ],
+  "runArgs": ["--privileged", "--hostname", "aesthetic"],
   "postCreateCommand": "fish /entry.fish"
 }
