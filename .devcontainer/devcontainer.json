@@ -4,26 +4,24 @@
   "name": "Default",
   "build": { "dockerfile": "Dockerfile" },
   "mounts": [
-    "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind"
+    "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind",
+    "source=${localWorkspaceFolder}/.devcontainer/envs,target=/home/me/envs,type=bind"
   ],
   "customizations": {
     "vscode": {
       "extensions": [
-        "aesthetic-computer.aesthetic-computer-code",
-        "fabiospampinato.vscode-terminals",
-        "esbenp.prettier-vscode",
-        "ms-azuretools.vscode-docker",
-        "mongodb.mongodb-vscode",
-        "denoland.vscode-deno"
+        "aesthetic-computer.aesthetic-computer-code", // Aesthetic Computer
+        "fabiospampinato.vscode-terminals", // Terminal Automation
+        "esbenp.prettier-vscode", // PrettierJS formatting.
+        "ms-azuretools.vscode-docker", // Docker support.
+        "mongodb.mongodb-vscode", // MongoDB
+        "denoland.vscode-deno", // Deno runtime plugin.
+        "bmalehorn.vscode-fish" // Fish syntax support.
       ]
     }
   },
   "runArgs": [
     "--privileged",
-    "--env-file",
-    ".devcontainer/devcontainer.env",
-    "--env-file",
-    ".devcontainer/devcontainer.git.env",
     "--hostname",
     "aesthetic"
   ],
