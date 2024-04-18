@@ -116,7 +116,7 @@ export class Socket {
     if (this.#killSocket) return;
     if (type === "connected") {
       const c = JSON.parse(content);
-      this.id = c.id; // Set the user identifier.
+      this.id = id; // Set the user identifier.
       // Send a self-connection message here. (You are connected as...)
       if (logs.session)
         // console.log(
@@ -155,12 +155,12 @@ export class Socket {
     } else if (type === "left") {
       if (logs.session)
         console.log(
-          `🧦 ${content.id} has left. Connections open: ${content.count}`,
+          `🧦 ${id} has left. Connections open: ${content.count}`,
         );
-      receive?.(content.id, type, content);
+      receive?.(id, type, content);
     } else {
       try {
-        receive?.(id || content.id, type, content); // Finally send the message to the client.
+        receive?.(id, type, content); // Finally send the message to the client.
       } catch (err) {
         console.error("🧦 Socket message error:", err);
       }
