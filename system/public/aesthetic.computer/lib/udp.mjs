@@ -24,7 +24,7 @@ function connect(port = 8889, url = undefined, send) {
     return;
   }
 
-  console.log("🩰 Connecting to UDP:", url, "on:", port);
+  // console.log("🩰 Connecting to UDP:", url, "on:", port);
 
   dontreconnect = false;
 
@@ -44,7 +44,7 @@ function connect(port = 8889, url = undefined, send) {
       return;
     }
 
-    console.log("🩰 Connected:", channel.url);
+    console.log("🩰 Connected to UDP:", channel.url);
     reconnectTime = RECONNECT_START_TIME;
     send({ type: "udp:connected" });
     connected = true;

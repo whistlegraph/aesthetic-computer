@@ -185,7 +185,12 @@ function paint(
     // Iterate through the messages array backwards, calculating their
     // height and painting them if they are within the boundaries.
 
-    mask({ x: 0, y: topMargin, width: screen.width, height: screen.height - bottomMargin + 3 });
+    mask({
+      x: 0,
+      y: topMargin,
+      width: screen.width,
+      height: screen.height - bottomMargin + 3,
+    });
 
     for (let i = chat.messages.length - 1; i >= 0; i--) {
       const message = chat.messages[i];

@@ -43,7 +43,7 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 - [🧡] Fix `sfx` playback in extension. 
-  - [] Wire up new AeCO sounds.
+  - [] Wire up new AeCo sounds.
 
 *** aesthetic lisp / s-expression parser and evaluator ***
   - [] Make a source .lisp file in `disks`.

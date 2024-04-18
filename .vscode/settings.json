@@ -1,17 +1,18 @@
 {
-  "search.useGlobalIgnoreFiles": true,
+  "search.useGlobalIgnoreFiles": false,
+  "search.useIgnoreFiles": false,
   "search.exclude": {
     "**/node_modules": true,
-    "**/aesthetic-computer-code": false,
-    "**/aesthetic-computer-vault": false
+    "**/.emacs.d": true,
+    "**/.netlify": true,
+    "**/.vscode-test-web/**": true,
+    "**/aesthetic-computer-code/**": false,
+    "**/aesthetic-computer-vault/**": false
   },
   "editor.minimap.scale": 1,
   "editor.minimap.autohide": true,
-  "liveServer.settings.port": 5501,
   "deno.enable": true,
-  "deno.enablePaths": [
-    "system/netlify/edge-functions"
-  ],
+  "deno.enablePaths": ["system/netlify/edge-functions"],
   "deno.unstable": true,
   "deno.importMap": ".netlify/edge-functions-import-map.json",
   "deno.path": "/home/me/.deno/bin/deno"

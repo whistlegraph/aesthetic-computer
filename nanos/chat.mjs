@@ -394,7 +394,7 @@ async function startChatServer() {
         wss.clients.size,
         "🫂",
       );
-      everyone(pack("left", { id, count: wss.clients.size }));
+      everyone(pack("left", { count: wss.clients.size }, id));
     });
 
     // Send a connect message to the new client.
@@ -405,6 +405,7 @@ async function startChatServer() {
           message: "Welcome to the Aesthetic Computer System Chat!",
           chatters: wss.clients.size,
           messages,
+          id,
         },
         id,
       ),

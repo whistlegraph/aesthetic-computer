@@ -286,7 +286,7 @@ wss.on("connection", (ws, req) => {
   ws.send(
     pack(
       "connected",
-      JSON.stringify({ id, ip, playerCount: content.playerCount }),
+      JSON.stringify({ ip, playerCount: content.playerCount }),
       id,
     ),
   );
@@ -551,7 +551,7 @@ wss.on("connection", (ws, req) => {
             delete worldClients[piece][id];
             if (keys(worldClients[piece]).length === 0)
               delete worldClients[piece];
-            everyone(pack(`world:${piece}:kick`, { id })); // Kick this ghost.
+            everyone(pack(`world:${piece}:kick`, {}, id)); // Kick this ghost.
           }
 
           let kickTimer = setTimeout(kick, 5000);
@@ -566,7 +566,7 @@ wss.on("connection", (ws, req) => {
               if (slug !== "*keep-alive*") {
                 log(`🐛 ${handle} is now in:`, slug);
                 if (!worlds.includes(slug))
-                  everyone(pack(`world:${piece}:slug`, { id, handle, slug }));
+                  everyone(pack(`world:${piece}:slug`, { handle, slug }, id));
               }
 
               if (worlds.includes(slug)) {
@@ -585,7 +585,7 @@ wss.on("connection", (ws, req) => {
             );
 
           // Send a message to everyone on the server that this client is a ghost.
-          everyone(pack(`world:${piece}:ghost`, { id }));
+          everyone(pack(`world:${piece}:ghost`, {}, id));
         } else {
           // Delete the user from the worldClients pieces index.
           delete worldClients[piece][id];
@@ -596,7 +596,7 @@ wss.on("connection", (ws, req) => {
     });
 
     // Send a message to everyone else on the server that this client left.
-    if (!ghosted) everyone(pack("left", { id, count: wss.clients.size }));
+    if (!ghosted) everyone(pack("left", { count: wss.clients.size }, id));
 
     // Delete from the connection index.
     delete connections[id];

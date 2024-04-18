@@ -38,16 +38,15 @@ WORKDIR /home/me
 RUN mkdir -p .config/fish && \
    mkdir -p .config/fish/conf.d
 
-# 🐈 websocat 
+# 🐈 websocat
 # Install Rust toolchain &
 # Clone websocat repository to build from source.
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
     && source $HOME/.cargo/env \
     && git clone https://github.com/vi/websocat.git \
     && cd websocat \
-    && cargo build --release
-# \
-#    && cp target/release/websocat /usr/local/bin/
+    && cargo build --release \
+    && cp target/release/websocat /usr/local/bin/
 
 # Install fnm
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "/home/me/.fnm" --skip-shell
@@ -60,7 +59,7 @@ RUN eval "$(fnm env --use-on-cd)" && \
 RUN pip3 install shell-gpt
 
 # Install aider: https://github.com/paul-gauthier/aider?tab=readme-ov-file#getting-started
-RUN pip3 install aider-chat 
+RUN pip3 install aider-chat
 
 # Install OPS and Nanos: https://nanos.org/getting_started
 RUN curl https://ops.city/get.sh -sSfL | sh
