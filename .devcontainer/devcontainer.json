@@ -2,11 +2,17 @@
 // https://github.com/microsoft/vscode-dev-containers/tree/v0.241.1/containers/codespaces-linux
 {
   "name": "Default",
-  "build": { "dockerfile": "Dockerfile" },
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "BUILDKIT_INLINE_CACHE": "1"
+    },
+    "platform": "linux/amd64"
+  },
   "mounts": [
     "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind,consistency=cached",
     "source=${localWorkspaceFolder}/.devcontainer/envs,target=/home/me/envs,type=bind,consistency=cached",
-"source=codespaces-linux-var-lib-docker,target=/var/lib/docker,type=volume"
+    "source=codespaces-linux-var-lib-docker,target=/var/lib/docker,type=volume"
   ],
   "forwardPorts": [8888],
   "customizations": {
@@ -22,6 +28,15 @@
       ]
     }
   },
-  "runArgs": ["--privileged", "--hostname", "aesthetic", "--security-opt", "seccomp=unconfined", "--init"],
+  "runArgs": [
+    "--privileged",
+    "--hostname",
+    "aesthetic",
+    "--security-opt",
+    "seccomp=unconfined",
+    "--init",
+//    "--platform",
+//    "linux/amd64"
+  ],
   "postCreateCommand": "fish /entry.fish"
 }
