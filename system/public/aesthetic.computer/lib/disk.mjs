@@ -307,8 +307,6 @@ let storeRetrievalResolution, storeDeletionResolution;
 // There are two instances of Socket that run in parallel...
 let socket, socketStartDelay; // Socket server for each piece.
 
-let chatServer; // Global chat socket server that should stay connected across pieces.
-
 // ❤️‍🔥 TODO: Explose these somehow to the $commonApi.
 
 const chatSystem = {
@@ -337,7 +335,7 @@ function connectToChat() {
       // receive
       if (type === "connected") {
         chatSystem.connecting = false;
-        // console.log("🔌 Connected:", content);
+        console.log("💬 Connected to chat.", content);
         chatSystem.chatterCount = content?.chatters || chatSystem.chatterCount;
         // console.log("💬 Messages so far:", content.messages);
         chatSystem.messages.push(...content.messages);

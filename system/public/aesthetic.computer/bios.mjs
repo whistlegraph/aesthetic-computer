@@ -959,7 +959,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   async function playSfx(id, sound, options, completed) {
     if (audioContext) {
       if (sfxCancel.includes(id)) {
-        console.log(sfxCancel, "cancelling...", id);
+        console.log(sfxCancel, "Cancelling...", id);
         sfxCancel.length = 0;
         return;
       }
@@ -969,6 +969,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //          upon audio activation. This would probably be helpful
       //          in terms of creating a sampler and asynchronously
       //          decoding all the sounds after an initial tap.
+
+      console.log("Sound currently is:", sfx[sound]);
 
       if (sfx[sound] instanceof ArrayBuffer) {
         let audioBuffer;
@@ -981,11 +983,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             sfx[sound] = audioBuffer;
           }
         } catch (err) {
-          // console.error("🔉 Error: ", err, sfx[sound]);
+          console.error("🔉", err, "➡️", sound);
         }
       }
 
       if (sfx[sound] instanceof ArrayBuffer) return;
+      if (!sfx[sound]) {
+        console.log("🔉 No buffer found for:", sound);
+        return;
+      }
+
       // If decoding has failed or no sound is present then silently fail.
 
       // 🌡️ TODO; Performance: Cache these buffers per sound effect in each piece?
@@ -998,6 +1005,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       let source = audioContext.createBufferSource();
       const buffer = sfx[sound];
+
+      console.log("Sound buffer:", buffer);
 
       // Reverse the playback if specified.
       if (options?.reverse) {
@@ -2314,7 +2323,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       sfxKeys.forEach((key) => {
         if (key !== sound) delete sfx[key];
       });
-      if (sfxKeys.length > 0 && logs.audio && debug) console.log("🔉 SFX Cleaned up:", sfx);
+      if (sfxKeys.length > 0 && logs.audio && debug)
+        console.log("🔉 SFX Cleaned up:", sfx);
 
       // Stop any playing samples.
       keys(sfxPlaying).forEach((sfx) => sfxPlaying[sfx].kill());
@@ -3780,6 +3790,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           return response.arrayBuffer();
         })
         .then(async (arrayBuffer) => {
+          console.log("🔉", url, audioContext, arrayBuffer);
           try {
             if (!audioContext) {
               sfx[content] = arrayBuffer;
@@ -3793,7 +3804,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               sfx[content] = audioBuffer;
               send({
                 type: "loaded-sfx-success",
-                content: { url, sfx: content /*buffer: audioBuffer*/ },
+                content: { url, sfx: content },
               });
             }
           } catch (error) {
