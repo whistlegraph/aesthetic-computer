@@ -1,7 +1,9 @@
 #!/usr/bin/env fish
 
-source /home/me/envs/load_envs.fish
-load_envs # Load devcontainer envs conditionally.
+if test -d /home/me/envs
+    source /home/me/envs/load_envs.fish
+    load_envs # Load devcontainer envs conditionally.
+end
 
 set -gx TERM xterm-256color
 
