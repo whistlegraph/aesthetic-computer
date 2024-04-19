@@ -560,7 +560,7 @@ function getWebViewContent(webview: any) {
 				<meta charset="UTF-8">
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://hi.aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; child-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; style-src ${
           webview.cspSource
-        }; script-src 'nonce-${nonce}';">
+        }; script-src 'nonce-${nonce}'; media-src *;">
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				<link href="${styleUri}" rel="stylesheet">
 				<link href="${resetStyleUri}" rel="stylesheet">

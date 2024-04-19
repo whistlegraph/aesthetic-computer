@@ -613,23 +613,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // TODO: Eventually this would be replaced with a more dynamic system.
 
   const backgroundTrackURLs = [
-    "0 - analog multiplication.m4a",
-    "1 - castlecowards.m4a",
-    "2 - epanodos clinamen.m4a",
-    "3 - for not being able.m4a",
-    "4 - pantoum chain rhyme.m4a",
-    "5 - they sit so nicely.m4a",
-    "6 - vociferatings witchbefooled.m4a",
-    "7 - an accuracy which it seems as impossible to attain.m4a",
-    "8 - bivariate beamforming.m4a",
-    "9 - and the three of them began to make.m4a",
-    "10 - or perhaps destroyed.m4a",
-    "11 - sunsmidnought.m4a",
-    "12 - improvements design.m4a",
-    "13 - consideration.m4a",
-    "14 - magellanic clouds.m4a",
-    "15 - syncopation demotic.m4a",
-    "16 - textual criticism ambiguity.m4a",
+    "0 - analog multiplication.ogg",
+    "1 - castlecowards.ogg",
+    "2 - epanodos clinamen.ogg",
+    "3 - for not being able.ogg",
+    "4 - pantoum chain rhyme.ogg",
+    "5 - they sit so nicely.ogg",
+    "6 - vociferatings witchbefooled.ogg",
+    "7 - an accuracy which it seems as impossible to attain.ogg",
+    "8 - bivariate beamforming.ogg",
+    "9 - and the three of them began to make.ogg",
+    "10 - or perhaps destroyed.ogg",
+    "11 - sunsmidnought.ogg",
+    "12 - improvements design.ogg",
+    "13 - consideration.ogg",
+    "14 - magellanic clouds.ogg",
+    "15 - syncopation demotic.ogg",
+    "16 - textual criticism ambiguity.ogg",
   ];
 
   const backgroundMusicEl = document.createElement("audio");
@@ -642,7 +642,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   function playBackgroundMusic(n, volume) {
     if (currentBackgroundTrack !== n && !isNaN(n)) {
-      const origin = "https://bgm.aesthetic.computer/";
+      let origin;
+
+      if (window.production === true) {
+        origin = "https://assets.aesthetic.computer/bgm/";
+      } else {
+        origin = "/assets/bgm/";
+      }
+
       backgroundMusicEl.src = origin + backgroundTrackURLs[n];
       backgroundMusicEl.volume = parseFloat(volume);
       if (audioContext) {
@@ -3777,7 +3784,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       let url;
       if (internal) {
-        url = `/sounds/AeCo_${content}.m4a`;
+        url = `/sounds/AeCo_${content}.ogg`;
         if (window.production === true) {
           url = `https://assets.aesthetic.computer` + url;
         } else {

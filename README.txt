@@ -45,9 +45,11 @@ but technically agnostic. (Choose your aesthetic!)
 - [-] Get `docker` running inside the devcontainer.
 
 - [🧡] Fix `sfx` playback in extension. 
-  - [] Why won't the m4a files decode inside VS Code?
-    - [] Check to see if it works on vscode.dev...
-  - [] Wire up new AeCo sounds.
+  - [x] Convert all sound in the platform to OGG, which works in
+        the vscode extension.
+  - [x] Why won't the m4a files decode inside VS Code?
+    - [x] Check to see if it works on vscode.dev...
+  - [x] Wire up new AeCo sounds.
 
 
 *** aesthetic lisp / s-expression parser and evaluator ***
@@ -152,6 +154,9 @@ but technically agnostic. (Choose your aesthetic!)
   - [] The Ctrl+` shortcut should pass through to the VS Code extension
        (by sending the host a message) which would unfocus it and refocus on either the editor or terminal... perhaps whichever had the focus?
   - [] There should also be a shortcut to focus on AC immediately.
+
+*** desktop app / electron build ***
+  - [] Follow a guide at https://www.electronforge.io.
 
 *** `world` <-> `painting` <-> piece integrations ***
   - [🔴] Joining field and being on the same handle would enter a spectate / take control sort of situation.
