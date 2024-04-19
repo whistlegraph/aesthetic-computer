@@ -130,16 +130,20 @@ class Typeface {
     y += lineNumber * blockHeight;
 
     // Only print the line if it will be visible on screen now...
-    // y axis
-    if (
-      y < -blockHeight * size ||
-      y > $.screen.height ||
-      x > $.screen.width ||
-      x < -w
-    ) {
-      // Offscreen render.
-      return;
-    }
+    // Deprecated because it's incompatible with pan.
+    // TODO: Eventually this could be added but it
+    //       needs to take into account the current panTranslation in graph.
+    // 📔 Or culling should happen further down the line?
+
+    // if (
+    //   y < -blockHeight * size ||
+    //   y > $.screen.height ||
+    //   x > $.screen.width ||
+    //   x < -w
+    // ) {
+    //   // Offscreen render.
+    //   return;
+    // }
 
     const rn = $.inkrn(); // Remember the current ink color.
 
