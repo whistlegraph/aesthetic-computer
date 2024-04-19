@@ -1,5 +1,14 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** regressions ***
+  - [x] Republish chat and session-server.
+  - [x] Redeploy.
+  + Done
+  - [x] Download m4a's in Safari contexts for audio decoding.
+       And oggs everywhere else?
+  - [x] Field chat is now broken for some reason.
+  - [x] Add 'beaner' to chat filter.
+
 - [c] Get `docker` running inside the devcontainer.
       (So that session-server can be published...)
       (Just don't use docker anymore / leave jamsocket behind.)

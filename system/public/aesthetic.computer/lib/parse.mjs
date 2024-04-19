@@ -21,13 +21,22 @@
 function parse(text, location = self?.location) {
   let path, host, params, search, hash;
 
+  console.log("INCOMING TEXT:", text);
+
   // Extract remote path from text if it begins with https and ends with `.mjs`.
   let externalPath;
-  if (text.startsWith("https") && text.endsWith(".mjs")) {
+  if (
+    text.startsWith("https") &&
+    (text.endsWith(".mjs") || text.endsWith(".lisp"))
+  ) {
     const url = new URL(text);
     location = { hostname: url.hostname, port: url.port };
     externalPath = url.pathname.split("/").slice(0, -1).join("/").slice(1);
-    text = text.split("https://")[1].split(".mjs")[0].split("/").pop();
+    text = text
+      .split("https://")[1]
+      .split(/\.mjs|\.lisp/)[0]
+      .split("/")
+      .pop();
   }
 
   // Check for any anon path (begins with $).
@@ -91,6 +100,8 @@ function parse(text, location = self?.location) {
   }
 
   const piece = tokens[0];
+
+  console.log("PARSED PIECE:", piece);
 
   if (handlePiece) {
     // Route the piece to the local `/media/@handle/code/piece-name` path.

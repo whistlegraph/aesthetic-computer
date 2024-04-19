@@ -61,7 +61,7 @@ const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading 
 import { setDebug } from "../disks/common/debug.mjs";
 
 import { customAlphabet } from "../dep/nanoid/nanoid.js";
-import { update } from "./glaze.mjs";
+// import { update } from "./glaze.mjs";
 const alphabet =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const nanoid = customAlphabet(alphabet, 4);
@@ -2634,6 +2634,7 @@ async function load(
       let response, sourceToRun;
       if (fullUrl) {
         // console.log("📥 Loading from url:", fullUrl);
+        // TODO: ❤️‍🔥 Skip URL load attempts if this is a devReload.
         response = await fetch(fullUrl);
         if (response.status === 404) {
           const anonUrl =
@@ -2690,7 +2691,7 @@ async function load(
     try {
       fullUrl = fullUrl.replace(".mjs", ".lisp");
 
-      let response, sourceToRun;
+      let response;
       console.log("📥 Loading from url:", fullUrl);
       response = await fetch(fullUrl);
 
@@ -2708,15 +2709,18 @@ async function load(
         response = await fetch(anonUrl);
         if (response.status === 404) throw new Error("404");
       }
-      sourceToRun = await response.text();
+      sourceCode = await response.text();
 
-      console.log("LISP Source loaded:", sourceToRun);
-      const parsedLisp = lisp.parse(sourceToRun);
-      console.log("Parsed lisp:", parsedLisp);
+      const parsedLisp = lisp.parse(sourceCode);
+      console.log("🐍 Parsed:", parsedLisp);
       const evaluatedLisp = lisp.evaluate(parsedLisp);
-      console.log("Evaluated lisp:", evaluatedLisp);
+      console.log("🐍 Evaluated:", evaluatedLisp);
 
-      // loadedModule = await import(blobUrl);
+      loadedModule = {
+        paint: ({ wipe }) => {
+          wipe("blue").ink("white").write(evaluatedLisp, { center: "xy " });
+        },
+      };
     } catch (err) {
       // 🧨 Continue with current module if one has already loaded.
       console.error(
@@ -2739,7 +2743,6 @@ async function load(
   }
 
   // console.log("Module load time:", performance.now() - moduleLoadTime, module);
-
   // 🧨 Fail out if no module is found.
   if (loadedModule === undefined) {
     loading = false;
@@ -2957,15 +2960,15 @@ async function load(
       }) ||
         (() => {
           // Parse the source for a potential title and description.
-          let title = "",
+          let title = slug,
             desc = "";
           const lines = sourceCode.split("\n");
 
-          if (lines[1].startsWith("//")) {
+          if (lines[1]?.startsWith("//")) {
             title = lines[1].split(",")[0].slice(3).trim();
           }
 
-          if (lines[2].startsWith("//")) desc = lines[2].slice(3).trim();
+          if (lines[2]?.startsWith("//")) desc = lines[2].slice(3).trim();
 
           return { title, desc };
         })(),

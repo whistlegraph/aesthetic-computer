@@ -5,37 +5,100 @@
 // (+ 4 5 5)
 // (* (+ 2 3) (- 4 1))
 
-// Define the environment with some basic arithmetic functions
-const global = {
-  '+': (args) => args.reduce((a, b) => a + b, 0),
-  '-': (args) => args.reduce((a, b) => a - b),
-  '*': (args) => args.reduce((a, b) => a * b, 1),
-  '/': (args) => args.reduce((a, b) => a / b),
-};
+function tokenize(input) {
+  let tokens = [];
+  let currentToken = "";
+  let inNumber = false; // Flag to track if we're currently reading a number
 
-// Parse S-expression into a nested array AST.
-function parse(expr) {
-  return JSON.parse(expr.replace(/\(/g, '[').replace(/\)/g, ']'));
+  for (let char of input) {
+    if (char === "(" || char === ")") {
+      // If the character is a parenthesis, add the current token and the parenthesis to tokens
+      if (currentToken) {
+        tokens.push(currentToken);
+        currentToken = "";
+      }
+      tokens.push(char);
+      inNumber = false; // Reset number flag
+    } else if (/\s/.test(char)) {
+      // If the character is whitespace, add the current token to tokens
+      if (currentToken) {
+        tokens.push(currentToken);
+        currentToken = "";
+      }
+      inNumber = false; // Reset number flag
+    } else if (/\d/.test(char) || (char === "." && inNumber)) {
+      // If the character is a digit or a decimal point in a number, add to currentToken
+      currentToken += char;
+      inNumber = true; // Set number flag
+    } else {
+      // Otherwise, handle it as part of a symbol or operator
+      if (inNumber) {
+        tokens.push(currentToken);
+        currentToken = "";
+      }
+      currentToken += char;
+      inNumber = false; // Reset number flag
+    }
+  }
+  if (currentToken) {
+    tokens.push(currentToken);
+  }
+  return tokens;
 }
 
-// Evaluate the parsed expression
-function evaluate(expr, environment = global) {
-  if (typeof expr === 'number') {
-    // If it's a number, return it directly
-    return expr;
-  } else if (typeof expr === 'string') {
-    // If it's a variable (identifier), get its value from the environment
-    return environment[expr];
+function readFromTokens(tokens) {
+  if (tokens.length === 0) {
+    throw new SyntaxError("Unexpected EOF while reading");
+  }
+  let token = tokens.shift();
+  if (token === "(") {
+    let L = [];
+    while (tokens[0] !== ")") {
+      L.push(readFromTokens(tokens));
+    }
+    tokens.shift(); // remove ')'
+    return L;
+  } else if (token === ")") {
+    throw new SyntaxError("Unexpected )");
   } else {
-    // Otherwise, it's a list (function application)
-    const [operator, ...args] = expr;
-    const func = environment[operator];
-    const evaledArgs = args.map(arg => evaluate(arg, environment));
-    return apply(func, evaledArgs);
+    return atom(token);
   }
 }
 
-// Apply the function to the evaluated arguments
-function apply(func, args) { return func(args); }
+function atom(token) {
+  if (isNumeric(token)) {
+    return parseFloat(token);
+  } else {
+    return token; // Return the token as a string if it's not numeric
+  }
+}
+
+function isNumeric(str) {
+  return !isNaN(str) && !isNaN(parseFloat(str));
+}
+
+function parse(program) {
+  return readFromTokens(tokenize(program));
+}
+
+const globalEnv = {
+  "+": (args) => args.reduce((a, b) => a + b, 0),
+  "-": (args) => args.reduce((a, b) => a - b),
+  "*": (args) => args.reduce((a, b) => a * b, 1),
+  "/": (args) => args.reduce((a, b) => a / b),
+};
+
+function evaluate(expr, env = globalEnv) {
+  if (typeof expr === "number") {
+    return expr;
+  } else if (typeof expr === "string") {
+    return env[expr];
+  } else {
+    const [operator, ...args] = expr;
+    const func = env[operator];
+    const evaledArgs = args.map((arg) => evaluate(arg, env));
+    return func(evaledArgs);
+  }
+}
 
 export { parse, evaluate };
