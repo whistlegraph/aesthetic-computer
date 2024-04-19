@@ -46,7 +46,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
     && git clone https://github.com/vi/websocat.git \
     && cd websocat \
     && cargo build --release \
-    && cp target/release/websocat /usr/local/bin/
+    && sudo cp target/release/websocat /usr/local/bin/
 
 # Install fnm
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "/home/me/.fnm" --skip-shell
