@@ -42,19 +42,17 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** regressions ***
-  - [] Republish chat and session-server.
-  - [] Redeploy.
-  + Done
-  - [x] Download m4a's in Safari contexts for audio decoding.
-       And oggs everywhere else?
-  - [x] Field chat is now broken for some reason.
-  - [x] Add 'beaner' to chat filter.
-
 *** aesthetic lisp / s-expression parser and evaluator ***
-  - [-] Make a source .lisp file in `disks`.
-  - [-] Make a lisp.mjs file that exports a parser.
-  - [] Read the file in as a piece in load in side `disk.mjs`.
+  - [-] Write s-expressions directly in the prompt if
+        the input begins with a parenthesis / produce
+        a dynamic disk / run existing lisp code through
+        `load`. 
+  - [] Refactor `load` to be more efficient to support this.
+  - [] Hook into the graph API somehow!
+  + Done
+  - [x] Make a source .lisp file in `disks`.
+  - [x] Make a lisp.mjs file that exports a parser.
+  - [x] Read the file in as a piece in load in side `disk.mjs`.
 
   - [] "piece"
   - [] bracelet
