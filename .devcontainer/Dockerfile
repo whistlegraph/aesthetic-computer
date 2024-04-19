@@ -8,6 +8,10 @@ RUN dnf install -y qemu-kvm qemu-img
 RUN dnf install -y openssl openssl-devel awscli redis
 RUN dnf install -y dnf-plugins-core
 
+# Install 'docker'
+RUN sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+RUN dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
 # Add 'me' user.
 RUN useradd -m me && \
     # Optional: Set password for the user (replace 'password' with your desired password)

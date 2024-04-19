@@ -1,5 +1,16 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+- [c] Get `docker` running inside the devcontainer.
+      (So that session-server can be published...)
+      (Just don't use docker anymore / leave jamsocket behind.)
+
+- [🧡] Fix `sfx` playback in extension. 
+  - [x] Convert all sound in the platform to OGG, which works in
+        the vscode extension.
+  - [x] Why won't the m4a files decode inside VS Code?
+    - [x] Check to see if it works on vscode.dev...
+  - [x] Wire up new AeCo sounds.
+
 *** local devcontainer support ***
   + Done 
   - [x] Get platform running locally.

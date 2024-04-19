@@ -42,19 +42,9 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-- [-] Get `docker` running inside the devcontainer.
-
-- [🧡] Fix `sfx` playback in extension. 
-  - [x] Convert all sound in the platform to OGG, which works in
-        the vscode extension.
-  - [x] Why won't the m4a files decode inside VS Code?
-    - [x] Check to see if it works on vscode.dev...
-  - [x] Wire up new AeCo sounds.
-
-
 *** aesthetic lisp / s-expression parser and evaluator ***
-  - [] Make a source .lisp file in `disks`.
-  - [] Make a lisp.mjs file that exports a parser.
+  - [-] Make a source .lisp file in `disks`.
+  - [-] Make a lisp.mjs file that exports a parser.
   - [] Read the file in as a piece in load in side `disk.mjs`.
 
   - [] "piece"
@@ -73,7 +63,6 @@ but technically agnostic. (Choose your aesthetic!)
       `export const smoothing = "curve"`
 
 *** chat ***
-  - [-] Add message sounds.
   - [] Notification rollup.
   - [🟠] Get the chat integration in `line` and `rect` and other brushes
        to be an interactive pop-up.
@@ -114,6 +103,7 @@ but technically agnostic. (Choose your aesthetic!)
        (Just make the text fully synchronized for now.)
   - [] Make a new "notification type" for chat and add it into an iOS app update.
   + Done
+  - [x] Add message sounds.
   - [x] Only render lines of text that appear inside the margin.
   - [x] Keyboard does not reactivate / open after tapping corner word.
   - [x] Show the user's handle in corner if it exists.
@@ -154,6 +144,11 @@ but technically agnostic. (Choose your aesthetic!)
   - [] The Ctrl+` shortcut should pass through to the VS Code extension
        (by sending the host a message) which would unfocus it and refocus on either the editor or terminal... perhaps whichever had the focus?
   - [] There should also be a shortcut to focus on AC immediately.
+
+** piece authoring helpers ***
+  - [] make an `icon` piece where you can `icon prompt` or `icon anything` to 
+       preview the icon for a piece. 
+  - [] (do the same for `preview` for preview images) 
 
 *** desktop app / electron build ***
   - [] Follow a guide at https://www.electronforge.io.
@@ -212,6 +207,11 @@ but technically agnostic. (Choose your aesthetic!)
        (This should enable more immersive development / help with monitoring.)
        - 📆 In a week
        (https://github.com/microsoft/vscode/issues/208790)
+
+- [-] Auth is messed up in the VSCode extension. 
+  - [] Potentially when switching between Local Development mode and
+       production.
+  - [-] In general after logging out, one appears to stay logged in?
 
 *** sean meeting w/ ida ***
   - [] system update notification feed
