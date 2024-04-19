@@ -42,8 +42,13 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
+- [-] Get `docker` running inside the devcontainer.
+
 - [🧡] Fix `sfx` playback in extension. 
+  - [] Why won't the m4a files decode inside VS Code?
+    - [] Check to see if it works on vscode.dev...
   - [] Wire up new AeCo sounds.
+
 
 *** aesthetic lisp / s-expression parser and evaluator ***
   - [] Make a source .lisp file in `disks`.
