@@ -12,10 +12,17 @@ import {
   englishDataset,
   englishRecommendedTransformers,
   DataSet,
+  pattern,
 } from "obscenity";
 
-const aestheticDataset = new DataSet().addAll(englishDataset);
-//.removePhrasesIf((phrase) => phrase.metadata.originalWord === "bitch");
+const aestheticDataset = new DataSet()
+  .addAll(englishDataset)
+  .addPhrase((phrase) =>
+    phrase
+      .setMetadata({ originalWord: "beaner" })
+      .addPattern(pattern`bean er`)
+      .addPattern(pattern`beaner`),
+  );
 
 const matcher = new RegExpMatcher({
   ...aestheticDataset.build(),
@@ -32,7 +39,8 @@ export function filter(text) {
     const matches = matcher.getAllMatches(text, true);
     for (const match of matches) {
       // console.log("🧨 Match:", match);
-      const phraseMetadata = englishDataset.getPayloadWithPhraseMetadata(match);
+      const phraseMetadata =
+        aestheticDataset.getPayloadWithPhraseMetadata(match);
       // console.log("🧨 Match details:", phraseMetadata);
       let { startIndex: start, endIndex: end } = phraseMetadata;
       // Extend end index to the next space or the end of the string

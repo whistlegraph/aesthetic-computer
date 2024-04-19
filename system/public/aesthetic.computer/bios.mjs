@@ -18,6 +18,7 @@ import {
   iOS,
   Android,
   TikTok,
+  Safari,
   Aesthetic,
   AestheticExtension,
 } from "./lib/platform.mjs";
@@ -613,23 +614,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // TODO: Eventually this would be replaced with a more dynamic system.
 
   const backgroundTrackURLs = [
-    "0 - analog multiplication.ogg",
-    "1 - castlecowards.ogg",
-    "2 - epanodos clinamen.ogg",
-    "3 - for not being able.ogg",
-    "4 - pantoum chain rhyme.ogg",
-    "5 - they sit so nicely.ogg",
-    "6 - vociferatings witchbefooled.ogg",
-    "7 - an accuracy which it seems as impossible to attain.ogg",
-    "8 - bivariate beamforming.ogg",
-    "9 - and the three of them began to make.ogg",
-    "10 - or perhaps destroyed.ogg",
-    "11 - sunsmidnought.ogg",
-    "12 - improvements design.ogg",
-    "13 - consideration.ogg",
-    "14 - magellanic clouds.ogg",
-    "15 - syncopation demotic.ogg",
-    "16 - textual criticism ambiguity.ogg",
+    "0 - analog multiplication",
+    "1 - castlecowards",
+    "2 - epanodos clinamen",
+    "3 - for not being able",
+    "4 - pantoum chain rhyme",
+    "5 - they sit so nicely",
+    "6 - vociferatings witchbefooled",
+    "7 - an accuracy which it seems as impossible to attain",
+    "8 - bivariate beamforming",
+    "9 - and the three of them began to make",
+    "10 - or perhaps destroyed",
+    "11 - sunsmidnought",
+    "12 - improvements design",
+    "13 - consideration",
+    "14 - magellanic clouds",
+    "15 - syncopation demotic",
+    "16 - textual criticism ambiguity",
   ];
 
   const backgroundMusicEl = document.createElement("audio");
@@ -650,7 +651,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         origin = "/assets/bgm/";
       }
 
-      backgroundMusicEl.src = origin + backgroundTrackURLs[n];
+      const ext = Safari ? "m4a" :"ogg";
+      backgroundMusicEl.src = origin + backgroundTrackURLs[n] + "." + ext;
       backgroundMusicEl.volume = parseFloat(volume);
       if (audioContext) {
         backgroundMusicEl.play();
@@ -3780,7 +3782,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       let url;
       if (internal) {
-        url = `/sounds/AeCo_${content}.ogg`;
+        const ext = Safari ? "m4a" :"ogg";
+        url = `/sounds/AeCo_${content}.${ext}`;
         if (window.production === true) {
           url = `https://assets.aesthetic.computer` + url;
         } else {

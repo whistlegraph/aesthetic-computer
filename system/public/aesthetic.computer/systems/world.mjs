@@ -298,7 +298,7 @@ async function world_boot(
     }
 
     if (type === `world:${piece}:write`) {
-      console.log("Write message received from:", id, server.id);
+      console.log("🪧 Write from:", id, "You:", server.id, "Text:", content);
       if (id === server.id) {
         me.write(content);
         return;

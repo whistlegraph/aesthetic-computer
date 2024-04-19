@@ -1688,7 +1688,7 @@ async function session(slug, forceProduction = false, service) {
         };
         const color = colors[update.state] || "🔵";
 
-        if (update.state === 'Ready') {
+        if (update.state === "Ready") {
           console.log(color + `\`${slug}\` Backend:`, update.state);
         }
 
@@ -2185,6 +2185,8 @@ class Painting {
   api = {};
   inkrn;
 
+  // panrn; // In order for this feature to work, translation needs to be stored outside of graph / captured differently?
+
   constructor() {
     Object.assign(this.api, $paintApi);
     const p = this;
@@ -2194,6 +2196,7 @@ class Painting {
 
     p.inkrn = graph.c.slice(); // Init global state machine read-outs.
     p.pagern = graph.getBuffer();
+    // p.panrn = graph.getPan();
 
     // Filter for and then wrap every rendering behavior of $paintApi into a
     // system to be deferred in groups, using layer.
@@ -2256,6 +2259,9 @@ class Painting {
     };
 
     this.api.inkrn = () => this.inkrn; // Return current ink color.
+
+    // this.api.panrn = graph.getPan; // Return current panTranslation.
+
     this.api.pagern = () => this.pagern; // Return current page buffer.
 
     // This links to abstract, solitary graph functions that do not need
