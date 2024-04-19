@@ -9,7 +9,7 @@ export const logs = {
   session: true, // Socket session.
   udp: false, // UDP message logs.
   download: false, // Download progress, etc. (JSON)
-  audio: true,
+  audio: false,
   hid: false, // Keyboard, Pen, etc.
   painting: false, // System wallpaper / paint related logs.
   glaze: false,

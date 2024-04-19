@@ -62,7 +62,7 @@ async function boot({
 
   // 🥅 Preload messageReceived sound.
   net
-    .preload("compkey")
+    .preload("chat_1")
     .then((sfx) => (messageSfx = sfx))
     .catch((err) => console.warn("Could not preload:", err)); // and key sounds.
 
@@ -95,7 +95,6 @@ async function boot({
 
     if (type === "message") {
       const msg = content; // Pre-transformed and stored.
-      console.log("💬 Chat message received:", msg);
       msg.fullMessage = msg.handle + " " + msg.text;
       msg.tb = text.box(
         msg.fullMessage,
@@ -105,9 +104,6 @@ async function boot({
         true,
       );
       totalScrollHeight += msg.tb.lines.length * lineHeight;
-      // chat.messages.push(msg);
-      // TODO: Play sound...
-      console.log(sound);
       sound.play(messageSfx);
       return;
     }

@@ -1390,7 +1390,7 @@ function box() {
         box(x, y, w, h); // Just fill the box if the inline is too big.
       }
     }
-  } else if (mode === "fill") {
+  } else if (mode === "fill" || mode === "") {
     // TODO: The boxes could be cropped to always fit inside the screen here.
     w -= 1;
     if (sign(height) === 1) {
