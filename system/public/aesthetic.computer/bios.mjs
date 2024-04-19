@@ -977,8 +977,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //          in terms of creating a sampler and asynchronously
       //          decoding all the sounds after an initial tap.
 
-      console.log("Sound currently is:", sfx[sound]);
-
       if (sfx[sound] instanceof ArrayBuffer) {
         let audioBuffer;
         try {
@@ -1012,8 +1010,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       let source = audioContext.createBufferSource();
       const buffer = sfx[sound];
-
-      console.log("Sound buffer:", buffer);
 
       // Reverse the playback if specified.
       if (options?.reverse) {
@@ -3797,7 +3793,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           return response.arrayBuffer();
         })
         .then(async (arrayBuffer) => {
-          console.log("🔉", url, audioContext, arrayBuffer);
+          // console.log("🔉", url, audioContext, arrayBuffer);
           try {
             if (!audioContext) {
               sfx[content] = arrayBuffer;

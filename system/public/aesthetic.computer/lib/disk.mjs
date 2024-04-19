@@ -97,8 +97,9 @@ const defaults = {
   preview: ({ wipe, slug }) => {
     wipe(64).ink(255).write(slug, { center: "xy", size: 1 });
   },
-  icon: ({ glaze, wipe }) => {
+  icon: ({ glaze, wipe, screen }) => {
     glaze({ on: false });
+    console.log(screen.width, screen.height);
     wipe(70, 50, 100)
       .ink(200, 30, 100)
       .box(screen.width / 2, screen.height / 2, 48, 72, "*center");
@@ -335,7 +336,7 @@ function connectToChat() {
       // receive
       if (type === "connected") {
         chatSystem.connecting = false;
-        console.log("💬 Connected to chat.", content);
+        console.log("💬 Connected to chat.");
         chatSystem.chatterCount = content?.chatters || chatSystem.chatterCount;
         // console.log("💬 Messages so far:", content.messages);
         chatSystem.messages.push(...content.messages);
@@ -344,7 +345,7 @@ function connectToChat() {
 
       if (type === "unauthorized") {
         console.log("🔴 Chat message unauthorized!", content);
-        notice("Unauthorized", ["red", "yellow"]);
+        $commonApi.notice("Unauthorized", ["red", "yellow"]);
       }
 
       if (type === "message") {
@@ -1686,7 +1687,10 @@ async function session(slug, forceProduction = false, service) {
           Starting: "🟡",
         };
         const color = colors[update.state] || "🔵";
-        console.log(color + " Backend:", update.state);
+
+        if (update.state === 'Ready') {
+          console.log(color + `\`${slug}\` Backend:`, update.state);
+        }
 
         if (update.state === "Loading") {
           currentHUDStatusColor = "red";

@@ -552,6 +552,8 @@ function getWebViewContent(webview: any) {
       const base64EncodedSession = btoa(JSON.stringify(session));
       param = "?session=" + encodeURIComponent(base64EncodedSession);
     }
+  } else {
+    // param = "?clearSession=true"; Probably never needed.
   }
 
   return `<!DOCTYPE html>
