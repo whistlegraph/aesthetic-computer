@@ -3126,6 +3126,7 @@ async function load(
     } else if (
       extension === "m4a" ||
       extension === "ogg" ||
+      extension === "webm" ||
       extension === "wav" ||
       extension === "mp3"
     ) {
