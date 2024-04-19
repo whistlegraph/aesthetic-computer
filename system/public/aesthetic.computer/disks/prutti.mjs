@@ -26,7 +26,7 @@ const lessons = [
 
     ______Just as K-omputer hacking was inteligent and realativly harmless to begin whit,  it is now a days turned into only being about getting money out of old and lesser informed on-liner's - The Academic identity hacking and story building people use today could be said to share the same faith ((—- maybe?? —)) At least almost all Scandinavien academics only research in fields they are payed in Capital to researh and people in the needs of power ar desperate to build new world views and history's to fit into … just look at teh Balkan changes over the last 30 years for another example - and I guess it is more or less the same anywere else… Butthen agian  this is only some Celtic fantasy thought's - they have no relevance now, but give them a few years…
 
-    [the_prut_is_old_01.m4a]
+    [the_prut_is_old_01.ogg]
     `,
     pictures: ["lnl1"],
     sounds: ["the_prut_is_old_01"],
@@ -48,7 +48,7 @@ const lessons = [
 
     https://www.youtube.com/watch?v=GhIhJ8w4e2U
 
-    [carl_signe_is_prut_02.m4a]
+    [carl_signe_is_prut_02.ogg]
     `,
     pictures: ["lnl2-1", "lnl2-2"],
     sounds: ["carl_signe_is_prut_02"],
@@ -75,7 +75,7 @@ const lessons = [
     - 3 X Play
     - 6 X Father's
 
-    [bananskolen_was_prut_03.m4a]
+    [bananskolen_was_prut_03.ogg]
     `,
     pictures: ["lnl3"],
     sounds: ["bananskolen_was_prut_03"],
@@ -111,7 +111,7 @@ const lessons = [
     ——————————————————————————  
     who arkived it?
 
-    [acid.talk_and_forest.folk_04.m4a]
+    [acid.talk_and_forest.folk_04.ogg]
     `,
     pictures: ["lnl4"],
     sounds: ["acid.talk_and_forest.folk_04"],
@@ -127,7 +127,7 @@ const lessons = [
     Mike Burrows, just joined the Guild the Viking Klokkers
     ————————————————
 
-    [fuck_politikens_boghandel_05.m4a]
+    [fuck_politikens_boghandel_05.ogg]
     `,
     pictures: ["lnl5"],
     sounds: ["fuck_politikens_boghandel_05"],
@@ -138,7 +138,7 @@ const lessons = [
     text: `
     & Fansy political ideas is all the same - just power structures waiting to be put into place... — well educated Euro's who jumps on a fashionable idea.. and talk to a lower class in order to highen them to another >>mille plateaux<<- But fails to interact whit the class whit's way of life the well educated Euro's certainly can't stand.. Just Like the fishers living in Vorupør and the bikers who en·gaged in a fight of 300 people around 30 years ago in that little town -  and the white institutional overclass only had silence as a comment - since silence is the way that intelectualisem deals whit ideas it dos not like... = silence is wrong & conceptual high modernism was a dead - NO it is / was not!
 
-    [still_to0_old_to_cold_at_the_age_of_silence_06.m4a]
+    [still_to0_old_to_cold_at_the_age_of_silence_06.ogg]
     `,
     pictures: ["lnl6"],
     sounds: ["still_to0_old_to_cold_at_the_age_of_silence_06"],
@@ -153,7 +153,7 @@ const lessons = [
     call me up as: We are the Viking KLOKKERS—
     <Rainbow>
     ———————————————
-    [nothing_to_prove_so_Call_Me_Maybe_07.m4a]
+    [nothing_to_prove_so_Call_Me_Maybe_07.ogg]
     `,
     pictures: ["lnl7"],
     sounds: ["nothing_to_prove_so_Call_Me_Maybe_07"],
@@ -175,7 +175,7 @@ const lessons = [
     we are the Viking Klokkers - we are the Viking Klokkers
 
 
-    [rip_angel_simon_was_a_man_became_a_woman_became_a_man_08.m4a]
+    [rip_angel_simon_was_a_man_became_a_woman_became_a_man_08.ogg]
     `,
     pictures: ["lnl8"],
     sounds: ["rip_angel_simon_was_a_man_became_a_woman_became_a_man_08"],
@@ -191,7 +191,7 @@ const lessons = [
     Dungeon & Draogns cost-play and (gay) culture > Industrial - revesed signals culture > Cyber Punk > Internet > Tekno  > Global Village Dreams > Social Media & web 2.0  > The curret Politcal Art-scene…
 
     and that current art-scene would never accept a man·ly Dungeon & Dragons cost-play picture like this:
-    [never_call-me_by_the_name_kristian_09.m4a]
+    [never_call-me_by_the_name_kristian_09.ogg]
     `,
     pictures: ["lnl9"],
     sounds: ["never_call-me_by_the_name_kristian_09"],
@@ -205,13 +205,13 @@ const lessons = [
 
     We are the Viking Klokkers have trust a old goodiepal'ium
 
-    [limerick_you_are_pyramide_lady_10.m4a]
+    [limerick_you_are_pyramide_lady_10.ogg]
     `,
     pictures: ["lnl10"],
     sounds: ["limerick_you_are_pyramide_lady_10"],
   },
   {
-    title: "Lesson NOT Learnt 11 - what punk is not about.m4a",
+    title: "Lesson NOT Learnt 11 - what punk is not about.ogg",
     text: `[listen 2 the audio...]`,
     sounds: ["what punk is not about"],
   },
@@ -241,7 +241,7 @@ const lessons = [
 
     now that should be all... //////// -- come join the guild of the viking klokkers... & lsiten to: The Franciscan Hobbies
 
-    [12_dollars_no_thanks.m4a]
+    [12_dollars_no_thanks.ogg]
     `,
     pictures: ["lnl12"],
     sounds: ["12_dollars_no_thanks"],
@@ -261,7 +261,7 @@ const lessons = [
 
     0 - ROTOR's —0 ROTOR's - 0 - ROTOR's - - 0 - ROTOR's - 0
 
-    [13_keeping_the_tekno_rock_oath.m4a]
+    [13_keeping_the_tekno_rock_oath.ogg]
     `,
     pictures: ["lnl13-1", "lnl13-2", "lnl13-3"],
     sounds: ["13_keeping_the_tekno_rock_oath"],
@@ -277,7 +277,7 @@ const lessons = [
     NOW back to: ms. DALSENG = When you meet the BEST, you should always UPDATE, whit-out destroy'ing the work, —— & by doing so taking the art and the life of the artist into your heart - - - You know that people actually did this for the first 3 - 4 seconds of social media web—2.0 before the distribution of ideas - was eschewed and replaced w. self-promotion & identity bla. bla. bla.
     I will try to still be all about distro, — like Atlantic- I got them works flyin- '-aesthetic computer'ly-' -cross the Atlantic (Woo!)  & -00- LOOK the DALSENG-work  is though it may seem strange, even better now, but no NOT for me flagging it up, no no = simply for context-flipping it - embrace: Stanley Brouwn
 
-    [14_let_them_files_fly.m4a]
+    [14_let_them_files_fly.ogg]
     `,
     pictures: ["lnl14-1", "lnl14-2", "lnl14-3"],
     sounds: ["14_let_them_files_fly"],
@@ -285,7 +285,7 @@ const lessons = [
   {
     title: "Lesson NOT Learnt 15 - The Drug of WAR destroys EVERYTHING!",
     text: `
-    [under the drugs belvie me.m4a]
+    [under the drugs belvie me.ogg]
 
     §§ Ohh Prutti, §§ Ohh Pruttipal - this is the Kitchi-Man >' Vladimir Obradovic ' … The picture is a 1990's sel-fi - from when he was young & full of MTV-music knowledge & dreams… — —- §§ ohh young prutti, ohh young prutti  §§ > the Yugoslav Wars was hard on the Kitchi-Man, he never fully recovered - - the WAR-drug destroy's EVERYTHING, war-info-drugs destroy's all there is good - but I will carry Vladimir, in my heart and will forever sing his unwritten & unfinished songs - no further info is needed there...
     `,
@@ -298,7 +298,7 @@ const lessons = [
     .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. 
     o0OoO0o Owls & BLACK fanthom helicopters = as replacement memory, Damascus steel & viking hands - for the viking times, when it is just around viking o’ klok — the guild of the Viking klo0OoO0okkers
     .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. 
-    [16_damask_dials_and_replacement_memory.m4a]
+    [16_damask_dials_and_replacement_memory.ogg]
     `,
     pictures: ["lnl16-1", "lnl16-2"],
     sounds: ["16_damask_dials_and_replacement_memory"],
@@ -310,7 +310,7 @@ const lessons = [
     
     I enjoy the act of painting bicykle's in the rain - BUT now > back to watch-making ... take a look at the unfinished experiments w. Damascus dial's here // - let nature - o0OoO0o rpl-memory and black phantom helicopters o0OoO0o - take part in your craft-making >--- what comes from the outside is often much better, then what come's from the inside - the outside world is THE real inside 'YES' & this unfinished dial's are the real irdial's - Me·chan·ics and interruption from nature is what's usually missing in the digital art's --- NOW go get a skeletonized pocket watch my friend, - - - they come fancy and they come cheap, BUT get 1 and start to think of civilization vs. nature - until you fall asleep…
 
-    [17_get_out.m4a]
+    [17_get_out.ogg]
     `,
     pictures: ["lnl17-1", "lnl17-2"],
     sounds: ["17_get_out"],
@@ -325,7 +325,7 @@ const lessons = [
     Ohh do you know the reason for this tintinnabulation - ? ? ? - §IT IS because§ —Stanley Brouwn— just joined: the GUILD of the viking KLOKKER's
     ………………§……….§……….§……….§:……..§:………………………………..
 
-    [v-lars.m4a]
+    [v-lars.ogg]
     `,
     pictures: ["lnl18"],
     sounds: ["v-lars"],
@@ -333,7 +333,7 @@ const lessons = [
   {
     title: "Lesson NOT Learnt 19 - 50 years - Energy & why Aesthetic.computer?",
     text: `
-    [robotic.m4a]
+    [robotic.ogg]
     -…————…………….. 
     ***************************
     *_JUST STOP OIL_*
@@ -360,7 +360,7 @@ const lessons = [
     000 §§§ — if you do not have a house, then never should you have more things then, what you can store-away unnoticed in a middle-sized Euro-art-gallery -  
     Today SO much SPACE is used in handling and storing art - & Since the cost of living is getting higher and higher in most places - t.t.to hide your belongings among museum & gallery-things might not be a bad idea… — §§§ 000
 
-    [20_always_on_the_move.m4a]
+    [20_always_on_the_move.ogg]
     `,
     pictures: ["lnl20"],
     sounds: ["20_always_on_the_move"],
@@ -374,7 +374,7 @@ const lessons = [
     ingen tid - Ingen saaar 
     WARNING - to not listen to this mu-sick, as it is a NO GO!
 
-    [ingen tid - ingen mandolin.m4a]
+    [ingen tid - ingen mandolin.ogg]
     `,
     pictures: ["lnl21"],
     sounds: ["ingen tid - ingen mandolin"],
@@ -387,7 +387,7 @@ const lessons = [
     ——————————————————————————————————
     good song, good for you… 
     ——————————————————————————————————
-    [ingen tid - ingen saaar.m4a]
+    [ingen tid - ingen saaar.ogg]
     `,
     pictures: ["lnl22-1", "lnl22-2", "lnl22-3"],
     sounds: ["ingen tid - ingen saaar"],
@@ -400,7 +400,7 @@ const lessons = [
     ——————————————————————————————————
     Welcome - please do not listen…
 
-    [life is mandolin.m4a]
+    [life is mandolin.ogg]
     `,
     pictures: ["lnl23"],
     sounds: ["life is mandolin"],
@@ -455,7 +455,7 @@ const lessons = [
     text: `
     ———————————————
     ANGEL's mandolin-ium bum BuM
-    [angel mandolinur.m4a]
+    [angel mandolinur.ogg]
     `,
     pictures: ["lnl27"],
     sounds: ["angel mandolinur"],
@@ -465,7 +465,7 @@ const lessons = [
     text: `
     ———————————————-
     ANGEL EYES for angel's in the sky & angel's under the sea. . .
-    [angel eyes.m4a]
+    [angel eyes.ogg]
     `,
     pictures: ["lnl28"],
     sounds: ["angel eyes"],
@@ -484,7 +484,7 @@ const lessons = [
     - ANGEL EYE's - ANGEL EYE's - ANGEL EYE's - ANGEL EYE's -
     ^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?
 
-    [new recording 16.m4a]
+    [new recording 16.ogg]
     `,
     pictures: ["lnl29"],
     sounds: ["new recording 16"],
@@ -498,7 +498,7 @@ const lessons = [
     En*Kat*Kat*Kat —som— er en*Kat*Kat*Kat —som—er en*Kat*Kat*Kat —som— er en* ——WAW—— Mandolin'er version
     ^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?'
   
-    [i love you kat - mandolin.m4a]
+    [i love you kat - mandolin.ogg]
     `,
     pictures: ["lnl30-1", "lnl30-2"],
     sounds: ["i love you kat - mandolin"],
@@ -514,7 +514,7 @@ const lessons = [
     I still travel to places and record music with the young ones, to learn about passion-living art's-&-tech - people think that I make this super advanced music or musical-ideas, but in reality- I just help-out, listen-in and try to make things better-  whatever that means... since I was young and until today I have alway's just done so, because even after all this years i am still just: Pruttipal - 
     *_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:
 
-    [i love you pop.m4a]
+    [i love you pop.ogg]
     `,
     pictures: ["lnl31-1", "lnl31-2"],
     sounds: ["i love you pop"],
@@ -544,7 +544,7 @@ const lessons = [
     now last-early evening I was going on my bicikel, downtown Torshavn, and there behind a interactive-Bus-info-map, was 3 lusty road poles engaing in xxx-activities, and I was just thinking that at my AGE, there is Not much to be seen, or for some poeple to much to be seen? ? — But maybe I should make some content, looking at a BEAR-like me, would be for the few, YES only for the people with the most distinct and perverted sexual DREAMS, — AND there should be something for them as well, ROAD POLES and OLD BEAR's - uhhh so perverted you are Pruttipal'ur… - WELL you just hit START in your head and, you will never come back…
     ———————————————
 
-    [33_freaky_ts.m4a]
+    [33_freaky_ts.ogg]
     `,
     pictures: ["lnl33"],
     sounds: ["33_freaky_ts"],
@@ -556,7 +556,7 @@ const lessons = [
 
     Glitch Feminism §§ init ding §§ Glitch Studies Manifesto - || beyond resolution §§ Ten Minute Painting & maybe just maybe my lanscape paintings in my book: El Camino del Hardcore  rejsen TIL nordens INDRE! §§ ohh and everything  by: Yaloopop §§ — $$ N.B. When the academy's joined the fun was over real Glitchie's should never go for the PHD!
 
-    [nice dvvvvice and glitch.m4a]
+    [nice dvvvvice and glitch.ogg]
     `,
     pictures: ["lnl34"],
     sounds: ["nice dvvvvice and glitch"],
@@ -581,7 +581,7 @@ const lessons = [
 
     <<< …. & raD >>> <<< Pict's …. & raD >>> <<< …. & raD >>> <<< …. & raD >>> <<<  Pict's …. & raD >>> <<< …. & raD >>> <<< Pict's …. & raD >>> 
 
-    [pictish_dsc_str.m4a]
+    [pictish_dsc_str.ogg]
     `,
     pictures: ["lnl35-1", "lnl35-2", "lnl35-3"],
     sounds: ["pictish_dsc_str"],
@@ -601,7 +601,7 @@ const lessons = [
 
     —JUST LIKe THaT—be kind to the world's- it all come's back around… A Key 2.snd Eurobot distro...
 
-    [snakkende_shadow_d0nni.m4a]
+    [snakkende_shadow_d0nni.ogg]
     `,
     pictures: ["lnl36-1", "lnl36-2"],
     sounds: ["snakkende_shadow_d0nni"],
@@ -614,7 +614,7 @@ const lessons = [
     take notes of almost everything… — but not all… 
     Trust: din Nisse - Trust: THE GUILD OF THE VIKIGN klokker's
 
-    [09_distribution-manfler.m4a]
+    [09_distribution-manfler.ogg]
     `,
     pictures: ["lnl37"],
     sounds: ["09_distribution-manfler"],
@@ -634,7 +634,7 @@ const lessons = [
 
     V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars-V-Lars
    
-    [dsj.m4a]
+    [dsj.ogg]
     `,
     pictures: ["lnl38-1", "lnl38-2"],
     sounds: ["dsj"],
@@ -649,7 +649,7 @@ const lessons = [
     it takes 9 GOODIEBAGS to form 9 demonbags §_§_
     -come, come & join the guild of the viking klokkers!
 
-    [41_telemeterskive_Soap_Bubble_Fever_birthday.m4a]
+    [41_telemeterskive_Soap_Bubble_Fever_birthday.ogg]
     `,
     pictures: ["lnl39-1", "lnl39-2", "lnl39-3"],
     sounds: ["41_telemeterskive_Soap_Bubble_Fever_birthday"],
@@ -685,7 +685,7 @@ const lessons = [
 
     and so on…. As *Lasser'ne* I think that I would like to join the guild of the Viking KLOKKER's they say that they have a seat waiting for me at there table…
 
-    [rider_G_las_prut_slip.m4a]
+    [rider_G_las_prut_slip.ogg]
     `,
     pictures: ["lnl40-1", "lnl40-2"],
     sounds: ["rider_G_las_prut_slip"],
@@ -695,7 +695,7 @@ const lessons = [
     text: `
     §§ The best ideas for performing, might be right at your hand(y) - tele-communix has long been the means of ultra-dimentinal > idea > exchange...§§
 
-    [41_telemeterskive_Soap_Bubble_Fever_birthday.m4a]
+    [41_telemeterskive_Soap_Bubble_Fever_birthday.ogg]
     `,
     pictures: ["lnl41-1", "lnl41-2"],
     sounds: ["41_telemeterskive_Soap_Bubble_Fever_birthday"],
@@ -709,7 +709,7 @@ const lessons = [
 
     ^Ŵ Once and Once Again - game, Once and Once Again - code ^¤-Z^ Once and Once Again - game, Once and Once Again - code ^§&"^ Once and Once Again - game, Once and Once Again - code ^&#^ Once and Once Again - game, Once and Once Again - code ^ - ^ Once and Once Again - game, Once and Once Again - code *
 
-    [prutti_the_sick.m4a]
+    [prutti_the_sick.ogg]
     `,
     pictures: ["lnl42-1.png", "lnl42-2.png"],
     sounds: ["prutti_the_sick"],
@@ -920,8 +920,8 @@ function loadLesson(api) {
 
   // Load and play sample for lesson 11.
   lessons[lesson].sounds?.forEach((name) => {
-    api.net.preload(`${path}/${name}.m4a`).then((sfx) => {
-      api.sound.play(sfx, { loop: true }); // Immediately play '.m4a' after loading it, and looping it.
+    api.net.preload(`${path}/${name}.ogg`).then((sfx) => {
+      api.sound.play(sfx, { loop: true }); // Immediately play '.ogg' after loading it, and looping it.
     });
   });
 }
