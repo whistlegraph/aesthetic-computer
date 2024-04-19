@@ -3053,7 +3053,7 @@ async function load(
     };
 
     if (soundWhitelist.includes(path)) {
-      extension = "m4a";
+      extension = "ogg";
     } else {
       if (typeof path === "object") {
         extension = path.extension;
@@ -3125,6 +3125,7 @@ async function load(
       });
     } else if (
       extension === "m4a" ||
+      extension === "ogg" ||
       extension === "wav" ||
       extension === "mp3"
     ) {
