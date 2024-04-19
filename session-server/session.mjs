@@ -666,7 +666,10 @@ if (dev) {
     .watch("../system/public/aesthetic.computer/disks")
     .on("all", (event, path) => {
       if (event === "change") {
-        const piece = path.split("/").pop().replace(".mjs", "");
+        const piece = path
+          .split("/")
+          .pop()
+          .replace(/\.mjs|\.lisp$/, "");
         everyone(pack("reload", { piece: piece || "*" }, "local"));
       }
     });
