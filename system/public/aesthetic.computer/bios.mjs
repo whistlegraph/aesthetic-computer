@@ -4456,6 +4456,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           : `https://art.aesthetic.computer/${filename}`;
       }
     } else if (ext === "mp4" || ext === "webm") {
+      // TODO: ⚠️ `webm` could eventually mean audio here...
       // 🎥 Video
       // Use stored data from the global Media Recorder.
       const tape = data || (await Store.get("tape")).blob;

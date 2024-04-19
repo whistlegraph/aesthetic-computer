@@ -33,11 +33,14 @@ if test -d /home/me/aesthetic-computer
         gh repo clone whistlegraph/aesthetic-computer-vault /home/me/aesthetic-computer/aesthetic-computer-vault
         cd /home/me/aesthetic-computer/aesthetic-computer-vault
         sudo fish devault.fish
+        echo "🔓 Vault mounted."
     else
-        echo "Vault mounted :)"
+        cd /home/me/aesthetic-computer/aesthetic-computer-vault
+        sudo fish devault.fish
+        echo "🔓 Vault mounted."
     end
 else
-    echo "Vault unmounted :("
+    echo "⚠️🔒 Vault unmounted!"
 end
 
 if not test -d /home/me/aesthetic-computer/aesthetic-computer-code
