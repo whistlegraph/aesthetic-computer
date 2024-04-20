@@ -9,6 +9,16 @@
  - [] Get a named command running through, like "line" and "ink". 
 #endregion */
 
+function processArgStringTypes(args) {
+  return args.map((arg) => {
+    if (typeof arg === "string" && arg.startsWith('"') && arg.endsWith('"')) {
+      // Remove the first and last character which are the quotes
+      return arg.substring(1, arg.length - 1);
+    }
+    return arg;
+  });
+}
+
 const globalEnv = {
   // Mathematical Operators
   "+": (args) => args.reduce((a, b) => a + b, 0),
@@ -17,7 +27,9 @@ const globalEnv = {
   "/": (args) => args.reduce((a, b) => a / b),
   // Paint API
   ink: (args, api) => {
-    return api.ink?.(args);
+    console.log("Ink arg:", args);
+    // Map each argument, removing quotes if the argument is a string
+    return api.ink?.(processArgStringTypes(args));
   },
   line: (args = [], api) => {
     return api.line?.(...args);
@@ -51,6 +63,7 @@ function parse(program) {
 
 function evaluate(parsed, api = {}) {
   console.log("Evaluating:", parsed);
+  let result;
   for (const item of parsed) {
     if (Array.isArray(item)) {
       // The first element indicates the function to call
@@ -62,11 +75,12 @@ function evaluate(parsed, api = {}) {
           Array.isArray(arg) ? evaluate([arg], api) : arg,
         );
         // Call the function from globalEnv with the evaluated arguments
-        const result = globalEnv[fn](evaluatedArgs, api);
+        result = globalEnv[fn](evaluatedArgs, api);
         console.log(`Result of ${fn}: ${result}`);
       }
     }
   }
+  return result;
 }
 
 function readFromTokens(tokens) {
