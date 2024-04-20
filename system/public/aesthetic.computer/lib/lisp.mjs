@@ -5,6 +5,20 @@
 // (+ 4 5 5)
 // (* (+ 2 3) (- 4 1))
 
+// Parse and evaluate a lisp source module
+// into a running aesthetic computer piece.
+function module(source) {
+  const parsed = parse(source);
+  console.log("🐍 Parsed:", parsed);
+  const evaluated = evaluate(parsed);
+  console.log("🐍 Evaluated:", evaluated);
+  return {
+    paint: ({ wipe }) => {
+      wipe("blue").ink("white").write(evaluated, { center: "xy " });
+    },
+  };
+}
+
 function tokenize(input) {
   let tokens = [];
   let currentToken = "";
@@ -101,4 +115,4 @@ function evaluate(expr, env = globalEnv) {
   }
 }
 
-export { parse, evaluate };
+export { module, parse, evaluate };

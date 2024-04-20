@@ -21,8 +21,6 @@
 function parse(text, location = self?.location) {
   let path, host, params, search, hash;
 
-  console.log("INCOMING TEXT:", text);
-
   // Extract remote path from text if it begins with https and ends with `.mjs`.
   let externalPath;
   if (
@@ -39,17 +37,7 @@ function parse(text, location = self?.location) {
       .pop();
   }
 
-  // Check for any anon path (begins with $).
-  // if (text.startsWith("$")) {
-  //   text = text.slice(1);
-  //   const url = new URL(`https://art.aesthetic.computer/${text.slice(1)}.mjs`);
-  //   location = { hostname: url.hostname, port: url.port };
-  //   externalPath = ""; //url.pathname.split("/").slice(0, -1).join("/").slice(1);
-  //   console.log(location, externalPath);
-  // }
-
-  // -1. Clear any spaces.
-  text = text.trim();
+  text = text.trim(); // Clear any spaces.
 
   // Squish any spaces inside of colon parameters.
   text = text.replace(/\s*:\s*/g, ":"); // Squash space before & after colons.
@@ -100,8 +88,6 @@ function parse(text, location = self?.location) {
   }
 
   const piece = tokens[0];
-
-  console.log("PARSED PIECE:", piece);
 
   if (handlePiece) {
     // Route the piece to the local `/media/@handle/code/piece-name` path.

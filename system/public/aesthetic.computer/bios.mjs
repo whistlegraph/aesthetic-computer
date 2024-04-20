@@ -2436,9 +2436,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // TODO: Make this automatic for pieces that use 3d.
       if (
         content.text === "wand" ||
-        content.text.indexOf("wand") === 0 ||
+        content.text?.indexOf("wand") === 0 ||
         content.text === "oldwand" ||
-        content.text.indexOf("oldwand") === 0
+        content.text?.indexOf("oldwand") === 0
       ) {
         loadThreeD();
       }
