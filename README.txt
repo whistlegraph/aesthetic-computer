@@ -43,11 +43,11 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** aesthetic lisp / s-expression parser and evaluator ***
-  - [-] Write s-expressions directly in the prompt if
+  - [🤩] Write s-expressions directly in the prompt if
         the input begins with a parenthesis / produce
         a dynamic disk / run existing lisp code through
         `load`. 
-  - [] Refactor `load` to be more efficient to support this.
+  - [🍊] Refactor `load` to be more efficient to support this.
   - [] Hook into the graph API somehow!
   + Done
   - [x] Make a source .lisp file in `disks`.

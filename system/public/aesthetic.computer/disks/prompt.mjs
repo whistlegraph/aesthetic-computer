@@ -269,7 +269,7 @@ async function halt($, text) {
     rec,
     sound,
     canShare,
-    debug
+    debug,
   } = $;
   activeCompletions.length = 0; // Reset activeCompletions on every halt.
   motdController?.abort(); // Abort any motd update.
@@ -1202,7 +1202,20 @@ async function halt($, text) {
     return true;
   } else {
     // 🟠 Local and remote pieces...
-    let loaded = await load(parse(text)); // Execute the current command.
+
+    // Theory: Is `load` actually similar to eval?
+    //         (Whereas this is eval/apply at the program level.)
+
+    let body;
+    const trimmed = text.trim();
+    if (trimmed.startsWith("(")) {
+      // notice("Parsing...");
+      body = { name: "(...)", source: trimmed };
+    } else {
+      body = parse(text);
+    }
+
+    let loaded = await load(body); // Execute the current command.
     if (!loaded) {
       leaving(false);
       if (text.indexOf(" ") === -1 && text !== "goodiepal") {

@@ -2589,6 +2589,8 @@ async function load(
     // if (debug) console.log("🕸", fullUrl);
   } else {
     // 📃 Loading with provided source code.
+    // This could either be JavaScript or LISP.
+
     if (
       devReload === true &&
       parsed.codeChannel &&
@@ -2603,7 +2605,8 @@ async function load(
 
     source = parsed.source;
     slug = parsed.name;
-    path = "aesthetic.computer/disks/" + slug;
+
+    if (slug !== "(...)") path = "aesthetic.computer/disks/" + slug;
     // 📓 Might need to fill in hash, path, or slug here. 23.06.24.18.49
 
     // if (devReload) {
@@ -2615,7 +2618,9 @@ async function load(
   let prefetches; // Will be acted on after `hotSwap`.
 
   // 🅱️ Load the piece.
+
   // const moduleLoadTime = performance.now();
+
   let blobUrl, sourceCode;
   try {
     // If this is a reload (with no source change) then just create a new
@@ -2623,7 +2628,7 @@ async function load(
     // TODO: Cache piece code locally / in an intelligent way,
     //       and then receive socket updates when it changes on the server?
     if (
-      slug.split("~")[0] === currentText?.split("~")[0] &&
+      slug?.split("~")[0] === currentText?.split("~")[0] &&
       sourceCode == currentCode &&
       !devReload
     ) {
@@ -2631,8 +2636,9 @@ async function load(
       blobUrl = URL.createObjectURL(blob);
       sourceCode = currentCode;
     } else {
-      let response, sourceToRun;
+      let sourceToRun;
       if (fullUrl) {
+        let response;
         // console.log("📥 Loading from url:", fullUrl);
         // TODO: ❤️‍🔥 Skip URL load attempts if this is a devReload.
         response = await fetch(fullUrl);
@@ -2670,18 +2676,29 @@ async function load(
         // Then refresh should be able to function as well?
       }
 
-      const updatedCode = updateCode(sourceToRun, host, debug);
+      // Detect if we are running LISP or JavaScript syntax.
+      if (sourceToRun.startsWith("(")) {
+        // Assume lisp.
+        console.log("🐍 LISSSSSSSSSSSSSSSSP!");
+        sourceCode = sourceToRun;
+        loadedModule = lisp.module(sourceToRun);
 
-      prefetches = updatedCode
-        .match(/"(@\w[\w.]*\/[^"]*)"/g)
-        ?.map((match) => match.slice(1, -1)); // for "@name/code".
+        console.log(loadedModule);
+      } else {
+        const updatedCode = updateCode(sourceToRun, host, debug);
 
-      const blob = new Blob([updatedCode], { type: "application/javascript" });
-      blobUrl = URL.createObjectURL(blob);
-      sourceCode = updatedCode;
+        prefetches = updatedCode
+          .match(/"(@\w[\w.]*\/[^"]*)"/g)
+          ?.map((match) => match.slice(1, -1)); // for "@name/code".
+
+        const blob = new Blob([updatedCode], {
+          type: "application/javascript",
+        });
+        blobUrl = URL.createObjectURL(blob);
+        sourceCode = updatedCode;
+        loadedModule = await import(blobUrl);
+      }
     }
-
-    loadedModule = await import(blobUrl);
   } catch (err) {
     console.log(err);
 
@@ -2710,17 +2727,7 @@ async function load(
         if (response.status === 404) throw new Error("404");
       }
       sourceCode = await response.text();
-
-      const parsedLisp = lisp.parse(sourceCode);
-      console.log("🐍 Parsed:", parsedLisp);
-      const evaluatedLisp = lisp.evaluate(parsedLisp);
-      console.log("🐍 Evaluated:", evaluatedLisp);
-
-      loadedModule = {
-        paint: ({ wipe }) => {
-          wipe("blue").ink("white").write(evaluatedLisp, { center: "xy " });
-        },
-      };
+      loadedModule = lisp.module(sourceCode);
     } catch (err) {
       // 🧨 Continue with current module if one has already loaded.
       console.error(
@@ -2749,6 +2756,8 @@ async function load(
     leaving = false;
     return false;
   }
+
+  // console.log("STILL LOADING!!!");
 
   // 🧩 Piece code has been loaded...
   //    Now we can instantiate the piece.
@@ -3174,7 +3183,7 @@ async function load(
   };
 
   $commonApi.slug = slug;
-  $commonApi.piece = slug.split("~")[0];
+  $commonApi.piece = slug?.split("~")[0];
   $commonApi.query = Object.fromEntries(new URLSearchParams(search));
   $commonApi.params = params || [];
   $commonApi.colon = colon;
