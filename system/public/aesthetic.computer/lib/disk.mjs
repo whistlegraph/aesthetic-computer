@@ -2757,8 +2757,6 @@ async function load(
     return false;
   }
 
-  // console.log("STILL LOADING!!!");
-
   // 🧩 Piece code has been loaded...
   //    Now we can instantiate the piece.
 
