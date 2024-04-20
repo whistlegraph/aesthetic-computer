@@ -6,7 +6,12 @@
 // (* (+ 2 3) (- 4 1))
 
 /* #region 🏁 TODO 
- - [] Get a named command running through, like "line" and "ink". 
+  - [🟡] Get publishing working for lisp code / pasted code.
+  - [-] Make a basic graphical editor / viewer...
+  + Done
+  - [x] Add global variables / more complex programming.
+  - [x] Add support for comments.
+  - [x] Get a named command running through, like "line" and "ink". 
 #endregion */
 
 function processArgStringTypes(args) {
@@ -21,18 +26,35 @@ function processArgStringTypes(args) {
 
 const globalEnv = {
   // Mathematical Operators
-  "+": (args) => args.reduce((a, b) => a + b, 0),
-  "-": (args) => args.reduce((a, b) => a - b),
-  "*": (args) => args.reduce((a, b) => a * b, 1),
-  "/": (args) => args.reduce((a, b) => a / b),
+  "+": (api, args) => args.reduce((a, b) => a + b, 0),
+  "-": (api, args) => args.reduce((a, b) => a - b),
+  "*": (api, args) => args.reduce((a, b) => a * b, 1),
+  "/": (api, args) => args.reduce((a, b) => a / b),
   // Paint API
-  ink: (args, api) => {
-    console.log("Ink arg:", args);
-    // Map each argument, removing quotes if the argument is a string
+  resolution: (api, args) => {
+    return api.resolution?.(...args);
+  },
+  wipe: (api, args) => {
+    return api.wipe?.(processArgStringTypes(args));
+  },
+  ink: (api, args) => {
     return api.ink?.(processArgStringTypes(args));
   },
-  line: (args = [], api) => {
-    return api.line?.(...args);
+  line: (api, args = []) => {
+    return api.line(...args);
+  },
+  wiggle: (api, args = []) => {
+    return api.wiggle(...args);
+  },
+  box: (api, args = []) => {
+    return api.box(...args);
+  },
+  // Getters / globals.
+  width: (api) => {
+    return api.screen.width;
+  },
+  height: (api) => {
+    return api.screen.height;
   },
 };
 
@@ -41,19 +63,21 @@ const globalEnv = {
 function module(source) {
   const parsed = parse(source);
   console.log("🐍 Parsed:", parsed);
-  const evaluated = evaluate(parsed);
-  console.log("🐍 Evaluated:", evaluated);
+
   return {
-    paint: ({ wipe, api }) => {
-      wipe("blue")
-        .ink("white")
-        .write(evaluated || "nada", { center: "xy" });
-      evaluate(parsed, api);
+    paint: ({ wipe, ink, api }) => {
+      console.log("🖌️ Painting");
+      const evaluated = evaluate(parsed, api);
+      ink("white").write(evaluated || "nada", { center: "xy" });
+      // return false;
     },
   };
 }
 
 function tokenize(input) {
+  // Remove comments from input (anything from ';' to the end of the line)
+  input = input.replace(/;.*$/gm, "");
+  // Replace parentheses with spaces around them and split into an array by whitespace
   return input.replace(/\(/g, " ( ").replace(/\)/g, " ) ").trim().split(/\s+/);
 }
 
@@ -62,22 +86,25 @@ function parse(program) {
 }
 
 function evaluate(parsed, api = {}) {
-  console.log("Evaluating:", parsed);
+  // console.log("Evaluating:", parsed);
   let result;
   for (const item of parsed) {
+    // console.log("Item:", item);
     if (Array.isArray(item)) {
       // The first element indicates the function to call
       const [fn, ...args] = item;
       // Check if the function requires recursive evaluation
       if (globalEnv[fn]) {
         // Prepare arguments, evaluate if they are also functions
-        const evaluatedArgs = args.map((arg) =>
-          Array.isArray(arg) ? evaluate([arg], api) : arg,
+        const evaledArgs = args.map((arg) =>
+          Array.isArray(arg) || (typeof arg === "string" && !/^".*"$/.test(arg))
+            ? evaluate([arg], api)
+            : arg,
         );
-        // Call the function from globalEnv with the evaluated arguments
-        result = globalEnv[fn](evaluatedArgs, api);
-        console.log(`Result of ${fn}: ${result}`);
+        result = globalEnv[fn](api, evaledArgs);
       }
+    } else {
+      result = globalEnv[item]?.(api);
     }
   }
   return result;
@@ -85,7 +112,7 @@ function evaluate(parsed, api = {}) {
 
 function readFromTokens(tokens) {
   const result = [];
-  console.log("Tokens:", tokens);
+  // console.log("Tokens:", tokens);
   while (tokens.length > 0) {
     if (tokens[0] === ")") {
       throw new SyntaxError("Unexpected ')'");

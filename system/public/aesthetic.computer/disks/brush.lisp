@@ -1,5 +1,10 @@
+; Paste me into the AC prompt!
+; (resolution 128)
+(wipe "blue")
 (ink "lime")
 (line 90 (+ 10 20 30) 30 80)
 (ink 255 0 0)
 (line 30 20 100 190)
+(ink "orange" (wiggle 64))
+(box 8 32 (- width 20) (wiggle 32))
 (+ 1 2 3)
