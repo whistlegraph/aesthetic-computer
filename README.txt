@@ -43,13 +43,13 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** aesthetic lisp / s-expression parser and evaluator ***
-  - [🤩] Write s-expressions directly in the prompt if
+  - [🟠] Hook a lisp function into the graph / paint api somehow?
+  + Done
+  - [x] Write s-expressions directly in the prompt if
         the input begins with a parenthesis / produce
         a dynamic disk / run existing lisp code through
         `load`. 
-  - [🍊] Refactor `load` to be more efficient to support this.
-  - [] Hook into the graph API somehow!
-  + Done
+  - [x] Refactor `load` to be more efficient to support this.
   - [x] Make a source .lisp file in `disks`.
   - [x] Make a lisp.mjs file that exports a parser.
   - [x] Read the file in as a piece in load in side `disk.mjs`.
