@@ -5,6 +5,25 @@
 // (+ 4 5 5)
 // (* (+ 2 3) (- 4 1))
 
+/* #region 🏁 TODO 
+ - [] Get a named command running through, like "line" and "ink". 
+#endregion */
+
+const globalEnv = {
+  // Mathematical Operators
+  "+": (args) => args.reduce((a, b) => a + b, 0),
+  "-": (args) => args.reduce((a, b) => a - b),
+  "*": (args) => args.reduce((a, b) => a * b, 1),
+  "/": (args) => args.reduce((a, b) => a / b),
+  // Paint API
+  ink: (args, api) => {
+    return api.ink?.(args);
+  },
+  line: (args = [], api) => {
+    return api.line?.(...args);
+  },
+};
+
 // Parse and evaluate a lisp source module
 // into a running aesthetic computer piece.
 function module(source) {
@@ -13,105 +32,86 @@ function module(source) {
   const evaluated = evaluate(parsed);
   console.log("🐍 Evaluated:", evaluated);
   return {
-    paint: ({ wipe }) => {
-      wipe("blue").ink("white").write(evaluated, { center: "xy " });
+    paint: ({ wipe, api }) => {
+      wipe("blue")
+        .ink("white")
+        .write(evaluated || "nada", { center: "xy" });
+      evaluate(parsed, api);
     },
   };
 }
 
 function tokenize(input) {
-  let tokens = [];
-  let currentToken = "";
-  let inNumber = false; // Flag to track if we're currently reading a number
-
-  for (let char of input) {
-    if (char === "(" || char === ")") {
-      // If the character is a parenthesis, add the current token and the parenthesis to tokens
-      if (currentToken) {
-        tokens.push(currentToken);
-        currentToken = "";
-      }
-      tokens.push(char);
-      inNumber = false; // Reset number flag
-    } else if (/\s/.test(char)) {
-      // If the character is whitespace, add the current token to tokens
-      if (currentToken) {
-        tokens.push(currentToken);
-        currentToken = "";
-      }
-      inNumber = false; // Reset number flag
-    } else if (/\d/.test(char) || (char === "." && inNumber)) {
-      // If the character is a digit or a decimal point in a number, add to currentToken
-      currentToken += char;
-      inNumber = true; // Set number flag
-    } else {
-      // Otherwise, handle it as part of a symbol or operator
-      if (inNumber) {
-        tokens.push(currentToken);
-        currentToken = "";
-      }
-      currentToken += char;
-      inNumber = false; // Reset number flag
-    }
-  }
-  if (currentToken) {
-    tokens.push(currentToken);
-  }
-  return tokens;
-}
-
-function readFromTokens(tokens) {
-  if (tokens.length === 0) {
-    throw new SyntaxError("Unexpected EOF while reading");
-  }
-  let token = tokens.shift();
-  if (token === "(") {
-    let L = [];
-    while (tokens[0] !== ")") {
-      L.push(readFromTokens(tokens));
-    }
-    tokens.shift(); // remove ')'
-    return L;
-  } else if (token === ")") {
-    throw new SyntaxError("Unexpected )");
-  } else {
-    return atom(token);
-  }
-}
-
-function atom(token) {
-  if (isNumeric(token)) {
-    return parseFloat(token);
-  } else {
-    return token; // Return the token as a string if it's not numeric
-  }
-}
-
-function isNumeric(str) {
-  return !isNaN(str) && !isNaN(parseFloat(str));
+  return input.replace(/\(/g, " ( ").replace(/\)/g, " ) ").trim().split(/\s+/);
 }
 
 function parse(program) {
   return readFromTokens(tokenize(program));
 }
 
-const globalEnv = {
-  "+": (args) => args.reduce((a, b) => a + b, 0),
-  "-": (args) => args.reduce((a, b) => a - b),
-  "*": (args) => args.reduce((a, b) => a * b, 1),
-  "/": (args) => args.reduce((a, b) => a / b),
-};
+function evaluate(parsed, api = {}) {
+  console.log("Evaluating:", parsed);
+  for (const item of parsed) {
+    if (Array.isArray(item)) {
+      // The first element indicates the function to call
+      const [fn, ...args] = item;
+      // Check if the function requires recursive evaluation
+      if (globalEnv[fn]) {
+        // Prepare arguments, evaluate if they are also functions
+        const evaluatedArgs = args.map((arg) =>
+          Array.isArray(arg) ? evaluate([arg], api) : arg,
+        );
+        // Call the function from globalEnv with the evaluated arguments
+        const result = globalEnv[fn](evaluatedArgs, api);
+        console.log(`Result of ${fn}: ${result}`);
+      }
+    }
+  }
+}
 
-function evaluate(expr, env = globalEnv) {
-  if (typeof expr === "number") {
-    return expr;
-  } else if (typeof expr === "string") {
-    return env[expr];
+function readFromTokens(tokens) {
+  const result = [];
+  console.log("Tokens:", tokens);
+  while (tokens.length > 0) {
+    if (tokens[0] === ")") {
+      throw new SyntaxError("Unexpected ')'");
+    }
+    result.push(readExpression(tokens));
+  }
+  return result;
+}
+
+function readExpression(tokens) {
+  if (tokens.length === 0) {
+    throw new SyntaxError("Unexpected EOF");
+  }
+  let token = tokens.shift();
+  if (token === "(") {
+    let subExpr = [];
+    while (tokens.length > 0 && tokens[0] !== ")") {
+      subExpr.push(readExpression(tokens));
+    }
+    if (tokens[0] === ")") {
+      tokens.shift(); // Remove the closing ')'
+    } else {
+      throw new SyntaxError("Expected ')'");
+    }
+    return subExpr;
+  } else if (token === ")") {
+    throw new SyntaxError("Unexpected ')'");
   } else {
-    const [operator, ...args] = expr;
-    const func = env[operator];
-    const evaledArgs = args.map((arg) => evaluate(arg, env));
-    return func(evaledArgs);
+    return atom(token);
+  }
+}
+
+function atom(token) {
+  if (token[0] === '"' && token[token.length - 2] === '"') {
+    // Remove the surrounding quotes and return the string
+    return token.slice(1, -1);
+  } else {
+    // Attempt to convert the token to a number
+    let num = Number(token);
+    return isNaN(num) ? token : num;
   }
 }
 
