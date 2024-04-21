@@ -671,6 +671,10 @@ let docs; // Memorized by `requestDocs`.
 
 // For every function to access.
 const $commonApi = {
+  // Enable Pointer Lock
+  penLock: () => {
+    send({type: "pen:lock"});
+  },
   chat: chatSystem,
   dark: undefined, // If we are in dark mode.
   glaze: function (content) {
@@ -3478,7 +3482,7 @@ async function load(
           sensitivity: 0.002,
         });
         $commonApi.system.fps = { doll };
-        module?.boot($);
+        module?.boot?.($);
       };
 
       sim = ($) => {
@@ -3488,7 +3492,7 @@ async function load(
 
       act = ($) => {
         doll?.act($.event);
-        module?.act($);
+        module?.act?.($);
       };
 
       paint = module.paint || defaults.paint;
@@ -3715,6 +3719,12 @@ async function makeFrame({ data: { type, content } }) {
         `color: yellow; background: rgba(10, 20, 40);`,
       );
     }
+    return;
+  }
+
+  // Confirming if the pen has been locked or unlocked by the Pointer Lock API.
+  if (type === "pen:locked" || type === "pen:unlocked") {
+    actAlerts.push(type);
     return;
   }
 
