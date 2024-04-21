@@ -6,9 +6,9 @@
 // (* (+ 2 3) (- 4 1))
 
 /* #region 🏁 TODO 
-  - [🟡] Get publishing working for lisp code / pasted code.
   - [-] Make a basic graphical editor / viewer...
   + Done
+  - [x] Get publishing working for lisp code / pasted code.
   - [x] Add global variables / more complex programming.
   - [x] Add support for comments.
   - [x] Get a named command running through, like "line" and "ink". 
@@ -66,7 +66,7 @@ function module(source) {
 
   return {
     paint: ({ wipe, ink, api }) => {
-      console.log("🖌️ Painting");
+      // console.log("🖌️ Painting");
       const evaluated = evaluate(parsed, api);
       ink("white").write(evaluated || "nada", { center: "xy" });
       // return false;

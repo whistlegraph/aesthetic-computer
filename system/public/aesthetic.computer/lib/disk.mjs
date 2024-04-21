@@ -2608,11 +2608,6 @@ async function load(
 
     if (slug !== "(...)") path = "aesthetic.computer/disks/" + slug;
     // 📓 Might need to fill in hash, path, or slug here. 23.06.24.18.49
-
-    // if (devReload) {
-    // Remember the source and slug for the `publish` command.
-    // store["publishable-piece"] = { source, slug };
-    // }
   }
 
   let prefetches; // Will be acted on after `hotSwap`.
@@ -2662,29 +2657,37 @@ async function load(
         sourceToRun = source;
       }
 
-      if (devReload) {
-        // Remember the source and slug for the `publish` command.
-        // console.log("📦 Setting publishable piece to:", slug);
-        store["publishable-piece"] = { slug, source: sourceToRun };
-
-        // 🔥
-        // One should be able to drag a piece in, then be able to load the piece
-        // go back to the prompt, and return to it and it should still load
-        // the modded code!
-
-        // ♻️
-        // Then refresh should be able to function as well?
-      }
+      // TODO: ?
+      // 🔥
+      // One should be able to drag a piece in, then be able to load the piece
+      // go back to the prompt, and return to it and it should still load
+      // the modded code!
+      // ♻️
+      // Then refresh should be able to function as well?
 
       // Detect if we are running LISP or JavaScript syntax.
-      if (sourceToRun.startsWith("(")) {
+
+      // TODO: This may not be the most reliable way to detect lisp?
+
+      if (sourceToRun.startsWith("(") || sourceToRun.startsWith(";")) {
         // Assume lisp.
-        console.log("🐍 LISSSSSSSSSSSSSSSSP!");
+        console.log("🐍 Lisp piece detected.");
         sourceCode = sourceToRun;
         loadedModule = lisp.module(sourceToRun);
 
-        console.log(loadedModule);
+        if (devReload) {
+          store["publishable-piece"] = {
+            slug,
+            source: sourceToRun,
+            ext: "lisp",
+          };
+          console.log("💌 Publishable:", store["publishable-piece"]);
+        }
       } else {
+        if (devReload) {
+          store["publishable-piece"] = { slug, source: sourceToRun };
+          console.log("💌 Publishable:", store["publishable-piece"]);
+        }
         const updatedCode = updateCode(sourceToRun, host, debug);
 
         prefetches = updatedCode
@@ -2728,6 +2731,11 @@ async function load(
       }
       sourceCode = await response.text();
       loadedModule = lisp.module(sourceCode);
+
+      if (devReload) {
+        store["publishable-piece"] = { slug, source: sourceCode, ext: "lisp" };
+        console.log("💌 Publishable:", store["publishable-piece"]);
+      }
     } catch (err) {
       // 🧨 Continue with current module if one has already loaded.
       console.error(

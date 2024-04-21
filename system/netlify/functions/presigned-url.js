@@ -159,6 +159,7 @@ export async function handler(event, context) {
   if (extension === "png") mimeType = "image/png";
   if (extension === "zip") mimeType = "application/zip";
   if (extension === "mjs") mimeType = "application/javascript; charset=utf-8";
+  if (extension === "lisp") mimeType = "text/x-lisp; charset=utf-8";
   if (extension === "mp4") mimeType = "video/mp4";
   if (extension === "json") mimeType = "application/json";
   if (extension === "gltf") mimeType = "model/gltf+json";

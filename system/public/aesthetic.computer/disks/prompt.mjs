@@ -637,11 +637,28 @@ async function halt($, text) {
       console.error("🪄 No publishable piece found!");
       return true;
     }
-    await publishPiece(
-      { api, send, jump, handle, upload },
-      params[0] || publishablePiece.slug,
-      publishablePiece.source,
-    );
+
+    // 🐍
+    // TODO: May need to detect (...) here and give the piece
+    //       a random name if one is not specified.
+    let publishSlug = params[0] || publishablePiece.slug;
+    if (publishSlug === "(...)") {
+      publishSlug = "sketch";
+    }
+
+    // Check if publishSlug contains only valid filename characters.
+    if (!/^[a-zA-Z0-9_-]+$/.test(publishSlug)) {
+      notice("BAD NAME", ["yellow", "red"]);
+      // throw new Error("publishSlug contains invalid characters.");
+    } else {
+      await publishPiece(
+        { api, send, jump, handle, upload },
+        publishSlug,
+        publishablePiece.source,
+        publishablePiece.ext,
+      );
+    }
+
     return true;
   } else if (text.startsWith("channel") || text.startsWith("code-channel")) {
     // Set a `code-channel` for piece writing.
@@ -1206,16 +1223,17 @@ async function halt($, text) {
     // Theory: Is `load` actually similar to eval?
     //         (Whereas this is eval/apply at the program level.)
 
-    let body;
+    let body, loaded;
     const trimmed = text.trim();
-    if (trimmed.startsWith("(")) {
-      // notice("Parsing...");
+    if (trimmed.startsWith("(") || trimmed.startsWith(";")) {
       body = { name: "(...)", source: trimmed };
+      loaded = await load(body, false, false, true); // Force `devReload` flag.
+      //                                                (in case of publish)
     } else {
       body = parse(text);
+      loaded = await load(body); // Execute the current command.
     }
 
-    let loaded = await load(body); // Execute the current command.
     if (!loaded) {
       leaving(false);
       if (text.indexOf(" ") === -1 && text !== "goodiepal") {
@@ -1777,10 +1795,15 @@ function downloadPainting({ download, num, store }, scale, sharing = false) {
   });
 }
 
-async function publishPiece({ api, send, jump, handle, upload }, slug, source) {
+async function publishPiece(
+  { api, send, jump, handle, upload },
+  slug,
+  source,
+  ext = "mjs",
+) {
   progressBar = 0; // Trigger progress bar rendering.
   try {
-    const data = await upload("piece-" + slug + ".mjs", source, (p) => {
+    const data = await upload("piece-" + slug + "." + ext, source, (p) => {
       console.log("🎁️ Publishing progress:", p);
       progressBar = p;
     });
