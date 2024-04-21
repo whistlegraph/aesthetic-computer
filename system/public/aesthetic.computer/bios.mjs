@@ -1138,7 +1138,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   const onMessage = (m) => receivedChange(m);
 
-  let send;
+  let send = (msg) => {
+    console.warn("Send has not been wired yet!", msg);
+  };
 
   // 🔥 Optionally use workers or not.
   // Always use workers if they are supported, except for
@@ -1345,9 +1347,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // const bakedCan = document.createElement("canvas", {
   //  willReadFrequently: true,
   // });
+  let pointerLockCooldown, pointerLockReady = true;
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+    if (type === "pen:lock") {
+      if (!pointerLockReady) return;
+      pointerLockReady = false;
+      wrapper
+        .requestPointerLock({ unadjustedMovement: true })
+        .then((e) => {
+          // ...
+        })
+        .catch((err) => {
+          // console.warn(err);
+          pointerLockReady = true;
+          clearTimeout(pointerLockCooldown);
+        });
+      pointerLockCooldown = setTimeout(() => pointerLockReady = true, 5000);
+      return;
+    }
+
     // Respond to a request to send a message through to the iMessage extension.
     if (type === "imessage-extension:send") {
       let body = content.body.pixels
@@ -5045,6 +5065,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
   }
+
+  // Pointer Lock 🔫
+  document.addEventListener("pointerlockchange", () => {
+    console.log('Pointer lock changed!');
+    send({
+      type:
+        document.pointerLockElement === wrapper ? "pen:locked" : "pen:unlocked",
+    });
+  });
 
   // Window Scroll 📜
   window.addEventListener("wheel", function (event) {

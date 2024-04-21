@@ -570,7 +570,7 @@ function getWebViewContent(webview: any) {
 				<title>aesthetic.computer</title>
 			</head>
 			<body>
-        <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin" allow="clipboard-write; clipboard-read; camera; microphone; gyroscope" src="https://${
+        <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin" sandbox="allow-pointer-lock" allow="clipboard-write; clipboard-read; camera; microphone; gyroscope" src="https://${
           local ? "localhost:8888" : "aesthetic.computer"
         }${param}" border="none"></iframe>
        	<script nonce="${nonce}" src="${scriptUri}"></script>
