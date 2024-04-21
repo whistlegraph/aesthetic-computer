@@ -43,8 +43,8 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** aesthetic lisp / s-expression parser and evaluator ***
-  - [🟠] Hook a lisp function into the graph / paint api somehow?
   + Done
+  - [x] Hook a lisp function into the graph / paint api somehow?
   - [x] Write s-expressions directly in the prompt if
         the input begins with a parenthesis / produce
         a dynamic disk / run existing lisp code through
