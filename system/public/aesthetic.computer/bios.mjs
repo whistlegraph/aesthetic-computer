@@ -651,7 +651,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         origin = "/assets/bgm/";
       }
 
-      const ext = Safari ? "m4a" :"ogg";
+      const ext = Safari ? "m4a" : "ogg";
       backgroundMusicEl.src = origin + backgroundTrackURLs[n] + "." + ext;
       backgroundMusicEl.volume = parseFloat(volume);
       if (audioContext) {
@@ -3782,7 +3782,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       let url;
       if (internal) {
-        const ext = Safari ? "m4a" :"ogg";
+        const ext = Safari ? "m4a" : "ogg";
         url = `/sounds/AeCo_${content}.${ext}`;
         if (window.production === true) {
           url = `https://assets.aesthetic.computer` + url;
@@ -4184,6 +4184,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (ext === "mjs") MIME = "application/javascript";
+    if (ext === "lisp") MIME = "text/x-lisp";
 
     if (ext === "obj") MIME = "application/object";
     if (ext === "glb") MIME = "model/gltf-binary";
@@ -4272,7 +4273,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         xhr.onreadystatechange = async function () {
           if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-            if ((userMedia && token && ext === "png") || ext === "mjs") {
+            if (
+              (userMedia && token && ext === "png") ||
+              ext === "mjs" ||
+              ext === "lisp"
+            ) {
               // TODO: Go ahead and add this media to the database.
               if (debug) {
                 console.log(
@@ -4298,7 +4303,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             let data = { slug, url: url.toString(), ext };
 
-            if (!userMedia && ext === "mjs") {
+            if (!userMedia && (ext === "mjs" || ext === "lisp")) {
               data.url =
                 "https://art.aesthetic.computer/" + data.slug + "." + data.ext;
             }
