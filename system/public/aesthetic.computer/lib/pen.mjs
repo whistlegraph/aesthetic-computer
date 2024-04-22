@@ -222,8 +222,6 @@ export class Pen {
       pointer.untransformedPosition = { x: e.x, y: e.y };
       pointer.pressure = reportPressure(e);
 
-      //console.log(pointer);
-
       pointer.saveDelta();
 
       if (pointer.drawing) {
