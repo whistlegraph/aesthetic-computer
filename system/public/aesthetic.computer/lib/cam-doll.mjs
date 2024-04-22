@@ -1,5 +1,7 @@
 export class CamDoll {
   cam;
+  sensitivity;
+
   #dolly;
 
   #W;
@@ -13,7 +15,7 @@ export class CamDoll {
   #LEFT;
   #RIGHT;
 
-  sensitivity;
+  #penLocked = false;
 
   constructor(Camera, Dolly, opts) {
     this.cam = new Camera(opts.fov || 80, {
@@ -83,15 +85,22 @@ export class CamDoll {
     if (e.is("keyboard:up:arrowleft")) this.#LEFT = false;
     if (e.is("keyboard:up:arrowright")) this.#RIGHT = false;
 
+    if (e.is("pen:locked")) this.#penLocked = true;
+    if (e.is("pen:unlocked")) this.#penLocked = false;
+
     // Note: Sometimes multiple mouse buttons can be held... in which case
     //       e.button only holds the original (duplicate events are not sent).
     // TODO: These rates should be adjusted on mobile.
-    if (e.is("draw")) {
+    if (
+      (!this.#penLocked && e.is("draw")) ||
+      (this.#penLocked && e.is("move"))
+    ) {
       if (this.cam.type === "perspective") {
         this.cam.rotX -= e.delta.y / 3.5;
         this.cam.rotY -= e.delta.x / 3.5;
       }
     }
+
     // 🖖 Touch
     // Two fingers for move forward.
     if (e.is("touch:2")) this.#W = true;
