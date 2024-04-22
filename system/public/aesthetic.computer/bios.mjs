@@ -5069,15 +5069,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
   }
 
-  /*
-  document.addEventListener("pointerdown", () => {
-    wrapper.requestPointerLock();
-  });
-  */
-
   // Pointer Lock 🔫
   document.addEventListener("pointerlockchange", () => {
-    console.log("Pointer lock changed!");
     send({
       type:
         document.pointerLockElement === wrapper ? "pen:locked" : "pen:unlocked",
