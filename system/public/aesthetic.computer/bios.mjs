@@ -1360,7 +1360,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // ...
         })
         .catch((err) => {
-          // console.warn(err);
+          console.warn(err);
           pointerLockReady = true;
           clearTimeout(pointerLockCooldown);
         });
