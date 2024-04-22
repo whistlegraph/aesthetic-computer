@@ -195,7 +195,6 @@ export class Pen {
     // ***Move (Hover) and Draw (Drag)***
     window.addEventListener("pointermove", (e) => {
       const pointerId = getPointerId(e);
-
       // Make sure the pointer we are using is already being tracked.
       let pointer = pen.pointers[pointerId];
 
@@ -242,6 +241,11 @@ export class Pen {
         // Only send an event if the new point differs from the last.
         pointerMoveEvent("draw", pointer);
       } else {
+        // Set the delta to the movement, which will work when
+        // pointer locked.
+        // TODO: Make sure movementX here relates to the resolution.
+        if (document.pointerLockElement)
+          pointer.delta = { x: e.movementX / 2, y: e.movementY / 2 };
         pointerMoveEvent("move", pointer);
       }
 
@@ -257,7 +261,10 @@ export class Pen {
     });
 
     function pointerMoveEvent(type, pointer) {
-      if (!Point.equals(pointer, { x: pointer.px, y: pointer.py })) {
+      if (
+        !Point.equals(pointer, { x: pointer.px, y: pointer.py }) ||
+        document.pointerLockElement
+      ) {
         pen.#event(type, pointer);
       }
     }
