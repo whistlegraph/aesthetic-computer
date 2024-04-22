@@ -26,9 +26,10 @@ function paint({ wipe }) {
 function act({ event: e, penLock }) {
   if (e.is("pen:locked")) penLocked = true;
   if (e.is("pen:unlocked")) penLocked = false;
-  if (e.is("pen:unlocked") || e.is("pen:locked")) {
-    console.log(e);
-  }
+
+  // if (e.is("pen:unlocked") || e.is("pen:locked")) {
+  //  console.log(e);
+  // }
 
   if (!penLocked && e.is("touch")) penLock();
 }

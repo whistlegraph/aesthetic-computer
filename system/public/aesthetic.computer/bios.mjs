@@ -1347,24 +1347,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // const bakedCan = document.createElement("canvas", {
   //  willReadFrequently: true,
   // });
-  let pointerLockCooldown, pointerLockReady = true;
+  let pointerLockCooldown,
+    pointerLockReady = true;
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
     if (type === "pen:lock") {
+      /*
       if (!pointerLockReady) return;
       pointerLockReady = false;
       wrapper
-        .requestPointerLock({ unadjustedMovement: true })
+        .requestPointerLock()
         .then((e) => {
           // ...
         })
         .catch((err) => {
-          // console.warn(err);
+          console.warn(err);
           pointerLockReady = true;
           clearTimeout(pointerLockCooldown);
         });
-      pointerLockCooldown = setTimeout(() => pointerLockReady = true, 5000);
+      pointerLockCooldown = setTimeout(() => (pointerLockReady = true), 5000);
+      */
       return;
     }
 
@@ -5066,9 +5069,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
   }
 
+  /*
+  document.addEventListener("pointerdown", () => {
+    wrapper.requestPointerLock();
+  });
+  */
+
   // Pointer Lock 🔫
   document.addEventListener("pointerlockchange", () => {
-    console.log('Pointer lock changed!');
+    console.log("Pointer lock changed!");
     send({
       type:
         document.pointerLockElement === wrapper ? "pen:locked" : "pen:unlocked",
