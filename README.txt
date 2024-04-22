@@ -43,6 +43,7 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** aesthetic lisp / s-expression parser and evaluator ***
+  - [-] Make a basic graphical editor / viewer.
   + Done
   - [x] Hook a lisp function into the graph / paint api somehow?
   - [x] Write s-expressions directly in the prompt if
