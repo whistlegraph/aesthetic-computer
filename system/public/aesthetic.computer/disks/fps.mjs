@@ -5,8 +5,10 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Get Pointer Lock working.
+  - [o] Make sure pointer lock movement is the right numbers.
   - [] Rewrite this module in the lisp as an initial production piece.
+  + Done
+  - [x] Get Pointer Lock working.
 #endregion */
 
 let cube, penLocked = false;
@@ -26,10 +28,6 @@ function paint({ wipe }) {
 function act({ event: e, penLock }) {
   if (e.is("pen:locked")) penLocked = true;
   if (e.is("pen:unlocked")) penLocked = false;
-  if (e.is("pen:unlocked") || e.is("pen:locked")) {
-    console.log(e);
-  }
-
   if (!penLocked && e.is("touch")) penLock();
 }
 
