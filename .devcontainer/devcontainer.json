@@ -30,7 +30,8 @@
         "denoland.vscode-deno",
         "bmalehorn.vscode-fish",
         "ms-vsliveshare.vsliveshare",
-        "jsynowiec.vscode-insertdatestring"
+        "jsynowiec.vscode-insertdatestring",
+        "tootone.org-mode"
       ]
     }
   },
