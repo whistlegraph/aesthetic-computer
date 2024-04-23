@@ -42,6 +42,11 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
+*** dev environment ***
+  - [❤️‍🔥] Can't kill and re-open platform in the devcontainer...
+  - [] The eat shells seem to stay open?
+  - [] https://elpa.nongnu.org/nongnu-devel/doc/eat.html#Shell-Integration
+
 *** aesthetic lisp / s-expression parser and evaluator ***
   - [-] Make a basic graphical editor / viewer.
   + Done
