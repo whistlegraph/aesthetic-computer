@@ -8,7 +8,7 @@ end
 set -gx TERM xterm-256color
 
 # Send a welcome message!
-echo "*** Aesthetic Computer is Initializing... ***"
+toilet "*** Aesthetic Computer ***" -f smblock | lolcat -x -r
 
 # Go to the user's directory.
 cd /home/me
@@ -42,14 +42,20 @@ if test -d /home/me/aesthetic-computer
         cd /home/me/aesthetic-computer/aesthetic-computer-vault
         sudo fish devault.fish
     else
-        echo "Vault mounted :)"
+        cd /home/me/aesthetic-computer/aesthetic-computer-vault
+        git pull
+        sudo fish devault.fish
+        echo "🔓 Vault mounted."
     end
 else
-    echo "Vault unmounted :("
+    echo "⚠️🔒 Vault unmounted!"
 end
 
 if not test -d /home/me/aesthetic-computer/aesthetic-computer-code
     gh repo clone whistlegraph/aesthetic-computer-code /home/me/aesthetic-computer/aesthetic-computer-code
+else
+    cd /home/me/aesthetic-computer/aesthetic-computer-vault
+    git pull
 end
 
 # generate ssl certificates (if they don't already exist)
@@ -92,16 +98,25 @@ if test -f /home/me/aesthetic-computer/ssl-dev/localhost.pem; and test -f /home/
 end
 
 
-# Check if node_modules directory is present and not empty
-if not test -d /home/me/aesthetic-computer/node_modules || not count (ls /home/me/aesthetic-computer/node_modules) >/dev/null
-    # Initialize fnm and use the specified Node.js version.
-    cd /home/me/aesthetic-computer
+# Set the directory path
+set project_path /home/me/aesthetic-computer
+
+# Check if node_modules directory exists and is not empty
+if not test -d $project_path/node_modules || not count $project_path/node_modules/* >/dev/null
+    # Move to the project directory
+    cd $project_path
+    # Informing about the empty or missing node_modules directory
     echo "node_modules directory is empty or missing, running npm install."
-    # Install latest npm version before doing anything.
+    # Install the latest npm version
     npm install -g npm@latest --no-fund --no-audit
-    # Install Node.js dependencies
-    npm install --no-fund --no-audit
+    # Install Node.js dependencies using npm ci for a clean install
+    npm ci --no-fund --no-audit
+    # Run additional installation scripts
     npm run install:everything-else
 else
-    echo "node_modules directory is present, skipping npm install."
+    # Notify that installation steps are being skipped
+    echo "node_modules directory is present and not empty, skipping npm install."
 end
+
+# Trigger the 'waiter' alias to boot the platform.
+touch /home/me/.waiter
