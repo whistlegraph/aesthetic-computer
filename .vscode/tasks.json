@@ -4,7 +4,7 @@
     {
       "label": "💻 Aesthetic Platform",
       "type": "shell",
-      "command": "command -v aesthetic >/dev/null 2>&1 && aesthetic || echo '\u001b[1m🟡 Please run the Aesthetic Platform from its development container.\u001b[0m'; echo ''",
+      "command": "type aesthetic >/dev/null 2>&1 && aesthetic || echo '\u001b[1m🟡 Please run the Aesthetic Platform from its development container.\u001b[0m'; echo ''",
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
