@@ -35,6 +35,7 @@
 ;; Adding hooks for eat & eshell.
 (add-hook 'eshell-mode-hook 'disable-line-numbers-in-modes)
 (add-hook 'eat-mode-hook 'disable-line-numbers-in-modes)
+(add-hook 'image-mode-hook 'disable-line-numbers-in-modes)
 
 ;; Enable electric-pair mode in prog modes.
 (defun enable-electric-pairs ()
@@ -136,7 +137,7 @@
               (lambda (frame)
                 (select-frame frame)
                 (when (display-graphic-p)
-                  ;; (scroll-bar-mode -1)
+                  (scroll-bar-mode -1)
                   (fringe-mode 0)
                   ))))
 
@@ -224,6 +225,13 @@
 (use-package vertico
   :init
   (vertico-mode)
+
+;; Add org-mode
+(use-package org)
+(global-set-key (kbd "C-c l") #'org-store-link)
+(global-set-key (kbd "C-c a") #'org-agenda)
+(global-set-key (kbd "C-c c") #'org-capture)
+(setq org-startup-with-inline-images t)
 
   ;; Different scroll margin
   ;; (setq vertico-scroll-margin 0)
