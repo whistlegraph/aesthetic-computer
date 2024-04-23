@@ -45,7 +45,7 @@ set -gx PATH $PATH /home/me/.local/bin
 
 # add stuff to path
 set -gx PATH $PATH $HOME/isomorphic_copy/bin
-set -gx DENO_INSTALL /home/me/.deno 
+set -gx DENO_INSTALL /home/me/.deno
 set -gx PATH $PATH $DENO_INSTALL/bin
 
 # enable vi support
@@ -72,7 +72,20 @@ fish_add_path ~/.ops/bin
 
 # Assume the daemon is running when entering emacs.
 # For fast config reloading.
-alias platform "emacsclient -e '(kill-emacs)'; emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el; emacsclient -c --eval '(aesthetic-backend (quote \"shell\"))'"
+# alias platform "emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el; emacsclient -nw -c --eval '(aesthetic-backend (quote \"source\"))'; emacsclient -e \"(kill-emacs)\""
+alias platform "emacs -q -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el -nw --eval '(aesthetic-backend (quote \"source\"))'"
+
+# ⏲️ Wait on `entry.fish` to touch the `.waiter` file.
+function aesthetic
+    clear
+    while not test -f /home/me/.waiter
+        toilet "Configuring..." -f smblock  | lolcat -x -r
+        sleep 1
+        clear
+    end
+    rm /home/me/.waiter
+    platform
+end
 
 alias ac 'cd ~/aesthetic-computer'
 alias ac-site 'npm run site'
