@@ -11,7 +11,7 @@ const __dirname = dirname(__filename);
 // Function to execute npm install using spawn for real-time output
 const runNpmInstall = (dir) => {
   return new Promise((resolve, reject) => {
-    const childProcess = spawn("npm", ["install"], {
+    const childProcess = spawn("npm", ["ci"], {
       cwd: dir,
       stdio: "inherit",
     });

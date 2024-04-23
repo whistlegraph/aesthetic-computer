@@ -539,14 +539,17 @@
 
 ;; (add-hook 'vterm-mode-hook 'disable-evil-in-vterm)
 
-;; Kill any active processes when quitting emacs.
-(setq confirm-kill-processes nil)
 
 ;; (defun aesthetic-internal ()
 ;;  "Run aesthetic servers in a docker container that's running emacs."
 ;;  (interactive)
 ;;  (eat "fish -c 'npm run site'")
 ;;  (with-current-buffer "*eat*" (rename-buffer "eat-site" t)))
+
+(setq confirm-kill-processes nil) ;; Avoid confirmation for killing processes
+
+;; Bind the shutdown function to a key (e.g., C-c C-x for example purposes)
+;; (global-set-key (kbd "C-c C-x") 'shutdown-emacs-server)
 
 ;; Updated function with emojis for tab names
 (defun aesthetic-backend (target-tab)
@@ -555,7 +558,7 @@
   (let ((directory-path "~/aesthetic-computer/micro")
         (commands '("shell" "site" "session" "redis" "edge" "stripe-print" "stripe-ticket" "servers" "chat"))
         (emoji-for-command
-         '(("shell" . "🐚") ("site" . "📰") ("session" . "🔒") ("redis" . "🔄") ("edge" . "📶") ("stripe-print" . "💳 🖨️") ("stripe-ticket" . "💳🎫") ("servers" . "🤖") ("chat" . "💬")))
+         '(("source" . "📂") ("shell" . "🐚") ("site" . "📰") ("session" . "🔒") ("redis" . "🔄") ("edge" . "📶") ("stripe-print" . "💳 🖨️") ("stripe-ticket" . "💳🎫") ("servers" . "🤖") ("chat" . "💬")))
         prompt-tab-created stripe-tab-created)
     (tab-rename "📂 source")
     (find-file "~/aesthetic-computer/README.txt")
