@@ -9,6 +9,9 @@
     },
     "platform": "linux/amd64"
   },
+  "containerEnv": {
+    "DOCKER_CLI_HINTS": "false"
+  },
   "mounts": [
     "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind,consistency=cached",
     "source=${localWorkspaceFolder}/.devcontainer/envs,target=/home/me/envs,type=bind,consistency=cached",
@@ -19,17 +22,20 @@
   "customizations": {
     "vscode": {
       "extensions": [
-        "aesthetic-computer.aesthetic-computer-code", // Aesthetic Computer
-        "fabiospampinato.vscode-terminals", // Terminal Automation
-        "esbenp.prettier-vscode", // PrettierJS formatting.
-        "ms-azuretools.vscode-docker", // Docker support.
-        "mongodb.mongodb-vscode", // MongoDB
-        "denoland.vscode-deno", // Deno runtime plugin.
-        "bmalehorn.vscode-fish" // Fish syntax support.
+        "aesthetic-computer.aesthetic-computer-code",
+        "fabiospampinato.vscode-terminals",
+        "esbenp.prettier-vscode",
+        "ms-azuretools.vscode-docker",
+        "mongodb.mongodb-vscode",
+        "denoland.vscode-deno",
+        "bmalehorn.vscode-fish",
+        "ms-vsliveshare.vsliveshare",
+        "jsynowiec.vscode-insertdatestring"
       ]
     }
   },
   "runArgs": [
+    "-q",
     "--privileged",
     "--hostname",
     "aesthetic",
@@ -39,5 +45,5 @@
     //    "--platform",
     //    "linux/amd64"
   ],
-  "postCreateCommand": "fish /entry.fish"
+  "postCreateCommand": ["fish", "/entry.fish"]
 }

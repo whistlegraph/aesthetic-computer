@@ -7,6 +7,7 @@ RUN dnf install -y git gh gcc clang python3 python3-pip emacs-nox fish util-linu
 RUN dnf install -y qemu-kvm qemu-img
 RUN dnf install -y openssl openssl-devel awscli redis
 RUN dnf install -y dnf-plugins-core
+RUN dnf install -y lolcat toilet
 
 # Install 'docker'
 RUN sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
