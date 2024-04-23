@@ -133,13 +133,9 @@
 ;; }
 
 (if (display-graphic-p)
-    (add-hook 'after-make-frame-functions
-              (lambda (frame)
-                (select-frame frame)
-                (when (display-graphic-p)
-                  (scroll-bar-mode -1)
-                  (fringe-mode 0)
-                  ))))
+    (when (display-graphic-p)
+      (scroll-bar-mode -1)
+      (fringe-mode 0)))
 
 ;; (when (not (display-graphic-p))
 ;; ;; set internal border width for tui
