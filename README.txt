@@ -47,6 +47,10 @@ but technically agnostic. (Choose your aesthetic!)
   - [] The eat shells seem to stay open?
   - [] https://elpa.nongnu.org/nongnu-devel/doc/eat.html#Shell-Integration
 
+*** org-mode learning ***
+  - https://zzamboni.org/post/beautifying-org-mode-in-emacs/
+  - Add variable pitch fonts to org-mode.
+
 *** aesthetic lisp / s-expression parser and evaluator ***
   - [-] Make a basic graphical editor / viewer.
   + Done
@@ -54,7 +58,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Write s-expressions directly in the prompt if
         the input begins with a parenthesis / produce
         a dynamic disk / run existing lisp code through
-        `load`. 
+        `load`.
   - [x] Refactor `load` to be more efficient to support this.
   - [x] Make a source .lisp file in `disks`.
   - [x] Make a lisp.mjs file that exports a parser.
@@ -66,7 +70,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [] use the `pjs` mock work to support the new syntax / upload type?
   - [] graphical editing with s-expression underneath?
   - [] could it work off an actor model of some kind?
-  - [] make a gui editor that stores sequences in s-expressions 
+  - [] make a gui editor that stores sequences in s-expressions
 
 *** brushes ***
   - [] Add auto-interpolation to brushes.
@@ -83,7 +87,7 @@ but technically agnostic. (Choose your aesthetic!)
        the ability to steal pixels as well / remix.
   - [] Add high resolution / PIXIjs renderer to the `chat` piece only.
   ------------------------------------------------------------------------------
-  - [] Make `help` channel as the first 2nd instance for chat. 
+  - [] Make `help` channel as the first 2nd instance for chat.
     - [] Users should be able to "swap" channels but just enable it in a separate
         `help` piece similar to how `chat` is implemented.
   - [] Add custom / cool notification icons, and also sounds?
@@ -130,7 +134,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Move the paste button up half-way.
   - [x] Integrate chat interface into the `disk.mjs` file,
        using the `chat` piece as a flag for enabling the integration.
-  - [x] Enable the chat ui overlay for all pieces in the `nopaint` system. 
+  - [x] Enable the chat ui overlay for all pieces in the `nopaint` system.
   - [x] Show last chat message on homepage.
   - [x] Have the chat server running as a separate websocket connection, then that number can be used for total users online.
   - [x] Be able to delete certain recent messages manually in MongoDB.
@@ -159,9 +163,9 @@ but technically agnostic. (Choose your aesthetic!)
   - [] There should also be a shortcut to focus on AC immediately.
 
 ** piece authoring helpers ***
-  - [] make an `icon` piece where you can `icon prompt` or `icon anything` to 
-       preview the icon for a piece. 
-  - [] (do the same for `preview` for preview images) 
+  - [] make an `icon` piece where you can `icon prompt` or `icon anything` to
+       preview the icon for a piece.
+  - [] (do the same for `preview` for preview images)
 
 *** desktop app / electron build ***
   - [] Follow a guide at https://www.electronforge.io.
@@ -221,7 +225,7 @@ but technically agnostic. (Choose your aesthetic!)
        - 📆 In a week
        (https://github.com/microsoft/vscode/issues/208790)
 
-- [-] Auth is messed up in the VSCode extension. 
+- [-] Auth is messed up in the VSCode extension.
   - [] Potentially when switching between Local Development mode and
        production.
   - [-] In general after logging out, one appears to stay logged in?
@@ -236,7 +240,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [] dragging the corner label all the way to the right should always reveal a "share" prefix and then letting go will jump to `share x`.
 
 *** vscode extension ***
-- [] Fix weird auth things / loss of auth in the vscode extension? 
+- [] Fix weird auth things / loss of auth in the vscode extension?
 
 *** aspen demo ***
   - [] Screenshot needs to work / resize if necessary from a webgl / 3d view.
