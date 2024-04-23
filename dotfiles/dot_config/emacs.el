@@ -10,6 +10,8 @@
 ;; (load-theme 'wombat t)
 (setq mac-option-modifier 'meta)
 
+(global-set-key [C-down-mouse-1] 'ignore)
+
 ;; Only show emergency warnings.
 (setq warning-minimum-level :emergency)
 
