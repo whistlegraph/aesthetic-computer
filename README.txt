@@ -42,6 +42,10 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
+*** speed ***
+  - [🟠] Make /prompt load faster than 0.3s in production.
+  - [] Speed up other stuff on the `Performance insights` chart, by eager loading / waiting less. 
+
 *** dev environment ***
   - [❤️‍🔥] Can't kill and re-open platform in the devcontainer...
   - [] The eat shells seem to stay open?
