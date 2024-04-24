@@ -42,9 +42,6 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** webgpu rasterizer ***
-  - [] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
-
 *** etc... ***
   - [] Fix 'download' / dl command.
   - [] Add "..." glyph to font.
@@ -57,6 +54,9 @@ but technically agnostic. (Choose your aesthetic!)
     - [] https://elpa.nongnu.org/nongnu-devel/doc/eat.html#Shell-Integration
   + Done
   - [x] VSCode status bar todo goal.
+
+*** webgpu rasterizer ***
+  - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
 
 *** speed ***
   - [] Speed up other stuff on the `Performance insights` chart, by eager loading / waiting less.
