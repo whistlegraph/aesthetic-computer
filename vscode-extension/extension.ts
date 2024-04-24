@@ -25,33 +25,37 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   console.log("🟢 Aesthetic Computer Extension Activated.");
   extContext = context;
 
+  const savedGoal = context.globalState.get("goalState");
+
   // Load the docs from the web.
-  try {
-    // const url = `https://${ // local ? "localhost:8888" : "aesthetic.computer" }/api/docs`;
-    const url = `https://aesthetic.computer/docs.json`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data: any = await response.json();
-    console.log("📚 Docs loaded:", data);
+  if (!docs) {
+    try {
+      // const url = `https://${ // local ? "localhost:8888" : "aesthetic.computer" }/api/docs`;
+      const url = `https://aesthetic.computer/docs.json`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data: any = await response.json();
+      console.log("📚 Docs loaded:", data);
 
-    keys(data.api).forEach((key) => {
-      // Add the category to each doc before smushing them.
-      // Such as `structure` so doc pages can be found like `structure:boot`.
-      keys(data.api[key]).forEach((k) => {
-        data.api[key][k].category = key;
+      keys(data.api).forEach((key) => {
+        // Add the category to each doc before smushing them.
+        // Such as `structure` so doc pages can be found like `structure:boot`.
+        keys(data.api[key]).forEach((k) => {
+          data.api[key][k].category = key;
+        });
+        // 😛 Smush them.
+        mergedDocs = {
+          ...mergedDocs,
+          ...data.api[key],
+        };
       });
-      // 😛 Smush them.
-      mergedDocs = {
-        ...mergedDocs,
-        ...data.api[key],
-      };
-    });
 
-    docs = data;
-  } catch (error) {
-    console.error("Failed to fetch documentation:", error);
+      docs = data;
+    } catch (error) {
+      console.error("Failed to fetch documentation:", error);
+    }
   }
 
   // Set up all the autocompletion and doc hints.
@@ -188,6 +192,157 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       },
     ),
   );
+
+  // 🚩 Goal
+  let statusBarGoal: vscode.StatusBarItem;
+  let goalLocation: vscode.Range;
+  let goalFilePath: string; // Store the file path for use in the jump command
+
+  function updateStatusBarItem(text: string, filename: string, line: number) {
+    if (!statusBarGoal) {
+      statusBarGoal = vscode.window.createStatusBarItem(
+        vscode.StatusBarAlignment.Left,
+        100,
+      );
+      statusBarGoal.command = "aestheticComputer.visitGoal";
+      statusBarGoal.color = new vscode.ThemeColor(
+        "statusBarItem.remoteForeground",
+      );
+      statusBarGoal.show();
+      context.subscriptions.push(statusBarGoal);
+    }
+
+    statusBarGoal.text = `$(output) Aesthetic ${text} 📔 ${filename}:${line}`;
+    statusBarGoal.tooltip = text;
+  }
+
+  // Save state function (add this inside your setGoal command)
+  function saveGoalState(
+    text: string,
+    filePath: string,
+    range: vscode.Range,
+    filename: string,
+  ) {
+    const goalState = {
+      text: text,
+      filePath: filePath,
+      filename: filename,
+      lineStart: range.start.line,
+      characterStart: range.start.character,
+      lineEnd: range.end.line,
+      characterEnd: range.end.character,
+    };
+    context.globalState.update("goalState", goalState);
+  }
+
+  function processGoalText(text: string) {
+    const pattern = /-\s*\[(.*?)\]\s*/g;
+    const match = pattern.exec(text);
+    const replacement = match && match[1] ? match[1] + " " : "🚩 ";
+    return replacement + text.replace(pattern, "").trim();
+  }
+
+  function restoreGoal(savedGoal: any) {
+    goalFilePath = savedGoal.filePath;
+    goalLocation = new vscode.Range(
+      new vscode.Position(savedGoal.lineStart, savedGoal.characterStart),
+      new vscode.Position(savedGoal.lineEnd, savedGoal.characterEnd),
+    );
+
+    updateStatusBarItem(
+      savedGoal.text,
+      savedGoal.filename,
+      savedGoal.lineStart + 1,
+    );
+  }
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aestheticComputer.setGoal", () => {
+      const editor = vscode.window.activeTextEditor;
+      if (editor) {
+        const cursorPosition = editor.selection.active;
+        const line = editor.document.lineAt(cursorPosition.line);
+        const text = processGoalText(line.text);
+        goalLocation = line.range;
+        goalFilePath = editor.document.uri.fsPath;
+        const filename = editor.document.fileName.split("/").pop() as string;
+
+        updateStatusBarItem(text, filename, cursorPosition.line + 1);
+        saveGoalState(text, goalFilePath, goalLocation, filename);
+      }
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aestheticComputer.visitGoal", () => {
+      if (goalFilePath && goalLocation) {
+        // Search among all editors, not just visible ones
+        let targetEditor = vscode.window.visibleTextEditors.find(
+          (editor) => editor.document.uri.fsPath === goalFilePath,
+        );
+
+        const openDocument = (document: any) => {
+          vscode.window
+            .showTextDocument(document, {
+              preview: false,
+              viewColumn: targetEditor?.viewColumn, // Use existing view column if available
+              selection: goalLocation,
+            })
+            .then((editor) => {
+              editor.revealRange(
+                goalLocation,
+                vscode.TextEditorRevealType.InCenter,
+              );
+            });
+        };
+
+        if (targetEditor) {
+          openDocument(targetEditor.document);
+        } else {
+          vscode.workspace.openTextDocument(goalFilePath).then(openDocument);
+        }
+      }
+    }),
+  );
+
+  // Listen for text document changes
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeTextDocument((event) => {
+      if (
+        goalFilePath &&
+        goalLocation &&
+        event.document.uri.fsPath === goalFilePath
+      ) {
+        updateStatusBasedOnLineChange(event);
+      }
+    }),
+  );
+
+  function updateStatusBasedOnLineChange(
+    event: vscode.TextDocumentChangeEvent,
+  ) {
+    if (!goalLocation) return;
+
+    // Check if the change affects the line of interest
+    const lineOfInterest = goalLocation.start.line;
+    for (const change of event.contentChanges) {
+      if (
+        change.range.start.line <= lineOfInterest &&
+        change.range.end.line >= lineOfInterest
+      ) {
+        // The line of interest has been changed, update the status bar
+        const text = processGoalText(
+          event.document.lineAt(lineOfInterest).text,
+        );
+        const filename = event.document.fileName.split("/").pop() as string;
+        updateStatusBarItem(text, filename, lineOfInterest + 1);
+        saveGoalState(text, goalFilePath, goalLocation, filename);
+        break;
+      }
+    }
+  }
+
+  if (savedGoal) restoreGoal(savedGoal);
 
   context.subscriptions.push(
     vscode.commands.registerCommand("aestheticComputer.openWindow", () => {
