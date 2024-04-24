@@ -10,10 +10,5 @@
     "**/aesthetic-computer-vault/**": false
   },
   "editor.minimap.scale": 1,
-  "editor.minimap.autohide": true,
-  "deno.enable": true,
-  "deno.enablePaths": ["system/netlify/edge-functions"],
-  "deno.unstable": true,
-  "deno.importMap": ".netlify/edge-functions-import-map.json",
-  "deno.path": "/home/me/.deno/bin/deno"
+  "editor.minimap.autohide": true
 }

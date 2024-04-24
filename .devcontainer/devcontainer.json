@@ -27,7 +27,7 @@
         "esbenp.prettier-vscode",
         "ms-azuretools.vscode-docker",
         "mongodb.mongodb-vscode",
-        "denoland.vscode-deno",
+        // "denoland.vscode-deno",
         "bmalehorn.vscode-fish",
         "ms-vsliveshare.vsliveshare",
         "jsynowiec.vscode-insertdatestring",
