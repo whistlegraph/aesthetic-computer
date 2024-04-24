@@ -72,8 +72,8 @@ fish_add_path ~/.ops/bin
 
 # Assume the daemon is running when entering emacs.
 # For fast config reloading.
-# alias platform "emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el; emacsclient -nw -c --eval '(aesthetic-backend (quote \"source\"))'; emacsclient -e \"(kill-emacs)\""
-alias platform "emacs -q -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el -nw --eval '(aesthetic-backend (quote \"source\"))'"
+alias platform "emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el; emacsclient -nw -c --eval '(aesthetic-backend (quote \"source\"))'; emacsclient -e \"(kill-emacs)\""
+# alias platform "emacs -q -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el -nw --eval '(aesthetic-backend (quote \"source\"))'"
 
 # ⏲️ Wait on `entry.fish` to touch the `.waiter` file.
 function aesthetic
@@ -83,7 +83,7 @@ function aesthetic
         sleep 1
         clear
     end
-    rm /home/me/.waiter
+    # rm /home/me/.waiter
     platform
 end
 
