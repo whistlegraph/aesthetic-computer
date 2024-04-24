@@ -229,7 +229,17 @@
 (global-set-key (kbd "C-c l") #'org-store-link)
 (global-set-key (kbd "C-c a") #'org-agenda)
 (global-set-key (kbd "C-c c") #'org-capture)
-(setq org-startup-with-inline-images t)
+;; (setq org-startup-with-inline-images t)
+
+;; TODO: Try this.
+;; (defun create-and-link-org-file (filename)
+;;   "Create a new org file and insert a link to it."
+;;   (interactive "sEnter filename: ")
+;;   (let ((filepath (concat filename ".org")))
+;;     (find-file filepath)
+;;     (write-file filepath)
+;;     (switch-to-buffer (other-buffer))
+;;     (insert (format "[[file:%s][%s]]" filepath filename))))
 
   ;; Different scroll margin
   ;; (setq vertico-scroll-margin 0)
