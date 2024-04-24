@@ -6,7 +6,6 @@ iframe {
   padding-bottom: 0px;
   background-color: rgb(32, 32, 32);
   opacity: 0;
-  pointer-events: none;
 }
 
 iframe.visible {
