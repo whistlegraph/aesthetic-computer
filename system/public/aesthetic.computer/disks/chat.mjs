@@ -5,12 +5,13 @@
 #endregion */
 
 /* #region 🏁 TODO
-  - [] Include this file as an interface module inside of disk, so it can 
-       conditionally be run inside of any piece so chat can be everywhere!
   - [-] Search this file for `ChatToDisk` references and do them.
-  - [] TOOD: Add custom message received sound.
+  - [] Add custom sound to iOS notifications.
   + Future
   + Done
+  - [x] Add custom message received sound.
+  - [x] Include this file as an interface module inside of disk, so it can 
+       conditionally be run inside of any piece so chat can be everywhere!
   - [x] Play a sound when chats come in by others.
   - [x] Move connection so that updates appear in every piece.
   - [x] Words longer than the width should be character-wrapped in word wrap
@@ -169,7 +170,7 @@ function paint(
   { api, ink, wipe, screen, leaving, chat, mask, unmask, geo: { Box }, handle },
   options,
 ) {
-  if (!options?.embedded) wipe(100, 100, 145); // TODO: ChatToDisk: Would have to prevent wipe here.
+  if (!options?.embedded) wipe(100, 100, 145);
 
   if (chat.connecting) ink("pink").write("Connecting...", { center: "xy" });
 
