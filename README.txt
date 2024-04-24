@@ -45,7 +45,11 @@ but technically agnostic. (Choose your aesthetic!)
 *** dev environment ***
   - [❤️‍🔥] Can't kill and re-open platform in the devcontainer...
   - [] The eat shells seem to stay open?
+  - [] Ports are staying open after C-c C-x
   - [] https://elpa.nongnu.org/nongnu-devel/doc/eat.html#Shell-Integration
+
+*** keys ***
+  - [] Make prototype.
 
 *** org-mode learning ***
   - https://zzamboni.org/post/beautifying-org-mode-in-emacs/
@@ -80,11 +84,11 @@ but technically agnostic. (Choose your aesthetic!)
       `export const smoothing = "curve"`
 
 *** chat ***
+  - [] Add ability to show pixels in the chat / share current work, with
+       the ability to steal pixels as well / remix.
   - [] Notification rollup.
   - [🟠] Get the chat integration in `line` and `rect` and other brushes
        to be an interactive pop-up.
-  - [] Add ability to show pixels in the chat / share current work, with
-       the ability to steal pixels as well / remix.
   - [] Add high resolution / PIXIjs renderer to the `chat` piece only.
   ------------------------------------------------------------------------------
   - [] Make `help` channel as the first 2nd instance for chat.
