@@ -5,7 +5,8 @@
   "build": {
     "dockerfile": "Dockerfile",
     "args": {
-      "BUILDKIT_INLINE_CACHE": "1"
+      "BUILDKIT_INLINE_CACHE": "1",
+      "BUILDX_BUILDER": "cloud-digitpain-aesthetic-platform"
     },
     "platform": "linux/amd64"
   },
