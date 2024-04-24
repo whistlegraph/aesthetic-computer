@@ -83,7 +83,7 @@ function aesthetic
         sleep 1
         clear
     end
-    rm /home/me/.waiter
+    # rm /home/me/.waiter
     platform
 end
 
