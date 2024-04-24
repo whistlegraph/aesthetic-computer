@@ -4,7 +4,7 @@
   "displayName": "Aesthetic Computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.101.0",
+  "version": "1.103.0",
   "description": "Code, run, and publish your pieces.",
   "engines": {
     "vscode": "^1.88.0"
@@ -27,6 +27,7 @@
   "main": "./out/extension.js",
   "browser": "./out/extension.js",
   "activationEvents": [
+    "onStartupFinished",
     "onLanguage:javascript",
     "onLanguage:pjs"
   ],
@@ -53,27 +54,35 @@
     "commands": [
       {
         "command": "aestheticComputer.logIn",
-        "title": "aesthetic.computer: Hi 👋 (Log in)"
+        "title": "Aesthetic Computer: Hi (Log in) 👋"
       },
       {
         "command": "aestheticComputer.logOut",
-        "title": "aesthetic.computer: Bye 🚪 (Log out)"
+        "title": "Aesthetic Computer: Bye (Log out) 🚪"
       },
       {
         "command": "aestheticComputer.runPiece",
-        "title": "aesthetic.computer: Run Piece 🏃"
+        "title": "Aesthetic Computer: Run Piece 🧩"
       },
       {
         "command": "aestheticComputer.localServer",
-        "title": "aesthetic.computer: Toggle Local Development 💻"
+        "title": "Aesthetic Computer: Toggle Local Development 💻"
       },
       {
         "command": "aestheticComputer.openDoc",
-        "title": "aesthetic.computer: Open Documentation 📚"
+        "title": "Aesthetic Computer: Open Documentation (Docs) 📚"
       },
       {
         "command": "aestheticComputer.openWindow",
-        "title": "aesthetic.computer: Open Window 🪟"
+        "title": "Aesthetic Computer: Open Window 🪟"
+      },
+      {
+        "command": "aestheticComputer.setGoal",
+        "title": "Aesthetic Computer: Set Goal 🚩"
+      },
+      {
+        "command": "aestheticComputer.visitGoal",
+        "title": "Aesthetic Computer: Visit Goal 📔🚩"
       }
     ],
     "grammars": [
@@ -119,7 +128,7 @@
     "@types/node": "^20.11.6",
     "@types/vscode": "^1.88.0",
     "@vscode/test-web": "^0.0.53",
-    "@vscode/vsce": "^2.25.0",
+    "@vscode/vsce": "^2.26.0",
     "esbuild": "^0.20.0",
     "typescript": "^5.3.3"
   },
