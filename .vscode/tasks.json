@@ -8,7 +8,7 @@
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
-        "panel": "new",
+        "panel": "dedicated",
         "focus": true,
         "clear": true
       },
