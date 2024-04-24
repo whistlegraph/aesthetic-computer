@@ -47,7 +47,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [] Add "..." glyph to font.
 
 *** dev environment ***
-  - [❤️‍🔥] Can't kill and re-open platform in the devcontainer...
+  - [🟠] Can't kill and re-open platform in the devcontainer...
   - [] Auto enter insert mode when switching tabs in emacs.
     - [] The eat shells seem to stay open?
     - [] Ports are staying open after C-c C-x
