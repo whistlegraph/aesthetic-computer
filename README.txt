@@ -42,17 +42,27 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** speed ***
-  - [🟠] Make /prompt load faster than 0.3s in production.
-  - [] Speed up other stuff on the `Performance insights` chart, by eager loading / waiting less. 
+*** webgpu rasterizer ***
+  - [] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
+
+*** etc... ***
+  - [] Fix 'download' / dl command.
+  - [] Add "..." glyph to font.
 
 *** dev environment ***
   - [❤️‍🔥] Can't kill and re-open platform in the devcontainer...
-  - [] The eat shells seem to stay open?
-  - [] Ports are staying open after C-c C-x
-  - [] https://elpa.nongnu.org/nongnu-devel/doc/eat.html#Shell-Integration
+  - [] Auto enter insert mode when switching tabs in emacs.
+    - [] The eat shells seem to stay open?
+    - [] Ports are staying open after C-c C-x
+    - [] https://elpa.nongnu.org/nongnu-devel/doc/eat.html#Shell-Integration
+  + Done
+  - [x] VSCode status bar todo goal.
 
-*** keys ***
+*** speed ***
+  - [] Speed up other stuff on the `Performance insights` chart, by eager loading / waiting less.
+  - [] Make /prompt load faster than 0.3s in production.
+
+*** keys **
   - [] Make prototype.
 
 *** org-mode learning ***
