@@ -1,4 +1,6 @@
 A *new* computing environment that...
+  (Technical Summary)
+    - Works in updated web browsers on all major devices, including VR headsets!
 
   (Technical Summary)
     - Works in updated web browsers on all major devices, including VR headsets!

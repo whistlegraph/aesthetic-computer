@@ -120,3 +120,13 @@ end
 
 # Trigger the 'waiter' alias to boot the platform.
 touch /home/me/.waiter
+
+echo "Initializing 📋 Clipboard Service" | lolcat -x -r
+
+# ❤️‍🔥
+# TODO: This may not be the best method because cdocker aesthetic needs to be
+#       running in the user environment that has the clipboard.
+
+# Run the isomorphic_copy clipboard on the host.
+# Make sure the host allows ssh access from its own private key... `ssh-copy-id -i ~/.ssh/id_rsa.pub $USER@localhost`
+# ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $HOST_USER@172.17.0.1 "cdocker aesthetic"

@@ -110,14 +110,18 @@
                                    (interactive)
                                    (scroll-up 1)))
 
-;; Tab Switch shortcuts should be built-in for C-<tab> and C-S-<tab>,
-;; if available.
-(global-set-key (kbd "C-x <right>") 'tab-next)
-(global-set-key (kbd "C-x <left>") 'tab-previous)
-;;(global-set-key (kbd "C-<tab>") 'tab-next)
-;;(global-set-key (kbd "<backtab>") 'tab-previous)
-;;(global-set-key (kbd "C-<tab>") 'tab-next)
-;;(global-set-key (kbd "C-S-<tab>") 'tab-previous)
+(defun my-tab-next ()
+  "Run eat handler after switching to the next tab."
+  (interactive)
+  (eat-tab-change #'tab-next))
+
+(defun my-tab-previous ()
+  "Run eat handler after switching to the previous tab."
+  (interactive)
+  (eat-tab-change #'tab-previous))
+
+(global-set-key (kbd "C-x <right>") 'my-tab-next)
+(global-set-key (kbd "C-x <left>") 'my-tab-previous)
 ;; For running in Windows Terminal via WSL2 I needed to add this to the JSON:
 ;; {
 ;;   "command": {
@@ -343,10 +347,10 @@
 
 (use-package yascroll :config (global-yascroll-bar-mode 1))
 
-(use-package mlscroll
-  :config
-  (setq mlscroll-shortfun-min-width 11) ;truncate which-func, for default mode-line-format's
-  (mlscroll-mode 1))
+;; (use-package mlscroll
+;;   :config
+;;   (setq mlscroll-shortfun-min-width 11) ;truncate which-func, for default mode-line-format's
+;;   (mlscroll-mode 1))
 
 ;; 🌳 Tree-Sitter
 ;; https://github.com/renzmann/treesit-auto
@@ -423,7 +427,10 @@
   :bind ("C-c p" . prettier-js))
 
 ;; Use good clipboard system in terminal mode.
-(use-package clipetty :hook (after-init . global-clipetty-mode))
+;; (use-package clipetty :hook (after-init . global-clipetty-mode))
+
+;; Use xclip for system clipboard.
+(use-package xclip :config (xclip-mode 1))
 
 ;; Evil mode configuration
 (use-package evil
@@ -506,16 +513,28 @@
 ;;       :map embark-file-map
 ;;       "V" #'cust/vsplit-file-open
 ;;       "X" #'cust/split-file-open)
-
-(defun scroll-eat-on-tab-change (original-fun &rest args)
+(defun eat-tab-change (original-fun &rest args)
+  (interactive)
+  (message "eat-tab-change triggered")  ; Output to *Messages* buffer
   (apply original-fun args)
   (walk-windows (lambda (window)
                   (with-current-buffer (window-buffer window)
-                    (when (or (eq major-mode 'eat-mode))
-                      (end-of-buffer))))
+                    (when (eq major-mode 'eat-mode)
+                      (end-of-buffer)
+                      (evil-insert-state))))
                nil 'visible))
 
-(advice-add 'tab-bar-select-tab :around #'scroll-eat-on-tab-change)
+(advice-add 'tab-bar-select-tab :around #'eat-tab-change)
+
+(defun kill-eat-processes ()
+  "Kill processes associated with eat terminal buffers."
+  (interactive)
+  (dolist (buffer (buffer-list))
+    (with-current-buffer buffer
+      (when (eq major-mode 'eat-mode)
+        (eat-kill-process)))))
+
+(add-hook 'kill-emacs-hook #'kill-eat-processes)
 
 ;; 🫀 Aesthetic Computer Layouts
 
