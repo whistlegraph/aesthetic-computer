@@ -2,3 +2,6 @@
 !.emacs.d/.gitignore
 
 !envs/.gitignore
+
+# a message txt file to tell the host when the container started
+.started
