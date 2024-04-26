@@ -1,15 +1,14 @@
 let midi = null;
-
 let receiveDevice = null;
 
 // Disconnect a device and clear the received MIDI message log.
-const resetInput = () => {
-  if (receiveDevice) {
-    receiveDevice.onmidimessage = null;
-    receiveDevice.close();
-    receiveDevice = null;
-  }
-};
+// const resetInput = () => {
+//   if (receiveDevice) {
+//     receiveDevice.onmidimessage = null;
+//     receiveDevice.close();
+//     receiveDevice = null;
+//   }
+// };
 
 const connectToMidi = () => {
   navigator
@@ -23,18 +22,25 @@ const connectToMidi = () => {
 
         midi.onstatechange = (event) => {
           console.log(event);
-          showEvent(event);
         };
 
-        resetInput();
+        // resetInput();
 
-        const inputValues = midi.inputs.values();
-        console.log(inputValues);
+        let keyboard;
+        for (const port of midi.inputs.values()) {
+          if (port.name === "reface YC MIDI 1") keyboard = port;
+        }
 
-        receiveDevice = inputValues[0];
-        receiveDevice.onmidimessage = (message) => {
-          console.log(message);
-        };
+        if (keyboard) {
+          keyboard.onmidimessage = (message) => {
+            if (message.data[0] === 144) {
+              window.acSEND?.({
+                type: "midi:keyboard",
+                content: { data: message.data },
+              });
+            }
+          };
+        }
       },
       (error) => console.error(error),
     );
