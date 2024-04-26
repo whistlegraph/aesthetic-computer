@@ -45,6 +45,9 @@ set -gx PATH $PATH /home/me/.local/bin
 
 # add stuff to path
 set -gx PATH $PATH $HOME/isomorphic_copy/bin
+# use temporary clipboard file
+set -gx ISOCP_USE_FILE 1
+
 set -gx DENO_INSTALL /home/me/.deno
 set -gx PATH $PATH $DENO_INSTALL/bin
 
@@ -73,13 +76,12 @@ fish_add_path ~/.ops/bin
 # Assume the daemon is running when entering emacs.
 # For fast config reloading.
 alias platform "emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el; emacsclient -nw -c --eval '(aesthetic-backend (quote \"source\"))'; emacsclient -e \"(kill-emacs)\""
-# alias platform "emacs -q -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el -nw --eval '(aesthetic-backend (quote \"source\"))'"
 
 # ⏲️ Wait on `entry.fish` to touch the `.waiter` file.
 function aesthetic
     clear
     while not test -f /home/me/.waiter
-        toilet "Configuring..." -f smblock  | lolcat -x -r
+        toilet "Configuring..." -f smblock | lolcat -x -r
         sleep 1
         clear
     end
@@ -88,17 +90,17 @@ function aesthetic
 end
 
 alias ac 'cd ~/aesthetic-computer'
-alias ac-site 'npm run site'
-alias ac-session 'npm run server:session'
-alias ac-edge 'clear; npm run edge-micro' # TODO: will not return to fish 24.04.05.19.53 :(
-alias ac-stripe-print 'npm run stripe-print-micro'
-alias ac-stripe-ticket 'npm run stripe-ticket-micro'
-alias ac-url 'clear; npm run -s url'
-alias ac-shell 'ac-url; fish'
-alias ac-redis 'clear; npm run redis'
+alias ac-site 'ac; npm run site'
+alias ac-session 'ac; npm run server:session'
+alias ac-edge 'clear; ac; npm run edge-micro' # TODO: will not return to fish 24.04.05.19.53 :(
+alias ac-stripe-print 'ac; npm run stripe-print-micro'
+alias ac-stripe-ticket 'ac; npm run stripe-ticket-micro'
+alias ac-url 'clear; ac; npm run -s url'
+alias ac-shell 'ac; ac-url; fish'
+alias ac-redis 'clear; ac; npm run redis'
 alias ac-udp 'ssh root@157.245.134.225' # ac monolith udp server management
-alias ac-servers 'clear; npm run -s servers; cd nanos; env nogreet=true fish'
-alias ac-chat 'clear; npm run -s chat; cd nanos; npm run chat-system:dev; fish'
+alias ac-servers 'clear; ac; npm run -s servers; cd nanos; env nogreet=true fish'
+alias ac-chat 'clear; ac; npm run -s chat; cd nanos; npm run chat-system:dev; fish'
 
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 

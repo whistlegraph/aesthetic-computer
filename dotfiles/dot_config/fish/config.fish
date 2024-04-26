@@ -84,13 +84,13 @@ test -f '/Users/jas/Library/Preferences/netlify/helper/path.fish.inc' && source 
 
 # Set the keyboard repeat and delay in milliseconds. Be careful!
 function keyrepeat
-  set interval $argv[1]
-  gsettings set org.gnome.desktop.peripherals.keyboard repeat-interval $interval
+    set interval $argv[1]
+    gsettings set org.gnome.desktop.peripherals.keyboard repeat-interval $interval
 end
 
 function keydelay
-  set delay $argv[1]
-  gsettings set org.gnome.desktop.peripherals.keyboard delay $delay
+    set delay $argv[1]
+    gsettings set org.gnome.desktop.peripherals.keyboard delay $delay
 end
 
 # a shell-gpt shortcut (must be all lowercase / otherwise quoted)
@@ -109,7 +109,7 @@ end
 function codegen
     if set -q argv[1]
         set -l args (string join " " $argv)
-        sgpt --code --chat code "$args" 
+        sgpt --code --chat code "$args"
     else
         sgpt --code --editor --chat code
     end
@@ -125,52 +125,52 @@ function copy
     printf "%s\n" $content | xclip -selection clipboard
 end
 
-function done 
+function done
     rm /tmp/chat_cache/code 2>/dev/null
     echo "bye :)"
 end
 
 function ok
-  rm /tmp/chat_cache/umm 2>/dev/null
-  echo "bye :)"
+    rm /tmp/chat_cache/umm 2>/dev/null
+    echo "bye :)"
 end
 
 function forget
-  rm /tmp/chat_cache/umm 2>/dev/null
-  echo "umm, i forgot :)"
+    rm /tmp/chat_cache/umm 2>/dev/null
+    echo "umm, i forgot :)"
 end
 
-alias nvm 'forget'
+alias nvm forget
 
 # Install via: `sudo curl -Lo /usr/bin/theme.sh 'https://git.io/JM70M' && sudo chmod +x /usr/bin/theme.sh`
 if type -q theme.sh
-	if test -e ~/.theme_history
-	theme.sh (theme.sh -l|tail -n1)
-	end
+    if test -e ~/.theme_history
+        theme.sh (theme.sh -l|tail -n1)
+    end
 
-  function TRAPUSR1 --on-signal USR1
-      if test "$scheme" = "night"
-          theme.sh dracula
-      else if test "$scheme" = "day"
-          theme.sh belafonte-day
-      end
-  end
+    function TRAPUSR1 --on-signal USR1
+        if test "$scheme" = night
+            theme.sh dracula
+        else if test "$scheme" = day
+            theme.sh belafonte-day
+        end
+    end
 
-	# Optional
-	# Bind C-o to the last theme.
-	function last_theme
-		theme.sh (theme.sh -l|tail -n2|head -n1)
-	end
+    # Optional
+    # Bind C-o to the last theme.
+    function last_theme
+        theme.sh (theme.sh -l|tail -n2|head -n1)
+    end
 
-	bind \co last_theme
+    bind \co last_theme
 
-	alias th='theme.sh -i'
+    alias th='theme.sh -i'
 
-	# Interactively load a light theme
-	alias thl='theme.sh --light -i'
+    # Interactively load a light theme
+    alias thl='theme.sh --light -i'
 
-	# Interactively load a dark theme
-	alias thd='theme.sh --dark -i'
+    # Interactively load a dark theme
+    alias thd='theme.sh --dark -i'
 end
 
 set PATH /home/jas/.fnm $PATH
@@ -183,3 +183,18 @@ set -gx TERM xterm-256color
 export OPS_DIR="$HOME/.ops"
 export PATH="$HOME/.ops/bin:$PATH"
 # source "$HOME/.ops/scripts/bash_completion.sh"
+
+## watch for changes in `.started`
+#function watch_trigger
+#    # Check if the directory exists
+#    if test -d /workspaces/aesthetic-computer
+#        # Check if 'cdocker' command exists
+#        if type cdocker >/dev/null 2>&1
+#            # Setup watching only if both checks pass
+#            echo /workspaces/aesthetic-computer/.started | entr -p cdocker aesthetic &
+#        end
+#    end
+#end
+
+# Call the function to start watching
+# watch_trigger
