@@ -87,22 +87,40 @@ export default class Sound {
     }
 
     // Generate square wave as we step through the wavelength.
+
+    // Generate different waveforms as we step through the wavelength.
     if (this.#type === "square") {
-      // Square 🌊
+      // Square Wave
       this.#step += 1;
       if (this.#step >= this.#wavelength) {
         this.#up = !this.#up;
-        this.#step -= this.#wavelength; // instead of resetting to zero
+        this.#step -= this.#wavelength;
       }
-      value = this.#up ? 1 : -1; // Unmodified Value (either 1 or -1)
+      value = this.#up ? 1 : -1;
     } else if (this.#type === "sine") {
-      // Sine 🌊
-      const angle = (PI * this.#step) / this.#wavelength;
-      value = sin(angle);
-      this.#step += 1; // increase by wavelength instead of 1
+      // Sine Wave
+      const angle = (Math.PI * this.#step) / this.#wavelength;
+      value = Math.sin(angle);
+      this.#step += 1;
 
       if (this.#step >= 2 * this.#wavelength) {
-        // double the wavelength to lower the frequency by half
+        this.#step = 0;
+      }
+    } else if (this.#type === "triangle") {
+      // Triangle Wave
+      const stepSize = 4 / this.#wavelength;
+      value = 1 - Math.abs((this.#step % this.#wavelength) * stepSize - 2);
+      this.#step += 1;
+
+      if (this.#step >= this.#wavelength) {
+        this.#step = 0;
+      }
+    } else if (this.#type === "sawtooth") {
+      // Sawtooth Wave
+      value = 2 * (this.#step / this.#wavelength) - 1;
+      this.#step += 1;
+
+      if (this.#step >= this.#wavelength) {
         this.#step = 0;
       }
     }
@@ -116,7 +134,7 @@ export default class Sound {
       // Decay Envelope (0-1)
       const decay = Math.min(
         1,
-        1 - (this.#progress - this.#decayStart) / this.#decay
+        1 - (this.#progress - this.#decayStart) / this.#decay,
       );
       value *= decay;
     }

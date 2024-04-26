@@ -3705,6 +3705,24 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Receive a midi input message.
+  if (type === "midi:keyboard" && booted) {
+    // console.log("🎹 Keyboard:", content.data);
+    const $api = cachedAPI;
+    const data = { ...content };
+    Object.assign(data, {
+      device: "midi:keyboard",
+      is: (e) => e === type,
+    });
+    $api.event = data;
+    try {
+      act($api);
+    } catch (e) {
+      console.warn("️ ✒ Act failure...", e);
+    }
+    return;
+  }
+
   // Update the logged in user after initialization.
   if (type === "session:update") {
     // console.log("🤩 Session being updated!", content);
