@@ -5,14 +5,14 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Write up ABCDEFG and the sharps.
-  - [] Test n-key rollover / rollover capability somehow 
-       visually.
-  - [] Make the sounds nice / add a sustain.
+  - [🫠] Add a sustain with a fade out.
+  - [] Add touch and keyboard shortcuts for notes.
+    - [] Test n-key rollover / rollover capability somehow 
+        visually.
 #endregion */
 
 // 🥾 Boot
-function boot({ wipe, midi }) {
+function boot({ wipe, sound: { midi } }) {
   wipe(0);
   midi.connect();
 }
@@ -58,17 +58,19 @@ function act({ event: e, sound, num: { map }, help }) {
   if (e.is("midi:keyboard")) {
     note = e.data?.[1];
     pressure = e.data?.[2];
-    console.log("🎹 Keyboard:", e.data);
-
+    console.log("🎹 MIDI Keyboard Data:", e.data);
+    const noteString = sound.midi.note(note);
+    const tone = sound.freq(noteString);
+    console.log("🎵 Note:", noteString, "📊 Frequency:", tone);
     if (pressure > 0) {
       sound.synth({
         type: help.choose("sine"),
-        tone: map(note, low, oct1, 300, 700),
+        tone,
         attack: 0.01,
         decay: 0.98,
-        volume: 0.25 + 0.85 * (pressure / 127), // + hsl[2] / 100 / 2,
+        volume: 0.25 + 0.85 * (pressure / 127),
         pan: 0,
-        duration: help.choose(0.3, 0.3, 0.3, 0.3, 0.3),
+        duration: 0.3,
       });
     }
   }

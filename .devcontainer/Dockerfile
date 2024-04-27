@@ -61,7 +61,7 @@ RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "/home/
 ENV PATH="/home/me/.fnm:$PATH"
 RUN eval "$(fnm env --use-on-cd)" && \
     fnm install lts-hydrogen && fnm use lts-hydrogen && \
-    npm install -g prettier typescript typescript-language-server
+    npm install -g prettier typescript typescript-language-server @emacs-eask/cli
 
 # Install shell-gpt for the user.
 RUN pip3 install shell-gpt
