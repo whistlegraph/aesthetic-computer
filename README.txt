@@ -1,6 +1,4 @@
 A *new* computing environment that...
-  (Technical Summary)
-    - Works in updated web browsers on all major devices, including VR headsets!
 
   (Technical Summary)
     - Works in updated web browsers on all major devices, including VR headsets!
@@ -20,7 +18,6 @@ but technically agnostic. (Choose your aesthetic!)
       - Viewing & Listening (wg, ff, bgm)
     - Tools can be creatively strung together to form adaptive sequenced workflows
       for media creation, like Unix.
-
   (More Tech)
       - Threaded logic, audio, and rendering.
       - Low overhead hypervisor that runs one piece at a time.
@@ -34,7 +31,7 @@ but technically agnostic. (Choose your aesthetic!)
         ease of accessing pixels while coding a piece and learning graphics.
       - 3D WebGL renderer for VR.
 
-🖥️ Running locally:
+🖥️  Running locally:
   1. Scroll to the bottom of this file and follow the setup instructions.
   2. From the `aesthetic.computer` directory, run `npm run aesthetic`.
 
@@ -55,6 +52,7 @@ but technically agnostic. (Choose your aesthetic!)
     - [] Ports are staying open after C-c C-x
     - [] https://elpa.nongnu.org/nongnu-devel/doc/eat.html#Shell-Integration
   + Done
+  - [x] Fix copy + paste across the container boundary.
   - [x] VSCode status bar todo goal.
 
 *** webgpu rasterizer ***
@@ -65,7 +63,10 @@ but technically agnostic. (Choose your aesthetic!)
   - [] Make /prompt load faster than 0.3s in production.
 
 *** keys **
-  - [] Make prototype.
+  - [-] Add keyboard shortcuts.
+  + Done
+  - [] Add basic graphics.
+  - [x] Hook up MIDI.
 
 *** org-mode learning ***
   - https://zzamboni.org/post/beautifying-org-mode-in-emacs/
