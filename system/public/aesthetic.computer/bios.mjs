@@ -1135,7 +1135,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       user: window.acUSER,
       lanHost: window.acLAN_HOST,
       iframe: window.self !== window.top,
-      shareSupported: navigator.share !== undefined,
+      shareSupported: (iOS || Android) && navigator.share !== undefined,
     },
   };
 
@@ -4528,8 +4528,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
-    // Check if navigator.share is supported
-    if (modifiers?.sharing === true && navigator.share) {
+    // Check if navigator.share is supported and we are either on
+    // iOS or Android
+    console.log("🧑‍🤝‍🧑 Sharing:", modifiers?.sharing, "Capable:", navigator.share);
+    if ((iOS || Android) && modifiers?.sharing === true && navigator.share) {
       shareFile = new File(
         [blob || new Blob([data], { type: MIME })],
         filename.split("/").pop(),

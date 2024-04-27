@@ -96,6 +96,7 @@ export const font1 = {
   "~": "symbols/tilde - 2022.1.11.18.08.35",
   _: "symbols/underscore - 2022.1.11.17.04.46",
   "|": "symbols/vertical line - 2022.1.11.18.07.22",
+  "…": "symbols/ellipsis - 2024.4.27.09.25.16.717",
 };
 
 export const icons = {
