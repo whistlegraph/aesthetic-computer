@@ -185,7 +185,6 @@ function paint({ geo, wipe, help, ink, pen, user, screen, ui, text, paste }) {
   }
 
   if (profile && !painting && !paintings) {
-    console.log("Paintings:", paintings);
     ink(255).write(
       `${FETCHING}${ellipsisTicker.text(help.repeat)}`,
       { center: "xy" },

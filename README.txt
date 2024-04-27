@@ -41,19 +41,9 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** etc... ***
-  - [] Fix 'download' / dl command.
-  - [] Add "..." glyph to font.
-
-*** dev environment ***
-  - [🟠] Can't kill and re-open platform in the devcontainer...
-  - [] Auto enter insert mode when switching tabs in emacs.
-    - [] The eat shells seem to stay open?
-    - [] Ports are staying open after C-c C-x
-    - [] https://elpa.nongnu.org/nongnu-devel/doc/eat.html#Shell-Integration
-  + Done
-  - [x] Fix copy + paste across the container boundary.
-  - [x] VSCode status bar todo goal.
+*** dev ***
+  - [-] Fix extra closing brackets being added in mjs files.
+  - [] Why do mjs files scroll all the way to the bottom after running prettier.
 
 *** webgpu rasterizer ***
   - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md

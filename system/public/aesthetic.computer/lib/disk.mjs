@@ -3666,7 +3666,6 @@ async function makeFrame({ data: { type, content } }) {
     USER = content.user;
     LAN_HOST = content.lanHost;
     SHARE_SUPPORTED = content.shareSupported;
-    // IFRAME = content.iframe;
     $commonApi.canShare = SHARE_SUPPORTED;
     $commonApi.net.lan = LAN_HOST;
     $commonApi.user = USER;

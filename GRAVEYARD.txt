@@ -1,5 +1,20 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** etc... ***
+  + Done
+  - [x] Add "..." glyph to font.
+  - [x] Fix 'download' / dl command.
+
+*** dev environment ***
+  + Done
+  - [x] Can't kill and re-open platform in the devcontainer...
+  - [x] Auto enter insert mode when switching tabs in emacs.
+    - [x] The eat shells seem to stay open?
+    - [x] Ports are staying open after C-c C-x
+    - [x] https://elpa.nongnu.org/nongnu-devel/doc/eat.html#Shell-Integration
+  - [x] Fix copy + paste across the container boundary.
+  - [x] VSCode status bar todo goal.
+
 *** regressions ***
   - [x] Republish chat and session-server.
   - [x] Redeploy.
