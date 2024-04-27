@@ -25,15 +25,18 @@
     "vscode": {
       "extensions": [
         "aesthetic-computer.aesthetic-computer-code",
-        //"fabiospampinato.vscode-terminals",
         "esbenp.prettier-vscode",
         "ms-azuretools.vscode-docker",
         "mongodb.mongodb-vscode",
-        // "denoland.vscode-deno",
         "bmalehorn.vscode-fish",
         "ms-vsliveshare.vsliveshare",
         "jsynowiec.vscode-insertdatestring",
-        "tootone.org-mode"
+        "tootone.org-mode",
+        "bashmish.es6-string-css",
+        "zjcompt.es6-string-javascript",
+        "jcs090218.Ellsp",
+        "dbaeumer.vscode-eslint",
+        "bierner.lit-html"
       ]
     }
   },

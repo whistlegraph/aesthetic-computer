@@ -43,8 +43,6 @@ window.acDISK_SEND = function (message) {
   !diskSendsConsumed ? diskSends.push(message) : window.acSEND(message);
 };
 
-MIDI.initialize(); // Start 🎹 Detection.
-
 function consumeDiskSends(send) {
   if (diskSendsConsumed) return;
   diskSends.forEach((message) => send(message));
@@ -1345,32 +1343,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let contentFrame;
   let ticketWrapper;
   let underlayFrame;
-  let underlayCan;
 
   // const bakedCan = document.createElement("canvas", {
   //  willReadFrequently: true,
   // });
-  let pointerLockCooldown,
-    pointerLockReady = true;
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
-    if (type === "pen:lock") {
-      /*
-      if (!pointerLockReady) return;
-      pointerLockReady = false;
-      wrapper
-        .requestPointerLock()
-        .then((e) => {
-          // ...
-        })
-        .catch((err) => {
-          console.warn(err.message);
-          pointerLockReady = true;
-          clearTimeout(pointerLockCooldown);
-        });
-      pointerLockCooldown = setTimeout(() => (pointerLockReady = true), 5000);
-      */
+    if (type === "midi:connect") {
+      MIDI.initialize(); // Start 🎹 Detection.
       return;
     }
 
@@ -2384,7 +2365,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       underlayFrame?.remove(); // Remove the underlayFrame if it exists.
       underlayFrame = undefined;
-      underlayCan = undefined;
       stopTapePlayback?.();
 
       // Remove any event listeners added by the content frame.
@@ -3163,20 +3143,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "recorder:present") {
-      // let retrievedTape;
-      // if (!mediaRecorder) retrievedTape = await Store.get("tape");
-
-      if (
-        // retrievedTape ||
-        mediaRecorder &&
-        mediaRecorder.state === "paused"
-      ) {
-        // const type = retrievedTape
-        //   ? "video"
-        //   : mediaRecorder.mimeType.split("/")[0];
-
-        // if (type === "video") {
-
+      if (mediaRecorder && mediaRecorder.state === "paused") {
         const blob = new Blob(mediaRecorderChunks, {
           type: mediaRecorder.mimeType,
         });
@@ -3189,16 +3156,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const frameCan = document.createElement("canvas");
         const fctx = frameCan.getContext("2d");
 
-        underlayCan = frameCan;
-
         frameCan.width = recordedFrames[0][1].width;
         frameCan.height = recordedFrames[0][1].height;
-        // frameCan.style.width = "100%";
-        // frameCan.style.height = "100%";
-        // TODO: ^ Letterbox this canvas appropriately when the screen
-        //         resizes.
-
-        // console.log(mediaRecorderDuration, blob, recordedFrames);
 
         startTapePlayback = (
           transmitProgress = true,
@@ -3218,7 +3177,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             continuePlaying = false;
             stopped = true;
             sfxPlaying[tapeSoundId]?.kill();
-            //sfxCancel.push(tapeSoundId);
           };
 
           let pauseStart;
@@ -3262,9 +3220,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             ) {
               fctx.canvas.width = pic.width;
               fctx.canvas.height = pic.height;
-
-              // TODO: Set the css style of the canvas so that it always letterboxes
-              //       inside of the window and is centered horizontally
             }
 
             fctx.putImageData(recordedFrames[f][1], 0, 0);
@@ -3303,98 +3258,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         wrapper.appendChild(underlayFrame);
         send({ type: "recorder:presented" });
         send({ type: "recorder:present-playing" });
-
-        /*
-
-          const el = document.createElement(type); // "audio" or "video"
-          el.autoplay = true; // Allow video footage play automatically.
-          el.setAttribute("playsinline", ""); // Only for iOS.
-          el.loop = true;
-
-          el.addEventListener("loadedmetadata", () => {
-            const videoAspect = el.videoWidth / el.videoHeight;
-            const screenAspect = canvas.width / canvas.height;
-
-            if (
-              !firstPiece &&
-              videoAspect !== screenAspect &&
-              !mediaRecorderResized
-            ) {
-              el.style.objectFit = "cover";
-            }
-
-            window.addEventListener(
-              "resize",
-              () => (el.style.objectFit = "contain"),
-              { once: true },
-            );
-          });
-
-          el.muted = firstPiece || iOS; // auto-play on mute as needed
-
-          el.addEventListener("play", () => {
-            send({ type: "recorder:present-playing" });
-          });
-
-          el.addEventListener("pause", () => {
-            send({ type: "recorder:present-paused" });
-          });
-
-          el.addEventListener(
-            "pointerdown",
-            () => {
-              el.play();
-              el.muted = false;
-            },
-            { once: true },
-          );
-
-          // Report the progress of this element back to the `disk`.
-          function start(blob, duration) {
-            el.src = URL.createObjectURL(blob);
-            el.play();
-
-            // Once the video starts playing, request the animation frame to track progress
-            window.requestAnimationFrame(function update() {
-              let d = el.duration === Infinity ? duration : el.duration;
-              const content = el.currentTime / d;
-              send({ type: "recorder:present-progress", content });
-              if (underlayFrame) window.requestAnimationFrame(update);
-            });
-          }
-
-          if (retrievedTape) {
-            console.log(retrievedTape);
-            start(retrievedTape.blob, retrievedTape.duration);
-          } else {
-            const blob = new Blob(mediaRecorderChunks, {
-              type: mediaRecorder.mimeType,
-            });
-
-            await receivedChange({
-              data: {
-                type: "store:persist",
-                content: {
-                  key: "tape",
-                  method: "local:db",
-                  data: { blob, duration: mediaRecorderDuration },
-                },
-              },
-            });
-
-            start(blob, mediaRecorderDuration);
-          }
-
-          // el.srcObject = mediaRecorder.stream; // Live feed.
-          // 🧠 Eventually this could be useful for live feedback? 23.01.27.16.59
-
-          underlayFrame.appendChild(el);
-          wrapper.appendChild(underlayFrame);
-          send({ type: "recorder:presented" });
-          */
-        //} else if (type === "audio") {
-        //  console.log("🎵🙁 Audio recorder playback unimplemented.");
-        //}
       } else {
         console.error("No media recorder to present from!");
         send({ type: "recorder:presented:failure" });
@@ -3403,18 +3266,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "recorder:present:play") {
-      if (underlayFrame) {
-        // const media = underlayFrame.querySelector("video, audio");
-        // media.play();
-        resumeTapePlayback?.();
-      }
+      if (underlayFrame) resumeTapePlayback?.();
       return;
     }
 
     if (type === "recorder:present:pause") {
       if (underlayFrame) {
-        //const media = underlayFrame.querySelector("video, audio");
-        //media.pause();
         pauseTapePlayback?.();
       }
       return;
@@ -3424,7 +3281,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (underlayFrame) {
         const media = underlayFrame.querySelector("video, audio");
         if (media?.src) URL.revokeObjectURL(media.src);
-        underlayFrame?.remove(); // Remove the underlayFrame if it exists.
+        underlayFrame?.remove();
         underlayFrame = undefined;
         send({ type: "recorder:unpresented" });
       }
@@ -3434,12 +3291,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // 🎞️ 🎥 Exporting stamped media.
     if (type === "recorder:print") {
       if (!mediaRecorder) return;
-      // This should create a new mediastream that includes the audio
-      // track / sound effect in addition to the dumped frames
-      // on the dump canvas.
-
-      // It should just linearly record everything, and then
-      // download a video file after rendering...
       send({ type: "recorder:present-playing" });
 
       let mimeType;

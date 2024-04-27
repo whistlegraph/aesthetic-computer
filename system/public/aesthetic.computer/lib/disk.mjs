@@ -671,9 +671,13 @@ let docs; // Memorized by `requestDocs`.
 
 // For every function to access.
 const $commonApi = {
+  // MIDI
+  midi: {
+    connect: () => send({ type: "midi:connect" }),
+  },
   // Enable Pointer Lock
   penLock: () => {
-    send({type: "pen:lock"});
+    send({ type: "pen:lock" });
   },
   chat: chatSystem,
   dark: undefined, // If we are in dark mode.
@@ -3667,6 +3671,7 @@ async function makeFrame({ data: { type, content } }) {
     LAN_HOST = content.lanHost;
     SHARE_SUPPORTED = content.shareSupported;
     $commonApi.canShare = SHARE_SUPPORTED;
+
     $commonApi.net.lan = LAN_HOST;
     $commonApi.user = USER;
     $commonApi.net.iframe = content.iframe;

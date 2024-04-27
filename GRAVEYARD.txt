@@ -1,5 +1,11 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** dev ***
+  - [?] Fix extra closing brackets being added in mjs files.
+  - [x] Why do mjs files scroll all the way to the bottom after running prettier?
+    - [x] This is because `bios.mjs` and `disk.mjs` are too large
+         and should probably be cut down in size.
+
 *** etc... ***
   + Done
   - [x] Add "..." glyph to font.
