@@ -41,13 +41,6 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** 🎹 keys **
-  + Done
-  - [x] Add actual frequencies of the notes for the piano.
-  - [x] Only connect to MIDI on-demand.
-  - [x] Add basic graphics.
-  - [x] Hook up MIDI.
-
 *** webgpu rasterizer ***
   - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
 
@@ -75,14 +68,6 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Make a source .lisp file in `disks`.
   - [x] Make a lisp.mjs file that exports a parser.
   - [x] Read the file in as a piece in load in side `disk.mjs`.
-
-  - [] "piece"
-  - [] bracelet
-  - [] make a spatial editor / evaluator
-  - [] use the `pjs` mock work to support the new syntax / upload type?
-  - [] graphical editing with s-expression underneath?
-  - [] could it work off an actor model of some kind?
-  - [] make a gui editor that stores sequences in s-expressions
 
 *** brushes ***
   - [] Add auto-interpolation to brushes.

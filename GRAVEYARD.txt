@@ -1,5 +1,12 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** 🎹 keys **
+  + Done
+  - [x] Add actual frequencies of the notes for the piano.
+  - [x] Only connect to MIDI on-demand.
+  - [x] Add basic graphics.
+  - [x] Hook up MIDI.
+
 *** dev ***
   - [?] Fix extra closing brackets being added in mjs files.
   - [x] Why do mjs files scroll all the way to the bottom after running prettier?
