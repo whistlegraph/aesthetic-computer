@@ -76,7 +76,7 @@ fish_add_path ~/.ops/bin
 
 # Assume the daemon is running when entering emacs.
 # For fast config reloading.
-alias platform "emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el; emacsclient -nw -c --eval '(aesthetic-backend (quote \"source\"))'; emacsclient -e \"(kill-emacs)\""
+alias platform "emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el; emacsclient -nw -c --eval '(aesthetic-backend (quote \"shell\"))'; emacsclient -e \"(kill-emacs)\""
 
 # ⏲️ Wait on `entry.fish` to touch the `.waiter` file.
 function aesthetic
