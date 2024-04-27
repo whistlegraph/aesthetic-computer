@@ -12,8 +12,9 @@
 #endregion */
 
 // 🥾 Boot
-function boot({ wipe }) {
+function boot({ wipe, midi }) {
   wipe(0);
+  midi.connect();
 }
 
 let note;

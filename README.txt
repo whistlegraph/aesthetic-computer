@@ -41,22 +41,24 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** dev ***
-  - [-] Fix extra closing brackets being added in mjs files.
-  - [] Why do mjs files scroll all the way to the bottom after running prettier.
+*** 🎹 keys **
+  - [-] Add actual frequencies of the notes for the piano.
+  - [] Add keyboard shortcuts for notes.
+  + Done
+  - [x] Only connect to MIDI on-demand.
+  - [x] Add basic graphics.
+  - [x] Hook up MIDI.
 
 *** webgpu rasterizer ***
   - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
 
-*** speed ***
+*** performance speed ***
+  - [🏃] Make /prompt load faster than 0.3s in production.
+  - [] Cut down the size of bios.mjs and disk.mjs so they are both
+       around 3k lines or less / break functionality into other files.
+    - [] `disk.mjs`
+    - [] `bios.mjs`
   - [] Speed up other stuff on the `Performance insights` chart, by eager loading / waiting less.
-  - [] Make /prompt load faster than 0.3s in production.
-
-*** keys **
-  - [-] Add keyboard shortcuts.
-  + Done
-  - [] Add basic graphics.
-  - [x] Hook up MIDI.
 
 *** org-mode learning ***
   - https://zzamboni.org/post/beautifying-org-mode-in-emacs/
