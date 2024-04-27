@@ -13,6 +13,7 @@ import { apiObject, extension } from "./lib/helpers.mjs";
 import { choose } from "./lib/help.mjs";
 import { parse, slug } from "./lib/parse.mjs";
 import * as Store from "./lib/store.mjs";
+import * as MIDI from "./lib/midi.mjs";
 import {
   MetaBrowser,
   iOS,
@@ -41,6 +42,8 @@ let diskSendsConsumed = false;
 window.acDISK_SEND = function (message) {
   !diskSendsConsumed ? diskSends.push(message) : window.acSEND(message);
 };
+
+MIDI.initialize(); // Start 🎹 Detection.
 
 function consumeDiskSends(send) {
   if (diskSendsConsumed) return;
