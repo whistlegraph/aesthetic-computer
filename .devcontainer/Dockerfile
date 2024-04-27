@@ -10,6 +10,7 @@ RUN dnf install -y dnf-plugins-core
 RUN dnf install -y lolcat toilet
 # RUN dnf install -y entr
 RUN dnf install -y iproute
+RUN dnf install -y xclip 
 
 # Install 'docker'
 RUN sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
@@ -80,7 +81,7 @@ RUN curl https://ops.city/get.sh -sSfL | sh
 
 # Clone isomorphic copy.
 # Must also be cloned in ~ of host machine and add isomorphic_copy/bin to PATH
-RUN git clone https://github.com/ms-jpq/isomorphic_copy
+# RUN git clone https://github.com/ms-jpq/isomorphic_copy
 
 # Copy emacs config.
 # COPY emacs.el .emacs

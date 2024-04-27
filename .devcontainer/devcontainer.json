@@ -11,7 +11,7 @@
     "platform": "linux/amd64"
   },
   "containerEnv": {
-    "DOCKER_CLI_HINTS": "false"
+    "DISPLAY": "${localEnv:DISPLAY}"
   },
   "mounts": [
     "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind,consistency=cached",
@@ -38,6 +38,9 @@
     }
   },
   "runArgs": [
+    // 📋 Clipboard also requires `xhost +local:docker` to be set on the host.
+    "-v",
+    "/tmp/.X11-unix:/tmp/.X11-unix",
     "-q",
     "--privileged",
     "--name",
