@@ -36,6 +36,9 @@ let btn,
 // G -1 C6 C6 D6 D6 E6 G6 E6 C6
 // G C6 C D D E G E C
 
+const mmm = `B F# B F# B F# B D# F#
+             E C# E C# E C# A# C# F#`.split(/\s+/);
+
 //const pgtw = "F F G G A C6 A F C F F G C6 A".split(" ");
 const pgtw = `G C6 C6 D6 D6 E6 G6 E6 C6
               G C6 C6 D6 D6 E6 C6
@@ -48,7 +51,7 @@ const lyrics = `oh up and down the ci- -i- -ty road
                 pop! goes the wea- -sel!`.split(/\s+/);
 
 let index = 0;
-let song = pgtw;
+let song = mmm;
 
 // 🥾 Boot
 function boot({ ink, wipe, screen, ui, sound }) {
