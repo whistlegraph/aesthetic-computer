@@ -27,7 +27,7 @@ import {
   uint8ArrayToBase64,
   base64ToUint8Array,
 } from "./helpers.mjs";
-const { abs, round, sin, random, max, floor } = Math;
+const { pow, abs, round, sin, random, min, max, floor } = Math;
 const { keys } = Object;
 import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
@@ -671,10 +671,6 @@ let docs; // Memorized by `requestDocs`.
 
 // For every function to access.
 const $commonApi = {
-  // MIDI
-  midi: {
-    connect: () => send({ type: "midi:connect" }),
-  },
   // Enable Pointer Lock
   penLock: () => {
     send({ type: "pen:lock" });
@@ -1196,10 +1192,10 @@ const $commonApi = {
       // with no change to `system.nopaint.brush`.
       pointToPainting: ({ system, pen }) => {
         const zoom = system.nopaint.zoomLevel;
-        const x = Math.floor(
+        const x = floor(
           ((pen?.x || 0) - system.nopaint.translation.x) / zoom,
         );
-        const y = Math.floor(
+        const y = floor(
           ((pen?.y || 0) - system.nopaint.translation.y) / zoom,
         );
 
@@ -1209,10 +1205,10 @@ const $commonApi = {
         // TODO: Use `pointToPainting` above. 23.10.11.08.49
         // let { x, y } = system.nopaint.pointToPainting({ system });
         const zoom = system.nopaint.zoomLevel;
-        const x = Math.floor(
+        const x = floor(
           ((pen?.x || 0) - system.nopaint.translation.x) / zoom,
         );
-        const y = Math.floor(
+        const y = floor(
           ((pen?.y || 0) - system.nopaint.translation.y) / zoom,
         );
 
@@ -1377,7 +1373,7 @@ const $commonApi = {
       }
       pos = { ...pos };
       let run = 0;
-      const blockWidth = 6 * Math.abs(scale);
+      const blockWidth = 6 * abs(scale);
 
       const lines = [[]];
       let line = 0;
@@ -2694,7 +2690,7 @@ async function load(
       } else {
         if (devReload) {
           store["publishable-piece"] = { slug, source: sourceToRun };
-          console.log("💌 Publishable:", store["publishable-piece"]);
+          console.log("💌 Publishable:", store["publishable-piece"].slug);
         }
         const updatedCode = updateCode(sourceToRun, host, debug);
 
@@ -3122,7 +3118,7 @@ async function load(
 
         xhr.open("GET", path, true);
         xhr.onprogress = function (event) {
-          const progress = Math.min(event.loaded / event.total, 1);
+          const progress = min(event.loaded / event.total, 1);
           if (debug && logs.download) {
             console.log(`💈 JSON Download: ${progress * 100}%`);
           }
@@ -4616,9 +4612,33 @@ async function makeFrame({ data: { type, content } }) {
         if (!frequency) throw new Error("Note not found in the list");
 
         // Calculate the frequency for the given octave
-        const finalFreq = frequency * Math.pow(2, octave);
+        const finalFreq = frequency * pow(2, octave);
         return finalFreq;
       },
+      // MIDI
+      midi: {
+        connect: () => send({ type: "midi:connect" }),
+        note: function (midiNumber) {
+          const noteNames = [
+            "C",
+            "C#",
+            "D",
+            "D#",
+            "E",
+            "F",
+            "F#",
+            "G",
+            "G#",
+            "A",
+            "A#",
+            "B",
+          ];
+          const octave = floor(midiNumber / 12) - 1;
+          const noteIndex = midiNumber % 12;
+          return noteNames[noteIndex] + octave;
+        },
+      },
+      // Convert MIDI note number to note string
     };
 
     $sound.microphone = microphone;

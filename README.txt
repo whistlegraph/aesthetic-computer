@@ -42,9 +42,8 @@ but technically agnostic. (Choose your aesthetic!)
 - Jeffrey (Sat)
 
 *** 🎹 keys **
-  - [-] Add actual frequencies of the notes for the piano.
-  - [] Add keyboard shortcuts for notes.
   + Done
+  - [x] Add actual frequencies of the notes for the piano.
   - [x] Only connect to MIDI on-demand.
   - [x] Add basic graphics.
   - [x] Hook up MIDI.

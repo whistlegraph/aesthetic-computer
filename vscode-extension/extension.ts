@@ -170,6 +170,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         <html lang="en">
         <head>
           <meta charset="UTF-8">
+          <meta http-equiv="Permissions-Policy" content="midi=*">
           <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; child-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
           <style nonce="${nonce}">
             body {
