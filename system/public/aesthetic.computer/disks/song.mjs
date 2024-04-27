@@ -1,8 +1,6 @@
 // Song, 2023.7.02.09.27.28
 // Notate both a melody and lyrics to sing along to.
 
-//import { noteFrequencies } from "./common/music.mjs";
-
 /* #region 📚 README 
 #endregion */
 
