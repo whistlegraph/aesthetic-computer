@@ -44,9 +44,10 @@ set -gx EDITOR emacs
 set -gx PATH $PATH /home/me/.local/bin
 
 # add stuff to path
-set -gx PATH $PATH $HOME/isomorphic_copy/bin
+# set -gx PATH $PATH $HOME/isomorphic_copy/bin
 # use temporary clipboard file
-set -gx ISOCP_USE_FILE 1
+# set -gx ISOCP_USE_FILE 1
+# set -gx DISPLAY FAKE
 
 set -gx DENO_INSTALL /home/me/.deno
 set -gx PATH $PATH $DENO_INSTALL/bin
