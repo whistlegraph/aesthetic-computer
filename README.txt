@@ -41,23 +41,9 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** webgpu rasterizer ***
-  - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
-
-*** performance speed ***
-  - [🏃] Make /prompt load faster than 0.3s in production.
-  - [] Cut down the size of bios.mjs and disk.mjs so they are both
-       around 3k lines or less / break functionality into other files.
-    - [] `disk.mjs`
-    - [] `bios.mjs`
-  - [] Speed up other stuff on the `Performance insights` chart, by eager loading / waiting less.
-
-*** org-mode learning ***
-  - https://zzamboni.org/post/beautifying-org-mode-in-emacs/
-  - Add variable pitch fonts to org-mode.
-
 *** aesthetic lisp / s-expression parser and evaluator ***
   - [-] Make a basic graphical editor / viewer.
+  - [] 
   + Done
   - [x] Hook a lisp function into the graph / paint api somehow?
   - [x] Write s-expressions directly in the prompt if
@@ -75,6 +61,21 @@ but technically agnostic. (Choose your aesthetic!)
       `export const smoothing = "none"`
       `export const smoothing = "linear"`
       `export const smoothing = "curve"`
+
+*** webgpu rasterizer ***
+  - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
+
+*** performance speed ***
+  - [🏃] Make /prompt load faster than 0.3s in production.
+  - [] Cut down the size of bios.mjs and disk.mjs so they are both
+       around 3k lines or less / break functionality into other files.
+    - [] `disk.mjs`
+    - [] `bios.mjs`
+  - [] Speed up other stuff on the `Performance insights` chart, by eager loading / waiting less.
+
+*** org-mode learning ***
+  - https://zzamboni.org/post/beautifying-org-mode-in-emacs/
+  - Add variable pitch fonts to org-mode.
 
 *** chat ***
   - [] Add ability to show pixels in the chat / share current work, with

@@ -19,6 +19,7 @@
 */
 
 /* #region 🏁 TODO 
+  - [] Add procedure / function definition.
   + Done
   - [x] Get publishing working for lisp code / pasted code.
   - [x] Add global variables / more complex programming.
@@ -98,7 +99,7 @@ function parse(program) {
 }
 
 function evaluate(parsed, api = {}) {
-  // console.log("Evaluating:", parsed);
+  // console.log("➗ Evaluating:", parsed);
   let result;
   for (const item of parsed) {
     // console.log("Item:", item);
