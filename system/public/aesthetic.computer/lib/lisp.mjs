@@ -1,26 +1,34 @@
 // Lisp, 24.4.17.12.03
 // A lisp interpreter / compiler for writing Aesthetic Computer pieces.
 
-// Working expressions:
-// (+ 4 5 5)
-// (* (+ 2 3) (- 4 1))
+/* #region 📚 Examples 
+ Working programs:
+  (+ 4 5 5)
+  (* (+ 2 3) (- 4 1))
 
-/*
-; Paste me into the AC prompt!
-; (resolution 128)
-(wipe "blue")
-(ink "lime")
-(line 90 (+ 10 20 30) 30 80)
-(ink 255 0 0)
-(line 30 20 100 190)
-(ink "orange" (wiggle 64))
-(box 8 32 (- width 20) (wiggle 32))
-(+ 1 2 3)
-*/
+  (def x 10)
+  (def y (+ x 10))
+  (+ x y)
+
+  ; Paste me into the AC prompt!
+  ; (resolution 128)
+  (wipe "blue")
+  (ink "lime")
+  (line 90 (+ 10 20 30) 30 80)
+  (ink 255 0 0)
+  (line 30 20 100 190)
+  (ink "orange" (wiggle 64))
+  (box 8 32 (- width 20) (wiggle 32))
+  (+ 1 2 3)
+#endregion */
 
 /* #region 🏁 TODO 
-  - [] Add procedure / function definition.
+  - [🟠] Add both named and anonymous function definitions.
+  - [] Set up this module with some actual JavaScript testing framework
+       with expectations so I can make sure it passes.
+    - [] This mode can include a mock api.
   + Done
+  + [x] Add variable setting and retrieval.
   - [x] Get publishing working for lisp code / pasted code.
   - [x] Add global variables / more complex programming.
   - [x] Add support for comments.
@@ -29,15 +37,32 @@
 
 function processArgStringTypes(args) {
   return args.map((arg) => {
-    if (typeof arg === "string" && arg.startsWith('"') && arg.endsWith('"')) {
-      // Remove the first and last character which are the quotes
-      return arg.substring(1, arg.length - 1);
-    }
+    // Remove the first and last character which are the quotes
+    if (typeof arg === "string") return unquoteString(arg);
     return arg;
   });
 }
 
+function unquoteString(str) {
+  if (str.startsWith('"') && str.endsWith('"')) {
+    return str.substring(1, str.length - 1);
+  } else return str;
+}
+
+const globalDefinition = {};
+
 const globalEnv = {
+  // Program Architecture
+  def: (api, args) => {
+    if (args.length > 1) {
+      globalDefinition[unquoteString(args[0])] = args[1];
+      console.log(globalDefinition);
+      return args[1];
+    } else {
+      console.error("Invalid definition.");
+      return;
+    }
+  },
   // Mathematical Operators
   "+": (api, args) => args.reduce((a, b) => a + b, 0),
   "-": (api, args) => args.reduce((a, b) => a - b),
@@ -107,8 +132,14 @@ function evaluate(parsed, api = {}) {
       // The first element indicates the function to call
       const [fn, ...args] = item;
       // Check if the function requires recursive evaluation
+
+      // Pre-wrap the first def argument as a string.
+      if (fn === "def") {
+        args[0] = `"${args[0]}"`;
+      }
+
       if (globalEnv[fn]) {
-        // Prepare arguments, evaluate if they are also functions
+        // Prepare arguments, evaluate if they are also functions or strings.
         const evaledArgs = args.map((arg) =>
           Array.isArray(arg) || (typeof arg === "string" && !/^".*"$/.test(arg))
             ? evaluate([arg], api)
@@ -116,8 +147,16 @@ function evaluate(parsed, api = {}) {
         );
         result = globalEnv[fn](api, evaledArgs);
       }
+
+
     } else {
-      result = globalEnv[item]?.(api);
+      if (globalEnv[item]) {
+        // Assume a function on the globalEnv.
+        result = globalEnv[item](api);
+      } else if (globalDefinition[item]) {
+        // Otherwise evaluate to the global.
+        result = globalDefinition[item];
+      }
     }
   }
   return result;
