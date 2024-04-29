@@ -41,9 +41,12 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
+*** webgpu rasterizer ***
+  - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
+
 *** aesthetic lisp / s-expression parser and evaluator ***
-  - [-] Make a basic graphical editor / viewer.
-  - [] 
+  - [-] Add support for functions and variables.
+  - [] Make a basic graphical editor / viewer.
   + Done
   - [x] Hook a lisp function into the graph / paint api somehow?
   - [x] Write s-expressions directly in the prompt if
@@ -61,9 +64,6 @@ but technically agnostic. (Choose your aesthetic!)
       `export const smoothing = "none"`
       `export const smoothing = "linear"`
       `export const smoothing = "curve"`
-
-*** webgpu rasterizer ***
-  - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
 
 *** performance speed ***
   - [🏃] Make /prompt load faster than 0.3s in production.
