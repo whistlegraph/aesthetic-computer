@@ -33,11 +33,11 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🟠] Add both named and anonymous function definitions.
-  - [] Set up this module with some actual JavaScript testing framework
+  - [🟠] Set up this module with some actual JavaScript testing framework
        with expectations so I can make sure it passes.
     - [] This mode can include a mock api.
   + Done
+  - [x] Add named function definitions.
   + [x] Add variable setting and retrieval.
   - [x] Get publishing working for lisp code / pasted code.
   - [x] Add global variables / more complex programming.
