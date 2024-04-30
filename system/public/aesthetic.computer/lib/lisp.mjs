@@ -3,6 +3,16 @@
 
 /* #region 📚 Examples 
  Working programs:
+
+  (later cross x y (line x y (+ 10 x) (+ 10 y)))
+  (cross (+ 1 2 3) (+ 4 5 6))
+  (ink "red")
+  (cross 16 16)
+  (ink "yellow")
+  (cross 32 32)
+  (ink "blue")
+  (cross (+ 1 2 3) (+ 4 5 6))
+
   (+ 4 5 5)
   (* (+ 2 3) (- 4 1))
 
@@ -155,7 +165,11 @@ function evaluate(parsed, api = {}, env) {
     body = parsed.body;
 
     parsed.params.forEach((param, i) => {
-      localEnv[param] = env[i];
+      if (Array.isArray(env[i])) {
+        localEnv[param] = [env[i]];
+      } else {
+        localEnv[param] = env[i];
+      }
     });
 
     console.log("Running:", body, "with environment:", localEnv);
@@ -203,7 +217,7 @@ function evaluate(parsed, api = {}, env) {
       if (localEnv[item]) {
         console.log("Solo local definition found!", item, localEnv[item]);
         // TODO: This needs to be evaluated?
-        result = localEnv[item];
+        result = resolve(localEnv[item], api);
       } else if (globalEnv[item]) {
         // Assume a function on the globalEnv.
         result = globalEnv[item](api);
@@ -212,13 +226,17 @@ function evaluate(parsed, api = {}, env) {
         console.log("Solo definition:", item, globalDef[item]);
         // ⚠️ No parameters would ever be passed here, but maybe
         //    default would have to come into play?
-        result = Array.isArray(globalDef[item])
-          ? evaluate(globalDef[item], api)
-          : globalDef[item];
+        result = resolve(globalDef[item], api);
       }
     }
   }
   return result;
+}
+
+function resolve(expression, api) {
+  return Array.isArray(expression)
+    ? evaluate(expression, api)
+    : expression;
 }
 
 /*
