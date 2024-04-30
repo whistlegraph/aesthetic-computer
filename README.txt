@@ -41,11 +41,8 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** webgpu rasterizer ***
-  - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
-
 *** aesthetic lisp / s-expression parser and evaluator ***
-  - [-] Add support for functions and variables.
+  - [🧡] Add support for functions and variables.
   - [] Make a basic graphical editor / viewer.
   + Done
   - [x] Hook a lisp function into the graph / paint api somehow?
@@ -57,6 +54,9 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Make a source .lisp file in `disks`.
   - [x] Make a lisp.mjs file that exports a parser.
   - [x] Read the file in as a piece in load in side `disk.mjs`.
+
+*** webgpu rasterizer ***
+  - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
 
 *** brushes ***
   - [] Add auto-interpolation to brushes.
