@@ -1,11 +1,29 @@
 // Lisp, 24.4.17.12.03
 // A lisp interpreter / compiler for writing Aesthetic Computer pieces.
 
-/* #region 📚 Examples 
+/* #region 📚 Examples / Notebook 
  Working programs:
 
-  (later cross x y (line x y (+ 10 x) (+ 10 y)))
-  (cross (+ 1 2 3) (+ 4 5 6))
+  (later cross x y (line (- 10 x) (- 10 y) (+ 10 x) (+ 10 y)))
+  (cross (/ width 2) (/ height 2))
+
+  // TODO: Could I get this to evaluate?
+  (cross width/2*(10+x) height/2)
+  //     ^ Where this just leans on a Javascript expression evaluator
+  //       that can access the local context.
+
+
+ Conceptual program:
+
+ (later cross x y (line x-10 y-10 x+10 y+10))
+ (cross width/2 height/2)
+
+ Even more conceptual program:
+
+ to cross x y -> line x-10 y-10 x+10 y+10
+ cross width/2 height/2
+
+
   (ink "red")
   (cross 16 16)
   (ink "yellow")
@@ -115,29 +133,29 @@ const globalEnv = {
   "/": (api, args) => args.reduce((a, b) => a / b),
   // Paint API
   resolution: (api, args) => {
-    return api.resolution?.(...args);
+    api.resolution?.(...args);
   },
   wipe: (api, args) => {
-    return api.wipe?.(processArgStringTypes(args));
+    api.wipe?.(processArgStringTypes(args));
   },
   ink: (api, args) => {
-    return api.ink?.(processArgStringTypes(args));
+    api.ink?.(processArgStringTypes(args));
   },
   line: (api, args = []) => {
-    return api.line(...args);
+    api.line(...args);
   },
   wiggle: (api, args = []) => {
-    return api.wiggle(...args);
+    api.wiggle(...args);
   },
   box: (api, args = []) => {
-    return api.box(...args);
+    api.box(...args);
   },
   // Getters / globals.
   width: (api) => {
-    return api.screen.width;
+    api.screen.width;
   },
   height: (api) => {
-    return api.screen.height;
+    api.screen.height;
   },
 };
 
@@ -234,9 +252,7 @@ function evaluate(parsed, api = {}, env) {
 }
 
 function resolve(expression, api) {
-  return Array.isArray(expression)
-    ? evaluate(expression, api)
-    : expression;
+  return Array.isArray(expression) ? evaluate(expression, api) : expression;
 }
 
 /*
