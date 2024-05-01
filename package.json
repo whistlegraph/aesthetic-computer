@@ -4,6 +4,7 @@
   "description": "The header package for the whole aesthetic.computer codebase.",
   "type": "module",
   "scripts": {
+    "test": "jasmine",
     "user": "f() { echo -n \"https://cloud.digitalocean.com/spaces/user-aesthetic-computer?path=\"; curl -s \"https://aesthetic.computer/user?from=$1\" | jq -r '.sub'; }; f",
     "filter": "cd shared; node --experimental-repl-await -i -e \"import('./filter.mjs').then(m => global.filter = m.filter)\"",
     "chat": "echo '\n💬 Chat\n';",
@@ -70,6 +71,7 @@
     "concurrently": "^8.2.1",
     "got": "^13.0.0",
     "http-server": "^14.1.1",
+    "jasmine": "^5.1.0",
     "kill-port": "^2.0.1",
     "npm-check-updates": "^16.13.2",
     "prettier": "^3.0.3",
