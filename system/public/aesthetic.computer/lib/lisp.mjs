@@ -176,8 +176,6 @@ function evaluate(parsed, api = {}, env) {
   // console.log("➗ Evaluating:", parsed);
   let body;
 
-  console.log("Parsed:", parsed);
-
   // Create a local environment for a function from the params.
   if (parsed.body) {
     body = parsed.body;
@@ -303,7 +301,6 @@ function readFromTokens(tokens) {
     }
     result.push(readExpression(tokens));
   }
-  console.log("Result:", result);
   return result;
 }
 
