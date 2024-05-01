@@ -51,10 +51,11 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [🟠] Set up this module with some actual JavaScript testing framework
-       with expectations so I can make sure it passes.
-    - [] This mode can include a mock api.
+  - [💛] Have tests run automatically in some window.
+  - [] Support refreshing and showing of source in (...) pieces.
   + Done
+  - [x] Set up this module with some actual JavaScript testing framework
+       with expectations so I can make sure it passes.
   - [x] Add named function definitions.
   + [x] Add variable setting and retrieval.
   - [x] Get publishing working for lisp code / pasted code.
