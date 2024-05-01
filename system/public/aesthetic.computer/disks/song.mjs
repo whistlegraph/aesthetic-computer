@@ -6,7 +6,7 @@
 
 /* #region 🏁 TODO 
   * Slides
-  - [🧡] Fade the ending note so there is no pop.
+  - [] Fade the ending note so there is no pop.
   - [] Add large "hold" key with "shift" keyboard shortcut.
   - [] How would I capture a tone and then add it to the list of notes in
        my song... / compose.
@@ -16,6 +16,7 @@
         can be for a secondary finger.
   - [] Dragging left and right adjusts the pan.
   + Done
+  - [x] Make sure reframing works.
   - [x] Add space keyboard shortcut for playback that triggers the button.
         (With no conflicts)
   - [x] Fix multi-touch.
@@ -29,10 +30,6 @@
 let btn,
   sound,
   tone = 800;
-
-// G C6 C6 D6 D6 E6 G6 E6 C6
-// G -1 C6 C6 D6 D6 E6 G6 E6 C6
-// G C6 C D D E G E C
 
 const mmm = `B F# B F# B F# B D#5 F#5
              E5 C#5 E5 C#5 E5 C#5 A# C#5 F#`.split(/\s+/);
@@ -50,11 +47,11 @@ const pgtw = `G C6 C6 D6 D6 E6 G6 E6 C6
 
 let index = 0;
 let song = mmm;
+const m = 24;
 
 // 🥾 Boot
 function boot({ ink, wipe, screen, ui, sound }) {
   wipe(127);
-  const m = 24;
   btn = new ui.Button(m, m, screen.width - m * 2, screen.height - m * 2);
   btn.multitouch = false;
 
@@ -86,7 +83,18 @@ function paint({ ink, screen }) {
 let keyHeld = false;
 
 // 🎪 Act
-function act({ event: e, sound: { synth, freq }, needsPaint, num }) {
+function act({
+  event: e,
+  sound: { synth, freq },
+  needsPaint,
+  screen,
+  num,
+  geo,
+}) {
+  if (e.is("reframed")) {
+    btn.box = new geo.Box(m, m, screen.width - m * 2, screen.height - m * 2);
+  }
+
   // Drag up and down to change pitch.
   if (btn.down && e.is("draw")) {
     tone = num.clamp(tone - e.delta.y, 100, 1200);
