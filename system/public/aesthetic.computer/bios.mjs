@@ -2847,7 +2847,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "beat:update") {
-      updateSound(content);
+      updateSound?.(content);
       return;
     }
 
