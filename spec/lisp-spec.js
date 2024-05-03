@@ -1,10 +1,13 @@
+// KidLisp: Spec 24.05.03.22.45
+// A test runner for `kidlisp`. 
+
+const tests = ["addition", "subtraction"];
+
 import fs from "fs/promises";
 import {
   parse,
   evaluate,
 } from "../system/public/aesthetic.computer/lib/lisp.mjs";
-
-const tests = ["addition", "subtraction"];
 
 describe("🤖 Kid Lisp", () => {
   let pieces = {};
@@ -19,7 +22,7 @@ describe("🤖 Kid Lisp", () => {
     );
 
     try {
-      console.log("Loading tests...");
+      console.log("🧒 Loading kidlisp tests...");
       await Promise.all(loadPromises);
     } catch (error) {
       console.error("🔴 Error during test setup:", error);
@@ -28,12 +31,10 @@ describe("🤖 Kid Lisp", () => {
   });
 
   it("Add numbers", () => {
-    // console.log(`🧪\n${pieces.addition.src}`);
     expect(evaluate(parse(pieces.addition.src))).toEqual(6);
   });
 
   it("Subtract numbers", () => {
-    // console.log(`🧪\n${pieces.subtraction.src}`);
     expect(evaluate(parse(pieces.subtraction.src))).toEqual(3);
   });
 });
@@ -45,7 +46,7 @@ async function load(name) {
     const desc = src.split("\n")[0].replace(/^;\s*/, "");
     return { desc, src };
   } catch (error) {
-    console.error(`🔴 Error setting up tests for ${name}:`, error);
+    console.error(`🔴 Error setting up \`kidlisp\` tests for ${name}:`, error);
     return null;
   }
 }

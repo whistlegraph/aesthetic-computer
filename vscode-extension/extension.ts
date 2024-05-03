@@ -206,10 +206,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         100,
       );
       statusBarGoal.command = "aestheticComputer.visitGoal";
-      // statusBarGoal.color = new vscode.ThemeColor(
-      //   "statusBarItem.remoteBackground",
-      // );
-      statusBarGoal.color = "red";
+      statusBarGoal.color = new vscode.ThemeColor(
+        "statusBarItem.prominentForeground",
+      );
       statusBarGoal.show();
       context.subscriptions.push(statusBarGoal);
     }
