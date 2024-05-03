@@ -92,6 +92,7 @@ end
 
 alias ac 'cd ~/aesthetic-computer'
 alias ac-site 'ac; npm run site'
+alias ac-kidlisp 'ac; npm run test:kidlisp'
 alias ac-session 'ac; npm run server:session'
 alias ac-edge 'clear; ac; npm run edge-micro' # TODO: will not return to fish 24.04.05.19.53 :(
 alias ac-stripe-print 'ac; npm run stripe-print-micro'

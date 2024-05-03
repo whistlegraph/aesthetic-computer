@@ -51,9 +51,9 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [💛] Have tests run automatically in some window.
   - [] Support refreshing and showing of source in (...) pieces.
   + Done
+  - [x] Have tests run automatically in some window.
   - [x] Set up this module with some actual JavaScript testing framework
        with expectations so I can make sure it passes.
   - [x] Add named function definitions.
