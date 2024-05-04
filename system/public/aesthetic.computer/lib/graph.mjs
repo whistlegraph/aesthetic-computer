@@ -42,6 +42,11 @@ export function setDebug(newDebug) {
   debug = newDebug;
 }
 
+let twoDCommands;
+export function twoD(ref) {
+  twoDCommands = ref;
+}
+
 // 1. Configuration & State
 function makeBuffer(width, height, fillProcess, painting, api) {
   const imageData = new ImageData(width, height);
@@ -310,7 +315,14 @@ function plot(x, y) {
   if (y >= height) return;
 
   // And pixels in the active mask.
-  if (activeMask) if (y < activeMask.y || y >= activeMask.height || x >= activeMask.width || x < activeMask.x) return;
+  if (activeMask)
+    if (
+      y < activeMask.y ||
+      y >= activeMask.height ||
+      x >= activeMask.width ||
+      x < activeMask.x
+    )
+      return;
 
   for (const s of skips) if (x === s.x && y === s.y) return;
 
@@ -447,7 +459,7 @@ function loadpan() {
 
 // 😷 Mask off pixels.
 function mask(box) {
-  activeMask = box; 
+  activeMask = box;
 }
 
 // 😄 Unmask pixels.
@@ -683,8 +695,15 @@ function lineh(x0, x1, y) {
   x1 = floor(x1);
   y = floor(y);
 
-    if (y < 0 || y >= height || x0 >= width || x1 < 0) return;
-    if (activeMask && (y < activeMask.y || y >= activeMask.height || x0 >= activeMask.width || x1 < activeMask.x)) return;
+  if (y < 0 || y >= height || x0 >= width || x1 < 0) return;
+  if (
+    activeMask &&
+    (y < activeMask.y ||
+      y >= activeMask.height ||
+      x0 >= activeMask.width ||
+      x1 < activeMask.x)
+  )
+    return;
 
   x0 = clamp(x0, 0, width - 1);
   x1 = clamp(x1, 0, width - 1);
@@ -788,7 +807,9 @@ function line() {
     bresenham(x0, y0, x1, y1).forEach((p) => plot(p.x, p.y));
   }
 
-  return [x0, y0, x1, y1];
+  const out = [x0, y0, x1, y1];
+  twoDCommands?.push(["line", ...out]); // Forward this call to the GPU.
+  return out;
 }
 
 // Takes an array of pixel coords `{x, y}` and filters out L shapes.
