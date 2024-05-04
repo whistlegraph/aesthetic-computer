@@ -41,30 +41,23 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
-*** udp ***
-  - [] udp is not working through the windows container...
-    - [] add logs...
-
 *** webgpu rasterizer / new renderer ***
-  - [] render the prompt in something faster!
+  - [🛞] render the prompt in something faster!
     - [] evaluate both an off-screen Canvas2D and pixi-js for this (2d)
     - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
   - [] "pause" overlay on windows is pretty awkward
   - [] resizing is also weird - could these be related?
 
-*** aesthetic lisp / s-expression parser and evaluator ***
+*** udp ***
+  - [] local udp is not working through the windows container...
+  - [] it just doesn't work sometimes, maybe this is because
+       there is a remote webrtc server being called somehow / somewhere?
+
+*** kidlisp ***
   - [🐰] Make a basic graphical editor / viewer.
-  + Done
-  - [x] Add support for functions and variables.
-  - [x] Hook a lisp function into the graph / paint api somehow?
-  - [x] Write s-expressions directly in the prompt if
-        the input begins with a parenthesis / produce
-        a dynamic disk / run existing lisp code through
-        `load`.
-  - [x] Refactor `load` to be more efficient to support this.
-  - [x] Make a source .lisp file in `disks`.
-  - [x] Make a lisp.mjs file that exports a parser.
-  - [x] Read the file in as a piece in load in side `disk.mjs`.
+
+
+  - [] Support refreshing and showing of source code in (...) pieces.
 
 *** brushes ***
   - [] Add auto-interpolation to brushes.

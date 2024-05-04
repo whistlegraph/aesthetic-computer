@@ -213,7 +213,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       context.subscriptions.push(statusBarGoal);
     }
 
-    statusBarGoal.text = `$(output) Aesthetic ${text} 📔 ${filename}:${line}`;
+    statusBarGoal.text = `$(output) Aesthetic ${text} ${filename}:${line}`;
     statusBarGoal.tooltip = text;
   }
 

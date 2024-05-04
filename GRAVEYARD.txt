@@ -1,5 +1,18 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** aesthetic lisp / s-expression parser and evaluator ***
+  + Done
+  - [x] Add support for functions and variables.
+  - [x] Hook a lisp function into the graph / paint api somehow?
+  - [x] Write s-expressions directly in the prompt if
+        the input begins with a parenthesis / produce
+        a dynamic disk / run existing lisp code through
+        `load`.
+  - [x] Refactor `load` to be more efficient to support this.
+  - [x] Make a source .lisp file in `disks`.
+  - [x] Make a lisp.mjs file that exports a parser.
+  - [x] Read the file in as a piece in load in side `disk.mjs`.
+
 *** 🎹 keys **
   + Done
   - [x] Add actual frequencies of the notes for the piano.

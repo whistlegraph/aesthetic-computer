@@ -2,7 +2,7 @@
 precision highp float;
 
 in vec2 v_texc;
-out vec4 outColor;
+out vec4 endColor;
 
 uniform sampler2D iTexture; // The original texture from aesthetic.computer.
 uniform sampler2D iTexturePost; // The resulting post-processing effect.
@@ -51,5 +51,5 @@ void main() {
   }
   */
 
-  outColor = vec4(color, 1.0);
+  endColor = vec4(color, 1.0);
 }

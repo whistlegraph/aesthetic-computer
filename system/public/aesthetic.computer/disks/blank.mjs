@@ -13,8 +13,9 @@
 // }
 
 // 🎨 Paint
-function paint({ wipe, ink }) {
-  wipe("gray").ink(0).line(); // Would draw a diagonal line.
+function paint({ wipe, ink, line, screen }) {
+  wipe("gray").ink("yellow", 64); // Would draw a diagonal line.
+  line(0, 0, screen.width, screen.height);
 }
 
 // 🎪 Act
