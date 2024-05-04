@@ -51,7 +51,6 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] Support refreshing and showing of source in (...) pieces.
   + Done
   - [x] Have tests run automatically in some window.
   - [x] Set up this module with some actual JavaScript testing framework

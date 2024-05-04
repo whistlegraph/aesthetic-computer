@@ -96,7 +96,6 @@ async function initialize(wrapper /*, sendToPiece*/) {
 }
 
 let ink = [0, 0, 0, 1.0];
-let ink2 = ink;
 
 function convertColor(color) {
   let out;
@@ -108,6 +107,7 @@ function convertColor(color) {
     out = [c, c, c, 1];
   }
 
+  // console.log(out);
   return out;
 }
 
@@ -122,47 +122,45 @@ function pack(content) {
     const params = statement.slice(1);
     if (name === "wipe") {
       packed.push({
-        wipe: convertColor(params[0]),
+        wipe: convertColor(params),
       });
     } else if (name === "ink") {
-      ink = convertColor(params[0]);
-    } else if (name === "ink2") {
-      ink2 = params;
+      ink = convertColor(params);
     } else if (name === "line") {
       const p1 = params.slice(0, 2);
       const p2 = params.slice(2, 4);
       packed.push({
-        line: new Float32Array([...p1, ...ink, ...p2, ...(ink2 || ink)]),
+        line: new Float32Array([...p1, ...ink, ...p2, ...ink]),
       });
     }
   });
-  ink2 = null;
 }
 
 // Makes draw calls.
 function render() {
   if (!packed || !shaders) return;
-
-  // packed.forEach((command, index) => {
-    // const name = command[0];
-    // if (command[0])
-  // });
-
   // Render lines.
   const line = shaders.line;
   gl.useProgram(line.program);
   gl.bindVertexArray(line.other.vao);
 
-  if (packed[0]?.line) {
-    gl.bindBuffer(gl.ARRAY_BUFFER, line.buffers.data);
-    gl.bufferData(gl.ARRAY_BUFFER, packed[0].line, gl.DYNAMIC_DRAW);
-    gl.uniform2f(line.uniforms.res, gl.canvas.width, gl.canvas.height);
+  packed.forEach((pack) => {
+    if (pack.wipe) {
+      gl.clearColor(...pack.wipe);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    }
 
-    const primitiveType = gl.LINES;
-    const offset = 0;
-    const count = packed[0].line.length / 6;
-    gl.drawArrays(primitiveType, offset, count);
-  }
+    if (pack.line) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, line.buffers.data);
+      gl.bufferData(gl.ARRAY_BUFFER, pack.line, gl.DYNAMIC_DRAW);
+      gl.uniform2f(line.uniforms.res, gl.canvas.width, gl.canvas.height);
+
+      const primitiveType = gl.LINES;
+      const offset = 0;
+      const count = pack.line.length / 6;
+      gl.drawArrays(primitiveType, offset, count);
+    }
+  });
 
   packed = null;
 }
@@ -176,7 +174,7 @@ function frame(w, h, wrapper) {
   gl.canvas.style.width = wrapper.style.width;
   gl.canvas.style.height = wrapper.style.height;
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-  gl.clearColor(1.0, 0.0, 0.0, 0.25);
+  gl.clearColor(0.0, 0.0, 0.0, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
   if (!wrapper.contains(gl.canvas)) wrapper.append(gl.canvas);
 }

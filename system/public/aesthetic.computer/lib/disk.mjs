@@ -2070,6 +2070,7 @@ const $paintApiUnwrapped = {
     const cc = graph.c.slice(0);
     ink(...arguments);
     graph.clear();
+    twoDCommands.push(["wipe", ...graph.c]);
     ink(...cc);
   },
   // Erase the screen.
@@ -2143,16 +2144,13 @@ const $paintApiUnwrapped = {
   }, // TODO: Should this be renamed to set?
   flood: graph.flood,
   point: graph.point,
-  line: function () {
-    const out = graph.line(...arguments);
-    if (out) twoDCommands.push(["line", ...out]);
-  },
+  line: graph.line,
   lineAngle: graph.lineAngle,
   pline: graph.pline,
   pppline: graph.pixelPerfectPolyline,
   oval: graph.oval,
   circle: graph.circle,
-  poly: graph.poly,
+  poly: graph.poly, 
   box: graph.box,
   shape: graph.shape,
   grid: graph.grid,
@@ -2182,6 +2180,7 @@ let $activePaintApi;
 let paintingAPIid = 0n;
 
 const twoDCommands = [];
+graph.twoD(twoDCommands); // Set a global for passing 2d commands here.
 
 class Painting {
   #layers = [];
@@ -5523,15 +5522,7 @@ async function makeFrame({ data: { type, content } }) {
       maybeLeave();
 
       // TODO: Write this up to the data in `painting`.
-      sendData.TwoD = {
-        code: twoDCommands,
-        // code: [
-        //   ["ink", 1.0, 0, 0, 1.0],
-        //   ["ink2", 0.0, 1.0, 0, 1.0],
-        //   ["line", 0, 0, 30, 30],
-        //   //     x1, y1, x2, y2, r1, g1, b1, a1, r2, g2, b2, a2
-        // ],
-      };
+      sendData.TwoD = { code: twoDCommands };
 
       // Attach a label buffer if necessary.
       if (label)

@@ -2,7 +2,7 @@
 precision highp float;
 
 in vec2 v_texc;
-out vec4 outColor;
+out vec4 endColor;
 
 uniform sampler2D iTexture;
 uniform sampler2D iTexturePost;
@@ -201,5 +201,5 @@ void main()
     }
 
     vec3 color = post(volCol);
-    outColor = vec4(color, 1.);
+    endColor = vec4(color, 1.);
 }
