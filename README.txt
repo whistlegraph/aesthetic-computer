@@ -41,10 +41,21 @@ but technically agnostic. (Choose your aesthetic!)
 
 - Jeffrey (Sat)
 
+*** udp ***
+  - [] udp is not working through the windows container...
+    - [] add logs...
+
+*** webgpu rasterizer / new renderer ***
+  - [] render the prompt in something faster!
+    - [] evaluate both an off-screen Canvas2D and pixi-js for this (2d)
+    - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
+  - [] "pause" overlay on windows is pretty awkward
+  - [] resizing is also weird - could these be related?
+
 *** aesthetic lisp / s-expression parser and evaluator ***
-  - [🧡] Add support for functions and variables.
-  - [] Make a basic graphical editor / viewer.
+  - [🐰] Make a basic graphical editor / viewer.
   + Done
+  - [x] Add support for functions and variables.
   - [x] Hook a lisp function into the graph / paint api somehow?
   - [x] Write s-expressions directly in the prompt if
         the input begins with a parenthesis / produce
@@ -55,15 +66,13 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Make a lisp.mjs file that exports a parser.
   - [x] Read the file in as a piece in load in side `disk.mjs`.
 
-*** webgpu rasterizer ***
-  - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
-
 *** brushes ***
   - [] Add auto-interpolation to brushes.
   - [] This could be done through...
       `export const smoothing = "none"`
       `export const smoothing = "linear"`
       `export const smoothing = "curve"`
+  - [] Rewrite artur's brush in the kidlisp graphical editor.
 
 *** performance speed ***
   - [🏃] Make /prompt load faster than 0.3s in production.
