@@ -129,6 +129,7 @@ function pack(content) {
     } else if (name === "line") {
       const p1 = params.slice(0, 2);
       const p2 = params.slice(2, 4);
+      // console.log(p1, p2);
       packed.push({
         line: new Float32Array([...p1, ...ink, ...p2, ...ink]),
       });
@@ -153,7 +154,7 @@ function render() {
     if (pack.line) {
       gl.bindBuffer(gl.ARRAY_BUFFER, line.buffers.data);
       gl.bufferData(gl.ARRAY_BUFFER, pack.line, gl.DYNAMIC_DRAW);
-      gl.uniform2f(line.uniforms.res, gl.canvas.width, gl.canvas.height);
+      gl.uniform2f(line.uniforms.res, gl.canvas.width - 1, gl.canvas.height - 1);
 
       const primitiveType = gl.LINES;
       const offset = 0;
@@ -174,7 +175,7 @@ function frame(w, h, wrapper) {
   gl.canvas.style.width = wrapper.style.width;
   gl.canvas.style.height = wrapper.style.height;
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-  gl.clearColor(0.0, 0.0, 0.0, 1);
+  gl.clearColor(0.0, 0.0, 0.0, 0.1);
   gl.clear(gl.COLOR_BUFFER_BIT);
   if (!wrapper.contains(gl.canvas)) wrapper.append(gl.canvas);
 }

@@ -794,6 +794,8 @@ function line() {
     return;
   }
 
+  console.log("Line in:", x0, y0, x1, y1);
+
   // Add any panTranslations.
   x0 += panTranslation.x;
   y0 += panTranslation.y;
@@ -808,6 +810,7 @@ function line() {
   }
 
   const out = [x0, y0, x1, y1];
+  console.log("Line out:", out);
   twoDCommands?.push(["line", ...out]); // Forward this call to the GPU.
   return out;
 }
@@ -1022,12 +1025,11 @@ function generateEllipsePoints(x0, y0, radiusX, radiusY, precision = 20) {
 // TODO: Add closed mode? Example: ink(handPalette.w).poly([...w, w[0]]);
 function poly(coords) {
   let last = coords[0];
-  coords.forEach((cur, i) => {
-    if (i < coords.length - 1) skip(cur);
+  for (let i = 1; i < coords.length; i++) {
+    const cur = coords[i];
     line(last, cur);
-    skip(null);
     last = cur;
-  });
+  }
 }
 
 // Rasterize an Npx thick poly line with rounded end-caps.
@@ -1227,33 +1229,31 @@ function bresenham(x0, y0, x1, y1) {
   const points = [];
 
   // Make sure everything is floor'd.
-  x0 = floor(x0) || 0;
-  y0 = floor(y0) || 0;
-  x1 = floor(x1) || 0;
-  y1 = floor(y1) || 0;
-
+  x0 = Math.floor(x0) || 0;
+  y0 = Math.floor(y0) || 0;
+  x1 = Math.floor(x1) || 0;
+  y1 = Math.floor(y1) || 0;
   // Bresenham's Algorithm
-  const dx = abs(x1 - x0);
-  const dy = abs(y1 - y0);
+  const dx = Math.abs(x1 - x0);
+  const dy = -Math.abs(y1 - y0);
   const sx = x0 < x1 ? 1 : -1;
   const sy = y0 < y1 ? 1 : -1;
-  let err = dx - dy;
+  let err = dx + dy;
 
   while (true) {
     points.push({ x: x0, y: y0 });
 
     if (x0 === x1 && y0 === y1) break;
     const e2 = 2 * err;
-    if (e2 > -dy) {
-      err -= dy;
+    if (e2 >= dy) {
+      err += dy;
       x0 += sx;
     }
-    if (e2 < dx) {
+    if (e2 <= dx) {
       err += dx;
       y0 += sy;
     }
   }
-
   return points;
 }
 
@@ -1786,6 +1786,10 @@ function draw() {
   const gesture = []; // Keep track of continuous lines.
 
   function paintGesture() {
+    console.log("Painting gesture...");
+    gesture.forEach((g) => {
+      console.log(g);
+    })
     // Draw each gesture path and then kill it.
     thickness === 1 ? poly(gesture) : pline(gesture, thickness);
     gesture.length = 0;
@@ -1793,6 +1797,8 @@ function draw() {
 
   drawing.commands.forEach(({ name, args }, i) => {
     args = args.map((a) => a * scale);
+
+    // console.log(name, i, drawing.commands.length, drawing);
 
     if (name === "line") {
       let x1 = args[0]; // x1
@@ -1804,10 +1810,12 @@ function draw() {
       let nx2 = x2 * c - y2 * s;
       let ny2 = x2 * s + y2 * c;
 
-      if (thickness === 1) {
-        gesture.push([nx1, ny1], [nx2, ny2]);
-      } else {
-        gesture.push({ x: nx1, y: ny1 }, { x: nx2, y: ny2 });
+      if (nx1 !== nx2 || ny1 !== ny2) {
+        if (thickness === 1) {
+          gesture.push([nx1, ny1], [nx2, ny2]);
+        } else {
+          gesture.push({ x: nx1, y: ny1 }, { x: nx2, y: ny2 });
+        }
       }
 
       const nextCommand = drawing.commands[i + 1];

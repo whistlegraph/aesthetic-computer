@@ -36,7 +36,8 @@
         "zjcompt.es6-string-javascript",
         "dbaeumer.vscode-eslint",
         "bierner.lit-html",
-        "vscodevim.vim"
+        "vscodevim.vim",
+        "kuba-p.glsl-lsp"
       ]
     }
   },
