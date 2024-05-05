@@ -65,6 +65,7 @@ cd /home/me/aesthetic-computer/ssl-dev
 if not test -f localhost.pem; or not test -f localhost-key.pem
     # Generate SSL certificates
     sudo fish fedora-install.fish
+    sudo chmod -R a+r /home/me/aesthetic-computer/ssl-dev
 end
 
 # Check if the nanos/ssl directory exists, create it if not

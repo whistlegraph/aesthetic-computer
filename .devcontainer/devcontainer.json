@@ -17,8 +17,8 @@
     "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind,consistency=cached",
     "source=${localWorkspaceFolder}/.devcontainer/envs,target=/home/me/envs,type=bind,consistency=cached",
     "source=codespaces-linux-var-lib-docker,target=/var/lib/docker,type=volume",
-    "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind",
-    "source=${env:HOME}/.ssh/id_rsa,target=/home/me/.ssh/id_rsa,type=bind,consistency=cached"
+    "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind"
+    // "source=${env:HOME}/.ssh/id_rsa,target=/home/me/.ssh/id_rsa,type=bind,consistency=cached"
   ],
   "forwardPorts": [8888],
   "customizations": {
@@ -35,7 +35,8 @@
         "bashmish.es6-string-css",
         "zjcompt.es6-string-javascript",
         "dbaeumer.vscode-eslint",
-        "bierner.lit-html"
+        "bierner.lit-html",
+        "vscodevim.vim"
       ]
     }
   },
