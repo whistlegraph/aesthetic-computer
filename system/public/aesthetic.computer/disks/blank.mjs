@@ -8,9 +8,9 @@
 #endregion */
 
 // 🥾 Boot
-// function boot({ api }) {
-// Runs once at the start.
-// }
+function boot({ api, resolution }) {
+ // Runs once at the start.
+}
 
 // 🎨 Paint
 function paint({ wipe, ink, line, screen }) {
@@ -56,7 +56,7 @@ function meta() {
 // Render an application icon, aka favicon.
 // }
 
-export { paint, meta };
+export { boot, paint, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
