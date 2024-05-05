@@ -48,16 +48,10 @@ but technically agnostic. (Choose your aesthetic!)
   - [] "pause" overlay on windows is pretty awkward
   - [] resizing is also weird - could these be related?
 
-*** udp ***
-  - [] local udp is not working through the windows container...
-  - [] it just doesn't work sometimes, maybe this is because
-       there is a remote webrtc server being called somehow / somewhere?
-
 *** kidlisp ***
-  - [🐰] Make a basic graphical editor / viewer.
-
-
   - [] Support refreshing and showing of source code in (...) pieces.
+    - [] Be able to run and then remodify last run code...
+  - [🐰] Make a basic graphical editor / viewer.
 
 *** brushes ***
   - [] Add auto-interpolation to brushes.
