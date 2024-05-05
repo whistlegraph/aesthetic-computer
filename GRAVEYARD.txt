@@ -1,5 +1,12 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** udp ***
+  - [x] Could not solve and decided to abandon windows based development in
+        favor of focusing only on Fedora.
+  - [c] local udp is not working through the windows container...
+  - [c] it just doesn't work sometimes, maybe this is because
+       there is a remote webrtc server being called somehow / somewhere?
+
 *** aesthetic lisp / s-expression parser and evaluator ***
   + Done
   - [x] Add support for functions and variables.
