@@ -129,7 +129,33 @@ function pack(content) {
     } else if (name === "line") {
       const p1 = params.slice(0, 2);
       const p2 = params.slice(2, 4);
-      // console.log(p1, p2);
+
+      // Calculate the direction vector
+      const direction = [p2[0] - p1[0], p2[1] - p1[1]];
+
+      // Calculate the magnitude of the direction vector
+      const magnitude = Math.sqrt(
+        direction[0] * direction[0] + direction[1] * direction[1],
+      );
+
+      // Normalize the direction vector
+      const normalizedDirection = [
+        direction[0] / magnitude,
+        direction[1] / magnitude,
+      ];
+
+      // Extension factor
+      const extension = 0.5; // Adjust as needed
+
+      // Extend p2 by a small factor in the direction of the line
+      p2[0] += extension * normalizedDirection[0];
+      p2[1] += extension * normalizedDirection[1];
+      // Extend p1 by a small factor in the opposite direction
+      p1[0] -= extension * normalizedDirection[0];
+      p1[1] -= extension * normalizedDirection[1];
+
+      // const ink2 = [1, 1, 0, 0.25];
+
       packed.push({
         line: new Float32Array([...p1, ...ink, ...p2, ...ink]),
       });
@@ -154,8 +180,11 @@ function render() {
     if (pack.line) {
       gl.bindBuffer(gl.ARRAY_BUFFER, line.buffers.data);
       gl.bufferData(gl.ARRAY_BUFFER, pack.line, gl.DYNAMIC_DRAW);
-      gl.uniform2f(line.uniforms.res, gl.canvas.width - 1, gl.canvas.height - 1);
-
+      gl.uniform2f(
+        line.uniforms.res,
+        gl.canvas.width,
+        gl.canvas.height,
+      );
       const primitiveType = gl.LINES;
       const offset = 0;
       const count = pack.line.length / 6;

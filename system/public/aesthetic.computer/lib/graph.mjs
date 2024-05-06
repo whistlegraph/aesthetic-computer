@@ -794,7 +794,7 @@ function line() {
     return;
   }
 
-  console.log("Line in:", x0, y0, x1, y1);
+  // console.log("Line in:", x0, y0, x1, y1);
 
   // Add any panTranslations.
   x0 += panTranslation.x;
@@ -810,7 +810,7 @@ function line() {
   }
 
   const out = [x0, y0, x1, y1];
-  console.log("Line out:", out);
+  // console.log("Line out:", out);
   twoDCommands?.push(["line", ...out]); // Forward this call to the GPU.
   return out;
 }
@@ -1786,10 +1786,6 @@ function draw() {
   const gesture = []; // Keep track of continuous lines.
 
   function paintGesture() {
-    console.log("Painting gesture...");
-    gesture.forEach((g) => {
-      console.log(g);
-    })
     // Draw each gesture path and then kill it.
     thickness === 1 ? poly(gesture) : pline(gesture, thickness);
     gesture.length = 0;
