@@ -39,14 +39,15 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
-- Jeffrey (Sat)
-
-*** webgpu rasterizer / new renderer ***
-  - [🛞] render the prompt in something faster!
+*** webgl2 rasterizer ***
+  - [🟠] Add a per-piece software switch to enable the webgl2 renderer
+       (and disable the software one)
     - [] evaluate both an off-screen Canvas2D and pixi-js for this (2d)
-    - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
   - [] "pause" overlay on windows is pretty awkward
   - [] resizing is also weird - could these be related?
+
+*** webgpu rasterizer ***
+  - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
 
 *** kidlisp ***
   - [] Support refreshing and showing of source code in (...) pieces.
