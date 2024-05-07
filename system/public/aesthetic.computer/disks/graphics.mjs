@@ -12,27 +12,18 @@ function boot({ api, resolution }) {
   resolution(24);
 }
 
-const marg = 1;
-
 // 🎨 Paint
-function paint({ wipe, ink, line, write, screen }) {
-  ink("red").line(0, 0, 2, 2);
-  // wipe("blue");
-  //  ink("yellow", 64); // Would draw a diagonal line.
-  //  line(marg, marg, screen.width - marg * 2, screen.height - marg * 2);
-  //  ink("lime", 128); // Would draw a diagonal line.
-  //  line(screen.width - marg * 2, marg, marg, screen.height - marg * 2);
-  // ink("red").line(0, 0, 2, 2);
+function paint({ wipe, ink, ink2, line, write, screen }) {
+  wipe("blue");
+  // Draw an X across the screen.
+  ink("red").ink2("yellow").line(0, 0, screen.width, screen.height);
 
-   ink("red").line(5, 5, 8, 6);
-  // ink("red").line(0, 0, 2, 2);
-  // ink("red").line(0, 0, 2, 2);
-  //ink("red").line(0, 0, 2, 2);
-  // ink("red").line(0, 0, 5, 1);
-  // ink("red").line(1, 5, 5, 5);
+  // 🧯 TODO: This one is weirdly off by 1 pixel on the top right...
+  ink("lime").ink2("pink").line(screen.width, 0, 0, screen.height);
 
-  ink("red", 255).write("Shy", { x: 1, y: 8, size: 1 });
-
+  // ink("pink", 128).write("Shy", { x: 3, y: 8, size: 1 });
+  // ink("red").point(screen.width / 2, 4);
+  // ink("lime").pan(2, 2).point(screen.width / 2, 4).unpan();
   return false;
 }
 
