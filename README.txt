@@ -49,7 +49,7 @@ but technically agnostic. (Choose your aesthetic!)
 *** webgpu rasterizer ***
   - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
 
-*** kidlisp ***
+*** kid-lisp ***
   - [] Support refreshing and showing of source code in (...) pieces.
     - [] Be able to run and then remodify last run code...
   - [🐰] Make a basic graphical editor / viewer.
