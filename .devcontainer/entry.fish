@@ -77,6 +77,7 @@ end
 if not test -f /home/me/aesthetic-computer/nanos/ssl/localhost.pem; or not test -f /home/me/aesthetic-computer/nanos/ssl/localhost-key.pem
     cp localhost.pem /home/me/aesthetic-computer/nanos/ssl/
     cp localhost-key.pem /home/me/aesthetic-computer/nanos/ssl/
+    sudo chmod -R a+r /home/me/aesthetic-computer/nanos/ssl
 end
 
 # Function to install and trust certificates
@@ -100,7 +101,7 @@ end
 
 
 # Set the directory path
-set project_path /home/me/aesthetic-computer
+
 
 # Check if node_modules directory exists and is not empty
 if not test -d $project_path/node_modules || not count $project_path/node_modules/* >/dev/null
