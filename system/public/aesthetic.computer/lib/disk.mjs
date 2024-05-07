@@ -1192,12 +1192,8 @@ const $commonApi = {
       // with no change to `system.nopaint.brush`.
       pointToPainting: ({ system, pen }) => {
         const zoom = system.nopaint.zoomLevel;
-        const x = floor(
-          ((pen?.x || 0) - system.nopaint.translation.x) / zoom,
-        );
-        const y = floor(
-          ((pen?.y || 0) - system.nopaint.translation.y) / zoom,
-        );
+        const x = floor(((pen?.x || 0) - system.nopaint.translation.x) / zoom);
+        const y = floor(((pen?.y || 0) - system.nopaint.translation.y) / zoom);
 
         return { x, y };
       },
@@ -1205,12 +1201,8 @@ const $commonApi = {
         // TODO: Use `pointToPainting` above. 23.10.11.08.49
         // let { x, y } = system.nopaint.pointToPainting({ system });
         const zoom = system.nopaint.zoomLevel;
-        const x = floor(
-          ((pen?.x || 0) - system.nopaint.translation.x) / zoom,
-        );
-        const y = floor(
-          ((pen?.y || 0) - system.nopaint.translation.y) / zoom,
-        );
+        const x = floor(((pen?.x || 0) - system.nopaint.translation.x) / zoom);
+        const y = floor(((pen?.y || 0) - system.nopaint.translation.y) / zoom);
 
         if (act === "touch") system.nopaint.startDrag = { x, y };
 
@@ -1842,6 +1834,10 @@ function ink() {
   return graph.color(...graph.findColor(...arguments));
 }
 
+function ink2() {
+  return graph.color2(...graph.findColor(...arguments));
+}
+
 // 🔎 PAINTAPI
 const $paintApi = {
   // 1. Composite functions (that use $activePaintApi)
@@ -2060,10 +2056,15 @@ const $paintApiUnwrapped = {
   blend: graph.blendMode,
   page: graph.setBuffer,
   edit: graph.changePixels, // Edit pixels by pasing a callback.
+  // Color
   ink: function () {
     const out = ink(...arguments);
     twoDCommands.push(["ink", ...out]);
-  }, // Color
+  },
+  ink2: function () {
+    const out = ink2(...arguments);
+    twoDCommands.push(["ink2", ...out]);
+  },
   // inkrn: () => graph.c.slice(), // Get current inkColor.
   // 2D
   wipe: function () {
@@ -2143,14 +2144,17 @@ const $paintApiUnwrapped = {
     }
   }, // TODO: Should this be renamed to set?
   flood: graph.flood,
-  point: graph.point,
+  point: function() {
+    const out = graph.point(...arguments);
+    twoDCommands.push(["point", ...out]);
+  },
   line: graph.line,
   lineAngle: graph.lineAngle,
   pline: graph.pline,
   pppline: graph.pixelPerfectPolyline,
   oval: graph.oval,
   circle: graph.circle,
-  poly: graph.poly, 
+  poly: graph.poly,
   box: graph.box,
   shape: graph.shape,
   grid: graph.grid,
@@ -3544,6 +3548,7 @@ async function load(
     iconMode = parsed.search?.startsWith("icon") || false;
     paintings = {}; // Reset painting cache.
     prefetches?.forEach((p) => prefetchPainting(p)); // Prefetch parsed media.
+    graph.color2(null); // Remove any secondary color that was added from another piece.
 
     // 🪧 See if notice needs to be shown.
     if ($commonApi.query.notice === "success") {

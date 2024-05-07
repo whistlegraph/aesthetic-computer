@@ -14,6 +14,7 @@ import {
   rainbow,
   isHexString,
   hexToRgb,
+  shiftRGB,
   cssColors,
 } from "./num.mjs";
 
@@ -26,12 +27,13 @@ import { any, repeat, nonvalue, flip } from "./help.mjs";
 import { Box } from "./geo.mjs";
 import { nanoid } from "../dep/nanoid/nanoid.js";
 
-const { round, sign, abs, ceil, floor, sin, cos, min, max } = Math;
+const { round, sign, abs, ceil, floor, sin, cos, min, max, sqrt, PI } = Math;
 
 let width, height, pixels;
 const depthBuffer = [];
 const writeBuffer = [];
 const c = [255, 255, 255, 255];
+let c2 = null; // Alternate / secondary color support.
 const panTranslation = { x: 0, y: 0 }; // For 2d shifting using `pan` and `unpan`.
 let activeMask; // A box for totally masking the renderer.
 //                 This should work everywhere.
@@ -256,12 +258,27 @@ function computeAlpha(alpha) {
 // Send 0 arguements to retrieve the current one.
 function color(r, g, b, a = 255) {
   if (arguments.length === 0) return c.slice();
-
   c[0] = floor(r);
   c[1] = floor(g);
   c[2] = floor(b);
   c[3] = floor(a);
   return c.slice();
+}
+
+// Support for secondary color with the ability to clear the color by
+// passing null or undefined as the first parameter.
+function color2(r, g, b, a = 255) {
+  if (arguments.length === 0) return c2.slice();
+  if (r === undefined || r === null) {
+    c2 = null;
+    return;
+  }
+  if (!c2) c2 = [];
+  c2[0] = floor(r);
+  c2[1] = floor(g);
+  c2[2] = floor(b);
+  c2[3] = floor(a);
+  return c2.slice();
 }
 
 export {
@@ -273,13 +290,13 @@ export {
   depthBuffer,
   writeBuffer,
   color,
+  color2,
   findColor,
   c, // currentColor
   pixel,
 };
 
 // 2. 2D Drawing
-
 function clear() {
   // Note: I believe this would be the fastest method but would have to test it.
   // Would have to copy up by doubling until we hit the length!
@@ -388,6 +405,7 @@ function point(...args) {
   // TODO: Eventually add rotation and scale etc.
 
   plot(x, y);
+  return [x, y];
 }
 
 // Run a callback function to shade, then plot an array of pixel coordinates.
@@ -468,10 +486,10 @@ function unmask() {
 }
 
 function copy(destX, destY, srcX, srcY, src, alpha = 1.0) {
-  destX = Math.floor(destX);
-  destY = Math.floor(destY);
-  srcX = Math.floor(srcX);
-  srcY = Math.floor(srcY);
+  destX = floor(destX);
+  destY = floor(destY);
+  srcX = floor(srcX);
+  srcY = floor(srcY);
 
   // Skip pixels that are offscreen or outside the src buffer.
   // Used in `paste`.
@@ -802,11 +820,23 @@ function line() {
   x1 += panTranslation.x;
   y1 += panTranslation.y;
 
-  // Check if line is perfectly horizontal, otherwise run bresenham.
-  if (y0 === y1) {
+  // Lerp from primary to secondary color as needed.
+  const cachedInk = c.slice(0);
+
+  // Check if line is perfectly horizontal and no gradient is present, otherwise run bresenham.
+  if (y0 === y1 && !c2) {
     lineh(x0, x1, y0);
   } else {
-    bresenham(x0, y0, x1, y1).forEach((p) => plot(p.x, p.y));
+    bresenham(x0, y0, x1, y1).forEach((p) => {
+      if (c2) {
+        const step = sqrt(p.x * p.x + p.y * p.y) / 255; // Gradient step.
+        color(...shiftRGB(c, c2, step));
+        plot(p.x, p.y);
+      } else {
+        plot(p.x, p.y);
+      }
+    });
+    if (c2) color(...cachedInk);
   }
 
   const out = [x0, y0, x1, y1];
@@ -882,8 +912,8 @@ function pixelPerfectPolyline(points, shader) {
 
 // Draws a line from a point at a distance... with an angle in degrees.
 function lineAngle(x1, y1, dist, degrees) {
-  const x2 = x1 + dist * Math.cos(radians(degrees));
-  const y2 = y1 + dist * Math.sin(radians(degrees));
+  const x2 = x1 + dist * cos(radians(degrees));
+  const y2 = y1 + dist * sin(radians(degrees));
   return line(x1, y1, x2, y2);
 }
 
@@ -1072,7 +1102,7 @@ function pline(coords, thickness, shader) {
     const dir = vec2.normalize([], vec2.subtract([], cp, lp)); // Line direction.
     if (!ldir) ldir = dir;
 
-    const rot = vec2.rotate([], dir, [0, 0], Math.PI / 2); // Rotated by 90d
+    const rot = vec2.rotate([], dir, [0, 0], PI / 2); // Rotated by 90d
 
     const offset1 = vec2.scale([], rot, thickness / 2); // Parallel offsets.
     const offset2 = vec2.scale([], rot, -thickness / 2);
@@ -1229,13 +1259,13 @@ function bresenham(x0, y0, x1, y1) {
   const points = [];
 
   // Make sure everything is floor'd.
-  x0 = Math.floor(x0) || 0;
-  y0 = Math.floor(y0) || 0;
-  x1 = Math.floor(x1) || 0;
-  y1 = Math.floor(y1) || 0;
+  x0 = floor(x0) || 0;
+  y0 = floor(y0) || 0;
+  x1 = floor(x1) || 0;
+  y1 = floor(y1) || 0;
   // Bresenham's Algorithm
-  const dx = Math.abs(x1 - x0);
-  const dy = -Math.abs(y1 - y0);
+  const dx = abs(x1 - x0);
+  const dy = -abs(y1 - y0);
   const sx = x0 < x1 ? 1 : -1;
   const sy = y0 < y1 ? 1 : -1;
   let err = dx + dy;

@@ -39,11 +39,19 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** webgl2 rasterizer ***
-  - [🟠] Add a per-piece software switch to enable the webgl2 renderer
-       (and disable the software one)
-    - [] evaluate both an off-screen Canvas2D and pixi-js for this (2d)
-  - [] "pause" overlay on windows is pretty awkward
+*** webgl2 rasterizer (`graphics`) ***
+  - [*] Fix line plot inconsistency / understand it better?
+  - [] Add support for bitmaps in the 2D renderer.
+  - [] Add a per-piece software switch to enable the webgl2 renderer
+         and disable the software one.
+    - [] The lisp should never have the software one enabed.
+    - [] Run the line test at a high resolution.
+  + Done
+  - [x] Add support for secondary ink color in the API and in the 2D renderer.
+  - [x] Add support for points in the 2D renderer.
+
+*** general compositing ***        
+  - [] the "pause" overlay on windows / high refresh rate is pretty awkward...
   - [] resizing is also weird - could these be related?
 
 *** webgpu rasterizer ***
