@@ -3,6 +3,7 @@
 // (WebGL2)
 
 import { createShader, createProgram, preloadShaders } from "./gl.mjs";
+import * as vec2 from "../dep/gl-matrix/vec2.mjs";
 
 // let send; // Send messages pack to aeshetic.computer.
 let gl;
@@ -38,11 +39,11 @@ async function initialize(wrapper /*, sendToPiece*/) {
   // Compile all the shader programs for our pipeline.
   const pvert = createShader(gl, gl.VERTEX_SHADER, sources["pass-vert"]);
   const pfrag = createShader(gl, gl.FRAGMENT_SHADER, sources["pass-frag"]);
-  const pprogram = createProgram(gl, pvert, pfrag);
+  const program = createProgram(gl, pvert, pfrag);
 
   shaders = {
     line: {
-      program: pprogram,
+      program,
       attributes: {},
       uniforms: {},
       buffers: {},
@@ -89,32 +90,14 @@ async function initialize(wrapper /*, sendToPiece*/) {
     stride: 6,
     offset: 2,
   });
-
-  // Set up another buffer as needed...
-  // shaders.screen.buffers.color = gl.createBuffer();
-  // gl.bindBuffer(gl.ARRAY_BUFFER, shaders.screen.buffers.color);
 }
 
 let ink = [0, 0, 0, 1.0];
-
-function convertColor(color) {
-  let out;
-  if (Array.isArray(color)) {
-    out = color.map((c) => c / 255);
-  } else {
-    // Assume a single integer.
-    const c = color / 255;
-    out = [c, c, c, 1];
-  }
-
-  // console.log(out);
-  return out;
-}
+let ink2 = null;
+// TODO: Add secondary color for gradients.
 
 // Packs a frame with data.
-// (Interpreting a list of paint commands from a piece.)
-// TBD: Cache textures, etc. make special cases as needed.
-
+// (Interpreting a list of paint commands from a piece, per render frame.)
 function pack(content) {
   packed = [];
   content.code.forEach((statement) => {
@@ -122,51 +105,47 @@ function pack(content) {
     const params = statement.slice(1);
     if (name === "wipe") {
       packed.push({
-        wipe: convertColor(params),
+        wipe: normalizeColor(params),
       });
     } else if (name === "ink") {
-      ink = convertColor(params);
+      ink = normalizeColor(params);
+    } else if (name === "ink2") {
+      ink2 = normalizeColor(params);
     } else if (name === "line") {
       const p1 = params.slice(0, 2);
       const p2 = params.slice(2, 4);
-
       // Calculate the direction vector
-      const direction = [p2[0] - p1[0], p2[1] - p1[1]];
-
-      // Calculate the magnitude of the direction vector
-      const magnitude = Math.sqrt(
-        direction[0] * direction[0] + direction[1] * direction[1],
-      );
+      const direction = vec2.subtract(vec2.create(), p2, p1);
 
       // Normalize the direction vector
-      const normalizedDirection = [
-        direction[0] / magnitude,
-        direction[1] / magnitude,
-      ];
+      const normalizedDirection = vec2.normalize(vec2.create(), direction);
 
       // Extension factor
       const extension = 0.5; // Adjust as needed
 
-      // Extend p2 by a small factor in the direction of the line
-      p2[0] += extension * normalizedDirection[0];
-      p2[1] += extension * normalizedDirection[1];
-      // Extend p1 by a small factor in the opposite direction
-      p1[0] -= extension * normalizedDirection[0];
-      p1[1] -= extension * normalizedDirection[1];
+      // Extend p1, and p2 by a small factor in the direction of the line
+      vec2.scaleAndAdd(p2, p2, normalizedDirection, extension);
+      vec2.scaleAndAdd(p1, p1, normalizedDirection, -extension);
 
-      // const ink2 = [1, 1, 0, 0.25];
-
+      // TODO: Add linear gradients.
       packed.push({
-        line: new Float32Array([...p1, ...ink, ...p2, ...ink]),
+        line: new Float32Array([...p1, ...ink, ...p2, ...(ink2 || ink)]),
+      });
+    } else if (name === "point") {
+      const p = params.slice(0, 2);
+      console.log("point...", p);
+      packed.push({
+        point: new Float32Array([...p, ...ink]),
       });
     }
   });
 }
 
-// Makes draw calls.
+// Makes draw calls based on a packed frame.
 function render() {
   if (!packed || !shaders) return;
-  // Render lines.
+
+  // Render lines (and points).
   const line = shaders.line;
   gl.useProgram(line.program);
   gl.bindVertexArray(line.other.vao);
@@ -177,19 +156,26 @@ function render() {
       gl.clear(gl.COLOR_BUFFER_BIT);
     }
 
-    if (pack.line) {
+    // Lines and Points
+    if (pack.line || pack.point) {
+      const primitive = pack.line || pack.point;
       gl.bindBuffer(gl.ARRAY_BUFFER, line.buffers.data);
-      gl.bufferData(gl.ARRAY_BUFFER, pack.line, gl.DYNAMIC_DRAW);
-      gl.uniform2f(
-        line.uniforms.res,
-        gl.canvas.width,
-        gl.canvas.height,
-      );
-      const primitiveType = gl.LINES;
+      gl.bufferData(gl.ARRAY_BUFFER, primitive, gl.DYNAMIC_DRAW);
+      gl.uniform2f(line.uniforms.res, gl.canvas.width, gl.canvas.height);
+      const primitiveType = pack.line ? gl.LINES : gl.POINTS;
       const offset = 0;
-      const count = pack.line.length / 6;
+      const count = pack.line ? pack.line.length / 6 : pack.point.length / 6;
       gl.drawArrays(primitiveType, offset, count);
     }
+
+    // Rectangles
+    // ...
+
+    // Polygons / Triangles
+    // ...
+
+    // Bitmaps
+    // ...
   });
 
   packed = null;
@@ -209,7 +195,19 @@ function frame(w, h, wrapper) {
   if (!wrapper.contains(gl.canvas)) wrapper.append(gl.canvas);
 }
 
-// Receive events from aesthetic.computer
-// function handleEvent() {}
+// Normalizes a color from 0->255 to 0->1.
+function normalizeColor(color) {
+  let out;
+  if (Array.isArray(color)) {
+    out = color.map((c) => c / 255);
+  } else {
+    // Assume a single integer.
+    const c = color / 255;
+    out = [c, c, c, 1];
+  }
+
+  // console.log(out);
+  return out;
+}
 
 export { initialize, frame, pack, render };
