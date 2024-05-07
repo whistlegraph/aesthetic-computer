@@ -1,4 +1,4 @@
 When running the development environment on a new machine...
 
 - Will need to set mouse and keyboard settings.
-- Will probably have to `xhost  +local:" to get copy and paste working.  
+- Will probably have to `xhost  +local:docker" to get copy and paste working.  
