@@ -92,9 +92,8 @@ async function initialize(wrapper /*, sendToPiece*/) {
   });
 }
 
-let ink = [0, 0, 0, 1.0];
-let ink2 = null;
-// TODO: Add secondary color for gradients.
+let ink = [0, 0, 0, 1.0]; // Primary color.
+let ink2 = null; // Secondary color.
 
 // Packs a frame with data.
 // (Interpreting a list of paint commands from a piece, per render frame.)
@@ -110,24 +109,17 @@ function pack(content) {
     } else if (name === "ink") {
       ink = normalizeColor(params);
     } else if (name === "ink2") {
+      console.log("ink2", params);
       ink2 = normalizeColor(params);
     } else if (name === "line") {
       const p1 = params.slice(0, 2);
       const p2 = params.slice(2, 4);
-      // Calculate the direction vector
-      const direction = vec2.subtract(vec2.create(), p2, p1);
-
-      // Normalize the direction vector
-      const normalizedDirection = vec2.normalize(vec2.create(), direction);
-
-      // Extension factor
-      const extension = 0.5; // Adjust as needed
-
       // Extend p1, and p2 by a small factor in the direction of the line
+      const direction = vec2.subtract(vec2.create(), p2, p1);
+      const normalizedDirection = vec2.normalize(vec2.create(), direction);
+      const extension = 0.5; // Extension factor. 
       vec2.scaleAndAdd(p2, p2, normalizedDirection, extension);
       vec2.scaleAndAdd(p1, p1, normalizedDirection, -extension);
-
-      // TODO: Add linear gradients.
       packed.push({
         line: new Float32Array([...p1, ...ink, ...p2, ...(ink2 || ink)]),
       });
@@ -190,7 +182,7 @@ function frame(w, h, wrapper) {
   gl.canvas.style.width = wrapper.style.width;
   gl.canvas.style.height = wrapper.style.height;
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-  gl.clearColor(0.0, 0.0, 0.0, 0.1);
+  gl.clearColor(0.0, 0.0, 0.0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT);
   if (!wrapper.contains(gl.canvas)) wrapper.append(gl.canvas);
 }
@@ -200,13 +192,12 @@ function normalizeColor(color) {
   let out;
   if (Array.isArray(color)) {
     out = color.map((c) => c / 255);
+    if (out.length === 0) out = null;
   } else {
     // Assume a single integer.
     const c = color / 255;
     out = [c, c, c, 1];
   }
-
-  // console.log(out);
   return out;
 }
 
