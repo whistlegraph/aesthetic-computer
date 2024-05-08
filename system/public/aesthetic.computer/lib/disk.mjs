@@ -890,6 +890,14 @@ const $commonApi = {
   // 🚥 `Get` api
   // Retrieve media assets from a user account.
   get: {
+    picture: (url) => {
+      return $commonApi.net.preload(
+        encodeURI(url),
+        true,
+        undefined,
+        // byOpts,
+      );
+    },
     painting: (code, opts) => {
       return {
         by: async function (handle = "anon", byOpts) {
@@ -1835,7 +1843,11 @@ function ink() {
 }
 
 function ink2() {
-  return graph.color2(...graph.findColor(...arguments));
+  if (arguments[0] === null) {
+    return graph.color2(null);
+  } else {
+    return graph.color2(...graph.findColor(...arguments));
+  }
 }
 
 // 🔎 PAINTAPI
@@ -2036,16 +2048,25 @@ function form(
 
 // Used by `paste` and `stamp` to prefetch bitmaps of the network as needed.
 // Occurs also when loading a piece's source code.
-function prefetchPainting(code) {
+function prefetchPicture(code) {
   if (paintings[code] === "fetching") return;
+
   console.log("🖼️ Prefetching...", code);
   paintings[code] = "fetching";
-  const [author, timestamp] = code.split("/");
-  $commonApi.get
-    .painting(timestamp)
-    .by(author)
-    .then(({ img }) => (paintings[code] = img))
-    .catch(() => delete paintings[code]);
+
+  if (code.startsWith("http")) {
+    $commonApi.get
+      .picture(code)
+      .then(({ img }) => (paintings[code] = img))
+      .catch(() => delete paintings[code]);
+  } else {
+    const [author, timestamp] = code.split("/");
+    $commonApi.get
+      .painting(timestamp)
+      .by(author)
+      .then(({ img }) => (paintings[code] = img))
+      .catch(() => delete paintings[code]);
+  }
 }
 
 const $paintApiUnwrapped = {
@@ -2063,7 +2084,7 @@ const $paintApiUnwrapped = {
   },
   ink2: function () {
     const out = ink2(...arguments);
-    twoDCommands.push(["ink2", ...out]);
+    twoDCommands.push(["ink2", ...(out || [])]);
   },
   // inkrn: () => graph.c.slice(), // Get current inkColor.
   // 2D
@@ -2089,7 +2110,7 @@ const $paintApiUnwrapped = {
       if (paintings[code] && paintings[code] !== "fetching") {
         graph.paste(paintings[code], ...[...arguments].slice(1));
       } else if (paintings[code] !== "fetching") {
-        prefetchPainting(code);
+        prefetchPicture(code);
       }
     } else {
       graph.paste(...arguments);
@@ -2126,7 +2147,7 @@ const $paintApiUnwrapped = {
         makeLayout();
         graph.stamp(paintings[code], ...params);
       } else if (paintings[code] !== "fetching") {
-        prefetchPainting(code);
+        prefetchPicture(code);
       }
     } else {
       params = [...arguments].slice(1);
@@ -2144,7 +2165,7 @@ const $paintApiUnwrapped = {
     }
   }, // TODO: Should this be renamed to set?
   flood: graph.flood,
-  point: function() {
+  point: function () {
     const out = graph.point(...arguments);
     twoDCommands.push(["point", ...out]);
   },
@@ -2247,7 +2268,7 @@ class Painting {
 
     // Creates a new pixel buffer with its own layering wrapper / context
     // on top of the base painting API.
-    this.api.painting = function () {
+    this.api.painting = function painting() {
       const oldActivePaintApi = $activePaintApi;
       const painting = new Painting();
       $activePaintApi = painting.api;
@@ -3547,7 +3568,7 @@ async function load(
     previewMode = parsed.search?.startsWith("preview") || false;
     iconMode = parsed.search?.startsWith("icon") || false;
     paintings = {}; // Reset painting cache.
-    prefetches?.forEach((p) => prefetchPainting(p)); // Prefetch parsed media.
+    prefetches?.forEach((p) => prefetchPicture(p)); // Prefetch parsed media.
     graph.color2(null); // Remove any secondary color that was added from another piece.
 
     // 🪧 See if notice needs to be shown.
