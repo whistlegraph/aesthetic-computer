@@ -40,8 +40,9 @@ but technically agnostic. (Choose your aesthetic!)
 🌟 Projects in Progress (PIP) 🌟
 
 *** webgl2 rasterizer (`graphics`) ***
-  - [*] Fix line plot inconsistency / understand it better?
+  - [*] Fix line plot inconsistency / understand it better.
   - [] Add support for bitmaps in the 2D renderer.
+  - [*] Fix / match alpha blending across the software rasterizer and the GPU renderer.
   - [] Add a per-piece software switch to enable the webgl2 renderer
          and disable the software one.
     - [] The lisp should never have the software one enabed.

@@ -32,8 +32,6 @@ import { UDP } from "./lib/udp.mjs";
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
 
-let JSZip; // Dynamic import of `jszip` as needed.
-
 const { assign, keys } = Object;
 const { round, floor, min, max } = Math;
 

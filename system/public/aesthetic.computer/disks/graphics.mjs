@@ -13,17 +13,25 @@ function boot({ api, resolution }) {
 }
 
 // 🎨 Paint
-function paint({ wipe, ink, ink2, line, write, screen }) {
+function paint({ wipe, ink, ink2, line, write, screen, stamp, painting }) {
   wipe("blue");
   // Draw an X across the screen.
-  ink("red").ink2("yellow").line(0, 0, screen.width, screen.height);
+  ink("red")
+    .ink2("yellow")
+    .line(0, 0, screen.width - 1, screen.height - 1);
+  ink("lime")
+    .ink2("pink")
+    .line(screen.width - 1, 0, 0, screen.height - 1);
+  ink("pink", 128).ink2(null).write("Shy", { x: 3, y: 8, size: 1 }); // Write a word.
 
-  // 🧯 TODO: This one is weirdly off by 1 pixel on the top right...
-  ink("lime").ink2("pink").line(screen.width, 0, 0, screen.height);
+  // TODO: Draw a bitmap here maybe something from a url?
+  stamp(
+    painting(6, 6, ({ noise16 }) => noise16()),
+    screen.width / 2,
+    screen.height - 4,
+  );
 
-  // ink("pink", 128).write("Shy", { x: 3, y: 8, size: 1 });
-  // ink("red").point(screen.width / 2, 4);
-  // ink("lime").pan(2, 2).point(screen.width / 2, 4).unpan();
+  // stamp("https://assets.aesthetic.computer/images/favicon.png", 0, 0);
   return false;
 }
 
