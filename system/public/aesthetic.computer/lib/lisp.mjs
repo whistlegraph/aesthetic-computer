@@ -107,7 +107,7 @@ const globalEnv = {
   },
   die: (api, args) => {
     const name = unquoteString(args[0]);
-    const def = globalDef[name]
+    const def = globalDef[name];
     if (def) {
       delete globalDef[name];
       def.kill?.(); // Kill a sound or the object has a destructor.
@@ -192,9 +192,15 @@ const globalEnv = {
   // 🔈 Sound
   overtone: (api, args = []) => {
     console.log("Synth at:", args);
+    let tone;
+    if (args[0] === undefined) {
+      tone = 440;
+    } else {
+      tone = (args[0] * args[1]) / args[2];
+    }
     return api.sound.synth({
       type: "square",
-      tone: args[0] || 440,
+      tone,
       // beats: 0.1,
       duration: Infinity,
       attack: 0.01,
@@ -223,7 +229,6 @@ function evaluate(parsed, api = {}, env) {
 
   // Create a local environment for a function from the params.
   if (parsed.body) {
-
     body = parsed.body;
 
     parsed.params.forEach((param, i) => {
@@ -242,7 +247,6 @@ function evaluate(parsed, api = {}, env) {
 
   let result;
   for (const item of body) {
-
     console.log("🥡 Item:", item);
 
     if (Array.isArray(item)) {
@@ -279,8 +283,7 @@ function evaluate(parsed, api = {}, env) {
             : globalDef[fn];
       }
     } else {
-
-      const [ root, tail ] = item.split(".");
+      const [root, tail] = item.split(".");
 
       if (localEnv[item]) {
         console.log("Solo local definition found!", item, localEnv[item]);
@@ -303,7 +306,6 @@ function evaluate(parsed, api = {}, env) {
           const end = globalDef[root][tail];
           result = typeof end === "function" ? end() : end;
         }
-
       } else {
         console.log(item, "not found");
       }
