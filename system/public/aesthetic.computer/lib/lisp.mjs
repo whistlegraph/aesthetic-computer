@@ -76,7 +76,17 @@ function module(source) {
       ink("white").write(evaluated || "nada", { center: "xy" });
       return false;
     },
+    act: ({ event: e, api }) => {
+      if (e.is("touch")) tap(api);
+    },
   };
+}
+
+// 🫵
+let tapper;
+function tap(api) {
+  console.log("Tapping!");
+  if (tapper) evaluate(tapper, api);
 }
 
 const globalDef = {};
@@ -85,14 +95,23 @@ const globalEnv = {
   // Program Architecture
   now: (api, args) => {
     // Three length argument assumes a value setting.
+    console.log("Nowing:", args);
     if (args.length === 2) {
       const name = unquoteString(args[0]);
-      console.log("Now:", name, args.slice(1));
+      // console.log("Now:", name, args.slice(1));
       globalDef[name] = args[1];
-      console.log(globalDef);
+      // console.log(globalDef);
       return args[1];
     }
     console.error("Invalid now. Wrong number of arguments.");
+  },
+  die: (api, args) => {
+    const name = unquoteString(args[0]);
+    const def = globalDef[name]
+    if (def) {
+      delete globalDef[name];
+      def.kill?.(); // Kill a sound or the object has a destructor.
+    }
   },
   later: (api, args) => {
     if (args.length >= 2) {
@@ -126,6 +145,19 @@ const globalEnv = {
       return body;
     }
   },
+  tap: (api, args) => {
+    tapper = args;
+  },
+  if: (api, args) => {
+    console.log("If:", args);
+    const cond = args[0];
+    // TODO: Still need to check for nada / nullish / falsey values.
+    if (globalDef[cond]) {
+      evaluate([args[1]], api);
+    } else {
+      evaluate([args[2]], api);
+    }
+  },
   // Mathematical Operators
   "+": (api, args) => args.reduce((a, b) => a + b, 0),
   "-": (api, args) => args.reduce((a, b) => a - b),
@@ -150,12 +182,25 @@ const globalEnv = {
   box: (api, args = []) => {
     api.box(...args);
   },
-  // Getters / globals.
+  // (Getters / globals).
   width: (api) => {
     api.screen.width;
   },
   height: (api) => {
     api.screen.height;
+  },
+  // 🔈 Sound
+  overtone: (api, args = []) => {
+    console.log("Synth at:", args);
+    return api.sound.synth({
+      type: "square",
+      tone: args[0] || 440,
+      // beats: 0.1,
+      duration: Infinity,
+      attack: 0.01,
+      decay: 0.5,
+      volume: 0.15,
+    });
   },
 };
 
@@ -173,11 +218,12 @@ function parse(program) {
 const localEnv = {};
 
 function evaluate(parsed, api = {}, env) {
-  // console.log("➗ Evaluating:", parsed);
+  console.log("➗ Evaluating:", parsed);
   let body;
 
   // Create a local environment for a function from the params.
   if (parsed.body) {
+
     body = parsed.body;
 
     parsed.params.forEach((param, i) => {
@@ -196,18 +242,21 @@ function evaluate(parsed, api = {}, env) {
 
   let result;
   for (const item of body) {
+
+    console.log("🥡 Item:", item);
+
     if (Array.isArray(item)) {
       // The first element indicates the function to call
       const [fn, ...args] = item;
       // Check if the function requires recursive evaluation
-      if (fn === "now") args[0] = `"${args[0]}"`; // Pre-wrap the first arg as a string.
+      if (fn === "now" || fn === "die") args[0] = `"${args[0]}"`; // Pre-wrap the first arg as a string.
 
       if (localEnv[fn]) {
         console.log("Local definition found!", fn, localEnv[fn]);
         result = localEnv[fn];
       } else if (globalEnv[fn]) {
         let processedArgs;
-        if (fn === "later") {
+        if (fn === "later" || fn === "tap" || fn === "if") {
           processedArgs = args; // No need to process these until
           //                       the function is run.
         } else {
@@ -230,19 +279,33 @@ function evaluate(parsed, api = {}, env) {
             : globalDef[fn];
       }
     } else {
+
+      const [ root, tail ] = item.split(".");
+
       if (localEnv[item]) {
         console.log("Solo local definition found!", item, localEnv[item]);
         // TODO: This needs to be evaluated?
         result = resolve(localEnv[item], api);
       } else if (globalEnv[item]) {
+        console.log("Assume a function on the globalEnv:", item);
         // Assume a function on the globalEnv.
         result = globalEnv[item](api);
-      } else if (globalDef[item]) {
+      } else if (globalDef[root]) {
         // Check if the value needs recursive evaluation.
-        console.log("Solo definition:", item, globalDef[item]);
+        console.log("Solo definition:", item, globalDef[root]);
         // ⚠️ No parameters would ever be passed here, but maybe
         //    default would have to come into play?
-        result = resolve(globalDef[item], api);
+
+        if (!tail) {
+          result = resolve(globalDef[root], api);
+        } else {
+          // Assume a function with dot syntax.
+          const end = globalDef[root][tail];
+          result = typeof end === "function" ? end() : end;
+        }
+
+      } else {
+        console.log(item, "not found");
       }
     }
   }
@@ -252,46 +315,6 @@ function evaluate(parsed, api = {}, env) {
 function resolve(expression, api) {
   return Array.isArray(expression) ? evaluate(expression, api) : expression;
 }
-
-/*
-function evaluate(parsed, api = {}) {
-  if (!Array.isArray(parsed)) parsed = [parsed];
-
-  let result;
-  for (const item of parsed) {
-    console.log(item);
-    if (Array.isArray(item)) {
-      // The first element indicates the function to call
-      const [fn, ...args] = item;
-
-      if (fn === "now") {
-        args[0] = `"${args[0]}"`; // Pre-wrap the first arg as a string.
-      }
-
-      if (globalEnv[fn]) {
-        let processedArgs;
-        if (fn === "later") {
-          processedArgs = args; // No need to process these until the function is run.
-        } else {
-          processedArgs = args.map((arg) =>
-            Array.isArray(arg) ||
-            (typeof arg === "string" && !/^".*"$/.test(arg))
-              ? evaluate([arg], api)
-              : arg,
-          );
-        }
-
-        result = globalEnv[fn](api, processedArgs);
-      } else if (globalDefinition[fn]) {
-        result = Array.isArray(globalDefinition[item])
-          ? evaluate(globalDefinition[item], api)
-          : globalDefinition[item];
-      }
-    }
-  }
-  return result;
-}
-*/
 
 function readFromTokens(tokens) {
   const result = [];
@@ -337,6 +360,7 @@ function atom(token) {
     return isNaN(num) ? token : num;
   }
 }
+
 function processArgStringTypes(args) {
   return args.map((arg) => {
     // Remove the first and last character which are the quotes
