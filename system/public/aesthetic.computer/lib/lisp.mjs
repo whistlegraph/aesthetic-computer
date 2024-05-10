@@ -70,6 +70,11 @@ function module(source) {
   console.log("🐍 Parsed:", parsed);
 
   return {
+    boot: ({ params }) => {
+      globalEnv.paramA = params[0];
+      globalEnv.paramB = params[1];
+      globalEnv.paramC = params[2];
+    },
     paint: ({ wipe, ink, api }) => {
       // console.log("🖌️ Painting");
       const evaluated = evaluate(parsed, api);
@@ -227,7 +232,7 @@ function evaluate(parsed, api = {}, env) {
   console.log("➗ Evaluating:", parsed);
   let body;
 
-  // Create a local environment for a function from the params.
+  // Create local environment for a function that temporarily keeps the params.
   if (parsed.body) {
     body = parsed.body;
 
@@ -251,36 +256,48 @@ function evaluate(parsed, api = {}, env) {
 
     if (Array.isArray(item)) {
       // The first element indicates the function to call
-      const [fn, ...args] = item;
+      const [head, ...args] = item;
       // Check if the function requires recursive evaluation
-      if (fn === "now" || fn === "die") args[0] = `"${args[0]}"`; // Pre-wrap the first arg as a string.
+      if (head === "now" || head === "die") args[0] = `"${args[0]}"`; // Pre-wrap the first arg as a string.
 
-      if (localEnv[fn]) {
-        console.log("Local definition found!", fn, localEnv[fn]);
-        result = localEnv[fn];
-      } else if (globalEnv[fn]) {
-        let processedArgs;
-        if (fn === "later" || fn === "tap" || fn === "if") {
-          processedArgs = args; // No need to process these until
-          //                       the function is run.
+      if (localEnv[head]) {
+        console.log("Local definition found!", head, localEnv[head]);
+        result = localEnv[head];
+      } else if (globalEnv[head]) {
+        if (typeof globalEnv[head] === "function") {
+          let processedArgs;
+          if (head === "later" || head === "tap" || head === "if") {
+            processedArgs = args; // No need to process these until
+            //                       the function is run.
+          } else {
+            processedArgs = args.map((arg) =>
+              Array.isArray(arg) ||
+              (typeof arg === "string" && !/^".*"$/.test(arg))
+                ? evaluate([arg], api)
+                : arg,
+            );
+          }
+
+          // Prepare arguments, evaluate if they are also functions or strings.
+          result = globalEnv[head](api, processedArgs);
         } else {
-          processedArgs = args.map((arg) =>
-            Array.isArray(arg) ||
-            (typeof arg === "string" && !/^".*"$/.test(arg))
-              ? evaluate([arg], api)
-              : arg,
-          );
+          result = globalEnv[head];
         }
-
-        // Prepare arguments, evaluate if they are also functions or strings.
-        result = globalEnv[fn](api, processedArgs);
-      } else if (globalDef[fn]) {
+      } else if (globalDef[head]) {
         // Check if the value needs recursive evaluation.
-        console.log("📖 Definition call:", fn, args, globalDef[fn]);
+        console.log("📖 Definition call:", head, args, globalDef[head]);
         result =
-          Array.isArray(globalDef[fn]) || globalDef[fn].body
-            ? evaluate(globalDef[fn], api, args)
-            : globalDef[fn];
+          Array.isArray(globalDef[head]) || globalDef[head].body
+            ? evaluate(globalDef[head], api, args)
+            : globalDef[head];
+      }
+
+      console.log("$$", head, result);
+
+      if (!result) {
+        // Parse extra math or operator logic here?
+        console.log("No match found! Content:", head);
+        result = evalNotFound(head);
       }
     } else {
       const [root, tail] = item.split(".");
@@ -292,7 +309,11 @@ function evaluate(parsed, api = {}, env) {
       } else if (globalEnv[item]) {
         console.log("Assume a function on the globalEnv:", item);
         // Assume a function on the globalEnv.
-        result = globalEnv[item](api);
+        if (typeof globalEnv[item] === "function") {
+          result = globalEnv[item](api);
+        } else {
+          result = globalEnv[item];
+        }
       } else if (globalDef[root]) {
         // Check if the value needs recursive evaluation.
         console.log("Solo definition:", item, globalDef[root]);
@@ -308,10 +329,18 @@ function evaluate(parsed, api = {}, env) {
         }
       } else {
         console.log(item, "not found");
+        result = evalNotFound(item);
       }
     }
   }
   return result;
+}
+
+function evalNotFound(expression) {
+  const paramA = globalEnv.paramA;
+  const paramB = globalEnv.paramB;
+  const paramC = globalEnv.paramC;
+  return eval(expression);
 }
 
 function resolve(expression, api) {
