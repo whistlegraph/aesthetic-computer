@@ -1,9 +1,15 @@
 ; justsound, 24.05.08.22.30 
 ; Explore pure tonal relationships. 
 
-(now fundamental 387) ; Set wave to 387hz.
-(now a 3)
-(now b 2)
+; TODO
+; [🟠] Do the arithmetic inline.
+; [] Draw graphics for button on tap.
+; DONE
+; [x] Bring in params.
+
+(now fundamental paramA||387) ; Set wave to 387hz.
+(now a paramB||3)
+(now b paramC||2)
 
 (tap
   (if playing
@@ -13,6 +19,4 @@
 )
 
 (/ (* fundamental a) b) ; TODO: Add "hz" to the end here".
-
-; TODO: Draw graphics for button on tap.
-; TODO: Bring in params.
+; (fundamental*a/b)
