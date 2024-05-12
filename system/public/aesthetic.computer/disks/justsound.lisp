@@ -18,5 +18,4 @@
   )
 )
 
-(/ (* fundamental a) b) ; TODO: Add "hz" to the end here".
-; (fundamental*a/b)
+(fundamental*a/b)
