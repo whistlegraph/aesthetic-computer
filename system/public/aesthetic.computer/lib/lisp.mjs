@@ -67,19 +67,19 @@
 // into a running aesthetic computer piece.
 function module(source) {
   const parsed = parse(source);
-  console.log("🐍 Parsed:", parsed);
+  // console.log("🐍 Parsed:", parsed);
 
   return {
     boot: ({ params }) => {
-      globalEnv.paramA = params[0];
-      globalEnv.paramB = params[1];
-      globalEnv.paramC = params[2];
+      globalDef.paramA = params[0];
+      globalDef.paramB = params[1];
+      globalDef.paramC = params[2];
     },
     paint: ({ wipe, ink, api }) => {
       // console.log("🖌️ Painting");
       const evaluated = evaluate(parsed, api);
       ink("white").write(evaluated || "nada", { center: "xy" });
-      return false;
+      // return false;
     },
     act: ({ event: e, api }) => {
       if (e.is("touch")) tap(api);
@@ -90,7 +90,7 @@ function module(source) {
 // 🫵
 let tapper;
 function tap(api) {
-  console.log("Tapping!");
+  // console.log("Tapping!");
   if (tapper) evaluate(tapper, api);
 }
 
@@ -100,12 +100,11 @@ const globalEnv = {
   // Program Architecture
   now: (api, args) => {
     // Three length argument assumes a value setting.
-    console.log("Nowing:", args);
+    // console.log("Nowing:", args);
     if (args.length === 2) {
       const name = unquoteString(args[0]);
       // console.log("Now:", name, args.slice(1));
       globalDef[name] = args[1];
-      // console.log(globalDef);
       return args[1];
     }
     console.error("Invalid now. Wrong number of arguments.");
@@ -154,7 +153,7 @@ const globalEnv = {
     tapper = args;
   },
   if: (api, args) => {
-    console.log("If:", args);
+    // console.log("If:", args);
     const cond = args[0];
     // TODO: Still need to check for nada / nullish / falsey values.
     if (globalDef[cond]) {
@@ -196,7 +195,7 @@ const globalEnv = {
   },
   // 🔈 Sound
   overtone: (api, args = []) => {
-    console.log("Synth at:", args);
+    // console.log("Synth at:", args);
     let tone;
     if (args[0] === undefined) {
       tone = 440;
@@ -229,7 +228,7 @@ function parse(program) {
 const localEnv = {};
 
 function evaluate(parsed, api = {}, env) {
-  console.log("➗ Evaluating:", parsed);
+  // console.log("➗ Evaluating:", parsed);
   let body;
 
   // Create local environment for a function that temporarily keeps the params.
@@ -252,7 +251,7 @@ function evaluate(parsed, api = {}, env) {
 
   let result;
   for (const item of body) {
-    console.log("🥡 Item:", item);
+    // console.log("🥡 Item:", item);
 
     if (Array.isArray(item)) {
       // The first element indicates the function to call
@@ -290,15 +289,21 @@ function evaluate(parsed, api = {}, env) {
           Array.isArray(globalDef[head]) || globalDef[head].body
             ? evaluate(globalDef[head], api, args)
             : globalDef[head];
-      }
-
-      console.log("$$", head, result);
-
-      if (!result) {
-        // Parse extra math or operator logic here?
-        console.log("No match found! Content:", head);
+      } else {
+        // console.log("⚠️ No match found for:", head);
         result = evalNotFound(head);
       }
+
+      //console.log("$RESULT$", head, result);
+      //if (!result) {
+      //  console.log("No match found! Content:", head);
+      //}
+
+      // if (!result) {
+      // Parse extra math or operator logic here?
+      // console.log("No match found! Content:", head);
+      // result = evalNotFound(head);
+      // }
     } else {
       const [root, tail] = item.split(".");
 
@@ -316,7 +321,7 @@ function evaluate(parsed, api = {}, env) {
         }
       } else if (globalDef[root]) {
         // Check if the value needs recursive evaluation.
-        console.log("Solo definition:", item, globalDef[root]);
+        // console.log("Solo definition:", item, globalDef[root]);
         // ⚠️ No parameters would ever be passed here, but maybe
         //    default would have to come into play?
 
@@ -328,7 +333,7 @@ function evaluate(parsed, api = {}, env) {
           result = typeof end === "function" ? end() : end;
         }
       } else {
-        console.log(item, "not found");
+        // console.log(item, "not found");
         result = evalNotFound(item);
       }
     }
@@ -337,10 +342,14 @@ function evaluate(parsed, api = {}, env) {
 }
 
 function evalNotFound(expression) {
-  const paramA = globalEnv.paramA;
-  const paramB = globalEnv.paramB;
-  const paramC = globalEnv.paramC;
-  return eval(expression);
+  // console.log("🤖 Attempting JavaScript expression evaluation:", expression);
+  const env = globalDef;
+  const keys = Object.keys(env);
+  const values = keys.map((key) => env[key]);
+  const compute = new Function(...keys, `return ${expression};`);
+  const result = compute(...values);
+  // console.log("Evaluated result:", result);
+  return result;
 }
 
 function resolve(expression, api) {
