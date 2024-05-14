@@ -385,9 +385,17 @@ async function halt($, text) {
     makeFlash($);
     // TODO: How can I hold the cursor here...
     return true;
-  } else if (slug === "me") {
-    jump("profile");
-    return true;
+  } else if (slug === "me" || slug === "profile") {
+    console.log("Logged in?", user);
+    if (user) {
+      jump("profile");
+      return true;
+    } else {
+      notice("LOG IN OR SIGN UP", ["yellow", "red"]);
+      $.system.prompt.input.blank(); // Clear the prompt.
+      send({ type: "keyboard:close" });
+      return true;//"dont-unlock";
+    }
   } else if (slug === "scream") {
     // TODO: Scream additions. 23.12.11.12.53
     // - [] Vocalize all screams / make a sound?

@@ -60,11 +60,13 @@ export async function prompt_boot(
 
       input.canType = false;
 
-      const halted = await halt?.($, text);
+      let halted = await halt?.($, text);
 
       if (!$.leaving()) {
         input.lock = false;
+        //if (halted !== "dont-unlock") {
         $.send({ type: "keyboard:unlock" });
+        //}
       }
 
       if (halted) {
