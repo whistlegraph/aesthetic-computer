@@ -8,20 +8,16 @@
   - [] Repeat to clear and watch a new gesture.
 #endregion */
 
-function boot() {
-  // Runs once at the start.
-}
-
 let gesture = []; // Current gesture.
 let ticks = 0; // How many ticks passed between points.
 
 const gestures = []; // All stored gestures.
 
 let playing = false;
-let currentGesture = 0;
+// let currentGesture = 0;
 let progress = 0;
 
-function paint({ wipe, ink, line }) {
+function paint({ wipe, ink }) {
   // Runs every display frame.
   wipe("pink");
 
@@ -61,4 +57,4 @@ function act({ event: e }) {
   }
 }
 
-export { boot, paint, act };
+export { paint, act };
