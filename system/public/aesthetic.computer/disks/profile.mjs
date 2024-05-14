@@ -71,10 +71,9 @@ async function boot({
 }) {
   // Mask from `profile` if we are logged in.
   debug = d;
+  const hand = handle();
 
-  visiting = params[0] || handle();
-
-  console.log("Visiting:", visiting);
+  visiting = params[0] || hand;
 
   ellipsisTicker = new gizmo.EllipsisTicker();
 
@@ -83,13 +82,44 @@ async function boot({
     net.rewrite(visiting);
   }
 
-  console.log("🤺 Visiting the profile of...", visiting);
-  if (user) console.log("😉 Logged in as...", handle() || user?.name);
+  if (visiting) {
+    if (visiting === hand) {
+      console.log("🤺 Visiting your profile:", visiting);
+    } else {
+      console.log("🤺 Visiting the profile of...", visiting);
+    }
+  } else {
+    if (user) {
+      console.log(user); // TODO: Check if the user is verified here...
+      if (user.verified) {
+        noprofile = "you must set a handle";
+      } else {
+        noprofile = "you must verify your email";
+      }
+    } else {
+      noprofile = "you must sign up!"
+    }
+  }
 
-  if (!visiting) {
+
+  /*
+  if (user) {
+    if (!visiting) {
+
+    } else {
+
+    }
+  } else {
+    if (visiting) {
+
+    } else {
+
+    }
     noprofile = "sign up to create profile";
     return;
   }
+  */
+
   // 🎆 Check to see if this user's profile actually exists via a server-side call.
   fetch(`/api/profile/${visiting}`, {
     headers: { Accept: "application/json" },

@@ -12,7 +12,7 @@ if test -f $CERT_FILE
     mkdir -p ../nanos/ssl
     cp localhost.pem ../nanos/ssl
     cp localhost-key.pem ../nanos/ssl
-    echo "Certificateas copied to 'nanos'."
+    echo "Certificates copied to 'nanos'."
 
     # Copy the certificate to the trusted store
     sudo cp $CERT_FILE /etc/pki/ca-trust/source/anchors/
