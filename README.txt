@@ -39,6 +39,24 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** profile.lisp ***
+  - [] If email is unverified and user is on homepage or
+       on profile page...
+
+  + @ida / @nohandle
+  |
+  | - Check email to verify account.
+  | Resend verification email. (prefill email)
+  | Set handle. (prefill handle)
+  | 20 paintings
+  | 2 pieces
+  | moods / mood?
+  - [] tapping 'nohandle' in chat should go to empty profile or something?
+  + Done
+  - [x] entering "profile" or "me" while logged out or not signed up
+        will flash "not logged in" and close keyboard, revealing login and
+        signup buttons
+
 *** webgl2 rasterizer (`graphics`) ***
   - [*] Fix line plot inconsistency / understand it better.
   - [] Add support for bitmaps in the 2D renderer.
