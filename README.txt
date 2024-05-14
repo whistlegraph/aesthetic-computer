@@ -40,9 +40,12 @@ but technically agnostic. (Choose your aesthetic!)
 🌟 Projects in Progress (PIP) 🌟
 
 *** profile.lisp ***
+  - [] If email is unverified and user is on homepage or
+       on profile page...
+
   + @ida / @nohandle
   |
-  | Check email to verify account.
+  | - Check email to verify account.
   | Resend verification email. (prefill email)
   | Set handle. (prefill handle)
   | 20 paintings
