@@ -174,20 +174,12 @@ async function boot({
   }
 
   if (user) {
-    const hand = handle();
-    let label = hand,
-      disable = false;
-    if (!label) {
-      label = user.name;
-      disable = true;
-    }
-
-    profile = new ui.TextButton(label, {
+    console.log("User:", user);
+    profile = new ui.TextButton(handle() || user.name, {
       center: "xy",
       screen,
     });
-
-    if (disable) profile.btn.disabled = true;
+    // profile.btn.disabled = true;
   }
 
   // Only if prompt is set to recall conversations.
@@ -385,9 +377,17 @@ async function halt($, text) {
     makeFlash($);
     // TODO: How can I hold the cursor here...
     return true;
-  } else if (slug === "me") {
-    jump("profile");
-    return true;
+  } else if (slug === "me" || slug === "profile") {
+    console.log("Logged in?", user);
+    if (user) {
+      jump("profile");
+      return true;
+    } else {
+      notice("LOG IN OR SIGN UP", ["yellow", "red"]);
+      $.system.prompt.input.blank(); // Clear the prompt.
+      send({ type: "keyboard:close" });
+      return true; //"dont-unlock";
+    }
   } else if (slug === "scream") {
     // TODO: Scream additions. 23.12.11.12.53
     // - [] Vocalize all screams / make a sound?
@@ -1392,7 +1392,6 @@ function paint($) {
 
 // 🧮 Sim
 function sim($) {
-  // const input = $.system.prompt.input;
   progressTrick?.step();
   if (!login?.btn.disabled || !profile?.btn.disabled) {
     starfield.sim($);
@@ -1400,9 +1399,7 @@ function sim($) {
   }
 
   if (
-    $.store["handle:received"] // &&
-    //input?.canType === false &&
-    //(!$.system.prompt.messages || $.system.prompt.messages.length === 0)
+    $.store["handle:received"]
   ) {
     profile = new $.ui.TextButton($.handle(), {
       center: "xy",
@@ -1410,13 +1407,11 @@ function sim($) {
     });
     if (login) login.btn.disabled = true;
     if (signup) signup.btn.disabled = true;
-    // if (firstCommandSent === true) profile.btn.disabled = true;
     delete $.store["handle:received"];
     $.needsPaint();
   }
 
   if ($.store["handle:failed"]) {
-    profile.btn.disabled = true;
     delete $.store["handle:failed"];
     $.needsPaint();
   }
