@@ -39,6 +39,20 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** profiles ***
+  - [🧡] entering "profile" or "me" while logged out or not signed up
+        will flash "not logged in" and close keyboard, revealing login and
+        signup buttons
+  + @ida / @nohandle
+  |
+  | Check email to verify account.
+  | Resend verification email. (prefill email)
+  | Set handle. (prefill handle)
+  | 20 paintings
+  | 2 pieces
+  | moods / mood?
+  - [] tapping 'nohandle' in chat should go to empty profile or something?
+
 *** webgl2 rasterizer (`graphics`) ***
   - [*] Fix line plot inconsistency / understand it better.
   - [] Add support for bitmaps in the 2D renderer.
