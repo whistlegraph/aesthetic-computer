@@ -65,7 +65,6 @@ cd /home/me/aesthetic-computer/ssl-dev
 if not test -f localhost.pem; or not test -f localhost-key.pem
     # Generate SSL certificates
     sudo fish fedora-install.fish
-    sudo chmod -R a+r /home/me/aesthetic-computer/ssl-dev
 end
 
 # Check if the nanos/ssl directory exists, create it if not
@@ -73,12 +72,8 @@ if not test -d /home/me/aesthetic-computer/nanos/ssl
     mkdir -p /home/me/aesthetic-computer/nanos/ssl
 end
 
-# Check if the files exist in nanos/ssl directory, copy if not
-if not test -f /home/me/aesthetic-computer/nanos/ssl/localhost.pem; or not test -f /home/me/aesthetic-computer/nanos/ssl/localhost-key.pem
-    cp localhost.pem /home/me/aesthetic-computer/nanos/ssl/
-    cp localhost-key.pem /home/me/aesthetic-computer/nanos/ssl/
-    sudo chmod -R a+r /home/me/aesthetic-computer/nanos/ssl
-end
+sudo chown me:me -R /home/me/aesthetic-computer/ssl-dev
+sudo chown me:me -R /home/me/aesthetic-computer/nanos/ssl
 
 # Function to install and trust certificates
 function install_and_trust_certificate
@@ -104,14 +99,13 @@ end
 
 
 # Check if node_modules directory exists and is not empty
-if not test -d $project_path/node_modules || not count $project_path/node_modules/* >/dev/null
+if not test -d /home/me/aesthetic-computer/node_modules || not count /home/me/aesthetic-computer/node_modules/* >/dev/null
     # Move to the project directory
-    cd $project_path
+    cd /home/me/aesthetic-computer 
     # Informing about the empty or missing node_modules directory
     echo "node_modules directory is empty or missing, running npm install."
     # Install the latest npm version
     npm install -g npm@latest --no-fund --no-audit
-    # Install Node.js dependencies using npm ci for a clean install
     npm ci --no-fund --no-audit
     # Run additional installation scripts
     npm run install:everything-else
@@ -119,6 +113,9 @@ else
     # Notify that installation steps are being skipped
     echo "node_modules directory is present and not empty, skipping npm install."
 end
+
+# Make sure this user owns the emacs directory.
+sudo chown -R me:me ~/.emacs.d
 
 # Trigger the 'waiter' alias to boot the platform.
 touch /home/me/.waiter
