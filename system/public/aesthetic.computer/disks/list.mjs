@@ -96,9 +96,10 @@ function act({ event: e, hud, piece, geo, jump, send }) {
   prompts.forEach((prompt, i) => {
     prompt.button.act(e, {
       push: () => {
-        jump("prompt~" + prompt.word)(() => {
+        jump("prompt~" + prompt.word)/*(() => {
           send({ type: "keyboard:open" });
-        });
+          // ❤️‍🔥 TODO: ^ Is this still necessary?
+        });*/
       },
       rollover: (b) => {
         if (anyDown) {
@@ -113,15 +114,14 @@ function act({ event: e, hud, piece, geo, jump, send }) {
         console.log("Highlighting:", prompt.word);
         hud.label(prompt.word, "white");
         anyDown = true;
-        send({ type: "keyboard:enabled" });
-        send({ type: "keyboard:unlock" });
+        //send({ type: "keyboard:enabled" });
+        //send({ type: "keyboard:unlock" });
       },
       cancel: () => {
         anyDown = false;
         hud.label(piece);
-        console.log("CANCEL");
-        send({ type: "keyboard:disabled" });
-        send({ type: "keyboard:lock" });
+        //send({ type: "keyboard:disabled" });
+        //send({ type: "keyboard:lock" });
       },
     });
   });

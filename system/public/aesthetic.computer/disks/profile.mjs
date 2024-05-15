@@ -37,7 +37,9 @@
 const FETCHING = "Fetching";
 let debug;
 let profile,
-  noprofile = FETCHING;
+  noprofile = FETCHING,
+  noprofileAction,
+  noprofileBtn;
 
 let timestampBtn, prevBtn, nextBtn;
 let ellipsisTicker;
@@ -90,35 +92,18 @@ async function boot({
     }
   } else {
     if (user) {
-      console.log(user); // TODO: Check if the user is verified here...
-      if (user.verified) {
-        noprofile = "you must set a handle";
+      if (user.email_verified) {
+        noprofile = "Create handle.";
+        noprofileAction = "handle";
       } else {
-        noprofile = "you must verify your email";
+        noprofile = "Check email to verify.";
+        noprofileAction = "email";
       }
     } else {
-      noprofile = "you must sign up!"
+      noprofile = "Log in or Sign up";
+      noprofileAction = "imnew";
     }
   }
-
-
-  /*
-  if (user) {
-    if (!visiting) {
-
-    } else {
-
-    }
-  } else {
-    if (visiting) {
-
-    } else {
-
-    }
-    noprofile = "sign up to create profile";
-    return;
-  }
-  */
 
   // 🎆 Check to see if this user's profile actually exists via a server-side call.
   fetch(`/api/profile/${visiting}`, {
@@ -132,12 +117,12 @@ async function boot({
         noprofile = null;
       } else {
         if (debug) console.warn("🙍 Profile not found:", data);
-        noprofile = "no profile found";
+        noprofile = "No profile found for: " + visiting;
       }
     })
     .catch((error) => {
       console.error("Error:", error);
-      noprofile = "error loading profile";
+      noprofile = "Error retrieving profile.";
     });
 
   if (visiting) {
@@ -158,7 +143,7 @@ async function boot({
 }
 
 // 🎨 Paint
-function paint({ geo, wipe, help, ink, pen, user, screen, ui, text, paste }) {
+function paint({ api, geo, wipe, help, ink, pen, screen, ui, text, paste }) {
   if (!pen?.drawing) wipe(98);
   ink(127).line();
   if (profile) ink().line().ink().line().ink().line();
@@ -196,13 +181,16 @@ function paint({ geo, wipe, help, ink, pen, user, screen, ui, text, paste }) {
 
   const retrieving = noprofile === FETCHING;
   if (!profile) {
-    let text = profile?.handle || noprofile || user?.name;
-    if (retrieving) text += ellipsisTicker.text(help.repeat);
-    ink(profile ? undefined : 255).write(
-      text,
-      { center: "xy" },
-      retrieving ? 64 : "black",
-    );
+    let text = noprofile;
+
+    if (!noprofileAction) {
+      if (retrieving) text += ellipsisTicker.text(help.repeat);
+      ink(255).write(text, { center: "xy" }, retrieving ? 64 : "black");
+    } else {
+      // Make button based on the action.
+      noprofileBtn ||= new ui.TextButton(text, { center: "xy", screen });
+      noprofileBtn.paint(api);
+    }
   }
 
   if (profile) {
@@ -273,12 +261,6 @@ function paint({ geo, wipe, help, ink, pen, user, screen, ui, text, paste }) {
         });
       });
       ink(255, 255, 0, 8).box(prevBtn.box);
-      // ink(0, 255, 0, 127).line(
-      //   0,
-      //   screen.height / 2,
-      //   screen.width,
-      //   screen.height / 2,
-      // ); // 📏
     }
 
     if (!nextBtn) {
@@ -308,7 +290,19 @@ function paint({ geo, wipe, help, ink, pen, user, screen, ui, text, paste }) {
 }
 
 // 🎪 Act
-function act({ event: e, get, jump, sound, download, user, net, notice }) {
+function act({
+  event: e,
+  get,
+  send,
+  jump,
+  screen,
+  sound,
+  download,
+  user,
+  net,
+  notice,
+  store,
+}) {
   function process() {
     sfx.push(sound);
     jump(`painting ${visiting}/${code}`);
@@ -338,6 +332,25 @@ function act({ event: e, get, jump, sound, download, user, net, notice }) {
 
   nextBtn?.act(e, next);
   prevBtn?.act(e, prev);
+
+  if (e.is("reframed")) noprofileBtn?.reposition({ center: "xy", screen });
+
+  noprofileBtn?.act(e, {
+    push: () => {
+      let slug;
+      if (noprofileAction === "handle") {
+        slug = "prompt~handle";
+      } else if (noprofileAction === "email") {
+        slug = "prompt~email~" + user?.email;
+      } else if (noprofileAction === "imnew") {
+        slug = "prompt";
+        store["prompt:splash"] = true;
+      } else {
+        console.warn("🔴 No action specified:", noprofileAction);
+      }
+      if (slug) jump(slug);
+    },
+  });
 
   if (e.is("keyboard:down:arrowleft")) prev();
   if (e.is("keyboard:down:arrowright")) next();

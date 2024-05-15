@@ -130,7 +130,7 @@ function act({
 }) {
   if (e.is("lift") && !leaving() && swap.btn.down === false) {
     sfx.push(sound);
-    jump("prompt")(() => send({ type: "keyboard:open" }));
+    jump("prompt")/*(() => send({ type: "keyboard:open" }));*/
   }
 
   if (cameras > 1) {

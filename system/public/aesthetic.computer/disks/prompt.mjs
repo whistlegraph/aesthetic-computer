@@ -84,7 +84,9 @@ let progressTrick; // A faux growth period on the progress bar.
 
 let login, // A login button in the center of the display.
   signup, // A Sign-up button.
-  profile; // A profile page button.
+  profile, // A profile page button.
+  profileAction;
+let ellipsisTicker;
 let ruler = false; // Paint a line down the center of the display.
 //                   (for measuring the login / signup centering).
 // let firstCommandSent = false; // 🏳️
@@ -113,6 +115,7 @@ const activeCompletions = [];
 async function boot({
   glaze,
   api,
+  gizmo,
   net,
   system,
   pieceCount,
@@ -123,6 +126,7 @@ async function boot({
   handle,
   params,
   dark,
+  store,
   // code,
   net: { socket },
 }) {
@@ -174,8 +178,37 @@ async function boot({
   }
 
   if (user) {
-    console.log("User:", user);
-    profile = new ui.TextButton(handle() || user.name, {
+    // console.log("User:", user);
+    const hand = handle();
+    if (hand) {
+      profileAction = "profile";
+    } else {
+      profileAction = "resend-verification";
+      ellipsisTicker = new gizmo.EllipsisTicker();
+      // Start fetching to continuously check for verification here...
+      function fetchUser() {
+        fetch(`/user?from=${encodeURIComponent(user.email)}`)
+          .then((res) => res.json())
+          .then((u) => {
+            if (u.email_verified) {
+              notice("EMAIL VERIFIED");
+              profileAction = "set-handle";
+              profile = new ui.TextButton("Create handle", {
+                center: "xy",
+                screen,
+              });
+            } else {
+              setTimeout(fetchUser, 1000);
+            }
+          })
+          .catch((err) => {
+            setTimeout(fetchUser, 1000);
+            console.warn(err);
+          });
+      }
+      fetchUser();
+    }
+    profile = new ui.TextButton(hand || user.email, {
       center: "xy",
       screen,
     });
@@ -187,7 +220,7 @@ async function boot({
     !system.prompt.convo.messages ||
     system.prompt.convo.messages?.length === 0
   ) {
-    if (pieceCount === 0) {
+    if (pieceCount === 0 || store["prompt:splash"] === true) {
       // system.prompt.input.print("aesthetic.computer"); // Set a default empty motd.
       if (!params[0]) makeMotd(api);
     } else {
@@ -213,7 +246,7 @@ async function boot({
   }
 
   // Activate and reset input text if returning to the prompt from elsewhere.
-  if (pieceCount > 0) {
+  if (pieceCount > 0 && !store["prompt:splash"]) {
     activated(api, true);
     system.prompt.input.canType = true;
 
@@ -224,7 +257,10 @@ async function boot({
     // system.prompt.input.showBlink = false;
     // setTimeout(() => (system.prompt.input.showBlink = true), 100);
     send({ type: "keyboard:unlock" });
+    send({ type: "keyboard:open" });
   }
+
+  delete store["prompt:splash"];
 }
 
 // 🛑 Halt: (Intercept input and route it to commands.)
@@ -779,14 +815,14 @@ async function halt($, text) {
     const email = text.split(" ")[1];
     if (email) {
       const res = await net.userRequest("POST", "/api/email", { email });
-      console.log(res);
+      console.log("Request:", res);
       if (res.email) {
         flashColor = [0, 255, 0];
         notice("CHECK " + res.email);
       } else {
         flashColor = [255, 0, 0];
         console.warn(res.message);
-        notice("TAKEN?", ["yellow", "red"]);
+        notice("NETWORK ERROR", ["yellow", "red"]);
       }
     } else {
       flashColor = [255, 0, 0];
@@ -833,6 +869,7 @@ async function halt($, text) {
         console.log("🧖 Handle changed:", res.handle);
         makeFlash($, true);
         notice("@" + res.handle);
+        profileAction = "profile";
       } else {
         const message = res?.message;
         let note = "TAKEN";
@@ -1263,7 +1300,7 @@ function paint($) {
 
   $.layer(1); // 🅱️ And above it...
 
-  const { screen, ink, history, net } = $;
+  const { screen, ink, history, net, help } = $;
 
   if ($.system.prompt.input.canType) {
     if (activeCompletions.length === 0) {
@@ -1358,7 +1395,25 @@ function paint($) {
       signup?.paint($, $.dark ? scheme.dark.signup : scheme.light.signup);
     }
   }
-  if (!profile?.btn.disabled) profile?.paint($);
+  if (!profile?.btn.disabled) {
+    if (
+      profileAction === "resend-verification" ||
+      profileAction === "set-handle"
+    ) {
+      ink("yellow").write(
+        profileAction === "resend-verification"
+          ? "Awaiting email verification" + ellipsisTicker.text(help.repeat)
+          : "Email verified!",
+        {
+          center: "x",
+          y: screen.height / 2 - 48,
+        },
+        undefined,
+        screen.width - 16,
+      );
+    }
+    profile?.paint($);
+  }
   //}
 
   // 📏 Paint a measurement line in the center of the display.
@@ -1392,15 +1447,14 @@ function paint($) {
 
 // 🧮 Sim
 function sim($) {
+  ellipsisTicker?.sim();
   progressTrick?.step();
   if (!login?.btn.disabled || !profile?.btn.disabled) {
     starfield.sim($);
     $.needsPaint();
   }
 
-  if (
-    $.store["handle:received"]
-  ) {
+  if ($.store["handle:received"]) {
     profile = new $.ui.TextButton($.handle(), {
       center: "xy",
       screen: $.screen,
@@ -1429,15 +1483,14 @@ function act({
   num,
   jump,
   system,
+  user,
   store,
   sound: { play, synth },
-  // rec,
-  // user,
   send,
   handle,
   glaze,
   canShare,
-  // platform
+  notice,
 }) {
   // Light and dark mode glaze shift.
   if (e.is("dark-mode")) glaze({ on: true });
@@ -1507,7 +1560,25 @@ function act({
     down: () => downSound(),
     push: () => {
       pushSound();
-      jump(handle() || "profile");
+      if (profileAction === "resend-verification") {
+        notice("RESEND EMAIL?", ["yellow", "blue"]);
+        const text = "email " + user.email;
+        system.prompt.input.text = text;
+        system.prompt.input.snap();
+        send({ type: "keyboard:text:replace", content: { text } });
+        send({ type: "keyboard:unlock" });
+        send({ type: "keyboard:open" });
+      } else if (profileAction === "profile") {
+        jump(handle() || "profile");
+      } else if (profileAction === "set-handle") {
+        notice("ENTER HANDLE", ["yellow", "blue"]);
+        const text = "handle ";
+        system.prompt.input.text = text;
+        system.prompt.input.snap();
+        send({ type: "keyboard:text:replace", content: { text } });
+        send({ type: "keyboard:unlock" });
+        send({ type: "keyboard:open" });
+      }
     },
   });
 
@@ -1545,6 +1616,7 @@ function act({
   // ⌨️ Keyboard (Skip startup sound if a key is pressed or text is pasted.)
   if (e.is("keyboard:open") && firstActivation && e.method !== "pointer") {
     firstActivation = false;
+    console.log("⌨️ First keyboard activation completed!");
   }
 
   // if (e.is("pasted:text")) firstActivation = false;
@@ -1761,6 +1833,10 @@ function makeFlash($, clear = true) {
   } else if (typeof clear === "string") {
     $.system.prompt.input.text = clear;
     $.system.prompt.input.snap();
+    send({
+      type: "keyboard:text:replace",
+      content: { text: $.system.prompt.input.text },
+    });
   }
 }
 

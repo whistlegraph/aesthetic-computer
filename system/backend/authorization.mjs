@@ -41,7 +41,7 @@ export async function userIDFromEmail(email) {
 
     const user = userResponse.body[0];
     const userID = user?.user_id;
-    return userID;
+    return { userID, email_verified: user?.email_verified };
   } catch (error) {
     console.error(`Error retrieving user ID from Auth0: ${error}`);
     return undefined;

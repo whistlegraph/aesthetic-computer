@@ -24,17 +24,24 @@ export async function handler(event, context) {
   }
 
   // 1. Download / go to individual files.
-  let sub;
+  let user;
   if (handleOrEmail.startsWith("@")) {
     // Try and look up `sub` from `handle` in MongoDB.
-    sub = await userIDFromHandle(handleOrEmail.slice(1));
+    user = await userIDFromHandle(handleOrEmail.slice(1));
   } else {
     // Assume email and try to look up sub from email via auth0.
-    sub = await userIDFromEmail(handleOrEmail);
+    user = await userIDFromEmail(handleOrEmail);
   }
 
-  if (sub) {
-    return respond(200, { sub });
+  if (user) {
+    if (typeof user === "string") {
+      return respond(200, { sub: user });
+    } else {
+      return respond(200, {
+        sub: user.userID,
+        email_verified: user.email_verified,
+      });
+    }
   } else {
     return respond(400, { message: "User not found." });
   }
