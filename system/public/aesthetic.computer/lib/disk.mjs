@@ -109,10 +109,6 @@ const defaults = {
 let loadAfterPreamble = null;
 let hotSwap = null;
 
-// let jumpDelay; // a setInterval for jumping between disks or pages.
-
-// let showHUD = true;
-
 // 🔎 NoPaint
 // Inheritable via `export const system = "nopaint"` from any piece.
 // Boilerplate for a distributed raster editor.
@@ -1581,9 +1577,9 @@ const $commonApi = {
         const response = await fetch(endpoint, options);
 
         if (response.status === 500) {
-          // const text = await response.text();
+          const message = await response.text();
           // throw new Error(`🚫 Bad response: ${text}`);
-          return { message: "error" };
+          return { message };
         } else {
           const clonedResponse = response.clone();
           try {

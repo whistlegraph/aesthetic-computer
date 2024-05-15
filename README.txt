@@ -40,19 +40,19 @@ but technically agnostic. (Choose your aesthetic!)
 🌟 Projects in Progress (PIP) 🌟
 
 *** profile.lisp ***
-  - [] If email is unverified and user is on homepage or
-       on profile page...
-
+  - [] Make new profile page with redirects for no handle.
+  - [] Refactor existing profile.mjs into `paintings.mjs`.
   + @ida / @nohandle
-  |
-  | - Check email to verify account.
-  | Resend verification email. (prefill email)
-  | Set handle. (prefill handle)
-  | 20 paintings
+  | 20 paintings -> with link to paintings?
   | 2 pieces
   | moods / mood?
   - [] tapping 'nohandle' in chat should go to empty profile or something?
   + Done
+  - [x] If email is unverified and user is on homepage or
+        on profile page...
+  - [x] Check your email to verify or resend. 
+  - [x] Set a handle. (prefill handle)
+  - [x] Please sign up.
   - [x] entering "profile" or "me" while logged out or not signed up
         will flash "not logged in" and close keyboard, revealing login and
         signup buttons
