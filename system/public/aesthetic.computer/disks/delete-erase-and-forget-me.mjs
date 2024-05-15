@@ -5,8 +5,9 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [-] Wire button up w/ a POST request to `api/delete-erase-and-forget-me`.
+  - [] Delete chat messages / set as deleted if a user deletes their account.
   + Done
+  - [x] Wire button up w/ a POST request to `api/delete-erase-and-forget-me`.
   - [x] Support account deletion through multiple taps of a button.
 #endregion */
 
@@ -17,7 +18,6 @@ let ellipsisTicker;
 let hasAccount;
 let problem;
 
-// 🥾 Boot
 async function boot({ api, wipe, handle, ui, net: { preload }, user }) {
   const han = handle() || user?.name;
 
@@ -29,7 +29,6 @@ async function boot({ api, wipe, handle, ui, net: { preload }, user }) {
   }
 }
 
-// 🎨 Paint
 function paint({ ink, wipe, screen, write, help }) {
   if (problem) {
     wipe("maroon");
@@ -75,7 +74,6 @@ function paint({ ink, wipe, screen, write, help }) {
   }
 }
 
-// 🎪 Act
 function act({ event: e, sound, gizmo, net, notice }) {
   btn?.act(e, async () => {
     sound.play(sfx);
@@ -103,7 +101,6 @@ function sim() {
   ellipsisTicker?.sim();
 }
 
-// 📰 Meta
 function meta() {
   return {
     title: "Delete-erase-and-forget-me",
@@ -111,17 +108,4 @@ function meta() {
   };
 }
 
-// 🖼️ Preview
-// function preview({ ink, wipe }) {
-// Render a custom thumbnail image.
-// }
-
-// 🪷 Icon
-// function icon() {
-// Render an application icon, aka favicon.
-// }
-
 export { boot, paint, act, sim, meta };
-
-// 📚 Library
-//   (Useful functions used throughout the piece)
