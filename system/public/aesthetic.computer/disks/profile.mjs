@@ -131,7 +131,7 @@ async function boot({
       .then((res) => res.json())
       .then((data) => {
         paintings = data?.files;
-        if (paintings) {
+        if (paintings.length > 0) {
           index = paintings.length - 1;
           loadPainting(get, index, visiting);
         }

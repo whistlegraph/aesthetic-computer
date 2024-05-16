@@ -193,7 +193,8 @@ async function boot({
           .then((res) => res.json())
           .then((u) => {
             if (u.email_verified) {
-              notice("EMAIL VERIFIED");
+              // notice("EMAIL VERIFIED");
+              makeFlash($, false);
               profileAction = "set-handle";
               profile = new ui.TextButton("Create handle", {
                 center: "xy",

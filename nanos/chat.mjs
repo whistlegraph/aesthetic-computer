@@ -1,4 +1,4 @@
-// chat, 24.03.30.14.53
+// Chat, 24.03.30.14.53
 // This file is a unikernal compatible chat server designed to eventually replace `session-server/session.mjs` by adding both websocket and udp support.
 // But its first job is to be the chat server for AC.
 

@@ -505,7 +505,7 @@ class TextInput {
           prompt.gutter,
           0,
           prompt.gutter,
-          $.screen.height,
+          frame.height - 1,
         ); // Ruler
       }
       $.ink($.dark ? 127 : "teal").box(
