@@ -44,9 +44,16 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** onboarding optimization ***
   - [🟠] Run through onboarding in production with @ida, making any necessary changes.
-    - [] Update email content to include chat and remove other stuff?
+    (Check this for both set and unset handles.)
+    - [🟠] Test sign up flow on a phone.
     -----
     + Done
+    - [x] Add "back to prompt" arrow to left of chat corner.
+    - [x] Reloading prompt in dev does not refresh the keyboard state?
+    - [x] Don't flash pending verification on reload
+         if email has been verified.
+    - [x] Resend email enter key not functioning.
+    - [x] Update email content to include chat and remove other stuff?
     - [x] Tappable personal handle in chat.
     - [x] Signed out? Tapping 'nohandle' in chat should go to closed prompt. 
     - [x] Scroll off by 1px.

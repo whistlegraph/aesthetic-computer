@@ -184,7 +184,7 @@ class TextButton {
 
   constructor(text = "Button", pos = { x: 0, y: 0 }) {
     this.txt = text;
-    this.btn = new Button(this.#computePosition(text, pos));
+    this.btn = new Button(this.#computePosition(text, { ...pos }));
   }
 
   get act() {
