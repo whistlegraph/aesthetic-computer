@@ -39,14 +39,17 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** onboarding optimization ***
+  - [🟠] Run through onboarding in production with @ida, making any necessary changes.
+
 *** profile.lisp ***
   - [] Make new profile page with redirects for no handle.
-  - [] Refactor existing profile.mjs into `paintings.mjs`.
-  + @ida / @nohandle
-  | 20 paintings -> with link to paintings?
-  | 2 pieces
-  | moods / mood?
+    + @ida / @nohandle
+    | 20 paintings -> with link to paintings?
+    | 2 pieces
+    | moods / mood?
   - [] tapping 'nohandle' in chat should go to empty profile or something?
+  - [] Refactor existing profile.mjs into `paintings.mjs`.
   + Done
   - [x] If email is unverified and user is on homepage or
         on profile page...
