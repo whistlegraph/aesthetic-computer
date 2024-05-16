@@ -1582,7 +1582,10 @@ function act({
   }
 
   profile?.btn.act(e, {
-    down: () => downSound(),
+    down: () => { 
+      downSound();
+      send({ type: "keyboard:unlock" });
+    },
     push: () => {
       pushSound();
       if (profileAction === "resend-verification") {
@@ -1608,6 +1611,9 @@ function act({
         send({ type: "keyboard:open" });
       }
     },
+    cancel: () => {
+      send({ type: "keyboard:lock" });
+    }
   });
 
   // Rollover keyboard locking.
