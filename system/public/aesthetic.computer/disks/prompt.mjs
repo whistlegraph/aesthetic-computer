@@ -86,6 +86,7 @@ let login, // A login button in the center of the display.
   signup, // A Sign-up button.
   profile, // A profile page button.
   profileAction;
+let resendVerificationText;
 let ellipsisTicker;
 let ruler = false; // Paint a line down the center of the display.
 //                   (for measuring the login / signup centering).
@@ -209,7 +210,7 @@ async function boot({
       }
       fetchUser();
     }
-    profile = new ui.TextButton(hand || user.email, {
+    profile = new ui.TextButton(hand || "Resend email", {
       center: "xy",
       screen,
     });
@@ -849,28 +850,30 @@ async function halt($, text) {
     // Something like... await post({handle: "new"});
 
     // Make sure there is a parameter.
-    let handle = text.split(" ")[1];
+    let newHandle = text.split(" ")[1];
 
-    if (!handle) {
+    if (!newHandle) {
       flashColor = [0, 0, 128];
       makeFlash($);
       notice("EMPTY", ["cyan", "blue"]);
       return true;
     }
 
-    if (handle[0] === "@") handle = handle.slice(1); // Strip off any leading "@" sign to help with validation.
+    if (newHandle[0] === "@") newHandle = newHandle.slice(1); // Strip off any leading "@" sign to help with validation.
 
     // And a handle has been specified.
-    if (handle?.length > 0 && validateHandle(handle)) {
-      const res = await net.userRequest("POST", "/handle", { handle });
+    if (newHandle?.length > 0 && validateHandle(newHandle)) {
+      const res = await net.userRequest("POST", "/handle", { handle: newHandle });
       const handleChanged = res?.handle;
       flashColor = handleChanged ? [0, 255, 0] : [255, 0, 0];
       if (handleChanged) {
+        const previousHandle = handle();
         broadcast("handle:updated:" + res.handle);
         console.log("🧖 Handle changed:", res.handle);
         makeFlash($, true);
         notice("@" + res.handle);
         profileAction = "profile";
+        if (!previousHandle) jump("chat");
       } else {
         const message = res?.message;
         let note = "TAKEN";
@@ -1463,7 +1466,7 @@ function sim($) {
     if (login) login.btn.disabled = true;
     if (signup) signup.btn.disabled = true;
     delete $.store["handle:received"];
-    profileAction = "profile"; 
+    profileAction = "profile";
     $.needsPaint();
   }
 
@@ -1494,6 +1497,18 @@ function act({
   canShare,
   notice,
 }) {
+
+  // Checks to clear prefilled 'email user@email.com' message
+  // on signup.
+  if (
+    e.is("keyboard:close") &&
+    resendVerificationText &&
+    system.prompt.input.text === resendVerificationText
+  ) {
+    system.prompt.input.blank(); // Clear the prompt.
+    resendVerificationText = undefined;
+  }
+
   // Light and dark mode glaze shift.
   if (e.is("dark-mode")) glaze({ on: true });
   if (e.is("light-mode")) glaze({ on: false });
@@ -1563,8 +1578,9 @@ function act({
     push: () => {
       pushSound();
       if (profileAction === "resend-verification") {
-        notice("RESEND EMAIL?", ["yellow", "blue"]);
+        // notice("RESEND EMAIL?", ["yellow", "blue"]);
         const text = "email " + user.email;
+        resendVerificationText = text;
         system.prompt.input.text = text;
         system.prompt.input.snap();
         send({ type: "keyboard:text:replace", content: { text } });
