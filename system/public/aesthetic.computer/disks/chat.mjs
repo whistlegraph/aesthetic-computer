@@ -29,7 +29,9 @@
   - [x] Show better connectivity.
 #endregion */
 
-let input, inputBtn, token;
+const { max, floor, ceil } = Math;
+
+let input, inputBtn, handleBtn, token;
 
 const lineHeight = 12,
   topMargin = 22,
@@ -140,10 +142,10 @@ async function boot({
       // wrap,
       scheme: {
         text: 255,
-        background: [0, 100],
+        background: [0, 180],
         block: 255,
         highlight: 0,
-        guideline: 255,
+        guideline: [255, 128],
       },
       // copied,
       // activated,
@@ -160,7 +162,14 @@ async function boot({
   inputBtn = new ui.Button(
     0,
     screen.height - bottomMargin + 2,
-    screen.width,
+    screen.width / 2 - 1,
+    bottomMargin - 2,
+  );
+
+  handleBtn = new ui.Button(
+    screen.width / 2,
+    screen.height - bottomMargin + 2,
+    screen.width / 2 - 1,
     bottomMargin - 2,
   );
   send({ type: "keyboard:soft-lock" });
@@ -218,15 +227,20 @@ function paint(
 
     // 📜 Scroll bar.
 
-    ink("gray").box(0, topMargin, 3, chatHeight); // Backdrop.
+    ink("gray").box(0, topMargin + 1, 3, chatHeight - 1); // Backdrop.
 
-    const segHeight = (chatHeight / totalScrollHeight) * chatHeight;
+    const segHeight = max(
+      1,
+      floor((chatHeight / totalScrollHeight) * chatHeight) - 1,
+    );
     ink("pink").box(
       0,
-      chatHeight +
-        topMargin -
-        segHeight -
-        (scroll / totalScrollHeight) * chatHeight,
+      ceil(
+        chatHeight +
+          topMargin -
+          segHeight -
+          (scroll / totalScrollHeight) * chatHeight,
+      ),
       3,
       segHeight,
     ); // Backdrop.
@@ -237,7 +251,14 @@ function paint(
   inputBtn.box = new Box(
     0,
     screen.height - bottomMargin + 2,
-    screen.width,
+    screen.width / 2 - 1,
+    bottomMargin - 2,
+  );
+
+  handleBtn.box = new Box(
+    screen.width / 2,
+    screen.height - bottomMargin + 2,
+    screen.width / 2 - 1,
     bottomMargin - 2,
   );
 
@@ -250,28 +271,36 @@ function paint(
       screen.height - bottomMargin + 2,
     );
 
-  // if (!options?.embedded) {
-  //   ink(100, 100, 145, 96)
-  //     .box(0, 0, screen.width, topMargin)
-  //     .box(0, screen.height - bottomMargin + 3, screen.width, screen.height);
-  // }
-
   inputBtn.paint((btn) => {
     if (btn.down) {
-      ink("white", btn.down && btn.over ? 128 : 64).box(btn.box);
+      ink("lime", btn.down && btn.over ? 128 : 64).box(btn.box);
     }
   });
 
-  if (!chat.connecting)
-    ink(160).write("Chatters: " + chat.chatterCount, {
+  handleBtn.paint((btn) => {
+    if (btn.down) {
+      ink("yellow", btn.down && btn.over ? 128 : 64).box(btn.box);
+    }
+  });
+
+  if (!chat.connecting) {
+    ink(220).write("Enter message...", {
       left: leftMargin,
       bottom: 10,
     });
 
+    if (!input.canType) {
+      ink(160).write("Online: " + chat.chatterCount, {
+        right: leftMargin,
+        top: 6,
+      });
+    }
+  }
+
   if (input.canType && !leaving()) {
     input.paint(api, false, {
       x: 0,
-      y: 18,
+      y: topMargin,
       width: screen.width,
       height: screen.height / 2, // - 18
     });
@@ -290,14 +319,18 @@ function paint(
   ink(currentHandle ? "lime" : "red").write(msg, { bottom: 10, right: 6 });
 }
 
-function act({ api, event: e, hud, piece, send }) {
+function act({ api, event: e, hud, piece, send, handle, store, jump }) {
+  if (e.is("viewport-height:changed")) {
+    console.log("✨ New keyboard cutoff would be:", e.y, "?");
+    // notice(e.y);
+  }
+
   if (e.is("reframed")) {
     const lastScrollHeight = totalScrollHeight;
     const lastScroll = scroll;
     ({ totalScrollHeight, chatHeight } = computeScrollbar(api));
     scroll = (lastScroll / lastScrollHeight) * totalScrollHeight;
     boundScroll();
-    // console.log("📜 Reframed scroll:", scroll);
   }
 
   // TODO: ChatToDisk: The chat module will need some kind of "focus" in order
@@ -344,6 +377,12 @@ function act({ api, event: e, hud, piece, send }) {
       rollover: () => {
         if (inputBtn.down) send({ type: "keyboard:soft-unlock" });
       },
+    });
+
+    handleBtn.act(e, () => {
+      const hand = handle();
+      if (!hand) store["prompt:splash"] = true;
+      jump(hand || "prompt");
     });
 
     if (

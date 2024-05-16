@@ -3726,6 +3726,22 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Get visualViewport update, for keyboard overlays, etc.
+  if (type === "viewport-height:changed") {
+    const $api = cachedAPI;
+    const data = { ...content };
+    Object.assign(data, {
+      is: (e) => e === type,
+    });
+    $api.event = data;
+    try {
+      act($api);
+    } catch (e) {
+      console.warn("️ ✒ Act failure...", e);
+    }
+    return;
+  }
+
   // Receive a midi input message.
   if (type === "midi:keyboard" && booted) {
     // console.log("🎹 Keyboard:", content.data);
