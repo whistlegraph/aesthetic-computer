@@ -41,6 +41,13 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** onboarding optimization ***
   - [🟠] Run through onboarding in production with @ida, making any necessary changes.
+    - [...] "Set a handle" is too awkward...
+      - [?] Should the buttons go from orange to yellow to green?
+    - [] Update email content to include chat and remove other stuff?
+    - [] Should a new email be sent after the handle is set, with some
+         things to try?
+    + Done
+    - [x] The email confirmation doesn't go away... after setting handle.
 
 *** profile.lisp ***
   - [-] Make new profile page with redirects for no handle.
@@ -67,6 +74,10 @@ but technically agnostic. (Choose your aesthetic!)
   + Done
   - [x] Add support for secondary ink color in the API and in the 2D renderer.
   - [x] Add support for points in the 2D renderer.
+
+*** Chat updates. ***
+    - [] Add support for `pix` in chat.
+    - [] System wide handle colorization with tooling.
 
 *** general compositing ***        
   - [] the "pause" overlay on windows / high refresh rate is pretty awkward...
