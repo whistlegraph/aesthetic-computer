@@ -39,14 +39,23 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** sign out / account deletion synchronization ***
+  - [] When a user signs out or deletes their account any other windows should refresh.
+
 *** onboarding optimization ***
   - [🟠] Run through onboarding in production with @ida, making any necessary changes.
-    - [...] "Set a handle" is too awkward...
-      - [?] Should the buttons go from orange to yellow to green?
+
+    -----
+    - [🟡] Set a handle / EMAIL VERIFIED wording.
+    - [] Chat should say "You're new, say hi!".
+    - [] Tappable personal handle in chat.
     - [] Update email content to include chat and remove other stuff?
-    - [] Should a new email be sent after the handle is set, with some
-         things to try?
+
     + Done
+    - [x] After setting a handle, jump to chat.
+    - [x] Button for email should instead say Resend email.
+    - [x] Remove RESEND EMAIL? 
+    - [x] Tapping after resend email appears should clear the prompt if there was no edit to the text.
     - [x] The email confirmation doesn't go away... after setting handle.
 
 *** profile.lisp ***
