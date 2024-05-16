@@ -4769,6 +4769,17 @@ async function makeFrame({ data: { type, content } }) {
 
     $commonApi.sound = $sound;
 
+    // System beep.
+    $commonApi.beep = (tone = 600) => {
+      $sound.synth({
+        tone,
+        beats: 0.1,
+        attack: 0.01,
+        decay: 0.5,
+        volume: 0.25,
+      });
+    };
+
     // Act & Sim (Occurs after first boot and paint, `boot` occurs below.)
     if (booted && paintCount > 0n /*&& !leaving*/) {
       const $api = {};
@@ -5719,14 +5730,9 @@ function maybeLeave() {
   }
 }
 
+// Play a sound when "notice" fires.
 const noticeBell = (api, { tone } = { tone: 600 }) => {
-  api.sound.synth({
-    tone,
-    beats: 0.1,
-    attack: 0.01,
-    decay: 0.5,
-    volume: 0.25,
-  });
+  api.beep(tone);
 
   noticeTimer = new gizmo.Hourglass(160, {
     completed: () => {
@@ -5735,6 +5741,5 @@ const noticeBell = (api, { tone } = { tone: 600 }) => {
       noticeTimer = null;
       $commonApi.needsPaint();
     },
-    // every: () => $commonApi.needsPaint(),
   });
 };

@@ -199,7 +199,6 @@ loadAuth0Script()
         }
       };
 
-      // Redirect the user to login if the token has failed.
       if (isAuthenticated && !pickedUpSession) {
         try {
           await window.auth0Client.getTokenSilently();
@@ -210,6 +209,7 @@ loadAuth0Script()
             "Failed to retrieve token silently. Logging out.",
             error,
           );
+          // Redirect the user to logout if the token has failed.
           auth0Client.logout();
           isAuthenticated = false;
         }
@@ -217,9 +217,17 @@ loadAuth0Script()
 
       if (isAuthenticated && !pickedUpSession) {
         // TODO: How long does this await actually take? 23.07.11.18.55
-        const userProfile = await auth0Client.getUser();
-        // console.log("🔐 Welcome,", userProfile.name, "!");
-        // console.log('to... "chaos in a system"');
+        let userProfile = await auth0Client.getUser();
+        if (userProfile.email_verified === false) {
+          try {
+            await window.auth0Client.getTokenSilently({ cacheMode: "off" });
+            userProfile = await auth0Client.getUser();
+          } catch (err) {
+            console.warn("🧔 Could not retrieve user from network.");
+          }
+        }
+        // Check if 'email_verified' is false and load from the network again
+        // if it is.
         window.acUSER = userProfile; // Will get passed to the first message by the piece runner.
         window.acDISK_SEND({
           type: "session:update",

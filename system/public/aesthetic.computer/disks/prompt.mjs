@@ -182,9 +182,12 @@ async function boot({
   if (user) {
     // console.log("User:", user);
     const hand = handle();
+    const btnPos = { center: "xy", screen };
     if (hand) {
       profileAction = "profile";
-    } else {
+      profile = new ui.TextButton(hand, btnPos);
+    } else if (!user.email_verified) {
+      profile = new ui.TextButton("Resend email", { center: "xy", screen });
       profileAction = "resend-verification";
       ellipsisTicker = new gizmo.EllipsisTicker();
       // Start fetching to continuously check for verification here...
@@ -193,29 +196,19 @@ async function boot({
           .then((res) => res.json())
           .then((u) => {
             if (u.email_verified) {
-              // notice("EMAIL VERIFIED");
-              makeFlash($, false);
+              flashColor = "lime";
+              makeFlash(api, false, true);
               profileAction = "set-handle";
-              profile = new ui.TextButton("Create handle", {
-                center: "xy",
-                screen,
-              });
-            } else {
-              setTimeout(fetchUser, 1000);
-            }
+              profile = new ui.TextButton("Create handle", btnPos);
+            } else setTimeout(fetchUser, 1000);
           })
-          .catch((err) => {
-            setTimeout(fetchUser, 1000);
-            console.warn(err);
-          });
+          .catch((err) => setTimeout(fetchUser, 1000));
       }
       fetchUser();
+    } else if (user.email_verified) {
+      profileAction = "set-handle";
+      profile = new ui.TextButton("Create handle", btnPos);
     }
-    profile = new ui.TextButton(hand || "Resend email", {
-      center: "xy",
-      screen,
-    });
-    // profile.btn.disabled = true;
   }
 
   // Only if prompt is set to recall conversations.
@@ -289,6 +282,7 @@ async function halt($, text) {
     painting,
     net,
     jump,
+    beep,
     user,
     upload,
     code,
@@ -816,21 +810,24 @@ async function halt($, text) {
   } else if (text.startsWith("email")) {
     // Set user email.
     const email = text.split(" ")[1];
+    let clear = true;
     if (email) {
       const res = await net.userRequest("POST", "/api/email", { email });
       console.log("Request:", res);
       if (res.email) {
         flashColor = [0, 255, 0];
-        notice("CHECK " + res.email);
+        notice("Check " + res.email);
+        send({ type: "keyboard:close" });
       } else {
         flashColor = [255, 0, 0];
         console.warn(res.message);
         notice("NETWORK ERROR", ["yellow", "red"]);
+        clear = false;
       }
     } else {
       flashColor = [255, 0, 0];
     }
-    makeFlash($, true);
+    makeFlash($, clear);
     return true;
   } else if (slug.startsWith("admin:migrate-")) {
     // Usage: `admin:migrate-painting`
@@ -864,7 +861,9 @@ async function halt($, text) {
 
     // And a handle has been specified.
     if (newHandle?.length > 0 && validateHandle(newHandle)) {
-      const res = await net.userRequest("POST", "/handle", { handle: newHandle });
+      const res = await net.userRequest("POST", "/handle", {
+        handle: newHandle,
+      });
       const handleChanged = res?.handle;
       flashColor = handleChanged ? [0, 255, 0] : [255, 0, 0];
       if (handleChanged) {
@@ -872,9 +871,12 @@ async function halt($, text) {
         broadcast("handle:updated:" + res.handle);
         console.log("🧖 Handle changed:", res.handle);
         makeFlash($, true);
-        notice("@" + res.handle);
+        if (previousHandle) notice("@" + res.handle);
         profileAction = "profile";
-        if (!previousHandle) jump("chat");
+        if (!previousHandle) {
+          jump("chat");
+          beep();
+        }
       } else {
         const message = res?.message;
         let note = "TAKEN";
@@ -1405,14 +1407,20 @@ function paint($) {
       profileAction === "resend-verification" ||
       profileAction === "set-handle"
     ) {
-      ink("yellow").write(
-        profileAction === "resend-verification"
-          ? "Awaiting email verification" + ellipsisTicker.text(help.repeat)
-          : "Email verified!",
-        {
-          center: "x",
-          y: screen.height / 2 - 48,
-        },
+      const verified = profileAction === "set-handle";
+      const message = verified
+        ? "Email verified!"
+        : "Awaiting email verification" + ellipsisTicker.text(help.repeat);
+
+      ink("black", 128).write(message, {
+        center: "x",
+        x: screen.width / 2 + 1,
+        y: screen.height / 2 - 48 + 1,
+      });
+
+      ink(verified ? "lime" : "yellow").write(
+        message,
+        { center: "x", y: screen.height / 2 - 48 },
         undefined,
         screen.width - 16,
       );
@@ -1498,7 +1506,6 @@ function act({
   canShare,
   notice,
 }) {
-
   // Checks to clear prefilled 'email user@email.com' message
   // on signup.
   if (
@@ -1584,6 +1591,7 @@ function act({
         resendVerificationText = text;
         system.prompt.input.text = text;
         system.prompt.input.snap();
+        system.prompt.input.runnable = true;
         send({ type: "keyboard:text:replace", content: { text } });
         send({ type: "keyboard:unlock" });
         send({ type: "keyboard:open" });
@@ -1594,6 +1602,7 @@ function act({
         const text = "handle ";
         system.prompt.input.text = text;
         system.prompt.input.snap();
+        system.prompt.input.runnable = true;
         send({ type: "keyboard:text:replace", content: { text } });
         send({ type: "keyboard:unlock" });
         send({ type: "keyboard:open" });
@@ -1832,7 +1841,7 @@ async function makeMotd({ system, needsPaint, handle, user, net, api }) {
   return motd;
 }
 
-function makeFlash($, clear = true) {
+function makeFlash($, clear = true, beep = false) {
   flash = new $.gizmo.Hourglass($.seconds(0.1), {
     flipped: () => {
       progressBar = -1;
@@ -1857,6 +1866,8 @@ function makeFlash($, clear = true) {
       content: { text: $.system.prompt.input.text },
     });
   }
+
+  if (beep) $.beep();
 }
 
 function positionWelcomeButtons(screen, iframe) {

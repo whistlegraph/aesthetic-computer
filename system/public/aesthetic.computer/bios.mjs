@@ -2235,16 +2235,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Listen for resize events on the visual viewport
       window.visualViewport.addEventListener("resize", () => {
-        const layoutViewportHeight = window.innerHeight;
-        const visualViewportHeight = window.visualViewport.height;
-        const keyboardHeight = layoutViewportHeight - visualViewportHeight;
-        const keyboardStartY = visualViewportHeight;
-        console.log(`Keyboard Height: ${keyboardHeight}px`);
-        console.log(`Keyboard starts at Y position: ${keyboardStartY}px`);
-        window.acDISK_SEND({
-          type: "viewport-height:changed",
-          content: { y: keyboardStartY },
-        });
+        const y = window.visualViewport.height;
+        window.acDISK_SEND({ type: "viewport-height:changed", content: { y } });
       });
 
       // 🌒 Detect light or dark mode.

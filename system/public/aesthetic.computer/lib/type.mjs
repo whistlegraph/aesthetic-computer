@@ -410,12 +410,7 @@ class TextInput {
   }
 
   latentFirstPrint(text) {
-    if (!this.activatedOnce /*!this.inputStarted && !this.commandSentOnce*/) {
-      // this.print(text);
-      this.text = text;
-    } else if (!this.commandSentOnce) {
-      // this.#lastPrintedText = text;
-    }
+    if (!this.activatedOnce) this.text = text;
   }
 
   // Reflow the input text.
@@ -1057,9 +1052,10 @@ class TextInput {
     // Begin the prompt input mode / leave the splash.
     function activate(ti) {
       // console.log("😃 Activating TextInput...");
+      ti.activatedOnce = true;
 
       if (ti.canType) {
-        // if (debug) console.log("✔️✍️ TextInput already activated.");
+        console.log("✔️✍️ TextInput already activated.");
         // (This redundancy check is because this behavior is tied to
         // keyboard open and close events.)
         return;
@@ -1068,7 +1064,6 @@ class TextInput {
       ti.activated?.($, true);
       ti.#activatingPress = false;
       // ti.enter.btn.down = false;
-      ti.activatedOnce = true;
       if (ti.text.length > 0) {
         ti.copy.btn.disabled = true;
         ti.copy.btn.removeFromDom($, "copy");
