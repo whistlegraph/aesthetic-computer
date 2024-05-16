@@ -1584,6 +1584,7 @@ function act({
   profile?.btn.act(e, {
     down: () => { 
       downSound();
+      send({ type: "keyboard:enabled" }); // Enable keyboard flag.
       send({ type: "keyboard:unlock" });
     },
     push: () => {
@@ -1612,6 +1613,7 @@ function act({
       }
     },
     cancel: () => {
+      send({ type: "keyboard:disabled" }); // Disable keyboard flag.
       send({ type: "keyboard:lock" });
     }
   });
