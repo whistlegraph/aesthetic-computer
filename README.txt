@@ -44,14 +44,15 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** onboarding optimization ***
   - [🟠] Run through onboarding in production with @ida, making any necessary changes.
-
-    -----
-    - [🟡] Set a handle / EMAIL VERIFIED wording.
-    - [] Chat should say "You're new, say hi!".
-    - [] Tappable personal handle in chat.
     - [] Update email content to include chat and remove other stuff?
-
+    -----
     + Done
+    - [x] Tappable personal handle in chat.
+    - [x] Signed out? Tapping 'nohandle' in chat should go to closed prompt. 
+    - [x] Scroll off by 1px.
+    - [x] Guideline is not inside text input.
+    - [x] Chat should say "Enter message...".
+    - [x] Set a handle / EMAIL VERIFIED wording.
     - [x] After setting a handle, jump to chat.
     - [x] Button for email should instead say Resend email.
     - [x] Remove RESEND EMAIL? 
@@ -60,7 +61,6 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** profile.lisp ***
   - [-] Make new profile page with redirects for no handle.
-  - [] tapping 'nohandle' in chat should go to empty profile or something?
   - [] Refactor existing profile.mjs into `paintings.mjs`.
   + Done
   - [x] If email is unverified and user is on homepage or
