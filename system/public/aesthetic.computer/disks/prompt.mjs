@@ -1463,6 +1463,7 @@ function sim($) {
     if (login) login.btn.disabled = true;
     if (signup) signup.btn.disabled = true;
     delete $.store["handle:received"];
+    profileAction = "profile"; 
     $.needsPaint();
   }
 
