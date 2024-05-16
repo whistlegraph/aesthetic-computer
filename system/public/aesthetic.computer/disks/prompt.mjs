@@ -125,6 +125,7 @@ async function boot({
   user,
   handle,
   params,
+  notice,
   dark,
   store,
   // code,

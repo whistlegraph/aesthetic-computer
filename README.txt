@@ -43,11 +43,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [🟠] Run through onboarding in production with @ida, making any necessary changes.
 
 *** profile.lisp ***
-  - [] Make new profile page with redirects for no handle.
-    + @ida / @nohandle
-    | 20 paintings -> with link to paintings?
-    | 2 pieces
-    | moods / mood?
+  - [-] Make new profile page with redirects for no handle.
   - [] tapping 'nohandle' in chat should go to empty profile or something?
   - [] Refactor existing profile.mjs into `paintings.mjs`.
   + Done
