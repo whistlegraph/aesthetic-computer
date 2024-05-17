@@ -2900,6 +2900,11 @@ async function load(
               // return;
             }
 
+            if (USER && type === `logout:broadcast:${USER.sub}`) {
+              console.log("🏃 User logged out, refreshing this page!", USER.sub);
+              $commonApi.net.refresh();
+            }
+
             // 🧚 Ambient cursor (fairies) support.
             // This now runs through UDP.
             // if (type === "ambient-pen:point" && socket?.id !== id && visible) {
@@ -2914,15 +2919,17 @@ async function load(
           "wss",
           () => {
             // 🔩 Connected! (Post-connection logic.)
+            if (USER) socket.send("login", { user: USER });
+
             // Broadcast current location.
             if (HANDLE) {
               // console.log("🗼 Broadcasting slug:", currentText, "for:", HANDLE);
-              socket?.send("location:broadcast", {
+              socket.send("location:broadcast", {
                 handle: HANDLE,
                 slug: currentText,
               });
               slugBroadcastInterval = setInterval(() => {
-                socket?.send("location:broadcast", {
+                socket.send("location:broadcast", {
                   handle: HANDLE,
                   slug: "*keep-alive*",
                 });
@@ -3684,7 +3691,10 @@ async function makeFrame({ data: { type, content } }) {
     debug = content.debug;
     setDebug(content.debug);
     ROOT_PIECE = content.rootPiece;
+
     USER = content.user;
+    if (USER) socket.send("login", { user: USER });
+
     LAN_HOST = content.lanHost;
     SHARE_SUPPORTED = content.shareSupported;
     $commonApi.canShare = SHARE_SUPPORTED;
@@ -3726,6 +3736,12 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "logout:broadcast:subscribe") {
+    console.log("🏃‍♂️ Broadcasting logout:", content);
+    socket?.send("logout:broadcast:subscribe", content);
+    return;
+  }
+
   // Get visualViewport update, for keyboard overlays, etc.
   if (type === "viewport-height:changed") {
     const $api = cachedAPI;
@@ -3764,6 +3780,9 @@ async function makeFrame({ data: { type, content } }) {
   if (type === "session:update") {
     // console.log("🤩 Session being updated!", content);
     USER = content.user;
+    // console.log(USER, socket);
+    if (USER) socket?.send("login", { user: USER });
+
     $commonApi.user = USER;
     await handle(); // Get the user's handle.
     // $commonApi.reload?.(); // Reload the current piece.

@@ -39,35 +39,6 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** sign out / account deletion synchronization ***
-  - [] When a user signs out or deletes their account any other windows should refresh.
-
-*** onboarding optimization ***
-  - [🟠] Run through onboarding in production with @ida, making any necessary changes.
-    (Check this for both set and unset handles.)
-    - [🟠] Test sign up flow on a phone.
-      - [] Run with iOS debugger to test keyboard issues with "Create handle" on
-           localhost.
-    -----
-    + Done
-    - [x] Add "back to prompt" arrow to left of chat corner.
-    - [x] Reloading prompt in dev does not refresh the keyboard state?
-    - [x] Don't flash pending verification on reload
-         if email has been verified.
-    - [x] Resend email enter key not functioning.
-    - [x] Update email content to include chat and remove other stuff?
-    - [x] Tappable personal handle in chat.
-    - [x] Signed out? Tapping 'nohandle' in chat should go to closed prompt. 
-    - [x] Scroll off by 1px.
-    - [x] Guideline is not inside text input.
-    - [x] Chat should say "Enter message...".
-    - [x] Set a handle / EMAIL VERIFIED wording.
-    - [x] After setting a handle, jump to chat.
-    - [x] Button for email should instead say Resend email.
-    - [x] Remove RESEND EMAIL? 
-    - [x] Tapping after resend email appears should clear the prompt if there was no edit to the text.
-    - [x] The email confirmation doesn't go away... after setting handle.
-
 *** profile.lisp ***
   - [-] Make new profile page with redirects for no handle.
   - [] Refactor existing profile.mjs into `paintings.mjs`.
