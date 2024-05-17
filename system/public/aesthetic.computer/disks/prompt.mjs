@@ -253,7 +253,7 @@ async function boot({
     // system.prompt.input.showBlink = false;
     // setTimeout(() => (system.prompt.input.showBlink = true), 100);
     send({ type: "keyboard:unlock" });
-    send({ type: "keyboard:open" });
+    // send({ type: "keyboard:open" });
   }
 
   delete store["prompt:splash"];
@@ -1581,43 +1581,6 @@ function act({
     });
   }
 
-  profile?.btn.act(e, {
-    down: () => { 
-      downSound();
-      send({ type: "keyboard:enabled" }); // Enable keyboard flag.
-      send({ type: "keyboard:unlock" });
-    },
-    push: () => {
-      pushSound();
-      if (profileAction === "resend-verification") {
-        // notice("RESEND EMAIL?", ["yellow", "blue"]);
-        const text = "email " + user.email;
-        resendVerificationText = text;
-        system.prompt.input.text = text;
-        system.prompt.input.snap();
-        system.prompt.input.runnable = true;
-        send({ type: "keyboard:text:replace", content: { text } });
-        send({ type: "keyboard:unlock" });
-        send({ type: "keyboard:open" });
-      } else if (profileAction === "profile") {
-        jump(handle() || "profile");
-      } else if (profileAction === "set-handle") {
-        notice("ENTER HANDLE", ["yellow", "blue"]);
-        const text = "handle ";
-        system.prompt.input.text = text;
-        system.prompt.input.snap();
-        system.prompt.input.runnable = true;
-        send({ type: "keyboard:text:replace", content: { text } });
-        send({ type: "keyboard:unlock" });
-        send({ type: "keyboard:open" });
-      }
-    },
-    cancel: () => {
-      send({ type: "keyboard:disabled" }); // Disable keyboard flag.
-      send({ type: "keyboard:lock" });
-    }
-  });
-
   // Rollover keyboard locking.
   // TODO: ^ Move the below events, above to rollover events.
   if (
@@ -1628,14 +1591,18 @@ function act({
   ) {
     send({ type: "keyboard:lock" });
   }
+
   if (
+    //system.prompt.input.backdropTouchOff === false &&
     (e.is("touch") || e.is("lift")) &&
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
-      (profile?.btn.disabled === false && profile?.btn.box.contains(e)))
+      (profile?.btn.disabled === false &&
+        profile?.btn.box.contains(e) &&
+        profileAction === "profile"))
   ) {
-    system.prompt.input.backdropTouchOff = true;
     send({ type: "keyboard:lock" });
+    system.prompt.input.backdropTouchOff = true;
   }
 
   if (e.is("lift") || e.is("touch")) needsPaint(); // Get button changes to
@@ -1645,6 +1612,49 @@ function act({
   //          so the knowledge can be
   //          used in the `paint` function
   //          to allow for manual optimizations. 23.06.20.00.30
+
+  profile?.btn.act(e, {
+    down: () => {
+      downSound();
+      if (profileAction !== "profile") {
+        //send({ type: "keyboard:enabled" }); // Enable keyboard flag.
+        // send({ type: "keyboard:unlock" });
+      }
+    },
+    push: () => {
+      pushSound();
+      if (profileAction === "resend-verification") {
+        // notice("RESEND EMAIL?", ["yellow", "blue"]);
+        const text = "email " + user.email;
+        resendVerificationText = text;
+        system.prompt.input.text = text;
+        system.prompt.input.snap();
+        system.prompt.input.runnable = true;
+        firstActivation = false;
+        send({ type: "keyboard:text:replace", content: { text } });
+        // send({ type: "keyboard:unlock" });
+        // send({ type: "keyboard:open" });
+      } else if (profileAction === "profile") {
+        jump(handle() || "profile");
+      } else if (profileAction === "set-handle") {
+        notice("ENTER HANDLE", ["yellow", "blue"]);
+        const text = "handle ";
+        system.prompt.input.text = text;
+        system.prompt.input.snap();
+        system.prompt.input.runnable = true;
+        send({ type: "keyboard:text:replace", content: { text } });
+        // send({ type: "keyboard:unlock" });
+        // send({ type: "keyboard:open" });
+      }
+    },
+    cancel: () => {
+      if (profileAction !== "profile") {
+        // send({ type: "keyboard:disabled" }); // Disable keyboard flag.
+        send({ type: "keyboard:lock" });
+        system.prompt.input.backdropTouchOff = true;
+      }
+    },
+  });
 
   // 🖥️ Screen
   if (e.is("reframed")) positionWelcomeButtons(screen, net.iframe);
@@ -1746,7 +1756,7 @@ function activated($, state) {
   if (firstActivation) {
     $.sound.play(startupSfx); // Play startup sound...
     flashColor = scheme.dark.block; // Trigger startup animation...
-    makeFlash($, !$.params[0]); // Always sets firstActivation flag to false.
+    makeFlash($ /*, $.params[0]*/); // Always sets firstActivation flag to false.
   }
   // console.log(state, firstCommandSent)
   // if (state === false && firstCommandSent) return;

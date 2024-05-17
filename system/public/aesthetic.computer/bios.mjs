@@ -2180,28 +2180,35 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         window.addEventListener("pointerup", (e) => {
-          if (keyboard.needsImmediateOpen) {
-            keyboard.needsImmediateOpen = false;
-            return;
-          }
+          //if (keyboard.needsImmediateOpen) {
+          //  keyboard.needsImmediateOpen = false;
+          //  return;
+          //}
 
           if (currentPieceHasKeyboard) e.preventDefault();
 
+          // console.log(e.target);
+
           if (e.target === window) return; // This prevents.
+
+          //console.log(currentPieceHasKeyboard, !keyboardFocusLock, !keyboardSoftLock)
 
           if (
             currentPieceHasKeyboard &&
             !keyboardFocusLock &&
             !keyboardSoftLock
           ) {
+              //console.log("OPENING KEYBOARD?");
             if (keyboardOpen) {
               input.blur();
             } else {
+              // console.log("OPENING KEYBOARD!");
               keyboardOpenMethod = "pointer";
               // console.log("Active Element:", document.activeElement);
               window.focus();
               input.focus();
             }
+
           }
         });
 
@@ -2549,6 +2556,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       currentPieceHasKeyboard = true;
       keyboardFocusLock = false;
       keyboardSoftLock = false;
+      // console.log("enabling keyboard...");
       return;
     }
 
@@ -2582,6 +2590,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "keyboard:soft-unlock") {
       keyboardSoftLock = false;
+      keyboardFocusLock = false;
       if (logs.hid && debug) console.log("⌨️ Virtual Keyboard: Soft-unlocked.");
     }
 
