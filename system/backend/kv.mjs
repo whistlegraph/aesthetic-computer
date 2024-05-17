@@ -9,7 +9,6 @@ const dev = process.env.NETLIFY_DEV;
 // 🔥 TODO: Make redis faster / switch out the instance.
 // const dev = false;
 
-
 let client;
 
 async function connect() {
@@ -35,4 +34,15 @@ async function get(collection, key) {
   return await client.HGET(collection, key);
 }
 
-export { connect, get, set, del, disconnect };
+// Publish via redis.
+async function pub(channel, message) {
+  try {
+    await client.publish(channel, message);
+    console.log("Published:", channel, message);
+  } catch (err) {
+    console.log("🙅‍♂️ Could not publish:", channel, err);
+  }
+  return true;
+}
+
+export { connect, get, set, del, pub, disconnect };
