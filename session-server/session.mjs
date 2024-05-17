@@ -119,6 +119,8 @@ const info = {
 const codeChannels = {}; // Used to filter `code` updates from redis to
 //                          clients who explicitly have the channel set.
 
+const users = {}; // A map of connection ids to user subs.
+
 // *** Start up two `redis` clients. (One for subscribing, and for publishing)
 const sub = !dev
   ? createClient({ url: redisConnectionString })
@@ -366,6 +368,33 @@ wss.on("connection", (ws, req) => {
       codeChannel = msg.content;
       if (!codeChannels[codeChannel]) codeChannels[codeChannel] = new Set();
       codeChannels[codeChannel].add(id);
+    } else if (msg.type === "login") {
+      if (users[id]) return;
+      users[id] = msg.content.user.sub;
+      sub
+        .subscribe(`logout:broadcast:${msg.content.user.sub}`, () => {
+          ws.send(pack(`logout:broadcast:${msg.content.user.sub}`, true, id));
+        })
+        .then(() => {
+          log("🏃 Subscribed to logout updates from:", msg.content.user.sub);
+        })
+        .catch((err) =>
+          error(
+            "🏃 Could not subscribe to logouts for:",
+            msg.content.user.sub,
+            err,
+          ),
+        );
+    } else if (msg.type === "logout:broadcast:subscribe") {
+      console.log("Logout broadcast:", msg.type, msg.content);
+      pub
+        .publish(`logout:broadcast:${msg.content.user.sub}`, "true")
+        .then((result) => {
+          console.log("🏃 Logout broadcast successful for:", msg.content);
+        })
+        .catch((error) => {
+          log("🙅‍♀️ Error publishing logout:", error);
+        });
     } else if (msg.type === "location:broadcast") {
       // Receive a slug location for this handle.
       if (msg.content.slug !== "*keep-alive*") {
@@ -517,6 +546,23 @@ wss.on("connection", (ws, req) => {
     //   if (keys(worldClients[piece]).length === 0)
     //     delete worldClients[piece];
     // });
+
+    if (users[id]) {
+      const sub = users[id];
+      sub
+        .unsubscribe("logout:broadcast:" + sub)
+        .then(() => {
+          log("🏃 Unsubscribed from logout:broadcast for:", sub);
+        })
+        .catch((err) => {
+          error(
+            "🏃 Could not unsubscribe from logout:broadcast for:",
+            sub,
+            err,
+          );
+        });
+      delete users[id];
+    }
 
     // Send a message to everyone else on the server that this client left.
 

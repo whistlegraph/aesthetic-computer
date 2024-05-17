@@ -191,6 +191,13 @@ loadAuth0Script()
       window.acLOGOUT = () => {
         if (isAuthenticated) {
           console.log("🔐 Logging out...");
+          // TODO: How to send a message here that could refresh the page for
+          //       all connected users.
+          window.acSEND({
+            type: "logout:broadcast:subscribe",
+            content: { user: window.acUSER },
+          });
+
           auth0Client.logout({
             logoutParams: { returnTo: window.location.origin },
           });
