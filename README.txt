@@ -46,6 +46,8 @@ but technically agnostic. (Choose your aesthetic!)
   - [🟠] Run through onboarding in production with @ida, making any necessary changes.
     (Check this for both set and unset handles.)
     - [🟠] Test sign up flow on a phone.
+      - [] Run with iOS debugger to test keyboard issues with "Create handle" on
+           localhost.
     -----
     + Done
     - [x] Add "back to prompt" arrow to left of chat corner.

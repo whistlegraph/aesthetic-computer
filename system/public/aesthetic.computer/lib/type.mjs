@@ -116,7 +116,6 @@ class Typeface {
 
     pos.center = pos.center || "";
 
-
     if (pos.center.includes("x")) {
       const hw = w / 2;
       x = pos.x === undef ? width / 2 - hw : x - hw;
@@ -1048,6 +1047,8 @@ class TextInput {
         });
       }
     }
+
+    if (e.is("lift") && !this.canType) this.#activatingPress = false;
 
     // Begin the prompt input mode / leave the splash.
     function activate(ti) {
