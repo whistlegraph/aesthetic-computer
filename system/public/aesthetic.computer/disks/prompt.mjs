@@ -1642,6 +1642,7 @@ function act({
         system.prompt.input.text = text;
         system.prompt.input.snap();
         system.prompt.input.runnable = true;
+        firstActivation = false;
         send({ type: "keyboard:text:replace", content: { text } });
         // send({ type: "keyboard:unlock" });
         // send({ type: "keyboard:open" });
