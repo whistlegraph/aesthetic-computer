@@ -39,6 +39,11 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** handle updates in chat ***
+  - [] Send a message to the chat whenever a new handle is registered for
+       the first time, and a different message whenever a handle changes...
+    - [] I suppose this would work via redis broadcasts?
+
 *** profile.lisp ***
   - [-] Make new profile page with redirects for no handle.
   - [] Refactor existing profile.mjs into `paintings.mjs`.

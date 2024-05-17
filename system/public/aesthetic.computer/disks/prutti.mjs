@@ -818,6 +818,42 @@ const lessons = [
     pictures: ["lnl46-1", "lnl46-2"],
     sounds: ["alice_platinum_pamuk_eye_low"],
   },
+  {
+    title: "Lesson NOT Learnt 47",
+    text: `
+    the true meaning of mastery
+
+    To be real ---Saedfuck---m0e---based--- in - the now, you need to be able to take apart an Urban Jürgensen yourself, Carl oppermann and I did just that-YES YES-( I was cheerleading &  Carl did the hard work --no cap--)  - the former owner of this watch was ///Smadremanden///  Urban Jürgensen is known for their mastery of details, a distinction particularly well suited for the realm of pruttipal-horology… bla. bla. bla.  - But the reason that I'm telling you this, is that even not an Urban Jurgensen, that comes from a four-century long tradition of Danish-Swiss watchmaking etc. etc. ----is hardly making anything themself. It´s true... we just reverse engineered one ----
+
+    The movement the (caliber P5) is made by one company, so is the watch chain etc. etc. Urban Jurgensen is simply putting there well designed things together --- That is what forms a modern ## Jurgensen -##  and this is the way you make MASTERY-things... - People there thinks that they should be good a everything ends up being bad at most things...
+
+    Make your-self dependent on the expertise of your friends, I have done so in all aspects of my life, and is continuously doing so -- even though my surroundings is currently punishing me for doing so... oohhhh Smadremanden - JOINED THE GUILD of the Viking klokkers
+
+    Pruttipal we eat all the crumbs - Saedfuck---m0e / Saedfuck---m0e / Saedfuck---m0e / Saedfuck---m0e
+
+    [urban_ostens_ulve_mastery_prut]`,
+    pictures: ["lnl47-1", "lnl47-2"],
+    sounds: ["urban_ostens_ulve_mastery_prut"],
+  },
+  {
+    title: "Lesson NOT Learnt 48",
+    text: `
+    the Gunner Waerness aethetic challenge. . .
+
+    just as you thought that the synthesizer was the drippin' New Drip, you wake up and realize, that it is the guitar there is back...
+
+    and if it@s a guitar there is back you need not just any guitar NO NO §§§§ you need a ----red and white--- Danish football guitar from the Martin guitars custom shop, designed by: Akustikken Kasper & Michael Schmeichel -- else it will not take offff... 
+
+    -- And when you have that, you need to lend it out to everyone you know --YES YES-- as everybody else plays music much better then you will ever be able to... JUST listen to this audio, a wonderful mixtura of recording technique, sound manipulation, and performative skills. - pachinko magic - 
+
+
+    Gunner Wærness should play the Football guitar once at least, that is a aethetic.computer challenge //...No Cap...//
+
+    [star_under_1_elmgreen]
+    `,
+    pictures: ["lnl48-1", "lnl48-2"],
+    sounds: ["star_under_1_elmgreen"],
+  },
 ];
 
 let lesson = 0,
@@ -971,7 +1007,7 @@ function loadLesson(api) {
 
   // Load and play sample for lesson 11.
   lessons[lesson].sounds?.forEach((name) => {
-    const ext = api.platform.Safari ? "m4a" :"ogg";
+    const ext = api.platform.Safari ? "m4a" : "ogg";
     api.net.preload(`${path}/${name}.${ext}`).then((sfx) => {
       api.sound.play(sfx, { loop: true }); // Immediately play audio after loading it, and looping it.
     });
