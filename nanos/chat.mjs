@@ -123,12 +123,20 @@ async function startChatServer() {
       console.log("🗼 Received chat from redis:", parsed);
       // everyone(pack(`message`, parsed));
     });
+
     console.log("📰 Subscribed to `chat-system`!");
+
+    await sub.subscribe("handle", (message) => {
+      console.log("🛠️ Received handle update from redis:", message);
+      // everyone(pack(`message`, message));
+    });
+
+    console.log("👳 Subscribed to `handle`!");
   }
 
   const createRedisClient = (role) => {
-    const client = createClient({
-      url: redisConnectionString,
+    // TODO: This needs to be enabled in dev...
+    const clientOptions = {
       socket: {
         reconnectStrategy: (retries) => {
           console.log(`🔄 ${role} Redis client reconnect attempt: ${retries}`);
@@ -139,7 +147,11 @@ async function startChatServer() {
           return new Error("Maximum number of retries reached");
         },
       },
-    });
+    };
+
+    // if (!dev) clientOptions.url = redisConnectionString;
+
+    const client = createClient(clientOptions);
 
     client.on("connect", async () => {
       console.log(`🟢 ${role} Redis client reconnected successfully`);

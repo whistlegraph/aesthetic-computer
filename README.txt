@@ -42,7 +42,7 @@ but technically agnostic. (Choose your aesthetic!)
 *** handle updates in chat ***
   - [] Send a message to the chat whenever a new handle is registered for
        the first time, and a different message whenever a handle changes...
-    - [] I suppose this would work via redis broadcasts?
+    - [🟠] I suppose this would work via redis broadcasts?
 
 *** profile.lisp ***
   - [-] Make new profile page with redirects for no handle.

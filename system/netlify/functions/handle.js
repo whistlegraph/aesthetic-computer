@@ -76,22 +76,29 @@ export async function handler(event, context) {
       // them all to be unique, (if it doesn't already exist).
       await collection.createIndex({ handle: 1 }, { unique: true });
 
+      await KeyValue.connect();
+
       // Insert or update the handle using the `provider|id` key from auth0.
       try {
         // Check if a document with this user's sub already exists
         const existingUser = await collection.findOne({ _id: user.sub });
         if (existingUser) {
-          if (dev)
+          if (dev) {
             console.log("User handle is currently:", existingUser.handle);
+          }
+          await KeyValue.pub(
+           "handle",
+           `${existingUser.handle} is now ${handle}`,
+          );
           // Fail if the new handle is already taken by someone else.
           await collection.updateOne({ _id: user.sub }, { $set: { handle } });
         } else {
           // Add a new `@handles` document for this user.
+          await KeyValue.pub("handle", `hi ${handle}`);
           await collection.insertOne({ _id: user.sub, handle });
         }
 
         // Update the redis handle cache...
-        await KeyValue.connect();
         if (dev) console.log("Setting in redis:", handle);
 
         if (existingUser?.handle)
