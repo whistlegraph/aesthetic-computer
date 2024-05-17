@@ -185,7 +185,7 @@ function paint(
   const y = 10;
   const gap = 8;
   ink(50, 50, 100)
-    .write('back to "prompt"', { x: x + gap, y: 6 })
+    .write('back to prompt', { x: x + gap, y: 6 })
     .line(x, y, x - gap, y) // Base of arrow.
     .line(x - gap, y, x - gap + 3, y - 3) // Top of arrow.
     .line(x - gap, y, x - gap + 3, y + 3); // Bottom of arrow.
