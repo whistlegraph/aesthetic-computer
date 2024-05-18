@@ -13,7 +13,7 @@ function link(db, kv) {
   KeyValue = kv;
 }
 
-async function log(text, from = "system") {
+async function log(text, data, from = "system") {
   if (!database || !KeyValue) {
     console.error("⚠️🪵 Could not log:", from, text);
     return;
@@ -24,6 +24,14 @@ async function log(text, from = "system") {
   // await KeyValue.connect();
 
   const msg = { from, text, when: new Date() };
+
+  // Associate userID with a log if specified.
+  if (data.user) {
+    msg.users = [data.user];
+  } else {
+    msg.users = [];
+  }
+
   const logs = database.db.collection("logs");
   await logs.createIndex({ when: 1 }); // Index for `when`.
   await logs.insertOne({ ...msg }); // Add to database,
