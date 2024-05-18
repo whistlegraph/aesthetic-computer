@@ -40,10 +40,13 @@ but technically agnostic. (Choose your aesthetic!)
 🌟 Projects in Progress (PIP) 🌟
 
 *** handle updates in chat ***
-  - [] Send a message to the chat whenever a new handle is registered for
-       the first time, and a different message whenever a handle changes...
-  - [🟠] I suppose this would work via redis broadcasts?
+  - [] Get system log messages correct with handle change
+       live in chat or even in field / world and prompt?
   - [-] Swap handle chat location.
+  + Done
+  - [x] Send a message to the chat whenever a new handle is registered for
+       the first time, and a different message whenever a handle changes...
+    - [x] I suppose this would work via redis broadcasts?
 
 *** profile.lisp ***
   - [-] Make new profile page with redirects for no handle.

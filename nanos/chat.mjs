@@ -20,7 +20,8 @@
 // https://console.cloud.google.com/compute/instances?project=aesthetic-computer
 
 import { WebSocketServer, WebSocket } from "ws";
-import { readFileSync } from "fs";
+import { promises as fs, readFileSync } from 'fs';
+
 import http from "http";
 import https from "https";
 import { filter } from "./filter.mjs"; // Profanity filtering.
@@ -45,17 +46,32 @@ const subsToHandles = {};
 const preAuthorized = {};
 // const messages = []; // An active buffer of the last 100 messages.
 
+// let serviceAccount;
+// try {
+//   console.log("🔥 Fetching Firebase configuration from:", process.env.GCM_FIREBASE_CONFIG_URL);
+//   const response = await fetch(process.env.GCM_FIREBASE_CONFIG_URL);
+//   if (!response.ok) {
+//     throw new Error(`HTTP error! Status: ${response.status}`);
+//   }
+//   serviceAccount = await response.json();
+// } catch (error) {
+//   console.error("Error fetching service account:", error);
+//   // Handle the error as needed
+// }
+
 let serviceAccount;
 try {
-  const response = await fetch(process.env.GCM_FIREBASE_CONFIG_URL);
-  if (!response.ok) {
-    throw new Error(`HTTP error! Status: ${response.status}`);
-  }
-  serviceAccount = await response.json();
+  console.log(
+    "🔥 Loading Firebase configuration from file: ./gcp-service-key.json",
+  );
+  const data = await fs.readFile("./gcp-service-key.json", "utf8");
+  serviceAccount = JSON.parse(data);
 } catch (error) {
-  console.error("Error fetching service account:", error);
+  console.error("Error loading service account:", error);
   // Handle the error as needed
 }
+
+console.log("🔥 Initializing Firebase App from:", serviceAccount);
 
 initializeApp(
   { credential: cert(serviceAccount) }, //,
@@ -435,27 +451,6 @@ async function makeMongoConnection() {
   // return { client, db };
   console.log("🟢 Connected!");
 }
-
-// Also looks up the handle for the user and returns it.
-// async function getLast100MessagesfromMongo() {
-//   console.log("🟡 Retrieving last 100 messages...");
-//   const chatCollection = db.collection("chat-system");
-//   const collectedMessages = (
-//     await chatCollection.find({}).sort({ when: -1 }).limit(100).toArray()
-//   ).reverse();
-
-//   for (const message of collectedMessages) {
-//     const fromSub = message.user;
-//     // Retrieve handle either from cache or MongoDB
-//     const handle = await getHandleFromSub(fromSub);
-
-//     messages.push({
-//       handle: "@" + handle,
-//       text: filter(message.text),
-//       when: message.when,
-//     });
-//   }
-// }
 
 async function getLast100MessagesfromMongo() {
   console.log("🟡 Retrieving last 100 combined messages...");
