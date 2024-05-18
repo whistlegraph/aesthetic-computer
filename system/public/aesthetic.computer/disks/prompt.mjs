@@ -1365,7 +1365,7 @@ function paint($) {
 
     if ($.chat.messages.length > 0) {
       const msg = $.chat.messages[$.chat.messages.length - 1];
-      const fullText = msg.handle + ": " + msg.text;
+      const fullText = msg.from + ": " + msg.text;
       ink("teal", 128).write(
         fullText,
         {
