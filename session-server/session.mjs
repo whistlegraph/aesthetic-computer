@@ -548,16 +548,16 @@ wss.on("connection", (ws, req) => {
     // });
 
     if (users[id]) {
-      const sub = users[id];
+      const userSub = users[id];
       sub
-        .unsubscribe("logout:broadcast:" + sub)
+        .unsubscribe("logout:broadcast:" + userSub)
         .then(() => {
-          log("🏃 Unsubscribed from logout:broadcast for:", sub);
+          log("🏃 Unsubscribed from logout:broadcast for:", userSub);
         })
         .catch((err) => {
           error(
             "🏃 Could not unsubscribe from logout:broadcast for:",
-            sub,
+            userSub,
             err,
           );
         });
