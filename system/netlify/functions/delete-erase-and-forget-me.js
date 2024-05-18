@@ -42,12 +42,7 @@ export async function handler(event, context) {
 
     if (user) {
       console.log("⚠️  Deleting user:", user.sub);
-
-      // 1. TODO: Delete the entire user directory located at the s3User endpoint
-      //          where the directory name is the `user.sub` on the root of the
-      //          bucket.
-
-      // 1. TODO: Delete the entire user directory located at the s3User endpoint
+      // 1. Delete the entire user directory located at the s3User endpoint
       const userDirectory = user.sub + "/"; // Assuming the directory name is the `user.sub`
       const bucketName = process.env.USER_SPACE_NAME; // Replace with your bucket name
       let continuationToken = null;
@@ -92,11 +87,40 @@ export async function handler(event, context) {
 
       // Delete `paintings` and `moods` associated with the user's sub.
       await database.db.collection("paintings").deleteMany({ user: sub });
-      console.log("🖼️  Deleted any paintings.");
+      console.log("🖼️ Deleted paintings.");
+
+      // Delete `paintings` and `moods` associated with the user's sub.
+      await database.db.collection("pieces").deleteMany({ user: sub });
+      console.log("🧩️ Deleted pieces.");
+
+      await database.db.collection("moods").deleteMany({ user: sub });
+      console.log("🧠 Deleted moods.");
+
+      // Rewrite the "text" field to be null / empty and rewrite the user field to be empty
+      // rather than simply deleting the records associated with the user sub.
+      await database.db
+        .collection("chat-system")
+        .updateMany({ user: sub }, { $set: { text: "", user: "" } });
+      console.log("🧠 Erased chats.");
+
+      // ⚠️ Don't erase any logs for now, in case of partially deleted accounts
+      // etc, it may be the last place where the sub / handle connection
+      // is stored to benefit the user.
+
+      // Go through the "logs" collection and replace any matches in the "users"
+      // array with an empty string.
+      // await database.db.collection("logs").updateMany(
+      //   { users: { $elemMatch: { $eq: sub } } },
+      //   { $set: { "users.$": "" } }
+      // );
+      // console.log("📜 Removed log references.");
+
       // Assuming @handles collection uses _id as the primary key.
       await database.db.collection("@handles").deleteOne({ _id: sub });
       console.log("🧔 Deleted any handle.");
 
+      // ❤️‍🔥 TODO: Delete moods and chat messages and pieces also...
+      // And what about logs related to the user?
       console.log("❌ Deleted database data.");
 
       await database.disconnect();
@@ -110,7 +134,7 @@ export async function handler(event, context) {
 
       console.log("❌ Deleted network cache.");
 
-      // 3. TODO: Delete the user's auth0 account somehow...
+      // 3. Delete the user's auth0 account.
       const deleted = await deleteUser(sub);
       console.log("❌ Deleted user registration:", deleted);
 

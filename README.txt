@@ -39,11 +39,15 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+
 *** handle updates in chat ***
   - [-] Get system log messages correct with handle change
        live in chat or even in field / world and prompt?
   - [-] Swap handle chat location.
   + Done
+  - [x] Rewrite a user's messages with `delete-erase-and-forget-me`.
+  - [x] Get account deletion / "message deleted" functionality working properly.
+  - [x] Any "log" that is created also needs to associate any potential user identifiers, so they can be erased or queried if possible.
   - [x] Send a message to the chat whenever a new handle is registered for
        the first time, and a different message whenever a handle changes...
     - [x] I suppose this would work via redis broadcasts?
