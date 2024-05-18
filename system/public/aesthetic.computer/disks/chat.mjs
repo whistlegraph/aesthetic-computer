@@ -98,7 +98,7 @@ async function boot({
 
     if (type === "message") {
       const msg = content; // Pre-transformed and stored.
-      msg.fullMessage = msg.handle + " " + msg.text;
+      msg.fullMessage = msg.from + " " + msg.text;
       msg.tb = text.box(
         msg.fullMessage,
         { x: leftMargin, y: 0 },
@@ -226,7 +226,7 @@ function paint(
       }
 
       ink("white").write(fullMessage, { x, y }, undefined, screen.width - x);
-      ink("pink").write(message.handle, { x, y });
+      ink("pink").write(message.from, { x, y });
 
       y -= lineHeight; // Move up one line for the next message.
       if (y < topMargin - lineHeight) break; // Break if y is below top line.
@@ -462,7 +462,7 @@ function computeScrollbar({ text, screen, chat }) {
   // Iterate through the messages array.
   for (let i = 0; i < chat.messages.length; i += 1) {
     const message = chat.messages[i];
-    const fullMessage = message.handle + " " + message.text;
+    const fullMessage = message.from + " " + message.text;
     const tb = text.box(
       fullMessage,
       { x: leftMargin, y: 0 },

@@ -4,10 +4,7 @@
 import { createClient } from "redis";
 
 const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
-
 const dev = process.env.NETLIFY_DEV;
-// 🔥 TODO: Make redis faster / switch out the instance.
-// const dev = false;
 
 let client;
 

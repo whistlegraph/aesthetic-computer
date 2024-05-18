@@ -11,6 +11,7 @@ import { validateHandle } from "../../public/aesthetic.computer/lib/text.mjs";
 import { connect } from "../../backend/database.mjs";
 import * as KeyValue from "../../backend/kv.mjs";
 import { respond } from "../../backend/http.mjs";
+import * as logger from "../../backend/logger.mjs";
 
 const dev = process.env.CONTEXT === "dev";
 
@@ -70,37 +71,32 @@ export async function handler(event, context) {
     if (user && user.email_verified) {
       // 🔑 We are logged in!
       const database = await connect(); // 📕 Database
-      const collection = database.db.collection("@handles");
+      const handles = database.db.collection("@handles");
 
       // Make an "handle" index on the @handles collection that forces
       // them all to be unique, (if it doesn't already exist).
-      await collection.createIndex({ handle: 1 }, { unique: true });
-
+      await handles.createIndex({ handle: 1 }, { unique: true });
       await KeyValue.connect();
+
+      logger.link(database, KeyValue);
 
       // Insert or update the handle using the `provider|id` key from auth0.
       try {
         // Check if a document with this user's sub already exists
-        const existingUser = await collection.findOne({ _id: user.sub });
+        const existingUser = await handles.findOne({ _id: user.sub });
         if (existingUser) {
-          if (dev) {
-            console.log("User handle is currently:", existingUser.handle);
-          }
-          await KeyValue.pub(
-           "handle",
-           `${existingUser.handle} is now ${handle}`,
-          );
-          // Fail if the new handle is already taken by someone else.
-          await collection.updateOne({ _id: user.sub }, { $set: { handle } });
+          if (dev) console.log("Current user handle:", existingUser.handle);
+          // Replace existing handle or fail if the new handle is already taken
+          // by someone else.
+          await handles.updateOne({ _id: user.sub }, { $set: { handle } });
+          await logger.log(`${existingUser.handle} is now ${handle}`); // 🪵
         } else {
           // Add a new `@handles` document for this user.
-          await KeyValue.pub("handle", `hi ${handle}`);
-          await collection.insertOne({ _id: user.sub, handle });
+          await handles.insertOne({ _id: user.sub, handle });
+          await logger.log(`hi ${handle}`); // 🪵 Log initial handle creation.
         }
 
         // Update the redis handle cache...
-        if (dev) console.log("Setting in redis:", handle);
-
         if (existingUser?.handle)
           await KeyValue.del("@handles", existingUser.handle);
 

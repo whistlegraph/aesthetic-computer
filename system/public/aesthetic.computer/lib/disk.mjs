@@ -2919,17 +2919,17 @@ async function load(
           "wss",
           () => {
             // 🔩 Connected! (Post-connection logic.)
-            if (USER) socket.send("login", { user: USER });
+            if (USER) socket?.send("login", { user: USER });
 
             // Broadcast current location.
             if (HANDLE) {
               // console.log("🗼 Broadcasting slug:", currentText, "for:", HANDLE);
-              socket.send("location:broadcast", {
+              socket?.send("location:broadcast", {
                 handle: HANDLE,
                 slug: currentText,
               });
               slugBroadcastInterval = setInterval(() => {
-                socket.send("location:broadcast", {
+                socket?.send("location:broadcast", {
                   handle: HANDLE,
                   slug: "*keep-alive*",
                 });

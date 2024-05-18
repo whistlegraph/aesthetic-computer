@@ -62,6 +62,8 @@ initializeApp(
   // "aesthetic" + ~~performance.now(),
 );
 
+console.log("🔥 Firebase App initialized...");
+
 let server,
   connections = {}, // All active socket connections.
   connectionId = 0;
@@ -118,25 +120,40 @@ async function startChatServer() {
   //   : createClient();
 
   async function subscribe() {
-    await sub.subscribe("chat-system", (message) => {
-      const parsed = JSON.parse(message);
-      console.log("🗼 Received chat from redis:", parsed);
-      // everyone(pack(`message`, parsed));
-    });
+    sub
+      .subscribe("chat-system", (message) => {
+        const parsed = JSON.parse(message);
+        console.log("🗼 Received chat from redis:", parsed);
+        // everyone(pack(`message`, parsed));
+      })
+      .then(() => {
+        console.log("📚 Subscribed to `chat-system` updates from redis.");
+      })
+      .catch((err) =>
+        console.error("📚 Could not subscribe to `chat-system` updates.", err),
+      );
 
-    console.log("📰 Subscribed to `chat-system`!");
+    sub
+      .subscribe("log", (message) => {
+        const parsed = JSON.parse(message);
+        console.log("🪵️ Received log from redis:", parsed);
 
-    await sub.subscribe("handle", (message) => {
-      console.log("🛠️ Received handle update from redis:", message);
-      // everyone(pack(`message`, message));
-    });
+        messages.push(parsed);
+        if (messages.length > 100) messages.shift();
 
-    console.log("👳 Subscribed to `handle`!");
+        everyone(pack(`message`, parsed));
+      })
+      .then(() => {
+        console.log("🪵 Subscribed to `log` updates from redis.");
+      })
+      .catch((err) =>
+        console.error("🪵 Could not subscribe to `log` updates.", err),
+      );
   }
 
   const createRedisClient = (role) => {
-    // TODO: This needs to be enabled in dev...
-    const clientOptions = {
+    const client = createClient({
+      url: redisConnectionString,
       socket: {
         reconnectStrategy: (retries) => {
           console.log(`🔄 ${role} Redis client reconnect attempt: ${retries}`);
@@ -147,19 +164,14 @@ async function startChatServer() {
           return new Error("Maximum number of retries reached");
         },
       },
-    };
-
-    // if (!dev) clientOptions.url = redisConnectionString;
-
-    const client = createClient(clientOptions);
+    });
 
     client.on("connect", async () => {
-      console.log(`🟢 ${role} Redis client reconnected successfully`);
-      if (role === "subscriber") await subscribe();
+      console.log(`🟢 \`${role}\` Redis client connected successfully.`);
     });
 
     client.on("error", (err) =>
-      console.log(`🔴 ${role} Redis client error!`, err),
+      console.log(`🔴 \`${role}\` Redis client connection failure!`, err),
     );
 
     return client;
@@ -170,6 +182,7 @@ async function startChatServer() {
 
   try {
     await sub.connect();
+    subscribe();
     await pub.connect();
   } catch (err) {
     console.error("🔴 Could not connect to `redis` instance.", err);
@@ -282,7 +295,6 @@ async function startChatServer() {
 
           const message = msg.content;
           const fromSub = message.sub;
-
           console.log("🟡 Storing message...");
 
           // Don't store any actual messages to the MongoDB in development.
@@ -304,77 +316,12 @@ async function startChatServer() {
 
           // Retrieve handle either from cache or MongoDB
           const handle = "@" + (await getHandleFromSub(fromSub));
-
-          messages.push({
-            handle,
-            text: filteredText,
-            when: msg.when,
-          });
-
+          const out = { from: handle, text: filteredText, when: msg.when };
+          messages.push(out);
           if (messages.length > 100) messages.shift();
-          // console.log("Messages:", messages);
 
-          const update = { text: filteredText, handle };
-
-          if (dev) {
-            everyone(pack(`message`, update));
-            return; // Skip redis and notifications in development.
-          }
-
-          // 🏬 Publish to redis.
-          pub
-            .publish("chat-system", JSON.stringify(update))
-            .then((result) => {
-              console.log("💬 Message succesfully published:", result);
-              everyone(pack(`message`, update));
-              if (!dev) {
-                // ☎️ Send a notification
-                console.log("🟡 Sending notification...");
-
-                // TODO: Test notification icons here.
-                // const topicName = "industry-tech";
-
-                getMessaging()
-                  .send({
-                    notification: {
-                      title: handle + " 💬",
-                      body: filteredText, //,
-                    },
-                    // android: {
-                    //   notification: {
-                    //     imageUrl: "https://aesthetic.computer/api/logo.png",
-                    //   },
-                    apns: {
-                      payload: {
-                        aps: { "mutable-content": 1 },
-                      },
-                      fcm_options: {
-                        image: "https://aesthetic.computer/api/logo.png",
-                      },
-                    },
-                    webpush: {
-                      headers: {
-                        image: "https://aesthetic.computer/api/logo.png",
-                      },
-                    },
-                    topic: "mood", // <- TODO: Eventually replace this.
-                    // topic: "chat-system",
-                    data: { piece: "chat" }, // This should send a tappable link to the chat piece.
-                  })
-                  .then((response) => {
-                    console.log(
-                      "☎️  Successfully sent notification:",
-                      response,
-                    );
-                  })
-                  .catch((error) => {
-                    console.log("📵  Error sending notification:", error);
-                  });
-              }
-            })
-            .catch((error) => {
-              console.log("🙅‍♀️ Error publishing message:", error);
-            });
+          everyone(pack(`message`, out)); // Send to clients.
+          notify(handle + " 💬", filteredText); // Push notification.
 
           // 3. Send a confirmation back to the user.
           // No need, as this comes through redis...
@@ -490,22 +437,62 @@ async function makeMongoConnection() {
 }
 
 // Also looks up the handle for the user and returns it.
-async function storeMessageInMongo(message, filteredText) {}
+// async function getLast100MessagesfromMongo() {
+//   console.log("🟡 Retrieving last 100 messages...");
+//   const chatCollection = db.collection("chat-system");
+//   const collectedMessages = (
+//     await chatCollection.find({}).sort({ when: -1 }).limit(100).toArray()
+//   ).reverse();
+
+//   for (const message of collectedMessages) {
+//     const fromSub = message.user;
+//     // Retrieve handle either from cache or MongoDB
+//     const handle = await getHandleFromSub(fromSub);
+
+//     messages.push({
+//       handle: "@" + handle,
+//       text: filter(message.text),
+//       when: message.when,
+//     });
+//   }
+// }
 
 async function getLast100MessagesfromMongo() {
-  console.log("🟡 Retrieving last 100 messages...");
+  console.log("🟡 Retrieving last 100 combined messages...");
   const chatCollection = db.collection("chat-system");
-  const collectedMessages = (
-    await chatCollection.find({}).sort({ when: -1 }).limit(100).toArray()
+  // const logsCollection = db.collection("logs");
+
+  const combinedMessages = (
+    await chatCollection
+      .aggregate([
+        {
+          $unionWith: {
+            coll: "logs",
+            pipeline: [{ $match: {} }],
+          },
+        },
+        { $sort: { when: -1 } },
+        { $limit: 100 },
+      ])
+      .toArray()
   ).reverse();
 
-  for (const message of collectedMessages) {
-    const fromSub = message.user;
-    // Retrieve handle either from cache or MongoDB
-    const handle = await getHandleFromSub(fromSub);
+  for (const message of combinedMessages) {
+    let from;
+
+    if (message.user) {
+      console.log("🗨️ User message:", message);
+      const fromSub = message.user;
+      const handle = await getHandleFromSub(fromSub);
+      from = "@" + handle;
+    } else {
+      console.log("🪵 System log:", message);
+      from = message.from;
+    }
 
     messages.push({
-      handle: "@" + handle,
+      from,
+      // handle: "@" + handle,
       text: filter(message.text),
       when: message.when,
     });
@@ -530,3 +517,54 @@ async function getHandleFromSub(fromSub) {
 }
 
 // #endregion
+
+function notify(title, body) {
+  if (!dev) {
+    // ☎️ Send a notification
+    console.log("🟡 Sending notification...");
+    // TODO: Test notification icons here.
+    // const topicName = "industry-tech";
+
+    getMessaging()
+      .send({
+        notification: { title, body },
+        // android: {
+        //   notification: {
+        //     imageUrl: "https://aesthetic.computer/api/logo.png",
+        //   },
+        apns: {
+          payload: {
+            aps: { "mutable-content": 1 },
+          },
+          fcm_options: {
+            image: "https://aesthetic.computer/api/logo.png",
+          },
+        },
+        webpush: {
+          headers: {
+            image: "https://aesthetic.computer/api/logo.png",
+          },
+        },
+        topic: "mood", // <- TODO: Eventually replace this.
+        // topic: "chat-system",
+        data: { piece: "chat" }, // This should send a tappable link to the chat piece.
+      })
+      .then((response) => {
+        console.log("☎️  Successfully sent notification:", response);
+      })
+      .catch((error) => {
+        console.log("📵  Error sending notification:", error);
+      });
+  }
+}
+
+// 🪦 Graveyard
+// 🏬 Publish to redis.
+// pub
+//   .publish("chat-system", JSON.stringify(update))
+//   .then((result) => {
+// console.log("💬 Message succesfully published:", result);
+// })
+// .catch((error) => {
+// console.log("🙅‍♀️ Error publishing message:", error);
+// });
