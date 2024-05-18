@@ -40,7 +40,7 @@ but technically agnostic. (Choose your aesthetic!)
 🌟 Projects in Progress (PIP) 🌟
 
 *** handle updates in chat ***
-  - [] Get system log messages correct with handle change
+  - [-] Get system log messages correct with handle change
        live in chat or even in field / world and prompt?
   - [-] Swap handle chat location.
   + Done
