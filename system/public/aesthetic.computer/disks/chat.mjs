@@ -185,7 +185,7 @@ function paint(
   const y = 10;
   const gap = 8;
   ink(50, 50, 100)
-    .write('back to prompt', { x: x + gap, y: 6 })
+    .write("back to prompt", { x: x + gap, y: 6 })
     .line(x, y, x - gap, y) // Base of arrow.
     .line(x - gap, y, x - gap + 3, y - 3) // Top of arrow.
     .line(x - gap, y, x - gap + 3, y + 3); // Bottom of arrow.
@@ -226,7 +226,10 @@ function paint(
       }
 
       ink("white").write(fullMessage, { x, y }, undefined, screen.width - x);
-      ink("pink").write(message.from, { x, y });
+      ink(message.from === "system" ? "cyan" : "pink").write(message.from, {
+        x,
+        y,
+      });
 
       y -= lineHeight; // Move up one line for the next message.
       if (y < topMargin - lineHeight) break; // Break if y is below top line.

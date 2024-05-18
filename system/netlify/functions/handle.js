@@ -89,11 +89,11 @@ export async function handler(event, context) {
           // Replace existing handle or fail if the new handle is already taken
           // by someone else.
           await handles.updateOne({ _id: user.sub }, { $set: { handle } });
-          await logger.log(`${existingUser.handle} is now ${handle}`); // 🪵
+          await logger.log(`@${existingUser.handle} is now @${handle}`); // 🪵
         } else {
           // Add a new `@handles` document for this user.
           await handles.insertOne({ _id: user.sub, handle });
-          await logger.log(`hi ${handle}`); // 🪵 Log initial handle creation.
+          await logger.log(`hi @${handle}`); // 🪵 Log initial handle creation.
         }
 
         // Update the redis handle cache...
