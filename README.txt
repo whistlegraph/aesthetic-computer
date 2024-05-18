@@ -41,8 +41,14 @@ but technically agnostic. (Choose your aesthetic!)
 
 
 *** handle updates in chat ***
+  - [🟠] How to add infinite scroll to message buffer?
+
   - [-] Get system log messages correct with handle change
        live in chat or even in field / world and prompt?
+    - [] When a user changes their handle, all visible chat messages for each
+         client associated with that handle change should update.
+         (Replace the current message buffer for the client.)
+
   - [-] Swap handle chat location.
   + Done
   - [x] Rewrite a user's messages with `delete-erase-and-forget-me`.
