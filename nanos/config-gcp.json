@@ -3,6 +3,7 @@
   "Files": [
     "package-lock.json",
     "chat.env",
+    "gcp-service-key.json",
     "filter.mjs"
   ],
   "CloudConfig": {
