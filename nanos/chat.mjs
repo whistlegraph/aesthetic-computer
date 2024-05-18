@@ -20,7 +20,7 @@
 // https://console.cloud.google.com/compute/instances?project=aesthetic-computer
 
 import { WebSocketServer, WebSocket } from "ws";
-import { promises as fs, readFileSync } from 'fs';
+import { promises as fs, readFileSync } from "fs";
 
 import http from "http";
 import https from "https";
@@ -136,19 +136,6 @@ async function startChatServer() {
   //   : createClient();
 
   async function subscribe() {
-    // sub
-    //   .subscribe("chat-system", (message) => {
-    //     const parsed = JSON.parse(message);
-    //     console.log("🗼 Received chat from redis:", parsed);
-    //     // everyone(pack(`message`, parsed));
-    //   })
-    //   .then(() => {
-    //     console.log("📚 Subscribed to `chat-system` updates from redis.");
-    //   })
-    //   .catch((err) =>
-    //     console.error("📚 Could not subscribe to `chat-system` updates.", err),
-    //   );
-
     sub
       .subscribe("log", (message) => {
         console.log("🪵️ Received log from redis:", message);
@@ -172,17 +159,18 @@ async function startChatServer() {
       socket: {
         reconnectStrategy: (retries) => {
           console.log(`🔄 ${role} Redis client reconnect attempt: ${retries}`);
-          if (retries < 10) {
-            // Reconnect after this many milliseconds
-            return Math.min(retries * 100, 3000);
-          }
-          return new Error("Maximum number of retries reached");
+          // if (retries < 10) {
+          // Reconnect after this many milliseconds
+          return Math.min(retries * 50, 3000);
+          // }
+          // return new Error("Maximum number of retries reached");
         },
       },
     });
 
     client.on("connect", async () => {
       console.log(`🟢 \`${role}\` Redis client connected successfully.`);
+      if (role === "subscriber") subscribe();
     });
 
     client.on("error", (err) =>
@@ -197,7 +185,6 @@ async function startChatServer() {
 
   try {
     await sub.connect();
-    subscribe();
     await pub.connect();
   } catch (err) {
     console.error("🔴 Could not connect to `redis` instance.", err);
@@ -228,19 +215,25 @@ async function startChatServer() {
       ws.isAlive = true;
     }); // Receive a pong and stay alive!
 
-    console.log( "🔌 New connection:",
+    console.log(
+      "🔌 New connection:",
       `${id}:${ip}`,
       "Online:",
       wss.clients.size,
       "🫂",
     );
 
-    ws.on("message", async (data) => {
+    ws.on("message", async (data, more) => {
       let msg;
       try {
         msg = JSON.parse(data.toString());
       } catch (err) {
-        console.log("🔴 Failed to parse JSON message...", data);
+        console.log(
+          "🔴 Failed to parse JSON message...",
+          data,
+          data.length,
+          more,
+        );
         return;
       }
 
@@ -480,12 +473,12 @@ async function getLast100MessagesfromMongo() {
       from = "@" + handle;
     } else {
       console.log("🪵 System log:", message);
-      from = message.from;
+      from = message.from || "deleted";
     }
 
     messages.push({
       from,
-      text: filter(message.text),
+      text: filter(message.text) || "message forgotten",
       when: message.when,
     });
   }
