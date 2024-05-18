@@ -136,28 +136,27 @@ async function startChatServer() {
   //   : createClient();
 
   async function subscribe() {
-    sub
-      .subscribe("chat-system", (message) => {
-        const parsed = JSON.parse(message);
-        console.log("🗼 Received chat from redis:", parsed);
-        // everyone(pack(`message`, parsed));
-      })
-      .then(() => {
-        console.log("📚 Subscribed to `chat-system` updates from redis.");
-      })
-      .catch((err) =>
-        console.error("📚 Could not subscribe to `chat-system` updates.", err),
-      );
+    // sub
+    //   .subscribe("chat-system", (message) => {
+    //     const parsed = JSON.parse(message);
+    //     console.log("🗼 Received chat from redis:", parsed);
+    //     // everyone(pack(`message`, parsed));
+    //   })
+    //   .then(() => {
+    //     console.log("📚 Subscribed to `chat-system` updates from redis.");
+    //   })
+    //   .catch((err) =>
+    //     console.error("📚 Could not subscribe to `chat-system` updates.", err),
+    //   );
 
     sub
       .subscribe("log", (message) => {
+        console.log("🪵️ Received log from redis:", message);
         const parsed = JSON.parse(message);
-        console.log("🪵️ Received log from redis:", parsed);
-
         messages.push(parsed);
         if (messages.length > 100) messages.shift();
-
         everyone(pack(`message`, parsed));
+        notify("system 💬", parsed.text); // Push notification.
       })
       .then(() => {
         console.log("🪵 Subscribed to `log` updates from redis.");
@@ -229,8 +228,7 @@ async function startChatServer() {
       ws.isAlive = true;
     }); // Receive a pong and stay alive!
 
-    console.log(
-      "🔌 New connection:",
+    console.log( "🔌 New connection:",
       `${id}:${ip}`,
       "Online:",
       wss.clients.size,
@@ -242,7 +240,7 @@ async function startChatServer() {
       try {
         msg = JSON.parse(data.toString());
       } catch (err) {
-        console.log("🔴 Failed to parse JSON message...", data.toString());
+        console.log("🔴 Failed to parse JSON message...", data);
         return;
       }
 
@@ -487,7 +485,6 @@ async function getLast100MessagesfromMongo() {
 
     messages.push({
       from,
-      // handle: "@" + handle,
       text: filter(message.text),
       when: message.when,
     });

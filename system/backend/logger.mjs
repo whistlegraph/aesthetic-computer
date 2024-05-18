@@ -15,7 +15,7 @@ function link(db, kv) {
 
 async function log(text, from = "system") {
   if (!database || !KeyValue) {
-    console.erroer("⚠️🪵 Could not log:", from, text);
+    console.error("⚠️🪵 Could not log:", from, text);
     return;
   }
 
