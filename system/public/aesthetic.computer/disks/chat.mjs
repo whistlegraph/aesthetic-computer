@@ -176,7 +176,19 @@ async function boot({
 }
 
 function paint(
-  { api, ink, wipe, screen, leaving, chat, mask, unmask, geo: { Box }, handle },
+  {
+    api,
+    ink,
+    wipe,
+    screen,
+    leaving,
+    chat,
+    mask,
+    unmask,
+    geo: { Box },
+    handle,
+    typeface,
+  },
   options,
 ) {
   if (!options?.embedded) wipe(100, 100, 145);
@@ -259,21 +271,6 @@ function paint(
   }
 
   // Interface
-
-  inputBtn.box = new Box(
-    0,
-    screen.height - bottomMargin + 2,
-    screen.width / 2 - 1,
-    bottomMargin - 2,
-  );
-
-  handleBtn.box = new Box(
-    screen.width / 2,
-    screen.height - bottomMargin + 2,
-    screen.width / 2 - 1,
-    bottomMargin - 2,
-  );
-
   ink(90, 200, 150, 48)
     .line(0, topMargin, screen.width, topMargin)
     .line(
@@ -283,23 +280,52 @@ function paint(
       screen.height - bottomMargin + 2,
     );
 
-  inputBtn.paint((btn) => {
-    if (btn.down) {
-      ink("lime", btn.down && btn.over ? 128 : 64).box(btn.box);
-    }
-  });
-
-  handleBtn.paint((btn) => {
-    if (btn.down) {
-      ink("yellow", btn.down && btn.over ? 128 : 64).box(btn.box);
-    }
-  });
-
   if (!chat.connecting) {
-    ink(220).write("Enter message...", {
+    const currentHandle = handle();
+    const msg = currentHandle || "nohandle";
+
+    ink(0).write(msg, { bottom: 10 - 1, left: leftMargin - 1 });
+
+    const color = currentHandle ? "lime" : "red";
+
+    ink(handleBtn.down ? "white" : color).write(msg, {
+      bottom: 10,
       left: leftMargin,
+    });
+
+    const charW = typeface.glyphs[0].resolution[0];
+    const handleWidth = msg.length * charW;
+
+    ink(inputBtn.down ? "yellow" : 220).write("Enter message...", {
+      left: leftMargin + handleWidth + charW,
       bottom: 10,
     });
+
+    handleBtn.btn.box = new Box(
+      0,
+      screen.height - bottomMargin + 2,
+      handleWidth + charW - 1,
+      bottomMargin - 2,
+    );
+
+    // handleBtn.paint((btn) => {
+    //   if (btn.down) {
+    //     ink("yellow", btn.down && btn.over ? 128 : 64).box(btn.box);
+    //   }
+    // });
+
+    inputBtn.btn.box = new Box(
+      leftMargin + handleWidth,
+      screen.height - bottomMargin + 2,
+      screen.width - leftMargin - handleWidth,
+      bottomMargin - 2,
+    );
+
+    //inputBtn.paint((btn) => {
+    //if (btn.down) {
+    //  ink("lime", btn.down && btn.over ? 128 : 64).box(btn.box);
+    //}
+    //});
 
     if (!input.canType) {
       ink(160).write("Online: " + chat.chatterCount, {
@@ -324,11 +350,6 @@ function paint(
       { right: 6, top: 6 },
     );
   }
-
-  const currentHandle = handle();
-  const msg = currentHandle || "no handle";
-  ink(0).write(msg, { bottom: 10 - 1, right: 6 - 1 });
-  ink(currentHandle ? "lime" : "red").write(msg, { bottom: 10, right: 6 });
 }
 
 function act({ api, event: e, hud, piece, send, handle, store, jump }) {
