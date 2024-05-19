@@ -24,9 +24,12 @@ import { promises as fs, readFileSync } from "fs";
 
 import http from "http";
 import https from "https";
+import { URL } from "url";
+import { StringDecoder } from "string_decoder";
+
 import { filter } from "./filter.mjs"; // Profanity filtering.
 
-import { createClient } from "redis"; // Redis
+// import { createClient } from "redis"; // Redis
 import { MongoClient } from "mongodb"; // MongoDB
 // FCM (Firebase Cloud Messaging)
 
@@ -87,7 +90,7 @@ let server,
 const MONGODB_CONNECTION_STRING = process.env.MONGODB_CONNECTION_STRING;
 const MONGODB_NAME = process.env.MONGODB_NAME;
 // const GCM_FIREBASE_CONFIG_URL = process.env.GCM_FIREBASE_CONFIG_URL;
-const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
+// const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
 
 let client, db;
 
@@ -97,11 +100,62 @@ const messages = [];
 await getLast100MessagesfromMongo();
 // Retrieve the last 100 messages and then buffer in the new ones.
 
-// The main HTTP route.
-const request = (req, res) => {
-  const domain = req.headers.host; // Get the domain from the request
-  res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
-  res.end(`😱 Aesthetic Computer\nHost: <mark>${domain}</mark>`);
+// 🛑 The main HTTP route.
+const request = async (req, res) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const pathname = url.pathname;
+  const method = req.method.toUpperCase();
+
+  if (method === "POST" && pathname === "/log") {
+    // Handle POST request to /log 🪵
+    let body = "";
+    const decoder = new StringDecoder("utf-8");
+
+    req.on("data", (chunk) => {
+      body += decoder.write(chunk);
+    });
+
+    req.on("end", () => {
+      body += decoder.end();
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+
+      if (token !== process.env.LOGGER_KEY) {
+        res.writeHead(403, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ status: "error", message: "😇 Forbidden!" }));
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(body);
+        console.log("🪵 Received log data:", parsed);
+
+        messages.push(parsed);
+        if (messages.length > 100) messages.shift();
+        everyone(pack(`message`, parsed));
+        notify("log 🪵", parsed.text); // Push notification.
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({ status: "success", message: "🪵 Log received" }),
+        );
+      } catch (error) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({ status: "error", message: "🪵 Malforned log JSON" }),
+        );
+      }
+    });
+  } else if (method === "GET" && pathname === "/") {
+    // Handle GET request to /
+    const domain = req.headers.host; // Get the domain from the request
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(`😱 Aesthetic Computer\nHost: <mark>${domain}</mark>`);
+  } else {
+    // Catch-all response for other requests
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status: "error", message: "Not Found" }));
+  }
 };
 
 if (dev) {
@@ -125,6 +179,8 @@ server.listen(port, "0.0.0.0", () => {
   startChatServer();
 });
 
+let everyone;
+
 async function startChatServer() {
   // #region 🏬 Redis
   // *** Start up two `redis` clients. (One for subscribing, and for publishing)
@@ -135,63 +191,63 @@ async function startChatServer() {
   //   ? createClient({ url: redisConnectionString })
   //   : createClient();
 
-  let presubscribed = false;
+  //let presubscribed = false;
 
-  async function subscribe() {
-    if (presubscribed) return;
-    presubscribed = true;
-    sub
-      .subscribe("log", (message) => {
-        console.log("🪵️ Received log from redis:", message);
-        const parsed = JSON.parse(message);
-        messages.push(parsed);
-        if (messages.length > 100) messages.shift();
-        everyone(pack(`message`, parsed));
-        notify("system 💬", parsed.text); // Push notification.
-      })
-      .then(() => {
-        console.log("🪵 Subscribed to `log` updates from redis.");
-      })
-      .catch((err) => {
-        console.error("🪵 Could not subscribe to `log` updates.", err);
-        presubscribed = false;
-      });
-  }
+  //async function subscribe() {
+  // if (presubscribed) return;
+  // presubscribed = true;
+  // sub
+  //   .subscribe("log", (message) => {
+  //     console.log("🪵️ Received log from redis:", message);
+  //     const parsed = JSON.parse(message);
+  //     messages.push(parsed);
+  //     if (messages.length > 100) messages.shift();
+  //     everyone(pack(`message`, parsed));
+  //     notify("system 💬", parsed.text); // Push notification.
+  //   })
+  //   .then(() => {
+  //     console.log("🪵 Subscribed to `log` updates from redis.");
+  //   })
+  //   .catch((err) => {
+  //     console.error("🪵 Could not subscribe to `log` updates.", err);
+  //     presubscribed = false;
+  //   });
+  //}
 
-  const createRedisClient = (role) => {
-    const client = createClient({
-      url: redisConnectionString,
-      socket: {
-        reconnectStrategy: (retries) => {
-          console.log(`🔄 ${role} Redis client reconnect attempt: ${retries}`);
-          return Math.min(retries * 50, 3000);
-        },
-      },
-    });
+  // const createRedisClient = (role) => {
+  //   const client = createClient({
+  //     url: redisConnectionString,
+  //     socket: {
+  //       reconnectStrategy: (retries) => {
+  //         console.log(`🔄 ${role} Redis client reconnect attempt: ${retries}`);
+  //         return Math.min(retries * 50, 3000);
+  //       },
+  //     },
+  //   });
 
-    client.on("connect", async () => {
-      console.log(`🟢 \`${role}\` Redis client connected successfully.`);
-      if (role === "subscriber") subscribe();
-    });
+  //   client.on("connect", async () => {
+  //     console.log(`🟢 \`${role}\` Redis client connected successfully.`);
+  //     // if (role === "subscriber") subscribe();
+  //   });
 
-    client.on("error", (err) => {
-      console.log(`🔴 \`${role}\` Redis client connection failure!`, err);
-      if (role === "subscriber") presubscribed = false;
-    });
+  //   client.on("error", (err) => {
+  //     console.log(`🔴 \`${role}\` Redis client connection failure!`, err);
+  //     // if (role === "subscriber") presubscribed = false;
+  //   });
 
-    return client;
-  };
+  //   return client;
+  // };
 
-  const sub = createRedisClient("subscriber");
-  const pub = createRedisClient("publisher");
+  // const sub = createRedisClient("subscriber");
+  // const pub = createRedisClient("publisher");
 
-  try {
-    await sub.connect();
-    subscribe();
-    await pub.connect();
-  } catch (err) {
-    console.error("🔴 Could not connect to `redis` instance.", err);
-  }
+  //try {
+  // await sub.connect();
+  // subscribe();
+  // await pub.connect();
+  //} catch (err) {
+  //  console.error("🔴 Could not connect to `redis` instance.", err);
+  //}
   // #endregion
 
   const wss = new WebSocketServer({ server });
@@ -399,11 +455,11 @@ async function startChatServer() {
   );
 
   // Sends a message to all connected clients.
-  function everyone(string) {
+  everyone = (string) => {
     wss.clients.forEach((c) => {
       if (c?.readyState === WebSocket.OPEN) c.send(string);
     });
-  }
+  };
 }
 
 // ⚙️ Utilities

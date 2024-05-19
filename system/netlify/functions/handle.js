@@ -80,7 +80,7 @@ export async function handler(event, context) {
       await handles.createIndex({ handle: 1 }, { unique: true });
       await KeyValue.connect();
 
-      logger.link(database, KeyValue);
+      await logger.link(database /*, KeyValue*/);
 
       // Insert or update the handle using the `provider|id` key from auth0.
       try {
