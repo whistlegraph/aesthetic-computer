@@ -1630,6 +1630,8 @@ function processMessage(msg) {
     send({ type: "handle", content: HANDLE });
     store["handle:received"] = true;
   }
+  // TODO: Could auto-logout / reload here rather than through "logout" in the
+  //       session sockets: 24.05.19.05.41
 }
 
 $commonApi.broadcast = (msg) => {
