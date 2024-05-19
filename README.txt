@@ -41,13 +41,14 @@ but technically agnostic. (Choose your aesthetic!)
 
 
 *** handle updates in chat ***
-  - [🟠] How to add infinite scroll to message buffer?
-
   - [-] Get system log messages correct with handle change
        live in chat or even in field / world and prompt?
     - [] When a user changes their handle, all visible chat messages for each
          client associated with that handle change should update.
          (Replace the current message buffer for the client.)
+         
+  - [] Ghost mode for hidden / unhandled messages.
+    - [] Ghosted messages should never let user identifiers leave the server.
 
   - [-] Swap handle chat location.
   + Done
