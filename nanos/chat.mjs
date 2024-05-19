@@ -135,7 +135,11 @@ async function startChatServer() {
   //   ? createClient({ url: redisConnectionString })
   //   : createClient();
 
+  let presubscribed = false;
+
   async function subscribe() {
+    if (presubscribed) return;
+    presubscribed = true;
     sub
       .subscribe("log", (message) => {
         console.log("🪵️ Received log from redis:", message);
@@ -148,9 +152,10 @@ async function startChatServer() {
       .then(() => {
         console.log("🪵 Subscribed to `log` updates from redis.");
       })
-      .catch((err) =>
-        console.error("🪵 Could not subscribe to `log` updates.", err),
-      );
+      .catch((err) => {
+        console.error("🪵 Could not subscribe to `log` updates.", err);
+        presubscribed = false;
+      });
   }
 
   const createRedisClient = (role) => {
@@ -159,11 +164,7 @@ async function startChatServer() {
       socket: {
         reconnectStrategy: (retries) => {
           console.log(`🔄 ${role} Redis client reconnect attempt: ${retries}`);
-          // if (retries < 10) {
-          // Reconnect after this many milliseconds
           return Math.min(retries * 50, 3000);
-          // }
-          // return new Error("Maximum number of retries reached");
         },
       },
     });
@@ -173,9 +174,10 @@ async function startChatServer() {
       if (role === "subscriber") subscribe();
     });
 
-    client.on("error", (err) =>
-      console.log(`🔴 \`${role}\` Redis client connection failure!`, err),
-    );
+    client.on("error", (err) => {
+      console.log(`🔴 \`${role}\` Redis client connection failure!`, err);
+      if (role === "subscriber") presubscribed = false;
+    });
 
     return client;
   };
@@ -185,6 +187,7 @@ async function startChatServer() {
 
   try {
     await sub.connect();
+    subscribe();
     await pub.connect();
   } catch (err) {
     console.error("🔴 Could not connect to `redis` instance.", err);
