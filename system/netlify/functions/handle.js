@@ -73,6 +73,8 @@ export async function handler(event, context) {
       const database = await connect(); // 📕 Database
       const handles = database.db.collection("@handles");
 
+      console.log("🏷️ Setting a handle:", handle);
+
       // Make an "handle" index on the @handles collection that forces
       // them all to be unique, (if it doesn't already exist).
       await handles.createIndex({ handle: 1 }, { unique: true });
