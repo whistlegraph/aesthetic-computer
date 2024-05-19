@@ -5,16 +5,23 @@
 //import * as db from "./database.mjs";
 //import * as KeyValue from "./kv.mjs";
 
-let database, KeyValue;
+let database; //, KeyValue;
+const dev = process.env.CONTEXT === "dev";
+let got;
 
 // Link to a preconnected database and redis instance.
-function link(db, kv) {
+async function link(db /*, kv*/) {
   database = db;
-  KeyValue = kv;
+  try {
+    got = (await import("got")).got;
+  } catch (err) {
+    console.log(err);
+  }
+  // KeyValue = kv;
 }
 
-async function log(text, data, from = "system") {
-  if (!database || !KeyValue) {
+async function log(text, data, from = "log") {
+  if (!database) {
     console.error("⚠️🪵 Could not log:", from, text);
     return;
   }
@@ -35,7 +42,28 @@ async function log(text, data, from = "system") {
   const logs = database.db.collection("logs");
   await logs.createIndex({ when: 1 }); // Index for `when`.
   await logs.insertOne({ ...msg }); // Add to database,
-  await KeyValue.pub("log", JSON.stringify(msg)); // & send to subs.
+
+  // TODO: Make a post request to https://localhost:8083 if dev is true
+  //       otherwise make a post request to https://chat-system.aesthetic.computer
+  // This request should include the msg object.
+  const url = dev
+    ? "https://localhost:8083/log"
+    : "https://chat-system.aesthetic.computer/log";
+
+  try {
+    const response = await got.post(url, {
+      json: msg,
+      headers: {
+        Authorization: `Bearer ${process.env.LOGGER_KEY}`,
+      },
+      https: { rejectUnauthorized: !dev },
+    });
+    console.log("Log to `chat-system` successful:", response.body);
+  } catch (error) {
+    console.error("Log to `chat-system` failed:", error.message);
+  }
+
+  // await KeyValue.pub("log", JSON.stringify(msg)); // & send to subs.
 
   // await KeyValue.disconnect();
   // await database.disconnect();
