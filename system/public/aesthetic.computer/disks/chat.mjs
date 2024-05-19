@@ -238,7 +238,7 @@ function paint(
       }
 
       ink("white").write(fullMessage, { x, y }, undefined, screen.width - x);
-      ink(message.from === "system" ? "cyan" : "pink").write(message.from, {
+      ink(message.from === "log" ? "brown" : "pink").write(message.from, {
         x,
         y,
       });
