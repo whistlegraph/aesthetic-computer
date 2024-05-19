@@ -11,6 +11,7 @@ RUN dnf install -y lolcat toilet
 # RUN dnf install -y entr
 RUN dnf install -y iproute
 RUN dnf install -y xclip 
+# RUN dnf install -y golang
 
 # Install 'docker'
 RUN sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
@@ -27,6 +28,10 @@ RUN chsh -s /usr/bin/fish me
 
 # Download and install the Stripe CLI
 RUN curl -sL https://github.com/stripe/stripe-cli/releases/download/v1.19.4/stripe_1.19.4_linux_x86_64.tar.gz | tar xz -C /usr/local/bin
+
+# Install the redli redis CLI
+RUN curl -sL https://github.com/IBM-Cloud/redli/releases/download/v0.13.0/redli_0.13.0_linux_amd64.tar.gz | tar xz -C /usr/local/bin
+RUN mv /usr/local/bin/redli_linux_amd64 /usr/local/bin/redli
 
 # Install mkcert
 RUN curl -L https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64 -o /usr/local/bin/mkcert && \
