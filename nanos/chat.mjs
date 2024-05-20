@@ -106,6 +106,7 @@ const request = async (req, res) => {
   const pathname = url.pathname;
   const method = req.method.toUpperCase();
 
+  // 🪵 Logs
   if (method === "POST" && pathname === "/log") {
     // Handle POST request to /log 🪵
     let body = "";
@@ -130,9 +131,50 @@ const request = async (req, res) => {
         const parsed = JSON.parse(body);
         console.log("🪵 Received log data:", parsed);
 
+        // 🪧🪵 Respond to log.
+
         messages.push(parsed);
+
         if (messages.length > 100) messages.shift();
-        everyone(pack(`message`, parsed));
+
+        // ⚠️
+        // Look through the message buffer and update any handles
+        // that could be changed by this log.
+        // In order words... parse it's "action".
+
+        if (parsed.action) {
+          console.log("🪵 Log action:", parsed.action, "value:", parsed.value);
+          const [object, behavior] = parsed.action.split(":");
+
+          console.log(
+            "⛈️ Action ~ 🤖 Object:",
+            object,
+            "🏃 Behavior:",
+            behavior,
+          );
+
+          if (object === "handle") {
+            // Update handles to subs cache.
+            subsToHandles[parsed.users[0]] = parsed.value;
+
+            // Update messages with new handles.
+            messages.forEach((message) => {
+              if (message.sub === parsed.users[0]) message.from = parsed.value;
+            });
+
+            // TODO: Send an update to the clients.
+            if (behavior === "update") {
+              everyone(
+                pack(parsed.action, {
+                  user: parsed.users[0],
+                  handle: parsed.value,
+                }),
+              );
+            }
+          }
+        }
+
+        everyone(pack(`message`, parsed)); // Send to everyone.
         notify("log 🪵", parsed.text); // Push notification.
 
         res.writeHead(200, { "Content-Type": "application/json" });
@@ -322,7 +364,7 @@ async function startChatServer() {
         }
 
         // 🔐 1. Authorization
-        // 💡️ Maybe this could be cached at some point. 24.04.02.21.30
+        // 💡️ These are cached in a "preAuthorized" section. 
 
         let authorized;
 
@@ -382,7 +424,12 @@ async function startChatServer() {
 
           // Retrieve handle either from cache or MongoDB
           const handle = "@" + (await getHandleFromSub(fromSub));
-          const out = { from: handle, text: filteredText, when: msg.when };
+          const out = {
+            from: handle,
+            text: filteredText,
+            when: msg.when,
+            sub: fromSub,
+          };
           messages.push(out);
           if (messages.length > 100) messages.shift();
 

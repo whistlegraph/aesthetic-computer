@@ -39,14 +39,29 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+  - [***] Fix blanking chat. (Testing)
+
+  - [] Should you be able to chat after logging out via the
+       "Pre-Authorized" array? Seems kinda safe... 24.05.20.20.54
+
+  - [] Fix blanking prompt updates.
+
+  - [] Add profanity filter check to handle creation.
+    - [] Remove "fuck" handle.
+
+  + Done
+  - [x] A successfull login should broadcast to all other thumbnails
+       and trigger a refresh - same with logging out!
+
 *** handle updates in chat ***
-  - [-] Get system log messages correct with handle change
+  - [] Need a fix for users entering chat and entering `song` right
+       away.
+  + Done
+  - [x] Get system log messages correct with handle change
        live in chat or even in field / world and prompt?
-    - [] When a user changes their handle, all visible chat messages for each
+    - [x] When a user changes their handle, all visible chat messages for each
          client associated with that handle change should update.
          (Replace the current message buffer for the client.)
-    - [] Need a fix for users entering chat and entering `song` right
-        away.
   + Done
   - [x] Why are messages going > 100 and doubling up sometimes?
 

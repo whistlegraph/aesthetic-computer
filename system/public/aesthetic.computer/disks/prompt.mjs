@@ -1044,6 +1044,7 @@ async function halt($, text) {
     return true;
   } else if (text === "logout" || text === "bye") {
     net.logout();
+    broadcast("logout:success");
     flashColor = [255, 255, 0, 100]; // Yellow
     makeFlash($);
     return true;

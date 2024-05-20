@@ -20,6 +20,15 @@ async function link(db /*, kv*/) {
   // KeyValue = kv;
 }
 
+// 🚩
+// TODO: Add an "action" field to logs.
+// The action can be "handle:created" or "handle:changed"
+// * This will be stored in the database so it can later
+// be queried.
+// * And read
+// Actions should essentially follow the  create / update / destroy / CRUD model
+// with a colon separating the object for proper parsing on the other end.
+
 async function log(text, data, from = "log") {
   if (!database) {
     console.error("⚠️🪵 Could not log:", from, text);
@@ -38,6 +47,9 @@ async function log(text, data, from = "log") {
   } else {
     msg.users = [];
   }
+
+  if (data.action) msg.action = data.action;
+  if (data.value) msg.value = data.value;
 
   const logs = database.db.collection("logs");
   await logs.createIndex({ when: 1 }); // Index for `when`.
