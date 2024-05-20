@@ -141,6 +141,7 @@ async function boot({
       if (!currentHandle) {
         notice("NO HANDLE", ["red", "yellow"]);
       } else {
+        text = text.trim(); // Remove edge whitespace.
         // Send the chat message.
         chat.server.send(`chat:message`, { text, token, sub: user.sub });
         notice("SENT");
