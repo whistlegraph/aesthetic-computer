@@ -1,5 +1,10 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** night stuff ***
+  - [x] Update bots to gpt-4o
+  - [x] Fix UDP server.
+  - [x] Add some money to OpenAI.
+
 *** sign out / account deletion synchronization ***
   - [x] When a user signs out or deletes their account any other windows should refresh.
 
