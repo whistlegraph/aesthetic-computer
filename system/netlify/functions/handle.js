@@ -79,7 +79,6 @@ export async function handler(event, context) {
       // them all to be unique, (if it doesn't already exist).
       await handles.createIndex({ handle: 1 }, { unique: true });
       await KeyValue.connect();
-
       await logger.link(database /*, KeyValue*/);
 
       // Insert or update the handle using the `provider|id` key from auth0.
@@ -100,18 +99,32 @@ export async function handler(event, context) {
           await logger.log(`hi @${handle}`, { user: user.sub }); // 🪵 Log initial handle creation.
         }
 
-        // Update the redis handle cache...
+        // Update the redis handle <-> userID cache...
         if (existingUser?.handle)
           await KeyValue.del("@handles", existingUser.handle);
 
         await KeyValue.set("@handles", handle, user.sub);
         await KeyValue.set("userIDs", user.sub, handle);
 
-        await KeyValue.disconnect();
+        // 🔥 Publish the new handle association to redis.
+
+        //  - [] `chat` needs to pick this up somehow.
+        //    - [] handle changes from others
+        //    - [] self-handle change from another window
+
+        // ----------------
+        //  - [] `world` needs to pick this up somehow.
+        //    - [] handle changes from others
+        //    - [] self-handle change from another window
+        //  - [] `pond` needs to also do this
+        //    - [] handle changes from others
+        //    - [] self-handle change from another window
+        //  - [] `prompt` also needs to do this
       } catch (error) {
         return respond(500, { message: error });
       } finally {
         await database.disconnect();
+        await KeyValue.disconnect();
       }
       // Successful handle change...
       return respond(200, { handle: body.handle });
