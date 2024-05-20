@@ -81,6 +81,7 @@ async function boot({
 
   // 🟢 Connected...
   chat.connected(() => {
+    console.log("💬 Connected... computing layout!");
     totalScrollHeight = computeMessagesHeight(api);
     chatHeight = computeScrollbarHeight(api);
   });
