@@ -369,6 +369,7 @@ wss.on("connection", (ws, req) => {
       if (!codeChannels[codeChannel]) codeChannels[codeChannel] = new Set();
       codeChannels[codeChannel].add(id);
     } else if (msg.type === "login") {
+      /*
       if (users[id]) return;
       users[id] = msg.content.user.sub;
       sub
@@ -385,7 +386,9 @@ wss.on("connection", (ws, req) => {
             err,
           ),
         );
+        */
     } else if (msg.type === "logout:broadcast:subscribe") {
+      /*
       console.log("Logout broadcast:", msg.type, msg.content);
       pub
         .publish(`logout:broadcast:${msg.content.user.sub}`, "true")
@@ -395,6 +398,7 @@ wss.on("connection", (ws, req) => {
         .catch((error) => {
           log("🙅‍♀️ Error publishing logout:", error);
         });
+        */
     } else if (msg.type === "location:broadcast") {
       // Receive a slug location for this handle.
       if (msg.content.slug !== "*keep-alive*") {

@@ -81,8 +81,22 @@ async function boot({
 
   // 🟢 Connected...
   chat.initialized(() => {
-    ({ totalScrollHeight, chatHeight } = computeScrollbar(api));
+    totalScrollHeight = computeMessagesHeight(api);
+    chatHeight = computeScrollbarHeight(api);
   });
+
+  // Recompute message stack on an update.
+  function addMessageToLayout(msg) {
+    msg.fullMessage = msg.from + " " + msg.text;
+    msg.tb = text.box(
+      msg.fullMessage,
+      { x: leftMargin, y: 0 },
+      screen.width - leftMargin,
+      1,
+      true,
+    );
+    totalScrollHeight += msg.tb.lines.length * lineHeight;
+  }
 
   // 🤖 Runs on every message...
   chat.receiver = (id, type, content) => {
@@ -98,16 +112,25 @@ async function boot({
 
     if (type === "message") {
       const msg = content; // Pre-transformed and stored.
-      msg.fullMessage = msg.from + " " + msg.text;
-      msg.tb = text.box(
-        msg.fullMessage,
-        { x: leftMargin, y: 0 },
-        screen.width - leftMargin,
-        1,
-        true,
-      );
-      totalScrollHeight += msg.tb.lines.length * lineHeight;
+      addMessageToLayout(msg); //
       sound.play(messageSfx);
+      return;
+    }
+
+    if (type === "handle:update") {
+      console.log("❤️‍🔥 Received:", type, content, typeof content);
+
+      let layoutChanged;
+      chat.messages.forEach((message) => {
+        if (message.sub === content.user) {
+          message.from = content.handle;
+          layoutChanged = true;
+        }
+      });
+
+      if (layoutChanged) totalScrollHeight = computeMessagesHeight(api);
+
+      console.log("Handle updated completed for:", content.handle);
       return;
     }
 
@@ -361,7 +384,8 @@ function act({ api, event: e, hud, piece, send, handle, store, jump }) {
   if (e.is("reframed")) {
     const lastScrollHeight = totalScrollHeight;
     const lastScroll = scroll;
-    ({ totalScrollHeight, chatHeight } = computeScrollbar(api));
+    totalScrollHeight = computeMessagesHeight(api);
+    chatHeight = computeScrollbarHeight(api);
     scroll = (lastScroll / lastScrollHeight) * totalScrollHeight;
     boundScroll();
   }
@@ -481,7 +505,7 @@ function boundScroll() {
   }
 }
 
-function computeScrollbar({ text, screen, chat }) {
+function computeMessagesHeight({ text, screen, chat }) {
   let height = 0;
   // Iterate through the messages array.
   for (let i = 0; i < chat.messages.length; i += 1) {
@@ -498,9 +522,9 @@ function computeScrollbar({ text, screen, chat }) {
     message.fullMessage = fullMessage;
     height += tb.lines.length * lineHeight;
   }
-  // console.log("Messages:", chat.messages.length, chat.messages);
-  // console.log("📜 Computed scroll height:", height);
-  // console.log("💻 Screen height:", screen.height);
-  const chatHeight = screen.height - bottomMargin - topMargin + 2;
-  return { totalScrollHeight: height, chatHeight };
+  return height;
+}
+
+function computeScrollbarHeight(api) {
+  return api.screen.height - bottomMargin - topMargin + 2;
 }

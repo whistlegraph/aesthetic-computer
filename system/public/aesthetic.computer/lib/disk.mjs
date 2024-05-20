@@ -352,6 +352,12 @@ function connectToChat() {
         content = msg; // Pass the transformed message.
       }
 
+      // Auto parse handle updates.
+      if (type === "handle:update") {
+        const msg = JSON.parse(content);
+        content = msg;
+      }
+
       if (type === "left") {
         console.log("️✌️ Goodbye:", id);
         chatSystem.chatterCount -= 1;
@@ -1630,9 +1636,19 @@ function processMessage(msg) {
     HANDLE = "@" + msg.split(":").pop();
     send({ type: "handle", content: HANDLE });
     store["handle:received"] = true;
+    return;
   }
-  // TODO: Could auto-logout / reload here rather than through "logout" in the
-  //       session sockets: 24.05.19.05.41
+
+  // Refresh the window if we logged in or out from another tab.
+  if (msg === "login:success" && !USER) {
+    $commonApi.net.refresh();
+    return;
+  }
+
+  if (msg === "logout:success" && USER) {
+    $commonApi.net.refresh(); // 🗒️ This should always be fast enough?
+    return;
+  }
 }
 
 $commonApi.broadcast = (msg) => {
@@ -2903,13 +2919,13 @@ async function load(
               // return;
             }
 
-            if (USER && type === `logout:broadcast:${USER.sub}`) {
-              console.log(
-                "🏃 User logged out, refreshing this page!",
-                USER.sub,
-              );
-              $commonApi.net.refresh();
-            }
+            // if (USER && type === `logout:broadcast:${USER.sub}`) {
+            //   console.log(
+            //     "🏃 User logged out, refreshing this page!",
+            //     USER.sub,
+            //   );
+            //   $commonApi.net.refresh();
+            // }
 
             // 🧚 Ambient cursor (fairies) support.
             // This now runs through UDP.
@@ -2925,7 +2941,7 @@ async function load(
           "wss",
           () => {
             // 🔩 Connected! (Post-connection logic.)
-            if (USER) socket?.send("login", { user: USER });
+            // if (USER) socket?.send("login", { user: USER });
 
             // Broadcast current location.
             if (HANDLE) {
@@ -3699,7 +3715,7 @@ async function makeFrame({ data: { type, content } }) {
     ROOT_PIECE = content.rootPiece;
 
     USER = content.user;
-    if (USER) socket.send("login", { user: USER });
+    // if (USER) socket.send("login", { user: USER });
 
     LAN_HOST = content.lanHost;
     SHARE_SUPPORTED = content.shareSupported;
@@ -3787,7 +3803,7 @@ async function makeFrame({ data: { type, content } }) {
     // console.log("🤩 Session being updated!", content);
     USER = content.user;
     // console.log(USER, socket);
-    if (USER) socket?.send("login", { user: USER });
+    // if (USER) socket?.send("login", { user: USER });
 
     $commonApi.user = USER;
     await handle(); // Get the user's handle.
@@ -3798,6 +3814,8 @@ async function makeFrame({ data: { type, content } }) {
         `👋 Welcome back %c${HANDLE || USER.email}`,
         `color: yellow; background: rgba(10, 20, 40);`,
       );
+      // Broadcast to other tabs...
+      $commonApi.broadcast("login:success");
     }
     return;
   }
