@@ -246,7 +246,10 @@ function paint(
     for (let i = chat.messages.length - 1; i >= 0; i--) {
       const message = chat.messages[i];
 
-      if (!message.tb) continue; // If `tb` is not defined then kill this. 👾
+      if (!message.tb) {
+        console.log("No message tb found for:", message);
+        continue; // If `tb` is not defined then kill this. 👾
+      }
 
       const x = leftMargin;
 
