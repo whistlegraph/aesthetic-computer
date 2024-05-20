@@ -39,19 +39,30 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+  - [] Fix UDP server.
+  - [] Add some money to OpenAI.
 
 *** handle updates in chat ***
+  - [] Why are messages going > 100 and doubling up sometimes?
+      - [] Is it when leaving and re-entering chat?
   - [-] Get system log messages correct with handle change
        live in chat or even in field / world and prompt?
     - [] When a user changes their handle, all visible chat messages for each
          client associated with that handle change should update.
          (Replace the current message buffer for the client.)
-         
+    - [] Need a fix for users entering chat and entering `song` right
+        away.
+
+*** Chat updates. ***
+  - [] iOS chat app refresh doesn't always work / how to know
+       when the page goes stale?
+  - [] Add support for `pix` in chat.
   - [] Ghost mode for hidden / unhandled messages.
     - [] Ghosted messages should never let user identifiers leave the server.
-
-  - [-] Swap handle chat location.
+  - [] System wide handle colorization with tooling.
+         
   + Done
+  - [x] Swap handle chat location.
   - [x] Rewrite a user's messages with `delete-erase-and-forget-me`.
   - [x] Get account deletion / "message deleted" functionality working properly.
   - [x] Any "log" that is created also needs to associate any potential user identifiers, so they can be erased or queried if possible.
@@ -83,10 +94,6 @@ but technically agnostic. (Choose your aesthetic!)
   + Done
   - [x] Add support for secondary ink color in the API and in the 2D renderer.
   - [x] Add support for points in the 2D renderer.
-
-*** Chat updates. ***
-    - [] Add support for `pix` in chat.
-    - [] System wide handle colorization with tooling.
 
 *** general compositing ***        
   - [] the "pause" overlay on windows / high refresh rate is pretty awkward...
