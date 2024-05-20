@@ -80,7 +80,7 @@ async function boot({
   }
 
   // 🟢 Connected...
-  chat.initialized(() => {
+  chat.connected(() => {
     totalScrollHeight = computeMessagesHeight(api);
     chatHeight = computeScrollbarHeight(api);
   });
