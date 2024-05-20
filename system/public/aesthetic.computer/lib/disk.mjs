@@ -334,8 +334,9 @@ function connectToChat() {
         chatSystem.connecting = false;
         console.log("💬 Connected to chat.");
         chatSystem.chatterCount = content?.chatters || chatSystem.chatterCount;
-        // console.log("💬 Messages so far:", content.messages);
+        chatSystem.messages.length = 0;
         chatSystem.messages.push(...content.messages);
+        console.log("💬 Total messages:", chatSystem.messages.length);
         chatSystem.initializedCallback?.();
       }
 
@@ -2903,7 +2904,10 @@ async function load(
             }
 
             if (USER && type === `logout:broadcast:${USER.sub}`) {
-              console.log("🏃 User logged out, refreshing this page!", USER.sub);
+              console.log(
+                "🏃 User logged out, refreshing this page!",
+                USER.sub,
+              );
               $commonApi.net.refresh();
             }
 
