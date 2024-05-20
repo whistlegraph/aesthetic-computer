@@ -321,6 +321,7 @@ const chatSystem = {
       cb();
     }
   },
+  // connectedCallback: undefined // ^ Set above.
 };
 
 function connectToChat() {
