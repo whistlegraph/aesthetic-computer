@@ -32,6 +32,8 @@
 const { max, floor, ceil } = Math;
 
 let input, inputBtn, handleBtn, token;
+let messagesNeedLayout = true;
+const messagesToAddToLayout = [];
 
 const lineHeight = 12,
   topMargin = 22,
@@ -49,7 +51,6 @@ async function boot({
   ui,
   send,
   handle,
-  text,
   notice,
   authorize,
   user,
@@ -80,27 +81,17 @@ async function boot({
   }
 
   // 🟢 Connected...
-  chat.connected(() => {
-    console.log("💬 Connected... computing layout!");
-    totalScrollHeight = computeMessagesHeight(api);
-    chatHeight = computeScrollbarHeight(api);
-  });
-
-  // Recompute message stack on an update.
-  function addMessageToLayout(msg) {
-    msg.fullMessage = msg.from + " " + msg.text;
-    msg.tb = text.box(
-      msg.fullMessage,
-      { x: leftMargin, y: 0 },
-      screen.width - leftMargin,
-      1,
-      true,
-    );
-    totalScrollHeight += msg.tb.lines.length * lineHeight;
-  }
+  // chat.connected(() => {
+  //   console.log("💬 Connected... computing layout!");
+  // });
 
   // 🤖 Runs on every message...
   chat.receiver = (id, type, content) => {
+    if (type === "connected") {
+      messagesNeedLayout = true;
+      return;
+    }
+
     if (type === "too-long") {
       notice("TOO LONG", ["red", "yellow"]);
       return;
@@ -113,7 +104,7 @@ async function boot({
 
     if (type === "message") {
       const msg = content; // Pre-transformed and stored.
-      addMessageToLayout(msg); //
+      messagesToAddToLayout.push(msg);
       sound.play(messageSfx);
       return;
     }
@@ -129,7 +120,7 @@ async function boot({
         }
       });
 
-      if (layoutChanged) totalScrollHeight = computeMessagesHeight(api);
+      if (layoutChanged) messagesNeedLayout = true;
 
       console.log("Handle updated completed for:", content.handle);
       return;
@@ -204,6 +195,7 @@ function paint(
     api,
     ink,
     wipe,
+    text,
     screen,
     leaving,
     chat,
@@ -231,6 +223,25 @@ function paint(
   // Messages
   // Start from the bottom of the screen
   if (!chat.connecting) {
+    if (messagesNeedLayout) {
+      totalScrollHeight = computeMessagesHeight(api);
+      chatHeight = computeScrollbarHeight(api);
+      messagesNeedLayout = false;
+    }
+
+    messagesToAddToLayout.forEach((msg) => {
+      msg.fullMessage = msg.from + " " + msg.text;
+      msg.tb = text.box(
+        msg.fullMessage,
+        { x: leftMargin, y: 0 },
+        screen.width - leftMargin,
+        1,
+        true,
+      );
+      totalScrollHeight += msg.tb.lines.length * lineHeight;
+    });
+    messagesToAddToLayout.length = 0;
+
     let y = screen.height - lineHeight - bottomMargin + scroll;
 
     // Iterate through the messages array backwards, calculating their
