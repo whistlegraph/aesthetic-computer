@@ -10,7 +10,7 @@ const dev = process.env.NODE_ENV !== "development";
 export default async function handler(req) {
   const headers = corsHeaders(req);
   const allowedOrigins = ["https://aesthetic.computer", "https://botce.ac"];
-  const origin = req.headers.get('Origin');
+  const origin = req.headers.get("Origin");
 
   // Allow requests in development environment or if the origin is in the allowed list
   if (dev && !allowedOrigins.includes(origin)) {
@@ -63,7 +63,7 @@ export default async function handler(req) {
       }
 
       // const model = hint.split(":")[1] || "gpt-3.5-turbo";
-      const model = hint.split(":")[1] || "gpt-4-0125-preview";
+      const model = hint.split(":")[1] || "gpt-4o"; // "gpt-4-0125-preview";
 
       if (model.startsWith("gpt-4")) {
         top_p = 1;
