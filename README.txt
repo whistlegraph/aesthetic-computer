@@ -39,17 +39,22 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
-  - [***] Fix blanking chat. (Testing)
+  - [] Add profanity filter check to handle creation.
+    - [] Remove "fuck" handle.
 
   - [] Should you be able to chat after logging out via the
        "Pre-Authorized" array? Seems kinda safe... 24.05.20.20.54
 
+  - [] Add hourglass to "Connecting..." in chat, and maybe don't
+       blank the screen so crazy?
+       
+  - [] Make sure the handle always shows and not the Create handle
+       button so long as the user is logged in... this could be done
+       by retrieving the handle in auth0.
   - [] Fix blanking prompt updates.
 
-  - [] Add profanity filter check to handle creation.
-    - [] Remove "fuck" handle.
-
   + Done
+  - [x] Fix blanking chat.
   - [x] A successfull login should broadcast to all other thumbnails
        and trigger a refresh - same with logging out!
 

@@ -314,9 +314,9 @@ const chatSystem = {
   //              like `chat` to get the events.
   // disconnect: // A custom disconnection that triggers below.
   connecting: true,
-  initialized: (cb) => {
+  connected: (cb) => {
     if (!chatSystem.server.connected) {
-      chatSystem.initializedCallback = cb;
+      chatSystem.connectedCallback = cb;
     } else {
       cb();
     }
@@ -332,12 +332,12 @@ function connectToChat() {
       // receive
       if (type === "connected") {
         chatSystem.connecting = false;
-        console.log("💬 Connected to chat.");
+        console.log("💬 Connected to chat.", content);
         chatSystem.chatterCount = content?.chatters || chatSystem.chatterCount;
         chatSystem.messages.length = 0;
         chatSystem.messages.push(...content.messages);
-        console.log("💬 Total messages:", chatSystem.messages.length);
-        chatSystem.initializedCallback?.();
+        console.log("💬 Total messages:", chatSystem.messages);
+        chatSystem.connectedCallback?.();
       }
 
       if (type === "unauthorized") {
