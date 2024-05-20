@@ -53,11 +53,15 @@ export async function handler(event, context) {
 
   // A POST request to set the handle.
 
+  console.log("Posting handle...");
+
   // Parse the body of the HTTP request
   let body;
   try {
     // Make sure we have a username present to set.
     body = JSON.parse(event.body);
+
+    console.log("Parsed:", body);
 
     const handle = body.handle;
 
@@ -66,11 +70,20 @@ export async function handler(event, context) {
       return respond(400, { message: "Bad handle formatting." });
     }
 
+    console.log("Handle valid... authorizing user...");
+
     // And that we are logged in...
     const user = await authorize(event.headers);
+
     if (user && user.email_verified) {
+      console.log("User authorized?", user);
+
       // 🔑 We are logged in!
+
+      console.log("🤖 Connecting to MongoDB...");
       const database = await connect(); // 📕 Database
+      console.log("🤖 Connected...");
+
       const handles = database.db.collection("@handles");
 
       console.log("🏷️ Setting a handle:", handle);
@@ -92,11 +105,17 @@ export async function handler(event, context) {
           await handles.updateOne({ _id: user.sub }, { $set: { handle } });
           await logger.log(`@${existingUser.handle} is now @${handle}`, {
             user: user.sub,
+            action: "handle:update",
+            value: handle,
           }); // 🪵
         } else {
           // Add a new `@handles` document for this user.
           await handles.insertOne({ _id: user.sub, handle });
-          await logger.log(`hi @${handle}`, { user: user.sub }); // 🪵 Log initial handle creation.
+          await logger.log(`hi @${handle}`, {
+            user: user.sub,
+            action: "handle:create",
+            value: handle,
+          }); // 🪵 Log initial handle creation.
         }
 
         // Update the redis handle <-> userID cache...
@@ -107,9 +126,10 @@ export async function handler(event, context) {
         await KeyValue.set("userIDs", user.sub, handle);
 
         // 🔥 Publish the new handle association to redis.
-        //  - [] `chat` needs to pick this up somehow.
+        //  - [x] `chat` needs to pick this up somehow.
+        //    - [🧡] self-handle change from another window
         //    - [] handle changes from others
-        //    - [] self-handle change from another window
+
         // ----------------
         //  - [] `world` needs to pick this up somehow.
         //    - [] handle changes from others

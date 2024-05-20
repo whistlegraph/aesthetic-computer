@@ -1,0 +1,24 @@
+{
+  "Dirs": ["node_modules", "ssl"],
+  "Files": [
+    "package-lock.json",
+    "chat.env",
+    "gcp-service-key.json",
+    "filter.mjs"
+  ],
+  "CloudConfig": {
+    "Platform": "gcp",
+    "ProjectID": "aesthetic-computer",
+    "Zone": "us-west1-a",
+    "BucketName": "aesthetic-nanos"
+  },
+  "RunConfig": {
+    "Memory": "1G",
+    "Ports": ["8083", "80", "443"],
+    "UDPPorts": ["60", "70-80", "6006"],
+    "Verbose": true,
+    "Bridged": true,
+    "TapName": "tap1",
+    "BridgeName": "br1"
+  }
+}
