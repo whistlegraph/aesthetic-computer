@@ -39,12 +39,7 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
-  - [] Fix UDP server.
-  - [] Add some money to OpenAI.
-
 *** handle updates in chat ***
-  - [] Why are messages going > 100 and doubling up sometimes?
-      - [] Is it when leaving and re-entering chat?
   - [-] Get system log messages correct with handle change
        live in chat or even in field / world and prompt?
     - [] When a user changes their handle, all visible chat messages for each
@@ -52,6 +47,8 @@ but technically agnostic. (Choose your aesthetic!)
          (Replace the current message buffer for the client.)
     - [] Need a fix for users entering chat and entering `song` right
         away.
+  + Done
+  - [x] Why are messages going > 100 and doubling up sometimes?
 
 *** Chat updates. ***
   - [] iOS chat app refresh doesn't always work / how to know

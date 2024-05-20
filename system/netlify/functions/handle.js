@@ -107,11 +107,9 @@ export async function handler(event, context) {
         await KeyValue.set("userIDs", user.sub, handle);
 
         // 🔥 Publish the new handle association to redis.
-
         //  - [] `chat` needs to pick this up somehow.
         //    - [] handle changes from others
         //    - [] self-handle change from another window
-
         // ----------------
         //  - [] `world` needs to pick this up somehow.
         //    - [] handle changes from others
