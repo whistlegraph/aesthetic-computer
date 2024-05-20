@@ -378,7 +378,7 @@ function connectToChat() {
     undefined, // connectionCallback
     () => {
       // disconnectCallback
-      console.log("🔌 Disconnected!");
+      console.log("💬🚫 Chat disconnected.");
       chatSystem.chatterCount = 0;
       chatSystem.connecting = true;
       chatSystem.disconnect?.();
