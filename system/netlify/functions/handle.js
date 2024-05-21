@@ -106,7 +106,7 @@ export async function handler(event, context) {
           await logger.log(`@${existingUser.handle} is now @${handle}`, {
             user: user.sub,
             action: "handle:update",
-            value: handle,
+            value: "@" + handle,
           }); // 🪵
         } else {
           // Add a new `@handles` document for this user.
@@ -114,7 +114,7 @@ export async function handler(event, context) {
           await logger.log(`hi @${handle}`, {
             user: user.sub,
             action: "handle:create",
-            value: handle,
+            value: "@" + handle,
           }); // 🪵 Log initial handle creation.
         }
 
