@@ -38,7 +38,6 @@ but technically agnostic. (Choose your aesthetic!)
 😀 TODO 😆
 
 🌟 Projects in Progress (PIP) 🌟
-  - [🟠] Test hourglass in chat via `hiccup` command.
   - [-] Add profanity filter check to handle creation.
     - [] Remove "fuck" handle.
   - [] Should you be able to chat after logging out via the
@@ -56,6 +55,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [] Auto-link handles and single quoted words.
   - [] color coded words in chat via kidlisp / how to integrate kidlisp?
   + Done
+  - [x] Test hourglass in chat via `hiccup` command.
   - [x] Add hourglass to "Connecting..." in chat, and maybe don't
        blank the screen so crazy?
        - [x] Add the same Hourglass to "Enter message..." as well.
