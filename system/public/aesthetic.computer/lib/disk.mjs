@@ -298,6 +298,7 @@ let booted = false;
 // let initialSim = true;
 let noPaint = false;
 let labelBack = false;
+let hiccupTimeout; // Prevent multiple hiccups from being triggered at once.
 
 let storeRetrievalResolution, storeDeletionResolution;
 
@@ -392,13 +393,14 @@ let udp = {
       }
       udpReceive?.(content);
     },
-    kill: () => {
+    kill: (outageSeconds) => {
       udp.connected = false;
-      send({ type: "udp:disconnect" });
+      send({ type: "udp:disconnect", content: { outageSeconds } });
     },
     connected: false,
   },
   udpReceive = undefined;
+
 let scream = null; // 😱 Allow priviledged users to send alerts to everyone.
 //                       (A great end<->end socket + redis test.)
 let screaming = false;
@@ -1600,6 +1602,16 @@ const $commonApi = {
     udp: (receive) => {
       udpReceive = receive;
       return udp;
+    },
+    hiccup: (hiccupIn = 5, outageSeconds = 5) => {
+      console.log("😵 Hiccuping in:", hiccupIn, "seconds.");
+      clearTimeout(hiccupTimeout);
+      hiccupTimeout = setTimeout(() => {
+        console.log("😶‍🌫️ Hiccup!");
+        chatSystem?.server.kill(outageSeconds); // Disconnect from chat.
+        socket?.kill(outageSeconds); // Diconnect from socket session.
+        udp?.kill(outageSeconds); // Disconnect from UDP.
+      }, hiccupIn * 1000);
     },
   },
   needsPaint: () => {

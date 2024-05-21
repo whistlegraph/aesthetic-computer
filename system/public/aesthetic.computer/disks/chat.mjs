@@ -41,6 +41,7 @@ const lineHeight = 12,
   leftMargin = 6;
 
 let messageSfx;
+let ellipsisTicker;
 
 let scroll = 0,
   totalScrollHeight,
@@ -51,6 +52,7 @@ async function boot({
   ui,
   send,
   handle,
+  gizmo,
   notice,
   authorize,
   user,
@@ -141,7 +143,7 @@ async function boot({
       if (!currentHandle) {
         notice("NO HANDLE", ["red", "yellow"]);
       } else {
-        text = text.trim(); // Remove edge whitespace.
+        text = text.replace(/\s+$/, ""); // Trim trailing whitespace.
         // Send the chat message.
         chat.server.send(`chat:message`, { text, token, sub: user.sub });
         notice("SENT");
@@ -188,6 +190,9 @@ async function boot({
     screen.width / 2 - 1,
     bottomMargin - 2,
   );
+
+  ellipsisTicker = new gizmo.EllipsisTicker();
+
   send({ type: "keyboard:soft-lock" });
 }
 
@@ -204,6 +209,7 @@ function paint(
     unmask,
     geo: { Box },
     handle,
+    help,
     typeface,
   },
   options,
@@ -219,7 +225,10 @@ function paint(
     .line(x - gap, y, x - gap + 3, y - 3) // Top of arrow.
     .line(x - gap, y, x - gap + 3, y + 3); // Bottom of arrow.
 
-  if (chat.connecting) ink("pink").write("Connecting...", { center: "xy" });
+  if (chat.connecting)
+    ink("pink").write("Connecting" + ellipsisTicker.text(help.repeat), {
+      center: "xy",
+    });
 
   // Messages
   // Start from the bottom of the screen
@@ -335,7 +344,7 @@ function paint(
     const charW = typeface.glyphs[0].resolution[0];
     const handleWidth = msg.length * charW;
 
-    ink(inputBtn.down ? "yellow" : 220).write("Enter message...", {
+    ink(inputBtn.down ? "yellow" : 220).write("Enter message" + ellipsisTicker.text(help.repeat), {
       left: leftMargin + handleWidth + charW,
       bottom: 10,
     });
@@ -383,7 +392,7 @@ function paint(
     });
 
     // Character limit.
-    const len = 64;
+    const len = 96;
     ink(input.text.length > len ? "red" : "gray").write(
       `${input.text.length}/${len}`,
       { right: 6, top: 6 },
@@ -503,6 +512,7 @@ function act({ api, event: e, hud, piece, send, handle, store, jump }) {
 
 function sim({ api }) {
   input.sim(api); // 💬 Chat
+  ellipsisTicker?.sim();
 }
 
 // function leave() {
