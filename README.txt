@@ -38,54 +38,42 @@ but technically agnostic. (Choose your aesthetic!)
 😀 TODO 😆
 
 🌟 Projects in Progress (PIP) 🌟
-
-  - [] Add profanity filter check to handle creation.
-    - [] Remove "fuck" handle.
-
-  - [] Should you be able to chat after logging out via the
-       "Pre-Authorized" array? Seems kinda safe... 24.05.20.20.54
-
+  - [🟠] Increase chat character limit to 96.
+  - [] only trim whitespace at the end of messages. 
   - [] Add hourglass to "Connecting..." in chat, and maybe don't
        blank the screen so crazy?
-       
+       - [] Add the same Hourglass to "Enter message..." as well.
+       - [] Add a way to force disconnection for N seconds, perhaps
+            via a debug shortcut?
+  - [] Add profanity filter check to handle creation.
+    - [] Remove "fuck" handle.
+  - [] Should you be able to chat after logging out via the
+       "Pre-Authorized" array? Seems kinda safe... 24.05.20.20.54
   - [] Make sure the handle always shows and not the Create handle
        button so long as the user is logged in... this could be done
        by retrieving the handle in auth0.
   - [] Fix blanking prompt updates.
-
+  - [] Separate README from TODO and make TODO visible in the system to help
+       the conversation along.
+       - [] Give chat messages a UUID / reference number so they can be
+            linked in the TODO. Technically this can be a time window query that
+            is something like `🗨️:system:56262-72837` for a range or just an
+            exact / closest match if a single integer is given.
+  - [] Auto-link handles and single quoted words.
   + Done
+  - [x] Better handle rendering after change (add the "@");
   - [x] Fix blanking chat.
   - [x] A successfull login should broadcast to all other thumbnails
        and trigger a refresh - same with logging out!
 
-*** handle updates in chat ***
-  - [] Need a fix for users entering chat and entering `song` right
-       away.
-  + Done
-  - [x] Get system log messages correct with handle change
-       live in chat or even in field / world and prompt?
-    - [x] When a user changes their handle, all visible chat messages for each
-         client associated with that handle change should update.
-         (Replace the current message buffer for the client.)
-  + Done
-  - [x] Why are messages going > 100 and doubling up sometimes?
-
-*** Chat updates. ***
-  - [] iOS chat app refresh doesn't always work / how to know
-       when the page goes stale?
-  - [] Add support for `pix` in chat.
-  - [] Ghost mode for hidden / unhandled messages.
-    - [] Ghosted messages should never let user identifiers leave the server.
-  - [] System wide handle colorization with tooling.
-         
-  + Done
-  - [x] Swap handle chat location.
-  - [x] Rewrite a user's messages with `delete-erase-and-forget-me`.
-  - [x] Get account deletion / "message deleted" functionality working properly.
-  - [x] Any "log" that is created also needs to associate any potential user identifiers, so they can be erased or queried if possible.
-  - [x] Send a message to the chat whenever a new handle is registered for
-       the first time, and a different message whenever a handle changes...
-    - [x] I suppose this would work via redis broadcasts?
+*** more chat updates ***
+  - [] add a "system update" notifier based on commits - i should be able
+       to tag a commit or decide somehow if a log would be sent or not?
+  - [] live updates of recent chat messages on prompt page 
+  - [] prompt can enter a showdy "prompt standyby" chat mode.
+  - [] smoother progressive loading animation that visualizes the loading process on the checkerboard
+  - [] entering and leaving chat need to go in the log
+  - [] what about entering and leaving anywhere?
 
 *** profile.lisp ***
   - [-] Make new profile page with redirects for no handle.
@@ -99,6 +87,32 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] entering "profile" or "me" while logged out or not signed up
         will flash "not logged in" and close keyboard, revealing login and
         signup buttons
+
+*** list improvements ***
+  - [] Categorize the "list" items / revisit list a bit.
+
+*** selfnotif handling ***
+  - [] Don't send notifications to that particular user right after closing the app / just disable all "self-sent" notifications somehow.
+
+*** Chat updates. ***
+  - [❗] Need a fix for users entering chat and entering `song` right
+       away / chat prompt inter-op ui.
+  - [] iOS chat app refresh doesn't always work / how to know
+       when the page goes stale?
+  - [] Add support for `pix` in chat.
+  - [] Add `log` sound.
+  - [] Add `bgm` visualizer to chat.
+  - [] Tappable messages with context menu and deletion.
+  - [] Smooth scrolling.
+  - [] Infinite scrolling / fetching.
+  + Done
+  - [x] Swap handle chat location.
+  - [x] Rewrite a user's messages with `delete-erase-and-forget-me`.
+  - [x] Get account deletion / "message deleted" functionality working properly.
+  - [x] Any "log" that is created also needs to associate any potential user identifiers, so they can be erased or queried if possible.
+  - [x] Send a message to the chat whenever a new handle is registered for
+       the first time, and a different message whenever a handle changes...
+    - [x] I suppose this would work via redis broadcasts?
 
 *** webgl2 rasterizer (`graphics`) ***
   - [*] Fix line plot inconsistency / understand it better.
@@ -116,9 +130,6 @@ but technically agnostic. (Choose your aesthetic!)
   - [] the "pause" overlay on windows / high refresh rate is pretty awkward...
   - [] resizing is also weird - could these be related?
 
-*** webgpu rasterizer ***
-  - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
-
 *** kid-lisp ***
   - [] Support refreshing and showing of source code in (...) pieces.
     - [] Be able to run and then remodify last run code...
@@ -131,6 +142,16 @@ but technically agnostic. (Choose your aesthetic!)
       `export const smoothing = "linear"`
       `export const smoothing = "curve"`
   - [] Rewrite artur's brush in the kidlisp graphical editor.
+
+*** Chat modes + Colorization ***
+  - [] Brushes in chat.
+  - [] Playing as...
+  - [] Ghost mode for hidden / unhandled messages.
+    - [] Ghosted messages should never let user identifiers leave the server.
+  - [] System wide handle colorization with tooling.
+
+*** webgpu rasterizer ***
+  - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md
 
 *** performance speed ***
   - [🏃] Make /prompt load faster than 0.3s in production.

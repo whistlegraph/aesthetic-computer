@@ -110,7 +110,7 @@ async function boot({
     }
 
     if (type === "handle:update") {
-      console.log("❤️‍🔥 Received:", type, content, typeof content);
+      console.log("👱️‍ `handle` update received:", type, content);
 
       let layoutChanged;
       chat.messages.forEach((message) => {
