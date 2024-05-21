@@ -1262,6 +1262,10 @@ async function halt($, text) {
   } else if (ordfish[text] || text.split(" ") === "of") {
     jump(`ordfish~${text}`);
     return true;
+  } else if (text.startsWith("hiccup")) {
+    // Disconnect from socket server, chat, and udp in 5 seconds...
+    net.hiccup();
+    return true;
   } else {
     // 🟠 Local and remote pieces...
 

@@ -3,7 +3,6 @@
 // POST: Allows a logged in user to set their social `@handle`. (via MongoDB)
 
 /* #region 🏁 TODO 
-  - [x] Abstract MongoDB into an included header for other api calls.
 #endregion */
 
 import { authorize, handleFor } from "../../backend/authorization.mjs";
@@ -60,8 +59,6 @@ export async function handler(event, context) {
   try {
     // Make sure we have a username present to set.
     body = JSON.parse(event.body);
-
-    console.log("Parsed:", body);
 
     const handle = body.handle;
 

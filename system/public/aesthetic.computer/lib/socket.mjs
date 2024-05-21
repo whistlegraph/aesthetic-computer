@@ -104,9 +104,14 @@ export class Socket {
   }
 
   // Kills the socket permanently.
-  kill() {
-    this.#killSocket = true;
-    clearTimeout(this.#reconnectTimeout);
+  kill(reconnectIn) {
+    if (!reconnectIn) {
+      this.#killSocket = true;
+      clearTimeout(this.#reconnectTimeout);
+    } else {
+      this.#reconnectTime = reconnectIn * 1000;
+      console.log("🧦 Reconnecting in:", this.#reconnectTime, "seconds.");
+    }
     this.#ws?.close();
   }
 
@@ -154,9 +159,7 @@ export class Socket {
       }
     } else if (type === "left") {
       if (logs.session)
-        console.log(
-          `🧦 ${id} has left. Connections open: ${content.count}`,
-        );
+        console.log(`🧦 ${id} has left. Connections open: ${content.count}`);
       receive?.(id, type, content);
     } else {
       try {
