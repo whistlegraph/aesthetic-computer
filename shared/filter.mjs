@@ -21,8 +21,14 @@ const aestheticDataset = new DataSet()
     phrase
       .setMetadata({ originalWord: "beaner" })
       .addPattern(pattern`bean er`)
-      .addPattern(pattern`beaner`),
-  );
+      .addPattern(pattern`beaner`)
+  )
+  .addPhrase((phrase) =>
+    phrase
+      .setMetadata({ originalWord: "n!gger" })
+      .addPattern(pattern`n!gger`)
+      .addPattern(pattern`n!gger`)
+      );
 
 const matcher = new RegExpMatcher({
   ...aestheticDataset.build(),
