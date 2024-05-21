@@ -353,7 +353,7 @@ async function startChatServer() {
       if (msg.type === "chat:message") {
         // TODO: ❤️‍🔥 Add rate-limiting / maybe quit here if needed.
         // 🧶 Length limiting.
-        const len = 64;
+        const len = 96;
         if (msg.content.text.length > len) {
           ws.send(
             pack("too-long", {

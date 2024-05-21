@@ -9,9 +9,10 @@ import { logs } from "./logs.mjs";
 
 // 📓 geckos docs: https://github.com/geckosio/geckos.io
 
-const RECONNECT_START_TIME = 500; // Gets doubled on subsequent attempts.
+const DEFAULT_RECONNECT_IN = 500; // Gets doubled on subsequent attempts.
+let reconnectIn = DEFAULT_RECONNECT_IN; // Gets doubled on subsequent attempts.
 let channel, reconnectingTimeout;
-let reconnectTime = RECONNECT_START_TIME;
+let reconnectTime = reconnectIn;
 // const debug = window.acDEBUG;
 
 let connected = false;
@@ -45,7 +46,8 @@ function connect(port = 8889, url = undefined, send) {
     }
 
     console.log("🩰 Connected to UDP:", channel.url);
-    reconnectTime = RECONNECT_START_TIME;
+    reconnectIn = DEFAULT_RECONNECT_IN;
+    reconnectTime = reconnectIn;
     send({ type: "udp:connected" });
     connected = true;
 
@@ -73,8 +75,12 @@ function connect(port = 8889, url = undefined, send) {
 
 export const UDP = {
   connect,
-  disconnect: () => {
-    dontreconnect = true;
+  disconnect: (connectIn) => {
+    if (!connectIn) {
+      dontreconnect = true;
+    } else {
+      reconnectIn = connectIn * 1000;
+    }
     if (connected) channel.close();
   },
   send: ({ type, content }) => {

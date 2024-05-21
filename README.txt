@@ -38,14 +38,8 @@ but technically agnostic. (Choose your aesthetic!)
 😀 TODO 😆
 
 🌟 Projects in Progress (PIP) 🌟
-  - [🟠] Increase chat character limit to 96.
-  - [] only trim whitespace at the end of messages. 
-  - [] Add hourglass to "Connecting..." in chat, and maybe don't
-       blank the screen so crazy?
-       - [] Add the same Hourglass to "Enter message..." as well.
-       - [] Add a way to force disconnection for N seconds, perhaps
-            via a debug shortcut?
-  - [] Add profanity filter check to handle creation.
+  - [🟠] Test hourglass in chat via `hiccup` command.
+  - [-] Add profanity filter check to handle creation.
     - [] Remove "fuck" handle.
   - [] Should you be able to chat after logging out via the
        "Pre-Authorized" array? Seems kinda safe... 24.05.20.20.54
@@ -60,7 +54,15 @@ but technically agnostic. (Choose your aesthetic!)
             is something like `🗨️:system:56262-72837` for a range or just an
             exact / closest match if a single integer is given.
   - [] Auto-link handles and single quoted words.
+  - [] color coded words in chat via kidlisp / how to integrate kidlisp?
   + Done
+  - [x] Add hourglass to "Connecting..." in chat, and maybe don't
+       blank the screen so crazy?
+       - [x] Add the same Hourglass to "Enter message..." as well.
+  - [x] Add a prompt cmd to force disconnection for N, in N seconds seconds, perhaps
+      via a debug only shortcut? Call it a `hiccup` command?
+  - [x] Only trim whitespace at the end of messages. 
+  - [x] Increase chat character limit to 96.
   - [x] Better handle rendering after change (add the "@");
   - [x] Fix blanking chat.
   - [x] A successfull login should broadcast to all other thumbnails
@@ -93,6 +95,13 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** selfnotif handling ***
   - [] Don't send notifications to that particular user right after closing the app / just disable all "self-sent" notifications somehow.
+
+*** Chat modes + Colorization ***
+  - [] Brushes in chat.
+  - [] Playing as...
+  - [] Ghost mode for hidden / unhandled messages.
+    - [] Ghosted messages should never let user identifiers leave the server.
+  - [] System wide handle colorization with tooling.
 
 *** Chat updates. ***
   - [❗] Need a fix for users entering chat and entering `song` right
@@ -142,13 +151,6 @@ but technically agnostic. (Choose your aesthetic!)
       `export const smoothing = "linear"`
       `export const smoothing = "curve"`
   - [] Rewrite artur's brush in the kidlisp graphical editor.
-
-*** Chat modes + Colorization ***
-  - [] Brushes in chat.
-  - [] Playing as...
-  - [] Ghost mode for hidden / unhandled messages.
-    - [] Ghosted messages should never let user identifiers leave the server.
-  - [] System wide handle colorization with tooling.
 
 *** webgpu rasterizer ***
   - [🪁] follow this webgpu rasterizer tutorial: https://github.com/OmarShehata/webgpu-compute-rasterizer/blob/main/how-to-build-a-compute-rasterizer.md

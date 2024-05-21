@@ -37,7 +37,9 @@
         "dbaeumer.vscode-eslint",
         "bierner.lit-html",
         "vscodevim.vim",
-        "kuba-p.glsl-lsp"
+        "kuba-p.glsl-lsp",
+        "GitHub.copilot",
+        "GitHub.copilot-chat"
       ]
     }
   },
