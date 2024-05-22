@@ -2775,7 +2775,11 @@ async function load(
           Date.now();
         console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
         response = await fetch(anonUrl);
-        if (response.status === 404) throw new Error("404");
+
+        console.log("🚏 Response:", response);
+
+        if (response.status === 404 || response.status === 403)
+          throw new Error(response.status);
       }
       sourceCode = await response.text();
       loadedModule = lisp.module(sourceCode);
