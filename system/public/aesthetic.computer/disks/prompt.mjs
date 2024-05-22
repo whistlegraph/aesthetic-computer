@@ -860,7 +860,8 @@ async function halt($, text) {
     if (newHandle[0] === "@") newHandle = newHandle.slice(1); // Strip off any leading "@" sign to help with validation.
 
     // And a handle has been specified.
-    if (newHandle?.length > 0 && validateHandle(newHandle)) {
+    const validated = validateHandle(newHandle);
+    if (newHandle?.length > 0 && validated === "valid") {
       const res = await net.userRequest("POST", "/handle", {
         handle: newHandle,
       });
@@ -878,19 +879,36 @@ async function halt($, text) {
           beep();
         }
       } else {
-        const message = res?.message;
-        let note = "TAKEN";
-        if (message === "unauthorized") note = "UNAUTHORIZED";
-        if (message === "unverified") note = "EMAIL UNVERIFIED";
+        const note = res?.message || "error";
+        console.log("Response:", res);
         makeFlash($, true);
-        notice(note, ["yellow", "red"]);
+        notice(note.toUpperCase(), ["yellow", "red"]);
       }
       needsPaint();
     } else {
-      flashColor = [255, 0, 0];
-      console.warn("🧖 No @handle specified / bad handle design.");
-      notice("INVALID!", ["yellow", "red"]);
+      console.warn("🧖 No @handle specified / bad handle design:", validated);
+      notice(validated.toUpperCase(), ["yellow", "red"]);
     }
+    return true;
+  } else if (text.startsWith("admin:handle:strip")) {
+    const handleToStrip = text.split(" ")[1];
+    //  🩹️ Strip the handle from a user.
+
+    if (handleToStrip) {
+      console.log("🩹 Stripping handle:", handleToStrip);
+      const res = await net.userRequest("POST", "/handle", {
+        handle: handleToStrip,
+        action: "strip",
+      });
+
+      console.log("🩹 Strip result:", res);
+      notice(res.message.toUpperCase(), res.status === 200 ? undefined : ["yellow", "red"]);
+      flashColor = res.status === 200 ? "lime" : "red";
+      makeFlash($, true);
+      // If the handle was stripped then somehow broadcast it
+      // and update the chat.
+    }
+
     return true;
   } else if ((text === "ul" || text === "upload") && store["painting"]) {
     if (!navigator.onLine) {
