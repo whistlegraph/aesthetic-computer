@@ -5,7 +5,10 @@
 /* #region 🏁 TODO 
 #endregion */
 
-import { authorize, handleFor } from "../../backend/authorization.mjs";
+import {
+  authorize,
+  hasAdmin,
+} from "../../backend/authorization.mjs";
 import { listAndSaveMedia } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 
@@ -13,17 +16,10 @@ const dev = process.env.CONTEXT === "dev";
 
 export async function handler(event, context) {
   const user = await authorize(event.headers);
-  const handle = await handleFor(user.sub);
   const mediaType = event.queryStringParameters.migrate;
 
-  let hasAdmin =
-    user &&
-    user.email_verified &&
-    handle === "jeffrey" &&
-    user.sub === process.env.ADMIN_SUB;
-
   // A GET request to get a handle from a user `sub`.
-  if (hasAdmin && event.httpMethod === "GET") {
+  if ((await hasAdmin(user)) && event.httpMethod === "GET") {
     console.log(`Migrating ${mediaType}s from buckets to database...`);
     await listAndSaveMedia(mediaType);
 

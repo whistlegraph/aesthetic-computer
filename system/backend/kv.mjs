@@ -9,11 +9,15 @@ const dev = process.env.NETLIFY_DEV;
 let client;
 
 async function connect() {
-  // Connect to redis...
+  if (client && client.isOpen) {
+    console.log("🔵 Redis client is already connected.");
+    return;
+  }
   client = !dev ? createClient({ url: redisConnectionString }) : createClient();
   client.on("error", (err) => console.log("🔴 Redis client error!", err));
   await client.connect();
 }
+
 
 async function disconnect() {
   await client?.quit();

@@ -342,14 +342,20 @@ function connectToChat() {
       if (type === "message") {
         const msg = JSON.parse(content);
         console.log("💬 Chat message received:", msg);
+
         chatSystem.messages.push(msg);
         content = msg; // Pass the transformed message.
       }
 
       // Auto parse handle updates.
-      if (type === "handle:update") {
+      if (type === "handle:update" || type === "handle:strip") {
         const msg = JSON.parse(content);
         content = msg;
+
+        if (type === "handle:strip" && msg.user === USER?.sub) {
+          console.log("🩹 Your handle has been stripped!");
+          $commonApi.net.refresh();
+        }
       }
 
       if (type === "left") {
@@ -520,16 +526,6 @@ let inFocus;
 let loadFailure;
 
 // 1. ✔ API
-
-// let docs;
-// try {
-//   docs = await fetch("/docs.json");
-//   if (docs.status !== 200) {
-//     throw new Error()
-//   }
-// } catch (err) {
-//   console.error("🔴📚 Could not load docs:", err);
-// }
 
 // TODO: Eventually add a wiggle bank so all wiggles are indexed
 //       and start at random angles.
@@ -1579,9 +1575,13 @@ const $commonApi = {
         const response = await fetch(endpoint, options);
 
         if (response.status === 500) {
-          const message = await response.text();
-          // throw new Error(`🚫 Bad response: ${text}`);
-          return { message };
+          try {
+            const json = await response.json();
+            return { status: response.status, ...json };
+          } catch (e) {
+            const message = await response.text();
+            return { status: response.status, message };
+          }
         } else {
           const clonedResponse = response.clone();
           try {
