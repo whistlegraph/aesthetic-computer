@@ -1,12 +1,19 @@
 // @handle, 23.04.30.18.12 🤚
 // GET: Get a user @handle out of MongoDB based on their `sub` id from auth0.
 // POST: Allows a logged in user to set their social `@handle`. (via MongoDB)
+//       Or to "strip" a user of their handle.
 
 /* #region 🏁 TODO 
 #endregion */
 
-import { authorize, handleFor } from "../../backend/authorization.mjs";
+import {
+  authorize,
+  userIDFromHandle,
+  handleFor,
+  hasAdmin,
+} from "../../backend/authorization.mjs";
 import { validateHandle } from "../../public/aesthetic.computer/lib/text.mjs";
+import { filter } from "../../backend/filter.mjs";
 import { connect } from "../../backend/database.mjs";
 import * as KeyValue from "../../backend/kv.mjs";
 import { respond } from "../../backend/http.mjs";
@@ -52,8 +59,6 @@ export async function handler(event, context) {
 
   // A POST request to set the handle.
 
-  console.log("Posting handle...");
-
   // Parse the body of the HTTP request
   let body;
   try {
@@ -61,13 +66,21 @@ export async function handler(event, context) {
     body = JSON.parse(event.body);
 
     const handle = body.handle;
+    const action = body.action;
 
-    // Make sure handle entry is well formed.
-    if (!validateHandle(handle)) {
-      return respond(400, { message: "Bad handle formatting." });
+    if (action !== "strip") {
+      // Make sure handle entry is well formed.
+      const validated = validateHandle(handle);
+
+      if (validated !== "valid") {
+        return respond(400, { message: validated });
+      }
+
+      // Filter handle for profanities.
+      if (filter(handle) !== handle) {
+        return respond(400, { message: "naughty" });
+      }
     }
-
-    console.log("Handle valid... authorizing user...");
 
     // And that we are logged in...
     const user = await authorize(event.headers);
@@ -83,13 +96,50 @@ export async function handler(event, context) {
 
       const handles = database.db.collection("@handles");
 
-      console.log("🏷️ Setting a handle:", handle);
-
       // Make an "handle" index on the @handles collection that forces
       // them all to be unique, (if it doesn't already exist).
       await handles.createIndex({ handle: 1 }, { unique: true });
       await KeyValue.connect();
       await logger.link(database /*, KeyValue*/);
+
+      if (action === "strip") {
+        if ((await hasAdmin(user)) === false) {
+          return respond(500, { message: "unauthorized" });
+        }
+        console.log("🩹 Stripping handle from:", handle);
+        let status, response;
+        try {
+          const sub = await userIDFromHandle(handle, database, true);
+          const handledUser = await handles.findOne({ _id: sub });
+          if (handledUser) {
+            await handles.deleteOne({ _id: sub });
+            await KeyValue.del("@handles", handle);
+            await KeyValue.del("userIDs", sub);
+
+            await logger.log(`@${handle}'s handle was stripped!`, {
+              user: sub,
+              action: "handle:strip",
+              value: "???",
+            });
+
+            status = 200;
+            response = { message: "stripped" };
+          } else {
+            status = 404;
+            response = { message: "not found" };
+          }
+        } catch (error) {
+          status = 500;
+          response = { message: "error" };
+        } finally {
+          await database.disconnect();
+          await KeyValue.disconnect();
+        }
+        return respond(status, response);
+      }
+
+      // 🌟 Otherwise assume we are creating or modifying a handle.
+      console.log("🏷️ Setting a handle:", handle);
 
       // Insert or update the handle using the `provider|id` key from auth0.
       try {
@@ -99,19 +149,35 @@ export async function handler(event, context) {
           if (dev) console.log("Current user handle:", existingUser.handle);
           // Replace existing handle or fail if the new handle is already taken
           // by someone else.
+          const existingHandle = await handles.findOne({
+            handle: existingUser.handle,
+          });
+
+          if (existingHandle && existingHandle._id !== user.sub) {
+            throw new Error("Handle taken.");
+          }
+
+          if (existingHandle && existingHandle.handle === handle) {
+            return respond(400, { message: "same" });
+          }
+
           await handles.updateOne({ _id: user.sub }, { $set: { handle } });
+
           await logger.log(`@${existingUser.handle} is now @${handle}`, {
             user: user.sub,
             action: "handle:update",
-            value: "@" + handle,
+            value: handle,
           }); // 🪵
         } else {
+          const existingHandle = await handles.findOne({ handle });
+          if (existingHandle) throw new Error("Handle taken");
+
           // Add a new `@handles` document for this user.
           await handles.insertOne({ _id: user.sub, handle });
           await logger.log(`hi @${handle}`, {
             user: user.sub,
             action: "handle:create",
-            value: "@" + handle,
+            value: handle,
           }); // 🪵 Log initial handle creation.
         }
 
@@ -123,20 +189,24 @@ export async function handler(event, context) {
         await KeyValue.set("userIDs", user.sub, handle);
 
         // 🔥 Publish the new handle association to redis.
-        //  - [x] `chat` needs to pick this up somehow.
-        //    - [🧡] self-handle change from another window
-        //    - [] handle changes from others
-
-        // ----------------
-        //  - [] `world` needs to pick this up somehow.
+        //  - [-] `world` needs to pick this up somehow.
         //    - [] handle changes from others
         //    - [] self-handle change from another window
         //  - [] `pond` needs to also do this
         //    - [] handle changes from others
         //    - [] self-handle change from another window
         //  - [] `prompt` also needs to do this
+        // + Done
+        // - [x] `chat` needs to pick this up somehow.
+        //   - [x] self-handle change from another window
+        //   - [x] handle changes from others
+        // - [x] Test same handle change.
+        // - [x] Test naughty handle change.
       } catch (error) {
-        return respond(500, { message: error });
+        console.log("👱 Handle set error:", error);
+        return respond(500, {
+          message: error.code === 11000 ? "taken" : "error",
+        });
       } finally {
         await database.disconnect();
         await KeyValue.disconnect();
@@ -151,6 +221,7 @@ export async function handler(event, context) {
       }
     }
   } catch (error) {
-    return respond(400, { message: "Cannot parse input body." });
+    console.log("👱 Handle error:", error);
+    return respond(400, { message: "error" });
   }
 }

@@ -111,8 +111,8 @@ async function boot({
       return;
     }
 
-    if (type === "handle:update") {
-      console.log("👱️‍ `handle` update received:", type, content);
+    if (type === "handle:update" || type === "handle:strip") {
+      console.log("👱️‍ `handle` edit received:", type, content);
 
       let layoutChanged;
       chat.messages.forEach((message) => {
@@ -124,7 +124,7 @@ async function boot({
 
       if (layoutChanged) messagesNeedLayout = true;
 
-      console.log("Handle updated completed for:", content.handle);
+      console.log("👱 `handle` edit completed for:", content.handle);
       return;
     }
 
@@ -344,10 +344,13 @@ function paint(
     const charW = typeface.glyphs[0].resolution[0];
     const handleWidth = msg.length * charW;
 
-    ink(inputBtn.down ? "yellow" : 220).write("Enter message" + ellipsisTicker.text(help.repeat), {
-      left: leftMargin + handleWidth + charW,
-      bottom: 10,
-    });
+    ink(inputBtn.down ? "yellow" : 220).write(
+      "Enter message" + ellipsisTicker.text(help.repeat),
+      {
+        left: leftMargin + handleWidth + charW,
+        bottom: 10,
+      },
+    );
 
     handleBtn.btn.box = new Box(
       0,

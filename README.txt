@@ -38,9 +38,8 @@ but technically agnostic. (Choose your aesthetic!)
 😀 TODO 😆
 
 🌟 Projects in Progress (PIP) 🌟
-  - [🟠] Test hourglass in chat via `hiccup` command.
-  - [-] Add profanity filter check to handle creation.
-    - [] Remove "fuck" handle.
+  - [🟠] Remove "fuck" handle.
+  - [] Add a "handles" directory to scroll through all active handles.
   - [] Should you be able to chat after logging out via the
        "Pre-Authorized" array? Seems kinda safe... 24.05.20.20.54
   - [] Make sure the handle always shows and not the Create handle
@@ -56,6 +55,13 @@ but technically agnostic. (Choose your aesthetic!)
   - [] Auto-link handles and single quoted words.
   - [] color coded words in chat via kidlisp / how to integrate kidlisp?
   + Done
+  - [x] Add an "admin:strip-handle" command.
+    - [x] Which calls the handle.js function and
+          is able to strip / erase a user's handle if the runner
+          of the command is an admin.
+    - [x] If the user is online then reload their page via chat server.
+  - [x] Test hourglass in chat via `hiccup` command.
+  - [x] Add profanity filter check to handle creation.
   - [x] Add hourglass to "Connecting..." in chat, and maybe don't
        blank the screen so crazy?
        - [x] Add the same Hourglass to "Enter message..." as well.
@@ -70,7 +76,7 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** more chat updates ***
   - [] add a "system update" notifier based on commits - i should be able
-       to tag a commit or decide somehow if a log would be sent or not?
+       to tag a commit or decide somehow if a `log` would be sent or not?
   - [] live updates of recent chat messages on prompt page 
   - [] prompt can enter a showdy "prompt standyby" chat mode.
   - [] smoother progressive loading animation that visualizes the loading process on the checkerboard
@@ -95,6 +101,7 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** selfnotif handling ***
   - [] Don't send notifications to that particular user right after closing the app / just disable all "self-sent" notifications somehow.
+  - [] Remove local redis instance... why use it tbh?
 
 *** Chat modes + Colorization ***
   - [] Brushes in chat.

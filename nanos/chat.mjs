@@ -140,7 +140,7 @@ const request = async (req, res) => {
         // ⚠️
         // Look through the message buffer and update any handles
         // that could be changed by this log.
-        // In order words... parse it's "action".
+        // In otherr words... parse its "action".
 
         if (parsed.action) {
           console.log("🪵 Log action:", parsed.action, "value:", parsed.value);
@@ -157,17 +157,20 @@ const request = async (req, res) => {
             // Update handles to subs cache.
             subsToHandles[parsed.users[0]] = parsed.value;
 
-            // Update messages with new handles.
-            messages.forEach((message) => {
-              if (message.sub === parsed.users[0]) message.from = parsed.value;
-            });
+            if (behavior === "update" || behavior === "strip") {
+              const from =
+                behavior === "update" ? "@" + parsed.value : parsed.value;
+              // Update messages with new handles.
+              messages.forEach((message) => {
+                if (message.sub === parsed.users[0]) message.from = from;
+              });
 
-            // TODO: Send an update to the clients.
-            if (behavior === "update") {
+              // TODO: Maybe this is not necessary because the log can take
+              //       care of it?
               everyone(
                 pack(parsed.action, {
                   user: parsed.users[0],
-                  handle: parsed.value,
+                  handle: from,
                 }),
               );
             }
@@ -364,7 +367,7 @@ async function startChatServer() {
         }
 
         // 🔐 1. Authorization
-        // 💡️ These are cached in a "preAuthorized" section. 
+        // 💡️ These are cached in a "preAuthorized" section.
 
         let authorized;
 

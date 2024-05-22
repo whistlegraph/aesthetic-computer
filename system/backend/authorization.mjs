@@ -22,6 +22,16 @@ export async function authorize({ authorization }) {
   }
 }
 
+export async function hasAdmin(user) {
+  const handle = await handleFor(user.sub);
+  return (
+    user &&
+    user.email_verified &&
+    handle === "jeffrey" &&
+    user.sub === process.env.ADMIN_SUB
+  );
+}
+
 export async function userIDFromEmail(email) {
   try {
     // Get an access token to the auth0 management API for the email lookup.
@@ -113,7 +123,7 @@ export async function handleFor(id) {
 
 // Connects to the MongoDB database to obtain a user ID from a handle.
 // Handle should not be prefixed with "@".
-export async function userIDFromHandle(handle, database) {
+export async function userIDFromHandle(handle, database, keepKV) {
   // TODO: Read from redis, otherwise check the database, and store in
   //       redis afterwards...
   let userID;
@@ -141,7 +151,7 @@ export async function userIDFromHandle(handle, database) {
   if (!cachedHandle && userID) {
     if (dev) console.log("Caching in redis...", handle);
     await KeyValue.set("@handles", handle, userID);
-    await KeyValue.disconnect();
+    if (!keepKV) await KeyValue.disconnect();
   }
 
   console.log("Time taken...", performance.now() - time);
