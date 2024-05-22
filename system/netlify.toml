@@ -21,7 +21,7 @@
     "public/aesthetic.computer/lib/text.mjs",
     "backend/**/*.mjs"
     ]
-  external_node_modules = ["got", "mongodb"]
+  external_node_modules = ["got", "mongodb", "obscenity"]
 [functions.logo]
   external_node_modules = ["got"]
 [functions.print]
