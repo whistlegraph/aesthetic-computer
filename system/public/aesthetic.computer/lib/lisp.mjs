@@ -75,24 +75,39 @@ function module(source) {
       globalDef.paramB = params[1];
       globalDef.paramC = params[2];
     },
-    paint: ({ wipe, ink, api }) => {
+    paint: ($) => {
       // console.log("🖌️ Painting");
-      const evaluated = evaluate(parsed, api);
-      ink("white").write(evaluated || "nada", { center: "xy" });
+      const evaluated = evaluate(parsed, $);
+      // Print the program output value in the center of the screen.
+      // ink("white").write(evaluated || "nada", { center: "xy" });
       // return false;
     },
     act: ({ event: e, api }) => {
       if (e.is("touch")) tap(api);
+      if (e.is("draw")) {
+        console.log(e);
+        draw(api);
+      } 
     },
   };
 }
 
-// 🫵
+// 🎆 Top-level events.
+
+// 🫵 Tap
 let tapper;
 function tap(api) {
   // console.log("Tapping!");
   if (tapper) evaluate(tapper, api);
 }
+
+// ✏️ Draw
+let drawer;
+function draw(api) {
+  if (drawer) evaluate(drawer, api);
+}
+
+// 💻 System
 
 const globalDef = {};
 
@@ -103,11 +118,16 @@ const globalEnv = {
     // console.log("Nowing:", args);
     if (args.length === 2) {
       const name = unquoteString(args[0]);
-      // console.log("Now:", name, args.slice(1));
+      // Validate the identifier.
+      if (!validIdentifierRegex.test(name)) {
+        console.error("️❗ Invalid identifier name:", name);
+        return;
+      }
+
       globalDef[name] = args[1];
       return args[1];
     }
-    console.error("Invalid now. Wrong number of arguments.");
+    console.error("❗ Invalid `now`. Wrong number of arguments.");
   },
   die: (api, args) => {
     const name = unquoteString(args[0]);
@@ -152,6 +172,9 @@ const globalEnv = {
   tap: (api, args) => {
     tapper = args;
   },
+  draw: (api, args) => {
+    drawer = args;
+  },
   if: (api, args) => {
     // console.log("If:", args);
     const cond = args[0];
@@ -186,12 +209,15 @@ const globalEnv = {
   box: (api, args = []) => {
     api.box(...args);
   },
+  write: (api, args = []) => {
+    api.write(processArgStringTypes(args[0]), { x: args[1], y: args[2] });
+  },
   // (Getters / globals).
   width: (api) => {
-    api.screen.width;
+    return api.screen.width;
   },
   height: (api) => {
-    api.screen.height;
+    return api.screen.height;
   },
   // 🔈 Sound
   overtone: (api, args = []) => {
@@ -214,6 +240,12 @@ const globalEnv = {
   },
 };
 
+// 🎰 Parser & Evaluation
+
+const identifierRegex = /[a-zA-Z_]\w*/g;
+const validIdentifierRegex = /^[a-zA-Z_]\w*$/;
+const localEnv = {};
+
 function tokenize(input) {
   // Remove comments from input (anything from ';' to the end of the line)
   input = input.replace(/;.*$/gm, "");
@@ -224,8 +256,6 @@ function tokenize(input) {
 function parse(program) {
   return readFromTokens(tokenize(program));
 }
-
-const localEnv = {};
 
 function evaluate(parsed, api = {}, env) {
   // console.log("➗ Evaluating:", parsed);
@@ -245,8 +275,9 @@ function evaluate(parsed, api = {}, env) {
 
     console.log("Running:", body, "with environment:", localEnv);
   } else {
-    // Or just evaluate with the global environment.
-    body = parsed;
+    // Or just evaluate with the global environment, ensuring it's an array.
+    body = Array.isArray(parsed) ? parsed : [parsed];
+    // console.log("Body:", body);
   }
 
   let result;
@@ -259,13 +290,21 @@ function evaluate(parsed, api = {}, env) {
       // Check if the function requires recursive evaluation
       if (head === "now" || head === "die") args[0] = `"${args[0]}"`; // Pre-wrap the first arg as a string.
 
-      if (localEnv[head]) {
+      if (existing(localEnv[head])) {
         console.log("Local definition found!", head, localEnv[head]);
         result = localEnv[head];
-      } else if (globalEnv[head]) {
+      } else if (existing(globalEnv[head])) {
         if (typeof globalEnv[head] === "function") {
           let processedArgs;
-          if (head === "later" || head === "tap" || head === "if") {
+          if (
+            head === "later" ||
+            head === "tap" ||
+            head === "draw" ||
+            head === "if" ||
+            head === "wipe" ||
+            head === "ink" // ||
+            // head === "write"
+          ) {
             processedArgs = args; // No need to process these until
             //                       the function is run.
           } else {
@@ -282,7 +321,7 @@ function evaluate(parsed, api = {}, env) {
         } else {
           result = globalEnv[head];
         }
-      } else if (globalDef[head]) {
+      } else if (existing(globalDef[head])) {
         // Check if the value needs recursive evaluation.
         console.log("📖 Definition call:", head, args, globalDef[head]);
         result =
@@ -293,33 +332,24 @@ function evaluate(parsed, api = {}, env) {
         // console.log("⚠️ No match found for:", head);
         result = evalNotFound(head);
       }
-
-      //console.log("$RESULT$", head, result);
-      //if (!result) {
-      //  console.log("No match found! Content:", head);
-      //}
-
-      // if (!result) {
-      // Parse extra math or operator logic here?
-      // console.log("No match found! Content:", head);
-      // result = evalNotFound(head);
-      // }
     } else {
       const [root, tail] = item.split(".");
 
-      if (localEnv[item]) {
+      if (existing(localEnv[item])) {
         console.log("Solo local definition found!", item, localEnv[item]);
         // TODO: This needs to be evaluated?
         result = resolve(localEnv[item], api);
-      } else if (globalEnv[item]) {
-        console.log("Assume a function on the globalEnv:", item);
+      } else if (existing(globalEnv[item])) {
+        // console.log("Assume a function on the globalEnv:", item);
+        // console.log(typeof globalEnv[item]);
         // Assume a function on the globalEnv.
         if (typeof globalEnv[item] === "function") {
           result = globalEnv[item](api);
+          // console.log("Result is:", result);
         } else {
           result = globalEnv[item];
         }
-      } else if (globalDef[root]) {
+      } else if (existing(globalDef[root])) {
         // Check if the value needs recursive evaluation.
         // console.log("Solo definition:", item, globalDef[root]);
         // ⚠️ No parameters would ever be passed here, but maybe
@@ -333,21 +363,32 @@ function evaluate(parsed, api = {}, env) {
           result = typeof end === "function" ? end() : end;
         }
       } else {
-        // console.log(item, "not found");
-        result = evalNotFound(item);
+        // console.log(item, "⛔ Not found");
+        result = evalNotFound(item, api, env);
       }
     }
   }
   return result;
 }
 
-function evalNotFound(expression) {
+function evalNotFound(expression, api, env) {
   // console.log("🤖 Attempting JavaScript expression evaluation:", expression);
-  const env = globalDef;
-  const keys = Object.keys(env);
-  const values = keys.map((key) => env[key]);
-  const compute = new Function(...keys, `return ${expression};`);
-  const result = compute(...values);
+
+  // 📖 Identifiers can only start with a letter a-z or A-Z and can not
+  // include mathermatical operators but can include underscores or
+  // digits after the first character
+
+  // Parse the expression to extract identifiers.
+  const identifiers = expression.match(identifierRegex) || [];
+
+  // Evaluate identifiers by running evaluate([id], api, env);
+  identifiers.forEach((id) => {
+    const value = evaluate(id, api, env);
+    expression = expression.replace(new RegExp(`\\b${id}\\b`, "g"), value);
+  });
+
+  const compute = new Function(`return ${expression};`);
+  const result = compute();
   // console.log("Evaluated result:", result);
   return result;
 }
@@ -402,6 +443,9 @@ function atom(token) {
 }
 
 function processArgStringTypes(args) {
+  if (!Array.isArray(args)) {
+    return unquoteString(args);
+  }
   return args.map((arg) => {
     // Remove the first and last character which are the quotes
     if (typeof arg === "string") return unquoteString(arg);
@@ -413,6 +457,10 @@ function unquoteString(str) {
   if (str.startsWith('"') && str.endsWith('"')) {
     return str.substring(1, str.length - 1);
   } else return str;
+}
+
+function existing(item) {
+  return item !== undefined && item !== null;
 }
 
 export { module, parse, evaluate };

@@ -56,7 +56,7 @@
     "--security-opt",
     "seccomp=unconfined",
     "--init"
-    //"--network=host"
+    // "--network=host"
     //    "--platform",
     //    "linux/amd64"
   ],

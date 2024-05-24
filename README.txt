@@ -38,22 +38,21 @@ but technically agnostic. (Choose your aesthetic!)
 😀 TODO 😆
 
 🌟 Projects in Progress (PIP) 🌟
-  - [*] Should you be able to chat after logging out via the
-       "Pre-Authorized" array? Seems kinda unsafe, hmm... 24.05.20.20.54
-  - [] Make sure the handle always shows and not the Create handle
-       button so long as the user is logged in... this could be done
-       by retrieving the handle in auth0.
-  - [*] Add a "handles" directory to scroll through all active handles.
+  - [wip] Add a "handles" directory to scroll through all active handles.
   - [] Auto-link handles and single quoted words.
     - [] color coded words in chat via kidlisp / how to integrate kidlisp?
-  
   - [] Separate README from TODO and make TODO visible in the system to help
        the conversation along.
-       - [] Give chat messages a UUID / reference number so they can be
-            linked in the TODO. Technically this can be a time window query that
-            is something like `🗨️:system:56262-72837` for a range or just an
-            exact / closest match if a single integer is given.
+  - [] Give chat messages a UUID / reference number so they can be
+      linked in the TODO. Technically this can be a time window query that
+      is something like `🗨️:system:56262-72837` for a range or just an
+      exact / closest match if a single integer is given.
   + Done
+  - [think so?] Make sure the handle always shows and not the Create handle
+       button so long as the user is logged in... this could be done
+       by retrieving the handle in auth0.
+  - [x] Should you be able to chat after logging out via the
+       "Pre-Authorized" array? Seems kinda unsafe, hmm... 24.05.20.20.54
   - [x] Fix blanking prompt 404.
   - [x] Remove "fuck" handle.
   - [x] Add an "admin:strip-handle" command.
