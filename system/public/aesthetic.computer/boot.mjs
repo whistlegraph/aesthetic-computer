@@ -140,7 +140,7 @@ loadAuth0Script()
           // Will get passed to the first message by the piece runner.
           // console.log("🌻 Picked up session!", window.acTOKEN, window.acUSER);
           window.acDISK_SEND({
-            type: "session:update",
+            type: "session:started",
             content: { user: window.acUSER },
           });
           pickedUpSession = true;
@@ -237,11 +237,15 @@ loadAuth0Script()
         // if it is.
         window.acUSER = userProfile; // Will get passed to the first message by the piece runner.
         window.acDISK_SEND({
-          type: "session:update",
+          type: "session:started",
           content: { user: window.acUSER },
         });
       } else if (!pickedUpSession) {
         // console.log("🗝️ Not authenticated.");
+        window.acDISK_SEND({
+          type: "session:started",
+          content: { user: null },
+        });
       }
 
       // const after = performance.now();
@@ -281,7 +285,7 @@ function receive(event) {
       window.acUSER = { name: session.account.label, sub: session.account.id }; // Will get passed to the first message by the piece runner.
       console.log("🌻 Picked up session!", window.acTOKEN, window.acUSER);
       window.acSEND({
-        type: "session:update",
+        type: "session:started",
         content: { user: window.acUSER },
       });
     }

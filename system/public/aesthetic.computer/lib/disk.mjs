@@ -48,7 +48,11 @@ let tf; // Active typeface global.
 export const noWorker = { onMessage: undefined, postMessage: undefined };
 
 let ROOT_PIECE = "prompt"; // This gets set straight from the host html file for the ac.
+
 let USER; // A holder for the logged in user. (Defined in `boot`)
+let sessionStarted = false; // A flag that waits to boot until a session was
+//                             found or not.
+
 let LAN_HOST; // The IP address of the hosting machine on the local network.
 let SHARE_SUPPORTED; // Whether navigator.share is supported. (For `dl`)
 //let IFRAME; // Flag if this aesthetic client is hosted in an iframe.
@@ -300,7 +304,8 @@ let noPaint = false;
 let labelBack = false;
 let hiccupTimeout; // Prevent multiple hiccups from being triggered at once.
 
-let storeRetrievalResolution, storeDeletionResolution;
+let storeRetrievalResolutions = {},
+  storeDeletionResolutions = {};
 
 // There are two instances of Socket that run in parallel...
 let socket, socketStartDelay; // Socket server for each piece.
@@ -327,11 +332,13 @@ function connectToChat() {
       // receive
       if (type === "connected") {
         chatSystem.connecting = false;
-        console.log("💬 Connected to chat.", content);
         chatSystem.chatterCount = content?.chatters || chatSystem.chatterCount;
         chatSystem.messages.length = 0;
         chatSystem.messages.push(...content.messages);
-        console.log("💬 Total messages:", chatSystem.messages);
+        console.log(
+          `💬 %c${content.message}`,
+          `color: cyan; background: rgba(10, 20, 40);`,
+        );
       }
 
       if (type === "unauthorized") {
@@ -474,16 +481,10 @@ const store = {
   },
   retrieve: function (key, method = "local") {
     const promise = new Promise((resolve) => {
-      storeRetrievalResolution = resolve;
+      storeRetrievalResolutions[key] = resolve;
     });
 
-    send({
-      type: "store:retrieve",
-      content: {
-        key,
-        method,
-      },
-    });
+    send({ type: "store:retrieve", content: { key, method } });
 
     return promise;
   },
@@ -492,7 +493,7 @@ const store = {
     delete store[key];
 
     const promise = new Promise((resolve) => {
-      storeDeletionResolution = resolve;
+      storeDeletionResolutions[key] = resolve;
     });
 
     send({
@@ -1535,9 +1536,19 @@ const $commonApi = {
       send({ type: "signup" });
     },
     login: () => {
+      store.delete("handle");
       send({ type: "login" });
     }, // { email }
-    logout: () => send({ type: "logout" }),
+    logout: () => {
+      store.delete("handle");
+      send({ type: "logout" });
+      $commonApi.broadcast("logout:success");
+      chatSystem?.server?.send("logout");
+      // Send a "logout" message here to the chat server.
+
+      // TODO: And probably the session server as well in
+      //       the future. 24.05.23.21.27
+    },
     pieces: `${location.protocol}//${location.host}/aesthetic.computer/disks`,
     parse, // Parse a piece slug.
     // lan: // Set dynamically.
@@ -1634,13 +1645,16 @@ channel.onmessage = (event) => {
   processMessage(event.data);
 };
 
-function processMessage(msg) {
-  console.log(`🗼 Processing broadcast: ${msg}`);
+async function processMessage(msg) {
+  if (logs.messaging) console.log(`🗼 Processing broadcast: ${msg}`);
   if (msg.startsWith("handle:updated")) {
     // 👰‍♀️ Update the user handle if it changed.
-    HANDLE = "@" + msg.split(":").pop();
+    const newHandle = msg.split(":").pop();
+    HANDLE = "@" + newHandle;
     send({ type: "handle", content: HANDLE });
     store["handle:received"] = true;
+    // store["handle"] = newHandle;
+    // store.persist("handle");
     return;
   }
 
@@ -2695,10 +2709,10 @@ async function load(
             ".mjs" +
             "#" +
             Date.now();
-          console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
+          if (logs.loading) console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
           response = await fetch(anonUrl);
           if (response.status === 404 || response.status === 403)
-            throw new Error("404");
+            throw new Error(response.status);
         }
         sourceToRun = await response.text();
       } else {
@@ -2751,17 +2765,14 @@ async function load(
       }
     }
   } catch (err) {
-    console.log(err);
-
-    let response, sourceToRun;
-
     // Look for lisp files if the mjs file is not found.
     try {
       fullUrl = fullUrl.replace(".mjs", ".lisp");
 
       let response;
-      console.log("📥 Loading from url:", fullUrl);
+      if (logs.loading) console.log("📥 Loading from url:", fullUrl);
       response = await fetch(fullUrl);
+      // console.log("🤖 Response:", response);
 
       if (response.status === 404) {
         const anonUrl =
@@ -2782,6 +2793,7 @@ async function load(
           throw new Error(response.status);
       }
       sourceCode = await response.text();
+      // console.log("📓 Source:", sourceCode);
       loadedModule = lisp.module(sourceCode);
 
       if (devReload) {
@@ -3753,7 +3765,7 @@ async function makeFrame({ data: { type, content } }) {
       codeChannelAutoLoader = null;
     };
 
-    await handle(); // Get the user's handle.
+    // await handle(); // Get the user's handle.
     originalHost = content.parsed.host;
     loadAfterPreamble = () => {
       loadAfterPreamble = null;
@@ -3774,7 +3786,7 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   // Get visualViewport update, for keyboard overlays, etc.
-  if (type === "viewport-height:changed") {
+  if (type === "viewport-height:changed" && booted) {
     const $api = cachedAPI;
     const data = { ...content };
     Object.assign(data, {
@@ -3808,24 +3820,26 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   // Update the logged in user after initialization.
-  if (type === "session:update") {
-    // console.log("🤩 Session being updated!", content);
+  if (type === "session:started") {
+    // console.log("🟢 Session starting...");
     USER = content.user;
-    // console.log(USER, socket);
-    // if (USER) socket?.send("login", { user: USER });
-
-    $commonApi.user = USER;
-    await handle(); // Get the user's handle.
-    // $commonApi.reload?.(); // Reload the current piece.
+    $commonApi.user = USER; // User will be set to "null" here
+    //                         it it doesn't exist.
 
     if (USER) {
+      // console.log("Getting handle...");
+      await handle(); // Get the user's handle.
+      // console.log("Handle recived:", HANDLE);
       console.log(
         `👋 Welcome back %c${HANDLE || USER.email}`,
         `color: yellow; background: rgba(10, 20, 40);`,
       );
       // Broadcast to other tabs...
       $commonApi.broadcast("login:success");
+    } else {
+      console.log("🔐 You are not logged in.");
     }
+    sessionStarted = true;
     return;
   }
 
@@ -4165,12 +4179,15 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "store:retrieved") {
-    storeRetrievalResolution?.(content);
+    // console.log("Retrieved:", content, storeRetrievalResolutions);
+    storeRetrievalResolutions[content.key]?.(content.data);
+    delete storeRetrievalResolutions[content.key];
     return;
   }
 
   if (type === "store:deleted") {
-    storeDeletionResolution?.(content);
+    storeDeletionResolutions[content.key]?.(content.data);
+    delete storeDeletionResolutions[content.key];
     return;
   }
 
@@ -5123,6 +5140,7 @@ async function makeFrame({ data: { type, content } }) {
       });
 
       // *** Act Alerts *** (Custom events defined in here.)
+      // These do not run in the initial loader / preview piece.
       actAlerts.forEach((name) => {
         const data = {
           name,
@@ -5136,6 +5154,7 @@ async function makeFrame({ data: { type, content } }) {
           console.warn("️ ✒ Act failure...", e);
         }
       });
+      //if (actAlerts.length > 0) console.log(actAlerts, booted);
       actAlerts.length = 0; // Clear act alerts.
     }
 
@@ -5709,8 +5728,9 @@ async function makeFrame({ data: { type, content } }) {
       );
     }
 
-    // Wait 8 frames of the default piece before loading the next piece.
-    if (paintCount > 8n) loadAfterPreamble?.(); // Start loading after the first disk if necessary.
+    // Wait 8 frames of the default piece before loading the initial piece.
+    // And also make sure the session has been queried.
+    if (paintCount > 8n && sessionStarted) loadAfterPreamble?.(); // Start loading after the first disk if necessary.
 
     soundClear?.();
 
@@ -5733,8 +5753,26 @@ async function makeFrame({ data: { type, content } }) {
 // Get the active user's handle from the server if one exists, updating
 // $commonApi.handle
 let HANDLE;
+// TODO: Cache this in localStorage and clear it on log in and log out?
+//       24.05.23.22.16
+
 async function handle() {
   if (USER) {
+    // TODO: Check to see if this is in localStorage or not...
+    const storedHandle = store["handle"] || (await store.retrieve("handle")); // Read dark mode.
+
+    // console.log("Stored handle...", storedHandle);
+
+    if (storedHandle) {
+      HANDLE = "@" + storedHandle;
+      send({ type: "handle", content: HANDLE });
+      store["handle:received"] = true;
+      // console.log("Retrieved handle from store:", storedHandle);
+      return; // Leave early if a stored handle was found.
+    }
+
+    console.log("Fetching handle for user:", USER);
+
     try {
       const response = await fetch(`/handle?for=${USER.sub}`);
       if (response.status === 200) {
@@ -5744,6 +5782,8 @@ async function handle() {
           HANDLE = "@" + data.handle;
           send({ type: "handle", content: HANDLE });
           store["handle:received"] = true;
+          store["handle"] = data.handle;
+          store.persist("handle");
         }
       } else {
         console.warn(await response.text());
