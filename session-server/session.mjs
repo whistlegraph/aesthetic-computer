@@ -309,8 +309,16 @@ wss.on("connection", (ws, req) => {
   // Relay all incoming messages from this client to everyone else.
   ws.on("message", (data) => {
     // Parse incoming message and attach client identifier.
-    const msg = JSON.parse(data.toString());
+    let msg;
+    try {
+      msg = JSON.parse(data.toString());
+    } catch (error) {
+      console.error("📚 Failed to parse JSON:", error);
+      return;
+    }
+
     msg.id = id; // TODO: When sending a server generated message, use a special id.
+
     if (msg.type === "scream") {
       // Alert all connected users via redis pub/sub to the scream.
       log("😱 About to scream...");
