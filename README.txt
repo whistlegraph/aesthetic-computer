@@ -38,7 +38,20 @@ but technically agnostic. (Choose your aesthetic!)
 😀 TODO 😆
 
 🌟 Projects in Progress (PIP) 🌟
-  - [wip] Add a "handles" directory to scroll through all active handles.
+  - [🧡] add a "system update" notifier based on commits - i should be able
+          to tag a commit or decide somehow if a `log` would be sent or not?
+          https://docs.netlify.com/site-deploys/notifications
+       
+        - How do I add a post request receiver here that
+          has process.env.NETLIFY_SYSTEM_DEPLOY_JWT set to 
+          match the token.
+
+  - [*] Should you be able to chat after logging out via the
+       "Pre-Authorized" array? Seems kinda unsafe, hmm... 24.05.20.20.54
+  - [] Make sure the handle always shows and not the Create handle
+       button so long as the user is logged in... this could be done
+       by retrieving the handle in auth0.
+  - [*] Add a "handles" directory to scroll through all active handles.
   - [] Auto-link handles and single quoted words.
     - [] color coded words in chat via kidlisp / how to integrate kidlisp?
   - [] Separate README from TODO and make TODO visible in the system to help
@@ -74,14 +87,23 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] A successfull login should broadcast to all other thumbnails
        and trigger a refresh - same with logging out!
 
+*** ios day ***
+- [] Implement this in the iOS app: https://stackoverflow.com/a/71678197
+    (Make aesthetic reload when the webViewWebContentProcessDidTerminate is
+      called)
+
+*** selfnotif handling ***
+  - [] Don't send notifications to that particular user right after closing the app / just disable all "self-sent" notifications somehow.
+  - [] Remove local redis instance... why use it tbh?
+
 *** more chat updates ***
-  - [] add a "system update" notifier based on commits - i should be able
-       to tag a commit or decide somehow if a `log` would be sent or not?
   - [] live updates of recent chat messages on prompt page 
-  - [] prompt can enter a showdy "prompt standyby" chat mode.
-  - [] smoother progressive loading animation that visualizes the loading process on the checkerboard
+       (needs sound and a beep)
+    - [] prompt can enter a showdy "prompt standyby" chat mode.
+    - [] smoother progressive loading animation that visualizes the loading process on the checkerboard
   - [] entering and leaving chat need to go in the log
-  - [] what about entering and leaving anywhere?
+  - [] what about notifications related to entering and leaving anywhere?
+       where should they appear?
 
 *** profile.lisp ***
   - [-] Make new profile page with redirects for no handle.
@@ -98,10 +120,6 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** list improvements ***
   - [] Categorize the "list" items / revisit list a bit.
-
-*** selfnotif handling ***
-  - [] Don't send notifications to that particular user right after closing the app / just disable all "self-sent" notifications somehow.
-  - [] Remove local redis instance... why use it tbh?
 
 *** Chat modes + Colorization ***
   - [] Brushes in chat.

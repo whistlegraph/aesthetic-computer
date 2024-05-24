@@ -25,7 +25,7 @@ function connect(port = 8889, url = undefined, send) {
     return;
   }
 
-  // console.log("🩰 Connecting to UDP:", url, "on:", port);
+  console.log("🩰 Connecting to UDP:", url, "on:", port);
 
   dontreconnect = false;
 
