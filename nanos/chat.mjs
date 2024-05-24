@@ -46,7 +46,7 @@ const allowedHost = "chat-system.aesthetic.computer";
 const dev = process.env.NODE_ENV === "development";
 
 const subsToHandles = {};
-const preAuthorized = {};
+const authorizedConnections = {};
 // const messages = []; // An active buffer of the last 100 messages.
 
 // let serviceAccount;
@@ -343,17 +343,19 @@ async function startChatServer() {
 
       msg.id = id;
 
-      console.log(
-        "💬 Received:",
-        msg.type,
-        "from:",
-        msg.content.sub,
-        "of:",
-        msg.content.text,
-      );
-
-      // 💬 Received an incoming chat message.
-      if (msg.type === "chat:message") {
+      if (msg.type === "logout") {
+        console.log("🏃‍♀️ User logged out...");
+        delete authorizedConnections[id];
+      } else if (msg.type === "chat:message") {
+        // 💬 Received an incoming chat message.
+        console.log(
+          "💬 Received:",
+          msg.type,
+          "from:",
+          msg.content.sub,
+          "of:",
+          msg.content.text,
+        );
         // TODO: ❤️‍🔥 Add rate-limiting / maybe quit here if needed.
         // 🧶 Length limiting.
         const len = 96;
@@ -371,14 +373,17 @@ async function startChatServer() {
 
         let authorized;
 
-        if (preAuthorized[msg.content.sub]?.token === msg.content.token) {
-          authorized = preAuthorized[msg.content.sub].user;
+        if (
+          authorizedConnections[id /*msg.content.sub*/]?.token ===
+          msg.content.token
+        ) {
+          authorized = authorizedConnections[id /*msg.content.sub*/].user;
           console.log("🟢 Preauthorization found.");
         } else {
           console.log("🟡 Authorizing...");
           authorized = await authorize(msg.content.token);
           if (authorized)
-            preAuthorized[authorized.sub] = {
+            authorizedConnections[id /*authorized.sub*/] = {
               token: msg.content.token,
               user: authorized,
             };
@@ -406,10 +411,10 @@ async function startChatServer() {
 
           const message = msg.content;
           const fromSub = message.sub;
-          console.log("🟡 Storing message...");
 
           // Don't store any actual messages to the MongoDB in development.
           if (!dev) {
+            console.log("🟡 Storing message...");
             const msg = {
               user: message.sub,
               text: message.text, // Store unfiltered text in the database.
@@ -462,6 +467,8 @@ async function startChatServer() {
       // Delete from the connection index.
       clearInterval(interval);
       delete connections[id];
+      delete authorizedConnections[id];
+
       console.log(
         "🚪 Closed connection:",
         id,
@@ -469,6 +476,7 @@ async function startChatServer() {
         wss.clients.size,
         "🫂",
       );
+
       everyone(pack("left", { count: wss.clients.size }, id));
     });
 
@@ -477,7 +485,7 @@ async function startChatServer() {
       pack(
         "connected",
         {
-          message: "Welcome to the Aesthetic Computer System Chat!",
+          message: `Joined \`chat-system\` • 🧑‍🤝‍🧑 ${wss.clients.size}`,
           chatters: wss.clients.size,
           messages,
           id,

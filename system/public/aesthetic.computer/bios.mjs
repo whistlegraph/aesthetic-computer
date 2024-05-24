@@ -1149,7 +1149,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Disable workers if we are in a sandboxed iframe.
   const workersEnabled = !sandboxed;
-  //const workersEnabled = false;
+  // const workersEnabled = false;
 
   if (!MetaBrowser && workersEnabled) {
     const worker = new Worker(new URL(fullPath, window.location.href), {
@@ -1163,6 +1163,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //   "SyntaxError: import declarations may only appear at top level of a module"
       // ) {
       console.error("🛑 Disk error:", err);
+      // console.error("🚨 Error message:", err.message);
+      // console.error("🚨 Error filename:", err.filename);
+      // console.error("🚨 Error lineno:", err.lineno);
+      // console.error("🚨 Error colno:", err.colno);
+
       console.warn("🟡 Attempting a dynamic import...");
       // https://bugzilla.mozilla.org/show_bug.cgi?id=1247687
       const module = await import(`./lib/disk.mjs`);
@@ -2198,7 +2203,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             !keyboardFocusLock &&
             !keyboardSoftLock
           ) {
-              //console.log("OPENING KEYBOARD?");
+            //console.log("OPENING KEYBOARD?");
             if (keyboardOpen) {
               input.blur();
             } else {
@@ -2208,7 +2213,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               window.focus();
               input.focus();
             }
-
           }
         });
 
@@ -2759,7 +2763,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         try {
           data = JSON.parse(localStorage.getItem(content.key));
         } catch (err) {
-          // console.warn(err);
+          console.warn("📦 Retrieval error:", err);
           // Probably in a sandboxed environment here...
         }
 
@@ -2767,7 +2771,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           console.log("📦 Retrieved local data:", content.key, data);
         send({
           type: "store:retrieved",
-          content: data,
+          content: { key: content.key, data },
         });
       }
 
@@ -2779,7 +2783,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             content.key,
             retrievedContent,
           );
-        send({ type: "store:retrieved", content: retrievedContent });
+        send({
+          type: "store:retrieved",
+          content: { key: content.key, data: retrievedContent },
+        });
       }
 
       return;

@@ -1,4 +1,4 @@
-FROM node:lts-hydrogen
+FROM node:lts-iron
 WORKDIR /app
 COPY .env .
 COPY session.mjs .

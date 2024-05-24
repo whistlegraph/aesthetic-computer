@@ -842,7 +842,7 @@ async function halt($, text) {
     }
     makeFlash($);
     return true;
-  } else if (text.startsWith("handle")) {
+  } else if (text.startsWith("handle") && !text.startsWith("handles") ) {
     // Set username handle.
     // TODO: This could eventually be abstracted for more API calls.
     // Something like... await post({handle: "new"});
@@ -878,6 +878,8 @@ async function halt($, text) {
           jump("chat");
           beep();
         }
+        store["handle"] = res.handle;
+        store.persist("handle");
       } else {
         const note = res?.message || "error";
         console.log("Response:", res);
@@ -902,7 +904,10 @@ async function halt($, text) {
       });
 
       console.log("🩹 Strip result:", res);
-      notice(res.message.toUpperCase(), res.status === 200 ? undefined : ["yellow", "red"]);
+      notice(
+        res.message.toUpperCase(),
+        res.status === 200 ? undefined : ["yellow", "red"],
+      );
       flashColor = res.status === 200 ? "lime" : "red";
       makeFlash($, true);
       // If the handle was stripped then somehow broadcast it
@@ -1062,7 +1067,6 @@ async function halt($, text) {
     return true;
   } else if (text === "logout" || text === "bye") {
     net.logout();
-    broadcast("logout:success");
     flashColor = [255, 255, 0, 100]; // Yellow
     makeFlash($);
     return true;
@@ -1301,8 +1305,6 @@ async function halt($, text) {
       loaded = await load(body); // Execute the current command.
     }
 
-    console.log(loaded, body);
-
     if (!loaded) {
       leaving(false);
       if (text.indexOf(" ") === -1 && text !== "goodiepal") {
@@ -1530,6 +1532,7 @@ function act({
   glaze,
   canShare,
   notice,
+  ui,
 }) {
   // Checks to clear prefilled 'email user@email.com' message
   // on signup.
@@ -1551,6 +1554,15 @@ function act({
     console.log("Handle request completed:", profile);
     profile.btn.disabled = false;
   }
+
+  //if (e.is("session:updated")) {
+    //console.log("SESSION UPDATED!", user);
+  //   if (user === null) {
+  //     login = new ui.TextButton("Log in", { center: "xy", screen });
+  //     signup = new ui.TextButton("I'm new", { center: "xy", screen });
+  //     positionWelcomeButtons(screen, net.iframe);
+  //   }
+  // }
 
   // 📼 Taping
   if (e.is("microphone:connect:success")) {
