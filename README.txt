@@ -51,7 +51,6 @@ but technically agnostic. (Choose your aesthetic!)
   - [] Make sure the handle always shows and not the Create handle
        button so long as the user is logged in... this could be done
        by retrieving the handle in auth0.
-  - [] Fix blanking prompt updates.
   - [*] Add a "handles" directory to scroll through all active handles.
   - [] Auto-link handles and single quoted words.
     - [] color coded words in chat via kidlisp / how to integrate kidlisp?
@@ -63,6 +62,7 @@ but technically agnostic. (Choose your aesthetic!)
             is something like `🗨️:system:56262-72837` for a range or just an
             exact / closest match if a single integer is given.
   + Done
+  - [x] Fix blanking prompt 404.
   - [x] Remove "fuck" handle.
   - [x] Add an "admin:strip-handle" command.
     - [x] Which calls the handle.js function and
