@@ -65,7 +65,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "/home/me/.fnm" --skip-shell
 ENV PATH="/home/me/.fnm:$PATH"
 RUN eval "$(fnm env --use-on-cd)" && \
-    fnm install lts-hydrogen && fnm use lts-hydrogen && \
+    fnm install lts-hydrogen && fnm install 20.5.0 && fnm use lts-hydrogen && \
     npm install -g prettier typescript typescript-language-server
     
 # @emacs-eask/cli

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "chat-system:deploy": "npm run gcp:deploy:instance:delete chat-system; node conductor.mjs chat-system",
-    "chat-system:dev": "npm install; ops pkg load eyberg/node:20.5.0 -c config-gcp-dev.json -n -e NODE_ENV=development -a chat.mjs; env nogreet=true fish",
+    "chat-system:dev": "npm install; NODE_ENV=development node chat.mjs; env nogreet=true fish",
+    "chat-system:dev-nanos": "npm install; ops pkg load eyberg/node:20.5.0 -c config-gcp-dev.json -n -e NODE_ENV=development -a chat.mjs; env nogreet=true fish",
     "cf:update": "node conductor.mjs",
     "do:deploy": "npm run do:deploy:image; npm run do:deploy:instance chat; npm run do:deploy:image:list; npm run do:deploy:instance:list",
     "gcp:deploy": "f() { npm run gcp:destroy $1; npm run gcp:deploy:image; npm run gcp:deploy:instance $1; npm run gcp:deploy:image:list; npm run gcp:deploy:instance:list; };f",
@@ -35,10 +36,10 @@
   "author": "Jeffrey Alan Scudder",
   "dependencies": {
     "dotenv": "^16.4.5",
-    "firebase-admin": "^12.0.0",
-    "mongodb": "^6.5.0",
+    "firebase-admin": "^12.1.1",
+    "mongodb": "^6.6.2",
     "obscenity": "^0.2.1",
-    "redis": "^4.6.13",
-    "ws": "^8.16.0"
+    "redis": "^4.6.14",
+    "ws": "^8.17.0"
   }
 }
