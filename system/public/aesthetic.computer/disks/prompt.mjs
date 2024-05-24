@@ -1301,6 +1301,8 @@ async function halt($, text) {
       loaded = await load(body); // Execute the current command.
     }
 
+    console.log(loaded, body);
+
     if (!loaded) {
       leaving(false);
       if (text.indexOf(" ") === -1 && text !== "goodiepal") {
