@@ -65,7 +65,7 @@
     "openai": "^4.47.1",
     "patreon": "^0.4.1",
     "playwright-core": "^1.44.1",
-    "puppeteer": "^22.9.0",
+    "puppeteer": "^21.10.0",
     "redis": "^4.6.14",
     "sharp": "^0.33.4",
     "stripe": "^15.8.0",
