@@ -842,7 +842,7 @@ async function halt($, text) {
     }
     makeFlash($);
     return true;
-  } else if (text.startsWith("handle") && !text.startsWith("handles") ) {
+  } else if (text.startsWith("handle") && !text.startsWith("handles")) {
     // Set username handle.
     // TODO: This could eventually be abstracted for more API calls.
     // Something like... await post({handle: "new"});
@@ -1556,7 +1556,7 @@ function act({
   }
 
   //if (e.is("session:updated")) {
-    //console.log("SESSION UPDATED!", user);
+  //console.log("SESSION UPDATED!", user);
   //   if (user === null) {
   //     login = new ui.TextButton("Log in", { center: "xy", screen });
   //     signup = new ui.TextButton("I'm new", { center: "xy", screen });
@@ -1884,17 +1884,20 @@ let motdController;
 async function makeMotd({ system, needsPaint, handle, user, net, api }) {
   let motd = "aesthetic.computer"; // Fallback motd.
   motdController = new AbortController();
-  const res = await fetch("/api/mood/@jeffrey", {
-    signal: motdController.signal,
-  });
-  if (res.status === 200) {
-    motd = (await res.json()).mood;
-    system.prompt.input.latentFirstPrint(motd);
-    needsPaint();
-  } else {
-    console.warn("😢 No mood found.");
+  try {
+    const res = await fetch("/api/mood/@jeffrey", {
+      signal: motdController.signal,
+    });
+    if (res.status === 200) {
+      motd = (await res.json()).mood;
+      system.prompt.input.latentFirstPrint(motd);
+      needsPaint();
+    } else {
+      console.warn("😢 No mood found.");
+    }
+  } catch (err) {
+    // console.warn("🙁 System `mood` fetch aborted.");
   }
-  return motd;
 }
 
 function makeFlash($, clear = true, beep = false) {
