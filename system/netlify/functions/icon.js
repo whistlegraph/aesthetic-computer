@@ -12,9 +12,10 @@ const dev = process.env.CONTEXT === "dev";
 const acceptedResolutions = ["128x128"];
 
 async function fun(event, context) {
-  console.log("🖼️  Getting icon...");
 
   const [resolution, ...filepath] = event.path.replace("/icon/", "").split("/"); // yields nxn and the command, if it exists
+
+  console.log("🖼️  Getting icon...", filepath.join("/"));
 
   // Ditch if we don't hit the accepted resolution whitelist.
   if (

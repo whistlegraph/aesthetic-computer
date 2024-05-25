@@ -13,11 +13,11 @@ const acceptedResolutions = ["1200x630", "1800x900"]; // og:image, twitter:image
 
 
 async function fun(event, context) {
-  console.log("🖼️ Getting thumbnail...");
-
   const [resolution, ...filepath] = event.path
     .replace("/thumbnail/", "")
     .split("/"); // yields nxn and the command, if it exists
+
+  console.log("🖼️  Getting thumbnail...", filepath.join("/"));
 
   // Ditch if we don't hit the accepted resolution whitelist.
   if (
