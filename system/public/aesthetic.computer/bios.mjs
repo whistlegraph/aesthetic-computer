@@ -2800,7 +2800,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         localStorage.removeItem(content.key);
         send({
           type: "store:deleted",
-          content: true,
+          content: { key: content.key, data: true },
         });
         // Just assume this is deleted.
       }
@@ -2821,7 +2821,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           console.log("📦 Delete local:db data:", content.key, deleted);
         send({
           type: "store:deleted",
-          content: deleted,
+          content: { key: content.key, data: true },
         });
       }
       return;
