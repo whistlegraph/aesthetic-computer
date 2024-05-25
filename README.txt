@@ -38,20 +38,18 @@ but technically agnostic. (Choose your aesthetic!)
 😀 TODO 😆
 
 🌟 Projects in Progress (PIP) 🌟
-  - [🧡] add a "system update" notifier based on commits - i should be able
-          to tag a commit or decide somehow if a `log` would be sent or not?
-          https://docs.netlify.com/site-deploys/notifications
-       
-        - How do I add a post request receiver here that
-          has process.env.NETLIFY_SYSTEM_DEPLOY_JWT set to 
-          match the token.
-
+  - [🟨] Add a "handles" directory to scroll through all active handles.
   - [*] Should you be able to chat after logging out via the
        "Pre-Authorized" array? Seems kinda unsafe, hmm... 24.05.20.20.54
   - [] Make sure the handle always shows and not the Create handle
        button so long as the user is logged in... this could be done
        by retrieving the handle in auth0.
-  - [*] Add a "handles" directory to scroll through all active handles.
+  - [🧡] add a "system update" notifier based on commits - i should be able
+          to tag a commit or decide somehow if a `log` would be sent or not?
+          https://docs.netlify.com/site-deploys/notifications
+      - How do I add a post request receiver here that
+        has process.env.NETLIFY_SYSTEM_DEPLOY_JWT set to 
+        match the token.
   - [] Auto-link handles and single quoted words.
     - [] color coded words in chat via kidlisp / how to integrate kidlisp?
   - [] Separate README from TODO and make TODO visible in the system to help
@@ -91,6 +89,9 @@ but technically agnostic. (Choose your aesthetic!)
 - [] Implement this in the iOS app: https://stackoverflow.com/a/71678197
     (Make aesthetic reload when the webViewWebContentProcessDidTerminate is
       called)
+- [] Fix the `nonotifs` bug not working, for sat / in general.
+     Maybe the feature can be centered on an actual account flag?
+- [] Support individualized notifications.
 
 *** selfnotif handling ***
   - [] Don't send notifications to that particular user right after closing the app / just disable all "self-sent" notifications somehow.
