@@ -251,6 +251,7 @@ let previewMode = false; // Detects ?preview on a piece and yields its
 let firstPreviewOrIcon = true;
 let iconMode = false; // Detects ?icon on a piece and yields its
 //                          icon function if it exists.
+let previewOrIconMode;
 let hideLabel = false;
 
 let module, loadedModule; // Currently loaded piece module code with an extra reference for `hotSwap`.
@@ -324,6 +325,11 @@ const chatSystem = {
 };
 
 function connectToChat() {
+  if (previewOrIconMode) {
+    console.log("💬 Chat disabled, just grabbing screenshots. 😃");
+    return;
+  }
+
   const chatUrl = debug ? "localhost:8083" : "chat-system.aesthetic.computer";
 
   chatSystem.server.connect(
@@ -2898,8 +2904,9 @@ async function load(
   // Requests a session-backend and connects via websockets.
   function startSocket() {
     if (
-      parsed.search?.startsWith("preview") ||
-      parsed.search?.startsWith("icon")
+      //parsed.search?.startsWith("preview") ||
+      //parsed.search?.startsWith("icon")
+      previewOrIconMode
     ) {
       console.log("🧦 Sockets disabled, just grabbing screenshots. 😃");
       return;
@@ -3616,6 +3623,7 @@ async function load(
     labelBack = false;
     previewMode = parsed.search?.startsWith("preview") || false;
     iconMode = parsed.search?.startsWith("icon") || false;
+    previewOrIconMode = previewMode || iconMode;
     paintings = {}; // Reset painting cache.
     prefetches?.forEach((p) => prefetchPicture(p)); // Prefetch parsed media.
     graph.color2(null); // Remove any secondary color that was added from another piece.
@@ -5355,6 +5363,7 @@ async function makeFrame({ data: { type, content } }) {
         } catch (err) {
           console.warn("🖼️ Preview failure...", err);
           previewMode = false;
+          previewOrIconMode = previewMode || iconMode;
         }
       } else if (iconMode) {
         // Render a favicon instead of the piece.
@@ -5382,6 +5391,7 @@ async function makeFrame({ data: { type, content } }) {
         } catch (err) {
           console.warn("🪷 Icon failure...", err);
           iconMode = false;
+          previewOrIconMode = previewMode || iconMode;
         }
       }
 

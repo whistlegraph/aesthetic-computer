@@ -12,7 +12,7 @@ const dev = process.env.CONTEXT === "dev";
 const acceptedResolutions = ["1200x630", "1800x900"]; // og:image, twitter:image
 
 
-async function fun(event, context) {
+async function handler(event, context) {
   const [resolution, ...filepath] = event.path
     .replace("/thumbnail/", "")
     .split("/"); // yields nxn and the command, if it exists
@@ -46,6 +46,8 @@ async function fun(event, context) {
   const browser = !dev
     ? await puppeteer.connect(ops)
     : await puppeteer.launch(ops);
+
+  console.log(browser);
 
   const page = await browser.newPage();
 
@@ -88,7 +90,7 @@ async function fun(event, context) {
 
   try {
     await page.waitForFunction("window.preloaded === true", {
-      timeout: 8000,
+      timeout: 6000,
     });
   } catch {
     console.log("🔴 Failed window.preloaded timer.");
@@ -112,4 +114,4 @@ async function fun(event, context) {
   };
 }
 
-export const handler = builder(fun);
+exports.handler = builder(handler);
