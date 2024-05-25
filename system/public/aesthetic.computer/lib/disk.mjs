@@ -1277,9 +1277,11 @@ const $commonApi = {
         { system, store, needsPaint, painting },
         res = { w: screen.width, h: screen.height },
       ) => {
+        console.log("deleting...");
         const deleted = await store.delete("painting", "local:db");
         await store.delete("painting:resolution-lock", "local:db");
         await store.delete("painting:transform", "local:db");
+        console.log("deleted");
         system.nopaint.undo.paintings.length = 0; // Reset undo stack.
         system.painting = null;
         system.nopaint.resetTransform({ system, screen }); // Reset transform.
@@ -2709,7 +2711,8 @@ async function load(
             ".mjs" +
             "#" +
             Date.now();
-          if (logs.loading) console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
+          if (logs.loading)
+            console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
           response = await fetch(anonUrl);
           if (response.status === 404 || response.status === 403)
             throw new Error(response.status);
@@ -4186,6 +4189,7 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "store:deleted") {
+    console.log(content, storeDeletionResolutions);
     storeDeletionResolutions[content.key]?.(content.data);
     delete storeDeletionResolutions[content.key];
     return;
