@@ -27,10 +27,9 @@ const aestheticDataset = new DataSet()
     phrase
       .setMetadata({ originalWord: "nigger" })
       .addPattern(pattern`n!gger`)
+      .addPattern(pattern`n????r`)
+      .addPattern(pattern`n?66er`)
       .addPattern(pattern`n*gger`),
-  )
-  .addPhrase((phrase) =>
-    phrase.setMetadata({ originalWord: "shit" }).addPattern(pattern`sh*t`),
   );
 
 const matcher = new RegExpMatcher({
@@ -42,10 +41,10 @@ const whitelist = ["rapper"];
 
 // Filter text for profanities by replacing them with underscores and log matches.
 export function filter(text) {
-  let out = text;
-  if (matcher.hasMatch(text)) {
+  let out = text.replaceAll("n166er", "n!gger");
+  if (matcher.hasMatch(out)) {
     console.log("🫢 Profanities found in:", text);
-    const matches = matcher.getAllMatches(text, true);
+    const matches = matcher.getAllMatches(out, true);
     for (const match of matches) {
       // console.log("🧨 Match:", match);
       const phraseMetadata =

@@ -9,7 +9,11 @@ const dev = process.env.NODE_ENV !== "development";
 
 export default async function handler(req) {
   const headers = corsHeaders(req);
-  const allowedOrigins = ["https://aesthetic.computer", "https://botce.ac"];
+  const allowedOrigins = [
+    "https://aesthetic.computer",
+    "https://botce.ac",
+    "https://chat-system.aesthetic.computer",
+  ];
   const origin = req.headers.get("Origin");
 
   // Allow requests in development environment or if the origin is in the allowed list
@@ -35,6 +39,8 @@ export default async function handler(req) {
   if (req.method === "POST") {
     const body = await req.json();
     let { messages, hint } = body;
+
+    console.log("🧠 Processing:", body);
 
     try {
       messages = messages?.map((message) => {
@@ -62,10 +68,14 @@ export default async function handler(req) {
         max_tokens = 256;
       }
 
+      // Tweak for language filtering...
+      if (hint.startsWith("code")) {
+      }
+
       // const model = hint.split(":")[1] || "gpt-3.5-turbo";
       const model = hint.split(":")[1] || "gpt-4o"; // "gpt-4-0125-preview";
 
-      if (model.startsWith("gpt-4")) {
+      if (model === "gpt-4") {
         top_p = 1;
         max_tokens = 350;
       }
