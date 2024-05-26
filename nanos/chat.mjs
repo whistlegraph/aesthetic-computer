@@ -407,10 +407,65 @@ async function startChatServer() {
         // TODO:  Add this chat to MongoDB, using the domain. (Only allow requests from the domain.)
         try {
           // TODO: Filter message for content.
-          const filteredText = filter(msg.content.text);
+
+          // 🫅 LLM Language filtering.
+          // Call out to `ask` to filter for content.
+          /*
+          let filteredText = "";
+          let messages = [];
+          messages.push({
+            by: "system",
+            text: "respond with the exact user text, but filter any profanities or inappropriate language with underscores - and pay attention to cases where profanities may be separated by punctuation or obscured",
+          });
+          messages.push({ by: "user", text: msg.content.text });
+
+          const host = dev
+            ? `https://localhost:8888` // Point to the main netlify stack.
+            : "https://ai.aesthetic.computer";
+
+          if (dev) process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+          try {
+            const response = await fetch(`${host}/api/ask`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ messages, hint: "filter" }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`Failed to reply: ${response.status}`);
+            }
+
+            const readableStream = response.body;
+            const decoder = new TextDecoder();
+            const reader = readableStream.getReader();
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) {
+                // convo.controller = null;
+                // if (!convo.forgetful) {
+                //   convo.messages.push({
+                //     by: "system",
+                //     text: filteredText,
+                //   });
+                // }
+                break;
+              }
+              const got = decoder.decode(value, { stream: true });
+              filteredText += got;
+              console.log("🎣 Filtering:", filteredText);
+            }
+          } catch (error) {
+            console.log("Error:", error);
+            // reportFailure(error);
+          }
+          */
 
           const message = msg.content;
           const fromSub = message.sub;
+
+          const filteredText = filter(message.text);
 
           // Don't store any actual messages to the MongoDB in development.
           if (!dev) {

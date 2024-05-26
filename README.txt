@@ -37,6 +37,9 @@ but technically agnostic. (Choose your aesthetic!)
 
 😀 TODO 😆
 
+- [] Single unbroken chat messages with no whitespace longer than a line are
+     missing the single space gap after the username. 
+
 🌟 Projects in Progress (PIP) 🌟
   - [🟨] Add a "handles" directory to scroll through all active handles.
   - [*] Should you be able to chat after logging out via the
