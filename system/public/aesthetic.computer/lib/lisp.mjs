@@ -51,6 +51,7 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] Implement: ; (once (wipe black))
   - [] Is there a way to get live updates
       to be even faster while using the
       lisp?
@@ -87,7 +88,7 @@ function module(source) {
       const evaluated = evaluate(parsed, $);
       // Print the program output value in the center of the screen.
       // ink("white").write(evaluated || "nada", { center: "xy" });
-      // return false;
+      return false;
     },
     act: ({ event: e, api }) => {
       if (e.is("touch")) tap(api);
@@ -168,7 +169,8 @@ const globalEnv = {
       // Iterate over the arguments starting from the second item.
       args.slice(1).forEach((arg, index) => {
         if (Array.isArray(arg) && body === null) {
-          body = [arg];
+          // body = [arg];
+          body = args.slice(index + 1);
         } else if (body === null) {
           params.push(arg);
         }
@@ -225,7 +227,6 @@ const globalEnv = {
     api.ink?.(processArgStringTypes(args));
   },
   line: (api, args = []) => {
-    console.log("LINE ARGS:", args);
     api.line(...args);
   },
   wiggle: (api, args = []) => {
@@ -283,12 +284,11 @@ function parse(program) {
 }
 
 function evaluate(parsed, api = {}, env) {
-  // console.log("➗ Evaluating:", parsed);
+  if (VERBOSE) console.log("➗ Evaluating:", parsed);
   let body;
 
   // Create local environment for a function that temporarily keeps the params.
   if (parsed.body) {
-
     body = parsed.body;
 
     parsed.params.forEach((param, i) => {
@@ -299,28 +299,40 @@ function evaluate(parsed, api = {}, env) {
       }
     });
 
-    console.log("Running:", body, "with environment:", localEnv);
+    if (VERBOSE) console.log("Running:", body, "with environment:", localEnv);
   } else {
     // Or just evaluate with the global environment, ensuring it's an array.
     body = Array.isArray(parsed) ? parsed : [parsed];
-    console.log("Body:", body);
   }
+
+  // console.log("🏃 Body:", body);
 
   let result;
   for (const item of body) {
-    console.log("🥡 Item:", item);
+    if (VERBOSE) console.log("🥡 Item:", item, "body:", body);
 
     if (Array.isArray(item)) {
       // The first element indicates the function to call
       const [head, ...args] = item;
+
+      // console.log("Head:", head, "args:", args);
+      if (Array.isArray(head)) {
+        // console.log("EVALUATING ARRAY HEAD:", head);
+        result = evaluate(item, api, env);
+        continue;
+      }
+
       // Check if the function requires recursive evaluation
       if (head === "now" || head === "def" || head === "die")
         args[0] = `"${args[0]}"`; // Pre-wrap the first arg as a string.
       if (existing(localEnv[head])) {
-        console.log("Local definition found!", head, localEnv[head]);
+        if (VERBOSE)
+          console.log("Local definition found!", head, localEnv[head]);
         result = localEnv[head];
       } else if (existing(globalEnv[head])) {
         if (typeof globalEnv[head] === "function") {
+          // console.log("FUNCTION IS:", head);
+
           let processedArgs;
           if (
             head === "later" ||
@@ -328,11 +340,9 @@ function evaluate(parsed, api = {}, env) {
             head === "draw" ||
             head === "if" ||
             head === "wipe" ||
-            head === "ink" // ||
-            // head === "write"
+            head === "ink"
           ) {
-            processedArgs = args; // No need to process these until
-            //                       the function is run.
+            processedArgs = args;
           } else {
             processedArgs = args.map((arg) =>
               Array.isArray(arg) ||
@@ -341,7 +351,6 @@ function evaluate(parsed, api = {}, env) {
                 : arg,
             );
           }
-
           // Prepare arguments, evaluate if they are also functions or strings.
           result = globalEnv[head](api, processedArgs);
         } else {
@@ -349,7 +358,8 @@ function evaluate(parsed, api = {}, env) {
         }
       } else if (existing(globalDef[head])) {
         // Check if the value needs recursive evaluation.
-        console.log("📖 Definition call:", head, args, globalDef[head]);
+        if (VERBOSE)
+          console.log("📖 Definition call:", head, args, globalDef[head]);
         result =
           Array.isArray(globalDef[head]) || globalDef[head].body
             ? evaluate(globalDef[head], api, args)
@@ -357,37 +367,43 @@ function evaluate(parsed, api = {}, env) {
       } else {
         // console.log("⚠️ No match found for:", head);
         if (Array.isArray(head)) {
-          console.log("Environment:", localEnv);
+          if (VERBOSE) console.log("Environment:", localEnv);
           result = evaluate(head, api, localEnv);
         } else {
           result = evalNotFound(head, api, localEnv);
         }
       }
     } else {
-      const [root, tail] = item.split(".");
+      // console.log("💘 Solo Item:", item);
 
-      if (item === "line") {
-        console.log("🔴 LINE", item, root, tail);
-      }
+      // if (item === "line") {
+      //   console.log("🔴 LINE", "body:", body, "item:", item);
+      // }
 
-      if (item === "x") {
-        console.log("💙 Item is x.", item, env, localEnv[item]);
+      // if (item === "x") {
+      // console.log("💙 Item is x.", item, env, localEnv[item]);
+      // }
+
+      let root, tail;
+      if (typeof item === "string") {
+        [root, tail] = item.split(".");
       }
 
       if (existing(localEnv[item])) {
-        if (VERBOSE) console.log("Solo local definition found!", item, localEnv[item]);
-        if (item === "x") {
-          console.log("Resolving item:", item, "for:", localEnv);
-        }
+        if (VERBOSE)
+          console.log("Solo local definition found!", item, localEnv[item]);
+        //if (item === "x") {
+        //  console.log("Resolving item:", item, "for:", localEnv);
+        //}
         // TODO: This needs to be evaluated?
         result = resolve(localEnv[item], api);
-        if (item === "x") {
-          console.log("Result is:", result);
-        }
+        //if (item === "x") {
+        //  console.log("Result is:", result);
+        //}
       } else if (existing(globalEnv[item])) {
-        if (item === "line") {
-          console.log("Assume a function on the globalEnv:", item);
-        }
+        //if (item === "line") {
+        //  console.log("Assume a function on the globalEnv:", item);
+        //}
         // console.log(typeof globalEnv[item]);
         // Assume a function on the globalEnv.
         if (typeof globalEnv[item] === "function") {
@@ -410,12 +426,12 @@ function evaluate(parsed, api = {}, env) {
           result = typeof end === "function" ? end() : end;
         }
       } else {
-        console.log(item, "⛔ Not found");
+        if (VERBOSE) console.log(item, "⛔ Not found");
         if (Array.isArray(item)) {
-          console.log("Evaluating item:", item);
+          //console.log("Evaluating item:", item);
           result = evaluate(item, api, env);
         } else {
-          console.log("Eval Not FOUNDDD!", env);
+          //console.log("Eval Not FOUNDDD!", env);
           result = evalNotFound(item, api, env);
         }
       }
@@ -424,8 +440,16 @@ function evaluate(parsed, api = {}, env) {
   return result;
 }
 
+
+
 function evalNotFound(expression, api, env) {
-  console.log("🤖 Attempting JavaScript expression evaluation:", expression);
+  if (typeof expression !== "string") {
+    console.log("Expression:", expression);
+    return expression; // Return numbers.
+  } else {
+    console.log("🤖 Attempting JavaScript expression evaluation:", expression);
+    // TODO: Fix scroll undefined error.
+  }
 
   // 📖 Identifiers can only start with a letter a-z or A-Z and can not
   // include mathermatical operators but can include underscores or
@@ -436,12 +460,12 @@ function evalNotFound(expression, api, env) {
 
   // Evaluate identifiers by running evaluate([id], api, env);
   identifiers.forEach((id) => {
-    console.log("🗼 Identifier:", id);
+    //console.log("🗼 Identifier:", id);
     const value = evaluate(id, api, env);
     expression = expression.replace(new RegExp(`\\b${id}\\b`, "g"), value);
   });
 
-  console.log("Replaced expression:", expression);
+  //console.log("Replaced expression:", expression);
 
   const compute = new Function(`return ${expression};`);
   const result = compute();
