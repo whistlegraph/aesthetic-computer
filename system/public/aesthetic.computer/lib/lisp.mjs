@@ -91,8 +91,14 @@ function module(source) {
       return false;
     },
     act: ({ event: e, api }) => {
-      if (e.is("touch")) tap(api);
-      if (e.is("draw")) draw(api);
+      if (e.is("touch")) {
+        api.needsPaint();
+        tap(api);
+      }
+      if (e.is("draw")) {
+        api.needsPaint();
+        draw(api, { dy: e.delta.y });
+      }
     },
   };
 }
@@ -108,8 +114,11 @@ function tap(api) {
 
 // ✏️ Draw
 let drawer;
-function draw(api) {
-  if (drawer) evaluate(drawer, api);
+function draw(api, env) {
+  if (drawer) {
+    console.log(drawer, env);
+    evaluate(drawer, api, env);
+  }
 }
 
 // 💻 System
@@ -305,9 +314,10 @@ function evaluate(parsed, api = {}, env) {
     body = Array.isArray(parsed) ? parsed : [parsed];
   }
 
-  // console.log("🏃 Body:", body);
+  console.log("🏃 Body:", body);
 
   let result;
+
   for (const item of body) {
     if (VERBOSE) console.log("🥡 Item:", item, "body:", body);
 
@@ -331,7 +341,6 @@ function evaluate(parsed, api = {}, env) {
         result = localEnv[head];
       } else if (existing(globalEnv[head])) {
         if (typeof globalEnv[head] === "function") {
-          // console.log("FUNCTION IS:", head);
 
           let processedArgs;
           if (
@@ -344,10 +353,15 @@ function evaluate(parsed, api = {}, env) {
           ) {
             processedArgs = args;
           } else {
+            if (head === "now") {
+              console.log("now:", env);
+            } else {
+              console.log("other:", env);
+            }
             processedArgs = args.map((arg) =>
               Array.isArray(arg) ||
               (typeof arg === "string" && !/^".*"$/.test(arg))
-                ? evaluate([arg], api)
+                ? evaluate([arg], api, env)
                 : arg,
             );
           }
@@ -440,8 +454,6 @@ function evaluate(parsed, api = {}, env) {
   return result;
 }
 
-
-
 function evalNotFound(expression, api, env) {
   if (typeof expression !== "string") {
     console.log("Expression:", expression);
@@ -460,12 +472,30 @@ function evalNotFound(expression, api, env) {
 
   // Evaluate identifiers by running evaluate([id], api, env);
   identifiers.forEach((id) => {
-    //console.log("🗼 Identifier:", id);
-    const value = evaluate(id, api, env);
+    // console.log("🗼 Identifier:", id, env, localEnv, globalDef, globalEnv);
+    let value;
+
+    if (
+      !existing(env?.[id]) && // What's the ultimate difference between all
+      //                         These environments now? 24.05.27.02.27
+      // TODO: - [] Should this 'env' always encompass everything?
+      !existing(localEnv[id]) &&
+      !existing(globalDef[id]) &&
+      !existing(globalEnv[id])
+    ) {
+      value = 0; // Set non-existent keys to 0 because we are assuming
+      //            an arithmetic expression.
+    } else {
+      console.log("Evaluating:", id, env);
+      value = evaluate(id, api, env);
+    }
+
+    // if (env[id])
+    // Check for refs first....
     expression = expression.replace(new RegExp(`\\b${id}\\b`, "g"), value);
   });
 
-  //console.log("Replaced expression:", expression);
+  // console.log("Replaced expression:", expression);
 
   const compute = new Function(`return ${expression};`);
   const result = compute();

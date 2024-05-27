@@ -2807,7 +2807,7 @@ async function load(
 
       if (devReload) {
         store["publishable-piece"] = { slug, source: sourceCode, ext: "lisp" };
-        console.log("💌 Publishable:", store["publishable-piece"]);
+        // console.log("💌 Publishable:", store["publishable-piece"]);
       }
     } catch (err) {
       // 🧨 Continue with current module if one has already loaded.
@@ -2868,7 +2868,7 @@ async function load(
       // Note: This is used for live development via the socket server.
       $commonApi.load({ source, name, codeChannel }, false, false, true); // Load source code.
     } else if (piece === "*" || piece === undefined || currentText === piece) {
-      console.log("💾️ Reloading current piece...", piece);
+      console.log("💾️ Reloading:", piece);
       const devReload = true;
       $commonApi.pieceCount = -1; // Reset pieceCount on developer reload.
       //                             (This can be disabled while testing pieces
