@@ -48,6 +48,14 @@
   (ink "orange" (wiggle 64))
   (box 8 32 (- width 20) (wiggle 32))
   (+ 1 2 3)
+
+  ((line 20 80 80 80))
+  (later cross x y
+    (line x-10 y-10 x+10 y+10)
+    (line x-10 y+10 x+10 y-10)
+  )
+  (ink yellow)
+  (cross 16 32)
 #endregion */
 
 /* #region 🏁 TODO 
@@ -57,6 +65,14 @@
       lisp?
     - [] Like being able to soft-reset the environment
         parse the code but nothing else.
+  - [] Runtime Modes
+    - [] Everything should be "alive" in a continuous loop
+        and for optimization or one-time effects, elements
+        can be striken from the AST like global definitions.
+  - [] Could all `defs` be removed from the parsed AST once they run once?
+  - [] Add a repeat like goto statement?
+  - [] Or something to enable looping.
+  - [] Add the ability to make sound.
   + Done
   - [x] Have tests run automatically in some window.
   - [x] Set up this module with some actual JavaScript testing framework
@@ -97,7 +113,7 @@ function module(source) {
       }
       if (e.is("draw")) {
         api.needsPaint();
-        draw(api, { dy: e.delta.y });
+        draw(api, { dy: e.delta.y, dx: e.delta.x });
       }
     },
   };
@@ -116,12 +132,14 @@ function tap(api) {
 let drawer;
 function draw(api, env) {
   if (drawer) {
-    console.log(drawer, env);
+    // console.log(drawer, env);
     evaluate(drawer, api, env);
   }
 }
 
 // 💻 System
+
+const networkCache = {};
 
 const globalDef = {};
 
@@ -203,6 +221,36 @@ const globalEnv = {
 
       return body;
     }
+  },
+  net: {
+    handles: (api, args) => {
+      console.log(networkCache.handles, Array.isArray(networkCache.handles));
+      if (!networkCache.handles) {
+        networkCache.handles = "loading";
+        fetch("/api/handles")
+          .then((response) => response.json())
+          .then((data) => {
+            console.log("👱 Handles:", data);
+            networkCache.handles = data.handles;
+          })
+          .catch((error) => console.error(error));
+      } else if (Array.isArray(networkCache.handles)) {
+        console.log("🗼 Received handles:", networkCache.handles, args);
+
+        networkCache.handles.forEach((handle, index) => {
+          // TODO: Maybe the 'env' should include more?
+          console.log("Evaluating inside loop:", args[2], {
+            handle: handle.handle, // TODO: This is ugly. 🤮 24.05.27.08.36
+            index,
+          });
+          evaluate([args[2]], api, { handle: `"${handle.handle}"`, index });
+        });
+
+        // TODO: Evaluate the rest of the arguments here?
+        // evaluate();
+      }
+      // TODO: Write the loop here.
+    },
   },
   tap: (api, args) => {
     tapper = args;
@@ -314,7 +362,7 @@ function evaluate(parsed, api = {}, env) {
     body = Array.isArray(parsed) ? parsed : [parsed];
   }
 
-  console.log("🏃 Body:", body);
+  // console.log("🏃 Body:", body);
 
   let result;
 
@@ -323,7 +371,7 @@ function evaluate(parsed, api = {}, env) {
 
     if (Array.isArray(item)) {
       // The first element indicates the function to call
-      const [head, ...args] = item;
+      let [head, ...args] = item;
 
       // console.log("Head:", head, "args:", args);
       if (Array.isArray(head)) {
@@ -331,6 +379,10 @@ function evaluate(parsed, api = {}, env) {
         result = evaluate(item, api, env);
         continue;
       }
+
+      const splitHead = head.split(".");
+      head = splitHead[0];
+      // console.log("SPLIT HEAD:", splitHead);
 
       // Check if the function requires recursive evaluation
       if (head === "now" || head === "def" || head === "die")
@@ -340,8 +392,11 @@ function evaluate(parsed, api = {}, env) {
           console.log("Local definition found!", head, localEnv[head]);
         result = localEnv[head];
       } else if (existing(globalEnv[head])) {
-        if (typeof globalEnv[head] === "function") {
-
+        if (
+          typeof globalEnv[head] === "function" ||
+          typeof globalEnv[head] === "object"
+        ) {
+          // console.log("FUNCTION or OBJECT:", head);
           let processedArgs;
           if (
             head === "later" ||
@@ -349,15 +404,11 @@ function evaluate(parsed, api = {}, env) {
             head === "draw" ||
             head === "if" ||
             head === "wipe" ||
-            head === "ink"
+            head === "ink" ||
+            head === "net"
           ) {
             processedArgs = args;
           } else {
-            if (head === "now") {
-              console.log("now:", env);
-            } else {
-              console.log("other:", env);
-            }
             processedArgs = args.map((arg) =>
               Array.isArray(arg) ||
               (typeof arg === "string" && !/^".*"$/.test(arg))
@@ -366,7 +417,12 @@ function evaluate(parsed, api = {}, env) {
             );
           }
           // Prepare arguments, evaluate if they are also functions or strings.
-          result = globalEnv[head](api, processedArgs);
+
+          if (splitHead[1]) {
+            result = getNestedValue(globalEnv, item[0])(api, processedArgs);
+          } else {
+            result = globalEnv[head](api, processedArgs);
+          }
         } else {
           result = globalEnv[head];
         }
@@ -456,10 +512,10 @@ function evaluate(parsed, api = {}, env) {
 
 function evalNotFound(expression, api, env) {
   if (typeof expression !== "string") {
-    console.log("Expression:", expression);
+    // console.log("Expression:", expression);
     return expression; // Return numbers.
   } else {
-    console.log("🤖 Attempting JavaScript expression evaluation:", expression);
+    // console.log("🤖 Attempting JavaScript expression evaluation:", expression);
     // TODO: Fix scroll undefined error.
   }
 
@@ -483,11 +539,12 @@ function evalNotFound(expression, api, env) {
       !existing(globalDef[id]) &&
       !existing(globalEnv[id])
     ) {
+      // console.log("Setting value to 0 for:", id);
       value = 0; // Set non-existent keys to 0 because we are assuming
       //            an arithmetic expression.
     } else {
-      console.log("Evaluating:", id, env);
-      value = evaluate(id, api, env);
+      // console.log("🚗 Evaluating:", id, env);
+      value = existing(env?.[id]) ? env[id] : evaluate(id, api, env);
     }
 
     // if (env[id])
@@ -564,6 +621,7 @@ function processArgStringTypes(args) {
 }
 
 function unquoteString(str) {
+  // console.log("Unquoting:", str);
   if (str.startsWith('"') && str.endsWith('"')) {
     return str.substring(1, str.length - 1);
   } else return str;
@@ -571,6 +629,11 @@ function unquoteString(str) {
 
 function existing(item) {
   return item !== undefined && item !== null;
+}
+
+function getNestedValue(obj, path) {
+  // console.log("Nested value:", obj, path);
+  return path.split(".").reduce((acc, part) => acc && acc[part], obj);
 }
 
 export { module, parse, evaluate };
