@@ -239,10 +239,10 @@ const globalEnv = {
 
         networkCache.handles.forEach((handle, index) => {
           // TODO: Maybe the 'env' should include more?
-          console.log("Evaluating inside loop:", args[2], {
-            handle: handle.handle, // TODO: This is ugly. 🤮 24.05.27.08.36
-            index,
-          });
+          // console.log("Evaluating inside loop:", args[2], {
+          //   handle: handle.handle, // TODO: This is ugly. 🤮 24.05.27.08.36
+          //   index,
+          // });
           evaluate([args[2]], api, { handle: `"${handle.handle}"`, index });
         });
 
@@ -362,7 +362,7 @@ function evaluate(parsed, api = {}, env) {
     body = Array.isArray(parsed) ? parsed : [parsed];
   }
 
-  // console.log("🏃 Body:", body);
+  // console.log("🏃 Body:", body, localEnv);
 
   let result;
 
@@ -428,8 +428,8 @@ function evaluate(parsed, api = {}, env) {
         }
       } else if (existing(globalDef[head])) {
         // Check if the value needs recursive evaluation.
-        if (VERBOSE)
-          console.log("📖 Definition call:", head, args, globalDef[head]);
+        // if (VERBOSE)
+        console.log("📖 Definition call:", head, args, globalDef[head]);
         result =
           Array.isArray(globalDef[head]) || globalDef[head].body
             ? evaluate(globalDef[head], api, args)
@@ -444,7 +444,7 @@ function evaluate(parsed, api = {}, env) {
         }
       }
     } else {
-      // console.log("💘 Solo Item:", item);
+      // console.log("💘 Solo item:", item);
 
       // if (item === "line") {
       //   console.log("🔴 LINE", "body:", body, "item:", item);
@@ -460,13 +460,13 @@ function evaluate(parsed, api = {}, env) {
       }
 
       if (existing(localEnv[item])) {
-        if (VERBOSE)
-          console.log("Solo local definition found!", item, localEnv[item]);
+        //if (VERBOSE)
+        console.log("Solo local definition found!", item, localEnv[item]);
         //if (item === "x") {
         //  console.log("Resolving item:", item, "for:", localEnv);
         //}
         // TODO: This needs to be evaluated?
-        result = resolve(localEnv[item], api);
+        result = resolve(localEnv[item], api, env);
         //if (item === "x") {
         //  console.log("Result is:", result);
         //}
@@ -489,7 +489,7 @@ function evaluate(parsed, api = {}, env) {
         //    default would have to come into play?
 
         if (!tail) {
-          result = resolve(globalDef[root], api);
+          result = resolve(globalDef[root], api, env);
         } else {
           // Assume a function with dot syntax.
           const end = globalDef[root][tail];
@@ -560,8 +560,10 @@ function evalNotFound(expression, api, env) {
   return result;
 }
 
-function resolve(expression, api) {
-  return Array.isArray(expression) ? evaluate(expression, api) : expression;
+function resolve(expression, api, env) {
+  // return Array.isArray(expression)
+  return evaluate(expression, api, env);
+  //  : evaluate([expression], api, env);
 }
 
 function readFromTokens(tokens) {

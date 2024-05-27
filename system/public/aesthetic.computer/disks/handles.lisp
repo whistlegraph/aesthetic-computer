@@ -33,6 +33,28 @@
 
 ; This should fetch the handles, and then 
 ; start to write each one as it exists, in a loop.
-(net.handles handle index
- (write handle 6 15*index+scroll+24)
-)
+
+; It needs to be able to...
+;  - [] Quit the loop early if a box is off-screen or *just don't draw
+;       it at all*.
+;  - [] Only capture a subsection of the array.
+
+;(ink yellow)
+;(box 6 18 width-12 height-32)
+; (ink red)
+;(net.handles handle index
+; (write handle 6 15*index+scroll+24)
+;)
+
+; A scrollbox has a height
+;                 a lineHeight
+;                 lineHeight / height is number of lines that fit inside.
+;                 contents: [an array of lines]
+;                 a drawable / draggable event
+
+(later pane x y w h contents (
+  ;(contents item index
+  ;  (write item x 15*index+y+scroll)
+  ;)
+  box x y w h
+))

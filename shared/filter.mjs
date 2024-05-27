@@ -30,9 +30,10 @@ const aestheticDataset = new DataSet()
     phrase
       .setMetadata({ originalWord: "nigger" })
       .addPattern(pattern`n!gger`)
-      .addPattern(pattern`n????r`)
+      .addPattern(pattern`n???er`)
       .addPattern(pattern`nig hair`)
       .addPattern(pattern`n?66er`)
+      .addPattern(pattern`n***er`)
       .addPattern(pattern`n*gger`),
   );
 
