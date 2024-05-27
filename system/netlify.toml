@@ -257,6 +257,10 @@
   to = "/.netlify/functions/handle"
   status = 200
 [[redirects]]
+  from = "api/handles"
+  to = "/.netlify/functions/handles"
+  status = 200
+[[redirects]]
   from = "/api/email"
   to = "/.netlify/functions/email"
   status = 200
