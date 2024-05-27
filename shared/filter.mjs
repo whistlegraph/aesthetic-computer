@@ -24,10 +24,14 @@ const aestheticDataset = new DataSet()
       .addPattern(pattern`beaner`),
   )
   .addPhrase((phrase) =>
+    phrase.setMetadata({ originalWord: "nig" }).addPattern(pattern`nlg`),
+  )
+  .addPhrase((phrase) =>
     phrase
       .setMetadata({ originalWord: "nigger" })
       .addPattern(pattern`n!gger`)
       .addPattern(pattern`n????r`)
+      .addPattern(pattern`nig hair`)
       .addPattern(pattern`n?66er`)
       .addPattern(pattern`n*gger`),
   );

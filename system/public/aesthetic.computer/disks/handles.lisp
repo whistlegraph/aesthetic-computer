@@ -10,8 +10,6 @@
 ; #engregion 
 
 (wipe black)
-
-
 ((line 20 20 80 80))
 
 ; 💡 `def` and `later` should become the same?
