@@ -2,8 +2,11 @@
 ; A directory of all handles. 
 
 ; #region 🏁 TODO 
-;  - [] Pull in 'handles` data. 
+; - [🟠] Get the formatting of handles data correct.
+;        with disappearing scrolling!
+; - [] Add a button to each handle, similar to the `list` command.
 ;  + Done
+;  - [x] Pull in 'handles` data. 
 ;  - [x] Add scrolling "draw" behavior.
 ;  - [x] Get write working. 
 ; #engregion 
