@@ -42,12 +42,7 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
   - [🟨] Add a "handles" directory to scroll through all active handles.
-  - [*] Should you be able to chat after logging out via the
-       "Pre-Authorized" array? Seems kinda unsafe, hmm... 24.05.20.20.54
-  - [] Make sure the handle always shows and not the Create handle
-       button so long as the user is logged in... this could be done
-       by retrieving the handle in auth0.
-  - [🧡] add a "system update" notifier based on commits - i should be able
+  - [-] add a "system update" notifier based on commits - i should be able
           to tag a commit or decide somehow if a `log` would be sent or not?
           https://docs.netlify.com/site-deploys/notifications
       - How do I add a post request receiver here that
@@ -62,6 +57,8 @@ but technically agnostic. (Choose your aesthetic!)
       is something like `🗨️:system:56262-72837` for a range or just an
       exact / closest match if a single integer is given.
   + Done
+  - [x] Should you be able to chat after logging out via the
+       "Pre-Authorized" array? Seems kinda unsafe, hmm... 24.05.20.20.54
   - [think so?] Make sure the handle always shows and not the Create handle
        button so long as the user is logged in... this could be done
        by retrieving the handle in auth0.

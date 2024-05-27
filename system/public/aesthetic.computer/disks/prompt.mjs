@@ -1409,9 +1409,10 @@ function paint($) {
         `${handles} HANDLES SET`,
         {
           center: "x",
-          y: screen.height / 2 + screen.height / 2.75 - 11,
+          y: screen.height / 2 + screen.height / 3.25 - 11,
         },
         [255, 50, 200, 24],
+        screen.width - 18
       );
   }
 
