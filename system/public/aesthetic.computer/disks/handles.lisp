@@ -18,7 +18,10 @@
 ; TODO: How should assignment actually work?
 ; TODO: And shorthand for incrementing a value.
 
+
+
 (draw (now scroll scroll+dy))
+
 
 (write "@jeffrey" 6 scroll+24)
 (write "@jeffrey" 6 scroll+24+15)
