@@ -224,7 +224,15 @@ const globalEnv = {
   },
   net: {
     handles: (api, args) => {
-      console.log(networkCache.handles, Array.isArray(networkCache.handles));
+      // ⛔
+      // TODO: This would need to know the localEnv and what field
+      //       to set so it can be set lazily after the data loads...
+
+      // 🔥👱
+      // TODO: It would be better to return an empty array here / an object
+      //       with the "iterable" flag and a value parameter.
+      const iter = { iterable: true, data: [] };
+
       if (!networkCache.handles) {
         networkCache.handles = "loading";
         fetch("/api/handles")
@@ -232,24 +240,17 @@ const globalEnv = {
           .then((data) => {
             console.log("👱 Handles:", data);
             networkCache.handles = data.handles;
+            iter.data = data.handles;
           })
           .catch((error) => console.error(error));
       } else if (Array.isArray(networkCache.handles)) {
         console.log("🗼 Received handles:", networkCache.handles, args);
-
-        networkCache.handles.forEach((handle, index) => {
-          // TODO: Maybe the 'env' should include more?
-          // console.log("Evaluating inside loop:", args[2], {
-          //   handle: handle.handle, // TODO: This is ugly. 🤮 24.05.27.08.36
-          //   index,
-          // });
-          evaluate([args[2]], api, { handle: `"${handle.handle}"`, index });
-        });
-
-        // TODO: Evaluate the rest of the arguments here?
-        // evaluate();
+        // networkCache.handles.forEach((handle, index) => {
+        //   evaluate([args[2]], api, { handle: `"${handle.handle}"`, index });
+        // });
+        iter.data = networkCache.handles;
       }
-      // TODO: Write the loop here.
+      return iter;
     },
   },
   tap: (api, args) => {
@@ -349,11 +350,13 @@ function evaluate(parsed, api = {}, env) {
     body = parsed.body;
 
     parsed.params.forEach((param, i) => {
-      if (Array.isArray(env[i])) {
-        localEnv[param] = [env[i]];
-      } else {
-        localEnv[param] = env[i];
-      }
+      // console.log("Parsing param:", param, env, i)
+      //if (Array.isArray(env[i])) {
+      //  localEnv[param] = [env[i]];
+      //} else {
+      // console.log("Param:", env[i]);
+      localEnv[param] = evaluate(env[i], api, env);
+      //}
     });
 
     if (VERBOSE) console.log("Running:", body, "with environment:", localEnv);
@@ -367,7 +370,7 @@ function evaluate(parsed, api = {}, env) {
   let result;
 
   for (const item of body) {
-    if (VERBOSE) console.log("🥡 Item:", item, "body:", body);
+    /*if (VERBOSE)*/ console.log("🥡 Item:", item, "body:", body);
 
     if (Array.isArray(item)) {
       // The first element indicates the function to call
@@ -387,9 +390,14 @@ function evaluate(parsed, api = {}, env) {
       // Check if the function requires recursive evaluation
       if (head === "now" || head === "def" || head === "die")
         args[0] = `"${args[0]}"`; // Pre-wrap the first arg as a string.
+
       if (existing(localEnv[head])) {
-        if (VERBOSE)
-          console.log("Local definition found!", head, localEnv[head]);
+        // if (VERBOSE)
+        console.log("😫 Local definition found!", head, localEnv[head]);
+        console.log("😛 Item:", item, "Args:", args, "Body:", body);
+
+        // TODO: This needs to check the args.
+
         result = localEnv[head];
       } else if (existing(globalEnv[head])) {
         if (
@@ -419,6 +427,7 @@ function evaluate(parsed, api = {}, env) {
           // Prepare arguments, evaluate if they are also functions or strings.
 
           if (splitHead[1]) {
+            console.log("net:", env, lovalEnv, splitHead);
             result = getNestedValue(globalEnv, item[0])(api, processedArgs);
           } else {
             result = globalEnv[head](api, processedArgs);
@@ -429,13 +438,14 @@ function evaluate(parsed, api = {}, env) {
       } else if (existing(globalDef[head])) {
         // Check if the value needs recursive evaluation.
         // if (VERBOSE)
-        console.log("📖 Definition call:", head, args, globalDef[head]);
+        // console.log("📖 Definition call:", head, args, globalDef[head]);
         result =
           Array.isArray(globalDef[head]) || globalDef[head].body
             ? evaluate(globalDef[head], api, args)
             : globalDef[head];
       } else {
-        // console.log("⚠️ No match found for:", head);
+        console.log("⚠️ No match found for:", head, localEnv);
+
         if (Array.isArray(head)) {
           if (VERBOSE) console.log("Environment:", localEnv);
           result = evaluate(head, api, localEnv);
@@ -461,26 +471,32 @@ function evaluate(parsed, api = {}, env) {
 
       if (existing(localEnv[item])) {
         //if (VERBOSE)
-        console.log("Solo local definition found!", item, localEnv[item]);
+        // console.log("Solo local definition found!", item, localEnv[item]);
         //if (item === "x") {
         //  console.log("Resolving item:", item, "for:", localEnv);
         //}
         // TODO: This needs to be evaluated?
-        result = resolve(localEnv[item], api, env);
+        result = evaluate(localEnv[item], api, env);
         //if (item === "x") {
         //  console.log("Result is:", result);
         //}
-      } else if (existing(globalEnv[item])) {
+        //} else if (existing(getNestedValue(globalDef, item))) {
+      } else if (existing(globalEnv[root])) {
         //if (item === "line") {
-        //  console.log("Assume a function on the globalEnv:", item);
         //}
         // console.log(typeof globalEnv[item]);
         // Assume a function on the globalEnv.
-        if (typeof globalEnv[item] === "function") {
-          result = globalEnv[item](api);
-          // console.log("Result is:", result);
+
+        if (!tail) {
+          result =
+            typeof globalEnv[item] === "function"
+              ? globalEnv[item](api)
+              : (result = globalEnv[item]);
         } else {
-          result = globalEnv[item];
+          // Assume a function with dot syntax.
+          const end = globalEnv[root][tail];
+          // console.log(root, tail);
+          result = typeof end === "function" ? end(api) : end;
         }
       } else if (existing(globalDef[root])) {
         // Check if the value needs recursive evaluation.
@@ -489,14 +505,14 @@ function evaluate(parsed, api = {}, env) {
         //    default would have to come into play?
 
         if (!tail) {
-          result = resolve(globalDef[root], api, env);
+          result = evaluate(globalDef[root], api, env);
         } else {
           // Assume a function with dot syntax.
           const end = globalDef[root][tail];
           result = typeof end === "function" ? end() : end;
         }
       } else {
-        if (VERBOSE) console.log(item, "⛔ Not found");
+        /*if (VERBOSE)*/ //console.log(item, "⛔ Not found");
         if (Array.isArray(item)) {
           //console.log("Evaluating item:", item);
           result = evaluate(item, api, env);
@@ -558,12 +574,6 @@ function evalNotFound(expression, api, env) {
   const result = compute();
   // console.log("Evaluated result:", result);
   return result;
-}
-
-function resolve(expression, api, env) {
-  // return Array.isArray(expression)
-  return evaluate(expression, api, env);
-  //  : evaluate([expression], api, env);
 }
 
 function readFromTokens(tokens) {
@@ -635,7 +645,7 @@ function existing(item) {
 
 function getNestedValue(obj, path) {
   // console.log("Nested value:", obj, path);
-  return path.split(".").reduce((acc, part) => acc && acc[part], obj);
+  return path?.split(".").reduce((acc, part) => acc && acc[part], obj);
 }
 
 export { module, parse, evaluate };
