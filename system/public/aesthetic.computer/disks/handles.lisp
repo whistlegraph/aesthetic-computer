@@ -13,7 +13,6 @@
 
 (wipe black)
 
-
 ; 💡 `def` and `later` should become the same?
 (def scroll 10) ; TODO: Fix scroll undefined error.
 ; TODO: How should assignment actually work?
@@ -53,8 +52,14 @@
 ;                 a drawable / draggable event
 
 (later pane x y w h contents (
-  ;(contents item index
-  ;  (write item x 15*index+y+scroll)
-  ;)
-  box x y w h
+  (contents item index
+    (write item x 15*index+y+scroll)
+  )
+  (box x y w h)
 ))
+
+(ink orange 64)
+(pane 6 8 width-12 height-32 net.handles)
+
+; `net.handles` needs like an 'iterable' flag
+; so that the form (contents item index ...) can function.
