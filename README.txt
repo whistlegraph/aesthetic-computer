@@ -37,6 +37,8 @@ but technically agnostic. (Choose your aesthetic!)
 
 😀 TODO 😆
 
+- [] Make sure `source anything.lisp` works. 
+- [] Reinstall x11 server on windows 11.
 - [] Single unbroken chat messages with no whitespace longer than a line are
      missing the single space gap after the username. 
 

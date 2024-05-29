@@ -1921,7 +1921,7 @@ function makeFlash($, clear = true, beep = false) {
   } else if (typeof clear === "string") {
     $.system.prompt.input.text = clear;
     $.system.prompt.input.snap();
-    send({
+    $.send({
       type: "keyboard:text:replace",
       content: { text: $.system.prompt.input.text },
     });
