@@ -20,8 +20,17 @@
 ; #engregion 
 
 (wipe black)
+
+; 💡 `def` and `later` should become the same?
+(def scroll 10) ; TODO: Fix scroll undefined error.
+; TODO: How should assignment actually work?
+; TODO: And shorthand for incrementing a value.
+
+
+
 (def scroll 10)
 (draw (now scroll scroll+dy))
+
 
 ;(def lineHeight 15)
 
