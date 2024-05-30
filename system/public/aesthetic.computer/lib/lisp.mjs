@@ -85,7 +85,8 @@
   - [x] Get a named command running through, like "line" and "ink". 
 #endregion */
 
-const VERBOSE = false;
+const VERBOSE = true;
+const { floor } = Math;
 
 // Parse and evaluate a lisp source module
 // into a running aesthetic computer piece.
@@ -223,31 +224,21 @@ const globalEnv = {
     }
   },
   net: {
-    handles: (api, args) => {
-      // ⛔
-      // TODO: This would need to know the localEnv and what field
-      //       to set so it can be set lazily after the data loads...
-
-      // 🔥👱
-      // TODO: It would be better to return an empty array here / an object
-      //       with the "iterable" flag and a value parameter.
+    handles: (api) => {
       const iter = { iterable: true, data: [] };
-
       if (!networkCache.handles) {
         networkCache.handles = "loading";
         fetch("/api/handles")
           .then((response) => response.json())
           .then((data) => {
-            console.log("👱 Handles:", data);
+            // console.log("👱 Handles:", data);
             networkCache.handles = data.handles;
             iter.data = data.handles;
+            api.needsPaint(); // 🖌️ Always require a paint after any network fetch.
           })
-          .catch((error) => console.error(error));
+          .catch((error) => console.warn(error));
       } else if (Array.isArray(networkCache.handles)) {
-        console.log("🗼 Received handles:", networkCache.handles, args);
-        // networkCache.handles.forEach((handle, index) => {
-        //   evaluate([args[2]], api, { handle: `"${handle.handle}"`, index });
-        // });
+        console.log("🗼 Received handles:", networkCache.handles.length);
         iter.data = networkCache.handles;
       }
       return iter;
@@ -267,6 +258,30 @@ const globalEnv = {
       evaluate([args[1]], api);
     } else {
       evaluate([args[2]], api);
+    }
+  },
+  range: (api, args) => {
+    if (args.length === 3) {
+      const array = args[0].data; // Must be an object with `iterable` true and `data`.
+      const startIndex = floor(args[1]);
+      const endIndex = floor(args[2]);
+      // console.log("Range:", array, startIndex, endIndex);
+
+      if (
+        Array.isArray(array) &&
+        typeof startIndex === "number" &&
+        typeof endIndex === "number"
+      ) {
+        const slice = array.slice(startIndex, endIndex);
+        console.log("Ranged:", slice);
+        return { iterable: true, data: slice };
+      } else {
+        console.error(
+          "❗ Invalid arguments for `range`. Expected an array and two numbers.",
+        );
+      }
+    } else {
+      console.error("❗ Invalid `range`. Wrong number of arguments.");
     }
   },
   // Mathematical Operators
@@ -348,29 +363,21 @@ function evaluate(parsed, api = {}, env) {
   // Create local environment for a function that temporarily keeps the params.
   if (parsed.body) {
     body = parsed.body;
-
-    parsed.params.forEach((param, i) => {
-      // console.log("Parsing param:", param, env, i)
-      //if (Array.isArray(env[i])) {
-      //  localEnv[param] = [env[i]];
-      //} else {
-      // console.log("Param:", env[i]);
-      localEnv[param] = evaluate(env[i], api, env);
-      //}
-    });
-
+    parsed.params.forEach(
+      (param, i) => (localEnv[param] = evaluate(env[i], api, env)),
+    );
     if (VERBOSE) console.log("Running:", body, "with environment:", localEnv);
   } else {
     // Or just evaluate with the global environment, ensuring it's an array.
     body = Array.isArray(parsed) ? parsed : [parsed];
   }
 
-  // console.log("🏃 Body:", body, localEnv);
+  console.log("🏃 Body:", body, localEnv);
 
   let result;
 
   for (const item of body) {
-    /*if (VERBOSE)*/ console.log("🥡 Item:", item, "body:", body);
+    if (VERBOSE) console.log("🥡 Item:", item/*, "body:", body*/);
 
     if (Array.isArray(item)) {
       // The first element indicates the function to call
@@ -378,25 +385,25 @@ function evaluate(parsed, api = {}, env) {
 
       // console.log("Head:", head, "args:", args);
       if (Array.isArray(head)) {
-        // console.log("EVALUATING ARRAY HEAD:", head);
+        console.log("EVALUATING ARRAY HEAD:", head);
+        // ❤️‍🔥 The issue the the args are not being evaluated here.
         result = evaluate(item, api, env);
         continue;
       }
 
       const splitHead = head.split(".");
       head = splitHead[0];
-      // console.log("SPLIT HEAD:", splitHead);
 
       // Check if the function requires recursive evaluation
       if (head === "now" || head === "def" || head === "die")
         args[0] = `"${args[0]}"`; // Pre-wrap the first arg as a string.
 
       if (existing(localEnv[head])) {
-        // if (VERBOSE)
-        console.log("😫 Local definition found!", head, localEnv[head]);
-        console.log("😛 Item:", item, "Args:", args, "Body:", body);
+        if (VERBOSE)
+          console.log("😫 Local definition found!", head, localEnv[head]);
 
-        // TODO: This needs to check the args.
+        if (localEnv[head].iterable)
+          result = iterate(localEnv[head].data, api, args);
 
         result = localEnv[head];
       } else if (existing(globalEnv[head])) {
@@ -404,7 +411,6 @@ function evaluate(parsed, api = {}, env) {
           typeof globalEnv[head] === "function" ||
           typeof globalEnv[head] === "object"
         ) {
-          // console.log("FUNCTION or OBJECT:", head);
           let processedArgs;
           if (
             head === "later" ||
@@ -425,9 +431,7 @@ function evaluate(parsed, api = {}, env) {
             );
           }
           // Prepare arguments, evaluate if they are also functions or strings.
-
           if (splitHead[1]) {
-            console.log("net:", env, lovalEnv, splitHead);
             result = getNestedValue(globalEnv, item[0])(api, processedArgs);
           } else {
             result = globalEnv[head](api, processedArgs);
@@ -437,15 +441,14 @@ function evaluate(parsed, api = {}, env) {
         }
       } else if (existing(globalDef[head])) {
         // Check if the value needs recursive evaluation.
-        // if (VERBOSE)
-        // console.log("📖 Definition call:", head, args, globalDef[head]);
+        if (VERBOSE)
+          console.log("📖 Definition call:", head, args, globalDef[head]);
         result =
           Array.isArray(globalDef[head]) || globalDef[head].body
             ? evaluate(globalDef[head], api, args)
             : globalDef[head];
       } else {
         console.log("⚠️ No match found for:", head, localEnv);
-
         if (Array.isArray(head)) {
           if (VERBOSE) console.log("Environment:", localEnv);
           result = evaluate(head, api, localEnv);
@@ -454,39 +457,15 @@ function evaluate(parsed, api = {}, env) {
         }
       }
     } else {
-      // console.log("💘 Solo item:", item);
-
-      // if (item === "line") {
-      //   console.log("🔴 LINE", "body:", body, "item:", item);
-      // }
-
-      // if (item === "x") {
-      // console.log("💙 Item is x.", item, env, localEnv[item]);
-      // }
-
       let root, tail;
       if (typeof item === "string") {
         [root, tail] = item.split(".");
       }
-
-      if (existing(localEnv[item])) {
-        //if (VERBOSE)
-        // console.log("Solo local definition found!", item, localEnv[item]);
-        //if (item === "x") {
-        //  console.log("Resolving item:", item, "for:", localEnv);
-        //}
-        // TODO: This needs to be evaluated?
+      if (!Array.isArray(env) && existing(env?.[root])) {
+        result = getNestedValue(env, item);
+      } else if (existing(localEnv[item])) {
         result = evaluate(localEnv[item], api, env);
-        //if (item === "x") {
-        //  console.log("Result is:", result);
-        //}
-        //} else if (existing(getNestedValue(globalDef, item))) {
       } else if (existing(globalEnv[root])) {
-        //if (item === "line") {
-        //}
-        // console.log(typeof globalEnv[item]);
-        // Assume a function on the globalEnv.
-
         if (!tail) {
           result =
             typeof globalEnv[item] === "function"
@@ -499,25 +478,18 @@ function evaluate(parsed, api = {}, env) {
           result = typeof end === "function" ? end(api) : end;
         }
       } else if (existing(globalDef[root])) {
-        // Check if the value needs recursive evaluation.
-        // console.log("Solo definition:", item, globalDef[root]);
-        // ⚠️ No parameters would ever be passed here, but maybe
-        //    default would have to come into play?
-
         if (!tail) {
           result = evaluate(globalDef[root], api, env);
         } else {
-          // Assume a function with dot syntax.
+          // Assume a function with dot.syntax.
           const end = globalDef[root][tail];
           result = typeof end === "function" ? end() : end;
         }
       } else {
         /*if (VERBOSE)*/ //console.log(item, "⛔ Not found");
         if (Array.isArray(item)) {
-          //console.log("Evaluating item:", item);
           result = evaluate(item, api, env);
         } else {
-          //console.log("Eval Not FOUNDDD!", env);
           result = evalNotFound(item, api, env);
         }
       }
@@ -532,12 +504,11 @@ function evalNotFound(expression, api, env) {
     return expression; // Return numbers.
   } else {
     // console.log("🤖 Attempting JavaScript expression evaluation:", expression);
-    // TODO: Fix scroll undefined error.
   }
 
   // 📖 Identifiers can only start with a letter a-z or A-Z and can not
-  // include mathermatical operators but can include underscores or
-  // digits after the first character
+  //    include mathermatical operators but can include underscores or
+  //    digits after the first character
 
   // Parse the expression to extract identifiers.
   const identifiers = expression.match(identifierRegex) || [];
@@ -550,16 +521,17 @@ function evalNotFound(expression, api, env) {
     if (
       !existing(env?.[id]) && // What's the ultimate difference between all
       //                         These environments now? 24.05.27.02.27
-      // TODO: - [] Should this 'env' always encompass everything?
       !existing(localEnv[id]) &&
       !existing(globalDef[id]) &&
       !existing(globalEnv[id])
     ) {
-      // console.log("Setting value to 0 for:", id);
-      value = 0; // Set non-existent keys to 0 because we are assuming
+      value = 0; // Set nada keys to 0 because we are assuming
       //            an arithmetic expression.
     } else {
-      // console.log("🚗 Evaluating:", id, env);
+      // TODO: Technially maybe this should be th first thing to evaluate.
+      // console.log("🚗 Evaluating:", expression, id, env);
+
+      // TODO: ❤️‍🔥 It really shouldn't be going this far.
       value = existing(env?.[id]) ? env[id] : evaluate(id, api, env);
     }
 
@@ -623,7 +595,7 @@ function atom(token) {
 
 function processArgStringTypes(args) {
   if (!Array.isArray(args)) {
-    return unquoteString(args);
+    return typeof args === "string" ? unquoteString(args) : args;
   }
   return args.map((arg) => {
     // Remove the first and last character which are the quotes
@@ -633,7 +605,6 @@ function processArgStringTypes(args) {
 }
 
 function unquoteString(str) {
-  // console.log("Unquoting:", str);
   if (str.startsWith('"') && str.endsWith('"')) {
     return str.substring(1, str.length - 1);
   } else return str;
@@ -646,6 +617,13 @@ function existing(item) {
 function getNestedValue(obj, path) {
   // console.log("Nested value:", obj, path);
   return path?.split(".").reduce((acc, part) => acc && acc[part], obj);
+}
+
+function iterate(iterable, api, args) {
+  iterable.forEach((item, index) => {
+    evaluate([args[2]], api, { item, index });
+  });
+  return iterable;
 }
 
 export { module, parse, evaluate };
