@@ -37,10 +37,21 @@ but technically agnostic. (Choose your aesthetic!)
 
 😀 TODO 😆
 
+- [] first set handle shouldnt be added to history
 - [] Make sure `source anything.lisp` works. 
 - [] Reinstall x11 server on windows 11.
 - [] Single unbroken chat messages with no whitespace longer than a line are
      missing the single space gap after the username. 
+- [] update privacy policy
+
+*** kidlisp debugger ***
+  - [] light up each line as it executes
+  - [] be able to see the values visually connect
+  - [] the debugger would eventually become the editor...
+  - [] and it needs to be built into the running page
+  - [] this starts by making a drawing / graph of the ast
+  - [] and by lighting up each list / atom as it gets evaluated / lighting
+       up the body of each evaluation
 
 🌟 Projects in Progress (PIP) 🌟
   - [🟨] Add a "handles" directory to scroll through all active handles.
