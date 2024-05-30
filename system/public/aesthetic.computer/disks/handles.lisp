@@ -2,8 +2,16 @@
 ; A directory of all handles. 
 
 ; #region 🏁 TODO 
+; - [🌟] I think in order to actually understad what's going on inside
+;        `kidlisp` and gain a deeper understanding, I need to build a 
+;        step debugger / live view of some kind,
+;        - This could be done inside the VS Code extension or honestly,
+;          as as an AC overlay where I slow down the execution
+;          to be able to walk through it, and highlight the line i'm on...
 ; - [🟠] Get the formatting of handles data correct.
 ;        with disappearing scrolling!
+; - [] `def` and `later` should be the same keyword.
+; - [] Add a "loading..." display until the network request completes.
 ; - [] Add a button to each handle, similar to the `list` command.
 ;  + Done
 ;  - [x] Pull in 'handles` data. 
@@ -12,54 +20,34 @@
 ; #engregion 
 
 (wipe black)
-
-; 💡 `def` and `later` should become the same?
-(def scroll 10) ; TODO: Fix scroll undefined error.
-; TODO: How should assignment actually work?
-; TODO: And shorthand for incrementing a value.
-
+(def scroll 10)
 (draw (now scroll scroll+dy))
 
-(write "@jeffrey" 6 scroll+24)
-(write "@jeffrey" 6 scroll+24+15)
+;(def lineHeight 15)
 
-; ❤️‍🔥
-; Get a flat of handles off the network.
-; Make a loop that iterates through and writes
-; each one below...
-
-; Make a loop.
-
-; This should fetch the handles, and then 
-; start to write each one as it exists, in a loop.
-
-; It needs to be able to...
-;  - [] Quit the loop early if a box is off-screen or *just don't draw
-;       it at all*.
-;  - [] Only capture a subsection of the array.
-
-;(ink yellow)
-;(box 6 18 width-12 height-32)
-; (ink red)
-;(net.handles handle index
-; (write handle 6 15*index+scroll+24)
-;)
-
-; A scrollbox has a height
-;                 a lineHeight
-;                 lineHeight / height is number of lines that fit inside.
-;                 contents: [an array of lines]
-;                 a drawable / draggable event
+; Calculate the number of lines that fit inside the pane
+;(def linesVisible (/ height lineHeight))
+; Calculate the starting and ending index based on the scroll value
+;(def startIndex (/ scroll lineHeight))
+;(def endIndex (+ startIndex linesVisible))
 
 (later pane x y w h contents (
+  ; Slice the contents array using the calculated range
+  ; ((range contents startIndex endIndex) item index
   (contents item index
-    (write item x 15*index+y+scroll)
+    (write item.handle x 15*index+y+scroll)
   )
   (box x y w h)
 ))
 
 (ink orange 64)
-(pane 6 8 width-12 height-32 net.handles)
 
-; `net.handles` needs like an 'iterable' flag
-; so that the form (contents item index ...) can function.
+; TODO:
+; A pane has a height
+;            a lineHeight
+;            a scroll value
+;            where i think lineHeight / height is number of lines that fit inside.
+;            and i need to only retrieve the proper subset of contents
+;            given the scroll and height, etc.
+
+(pane 6 8 width-12 height-32 net.handles)
