@@ -37,13 +37,6 @@ but technically agnostic. (Choose your aesthetic!)
 
 😀 TODO 😆
 
-- [] first set handle shouldnt be added to history
-- [] Make sure `source anything.lisp` works. 
-- [] Reinstall x11 server on windows 11.
-- [] Single unbroken chat messages with no whitespace longer than a line are
-     missing the single space gap after the username. 
-- [] update privacy policy
-
 *** kidlisp debugger ***
   - [] light up each line as it executes
   - [] be able to see the values visually connect
@@ -97,6 +90,14 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Fix blanking chat.
   - [x] A successfull login should broadcast to all other thumbnails
        and trigger a refresh - same with logging out!
+
+*** annoyances from demos ***
+- [] first set handle shouldnt be added to history
+- [] Make sure `source anything.lisp` works. 
+- [?] Reinstall x11 server on windows 11.
+- [] Single unbroken chat messages with no whitespace longer than a line are
+     missing the single space gap after the username. 
+- [] update privacy policy
 
 *** ios day ***
 - [] Implement this in the iOS app: https://stackoverflow.com/a/71678197
