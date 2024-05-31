@@ -164,14 +164,8 @@ const request = async (req, res) => {
               messages.forEach((message) => {
                 if (message.sub === parsed.users[0]) message.from = from;
               });
-
-              // TODO: Maybe this is not necessary because the log can take
-              //       care of it?
               everyone(
-                pack(parsed.action, {
-                  user: parsed.users[0],
-                  handle: from,
-                }),
+                pack(parsed.action, { user: parsed.users[0], handle: from }),
               );
             }
           }

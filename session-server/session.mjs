@@ -689,7 +689,7 @@ function subscribers(subs, msg) {
 // #region udp
 
 // Note: This currently works off of a monolith via `udp.aesthetic.computer`
-//       as the ports are blocked on jamstack.
+//       as the ports are blocked on jamsocket.
 
 import geckos from "@geckos.io/server";
 

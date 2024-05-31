@@ -10,9 +10,6 @@
 ;          to be able to walk through it, and highlight the line i'm on...
 ; - [🟠] Get the formatting of handles data correct.
 ;        with disappearing scrolling!
-; - [] `def` and `later` should be the same keyword.
-; - [] Add a "loading..." display until the network request completes.
-; - [] Add a button to each handle, similar to the `list` command.
 ;  + Done
 ;  - [x] Pull in 'handles` data. 
 ;  - [x] Add scrolling "draw" behavior.
@@ -20,43 +17,31 @@
 ; #engregion 
 
 (wipe black)
+(def scroll 0)
+; (draw (now scroll (max 0 scroll+dy)))
 
-; 💡 `def` and `later` should become the same?
-(def scroll 10) ; TODO: Fix scroll undefined error.
-; TODO: How should assignment actually work?
-; TODO: And shorthand for incrementing a value.
+(draw (now scroll (max 0 (- scroll dy))))
 
+(def lineHeight 15)
+(def partialHeight 0)
+(def linesVisible height/lineHeight)
+(def startIndex 0)
+(def endIndex linesVisible)
 
-
-(def scroll 10)
-(draw (now scroll scroll+dy))
-
-
-;(def lineHeight 15)
-
-; Calculate the number of lines that fit inside the pane
-;(def linesVisible (/ height lineHeight))
-; Calculate the starting and ending index based on the scroll value
-;(def startIndex (/ scroll lineHeight))
-;(def endIndex (+ startIndex linesVisible))
-
-(later pane x y w h contents (
-  ; Slice the contents array using the calculated range
-  ; ((range contents startIndex endIndex) item index
-  (contents item index
-    (write item.handle x 15*index+y+scroll)
+(later pane x y w h contents
+  ; (now startIndex (/ (+ y scroll) lineHeight))
+  ; (now endIndex startIndex+linesVisible)
+  ; (now partialHeight scroll%lineHeight)
+  (now partialHeight scroll)
+  ((range contents startIndex endIndex) item index
+    (write item.handle x lineHeight*index+y-partialHeight)
   )
   (box x y w h)
-))
+)
 
 (ink orange 64)
-
-; TODO:
-; A pane has a height
-;            a lineHeight
-;            a scroll value
-;            where i think lineHeight / height is number of lines that fit inside.
-;            and i need to only retrieve the proper subset of contents
-;            given the scroll and height, etc.
-
 (pane 6 8 width-12 height-32 net.handles)
+(ink yellow)
+; (write partialHeight 32 64)
+(ink lime)
+(write scroll width-32 8)

@@ -59,6 +59,11 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] `def` and `later` should be the same keyword.
+  - [] Add a "loading..." display until the network request completes.
+  - [] Add a button to each handle, similar to the `list` command.
+  - [] How should assignment actually work?
+  - [] And shorthand for incrementing a value.
   - [] Implement: ; (once (wipe black))
   - [] Is there a way to get live updates
       to be even faster while using the
@@ -85,14 +90,14 @@
   - [x] Get a named command running through, like "line" and "ink". 
 #endregion */
 
-const VERBOSE = true;
-const { floor } = Math;
+const VERBOSE = false;
+const { floor, max } = Math;
 
 // Parse and evaluate a lisp source module
 // into a running aesthetic computer piece.
 function module(source) {
   const parsed = parse(source);
-  if (VERBOSE) console.log("🐍 Parsed:", parsed);
+  /*if (VERBOSE)*/ console.log("🐍 Parsed:", parsed);
 
   return {
     boot: ({ params }) => {
@@ -175,6 +180,8 @@ const globalEnv = {
         globalDef[name] = args[1];
       } else {
         // console.warn("🧠 Already defined:", name);
+        // console.warn("🧠 Re-declaring:", name, args[1]);
+        // globalDef[name] = args[1];
       }
       return args[1];
     }
@@ -238,7 +245,6 @@ const globalEnv = {
           })
           .catch((error) => console.warn(error));
       } else if (Array.isArray(networkCache.handles)) {
-        console.log("🗼 Received handles:", networkCache.handles.length);
         iter.data = networkCache.handles;
       }
       return iter;
@@ -262,10 +268,10 @@ const globalEnv = {
   },
   range: (api, args) => {
     if (args.length === 3) {
-      const array = args[0].data; // Must be an object with `iterable` true and `data`.
-      const startIndex = floor(args[1]);
-      const endIndex = floor(args[2]);
-      // console.log("Range:", array, startIndex, endIndex);
+      const array = args[0].data; // Assume `{iterable: true, data: Array}`.
+      const startIndex = max(0, floor(args[1]));
+      const endIndex = max(0, floor(args[2]));
+      // console.log("Range:", array.length, startIndex, endIndex);
 
       if (
         Array.isArray(array) &&
@@ -273,7 +279,8 @@ const globalEnv = {
         typeof endIndex === "number"
       ) {
         const slice = array.slice(startIndex, endIndex);
-        console.log("Ranged:", slice);
+        // const slice = array.slice();
+        // console.log("Ranged:", slice, startIndex, endIndex);
         return { iterable: true, data: slice };
       } else {
         console.error(
@@ -285,6 +292,7 @@ const globalEnv = {
     }
   },
   // Mathematical Operators
+  max: (api, args) => max(...args),
   "+": (api, args) => args.reduce((a, b) => a + b, 0),
   "-": (api, args) => args.reduce((a, b) => a - b),
   "*": (api, args) => args.reduce((a, b) => a * b, 1),
@@ -372,12 +380,12 @@ function evaluate(parsed, api = {}, env) {
     body = Array.isArray(parsed) ? parsed : [parsed];
   }
 
-  console.log("🏃 Body:", body, localEnv);
+  if (VERBOSE) console.log("🏃 Body:", body);
 
   let result;
 
   for (const item of body) {
-    if (VERBOSE) console.log("🥡 Item:", item/*, "body:", body*/);
+    if (VERBOSE) console.log("🥡 Item:", item /*, "body:", body*/);
 
     if (Array.isArray(item)) {
       // The first element indicates the function to call
@@ -385,9 +393,22 @@ function evaluate(parsed, api = {}, env) {
 
       // console.log("Head:", head, "args:", args);
       if (Array.isArray(head)) {
-        console.log("EVALUATING ARRAY HEAD:", head);
-        // ❤️‍🔥 The issue the the args are not being evaluated here.
-        result = evaluate(item, api, env);
+        // console.log("🧧🟢 EVALUATING ARRAY HEAD:", head, "args:", args);
+
+        // ❤️‍🔥 The issue is that the args are not being evaluated here.
+        const evaledHead = evaluate([head], api, env);
+        const newEval = [evaledHead, ...args];
+        // console.log("New eval:", newEval);
+        result = evaluate([newEval], api, env);
+        // console.log("😱 Array head result:", item, result);
+        continue;
+      }
+
+      // TODO: Check to see if the head is an iterable or a string.
+      // console.log("🤕 HEAD:", head, "🦾 ARGS:", args);
+
+      if (typeof head !== "string" && head?.iterable) {
+        result = iterate(head.data, api, args);
         continue;
       }
 
@@ -530,17 +551,16 @@ function evalNotFound(expression, api, env) {
     } else {
       // TODO: Technially maybe this should be th first thing to evaluate.
       // console.log("🚗 Evaluating:", expression, id, env);
-
       // TODO: ❤️‍🔥 It really shouldn't be going this far.
       value = existing(env?.[id]) ? env[id] : evaluate(id, api, env);
     }
 
-    // if (env[id])
-    // Check for refs first....
-    expression = expression.replace(new RegExp(`\\b${id}\\b`, "g"), value);
+    // Replace any identifiers and cancel out prefixed double negatives.
+    expression = expression
+      .replace(new RegExp(`\\b${id}\\b`, "g"), value)
+      .replace(/(^|[^-])--/g, (match, p1) => p1 + "+")
+      .replace(/^--/, "-");
   });
-
-  // console.log("Replaced expression:", expression);
 
   const compute = new Function(`return ${expression};`);
   const result = compute();
