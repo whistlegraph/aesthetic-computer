@@ -40,7 +40,7 @@ import { CamDoll } from "./cam-doll.mjs";
 
 import { TextInput, Typeface } from "../lib/type.mjs";
 
-import * as lisp from "./lisp.mjs"; // Add lisp evaluator.
+import * as lisp from "./kidlisp.mjs"; // Add lisp evaluator.
 import * as chat from "../disks/chat.mjs"; // Import chat everywhere.
 
 let tf; // Active typeface global.

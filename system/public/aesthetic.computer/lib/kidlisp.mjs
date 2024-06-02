@@ -1,4 +1,4 @@
-// Lisp, 24.4.17.12.03
+// Kidlisp, 24.4.17.12.03
 // A lisp interpreter / compiler for writing Aesthetic Computer pieces.
 
 /* #region 📚 Examples / Notebook 
