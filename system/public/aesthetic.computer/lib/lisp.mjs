@@ -59,6 +59,13 @@
 #endregion */
 
 /* #region 🏁 TODO 
+ - [🟢] Write the graphics and interaction module for the step debugger.
+ - [] Closing and opening the VS Code extension should remember the last piece
+      loaded.
+   - [] This should work by broadcasting the piece slug to the extension
+        on each switch then using that for the page open url, but not storing
+        it across vscode opened and closed
+        sessions.
   - [] `def` and `later` should be the same keyword.
   - [] Add a "loading..." display until the network request completes.
   - [] Add a button to each handle, similar to the `list` command.

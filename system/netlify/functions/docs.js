@@ -1651,6 +1651,11 @@ export async function handler(event, context) {
         desc: "Set your user handle.",
         done: false,
       },
+      handles: {
+        sig: "handles",
+        desc: "A directory of user handles.",
+        done: false,
+      },
       ul: {
         sig: "ul",
         desc: "Upload your painting.",
