@@ -291,7 +291,42 @@ const globalEnv = {
       console.error("❗ Invalid `range`. Wrong number of arguments.");
     }
   },
-  // Mathematical Operators
+  // 🧠 Logical Operators
+  ">": (api, args, env) => {
+    const left = evaluate(args[0], api, env),
+      right = evaluate(args[1], api, env);
+    if (left > right) {
+      console.log("✅", left, "is > than", right, args.slice(2));
+      return evaluate(args.slice(1), api, env);
+    } else {
+      //if (args[3]) {
+      //  return evaluate(args[3], api, env);
+      //} else {
+      return false;
+      //}
+    }
+  },
+  "<": (api, args, env) => {
+    const left = evaluate(args[0], api, env),
+      right = evaluate(args[1], api, env);
+    if (left < right) {
+      console.log("✅", left, "is < than", right, args.slice(2));
+      return evaluate(args.slice(2), api, env);
+    } else {
+      return false;
+    }
+  },
+  "=": (api, args, env) => {
+    const left = evaluate(args[0], api, env),
+      right = evaluate(args[1], api, env);
+    if (left === right) {
+      console.log("✅", left, "is equal to", right, args.slice(2));
+      return evaluate(args.slice(2), api, env);
+    } else {
+      return false;
+    }
+  },
+  // ➗ Mathematical Operators
   max: (api, args) => max(...args),
   "+": (api, args) => args.reduce((a, b) => a + b, 0),
   "-": (api, args) => args.reduce((a, b) => a - b),
@@ -440,6 +475,9 @@ function evaluate(parsed, api = {}, env) {
             head === "if" ||
             head === "wipe" ||
             head === "ink" ||
+            head === ">" ||
+            head === "<" ||
+            head === "=" ||
             head === "net"
           ) {
             processedArgs = args;
@@ -455,7 +493,7 @@ function evaluate(parsed, api = {}, env) {
           if (splitHead[1]) {
             result = getNestedValue(globalEnv, item[0])(api, processedArgs);
           } else {
-            result = globalEnv[head](api, processedArgs);
+            result = globalEnv[head](api, processedArgs, env);
           }
         } else {
           result = globalEnv[head];
