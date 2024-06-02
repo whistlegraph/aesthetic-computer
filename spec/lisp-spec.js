@@ -7,7 +7,7 @@ import fs from "fs/promises";
 import {
   parse,
   evaluate,
-} from "../system/public/aesthetic.computer/lib/lisp.mjs";
+} from "../system/public/aesthetic.computer/lib/kidlisp.mjs";
 
 describe("🤖 Kid Lisp", () => {
   let pieces = {};
