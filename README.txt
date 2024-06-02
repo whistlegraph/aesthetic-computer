@@ -37,6 +37,12 @@ but technically agnostic. (Choose your aesthetic!)
 
 😀 TODO 😆
 
+*** 🆕 sotce.com ***
+  - [] Take current sotce.com and -> buy.sotce.com and redesign homepage. 
+                                     ^ what is the url?
+    - [] Jeffrey builds diary network / new sotce.com on `diaries.sotce.net` 
+      - [] 
+
 *** kidlisp debugger ***
   - [] light up each line as it executes
   - [] be able to see the values visually connect
