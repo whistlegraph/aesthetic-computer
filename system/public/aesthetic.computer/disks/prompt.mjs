@@ -736,7 +736,7 @@ async function halt($, text) {
     }
     makeFlash($);
     return true;
-  } else if (text.startsWith("code") || text.startsWith("edit")) {
+  } else if (text.startsWith("edit")) {
     jump(
       "out:https://vscode.dev/github/digitpain/aesthetic.computer-code/blob/main/blank.mjs",
     );
@@ -1412,7 +1412,7 @@ function paint($) {
           y: screen.height / 2 + screen.height / 3.25 - 11,
         },
         [255, 50, 200, 24],
-        screen.width - 18
+        screen.width - 18,
       );
   }
 
