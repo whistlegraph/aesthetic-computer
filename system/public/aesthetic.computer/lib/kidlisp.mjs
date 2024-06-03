@@ -66,7 +66,9 @@
         on each switch then using that for the page open url, but not storing
         it across vscode opened and closed
         sessions.
-  - [] `def` and `later` should be the same keyword.
+ - [] `def` and `later` should be the same keyword.
+ - [] Should code reloads reset the state or could I dump
+      the state on each reload?
   - [] Add a "loading..." display until the network request completes.
   - [] Add a button to each handle, similar to the `list` command.
   - [] How should assignment actually work?
@@ -100,10 +102,14 @@
 const VERBOSE = false;
 const { floor, max } = Math;
 
+let currentPieceAST;
+
 // Parse and evaluate a lisp source module
 // into a running aesthetic computer piece.
 function module(source) {
   const parsed = parse(source);
+  currentPieceAST = parsed;
+
   /*if (VERBOSE)*/ console.log("🐍 Parsed:", parsed);
 
   return {
@@ -113,8 +119,12 @@ function module(source) {
       globalDef.paramC = params[2];
     },
     paint: ($) => {
-      // console.log("🖌️ Painting");
-      const evaluated = evaluate(parsed, $);
+      console.log("🖌️ Painting");
+      try {
+        const evaluated = evaluate(parsed, $);
+      } catch (err) {
+        console.error("⛔ Evaluation failure:", err);
+      }
       // Print the program output value in the center of the screen.
       // ink("white").write(evaluated || "nada", { center: "xy" });
       return false;
@@ -166,6 +176,7 @@ const globalEnv = {
       const name = unquoteString(args[0]);
       if (globalDef.hasOwnProperty(name)) {
         globalDef[name] = args[1];
+        // console.warn("🧠 Now:", name);
       } else {
         console.warn("🚫🧠 Not defined:", name);
       }
@@ -274,6 +285,7 @@ const globalEnv = {
     }
   },
   range: (api, args) => {
+    // console.log("Range detected:", args);
     if (args.length === 3) {
       const array = args[0].data; // Assume `{iterable: true, data: Array}`.
       const startIndex = max(0, floor(args[1]));
@@ -286,9 +298,9 @@ const globalEnv = {
         typeof endIndex === "number"
       ) {
         const slice = array.slice(startIndex, endIndex);
-        // const slice = array.slice();
-        // console.log("Ranged:", slice, startIndex, endIndex);
-        return { iterable: true, data: slice };
+        const out = { iterable: true, data: slice };
+        console.log("Ranged:", out);
+        return out;
       } else {
         console.error(
           "❗ Invalid arguments for `range`. Expected an array and two numbers.",
@@ -359,9 +371,13 @@ const globalEnv = {
     api.box(...args);
   },
   write: (api, args = []) => {
+    console.log("🖍️ Writing:", args);
     api.write(processArgStringTypes(args[0]), { x: args[1], y: args[2] });
   },
   // (Getters / globals).
+  source: (api) => {
+    return { iterable: true, data: currentPieceAST };
+  },
   width: (api) => {
     return api.screen.width;
   },
@@ -447,10 +463,13 @@ function evaluate(parsed, api = {}, env) {
       }
 
       // TODO: Check to see if the head is an iterable or a string.
-      // console.log("🤕 HEAD:", head, "🦾 ARGS:", args);
+
+      if (head === "source") {
+        console.log("🤕 HEAD:", head, "🦾 ARGS:", args);
+      }
 
       if (typeof head !== "string" && head?.iterable) {
-        result = iterate(head.data, api, args);
+        result = iterate(head, api, args, env);
         continue;
       }
 
@@ -461,12 +480,18 @@ function evaluate(parsed, api = {}, env) {
       if (head === "now" || head === "def" || head === "die")
         args[0] = `"${args[0]}"`; // Pre-wrap the first arg as a string.
 
-      if (existing(localEnv[head])) {
+      if (existing(env?.[head])) {
+        // console.log("FOUND HEAD:", head, env);
+        if (env[head].iterable) {
+          console.log("ITERATING:", head, env[head]);
+          result = iterate(env[head], api, args, env);
+        }
+      } else if (existing(localEnv[head])) {
         if (VERBOSE)
           console.log("😫 Local definition found!", head, localEnv[head]);
 
         if (localEnv[head].iterable)
-          result = iterate(localEnv[head].data, api, args);
+          result = iterate(localEnv[head], api, args, env);
 
         result = localEnv[head];
       } else if (existing(globalEnv[head])) {
@@ -501,6 +526,10 @@ function evaluate(parsed, api = {}, env) {
             result = getNestedValue(globalEnv, item[0])(api, processedArgs);
           } else {
             result = globalEnv[head](api, processedArgs, env);
+            if (result?.iterable) {
+              result = iterate(result, api, args, env);
+              continue;
+            }
           }
         } else {
           result = globalEnv[head];
@@ -684,9 +713,16 @@ function getNestedValue(obj, path) {
   return path?.split(".").reduce((acc, part) => acc && acc[part], obj);
 }
 
-function iterate(iterable, api, args) {
-  iterable.forEach((item, index) => {
-    evaluate([args[2]], api, { item, index });
+// Iterate over an iterable.
+function iterate(iterable, api, args, outerEnv) {
+  iterable.data.forEach((item, index) => {
+    const env = { ...outerEnv };
+    if (Array.isArray(item)) item = { iterable: true, data: item.slice() };
+    env[args[0]] = item;
+    env[args[1]] = index;
+    // TODO ^ Should I prevent overwrites if `env` already has
+    //        these properties?
+    evaluate(args.slice(2), api, env);
   });
   return iterable;
 }
