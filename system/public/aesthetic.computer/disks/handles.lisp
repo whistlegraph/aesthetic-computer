@@ -2,9 +2,11 @@
 ; A directory of all handles. 
 
 ; #region 🏁 TODO 
-; - [] Make each handle tappable and jump it to the profile page.
-; - [] Show progress through all handles.
+; - [*] Make each handle tappable and jump it to the profile page.
+; - [] Render progress bar through all handles.
+;  - [] Add filters based on parameters.
 ; - [] Make sure resizing works.
+; - [] Move on to 
 ;  + Done
 ; - [x] Add handles to documentation list. 
 ;   - [x] Get the formatting of handles data correct.
@@ -12,7 +14,7 @@
 ;  - [x] Pull in 'handles` data. 
 ;  - [x] Add scrolling "draw" behavior.
 ;  - [x] Get write working. 
-; #engregion 
+; #endregion 
 
 (wipe black)
 (def scroll 0)
