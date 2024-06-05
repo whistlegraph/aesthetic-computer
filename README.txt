@@ -37,22 +37,8 @@ but technically agnostic. (Choose your aesthetic!)
 
 😀 TODO 😆
 
-*** 🆕 sotce.com ***
-  - [] Take current sotce.com and -> buy.sotce.com and redesign homepage. 
-                                     ^ what is the url?
-    - [] Jeffrey builds diary network / new sotce.com on `diaries.sotce.net` 
-      - [] 
-
-*** kidlisp debugger ***
-  - [] light up each line as it executes
-  - [] be able to see the values visually connect
-  - [] the debugger would eventually become the editor...
-  - [] and it needs to be built into the running page
-  - [] this starts by making a drawing / graph of the ast
-  - [] and by lighting up each list / atom as it gets evaluated / lighting
-       up the body of each evaluation
-
 🌟 Projects in Progress (PIP) 🌟
+
   - [🟨] Add a "handles" directory to scroll through all active handles.
   - [-] add a "system update" notifier based on commits - i should be able
           to tag a commit or decide somehow if a `log` would be sent or not?
@@ -104,6 +90,24 @@ but technically agnostic. (Choose your aesthetic!)
 - [] Single unbroken chat messages with no whitespace longer than a line are
      missing the single space gap after the username. 
 - [] update privacy policy
+
+*** sotce.net ***
+    - [] Jeffrey builds diary network @ sotce.net. 
+      - [] Create a sotce.net directory / index page.
+      - [] This would be a simple SPA that needs routing and a few other
+           facilities.
+      - [] auth0 based auth or some form of auth... hmm...
+      - [] stripe paywall
+    - [] The handle system would be shared among ac users.
+
+*** call ***
+  - [] Calling would function like a walkie talkie.
+  - [] call girlfriend
+    - [] reuses code from existing girlfriend 
+    - [] adds a fake "face" graphic for this character 
+  - [] call @handle
+    - [] notifies each user
+    - [] users can define an avatar for this 
 
 *** ios day ***
 - [] Implement this in the iOS app: https://stackoverflow.com/a/71678197
@@ -574,7 +578,7 @@ Full day:
 *** new session request ***
   - [] When / if a session server goes offline, try to request a new one.
   - [-] This can be done by running an http get request on the endpoint to
-        see if it's still online and also checking against navigator.online
+        see if it's still online and also checking against navigator.onLine
 
 *** `ptt` ***
   - [-] Make `ptt` voice chat prototype.
