@@ -60,6 +60,15 @@
 
 /* #region 🏁 TODO 
  - [🟢] Write the graphics and interaction module for the step debugger.
+ - [] Resaving the kidlisp file should not reload the whole frontend stack.
+ - [] Evaluate `hoot` lang / give it a try? https://spritely.institute/hoot
+  *** kidlisp debugger ***
+    - [] light up each line as it executes
+    - [] be able to see the values visually connect
+    - [] the debugger would eventually become the editor...
+    - [] and it needs to be built into the running page
+    - [] this starts by making a drawing / graph of the ast
+    - [] and by lighting up each list / atom as it gets evaluated / lighting
  - [] Closing and opening the VS Code extension should remember the last piece
       loaded.
    - [] This should work by broadcasting the piece slug to the extension
@@ -101,16 +110,14 @@
 
 const VERBOSE = false;
 const { floor, max } = Math;
-
-let currentPieceAST;
+let ast; // Abstract syntax tree.
 
 // Parse and evaluate a lisp source module
 // into a running aesthetic computer piece.
 function module(source) {
   const parsed = parse(source);
-  currentPieceAST = parsed;
-
-  /*if (VERBOSE)*/ console.log("🐍 Parsed:", parsed);
+  ast = JSON.parse(JSON.stringify(parsed)); // Deep copy of original source. 🙃
+  if (VERBOSE) console.log("🐍 Parsed:", parsed);
 
   return {
     boot: ({ params }) => {
@@ -119,9 +126,11 @@ function module(source) {
       globalDef.paramC = params[2];
     },
     paint: ($) => {
-      console.log("🖌️ Painting");
+      // console.log("🖌️ Painting");
       try {
-        const evaluated = evaluate(parsed, $);
+        // TODO: Eventually compose programs together by stringing their
+        //       output in a unix pipe-like fashion?
+        /*const evaluated = */evaluate(parsed, $);
       } catch (err) {
         console.error("⛔ Evaluation failure:", err);
       }
@@ -297,10 +306,7 @@ const globalEnv = {
         typeof startIndex === "number" &&
         typeof endIndex === "number"
       ) {
-        const slice = array.slice(startIndex, endIndex);
-        const out = { iterable: true, data: slice };
-        console.log("Ranged:", out);
-        return out;
+        return { iterable: true, data: array.slice(startIndex, endIndex) };
       } else {
         console.error(
           "❗ Invalid arguments for `range`. Expected an array and two numbers.",
@@ -315,7 +321,7 @@ const globalEnv = {
     const left = evaluate(args[0], api, env),
       right = evaluate(args[1], api, env);
     if (left > right) {
-      console.log("✅", left, "is > than", right, args.slice(2));
+      // console.log("✅", left, "is > than", right, args.slice(2));
       return evaluate(args.slice(1), api, env);
     } else {
       //if (args[3]) {
@@ -329,7 +335,7 @@ const globalEnv = {
     const left = evaluate(args[0], api, env),
       right = evaluate(args[1], api, env);
     if (left < right) {
-      console.log("✅", left, "is < than", right, args.slice(2));
+      // console.log("✅", left, "is < than", right, args.slice(2));
       return evaluate(args.slice(2), api, env);
     } else {
       return false;
@@ -339,7 +345,7 @@ const globalEnv = {
     const left = evaluate(args[0], api, env),
       right = evaluate(args[1], api, env);
     if (left === right) {
-      console.log("✅", left, "is equal to", right, args.slice(2));
+      // console.log("✅", left, "is equal to", right, args.slice(2));
       return evaluate(args.slice(2), api, env);
     } else {
       return false;
@@ -371,12 +377,14 @@ const globalEnv = {
     api.box(...args);
   },
   write: (api, args = []) => {
-    console.log("🖍️ Writing:", args);
-    api.write(processArgStringTypes(args[0]), { x: args[1], y: args[2] });
+    const ARGS = processArgStringTypes(args[0]);
+    console.log("writing", args);
+    api.write(ARGS, { x: args[1], y: args[2] });
   },
   // (Getters / globals).
   source: (api) => {
-    return { iterable: true, data: currentPieceAST };
+    console.log("✍️ Source:", ast);
+    return { iterable: true, data: ast };
   },
   width: (api) => {
     return api.screen.width;
@@ -456,17 +464,14 @@ function evaluate(parsed, api = {}, env) {
         // ❤️‍🔥 The issue is that the args are not being evaluated here.
         const evaledHead = evaluate([head], api, env);
         const newEval = [evaledHead, ...args];
-        // console.log("New eval:", newEval);
         result = evaluate([newEval], api, env);
         // console.log("😱 Array head result:", item, result);
         continue;
       }
 
-      // TODO: Check to see if the head is an iterable or a string.
-
-      if (head === "source") {
-        console.log("🤕 HEAD:", head, "🦾 ARGS:", args);
-      }
+      // if (head === "source") {
+      //  console.log("🤕 HEAD:", head, "🦾 ARGS:", args);
+      // }
 
       if (typeof head !== "string" && head?.iterable) {
         result = iterate(head, api, args, env);
@@ -483,7 +488,6 @@ function evaluate(parsed, api = {}, env) {
       if (existing(env?.[head])) {
         // console.log("FOUND HEAD:", head, env);
         if (env[head].iterable) {
-          console.log("ITERATING:", head, env[head]);
           result = iterate(env[head], api, args, env);
         }
       } else if (existing(localEnv[head])) {
@@ -543,7 +547,7 @@ function evaluate(parsed, api = {}, env) {
             ? evaluate(globalDef[head], api, args)
             : globalDef[head];
       } else {
-        console.log("⚠️ No match found for:", head, localEnv);
+        // console.log("⛔ No match found for:", head, localEnv);
         if (Array.isArray(head)) {
           if (VERBOSE) console.log("Environment:", localEnv);
           result = evaluate(head, api, localEnv);
