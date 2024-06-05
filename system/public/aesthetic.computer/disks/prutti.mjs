@@ -854,6 +854,21 @@ const lessons = [
     pictures: ["lnl48-1", "lnl48-2"],
     sounds: ["star_under_1_elmgreen"],
   },
+  {
+    title: "Lesson NOT Learnt 49",
+    text: `
+    never just party like a PRUTTIPAL - GO above the bar
+
+    //-§§ Invitation - YES just come out I am swimming in Prizes and honours §§---%-§-§
+
+    Missed call Pruttipal | 8:11 AM
+    Missed call Pruttipal | 8:20 AM
+
+    [Goodie_Invitation]
+    `,
+    pictures: ["lnl49"],
+    sounds: ["Goodie_Invitation"],
+  }
 ];
 
 let lesson = 0,
@@ -867,10 +882,11 @@ let color,
 // 🥾 Boot
 function boot({ api, wipe, params, hud, help, num }) {
   wipe(0);
+  console.log("PARAMS:", params);
   noiseTint = num.randIntArr(255, 3);
   lesson = params[0] ? parseInt(params[0]) - 1 : num.randInd(lessons);
   if (lesson > lessons.length - 1 || lesson < 0) lesson = 0;
-
+  console.log("🪄 Prutti:", lesson + 1);
   hud.label("prutti " + (lesson + 1));
   loadLesson(api);
   color = help.choose("white", "cyan", "yellow", "orange", undefined);

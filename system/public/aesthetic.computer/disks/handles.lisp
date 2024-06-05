@@ -2,8 +2,8 @@
 ; A directory of all handles. 
 
 ; #region 🏁 TODO 
-; - [*] Make each handle tappable and jump it to the profile page.
-; - [] Render progress bar through all handles.
+; - [*] Make each handle tappable and jump it to that user's profile page.
+; - [] Render progress bar / scroll through all handles.
 ;  - [] Add filters based on parameters.
 ; - [] Make sure resizing works.
 ; - [] Move on to 
