@@ -38,7 +38,6 @@ but technically agnostic. (Choose your aesthetic!)
 😀 TODO 😆
 
 🌟 Projects in Progress (PIP) 🌟
-
   - [🟨] Add a "handles" directory to scroll through all active handles.
   - [-] add a "system update" notifier based on commits - i should be able
           to tag a commit or decide somehow if a `log` would be sent or not?
@@ -99,6 +98,15 @@ but technically agnostic. (Choose your aesthetic!)
       - [] auth0 based auth or some form of auth... hmm...
       - [] stripe paywall
     - [] The handle system would be shared among ac users.
+
+*** gen music ***
+  - [] Make some generative ambient music in kidlisp that I can actually
+        listen to while coding without it being annoying.
+    - [] Make it so I can always edit the code / algorithm that makes this
+          music anytime it is playing... (This could be done through having
+          kidlisp in a separate window or buffer / audio-out only version
+          of ac running.)
+    - [] Or this could be one of the first applications of the kidlisp gui.
 
 *** call ***
   - [] Calling would function like a walkie talkie.

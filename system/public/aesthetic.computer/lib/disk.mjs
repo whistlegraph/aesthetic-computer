@@ -1901,8 +1901,12 @@ const $paintApi = {
   // Argument options:
   // text, pos: {x, y, center}, bg (optional)
   write: function (text, pos, bg, bounds, wordWrap = true) {
-    if (!text || !tf) return $activePaintApi; // Fail silently if no text.
-    text = text.toString();
+    if ((text === undefined || text === null) || !tf) return $activePaintApi; // Fail silently if no text.
+
+    text =
+      typeof text === "object" && text !== null
+        ? JSON.stringify(text)
+        : text.toString();
 
     // 🎁
     // See if the text length is greater than the bounds, and if it is then
