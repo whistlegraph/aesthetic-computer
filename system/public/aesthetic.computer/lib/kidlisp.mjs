@@ -453,7 +453,7 @@ function evaluate(parsed, api = {}, env, inArgs) {
     parsed.params.forEach(
       // (param, i) => (localEnv[param] = evaluate(env[i], api, env)),
       (param, i) => {
-        console.log("😉 Param:", param, "Env:", env, "inArgs:", inArgs, "localEnv:", localEnv);
+        // console.log("😉 Param:", param, "Env:", env, "inArgs:", inArgs, "localEnv:", localEnv);
         newLocalEnv[param] = evaluate(env[inArgs[i]], api, env);
       },
     );
@@ -579,7 +579,7 @@ function evaluate(parsed, api = {}, env, inArgs) {
       } else if (existing(globalDef[head])) {
         // Check if the value needs recursive evaluation.
         //if (VERBOSE)
-        console.log("🚀 LATER", head, "Args:", args, "Env:", env, "🐍 Snake:", globalDef[head]);
+        // console.log("🚀 LATER", head, "Args:", args, "Env:", env, "🐍 Snake:", globalDef[head]);
         result =
           Array.isArray(globalDef[head]) || globalDef[head].body
             ? evaluate(globalDef[head], api, env, args)

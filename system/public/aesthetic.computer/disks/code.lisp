@@ -2,7 +2,7 @@
 ; A graphical editor for producing kidlisp code, written in kidlisp
 
 ; #region 🏁 TODO 
-; - [] Pull in the `source` of handles.
+; - [🟢] Pull in the `source` of handles.
 ; + Done
 ; - [x] Get this program to print every node in its own tree.
 ; - [x] Make `index` still visible from inner loop. 
@@ -26,3 +26,4 @@
 
 (now count 0)
 (source item index (recurse item))
+; (source:handles item index (recurse item))
