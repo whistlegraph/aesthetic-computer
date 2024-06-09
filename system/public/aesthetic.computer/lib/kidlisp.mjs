@@ -133,6 +133,7 @@ function module(source) {
         //       output in a unix pipe-like fashion?
 
         localEnvLevel = 0; // Reset state per program evaluation.
+        localEnv = localEnvStore[localEnvLevel];
         /*const evaluated = */ evaluate(parsed, $);
       } catch (err) {
         console.error("⛔ Evaluation failure:", err);
@@ -449,8 +450,6 @@ function evaluate(parsed, api = {}, env, inArgs) {
 
     body = parsed.body;
 
-    // TODO: Should the evaluation of the new localEnv be using the last one?
-
     parsed.params.forEach(
       // (param, i) => (localEnv[param] = evaluate(env[i], api, env)),
       (param, i) => {
@@ -465,7 +464,7 @@ function evaluate(parsed, api = {}, env, inArgs) {
       localEnv = localEnvStore[localEnvLevel];
     }
     localEnvLevel += 1;
-    console.log("🟠 Local env level:", localEnvLevel, "Body:", parsed.body);
+    // console.log("🟠 Local env level:", localEnvLevel, "Body:", parsed.body);
 
     if (VERBOSE) console.log("Running:", body, "with environment:", localEnv);
   } else {
