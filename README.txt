@@ -49,10 +49,11 @@ but technically agnostic. (Choose your aesthetic!)
     - [] color coded words in chat via kidlisp / how to integrate kidlisp?
   - [] Separate README from TODO and make TODO visible in the system to help
        the conversation along.
-  - [] Give chat messages a UUID / reference number so they can be
-      linked in the TODO. Technically this can be a time window query that
-      is something like `🗨️:system:56262-72837` for a range or just an
-      exact / closest match if a single integer is given.
+  - [] Add pictures to chat.
+  - [] Add deletion of chat messages / better policing.
+     - [] Close chat for certain hours. (suggested by fia)
+     - [] Have an ambient announcement for policing that exists on
+          the periphery of the main activity and is temporal.
   + Done
   - [x] Should you be able to chat after logging out via the
        "Pre-Authorized" array? Seems kinda unsafe, hmm... 24.05.20.20.54
@@ -82,14 +83,6 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] A successfull login should broadcast to all other thumbnails
        and trigger a refresh - same with logging out!
 
-*** annoyances from demos ***
-- [] first set handle shouldnt be added to history
-- [] Make sure `source anything.lisp` works. 
-- [?] Reinstall x11 server on windows 11.
-- [] Single unbroken chat messages with no whitespace longer than a line are
-     missing the single space gap after the username. 
-- [] update privacy policy
-
 *** sotce.net ***
     - [] Jeffrey builds diary network @ sotce.net. 
       - [] Create a sotce.net directory / index page.
@@ -107,6 +100,18 @@ but technically agnostic. (Choose your aesthetic!)
           kidlisp in a separate window or buffer / audio-out only version
           of ac running.)
     - [] Or this could be one of the first applications of the kidlisp gui.
+
+*** annoyances from demos ***
+- [] first set handle shouldnt be added to history
+- [] Make sure `source anything.lisp` works. 
+- [?] Reinstall x11 server on windows 11.
+- [] Single unbroken chat messages with no whitespace longer than a line are
+     missing the single space gap after the username. 
+- [] update privacy policy
+- [] Give chat messages a UUID / reference number so they can be
+    linked in the TODO. Technically this can be a time window query that
+    is something like `🗨️:system:56262-72837` for a range or just an
+    exact / closest match if a single integer is given.
 
 *** call ***
   - [] Calling would function like a walkie talkie.
