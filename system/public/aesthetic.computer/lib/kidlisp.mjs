@@ -155,27 +155,11 @@ function module(source) {
   };
 }
 
-// 🎆 Top-level events.
-
-// 🫵 Tap
-let tapper;
-function tap(api) {
-  if (tapper) evaluate(tapper, api);
-}
-
-// ✏️ Draw
-let drawer;
-function draw(api, env) {
-  if (drawer) {
-    evaluate(drawer, api, env);
-  }
-}
-
-// 💻 System
-
+// 💻 Interpreter
 const networkCache = {};
 const globalDef = {};
 
+// 📑 API
 const globalEnv = {
   // once: (api, args) => {
   //   console.log("Oncing...", args);
@@ -388,8 +372,8 @@ const globalEnv = {
     api.write(content, { x: args[1], y: args[2] });
   },
   // (Getters / globals).
-  source: (api) => {
-    // console.log("✍️ Source:", ast);
+  source: (api, args = [], env, colon) => {
+    console.log("✍️ Source:", ast, args, env, colon);
     return { iterable: true, data: ast };
   },
   width: (api) => {
@@ -419,14 +403,30 @@ const globalEnv = {
   },
 };
 
+// 🎆 Events
+
+// 🫵 Tap
+let tapper;
+function tap(api) {
+  if (tapper) evaluate(tapper, api);
+}
+
+// ✏️ Draw
+let drawer;
+function draw(api, env) {
+  if (drawer) {
+    evaluate(drawer, api, env);
+  }
+}
+
+// 🎰 Parser & Evaluation
+
 const localEnvStore = [{}];
 let localEnv = localEnvStore[0];
 let localEnvLevel = 0;
 
 const identifierRegex = /[a-zA-Z_]\w*/g;
 const validIdentifierRegex = /^[a-zA-Z_]\w*$/;
-
-// 🎰 Parser & Evaluation
 
 function tokenize(input) {
   // Remove comments from input (anything from ';' to the end of the line)
@@ -438,7 +438,6 @@ function tokenize(input) {
 function parse(program) {
   return readFromTokens(tokenize(program));
 }
-
 
 function evaluate(parsed, api = {}, env, inArgs) {
   if (VERBOSE) console.log("➗ Evaluating:", parsed);
@@ -499,11 +498,15 @@ function evaluate(parsed, api = {}, env, inArgs) {
         continue;
       }
 
-      // Parse the head string.
+      // Parse the head string splitting on dots and colons.
       const splitHead = head.split(".");
       head = splitHead[0];
 
-      console.log("🧕 Head:", head);
+      const colonSplit = head.split(':');
+      head = colonSplit[0];
+      const colon = colonSplit[1]; // Will be incorporated in globalEnv api.
+
+      // console.log("🧕 Head:", head);
 
       // Check if the function requires recursive evaluation
       if (head === "now" || head === "def" || head === "die")
@@ -526,6 +529,7 @@ function evaluate(parsed, api = {}, env, inArgs) {
           result = iterate(env[head], api, args, env);
         }
 
+      // 🟣 Handle calls to the Aesthetic Computer Piece API.
       } else if (existing(globalEnv[head])) {
         if (
           typeof globalEnv[head] === "function" ||
@@ -559,7 +563,7 @@ function evaluate(parsed, api = {}, env, inArgs) {
           if (splitHead[1]) {
             result = getNestedValue(globalEnv, item[0])(api, processedArgs);
           } else {
-            result = globalEnv[head](api, processedArgs, env);
+            result = globalEnv[head](api, processedArgs, env, colon);
             if (result?.iterable) {
               result = iterate(result, api, args, env);
               continue;
@@ -635,8 +639,8 @@ function evalNotFound(expression, api, env) {
     // console.log("🤖 Attempting JavaScript expression evaluation:", expression);
   }
 
-  // 📖 Identifiers can only start with a letter a-z or A-Z and can not
-  //    include mathermatical operators but can include underscores or
+  // 📖 Identifiers can only start with a letter a-z or A-Z and cannot
+  //    include mathematical operators but can include underscores or
   //    digits after the first character
 
   // Parse the expression to extract identifiers.
@@ -747,7 +751,7 @@ function getNestedValue(obj, path) {
   return path?.split(".").reduce((acc, part) => acc && acc[part], obj);
 }
 
-// Iterate over an iterable.
+// Loop over an iterable.
 function iterate(iterable, api, args, outerEnv) {
   // console.log("Iterable:", iterable);
   iterable.data.forEach((item, index) => {
