@@ -20,7 +20,7 @@
     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind"
     // "source=${env:HOME}/.ssh/id_rsa,target=/home/me/.ssh/id_rsa,type=bind,consistency=cached"
   ],
-  "forwardPorts": [8888],
+  "forwardPorts": [8888, 8111],
   "customizations": {
     "vscode": {
       "extensions": [
@@ -39,7 +39,8 @@
         "vscodevim.vim",
         "kuba-p.glsl-lsp",
         "GitHub.copilot",
-        "GitHub.copilot-chat"
+        "GitHub.copilot-chat",
+        "tamasfe.even-better-toml"
       ]
     }
   },

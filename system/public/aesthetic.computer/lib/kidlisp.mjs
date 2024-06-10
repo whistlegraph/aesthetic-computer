@@ -482,36 +482,28 @@ function evaluate(parsed, api = {}, env, inArgs) {
     if (Array.isArray(item)) {
       // The first element indicates the function to call
       let [head, ...args] = item;
+      // const colon = head.split(":")[1]; // TODO: Take into account colon param / work it in.
 
+      // Make sure head exists and re-evaluate or iterate if not a string.
       if (!existing(head)) return evalNotFound(head);
 
-      // console.log("Head:", head, "args:", args);
       if (Array.isArray(head)) {
-        // console.log("🧧🟢 EVALUATING ARRAY HEAD:", head, "args:", args);
-
-        // ❤️‍🔥 The issue is that the args are not being evaluated here.
         const evaledHead = evaluate([head], api, env);
         const newEval = [evaledHead, ...args];
         result = evaluate([newEval], api, env);
-        // console.log("😱 Array head result:", item, result);
         continue;
       }
-
-      // if (head === "source") {
-      //  console.log("🤕 HEAD:", head, "🦾 ARGS:", args);
-      // }
 
       if (typeof head !== "string" && head?.iterable) {
         result = iterate(head, api, args, env);
         continue;
       }
 
-      //if (head === "write") {
-      // console.log("🏷️ Head:", head, "️⛱️ Environment:", env, "☕ Local Environment:", localEnv, "🗺️ Global Environment:", globalEnv, " 📚 Global Def:", globalDef);
-      //}
-
+      // Parse the head string.
       const splitHead = head.split(".");
       head = splitHead[0];
+
+      console.log("🧕 Head:", head);
 
       // Check if the function requires recursive evaluation
       if (head === "now" || head === "def" || head === "die")
@@ -587,7 +579,6 @@ function evaluate(parsed, api = {}, env, inArgs) {
       } else {
         console.log("⛔ No match found for:", head, "localEnv:", localEnv);
         if (Array.isArray(head)) {
-          // TODO: Why is this like this / using localEnv here?
           if (VERBOSE) console.log("Environment:", localEnv);
           result = evaluate(head, api, localEnv);
         } else {
