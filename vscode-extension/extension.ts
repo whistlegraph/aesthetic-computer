@@ -358,7 +358,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       );
 
       panel.title = "Aesthetic Computer" + (local ? ": Local" : ""); // Update the title if local.
-      panel.webview.html = getWebViewContent(panel.webview);
+      panel.webview.html = getWebViewContent(panel.webview, "");
       webWindow = panel;
 
       panel.onDidDispose(() => (webWindow = null), null, context.subscriptions);
@@ -451,6 +451,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       .split(/\/|\\/) // Split on both forward slash and backslash
       .slice(-1)[0]
       .replace(".mjs", "");
+
+    extContext.globalState.update("panel:slug", piece);
 
     // 📓 The `local` won't work due to VSCode's Proxy, but the option
     // is here just in case it's ever possible again.
@@ -553,6 +555,9 @@ class AestheticCodeLensProvider implements vscode.CodeLensProvider {
 
 // 🪟 Panel Rendering
 
+let slug : string = ""; // Hold onto the current piece name, which will be sent
+//                    on each switch.
+
 class AestheticViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "aestheticComputer.sidebarView";
   private _view?: vscode.WebviewView;
@@ -569,7 +574,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
   public refreshWebview(): void {
     if (this._view) {
       this._view.title = local ? "Local" : ""; // Update the title if local.
-      this._view.webview.html = getWebViewContent(this._view.webview);
+      this._view.webview.html = getWebViewContent(this._view.webview, slug);
     }
   }
 
@@ -587,7 +592,10 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
       localResourceRoots: [extContext.extensionUri],
     };
 
-    webviewView.webview.html = getWebViewContent(this._view.webview);
+    slug = extContext.globalState.get("panel:slug", slug);
+    console.log("🪱 Loading slug:", slug);
+
+    webviewView.webview.html = getWebViewContent(this._view.webview, slug);
 
     webviewView.webview.onDidReceiveMessage((data) => {
       switch (data.type) {
@@ -660,6 +668,9 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
         }
       }
     });
+
+    //webviewView.onDidDispose(() => {
+    //});
   }
 }
 
@@ -678,11 +689,11 @@ function getNonce(): string {
 function refreshWebWindow() {
   if (webWindow) {
     webWindow.title = "Aesthetic Computer" + (local ? ": Local" : ""); // Update the title if local.
-    webWindow.webview.html = getWebViewContent(webWindow.webview);
+    webWindow.webview.html = getWebViewContent(webWindow.webview, slug);
   }
 }
 
-function getWebViewContent(webview: any) {
+function getWebViewContent(webview: any, slug: string) {
   const scriptUri = webview.asWebviewUri(
     vscode.Uri.joinPath(extContext.extensionUri, "sidebar.js"),
   );
@@ -702,11 +713,11 @@ function getWebViewContent(webview: any) {
 
   const session = extContext.globalState.get("aesthetic:session", undefined);
 
-  let param = "";
+  let param = slug;
   if (typeof session === "object") {
     if (keys(session)?.length > 0) {
       const base64EncodedSession = btoa(JSON.stringify(session));
-      param = "?session=" + encodeURIComponent(base64EncodedSession);
+      param += "?session=" + encodeURIComponent(base64EncodedSession);
     }
   } else {
     // param = "?clearSession=true"; Probably never needed.
