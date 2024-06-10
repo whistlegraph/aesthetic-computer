@@ -186,6 +186,8 @@ export OPS_DIR="$HOME/.ops"
 export PATH="$HOME/.ops/bin:$PATH"
 # source "$HOME/.ops/scripts/bash_completion.sh"
 
+xhost +local:docker
+
 ## watch for changes in `.started`
 #function watch_trigger
 #    # Check if the directory exists
