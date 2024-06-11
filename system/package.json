@@ -15,6 +15,7 @@
     "stripe-dev-ticket-micro": "stripe listen --forward-to https://localhost:8888/api/ticket/sotce --api-key $SOTCE_STRIPE_API_KEY",
     "media-server": "http-server public -p 8111 --cors -c-1 -i -g -b -s",
     "media-server-caddy": "caddy file-server --root public --listen :8111 --browse | jq .",
+    "media-server-nginx": "sudo nginx -s stop; sudo nginx -c $(realpath ./nginx.conf) && sudo tail -f /var/log/nginx/access.log /var/log/nginx/error.log",
     "codespaces-dev-debug": "kill-port 8889 8888 8080 8000 8111 3333; netlify dev --debug",
     "codespaces-dev-public": "kill-port 8080 8888 8889 8000 8111 3333; netlify dev --live",
     "local-dev-netlify": "http-server public -p 8080 --cors -c-1 -i -s --P https://127.0.0.1:443?",
