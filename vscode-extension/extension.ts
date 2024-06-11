@@ -436,11 +436,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   // Send piece code through the code channel.
   function upload() {
-    if (local) {
-      // console.log("😊 Skipping `/run` api endpoint. (In local mode.)");
-      return;
-    }
-
     let editor = vscode.window.activeTextEditor;
     if (!editor) {
       return;
@@ -452,7 +447,13 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       .slice(-1)[0]
       .replace(".mjs", "");
 
+    // console.log("🟡 Update global state panel:slug", piece);
     extContext.globalState.update("panel:slug", piece);
+
+    if (local) {
+      // console.log("😊 Skipping `/run` api endpoint. (In local mode.)");
+      return;
+    }
 
     // 📓 The `local` won't work due to VSCode's Proxy, but the option
     // is here just in case it's ever possible again.
@@ -555,7 +556,7 @@ class AestheticCodeLensProvider implements vscode.CodeLensProvider {
 
 // 🪟 Panel Rendering
 
-let slug : string = ""; // Hold onto the current piece name, which will be sent
+let slug: string = ""; // Hold onto the current piece name, which will be sent
 //                    on each switch.
 
 class AestheticViewProvider implements vscode.WebviewViewProvider {
@@ -593,7 +594,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
     };
 
     slug = extContext.globalState.get("panel:slug", slug);
-    console.log("🪱 Loading slug:", slug);
+    if (slug) console.log("🪱 Loading slug:", slug);
 
     webviewView.webview.html = getWebViewContent(this._view.webview, slug);
 

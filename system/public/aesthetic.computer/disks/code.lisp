@@ -2,30 +2,39 @@
 ; A graphical editor for producing kidlisp code, written in kidlisp
 
 ; #region 🏁 TODO 
-; - [🟢] Pull in the `source` of handles.
-; - [] Get nested level and use that to draw boxes.
-; - [] Make the boxes interactive.
+; - [🔵] Make the boxes interactive.
+; - [] Concatenate the 'source:colon' so it can be 'source:paramA' or
+;      something of this nature.
 ; + Done
+; - [x] Get nested level and graph it.
+; - [x] Pull in the `source` of the 'handles' piece.
 ; - [x] Get this program to print every node in its own tree.
 ; - [x] Make `index` still visible from inner loop. 
 ; - [x] Make 'item' and 'index' variably named. 
- 
 ; #endregion 
 
 (def count 0)
+(def nest 0)
+(def row 0)
+
 (wipe purple)
 
 (later recurse item 
   (item a b 
-    (if a.iterable (recurse a))
+    (if a.iterable (now nest nest+1) (recurse a) (now nest nest-1))
     (not a.iterable 
-      (write b 6 24+count*12)
-      (write a 14 24+count*12)
+      ; TODO: 🔥 How can I make a local variable?
+      (now row 24+count*12)
+      (ink yellow)
+      (write nest 6 row)
+      (ink orange)
+      (write b 8+nest*6+6 row)
+      (ink teal)
+      (write a 8+nest*6+14 row)
       (now count count+1)
     )
   )
 )
 
 (now count 0)
-; (source item index (recurse item))
-(source:handles item index (recurse item))
+(source:code item index (recurse item))

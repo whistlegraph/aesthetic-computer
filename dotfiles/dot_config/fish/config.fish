@@ -26,7 +26,8 @@ alias mongodb-compass 'mongodb-compass --enable-features=UseOzonePlatform,Waylan
 # open my agenda.txt
 alias agenda 'nvim ~/Desktop/agenda/agenda.txt'
 
-alias
+# open a file with emacs in the tui
+alias edit 'fzf | read -l file; and test -n "$file"; and emacs -nw $file'
 
 # get the ip address on macos
 alias ip 'ipconfig getifaddr en0'
@@ -37,7 +38,7 @@ alias wgeth 'echo 0x238c9c645c6EE83d4323A2449C706940321a0cBf'
 # alias ef 'chezmoi edit ~/.config/fish/config.fish'
 alias fishcfg 'source ~/.config/fish/config.fish'
 
-alias edit 'fzf | read -l file; and test -n "$file"; and emacs -nw "$file"'
+# alias edit 'fzf | read -l file; and test -n "$file"; and emacs -nw "$file"'
 
 # shortcuts for aesthetic.computer (macOS only)
 # alias webp 'fish ~/IdeaProjects/aesthetic.computer/system/public/disks/digitpain/webp.fish'
@@ -190,7 +191,11 @@ export OPS_DIR="$HOME/.ops"
 export PATH="$HOME/.ops/bin:$PATH"
 # source "$HOME/.ops/scripts/bash_completion.sh"
 
-xhost +local:docker > /dev/null 2>&1
+function silence_xhost
+    xhost +local:docker > /dev/null 2>&1
+end
+
+silence_xhost
 
 ## watch for changes in `.started`
 #function watch_trigger
