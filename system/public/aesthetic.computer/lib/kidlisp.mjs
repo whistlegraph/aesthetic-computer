@@ -156,7 +156,7 @@ function module(source) {
 }
 
 // 💻 Interpreter
-const networkCache = {};
+const networkCache = { sources: {} };
 const globalDef = {};
 
 // 📑 API
@@ -373,8 +373,21 @@ const globalEnv = {
   },
   // (Getters / globals).
   source: (api, args = [], env, colon) => {
-    console.log("✍️ Source:", ast, args, env, colon);
-    return { iterable: true, data: ast };
+    // console.log("✍️ Source:", ast, args, env, colon);
+    let sourcedAST;
+    if (colon) {
+      if (!networkCache.sources[colon]) {
+        fetch(`/aesthetic.computer/disks/${colon}.lisp`)
+          .then((response) => response.text())
+          .then((data) => (networkCache.sources[colon] = parse(data)))
+          .catch((err) => console.warn(`No source for ${colon}:`, err));
+      } else {
+        sourcedAST = networkCache.sources[colon];
+      }
+    } else {
+      sourcedAST = ast;
+    }
+    return { iterable: true, data: sourcedAST };
   },
   width: (api) => {
     return api.screen.width;
@@ -502,7 +515,7 @@ function evaluate(parsed, api = {}, env, inArgs) {
       const splitHead = head.split(".");
       head = splitHead[0];
 
-      const colonSplit = head.split(':');
+      const colonSplit = head.split(":");
       head = colonSplit[0];
       const colon = colonSplit[1]; // Will be incorporated in globalEnv api.
 
@@ -513,7 +526,6 @@ function evaluate(parsed, api = {}, env, inArgs) {
         args[0] = `"${args[0]}"`; // Pre-wrap the first arg as a string.
 
       if (existing(localEnv[head])) {
-
         if (VERBOSE)
           console.log("😫 Local definition found!", head, localEnv[head]);
 
@@ -521,15 +533,13 @@ function evaluate(parsed, api = {}, env, inArgs) {
           result = iterate(localEnv[head], api, args, env);
 
         result = localEnv[head];
-
-
       } else if (existing(env?.[head])) {
         // console.log("FOUND HEAD:", head, env);
         if (env[head].iterable) {
           result = iterate(env[head], api, args, env);
         }
 
-      // 🟣 Handle calls to the Aesthetic Computer Piece API.
+        // 🟣 Handle calls to the Aesthetic Computer Piece API.
       } else if (existing(globalEnv[head])) {
         if (
           typeof globalEnv[head] === "function" ||
