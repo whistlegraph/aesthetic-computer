@@ -18,6 +18,9 @@ RUN dnf install -y 'dnf-command(copr)'
 RUN dnf copr enable -y @caddy/caddy
 RUN dnf install -y caddy
 
+# Install nginx
+RUN dnf install -y nginx
+
 # Install 'docker'
 RUN sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
 RUN dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin

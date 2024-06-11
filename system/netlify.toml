@@ -53,7 +53,7 @@
 [dev]
   NODE_ENV = "development"
   publish = "public/"
-  command = "npm run media-server-caddy"
+  command = "npm run media-server-nginx"
   targetPort = 8111
   # framework = "#static"
   autoLaunch = false
