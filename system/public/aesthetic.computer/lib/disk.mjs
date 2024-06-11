@@ -2893,8 +2893,6 @@ async function load(
         devReload,
       );
     } else if (piece !== undefined) {
-      // TODO: Make this happen...
-      console.log("Jump instantly to:", piece);
       $commonApi.load(parse(piece), false, false, true);
     }
   };
