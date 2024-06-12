@@ -36,7 +36,7 @@ async function constructUrl() {
       if (response.statusCode === 200) {
         clearInterval(bootUpTimer);
         process.stdout.write("\x1Bc"); // Clear terminal.
-        console.log(`\n😱 Welcome to Aesthetic Computer 🫠`);
+        // console.log(`\n😱 Welcome to Aesthetic Computer 🫠`);
         qrcode.generate(url, { small: true });
         console.log(`Local 💻️ https://localhost:8888`);
         console.log(`  LAN 🤗 ${url} (QR code above)`);

@@ -571,6 +571,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 
   public refreshWebview(): void {
     if (this._view) {
+      console.clear();
       this._view.title = local ? "Local" : ""; // Update the title if local.
       this._view.webview.html = getWebViewContent(this._view.webview, slug);
     }
