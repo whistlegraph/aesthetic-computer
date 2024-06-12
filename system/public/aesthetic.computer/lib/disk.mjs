@@ -55,8 +55,6 @@ let sessionStarted = false; // A flag that waits to boot until a session was
 
 let LAN_HOST; // The IP address of the hosting machine on the local network.
 let SHARE_SUPPORTED; // Whether navigator.share is supported. (For `dl`)
-//let IFRAME; // Flag if this aesthetic client is hosted in an iframe.
-// (For development and IRL workshops)
 let debug = false; // This can be overwritten on boot.
 let visible = true; // Is aesthetic.computer visibly rendering or not?
 
@@ -2711,7 +2709,7 @@ async function load(
         // console.log("📥 Loading from url:", fullUrl);
         // TODO: ❤️‍🔥 Skip URL load attempts if this is a devReload.
         response = await fetch(fullUrl);
-        if (response.status === 404) {
+        if (response.status === 404 || response.status === 403) {
           const anonUrl =
             location.protocol +
             "//" +
@@ -2787,7 +2785,7 @@ async function load(
       response = await fetch(fullUrl);
       // console.log("🤖 Response:", response);
 
-      if (response.status === 404) {
+      if (response.status === 404 || response.status === 403) {
         const anonUrl =
           location.protocol +
           "//" +
@@ -2824,8 +2822,9 @@ async function load(
       loadFailure = err;
       $commonApi.net.loadFailureText = err.message + "\n" + sourceCode;
       loading = false;
+
       // Only return a 404 if the error type is correct.
-      if (firstLoad && err.message === "404") {
+      if (firstLoad && (err.message === "404" || err.message === "403")) {
         $commonApi.jump(`404~${slug}`);
       } else {
         $commonApi.notice(":(", ["red", "yellow"]);
