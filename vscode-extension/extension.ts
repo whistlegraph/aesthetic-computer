@@ -441,19 +441,16 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       return;
     }
 
+    if (local) {
+      // console.log("😊 Skipping `/run` api endpoint. (In local mode.)");
+      return;
+    }
+
     let source = editor.document.getText();
     const piece = editor.document.fileName
       .split(/\/|\\/) // Split on both forward slash and backslash
       .slice(-1)[0]
       .replace(".mjs", "");
-
-    // console.log("🟡 Update global state panel:slug", piece);
-    extContext.globalState.update("panel:slug", piece);
-
-    if (local) {
-      // console.log("😊 Skipping `/run` api endpoint. (In local mode.)");
-      return;
-    }
 
     // 📓 The `local` won't work due to VSCode's Proxy, but the option
     // is here just in case it's ever possible again.
@@ -600,6 +597,9 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.onDidReceiveMessage((data) => {
       switch (data.type) {
+        case "url:updated": {
+          extContext.globalState.update("panel:slug", data.slug);
+        }
         case "clipboard:copy": {
           vscode.env.clipboard.writeText(data.value).then(() => {
             // console.log("📋 Copied text to clipboard!");
@@ -740,7 +740,7 @@ function getWebViewContent(webview: any, slug: string) {
 			<body>
         <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin allow-pointer-lock" allow="clipboard-write; clipboard-read; camera; microphone; gyroscope" src="https://${
           local ? "localhost:8888" : "aesthetic.computer"
-        }${param}" border="none"></iframe>
+        }/${param}" border="none"></iframe>
        	<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;

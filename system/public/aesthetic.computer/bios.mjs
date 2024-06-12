@@ -2483,6 +2483,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             document.title,
             content.text === "/prompt" ? "/" : "/" + content.text, // Replace "prompt" with "/".
           );
+
+          // console.log("🧩 Updating piece:", content.text);
+
+          window.parent.postMessage(
+            {
+              type: "url:updated",
+              slug: content.text.replace("/", ""),
+            },
+            "*",
+          );
         }
 
         // Replace the state if we are running an aliased `load` or `jump`.
