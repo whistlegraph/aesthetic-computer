@@ -357,11 +357,17 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         }, // Webview options.
       );
 
-      panel.title = "Aesthetic Computer" + (local ? ": Local" : ""); // Update the title if local.
+      panel.title = "Aesthetic Computer" + (local ? ": 🧑‍🤝‍🧑" : ""); // Update the title if local.
       panel.webview.html = getWebViewContent(panel.webview, "");
       webWindow = panel;
 
-      panel.onDidDispose(() => (webWindow = null), null, context.subscriptions);
+      panel.onDidDispose(
+        () => {
+          webWindow = null;
+        },
+        null,
+        context.subscriptions,
+      );
     }),
   );
 
@@ -552,10 +558,6 @@ class AestheticCodeLensProvider implements vscode.CodeLensProvider {
 }
 
 // 🪟 Panel Rendering
-
-let slug: string = ""; // Hold onto the current piece name, which will be sent
-//                    on each switch.
-
 class AestheticViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "aestheticComputer.sidebarView";
   private _view?: vscode.WebviewView;
@@ -571,8 +573,9 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 
   public refreshWebview(): void {
     if (this._view) {
-      console.clear();
-      this._view.title = local ? "Local" : ""; // Update the title if local.
+      const slug = extContext.globalState.get("panel:slug");
+      if (slug) console.log("🪱 Loading slug:", slug);
+      this._view.title = slug + (local ? " 🧑‍🤝‍🧑" : "");
       this._view.webview.html = getWebViewContent(this._view.webview, slug);
     }
   }
@@ -583,7 +586,11 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
     _token: vscode.CancellationToken,
   ): void {
     this._view = webviewView;
-    this._view.title = local ? "Local" : ""; // Update the title if local.
+
+    const slug = extContext.globalState.get("panel:slug");
+    if (slug) console.log("🪱 Loading slug:", slug);
+
+    this._view.title = slug + (local ? " 🧑‍🤝‍🧑" : "");
 
     // Set retainContextWhenHidden to true
     this._view.webview.options = {
@@ -591,15 +598,14 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
       localResourceRoots: [extContext.extensionUri],
     };
 
-    slug = extContext.globalState.get("panel:slug", slug);
-    if (slug) console.log("🪱 Loading slug:", slug);
-
     webviewView.webview.html = getWebViewContent(this._view.webview, slug);
 
     webviewView.webview.onDidReceiveMessage((data) => {
       switch (data.type) {
         case "url:updated": {
+          console.log("😫 slug updated...", data.slug);
           extContext.globalState.update("panel:slug", data.slug);
+          webviewView.title = data.slug + (local ? " 🧑‍🤝‍🧑" : "");
         }
         case "clipboard:copy": {
           vscode.env.clipboard.writeText(data.value).then(() => {
@@ -671,8 +677,22 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
       }
     });
 
-    //webviewView.onDidDispose(() => {
-    //});
+    // webviewView.onDidDispose(() => {
+    //   console.log("🔴 DISPOSED!");
+    // });
+
+    webviewView.onDidChangeVisibility(() => {
+      if (!webviewView.visible) {
+        console.log("🔴 Panel hidden.");
+        // Perform any cleanup or state update here when the view is hidden
+        const slug = extContext.globalState.get("panel:slug");
+        if (slug) console.log("🪱 Loading slug:", slug);
+        webviewView.title = slug + (local ? " 🧑‍🤝‍🧑" : "");
+        webviewView.webview.html = getWebViewContent(webviewView.webview, slug);
+      } else {
+        console.log("🟢 Panel open.");
+      }
+    });
   }
 }
 
@@ -690,9 +710,9 @@ function getNonce(): string {
 
 function refreshWebWindow() {
   if (webWindow) {
-    webWindow.title = "Aesthetic Computer" + (local ? ": Local" : ""); // Update the title if local.
-    slug = extContext.globalState.get("panel:slug", slug);
+    const slug = extContext.globalState.get("panel:slug");
     if (slug) console.log("🪱 Loading slug:", slug);
+    webWindow.title = "Aesthetic Computer: " + slug + (local ? " 🧑‍🤝‍🧑" : ""); // Update the title if local.
     webWindow.webview.html = getWebViewContent(webWindow.webview, slug);
   }
 }
