@@ -112,12 +112,13 @@ const VERBOSE = false;
 const { floor, max } = Math;
 let ast; // Abstract syntax tree.
 
+
 // Parse and evaluate a lisp source module
 // into a running aesthetic computer piece.
 function module(source) {
   const parsed = parse(source);
   ast = JSON.parse(JSON.stringify(parsed)); // Deep copy of original source. 🙃
-  /*if (VERBOSE)*/ console.log("🐍 Snake:", parsed);
+  /*if (VERBOSE)*/ console.log("🐍 iSnake:", parsed);
 
   // 🧩 Piece API
   return {
@@ -364,7 +365,7 @@ const globalEnv = {
     api.wiggle(...args);
   },
   box: (api, args = []) => {
-    console.log(args);
+    // console.log(args);
     api.box(...args);
   },
   write: (api, args = []) => {
@@ -378,7 +379,7 @@ const globalEnv = {
   // (Getters / globals).
   source: (api, args = [], env, colon) => {
     // console.log("✍️ Source:", ast, args, env, colon);
-    let sourcedAST;
+    let sourcedAST = [];
     if (colon) {
       if (!networkCache.sources[colon]) {
         fetch(`/aesthetic.computer/disks/${colon}.lisp`)
@@ -523,9 +524,9 @@ function evaluate(parsed, api = {}, env, inArgs) {
       head = colonSplit[0];
       const colon = colonSplit[1]; // Will be incorporated in globalEnv api.
 
-      if (head === "box") {
-        console.log("🧕 Head:", head);
-      }
+      // if (head === "box") {
+      //  console.log("🧕 Head:", head);
+      // }
 
       // Check if the function requires recursive evaluation
       if (head === "now" || head === "def" || head === "die")
@@ -656,7 +657,7 @@ function evalNotFound(expression, api, env) {
     // console.log("🤖 Expression:", expression);
     return expression; // Return numbers.
   } else {
-    console.log("🤖 Attempting JavaScript expression evaluation:", expression);
+    // console.log("🤖 Attempting JavaScript expression evaluation:", expression);
   }
 
   // 📖 Identifiers can only start with a letter a-z or A-Z and cannot

@@ -1289,6 +1289,7 @@ async function halt($, text) {
     net.hiccup();
     return true;
   } else {
+    console.log("🟢 Attempting a load!");
     // 🟠 Local and remote pieces...
 
     // Theory: Is `load` actually similar to eval?
@@ -1301,13 +1302,15 @@ async function halt($, text) {
       loaded = await load(body, false, false, true); // Force `devReload` flag.
       //                                                (in case of publish)
     } else {
-      body = parse(text);
+      body = parse(trimmed);
       loaded = await load(body); // Execute the current command.
     }
 
+    // console.log("Loaded:", loaded);
+
     if (!loaded) {
       leaving(false);
-      if (text.indexOf(" ") === -1 && text !== "goodiepal") {
+      if (/*text.indexOf(" ") === -1 &&*/ text !== "goodiepal") {
         system.prompt.input.text = TYPO_REPLY;
         system.prompt.input.replied($); // Set the UI state back to normal.
         loaded = { replied: true };
