@@ -22,7 +22,7 @@ let webWindow: any;
 
 async function activate(context: vscode.ExtensionContext): Promise<void> {
   local = context.globalState.get("aesthetic:local", false); // Retrieve env.
-  console.log("🟢 Aesthetic Computer Extension Activated.");
+  console.log("🟢 Aesthetic Computer Extension: Activated");
   extContext = context;
 
   const savedGoal = context.globalState.get("goalState");
@@ -37,7 +37,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data: any = await response.json();
-      console.log("📚 Docs loaded:", data);
+      // console.log("📚 Docs loaded:", data);
 
       keys(data.api).forEach((key) => {
         // Add the category to each doc before smushing them.
@@ -690,6 +690,8 @@ function getNonce(): string {
 function refreshWebWindow() {
   if (webWindow) {
     webWindow.title = "Aesthetic Computer" + (local ? ": Local" : ""); // Update the title if local.
+    slug = extContext.globalState.get("panel:slug", slug);
+    if (slug) console.log("🪱 Loading slug:", slug);
     webWindow.webview.html = getWebViewContent(webWindow.webview, slug);
   }
 }

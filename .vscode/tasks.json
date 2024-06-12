@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "💻 Aesthetic Platform",
+      "label": "💻 Aesthetic",
       "type": "shell",
       "command": "type aesthetic >/dev/null 2>&1 && aesthetic || echo '\u001b[1m🟡 Please run the Aesthetic Platform from its development container.\u001b[0m'; echo ''",
       "problemMatcher": [],
