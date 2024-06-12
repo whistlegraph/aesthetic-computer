@@ -4,9 +4,9 @@
 
     encode zstd gzip
 
-    header * {
-        # Cache-Control "no-cache"
-        ETag "{http.response.header.ETag}"
-        Last-Modified "{http.response.header.Last-Modified}"
-    }
+    #header * {
+    #    Cache-Control "no-cache"
+    #    ETag "{http.response.header.ETag}"
+    #    Last-Modified "{http.response.header.Last-Modified}"
+    #}
 }

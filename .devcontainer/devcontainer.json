@@ -40,7 +40,8 @@
         "kuba-p.glsl-lsp",
         "GitHub.copilot",
         "GitHub.copilot-chat",
-        "tamasfe.even-better-toml"
+        "tamasfe.even-better-toml",
+        "matthewpi.caddyfile-support"
       ]
     }
   },

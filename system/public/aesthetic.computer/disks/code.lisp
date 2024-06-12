@@ -2,7 +2,8 @@
 ; A graphical editor for producing kidlisp code, written in kidlisp
 
 ; #region 🏁 TODO 
-; - [🔵] Make the boxes interactive.
+; - [🟠] Draw the boxes at the proper nested level. 
+; - [] Make the boxes interactive.
 ; - [] Concatenate the 'source:colon' so it can be 'source:paramA' or
 ;      something of this nature.
 ; + Done
@@ -18,7 +19,6 @@
 (def row 1) ; increments off of zero do not work...
 
 (wipe purple)
-
 
 (later recurse item 
   (item a b 
