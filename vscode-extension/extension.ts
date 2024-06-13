@@ -573,7 +573,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 
   public refreshWebview(): void {
     if (this._view) {
-      const slug = extContext.globalState.get("panel:slug");
+      const slug = extContext.globalState.get("panel:slug", "");
       if (slug) console.log("🪱 Loading slug:", slug);
       this._view.title = slug + (local ? " 🧑‍🤝‍🧑" : "");
       this._view.webview.html = getWebViewContent(this._view.webview, slug);
@@ -587,7 +587,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
   ): void {
     this._view = webviewView;
 
-    const slug = extContext.globalState.get("panel:slug");
+    const slug = extContext.globalState.get("panel:slug", "");
     if (slug) console.log("🪱 Loading slug:", slug);
 
     this._view.title = slug + (local ? " 🧑‍🤝‍🧑" : "");
@@ -685,7 +685,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
       if (!webviewView.visible) {
         console.log("🔴 Panel hidden.");
         // Perform any cleanup or state update here when the view is hidden
-        const slug = extContext.globalState.get("panel:slug");
+        const slug = extContext.globalState.get("panel:slug", "");
         if (slug) console.log("🪱 Loading slug:", slug);
         webviewView.title = slug + (local ? " 🧑‍🤝‍🧑" : "");
         webviewView.webview.html = getWebViewContent(webviewView.webview, slug);
@@ -710,7 +710,7 @@ function getNonce(): string {
 
 function refreshWebWindow() {
   if (webWindow) {
-    const slug = extContext.globalState.get("panel:slug");
+    const slug = extContext.globalState.get("panel:slug", "");
     if (slug) console.log("🪱 Loading slug:", slug);
     webWindow.title = "Aesthetic Computer: " + slug + (local ? " 🧑‍🤝‍🧑" : ""); // Update the title if local.
     webWindow.webview.html = getWebViewContent(webWindow.webview, slug);
