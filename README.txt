@@ -40,20 +40,7 @@ but technically agnostic. (Choose your aesthetic!)
 🌟 Projects in Progress (PIP) 🌟
 
 *** sotce.net ***
-    - [] Jeffrey builds diary network @ sotce.net. 
-      - [🟠] Create a sotce.net directory / index page.
-      - [] This would be a simple SPA that needs routing and a few other
-           facilities.
-           - [] Set up path->method routing in `sotce-net.js`.
-      - [] auth0 based auth
-        - [] not logged in route
-        - [] logged in route
-      - [] stripe paywall
-        - [] logged in but unpaid route
-        - [] logged in and paid route
-    - [] The handle system would be shared among ac users.
-      - [] Perhaps the subs could be 'sotce' prefixed.
-    - [] Store whether a user is subscribed with an expiration date.
+  - [] See `sotce-net.mjs`
 
   - [🟨] Add a "handles" directory to scroll through all active handles.
   - [-] add a "system update" notifier based on commits - i should be able
