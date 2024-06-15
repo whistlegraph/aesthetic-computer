@@ -118,7 +118,7 @@ let ast; // Abstract syntax tree.
 function module(source) {
   const parsed = parse(source);
   ast = JSON.parse(JSON.stringify(parsed)); // Deep copy of original source. 🙃
-  /*if (VERBOSE)*/ console.log("🐍 iSnake:", parsed);
+  /*if (VERBOSE)*/ console.log("🐍 Snake:", parsed);
 
   // 🧩 Piece API
   return {
