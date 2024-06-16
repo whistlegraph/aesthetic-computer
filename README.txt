@@ -37,6 +37,9 @@ but technically agnostic. (Choose your aesthetic!)
 
 😀 TODO 😆
 
+📽️ 
+ - [] Watch WebXR on Apple Vision Demo: https://developer.apple.com/videos/play/wwdc2024/10066/
+
 🌟 Projects in Progress (PIP) 🌟
   - [🟨] Add a "handles" directory to scroll through all active handles.
   - [-] add a "system update" notifier based on commits - i should be able
