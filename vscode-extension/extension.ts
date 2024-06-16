@@ -501,11 +501,28 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   // Automatically re-run the piece when saving any .mjs file.
   vscode.workspace.onDidSaveTextDocument((document) => {
-    if (
-      vscode.window.activeTextEditor?.document === document &&
-      document.uri.fsPath.endsWith(".mjs")
-    ) {
-      vscode.commands.executeCommand("aestheticComputer.runPiece");
+    function mjsOrLisp(path: string) {
+      return path.endsWith(".mjs") || path.endsWith(".lisp");
+    }
+
+    if (vscode.window.activeTextEditor?.document === document) {
+      console.log("🔩 File path:", document.uri.fsPath);
+      const inMonoRepo =
+        document.uri.fsPath.indexOf("aesthetic-computer/system") > -1;
+      const inDisks =
+        document.uri.fsPath.indexOf(
+          "aesthetic-computer/system/public/aesthetic.computer/disks",
+        ) > -1;
+
+      if (inMonoRepo) {
+        if (inDisks && mjsOrLisp(document.uri.fsPath)) {
+          // console.log("🟡 Loading piece...", document.uri.fsPath);
+          vscode.commands.executeCommand("aestheticComputer.runPiece");
+        }
+      } else if (mjsOrLisp(document.uri.fsPath)) {
+        // console.log("🟡 Loading piece...", document.uri.fsPath);
+        vscode.commands.executeCommand("aestheticComputer.runPiece");
+      }
     }
   });
 }
@@ -573,7 +590,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 
   public refreshWebview(): void {
     if (this._view) {
-      const slug = extContext.globalState.get("panel:slug");
+      const slug = extContext.globalState.get("panel:slug", "");
       if (slug) console.log("🪱 Loading slug:", slug);
       this._view.title = slug + (local ? " 🧑‍🤝‍🧑" : "");
       this._view.webview.html = getWebViewContent(this._view.webview, slug);
@@ -587,7 +604,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
   ): void {
     this._view = webviewView;
 
-    const slug = extContext.globalState.get("panel:slug");
+    const slug = extContext.globalState.get("panel:slug", "");
     if (slug) console.log("🪱 Loading slug:", slug);
 
     this._view.title = slug + (local ? " 🧑‍🤝‍🧑" : "");
@@ -685,7 +702,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
       if (!webviewView.visible) {
         console.log("🔴 Panel hidden.");
         // Perform any cleanup or state update here when the view is hidden
-        const slug = extContext.globalState.get("panel:slug");
+        const slug = extContext.globalState.get("panel:slug", "");
         if (slug) console.log("🪱 Loading slug:", slug);
         webviewView.title = slug + (local ? " 🧑‍🤝‍🧑" : "");
         webviewView.webview.html = getWebViewContent(webviewView.webview, slug);
@@ -710,7 +727,7 @@ function getNonce(): string {
 
 function refreshWebWindow() {
   if (webWindow) {
-    const slug = extContext.globalState.get("panel:slug");
+    const slug = extContext.globalState.get("panel:slug", "");
     if (slug) console.log("🪱 Loading slug:", slug);
     webWindow.title = "Aesthetic Computer: " + slug + (local ? " 🧑‍🤝‍🧑" : ""); // Update the title if local.
     webWindow.webview.html = getWebViewContent(webWindow.webview, slug);

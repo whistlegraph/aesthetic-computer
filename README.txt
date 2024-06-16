@@ -41,6 +41,10 @@ but technically agnostic. (Choose your aesthetic!)
  - [] Watch WebXR on Apple Vision Demo: https://developer.apple.com/videos/play/wwdc2024/10066/
 
 🌟 Projects in Progress (PIP) 🌟
+
+*** sotce.net ***
+  - [] See `sotce-net.mjs`
+
   - [🟨] Add a "handles" directory to scroll through all active handles.
   - [-] add a "system update" notifier based on commits - i should be able
           to tag a commit or decide somehow if a `log` would be sent or not?
@@ -85,15 +89,6 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Fix blanking chat.
   - [x] A successfull login should broadcast to all other thumbnails
        and trigger a refresh - same with logging out!
-
-*** sotce.net ***
-    - [] Jeffrey builds diary network @ sotce.net. 
-      - [] Create a sotce.net directory / index page.
-      - [] This would be a simple SPA that needs routing and a few other
-           facilities.
-      - [] auth0 based auth or some form of auth... hmm...
-      - [] stripe paywall
-    - [] The handle system would be shared among ac users.
 
 *** gen music ***
   - [] Make some generative ambient music in kidlisp that I can actually
