@@ -20,6 +20,7 @@
 
 (wipe purple)
 
+
 (later recurse item 
   (item a b 
     (if a.iterable (now nest nest+1) (recurse a) (now nest nest-1))

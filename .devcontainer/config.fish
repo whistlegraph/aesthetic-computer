@@ -21,6 +21,11 @@ function fish_prompt
     echo -n '> '
 end
 
+function dns
+    set -l domain $argv[1]
+    echo "https://iwantmyname.com/dashboard/dns/$domain"
+end
+
 function fish_greeting
     if test "$nogreet" = true
         return
