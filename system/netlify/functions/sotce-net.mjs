@@ -2,12 +2,11 @@
 // A paid diary network, 'handled' by Aesthetic Computer.
 
 /* #region 🏁 TODO 
-
-  - [🟢] auth0 based auth / registration
-    - [] review existing ac auth implementation and necessary
+  - [💚] Use shadow dom / custom element or a "modal" element for signup.
+  - [] auth0 based auth / registration
+    - [x] review existing ac auth implementation and necessary
          keys
     - [] Set up login pages / logo etc. 
-  - [🟠] Set up email sending service via google apps?
     - [] not logged in route
     - [] logged in route
   - [] stripe paywall
@@ -18,8 +17,9 @@
   - [] The handle system would be shared among ac users.
     - [] Perhaps the subs could be 'sotce' prefixed.
   - [] Store whether a user is subscribed with an expiration date.
-  - [] 
   + Done
+  - [x] Run through a test sign-up.
+  - [x] Set up email sending service via google apps?
   - [x] Developmnt mode.
   - [x] Live reload function.
   - [x] Set up path->method routing in `sotce-net.js`.
@@ -30,10 +30,6 @@
 // const AUTH0_SECRET = process.env.SOTCE_AUTH0_M2M_SECRET;
 const AUTH0_CLIENT_ID_SPA = "3SvAbUDFLIFZCc1lV7e4fAAGKWXwl2B0";
 const AUTH0_DOMAIN = "https://hi.sotce.net";
-
-// 📚 Libraries
-// TODO: - [] Auth0 clientside.
-//       - [] Auth0 clientside.
 
 const dev = process.env.NETLIFY_DEV;
 
@@ -61,17 +57,21 @@ export const handler = async (event, context) => {
             crossorigin="anonymous"
             src="/aesthetic.computer/dep/auth0-spa-js.production.js"
           ></script>
+        </head>
+        <body>
+          <div id="wrapper">
+            <h1>${path} : ${method}</h1>
+          </div>
           <script>
             (async () => {
               const clientId = "${AUTH0_CLIENT_ID_SPA}";
-              // const before = performance.now();
 
               const auth0Client = await window.auth0.createAuth0Client({
                 domain: "${AUTH0_DOMAIN}",
                 clientId,
                 cacheLocation: "localstorage",
                 useRefreshTokens: true,
-                authorizationParams: { redirect_uri: window.location.origin },
+                authorizationParams: { redirect_uri: window.location.href },
               });
 
               if (
@@ -89,20 +89,35 @@ export const handler = async (event, context) => {
               }
 
               const isAuthenticated = await auth0Client.isAuthenticated();
-              console.log("Authenticated?", isAuthenticated);
+              const wrapper = document.getElementById("wrapper");
 
               if (!isAuthenticated) {
+                wrapper.innerHTML = 'not signed in :( <a onclick="login()" href="#">Log in</a> <a onclick="login(\"signup\")" href="#">Im new</a>'; 
+              } else {
+                wrapper.innerHTML = 'signed in! <a onclick="logout()" id="logout" href="#">logout</a>'; 
+              }
+
+              function login(hint = "login") {
                 const opts = { prompt: "login" }; // Never skip the login screen.
-                // if (mode === "signup") opts.screen_hint = mode;
                 opts.screen_hint = "signup";
-                // TODO: Can have an optional signup mode...
                 auth0Client.loginWithRedirect({ authorizationParams: opts });
               }
+
+              function logout() {
+                if (isAuthenticated) {
+                  console.log("🔐 Logging out...");
+                  auth0Client.logout({
+                    logoutParams: { returnTo: window.location.href },
+                  });
+                } else {
+                  console.log("🔐 Already logged out!");
+                }
+              }
+
+              window.logout = logout;
+              window.login = login;
             })();
           </script>
-        </head>
-        <body>
-          <h1>${path} : ${method}</h1>
         </body>
       </html>
     `;
@@ -115,6 +130,7 @@ export const handler = async (event, context) => {
   }
 };
 
+// Inserted in `dev` mode for live reloading.
 const reloadScript = html`
   <script>
     // Live reloading in development.
