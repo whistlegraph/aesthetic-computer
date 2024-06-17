@@ -37,6 +37,9 @@ but technically agnostic. (Choose your aesthetic!)
 
 😀 TODO 😆
 
+📽️ 
+ - [] Watch WebXR on Apple Vision Demo: https://developer.apple.com/videos/play/wwdc2024/10066/
+
 🌟 Projects in Progress (PIP) 🌟
 
 *** sotce.net ***
