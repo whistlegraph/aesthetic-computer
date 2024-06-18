@@ -37,14 +37,15 @@ but technically agnostic. (Choose your aesthetic!)
 
 😀 TODO 😆
 
-📽️ 
- - [] Watch WebXR on Apple Vision Demo: https://developer.apple.com/videos/play/wwdc2024/10066/
+📽️ Research 
+  - [] Watch WebXR on Apple Vision Demo: https://developer.apple.com/videos/play/wwdc2024/10066/
 
 🌟 Projects in Progress (PIP) 🌟
 
 *** sotce.net ***
-  - [] See `sotce-net.mjs`
+  - [🎇] See `sotce-net.mjs`
 
+*** chat improvements ***
   - [🟨] Add a "handles" directory to scroll through all active handles.
   - [-] add a "system update" notifier based on commits - i should be able
           to tag a commit or decide somehow if a `log` would be sent or not?
@@ -52,6 +53,7 @@ but technically agnostic. (Choose your aesthetic!)
       - How do I add a post request receiver here that
         has process.env.NETLIFY_SYSTEM_DEPLOY_JWT set to 
         match the token.
+
   - [] Auto-link handles and single quoted words.
     - [] color coded words in chat via kidlisp / how to integrate kidlisp?
   - [] Separate README from TODO and make TODO visible in the system to help
@@ -89,6 +91,10 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Fix blanking chat.
   - [x] A successfull login should broadcast to all other thumbnails
        and trigger a refresh - same with logging out!
+
+*** auth synchronization questions ***
+  - [] Are logins / logouts *too* synchronized?
+  - [] If I'm logged into localhost am I also logged into production?
 
 *** gen music ***
   - [] Make some generative ambient music in kidlisp that I can actually

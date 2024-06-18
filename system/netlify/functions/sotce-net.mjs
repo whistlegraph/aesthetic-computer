@@ -85,27 +85,105 @@ export const handler = async (event, context) => {
                 } catch (e) {
                   console.error("🔐", e);
                 }
-                window.history.replaceState({}, document.title, "/");
+                window.history.replaceState(
+                  {},
+                  document.title,
+                  window.location.pathname,
+                );
               }
 
-              const isAuthenticated = await auth0Client.isAuthenticated();
+              let isAuthenticated = await auth0Client.isAuthenticated();
+
+              // Try to fetch a new token on every refresh.
+              if (isAuthenticated) {
+                try {
+                  await auth0Client.getTokenSilently();
+                  console.log("🗝️ Got fresh token.");
+                } catch (error) {
+                  console.log("🔐️ ❌ Unauthorized", error);
+                  console.error(
+                    "Failed to retrieve token silently. Logging out.",
+                    error,
+                  );
+                  // Redirect the user to logout if the token has failed.
+                  auth0Client.logout();
+                  isAuthenticated = false;
+                  return;
+                }
+              }
+
               const wrapper = document.getElementById("wrapper");
 
               if (!isAuthenticated) {
-                wrapper.innerHTML = 'not signed in :( <a onclick="login()" href="#">Log in</a> <a onclick="login(\"signup\")" href="#">Im new</a>'; 
+                wrapper.innerHTML =
+                  'not signed in :( <br><button onclick="login()">Log in</a> <button onclick="signup()">I&apos;m new</a>';
               } else {
-                wrapper.innerHTML = 'signed in! <a onclick="logout()" id="logout" href="#">logout</a>'; 
+                // 🅰️ Check / await email verification.
+                //  - [🟡] If unverified, then show awaiting animation
+                //         and long poll for verification.
+                let user = await auth0Client.getUser();
+                console.log(user);
+
+                // else...
+
+                let verifiedText = "email unverified :(";
+
+                if (!user.email_verified) {
+                  verifiedText = "waiting for email verification...";
+                  async function fetchUser() {
+                    try {
+                      await auth0Client.getTokenSilently({ cacheMode: "off" });
+                    } catch (err) {
+                      console.error("Error!", err);
+                      // auth0Client.logout(); // ?
+                    }
+                    user = await auth0Client.getUser();
+                    console.log("Fetched updated user...");
+                    if (user.email_verified) {
+                      console.log("📧 Email verified!");
+                      const verifiedEl = document.getElementById("verified");
+                      verifiedEl.innerHTML = "email verified :)";
+                    } else {
+                      setTimeout(fetchUser, 1000);
+                    }
+                  }
+                  fetchUser();
+                } else {
+                  console.log("📧 Email verified!");
+                  verifiedText = "email verified :)";
+                }
+
+                // 🅱️ Check for active subscription.
+                // - [] If subscription exists, then show 'enter' button.
+                //   - [] And also show 'cancel' button to end a subscription.
+                // - [] Else, show a 'subscribe' button to the user with a price.
+
+                {
+                  // Send a get fetch request to /api/subscribed?user=sub
+                  // Which will hold the user sub.
+                }
+
+                wrapper.innerHTML =
+                  "signed in as: " +
+                  user.name +
+                  '!<br><mark id="verified">' +
+                  verifiedText +
+                  '</mark><br><a onclick="logout()" id="logout" href="#">logout</a>';
               }
 
               function login(hint = "login") {
                 const opts = { prompt: "login" }; // Never skip the login screen.
-                opts.screen_hint = "signup";
+                opts.screen_hint = hint;
                 auth0Client.loginWithRedirect({ authorizationParams: opts });
+              }
+
+              function signup() {
+                login("signup");
               }
 
               function logout() {
                 if (isAuthenticated) {
-                  console.log("🔐 Logging out...");
+                  console.log("🔐 Logging out...", window.location.href);
                   auth0Client.logout({
                     logoutParams: { returnTo: window.location.href },
                   });
@@ -116,6 +194,7 @@ export const handler = async (event, context) => {
 
               window.logout = logout;
               window.login = login;
+              window.signup = signup;
             })();
           </script>
         </body>
