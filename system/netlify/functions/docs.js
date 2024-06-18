@@ -2609,6 +2609,12 @@ export async function handler(event, context) {
         done: false,
         //TODO: adjust song , default octave thing
       },
+      'sotce-net': {
+        sig: "sotce-net",
+        desc: "diaries (work in progress)",
+        done: false,
+        //TODO: adjust song , default octave thing
+      },
       // "sparkle-brush": {
       //   sig: "sparkle-brush",
       //   desc: "Paint with Maya's really fun brush.",

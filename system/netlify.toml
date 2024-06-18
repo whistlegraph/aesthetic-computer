@@ -87,6 +87,11 @@
    status = 200
    force = true
 [[redirects]]
+   from = "https://sotce.net/aesthetic.computer/*"
+   to = "/aesthetic-computer/*"
+   status = 200
+   force = true
+[[redirects]]
    from = "https://sotce.net/*"
    to = "/.netlify/functions/sotce-net"
    status = 200

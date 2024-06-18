@@ -1233,6 +1233,13 @@ async function halt($, text) {
     makeFlash($, false);
     flashColor = [255, 0, 0];
     return true;
+  } else if (text.toLowerCase() === "sotce-net") {
+    jump(
+      debug ? "https://" + location.host + "/sotce-net" : "https://sotce.net",
+    );
+    flashColor = "pink";
+    makeFlash($);
+    return true;
   } else if (text.toLowerCase() === "github" || text === "gh") {
     jump("https://github.com/digitpain/aesthetic.computer");
     makeFlash($);

@@ -5,8 +5,11 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [-] Detect a sustained pitch.
+  - [🧡] Rename from uke to `twerp` or `chirp`,
+       depending on what fits best.
+  - [c] Detect a sustained pitch.
   + Done
+  - [x] Tune for an audobon bird call.
   - [x] Detect and report ukelele pitch. 
 #endregion */
 
@@ -20,21 +23,53 @@ function boot({ api, wipe }) {
   wipe("blue"); // Clear's the screen. Can use R, G, B or CSS colors.
 }
 
-// 🎨 Paint
-function paint({ api, wipe }) {
+let x = 0;
+const lo = 2000,
+  hi = 9000;
+
+// ❤️‍🔥 TODO: Ink color is not restored on multiple paints! 
+
+let color = "yellow";
+
+function paint({ api, wipe, ink, help, line, screen, num, sound }) {
   if (mic) {
-    console.log(mic.amplitude);
-    if (mic.amplitude > 0.05 && mic.pitch) {
-      wipe(127)
-        .ink(255)
-        .write(mic.pitch.toFixed(2), { center: "xy" })
-        .ink("yellow")
-        .write(mic.amplitude, { x: 6, y: 20 })
-        .ink("red")
-        .write(closestNoteFromFreq(mic.pitch), { x: 6, y: 40 });
+    if (mic.amplitude > 0.02 && mic.pitch > lo && mic.pitch < hi) {
+      console.log(mic.pitch, mic.amplitude);
+      const xinc = 10;//num.map(mic.pitch, lo, hi, 1, 5);
+
+      sound.synth({
+        type: "sine",
+        tone: mic.pitch * 2,
+        duration: 0.04,
+        attack: 0.01,
+        decay: 0.96,
+        volume: 1,
+      });
+
+      if (x > screen.width) {
+        // ink();
+        color = help.choose("red", "yellow", "blue");
+        x = 0; //%= screen.width;
+      }
+
+      let cx = x;
+      while (cx < x + xinc) {
+        ink(color).line(cx, 0, cx, screen.height);
+        cx += 1;
+      }
+
+      x += xinc;
+
+      // wipe(127)
+      //   .ink(255)
+      //   .write(mic.pitch.toFixed(2), { center: "xy" })
+      //   .ink("yellow")
+      //   .write(mic.amplitude, { x: 6, y: 20 })
+      //   .ink("red")
+      //   .write(closestNoteFromFreq(mic.pitch), { x: 6, y: 40 });
     }
   } else {
-    wipe(196);
+    // wipe(196);
   }
 }
 
