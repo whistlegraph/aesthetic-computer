@@ -174,7 +174,7 @@ export async function userIDFromHandleOrEmail(handleOrEmail, database) {
 }
 
 // Sets the user's email and triggers a re-verification email.
-export async function setEmailAndReverify(id, email, tenant = "aesthetic") {
+export async function setEmailAndReverify(id, email, name, tenant = "aesthetic") {
   try {
     const { got } = await import("got");
     const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
@@ -183,7 +183,8 @@ export async function setEmailAndReverify(id, email, tenant = "aesthetic") {
 
     console.log("Tenant:", tenant, "Token:", token, "ID:", id);
 
-    // 1. Update the user's email
+    // 1. Update the user's email and ('name' which is equivalent to email
+    //    in auth0 but generally unused by Aesthetic Computer.)
     let updateEmailResponse;
     try {
       updateEmailResponse = await got(
@@ -194,7 +195,7 @@ export async function setEmailAndReverify(id, email, tenant = "aesthetic") {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          json: { email, email_verified: false },
+          json: { name, email, email_verified: false },
           responseType: "json",
         },
       );
