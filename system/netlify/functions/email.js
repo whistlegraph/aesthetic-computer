@@ -23,6 +23,7 @@ export async function handler(event, context) {
   try {
     body = JSON.parse(event.body);
     const email = body.email;
+    const name = body.name;
     const tenant = body.tenant;
     const user = await authorize(event.headers, tenant);
 
@@ -30,7 +31,7 @@ export async function handler(event, context) {
 
     if (user) {
       // 🔑 We are logged in!
-      const emailChanged = await setEmailAndReverify(user.sub, email, tenant);
+      const emailChanged = await setEmailAndReverify(user.sub, email, name, tenant);
       if (emailChanged.success) {
         return respond(200, { email });
       } else {

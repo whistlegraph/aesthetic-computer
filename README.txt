@@ -45,6 +45,10 @@ but technically agnostic. (Choose your aesthetic!)
 *** sotce.net ***
   - [🎇] See `sotce-net.mjs`
 
+*** discords ***
+  - [] Shut down the ac discord and the whistlegraph discord.
+  - [] Send a `log` notification when a deployment happens.
+
 *** chat improvements ***
   - [🟨] Add a "handles" directory to scroll through all active handles.
   - [-] add a "system update" notifier based on commits - i should be able

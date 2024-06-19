@@ -2,14 +2,8 @@
 // A paid diary network, 'handled' by Aesthetic Computer.
 
 /* #region 🏁 TODO 
-  - [💚] Use shadow dom / custom element or a "modal" element for signup.
-  - [] auth0 based auth / registration
-    - [x] review existing ac auth implementation and necessary
-         keys
-    - [] Set up login pages / logo etc. 
-    - [] not logged in route
-    - [] logged in route
-  - [] stripe paywall
+  - [🧡] Get rid of the 'user consent' signup field.
+  - [-] stripe paywall
     - [] bring in necessary keys
     - [] logged in but unpaid route
     - [] logged in and paid route
@@ -18,6 +12,13 @@
     - [] Perhaps the subs could be 'sotce' prefixed.
   - [] Store whether a user is subscribed with an expiration date.
   + Done
+  - [x] auth0 based auth / registration
+    - [x] review existing ac auth implementation and necessary
+         keys
+    - [x] Set up login pages / logo etc. 
+    - [x] not logged in option
+    - [x] logged in option
+  - [x] Use shadow dom / custom element or a "modal" element for signup.
   - [x] Run through a test sign-up.
   - [x] Set up email sending service via google apps?
   - [x] Developmnt mode.
@@ -127,6 +128,8 @@ export const handler = async (event, context) => {
                 //         and long poll for verification.
                 user = await auth0Client.getUser();
 
+                console.log(user);
+
                 // else...
 
                 let verifiedText = "email unverified :(";
@@ -183,9 +186,9 @@ export const handler = async (event, context) => {
                 }
 
                 wrapper.innerHTML =
-                  "signed in as: " +
-                  user.name +
-                  '!<br><mark id="verified">' +
+                  "signed in as: <span id='email'>" +
+                  user.email +
+                  '</span>!<br><mark id="verified">' +
                   verifiedText +
                   '</mark><br><a onclick="logout()" id="logout" href="#">logout</a>';
               }
@@ -208,9 +211,30 @@ export const handler = async (event, context) => {
                   user.email,
                 );
 
-                userRequest("POST", "/api/email", { name: email, email, tenant: "sotce" })
-                  .then((res) => {
-                    console.log("📧 Email verification resent...", res);
+                userRequest("POST", "/api/email", {
+                  name: email,
+                  email,
+                  tenant: "sotce",
+                })
+                  .then(async (res) => {
+                    if (res.status === 200) {
+                      console.log("📧 Email verification resent...", res);
+                      alert("📧 Verification resent!");
+                      // Replace signed in email...
+                      const emailEl = document.getElementById("email");
+                      emailEl.innerHTML = email;
+
+                      // Clear user cache / token here.
+                      try {
+                        await auth0Client.getTokenSilently({
+                          cacheMode: "off",
+                        });
+                        user = await auth0Client.getUser();
+                        console.log("🎇 New user is...", user);
+                      } catch (err) {
+                        console.log("Error retrieving uncached user.");
+                      }
+                    }
                     fetchUser(email);
                   })
                   .catch((err) => {
@@ -239,7 +263,6 @@ export const handler = async (event, context) => {
                   // const token = await $commonApi.authorize(); // Get user token.
                   const token = await auth0Client.getTokenSilently();
                   // if (!token) throw new Error("🧖 Not logged in.");
-                  console.log(token);
 
                   const headers = {
                     Authorization: "Bearer " + token,
