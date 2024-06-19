@@ -812,7 +812,10 @@ async function halt($, text) {
     const email = text.split(" ")[1];
     let clear = true;
     if (email) {
-      const res = await net.userRequest("POST", "/api/email", { email });
+      const res = await net.userRequest("POST", "/api/email", {
+        email,
+        name: email,
+      });
       console.log("Request:", res);
       if (res.email) {
         flashColor = [0, 255, 0];
