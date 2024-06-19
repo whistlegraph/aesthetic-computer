@@ -24,7 +24,7 @@ function boot({ api, wipe }) {
 }
 
 let x = 0;
-const lo = 2000,
+const lo = 1000,
   hi = 9000;
 
 // ❤️‍🔥 TODO: Ink color is not restored on multiple paints! 
@@ -33,7 +33,7 @@ let color = "yellow";
 
 function paint({ api, wipe, ink, help, line, screen, num, sound }) {
   if (mic) {
-    if (mic.amplitude > 0.02 && mic.pitch > lo && mic.pitch < hi) {
+    if (mic.amplitude > 0.01 && mic.pitch > lo && mic.pitch < hi) {
       console.log(mic.pitch, mic.amplitude);
       const xinc = 10;//num.map(mic.pitch, lo, hi, 1, 5);
 

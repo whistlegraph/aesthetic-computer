@@ -65,6 +65,7 @@ export const handler = async (event, context) => {
           <script>
             (async () => {
               const clientId = "${AUTH0_CLIENT_ID_SPA}";
+              let fetchUser, verificationTimeout;
 
               const auth0Client = await window.auth0.createAuth0Client({
                 domain: "${AUTH0_DOMAIN}",
@@ -97,7 +98,7 @@ export const handler = async (event, context) => {
               // Try to fetch a new token on every refresh.
               if (isAuthenticated) {
                 try {
-                  await auth0Client.getTokenSilently();
+                  await auth0Client.getTokenSilently(/*{ cacheMode: "off" }*/);
                   console.log("🗝️ Got fresh token.");
                 } catch (error) {
                   console.log("🔐️ ❌ Unauthorized", error);
@@ -106,13 +107,16 @@ export const handler = async (event, context) => {
                     error,
                   );
                   // Redirect the user to logout if the token has failed.
-                  auth0Client.logout();
+                  auth0Client.logout({
+                    logoutParams: { returnTo: window.location.href },
+                  });
                   isAuthenticated = false;
                   return;
                 }
               }
 
               const wrapper = document.getElementById("wrapper");
+              let user;
 
               if (!isAuthenticated) {
                 wrapper.innerHTML =
@@ -121,36 +125,51 @@ export const handler = async (event, context) => {
                 // 🅰️ Check / await email verification.
                 //  - [🟡] If unverified, then show awaiting animation
                 //         and long poll for verification.
-                let user = await auth0Client.getUser();
-                console.log(user);
+                user = await auth0Client.getUser();
 
                 // else...
 
                 let verifiedText = "email unverified :(";
 
+                function subscription() {
+                  return '<button onclick="subscribe()">subscribe</button>';
+                }
+
                 if (!user.email_verified) {
-                  verifiedText = "waiting for email verification...";
-                  async function fetchUser() {
-                    try {
-                      await auth0Client.getTokenSilently({ cacheMode: "off" });
-                    } catch (err) {
-                      console.error("Error!", err);
-                      // auth0Client.logout(); // ?
-                    }
-                    user = await auth0Client.getUser();
-                    console.log("Fetched updated user...");
-                    if (user.email_verified) {
-                      console.log("📧 Email verified!");
-                      const verifiedEl = document.getElementById("verified");
-                      verifiedEl.innerHTML = "email verified :)";
-                    } else {
-                      setTimeout(fetchUser, 1000);
-                    }
-                  }
-                  fetchUser();
+                  verifiedText =
+                    'waiting for email verification... <button onclick="resend()">Resend?</button>';
+
+                  fetchUser = function (email) {
+                    fetch(
+                      "/user?from=" +
+                        encodeURIComponent(email) +
+                        "&tenant=sotce",
+                    )
+                      .then((res) => res.json())
+                      .then((u) => {
+                        // console.log("Fetched updated user...", u);
+                        if (u.email_verified) {
+                          console.log("📧 Email verified!");
+                          const verifiedEl =
+                            document.getElementById("verified");
+                          verifiedEl.innerHTML = subscription();
+                        } else {
+                          verificationTimeout = setTimeout(() => {
+                            fetchUser(email);
+                          }, 1000);
+                        }
+                      })
+                      .catch(
+                        (err) =>
+                          (verificationTimeout = setTimeout(() => {
+                            fetchUser(email);
+                          }, 1000)),
+                      );
+                  };
+                  fetchUser(user.email);
                 } else {
                   console.log("📧 Email verified!");
-                  verifiedText = "email verified :)";
+                  verifiedText = subscription();
                 }
 
                 // 🅱️ Check for active subscription.
@@ -181,6 +200,29 @@ export const handler = async (event, context) => {
                 login("signup");
               }
 
+              function resend() {
+                clearTimeout(verificationTimeout);
+                console.log("📧 Resending...");
+                const email = prompt(
+                  "Resend verification email to?",
+                  user.email,
+                );
+
+                userRequest("POST", "/api/email", { name: email, email, tenant: "sotce" })
+                  .then((res) => {
+                    console.log("📧 Email verification resent...", res);
+                    fetchUser(email);
+                  })
+                  .catch((err) => {
+                    alert("Email verification error.");
+                    console.error("🔴 📧 Email verification error...", err);
+                  });
+              }
+
+              function subscribe() {
+                // ❤️‍🔥 TODO: Go to stripe subscription page...
+              }
+
               function logout() {
                 if (isAuthenticated) {
                   console.log("🔐 Logging out...", window.location.href);
@@ -192,9 +234,56 @@ export const handler = async (event, context) => {
                 }
               }
 
-              window.logout = logout;
+              async function userRequest(method, endpoint, body) {
+                try {
+                  // const token = await $commonApi.authorize(); // Get user token.
+                  const token = await auth0Client.getTokenSilently();
+                  // if (!token) throw new Error("🧖 Not logged in.");
+                  console.log(token);
+
+                  const headers = {
+                    Authorization: "Bearer " + token,
+                    "Content-Type": "application/json",
+                  };
+
+                  const options = { method, headers };
+                  if (body) options.body = JSON.stringify(body);
+                  const response = await fetch(endpoint, options);
+
+                  if (response.status === 500) {
+                    try {
+                      const json = await response.json();
+                      return { status: response.status, ...json };
+                    } catch (e) {
+                      const message = await response.text();
+                      return { status: response.status, message };
+                    }
+                  } else {
+                    const clonedResponse = response.clone();
+                    try {
+                      return {
+                        ...(await clonedResponse.json()),
+                        status: response.status,
+                      };
+                    } catch {
+                      return {
+                        status: response.status,
+                        body: await response.text(),
+                      };
+                    }
+                  }
+                } catch (error) {
+                  console.error("🚫 Error:", error);
+                  return { message: "unauthorized" };
+                }
+              }
+
               window.login = login;
               window.signup = signup;
+              window.resend = resend;
+              window.subscribe = subscribe;
+              window.logout = logout;
+              window.user = user;
             })();
           </script>
         </body>
