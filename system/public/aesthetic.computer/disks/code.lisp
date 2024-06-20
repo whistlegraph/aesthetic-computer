@@ -20,7 +20,6 @@
 
 (wipe purple)
 
-
 (later recurse item 
   (item a b 
     (if a.iterable (now nest nest+1) (recurse a) (now nest nest-1))
@@ -28,8 +27,6 @@
       ; TODO: 🔥 How can I make a local variable?
       (ink yellow)
       (box 8+nest*6+13 row (+ 1 (* (len a) 6)) 10)
-      ;; (ink yellow)
-      ;; (write nest 6 row)
       (ink red)
       (write b 8+nest*6+6 row)
       (ink teal)
@@ -40,7 +37,7 @@
 )
 
 (now count 0) ; will be set every time
-(now row 1)
+; (now row 1)
 (source:code item index
   (recurse item)
   ; (now row 24+count*12)
