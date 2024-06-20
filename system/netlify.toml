@@ -88,7 +88,7 @@
    force = true
 [[redirects]]
    from = "https://sotce.net/aesthetic.computer/*"
-   to = "/aesthetic.computer/*"
+   to = "/aesthetic.computer/:splat"
    status = 200
    force = true
 [[redirects]]
