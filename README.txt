@@ -43,11 +43,22 @@ but technically agnostic. (Choose your aesthetic!)
 🌟 Projects in Progress (PIP) 🌟
 
 *** sotce.net ***
+  - [] Add support for developing `sotce-net` inside of the VS Code extension.
+    - [] In both development and production.
   - [🎇] See `sotce-net.mjs`
 
+*** devcontainer stuff ***
+  - [] Make it so that the devcontainer can be run just in a terminal.
+       using the devcontainer cli from npm.
+  - [] Somehow automate the environment variable download / just ask for
+       the password on the CLI to retrieve it on the first run or actually
+       put that devcontainer.env inside the vault repo hmm...
+
 *** discords ***
-  - [] Shut down the ac discord and the whistlegraph discord.
+  - [-] Shut down the whistlegraph Discord.
   - [] Send a `log` notification when a deployment happens.
+  + Done
+  - [x] Shut down the AC Discord.
 
 *** chat improvements ***
   - [🟨] Add a "handles" directory to scroll through all active handles.
