@@ -37,7 +37,7 @@ but technically agnostic. (Choose your aesthetic!)
 
 😀 TODO 😆
 
-📽️ Research 
+📽️ Research
   - [] Watch WebXR on Apple Vision Demo: https://developer.apple.com/videos/play/wwdc2024/10066/
 
 🌟 Projects in Progress (PIP) 🌟
@@ -54,6 +54,9 @@ but technically agnostic. (Choose your aesthetic!)
        the password on the CLI to retrieve it on the first run or actually
        put that devcontainer.env inside the vault repo hmm...
 
+*** vercel ***
+  - [-] Remove vercel dependency / switch to a netlify function.
+
 *** discords ***
   - [-] Shut down the whistlegraph Discord.
   - [] Send a `log` notification when a deployment happens.
@@ -66,7 +69,7 @@ but technically agnostic. (Choose your aesthetic!)
           to tag a commit or decide somehow if a `log` would be sent or not?
           https://docs.netlify.com/site-deploys/notifications
       - How do I add a post request receiver here that
-        has process.env.NETLIFY_SYSTEM_DEPLOY_JWT set to 
+        has process.env.NETLIFY_SYSTEM_DEPLOY_JWT set to
         match the token.
 
   - [] Auto-link handles and single quoted words.
@@ -100,7 +103,7 @@ but technically agnostic. (Choose your aesthetic!)
        - [x] Add the same Hourglass to "Enter message..." as well.
   - [x] Add a prompt cmd to force disconnection for N, in N seconds seconds, perhaps
       via a debug only shortcut? Call it a `hiccup` command?
-  - [x] Only trim whitespace at the end of messages. 
+  - [x] Only trim whitespace at the end of messages.
   - [x] Increase chat character limit to 96.
   - [x] Better handle rendering after change (add the "@");
   - [x] Fix blanking chat.
@@ -122,10 +125,10 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** annoyances from demos ***
 - [] first set handle shouldnt be added to history
-- [] Make sure `source anything.lisp` works. 
+- [] Make sure `source anything.lisp` works.
 - [?] Reinstall x11 server on windows 11.
 - [] Single unbroken chat messages with no whitespace longer than a line are
-     missing the single space gap after the username. 
+     missing the single space gap after the username.
 - [] update privacy policy
 - [] Give chat messages a UUID / reference number so they can be
     linked in the TODO. Technically this can be a time window query that
@@ -135,11 +138,11 @@ but technically agnostic. (Choose your aesthetic!)
 *** call ***
   - [] Calling would function like a walkie talkie.
   - [] call girlfriend
-    - [] reuses code from existing girlfriend 
-    - [] adds a fake "face" graphic for this character 
+    - [] reuses code from existing girlfriend
+    - [] adds a fake "face" graphic for this character
   - [] call @handle
     - [] notifies each user
-    - [] users can define an avatar for this 
+    - [] users can define an avatar for this
 
 *** ios day ***
 - [] Implement this in the iOS app: https://stackoverflow.com/a/71678197
@@ -154,7 +157,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [] Remove local redis instance... why use it tbh?
 
 *** more chat updates ***
-  - [] live updates of recent chat messages on prompt page 
+  - [] live updates of recent chat messages on prompt page
        (needs sound and a beep)
     - [] prompt can enter a showdy "prompt standyby" chat mode.
     - [] smoother progressive loading animation that visualizes the loading process on the checkerboard
@@ -168,7 +171,7 @@ but technically agnostic. (Choose your aesthetic!)
   + Done
   - [x] If email is unverified and user is on homepage or
         on profile page...
-  - [x] Check your email to verify or resend. 
+  - [x] Check your email to verify or resend.
   - [x] Set a handle. (prefill handle)
   - [x] Please sign up.
   - [x] entering "profile" or "me" while logged out or not signed up
@@ -217,7 +220,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Add support for secondary ink color in the API and in the 2D renderer.
   - [x] Add support for points in the 2D renderer.
 
-*** general compositing ***        
+*** general compositing ***
   - [] the "pause" overlay on windows / high refresh rate is pretty awkward...
   - [] resizing is also weird - could these be related?
 
