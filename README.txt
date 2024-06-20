@@ -48,11 +48,12 @@ but technically agnostic. (Choose your aesthetic!)
   - [🎇] See `sotce-net.mjs`
 
 *** devcontainer stuff ***
-  - [] Make it so that the devcontainer can be run just in a terminal.
-       using the devcontainer cli from npm.
   - [] Somehow automate the environment variable download / just ask for
        the password on the CLI to retrieve it on the first run or actually
        put that devcontainer.env inside the vault repo hmm...
+  + Done
+  - [x] Make it so that the devcontainer can be run just in a terminal.
+       using the devcontainer cli from npm.
 
 *** vercel ***
   - [-] Remove vercel dependency / switch to a netlify function.
