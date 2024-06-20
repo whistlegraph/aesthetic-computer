@@ -25,6 +25,7 @@ alias mongodb-compass 'mongodb-compass --enable-features=UseOzonePlatform,Waylan
 
 # open my agenda.txt
 alias agenda 'nvim ~/Desktop/agenda/agenda.txt'
+alias paper 'gnome-extensions prefs paperwm@paperwm.github.com'
 
 # open a file with emacs in the tui
 alias edit 'fzf | read -l file; and test -n "$file"; and emacs -nw $file'
