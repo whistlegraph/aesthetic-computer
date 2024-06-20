@@ -3,6 +3,7 @@
 
 /* #region 🏁 TODO 
   - [🧡] Get rid of the 'user consent' signup field.
+    - [] WHYYY IS THIS HERE?????!
   - [] Add session / login support to the Aesthetic Computer VSCode extension /
        switch to an in-editor development flow.
   - [-] stripe paywall

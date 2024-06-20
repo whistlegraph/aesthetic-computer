@@ -51,6 +51,7 @@ alias ff "vim (sk -c 'git ls-tree -r --name-only HEAD || ag -l -g \"\"')"
 alias ac 'cd ~/Desktop/code/aesthetic-computer'
 #alias acr 'cd ~/Desktop/code/aesthetic-computer; npm run ac'
 alias acw 'cd ~/Desktop/code/aesthetic-computer/system; npm run watch'
+alias platform 'cd ~/Desktop/code/aesthetic-computer; npm run platform'
 
 # set default editor to nvim
 set -gx EDITOR emacs -nw
