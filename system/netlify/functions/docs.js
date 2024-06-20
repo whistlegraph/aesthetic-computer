@@ -1807,6 +1807,18 @@ export async function handler(event, context) {
         done: false,
         hidden: true,
       },
+      '+': {
+        sig: "+",
+        desc: "Make new window.",
+        done: false,
+        //TODO: can this open in a new tab?
+      },
+      google: {
+        sig: "google",
+        desc: "Search google.",
+        done: false,
+        //TODO: can this open in a new tab?
+      },
       github: {
         sig: "github",
         desc: "View AC source code.",
