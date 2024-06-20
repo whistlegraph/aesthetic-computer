@@ -2,7 +2,7 @@
 //         2021.11.28.03.13 (Created on)
 // A language based "access-everything" console with LLM fallback.
 
-/* #region 📚 README 
+/* #region 📚 README
 #endregion */
 
 /* #region 🏁 todo
@@ -13,7 +13,7 @@
   - [x] Reset pieceCount on developer reload.
   - [x] Reposition buttons once the frame is resized.
   - [x] Hide buttons after logging in.
-  - [x] Hide buttons once starting to type. 
+  - [x] Hide buttons once starting to type.
   - [x] Wire up login and sign-up buttons.
   - [x] Make Login Button
     - [x] Get layering working with `write`.
@@ -33,24 +33,24 @@ const before = `
 You are playing a character who tries to help me find the command I'm searching for
 
 - The following is a data set of all possible options for commands:
-  - 'bgm', 'bits', 'blank', 'bleep', 'bubble', 'camera', 
+  - 'bgm', 'bits', 'blank', 'bleep', 'bubble', 'camera',
   'channel', 'decode', 'baktok', 'painting'
   'download', 'encode', 'ff', 'freaky-flowers', 'gargoyle', 'handle',
-  'happy-hands-assembler', 'hha', 'liar', 'line', 'login', 
+  'happy-hands-assembler', 'hha', 'liar', 'line', 'login',
   'logout', 'm2w2', 'melody', 'metronome', 'microphone',
-  'no!', 'no', 'oval', 'done', 'paint', 'paste', 'handprint', 
-  'plot', 'profile', 'prompt', 'pull', 'rect', 
-  'girlfriend', 'boyfriend', 'mom', 'dad', 'husband', 'wife', 'kid', 'brother', 'sister', 'scawy-snake', 'scream', 'sfx', 'shape', 'sign', 'sing', 'smear', 
+  'no!', 'no', 'oval', 'done', 'paint', 'paste', 'handprint',
+  'plot', 'profile', 'prompt', 'pull', 'rect',
+  'girlfriend', 'boyfriend', 'mom', 'dad', 'husband', 'wife', 'kid', 'brother', 'sister', 'scawy-snake', 'scream', 'sfx', 'shape', 'sign', 'sing', 'smear',
   'song', 'sparkle', 'right', 'left', 'flip', 'flop',
-  'staka', 'starfield', 'tone', 'tracker', 'valbear', 'vary', 'video', 'wand', 'wg', 
+  'staka', 'starfield', 'tone', 'tracker', 'valbear', 'vary', 'video', 'wand', 'wg',
   'wgr', 'whistle', 'whistlegraph', 'wipe', 'word', 'zoom', 'booted-by'.
 
 - If I type a word that is similar to one of the commands, you only respond "did you mean
 (insert correct command)?"
   - for example, if I write "linr", you write "Try typing 'line' instead"
   - you only suggest correct commands that are in the above data set
-  - when you suggest a command, always put it in quotes. 
-  - if I type "hife" you do not suggest "life" because that is not a command in the data set 
+  - when you suggest a command, always put it in quotes.
+  - if I type "hife" you do not suggest "life" because that is not a command in the data set
   - you do not respond with any additional information
 
 If the user asks to delete their account or enters "delete" or "deactivate", you tell them to enter "delete-erase-and-forget-me" to delete their account.
@@ -740,6 +740,15 @@ async function halt($, text) {
     jump(
       "out:https://vscode.dev/github/digitpain/aesthetic.computer-code/blob/main/blank.mjs",
     );
+    makeFlash($);
+    return true;
+  } else if (text === "+") {
+    jump(`out:https://${location.hostname}`);
+    makeFlash($);
+    return true;
+  } else if (text.startsWith("google")) {
+    const query = text.substring(7).trim(); // Extract the search query
+    jump(`https://www.google.com/search?q=${encodeURIComponent(query)}`);
     makeFlash($);
     return true;
   } else if (text.startsWith("source")) {
