@@ -2,8 +2,6 @@
 // A paid diary network, 'handled' by Aesthetic Computer.
 
 /* #region 🏁 TODO 
-  - [🧡] Get rid of the 'user consent' signup field.
-    - [] WHYYY IS THIS HERE?????!
   - [] Add session / login support to the Aesthetic Computer VSCode extension /
        switch to an in-editor development flow.
   - [-] stripe paywall
@@ -15,6 +13,8 @@
     - [] Perhaps the subs could be 'sotce' prefixed.
   - [] Store whether a user is subscribed with an expiration date.
   + Done
+  - [x] Get rid of the 'user consent' signup field.
+         (Only is necessary on localhost)
   - [x] auth0 based auth / registration
     - [x] review existing ac auth implementation and necessary
          keys
@@ -61,6 +61,11 @@ export const handler = async (event, context) => {
             crossorigin="anonymous"
             src="/aesthetic.computer/dep/auth0-spa-js.production.js"
           ></script>
+          <style>
+            body {
+              background: white;
+            }
+          </style>
         </head>
         <body>
           <div id="wrapper">
@@ -197,13 +202,21 @@ export const handler = async (event, context) => {
               }
 
               function login(hint = "login") {
-                const opts = { prompt: "login" }; // Never skip the login screen.
-                opts.screen_hint = hint;
-                auth0Client.loginWithRedirect({ authorizationParams: opts });
+                if (window.self !== window.top) {
+                  window.parent.postMessage({ type: "login", tenant: "sotce" }, "*");
+                } else {
+                  const opts = { prompt: "login" }; // Never skip the login screen.
+                  opts.screen_hint = hint;
+                  auth0Client.loginWithRedirect({ authorizationParams: opts });
+                }
               }
 
               function signup() {
-                login("signup");
+                if (window.self === window.top) {
+                  login("signup");
+                } else {
+                  console.log("🟠 Cannot sign up in an embedded view.");
+                }
               }
 
               function resend() {
@@ -253,9 +266,13 @@ export const handler = async (event, context) => {
               function logout() {
                 if (isAuthenticated) {
                   console.log("🔐 Logging out...", window.location.href);
-                  auth0Client.logout({
-                    logoutParams: { returnTo: window.location.href },
-                  });
+                  if (window.parent) {
+                    window.parent.postMessage({ type: "logout", tenant: "sotce" }, "*");
+                  } else {
+                    auth0Client.logout({
+                      logoutParams: { returnTo: window.location.href },
+                    });
+                  }
                 } else {
                   console.log("🔐 Already logged out!");
                 }

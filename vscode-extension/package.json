@@ -61,6 +61,14 @@
         "title": "Aesthetic Computer: Bye (Log out) 🚪"
       },
       {
+        "command": "aestheticComputer.sotceLogIn",
+        "title": "Sotce: Log in 🪷"
+      },
+      {
+        "command": "aestheticComputer.sotceLogOut",
+        "title": "Sotce: Log out 🥀"
+      },
+      {
         "command": "aestheticComputer.runPiece",
         "title": "Aesthetic Computer: Run Piece 🧩"
       },
