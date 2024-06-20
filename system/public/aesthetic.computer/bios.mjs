@@ -1758,6 +1758,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "signup") {
       if (window.self === window.top) {
         window.acLOGIN?.("signup");
+      } else {
+        console.log("🟠 Cannot sign up in an embedded view.");
       }
       return;
     }

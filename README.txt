@@ -42,7 +42,12 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** electron app ***
+  - [🟠] Make an aesthetic computer electron app that's capable of opening
+         new windows and builds for all platforms, especially linux and macos.
+
 *** sotce.net ***
+  - [🔴] Check how the auth works / token passing works from VSCode.
   - [] Add support for developing `sotce-net` inside of the VS Code extension.
     - [] In both development and production.
   - [🎇] See `sotce-net.mjs`

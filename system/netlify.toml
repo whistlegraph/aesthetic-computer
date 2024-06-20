@@ -92,6 +92,10 @@
    status = 200
    force = true
 [[redirects]]
+  from = "/redirect-proxy-sotce"
+  to = "/.netlify/functions/redirect-proxy"
+  status = 200
+[[redirects]]
    from = "https://sotce.net/user"
    to = "/.netlify/functions/user"
    status = 200
@@ -101,7 +105,16 @@
   to = "/.netlify/functions/email"
   status = 200
 [[redirects]]
+  from = "https://sotce.net/redirect-proxy-sotce"
+  to = "/.netlify/functions/redirect-proxy"
+  status = 200
+[[redirects]]
    from = "https://sotce.net/*"
+   to = "/.netlify/functions/sotce-net"
+   status = 200
+   force = true
+[[redirects]]
+   from = "https://sotce.local/*"
    to = "/.netlify/functions/sotce-net"
    status = 200
    force = true

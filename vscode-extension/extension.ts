@@ -375,8 +375,11 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   context.subscriptions.push(definitionProvider);
 
   // 🗝️ Authorization
-  const ap = new AestheticAuthenticationProvider(context, local);
+  const ap = new AestheticAuthenticationProvider(context, local, "aesthetic");
+  const sp = new AestheticAuthenticationProvider(context, local, "sotce");
+
   context.subscriptions.push(ap);
+  context.subscriptions.push(sp);
 
   context.subscriptions.push(
     vscode.commands.registerCommand("aestheticComputer.logIn", async () => {
@@ -390,6 +393,27 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("aestheticComputer.logOut", async () => {
+      vscode.window.showInformationMessage(
+        "🟡 To log out, please use the profile icon in the VS Code UI.",
+      );
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "aestheticComputer.sotceLogIn",
+      async () => {
+        const session = await vscode.authentication.getSession(
+          "sotce",
+          ["profile"],
+          { createIfNone: true },
+        );
+      },
+    ),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aestheticComputer.sotceLogOut", async () => {
       vscode.window.showInformationMessage(
         "🟡 To log out, please use the profile icon in the VS Code UI.",
       );
@@ -678,17 +702,14 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
         }
         case "login": {
           console.log("📂 Logging in...");
-          vscode.commands.executeCommand("aestheticComputer.logIn");
-          break;
-        }
-        case "signup": {
-          console.log("🔏 Signing up...");
-          vscode.commands.executeCommand("aestheticComputer.signUp");
+          const command = data.tenant === "sotce" ? "sotceLogIn" : "logIn";
+          vscode.commands.executeCommand(`aestheticComputer.${command}`);
           break;
         }
         case "logout": {
           console.log("🚪 Logging out...");
-          vscode.commands.executeCommand("aestheticComputer.logOut");
+          const command = data.tenant === "sotce" ? "sotceLogOut" : "logOut";
+          vscode.commands.executeCommand(`aestheticComputer.${command}`);
           break;
         }
       }
