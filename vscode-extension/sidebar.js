@@ -64,11 +64,11 @@
         break;
       }
       case "login": {
-        vscode.postMessage({ type: "login" });
+        vscode.postMessage({ type: "login", tenant: message.tenant || "aesthetic" });
         break;
       }
       case "logout": {
-        vscode.postMessage({ type: "logout" });
+        vscode.postMessage({ type: "logout", tenant: message.tenant || "aesthetic" });
         break;
       }
       case "ready": {
