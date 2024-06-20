@@ -743,7 +743,7 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text === "+") {
-    jump(`out:https://${location.hostname}`);
+    jump(`out:${location.origin}`);
     makeFlash($);
     return true;
   } else if (text.startsWith("google")) {
