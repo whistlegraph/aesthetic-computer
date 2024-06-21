@@ -2488,7 +2488,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           // console.log("🧩 Updating piece:", content.text);
 
-          window.parent.postMessage(
+          window.parent?.postMessage(
             {
               type: "url:updated",
               slug: content.text.replace("/", ""),
