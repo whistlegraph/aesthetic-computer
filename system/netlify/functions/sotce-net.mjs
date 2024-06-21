@@ -280,9 +280,9 @@ export const handler = async (event, context) => {
 
               function signup() {
                 if (embedded) {
-                  login("signup");
-                } else {
                   console.log("🟠 Cannot sign up in an embedded view.");
+                } else {
+                  login("signup");
                 }
               }
 
