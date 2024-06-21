@@ -2,7 +2,7 @@
 // A paid diary network, 'handled' by Aesthetic Computer.
 
 /* #region 🏁 TODO 
-  - [] Add session / login support to the Aesthetic Computer VSCode extension /
+  - [🟠] Add session / login support to the Aesthetic Computer VSCode extension /
        switch to an in-editor development flow.
   - [-] stripe paywall
     - [] bring in necessary keys
@@ -30,8 +30,6 @@
 #endregion */
 
 // ♻️ Environment
-// const AUTH0_CLIENT_ID = process.env.SOTCE_AUTH0_M2M_CLIENT_ID;
-// const AUTH0_SECRET = process.env.SOTCE_AUTH0_M2M_SECRET;
 const AUTH0_CLIENT_ID_SPA = "3SvAbUDFLIFZCc1lV7e4fAAGKWXwl2B0";
 const AUTH0_DOMAIN = "https://hi.sotce.net";
 
@@ -72,6 +70,20 @@ export const handler = async (event, context) => {
             <h1>${path} : ${method}</h1>
           </div>
           <script>
+            const dev = ${dev};
+            const fromAesthetic =
+              (document.referrer.indexOf("aesthetic") > -1 ||
+                document.referrer.indexOf("localhost") > -1) &&
+              document.referrer.indexOf("sotce-net") === -1;
+            const embedded = window.self !== window.top;
+
+            // Send some messages to the VS Code extension.
+            window.parent?.postMessage(
+              { type: "url:updated", slug: "sotce-net" },
+              "*",
+            );
+            window.parent?.postMessage({ type: "ready" }, "*");
+            // Authorization
             (async () => {
               const clientId = "${AUTH0_CLIENT_ID_SPA}";
               let fetchUser, verificationTimeout;
@@ -83,6 +95,13 @@ export const handler = async (event, context) => {
                 useRefreshTokens: true,
                 authorizationParams: { redirect_uri: window.location.href },
               });
+
+              if (embedded || fromAesthetic) {
+                const back = document.createElement("div");
+                back.innerHTML =
+                  "<button onclick='aesthetic()'>sotce-net</button>";
+                document.body.appendChild(back);
+              }
 
               if (
                 location.search.includes("state=") &&
@@ -102,9 +121,51 @@ export const handler = async (event, context) => {
                 );
               }
 
+              // 😶‍🌫️ TODO: Picking up sessions from VS Code.
+              {
+                const url = new URL(window.location);
+                const params = url.searchParams;
+                const sessionParams = params.get("session");
+                let encodedSession = sessionParams;
+                if (encodedSession === "null") encodedSession = undefined;
+                let pickedUpSession;
+                if (encodedSession) {
+                  const sessionJsonString = atob(
+                    decodeURIComponent(encodedSession),
+                  );
+                  const session = JSON.parse(sessionJsonString);
+                  // Use the session information to authenticate, if it exists.
+                  // console.log("🥀 Session data:", session);
+                  if (session.accessToken && session.account) {
+                    window.sotceTOKEN = session.accessToken; // Only set using this flow.
+                    window.sotceUSER = {
+                      name: session.account.label,
+                      sub: session.account.id,
+                    };
+                    console.log(
+                      "🌻 Picked up sotce session!",
+                      window.acTOKEN,
+                      window.acUSER,
+                    );
+                    pickedUpSession = true;
+                  }
+
+                  if (sessionParams) {
+                    params.delete("session"); // Remove the 'session' parameter
+                    // Update the URL without reloading the page
+                    history.pushState(
+                      {},
+                      "",
+                      url.pathname + "?" + params.toString(),
+                    );
+                  }
+                }
+              }
+
               let isAuthenticated = await auth0Client.isAuthenticated();
 
               // Try to fetch a new token on every refresh.
+              // TODO: ❤️‍🔥 Is this necessary?
               if (isAuthenticated) {
                 try {
                   await auth0Client.getTokenSilently(/*{ cacheMode: "off" }*/);
@@ -129,7 +190,10 @@ export const handler = async (event, context) => {
 
               if (!isAuthenticated) {
                 wrapper.innerHTML =
-                  'not signed in :( <br><button onclick="login()">Log in</a> <button onclick="signup()">I&apos;m new</a>';
+                  'not signed in :( <br><button onclick="login()">Log in</button>' +
+                  (embedded
+                    ? ""
+                    : '<button onclick="signup()">I&apos;m new</button>');
               } else {
                 // 🅰️ Check / await email verification.
                 //  - [🟡] If unverified, then show awaiting animation
@@ -202,8 +266,11 @@ export const handler = async (event, context) => {
               }
 
               function login(hint = "login") {
-                if (window.self !== window.top) {
-                  window.parent.postMessage({ type: "login", tenant: "sotce" }, "*");
+                if (embedded) {
+                  window.parent.postMessage(
+                    { type: "login", tenant: "sotce" },
+                    "*",
+                  );
                 } else {
                   const opts = { prompt: "login" }; // Never skip the login screen.
                   opts.screen_hint = hint;
@@ -212,7 +279,7 @@ export const handler = async (event, context) => {
               }
 
               function signup() {
-                if (window.self === window.top) {
+                if (embedded) {
                   login("signup");
                 } else {
                   console.log("🟠 Cannot sign up in an embedded view.");
@@ -266,15 +333,29 @@ export const handler = async (event, context) => {
               function logout() {
                 if (isAuthenticated) {
                   console.log("🔐 Logging out...", window.location.href);
-                  if (window.parent) {
-                    window.parent.postMessage({ type: "logout", tenant: "sotce" }, "*");
+                  if (embedded) {
+                    window.parent.postMessage(
+                      { type: "logout", tenant: "sotce" },
+                      "*",
+                    );
                   } else {
                     auth0Client.logout({
                       logoutParams: { returnTo: window.location.href },
                     });
                   }
-                } else {
-                  console.log("🔐 Already logged out!");
+                } else console.log("🔐 Already logged out!");
+              }
+
+              // Jump to Aesthetic Computer.
+              function aesthetic() {
+                window.location.href = dev
+                  ? "https://localhost:8888"
+                  : "https://aesthetic.computer";
+                if (embedded) {
+                  window.parent.postMessage(
+                    { type: "url:updated", slug: "prompt" },
+                    "*",
+                  );
                 }
               }
 
@@ -326,6 +407,7 @@ export const handler = async (event, context) => {
               window.resend = resend;
               window.subscribe = subscribe;
               window.logout = logout;
+              window.aesthetic = aesthetic;
               window.user = user;
             })();
           </script>
