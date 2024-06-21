@@ -47,10 +47,14 @@ but technically agnostic. (Choose your aesthetic!)
          new windows and builds for all platforms, especially linux and macos.
 
 *** sotce.net ***
-  - [🔴] Check how the auth works / token passing works from VSCode.
-  - [] Add support for developing `sotce-net` inside of the VS Code extension.
-    - [] In both development and production.
+  - [🧡] Test signup in development.
+  - [] Finish login and logout in VS Code local with refresh.
+  - [] Test login in production in VS Code. 
   - [🎇] See `sotce-net.mjs`
+  + Done
+  - [x] Check how the auth works / token passing works from VSCode.
+  - [x] Add support for developing `sotce-net` inside of the VS Code extension.
+    - [x] In both development and production.
 
 *** devcontainer stuff ***
   - [] Somehow automate the environment variable download / just ask for
