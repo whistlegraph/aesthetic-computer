@@ -413,16 +413,19 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("aestheticComputer.sotceLogOut", async () => {
-      vscode.window.showInformationMessage(
-        "🟡 To log out, please use the profile icon in the VS Code UI.",
-      );
-    }),
+    vscode.commands.registerCommand(
+      "aestheticComputer.sotceLogOut",
+      async () => {
+        vscode.window.showInformationMessage(
+          "🟡 To log out, please use the profile icon in the VS Code UI.",
+        );
+      },
+    ),
   );
 
-  const getAestheticSession = async () => {
+  const getSession = async (tenant: string) => {
     const session = await vscode.authentication.getSession(
-      "aesthetic",
+      tenant,
       ["profile"],
       { createIfNone: false },
     );
@@ -431,9 +434,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       vscode.window.showInformationMessage(
         `👋 Welcome back! (${session.account.label})`,
       );
-      context.globalState.update("aesthetic:session", session);
+      context.globalState.update(`${tenant}:session`, session);
     } else {
-      context.globalState.update("aesthetic:session", undefined);
+      context.globalState.update(`${tenant}:session`, undefined);
       console.log("😀 Erased session!");
     }
 
@@ -443,8 +446,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   context.subscriptions.push(
     vscode.authentication.onDidChangeSessions(async (e) => {
       console.log("🏃 Sessions changed:", e);
-      if (e.provider.id === "aesthetic") {
-        await getAestheticSession();
+      if (e.provider.id === "aesthetic" || e.provider.id === "sotce") {
+        await getSession(e.provider.id);
         provider.refreshWebview();
         refreshWebWindow();
       }
@@ -644,9 +647,10 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.onDidReceiveMessage((data) => {
       switch (data.type) {
         case "url:updated": {
-          console.log("😫 slug updated...", data.slug);
+          //console.log("😫 Slug updated...", data.slug);
           extContext.globalState.update("panel:slug", data.slug);
           webviewView.title = data.slug + (local ? " 🧑‍🤝‍🧑" : "");
+          break;
         }
         case "clipboard:copy": {
           vscode.env.clipboard.writeText(data.value).then(() => {
@@ -655,18 +659,17 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
               type: "clipboard:copy:confirmation",
             });
           });
-        }
-        case "publish": {
-          if (data.url) vscode.env.openExternal(vscode.Uri.parse(data.url));
           break;
         }
-        case "setCode": {
+        case "publish":
+          if (data.url) vscode.env.openExternal(vscode.Uri.parse(data.url));
+          break;
+        case "setCode":
           codeChannel = data.value;
           // const currentTitle = webviewView.title;
           // webviewView.title = currentTitle?.split(" · ")[0] + " · " + codeChannel;
           // ^ Disabled because it's always rendered uppercase. 24.01.27.17.26
           break;
-        }
         case "vscode-extension:reload": {
           vscode.commands.executeCommand("workbench.action.reloadWindow");
           break;
@@ -750,7 +753,9 @@ function refreshWebWindow() {
   if (webWindow) {
     const slug = extContext.globalState.get("panel:slug", "");
     if (slug) console.log("🪱 Loading slug:", slug);
+
     webWindow.title = "Aesthetic Computer: " + slug + (local ? " 🧑‍🤝‍🧑" : ""); // Update the title if local.
+
     webWindow.webview.html = getWebViewContent(webWindow.webview, slug);
   }
 }
@@ -789,7 +794,7 @@ function getWebViewContent(webview: any, slug: string) {
 			<html lang="en">
 			<head>
 				<meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://hi.aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; child-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; style-src ${
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://hi.aesthetic.computer https://aesthetic.local:8888 https://localhost:8888 https://sotce.net https://hi.sotce.net https://sotce.local:8888; child-src https://aesthetic.computer https://aesthetic.local:8888 https://sotce.net https://sotce.local:8888 https://localhost:8888; style-src ${
           webview.cspSource
         }; script-src 'nonce-${nonce}'; media-src *;">
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">

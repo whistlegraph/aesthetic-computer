@@ -8,7 +8,6 @@ import {
   EventEmitter,
   ExtensionContext,
   ProgressLocation,
-  UIKind,
   Uri,
   UriHandler,
   window as win,
@@ -48,6 +47,9 @@ class UriEventHandler extends EventEmitter<Uri> implements UriHandler {
   }
 }
 
+const uriHandler = new UriEventHandler;
+win.registerUriHandler(uriHandler);
+
 export class AestheticAuthenticationProvider
   implements AuthenticationProvider, Disposable
 {
@@ -61,7 +63,6 @@ export class AestheticAuthenticationProvider
   >();
   private _codeVerfifiers = new Map<string, string>();
   private _scopes = new Map<string, string[]>();
-  private _uriHandler = new UriEventHandler();
 
   constructor(
     private readonly context: ExtensionContext,
@@ -88,6 +89,8 @@ export class AestheticAuthenticationProvider
 
     SESSIONS_SECRET_KEY = `${AUTH_TYPE}.sessions`;
 
+    // console.log("Authentication provider registering...", AUTH_TYPE, AUTH_NAME);
+
     this._disposable = Disposable.from(
       authentication.registerAuthenticationProvider(
         AUTH_TYPE,
@@ -95,7 +98,6 @@ export class AestheticAuthenticationProvider
         this,
         { supportsMultipleAccounts: false },
       ),
-      win.registerUriHandler(this._uriHandler),
     );
   }
 
@@ -306,7 +308,7 @@ export class AestheticAuthenticationProvider
         let codeExchangePromise = this._codeExchangePromises.get(scopeString);
         if (!codeExchangePromise) {
           codeExchangePromise = promiseFromEvent(
-            this._uriHandler.event,
+            uriHandler.event,
             this.handleUri(scopes),
           );
           this._codeExchangePromises.set(scopeString, codeExchangePromise);

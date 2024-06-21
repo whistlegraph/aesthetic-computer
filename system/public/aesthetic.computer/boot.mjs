@@ -122,9 +122,8 @@ loadAuth0Script()
       const url = new URL(window.location);
       const params = url.searchParams;
       const sessionParams = params.get("session");
-      let encodedSession = sessionParams; // || localStorage.getItem("acSessionParams");
+      let encodedSession = sessionParams;
       if (encodedSession === "null") encodedSession = undefined;
-      //localStorage.setItem("acSessionParams", sessionParams);
       let pickedUpSession;
       if (encodedSession) {
         const sessionJsonString = atob(decodeURIComponent(encodedSession));

@@ -31,6 +31,7 @@
     "aesthetic": "npm run aesthetic:all",
     "aesthetic:all": "concurrently --raw \"npm run site\" \"npm run server:session\" \"npm run edge\" \"npm run stripe\" \"npm run url\"",
     "ext": "cd vscode-extension; npm run reload;",
+    "ext:build": "cd vscode-extension; npm run build;",
     "ext:watch": "cd vscode-extension; npm run watch;",
     "ext:publish": "cd vscode-extension; npm run publish;",
     "site": "cd system; npm run codespaces-dev; env nogreet=true fish",
