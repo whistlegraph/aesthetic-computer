@@ -1899,7 +1899,7 @@ const $paintApi = {
   // Argument options:
   // text, pos: {x, y, center}, bg (optional)
   write: function (text, pos, bg, bounds, wordWrap = true) {
-    if ((text === undefined || text === null) || !tf) return $activePaintApi; // Fail silently if no text.
+    if (text === undefined || text === null || !tf) return $activePaintApi; // Fail silently if no text.
 
     text =
       typeof text === "object" && text !== null
@@ -5271,8 +5271,12 @@ async function makeFrame({ data: { type, content } }) {
 
       // Run boot only once before painting for the first time.
       if (paintCount === 0n && loading === false) {
-        const dark = await store.retrieve("dark-mode"); // Read dark mode.
-        if (dark === true || dark === false) $commonApi.dark = dark;
+        try {
+          const dark = await store.retrieve("dark-mode"); // Read dark mode.
+          if (dark === true || dark === false) $commonApi.dark = dark;
+        } catch (err) {
+          console.warn("🌒 Could not retrieve dark mode.");
+        }
 
         // System specific preloaders.
         //if ($commonApi?.system?.name === "nopaint" || currentText === "prompt") {
