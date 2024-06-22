@@ -369,4 +369,4 @@ function initNotifications() {
     });
 }
 
-if (!previewOrIcon) initNotifications();
+if (!previewOrIcon && !sandboxed) initNotifications();
