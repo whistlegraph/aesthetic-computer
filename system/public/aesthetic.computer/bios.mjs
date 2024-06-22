@@ -2785,6 +2785,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         if (debug && logs.store)
           console.log("📦 Retrieved local data:", content.key, data);
+
         send({
           type: "store:retrieved",
           content: { key: content.key, data },
