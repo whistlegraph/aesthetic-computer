@@ -2600,8 +2600,6 @@ async function load(
     host = originalHost,
     slug;
 
-  console.log("🟡 Loading:", parsed);
-
   if (loading === false) {
     loading = true;
   } else {
@@ -2624,8 +2622,6 @@ async function load(
     parsed.source = store["publishable-piece"].source;
     parsed.name = store["publishable-piece"].slug;
   }
-
-  console.log(parsed);
 
   // 🕸️ Loading over the network from a parsed path object with no source code.
   if (!parsed.source) {
