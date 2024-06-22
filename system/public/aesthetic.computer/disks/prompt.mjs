@@ -1443,8 +1443,10 @@ function paint($) {
 
   //what we actually want for login and signup is pal.signup / pal.login
   //currently gives an error, I think because of paint (works fine with ink)
-  if (!login?.btn.disabled) {
-    login?.paint($, $.dark ? scheme.dark.login : scheme.light.login);
+  if (!net.sandboxed) {
+    if (!login?.btn.disabled) {
+      login?.paint($, $.dark ? scheme.dark.login : scheme.light.login);
+    }
   }
 
   if (!net.iframe) {
@@ -1622,14 +1624,16 @@ function act({
     });
   };
 
-  login?.btn.act(e, {
-    down: () => downSound(),
-    push: () => {
-      pushSound();
-      net.login();
-      // if (net.iframe) jump("login-wait");
-    },
-  });
+  if (!net.sandboxed) {
+    login?.btn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        net.login();
+        // if (net.iframe) jump("login-wait");
+      },
+    });
+  }
 
   if (!net.iframe) {
     signup?.btn.act(e, {
