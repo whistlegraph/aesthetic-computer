@@ -4191,7 +4191,7 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "store:retrieved") {
-    // console.log("Retrieved:", content, storeRetrievalResolutions);
+    console.log("💚 Retrieved:", content, storeRetrievalResolutions);
     storeRetrievalResolutions[content.key]?.(content.data);
     delete storeRetrievalResolutions[content.key];
     return;
@@ -5271,12 +5271,8 @@ async function makeFrame({ data: { type, content } }) {
 
       // Run boot only once before painting for the first time.
       if (paintCount === 0n && loading === false) {
-        try {
-          const dark = await store.retrieve("dark-mode"); // Read dark mode.
-          if (dark === true || dark === false) $commonApi.dark = dark;
-        } catch (err) {
-          console.warn("🌒 Could not retrieve dark mode.");
-        }
+        const dark = await store.retrieve("dark-mode"); // Read dark mode.
+        if (dark === true || dark === false) $commonApi.dark = dark;
 
         // System specific preloaders.
         //if ($commonApi?.system?.name === "nopaint" || currentText === "prompt") {
