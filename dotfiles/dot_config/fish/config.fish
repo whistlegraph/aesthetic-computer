@@ -199,6 +199,9 @@ end
 
 silence_xhost
 
+# Increase Node.js heap size
+set -x NODE_OPTIONS "--max-old-space-size=4096"
+
 ## watch for changes in `.started`
 #function watch_trigger
 #    # Check if the directory exists
