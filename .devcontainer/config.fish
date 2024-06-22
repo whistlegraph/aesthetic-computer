@@ -165,4 +165,7 @@ function forget
     echo "umm, i forgot :)"
 end
 
+# Increase Node.js heap size
+set -x NODE_OPTIONS "--max-old-space-size=4096"
+
 alias nvm forget

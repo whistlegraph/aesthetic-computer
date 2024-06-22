@@ -2600,6 +2600,8 @@ async function load(
     host = originalHost,
     slug;
 
+  console.log("🟡 Loading:", parsed);
+
   if (loading === false) {
     loading = true;
   } else {
@@ -2622,6 +2624,8 @@ async function load(
     parsed.source = store["publishable-piece"].source;
     parsed.name = store["publishable-piece"].slug;
   }
+
+  console.log(parsed);
 
   // 🕸️ Loading over the network from a parsed path object with no source code.
   if (!parsed.source) {
@@ -3757,6 +3761,7 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.net.lan = LAN_HOST;
     $commonApi.user = USER;
     $commonApi.net.iframe = content.iframe;
+    $commonApi.net.sandboxed = content.sandboxed;
 
     codeChannelAutoLoader = null;
     codeChannel = await store.retrieve("code-channel");
@@ -3778,6 +3783,7 @@ async function makeFrame({ data: { type, content } }) {
     };
 
     // await handle(); // Get the user's handle.
+    // console.log("🟢 Loading after preamble:", content.parsed);
     originalHost = content.parsed.host;
     loadAfterPreamble = () => {
       loadAfterPreamble = null;
@@ -4191,7 +4197,7 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "store:retrieved") {
-    console.log("💚 Retrieved:", content, storeRetrievalResolutions);
+    // console.log("💚 Retrieved:", content, storeRetrievalResolutions);
     storeRetrievalResolutions[content.key]?.(content.data);
     delete storeRetrievalResolutions[content.key];
     return;
@@ -5745,7 +5751,8 @@ async function makeFrame({ data: { type, content } }) {
 
     // Wait 8 frames of the default piece before loading the initial piece.
     // And also make sure the session has been queried.
-    if (paintCount > 8n && sessionStarted) loadAfterPreamble?.(); // Start loading after the first disk if necessary.
+    if (paintCount > 8n && (sessionStarted || $commonApi.net.sandboxed))
+      loadAfterPreamble?.(); // Start loading after the first disk if necessary.
 
     soundClear?.();
 

@@ -1123,6 +1123,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     "#" +
     Date.now(); // bust the cache. This prevents an error related to Safari loading workers from memory.
 
+  const sandboxed = window.origin === "null" || !window.origin;
+
   const firstMessage = {
     type: "init-from-bios",
     content: {
@@ -1132,6 +1134,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       user: window.acUSER,
       lanHost: window.acLAN_HOST,
       iframe: window.self !== window.top,
+      sandboxed,
       shareSupported: (iOS || Android) && navigator.share !== undefined,
     },
   };
@@ -1142,11 +1145,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     console.warn("Send has not been wired yet!", msg);
   };
 
-  // 🔥 Optionally use workers or not.
-  // Always use workers if they are supported, except for
-  // when we are in VR (MetaBrowser).
-  const sandboxed = window.origin === "null" || !window.origin;
-
+  //  👷️ Always use workers if they are supported, except for
+  //     when we are in VR (MetaBrowser).
   // Disable workers if we are in a sandboxed iframe.
   const workersEnabled = !sandboxed;
   // const workersEnabled = false;
@@ -2776,11 +2776,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (content.method === "local") {
         let data;
 
-        try {
-          data = JSON.parse(localStorage.getItem(content.key));
-        } catch (err) {
-          console.warn("📦 Retrieval error:", err);
-          // Probably in a sandboxed environment here...
+        if (!sandboxed) {
+          try {
+            data = JSON.parse(localStorage.getItem(content.key));
+          } catch (err) {
+            console.warn("📦 Retrieval error:", err);
+            // Probably in a sandboxed environment here...
+          }
         }
 
         if (debug && logs.store)
