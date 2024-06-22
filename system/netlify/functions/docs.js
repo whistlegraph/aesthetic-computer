@@ -2221,8 +2221,8 @@ export async function handler(event, context) {
         desc: "Draw with a pinch.",
         done: false,
       },
-      "hell-_world": {
-        sig: "hell-_world",
+      "hell_-world": {
+        sig: "hell_-world",
         desc: "View the hell_ world collection.",
         done: false,
         //TODO: doesn't seem to work?
