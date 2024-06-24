@@ -8,7 +8,6 @@ import {
   EventEmitter,
   ExtensionContext,
   ProgressLocation,
-  UIKind,
   Uri,
   UriHandler,
   window as win,
@@ -17,19 +16,19 @@ import { PromiseAdapter, promiseFromEvent } from "./util";
 
 // Isomorphic use of web `crypto` api across desktop (node) and
 // a web worker (vscode.dev).
-let icrypto : any;
+let icrypto: any;
 if (typeof self === "undefined") {
   icrypto = require("crypto").webcrypto;
 } else {
   icrypto = crypto;
-} 
+}
 
-export const AUTH_TYPE = `aesthetic`;
-const AUTH_NAME = `Aesthetic Computer`;
-const CLIENT_ID = `LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt`;
-const AUTH0_DOMAIN = `hi.aesthetic.computer`;
-const SESSIONS_SECRET_KEY = `${AUTH_TYPE}.sessions`;
-let REDIRECT_URL: string;
+let AUTH_TYPE: string,
+  AUTH_NAME: string,
+  CLIENT_ID: string,
+  AUTH0_DOMAIN: string,
+  SESSIONS_SECRET_KEY: string,
+  REDIRECT_URL: string;
 
 let remoteOutput = win.createOutputChannel("aesthetic");
 
@@ -48,6 +47,9 @@ class UriEventHandler extends EventEmitter<Uri> implements UriHandler {
   }
 }
 
+const uriHandler = new UriEventHandler;
+win.registerUriHandler(uriHandler);
+
 export class AestheticAuthenticationProvider
   implements AuthenticationProvider, Disposable
 {
@@ -61,15 +63,34 @@ export class AestheticAuthenticationProvider
   >();
   private _codeVerfifiers = new Map<string, string>();
   private _scopes = new Map<string, string[]>();
-  private _uriHandler = new UriEventHandler();
 
   constructor(
     private readonly context: ExtensionContext,
     local: boolean,
+    tenant: string,
   ) {
-    REDIRECT_URL = `https://${
-      local ? "localhost:8888" : "aesthetic.computer"
-    }/redirect-proxy`;
+    if (tenant === "aesthetic") {
+      AUTH_TYPE = `aesthetic`;
+      AUTH_NAME = `Aesthetic Computer`;
+      CLIENT_ID = `LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt`;
+      AUTH0_DOMAIN = `hi.aesthetic.computer`;
+      REDIRECT_URL = `https://${
+        local ? "localhost:8888" : "aesthetic.computer"
+      }/redirect-proxy`;
+    } else if (tenant === "sotce") {
+      AUTH_TYPE = `sotce`;
+      AUTH_NAME = `Sotce`;
+      CLIENT_ID = `3SvAbUDFLIFZCc1lV7e4fAAGKWXwl2B0`;
+      AUTH0_DOMAIN = `hi.sotce.net`;
+      REDIRECT_URL = `https://${
+        local ? "localhost:8888" : "sotce.net"
+      }/redirect-proxy-sotce`;
+    }
+
+    SESSIONS_SECRET_KEY = `${AUTH_TYPE}.sessions`;
+
+    // console.log("Authentication provider registering...", AUTH_TYPE, AUTH_NAME);
+
     this._disposable = Disposable.from(
       authentication.registerAuthenticationProvider(
         AUTH_TYPE,
@@ -77,7 +98,6 @@ export class AestheticAuthenticationProvider
         this,
         { supportsMultipleAccounts: false },
       ),
-      win.registerUriHandler(this._uriHandler),
     );
   }
 
@@ -157,7 +177,7 @@ export class AestheticAuthenticationProvider
     try {
       const { access_token, refresh_token } = await this.login(scopes);
       if (!access_token) {
-        throw new Error(`Aesthetic Computer login failure`);
+        throw new Error(`${AUTH_NAME} login failure`);
       }
 
       const userinfo: { name: string; email: string; sub: string } =
@@ -233,7 +253,7 @@ export class AestheticAuthenticationProvider
     return await win.withProgress<TokenInformation>(
       {
         location: ProgressLocation.Notification,
-        title: "🟡 Logging in to Aesthetic Computer...",
+        title: `🟡 Logging in to ${AUTH_NAME}...`,
         cancellable: true,
       },
       async (_, token) => {
@@ -288,7 +308,7 @@ export class AestheticAuthenticationProvider
         let codeExchangePromise = this._codeExchangePromises.get(scopeString);
         if (!codeExchangePromise) {
           codeExchangePromise = promiseFromEvent(
-            this._uriHandler.event,
+            uriHandler.event,
             this.handleUri(scopes),
           );
           this._codeExchangePromises.set(scopeString, codeExchangePromise);

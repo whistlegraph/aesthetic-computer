@@ -122,9 +122,8 @@ loadAuth0Script()
       const url = new URL(window.location);
       const params = url.searchParams;
       const sessionParams = params.get("session");
-      let encodedSession = sessionParams; // || localStorage.getItem("acSessionParams");
+      let encodedSession = sessionParams;
       if (encodedSession === "null") encodedSession = undefined;
-      //localStorage.setItem("acSessionParams", sessionParams);
       let pickedUpSession;
       if (encodedSession) {
         const sessionJsonString = atob(decodeURIComponent(encodedSession));
@@ -191,13 +190,10 @@ loadAuth0Script()
       window.acLOGOUT = () => {
         if (isAuthenticated) {
           console.log("🔐 Logging out...");
-          // TODO: How to send a message here that could refresh the page for
-          //       all connected users.
           window.acSEND({
             type: "logout:broadcast:subscribe",
             content: { user: window.acUSER },
           });
-
           auth0Client.logout({
             logoutParams: { returnTo: window.location.origin },
           });
@@ -209,7 +205,7 @@ loadAuth0Script()
       if (isAuthenticated && !pickedUpSession) {
         try {
           await window.auth0Client.getTokenSilently();
-          // console.log("🔐 Authorized");
+          console.log("🗝️ Got fresh token.");
         } catch (error) {
           console.log("🔐️ ❌ Unauthorized", error);
           console.error(
@@ -373,4 +369,4 @@ function initNotifications() {
     });
 }
 
-if (!previewOrIcon) initNotifications();
+if (!previewOrIcon && !sandboxed) initNotifications();

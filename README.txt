@@ -37,23 +37,60 @@ but technically agnostic. (Choose your aesthetic!)
 
 😀 TODO 😆
 
+📽️ Research
+  - [] Watch WebXR on Apple Vision Demo: https://developer.apple.com/videos/play/wwdc2024/10066/
+
 🌟 Projects in Progress (PIP) 🌟
 
+*** electron app ***
+  - [🟠] Make an aesthetic computer electron app that's capable of opening
+         new windows and builds for all platforms, especially linux and macos.
+
+*** sotce.net ***
+  - [🧡] Test signup in development.
+  - [] Finish login and logout in VS Code local with refresh.
+  - [] Test login in production in VS Code. 
+  - [🎇] See `sotce-net.mjs`
+  + Done
+  - [x] Check how the auth works / token passing works from VSCode.
+  - [x] Add support for developing `sotce-net` inside of the VS Code extension.
+    - [x] In both development and production.
+
+*** devcontainer stuff ***
+  - [] Somehow automate the environment variable download / just ask for
+       the password on the CLI to retrieve it on the first run or actually
+       put that devcontainer.env inside the vault repo hmm...
+  + Done
+  - [x] Make it so that the devcontainer can be run just in a terminal.
+       using the devcontainer cli from npm.
+
+*** vercel ***
+  - [-] Remove vercel dependency / switch to a netlify function.
+
+*** discords ***
+  - [-] Shut down the whistlegraph Discord.
+  - [] Send a `log` notification when a deployment happens.
+  + Done
+  - [x] Shut down the AC Discord.
+
+*** chat improvements ***
   - [🟨] Add a "handles" directory to scroll through all active handles.
   - [-] add a "system update" notifier based on commits - i should be able
           to tag a commit or decide somehow if a `log` would be sent or not?
           https://docs.netlify.com/site-deploys/notifications
       - How do I add a post request receiver here that
-        has process.env.NETLIFY_SYSTEM_DEPLOY_JWT set to 
+        has process.env.NETLIFY_SYSTEM_DEPLOY_JWT set to
         match the token.
+
   - [] Auto-link handles and single quoted words.
     - [] color coded words in chat via kidlisp / how to integrate kidlisp?
   - [] Separate README from TODO and make TODO visible in the system to help
        the conversation along.
-  - [] Give chat messages a UUID / reference number so they can be
-      linked in the TODO. Technically this can be a time window query that
-      is something like `🗨️:system:56262-72837` for a range or just an
-      exact / closest match if a single integer is given.
+  - [] Add pictures to chat.
+  - [] Add deletion of chat messages / better policing.
+     - [] Close chat for certain hours. (suggested by fia)
+     - [] Have an ambient announcement for policing that exists on
+          the periphery of the main activity and is temporal.
   + Done
   - [x] Should you be able to chat after logging out via the
        "Pre-Authorized" array? Seems kinda unsafe, hmm... 24.05.20.20.54
@@ -76,38 +113,46 @@ but technically agnostic. (Choose your aesthetic!)
        - [x] Add the same Hourglass to "Enter message..." as well.
   - [x] Add a prompt cmd to force disconnection for N, in N seconds seconds, perhaps
       via a debug only shortcut? Call it a `hiccup` command?
-  - [x] Only trim whitespace at the end of messages. 
+  - [x] Only trim whitespace at the end of messages.
   - [x] Increase chat character limit to 96.
   - [x] Better handle rendering after change (add the "@");
   - [x] Fix blanking chat.
   - [x] A successfull login should broadcast to all other thumbnails
        and trigger a refresh - same with logging out!
 
+*** auth synchronization questions ***
+  - [] Are logins / logouts *too* synchronized?
+  - [] If I'm logged into localhost am I also logged into production?
+
+*** gen music ***
+  - [] Make some generative ambient music in kidlisp that I can actually
+        listen to while coding without it being annoying.
+    - [] Make it so I can always edit the code / algorithm that makes this
+          music anytime it is playing... (This could be done through having
+          kidlisp in a separate window or buffer / audio-out only version
+          of ac running.)
+    - [] Or this could be one of the first applications of the kidlisp gui.
+
 *** annoyances from demos ***
 - [] first set handle shouldnt be added to history
-- [] Make sure `source anything.lisp` works. 
+- [] Make sure `source anything.lisp` works.
 - [?] Reinstall x11 server on windows 11.
 - [] Single unbroken chat messages with no whitespace longer than a line are
-     missing the single space gap after the username. 
+     missing the single space gap after the username.
 - [] update privacy policy
-
-*** sotce.net ***
-    - [] Jeffrey builds diary network @ sotce.net. 
-      - [] Create a sotce.net directory / index page.
-      - [] This would be a simple SPA that needs routing and a few other
-           facilities.
-      - [] auth0 based auth or some form of auth... hmm...
-      - [] stripe paywall
-    - [] The handle system would be shared among ac users.
+- [] Give chat messages a UUID / reference number so they can be
+    linked in the TODO. Technically this can be a time window query that
+    is something like `🗨️:system:56262-72837` for a range or just an
+    exact / closest match if a single integer is given.
 
 *** call ***
   - [] Calling would function like a walkie talkie.
   - [] call girlfriend
-    - [] reuses code from existing girlfriend 
-    - [] adds a fake "face" graphic for this character 
+    - [] reuses code from existing girlfriend
+    - [] adds a fake "face" graphic for this character
   - [] call @handle
     - [] notifies each user
-    - [] users can define an avatar for this 
+    - [] users can define an avatar for this
 
 *** ios day ***
 - [] Implement this in the iOS app: https://stackoverflow.com/a/71678197
@@ -122,7 +167,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [] Remove local redis instance... why use it tbh?
 
 *** more chat updates ***
-  - [] live updates of recent chat messages on prompt page 
+  - [] live updates of recent chat messages on prompt page
        (needs sound and a beep)
     - [] prompt can enter a showdy "prompt standyby" chat mode.
     - [] smoother progressive loading animation that visualizes the loading process on the checkerboard
@@ -136,7 +181,7 @@ but technically agnostic. (Choose your aesthetic!)
   + Done
   - [x] If email is unverified and user is on homepage or
         on profile page...
-  - [x] Check your email to verify or resend. 
+  - [x] Check your email to verify or resend.
   - [x] Set a handle. (prefill handle)
   - [x] Please sign up.
   - [x] entering "profile" or "me" while logged out or not signed up
@@ -185,7 +230,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Add support for secondary ink color in the API and in the 2D renderer.
   - [x] Add support for points in the 2D renderer.
 
-*** general compositing ***        
+*** general compositing ***
   - [] the "pause" overlay on windows / high refresh rate is pretty awkward...
   - [] resizing is also weird - could these be related?
 

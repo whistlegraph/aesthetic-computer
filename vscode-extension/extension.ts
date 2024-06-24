@@ -22,7 +22,7 @@ let webWindow: any;
 
 async function activate(context: vscode.ExtensionContext): Promise<void> {
   local = context.globalState.get("aesthetic:local", false); // Retrieve env.
-  console.log("🟢 Aesthetic Computer Extension Activated.");
+  console.log("🟢 Aesthetic Computer Extension: Activated");
   extContext = context;
 
   const savedGoal = context.globalState.get("goalState");
@@ -37,7 +37,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data: any = await response.json();
-      console.log("📚 Docs loaded:", data);
+      // console.log("📚 Docs loaded:", data);
 
       keys(data.api).forEach((key) => {
         // Add the category to each doc before smushing them.
@@ -357,11 +357,17 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         }, // Webview options.
       );
 
-      panel.title = "Aesthetic Computer" + (local ? ": Local" : ""); // Update the title if local.
-      panel.webview.html = getWebViewContent(panel.webview);
+      panel.title = "Aesthetic Computer" + (local ? ": 🧑‍🤝‍🧑" : ""); // Update the title if local.
+      panel.webview.html = getWebViewContent(panel.webview, "");
       webWindow = panel;
 
-      panel.onDidDispose(() => (webWindow = null), null, context.subscriptions);
+      panel.onDidDispose(
+        () => {
+          webWindow = null;
+        },
+        null,
+        context.subscriptions,
+      );
     }),
   );
 
@@ -369,8 +375,11 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   context.subscriptions.push(definitionProvider);
 
   // 🗝️ Authorization
-  const ap = new AestheticAuthenticationProvider(context, local);
+  const ap = new AestheticAuthenticationProvider(context, local, "aesthetic");
+  const sp = new AestheticAuthenticationProvider(context, local, "sotce");
+
   context.subscriptions.push(ap);
+  context.subscriptions.push(sp);
 
   context.subscriptions.push(
     vscode.commands.registerCommand("aestheticComputer.logIn", async () => {
@@ -390,9 +399,33 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     }),
   );
 
-  const getAestheticSession = async () => {
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "aestheticComputer.sotceLogIn",
+      async () => {
+        const session = await vscode.authentication.getSession(
+          "sotce",
+          ["profile"],
+          { createIfNone: true },
+        );
+      },
+    ),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "aestheticComputer.sotceLogOut",
+      async () => {
+        vscode.window.showInformationMessage(
+          "🟡 To log out, please use the profile icon in the VS Code UI.",
+        );
+      },
+    ),
+  );
+
+  const getSession = async (tenant: string) => {
     const session = await vscode.authentication.getSession(
-      "aesthetic",
+      tenant,
       ["profile"],
       { createIfNone: false },
     );
@@ -401,9 +434,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       vscode.window.showInformationMessage(
         `👋 Welcome back! (${session.account.label})`,
       );
-      context.globalState.update("aesthetic:session", session);
+      context.globalState.update(`${tenant}:session`, session);
     } else {
-      context.globalState.update("aesthetic:session", undefined);
+      context.globalState.update(`${tenant}:session`, undefined);
       console.log("😀 Erased session!");
     }
 
@@ -413,8 +446,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   context.subscriptions.push(
     vscode.authentication.onDidChangeSessions(async (e) => {
       console.log("🏃 Sessions changed:", e);
-      if (e.provider.id === "aesthetic") {
-        await getAestheticSession();
+      if (e.provider.id === "aesthetic" || e.provider.id === "sotce") {
+        await getSession(e.provider.id);
         provider.refreshWebview();
         refreshWebWindow();
       }
@@ -436,13 +469,13 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   // Send piece code through the code channel.
   function upload() {
-    if (local) {
-      // console.log("😊 Skipping `/run` api endpoint. (In local mode.)");
+    let editor = vscode.window.activeTextEditor;
+    if (!editor) {
       return;
     }
 
-    let editor = vscode.window.activeTextEditor;
-    if (!editor) {
+    if (local) {
+      // console.log("😊 Skipping `/run` api endpoint. (In local mode.)");
       return;
     }
 
@@ -495,11 +528,28 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   // Automatically re-run the piece when saving any .mjs file.
   vscode.workspace.onDidSaveTextDocument((document) => {
-    if (
-      vscode.window.activeTextEditor?.document === document &&
-      document.uri.fsPath.endsWith(".mjs")
-    ) {
-      vscode.commands.executeCommand("aestheticComputer.runPiece");
+    function mjsOrLisp(path: string) {
+      return path.endsWith(".mjs") || path.endsWith(".lisp");
+    }
+
+    if (vscode.window.activeTextEditor?.document === document) {
+      console.log("🔩 File path:", document.uri.fsPath);
+      const inMonoRepo =
+        document.uri.fsPath.indexOf("aesthetic-computer/system") > -1;
+      const inDisks =
+        document.uri.fsPath.indexOf(
+          "aesthetic-computer/system/public/aesthetic.computer/disks",
+        ) > -1;
+
+      if (inMonoRepo) {
+        if (inDisks && mjsOrLisp(document.uri.fsPath)) {
+          // console.log("🟡 Loading piece...", document.uri.fsPath);
+          vscode.commands.executeCommand("aestheticComputer.runPiece");
+        }
+      } else if (mjsOrLisp(document.uri.fsPath)) {
+        // console.log("🟡 Loading piece...", document.uri.fsPath);
+        vscode.commands.executeCommand("aestheticComputer.runPiece");
+      }
     }
   });
 }
@@ -552,7 +602,6 @@ class AestheticCodeLensProvider implements vscode.CodeLensProvider {
 }
 
 // 🪟 Panel Rendering
-
 class AestheticViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "aestheticComputer.sidebarView";
   private _view?: vscode.WebviewView;
@@ -568,8 +617,10 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 
   public refreshWebview(): void {
     if (this._view) {
-      this._view.title = local ? "Local" : ""; // Update the title if local.
-      this._view.webview.html = getWebViewContent(this._view.webview);
+      const slug = extContext.globalState.get("panel:slug", "");
+      if (slug) console.log("🪱 Loading slug:", slug);
+      this._view.title = slug + (local ? " 🧑‍🤝‍🧑" : "");
+      this._view.webview.html = getWebViewContent(this._view.webview, slug);
     }
   }
 
@@ -579,7 +630,11 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
     _token: vscode.CancellationToken,
   ): void {
     this._view = webviewView;
-    this._view.title = local ? "Local" : ""; // Update the title if local.
+
+    const slug = extContext.globalState.get("panel:slug", "");
+    if (slug) console.log("🪱 Loading slug:", slug);
+
+    this._view.title = slug + (local ? " 🧑‍🤝‍🧑" : "");
 
     // Set retainContextWhenHidden to true
     this._view.webview.options = {
@@ -587,10 +642,16 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
       localResourceRoots: [extContext.extensionUri],
     };
 
-    webviewView.webview.html = getWebViewContent(this._view.webview);
+    webviewView.webview.html = getWebViewContent(this._view.webview, slug);
 
     webviewView.webview.onDidReceiveMessage((data) => {
       switch (data.type) {
+        case "url:updated": {
+          //console.log("😫 Slug updated...", data.slug);
+          extContext.globalState.update("panel:slug", data.slug);
+          webviewView.title = data.slug + (local ? " 🧑‍🤝‍🧑" : "");
+          break;
+        }
         case "clipboard:copy": {
           vscode.env.clipboard.writeText(data.value).then(() => {
             // console.log("📋 Copied text to clipboard!");
@@ -598,18 +659,17 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
               type: "clipboard:copy:confirmation",
             });
           });
-        }
-        case "publish": {
-          if (data.url) vscode.env.openExternal(vscode.Uri.parse(data.url));
           break;
         }
-        case "setCode": {
+        case "publish":
+          if (data.url) vscode.env.openExternal(vscode.Uri.parse(data.url));
+          break;
+        case "setCode":
           codeChannel = data.value;
           // const currentTitle = webviewView.title;
           // webviewView.title = currentTitle?.split(" · ")[0] + " · " + codeChannel;
           // ^ Disabled because it's always rendered uppercase. 24.01.27.17.26
           break;
-        }
         case "vscode-extension:reload": {
           vscode.commands.executeCommand("workbench.action.reloadWindow");
           break;
@@ -645,19 +705,33 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
         }
         case "login": {
           console.log("📂 Logging in...");
-          vscode.commands.executeCommand("aestheticComputer.logIn");
-          break;
-        }
-        case "signup": {
-          console.log("🔏 Signing up...");
-          vscode.commands.executeCommand("aestheticComputer.signUp");
+          const command = data.tenant === "sotce" ? "sotceLogIn" : "logIn";
+          vscode.commands.executeCommand(`aestheticComputer.${command}`);
           break;
         }
         case "logout": {
           console.log("🚪 Logging out...");
-          vscode.commands.executeCommand("aestheticComputer.logOut");
+          const command = data.tenant === "sotce" ? "sotceLogOut" : "logOut";
+          vscode.commands.executeCommand(`aestheticComputer.${command}`);
           break;
         }
+      }
+    });
+
+    // webviewView.onDidDispose(() => {
+    //   console.log("🔴 DISPOSED!");
+    // });
+
+    webviewView.onDidChangeVisibility(() => {
+      if (!webviewView.visible) {
+        console.log("🔴 Panel hidden.");
+        // Perform any cleanup or state update here when the view is hidden
+        const slug = extContext.globalState.get("panel:slug", "");
+        if (slug) console.log("🪱 Loading slug:", slug);
+        webviewView.title = slug + (local ? " 🧑‍🤝‍🧑" : "");
+        webviewView.webview.html = getWebViewContent(webviewView.webview, slug);
+      } else {
+        console.log("🟢 Panel open.");
       }
     });
   }
@@ -677,12 +751,16 @@ function getNonce(): string {
 
 function refreshWebWindow() {
   if (webWindow) {
-    webWindow.title = "Aesthetic Computer" + (local ? ": Local" : ""); // Update the title if local.
-    webWindow.webview.html = getWebViewContent(webWindow.webview);
+    const slug = extContext.globalState.get("panel:slug", "");
+    if (slug) console.log("🪱 Loading slug:", slug);
+
+    webWindow.title = "Aesthetic Computer: " + slug + (local ? " 🧑‍🤝‍🧑" : ""); // Update the title if local.
+
+    webWindow.webview.html = getWebViewContent(webWindow.webview, slug);
   }
 }
 
-function getWebViewContent(webview: any) {
+function getWebViewContent(webview: any, slug: string) {
   const scriptUri = webview.asWebviewUri(
     vscode.Uri.joinPath(extContext.extensionUri, "sidebar.js"),
   );
@@ -702,11 +780,11 @@ function getWebViewContent(webview: any) {
 
   const session = extContext.globalState.get("aesthetic:session", undefined);
 
-  let param = "";
+  let param = slug;
   if (typeof session === "object") {
     if (keys(session)?.length > 0) {
       const base64EncodedSession = btoa(JSON.stringify(session));
-      param = "?session=" + encodeURIComponent(base64EncodedSession);
+      param += "?session=" + encodeURIComponent(base64EncodedSession);
     }
   } else {
     // param = "?clearSession=true"; Probably never needed.
@@ -716,7 +794,7 @@ function getWebViewContent(webview: any) {
 			<html lang="en">
 			<head>
 				<meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://hi.aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; child-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; style-src ${
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://hi.aesthetic.computer https://aesthetic.local:8888 https://localhost:8888 https://sotce.net https://hi.sotce.net https://sotce.local:8888; child-src https://aesthetic.computer https://aesthetic.local:8888 https://sotce.net https://sotce.local:8888 https://localhost:8888; style-src ${
           webview.cspSource
         }; script-src 'nonce-${nonce}'; media-src *;">
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -728,7 +806,7 @@ function getWebViewContent(webview: any) {
 			<body>
         <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin allow-pointer-lock" allow="clipboard-write; clipboard-read; camera; microphone; gyroscope" src="https://${
           local ? "localhost:8888" : "aesthetic.computer"
-        }${param}" border="none"></iframe>
+        }/${param}" border="none"></iframe>
        	<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;

@@ -17,18 +17,27 @@ if test -d /workspaces/aesthetic-computer
     end
 end
 
+function fish_prompt
+    echo -n '> '
+end
+
+function dns
+    set -l domain $argv[1]
+    echo "https://iwantmyname.com/dashboard/dns/$domain"
+end
+
 function fish_greeting
     if test "$nogreet" = true
         return
     end
 
     printf "🧩 Hi @$AESTHETIC!\n\n"
-    printf "Ask with 'umm' and forget with 'nvm'\n"
-    printf "or use 'code' and 'done' with 'copy'\n"
-    printf "to generate and get code.\n\n"
+    # printf "Ask with 'umm' and forget with 'nvm'\n"
+    # printf "or use 'code' and 'done' with 'copy'\n"
+    # printf "to generate and get code.\n\n"
 
-    printf "🆕 Try 'aider' to make edits: https://github.com/paul-gauthier/aider?tab=readme-ov-file#usage\n\n"
-    printf "📋 Clipboard also requires `xhost +local:docker` to be set on the host."
+    # printf "🆕 Try 'aider' to make edits: https://github.com/paul-gauthier/aider?tab=readme-ov-file#usage\n\n"
+    # printf "📋 Clipboard also requires `xhost +local:docker` to be set on the host."
 end
 
 # always start in aesthetic-computer directory if there was a greeting
@@ -155,5 +164,8 @@ function forget
     rm /tmp/chat_cache/umm 2>/dev/null
     echo "umm, i forgot :)"
 end
+
+# Increase Node.js heap size
+set -x NODE_OPTIONS "--max-old-space-size=4096"
 
 alias nvm forget

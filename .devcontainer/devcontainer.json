@@ -1,5 +1,6 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
 // https://github.com/microsoft/vscode-dev-containers/tree/v0.241.1/containers/codespaces-linux
+// And for devcontainer cli usage check out: https://github.com/devcontainers/cli?tab=readme-ov-file
 {
   "name": "Default",
   "build": {
@@ -20,7 +21,7 @@
     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind"
     // "source=${env:HOME}/.ssh/id_rsa,target=/home/me/.ssh/id_rsa,type=bind,consistency=cached"
   ],
-  "forwardPorts": [8888],
+  "forwardPorts": [8888, 8111],
   "customizations": {
     "vscode": {
       "extensions": [
@@ -39,7 +40,9 @@
         "vscodevim.vim",
         "kuba-p.glsl-lsp",
         "GitHub.copilot",
-        "GitHub.copilot-chat"
+        "GitHub.copilot-chat",
+        "tamasfe.even-better-toml",
+        "matthewpi.caddyfile-support"
       ]
     }
   },
