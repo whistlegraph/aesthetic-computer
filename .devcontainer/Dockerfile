@@ -45,7 +45,11 @@ RUN curl -L https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcer
 # Switch to current user.
 USER me
 
-# Set working directory to me user.
+# Install gyp
+git clone https://chromium.googlesource.com/external/gyp.git /home/me/.local/lib/python3.10/site-packages/gyp
+
+# RUN sudo dnf install -y python3-devel && \
+Set working directory to me user.
 WORKDIR /home/me
 
 RUN mkdir -p .config/fish && \

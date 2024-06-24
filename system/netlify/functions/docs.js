@@ -1818,6 +1818,12 @@ export async function handler(event, context) {
         desc: "View AC source code.",
         done: false,
       },
+      ucla: {
+        sig: "ucla",
+        desc: "UCLA DESMA 28 syllabus shortcut.",
+        done: false,
+        //TODO: can this open in a new tab?
+      },
       app: {
         sig: "app",
         desc: "Get AC in the app store.",
