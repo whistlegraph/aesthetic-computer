@@ -1123,6 +1123,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     "#" +
     Date.now(); // bust the cache. This prevents an error related to Safari loading workers from memory.
 
+  const sandboxed = window.origin === "null" || !window.origin;
+
   const firstMessage = {
     type: "init-from-bios",
     content: {
@@ -1132,6 +1134,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       user: window.acUSER,
       lanHost: window.acLAN_HOST,
       iframe: window.self !== window.top,
+      sandboxed,
       shareSupported: (iOS || Android) && navigator.share !== undefined,
     },
   };
@@ -1142,11 +1145,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     console.warn("Send has not been wired yet!", msg);
   };
 
-  // 🔥 Optionally use workers or not.
-  // Always use workers if they are supported, except for
-  // when we are in VR (MetaBrowser).
-  const sandboxed = window.origin === "null" || !window.origin;
-
+  //  👷️ Always use workers if they are supported, except for
+  //     when we are in VR (MetaBrowser).
   // Disable workers if we are in a sandboxed iframe.
   const workersEnabled = !sandboxed;
   // const workersEnabled = false;
@@ -1758,6 +1758,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "signup") {
       if (window.self === window.top) {
         window.acLOGIN?.("signup");
+      } else {
+        console.log("🟠 Cannot sign up in an embedded view.");
       }
       return;
     }
@@ -2483,6 +2485,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             document.title,
             content.text === "/prompt" ? "/" : "/" + content.text, // Replace "prompt" with "/".
           );
+
+          // console.log("🧩 Updating piece:", content.text);
+
+          window.parent?.postMessage(
+            {
+              type: "url:updated",
+              slug: content.text.replace("/", ""),
+            },
+            "*",
+          );
         }
 
         // Replace the state if we are running an aliased `load` or `jump`.
@@ -2758,17 +2770,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Store: Retrieve
     if (type === "store:retrieve") {
       if (content.method === "local") {
+        console.log("Retrieving:", content.key);
+      }
+
+      if (content.method === "local") {
         let data;
 
-        try {
-          data = JSON.parse(localStorage.getItem(content.key));
-        } catch (err) {
-          console.warn("📦 Retrieval error:", err);
-          // Probably in a sandboxed environment here...
+        if (!sandboxed) {
+          try {
+            data = JSON.parse(localStorage.getItem(content.key));
+          } catch (err) {
+            console.warn("📦 Retrieval error:", err);
+            // Probably in a sandboxed environment here...
+          }
         }
 
         if (debug && logs.store)
           console.log("📦 Retrieved local data:", content.key, data);
+
         send({
           type: "store:retrieved",
           content: { key: content.key, data },
@@ -4283,7 +4302,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         try {
           // Attempt to fetch user info using the token
-          window.auth0Client.token = token;
+          window.auth0Client.t.oken = token;
           await window.auth0Client.getUser();
           // console.log("✅🔐 Token is valid!");
         } catch (error) {

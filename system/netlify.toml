@@ -1,6 +1,6 @@
 [build]
   publish = "public"
-  command = "bash ./github-discord.sh"
+  # command = "bash ./github-discord.sh"
   # command = "echo 'Building...'"
 [functions]
   node_bundler = "esbuild"
@@ -53,10 +53,9 @@
 [dev]
   NODE_ENV = "development"
   publish = "public/"
-  #framework = "#static"
-  command = "npm run spaces-dev-netlify"
-  targetPort = 8111
-  #port = 8888
+  #command = "npm run media-server-caddy"
+  #targetPort = 8111
+  framework = "#static"
   autoLaunch = false
 [dev.https]
   certFile = "../ssl-dev/localhost.pem"
@@ -88,6 +87,43 @@
    status = 200
    force = true
 [[redirects]]
+   from = "https://sotce.net/aesthetic.computer/*"
+   to = "/aesthetic.computer/:splat"
+   status = 200
+   force = true
+[[redirects]]
+  from = "/redirect-proxy-sotce"
+  to = "/.netlify/functions/redirect-proxy"
+  status = 200
+[[redirects]]
+   from = "https://sotce.net/user"
+   to = "/.netlify/functions/user"
+   status = 200
+   force = true
+[[redirects]]
+  from = "https://sotce.net/api/email"
+  to = "/.netlify/functions/email"
+  status = 200
+[[redirects]]
+  from = "https://sotce.net/redirect-proxy-sotce"
+  to = "/.netlify/functions/redirect-proxy"
+  status = 200
+[[redirects]]
+   from = "https://sotce.net/*"
+   to = "/.netlify/functions/sotce-net"
+   status = 200
+   force = true
+[[redirects]]
+   from = "https://sotce.local/*"
+   to = "/.netlify/functions/sotce-net"
+   status = 200
+   force = true
+[[redirects]]
+  from = "/sotce-net/*"
+  to = "/.netlify/functions/sotce-net"
+  status = 200
+  force = true
+[[redirects]]
    from = "https://whistlegraph.com/*"
    to = "https://trio.whistlegraph.com/:splat"
    status = 301
@@ -107,11 +143,6 @@
   to = "/.netlify/functions/slash"
   status = 200
   force = true
-# [[redirects]]
-#   from = "/api/stripe-js"
-#   to = "/.netlify/functions/stripe-js"
-#   status = 200
-#   force = true
 [[redirects]]
   from = "https://www.4esthetic.com/*"
   to = "https://aesthetic.computer/:splat"
@@ -132,11 +163,6 @@
   to = "https://vscode.dev/github/digitpain/aesthetic.computer-code/blob/main/blank.mjs"
   status = 301
   force = true
-# [[redirects]]
-#   from = "https://aesthetic.direct"
-#   to = "https://tiktok.com/@aesthetic.direct"
-#   status = 301
-#   force = true
 [[redirects]]
   from = "https://m2w2.whistlegraph.com"
   to = "https://aesthetic.computer/wg~m2w2"
@@ -147,11 +173,6 @@
   to = "https://aesthetic.computer/sotce-blog"
   status = 200
   force = false
-# [[redirects]]
-#   from = "https://blog.sotce.com"
-#   to = "https://aesthetic.computer/sotce-blog"
-#   status = 200
-#   force = false
 [[redirects]]
   from = "https://pals.aesthetic.computer/*"
   to = "https://aesthetic.computer/api/logo/:splat"
@@ -286,8 +307,6 @@
   to = "/.netlify/functions/presigned-url"
   status = 200
   force = true
-# 📔 development only redirects (will deploy to, but won't route in production)
-# 23.06.03.22.47 - Eventually netlify may add this: https://answers.netlify.com/t/using-different-redirects-across-different-contexts-environments/2524/19 
 [[redirects]]
   from = "/api/ask"
   to = "http://localhost:3000/api/ask"
@@ -298,20 +317,11 @@
   to = "http://localhost:3000/api/say"
   status = 200
   force = false
-# Index
 [[redirects]]
   from = "/"
   to = "/.netlify/functions/index"
   status = 200
   force = true
-# Catch any unfound disk paths to the blank disk.
-# [[redirects]]
-#   from = "/aesthetic.computer/disks/*"
-#   to = "/aesthetic.computer/disks/404.mjs"
-#   status = 404
-#   force = false
-# Reroute any other unfound file to the index.
-# TODO: This should be a 404...
 [[redirects]]
   from = "/*"
   to = "/.netlify/functions/index"

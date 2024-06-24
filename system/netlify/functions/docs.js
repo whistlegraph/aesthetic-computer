@@ -1807,6 +1807,18 @@ export async function handler(event, context) {
         done: false,
         hidden: true,
       },
+      '+': {
+        sig: "+",
+        desc: "Make new window.",
+        done: false,
+        //TODO: can this open in a new tab?
+      },
+      google: {
+        sig: "google",
+        desc: "Search google.",
+        done: false,
+        //TODO: can this open in a new tab?
+      },
       github: {
         sig: "github",
         desc: "View AC source code.",
@@ -2215,8 +2227,8 @@ export async function handler(event, context) {
         desc: "Draw with a pinch.",
         done: false,
       },
-      "hell-_world": {
-        sig: "hell-_world",
+      "hell_-world": {
+        sig: "hell_-world",
         desc: "View the hell_ world collection.",
         done: false,
         //TODO: doesn't seem to work?
@@ -2612,6 +2624,12 @@ export async function handler(event, context) {
       song: {
         sig: "song",
         desc: "Learn a song.",
+        done: false,
+        //TODO: adjust song , default octave thing
+      },
+      'sotce-net': {
+        sig: "sotce-net",
+        desc: "diaries (work in progress)",
         done: false,
         //TODO: adjust song , default octave thing
       },

@@ -23,10 +23,15 @@ export async function handler(event, context) {
   try {
     body = JSON.parse(event.body);
     const email = body.email;
-    const user = await authorize(event.headers);
+    const name = body.name;
+    const tenant = body.tenant;
+    const user = await authorize(event.headers, tenant);
+
+    console.log("User after authorization:", user);
+
     if (user) {
       // 🔑 We are logged in!
-      const emailChanged = await setEmailAndReverify(user.sub, email);
+      const emailChanged = await setEmailAndReverify(user.sub, email, name, tenant);
       if (emailChanged.success) {
         return respond(200, { email });
       } else {

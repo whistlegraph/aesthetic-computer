@@ -25,6 +25,10 @@ alias mongodb-compass 'mongodb-compass --enable-features=UseOzonePlatform,Waylan
 
 # open my agenda.txt
 alias agenda 'nvim ~/Desktop/agenda/agenda.txt'
+alias paper 'gnome-extensions prefs paperwm@paperwm.github.com'
+
+# open a file with emacs in the tui
+alias edit 'fzf | read -l file; and test -n "$file"; and emacs -nw $file'
 
 # get the ip address on macos
 alias ip 'ipconfig getifaddr en0'
@@ -34,6 +38,8 @@ alias wgeth 'echo 0x238c9c645c6EE83d4323A2449C706940321a0cBf'
 #alias ev 'chezmoi edit ~/.config/nvim/init.vim'
 # alias ef 'chezmoi edit ~/.config/fish/config.fish'
 alias fishcfg 'source ~/.config/fish/config.fish'
+
+# alias edit 'fzf | read -l file; and test -n "$file"; and emacs -nw "$file"'
 
 # shortcuts for aesthetic.computer (macOS only)
 # alias webp 'fish ~/IdeaProjects/aesthetic.computer/system/public/disks/digitpain/webp.fish'
@@ -46,6 +52,7 @@ alias ff "vim (sk -c 'git ls-tree -r --name-only HEAD || ag -l -g \"\"')"
 alias ac 'cd ~/Desktop/code/aesthetic-computer'
 #alias acr 'cd ~/Desktop/code/aesthetic-computer; npm run ac'
 alias acw 'cd ~/Desktop/code/aesthetic-computer/system; npm run watch'
+alias platform 'cd ~/Desktop/code/aesthetic-computer; npm run platform'
 
 # set default editor to nvim
 set -gx EDITOR emacs -nw
@@ -185,6 +192,15 @@ set -gx TERM xterm-256color
 export OPS_DIR="$HOME/.ops"
 export PATH="$HOME/.ops/bin:$PATH"
 # source "$HOME/.ops/scripts/bash_completion.sh"
+
+function silence_xhost
+    xhost +local:docker > /dev/null 2>&1
+end
+
+silence_xhost
+
+# Increase Node.js heap size
+set -x NODE_OPTIONS "--max-old-space-size=4096"
 
 ## watch for changes in `.started`
 #function watch_trigger

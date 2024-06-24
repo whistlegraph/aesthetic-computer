@@ -4,7 +4,7 @@
   "displayName": "Aesthetic Computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.107.0",
+  "version": "1.116.0",
   "description": "Code, run, and publish your pieces.",
   "engines": {
     "vscode": "^1.88.0"
@@ -59,6 +59,14 @@
       {
         "command": "aestheticComputer.logOut",
         "title": "Aesthetic Computer: Bye (Log out) 🚪"
+      },
+      {
+        "command": "aestheticComputer.sotceLogIn",
+        "title": "Sotce: Log in 🪷"
+      },
+      {
+        "command": "aestheticComputer.sotceLogOut",
+        "title": "Sotce: Log out 🥀"
       },
       {
         "command": "aestheticComputer.runPiece",
@@ -128,7 +136,7 @@
     "@types/node": "^20.11.6",
     "@types/vscode": "^1.88.0",
     "@vscode/test-web": "^0.0.53",
-    "@vscode/vsce": "^2.26.0",
+    "@vscode/vsce": "^2.27.0",
     "esbuild": "^0.20.0",
     "typescript": "^5.3.3"
   },

@@ -67,10 +67,15 @@ if not test -f localhost.pem; or not test -f localhost-key.pem
     sudo fish fedora-install.fish
 end
 
-# Check if the nanos/ssl directory exists, create it if not
+# Check if the nanos/ssl directory exists, and transfer the ssl certs over.
 if not test -d /home/me/aesthetic-computer/nanos/ssl
     mkdir -p /home/me/aesthetic-computer/nanos/ssl
+    cp localhost.pem ../nanos/ssl
+    cp localhost-key.pem ../nanos/ssl
+    echo "Certificates copied to 'nanos'."
 end
+
+# Copy the certificate to the nanos directory. 
 
 sudo chown me:me -R /home/me/aesthetic-computer/ssl-dev
 sudo chown me:me -R /home/me/aesthetic-computer/nanos/ssl
@@ -94,14 +99,10 @@ if test -f /home/me/aesthetic-computer/ssl-dev/localhost.pem; and test -f /home/
     install_and_trust_certificate /home/me/aesthetic-computer/ssl-dev/localhost.pem /home/me/aesthetic-computer/ssl-dev/localhost-key.pem
 end
 
-
-# Set the directory path
-
-
 # Check if node_modules directory exists and is not empty
 if not test -d /home/me/aesthetic-computer/node_modules || not count /home/me/aesthetic-computer/node_modules/* >/dev/null
     # Move to the project directory
-    cd /home/me/aesthetic-computer 
+    cd /home/me/aesthetic-computer
     # Informing about the empty or missing node_modules directory
     echo "node_modules directory is empty or missing, running npm install."
     # Install the latest npm version

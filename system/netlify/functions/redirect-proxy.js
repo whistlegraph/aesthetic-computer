@@ -2,9 +2,13 @@
 // For authorizing clients via the VSCode Extension both on desktop and on the web.
 // Transcribed from: https://github.com/estruyf/vscode-redirect/blob/main/pages/index.tsx
 
+import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
+
 async function fun(event, context) {
   const { queryStringParameters } = event;
   const state = queryStringParameters.state;
+  const tenant = event.path.indexOf("sotce") > -1 ? "sotce" : "aesthetic";
+
   let url = "";
 
   if (state) {
@@ -27,22 +31,24 @@ async function fun(event, context) {
     }
   }
 
-  const html = `
-    <!DOCTYPE html>
+  const body = html`
+    <!doctype html>
     <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Logging in... · Aesthetic Computer</title>
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>
+          Logging in... ·
+          ${tenant === "aesthetic" ? "Aesthetic Computer" : "Sotce"}
+        </title>
         <style>
           body {
-             /* background: rgb(32, 32, 32); */
-             background: rgb(50, 30, 60);
-             color: rgb(220, 30, 100);
-             font-family: monospace;
-             display: flex;
-             width: 100vw;
-             height: 100vh;
+            background: ${tenant === "aesthetic" ? "rgb(50, 30, 60)" : "white"};
+            color: ${tenant === "aesthetic" ? "rgb(220, 30, 100)" : "black"};
+            font-family: ${tenant === "aesthetic" ? "monospace" : "arial"};
+            display: flex;
+            width: 100vw;
+            height: 100vh;
           }
           h1 {
             font-family: sans-serif;
@@ -64,31 +70,27 @@ async function fun(event, context) {
             color: pink;
           }
         </style>
-    </head>
-    <body>
+      </head>
+      <body>
         <div id="wrapper">
-            <h1>Redirecting to <code>Visual Studio Code!</code></h1>
-            <p>${
-              url
-                ? `In case you are not redirected, <a href="${url}" title="Open Visual Studio Code">click here</a>.`
-                : "<mark>No redirect URL provided</mark>"
-            }</p>
+          <h1>Redirecting to <code>Visual Studio Code!</code></h1>
+          <p>
+            ${url
+              ? `In case you are not redirected, <a href="${url}" title="Open Visual Studio Code">click here</a>.`
+              : "<mark>No redirect URL provided</mark>"}
+          </p>
         </div>
         <script>
-            // Redirection logic here if needed
-            if("${url}") {
-                window.location.href = "${url}";
-            }
+          // Redirection logic here if needed
+          if ("${url}") {
+            window.location.href = "${url}";
+          }
         </script>
-    </body>
+      </body>
     </html>
   `;
 
-  return {
-    statusCode: 200,
-    headers: { "Content-Type": "text/html" },
-    body: html,
-  };
+  return { statusCode: 200, headers: { "Content-Type": "text/html" }, body };
 
   // return url
   //   ? { statusCode: 302, headers: { Location: url } }

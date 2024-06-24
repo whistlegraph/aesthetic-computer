@@ -112,13 +112,15 @@ const VERBOSE = false;
 const { floor, max } = Math;
 let ast; // Abstract syntax tree.
 
+
 // Parse and evaluate a lisp source module
 // into a running aesthetic computer piece.
 function module(source) {
   const parsed = parse(source);
   ast = JSON.parse(JSON.stringify(parsed)); // Deep copy of original source. 🙃
-  if (VERBOSE) console.log("🐍 Parsed:", parsed);
+  /*if (VERBOSE)*/ console.log("🐍 Snake:", parsed);
 
+  // 🧩 Piece API
   return {
     boot: ({ params }) => {
       globalDef.paramA = params[0];
@@ -130,7 +132,10 @@ function module(source) {
       try {
         // TODO: Eventually compose programs together by stringing their
         //       output in a unix pipe-like fashion?
-        /*const evaluated = */evaluate(parsed, $);
+
+        localEnvLevel = 0; // Reset state per program evaluation.
+        localEnv = localEnvStore[localEnvLevel];
+        /*const evaluated = */ evaluate(parsed, $);
       } catch (err) {
         console.error("⛔ Evaluation failure:", err);
       }
@@ -151,30 +156,11 @@ function module(source) {
   };
 }
 
-// 🎆 Top-level events.
-
-// 🫵 Tap
-let tapper;
-function tap(api) {
-  // console.log("Tapping!");
-  if (tapper) evaluate(tapper, api);
-}
-
-// ✏️ Draw
-let drawer;
-function draw(api, env) {
-  if (drawer) {
-    // console.log(drawer, env);
-    evaluate(drawer, api, env);
-  }
-}
-
-// 💻 System
-
-const networkCache = {};
-
+// 💻 Interpreter
+const networkCache = { sources: {} };
 const globalDef = {};
 
+// 📑 API
 const globalEnv = {
   // once: (api, args) => {
   //   console.log("Oncing...", args);
@@ -283,15 +269,20 @@ const globalEnv = {
   draw: (api, args) => {
     drawer = args;
   },
-  if: (api, args) => {
-    // console.log("If:", args);
-    const cond = args[0];
-    // TODO: Still need to check for nada / nullish / falsey values.
-    if (globalDef[cond]) {
-      evaluate([args[1]], api);
-    } else {
-      evaluate([args[2]], api);
-    }
+  if: (api, args, env) => {
+    const evaled = evaluate(args[0], api, env);
+    const signal = evaled ? "🟢" : "🔴";
+    // console.log(`${signal} If:`, args[0], "evaluated as:", evaled, "with env:", env);
+    if (evaled) evaluate(args.slice(1), api, env);
+    // evaluate([evaled ? args[1] : args[2]], api, env);
+  },
+  not: (api, args, env) => {
+    const evaled = evaluate(args[0], api, env);
+    const signal = evaled ? "🟢" : "🔴";
+    // console.log(`${signal} Not:`, args[0], "evaluated as:", evaled, "with env:", env);
+    // console.log(args[2]);
+    if (!evaled) evaluate(args.slice(1), api, env);
+    // evaluate([!evaled ? args[1] : args[2]], api, env);
   },
   range: (api, args) => {
     // console.log("Range detected:", args);
@@ -374,17 +365,34 @@ const globalEnv = {
     api.wiggle(...args);
   },
   box: (api, args = []) => {
+    // console.log(args);
     api.box(...args);
   },
   write: (api, args = []) => {
-    const ARGS = processArgStringTypes(args[0]);
-    console.log("writing", args);
-    api.write(ARGS, { x: args[1], y: args[2] });
+    const content = processArgStringTypes(args[0]);
+    // console.log("✏️ Write:", content, args);
+    api.write(content, { x: args[1], y: args[2] });
+  },
+  len: (api, args = []) => {
+    return args[0]?.toString().length;
   },
   // (Getters / globals).
-  source: (api) => {
-    console.log("✍️ Source:", ast);
-    return { iterable: true, data: ast };
+  source: (api, args = [], env, colon) => {
+    // console.log("✍️ Source:", ast, args, env, colon);
+    let sourcedAST = [];
+    if (colon) {
+      if (!networkCache.sources[colon]) {
+        fetch(`/aesthetic.computer/disks/${colon}.lisp`)
+          .then((response) => response.text())
+          .then((data) => (networkCache.sources[colon] = parse(data)))
+          .catch((err) => console.warn(`No source for ${colon}:`, err));
+      } else {
+        sourcedAST = networkCache.sources[colon];
+      }
+    } else {
+      sourcedAST = ast;
+    }
+    return { iterable: true, data: sourcedAST };
   },
   width: (api) => {
     return api.screen.width;
@@ -413,11 +421,30 @@ const globalEnv = {
   },
 };
 
+// 🎆 Events
+
+// 🫵 Tap
+let tapper;
+function tap(api) {
+  if (tapper) evaluate(tapper, api);
+}
+
+// ✏️ Draw
+let drawer;
+function draw(api, env) {
+  if (drawer) {
+    evaluate(drawer, api, env);
+  }
+}
+
 // 🎰 Parser & Evaluation
+
+const localEnvStore = [{}];
+let localEnv = localEnvStore[0];
+let localEnvLevel = 0;
 
 const identifierRegex = /[a-zA-Z_]\w*/g;
 const validIdentifierRegex = /^[a-zA-Z_]\w*$/;
-const localEnv = {};
 
 function tokenize(input) {
   // Remove comments from input (anything from ';' to the end of the line)
@@ -430,16 +457,32 @@ function parse(program) {
   return readFromTokens(tokenize(program));
 }
 
-function evaluate(parsed, api = {}, env) {
+function evaluate(parsed, api = {}, env, inArgs) {
   if (VERBOSE) console.log("➗ Evaluating:", parsed);
   let body;
 
   // Create local environment for a function that temporarily keeps the params.
   if (parsed.body) {
+    const newLocalEnv = {};
+
     body = parsed.body;
+
     parsed.params.forEach(
-      (param, i) => (localEnv[param] = evaluate(env[i], api, env)),
+      // (param, i) => (localEnv[param] = evaluate(env[i], api, env)),
+      (param, i) => {
+        // console.log("😉 Param:", param, "Env:", env, "inArgs:", inArgs, "localEnv:", localEnv);
+        newLocalEnv[param] = evaluate(env[inArgs[i]], api, env);
+      },
     );
+
+    // Make new localEnv level.
+    if (localEnvLevel > 0) {
+      localEnvStore[localEnvLevel] = newLocalEnv;
+      localEnv = localEnvStore[localEnvLevel];
+    }
+    localEnvLevel += 1;
+    // console.log("🟠 Local env level:", localEnvLevel, "Body:", parsed.body);
+
     if (VERBOSE) console.log("Running:", body, "with environment:", localEnv);
   } else {
     // Or just evaluate with the global environment, ensuring it's an array.
@@ -451,46 +494,45 @@ function evaluate(parsed, api = {}, env) {
   let result;
 
   for (const item of body) {
-    if (VERBOSE) console.log("🥡 Item:", item /*, "body:", body*/);
+    /*if (VERBOSE)*/ // console.log("🥡 Item:", item /*, "body:", body*/);
 
     if (Array.isArray(item)) {
       // The first element indicates the function to call
       let [head, ...args] = item;
+      // const colon = head.split(":")[1]; // TODO: Take into account colon param / work it in.
 
-      // console.log("Head:", head, "args:", args);
+      // Make sure head exists and re-evaluate or iterate if not a string.
+      if (!existing(head)) return evalNotFound(head);
+
       if (Array.isArray(head)) {
-        // console.log("🧧🟢 EVALUATING ARRAY HEAD:", head, "args:", args);
-
-        // ❤️‍🔥 The issue is that the args are not being evaluated here.
         const evaledHead = evaluate([head], api, env);
         const newEval = [evaledHead, ...args];
         result = evaluate([newEval], api, env);
-        // console.log("😱 Array head result:", item, result);
         continue;
       }
-
-      // if (head === "source") {
-      //  console.log("🤕 HEAD:", head, "🦾 ARGS:", args);
-      // }
 
       if (typeof head !== "string" && head?.iterable) {
         result = iterate(head, api, args, env);
         continue;
       }
 
+      // Parse the head string splitting on dots and colons.
       const splitHead = head.split(".");
       head = splitHead[0];
+
+      const colonSplit = head.split(":");
+      head = colonSplit[0];
+      const colon = colonSplit[1]; // Will be incorporated in globalEnv api.
+
+      // if (head === "box") {
+      //  console.log("🧕 Head:", head);
+      // }
 
       // Check if the function requires recursive evaluation
       if (head === "now" || head === "def" || head === "die")
         args[0] = `"${args[0]}"`; // Pre-wrap the first arg as a string.
 
-      if (existing(env?.[head])) {
-        // console.log("FOUND HEAD:", head, env);
-        if (env[head].iterable) {
-          result = iterate(env[head], api, args, env);
-        }
-      } else if (existing(localEnv[head])) {
+      if (existing(localEnv[head])) {
         if (VERBOSE)
           console.log("😫 Local definition found!", head, localEnv[head]);
 
@@ -498,6 +540,13 @@ function evaluate(parsed, api = {}, env) {
           result = iterate(localEnv[head], api, args, env);
 
         result = localEnv[head];
+      } else if (existing(env?.[head])) {
+        // console.log("FOUND HEAD:", head, env);
+        if (env[head].iterable) {
+          result = iterate(env[head], api, args, env);
+        }
+
+        // 🟣 Handle calls to the Aesthetic Computer Piece API.
       } else if (existing(globalEnv[head])) {
         if (
           typeof globalEnv[head] === "function" ||
@@ -509,12 +558,14 @@ function evaluate(parsed, api = {}, env) {
             head === "tap" ||
             head === "draw" ||
             head === "if" ||
+            head === "not" ||
             head === "wipe" ||
             head === "ink" ||
             head === ">" ||
             head === "<" ||
             head === "=" ||
-            head === "net"
+            head === "net" ||
+            head === "source"
           ) {
             processedArgs = args;
           } else {
@@ -529,7 +580,7 @@ function evaluate(parsed, api = {}, env) {
           if (splitHead[1]) {
             result = getNestedValue(globalEnv, item[0])(api, processedArgs);
           } else {
-            result = globalEnv[head](api, processedArgs, env);
+            result = globalEnv[head](api, processedArgs, env, colon);
             if (result?.iterable) {
               result = iterate(result, api, args, env);
               continue;
@@ -540,14 +591,14 @@ function evaluate(parsed, api = {}, env) {
         }
       } else if (existing(globalDef[head])) {
         // Check if the value needs recursive evaluation.
-        if (VERBOSE)
-          console.log("📖 Definition call:", head, args, globalDef[head]);
+        //if (VERBOSE)
+        // console.log("🚀 LATER", head, "Args:", args, "Env:", env, "🐍 Snake:", globalDef[head]);
         result =
           Array.isArray(globalDef[head]) || globalDef[head].body
-            ? evaluate(globalDef[head], api, args)
+            ? evaluate(globalDef[head], api, env, args)
             : globalDef[head];
       } else {
-        // console.log("⛔ No match found for:", head, localEnv);
+        console.log("⛔ No match found for:", head, "localEnv:", localEnv);
         if (Array.isArray(head)) {
           if (VERBOSE) console.log("Environment:", localEnv);
           result = evaluate(head, api, localEnv);
@@ -556,10 +607,14 @@ function evaluate(parsed, api = {}, env) {
         }
       }
     } else {
+
       let root, tail;
       if (typeof item === "string") {
+        // TODO: 🔵 First check to see if the string is a mathematical expression,
+        //       and evaluate as javascript if it is.
         [root, tail] = item.split(".");
       }
+
       if (!Array.isArray(env) && existing(env?.[root])) {
         result = getNestedValue(env, item);
       } else if (existing(localEnv[item])) {
@@ -585,7 +640,7 @@ function evaluate(parsed, api = {}, env) {
           result = typeof end === "function" ? end() : end;
         }
       } else {
-        /*if (VERBOSE)*/ //console.log(item, "⛔ Not found");
+        /*if (VERBOSE)*/ // console.log(item, "⛔ Not found");
         if (Array.isArray(item)) {
           result = evaluate(item, api, env);
         } else {
@@ -599,14 +654,14 @@ function evaluate(parsed, api = {}, env) {
 
 function evalNotFound(expression, api, env) {
   if (typeof expression !== "string") {
-    // console.log("Expression:", expression);
+    // console.log("🤖 Expression:", expression);
     return expression; // Return numbers.
   } else {
     // console.log("🤖 Attempting JavaScript expression evaluation:", expression);
   }
 
-  // 📖 Identifiers can only start with a letter a-z or A-Z and can not
-  //    include mathermatical operators but can include underscores or
+  // 📖 Identifiers can only start with a letter a-z or A-Z and cannot
+  //    include mathematical operators but can include underscores or
   //    digits after the first character
 
   // Parse the expression to extract identifiers.
@@ -717,15 +772,18 @@ function getNestedValue(obj, path) {
   return path?.split(".").reduce((acc, part) => acc && acc[part], obj);
 }
 
-// Iterate over an iterable.
+// Loop over an iterable.
 function iterate(iterable, api, args, outerEnv) {
+  // console.log("Iterable:", iterable);
   iterable.data.forEach((item, index) => {
     const env = { ...outerEnv };
+    // console.log("Iteration item:", JSON.stringify(item));
     if (Array.isArray(item)) item = { iterable: true, data: item.slice() };
     env[args[0]] = item;
     env[args[1]] = index;
     // TODO ^ Should I prevent overwrites if `env` already has
     //        these properties?
+    // console.log("🟢 Evaluating:", item, args[0]);
     evaluate(args.slice(2), api, env);
   });
   return iterable;

@@ -16,6 +16,7 @@ export async function handler(event, context) {
   }
 
   const handleOrEmail = event.queryStringParameters.from;
+  const tenant = event.queryStringParameters.tenant || "aesthetic";
   if (!handleOrEmail) {
     return {
       statusCode: 400,
@@ -30,7 +31,7 @@ export async function handler(event, context) {
     user = await userIDFromHandle(handleOrEmail.slice(1));
   } else {
     // Assume email and try to look up sub from email via auth0.
-    user = await userIDFromEmail(handleOrEmail);
+    user = await userIDFromEmail(handleOrEmail, tenant);
   }
 
   if (user) {

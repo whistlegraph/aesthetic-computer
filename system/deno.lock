@@ -94,7 +94,7 @@
         "npm:kill-port@^2.0.1",
         "npm:mongodb@^6.6.2",
         "npm:nanoid@^5.0.7",
-        "npm:netlify-cli@^17.23.6",
+        "npm:netlify-cli@^17.26.3",
         "npm:nodemailer@^6.9.13",
         "npm:npm-check-updates@^16.14.20",
         "npm:obscenity@^0.2.1",

@@ -61,13 +61,13 @@ async function handler(event, context) {
       filepath.join("/").replace(".png", "") || ""
     }?icon=${width}x${height}`;
 
-    await page.goto(fullUrl, { waitUntil: "networkidle2", timeout: 3000 });
+    await page.goto(fullUrl, { waitUntil: "networkidle2", timeout: 5000 });
   } catch {
     console.log("🔴 Failed to stop networking.");
   }
 
   try {
-    await page.waitForFunction("window.preloaded === true", { timeout: 6000 });
+    await page.waitForFunction("window.preloaded === true", { timeout: 8000 });
   } catch {
     console.log("🔴 Failed window.preloaded timer.");
   }
