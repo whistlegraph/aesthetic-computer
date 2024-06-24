@@ -81,7 +81,7 @@ async function handler(event, context) {
       }?preview=${width}x${height}`,
       {
         waitUntil: "networkidle2",
-        timeout: 3000,
+        timeout: 5000,
       }
     );
   } catch {
@@ -90,7 +90,7 @@ async function handler(event, context) {
 
   try {
     await page.waitForFunction("window.preloaded === true", {
-      timeout: 6000,
+      timeout: 8000,
     });
   } catch {
     console.log("🔴 Failed window.preloaded timer.");

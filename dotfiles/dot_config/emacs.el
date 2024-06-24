@@ -22,7 +22,7 @@
                        tab-bar-format-tabs
                        tab-bar-separator))
 (setq tab-bar-close-button-show nil)
-;; (setq tab-line-tab-max-width 20) ; Adjust the number as needed
+(setq tab-line-tab-max-width 20) ; Adjust the number as needed
 
 (setq scroll-step 1)
 

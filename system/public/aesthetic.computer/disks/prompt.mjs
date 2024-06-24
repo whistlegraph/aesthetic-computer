@@ -2,7 +2,7 @@
 //         2021.11.28.03.13 (Created on)
 // A language based "access-everything" console with LLM fallback.
 
-/* #region 📚 README 
+/* #region 📚 README
 #endregion */
 
 /* #region 🏁 todo
@@ -13,7 +13,7 @@
   - [x] Reset pieceCount on developer reload.
   - [x] Reposition buttons once the frame is resized.
   - [x] Hide buttons after logging in.
-  - [x] Hide buttons once starting to type. 
+  - [x] Hide buttons once starting to type.
   - [x] Wire up login and sign-up buttons.
   - [x] Make Login Button
     - [x] Get layering working with `write`.
@@ -33,24 +33,24 @@ const before = `
 You are playing a character who tries to help me find the command I'm searching for
 
 - The following is a data set of all possible options for commands:
-  - 'bgm', 'bits', 'blank', 'bleep', 'bubble', 'camera', 
+  - 'bgm', 'bits', 'blank', 'bleep', 'bubble', 'camera',
   'channel', 'decode', 'baktok', 'painting'
   'download', 'encode', 'ff', 'freaky-flowers', 'gargoyle', 'handle',
-  'happy-hands-assembler', 'hha', 'liar', 'line', 'login', 
+  'happy-hands-assembler', 'hha', 'liar', 'line', 'login',
   'logout', 'm2w2', 'melody', 'metronome', 'microphone',
-  'no!', 'no', 'oval', 'done', 'paint', 'paste', 'handprint', 
-  'plot', 'profile', 'prompt', 'pull', 'rect', 
-  'girlfriend', 'boyfriend', 'mom', 'dad', 'husband', 'wife', 'kid', 'brother', 'sister', 'scawy-snake', 'scream', 'sfx', 'shape', 'sign', 'sing', 'smear', 
+  'no!', 'no', 'oval', 'done', 'paint', 'paste', 'handprint',
+  'plot', 'profile', 'prompt', 'pull', 'rect',
+  'girlfriend', 'boyfriend', 'mom', 'dad', 'husband', 'wife', 'kid', 'brother', 'sister', 'scawy-snake', 'scream', 'sfx', 'shape', 'sign', 'sing', 'smear',
   'song', 'sparkle', 'right', 'left', 'flip', 'flop',
-  'staka', 'starfield', 'tone', 'tracker', 'valbear', 'vary', 'video', 'wand', 'wg', 
+  'staka', 'starfield', 'tone', 'tracker', 'valbear', 'vary', 'video', 'wand', 'wg',
   'wgr', 'whistle', 'whistlegraph', 'wipe', 'word', 'zoom', 'booted-by'.
 
 - If I type a word that is similar to one of the commands, you only respond "did you mean
 (insert correct command)?"
   - for example, if I write "linr", you write "Try typing 'line' instead"
   - you only suggest correct commands that are in the above data set
-  - when you suggest a command, always put it in quotes. 
-  - if I type "hife" you do not suggest "life" because that is not a command in the data set 
+  - when you suggest a command, always put it in quotes.
+  - if I type "hife" you do not suggest "life" because that is not a command in the data set
   - you do not respond with any additional information
 
 If the user asks to delete their account or enters "delete" or "deactivate", you tell them to enter "delete-erase-and-forget-me" to delete their account.
@@ -742,6 +742,15 @@ async function halt($, text) {
     );
     makeFlash($);
     return true;
+  } else if (text === "+") {
+    jump(`out:${location.origin}`);
+    makeFlash($);
+    return true;
+  } else if (text.startsWith("google")) {
+    const query = text.substring(7).trim(); // Extract the search query
+    jump(`https://www.google.com/search?q=${encodeURIComponent(query)}`);
+    makeFlash($);
+    return true;
   } else if (text.startsWith("source")) {
     // Try to grab the piece requested in param[0] or just load blank.
     const piece = params[0] || "blank";
@@ -812,7 +821,10 @@ async function halt($, text) {
     const email = text.split(" ")[1];
     let clear = true;
     if (email) {
-      const res = await net.userRequest("POST", "/api/email", { email });
+      const res = await net.userRequest("POST", "/api/email", {
+        email,
+        name: email,
+      });
       console.log("Request:", res);
       if (res.email) {
         flashColor = [0, 255, 0];
@@ -1233,6 +1245,13 @@ async function halt($, text) {
     makeFlash($, false);
     flashColor = [255, 0, 0];
     return true;
+  } else if (text.toLowerCase() === "sotce-net") {
+    jump(
+      debug ? "https://" + location.host + "/sotce-net" : "https://sotce.net",
+    );
+    flashColor = "pink";
+    makeFlash($);
+    return true;
   } else if (text.toLowerCase() === "github" || text === "gh") {
     jump("https://github.com/digitpain/aesthetic.computer");
     makeFlash($);
@@ -1293,6 +1312,7 @@ async function halt($, text) {
     net.hiccup();
     return true;
   } else {
+    console.log("🟢 Attempting a load!");
     // 🟠 Local and remote pieces...
 
     // Theory: Is `load` actually similar to eval?
@@ -1305,13 +1325,15 @@ async function halt($, text) {
       loaded = await load(body, false, false, true); // Force `devReload` flag.
       //                                                (in case of publish)
     } else {
-      body = parse(text);
+      body = parse(trimmed);
       loaded = await load(body); // Execute the current command.
     }
 
+    // console.log("Loaded:", loaded);
+
     if (!loaded) {
       leaving(false);
-      if (text.indexOf(" ") === -1 && text !== "goodiepal") {
+      if (/*text.indexOf(" ") === -1 &&*/ text !== "goodiepal") {
         system.prompt.input.text = TYPO_REPLY;
         system.prompt.input.replied($); // Set the UI state back to normal.
         loaded = { replied: true };
@@ -1425,8 +1447,10 @@ function paint($) {
 
   //what we actually want for login and signup is pal.signup / pal.login
   //currently gives an error, I think because of paint (works fine with ink)
-  if (!login?.btn.disabled) {
-    login?.paint($, $.dark ? scheme.dark.login : scheme.light.login);
+  if (!net.sandboxed) {
+    if (!login?.btn.disabled) {
+      login?.paint($, $.dark ? scheme.dark.login : scheme.light.login);
+    }
   }
 
   if (!net.iframe) {
@@ -1604,14 +1628,16 @@ function act({
     });
   };
 
-  login?.btn.act(e, {
-    down: () => downSound(),
-    push: () => {
-      pushSound();
-      net.login();
-      // if (net.iframe) jump("login-wait");
-    },
-  });
+  if (!net.sandboxed) {
+    login?.btn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        net.login();
+        // if (net.iframe) jump("login-wait");
+      },
+    });
+  }
 
   if (!net.iframe) {
     signup?.btn.act(e, {

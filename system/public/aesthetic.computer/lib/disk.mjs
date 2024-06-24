@@ -55,8 +55,6 @@ let sessionStarted = false; // A flag that waits to boot until a session was
 
 let LAN_HOST; // The IP address of the hosting machine on the local network.
 let SHARE_SUPPORTED; // Whether navigator.share is supported. (For `dl`)
-//let IFRAME; // Flag if this aesthetic client is hosted in an iframe.
-// (For development and IRL workshops)
 let debug = false; // This can be overwritten on boot.
 let visible = true; // Is aesthetic.computer visibly rendering or not?
 
@@ -1901,8 +1899,12 @@ const $paintApi = {
   // Argument options:
   // text, pos: {x, y, center}, bg (optional)
   write: function (text, pos, bg, bounds, wordWrap = true) {
-    if (!text || !tf) return $activePaintApi; // Fail silently if no text.
-    text = text.toString();
+    if (text === undefined || text === null || !tf) return $activePaintApi; // Fail silently if no text.
+
+    text =
+      typeof text === "object" && text !== null
+        ? JSON.stringify(text)
+        : text.toString();
 
     // 🎁
     // See if the text length is greater than the bounds, and if it is then
@@ -2707,7 +2709,7 @@ async function load(
         // console.log("📥 Loading from url:", fullUrl);
         // TODO: ❤️‍🔥 Skip URL load attempts if this is a devReload.
         response = await fetch(fullUrl);
-        if (response.status === 404) {
+        if (response.status === 404 || response.status === 403) {
           const anonUrl =
             location.protocol +
             "//" +
@@ -2783,7 +2785,7 @@ async function load(
       response = await fetch(fullUrl);
       // console.log("🤖 Response:", response);
 
-      if (response.status === 404) {
+      if (response.status === 404 || response.status === 403) {
         const anonUrl =
           location.protocol +
           "//" +
@@ -2820,8 +2822,9 @@ async function load(
       loadFailure = err;
       $commonApi.net.loadFailureText = err.message + "\n" + sourceCode;
       loading = false;
+
       // Only return a 404 if the error type is correct.
-      if (firstLoad && err.message === "404") {
+      if (firstLoad && (err.message === "404" || err.message === "403")) {
         $commonApi.jump(`404~${slug}`);
       } else {
         $commonApi.notice(":(", ["red", "yellow"]);
@@ -2889,8 +2892,6 @@ async function load(
         devReload,
       );
     } else if (piece !== undefined) {
-      // TODO: Make this happen...
-      console.log("Jump instantly to:", piece);
       $commonApi.load(parse(piece), false, false, true);
     }
   };
@@ -3756,6 +3757,7 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.net.lan = LAN_HOST;
     $commonApi.user = USER;
     $commonApi.net.iframe = content.iframe;
+    $commonApi.net.sandboxed = content.sandboxed;
 
     codeChannelAutoLoader = null;
     codeChannel = await store.retrieve("code-channel");
@@ -3777,6 +3779,7 @@ async function makeFrame({ data: { type, content } }) {
     };
 
     // await handle(); // Get the user's handle.
+    // console.log("🟢 Loading after preamble:", content.parsed);
     originalHost = content.parsed.host;
     loadAfterPreamble = () => {
       loadAfterPreamble = null;
@@ -4190,7 +4193,7 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "store:retrieved") {
-    // console.log("Retrieved:", content, storeRetrievalResolutions);
+    // console.log("💚 Retrieved:", content, storeRetrievalResolutions);
     storeRetrievalResolutions[content.key]?.(content.data);
     delete storeRetrievalResolutions[content.key];
     return;
@@ -5744,7 +5747,8 @@ async function makeFrame({ data: { type, content } }) {
 
     // Wait 8 frames of the default piece before loading the initial piece.
     // And also make sure the session has been queried.
-    if (paintCount > 8n && sessionStarted) loadAfterPreamble?.(); // Start loading after the first disk if necessary.
+    if (paintCount > 8n && (sessionStarted || $commonApi.net.sandboxed))
+      loadAfterPreamble?.(); // Start loading after the first disk if necessary.
 
     soundClear?.();
 

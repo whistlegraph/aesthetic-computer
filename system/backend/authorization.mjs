@@ -8,11 +8,18 @@ import { connect } from "./database.mjs";
 import * as KeyValue from "./kv.mjs";
 const dev = process.env.CONTEXT === "dev";
 
-export async function authorize({ authorization }) {
+const aestheticBaseURI = "https://aesthetic.us.auth0.com";
+const sotceBaseURI = "https://sotce.us.auth0.com";
+
+export async function authorize({ authorization }, tenant = "aesthetic") {
   try {
     const { got } = await import("got");
+    const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
+
+    console.log("Authorizing...", tenant);
+
     return (
-      await got("https://aesthetic.us.auth0.com/userinfo", {
+      await got(`${baseURI}/userinfo`, {
         headers: { Authorization: authorization },
         responseType: "json",
       })
@@ -32,22 +39,20 @@ export async function hasAdmin(user) {
   );
 }
 
-export async function userIDFromEmail(email) {
+export async function userIDFromEmail(email, tenant = "aesthetic") {
   try {
     // Get an access token to the auth0 management API for the email lookup.
 
     // Then check to get the user ID via their email.
     const { got } = await import("got");
-    const token = await getAccessToken(got);
+    const token = await getAccessToken(got, tenant);
+    const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
 
-    const userResponse = await got(
-      "https://aesthetic.us.auth0.com/api/v2/users-by-email",
-      {
-        searchParams: { email },
-        headers: { Authorization: `Bearer ${token}` },
-        responseType: "json",
-      },
-    );
+    const userResponse = await got(`${baseURI}/api/v2/users-by-email`, {
+      searchParams: { email },
+      headers: { Authorization: `Bearer ${token}` },
+      responseType: "json",
+    });
 
     const user = userResponse.body[0];
     const userID = user?.user_id;
@@ -169,32 +174,44 @@ export async function userIDFromHandleOrEmail(handleOrEmail, database) {
 }
 
 // Sets the user's email and triggers a re-verification email.
-export async function setEmailAndReverify(id, email) {
+export async function setEmailAndReverify(id, email, name, tenant = "aesthetic") {
   try {
     const { got } = await import("got");
-    const token = await getAccessToken(got);
+    const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
 
-    // 1. Update the user's email
-    const updateEmailResponse = await got(
-      `https://aesthetic.us.auth0.com/api/v2/users/${encodeURIComponent(id)}`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+    const token = await getAccessToken(got, tenant);
+
+    console.log("Tenant:", tenant, "Token:", token, "ID:", id);
+
+    // 1. Update the user's email and ('name' which is equivalent to email
+    //    in auth0 but generally unused by Aesthetic Computer.)
+    let updateEmailResponse;
+    try {
+      updateEmailResponse = await got(
+        `${baseURI}/api/v2/users/${encodeURIComponent(id)}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          json: { name, email, email_verified: false },
+          responseType: "json",
         },
-        json: { email, email_verified: false },
-        responseType: "json",
-      },
-    );
+      );
+    } catch (err) {
+      console.error("ERRORRRR:", err);
+    }
 
     if (!updateEmailResponse.body) {
       throw new Error("Failed to update user email");
     }
 
+    console.log("EMAIL RESPONSE:", updateEmailResponse.body);
+
     // 2. Trigger the verification email
     const verificationResponse = await got(
-      `https://aesthetic.us.auth0.com/api/v2/jobs/verification-email`,
+      `${baseURI}/api/v2/jobs/verification-email`,
       {
         method: "POST",
         headers: {
@@ -249,21 +266,30 @@ export async function deleteUser(userId) {
 
 // 📚 Library (Useful functions used throughout the file.)
 // Obtain an auth0 access token for our M2M API.
-async function getAccessToken(got) {
-  const tokenResponse = await got(
-    `https://aesthetic.us.auth0.com/oauth/token`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      json: {
-        client_id: process.env.AUTH0_M2M_CLIENT_ID,
-        client_secret: process.env.AUTH0_M2M_SECRET,
-        audience: "https://aesthetic.us.auth0.com/api/v2/",
-        grant_type: "client_credentials", // Use "client_credentials" for M2M
-      },
-      responseType: "json",
+async function getAccessToken(got, tenant = "aesthetic") {
+  let baseURI, client_id, client_secret;
+  if (tenant === "aesthetic") {
+    baseURI = aestheticBaseURI;
+    client_id = process.env.AUTH0_M2M_CLIENT_ID;
+    client_secret = process.env.AUTH0_M2M_SECRET;
+  } else {
+    // assume tenant is `sotce`.
+    baseURI = sotceBaseURI;
+    client_id = process.env.SOTCE_AUTH0_M2M_CLIENT_ID;
+    client_secret = process.env.SOTCE_AUTH0_M2M_SECRET;
+  }
+
+  const tokenResponse = await got(`${baseURI}/oauth/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    json: {
+      client_id,
+      client_secret,
+      audience: `${baseURI}/api/v2/`,
+      grant_type: "client_credentials", // Use "client_credentials" for M2M
     },
-  );
+    responseType: "json",
+  });
 
   return tokenResponse.body.access_token;
 }
