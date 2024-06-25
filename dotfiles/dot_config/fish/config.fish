@@ -200,7 +200,7 @@ end
 silence_xhost
 
 # Increase Node.js heap size
-set -x NODE_OPTIONS "--max-old-space-size=4096"
+set -x NODE_OPTIONS "--max-old-space-size=8192"
 
 ## watch for changes in `.started`
 #function watch_trigger

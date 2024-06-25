@@ -54,10 +54,10 @@ RUN curl -L https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcer
 USER me
 
 # Install gyp
-git clone https://chromium.googlesource.com/external/gyp.git /home/me/.local/lib/python3.10/site-packages/gyp
+RUN sudo dnf install -y python3-devel && \
+    git clone https://chromium.googlesource.com/external/gyp.git /home/me/.local/lib/python3.10/site-packages/gyp
 
-# RUN sudo dnf install -y python3-devel && \
-Set working directory to me user.
+# Set working directory to me user.
 WORKDIR /home/me
 
 RUN mkdir -p .config/fish && \
@@ -86,7 +86,7 @@ RUN eval "$(fnm env --use-on-cd)" && \
 RUN pip3 install shell-gpt
 
 # Install aider: https://github.com/paul-gauthier/aider?tab=readme-ov-file#getting-started
-RUN pip3 install aider-chat
+# RUN pip3 install aider-chat
 
 # Install OPS and Nanos: https://nanos.org/getting_started
 RUN curl https://ops.city/get.sh -sSfL | sh

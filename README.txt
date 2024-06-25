@@ -42,6 +42,40 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** after first period ***
+- [] make sure logging in works via the extension 
+- [] mute socket connection logs (bad for class) 
+- [] design "brush" activity for thursday 
+- [] add list of user pieces to the profile pages
+- [] fix tape
+- [] qr codes to user pieces / double slashes break
+
+*** class -> user list ***
+  - [x] caihong -> @caihong
+  - [x] kim -> @kim
+  - [x] tori -> @toriwazhere
+  - [x] masayo -> @mayomochi
+  - [x] samantha -> @samanthaschen
+  - [x] javid -> @joda
+  - [x] zuhair -> @zuhair
+
+*** ida convo (pre-class) ***
+ - [] separate chat server for class
+  - [] how would this work for notifications?
+  - [] individualized device notifications should be added now
+  - [] add ability for @jeffrey to delete chat messages via mobile
+ - [] chat should focus on text only features for now
+ - [] images can come later
+ + Done
+ - [x] fix syllabus medical thing / oversight
+ - [x] instead just talk and gather information
+
+*** invites ***
+ - [] how would this work for virtual events, like inviting people in a class in real-time
+      to a space or session
+ - [] make a partiful invite clone that can send text messages to users
+      who give their phone number and can leave something on the board
+
 *** electron app ***
   - [🟠] Make an aesthetic computer electron app that's capable of opening
          new windows and builds for all platforms, especially linux and macos.
@@ -49,7 +83,7 @@ but technically agnostic. (Choose your aesthetic!)
 *** sotce.net ***
   - [🧡] Test signup in development.
   - [] Finish login and logout in VS Code local with refresh.
-  - [] Test login in production in VS Code. 
+  - [] Test login in production in VS Code.
   - [🎇] See `sotce-net.mjs`
   + Done
   - [x] Check how the auth works / token passing works from VSCode.
