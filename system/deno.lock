@@ -99,20 +99,15 @@
         "npm:npm-check-updates@^16.14.20",
         "npm:obscenity@^0.2.1",
         "npm:openai@^4.47.1",
-        "npm:parcel-reporter-static-files-copy@^1.5.3",
-        "npm:parcel@^2.12.0",
         "npm:patreon@^0.4.1",
         "npm:playwright-core@^1.44.1",
         "npm:prettier@^3.2.5",
         "npm:puppeteer@^21.10.0",
         "npm:redis@^4.6.14",
-        "npm:rollup@^4.18.0",
         "npm:sharp@^0.33.4",
         "npm:stripe@^15.8.0",
-        "npm:terser@^5.31.0",
         "npm:three@^0.164.1",
         "npm:typescript@^5.4.5",
-        "npm:uglify@^0.1.5",
         "npm:web3@^4.9.0"
       ]
     }
