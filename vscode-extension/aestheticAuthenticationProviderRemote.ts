@@ -23,13 +23,6 @@ if (typeof self === "undefined") {
   icrypto = crypto;
 }
 
-let AUTH_TYPE: string,
-  AUTH_NAME: string,
-  CLIENT_ID: string,
-  AUTH0_DOMAIN: string,
-  SESSIONS_SECRET_KEY: string,
-  REDIRECT_URL: string;
-
 let remoteOutput = win.createOutputChannel("aesthetic");
 
 interface TokenInformation {
@@ -47,7 +40,7 @@ class UriEventHandler extends EventEmitter<Uri> implements UriHandler {
   }
 }
 
-const uriHandler = new UriEventHandler;
+const uriHandler = new UriEventHandler();
 win.registerUriHandler(uriHandler);
 
 export class AestheticAuthenticationProvider
@@ -63,6 +56,14 @@ export class AestheticAuthenticationProvider
   >();
   private _codeVerfifiers = new Map<string, string>();
   private _scopes = new Map<string, string[]>();
+  private env = {
+    AUTH_TYPE: "",
+    AUTH_NAME: "",
+    CLIENT_ID: "",
+    AUTH0_DOMAIN: "",
+    REDIRECT_URL: "",
+    SESSIONS_SECRET_KEY: "",
+  };
 
   constructor(
     private readonly context: ExtensionContext,
@@ -70,31 +71,31 @@ export class AestheticAuthenticationProvider
     tenant: string,
   ) {
     if (tenant === "aesthetic") {
-      AUTH_TYPE = `aesthetic`;
-      AUTH_NAME = `Aesthetic Computer`;
-      CLIENT_ID = `LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt`;
-      AUTH0_DOMAIN = `hi.aesthetic.computer`;
-      REDIRECT_URL = `https://${
+      this.env.AUTH_TYPE = `aesthetic`;
+      this.env.AUTH_NAME = `Aesthetic Computer`;
+      this.env.CLIENT_ID = `LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt`;
+      this.env.AUTH0_DOMAIN = `hi.aesthetic.computer`;
+      this.env.REDIRECT_URL = `https://${
         local ? "localhost:8888" : "aesthetic.computer"
       }/redirect-proxy`;
     } else if (tenant === "sotce") {
-      AUTH_TYPE = `sotce`;
-      AUTH_NAME = `Sotce`;
-      CLIENT_ID = `3SvAbUDFLIFZCc1lV7e4fAAGKWXwl2B0`;
-      AUTH0_DOMAIN = `hi.sotce.net`;
-      REDIRECT_URL = `https://${
+      this.env.AUTH_TYPE = `sotce`;
+      this.env.AUTH_NAME = `Sotce`;
+      this.env.CLIENT_ID = `3SvAbUDFLIFZCc1lV7e4fAAGKWXwl2B0`;
+      this.env.AUTH0_DOMAIN = `hi.sotce.net`;
+      this.env.REDIRECT_URL = `https://${
         local ? "localhost:8888" : "sotce.net"
       }/redirect-proxy-sotce`;
     }
 
-    SESSIONS_SECRET_KEY = `${AUTH_TYPE}.sessions`;
+    this.env.SESSIONS_SECRET_KEY = `${this.env.AUTH_TYPE}.sessions`;
 
     // console.log("Authentication provider registering...", AUTH_TYPE, AUTH_NAME);
 
     this._disposable = Disposable.from(
       authentication.registerAuthenticationProvider(
-        AUTH_TYPE,
-        AUTH_NAME,
+        this.env.AUTH_TYPE,
+        this.env.AUTH_NAME,
         this,
         { supportsMultipleAccounts: false },
       ),
@@ -122,7 +123,9 @@ export class AestheticAuthenticationProvider
     scopes?: string[],
   ): Promise<readonly AestheticAuthenticationSession[]> {
     try {
-      const allSessions = await this.context.secrets.get(SESSIONS_SECRET_KEY);
+      const allSessions = await this.context.secrets.get(
+        this.env.SESSIONS_SECRET_KEY,
+      );
       if (!allSessions) {
         return [];
       }
@@ -142,7 +145,7 @@ export class AestheticAuthenticationProvider
             const refreshToken = session.refreshToken;
             const { access_token } = await this.getAccessToken(
               refreshToken,
-              CLIENT_ID,
+              this.env.CLIENT_ID,
             );
 
             if (access_token) {
@@ -177,7 +180,7 @@ export class AestheticAuthenticationProvider
     try {
       const { access_token, refresh_token } = await this.login(scopes);
       if (!access_token) {
-        throw new Error(`${AUTH_NAME} login failure`);
+        throw new Error(`${this.env.AUTH_NAME} login failure`);
       }
 
       const userinfo: { name: string; email: string; sub: string } =
@@ -195,7 +198,7 @@ export class AestheticAuthenticationProvider
       };
 
       await this.context.secrets.store(
-        SESSIONS_SECRET_KEY,
+        this.env.SESSIONS_SECRET_KEY,
         JSON.stringify([session]),
       );
 
@@ -217,7 +220,9 @@ export class AestheticAuthenticationProvider
    * @param sessionId
    */
   public async removeSession(sessionId: string): Promise<void> {
-    const allSessions = await this.context.secrets.get(SESSIONS_SECRET_KEY);
+    const allSessions = await this.context.secrets.get(
+      this.env.SESSIONS_SECRET_KEY,
+    );
     if (allSessions) {
       let sessions = JSON.parse(allSessions) as AuthenticationSession[];
       const sessionIdx = sessions.findIndex((s) => s.id === sessionId);
@@ -225,7 +230,7 @@ export class AestheticAuthenticationProvider
       sessions.splice(sessionIdx, 1);
 
       await this.context.secrets.store(
-        SESSIONS_SECRET_KEY,
+        this.env.SESSIONS_SECRET_KEY,
         JSON.stringify(sessions),
       );
 
@@ -253,7 +258,7 @@ export class AestheticAuthenticationProvider
     return await win.withProgress<TokenInformation>(
       {
         location: ProgressLocation.Notification,
-        title: `🟡 Logging in to ${AUTH_NAME}...`,
+        title: `🟡 Logging in to ${this.env.AUTH_NAME}...`,
         cancellable: true,
       },
       async (_, token) => {
@@ -289,8 +294,8 @@ export class AestheticAuthenticationProvider
 
         const searchParams = new URLSearchParams([
           ["response_type", "code"],
-          ["client_id", CLIENT_ID],
-          ["redirect_uri", REDIRECT_URL],
+          ["client_id", this.env.CLIENT_ID],
+          ["redirect_uri", this.env.REDIRECT_URL],
           ["state", encodeURIComponent(callbackUri.toString(true))],
           ["scope", scopes.join(" ")],
           ["prompt", "login"],
@@ -298,7 +303,9 @@ export class AestheticAuthenticationProvider
           ["code_challenge", codeChallenge],
         ]);
         const uri = Uri.parse(
-          `https://${AUTH0_DOMAIN}/authorize?${searchParams.toString()}`,
+          `https://${
+            this.env.AUTH0_DOMAIN
+          }/authorize?${searchParams.toString()}`,
         );
 
         remoteOutput.appendLine(`Login URI: ${uri.toString(true)}`);
@@ -376,20 +383,23 @@ export class AestheticAuthenticationProvider
 
       const postData = new URLSearchParams({
         grant_type: "authorization_code",
-        client_id: CLIENT_ID,
+        client_id: this.env.CLIENT_ID,
         code,
         code_verifier: codeVerifier,
-        redirect_uri: REDIRECT_URL,
+        redirect_uri: this.env.REDIRECT_URL,
       }).toString();
 
-      const response = await fetch(`https://${AUTH0_DOMAIN}/oauth/token`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "Content-Length": postData.length.toString(),
+      const response = await fetch(
+        `https://${this.env.AUTH0_DOMAIN}/oauth/token`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Length": postData.length.toString(),
+          },
+          body: postData,
         },
-        body: postData,
-      });
+      );
 
       const { access_token, refresh_token } = await response.json();
 
@@ -405,7 +415,7 @@ export class AestheticAuthenticationProvider
    * @returns
    */
   private async getUserInfo(token: string) {
-    const response = await fetch(`https://${AUTH0_DOMAIN}/userinfo`, {
+    const response = await fetch(`https://${this.env.AUTH0_DOMAIN}/userinfo`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -452,14 +462,17 @@ export class AestheticAuthenticationProvider
       refresh_token: refreshToken,
     }).toString();
 
-    const response = await fetch(`https://${AUTH0_DOMAIN}/oauth/token`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Content-Length": postData.length.toString(),
+    const response = await fetch(
+      `https://${this.env.AUTH0_DOMAIN}/oauth/token`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Length": postData.length.toString(),
+        },
+        body: postData,
       },
-      body: postData,
-    });
+    );
 
     const { access_token } = await response.json();
 
