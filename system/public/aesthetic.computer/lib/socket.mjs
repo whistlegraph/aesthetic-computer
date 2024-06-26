@@ -110,7 +110,7 @@ export class Socket {
       clearTimeout(this.#reconnectTimeout);
     } else {
       this.#reconnectTime = reconnectIn * 1000;
-      console.log("🧦 Reconnecting in:", this.#reconnectTime, "seconds.");
+      if (logs.session) console.log("🧦 Reconnecting in:", this.#reconnectTime, "seconds.");
     }
     this.#ws?.close();
   }

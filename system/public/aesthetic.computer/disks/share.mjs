@@ -18,7 +18,6 @@ let cells,
   alt = false,
   alt2 = false;
 
-// 🥾 Boot
 function boot({ api, hud, params, net, ui, blink }) {
   console.log("Params:", params);
   if (params[0]?.startsWith("https://") || params[0]?.startsWith("http://")) {
@@ -46,10 +45,9 @@ function boot({ api, hud, params, net, ui, blink }) {
 
 const { floor, min, max } = Math;
 
-// 🎨 Paint
 function paint({ api, wipe, ink, screen, help: { choose } }) {
   wipe(alt ? [32, 0, 64] : [20, 8, 54]); // Clear the screen.
-  starfield.paint(api, { alpha: 0.8, color: [255, 0, 200] }); // 🌟 backdrop.
+  starfield.paint(api, { alpha: 0.8, color: [255, 0, 200] }); // 🌟 Backdrop.
 
   let margin = screen.width / screen.height > 0.8 ? 32 : 6; // 🔳 Paint QR Code
   const width = screen.width - margin * 2;
@@ -104,43 +102,20 @@ function paint({ api, wipe, ink, screen, help: { choose } }) {
   }
 }
 
-// 🎪 Act
 function act({ event: e, jump }) {
   enter.btn.act(e, { push: () => jump(slug || url) });
 }
 
-// 🧮 Sim
 function sim($) {
   starfield.sim($);
 }
 
-// 🥁 Beat
-// function beat() {
-//   // Runs once per metronomic BPM.
-// }
-
-// 👋 Leave
-// function leave() {
-//  // Runs once before the piece is unloaded.
-// }
-
-// 📰 Meta
 function meta() {
   return {
     title: "Share",
     desc: "Share a link with a QR code of an AC piece.",
   };
 }
-
-// 🖼️ Preview
-// function preview({ ink, wipe }) {
-// Render a custom thumbnail image.
-// }
-
-// 🪷 Icon
-// function icon() {
-// Render an application icon, aka favicon.
-// }
 
 export { boot, paint, act, sim, meta };
 

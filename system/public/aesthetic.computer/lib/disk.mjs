@@ -370,12 +370,12 @@ function connectToChat() {
       }
 
       if (type === "left") {
-        console.log("️✌️ Goodbye:", id);
+        // console.log("️✌️ Goodbye:", id);
         chatSystem.chatterCount -= 1;
       }
 
       if (type === "joined") {
-        console.log("️👋 Hello:", id, type, content);
+        // console.log("️👋 Hello:", id, type, content);
         chatSystem.chatterCount += 1;
       }
 
@@ -1733,7 +1733,7 @@ async function session(slug, forceProduction = false, service) {
         const color = colors[update.state] || "🔵";
 
         if (update.state === "Ready") {
-          console.log(color + `\`${slug}\` Backend:`, update.state);
+          if (logs.session) console.log(color + `\`${slug}\` Backend:`, update.state);
         }
 
         if (update.state === "Loading") {
@@ -2416,14 +2416,14 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
     reframe = { width, height, gap };
   }
 
-  console.log(
-    "🖼 Reframe to:",
-    width,
-    height,
-    "from",
-    screen.width,
-    screen.height,
-  );
+  // console.log(
+  //   "🖼 Reframe to:",
+  //   width,
+  //   height,
+  //   "from",
+  //   screen.width,
+  //   screen.height,
+  // );
 
   // 3. Assign the generated or manual width and height.
   const oldScreen = {
