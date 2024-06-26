@@ -3659,7 +3659,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       };
 
       const onError = (err) => {
-        console.error(err);
+        // console.error(err);
         send({ type: "loaded-bitmap-rejection", content: { url: content } });
         img.removeEventListener("load", onLoad); // Remove the other listener too
       };
@@ -4421,7 +4421,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Check if navigator.share is supported and we are either on
     // iOS or Android
-    console.log("🧑‍🤝‍🧑 Sharing:", modifiers?.sharing, "Capable:", navigator.share);
+    // console.log("🧑‍🤝‍🧑 Sharing:", modifiers?.sharing, "Capable:", navigator.share);
     if ((iOS || Android) && modifiers?.sharing === true && navigator.share) {
       shareFile = new File(
         [blob || new Blob([data], { type: MIME })],

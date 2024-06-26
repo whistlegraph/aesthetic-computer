@@ -43,12 +43,11 @@ but technically agnostic. (Choose your aesthetic!)
 🌟 Projects in Progress (PIP) 🌟
 
 *** after first period ***
-- [] mute socket connection logs (bad for class) 
-- [] design "brush" activity for thursday 
-- [] add list of user pieces to the profile pages
-- [] fix tape
-- [] qr codes to user pieces / double slashes break
+- [] add linked list of user pieces to profile pages
+- [] design visual activities for thursday 
 + Done
+- [c] fix tape
+- [x] mute socket connection logs (bad for class) 
 - [x] make sure logging in works via the extension 
 
 *** class -> user list ***
