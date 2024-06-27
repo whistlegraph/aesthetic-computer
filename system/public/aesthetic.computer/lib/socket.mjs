@@ -37,7 +37,9 @@ export class Socket {
       console.warn("🧦 Already connected...");
       return;
     }
-    //if (this.#debug && logs.session) console.log("🧦 Connecting...", host);
+
+    if (this.#debug && logs.session) console.log("🧦 Connecting...", host);
+
     try {
       this.#ws = new WebSocket(`${protocol}://${host}`);
     } catch {
@@ -73,8 +75,9 @@ export class Socket {
       socket.connected = false;
       // Only reconnect if we are not killing the socket and not in development mode.
       if (socket.#killSocket === false) {
-        if (logs.session)
+        if (logs.session) {
           console.log("🧦 Reconnecting in:", socket.#reconnectTime, "ms");
+        }
         this.#reconnectTimeout = setTimeout(() => {
           socket.connect(host, receive, reload, protocol, connectCallback);
         }, socket.#reconnectTime);
@@ -110,7 +113,9 @@ export class Socket {
       clearTimeout(this.#reconnectTimeout);
     } else {
       this.#reconnectTime = reconnectIn * 1000;
-      if (logs.session) console.log("🧦 Reconnecting in:", this.#reconnectTime, "seconds.");
+      if (logs.session) {
+        console.log("🧦 Reconnecting in:", this.#reconnectTime, "seconds.");
+      }
     }
     this.#ws?.close();
   }
@@ -123,11 +128,12 @@ export class Socket {
       const c = JSON.parse(content);
       this.id = id; // Set the user identifier.
       // Send a self-connection message here. (You are connected as...)
-      if (logs.session)
-        // console.log(
-        //   `🧦 You joined: ${c.ip} id: ${c.id} 🤹 Connections open: ${c.playerCount}`,
-        // );
-        receive?.(id, type, c);
+      if (logs.session) {
+        console.log(
+          `🧦 You joined: ${c.ip} id: ${c.id} 🤹 Connections open: ${c.playerCount}`,
+        );
+      }
+      receive?.(id, type, c);
     } else if (type === "joined") {
       const c = JSON.parse(content);
       if (logs.session) console.log(`🧦 ${c.text || c}`); // Someone else has connected as...
