@@ -3,45 +3,85 @@
 // Enter `source ucla-1` to open this file.
 
 /* 📝 Notes 
+
+  - Opening the JavaScript Console -
+  VS Code: Open Command Bar: Ctrl (Command) + Shift + P
+           Help -> Toggle Developer Tools
+           ⚠️ Then find the 'Console' tab.
+
   - Today we will be painting basic graphics on 🟪 Aesthetic Computer
     in order to get a feel for 📜 JavaScript programming, using...
       🟪️ `paint` `wipe`, `ink`, `line`, `screen`, `resolution` and color specification
       📜 `function`, `console`, `let`, `const`, `if`, `for`, and basic math
     - Exercises -
-    - 1. Lines and Lets -
-    - 2. Stripes and For Loops -
-    - 3. Making Boxes -
+    - 1. ✅ Lines and Lets -
+    - 2. ✅ Stripes and For Loops -
+    - 3. ✅ Making Boxes -
 */
 
-function paint({ wipe, point, ink, resolution, screen, write }) {
-  resolution(3); // size or width and height
-  // wipe(127, 80); // Paint all pixels on screen a given color.
-  //   ^Brightness 0->255
-  //        ^Alpha 0->255
-  // wipe(255, 0, 0); // R, G, B (Red)
-  // wipe(0, 255, 0); // R, G, B (Green)
-  //wipe(0, 0, 255, 40); // R, G, B, Alpha (Blue)
-  wipe("purple"); // Or use any CSS Color Name.
-  // ink(255); // White
-  ink(255, 255, 0); // Yellow
-  point(0, 0); // x, y
-  point(2, 0);
-  ink("red");
-  point(0, 2);
-  ink("red", 128);
-  point(1, 2);
-  ink("lime");
-  point(2, 2);
-  // write(screen.width, {x: screen.width - 30, y: 160}); // text, {x, y}
-  // console.log(screen.width);
-}
+function paint({ wipe, point, line, ink, resolution, screen, write, pen, box }) {
+  wipe("black");
 
-export const nohud = true;
+  ink("teal");
+  box(0, 0, 100, 100);
+
+  // Paint a box...
+  // x, y
+  // width, height
+  function myBox(x, y, width, height, boxColor) {
+    for (let startX = x; startX <= x + width; startX = startX + 1) {
+      ink(boxColor);
+      line(startX, y, startX, y + height);
+    }
+  }
+
+  myBox(30, pen.y, 10, 10, "blue"); // ^ Calls the code from above.
+  myBox(0, 100, 20, 20, "red");
+  myBox(pen.x, pen.y, 8, 8, "pink");
+
+  // {
+  //   let x = 32;
+  //   let y = 64;
+  //   let width = 40;
+  //   let height = 40;
+  //   let boxColor = [255, 0, 0, 128]; // "Array"
+
+  //   for (let startX = x; startX <= x + width; startX = startX + 1) {
+  //     ink(boxColor);
+  //     line(startX, y, startX, y + height);
+  //   }
+
+  //   // Plot four points in our box.
+  //   ink("white");
+  //   point(x, y); // Top left.
+  //   point(x + width, y); // Top right
+  //   point(x, y + height); // Bottom left
+  //   point(x + width, y + height); // Bottom left
+  // }
+
+  // `for` "Loop" - JavaScript 'for' loop.
+  // determines how many times the code in { ... } will run
+  // for (let start = 0; start < screen.width; start = start + 1) {
+  //   if (start % 2 === 1) {
+  //     // start is odd
+  //     ink("red");
+  //     line(start, 0, start, screen.height);
+  //   }
+  // }
+
+  // for (let start = 0; start < screen.height; start = start + 1) {
+  //   if (start % 2 === 1) {
+  //     // start is odd
+  //     ink("blue");
+  //     line(0, start, screen.width, start);
+  //   }
+  // }
+}
 
 // 📚 Library
 
 // function boot() {
- // Runs once at the start.
+// Runs once at the start.
 // }
 
 // function act({ event: e }) {
