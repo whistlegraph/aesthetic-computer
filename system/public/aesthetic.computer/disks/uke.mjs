@@ -33,7 +33,7 @@ let color = "yellow";
 
 function paint({ api, wipe, ink, help, line, screen, num, sound }) {
   if (mic) {
-    if (mic.amplitude > 0.01 && mic.pitch > lo && mic.pitch < hi) {
+    if (mic.amplitude > 0.08 && mic.pitch > lo && mic.pitch < hi) {
       console.log(mic.pitch, mic.amplitude);
       const xinc = 10;//num.map(mic.pitch, lo, hi, 1, 5);
 
