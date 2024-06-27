@@ -2891,6 +2891,8 @@ async function load(
     const monolith = undefined; // "monolith"; // or `undefined` for horizontal scaling via
     // jamstack
 
+    console.log("Session slug:", slug);
+
     session(slug, forceProd, monolith)
       .then((sesh) => {
         if (typeof sesh === "string") throw new Error(sesh); // Cancel if error.
