@@ -2770,10 +2770,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Store: Retrieve
     if (type === "store:retrieve") {
       if (content.method === "local") {
-        console.log("Retrieving:", content.key);
-      }
-
-      if (content.method === "local") {
         let data;
 
         if (!sandboxed) {
