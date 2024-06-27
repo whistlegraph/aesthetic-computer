@@ -530,6 +530,7 @@ async function startChatServer() {
     });
 
     // Send a connect message to the new client.
+    // console.log("🧡 Sending connected message...", id);
     ws.send(
       pack(
         "connected",
