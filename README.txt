@@ -45,7 +45,8 @@ but technically agnostic. (Choose your aesthetic!)
 - [] add the bios load text overlay
 
 *** after first period ***
-- [] auto-hide the hud at smaller resolutions...
+- [] switching from ac local to ac production while the user is logged in should somehow remain compatible
+- [] draw an alternative dom based hud at smaller resolutions...
 - [] add linked list of user pieces to profile pages
 - [] fix index.js meta parsing logic so it works across the board for 
      all sources of mjs modules and all lisp modules, 💛 perhaps by running
@@ -63,7 +64,8 @@ but technically agnostic. (Choose your aesthetic!)
 - [x] make sure logging in works via the extension 
 
 *** class -> user list ***
-  - [] missing -> ???
+  - [x] joelle -> @joelle
+  - [x] noelani -> @noelanio
   - [x] caihong -> @caihong
   - [x] kim -> @kim
   - [x] tori -> @toriwazhere

@@ -339,20 +339,22 @@ function connectToChat() {
         chatSystem.chatterCount = content?.chatters || chatSystem.chatterCount;
         chatSystem.messages.length = 0;
         chatSystem.messages.push(...content.messages);
-        console.log(
-          `💬 %c${content.message}`,
-          `color: cyan; background: rgba(10, 20, 40);`,
-        );
+        if (logs.chat) {
+          console.log(
+            `💬 %c${content.message}`,
+            `color: cyan; background: rgba(10, 20, 40);`,
+          );
+        }
       }
 
       if (type === "unauthorized") {
-        console.log("🔴 Chat message unauthorized!", content);
+        if (logs.chat) console.log("🔴 Chat message unauthorized!", content);
         $commonApi.notice("Unauthorized", ["red", "yellow"]);
       }
 
       if (type === "message") {
         const msg = JSON.parse(content);
-        console.log("💬 Chat message received:", msg);
+        if (logs.chat) console.log("💬 Chat message received:", msg);
 
         chatSystem.messages.push(msg);
         content = msg; // Pass the transformed message.
@@ -381,14 +383,14 @@ function connectToChat() {
 
       chatSystem.receiver?.(id, type, content); // Run the piece receiver.
 
-      // console.log("🌠 Message received:", id, type, content);
+      // if (logs.chat) console.log("🌠 Message received:", id, type, content);
     },
     undefined, // reload
     "wss", // protocol
     undefined, // connectionCallback
     () => {
       // disconnectCallback
-      console.log("💬🚫 Chat disconnected.");
+      if (chat.log) console.log("💬🚫 Chat disconnected.");
       chatSystem.chatterCount = 0;
       chatSystem.connecting = true;
       chatSystem.disconnect?.();
@@ -1733,7 +1735,8 @@ async function session(slug, forceProduction = false, service) {
         const color = colors[update.state] || "🔵";
 
         if (update.state === "Ready") {
-          if (logs.session) console.log(color + `\`${slug}\` Backend:`, update.state);
+          if (logs.session)
+            console.log(color + `\`${slug}\` Backend:`, update.state);
         }
 
         if (update.state === "Loading") {
