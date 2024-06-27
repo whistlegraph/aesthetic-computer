@@ -1,13 +1,18 @@
-// Blank, 2024.6.27.12.04.00.079
-// A blank piece.
+// ucla-1, 2024.6.27.19.14.56.196
+// Basic graphics.
 
 /* 📝 Notes 
+  - Today we will be painting basic graphics on 🟪 Aesthetic Computer
+    in order to get a feel for 📜 JavaScript programming, using...
+      🟪️ `paint` `wipe`, `ink`, `line`, `screen`, and color specification
+      📜 `function` `let`, `const`, `if`, `for`, and basic math
+    - Exercises -
+    - 1. Lines and Lets -
+    - 2. Stripes and For Loops -
+    - 3. Making Boxes -
 */
 
-function paint({ wipe, ink, line, screen }) {
-  wipe("gray");
-  ink("yellow");
-  line(0, 0, screen.width, screen.height);
+function paint() {
 }
 
 // 📚 Library
