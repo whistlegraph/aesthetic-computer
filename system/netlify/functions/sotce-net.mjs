@@ -191,10 +191,10 @@ export const handler = async (event, context) => {
 
               if (!isAuthenticated) {
                 wrapper.innerHTML =
-                  'not signed in :( <br><button onclick="login()">Log in</button>' +
+                  'not signed in :( <br><button onclick="login()">log in</button>' +
                   (embedded
                     ? ""
-                    : '<button onclick="signup()">I&apos;m new</button>');
+                    : '<button onclick="signup()">i&apos;m new</button>');
               } else {
                 // 🅰️ Check / await email verification.
                 //  - [🟡] If unverified, then show awaiting animation
