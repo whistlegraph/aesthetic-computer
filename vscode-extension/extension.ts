@@ -751,9 +751,28 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
               vscode.window
                 .showTextDocument(document, { preview: false })
                 .then(() => {
-                  vscode.window.showInformationMessage(
-                    "🟡 Save this file with a `.mjs` extension to run it.",
+                  return vscode.window.showInformationMessage(
+                    "💾 Save this code with an `.mjs` extension to run it on Aesthetic Computer",
+                    { modal: true },
                   );
+                })
+                .then(() => {
+                  const defaultUri = vscode.Uri.file(path.join(vscode.workspace.rootPath, data.title));
+                  console.log("URI:", defaultUri);
+                  return vscode.window.showSaveDialog({
+                    filters: {
+                      "JavaScript Module": ["mjs"],
+                    },
+                    defaultUri,
+                    saveLabel: "Save As",
+                  });
+                })
+                .then((fileUri) => {
+                  if (fileUri) {
+                    vscode.window.showInformationMessage(
+                      "File saved at: " + fileUri.fsPath,
+                    );
+                  }
                 });
             });
           break;
