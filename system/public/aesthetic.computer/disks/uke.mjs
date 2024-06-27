@@ -48,7 +48,7 @@ function paint({ api, wipe, ink, help, line, screen, num, sound }) {
 
       if (x > screen.width) {
         // ink();
-        color = help.choose("red", "yellow", "blue");
+        color = undefined; //help.choose("red", "yellow", "blue");
         x = 0; //%= screen.width;
       }
 
