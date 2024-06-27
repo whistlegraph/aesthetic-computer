@@ -42,26 +42,26 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
-- [] add the bios load text overlay
-
 *** after first period ***
-- [] switching from ac local to ac production while the user is logged in should somehow remain compatible
-- [] draw an alternative dom based hud at smaller resolutions...
-- [] add linked list of user pieces to profile pages
-- [] fix index.js meta parsing logic so it works across the board for 
-     all sources of mjs modules and all lisp modules, 💛 perhaps by running
-     sources through a pre-processor endpoint builder function 💛
-- [] suppress top-level function warnings in vscode
-- [🧡] title of documentation doesn't change when clicking with the
-     tab open
-- [] design piano keys activity for tuesday 
-+ Done
-- [x] design colored bars activity for thursday
-- [x] should all top-level functions be auto-exported
-      if they exist, based on a whitelist?
-- [c] fix tape
-- [x] mute socket connection logs (bad for class) 
-- [x] make sure logging in works via the extension 
+  - [] add the bios load text overlay
+  - [x] saving files to disk and loading from source is still a bad ux
+  - [] switching from ac local to ac production while the user is logged in should somehow remain compatible
+  - [] draw an alternative dom based hud at smaller resolutions...
+  - [] add linked list of user pieces to profile pages
+  - [] fix index.js meta parsing logic so it works across the board for 
+       all sources of mjs modules and all lisp modules, 💛 perhaps by running
+       sources through a pre-processor endpoint builder function 💛
+  - [] suppress top-level function warnings in vscode
+  - [🧡] title of documentation doesn't change when clicking with the
+       tab open
+  - [] design piano keys activity for tuesday 
+  + Done
+  - [x] design colored bars activity for thursday
+  - [x] should all top-level functions be auto-exported
+        if they exist, based on a whitelist?
+  - [c] fix tape
+  - [x] mute socket connection logs (bad for class) 
+  - [x] make sure logging in works via the extension 
 
 *** class -> user list ***
   - [x] joelle -> @joelle
