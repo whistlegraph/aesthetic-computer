@@ -1044,7 +1044,7 @@ const $commonApi = {
             height: sys.painting.height,
           },
         });
-        console.log("🖌️🔴 Now recording:", sys.nopaint.record);
+        // console.log("🖌️🔴 Now recording:", sys.nopaint.record);
       },
       addToRecord: function (record) {
         record.timestamp = num.timestamp(); // Insert the timestamp data.
@@ -1054,7 +1054,7 @@ const $commonApi = {
         $commonApi.system.nopaint.record.push(record);
         store["painting:record"] = $commonApi.system.nopaint.record;
         store.persist("painting:record", "local:db");
-        console.log("🖌️🟠 Recorded a step:", record.label);
+        // console.log("🖌️🟠 Recorded a step:", record.label);
       },
       is: nopaint_is,
       undo: { paintings: undoPaintings },
@@ -2893,8 +2893,6 @@ async function load(
 
     const monolith = undefined; // "monolith"; // or `undefined` for horizontal scaling via
     // jamstack
-
-    console.log("Session slug:", slug);
 
     session(slug, forceProd, monolith)
       .then((sesh) => {
@@ -5769,7 +5767,7 @@ async function handle() {
       return; // Leave early if a stored handle was found.
     }
 
-    console.log("Fetching handle for user:", USER);
+    // console.log("Fetching handle for user:", USER);
 
     try {
       const response = await fetch(`/handle?for=${USER.sub}`);
