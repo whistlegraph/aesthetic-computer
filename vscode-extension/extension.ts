@@ -837,7 +837,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
         console.log("🔴 Panel hidden.");
         // Perform any cleanup or state update here when the view is hidden
         const slug = extContext.globalState.get("panel:slug", "");
-        if (slug) console.log("🪱 Loading slug:", slug);
+        // if (slug) console.log("🪱 Slug:", slug);
         webviewView.title = slug + (local ? " 🧑‍🤝‍🧑" : "");
         webviewView.webview.html = getWebViewContent(webviewView.webview, slug);
       } else {

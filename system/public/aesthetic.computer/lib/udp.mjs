@@ -21,11 +21,11 @@ let dontreconnect = false;
 
 function connect(port = 8889, url = undefined, send) {
   if (connected) {
-    console.log("🩰 Connection already exists:", channel);
+    if (logs.udp) console.log("🩰 Connection already exists:", channel);
     return;
   }
 
-  console.log("🩰 Connecting to UDP:", url, "on:", port);
+  if (logs.udp) console.log("🩰 Connecting to UDP:", url, "on:", port);
 
   dontreconnect = false;
 
@@ -45,7 +45,7 @@ function connect(port = 8889, url = undefined, send) {
       return;
     }
 
-    console.log("🩰 Connected to UDP:", channel.url);
+    if (logs.udp) console.log("🩰 Connected to UDP:", channel.url);
     reconnectIn = DEFAULT_RECONNECT_IN;
     reconnectTime = reconnectIn;
     send({ type: "udp:connected" });
