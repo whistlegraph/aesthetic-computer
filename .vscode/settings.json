@@ -10,5 +10,5 @@
     "**/aesthetic-computer-vault/**": false
   },
   "editor.minimap.scale": 1,
-  "editor.minimap.autohide": true
+  "editor.minimap.autohide": true,
 }
