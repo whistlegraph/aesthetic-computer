@@ -19,7 +19,7 @@ import * as gizmo from "./gizmo.mjs";
 import * as ui from "./ui.mjs";
 import * as help from "./help.mjs";
 import * as platform from "./platform.mjs";
-import { parse, metadata } from "./parse.mjs";
+import { parse, metadata, updateCode } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
 import {
   notArray,
@@ -2555,35 +2555,6 @@ let firstLoad = true;
 
 let notice, noticeTimer, noticeColor, noticeOpts; // Renders a full-screen notice on piece-load if present.
 
-function updateCode(sourceToRun, host, debug) {
-  // Automatically replace relative imports with absolute ones.
-  const twoDots =
-    /^(import|export) {([^{}]*?)} from ["'](\.\.\/|\.\.|\.\/)(.*?)["'];?/gm;
-  const oneDot = /^(import|export) \* as ([^ ]+) from ["']\.?\/(.*?)["'];?/gm;
-
-  let updatedCode = sourceToRun.replace(twoDots, (match, p1, p2, p3, p4) => {
-    let url = `${location.protocol}//${host}/aesthetic.computer${
-      p3 === "./" ? "/disks" : ""
-    }/${p4.replace(/\.\.\//g, "")}`;
-    return `${p1} { ${p2} } from "${url}";`;
-  });
-
-  updatedCode = updatedCode.replace(oneDot, (match, p1, p2, p3) => {
-    let url = `${location.protocol}//${host}/aesthetic.computer${
-      p3.startsWith("disks/") ? "" : "/disks"
-    }/${p3.replace(/^disks\//, "")}`;
-    return `${p1} * as ${p2} from "${url}";`;
-  });
-
-  // 💉 Constant Injection (for pieces to use)
-  // Inject the DEBUG constant into the updatedCode
-  // ⚠️ Always make sure to document 📚 added constants in `docs`!
-  updatedCode = `const DEBUG = ${debug};\n${updatedCode}`;
-  // 📥 Hunt for and preloading any user media.
-
-  return updatedCode;
-}
-
 async function load(
   parsed, // If parsed is not an object, then assume it's source code.
   fromHistory = false,
@@ -2778,6 +2749,7 @@ async function load(
   } catch (err) {
     // Look for lisp files if the mjs file is not found.
     try {
+      console.log("Full url is:", fullUrl);
       fullUrl = fullUrl.replace(".mjs", ".lisp");
 
       let response;
@@ -4807,6 +4779,7 @@ async function makeFrame({ data: { type, content } }) {
     $sound.synth = function ({
       type = "square",
       tone = 440, // TODO: Make random.
+      // TODO: Add an optional string "note" here as well / add auto parsing.
       beats = random(), // Wow, default func. params can be random!
       duration = undefined, // In seconds... (where beats is a shortcut)
       attack = 0,
@@ -4816,6 +4789,8 @@ async function makeFrame({ data: { type, content } }) {
     } = {}) {
       const id = soundId;
       if (duration !== undefined) beats = (duration * sound.bpm) / 60;
+      if (typeof tone === "string") tone = $sound.freq(tone); // Auto-match strings to notes.
+
       sound.sounds.push({ id, type, tone, beats, attack, decay, volume, pan });
 
       soundId += 1n;

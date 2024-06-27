@@ -3,7 +3,11 @@
 import https from "https";
 import { promises as fs } from "fs";
 import { URLSearchParams } from "url";
-import { parse, metadata } from "../../public/aesthetic.computer/lib/parse.mjs";
+import {
+  parse,
+  metadata,
+  updateCode,
+} from "../../public/aesthetic.computer/lib/parse.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { networkInterfaces } from "os";
 const dev = process.env.CONTEXT === "dev";
@@ -96,24 +100,55 @@ async function fun(event, context) {
       try {
         if (!parsed.text.startsWith("requestProvider.js.map")) {
           let path = parsed.path.replace("aesthetic.computer/disks/", "");
+
           if (path.startsWith("@")) path = "profile";
-          const m = await import(
-            `../../public/aesthetic.computer/disks/${path}.mjs`
-          );
-          // Now read the source code from the module file.
-          let sourceCode;
+
+          // TODO: This will fail for certain kinds of modules like user hosted
+          //       ones? - Try to actually curl those and see the html. ✅
+          //       24.06.27.04.29
+
+          let sourceCode, m;
           try {
             sourceCode = await fs.readFile(
               `./public/aesthetic.computer/disks/${path}.mjs`,
               "utf8",
             );
-            // console.log("📜 Source code:", sourceCode);
+
+            const protocol = event.headers["x-forwarded-proto"] || "https";
+
+            sourceCode = updateCode(
+              sourceCode,
+              event.headers["host"],
+              false,
+              protocol,
+            );
+
+            // ❤️‍🔥  TODO: Make a builder function that caches
+            //           pieces and can pre-process them
+            //           so the endpoint just has it.
+
+            /*
+            // Create a Blob from the source code
+            const blob = new Blob([sourceCode], {
+              type: "application/javascript",
+            });
+
+            // Create a URL for the Blob
+            const moduleUrl = URL.createObjectURL(blob);
+
+            // Dynamically import the module using the Blob URL
+            m = await import(moduleUrl);
+
+            // Clean up the Blob URL
+            URL.revokeObjectURL(moduleUrl);
+            */
           } catch (err) {
-            console.error("📃 Error reading source code:", err);
+            console.error("📃 Error reading or importing source code:", err);
+            throw err;
           }
 
           meta =
-            m.meta?.(parsed, sourceCode) ||
+            m?.meta?.(parsed, sourceCode) ||
             (() => {
               // Parse the source for a potential title and description.
               let title = "",
@@ -128,6 +163,7 @@ async function fun(event, context) {
 
               return { title, desc };
             })(); // Parse any special piece metadata if it exists.
+
           console.log("📰 Metadata:", meta, "Path:", parsed.text);
         }
       } catch (e) {
@@ -250,3 +286,13 @@ async function getPage(url) {
 }
 
 export const handler = fun;
+
+function getLocation(event) {
+  const protocol = event.headers["x-forwarded-proto"] || "https";
+  const host = event.headers["host"];
+  const path = event.path;
+  const queryString = new URLSearchParams(
+    event.queryStringParameters,
+  ).toString();
+  return `${protocol}://${host}${path}${queryString ? "?" + queryString : ""}`;
+}
