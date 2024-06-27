@@ -1836,6 +1836,12 @@ export async function handler(event, context) {
         done: false,
         //TODO: can this open in a new tab?
       },
+      'ucla-1': {
+        sig: "ucla-1",
+        desc: "UCLA DESMA 28 - Piece 1",
+        done: false,
+        //TODO: can this open in a new tab?
+      },
       app: {
         sig: "app",
         desc: "Get AC in the app store.",
