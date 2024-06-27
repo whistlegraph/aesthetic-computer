@@ -42,10 +42,20 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+- [] add the bios load text overlay
+
 *** after first period ***
+- [🟠] design piano keys activity for thursday 
+- [] design colored bars activity for thursday
+  - [] hide the hud for smaller resolutions...
 - [] add linked list of user pieces to profile pages
-- [] design visual activities for thursday 
+- [] fix index.js meta parsing logic so it works across the board for 
+     all sources of mjs modules and all lisp modules, 💛 perhaps by running
+     sources through a pre-processor endpoint builder function 💛
+- [] suppress top-level function warnings in vscode
 + Done
+- [x] should all top-level functions be auto-exported
+      if they exist, based on a whitelist?
 - [c] fix tape
 - [x] mute socket connection logs (bad for class) 
 - [x] make sure logging in works via the extension 

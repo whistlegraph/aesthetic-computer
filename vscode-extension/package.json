@@ -133,12 +133,12 @@
     "url": "git+https://github.com/digitpain/aesthetic-computer.git"
   },
   "devDependencies": {
-    "@types/node": "^20.11.6",
+    "@types/node": "^20.14.9",
     "@types/vscode": "^1.88.0",
     "@vscode/test-web": "^0.0.53",
     "@vscode/vsce": "^2.27.0",
     "esbuild": "^0.20.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.5.2"
   },
   "dependencies": {
     "node-fetch": "^3.3.2"

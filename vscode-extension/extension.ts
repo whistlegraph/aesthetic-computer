@@ -6,7 +6,10 @@
 #endregion */
 
 // Import necessary modules from vscode
+//import * as ts from "typescript";
+//import * as fs from "fs";
 import * as vscode from "vscode";
+import * as path from "path";
 
 import { AestheticAuthenticationProvider } from "./aestheticAuthenticationProviderRemote";
 const { keys } = Object;
@@ -57,6 +60,63 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       console.error("Failed to fetch documentation:", error);
     }
   }
+
+  /*
+  const whitelist = [
+    "paint",
+    "boot",
+    "act",
+    "meta",
+    "brush",
+    "preview",
+    "icon",
+    "beat",
+    "filter",
+  ];
+
+  const diagnosticCollection =
+    vscode.languages.createDiagnosticCollection("customExtension");
+  context.subscriptions.push(diagnosticCollection);
+
+  function filterDiagnostics(uri) {
+    if (path.extname(uri.fsPath) !== ".mjs") {
+      console.log("File extension is not .mjs, skipping:", uri.fsPath);
+      return;
+    }
+
+    const diagnostics = vscode.languages
+      .getDiagnostics(uri)
+      .filter((diagnostic) => {
+        if (
+          diagnostic.message.includes("is declared but its value is never read")
+        ) {
+          const match = diagnostic.message.match(/'(.+?)'/);
+          const diagnosticFunctionName = match ? match[1] : "";
+          console.log("Matched function:", diagnosticFunctionName);
+          return !whitelist.includes(diagnosticFunctionName);
+        }
+        return true;
+      });
+
+    console.log("Filtered diagnostics:", diagnostics);
+    diagnosticCollection.set(uri, diagnostics);
+  }
+
+  // Listen to diagnostics change and filter unused function warnings
+  vscode.languages.onDidChangeDiagnostics((event) => {
+    console.log("Diagnostics changed for URIs:", event.uris);
+    event.uris.forEach(filterDiagnostics);
+  });
+
+  // Initial filtering of diagnostics on activation
+  vscode.workspace.textDocuments.forEach((document) => {
+    console.log(
+      "Initial diagnostics filtering for document:",
+      document.uri.fsPath,
+    );
+    filterDiagnostics(document.uri);
+  });
+  */
 
   // Set up all the autocompletion and doc hints.
   const codeLensProvider = new AestheticCodeLensProvider();
