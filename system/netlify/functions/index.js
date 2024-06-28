@@ -78,7 +78,6 @@ async function fun(event, context) {
         `https://${parsed.host}/${parsed.path}.mjs`,
       );
       sourceCode = externalPiece.data;
-      console.log("EXTENRAL!!!", externalPiece.code);
       if (externalPiece?.code !== 200) return redirect;
     } else {
       // Locally hosted piece.
@@ -119,8 +118,11 @@ async function fun(event, context) {
       event.headers["x-forwarded-proto"] || "https",
     );
 
+    console.log("😫", sourceCode, "😀");
+
     // TODO: 🟣 How can I try to read the module's meta function here...
     //       does it need to pass through a proxy or something?
+
     // TODO: 🧡 This should also work for kidlisp pieces somehow...
     // console.log("Updated source:", sourceCode, "UPDATED SOURCE^");
 
