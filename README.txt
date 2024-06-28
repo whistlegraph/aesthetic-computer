@@ -41,7 +41,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [] Watch WebXR on Apple Vision Demo: https://developer.apple.com/videos/play/wwdc2024/10066/
 
 🌟 Projects in Progress (PIP) 🌟
-  - [] fix index.js meta parsing logic so it works across the board for 
+  - [⚙️] fix index.js meta parsing logic so it works across the board for 
        all sources of mjs modules and all lisp modules, 💛 perhaps by running
        sources through a pre-processor endpoint builder function 💛
   - [] add the bios load text overlay
