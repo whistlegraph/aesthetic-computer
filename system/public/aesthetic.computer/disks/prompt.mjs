@@ -1256,8 +1256,8 @@ async function halt($, text) {
     jump("https://github.com/digitpain/aesthetic.computer");
     makeFlash($);
     return true;
-  } else if (text.toLowerCase() === "ucla") {
-    jump("https://docs.google.com/document/d/1foiOLdvJeTdPHQKMIWzKBoGcszGPJS5bRcY-Rg3ou6A/edit?usp=sharing");
+  } else if (text.toLowerCase() === "ucla-syllabus") {
+    jump("out:https://docs.google.com/document/d/1foiOLdvJeTdPHQKMIWzKBoGcszGPJS5bRcY-Rg3ou6A/edit?usp=sharing");
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "app" || text === "ios") {

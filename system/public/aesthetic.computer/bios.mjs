@@ -2491,7 +2491,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           window.parent?.postMessage(
             {
               type: "url:updated",
-              slug: content.text.replace("/", ""),
+              slug: content.text.startsWith("/")
+                ? content.text.slice(1)
+                : content.text,
             },
             "*",
           );

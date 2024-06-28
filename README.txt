@@ -41,16 +41,18 @@ but technically agnostic. (Choose your aesthetic!)
   - [] Watch WebXR on Apple Vision Demo: https://developer.apple.com/videos/play/wwdc2024/10066/
 
 🌟 Projects in Progress (PIP) 🌟
+  - [] fix index.js meta parsing logic so it works across the board for 
+       all sources of mjs modules and all lisp modules, 💛 perhaps by running
+       sources through a pre-processor endpoint builder function 💛
+  - [] add the bios load text overlay
+  - [] fix vscode.dev extension support
+  - [] why wouldn't the 'login' button have worked on that windows machine?
 
 *** after first period ***
-  - [] add the bios load text overlay
   - [x] saving files to disk and loading from source is still a bad ux
   - [] switching from ac local to ac production while the user is logged in should somehow remain compatible
   - [] draw an alternative dom based hud at smaller resolutions...
   - [] add linked list of user pieces to profile pages
-  - [] fix index.js meta parsing logic so it works across the board for 
-       all sources of mjs modules and all lisp modules, 💛 perhaps by running
-       sources through a pre-processor endpoint builder function 💛
   - [] suppress top-level function warnings in vscode
   - [🧡] title of documentation doesn't change when clicking with the
        tab open

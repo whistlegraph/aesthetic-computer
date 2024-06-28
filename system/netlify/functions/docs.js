@@ -1831,16 +1831,14 @@ export async function handler(event, context) {
         done: false,
       },
       ucla: {
-        sig: "ucla",
-        desc: "UCLA DESMA 28 syllabus shortcut.",
+        sig: "ucla-syllabus",
+        desc: "UCLA DESMA 28 - Syllabus",
         done: false,
-        //TODO: can this open in a new tab?
       },
       'ucla-1': {
         sig: "ucla-1",
         desc: "UCLA DESMA 28 - Piece 1",
         done: false,
-        //TODO: can this open in a new tab?
       },
       app: {
         sig: "app",
