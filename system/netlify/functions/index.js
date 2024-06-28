@@ -68,6 +68,10 @@ async function fun(event, context) {
 
   let statusCode = 200; // Might change if a piece can't load.
 
+  if (parsed.text.startsWith("requestProvider.js.map")) {
+    return false;
+  }
+
   // Load a piece.
   let sourceCode, module;
 
@@ -82,21 +86,16 @@ async function fun(event, context) {
     } else {
       // Locally hosted piece.
       try {
-        if (!parsed.text.startsWith("requestProvider.js.map")) {
-          let path = parsed.path.replace("aesthetic.computer/disks/", "");
-          if (path.startsWith("@")) path = "profile";
-          let sourceCode, m;
-          try {
-            sourceCode = await fs.readFile(
-              `./public/aesthetic.computer/disks/${path}.mjs`,
-              "utf8",
-            );
-          } catch (err) {
-            console.error("📃 Error reading or importing source code:", err);
-            throw err;
-          }
-
-          console.log("📰 Metadata:", meta, "Path:", parsed.text);
+        let path = parsed.path.replace("aesthetic.computer/disks/", "");
+        if (path.startsWith("@")) path = "profile";
+        try {
+          sourceCode = await fs.readFile(
+            `./public/aesthetic.computer/disks/${path}.mjs`,
+            "utf8",
+          );
+        } catch (err) {
+          console.error("📃 Error reading or importing source code:", err);
+          throw err;
         }
       } catch (e) {
         console.log("🔴 Piece load failure...");
@@ -118,8 +117,6 @@ async function fun(event, context) {
       event.headers["x-forwarded-proto"] || "https",
     );
 
-    console.log("😫", sourceCode, "😀");
-
     // TODO: 🟣 How can I try to read the module's meta function here...
     //       does it need to pass through a proxy or something?
 
@@ -140,6 +137,7 @@ async function fun(event, context) {
         return { title, desc };
       })(); // Parse any special piece metadata if it exists.
 
+    console.log("📰 Metadata:", meta, "Path:", parsed.text);
   } catch {
     // If either module doesn't load, then we can fallback to the main route.
     return redirect;
