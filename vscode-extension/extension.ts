@@ -207,6 +207,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
         // Check if the panel already exists. If so, reveal it.
         if (docsPanel) {
+          // Update the title
+          docsPanel.title = "📚 " + title.replace("/", "") + " · Aesthetic Computer";
           docsPanel.reveal(vscode.ViewColumn.Beside);
         } else {
           // Create and show a new webview
@@ -410,7 +412,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     vscode.commands.registerCommand("aestheticComputer.openWindow", () => {
       const panel = vscode.window.createWebviewPanel(
         "webView", // Identifies the type of the webview. Used internally
-        "Aesthetic Computer", // Title of the panel displayed to the user
+        "Aesthetic", // Title of the panel displayed to the user
         vscode.ViewColumn.One, // Editor column to show the new webview panel in.
         {
           enableScripts: true,
@@ -418,7 +420,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         }, // Webview options.
       );
 
-      panel.title = "Aesthetic Computer" + (local ? ": 🧑‍🤝‍🧑" : ""); // Update the title if local.
+      panel.title = "Aesthetic" + (local ? ": 🧑‍🤝‍🧑" : ""); // Update the title if local.
       panel.webview.html = getWebViewContent(panel.webview, "");
       webWindow = panel;
 
@@ -708,7 +710,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.onDidReceiveMessage((data) => {
       switch (data.type) {
         case "url:updated": {
-          //console.log("😫 Slug updated...", data.slug);
+          console.log("😫 Slug updated...", data.slug);
           extContext.globalState.update("panel:slug", data.slug);
           webviewView.title = data.slug + (local ? " 🧑‍🤝‍🧑" : "");
           break;
@@ -864,7 +866,7 @@ function refreshWebWindow() {
     const slug = extContext.globalState.get("panel:slug", "");
     if (slug) console.log("🪱 Loading slug:", slug);
 
-    webWindow.title = "Aesthetic Computer: " + slug + (local ? " 🧑‍🤝‍🧑" : ""); // Update the title if local.
+    webWindow.title = "Aesthetic: " + slug + (local ? " 🧑‍🤝‍🧑" : ""); // Update the title if local.
 
     webWindow.webview.html = getWebViewContent(webWindow.webview, slug);
   }

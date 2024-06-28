@@ -13,7 +13,7 @@ import { networkInterfaces } from "os";
 const dev = process.env.CONTEXT === "dev";
 
 async function fun(event, context) {
-  if (dev) console.log("Node version:", process.version);
+  // if (dev) console.log("Node version:", process.version);
   // TODO: Return a 500 or 404 for everything that does not exist...
   //       - [] Like for example if the below import fails...
   if (event.path === "/favicon.ico") {
@@ -36,8 +36,6 @@ async function fun(event, context) {
 
   const parsed = parse(slug, { hostname: event.headers["host"] });
 
-  // if (dev) console.log(slug, parsed);
-
   // Get local IP.
   let lanHost;
   if (dev) {
@@ -57,21 +55,6 @@ async function fun(event, context) {
     lanHost = `https://${ipAddress}:8888`;
   }
 
-  // Remote host.
-  // TODO: Node currently doesn't support dynamic imports from http/s - 22.07.19.05.25
-  //       - Implementation below.
-
-  /*
-  let importPath;
-  if (slug.startsWith('@')) {
-    importPath = `https://${parsed.host}/${parsed.path}.mjs`;
-  } else {
-    importPath = `../../public/${parsed.path}.mjs`;
-  }
-  // TODO: Check to see if the path is on this server.
-  const { desc } = await import(importPath);
-  */
-
   let meta;
 
   const redirect = {
@@ -86,83 +69,33 @@ async function fun(event, context) {
   let statusCode = 200; // Might change if a piece can't load.
 
   // Load a piece.
+  let sourceCode, module;
+
   try {
     // Externally hosted pieces always start with @.
     if (slug.startsWith("@") && slug.indexOf("/") !== -1) {
       const externalPiece = await getPage(
         `https://${parsed.host}/${parsed.path}.mjs`,
       );
-      // TODO: How can I run these pieces in a sandbox and then get the
-      //       result of the meta function out? 23.09.01.16.29
+      sourceCode = externalPiece.data;
+      console.log("EXTENRAL!!!", externalPiece.code);
       if (externalPiece?.code !== 200) return redirect;
     } else {
       // Locally hosted piece.
       try {
         if (!parsed.text.startsWith("requestProvider.js.map")) {
           let path = parsed.path.replace("aesthetic.computer/disks/", "");
-
           if (path.startsWith("@")) path = "profile";
-
-          // TODO: This will fail for certain kinds of modules like user hosted
-          //       ones? - Try to actually curl those and see the html. ✅
-          //       24.06.27.04.29
-
           let sourceCode, m;
           try {
             sourceCode = await fs.readFile(
               `./public/aesthetic.computer/disks/${path}.mjs`,
               "utf8",
             );
-
-            const protocol = event.headers["x-forwarded-proto"] || "https";
-
-            sourceCode = updateCode(
-              sourceCode,
-              event.headers["host"],
-              false,
-              protocol,
-            );
-
-            // ❤️‍🔥  TODO: Make a builder function that caches
-            //           pieces and can pre-process them
-            //           so the endpoint just has it.
-
-            /*
-            // Create a Blob from the source code
-            const blob = new Blob([sourceCode], {
-              type: "application/javascript",
-            });
-
-            // Create a URL for the Blob
-            const moduleUrl = URL.createObjectURL(blob);
-
-            // Dynamically import the module using the Blob URL
-            m = await import(moduleUrl);
-
-            // Clean up the Blob URL
-            URL.revokeObjectURL(moduleUrl);
-            */
           } catch (err) {
             console.error("📃 Error reading or importing source code:", err);
             throw err;
           }
-
-          meta =
-            m?.meta?.(parsed, sourceCode) ||
-            (() => {
-              // Parse the source for a potential title and description.
-              let title = "",
-                desc = "";
-              const lines = sourceCode.split("\n");
-
-              if (lines[0].startsWith("//")) {
-                title = lines[0].split(",")[0].slice(3).trim();
-              }
-
-              if (lines[1].startsWith("//")) desc = lines[1].slice(3).trim();
-
-              return { title, desc };
-            })(); // Parse any special piece metadata if it exists.
 
           console.log("📰 Metadata:", meta, "Path:", parsed.text);
         }
@@ -174,23 +107,47 @@ async function fun(event, context) {
         }`;
         console.log("📥 Attempting to load piece from anon:", anonUrl);
         const externalPiece = await getPage(anonUrl);
+        sourceCode = externalPiece.data;
         if (externalPiece?.code !== 200) statusCode = 404;
       }
     }
+
+    sourceCode = updateCode(
+      sourceCode,
+      event.headers["host"],
+      false,
+      event.headers["x-forwarded-proto"] || "https",
+    );
+
+    // TODO: 🟣 How can I try to read the module's meta function here...
+    //       does it need to pass through a proxy or something?
+    // TODO: 🧡 This should also work for kidlisp pieces somehow...
+    // console.log("Updated source:", sourceCode, "UPDATED SOURCE^");
+
+    meta =
+      module?.meta?.(parsed, sourceCode) ||
+      (() => {
+        // Parse the source for a potential title and description.
+        let title = "",
+          desc = "";
+        const lines = sourceCode.split("\n");
+        if (lines[0].startsWith("//")) {
+          title = lines[0].split(",")[0].slice(3).trim();
+        }
+        if (lines[1].startsWith("//")) desc = lines[1].slice(3).trim();
+        return { title, desc };
+      })(); // Parse any special piece metadata if it exists.
+
   } catch {
-    // If either module doesn't load, then we KNOW we won't be able to load
-    // the piece, so we can fallback to the main route.
+    // If either module doesn't load, then we can fallback to the main route.
     return redirect;
   }
 
-  // *** Server Metadata Fields ***
   const { title, desc, ogImage, icon, twitterImage } = metadata(
     event.headers["host"],
     slug,
     meta,
   );
-
-  // const assetURI = dev ? "/assets/" : "https://assets.aesthetic.computer/";
 
   const body = html`
     <!doctype html>
@@ -286,13 +243,3 @@ async function getPage(url) {
 }
 
 export const handler = fun;
-
-function getLocation(event) {
-  const protocol = event.headers["x-forwarded-proto"] || "https";
-  const host = event.headers["host"];
-  const path = event.path;
-  const queryString = new URLSearchParams(
-    event.queryStringParameters,
-  ).toString();
-  return `${protocol}://${host}${path}${queryString ? "?" + queryString : ""}`;
-}
