@@ -1,55 +1,45 @@
 // Notepad, 2024.6.26.23.17.58.736
 // Touch pads that play musical notes, or use the keyboard keys.
 
+/* 📝 Notes 
+  TODO
+  - [] Show some form of display / color coded display to show octave state and also print the last note pressed. 
+  - [] Show a melody so that a typing game can take place.
+  - [] Abstract this so shift adds the 5.
+  - [] Leave out all options from synth / make sensible defaults first.
+  - [] Add visual buttons.
+  - [] Disable key repeat.
+*/
+
 function paint({ wipe }) {
   wipe("blue");
 }
 
-let octave = "4"; // event.alt ? "6" : event.shift ? "5" : "";
+let octave = 4;
 
-function act({ event, sound: { synth } }) {
+function act({ event: e, sound: { synth } }) {
   // ⌨️ Keyboad Shortcuts
+  const volume = 1,
+    decay = 0.9,
+    duration = 0.25,
+    attack = 0.01;
 
-  // TODO: - [] Abstract this so shift adds the 5.
-  //       - [] Leave out all options from synth / make sensible defaults first.
-  //       - [] Add visual buttons.
-  //       - [] Disable key repeat.
+  "123456789".split("").forEach((digit) => {
+    if (e.is(`keyboard:down:${digit}`)) octave = parseInt(digit);
+  });
 
-  const volume = 1;
-  const decay = 0.9;
-  const duration = 0.25;
-  const attack = 0.01;
+  const shift = e.shift ? 1 : e.alt ? -1 : 0;
+  const accent = e.ctrl ? "#" : ""; /*e.;*/
 
-  if (event.is("keyboard:down:3")) octave = "3";
-  if (event.is("keyboard:down:4")) octave = "4";
-  if (event.is("keyboard:down:5")) octave = "5";
-  if (event.is("keyboard:down:6")) octave = "6";
-
-  if (event.is("keyboard:down:a")) {
-    synth({ tone: "a" + octave, duration, attack, decay, volume });
-  }
-
-  if (event.is("keyboard:down:b")) {
-    synth({ tone: "b" + octave, duration, attack, decay, volume });
-  }
-
-  if (event.is("keyboard:down:c")) {
-    synth({ tone: "c" + octave, duration, attack, decay, volume });
-  }
-
-  if (event.is("keyboard:down:d")) {
-    synth({ tone: "d" + octave, duration, attack, decay, volume });
-  }
-
-  if (event.is("keyboard:down:e")) {
-    synth({ tone: "e" + octave, duration, attack, decay, volume });
-  }
-
-  if (event.is("keyboard:down:f")) {
-    synth({ tone: "f" + octave, duration, attack, decay, volume });
-  }
-
-  if (event.is("keyboard:down:g")) {
-    synth({ tone: "g" + octave, duration, attack, decay, volume });
-  }
+  "abcdefg".split("").forEach((key) => {
+    if (e.is(`keyboard:down:${key}`)) {
+      synth({
+        tone: key + accent + (octave + shift),
+        duration,
+        attack,
+        decay,
+        volume,
+      });
+    }
+  });
 }

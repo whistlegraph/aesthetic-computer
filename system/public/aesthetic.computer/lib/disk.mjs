@@ -2745,6 +2745,7 @@ async function load(
           type: "application/javascript",
         });
         blobUrl = URL.createObjectURL(blob);
+        originalCode = sourceCode;
         sourceCode = updatedCode;
         loadedModule = await import(blobUrl);
       }
@@ -3037,7 +3038,7 @@ async function load(
           // Parse the source for a potential title and description.
           let title = slug,
             desc = "";
-          const lines = sourceCode.split("\n");
+          const lines = originalCode.split("\n");
 
           if (lines[1]?.startsWith("//")) {
             title = lines[1].split(",")[0].slice(3).trim();

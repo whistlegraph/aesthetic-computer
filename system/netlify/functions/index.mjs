@@ -1,24 +1,34 @@
 // Serves HTML from a template for every landing route on aesthetic.computer.
 
 import https from "https";
+import path from "path";
 import { promises as fs } from "fs";
-import { URLSearchParams } from "url";
+import { URLSearchParams, fileURLToPath } from "url";
+import { encode } from "he";
+import * as num from "../../public/aesthetic.computer/lib/num.mjs";
 import {
   parse,
   metadata,
   updateCode,
 } from "../../public/aesthetic.computer/lib/parse.mjs";
+import { respond } from "../../backend/http.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { networkInterfaces } from "os";
 const dev = process.env.CONTEXT === "dev";
 
 async function fun(event, context) {
-  // if (dev) console.log("Node version:", process.version);
   // TODO: Return a 500 or 404 for everything that does not exist...
   //       - [] Like for example if the below import fails...
-  if (event.path === "/favicon.ico") {
+
+  if (
+    event.path === "/favicon.ico" ||
+    event.path === "/requestProvider.js.map"
+  ) {
     return { statusCode: 500 };
   }
+
+  console.log("📁", event.path);
+  console.log("😃", __dirname, __filename);
 
   let slug = event.path.slice(1) || "prompt";
 
@@ -51,8 +61,7 @@ async function fun(event, context) {
         }
       });
     });
-
-    lanHost = `https://${ipAddress}:8888`;
+    lanHost = `"https://${ipAddress}:8888"`; // Quoted for use in `body`.
   }
 
   let meta;
@@ -68,11 +77,7 @@ async function fun(event, context) {
 
   let statusCode = 200; // Might change if a piece can't load.
 
-  if (parsed.text.startsWith("requestProvider.js.map")) {
-    return false;
-  }
-
-  // Load a piece.
+  // Load and pre-process a piece's source code, then run it's `meta` function.
   let sourceCode, module;
 
   try {
@@ -95,11 +100,12 @@ async function fun(event, context) {
           );
         } catch (err) {
           console.error("📃 Error reading or importing source code:", err);
-          throw err;
+          statusCode = 404;
+          respond(statusCode, `Content not found: ${path}`);
+          // throw err;
         }
       } catch (e) {
         console.log("🔴 Piece load failure...");
-        console.log(e);
         const anonUrl = `https://art.aesthetic.computer/${
           parsed.path.split("/").pop().mjs
         }`;
@@ -110,34 +116,57 @@ async function fun(event, context) {
       }
     }
 
-    sourceCode = updateCode(
-      sourceCode,
-      event.headers["host"],
-      false,
-      event.headers["x-forwarded-proto"] || "https",
-    );
+    if (sourceCode) {
+      // TODO: 🟣 How can I try to read the module's meta function here...
+      //       does it need to pass through a proxy or something?
 
-    // TODO: 🟣 How can I try to read the module's meta function here...
-    //       does it need to pass through a proxy or something?
+      // TODO: 🧡 This should also work for kidlisp pieces somehow...
+      // console.log("Updated source:", sourceCode, "UPDATED SOURCE^");
+      const originalCode = sourceCode;
 
-    // TODO: 🧡 This should also work for kidlisp pieces somehow...
-    // console.log("Updated source:", sourceCode, "UPDATED SOURCE^");
+      const currentDirectory = process.cwd();
 
-    meta =
-      module?.meta?.(parsed, sourceCode) ||
-      (() => {
-        // Parse the source for a potential title and description.
-        let title = "",
-          desc = "";
-        const lines = sourceCode.split("\n");
-        if (lines[0].startsWith("//")) {
-          title = lines[0].split(",")[0].slice(3).trim();
-        }
-        if (lines[1].startsWith("//")) desc = lines[1].slice(3).trim();
-        return { title, desc };
-      })(); // Parse any special piece metadata if it exists.
+      // Log the current working directory
+      console.log("🚗 Current Directory:", currentDirectory);
 
-    console.log("📰 Metadata:", meta, "Path:", parsed.text);
+      sourceCode = updateCode(
+        sourceCode,
+        dev ? "localhost:8888" : event.headers["host"],
+        dev,
+        (event.headers["x-forwarded-proto"] || "https") + ":", //,
+        true,
+        currentDirectory
+      );
+
+      const tempPath = path.join("/tmp", `${slug}.mjs`);
+
+      try {
+        await fs.writeFile(tempPath, sourceCode);
+        // console.log(sourceCode);
+        module = await import(`file://${tempPath}`);
+        console.log("Module:", module);
+      } catch (err) {
+        console.log("⚠️ Import error:", err, tempPath);
+      } finally {
+        await fs.unlink(tempPath);
+      }
+
+      meta =
+        module?.meta?.({ ...parsed, num }) ||
+        (() => {
+          // Parse the source for a potential title and description.
+          let title = "",
+            desc = "";
+          const lines = originalCode.split("\n");
+          if (lines[0].startsWith("//")) {
+            title = lines[0].split(",")[0].slice(3).trim();
+          }
+          if (lines[1].startsWith("//")) desc = lines[1].slice(3).trim();
+          return { title, desc };
+        })(); // Parse any special piece metadata if it exists.
+
+      console.log("📰 Metadata:", meta, "Path:", parsed.text);
+    }
   } catch {
     // If either module doesn't load, then we can fallback to the main route.
     return redirect;
@@ -160,18 +189,14 @@ async function fun(event, context) {
           name="viewport"
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
         />
-        <meta name="description" content="${desc}" />
-        <meta name="og:title" content="${title}" />
-        <meta name="og:description" content="${desc}" />
+        <meta name="description" content="${encode(desc)}" />
+        <meta name="og:title" content="${encode(title)}" />
+        <meta name="og:description" content="${encode(desc)}" />
         <meta name="og:image" content="${ogImage}" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="${title}" />
+        <meta name="twitter:title" content="${encode(title)}" />
         <meta name="twitter:site" content="aesthetic.computer" />
         <meta name="twitter:image" content="${twitterImage}" />
-        <!-- <script
-          crossorigin="anonymous"
-          src="/aesthetic.computer/dep/cdn.auth0.com_js_auth0-spa-js_2.1_auth0-spa-js.production.js"
-        ></script> -->
         ${dev
           ? ""
           : `<!-- <script crossorigin="anonymous" src="https://js.sentry-cdn.com/ef4704c0df6a410e972bca14d69e1898.min.js"></script> -->`}
