@@ -45,11 +45,10 @@ but technically agnostic. (Choose your aesthetic!)
   - [⚙️] fix index.js meta parsing logic so it works across the board for 
        all sources of mjs modules and all lisp modules, 💛 perhaps by running
        sources through a pre-processor endpoint builder function 💛
-  - [] check...
+  - [] check in local and production...
     - [x] line
     - [x] prompt
-    
-    - [] @jeffrey
+    - [🟠] @jeffrey
     - [] ff~1
     - [] code
     - [] hell_-world
