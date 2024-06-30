@@ -151,49 +151,120 @@ function metadata(host, slug, pieceMetadata) {
 }
 
 // Modify source code imports etc / pre-process.
-function updateCode(sourceToRun, host, debug, protocol = location?.protocol) {
+// function updateCode(
+//   sourceToRun,
+//   host,
+//   debug,
+//   protocol = location?.protocol,
+//   serverRewrites = false
+// ) {
+//   let updatedCode = sourceToRun;
+
+//     // Automatically replace relative imports with absolute ones.
+//     const twoDots =
+//       /^(import|export) {([^{}]*?)} from ["'](\.\.\/|\.\.|\.\/)(.*?)["'];?/gm;
+//     const oneDot = /^(import|export) \* as ([^ ]+) from ["']\.?\/(.*?)["'];?/gm;
+
+//     updatedCode = sourceToRun.replace(twoDots, (match, p1, p2, p3, p4) => {
+//       let url = `${protocol}//${host}/aesthetic.computer${
+//         p3 === "./" ? "/disks" : ""
+//       }/${p4.replace(/\.\.\//g, "")}`;
+//       return `${p1} { ${p2} } from "${url}";`;
+//     });
+
+//     updatedCode = updatedCode.replace(oneDot, (match, p1, p2, p3) => {
+//       let url = `${protocol}//${host}/aesthetic.computer${
+//         p3.startsWith("disks/") ? "" : "/disks"
+//       }/${p3.replace(/^disks\//, "")}`;
+//       return `${p1} * as ${p2} from "${url}";`;
+//     });
+
+//   // 💉 Constant Injection (for pieces to use)
+//   // Inject the DEBUG constant into the updatedCode
+//   // ⚠️ Always make sure to document 📚 added constants in `docs`!
+//   updatedCode = `const DEBUG = ${debug};\n${updatedCode}`;
+
+//   // 📥 Hunt for and preloading any user media.
+//   updatedCode = addExportsToCode(updatedCode);
+//   return updatedCode;
+// }
+
+// Modify source code imports etc / pre-process.
+function updateCode(
+  sourceToRun,
+  host,
+  debug,
+  protocol = location?.protocol,
+  serverRewrites = false,
+  serverRewritesPath = "",
+) {
+  let updatedCode = sourceToRun;
+
   // Automatically replace relative imports with absolute ones.
   const twoDots =
     /^(import|export) {([^{}]*?)} from ["'](\.\.\/|\.\.|\.\/)(.*?)["'];?/gm;
   const oneDot = /^(import|export) \* as ([^ ]+) from ["']\.?\/(.*?)["'];?/gm;
 
-  let updatedCode = sourceToRun.replace(twoDots, (match, p1, p2, p3, p4) => {
-    let url = `${protocol}//${host}/aesthetic.computer${
-      p3 === "./" ? "/disks" : ""
-    }/${p4.replace(/\.\.\//g, "")}`;
-    return `${p1} { ${p2} } from "${url}";`;
-  });
+  const replaceTwoDots = (match, p1, p2, p3, p4) => {
+    let url;
+    if (serverRewrites) {
+      url = `..${serverRewritesPath}/public/aesthetic.computer${
+        p3 === "./" ? "/disks" : ""
+      }/${p4.replace(/\.\.\//g, "")}`;
+    } else {
+      url = `${protocol}//${host}/aesthetic.computer${
+        p3 === "./" ? "/disks" : ""
+      }/${p4.replace(/\.\.\//g, "")}`;
+    }
+    return `${p1} {${p2}} from "${url}";`;
+  };
 
-  updatedCode = updatedCode.replace(oneDot, (match, p1, p2, p3) => {
-    let url = `${protocol}//${host}/aesthetic.computer${
-      p3.startsWith("disks/") ? "" : "/disks"
-    }/${p3.replace(/^disks\//, "")}`;
+  // /workspaces/aesthetic-computer
+  const replaceOneDot = (match, p1, p2, p3) => {
+    let url;
+    if (serverRewrites) {
+      url = `..${serverRewritesPath}/public/aesthetic.computer${
+        p3.startsWith("disks/") ? "" : "/disks"
+      }/${p3.replace(/^disks\//, "")}`;
+    } else {
+      url = `${protocol}//${host}/aesthetic.computer${
+        p3.startsWith("disks/") ? "" : "/disks"
+      }/${p3.replace(/^disks\//, "")}`;
+    }
     return `${p1} * as ${p2} from "${url}";`;
-  });
+  };
+
+  updatedCode = updatedCode.replace(twoDots, replaceTwoDots);
+  updatedCode = updatedCode.replace(oneDot, replaceOneDot);
 
   // 💉 Constant Injection (for pieces to use)
   // Inject the DEBUG constant into the updatedCode
   // ⚠️ Always make sure to document 📚 added constants in `docs`!
   updatedCode = `const DEBUG = ${debug};\n${updatedCode}`;
+
   // 📥 Hunt for and preloading any user media.
-
-  // TODO: Search the updatedCode for top level functions
-  //       that haven't been exported so long as no "export" statement
-  //       exists already in the file, and build an export statement
-  //       for those toplevel functions based on a whitelist 'paint, boot, act, meta, brush, preview, icon, beat'
-
-  updatedCode = addExportsToCode(updatedCode)
-
+  updatedCode = addExportsToCode(updatedCode);
   return updatedCode;
 }
 
 // Find top-level whitelisted functions and auto-export them for `.mjs` pieces.
 function addExportsToCode(code) {
   // Define the whitelist of functions to export
-  const whitelist = ['paint', 'boot', 'act', 'meta', 'brush', 'preview', 'icon', 'beat', 'brush', 'filter'];
+  const whitelist = [
+    "paint",
+    "boot",
+    "act",
+    "meta",
+    "brush",
+    "preview",
+    "icon",
+    "beat",
+    "brush",
+    "filter",
+  ];
 
   // Remove all comments from the code
-  const codeWithoutComments = code.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+  const codeWithoutComments = code.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, "");
 
   // Check if the file already contains an 'export { ... }' statement
   const hasExportObject = /export\s+{[^}]*}/m.test(codeWithoutComments);
@@ -213,12 +284,11 @@ function addExportsToCode(code) {
     }
 
     if (topLevelFunctions.length > 0) {
-      code += `\nexport { ${topLevelFunctions.join(', ')} };`;
+      code += `\nexport { ${topLevelFunctions.join(", ")} };`;
     }
   }
 
   return code;
 }
-
 
 export { parse, slug, metadata, updateCode, addExportsToCode };

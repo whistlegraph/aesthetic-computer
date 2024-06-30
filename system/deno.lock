@@ -1,5 +1,16 @@
 {
   "version": "3",
+  "packages": {
+    "specifiers": {
+      "npm:he@^1.2.0": "npm:he@1.2.0"
+    },
+    "npm": {
+      "he@1.2.0": {
+        "integrity": "sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw==",
+        "dependencies": {}
+      }
+    }
+  },
   "remote": {
     "https://deno.land/std@0.170.0/_util/asserts.ts": "d0844e9b62510f89ce1f9878b046f6a57bf88f208a10304aab50efcb48365272",
     "https://deno.land/std@0.170.0/async/abortable.ts": "80b2ac399f142cc528f95a037a7d0e653296352d95c681e284533765961de409",
@@ -75,6 +86,7 @@
         "npm:@grpc/grpc-js@^1.10.8",
         "npm:@mediapipe/hands@^0.4.1675469240",
         "npm:@mediapipe/tasks-vision@^0.10.14",
+        "npm:@netlify/functions@^2.8.0",
         "npm:busboy@^1.6.0",
         "npm:crypto@^1.0.1",
         "npm:discord-interactions@^3.4.0",
@@ -84,6 +96,7 @@
         "npm:got@^14.3.0",
         "npm:gotrue-js@^0.9.29",
         "npm:gpt3-tokenizer@^1.1.5",
+        "npm:he@^1.2.0",
         "npm:http-server@^14.1.1",
         "npm:idb@^8.0.0",
         "npm:jest@^29.7.0",
@@ -93,6 +106,7 @@
         "npm:kill-port@^2.0.1",
         "npm:mongodb@^6.6.2",
         "npm:nanoid@^5.0.7",
+        "npm:netlify-cli@^17.30.0",
         "npm:nodemailer@^6.9.13",
         "npm:npm-check-updates@^16.14.20",
         "npm:obscenity@^0.2.1",

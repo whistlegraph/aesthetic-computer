@@ -41,9 +41,20 @@ but technically agnostic. (Choose your aesthetic!)
   - [] Watch WebXR on Apple Vision Demo: https://developer.apple.com/videos/play/wwdc2024/10066/
 
 🌟 Projects in Progress (PIP) 🌟
+
   - [⚙️] fix index.js meta parsing logic so it works across the board for 
        all sources of mjs modules and all lisp modules, 💛 perhaps by running
        sources through a pre-processor endpoint builder function 💛
+  - [] check...
+    - [x] line
+    - [x] prompt
+    
+    - [] @jeffrey
+    - [] ff~1
+    - [] code
+    - [] hell_-world
+    - [] @bash/fire! or equivalent with meta function
+    - [] (requires kidlisp parsing) 
   - [] add the bios load text overlay
   - [] fix vscode.dev extension support
   - [] why wouldn't the 'login' button have worked on that windows machine?
@@ -75,6 +86,10 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] samantha -> @samanthaschen
   - [x] javid -> @joda
   - [x] zuhair -> @zuhair
+
+*** experiment ***
+- [] build a 2d self-replicating thingy in kidlisp or a self-replicating
+     kidlisp proggy
 
 *** ida convo (pre-class) ***
  - [] separate chat server for class
