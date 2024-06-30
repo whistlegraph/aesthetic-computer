@@ -99,7 +99,7 @@ async function fun(event, context) {
           // TODO: Try to print the file system heirarchy / find these files...
 
           sourceCode = await fs.readFile(
-            `${dev ? "./" : "/var/task/system/netlify/"}public/aesthetic.computer/disks/${path}.mjs`,
+            `${dev ? "./" : "/var/task/system/"}public/aesthetic.computer/disks/${path}.mjs`,
             "utf8",
           );
         } catch (err) {
