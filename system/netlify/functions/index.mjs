@@ -94,8 +94,12 @@ async function fun(event, context) {
         let path = parsed.path.replace("aesthetic.computer/disks/", "");
         if (path.startsWith("@")) path = "profile";
         try {
+
+          // ❤️‍🔥 
+          // TODO: Try to print the file system heirarchy / find these files...
+
           sourceCode = await fs.readFile(
-            `${dev ? "./" : "/"}public/aesthetic.computer/disks/${path}.mjs`,
+            `${dev ? "./" : "/var/tasks/system/netlify/"}public/aesthetic.computer/disks/${path}.mjs`,
             "utf8",
           );
         } catch (err) {
