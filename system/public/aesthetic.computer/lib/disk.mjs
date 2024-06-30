@@ -2662,7 +2662,7 @@ async function load(
 
   // const moduleLoadTime = performance.now();
 
-  let blobUrl, sourceCode;
+  let blobUrl, sourceCode, originalCode;
   try {
     // If this is a reload (with no source change) then just create a new
     // blobURL off the old source.
@@ -2680,8 +2680,7 @@ async function load(
       let sourceToRun;
       if (fullUrl) {
         let response;
-        // console.log("📥 Loading from url:", fullUrl);
-        // TODO: ❤️‍🔥 Skip URL load attempts if this is a devReload.
+        if (logs.loading) console.log("📥 Loading from url:", fullUrl);
         response = await fetch(fullUrl);
         if (response.status === 404 || response.status === 403) {
           const anonUrl =
@@ -2744,6 +2743,7 @@ async function load(
         const blob = new Blob([updatedCode], {
           type: "application/javascript",
         });
+
         blobUrl = URL.createObjectURL(blob);
         originalCode = sourceCode;
         sourceCode = updatedCode;
@@ -2751,15 +2751,14 @@ async function load(
       }
     }
   } catch (err) {
+    console.log("🟡 Error loading mjs module:", err);
     // Look for lisp files if the mjs file is not found.
     try {
-      console.log("Full url is:", fullUrl);
       fullUrl = fullUrl.replace(".mjs", ".lisp");
-
       let response;
-      if (logs.loading) console.log("📥 Loading from url:", fullUrl);
+      if (logs.loading) console.log("📥 Loading lisp from url:", fullUrl);
       response = await fetch(fullUrl);
-      // console.log("🤖 Response:", response);
+      console.log("🤖 Response:", response);
 
       if (response.status === 404 || response.status === 403) {
         const anonUrl =
