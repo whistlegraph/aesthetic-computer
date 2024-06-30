@@ -46,14 +46,14 @@ but technically agnostic. (Choose your aesthetic!)
        all sources of mjs modules and all lisp modules, 💛 perhaps by running
        sources through a pre-processor endpoint builder function 💛
   - [] check in local and production...
+    - [🟠] @bash/fire! or equivalent with meta function
+    - [] code
+      - [] (requires kidlisp parsing) 
     - [x] line
     - [x] prompt
-    - [🟠] @jeffrey
-    - [] ff~1
-    - [] code
-    - [] hell_-world
-    - [] @bash/fire! or equivalent with meta function
-    - [] (requires kidlisp parsing) 
+    - [x] @jeffrey
+    - [x] ff~1
+    - [x] hell_-world
   - [] add the bios load text overlay
   - [] fix vscode.dev extension support
   - [] why wouldn't the 'login' button have worked on that windows machine?
