@@ -2676,6 +2676,7 @@ async function load(
       const blob = new Blob([currentCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);
       sourceCode = currentCode;
+      originalCode = sourceCode;
     } else {
       let sourceToRun;
       if (fullUrl) {
@@ -2719,6 +2720,7 @@ async function load(
         // Assume lisp.
         console.log("🐍 Lisp piece detected.");
         sourceCode = sourceToRun;
+        originalCode = sourceCode;
         loadedModule = lisp.module(sourceToRun);
 
         if (devReload) {
@@ -2745,7 +2747,7 @@ async function load(
         });
 
         blobUrl = URL.createObjectURL(blob);
-        originalCode = sourceCode;
+        originalCode = sourceToRun;
         sourceCode = updatedCode;
         loadedModule = await import(blobUrl);
       }
@@ -2780,6 +2782,7 @@ async function load(
       }
       sourceCode = await response.text();
       // console.log("📓 Source:", sourceCode);
+      originalCode = sourceCode;
       loadedModule = lisp.module(sourceCode);
 
       if (devReload) {
