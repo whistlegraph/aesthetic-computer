@@ -28,7 +28,7 @@ async function fun(event, context) {
   }
 
   console.log("📁", event.path);
-  console.log("😃", __dirname, __filename);
+  // console.log("😃", __dirname, __filename);
 
   let slug = event.path.slice(1) || "prompt";
 
@@ -94,8 +94,7 @@ async function fun(event, context) {
         let path = parsed.path.replace("aesthetic.computer/disks/", "");
         if (path.startsWith("@")) path = "profile";
         try {
-
-          // ❤️‍🔥 
+          // ❤️‍🔥
           // TODO: Try to print the file system heirarchy / find these files...
 
           sourceCode = await fs.readFile(
@@ -121,16 +120,9 @@ async function fun(event, context) {
     }
 
     if (sourceCode) {
-      // TODO: 🟣 How can I try to read the module's meta function here...
-      //       does it need to pass through a proxy or something?
-
-      // TODO: 🧡 This should also work for kidlisp pieces somehow...
-      // console.log("Updated source:", sourceCode, "UPDATED SOURCE^");
       const originalCode = sourceCode;
-
-      const currentDirectory = dev ? process.cwd() : "/var/task/system";
-
-      // Log the current working directory
+      let currentDirectory = process.cwd();
+      if (!dev) currentDirectory += "/system";
       console.log("🚗 Current Directory:", currentDirectory);
 
       sourceCode = updateCode(
