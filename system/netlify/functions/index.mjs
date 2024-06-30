@@ -95,7 +95,7 @@ async function fun(event, context) {
         if (path.startsWith("@")) path = "profile";
         try {
           sourceCode = await fs.readFile(
-            `./public/aesthetic.computer/disks/${path}.mjs`,
+            `${dev ? "./" : "../../"}public/aesthetic.computer/disks/${path}.mjs`,
             "utf8",
           );
         } catch (err) {
@@ -135,7 +135,7 @@ async function fun(event, context) {
         dev,
         (event.headers["x-forwarded-proto"] || "https") + ":", //,
         true,
-        currentDirectory
+        currentDirectory,
       );
 
       const tempPath = path.join("/tmp", `${slug}.mjs`);
@@ -144,7 +144,7 @@ async function fun(event, context) {
         await fs.writeFile(tempPath, sourceCode);
         // console.log(sourceCode);
         module = await import(`file://${tempPath}`);
-        console.log("Module:", module);
+        // console.log("Module:", module);
       } catch (err) {
         console.log("⚠️ Import error:", err, tempPath);
       } finally {
