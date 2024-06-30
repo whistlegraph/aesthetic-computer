@@ -1,329 +1,351 @@
 [build]
-  publish = "public"
-  # command = "bash ./github-discord.sh"
-  # command = "echo 'Building...'"
+publish = "public"
+# command = "bash ./github-discord.sh"
+# command = "echo 'Building...'"
 [functions]
-  node_bundler = "esbuild"
+node_bundler = "esbuild"
 [functions.apple-developer-merchantid-domain-association]
-  included_files = ["public/.well-known/*"]
+included_files = ["public/.well-known/*"]
 [functions.index]
-  included_files = ["public/aesthetic.computer/disks/**/*.mjs",
-                    "public/aesthetic.computer/dep/**/*.mjs",
-                    "public/aesthetic.computer/systems/**/*.mjs",
-                    "public/aesthetic.computer/lib/**/*.mjs",
-                    "backend/**/*.mjs"]
+included_files = [
+  "public/aesthetic.computer/disks/**/*.mjs",
+  "public/aesthetic.computer/dep/**/*.mjs",
+  "public/aesthetic.computer/systems/**/*.mjs",
+  "public/aesthetic.computer/lib/**/*.mjs",
+  "backend/**/*.mjs",
+]
+external_node_modules = ["he"]
 [functions.delete-erase-and-forget-me]
-  external_node_modules = ["@aws-sdk-client-s3"]
+external_node_modules = ["@aws-sdk-client-s3"]
 [functions.mood]
-  external_node_modules = ["got", "firebase-admin", "obscenity"]
+external_node_modules = ["got", "firebase-admin", "obscenity"]
 [functions.handle]
-  included_files = [
-    "public/aesthetic.computer/lib/text.mjs",
-    "backend/**/*.mjs"
-    ]
-  external_node_modules = ["got", "mongodb", "obscenity"]
+included_files = ["public/aesthetic.computer/lib/text.mjs", "backend/**/*.mjs"]
+external_node_modules = ["got", "mongodb", "obscenity"]
 [functions.logo]
-  external_node_modules = ["got"]
+external_node_modules = ["got"]
 [functions.print]
-  external_node_modules = ["got", "stripe", "nodemailer"]
+external_node_modules = ["got", "stripe", "nodemailer"]
 [functions.pixel]
-  external_node_modules = ["got", "sharp"]
+external_node_modules = ["got", "sharp"]
 [functions.ticket]
-  external_node_modules = ["stripe", "nanoid"]
+external_node_modules = ["stripe", "nanoid"]
 [functions.user]
-  included_files = ["backend/**/*.mjs"]
-  external_node_modules = ["got", "mongodb"]
+included_files = ["backend/**/*.mjs"]
+external_node_modules = ["got", "mongodb"]
 [functions.presigned-url]
-  external_node_modules = ["got", "mongodb", "nanoid", "@aws-sdk-client-s3", "@aws-sdk/s3-request-presigner"]
-  included_files = ["backend/**/*.mjs"]
+external_node_modules = [
+  "got",
+  "mongodb",
+  "nanoid",
+  "@aws-sdk-client-s3",
+  "@aws-sdk/s3-request-presigner",
+]
+included_files = ["backend/**/*.mjs"]
 [functions.thumbnail]
-  external_node_modules = ["puppeteer"]
+external_node_modules = ["puppeteer"]
 [functions.icon]
-  external_node_modules = ["puppeteer"]
+external_node_modules = ["puppeteer"]
 [functions.session]
-  external_node_modules = ["got", "redis"]
+external_node_modules = ["got", "redis"]
 [functions.reload]
-  external_node_modules = ["got", "redis"]
+external_node_modules = ["got", "redis"]
 [functions.sotce-blog]
-  external_node_modules = ["got", "crypto", "patreon"]
+external_node_modules = ["got", "crypto", "patreon"]
 [functions.vary]
-  external_node_modules = ["got", "multiparty", "openai"]
+external_node_modules = ["got", "multiparty", "openai"]
 [functions.slash]
-  external_node_modules = ["discord-interactions"]
+external_node_modules = ["discord-interactions"]
 [dev]
-  NODE_ENV = "development"
-  publish = "public/"
-  #command = "npm run media-server-caddy"
-  #targetPort = 8111
-  framework = "#static"
-  autoLaunch = false
+NODE_ENV = "development"
+publish = "public/"
+#command = "npm run media-server-caddy"
+#targetPort = 8111
+framework = "#static"
+autoLaunch = false
 [dev.https]
-  certFile = "../ssl-dev/localhost.pem"
-  keyFile = "../ssl-dev/localhost-key.pem"
+certFile = "../ssl-dev/localhost.pem"
+keyFile = "../ssl-dev/localhost-key.pem"
 [context.production]
-  NODE_ENV= "production"
+NODE_ENV = "production"
 [[headers]]
-  for = "/*" # Define which paths this specific [[headers]] block will cover.
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    # These headers are required in order for SharedArrayBuffer to be enabled.
-    # Currently used by ffmpeg.wasm. 22.08.06.11.01
-    # Cross-Origin-Embedder-Policy = "require-corp"
-    Cross-Origin-Opener-Policy = "same-origin-allow-popups"
-    Cross-Origin-Resource-Policy = "cross-origin"
+for = "/*" # Define which paths this specific [[headers]] block will cover.
+[headers.values]
+Access-Control-Allow-Origin = "*"
+# These headers are required in order for SharedArrayBuffer to be enabled.
+# Currently used by ffmpeg.wasm. 22.08.06.11.01
+# Cross-Origin-Embedder-Policy = "require-corp"
+Cross-Origin-Opener-Policy = "same-origin-allow-popups"
+Cross-Origin-Resource-Policy = "cross-origin"
 [[headers]]
-  for = "/*.mjs|/*.js"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Content-Security-Policy = "script-src 'self' https://www.gstatic.com https://aesthetic.computer blob: 'unsafe-eval';"
-    # Cross-Origin-Resource-Policy = "cross-origin"
-    Vary = "*"
+for = "/*.mjs|/*.js"
+[headers.values]
+Access-Control-Allow-Origin = "*"
+Content-Security-Policy = "script-src 'self' https://www.gstatic.com https://aesthetic.computer blob: 'unsafe-eval';"
+# Cross-Origin-Resource-Policy = "cross-origin"
+Vary = "*"
 [[edge_functions]]
-  path = "/media/*"
-  function = "media"
+path = "/media/*"
+function = "media"
 [[redirects]]
-   from = "https://botce.ac"
-   to = "https://aesthetic.computer/botce"
-   status = 200
-   force = true
+from = "https://botce.ac"
+to = "https://aesthetic.computer/botce"
+status = 200
+force = true
 [[redirects]]
-   from = "https://sotce.net/aesthetic.computer/*"
-   to = "/aesthetic.computer/:splat"
-   status = 200
-   force = true
+from = "https://sotce.net/aesthetic.computer/*"
+to = "/aesthetic.computer/:splat"
+status = 200
+force = true
 [[redirects]]
-  from = "/redirect-proxy-sotce"
-  to = "/.netlify/functions/redirect-proxy"
-  status = 200
+from = "/redirect-proxy-sotce"
+to = "/.netlify/functions/redirect-proxy"
+status = 200
 [[redirects]]
-   from = "https://sotce.net/user"
-   to = "/.netlify/functions/user"
-   status = 200
-   force = true
+from = "https://sotce.net/user"
+to = "/.netlify/functions/user"
+status = 200
+force = true
 [[redirects]]
-  from = "https://sotce.net/api/email"
-  to = "/.netlify/functions/email"
-  status = 200
+from = "https://sotce.net/api/email"
+to = "/.netlify/functions/email"
+status = 200
 [[redirects]]
-  from = "https://sotce.net/redirect-proxy-sotce"
-  to = "/.netlify/functions/redirect-proxy"
-  status = 200
+from = "https://sotce.net/redirect-proxy-sotce"
+to = "/.netlify/functions/redirect-proxy"
+status = 200
 [[redirects]]
-   from = "https://sotce.net/*"
-   to = "/.netlify/functions/sotce-net"
-   status = 200
-   force = true
+from = "https://sotce.net/*"
+to = "/.netlify/functions/sotce-net"
+status = 200
+force = true
 [[redirects]]
-   from = "https://sotce.local/*"
-   to = "/.netlify/functions/sotce-net"
-   status = 200
-   force = true
+from = "https://sotce.local/*"
+to = "/.netlify/functions/sotce-net"
+status = 200
+force = true
 [[redirects]]
-  from = "/sotce-net/*"
-  to = "/.netlify/functions/sotce-net"
-  status = 200
-  force = true
+from = "/sotce-net/*"
+to = "/.netlify/functions/sotce-net"
+status = 200
+force = true
 [[redirects]]
-   from = "https://whistlegraph.com/*"
-   to = "https://trio.whistlegraph.com/:splat"
-   status = 301
-   force = true
+from = "https://whistlegraph.com/*"
+to = "https://trio.whistlegraph.com/:splat"
+status = 301
+force = true
 [[redirects]]
-  from = "/media-collection/*"
-  to = "/.netlify/functions/media-collection"
-  status = 200
-  force = true
+from = "/media-collection/*"
+to = "/.netlify/functions/media-collection"
+status = 200
+force = true
 [[redirects]]
-  from = "/.well-known/apple-developer-merchantid-domain-association"
-  to = "/.netlify/functions/apple-developer-merchantid-domain-association"
-  status = 200
-  force = true
+from = "/.well-known/apple-developer-merchantid-domain-association"
+to = "/.netlify/functions/apple-developer-merchantid-domain-association"
+status = 200
+force = true
 [[redirects]]
-  from = "/slash"
-  to = "/.netlify/functions/slash"
-  status = 200
-  force = true
+from = "/slash"
+to = "/.netlify/functions/slash"
+status = 200
+force = true
 [[redirects]]
-  from = "https://www.4esthetic.com/*"
-  to = "https://aesthetic.computer/:splat"
-  status = 301
-  force = true
+from = "https://www.4esthetic.com/*"
+to = "https://aesthetic.computer/:splat"
+status = 301
+force = true
 [[redirects]]
-  from = "https://4esthetic.com/*"
-  to = "https://aesthetic.computer/:splat"
-  status = 301
-  force = true
+from = "https://4esthetic.com/*"
+to = "https://aesthetic.computer/:splat"
+status = 301
+force = true
 [[redirects]]
-  from = "https://wand.ac"
-  to = "https://aesthetic-computer.netlify.app/wand"
-  status = 301
-  force = true
+from = "https://wand.ac"
+to = "https://aesthetic-computer.netlify.app/wand"
+status = 301
+force = true
 [[redirects]]
-  from = "https://edit.ac"
-  to = "https://vscode.dev/github/digitpain/aesthetic.computer-code/blob/main/blank.mjs"
-  status = 301
-  force = true
+from = "https://edit.ac"
+to = "https://vscode.dev/github/digitpain/aesthetic.computer-code/blob/main/blank.mjs"
+status = 301
+force = true
 [[redirects]]
-  from = "https://m2w2.whistlegraph.com"
-  to = "https://aesthetic.computer/wg~m2w2"
-  status = 200
-  force = false
+from = "https://m2w2.whistlegraph.com"
+to = "https://aesthetic.computer/wg~m2w2"
+status = 200
+force = false
 [[redirects]]
-  from = "https://sotce.aesthetic.computer"
-  to = "https://aesthetic.computer/sotce-blog"
-  status = 200
-  force = false
+from = "https://sotce.aesthetic.computer"
+to = "https://aesthetic.computer/sotce-blog"
+status = 200
+force = false
 [[redirects]]
-  from = "https://pals.aesthetic.computer/*"
-  to = "https://aesthetic.computer/api/logo/:splat"
-  status = 200
-  force = true
+from = "https://pals.aesthetic.computer/*"
+to = "https://aesthetic.computer/api/logo/:splat"
+status = 200
+force = true
 [[redirects]]
-  from = "https://prompt.ac/*"
-  to = "https://aesthetic.computer/:splat"
-  status = 301
-  force = true
+from = "https://prompt.ac/*"
+to = "https://aesthetic.computer/:splat"
+status = 301
+force = true
 [[redirects]]
-  from = "/thumbnail/*"
-  to = "/.netlify/builders/thumbnail"
-  status = 200
+from = "/thumbnail/*"
+to = "/.netlify/builders/thumbnail"
+status = 200
 [[redirects]]
-  from = "/support"
-  to = "/support.html"
-  status = 200
+from = "/support"
+to = "/support.html"
+status = 200
 [[redirects]]
-  from = "/privacy-policy"
-  to = "/privacy-policy.html"
-  status = 200
+from = "/privacy-policy"
+to = "/privacy-policy.html"
+status = 200
 [[redirects]]
-  from = "/icon/*"
-  to = "/.netlify/builders/icon"
-  status = 200
+from = "/icon/*"
+to = "/.netlify/builders/icon"
+status = 200
 [[redirects]]
-  from = "/api/print/*"
-  to = "/.netlify/functions/print"
-  status = 200
+from = "/api/print/*"
+to = "/.netlify/functions/print"
+status = 200
 [[redirects]]
-  from = "/api/ticket/*"
-  to = "/.netlify/functions/ticket"
-  status = 200
+from = "/api/ticket/*"
+to = "/.netlify/functions/ticket"
+status = 200
 [[redirects]]
-  from = "/api/subscribe-to-topic"
-  to = "/.netlify/functions/subscribe-to-topic"
-  status = 200
+from = "/api/subscribe-to-topic"
+to = "/.netlify/functions/subscribe-to-topic"
+status = 200
 [[redirects]]
-  from = "/api/logo/*"
-  to = "/.netlify/functions/logo/:splat"
-  status = 200
+from = "/api/logo/*"
+to = "/.netlify/functions/logo/:splat"
+status = 200
 [[redirects]]
-  from = "/api/logo.png"
-  to = "/.netlify/functions/logo"
-  status = 200
+from = "/api/logo.png"
+to = "/.netlify/functions/logo"
+status = 200
 [[redirects]]
-  from = "/api/pixel/*"
-  to = "/.netlify/builders/pixel"
-  status = 200
+from = "/api/pixel/*"
+to = "/.netlify/builders/pixel"
+status = 200
 [[redirects]]
-  from = "/session/*"
-  to = "/.netlify/functions/session"
-  status = 200
+from = "/session/*"
+to = "/.netlify/functions/session"
+status = 200
 [[redirects]]
-  from = "/reload/*"
-  to = "/.netlify/functions/reload"
-  status = 200
+from = "/reload/*"
+to = "/.netlify/functions/reload"
+status = 200
 [[redirects]]
-  from = "/sotce-blog/*"
-  to = "/.netlify/functions/sotce-blog"
-  status = 200
+from = "/sotce-blog/*"
+to = "/.netlify/functions/sotce-blog"
+status = 200
 [[redirects]]
-  from = "/auth"
-  to = "/.netlify/functions/auth"
-  status = 200
+from = "/auth"
+to = "/.netlify/functions/auth"
+status = 200
 [[redirects]]
-  from = "/docs/*"
-  to = "/.netlify/functions/docs/:splat"
-  status = 200
+from = "/docs/*"
+to = "/.netlify/functions/docs/:splat"
+status = 200
 [[redirects]]
-  from = "/docs.json"
-  to = "/.netlify/functions/docs"
-  status = 200
+from = "/docs.json"
+to = "/.netlify/functions/docs"
+status = 200
 [[redirects]]
-  from = "/api/vary"
-  to = "/.netlify/functions/vary"
-  status = 200
+from = "/api/vary"
+to = "/.netlify/functions/vary"
+status = 200
 [[redirects]]
-  from = "/api/mood/*"
-  to = "/.netlify/functions/mood"
-  status = 200
+from = "/api/mood/*"
+to = "/.netlify/functions/mood"
+status = 200
 [[redirects]]
-  from = "/api/delete-erase-and-forget-me"
-  to = "/.netlify/functions/delete-erase-and-forget-me"
-  status = 200
+from = "/api/delete-erase-and-forget-me"
+to = "/.netlify/functions/delete-erase-and-forget-me"
+status = 200
 [[redirects]]
-  from = "/api/admin"
-  to = "/.netlify/functions/admin-background"
-  status = 200
-  force = false
+from = "/api/admin"
+to = "/.netlify/functions/admin-background"
+status = 200
+force = false
 [[redirects]]
-  from = "/api/track-media"
-  to = "/.netlify/functions/track-media"
-  status = 200
-  force = false
+from = "/api/track-media"
+to = "/.netlify/functions/track-media"
+status = 200
+force = false
 [[redirects]]
-  from = "/api/profile/*"
-  to = "/.netlify/functions/profile"
-  status = 200
+from = "/api/profile/*"
+to = "/.netlify/functions/profile"
+status = 200
 [[redirects]]
-  from = "/handle"
-  to = "/.netlify/functions/handle"
-  status = 200
+from = "/handle"
+to = "/.netlify/functions/handle"
+status = 200
 [[redirects]]
-  from = "api/handles"
-  to = "/.netlify/functions/handles"
-  status = 200
+from = "api/handles"
+to = "/.netlify/functions/handles"
+status = 200
 [[redirects]]
-  from = "/api/email"
-  to = "/.netlify/functions/email"
-  status = 200
+from = "/api/email"
+to = "/.netlify/functions/email"
+status = 200
 [[redirects]]
-  from = "/user"
-  to = "/.netlify/functions/user"
-  status = 200
+from = "/user"
+to = "/.netlify/functions/user"
+status = 200
 [[redirects]]
-  from = "/run"
-  to = "/.netlify/functions/run"
-  status = 200
+from = "/run"
+to = "/.netlify/functions/run"
+status = 200
 [[redirects]]
-  from = "/redirect-proxy"
-  to = "/.netlify/functions/redirect-proxy"
-  status = 200
+from = "/redirect-proxy"
+to = "/.netlify/functions/redirect-proxy"
+status = 200
 [[redirects]]
-  from = "/presigned-upload-url/*"
-  to = "/.netlify/functions/presigned-url"
-  status = 200
-  force = true
+from = "/presigned-upload-url/*"
+to = "/.netlify/functions/presigned-url"
+status = 200
+force = true
 [[redirects]]
-  from = "/presigned-download-url/*"
-  to = "/.netlify/functions/presigned-url"
-  status = 200
-  force = true
+from = "/presigned-download-url/*"
+to = "/.netlify/functions/presigned-url"
+status = 200
+force = true
 [[redirects]]
-  from = "/api/ask"
-  to = "http://localhost:3000/api/ask"
-  status = 200
-  force = false
+from = "/api/ask"
+to = "http://localhost:3000/api/ask"
+status = 200
+force = false
 [[redirects]]
-  from = "/api/say"
-  to = "http://localhost:3000/api/say"
-  status = 200
-  force = false
+from = "/api/say"
+to = "http://localhost:3000/api/say"
+status = 200
+force = false
 [[redirects]]
-  from = "/"
-  to = "/.netlify/functions/index"
-  status = 200
-  force = true
+from = "/"
+to = "/.netlify/functions/index"
+status = 200
+force = true
 [[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/index"
-  status = 200
-  force = false
+from = "/*"
+to = "/.netlify/functions/index"
+status = 200
+force = false
+#[[edge_functions]]
+#function = "index"
+#path = "/"
+#[[edge_functions]]
+#function = "index"
+#path = "/*"
+#[[redirects]]
+#from = "/"
+#to = "/"
+#status = 200
+#force = true
+#[[redirects]]
+#from = "/*"
+#to = "/*"
+#status = 200
+#force = false
