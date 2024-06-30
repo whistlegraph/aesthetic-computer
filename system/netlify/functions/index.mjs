@@ -128,7 +128,7 @@ async function fun(event, context) {
       // console.log("Updated source:", sourceCode, "UPDATED SOURCE^");
       const originalCode = sourceCode;
 
-      const currentDirectory = process.cwd();
+      const currentDirectory = dev ? process.cwd() : "/var/task/system";
 
       // Log the current working directory
       console.log("🚗 Current Directory:", currentDirectory);
