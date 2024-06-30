@@ -151,45 +151,6 @@ function metadata(host, slug, pieceMetadata) {
 }
 
 // Modify source code imports etc / pre-process.
-// function updateCode(
-//   sourceToRun,
-//   host,
-//   debug,
-//   protocol = location?.protocol,
-//   serverRewrites = false
-// ) {
-//   let updatedCode = sourceToRun;
-
-//     // Automatically replace relative imports with absolute ones.
-//     const twoDots =
-//       /^(import|export) {([^{}]*?)} from ["'](\.\.\/|\.\.|\.\/)(.*?)["'];?/gm;
-//     const oneDot = /^(import|export) \* as ([^ ]+) from ["']\.?\/(.*?)["'];?/gm;
-
-//     updatedCode = sourceToRun.replace(twoDots, (match, p1, p2, p3, p4) => {
-//       let url = `${protocol}//${host}/aesthetic.computer${
-//         p3 === "./" ? "/disks" : ""
-//       }/${p4.replace(/\.\.\//g, "")}`;
-//       return `${p1} { ${p2} } from "${url}";`;
-//     });
-
-//     updatedCode = updatedCode.replace(oneDot, (match, p1, p2, p3) => {
-//       let url = `${protocol}//${host}/aesthetic.computer${
-//         p3.startsWith("disks/") ? "" : "/disks"
-//       }/${p3.replace(/^disks\//, "")}`;
-//       return `${p1} * as ${p2} from "${url}";`;
-//     });
-
-//   // 💉 Constant Injection (for pieces to use)
-//   // Inject the DEBUG constant into the updatedCode
-//   // ⚠️ Always make sure to document 📚 added constants in `docs`!
-//   updatedCode = `const DEBUG = ${debug};\n${updatedCode}`;
-
-//   // 📥 Hunt for and preloading any user media.
-//   updatedCode = addExportsToCode(updatedCode);
-//   return updatedCode;
-// }
-
-// Modify source code imports etc / pre-process.
 function updateCode(
   sourceToRun,
   host,
