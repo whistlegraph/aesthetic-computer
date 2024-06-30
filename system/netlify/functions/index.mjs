@@ -95,7 +95,7 @@ async function fun(event, context) {
         if (path.startsWith("@")) path = "profile";
         try {
           sourceCode = await fs.readFile(
-            `${dev ? "./" : "../"}public/aesthetic.computer/disks/${path}.mjs`,
+            `${dev ? "./" : "/"}public/aesthetic.computer/disks/${path}.mjs`,
             "utf8",
           );
         } catch (err) {
