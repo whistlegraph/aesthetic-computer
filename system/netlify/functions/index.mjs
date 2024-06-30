@@ -3,7 +3,7 @@
 import https from "https";
 import path from "path";
 import { promises as fs } from "fs";
-import { URLSearchParams, fileURLToPath } from "url";
+import { URLSearchParams } from "url";
 import { encode } from "he";
 import * as num from "../../public/aesthetic.computer/lib/num.mjs";
 import {
@@ -95,7 +95,7 @@ async function fun(event, context) {
         if (path.startsWith("@")) path = "profile";
         try {
           sourceCode = await fs.readFile(
-            `${dev ? "./" : "../../"}public/aesthetic.computer/disks/${path}.mjs`,
+            `${dev ? "./" : "../"}public/aesthetic.computer/disks/${path}.mjs`,
             "utf8",
           );
         } catch (err) {
