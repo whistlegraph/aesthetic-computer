@@ -39,36 +39,25 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
-- [🧗] design piano keys activity for tuesday 
-  - [🔵] Make it so keys can be held, and add a decay after releasing?
-- [🚗] investigate local socket disconnection situation
-- [wip as #console 🧡] add the bios load text overlay
-  - [🟠] pick a font and throw some text up...
-- [] fix icon previews
-
-*** after first period ***
+*** monday july 1 ***
+  - [🧗] design piano key activity / button activity for tuesday 
   - [] add linked list of user pieces to profile pages
+    - [] Use the `ucla-class` label for this?
     - [] @joelle, @noelanio, @caihong, @kim, @toriwazhere, @mayomochi, @samanthaschen, @joda, @zuhair
-  - [] switching from ac local to ac production while the user is logged in
-       should somehow remain compatible or log the user out
-  - [] suppress top-level function warnings in vscode
-  - [] fix vscode.dev extension support
-  - [] why wouldn't the 'login' button have worked on that windows machine?
-  - [] draw an alternative dom based hud at smaller resolutions...
-
- - [] individualized device notifications should be added now
- - [] add ability for @jeffrey to delete chat messages via mobile
- - [] add image / pixels support to chat and also maybe kidlisp support
-
-*** invites ***
- - [] how would this work for virtual events, like inviting people in a class in real-time
-      to a space or session
- - [] make a partiful invite clone that can send text messages to users
-      who give their phone number and can leave something on the board
-
-*** electron app ***
-  - [🟠] Make an aesthetic computer electron app that's capable of opening
-         new windows and builds for all platforms, especially linux and macos.
+  - [] fix icon previews and thumbs in development
+  - [wip as #console 🧡] add the bios load text overlay
+      - [] Or come up with specific intro / test patterns for booting.
+      - [x] pick a font and throw some text up...
+  - [] individualized device notifications should be added now
+  - [] and only chats that mention the user's name should appear
+  - [] add ability for @jeffrey to delete chat messages via mobile
+  - [] add text links to chat
+  - [] Send a `log` notification when a deployment happens.
+  + Done
+  - [x] investigate local socket disconnection situation
+  ----
+  - [] buff out the profile pages / make new profile pages in kidlisp
+  - [] add image / pixels support to chat and also maybe kidlisp support
 
 *** sotce.net ***
   - [🧡] Test signup in development.
@@ -79,6 +68,25 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Check how the auth works / token passing works from VSCode.
   - [x] Add support for developing `sotce-net` inside of the VS Code extension.
     - [x] In both development and production.
+
+*** discords ***
+  - [-] Shut down the whistlegraph Discord.
+  + Done
+  - [x] Shut down the AC Discord.
+
+*** more ***
+  - [] suppress top-level function warnings in vscode
+  - [] switching from ac local to ac production while the user is logged in should somehow remain compatible or log the user out
+  - [] fix vscode.dev extension support
+  - [] why wouldn't the 'login' button have worked on that windows machine?
+  - [] draw an alternative dom based hud at smaller resolutions, or decouple
+       the hud / label rendering from the piece's actual resolution
+       (this would have to be done for the chat as well)
+       (and should probably wait until there is a new renderer)
+
+*** electron app ***
+  - [🟠] Make an aesthetic computer electron app that's capable of opening
+         new windows and builds for all platforms, especially linux and macos.
 
 *** devcontainer stuff ***
   - [] Somehow automate the environment variable download / just ask for
@@ -95,11 +103,11 @@ but technically agnostic. (Choose your aesthetic!)
 - [] build a 2d self-replicating thingy in kidlisp or a self-replicating
      kidlisp proggy
 
-*** discords ***
-  - [-] Shut down the whistlegraph Discord.
-  - [] Send a `log` notification when a deployment happens.
-  + Done
-  - [x] Shut down the AC Discord.
+*** invites ***
+ - [] how would this work for virtual events, like inviting people in a class in real-time
+      to a space or session
+ - [] make a partiful invite clone that can send text messages to users
+      who give their phone number and can leave something on the board
 
 *** chat improvements ***
   - [🟨] Add a "handles" directory to scroll through all active handles.
