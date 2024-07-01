@@ -1,4 +1,7 @@
 FROM fedora:latest
+
+ENV NODE_OPTIONS=--max_old_space_size=4096
+
 # Update all packages.
 RUN dnf update -y
 
@@ -10,7 +13,7 @@ RUN dnf install -y dnf-plugins-core
 RUN dnf install -y lolcat toilet
 # RUN dnf install -y entr
 RUN dnf install -y iproute
-RUN dnf install -y xclip 
+RUN dnf install -y xclip
 # RUN dnf install -y golang
 
 # Add the Caddy repository and install Caddy
@@ -79,7 +82,7 @@ ENV PATH="/home/me/.fnm:$PATH"
 RUN eval "$(fnm env --use-on-cd)" && \
     fnm install lts-iron && fnm use lts-iron && fnm install 20.5.0 && \
     npm install -g prettier typescript typescript-language-server npm-check-updates
-    
+
 # @emacs-eask/cli
 
 # Install shell-gpt for the user.

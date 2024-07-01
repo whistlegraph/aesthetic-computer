@@ -19,7 +19,7 @@ import * as gizmo from "./gizmo.mjs";
 import * as ui from "./ui.mjs";
 import * as help from "./help.mjs";
 import * as platform from "./platform.mjs";
-import { parse, metadata, updateCode } from "./parse.mjs";
+import { parse, metadata, inferTitleDesc, updateCode } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
 import {
   notArray,
@@ -2736,6 +2736,8 @@ async function load(
           store["publishable-piece"] = { slug, source: sourceToRun };
           console.log("💌 Publishable:", store["publishable-piece"].slug);
         }
+
+        originalCode = sourceToRun;
         const updatedCode = updateCode(sourceToRun, host, debug);
 
         prefetches = updatedCode
@@ -2747,7 +2749,6 @@ async function load(
         });
 
         blobUrl = URL.createObjectURL(blob);
-        originalCode = sourceToRun;
         sourceCode = updatedCode;
         loadedModule = await import(blobUrl);
       }
@@ -3030,26 +3031,11 @@ async function load(
     const { title, desc, ogImage, twitterImage, icon } = metadata(
       location.host, // "aesthetic.computer",
       slug,
-      // Adding the num API here is a little hacky, but needed for Freaky Flowers random metadata generation. 22.12.27
       loadedModule.meta?.({
         ...parsed,
         num: $commonApi.num,
         store: $commonApi.store,
-      }) ||
-        (() => {
-          // Parse the source for a potential title and description.
-          let title = slug,
-            desc = "";
-          const lines = originalCode.split("\n");
-
-          if (lines[1]?.startsWith("//")) {
-            title = lines[1].split(",")[0].slice(3).trim();
-          }
-
-          if (lines[2]?.startsWith("//")) desc = lines[2].slice(3).trim();
-
-          return { title, desc };
-        })(),
+      }) || inferTitleDesc(originalCode),
     );
 
     meta = {
