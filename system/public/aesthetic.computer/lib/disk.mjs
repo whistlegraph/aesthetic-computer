@@ -2538,7 +2538,7 @@ class Speaker {
 }
 
 let sound,
-  soundClear, // Used by receivedBeat and defined in first frame update.
+  // soundClear, // Used by receivedBeat and defined in first frame update.
   soundId = 0n, // Increment each sound / give it an id in the `bios`.
   soundTime; // Used by `$sound.synth` for global timing.
 
@@ -3583,7 +3583,7 @@ async function load(
     currentHash = hash;
     // sound = null;
     glazeEnabled = null;
-    soundClear = null;
+    // soundClear = null;
     hourGlasses.length = 0;
     labelBack = false;
     previewMode = parsed.search?.startsWith("preview") || false;
@@ -4443,8 +4443,8 @@ async function makeFrame({ data: { type, content } }) {
       console.warn(" 💗 Beat failure...", e);
     }
 
-    send({ type: "beat", content: sound });
-    soundClear?.();
+    // send({ type: "beat", content: sound });
+    // soundClear?.();
     return;
   }
 
@@ -4734,11 +4734,11 @@ async function makeFrame({ data: { type, content } }) {
     sound.bpm = content.audioBpm;
 
     // Clear synchronized audio triggers.
-    soundClear = () => {
-      sound.sounds.length = 0;
-      sound.bubbles.length = 0;
-      sound.kills.length = 0;
-    };
+    // soundClear = () => {
+    sound.sounds.length = 0;
+    sound.bubbles.length = 0;
+    sound.kills.length = 0;
+    // };
 
     // Trigger a named audio sample to playback in the `bios`.
     // options: { volume: 0-n, pan: 0-2?, loop: Bool, ...(there is more) }
@@ -4748,12 +4748,8 @@ async function makeFrame({ data: { type, content } }) {
       send({ type: "sfx:play", content: { sfx, id, options } });
 
       return {
-        kill: (/*fade = false*/) => {
-          // if (!fade) {
-          send({ type: "sfx:kill", content: { id } });
-          // } else {
-          // send({ type: "sfx:kill-fade", content: { fade } });
-          // }
+        kill: (fade) => {
+          send({ type: "sfx:kill", content: { id, fade } });
         },
         progress: async () => {
           const prom = new Promise((resolve, reject) => {
@@ -4794,8 +4790,8 @@ async function makeFrame({ data: { type, content } }) {
 
       return {
         id,
-        kill: function () {
-          sound.kills.push(id);
+        kill: function (fade) {
+          sound.kills.push({ id, fade });
         },
         progress: function (time) {
           return 1 - max(0, end - time) / seconds;
@@ -4803,7 +4799,7 @@ async function makeFrame({ data: { type, content } }) {
         update: function (properties) {
           // Property updates happen outside of beat timing.
           send({
-            type: "beat:update",
+            type: "synth:update",
             content: { id, properties },
           });
         },
@@ -4814,8 +4810,8 @@ async function makeFrame({ data: { type, content } }) {
       sound.bubbles.push({ radius: radius, rise, volume, pan });
     };
 
-    $sound.kill = function (id) {
-      sound.kills.push(id);
+    $sound.kill = function (id, fade) {
+      sound.kills.push({ id, fade });
     };
 
     $commonApi.sound = $sound;
@@ -5717,7 +5713,7 @@ async function makeFrame({ data: { type, content } }) {
     if (paintCount > 8n && (sessionStarted || $commonApi.net.sandboxed))
       loadAfterPreamble?.(); // Start loading after the first disk if necessary.
 
-    soundClear?.();
+    // soundClear?.();
 
     // ***Frame State Reset***
     // Reset video transcoding / print progress.

@@ -6,6 +6,10 @@ export default class Sound {
   // Generic for all instruments.
   playing = true;
 
+  #fading = false; // If we are fading and then stopping playback.
+  #fadeProgress;
+  #fadeDuration;
+
   #duration = 0;
   #attack = 0;
   #decay = 0;
@@ -147,10 +151,33 @@ export default class Sound {
       return 0;
     }
 
-    return value * this.#volume;
+    let out = value * this.#volume;
+
+    // "Fade out to kill" - 24.07.01.20.36
+    if (this.#fading) {
+      if (this.#fadeProgress < this.#fadeDuration) {
+        this.#fadeProgress += 1;
+        // Apply the fade envelope to the output.
+        out *= 1 - this.#fadeProgress / this.#fadeDuration;
+      } else {
+        this.#fading = false;
+        this.playing = false;
+        return 0;
+      }
+    }
+
+    return out;
   }
 
-  kill() {
-    this.playing = false;
+  // Use a 25ms fade by default.
+  kill(fade = 0.025) {
+    if (!fade) {
+      this.playing = false;
+    } else {
+      // Fade over 'fade' seconds, before stopping playback.
+      this.#fading = true;
+      this.#fadeProgress = 0;
+      this.#fadeDuration = fade * sampleRate; // Convert seconds to samples.
+    }
   }
 }

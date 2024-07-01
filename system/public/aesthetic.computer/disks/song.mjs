@@ -116,7 +116,7 @@ function act({
   }
 
   function cancel() {
-    sound?.kill();
+    sound?.kill(0.1);
     needsPaint();
   }
 
