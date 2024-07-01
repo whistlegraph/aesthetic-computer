@@ -59,6 +59,20 @@ but technically agnostic. (Choose your aesthetic!)
   - [] buff out the profile pages / make new profile pages in kidlisp
   - [] add image / pixels support to chat and also maybe kidlisp support
 
+*** add upside-down / `sing` mode to song ***
+  - [] refer to artur's `sign` demo from puerto rico
+  - [] add a flip colon param to song: `song:flip` to 
+       flip the graphics
+  - [] should then be able to enter `song:flip respawn-timer`
+       to perform a custom song
+   > Street level multiplayer.
+  - [] if i `echo @jeffrey` then i should be able to hear the synth sounds
+       out of my own phone speaker as they come through the network, in
+       perhaps an assymetric fashion, but how would these be transmitted?
+     - ideally they would be via udp with a no miss / redundant option
+     - and 'echo' subscribes users to receive the echo udp messages of a user
+       and users should be removed from echo list on disconnect, etc.
+
 *** sotce.net ***
   - [🧡] Test signup in development.
   - [] Finish login and logout in VS Code local with refresh.
