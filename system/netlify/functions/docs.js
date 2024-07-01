@@ -2409,7 +2409,6 @@ export async function handler(event, context) {
         sig: "notepad",
         desc: "A melodic keyboard instrument.",
         done: false,
-        hidden: true,
       },
       old: {
         sig: "old",
