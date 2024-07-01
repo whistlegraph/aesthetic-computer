@@ -3,12 +3,16 @@
 
 /* 📝 Notes 
   TODO
+  - [🟠] Add visualization to the keys being pressed.
+  - [] Add the ability to run through a series of notes / an existing song.
   - [] Show some form of display / color coded display to show octave state and also print the last note pressed. 
   - [] Show a melody so that a typing game can take place.
   - [] Abstract this so shift adds the 5.
   - [] Leave out all options from synth / make sensible defaults first.
   - [] Add visual buttons.
-  - [] Disable key repeat.
+  + Done
+  - [x] Disable key repeat / don't retrigger sounds on repeat.
+  - [x] Make it so keys can be held, and add a decay after releasing?
 */
 
 function paint({ wipe }) {
@@ -16,12 +20,13 @@ function paint({ wipe }) {
 }
 
 let octave = 4;
+const sounds = {};
 
 function act({ event: e, sound: { synth } }) {
   // ⌨️ Keyboad Shortcuts
   const volume = 1,
     decay = 0.9,
-    duration = 0.25,
+    duration = Infinity, //0.25,
     attack = 0.01;
 
   "123456789".split("").forEach((digit) => {
@@ -32,14 +37,23 @@ function act({ event: e, sound: { synth } }) {
   const accent = e.ctrl ? "#" : ""; /*e.;*/
 
   "abcdefg".split("").forEach((key) => {
-    if (e.is(`keyboard:down:${key}`)) {
-      synth({
-        tone: key + accent + (octave + shift),
+    if (e.is(`keyboard:down:${key}`) && !sounds[key]) {
+      const tone = key + accent + (octave + shift);
+      sounds[key] = synth({
+        type: "square",
+        tone,
         duration,
         attack,
         decay,
-        volume,
+        volume, // TODO: <- Rename to 'level'.
       });
+      console.log(sounds[key]);
     }
+
+    if (e.is(`keyboard:up:${key}`)) {
+      sounds[key]?.kill(0.25);
+      delete sounds[key];
+    }
+
   });
 }

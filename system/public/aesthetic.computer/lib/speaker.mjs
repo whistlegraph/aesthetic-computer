@@ -92,9 +92,10 @@ class SoundProcessor extends AudioWorkletProcessor {
 
       // 💀 Kill an existing sound.
       if (msg.type === "kill") {
-        this.#running[msg.data]?.kill(); // Try and kill the sound if it exists,
-        this.#running[msg.data] = undefined; // then compact the array.
-        delete this.#running[msg.data];
+        // Try and kill the sound if it exists, linearly over 'fade' seconds.
+        this.#running[msg.data.id]?.kill(msg.data.fade);
+        this.#running[msg.data.id] = undefined; // then compact the array.
+        delete this.#running[msg.data.id];
         return;
       }
 
@@ -110,13 +111,19 @@ class SoundProcessor extends AudioWorkletProcessor {
 
       // 📢 Sound
       // Fires just once and gets recreated on every call.
+
+      // TODO: 🔥 Smooth out the 'beats' / 'duration' interface switch here.
+
       if (msg.type === "sound") {
         let duration, attack, decay;
 
         if (msg.data.beats === Infinity) {
           duration = Infinity;
         } else {
+
+          // TODO: This should be settable not via beats as well...
           duration = round(sampleRate * (this.#bpmInSec * msg.data.beats));
+
           attack = round(duration * msg.data.attack); // Measured in frames.
           decay = round(duration * msg.data.decay);
         }

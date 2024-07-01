@@ -906,9 +906,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           soundProcessor.port.postMessage({ type: "bubble", data: bubble });
         };
 
-        killSound = function (id) {
-          // console.log("kill"); // TODO: Add fade here...
-          soundProcessor.port.postMessage({ type: "kill", data: id });
+        killSound = function (id, fade) {
+          // console.log("📢 Kill:", id, "Fade:", fade);
+          soundProcessor.port.postMessage({ type: "kill", data: { id, fade } });
         };
 
         updateSound = function (data) {
@@ -1078,7 +1078,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Return a playback handle here to be able to pause or kill the sample.
       sfxPlaying[id] = {
-        kill: () => {
+        kill: (fade) => {
+          // TODO: Implement 'fade' fadeout option.
           if (debug && logs.audio) console.log("🔈 Killing...", id);
           source.disconnect();
           gainNode.disconnect();
@@ -1231,7 +1232,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   // Called inside of `requestFrame`, and on the `beat` message.
-  function receivedBeat(content) {
+  function updateSynths(content) {
     function beat() {
       if (sound.bpm !== content.bpm) {
         sound.bpm = content.bpm;
@@ -1239,7 +1240,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       for (const sound of content.sounds) triggerSound(sound);
       for (const bubble of content.bubbles) updateBubble(bubble);
-      for (const id of content.kills) killSound(id);
+      for (const item of content.kills) killSound(item.id, item.fade);
     }
 
     if (
@@ -2891,12 +2892,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    if (type === "beat") {
-      receivedBeat(content);
-      return;
-    }
+    // Deprecated in favor of frame-synced communication.
+    //if (type === "beat") {
+    // updateSynths(content);
+    //  return;
+    //}
 
-    if (type === "beat:update") {
+    if (type === "synth:update") {
       updateSound?.(content);
       return;
     }
@@ -3762,13 +3764,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    // Stop a playing sound or sample if it exists.
+    // Stop a playing sound or sample if it exists,
+    // with an optional 'after' parameter for a fade out.
     if (type === "sfx:kill") {
-      sfxPlaying[content.id]?.kill();
+      sfxPlaying[content.id]?.kill(content.fade);
       return;
     }
 
-    //if (type === "sfx:kill-fade") {
+    //if (type === "sfx:fade") {
     // sfxPlaying[content.id]?.kill();
     //  return;
     //}
@@ -3834,7 +3837,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       TwoD?.pack(content.TwoD);
     }
 
-    receivedBeat(content.sound); // 🔈 Trigger any audio that was called upon.
+    updateSynths(content.sound); // 🔈 Trigger any audio that was called upon.
 
     // 🖥️ Compositing
 

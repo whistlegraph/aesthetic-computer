@@ -77,7 +77,7 @@ if not test -f localhost.pem; or not test -f localhost-key.pem
 end
 
 # Check if the nanos/ssl directory exists, and transfer the ssl certs over.
-if not test -d /home/me/aesthetic-computer/nanos/ssl
+if not test -f /home/me/aesthetic-computer/nanos/ssl/localhost.pem
     mkdir -p /home/me/aesthetic-computer/nanos/ssl
     cp localhost.pem ../nanos/ssl
     cp localhost-key.pem ../nanos/ssl
