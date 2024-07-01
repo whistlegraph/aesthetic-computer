@@ -54,6 +54,21 @@ form {
   user-select: none;
 }
 
+#console {
+  font-family: Berkeley Mono Variable, sans serif;
+  position: absolute;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 1000;
+  padding: 0.8em;
+  font-size: 1.25em;
+}
+
+#console.hidden {
+  display: none;
+}
+
 #aesthetic-computer {
   position: relative;
   overflow: hidden;

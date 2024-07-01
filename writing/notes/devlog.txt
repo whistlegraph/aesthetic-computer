@@ -11,6 +11,10 @@ Practical and conceptual notes weaved together.
 🕸️ W3C Proposals To Watch:
 - https://www.w3.org/TR/mediacapture-fromelement
 
+📽️ Research
+  - [] Watch WebXR on Apple Vision Demo: https://developer.apple.com/videos/play/wwdc2024/10066/
+  - [] Raaaga Basics: https://www.youtube.com/playlist?list=PLdOV4QmXfJcGGnhbCKyP-dD5nppGBY3kY
+
 ☁️ Ideas
 - Maybe aesthetic.computer is more of an interface project
   or search engine or *branded* prompt than it is a creative

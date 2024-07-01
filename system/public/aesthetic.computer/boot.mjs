@@ -53,11 +53,6 @@ if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";
 const parsed = parse(slug(location.href) || window.acSTARTING_PIECE);
 const bpm = 120; // Set the starting bpm. Is this still necessary?
 // Wait for fonts to load before booting.
-// if ("fonts" in document) {
-//  await document.fonts.load("1em YWFTProcessing-Light");
-//  await document.fonts.load("1em YWFTProcessing-Regular");
-//  await document.fonts.load("1em Berkeley Mono Variable");
-// }
 
 const nogap = location.search.startsWith("?nogap");
 boot(parsed, bpm, { gap: nogap ? 0 : undefined }, debug);
