@@ -1,5 +1,41 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+ *** class -> user list ***
+   - [x] joelle -> @joelle
+   - [x] noelani -> @noelanio
+   - [x] caihong -> @caihong
+   - [x] kim -> @kim
+   - [x] tori -> @toriwazhere
+   - [x] masayo -> @mayomochi
+   - [x] samantha -> @samanthaschen
+   - [x] javid -> @joda
+   - [x] zuhair -> @zuhair
+
+ + Done
+ - [c] separate chat server for class
+ - [x] fix syllabus medical thing / oversight
+ - [x] instead just talk and gather information
+ - [x] title of documentation doesn't change when clicking with the
+      tab open
+ - [x] design colored bars activity for thursday
+ - [x] should all top-level functions be auto-exported
+       if they exist, based on a whitelist?
+ - [c] fix tape
+ - [x] mute socket connection logs (bad for class) 
+ - [x] make sure logging in works via the extension 
+ - [x️] fix index.js meta parsing logic so it works across the board for 
+      all sources of mjs modules and all lisp modules, 💛 perhaps by running
+      sources through a pre-processor endpoint builder function 💛
+ - [x] check in local and production...
+   - [x] code
+     - [x] (requires kidlisp parsing) 
+   - [x] @bash/fire! or equivalent with meta function
+   - [x] line
+   - [x] prompt
+   - [x] @jeffrey
+   - [x] ff~1
+   - [x] hell_-world
+
 *** handle updates in chat ***
   + Done
   - [x] Get system log messages correct with handle change

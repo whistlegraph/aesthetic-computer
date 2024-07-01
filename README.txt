@@ -37,71 +37,28 @@ but technically agnostic. (Choose your aesthetic!)
 
 😀 TODO 😆
 
-📽️ Research
-  - [] Watch WebXR on Apple Vision Demo: https://developer.apple.com/videos/play/wwdc2024/10066/
-  - [] Raaaga Basics: https://www.youtube.com/playlist?list=PLdOV4QmXfJcGGnhbCKyP-dD5nppGBY3kY
-
 🌟 Projects in Progress (PIP) 🌟
 
-  - [] add the bios load text overlay
-  - [] fix vscode.dev extension support
-  - [] why wouldn't the 'login' button have worked on that windows machine?
-  + Done
-  - [x️] fix index.js meta parsing logic so it works across the board for 
-       all sources of mjs modules and all lisp modules, 💛 perhaps by running
-       sources through a pre-processor endpoint builder function 💛
-  - [x] check in local and production...
-    - [x] code
-      - [x] (requires kidlisp parsing) 
-    - [x] @bash/fire! or equivalent with meta function
-    - [x] line
-    - [x] prompt
-    - [x] @jeffrey
-    - [x] ff~1
-    - [x] hell_-world
+- [🧗] design piano keys activity for tuesday 
+  - [🔵] Make it so keys can be held, and add a decay after releasing?
+- [🚗] investigate local socket disconnection situation
+- [wip as #console 🧡] add the bios load text overlay
+  - [🟠] pick a font and throw some text up...
+- [] fix icon previews
 
 *** after first period ***
-  - [x] saving files to disk and loading from source is still a bad ux
-  - [] switching from ac local to ac production while the user is logged in should somehow remain compatible
-  - [] draw an alternative dom based hud at smaller resolutions...
   - [] add linked list of user pieces to profile pages
+    - [] @joelle, @noelanio, @caihong, @kim, @toriwazhere, @mayomochi, @samanthaschen, @joda, @zuhair
+  - [] switching from ac local to ac production while the user is logged in
+       should somehow remain compatible or log the user out
   - [] suppress top-level function warnings in vscode
-  - [🧡] title of documentation doesn't change when clicking with the
-       tab open
-  - [] design piano keys activity for tuesday 
-  + Done
-  - [x] design colored bars activity for thursday
-  - [x] should all top-level functions be auto-exported
-        if they exist, based on a whitelist?
-  - [c] fix tape
-  - [x] mute socket connection logs (bad for class) 
-  - [x] make sure logging in works via the extension 
+  - [] fix vscode.dev extension support
+  - [] why wouldn't the 'login' button have worked on that windows machine?
+  - [] draw an alternative dom based hud at smaller resolutions...
 
-*** class -> user list ***
-  - [x] joelle -> @joelle
-  - [x] noelani -> @noelanio
-  - [x] caihong -> @caihong
-  - [x] kim -> @kim
-  - [x] tori -> @toriwazhere
-  - [x] masayo -> @mayomochi
-  - [x] samantha -> @samanthaschen
-  - [x] javid -> @joda
-  - [x] zuhair -> @zuhair
-
-*** experiment ***
-- [] build a 2d self-replicating thingy in kidlisp or a self-replicating
-     kidlisp proggy
-
-*** ida convo (pre-class) ***
- - [] separate chat server for class
-  - [] how would this work for notifications?
-  - [] individualized device notifications should be added now
-  - [] add ability for @jeffrey to delete chat messages via mobile
- - [] chat should focus on text only features for now
- - [] images can come later
- + Done
- - [x] fix syllabus medical thing / oversight
- - [x] instead just talk and gather information
+ - [] individualized device notifications should be added now
+ - [] add ability for @jeffrey to delete chat messages via mobile
+ - [] add image / pixels support to chat and also maybe kidlisp support
 
 *** invites ***
  - [] how would this work for virtual events, like inviting people in a class in real-time
@@ -133,6 +90,10 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** vercel ***
   - [-] Remove vercel dependency / switch to a netlify function.
+
+*** experiment ***
+- [] build a 2d self-replicating thingy in kidlisp or a self-replicating
+     kidlisp proggy
 
 *** discords ***
   - [-] Shut down the whistlegraph Discord.

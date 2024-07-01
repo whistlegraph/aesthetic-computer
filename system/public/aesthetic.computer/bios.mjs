@@ -360,6 +360,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         document.body.append(link);
       });
 
+      if ("fonts" in document) {
+        //  await document.fonts.load("1em YWFTProcessing-Light");
+        //  await document.fonts.load("1em YWFTProcessing-Regular");
+        // document.fonts.load("1em Berkeley Mono Variable").then(() => {
+        //   setTimeout(() => {
+        //     document.getElementById("console")?.classList.remove("hidden");
+        //   }, 250);
+        // });
+      }
+
+      // document.fonts.ready.then(function () {});
+
       // Trigger it to re-draw whenever the window resizes.
       let timeout;
       let lastWidth = window.innerWidth;

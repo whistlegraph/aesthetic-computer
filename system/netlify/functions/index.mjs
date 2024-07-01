@@ -258,6 +258,7 @@ async function fun(event, context) {
         />
       </head>
       <body class="native-cursor" ${lanHost ? " data-lan-host=" + lanHost : ""}>
+        <div id="console" class="hidden">booting...</div>
         <script>
           if (window.self !== window.top) document.body.classList.add("embed");
         </script>
