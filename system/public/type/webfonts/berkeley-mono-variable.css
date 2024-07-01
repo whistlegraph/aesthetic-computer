@@ -4,7 +4,7 @@
 	     url('BerkeleyMonoVariable-Regular.woff') format('woff');
 	font-weight: normal;
 	font-style: normal;
-	font-display: swap;
+	/* font-display: block; */
 }
 
 @font-face {
@@ -13,5 +13,5 @@
 	url('BerkeleyMonoVariable-Italic.woff') format('woff');
 	font-weight: normal;
 	font-style: italic;
-	font-display: swap;
+	/* font-display: block; */
 }
