@@ -126,11 +126,29 @@ function slug(url) {
   // .split("?")[0]; // Remove any search param.
 }
 
+// Read first two lines of JavaScript or Lisp source to pull off a title & desc.
+function inferTitleDesc(source) {
+  let title, desc;
+  const lines = source.split("\n");
+
+  // Check for JavaScript-style comments
+  if (lines[0].startsWith("//") || lines[0].startsWith(";")) {
+    title = lines[0].split(",")[0].slice(2).trim();
+  }
+
+  if (lines[1]?.startsWith("//") || lines[1]?.startsWith(";")) {
+    desc = lines[1].slice(2).trim();
+  }
+
+  return { title, desc };
+}
+
 // Generates some metadata fields that are shared both on the client and server.
 function metadata(host, slug, pieceMetadata) {
   // Use a default title if there is no override.
+  const notAesthetic = host.indexOf("sotce") > -1 || host.indexOf("botce") > -1;
   const title =
-    pieceMetadata?.title ||
+    (pieceMetadata?.title || slug) + (notAesthetic ? "" : " · Aesthetic Computer") ||
     (slug !== "prompt" ? slug + " · Aesthetic Computer" : "Aesthetic Computer");
   // Use existing or default description.
   const desc = pieceMetadata?.desc || "An Aesthetic Computer piece.";
@@ -252,4 +270,4 @@ function addExportsToCode(code) {
   return code;
 }
 
-export { parse, slug, metadata, updateCode, addExportsToCode };
+export { parse, slug, metadata, updateCode, inferTitleDesc, addExportsToCode };

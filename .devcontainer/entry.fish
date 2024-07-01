@@ -35,6 +35,15 @@ git config --global --add safe.directory /home/me/aesthetic-computer
 # Make sure git is setup and authorized for making commits via `gh`.
 gh auth setup-git
 
+# Add aesthetic.local and sotce.local to /etc/hosts if they don't already exist
+if not grep -q "aesthetic.local" /etc/hosts
+    echo "127.0.0.1 aesthetic.local" | sudo tee -a /etc/hosts
+end
+
+if not grep -q "sotce.local" /etc/hosts
+    echo "127.0.0.1 sotce.local" | sudo tee -a /etc/hosts
+end
+
 # Apply the 'vault' credentials to the mounted aesthetic-computer volume, and make sure it exists.
 if test -d /home/me/aesthetic-computer
     if not test -d /home/me/aesthetic-computer/aesthetic-computer-vault

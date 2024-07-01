@@ -9,6 +9,7 @@ import * as num from "../../public/aesthetic.computer/lib/num.mjs";
 import {
   parse,
   metadata,
+  inferTitleDesc,
   updateCode,
 } from "../../public/aesthetic.computer/lib/parse.mjs";
 import { respond } from "../../backend/http.mjs";
@@ -75,34 +76,81 @@ async function fun(event, context) {
     body: '<a href="https://aesthetic.computer">https://aesthetic.computer</a>',
   };
 
-  let statusCode = 200; // Might change if a piece can't load.
-
   // Load and pre-process a piece's source code, then run it's `meta` function.
-  let sourceCode, module;
+  let statusCode = 200,
+    sourceCode,
+    language = "javascript", // Might switch to 'lisp' if necessary.
+    module,
+    fromHandle = false;
 
   try {
     // Externally hosted pieces always start with @.
     if (slug.startsWith("@") && slug.indexOf("/") !== -1) {
-      const externalPiece = await getPage(
-        `https://${parsed.host}/${parsed.path}.mjs`,
-      );
-      sourceCode = externalPiece.data;
-      if (externalPiece?.code !== 200) return redirect;
+      const baseUrl = `https://${event.headers["host"]}/${parsed.path}`;
+
+      console.log("🧔🧩 Loading handled piece:", `${baseUrl}.mjs`);
+      try {
+        let handledPiece = await getPage(`${baseUrl}.mjs`);
+
+        // Try to load the Lisp source if the .mjs file is not found
+        if (handledPiece?.code !== 200) {
+          console.log("🧔🧩 .mjs not found, trying .lisp:", `${baseUrl}.lisp`);
+          handledPiece = await getPage(`${baseUrl}.lisp`);
+          language = "lisp";
+        }
+
+        if (handledPiece?.code !== 200) {
+          statusCode = 404;
+          respond(statusCode, `Content not found: ${path}`);
+        } else {
+          sourceCode = handledPiece.data;
+          fromHandle = true;
+        }
+      } catch (err) {
+        console.log("Failed to load handled piece:", err);
+      }
+
+      // const url = `https://${event.headers["host"]}/${parsed.path}.mjs`;
+      // console.log("🧔🧩 Loading handled piece:", url);
+      // try {
+      //   const handledPiece = await getPage(url);
+
+      //   // TODO: This should also be able to handle lisp source.
+
+      //   if (handledPiece?.code !== 200) {
+      //     statusCode = 404;
+      //     respond(statusCode, `Content not found: ${path}`);
+      //   }
+      //   sourceCode = handledPiece.data;
+      //   fromHandle = true;
+      // } catch (err) {
+      //   console.log("Failed to load handled piece:", err);
+      // }
     } else {
       // Locally hosted piece.
       try {
         let path = parsed.path.replace("aesthetic.computer/disks/", "");
         if (path.startsWith("@")) path = "profile";
         try {
-          // ❤️‍🔥
-          // TODO: Try to print the file system heirarchy / find these files...
-
-          sourceCode = await fs.readFile(
-            `${dev ? "./" : "/var/task/system/"}public/aesthetic.computer/disks/${path}.mjs`,
-            "utf8",
-          );
+          const basePath = `${dev ? "./" : "/var/task/system/"}public/aesthetic.computer/disks/${path}`;
+          try {
+            sourceCode = await fs.readFile(`${basePath}.mjs`, "utf8");
+          } catch (errJavaScript) {
+            try {
+              sourceCode = await fs.readFile(`${basePath}.lisp`, "utf8");
+              language = "lisp";
+            } catch (errLisp) {
+              console.error(
+                "📃 Error reading or importing source code (both .mjs and .lisp failed):",
+                errJavaScript,
+                errLisp,
+              );
+              statusCode = 404;
+              respond(statusCode, `Content not found: ${path}`);
+            }
+          }
         } catch (err) {
-          console.error("📃 Error reading or importing source code:", err);
+          console.error("📃 Error:", err);
           statusCode = 404;
           respond(statusCode, `Content not found: ${path}`);
           // throw err;
@@ -119,48 +167,36 @@ async function fun(event, context) {
       }
     }
 
+    // TODO: ❤️‍🔥 How will this work for handled pieces?
+
     if (sourceCode) {
       const originalCode = sourceCode;
       let currentDirectory = process.cwd();
       if (!dev) currentDirectory += "/system";
-      console.log("🚗 Current Directory:", currentDirectory);
+      // console.log("🚗 Current Directory:", currentDirectory);
 
       sourceCode = updateCode(
         sourceCode,
         dev ? "localhost:8888" : event.headers["host"],
         dev,
         (event.headers["x-forwarded-proto"] || "https") + ":", //,
-        true,
-        currentDirectory,
+        fromHandle ? false : true,
+        fromHandle ? undefined : currentDirectory,
       );
 
-      const tempPath = path.join("/tmp", `${slug}.mjs`);
+      const tempPath = path.join("/tmp", `${slug.replaceAll("/", "-")}.mjs`);
 
       try {
         await fs.writeFile(tempPath, sourceCode);
-        // console.log(sourceCode);
-        module = await import(`file://${tempPath}`);
-        // console.log("Module:", module);
+        if (language === "javascript")
+          module = await import(`file://${tempPath}`);
       } catch (err) {
         console.log("⚠️ Import error:", err, tempPath);
       } finally {
         await fs.unlink(tempPath);
       }
 
-      meta =
-        module?.meta?.({ ...parsed, num }) ||
-        (() => {
-          // Parse the source for a potential title and description.
-          let title = "",
-            desc = "";
-          const lines = originalCode.split("\n");
-          if (lines[0].startsWith("//")) {
-            title = lines[0].split(",")[0].slice(3).trim();
-          }
-          if (lines[1].startsWith("//")) desc = lines[1].slice(3).trim();
-          return { title, desc };
-        })(); // Parse any special piece metadata if it exists.
-
+      meta = module?.meta?.({ ...parsed, num }) || inferTitleDesc(originalCode);
       console.log("📰 Metadata:", meta, "Path:", parsed.text);
     }
   } catch {

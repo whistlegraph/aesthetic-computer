@@ -39,24 +39,26 @@ but technically agnostic. (Choose your aesthetic!)
 
 📽️ Research
   - [] Watch WebXR on Apple Vision Demo: https://developer.apple.com/videos/play/wwdc2024/10066/
+  - [] Raaaga Basics: https://www.youtube.com/playlist?list=PLdOV4QmXfJcGGnhbCKyP-dD5nppGBY3kY
 
 🌟 Projects in Progress (PIP) 🌟
 
-  - [⚙️] fix index.js meta parsing logic so it works across the board for 
+  - [] add the bios load text overlay
+  - [] fix vscode.dev extension support
+  - [] why wouldn't the 'login' button have worked on that windows machine?
+  + Done
+  - [x️] fix index.js meta parsing logic so it works across the board for 
        all sources of mjs modules and all lisp modules, 💛 perhaps by running
        sources through a pre-processor endpoint builder function 💛
-  - [] check in local and production...
-    - [🟠] @bash/fire! or equivalent with meta function
-    - [] code
-      - [] (requires kidlisp parsing) 
+  - [x] check in local and production...
+    - [x] code
+      - [x] (requires kidlisp parsing) 
+    - [x] @bash/fire! or equivalent with meta function
     - [x] line
     - [x] prompt
     - [x] @jeffrey
     - [x] ff~1
     - [x] hell_-world
-  - [] add the bios load text overlay
-  - [] fix vscode.dev extension support
-  - [] why wouldn't the 'login' button have worked on that windows machine?
 
 *** after first period ***
   - [x] saving files to disk and loading from source is still a bad ux
