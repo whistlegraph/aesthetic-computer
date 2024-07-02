@@ -11,7 +11,7 @@
       - [] Make a new box from lines.
     - 2. Conditionals, and Coordinates and clicks. 🚥 
       - [] Collision detection. 🚗
-        - [] Single axis
+        - [] Single axis,
         - [] Boxes
     - 3. Buttons that... 
       - 4. [] Blink, 🚨
