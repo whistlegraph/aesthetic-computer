@@ -41,6 +41,7 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** monday july 1 ***
   - [🧗] design piano key activity / button activity for tuesday 
+  - [] design `ucla-2` file / activity... (clone `ucla-1`)
   - [] add linked list of user pieces to profile pages
     - [] Use the `ucla-class` label for this?
     - [] @joelle, @noelanio, @caihong, @kim, @toriwazhere, @mayomochi, @samanthaschen, @joda, @zuhair
