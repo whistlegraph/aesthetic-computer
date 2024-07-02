@@ -4,6 +4,7 @@
 /* 📝 Notes 
   TODO
     + Done
+  - [] holding tab should not auto-switch, same with 0!
   - [🟡] clean up digit vs note triggering code...
   - [] entering '0' should clear the params in the hud (re-enable editing)
   - [] be able to send that track / share it with others (via the first parameter) and the 'share' swipe that could pre-fill it.
@@ -106,7 +107,7 @@ function paint({ wipe, ink, write, screen }) {
 }
 
 function act({ event: e, sound: { synth } }) {
-  // ⌨️ Keyboad Shortcuts
+  // ⌨️ Keyboard Shortcuts
   if (editable && e.is("keyboard:down:tab")) track = !track;
   if (editable && e.is("keyboard:down:0")) {
     keys = "";
