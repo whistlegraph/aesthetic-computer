@@ -5,6 +5,10 @@ function capitalize(word) {
   return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
+function reverse(str) {
+  return str.split('').reverse().join('');
+}
+
 // 🙆 👍 Validates a user handle. ✅
 // (Used on client and server)
 
@@ -18,4 +22,4 @@ function validateHandle(handle) {
   return "valid";
 }
 
-export { capitalize, validateHandle };
+export { capitalize, reverse, validateHandle };

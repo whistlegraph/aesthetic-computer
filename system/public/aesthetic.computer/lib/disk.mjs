@@ -1369,6 +1369,7 @@ const $commonApi = {
   // },
   text: {
     capitalize: text.capitalize,
+    reverse: text.reverse,
     box: (text, pos = { x: 0, y: 0 }, bounds, scale = 1, wordWrap = true) => {
       if (!text) {
         console.warn("⚠️ No text for `box`.");
@@ -1901,13 +1902,37 @@ const $paintApi = {
   // Prints a line of text using the default / current global font.
   // Argument options:
   // text, pos: {x, y, center}, bg (optional)
-  write: function (text, pos, bg, bounds, wordWrap = true) {
-    if (text === undefined || text === null || !tf) return $activePaintApi; // Fail silently if no text.
+
+  // Parameters:
+  // text, x, y, options
+  // text, pos, bg, bounds, wordWrap = true) {
+  write: function () {
+    let text = arguments[0],
+      pos,
+      bg,
+      bounds,
+      wordWrap = true;
+    if (text === undefined || text === null || text === "" || !tf)
+      return $activePaintApi; // Fail silently if no text.
 
     text =
       typeof text === "object" && text !== null
         ? JSON.stringify(text)
         : text.toString();
+
+    // Assume: text, x, y, options
+    if (typeof arguments[1] === "number") {
+      pos = { x: arguments[1], y: arguments[2] };
+      const options = arguments[3];
+      bg = options?.bg;
+      bounds = options?.bounds;
+      wordWrap = options?.wordWrap === undefined ? wordWrap : options.wordWrap;
+    } else {
+      pos = arguments[1];
+      bg = arguments[2];
+      bounds = arguments[3];
+      wordWrap = arguments[4] === undefined ? wordWrap : arguments[4];
+    }
 
     // 🎁
     // See if the text length is greater than the bounds, and if it is then
