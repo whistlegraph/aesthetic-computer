@@ -2754,12 +2754,12 @@ async function load(
             source: sourceToRun,
             ext: "lisp",
           };
-          console.log("💌 Publishable:", store["publishable-piece"]);
+          if (logs.loading) console.log("💌 Publishable:", store["publishable-piece"]);
         }
       } else {
         if (devReload) {
           store["publishable-piece"] = { slug, source: sourceToRun };
-          console.log("💌 Publishable:", store["publishable-piece"].slug);
+          if (logs.loading) console.log("💌 Publishable:", store["publishable-piece"].slug);
         }
 
         originalCode = sourceToRun;
