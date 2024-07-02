@@ -3,7 +3,7 @@
 
 /* 📝 Notes 
   TODO
-  - [🔶] show a history of keys pressed... (including octave)
+  - [💚] show octaves in keys pressed
   - [] be able to turn that history into a 'track' that can be followed
   - [] be able to send that track / share it with others (via the first parameter) and the 'share' swipe that could pre-fill it.
   - [] use other letters on the keyboard for sfx
@@ -28,6 +28,7 @@
   - [] Leave out all options from synth / make sensible defaults first.
   - [] Add visual buttons.
   + Done
+  - [x] show a history of keys pressed
   - [x] Add visualization to the keys being pressed.
   - [x] Disable key repeat / don't retrigger sounds on repeat.
   - [x] Make it so keys can be held, and add a decay after releasing?
