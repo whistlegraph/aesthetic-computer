@@ -39,9 +39,8 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** monday july 1 ***
+*** first week of july 2 ***
   - [🧗] design piano key activity / button activity for tuesday 
-  - [] design `ucla-2` file / activity... (clone `ucla-1`)
   - [] add linked list of user pieces to profile pages
     - [] Use the `ucla-class` label for this?
     - [] @joelle, @noelanio, @caihong, @kim, @toriwazhere, @mayomochi, @samanthaschen, @joda, @zuhair
@@ -55,6 +54,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [] add text links to chat
   - [] Send a `log` notification when a deployment happens.
   + Done
+  - [x] design `ucla-2` file / activity... (clone `ucla-1`)
   - [x] investigate local socket disconnection situation
   ----
   - [] buff out the profile pages / make new profile pages in kidlisp

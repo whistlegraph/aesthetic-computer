@@ -4793,10 +4793,10 @@ async function makeFrame({ data: { type, content } }) {
       type = "square",
       tone = 440, // TODO: Make random.
       // TODO: Add an optional string "note" here as well / add auto parsing.
-      beats = random(), // Wow, default func. params can be random!
-      duration = undefined, // In seconds... (where beats is a shortcut)
-      attack = 0,
-      decay = 0,
+      beats = undefined, // random(), // Wow, default func. params can be random!
+      duration = 0.1, //undefined, // In seconds... (where beats is a shortcut)
+      attack = 0.01,
+      decay = 0.9,
       volume = 1,
       pan = 0,
     } = {}) {
