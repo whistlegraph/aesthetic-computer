@@ -31,16 +31,27 @@ but technically agnostic. (Choose your aesthetic!)
         ease of accessing pixels while coding a piece and learning graphics.
       - 3D WebGL renderer for VR.
 
-🖥️  Running locally:
-  1. Scroll to the bottom of this file and follow the setup instructions.
-  2. From the `aesthetic.computer` directory, run `npm run aesthetic`.
-
 😀 TODO 😆
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `code` (kidlisp ed) ideas from class ***
+  - [] show an execution heatmap of so control flow can be intuited as a piece runs
+  - [] if a loaded kidlisp file fails to run, just make the '404' page the editor of its source
+    - [] enabled crowd-sourced backwards compatibility &&|| llm auto-patching
+
+*** sotce.net ***
+  - [🧡] Test signup in development.
+  - [] Finish login and logout in VS Code local with refresh.
+  - [] Test login in production in VS Code.
+  - [🎇] See `sotce-net.mjs`
+  + Done
+  - [x] Check how the auth works / token passing works from VSCode.
+  - [x] Add support for developing `sotce-net` inside of the VS Code extension.
+    - [x] In both development and production.
+
 *** first week of july 2 ***
-  - [🧗] design piano key activity / button activity for tuesday 
+  - [🧗] design piano key activity / button activity for tuesday
   - [] add linked list of user pieces to profile pages
     - [] Use the `ucla-class` label for this?
     - [] @joelle, @noelanio, @caihong, @kim, @toriwazhere, @mayomochi, @samanthaschen, @joda, @zuhair
@@ -62,7 +73,7 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** add upside-down / `sing` mode to song ***
   - [] refer to artur's `sign` demo from puerto rico
-  - [] add a flip colon param to song: `song:flip` to 
+  - [] add a flip colon param to song: `song:flip` to
        flip the graphics
   - [] should then be able to enter `song:flip respawn-timer`
        to perform a custom song
@@ -73,16 +84,6 @@ but technically agnostic. (Choose your aesthetic!)
      - ideally they would be via udp with a no miss / redundant option
      - and 'echo' subscribes users to receive the echo udp messages of a user
        and users should be removed from echo list on disconnect, etc.
-
-*** sotce.net ***
-  - [🧡] Test signup in development.
-  - [] Finish login and logout in VS Code local with refresh.
-  - [] Test login in production in VS Code.
-  - [🎇] See `sotce-net.mjs`
-  + Done
-  - [x] Check how the auth works / token passing works from VSCode.
-  - [x] Add support for developing `sotce-net` inside of the VS Code extension.
-    - [x] In both development and production.
 
 *** discords ***
   - [-] Shut down the whistlegraph Discord.
