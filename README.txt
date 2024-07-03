@@ -35,11 +35,6 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `code` (kidlisp ed) ideas from class ***
-  - [] show an execution heatmap of so control flow can be intuited as a piece runs
-  - [] if a loaded kidlisp file fails to run, just make the '404' page the editor of its source
-    - [] enabled crowd-sourced backwards compatibility &&|| llm auto-patching
-
 *** sotce.net ***
   - [🧡] Test signup in development.
   - [] Finish login and logout in VS Code local with refresh.
@@ -50,9 +45,15 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Add support for developing `sotce-net` inside of the VS Code extension.
     - [x] In both development and production.
 
+- [-] add prutti 50
+
+*** `code` (kidlisp ed) ideas from class ***
+  - [] show an execution heatmap of so control flow can be intuited as a piece runs
+  - [] if a loaded kidlisp file fails to run, just make the '404' page the editor of its source
+    - [] enabled crowd-sourced backwards compatibility &&|| llm auto-patching
+
 *** first week of july 2 ***
   - [🧗] design piano key activity / button activity for tuesday
-  - [] add prutti 50
   - [] users need to log out and log back in before publishing
        (sessions get lost)
     - [-] test after opening and closing the pane
