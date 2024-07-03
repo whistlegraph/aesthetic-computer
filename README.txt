@@ -47,7 +47,6 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Add support for developing `sotce-net` inside of the VS Code extension.
     - [x] In both development and production.
 
-- [-] add prutti 50
 
 *** `code` (kidlisp ed) ideas from class ***
   - [] show an execution heatmap of so control flow can be intuited as a piece runs
@@ -77,6 +76,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [] add text links to chat
   - [] Send a `log` notification when a deployment happens.
   + Done
+  - [x] add prutti 50
   - [x] design `ucla-2` file / activity... (clone `ucla-1`)
   - [x] investigate local socket disconnection situation
   ----
