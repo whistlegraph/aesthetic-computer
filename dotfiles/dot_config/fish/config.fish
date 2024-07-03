@@ -71,6 +71,9 @@ fish_add_path /home/me/cargo/bin
 # add the user to the wheel group with `usermod -aG wheel me`
 # visudo and make sure the user can skip the sudo password
 # install ydotool
+# `sudo dnf copr enable atim/ydotool`
+# `sudo dnf install ydotool`
+# install gnome-randr with `cargo install gnome-randr`
 
 alias visudo 'sudo EDITOR=nvim visudo' # always use nvim for visudo
 

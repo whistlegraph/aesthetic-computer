@@ -1,9 +1,26 @@
 // Notepad, 2024.6.26.23.17.58.736
 // Touch pads that play musical notes, or use the keyboard keys.
 
+/* 🎶 Sequences
+ 🧸 Gummy Bear
+    aaacaa aaacee
+    eee dd dd dd dd d
+    edca gca
+    aa ee aa ee aa e
+    ee ee e dc
+    ee ee e dc
+    ge dedc
+    dca gca
+    bbb d bb
+    bbb d f#
+
+🐦 Lullaby
+   eeg eeg
+
+
+*/
+
 /* 📝 Notes 
-  TODO
-    + Done
   - [🟢] how can i "lightly" trigger the soft keyboard without a whole
         text input class... this would be useful for mobile game controls
         and such and may require a tap to open?
