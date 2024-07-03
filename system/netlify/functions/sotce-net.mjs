@@ -5,10 +5,11 @@
   - [🟠] Add session / login support to the Aesthetic Computer VSCode extension /
        switch to an in-editor development flow.
   - [-] stripe paywall
-    - [] bring in necessary keys
+    - [] bring in necessary env vars for stripe
+    - [] set up subscription payment wall on 'subscribe' button
     - [] logged in but unpaid route
     - [] logged in and paid route
-    - [] this should be subscription based
+      - [] read from the database
   - [] The handle system would be shared among ac users.
     - [] Perhaps the subs could be 'sotce' prefixed.
   - [] Store whether a user is subscribed with an expiration date.
