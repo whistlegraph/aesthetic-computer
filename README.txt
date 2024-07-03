@@ -36,11 +36,13 @@ but technically agnostic. (Choose your aesthetic!)
 🌟 Projects in Progress (PIP) 🌟
 
 *** sotce.net ***
-  - [🧡] Test signup in development.
-  - [] Finish login and logout in VS Code local with refresh.
-  - [] Test login in production in VS Code.
+  - [🟠] Test login in VS Code local. 
+  - [] Test login in production in VS Code,
+       via vscode.dev!
+       - [] Test aesthetic.computer first.
   - [🎇] See `sotce-net.mjs`
   + Done
+  - [x] Test signup in development.
   - [x] Check how the auth works / token passing works from VSCode.
   - [x] Add support for developing `sotce-net` inside of the VS Code extension.
     - [x] In both development and production.
