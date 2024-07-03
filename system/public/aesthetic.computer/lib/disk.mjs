@@ -2754,12 +2754,14 @@ async function load(
             source: sourceToRun,
             ext: "lisp",
           };
-          if (logs.loading) console.log("💌 Publishable:", store["publishable-piece"]);
+          if (logs.loading)
+            console.log("💌 Publishable:", store["publishable-piece"]);
         }
       } else {
         if (devReload) {
           store["publishable-piece"] = { slug, source: sourceToRun };
-          if (logs.loading) console.log("💌 Publishable:", store["publishable-piece"].slug);
+          if (logs.loading)
+            console.log("💌 Publishable:", store["publishable-piece"].slug);
         }
 
         originalCode = sourceToRun;
@@ -4801,6 +4803,7 @@ async function makeFrame({ data: { type, content } }) {
       pan = 0,
     } = {}) {
       const id = soundId;
+      if (duration === "🔁") duration = Infinity; // First emoji in the API. 24.07.03.02.26
       if (duration !== undefined) beats = (duration * sound.bpm) / 60;
       if (typeof tone === "string") tone = $sound.freq(tone); // Auto-match strings to notes.
 

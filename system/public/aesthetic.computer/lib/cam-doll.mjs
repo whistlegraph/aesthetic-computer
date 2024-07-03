@@ -1,3 +1,10 @@
+// TODO:
+// CamDoll
+// A 3D camera dolly with user input.
+
+// TODO: Use key repeat / e.repeat to shorten code if necessary / prevent
+//       unwanted resets of state / ✨ allow disabling of state... ✨ - 24.07.03.02.50
+
 export class CamDoll {
   cam;
   sensitivity;
