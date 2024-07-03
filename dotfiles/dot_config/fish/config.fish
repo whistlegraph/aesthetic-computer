@@ -23,6 +23,9 @@ alias code 'code --ozone-platform=wayland'
 alias cursor '~/Downloads/cursor-0.11.7.AppImage --ozone-platform=wayland'
 alias mongodb-compass 'mongodb-compass --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform=wayland --ignore-additional-command-line-flags'
 
+# reload fish config
+alias reload 'source ~/.config/fish/config.fish'
+
 # open my agenda.txt
 alias agenda 'nvim ~/Desktop/agenda/agenda.txt'
 alias paper 'gnome-extensions prefs paperwm@paperwm.github.com'
@@ -35,7 +38,7 @@ alias ip 'ipconfig getifaddr en0'
 alias wgeth 'echo 0x238c9c645c6EE83d4323A2449C706940321a0cBf'
 
 # shortcuts for editing dot files
-#alias ev 'chezmoi edit ~/.config/nvim/init.vim'
+# alias ev 'chezmoi edit ~/.config/nvim/init.vim'
 # alias ef 'chezmoi edit ~/.config/fish/config.fish'
 alias fishcfg 'source ~/.config/fish/config.fish'
 
@@ -62,6 +65,38 @@ fish_add_path ~/.local/bin
 
 # add rust binaries to the shell path
 fish_add_path ~/.cargo/bin
+fish_add_path /home/me/cargo/bin
+
+# 📚 How to use rotation...
+# add the user to the wheel group with `usermod -aG wheel me`
+# visudo and make sure the user can skip the sudo password
+# install ydotool
+
+alias visudo 'sudo EDITOR=nvim visudo' # always use nvim for visudo
+
+function start_ydotoold
+    pgrep -x ydotoold >/dev/null; or nohup sudo /usr/bin/ydotoold >/dev/null 2>&1 &
+    return 0
+end
+
+alias ydotoold start_ydotoold
+alias center 'start_ydotoold; sudo ydotool key 125:1 46:1 46:0 125:0'
+
+alias left 'gnome-randr modify --rotate left eDP-1 > /dev/null 2>&1 && sleep 0.05 && center'
+alias right 'gnome-randr modify --rotate right eDP-1 > /dev/null 2>&1 && sleep 0.05 && center'
+alias up 'gnome-randr modify --rotate normal eDP-1 > /dev/null 2>&1 && sleep 0.05 && center'
+alias down 'gnome-randr modify --rotate inverted eDP-1 > /dev/null 2>&1 && sleep 0.05 && center'
+
+function flip
+    set rotation (gnome-randr query | grep -o "rotation: [a-z]*" | cut -d' ' -f2)
+    if test $rotation = normal
+        down 
+    else if test $rotation = inverted
+        up
+    else
+        echo "Current rotation state is not handled: $rotation"
+    end
+end
 
 # add android studio
 fish_add_path /opt/android-studio/bin
@@ -194,7 +229,7 @@ export PATH="$HOME/.ops/bin:$PATH"
 # source "$HOME/.ops/scripts/bash_completion.sh"
 
 function silence_xhost
-    xhost +local:docker > /dev/null 2>&1
+    xhost +local:docker >/dev/null 2>&1
 end
 
 silence_xhost

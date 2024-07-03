@@ -36,7 +36,9 @@ but technically agnostic. (Choose your aesthetic!)
 🌟 Projects in Progress (PIP) 🌟
 
 *** sotce.net ***
-  - [🟠] Test login in VS Code local. 
+  - [🟠] Test login outside VS Code local. 
+  - [🟠] Test login inside VS Code local. 
+  - [] Test login in production outside VS Code.
   - [] Test login in production in VS Code,
        via vscode.dev!
        - [] Test aesthetic.computer first.
