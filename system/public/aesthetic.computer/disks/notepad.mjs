@@ -4,11 +4,16 @@
 /* 📝 Notes 
   TODO
     + Done
-  - [🟡] clean up digit vs note triggering code...
+  - [🟢] how can i "lightly" trigger the soft keyboard without a whole
+        text input class... this would be useful for mobile game controls
+        and such and may require a tap to open?
+  - [] why are some wave type switches changing the frequency / octave?
   - [] entering '0' should clear the params in the hud (re-enable editing)
   - [] be able to send that track / share it with others (via the first parameter) and the 'share' swipe that could pre-fill it.
   - [] use other letters on the keyboard for sfx
   - [] show octave in the text
+  - [] tap the top right corner to switch modes...
+  - [] add the pitch sliding in
   - [] show audio connectedness more visibly 
        like with a modal or 'press any key'
        or 'inactive' pause curtain situation
@@ -30,6 +35,10 @@
   - [] Leave out all options from synth / make sensible defaults first.
   - [] Add 'scale' and 'rotation' to `write`.
   + Done
+  - [x] auto advance octaves... 
+  - [x] change the bg color while any note is held.
+  - [] clean up digit vs note triggering code...
+  - [x] holding tab should not auto-switch, same with 0!
   - [x] press 'enter' 
   - [x] be able to turn that history into a 'track' that can be followed
     - [x] this will enable a type-to-repeat, or... 
@@ -42,36 +51,47 @@
   - [x] Make it so keys can be held, and add a decay after releasing?
 */
 
-let octave = 4;
+const STARTING_OCTAVE = "4";
+let octave = STARTING_OCTAVE;
 let keys = "";
 
-let track = false;
-let trackIndex = 0;
-let tracked; // Store the last tracked key.
+let tap = false;
+let tapIndex = 0;
+let tapped; // Store the last tracked key.
 let editable = true;
 
 const sounds = {};
 
 function boot({ params }) {
-  // console.log("Params", params); // TODO: Why is params empty in dev?
+  // console.log("Params", params); // TODO: params are blank in dev at times...
   keys = params[0] || "";
   if (keys.length > 0) {
-    track = true;
+    tap = true;
     editable = false;
   }
 }
 
 function paint({ wipe, ink, write, screen }) {
-  wipe(!track ? "blue" : "darkblue");
+  const active = Object.keys(sounds);
+  let bg;
 
-  if (track) {
-    ink("yellow");
-    write("track", { right: 6, top: 6 });
+  if (!tap) {
+    bg = active.length > 0 ? [50, 50, 255] : "blue";
+  } else {
+    bg = active.length > 0 ? [0, 0, 180] : "darkblue";
   }
 
-  const active = Object.keys(sounds);
+  wipe(bg);
 
-  if (!track) {
+  if (tap) {
+    ink("yellow");
+    write("tap", { right: 6, top: 6 });
+  } else {
+    ink("orange");
+    write("type", { right: 6, top: 6 });
+  }
+
+  if (!tap) {
     ink("cyan");
     write(keys, 6, 20 + 12, { bounds: screen.width - 12, wordWrap: false });
     ink("yellow");
@@ -83,12 +103,12 @@ function paint({ wipe, ink, write, screen }) {
     );
   } else {
     ink("gray");
-    write(keys, screen.width / 2 - trackIndex * 6, screen.height / 2);
+    write(keys, screen.width / 2 - tapIndex * 6, screen.height / 2);
     ink("red");
-    write(keys[trackIndex], screen.width / 2, screen.height / 2);
+    write(keys[tapIndex], screen.width / 2, screen.height / 2);
   }
 
-  if (!track) {
+  if (!tap) {
     ink("lime");
     active.forEach((sound, index) => {
       write(sound, 6 + index * 6, 20);
@@ -99,102 +119,85 @@ function paint({ wipe, ink, write, screen }) {
       write(sound, screen.width / 2, screen.height / 2 + 12 + 12 * index);
     });
     ink("lime");
-    if (tracked === keys[trackIndex]) {
-      write(tracked, screen.width / 2, screen.height / 2);
+    if (tapped === keys[tapIndex]) {
+      write(tapped, screen.width / 2, screen.height / 2);
     }
   }
 }
 
 function act({ event: e, sound: { synth } }) {
-  // ⌨️ Keyboad Shortcuts
-  if (editable && e.is("keyboard:down:tab")) track = !track;
-  if (editable && e.is("keyboard:down:0")) {
+  const notes = "abcdefg";
+  const octaves = "123456789";
+
+  if (editable && e.is("keyboard:down:tab") && !e.repeat) {
+    tap = !tap;
+    tapped = undefined;
+    tapIndex = 0;
+    octave = STARTING_OCTAVE;
+  }
+
+  // Clear Track
+  if (editable && e.is("keyboard:down:0") && !e.repeat) {
     keys = "";
-    track = false;
-    tracked = undefined;
-    trackIndex = 0;
-    octave = 4;
+    tap = false;
+    tapped = undefined;
+    tapIndex = 0;
+    octave = STARTING_OCTAVE;
   }
 
-  if (track) {
-    if ((e.is("keyboard:down:space") || e.is("touch")) && !sounds[tracked]) {
-      tracked = keys[trackIndex];
-      sounds[tracked] = synth({
-        type: "square",
-        tone: `${tracked}${octave}`,
-        duration: Infinity,
-        attack: 0.01,
-        decay: 0.9,
-        volume: 1, // TODO: <- Rename to 'level'.
-      });
+  if (tap) {
+    if ((e.is("keyboard:down:space") || e.is("touch")) && !sounds[tapped]) {
+      tapped = keys[tapIndex];
+      let reset = false;
+      if (octaves.indexOf(tapped) > -1) {
+        octave = tapped;
+        tapIndex += 1;
+        if (tapIndex >= keys.length) {
+          tapIndex = 0;
+          reset = true;
+          octave = STARTING_OCTAVE;
+        }
+        tapped = keys[tapIndex];
+      }
+
+      if (!reset)
+        sounds[tapped] = synth({ tone: `${tapped}${octave}`, duration: "🔁" });
     }
+
     if (e.is("keyboard:up:space") || e.is("lift")) {
-      trackIndex = (trackIndex + 1) % keys.length;
-      sounds[tracked]?.kill(0.25);
-      delete sounds[tracked];
-      tracked = undefined;
+      tapIndex += 1;
+      if (tapIndex >= keys.length) {
+        octave = STARTING_OCTAVE;
+        tapIndex = 0;
+      }
+      sounds[tapped]?.kill(0.25);
+      delete sounds[tapped];
+      tapped = undefined;
     }
   }
 
-  "123456789".split("").forEach((key) => {
-    if (e.is(`keyboard:down:${key}`) && !sounds[key]) {
-      if (!track) {
+  (octaves + notes).split("").forEach((key) => {
+    if (e.is(`keyboard:down:${key}`) && !e.repeat) {
+      if (!tap) {
         keys += key;
-      } else if (keys[trackIndex] === key) {
-        tracked = key;
-        //if (tracked !== key) {
-        // TODO: Flash red and make a dud sound or something?
-        //  return;
-        // }
+      } else if (keys[tapIndex] === key) {
+        tapped = key;
       }
-      // console.log("🐾 Tracked:", tracked);
 
-      octave = parseInt(key);
-      sounds[key] = "held";
+      if (octaves.indexOf(key) > -1) {
+        octave = parseInt(key);
+        sounds[key] = "held";
+      } else {
+        sounds[key] = synth({ tone: `${key}${octave}`, duration: "🔁" });
+      }
     }
 
     if (e.is(`keyboard:up:${key}`)) {
-      if (track && tracked === key) {
-        trackIndex = (trackIndex + 1) % keys.length;
-        tracked = undefined;
+      if (tap && tapped === key) {
+        tapIndex = (tapIndex + 1) % keys.length;
+        tapped = undefined;
       }
-      delete sounds[key];
-    }
-  });
-
-  // Deprecated: Shift won't show up / work in mobile.
-  // const shift = e.shift ? 1 : e.alt ? -1 : 0;
-  // const accent = e.ctrl ? "#" : ""; /*e.;*/
-
-  "abcdefg".split("").forEach((key) => {
-    if (e.is(`keyboard:down:${key}`) && !sounds[key]) {
-      if (!track) {
-        keys += key;
-      } else if (keys[trackIndex] === key) {
-        tracked = key;
-        //if (tracked !== key) {
-        // TODO: Flash red and make a dud sound or something?
-        //  return;
-        //}
-      }
-      // console.log("🐾 Tracked:", tracked);
-
-      sounds[key] = synth({
-        // type: "square",
-        tone: `${key}${octave}`,
-        duration: Infinity, // TODO: Why is the default duration so weird?
-        // attack: 0.01,
-        // decay: 0.9,
-        // volume: 1, // TODO: <- Rename to 'level'.
-      });
-    }
-
-    if (e.is(`keyboard:up:${key}`)) {
-      if (track && tracked === key) {
-        trackIndex = (trackIndex + 1) % keys.length;
-        tracked = undefined;
-      }
-      sounds[key]?.kill(0.25);
+      sounds[key]?.kill?.(0.25); // Kill a sound if it exists.
       delete sounds[key];
     }
   });
