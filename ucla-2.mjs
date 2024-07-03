@@ -8,7 +8,7 @@
       📜 `if`, `else`, `const`, booleans and logical operators
     - Exercises -
     - 1. Making Boxes (review) 🟧 
-      - [🟢] Make a new box from outlined lines.
+      - [] Make a new box from lines.
     - 2. Conditionals, and Coordinates and clicks. 🚥 
       - [] Collision detection. 🚗
         - [] Single axis,
@@ -17,24 +17,20 @@
       - 4. [] Blink, 🚨
       - 5. [] Write, ✍️
       - 6. [] and Sing! 🎵
-
-    ⌨️ Useful source code shortcuts.
-    🍎 + Shift + P -> Format Document
-    🍎 + / -> Toggle Comments
 */
 
 function paint({ wipe }) {
-  wipe("black");
+  wipe("brown");
 }
 
 // 📚 Library
 
 // function boot() {
-// Runs once at the start.
+ // Runs once at the start.
 // }
 
-// function act({ event: e, sound }) {
-// Respond to user input here.
+// function act({ event: e }) {
+//  // Respond to user input here.
 // }
 
 // function sim() {
