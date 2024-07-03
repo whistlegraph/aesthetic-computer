@@ -868,6 +868,20 @@ const lessons = [
     `,
     pictures: ["lnl49"],
     sounds: ["Goodie_Invitation"],
+  },
+  {
+    title: "Lesson NOT Learnt 50",
+    text: `
+    50 Ye Olde Kommunal Klon Komputer 04
+
+    we-e build Ye Olde Kommunal Klon Komputer 04 for other riders as well as us --- it has w. unknown riders over the years been the utmost of crazy places and is now on the way back***---It is a --trickster tool-- / --So it can travel and move everywhere --- incl. The Elizabeth line in a drippy drippy-transportation way, right under London's ''--Sorry mate you can't do that''-- nose. . . drip drip///  We are the Wikingur klokurinár we are radical transporter's of entities... you will __never__ever be able to stop us... I am now 50 and we are still doing this...///BRING IT ON~~~~
+
+    Finlay Burch just joined: The Guild of The Viking Klokker'zzzzz...
+
+    [sweden_&_the_elizabeth_line.m4a]
+    `,
+    pictures: ["lnl50-1", "lnl50-2"],
+    sounds: ["sweden_&_the_elizabeth_line"],
   }
 ];
 
@@ -882,7 +896,6 @@ let color,
 // 🥾 Boot
 function boot({ api, wipe, params, hud, help, num }) {
   wipe(0);
-  console.log("PARAMS:", params);
   noiseTint = num.randIntArr(255, 3);
   lesson = params[0] ? parseInt(params[0]) - 1 : num.randInd(lessons);
   if (lesson > lessons.length - 1 || lesson < 0) lesson = 0;
