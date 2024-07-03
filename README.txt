@@ -52,6 +52,15 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** first week of july 2 ***
   - [🧗] design piano key activity / button activity for tuesday
+  - [] add prutti 50
+  - [] users need to log out and log back in before publishing
+       (sessions get lost)
+    - [-] test after opening and closing the pane
+    - [] test after opening and closing the vscode
+    - [] test after a system reboot / logout
+  - [] always display first paint iteration. (corner skip in `ucla-2-a`)
+  - [] source save file defaults to top of hard drive on a mac?
+  - [🧗] design piano key activity / button activity for tuesday 
   - [] add linked list of user pieces to profile pages
     - [] Use the `ucla-class` label for this?
     - [] @joelle, @noelanio, @caihong, @kim, @toriwazhere, @mayomochi, @samanthaschen, @joda, @zuhair
