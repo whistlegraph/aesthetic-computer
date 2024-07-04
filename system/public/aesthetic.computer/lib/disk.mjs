@@ -2597,6 +2597,7 @@ async function load(
     hash,
     path,
     host = originalHost,
+    text,
     slug;
 
   if (loading === false) {
@@ -2675,9 +2676,15 @@ async function load(
     }
 
     source = parsed.source;
-    slug = parsed.name;
 
-    if (slug !== "(...)") path = "aesthetic.computer/disks/" + slug;
+    params = parsed.params;
+    search = parsed.search;
+    colon = parsed.colon;
+    hash = parsed.hash;
+    host = parsed.host;
+    slug = parsed.text;
+
+    if (slug !== "(...)") path = parsed.path; //"aesthetic.computer/disks/" + slug;
     // 📓 Might need to fill in hash, path, or slug here. 23.06.24.18.49
   }
 
@@ -2863,7 +2870,14 @@ async function load(
   $commonApi.debug = debug;
 
   // Add reload to the common api.
-  $commonApi.reload = ({ piece, name, source, codeChannel } = {}) => {
+  $commonApi.reload = function reload({
+    piece,
+    name,
+    source,
+    codeChannel,
+  } = {}) {
+    console.log("!RELOAD ATTEMPT!", piece, name, source, codeChannel);
+
     if (loading) {
       console.log("🟡 A piece is already loading.");
       return;
@@ -2876,12 +2890,13 @@ async function load(
       // TODO: Check for existence of `name` and `source` is hacky. 23.06.24.19.27
       // Note: This is used for live development via the socket server.
       $commonApi.load({ source, name, codeChannel }, false, false, true); // Load source code.
-    } else if (piece === "*" || piece === undefined || currentText === piece) {
-      console.log("💾️ Reloading:", piece);
-      const devReload = true;
-      $commonApi.pieceCount = -1; // Reset pieceCount on developer reload.
+    } /*if (piece === "*" || piece === undefined /*|| currentText === piece*/ /*) {*/ else {
+      console.log("💾️ Reloading:", piece, "Params:", currentParams);
+      // $commonApi.pieceCount = -1; // Reset pieceCount on developer reload.
       //                             (This can be disabled while testing pieces
       //                              that rely on pieceCount increments)
+      // ❤️‍🔥 TODO: Reloading the same piece should not effect piece count.
+
       $commonApi.load(
         {
           path: currentPath,
@@ -2895,11 +2910,12 @@ async function load(
         // Use the existing contextual values when live-reloading in debug mode.
         true, // (fromHistory) ... never add any reload to the history stack
         alias,
-        devReload,
+        true, // devReload
       );
-    } else if (piece !== undefined) {
-      $commonApi.load(parse(piece), false, false, true);
-    }
+    } //else if (piece !== undefined) {
+    //console.log("Reloading pieceeeeeeee:", piece, parse(piece));
+    //$commonApi.load(parse(piece), false, false, true);
+    //}
   };
 
   // Start the socket server

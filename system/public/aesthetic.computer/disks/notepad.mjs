@@ -2,25 +2,51 @@
 // Touch pads that play musical notes, or use the keyboard keys.
 
 /* 🎶 Sequences
- 🧸 Gummy Bear
-    aaacaa aaacee
-    eee dd dd dd dd d
-    edca gca
-    aa ee aa ee aa e
-    ee ee e dc
-    ee ee e dc
-    ge dedc
-    dca gca
-    bbb d bb
-    bbb d f#
+✅ 🐦 Lullaby
+  eeg eeg
+  eg5c4b aa g
+  def ddef
+  dfbag b5c
+  4cc5c 4afg
+  ecf gag
+  cc5c 4afg
+  ecfedc
 
-🐦 Lullaby
-   eeg eeg
+✅ 🌟 Twinkle Twinkle Little Star
+  cc gg aa g
+  ff ee dd c
+  gg ff ee d
+  gg ff ee d
+  cc gg aa g
+  ff ee dd c
 
+✅ 🐭 Three Blind Mice
+  edc edc
+  gffe gffe
+  gccbabcgg
+  gcccbabcgg
+  edc edc
 
+✅ Row Row Row Ur Boat
+  cccde edefg
+  5ccc 4ggg eee ccc gfedc
+
+🚫 🧸 Gummy Bear
+  aaacaa aaacee
+  eee dd dd dd dd d
+  edca gca
+  aa ee aa ee aa e
+  ee ee e dc
+  ee ee e dc
+  ge dedc
+  dca gca
+  bbb d bb
+  bbb d f#
 */
 
 /* 📝 Notes 
+  - [🤩] add a 'repeat' or 'hold' key
+  - [] how to build commas or sections in?
   - [🟢] how can i "lightly" trigger the soft keyboard without a whole
         text input class... this would be useful for mobile game controls
         and such and may require a tap to open?
@@ -81,7 +107,10 @@ const sounds = {};
 
 function boot({ params }) {
   // console.log("Params", params); // TODO: params are blank in dev at times...
-  keys = params[0] || "";
+  keys = params.join(" ") || "";
+  // Dumb way to replace white-space:
+  console.log("Keys!", keys, params);
+  keys = keys.replace(/\s/g, '');
   if (keys.length > 0) {
     tap = true;
     editable = false;
