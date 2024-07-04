@@ -88,6 +88,16 @@ Vary = "*"
 path = "/media/*"
 function = "media"
 [[redirects]]
+from = "https://sotce.local:8888"
+to = "/.netlify/functions/sotce-net"
+status = 200
+force = true
+[[redirects]]
+from = "https://sotce.local:8888/*"
+to = "/.netlify/functions/sotce-net"
+status = 200
+force = true
+[[redirects]]
 from = "https://botce.ac"
 to = "https://aesthetic.computer/botce"
 status = 200
@@ -116,11 +126,6 @@ to = "/.netlify/functions/redirect-proxy"
 status = 200
 [[redirects]]
 from = "https://sotce.net/*"
-to = "/.netlify/functions/sotce-net"
-status = 200
-force = true
-[[redirects]]
-from = "https://sotce.local/*"
 to = "/.netlify/functions/sotce-net"
 status = 200
 force = true
@@ -333,19 +338,3 @@ from = "/*"
 to = "/.netlify/functions/index"
 status = 200
 force = false
-#[[edge_functions]]
-#function = "index"
-#path = "/"
-#[[edge_functions]]
-#function = "index"
-#path = "/*"
-#[[redirects]]
-#from = "/"
-#to = "/"
-#status = 200
-#force = true
-#[[redirects]]
-#from = "/*"
-#to = "/*"
-#status = 200
-#force = false

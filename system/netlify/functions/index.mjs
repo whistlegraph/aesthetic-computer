@@ -28,12 +28,25 @@ async function fun(event, context) {
     return { statusCode: 500 };
   }
 
+  console.log("HOOOOOST", event.headers["host"]);
+
+  if (event.headers["host"] === "sotce.local:8888") {
+    return respond(
+      302,
+      '<a href="https://localhost:8888/sotce-net">https://localhost:8888/sotce-net</a>',
+      {
+        "Content-Type": "text/html",
+        Location: "https://localhost:8888/sotce-net",
+      },
+    );
+  }
+
   console.log("📁", event.path);
   // console.log("😃", __dirname, __filename);
 
   let slug = event.path.slice(1) || "prompt";
 
-  console.log("Path:", event.path, "Host:", event.headers["host"]);
+  // console.log("Path:", event.path, "Host:", event.headers["host"]);
 
   // Some domains will rewrite the initial slug.
   if (event.headers["host"] === "botce.ac") {
@@ -101,7 +114,7 @@ async function fun(event, context) {
 
         if (handledPiece?.code !== 200) {
           statusCode = 404;
-          respond(statusCode, `Content not found: ${path}`);
+          return respond(statusCode, `Content not found: ${path}`);
         } else {
           sourceCode = handledPiece.data;
           fromHandle = true;
@@ -146,13 +159,13 @@ async function fun(event, context) {
                 errLisp,
               );
               statusCode = 404;
-              respond(statusCode, `Content not found: ${path}`);
+              return respond(statusCode, `Content not found: ${path}`);
             }
           }
         } catch (err) {
           console.error("📃 Error:", err);
           statusCode = 404;
-          respond(statusCode, `Content not found: ${path}`);
+          return respond(statusCode, `Content not found: ${path}`);
           // throw err;
         }
       } catch (e) {
