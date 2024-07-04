@@ -45,12 +45,13 @@
 */
 
 /* 📝 Notes 
-  - [🤩] add a 'repeat' or 'hold' key
+  - [🤩] add a 'repeat' or 'hold' key which should be 'shift' on the keyboard
+  - [] why are some wave type switches changing the frequency / octave?
   - [] how to build commas or sections in?
   - [🟢] how can i "lightly" trigger the soft keyboard without a whole
         text input class... this would be useful for mobile game controls
         and such and may require a tap to open?
-  - [] why are some wave type switches changing the frequency / octave?
+  - [] add restart key?
   - [] entering '0' should clear the params in the hud (re-enable editing)
   - [] be able to send that track / share it with others (via the first parameter) and the 'share' swipe that could pre-fill it.
   - [] use other letters on the keyboard for sfx

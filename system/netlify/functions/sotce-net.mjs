@@ -127,7 +127,7 @@ export const handler = async (event, context) => {
                 const url = new URL(window.location);
                 const params = url.searchParams;
                 const sessionParams = params.get("session");
-                console.log("SESSION PARAMS:", sessionParams);
+                console.log("🌻 Session params:", url.searchParams);// sessionParams);
                 let encodedSession = sessionParams;
                 if (encodedSession === "null") encodedSession = undefined;
                 let pickedUpSession;

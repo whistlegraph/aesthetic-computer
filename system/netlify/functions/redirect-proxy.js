@@ -60,7 +60,7 @@ async function fun(event, context) {
             opacity: 0.75;
           }
           a {
-            color: white;
+            color: ${tenant === "aesthetic" ? "white" : "black"};
           }
           #wrapper {
             margin: auto;
