@@ -102,8 +102,10 @@
 */
 
 const STARTING_OCTAVE = "4";
-const STARTING_WAVE = "sine";//"sine";
+const STARTING_WAVE = "sine"; //"sine";
 let wave = STARTING_WAVE;
+
+let hold = false;
 
 let octave = STARTING_OCTAVE;
 let keys = "";
@@ -120,7 +122,7 @@ function boot({ params, colon }) {
   keys = params.join(" ") || "";
   // Dumb way to replace white-space:
   console.log("Keys!", keys, params);
-  keys = keys.replace(/\s/g, '');
+  keys = keys.replace(/\s/g, "");
   if (keys.length > 0) {
     tap = true;
     editable = false;
@@ -186,6 +188,9 @@ function act({ event: e, sound: { synth } }) {
   const notes = "abcdefg";
   const octaves = "123456789";
 
+  if (e.is("keyboard:down:shift") && !e.repeat) hold = true;
+  if (e.is("keyboard:up:shift")) hold = false;
+
   if (editable && e.is("keyboard:down:tab") && !e.repeat) {
     tap = !tap;
     tapped = undefined;
@@ -206,19 +211,26 @@ function act({ event: e, sound: { synth } }) {
     if ((e.is("keyboard:down:space") || e.is("touch")) && !sounds[tapped]) {
       tapped = keys[tapIndex];
       let reset = false;
-      if (octaves.indexOf(tapped) > -1) {
-        octave = tapped;
-        tapIndex += 1;
-        if (tapIndex >= keys.length) {
-          tapIndex = 0;
-          reset = true;
-          octave = STARTING_OCTAVE;
-        }
-        tapped = keys[tapIndex];
+      //if (!hold) {
+      // TODO: ❤️‍🔥 Fix this.
+        if (octaves.indexOf(tapped) > -1) {
+          octave = tapped;
+          tapIndex += 1;
+          if (tapIndex >= keys.length) {
+            tapIndex = 0;
+            reset = true;
+            octave = STARTING_OCTAVE;
+          }
+          tapped = keys[tapIndex];
+       // }
       }
 
       if (!reset)
-        sounds[tapped] = synth({ type: wave, tone: `${tapped}${octave}`, duration: "🔁" });
+        sounds[tapped] = synth({
+          type: wave,
+          tone: `${tapped}${octave}`,
+          duration: "🔁",
+        });
     }
 
     if (e.is("keyboard:up:space") || e.is("lift")) {
@@ -245,7 +257,11 @@ function act({ event: e, sound: { synth } }) {
         octave = parseInt(key);
         sounds[key] = "held";
       } else {
-        sounds[key] = synth({ type: wave, tone: `${key}${octave}`, duration: "🔁" });
+        sounds[key] = synth({
+          type: wave,
+          tone: `${key}${octave}`,
+          duration: "🔁",
+        });
       }
     }
 
