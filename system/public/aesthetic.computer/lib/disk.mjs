@@ -4743,6 +4743,24 @@ async function makeFrame({ data: { type, content } }) {
         const finalFreq = frequency * pow(2, octave);
         return finalFreq;
       },
+      // Calculate a musical note from a frequency.
+      note: function (frequency) {
+        let closestNote = "",
+          minDiff = Infinity;
+        for (let octave = 0; octave <= 8; octave++) {
+          for (let note in noteFrequencies) {
+            const noteFrequency = noteFrequencies[note] * Math.pow(2, octave);
+            const diff = Math.abs(frequency - noteFrequency);
+            if (diff < minDiff) {
+              minDiff = diff;
+              closestNote = note + octave;
+            }
+          }
+        }
+
+        return closestNote.toUpperCase();
+      },
+
       // MIDI
       midi: {
         connect: () => send({ type: "midi:connect" }),

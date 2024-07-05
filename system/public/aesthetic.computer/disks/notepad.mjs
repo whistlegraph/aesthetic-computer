@@ -45,6 +45,12 @@
 */
 
 /* 📝 Notes 
+  - [⭐] Merge this piece with `song`.
+  - [] Add support for sharps and flats using normal keys somehow...
+    - [] And they can be encoded differently.
+    - [] Also add support for microtonal elements. 
+    - [] How would the interpreter work for these, because it only reads per
+         character...
   - [🤩] add a 'repeat' or 'hold' key which should be 'shift' on the keyboard
   - [] why are some wave type switches changing the frequency / octave?
   - [] how to build commas or sections in?
@@ -97,6 +103,7 @@
 
 const STARTING_OCTAVE = "4";
 const STARTING_WAVE = "sine";//"sine";
+let wave = STARTING_WAVE;
 
 let octave = STARTING_OCTAVE;
 let keys = "";
@@ -108,7 +115,7 @@ let editable = true;
 
 const sounds = {};
 
-function boot({ params }) {
+function boot({ params, colon }) {
   // console.log("Params", params); // TODO: params are blank in dev at times...
   keys = params.join(" ") || "";
   // Dumb way to replace white-space:
@@ -118,6 +125,7 @@ function boot({ params }) {
     tap = true;
     editable = false;
   }
+  wave = colon[0] || wave;
 }
 
 function paint({ wipe, ink, write, screen }) {
@@ -210,7 +218,7 @@ function act({ event: e, sound: { synth } }) {
       }
 
       if (!reset)
-        sounds[tapped] = synth({ type: STARTING_WAVE, tone: `${tapped}${octave}`, duration: "🔁" });
+        sounds[tapped] = synth({ type: wave, tone: `${tapped}${octave}`, duration: "🔁" });
     }
 
     if (e.is("keyboard:up:space") || e.is("lift")) {
@@ -237,7 +245,7 @@ function act({ event: e, sound: { synth } }) {
         octave = parseInt(key);
         sounds[key] = "held";
       } else {
-        sounds[key] = synth({ type: STARTING_WAVE, tone: `${key}${octave}`, duration: "🔁" });
+        sounds[key] = synth({ type: wave, tone: `${key}${octave}`, duration: "🔁" });
       }
     }
 
