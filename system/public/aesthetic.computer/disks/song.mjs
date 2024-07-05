@@ -37,20 +37,31 @@ let btn,
 const mmm = `B F# B F# B F# B D#5 F#5
              E5 C#5 E5 C#5 E5 C#5 A# C#5 F#`.split(/\s+/);
 
+/*
 const lyrics = `oh up and down the ci- -i- -ty road
                 and in and out the ea- -gle 
                 that's the way the mo- -o- -ney goes
                 pop! goes the wea- -sel!`.split(/\s+/);
+*/
+
+const lyrics = `did u ev- -er meet the kid with star- -ry eyes
+                CROSSED OUT EYES! al- -ways thought of life as just
+                one big BOX OF LIES! paths to hope- -ful pla- -a- -a- -a- -a- -a- -a- -ces. Bridge- -less like torn pa- -ges.`.split(/\s+/);
 
 const pgtw = `G C5 C5 D5 D5 E5 G5 E5 C5
               G C5 C5 D5 D5 E5 C5
               C5 C5 D5 D5 E5 G5 E5 C5
               A5 D5 F5 E5 C5`.split(/\s+/);
 
+const kid = `E D C E G A B A G F G E E D
+             B A G F G E G E G G B B B G
+             A F E D E D E D E D E G A F
+             G E D C`.split(/\s+/);
+
 let index = 0;
-let song = pgtw;
+let song = kid;
 const m = 24;
-let wave = "square";
+let wave = "triangle";
 
 // 🥾 Boot
 function boot({ ink, wipe, screen, ui, sound, colon }) {
