@@ -21,10 +21,10 @@
   ff ee dd c
 
 ✅ 🐭 Three Blind Mice
-  edc edc
+  eddc eddc
   gffe gffe
-  gccbabcgg
-  gcccbabcgg
+  g5cc4bab5c4gg
+  g5cc4bab5c4gg
   edc edc
 
 ✅ Row Row Row Ur Boat
@@ -32,13 +32,13 @@
   5ccc 4ggg eee ccc gfedc
 
 🚫 🧸 Gummy Bear
-  aaacaa aaacee
-  eee dd dd dd dd d
-  edca gca
+  aaa5c4aa aaa5cee
+  eee dd dd dd dd
+  edca g5c4a
   aa ee aa ee aa e
-  ee ee e dc
-  ee ee e dc
-  ge dedc
+  5ee ee e dc
+  5ee ee e dc
+  ge ded4c
   dca gca
   bbb d bb
   bbb d f#
@@ -96,6 +96,8 @@
 */
 
 const STARTING_OCTAVE = "4";
+const STARTING_WAVE = "sine";//"sine";
+
 let octave = STARTING_OCTAVE;
 let keys = "";
 
@@ -208,7 +210,7 @@ function act({ event: e, sound: { synth } }) {
       }
 
       if (!reset)
-        sounds[tapped] = synth({ tone: `${tapped}${octave}`, duration: "🔁" });
+        sounds[tapped] = synth({ type: STARTING_WAVE, tone: `${tapped}${octave}`, duration: "🔁" });
     }
 
     if (e.is("keyboard:up:space") || e.is("lift")) {
@@ -235,7 +237,7 @@ function act({ event: e, sound: { synth } }) {
         octave = parseInt(key);
         sounds[key] = "held";
       } else {
-        sounds[key] = synth({ tone: `${key}${octave}`, duration: "🔁" });
+        sounds[key] = synth({ type: STARTING_WAVE, tone: `${key}${octave}`, duration: "🔁" });
       }
     }
 
