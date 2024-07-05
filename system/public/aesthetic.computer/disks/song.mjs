@@ -6,7 +6,9 @@
 
 /* #region 🏁 TODO 
   * Slides
-  - [] Fade the ending note so there is no pop.
+  - [] Show whatever current note is closest to the hz value while printing.
+  - [⭐] Merge this piece with `song`.
+  - [] Add some kind of violin mode.
   - [] Add large "hold" key with "shift" keyboard shortcut.
   - [] How would I capture a tone and then add it to the list of notes in
        my song... / compose.
@@ -16,6 +18,7 @@
         can be for a secondary finger.
   - [] Dragging left and right adjusts the pan.
   + Done
+  - [x] Fade the ending note so there is no pop.
   - [x] Make sure reframing works.
   - [x] Add space keyboard shortcut for playback that triggers the button.
         (With no conflicts)
@@ -47,24 +50,28 @@ const pgtw = `G C5 C5 D5 D5 E5 G5 E5 C5
 let index = 0;
 let song = pgtw;
 const m = 24;
+let wave = "square";
 
 // 🥾 Boot
-function boot({ ink, wipe, screen, ui, sound }) {
+function boot({ ink, wipe, screen, ui, sound, colon }) {
   wipe(127);
   btn = new ui.Button(m, m, screen.width - m * 2, screen.height - m * 2);
   btn.multitouch = false;
-
+  wave = colon[0] || wave;
   tone = sound.freq(song[index]); // Set starting tone.
 }
 
 // 🎨 Paint
-function paint({ ink, screen }) {
+function paint({ ink, screen, sound }) {
   // Executes every display frame.
+
+  const note = sound.note(tone);
+
   btn.paint(() => {
     ink(btn.down ? [245, 220, 50] : [230, 210, 100])
       .box(btn.box)
       .ink(255)
-      .write(`${song[index]} - ${tone.toFixed(2)}`, { center: "xy" })
+      .write(`${/*song[index]*/ note} - ${tone.toFixed(2)}`, { center: "xy" })
       .ink("red")
       .write(lyrics[index], { center: "x", y: screen.height / 2 - 16 });
 
@@ -104,14 +111,13 @@ function act({
 
   function push() {
     sound?.kill();
-    // sound?.kill();
     needsPaint();
     index = (index + 1) % song.length; // Cycle through notes.
     tone = freq(song[index]);
   }
 
   function down() {
-    sound = synth({ type: "square", tone, volume: 1.0, beats: Infinity });
+    sound = synth({ type: wave, tone, volume: 1.0, duration: "🔁" });
     needsPaint();
   }
 

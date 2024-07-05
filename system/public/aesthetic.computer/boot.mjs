@@ -118,6 +118,7 @@ loadAuth0Script()
       const params = url.searchParams;
       const sessionParams = params.get("session");
       let encodedSession = sessionParams;
+      console.log("🌻 AC Session params:", sessionParams);
       if (encodedSession === "null") encodedSession = undefined;
       let pickedUpSession;
       if (encodedSession) {

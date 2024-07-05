@@ -36,6 +36,9 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** sotce.net ***
   - [🟠] Test login inside VS Code local. 
+    - [🩷] Disambiguate 'session' query string and
+         somehow receive both / capture both on first load.
+         or know which one to send for both AC and Sotce-Net.
   - [] Test login in production in VS Code,
        via vscode.dev!
        - [] Test aesthetic.computer first.
@@ -51,7 +54,6 @@ but technically agnostic. (Choose your aesthetic!)
 *** qol (systems) ***
 - [] chat needs external logs to check for failures
 - [] session udp service shouldn't fail or needs logs checked and should move to
-
 
 *** convo ***
 - [] how to structure a conversation
