@@ -35,6 +35,8 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+- [] how to structure a conversation
+
 *** sotce.net ***
   - [🟠] Test login inside VS Code local. 
   - [] Test login in production in VS Code,
