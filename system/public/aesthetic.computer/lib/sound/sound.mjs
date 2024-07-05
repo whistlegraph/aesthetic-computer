@@ -103,7 +103,7 @@ export default class Sound {
       value = this.#up ? 1 : -1;
     } else if (this.#type === "sine") {
       // Sine Wave
-      const angle = (Math.PI * this.#step) / this.#wavelength;
+      const angle = (Math.PI * this.#step) / (this.#wavelength / 2);
       value = Math.sin(angle);
       this.#step += 1;
 

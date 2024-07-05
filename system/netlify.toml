@@ -88,16 +88,6 @@ Vary = "*"
 path = "/media/*"
 function = "media"
 [[redirects]]
-from = "https://sotce.local:8888"
-to = "/.netlify/functions/sotce-net"
-status = 200
-force = true
-[[redirects]]
-from = "https://sotce.local:8888/*"
-to = "/.netlify/functions/sotce-net"
-status = 200
-force = true
-[[redirects]]
 from = "https://botce.ac"
 to = "https://aesthetic.computer/botce"
 status = 200
@@ -329,10 +319,20 @@ to = "http://localhost:3000/api/say"
 status = 200
 force = false
 [[redirects]]
-from = "/"
-to = "/.netlify/functions/index"
+from = "https://sotce.local:8888"
+to = "/.netlify/functions/sotce-net"
 status = 200
 force = true
+[[redirects]]
+from = "https://sotce.local:8888/*"
+to = "/.netlify/functions/sotce-net"
+status = 200
+force = true
+# [[redirects]]
+# from = "/"
+# to = "/.netlify/functions/index"
+# status = 200
+# force = true
 [[redirects]]
 from = "/*"
 to = "/.netlify/functions/index"

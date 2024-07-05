@@ -28,7 +28,7 @@ async function fun(event, context) {
     return { statusCode: 500 };
   }
 
-  console.log("HOOOOOST", event.headers["host"]);
+  // console.log("HOOOOOST", event.headers["host"]);
 
   if (event.headers["host"] === "sotce.local:8888") {
     return respond(
@@ -114,7 +114,7 @@ async function fun(event, context) {
 
         if (handledPiece?.code !== 200) {
           statusCode = 404;
-          return respond(statusCode, `Content not found: ${path}`);
+          // return respond(statusCode, `Content not found: ${path}`);
         } else {
           sourceCode = handledPiece.data;
           fromHandle = true;
@@ -159,13 +159,13 @@ async function fun(event, context) {
                 errLisp,
               );
               statusCode = 404;
-              return respond(statusCode, `Content not found: ${path}`);
+              // return respond(statusCode, `Content not found: ${path}`);
             }
           }
         } catch (err) {
           console.error("📃 Error:", err);
           statusCode = 404;
-          return respond(statusCode, `Content not found: ${path}`);
+          // return respond(statusCode, `Content not found: ${path}`);
           // throw err;
         }
       } catch (e) {
