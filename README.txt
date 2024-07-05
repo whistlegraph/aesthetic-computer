@@ -32,10 +32,7 @@ but technically agnostic. (Choose your aesthetic!)
       - 3D WebGL renderer for VR.
 
 😀 TODO 😆
-
 🌟 Projects in Progress (PIP) 🌟
-
-- [] how to structure a conversation
 
 *** sotce.net ***
   - [🟠] Test login inside VS Code local. 
@@ -50,6 +47,20 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Check how the auth works / token passing works from VSCode.
   - [x] Add support for developing `sotce-net` inside of the VS Code extension.
     - [x] In both development and production.
+
+*** qol (systems) ***
+- [] chat needs external logs to check for failures
+- [] session udp service shouldn't fail or needs logs checked and should move to
+
+
+*** convo ***
+- [] how to structure a conversation
+- [] beginning, middle and end
+- [] conversation as media
+                     performance
+                     sport
+                     replay
+                     export
 
 
 *** `code` (kidlisp ed) ideas from class ***
