@@ -152,7 +152,11 @@ function paint({ wipe, ink, write, screen }) {
 
   if (!tap) {
     ink("cyan");
+
+    // Write all keys...
     write(keys, 6, 20 + 12, { bounds: screen.width - 12, wordWrap: false });
+
+    // Highlight all playing keys...
     ink("yellow");
     write(
       keys.replace(new RegExp(`[^${active.join("")}]`, "g"), " "),
@@ -160,6 +164,7 @@ function paint({ wipe, ink, write, screen }) {
       20 + 12,
       { bounds: screen.width - 12, wordWrap: false },
     );
+
   } else {
     ink("gray");
     write(keys, screen.width / 2 - tapIndex * 6, screen.height / 2);
@@ -169,6 +174,7 @@ function paint({ wipe, ink, write, screen }) {
 
   if (!tap) {
     ink("lime");
+    // Write active key.
     active.forEach((sound, index) => {
       write(sound, 6 + index * 6, 20);
     });
@@ -184,45 +190,65 @@ function paint({ wipe, ink, write, screen }) {
   }
 }
 
+// c c# d d# e f f# g g# a a# b
+//   df   ef     gf   af   bf
+
+let sharps = false,
+  flats = false;
+
+function resetModeState() {
+  tapped = undefined;
+  tapIndex = 0;
+  octave = STARTING_OCTAVE;
+  hold = sharps = flats = false;
+}
+
 function act({ event: e, sound: { synth } }) {
-  const notes = "abcdefg";
+  const notes = "abcdefg"; // hold shift on C D F G A for sharps.
+  //                       // or alt on     d e g a b for flats
   const octaves = "123456789";
 
-  if (e.is("keyboard:down:shift") && !e.repeat) hold = true;
-  if (e.is("keyboard:up:shift")) hold = false;
+  if (tap) {
+    if (e.is("keyboard:down:shift") && !e.repeat) hold = true;
+    if (e.is("keyboard:up:shift")) hold = false;
+  } else {
+    if (e.is("keyboard:down:shift") && !e.repeat) sharps = true;
+    if (e.is("keyboard:up:shift")) sharps = false;
+    if (e.is("keyboard:down:alt") && !e.repeat) flats = true;
+    if (e.is("keyboard:up:alt")) flats = false;
+  }
 
   if (editable && e.is("keyboard:down:tab") && !e.repeat) {
     tap = !tap;
-    tapped = undefined;
-    tapIndex = 0;
-    octave = STARTING_OCTAVE;
+    resetModeState();
   }
 
   // Clear Track
   if (editable && e.is("keyboard:down:0") && !e.repeat) {
     keys = "";
     tap = false;
-    tapped = undefined;
-    tapIndex = 0;
-    octave = STARTING_OCTAVE;
+    resetModeState();
   }
 
   if (tap) {
     if ((e.is("keyboard:down:space") || e.is("touch")) && !sounds[tapped]) {
       tapped = keys[tapIndex];
       let reset = false;
+
       //if (!hold) {
       // TODO: ❤️‍🔥 Fix this.
-        if (octaves.indexOf(tapped) > -1) {
-          octave = tapped;
-          tapIndex += 1;
-          if (tapIndex >= keys.length) {
-            tapIndex = 0;
-            reset = true;
-            octave = STARTING_OCTAVE;
-          }
-          tapped = keys[tapIndex];
-       // }
+
+      if (octaves.indexOf(tapped) > -1) {
+        octave = tapped;
+        tapIndex += 1;
+        if (tapIndex >= keys.length) {
+          tapIndex = 0;
+          reset = true;
+          octave = STARTING_OCTAVE;
+        }
+        tapped = keys[tapIndex];
+
+        // }
       }
 
       if (!reset)
@@ -248,18 +274,30 @@ function act({ event: e, sound: { synth } }) {
   (octaves + notes).split("").forEach((key) => {
     if (e.is(`keyboard:down:${key}`) && !e.repeat) {
       if (!tap) {
-        keys += key;
+        keys += key.toUpperCase();
       } else if (keys[tapIndex] === key) {
         tapped = key;
       }
 
       if (octaves.indexOf(key) > -1) {
+        // Octaves
         octave = parseInt(key);
         sounds[key] = "held";
       } else {
+        // Notes
+        let note = key;
+
+        if (sharps && "cdfga".indexOf(note) !== -1) {
+          note += "#";
+          keys += "#";
+        } else if (flats && "degab".indexOf(note) !== -1) {
+          note += "f";
+          keys += "f";
+        }
+
         sounds[key] = synth({
           type: wave,
-          tone: `${key}${octave}`,
+          tone: `${note}${octave}`,
           duration: "🔁",
         });
       }
