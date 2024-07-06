@@ -2876,8 +2876,6 @@ async function load(
     source,
     codeChannel,
   } = {}) {
-    console.log("!RELOAD ATTEMPT!", piece, name, source, codeChannel);
-
     if (loading) {
       console.log("🟡 A piece is already loading.");
       return;
