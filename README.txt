@@ -36,9 +36,6 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** sotce.net ***
   - [🟠] Test login inside VS Code local. 
-    - [🩷] Disambiguate 'session' query string and
-         somehow receive both / capture both on first load.
-         or know which one to send for both AC and Sotce-Net.
   - [] Test login in production in VS Code,
        via vscode.dev!
        - [] Test aesthetic.computer first.
