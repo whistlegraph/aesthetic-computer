@@ -2,6 +2,9 @@
 // A paid diary network, 'handled' by Aesthetic Computer.
 
 /* #region 🏁 TODO 
+  - [🩷] Disambiguate 'session' query string and
+        somehow receive both / capture both on first load.
+        or know which one to send for both AC and Sotce-Net.
   - [🟠] Add session / login support to the Aesthetic Computer VSCode extension /
        switch to an in-editor development flow.
   - [-] stripe paywall
