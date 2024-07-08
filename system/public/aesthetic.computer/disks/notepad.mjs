@@ -45,8 +45,8 @@
 */
 
 /* 📝 Notes 
-  - [] Solve the 'note' / 'tone' quantized syntax ordering API issue.
-  - [-] Add live highlights back in type mode that include note tokenization.
+  - [-] Solve the 'note' / 'tone' quantized syntax ordering API issue.
+  - [] Add live highlights back in type mode that include note tokenization.
   - [] Pressing a new button down should automatically lift the other one.
   - [] Add a 'repeat' or 'hold' key which should be 'shift' on the keyboard
   - [] Add the tone-sliding that song has during tap mode. 
@@ -252,6 +252,7 @@ function act({ event: e, sound: { synth } }) {
   if (editable && e.is("keyboard:down:0") && !e.repeat) {
     keys = "";
     tap = false;
+    editable = false;
     resetModeState();
   }
 
@@ -307,6 +308,7 @@ function act({ event: e, sound: { synth } }) {
         if (octaves.includes(key) && octaves.includes(keys.slice(-1)))
           keys = keys.slice(0, -1);
         keys += key.toUpperCase();
+        editable = true;
       } else if (keys[tapIndex] === key) {
         tapped = key;
       }
