@@ -52,6 +52,7 @@ but technically agnostic. (Choose your aesthetic!)
     - [x] In both development and production.
 
 *** qol (systems) ***
+- [] entering `prod` in vscode extension or `local` should send a message that toggles "local" mode.
 - [] chat needs external logs to check for failures
 - [] session udp service shouldn't fail or needs logs checked and should move to
 
