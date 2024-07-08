@@ -45,16 +45,14 @@
 */
 
 /* 📝 Notes 
-  - [⭐] Merge this piece with `song`.
-  - [] Add support for sharps and flats using normal keys somehow...
-    - [] And they can be encoded differently.
-    - [] Also add support for microtonal elements. 
-    - [] How would the interpreter work for these, because it only reads per
-         character...
-  - [🤩] add a 'repeat' or 'hold' key which should be 'shift' on the keyboard
+  - [🧡] Show accurate preview of top note.
+  - [] Retest basic mode.
+  - [] Merge this piece with `song`.
+  - [] add a 'repeat' or 'hold' key which should be 'shift' on the keyboard
+  - [] Also add support for microtonal elements. 
   - [] why are some wave type switches changing the frequency / octave?
   - [] how to build commas or sections in?
-  - [🟢] how can i "lightly" trigger the soft keyboard without a whole
+  - [] how can i "lightly" trigger the soft keyboard without a whole
         text input class... this would be useful for mobile game controls
         and such and may require a tap to open?
   - [] add restart key?
@@ -85,6 +83,10 @@
   - [] Leave out all options from synth / make sensible defaults first.
   - [] Add 'scale' and 'rotation' to `write`.
   + Done
+  - [x] Add support for sharps and flats using normal keys somehow...
+    - [x] And they can be encoded differently.
+    - [x] How would the interpreter work for these, because it only reads per
+         character...
   - [x] auto advance octaves... 
   - [x] change the bg color while any note is held.
   - [] clean up digit vs note triggering code...
@@ -117,11 +119,13 @@ let editable = true;
 
 const sounds = {};
 
+let sharps = false,
+  flats = false;
+
+const accents = "#f";
+
 function boot({ params, colon }) {
-  // console.log("Params", params); // TODO: params are blank in dev at times...
   keys = params.join(" ") || "";
-  // Dumb way to replace white-space:
-  console.log("Keys!", keys, params);
   keys = keys.replace(/\s/g, "");
   if (keys.length > 0) {
     tap = true;
@@ -164,15 +168,18 @@ function paint({ wipe, ink, write, screen }) {
       20 + 12,
       { bounds: screen.width - 12, wordWrap: false },
     );
-
   } else {
     ink("gray");
     write(keys, screen.width / 2 - tapIndex * 6, screen.height / 2);
 
-    ink("red");
-    console.log("🔴 in red:", keys[tapIndex], tapped);
-    write(keys[tapIndex], screen.width / 2, screen.height / 2);
+    //ink("red");
+    //console.log("🔴 in red:", keys[tapIndex], tapped);
+    // write(keys[tapIndex], screen.width / 2, screen.height / 2);
+    //write(tapped, screen.width / 2, screen.height / 2);
   }
+
+  if (tap)
+    ink("orange").line(screen.width / 2, 0, screen.width / 2, screen.height);
 
   if (!tap) {
     ink("lime");
@@ -185,24 +192,11 @@ function paint({ wipe, ink, write, screen }) {
     active.forEach((sound, index) => {
       write(sound, screen.width / 2, screen.height / 2 + 12 + 12 * index);
     });
-    ink("lime");
-    if (tapped === keys[tapIndex]) {
+    if (tapped) {
+      ink("lime");
       write(tapped, screen.width / 2, screen.height / 2);
     }
   }
-}
-
-// c c# d d# e f f# g g# a a# b
-//   df   ef     gf   af   bf
-
-let sharps = false,
-  flats = false;
-
-function resetModeState() {
-  tapped = undefined;
-  tapIndex = 0;
-  octave = STARTING_OCTAVE;
-  hold = sharps = flats = false;
 }
 
 function act({ event: e, sound: { synth } }) {
@@ -234,48 +228,44 @@ function act({ event: e, sound: { synth } }) {
 
   if (tap) {
     if ((e.is("keyboard:down:space") || e.is("touch")) && !sounds[tapped]) {
-      tapped = keys[tapIndex];
       let reset = false;
       //if (!hold) {
       // TODO: ❤️‍🔥 Fix this.
       // }
 
-      // Look ahead one character to see if it's a sharp or flat.
+      let tempTapIndex = tapIndex,
+        tappedOctave;
 
-      if (octaves.indexOf(tapped) > -1) {
-        octave = tapped;
-        tapIndex += 1;
-        if (tapIndex >= keys.length) {
-          tapIndex = 0;
-          reset = true;
-          octave = STARTING_OCTAVE;
-        }
-        tapped = keys[tapIndex];
-      } //else {
-      // Not an octave.
-      // 🟠 TODO: Read sharps and flats by looking ahead one character...
-      if (keys[tapIndex + 1] === "#" || keys[tapIndex + 1] === "f") {
-        tapped = keys[tapIndex] + keys[tapIndex + 1];
-        tapIndex += 1;
+      if (octaves.indexOf(keys[tapIndex]) > -1) {
+        octave = keys[tapIndex];
+        tappedOctave = octave;
+        tempTapIndex += 1;
       }
 
-      console.log("🟢 Tapped!", tapped);
+      tapped = keys[tempTapIndex];
 
-      if (!reset) {
-        sounds[tapped] = synth({
-          type: wave,
-          tone: `${tapped}${octave}`,
-          duration: "🔁",
-        });
+      if (accents.indexOf(keys[tempTapIndex + 1]) > -1) {
+        tapped = keys[tempTapIndex] + keys[tempTapIndex + 1];
       }
+
+      // 🔴 TODO: Why can't the tone and tapped format be the same?
+      const tone = `${tapped}${octave}`;
+      if (tappedOctave) tapped = tappedOctave + tapped;
+      if (!reset) sounds[tapped] = synth({ type: wave, tone, duration: "🔁" });
     }
 
     if (e.is("keyboard:up:space") || e.is("lift")) {
+      // Push the `tapIndex` forward according to octave, then for note, then
+      // for the accent.
+      if (octaves.indexOf(keys[tapIndex]) > -1) tapIndex += 1;
       tapIndex += 1;
+      if (accents.indexOf(keys[tapIndex]) > -1) tapIndex += 1;
+
       if (tapIndex >= keys.length) {
         octave = STARTING_OCTAVE;
         tapIndex = 0;
       }
+
       sounds[tapped]?.kill(0.25);
       delete sounds[tapped];
       tapped = undefined;
@@ -291,11 +281,9 @@ function act({ event: e, sound: { synth } }) {
       }
 
       if (octaves.indexOf(key) > -1) {
-        // Octaves
         octave = parseInt(key);
         sounds[key] = "held";
       } else {
-        // Notes
         let note = key.toUpperCase();
 
         if (sharps && "CDFGA".indexOf(note) !== -1) {
@@ -306,14 +294,11 @@ function act({ event: e, sound: { synth } }) {
           keys += "f";
         }
 
-        // sounds[key] needs ato be indexed differently.
+        const tone = `${note}${octave}`;
+
         sounds[key] = {
           note,
-          sound: synth({
-            type: wave,
-            tone: `${note}${octave}`,
-            duration: "🔁",
-          }),
+          sound: synth({ type: wave, tone, duration: "🔁" }),
         };
       }
     }
@@ -327,4 +312,11 @@ function act({ event: e, sound: { synth } }) {
       delete sounds[key];
     }
   });
+}
+
+function resetModeState() {
+  tapped = undefined;
+  tapIndex = 0;
+  octave = STARTING_OCTAVE;
+  hold = sharps = flats = false;
 }
