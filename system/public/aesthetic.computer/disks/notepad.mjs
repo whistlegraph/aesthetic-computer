@@ -45,11 +45,18 @@
 */
 
 /* 📝 Notes 
-  - [🧡] Show accurate preview of top note.
-  - [] Retest basic mode.
-  - [] Merge this piece with `song`.
-  - [] add a 'repeat' or 'hold' key which should be 'shift' on the keyboard
-  - [] Also add support for microtonal elements. 
+  - [] Solve the 'note' / 'tone' quantized syntax ordering API issue.
+  - [-] Add live highlights back in type mode that include note tokenization.
+  - [] Pressing a new button down should automatically lift the other one.
+  - [] Add a 'repeat' or 'hold' key which should be 'shift' on the keyboard
+  - [] Add the tone-sliding that song has during tap mode. 
+    - [] This could be microtonal, or shift / quantize to the next note.
+    - [] There should be a way to save this modification or 'clear' it
+         while playing so melodies can deviate somehow, then return to the same
+         location.
+  - [] Fix 'tap' mode keypresses... or disable them entirely?
+    - [] Is it weirdly playable this way?
+  - [] Also add support for microtonal elements in the notation. 
   - [] why are some wave type switches changing the frequency / octave?
   - [] how to build commas or sections in?
   - [] how can i "lightly" trigger the soft keyboard without a whole
@@ -83,6 +90,9 @@
   - [] Leave out all options from synth / make sensible defaults first.
   - [] Add 'scale' and 'rotation' to `write`.
   + Done
+  - [x] Better 'red' preview highlighting.
+  - [x] Entering number key more than once should not add extra numbers.
+  - [x] Show accurate preview of top note.
   - [x] Add support for sharps and flats using normal keys somehow...
     - [x] And they can be encoded differently.
     - [x] How would the interpreter work for these, because it only reads per
@@ -116,12 +126,16 @@ let tap = false;
 let tapIndex = 0;
 let tapped; // Store the last tracked key.
 let editable = true;
+let pressedNotes = [];
 
 const sounds = {};
 
 let sharps = false,
   flats = false;
 
+const notes = "abcdefg"; // hold shift on C D F G A for sharps.
+  //                       // or alt on   D E G A B for flats
+const octaves = "123456789";
 const accents = "#f";
 
 function boot({ params, colon }) {
@@ -136,6 +150,7 @@ function boot({ params, colon }) {
 
 function paint({ wipe, ink, write, screen }) {
   const active = Object.keys(sounds);
+
   let bg;
 
   if (!tap) {
@@ -158,12 +173,19 @@ function paint({ wipe, ink, write, screen }) {
     ink("cyan");
 
     // Write all keys...
-    write(keys, 6, 20 + 12, { bounds: screen.width - 12, wordWrap: false });
+    write(keys, 6, 20 + 12, {
+      bounds: screen.width - 12,
+      wordWrap: false,
+    });
 
     // Highlight all playing keys...
     ink("yellow");
+
+    const notes = active.map((key) => sounds[key].note);
+    // TODO: Tokenize the keys and replace any instances of what got pressed,
+    //       including octave keys and accents.
     write(
-      keys.replace(new RegExp(`[^${active.join("")}]`, "g"), " "),
+      keys.replace(new RegExp(`[^${notes.join("")}]`, "g"), " "),
       6,
       20 + 12,
       { bounds: screen.width - 12, wordWrap: false },
@@ -172,10 +194,23 @@ function paint({ wipe, ink, write, screen }) {
     ink("gray");
     write(keys, screen.width / 2 - tapIndex * 6, screen.height / 2);
 
-    //ink("red");
+    ink("red");
     //console.log("🔴 in red:", keys[tapIndex], tapped);
-    // write(keys[tapIndex], screen.width / 2, screen.height / 2);
-    //write(tapped, screen.width / 2, screen.height / 2);
+    // Highlight next char by looking ahead...
+
+
+    let nextToken = keys[tapIndex];
+    let tempTapIndex = tapIndex;
+    if (octaves.includes(nextToken)) {
+      tempTapIndex += 1;
+      nextToken += keys[tempTapIndex];
+    }
+
+    if (accents.includes(keys[tempTapIndex + 1])) {
+      nextToken += keys[tempTapIndex + 1];
+    }
+
+    write(nextToken, screen.width / 2, screen.height / 2);
   }
 
   if (tap)
@@ -183,10 +218,7 @@ function paint({ wipe, ink, write, screen }) {
 
   if (!tap) {
     ink("lime");
-    // Write active key.
-    active.forEach((sound, index) => {
-      write(sound, 6 + index * 6, 20);
-    });
+    write(active.map((key) => sounds[key].note).join(" "), 6, 20);
   } else {
     ink("white");
     active.forEach((sound, index) => {
@@ -200,9 +232,6 @@ function paint({ wipe, ink, write, screen }) {
 }
 
 function act({ event: e, sound: { synth } }) {
-  const notes = "abcdefg"; // hold shift on C D F G A for sharps.
-  //                       // or alt on     d e g a b for flats
-  const octaves = "123456789";
 
   if (tap) {
     if (e.is("keyboard:down:shift") && !e.repeat) hold = true;
@@ -275,26 +304,30 @@ function act({ event: e, sound: { synth } }) {
   (octaves + notes).split("").forEach((key) => {
     if (e.is(`keyboard:down:${key}`) && !e.repeat) {
       if (!tap) {
+        if (octaves.includes(key) && octaves.includes(keys.slice(-1)))
+          keys = keys.slice(0, -1);
         keys += key.toUpperCase();
       } else if (keys[tapIndex] === key) {
         tapped = key;
       }
 
-      if (octaves.indexOf(key) > -1) {
+      if (octaves.includes(key)) {
         octave = parseInt(key);
         sounds[key] = "held";
       } else {
         let note = key.toUpperCase();
 
-        if (sharps && "CDFGA".indexOf(note) !== -1) {
+        if (sharps && "CDFGA".includes(note)) {
           note += "#";
           keys += "#";
-        } else if (flats && "DEGAB".indexOf(note) !== -1) {
+        } else if (flats && "DEGAB".includes(note)) {
           note += "f";
           keys += "f";
         }
 
         const tone = `${note}${octave}`;
+        // ❤️‍🔥 TODO: Why can't tone be the same as note?
+        console.log("Tone:", tone, "Note:", note);
 
         sounds[key] = {
           note,
