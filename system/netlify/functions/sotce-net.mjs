@@ -2,9 +2,10 @@
 // A paid diary network, 'handled' by Aesthetic Computer.
 
 /* #region 🏁 TODO 
-  - [🩷] Disambiguate 'session' query string and
-        somehow receive both / capture both on first load.
-        or know which one to send for both AC and Sotce-Net.
+  - [🅰️] Need to be able to login to Aesthetic with VS Code, then switch to
+       sotce-net and then back to aesthetic and stay logged in.
+  - [🅱️] Need to be able to log in to sotce-net with VS Code, then switch
+       to Aesthetic and back and stay logged in.
   - [🟠] Add session / login support to the Aesthetic Computer VSCode extension /
        switch to an in-editor development flow.
   - [-] stripe paywall
@@ -17,6 +18,9 @@
     - [] Perhaps the subs could be 'sotce' prefixed.
   - [] Store whether a user is subscribed with an expiration date.
   + Done
+  - [x] Disambiguate 'session' query string and
+        somehow receive both / capture both on first load.
+        or know which one to send for both AC and Sotce-Net.
   - [x] Get rid of the 'user consent' signup field.
          (Only is necessary on localhost)
   - [x] auth0 based auth / registration
@@ -125,15 +129,17 @@ export const handler = async (event, context) => {
                 );
               }
 
-              // 😶‍🌫️ TODO: Picking up sessions from VS Code.
+              // 😶‍🌫️ Picking up a session from VS Code / the parent frame.
+              let pickedUpSession;
               {
                 const url = new URL(window.location);
                 const params = url.searchParams;
-                const sessionParams = params.get("session");
-                console.log("🌻 Sotce Session params:", sessionParams);// sessionParams);
+
+                const sessionParams = params.get("session-sotce");
+                console.log("🌻 Sotce Session params:", sessionParams); // sessionParams);
+
                 let encodedSession = sessionParams;
                 if (encodedSession === "null") encodedSession = undefined;
-                let pickedUpSession;
                 if (encodedSession) {
                   const sessionJsonString = atob(
                     decodeURIComponent(encodedSession),
@@ -144,19 +150,19 @@ export const handler = async (event, context) => {
                   if (session.accessToken && session.account) {
                     window.sotceTOKEN = session.accessToken; // Only set using this flow.
                     window.sotceUSER = {
-                      name: session.account.label,
+                      email: session.account.label,
                       sub: session.account.id,
                     };
                     console.log(
                       "🌻 Picked up sotce session!",
-                      window.acTOKEN,
-                      window.acUSER,
+                      window.sotceTOKEN,
+                      window.sotceUSER,
                     );
                     pickedUpSession = true;
                   }
 
                   if (sessionParams) {
-                    params.delete("session"); // Remove the 'session' parameter
+                    params.delete("session-sotce"); // Remove the 'session' parameter
                     // Update the URL without reloading the page
                     history.pushState(
                       {},
@@ -167,27 +173,34 @@ export const handler = async (event, context) => {
                 }
               }
 
-              let isAuthenticated = await auth0Client.isAuthenticated();
+              let isAuthenticated = false;
 
-              // Try to fetch a new token on every refresh.
-              // TODO: ❤️‍🔥 Is this necessary?
-              if (isAuthenticated) {
-                try {
-                  await auth0Client.getTokenSilently(/*{ cacheMode: "off" }*/);
-                  console.log("🗝️ Got fresh token.");
-                } catch (error) {
-                  console.log("🔐️ ❌ Unauthorized", error);
-                  console.error(
-                    "Failed to retrieve token silently. Logging out.",
-                    error,
-                  );
-                  // Redirect the user to logout if the token has failed.
-                  auth0Client.logout({
-                    logoutParams: { returnTo: window.location.href },
-                  });
-                  isAuthenticated = false;
-                  return;
+              // Logging in normally.
+              if (!pickedUpSession) {
+                isAuthenticated = await auth0Client.isAuthenticated();
+
+                // Try to fetch a new token on every refresh.
+                // TODO: ❤️‍🔥 Is this necessary?
+                if (isAuthenticated) {
+                  try {
+                    await auth0Client.getTokenSilently(/*{ cacheMode: "off" }*/);
+                    console.log("🗝️ Got fresh token.");
+                  } catch (error) {
+                    console.log("🔐️ ❌ Unauthorized", error);
+                    console.error(
+                      "Failed to retrieve token silently. Logging out.",
+                      error,
+                    );
+                    // Redirect the user to logout if the token has failed.
+                    auth0Client.logout({
+                      logoutParams: { returnTo: window.location.href },
+                    });
+                    isAuthenticated = false;
+                    return;
+                  }
                 }
+              } else {
+                isAuthenticated = true;
               }
 
               const wrapper = document.getElementById("wrapper");
@@ -203,9 +216,12 @@ export const handler = async (event, context) => {
                 // 🅰️ Check / await email verification.
                 //  - [🟡] If unverified, then show awaiting animation
                 //         and long poll for verification.
-                user = await auth0Client.getUser();
 
-                console.log(user);
+                user = pickedUpSession
+                  ? window.sotceUSER
+                  : await auth0Client.getUser();
+
+                console.log("🪷 Got user:", user);
 
                 // else...
 

@@ -208,7 +208,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         // Check if the panel already exists. If so, reveal it.
         if (docsPanel) {
           // Update the title
-          docsPanel.title = "📚 " + title.replace("/", "") + " · Aesthetic Computer";
+          docsPanel.title =
+            "📚 " + title.replace("/", "") + " · Aesthetic Computer";
           docsPanel.reveal(vscode.ViewColumn.Beside);
         } else {
           // Create and show a new webview
@@ -761,10 +762,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
                 })
                 .then(() => {
                   const defaultUri = vscode.Uri.file(
-                    path.join(
-                      vscode.workspace.rootPath || "",
-                      data.title,
-                    ),
+                    path.join(vscode.workspace.rootPath || "", data.title),
                   );
                   return vscode.window.showSaveDialog({
                     filters: {
@@ -790,7 +788,9 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 
                       // Close the current editor
                       vscode.commands
-                        .executeCommand("workbench.action.revertAndCloseActiveEditor")
+                        .executeCommand(
+                          "workbench.action.revertAndCloseActiveEditor",
+                        )
                         .then(() => {
                           // Open the saved file in the editor
                           vscode.workspace
@@ -890,17 +890,26 @@ function getWebViewContent(webview: any, slug: string) {
     vscode.Uri.joinPath(extContext.extensionUri, "vscode.css"),
   );
 
-  const session = extContext.globalState.get("aesthetic:session", undefined);
+  const sessionAesthetic = extContext.globalState.get(
+    "aesthetic:session",
+    undefined,
+  );
+  const sessionSotce = extContext.globalState.get("sotce:session", undefined);
 
   let param = slug;
-  if (typeof session === "object") {
-    if (keys(session)?.length > 0) {
-      const base64EncodedSession = btoa(JSON.stringify(session));
-      param += "?session=" + encodeURIComponent(base64EncodedSession);
+
+  [sessionAesthetic, sessionSotce].forEach((session, index) => {
+    if (typeof session === "object") {
+      if (keys(session)?.length > 0) {
+        const base64EncodedSession = btoa(JSON.stringify(session));
+        param += `${index === 0 ? "?" : "&"}session-${
+          index === 0 ? "aesthetic" : "sotce"
+        }=${encodeURIComponent(base64EncodedSession)}`;
+      }
     }
-  } else {
-    // param = "?clearSession=true"; Probably never needed.
-  }
+  });
+
+  // param = "?clearSession=true"; Probably never needed.
 
   return `<!DOCTYPE html>
 			<html lang="en">
