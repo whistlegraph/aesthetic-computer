@@ -168,7 +168,9 @@ function paint({ wipe, ink, write, screen }) {
   } else {
     ink("gray");
     write(keys, screen.width / 2 - tapIndex * 6, screen.height / 2);
+
     ink("red");
+    console.log("🔴 in red:", keys[tapIndex], tapped);
     write(keys[tapIndex], screen.width / 2, screen.height / 2);
   }
 
@@ -234,9 +236,11 @@ function act({ event: e, sound: { synth } }) {
     if ((e.is("keyboard:down:space") || e.is("touch")) && !sounds[tapped]) {
       tapped = keys[tapIndex];
       let reset = false;
-
       //if (!hold) {
       // TODO: ❤️‍🔥 Fix this.
+      // }
+
+      // Look ahead one character to see if it's a sharp or flat.
 
       if (octaves.indexOf(tapped) > -1) {
         octave = tapped;
@@ -247,16 +251,23 @@ function act({ event: e, sound: { synth } }) {
           octave = STARTING_OCTAVE;
         }
         tapped = keys[tapIndex];
-
-        // }
+      } //else {
+      // Not an octave.
+      // 🟠 TODO: Read sharps and flats by looking ahead one character...
+      if (keys[tapIndex + 1] === "#" || keys[tapIndex + 1] === "f") {
+        tapped = keys[tapIndex] + keys[tapIndex + 1];
+        tapIndex += 1;
       }
 
-      if (!reset)
+      console.log("🟢 Tapped!", tapped);
+
+      if (!reset) {
         sounds[tapped] = synth({
           type: wave,
           tone: `${tapped}${octave}`,
           duration: "🔁",
         });
+      }
     }
 
     if (e.is("keyboard:up:space") || e.is("lift")) {
@@ -285,21 +296,25 @@ function act({ event: e, sound: { synth } }) {
         sounds[key] = "held";
       } else {
         // Notes
-        let note = key;
+        let note = key.toUpperCase();
 
-        if (sharps && "cdfga".indexOf(note) !== -1) {
+        if (sharps && "CDFGA".indexOf(note) !== -1) {
           note += "#";
           keys += "#";
-        } else if (flats && "degab".indexOf(note) !== -1) {
+        } else if (flats && "DEGAB".indexOf(note) !== -1) {
           note += "f";
           keys += "f";
         }
 
-        sounds[key] = synth({
-          type: wave,
-          tone: `${note}${octave}`,
-          duration: "🔁",
-        });
+        // sounds[key] needs ato be indexed differently.
+        sounds[key] = {
+          note,
+          sound: synth({
+            type: wave,
+            tone: `${note}${octave}`,
+            duration: "🔁",
+          }),
+        };
       }
     }
 
@@ -308,7 +323,7 @@ function act({ event: e, sound: { synth } }) {
         tapIndex = (tapIndex + 1) % keys.length;
         tapped = undefined;
       }
-      sounds[key]?.kill?.(0.25); // Kill a sound if it exists.
+      sounds[key]?.sound?.kill?.(0.25); // Kill a sound if it exists.
       delete sounds[key];
     }
   });
