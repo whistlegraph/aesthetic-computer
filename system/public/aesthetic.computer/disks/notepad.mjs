@@ -2,6 +2,9 @@
 // Touch pads that play musical notes, or use the keyboard keys.
 
 /* 🎶 Sequences
+
+TODO: 💮 Daisy
+
 ✅ 🐦 Lullaby
   eeg eeg
   eg5c4b aa g

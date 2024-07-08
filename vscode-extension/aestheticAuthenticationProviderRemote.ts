@@ -191,7 +191,8 @@ export class AestheticAuthenticationProvider
         accessToken: access_token,
         refreshToken: refresh_token,
         account: {
-          label: userinfo.name,
+          label: userinfo.email, // This will always be the user email.
+          //     userinfo.name
           id: userinfo.sub,
         },
         scopes: this.getScopes(scopes),

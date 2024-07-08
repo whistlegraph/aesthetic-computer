@@ -116,9 +116,9 @@ loadAuth0Script()
 
       const url = new URL(window.location);
       const params = url.searchParams;
-      const sessionParams = params.get("session");
+      const sessionParams = params.get("session-aesthetic");
       let encodedSession = sessionParams;
-      console.log("🌻 AC Session params:", sessionParams);
+      console.log("🌻 Aesthetic Computer Session params:", sessionParams);
       if (encodedSession === "null") encodedSession = undefined;
       let pickedUpSession;
       if (encodedSession) {
@@ -142,7 +142,7 @@ loadAuth0Script()
         }
 
         if (sessionParams) {
-          params.delete("session"); // Remove the 'session' parameter
+          params.delete("session-aesthetic"); // Remove the 'session' parameter
           // Update the URL without reloading the page
           history.pushState({}, "", url.pathname + "?" + params.toString());
         }

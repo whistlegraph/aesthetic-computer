@@ -107,6 +107,7 @@ alias ac-session 'ac; npm run server:session'
 alias ac-edge 'clear; ac; npm run edge-micro' # TODO: will not return to fish 24.04.05.19.53 :(
 alias ac-stripe-print 'ac; npm run stripe-print-micro'
 alias ac-stripe-ticket 'ac; npm run stripe-ticket-micro'
+alias ac-extension 'ac; cd vscode-extension; npm run build; ac'
 alias ac-url 'clear; ac; npm run -s url'
 alias ac-shell 'ac; ac-url; fish'
 alias ac-redis 'clear; ac; npm run redis'
