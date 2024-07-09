@@ -68,6 +68,8 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** first week of july 2 ***
   - [🔴] always display first paint iteration. (corner skip in `ucla-2-a`)
+  - [] fix 'sawtooth'
+  - [] add drum kit for thursday how to make a touch based drum kit, with buttons
   - [] users need to log out and log back in before publishing
        (sessions get lost)
     - [-] test after opening and closing the pane
