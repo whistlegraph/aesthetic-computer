@@ -2613,7 +2613,7 @@ async function load(
     return true;
   }
 
-  console.log("LOADED!", parsed);
+  console.log("🟠 Loaded:", parsed);
 
   // Reload a previously sideloaded piece on subsequent loads.
   if (
@@ -2891,7 +2891,7 @@ async function load(
       // Note: This is used for live development via the socket server.
       $commonApi.load({ source, name, codeChannel }, false, false, true); // Load source code.
     } /*if (piece === "*" || piece === undefined /*|| currentText === piece*/ /*) {*/ else {
-      // console.log("💾️ Reloading:", piece, "Params:", currentParams);
+      console.log("💾️ Reloading:", piece, "Params:", currentParams);
       // $commonApi.pieceCount = -1; // Reset pieceCount on developer reload.
       //                             (This can be disabled while testing pieces
       //                              that rely on pieceCount increments)
