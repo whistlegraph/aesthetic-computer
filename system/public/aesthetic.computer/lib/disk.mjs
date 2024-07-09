@@ -2678,10 +2678,9 @@ async function load(
     }
 
     source = parsed.source;
-
     params = parsed.params;
     search = parsed.search;
-    colon = parsed.colon;
+    colon = parsed.colon || [];
     hash = parsed.hash;
     host = parsed.host;
     slug = parsed.text;
@@ -3267,7 +3266,7 @@ async function load(
   $commonApi.piece = slug?.split("~")[0];
   $commonApi.query = Object.fromEntries(new URLSearchParams(search));
   $commonApi.params = params || [];
-  $commonApi.colon = colon;
+  $commonApi.colon = colon || [];
 
   $commonApi.load = async function () {
     // Load a piece, wrapping it in a leave function so a final frame
