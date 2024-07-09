@@ -22,6 +22,7 @@ function paint({ wipe }) {
   wipe("blue");
 }
 
+
 // 📚 Library
 
 // function boot() {

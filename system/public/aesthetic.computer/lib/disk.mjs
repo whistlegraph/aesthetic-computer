@@ -2613,6 +2613,8 @@ async function load(
     return true;
   }
 
+  console.log("LOADED!", parsed);
+
   // Reload a previously sideloaded piece on subsequent loads.
   if (
     !parsed.source &&
