@@ -900,12 +900,12 @@ function getWebViewContent(webview: any, slug: string) {
 
   let param = slug;
 
-  console.log(
-    "Sessions: 🟪 Aesthetic Computer:",
-    sessionAesthetic,
-    "🪷 Sotce",
-    sessionSotce,
-  );
+  // console.log(
+  //   "Sessions: 🟪 Aesthetic Computer:",
+  //   sessionAesthetic,
+  //   "🪷 Sotce",
+  //   sessionSotce,
+  // );
 
   [sessionAesthetic, sessionSotce].forEach((session, index) => {
     const paramBase = `${index === 0 ? "?" : "&"}session-${
