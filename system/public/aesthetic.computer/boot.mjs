@@ -118,6 +118,15 @@ loadAuth0Script()
       const params = url.searchParams;
       let param = params.get("session-aesthetic");
 
+      {
+        // Handle any sotce tenancy from the vscode extension by storing
+        // the param in localStorage.
+        let sotceParam = params.get("session-sotce");
+        if (sotceParam && sotceParam !== "null" && sotceParam !== "retrieve") {
+          localStorage.setItem("session-sotce", sotceParam);
+        }
+      }
+
       if (param === "null") {
         localStorage.removeItem("session-aesthetic");
       } else if (param === "retrieve") {
@@ -126,7 +135,7 @@ loadAuth0Script()
 
       const sessionParams = param;
       let encodedSession = sessionParams;
-      console.log("🟪 Aesthetic Computer Session:", sessionParams);
+      // console.log("🟪 Aesthetic Computer Session:", sessionParams);
       if (encodedSession === "null") encodedSession = undefined;
       let pickedUpSession;
       if (encodedSession) {
