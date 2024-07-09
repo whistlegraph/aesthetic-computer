@@ -116,9 +116,17 @@ loadAuth0Script()
 
       const url = new URL(window.location);
       const params = url.searchParams;
-      const sessionParams = params.get("session-aesthetic");
+      let param = params.get("session-aesthetic");
+
+      if (param === "null") {
+        localStorage.removeItem("session-aesthetic");
+      } else if (param === "retrieve") {
+        param = localStorage.getItem("session-aesthetic");
+      }
+
+      const sessionParams = param;
       let encodedSession = sessionParams;
-      console.log("🌻 Aesthetic Computer Session params:", sessionParams);
+      console.log("🟪 Aesthetic Computer Session:", sessionParams);
       if (encodedSession === "null") encodedSession = undefined;
       let pickedUpSession;
       if (encodedSession) {
@@ -129,7 +137,7 @@ loadAuth0Script()
         if (session.accessToken && session.account) {
           window.acTOKEN = session.accessToken; // Only set using this flow.
           window.acUSER = {
-            name: session.account.label,
+            email: session.account.label,
             sub: session.account.id,
           };
           // Will get passed to the first message by the piece runner.
@@ -142,6 +150,7 @@ loadAuth0Script()
         }
 
         if (sessionParams) {
+          localStorage.setItem("session-aesthetic", sessionParams);
           params.delete("session-aesthetic"); // Remove the 'session' parameter
           // Update the URL without reloading the page
           history.pushState({}, "", url.pathname + "?" + params.toString());
