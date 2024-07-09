@@ -61,20 +61,18 @@ but technically agnostic. (Choose your aesthetic!)
                      replay
                      export
 
-
 *** `code` (kidlisp ed) ideas from class ***
   - [] show an execution heatmap of so control flow can be intuited as a piece runs
   - [] if a loaded kidlisp file fails to run, just make the '404' page the editor of its source
     - [] enabled crowd-sourced backwards compatibility &&|| llm auto-patching
 
 *** first week of july 2 ***
-  - [🧗] design piano key activity / button activity for tuesday
+  - [🔴] always display first paint iteration. (corner skip in `ucla-2-a`)
   - [] users need to log out and log back in before publishing
        (sessions get lost)
     - [-] test after opening and closing the pane
     - [] test after opening and closing the vscode
     - [] test after a system reboot / logout
-  - [] always display first paint iteration. (corner skip in `ucla-2-a`)
   - [] source save file defaults to top of hard drive on a mac?
   - [🧗] design piano key activity / button activity for tuesday 
   - [] add linked list of user pieces to profile pages
@@ -89,13 +87,13 @@ but technically agnostic. (Choose your aesthetic!)
   - [] add ability for @jeffrey to delete chat messages via mobile
   - [] add text links to chat
   - [] Send a `log` notification when a deployment happens.
+  - [] buff out the profile pages / make new profile pages in kidlisp
+  - [] add image / pixels support to chat and also maybe kidlisp support
   + Done
+  - [x] design piano key activity / button activity for tuesday
   - [x] add prutti 50
   - [x] design `ucla-2` file / activity... (clone `ucla-1`)
   - [x] investigate local socket disconnection situation
-  ----
-  - [] buff out the profile pages / make new profile pages in kidlisp
-  - [] add image / pixels support to chat and also maybe kidlisp support
 
 *** add upside-down / `sing` mode to song ***
   - [] refer to artur's `sign` demo from puerto rico

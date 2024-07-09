@@ -4805,13 +4805,13 @@ async function makeFrame({ data: { type, content } }) {
     soundTime = content.audioTime;
 
     $sound.synth = function ({
-      type = "square",
-      tone = 440, // TODO: Make random.
-      // TODO: Add an optional string "note" here as well / add auto parsing.
-      beats = undefined, // random(), // Wow, default func. params can be random!
-      duration = 0.1, //undefined, // In seconds... (where beats is a shortcut)
-      attack = 0.01,
-      decay = 0.9,
+      tone = 440, // hz, or musical note
+      type = "square", // "sine", "triangle", "square", "sawtooth"
+      // "noise-white" <-ignores tone
+      duration = 0.1, // In seconds... (where beats is a shortcut)
+      beats = undefined, // 🧧 Should this be deprecated?
+      attack = 0.01, // How quickly the sound starts.
+      decay = 0.9, // A multiplier for when the sound fades.
       volume = 1,
       pan = 0,
     } = {}) {
