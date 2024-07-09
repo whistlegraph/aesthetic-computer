@@ -1,5 +1,5 @@
 // ucla-3, 24.07.09.07.52 
-// Basic sonics.
+// Essential sonics and data types.
 
 /* 📝 Notes 
   - Today we will be synthesizing sound using primitive wave types, and learning
@@ -8,12 +8,12 @@
       📜 basic data types: `string`, `boolean`, `number`
          composite types: `array`, `object`
     - Exercises -
-    - 1. Writing text and basic math. 
-    - 2. Keyboard input as a trigger. 🟩🟦
-    - 3. Synthesizing sound. 🎹
-    - 4. Growing visually and sonically. 🪱
+    1. [] Writing text and basic math. 
+    2. [] Keyboard input as a trigger. 🟩🟦
+    3. [] Synthesizing sound. 🎹
+    4. [] Growing visually and sonically. 🪱
 
-    ⌨️ Useful source code shortcuts.
+    ⌨️ Useful `Visual Studio Code` shortcuts.
     🍎 + Shift + P -> Format Document
     🍎 + / -> Toggle Comments
 */
