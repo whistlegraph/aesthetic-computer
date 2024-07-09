@@ -2,13 +2,7 @@
 // A paid diary network, 'handled' by Aesthetic Computer.
 
 /* #region 🏁 TODO 
-  - [🅰️] Need to be able to login to Aesthetic with VS Code, then switch to
-       sotce-net and then back to aesthetic and stay logged in.
-  - [🅱️] Need to be able to log in to sotce-net with VS Code, then switch
-       to Aesthetic and back and stay logged in.
-  - [🟠] Add session / login support to the Aesthetic Computer VSCode extension /
-       switch to an in-editor development flow.
-  - [-] stripe paywall
+  - [🟠] stripe paywall
     - [] bring in necessary env vars for stripe
     - [] set up subscription payment wall on 'subscribe' button
     - [] logged in but unpaid route
@@ -17,7 +11,18 @@
   - [] The handle system would be shared among ac users.
     - [] Perhaps the subs could be 'sotce' prefixed.
   - [] Store whether a user is subscribed with an expiration date.
+  - [] Allow Amelia's user / @sotce to post a diary, but no other users
+       for now.
+  - [] Show number of signed up users so far.
+  - [] How can I do shared reader cursors / co-presence somehow?
+  - [] Account deletion.
   + Done
+  - [x] Add session / login support to the Aesthetic Computer VSCode extension /
+       switch to an in-editor development flow.
+  - [x] Need to be able to login to Aesthetic with VS Code, then switch to
+       sotce-net and then back to aesthetic and stay logged in.
+  - [️x] Need to be able to log in to sotce-net with VS Code, then switch
+       to Aesthetic and back and stay logged in.
   - [x] Disambiguate 'session' query string and
         somehow receive both / capture both on first load.
         or know which one to send for both AC and Sotce-Net.
@@ -134,11 +139,17 @@ export const handler = async (event, context) => {
               {
                 const url = new URL(window.location);
                 const params = url.searchParams;
+                let param = params.get("session-sotce");
 
-                const sessionParams = params.get("session-sotce");
-                console.log("🌻 Sotce Session params:", sessionParams); // sessionParams);
+                if (param === "null") {
+                  localStorage.removeItem("session-sotce");
+                } else if (param === "retrieve") {
+                  param = localStorage.getItem("session-sotce");
+                }
 
+                const sessionParams = param;
                 let encodedSession = sessionParams;
+                console.log("🪷 Sotce Session:", sessionParams);
                 if (encodedSession === "null") encodedSession = undefined;
                 if (encodedSession) {
                   const sessionJsonString = atob(
@@ -162,6 +173,7 @@ export const handler = async (event, context) => {
                   }
 
                   if (sessionParams) {
+                    localStorage.setItem("session-sotce", sessionParams);
                     params.delete("session-sotce"); // Remove the 'session' parameter
                     // Update the URL without reloading the page
                     history.pushState(
@@ -355,6 +367,7 @@ export const handler = async (event, context) => {
                 if (isAuthenticated) {
                   console.log("🔐 Logging out...", window.location.href);
                   if (embedded) {
+                    localStorage.removeItem("session-sotce");
                     window.parent.postMessage(
                       { type: "logout", tenant: "sotce" },
                       "*",
@@ -369,7 +382,7 @@ export const handler = async (event, context) => {
 
               // Jump to Aesthetic Computer.
               function aesthetic() {
-                window.location.href = dev
+                let href = dev
                   ? "https://localhost:8888"
                   : "https://aesthetic.computer";
                 if (embedded) {
@@ -377,7 +390,9 @@ export const handler = async (event, context) => {
                     { type: "url:updated", slug: "prompt" },
                     "*",
                   );
+                  href += "?session-aesthetic=retrieve";
                 }
+                window.location.href = href;
               }
 
               async function userRequest(method, endpoint, body) {

@@ -121,7 +121,7 @@ status = 200
 force = true
 [[redirects]]
 from = "/sotce-net/*"
-to = "/.netlify/functions/sotce-net"
+to = "/.netlify/functions/sotce-net/:splat"
 status = 200
 force = true
 [[redirects]]

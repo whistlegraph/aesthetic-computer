@@ -19,7 +19,7 @@ let hasAccount;
 let problem;
 
 async function boot({ api, wipe, handle, ui, net: { preload }, user }) {
-  const han = handle() || user?.name;
+  const han = handle() || user?.email;
 
   if (han !== undefined) {
     hasAccount = true;

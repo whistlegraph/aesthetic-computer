@@ -1779,7 +1779,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "logout") {
       if (window.acTOKEN) {
-        if (window.parent) window.parent.postMessage({ type: "logout" }, "*");
+        if (window.parent) {
+          window.parent.postMessage({ type: "logout" }, "*");
+          localStorage.removeItem("session-aesthetic");
+        }
         // Just use the logout services of the host.
       } else {
         window.acLOGOUT?.();
