@@ -2613,7 +2613,7 @@ async function load(
     return true;
   }
 
-  console.log("🟠 Loaded:", parsed);
+  console.log("🟠 Loaded:", parsed, "Dev Reload:", devReload);
 
   // Reload a previously sideloaded piece on subsequent loads.
   if (
