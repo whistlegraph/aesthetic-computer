@@ -562,8 +562,8 @@ async function halt($, text) {
         progressTrick = null;
 
         // Jump to the painting page that gets returned.
-        if ((handle() || user?.name) && filename.startsWith("painting")) {
-          jump(`painting~${handle() || user?.name}/${data.slug}`); // For a user.
+        if ((handle() || user?.email) && filename.startsWith("painting")) {
+          jump(`painting~${handle() || user?.email}/${data.slug}`); // For a user.
         } else {
           jump(
             `painting~${data.slug}${recordingSlug ? ":" + recordingSlug : ""}`,
@@ -1246,9 +1246,11 @@ async function halt($, text) {
     flashColor = [255, 0, 0];
     return true;
   } else if (text.toLowerCase() === "sotce-net") {
-    jump(
-      debug ? "https://" + location.host + "/sotce-net" : "https://sotce.net",
-    );
+    let url = debug
+      ? "https://" + location.host + "/sotce-net"
+      : "https://sotce.net";
+    if (net.iframe) url += "?session-sotce=retrieve";
+    jump(url);
     flashColor = "pink";
     makeFlash($);
     return true;
@@ -1257,7 +1259,9 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "ucla-syllabus") {
-    jump("out:https://docs.google.com/document/d/1foiOLdvJeTdPHQKMIWzKBoGcszGPJS5bRcY-Rg3ou6A/edit?usp=sharing");
+    jump(
+      "out:https://docs.google.com/document/d/1foiOLdvJeTdPHQKMIWzKBoGcszGPJS5bRcY-Rg3ou6A/edit?usp=sharing",
+    );
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "app" || text === "ios") {

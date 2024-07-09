@@ -2968,24 +2968,7 @@ async function load(
             if (type === "scream" && socket?.id !== id) {
               console.log("😱 Scream:", content, "❗");
               scream = content;
-              // return;
             }
-
-            // if (USER && type === `logout:broadcast:${USER.sub}`) {
-            //   console.log(
-            //     "🏃 User logged out, refreshing this page!",
-            //     USER.sub,
-            //   );
-            //   $commonApi.net.refresh();
-            // }
-
-            // 🧚 Ambient cursor (fairies) support.
-            // This now runs through UDP.
-            // if (type === "ambient-pen:point" && socket?.id !== id && visible) {
-            // fairies.push({ x: content.x, y: content.y });
-            // return;
-            // }
-
             // 🧩 Pieces get all other messages not caught in `Socket`.
             receiver?.(id, type, content); // Run the piece receiver.
           },
@@ -4198,14 +4181,12 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "store:retrieved") {
-    // console.log("💚 Retrieved:", content, storeRetrievalResolutions);
     storeRetrievalResolutions[content.key]?.(content.data);
     delete storeRetrievalResolutions[content.key];
     return;
   }
 
   if (type === "store:deleted") {
-    console.log(content, storeDeletionResolutions);
     storeDeletionResolutions[content.key]?.(content.data);
     delete storeDeletionResolutions[content.key];
     return;

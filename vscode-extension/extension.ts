@@ -496,7 +496,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
     if (session) {
       vscode.window.showInformationMessage(
-        `👋 Welcome back! (${session.account.label})`,
+        `👋 Welcome back to ${
+          tenant === "aesthetic" ? "Aesthetic Computer" : "Sotce"
+        }! (${session.account.label})`,
       );
       context.globalState.update(`${tenant}:session`, session);
     } else {
@@ -836,14 +838,14 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.onDidChangeVisibility(() => {
       if (!webviewView.visible) {
-        console.log("🔴 Panel hidden.");
+        // console.log("🔴 Panel hidden.");
         // Perform any cleanup or state update here when the view is hidden
         const slug = extContext.globalState.get("panel:slug", "");
         // if (slug) console.log("🪱 Slug:", slug);
         webviewView.title = slug + (local ? " 🧑‍🤝‍🧑" : "");
         webviewView.webview.html = getWebViewContent(webviewView.webview, slug);
       } else {
-        console.log("🟢 Panel open.");
+        // console.log("🟢 Panel open.");
       }
     });
   }
@@ -874,7 +876,7 @@ function refreshWebWindow() {
 
 function getWebViewContent(webview: any, slug: string) {
   const scriptUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(extContext.extensionUri, "sidebar.js"),
+    vscode.Uri.joinPath(extContext.extensionUri, "embedded.js"),
   );
 
   const nonce = getNonce();
@@ -898,14 +900,27 @@ function getWebViewContent(webview: any, slug: string) {
 
   let param = slug;
 
+  console.log(
+    "Sessions: 🟪 Aesthetic Computer:",
+    sessionAesthetic,
+    "🪷 Sotce",
+    sessionSotce,
+  );
+
   [sessionAesthetic, sessionSotce].forEach((session, index) => {
+    const paramBase = `${index === 0 ? "?" : "&"}session-${
+      index === 0 ? "aesthetic" : "sotce"
+    }=`;
+
     if (typeof session === "object") {
+      // Logged in.
       if (keys(session)?.length > 0) {
         const base64EncodedSession = btoa(JSON.stringify(session));
-        param += `${index === 0 ? "?" : "&"}session-${
-          index === 0 ? "aesthetic" : "sotce"
-        }=${encodeURIComponent(base64EncodedSession)}`;
+        param += paramBase + encodeURIComponent(base64EncodedSession);
       }
+    } else {
+      // Logged out.
+      param += paramBase + "null";
     }
   });
 
