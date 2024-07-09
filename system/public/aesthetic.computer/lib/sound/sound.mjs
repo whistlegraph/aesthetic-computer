@@ -51,11 +51,6 @@ export default class Sound {
     if (typeof tone === "number" && tone > 0) {
       // Set futureWavelength for ramping up to in `next`.
       this.#futureWavelength = sampleRate / noteOrFreq(tone) / 2;
-
-      if (this.#type === "square") {
-        // this.#step = 0;
-        // this.#up = !this.#up;
-      }
     }
     if (typeof volume === "number") this.#futureVolume = volume;
   }
@@ -121,12 +116,15 @@ export default class Sound {
       }
     } else if (this.#type === "sawtooth") {
       // Sawtooth Wave
-      value = 2 * (this.#step / this.#wavelength) - 1;
       this.#step += 1;
 
       if (this.#step >= this.#wavelength) {
         this.#step = 0;
       }
+    } else if (this.#type === "noise-white") {
+      // TODO: Also add pink and brownian noise.
+      // White Noise
+      value = Math.random() * 2 - 1;
     }
 
     // Only use attack or decay envelopes on self-terminating sounds.
