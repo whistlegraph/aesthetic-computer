@@ -2681,9 +2681,9 @@ async function load(
     params = parsed.params;
     search = parsed.search;
     colon = parsed.colon || [];
-    hash = parsed.hash;
+    hash = parsed.hash; // tood: these probably don't work? 24.07.09.23.46
     host = parsed.host;
-    slug = parsed.text;
+    slug = parsed.name; // not 'text' for this.
 
     if (slug !== "(...)") path = parsed.path; //"aesthetic.computer/disks/" + slug;
     // 📓 Might need to fill in hash, path, or slug here. 23.06.24.18.49
@@ -2887,6 +2887,18 @@ async function load(
       send({ type: "refresh" }); // Refresh the browser.
     } else if (name && source) {
       // TODO: Check for existence of `name` and `source` is hacky. 23.06.24.19.27
+
+      // TODO: This should somehow keep current commands or params, etc.
+
+      console.log(
+        "🪷 Current: params:",
+        currentParams,
+        "text:",
+        currentText,
+        "path:",
+        currentPath,
+      );
+
       // Note: This is used for live development via the socket server.
       $commonApi.load({ source, name, codeChannel }, false, false, true); // Load source code.
     } /*if (piece === "*" || piece === undefined /*|| currentText === piece*/ /*) {*/ else {
