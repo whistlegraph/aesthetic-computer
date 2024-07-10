@@ -39,9 +39,9 @@ but technically agnostic. (Choose your aesthetic!)
        - [] and via vscode.dev!
   - [🎇] See `sotce-net.mjs`
   + Done
-  - [x] Test login inside VS Code local. 
+  - [x] Test login inside VS Code local.
   - [x] Test login in production outside VS Code.
-  - [x] Test login outside VS Code local. 
+  - [x] Test login outside VS Code local.
   - [x] Test signup in development.
   - [x] Check how the auth works / token passing works from VSCode.
   - [x] Add support for developing `sotce-net` inside of the VS Code extension.
@@ -49,6 +49,8 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** qol (systems) ***
 - [] entering `prod` in vscode extension or `local` should send a message that toggles "local" mode.
+- [] speed up the load time of the local server significantly... try re-enabling caching? and try to speed up the general loading.
+- [] make sure local and prod mode work automatically / well in the extension
 - [] chat needs external logs to check for failures
 - [] session udp service shouldn't fail or needs logs checked and should move to
 
@@ -75,7 +77,7 @@ but technically agnostic. (Choose your aesthetic!)
     - [] test after opening and closing the vscode
     - [] test after a system reboot / logout
   - [] source save file defaults to top of hard drive on a mac?
-  - [🧗] design piano key activity / button activity for tuesday 
+  - [🧗] design piano key activity / button activity for tuesday
   - [] add linked list of user pieces to profile pages
     - [] Use the `ucla-class` label for this?
     - [] @joelle, @noelanio, @caihong, @kim, @toriwazhere, @mayomochi, @samanthaschen, @joda, @zuhair
