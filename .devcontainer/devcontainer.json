@@ -5,9 +5,7 @@
   "name": "Default",
   "build": {
     "dockerfile": "Dockerfile",
-    "args": {
-      "BUILDKIT_INLINE_CACHE": "1"
-    },
+    "args": { "BUILDKIT_INLINE_CACHE": "1" },
     "platform": "linux/amd64"
   },
   "containerEnv": {
@@ -57,8 +55,8 @@
     "--security-opt",
     "seccomp=unconfined",
     "--init",
-    "--network",
-    "host"
+    //"--network",
+    //"host"
     //    "--platform",
     //    "linux/amd64"
   ],
