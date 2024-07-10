@@ -137,7 +137,7 @@ let sharps = false,
   flats = false;
 
 const notes = "abcdefg"; // hold shift on C D F G A for sharps.
-  //                       // or alt on   D E G A B for flats
+//                       // or alt on   D E G A B for flats
 const octaves = "123456789";
 const accents = "#f";
 
@@ -201,7 +201,6 @@ function paint({ wipe, ink, write, screen }) {
     //console.log("🔴 in red:", keys[tapIndex], tapped);
     // Highlight next char by looking ahead...
 
-
     let nextToken = keys[tapIndex];
     let tempTapIndex = tapIndex;
     if (octaves.includes(nextToken)) {
@@ -235,7 +234,6 @@ function paint({ wipe, ink, write, screen }) {
 }
 
 function act({ event: e, sound: { synth } }) {
-
   if (tap) {
     if (e.is("keyboard:down:shift") && !e.repeat) hold = true;
     if (e.is("keyboard:up:shift")) hold = false;
@@ -282,9 +280,13 @@ function act({ event: e, sound: { synth } }) {
       }
 
       // 🔴 TODO: Why can't the tone and tapped format be the same?
-      const tone = `${tapped}${octave}`;
       if (tappedOctave) tapped = tappedOctave + tapped;
-      if (!reset) sounds[tapped] = synth({ type: wave, tone, duration: "🔁" });
+      if (!reset)
+        sounds[tapped] = synth({
+          type: wave,
+          tone: tapped,
+          duration: "🔁",
+        });
     }
 
     if (e.is("keyboard:up:space") || e.is("lift")) {
@@ -330,13 +332,13 @@ function act({ event: e, sound: { synth } }) {
           keys += "f";
         }
 
-        const tone = `${note}${octave}`;
-        // ❤️‍🔥 TODO: Why can't tone be the same as note?
-        console.log("Tone:", tone, "Note:", note);
-
         sounds[key] = {
           note,
-          sound: synth({ type: wave, tone, duration: "🔁" }),
+          sound: synth({
+            type: wave,
+            tone: `${octave}${note}`,
+            duration: "🔁",
+          }),
         };
       }
     }
