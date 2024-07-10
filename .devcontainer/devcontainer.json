@@ -55,6 +55,8 @@
     "--security-opt",
     "seccomp=unconfined",
     "--init",
+    "--memory=4g",
+    "--memory-swap=4g",
     //"--network",
     //"host"
     //    "--platform",
