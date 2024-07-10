@@ -32,13 +32,17 @@ let webWindow: any;
 async function activate(context: vscode.ExtensionContext): Promise<void> {
   // local = context.globalState.get("aesthetic:local", false); // Retrieve env.
 
-  const isInDevContainer = !!process.env.CODESPACES;
+  // Show all environment variables...
+  console.log("🌎 Environment:", process.env);
+
+  const isInDevContainer = process?.env.REMOTE_CONTAINERS === "true";
   if (isInDevContainer) {
-    console.log("✅ 🥡 Running inside a devcontainer");
+    console.log("✅ 🥡 Running inside a container.");
     local = context.globalState.get("aesthetic:local", false); // Retrieve env.
   } else {
-    local = false; // Always default to production if we aren't running in a container.
-    console.log("❌ 🥡 Not in devcontainer.");
+    local = false;
+    // Always default to production if we aren't running in a container.
+    // console.log("❌ 🥡 Not in container.");
   }
 
   console.log("🟢 Aesthetic Computer Extension: Activated");
