@@ -53,7 +53,7 @@ alias ff "vim (sk -c 'git ls-tree -r --name-only HEAD || ag -l -g \"\"')"
 
 # shortcuts for projects
 alias ac 'cd ~/Desktop/code/aesthetic-computer'
-#alias acr 'cd ~/Desktop/code/aesthetic-computer; npm run ac'
+alias acc 'ac; code .'
 alias acw 'cd ~/Desktop/code/aesthetic-computer/system; npm run watch'
 alias platform 'cd ~/Desktop/code/aesthetic-computer; npm run platform'
 
