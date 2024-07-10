@@ -116,6 +116,7 @@ export default class Sound {
       }
     } else if (this.#type === "sawtooth") {
       // Sawtooth Wave
+      value = 2 * (this.#step / this.#wavelength) - 1;
       this.#step += 1;
 
       if (this.#step >= this.#wavelength) {

@@ -68,7 +68,6 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** first week of july 2 ***
   - [🔴] always display first paint iteration. (corner skip in `ucla-2-a`)
-  - [] fix 'sawtooth'
   - [] add drum kit for thursday how to make a touch based drum kit, with buttons
   - [] users need to log out and log back in before publishing
        (sessions get lost)
@@ -92,6 +91,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [] buff out the profile pages / make new profile pages in kidlisp
   - [] add image / pixels support to chat and also maybe kidlisp support
   + Done
+  - [x] fix 'sawtooth'
   - [x] design piano key activity / button activity for tuesday
   - [x] add prutti 50
   - [x] design `ucla-2` file / activity... (clone `ucla-1`)
