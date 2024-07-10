@@ -6,11 +6,16 @@
 #endregion */
 
 // Import necessary modules from vscode
-//import * as ts from "typescript";
-//import * as fs from "fs";
 import * as vscode from "vscode";
-import * as path from "path";
-import * as fs from "fs";
+
+// Dynamically import path and fs to ensure web compatibility.
+let path: any, fs: any;
+(async () => {
+  if (typeof window === "undefined") {
+    path = await import("path");
+    fs = await import("fs");
+  }
+})();
 
 import { AestheticAuthenticationProvider } from "./aestheticAuthenticationProviderRemote";
 const { keys } = Object;
@@ -763,16 +768,20 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
                   );
                 })
                 .then(() => {
-                  const defaultUri = vscode.Uri.file(
-                    path.join(vscode.workspace.rootPath || "", data.title),
-                  );
-                  return vscode.window.showSaveDialog({
-                    filters: {
-                      "JavaScript Module": ["mjs"],
-                    },
-                    defaultUri: defaultUri,
-                    saveLabel: "Save As",
-                  });
+                  if (fs && path) {
+                    const defaultUri = vscode.Uri.file(
+                      path.join(vscode.workspace.rootPath || "", data.title),
+                    );
+                    return vscode.window.showSaveDialog({
+                      filters: {
+                        "JavaScript Module": ["mjs"],
+                      },
+                      defaultUri: defaultUri,
+                      saveLabel: "Save As",
+                    });
+                  } else {
+                    return;
+                  }
                 })
                 .then((fileUri) => {
                   if (fileUri) {
@@ -780,12 +789,13 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
                     const content = document.getText();
 
                     // Write the content to the new file
-                    fs.writeFile(fileUri.fsPath, content, (err) => {
+                    fs.writeFile(fileUri.fsPath, content, (err: any) => {
                       if (err) {
                         vscode.window.showErrorMessage(
                           "Failed to save file: " + err.message,
                         );
-                        return;
+                        // return;
+                        return Promise.resolve(null);
                       }
 
                       // Close the current editor

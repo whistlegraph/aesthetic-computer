@@ -2502,7 +2502,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             content.text === "/prompt" ? "/" : "/" + content.text, // Replace "prompt" with "/".
           );
 
-          console.log("🧩 Updating piece:", content);
+          // console.log("🧩 Updating piece:", content);
 
           window.parent?.postMessage(
             {

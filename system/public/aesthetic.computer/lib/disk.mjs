@@ -2359,9 +2359,7 @@ class Painting {
     };
 
     this.api.inkrn = () => this.inkrn; // Return current ink color.
-
     // this.api.panrn = graph.getPan; // Return current panTranslation.
-
     this.api.pagern = () => this.pagern; // Return current page buffer.
 
     // This links to abstract, solitary graph functions that do not need
@@ -2613,7 +2611,7 @@ async function load(
     return true;
   }
 
-  console.log("🟠 Loaded:", parsed, "Dev Reload:", devReload);
+  // console.log("🟠 Loaded:", parsed, "Dev Reload:", devReload);
 
   // Reload a previously sideloaded piece on subsequent loads.
   if (
@@ -2887,17 +2885,16 @@ async function load(
       send({ type: "refresh" }); // Refresh the browser.
     } else if (name && source) {
       // TODO: Check for existence of `name` and `source` is hacky. 23.06.24.19.27
+      // TODO: 🔥 This should somehow keep current commands or params, etc.
 
-      // TODO: This should somehow keep current commands or params, etc.
-
-      console.log(
-        "🪷 Current: params:",
-        currentParams,
-        "text:",
-        currentText,
-        "path:",
-        currentPath,
-      );
+      // console.log(
+      //   "🪷 Current: params:",
+      //   currentParams,
+      //   "text:",
+      //   currentText,
+      //   "path:",
+      //   currentPath,
+      // );
 
       // Note: This is used for live development via the socket server.
       $commonApi.load({ source, name, codeChannel }, false, false, true); // Load source code.
@@ -4705,6 +4702,7 @@ async function makeFrame({ data: { type, content } }) {
       },
       // Calculate the frequency of a musical note.
       freq: function (noteString) {
+        // console.log("🎵 Note to check:", noteString);
         let octave;
         let note;
 
@@ -4712,8 +4710,12 @@ async function makeFrame({ data: { type, content } }) {
         if (typeof noteString === "string")
           noteString = noteString.toLowerCase();
 
-        // Check if the last character is a digit to determine if an octave is provided
-        if (!isNaN(noteString.charAt(noteString.length - 1))) {
+        // Check if the first character is a digit to determine if an octave is provided at the beginning
+        if (!isNaN(noteString.charAt(0))) {
+          // The first character is the octave
+          octave = parseInt(noteString.charAt(0), 10);
+          note = noteString.substring(1);
+        } else if (!isNaN(noteString.charAt(noteString.length - 1))) {
           // The last character is the octave
           octave = parseInt(noteString.charAt(noteString.length - 1), 10);
           note = noteString.substring(0, noteString.length - 1);
@@ -4732,9 +4734,10 @@ async function makeFrame({ data: { type, content } }) {
         if (!frequency) throw new Error("Note not found in the list");
 
         // Calculate the frequency for the given octave
-        const finalFreq = frequency * pow(2, octave);
+        const finalFreq = frequency * Math.pow(2, octave);
         return finalFreq;
       },
+
       // Calculate a musical note from a frequency.
       note: function (frequency) {
         let closestNote = "",
