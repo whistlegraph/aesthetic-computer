@@ -1694,7 +1694,7 @@ async function session(slug, forceProduction = false, service) {
   const req = await fetch(endPoint);
 
   let session;
-  if (req.status === 200) {
+  if (req.status === 200 || req.status === 304) {
     session = await req.text().then((text) => {
       try {
         return JSON.parse(text);
@@ -3204,7 +3204,7 @@ async function load(
           progressReport?.(progress);
         };
         xhr.onload = function () {
-          if (xhr.status === 200) {
+          if (xhr.status === 200 || xhr.status === 304) {
             resolve(parseJSON ? JSON.parse(xhr.response) : xhr.response);
           } else {
             reject(xhr.status);
