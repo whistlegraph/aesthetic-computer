@@ -39,8 +39,8 @@ alias wgeth 'echo 0x238c9c645c6EE83d4323A2449C706940321a0cBf'
 
 # shortcuts for editing dot files
 # alias ev 'chezmoi edit ~/.config/nvim/init.vim'
-# alias ef 'chezmoi edit ~/.config/fish/config.fish'
-alias fishcfg 'source ~/.config/fish/config.fish'
+alias config 'nvim ~/.config/fish/config.fish'
+alias confoot 'nvim ~/.config/foot/foot.ini'
 
 # alias edit 'fzf | read -l file; and test -n "$file"; and emacs -nw "$file"'
 
@@ -84,11 +84,14 @@ end
 
 alias ydotoold start_ydotoold
 alias center 'start_ydotoold; sudo ydotool key 125:1 46:1 46:0 125:0'
+alias upgrade 'sudo dnf upgrade --refresh'
 
-alias left 'gnome-randr modify --rotate left eDP-1 > /dev/null 2>&1 && sleep 0.05 && center'
-alias right 'gnome-randr modify --rotate right eDP-1 > /dev/null 2>&1 && sleep 0.05 && center'
-alias up 'gnome-randr modify --rotate normal eDP-1 > /dev/null 2>&1 && sleep 0.05 && center'
-alias down 'gnome-randr modify --rotate inverted eDP-1 > /dev/null 2>&1 && sleep 0.05 && center'
+alias left 'gnome-randr modify --rotate left eDP-1 > /dev/null 2>&1 && sleep 0.04 && center'
+alias right 'gnome-randr modify --rotate right eDP-1 > /dev/null 2>&1 && sleep 0.04 && center'
+alias up 'gnome-randr modify --rotate normal eDP-1 > /dev/null 2>&1 && sleep 0.04 && center'
+alias down 'gnome-randr modify --rotate inverted eDP-1 > /dev/null 2>&1 && sleep 0.04 && center'
+
+alias prune 'docker system prune -a --volumes'
 
 function flip
     set rotation (gnome-randr query | grep -o "rotation: [a-z]*" | cut -d' ' -f2)
@@ -240,6 +243,10 @@ silence_xhost
 # Increase Node.js heap size
 set -x NODE_OPTIONS "--max-old-space-size=8192"
 set -x ELECTRON_EXTRA_ARGS "--max-old-space-size=8192"
+
+
+# use tab to autocomplete the first suggestion
+bind \t complete-select-first
 
 ## watch for changes in `.started`
 #function watch_trigger

@@ -1,5 +1,7 @@
 // Media
 
+//import type { Config } from "@netlify/edge-functions";
+
 export const config = { path: "/media/*" };
 
 export default async function handleRequest(request) {

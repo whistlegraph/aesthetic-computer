@@ -46,7 +46,7 @@ if not test "$nogreet" = true
 end
 
 # rebuild the container after exiting with a special code ;)
-alias reload 'exit 70'
+# alias reload 'exit 70'
 
 # set default editor to emacs
 set -gx TERM xterm-256color
@@ -170,3 +170,6 @@ end
 set -x NODE_OPTIONS "--max-old-space-size=4096"
 
 alias nvm forget
+
+# use tab to autocomplete the first suggestion
+bind \t complete-select-first

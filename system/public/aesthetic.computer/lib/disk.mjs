@@ -1283,11 +1283,11 @@ const $commonApi = {
         { system, store, needsPaint, painting },
         res = { w: screen.width, h: screen.height },
       ) => {
-        console.log("deleting...");
+        // console.log("deleting...");
         const deleted = await store.delete("painting", "local:db");
         await store.delete("painting:resolution-lock", "local:db");
         await store.delete("painting:transform", "local:db");
-        console.log("deleted");
+        // console.log("deleted");
         system.nopaint.undo.paintings.length = 0; // Reset undo stack.
         system.painting = null;
         system.nopaint.resetTransform({ system, screen }); // Reset transform.
@@ -2598,6 +2598,8 @@ async function load(
     text,
     slug;
 
+  console.log("🧩 Loading:", parsed, "dev:", devReload);
+
   if (loading === false) {
     loading = true;
   } else {
@@ -2610,8 +2612,6 @@ async function load(
     );
     return true;
   }
-
-  // console.log("🟠 Loaded:", parsed, "Dev Reload:", devReload);
 
   // Reload a previously sideloaded piece on subsequent loads.
   if (
@@ -3622,6 +3622,7 @@ async function load(
     labelBack = false;
     previewMode = parsed.search?.startsWith("preview") || false;
     iconMode = parsed.search?.startsWith("icon") || false;
+    // console.log("🖼️ ICON MODE:", iconMode);
     previewOrIconMode = previewMode || iconMode;
     paintings = {}; // Reset painting cache.
     prefetches?.forEach((p) => prefetchPicture(p)); // Prefetch parsed media.
@@ -5768,7 +5769,12 @@ async function makeFrame({ data: { type, content } }) {
     // Wait 8 frames of the default piece before loading the initial piece.
     // And also make sure the session has been queried.
     if (paintCount > 8n && (sessionStarted || $commonApi.net.sandboxed))
-      loadAfterPreamble?.(); // Start loading after the first disk if necessary.
+      if (loadAfterPreamble) {
+        // TODO: WHy does enabling this make the icon work?
+        console.log("💾 Loading after the preamble...");
+      }
+
+    loadAfterPreamble?.(); // Start loading after the first disk if necessary.
 
     // soundClear?.();
 

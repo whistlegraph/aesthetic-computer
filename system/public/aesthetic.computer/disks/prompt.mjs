@@ -179,6 +179,7 @@ async function boot({
     positionWelcomeButtons(screen, net.iframe);
   }
 
+
   if (user) {
     // console.log("User:", user);
     const hand = handle();

@@ -47,7 +47,9 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Add support for developing `sotce-net` inside of the VS Code extension.
     - [x] In both development and production.
 
-*** qol (systems) ***
+*** systems ***
+- [] get puppeteer working again in development 
+- [] fix media.js function errors in development
 - [] entering `prod` in vscode extension or `local` should send a message that toggles "local" mode.
 - [] speed up the load time of the local server significantly... try re-enabling caching? and try to speed up the general loading.
 - [] make sure local and prod mode work automatically / well in the extension
