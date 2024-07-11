@@ -48,6 +48,7 @@ but technically agnostic. (Choose your aesthetic!)
     - [x] In both development and production.
 
 *** systems ***
+- [] the 'act' function is sometimes not being exported automatically by the parser...
 - [] make sure .mjs saving works (EXCEPT on vscode.dev)
 - [] get puppeteer working again in development 
 - [] fix media.js function errors in development
