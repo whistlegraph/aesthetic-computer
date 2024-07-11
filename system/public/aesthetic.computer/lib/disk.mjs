@@ -101,7 +101,7 @@ const defaults = {
   },
   icon: ({ glaze, wipe, screen }) => {
     glaze({ on: false });
-    console.log(screen.width, screen.height);
+    // console.log(screen.width, screen.height);
     wipe(70, 50, 100)
       .ink(200, 30, 100)
       .box(screen.width / 2, screen.height / 2, 48, 72, "*center");
@@ -2598,7 +2598,7 @@ async function load(
     text,
     slug;
 
-  console.log("🧩 Loading:", parsed, "dev:", devReload);
+  // console.log("🧩 Loading:", parsed, "dev:", devReload);
 
   if (loading === false) {
     loading = true;
@@ -5768,13 +5768,14 @@ async function makeFrame({ data: { type, content } }) {
 
     // Wait 8 frames of the default piece before loading the initial piece.
     // And also make sure the session has been queried.
-    if (paintCount > 8n && (sessionStarted || $commonApi.net.sandboxed))
-      if (loadAfterPreamble) {
-        // TODO: WHy does enabling this make the icon work?
-        console.log("💾 Loading after the preamble...");
-      }
+    if (paintCount > 8n && (sessionStarted || $commonApi.net.sandboxed)) {
+      //if (loadAfterPreamble) {
+      // TODO: WHy does enabling this make the icon work?
+      // console.log("💾 Loading after the preamble...");
+      //}
 
-    loadAfterPreamble?.(); // Start loading after the first disk if necessary.
+      loadAfterPreamble?.(); // Start loading after the first disk if necessary.
+    }
 
     // soundClear?.();
 
