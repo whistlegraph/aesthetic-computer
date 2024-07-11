@@ -5,7 +5,7 @@
 // https://aesthetic.computer/thumbnail/widthxheight/command~any~params.jpg
 
 const { builder } = require("@netlify/functions");
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-core");
 const dev = process.env.CONTEXT === "dev";
 
 // Only allow a few given resolutions to prevent spam.

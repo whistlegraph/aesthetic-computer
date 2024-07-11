@@ -5,14 +5,13 @@
 // https://aesthetic.computer/icon/widthxheight/command~any~params.png
 
 const { builder } = require("@netlify/functions");
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-core");
 const dev = process.env.CONTEXT === "dev";
 
 // Only allow a few given resolutions to prevent spam.
 const acceptedResolutions = ["128x128"];
 
 async function handler(event, context) {
-
   const [resolution, ...filepath] = event.path.replace("/icon/", "").split("/"); // yields nxn and the command, if it exists
 
   console.log("🖼️  Getting icon...", filepath.join("/"));
@@ -41,9 +40,17 @@ async function handler(event, context) {
   if (!dev)
     ops.browserWSEndpoint = `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`;
 
-  const browser = !dev
-    ? await puppeteer.connect(ops)
-    : await puppeteer.launch(ops);
+  console.log("🥰 Launching puppeteer...", ops);
+
+  let browser;
+
+  try {
+    browser = !dev ? await puppeteer.connect(ops) : await puppeteer.launch(ops);
+  } catch (err) {
+    console.log(error);
+  }
+
+  console.log("Making new page...");
 
   const page = await browser.newPage();
 
@@ -61,9 +68,11 @@ async function handler(event, context) {
       filepath.join("/").replace(".png", "") || ""
     }?icon=${width}x${height}`;
 
+    console.log("Visiting page:", fullUrl);
+
     await page.goto(fullUrl, { waitUntil: "networkidle2", timeout: 5000 });
-  } catch {
-    console.log("🔴 Failed to stop networking.");
+  } catch (err) {
+    console.log("🔴 Failed to stop networking:", err);
   }
 
   try {
@@ -74,7 +83,11 @@ async function handler(event, context) {
 
   await page.waitForTimeout(500); // A bit of extra time.
 
+  console.log("Taking sceenshot...");
+
   const buffer = await page.screenshot({ type: "png" });
+
+  console.log("Closing browser...");
 
   await browser.close();
 

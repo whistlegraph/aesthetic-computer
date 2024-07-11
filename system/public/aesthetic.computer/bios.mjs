@@ -3817,8 +3817,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Skip preload marker on default init piece, and toggle it if necessary.
       if (currentPiece !== null && !window.waitForPreload)
         window.preloaded = true;
-      if (debug && logs.loading)
-        console.log("⏳ Preloaded:", window.preloaded ? "✅" : "❌");
+      //if (debug && logs.loading)
+      //  console.log("⏳ Preloaded:", window.preloaded ? "✅" : "❌");
       consumeDiskSends(send);
       return;
     }

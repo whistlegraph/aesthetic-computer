@@ -1,12 +1,21 @@
 :8111 {
-    root * public
-    file_server browse
+	root * public
+	file_server # browse
+	# encode zstd gzip
 
-    encode zstd gzip
+	# tls ../ssl-dev/localhost.pem ../ssl-dev/localhost-key.pem
 
-    #header * {
-    #    Cache-Control "no-cache"
-    #    ETag "{http.response.header.ETag}"
-    #    Last-Modified "{http.response.header.Last-Modified}"
-    #}
+	@changed {
+		file {
+			try_files {path}
+		}
+	}
+
+	handle @changed {
+		header Cache-Control no-store
+	}
+
+	handle {
+		header Cache-Control "public, max-age=3600"
+	}
 }
