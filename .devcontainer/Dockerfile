@@ -21,6 +21,29 @@ RUN dnf install -y 'dnf-command(copr)'
 RUN dnf copr enable -y @caddy/caddy
 RUN dnf install -y caddy
 
+# Install necessary dependencies for Puppeteer
+RUN dnf install -y \
+    libX11 \
+    libxkbfile \
+    libsecret \
+    libxshmfence \
+    libXtst \
+    nss \
+    atk \
+    pango \
+    cups-libs \
+    libXcomposite \
+    libXcursor \
+    libXi \
+    libXdamage \
+    libXrandr \
+    alsa-lib \
+    gtk3 \
+    xorg-x11-server-Xvfb \
+    psmisc \
+    lsof \
+    iproute
+
 # Install nginx
 # RUN dnf install -y nginx
 
