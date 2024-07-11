@@ -57,8 +57,8 @@
     "--init",
     "--memory=4g",
     "--memory-swap=4g",
-    //"--network",
-    //"host"
+    // "--network",
+    // "host"
     //    "--platform",
     //    "linux/amd64"
   ],

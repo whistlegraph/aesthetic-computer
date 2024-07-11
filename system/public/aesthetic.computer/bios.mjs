@@ -1578,7 +1578,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       fetch(decodeURI(content))
         .then((response) => {
           // console.log("Response", response);
-          if (response.status == 200) {
+          if (response.status === 200 || response.status === 304) {
             return response.arrayBuffer();
           } else {
             throw new Error(`Zip not found. Status: ${response.status}`);
