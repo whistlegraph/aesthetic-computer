@@ -48,6 +48,7 @@ but technically agnostic. (Choose your aesthetic!)
     - [x] In both development and production.
 
 *** systems ***
+- [] make sure .mjs saving works (EXCEPT on vscode.dev)
 - [] get puppeteer working again in development 
 - [] fix media.js function errors in development
 - [] entering `prod` in vscode extension or `local` should send a message that toggles "local" mode.

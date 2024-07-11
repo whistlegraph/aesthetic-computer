@@ -7,15 +7,15 @@
       🟪️ `box`, `shape`, `synth`.
       📜 Features of: `array`, `object`, and `function`.
     - Exercises -
-    1. [] 🥁 Drum sound! (`synth` and `act` review) 
-    2. [] Rectangle painting and the backbuffer. (graphics review)
+    1. [🟢] 🥁 Drum sound! (`synth` and `act` review) 
+    2. [🟠] Rectangle painting and the backbuffer. (graphics review)
     3. [] What is a mode and how to design with modes...
     2. [] Leading and following! 🟢🟥
     4. [] Expanding worm. 🪱
 */
 
 function paint({ wipe }) {
-  wipe("pink");
+  wipe("gray");
 }
 
 // 📚 Library
@@ -24,8 +24,8 @@ function paint({ wipe }) {
 // Runs once at the start.
 // }
 
-// function act({ event: e, sound }) {
-// Respond to user input here.
+// function act({ event: e, sound, screen }) {
+  // Respond to user input here.
 // }
 
 // function sim() {
