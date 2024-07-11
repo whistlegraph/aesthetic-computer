@@ -43,9 +43,9 @@ external_node_modules = [
 ]
 included_files = ["backend/**/*.mjs"]
 [functions.thumbnail]
-external_node_modules = ["puppeteer"]
+external_node_modules = ["puppeteer-core"]
 [functions.icon]
-external_node_modules = ["puppeteer"]
+external_node_modules = ["puppeteer-core"]
 [functions.session]
 external_node_modules = ["got", "redis"]
 [functions.reload]
@@ -59,9 +59,9 @@ external_node_modules = ["discord-interactions"]
 [dev]
 NODE_ENV = "development"
 publish = "public/"
-#command = "npm run media-server-caddy"
-#targetPort = 8111
-framework = "#static"
+command = "npm run media-server-caddy"
+targetPort = 8111
+#framework = "#static"
 autoLaunch = false
 [dev.https]
 certFile = "../ssl-dev/localhost.pem"
