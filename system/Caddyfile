@@ -1,8 +1,9 @@
 :8111 {
 	root * public
 	file_server # browse
-	# encode zstd gzip
+	encode zstd gzip
 
+	# can't get this to work :( 24.07.11.06.46
 	# tls ../ssl-dev/localhost.pem ../ssl-dev/localhost-key.pem
 
 	@changed {
