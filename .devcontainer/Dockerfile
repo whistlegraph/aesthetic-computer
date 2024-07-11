@@ -22,7 +22,7 @@ RUN dnf copr enable -y @caddy/caddy
 RUN dnf install -y caddy
 
 # Install nginx
-RUN dnf install -y nginx
+# RUN dnf install -y nginx
 
 # Install 'docker'
 RUN sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
@@ -86,7 +86,7 @@ RUN eval "$(fnm env --use-on-cd)" && \
 # @emacs-eask/cli
 
 # Install shell-gpt for the user.
-RUN pip3 install shell-gpt
+# RUN pip3 install shell-gpt
 
 # Install aider: https://github.com/paul-gauthier/aider?tab=readme-ov-file#getting-started
 # RUN pip3 install aider-chat

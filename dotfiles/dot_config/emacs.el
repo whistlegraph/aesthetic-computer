@@ -185,6 +185,8 @@
 (setq vc-follow-symlinks t)
 
 (global-set-key (kbd "M-z") 'toggle-truncate-lines) ;; Line truncation.
+(global-set-key (kbd "C-c z") 'toggle-truncate-lines) ;; Alternate...
+
 (add-hook 'after-init-hook (lambda () (setq-default truncate-lines t)))
 
 (global-set-key (kbd "C-=") 'text-scale-increase)
