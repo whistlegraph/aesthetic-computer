@@ -3,7 +3,7 @@
 
 /* #region 🏁 TODO 
   - [🟠] stripe paywall
-    - [] bring in necessary env vars for stripe
+    - [🟢] bring in necessary env vars for stripe
     - [] set up subscription payment wall on 'subscribe' button
     - [] logged in but unpaid route
     - [] logged in and paid route
