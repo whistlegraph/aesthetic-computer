@@ -52,6 +52,7 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** notepad ***
 - [] add boxes / software based layout
+- [] 3AGAGA fails in tap (reverts octave)
 
 *** bleep ***
 - [] add sustain to bleep
