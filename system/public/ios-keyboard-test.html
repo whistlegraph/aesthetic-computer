@@ -1,13 +1,15 @@
 <input type="text" id="test">
 <script>
 var test = document.getElementById('test');
-test.addEventListener('keyup', function(e) {
+
+window.addEventListener('keyup', function(e) {
   document.body.style.backgroundColor = "white";
 });
 
-test.addEventListener('keydown', function(e) {
+window.addEventListener('keydown', function(e) {
   if (!e.repeat) {
     document.body.style.backgroundColor = "red";
   }
 });
+
 </script>
