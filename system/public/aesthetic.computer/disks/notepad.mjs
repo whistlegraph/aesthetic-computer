@@ -48,7 +48,10 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
-  - [-] Solve the 'note' / 'tone' quantized syntax ordering API issue.
+  - [🟠] Add a software based layout / playable grid that is phone friendly.
+    - [] Implement one button, and then...
+    // TODO: Rethink how to do a simpler button API... perhaps with "register"
+    //       and an act function?
   - [] Add live highlights back in type mode that include note tokenization.
   - [] Pressing a new button down should automatically lift the other one.
   - [] Add a 'repeat' or 'hold' key which should be 'shift' on the keyboard
@@ -93,6 +96,7 @@ TODO: 💮 Daisy
   - [] Leave out all options from synth / make sensible defaults first.
   - [] Add 'scale' and 'rotation' to `write`.
   + Done
+  - [x] Solve the 'note' / 'tone'  syntax ordering API issue.
   - [x] Better 'red' preview highlighting.
   - [x] Entering number key more than once should not add extra numbers.
   - [x] Show accurate preview of top note.
@@ -140,6 +144,8 @@ const notes = "abcdefg"; // hold shift on C D F G A for sharps.
 //                       // or alt on   D E G A B for flats
 const octaves = "123456789";
 const accents = "#f";
+
+const buttons = {}; // Software keys. 🎹
 
 function boot({ params, colon }) {
   keys = params.join(" ") || "";
