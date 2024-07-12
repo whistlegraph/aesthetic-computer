@@ -34,17 +34,15 @@ TODO: 💮 Daisy
   cccde edefg
   5ccc 4ggg eee ccc gfedc
 
-🚫 🧸 Gummy Bear
+✅ 🧸 Gummy Bear
   aaa5c4aa aaa5cee
   eee dd dd dd dd
-  edca g5c4a
+  edc4a g5c4a
   aa ee aa ee aa e
   5ee ee e dc
   5ee ee e dc
-  ge ded4c
-  dca gca
-  bbb d bb
-  bbb d f#
+  ge dedc
+  dc4a g5ca
 */
 
 /* 📝 Notes 
