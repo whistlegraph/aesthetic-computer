@@ -101,6 +101,8 @@ function aesthetic
 end
 
 alias ac 'cd ~/aesthetic-computer'
+alias watch 'ac; npm run watch' # check for new deployments
+
 alias ac-site 'ac; npm run site'
 alias ac-kidlisp 'ac; npm run test:kidlisp'
 alias ac-session 'ac; npm run server:session'
