@@ -50,6 +50,12 @@ but technically agnostic. (Choose your aesthetic!)
 
 ------------------------------------------    
 
+*** notepad ***
+- [] add boxes / software based layout
+
+*** bleep ***
+- [] add sustain to bleep
+
 *** systems ***
 - [] the 'act' function is sometimes not being exported automatically by the parser...
 - [] make sure .mjs saving works (EXCEPT on vscode.dev)
