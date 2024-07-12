@@ -48,6 +48,9 @@ end
 # rebuild the container after exiting with a special code ;)
 # alias reload 'exit 70'
 
+# reload fish config
+alias reload 'source ~/.config/fish/config.fish'
+
 # set default editor to emacs
 set -gx TERM xterm-256color
 set -gx EDITOR emacs
