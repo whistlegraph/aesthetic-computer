@@ -1768,6 +1768,11 @@ export async function handler(event, context) {
         done: false,
         hidden: true,
       },
+      publish: {
+        sig: "publish",
+        desc: "Publish your last-run piece.",
+        done: true
+      },
       "no!": {
         sig: "no!",
         desc: "Abandon your painting.",

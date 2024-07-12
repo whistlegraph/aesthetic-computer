@@ -32,13 +32,14 @@ but technically agnostic. (Choose your aesthetic!)
       - 3D WebGL renderer for VR.
 
 😀 TODO 😆
+
 🌟 Projects in Progress (PIP) 🌟
 
 *** sotce.net ***
-  - [🟢] Test login in production in VS Code,
-       - [] and via vscode.dev!
-  - [🎇] See `sotce-net.mjs`
+  - [🟢] Finish sotce-net rc1
   + Done
+  - [x] Test login in production in VS Code,
+    - [x] and via vscode.dev
   - [x] Test login inside VS Code local.
   - [x] Test login in production outside VS Code.
   - [x] Test login outside VS Code local.
@@ -47,16 +48,20 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Add support for developing `sotce-net` inside of the VS Code extension.
     - [x] In both development and production.
 
+------------------------------------------    
+
 *** systems ***
 - [] the 'act' function is sometimes not being exported automatically by the parser...
 - [] make sure .mjs saving works (EXCEPT on vscode.dev)
+  - [] It seems to still work fine on my local machine but didn't work for some students... maybe an old VS Code Extension version?
 - [] get puppeteer working again in development 
-- [] fix media.js function errors in development
 - [] entering `prod` in vscode extension or `local` should send a message that toggles "local" mode.
 - [] speed up the load time of the local server significantly... try re-enabling caching? and try to speed up the general loading.
 - [] make sure local and prod mode work automatically / well in the extension
 - [] chat needs external logs to check for failures
 - [] session udp service shouldn't fail or needs logs checked and should move to
++ Done
+- [x] fix media.js function errors in development
 
 *** convo ***
 - [] how to structure a conversation
