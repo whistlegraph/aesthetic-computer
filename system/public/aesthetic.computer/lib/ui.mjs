@@ -80,6 +80,15 @@ class Button {
   dom = false;
   over = false; // Keep track of rollover state.
   multitouch = true; // Toggle to false to make a single touch button.
+  actions; // A held list of callbacks for virtually triggering events.
+
+  get up() {
+    return !this.down;
+  }
+
+  set up(value) {
+    this.down = !value;
+  }
 
   // (x, y, width, height) or Box
   constructor() {
@@ -114,6 +123,7 @@ class Button {
 
     // If only a single function is sent, then assume it's a button push callback.
     if (typeof callbacks === "function") callbacks = { push: callbacks };
+    btn.actions = callbacks;
 
     const t = this.multitouch ? "any" : "1";
 
@@ -130,14 +140,15 @@ class Button {
         (pens.length > 0 && btn.box.onlyContains(e.pointer - 1, pens)) ||
         btn.box.contains(e)
       ) {
+        btn.down = false;
+        btn.over = false;
         callbacks.push?.(btn);
-        btn.down = false;
-        btn.over = false;
       } else if (btn.box.containsNone(pens) || !btn.box.contains(e)) {
-        callbacks.cancel?.(btn);
         btn.down = false;
         btn.over = false;
+        callbacks.cancel?.(btn);
       }
+      callbacks.up?.(btn);
     }
 
     // Note: Each piece may use the below to implement custom rolling behavior,
@@ -146,7 +157,11 @@ class Button {
     // 4. Rollover: Run a rollover event if dragged on.
     // if (e.is("draw:any") && !this.down && this.box.contains(e)) {
     if (e.is(`draw:${t}`) && !btn.over && btn.box.contains(e)) {
-      callbacks.rollover?.(btn);
+      if (callbacks.rollover) {
+        callbacks.rollover(btn);
+      } else {
+        callbacks.over?.(btn);
+      }
       btn.over = true;
     }
 
@@ -157,7 +172,11 @@ class Button {
       !btn.box.contains(e) &&
       btn.box.containsNone(pens)
     ) {
-      callbacks.rollout?.(btn);
+      if (callbacks.rollout) {
+        callbacks.rollout(btn);
+      } else {
+        callbacks.out?.(btn);
+      }
       btn.over = false;
     }
   }
@@ -237,7 +256,7 @@ class TextButton {
         w,
         h,
       };
-    }
+    };
 
     // Position from top left if x and y are set on pos
     x = (pos.screen?.x || 0) + (pos.x || 0);

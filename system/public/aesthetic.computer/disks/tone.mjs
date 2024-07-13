@@ -23,7 +23,7 @@ function boot({ wipe, params, sound: { synth } }) {
     type: "sine",
     tone: params[0] || 400,
     volume: 1.0,
-    beats: Infinity,
+    duration: 0.5,
   });
 }
 

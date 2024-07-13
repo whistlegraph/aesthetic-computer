@@ -47,9 +47,21 @@ TODO: 💮 Daisy
 
 /* 📝 Notes 
   - [🟠] Add a software based layout / playable grid that is phone friendly.
-    - [] Implement one button, and then...
+    - [] Implement the full scale with rollover.
+    - [] Tapping buttons on the layout should add notes to the notepad.
+    - [] Software buttons and keyboard buttons should not overlap and pushing
+         keyboard buttons should activate the ui.
+         - [] Holding a ui button down should prevent that existing / exact note
+              from being triggered.
+         - [] Holding a keyboard button down should prevent the ui button
+              from being pressable.
+    - [] Find an ideal layout that makes sense for mobile.
+    + Done
+    - [*] Implement one or two buttons.
+    + Later
     // TODO: Rethink how to do a simpler button API... perhaps with "register"
     //       and an act function?
+  - [] Match the tones properly 440 in other software should be 440 here and 2092 should sound the same, etc.
   - [] Add live highlights back in type mode that include note tokenization.
   - [] Pressing a new button down should automatically lift the other one.
   - [] Add a 'repeat' or 'hold' key which should be 'shift' on the keyboard
@@ -145,7 +157,9 @@ const accents = "#f";
 
 const buttons = {}; // Software keys. 🎹
 
-function boot({ params, colon }) {
+let cButton, dButton;
+
+function boot({ params, colon, ui, screen }) {
   keys = params.join(" ") || "";
   keys = keys.replace(/\s/g, "");
   if (keys.length > 0) {
@@ -153,6 +167,10 @@ function boot({ params, colon }) {
     editable = false;
   }
   wave = colon[0] || wave;
+
+  // TOOD: 🔘 Implement a button.
+  cButton = new ui.Button(6, screen.height - 32, 32, 32);
+  dButton = new ui.Button(6 + 32, screen.height - 32, 32, 32);
 }
 
 function paint({ wipe, ink, write, screen }) {
@@ -235,9 +253,26 @@ function paint({ wipe, ink, write, screen }) {
       write(tapped, screen.width / 2, screen.height / 2);
     }
   }
+
+  if (!tap) {
+    cButton?.paint((btn) => {
+      ink(btn.down ? "maroon" : "red")
+        .box(btn.box)
+        .ink("white")
+        .write("C", btn.box.x, btn.box.y);
+    });
+    dButton?.paint((btn) => {
+      ink(btn.down ? "maroon" : "red")
+        .box(btn.box)
+        .ink("white")
+        .write("D", btn.box.x, btn.box.y);
+    });
+  }
 }
 
-function act({ event: e, sound: { synth } }) {
+let anyDown = true;
+
+function act({ event: e, sound: { synth }, pens }) {
   if (tap) {
     if (e.is("keyboard:down:shift") && !e.repeat) hold = true;
     if (e.is("keyboard:up:shift")) hold = false;
@@ -246,6 +281,73 @@ function act({ event: e, sound: { synth } }) {
     if (e.is("keyboard:up:shift")) sharps = false;
     if (e.is("keyboard:down:alt") && !e.repeat) flats = true;
     if (e.is("keyboard:up:alt")) flats = false;
+  }
+
+  if (!tap) {
+
+
+    if (e.is("lift") && pens().length <= 1) {
+      anyDown = false;
+    }
+
+    cButton.act(e, {
+      down: (btn) => {
+        anyDown = true;
+        const note = "C";
+        sounds[note] = {
+          note,
+          sound: synth({
+            type: wave,
+            tone: `${octave}${note}`,
+            duration: "🔁",
+          }),
+        };
+      },
+      over: (btn) => {
+        if (btn.up && anyDown) {
+          console.log("over");
+          btn.up = false;
+          btn.actions.down(btn);
+        }
+      },
+      out: (btn) => {
+        btn.down = false;
+        btn.actions.up(btn);
+      },
+      up: (btn) => {
+        sounds["C"]?.sound.kill(0.25);
+        delete sounds["C"];
+      },
+    });
+
+    dButton.act(e, {
+      down: (btn) => {
+        anyDown = true;
+        const note = "D";
+        sounds[note] = {
+          note,
+          sound: synth({
+            type: wave,
+            tone: `${octave}${note}`,
+            duration: "🔁",
+          }),
+        };
+      },
+      over: (btn) => {
+        if (btn.up && anyDown) {
+          btn.up = false;
+          btn.actions.down(btn);
+        }
+      },
+      out: (btn) => {
+        btn.down = false;
+        btn.actions.up(btn);
+      },
+      up: (btn) => {
+        sounds["D"]?.sound.kill(0.25);
+        delete sounds["D"];
+      },
+    });
   }
 
   if (editable && e.is("keyboard:down:tab") && !e.repeat) {
@@ -275,6 +377,7 @@ function act({ event: e, sound: { synth } }) {
         octave = keys[tapIndex];
         tappedOctave = octave;
         tempTapIndex += 1;
+        console.log("🏋️ OCTAVE:", octave);
       }
 
       tapped = keys[tempTapIndex];
@@ -283,12 +386,12 @@ function act({ event: e, sound: { synth } }) {
         tapped = keys[tempTapIndex] + keys[tempTapIndex + 1];
       }
 
-      // 🔴 TODO: Why can't the tone and tapped format be the same?
+      const tone = tapped;
       if (tappedOctave) tapped = tappedOctave + tapped;
       if (!reset)
         sounds[tapped] = synth({
           type: wave,
-          tone: tapped,
+          tone: octave + tone,
           duration: "🔁",
         });
     }
