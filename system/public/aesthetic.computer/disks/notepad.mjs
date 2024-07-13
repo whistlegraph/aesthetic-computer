@@ -46,20 +46,10 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
-  - [⭐] Match the tones properly 440 in other software should be 440 here and
-         2092 should sound the same, etc.
   - [-] Add a software based layout / playable grid that is phone friendly.
+    - [🟠] Find an ideal layout that makes sense for mobile.
     - [] Implement the full scale with rollover.
-    - [] Tapping buttons on the layout should add notes to the notepad.
-    - [] Software buttons and keyboard buttons should not overlap and pushing
-         keyboard buttons should activate the ui.
-         - [] Holding a ui button down should prevent that existing / exact note
-              from being triggered.
-         - [] Holding a keyboard button down should prevent the ui button
-              from being pressable.
-    - [] Find an ideal layout that makes sense for mobile.
     + Done
-    - [*] Implement one or two buttons.
     + Later
     // TODO: Rethink how to do a simpler button API... perhaps with "register"
     //       and an act function?
@@ -107,6 +97,16 @@ TODO: 💮 Daisy
   - [] Leave out all options from synth / make sensible defaults first.
   - [] Add 'scale' and 'rotation' to `write`.
   + Done
+  - [x] Tapping buttons on the layout should add notes to the notepad.
+  - [x] Software buttons and keyboard buttons should not overlap and pushing
+        keyboard buttons should activate the ui.
+        - [x] Holding a ui button down should prevent that existing / exact note
+            from being triggered.
+        - [x] Holding a keyboard button down should prevent the ui button
+            from being pressable.
+  - [x] Implement one or two buttons.
+  - [x] Match the tones properly 440 in other software should be 440 here and
+         2092 should sound the same, etc.
   - [x] Solve the 'note' / 'tone'  syntax ordering API issue.
   - [x] Better 'red' preview highlighting.
   - [x] Entering number key more than once should not add extra numbers.
@@ -144,8 +144,7 @@ let tap = false;
 let tapIndex = 0;
 let tapped; // Store the last tracked key.
 let editable = true;
-let pressedNotes = [];
-
+const downs = {}; // Hardware keys that are currently held down.
 const sounds = {};
 
 let sharps = false,
@@ -158,8 +157,6 @@ const accents = "#f";
 
 const buttons = {}; // Software keys. 🎹
 
-let cButton, dButton;
-
 function boot({ params, colon, ui, screen }) {
   keys = params.join(" ") || "";
   keys = keys.replace(/\s/g, "");
@@ -170,8 +167,8 @@ function boot({ params, colon, ui, screen }) {
   wave = colon[0] || wave;
 
   // TOOD: 🔘 Implement a button.
-  cButton = new ui.Button(6, screen.height - 32, 32, 32);
-  dButton = new ui.Button(6 + 32, screen.height - 32, 32, 32);
+  buttons.c = new ui.Button(6, screen.height - 32, 32, 32);
+  buttons.d = new ui.Button(6 + 32, screen.height - 32, 32, 32);
 }
 
 function paint({ wipe, ink, write, screen }) {
@@ -256,13 +253,13 @@ function paint({ wipe, ink, write, screen }) {
   }
 
   if (!tap) {
-    cButton?.paint((btn) => {
+    buttons.c?.paint((btn) => {
       ink(btn.down ? "maroon" : "red")
         .box(btn.box)
         .ink("white")
         .write("C", btn.box.x, btn.box.y);
     });
-    dButton?.paint((btn) => {
+    buttons.d?.paint((btn) => {
       ink(btn.down ? "maroon" : "red")
         .box(btn.box)
         .ink("white")
@@ -285,16 +282,14 @@ function act({ event: e, sound: { synth }, pens }) {
   }
 
   if (!tap) {
+    if (e.is("lift") && pens().length <= 1) anyDown = false;
 
-
-    if (e.is("lift") && pens().length <= 1) {
-      anyDown = false;
-    }
-
-    cButton.act(e, {
+    buttons.c.act(e, {
       down: (btn) => {
-        anyDown = true;
         const note = "C";
+        if (downs["c"]) return false; // Cancel the down if the key is held.
+        anyDown = true;
+        keys += note;
         sounds[note] = {
           note,
           sound: synth({
@@ -306,7 +301,6 @@ function act({ event: e, sound: { synth }, pens }) {
       },
       over: (btn) => {
         if (btn.up && anyDown) {
-          console.log("over");
           btn.up = false;
           btn.actions.down(btn);
         }
@@ -316,15 +310,18 @@ function act({ event: e, sound: { synth }, pens }) {
         btn.actions.up(btn);
       },
       up: (btn) => {
+        if(downs["c"]) return false;
         sounds["C"]?.sound.kill(0.25);
         delete sounds["C"];
       },
     });
 
-    dButton.act(e, {
+    buttons.d.act(e, {
       down: (btn) => {
-        anyDown = true;
         const note = "D";
+        if (downs["d"]) return false; // Cancel the down if the key is held.
+        anyDown = true;
+        keys += note;
         sounds[note] = {
           note,
           sound: synth({
@@ -345,6 +342,7 @@ function act({ event: e, sound: { synth }, pens }) {
         btn.actions.up(btn);
       },
       up: (btn) => {
+        if(downs["d"]) return false;
         sounds["D"]?.sound.kill(0.25);
         delete sounds["D"];
       },
@@ -415,8 +413,11 @@ function act({ event: e, sound: { synth }, pens }) {
     }
   }
 
+  // Individual Keyboard Notes
   (octaves + notes).split("").forEach((key) => {
-    if (e.is(`keyboard:down:${key}`) && !e.repeat) {
+    if (e.is(`keyboard:down:${key}`) && !e.repeat && !buttons[key]?.down) {
+      downs[key] = true;
+
       if (!tap) {
         if (octaves.includes(key) && octaves.includes(keys.slice(-1)))
           keys = keys.slice(0, -1);
@@ -440,6 +441,8 @@ function act({ event: e, sound: { synth }, pens }) {
           keys += "f";
         }
 
+        if(buttons[key]) buttons[key].down = true;
+
         sounds[key] = {
           note,
           sound: synth({
@@ -458,6 +461,10 @@ function act({ event: e, sound: { synth }, pens }) {
       }
       sounds[key]?.sound?.kill?.(0.25); // Kill a sound if it exists.
       delete sounds[key];
+      if (downs[key]) {
+        delete downs[key];
+        if(buttons[key]) buttons[key].down = false;
+      }
     }
   });
 }

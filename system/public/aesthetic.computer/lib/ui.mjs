@@ -129,9 +129,9 @@ class Button {
 
     // 1. Down: Enable the button if we touched over it. (Repeatable)
     if (e.is(`touch:${t}`) && btn.box.contains(e) && !btn.down) {
-      callbacks.down?.(btn);
-      btn.down = true;
-      btn.over = true;
+      const downed = callbacks.down?.(btn);
+      btn.down = downed || downed === undefined ? true : false;
+      btn.over = btn.down;
     }
 
     // 3. Push: Trigger the button if we push it.
@@ -148,7 +148,11 @@ class Button {
         btn.over = false;
         callbacks.cancel?.(btn);
       }
-      callbacks.up?.(btn);
+      const up = callbacks.up?.(btn);
+      if (up === false) {
+        btn.down = true;
+        btn.over = true;
+      }
     }
 
     // Note: Each piece may use the below to implement custom rolling behavior,
