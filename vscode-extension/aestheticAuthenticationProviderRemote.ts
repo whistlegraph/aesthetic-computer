@@ -80,7 +80,7 @@ export class AestheticAuthenticationProvider
       }/redirect-proxy`;
     } else if (tenant === "sotce") {
       this.env.AUTH_TYPE = `sotce`;
-      this.env.AUTH_NAME = `Sotce`;
+      this.env.AUTH_NAME = `Sotce Net`;
       this.env.CLIENT_ID = `3SvAbUDFLIFZCc1lV7e4fAAGKWXwl2B0`;
       this.env.AUTH0_DOMAIN = `hi.sotce.net`;
       this.env.REDIRECT_URL = `https://${

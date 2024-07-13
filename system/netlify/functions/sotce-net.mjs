@@ -2,12 +2,14 @@
 // A paid diary network, 'handled' by Aesthetic Computer.
 
 /* #region 🏁 TODO 
-  - [🟠] stripe paywall
-    - [🟢] bring in necessary env vars for stripe
-    - [] set up subscription payment wall on 'subscribe' button
+  - [-] stripe paywall
+    - [-] set up subscription payment wall on 'subscribe' button
+      - [🟠] Make subscription `priceId` on Stripe.
     - [] logged in but unpaid route
     - [] logged in and paid route
       - [] read from the database
+    + Done
+    - [x] bring in necessary env vars for stripe
   - [] The handle system would be shared among ac users.
     - [] Perhaps the subs could be 'sotce' prefixed.
   - [] Store whether a user is subscribed with an expiration date.
@@ -46,9 +48,21 @@
 const AUTH0_CLIENT_ID_SPA = "3SvAbUDFLIFZCc1lV7e4fAAGKWXwl2B0";
 const AUTH0_DOMAIN = "https://hi.sotce.net";
 
+// 💳 Payment
+const SOTCE_STRIPE_API_PRIV_KEY = process.env.SOTCE_STRIPE_API_PRIV_KEY;
+const SOTCE_STRIPE_API_PUB_KEY = process.env.SOTCE_STRIPE_API_PUB_KEY;
+const SOTCE_STRIPE_API_TEST_PRIV_KEY =
+  process.env.SOTCE_STRIPE_API_TEST_PRIV_KEY;
+const SOTCE_STRIPE_API_TEST_PUB_KEY = process.env.SOTCE_STRIPE_API_TEST_PUB_KEY;
+const SOTCE_STRIPE_ENDPOINT_DEV_SECRET =
+  process.env.SOTCE_STRIPE_ENDPOINT_DEV_SECRET;
+const SOTCE_STRIPE_ENDPOINT_SECRET = process.env.SOTCE_STRIPE_ENDPOINT_SECRET;
+
 const dev = process.env.NETLIFY_DEV;
 
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
+
+import Stripe from "stripe";
 
 export const handler = async (event, context) => {
   // console.log("Event:", event);
@@ -72,9 +86,11 @@ export const handler = async (event, context) => {
             crossorigin="anonymous"
             src="/aesthetic.computer/dep/auth0-spa-js.production.js"
           ></script>
+          <script src="https://js.stripe.com/v3/"></script>
           <style>
             body {
-              background: white;
+              font-family: sans-serif;
+              background: gray;
             }
           </style>
         </head>
@@ -226,17 +242,11 @@ export const handler = async (event, context) => {
                     : '<button onclick="signup()">i&apos;m new</button>');
               } else {
                 // 🅰️ Check / await email verification.
-                //  - [🟡] If unverified, then show awaiting animation
-                //         and long poll for verification.
-
                 user = pickedUpSession
                   ? window.sotceUSER
                   : await auth0Client.getUser();
 
-                console.log("🪷 Got user:", user);
-
-                // else...
-
+                // console.log("🪷 Got user:", user);
                 let verifiedText = "email unverified :(";
 
                 function subscription() {
@@ -359,8 +369,28 @@ export const handler = async (event, context) => {
                   });
               }
 
-              function subscribe() {
-                // ❤️‍🔥 TODO: Go to stripe subscription page...
+              // Go to the paywalled subscription page.
+              async function subscribe() {
+                const stripe = Stripe(
+                  "${dev
+                    ? SOTCE_STRIPE_API_TEST_PUB_KEY
+                    : SOTCE_STRIPE_API_PUB_KEY}",
+                );
+                const response = await fetch("/sotce-net/subscribe", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                });
+                if (response.ok) {
+                  const session = await response.json();
+                  console.log("💳 Session:", session);
+                  const result = await stripe.redirectToCheckout({
+                    sessionId: session.id,
+                  });
+                  if (result.error) console.error(result.error.message);
+                } else {
+                  const error = await response.json();
+                  console.error("💳", error.message);
+                }
               }
 
               function logout() {
@@ -456,6 +486,39 @@ export const handler = async (event, context) => {
       statusCode: 200,
       headers: { "Content-Type": "text/html; charset=utf-8" },
     };
+  } else if (path === "/subscribe" && method === "post") {
+    try {
+      const key = dev
+        ? process.env.SOTCE_STRIPE_API_TEST_PRIV_KEY
+        : process.env.SOTCE_STRIPE_API_PRIV_KEY;
+
+      const stripe = Stripe(key);
+
+      // console.log("💳", stripe);
+
+      console.log("🗺️ Origin:", event.headers.origin);
+      const priceId = "TBD";
+
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "subscription",
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: `${event.headers.origin}/sotce-net?notice=success`,
+        cancel_url: `${event.headers.origin}/sotce-net?notice=cancel`,
+      });
+      return {
+        statusCode: 200,
+        "Content-Type": "application/json",
+        body: JSON.stringify({ id: session.id }),
+      };
+    } catch (error) {
+      console.log("⚠️", error);
+      return {
+        statusCode: 500,
+        "Content-Type": "application/json",
+        body: JSON.stringify({ message: `Error: ${error.message}` }),
+      };
+    }
   }
 };
 

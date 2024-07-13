@@ -516,7 +516,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     if (session) {
       vscode.window.showInformationMessage(
         `👋 Welcome back to ${
-          tenant === "aesthetic" ? "Aesthetic Computer" : "Sotce"
+          tenant === "aesthetic" ? "Aesthetic Computer" : "Sotce Net"
         }! (${session.account.label})`,
       );
       context.globalState.update(`${tenant}:session`, session);
@@ -927,7 +927,7 @@ function getWebViewContent(webview: any, slug: string) {
   // console.log(
   //   "Sessions: 🟪 Aesthetic Computer:",
   //   sessionAesthetic,
-  //   "🪷 Sotce",
+  //   "🪷 Sotce Net",
   //   sessionSotce,
   // );
 
