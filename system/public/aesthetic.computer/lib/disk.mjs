@@ -4525,7 +4525,7 @@ async function makeFrame({ data: { type, content } }) {
             downloadScreenshot(); // 🖼️ Take a screenshot.
           }
           $commonApi.sound.synth({
-            tone: 800,
+            tone: 1600,
             duration: 0.02,
             attack: 0.01,
             decay: 0.5,
@@ -4546,7 +4546,7 @@ async function makeFrame({ data: { type, content } }) {
           currentPath !== "aesthetic.computer/disks/prompt"
         ) {
           $commonApi.sound.synth({
-            tone: data.key === "Backspace" ? 400 : 600,
+            tone: data.key === "Backspace" ? 800 : 1200,
             beats: 0.1,
             attack: 0.01,
             decay: 0.5,
@@ -4902,7 +4902,7 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.sound = $sound;
 
     // System beep.
-    $commonApi.beep = (tone = 600) => {
+    $commonApi.beep = (tone = 1200) => {
       $sound.synth({
         tone,
         beats: 0.1,
@@ -5082,7 +5082,7 @@ async function makeFrame({ data: { type, content } }) {
 
           if (e.is("touch:5")) {
             sound.synth({
-              tone: 800,
+              tone: 1600,
               duration: 0.02,
               attack: 0.01,
               decay: 0.5,
@@ -5109,7 +5109,7 @@ async function makeFrame({ data: { type, content } }) {
               if ($api.slug !== "camera") masked = true;
 
               $api.sound.synth({
-                tone: 300,
+                tone: 600,
                 beats: 0.1,
                 attack: 0.01,
                 decay: 0.5,
@@ -5118,7 +5118,7 @@ async function makeFrame({ data: { type, content } }) {
             },
             push: () => {
               $api.sound.synth({
-                tone: 600,
+                tone: 1200,
                 beats: 0.1,
                 attack: 0.01,
                 decay: 0.5,
