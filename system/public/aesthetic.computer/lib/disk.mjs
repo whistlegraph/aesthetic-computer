@@ -4835,7 +4835,34 @@ async function makeFrame({ data: { type, content } }) {
       const id = soundId;
       if (duration === "🔁") duration = Infinity; // First emoji in the API. 24.07.03.02.26
       if (duration !== undefined) beats = (duration * sound.bpm) / 60;
-      if (typeof tone === "string") tone = $sound.freq(tone); // Auto-match strings to notes.
+
+      // if (typeof tone === "string") tone = $sound.freq(tone); // Auto-match strings to notes.
+
+      // if (typeof tone === "string") {
+      //   console.log("🎵 Pre-tone:", tone);
+
+      //   // Check if the string can be converted to a number
+      //   let num = parseFloat(tone);
+
+      //   console.log("😀 Num:", num);
+
+      //   if (!isNaN(num)) {
+      //     tone = num;
+      //   } else {
+      //     // Auto-match strings to notes
+      //     tone = $sound.freq(tone);
+      //   }
+      // }
+
+      if (typeof tone === "string") {
+        if (!isNaN(parseFloat(tone)) && isFinite(tone)) {
+          tone = Number(tone);
+        } else {
+          tone = $sound.freq(tone);
+        }
+      }
+
+      // console.log("⛈️ Tone:", tone);
 
       sound.sounds.push({ id, type, tone, beats, attack, decay, volume, pan });
 
