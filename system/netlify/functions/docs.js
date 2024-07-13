@@ -1590,12 +1590,6 @@ export async function handler(event, context) {
         desc: "Set your mood.",
         done: false,
       },
-      publish: {
-        sig: "publish",
-        desc: "",
-        done: false,
-        hidden: true,
-      },
       channel: {
         sig: "channel",
         desc: "",
@@ -1771,7 +1765,7 @@ export async function handler(event, context) {
       publish: {
         sig: "publish",
         desc: "Publish your last-run piece.",
-        done: true
+        done: false,
       },
       "no!": {
         sig: "no!",
