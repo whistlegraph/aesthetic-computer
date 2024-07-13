@@ -4,7 +4,7 @@
   "displayName": "Aesthetic Computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.132.0",
+  "version": "1.139.0",
   "description": "Code, run, and publish your pieces.",
   "engines": {
     "vscode": "^1.88.0"
@@ -136,7 +136,7 @@
     "@types/node": "^20.14.9",
     "@types/vscode": "^1.88.0",
     "@vscode/test-web": "^0.0.53",
-    "@vscode/vsce": "^2.29.0",
+    "@vscode/vsce": "^2.30.0",
     "esbuild": "^0.20.0",
     "typescript": "^5.5.2"
   },
