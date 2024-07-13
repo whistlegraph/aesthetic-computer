@@ -46,7 +46,9 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
-  - [🟠] Add a software based layout / playable grid that is phone friendly.
+  - [⭐] Match the tones properly 440 in other software should be 440 here and
+         2092 should sound the same, etc.
+  - [-] Add a software based layout / playable grid that is phone friendly.
     - [] Implement the full scale with rollover.
     - [] Tapping buttons on the layout should add notes to the notepad.
     - [] Software buttons and keyboard buttons should not overlap and pushing
@@ -61,7 +63,6 @@ TODO: 💮 Daisy
     + Later
     // TODO: Rethink how to do a simpler button API... perhaps with "register"
     //       and an act function?
-  - [] Match the tones properly 440 in other software should be 440 here and 2092 should sound the same, etc.
   - [] Add live highlights back in type mode that include note tokenization.
   - [] Pressing a new button down should automatically lift the other one.
   - [] Add a 'repeat' or 'hold' key which should be 'shift' on the keyboard
