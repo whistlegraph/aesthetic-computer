@@ -10,6 +10,7 @@
       - [] read from the database
     + Done
     - [x] bring in necessary env vars for stripe
+  - [] add cookie favicon which switches if the user is logged in...
   - [] The handle system would be shared among ac users.
     - [] Perhaps the subs could be 'sotce' prefixed.
   - [] Store whether a user is subscribed with an expiration date.
@@ -493,19 +494,29 @@ export const handler = async (event, context) => {
         : process.env.SOTCE_STRIPE_API_PRIV_KEY;
 
       const stripe = Stripe(key);
-
       // console.log("💳", stripe);
 
-      console.log("🗺️ Origin:", event.headers.origin);
-      const priceId = "TBD";
+      const priceId = dev
+        ? "price_1PcGkMA9SniwoPrCdlOCsFJi"
+        : "price_1PcH1BA9SniwoPrCCzLZdvES";
+      const redirectPath =
+        event.headers.origin === "https://sotce.net" ? "/" : "/sotce-net";
+
+      console.log(
+        "🗺️ Origin:",
+        event.headers.origin,
+        "redirectPath:",
+        redirectPath,
+      );
 
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         mode: "subscription",
         line_items: [{ price: priceId, quantity: 1 }],
-        success_url: `${event.headers.origin}/sotce-net?notice=success`,
-        cancel_url: `${event.headers.origin}/sotce-net?notice=cancel`,
+        success_url: `${event.headers.origin}/${redirectPath}?notice=success`,
+        cancel_url: `${event.headers.origin}/${redirectPath}?notice=cancel`,
       });
+
       return {
         statusCode: 200,
         "Content-Type": "application/json",
