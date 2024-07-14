@@ -3,8 +3,11 @@
 
 /* #region 🏁 TODO 
   - [-] stripe paywall
-    - [-] set up subscription payment wall on 'subscribe' button
-      - [🟠] Make subscription `priceId` on Stripe.
+    - [x] set up subscription payment wall on 'subscribe' button
+      - [🍋] run a test subscription
+      - [-] run a production subscription
+      - [] check for subscription status somehow...
+      - [x] Make subscription `priceId` on Stripe.
     - [] logged in but unpaid route
     - [] logged in and paid route
       - [] read from the database
