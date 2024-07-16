@@ -4,10 +4,12 @@
 /* 📝 Notes 
   - Today we will be designing a worm-like form, in addition to a clock. 
     - Exercises -
-    2. [x] Leading and following! 🟢🟥
-      - [x] Circle <- leader
-      - [x] Square <- follower
-    3. [🍊] Expanding worm. 🪱
+    2. [-] Leading and following! 🟢🟥
+      - [] Circle <- leader
+        - position (x, y)
+      - [] Square <- follower
+        - position (x, y)
+    3. [] Expanding worm. 🪱
     + Done
     1. [x️] Let's remember to finish... `source ucla-4-box`.
     ---
@@ -25,17 +27,12 @@ let bx = 64;
 let by = 64;
 
 // Process
-function paint({ wipe, ink, box, circle, pen }) {
-  // Physics
+function paint({ wipe, ink, box, circle, stamp, pen }) {
 
   if (pen) {
     cx = pen.x;
     cy = pen.y;
   }
-
-  // bx needs to converge on cx
-  // is bx to the right or left?
-  // (do we have to add or subtract?)
 
   if (by > cy) {
     by -= 1;
@@ -49,14 +46,22 @@ function paint({ wipe, ink, box, circle, pen }) {
     bx += 1;
   }
 
-  // Rendering
+  // 1. make directory
+  // 2. make 'index.html' which is the homepage
+  // 3. choose web host
+  // 4. register domain name
+  // 5. upload entire directory to web host
+  // 6. connect webhost to domain name
+  // 7 'static site generators'
+
   wipe("orange");
 
-  // Leader
+  stamp("@jeffrey/2024.2.13.15.31.05.635", 8, 8);
+  stamp("@jeffrey/2024.2.13.15.31.05.635", 8, 80);
+
   ink("green");
   circle(cx, cy, 8, "fill");
 
-  // Follower
   ink("red");
   box(bx, by, 8);
 }
