@@ -13,6 +13,7 @@
       - [] read from the database
     + Done
     - [x] bring in necessary env vars for stripe
+  - [] bring in `respond` helper and replace `statusCode:` handler returns with it.
   - [] add cookie favicon which switches if the user is logged in...
   - [] The handle system would be shared among ac users.
     - [] Perhaps the subs could be 'sotce' prefixed.
@@ -64,7 +65,17 @@ const SOTCE_STRIPE_ENDPOINT_SECRET = process.env.SOTCE_STRIPE_ENDPOINT_SECRET;
 
 const dev = process.env.NETLIFY_DEV;
 
+const priceId = dev
+  ? "price_1PcGkMA9SniwoPrCdlOCsFJi"
+  : "price_1PcH1BA9SniwoPrCCzLZdvES";
+const productId = dev ? "prod_QTDAZAdV2KftJI" : "prod_QTDSAhsHGMRp3z";
+
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
+
+import {
+  authorize, //,
+  // hasAdmin,
+} from "../../backend/authorization.mjs";
 
 import Stripe from "stripe";
 
@@ -78,6 +89,10 @@ export const handler = async (event, context) => {
   let path = event.path;
   if (path.startsWith("/sotce-net"))
     path = path.replace("/sotce-net", "/").replace("//", "/");
+
+  const key = dev
+    ? process.env.SOTCE_STRIPE_API_TEST_PRIV_KEY
+    : process.env.SOTCE_STRIPE_API_PRIV_KEY;
 
   // 🏠 Home
   if (path === "/" && method === "get") {
@@ -103,6 +118,7 @@ export const handler = async (event, context) => {
             <h1>${path} : ${method}</h1>
           </div>
           <script>
+            // 🗺️ Environment
             const dev = ${dev};
             const fromAesthetic =
               (document.referrer.indexOf("aesthetic") > -1 ||
@@ -110,16 +126,36 @@ export const handler = async (event, context) => {
               document.referrer.indexOf("sotce-net") === -1;
             const embedded = window.self !== window.top;
 
+            // 🤖 Initialization
             // Send some messages to the VS Code extension.
             window.parent?.postMessage(
               { type: "url:updated", slug: "sotce-net" },
               "*",
             );
             window.parent?.postMessage({ type: "ready" }, "*");
-            // Authorization
+
+            // Check for the '?notice=' parameter, memorize and clear it.
+            const urlParams = new URLSearchParams(window.location.search);
+            const notice = urlParams.get("notice");
+
+            if (notice) {
+              console.log("🪧 Notice:", notice);
+              urlParams.delete("notice");
+              const paramsString = urlParams.toString();
+              const newUrl =
+                window.location.pathname +
+                (paramsString ? "?" + paramsString : "");
+              window.history.replaceState({}, document.title, newUrl);
+            }
+
+            // 🔐 Authorization
             (async () => {
               const clientId = "${AUTH0_CLIENT_ID_SPA}";
               let fetchUser, verificationTimeout;
+
+              let isAuthenticated = false;
+              const wrapper = document.getElementById("wrapper");
+              let user;
 
               const auth0Client = await window.auth0.createAuth0Client({
                 domain: "${AUTH0_DOMAIN}",
@@ -169,9 +205,9 @@ export const handler = async (event, context) => {
 
                 const sessionParams = param;
                 let encodedSession = sessionParams;
-                console.log("🪷 Sotce Session:", sessionParams);
                 if (encodedSession === "null") encodedSession = undefined;
                 if (encodedSession) {
+                  console.log("🪷 Sotce Session:", encodedSession);
                   const sessionJsonString = atob(
                     decodeURIComponent(encodedSession),
                   );
@@ -205,8 +241,6 @@ export const handler = async (event, context) => {
                 }
               }
 
-              let isAuthenticated = false;
-
               // Logging in normally.
               if (!pickedUpSession) {
                 isAuthenticated = await auth0Client.isAuthenticated();
@@ -234,9 +268,6 @@ export const handler = async (event, context) => {
               } else {
                 isAuthenticated = true;
               }
-
-              const wrapper = document.getElementById("wrapper");
-              let user;
 
               if (!isAuthenticated) {
                 wrapper.innerHTML =
@@ -298,11 +329,6 @@ export const handler = async (event, context) => {
                 // - [] If subscription exists, then show 'enter' button.
                 //   - [] And also show 'cancel' button to end a subscription.
                 // - [] Else, show a 'subscribe' button to the user with a price.
-
-                {
-                  // Send a get fetch request to /api/subscribed?user=sub
-                  // Which will hold the user sub.
-                }
 
                 wrapper.innerHTML =
                   "signed in as: <span id='email'>" +
@@ -383,6 +409,7 @@ export const handler = async (event, context) => {
                 const response = await fetch("/sotce-net/subscribe", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ email: user.email }),
                 });
                 if (response.ok) {
                   const session = await response.json();
@@ -391,6 +418,37 @@ export const handler = async (event, context) => {
                     sessionId: session.id,
                   });
                   if (result.error) console.error(result.error.message);
+                } else {
+                  const error = await response.json();
+                  console.error("💳", error.message);
+                }
+              }
+
+              // Check the subscription status of the user's email address.
+              // TODO: ❤️‍🔥 This also needs to validate the current session somehow...
+              //          (Refer to AC handle settings / auth)
+              async function subscribed() {
+                console.log("🗞️ Checking subscription status for:", user.email);
+
+                const response = await userRequest(
+                  "POST",
+                  "sotce-net/subscribed"//,
+                  //JSON.stringify({ email: user.email }),
+                );
+
+                console.log("Response:", response);
+                // const response = await fetch("/sotce-net/subscribed", {
+                //   method: "POST",
+                //   headers: {
+                //     Authorization: "Bearer " + token,
+                //     "Content-Type": "application/json",
+                //   },
+                //   body: JSON.stringify({ email: user.email }),
+                // });
+                if (response.status === 200) {
+                  const subbed = await response.json();
+                  console.log("💳 Subscribed:", subbed);
+                  // subbed.subscribed ...
                 } else {
                   const error = await response.json();
                   console.error("💳", error.message);
@@ -479,6 +537,8 @@ export const handler = async (event, context) => {
               window.logout = logout;
               window.aesthetic = aesthetic;
               window.user = user;
+
+              subscribed();
             })();
           </script>
         </body>
@@ -492,18 +552,11 @@ export const handler = async (event, context) => {
     };
   } else if (path === "/subscribe" && method === "post") {
     try {
-      const key = dev
-        ? process.env.SOTCE_STRIPE_API_TEST_PRIV_KEY
-        : process.env.SOTCE_STRIPE_API_PRIV_KEY;
-
       const stripe = Stripe(key);
       // console.log("💳", stripe);
 
-      const priceId = dev
-        ? "price_1PcGkMA9SniwoPrCdlOCsFJi"
-        : "price_1PcH1BA9SniwoPrCCzLZdvES";
       const redirectPath =
-        event.headers.origin === "https://sotce.net" ? "/" : "/sotce-net";
+        event.headers.origin === "https://sotce.net" ? "" : "sotce-net";
 
       console.log(
         "🗺️ Origin:",
@@ -512,10 +565,13 @@ export const handler = async (event, context) => {
         redirectPath,
       );
 
+      const { email } = JSON.parse(event.body);
+
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         mode: "subscription",
         line_items: [{ price: priceId, quantity: 1 }],
+        customer_email: email,
         success_url: `${event.headers.origin}/${redirectPath}?notice=success`,
         cancel_url: `${event.headers.origin}/${redirectPath}?notice=cancel`,
       });
@@ -531,6 +587,63 @@ export const handler = async (event, context) => {
         statusCode: 500,
         "Content-Type": "application/json",
         body: JSON.stringify({ message: `Error: ${error.message}` }),
+      };
+    }
+  } else if (path === "/subscribed" && method === "post") {
+    // const { email } = JSON.parse(event.body);
+    // First validate that the user has an active session via auth0.
+    const user = await authorize(event.headers, "sotce");
+    console.log("👧", user);
+    const email = user.email;
+
+    let isSubscribed = false;
+
+    // Then, make sure they are subscribed.
+    try {
+      const stripe = Stripe(key);
+      // Fetch customer by email
+      const customers = await stripe.customers.list({ email, limit: 1 });
+
+      if (customers.data.length === 0) {
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ subscribed: false }),
+        };
+      }
+
+      const customer = customers.data[0];
+
+      // Fetch subscriptions for the customer
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customer.id,
+        status: "all",
+        limit: 1,
+      });
+
+      console.log("👗", subscriptions.data?.[0]?.items);
+
+      isSubscribed = subscriptions.data.some((sub) =>
+        sub.items.data.some((item) => item.price.product === productId),
+      );
+    } catch (err) {
+      console.error("Error fetching subscription status:", error);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Failed to fetch subscription status" }),
+      };
+    }
+
+    // 🟠 TODO: Lastly, show them the paywalled content and include a "cancel" button.
+
+    if (isSubscribed) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ subscribed: isSubscribed, content: "hi!" }),
+      };
+    } else {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ subscribed: isSubscribed }),
       };
     }
   }

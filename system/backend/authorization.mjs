@@ -15,9 +15,7 @@ export async function authorize({ authorization }, tenant = "aesthetic") {
   try {
     const { got } = await import("got");
     const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
-
-    console.log("Authorizing...", tenant);
-
+    console.log("🔐 Authorizing...", tenant);
     return (
       await got(`${baseURI}/userinfo`, {
         headers: { Authorization: authorization },
@@ -200,14 +198,12 @@ export async function setEmailAndReverify(id, email, name, tenant = "aesthetic")
         },
       );
     } catch (err) {
-      console.error("ERRORRRR:", err);
+      console.error("🔴 Error:", err);
     }
 
     if (!updateEmailResponse.body) {
       throw new Error("Failed to update user email");
     }
-
-    console.log("EMAIL RESPONSE:", updateEmailResponse.body);
 
     // 2. Trigger the verification email
     const verificationResponse = await got(

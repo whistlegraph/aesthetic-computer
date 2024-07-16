@@ -1477,7 +1477,7 @@ function paint($) {
         center: "x",
         x: screen.width / 2 + 1,
         y: screen.height / 2 - 48 + 1,
-      });
+      }, undefined, screen.width - 16);
 
       ink(verified ? "lime" : "yellow").write(
         message,
