@@ -1,5 +1,6 @@
-// ucla-4, 24.07.11.19.08
+// ucla-4-box, 24.07.11.19.08
 // Intermediate graphics and modal logic.
+// (A rectangle painting program.)
 
 /* 📝 Notes 
   - Today we will be exploring interactive graphics through making
@@ -7,11 +8,10 @@
       🟪️ `box`, `shape`, `synth`.
       📜 Features of: `array`, `object`, and `function`.
     - Exercises -
-    1. [🟢] 🥁 Drum sound! (`synth` and `act` review) 
-    2. [🟠] Rectangle painting and the backbuffer. (graphics review)
-    3. [] What is a mode and how to design with modes...
-    2. [] Leading and following! 🟢🟥
-    4. [] Expanding worm. 🪱
+    1. [x] Rectangle painting and the backbuffer. (graphics review)
+    2. [🟠] Modes and colors. 
+      - [] Outline mode switch.
+      - [] Color array cycle switch.
 */
 
 let stamp;
