@@ -2,28 +2,26 @@
 // A paid diary network, 'handled' by Aesthetic Computer.
 
 /* #region 🏁 TODO 
-  - [-] stripe paywall
-    - [x] set up subscription payment wall on 'subscribe' button
-      - [🍋] run a test subscription
-      - [-] run a production subscription
-      - [] check for subscription status somehow...
-      - [x] Make subscription `priceId` on Stripe.
-    - [] logged in but unpaid route
-    - [] logged in and paid route
-      - [] read from the database
-    + Done
-    - [x] bring in necessary env vars for stripe
+  - [-] run a new development subscription
+  - [-] try from in vscode / cancel as needed? 
+  - [🟠] run a production subscription
   - [] bring in `respond` helper and replace `statusCode:` handler returns with it.
-  - [] add cookie favicon which switches if the user is logged in...
+  - [] read from the database
   - [] The handle system would be shared among ac users.
     - [] Perhaps the subs could be 'sotce' prefixed.
-  - [] Store whether a user is subscribed with an expiration date.
+  - [] add cookie favicon which switches if the user is logged in...
   - [] Allow Amelia's user / @sotce to post a diary, but no other users
        for now.
   - [] Show number of signed up users so far.
   - [] How can I do shared reader cursors / co-presence somehow?
   - [] Account deletion.
   + Done
+  - [x] stripe paywall
+  - [x] set up subscription payment wall on 'subscribe' button
+    - [x] run a test subscription
+    - [x] check for subscription status somehow...
+    - [x] Make subscription `priceId` on Stripe.
+  - [x] bring in necessary env vars for stripe
   - [x] Add session / login support to the Aesthetic Computer VSCode extension /
        switch to an in-editor development flow.
   - [x] Need to be able to login to Aesthetic with VS Code, then switch to
@@ -148,13 +146,14 @@ export const handler = async (event, context) => {
               window.history.replaceState({}, document.title, newUrl);
             }
 
+            const wrapper = document.getElementById("wrapper");
+
             // 🔐 Authorization
             (async () => {
               const clientId = "${AUTH0_CLIENT_ID_SPA}";
               let fetchUser, verificationTimeout;
 
               let isAuthenticated = false;
-              const wrapper = document.getElementById("wrapper");
               let user;
 
               const auth0Client = await window.auth0.createAuth0Client({
@@ -424,31 +423,21 @@ export const handler = async (event, context) => {
                 }
               }
 
-              // Check the subscription status of the user's email address.
-              // TODO: ❤️‍🔥 This also needs to validate the current session somehow...
-              //          (Refer to AC handle settings / auth)
+              // Check the subscription status of the logged in user.
               async function subscribed() {
                 console.log("🗞️ Checking subscription status for:", user.email);
-
                 const response = await userRequest(
                   "POST",
-                  "sotce-net/subscribed"//,
-                  //JSON.stringify({ email: user.email }),
+                  "sotce-net/subscribed",
+                  // nobody ;)
                 );
-
-                console.log("Response:", response);
-                // const response = await fetch("/sotce-net/subscribed", {
-                //   method: "POST",
-                //   headers: {
-                //     Authorization: "Bearer " + token,
-                //     "Content-Type": "application/json",
-                //   },
-                //   body: JSON.stringify({ email: user.email }),
-                // });
                 if (response.status === 200) {
-                  const subbed = await response.json();
-                  console.log("💳 Subscribed:", subbed);
-                  // subbed.subscribed ...
+                  console.log("💳 Subscribed:", response);
+                  if (response.subscribed) {
+                    return response.content;
+                  } else {
+                    return false;
+                  }
                 } else {
                   const error = await response.json();
                   console.error("💳", error.message);
@@ -538,7 +527,10 @@ export const handler = async (event, context) => {
               window.aesthetic = aesthetic;
               window.user = user;
 
-              subscribed();
+              // 🚪 Check for subscription and add content as necessary.
+              const entered = await subscribed();
+              console.log("🚪", entered);
+              if (entered) wrapper.innerHTML += "<br><b>" + entered + "</b>";
             })();
           </script>
         </body>
@@ -590,12 +582,18 @@ export const handler = async (event, context) => {
       };
     }
   } else if (path === "/subscribed" && method === "post") {
-    // const { email } = JSON.parse(event.body);
     // First validate that the user has an active session via auth0.
     const user = await authorize(event.headers, "sotce");
-    console.log("👧", user);
-    const email = user.email;
+    // console.log("👧", user);
 
+    if (!user) {
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ message: "Unauthorized user." }),
+      };
+    }
+
+    const email = user.email;
     let isSubscribed = false;
 
     // Then, make sure they are subscribed.
@@ -619,9 +617,7 @@ export const handler = async (event, context) => {
         status: "all",
         limit: 1,
       });
-
-      console.log("👗", subscriptions.data?.[0]?.items);
-
+      // console.log("👗", subscriptions.data?.[0]?.items);
       isSubscribed = subscriptions.data.some((sub) =>
         sub.items.data.some((item) => item.price.product === productId),
       );
@@ -638,7 +634,7 @@ export const handler = async (event, context) => {
     if (isSubscribed) {
       return {
         statusCode: 200,
-        body: JSON.stringify({ subscribed: isSubscribed, content: "hi!" }),
+        body: JSON.stringify({ subscribed: isSubscribed, content: "you are subscribed!" }),
       };
     } else {
       return {
