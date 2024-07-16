@@ -12,6 +12,8 @@
     2. [🟠] Modes and colors. 
       - [] Outline mode switch.
       - [] Color array cycle switch.
+    3. [] Downloading the 'canvas'.
+      - [] Learning `download(filename, data, modifiers)`.
 */
 
 let stamp;
