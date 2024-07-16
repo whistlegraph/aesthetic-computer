@@ -37,6 +37,22 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** sotce.net ***
   - [🟢] Finish sotce-net rc1
+  + ideas
+  - [] friday editing interface  
+  - [] next friday, launch august 1
+    - [] infinite scroll
+      - [] 1 month free - link / code
+      - [] what will sotce.com have now... 
+      - [] keywords / titles / hashtags?
+    - [] just the cookie on the website
+    - [] sign up and subscribe
+      - [] read amelia's writing 
+      - [] contribute your own
+    - [] privacy setting
+      - [] user feed or no user feed
+      - [] amelia's picks
+    - [] print 🖨️ css 
+
   + Done
   - [x] Test login in production in VS Code,
     - [x] and via vscode.dev
