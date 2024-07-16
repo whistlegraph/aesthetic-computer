@@ -48,8 +48,8 @@ TODO: 💮 Daisy
 /* 📝 Notes 
   - [-] Add a software based layout / playable grid that is phone friendly.
     - [🟠] Find an ideal layout that makes sense for mobile.
-    - [] Implement the full scale with rollover.
     + Done
+    - [x] Implement the full scale with rollover.
     + Later
     // TODO: Rethink how to do a simpler button API... perhaps with "register"
     //       and an act function?
@@ -157,6 +157,10 @@ const accents = "#f";
 
 const buttons = {}; // Software keys. 🎹
 
+// TODO: Clean this up and add sharp buttons, etc... 24.07.16.20.01
+const buttonNotes = ["c", "d", "e", "f", "g", "a", "b"];
+const octaveTheme = ["black", "black", "grey", "red", "orange", "yellowgreen", "green", "purple"];
+
 function boot({ params, colon, ui, screen }) {
   keys = params.join(" ") || "";
   keys = keys.replace(/\s/g, "");
@@ -168,7 +172,12 @@ function boot({ params, colon, ui, screen }) {
 
   // TOOD: 🔘 Implement a button.
   buttons.c = new ui.Button(6, screen.height - 32, 32, 32);
-  buttons.d = new ui.Button(6 + 32, screen.height - 32, 32, 32);
+  buttons.d = new ui.Button(6 + 32 * 1, screen.height - 32, 32, 32);
+  buttons.e = new ui.Button(6 + 32 * 2, screen.height - 32, 32, 32);
+  buttons.f = new ui.Button(6 + 32 * 3, screen.height - 32, 32, 32);
+  buttons.g = new ui.Button(6 + 32 * 4, screen.height - 32, 32, 32);
+  buttons.a = new ui.Button(6 + 32 * 5, screen.height - 32, 32, 32);
+  buttons.b = new ui.Button(6 + 32 * 6, screen.height - 32, 32, 32);
 }
 
 function paint({ wipe, ink, write, screen }) {
@@ -253,17 +262,19 @@ function paint({ wipe, ink, write, screen }) {
   }
 
   if (!tap) {
-    buttons.c?.paint((btn) => {
-      ink(btn.down ? "maroon" : "red")
-        .box(btn.box)
-        .ink("white")
-        .write("C", btn.box.x, btn.box.y);
-    });
-    buttons.d?.paint((btn) => {
-      ink(btn.down ? "maroon" : "red")
-        .box(btn.box)
-        .ink("white")
-        .write("D", btn.box.x, btn.box.y);
+    // Write current octave.
+    ink("white").write(octave, 6, screen.height - 32 - 10);
+
+    // Buttons
+    buttonNotes.forEach((note) => {
+      if (buttons[note]) {
+        buttons[note].paint((btn) => {
+          ink(btn.down ? "maroon" : octaveTheme[octave])
+            .box(btn.box)
+            .ink("white")
+            .write(note.toUpperCase(), btn.box.x, btn.box.y);
+        });
+      }
     });
   }
 }
@@ -284,69 +295,105 @@ function act({ event: e, sound: { synth }, pens }) {
   if (!tap) {
     if (e.is("lift") && pens().length <= 1) anyDown = false;
 
-    buttons.c.act(e, {
-      down: (btn) => {
-        const note = "C";
-        if (downs["c"]) return false; // Cancel the down if the key is held.
-        anyDown = true;
-        keys += note;
-        sounds[note] = {
-          note,
-          sound: synth({
-            type: wave,
-            tone: `${octave}${note}`,
-            duration: "🔁",
-          }),
-        };
-      },
-      over: (btn) => {
-        if (btn.up && anyDown) {
-          btn.up = false;
-          btn.actions.down(btn);
-        }
-      },
-      out: (btn) => {
-        btn.down = false;
-        btn.actions.up(btn);
-      },
-      up: (btn) => {
-        if(downs["c"]) return false;
-        sounds["C"]?.sound.kill(0.25);
-        delete sounds["C"];
-      },
+    buttonNotes.forEach((note) => {
+      if (buttons[note]) {
+        buttons[note].act(e, {
+          down: (btn) => {
+            const noteUpper = note.toUpperCase();
+            if (downs[note]) return false; // Cancel the down if the key is held.
+            anyDown = true;
+            keys += noteUpper;
+            sounds[noteUpper] = {
+              note: noteUpper,
+              sound: synth({
+                type: wave,
+                tone: `${octave}${noteUpper}`,
+                duration: "🔁",
+              }),
+            };
+          },
+          over: (btn) => {
+            if (btn.up && anyDown) {
+              btn.up = false;
+              btn.actions.down(btn);
+            }
+          },
+          out: (btn) => {
+            btn.down = false;
+            btn.actions.up(btn);
+          },
+          up: (btn) => {
+            if (downs[note]) return false;
+            sounds[note.toUpperCase()]?.sound.kill(0.25);
+            delete sounds[note.toUpperCase()];
+          },
+        });
+      }
     });
 
-    buttons.d.act(e, {
-      down: (btn) => {
-        const note = "D";
-        if (downs["d"]) return false; // Cancel the down if the key is held.
-        anyDown = true;
-        keys += note;
-        sounds[note] = {
-          note,
-          sound: synth({
-            type: wave,
-            tone: `${octave}${note}`,
-            duration: "🔁",
-          }),
-        };
-      },
-      over: (btn) => {
-        if (btn.up && anyDown) {
-          btn.up = false;
-          btn.actions.down(btn);
-        }
-      },
-      out: (btn) => {
-        btn.down = false;
-        btn.actions.up(btn);
-      },
-      up: (btn) => {
-        if(downs["d"]) return false;
-        sounds["D"]?.sound.kill(0.25);
-        delete sounds["D"];
-      },
-    });
+    // buttons.c.act(e, {
+    //   down: (btn) => {
+    //     const note = "C";
+    //     if (downs["c"]) return false; // Cancel the down if the key is held.
+    //     anyDown = true;
+    //     keys += note;
+    //     sounds[note] = {
+    //       note,
+    //       sound: synth({
+    //         type: wave,
+    //         tone: `${octave}${note}`,
+    //         duration: "🔁",
+    //       }),
+    //     };
+    //   },
+    //   over: (btn) => {
+    //     if (btn.up && anyDown) {
+    //       btn.up = false;
+    //       btn.actions.down(btn);
+    //     }
+    //   },
+    //   out: (btn) => {
+    //     btn.down = false;
+    //     btn.actions.up(btn);
+    //   },
+    //   up: (btn) => {
+    //     if (downs["c"]) return false;
+    //     sounds["C"]?.sound.kill(0.25);
+    //     delete sounds["C"];
+    //   },
+    // });
+
+    // buttons.d.act(e, {
+    //   down: (btn) => {
+    //     const note = "D";
+    //     if (downs["d"]) return false; // Cancel the down if the key is held.
+    //     anyDown = true;
+    //     keys += note;
+    //     sounds[note] = {
+    //       note,
+    //       sound: synth({
+    //         type: wave,
+    //         tone: `${octave}${note}`,
+    //         duration: "🔁",
+    //       }),
+    //     };
+    //   },
+    //   over: (btn) => {
+    //     if (btn.up && anyDown) {
+    //       btn.up = false;
+    //       btn.actions.down(btn);
+    //     }
+    //   },
+    //   out: (btn) => {
+    //     btn.down = false;
+    //     btn.actions.up(btn);
+    //   },
+    //   up: (btn) => {
+    //     if (downs["d"]) return false;
+    //     sounds["D"]?.sound.kill(0.25);
+    //     delete sounds["D"];
+    //   },
+    // });
   }
 
   if (editable && e.is("keyboard:down:tab") && !e.repeat) {
@@ -441,7 +488,7 @@ function act({ event: e, sound: { synth }, pens }) {
           keys += "f";
         }
 
-        if(buttons[key]) buttons[key].down = true;
+        if (buttons[key]) buttons[key].down = true;
 
         sounds[key] = {
           note,
@@ -463,7 +510,7 @@ function act({ event: e, sound: { synth }, pens }) {
       delete sounds[key];
       if (downs[key]) {
         delete downs[key];
-        if(buttons[key]) buttons[key].down = false;
+        if (buttons[key]) buttons[key].down = false;
       }
     }
   });
