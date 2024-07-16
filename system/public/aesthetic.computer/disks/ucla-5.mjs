@@ -9,8 +9,10 @@
     3. [] Expanding worm. 🪱
     ---
     4. [] Keeping time and clock-making. 
-    5. - [] Progress bars.
-    6. - [] Learning `lineAngle(x1, y1, dist, degrees)`
+    5. - [] Using LLMs to learn about the JavaScript `Date` Object. 
+    6. - [] Writing the time.
+    7. - [] Progress bars and using `num.map`.
+    8. - [] Learning `lineAngle(x1, y1, dist, degrees)`
 */
 
 function paint({ wipe }) {
