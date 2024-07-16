@@ -10,27 +10,45 @@
     - Exercises -
     1. [x] Rectangle painting and the backbuffer. (graphics review)
     2. [🟠] Modes and colors. 
+      - [x] Added 'pan'.
       - [] Outline mode switch.
-      - [] Color array cycle switch.
-    3. [] Downloading the 'canvas'.
-      - [] Learning `download(filename, data, modifiers)`.
+        - [x] Flag for outline mode.
+        - [x] Make a keyboard shotcut. 'act'
+        - [x] Make an overlay.
+        - [x] Paint outlines if outline mode :).
+      - [🌈] Color array cycle switch.
+        - [x] Create a palette of possible colors. (Array)
+        - [x] Create "chosenColor" state to hold the option.
+        - [x] Make a label that paints 'chosenColor'
+        - [x] Make sure we paint and preview in the 'chosenColor'
+        - [x] Add a keyboard <- -> control to cycle.
+    3. [x] Downloading the 'canvas'.
+      - [x] Keyboard shortcut 'd' key will trigger 'download'.
+      - [x] Learning `download(filename, data, modifiers)`.
 */
 
-let stamp;
+let canvas;
+let outline = false;
+
+let palette = ["red", 'yellow', "blue", "black"]; // Array of Strings
+//                0         1        2       3
+// Arrays are ORDERED       ^ 'index'
+let chosenColor = 1; // not the color itself, but a reference to the index
 
 function boot({ painting, screen }) {
-  stamp = painting(
-    screen.width,
-    screen.height,
+  // "Instantiation of State"
+  canvas = painting(
+    screen.width / 2,
+    screen.height / 2,
     ({ wipe, ink, line, noise16 }) => {
-      wipe("yellow", 100);
-      ink("red");
-      line(0, 0, screen.width, screen.height);
+      wipe(); // Random starting color.
     },
   );
 }
 
-let needsStamp = false;
+let needsCanvas = false;
+let panX = 48;
+let panY = 48;
 
 function paint({
   wipe,
@@ -45,41 +63,112 @@ function paint({
   page,
 }) {
   wipe("gray");
-  paste(stamp);
+  paste(canvas, panX, panY); // painting, x, y
 
   const x = pen?.x || screen.width / 2;
   const y = pen?.y || screen.height / 2;
-  const width = x - startingCornerX;
-  const height = y - startingCornerY;
+  const width = x - startX;
+  const height = y - startY;
 
-  ink("yellow").write("sx:" + startingCornerX, 6, 20);
+  ink("yellow").write("sx:" + startX, 6, 20);
   ink("cyan").write("x:" + x, 6, 30);
   ink("blue").write("width:" + width, 6, 40);
 
-  if (pen?.drawing || needsStamp) {
-    ink("red").box(startingCornerX, startingCornerY, width, height, "outline"); // x, y, size, style
+  if (pen?.drawing || needsCanvas) {
+    ink(palette[chosenColor]).box(startX, startY, width, height, "outline"); // x, y, size, style
     // ink("blue", 64).box(startingCornerX, startingCornerY, width, height, "fill"); // x, y, size, style
   }
 
-  if (needsStamp) {
-    // Draw to the "stamp" buffer.
-    needsStamp = false;
-    page(stamp);
-    ink("blue").box(startingCornerX, startingCornerY, width, height, "fill"); // x, y, size, style
+  if (needsCanvas) {
+    // Draw to the "canvas" buffer.
+    needsCanvas = false;
+    page(canvas);
+
+    let style = "fill"; // Default.
+    if (outline) style = "outline"; // Adjusting from the default.
+    ink(palette[chosenColor]).box(startX - panX, startY - panY, width, height, style);
     page(screen);
   }
+
+  if (panning) {
+    ink("white").write("PAN", 6, screen.height - 12);
+  }
+
+  if (outline) {
+    ink("yellow").write("OUTLINE", 6, screen.height - 32);
+  }
+
+  ink(palette[chosenColor]).write(palette[chosenColor], 6, 52);
 }
 
-let startingCornerX;
-let startingCornerY;
+let startX;
+let startY;
 
-function act({ event: e, sound, screen }) {
-  if (e.is("touch")) {
-    startingCornerX = e.x;
-    startingCornerY = e.y;
+let panning = false; // 🚦 Flag
+
+function act({ event: e, sound, screen, download }) {
+  // Storage
+  if (e.is("keyboard:down:d")) {
+      // - [] Learning `download(filename, data, modifiers)`.
+      //                                   ^canvas
+      //                         ^"rectangles.png"
+      download("rectangles.png", canvas, { scale: 1 });
   }
+
+  // Palette Switching
+  if (e.is("keyboard:down:arrowright")) {
+    chosenColor += 1;
+    if (chosenColor === palette.length) {
+      chosenColor = 0;
+    }
+    console.log("chosenColor:", chosenColor, "palette.length", palette.length);
+    // Same as... chosenColor = chosenColor + 1
+  }
+
+  if (e.is("keyboard:down:arrowleft")) {
+    chosenColor -= 1; // Move to the left....
+    if (chosenColor === -1) {
+      chosenColor = palette.length - 1;
+    }
+  }
+
+  // Outline
+  if (e.is("keyboard:down:o")) {
+    outline = !outline; // Set outline to its opposite.
+    // Same as...
+    // if (outline === false) {
+    //   outline = true;
+    // } else {
+    //   outline = false;
+    // }
+  }
+
+  // if (e.is("keyboard:up:o")) {
+  // outline = false;
+  // }
+
+  // Panning
+  if (e.is("keyboard:down:shift")) {
+    panning = true;
+  }
+
+  if (e.is("keyboard:up:shift")) {
+    panning = false;
+  }
+
+  if (panning && e.is("move")) {
+    panX = panX + e.delta.x;
+    panY = panY + e.delta.y;
+  }
+
+  // Drawing
+  if (e.is("touch")) {
+    startX = e.x;
+    startY = e.y;
+  }
+
   if (e.is("lift")) {
-    needsStamp = true;
+    needsCanvas = true;
   }
 }
 
