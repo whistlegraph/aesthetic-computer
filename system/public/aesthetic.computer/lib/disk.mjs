@@ -4525,7 +4525,7 @@ async function makeFrame({ data: { type, content } }) {
             downloadScreenshot(); // 🖼️ Take a screenshot.
           }
           $commonApi.sound.synth({
-            tone: 800,
+            tone: 1600,
             duration: 0.02,
             attack: 0.01,
             decay: 0.5,
@@ -4546,7 +4546,7 @@ async function makeFrame({ data: { type, content } }) {
           currentPath !== "aesthetic.computer/disks/prompt"
         ) {
           $commonApi.sound.synth({
-            tone: data.key === "Backspace" ? 400 : 600,
+            tone: data.key === "Backspace" ? 800 : 1200,
             beats: 0.1,
             attack: 0.01,
             decay: 0.5,
@@ -4835,7 +4835,34 @@ async function makeFrame({ data: { type, content } }) {
       const id = soundId;
       if (duration === "🔁") duration = Infinity; // First emoji in the API. 24.07.03.02.26
       if (duration !== undefined) beats = (duration * sound.bpm) / 60;
-      if (typeof tone === "string") tone = $sound.freq(tone); // Auto-match strings to notes.
+
+      // if (typeof tone === "string") tone = $sound.freq(tone); // Auto-match strings to notes.
+
+      // if (typeof tone === "string") {
+      //   console.log("🎵 Pre-tone:", tone);
+
+      //   // Check if the string can be converted to a number
+      //   let num = parseFloat(tone);
+
+      //   console.log("😀 Num:", num);
+
+      //   if (!isNaN(num)) {
+      //     tone = num;
+      //   } else {
+      //     // Auto-match strings to notes
+      //     tone = $sound.freq(tone);
+      //   }
+      // }
+
+      if (typeof tone === "string") {
+        if (!isNaN(parseFloat(tone)) && isFinite(tone)) {
+          tone = Number(tone);
+        } else {
+          tone = $sound.freq(tone);
+        }
+      }
+
+      // console.log("⛈️ Tone:", tone);
 
       sound.sounds.push({ id, type, tone, beats, attack, decay, volume, pan });
 
@@ -4875,7 +4902,7 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.sound = $sound;
 
     // System beep.
-    $commonApi.beep = (tone = 600) => {
+    $commonApi.beep = (tone = 1200) => {
       $sound.synth({
         tone,
         beats: 0.1,
@@ -5055,7 +5082,7 @@ async function makeFrame({ data: { type, content } }) {
 
           if (e.is("touch:5")) {
             sound.synth({
-              tone: 800,
+              tone: 1600,
               duration: 0.02,
               attack: 0.01,
               decay: 0.5,
@@ -5082,7 +5109,7 @@ async function makeFrame({ data: { type, content } }) {
               if ($api.slug !== "camera") masked = true;
 
               $api.sound.synth({
-                tone: 300,
+                tone: 600,
                 beats: 0.1,
                 attack: 0.01,
                 decay: 0.5,
@@ -5091,7 +5118,7 @@ async function makeFrame({ data: { type, content } }) {
             },
             push: () => {
               $api.sound.synth({
-                tone: 600,
+                tone: 1200,
                 beats: 0.1,
                 attack: 0.01,
                 decay: 0.5,

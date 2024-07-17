@@ -17,16 +17,31 @@
 let stamp;
 
 function boot({ painting, screen }) {
-  stamp = painting(screen.width, screen.height, ({ wipe, ink, line, noise16 }) => {
-    wipe("yellow", 100);
-    ink("red");
-    line(0, 0, screen.width, screen.height);
-  });
+  stamp = painting(
+    screen.width,
+    screen.height,
+    ({ wipe, ink, line, noise16 }) => {
+      wipe("yellow", 100);
+      ink("red");
+      line(0, 0, screen.width, screen.height);
+    },
+  );
 }
 
 let needsStamp = false;
 
-function paint({ wipe, ink, line, write, box, screen, pen, painting, paste, page }) {
+function paint({
+  wipe,
+  ink,
+  line,
+  write,
+  box,
+  screen,
+  pen,
+  painting,
+  paste,
+  page,
+}) {
   wipe("gray");
   paste(stamp);
 
@@ -44,7 +59,8 @@ function paint({ wipe, ink, line, write, box, screen, pen, painting, paste, page
     // ink("blue", 64).box(startingCornerX, startingCornerY, width, height, "fill"); // x, y, size, style
   }
 
-  if (needsStamp) { // Draw to the "stamp" buffer.
+  if (needsStamp) {
+    // Draw to the "stamp" buffer.
     needsStamp = false;
     page(stamp);
     ink("blue").box(startingCornerX, startingCornerY, width, height, "fill"); // x, y, size, style

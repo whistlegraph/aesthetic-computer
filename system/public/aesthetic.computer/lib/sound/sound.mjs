@@ -33,7 +33,7 @@ export default class Sound {
     this.#type = type;
 
     const frequency = noteOrFreq(tone || 1); // Frequency in samples, divided by 2 yields the period length.
-    this.#wavelength = sampleRate / frequency / 2;
+    this.#wavelength = sampleRate / frequency;// / 2;
     this.#futureWavelength = this.#wavelength;
 
     this.#duration = duration;
