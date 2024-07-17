@@ -49,6 +49,7 @@ function boot({ painting, screen }) {
 let needsCanvas = false;
 let panX = 48;
 let panY = 48;
+let lastPenX, lastPenY;
 
 function paint({
   wipe,
@@ -65,8 +66,13 @@ function paint({
   wipe("gray");
   paste(canvas, panX, panY); // painting, x, y
 
-  const x = pen?.x || screen.width / 2;
-  const y = pen?.y || screen.height / 2;
+  if (pen) {
+    lastPenX = pen.x;
+    lastPenY = pen.y;
+  }
+
+  const x = lastPenX || screen.width / 2;
+  const y = lastPenY || screen.height / 2;
   const width = x - startX;
   const height = y - startY;
 
