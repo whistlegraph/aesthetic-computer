@@ -53,6 +53,8 @@ class SoundProcessor extends AudioWorkletProcessor {
     this.port.onmessage = (e) => {
       const msg = e.data;
 
+      console.log(msg.type);
+
       // Send waveform data to `bios`.
       if (msg.type === "get-waveforms") {
         this.port.postMessage({
@@ -86,6 +88,7 @@ class SoundProcessor extends AudioWorkletProcessor {
 
       // Update properties of an existing sound, if found.
       if (msg.type === "update") {
+        // console.log("got update!", this.#running, msg.data.id);
         this.#running[msg.data.id]?.update(msg.data.properties);
         return;
       }
