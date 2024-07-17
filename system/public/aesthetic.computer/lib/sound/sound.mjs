@@ -1,4 +1,3 @@
-import { noteOrFreq } from "./note.mjs";
 import { within, lerp } from "../num.mjs";
 const { abs, floor, sin, PI } = Math;
 
@@ -31,36 +30,23 @@ export default class Sound {
 
   constructor({ type, tone, duration, attack, decay, volume, pan }) {
     this.#type = type;
-
-    const frequency = noteOrFreq(tone || 1); // Frequency in samples, divided by 2 yields the period length.
-    this.#wavelength = sampleRate / frequency;// / 2;
+    const frequency = tone || 1; // Frequency in samples.
+    this.#wavelength = sampleRate / frequency; // / 2;
     this.#futureWavelength = this.#wavelength;
-
     this.#duration = duration;
     this.#attack = attack;
     this.#decay = decay;
     this.#pan = pan;
     this.#volume = volume;
     this.#futureVolume = this.#volume;
-
     this.#decayStart = this.#duration - this.#decay;
   }
 
-  // Update certain properties whilst playing.
-  // update({ tone, volume }) {
-  //   console.log("Update received:", tone);
-  //   if (tone) {
-  //     // Set futureWavelength for ramping up to in `next`.
-  //     // TODO: Also add a timing delay here?
-  //     this.#futureWavelength = sampleRate / noteOrFreq(tone || 1);
-  //   }
-  //   if (typeof volume === "number") this.#futureVolume = volume;
-  // }
-
   update({ tone, volume }) {
+    // console.log("Newwwwww tone:", tone);
     if (typeof tone === "number" && tone > 0) {
       // Set futureWavelength for ramping up to in `next`.
-      this.#futureWavelength = sampleRate / noteOrFreq(tone) / 2;
+      this.#futureWavelength = sampleRate / tone;
     }
     if (typeof volume === "number") this.#futureVolume = volume;
   }
@@ -88,6 +74,7 @@ export default class Sound {
 
     // Lerp wavelength & volume towards their future goals.
     if (!within(0.001, this.#wavelength, this.#futureWavelength)) {
+      // TODO: Change the 001 exponential lerp to something like a linear fade? 24.07.17.21.23
       this.#wavelength = lerp(this.#wavelength, this.#futureWavelength, 0.001);
     }
 

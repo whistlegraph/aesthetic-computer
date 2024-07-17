@@ -5,7 +5,6 @@
 
 TODO: 💮 Daisy
 
-
 🚫 🪀 Toys R Us Kid
   bababg (i don't wanna grow up)
   bb (i'm a)
@@ -56,14 +55,13 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
-    - [] Experiment with a monovoice/slide/replace note mode.
-    - [] Add a software based layout / playable grid that is phone friendly.
-    - [-] Find an ideal layout that makes sense for mobile.
-    + Done
-    - [x] Implement the full scale with rollover.
+    - [x] Find an ideal button layout that makes sense for mobile.
+    - [] Get 'slide' working on the software buttons somehow so dragging between
+         butons enables the sliding.
     + Later
     // TODO: Rethink how to do a simpler button API... perhaps with "register"
     //       and an act function?
+  - [?] Add longer / customizable slide duration.
   - [] Add live highlights back in type mode that include note tokenization.
   - [] Pressing a new button down should automatically lift the other one.
   - [] Add a 'repeat' or 'hold' key which should be 'shift' on the keyboard
@@ -108,6 +106,11 @@ TODO: 💮 Daisy
   - [] Leave out all options from synth / make sensible defaults first.
   - [] Add 'scale' and 'rotation' to `write`.
   + Done
+  - [x] Implement the full scale with rollover.
+  - [x] Experiment with a monovoice/slide/replace note mode.
+    + Done
+    - [x] Lift up should slide back.
+    - [x] Fix ui button issue. 
   - [x] Tapping buttons on the layout should add notes to the notepad.
   - [x] Software buttons and keyboard buttons should not overlap and pushing
         keyboard buttons should activate the ui.
@@ -147,6 +150,7 @@ const STARTING_WAVE = "sine"; //"sine";
 let wave = STARTING_WAVE;
 
 let hold = false;
+let slide = false;
 
 let octave = STARTING_OCTAVE;
 let keys = "";
@@ -157,6 +161,9 @@ let tapped; // Store the last tracked key.
 let editable = true;
 const downs = {}; // Hardware keys that are currently held down.
 const sounds = {};
+const tonestack = {}; // Temporary tone-stack that always keeps currently held
+//                       keys and pops them off the stack as keys are lifted.
+//                       (These tones will not necessarily be playing.)
 
 let sharps = false,
   flats = false;
@@ -188,7 +195,11 @@ function boot({ params, colon, ui, screen }) {
     tap = true;
     editable = false;
   }
-  wave = colon[0] || wave;
+
+  const wavetypes = ["square", "sine", "triangle", "sawtooth", "noise-white"];
+
+  wave = wavetypes.indexOf(colon[0]) > -1 ? colon[0] : wave;
+  slide = colon[0] === "slide" || colon[1] === "slide";
 
   // TOOD: 🔘 Implement a button.
   buttons.c = new ui.Button(6, screen.height - 32, 32, 32);
@@ -201,7 +212,7 @@ function boot({ params, colon, ui, screen }) {
 }
 
 function paint({ wipe, ink, write, screen }) {
-  const active = Object.keys(sounds);
+  const active = orderedByCount(sounds);
 
   let bg;
 
@@ -233,7 +244,7 @@ function paint({ wipe, ink, write, screen }) {
     // Highlight all playing keys...
     ink("yellow");
 
-    const notes = active.map((key) => sounds[key].note);
+    const notes = active.map((key) => sounds[key]?.note);
     // TODO: Tokenize the keys and replace any instances of what got pressed,
     //       including octave keys and accents.
     write(
@@ -269,7 +280,7 @@ function paint({ wipe, ink, write, screen }) {
 
   if (!tap) {
     ink("lime");
-    write(active.map((key) => sounds[key].note).join(" "), 6, 20);
+    write(active.map((key) => sounds[key]?.note).join(" "), 6, 20);
   } else {
     ink("white");
     active.forEach((sound, index) => {
@@ -289,7 +300,19 @@ function paint({ wipe, ink, write, screen }) {
     buttonNotes.forEach((note) => {
       if (buttons[note]) {
         buttons[note].paint((btn) => {
-          ink(btn.down ? "maroon" : octaveTheme[octave])
+          let color;
+          if (
+            (!slide && btn.down) ||
+            (btn.down &&
+              slide &&
+              active[active.length - 1]?.toLowerCase() === note)
+          ) {
+            color = "maroon";
+          } else {
+            color = octaveTheme[octave];
+          }
+
+          ink(color)
             .box(btn.box)
             .ink("white")
             .write(note.toUpperCase(), btn.box.x, btn.box.y);
@@ -314,7 +337,6 @@ function act({ event: e, sound: { synth }, pens }) {
 
   if (!tap) {
     if (e.is("lift") && pens().length <= 1) anyDown = false;
-
     buttonNotes.forEach((note) => {
       if (buttons[note]) {
         buttons[note].act(e, {
@@ -350,70 +372,6 @@ function act({ event: e, sound: { synth }, pens }) {
         });
       }
     });
-
-    // buttons.c.act(e, {
-    //   down: (btn) => {
-    //     const note = "C";
-    //     if (downs["c"]) return false; // Cancel the down if the key is held.
-    //     anyDown = true;
-    //     keys += note;
-    //     sounds[note] = {
-    //       note,
-    //       sound: synth({
-    //         type: wave,
-    //         tone: `${octave}${note}`,
-    //         duration: "🔁",
-    //       }),
-    //     };
-    //   },
-    //   over: (btn) => {
-    //     if (btn.up && anyDown) {
-    //       btn.up = false;
-    //       btn.actions.down(btn);
-    //     }
-    //   },
-    //   out: (btn) => {
-    //     btn.down = false;
-    //     btn.actions.up(btn);
-    //   },
-    //   up: (btn) => {
-    //     if (downs["c"]) return false;
-    //     sounds["C"]?.sound.kill(0.25);
-    //     delete sounds["C"];
-    //   },
-    // });
-
-    // buttons.d.act(e, {
-    //   down: (btn) => {
-    //     const note = "D";
-    //     if (downs["d"]) return false; // Cancel the down if the key is held.
-    //     anyDown = true;
-    //     keys += note;
-    //     sounds[note] = {
-    //       note,
-    //       sound: synth({
-    //         type: wave,
-    //         tone: `${octave}${note}`,
-    //         duration: "🔁",
-    //       }),
-    //     };
-    //   },
-    //   over: (btn) => {
-    //     if (btn.up && anyDown) {
-    //       btn.up = false;
-    //       btn.actions.down(btn);
-    //     }
-    //   },
-    //   out: (btn) => {
-    //     btn.down = false;
-    //     btn.actions.up(btn);
-    //   },
-    //   up: (btn) => {
-    //     if (downs["d"]) return false;
-    //     sounds["D"]?.sound.kill(0.25);
-    //     delete sounds["D"];
-    //   },
-    // });
   }
 
   if (editable && e.is("keyboard:down:tab") && !e.repeat) {
@@ -510,25 +468,30 @@ function act({ event: e, sound: { synth }, pens }) {
 
         if (buttons[key]) buttons[key].down = true;
 
-        let slideMode = true;
+        const active = orderedByCount(sounds);
 
-        const active = Object.keys(sounds).sort(
-          (a, b) => sounds[a].count - sounds[b].count,
-        );
-        console.log(active);
-
-        if (slideMode && active.length > 0) {
-          console.log("SWAPPING");
-          sounds[active[0]].sound.update({ tone: 1000 });//`${octave}${note}`});
+        if (slide && active.length > 0) {
+          // TODO: Extend the delay for sliding...
+          const tone = `${octave}${note}`;
+          sounds[active[0]]?.sound?.update({ tone });
+          tonestack[key] = {
+            count: Object.keys(tonestack).length,
+            tone,
+          };
           sounds[key] = sounds[active[0]]; // Switch the note label.
           delete sounds[active[0]]; // Swap the sound reference.
         } else {
+          const tone = `${octave}${note}`;
+          tonestack[key] = {
+            count: Object.keys(tonestack).length,
+            tone,
+          };
           sounds[key] = {
             note,
             count: active.length + 1, // which one are we?
             sound: synth({
               type: wave,
-              tone: `${octave}${note}`,
+              tone,
               duration: "🔁",
             }),
           };
@@ -536,12 +499,22 @@ function act({ event: e, sound: { synth }, pens }) {
       }
     }
 
-    if (e.is(`keyboard:up:${key}`)) {
+    // Just for the notes, not the octaves...
+    if (e.is(`keyboard:up:${key}`) /*&& notes.indexOf(key) > -1*/) {
       if (tap && tapped === key) {
         tapIndex = (tapIndex + 1) % keys.length;
         tapped = undefined;
       }
-      sounds[key]?.sound?.kill?.(0.25); // Kill a sound if it exists.
+      const orderedTones = orderedByCount(tonestack);
+      if (slide && orderedTones.length > 1) {
+        sounds[key]?.sound?.update({
+          tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
+        });
+        sounds[orderedTones[orderedTones.length - 2]] = sounds[key];
+      } else {
+        sounds[key]?.sound?.kill?.(0.25); // Kill a sound if it exists.
+      }
+      delete tonestack[key]; // Remove this key from the notestack.
       delete sounds[key];
       if (downs[key]) {
         delete downs[key];
@@ -549,6 +522,10 @@ function act({ event: e, sound: { synth }, pens }) {
       }
     }
   });
+}
+
+function orderedByCount(obj) {
+  return Object.keys(obj).sort((a, b) => obj[a].count - obj[b].count);
 }
 
 function resetModeState() {
