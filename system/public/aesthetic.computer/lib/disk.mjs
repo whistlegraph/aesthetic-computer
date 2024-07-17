@@ -4704,10 +4704,11 @@ async function makeFrame({ data: { type, content } }) {
       // Compute the frequency of a musical note.
       // 🗒️ Can take a number or formatted octave string such as 5C# or even C#5 for C sharp in fifth octave.
       freq: function (input) {
-        // console.log("🎵 Note to check:", noteString);
+        // console.log("🎵 Note to check:", input);
         // Return if it's just a number or parses as one.
         if (typeof input === "number") return input;
         if (!isNaN(parseFloat(input)) && isFinite(input)) return Number(input); 
+
         let octave, note;
         input = input.toLowerCase(); // Downcase everything.
 
@@ -4876,8 +4877,7 @@ async function makeFrame({ data: { type, content } }) {
           return 1 - max(0, end - time) / seconds;
         },
         update: function (properties) {
-          // Property updates happen outside of beat timing.
-          if (properties.tone) properties.tone = $sound.freq(tone);
+          if (properties.tone) properties.tone = $sound.freq(properties.tone);
           send({
             type: "synth:update",
             content: { id, properties },

@@ -2902,7 +2902,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     //}
 
     if (type === "synth:update") {
-      console.log(content, updateSound);
       updateSound?.(content);
       return;
     }

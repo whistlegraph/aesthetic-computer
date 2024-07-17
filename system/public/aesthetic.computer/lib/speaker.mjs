@@ -52,9 +52,6 @@ class SoundProcessor extends AudioWorkletProcessor {
     // Change BPM, or queue up an instrument note.
     this.port.onmessage = (e) => {
       const msg = e.data;
-
-      console.log(msg.type);
-
       // Send waveform data to `bios`.
       if (msg.type === "get-waveforms") {
         this.port.postMessage({
