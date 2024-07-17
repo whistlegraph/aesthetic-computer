@@ -28,6 +28,7 @@ class Bleep {
   needsBleep = false;
   tone;
   color;
+  sound;
 
   constructor({ ui: { Button }, num: { randIntRange } }, geometry, bespoke) {
     if (bespoke?.tone) {
@@ -60,10 +61,9 @@ class Bleep {
   beep({ sound: { synth } }) {
     if (!this.needsBleep) return;
     this.needsBleep = false;
-
-    synth({
+    this.sound = synth({
       tone: this.tone,
-      beats: 1,
+      duration: "🔁",
       decay: 0.99,
     });
   }
@@ -200,6 +200,7 @@ function act($) {
         push: () => {
           anyBleepDowned = false;
           needsPaint();
+          bleep.sound?.kill(0.1);
         },
         down: () => {
           anyBleepDowned = true;
@@ -214,10 +215,12 @@ function act($) {
         },
         rollout: () => {
           bleep.button.down = false;
+          bleep.sound?.kill(0.1);
           needsPaint();
         },
         cancel: () => {
           anyBleepDowned = false;
+          bleep.sound?.kill(0.1);
           needsPaint();
         },
       },

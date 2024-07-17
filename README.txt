@@ -65,15 +65,9 @@ but technically agnostic. (Choose your aesthetic!)
 
 ------------------------------------------    
 
-*** notepad ***
-- [] add boxes / software based layout
-- [] 3AGAGA fails in tap (reverts octave)
-
-*** bleep ***
-- [] add sustain to bleep
-
 *** systems ***
-- [] the 'act' function is sometimes not being exported automatically by the parser...
+- [] the 'act' function is sometimes not being exported automatically by the parser.
+- [] The 'Open Window' action in the VSCode extension no longer seems to work.
 - [] make sure .mjs saving works (EXCEPT on vscode.dev)
   - [] It seems to still work fine on my local machine but didn't work for some students... maybe an old VS Code Extension version?
 - [] get puppeteer working again in development 
@@ -101,7 +95,6 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** first week of july 2 ***
   - [🔴] always display first paint iteration. (corner skip in `ucla-2-a`)
-  - [] add drum kit for thursday how to make a touch based drum kit, with buttons
   - [] users need to log out and log back in before publishing
        (sessions get lost)
     - [-] test after opening and closing the pane
@@ -124,6 +117,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [] buff out the profile pages / make new profile pages in kidlisp
   - [] add image / pixels support to chat and also maybe kidlisp support
   + Done
+  - [x] add drum kit for thursday how to make a touch based drum kit, with buttons
   - [x] fix 'sawtooth'
   - [x] design piano key activity / button activity for tuesday
   - [x] add prutti 50
