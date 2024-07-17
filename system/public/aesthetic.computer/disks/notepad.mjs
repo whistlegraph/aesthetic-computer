@@ -5,6 +5,16 @@
 
 TODO: 💮 Daisy
 
+
+🚫 🪀 Toys R Us Kid
+  bababg (i don't wanna grow up)
+  bb (i'm a)
+  abaf# (toys r us kid)
+
+  f# f# g# f# (there's a million)
+  g# f# g# f# e (toys at toys r us)
+
+
 ✅ 🐦 Lullaby
   eeg eeg
   eg5c4b aa g
@@ -46,8 +56,9 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
-  - [-] Add a software based layout / playable grid that is phone friendly.
-    - [🟠] Find an ideal layout that makes sense for mobile.
+    - [] Experiment with a monovoice/slide/replace note mode.
+    - [] Add a software based layout / playable grid that is phone friendly.
+    - [-] Find an ideal layout that makes sense for mobile.
     + Done
     - [x] Implement the full scale with rollover.
     + Later
@@ -159,7 +170,16 @@ const buttons = {}; // Software keys. 🎹
 
 // TODO: Clean this up and add sharp buttons, etc... 24.07.16.20.01
 const buttonNotes = ["c", "d", "e", "f", "g", "a", "b"];
-const octaveTheme = ["black", "black", "grey", "red", "orange", "yellowgreen", "green", "purple"];
+const octaveTheme = [
+  "black",
+  "black",
+  "grey",
+  "red",
+  "orange",
+  "yellowgreen",
+  "green",
+  "purple",
+];
 
 function boot({ params, colon, ui, screen }) {
   keys = params.join(" ") || "";
@@ -490,14 +510,29 @@ function act({ event: e, sound: { synth }, pens }) {
 
         if (buttons[key]) buttons[key].down = true;
 
-        sounds[key] = {
-          note,
-          sound: synth({
-            type: wave,
-            tone: `${octave}${note}`,
-            duration: "🔁",
-          }),
-        };
+        let slideMode = true;
+
+        const active = Object.keys(sounds).sort(
+          (a, b) => sounds[a].count - sounds[b].count,
+        );
+        console.log(active);
+
+        if (slideMode && active.length > 0) {
+          console.log("SWAPPING");
+          sounds[active[0]].sound.update({ tone: 1000 });//`${octave}${note}`});
+          sounds[key] = sounds[active[0]]; // Switch the note label.
+          delete sounds[active[0]]; // Swap the sound reference.
+        } else {
+          sounds[key] = {
+            note,
+            count: active.length + 1, // which one are we?
+            sound: synth({
+              type: wave,
+              tone: `${octave}${note}`,
+              duration: "🔁",
+            }),
+          };
+        }
       }
     }
 

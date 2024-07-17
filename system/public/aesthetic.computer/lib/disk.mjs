@@ -4701,29 +4701,29 @@ async function makeFrame({ data: { type, content } }) {
         if (newBPM) sound.bpm = newBPM;
         return sound.bpm;
       },
-      // Calculate the frequency of a musical note.
-      freq: function (noteString) {
+      // Compute the frequency of a musical note.
+      // 🗒️ Can take a number or formatted octave string such as 5C# or even C#5 for C sharp in fifth octave.
+      freq: function (input) {
         // console.log("🎵 Note to check:", noteString);
-        let octave;
-        let note;
-
-        // Downcase everything.
-        if (typeof noteString === "string")
-          noteString = noteString.toLowerCase();
+        // Return if it's just a number or parses as one.
+        if (typeof input === "number") return input;
+        if (!isNaN(parseFloat(input)) && isFinite(input)) return Number(input); 
+        let octave, note;
+        input = input.toLowerCase(); // Downcase everything.
 
         // Check if the first character is a digit to determine if an octave is provided at the beginning
-        if (!isNaN(noteString.charAt(0))) {
+        if (!isNaN(input.charAt(0))) {
           // The first character is the octave
-          octave = parseInt(noteString.charAt(0), 10);
-          note = noteString.substring(1);
-        } else if (!isNaN(noteString.charAt(noteString.length - 1))) {
+          octave = parseInt(input.charAt(0), 10);
+          note = input.substring(1);
+        } else if (!isNaN(input.charAt(input.length - 1))) {
           // The last character is the octave
-          octave = parseInt(noteString.charAt(noteString.length - 1), 10);
-          note = noteString.substring(0, noteString.length - 1);
+          octave = parseInt(input.charAt(input.length - 1), 10);
+          note = input.substring(0, input.length - 1);
         } else {
           // If no octave is provided, default to octave 4
           octave = 4;
-          note = noteString;
+          note = input;
         }
 
         // Replace 's' with '#' and trailing 'f' with 'b', but only for note strings of length 2
@@ -4854,13 +4854,7 @@ async function makeFrame({ data: { type, content } }) {
       //   }
       // }
 
-      if (typeof tone === "string") {
-        if (!isNaN(parseFloat(tone)) && isFinite(tone)) {
-          tone = Number(tone);
-        } else {
-          tone = $sound.freq(tone);
-        }
-      }
+      tone = $sound.freq(tone);
 
       // console.log("⛈️ Tone:", tone);
 
@@ -4883,6 +4877,7 @@ async function makeFrame({ data: { type, content } }) {
         },
         update: function (properties) {
           // Property updates happen outside of beat timing.
+          if (properties.tone) properties.tone = $sound.freq(tone);
           send({
             type: "synth:update",
             content: { id, properties },

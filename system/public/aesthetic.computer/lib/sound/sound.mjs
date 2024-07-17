@@ -47,6 +47,16 @@ export default class Sound {
   }
 
   // Update certain properties whilst playing.
+  // update({ tone, volume }) {
+  //   console.log("Update received:", tone);
+  //   if (tone) {
+  //     // Set futureWavelength for ramping up to in `next`.
+  //     // TODO: Also add a timing delay here?
+  //     this.#futureWavelength = sampleRate / noteOrFreq(tone || 1);
+  //   }
+  //   if (typeof volume === "number") this.#futureVolume = volume;
+  // }
+
   update({ tone, volume }) {
     if (typeof tone === "number" && tone > 0) {
       // Set futureWavelength for ramping up to in `next`.
