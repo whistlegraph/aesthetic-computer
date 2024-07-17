@@ -1,4 +1,10 @@
 🪦 Completed Tasks (dumped from `README.txt`)
+ *** bleep ***
+   - [x] add sustain to bleep
+
+ *** notepad ***
+   - [x] add boxes / software based layout
+   - [x] 3AGAGA fails in tap (reverts octave)
 
  *** class -> user list ***
    - [x] joelle -> @joelle
