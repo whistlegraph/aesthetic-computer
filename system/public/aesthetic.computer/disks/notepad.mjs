@@ -525,7 +525,9 @@ function act({ event: e, sound: { synth }, pens }) {
 }
 
 function orderedByCount(obj) {
-  return Object.keys(obj).sort((a, b) => obj[a].count - obj[b].count);
+  return Object.keys(obj)
+    .filter(key => obj[key].hasOwnProperty('count'))
+    .sort((a, b) => obj[a].count - obj[b].count);
 }
 
 function resetModeState() {
