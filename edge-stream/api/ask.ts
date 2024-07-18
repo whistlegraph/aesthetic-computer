@@ -73,7 +73,7 @@ export default async function handler(req) {
       }
 
       // const model = hint.split(":")[1] || "gpt-3.5-turbo";
-      const model = hint.split(":")[1] || "gpt-4o"; // "gpt-4-0125-preview";
+      const model = hint.split(":")[1] || "gpt-4o-mini";
 
       if (model === "gpt-4") {
         top_p = 1;
