@@ -2598,7 +2598,7 @@ async function load(
     text,
     slug;
 
-  // console.log("🧩 Loading:", parsed, "dev:", devReload);
+  console.log("🧩 Loading:", parsed, "dev:", devReload);
 
   if (loading === false) {
     loading = true;
@@ -2875,6 +2875,9 @@ async function load(
     source,
     codeChannel,
   } = {}) {
+
+    // console.log("⚠️ Reloading:", piece, name, source);
+
     if (loading) {
       console.log("🟡 A piece is already loading.");
       return;
@@ -3622,7 +3625,8 @@ async function load(
     labelBack = false;
     previewMode = parsed.search?.startsWith("preview") || false;
     iconMode = parsed.search?.startsWith("icon") || false;
-    // console.log("🖼️ ICON MODE:", iconMode);
+    console.log("📑 Search:", parsed.search);
+    console.log("🖼️ ICON MODE:", iconMode);
     previewOrIconMode = previewMode || iconMode;
     paintings = {}; // Reset painting cache.
     prefetches?.forEach((p) => prefetchPicture(p)); // Prefetch parsed media.
@@ -3742,6 +3746,7 @@ let codeChannel, codeChannelAutoLoader;
 async function makeFrame({ data: { type, content } }) {
   // Runs once on boot.
   if (type === "init-from-bios") {
+
     debug = content.debug;
     setDebug(content.debug);
     ROOT_PIECE = content.rootPiece;
@@ -3777,8 +3782,11 @@ async function makeFrame({ data: { type, content } }) {
       codeChannelAutoLoader = null;
     };
 
+    console.log("Init:", content);
+
     // await handle(); // Get the user's handle.
     // console.log("🟢 Loading after preamble:", content.parsed);
+
     originalHost = content.parsed.host;
     loadAfterPreamble = () => {
       loadAfterPreamble = null;
@@ -3834,7 +3842,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // Update the logged in user after initialization.
   if (type === "session:started") {
-    // console.log("🟢 Session starting...");
+    console.log("🟢 Session starting...");
     USER = content.user;
     $commonApi.user = USER; // User will be set to "null" here
     //                         it it doesn't exist.
@@ -5790,6 +5798,7 @@ async function makeFrame({ data: { type, content } }) {
 
     // Wait 8 frames of the default piece before loading the initial piece.
     // And also make sure the session has been queried.
+    // console.log(sessionStarted);
     if (paintCount > 8n && (sessionStarted || $commonApi.net.sandboxed)) {
       //if (loadAfterPreamble) {
       // TODO: WHy does enabling this make the icon work?
