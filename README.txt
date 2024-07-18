@@ -36,7 +36,7 @@ but technically agnostic. (Choose your aesthetic!)
 🌟 Projects in Progress (PIP) 🌟
 
 *** icons ***
-  - [] fix `/prompt?icon=128x128` not loading icon mode
+  - [📔] fix `/prompt?icon=128x128` not loading icon mode
 
 *** sotce.net ***
   - [🟢] Finish sotce-net rc1
