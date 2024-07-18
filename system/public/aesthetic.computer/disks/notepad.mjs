@@ -55,6 +55,7 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
+    - [] slide only? sticky keys error... log all playing keys / sounds in slide mode / print them out to make sure about doubles...
     - [x] Find an ideal button layout that makes sense for mobile.
     - [] Get 'slide' working on the software buttons somehow so dragging between
          butons enables the sliding.
@@ -520,6 +521,7 @@ function act({ event: e, sound: { synth }, pens }) {
         delete downs[key];
         if (buttons[key]) buttons[key].down = false;
       }
+      console.log("Sounds:", sounds, "Tonestack:", tonestack);
     }
   });
 }
