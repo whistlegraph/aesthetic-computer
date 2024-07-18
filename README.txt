@@ -37,7 +37,8 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** sotce.net ***
   - [🟢] Finish sotce-net rc1
-  + ideas
+  + ideas after rc1 is basically complete
+  - [] print 🖨️ css 
   - [] friday editing interface  
   - [] next friday, launch august 1
     - [] infinite scroll
@@ -51,7 +52,6 @@ but technically agnostic. (Choose your aesthetic!)
     - [] privacy setting
       - [] user feed or no user feed
       - [] amelia's picks
-    - [] print 🖨️ css 
   + Done
   - [x] Test login in production in VS Code,
     - [x] and via vscode.dev

@@ -3,9 +3,9 @@
 
 /* #region 🏁 TODO 
   - [-] run a new development subscription
-  - [-] try from vscode / cancel as needed? 
-  - [🟠] run a production subscription
-  - [] bring in `respond` helper and replace `statusCode:` handler returns with it.
+  - [] add a cancellation button...
+  - [] try from vscode / cancel as needed? 
+  - [] run a production subscription
   - [] read from the database
   - [] The handle system would be shared among ac users.
     - [] Perhaps the subs could be 'sotce' prefixed.
@@ -16,6 +16,7 @@
   - [] How can I do shared reader cursors / co-presence somehow?
   - [] Account deletion.
   + Done
+  - [x] bring in `respond` helper and replace `statusCode:` handler returns with it.
   - [x] stripe paywall
   - [x] set up subscription payment wall on 'subscribe' button
     - [x] run a test subscription
@@ -69,6 +70,8 @@ const priceId = dev
 const productId = dev ? "prod_QTDAZAdV2KftJI" : "prod_QTDSAhsHGMRp3z";
 
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
+
+import { respond } from "../../backend/http.mjs";
 
 import {
   authorize, //,
@@ -536,12 +539,7 @@ export const handler = async (event, context) => {
         </body>
       </html>
     `;
-
-    return {
-      body,
-      statusCode: 200,
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-    };
+    return respond(200, body, { "Content-Type": "text/html; charset=utf-8" });
   } else if (path === "/subscribe" && method === "post") {
     try {
       const stripe = Stripe(key);
@@ -568,30 +566,15 @@ export const handler = async (event, context) => {
         cancel_url: `${event.headers.origin}/${redirectPath}?notice=cancel`,
       });
 
-      return {
-        statusCode: 200,
-        "Content-Type": "application/json",
-        body: JSON.stringify({ id: session.id }),
-      };
+      return respond(200, { id: session.id });
     } catch (error) {
       console.log("⚠️", error);
-      return {
-        statusCode: 500,
-        "Content-Type": "application/json",
-        body: JSON.stringify({ message: `Error: ${error.message}` }),
-      };
+      return respond(500, { message: `Error: ${error.message}` });
     }
   } else if (path === "/subscribed" && method === "post") {
     // First validate that the user has an active session via auth0.
     const user = await authorize(event.headers, "sotce");
-    // console.log("👧", user);
-
-    if (!user) {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ message: "Unauthorized user." }),
-      };
-    }
+    if (!user) return respond(401, { message: "Unauthorized user." });
 
     const email = user.email;
     let isSubscribed = false;
@@ -603,10 +586,7 @@ export const handler = async (event, context) => {
       const customers = await stripe.customers.list({ email, limit: 1 });
 
       if (customers.data.length === 0) {
-        return {
-          statusCode: 200,
-          body: JSON.stringify({ subscribed: false }),
-        };
+        return respond(200, { subscribed: false });
       }
 
       const customer = customers.data[0];
@@ -623,24 +603,18 @@ export const handler = async (event, context) => {
       );
     } catch (err) {
       console.error("Error fetching subscription status:", error);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Failed to fetch subscription status" }),
-      };
+      return respond(500, { error: "Failed to fetch subscription status" });
     }
 
     // 🟠 TODO: Lastly, show them the paywalled content and include a "cancel" button.
 
     if (isSubscribed) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ subscribed: isSubscribed, content: "you are subscribed!" }),
-      };
+      return respond(200, {
+        subscribed: isSubscribed,
+        content: "you are subscribed!",
+      });
     } else {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ subscribed: isSubscribed }),
-      };
+      return respond(200, { subscribed: isSubscribed });
     }
   }
 };
