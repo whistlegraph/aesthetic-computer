@@ -1,6 +1,8 @@
 // Icon, 23.07.31.12.57
 // Generates the favicon for a given piece.
 
+// TODO: ❤️‍🔥 GET PUPPETEER WORKING LOCALLY!!!!!!!!!!!!!!!!
+
 // Usage:
 // https://aesthetic.computer/icon/widthxheight/command~any~params.png
 
@@ -48,7 +50,7 @@ async function handler(event, context) {
   try {
     browser = !dev ? await puppeteer.connect(ops) : await puppeteer.launch(ops);
   } catch (err) {
-    console.log(error);
+    console.log("Error launching puppeteer:", error);
   }
 
   console.log("🌟 Making new page...");
