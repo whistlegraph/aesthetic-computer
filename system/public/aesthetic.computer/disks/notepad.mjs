@@ -526,7 +526,7 @@ function act({ event: e, sound: { synth }, pens }) {
 
 function orderedByCount(obj) {
   return Object.keys(obj)
-    .filter(key => obj[key].hasOwnProperty('count'))
+    .filter((key) => obj[key]?.hasOwnProperty("count"))
     .sort((a, b) => obj[a].count - obj[b].count);
 }
 
