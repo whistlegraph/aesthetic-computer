@@ -1806,7 +1806,7 @@ export async function handler(event, context) {
         done: false,
         hidden: true,
       },
-      '+': {
+      "+": {
         sig: "+",
         desc: "Make new window.",
         done: false,
@@ -1834,14 +1834,34 @@ export async function handler(event, context) {
         desc: "UCLA DESMA 28 - Syllabus",
         done: false,
       },
-      'ucla-1': {
+      "ucla-1": {
         sig: "ucla-1",
         desc: "UCLA DESMA 28 - Piece 1",
         done: false,
       },
-      'ucla-2': {
+      "ucla-2": {
         sig: "ucla-2",
         desc: "UCLA DESMA 28 - Piece 2",
+        done: false,
+      },
+      "ucla-3": {
+        sig: "ucla-3",
+        desc: "UCLA DESMA 28 - Piece 3",
+        done: false,
+      },
+      "ucla-4": {
+        sig: "ucla-4",
+        desc: "UCLA DESMA 28 - Piece 4",
+        done: false,
+      },
+      "ucla-4-box": {
+        sig: "ucla-4-box",
+        desc: "UCLA DESMA 28 - Piece 4 (Box)",
+        done: false,
+      },
+      "ucla-5": {
+        sig: "ucla-3",
+        desc: "UCLA DESMA 28 - Piece 5",
         done: false,
       },
       app: {
@@ -2640,7 +2660,7 @@ export async function handler(event, context) {
         done: false,
         //TODO: adjust song , default octave thing
       },
-      'sotce-net': {
+      "sotce-net": {
         sig: "sotce-net",
         desc: "diaries (work in progress)",
         done: false,
