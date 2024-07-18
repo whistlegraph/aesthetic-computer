@@ -251,7 +251,7 @@ loadAuth0Script()
           content: { user: window.acUSER },
         });
       } else if (!pickedUpSession) {
-        // console.log("🗝️ Not authenticated.");
+        console.log("🗝️ Not authenticated.");
         window.acDISK_SEND({
           type: "session:started",
           content: { user: null },
