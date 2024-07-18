@@ -6,6 +6,7 @@
 
 const { builder } = require("@netlify/functions");
 const puppeteer = require("puppeteer-core");
+import { setTimeout } from "node:timers/promises";
 const dev = process.env.CONTEXT === "dev";
 
 // Only allow a few given resolutions to prevent spam.
@@ -14,7 +15,7 @@ const acceptedResolutions = ["128x128"];
 async function handler(event, context) {
   const [resolution, ...filepath] = event.path.replace("/icon/", "").split("/"); // yields nxn and the command, if it exists
 
-  console.log("🖼️  Getting icon...", filepath.join("/"));
+  console.log("🖼️ Getting icon...", filepath.join("/"));
 
   // Ditch if we don't hit the accepted resolution whitelist.
   if (
@@ -50,7 +51,7 @@ async function handler(event, context) {
     console.log(error);
   }
 
-  console.log("Making new page...");
+  console.log("🌟 Making new page...");
 
   const page = await browser.newPage();
 
@@ -67,9 +68,7 @@ async function handler(event, context) {
     const fullUrl = `${url}/${
       filepath.join("/").replace(".png", "") || ""
     }?icon=${width}x${height}`;
-
-    console.log("Visiting page:", fullUrl);
-
+    console.log("📃 Visiting page:", fullUrl);
     await page.goto(fullUrl, { waitUntil: "networkidle2", timeout: 5000 });
   } catch (err) {
     console.log("🔴 Failed to stop networking:", err);
@@ -81,9 +80,9 @@ async function handler(event, context) {
     console.log("🔴 Failed window.preloaded timer.");
   }
 
-  await page.waitForTimeout(500); // A bit of extra time.
+  await setTimeout(500);
 
-  console.log("Taking sceenshot...");
+  console.log("🖼️ Taking sceenshot...");
 
   const buffer = await page.screenshot({ type: "png" });
 

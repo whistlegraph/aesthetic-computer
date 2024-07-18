@@ -4,20 +4,22 @@
 // Usage:
 // https://aesthetic.computer/thumbnail/widthxheight/command~any~params.jpg
 
+// TODO: Combine this endpoint / share code with icon.
+
 const { builder } = require("@netlify/functions");
+import { setTimeout } from "node:timers/promises";
 const puppeteer = require("puppeteer-core");
 const dev = process.env.CONTEXT === "dev";
 
 // Only allow a few given resolutions to prevent spam.
 const acceptedResolutions = ["1200x630", "1800x900"]; // og:image, twitter:image
 
-
 async function handler(event, context) {
   const [resolution, ...filepath] = event.path
     .replace("/thumbnail/", "")
     .split("/"); // yields nxn and the command, if it exists
 
-  console.log("🖼️  Getting thumbnail...", filepath.join("/"));
+  console.log("🖼️ Getting thumbnail...", filepath.join("/"));
 
   // Ditch if we don't hit the accepted resolution whitelist.
   if (
@@ -46,8 +48,6 @@ async function handler(event, context) {
   const browser = !dev
     ? await puppeteer.connect(ops)
     : await puppeteer.launch(ops);
-
-  console.log(browser);
 
   const page = await browser.newPage();
 
@@ -82,7 +82,7 @@ async function handler(event, context) {
       {
         waitUntil: "networkidle2",
         timeout: 5000,
-      }
+      },
     );
   } catch {
     console.log("🔴 Failed to stop networking.");
@@ -96,7 +96,7 @@ async function handler(event, context) {
     console.log("🔴 Failed window.preloaded timer.");
   }
 
-  await page.waitForTimeout(500); // A bit of extra time.
+  await setTimeout(500);
 
   const buffer = await page.screenshot({ type: "png" });
 
