@@ -3,6 +3,12 @@
 // Alert the parent /  we are ready.
 if (window.parent) window.parent.postMessage({ type: "ready" }, "*");
 
+const previewOrIcon =
+  location.search.startsWith("?icon=") ||
+  location.search.startsWith("?preview=");
+
+window.acPREVIEW_OR_ICON = previewOrIcon;
+
 // Included as a <script> tag to boot the system on a webpage. (Loads `bios`)
 import { boot } from "./bios.mjs";
 import { parse, slug } from "./lib/parse.mjs";
@@ -58,10 +64,6 @@ const nogap = location.search.startsWith("?nogap");
 boot(parsed, bpm, { gap: nogap ? 0 : undefined }, debug);
 
 let sandboxed = window.origin === "null";
-
-const previewOrIcon =
-  location.search.startsWith("?icon=") ||
-  location.search.startsWith("?preview=");
 
 // #region 🔐 Auth0: Universal Login & Authentication
 function loadAuth0Script() {
@@ -251,7 +253,7 @@ loadAuth0Script()
           content: { user: window.acUSER },
         });
       } else if (!pickedUpSession) {
-        console.log("🗝️ Not authenticated.");
+        // console.log("🗝️ Not authenticated.");
         window.acDISK_SEND({
           type: "session:started",
           content: { user: null },
