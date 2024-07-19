@@ -55,6 +55,7 @@ let sessionStarted = false; // A flag that waits to boot until a session was
 
 let LAN_HOST; // The IP address of the hosting machine on the local network.
 let SHARE_SUPPORTED; // Whether navigator.share is supported. (For `dl`)
+let PREVIEW_OR_ICON; // Whether we are in preview or icon mode. (From the bios.)
 let debug = false; // This can be overwritten on boot.
 let visible = true; // Is aesthetic.computer visibly rendering or not?
 
@@ -2598,7 +2599,7 @@ async function load(
     text,
     slug;
 
-  console.log("🧩 Loading:", parsed, "dev:", devReload);
+  // console.log("🧩 Loading:", parsed, "dev:", devReload);
 
   if (loading === false) {
     loading = true;
@@ -2875,7 +2876,6 @@ async function load(
     source,
     codeChannel,
   } = {}) {
-
     // console.log("⚠️ Reloading:", piece, name, source);
 
     if (loading) {
@@ -3625,8 +3625,8 @@ async function load(
     labelBack = false;
     previewMode = parsed.search?.startsWith("preview") || false;
     iconMode = parsed.search?.startsWith("icon") || false;
-    console.log("📑 Search:", parsed.search);
-    console.log("🖼️ ICON MODE:", iconMode);
+    // console.log("📑 Search:", parsed.search);
+    // console.log("🖼️ ICON MODE:", iconMode);
     previewOrIconMode = previewMode || iconMode;
     paintings = {}; // Reset painting cache.
     prefetches?.forEach((p) => prefetchPicture(p)); // Prefetch parsed media.
@@ -3746,7 +3746,6 @@ let codeChannel, codeChannelAutoLoader;
 async function makeFrame({ data: { type, content } }) {
   // Runs once on boot.
   if (type === "init-from-bios") {
-
     debug = content.debug;
     setDebug(content.debug);
     ROOT_PIECE = content.rootPiece;
@@ -3756,6 +3755,8 @@ async function makeFrame({ data: { type, content } }) {
 
     LAN_HOST = content.lanHost;
     SHARE_SUPPORTED = content.shareSupported;
+    PREVIEW_OR_ICON = content.previewOrIcon;
+
     $commonApi.canShare = SHARE_SUPPORTED;
 
     $commonApi.net.lan = LAN_HOST;
@@ -3782,8 +3783,7 @@ async function makeFrame({ data: { type, content } }) {
       codeChannelAutoLoader = null;
     };
 
-    console.log("Init:", content);
-
+    // console.log("Init:", content);
     // await handle(); // Get the user's handle.
     // console.log("🟢 Loading after preamble:", content.parsed);
 
@@ -3842,7 +3842,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // Update the logged in user after initialization.
   if (type === "session:started") {
-    console.log("🟢 Session starting...");
+    // console.log("🟢 Session starting...");
     USER = content.user;
     $commonApi.user = USER; // User will be set to "null" here
     //                         it it doesn't exist.
@@ -4715,7 +4715,7 @@ async function makeFrame({ data: { type, content } }) {
         // console.log("🎵 Note to check:", input);
         // Return if it's just a number or parses as one.
         if (typeof input === "number") return input;
-        if (!isNaN(parseFloat(input)) && isFinite(input)) return Number(input); 
+        if (!isNaN(parseFloat(input)) && isFinite(input)) return Number(input);
 
         let octave, note;
         input = input.toLowerCase(); // Downcase everything.
@@ -5799,7 +5799,10 @@ async function makeFrame({ data: { type, content } }) {
     // Wait 8 frames of the default piece before loading the initial piece.
     // And also make sure the session has been queried.
     // console.log(sessionStarted);
-    if (paintCount > 8n && (sessionStarted || $commonApi.net.sandboxed)) {
+    if (
+      paintCount > 8n &&
+      (sessionStarted || PREVIEW_OR_ICON || $commonApi.net.sandboxed)
+    ) {
       //if (loadAfterPreamble) {
       // TODO: WHy does enabling this make the icon work?
       // console.log("💾 Loading after the preamble...");
