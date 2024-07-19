@@ -2,7 +2,8 @@
 // A paid diary network, 'handled' by Aesthetic Computer.
 
 /* #region 🏁 TODO 
-  - [-] run a new development subscription
+  - [🌟] refreshing the page with websockets needs to keep the current session somehow!
+  - [🟠] run a new development subscription
   - [] add a cancellation button...
   - [] try from vscode / cancel as needed? 
   - [] run a production subscription
@@ -287,7 +288,11 @@ export const handler = async (event, context) => {
                 let verifiedText = "email unverified :(";
 
                 function subscription() {
-                  return '<button onclick="subscribe()">subscribe</button>';
+                  if (embedded) {
+                    return "<code>please subscribe in your browser</code>";
+                  } else {
+                    return '<button onclick="subscribe()">subscribe</button>';
+                  }
                 }
 
                 if (!user.email_verified) {
@@ -428,6 +433,7 @@ export const handler = async (event, context) => {
 
               // Check the subscription status of the logged in user.
               async function subscribed() {
+                if (!user) return false;
                 console.log("🗞️ Checking subscription status for:", user.email);
                 const response = await userRequest(
                   "POST",
@@ -442,8 +448,7 @@ export const handler = async (event, context) => {
                     return false;
                   }
                 } else {
-                  const error = await response.json();
-                  console.error("💳", error.message);
+                  console.error("💳", response);
                 }
               }
 
@@ -532,8 +537,10 @@ export const handler = async (event, context) => {
 
               // 🚪 Check for subscription and add content as necessary.
               const entered = await subscribed();
-              console.log("🚪", entered);
-              if (entered) wrapper.innerHTML += "<br><b>" + entered + "</b>";
+              if (entered) {
+                console.log("🚪", entered);
+                wrapper.innerHTML += "<br><b>" + entered + "</b>";
+              }
             })();
           </script>
         </body>
