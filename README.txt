@@ -96,8 +96,9 @@ but technically agnostic. (Choose your aesthetic!)
   - [] if a loaded kidlisp file fails to run, just make the '404' page the editor of its source
     - [] enabled crowd-sourced backwards compatibility &&|| llm auto-patching
 
-*** first week of july 2 ***
-  - [🔴] always display first paint iteration. (corner skip in `ucla-2-a`)
+*** ucla ***
+  - [] ucla-6-clock should have image loading / pasting from handled paintings
+  - [] always display first paint iteration. (corner skip in `ucla-2-a`)
   - [] users need to log out and log back in before publishing
        (sessions get lost)
     - [-] test after opening and closing the pane

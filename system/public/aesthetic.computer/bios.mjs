@@ -1149,6 +1149,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       iframe: window.self !== window.top,
       sandboxed,
       shareSupported: (iOS || Android) && navigator.share !== undefined,
+      previewOrIcon: window.acPREVIEW_OR_ICON,
     },
   };
 
