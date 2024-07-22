@@ -161,7 +161,7 @@ loadAuth0Script()
         }
 
         if (sessionParams) {
-          localStorage.setItem("session-aesthetic", sessionParams);
+          localStorage.setItem("session-aesthetic", encodedSession);
           params.delete("session-aesthetic"); // Remove the 'session' parameter
           // Update the URL without reloading the page
           history.pushState({}, "", url.pathname + "?" + params.toString());

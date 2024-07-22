@@ -476,9 +476,17 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("aestheticComputer.logOut", async () => {
-      vscode.window.showInformationMessage(
-        "🟡 To log out, please use the profile icon in the VS Code UI.",
+      const session = await vscode.authentication.getSession(
+        "aesthetic",
+        ["profile"],
+        { silent: true },
       );
+      if (session) {
+        await ap.removeSession(session.id);
+        vscode.window.showInformationMessage("🟪 You have been logged out.");
+      } else {
+        vscode.window.showInformationMessage("No active session found.");
+      }
     }),
   );
 
@@ -499,9 +507,17 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     vscode.commands.registerCommand(
       "aestheticComputer.sotceLogOut",
       async () => {
-        vscode.window.showInformationMessage(
-          "🟡 To log out, please use the profile icon in the VS Code UI.",
+        const session = await vscode.authentication.getSession(
+          "sotce",
+          ["profile"],
+          { silent: true },
         );
+        if (session) {
+          await sp.removeSession(session.id);
+          vscode.window.showInformationMessage("🪷 You have been logged out.");
+        } else {
+          vscode.window.showInformationMessage("No active session found.");
+        }
       },
     ),
   );
@@ -510,7 +526,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     const session = await vscode.authentication.getSession(
       tenant,
       ["profile"],
-      { createIfNone: false },
+      { silent: true },
     );
 
     if (session) {

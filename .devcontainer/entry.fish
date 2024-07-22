@@ -7,6 +7,9 @@ end
 
 set -gx TERM xterm-256color
 
+# Start dbus-run-session for the keryring and execute the command passed to the script
+# dbus-run-session -- sh -c "eval \$(echo \$DBUS_SESSION_BUS_ADDRESS); exec $argv"
+
 # Send a welcome message!
 toilet "*** Aesthetic Computer ***" -f smblock | lolcat -x -r
 
@@ -84,7 +87,7 @@ if not test -f /home/me/aesthetic-computer/nanos/ssl/localhost.pem
     echo "Certificates copied to 'nanos'."
 end
 
-# Copy the certificate to the nanos directory. 
+# Copy the certificate to the nanos directory.
 
 sudo chown me:me -R /home/me/aesthetic-computer/ssl-dev
 sudo chown me:me -R /home/me/aesthetic-computer/nanos/ssl

@@ -35,14 +35,17 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** exit ***
+  - [] write an 'exit' command which will exit the current tab / window / app
+
 *** icons ***
   - [📔] fix `/prompt?icon=128x128` not loading icon mode
 
 *** sotce.net ***
   - [🟢] Finish sotce-net rc1
   + ideas after rc1 is basically complete
-  - [] print 🖨️ css 
-  - [] friday editing interface  
+  - [] print 🖨️ css
+  - [] friday editing interface
   - [] next friday, launch august 1
     - [] infinite scroll
       - [] 1 month free - link / code
@@ -50,7 +53,7 @@ but technically agnostic. (Choose your aesthetic!)
       - [] keywords / titles / hashtags?
     - [] just the cookie on the website
     - [] sign up and subscribe
-      - [] read amelia's writing 
+      - [] read amelia's writing
       - [] contribute your own
     - [] privacy setting
       - [] user feed or no user feed
@@ -66,14 +69,18 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Add support for developing `sotce-net` inside of the VS Code extension.
     - [x] In both development and production.
 
-------------------------------------------    
+------------------------------------------
+
+*** ios "focus" ***
+  - [] use the screen time api to enable "focus" which disables all other apps.
 
 *** systems ***
+- [*] add more important logs to chat and fix auth bug?
 - [] the 'act' function is sometimes not being exported automatically by the parser.
 - [] The 'Open Window' action in the VSCode extension no longer seems to work.
 - [] make sure .mjs saving works (EXCEPT on vscode.dev)
   - [] It seems to still work fine on my local machine but didn't work for some students... maybe an old VS Code Extension version?
-- [] get puppeteer working again in development 
+- [] get puppeteer working again in development
 - [] entering `prod` in vscode extension or `local` should send a message that toggles "local" mode.
 - [] speed up the load time of the local server significantly... try re-enabling caching? and try to speed up the general loading.
 - [] make sure local and prod mode work automatically / well in the extension

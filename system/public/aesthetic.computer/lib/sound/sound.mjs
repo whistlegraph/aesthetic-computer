@@ -98,8 +98,7 @@ export default class Sound {
       const angle = (Math.PI * this.#step) / (this.#wavelength / 2);
       value = Math.sin(angle);
       this.#step += 1;
-
-      if (this.#step >= 2 * this.#wavelength) {
+      if (this.#step >= this.#wavelength * 2) {
         this.#step = 0;
       }
     } else if (this.#type === "triangle") {
