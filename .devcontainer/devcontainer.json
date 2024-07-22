@@ -17,7 +17,7 @@
     "source=codespaces-linux-var-lib-docker,target=/var/lib/docker,type=volume",
     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind"
   ],
-  "forwardPorts": [8888, 8111],
+  "forwardPorts": [8888, 8111, 8889, 8083],
   "customizations": {
     "vscode": {
       "extensions": [
