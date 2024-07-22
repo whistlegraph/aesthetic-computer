@@ -18,7 +18,7 @@ function boot({ wipe, slug, params, colon, hud, sound: { synth }, num, help }) {
   //                                the param on top?
   type = colon[0] || "sine"; // help.choose("sine", "triangle", "square", "sawtooth");
 
-  let label = slug;
+  let label = "notepad";
   if (colon[0]) label = label + ":" + colon[0];
   label += " " + tone;
   hud.label(label);
