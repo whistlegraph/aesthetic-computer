@@ -3,10 +3,11 @@
 
 /* #region 🏁 TODO 
   - [🌟] refreshing the page with websockets needs to keep the current session somehow!
+
   - [🟠] run a new development subscription
   - [] add a cancellation button...
-  - [] try from vscode / cancel as needed? 
   - [] run a production subscription
+  - [] add handle creation / handle support for sotce-net users
   - [] read from the database
   - [] The handle system would be shared among ac users.
     - [] Perhaps the subs could be 'sotce' prefixed.
@@ -17,6 +18,7 @@
   - [] How can I do shared reader cursors / co-presence somehow?
   - [] Account deletion.
   + Done
+  - [x] try from vscode / cancel as needed? 
   - [x] bring in `respond` helper and replace `statusCode:` handler returns with it.
   - [x] stripe paywall
   - [x] set up subscription payment wall on 'subscribe' button
@@ -206,11 +208,13 @@ export const handler = async (event, context) => {
                   param = localStorage.getItem("session-sotce");
                 }
 
+                console.log("PARAM IS:", param);
+
                 const sessionParams = param;
                 let encodedSession = sessionParams;
                 if (encodedSession === "null") encodedSession = undefined;
                 if (encodedSession) {
-                  console.log("🪷 Sotce Session:", encodedSession);
+                  // console.log("🪷 Sotce Session:", encodedSession);
                   const sessionJsonString = atob(
                     decodeURIComponent(encodedSession),
                   );
@@ -223,16 +227,16 @@ export const handler = async (event, context) => {
                       email: session.account.label,
                       sub: session.account.id,
                     };
-                    console.log(
-                      "🌻 Picked up sotce session!",
-                      window.sotceTOKEN,
-                      window.sotceUSER,
-                    );
+                    // console.log(
+                    //   "🌻 Picked up sotce session!",
+                    //   window.sotceTOKEN,
+                    //   window.sotceUSER,
+                    // );
                     pickedUpSession = true;
                   }
 
                   if (sessionParams) {
-                    localStorage.setItem("session-sotce", sessionParams);
+                    localStorage.setItem("session-sotce", encodedSession);
                     params.delete("session-sotce"); // Remove the 'session' parameter
                     // Update the URL without reloading the page
                     history.pushState(
@@ -289,9 +293,9 @@ export const handler = async (event, context) => {
 
                 function subscription() {
                   if (embedded) {
-                    return "<code>please subscribe in your browser</code>";
+                    return "<code id='subscribe'>please subscribe in your browser</code>";
                   } else {
-                    return '<button onclick="subscribe()">subscribe</button>';
+                    return '<button id="subscribe" onclick="subscribe()">subscribe</button>';
                   }
                 }
 
@@ -309,9 +313,10 @@ export const handler = async (event, context) => {
                       .then((u) => {
                         // console.log("Fetched updated user...", u);
                         if (u.email_verified) {
-                          console.log("📧 Email verified!");
+                          // console.log("📧 Email verified!");
                           const verifiedEl =
                             document.getElementById("verified");
+                          console.log(verifiedEl.innerHTML);
                           verifiedEl.innerHTML = subscription();
                         } else {
                           verificationTimeout = setTimeout(() => {
@@ -328,8 +333,9 @@ export const handler = async (event, context) => {
                   };
                   fetchUser(user.email);
                 } else {
-                  console.log("📧 Email verified!");
+                  // console.log("📧 Email verified!");
                   verifiedText = subscription();
+                  // console.log("verified text:", verifiedText);
                 }
 
                 // 🅱️ Check for active subscription.
@@ -420,7 +426,7 @@ export const handler = async (event, context) => {
                 });
                 if (response.ok) {
                   const session = await response.json();
-                  console.log("💳 Session:", session);
+                  // console.log("💳 Session:", session);
                   const result = await stripe.redirectToCheckout({
                     sessionId: session.id,
                   });
@@ -441,7 +447,7 @@ export const handler = async (event, context) => {
                   // nobody ;)
                 );
                 if (response.status === 200) {
-                  console.log("💳 Subscribed:", response);
+                  // console.log("💳 Subscribed:", response);
                   if (response.subscribed) {
                     return response.content;
                   } else {
@@ -486,9 +492,9 @@ export const handler = async (event, context) => {
 
               async function userRequest(method, endpoint, body) {
                 try {
-                  // const token = await $commonApi.authorize(); // Get user token.
-                  const token = await auth0Client.getTokenSilently();
-                  // if (!token) throw new Error("🧖 Not logged in.");
+                  console.log("Sotce token...", window.sotceTOKEN);
+                  const token = window.sotceTOKEN || await auth0Client.getTokenSilently();
+                  if (!token) throw new Error("🧖 Not logged in.");
 
                   const headers = {
                     Authorization: "Bearer " + token,
@@ -539,6 +545,8 @@ export const handler = async (event, context) => {
               const entered = await subscribed();
               if (entered) {
                 console.log("🚪", entered);
+                document.getElementById("subscribe").remove();
+                document.getElementById("verified")?.remove();
                 wrapper.innerHTML += "<br><b>" + entered + "</b>";
               }
             })();
@@ -580,6 +588,7 @@ export const handler = async (event, context) => {
     }
   } else if (path === "/subscribed" && method === "post") {
     // First validate that the user has an active session via auth0.
+    console.log(event.headers)
     const user = await authorize(event.headers, "sotce");
     if (!user) return respond(401, { message: "Unauthorized user." });
 
@@ -649,7 +658,14 @@ const reloadScript = html`
         const msg = JSON.parse(e.data);
         if (msg.type === "reload" && msg.content.piece === "*refresh*") {
           console.log("🧦 ♻️ Reloading...");
-          location.reload();
+          const sessionItem = localStorage.getItem("session-sotce");
+          if (sessionItem) {
+            const url = new URL(window.location.href);
+            url.searchParams.set("session-sotce", "retrieve");
+            window.location.href = url.toString();
+          } else {
+            location.reload();
+          }
         }
       };
 

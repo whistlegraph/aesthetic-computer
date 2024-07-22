@@ -44,6 +44,14 @@ RUN dnf install -y \
     lsof \
     iproute
 
+# Install keyring
+# RUN dnf install -y \
+#    libsecret \
+#    dbus
+
+# Initialize keyring
+# RUN mkdir -p /root/.local/share/keyrings
+
 # Install nginx
 # RUN dnf install -y nginx
 

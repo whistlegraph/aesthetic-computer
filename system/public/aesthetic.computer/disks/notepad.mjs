@@ -55,6 +55,10 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
+    - [] Compare my sine waves to a sine wave generator.
+    - [] Add multiple tracks so that I can create "systems" that loop
+         with different lengths.
+    - [] Add holdable rhythm button with patterns that "cycle".
     - [🧡] Get 'slide' working on the software so dragging between
          butons enables the sliding and so does pressing.
     - [] Make sure you can whack multiple keys / alternate keys in tap mode,
