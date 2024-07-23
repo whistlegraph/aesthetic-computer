@@ -3796,7 +3796,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "fps-change") {
-      console.log("🎞️ FPS:", content);
       Loop.frameRate(content);
       return;
     }
