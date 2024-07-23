@@ -4318,7 +4318,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         try {
           // Attempt to fetch user info using the token
-          window.auth0Client.t.oken = token;
+          window.auth0Client.token = token;
           await window.auth0Client.getUser();
           // console.log("✅🔐 Token is valid!");
         } catch (error) {
