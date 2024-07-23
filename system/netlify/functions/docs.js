@@ -1860,8 +1860,13 @@ export async function handler(event, context) {
         done: false,
       },
       "ucla-5": {
-        sig: "ucla-3",
+        sig: "ucla-5",
         desc: "UCLA DESMA 28 - Piece 5",
+        done: false,
+      },
+      "ucla-6": {
+        sig: "ucla-6",
+        desc: "UCLA DESMA 28 - Piece 6",
         done: false,
       },
       app: {
