@@ -1601,7 +1601,7 @@ const $commonApi = {
             return { status: response.status, ...json };
           } catch (e) {
             const message = await response.text();
-            return { status: response.status, message };
+            return { status: response.status, message: response.statusText };
           }
         } else {
           const clonedResponse = response.clone();
