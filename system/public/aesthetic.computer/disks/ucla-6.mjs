@@ -7,7 +7,7 @@
     2.   - [] Making lines and basic operation.
     3.   - [] Making a circle.
     4.   - [] Patterns.
-    4. [] Keeping time and clock-making. 
+    4. [⏰] Keeping time and clock-making. 
     5. - [] Using LLMs to learn about the JavaScript `Date` Object. 
     6. - [] Writing the time.
     7. - [] Progress bars and review using `num.map`.
@@ -19,10 +19,23 @@ function boot({ wipe, fps }) {
   wipe("gray");
 }
 
-function paint({ ink, crawl, left, right, up, down, face }) {
+let angle2 = 0;
+
+function paint({ wipe, ink, crawl, left, right, up, down, face, goto }) {
+  wipe("gray")
   ink("yellow");
+
+  goto();
   down();
-  crawl();
+  // const angle = right(1);
+  crawl(32);
+
+  // face(angle2);
+  // angle2 = left(1);
+
+  ink("blue");
+  crawl(16);
+  // face(angle);
 }
 
 // 📚 Library
