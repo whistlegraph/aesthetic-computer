@@ -1,8 +1,12 @@
 // ucla-6, 24.07.23.07.33
-// Clocks and component design.
+// Clocks, component design and relative coordinate systems.
 
 /* 📝 Notes 
   - Today we will be designing clockfaces and working with time. 
+    1. [] 🐢 Introduction to turtle graphics and relative coordinate systems.
+    2.   - [] Making lines and basic operation.
+    3.   - [] Making a curcle.
+    4.   - [] Patterns.
     4. [] Keeping time and clock-making. 
     5. - [] Using LLMs to learn about the JavaScript `Date` Object. 
     6. - [] Writing the time.
@@ -11,8 +15,12 @@
     9. - [] Using parameters in Aesthetic Computer
 */
 
-function paint({ wipe }) {
+function boot({ wipe, fps }) {
   wipe("gray");
+}
+
+function paint({ ink, crawl, left, right, up, down, face }) {
+  // ink("yellow");
 }
 
 // 📚 Library
