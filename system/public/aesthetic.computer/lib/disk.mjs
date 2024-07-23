@@ -1997,13 +1997,13 @@ const $paintApi = {
     turtleDown = true;
   },
   // Teleport the turtle position.
-  goto: (x, y) => {
+  goto: (x = screen.width / 2, y = screen.height / 2) => {
     turtlePosition.x = x;
     turtlePosition.y = y;
     return {x: turtlePosition.x, y: turtlePosition.y }
   },
   face: (angle = 0) => {
-    turtleAngle = normalizeAngle(angle - 90);
+    turtleAngle = normalizeAngle(angle);
     return turtleAngle;
   },
 };
