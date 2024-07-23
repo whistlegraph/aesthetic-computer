@@ -33,11 +33,11 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   // local = context.globalState.get("aesthetic:local", false); // Retrieve env.
 
   // Show all environment variables...
-  console.log("🌎 Environment:", process.env);
+  // console.log("🌎 Environment:", process.env);
 
   const isInDevContainer = process?.env.REMOTE_CONTAINERS === "true";
   if (isInDevContainer) {
-    console.log("✅ 🥡 Running inside a container.");
+    // console.log("✅ 🥡 Running inside a container.");
     local = context.globalState.get("aesthetic:local", false); // Retrieve env.
   } else {
     local = false;
@@ -45,7 +45,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     // console.log("❌ 🥡 Not in container.");
   }
 
-  console.log("🟢 Aesthetic Computer Extension: Activated");
+  // console.log("🟢 Aesthetic Computer Extension: Activated");
   extContext = context;
 
   const savedGoal = context.globalState.get("goalState");
@@ -80,63 +80,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       console.error("Failed to fetch documentation:", error);
     }
   }
-
-  /*
-  const whitelist = [
-    "paint",
-    "boot",
-    "act",
-    "meta",
-    "brush",
-    "preview",
-    "icon",
-    "beat",
-    "filter",
-  ];
-
-  const diagnosticCollection =
-    vscode.languages.createDiagnosticCollection("customExtension");
-  context.subscriptions.push(diagnosticCollection);
-
-  function filterDiagnostics(uri) {
-    if (path.extname(uri.fsPath) !== ".mjs") {
-      console.log("File extension is not .mjs, skipping:", uri.fsPath);
-      return;
-    }
-
-    const diagnostics = vscode.languages
-      .getDiagnostics(uri)
-      .filter((diagnostic) => {
-        if (
-          diagnostic.message.includes("is declared but its value is never read")
-        ) {
-          const match = diagnostic.message.match(/'(.+?)'/);
-          const diagnosticFunctionName = match ? match[1] : "";
-          console.log("Matched function:", diagnosticFunctionName);
-          return !whitelist.includes(diagnosticFunctionName);
-        }
-        return true;
-      });
-
-    console.log("Filtered diagnostics:", diagnostics);
-    diagnosticCollection.set(uri, diagnostics);
-  }
-
-  // Listen to diagnostics change and filter unused function warnings
-  vscode.languages.onDidChangeDiagnostics((event) => {
-    console.log("Diagnostics changed for URIs:", event.uris);
-    event.uris.forEach(filterDiagnostics);
-  });
-
-  // Initial filtering of diagnostics on activation
-  vscode.workspace.textDocuments.forEach((document) => {
-    console.log(
-      "Initial diagnostics filtering for document:",
-      document.uri.fsPath,
-    );
-    filterDiagnostics(document.uri);
-  });
-  */
 
   // Set up all the autocompletion and doc hints.
   const codeLensProvider = new AestheticCodeLensProvider();
@@ -538,7 +481,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       context.globalState.update(`${tenant}:session`, session);
     } else {
       context.globalState.update(`${tenant}:session`, undefined);
-      console.log("😀 Erased session!");
+      // console.log("😀 Erased session!");
     }
 
     return session;
@@ -546,7 +489,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   context.subscriptions.push(
     vscode.authentication.onDidChangeSessions(async (e) => {
-      console.log("🏃 Sessions changed:", e);
+      // console.log("🏃 Sessions changed:", e);
       if (e.provider.id === "aesthetic" || e.provider.id === "sotce") {
         await getSession(e.provider.id);
         provider.refreshWebview();
@@ -606,7 +549,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       })
       .catch((error) => {
         // If you catch an error, make sure to convert it to a string if it isn't already
-        console.log(error);
+        console.error(error);
         vscode.window.showInformationMessage("🔴" + "Piece error.");
       });
   }
@@ -634,7 +577,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     }
 
     if (vscode.window.activeTextEditor?.document === document) {
-      console.log("🔩 File path:", document.uri.fsPath);
+      // console.log("🔩 File path:", document.uri.fsPath);
       const inMonoRepo =
         document.uri.fsPath.indexOf("aesthetic-computer/system") > -1;
       const inDisks =
@@ -719,7 +662,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
   public refreshWebview(): void {
     if (this._view) {
       const slug = extContext.globalState.get("panel:slug", "");
-      if (slug) console.log("🪱 Loading slug:", slug);
+      // if (slug) console.log("🪱 Loading slug:", slug);
       this._view.title = slug + (local ? " 🧑‍🤝‍🧑" : "");
       this._view.webview.html = getWebViewContent(this._view.webview, slug);
     }
@@ -733,7 +676,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
     this._view = webviewView;
 
     const slug = extContext.globalState.get("panel:slug", "");
-    if (slug) console.log("🪱 Loading slug:", slug);
+    // if (slug) console.log("🪱 Loading slug:", slug);
 
     this._view.title = slug + (local ? " 🧑‍🤝‍🧑" : "");
 
@@ -748,7 +691,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.onDidReceiveMessage((data) => {
       switch (data.type) {
         case "url:updated": {
-          console.log("😫 Slug updated...", data.slug);
+          // console.log("😫 Slug updated...", data.slug);
           extContext.globalState.update("panel:slug", data.slug);
           webviewView.title = data.slug + (local ? " 🧑‍🤝‍🧑" : "");
           break;
@@ -776,12 +719,12 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
           break;
         }
         case "openDocs": {
-          console.log("🏃 Opening docs...");
+          // console.log("🏃 Opening docs...");
           vscode.commands.executeCommand("aestheticComputer.openDoc");
           break;
         }
         case "openSource": {
-          console.log("📃 Opening a new source file...", data);
+          // console.log("📃 Opening a new source file...", data);
           // const tempUri = document.uri.with({ path: document.uri.path + '.mjs' });
           vscode.workspace
             .openTextDocument({
@@ -872,10 +815,6 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
       }
     });
 
-    // webviewView.onDidDispose(() => {
-    //   console.log("🔴 DISPOSED!");
-    // });
-
     webviewView.onDidChangeVisibility(() => {
       if (!webviewView.visible) {
         // console.log("🔴 Panel hidden.");
@@ -906,7 +845,7 @@ function getNonce(): string {
 function refreshWebWindow() {
   if (webWindow) {
     const slug = extContext.globalState.get("panel:slug", "");
-    if (slug) console.log("🪱 Loading slug:", slug);
+    // if (slug) console.log("🪱 Loading slug:", slug);
 
     webWindow.title = "Aesthetic: " + slug + (local ? " 🧑‍🤝‍🧑" : ""); // Update the title if local.
 

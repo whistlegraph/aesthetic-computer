@@ -2,13 +2,37 @@
 // A paid diary network, 'handled' by Aesthetic Computer.
 
 /* #region 🏁 TODO 
-  - [🌟] refreshing the page with websockets needs to keep the current session somehow!
+  - [] Implement a DOM structure for these layouts...
+  💈 #wrapper.gate
+    // 👣 logged-out 
+    [login] [im-new]
 
-  - [🟠] run a new development subscription
-  - [] add a cancellation button...
+    // 👣 unverified 
+    signed-in-as: me@jas.life
+    "waiting for verification" [resend?]
+    [logout] [delete account]
+
+    // 👣 unsubscribed
+    signed-in-as: me@jas.life
+    [subscribe]
+    [logout] [delete account]
+
+  🏡 #wrapper.garden
+    // 👣 subscribed
+    signed-in-as: me@jas.life
+   
+    ^^^^^settings^^^^^ (colophon?)
+    "you are subscribed to sotce-net!"
+    "your monthly subscription will auto-renew on July 7th, 2024 for $5"
+    [cancel renewal]
+    [delete account]
+    _______________
+
+    [logout]
   - [] run a production subscription
   - [] add handle creation / handle support for sotce-net users
   - [] read from the database
+  - [] Account deletion.
   - [] The handle system would be shared among ac users.
     - [] Perhaps the subs could be 'sotce' prefixed.
   - [] add cookie favicon which switches if the user is logged in...
@@ -16,8 +40,11 @@
        for now.
   - [] Show number of signed up users so far.
   - [] How can I do shared reader cursors / co-presence somehow?
-  - [] Account deletion.
   + Done
+  - [x] add a cancellation button...
+    - [x] make sure it returns the right subscribed information below
+  - [x] refreshing the page with websockets needs to keep the current session somehow!
+  - [x] run a new development subscription
   - [x] try from vscode / cancel as needed? 
   - [x] bring in `respond` helper and replace `statusCode:` handler returns with it.
   - [x] stripe paywall
@@ -49,6 +76,12 @@
   - [x] Developmnt mode.
   - [x] Live reload function.
   - [x] Set up path->method routing in `sotce-net.js`.
+#endregion */
+
+/* #region 🤖 Dummy Copy
+S is for sotce.
+Shavasana brought this to mind. She does love how memories show themselves out in the supine state. She was too young then and wanted to be so old. She chose him because of his careful images and because of how he wrote to her. Sharp cold and eyes all over. Soon after rapid texting she went to see him. Shorter than he said he would be. Small even. Suspicious seeming. Still went with him to his apartment. Scandi style work from home kawaii decor in there. Saw all the figurines and light wood. Saw his work on display. Saw the photos of his open relationship girlfriend.
+Striking. Surveyed his cool objects and new money. Sat on the red couch across the room from him. Stared. Slavic like her. Same age as Sean is now. She was interested in eating his food and looking around. Secretly she wanted to become like him too. Sort of dripped out and independent off of art. She wanted to learn how people could be this way. She had never met a man who wasn’t her teacher or her uncle. She wondered if she was smart (special?) enough to talk to him or if he was pretending like she was for sexual aspirations. Sad instant noodles of a vegan variety offered. Slurped them like worms. Something else packaged too that she can’t remember now. Seaweed or cookies. Soon she was nodding off on the couch in the brilliant air conditioning. She felt him touch her hands, arms, shoulders. She would learn later that her body reserved its deepest rest for the company of men. She would learn that sleep came very reverently when she felt guarded by a neurotic seeming someone. She woke up with him fully lying on her, his back crushed into hers. She felt his bird bones digging. Spine to spine. Something was taboo about this, something was incorrect. Suddenly startled, had to get out of there. Stayed too long and had a feeling. Serial killer vibes. Still she felt like she was breaking a promise. She told him she’d come back. She would get comfortable lying like this. She was too young to even have a purse to grab. Slanted gold light on the floor. Stumbling downstairs still stuck in her dream. Sudden fear from him, then anger. Screaming and blurry lines. Some voice caught in his throat sort of. Stream of texts blowing her up like she was the last thing on earth. Subway ride off the island and a quick blocking of his number. She got home and she didn’t tell her roommates. She didn’t know what she could have been to him. Some years later she looked him up. Struggled at first to remember his name. Saw she who had been his girlfriend on Instagram and went from there. She thought he was smart and special in spite of his urgency. She knew that on paper he let her sleep on his couch. She wondered if all men do this for girls. She wondered if all the wayward girls go to phone men to fall asleep. She saw on her phone that he died that night, that night that they met and she left. She left and blocked him after the fast long texts. She saw online that he drove crazy on his motorcycle. Saw he crashed it and died on the night they met.
 #endregion */
 
 // ♻️ Environment
@@ -208,8 +241,6 @@ export const handler = async (event, context) => {
                   param = localStorage.getItem("session-sotce");
                 }
 
-                console.log("PARAM IS:", param);
-
                 const sessionParams = param;
                 let encodedSession = sessionParams;
                 if (encodedSession === "null") encodedSession = undefined;
@@ -257,7 +288,7 @@ export const handler = async (event, context) => {
                 if (isAuthenticated) {
                   try {
                     await auth0Client.getTokenSilently(/*{ cacheMode: "off" }*/);
-                    console.log("🗝️ Got fresh token.");
+                    // console.log("🗝️ Got fresh token.");
                   } catch (error) {
                     console.log("🔐️ ❌ Unauthorized", error);
                     console.error(
@@ -314,9 +345,11 @@ export const handler = async (event, context) => {
                         // console.log("Fetched updated user...", u);
                         if (u.email_verified) {
                           // console.log("📧 Email verified!");
+
                           const verifiedEl =
                             document.getElementById("verified");
-                          console.log(verifiedEl.innerHTML);
+
+                          // 🔥 check to see if the user is subscribed...
                           verifiedEl.innerHTML = subscription();
                         } else {
                           verificationTimeout = setTimeout(() => {
@@ -337,11 +370,6 @@ export const handler = async (event, context) => {
                   verifiedText = subscription();
                   // console.log("verified text:", verifiedText);
                 }
-
-                // 🅱️ Check for active subscription.
-                // - [] If subscription exists, then show 'enter' button.
-                //   - [] And also show 'cancel' button to end a subscription.
-                // - [] Else, show a 'subscribe' button to the user with a price.
 
                 wrapper.innerHTML =
                   "signed in as: <span id='email'>" +
@@ -447,7 +475,7 @@ export const handler = async (event, context) => {
                   // nobody ;)
                 );
                 if (response.status === 200) {
-                  // console.log("💳 Subscribed:", response);
+                  console.log("💳 Subscribed:", response);
                   if (response.subscribed) {
                     return response.content;
                   } else {
@@ -455,6 +483,41 @@ export const handler = async (event, context) => {
                   }
                 } else {
                   console.error("💳", response);
+                }
+              }
+
+              // Cancel an existing subscription.
+              async function cancel() {
+                if (!user) return;
+
+                const confirmation = confirm("Cancel your subscription?");
+                if (!confirmation) return;
+
+                try {
+                  const response = await fetch("/sotce-net/cancel", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization:
+                        "Bearer " +
+                        (window.sotceTOKEN ||
+                          (await auth0Client.getTokenSilently())),
+                    },
+                  });
+
+                  if (response.ok) {
+                    const result = await response.json();
+                    console.log("Subscription cancelled:", result);
+                    alert(result.message);
+                    location.reload();
+                  } else {
+                    const error = await response.json();
+                    console.error("Cancellation error:", error.message);
+                    alert("Failed to cancel subscription: " + error.message);
+                  }
+                } catch (error) {
+                  console.error("Error:", error);
+                  alert("An error occurred while cancelling the subscription.");
                 }
               }
 
@@ -492,8 +555,8 @@ export const handler = async (event, context) => {
 
               async function userRequest(method, endpoint, body) {
                 try {
-                  console.log("Sotce token...", window.sotceTOKEN);
-                  const token = window.sotceTOKEN || await auth0Client.getTokenSilently();
+                  const token =
+                    window.sotceTOKEN || (await auth0Client.getTokenSilently());
                   if (!token) throw new Error("🧖 Not logged in.");
 
                   const headers = {
@@ -510,8 +573,10 @@ export const handler = async (event, context) => {
                       const json = await response.json();
                       return { status: response.status, ...json };
                     } catch (e) {
-                      const message = await response.text();
-                      return { status: response.status, message };
+                      return {
+                        status: response.status,
+                        message: response.statusText,
+                      };
                     }
                   } else {
                     const clonedResponse = response.clone();
@@ -537,6 +602,7 @@ export const handler = async (event, context) => {
               window.signup = signup;
               window.resend = resend;
               window.subscribe = subscribe;
+              window.cancel = cancel;
               window.logout = logout;
               window.aesthetic = aesthetic;
               window.user = user;
@@ -548,6 +614,8 @@ export const handler = async (event, context) => {
                 document.getElementById("subscribe").remove();
                 document.getElementById("verified")?.remove();
                 wrapper.innerHTML += "<br><b>" + entered + "</b>";
+              } else {
+                // add subscribe button here...
               }
             })();
           </script>
@@ -588,23 +656,20 @@ export const handler = async (event, context) => {
     }
   } else if (path === "/subscribed" && method === "post") {
     // First validate that the user has an active session via auth0.
-    console.log(event.headers)
     const user = await authorize(event.headers, "sotce");
     if (!user) return respond(401, { message: "Unauthorized user." });
 
     const email = user.email;
-    let isSubscribed = false;
+    let subscription;
 
     // Then, make sure they are subscribed.
     try {
       const stripe = Stripe(key);
       // Fetch customer by email
       const customers = await stripe.customers.list({ email, limit: 1 });
-
       if (customers.data.length === 0) {
         return respond(200, { subscribed: false });
       }
-
       const customer = customers.data[0];
 
       // Fetch subscriptions for the customer
@@ -613,8 +678,7 @@ export const handler = async (event, context) => {
         status: "all",
         limit: 1,
       });
-      // console.log("👗", subscriptions.data?.[0]?.items);
-      isSubscribed = subscriptions.data.some((sub) =>
+      subscription = subscriptions.data.find((sub) =>
         sub.items.data.some((item) => item.price.product === productId),
       );
     } catch (err) {
@@ -622,15 +686,78 @@ export const handler = async (event, context) => {
       return respond(500, { error: "Failed to fetch subscription status" });
     }
 
-    // 🟠 TODO: Lastly, show them the paywalled content and include a "cancel" button.
+    if (subscription && subscription.status === "active") {
+      const until = subscription.cancel_at_period_end
+        ? new Date(subscription.cancel_at * 1000).toDateString()
+        : "recurring";
 
-    if (isSubscribed) {
+      let text, button;
+      if (until === "recurring") {
+        text = `your subscription will renew on ${new Date(subscription.current_period_end * 1000).toDateString()}`;
+        button = `<button id='cancel' onclick='cancel()'>cancel subscription</button>`;
+      } else {
+        text = `you are subscribed until ${until}`;
+        button = `<button id='subscribe' onclick='subscribe()'>autorenew</button>`;
+      }
+
       return respond(200, {
-        subscribed: isSubscribed,
-        content: "you are subscribed!",
+        subscribed: true,
+        until,
+        content: `${text}${button}`,
       });
     } else {
-      return respond(200, { subscribed: isSubscribed });
+      return respond(200, { subscribed: false });
+    }
+  } else if (path === "/cancel" && method === "post") {
+    try {
+      const user = await authorize(event.headers, "sotce");
+      if (!user) return respond(401, { message: "Unauthorized user." });
+
+      const email = user.email;
+      const stripe = Stripe(key);
+
+      // Fetch customer by email
+      const customers = await stripe.customers.list({ email, limit: 1 });
+      if (customers.data.length === 0) {
+        return respond(404, { message: "Customer not found." });
+      }
+
+      const customer = customers.data[0];
+
+      // Fetch subscriptions for the customer
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customer.id,
+        status: "all",
+        limit: 10,
+      });
+
+      if (subscriptions.data.length === 0) {
+        return respond(404, { message: "Subscription not found." });
+      }
+
+      // Find the subscription matching the productId
+      const subscription = subscriptions.data.find((sub) =>
+        sub.items.data.some((item) => item.price.product === productId),
+      );
+
+      if (!subscription) {
+        return respond(404, {
+          message: "Subscription not found.",
+        });
+      }
+
+      // Cancel the subscription
+      const cancelled = await stripe.subscriptions.update(subscription.id, {
+        cancel_at_period_end: true,
+      });
+      console.log("Cancelled", cancelled);
+      return respond(200, {
+        message: `Your subscription will not be renewed after ${new Date(cancelled.cancel_at * 1000).toDateString()}.`,
+        subscription: cancelled,
+      });
+    } catch (error) {
+      console.error("Error cancelling subscription:", error);
+      return respond(500, { message: `Error: ${error.message}` });
     }
   }
 };
