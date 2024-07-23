@@ -21,6 +21,7 @@ function boot({ wipe, fps }) {
 
 function paint({ ink, crawl, left, right, up, down, face }) {
   ink("yellow");
+  down();
   crawl();
 }
 
