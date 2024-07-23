@@ -5,7 +5,7 @@
   - Today we will be designing clockfaces and working with time. 
     1. [] 🐢 Introduction to turtle graphics and relative coordinate systems.
     2.   - [] Making lines and basic operation.
-    3.   - [] Making a curcle.
+    3.   - [] Making a circle.
     4.   - [] Patterns.
     4. [] Keeping time and clock-making. 
     5. - [] Using LLMs to learn about the JavaScript `Date` Object. 
