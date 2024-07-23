@@ -27,7 +27,7 @@ import {
   uint8ArrayToBase64,
   base64ToUint8Array,
 } from "./helpers.mjs";
-const { pow, abs, round, sin, random, min, max, floor } = Math;
+const { pow, abs, round, sin, random, min, max, floor, cos } = Math;
 const { keys } = Object;
 import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
@@ -1967,7 +1967,45 @@ const $paintApi = {
   LINE,
   CUBEL,
   ORIGIN,
+  // Turtle graphics: 🐢
+  // Move the turtle forward based on angle.
+  crawl: (steps) => {
+    const x2 = turtlePosition.x + steps * cos(num.radians(turtleAngle));
+    const y2 = turtlePosition.y + steps * sin(num.radians(turtleAngle));
+    if (turtleDown)
+      $activePaintApi.line(turtlePosition.x, turtlePosition.y, x2, y2);
+    turtlePosition.x = x2;
+    turtlePosition.y = y2;
+  },
+  // Turn turtle left n degrees.
+  left: (d) => {
+    turtleAngle -= d;
+  },
+  // Turn turtle right n degrees.
+  right: (d) => {
+    turtleAngle += d;
+  },
+  // Turtle pen up.
+  up: () => {
+    turtleDown = false;
+  },
+  // Turtle pen down.
+  down: () => {
+    turtleDown = true;
+  },
+  // Teleport the turtle position.
+  goto: (x, y) => {
+    turtlePosition.x = x;
+    turtlePosition.y = y;
+  },
+  face: (angle = 0) => {
+    turtleAngle = angle - 90;
+  },
 };
+
+let turtleAngle = 270;
+let turtleDown = false;
+let turtlePosition = { x: 0, y: 0 };
 
 // This is where I map the API functions that anyone can use, to the internal
 // code that represents them...
@@ -2902,7 +2940,7 @@ async function load(
       // Note: This is used for live development via the socket server.
       $commonApi.load({ source, name, codeChannel }, false, false, true); // Load source code.
     } /*if (piece === "*" || piece === undefined /*|| currentText === piece*/ /*) {*/ else {
-      console.log("💾️ Reloading:", piece, "Params:", currentParams);
+      // console.log("💾️ Reloading:", piece, "Params:", currentParams);
       // $commonApi.pieceCount = -1; // Reset pieceCount on developer reload.
       //                             (This can be disabled while testing pieces
       //                              that rely on pieceCount increments)
@@ -3631,6 +3669,14 @@ async function load(
     paintings = {}; // Reset painting cache.
     prefetches?.forEach((p) => prefetchPicture(p)); // Prefetch parsed media.
     graph.color2(null); // Remove any secondary color that was added from another piece.
+    // 🐢 Reset turtle state.
+    turtleAngle = 0;
+    turtleDown = false;
+    turtlePosition = { x: screen.width / 2, y: screen.height / 2 };
+
+    //$api.fps = function (newFps) {
+    send({ type: "fps-change", content: undefined });
+    //};
 
     // 🪧 See if notice needs to be shown.
     if ($commonApi.query.notice === "success") {
@@ -3858,7 +3904,7 @@ async function makeFrame({ data: { type, content } }) {
       // Broadcast to other tabs...
       $commonApi.broadcast("login:success");
     } else {
-      console.log("🔐 You are not logged in.");
+      // console.log("🔐 You are not logged in.");
     }
     sessionStarted = true;
     return;
