@@ -1969,21 +1969,24 @@ const $paintApi = {
   ORIGIN,
   // Turtle graphics: 🐢
   // Move the turtle forward based on angle.
-  crawl: (steps) => {
+  crawl: (steps = 1) => {
     const x2 = turtlePosition.x + steps * cos(num.radians(turtleAngle));
     const y2 = turtlePosition.y + steps * sin(num.radians(turtleAngle));
     if (turtleDown)
       $activePaintApi.line(turtlePosition.x, turtlePosition.y, x2, y2);
     turtlePosition.x = x2;
     turtlePosition.y = y2;
+    return { x: turtlePosition.x, y: turtlePosition.y };
   },
   // Turn turtle left n degrees.
-  left: (d) => {
-    turtleAngle -= d;
+  left: (d = 1) => {
+    turtleAngle = normalizeAngle(turtleAngle - d);
+    return turtleAngle;
   },
   // Turn turtle right n degrees.
-  right: (d) => {
-    turtleAngle += d;
+  right: (d = 1) => {
+    turtleAngle = normalizeAngle(turtleAngle + d);
+    return turtleAngle;
   },
   // Turtle pen up.
   up: () => {
@@ -1997,11 +2000,18 @@ const $paintApi = {
   goto: (x, y) => {
     turtlePosition.x = x;
     turtlePosition.y = y;
+    return {x: turtlePosition.x, y: turtlePosition.y }
   },
   face: (angle = 0) => {
-    turtleAngle = angle - 90;
+    turtleAngle = normalizeAngle(angle - 90);
+    return turtleAngle;
   },
 };
+
+// TODO: Eventually move this to `num`. 24.07.23.18.52
+function normalizeAngle(angle) {
+  return ((angle % 360) + 360) % 360;
+}
 
 let turtleAngle = 270;
 let turtleDown = false;
@@ -3670,7 +3680,7 @@ async function load(
     prefetches?.forEach((p) => prefetchPicture(p)); // Prefetch parsed media.
     graph.color2(null); // Remove any secondary color that was added from another piece.
     // 🐢 Reset turtle state.
-    turtleAngle = 0;
+    turtleAngle = 270;
     turtleDown = false;
     turtlePosition = { x: screen.width / 2, y: screen.height / 2 };
 
