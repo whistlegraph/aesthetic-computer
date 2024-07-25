@@ -136,6 +136,14 @@ class Button {
 
     // 3. Push: Trigger the button if we push it.
     if (e.is(`lift:${t}`) && btn.down) {
+      function up() {
+        const up = callbacks.up?.(btn);
+        if (up === false) {
+          btn.down = true;
+          btn.over = true;
+        }
+      }
+
       if (
         (pens.length > 0 && btn.box.onlyContains(e.pointer - 1, pens)) ||
         btn.box.contains(e)
@@ -143,15 +151,12 @@ class Button {
         btn.down = false;
         btn.over = false;
         callbacks.push?.(btn);
+        up();
       } else if (btn.box.containsNone(pens) || !btn.box.contains(e)) {
         btn.down = false;
         btn.over = false;
         callbacks.cancel?.(btn);
-      }
-      const up = callbacks.up?.(btn);
-      if (up === false) {
-        btn.down = true;
-        btn.over = true;
+        up();
       }
     }
 
@@ -260,7 +265,7 @@ class TextButton {
         w,
         h,
       };
-    };
+    }
 
     // Position from top left if x and y are set on pos
     x = (pos.screen?.x || 0) + (pos.x || 0);
