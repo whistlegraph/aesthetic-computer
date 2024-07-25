@@ -5134,12 +5134,12 @@ async function makeFrame({ data: { type, content } }) {
         // 🌐🖋️️ Global pen events.
         try {
           // Always check to see if there was a tap on the corner.
-          const { event: e, jump, send, sound, system } = $api;
+          const { event: e, jump, send, sound, system, piece } = $api;
           let originalColor;
 
           let masked = false;
 
-          if (e.is("touch:5")) {
+          if (e.is("touch:5") && piece !== "notepad") {
             sound.synth({
               tone: 1600,
               duration: 0.02,
