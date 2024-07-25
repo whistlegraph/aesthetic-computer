@@ -1317,7 +1317,7 @@ async function halt($, text) {
     net.hiccup();
     return true;
   } else {
-    console.log("🟢 Attempting a load!");
+    // console.log("🟢 Attempting a load!");
     // 🟠 Local and remote pieces...
 
     // Theory: Is `load` actually similar to eval?

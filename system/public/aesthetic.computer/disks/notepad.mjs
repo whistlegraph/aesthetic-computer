@@ -59,12 +59,12 @@ TODO: 💮 Daisy
     - [?] When lifting, don't cancel other buttons.
       - [🟠] Fix subtle 1, 2, 3, 4, then release 1 and press 1 down and watch 4 get unticked touch bug on ios. 
         - [] This may require fixing localhost testing first.
+    - [] Get 'slide' working on the software so dragging between
+         butons enables the sliding and so does pressing.
     - [] Compare my sine waves to a sine wave generator.
     - [] Add multiple tracks so that I can create "systems" that loop
          with different lengths.
     - [] Add holdable rhythm button with patterns that "cycle".
-    - [] Get 'slide' working on the software so dragging between
-         butons enables the sliding and so does pressing.
     - [] Make sure you can whack multiple keys / alternate keys in tap mode,
          and make sure every key and mouse button does the same thing now...
     + Later
@@ -156,7 +156,7 @@ TODO: 💮 Daisy
   - [x] Make it so keys can be held, and add a decay after releasing?
 */
 
-const STARTING_OCTAVE = "4";
+let STARTING_OCTAVE = "4";
 const STARTING_WAVE = "sine"; //"sine";
 let wave = STARTING_WAVE;
 let hold = false;
@@ -210,6 +210,15 @@ function boot({ params, api, colon, ui, screen }) {
 
   wave = wavetypes.indexOf(colon[0]) > -1 ? colon[0] : wave;
   slide = colon[0] === "slide" || colon[1] === "slide";
+
+  const newOctave =
+    parseInt(colon[0]) || parseInt(colon[1]) || parseInt(colon[2]);
+
+  if (newOctave) {
+    STARTING_OCTAVE = newOctave.toString();
+    octave = STARTING_OCTAVE;
+  }
+
   setupButtons(api);
 }
 
@@ -354,21 +363,21 @@ function act({ event: e, sound: { synth }, pens, api }) {
               const active = orderedByCount(sounds);
 
               //if (slide && active.length > 0) {
-                // adjust the last sound in the stack
-                // sounds[key]?.sound?.update({
-                //  tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
-                // });
-                // sounds[orderedTones[orderedTones.length - 2]] = sounds[key];
+              // adjust the last sound in the stack
+              // sounds[key]?.sound?.update({
+              //  tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
+              // });
+              // sounds[orderedTones[orderedTones.length - 2]] = sounds[key];
               //} else {
-                sounds[note] = {
-                  note: noteUpper,
-                  count: active.length + 1,
-                  sound: synth({
-                    type: wave,
-                    tone: `${octave}${noteUpper}`,
-                    duration: "🔁",
-                  }),
-                };
+              sounds[note] = {
+                note: noteUpper,
+                count: active.length + 1,
+                sound: synth({
+                  type: wave,
+                  tone: `${octave}${noteUpper}`,
+                  duration: "🔁",
+                }),
+              };
               //}
             },
             over: (btn) => {
