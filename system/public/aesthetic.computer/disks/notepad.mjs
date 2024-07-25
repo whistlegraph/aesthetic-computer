@@ -55,8 +55,10 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
-    - [-] When lifting, don't cancel other buttons.
-    - [] Add octave touch buttons.
+    - [🟢] Add octave touch buttons.
+    - [?] When lifting, don't cancel other buttons.
+      - [🟠] Fix subtle 1, 2, 3, 4, then release 1 and press 1 down and watch 4 get unticked touch bug on ios. 
+        - [] This may require fixing localhost testing first.
     - [] Compare my sine waves to a sine wave generator.
     - [] Add multiple tracks so that I can create "systems" that loop
          with different lengths.
@@ -178,7 +180,11 @@ const octaves = "123456789";
 const accents = "#f";
 const buttons = {}; // Software keys. 🎹
 // TODO: Add better octave theme and sharp buttons, etc... 24.07.16.20.01
+
 const buttonNotes = ["c", "d", "e", "f", "g", "a", "b"];
+
+const buttonOctaves = ["3", "4", "5", "6", "7", "8"]; // ❤️‍🔥 Add octaves...
+
 const octaveTheme = [
   "black",
   "black",
