@@ -145,8 +145,11 @@ class Button {
       }
 
       if (
-        (pens.length > 0 && btn.box.onlyContains(e.pointer - 1, pens)) ||
-        /*(!pens &&*/ btn.box.contains(e) //)
+        (pens.length > 0 &&
+          btn.box.containsNone(pens) &&
+          btn.box.contains(e)) ||
+        //(pens.length > 0 && btn.box.onlyContains(e.pointer - 1, pens)) ||
+        (!pens && btn.box.contains(e))
       ) {
         console.log(
           "Button up (push):",
@@ -167,7 +170,13 @@ class Button {
         btn.box.containsNone(pens) ||
         (!pens && !btn.box.contains(e))
       ) {
-        console.log("contains no pens!?", btn.box.containsNone(pens), pens, "contains e:", btn.box.contains(e));
+        console.log(
+          "contains no pens!?",
+          btn.box.containsNone(pens),
+          pens,
+          "contains e:",
+          btn.box.contains(e),
+        );
         btn.down = false;
         btn.over = false;
         callbacks.cancel?.(btn);
