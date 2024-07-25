@@ -167,6 +167,7 @@ class Button {
         btn.box.containsNone(pens) ||
         (!pens && !btn.box.contains(e))
       ) {
+        console.log("contains no pens!?", btn.box.containsNone(pens), pens);
         btn.down = false;
         btn.over = false;
         callbacks.cancel?.(btn);
