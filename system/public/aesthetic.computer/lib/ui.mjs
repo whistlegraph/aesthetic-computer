@@ -155,7 +155,7 @@ class Button {
           btn.box.containsNone(pens) &&
           btn.box.contains(e)) ||
         //(pens.length > 0 && btn.box.onlyContains(e.pointer - 1, pens)) ||
-        ((!pens || pens.length === 1) && btn.box.contains(e))
+        ((!pens || pens.length <= 1) && btn.box.contains(e))
       ) {
         // console.log(
         //   "Button up (push):",
