@@ -194,7 +194,8 @@ export class Box {
 
   // Returns true if this box contains NO points in `arr`.
   containsNone(arr) {
-    return arr?.every((o) => this.contains(o) === false);
+    if (!arr) return true;
+    return arr.every((o) => this.contains(o) === false);
   }
 
   // Returns true if this box contains the point `xy` from `arr`.
