@@ -12,13 +12,15 @@
     7. - [x] Writing the time.
     8. - [x] Progress bars and review using `num.map`.
     9. - [🟠] Building the clock face. 
-    10.  - [-] Clock hands.
+    10.  - [x] Clock hands.
           - [x] millis
-          - [] seconds
-          - [] minutes
-          - [] hour (subtract by 12)
-    11.  - [] Numeric printed labels.
-           - [] AM/PM
+          - [x] seconds
+          - [x] minutes
+          - [x] hour (subtract by 12)
+    11.  - [x] Numeric printed labels.
+           - [-] Marker lines.
+           - [-] AM/PM
+           - [-] Scale and rotation play...
     12.  - [] Running two clocks simultaneously at different times.
     13.    - [] Component with options. 
     14.    - [] Asking an LLM to help us make offset times.
@@ -40,6 +42,8 @@ function boot({ wipe, fps }) {
   wipe("gray");
 }
 
+// let spinInc = 0;
+
 function paint({
   flood,
   wipe,
@@ -58,10 +62,12 @@ function paint({
   wipe("gray");
 
   const now = new Date(); // Default to current time.
-  const hours = now.getHours() - 12;
+  const morning = now.getHours() < 12 ? true : false;
+  const hours = morning === false ? now.getHours() - 12 : now.getHours();
   const minutes = now.getMinutes();
   const seconds = now.getSeconds();
   const millis = now.getMilliseconds();
+  const ampm = morning ? "AM" : "PM";
 
   function textClock(date, margin = 6, top = 20, color = "white") {
     const spacing = 12;
@@ -75,12 +81,15 @@ function paint({
     );
 
     // Making a digital clock display.
-    const hours = date.getHours() - 12;
+    const morning = date.getHours() < 12 ? true : false;
+    const hours = morning === false ? date.getHours() - 12 : date.getHours();
     const minutes = date.getMinutes();
     const seconds = date.getSeconds();
     const millis = date.getMilliseconds();
+    const ampm = morning ? "AM" : "PM";
+
     ink(color).write(
-      hours + ":" + minutes + ":" + seconds + ":" + millis,
+      ampm + " " + hours + ":" + minutes + ":" + seconds + ":" + millis,
       margin,
       top + 36,
     );
@@ -129,24 +138,23 @@ function paint({
   */
 
   // Set scale and starting position.
-  const scale = 1.75; // We may decide on this number based on screen space.
+  const scale = 2; // We may decide on this number based on screen space.
   const center = [screen.width / 2, screen.height - screen.height / 3]; // Arrays
-  const spin = -90;
+
+  // spinInc += 1;
+  const spin = -90; // + spinInc;
   goto(...center); // ... will 'spread' the array into the function parameters
 
   // Paint a background circle.
-  ink(90).circle(...center, 30 * scale, "fill");
+  ink(90).circle(...center, 42 * scale, "fill");
+  ink(0).circle(...center, 42 * scale);
+
+  // Paint AM or PM
+  ink("orange", 127).write(ampm, center[0] - 4, center[1] - 15 * scale)
 
   const offX = 2;
   const offY = 4;
   const labelDist = 36;
-
-  // 12 o-clock
-  // face(0 + spin); // facing the angle of 0 -------->
-  // ink("magenta"); // TODO: This is not working. 24.07.25.22.09
-  // down();
-  // const pos = crawl(labelDist * scale); // move forward by 30 and leave a white line
-  // ink("white").write("0", pos.x - offX, pos.y - offY).ink("magenta");
 
   const labels = [
     "12",
@@ -166,15 +174,23 @@ function paint({
   labels.forEach((label, index) => {
     up();
     goto(...center);
-    face(index * (360 / labels.length) + spin); // 360 / 12 ===
-    const pos = crawl(labelDist * scale);
+    face(index * (360 / labels.length) + spin);
+    const scaledDist = labelDist * scale;
+    const initialDist = scaledDist * 0.7;
+    const dashDist = scaledDist * 0.15; // half of 0.3 which is the rest...
+    crawl(initialDist);
+    down();
+    ink("orange");
+    crawl(dashDist);
+    up();
+    const pos = crawl(dashDist);
     let offsetX;
     if (label.length === 2) {
       offsetX = 5;
     } else {
       offsetX = offX;
     }
-    ink("white").write(label, pos.x - offsetX, pos.y - offY);
+    ink("orange").write(label, pos.x - offsetX, pos.y - offY, /* { bg: "black" } */);
   });
 
   const hands = {
