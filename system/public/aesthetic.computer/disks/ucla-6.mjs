@@ -33,17 +33,32 @@ const theme = {
   millis: "red",
   seconds: "green",
   minutes: "yellow",
+  hours: "cyan",
 };
 
 function boot({ wipe, fps }) {
   wipe("gray");
 }
 
-function paint({ flood, wipe, ink, num, crawl, left, right, up, down, face, goto, screen }) {
+function paint({
+  flood,
+  wipe,
+  ink,
+  write,
+  num,
+  crawl,
+  left,
+  right,
+  up,
+  down,
+  face,
+  goto,
+  screen,
+}) {
   wipe("gray");
 
   const now = new Date(); // Default to current time.
-  const hour = now.getHours() - 12;
+  const hours = now.getHours() - 12;
   const minutes = now.getMinutes();
   const seconds = now.getSeconds();
   const millis = now.getMilliseconds();
@@ -60,12 +75,12 @@ function paint({ flood, wipe, ink, num, crawl, left, right, up, down, face, goto
     );
 
     // Making a digital clock display.
-    const hour = date.getHours() - 12;
+    const hours = date.getHours() - 12;
     const minutes = date.getMinutes();
     const seconds = date.getSeconds();
     const millis = date.getMilliseconds();
     ink(color).write(
-      hour + ":" + minutes + ":" + seconds + ":" + millis,
+      hours + ":" + minutes + ":" + seconds + ":" + millis,
       margin,
       top + 36,
     );
@@ -113,39 +128,72 @@ function paint({ flood, wipe, ink, num, crawl, left, right, up, down, face, goto
       🚀 (goto) - teleport to any x,y position
   */
 
-  // Set scale and starting position. 
-  const scale = 1; // We may decide on this number based on screen space.
+  // Set scale and starting position.
+  const scale = 1.75; // We may decide on this number based on screen space.
   const center = [screen.width / 2, screen.height - screen.height / 3]; // Arrays
-  goto(...center); // ... will 'spread' the array into the function parameters 
+  const spin = -90;
+  goto(...center); // ... will 'spread' the array into the function parameters
 
-  // Registration point...
-  face(0); // facing the angle of 0 -------->
-  ink("white");
-  down(); // start a drawing...
-  crawl(30 * scale); // move forward by 30 and leave a white line
-  up();
-  crawl(-30 * scale);
+  // Paint a background circle.
+  ink(90).circle(...center, 30 * scale, "fill");
 
-  // Millis Hand
-  face(num.map(millis, 0, 1000, 0, 360)); // a mapping of millis to 0->360
-  ink(theme.millis);
-  down();
-  crawl(25 * scale);
-  // up();
+  const offX = 2;
+  const offY = 4;
+  const labelDist = 36;
 
-  goto(...center); // Seconds Hand
-  face(num.map(seconds, 0, 60, 0, 360));
-  ink(theme.seconds);
-  down();
-  crawl(28 * scale);
-  up();
+  // 12 o-clock
+  // face(0 + spin); // facing the angle of 0 -------->
+  // ink("magenta"); // TODO: This is not working. 24.07.25.22.09
+  // down();
+  // const pos = crawl(labelDist * scale); // move forward by 30 and leave a white line
+  // ink("white").write("0", pos.x - offX, pos.y - offY).ink("magenta");
 
-  goto(...center); // Minutes Hand
-  face(num.map(minutes, 0, 60, 0, 360));
-  ink(theme.minutes);
-  down();
-  crawl(30 * scale);
-  up();
+  const labels = [
+    "12",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+  ];
+
+  labels.forEach((label, index) => {
+    up();
+    goto(...center);
+    face(index * (360 / labels.length) + spin); // 360 / 12 ===
+    const pos = crawl(labelDist * scale);
+    let offsetX;
+    if (label.length === 2) {
+      offsetX = 5;
+    } else {
+      offsetX = offX;
+    }
+    ink("white").write(label, pos.x - offsetX, pos.y - offY);
+  });
+
+  const hands = {
+    millis: { unit: millis, max: 1000, color: theme.millis, length: 25 },
+    seconds: { unit: seconds, max: 60, color: theme.seconds, length: 28 },
+    minutes: { unit: minutes, max: 60, color: theme.minutes, length: 30 },
+    hours: { unit: hours, max: 12, color: theme.hours, length: 30 },
+  };
+
+  const types = ["millis", "seconds", "minutes", "hours"];
+
+  types.forEach((type) => {
+    goto(...center); // Millis Hand
+    face(num.map(hands[type].unit, 0, hands[type].max, 0, 360) + spin);
+    ink(hands[type].color);
+    down();
+    crawl(hands[type].length * scale);
+  });
+
 }
 
 // 📚 Library

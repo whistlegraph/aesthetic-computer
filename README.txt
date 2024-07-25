@@ -104,6 +104,7 @@ but technically agnostic. (Choose your aesthetic!)
     - [] enabled crowd-sourced backwards compatibility &&|| llm auto-patching
 
 *** ucla ***
+  - [] fix ink("magenta") issue with turtle graphics crawl not reading current value
   - [] ucla-6-clock should have image loading / pasting from handled paintings
   - [] always display first paint iteration. (corner skip in `ucla-2-a`)
   - [] users need to log out and log back in before publishing
