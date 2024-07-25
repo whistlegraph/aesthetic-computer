@@ -153,7 +153,10 @@ class Button {
         callbacks.push?.(btn);
         up();
         console.log("Button up (push):", btn, pens);
-      } else if (btn.box.containsNone(pens) || !btn.box.contains(e)) {
+      } else if (
+        btn.box.containsNone(pens) ||
+        (!pens && !btn.box.contains(e))
+      ) {
         btn.down = false;
         btn.over = false;
         callbacks.cancel?.(btn);
@@ -187,6 +190,7 @@ class Button {
         callbacks.rollout(btn);
       } else {
         callbacks.out?.(btn);
+        console.log("Button out (rollout):", btn, pens);
       }
       btn.over = false;
     }
