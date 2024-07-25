@@ -194,7 +194,7 @@ export class Box {
 
   // Returns true if this box contains NO points in `arr`.
   containsNone(arr) {
-    return arr.every((o) => this.contains(o) === false);
+    return arr?.every((o) => this.contains(o) === false);
   }
 
   // Returns true if this box contains the point `xy` from `arr`.
@@ -314,7 +314,7 @@ export class Grid {
       this.box.x,
       this.box.y,
       this.box.w * this.scale,
-      this.box.h * this.scale
+      this.box.h * this.scale,
     );
   }
 
@@ -351,7 +351,7 @@ export class Grid {
         { x: o, y: o },
         { x: o - 1, y: o - 1 },
         { x: o - 1, y: o },
-        { x: o, y: o - 1 }
+        { x: o, y: o - 1 },
       );
     }
     return points;
@@ -476,7 +476,7 @@ export class Race {
         vec4.create(),
         this.pos,
         point,
-        0.01 * this.speed
+        0.01 * this.speed,
       );
       out = this.quantizer.to(newPos);
       this.pos = newPos;
@@ -486,7 +486,7 @@ export class Race {
         vec4.create(),
         this.pos,
         point,
-        0.01 * this.speed
+        0.01 * this.speed,
       );
       this.dist += vec4.dist(this.pos, newPos);
       this.pos = newPos;
@@ -535,7 +535,7 @@ export class Quantizer {
         vec4.create(),
         lastPoint,
         point,
-        this.step / this.dist
+        this.step / this.dist,
       );
       out.push(lastPoint, nextPoint);
       lastPoint = nextPoint;
