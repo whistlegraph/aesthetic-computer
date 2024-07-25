@@ -146,9 +146,19 @@ class Button {
 
       if (
         (pens.length > 0 && btn.box.onlyContains(e.pointer - 1, pens)) ||
-        btn.box.contains(e)
+        (!pens && btn.box.contains(e))
       ) {
-        console.log("Button up (push):", btn, pens, "onlyContains:", btn.box.onlyContains(e.pointer - 1, pens), "boxcontains:", btn.box.contains(e), "pointer:", e.pointer);
+        console.log(
+          "Button up (push):",
+          btn,
+          pens,
+          "onlyContains:",
+          btn.box.onlyContains(e.pointer - 1, pens),
+          "boxcontains:",
+          btn.box.contains(e),
+          "pointer:",
+          e.pointer,
+        );
         btn.down = false;
         btn.over = false;
         callbacks.push?.(btn);
