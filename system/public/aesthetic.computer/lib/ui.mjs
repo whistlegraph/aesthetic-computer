@@ -152,11 +152,13 @@ class Button {
         btn.over = false;
         callbacks.push?.(btn);
         up();
+        console.log("Button up (push):", btn, pens);
       } else if (btn.box.containsNone(pens) || !btn.box.contains(e)) {
         btn.down = false;
         btn.over = false;
         callbacks.cancel?.(btn);
         up();
+        console.log("Button up (cancel):", btn, pens);
       }
     }
 
