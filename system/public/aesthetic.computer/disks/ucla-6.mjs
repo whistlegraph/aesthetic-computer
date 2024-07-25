@@ -3,10 +3,10 @@
 
 /* 📝 Notes 
   - Today we will be designing clockfaces and working with time. 
-    1. [] 🐢 Introduction to turtle graphics and relative coordinate systems.
-    2.   - [] Making lines and basic operation.
-    3.   - [] Making a circle.
-    4.   - [] Patterns.
+    1. [x] 🐢 Introduction to turtle graphics and relative coordinate systems.
+    2.   - [x] Making lines and basic operation.
+    3.   - [x] Making a circle.
+    4.   - [x] Patterns.
     5. [⏰] Keeping time and clock-making. 
     6. - [x] Using LLMs to learn about the JavaScript `Date` Object. 
     7. - [x] Writing the time.
@@ -31,25 +31,30 @@ function boot({ wipe, fps }) {
 function paint({ flood, wipe, ink, num, crawl, left, right, up, down, face, goto, screen }) {
   wipe("gray");
 
-  function textClock(margin = 6, top = 20, color = "white") {
+  const now = new Date(); // Default to current time.
+  const hour = now.getHours() - 12;
+  const minutes = now.getMinutes();
+  const seconds = now.getSeconds();
+  const millis = now.getMilliseconds();
+
+  function textClock(date, margin = 6, top = 20, color = "white") {
     const spacing = 12;
-    const now = new Date(); // Default to current time.
-    ink(color).write("Hour: " + (now.getHours() - 12), margin, top);
-    ink(color).write("Minutes: " + now.getMinutes(), margin, top + spacing);
-    ink(color).write("Seconds: " + now.getSeconds(), margin, top + spacing * 2);
+
+    ink(color).write("Hour: " + (date.getHours() - 12), margin, top);
+    ink(color).write("Minutes: " + date.getMinutes(), margin, top + spacing);
+    ink(color).write("Seconds: " + date.getSeconds(), margin, top + spacing * 2);
+
+    // Making a digital clock display.
+    const hour = date.getHours() - 12;
+    const minutes = date.getMinutes();
+    const seconds = date.getSeconds();
+    const millis = date.getMilliseconds();
+    ink(color).write(hour + ":" + minutes + ":" + seconds + ":" + millis, margin, top + 36);
   }
 
-  textClock();
-  // textClock(6, 100, "blue");
-  // textClock(6, 102, "lime");
-
-  // Making a digital clock display.
-  const date = new Date();
-  const hour = date.getHours() - 12;
-  const minutes = date.getMinutes();
-  const seconds = date.getSeconds();
-  const millis = date.getMilliseconds();
-  ink("yellow").write(hour + ":" + minutes + ":" + seconds + ":" + millis, 6, 58);
+  textClock(now);
+  textClock(now, 6, 180, "blue");
+  textClock(now, 6, 182, "lime");
 
   function progressBar(x, y, unit, unitMax, color = "red", outline = false) {
     const max = 100;
