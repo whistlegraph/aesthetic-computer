@@ -7,12 +7,21 @@
     2.   - [] Making lines and basic operation.
     3.   - [] Making a circle.
     4.   - [] Patterns.
-    4. [⏰] Keeping time and clock-making. 
-    5. - [*] Using LLMs to learn about the JavaScript `Date` Object. 
-    6. - [] Writing the time.
-    7. - [] Progress bars and review using `num.map`.
-    8. - [] Learning `lineAngle(x1, y1, dist, degrees)`
-    9. - [] Using parameters in Aesthetic Computer
+    5. [⏰] Keeping time and clock-making. 
+    6. - [x] Using LLMs to learn about the JavaScript `Date` Object. 
+    7. - [x] Writing the time.
+    8. - [x] Progress bars and review using `num.map`.
+    9. - [🟠] Building the clock face. 
+    10.  - [] Clock hands.
+    11.  - [] Numeric printed labels.
+    12.  - [] Running two clocks simultaneously at different times.
+    13.    - [] Component with options. 
+    14.    - [] Asking an LLM to help us make offset times.
+    15.  🎈 *BONUS* 🎶 Musical (Temporal) Systems
+
+    📃 Up Next...
+      Bouncing balls!
+    16. - [] Using parameters in Aesthetic Computer (make sure development works)
 */
 
 // Built in JavaScript "Date" object.
