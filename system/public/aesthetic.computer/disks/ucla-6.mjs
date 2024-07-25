@@ -24,8 +24,6 @@
     16. - [] Using parameters in Aesthetic Computer (make sure development works)
 */
 
-// Built in JavaScript "Date" object.
-
 function boot({ wipe, fps }) {
   wipe("gray");
 }
@@ -33,7 +31,6 @@ function boot({ wipe, fps }) {
 function paint({ flood, wipe, ink, num, crawl, left, right, up, down, face, goto, screen }) {
   wipe("gray");
 
-  // Blueprint...
   function textClock(margin = 6, top = 20, color = "white") {
     const spacing = 12;
     const now = new Date(); // Default to current time.
@@ -42,7 +39,7 @@ function paint({ flood, wipe, ink, num, crawl, left, right, up, down, face, goto
     ink(color).write("Seconds: " + now.getSeconds(), margin, top + spacing * 2);
   }
 
-  textClock(); // RUN THE CODE ABOVE with a 'margin' of 10 ^
+  textClock();
   // textClock(6, 100, "blue");
   // textClock(6, 102, "lime");
 
@@ -63,17 +60,16 @@ function paint({ flood, wipe, ink, num, crawl, left, right, up, down, face, goto
     } else {
       ink("black").box(x + progress, y, max - progress, height);
     }
-    ink(color).box(x, y, progress, height); // x, y, w, h
+    ink(color).box(x, y, progress, height);
   }
 
-  progressBar(6, 80, millis, 1000); // x, y, unit, unitMax 
+  progressBar(6, 80, millis, 1000);
   progressBar(6, 100, seconds, 60, "green");
   progressBar(6, 120, minutes, 60, "yellow");
 
-  progressBar(6, 160, millis, 1000, [255, 0, 0, 127], true); // x, y, unit, unitMax 
-  progressBar(6, 160, seconds, 60, [0, 255, 0, 127], true); // x, y, unit, unitMax 
-  progressBar(6, 160, minutes, 60, [255, 255, 0, 127], true); // x, y, unit, unitMax 
-  //                                R, G, B
+  progressBar(6, 160, millis, 1000, [255, 0, 0, 127], true);
+  progressBar(6, 160, seconds, 60, [0, 255, 0, 127], true);
+  progressBar(6, 160, minutes, 60, [255, 255, 0, 127], true);
 
   // Circular clock hand.
   ink("white");
