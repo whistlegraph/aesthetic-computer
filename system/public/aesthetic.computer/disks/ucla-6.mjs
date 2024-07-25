@@ -12,8 +12,13 @@
     7. - [x] Writing the time.
     8. - [x] Progress bars and review using `num.map`.
     9. - [🟠] Building the clock face. 
-    10.  - [] Clock hands.
+    10.  - [-] Clock hands.
+          - [x] millis
+          - [] seconds
+          - [] minutes
+          - [] hour (subtract by 12)
     11.  - [] Numeric printed labels.
+           - [] AM/PM
     12.  - [] Running two clocks simultaneously at different times.
     13.    - [] Component with options. 
     14.    - [] Asking an LLM to help us make offset times.
@@ -23,6 +28,12 @@
       Bouncing balls!
     16. - [] Using parameters in Aesthetic Computer (make sure development works)
 */
+
+const theme = {
+  millis: "red",
+  seconds: "green",
+  minutes: "yellow",
+};
 
 function boot({ wipe, fps }) {
   wipe("gray");
@@ -42,52 +53,99 @@ function paint({ flood, wipe, ink, num, crawl, left, right, up, down, face, goto
 
     ink(color).write("Hour: " + (date.getHours() - 12), margin, top);
     ink(color).write("Minutes: " + date.getMinutes(), margin, top + spacing);
-    ink(color).write("Seconds: " + date.getSeconds(), margin, top + spacing * 2);
+    ink(color).write(
+      "Seconds: " + date.getSeconds(),
+      margin,
+      top + spacing * 2,
+    );
 
     // Making a digital clock display.
     const hour = date.getHours() - 12;
     const minutes = date.getMinutes();
     const seconds = date.getSeconds();
     const millis = date.getMilliseconds();
-    ink(color).write(hour + ":" + minutes + ":" + seconds + ":" + millis, margin, top + 36);
+    ink(color).write(
+      hour + ":" + minutes + ":" + seconds + ":" + millis,
+      margin,
+      top + 36,
+    );
   }
 
-  textClock(now);
-  textClock(now, 6, 180, "blue");
-  textClock(now, 6, 182, "lime");
+  textClock(now, 6, 20, "red");
+  textClock(now, 6 + 1, 20 + 1, "blue");
+  textClock(now, 6 + 2, 20 + 2, "white");
 
-  function progressBar(x, y, unit, unitMax, color = "red", outline = false) {
-    const max = 100;
-    const height = 16;
-    const progress = num.map(unit, 0, unitMax, 0, max); // mapping 'millis' from 0->1000 to 0->100
+  function progressBar(
+    x,
+    y,
+    width = 100,
+    height = 16,
+    unit,
+    unitMax,
+    color = "white",
+    outline = false,
+  ) {
+    const progress = num.map(unit, 0, unitMax, 0, width); // mapping 'millis' from 0->1000 to 0->100
     if (outline) {
-      ink("black").box(x, y, max, height, "outline");
+      ink("black").box(x, y, width, height, "outline");
     } else {
-      ink("black").box(x + progress, y, max - progress, height);
+      ink("black").box(x + progress, y, width - progress, height);
     }
     ink(color).box(x, y, progress, height);
   }
 
-  progressBar(6, 80, millis, 1000);
-  progressBar(6, 100, seconds, 60, "green");
-  progressBar(6, 120, minutes, 60, "yellow");
+  const progressTop = 70;
+  progressBar(6, progressTop, 100, 8, millis, 1000, theme.millis);
+  progressBar(6, progressTop + 8, 100, 12, seconds, 60, theme.seconds);
+  progressBar(6, progressTop + 8 + 12, 100, 16, minutes, 60, theme.minutes);
 
-  progressBar(6, 160, millis, 1000, [255, 0, 0, 127], true);
-  progressBar(6, 160, seconds, 60, [0, 255, 0, 127], true);
-  progressBar(6, 160, minutes, 60, [255, 255, 0, 127], true);
+  const outlinedTop = progressTop + 8 + 12 + 16 + 3;
+  progressBar(6, outlinedTop, 100, 10, millis, 1000, [theme.millis, 127], true);
+  progressBar(6, outlinedTop, 100, 10, seconds, 60, [theme.seconds, 127], true);
+  progressBar(6, outlinedTop, 100, 10, minutes, 60, [theme.minutes, 127], true);
 
   // Circular clock hand.
+  /*
+      🐢-> (crawl) - move forward at the current angle
+      🖍️ (down or up) - start or stop drawing
+      ↩ (️left or right) - turn by a relative angle
+      📐 (face) - face any angle
+      🚀 (goto) - teleport to any x,y position
+  */
+
+  // Set scale and starting position. 
+  const scale = 1; // We may decide on this number based on screen space.
+  const center = [screen.width / 2, screen.height - screen.height / 3]; // Arrays
+  goto(...center); // ... will 'spread' the array into the function parameters 
+
+  // Registration point...
+  face(0); // facing the angle of 0 -------->
   ink("white");
-  goto(screen.width / 2, screen.height - 100);
-  down();
-  face(0);
-  crawl(30);
+  down(); // start a drawing...
+  crawl(30 * scale); // move forward by 30 and leave a white line
   up();
-  crawl(-30);
+  crawl(-30 * scale);
+
+  // Millis Hand
+  face(num.map(millis, 0, 1000, 0, 360)); // a mapping of millis to 0->360
+  ink(theme.millis);
   down();
-  face(num.map(millis, 0, 1000, 0, 360));
-  ink("red");
-  crawl(30);
+  crawl(25 * scale);
+  // up();
+
+  goto(...center); // Seconds Hand
+  face(num.map(seconds, 0, 60, 0, 360));
+  ink(theme.seconds);
+  down();
+  crawl(28 * scale);
+  up();
+
+  goto(...center); // Minutes Hand
+  face(num.map(minutes, 0, 60, 0, 360));
+  ink(theme.minutes);
+  down();
+  crawl(30 * scale);
+  up();
 }
 
 // 📚 Library

@@ -1998,6 +1998,9 @@ const $paintApi = {
   },
   // Teleport the turtle position.
   goto: (x = screen.width / 2, y = screen.height / 2) => {
+    if (turtleDown) {
+      $activePaintApi.line(turtlePosition.x, turtlePosition.y, x, y);
+    }
     turtlePosition.x = x;
     turtlePosition.y = y;
     return {x: turtlePosition.x, y: turtlePosition.y }
