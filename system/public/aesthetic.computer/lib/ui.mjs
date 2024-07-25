@@ -164,10 +164,16 @@ class Button {
         callbacks.push?.(btn);
         up();
       } else if (
-        btn.box.containsNone(pens) ||
+        (btn.box.containsNone(pens) && !btn.box.contains(e)) ||
         (!pens && !btn.box.contains(e))
       ) {
-        console.log("contains no pens!?", btn.box.containsNone(pens), pens);
+        console.log(
+          "contains no pens!?",
+          btn.box.containsNone(pens),
+          pens,
+          "contains e:",
+          btn.box.contains(e),
+        );
         btn.down = false;
         btn.over = false;
         callbacks.cancel?.(btn);
