@@ -210,8 +210,8 @@ class Button {
         callbacks.rollout(btn);
       } else {
         callbacks.out?.(btn);
-        // console.log("Button out (rollout):", btn, pens);
       }
+      console.log("Button out (rollout):", btn, pens);
       btn.over = false;
     }
   }
