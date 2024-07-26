@@ -18,9 +18,9 @@
           - [x] minutes
           - [x] hour (subtract by 12)
     11.  - [x] Numeric printed labels.
-           - [-] Marker lines.
-           - [-] AM/PM
-           - [-] Scale and rotation play...
+           - [x] Marker lines.
+           - [x] AM/PM
+           - [x] Scale and rotation play...
     12.  - [] Running two clocks simultaneously at different times.
     13.    - [] Component with options. 
     14.    - [] Asking an LLM to help us make offset times.
@@ -199,11 +199,10 @@ function paint({
     minutes: { unit: minutes, max: 60, color: theme.minutes, length: 30 },
     hours: { unit: hours, max: 12, color: theme.hours, length: 30 },
   };
-
   const types = ["millis", "seconds", "minutes", "hours"];
 
   types.forEach((type) => {
-    goto(...center); // Millis Hand
+    goto(...center);
     face(num.map(hands[type].unit, 0, hands[type].max, 0, 360) + spin);
     ink(hands[type].color);
     down();
