@@ -21,6 +21,7 @@
            - [x] Marker lines.
            - [x] AM/PM
            - [x] Scale and rotation play...
+    11.5 - [] Smooooooooth hand motion! 🤭
     12.  - [] Running two clocks simultaneously at different times.
     13.    - [] Component with options. 
     14.    - [] Asking an LLM to help us make offset times.
