@@ -79,7 +79,7 @@ class Button {
   icon;
   dom = false;
   over = false; // Keep track of rollover state.
-  multitouch = true; // Toggle to false to make a single touch button.
+  multitouch = true; // Toggle to false to make a single touch button2.
   actions; // A held list of callbacks for virtually triggering events.
 
   get up() {
