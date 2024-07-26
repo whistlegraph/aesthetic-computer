@@ -204,8 +204,8 @@ class SoundProcessor extends AudioWorkletProcessor {
       }
 
       // Mix all sound through global volume.
-      output[0][s] = volume.apply(output[0][s]);
-      output[1][s] = volume.apply(output[1][s]);
+      output[0][s] = volume.apply(output[0][s]/* / this.#queue.length*/);
+      output[1][s] = volume.apply(output[1][s]/* / this.#queue.length*/);
 
       // Track the current amplitude of both channels, and get waveform data.
       ampLeft = abs(output[0][s]) > ampLeft ? abs(output[0][s]) : ampLeft;
