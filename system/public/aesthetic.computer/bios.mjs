@@ -689,7 +689,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // sampleRate: 44100,
       // sampleRate: 48000,
       // sampleRate: 96000,
-      sampleRate: 192000,
+      sampleRate: iOS || Android ? 48000 : 192000,
     });
 
     // BGM Analyser
