@@ -1,31 +1,43 @@
 import { networkInterfaces } from "os";
+import { exec } from "child_process";
 import qrcode from "qrcode-terminal";
 import got from "got";
 
 let bootUps = 0;
 const bootUpTimer = setInterval(() => {
   process.stdout.write("\x1Bc"); // Clear terminal.
-  console.log(
-    bootUps % 2 === 0 ? `\n 🫠  Booting up...` : `\n 🥲  Booting up. . .`,
-  );
+
+  const command = `echo "${bootUps % 2 === 0 ? 'Booting up...' : 'Booting up. . .'}" | toilet -f smblock`;
+
+  exec(command, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`Error executing command: ${error}`);
+      return;
+    }
+    process.stdout.write(stdout);
+    if (stderr) {
+      console.error(`stderr: ${stderr}`);
+    }
+  });
+
   bootUps += 1;
 }, 250);
 
 async function constructUrl() {
-  const ifaces = networkInterfaces();
-  let ipAddress;
+  // const ifaces = networkInterfaces();
+  // let ipAddress;
 
-  // Iterate over network interfaces to find the 1st non-internal IPv4 address
-  Object.keys(ifaces).forEach((ifname) => {
-    ifaces[ifname].forEach((iface) => {
-      if (iface.family === "IPv4" && !iface.internal) {
-        ipAddress = iface.address;
-        return;
-      }
-    });
-  });
+  // // Iterate over network interfaces to find the 1st non-internal IPv4 address
+  // Object.keys(ifaces).forEach((ifname) => {
+  //   ifaces[ifname].forEach((iface) => {
+  //     if (iface.family === "IPv4" && !iface.internal) {
+  //       ipAddress = iface.address;
+  //       return;
+  //     }
+  //   });
+  // });
 
-  const url = `https://${ipAddress}:8888`;
+  const url = `https://${process.env.HOST_IP}:8888`;
 
   // Generate QR code in the terminal once a 200 is received from `url`.
   while (true) {

@@ -179,7 +179,6 @@ async function boot({
     positionWelcomeButtons(screen, net.iframe);
   }
 
-
   if (user) {
     // console.log("User:", user);
     const hand = handle();
@@ -1281,18 +1280,23 @@ async function halt($, text) {
     jump("https://live.browserstack.com");
     makeFlash($);
     return true;
-  } else if (text === "gpt") {
+  } else if (text === "gpt" || text === "chatgpt") {
     jump("https://chat.openai.com");
     makeFlash($);
     return true;
   } else if (text === "help") {
     // Go to the Discord for now if anyone types help.
-    jump("out:https://discord.gg/aesthetic-computer");
     makeFlash($);
+    jump("chat");
     return true;
   } else if (text === "shillball" || text === "sb") {
     // Shortcuts for Yeche's Shillball game.
     jump("https://galerie-yechelange.baby/ball");
+    makeFlash($);
+    return true;
+  } else if (text === "ssl") {
+    jump("/aesthetic.crt"); // Download the local CRT file.
+    // TODO: Is there a way to detect this? 24.07.27.02.48
     makeFlash($);
     return true;
   } else if (text === "prod") {
@@ -1473,11 +1477,16 @@ function paint($) {
         ? "Email verified!"
         : "Awaiting email verification" + ellipsisTicker.text(help.repeat);
 
-      ink("black", 128).write(message, {
-        center: "x",
-        x: screen.width / 2 + 1,
-        y: screen.height / 2 - 48 + 1,
-      }, undefined, screen.width - 16);
+      ink("black", 128).write(
+        message,
+        {
+          center: "x",
+          x: screen.width / 2 + 1,
+          y: screen.height / 2 - 48 + 1,
+        },
+        undefined,
+        screen.width - 16,
+      );
 
       ink(verified ? "lime" : "yellow").write(
         message,

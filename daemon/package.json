@@ -1,0 +1,12 @@
+{
+  "name": "daemon",
+  "version": "1.0.0",
+  "description": "A daemon that runs on the Aesthetic Computer platform host machine to support native functions and platform development.",
+  "main": "daemon.js",
+  "type": "module",
+  "scripts": {
+    "install": "fish install-daemon.fish",
+    "monitor": "journalctl --user -u aesthetic-daemon.service -f"
+  },
+  "author": "Jeffrey Alan Scudder"
+}

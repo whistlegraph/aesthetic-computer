@@ -329,7 +329,7 @@ function connectToChat() {
     return;
   }
 
-  const chatUrl = debug ? "localhost:8083" : "chat-system.aesthetic.computer";
+  const chatUrl = debug ? `chat.${location.hostname}:8083` : "chat-system.aesthetic.computer";
 
   chatSystem.server.connect(
     chatUrl, // host
@@ -694,7 +694,7 @@ const $commonApi = {
     const jumpOut =
       to.startsWith("out:") || (to.startsWith("http") && platform.Aesthetic);
 
-    if ((to.startsWith("http") && !to.endsWith(".mjs")) || jumpOut) {
+    if (((to.startsWith("http") || to.startsWith("/")) && !to.endsWith(".mjs")) || jumpOut) {
       to = to.replace("out:", "");
       try {
         // url = new URL(to);

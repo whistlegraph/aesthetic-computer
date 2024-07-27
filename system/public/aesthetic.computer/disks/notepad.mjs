@@ -350,6 +350,7 @@ function act({ event: e, sound: { synth }, pens, api }) {
 
   if (!tap) {
     if (e.is("lift") && pens().length <= 1) anyDown = false;
+
     buttonNotes.forEach((note) => {
       if (buttons[note]) {
         buttons[note].act(

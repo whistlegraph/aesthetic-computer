@@ -9,7 +9,8 @@
     "platform": "linux/amd64"
   },
   "containerEnv": {
-    "DISPLAY": "${localEnv:DISPLAY}"
+    "DISPLAY": "${localEnv:DISPLAY}",
+    "HOST_IP": "${localEnv:HOST_IP}"
   },
   "mounts": [
     "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind,consistency=cached",
@@ -17,7 +18,7 @@
     "source=codespaces-linux-var-lib-docker,target=/var/lib/docker,type=volume",
     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind"
   ],
-  "forwardPorts": [8888, 8111, 8889, 8083],
+  "forwardPorts": [8888, 8111, 8889, 8083, 4040],
   "customizations": {
     "vscode": {
       "extensions": [
@@ -55,12 +56,16 @@
     "--security-opt",
     "seccomp=unconfined",
     "--init",
-    "--memory=4g",
-    "--memory-swap=4g",
+    "--memory=8g",
+    "--memory-swap=8g",
+    "-p",
+    "0.0.0.0:8888:8888",
+    "-p",
+    "0.0.0.0:8889:8889"
     // "--network",
     // "host"
     //    "--platform",
     //    "linux/amd64"
   ],
-  "postCreateCommand": ["fish", "/entry.fish"]
+  "postAttachCommand": ["fish", "/entry.fish"]
 }

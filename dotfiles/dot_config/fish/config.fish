@@ -96,7 +96,7 @@ alias prune 'docker system prune -a --volumes'
 function flip
     set rotation (gnome-randr query | grep -o "rotation: [a-z]*" | cut -d' ' -f2)
     if test $rotation = normal
-        down 
+        down
     else if test $rotation = inverted
         up
     else
@@ -244,21 +244,36 @@ silence_xhost
 set -x NODE_OPTIONS "--max-old-space-size=8192"
 set -x ELECTRON_EXTRA_ARGS "--max-old-space-size=8192"
 
+# Set HOST_IP for use in the aesthetic devcontainer. 
+set -x HOST_IP (hostname -I | awk '{print $1}')
 
 # use tab to autocomplete the first suggestion
 bind \t complete-select-first
 
-## watch for changes in `.started`
-#function watch_trigger
-#    # Check if the directory exists
-#    if test -d /workspaces/aesthetic-computer
-#        # Check if 'cdocker' command exists
-#        if type cdocker >/dev/null 2>&1
-#            # Setup watching only if both checks pass
-#            echo /workspaces/aesthetic-computer/.started | entr -p cdocker aesthetic &
-#        end
-#    end
-#end
+# todo: watch for any creation of the .ssl file in the below directory,
+# and if the file exists then run...
+# ~/Desktop/code/aesthetic-computer/ssl-dev/fedora-install.fish --install-only
+# directory: ~/Desktop/code/aesthetic-computer/.ssl
+# and remove the .ssl file afterwards
 
-# Call the function to start watching
-# watch_trigger
+# Define the file to watch
+# set WATCH_FILE "~/Desktop/code/aesthetic-computer/.ssl"
+# Extract the directory from the file path
+# set WATCH_DIR (dirname (eval echo $WATCH_FILE))
+
+# Function to watch for .ssl file creation and run the install script
+# function watch_ssl
+#     while true
+#         # Use inotifywait to watch for file creation in the parent directory
+#         inotifywait -e create $WATCH_DIR
+#         if test -f (eval echo $WATCH_FILE)
+#             # Run the install script with --install-only flag
+#             fish ~/Desktop/code/aesthetic-computer/ssl-dev/fedora-install.fish --install-only
+#             # Remove the .ssl file after running the script
+#             rm (eval echo $WATCH_FILE)
+#         end
+#     end
+# end
+
+# Run the function in the background using nohup and disown
+#nohup fish -c "watch_ssl" > /dev/null 2>&1 & disown
