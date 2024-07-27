@@ -329,7 +329,16 @@ function connectToChat() {
     return;
   }
 
-  const chatUrl = debug ? `chat.${location.hostname}:8083` : "chat-system.aesthetic.computer";
+  let chatUrl;
+  if (debug) {
+    if (location.hostname === "local.aesthetic.computer") {
+      chatUrl = "chat." + location.hostname;
+    } else {
+      chatUrl = `${location.hostname}:8083`;
+    }
+  } else {
+    chatUrl = "chat-system.aesthetic.computer";
+  }
 
   chatSystem.server.connect(
     chatUrl, // host
@@ -694,7 +703,10 @@ const $commonApi = {
     const jumpOut =
       to.startsWith("out:") || (to.startsWith("http") && platform.Aesthetic);
 
-    if (((to.startsWith("http") || to.startsWith("/")) && !to.endsWith(".mjs")) || jumpOut) {
+    if (
+      ((to.startsWith("http") || to.startsWith("/")) && !to.endsWith(".mjs")) ||
+      jumpOut
+    ) {
       to = to.replace("out:", "");
       try {
         // url = new URL(to);
@@ -2003,7 +2015,7 @@ const $paintApi = {
     }
     turtlePosition.x = x;
     turtlePosition.y = y;
-    return {x: turtlePosition.x, y: turtlePosition.y }
+    return { x: turtlePosition.x, y: turtlePosition.y };
   },
   face: (angle = 0) => {
     turtleAngle = normalizeAngle(angle);
@@ -3016,7 +3028,7 @@ async function load(
           type: "udp:connect",
           content: {
             url: `https://${udpUrl.hostname}`,
-            port: debug && !forceProd ? 8889 : 443,
+            port: udpUrl.port, //debug && !forceProd ? 8889 : 443,
           },
         });
 
