@@ -29,14 +29,13 @@ async function fun(event, context) {
     forceProd = parseInt(event.queryStringParameters.forceProduction) === 1;
 
   if (dev && !forceProd) {
-
     let host = event.headers.host.split(":")[0];
 
-    if (host === "local.aesthetic.computer") host = "session." + host;
-
-    out = { url: `http://${host}:8889`, udp: `http://${host}:8889` };
-
-    console.log("OUT:", out);
+    if (host === "local.aesthetic.computer") {
+      out = { url: `https://session.${host}`, udp: `https://session.${host}` };
+    } else {
+      out = { url: `http://${host}:8889`, udp: `http://${host}:8889` };
+    }
 
   } else if (event.queryStringParameters.service === "monolith") {
     out = {

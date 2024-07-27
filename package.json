@@ -25,7 +25,7 @@
     "ac": "./aesthetic",
     "admin:udp": "ssh root@157.245.134.225",
     "admin:firebase": "xdg-open https://console.firebase.google.com/?pli=1",
-    "tunnel": "ngrok http https://localhost:8888 --domain local.aesthetic.computer",
+    "tunnel": "ngrok start --config ngrok.yml --all",
     "aesthetic-emacs": "emacs -q -l aesthetic.el &",
     "aesthetic-emacs-term": "emacs -nw -q -l aesthetic.el",
     "aesthetic": "npm run aesthetic:all",
