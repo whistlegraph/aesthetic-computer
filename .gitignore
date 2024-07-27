@@ -28,8 +28,10 @@ node_modules/
 dump.rdb
 
 # development certificates
+/ssl-dev/.ssl
 /ssl-dev/localhost.pem
 /ssl-dev/localhost-key.pem
+localhost.crt
 
 remote-debug/
 

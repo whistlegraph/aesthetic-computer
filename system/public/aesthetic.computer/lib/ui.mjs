@@ -145,11 +145,6 @@ class Button {
       }
 
 
-//        (pens.length > 0 && btn.box.onlyContains(e.pointer - 1, pens)) ||
- //       btn.box.contains(e)
-
-      // console.log("Pens:", pens);
-
       if (
         (pens.length > 1 &&
           btn.box.containsNone(pens) &&

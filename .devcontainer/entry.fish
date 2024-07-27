@@ -74,20 +74,18 @@ end
 cd /home/me/aesthetic-computer/ssl-dev
 
 # Check if the files exist in ssl-dev directory
-if not test -f localhost.pem; or not test -f localhost-key.pem
-    # Generate SSL certificates
-    sudo fish fedora-install.fish
-end
+#if not test -f localhost.pem; or not test -f localhost-key.pem
+# Generate SSL certificates
+sudo fish fedora-install.fish
+#end
 
 # Check if the nanos/ssl directory exists, and transfer the ssl certs over.
-if not test -f /home/me/aesthetic-computer/nanos/ssl/localhost.pem
-    mkdir -p /home/me/aesthetic-computer/nanos/ssl
-    cp localhost.pem ../nanos/ssl
-    cp localhost-key.pem ../nanos/ssl
-    echo "Certificates copied to 'nanos'."
-end
-
-# Copy the certificate to the nanos directory.
+#if not test -f /home/me/aesthetic-computer/nanos/ssl/localhost.pem
+mkdir -p /home/me/aesthetic-computer/nanos/ssl
+cp localhost.pem ../nanos/ssl
+cp localhost-key.pem ../nanos/ssl
+echo "Certificates copied to 'nanos'."
+#end
 
 sudo chown me:me -R /home/me/aesthetic-computer/ssl-dev
 sudo chown me:me -R /home/me/aesthetic-computer/nanos/ssl
@@ -132,6 +130,7 @@ sudo chown -R me:me ~/.emacs.d
 
 # Trigger the 'waiter' alias to boot the platform.
 touch /home/me/.waiter
+
 
 # echo "Initializing 📋 Clipboard Service" | lolcat -x -r
 

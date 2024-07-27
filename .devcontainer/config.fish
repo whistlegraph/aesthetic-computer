@@ -99,7 +99,8 @@ function aesthetic
         sleep 1
         clear
     end
-    # rm /home/me/.waiter
+    # todo: how do i install the ssl certificates on the host here?
+    rm /home/me/.waiter
     platform
 end
 
