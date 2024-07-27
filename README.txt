@@ -75,7 +75,11 @@ but technically agnostic. (Choose your aesthetic!)
   - [] use the screen time api to enable "focus" which disables all other apps.
 
 *** systems ***
-- [*] add more important logs to chat and fix auth bug?
+- [🤩] finish the local `ngrok` tunnel for all services and add socket support
+     / just get it working and then run it automatically in an emacs tab as
+     needed? -- would there also be a way to get sockets and such working off the local ip?
+- [] autoprompt for local ssl install off the qr code?
+- [] fix vscode extension auth bug
 - [] the 'act' function is sometimes not being exported automatically by the parser.
 - [] The 'Open Window' action in the VSCode extension no longer seems to work.
 - [] make sure .mjs saving works (EXCEPT on vscode.dev)

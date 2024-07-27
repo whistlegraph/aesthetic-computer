@@ -1,5 +1,7 @@
 ;; Aesthetic Computer Emacs Configuration, 2024.3.13.12.51
 
+(setq x-gtk-use-system-tooltips nil)
+
 ;; Open emacs maximized and with undecorated window.
 ;; (add-to-list 'default-frame-alist '(fullscreen . maximized))
 ;; (add-to-list 'default-frame-alist '(undecorated . t))
