@@ -29,8 +29,10 @@ dump.rdb
 
 # development certificates
 /ssl-dev/.ssl
+/ssl-dev/combined.pem
 /ssl-dev/localhost.pem
 /ssl-dev/localhost-key.pem
+aesthetic.crt
 localhost.crt
 
 remote-debug/
