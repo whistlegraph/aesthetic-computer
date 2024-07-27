@@ -76,9 +76,11 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** systems ***
 - [🤩] finish the local `ngrok` tunnel for all services and add socket support
-     / just get it working and then run it automatically in an emacs tab as
-     needed? -- would there also be a way to get sockets and such working off the local ip?
-- [] autoprompt for local ssl install off the qr code?
+  - [] needs to be working in localhost / in the vscode extension
+  - [] make sure the udp server works on local.aesthetic.computer 
+  - [] always run ngrok in a new emacs tab / refactor that stuff /
+       make a quick one word command at the very least? 
+  - [] autoprompt for local ssl install off the qr code?
 - [] fix vscode extension auth bug
 - [] the 'act' function is sometimes not being exported automatically by the parser.
 - [] The 'Open Window' action in the VSCode extension no longer seems to work.
