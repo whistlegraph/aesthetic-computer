@@ -1,4 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
+
+*** icons ***
+  - [x] fix `/prompt?icon=128x128` not loading icon mode
+
  *** bleep ***
    - [x] add sustain to bleep
 

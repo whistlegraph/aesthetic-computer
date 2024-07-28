@@ -67,5 +67,6 @@
     //    "--platform",
     //    "linux/amd64"
   ],
-  "postAttachCommand": ["fish", "/entry.fish"]
+  "postStartCommand": ["fish", "/entry.fish"],
+  "postAttachCommand": "touch /home/me/.waiter"
 }

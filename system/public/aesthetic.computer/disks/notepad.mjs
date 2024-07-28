@@ -55,12 +55,10 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
-    - [🟢] Add octave touch buttons.
-    - [?] When lifting, don't cancel other buttons.
-      - [🟠] Fix subtle 1, 2, 3, 4, then release 1 and press 1 down and watch 4 get unticked touch bug on ios. 
-        - [] This may require fixing localhost testing first.
-    - [] Get 'slide' working on the software so dragging between
-         butons enables the sliding and so does pressing.
+    - [?] Dragging across the buttons in slide mode should slide from one key to another? 
+    - [-] Fix subtle 1, 2, 3, 4, then release 1 and press 1 down and watch 4 get unticked touch bug on ios. 
+      - [x] This may require fixing localhost testing first.
+    - [] Add octave touch buttons.
     - [] Compare my sine waves to a sine wave generator.
     - [] Add multiple tracks so that I can create "systems" that loop
          with different lengths.
@@ -115,13 +113,15 @@ TODO: 💮 Daisy
   - [] Leave out all options from synth / make sensible defaults first.
   - [] Add 'scale' and 'rotation' to `write`.
   + Done
+  - [x] Add better mixing when multiple keys are being pressed.
+  - [x] When lifting, don't cancel other buttons.
   - [x] Reflow the mobile button layout so it is responsive (keep a grid) 
   - [x] slide only? sticky keys error... log all playing keys / sounds in slide mode / print them out to make sure about doubles...
   - [x] Implement the full scale with rollover.
   - [x] Experiment with a monovoice/slide/replace note mode.
-    + Done
-    - [x] Lift up should slide back.
-    - [x] Fix ui button issue. 
+  - [x] Get 'slide' working on the software buttons.
+  - [x] Lift up should slide back.
+  - [x] Fix ui button issue. 
   - [x] Tapping buttons on the layout should add notes to the notepad.
   - [x] Software buttons and keyboard buttons should not overlap and pushing
         keyboard buttons should activate the ui.
@@ -362,24 +362,34 @@ function act({ event: e, sound: { synth }, pens, api }) {
               const noteUpper = note.toUpperCase();
               keys += noteUpper;
               const active = orderedByCount(sounds);
+              const tone = `${octave}${noteUpper}`;
 
-              //if (slide && active.length > 0) {
-              // adjust the last sound in the stack
-              // sounds[key]?.sound?.update({
-              //  tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
-              // });
-              // sounds[orderedTones[orderedTones.length - 2]] = sounds[key];
-              //} else {
-              sounds[note] = {
-                note: noteUpper,
-                count: active.length + 1,
-                sound: synth({
-                  type: wave,
-                  tone: `${octave}${noteUpper}`,
-                  duration: "🔁",
-                }),
-              };
-              //}
+              if (slide && active.length > 0) {
+                sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
+                // 🟠 TODO: Instead of just duration here also be able to add
+                //          a swing / easing function so it's not necessarily
+                //          linear? 24.07.28.22.19
+                tonestack[note] = {
+                  count: Object.keys(tonestack).length,
+                  tone,
+                };
+                sounds[note] = sounds[active[0]]; // Switch the note label.
+                delete sounds[active[0]]; // Swap the sound reference.
+              } else {
+                tonestack[note] = {
+                  count: Object.keys(tonestack).length,
+                  tone,
+                };
+                sounds[note] = {
+                  note: noteUpper,
+                  count: active.length + 1,
+                  sound: synth({
+                    type: wave,
+                    tone: `${octave}${noteUpper}`,
+                    duration: "🔁",
+                  }),
+                };
+              }
             },
             over: (btn) => {
               if (btn.up && anyDown) {
@@ -396,8 +406,19 @@ function act({ event: e, sound: { synth }, pens, api }) {
               // ❤️‍🔥 TODO: How to manage the sliding here?
               if (downs[note]) return false;
 
-              //if (!slide) {
-              sounds[note]?.sound.kill(0.25);
+              const orderedTones = orderedByCount(tonestack);
+
+              if (slide && orderedTones.length > 1 && sounds[note]) {
+                sounds[note]?.sound?.update({
+                  tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
+                  duration: 0.1,
+                });
+                sounds[orderedTones[orderedTones.length - 2]] = sounds[note];
+              } else {
+                sounds[note]?.sound.kill(0.25);
+              }
+
+              delete tonestack[note]; // Remove this key from the notestack.
               delete sounds[note];
               //} else {
               // console.log(note, sounds);
@@ -511,11 +532,10 @@ function act({ event: e, sound: { synth }, pens, api }) {
         if (buttons[key]) buttons[key].down = true;
 
         const active = orderedByCount(sounds);
+        const tone = `${octave}${note}`;
 
         if (slide && active.length > 0) {
-          // TODO: Extend the delay for sliding...
-          const tone = `${octave}${note}`;
-          sounds[active[0]]?.sound?.update({ tone });
+          sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
           tonestack[key] = {
             count: Object.keys(tonestack).length,
             tone,
@@ -523,7 +543,6 @@ function act({ event: e, sound: { synth }, pens, api }) {
           sounds[key] = sounds[active[0]]; // Switch the note label.
           delete sounds[active[0]]; // Swap the sound reference.
         } else {
-          const tone = `${octave}${note}`;
           tonestack[key] = {
             count: Object.keys(tonestack).length,
             tone,
@@ -551,6 +570,7 @@ function act({ event: e, sound: { synth }, pens, api }) {
       if (slide && orderedTones.length > 1 && sounds[key]) {
         sounds[key]?.sound?.update({
           tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
+          duration: 0.1,
         });
         sounds[orderedTones[orderedTones.length - 2]] = sounds[key];
       } else {

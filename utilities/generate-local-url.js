@@ -7,7 +7,7 @@ let bootUps = 0;
 const bootUpTimer = setInterval(() => {
   process.stdout.write("\x1Bc"); // Clear terminal.
 
-  const command = `echo "${bootUps % 2 === 0 ? 'Booting up...' : 'Booting up. . .'}" | toilet -f smblock`;
+  const command = `echo '' && echo "${bootUps % 2 === 0 ? 'Booting up...' : 'Booting up. . .'}" | toilet -f smblock`;
 
   exec(command, (error, stdout, stderr) => {
     if (error) {
