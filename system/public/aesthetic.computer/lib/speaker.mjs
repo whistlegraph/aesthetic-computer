@@ -253,7 +253,7 @@ registerProcessor("sound-processor", SoundProcessor);
 
 // Global Mixing and Compression
 const threshold = 1.0; // This ends up being the max output amplitude.
-const squash = 8.0; // How much to squeeze... 8 seems good?
+const squash = 4.0; // How much to squeeze... 8 seems good?
 
 function compressor(sample, maxAmplitude = threshold, ratio = squash) {
   if (abs(sample) > maxAmplitude) {
