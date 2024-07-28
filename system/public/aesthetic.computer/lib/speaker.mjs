@@ -47,7 +47,7 @@ class SoundProcessor extends AudioWorkletProcessor {
     this.#bpmInSec = 60 / this.#bpm;
     this.#ticks = this.#bpmInSec;
 
-    volume.amount.val = 0.25; // Set global volume.
+    volume.amount.val = 1; //0.25; // Set global volume.
 
     // Change BPM, or queue up an instrument note.
     this.port.onmessage = (e) => {
@@ -120,7 +120,6 @@ class SoundProcessor extends AudioWorkletProcessor {
         if (msg.data.beats === Infinity) {
           duration = Infinity;
         } else {
-
           // TODO: This should be settable not via beats as well...
           duration = round(sampleRate * (this.#bpmInSec * msg.data.beats));
 
@@ -154,8 +153,8 @@ class SoundProcessor extends AudioWorkletProcessor {
             msg.data.radius,
             msg.data.rise,
             msg.data.volume,
-            msg.data.pan
-          )
+            msg.data.pan,
+          ),
         );
         return;
       }
@@ -204,8 +203,28 @@ class SoundProcessor extends AudioWorkletProcessor {
       }
 
       // Mix all sound through global volume.
-      output[0][s] = volume.apply(output[0][s]/* / this.#queue.length*/);
-      output[1][s] = volume.apply(output[1][s]/* / this.#queue.length*/);
+      // output[0][s] = volume.apply(normalizeSample(output[0][s] / this.#queue.length)/* / this.#queue.length*/);
+      // output[1][s] = volume.apply(normalizeSample(output[1][s] / this.#queue.length)/* / this.#queue.length*/);
+
+      // console.log(this.#queue.length);
+
+      // output[0][s] = volume.apply((output[0][s] / (this.#queue.length || 1)));
+      // output[1][s] = volume.apply((output[1][s] / (this.#queue.length || 1)));
+
+      // while (abs(output[0][s]) > 1) {
+      //   output[0][s] *= 0.4;
+      //   output[1][s] *= 0.4;
+      // }
+
+      output[0][s] = volume.apply(mix(output[0][s]));
+      output[1][s] = volume.apply(mix(output[1][s]));
+
+      // output[0][s] = output[0][s];
+      // output[1][s] = output[1][s];
+
+      // if (output[0][s] > 1) {
+      //   console.log(output[0][s]);
+      // }
 
       // Track the current amplitude of both channels, and get waveform data.
       ampLeft = abs(output[0][s]) > ampLeft ? abs(output[0][s]) : ampLeft;
@@ -231,3 +250,28 @@ class SoundProcessor extends AudioWorkletProcessor {
 }
 
 registerProcessor("sound-processor", SoundProcessor);
+
+// Global Mixing and Compression
+const threshold = 1.0; // This ends up being the max output amplitude.
+const squash = 8.0; // How much to squeeze... 8 seems good?
+
+function compressor(sample, maxAmplitude = threshold, ratio = squash) {
+  if (abs(sample) > maxAmplitude) {
+    const overThreshold = abs(sample) - maxAmplitude;
+    return sample > 0
+      ? maxAmplitude + overThreshold / ratio
+      : -maxAmplitude - overThreshold / ratio;
+  }
+  return sample;
+}
+
+function limiter(sample, maxAmplitude = threshold) {
+  if (abs(sample) > maxAmplitude) {
+    return sample > 0 ? maxAmplitude : -maxAmplitude;
+  }
+  return sample;
+}
+
+function mix(sample, maxAmplitude = threshold) {
+  return limiter(compressor(sample, maxAmplitude), maxAmplitude);
+}

@@ -1598,15 +1598,6 @@ function act({
     profile.btn.disabled = false;
   }
 
-  //if (e.is("session:updated")) {
-  //console.log("SESSION UPDATED!", user);
-  //   if (user === null) {
-  //     login = new ui.TextButton("Log in", { center: "xy", screen });
-  //     signup = new ui.TextButton("I'm new", { center: "xy", screen });
-  //     positionWelcomeButtons(screen, net.iframe);
-  //   }
-  // }
-
   // 📼 Taping
   if (e.is("microphone:connect:success")) {
     console.log("📼 Taping...");

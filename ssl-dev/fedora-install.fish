@@ -26,21 +26,22 @@ cd $SCRIPT_DIR
 
 # Generate certificates if not in install-only mode
 if test $INSTALL_ONLY -eq 0
-    # generate certificates
-    mkcert --cert-file localhost.pem --key-file localhost-key.pem localhost aesthetic.local sotce.local 127.0.0.1 0.0.0.0 $HOST_IP
+    # install mkcert root certificate for automatic trust (required to get vscode running)
+    # mkcert -install
+    # generate certificates silently
+    mkcert --cert-file localhost.pem --key-file localhost-key.pem localhost aesthetic.local sotce.local 127.0.0.1 0.0.0.0 $HOST_IP > /dev/null 2>&1
     # combine cert and key into a single PEM file (if needed)
     cat localhost.pem localhost-key.pem > combined.pem
     # make a .crt for iOS and copy it to the public directory so it can be loaded on iOS
     openssl x509 -outform der -in combined.pem -out localhost.crt
     cp localhost.crt ../system/public/aesthetic.crt
     # let other potential systems sharing a volume know to install these
-    rm .ssl
-    touch .ssl
+    #rm .ssl
+    #touch .ssl
 end
 
 # Define the certificate file name
 set CERT_FILE "localhost.pem"
-
 # Check if the certificate file exists
 if test -f $CERT_FILE
     # Copy the certificate to the trusted store
@@ -49,9 +50,9 @@ if test -f $CERT_FILE
     # Update the CA trust store
     sudo update-ca-trust extract
 
-    echo "Certificate has been added to the trusted store."
+    # echo "Certificate has been added to the trusted store."
 else
-    echo "Certificate file not found: $CERT_FILE"
+    echo "🔴 Certificate not found: $CERT_FILE"
 end
 
 cd -
