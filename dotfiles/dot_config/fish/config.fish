@@ -53,7 +53,22 @@ alias ff "vim (sk -c 'git ls-tree -r --name-only HEAD || ag -l -g \"\"')"
 
 # shortcuts for projects
 alias ac 'cd ~/Desktop/code/aesthetic-computer'
-alias acc 'ac; code .'
+
+alias ac-ssl '~/Desktop/code/aesthetic-computer/ssl-dev/fedora-install.fish'
+
+alias acc 'ac; ac-ssl; code .'
+
+function acd
+    ac
+    set container_id (pwd | tr -d '\n' | xxd -c 256 -p)
+    set workspace_name (basename (pwd))
+    code --folder-uri="vscode-remote://dev-container+$container_id/workspaces/$workspace_name"
+    cd -
+    exit
+end
+
+alias start 'ac; ac-ssl; acd'
+
 alias acw 'cd ~/Desktop/code/aesthetic-computer/system; npm run watch'
 alias platform 'cd ~/Desktop/code/aesthetic-computer; npm run platform'
 

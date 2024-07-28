@@ -2845,7 +2845,7 @@ export async function handler(event, context) {
       <link
         rel="icon"
         href="https://${event.headers["host"]}/icon/128x128/prompt.png"
-        type="image/svg"
+        type="image/png"
       />
       <meta charset="utf-8" />
       <title>$name · Aesthetic Computer</title>

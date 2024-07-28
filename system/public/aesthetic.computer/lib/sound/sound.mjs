@@ -23,6 +23,14 @@ export default class Sound {
   #wavelength; // Calculated from the frequency.
   #futureWavelength;
 
+  #wavelengthUpdatesTotal;
+  #wavelengthUpdatesLeft;
+  #wavelengthUpdateSlice;
+
+  #volumeUpdatesTotal;
+  #volumeUpdatesLeft;
+  #volumeUpdateSlice;
+
   #type; // `square` or `sine`
 
   #up = false; // Specific to Square.
@@ -42,13 +50,22 @@ export default class Sound {
     this.#decayStart = this.#duration - this.#decay;
   }
 
-  update({ tone, volume }) {
-    // console.log("Newwwwww tone:", tone);
+  update({ tone, volume, duration = 0.1 }) {
     if (typeof tone === "number" && tone > 0) {
-      // Set futureWavelength for ramping up to in `next`.
       this.#futureWavelength = sampleRate / tone;
+      this.#wavelengthUpdatesTotal = duration * sampleRate;
+      this.#wavelengthUpdatesLeft = this.#wavelengthUpdatesTotal;
+      this.#wavelengthUpdateSlice =
+        (this.#futureWavelength - this.#wavelength) /
+        this.#wavelengthUpdatesTotal;
     }
-    if (typeof volume === "number") this.#futureVolume = volume;
+    if (typeof volume === "number") {
+      this.#futureVolume = volume;
+      this.#volumeUpdatesTotal = duration * sampleRate;
+      this.#volumeUpdatesLeft = this.#volumeUpdatesTotal;
+      this.#volumeUpdateSlice =
+        (this.#futureVolume - this.#volume) / this.#volumeUpdatesTotal;
+    }
   }
 
   // Stereo
@@ -73,14 +90,31 @@ export default class Sound {
     let value;
 
     // Lerp wavelength & volume towards their future goals.
-    if (!within(0.001, this.#wavelength, this.#futureWavelength)) {
-      // TODO: Change the 001 exponential lerp to something like a linear fade? 24.07.17.21.23
-      this.#wavelength = lerp(this.#wavelength, this.#futureWavelength, 0.001);
+    // if (!within(0.001, this.#wavelength, this.#futureWavelength)) {
+    //   // TODO: Change the 001 exponential lerp to something like a linear fade? 24.07.17.21.23
+    //   this.#wavelength = lerp(this.#wavelength, this.#futureWavelength, 0.001);
+    // }
+
+    if (this.#wavelengthUpdatesLeft > 0) {
+      // TODO: If I have the current wavelength value and also a
+      // #futureWavelength and this.#wavelengthUpdatesTotal then how can
+      // I update the current wavelength below to to a linear interpolation
+      const t =
+        (this.#wavelengthUpdatesTotal - this.#wavelengthUpdatesLeft) /
+        this.#wavelengthUpdatesTotal;
+
+      // Perform the linear interpolation
+      // this.#wavelength =
+      // this.#wavelength * (1 - t) + this.#futureWavelength * t;
+
+      this.#wavelength += this.#wavelengthUpdateSlice; //lerp(this.#wavelength, this.#futureWavelength, t);
+
+      this.#wavelengthUpdatesLeft -= 1;
     }
 
-    if (!within(0.001, this.#volume, this.#futureVolume)) {
-      this.#volume = lerp(this.#volume, this.#futureVolume, 0.025);
-    }
+    // if (!within(0.001, this.#volume, this.#futureVolume)) {
+    //   this.#volume = lerp(this.#volume, this.#futureVolume, 0.025);
+    // }
 
     // Generate square wave as we step through the wavelength.
 

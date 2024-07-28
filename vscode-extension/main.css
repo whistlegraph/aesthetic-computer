@@ -4,7 +4,11 @@ iframe {
   border: none;
   box-sizing: border-box;
   padding-bottom: 0px;
-  background-color: rgb(32, 32, 32);
+  /* background-color: rgb(32, 32, 32); */
+  background-image: url('vscode-resource:/purple-pals.svg');
+  background-size: 25%;
+  background-position: center;
+  background-repeat: no-repeat;
   opacity: 0;
 }
 
