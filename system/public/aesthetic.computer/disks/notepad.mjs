@@ -1,6 +1,10 @@
 // Notepad, 2024.6.26.23.17.58.736
 // Touch pads that play musical notes, or use the keyboard keys.
 
+// ⚖️ Scales
+// CvDsEFrGtAwB
+// BwAtGrFEsDvC
+
 /* 🎶 Sequences
 
 TODO: 💮 Daisy
@@ -174,8 +178,15 @@ const tonestack = {}; // Temporary tone-stack that always keeps currently held
 //                       (These tones will not necessarily be playing.)
 let sharps = false,
   flats = false;
-const notes = "abcdefg"; // hold shift on C D F G A for sharps.
+const notes = "abcdefgsvwrt"; // hold shift on C D F G A for sharps.
 //                       // or alt on   D E G A B for flats
+// This is a notes -> keys mapping, that uses v for c#
+// d# s
+// c# v
+// d# x
+// f# r
+// g# t
+
 const octaves = "123456789";
 const accents = "#f";
 const buttons = {}; // Software keys. 🎹
@@ -509,25 +520,53 @@ function act({ event: e, sound: { synth }, pens, api }) {
       if (!tap) {
         if (octaves.includes(key) && octaves.includes(keys.slice(-1)))
           keys = keys.slice(0, -1);
-        keys += key.toUpperCase();
         editable = true;
       } else if (keys[tapIndex] === key) {
         tapped = key;
       }
 
       if (octaves.includes(key)) {
+        // 🎹 Keyboard -> 🎼 Octave recognition.
         octave = parseInt(key);
         sounds[key] = "held";
+        keys += key.toUpperCase();
       } else {
+        // 🎹 Keyboard -> 🎵 Note recognition.
         let note = key.toUpperCase();
+
+        // a# s
+        // c# v
+        // d# x
+        // f# r
+        // g# t
 
         if (sharps && "CDFGA".includes(note)) {
           note += "#";
-          keys += "#";
         } else if (flats && "DEGAB".includes(note)) {
           note += "f";
-          keys += "f";
         }
+
+        if ("SVWRT".includes(note)) {
+          switch (note) {
+            case "S":
+              note = "D#";
+              break;
+            case "V":
+              note = "C#";
+              break;
+            case "W":
+              note = "A#";
+              break;
+            case "R":
+              note = "F#";
+              break;
+            case "T":
+              note = "G#";
+              break;
+          }
+        }
+
+        keys += note;
 
         if (buttons[key]) buttons[key].down = true;
 

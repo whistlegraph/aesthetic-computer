@@ -43,6 +43,7 @@ but technically agnostic. (Choose your aesthetic!)
          that could load ac!
 
 *** sotce.net ***
+  - [] auto add patreon subscribers on the highest tier by checking for their email
   - [🟢] Finish sotce-net rc1
   + ideas after rc1 is basically complete
   - [] print 🖨️ css
