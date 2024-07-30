@@ -78,23 +78,23 @@ class Dial {
   }
 }
 
-let firstDial = new Dial(1, 64, 64);
-let secondDial = new Dial(15, 64, 128);
-let thirdDial = new Dial(29, 64, 184);
+let firstDial = new Dial(2, 64, 64);
+let secondDial = new Dial(12, 64, 128);
+let thirdDial = new Dial(18, 64, 184);
 
 let wipeBlue = false;
 
-firstDial.trigger = function ({ sound }) {
+firstDial.trigger = function ({ sound, help: { choose } }) {
   wipeBlue = !wipeBlue;
-  sound.synth({ tone: "C", duration: 0.5 });
+  sound.synth({ type: "sine", tone: choose("3C", "3D"), duration: 1.5, volume: 0.8 });
 };
 
-secondDial.trigger = function ({ sound }) {
-  sound.synth({ tone: "E", duration: 0.2 });
+secondDial.trigger = function ({ sound, help: { choose } }) {
+  sound.synth({ type: "sine", tone: "3E", duration: 0.2, volume: 0.6 });
 };
 
-thirdDial.trigger = function ({ sound }) {
-  sound.synth({ tone: "G", duration: 0.01 });
+thirdDial.trigger = function ({ sound, help: { choose } }) {
+  sound.synth({ type: "sine", tone: choose("3G", "3A", "4C"), duration: 0.5, volume: 0.8 });
 };
 
 function paint({ api, wipe, ink, down, up, right, left, crawl, face, goto }) {

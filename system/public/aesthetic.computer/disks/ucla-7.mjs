@@ -1,20 +1,18 @@
-// ucla-7, 24.07.30.20.20 
-// Forces 
+// ucla-7, 24.07.30.20.20
+// Forces
 
 /* 📝 Notes 
   - Today we will be working with forces.
-    15. - [x] 🎈 *BONUS* 🎶 Musical (Temporal) Systems
-    📃 Up Next...
-      Bouncing balls!
-    16. - [] Using parameters in Aesthetic Computer (make sure development works)
+  1. [] A jumping character.
+  2. [] Bouncing inside the screen.
+  3. [] Bouncing balls.
 */
 
 function boot({ wipe, fps }) {
   wipe("purple");
 }
 
-function paint({ ink }) {
-}
+function paint({ ink }) {}
 
 // 📚 Library
 
