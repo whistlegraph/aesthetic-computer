@@ -2,14 +2,9 @@
   "version": "3",
   "packages": {
     "specifiers": {
-      "npm:@netlify/edge-functions@^2.9.0": "npm:@netlify/edge-functions@2.9.0",
       "npm:he@^1.2.0": "npm:he@1.2.0"
     },
     "npm": {
-      "@netlify/edge-functions@2.9.0": {
-        "integrity": "sha512-W1kdwLpvUlhfI2FTOe6SEcoobW7Fw+Vm9WN5Gwb5lTCG6QXBE3gpCZk+NVQ4p/XoOcXYwWAS5pfOTMKUoYNQnA==",
-        "dependencies": {}
-      },
       "he@1.2.0": {
         "integrity": "sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw==",
         "dependencies": {}
@@ -125,13 +120,13 @@
         "npm:@grpc/grpc-js@^1.10.8",
         "npm:@mediapipe/hands@^0.4.1675469240",
         "npm:@mediapipe/tasks-vision@^0.10.14",
-        "npm:@netlify/edge-functions@^2.9.0",
+        "npm:@netlify/edge-functions@^2.10.0",
         "npm:@netlify/functions@^2.8.1",
         "npm:busboy@^1.6.0",
         "npm:crypto@^1.0.1",
         "npm:discord-interactions@^3.4.0",
         "npm:express-oauth2-jwt-bearer@^1.6.0",
-        "npm:firebase-admin@^12.1.1",
+        "npm:firebase-admin@^12.3.0",
         "npm:gl-matrix@^3.4.3",
         "npm:got@^14.3.0",
         "npm:gotrue-js@^0.9.29",
@@ -146,15 +141,15 @@
         "npm:kill-port@^2.0.1",
         "npm:mongodb@^6.6.2",
         "npm:nanoid@^5.0.7",
-        "npm:netlify-cli@^17.33.0",
+        "npm:netlify-cli@^17.33.4",
         "npm:nodemailer@^6.9.13",
         "npm:npm-check-updates@^16.14.20",
         "npm:obscenity@^0.2.1",
         "npm:openai@^4.47.1",
         "npm:patreon@^0.4.1",
         "npm:playwright-core@^1.44.1",
-        "npm:prettier@^3.2.5",
-        "npm:puppeteer-core@^22.12.1",
+        "npm:prettier@^3.3.3",
+        "npm:puppeteer-core@^22.14.0",
         "npm:redis@^4.6.14",
         "npm:sharp@^0.33.4",
         "npm:stripe@^15.8.0",
