@@ -50,7 +50,7 @@ class SoundProcessor extends AudioWorkletProcessor {
     this.#bpmInSec = 60 / this.#bpm;
     this.#ticks = this.#bpmInSec;
 
-    volume.amount.val = 1; // Set global volume.
+    volume.amount.val = 0.85; // Set global volume.
 
     // Change BPM, or queue up an instrument note.
     this.port.onmessage = (e) => {
@@ -218,6 +218,8 @@ class SoundProcessor extends AudioWorkletProcessor {
       // Auto-mixing for voices.
       voices = Math.max(1, voices);
 
+      // TODO: 🟢 These divisor value need to be consistent in duration with
+      //          varying sample rates.
       if (voices > 1) {
         if (!within(0.001, this.#mixDivisor, voices)) {
           if (this.#mixDivisor < voices) {
