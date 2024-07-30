@@ -1874,6 +1874,16 @@ export async function handler(event, context) {
         desc: "UCLA DESMA 28 - Piece 7",
         done: false,
       },
+      "ucla-7-dial": {
+        sig: "ucla-7-dial",
+        desc: "UCLA DESMA 28 - Piece 7 (Dial)",
+        done: false,
+      },
+      "ucla-7-jump": {
+        sig: "ucla-7-jump",
+        desc: "UCLA DESMA 28 - Piece 7 (Jump)",
+        done: false,
+      },
       app: {
         sig: "app",
         desc: "Get AC in the app store.",
