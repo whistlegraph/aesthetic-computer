@@ -3,7 +3,7 @@
 
 /* 📝 Notes 
   - Today we will be working with forces.
-    15.  🎈 *BONUS* 🎶 Musical (Temporal) Systems
+    15. - [x] 🎈 *BONUS* 🎶 Musical (Temporal) Systems
     📃 Up Next...
       Bouncing balls!
     16. - [] Using parameters in Aesthetic Computer (make sure development works)
