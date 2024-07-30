@@ -5,16 +5,16 @@ export default class Sound {
   // Generic for all instruments.
   playing = true;
 
-  #fading = false; // If we are fading and then stopping playback.
-  #fadeProgress;
-  #fadeDuration;
+  fading = false; // If we are fading and then stopping playback.
+  fadeProgress;
+  fadeDuration;
 
   #duration = 0;
   #attack = 0;
   #decay = 0;
   #decayStart;
 
-  #volume = 1; // 0 to 1
+  volume = 1; // 0 to 1
   #futureVolume = 1;
   #pan = 0; // -1 to 1
 
@@ -45,8 +45,8 @@ export default class Sound {
     this.#attack = attack;
     this.#decay = decay;
     this.#pan = pan;
-    this.#volume = volume;
-    this.#futureVolume = this.#volume;
+    this.volume = volume;
+    this.#futureVolume = this.volume;
     this.#decayStart = this.#duration - this.#decay;
   }
 
@@ -64,7 +64,7 @@ export default class Sound {
       this.#volumeUpdatesTotal = duration * sampleRate;
       this.#volumeUpdatesLeft = this.#volumeUpdatesTotal;
       this.#volumeUpdateSlice =
-        (this.#futureVolume - this.#volume) / this.#volumeUpdatesTotal;
+        (this.#futureVolume - this.volume) / this.#volumeUpdatesTotal;
     }
   }
 
@@ -180,16 +180,16 @@ export default class Sound {
       return 0;
     }
 
-    let out = value * this.#volume;
+    let out = value * this.volume;
 
     // "Fade out to kill" - 24.07.01.20.36
-    if (this.#fading) {
-      if (this.#fadeProgress < this.#fadeDuration) {
-        this.#fadeProgress += 1;
+    if (this.fading) {
+      if (this.fadeProgress < this.fadeDuration) {
+        this.fadeProgress += 1;
         // Apply the fade envelope to the output.
-        out *= 1 - this.#fadeProgress / this.#fadeDuration;
+        out *= 1 - this.fadeProgress / this.fadeDuration;
       } else {
-        this.#fading = false;
+        this.fading = false;
         this.playing = false;
         return 0;
       }
@@ -204,9 +204,9 @@ export default class Sound {
       this.playing = false;
     } else {
       // Fade over 'fade' seconds, before stopping playback.
-      this.#fading = true;
-      this.#fadeProgress = 0;
-      this.#fadeDuration = fade * sampleRate; // Convert seconds to samples.
+      this.fading = true;
+      this.fadeProgress = 0;
+      this.fadeDuration = fade * sampleRate; // Convert seconds to samples.
     }
   }
 }
