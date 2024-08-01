@@ -35,12 +35,6 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** list ***
-  - [🧡] add handled pieces to list using list @handle
-
-*** exit ***
-  - [] write an 'exit' command which will exit the current tab / window / app
-
 *** sotce.net ***
   - [] auto add patreon subscribers on the highest tier by checking for their email
   - [🟢] Finish sotce-net rc1
@@ -69,6 +63,14 @@ but technically agnostic. (Choose your aesthetic!)
     - [x] In both development and production.
 
 ------------------------------------------
+
+*** stamp ***
+  - [] Incorporate '@bash/officialstamp' source into a 'stamp'
+       command that allows pasting any handled painting.
+
+*** exit ***
+  - [] write an 'exit' command which will exit the current tab / window / app
+
 
 *** boot to ac ***
   - [x] wire up the android jelly phone to boot directly into a chrome kiosk
