@@ -192,7 +192,20 @@ const accents = "#f";
 const buttons = {}; // Software keys. 🎹
 // TODO: Add better octave theme and sharp buttons, etc... 24.07.16.20.01
 
-const buttonNotes = ["c", "d", "e", "f", "g", "a", "b"];
+const buttonNotes = [
+  "c",
+  "c#",
+  "d",
+  "d#",
+  "e",
+  "f",
+  "f#",
+  "g",
+  "g#",
+  "a",
+  "a#",
+  "b",
+];
 
 const buttonOctaves = ["3", "4", "5", "6", "7", "8"]; // ❤️‍🔥 Add octaves...
 
@@ -568,7 +581,8 @@ function act({ event: e, sound: { synth }, pens, api }) {
 
         keys += note;
 
-        if (buttons[key]) buttons[key].down = true;
+        const buttonNote = note.toLowerCase();
+        if (buttons[buttonNote]) buttons[buttonNote].down = true;
 
         const active = orderedByCount(sounds);
         const tone = `${octave}${note}`;
@@ -621,7 +635,30 @@ function act({ event: e, sound: { synth }, pens, api }) {
 
       if (downs[key]) {
         delete downs[key];
-        if (buttons[key]) buttons[key].down = false;
+
+        let buttonNote = key;
+
+        if ("svwrt".includes(key)) {
+          switch (key) {
+            case "s":
+              buttonNote = "d#";
+              break;
+            case "v":
+              buttonNote = "c#";
+              break;
+            case "w":
+              buttonNote = "a#";
+              break;
+            case "r":
+              buttonNote = "f#";
+              break;
+            case "t":
+              buttonNote = "g#";
+              break;
+          }
+        }
+
+        if (buttons[buttonNote]) buttons[buttonNote].down = false;
       }
     }
   });
