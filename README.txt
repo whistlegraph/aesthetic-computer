@@ -35,31 +35,28 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** list ***
+  - [🧡] add handled pieces to list using list @handle
+
 *** exit ***
   - [] write an 'exit' command which will exit the current tab / window / app
-
-*** boot to ac ***
-  - [🧡] wire up a fedora mode to boot directly into a chrome kiosk
-         that could load ac!
 
 *** sotce.net ***
   - [] auto add patreon subscribers on the highest tier by checking for their email
   - [🟢] Finish sotce-net rc1
   + ideas after rc1 is basically complete
   - [] print 🖨️ css
-  - [] friday editing interface
-  - [] next friday, launch august 1
-    - [] infinite scroll
-      - [] 1 month free - link / code
-      - [] what will sotce.com have now...
-      - [] keywords / titles / hashtags?
-    - [] just the cookie on the website
-    - [] sign up and subscribe
-      - [] read amelia's writing
-      - [] contribute your own
-    - [] privacy setting
-      - [] user feed or no user feed
-      - [] amelia's picks
+  - [] infinite scroll
+    - [] 1 month free - link / code
+    - [] what will sotce.com have now...
+    - [] keywords / titles / hashtags?
+  - [] just the cookie on the website
+  - [] sign up and subscribe
+    - [] read amelia's writing
+    - [] contribute your own
+  - [] privacy setting
+    - [] user feed or no user feed
+    - [] amelia's picks
   + Done
   - [x] Test login in production in VS Code,
     - [x] and via vscode.dev
@@ -72,6 +69,10 @@ but technically agnostic. (Choose your aesthetic!)
     - [x] In both development and production.
 
 ------------------------------------------
+
+*** boot to ac ***
+  - [x] wire up the android jelly phone to boot directly into a chrome kiosk
+        that could load ac!
 
 *** ios "focus" ***
   - [] use the screen time api to enable "focus" which disables all other apps.
@@ -510,21 +511,6 @@ but technically agnostic. (Choose your aesthetic!)
   - [x] Share current painting in `world` using a `show` command.
     - [x] Also add `hide` command.
   - [x] Add connection flash to world.
-
-  *** .pjs compiler ***
-    - [🟠] Write the metaprocessor in that slurps the .pjs to OpenAI
-        at runtime.
-    - [x] Break the below down into steps and get it compiling on each load.
-      - [x] Add syntax support to the vscode extension for the .pjs files / metaprocessor.
-      // 🔥
-      // TODO: Write `prompted` javascript that will compile and run against any
-      //       LLM version 24.02.22.19.38
-      // Call it `.pjs` ?
-      // piece, processing, prompted
-
-      //if (!net.iframe && params[0]^does not start with^) {
-      //  return;
-      //}
 
 *** fps ***
   - [] Add a draggable window to the vs-code extension, to support dual

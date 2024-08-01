@@ -7,26 +7,21 @@
 /* #region 🏁 TODO 
 #endregion */
 
-let docs;
-let merged;
+let list;
 let prompts = [];
 let scroll = 0;
 
-async function boot({ ui, typeface, store, net }) {
+async function boot({ ui, typeface, store, net, params }) {
   // Retrieve scroll if it exists.
-  scroll = (await store.retrieve("list:scroll")) || 0;
 
-  // 📔 Get the docs off the api.
-  net.requestDocs().then((d) => {
-    docs = d;
-    merged = { ...docs.pieces, ...docs.prompts };
-
-    keys(merged).forEach((key) => {
-      if (merged[key].hidden) delete merged[key]; // Remove hidden commands.
+  function populate(data) {
+    list = data;
+    keys(list).forEach((key) => {
+      if (list[key].hidden) delete list[key]; // Remove hidden commands.
     });
 
     // Build buttons here.
-    keys(merged)
+    keys(list)
       .sort()
       .forEach((key, i) => {
         const [gw, gh] = typeface.glyphs[0].resolution;
@@ -37,15 +32,45 @@ async function boot({ ui, typeface, store, net }) {
           button: new ui.Button(6, scroll + 22 + 12 * i, w, h),
         });
       });
-  });
+  }
+
+  if (!params[0]) {
+    // 📔 Get the docs off the api.
+    net.requestDocs().then(async (docs) => {
+      scroll = (await store.retrieve("list:scroll")) || 0;
+      populate({ ...docs.pieces, ...docs.prompts });
+    });
+  } else {
+    // 🫅 Get a handle's pieces as the list.
+    fetch(`/media/${params[0]}/pieces`)
+      .then((response) => response.json())
+      .then((json) => {
+        const data = json.files.reduce((acc, url) => {
+          const parsedUrl = new URL(url);
+          const pathSegments = parsedUrl.pathname.split("/").filter(Boolean);
+          const key = `${pathSegments[1]}/${pathSegments[3].replace(".mjs", "")}`;
+          acc[key] = {};
+          return acc;
+        }, {});
+        populate(data);
+      })
+      .catch((err) => {
+        console.error("Error:", err);
+      });
+  }
 }
 
 const { keys } = Object;
 
-function paint({ wipe, ink, ui, hud, screen }) {
+function paint({ wipe, ink, ui, hud, screen, paintCount }) {
   wipe("black");
-  if (!docs) return;
-  keys(merged)
+  if (!list) {
+    if (paintCount > 8n) {
+      ink("green").write("Fetching...", { center: "xy" });
+    }
+    return;
+  }
+  keys(list)
     .sort()
     .forEach((key, i) => {
       prompts[i].button.paint((b) => {
@@ -53,11 +78,10 @@ function paint({ wipe, ink, ui, hud, screen }) {
           x: 6,
           y: scroll + 22 + 12 * i,
         });
-        ink("gray").write(merged[key].desc, {
+        ink("gray").write(list[key].desc, {
           x: 6 + key.length * 6 + 6,
           y: scroll + 22 + 12 * i,
         });
-        // ink("blue", 128).box(b.box);
       });
     });
   ink(0, 128).box(0, 0, screen.width, 18);
@@ -96,10 +120,7 @@ function act({ event: e, hud, piece, geo, jump, send }) {
   prompts.forEach((prompt, i) => {
     prompt.button.act(e, {
       push: () => {
-        jump("prompt~" + prompt.word)/*(() => {
-          send({ type: "keyboard:open" });
-          // ❤️‍🔥 TODO: ^ Is this still necessary?
-        });*/
+        jump("prompt~" + prompt.word);
       },
       rollover: (b) => {
         if (anyDown) {
@@ -114,26 +135,14 @@ function act({ event: e, hud, piece, geo, jump, send }) {
         console.log("Highlighting:", prompt.word);
         hud.label(prompt.word, "white");
         anyDown = true;
-        //send({ type: "keyboard:enabled" });
-        //send({ type: "keyboard:unlock" });
       },
       cancel: () => {
         anyDown = false;
         hud.label(piece);
-        //send({ type: "keyboard:disabled" });
-        //send({ type: "keyboard:lock" });
       },
     });
   });
 }
-
-// function sim() {
-//  // Runs once per logic frame. (120fps locked.)
-// }
-
-// function beat() {
-//   // Runs once per metronomic BPM.
-// }
 
 function leave({ store }) {
   store["list:scroll"] = scroll;
@@ -147,18 +156,9 @@ function meta() {
   };
 }
 
-// function preview({ ink, wipe }) {
-// Render a custom thumbnail image.
-// }
-
-// function icon() {
-// Render an application icon, aka favicon.
-// }
-
 export { boot, paint, act, leave, meta };
 
 // 📚 Library
-//   (Useful functions used throughout the piece)
 
 function checkScroll() {
   if (scroll < -prompts.length * 12) scroll = -prompts.length * 12;
