@@ -41,6 +41,7 @@ class SoundProcessor extends AudioWorkletProcessor {
 
   constructor(options) {
     if (options.debug) console.log("🔊 Sound Synthesis Worklet Started");
+    console.log("🎼 Sample rate:", sampleRate);
 
     super();
 
@@ -50,7 +51,7 @@ class SoundProcessor extends AudioWorkletProcessor {
     this.#bpmInSec = 60 / this.#bpm;
     this.#ticks = this.#bpmInSec;
 
-    volume.amount.val = 0.85; // Set global volume.
+    volume.amount.val = 0.9; // Set global volume.
 
     // Change BPM, or queue up an instrument note.
     this.port.onmessage = (e) => {
