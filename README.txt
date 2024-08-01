@@ -35,47 +35,32 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** ucla ending ***
-  - [] (Lab) Bouncing balls in ucla-7.
-  - [] 3pm (Code) Review existing pieces.
-    - [] Look through our work.
-    - [] Make sure it exists.
-  - [] (Concept / Discussion) Review notebooks.
+*** ucla ending / grading  ***
+  - [x] me@jas.life
+  - [x] (Lab) Bouncing balls in ucla-7.
+  - [x] 3pm (Code) Review existing pieces.
+    - [x] Look through our work.
+    - [x] Make sure it exists.
+  - [x] (Concept / Discussion) Review notebooks.
 
-  -- Required pieces...
-  - [] ucla-1
-  - [] ucla-1-a
-  - [] ucla-1-box
-  - [] ucla-2-a
-  - [] ucla-2-b
-  - [] ucla-4
-  - [] ucla-5-rect 
-  - [] ucla-5-worm 
-  - [] ucla-6-clock
-  - [] ucla-6-turtle
-  - [] ucla-7-dial
-  - [] ucla-7-balls
-  - [] ucla-7-jump
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+-- Required pieces...
+  At least one... 
+   1- [] ucla-1
+   2- [] ucla-1-a
+   3- [] ucla-1-box
+  At least one...
+   4- [] ucla-2-a
+   5- [] ucla-2-b
+  Each one
+    - [] ucla-3-keyboard
+    - [] ucla-4
+    - [] ucla-5-rect 
+    - [] ucla-5-worm 
+    - [] ucla-6-clock
+    - [] ucla-6-turtle
+    - [] ucla-7-dial
+    - [] ucla-7-balls
+    - [] ucla-7-jump
 
 *** sotce.net ***
   - [] auto add patreon subscribers on the highest tier by checking for their email
