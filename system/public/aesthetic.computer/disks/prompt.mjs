@@ -253,7 +253,7 @@ async function boot({
     // system.prompt.input.showBlink = false;
     // setTimeout(() => (system.prompt.input.showBlink = true), 100);
     send({ type: "keyboard:unlock" });
-    // send({ type: "keyboard:open" });
+    send({ type: "keyboard:open" }); // Necessary for desktop.
   }
 
   delete store["prompt:splash"];

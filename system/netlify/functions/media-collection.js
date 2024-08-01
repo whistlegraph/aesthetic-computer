@@ -23,7 +23,11 @@ export async function handler(event, context) {
   let files;
   try {
     const { db, disconnect } = await connect();
-    const mediaCollection = db.collection(`${mediaType}s`);
+
+    // const mediaCollection = db.collection(`${mediaType}s`);
+    const mediaCollection = db.collection(
+      mediaType.endsWith("s") ? mediaType : `${mediaType}s`,
+    );
 
     // Query the media collection for the specific user.
     // (Ignoring the `nuked` flag.)

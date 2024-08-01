@@ -1,5 +1,20 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** .pjs compiler ***
+  - [🟠] Write the metaprocessor in that slurps the .pjs to OpenAI
+      at runtime.
+  - [x] Break the below down into steps and get it compiling on each load.
+    - [x] Add syntax support to the vscode extension for the .pjs files / metaprocessor.
+    // 🔥
+    // TODO: Write `prompted` javascript that will compile and run against any
+    //       LLM version 24.02.22.19.38
+    // Call it `.pjs` ?
+    // piece, processing, prompted
+
+    //if (!net.iframe && params[0]^does not start with^) {
+    //  return;
+    //}
+
 *** icons ***
   - [x] fix `/prompt?icon=128x128` not loading icon mode
 
