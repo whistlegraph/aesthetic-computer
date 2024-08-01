@@ -688,9 +688,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //       the current disk.
       // sampleRate: 44100,
       // sampleRate: 48000,
-      // sampleRate: 96000,
-      sampleRate: iOS || Aesthetic || Android ? 48000 : 192000,
+      sampleRate: iOS || Aesthetic /*|| Android*/ ? 48000 : 192000,
     });
+
+    // Main audio feed
+    // audioContext = new AudioContext({
+    //   latencyHint: "interactive",
+    //   sampleRate: Math.min(
+    //     192000,
+    //     new (window.AudioContext || window.webkitAudioContext)().sampleRate,
+    //   ),
+    // });
 
     // BGM Analyser
     analyserCtx = new AudioContext();
@@ -881,6 +889,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Sound Synthesis Processor
     try {
       (async () => {
+        // const baseUrl = "/aesthetic.computer/lib/speaker.mjs";
+        // const cacheBuster = `${new Date().getTime()}`; // Using current timestamp as a version
+        // await audioContext.audioWorklet.addModule(baseUrl + cacheBuster);
+
         await audioContext.audioWorklet.addModule(
           "/aesthetic.computer/lib/speaker.mjs",
         );
