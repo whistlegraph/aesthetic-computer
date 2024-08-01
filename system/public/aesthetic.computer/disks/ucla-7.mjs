@@ -1,11 +1,10 @@
-// ucla-7, 24.07.30.20.20
+// ucla-7-balls, 24.07.30.20.20
 // Forces
 
 /* 📝 Notes 
   - Today we will be working with forces.
-  1. [] A jumping character.
-  2. [] Bouncing inside the screen.
-  3. [] Bouncing balls.
+  1. [] Bouncing inside the screen.
+  2. [] Bouncing balls.
 */
 
 function boot({ wipe, fps }) {
