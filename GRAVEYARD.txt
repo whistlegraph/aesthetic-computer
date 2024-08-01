@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** list ***
+  - [x] add handled pieces to list using list @handle
+
 *** .pjs compiler ***
   - [🟠] Write the metaprocessor in that slurps the .pjs to OpenAI
       at runtime.
