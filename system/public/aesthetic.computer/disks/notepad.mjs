@@ -330,7 +330,6 @@ function paint({ wipe, ink, write, screen }) {
   if (!tap) {
     // Write current octave.
     ink("white").write(octave, screen.width - 12, 18);
-
     // Buttons
     buttonNotes.forEach((note) => {
       if (buttons[note]) {
@@ -344,7 +343,7 @@ function paint({ wipe, ink, write, screen }) {
           ) {
             color = "maroon";
           } else {
-            color = octaveTheme[octave];
+            color = note.indexOf("#") === -1 ? octaveTheme[octave] : "gray";
           }
 
           ink(color)
