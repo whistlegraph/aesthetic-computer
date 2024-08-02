@@ -350,6 +350,30 @@ function paint({ wipe, ink, write, screen }) {
             .box(btn.box)
             .ink("white")
             .write(note.toUpperCase(), btn.box.x, btn.box.y);
+
+          let keyLabel;
+          switch (note) {
+            case "c#":
+              keyLabel = "s";
+              break;
+            case "d#":
+              keyLabel = "v";
+              break;
+            case "a#":
+              keyLabel = "w";
+              break;
+            case "f#":
+              keyLabel = "r";
+              break;
+            case "g#":
+              keyLabel = "t";
+              break;
+          }
+
+          console.log(keyLabel);
+
+          if (keyLabel) ink("white").write(keyLabel, btn.box.x, btn.box.y + 10);
+
         });
       }
     });
