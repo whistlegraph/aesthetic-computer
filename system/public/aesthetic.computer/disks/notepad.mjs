@@ -178,16 +178,31 @@ const tonestack = {}; // Temporary tone-stack that always keeps currently held
 //                       (These tones will not necessarily be playing.)
 let sharps = false,
   flats = false;
+<<<<<<< HEAD
 const notes = "abcdefg" + "vsrtw" + "hijklmn" + "yuopz"; // hold shift on C D F G A for sharps.
+=======
+const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F G A for sharps.
+>>>>>>> fa676fa5986cb3c32fbe68cbf41fe1375222f85e
 //                              cdefgab (next ovtave)
 //                       // or alt on   D E G A B for flats
 // This is a notes -> keys mapping, that uses v for c#
 
+<<<<<<< HEAD
+=======
+//             |
+// CVDSEFWGRAQB|QARGWFESDVC
+// ^ ^ ^^ ^ ^ ^| ^ ^ ^^ ^ ^
+// HTIYJKULOMPN|PMOLUKJYITH
+// ^ ^ ^^ ^ ^ ^| ^ ^ ^^ ^ ^
+//             |
+
+>>>>>>> fa676fa5986cb3c32fbe68cbf41fe1375222f85e
 // TODO: Where is Q and Z and X?
 
 // first octave
 // c# v
 // d# s
+<<<<<<< HEAD
 // f# r
 // g# t
 // a# w
@@ -197,6 +212,17 @@ const notes = "abcdefg" + "vsrtw" + "hijklmn" + "yuopz"; // hold shift on C D F 
 // f# o
 // g# p
 // a# w
+=======
+// f# w
+// g# r
+// a# q
+// second octave
+// c# t
+// d# y
+// f# u
+// g# o
+// a# p
+>>>>>>> fa676fa5986cb3c32fbe68cbf41fe1375222f85e
 
 
 const octaves = "123456789";
@@ -371,14 +397,14 @@ function paint({ wipe, ink, write, screen }) {
             case "d#":
               keyLabel = "s";
               break;
-            case "a#":
+            case "f#":
               keyLabel = "w";
               break;
-            case "f#":
+            case "g#":
               keyLabel = "r";
               break;
-            case "g#":
-              keyLabel = "t";
+            case "a#":
+              keyLabel = "q";
               break;
           }
           if (keyLabel) ink("white").write(keyLabel, btn.box.x, btn.box.y + 10);
@@ -590,29 +616,29 @@ function act({ event: e, sound: { synth }, pens, api }) {
           note += "f";
         }
 
-        if ("SVWRT".includes(note)) {
+        if ("VSWRQ".includes(note)) {
           switch (note) {
-            case "S":
-              note = "D#";
-              break;
             case "V":
               note = "C#";
               break;
-            case "W":
-              note = "A#";
+            case "S":
+              note = "D#";
               break;
-            case "R":
+            case "W":
               note = "F#";
               break;
-            case "T":
+            case "R":
               note = "G#";
+              break;
+            case "Q":
+              note = "A#";
               break;
           }
         }
 
         let activeOctave = octave;
 
-        if ("HIJKLMN".includes(note)) {
+        if (("HIJKLMN" + "TYUOP").includes(note)) {
           switch (note) {
             case "H":
               note = "C";
@@ -635,12 +661,22 @@ function act({ event: e, sound: { synth }, pens, api }) {
             case "N":
               note = "B";
               break;
-            // case "O":
-            //   note = "G#";
-            //   break;
-            // case "P":
-            //   note = "G#";
-            //   break;
+            // Semitones
+            case "T":
+              note = "C#";
+              break;
+            case "Y":
+              note = "D#";
+              break;
+            case "U":
+              note = "F#";
+              break;
+            case "O":
+              note = "G#";
+              break;
+            case "P":
+              note = "A#";
+              break;
           }
           activeOctave = parseInt(octave) + 1;
         }
@@ -709,22 +745,22 @@ function act({ event: e, sound: { synth }, pens, api }) {
 
         let buttonNote = key;
 
-        if ("svwrt".includes(key)) {
+        if ("vswrq".includes(key)) {
           switch (key) {
-            case "s":
-              buttonNote = "d#";
-              break;
             case "v":
               buttonNote = "c#";
               break;
-            case "w":
-              buttonNote = "a#";
+            case "s":
+              buttonNote = "d#";
               break;
-            case "r":
+            case "w":
               buttonNote = "f#";
               break;
-            case "t":
+            case "r":
               buttonNote = "g#";
+              break;
+            case "q":
+              buttonNote = "a#";
               break;
           }
         }
