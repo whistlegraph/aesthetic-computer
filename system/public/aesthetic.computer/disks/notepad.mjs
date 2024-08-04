@@ -190,7 +190,8 @@ const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F 
 // ^ ^ ^^ ^ ^ ^| ^ ^ ^^ ^ ^
 //             |
 
-// TODO: Where is Q and Z and X?
+// TODO: How an I add another octave to the layout...
+
 
 // first octave
 // c# v
@@ -224,6 +225,18 @@ const buttonNotes = [
   "a",
   "a#",
   "b",
+  "+c",
+  "+c#",
+  "+d",
+  "+d#",
+  "+e",
+  "+f",
+  "+f#",
+  "+g",
+  "+g#",
+  "+a",
+  "+a#",
+  "+b",
 ];
 
 const buttonOctaves = ["3", "4", "5", "6", "7", "8"]; // ❤️‍🔥 Add octaves...
@@ -421,10 +434,20 @@ function act({ event: e, sound: { synth }, pens, api }) {
             down: (btn) => {
               if (downs[note]) return false; // Cancel the down if the key is held.
               anyDown = true;
-              const noteUpper = note.toUpperCase();
+              let noteUpper = note.toUpperCase();
               keys += noteUpper;
               const active = orderedByCount(sounds);
-              const tone = `${octave}${noteUpper}`;
+
+              let tempOctave = octave;
+
+              if (note[0] === "+") {
+                noteUpper = noteUpper.replace("+", "");
+                tempOctave = parseInt(octave) + 1;
+              }
+
+              const tone = `${tempOctave}${noteUpper}`;
+
+
 
               if (slide && active.length > 0) {
                 sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
@@ -447,7 +470,7 @@ function act({ event: e, sound: { synth }, pens, api }) {
                   count: active.length + 1,
                   sound: synth({
                     type: wave,
-                    tone: `${octave}${noteUpper}`,
+                    tone,
                     duration: "🔁",
                   }),
                 };
