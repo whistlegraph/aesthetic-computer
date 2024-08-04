@@ -355,10 +355,10 @@ function paint({ wipe, ink, write, screen }) {
           let keyLabel;
           switch (note) {
             case "c#":
-              keyLabel = "s";
+              keyLabel = "v";
               break;
             case "d#":
-              keyLabel = "v";
+              keyLabel = "s";
               break;
             case "a#":
               keyLabel = "w";
