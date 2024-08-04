@@ -178,17 +178,11 @@ const tonestack = {}; // Temporary tone-stack that always keeps currently held
 //                       (These tones will not necessarily be playing.)
 let sharps = false,
   flats = false;
-<<<<<<< HEAD
-const notes = "abcdefg" + "vsrtw" + "hijklmn" + "yuopz"; // hold shift on C D F G A for sharps.
-=======
 const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F G A for sharps.
->>>>>>> fa676fa5986cb3c32fbe68cbf41fe1375222f85e
 //                              cdefgab (next ovtave)
 //                       // or alt on   D E G A B for flats
 // This is a notes -> keys mapping, that uses v for c#
 
-<<<<<<< HEAD
-=======
 //             |
 // CVDSEFWGRAQB|QARGWFESDVC
 // ^ ^ ^^ ^ ^ ^| ^ ^ ^^ ^ ^
@@ -196,23 +190,11 @@ const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F 
 // ^ ^ ^^ ^ ^ ^| ^ ^ ^^ ^ ^
 //             |
 
->>>>>>> fa676fa5986cb3c32fbe68cbf41fe1375222f85e
 // TODO: Where is Q and Z and X?
 
 // first octave
 // c# v
 // d# s
-<<<<<<< HEAD
-// f# r
-// g# t
-// a# w
-// second octave
-// c# y
-// d# u
-// f# o
-// g# p
-// a# w
-=======
 // f# w
 // g# r
 // a# q
@@ -222,7 +204,6 @@ const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F 
 // f# u
 // g# o
 // a# p
->>>>>>> fa676fa5986cb3c32fbe68cbf41fe1375222f85e
 
 
 const octaves = "123456789";
