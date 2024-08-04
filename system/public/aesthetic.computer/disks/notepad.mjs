@@ -178,7 +178,8 @@ const tonestack = {}; // Temporary tone-stack that always keeps currently held
 //                       (These tones will not necessarily be playing.)
 let sharps = false,
   flats = false;
-const notes = "abcdefgsvwrt"; // hold shift on C D F G A for sharps.
+const notes = "abcdefgsvwrt" + "hijklmn"; // hold shift on C D F G A for sharps.
+//                              cdefgab (next ovtave)
 //                       // or alt on   D E G A B for flats
 // This is a notes -> keys mapping, that uses v for c#
 // d# s
@@ -369,11 +370,7 @@ function paint({ wipe, ink, write, screen }) {
               keyLabel = "t";
               break;
           }
-
-          console.log(keyLabel);
-
           if (keyLabel) ink("white").write(keyLabel, btn.box.x, btn.box.y + 10);
-
         });
       }
     });
@@ -602,13 +599,53 @@ function act({ event: e, sound: { synth }, pens, api }) {
           }
         }
 
+        let activeOctave = octave;
+
+        if ("HIJKLMN".includes(note)) {
+          switch (note) {
+            case "H":
+              note = "C";
+              break;
+            case "I":
+              note = "D";
+              break;
+            case "J":
+              note = "E";
+              break;
+            case "K":
+              note = "F";
+              break;
+            case "L":
+              note = "G";
+              break;
+            case "M":
+              note = "A";
+              break;
+            case "N":
+              note = "B";
+              break;
+            // case "O":
+            //   note = "G#";
+            //   break;
+            // case "P":
+            //   note = "G#";
+            //   break;
+          }
+          activeOctave = parseInt(octave) + 1;
+        }
+
+        // console.log(activeOctave);
+
         keys += note;
 
-        const buttonNote = note.toLowerCase();
-        if (buttons[buttonNote]) buttons[buttonNote].down = true;
+
+        if (activeOctave === octave) {
+          const buttonNote = note.toLowerCase();
+          if (buttons[buttonNote]) buttons[buttonNote].down = true;
+        }
 
         const active = orderedByCount(sounds);
-        const tone = `${octave}${note}`;
+        const tone = `${activeOctave}${note}`;
 
         if (slide && active.length > 0) {
           sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
