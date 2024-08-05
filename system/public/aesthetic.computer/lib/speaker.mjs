@@ -2,7 +2,7 @@
 
 // import * as sine from "./sound/sine.js";
 import * as volume from "./sound/volume.mjs";
-import Sound from "./sound/sound.mjs";
+import Synth from "./sound/synth.mjs";
 import Bubble from "./sound/bubble.mjs";
 import { lerp, within } from "./num.mjs";
 
@@ -40,7 +40,7 @@ class SoundProcessor extends AudioWorkletProcessor {
   #mixDivisor = 1;
 
   constructor(options) {
-    if (options.debug) console.log("🔊 Sound Synthesis Worklet Started");
+    // if (options.processorOptions.debug) console.log("🔊 Sound Synthesis Worklet Started");
     console.log("🎼 Sample rate:", sampleRate);
 
     super();
@@ -132,7 +132,7 @@ class SoundProcessor extends AudioWorkletProcessor {
         }
 
         // Trigger the sound...
-        const sound = new Sound({
+        const sound = new Synth({
           type: msg.data.type,
           tone: msg.data.tone,
           duration,
@@ -212,9 +212,12 @@ class SoundProcessor extends AudioWorkletProcessor {
             instrument.volume *
             (1 - instrument.fadeProgress / instrument.fadeDuration);
         } else {
+          // console.log(instrument, "Volume:", instrument.volume)
           voices += instrument.volume;
         }
       }
+
+      // if (voices !== 0) console.log(voices);
 
       // Auto-mixing for voices.
       voices = Math.max(1, voices);
@@ -232,6 +235,8 @@ class SoundProcessor extends AudioWorkletProcessor {
       } else {
         this.#mixDivisor = voices;
       }
+
+      // if (this.#queue.length > 0) console.log(output[0][s], voices, this.#mixDivisor);
 
       output[0][s] = volume.apply(output[0][s] / this.#mixDivisor);
       output[1][s] = volume.apply(output[1][s] / this.#mixDivisor);

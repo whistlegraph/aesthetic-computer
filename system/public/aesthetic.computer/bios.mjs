@@ -889,20 +889,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Sound Synthesis Processor
     try {
       (async () => {
-        // const baseUrl = "/aesthetic.computer/lib/speaker.mjs";
-        // const cacheBuster = `${new Date().getTime()}`; // Using current timestamp as a version
-        // await audioContext.audioWorklet.addModule(baseUrl + cacheBuster);
-
-        await audioContext.audioWorklet.addModule(
-          "/aesthetic.computer/lib/speaker.mjs",
-        );
+        const baseUrl = "/aesthetic.computer/lib/speaker.mjs";
+        const cacheBuster = /*debug ?*/ `?time=${new Date().getTime()}`// : "";
+        await audioContext.audioWorklet.addModule(baseUrl + cacheBuster);
 
         const soundProcessor = new AudioWorkletNode(
           audioContext,
           "sound-processor",
           {
             outputChannelCount: [2],
-            processorOptions: { bpm: sound.bpm, debug },
+            processorOptions: { bpm: sound.bpm, debug: true },
           },
         );
 
