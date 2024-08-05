@@ -212,7 +212,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
           </style>
         </head>
         <body>
-          <iframe allow="clipboard-write; clipboard-read" credentialless sandbox="allow-scripts" src="https://aesthetic.computer/docs${path}">
+          <iframe allow="clipboard-write; clipboard-read" credentialless sandbox="allow-scripts allow-modals" src="https://aesthetic.computer/docs${path}">
         </body>
         </html>
       `.trim();
@@ -920,7 +920,7 @@ function getWebViewContent(webview: any, slug: string) {
 				<title>aesthetic.computer</title>
 			</head>
 			<body>
-        <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin allow-pointer-lock" allow="clipboard-write; clipboard-read; camera; microphone; gyroscope" src="https://${
+        <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-modals" allow="clipboard-write; clipboard-read; camera; microphone; gyroscope" src="https://${
           local ? "localhost:8888" : "aesthetic.computer"
         }/${param}" border="none"></iframe>
        	<script nonce="${nonce}" src="${scriptUri}"></script>
