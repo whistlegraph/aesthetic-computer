@@ -226,8 +226,8 @@ export async function handler(event, context) {
           done: false,
         },
         paste: {
-          sig: "",
-          desc: "",
+          sig: "paste(painting, x, y)",
+          desc: "Paste a painting at the given position, anchored from the top left.",
           done: false,
         },
         stamp: {
@@ -281,8 +281,8 @@ export async function handler(event, context) {
           done: false,
         },
         circle: {
-          sig: "",
-          desc: "",
+          sig: "circle(x, y, radius)",
+          desc: "Paint a circle.",
           done: false,
         },
         poly: {
