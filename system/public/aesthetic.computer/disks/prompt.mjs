@@ -1757,7 +1757,7 @@ function act({
       keys(autocompletions).forEach((key) => {
         if (key.startsWith(e.text)) activeCompletions.push(key);
       });
-      // oif (activeCompletions.length > 0)
+      //  if (activeCompletions.length > 0)
       //  console.log("✍️ Completions:", activeCompletions);
     }
 
@@ -1771,7 +1771,7 @@ function act({
   }
 
   if (e.is("keyboard:down:tab") && e.key === "Tab" && activeCompletions[0]) {
-    console.log("Tab completing:", activeCompletions[0]);
+    // console.log("Tab completing:", activeCompletions[0]);
     // TODO: The text input object needs to be updated here also...
     system.prompt.input.text = activeCompletions[0];
     system.prompt.input.snap();

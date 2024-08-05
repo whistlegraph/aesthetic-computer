@@ -15,7 +15,7 @@ export async function authorize({ authorization }, tenant = "aesthetic") {
   try {
     const { got } = await import("got");
     const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
-    console.log("🔐 Authorizing...", tenant);
+    console.log("🔐 Authorizing...", tenant, authorization);
     return (
       await got(`${baseURI}/userinfo`, {
         headers: { Authorization: authorization },
@@ -23,7 +23,7 @@ export async function authorize({ authorization }, tenant = "aesthetic") {
       })
     ).body;
   } catch (err)  {
-    console.error(err);
+    console.error("Authorization error:", err?.code);
     return undefined;
   }
 }
