@@ -1,7 +1,7 @@
 import { within, lerp } from "../num.mjs";
 const { abs, floor, sin, PI } = Math;
 
-export default class Sound {
+export default class Synth {
   // Generic for all instruments.
   playing = true;
 
