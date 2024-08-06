@@ -224,6 +224,7 @@ class SoundProcessor extends AudioWorkletProcessor {
 
       // TODO: 🟢 These divisor value need to be consistent in duration with
       //          varying sample rates.
+      /*
       if (voices > 1) {
         if (!within(0.001, this.#mixDivisor, voices)) {
           if (this.#mixDivisor < voices) {
@@ -233,8 +234,9 @@ class SoundProcessor extends AudioWorkletProcessor {
           }
         }
       } else {
+      */
         this.#mixDivisor = voices;
-      }
+      //}
 
       // if (this.#queue.length > 0) console.log(output[0][s], voices, this.#mixDivisor);
 
