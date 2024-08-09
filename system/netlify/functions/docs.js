@@ -3105,21 +3105,7 @@ export async function handler(event, context) {
           socket.onmessage = function (event) {
             const msg = JSON.parse(event.data);
             console.log("🟡 Message from server:", msg);
-
-            // Refresh the current page if needed.
-            if (msg.type === "reload") {
-              document.location.reload();
-              /*
-              fetch(document.location)
-                .then((response) => {
-                  if (!response.ok)
-                    throw new Error("Network error:", response.statusCode);
-                  return response.text();
-                })
-                .then((html) => (document.documentEleme
-                .catch((error) => console.error("🔴 Error reloading:", error));
-              */
-            }
+            if (msg.type === "reload") document.location.reload();
           };
 
           socket.onerror = function (event) {
