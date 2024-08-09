@@ -3,6 +3,7 @@
 
 /* #region 🏁 TODO 
   - [] Implement a DOM structure for these layouts...
+    - [] Add a templated layout...
   💈 #wrapper.gate
     // 👣 logged-out 
     [login] [im-new]
@@ -106,21 +107,13 @@ const priceId = dev
 const productId = dev ? "prod_QTDAZAdV2KftJI" : "prod_QTDSAhsHGMRp3z";
 
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
-
 import { respond } from "../../backend/http.mjs";
-
-import {
-  authorize, //,
-  // hasAdmin,
-} from "../../backend/authorization.mjs";
+import { authorize /* hasAdmin, */ } from "../../backend/authorization.mjs";
 
 import Stripe from "stripe";
 
 export const handler = async (event, context) => {
-  // console.log("Event:", event);
-  // console.log("Context:", context);
-  // console.log("Path:", event.path);
-
+  // console.log("Event:", event, "Context:", context, "Path:", event.path);
   // 🚙 Router
   const method = event.httpMethod.toLowerCase();
   let path = event.path;
@@ -137,25 +130,94 @@ export const handler = async (event, context) => {
       <html>
         <head>
           <meta charset="utf-8" />
+          <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+          />
+          <style>
+            body {
+              font-family: sans-serif;
+              background: rgb(255, 230, 225);
+              margin: 0;
+              width: 100vw;
+              height: 100vh;
+            }
+            #wrapper {
+              display: flex;
+              width: 100%;
+              height: 100%;
+            }
+            #gate {
+              margin: auto;
+              padding: 0.5em;
+              max-width: 80vmin;
+              /* background: yellow; */
+            }
+            #gate #cookie {
+              max-width: 70%;
+              max-height: 100%;
+              margin: auto;
+              display: block;
+              /* background: cyan; */
+            }
+            #gate h1 {
+              font-weight: normal;
+              /* font-size: 125%; */
+              font-size: 100%;
+              margin: 0;
+              margin-top: -0.5em;
+              padding-bottom: 1em;
+              text-align: center;
+              /* color: rgb(255, 230, 225); */
+              /* outline: 1px solid red; */
+            }
+            #gate nav {
+              display: flex;
+              justify-content: center;
+              /* background: lime; */
+            }
+            #gate nav:has(> button:first-child:nth-last-child(2)) {
+              /* always center a singular button */
+              justify-content: space-between;
+            }
+            #gate nav button {
+              background: rgb(255, 235, 183);
+              /* background: pink; */
+              padding: 0.35em;
+              font-size: 100%;
+              border: 0.205em solid rgb(255, 190, 215);
+              /* border-right: none; */
+              /* border-top: none;  */
+              /* border-bottom: none; */
+              filter: drop-shadow(-0.055em 0.055em 0.055em rgb(80, 80, 80));
+              border-radius: 0.5em;
+            }
+            #prompt {
+              font-size: 22px;
+              font-family: monospace;
+              border: none;
+              background: none;
+              position: absolute;
+              top: 16px;
+              left: 16px;
+              color: black;
+            }
+            #prompt:hover {
+              color: rgb(180, 72, 135);
+            }
+          </style>
           ${dev ? reloadScript : ""}
           <script
             crossorigin="anonymous"
             src="/aesthetic.computer/dep/auth0-spa-js.production.js"
           ></script>
           <script src="https://js.stripe.com/v3/"></script>
-          <style>
-            body {
-              font-family: sans-serif;
-              background: gray;
-            }
-          </style>
         </head>
         <body>
-          <div id="wrapper">
-            <h1>${path} : ${method}</h1>
-          </div>
-          <script>
+          <div id="wrapper"></div>
+          <script type="module">
             // 🗺️ Environment
+
             const dev = ${dev};
             const fromAesthetic =
               (document.referrer.indexOf("aesthetic") > -1 ||
@@ -163,7 +225,22 @@ export const handler = async (event, context) => {
               document.referrer.indexOf("sotce-net") === -1;
             const embedded = window.self !== window.top;
 
+            function pixelDensity() {
+              return window.devicePixelRatio || 1;
+            }
+
+            // console.log("🔭 Zoom: " + pixelDensity() + "%");
+            document.body.style.fontSize = pixelDensity() * 3.25 + "vmin";
+
             // 🤖 Initialization
+            const assetPath = dev
+              ? "/assets/sotce-net/"
+              : "https://assets.aesthetic.computer/sotce-net/";
+
+            function asset(identifier) {
+              return assetPath + identifier;
+            }
+
             // Send some messages to the VS Code extension.
             window.parent?.postMessage(
               { type: "url:updated", slug: "sotce-net" },
@@ -187,437 +264,442 @@ export const handler = async (event, context) => {
 
             const wrapper = document.getElementById("wrapper");
 
-            // 🔐 Authorization
-            (async () => {
-              const clientId = "${AUTH0_CLIENT_ID_SPA}";
-              let fetchUser, verificationTimeout;
-
-              let isAuthenticated = false;
-              let user;
-
-              const auth0Client = await window.auth0.createAuth0Client({
-                domain: "${AUTH0_DOMAIN}",
-                clientId,
-                cacheLocation: "localstorage",
-                useRefreshTokens: true,
-                authorizationParams: { redirect_uri: window.location.href },
-              });
-
-              if (embedded || fromAesthetic) {
-                const back = document.createElement("div");
-                back.innerHTML =
-                  "<button onclick='aesthetic()'>sotce-net</button>";
-                document.body.appendChild(back);
-              }
-
-              if (
-                location.search.includes("state=") &&
-                (location.search.includes("code=") ||
-                  location.search.includes("error="))
-              ) {
-                try {
-                  console.log("🔐 Handling auth0 redirect...");
-                  await auth0Client.handleRedirectCallback();
-                } catch (e) {
-                  console.error("🔐", e);
-                }
-                window.history.replaceState(
-                  {},
-                  document.title,
-                  window.location.pathname,
-                );
-              }
-
-              // 😶‍🌫️ Picking up a session from VS Code / the parent frame.
-              let pickedUpSession;
-              {
-                const url = new URL(window.location);
-                const params = url.searchParams;
-                let param = params.get("session-sotce");
-
-                if (param === "null") {
-                  localStorage.removeItem("session-sotce");
-                } else if (param === "retrieve") {
-                  param = localStorage.getItem("session-sotce");
-                }
-
-                const sessionParams = param;
-                let encodedSession = sessionParams;
-                if (encodedSession === "null") encodedSession = undefined;
-                if (encodedSession) {
-                  // console.log("🪷 Sotce Session:", encodedSession);
-                  const sessionJsonString = atob(
-                    decodeURIComponent(encodedSession),
-                  );
-                  const session = JSON.parse(sessionJsonString);
-                  // Use the session information to authenticate, if it exists.
-                  // console.log("🥀 Session data:", session);
-                  if (session.accessToken && session.account) {
-                    window.sotceTOKEN = session.accessToken; // Only set using this flow.
-                    window.sotceUSER = {
-                      email: session.account.label,
-                      sub: session.account.id,
-                    };
-                    // console.log(
-                    //   "🌻 Picked up sotce session!",
-                    //   window.sotceTOKEN,
-                    //   window.sotceUSER,
-                    // );
-                    pickedUpSession = true;
-                  }
-
-                  if (sessionParams) {
-                    localStorage.setItem("session-sotce", encodedSession);
-                    params.delete("session-sotce"); // Remove the 'session' parameter
-                    // Update the URL without reloading the page
-                    history.pushState(
-                      {},
-                      "",
-                      url.pathname + "?" + params.toString(),
-                    );
-                  }
-                }
-              }
-
-              // Logging in normally.
-              if (!pickedUpSession) {
-                isAuthenticated = await auth0Client.isAuthenticated();
-
-                // Try to fetch a new token on every refresh.
-                // TODO: ❤️‍🔥 Is this necessary?
-                if (isAuthenticated) {
-                  try {
-                    await auth0Client.getTokenSilently(/*{ cacheMode: "off" }*/);
-                    // console.log("🗝️ Got fresh token.");
-                  } catch (error) {
-                    console.log("🔐️ ❌ Unauthorized", error);
-                    console.error(
-                      "Failed to retrieve token silently. Logging out.",
-                      error,
-                    );
-                    // Redirect the user to logout if the token has failed.
-                    auth0Client.logout({
-                      logoutParams: { returnTo: window.location.href },
-                    });
-                    isAuthenticated = false;
-                    return;
-                  }
-                }
-              } else {
-                isAuthenticated = true;
-              }
-
-              if (!isAuthenticated) {
-                wrapper.innerHTML =
-                  'not signed in :( <br><button onclick="login()">log in</button>' +
+            function gate(status) {
+              let message, nav;
+              if (status === "logged-out") {
+                message = "for your best thoughts";
+                nav =
+                  '<button onclick="login()">log in</button>' +
                   (embedded
                     ? ""
                     : '<button onclick="signup()">i&apos;m new</button>');
-              } else {
-                // 🅰️ Check / await email verification.
-                user = pickedUpSession
-                  ? window.sotceUSER
-                  : await auth0Client.getUser();
+              }
 
-                // console.log("🪷 Got user:", user);
-                let verifiedText = "email unverified :(";
+              wrapper.innerHTML =
+                "<div id='gate'><img id='cookie' src='" +
+                asset("cookie.png") +
+                "'><h1>" +
+                message +
+                "</h1><nav>" +
+                nav +
+                "</nav></div>";
+            }
 
-                function subscription() {
-                  if (embedded) {
-                    return "<code id='subscribe'>please subscribe in your browser</code>";
-                  } else {
-                    return '<button id="subscribe" onclick="subscribe()">subscribe</button>';
-                  }
-                }
+            // Build a layout for the 🌻 'garden'.
+            // function garden() {
+            // }
 
-                if (!user.email_verified) {
-                  verifiedText =
-                    'waiting for email verification... <button onclick="resend()">Resend?</button>';
+            // 🔐 Authorization
+            const clientId = "${AUTH0_CLIENT_ID_SPA}";
+            let fetchUser, verificationTimeout;
 
-                  fetchUser = function (email) {
-                    fetch(
-                      "/user?from=" +
-                        encodeURIComponent(email) +
-                        "&tenant=sotce",
-                    )
-                      .then((res) => res.json())
-                      .then((u) => {
-                        // console.log("Fetched updated user...", u);
-                        if (u.email_verified) {
-                          // console.log("📧 Email verified!");
+            let isAuthenticated = false;
+            let user;
 
-                          const verifiedEl =
-                            document.getElementById("verified");
+            const auth0Client = await window.auth0.createAuth0Client({
+              domain: "${AUTH0_DOMAIN}",
+              clientId,
+              cacheLocation: "localstorage",
+              useRefreshTokens: true,
+              authorizationParams: { redirect_uri: window.location.href },
+            });
 
-                          // 🔥 check to see if the user is subscribed...
-                          verifiedEl.innerHTML = subscription();
-                        } else {
-                          verificationTimeout = setTimeout(() => {
-                            fetchUser(email);
-                          }, 1000);
-                        }
-                      })
-                      .catch(
-                        (err) =>
-                          (verificationTimeout = setTimeout(() => {
-                            fetchUser(email);
-                          }, 1000)),
-                      );
+            if (embedded || fromAesthetic) {
+              const prompt = document.createElement("button");
+              prompt.id = "prompt";
+              prompt.onclick = aesthetic;
+              prompt.innerHTML = "sotce-net";
+              document.body.appendChild(prompt);
+            }
+
+            if (
+              location.search.includes("state=") &&
+              (location.search.includes("code=") ||
+                location.search.includes("error="))
+            ) {
+              try {
+                console.log("🔐 Handling auth0 redirect...");
+                await auth0Client.handleRedirectCallback();
+              } catch (e) {
+                console.error("🔐", e);
+              }
+              window.history.replaceState(
+                {},
+                document.title,
+                window.location.pathname,
+              );
+            }
+
+            // 😶‍🌫️ Picking up a session from VS Code / the parent frame.
+            let pickedUpSession;
+            {
+              const url = new URL(window.location);
+              const params = url.searchParams;
+              let param = params.get("session-sotce");
+
+              if (param === "null") {
+                localStorage.removeItem("session-sotce");
+              } else if (param === "retrieve") {
+                param = localStorage.getItem("session-sotce");
+              }
+
+              const sessionParams = param;
+              let encodedSession = sessionParams;
+              if (encodedSession === "null") encodedSession = undefined;
+              if (encodedSession) {
+                // console.log("🪷 Sotce Session:", encodedSession);
+                const sessionJsonString = atob(
+                  decodeURIComponent(encodedSession),
+                );
+                const session = JSON.parse(sessionJsonString);
+                // Use the session information to authenticate, if it exists.
+                // console.log("🥀 Session data:", session);
+                if (session.accessToken && session.account) {
+                  window.sotceTOKEN = session.accessToken; // Only set using this flow.
+                  window.sotceUSER = {
+                    email: session.account.label,
+                    sub: session.account.id,
                   };
-                  fetchUser(user.email);
-                } else {
-                  // console.log("📧 Email verified!");
-                  verifiedText = subscription();
-                  // console.log("verified text:", verifiedText);
+                  // console.log(
+                  //   "🌻 Picked up sotce session!",
+                  //   window.sotceTOKEN,
+                  //   window.sotceUSER,
+                  // );
+                  pickedUpSession = true;
                 }
 
-                wrapper.innerHTML =
-                  "signed in as: <span id='email'>" +
-                  user.email +
-                  '</span>!<br><mark id="verified">' +
-                  verifiedText +
-                  '</mark><br><a onclick="logout()" id="logout" href="#">logout</a>';
-              }
-
-              function login(hint = "login") {
-                if (embedded) {
-                  window.parent.postMessage(
-                    { type: "login", tenant: "sotce" },
-                    "*",
+                if (sessionParams) {
+                  localStorage.setItem("session-sotce", encodedSession);
+                  params.delete("session-sotce"); // Remove the 'session' parameter
+                  // Update the URL without reloading the page
+                  history.pushState(
+                    {},
+                    "",
+                    url.pathname + "?" + params.toString(),
                   );
-                } else {
-                  const opts = { prompt: "login" }; // Never skip the login screen.
-                  opts.screen_hint = hint;
-                  auth0Client.loginWithRedirect({ authorizationParams: opts });
                 }
               }
+            }
 
-              function signup() {
+            // Logging in normally.
+            if (!pickedUpSession) {
+              isAuthenticated = await auth0Client.isAuthenticated();
+
+              // Try to fetch a new token on every refresh.
+              // TODO: ❤️‍🔥 Is this necessary?
+              if (isAuthenticated) {
+                try {
+                  await auth0Client.getTokenSilently(/*{ cacheMode: "off" }*/);
+                  // console.log("🗝️ Got fresh token.");
+                } catch (error) {
+                  console.log("🔐️ ❌ Unauthorized", error);
+                  console.error(
+                    "Failed to retrieve token silently. Logging out.",
+                    error,
+                  );
+                  // Redirect the user to logout if the token has failed.
+                  auth0Client.logout({
+                    logoutParams: { returnTo: window.location.href },
+                  });
+                  isAuthenticated = false;
+                }
+              }
+            } else {
+              isAuthenticated = true;
+            }
+
+            if (!isAuthenticated) {
+              gate("logged-out");
+            } else {
+              // 🅰️ Check / await email verification.
+              user = pickedUpSession
+                ? window.sotceUSER
+                : await auth0Client.getUser();
+
+              // console.log("🪷 Got user:", user);
+              let verifiedText = "email unverified :(";
+
+              function subscription() {
                 if (embedded) {
-                  console.log("🟠 Cannot sign up in an embedded view.");
+                  return "<code id='subscribe'>please subscribe in your browser</code>";
                 } else {
-                  login("signup");
+                  return '<button id="subscribe" onclick="subscribe()">subscribe</button>';
                 }
               }
 
-              function resend() {
-                clearTimeout(verificationTimeout);
-                console.log("📧 Resending...");
-                const email = prompt(
-                  "Resend verification email to?",
-                  user.email,
-                );
+              if (!user.email_verified) {
+                verifiedText =
+                  'waiting for email verification... <button onclick="resend()">Resend?</button>';
 
-                userRequest("POST", "/api/email", {
-                  name: email,
-                  email,
-                  tenant: "sotce",
-                })
-                  .then(async (res) => {
-                    if (res.status === 200) {
-                      console.log("📧 Email verification resent...", res);
-                      alert("📧 Verification resent!");
-                      // Replace signed in email...
-                      const emailEl = document.getElementById("email");
-                      emailEl.innerHTML = email;
+                fetchUser = function (email) {
+                  fetch(
+                    "/user?from=" + encodeURIComponent(email) + "&tenant=sotce",
+                  )
+                    .then((res) => res.json())
+                    .then((u) => {
+                      // console.log("Fetched updated user...", u);
+                      if (u.email_verified) {
+                        // console.log("📧 Email verified!");
 
-                      // Clear user cache / token here.
-                      try {
-                        await auth0Client.getTokenSilently({
-                          cacheMode: "off",
-                        });
-                        user = await auth0Client.getUser();
-                        console.log("🎇 New user is...", user);
-                      } catch (err) {
-                        console.log("Error retrieving uncached user.");
+                        const verifiedEl = document.getElementById("verified");
+                        verifiedEl.innerHTML = subscription();
+                      } else {
+                        verificationTimeout = setTimeout(() => {
+                          fetchUser(email);
+                        }, 1000);
                       }
-                    }
-                    fetchUser(email);
-                  })
-                  .catch((err) => {
-                    alert("Email verification error.");
-                    console.error("🔴 📧 Email verification error...", err);
-                  });
+                    })
+                    .catch(
+                      (err) =>
+                        (verificationTimeout = setTimeout(() => {
+                          fetchUser(email);
+                        }, 1000)),
+                    );
+                };
+                fetchUser(user.email);
+              } else {
+                // console.log("📧 Email verified!");
+                verifiedText = subscription();
+                // console.log("verified text:", verifiedText);
               }
 
-              // Go to the paywalled subscription page.
-              async function subscribe() {
-                const stripe = Stripe(
-                  "${dev
-                    ? SOTCE_STRIPE_API_TEST_PUB_KEY
-                    : SOTCE_STRIPE_API_PUB_KEY}",
+              wrapper.innerHTML =
+                "signed in as: <span id='email'>" +
+                user.email +
+                '</span>!<br><mark id="verified">' +
+                verifiedText +
+                '</mark><br><a onclick="logout()" id="logout" href="#">logout</a>';
+            }
+
+            function login(hint = "login") {
+              if (embedded) {
+                window.parent.postMessage(
+                  { type: "login", tenant: "sotce" },
+                  "*",
                 );
-                const response = await fetch("/sotce-net/subscribe", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ email: user.email }),
+              } else {
+                const opts = { prompt: "login" }; // Never skip the login screen.
+                opts.screen_hint = hint;
+                auth0Client.loginWithRedirect({ authorizationParams: opts });
+              }
+            }
+
+            function signup() {
+              if (embedded) {
+                console.log("🟠 Cannot sign up in an embedded view.");
+              } else {
+                login("signup");
+              }
+            }
+
+            function resend() {
+              clearTimeout(verificationTimeout);
+              console.log("📧 Resending...");
+              const email = prompt("Resend verification email to?", user.email);
+
+              userRequest("POST", "/api/email", {
+                name: email,
+                email,
+                tenant: "sotce",
+              })
+                .then(async (res) => {
+                  if (res.status === 200) {
+                    console.log("📧 Email verification resent...", res);
+                    alert("📧 Verification resent!");
+                    // Replace signed in email...
+                    const emailEl = document.getElementById("email");
+                    emailEl.innerHTML = email;
+
+                    // Clear user cache / token here.
+                    try {
+                      await auth0Client.getTokenSilently({
+                        cacheMode: "off",
+                      });
+                      user = await auth0Client.getUser();
+                      console.log("🎇 New user is...", user);
+                    } catch (err) {
+                      console.log("Error retrieving uncached user.");
+                    }
+                  }
+                  fetchUser(email);
+                })
+                .catch((err) => {
+                  alert("Email verification error.");
+                  console.error("🔴 📧 Email verification error...", err);
                 });
+            }
+
+            // Go to the paywalled subscription page.
+            async function subscribe() {
+              const stripe = Stripe(
+                "${dev
+                  ? SOTCE_STRIPE_API_TEST_PUB_KEY
+                  : SOTCE_STRIPE_API_PUB_KEY}",
+              );
+              const response = await fetch("/sotce-net/subscribe", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: user.email }),
+              });
+              if (response.ok) {
+                const session = await response.json();
+                // console.log("💳 Session:", session);
+                const result = await stripe.redirectToCheckout({
+                  sessionId: session.id,
+                });
+                if (result.error) console.error(result.error.message);
+              } else {
+                const error = await response.json();
+                console.error("💳", error.message);
+              }
+            }
+
+            // Check the subscription status of the logged in user.
+            async function subscribed() {
+              if (!user) return false;
+              console.log("🗞️ Checking subscription status for:", user.email);
+              const response = await userRequest(
+                "POST",
+                "sotce-net/subscribed",
+                // nobody ;)
+              );
+              if (response.status === 200) {
+                console.log("💳 Subscribed:", response);
+                if (response.subscribed) {
+                  return response.content;
+                } else {
+                  return false;
+                }
+              } else {
+                console.error("💳", response);
+              }
+            }
+
+            // Cancel an existing subscription.
+            async function cancel() {
+              if (!user) return;
+
+              const confirmation = confirm("Cancel your subscription?");
+              if (!confirmation) return;
+
+              try {
+                const response = await fetch("/sotce-net/cancel", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization:
+                      "Bearer " +
+                      (window.sotceTOKEN ||
+                        (await auth0Client.getTokenSilently())),
+                  },
+                });
+
                 if (response.ok) {
-                  const session = await response.json();
-                  // console.log("💳 Session:", session);
-                  const result = await stripe.redirectToCheckout({
-                    sessionId: session.id,
-                  });
-                  if (result.error) console.error(result.error.message);
+                  const result = await response.json();
+                  console.log("Subscription cancelled:", result);
+                  alert(result.message);
+                  location.reload();
                 } else {
                   const error = await response.json();
-                  console.error("💳", error.message);
+                  console.error("Cancellation error:", error.message);
+                  alert("Failed to cancel subscription: " + error.message);
                 }
+              } catch (error) {
+                console.error("Error:", error);
+                alert("An error occurred while cancelling the subscription.");
               }
+            }
 
-              // Check the subscription status of the logged in user.
-              async function subscribed() {
-                if (!user) return false;
-                console.log("🗞️ Checking subscription status for:", user.email);
-                const response = await userRequest(
-                  "POST",
-                  "sotce-net/subscribed",
-                  // nobody ;)
-                );
-                if (response.status === 200) {
-                  console.log("💳 Subscribed:", response);
-                  if (response.subscribed) {
-                    return response.content;
-                  } else {
-                    return false;
-                  }
-                } else {
-                  console.error("💳", response);
-                }
-              }
-
-              // Cancel an existing subscription.
-              async function cancel() {
-                if (!user) return;
-
-                const confirmation = confirm("Cancel your subscription?");
-                if (!confirmation) return;
-
-                try {
-                  const response = await fetch("/sotce-net/cancel", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization:
-                        "Bearer " +
-                        (window.sotceTOKEN ||
-                          (await auth0Client.getTokenSilently())),
-                    },
-                  });
-
-                  if (response.ok) {
-                    const result = await response.json();
-                    console.log("Subscription cancelled:", result);
-                    alert(result.message);
-                    location.reload();
-                  } else {
-                    const error = await response.json();
-                    console.error("Cancellation error:", error.message);
-                    alert("Failed to cancel subscription: " + error.message);
-                  }
-                } catch (error) {
-                  console.error("Error:", error);
-                  alert("An error occurred while cancelling the subscription.");
-                }
-              }
-
-              function logout() {
-                if (isAuthenticated) {
-                  console.log("🔐 Logging out...", window.location.href);
-                  if (embedded) {
-                    localStorage.removeItem("session-sotce");
-                    window.parent.postMessage(
-                      { type: "logout", tenant: "sotce" },
-                      "*",
-                    );
-                  } else {
-                    auth0Client.logout({
-                      logoutParams: { returnTo: window.location.href },
-                    });
-                  }
-                } else console.log("🔐 Already logged out!");
-              }
-
-              // Jump to Aesthetic Computer.
-              function aesthetic() {
-                let href = dev
-                  ? "https://localhost:8888"
-                  : "https://aesthetic.computer";
+            function logout() {
+              if (isAuthenticated) {
+                console.log("🔐 Logging out...", window.location.href);
                 if (embedded) {
+                  localStorage.removeItem("session-sotce");
                   window.parent.postMessage(
-                    { type: "url:updated", slug: "prompt" },
+                    { type: "logout", tenant: "sotce" },
                     "*",
                   );
-                  href += "?session-aesthetic=retrieve";
+                } else {
+                  auth0Client.logout({
+                    logoutParams: { returnTo: window.location.href },
+                  });
                 }
-                window.location.href = href;
+              } else console.log("🔐 Already logged out!");
+            }
+
+            // Jump to Aesthetic Computer.
+            function aesthetic() {
+              let href = dev
+                ? "https://localhost:8888"
+                : "https://aesthetic.computer";
+              if (embedded) {
+                window.parent.postMessage(
+                  { type: "url:updated", slug: "prompt" },
+                  "*",
+                );
+                href += "?session-aesthetic=retrieve";
               }
+              window.location.href = href;
+            }
 
-              async function userRequest(method, endpoint, body) {
-                try {
-                  const token =
-                    window.sotceTOKEN || (await auth0Client.getTokenSilently());
-                  if (!token) throw new Error("🧖 Not logged in.");
+            async function userRequest(method, endpoint, body) {
+              try {
+                const token =
+                  window.sotceTOKEN || (await auth0Client.getTokenSilently());
+                if (!token) throw new Error("🧖 Not logged in.");
 
-                  const headers = {
-                    Authorization: "Bearer " + token,
-                    "Content-Type": "application/json",
-                  };
+                const headers = {
+                  Authorization: "Bearer " + token,
+                  "Content-Type": "application/json",
+                };
 
-                  const options = { method, headers };
-                  if (body) options.body = JSON.stringify(body);
-                  const response = await fetch(endpoint, options);
+                const options = { method, headers };
+                if (body) options.body = JSON.stringify(body);
+                const response = await fetch(endpoint, options);
 
-                  if (response.status === 500) {
-                    try {
-                      const json = await response.json();
-                      return { status: response.status, ...json };
-                    } catch (e) {
-                      return {
-                        status: response.status,
-                        message: response.statusText,
-                      };
-                    }
-                  } else {
-                    const clonedResponse = response.clone();
-                    try {
-                      return {
-                        ...(await clonedResponse.json()),
-                        status: response.status,
-                      };
-                    } catch {
-                      return {
-                        status: response.status,
-                        body: await response.text(),
-                      };
-                    }
+                if (response.status === 500) {
+                  try {
+                    const json = await response.json();
+                    return { status: response.status, ...json };
+                  } catch (e) {
+                    return {
+                      status: response.status,
+                      message: response.statusText,
+                    };
                   }
-                } catch (error) {
-                  console.error("🚫 Error:", error);
-                  return { message: "unauthorized" };
+                } else {
+                  const clonedResponse = response.clone();
+                  try {
+                    return {
+                      ...(await clonedResponse.json()),
+                      status: response.status,
+                    };
+                  } catch {
+                    return {
+                      status: response.status,
+                      body: await response.text(),
+                    };
+                  }
                 }
+              } catch (error) {
+                console.error("🚫 Error:", error);
+                return { message: "unauthorized" };
               }
+            }
 
-              window.login = login;
-              window.signup = signup;
-              window.resend = resend;
-              window.subscribe = subscribe;
-              window.cancel = cancel;
-              window.logout = logout;
-              window.aesthetic = aesthetic;
-              window.user = user;
-
-              // 🚪 Check for subscription and add content as necessary.
-              const entered = await subscribed();
-              if (entered) {
-                console.log("🚪", entered);
-                document.getElementById("subscribe").remove();
-                document.getElementById("verified")?.remove();
-                wrapper.innerHTML += "<br><b>" + entered + "</b>";
-              } else {
-                // add subscribe button here...
-              }
-            })();
+            // 🚪 Check for subscription and add content as necessary.
+            const entered = await subscribed();
+            if (entered) {
+              console.log("🚪", entered);
+              document.getElementById("subscribe").remove();
+              document.getElementById("verified")?.remove();
+              wrapper.innerHTML += "<br><b>" + entered + "</b>";
+              // TODO: Hide the 'gate' and add the 'garden' layout.
+              // TODO: Could 'gate' be something like a settings menu here?
+            } else {
+              // add subscribe button here...
+            }
+            //})();
           </script>
         </body>
       </html>
@@ -741,9 +823,7 @@ export const handler = async (event, context) => {
       );
 
       if (!subscription) {
-        return respond(404, {
-          message: "Subscription not found.",
-        });
+        return respond(404, { message: "Subscription not found." });
       }
 
       // Cancel the subscription
@@ -765,7 +845,6 @@ export const handler = async (event, context) => {
 // Inserted in `dev` mode for live reloading.
 const reloadScript = html`
   <script>
-    // Live reloading in development.
     let reconnectInterval = false;
     function connect() {
       clearInterval(reconnectInterval);
@@ -777,22 +856,24 @@ const reloadScript = html`
         return;
       }
 
-      ws.onopen = (e) => {
-        console.log("🧦 Connected:", e);
-      };
+      ws.onopen = (e) => console.log("🧦 Connected:", e);
+      let reloadTimeout;
 
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data);
         if (msg.type === "reload" && msg.content.piece === "*refresh*") {
           console.log("🧦 ♻️ Reloading...");
-          const sessionItem = localStorage.getItem("session-sotce");
-          if (sessionItem) {
-            const url = new URL(window.location.href);
-            url.searchParams.set("session-sotce", "retrieve");
-            window.location.href = url.toString();
-          } else {
-            location.reload();
-          }
+          clearTimeout(reloadTimeout);
+          reloadTimeout = setTimeout(() => {
+            const sessionItem = localStorage.getItem("session-sotce");
+            if (sessionItem) {
+              const url = new URL(window.location.href);
+              url.searchParams.set("session-sotce", "retrieve");
+              window.location.href = url.toString();
+            } else {
+              location.reload();
+            }
+          }, 150); // 📓 Could take a sec for the function to reload... 24.08.08.00.53
         }
       };
 
