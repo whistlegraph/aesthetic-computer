@@ -9,6 +9,8 @@ export default class Synth {
   fadeProgress;
   fadeDuration;
 
+  #phase = 0;
+  #frequency;
   #duration = 0;
   #attack = 0;
   #decay = 0;
@@ -38,8 +40,8 @@ export default class Synth {
 
   constructor({ type, tone, duration, attack, decay, volume, pan }) {
     this.#type = type;
-    const frequency = tone || 1; // Frequency in samples.
-    this.#wavelength = sampleRate / frequency; // / 2;
+    this.#frequency = tone || 1; // Frequency in samples.
+    this.#wavelength = sampleRate / this.#frequency; // / 2;
     this.#futureWavelength = this.#wavelength;
     this.#duration = duration;
     this.#attack = attack;
@@ -129,12 +131,22 @@ export default class Synth {
       value = this.#up ? 1 : -1;
     } else if (this.#type === "sine") {
       // Sine Wave
-      const angle = (Math.PI * this.#step) / (this.#wavelength / 2);
-      value = Math.sin(angle);
-      this.#step += 1;
-      if (this.#step >= this.#wavelength * 2) {
-        this.#step = 0;
+          
+      // Sine Wave using phase increment
+      const increment = (2 * Math.PI * this.#frequency) / sampleRate;
+      this.#phase += increment;
+      if (this.#phase > 2 * Math.PI) {
+        this.#phase -= 2 * Math.PI;
       }
+      value = Math.sin(this.#phase);
+    
+      
+      //const angle = (Math.PI * this.#step) / (this.#wavelength / 2);
+      //value = Math.sin(angle);
+      //this.#step += 1;
+      //if (this.#step >= this.#wavelength * 2) {
+      //  this.#step = 0;
+      //}
     } else if (this.#type === "triangle") {
       // Triangle Wave
       const stepSize = 4 / this.#wavelength;
