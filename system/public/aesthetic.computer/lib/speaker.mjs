@@ -201,7 +201,6 @@ class SoundProcessor extends AudioWorkletProcessor {
       for (const instrument of this.#queue) {
         // For now, all sounds are maxed out and mixing happens by dividing by the total length.
 
-        // TODO: Actually add the sounds here instead of replacing them.
         const amplitude = instrument.next(); // this.#queue.length;
 
         output[0][s] += instrument.pan(0, amplitude);
@@ -227,9 +226,9 @@ class SoundProcessor extends AudioWorkletProcessor {
       if (voices > 1) {
         if (!within(0.001, this.#mixDivisor, voices)) {
           if (this.#mixDivisor < voices) {
-            this.#mixDivisor += 0.001;
+            this.#mixDivisor += 0.0001;
           } else {
-            this.#mixDivisor -= 0.01; //0.001; // 0.0001;
+            this.#mixDivisor -= 0.0001; //0.001; // 0.0001;
           }
         }
       } else {
