@@ -226,9 +226,9 @@ class SoundProcessor extends AudioWorkletProcessor {
       if (voices > 1) {
         if (!within(0.001, this.#mixDivisor, voices)) {
           if (this.#mixDivisor < voices) {
-            this.#mixDivisor += 0.0001;
+            this.#mixDivisor += 0.001;
           } else {
-            this.#mixDivisor -= 0.0001; //0.001; // 0.0001;
+            this.#mixDivisor -= 0.01; //0.001; // 0.0001;
           }
         }
       } else {
