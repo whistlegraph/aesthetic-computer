@@ -35,6 +35,14 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `whistle` ***
+  - [] fix whistle 'microphone-connect' message
+
+*** slide ***
+  - [] add two octaves of sliding with volume on the x axis for
+       a single voice instrument and have a textual read-out for what note
+       is being played
+
 *** ucla ending / grading  ***
   - [x] me@jas.life
   - [x] (Lab) Bouncing balls in ucla-7.

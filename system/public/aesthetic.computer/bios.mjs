@@ -754,11 +754,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (debug) console.warn("🎙 Microphone disabled:", err);
       }
 
-      // send({ type: "microphone:connect:success" });
       // return;
 
       if (!micStream) {
-        send({ type: "microphone:connect:failure" });
+        send({ type: "microphone-connect:failure" });
         return;
       }
 
@@ -818,7 +817,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           //                   can play back the sample.
 
           send({
-            type: "microphone:recording:complete",
+            type: "microphone-recording:complete",
             content: { id, data: msg.content.recording },
           });
         }
@@ -878,11 +877,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         speakerGain.gain.value = 1;
         sfxStreamGain.gain.value = 1;
         if (debug) console.log("🎙💀 Microphone:", "Detached");
-        send({ type: "microphone:disconnect" });
+        send({ type: "microphone-disconnect" });
       };
 
       // Send a message back to `disk` saying the microphone is connected.
-      send({ type: "microphone:connect:success" });
+      send({ type: "microphone-connect:success" });
       if (debug) console.log("🎙 Microphone connected:", data);
     };
 
@@ -2935,12 +2934,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    if (type === "microphone:record") {
+    if (type === "microphone-record") {
       requestMicrophoneRecordingStart?.();
       return;
     }
 
-    if (type === "microphone:cut") {
+    if (type === "microphone-cut") {
       requestMicrophoneRecordingStop?.();
       return;
     }

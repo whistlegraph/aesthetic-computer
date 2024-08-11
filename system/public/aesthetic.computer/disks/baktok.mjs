@@ -233,7 +233,7 @@ async function act({
     btn.reposition({ center: "xy", screen }, "Capture");
   }
 
-  if (e.is("microphone:connect:success")) {
+  if (e.is("microphone-connect:success")) {
     // TODO: I need my own version of `setTimeout` called `delay` that instantiates an Hourglass Timer in `disk`. 23.09.07.16.26
     // setTimeout(() => {
     delay(() => {

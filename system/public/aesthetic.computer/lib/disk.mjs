@@ -4323,20 +4323,20 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
-  if (type === "microphone:recording:complete") {
+  if (type === "microphone-recording:complete") {
     microphone.recordingPromise?.resolve(content);
     return;
   }
 
-  if (type === "microphone:connect:success") {
+  if (type === "microphone-connect:success") {
     microphone.connected = true;
-    actAlerts.push("microphone:connect:success");
+    actAlerts.push("microphone-connect:success");
     return;
   }
 
-  if (type === "microphone:connect:failure") {
+  if (type === "microphone-connect:failure") {
     microphone.connected = false;
-    actAlerts.push("microphone:connect:failure");
+    actAlerts.push("microphone-connect:failure");
     return;
   }
 
@@ -4786,6 +4786,7 @@ async function makeFrame({ data: { type, content } }) {
         // console.log("🎵 Note to check:", input);
         // Return if it's just a number or parses as one.
         if (typeof input === "number") return input;
+        if (input === null || input === undefined) return null;
         if (!isNaN(parseFloat(input)) && isFinite(input)) return Number(input);
 
         let octave, note;
