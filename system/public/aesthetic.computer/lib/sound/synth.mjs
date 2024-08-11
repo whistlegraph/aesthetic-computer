@@ -45,6 +45,7 @@ export default class Synth {
     this.#futureWavelength = this.#wavelength;
     this.#duration = duration;
     this.#attack = attack;
+    // console.log("Attack:", this.#attack);
     this.#decay = decay;
     this.#pan = pan;
     this.volume = volume;
@@ -131,7 +132,7 @@ export default class Synth {
       value = this.#up ? 1 : -1;
     } else if (this.#type === "sine") {
       // Sine Wave
-          
+
       // Sine Wave using phase increment
       const increment = (2 * Math.PI * this.#frequency) / sampleRate;
       this.#phase += increment;
@@ -139,8 +140,7 @@ export default class Synth {
         this.#phase -= 2 * Math.PI;
       }
       value = Math.sin(this.#phase);
-    
-      
+
       //const angle = (Math.PI * this.#step) / (this.#wavelength / 2);
       //value = Math.sin(angle);
       //this.#step += 1;
@@ -182,6 +182,14 @@ export default class Synth {
         1 - (this.#progress - this.#decayStart) / this.#decay,
       );
       value *= decay;
+    } else {
+      // TODO:
+      // Attack will be in number of sampleFrames here... please calculate.
+      if (this.#attack > 0) {
+        // Calculate attack envelope using the number of frames passed
+        const attack = Math.min(1, this.#progress / this.#attack);
+        value *= attack;
+      }
     }
 
     // Track the overall progress of the sound.

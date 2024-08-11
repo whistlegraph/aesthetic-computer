@@ -140,7 +140,7 @@ function sim({ sound: { microphone, synth, speaker: spk } }) {
     amps.push(mic.amplitude < minAmp ? 0 : mic.amplitude);
   }
 
-  if (whistling && sine) {
+  if (whistling && sine && pitches.length > 0) {
     index = (index + 1) % pitches.length; // Cycle through all recorded pitches.
     sine.update({ tone: pitches[index], volume: amps[index] });
   }

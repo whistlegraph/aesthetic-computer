@@ -95,7 +95,7 @@ function sim({
 
       rec.addEventListener("pointerdown", () => {
         if (rec.classList.contains('transcoding')) return;
-        signal("microphone:record-btn-pressed");
+        signal("microphone-record-btn-pressed");
       });
 
       when("microphone:recording", () => {

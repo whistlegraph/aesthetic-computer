@@ -59,6 +59,7 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
+    - [] Lay out keys better on wider vs vertical screen.
     - [?] Dragging across the buttons in slide mode should slide from one key to another? 
     - [-] Fix subtle 1, 2, 3, 4, then release 1 and press 1 down and watch 4 get unticked touch bug on ios. 
       - [x] This may require fixing localhost testing first.
@@ -183,6 +184,8 @@ const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F 
 //                       // or alt on   D E G A B for flats
 // This is a notes -> keys mapping, that uses v for c#
 
+const attack = 0.025;
+
 //             |
 // CVDSEFWGRAQB|QARGWFESDVC
 // ^ ^ ^^ ^ ^ ^| ^ ^ ^^ ^ ^
@@ -191,7 +194,6 @@ const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F 
 //             |
 
 // TODO: How an I add another octave to the layout...
-
 
 // first octave
 // c# v
@@ -205,7 +207,6 @@ const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F 
 // f# u
 // g# o
 // a# p
-
 
 const octaves = "123456789";
 const accents = "#f";
@@ -254,6 +255,9 @@ const octaveTheme = [
 
 const { floor, ceil } = Math;
 
+let scope = 64;
+let scopeTrim = 0;
+
 function boot({ params, api, colon, ui, screen }) {
   keys = params.join(" ") || "";
   keys = keys.replace(/\s/g, "");
@@ -278,7 +282,13 @@ function boot({ params, api, colon, ui, screen }) {
   setupButtons(api);
 }
 
-function paint({ wipe, ink, write, screen }) {
+// TODO: Get sim working again. 24.08.10.21.25
+// function sim({ sound }) {
+// }
+
+function paint({ wipe, ink, write, screen, sound, api }) {
+  sound.speaker?.poll();
+
   const active = orderedByCount(sounds);
 
   let bg;
@@ -290,6 +300,22 @@ function paint({ wipe, ink, write, screen }) {
   }
 
   wipe(bg);
+
+  // TODO: Should this be a built-in function on sound?
+  const sy = 60;
+  const sh = 40;// screen.height - sy;
+  paintSound(
+    api,
+    sound.speaker.amplitudes.left,
+    sound.speaker.waveforms.left.slice(scopeTrim, scope),
+    0,
+    sy,
+    screen.width, // width
+    sh, // height
+    [255, 0, 0, 255],
+  );
+  ink("yellow").write(scope, 6, sy + sh + 3);
+  ink("pink").write(scopeTrim, 6 + 18, sy + sh + 3);
 
   if (tap) {
     ink("yellow");
@@ -378,7 +404,7 @@ function paint({ wipe, ink, write, screen }) {
             color = note.indexOf("#") === -1 ? octaveTheme[octave] : "gray";
           }
 
-          ink(color)
+          ink(color, 192)
             .box(btn.box)
             .ink("white")
             .write(note.toUpperCase(), btn.box.x, btn.box.y);
@@ -410,8 +436,29 @@ function paint({ wipe, ink, write, screen }) {
 
 let anyDown = true;
 
-function act({ event: e, sound: { synth }, pens, api }) {
+function act({ event: e, sound: { synth, speaker }, pens, api }) {
   if (e.is("reframed")) setupButtons(api);
+
+  if (e.is("keyboard:down:arrowleft")) {
+    scopeTrim -= 1;
+    if (scopeTrim < 0) scopeTrim = 0;
+  }
+
+  if (e.is("keyboard:down:arrowright")) {
+    scopeTrim += 1;
+  }
+
+  if (e.is("keyboard:down:arrowdown")) {
+    scope -= 1;
+    if (scope < 0) scope = 0;
+  }
+
+  if (e.is("keyboard:down:arrowup")) {
+    scope += 1;
+    if (scope > speaker.waveforms.left.length) {
+      scope = speaker.waveforms.left.length;
+    }
+  }
 
   if (tap) {
     if (e.is("keyboard:down:shift") && !e.repeat) hold = true;
@@ -447,8 +494,6 @@ function act({ event: e, sound: { synth }, pens, api }) {
 
               const tone = `${tempOctave}${noteUpper}`;
 
-
-
               if (slide && active.length > 0) {
                 sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
                 // 🟠 TODO: Instead of just duration here also be able to add
@@ -470,6 +515,7 @@ function act({ event: e, sound: { synth }, pens, api }) {
                   count: active.length + 1,
                   sound: synth({
                     type: wave,
+                    attack,
                     tone,
                     duration: "🔁",
                   }),
@@ -561,6 +607,7 @@ function act({ event: e, sound: { synth }, pens, api }) {
         sounds[tapped] = synth({
           type: wave,
           tone: octave + tone,
+          attack,
           // count: orderedByCount(sounds).length,
           duration: "🔁",
         });
@@ -689,7 +736,6 @@ function act({ event: e, sound: { synth }, pens, api }) {
 
         keys += note;
 
-
         if (activeOctave === octave) {
           const buttonNote = note.toLowerCase();
           if (buttons[buttonNote]) buttons[buttonNote].down = true;
@@ -716,6 +762,7 @@ function act({ event: e, sound: { synth }, pens, api }) {
             count: active.length + 1,
             sound: synth({
               type: wave,
+              attack,
               tone,
               duration: "🔁",
             }),
@@ -793,7 +840,7 @@ function resetModeState() {
 // Initialize and/or lay out the UI buttons on the bottom of the display.
 function setupButtons({ ui, screen, geo }) {
   const margin = 6;
-  const buttonWidth = (screen.width - margin * 2) / 4;
+  const buttonWidth = ceil((screen.width - margin * 2) / 4);
   const buttonHeight = buttonWidth;
   const buttonsPerRow = 4;
   const totalButtons = buttonNotes.length;
@@ -803,13 +850,47 @@ function setupButtons({ ui, screen, geo }) {
     const col = i % buttonsPerRow;
     const y = screen.height - margin - (totalRows - row) * buttonHeight;
     const x = ceil(margin + col * buttonWidth);
-
     const geometry = [x, y, buttonWidth, buttonHeight];
-
     if (!buttons[label]) {
       buttons[label] = new ui.Button(...geometry);
     } else {
       buttons[label].box = new geo.Box(...geometry);
     }
   });
+}
+
+function paintSound(
+  { ink, screen },
+  amplitude,
+  waveform,
+  x,
+  y,
+  width,
+  height,
+  color,
+) {
+  const lw = 4; // levelWidth;
+  const xStep = width / (waveform.length - 1); // + 2;
+  const yMid = Math.ceil(y + height / 2) + 1,
+    yMax = Math.ceil(height / 2);
+
+  // Vertical bounds.
+  ink("darkblue").box(x, y, width, height);
+  ink("yellow")
+    .line(x + lw, y, x + width, y)
+    .line(x + lw, y + height, x + width, y + height);
+
+  // Amplitude bounding box.
+  ink([0, 96]).box(x + width / 2, yMid, width, amplitude * yMax * 2, "*center");
+
+  ink("black").box(x, y, lw, height);
+  ink("red").box(x, y + height, lw, -amplitude * height);
+
+  // Waveform
+  ink("lime", 255).poly(
+    waveform.map((v, i) => [x + lw + i * xStep, yMid + v * yMax]),
+  );
+
+  // const my = screen.height - mic.amplitude * screen.height;
+  // ink("yellow", 128).line(0, my, screen.width, my); // Horiz. line for amplitude.
 }

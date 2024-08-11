@@ -123,6 +123,10 @@ class SoundProcessor extends AudioWorkletProcessor {
 
         if (msg.data.beats === Infinity) {
           duration = Infinity;
+
+          attack = msg.data.attack * sampleRate;
+          decay = msg.data.decay * sampleRate;
+
         } else {
           // TODO: This should be settable not via beats as well...
           duration = round(sampleRate * (this.#bpmInSec * msg.data.beats));
@@ -212,11 +216,10 @@ class SoundProcessor extends AudioWorkletProcessor {
             (1 - instrument.fadeProgress / instrument.fadeDuration);
         } else {
           // console.log(instrument, "Volume:", instrument.volume)
-          voices += instrument.volume;
+          voices += instrument.volume;//instrument.volume;
         }
-      }
 
-      // if (voices !== 0) console.log(voices);
+      }
 
       // Auto-mixing for voices.
       voices = Math.max(1, voices);
@@ -226,9 +229,9 @@ class SoundProcessor extends AudioWorkletProcessor {
       if (voices > 1) {
         if (!within(0.001, this.#mixDivisor, voices)) {
           if (this.#mixDivisor < voices) {
-            this.#mixDivisor += 0.0001;
+            this.#mixDivisor += 0.001;
           } else {
-            this.#mixDivisor -= 0.0001; //0.001; // 0.0001;
+            this.#mixDivisor -= 0.01; //0.001; // 0.0001;
           }
         }
       } else {
@@ -250,8 +253,17 @@ class SoundProcessor extends AudioWorkletProcessor {
       }
     }
 
-    this.#currentWaveformLeft = waveformLeft.slice(0);
-    this.#currentWaveformRight = waveformRight.slice(0);
+    if (this.#currentWaveformLeft.length < 256) {
+      this.#currentWaveformLeft.push(...waveformLeft);
+      this.#currentWaveformRight.push(...waveformRight);
+    } else {
+      this.#currentWaveformLeft.push(...waveformLeft);
+      this.#currentWaveformRight.push(...waveformRight);
+      this.#currentWaveformLeft = this.#currentWaveformLeft.slice(16);
+      this.#currentWaveformRight = this.#currentWaveformLeft.slice(16);
+    }
+
+
     this.#currentAmplitudeLeft = ampLeft;
     this.#currentAmplitudeRight = ampRight;
     return true;
