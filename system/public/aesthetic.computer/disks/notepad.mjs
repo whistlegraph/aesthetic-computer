@@ -302,7 +302,7 @@ function paint({ wipe, ink, write, screen, sound, api }) {
   wipe(bg);
 
   // TODO: Should this be a built-in function on sound?
-  const sy = 60;
+  const sy = 32;
   const sh = 40;// screen.height - sy;
   paintSound(
     api,
@@ -328,6 +328,7 @@ function paint({ wipe, ink, write, screen, sound, api }) {
   if (!tap) {
     ink("cyan");
 
+    /*
     // Write all keys...
     write(keys, 6, 20 + 12, {
       bounds: screen.width - 12,
@@ -346,6 +347,7 @@ function paint({ wipe, ink, write, screen, sound, api }) {
       20 + 12,
       { bounds: screen.width - 12, wordWrap: false },
     );
+    */
   } else {
     ink("gray");
     write(keys, screen.width / 2 - tapIndex * 6, screen.height / 2);
