@@ -38,6 +38,9 @@ but technically agnostic. (Choose your aesthetic!)
 *** `whistle` ***
   - [] fix whistle 'microphone-connect' message
 
+*** notepad `slide` mode ***
+  - [] make it so slide works even if the 'fade' parameter is set on a sound.
+
 *** slide ***
   - [] add two octaves of sliding with volume on the x axis for
        a single voice instrument and have a textual read-out for what note
