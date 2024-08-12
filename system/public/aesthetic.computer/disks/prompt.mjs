@@ -1848,8 +1848,8 @@ function reply(text) {
 // 📰 Meta
 function meta() {
   return {
-    title: "prompt · Aesthetic Computer",
-    desc: "Type anything to get started.",
+    title: "Prompt",
+    desc: "Enter anything to get started.",
   };
 }
 
