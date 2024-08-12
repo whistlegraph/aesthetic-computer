@@ -158,39 +158,43 @@ export const handler = async (event, context) => {
               max-height: 100%;
               margin: auto;
               display: block;
-              /* background: cyan; */
+              user-select: none;
             }
             #gate h1 {
               font-weight: normal;
-              /* font-size: 125%; */
               font-size: 100%;
               margin: 0;
               margin-top: -0.5em;
               padding-bottom: 1em;
               text-align: center;
-              /* color: rgb(255, 230, 225); */
-              /* outline: 1px solid red; */
+              user-select: none;
             }
             #gate nav {
               display: flex;
               justify-content: center;
-              /* background: lime; */
             }
             #gate nav:has(> button:first-child:nth-last-child(2)) {
-              /* always center a singular button */
               justify-content: space-between;
             }
             #gate nav button {
               background: rgb(255, 235, 183);
-              /* background: pink; */
               padding: 0.35em;
               font-size: 100%;
               border: 0.205em solid rgb(255, 190, 215);
-              /* border-right: none; */
-              /* border-top: none;  */
-              /* border-bottom: none; */
               filter: drop-shadow(-0.055em 0.055em 0.055em rgb(80, 80, 80));
               border-radius: 0.5em;
+              cursor: pointer;
+              user-select: none;
+            }
+            #gate nav button:hover {
+              background: rgb(255, 240, 185);
+            }
+            #gate nav button:active {
+              filter: drop-shadow(
+                -0.035em 0.035em 0.035em rgba(40, 40, 40, 0.8)
+              );
+              background: rgb(255, 235, 183);
+              transform: translate(-1px, 1px);
             }
             #prompt {
               font-size: 22px;
@@ -201,6 +205,7 @@ export const handler = async (event, context) => {
               top: 16px;
               left: 16px;
               color: black;
+              user-select: none;
             }
             #prompt:hover {
               color: rgb(180, 72, 135);
@@ -225,12 +230,14 @@ export const handler = async (event, context) => {
               document.referrer.indexOf("sotce-net") === -1;
             const embedded = window.self !== window.top;
 
-            function pixelDensity() {
-              return window.devicePixelRatio || 1;
+            function adjustFontSize() {
+              console.log("🔭 Zoom: " + (window.devicePixelRatio || 1) + "%");
+              document.body.style.fontSize =
+                (window.devicePixelRatio || 1) * 3.25 + "vmin";
             }
 
-            // console.log("🔭 Zoom: " + pixelDensity() + "%");
-            document.body.style.fontSize = pixelDensity() * 3.25 + "vmin";
+            adjustFontSize();
+            window.addEventListener("resize", adjustFontSize);
 
             // 🤖 Initialization
             const assetPath = dev
@@ -264,7 +271,7 @@ export const handler = async (event, context) => {
 
             const wrapper = document.getElementById("wrapper");
 
-            function gate(status) {
+            function gate(status, user) {
               let message, nav;
               if (status === "logged-out") {
                 message = "for your best thoughts";
@@ -273,6 +280,51 @@ export const handler = async (event, context) => {
                   (embedded
                     ? ""
                     : '<button onclick="signup()">i&apos;m new</button>');
+              } else if (status === "unverified") {
+                message = "waiting for email verification...";
+                nav = '<button onclick="resend()">Resend?</button>';
+
+                // wrapper.innerHTML =
+                //   "signed in as: <span id='email'>" +
+                //   user.email +
+                //   '</span>!<br><mark id="verified">' +
+                //   verifiedText +
+                //   '</mark><br><a onclick="logout()" id="logout" href="#">logout</a>';
+
+                function subscription() {
+                  if (embedded) {
+                    return "<code id='subscribe'>please subscribe in your browser</code>";
+                  } else {
+                    return '<button id="subscribe" onclick="subscribe()">subscribe</button>';
+                  }
+                }
+
+                fetchUser = function (email) {
+                  fetch(
+                    "/user?from=" + encodeURIComponent(email) + "&tenant=sotce",
+                  )
+                    .then((res) => res.json())
+                    .then((u) => {
+                      // console.log("Fetched updated user...", u);
+                      if (u.email_verified) {
+                        // console.log("📧 Email verified!");
+
+                        const verifiedEl = document.getElementById("verified");
+                        verifiedEl.innerHTML = subscription();
+                      } else {
+                        verificationTimeout = setTimeout(() => {
+                          fetchUser(email);
+                        }, 1000);
+                      }
+                    })
+                    .catch(
+                      (err) =>
+                        (verificationTimeout = setTimeout(() => {
+                          fetchUser(email);
+                        }, 1000)),
+                    );
+                };
+                fetchUser(user.email);
               }
 
               wrapper.innerHTML =
@@ -291,8 +343,7 @@ export const handler = async (event, context) => {
 
             // 🔐 Authorization
             const clientId = "${AUTH0_CLIENT_ID_SPA}";
-            let fetchUser, verificationTimeout;
-
+            let verificationTimeout;
             let isAuthenticated = false;
             let user;
 
@@ -415,60 +466,14 @@ export const handler = async (event, context) => {
               user = pickedUpSession
                 ? window.sotceUSER
                 : await auth0Client.getUser();
-
               // console.log("🪷 Got user:", user);
-              let verifiedText = "email unverified :(";
-
-              function subscription() {
-                if (embedded) {
-                  return "<code id='subscribe'>please subscribe in your browser</code>";
-                } else {
-                  return '<button id="subscribe" onclick="subscribe()">subscribe</button>';
-                }
-              }
 
               if (!user.email_verified) {
-                verifiedText =
-                  'waiting for email verification... <button onclick="resend()">Resend?</button>';
-
-                fetchUser = function (email) {
-                  fetch(
-                    "/user?from=" + encodeURIComponent(email) + "&tenant=sotce",
-                  )
-                    .then((res) => res.json())
-                    .then((u) => {
-                      // console.log("Fetched updated user...", u);
-                      if (u.email_verified) {
-                        // console.log("📧 Email verified!");
-
-                        const verifiedEl = document.getElementById("verified");
-                        verifiedEl.innerHTML = subscription();
-                      } else {
-                        verificationTimeout = setTimeout(() => {
-                          fetchUser(email);
-                        }, 1000);
-                      }
-                    })
-                    .catch(
-                      (err) =>
-                        (verificationTimeout = setTimeout(() => {
-                          fetchUser(email);
-                        }, 1000)),
-                    );
-                };
-                fetchUser(user.email);
+                gate("unverified", user);
               } else {
                 // console.log("📧 Email verified!");
-                verifiedText = subscription();
-                // console.log("verified text:", verifiedText);
+                gate("verified", user);
               }
-
-              wrapper.innerHTML =
-                "signed in as: <span id='email'>" +
-                user.email +
-                '</span>!<br><mark id="verified">' +
-                verifiedText +
-                '</mark><br><a onclick="logout()" id="logout" href="#">logout</a>';
             }
 
             function login(hint = "login") {
@@ -699,6 +704,13 @@ export const handler = async (event, context) => {
             } else {
               // add subscribe button here...
             }
+
+            window.login = login;
+            window.logout = logout;
+            window.cancel = cancel;
+            window.subscribe = subscribe;
+            window.resend = resend;
+            window.signup = signup;
             //})();
           </script>
         </body>

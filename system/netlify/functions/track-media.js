@@ -21,6 +21,7 @@ export async function handler(event, context) {
   try {
     body = JSON.parse(event.body);
     const user = await authorize(event.headers);
+
     const database = await connect();
 
     let type;
