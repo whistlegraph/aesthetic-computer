@@ -60,7 +60,7 @@ alias acc 'ac; ac-ssl; code .'
 
 function acd
     ac
-    devcontainer build --workspace-folder .
+    # devcontainer build --workspace-folder .
     set container_id (pwd | tr -d '\n' | xxd -c 256 -p)
     set workspace_name (basename (pwd))
     code --folder-uri="vscode-remote://dev-container+$container_id/workspaces/$workspace_name"
