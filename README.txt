@@ -35,11 +35,11 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `whistle` ***
-  - [] fix whistle 'microphone-connect' message
-
 *** notepad `slide` mode ***
   - [] make it so slide works even if the 'fade' parameter is set on a sound.
+
+*** `whistle` ***
+  - [] fix whistle 'microphone-connect' message
 
 *** slide ***
   - [] add two octaves of sliding with volume on the x axis for
