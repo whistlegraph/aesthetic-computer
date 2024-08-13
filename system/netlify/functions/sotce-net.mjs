@@ -126,10 +126,15 @@ export const handler = async (event, context) => {
 
   // 🏠 Home
   if (path === "/" && method === "get") {
+    const assetPath = dev
+      ? "/assets/sotce-net/"
+      : "https://assets.aesthetic.computer/sotce-net/";
+
     const body = html`
       <html>
         <head>
           <meta charset="utf-8" />
+          <link rel="icon" type="image/png" href="${assetPath}/cookie.png" />
           <meta
             name="viewport"
             content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
@@ -168,6 +173,13 @@ export const handler = async (event, context) => {
               padding-bottom: 1em;
               text-align: center;
               user-select: none;
+            }
+            #gate h2 {
+              font-weight: normal;
+              font-size: 100%;
+              margin: 0;
+              text-align: center;
+              padding-bottom: 1em;
             }
             #gate nav {
               display: flex;
@@ -210,6 +222,10 @@ export const handler = async (event, context) => {
             #prompt:hover {
               color: rgb(180, 72, 135);
             }
+            .hidden {
+              visibility: hidden;
+              pointer-events: none;
+            }
           </style>
           ${dev ? reloadScript : ""}
           <script
@@ -229,24 +245,20 @@ export const handler = async (event, context) => {
                 document.referrer.indexOf("localhost") > -1) &&
               document.referrer.indexOf("sotce-net") === -1;
             const embedded = window.self !== window.top;
+            const cel = (el) => document.createElement(el); // shorthand
 
             function adjustFontSize() {
-              console.log("🔭 Zoom: " + (window.devicePixelRatio || 1) + "%");
               document.body.style.fontSize =
                 (window.devicePixelRatio || 1) * 3.25 + "vmin";
             }
-
-            adjustFontSize();
             window.addEventListener("resize", adjustFontSize);
-
-            // 🤖 Initialization
-            const assetPath = dev
-              ? "/assets/sotce-net/"
-              : "https://assets.aesthetic.computer/sotce-net/";
+            adjustFontSize();
 
             function asset(identifier) {
-              return assetPath + identifier;
+              return "${assetPath}" + identifier;
             }
+
+            // 🌠 Initialization
 
             // Send some messages to the VS Code extension.
             window.parent?.postMessage(
@@ -272,32 +284,80 @@ export const handler = async (event, context) => {
             const wrapper = document.getElementById("wrapper");
 
             function gate(status, user) {
-              let message, nav;
+              let message,
+                buttons = [];
+
+              const d = document.createElement("div");
+              const img = document.createElement("img");
+              const h1 = document.createElement("h1");
+              const h2 = document.createElement("h2");
+              const nav = document.createElement("nav");
+
               if (status === "logged-out") {
                 message = "for your best thoughts";
-                nav =
-                  '<button onclick="login()">log in</button>' +
-                  (embedded
-                    ? ""
-                    : '<button onclick="signup()">i&apos;m new</button>');
-              } else if (status === "unverified") {
-                message = "waiting for email verification...";
-                nav = '<button onclick="resend()">Resend?</button>';
 
-                // wrapper.innerHTML =
-                //   "signed in as: <span id='email'>" +
-                //   user.email +
-                //   '</span>!<br><mark id="verified">' +
-                //   verifiedText +
-                //   '</mark><br><a onclick="logout()" id="logout" href="#">logout</a>';
+                const lb = cel("button");
+                lb.innerText = "log in";
+                lb.onclick = login;
+                buttons.push(lb);
 
-                function subscription() {
-                  if (embedded) {
-                    return "<code id='subscribe'>please subscribe in your browser</code>";
-                  } else {
-                    return '<button id="subscribe" onclick="subscribe()">subscribe</button>';
-                  }
+                if (!embedded) {
+                  const imnew = cel("button");
+                  imnew.onclick = signup;
+                  imnew.innerText = "i'm new";
+                  buttons.push(imnew);
                 }
+              } else if (status === "unverified") {
+                message = "hello <span id='email'>" + user.email + "</span>";
+
+                const lo = cel("button");
+                lo.onclick = logout;
+                lo.innerText = "log out";
+                buttons.push(lo);
+
+                const rs = cel("button");
+                rs.onclick = function resend() {
+                  clearTimeout(verificationTimeout);
+                  console.log("📧 Resending...");
+                  const email = prompt(
+                    "Resend verification email to?",
+                    user.email,
+                  );
+
+                  userRequest("POST", "/api/email", {
+                    name: email,
+                    email,
+                    tenant: "sotce",
+                  })
+                    .then(async (res) => {
+                      if (res.status === 200) {
+                        console.log("📧 Email verification resent...", res);
+                        alert("📧 Verification resent!");
+
+                        // Replace signed in email...
+                        const emailEl = document.getElementById("email");
+                        emailEl.innerHTML = email;
+
+                        try {
+                          await auth0Client.getTokenSilently({
+                            cacheMode: "off",
+                          });
+                          user = await auth0Client.getUser();
+                          console.log("🎇 New user is...", user);
+                        } catch (err) {
+                          console.log("Error retrieving uncached user.");
+                        }
+                      }
+                      fetchUser(email);
+                    })
+                    .catch((err) => {
+                      alert("Email verification error.");
+                      console.error("🔴 📧 Email verification error...", err);
+                    });
+                };
+                rs.innerText = "resend?";
+                rs.classList.add('hidden');
+                buttons.push(rs);
 
                 fetchUser = function (email) {
                   fetch(
@@ -305,13 +365,20 @@ export const handler = async (event, context) => {
                   )
                     .then((res) => res.json())
                     .then((u) => {
-                      // console.log("Fetched updated user...", u);
                       if (u.email_verified) {
-                        // console.log("📧 Email verified!");
-
-                        const verifiedEl = document.getElementById("verified");
-                        verifiedEl.innerHTML = subscription();
+                        if (!embedded) {
+                          h2.innerText = "email verified";
+                          const sb = cel("button");
+                          sb.onclick = subscribe;
+                          sb.innerText = "subscribe";
+                          rs.remove();
+                          nav.appendChild(sb);
+                        } else {
+                          h2.innerText = "please subscribe in your browser";
+                        }
                       } else {
+                        h2.innerText = "awaiting email verification...";
+                        rs.classList.remove('hidden');
                         verificationTimeout = setTimeout(() => {
                           fetchUser(email);
                         }, 1000);
@@ -327,24 +394,35 @@ export const handler = async (event, context) => {
                 fetchUser(user.email);
               }
 
-              wrapper.innerHTML =
-                "<div id='gate'><img id='cookie' src='" +
-                asset("cookie.png") +
-                "'><h1>" +
-                message +
-                "</h1><nav>" +
-                nav +
-                "</nav></div>";
+              d.id = "gate";
+              img.id = "cookie";
+              h1.innerHTML = message || "";
+              h2.innerHTML = "&nbsp;";
+              if (buttons.length > 0) nav.appendChild(...buttons);
+              d.appendChild(img);
+              d.appendChild(h1);
+              d.appendChild(h2);
+              d.appendChild(nav);
+              img.onload = function () {
+                wrapper.appendChild(d);
+              };
+
+              img.src = asset("cookie.png");
             }
 
             // Build a layout for the 🌻 'garden'.
-            // function garden() {
-            // }
+            function garden(content) {
+              document.getElementById("gate")?.remove();
+              const g = cel("div");
+              g.id = 
+              wrapper.appendChild(g);
+            }
 
             // 🔐 Authorization
             const clientId = "${AUTH0_CLIENT_ID_SPA}";
             let verificationTimeout;
             let isAuthenticated = false;
+            let fetchUser;
             let user;
 
             const auth0Client = await window.auth0.createAuth0Client({
@@ -495,43 +573,6 @@ export const handler = async (event, context) => {
               } else {
                 login("signup");
               }
-            }
-
-            function resend() {
-              clearTimeout(verificationTimeout);
-              console.log("📧 Resending...");
-              const email = prompt("Resend verification email to?", user.email);
-
-              userRequest("POST", "/api/email", {
-                name: email,
-                email,
-                tenant: "sotce",
-              })
-                .then(async (res) => {
-                  if (res.status === 200) {
-                    console.log("📧 Email verification resent...", res);
-                    alert("📧 Verification resent!");
-                    // Replace signed in email...
-                    const emailEl = document.getElementById("email");
-                    emailEl.innerHTML = email;
-
-                    // Clear user cache / token here.
-                    try {
-                      await auth0Client.getTokenSilently({
-                        cacheMode: "off",
-                      });
-                      user = await auth0Client.getUser();
-                      console.log("🎇 New user is...", user);
-                    } catch (err) {
-                      console.log("Error retrieving uncached user.");
-                    }
-                  }
-                  fetchUser(email);
-                })
-                .catch((err) => {
-                  alert("Email verification error.");
-                  console.error("🔴 📧 Email verification error...", err);
-                });
             }
 
             // Go to the paywalled subscription page.
@@ -696,22 +737,13 @@ export const handler = async (event, context) => {
             const entered = await subscribed();
             if (entered) {
               console.log("🚪", entered);
-              document.getElementById("subscribe").remove();
-              document.getElementById("verified")?.remove();
-              wrapper.innerHTML += "<br><b>" + entered + "</b>";
-              // TODO: Hide the 'gate' and add the 'garden' layout.
-              // TODO: Could 'gate' be something like a settings menu here?
-            } else {
-              // add subscribe button here...
+              garden(entered);
             }
 
             window.login = login;
             window.logout = logout;
             window.cancel = cancel;
-            window.subscribe = subscribe;
-            window.resend = resend;
             window.signup = signup;
-            //})();
           </script>
         </body>
       </html>
@@ -868,7 +900,7 @@ const reloadScript = html`
         return;
       }
 
-      ws.onopen = (e) => console.log("🧦 Connected:", e);
+      // ws.onopen = (e) => console.log("🧦 Connected:", e);
       let reloadTimeout;
 
       ws.onmessage = (e) => {

@@ -221,7 +221,7 @@ loadAuth0Script()
       if (isAuthenticated && !pickedUpSession) {
         try {
           await window.auth0Client.getTokenSilently();
-          // console.log("🗝️ Got fresh token.");
+          console.log("🗝️ Got fresh auth token.");
         } catch (error) {
           console.log("🔐️ ❌ Unauthorized", error);
           console.error(
