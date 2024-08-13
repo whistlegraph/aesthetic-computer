@@ -1824,6 +1824,11 @@ export async function handler(event, context) {
         done: false,
         //TODO: can this open in a new tab?
       },
+      gmail: {
+        sig: "gmail",
+        desc: "Go to gmail.",
+        done: false,
+      },
       gh: {
         sig: "gh",
         desc: "View AC source code.",
