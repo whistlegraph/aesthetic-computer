@@ -152,11 +152,17 @@ export const handler = async (event, context) => {
               width: 100%;
               height: 100%;
             }
+            #gate-curtain {
+              position: absolute;
+              width: 100%;
+              height: 100%;
+            }
             #gate {
               margin: auto;
               padding: 0.5em;
               max-width: 80vmin;
               /* background: yellow; */
+              z-index: 1;
             }
             #gate #cookie {
               max-width: 70%;
@@ -164,6 +170,9 @@ export const handler = async (event, context) => {
               margin: auto;
               display: block;
               user-select: none;
+            }
+            #gate #cookie.interactive {
+              cursor: pointer;
             }
             #gate h1 {
               font-weight: normal;
@@ -208,6 +217,18 @@ export const handler = async (event, context) => {
               background: rgb(255, 235, 183);
               transform: translate(-1px, 1px);
             }
+            /* #garden {
+              position: absolute;
+              z-index: 0;
+            } */
+            #cookie-menu {
+              position: absolute;
+              top: 0;
+              right: 0;
+              width: 120px;
+              user-select: none;
+              cursor: pointer;
+            }
             #prompt {
               font-size: 22px;
               font-family: monospace;
@@ -218,6 +239,7 @@ export const handler = async (event, context) => {
               left: 16px;
               color: black;
               user-select: none;
+              cursor: pointer;
             }
             #prompt:hover {
               color: rgb(180, 72, 135);
@@ -283,15 +305,38 @@ export const handler = async (event, context) => {
 
             const wrapper = document.getElementById("wrapper");
 
-            function gate(status, user) {
+            function gate(status, user, subscription) {
               let message,
                 buttons = [];
 
-              const d = document.createElement("div");
+              const curtain = document.createElement("div");
+              const g = document.createElement("div");
+              curtain.id = "gate-curtain";
+              g.id = "gate";
               const img = document.createElement("img");
+              img.id = "cookie";
               const h1 = document.createElement("h1");
               const h2 = document.createElement("h2");
               const nav = document.createElement("nav");
+
+              function genSubscribeButton() {
+                h2.innerText = "email verified";
+                const sb = cel("button");
+                sb.onclick = subscribe;
+                sb.innerText = "subscribe";
+                return sb;
+              }
+
+              function genWelcomeMessage() {
+                return "hello <span id='email'>" + user.email + "</span>";
+              }
+
+              if (status !== "logged-out") {
+                const lo = cel("button");
+                lo.onclick = logout;
+                lo.innerText = "log out";
+                buttons.push(lo);
+              }
 
               if (status === "logged-out") {
                 message = "for your best thoughts";
@@ -308,12 +353,7 @@ export const handler = async (event, context) => {
                   buttons.push(imnew);
                 }
               } else if (status === "unverified") {
-                message = "hello <span id='email'>" + user.email + "</span>";
-
-                const lo = cel("button");
-                lo.onclick = logout;
-                lo.innerText = "log out";
-                buttons.push(lo);
+                message = genWelcomeMessage();
 
                 const rs = cel("button");
                 rs.onclick = function resend() {
@@ -356,7 +396,7 @@ export const handler = async (event, context) => {
                     });
                 };
                 rs.innerText = "resend?";
-                rs.classList.add('hidden');
+                rs.classList.add("hidden");
                 buttons.push(rs);
 
                 fetchUser = function (email) {
@@ -367,18 +407,14 @@ export const handler = async (event, context) => {
                     .then((u) => {
                       if (u.email_verified) {
                         if (!embedded) {
-                          h2.innerText = "email verified";
-                          const sb = cel("button");
-                          sb.onclick = subscribe;
-                          sb.innerText = "subscribe";
                           rs.remove();
-                          nav.appendChild(sb);
+                          nav.appendChild(genSubscribeButton());
                         } else {
                           h2.innerText = "please subscribe in your browser";
                         }
                       } else {
                         h2.innerText = "awaiting email verification...";
-                        rs.classList.remove('hidden');
+                        rs.classList.remove("hidden");
                         verificationTimeout = setTimeout(() => {
                           fetchUser(email);
                         }, 1000);
@@ -392,30 +428,85 @@ export const handler = async (event, context) => {
                     );
                 };
                 fetchUser(user.email);
+              } else if (status === "verified") {
+                message = genWelcomeMessage();
+                buttons.push(genSubscribeButton());
+              } else if (status === "subscribed") {
+                message = genWelcomeMessage();
+                if (subscription.until === "recurring") {
+                  h2.innerText =
+                    "subscription renews on " + subscription.renews;
+                  const cb = cel("button");
+                  cb.innerText = "cancel";
+                  cb.onclick = cancel;
+                  buttons.push(cb);
+                } else {
+                  h2.innerText =
+                    "subscription ends on " + subscription.until.toLowerCase();
+                  const ab = cel("button");
+                  ab.innerText = "resubscribe";
+                  ab.onclick = subscribe;
+                  buttons.push(ab);
+                }
+                curtain.classList.add("hidden");
               }
 
-              d.id = "gate";
-              img.id = "cookie";
               h1.innerHTML = message || "";
-              h2.innerHTML = "&nbsp;";
-              if (buttons.length > 0) nav.appendChild(...buttons);
-              d.appendChild(img);
-              d.appendChild(h1);
-              d.appendChild(h2);
-              d.appendChild(nav);
+              if (buttons.length > 0)
+                buttons.forEach((b) => nav.appendChild(b));
+              g.appendChild(img);
+              g.appendChild(h1);
+              g.appendChild(h2);
+              g.appendChild(nav);
+              curtain.appendChild(g);
               img.onload = function () {
-                wrapper.appendChild(d);
+                wrapper.appendChild(curtain);
               };
 
-              img.src = asset("cookie.png");
+              img.src = asset(
+                status === "subscribed" ? "cookie-open.png" : "cookie.png",
+              );
             }
 
             // Build a layout for the 🌻 'garden'.
-            function garden(content) {
-              document.getElementById("gate")?.remove();
+            function garden(subscription, user) {
+              gate("subscribed", user, subscription);
+
+              // TODO: Change out the favicon url...
+              document.querySelector('link[rel="icon"]').href =
+                asset("cookie-open.png");
+
               const g = cel("div");
-              g.id = 
-              wrapper.appendChild(g);
+              g.id = "garden";
+
+              // TODO: Add a blog post here to the garden layout.
+              g.innerText = "welcome...";
+
+              const cookie = cel("img");
+              cookie.id = "cookie-menu";
+              cookie.src = asset("cookie-open.png");
+              g.appendChild(cookie);
+
+              cookie.onclick = function () {
+                const curtain = document.getElementById("gate-curtain");
+                curtain.classList.remove("hidden");
+                g.classList.add("hidden");
+                const curtainCookie = curtain.querySelector("#cookie");
+                curtainCookie.classList.add("interactive");
+                curtainCookie.addEventListener(
+                  "click",
+                  () => {
+                    curtain.classList.add("hidden");
+                    curtainCookie.classList.remove("interactive");
+                    g.classList.remove("hidden");
+                  },
+                  { once: true },
+                );
+              };
+
+              cookie.onload = function () {
+                wrapper.appendChild(g);
+              };
             }
 
             // 🔐 Authorization
@@ -545,12 +636,16 @@ export const handler = async (event, context) => {
                 ? window.sotceUSER
                 : await auth0Client.getUser();
               // console.log("🪷 Got user:", user);
-
               if (!user.email_verified) {
                 gate("unverified", user);
               } else {
-                // console.log("📧 Email verified!");
-                gate("verified", user);
+                const entered = await subscribed();
+                if (entered) {
+                  console.log("🚪", entered);
+                  garden(entered, user);
+                } else {
+                  gate("verified", user);
+                }
               }
             }
 
@@ -603,16 +698,15 @@ export const handler = async (event, context) => {
             // Check the subscription status of the logged in user.
             async function subscribed() {
               if (!user) return false;
-              console.log("🗞️ Checking subscription status for:", user.email);
+              // console.log("🗞️ Checking subscription status for:", user.email);
               const response = await userRequest(
                 "POST",
                 "sotce-net/subscribed",
-                // nobody ;)
               );
               if (response.status === 200) {
-                console.log("💳 Subscribed:", response);
+                // console.log("💳 Subscribed:", response);
                 if (response.subscribed) {
-                  return response.content;
+                  return response;
                 } else {
                   return false;
                 }
@@ -733,13 +827,6 @@ export const handler = async (event, context) => {
               }
             }
 
-            // 🚪 Check for subscription and add content as necessary.
-            const entered = await subscribed();
-            if (entered) {
-              console.log("🚪", entered);
-              garden(entered);
-            }
-
             window.login = login;
             window.logout = logout;
             window.cancel = cancel;
@@ -813,24 +900,26 @@ export const handler = async (event, context) => {
     }
 
     if (subscription && subscription.status === "active") {
+      const options = {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      };
+
       const until = subscription.cancel_at_period_end
-        ? new Date(subscription.cancel_at * 1000).toDateString()
+        ? new Date(subscription.cancel_at * 1000).toLocaleDateString(
+            "en-US",
+            options,
+          )
         : "recurring";
 
-      let text, button;
+      let renews;
       if (until === "recurring") {
-        text = `your subscription will renew on ${new Date(subscription.current_period_end * 1000).toDateString()}`;
-        button = `<button id='cancel' onclick='cancel()'>cancel subscription</button>`;
-      } else {
-        text = `you are subscribed until ${until}`;
-        button = `<button id='subscribe' onclick='subscribe()'>autorenew</button>`;
+        renews = `${new Date(subscription.current_period_end * 1000).toLocaleDateString("en-US", options)}`;
       }
 
-      return respond(200, {
-        subscribed: true,
-        until,
-        content: `${text}${button}`,
-      });
+      return respond(200, { subscribed: true, until, renews });
     } else {
       return respond(200, { subscribed: false });
     }
