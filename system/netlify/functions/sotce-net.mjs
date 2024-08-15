@@ -2,8 +2,30 @@
 // A paid diary network, 'handled' by Aesthetic Computer.
 
 /* #region 🏁 TODO 
-  - [] Implement a DOM structure for these layouts...
-    - [] Add a templated layout...
+  --- 🏁 pre-launch
+  - [] add handle creation / handle support for sotce-net users
+  - [] The handle system would be shared among ac users.
+    - [] Perhaps the subs could be 'sotce' prefixed.
+  - [] Allow Amelia's user / @sotce to post a diary, but no other users
+       for now.
+    - [] read from the database
+  - [] Polish the sign up flow.
+    - [] Use actual 'Helvetica' for the font? Or choose a special sans-serif.
+    - [] Do better with the auth0 flow.
+      - [] Re-capitalize login screens effectively.
+      - [] Verification email should re-route to a nice page if in a new tab. 
+        - [] Also check this on aesthetic.
+  - [] Add email notifications for subscribed users.
+  - [] Do some local mobile testing.
+  - [] Run a production subscription.
+  --- 🚩 post launch?
+  - [] Show number of signed up users so far.
+  - [] How can I do shared reader cursors / co-presence somehow?
+  + Done
+  - [x] add cookie favicon which switches if the user is logged in...
+  - [x] Account deletion.
+  - [x] Implement a DOM structure for these layouts.
+    - [x] Add a templated layout.
   💈 #wrapper.gate
     // 👣 logged-out 
     [login] [im-new]
@@ -28,20 +50,7 @@
     [cancel renewal]
     [delete account]
     _______________
-
     [logout]
-  - [] run a production subscription
-  - [] add handle creation / handle support for sotce-net users
-  - [] read from the database
-  - [] Account deletion.
-  - [] The handle system would be shared among ac users.
-    - [] Perhaps the subs could be 'sotce' prefixed.
-  - [] add cookie favicon which switches if the user is logged in...
-  - [] Allow Amelia's user / @sotce to post a diary, but no other users
-       for now.
-  - [] Show number of signed up users so far.
-  - [] How can I do shared reader cursors / co-presence somehow?
-  + Done
   - [x] add a cancellation button...
     - [x] make sure it returns the right subscribed information below
   - [x] refreshing the page with websockets needs to keep the current session somehow!
@@ -108,7 +117,10 @@ const productId = dev ? "prod_QTDAZAdV2KftJI" : "prod_QTDSAhsHGMRp3z";
 
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { respond } from "../../backend/http.mjs";
-import { authorize /* hasAdmin, */ } from "../../backend/authorization.mjs";
+import {
+  authorize,
+  deleteUser /* hasAdmin, */,
+} from "../../backend/authorization.mjs";
 
 import Stripe from "stripe";
 
@@ -123,6 +135,13 @@ export const handler = async (event, context) => {
   const key = dev
     ? process.env.SOTCE_STRIPE_API_TEST_PRIV_KEY
     : process.env.SOTCE_STRIPE_API_PRIV_KEY;
+
+  const dateOptions = {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  };
 
   // 🏠 Home
   if (path === "/" && method === "get") {
@@ -156,13 +175,16 @@ export const handler = async (event, context) => {
               position: absolute;
               width: 100%;
               height: 100%;
+              display: flex;
+              overflow: hidden;
             }
             #gate {
               margin: auto;
-              padding: 0.5em;
               max-width: 80vmin;
               /* background: yellow; */
               z-index: 1;
+              box-sizing: border-box;
+              padding: 0em 0.5em 2.5em 0.5em;
             }
             #gate #cookie {
               max-width: 70%;
@@ -189,15 +211,17 @@ export const handler = async (event, context) => {
               margin: 0;
               text-align: center;
               padding-bottom: 1em;
+              user-select: none;
             }
             #gate nav {
               display: flex;
               justify-content: center;
             }
-            #gate nav:has(> button:first-child:nth-last-child(2)) {
+            #gate nav:has(> *:first-child:nth-last-child(2)) {
               justify-content: space-between;
             }
             #gate nav button {
+              color: black;
               background: rgb(255, 235, 183);
               padding: 0.35em;
               font-size: 100%;
@@ -216,6 +240,17 @@ export const handler = async (event, context) => {
               );
               background: rgb(255, 235, 183);
               transform: translate(-1px, 1px);
+            }
+            #delete-account {
+              color: black;
+              position: absolute;
+              font-size: 80%;
+              left: calc(-130% / 8);
+              bottom: -65%;
+              width: 130%;
+            }
+            #logout-wrapper {
+              position: relative;
             }
             /* #garden {
               position: absolute;
@@ -304,19 +339,25 @@ export const handler = async (event, context) => {
             }
 
             const wrapper = document.getElementById("wrapper");
+            const gateElements = {};
 
             function gate(status, user, subscription) {
+              console.log("🍪 Gate:", status, user, subscription);
               let message,
                 buttons = [];
 
-              const curtain = document.createElement("div");
+              // TODO: Remove any existing gate dom elements if they exist.
+              const existingGate = document.getElementById("gate-curtain");
+              existingGate?.remove();
+
               const g = document.createElement("div");
+              const curtain = document.createElement("div");
               curtain.id = "gate-curtain";
               g.id = "gate";
               const img = document.createElement("img");
               img.id = "cookie";
               const h1 = document.createElement("h1");
-              const h2 = document.createElement("h2");
+              const h2 = cel("h2");
               const nav = document.createElement("nav");
 
               function genSubscribeButton() {
@@ -335,7 +376,44 @@ export const handler = async (event, context) => {
                 const lo = cel("button");
                 lo.onclick = logout;
                 lo.innerText = "log out";
-                buttons.push(lo);
+
+                const lowrap = cel("div");
+                lowrap.id = "logout-wrapper";
+                lowrap.appendChild(lo);
+
+                const del = cel("a");
+                del.id = "delete-account";
+                del.innerText = "delete account";
+                del.href = "#";
+
+                del.onclick = function (e) {
+                  e.preventDefault();
+                  // Show a confirmation dialog before proceeding
+                  if (
+                    confirm("Are you sure you want to delete your account?") &&
+                    confirm("This action cannot be undone!")
+                  ) {
+                    // Run the delete endpoint if confirmed
+                    userRequest("POST", "/sotce-net/delete-account")
+                      .then(async (res) => {
+                        if (res.status === 200) {
+                          alert("Your account has been deleted.");
+                          logout();
+                        } else {
+                          alert(
+                            "Your account could not be deleted. Please email hello@sotce.net.",
+                          );
+                          logout();
+                        }
+                      })
+                      .catch((err) => {
+                        console.error("🔴 Account deletion error...", err);
+                      });
+                  }
+                };
+
+                lowrap.appendChild(del);
+                buttons.push(lowrap);
               }
 
               if (status === "logged-out") {
@@ -354,6 +432,7 @@ export const handler = async (event, context) => {
                 }
               } else if (status === "unverified") {
                 message = genWelcomeMessage();
+                h2.innerText = "awaiting email verification...";
 
                 const rs = cel("button");
                 rs.onclick = function resend() {
@@ -400,17 +479,28 @@ export const handler = async (event, context) => {
                 buttons.push(rs);
 
                 fetchUser = function (email) {
+                  // console.log("Fetching user...");
                   fetch(
                     "/user?from=" + encodeURIComponent(email) + "&tenant=sotce",
                   )
                     .then((res) => res.json())
-                    .then((u) => {
+                    .then(async (u) => {
                       if (u.email_verified) {
-                        if (!embedded) {
-                          rs.remove();
-                          nav.appendChild(genSubscribeButton());
+                        // ❤️‍🔥 TODO: Check to see if the user has a subscription here, before rendering a subscribe button.
+                        user.email_verified = u.email_verified;
+                        const entered = await subscribed();
+                        if (entered) {
+                          // TODO: This garden should alter the existing gate
+                          //       which was already constructed.
+
+                          garden(entered, user);
                         } else {
-                          h2.innerText = "please subscribe in your browser";
+                          if (!embedded) {
+                            rs.remove();
+                            nav.appendChild(genSubscribeButton());
+                          } else {
+                            h2.innerText = "please subscribe in your browser";
+                          }
                         }
                       } else {
                         h2.innerText = "awaiting email verification...";
@@ -435,14 +525,14 @@ export const handler = async (event, context) => {
                 message = genWelcomeMessage();
                 if (subscription.until === "recurring") {
                   h2.innerText =
-                    "subscription renews on " + subscription.renews;
+                    "Your subscription renews on " + subscription.renews + ".";
                   const cb = cel("button");
-                  cb.innerText = "cancel";
+                  cb.innerText = "unsubscribe";
                   cb.onclick = cancel;
                   buttons.push(cb);
                 } else {
                   h2.innerText =
-                    "subscription ends on " + subscription.until.toLowerCase();
+                    "Your subscription ends on " + subscription.until.toLowerCase() + ".";
                   const ab = cel("button");
                   ab.innerText = "resubscribe";
                   ab.onclick = subscribe;
@@ -472,7 +562,7 @@ export const handler = async (event, context) => {
             function garden(subscription, user) {
               gate("subscribed", user, subscription);
 
-              // TODO: Change out the favicon url...
+              // Change out the favicon url...
               document.querySelector('link[rel="icon"]').href =
                 asset("cookie-open.png");
 
@@ -484,7 +574,7 @@ export const handler = async (event, context) => {
 
               const cookie = cel("img");
               cookie.id = "cookie-menu";
-              cookie.src = asset("cookie-open.png");
+              cookie.src = asset("cookie.png");
               g.appendChild(cookie);
 
               cookie.onclick = function () {
@@ -637,6 +727,15 @@ export const handler = async (event, context) => {
                 : await auth0Client.getUser();
               // console.log("🪷 Got user:", user);
               if (!user.email_verified) {
+                try {
+                  await auth0Client.getTokenSilently({ cacheMode: "off" });
+                  user = await auth0Client.getUser();
+                  console.log("🎇 New user is...", user);
+                } catch (err) {
+                  console.log("Error retrieving uncached user.");
+                }
+              }
+              if (!user.email_verified) {
                 gate("unverified", user);
               } else {
                 const entered = await subscribed();
@@ -644,6 +743,7 @@ export const handler = async (event, context) => {
                   console.log("🚪", entered);
                   garden(entered, user);
                 } else {
+                  console.log("Entered:", entered);
                   gate("verified", user);
                 }
               }
@@ -703,6 +803,7 @@ export const handler = async (event, context) => {
                 "POST",
                 "sotce-net/subscribed",
               );
+
               if (response.status === 200) {
                 // console.log("💳 Subscribed:", response);
                 if (response.subscribed) {
@@ -900,23 +1001,16 @@ export const handler = async (event, context) => {
     }
 
     if (subscription && subscription.status === "active") {
-      const options = {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      };
-
       const until = subscription.cancel_at_period_end
         ? new Date(subscription.cancel_at * 1000).toLocaleDateString(
             "en-US",
-            options,
+            dateOptions,
           )
         : "recurring";
 
       let renews;
       if (until === "recurring") {
-        renews = `${new Date(subscription.current_period_end * 1000).toLocaleDateString("en-US", options)}`;
+        renews = `${new Date(subscription.current_period_end * 1000).toLocaleDateString("en-US", dateOptions)}`;
       }
 
       return respond(200, { subscribed: true, until, renews });
@@ -924,56 +1018,85 @@ export const handler = async (event, context) => {
       return respond(200, { subscribed: false });
     }
   } else if (path === "/cancel" && method === "post") {
-    try {
-      const user = await authorize(event.headers, "sotce");
-      if (!user) return respond(401, { message: "Unauthorized user." });
-
-      const email = user.email;
-      const stripe = Stripe(key);
-
-      // Fetch customer by email
-      const customers = await stripe.customers.list({ email, limit: 1 });
-      if (customers.data.length === 0) {
-        return respond(404, { message: "Customer not found." });
-      }
-
-      const customer = customers.data[0];
-
-      // Fetch subscriptions for the customer
-      const subscriptions = await stripe.subscriptions.list({
-        customer: customer.id,
-        status: "all",
-        limit: 10,
-      });
-
-      if (subscriptions.data.length === 0) {
-        return respond(404, { message: "Subscription not found." });
-      }
-
-      // Find the subscription matching the productId
-      const subscription = subscriptions.data.find((sub) =>
-        sub.items.data.some((item) => item.price.product === productId),
-      );
-
-      if (!subscription) {
-        return respond(404, { message: "Subscription not found." });
-      }
-
-      // Cancel the subscription
-      const cancelled = await stripe.subscriptions.update(subscription.id, {
-        cancel_at_period_end: true,
-      });
-      console.log("Cancelled", cancelled);
-      return respond(200, {
-        message: `Your subscription will not be renewed after ${new Date(cancelled.cancel_at * 1000).toDateString()}.`,
-        subscription: cancelled,
-      });
-    } catch (error) {
-      console.error("Error cancelling subscription:", error);
-      return respond(500, { message: `Error: ${error.message}` });
-    }
+    const user = await authorize(event.headers, "sotce");
+    if (!user) return respond(401, { message: "Unauthorized user." });
+    const cancelResult = await cancelSubscription(user, key);
+    return respond(cancelResult.status, cancelResult.body);
+  } else if (path === "/delete-account" && method === "post") {
+    // See also the 'delete-erase-and-forget-me.js' function for aesthetic users.
+    const user = await authorize(event.headers, "sotce");
+    if (!user) return respond(401, { message: "Authorization failure..." });
+    // 1. Unsubscribe the user if they have an active subscription.
+    const cancelResult = await cancelSubscription(user, key);
+    console.log("❌ Cancelled subscription?", cancelResult.status);
+    // TODO: 2. Delete any user data, like posts.
+    // TODO: 3. Delete the user's handle if it exists.
+    // 3. Delete the user's auth0 account.
+    const deleted = await deleteUser(user.sub, "sotce");
+    console.log("❌ Deleted user registration:", deleted);
+    return respond(200, { result: "Deleted!" }); // Successful account deletion.
   }
 };
+
+async function cancelSubscription(user, key) {
+  const email = user.email;
+  const result = { status: undefined, body: undefined };
+  try {
+    const stripe = Stripe(key);
+    // Fetch customer by email
+    const customers = await stripe.customers.list({ email, limit: 1 });
+    if (customers.data.length === 0) {
+      result.status = 404;
+      result.body = { message: "Customer not found." };
+      return result;
+    }
+
+    const customer = customers.data[0];
+
+    // Fetch subscriptions for the customer
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customer.id,
+      status: "all",
+      limit: 10,
+    });
+
+    if (subscriptions.data.length === 0) {
+      result.status = 404;
+      result.body = { message: "Subscription not found." };
+      return result;
+    }
+
+    // Find the subscription matching the productId
+    const subscription = subscriptions.data.find((sub) =>
+      sub.items.data.some((item) => item.price.product === productId),
+    );
+
+    if (!subscription) {
+      result.status = 404;
+      result.body = { message: "Subscription not found." };
+      return result;
+    }
+
+    // Cancel the subscription
+    const cancelled = await stripe.subscriptions.update(subscription.id, {
+      cancel_at_period_end: true,
+    });
+
+    result.status = 200;
+    result.body = {
+      message: `Your subscription will not be renewed after ${new Date(
+        cancelled.cancel_at * 1000,
+      ).toLocaleDateString("en-US", dateOptions)}.`,
+      subscription: cancelled,
+    };
+    return result;
+  } catch (error) {
+    console.error("Error cancelling subscription:", error);
+    result.status = 500;
+    result.body = { message: `Error: ${error.message}` };
+    return result;
+  }
+}
 
 // Inserted in `dev` mode for live reloading.
 const reloadScript = html`

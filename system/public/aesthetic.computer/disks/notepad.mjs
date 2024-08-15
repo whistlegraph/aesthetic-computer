@@ -59,20 +59,24 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
-    - [] Lay out keys better on wider vs vertical screen.
-    - [?] Dragging across the buttons in slide mode should slide from one key to another? 
-    - [-] Fix subtle 1, 2, 3, 4, then release 1 and press 1 down and watch 4 get unticked touch bug on ios. 
-      - [x] This may require fixing localhost testing first.
-    - [] Add octave touch buttons.
-    - [] Compare my sine waves to a sine wave generator.
-    - [] Add multiple tracks so that I can create "systems" that loop
-         with different lengths.
-    - [] Add holdable rhythm button with patterns that "cycle".
-    - [] Make sure you can whack multiple keys / alternate keys in tap mode,
-         and make sure every key and mouse button does the same thing now...
-    + Later
-    // TODO: Rethink how to do a simpler button API... perhaps with "register"
-    //       and an act function?
+  - [-] Fix '+C' notes appearing in the key list during playback mode.
+    - [🟠] on keyboard
+    - [] on touch / mouse 
+  - [-] Fix subtle 1, 2, 3, 4, then release 1 and press 1 down and watch 4 get unticked touch bug on ios. 
+    - [x] This may require fixing localhost testing first.
+  - [] Disable 5 key shortcut in 'notepad'.
+  - [] Lay out keys better on wider vs vertical screen.
+  - [?] Dragging across the buttons in slide mode should slide from one key to another? 
+  - [] Add octave touch buttons.
+  - [] Compare my sine waves to a sine wave generator.
+  - [] Add multiple tracks so that I can create "systems" that loop
+       with different lengths.
+  - [] Add holdable rhythm button with patterns that "cycle".
+  - [] Make sure you can whack multiple keys / alternate keys in tap mode,
+       and make sure every key and mouse button does the same thing now...
+  + Later
+  // TODO: Rethink how to do a simpler button API... perhaps with "register"
+  //       and an act function?
   - [?] Add longer / customizable slide duration.
   - [] Add live highlights back in type mode that include note tokenization.
   - [] Pressing a new button down should automatically lift the other one.
@@ -118,6 +122,7 @@ TODO: 💮 Daisy
   - [] Leave out all options from synth / make sensible defaults first.
   - [] Add 'scale' and 'rotation' to `write`.
   + Done
+  - [x] Add keyboard and button preview for second octave.
   - [x] Add better mixing when multiple keys are being pressed.
   - [x] When lifting, don't cancel other buttons.
   - [x] Reflow the mobile button layout so it is responsive (keep a grid) 
@@ -303,7 +308,7 @@ function paint({ wipe, ink, write, screen, sound, api }) {
 
   // TODO: Should this be a built-in function on sound?
   const sy = 32;
-  const sh = 40;// screen.height - sy;
+  const sh = 40; // screen.height - sy;
   paintSound(
     api,
     sound.speaker.amplitudes.left,
@@ -394,7 +399,12 @@ function paint({ wipe, ink, write, screen, sound, api }) {
     buttonNotes.forEach((note) => {
       if (buttons[note]) {
         buttons[note].paint((btn) => {
+          // if (note === "+c") {
+            // console.log("Active:", active[active.length - 1]?.toLowerCase());
+          // }
+
           let color;
+
           if (
             (!slide && btn.down) ||
             (btn.down &&
@@ -427,6 +437,43 @@ function paint({ wipe, ink, write, screen, sound, api }) {
               break;
             case "a#":
               keyLabel = "q";
+              break;
+            // Second octave.
+            case "+c":
+              keyLabel = "h";
+              break;
+            case "+d":
+              keyLabel = "i";
+              break;
+            case "+e":
+              keyLabel = "j";
+              break;
+            case "+f":
+              keyLabel = "k";
+              break;
+            case "+g":
+              keyLabel = "l";
+              break;
+            case "+a":
+              keyLabel = "m";
+              break;
+            case "+b":
+              keyLabel = "n";
+              break;
+            case "+c#":
+              keyLabel = "t";
+              break;
+            case "+d#":
+              keyLabel = "y";
+              break;
+            case "+f#":
+              keyLabel = "u";
+              break;
+            case "+g#":
+              keyLabel = "o";
+              break;
+            case "+a#":
+              keyLabel = "p";
               break;
           }
           if (keyLabel) ink("white").write(keyLabel, btn.box.x, btn.box.y + 10);
@@ -657,12 +704,6 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         // 🎹 Keyboard -> 🎵 Note recognition.
         let note = key.toUpperCase();
 
-        // a# s
-        // c# v
-        // d# x
-        // f# r
-        // g# t
-
         if (sharps && "CDFGA".includes(note)) {
           note += "#";
         } else if (flats && "DEGAB".includes(note)) {
@@ -734,14 +775,16 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
           activeOctave = parseInt(octave) + 1;
         }
 
-        // console.log(activeOctave);
-
-        keys += note;
-
-        if (activeOctave === octave) {
-          const buttonNote = note.toLowerCase();
-          if (buttons[buttonNote]) buttons[buttonNote].down = true;
+        if (activeOctave !== octave) {
+          keys += activeOctave + note;
+        } else {
+          keys += note;
         }
+
+
+        const buttonNote =
+          (activeOctave === octave ? "" : "+") + note.toLowerCase();
+        if (buttons[buttonNote]) buttons[buttonNote].down = true;
 
         const active = orderedByCount(sounds);
         const tone = `${activeOctave}${note}`;
@@ -818,6 +861,53 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
           }
         }
 
+        // TODO: This matching code should be combined across event handlers. 24.08.15.06.40
+        let activeOctave = octave;
+
+        if (("hijklmn" + "tyuop").includes(buttonNote)) {
+          switch (buttonNote) {
+            case "h":
+              buttonNote = "c";
+              break;
+            case "i":
+              buttonNote = "d";
+              break;
+            case "j":
+              buttonNote = "e";
+              break;
+            case "k":
+              buttonNote = "f";
+              break;
+            case "l":
+              buttonNote = "g";
+              break;
+            case "m":
+              buttonNote = "a";
+              break;
+            case "n":
+              buttonNote = "b";
+              break;
+            // Semitones
+            case "t":
+              buttonNote = "c#";
+              break;
+            case "y":
+              buttonNote = "d#";
+              break;
+            case "u":
+              buttonNote = "f#";
+              break;
+            case "o":
+              buttonNote = "g#";
+              break;
+            case "p":
+              buttonNote = "a#";
+              break;
+          }
+          activeOctave = parseInt(octave) + 1;
+        }
+
+        if (activeOctave !== octave) buttonNote = "+" + buttonNote;
         if (buttons[buttonNote]) buttons[buttonNote].down = false;
       }
     }
