@@ -59,6 +59,7 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
+  - [-] Add scale selection with visual hiking paths. (Color themes).
   - [-] Fix '+C' notes appearing in the key list during playback mode.
     - [🟠] on keyboard
     - [] on touch / mouse 
