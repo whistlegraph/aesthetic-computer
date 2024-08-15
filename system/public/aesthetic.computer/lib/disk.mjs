@@ -3338,7 +3338,7 @@ async function load(
   };
 
   $commonApi.slug = slug;
-  $commonApi.piece = slug?.split("~")[0];
+  $commonApi.piece = slug?.split("~")[0].split(":")[0];
   $commonApi.query = Object.fromEntries(new URLSearchParams(search));
   $commonApi.params = params || [];
   $commonApi.colon = colon || [];

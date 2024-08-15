@@ -238,13 +238,14 @@ export async function setEmailAndReverify(id, email, name, tenant = "aesthetic")
 }
 
 // Deletes a user from auth0.
-export async function deleteUser(userId) {
+export async function deleteUser(userId, tenant = "aesthetic") {
   try {
     const { got } = await import("got");
-    const token = await getAccessToken(got);
+    const token = await getAccessToken(got, tenant);
+    const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
 
     await got(
-      `https://aesthetic.us.auth0.com/api/v2/users/${encodeURIComponent(
+      `${baseURI}/api/v2/users/${encodeURIComponent(
         userId,
       )}`,
       {
@@ -253,7 +254,7 @@ export async function deleteUser(userId) {
       },
     );
 
-    console.log(`❌ User with ID ${userId} deleted from Auth0.`);
+    console.log(`❌ User with ID ${userId} deleted from Auth0. Tenant: ${tenant}`);
     return { success: true, message: "User deleted successfully from Auth0." };
   } catch (error) {
     console.error(`⚠️  Error deleting user from Auth0: ${error}`);
