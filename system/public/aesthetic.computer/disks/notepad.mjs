@@ -64,7 +64,6 @@ TODO: 💮 Daisy
     - [] on touch / mouse 
   - [-] Fix subtle 1, 2, 3, 4, then release 1 and press 1 down and watch 4 get unticked touch bug on ios. 
     - [x] This may require fixing localhost testing first.
-  - [] Disable 5 key shortcut in 'notepad'.
   - [] Lay out keys better on wider vs vertical screen.
   - [?] Dragging across the buttons in slide mode should slide from one key to another? 
   - [] Add octave touch buttons.
@@ -263,7 +262,8 @@ const { floor, ceil } = Math;
 let scope = 64;
 let scopeTrim = 0;
 
-function boot({ params, api, colon, ui, screen }) {
+function boot({ params, api, colon, ui, screen, fps }) {
+  // fps(12);
   keys = params.join(" ") || "";
   keys = keys.replace(/\s/g, "");
   if (keys.length > 0) {
