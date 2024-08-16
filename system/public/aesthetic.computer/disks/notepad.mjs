@@ -59,7 +59,11 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
+  - [🥁] Add percussion with kick, snare and hi-hat on space, shift and control.
+    - [] Or one should be noise-white?
   - [-] Add scale selection with visual hiking paths. (Color themes).
+    - [] Ghost trails.
+    - [] Scale selections.
   - [-] Fix '+C' notes appearing in the key list during playback mode.
     - [🟠] on keyboard
     - [] on touch / mouse 
@@ -169,7 +173,7 @@ TODO: 💮 Daisy
 let STARTING_OCTAVE = "4";
 const STARTING_WAVE = "sine"; //"sine";
 let wave = STARTING_WAVE;
-let hold = false;
+// let hold = false;
 let slide = false;
 let octave = STARTING_OCTAVE;
 let keys = "";
@@ -182,8 +186,8 @@ const sounds = {};
 const tonestack = {}; // Temporary tone-stack that always keeps currently held
 //                       keys and pops them off the stack as keys are lifted.
 //                       (These tones will not necessarily be playing.)
-let sharps = false,
-  flats = false;
+//let sharps = false,
+//  flats = false;
 const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F G A for sharps.
 //                              cdefgab (next ovtave)
 //                       // or alt on   D E G A B for flats
@@ -401,7 +405,7 @@ function paint({ wipe, ink, write, screen, sound, api }) {
       if (buttons[note]) {
         buttons[note].paint((btn) => {
           // if (note === "+c") {
-            // console.log("Active:", active[active.length - 1]?.toLowerCase());
+          // console.log("Active:", active[active.length - 1]?.toLowerCase());
           // }
 
           let color;
@@ -511,13 +515,71 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
   }
 
   if (tap) {
-    if (e.is("keyboard:down:shift") && !e.repeat) hold = true;
-    if (e.is("keyboard:up:shift")) hold = false;
+    // if (e.is("keyboard:down:shift") && !e.repeat) hold = true;
+    // if (e.is("keyboard:up:shift")) hold = false;
   } else {
-    if (e.is("keyboard:down:shift") && !e.repeat) sharps = true;
-    if (e.is("keyboard:up:shift")) sharps = false;
-    if (e.is("keyboard:down:alt") && !e.repeat) flats = true;
-    if (e.is("keyboard:up:alt")) flats = false;
+    // if (e.is("keyboard:down:shift") && !e.repeat) sharps = true;
+    // if (e.is("keyboard:up:shift")) sharps = false;
+    // if (e.is("keyboard:down:alt") && !e.repeat) flats = true;
+    // if (e.is("keyboard:up:alt")) flats = false;
+  }
+
+  if (!tap) {
+    if (e.is("keyboard:down:space")) {
+      synth({
+        type: "square",
+        tone: 80,
+        attack: 0.001,
+        duration: 0.15,
+      });
+
+      synth({
+        type: "square",
+        tone: 100,
+        attack: 0.001,
+        duration: 0.15,
+      });
+
+      synth({
+        type: "triangle",
+        tone: 150,
+        attack: 0.001,
+        duration: 0.1,
+      });
+
+      synth({
+        type: "sine",
+        tone: 300,
+        attack: 0.001,
+        duration: 0.5,
+      });
+    }
+    if (e.is("keyboard:down:control") || e.is("keyboard:down:capslock")) {
+      synth({
+        type: "noise-white",
+        duration: 0.1,
+      });
+    }
+    if (e.is("keyboard:down:shift")) {
+      synth({
+        type: "square",
+        tone: 300,
+        duration: 0.04,
+        decay: 0.98
+      });
+      synth({
+        type: "triangle",
+        tone: 350,
+        duration: 0.14,
+        decay: 0.98
+      });
+      synth({
+        type: "sine",
+        tone: 300,
+        duration: 0.14,
+        decay: 0.98
+      });
+    }
   }
 
   if (!tap) {
@@ -705,11 +767,11 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         // 🎹 Keyboard -> 🎵 Note recognition.
         let note = key.toUpperCase();
 
-        if (sharps && "CDFGA".includes(note)) {
-          note += "#";
-        } else if (flats && "DEGAB".includes(note)) {
-          note += "f";
-        }
+        // if (sharps && "CDFGA".includes(note)) {
+        //   note += "#";
+        // } else if (flats && "DEGAB".includes(note)) {
+        //   note += "f";
+        // }
 
         if ("VSWRQ".includes(note)) {
           switch (note) {
@@ -781,7 +843,6 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         } else {
           keys += note;
         }
-
 
         const buttonNote =
           (activeOctave === octave ? "" : "+") + note.toLowerCase();
@@ -927,7 +988,7 @@ function resetModeState() {
   tapped = undefined;
   tapIndex = 0;
   octave = STARTING_OCTAVE;
-  hold = sharps = flats = false;
+  // hold = sharps = flats = false;
 }
 
 // Initialize and/or lay out the UI buttons on the bottom of the display.
