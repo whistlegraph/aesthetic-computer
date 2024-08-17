@@ -60,6 +60,14 @@ alias acc 'ac; ac-ssl; code .'
 
 function acd
     ac
+    # Kill any node instances that are running
+    # if pgrep node >/dev/null
+    #     pkill node
+    # end
+    # Kill any code instances that are running
+    # if pgrep code >/dev/null
+    #    pkill code
+    # end
     # devcontainer build --workspace-folder .
     set containers (docker ps -q)
     if test -n "$containers"
@@ -112,6 +120,8 @@ alias up 'gnome-randr modify --rotate normal eDP-1 > /dev/null 2>&1 && sleep 0.0
 alias down 'gnome-randr modify --rotate inverted eDP-1 > /dev/null 2>&1 && sleep 0.04 && center'
 
 alias prune 'docker system prune -a --volumes'
+
+alias system 'foot -W 180x60 bpytop'
 
 function flip
     set rotation (gnome-randr query | grep -o "rotation: [a-z]*" | cut -d' ' -f2)
