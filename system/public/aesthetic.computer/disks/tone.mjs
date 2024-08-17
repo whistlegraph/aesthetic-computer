@@ -13,7 +13,7 @@
 let tone, type, sound, d;
 
 function boot({ wipe, slug, params, colon, hud, sound: { synth }, num, help }) {
-  wipe(0, 0, 128);
+  wipe(0, 0, 0);
   tone = params[0] || num.randIntRange(50, 4000); // TODO: Make the default random and fill out
   //                                the param on top?
   type = colon[0] || "sine"; // help.choose("sine", "triangle", "square", "sawtooth");
@@ -31,12 +31,12 @@ function sim({ colon, simCount, jump, leaving, num }) {
     jump(`tone:cycle~${num.randIntRange(400, 500)}`, true);
 }
 
-function paint({ wipe }) {
+function paint({ wipe, num }) {
   // Executes every display frame.
   if (sound) {
-    wipe(0, 0, 255 * d)
+    wipe(num.randInt(255), num.randInt(255), num.randInt(255), 255 * d)
   } else {
-    wipe("darkblue")
+    wipe(0)
   }
 }
 
