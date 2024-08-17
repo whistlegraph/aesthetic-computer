@@ -1006,7 +1006,7 @@ function setupButtons({ ui, screen, geo }) {
 
   const oscilloscopeBottom = 96;
 
-  if (totalRows * buttonHeight > screen.height - oscilloscopeBottom) {
+  if (screen.width > 400 && totalRows * buttonHeight > screen.height - oscilloscopeBottom) {
     buttonWidth = buttonHeight = (screen.height - oscilloscopeBottom) / totalRows;
   }
 
