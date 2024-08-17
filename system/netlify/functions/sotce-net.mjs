@@ -4,14 +4,20 @@
 /* #region 🏁 TODO 
   --- 🏁 pre-launch
   - [🍪] add handle creation / handle support for sotce-net users
-    - [] tapping the user's email address should allow them to alter / reset
-         email even while signed in?
+    - [-] tapping the user's email address should allow them to alter / reset
+         email even after initial verification...
+    - [] there should be a 'create handle' button / (a dedicated handle space)
     - [] there should be a 'write a page' button
                            'compose' 
                            'write'
+         that appears once a handle has been created
       - [] this should prompt the user to make a handle
-        - [] once a handle is made there should also be a way to delete a handle
+        - [] once a handle is made there should also be a way to change the handle
+             and visit their profile ala ac; central button style
     - [] make sure handles will also be deleted
+    - [] should the sign up page say 'subscribe to make a handle and keep a diary'
+         or have intermediate content?
+    - [] inherit handles from ac (only if the email is verified)
   - [] The handle system would be shared among ac users.
     - [] Perhaps the subs could be 'sotce' prefixed.
   - [] Allow Amelia's user / @sotce to post a diary, but no other users
