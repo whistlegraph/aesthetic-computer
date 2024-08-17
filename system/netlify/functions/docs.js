@@ -710,6 +710,11 @@ export async function handler(event, context) {
           desc: "Hook into the piece's socket server with a receive callback.",
           done: false,
         },
+        "net.devReload": {
+          sig: "devReload",
+          desc: "A flag that determines if the piece code was just reloaded in development.",
+          done: false,
+        },
         "net.web": {
           sig: "web(url, jumpOut)",
           desc: "Jump the browser to a new url.",
@@ -1169,6 +1174,11 @@ export async function handler(event, context) {
         user: {
           sig: "user",
           desc: "A reference to the currently logged in user.",
+          done: false,
+        },
+        vscode: {
+          sig: "vscode",
+          desc: "A flag that's true while running the VS Code extension.",
           done: false,
         },
         meta: {

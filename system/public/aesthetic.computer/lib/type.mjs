@@ -1056,7 +1056,7 @@ class TextInput {
       ti.activatedOnce = true;
 
       if (ti.canType) {
-        console.log("✔️✍️ TextInput already activated.");
+        // console.log("✔️✍️ TextInput already activated.");
         // (This redundancy check is because this behavior is tied to
         // keyboard open and close events.)
         return;

@@ -41,7 +41,7 @@ class SoundProcessor extends AudioWorkletProcessor {
 
   constructor(options) {
     // if (options.processorOptions.debug) console.log("🔊 Sound Synthesis Worklet Started");
-    console.log("🎼 Sample rate:", sampleRate);
+    // console.log("🎼 Sample rate:", sampleRate);
 
     super();
 

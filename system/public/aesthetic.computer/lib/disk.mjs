@@ -55,7 +55,8 @@ let sessionStarted = false; // A flag that waits to boot until a session was
 
 let LAN_HOST; // The IP address of the hosting machine on the local network.
 let SHARE_SUPPORTED; // Whether navigator.share is supported. (For `dl`)
-let PREVIEW_OR_ICON; // Whether we are in preview or icon mode. (From the bios.)
+let PREVIEW_OR_ICON; // Whether we are in preview or icon mode. (From boot.)
+let VSCODE; // Whether we are running the vscode extesion or not. (From boot.)
 let debug = false; // This can be overwritten on boot.
 let visible = true; // Is aesthetic.computer visibly rendering or not?
 
@@ -2929,6 +2930,9 @@ async function load(
 
   // console.log("🧩", path, "🌐", host);
 
+  $commonApi.net.devReload = devReload; // Expose to the piece if it was
+  // reloaded by the developer, for special logic per piece.
+
   // Add debug to the common api.
   $commonApi.debug = debug;
 
@@ -3827,9 +3831,10 @@ async function makeFrame({ data: { type, content } }) {
     LAN_HOST = content.lanHost;
     SHARE_SUPPORTED = content.shareSupported;
     PREVIEW_OR_ICON = content.previewOrIcon;
+    VSCODE = content.vscode;
 
     $commonApi.canShare = SHARE_SUPPORTED;
-
+    $commonApi.vscode = true; // Add vscode flag to the common api.
     $commonApi.net.lan = LAN_HOST;
     $commonApi.user = USER;
     $commonApi.net.iframe = content.iframe;
@@ -4090,6 +4095,11 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "copy:copied") {
     actAlerts.push("clipboard:copy:copied");
+    return;
+  }
+
+  if (type === "aesthetic-parent:focused") {
+    actAlerts.push("aesthetic-parent:focused");
     return;
   }
 

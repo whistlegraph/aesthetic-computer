@@ -42,7 +42,7 @@ import { filter } from "../../backend/filter.mjs"; // Profanity filtering.
 // import { promises as fs } from "fs";
 // import path from "path";
 
-let app;
+// let app;
 
 export async function handler(event, context) {
   if (event.httpMethod === "GET") {
@@ -112,7 +112,7 @@ export async function handler(event, context) {
             })
           ).body;
 
-          app ||= initializeApp({ credential: cert(serviceAccount) }); // Send a notification.
+          const app = initializeApp({ credential: cert(serviceAccount) }); // Send a notification.
 
           console.log("💕 Setting a mood for:", user);
           getMessaging()

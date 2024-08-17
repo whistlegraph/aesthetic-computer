@@ -131,8 +131,10 @@ async function boot({
   store,
   // code,
   net: { socket },
+  vscode
 }) {
   if (dark) glaze({ on: true });
+  // if (vscode) console.log("🟣 Running `prompt` in the VSCode extension.");
 
   net.requestDocs().then((d) => {
     autocompletions = { ...d.pieces, ...d.prompts };
@@ -242,16 +244,15 @@ async function boot({
   }
 
   // Activate and reset input text if returning to the prompt from elsewhere.
-  if (pieceCount > 0 && !store["prompt:splash"]) {
-    activated(api, true);
-    system.prompt.input.canType = true;
-
+  if ((pieceCount > 0 && !store["prompt:splash"] && !net.devReload) || (vscode && pieceCount === 0)) {
+    if (vscode && pieceCount === 0) firstActivation = false;
     // system.prompt.input.enter.btn.disabled = true; // Disable button.
-    //system.prompt.input.inputStarted = true;
-
+    // system.prompt.input.inputStarted = true;
     // 🍫 Create a pleasurable blinking cursor delay.
     // system.prompt.input.showBlink = false;
     // setTimeout(() => (system.prompt.input.showBlink = true), 100);
+    activated(api, true);
+    system.prompt.input.canType = true;
     send({ type: "keyboard:unlock" });
     send({ type: "keyboard:open" }); // Necessary for desktop.
   }
@@ -1581,6 +1582,7 @@ function act({
   notice,
   ui,
 }) {
+
   // Checks to clear prefilled 'email user@email.com' message
   // on signup.
   if (
@@ -1595,6 +1597,15 @@ function act({
   // Light and dark mode glaze shift.
   if (e.is("dark-mode")) glaze({ on: true });
   if (e.is("light-mode")) glaze({ on: false });
+
+  // Via vscode extension.
+  if (e.is("aesthetic-parent:focused")) {
+    // console.log("🔭 Focusing in on `prompt`...");
+    // activated(api, true);
+    // system.prompt.input.canType = true;
+    send({ type: "keyboard:unlock" });
+    send({ type: "keyboard:open" }); // Necessary for desktop.
+  }
 
   // 👱 Handle Callback
   if (e.is("handle:request:completed")) {
@@ -1740,7 +1751,7 @@ function act({
   // ⌨️ Keyboard (Skip startup sound if a key is pressed or text is pasted.)
   if (e.is("keyboard:open") && firstActivation && e.method !== "pointer") {
     firstActivation = false;
-    console.log("⌨️ First keyboard activation completed!");
+    // console.log("⌨️ First keyboard activation completed!");
   }
 
   // if (e.is("pasted:text")) firstActivation = false;

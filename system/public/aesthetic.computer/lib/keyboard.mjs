@@ -14,13 +14,19 @@ export class Keyboard {
 
   constructor() {
     window.addEventListener("keydown", (e) => {
-      // console.log("⌨️ Key event:", e);
+      console.log("⌨️ Key event:", e);
 
       this.#held.add(e.key);
       // Firefox "repeat" seems to be broken on linux, so here is
       // some redundancy. 22.07.29.17.43
       const repeat = e.key === this.#lastKeyDown;
       this.#lastKeyDown = e.key;
+
+      // Send a parent message to defocus the ac extension.
+      if (e.key === "a" && e.ctrlKey && e.altKey) {
+        console.log("Sending defocus...");
+        window.parent?.postMessage({ type: "vscode-extension:defocus" }, "*");
+      }
 
       const keyboardFocused = this.focusHandler(e); // Focus DOM input field
       //                                               as neded for text entry.

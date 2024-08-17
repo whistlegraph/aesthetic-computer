@@ -15,6 +15,10 @@
         vscode.postMessage({ type: "vscode-extension:reload" });
         break;
       }
+      case "vscode-extension:defocus": {
+        vscode.postMessage({ type: "vscode-extension:defocus" });
+        break;
+      }
       case "setSession": {
         // window.aestheticSession = message.session;
         // sendSessionToIframe(message.session);
@@ -36,6 +40,11 @@
         );
         break;
       }
+      // case "aesthetic-panel:open": {
+      //   console.log("🪧 Posting panel opener...");
+      //   iframe.contentWindow.postMessage({ type: "aesthetic-panel:open" }, "*");
+      //   break;
+      // }
       case "publish": {
         vscode.postMessage({
           type: "publish",
@@ -82,6 +91,11 @@
         break;
       }
     }
+  });
+
+  // Add event listener for when the window is focused.
+  window.addEventListener("focus", () => {
+    iframe.contentWindow.postMessage({ type: "aesthetic-parent:focused" }, "*");
   });
 
   // ♻️ Refresh the iframe's src url until it loads successfully.

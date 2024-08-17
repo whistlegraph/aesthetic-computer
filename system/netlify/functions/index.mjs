@@ -209,6 +209,7 @@ async function fun(event, context) {
         await fs.unlink(tempPath);
       }
 
+      console.log("Module:", module.meta, tempPath);
       meta = module?.meta?.({ ...parsed, num }) || inferTitleDesc(originalCode);
       console.log("📰 Metadata:", meta, "Path:", parsed.text);
     }
