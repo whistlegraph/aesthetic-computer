@@ -35,6 +35,10 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** prompt ***
+  - [] How should 'Paste' and 'Enter' appear / disappear in the main prompt
+       and in bots?
+
 *** notepad `slide` mode ***
   - [] make it so slide works even if the 'fade' parameter is set on a sound.
 

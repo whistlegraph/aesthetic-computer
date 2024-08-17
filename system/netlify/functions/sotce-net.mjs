@@ -3,7 +3,15 @@
 
 /* #region 🏁 TODO 
   --- 🏁 pre-launch
-  - [] add handle creation / handle support for sotce-net users
+  - [🍪] add handle creation / handle support for sotce-net users
+    - [] tapping the user's email address should allow them to alter / reset
+         email even while signed in?
+    - [] there should be a 'write a page' button
+                           'compose' 
+                           'write'
+      - [] this should prompt the user to make a handle
+        - [] once a handle is made there should also be a way to delete a handle
+    - [] make sure handles will also be deleted
   - [] The handle system would be shared among ac users.
     - [] Perhaps the subs could be 'sotce' prefixed.
   - [] Allow Amelia's user / @sotce to post a diary, but no other users
@@ -18,8 +26,8 @@
   - [] Add email notifications for subscribed users.
   - [] Do some local mobile testing.
   - [] Run a production subscription.
-  --- 🚩 post launch?
   - [] Show number of signed up users so far.
+  --- 🚩 post launch / next launch
   - [] How can I do shared reader cursors / co-presence somehow?
   + Done
   - [x] add cookie favicon which switches if the user is logged in...
@@ -165,6 +173,7 @@ export const handler = async (event, context) => {
               margin: 0;
               width: 100vw;
               height: 100vh;
+              -webkit-text-size-adjust: none;
             }
             #wrapper {
               display: flex;
@@ -337,12 +346,18 @@ export const handler = async (event, context) => {
                 (paramsString ? "?" + paramsString : "");
               window.history.replaceState({}, document.title, newUrl);
             }
-
             const wrapper = document.getElementById("wrapper");
             const gateElements = {};
 
             function gate(status, user, subscription) {
-              console.log("🍪 Gate:", status, user, subscription);
+              console.log(
+                "🌒 Gate:",
+                status,
+                "user:",
+                user,
+                "subscription:",
+                subscription,
+              );
               let message,
                 buttons = [];
 
@@ -532,7 +547,9 @@ export const handler = async (event, context) => {
                   buttons.push(cb);
                 } else {
                   h2.innerText =
-                    "Your subscription ends on " + subscription.until.toLowerCase() + ".";
+                    "Your subscription ends on " +
+                    subscription.until.toLowerCase() +
+                    ".";
                   const ab = cel("button");
                   ab.innerText = "resubscribe";
                   ab.onclick = subscribe;

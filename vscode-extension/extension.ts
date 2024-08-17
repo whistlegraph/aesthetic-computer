@@ -688,7 +688,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = getWebViewContent(this._view.webview, slug);
 
-    webviewView.webview.onDidReceiveMessage((data) => {
+    webviewView.webview.onDidReceiveMessage(async (data) => {
       switch (data.type) {
         case "url:updated": {
           // console.log("😫 Slug updated...", data.slug);
@@ -716,6 +716,17 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
           break;
         case "vscode-extension:reload": {
           vscode.commands.executeCommand("workbench.action.reloadWindow");
+          break;
+        }
+        case "vscode-extension:defocus": {
+          const editor = vscode.window.activeTextEditor;
+          if (editor) {
+            await vscode.window.showTextDocument(
+              editor.document,
+              editor.viewColumn,
+            );
+          }
+          break;
           break;
         }
         case "openDocs": {
@@ -877,20 +888,14 @@ function getWebViewContent(webview: any, slug: string) {
   );
 
   const sessionSotce = extContext.globalState.get("sotce:session", undefined);
+  // console.log("🟪 Aesthetic:", sessionAesthetic, "🪷 Sotce:", sessionSotce);
 
-  let param = slug;
-
-  // console.log(
-  //   "Sessions: 🟪 Aesthetic Computer:",
-  //   sessionAesthetic,
-  //   "🪷 Sotce Net",
-  //   sessionSotce,
-  // );
+  console.log("🪱 Slug:", slug);
+  let param = slug; // || "prompt";
+  param += "?vscode=true"; // Add a vscode flag.
 
   [sessionAesthetic, sessionSotce].forEach((session, index) => {
-    const paramBase = `${index === 0 ? "?" : "&"}session-${
-      index === 0 ? "aesthetic" : "sotce"
-    }=`;
+    const paramBase = `&session-${index === 0 ? "aesthetic" : "sotce"}=`;
 
     if (typeof session === "object") {
       // Logged in.
@@ -912,7 +917,7 @@ function getWebViewContent(webview: any, slug: string) {
 				<meta charset="UTF-8">
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://hi.aesthetic.computer https://aesthetic.local:8888 https://localhost:8888 https://sotce.net https://hi.sotce.net https://sotce.local:8888; child-src https://aesthetic.computer https://aesthetic.local:8888 https://sotce.net https://sotce.local:8888 https://localhost:8888; style-src ${
           webview.cspSource
-        }; script-src 'nonce-${nonce}'; media-src *;">
+        }; script-src 'nonce-${nonce}'; media-src *; img-src 'self' vscode-resource:;">
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				<link href="${styleUri}" rel="stylesheet">
 				<link href="${resetStyleUri}" rel="stylesheet">

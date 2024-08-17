@@ -99,8 +99,21 @@ function aesthetic
         sleep 1
         clear
     end
-    # todo: how do i install the ssl certificates on the host here?
     rm /home/me/.waiter
+    # todo: 
+    # kill redis if it exists
+    # kill any node instances that are running 
+
+    # Kill redis if it exists
+    if pgrep redis-server >/dev/null
+        pkill redis-server
+    end
+
+    # Kill any node instances that are running
+    if pgrep node >/dev/null
+        pkill node
+    end
+
     platform
 end
 

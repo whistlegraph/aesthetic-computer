@@ -61,6 +61,10 @@ alias acc 'ac; ac-ssl; code .'
 function acd
     ac
     # devcontainer build --workspace-folder .
+    set containers (docker ps -q)
+    if test -n "$containers"
+        docker stop $containers
+    end
     set container_id (pwd | tr -d '\n' | xxd -c 256 -p)
     set workspace_name (basename (pwd))
     code --folder-uri="vscode-remote://dev-container+$container_id/workspaces/$workspace_name"
@@ -81,7 +85,7 @@ fish_add_path ~/.local/bin
 
 # add rust binaries to the shell path
 fish_add_path ~/.cargo/bin
-fish_add_path /home/me/cargo/bin
+# fish_add_path /home/me/cargo/bin
 
 # 📚 How to use rotation...
 # add the user to the wheel group with `usermod -aG wheel me`

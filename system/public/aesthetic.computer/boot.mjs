@@ -9,6 +9,16 @@ const previewOrIcon =
 
 window.acPREVIEW_OR_ICON = previewOrIcon;
 
+const url = new URL(location);
+const params = url.searchParams;
+const vscode = params.get("vscode") === "true";
+
+if (vscode) {
+  params.delete("vscode");
+  history.pushState({}, "", url.pathname + "?" + params.toString());
+  window.acVSCODE = true;
+}
+
 // Included as a <script> tag to boot the system on a webpage. (Loads `bios`)
 import { boot } from "./bios.mjs";
 import { parse, slug } from "./lib/parse.mjs";
@@ -116,8 +126,6 @@ loadAuth0Script()
         window.history.replaceState({}, document.title, "/");
       }
 
-      const url = new URL(window.location);
-      const params = url.searchParams;
       let param = params.get("session-aesthetic");
 
       {
@@ -162,8 +170,8 @@ loadAuth0Script()
 
         if (sessionParams) {
           localStorage.setItem("session-aesthetic", encodedSession);
-          params.delete("session-aesthetic"); // Remove the 'session' parameter
-          // Update the URL without reloading the page
+          params.delete("session-aesthetic"); // Remove the 'session' parameters
+          params.delete("session-sotce");
           history.pushState({}, "", url.pathname + "?" + params.toString());
         }
       }
@@ -275,8 +283,18 @@ loadAuth0Script()
 //   window messages to be received here.
 // TODO: Finish FigJam Widget with iframe message based input & output.
 //         See also: https://www.figma.com/plugin-docs/working-with-images/
+
+// setTimeout(function() {
+//   console.log("attempting a real focus...")
+//   document.querySelector("#software-keyboard-input").focus();
+// }, 4000);
+
 function receive(event) {
   // console.log("🌟 Event:", event);
+  if (event.data?.type === "aesthetic-parent:focused") {
+    window.acSEND({ type: "aesthetic-parent:focused" });
+    return;
+  }
   if (event.data?.type === "figma-image-input") {
     // TODO: Build image with width and height.
     console.log("Bytes:", event.data.bytes.length);

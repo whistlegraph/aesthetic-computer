@@ -53,7 +53,7 @@
     "crypto": "^1.0.1",
     "discord-interactions": "^3.4.0",
     "express-oauth2-jwt-bearer": "^1.6.0",
-    "firebase-admin": "^12.3.0",
+    "firebase-admin": "^12.3.1",
     "gl-matrix": "^3.4.3",
     "got": "^14.3.0",
     "gotrue-js": "^0.9.29",
