@@ -34,7 +34,7 @@ function sim({ colon, simCount, jump, leaving, num }) {
 function paint({ wipe, num }) {
   // Executes every display frame.
   if (sound) {
-    wipe(num.randInt(255), num.randInt(255), num.randInt(255), 255 * d)
+    wipe(255 * d)
   } else {
     wipe(0)
   }
