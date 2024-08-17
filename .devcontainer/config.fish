@@ -105,15 +105,14 @@ function aesthetic
     # kill any node instances that are running 
 
     # Kill redis if it exists
-    if pgrep redis-server >/dev/null
-        pkill redis-server
-    end
+    #if pgrep redis-server >/dev/null
+    #    pkill redis-server
+    #end
 
     # Kill any node instances that are running
-    if pgrep node >/dev/null
-        pkill node
-    end
-
+    #if pgrep node >/dev/null
+    #    pkill node
+    #end
     platform
 end
 
