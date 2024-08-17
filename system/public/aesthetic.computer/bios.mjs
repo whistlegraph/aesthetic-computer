@@ -889,7 +889,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     try {
       (async () => {
         const baseUrl = "/aesthetic.computer/lib/speaker.mjs";
-        const cacheBuster = /*debug ?*/ `?time=${new Date().getTime()}`// : "";
+        const cacheBuster = /*debug ?*/ `?time=${new Date().getTime()}`; // : "";
         await audioContext.audioWorklet.addModule(baseUrl + cacheBuster);
 
         const soundProcessor = new AudioWorkletNode(
@@ -1157,6 +1157,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       sandboxed,
       shareSupported: (iOS || Android) && navigator.share !== undefined,
       previewOrIcon: window.acPREVIEW_OR_ICON,
+      vscode: window.acVSCODE,
     },
   };
 
@@ -2229,13 +2230,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             !keyboardFocusLock &&
             !keyboardSoftLock
           ) {
-            //console.log("OPENING KEYBOARD?");
             if (keyboardOpen) {
               input.blur();
             } else {
-              // console.log("OPENING KEYBOARD!");
               keyboardOpenMethod = "pointer";
-              // console.log("Active Element:", document.activeElement);
               window.focus();
               input.focus();
             }

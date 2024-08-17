@@ -59,8 +59,8 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
-  - [🥁] Add percussion with kick, snare and hi-hat on space, shift and control.
-    - [] Or one should be noise-white?
+  - [-] Fix slide mode.
+  - [] Add perc buttons to ui interface.
   - [-] Add scale selection with visual hiking paths. (Color themes).
     - [] Ghost trails.
     - [] Scale selections.
@@ -126,6 +126,7 @@ TODO: 💮 Daisy
   - [] Leave out all options from synth / make sensible defaults first.
   - [] Add 'scale' and 'rotation' to `write`.
   + Done
+  - [x] Add basic percussion with kick, snare and hi-hat on space, shift and control.
   - [x] Add keyboard and button preview for second octave.
   - [x] Add better mixing when multiple keys are being pressed.
   - [x] When lifting, don't cancel other buttons.
@@ -262,7 +263,7 @@ const octaveTheme = [
   "purple",
 ];
 
-const { floor, ceil } = Math;
+const { floor, ceil, min } = Math;
 
 let scope = 64;
 let scopeTrim = 0;
@@ -852,6 +853,8 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         const tone = `${activeOctave}${note}`;
 
         if (slide && active.length > 0) {
+          // TODO: Fix slide here... 24.08.16.06.18 
+          console.log("Fix slide...")
           sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
           tonestack[key] = {
             count: Object.keys(tonestack).length,
@@ -994,11 +997,19 @@ function resetModeState() {
 // Initialize and/or lay out the UI buttons on the bottom of the display.
 function setupButtons({ ui, screen, geo }) {
   const margin = 6;
-  const buttonWidth = ceil((screen.width - margin * 2) / 4);
-  const buttonHeight = buttonWidth;
   const buttonsPerRow = 4;
   const totalButtons = buttonNotes.length;
-  const totalRows = Math.ceil(totalButtons / buttonsPerRow);
+  const totalRows = ceil(totalButtons / buttonsPerRow);
+
+  let buttonWidth = min(48, ceil((screen.width - margin * 2) / 4));
+  let buttonHeight = buttonWidth;
+
+  const oscilloscopeBottom = 96;
+
+  if (totalRows * buttonHeight > screen.height - oscilloscopeBottom) {
+    buttonWidth = buttonHeight = (screen.height - oscilloscopeBottom) / totalRows;
+  }
+
   buttonNotes.forEach((label, i) => {
     const row = floor(i / buttonsPerRow);
     const col = i % buttonsPerRow;
