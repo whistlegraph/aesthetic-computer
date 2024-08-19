@@ -3834,7 +3834,7 @@ async function makeFrame({ data: { type, content } }) {
     VSCODE = content.vscode;
 
     $commonApi.canShare = SHARE_SUPPORTED;
-    $commonApi.vscode = true; // Add vscode flag to the common api.
+    $commonApi.vscode = VSCODE; // Add vscode flag to the common api.
     $commonApi.net.lan = LAN_HOST;
     $commonApi.user = USER;
     $commonApi.net.iframe = content.iframe;

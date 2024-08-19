@@ -268,6 +268,8 @@ const { floor, ceil, min } = Math;
 let scope = 64;
 let scopeTrim = 0;
 
+let projector = false;
+
 function boot({ params, api, colon, ui, screen, fps }) {
   // fps(12);
   keys = params.join(" ") || "";
@@ -313,20 +315,42 @@ function paint({ wipe, ink, write, screen, sound, api }) {
   wipe(bg);
 
   // TODO: Should this be a built-in function on sound?
-  const sy = 32;
-  const sh = 40; // screen.height - sy;
-  paintSound(
-    api,
-    sound.speaker.amplitudes.left,
-    sound.speaker.waveforms.left.slice(scopeTrim, scope),
-    0,
-    sy,
-    screen.width, // width
-    sh, // height
-    [255, 0, 0, 255],
-  );
-  ink("yellow").write(scope, 6, sy + sh + 3);
-  ink("pink").write(scopeTrim, 6 + 18, sy + sh + 3);
+
+  if (projector) {
+    const sy = 33;
+    const sh = screen.height - sy - 20;
+
+    paintSound(
+      api,
+      sound.speaker.amplitudes.left,
+      sound.speaker.waveforms.left.slice(scopeTrim, scope),
+      0,
+      sy,
+      screen.width, // width
+      sh, // height
+      [255, 0, 0, 255],
+      { noamp: true },
+    );
+    ink("yellow").write(scope, 6, sy + sh + 5);
+    ink("pink").write(scopeTrim, 6 + 18, sy + sh + 5);
+  } else {
+    const sy = 32;
+    const sh = 40; // screen.height - sy;
+
+    paintSound(
+      api,
+      sound.speaker.amplitudes.left,
+      sound.speaker.waveforms.left.slice(scopeTrim, scope),
+      0,
+      sy,
+      screen.width, // width
+      sh, // height
+      [255, 0, 0, 255],
+    );
+
+    ink("yellow").write(scope, 6, sy + sh + 3);
+    ink("pink").write(scopeTrim, 6 + 18, sy + sh + 3);
+  }
 
   if (tap) {
     ink("yellow");
@@ -398,7 +422,7 @@ function paint({ wipe, ink, write, screen, sound, api }) {
     }
   }
 
-  if (!tap) {
+  if (!tap && !projector) {
     // Write current octave.
     ink("white").write(octave, screen.width - 12, 18);
     // Buttons
@@ -566,19 +590,19 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         type: "square",
         tone: 300,
         duration: 0.04,
-        decay: 0.98
+        decay: 0.98,
       });
       synth({
         type: "triangle",
         tone: 350,
         duration: 0.14,
-        decay: 0.98
+        decay: 0.98,
       });
       synth({
         type: "sine",
         tone: 300,
         duration: 0.14,
-        decay: 0.98
+        decay: 0.98,
       });
     }
   }
@@ -853,8 +877,8 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         const tone = `${activeOctave}${note}`;
 
         if (slide && active.length > 0) {
-          // TODO: Fix slide here... 24.08.16.06.18 
-          console.log("Fix slide...")
+          // TODO: Fix slide here... 24.08.16.06.18
+          console.log("Fix slide...");
           sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
           tonestack[key] = {
             count: Object.keys(tonestack).length,
@@ -1007,7 +1031,9 @@ function setupButtons({ ui, screen, geo }) {
   const oscilloscopeBottom = 96;
 
   if (totalRows * buttonHeight > screen.height - oscilloscopeBottom) {
-    buttonWidth = buttonHeight = (screen.height - oscilloscopeBottom) / totalRows;
+    buttonWidth = buttonHeight = ceil(
+      (screen.height - oscilloscopeBottom) / totalRows,
+    );
   }
 
   buttonNotes.forEach((label, i) => {
@@ -1033,11 +1059,13 @@ function paintSound(
   width,
   height,
   color,
+  options = { noamp: false },
 ) {
-  const lw = 4; // levelWidth;
   const xStep = width / (waveform.length - 1); // + 2;
   const yMid = Math.ceil(y + height / 2) + 1,
     yMax = Math.ceil(height / 2);
+
+  let lw = options.noamp ? 0 : 4; // levelWidth;
 
   // Vertical bounds.
   ink("darkblue").box(x, y, width, height);
@@ -1045,16 +1073,34 @@ function paintSound(
     .line(x + lw, y, x + width, y)
     .line(x + lw, y + height, x + width, y + height);
 
-  // Amplitude bounding box.
-  ink([0, 96]).box(x + width / 2, yMid, width, amplitude * yMax * 2, "*center");
+  // Level meter.
+  if (!options.noamp) {
+    ink("black").box(x, y, lw, height);
+    ink("red").box(x, y + height, lw, -amplitude * height);
+  }
 
-  ink("black").box(x, y, lw, height);
-  ink("red").box(x, y + height, lw, -amplitude * height);
+  // Filled waveform
+  // TODO: This could be drawn faster...
+  waveform
+    .map((v, i) => [x + lw + i * xStep, yMid + v * yMax])
+    .forEach((point) => {
+      ink("blue").box(point[0], y + 1, xStep, point[1] - y);
+      ink("red").box(
+        point[0],
+        y + 1 + point[1] - y,
+        xStep,
+        y + height - point[1] - 1,
+      );
+    });
 
   // Waveform
-  ink("lime", 255).poly(
-    waveform.map((v, i) => [x + lw + i * xStep, yMid + v * yMax]),
-  );
+  // ink("lime", 255).poly(
+  //   waveform.map((v, i) => [x + lw + i * xStep, yMid + v * yMax]),
+  // );
+
+  // TODO: Fill a point above this line and below.
+  // ink("blue").flood(x + 7, y + 1);
+  // ink("teal").flood(x + 7, y + height - 2);
 
   // const my = screen.height - mic.amplitude * screen.height;
   // ink("yellow", 128).line(0, my, screen.width, my); // Horiz. line for amplitude.
