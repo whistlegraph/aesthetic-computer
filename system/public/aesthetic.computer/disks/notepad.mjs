@@ -59,6 +59,7 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
+  - [*] Fix 5 finger touch bug.
   - [-] Fix slide mode.
   - [] Add perc buttons to ui interface.
   - [-] Add scale selection with visual hiking paths. (Color themes).
@@ -265,7 +266,7 @@ const octaveTheme = [
 
 const { floor, ceil, min } = Math;
 
-let scope = 128;
+let scope = 32;
 let scopeTrim = 0;
 
 let projector = false;
@@ -313,6 +314,7 @@ function paint({ wipe, ink, write, screen, sound, api }) {
   }
 
   wipe(bg);
+  // wipe(!projector ? bg : 64);
 
   // TODO: Should this be a built-in function on sound?
 
@@ -517,6 +519,10 @@ let anyDown = true;
 
 function act({ event: e, sound: { synth, speaker }, pens, api }) {
   if (e.is("reframed")) setupButtons(api);
+
+  if (e.is("keyboard:down:\\")) {
+    projector = !projector;
+  }
 
   if (e.is("keyboard:down:arrowleft")) {
     scopeTrim -= 1;
@@ -1051,7 +1057,7 @@ function setupButtons({ ui, screen, geo }) {
 }
 
 function paintSound(
-  { ink, screen },
+  { ink, box, screen },
   amplitude,
   waveform,
   x,
@@ -1061,14 +1067,16 @@ function paintSound(
   color,
   options = { noamp: false },
 ) {
-  const xStep = width / (waveform.length - 1); // + 2;
-  const yMid = Math.ceil(y + height / 2) + 1,
-    yMax = Math.ceil(height / 2);
+
+  const xStep = ceil(width / (waveform.length));
+
+  const yMid = ceil(y + height / 2) + 1,
+    yMax = ceil(height / 2);
 
   let lw = options.noamp ? 0 : 4; // levelWidth;
 
   // Vertical bounds.
-  ink("darkblue").box(x, y, width, height);
+
   ink("yellow")
     .line(x + lw, y, x + width, y)
     .line(x + lw, y + height, x + width, y + height);
@@ -1081,17 +1089,20 @@ function paintSound(
 
   // Filled waveform
   // TODO: This could be drawn faster...
-  waveform
-    .map((v, i) => [x + lw + i * xStep, yMid + v * yMax])
-    .forEach((point) => {
-      ink("blue").box(point[0], y + 1, xStep, point[1] - y);
-      ink("red").box(
-        point[0],
-        y + 1 + point[1] - y,
-        xStep,
-        y + height - point[1] - 1,
-      );
-    });
+  const waves = waveform.map((v, i) => [x + lw + i * xStep, yMid + v * yMax]);
+
+  // ink("blue");
+  // waves.forEach((point) => {
+  //   box(point[0], y + 1, xStep, point[1] - y);
+  // });
+  ink("blue").box(x + lw, y + 1, width - lw, height - 1);
+
+  ink("red");
+  waves.forEach((point, index) => {
+    const bx = x + lw + index * xStep;
+    if (bx > width) return;
+    box(bx, y + 1 + point[1] - y, xStep, y + height - point[1] - 1);
+  });
 
   // Waveform
   // ink("lime", 255).poly(
