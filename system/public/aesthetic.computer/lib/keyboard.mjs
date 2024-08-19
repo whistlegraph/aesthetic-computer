@@ -14,7 +14,7 @@ export class Keyboard {
 
   constructor() {
     window.addEventListener("keydown", (e) => {
-      console.log("⌨️ Key event:", e);
+      // console.log("⌨️ Key event:", e);
 
       this.#held.add(e.key);
       // Firefox "repeat" seems to be broken on linux, so here is

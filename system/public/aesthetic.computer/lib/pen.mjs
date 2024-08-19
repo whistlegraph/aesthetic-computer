@@ -12,7 +12,7 @@
 
 import { Point } from "./geo.mjs";
 
-const { assign } = Object;
+const { assign, keys } = Object;
 const { round } = Math;
 
 const debug = Boolean(window.acDEBUG);
@@ -63,9 +63,7 @@ export class Pen {
 
   pointers = {}; // Stores an object of `Pointers` to keep track of each gesture.
 
-  get pointerCount() {
-    return Object.keys(this.pointers).length;
-  }
+  pointerCount = 0;
 
   // `point` is a transform function for projecting coordinates from screen
   // space to virtual screen space.
@@ -157,6 +155,7 @@ export class Pen {
 
         pointer.isPrimary = e.isPrimary;
         pointer.pointerIndex = this.pointerCount;
+        this.pointerCount += 1;
 
         pen.pointers[pointerId] = pointer;
       } else {
@@ -214,6 +213,7 @@ export class Pen {
         pointer.pointerId = pointerId;
         pointer.isPrimary = e.isPrimary;
         pointer.pointerIndex = this.pointerCount;
+        this.pointerCount += 1;
         pen.pointers[pointerId] = pointer;
       }
 
@@ -270,10 +270,11 @@ export class Pen {
     // ***Lift***
     window.addEventListener("pointerup", (e) => {
       const pointerId = getPointerId(e);
-
       const pointer = pen.pointers[pointerId];
 
       if (!pointer) return;
+
+      // console.log(pointer.drawing, pointer.pointerIndex);
 
       if (pointer.drawing) pen.#event("lift", pointer);
 
@@ -287,6 +288,7 @@ export class Pen {
       // Delete pointer only if we are using touch.
       if (e.pointerType === "touch" || e.pointerType === "pen") {
         delete this.pointers[pointerId];
+        if (keys(this.pointers).length === 0) this.pointerCount = 0;
       }
 
       // if (debug)
