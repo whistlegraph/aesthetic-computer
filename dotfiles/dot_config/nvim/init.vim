@@ -25,6 +25,12 @@ lua require'nvim-lastplace'.setup{}
 " enable terminal colors to be set from app
 set termguicolors
 
+" tie to system clipboard
+set clipboard=unnamedplus
+
+" clear inc highlights on esc
+nnoremap <Esc> :noh<CR><Esc>
+
 " choose my favorite colorscheme on my chosen background
 set background=dark
 colorscheme solarized8

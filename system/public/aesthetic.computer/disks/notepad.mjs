@@ -1034,6 +1034,8 @@ function setupButtons({ ui, screen, geo }) {
     buttonWidth = buttonHeight = ceil(
       (screen.height - oscilloscopeBottom) / totalRows,
     );
+  if (screen.width > 400 && totalRows * buttonHeight > screen.height - oscilloscopeBottom) {
+    buttonWidth = buttonHeight = (screen.height - oscilloscopeBottom) / totalRows;
   }
 
   buttonNotes.forEach((label, i) => {
