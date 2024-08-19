@@ -884,8 +884,10 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
 
         if (slide && active.length > 0) {
           // TODO: Fix slide here... 24.08.16.06.18
-          console.log("Fix slide...");
+          console.log("Fix slide...", active[0], sounds[active[0]]?.sound, tone, key);
+
           sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
+
           tonestack[key] = {
             count: Object.keys(tonestack).length,
             tone,
@@ -1067,8 +1069,7 @@ function paintSound(
   color,
   options = { noamp: false },
 ) {
-
-  const xStep = ceil(width / (waveform.length));
+  const xStep = ceil(width / waveform.length);
 
   const yMid = ceil(y + height / 2) + 1,
     yMax = ceil(height / 2);
