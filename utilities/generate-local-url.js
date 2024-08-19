@@ -1,4 +1,4 @@
-import { networkInterfaces } from "os";
+// import { networkInterfaces } from "os";
 import { exec } from "child_process";
 import qrcode from "qrcode-terminal";
 import got from "got";
