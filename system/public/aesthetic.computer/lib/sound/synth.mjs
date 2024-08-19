@@ -41,7 +41,8 @@ export default class Synth {
   constructor({ type, tone, duration, attack, decay, volume, pan }) {
     this.#type = type;
     this.#frequency = tone || 1; // Frequency in samples.
-    this.#wavelength = sampleRate / this.#frequency; // / 2;
+    // ❤️‍🔥 TODO: Calculate slide based on frequency...
+    this.#wavelength = sampleRate / this.#frequency;
     this.#futureWavelength = this.#wavelength;
     this.#duration = duration;
     this.#attack = attack;
@@ -58,9 +59,11 @@ export default class Synth {
       this.#futureWavelength = sampleRate / tone;
       this.#wavelengthUpdatesTotal = duration * sampleRate;
       this.#wavelengthUpdatesLeft = this.#wavelengthUpdatesTotal;
+      console.log("Updates left:", this.#wavelengthUpdatesLeft);
       this.#wavelengthUpdateSlice =
         (this.#futureWavelength - this.#wavelength) /
         this.#wavelengthUpdatesTotal;
+      console.log("WL Update slice:", this.#wavelengthUpdateSlice);
     }
     if (typeof volume === "number") {
       this.#futureVolume = volume;
@@ -102,15 +105,19 @@ export default class Synth {
       // TODO: If I have the current wavelength value and also a
       // #futureWavelength and this.#wavelengthUpdatesTotal then how can
       // I update the current wavelength below to to a linear interpolation
-      const t =
-        (this.#wavelengthUpdatesTotal - this.#wavelengthUpdatesLeft) /
-        this.#wavelengthUpdatesTotal;
+      //const t =
+      //  (this.#wavelengthUpdatesTotal - this.#wavelengthUpdatesLeft) /
+      //  this.#wavelengthUpdatesTotal;
 
       // Perform the linear interpolation
       // this.#wavelength =
       // this.#wavelength * (1 - t) + this.#futureWavelength * t;
 
-      this.#wavelength += this.#wavelengthUpdateSlice; //lerp(this.#wavelength, this.#futureWavelength, t);
+      this.#wavelength += this.#wavelengthUpdateSlice;
+
+      // console.log(this.#wavelength);
+      
+      //lerp(this.#wavelength, this.#futureWavelength, t);
 
       this.#wavelengthUpdatesLeft -= 1;
     }
@@ -147,6 +154,7 @@ export default class Synth {
       //if (this.#step >= this.#wavelength * 2) {
       //  this.#step = 0;
       //}
+
     } else if (this.#type === "triangle") {
       // Triangle Wave
       const stepSize = 4 / this.#wavelength;
