@@ -121,7 +121,7 @@ alias down 'gnome-randr modify --rotate inverted eDP-1 > /dev/null 2>&1 && sleep
 
 alias prune 'docker system prune -a --volumes'
 
-alias system 'foot -W 180x60 bpytop'
+alias system 'foot -W 180x60 bpytop &'
 
 function flip
     set rotation (gnome-randr query | grep -o "rotation: [a-z]*" | cut -d' ' -f2)
