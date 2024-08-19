@@ -265,7 +265,7 @@ const octaveTheme = [
 
 const { floor, ceil, min } = Math;
 
-let scope = 64;
+let scope = 128;
 let scopeTrim = 0;
 
 let projector = false;
