@@ -267,33 +267,33 @@ export class Pen {
       }
     }
 
+    // window.addEventListener("touchstart", (e) => {
+    //   console.log("🟢 Touch start!", e, navigator.maxTouchPoints);
+    // });
+
+    // window.addEventListener("touchend", (e) => {
+    //   console.log("🔴 Touch end!", e);
+    // });
+
     // ***Lift***
-    window.addEventListener("pointerup", (e) => {
+    function up(e) {
       const pointerId = getPointerId(e);
       const pointer = pen.pointers[pointerId];
-
       if (!pointer) return;
-
-      // console.log(pointer.drawing, pointer.pointerIndex);
-
       if (pointer.drawing) pen.#event("lift", pointer);
-
       pointer.drawing = false;
-
       pointer.dragBox = undefined;
-
       pen.penCursor = true;
       if (e.pointerType !== "mouse") pen.penCursor = false;
-
       // Delete pointer only if we are using touch.
       if (e.pointerType === "touch" || e.pointerType === "pen") {
-        delete this.pointers[pointerId];
-        if (keys(this.pointers).length === 0) this.pointerCount = 0;
+        delete pen.pointers[pointerId];
+        if (keys(pen.pointers).length === 0) pen.pointerCount = 0;
       }
+    }
 
-      // if (debug)
-      // console.log("Removed pointer by ID:", e.pointerId, this.pointers);
-    });
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
 
     // Automatically dispatch a pointer release when hidden.
     document.addEventListener("visibilitychange", function () {
