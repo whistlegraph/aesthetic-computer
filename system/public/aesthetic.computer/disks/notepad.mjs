@@ -300,9 +300,11 @@ function boot({ params, api, colon, ui, screen, fps }) {
 // function sim({ sound }) {
 // }
 
-function paint({ wipe, ink, write, screen, sound, api }) {
+function sim({ sound, simCount }) {
   sound.speaker?.poll();
+}
 
+function paint({ wipe, ink, write, screen, sound, api }) {
   const active = orderedByCount(sounds);
 
   let bg;
@@ -431,17 +433,12 @@ function paint({ wipe, ink, write, screen, sound, api }) {
     buttonNotes.forEach((note) => {
       if (buttons[note]) {
         buttons[note].paint((btn) => {
-          // if (note === "+c") {
-          // console.log("Active:", active[active.length - 1]?.toLowerCase());
-          // }
-
           let color;
 
           if (
             (!slide && btn.down) ||
-            (btn.down &&
-              slide &&
-              active[active.length - 1]?.toLowerCase() === note)
+            (btn.down && slide) //&&
+            /*active[active.length - 1]?.toLowerCase() === note*/
           ) {
             color = "maroon";
           } else {
@@ -877,6 +874,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
 
         const buttonNote =
           (activeOctave === octave ? "" : "+") + note.toLowerCase();
+
         if (buttons[buttonNote]) buttons[buttonNote].down = true;
 
         const active = orderedByCount(sounds);

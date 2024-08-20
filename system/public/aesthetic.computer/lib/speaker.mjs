@@ -22,9 +22,9 @@ const { abs, round } = Math;
 // TODO: Use parameters to change properties of square over time and eventually add more nodes.
 
 // Global reverb constants! 
-const delayTime = 0.2; // 200ms delay
-const feedback = 0.5;  // 50% feedback
-const mix = 0.3;       // 30% wet/dry mix
+const delayTime = 0.1; // 200ms delay
+const feedback = 0.4;  // 50% feedback
+const mix = 0.2;       // 30% wet/dry mix
 
 class SoundProcessor extends AudioWorkletProcessor {
   // TODO: Fix current Firefox bug with private fields: https://bugzilla.mozilla.org/show_bug.cgi?id=1435826
