@@ -3,13 +3,13 @@
 
 /* #region 🏁 TODO 
   --- 🏁 pre-launch
-  - [🍪] add handle creation / handle support for sotce-net users
-    - [-] tapping the user's email address should allow them to alter / reset
-         email even after initial verification...
+  - [🍪] delete all existing subscriptions in stripe and resubscribe with a test
+         user
+  - [] add handle creation / handle support for sotce-net users
     - [] there should be a 'create handle' button / (a dedicated handle space)
     - [] there should be a 'write a page' button
                            'compose' 
-                           'write'
+                           'write' 
          that appears once a handle has been created
       - [] this should prompt the user to make a handle
         - [] once a handle is made there should also be a way to change the handle
@@ -36,6 +36,8 @@
   --- 🚩 post launch / next launch
   - [] How can I do shared reader cursors / co-presence somehow?
   + Done
+  - [x] tapping the user's email address should allow them to alter / reset
+        email even after initial verification...
   - [x] add cookie favicon which switches if the user is logged in...
   - [x] Account deletion.
   - [x] Implement a DOM structure for these layouts.
@@ -210,6 +212,14 @@ export const handler = async (event, context) => {
             }
             #gate #cookie.interactive {
               cursor: pointer;
+              transition: 0.2s ease-out transform;
+            }
+            #gate #cookie.interactive:hover {
+              transform: scale(0.99);
+            }
+            #gate #cookie.interactive:active {
+              transform: scale(0.96);
+              transition: 0.13s ease-out transform;
             }
             #gate h1 {
               font-weight: normal;
@@ -256,6 +266,13 @@ export const handler = async (event, context) => {
               background: rgb(255, 235, 183);
               transform: translate(-1px, 1px);
             }
+            #garden {
+              padding-left: 1em;
+              padding-top: 1em;
+            }
+            #email {
+              color: black;
+            }
             #delete-account {
               color: black;
               position: absolute;
@@ -267,10 +284,6 @@ export const handler = async (event, context) => {
             #logout-wrapper {
               position: relative;
             }
-            /* #garden {
-              position: absolute;
-              z-index: 0;
-            } */
             #cookie-menu {
               position: absolute;
               top: 0;
@@ -278,6 +291,14 @@ export const handler = async (event, context) => {
               width: 120px;
               user-select: none;
               cursor: pointer;
+              transition: 0.2s ease-out transform;
+            }
+            #cookie-menu:hover {
+              transform: scale(0.97);
+            }
+            #cookie-menu:active {
+              transform: scale(0.93);
+              transition: 0.13s ease-out transform;
             }
             #prompt {
               font-size: 22px;
@@ -356,14 +377,14 @@ export const handler = async (event, context) => {
             const gateElements = {};
 
             function gate(status, user, subscription) {
-              console.log(
-                "🌒 Gate:",
-                status,
-                "user:",
-                user,
-                "subscription:",
-                subscription,
-              );
+              // console.log(
+              //   "🌒 Gate:",
+              //   status,
+              //   "user:",
+              //   user,
+              //   "subscription:",
+              //   subscription,
+              // );
               let message,
                 buttons = [];
 
@@ -390,7 +411,7 @@ export const handler = async (event, context) => {
               }
 
               function genWelcomeMessage() {
-                return "hello <span id='email'>" + user.email + "</span>";
+                return "hello <a href='' id='email'>" + user.email + "</a>";
               }
 
               if (status !== "logged-out") {
@@ -405,7 +426,7 @@ export const handler = async (event, context) => {
                 const del = cel("a");
                 del.id = "delete-account";
                 del.innerText = "delete account";
-                del.href = "#";
+                del.href = "";
 
                 del.onclick = function (e) {
                   e.preventDefault();
@@ -456,45 +477,7 @@ export const handler = async (event, context) => {
                 h2.innerText = "awaiting email verification...";
 
                 const rs = cel("button");
-                rs.onclick = function resend() {
-                  clearTimeout(verificationTimeout);
-                  console.log("📧 Resending...");
-                  const email = prompt(
-                    "Resend verification email to?",
-                    user.email,
-                  );
-
-                  userRequest("POST", "/api/email", {
-                    name: email,
-                    email,
-                    tenant: "sotce",
-                  })
-                    .then(async (res) => {
-                      if (res.status === 200) {
-                        console.log("📧 Email verification resent...", res);
-                        alert("📧 Verification resent!");
-
-                        // Replace signed in email...
-                        const emailEl = document.getElementById("email");
-                        emailEl.innerHTML = email;
-
-                        try {
-                          await auth0Client.getTokenSilently({
-                            cacheMode: "off",
-                          });
-                          user = await auth0Client.getUser();
-                          console.log("🎇 New user is...", user);
-                        } catch (err) {
-                          console.log("Error retrieving uncached user.");
-                        }
-                      }
-                      fetchUser(email);
-                    })
-                    .catch((err) => {
-                      alert("Email verification error.");
-                      console.error("🔴 📧 Email verification error...", err);
-                    });
-                };
+                rs.onclick = resend;
                 rs.innerText = "resend?";
                 rs.classList.add("hidden");
                 buttons.push(rs);
@@ -511,9 +494,6 @@ export const handler = async (event, context) => {
                         user.email_verified = u.email_verified;
                         const entered = await subscribed();
                         if (entered) {
-                          // TODO: This garden should alter the existing gate
-                          //       which was already constructed.
-
                           garden(entered, user);
                         } else {
                           if (!embedded) {
@@ -574,6 +554,11 @@ export const handler = async (event, context) => {
               curtain.appendChild(g);
               img.onload = function () {
                 wrapper.appendChild(curtain);
+
+                const email = document.getElementById("email");
+                if (email)
+                  email.onclick = (e) =>
+                    resend(e, status === "unverified" ? undefined : "change");
               };
 
               img.src = asset(
@@ -593,7 +578,7 @@ export const handler = async (event, context) => {
               g.id = "garden";
 
               // TODO: Add a blog post here to the garden layout.
-              g.innerText = "welcome...";
+              g.innerText = "Hello...";
 
               const cookie = cel("img");
               cookie.id = "cookie-menu";
@@ -628,6 +613,16 @@ export const handler = async (event, context) => {
             let isAuthenticated = false;
             let fetchUser;
             let user;
+
+            async function retrieveUncachedUser() {
+              try {
+                await auth0Client.getTokenSilently({ cacheMode: "off" });
+                user = await auth0Client.getUser();
+                // console.log("🎇 New user is...", user);
+              } catch (err) {
+                console.log("Error retrieving uncached user.");
+              }
+            }
 
             const auth0Client = await window.auth0.createAuth0Client({
               domain: "${AUTH0_DOMAIN}",
@@ -749,21 +744,13 @@ export const handler = async (event, context) => {
                 ? window.sotceUSER
                 : await auth0Client.getUser();
               // console.log("🪷 Got user:", user);
-              if (!user.email_verified) {
-                try {
-                  await auth0Client.getTokenSilently({ cacheMode: "off" });
-                  user = await auth0Client.getUser();
-                  console.log("🎇 New user is...", user);
-                } catch (err) {
-                  console.log("Error retrieving uncached user.");
-                }
-              }
+              if (!user.email_verified) await retrieveUncachedUser();
               if (!user.email_verified) {
                 gate("unverified", user);
               } else {
                 const entered = await subscribed();
                 if (entered) {
-                  console.log("🚪", entered);
+                  // console.log("🚪", entered);
                   garden(entered, user);
                 } else {
                   console.log("Entered:", entered);
@@ -803,7 +790,7 @@ export const handler = async (event, context) => {
               const response = await fetch("/sotce-net/subscribe", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: user.email }),
+                body: JSON.stringify({ email: user.email, sub: user.sub }),
               });
               if (response.ok) {
                 const session = await response.json();
@@ -891,6 +878,47 @@ export const handler = async (event, context) => {
               } else console.log("🔐 Already logged out!");
             }
 
+            function resend(e, type) {
+              e?.preventDefault();
+              clearTimeout(verificationTimeout);
+
+              const promptText =
+                type === "change"
+                  ? "Change email to?"
+                  : "Resend verification email to?";
+
+              const email = prompt(promptText, user.email);
+              if (!email) return;
+              console.log("📧 Resending...", email);
+
+              userRequest("POST", "/api/email", {
+                name: email,
+                email,
+                tenant: "sotce",
+              })
+                .then(async (res) => {
+                  if (res.status === 200) {
+                    console.log("📧 Email verification sent...", res);
+
+                    if (type !== "change") {
+                      alert("📧 Verification email sent!");
+                      const emailEl = document.getElementById("email");
+                      emailEl.innerHTML = email;
+                      await retrieveUncachedUser();
+                      fetchUser(email);
+                    } else {
+                      window.location.reload();
+                    }
+                  } else {
+                    throw new Error(res.code);
+                  }
+                })
+                .catch((err) => {
+                  alert("Email verification error.");
+                  console.error("🔴 📧 Email verification error...", err);
+                });
+            }
+
             // Jump to Aesthetic Computer.
             function aesthetic() {
               let href = dev
@@ -955,6 +983,7 @@ export const handler = async (event, context) => {
             window.logout = logout;
             window.cancel = cancel;
             window.signup = signup;
+            window.resend = resend;
           </script>
         </body>
       </html>
@@ -975,7 +1004,7 @@ export const handler = async (event, context) => {
         redirectPath,
       );
 
-      const { email } = JSON.parse(event.body);
+      const { email, sub } = JSON.parse(event.body);
 
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
@@ -984,6 +1013,7 @@ export const handler = async (event, context) => {
         customer_email: email,
         success_url: `${event.headers.origin}/${redirectPath}?notice=success`,
         cancel_url: `${event.headers.origin}/${redirectPath}?notice=cancel`,
+        metadata: { sub },
       });
 
       return respond(200, { id: session.id });
@@ -997,13 +1027,21 @@ export const handler = async (event, context) => {
     if (!user) return respond(401, { message: "Unauthorized user." });
 
     const email = user.email;
+    const sub = user.sub;
     let subscription;
 
     // Then, make sure they are subscribed.
     try {
       const stripe = Stripe(key);
       // Fetch customer by email
-      const customers = await stripe.customers.list({ email, limit: 1 });
+      // const customers = await stripe.customers.list({ email, limit: 1 });
+
+      // Fetch customer by user ID from metadata
+      const customers = await stripe.customers.list({
+        limit: 1,
+        metadata: { sub },
+      });
+
       if (customers.data.length === 0) {
         return respond(200, { subscribed: false });
       }
@@ -1012,7 +1050,7 @@ export const handler = async (event, context) => {
       // Fetch subscriptions for the customer
       const subscriptions = await stripe.subscriptions.list({
         customer: customer.id,
-        status: "all",
+        status: "active", // Only find the first active subscription...
         limit: 1,
       });
       subscription = subscriptions.data.find((sub) =>
