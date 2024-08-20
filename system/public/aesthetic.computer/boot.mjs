@@ -338,69 +338,74 @@ window.addEventListener("message", receive);
 // TODO: Test this to make sure it's skipped in the native apps,
 //       and factor it out. 24.02.26.19.29
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import {
-  getMessaging,
-  onMessage,
-  getToken,
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging.js";
+try {
+  const { initializeApp } = await import(
+    "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"
+  );
 
-function initNotifications() {
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  const firebaseConfig = {
-    apiKey: "AIzaSyBZJ4b5KaHUW0q__FDUwHPrDd0NX2umJ3A",
-    authDomain: "aesthetic-computer.firebaseapp.com",
-    projectId: "aesthetic-computer",
-    storageBucket: "aesthetic-computer.appspot.com",
-    messagingSenderId: "839964586768",
-    appId: "1:839964586768:web:466139ee473df1954ceb95",
-  };
+  const { getMessaging, onMessage, getToken } = await import(
+    "https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging.js"
+  );
 
-  const app = initializeApp(firebaseConfig);
-  const messaging = getMessaging(app);
+  function initNotifications() {
+    // Your web app's Firebase configuration
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    const firebaseConfig = {
+      apiKey: "AIzaSyBZJ4b5KaHUW0q__FDUwHPrDd0NX2umJ3A",
+      authDomain: "aesthetic-computer.firebaseapp.com",
+      projectId: "aesthetic-computer",
+      storageBucket: "aesthetic-computer.appspot.com",
+      messagingSenderId: "839964586768",
+      appId: "1:839964586768:web:466139ee473df1954ceb95",
+    };
 
-  getToken(messaging, {
-    vapidKey:
-      "BDEh3JDD1xZo7eQU00TgsYb_o8ENJlpU-ovbZzWoCOu4AOeFJD8PVbZ3pif_7rMEk65Uj00-lwdXgc3qJVLp4ys",
-  })
-    .then((token) => {
-      if (token) {
-        // Send the token to your server and update the UI if necessary
-        function subscribe(token, topic, then) {
-          fetch("/api/subscribe-to-topic", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token, topic }),
-          })
-            .then((response) => {
-              if (!response.ok) throw new Error("Bad response.");
-              return response.json(); // Parse the JSON in the response
-            })
-            .then((data) => {
-              console.log("📶 Subscribed to:", data.topic);
-              then?.(); // Subscribe to another topic if necessary.
-            })
-            .catch((error) => {
-              console.error("🚫 Topic subscription error:", error);
-            });
-        }
+    const app = initializeApp(firebaseConfig);
+    const messaging = getMessaging(app);
 
-        subscribe(token, "scream", () => subscribe(token, "mood"));
-
-        onMessage(messaging, (payload) => {
-          console.log(
-            "🗨️ Client notification received. ",
-            payload.notification,
-          );
-        });
-      } else {
-        console.warn("🔔 No registration token available.");
-      }
+    getToken(messaging, {
+      vapidKey:
+        "BDEh3JDD1xZo7eQU00TgsYb_o8ENJlpU-ovbZzWoCOu4AOeFJD8PVbZ3pif_7rMEk65Uj00-lwdXgc3qJVLp4ys",
     })
-    .catch((err) => {
-      // console.warn("🔔 An error occurred while retrieving token.", err);
-    });
-}
+      .then((token) => {
+        if (token) {
+          // Send the token to your server and update the UI if necessary
+          function subscribe(token, topic, then) {
+            fetch("/api/subscribe-to-topic", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token, topic }),
+            })
+              .then((response) => {
+                if (!response.ok) throw new Error("Bad response.");
+                return response.json(); // Parse the JSON in the response
+              })
+              .then((data) => {
+                console.log("📶 Subscribed to:", data.topic);
+                then?.(); // Subscribe to another topic if necessary.
+              })
+              .catch((error) => {
+                console.error("🚫 Topic subscription error:", error);
+              });
+          }
 
-if (!previewOrIcon && !sandboxed) initNotifications();
+          subscribe(token, "scream", () => subscribe(token, "mood"));
+
+          onMessage(messaging, (payload) => {
+            console.log(
+              "🗨️ Client notification received. ",
+              payload.notification,
+            );
+          });
+        } else {
+          console.warn("🔔 No registration token available.");
+        }
+      })
+      .catch((err) => {
+        // console.warn("🔔 An error occurred while retrieving token.", err);
+      });
+  }
+
+  if (!previewOrIcon && !sandboxed) initNotifications();
+} catch (err) {
+  console.warn("🔥 Could not initialize firebase notifications:", err);
+}

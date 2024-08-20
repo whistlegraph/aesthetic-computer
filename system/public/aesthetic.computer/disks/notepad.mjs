@@ -59,8 +59,6 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
-  - [*] Fix 5 finger touch bug.
-  - [-] Fix slide mode.
   - [] Add perc buttons to ui interface.
   - [-] Add scale selection with visual hiking paths. (Color themes).
     - [] Ghost trails.
@@ -127,6 +125,8 @@ TODO: 💮 Daisy
   - [] Leave out all options from synth / make sensible defaults first.
   - [] Add 'scale' and 'rotation' to `write`.
   + Done
+  - [x] Fix slide mode.
+  - [x] Fix 5 finger touch bug.
   - [x] Add basic percussion with kick, snare and hi-hat on space, shift and control.
   - [x] Add keyboard and button preview for second octave.
   - [x] Add better mixing when multiple keys are being pressed.

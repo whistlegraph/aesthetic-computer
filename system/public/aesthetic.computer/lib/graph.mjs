@@ -249,8 +249,10 @@ function findColor() {
   return args;
 }
 
+// TODO: How could I convert from 0->1 and 0->255 with no side effects?
+
 function computeAlpha(alpha) {
-  if (alpha >= 0 && alpha <= 1) alpha = round(alpha * 255);
+  if (alpha > 0 && alpha <= 1) alpha = round(alpha * 255);
   return alpha;
 }
 
