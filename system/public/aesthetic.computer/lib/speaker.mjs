@@ -24,7 +24,7 @@ const { abs, round } = Math;
 // Global reverb constants! 
 const delayTime = 0.1; // 200ms delay
 const feedback = 0.4;  // 50% feedback
-const mix = 0.2;       // 30% wet/dry mix
+const mix = 0.25;       // 30% wet/dry mix
 
 class SoundProcessor extends AudioWorkletProcessor {
   // TODO: Fix current Firefox bug with private fields: https://bugzilla.mozilla.org/show_bug.cgi?id=1435826
