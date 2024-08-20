@@ -3,8 +3,6 @@
 
 /* #region 🏁 TODO 
   --- 🏁 pre-launch
-  - [🍪] delete all existing subscriptions in stripe and resubscribe with a test
-         user
   - [] add handle creation / handle support for sotce-net users
     - [] there should be a 'create handle' button / (a dedicated handle space)
     - [] there should be a 'write a page' button
@@ -36,6 +34,8 @@
   --- 🚩 post launch / next launch
   - [] How can I do shared reader cursors / co-presence somehow?
   + Done
+  - [x] delete all existing subscriptions in stripe and resubscribe with a test
+         user
   - [x] tapping the user's email address should allow them to alter / reset
         email even after initial verification...
   - [x] add cookie favicon which switches if the user is logged in...
@@ -1006,14 +1006,37 @@ export const handler = async (event, context) => {
 
       const { email, sub } = JSON.parse(event.body);
 
+      // Search for the customer by the metadata field 'sub'
+
+      const customers = await stripe.customers.search({
+        query: `metadata['sub']:'${sub}'`,
+      });
+
+      let customer;
+
+      if (customers.data.length > 0) {
+        // Customer found, optionally update metadata
+        // customer = await stripe.customers.update(customers.data[0].id, {
+        //  metadata: { sub },
+        // });
+        customer = customers.data[0];
+      } else {
+        // Customer doesn't exist, create a new one
+        customer = await stripe.customers.create({
+          email: email,
+          metadata: { sub },
+        });
+      }
+
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         mode: "subscription",
         line_items: [{ price: priceId, quantity: 1 }],
-        customer_email: email,
+        // customer_email: email,
+        customer: customer.id, // Attach the existing or newly created customer
         success_url: `${event.headers.origin}/${redirectPath}?notice=success`,
         cancel_url: `${event.headers.origin}/${redirectPath}?notice=cancel`,
-        metadata: { sub },
+        // metadata: { sub },
       });
 
       return respond(200, { id: session.id });
@@ -1033,13 +1056,12 @@ export const handler = async (event, context) => {
     // Then, make sure they are subscribed.
     try {
       const stripe = Stripe(key);
-      // Fetch customer by email
+      // Fetch customer by email [deprecated in favor of storing user id (sub)]
       // const customers = await stripe.customers.list({ email, limit: 1 });
 
-      // Fetch customer by user ID from metadata
-      const customers = await stripe.customers.list({
-        limit: 1,
-        metadata: { sub },
+      // Fetch customer by user ID (sub) from metadata
+      const customers = await stripe.customers.search({
+        query: "metadata['sub']:'" + sub + "'",
       });
 
       if (customers.data.length === 0) {
@@ -1057,7 +1079,7 @@ export const handler = async (event, context) => {
         sub.items.data.some((item) => item.price.product === productId),
       );
     } catch (err) {
-      console.error("Error fetching subscription status:", error);
+      console.error("Error fetching subscription status:", err);
       return respond(500, { error: "Failed to fetch subscription status" });
     }
 
