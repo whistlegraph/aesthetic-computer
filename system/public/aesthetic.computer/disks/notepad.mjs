@@ -884,7 +884,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
 
         if (slide && active.length > 0) {
           // TODO: Fix slide here... 24.08.16.06.18
-          console.log("Fix slide...", active[0], sounds[active[0]]?.sound, tone, key);
+          //console.log("Fix slide...", active[0], sounds[active[0]]?.sound, tone, key);
 
           sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
 
