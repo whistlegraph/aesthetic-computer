@@ -4,7 +4,8 @@
 /* #region 🏁 TODO 
   --- 🏁 pre-launch
   - [] add handle creation / handle support for sotce-net users
-    - [] there should be a 'create handle' button / (a dedicated handle space)
+    - [*] there should be a 'create handle' button / (a dedicated handle space)
+      - [] where does it go?
     - [] there should be a 'write a page' button
                            'compose' 
                            'write' 
@@ -523,6 +524,7 @@ export const handler = async (event, context) => {
                 message = genWelcomeMessage();
                 buttons.push(genSubscribeButton());
               } else if (status === "subscribed") {
+                // TODO: 🙆 Add 'create handle' button here.
                 message = genWelcomeMessage();
                 if (subscription.until === "recurring") {
                   h2.innerText =
@@ -531,6 +533,7 @@ export const handler = async (event, context) => {
                   cb.innerText = "unsubscribe";
                   cb.onclick = cancel;
                   buttons.push(cb);
+
                 } else {
                   h2.innerText =
                     "Your subscription ends on " +
