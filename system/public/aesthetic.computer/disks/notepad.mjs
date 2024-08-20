@@ -300,9 +300,11 @@ function boot({ params, api, colon, ui, screen, fps }) {
 // function sim({ sound }) {
 // }
 
-function paint({ wipe, ink, write, screen, sound, api }) {
+function sim({ sound, simCount }) {
   sound.speaker?.poll();
+}
 
+function paint({ wipe, ink, write, screen, sound, api }) {
   const active = orderedByCount(sounds);
 
   let bg;
@@ -431,17 +433,12 @@ function paint({ wipe, ink, write, screen, sound, api }) {
     buttonNotes.forEach((note) => {
       if (buttons[note]) {
         buttons[note].paint((btn) => {
-          // if (note === "+c") {
-          // console.log("Active:", active[active.length - 1]?.toLowerCase());
-          // }
-
           let color;
 
           if (
             (!slide && btn.down) ||
-            (btn.down &&
-              slide &&
-              active[active.length - 1]?.toLowerCase() === note)
+            (btn.down && slide) //&&
+            /*active[active.length - 1]?.toLowerCase() === note*/
           ) {
             color = "maroon";
           } else {
@@ -877,6 +874,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
 
         const buttonNote =
           (activeOctave === octave ? "" : "+") + note.toLowerCase();
+
         if (buttons[buttonNote]) buttons[buttonNote].down = true;
 
         const active = orderedByCount(sounds);
@@ -884,8 +882,10 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
 
         if (slide && active.length > 0) {
           // TODO: Fix slide here... 24.08.16.06.18
-          console.log("Fix slide...");
+          //console.log("Fix slide...", active[0], sounds[active[0]]?.sound, tone, key);
+
           sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
+
           tonestack[key] = {
             count: Object.keys(tonestack).length,
             tone,
@@ -1067,8 +1067,7 @@ function paintSound(
   color,
   options = { noamp: false },
 ) {
-
-  const xStep = ceil(width / (waveform.length));
+  const xStep = ceil(width / waveform.length);
 
   const yMid = ceil(y + height / 2) + 1,
     yMax = ceil(height / 2);
