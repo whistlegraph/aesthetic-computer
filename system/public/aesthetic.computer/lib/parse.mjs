@@ -233,6 +233,7 @@ function addExportsToCode(code) {
     "paint",
     "boot",
     "act",
+    "sim",
     "meta",
     "brush",
     "preview",
