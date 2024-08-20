@@ -12,19 +12,63 @@
 */
 
 let voice;
+const notes = [
+  "c",
+  "c#",
+  "d",
+  "d#",
+  "e",
+  "f",
+  "f#",
+  "g",
+  "g#",
+  "a",
+  "a#",
+  "b",
+  "+c",
+  "+c#",
+  "+d",
+  "+d#",
+  "+e",
+  "+f",
+  "+f#",
+  "+g",
+  "+g#",
+  "+a",
+  "+a#",
+  "+b",
+];
 
-function paint({ wipe, ink, line, screen }) {
+const { abs, min } = Math;
+
+function paint({ wipe, ink, line, screen, pen, num }) {
   wipe(voice ? 150 : "gray");
-
   // TODO: Plot the tone axis with all notes, and show the current position
   //       under the pen.
+  const top = 24;
+  const height = screen.height - top - 8;
+  const stretch = notes.length;
+  const margin = 14;
+  const section = height / stretch;
+  notes.forEach((note, index) => {
+    const y = top + index * section + section / 2;
+    const sub = pen ? min(128, abs(pen.y - y)) : 0;
+    ink("white", 128 - sub).write(note, 6, y - 5);
+    ink("white", 128).line(12 + margin, y, screen.width - 12, y);
+  });
+  if (pen) ink("white").line(12 + margin, pen.y, screen.width - 12, pen.y);
 }
 
 function act({ event: e, sound }) {
   // Respond to user input here.
   if (e.is("touch:1")) {
     // TODO: Find where we are on the tone axis.
-    voice = sound.synth({ type: "sine", tone: "A4", attack: 0.005, duration: "🔁"});
+    voice = sound.synth({
+      type: "sine",
+      tone: "A4",
+      attack: 0.005,
+      duration: "🔁",
+    });
   }
 
   if (e.is("draw:1")) {
@@ -41,7 +85,7 @@ function act({ event: e, sound }) {
 // 📚 Library
 
 // function boot() {
- // Runs once at the start.
+// Runs once at the start.
 // }
 
 // function sim() {
