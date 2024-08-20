@@ -250,9 +250,15 @@ function findColor() {
 }
 
 // TODO: How could I convert from 0->1 and 0->255 with no side effects?
-
+// TODO: What's a good way for ink to accept different ranges of alpha?
+//       24.08.20.20.12
+// Current solution:
+// Any number from 0-><1 will use 0-> alpha. 
+//  - 1 and above will use 0->255.
+//  - 0 always bottoms out
+// Edge case near the 1 is manageable.
 function computeAlpha(alpha) {
-  if (alpha > 0 && alpha <= 1) alpha = round(alpha * 255);
+  if (alpha > 0 && alpha < 1) alpha = round(alpha * 255);
   return alpha;
 }
 
