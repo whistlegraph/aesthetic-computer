@@ -21,6 +21,11 @@ const { abs, round } = Math;
 // https://developer.mozilla.org/en-US/docs/Web/API/AudioWorkletNode/parameters
 // TODO: Use parameters to change properties of square over time and eventually add more nodes.
 
+// Global reverb constants! 
+const delayTime = 0.1; // 200ms delay
+const feedback = 0.4;  // 50% feedback
+const mix = 0.2;       // 30% wet/dry mix
+
 class SoundProcessor extends AudioWorkletProcessor {
   // TODO: Fix current Firefox bug with private fields: https://bugzilla.mozilla.org/show_bug.cgi?id=1435826
   #ticks;
@@ -39,6 +44,9 @@ class SoundProcessor extends AudioWorkletProcessor {
 
   #mixDivisor = 1;
 
+  #reverbLeft;
+  #reverbRight;
+
   constructor(options) {
     // if (options.processorOptions.debug) console.log("🔊 Sound Synthesis Worklet Started");
     // console.log("🎼 Sample rate:", sampleRate);
@@ -52,6 +60,9 @@ class SoundProcessor extends AudioWorkletProcessor {
     this.#ticks = this.#bpmInSec;
 
     volume.amount.val = 0.9; // Set global volume.
+
+    this.#reverbLeft = new Reverb(sampleRate, delayTime, feedback, mix);
+    this.#reverbRight = new Reverb(sampleRate, delayTime, feedback, mix);
 
     // Change BPM, or queue up an instrument note.
     this.port.onmessage = (e) => {
@@ -207,6 +218,8 @@ class SoundProcessor extends AudioWorkletProcessor {
 
         const amplitude = instrument.next(); // this.#queue.length;
 
+        // 😱 TODO: How can I mix reverb into the instrument here?
+
         output[0][s] += instrument.pan(0, amplitude);
         output[1][s] += instrument.pan(1, amplitude);
 
@@ -240,8 +253,16 @@ class SoundProcessor extends AudioWorkletProcessor {
 
       // if (this.#queue.length > 0) console.log(output[0][s], voices, this.#mixDivisor);
 
-      output[0][s] = volume.apply(output[0][s] / this.#mixDivisor);
-      output[1][s] = volume.apply(output[1][s] / this.#mixDivisor);
+
+      // Apply reverb to the amplitude
+      const rL = this.#reverbLeft.processSample(output[0][s]);
+      const rR = this.#reverbRight.processSample(output[1][s]);
+
+      output[0][s] = volume.apply(rL / this.#mixDivisor);
+      output[1][s] = volume.apply(rR / this.#mixDivisor);
+
+      // output[0][s] = volume.apply(output[0][s] / this.#mixDivisor);
+      // output[1][s] = volume.apply(output[1][s] / this.#mixDivisor);
 
       // Track the current amplitude of both channels, and get waveform data.
       ampLeft = abs(output[0][s]) > ampLeft ? abs(output[0][s]) : ampLeft;
@@ -302,3 +323,35 @@ registerProcessor("sound-processor", SoundProcessor);
 //   //return compressor(sample, maxAmplitude);
 //   return limiter(compressor(sample, maxAmplitude), maxAmplitude);
 // }
+
+class Reverb {
+    constructor(sampleRate, delayTime, feedback, mix) {
+        this.sampleRate = sampleRate;
+        this.delayTime = delayTime;
+        this.feedback = feedback;
+        this.mix = mix;
+        
+        // Convert delay time to samples
+        this.delaySamples = Math.floor(delayTime * sampleRate);
+        
+        // Initialize the delay buffer
+        this.delayBuffer = new Float32Array(this.delaySamples);
+        this.bufferIndex = 0;
+    }
+
+    processSample(inputSample) {
+        // Get the delayed sample from the buffer
+        const delayedSample = this.delayBuffer[this.bufferIndex];
+        
+        // Calculate the output sample (dry + wet mix)
+        const outputSample = (inputSample * (1 - this.mix)) + (delayedSample * this.mix);
+        
+        // Write the current sample + feedback into the buffer
+        this.delayBuffer[this.bufferIndex] = inputSample + (delayedSample * this.feedback);
+        
+        // Advance the buffer index
+        this.bufferIndex = (this.bufferIndex + 1) % this.delaySamples;
+        
+        return outputSample;
+    }
+}
