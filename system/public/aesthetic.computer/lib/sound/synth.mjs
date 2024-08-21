@@ -134,7 +134,7 @@ export default class Synth {
       if (this.#phase > 2 * Math.PI) {
          this.#phase -= 2 * Math.PI;
        }
-      /
+      
 value = Math.sin(this.#phase);
 /*
       const angle = (Math.PI * this.#step) / (this.#wavelength / 2);
