@@ -5148,7 +5148,7 @@ async function makeFrame({ data: { type, content } }) {
               if (pointer === "any") {
                 return name === data.name;
               } else {
-                return name === data.name && data.pointer === parseInt(pointer);
+                return name === data.name && data.index === parseInt(pointer);
               }
             } else {
               return name === data.name && data.isPrimary === true;
@@ -5162,7 +5162,6 @@ async function makeFrame({ data: { type, content } }) {
           // Always check to see if there was a tap on the corner.
           const { event: e, jump, send, sound, system, piece } = $api;
           let originalColor;
-
           let masked = false;
 
           if (e.is("touch:5") && piece !== "notepad") {
