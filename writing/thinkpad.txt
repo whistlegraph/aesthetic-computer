@@ -15,17 +15,22 @@ How to set up a Thinkpad for Aesthetic Computer development.
    6. Customize screen lock in `Privacy & Security`.
    7. Run `git clone https://github.com/whistlegraph/aesthetic-computer` to create
      `~/aesthetic-computer`.
-🟡 8. 🌟 Run `sudo -u me bash ~/aesthetic.computer/utilities/thinkpad.sh` to install
-         the fish shell and all other base system dependencies.
+🟡 8. 🌟 Run `sudo -u me bash ~/aesthetic.computer/utilities/thinkpad.sh` to
+         install the fish shell and all other base system dependencies.
    9. Log out and log back in.
   10. Run and set up Google Chrome.
-  11. Install 'https://extensions.gnome.org/extension/6099/paperwm/' from chrome.
+  11. Install 'https://extensions.gnome.org/extension/6099/paperwm/' from Chrome.
   12. Add Claude and ChatGPT to homescreen as Chrome shortcuts.
   13. Install Spotify in the 'Software' store.
 
 9. Add global keyboard shortcuts...
-  - 
+  9a.  Install `Gnome Tweaks` in `Software`, open
+       `Tweaks/Keyboard/Additional Layout Options/Caps Lock behavior`
+       and check `Make Caps Lock an additional Ctrl`.
+  -------------------------------------------
+  9b.  Set up... Ctrl+Super+Alt+F for 'fish'. 
 
 --- Aesthetic Computer Development / VS Code Setup ---
+
   1. Run 'start' from a fish shell. 
   2. Log in to VS Code?
