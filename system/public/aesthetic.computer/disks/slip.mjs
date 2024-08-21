@@ -20,7 +20,7 @@ const notes = ["", "+"].flatMap((octave) =>
 );
 
 const { abs, min, floor, pow } = Math;
-const top = 24;
+const top = 20;
 const margin = 14;
 const stretch = notes.length;
 let octave = "4";
@@ -39,10 +39,10 @@ function boot({ colon }) {
 }
 
 function paint({ wipe, ink, line, screen, pen, num, help: { choose } }) {
-  wipe(voice ? 150 : "gray");
+  wipe("gray");
   height = screen.height - top - 8;
   section = Math.round(height / stretch);
-  const hs = section / 2;
+  const hs = Math.round(section / 2);
 
   notes.forEach((note, i) => {
     const y = floor(top + i * section + hs);
@@ -56,15 +56,19 @@ function paint({ wipe, ink, line, screen, pen, num, help: { choose } }) {
         ink(200, 180, 100, 100).box(0, y - hs + 2, screen.width, section - 2);
       }
 
-      const cutoff = 160;
-      if (sub < cutoff) {
-        ink("white", 255 - sub).write(caps, x, y - 5);
+      if (pen) {
+        const cutoff = 140;
+        if (sub < cutoff) {
+          ink("white", 255 - sub).write(caps, x, y - 5);
+        } else {
+          ink("pink", 255 - cutoff).write(caps, x, y - 5);
+        }
       } else {
-        ink("pink", 255 - cutoff).write(caps, x, y - 5);
+        ink("white").write(caps, x, y - 5);
       }
 
       const sub2 = pen ? min(255, floor(pow(abs(pen.y - y), 1.4))) : 0;
-      if (sub2 < 255) ink("yellow", 255 - sub2).write(caps, x, y - 5);
+      if (pen && sub2 < 255) ink("yellow", 255 - sub2).write(caps, x, y - 5);
       // if (voice && sub2 < 255) ink("yellow", 255 - sub2).write(caps, 6, y - 5);
       // if (voice) ink("white").write(currentNote, 6, 18);
     } else {
@@ -84,7 +88,11 @@ function paint({ wipe, ink, line, screen, pen, num, help: { choose } }) {
     }
 
     ink("lime", 64).line(0, y - hs + 1, screen.width, y - hs + 1);
-    ink("red", 64).line(0, y - hs, screen.width, y - hs);
+    if (i !== 0) ink("red", 64).line(0, y - hs, screen.width, y - hs);
+
+    if (notes.length - 1 === i) {
+      ink("red", 64).line(0, y + hs - 1, screen.width, y + hs - 1);
+    }
   });
 
   ink("cyan", 64 + currentVolume * 128).line(
@@ -95,7 +103,7 @@ function paint({ wipe, ink, line, screen, pen, num, help: { choose } }) {
   );
 
   if (pen)
-    ink(voice ? "white" : "yellow").line(
+    ink(voice ? "magenta" : "yellow", 64 + currentVolume * 128).line(
       12 + margin,
       pen.y,
       screen.width - margin,
@@ -118,7 +126,7 @@ function act({ event: e, sound, screen }) {
     // TODO: Should the layout be in a central column?
 
     const hw = screen.width / 2;
-    const volume = (currentVolume = 1 - abs(hw - e.x) / hw);
+    const volume = (currentVolume = pow(1 - abs(hw - e.x) / hw, 0.8) || 0);
 
     voice = sound.synth({
       type: wave,
@@ -139,7 +147,7 @@ function act({ event: e, sound, screen }) {
         tone = octave + tone;
       }
       const hw = screen.width / 2;
-      const volume = (currentVolume = 1 - abs(hw - e.x) / hw);
+      const volume = (currentVolume = pow(1 - abs(hw - e.x) / hw, 0.8) || 0);
       voice.update({ tone, volume, duration: 0.05 });
     }
   }
@@ -154,7 +162,7 @@ function act({ event: e, sound, screen }) {
 // 📚 Library
 
 function mapNote(e) {
-  const hs = section / 2;
+  const hs = Math.round(section / 2);
   const firstY = floor(top + hs); // Check if below the first,
   if (e.y < firstY) return notes[0];
   const lastY = floor(top + (notes.length - 1) * section + hs); // Or past last
@@ -164,7 +172,7 @@ function mapNote(e) {
     const y = floor(top + i * section + hs);
     if (abs(e.y - y) < hs) return notes[i];
   }
-  return "A3"; // Unfound tone.
+  return "6A"; // Unfound tone.
 }
 
 // function sim() {
