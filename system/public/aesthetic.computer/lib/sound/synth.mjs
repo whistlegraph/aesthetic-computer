@@ -129,13 +129,14 @@ export default class Synth {
       // Sine Wave
 
       // Sine Wave using phase increment
-      // const increment = (2 * Math.PI * this.#frequency) / sampleRate;
-      // this.#phase += increment;
-      // if (this.#phase > 2 * Math.PI) {
-      //   this.#phase -= 2 * Math.PI;
-      // }
-      // value = Math.sin(this.#phase);
-
+      const increment = (2 * Math.PI * this.#frequency) / sampleRate;
+      this.#phase += increment;
+      if (this.#phase > 2 * Math.PI) {
+         this.#phase -= 2 * Math.PI;
+       }
+      /
+value = Math.sin(this.#phase);
+/*
       const angle = (Math.PI * this.#step) / (this.#wavelength / 2);
       value = Math.sin(angle);
       this.#step += 1;
@@ -150,7 +151,7 @@ export default class Synth {
 
       if (this.#step >= this.#wavelength) {
         this.#step = 0;
-      }
+      }*/
     } else if (this.#type === "sawtooth") {
       // Sawtooth Wave
       value = 2 * (this.#step / this.#wavelength) - 1;
