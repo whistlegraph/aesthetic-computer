@@ -20,7 +20,7 @@ const notes = ["", "+"].flatMap((octave) =>
 );
 
 const { abs, min, floor, pow } = Math;
-const top = 20;
+const top = 0;
 const margin = 14;
 const stretch = notes.length;
 let octave = "4";
@@ -31,6 +31,8 @@ let voice,
   height,
   section;
 
+export const nohud = true;
+
 function boot({ colon }) {
   const wavetypes = ["square", "sine", "triangle", "sawtooth", "noise-white"];
   wave = wavetypes.indexOf(colon[0]) > -1 ? colon[0] : wave;
@@ -40,7 +42,7 @@ function boot({ colon }) {
 
 function paint({ wipe, ink, line, screen, pen, num, help: { choose } }) {
   wipe("gray");
-  height = screen.height - top - 8;
+  height = screen.height - top;// - 8;
   section = Math.round(height / stretch);
   const hs = Math.round(section / 2);
 
@@ -126,7 +128,7 @@ function act({ event: e, sound, screen }) {
     // TODO: Should the layout be in a central column?
 
     const hw = screen.width / 2;
-    const volume = (currentVolume = pow(1 - abs(hw - e.x) / hw, 0.8) || 0);
+    const volume = (currentVolume = pow(1 - abs(hw - e.x) / hw, 0.6) || 0);
 
     voice = sound.synth({
       type: wave,
@@ -147,7 +149,7 @@ function act({ event: e, sound, screen }) {
         tone = octave + tone;
       }
       const hw = screen.width / 2;
-      const volume = (currentVolume = pow(1 - abs(hw - e.x) / hw, 0.8) || 0);
+      const volume = (currentVolume = pow(1 - abs(hw - e.x) / hw, 0.6) || 0);
       voice.update({ tone, volume, duration: 0.05 });
     }
   }
