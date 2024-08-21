@@ -22,6 +22,7 @@ const bleeps = [];
 let bg = 0;
 
 let grid, gridWidth, gridHeight;
+let wave = "square";
 
 class Bleep {
   button;
@@ -62,6 +63,7 @@ class Bleep {
     if (!this.needsBleep) return;
     this.needsBleep = false;
     this.sound = synth({
+      type: wave,
       tone: this.tone,
       duration: "🔁",
       decay: 0.99,
@@ -135,7 +137,11 @@ function buildBleeps($, bespokes) {
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot($) {
-  const { params, num, hud } = $;
+  const { params, colon, num, hud } = $;
+
+  // Add wavetype colon parameter.
+  const wavetypes = ["square", "sine", "triangle", "sawtooth", "noise-white"];
+  wave = wavetypes.indexOf(colon[0]) > -1 ? colon[0] : wave;
 
   (gridWidth = num.randIntRange(1, 6)), (gridHeight = num.randIntRange(1, 6));
 
