@@ -13,7 +13,7 @@ echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com
 dnf check-update
 
 # Install dependencies
-dnf install -y foot google-chrome code docker bpytop nvim starship emacs rust cargo xxd
+dnf install -y foot google-chrome code docker bpytop emacs rust cargo xxd
 # todo: mkcert as well?
 
 # Enable and start Docker service
@@ -35,6 +35,10 @@ source ~/.config/fish/config.fish
 cargo install gnome-randr
 
 # TODO: ❓ Could I programmaticaly add my system shortcuts here? 24.08.21.21.43
+
+brew install starship
+
+brew install nvim
 
 # Install fnm (Fast Node Manager)
 brew install fnm
