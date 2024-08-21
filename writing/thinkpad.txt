@@ -15,7 +15,7 @@ How to set up a Thinkpad for Aesthetic Computer development.
    6. Customize screen lock in `Privacy & Security`.
    7. Run `git clone https://github.com/whistlegraph/aesthetic-computer` to create
      `~/aesthetic-computer`.
-🟡 8. 🌟 Run `sudo bash ~/aesthetic.computer/utilities/thinkpad.sh` to install
+🟡 8. 🌟 Run `sudo -u me bash ~/aesthetic.computer/utilities/thinkpad.sh` to install
          the fish shell and all other base system dependencies.
    9. Log out and log back in.
   10. Run and set up Google Chrome.
