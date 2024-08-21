@@ -52,9 +52,9 @@ alias js 'vim (find . -name "*.js" -o -name "*.mjs" | sk -m -n !node_modules)'
 alias ff "vim (sk -c 'git ls-tree -r --name-only HEAD || ag -l -g \"\"')"
 
 # shortcuts for projects
-alias ac 'cd ~/Desktop/code/aesthetic-computer'
+alias ac 'cd ~/aesthetic-computer'
 
-alias ac-ssl '~/Desktop/code/aesthetic-computer/ssl-dev/fedora-install.fish'
+alias ac-ssl '~/aesthetic-computer/ssl-dev/fedora-install.fish'
 
 alias acc 'ac; ac-ssl; code .'
 
@@ -82,8 +82,8 @@ end
 
 alias start 'ac; ac-ssl; acd'
 
-alias acw 'cd ~/Desktop/code/aesthetic-computer/system; npm run watch'
-alias platform 'cd ~/Desktop/code/aesthetic-computer; npm run platform'
+alias acw 'cd ~/aesthetic-computer/system; npm run watch'
+alias platform 'cd ~/aesthetic-computer; npm run platform'
 
 # set default editor to nvim
 set -gx EDITOR emacs -nw
@@ -279,31 +279,3 @@ set -x HOST_IP (hostname -I | awk '{print $1}')
 
 # use tab to autocomplete the first suggestion
 bind \t complete-select-first
-
-# todo: watch for any creation of the .ssl file in the below directory,
-# and if the file exists then run...
-# ~/Desktop/code/aesthetic-computer/ssl-dev/fedora-install.fish --install-only
-# directory: ~/Desktop/code/aesthetic-computer/.ssl
-# and remove the .ssl file afterwards
-
-# Define the file to watch
-# set WATCH_FILE "~/Desktop/code/aesthetic-computer/.ssl"
-# Extract the directory from the file path
-# set WATCH_DIR (dirname (eval echo $WATCH_FILE))
-
-# Function to watch for .ssl file creation and run the install script
-# function watch_ssl
-#     while true
-#         # Use inotifywait to watch for file creation in the parent directory
-#         inotifywait -e create $WATCH_DIR
-#         if test -f (eval echo $WATCH_FILE)
-#             # Run the install script with --install-only flag
-#             fish ~/Desktop/code/aesthetic-computer/ssl-dev/fedora-install.fish --install-only
-#             # Remove the .ssl file after running the script
-#             rm (eval echo $WATCH_FILE)
-#         end
-#     end
-# end
-
-# Run the function in the background using nohup and disown
-#nohup fish -c "watch_ssl" > /dev/null 2>&1 & disown

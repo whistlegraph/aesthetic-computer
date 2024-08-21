@@ -4,13 +4,13 @@ import { join } from 'path';
 import { homedir } from 'os';
 
 // Resolve the file path to handle the '~' character
-const dirPath = join(homedir(), 'Desktop/code/aesthetic-computer/ssl-dev');
+const dirPath = join(homedir(), 'aesthetic-computer/ssl-dev');
 const filePath = join(dirPath, '.ssl');
 
 // Get the path to fish dynamically
 const fishPath = 'fish';
 
-const command = `${fishPath} ${join(homedir(), 'Desktop/code/aesthetic-computer/ssl-dev/fedora-install.fish')} --install-only`;
+const command = `${fishPath} ${join(homedir(), 'aesthetic-computer/ssl-dev/fedora-install.fish')} --install-only`;
 
 watch(dirPath, (eventType, filename) => {
   if (eventType === 'rename' && filename === '.ssl') {
