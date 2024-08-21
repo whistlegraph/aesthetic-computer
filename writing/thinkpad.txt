@@ -3,8 +3,10 @@ How to set up a Thinkpad for Aesthetic Computer development.
 --- System Setup ---
 
    1. Install Fedora using Fedora Media Writer.
-   2. Set the login / system user as 'me'. 
-   3. Change system background to a solid color, taken with system screenshot tool.
+   2. Set the login / system user as 'me' while going through the wizard.
+   3. Set the Device Name under `Settings/System/About`
+   3. Change system background to a solid color, taken with system screenshot tool
+      and configured in `Settings/Appearance`.
    4. Enable fractional scaling by entering
       `gsettings set org.gnome.mutter\
        experimental-features "['scale-monitor-framebuffer']"`
