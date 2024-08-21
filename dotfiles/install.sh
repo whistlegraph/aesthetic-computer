@@ -69,7 +69,7 @@ install_mkcert() {
 install_fonts() {
   mkdir -p ~/.local/share/fonts
   cd ~/.local/share/fonts
-  wget https://github.com/ryanoasis/nerd-fonts/releases/download/v2.1.0/FiraCode.zip 
+  wget https://github.com/ryanoasis/nerd-fonts/releases/download/v3.2.1/FiraCode.zip
   rm -rf FiraCode
   mkdir FiraCode
   unzip FiraCode.zip -d FiraCode 
