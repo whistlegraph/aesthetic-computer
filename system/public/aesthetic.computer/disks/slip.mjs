@@ -129,7 +129,7 @@ function act({ event: e, sound, screen }) {
     // TODO: Figure out volume based on x.
     // TODO: Should the layout be in a central column?
 
-    const volume = (currentVolume = pow(1 - abs(screen.width - e.x) / hw, 0.6) || 0);
+    const volume = (currentVolume = pow(1 - abs(screen.width - e.x) / screen.width, 0.6) || 0);
 
     voice = sound.synth({
       type: wave,
@@ -149,7 +149,7 @@ function act({ event: e, sound, screen }) {
       } else {
         tone = octave + tone;
       }
-      const volume = (currentVolume = pow(1 - abs(screen.width - e.x) / hw, 0.6) || 0);
+      const volume = (currentVolume = pow(1 - abs(screen.width - e.x) / screen.width, 0.6) || 0);
       voice.update({ tone, volume, duration: 0.05 });
     }
   }
