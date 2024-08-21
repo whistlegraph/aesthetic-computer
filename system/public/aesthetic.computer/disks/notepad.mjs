@@ -1036,11 +1036,11 @@ function setupButtons({ ui, screen, geo }) {
 
   const oscilloscopeBottom = 96;
 
-  if (totalRows * buttonHeight > screen.height - oscilloscopeBottom) {
-    buttonWidth = buttonHeight = ceil(
-      (screen.height - oscilloscopeBottom) / totalRows,
-    );
-  }
+  // if (totalRows * buttonHeight > screen.height - oscilloscopeBottom) {
+  // buttonWidth = buttonHeight = ceil(
+  //    (screen.height - oscilloscopeBottom) / totalRows,
+  //  );
+  // }
 
   buttonNotes.forEach((label, i) => {
     const row = floor(i / buttonsPerRow);
