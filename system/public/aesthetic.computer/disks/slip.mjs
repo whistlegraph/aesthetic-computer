@@ -170,9 +170,9 @@ function mapNote(e) {
   // Or inside...
   for (let i = 0; i < notes.length; i += 1) {
     const y = floor(top + i * section + hs);
-    if (abs(e.y - y) < hs) return notes[i];
+    if (abs(e.y - y) <= hs) return notes[i];
   }
-  return "6A"; // Unfound tone.
+  return "a"; // Unfound tone.
 }
 
 // function sim() {
