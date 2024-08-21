@@ -1,9 +1,9 @@
 # m4a-to-audio
 
 # Converts all m4a audio files in a directory to ogg and keeps the originals.
-# Usage: `python m4a-to-audio.py ogg /home/jas/Desktop/code/aesthetic-computer/system/public/assets/sounds`
-#        `python m4a-to-audio.py ogg /home/jas/Desktop/code/aesthetic-computer/system/public/assets/bgm`
-#        `python m4a-to-audio.py ogg /home/jas/Desktop/code/aesthetic-computer/system/public/assets/pruttipal/lnl`
+# Usage: `python m4a-to-audio.py ogg ~/aesthetic-computer/system/public/assets/sounds`
+#        `python m4a-to-audio.py ogg ~/aesthetic-computer/system/public/assets/bgm`
+#        `python m4a-to-audio.py ogg ~/aesthetic-computer/system/public/assets/pruttipal/lnl`
 import os
 import sys
 import subprocess

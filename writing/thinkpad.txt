@@ -1,0 +1,11 @@
+How to set up a Thinkpad for Aesthetic Computer development.
+
+1. Install Fedora using Fedora Media Writer.
+2. Set the login / system user as 'me'. 
+3. Change system background to a solid color, taken with system screenshot tool.
+4. Enable fractional scaling by entering `gsettings set org.gnome.mutter experimental-features "['scale-monitor-framebuffer']"`
+   and set it to `%150` in display settings.
+5. Run `sudo dnf upgrade --refresh` in a terminal to update the system.
+6. Disable automatic screen lock and lock screen notifications in Privacy & Security.
+7. Clone the aesthetic-computer repository into `~/aesthetic-computer`
+8. 

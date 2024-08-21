@@ -11,11 +11,11 @@ echo "[Unit]
 Description=Aesthetic Daemon Service
 
 [Service]
-ExecStart=/usr/bin/node /home/$username/Desktop/code/aesthetic-computer/daemon/daemon.js
+ExecStart=/usr/bin/node /home/$username/aesthetic-computer/daemon/daemon.js
 Restart=always
 Environment=NODE_ENV=production
 Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-WorkingDirectory=/home/$username/Desktop/code/aesthetic-computer/daemon/
+WorkingDirectory=/home/$username/aesthetic-computer/daemon/
 ExecReload=/bin/kill -HUP \$MAINPID
 
 [Install]
@@ -26,7 +26,7 @@ echo "[Unit]
 Description=Watch aesthetic daemon.js for changes
 
 [Path]
-PathChanged=/home/$username/Desktop/code/aesthetic-computer/daemon/daemon.js
+PathChanged=/home/$username/aesthetic-computer/daemon/daemon.js
 
 [Install]
 WantedBy=default.target" > ~/.config/systemd/user/aesthetic-daemon.path
@@ -35,7 +35,7 @@ WantedBy=default.target" > ~/.config/systemd/user/aesthetic-daemon.path
 systemctl --user daemon-reload
 
 # Ensure the script has execute permissions
-chmod +x /home/$username/Desktop/code/aesthetic-computer/ssl-dev/fedora-install.fish
+chmod +x /home/$username/aesthetic-computer/ssl-dev/fedora-install.fish
 
 # Enable the service and the path unit
 systemctl --user enable aesthetic-daemon.service
