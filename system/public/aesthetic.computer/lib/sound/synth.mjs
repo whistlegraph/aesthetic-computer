@@ -56,14 +56,11 @@ export default class Synth {
 
   update({ tone, volume, duration = 0.1 }) {
     if (typeof tone === "number" && tone > 0) {
-      this.#futureFrequency = /*sampleRate /*/ tone;
+      this.#futureFrequency = tone;
       this.#frequencyUpdatesTotal = duration * sampleRate;
       this.#frequencyUpdatesLeft = this.#frequencyUpdatesTotal;
-      // console.log("Updates left:", this.#frequencyUpdatesLeft);
       this.#frequencyUpdateSlice =
-        (this.#futureFrequency - this.#frequency) /
-        this.#frequencyUpdatesTotal;
-      // console.log("WL Update slice:", this.#frequencyUpdateSlice);
+        (this.#futureFrequency - this.#frequency) / this.#frequencyUpdatesTotal;
     }
     if (typeof volume === "number") {
       this.#futureVolume = volume;
@@ -132,20 +129,19 @@ export default class Synth {
       // Sine Wave
 
       // Sine Wave using phase increment
-      const increment = (2 * Math.PI * this.#frequency) / sampleRate;
-      this.#phase += increment;
-      if (this.#phase > 2 * Math.PI) {
-        this.#phase -= 2 * Math.PI;
+      // const increment = (2 * Math.PI * this.#frequency) / sampleRate;
+      // this.#phase += increment;
+      // if (this.#phase > 2 * Math.PI) {
+      //   this.#phase -= 2 * Math.PI;
+      // }
+      // value = Math.sin(this.#phase);
+
+      const angle = (Math.PI * this.#step) / (this.#wavelength / 2);
+      value = Math.sin(angle);
+      this.#step += 1;
+      if (this.#step >= this.#wavelength * 2) {
+        this.#step = 0;
       }
-      value = Math.sin(this.#phase);
-
-      //const angle = (Math.PI * this.#step) / (this.#wavelength / 2);
-      //value = Math.sin(angle);
-      //this.#step += 1;
-      //if (this.#step >= this.#wavelength * 2) {
-      //  this.#step = 0;
-      //}
-
     } else if (this.#type === "triangle") {
       // Triangle Wave
       const stepSize = 4 / this.#wavelength;
