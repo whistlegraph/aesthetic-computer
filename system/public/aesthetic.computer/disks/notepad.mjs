@@ -59,6 +59,7 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
+  - [] Add volume centroid control to bottoms with draggable changes.
   - [] Add perc buttons to ui interface.
   - [-] Add scale selection with visual hiking paths. (Color themes).
     - [] Ghost trails.
