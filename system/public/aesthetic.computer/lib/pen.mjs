@@ -29,6 +29,7 @@ class Pointer {
   device;
   pointerId;
   pointerIndex;
+  pointerNumber;
   isPrimary;
   button;
   untransformedPosition;
@@ -154,10 +155,11 @@ export class Pen {
         pointer.pointerId = pointerId;
 
         pointer.isPrimary = e.isPrimary;
-        pointer.pointerIndex = this.pointerCount;
+        pointer.pointerNumber = this.pointerCount;
         this.pointerCount += 1;
 
         pen.pointers[pointerId] = pointer;
+        pointer.pointerIndex = keys(pen.pointers).length - 1;
       } else {
         assign(pointer, point(e.x, e.y));
         pointer.px = pointer.x;
@@ -212,9 +214,10 @@ export class Pen {
         pointer.device = e.pointerType;
         pointer.pointerId = pointerId;
         pointer.isPrimary = e.isPrimary;
-        pointer.pointerIndex = this.pointerCount;
+        pointer.pointerNumber = this.pointerCount;
         this.pointerCount += 1;
         pen.pointers[pointerId] = pointer;
+        pointer.pointerIndex = keys(pen.pointers).length - 1;
       }
 
       assign(pointer, point(e.x, e.y));
@@ -413,8 +416,8 @@ export class Pen {
       device: pointer.device,
       id: pointer.pointerId,
       isPrimary: pointer.isPrimary,
-      // index: pointer.pointerIndex, // 0 based index of pointers.
-      pointer: pointer.pointerIndex + 1, // 1 based index of pointers.
+      index: pointer.pointerIndex + 1, // 0 based index of pointers.
+      pointer: pointer.pointerNumber + 1, // 1 based index of pointers.
       button: pointer.button,
       buttons: pointer.buttons,
       x: pointer.x,
