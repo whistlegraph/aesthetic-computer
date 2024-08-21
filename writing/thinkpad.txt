@@ -1,11 +1,29 @@
 How to set up a Thinkpad for Aesthetic Computer development.
 
-1. Install Fedora using Fedora Media Writer.
-2. Set the login / system user as 'me'. 
-3. Change system background to a solid color, taken with system screenshot tool.
-4. Enable fractional scaling by entering `gsettings set org.gnome.mutter experimental-features "['scale-monitor-framebuffer']"`
-   and set it to `%150` in display settings.
-5. Run `sudo dnf upgrade --refresh` in a terminal to update the system.
-6. Disable automatic screen lock and lock screen notifications in Privacy & Security.
-7. Clone the aesthetic-computer repository into `~/aesthetic-computer`
-8. 
+--- System Setup ---
+
+   1. Install Fedora using Fedora Media Writer.
+   2. Set the login / system user as 'me'. 
+   3. Change system background to a solid color, taken with system screenshot tool.
+   4. Enable fractional scaling by entering
+      `gsettings set org.gnome.mutter\
+       experimental-features "['scale-monitor-framebuffer']"`
+      and set it to `%150` in display settings.
+   5. Run `sudo dnf upgrade --refresh` in a terminal to update the system.
+   6. Customize screen lock in `Privacy & Security`.
+   7. Run `git clone https://github.com/whistlegraph/aesthetic-computer` to create
+     `~/aesthetic-computer`.
+🟡 8. 🌟 Run `sudo bash ~/aesthetic.computer/utilities/thinkpad.sh` to install
+         the fish shell and all other base system dependencies.
+   9. Log out and log back in.
+  10. Run and set up Google Chrome.
+  11. Install 'https://extensions.gnome.org/extension/6099/paperwm/' from chrome.
+  12. Add Claude and ChatGPT to homescreen as Chrome shortcuts.
+  13. Install Spotify in the 'Software' store.
+
+9. Add global keyboard shortcuts...
+  - 
+
+--- Aesthetic Computer Development / VS Code Setup ---
+  1. Run 'start' from a fish shell. 
+  2. Log in to VS Code?
