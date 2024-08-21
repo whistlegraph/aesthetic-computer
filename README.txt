@@ -35,6 +35,9 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** bleep ***
+  - [🟠] fix bleep held key bug...
+
 *** prompt ***
   - [] How should 'Paste' and 'Enter' appear / disappear in the main prompt
        and in bots?
