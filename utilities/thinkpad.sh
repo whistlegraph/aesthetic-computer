@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Install Fish shell
-dnf install -y fish
+sudo dnf install -y fish
 
 # Change the default shell to Fish
 chsh -s /usr/bin/fish
