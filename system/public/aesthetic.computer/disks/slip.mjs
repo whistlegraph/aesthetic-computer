@@ -58,16 +58,16 @@ function paint({ wipe, ink, line, screen, pen, num, help: { choose } }) {
         ink(200, 180, 100, 100).box(0, y - hs + 2, screen.width, section - 2);
       }
 
-      if (pen) {
+      //if (pen) {
         const cutoff = 140;
-        if (sub < cutoff) {
+        if (sub < cutoff && pen) {
           ink("white", 255 - sub).write(caps, x, y - 5);
         } else {
           ink("pink", 255 - cutoff).write(caps, x, y - 5);
         }
-      } else {
-        ink("white").write(caps, x, y - 5);
-      }
+      //} else {
+        //ink("white").write(caps, x, y - 5);
+      //}
 
       const sub2 = pen ? min(255, floor(pow(abs(pen.y - y), 1.4))) : 0;
       if (pen && sub2 < 255) ink("yellow", 255 - sub2).write(caps, x, y - 5);
@@ -155,7 +155,7 @@ function act({ event: e, sound, screen }) {
   }
 
   if (e.is("lift:1")) {
-    voice?.kill(0.35);
+    voice?.kill(0.1);
     currentNote = null;
     voice = null;
   }
