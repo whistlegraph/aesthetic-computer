@@ -7,7 +7,7 @@ dnf install -y fish
 chsh -s /usr/bin/fish
 
 # Run the Fish script to install other software
-fish thinkpad.fish
+fish ~/aesthetic-computer/utilities/thinkpad.fish
 
 echo "Fish shell installed, set as default, and additional software installed."
 
