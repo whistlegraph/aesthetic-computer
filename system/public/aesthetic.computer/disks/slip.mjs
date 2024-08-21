@@ -69,8 +69,8 @@ function paint({ wipe, ink, line, screen, pen, num, help: { choose } }) {
         //ink("white").write(caps, x, y - 5);
       //}
 
-      const sub2 = pen ? min(255, floor(pow(abs(pen.y - y), 1.4))) : 0;
-      if (pen && sub2 < 255) ink("yellow", 255 - sub2).write(caps, x, y - 5);
+      // const sub2 = pen ? min(255, floor(pow(abs(pen.y - y), 1.4))) : 0;
+      // if (pen && sub2 < 255) ink("yellow", 255 - sub2).write(caps, x, y - 5);
       // if (voice && sub2 < 255) ink("yellow", 255 - sub2).write(caps, 6, y - 5);
       // if (voice) ink("white").write(currentNote, 6, 18);
     } else {
@@ -97,12 +97,14 @@ function paint({ wipe, ink, line, screen, pen, num, help: { choose } }) {
     }
   });
 
-  ink("cyan", 64 + currentVolume * 128).line(
-    screen.width / 2,
-    0,
-    screen.width / 2,
-    screen.height,
-  );
+  if(pen) {
+    ink("cyan", 64 + currentVolume * 128).line(
+      pen.x,
+      0,
+      pen.x,
+      screen.height,
+    );
+  }
 
   if (pen)
     ink(voice ? "magenta" : "yellow", 64 + currentVolume * 128).line(
@@ -127,8 +129,7 @@ function act({ event: e, sound, screen }) {
     // TODO: Figure out volume based on x.
     // TODO: Should the layout be in a central column?
 
-    const hw = screen.width / 2;
-    const volume = (currentVolume = pow(1 - abs(hw - e.x) / hw, 0.6) || 0);
+    const volume = (currentVolume = pow(1 - abs(screen.width - e.x) / hw, 0.6) || 0);
 
     voice = sound.synth({
       type: wave,
@@ -148,14 +149,13 @@ function act({ event: e, sound, screen }) {
       } else {
         tone = octave + tone;
       }
-      const hw = screen.width / 2;
-      const volume = (currentVolume = pow(1 - abs(hw - e.x) / hw, 0.6) || 0);
+      const volume = (currentVolume = pow(1 - abs(screen.width - e.x) / hw, 0.6) || 0);
       voice.update({ tone, volume, duration: 0.05 });
     }
   }
 
   if (e.is("lift:1")) {
-    voice?.kill(0.1);
+    voice?.kill(0.25);
     currentNote = null;
     voice = null;
   }
