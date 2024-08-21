@@ -4709,7 +4709,7 @@ async function makeFrame({ data: { type, content } }) {
       });
 
       const pens = pointersValues.reduce((arr, value) => {
-        arr[value.pointerIndex] = value;
+        arr[value.pointerNumber] = value;
         return arr;
       }, []);
 
@@ -4718,7 +4718,7 @@ async function makeFrame({ data: { type, content } }) {
 
       $commonApi.pens = function (n) {
         if (n === undefined) return pens;
-        return help.findKeyAndValue(pointers, "pointerIndex", n - 1) || {};
+        return help.findKeyAndValue(pointers, "pointerNumber", n - 1) || {};
       };
 
       if (pointersValues.length > 1 && primaryPointer)
