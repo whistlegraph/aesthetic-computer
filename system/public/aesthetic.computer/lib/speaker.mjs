@@ -255,8 +255,8 @@ class SoundProcessor extends AudioWorkletProcessor {
 
 
       // Apply reverb to the amplitude
-      const rL = this.#reverbLeft.processSample(output[0][s]);
-      const rR = this.#reverbRight.processSample(output[1][s]);
+      const rL = output[0][s]; //this.#reverbLeft.processSample(output[0][s]);
+      const rR = output[1][s]; //this.#reverbRight.processSample(output[1][s]);
 
       output[0][s] = volume.apply(rL / this.#mixDivisor);
       output[1][s] = volume.apply(rR / this.#mixDivisor);
