@@ -22,16 +22,20 @@ How to set up a Thinkpad for Aesthetic Computer development.
       10a. Set `Preferred Ozone platform` to `Auto` in `chrome://flags`.
   11. Install 'https://extensions.gnome.org/extension/6099/paperwm/' from Chrome.
   12. Add Claude and ChatGPT to homescreen as Chrome shortcuts.
-  13. Install Spotify in the 'Software' store.
-
-9. Add global keyboard shortcuts...
-  9a.  Install `Gnome Tweaks` in `Software`, open
-       `Tweaks/Keyboard/Additional Layout Options/Caps Lock behavior`
-       and check `Make Caps Lock an additional Ctrl`.
-  -------------------------------------------
-  9b.  Set up... Ctrl+Super+Alt+F for 'fish'. 
+  13. Add global keyboard shortcuts...
+   13a.  Install `Gnome Tweaks` in `Software`, open
+        `Tweaks/Keyboard/Additional Layout Options/Caps Lock behavior`
+        and check `Make Caps Lock an additional Ctrl`.
+   13b. - Set up... Ctrl+Super+Alt+F for 'fish'. 
+        - And `Chrome` and `Screen Down / Left / Right / Up` and `System` and `ChatGPT`
+        - For Chrome app shortcuts use
+          `/opt/google/chrome/google-chrome --profile-directory=Default --app-id=`
+          where `--app-id=` value can be found in... `chrome://app-settings`
+  14. Install Spotify in the 'Software' store.
 
 --- Aesthetic Computer Development / VS Code Setup ---
 
-  1. Run 'start' from a fish shell. 
-  2. Log in to VS Code?
+  1. Run 'code' from a `fish` shell. 
+  2. Sign in to VS Code via GitHub and wait for settings to finish syncronizing.
+  3. Close `code` and run `start` from a `fish` shell.
+  4. Run `start` in a shell. 
