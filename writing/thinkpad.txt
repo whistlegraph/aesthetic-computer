@@ -1,6 +1,6 @@
 How to set up a Thinkpad for Aesthetic Computer development.
 
---- System Setup ---
+--- Operating System Setup ---
 
    1. Install Fedora using Fedora Media Writer.
    2. Set the login / system user as 'me' while going through the wizard.
@@ -15,29 +15,30 @@ How to set up a Thinkpad for Aesthetic Computer development.
    6. Customize screen lock in `Privacy & Security`.
    7. Run `git clone https://github.com/whistlegraph/aesthetic-computer` to create
      `~/aesthetic-computer`.
-🟡 8. 🌟 Run `sudo -u me bash ~/aesthetic.computer/utilities/thinkpad.sh` to
-         install the fish shell and all other base system dependencies.
-   9. Log out and log back in.
-  10. Run and set up Google Chrome.
+   8. Run `visudo` and uncomment the `%wheel ALL=(ALL) NOPASSWD: ALL` if desired.
+🟡 0. Run `sudo -u me bash ~/aesthetic.computer/utilities/thinkpad.sh` to
+      install the fish shell and all other base system dependencies.
+  10. Log out and log back in.
+  11. Run and set up Google Chrome.
       10a. Set `Preferred Ozone platform` to `Auto` in `chrome://flags`.
-  11. Install 'https://extensions.gnome.org/extension/6099/paperwm/' from Chrome.
-  12. Add Claude and ChatGPT to homescreen as Chrome shortcuts.
-  13. Add global keyboard shortcuts...
-   13a.  Install `Gnome Tweaks` in `Software`, open
+  12. Install 'https://extensions.gnome.org/extension/6099/paperwm/' from Chrome.
+  13. Add Claude and ChatGPT to homescreen as Chrome shortcuts.
+  14. Add global keyboard shortcuts...
+   14a.  Install `Gnome Tweaks` in `Software`, open
         `Tweaks/Keyboard/Additional Layout Options/Caps Lock behavior`
         and check `Make Caps Lock an additional Ctrl`.
-   13b. - Set up... Ctrl+Super+Alt+F for 'fish'. 
+   14b. - Set up... Ctrl+Super+Alt+F for 'fish'. 
         - And `Chrome` and `Screen Down / Left / Right / Up` and `System` and `ChatGPT`
         - For Chrome app shortcuts use
           `/opt/google/chrome/google-chrome --profile-directory=Default --app-id=`
           where `--app-id=` value can be found in... `chrome://app-settings`
   14. Install Spotify in the 'Software' store.
 
---- Aesthetic Computer Development / VS Code Setup ---
+--- Aesthetic Computer Setup ---
 
   1. Run 'code' from a `fish` shell. 
   2. Sign in to VS Code via GitHub and wait for settings to finish syncronizing.
   3. Close `code` and run `start` from a `fish` shell.
   4. Get `devcontainer.env` keys from @jeffrey and copy
      to `~/aesthetic-computer/.devcontainer/envs/`.
-  5. Run `start` in a shell. 
+  5. Run `start` in a shell and wait for the development environment to load.
