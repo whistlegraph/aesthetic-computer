@@ -19,6 +19,7 @@ How to set up a Thinkpad for Aesthetic Computer development.
          install the fish shell and all other base system dependencies.
    9. Log out and log back in.
   10. Run and set up Google Chrome.
+      10a. Set `Preferred Ozone platform` to `Auto` in `chrome://flags`.
   11. Install 'https://extensions.gnome.org/extension/6099/paperwm/' from Chrome.
   12. Add Claude and ChatGPT to homescreen as Chrome shortcuts.
   13. Install Spotify in the 'Software' store.
