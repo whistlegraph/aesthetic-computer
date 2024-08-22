@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🟠 Beginning `Aesthetic Computer` System Installation"
+echo "🟠 Beginning \`Aesthetic Computer\` System Installation"
 
 echo "🟣 Installing fish shell"
 
