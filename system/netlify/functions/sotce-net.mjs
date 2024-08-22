@@ -3,7 +3,7 @@
 
 /* #region 🏁 TODO 
   --- 🏁 pre-launch
-  - [] add handle creation / handle support for sotce-net users
+  - [-] add handle creation / handle support for sotce-net users
     - [*] there should be a 'create handle' button / (a dedicated handle space)
       - [] where does it go?
     - [] there should be a 'write a page' button
@@ -198,11 +198,12 @@ export const handler = async (event, context) => {
             }
             #gate {
               margin: auto;
-              max-width: 80vmin;
+              width: 260px;
+              max-width: 80vw;
               /* background: yellow; */
               z-index: 1;
               box-sizing: border-box;
-              padding: 0em 0.5em 2.5em 0.5em;
+              padding: 0em 0.5em 2.25em 0.5em;
             }
             #gate #cookie {
               max-width: 70%;
@@ -289,7 +290,7 @@ export const handler = async (event, context) => {
               position: absolute;
               top: 0;
               right: 0;
-              width: 120px;
+              width: 90px;
               user-select: none;
               cursor: pointer;
               transition: 0.2s ease-out transform;
@@ -342,14 +343,36 @@ export const handler = async (event, context) => {
             const cel = (el) => document.createElement(el); // shorthand
 
             function adjustFontSize() {
-              document.body.style.fontSize =
-                (window.devicePixelRatio || 1) * 3.25 + "vmin";
+              // const vmin = Math.min(window.innerWidth, window.innerHeight) / 100;
+              const fontSizeInPx = 16; //Math.max((window.devicePixelRatio || 1) * 3 * vmin, 16);
+              document.body.style.fontSize = fontSizeInPx + "px";
             }
+
             window.addEventListener("resize", adjustFontSize);
             adjustFontSize();
 
             function asset(identifier) {
               return "${assetPath}" + identifier;
+            }
+
+            function cleanUrlParams(url, params) {
+              const queryString = params.toString();
+              history.pushState(
+                {},
+                "",
+                url.pathname + (queryString ? "?" + queryString : ""),
+              );
+            }
+
+            // Reload the page with the gate open in development.
+            let GATE_WAS_UP = false;
+            if (dev) {
+              const url = new URL(window.location);
+              const params = url.searchParams;
+              const param = params.get("gate");
+              GATE_WAS_UP = param === "up";
+              params.delete("gate");
+              cleanUrlParams(url, params);
             }
 
             // 🌠 Initialization
@@ -412,7 +435,9 @@ export const handler = async (event, context) => {
               }
 
               function genWelcomeMessage() {
-                return "hello <a href='' id='email'>" + user.email + "</a>";
+                return (
+                  "Signed in as <a href='' id='email'>" + user.email + "</a>"
+                );
               }
 
               if (status !== "logged-out") {
@@ -524,16 +549,28 @@ export const handler = async (event, context) => {
                 message = genWelcomeMessage();
                 buttons.push(genSubscribeButton());
               } else if (status === "subscribed") {
-                // TODO: 🙆 Add 'create handle' button here.
                 message = genWelcomeMessage();
+
+                // 🙆 Add 'create handle' button here.
+                const hb = cel("button");
+                hb.innerText = "handle";
+                hb.onclick = function handle() {
+                  console.log("Prompt user for handle...");
+                  const newHandle = prompt(
+                    "Enter your username:",
+                    "@urhandlehere",
+                  );
+                };
+
+                // buttons.push(hb);
+
                 if (subscription.until === "recurring") {
                   h2.innerText =
-                    "Your subscription renews on " + subscription.renews + ".";
+                    "Your subscription renews on " + subscription.renews; // + ".";
                   const cb = cel("button");
                   cb.innerText = "unsubscribe";
                   cb.onclick = cancel;
                   buttons.push(cb);
-
                 } else {
                   h2.innerText =
                     "Your subscription ends on " +
@@ -544,8 +581,25 @@ export const handler = async (event, context) => {
                   ab.onclick = subscribe;
                   buttons.push(ab);
                 }
-                curtain.classList.add("hidden");
               }
+
+              if (!GATE_WAS_UP) {
+                curtain.classList.add("hidden");
+              } else {
+                img.classList.add("interactive");
+              }
+
+              img.addEventListener(
+                "click",
+                () => {
+                  if (!img.classList.contains("interactive")) return;
+                  curtain.classList.add("hidden");
+                  img.classList.remove("interactive");
+
+                  document.querySelector("#garden")?.classList.remove("hidden");
+                },
+                // { once: true },
+              );
 
               h1.innerHTML = message || "";
               if (buttons.length > 0)
@@ -588,21 +642,14 @@ export const handler = async (event, context) => {
               cookie.src = asset("cookie.png");
               g.appendChild(cookie);
 
+              if (GATE_WAS_UP) g.classList.add("hidden");
+
               cookie.onclick = function () {
                 const curtain = document.getElementById("gate-curtain");
                 curtain.classList.remove("hidden");
                 g.classList.add("hidden");
                 const curtainCookie = curtain.querySelector("#cookie");
                 curtainCookie.classList.add("interactive");
-                curtainCookie.addEventListener(
-                  "click",
-                  () => {
-                    curtain.classList.add("hidden");
-                    curtainCookie.classList.remove("interactive");
-                    g.classList.remove("hidden");
-                  },
-                  { once: true },
-                );
               };
 
               cookie.onload = function () {
@@ -692,6 +739,7 @@ export const handler = async (event, context) => {
                     sub: session.account.id,
                   };
                   // console.log(
+
                   //   "🌻 Picked up sotce session!",
                   //   window.sotceTOKEN,
                   //   window.sotceUSER,
@@ -703,11 +751,7 @@ export const handler = async (event, context) => {
                   localStorage.setItem("session-sotce", encodedSession);
                   params.delete("session-sotce"); // Remove the 'session' parameter
                   // Update the URL without reloading the page
-                  history.pushState(
-                    {},
-                    "",
-                    url.pathname + "?" + params.toString(),
-                  );
+                  cleanUrlParams(url, params);
                 }
               }
             }
@@ -752,12 +796,13 @@ export const handler = async (event, context) => {
                 gate("unverified", user);
               } else {
                 const entered = await subscribed();
-                if (entered) {
-                  // console.log("🚪", entered);
+                if (entered?.subscribed) {
                   garden(entered, user);
-                } else {
-                  console.log("Entered:", entered);
+                } else if (entered !== "error") {
                   gate("verified", user);
+                } else {
+                  console.log("🔴 Server error.");
+                  // gate("error");
                 }
               }
             }
@@ -826,6 +871,7 @@ export const handler = async (event, context) => {
                 }
               } else {
                 console.error("💳", response);
+                return "error";
               }
             }
 
@@ -1208,12 +1254,16 @@ const reloadScript = html`
           clearTimeout(reloadTimeout);
           reloadTimeout = setTimeout(() => {
             const sessionItem = localStorage.getItem("session-sotce");
+            const gateUp = document.querySelector("#gate-curtain:not(.hidden)");
             if (sessionItem) {
               const url = new URL(window.location.href);
               url.searchParams.set("session-sotce", "retrieve");
+              if (gateUp) url.searchParams.set("gate", "up");
               window.location.href = url.toString();
             } else {
-              location.reload();
+              const url = new URL(window.location.href);
+              if (gateUp) url.searchParams.set("gate", "up");
+              window.location.href = url.toString();
             }
           }, 150); // 📓 Could take a sec for the function to reload... 24.08.08.00.53
         }
