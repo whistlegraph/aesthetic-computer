@@ -35,50 +35,8 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** bleep ***
-  - [🟠] fix bleep held key bug...
-
-*** prompt ***
-  - [] How should 'Paste' and 'Enter' appear / disappear in the main prompt
-       and in bots?
-
-*** notepad `slide` mode ***
-  - [] make it so slide works even if the 'fade' parameter is set on a sound.
-
-*** `whistle` ***
-  - [] fix whistle 'microphone-connect' message
-
-*** slide ***
-  - [] add two octaves of sliding with volume on the x axis for
-       a single voice instrument and have a textual read-out for what note
-       is being played
-
-*** ucla ending / grading  ***
-  - [x] me@jas.life
-  - [x] (Lab) Bouncing balls in ucla-7.
-  - [x] 3pm (Code) Review existing pieces.
-    - [x] Look through our work.
-    - [x] Make sure it exists.
-  - [x] (Concept / Discussion) Review notebooks.
-
--- Required pieces...
-  At least one... 
-   1- [] ucla-1
-   2- [] ucla-1-a
-   3- [] ucla-1-box
-  At least one...
-   4- [] ucla-2-a
-   5- [] ucla-2-b
-  Each one
-    - [] ucla-3-keyboard
-    - [] ucla-4
-    - [] ucla-5-rect 
-    - [] ucla-5-worm 
-    - [] ucla-6-clock
-    - [] ucla-6-turtle
-    - [] ucla-7-dial
-    - [] ucla-7-balls
-    - [] ucla-7-jump
+*** triple undo tap ***
+  - [] 
 
 *** sotce.net ***
   - [] auto add patreon subscribers on the highest tier by checking for their email
@@ -108,6 +66,46 @@ but technically agnostic. (Choose your aesthetic!)
     - [x] In both development and production.
 
 ------------------------------------------
+
+*** bleep ***
+  - [🟠] fix bleep held key bug...
+
+*** prompt ***
+  - [] How should 'Paste' and 'Enter' appear / disappear in the main prompt
+       and in bots?
+
+*** notepad `slide` mode ***
+  - [] make it so slide works even if the 'fade' parameter is set on a sound.
+
+*** `whistle` ***
+  - [] fix whistle 'microphone-connect' message
+
+*** ucla ending / grading  ***
+  - [x] me@jas.life
+  - [x] (Lab) Bouncing balls in ucla-7.
+  - [x] 3pm (Code) Review existing pieces.
+    - [x] Look through our work.
+    - [x] Make sure it exists.
+  - [x] (Concept / Discussion) Review notebooks.
+
+-- Required pieces...
+  At least one... 
+   1- [] ucla-1
+   2- [] ucla-1-a
+   3- [] ucla-1-box
+  At least one...
+   4- [] ucla-2-a
+   5- [] ucla-2-b
+  Each one
+    - [] ucla-3-keyboard
+    - [] ucla-4
+    - [] ucla-5-rect 
+    - [] ucla-5-worm 
+    - [] ucla-6-clock
+    - [] ucla-6-turtle
+    - [] ucla-7-dial
+    - [] ucla-7-balls
+    - [] ucla-7-jump
 
 *** stamp ***
   - [] Incorporate '@bash/officialstamp' source into a 'stamp'

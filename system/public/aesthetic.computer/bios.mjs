@@ -407,10 +407,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         "touchstart",
         function (event) {
           if (
-            document.hasFocus() &&
+            (document.hasFocus() &&
             !ticketWrapper &&
             event.target.tagName !== "A" &&
-            event.target.tagName !== "IMG"
+            event.target.tagName !== "IMG") ||
+            event.touches.length > 2 // Prevent undo pop-up in Mobile Safari.
           ) {
             event.preventDefault();
           }
