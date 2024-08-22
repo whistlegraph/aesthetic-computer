@@ -17,10 +17,10 @@ echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com
 # Update the package cache
 dnf check-update
 
-echo "🟣 Installing `foot`, `google-chrome`, `code`, `docker`, `bpytop`, `emacs`, `rust`, `cargo` and `xxd`"
+echo "🟣 Installing `foot`, `google-chrome-stable`, `code`, `docker`, `bpytop`, `emacs`, `rust`, `cargo` and `xxd`"
 
 # Install dependencies
-sudo dnf install -y foot google-chrome code docker bpytop emacs rust cargo xxd
+sudo dnf install -y foot google-chrome-stable code docker bpytop emacs rust cargo xxd
 echo "🟣 Installing `dbus-devel`, `pkgconf-pkg-config`"
 sudo dnf install -y dbus-devel pkgconf-pkg-config
 # todo: mkcert as well?
@@ -32,8 +32,8 @@ sudo systemctl enable docker
 sudo systemctl start docker
 
 echo "🟣 Installing `brew`"
-# Install Linuxbrew
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# Install Linuxbrew non-interactively
+NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 echo "🟣 Symlinking dotfiles"
 # Add Linuxbrew to PATH
@@ -95,3 +95,6 @@ echo "🟣 Installing Aesthetic Computer system daemon"
 # messages from the client.
 # Is this still being used actively? 24.08.21.21.46
 fish ~/aesthetic-computer/daemon/install-daemon.fish
+
+echo "🟣 Resetting dock icons"
+gsettings set org.gnome.shell favorite-apps "[]"
