@@ -18,6 +18,8 @@ echo "🟣 Installing `foot`, `google-chrome`, `code`, `docker`, `bpytop`, `emac
 
 # Install dependencies
 sudo dnf install -y foot google-chrome code docker bpytop emacs rust cargo xxd
+echo "🟣 Installing `dbus-devel`, `pkgconf-pkg-config`"
+sudo dnf install -y dbus-devel pkgconf-pkg-config
 # todo: mkcert as well?
 
 echo "🟣 Enabling `docker` system services"
@@ -36,10 +38,6 @@ echo "🟣 Symlinking dotfiles"
 # Symlink dotfiles
 bash ~/aesthetic-computer/dotfiles/symlink.sh
 
-echo "🟣 Sourcing fish config"
-# reload fish configuration, which will add brew and cargo to path, etc.
-source ~/.config/fish/config.fish
-
 echo "🟣 Installing `gnome-randr`, `starship`, `nvim`, and `fnm`"
 
 # Install gnome-randr using Cargo
@@ -54,9 +52,13 @@ brew install nvim
 # Install fnm (Fast Node Manager)
 brew install fnm
 
+echo "🟣 Sourcing fish config"
+# reload fish configuration, which will add brew and cargo to path, etc.
+source ~/.config/fish/config.fish
+
 # Set the default Node.js version to most recent LTS
-fnm install --lts
-fnm default --lts
+fnm install lts/iron
+fnm default lts/iron
 
 echo "🟣 Installing `devcontainer` cli"
 
@@ -81,12 +83,12 @@ cd -
 echo "🟣 Installing `theme.sh` utility"
 
 # Install theme.sh tools
-curl -Lo /usr/bin/theme.sh 'https://git.io/JM70M'
-chmod +x /usr/bin/theme.sh`
+sudo curl -Lo /usr/bin/theme.sh 'https://git.io/JM70M'
+sudo chmod +x /usr/bin/theme.sh`
 
 echo "🟣 Installing Aesthetic Computer system daemon"
 # Install AC JavaScript system daemon for watching SSL and perhaps
 # performing other tasks... on command, which could accept
 # messages from the client.
 # Is this still being used actively? 24.08.21.21.46
-fish ~/aesthetic-computer/daemon/install_daemon.fish
+fish ~/aesthetic-computer/daemon/install-daemon.fish
