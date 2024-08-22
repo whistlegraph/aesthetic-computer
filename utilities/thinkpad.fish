@@ -98,3 +98,7 @@ fish ~/aesthetic-computer/daemon/install-daemon.fish
 
 echo "🟣 Resetting dock icons"
 gsettings set org.gnome.shell favorite-apps "[]"
+
+echo "🔵 Setting key repeat rate and delay"
+gsettings set org.gnome.desktop.peripherals.keyboard delay 250
+gsettings set org.gnome.desktop.peripherals.keyboard repeat-interval 30
