@@ -7,6 +7,7 @@ echo "🟣 Installing fish shell"
 # Install Fish shell
 sudo dnf install -y fish
 
+echo "🟣 Setting \`fish\` shell as default"
 # Change the default shell to Fish
 chsh -s /usr/bin/fish
 
