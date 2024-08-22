@@ -2,7 +2,7 @@
 
 echo "🟠 Beginning \`Aesthetic Computer\` System Installation"
 
-echo "🟣 Installing fish shell"
+echo "🟣 Installing \`fish\` shell"
 
 # Install Fish shell
 sudo dnf install -y fish
