@@ -9,7 +9,7 @@ sudo dnf install -y fish
 
 echo "🟣 Setting \`fish\` shell as default"
 # Change the default shell to Fish
-chsh -s /usr/bin/fish
+chsh -s /usr/bin/fish me
 
 # Print the current shell
 echo "🔵 Current shell is now: $SHELL"
