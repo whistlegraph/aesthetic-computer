@@ -105,19 +105,7 @@ fish_add_path ~/.cargo/bin
 
 alias visudo 'sudo EDITOR=nvim visudo' # always use nvim for visudo
 
-#function start_ydotoold
-#    pgrep -x ydotoold >/dev/null; or nohup sudo /usr/bin/ydotoold >/dev/null 2>&1 &
-#    return 0
-#end
-#
-#alias ydotoold start_ydotoold
-#alias center 'start_ydotoold; sudo ydotool key 125:1 46:1 46:0 125:0'
 alias upgrade 'sudo dnf upgrade --refresh'
-#
-#alias left 'gnome-randr modify --rotate left eDP-1 > /dev/null 2>&1 && sleep 0.04 && center'
-#alias right 'gnome-randr modify --rotate right eDP-1 > /dev/null 2>&1 && sleep 0.04 && center'
-#alias up 'gnome-randr modify --rotate normal eDP-1 > /dev/null 2>&1 && sleep 0.04 && center'
-#alias down 'gnome-randr modify --rotate inverted eDP-1 > /dev/null 2>&1 && sleep 0.04 && center'
 
 alias prune 'docker system prune -a --volumes'
 
