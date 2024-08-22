@@ -112,7 +112,7 @@ alias visudo 'sudo EDITOR=nvim visudo' # always use nvim for visudo
 #
 #alias ydotoold start_ydotoold
 #alias center 'start_ydotoold; sudo ydotool key 125:1 46:1 46:0 125:0'
-#alias upgrade 'sudo dnf upgrade --refresh'
+alias upgrade 'sudo dnf upgrade --refresh'
 #
 #alias left 'gnome-randr modify --rotate left eDP-1 > /dev/null 2>&1 && sleep 0.04 && center'
 #alias right 'gnome-randr modify --rotate right eDP-1 > /dev/null 2>&1 && sleep 0.04 && center'
