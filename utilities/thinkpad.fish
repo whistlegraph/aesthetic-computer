@@ -17,19 +17,21 @@ echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com
 # Update the package cache
 dnf check-update
 
-echo "🟣 Installing `foot`, `google-chrome-stable`, `code`, `docker`, `bpytop`, `emacs`, `rust`, `cargo` and `xxd`"
+echo "🟣 Installing `foot`, `google-chrome-stable`, `code`, `docker`, `bpytop`, `emacs`, `rust`, `cargo`, `xxd` and `nss-tools`"
 
 # Install dependencies
-sudo dnf install -y foot google-chrome-stable code docker bpytop emacs rust cargo xxd
+sudo dnf install -y foot google-chrome-stable code docker bpytop emacs rust cargo xxd nss-tools
 echo "🟣 Installing `dbus-devel`, `pkgconf-pkg-config`"
 sudo dnf install -y dbus-devel pkgconf-pkg-config
-# todo: mkcert as well?
 
 echo "🟣 Enabling `docker` system services"
 
 # Enable and start Docker service
 sudo systemctl enable docker
 sudo systemctl start docker
+
+# add user to `docker` group
+sudo usermod -aG docker $USER
 
 echo "🟣 Installing `brew`"
 # Install Linuxbrew non-interactively
@@ -52,6 +54,10 @@ brew install starship
 
 brew install nvim
 
+brew install mkcert
+# Install mkcert certificates locally
+mkcert -install
+
 # Install fnm (Fast Node Manager)
 brew install fnm
 
@@ -67,9 +73,6 @@ echo "🟣 Installing `devcontainer` cli"
 
 # Install devcontainer CLI globally using npm
 npm install -g @devcontainers/cli
-
-# todo: Install mkcert certificates locally
-# mkcert -install
 
 echo "🟣 Installing `Fira Code` font"
 
@@ -99,6 +102,10 @@ fish ~/aesthetic-computer/daemon/install-daemon.fish
 echo "🟣 Resetting dock icons"
 gsettings set org.gnome.shell favorite-apps "[]"
 
-echo "🔵 Setting key repeat rate and delay"
+echo "🟣 Setting key repeat rate and delay"
 gsettings set org.gnome.desktop.peripherals.keyboard delay 250
 gsettings set org.gnome.desktop.peripherals.keyboard repeat-interval 30
+
+echo "🟣 Adding `aesthetic.local` and `sotce.local` to `/etc/hosts`"
+echo "127.0.0.1 aesthetic.local" | sudo tee -a /etc/hosts
+echo "127.0.0.1 sotce.local" | sudo tee -a /etc/hosts
