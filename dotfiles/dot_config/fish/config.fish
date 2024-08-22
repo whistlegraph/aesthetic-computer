@@ -77,7 +77,7 @@ function acd
     set workspace_name (basename (pwd))
     code --folder-uri="vscode-remote://dev-container+$container_id/workspaces/$workspace_name"
     cd -
-    exit
+    # exit
 end
 
 alias start 'ac; ac-ssl; acd'
