@@ -38,4 +38,6 @@ How to set up a Thinkpad for Aesthetic Computer development.
   1. Run 'code' from a `fish` shell. 
   2. Sign in to VS Code via GitHub and wait for settings to finish syncronizing.
   3. Close `code` and run `start` from a `fish` shell.
-  4. Run `start` in a shell. 
+  4. Get `devcontainer.env` keys from @jeffrey and copy
+     to `~/aesthetic-computer/.devcontainer/envs/`.
+  5. Run `start` in a shell. 
