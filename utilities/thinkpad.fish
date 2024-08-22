@@ -3,6 +3,9 @@
 # ⚠️ This script is for installing Aesthetic Computer development dependencies on
 #    a Thinkpad running Fedora.
 
+# Print the current shell
+echo "🔵 Current shell is now: $SHELL"
+
 echo "🟣 Installing VS Code package repositories"
 
 # Import the Microsoft GPG key for Visual Studio Code
