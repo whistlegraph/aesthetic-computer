@@ -69,7 +69,7 @@ function acd
     #    pkill code
     # end
     # devcontainer build --workspace-folder .
-    set containers (docker ps -q)
+    set containers (sudo docker ps -q)
     if test -n "$containers"
         docker stop $containers
     end
