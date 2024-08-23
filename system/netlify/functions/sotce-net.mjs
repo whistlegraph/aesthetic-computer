@@ -3,6 +3,7 @@
 
 /* #region 🏁 TODO 
   --- 🏁 pre-launch
+  - [] Combine texts so it says "Your subscription for `me@jas.life` renews on..."
   - [-] add handle creation / handle support for sotce-net users
     - [*] there should be a 'create handle' button / (a dedicated handle space)
       - [] where does it go?
@@ -205,6 +206,12 @@ export const handler = async (event, context) => {
               box-sizing: border-box;
               padding: 0em 0.5em 2.25em 0.5em;
             }
+            #gate.coming-soon {
+              padding: 0;
+            }
+            #gate.coming-soon :is(h2, h1, nav) {
+              display: none;
+            }
             #gate #cookie {
               max-width: 70%;
               max-height: 100%;
@@ -227,7 +234,7 @@ export const handler = async (event, context) => {
               font-weight: normal;
               font-size: 100%;
               margin: 0;
-              margin-top: -0.5em;
+              /* margin-top: 0.5em; */
               padding-bottom: 1em;
               text-align: center;
               user-select: none;
@@ -240,11 +247,15 @@ export const handler = async (event, context) => {
               padding-bottom: 1em;
               user-select: none;
             }
-            #gate nav {
+            #gate #nav-high {
+              margin-top: -0.5em;
+              margin-bottom: 1em;
+            }
+            #gate :is(#nav-low, #nav-high) {
               display: flex;
               justify-content: center;
             }
-            #gate nav:has(> *:first-child:nth-last-child(2)) {
+            #gate :is(#nav-low, #nav-high):has(> *:first-child:nth-last-child(2)) {
               justify-content: space-between;
             }
             #gate nav button {
@@ -267,6 +278,10 @@ export const handler = async (event, context) => {
               );
               background: rgb(255, 235, 183);
               transform: translate(-1px, 1px);
+            }
+            #gate nav button.positive {
+              background: lime;
+              border-color: green;
             }
             #garden {
               padding-left: 1em;
@@ -333,7 +348,6 @@ export const handler = async (event, context) => {
           <div id="wrapper"></div>
           <script type="module">
             // 🗺️ Environment
-
             const dev = ${dev};
             const fromAesthetic =
               (document.referrer.indexOf("aesthetic") > -1 ||
@@ -397,6 +411,7 @@ export const handler = async (event, context) => {
                 (paramsString ? "?" + paramsString : "");
               window.history.replaceState({}, document.title, newUrl);
             }
+
             const wrapper = document.getElementById("wrapper");
             const gateElements = {};
 
@@ -410,7 +425,8 @@ export const handler = async (event, context) => {
               //   subscription,
               // );
               let message,
-                buttons = [];
+                buttons = [],
+                buttonsTop = [];
 
               // TODO: Remove any existing gate dom elements if they exist.
               const existingGate = document.getElementById("gate-curtain");
@@ -424,7 +440,8 @@ export const handler = async (event, context) => {
               img.id = "cookie";
               const h1 = document.createElement("h1");
               const h2 = cel("h2");
-              const nav = document.createElement("nav");
+              const navLow = document.createElement("nav");
+              navLow.id = "nav-low";
 
               function genSubscribeButton() {
                 h2.innerText = "email verified";
@@ -440,7 +457,21 @@ export const handler = async (event, context) => {
                 );
               }
 
-              if (status !== "logged-out") {
+              if (status === "logged-out") {
+                message = "for your best thoughts";
+
+                const lb = cel("button");
+                lb.innerText = "log in";
+                lb.onclick = login;
+                buttons.push(lb);
+
+                if (!embedded) {
+                  const imnew = cel("button");
+                  imnew.onclick = signup;
+                  imnew.innerText = "i'm new";
+                  buttons.push(imnew);
+                }
+              } else if (status !== "coming-soon") {
                 const lo = cel("button");
                 lo.onclick = logout;
                 lo.innerText = "log out";
@@ -484,21 +515,12 @@ export const handler = async (event, context) => {
                 buttons.push(lowrap);
               }
 
-              if (status === "logged-out") {
-                message = "for your best thoughts";
+              if (status === "coming-soon") {
+                // 🥠 Leave a blank cookie in production pre-launch. 24.08.23.21.35
+                g.classList.add("coming-soon");
+              }
 
-                const lb = cel("button");
-                lb.innerText = "log in";
-                lb.onclick = login;
-                buttons.push(lb);
-
-                if (!embedded) {
-                  const imnew = cel("button");
-                  imnew.onclick = signup;
-                  imnew.innerText = "i'm new";
-                  buttons.push(imnew);
-                }
-              } else if (status === "unverified") {
+              if (status === "unverified") {
                 message = genWelcomeMessage();
                 h2.innerText = "awaiting email verification...";
 
@@ -524,7 +546,7 @@ export const handler = async (event, context) => {
                         } else {
                           if (!embedded) {
                             rs.remove();
-                            nav.appendChild(genSubscribeButton());
+                            navLow.appendChild(genSubscribeButton());
                           } else {
                             h2.innerText = "please subscribe in your browser";
                           }
@@ -553,7 +575,8 @@ export const handler = async (event, context) => {
 
                 // 🙆 Add 'create handle' button here.
                 const hb = cel("button");
-                hb.innerText = "handle";
+                hb.classList.add("positive");
+                hb.innerText = "create handle";
                 hb.onclick = function handle() {
                   console.log("Prompt user for handle...");
                   const newHandle = prompt(
@@ -562,7 +585,7 @@ export const handler = async (event, context) => {
                   );
                 };
 
-                // buttons.push(hb);
+                buttonsTop.push(hb);
 
                 if (subscription.until === "recurring") {
                   h2.innerText =
@@ -583,9 +606,9 @@ export const handler = async (event, context) => {
                 }
               }
 
-              if (!GATE_WAS_UP) {
+              if (!GATE_WAS_UP && status === "subscribed") {
                 curtain.classList.add("hidden");
-              } else {
+              } else if (GATE_WAS_UP && status === "subscribed") {
                 img.classList.add("interactive");
               }
 
@@ -603,15 +626,20 @@ export const handler = async (event, context) => {
 
               h1.innerHTML = message || "";
               if (buttons.length > 0)
-                buttons.forEach((b) => nav.appendChild(b));
+                buttons.forEach((b) => navLow.appendChild(b));
               g.appendChild(img);
+              if (buttonsTop.length > 0) {
+                const navHigh = cel('nav');
+                navHigh.id = "nav-high"
+                buttonsTop.forEach((b) => navHigh.appendChild(b));
+                g.appendChild(navHigh);
+              }
               g.appendChild(h1);
               g.appendChild(h2);
-              g.appendChild(nav);
+              g.appendChild(navLow);
               curtain.appendChild(g);
               img.onload = function () {
                 wrapper.appendChild(curtain);
-
                 const email = document.getElementById("email");
                 if (email)
                   email.onclick = (e) =>
@@ -784,7 +812,7 @@ export const handler = async (event, context) => {
             }
 
             if (!isAuthenticated) {
-              gate("logged-out");
+              gate(!dev ? "coming-soon" : "logged-out");
             } else {
               // 🅰️ Check / await email verification.
               user = pickedUpSession
