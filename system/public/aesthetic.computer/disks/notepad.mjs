@@ -355,6 +355,7 @@ function paint({ wipe, ink, write, screen, sound, api }) {
 
     ink("yellow").write(scope, 6, sy + sh + 3);
     ink("pink").write(scopeTrim, 6 + 18, sy + sh + 3);
+    ink("cyan").write(sound.sampleRate, 6 + 18 + 20, sy + sh + 3);
   }
 
   if (tap) {
