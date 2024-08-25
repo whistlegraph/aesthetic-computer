@@ -3,7 +3,7 @@
 
 /* #region 🏁 TODO 
   --- 🏁 pre-launch
-  - [] Combine texts so it says "Your subscription for `me@jas.life` renews on..."
+  - [-] Combine texts so it says "Your subscription for `me@jas.life` renews on..."
   - [-] add handle creation / handle support for sotce-net users
     - [*] there should be a 'create handle' button / (a dedicated handle space)
       - [] where does it go?
@@ -190,6 +190,35 @@ export const handler = async (event, context) => {
               width: 100%;
               height: 100%;
             }
+            #spinner {
+              width: 5vmin;
+              height: 5vmin;
+              background: rgb(255, 147, 191);
+              margin: auto;
+              border-radius: 100%;
+              filter: blur(4px);
+              transition: 0.25s opacity ease-in;
+              opacity: 0;
+              animation: spinner 1s infinite alternate ease-in-out;
+            }
+            #spinner.showing {
+              opacity: 1;
+              transition: 0.3s opacity ease-in;
+            }
+            @keyframes spinner {
+              0% {
+                filter: blur(4px);
+                transform: scale(1);
+              }
+              50% {
+                filter: blur(2px);
+                transform: scale(1.2);
+              }
+              100% {
+                filter: blur(4px);
+                transform: scale(1);
+              }
+            }
             #gate-curtain {
               position: absolute;
               width: 100%;
@@ -255,7 +284,8 @@ export const handler = async (event, context) => {
               display: flex;
               justify-content: center;
             }
-            #gate :is(#nav-low, #nav-high):has(> *:first-child:nth-last-child(2)) {
+            #gate
+              :is(#nav-low, #nav-high):has(> *:first-child:nth-last-child(2)) {
               justify-content: space-between;
             }
             #gate nav button {
@@ -280,8 +310,8 @@ export const handler = async (event, context) => {
               transform: translate(-1px, 1px);
             }
             #gate nav button.positive {
-              background: lime;
-              border-color: green;
+              background: rgb(80, 230, 20);
+              border-color: rgb(51, 147, 11);
             }
             #garden {
               padding-left: 1em;
@@ -345,7 +375,9 @@ export const handler = async (event, context) => {
           <script src="https://js.stripe.com/v3/"></script>
         </head>
         <body>
-          <div id="wrapper"></div>
+          <div id="wrapper">
+            <div id="spinner"></div>
+          </div>
           <script type="module">
             // 🗺️ Environment
             const dev = ${dev};
@@ -416,14 +448,6 @@ export const handler = async (event, context) => {
             const gateElements = {};
 
             function gate(status, user, subscription) {
-              // console.log(
-              //   "🌒 Gate:",
-              //   status,
-              //   "user:",
-              //   user,
-              //   "subscription:",
-              //   subscription,
-              // );
               let message,
                 buttons = [],
                 buttonsTop = [];
@@ -629,8 +653,8 @@ export const handler = async (event, context) => {
                 buttons.forEach((b) => navLow.appendChild(b));
               g.appendChild(img);
               if (buttonsTop.length > 0) {
-                const navHigh = cel('nav');
-                navHigh.id = "nav-high"
+                const navHigh = cel("nav");
+                navHigh.id = "nav-high";
                 buttonsTop.forEach((b) => navHigh.appendChild(b));
                 g.appendChild(navHigh);
               }
@@ -811,23 +835,47 @@ export const handler = async (event, context) => {
               isAuthenticated = true;
             }
 
+            const spinner = document.getElementById("spinner");
+            const spinnerTO = setTimeout(() => {
+              spinner.classList.add("showing");
+            }, 250);
+
+            function spinnerPass(callback) {
+              clearTimeout(spinnerTO);
+              if (spinner.classList.contains("showing")) {
+                setTimeout(() => {
+                  spinner.addEventListener(
+                    "transitionend",
+                    () => {
+                      spinner.remove();
+                      callback();
+                    },
+                    { once: true },
+                  );
+                  spinner.classList.remove("showing");
+                }, 250);
+              } else {
+                spinner.remove();
+                callback();
+              }
+            }
+
             if (!isAuthenticated) {
-              gate(!dev ? "coming-soon" : "logged-out");
+              spinnerPass(() => gate(!dev ? "coming-soon" : "logged-out"));
             } else {
-              // 🅰️ Check / await email verification.
               user = pickedUpSession
                 ? window.sotceUSER
                 : await auth0Client.getUser();
               // console.log("🪷 Got user:", user);
               if (!user.email_verified) await retrieveUncachedUser();
               if (!user.email_verified) {
-                gate("unverified", user);
+                spinnerPass(() => gate("unverified", user));
               } else {
                 const entered = await subscribed();
                 if (entered?.subscribed) {
-                  garden(entered, user);
+                  spinnerPass(() => garden(entered, user));
                 } else if (entered !== "error") {
-                  gate("verified", user);
+                  spinnerPass(() => gate("verified", user));
                 } else {
                   console.log("🔴 Server error.");
                   // gate("error");
@@ -1123,7 +1171,18 @@ export const handler = async (event, context) => {
     }
   } else if (path === "/subscribed" && method === "post") {
     // First validate that the user has an active session via auth0.
+
+    // TODO: To properly handle rate limits on the `/userinfo` endpoint
+    //       I should probably be sending the user info up in the POST
+    //       request here and then the `authorize` function should
+    //       be rewritten to use a different endpoint which has
+    //       a more apt rate limit?
+    // Also it's possible that finding the subscription information here
+    // via Stripe should / could be cached in redis for faster
+    // retrieval. 24.08.24.19.22
+
     const user = await authorize(event.headers, "sotce");
+
     if (!user) return respond(401, { message: "Unauthorized user." });
 
     const email = user.email;
