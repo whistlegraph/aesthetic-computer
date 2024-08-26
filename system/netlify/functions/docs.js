@@ -2679,6 +2679,11 @@ export async function handler(event, context) {
         desc: "Don't steal her makeup.",
         done: false,
       },
+      slip: {
+        sig: "slip",
+        desc: "A two octave slide instrument.",
+        done: false,
+      },
       smear: {
         sig: "smear",
         desc: "Move pixels around.",

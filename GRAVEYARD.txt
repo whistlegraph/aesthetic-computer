@@ -1,5 +1,10 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** slide ***
+  - [x] add two octaves of sliding with volume on the x axis for
+       a single voice instrument and have a textual read-out for what note
+       is being played
+
 *** list ***
   - [x] add handled pieces to list using list @handle
 
