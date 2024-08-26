@@ -73,7 +73,7 @@ fnm default lts/iron
 echo "🟣 Installing `devcontainer` cli"
 
 # Install devcontainer CLI globally using npm
-npm install -g @devcontainers/cli
+npm install -g @devcontainers/cli typescript typescript-language-server
 
 echo "🟣 Installing `Fira Code` font"
 

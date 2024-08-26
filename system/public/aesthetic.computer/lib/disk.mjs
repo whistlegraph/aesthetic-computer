@@ -57,6 +57,7 @@ let LAN_HOST; // The IP address of the hosting machine on the local network.
 let SHARE_SUPPORTED; // Whether navigator.share is supported. (For `dl`)
 let PREVIEW_OR_ICON; // Whether we are in preview or icon mode. (From boot.)
 let VSCODE; // Whether we are running the vscode extesion or not. (From boot.)
+let AUDIO_SAMPLE_RATE = 0;
 let debug = false; // This can be overwritten on boot.
 let visible = true; // Is aesthetic.computer visibly rendering or not?
 
@@ -3916,6 +3917,11 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "audio:sample-rate") {
+    AUDIO_SAMPLE_RATE = content;
+    return;
+  }
+
   // Update the logged in user after initialization.
   if (type === "session:started") {
     // console.log("🟢 Session starting...");
@@ -4876,6 +4882,7 @@ async function makeFrame({ data: { type, content } }) {
 
     $sound.microphone = microphone;
     $sound.speaker = speaker;
+    $sound.sampleRate = AUDIO_SAMPLE_RATE;
 
     // TODO: Generalize square and bubble calls.
     // TODO: Move this stuff to a "sound" module.

@@ -3,7 +3,8 @@
 
 /* #region 🏁 TODO 
   --- 🏁 pre-launch
-  - [] add handle creation / handle support for sotce-net users
+  - [-] Combine texts so it says "Your subscription for `me@jas.life` renews on..."
+  - [-] add handle creation / handle support for sotce-net users
     - [*] there should be a 'create handle' button / (a dedicated handle space)
       - [] where does it go?
     - [] there should be a 'write a page' button
@@ -189,6 +190,35 @@ export const handler = async (event, context) => {
               width: 100%;
               height: 100%;
             }
+            #spinner {
+              width: 5vmin;
+              height: 5vmin;
+              background: rgb(255, 147, 191);
+              margin: auto;
+              border-radius: 100%;
+              filter: blur(4px);
+              transition: 0.25s opacity ease-in;
+              opacity: 0;
+              animation: spinner 1s infinite alternate ease-in-out;
+            }
+            #spinner.showing {
+              opacity: 1;
+              transition: 0.3s opacity ease-in;
+            }
+            @keyframes spinner {
+              0% {
+                filter: blur(4px);
+                transform: scale(1);
+              }
+              50% {
+                filter: blur(2px);
+                transform: scale(1.2);
+              }
+              100% {
+                filter: blur(4px);
+                transform: scale(1);
+              }
+            }
             #gate-curtain {
               position: absolute;
               width: 100%;
@@ -198,11 +228,18 @@ export const handler = async (event, context) => {
             }
             #gate {
               margin: auto;
-              max-width: 80vmin;
+              width: 260px;
+              max-width: 80vw;
               /* background: yellow; */
               z-index: 1;
               box-sizing: border-box;
-              padding: 0em 0.5em 2.5em 0.5em;
+              padding: 0em 0.5em 2.25em 0.5em;
+            }
+            #gate.coming-soon {
+              padding: 0;
+            }
+            #gate.coming-soon :is(h2, h1, nav) {
+              display: none;
             }
             #gate #cookie {
               max-width: 70%;
@@ -226,7 +263,7 @@ export const handler = async (event, context) => {
               font-weight: normal;
               font-size: 100%;
               margin: 0;
-              margin-top: -0.5em;
+              /* margin-top: 0.5em; */
               padding-bottom: 1em;
               text-align: center;
               user-select: none;
@@ -239,11 +276,16 @@ export const handler = async (event, context) => {
               padding-bottom: 1em;
               user-select: none;
             }
-            #gate nav {
+            #gate #nav-high {
+              margin-top: -0.5em;
+              margin-bottom: 1em;
+            }
+            #gate :is(#nav-low, #nav-high) {
               display: flex;
               justify-content: center;
             }
-            #gate nav:has(> *:first-child:nth-last-child(2)) {
+            #gate
+              :is(#nav-low, #nav-high):has(> *:first-child:nth-last-child(2)) {
               justify-content: space-between;
             }
             #gate nav button {
@@ -267,6 +309,10 @@ export const handler = async (event, context) => {
               background: rgb(255, 235, 183);
               transform: translate(-1px, 1px);
             }
+            #gate nav button.positive {
+              background: rgb(80, 230, 20);
+              border-color: rgb(51, 147, 11);
+            }
             #garden {
               padding-left: 1em;
               padding-top: 1em;
@@ -289,7 +335,7 @@ export const handler = async (event, context) => {
               position: absolute;
               top: 0;
               right: 0;
-              width: 120px;
+              width: 90px;
               user-select: none;
               cursor: pointer;
               transition: 0.2s ease-out transform;
@@ -329,10 +375,11 @@ export const handler = async (event, context) => {
           <script src="https://js.stripe.com/v3/"></script>
         </head>
         <body>
-          <div id="wrapper"></div>
+          <div id="wrapper">
+            <div id="spinner"></div>
+          </div>
           <script type="module">
             // 🗺️ Environment
-
             const dev = ${dev};
             const fromAesthetic =
               (document.referrer.indexOf("aesthetic") > -1 ||
@@ -342,14 +389,36 @@ export const handler = async (event, context) => {
             const cel = (el) => document.createElement(el); // shorthand
 
             function adjustFontSize() {
-              document.body.style.fontSize =
-                (window.devicePixelRatio || 1) * 3.25 + "vmin";
+              // const vmin = Math.min(window.innerWidth, window.innerHeight) / 100;
+              const fontSizeInPx = 16; //Math.max((window.devicePixelRatio || 1) * 3 * vmin, 16);
+              document.body.style.fontSize = fontSizeInPx + "px";
             }
+
             window.addEventListener("resize", adjustFontSize);
             adjustFontSize();
 
             function asset(identifier) {
               return "${assetPath}" + identifier;
+            }
+
+            function cleanUrlParams(url, params) {
+              const queryString = params.toString();
+              history.pushState(
+                {},
+                "",
+                url.pathname + (queryString ? "?" + queryString : ""),
+              );
+            }
+
+            // Reload the page with the gate open in development.
+            let GATE_WAS_UP = false;
+            if (dev) {
+              const url = new URL(window.location);
+              const params = url.searchParams;
+              const param = params.get("gate");
+              GATE_WAS_UP = param === "up";
+              params.delete("gate");
+              cleanUrlParams(url, params);
             }
 
             // 🌠 Initialization
@@ -374,20 +443,14 @@ export const handler = async (event, context) => {
                 (paramsString ? "?" + paramsString : "");
               window.history.replaceState({}, document.title, newUrl);
             }
+
             const wrapper = document.getElementById("wrapper");
             const gateElements = {};
 
             function gate(status, user, subscription) {
-              // console.log(
-              //   "🌒 Gate:",
-              //   status,
-              //   "user:",
-              //   user,
-              //   "subscription:",
-              //   subscription,
-              // );
               let message,
-                buttons = [];
+                buttons = [],
+                buttonsTop = [];
 
               // TODO: Remove any existing gate dom elements if they exist.
               const existingGate = document.getElementById("gate-curtain");
@@ -401,7 +464,8 @@ export const handler = async (event, context) => {
               img.id = "cookie";
               const h1 = document.createElement("h1");
               const h2 = cel("h2");
-              const nav = document.createElement("nav");
+              const navLow = document.createElement("nav");
+              navLow.id = "nav-low";
 
               function genSubscribeButton() {
                 h2.innerText = "email verified";
@@ -412,10 +476,26 @@ export const handler = async (event, context) => {
               }
 
               function genWelcomeMessage() {
-                return "hello <a href='' id='email'>" + user.email + "</a>";
+                return (
+                  "Signed in as <a href='' id='email'>" + user.email + "</a>"
+                );
               }
 
-              if (status !== "logged-out") {
+              if (status === "logged-out") {
+                message = "for your best thoughts";
+
+                const lb = cel("button");
+                lb.innerText = "log in";
+                lb.onclick = login;
+                buttons.push(lb);
+
+                if (!embedded) {
+                  const imnew = cel("button");
+                  imnew.onclick = signup;
+                  imnew.innerText = "i'm new";
+                  buttons.push(imnew);
+                }
+              } else if (status !== "coming-soon") {
                 const lo = cel("button");
                 lo.onclick = logout;
                 lo.innerText = "log out";
@@ -459,21 +539,12 @@ export const handler = async (event, context) => {
                 buttons.push(lowrap);
               }
 
-              if (status === "logged-out") {
-                message = "for your best thoughts";
+              if (status === "coming-soon") {
+                // 🥠 Leave a blank cookie in production pre-launch. 24.08.23.21.35
+                g.classList.add("coming-soon");
+              }
 
-                const lb = cel("button");
-                lb.innerText = "log in";
-                lb.onclick = login;
-                buttons.push(lb);
-
-                if (!embedded) {
-                  const imnew = cel("button");
-                  imnew.onclick = signup;
-                  imnew.innerText = "i'm new";
-                  buttons.push(imnew);
-                }
-              } else if (status === "unverified") {
+              if (status === "unverified") {
                 message = genWelcomeMessage();
                 h2.innerText = "awaiting email verification...";
 
@@ -499,7 +570,7 @@ export const handler = async (event, context) => {
                         } else {
                           if (!embedded) {
                             rs.remove();
-                            nav.appendChild(genSubscribeButton());
+                            navLow.appendChild(genSubscribeButton());
                           } else {
                             h2.innerText = "please subscribe in your browser";
                           }
@@ -524,16 +595,29 @@ export const handler = async (event, context) => {
                 message = genWelcomeMessage();
                 buttons.push(genSubscribeButton());
               } else if (status === "subscribed") {
-                // TODO: 🙆 Add 'create handle' button here.
                 message = genWelcomeMessage();
+
+                // 🙆 Add 'create handle' button here.
+                const hb = cel("button");
+                hb.classList.add("positive");
+                hb.innerText = "create handle";
+                hb.onclick = function handle() {
+                  console.log("Prompt user for handle...");
+                  const newHandle = prompt(
+                    "Enter your username:",
+                    "@urhandlehere",
+                  );
+                };
+
+                buttonsTop.push(hb);
+
                 if (subscription.until === "recurring") {
                   h2.innerText =
-                    "Your subscription renews on " + subscription.renews + ".";
+                    "Your subscription renews on " + subscription.renews; // + ".";
                   const cb = cel("button");
                   cb.innerText = "unsubscribe";
                   cb.onclick = cancel;
                   buttons.push(cb);
-
                 } else {
                   h2.innerText =
                     "Your subscription ends on " +
@@ -544,20 +628,42 @@ export const handler = async (event, context) => {
                   ab.onclick = subscribe;
                   buttons.push(ab);
                 }
-                curtain.classList.add("hidden");
               }
+
+              if (!GATE_WAS_UP && status === "subscribed") {
+                curtain.classList.add("hidden");
+              } else if (GATE_WAS_UP && status === "subscribed") {
+                img.classList.add("interactive");
+              }
+
+              img.addEventListener(
+                "click",
+                () => {
+                  if (!img.classList.contains("interactive")) return;
+                  curtain.classList.add("hidden");
+                  img.classList.remove("interactive");
+
+                  document.querySelector("#garden")?.classList.remove("hidden");
+                },
+                // { once: true },
+              );
 
               h1.innerHTML = message || "";
               if (buttons.length > 0)
-                buttons.forEach((b) => nav.appendChild(b));
+                buttons.forEach((b) => navLow.appendChild(b));
               g.appendChild(img);
+              if (buttonsTop.length > 0) {
+                const navHigh = cel("nav");
+                navHigh.id = "nav-high";
+                buttonsTop.forEach((b) => navHigh.appendChild(b));
+                g.appendChild(navHigh);
+              }
               g.appendChild(h1);
               g.appendChild(h2);
-              g.appendChild(nav);
+              g.appendChild(navLow);
               curtain.appendChild(g);
               img.onload = function () {
                 wrapper.appendChild(curtain);
-
                 const email = document.getElementById("email");
                 if (email)
                   email.onclick = (e) =>
@@ -588,21 +694,14 @@ export const handler = async (event, context) => {
               cookie.src = asset("cookie.png");
               g.appendChild(cookie);
 
+              if (GATE_WAS_UP) g.classList.add("hidden");
+
               cookie.onclick = function () {
                 const curtain = document.getElementById("gate-curtain");
                 curtain.classList.remove("hidden");
                 g.classList.add("hidden");
                 const curtainCookie = curtain.querySelector("#cookie");
                 curtainCookie.classList.add("interactive");
-                curtainCookie.addEventListener(
-                  "click",
-                  () => {
-                    curtain.classList.add("hidden");
-                    curtainCookie.classList.remove("interactive");
-                    g.classList.remove("hidden");
-                  },
-                  { once: true },
-                );
               };
 
               cookie.onload = function () {
@@ -692,6 +791,7 @@ export const handler = async (event, context) => {
                     sub: session.account.id,
                   };
                   // console.log(
+
                   //   "🌻 Picked up sotce session!",
                   //   window.sotceTOKEN,
                   //   window.sotceUSER,
@@ -703,11 +803,7 @@ export const handler = async (event, context) => {
                   localStorage.setItem("session-sotce", encodedSession);
                   params.delete("session-sotce"); // Remove the 'session' parameter
                   // Update the URL without reloading the page
-                  history.pushState(
-                    {},
-                    "",
-                    url.pathname + "?" + params.toString(),
-                  );
+                  cleanUrlParams(url, params);
                 }
               }
             }
@@ -739,25 +835,50 @@ export const handler = async (event, context) => {
               isAuthenticated = true;
             }
 
+            const spinner = document.getElementById("spinner");
+            const spinnerTO = setTimeout(() => {
+              spinner.classList.add("showing");
+            }, 250);
+
+            function spinnerPass(callback) {
+              clearTimeout(spinnerTO);
+              if (spinner.classList.contains("showing")) {
+                setTimeout(() => {
+                  spinner.addEventListener(
+                    "transitionend",
+                    () => {
+                      spinner.remove();
+                      callback();
+                    },
+                    { once: true },
+                  );
+                  spinner.classList.remove("showing");
+                }, 250);
+              } else {
+                spinner.remove();
+                callback();
+              }
+            }
+
             if (!isAuthenticated) {
-              gate("logged-out");
+              spinnerPass(() => gate(!dev ? "coming-soon" : "logged-out"));
             } else {
-              // 🅰️ Check / await email verification.
               user = pickedUpSession
                 ? window.sotceUSER
                 : await auth0Client.getUser();
               // console.log("🪷 Got user:", user);
               if (!user.email_verified) await retrieveUncachedUser();
               if (!user.email_verified) {
-                gate("unverified", user);
+                spinnerPass(() => gate("unverified", user));
               } else {
                 const entered = await subscribed();
-                if (entered) {
-                  // console.log("🚪", entered);
-                  garden(entered, user);
+                if (entered?.subscribed) {
+                  spinnerPass(() => garden(entered, user));
+                } else if (entered !== "error") {
+                  spinnerPass(() => gate("verified", user));
                 } else {
-                  console.log("Entered:", entered);
-                  gate("verified", user);
+                  console.log("🔴 Server error.");
+                  // gate("error");
                 }
               }
             }
@@ -826,6 +947,7 @@ export const handler = async (event, context) => {
                 }
               } else {
                 console.error("💳", response);
+                return "error";
               }
             }
 
@@ -1049,7 +1171,18 @@ export const handler = async (event, context) => {
     }
   } else if (path === "/subscribed" && method === "post") {
     // First validate that the user has an active session via auth0.
+
+    // TODO: To properly handle rate limits on the `/userinfo` endpoint
+    //       I should probably be sending the user info up in the POST
+    //       request here and then the `authorize` function should
+    //       be rewritten to use a different endpoint which has
+    //       a more apt rate limit?
+    // Also it's possible that finding the subscription information here
+    // via Stripe should / could be cached in redis for faster
+    // retrieval. 24.08.24.19.22
+
     const user = await authorize(event.headers, "sotce");
+
     if (!user) return respond(401, { message: "Unauthorized user." });
 
     const email = user.email;
@@ -1208,12 +1341,16 @@ const reloadScript = html`
           clearTimeout(reloadTimeout);
           reloadTimeout = setTimeout(() => {
             const sessionItem = localStorage.getItem("session-sotce");
+            const gateUp = document.querySelector("#gate-curtain:not(.hidden)");
             if (sessionItem) {
               const url = new URL(window.location.href);
               url.searchParams.set("session-sotce", "retrieve");
+              if (gateUp) url.searchParams.set("gate", "up");
               window.location.href = url.toString();
             } else {
-              location.reload();
+              const url = new URL(window.location.href);
+              if (gateUp) url.searchParams.set("gate", "up");
+              window.location.href = url.toString();
             }
           }, 150); // 📓 Could take a sec for the function to reload... 24.08.08.00.53
         }
