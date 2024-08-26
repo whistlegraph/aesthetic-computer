@@ -2,5 +2,5 @@
   "name": "Aesthetic Computer",
   "short_name": "Aesthetic",
   "start_url": "/",
-  "display": "fullscreen"
+  "display": "standalone"
 }
