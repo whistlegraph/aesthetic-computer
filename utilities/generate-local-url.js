@@ -7,7 +7,9 @@ let bootUps = 0;
 const bootUpTimer = setInterval(() => {
   process.stdout.write("\x1Bc"); // Clear terminal.
 
-  const command = `echo '' && echo "${bootUps % 2 === 0 ? 'Booting up...' : 'Booting up. . .'}" | toilet -f smblock`;
+  const command = `echo '' && echo "${
+    bootUps % 2 === 0 ? "Booting up..." : "Booting up. . ."
+  }" | toilet -f smblock`;
 
   exec(command, (error, stdout, stderr) => {
     if (error) {
@@ -47,12 +49,14 @@ async function constructUrl() {
       });
       if (response.statusCode === 200) {
         clearInterval(bootUpTimer);
-        process.stdout.write("\x1Bc"); // Clear terminal.
-        // console.log(`\n😱 Welcome to Aesthetic Computer 🫠`);
-        qrcode.generate(url, { small: true });
-        console.log(`Local 💻️ https://localhost:8888`);
-        console.log(`  LAN 🤗 ${url} (QR code above)`);
-        console.log(`World 🌎 https://prompt.ac\n`);
+        setTimeout(() => {
+          process.stdout.write("\x1Bc"); // Clear terminal.
+          // console.log(`\n😱 Welcome to Aesthetic Computer 🫠`);
+          qrcode.generate(url, { small: true });
+          console.log(`Local 💻️ https://localhost:8888`);
+          console.log(`  LAN 🤗 ${url} (QR code above)`);
+          console.log(`World 🌎 https://prompt.ac\n`);
+        }, 100);
         break;
       }
     } catch (error) {

@@ -23,7 +23,7 @@ export async function authorize({ authorization }, tenant = "aesthetic") {
       })
     ).body;
   } catch (err)  {
-    console.error("Authorization error:", err?.code);
+    console.error("Authorization error:", err, err?.code);
     return undefined;
   }
 }

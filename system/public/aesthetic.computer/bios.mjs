@@ -407,10 +407,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         "touchstart",
         function (event) {
           if (
-            document.hasFocus() &&
-            !ticketWrapper &&
-            event.target.tagName !== "A" &&
-            event.target.tagName !== "IMG"
+            (document.hasFocus() &&
+              !ticketWrapper &&
+              event.target.tagName !== "A" &&
+              event.target.tagName !== "IMG") ||
+            event.touches.length > 2 // Prevent undo pop-up in Mobile Safari.
           ) {
             event.preventDefault();
           }
@@ -688,8 +689,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //       the current disk.
       // sampleRate: 44100,
       // sampleRate: 48000,
-      sampleRate: iOS || Aesthetic /*|| Android*/ ? 48000 : 192000,
+      sampleRate: iOS || Aesthetic || Android ? 48000 : 192000,
     });
+
+    acDISK_SEND({ type: "audio:sample-rate", content: audioContext.sampleRate });
 
     // Main audio feed
     // audioContext = new AudioContext({
