@@ -1,6 +1,6 @@
 # Import devcontainer env files.
 function load_envs
-    for env_file in /home/me/envs/devcontainer.env /home/me/envs/devcontainer.git.env
+    for env_file in /home/me/envs/devcontainer.env
         if test -f $env_file
             for line in (cat $env_file)
                 set key_value (string split "=" $line)
