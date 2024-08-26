@@ -266,14 +266,21 @@ class SoundProcessor extends AudioWorkletProcessor {
       }
     }
 
-    if (this.#currentWaveformLeft.length < 256) {
-      this.#currentWaveformLeft.push(...waveformLeft);
-      this.#currentWaveformRight.push(...waveformRight);
+    const maxBufferSize = 256;
+
+    if (this.#currentWaveformLeft.length < maxBufferSize) {
+        this.#currentWaveformLeft.push(...waveformLeft);
+        this.#currentWaveformRight.push(...waveformRight);
     } else {
-      this.#currentWaveformLeft.push(...waveformLeft);
-      this.#currentWaveformRight.push(...waveformRight);
-      this.#currentWaveformLeft = this.#currentWaveformLeft.slice(16);
-      this.#currentWaveformRight = this.#currentWaveformLeft.slice(16);
+        this.#currentWaveformLeft.push(...waveformLeft);
+        this.#currentWaveformRight.push(...waveformRight);
+    
+        // Remove old samples if the buffer exceeds max size
+        if (this.#currentWaveformLeft.length > maxBufferSize) {
+            const excess = this.#currentWaveformLeft.length - maxBufferSize;
+            this.#currentWaveformLeft.splice(0, excess);
+            this.#currentWaveformRight.splice(0, excess);
+        }
     }
 
     this.#currentAmplitudeLeft = ampLeft;
