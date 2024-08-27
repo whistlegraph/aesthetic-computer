@@ -143,6 +143,7 @@ value = Math.sin(this.#phase);
       if (this.#step >= this.#wavelength * 2) {
         this.#step = 0;
       }
+        */
     } else if (this.#type === "triangle") {
       // Triangle Wave
       const stepSize = 4 / this.#wavelength;
@@ -151,7 +152,7 @@ value = Math.sin(this.#phase);
 
       if (this.#step >= this.#wavelength) {
         this.#step = 0;
-      }*/
+      }
     } else if (this.#type === "sawtooth") {
       // Sawtooth Wave
       value = 2 * (this.#step / this.#wavelength) - 1;

@@ -892,6 +892,7 @@ class TextInput {
         }
 
         if (e.key === "Escape") {
+          console.log("💻 Activation:", this.activate, typeof this);
           this.activate(this);
           $.send({ type: "keyboard:open" });
           this.text = "";

@@ -268,7 +268,7 @@ const octaveTheme = [
 const { floor, ceil, min } = Math;
 
 let scope = 32;
-let scopeTrim = 0;
+// let scopeTrim = 0;
 
 let projector = false;
 
@@ -328,7 +328,7 @@ function paint({ wipe, ink, write, screen, sound, api }) {
     paintSound(
       api,
       sound.speaker.amplitudes.left,
-      sound.speaker.waveforms.left.slice(scopeTrim, scope),
+      resampleArray(sound.speaker.waveforms.left, scope),
       0,
       sy,
       screen.width, // width
@@ -337,7 +337,7 @@ function paint({ wipe, ink, write, screen, sound, api }) {
       { noamp: true },
     );
     ink("yellow").write(scope, 6, sy + sh + 5);
-    ink("pink").write(scopeTrim, 6 + 18, sy + sh + 5);
+    // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 5);
   } else {
     const sy = 32;
     const sh = 40; // screen.height - sy;
@@ -345,7 +345,7 @@ function paint({ wipe, ink, write, screen, sound, api }) {
     paintSound(
       api,
       sound.speaker.amplitudes.left,
-      sound.speaker.waveforms.left.slice(scopeTrim, scope),
+      resampleArray(sound.speaker.waveforms.left, scope),
       0,
       sy,
       screen.width, // width
@@ -354,7 +354,7 @@ function paint({ wipe, ink, write, screen, sound, api }) {
     );
 
     ink("yellow").write(scope, 6, sy + sh + 3);
-    ink("pink").write(scopeTrim, 6 + 18, sy + sh + 3);
+    // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 3);
     ink("cyan").write(sound.sampleRate, 6 + 18 + 20, sy + sh + 3);
   }
 
@@ -523,14 +523,14 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
     projector = !projector;
   }
 
-  if (e.is("keyboard:down:arrowleft")) {
-    scopeTrim -= 1;
-    if (scopeTrim < 0) scopeTrim = 0;
-  }
+  // if (e.is("keyboard:down:arrowleft")) {
+    // scopeTrim -= 1;
+    // if (scopeTrim < 0) scopeTrim = 0;
+  // }
 
-  if (e.is("keyboard:down:arrowright")) {
-    scopeTrim += 1;
-  }
+  // if (e.is("keyboard:down:arrowright")) {
+    // scopeTrim += 1;
+  // }
 
   if (e.is("keyboard:down:arrowdown")) {
     scope -= 1;
@@ -1116,4 +1116,16 @@ function paintSound(
 
   // const my = screen.height - mic.amplitude * screen.height;
   // ink("yellow", 128).line(0, my, screen.width, my); // Horiz. line for amplitude.
+}
+
+function resampleArray(inputArray, newLength) {
+    const inputLength = inputArray.length;
+    const outputArray = [];
+
+    for (let i = 0; i < newLength; i++) {
+        const index = Math.floor((i / newLength) * inputLength);
+        outputArray.push(inputArray[index]);
+    }
+
+    return outputArray;
 }
