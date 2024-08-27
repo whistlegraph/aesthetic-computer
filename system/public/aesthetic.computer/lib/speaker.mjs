@@ -203,7 +203,7 @@ class SoundProcessor extends AudioWorkletProcessor {
       ampRight = 0;
 
     const waveformSize = 256;
-    const waveformRate = floor(sampleRate / 4 / waveformSize);
+    const waveformRate = waveformSize * 2;
 
     // We assume two channels. (0 and 1)
     for (let s = 0; s < output[0].length; s += 1) {
