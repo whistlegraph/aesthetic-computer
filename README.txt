@@ -35,6 +35,9 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `baktok` broken tap ***
+  - [] test on laptop and phone
+
 *** triple undo tap ***
   - [] 
 
