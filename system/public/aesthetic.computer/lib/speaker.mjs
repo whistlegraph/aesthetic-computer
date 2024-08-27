@@ -6,7 +6,7 @@ import Synth from "./sound/synth.mjs";
 import Bubble from "./sound/bubble.mjs";
 import { lerp, within } from "./num.mjs";
 
-const { abs, round } = Math;
+const { abs, round, floor } = Math;
 
 // Helpful Info:
 
@@ -202,6 +202,9 @@ class SoundProcessor extends AudioWorkletProcessor {
     let ampLeft = 0,
       ampRight = 0;
 
+    const waveformSize = 256;
+    const waveformRate = floor(sampleRate / 4 / waveformSize);
+
     // We assume two channels. (0 and 1)
     for (let s = 0; s < output[0].length; s += 1) {
       // Remove any finished instruments from the queue.
@@ -260,27 +263,20 @@ class SoundProcessor extends AudioWorkletProcessor {
       ampLeft = abs(output[0][s]) > ampLeft ? abs(output[0][s]) : ampLeft;
       ampRight = abs(output[1][s]) > ampRight ? abs(output[1][s]) : ampRight;
 
-      if (s % 8 === 0) {
+      if (s % waveformRate === 0) {
         waveformLeft.push(output[0][s]); // Cap every 8th value. (Usually 16)
         waveformRight.push(output[1][s]);
       }
     }
 
-    const maxBufferSize = 256;
+    this.#currentWaveformLeft.push(...waveformLeft);
+    this.#currentWaveformRight.push(...waveformRight);
 
-    if (this.#currentWaveformLeft.length < maxBufferSize) {
-        this.#currentWaveformLeft.push(...waveformLeft);
-        this.#currentWaveformRight.push(...waveformRight);
-    } else {
-        this.#currentWaveformLeft.push(...waveformLeft);
-        this.#currentWaveformRight.push(...waveformRight);
-    
-        // Remove old samples if the buffer exceeds max size
-        if (this.#currentWaveformLeft.length > maxBufferSize) {
-            const excess = this.#currentWaveformLeft.length - maxBufferSize;
-            this.#currentWaveformLeft.splice(0, excess);
-            this.#currentWaveformRight.splice(0, excess);
-        }
+    // Remove old samples from the beginning if the buffer exceeds max size.
+    if (this.#currentWaveformLeft.length > waveformSize) {
+      const excess = this.#currentWaveformLeft.length - waveformSize;
+      this.#currentWaveformLeft.splice(0, excess);
+      this.#currentWaveformRight.splice(0, excess);
     }
 
     this.#currentAmplitudeLeft = ampLeft;
