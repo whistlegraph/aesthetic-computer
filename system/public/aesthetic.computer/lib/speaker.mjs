@@ -202,8 +202,9 @@ class SoundProcessor extends AudioWorkletProcessor {
     let ampLeft = 0,
       ampRight = 0;
 
-    const waveformSize = 256;
-    const waveformRate = 1;
+    const waveformSize = round(sampleRate / 200)// * 0.06); // Sample size.
+    // TODO:                                ^ Find good rate.
+    const waveformRate = 1; // Sample interval.
 
     // We assume two channels. (0 and 1)
     for (let s = 0; s < output[0].length; s += 1) {
@@ -264,7 +265,7 @@ class SoundProcessor extends AudioWorkletProcessor {
       ampRight = abs(output[1][s]) > ampRight ? abs(output[1][s]) : ampRight;
 
       if (s % waveformRate === 0) {
-        waveformLeft.push(output[0][s]); // Cap every 8th value. (Usually 16)
+        waveformLeft.push(output[0][s]);
         waveformRight.push(output[1][s]);
       }
     }
