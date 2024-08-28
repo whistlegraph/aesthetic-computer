@@ -307,7 +307,7 @@ function boot({ params, api, colon, ui, screen, fps }) {
 function sim({ sound, simCount }) {
   sound.speaker?.poll();
   Object.keys(trail).forEach((note) => {
-    trail[note] -= 0.005;
+    trail[note] -= 0.0025;
     if (trail[note] <= 0) delete trail[note];
   });
 }
@@ -460,11 +460,11 @@ function paint({ wipe, ink, write, screen, sound, api }) {
             .write(note.toUpperCase(), btn.box.x, btn.box.y);
 
           if (trail[note] > 0) {
-            ink("yellow", max(1, trail[note] * 64)).box(
+            ink("yellow", max(1, trail[note] * 96)).box(
               btn.box.x + btn.box.w / 2,
               btn.box.y + btn.box.h / 2,
               trail[note] * btn.box.w,
-              "inline*center",
+              "center",
             );
           }
 
