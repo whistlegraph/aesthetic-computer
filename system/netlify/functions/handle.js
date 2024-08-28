@@ -159,6 +159,7 @@ export async function handler(event, context) {
 
         // Check if a document with this user's sub already exists
         const existingUser = await handles.findOne({ _id: sub });
+
         if (existingUser) {
           if (dev) console.log("Current user handle:", existingUser.handle);
           // Replace existing handle or fail if the new handle is already taken
