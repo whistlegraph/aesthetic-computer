@@ -59,10 +59,11 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
+  - [] Rename to `notepat`.
   - [] Add volume centroid control to bottoms with draggable changes.
   - [] Add perc buttons to ui interface.
   - [-] Add scale selection with visual hiking paths. (Color themes).
-    - [] Ghost trails.
+    - [🤩] Ghost trails.
     - [] Scale selections.
   - [-] Fix '+C' notes appearing in the key list during playback mode.
     - [🟠] on keyboard
@@ -265,12 +266,14 @@ const octaveTheme = [
   "purple",
 ];
 
-const { floor, ceil, min } = Math;
+const { floor, ceil, min, max } = Math;
 
 let scope = 32;
 // let scopeTrim = 0;
 
 let projector = false;
+
+const trail = {};
 
 function boot({ params, api, colon, ui, screen, fps }) {
   // fps(12);
@@ -303,6 +306,10 @@ function boot({ params, api, colon, ui, screen, fps }) {
 
 function sim({ sound, simCount }) {
   sound.speaker?.poll();
+  Object.keys(trail).forEach((note) => {
+    trail[note] -= 0.005;
+    if (trail[note] <= 0) delete trail[note];
+  });
 }
 
 function paint({ wipe, ink, write, screen, sound, api }) {
@@ -452,6 +459,15 @@ function paint({ wipe, ink, write, screen, sound, api }) {
             .ink("white")
             .write(note.toUpperCase(), btn.box.x, btn.box.y);
 
+          if (trail[note] > 0) {
+            ink("yellow", max(1, trail[note] * 64)).box(
+              btn.box.x + btn.box.w / 2,
+              btn.box.y + btn.box.h / 2,
+              trail[note] * btn.box.w,
+              "inline*center",
+            );
+          }
+
           let keyLabel;
           switch (note) {
             case "c#":
@@ -524,12 +540,12 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
   }
 
   // if (e.is("keyboard:down:arrowleft")) {
-    // scopeTrim -= 1;
-    // if (scopeTrim < 0) scopeTrim = 0;
+  // scopeTrim -= 1;
+  // if (scopeTrim < 0) scopeTrim = 0;
   // }
 
   // if (e.is("keyboard:down:arrowright")) {
-    // scopeTrim += 1;
+  // scopeTrim += 1;
   // }
 
   if (e.is("keyboard:down:arrowdown")) {
@@ -690,6 +706,9 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
               } else {
                 sounds[note]?.sound.kill(0.25);
               }
+
+              // console.log("🪱 Trail:", note);
+              trail[note] = 1;
 
               delete tonestack[note]; // Remove this key from the notestack.
               delete sounds[note];
@@ -1006,6 +1025,9 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
 
         if (activeOctave !== octave) buttonNote = "+" + buttonNote;
         if (buttons[buttonNote]) buttons[buttonNote].down = false;
+
+        // console.log("🪱 Trail:", buttonNote);
+        trail[buttonNote] = 1;
       }
     }
   });
@@ -1118,14 +1140,13 @@ function paintSound(
   // ink("yellow", 128).line(0, my, screen.width, my); // Horiz. line for amplitude.
 }
 
+// Resize an array by taking samples at equal intervals, with no interpolation.
 function resampleArray(inputArray, newLength) {
-    const inputLength = inputArray.length;
-    const outputArray = [];
-
-    for (let i = 0; i < newLength; i++) {
-        const index = Math.floor((i / newLength) * inputLength);
-        outputArray.push(inputArray[index]);
-    }
-
-    return outputArray;
+  const inputLength = inputArray.length;
+  const outputArray = [];
+  for (let i = 0; i < newLength; i++) {
+    const index = floor((i / newLength) * inputLength);
+    outputArray.push(inputArray[index]);
+  }
+  return outputArray;
 }
