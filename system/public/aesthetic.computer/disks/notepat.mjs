@@ -438,6 +438,12 @@ function paint({ wipe, ink, write, screen, sound, api }) {
   if (!tap && !projector) {
     // Write current octave.
     ink("white").write(octave, screen.width - 12, 18);
+    
+    
+    ink("maroon").poly(
+      ...Object.keys(trail).map((t) => [buttons[t].box.x, buttons[t].box.y)
+      )
+    
     // Buttons
     buttonNotes.forEach((note) => {
       if (buttons[note]) {
