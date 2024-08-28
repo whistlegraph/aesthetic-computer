@@ -3,21 +3,13 @@
 
 /* #region 🏁 TODO 
   --- 🏁 pre-launch
-  - [-] Combine texts so it says "Your subscription for `me@jas.life` renews on..."
   - [-] add handle creation / handle support for sotce-net users
     - [*] there should be a 'create handle' button / (a dedicated handle space)
-      - [] where does it go?
-    - [] there should be a 'write a page' button
-                           'compose' 
-                           'write' 
-         that appears once a handle has been created
-      - [] this should prompt the user to make a handle
+      - [-] this should prompt the user to make a handle
         - [] once a handle is made there should also be a way to change the handle
              and visit their profile ala ac; central button style
     - [] make sure handles will also be deleted
-    - [] should the sign up page say 'subscribe to make a handle and keep a diary'
-         or have intermediate content?
-    - [] inherit handles from ac (only if the email is verified)
+    - [] inherit any existing handle from ac (only if the email is verified and user is subscribed)
   - [] The handle system would be shared among ac users.
     - [] Perhaps the subs could be 'sotce' prefixed.
   - [] Allow Amelia's user / @sotce to post a diary, but no other users
@@ -36,6 +28,7 @@
   --- 🚩 post launch / next launch
   - [] How can I do shared reader cursors / co-presence somehow?
   + Done
+  - [c] Combine texts so it says "Your subscription for `me@jas.life` renews on..."
   - [x] delete all existing subscriptions in stripe and resubscribe with a test
          user
   - [x] tapping the user's email address should allow them to alter / reset
@@ -310,8 +303,15 @@ export const handler = async (event, context) => {
               transform: translate(-1px, 1px);
             }
             #gate nav button.positive {
-              background: rgb(80, 230, 20);
-              border-color: rgb(51, 147, 11);
+              /* background: rgb(180, 230, 120); */
+              background: rgb(203, 238, 161);
+              border-color: rgb(114, 203, 80);
+            }
+            #gate nav button.positive:hover {
+              background: rgb(199, 252, 136);
+            }
+            #gate nav button.positive:active {
+              background: rgb(203, 238, 161);
             }
             #garden {
               padding-left: 1em;
@@ -601,12 +601,37 @@ export const handler = async (event, context) => {
                 const hb = cel("button");
                 hb.classList.add("positive");
                 hb.innerText = "create handle";
-                hb.onclick = function handle() {
+                hb.onclick = async function handle() {
                   console.log("Prompt user for handle...");
-                  const newHandle = prompt(
-                    "Enter your username:",
-                    "@urhandlehere",
-                  );
+                  const handle = prompt("Enter your username:");
+                  if (!handle) return;
+
+                  // TODO: Make the api request to handles...
+                  try {
+                    const response = await fetch("/handle", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization:
+                          "Bearer " +
+                          (window.sotceTOKEN ||
+                            (await auth0Client.getTokenSilently())),
+                      },
+                      body: JSON.stringify({ handle, tenant: "sotce" })
+                    });
+                    if (response.ok) {
+                      const result = await response.json();
+                      console.log("💁‍♀️ Handle created:", result);
+                    } else {
+                      const error = await response.json();
+                      console.error("❌ Handle error:", error.message);
+                      alert("Failed to set handle: " + error.message);
+                    }
+                  } catch (error) {
+                    console.error("🔴 Error:", error);
+                    alert("An error occurred while creating your handle.");
+                  }
+
                 };
 
                 buttonsTop.push(hb);
@@ -908,8 +933,8 @@ export const handler = async (event, context) => {
             async function subscribe() {
               const stripe = Stripe(
                 "${dev
-                  ? SOTCE_STRIPE_API_TEST_PUB_KEY
-                  : SOTCE_STRIPE_API_PUB_KEY}",
+              ? SOTCE_STRIPE_API_TEST_PUB_KEY
+              : SOTCE_STRIPE_API_PUB_KEY}",
               );
               const response = await fetch("/sotce-net/subscribe", {
                 method: "POST",
@@ -969,7 +994,6 @@ export const handler = async (event, context) => {
                         (await auth0Client.getTokenSilently())),
                   },
                 });
-
                 if (response.ok) {
                   const result = await response.json();
                   console.log("Subscription cancelled:", result);
