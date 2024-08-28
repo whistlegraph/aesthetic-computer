@@ -441,9 +441,7 @@ function paint({ wipe, ink, write, screen, sound, api }) {
     
     
     
-    ink("maroon").poly(
-      Object.keys(trail).map((t) => [buttons[t].box.x + buttons[t].box.w / 2, buttons[t].box.y + buttons[t].box.h / 2]
-      ))
+
     
     // Buttons
     buttonNotes.forEach((note) => {
@@ -531,8 +529,15 @@ function paint({ wipe, ink, write, screen, sound, api }) {
           }
           if (keyLabel) ink("white").write(keyLabel, btn.box.x, btn.box.y + 10);
         });
+        
+        
       }
     });
+    
+        ink("white", 128).poly(
+      Object.keys(trail).map((t) => [buttons[t].box.x + buttons[t].box.w / 2, buttons[t].box.y + buttons[t].box.h / 2]
+      ))
+    
   }
 }
 
