@@ -67,6 +67,7 @@ export async function handler(event, context) {
     body = JSON.parse(event.body);
 
     const handle = body.handle;
+    const tenant = body.tenant || "aesthetic"; // Could be 'sotce'.
     const action = body.action;
 
     if (action !== "strip") {
@@ -84,7 +85,7 @@ export async function handler(event, context) {
     }
 
     // And that we are logged in...
-    const user = await authorize(event.headers);
+    const user = await authorize(event.headers, tenant);
 
     if (user && user.email_verified) {
       console.log("User authorized?", user);
@@ -97,11 +98,12 @@ export async function handler(event, context) {
 
       const handles = database.db.collection("@handles");
 
-      // Make an "handle" index on the @handles collection that forces
+      // Make a "handle" index on the @handles collection that forces
       // them all to be unique, (if it doesn't already exist).
       await handles.createIndex({ handle: 1 }, { unique: true });
       await KeyValue.connect();
-      await logger.link(database /*, KeyValue*/);
+
+      if (tenant === "aesthetic") await logger.link(database);
 
       if (action === "strip") {
         if ((await hasAdmin(user)) === false) {
@@ -140,12 +142,23 @@ export async function handler(event, context) {
       }
 
       // 🌟 Otherwise assume we are creating or modifying a handle.
-      console.log("🏷️ Setting a handle:", handle);
+      console.log(`💁 Setting a handle on ${tenant}:`, handle);
 
       // Insert or update the handle using the `provider|id` key from auth0.
       try {
+        let sub = user.sub;
+
+        // 🪷 TODO: Implement `sotce-net` handle creation.
+        // - [-] Check for existing handle by checking auth0 tenant / etc. 
+
+        if (tenant === "sotce") {
+          sub = "sotce-" + user.sub; // Prefix the stored handle subs with 'sotce-'
+          // because they are not guaranteed to be unique by auth0: https://community.auth0.com/t/ensuring-unique-user-ids-in-auth0-across-multiple-tenants/120970
+          return respond(400, { message: "handles are wip:" + sub });
+        }
+
         // Check if a document with this user's sub already exists
-        const existingUser = await handles.findOne({ _id: user.sub });
+        const existingUser = await handles.findOne({ _id: sub });
         if (existingUser) {
           if (dev) console.log("Current user handle:", existingUser.handle);
           // Replace existing handle or fail if the new handle is already taken
@@ -154,7 +167,7 @@ export async function handler(event, context) {
             handle: existingUser.handle,
           });
 
-          if (existingHandle && existingHandle._id !== user.sub) {
+          if (existingHandle && existingHandle._id !== sub) {
             throw new Error("Handle taken.");
           }
 
@@ -162,24 +175,29 @@ export async function handler(event, context) {
             return respond(400, { message: "same" });
           }
 
-          await handles.updateOne({ _id: user.sub }, { $set: { handle } });
+          await handles.updateOne({ _id: sub }, { $set: { handle } });
 
-          await logger.log(`@${existingUser.handle} is now @${handle}`, {
-            user: user.sub,
-            action: "handle:update",
-            value: handle,
-          }); // 🪵
+          if (tenant === "aesthetic") {
+            await logger.log(`@${existingUser.handle} is now @${handle}`, {
+              user: sub,
+              action: "handle:update",
+              value: handle,
+            }); // 🪵
+          }
         } else {
           const existingHandle = await handles.findOne({ handle });
           if (existingHandle) throw new Error("Handle taken");
 
           // Add a new `@handles` document for this user.
-          await handles.insertOne({ _id: user.sub, handle });
-          await logger.log(`hi @${handle}`, {
-            user: user.sub,
-            action: "handle:create",
-            value: handle,
-          }); // 🪵 Log initial handle creation.
+          await handles.insertOne({ _id: sub, handle });
+
+          if (tenant === "aesthetic") {
+            await logger.log(`hi @${handle}`, {
+              user: sub,
+              action: "handle:create",
+              value: handle,
+            }); // 🪵 Log initial handle creation.
+          }
         }
 
         // Update the redis handle <-> userID cache...
