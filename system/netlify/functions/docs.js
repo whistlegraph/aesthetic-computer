@@ -2464,8 +2464,8 @@ export async function handler(event, context) {
         hidden: true,
         //TODO: shouldnt this go to nopaint site? nopaint.art
       },
-      notepad: {
-        sig: "notepad",
+      notepat: {
+        sig: "notepat",
         desc: "A melodic keyboard instrument.",
         done: false,
       },

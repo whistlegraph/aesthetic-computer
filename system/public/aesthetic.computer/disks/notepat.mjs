@@ -1,5 +1,5 @@
-// Notepad, 2024.6.26.23.17.58.736
-// Touch pads that play musical notes, or use the keyboard keys.
+// Notepat, 2024.6.26.23.17.58.736
+// Tap the pads to play musical notes, or use the keyboard keys.
 
 // ⚖️ Scales
 // CvDsEFrGtAwB
@@ -307,7 +307,7 @@ function boot({ params, api, colon, ui, screen, fps }) {
 function sim({ sound, simCount }) {
   sound.speaker?.poll();
   Object.keys(trail).forEach((note) => {
-    trail[note] -= 0.0025;
+    trail[note] -= 0.0065;
     if (trail[note] <= 0) delete trail[note];
   });
 }
@@ -454,19 +454,18 @@ function paint({ wipe, ink, write, screen, sound, api }) {
             color = note.indexOf("#") === -1 ? octaveTheme[octave] : "gray";
           }
 
-          ink(color, 192)
-            .box(btn.box)
-            .ink("white")
-            .write(note.toUpperCase(), btn.box.x, btn.box.y);
+          ink(color, 192).box(btn.box);
 
           if (trail[note] > 0) {
-            ink("yellow", max(1, trail[note] * 96)).box(
+            ink("maroon", max(1, trail[note] * 96)).box(
               btn.box.x + btn.box.w / 2,
               btn.box.y + btn.box.h / 2,
               trail[note] * btn.box.w,
               "center",
             );
           }
+
+          ink("white").write(note.toUpperCase(), btn.box.x, btn.box.y);
 
           let keyLabel;
           switch (note) {
@@ -678,6 +677,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
                     duration: "🔁",
                   }),
                 };
+                delete trail[note];
               }
             },
             over: (btn) => {
@@ -928,6 +928,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
               duration: "🔁",
             }),
           };
+          delete trail[buttonNote];
         }
       }
     }
