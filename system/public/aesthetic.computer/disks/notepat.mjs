@@ -441,7 +441,7 @@ function paint({ wipe, ink, write, screen, sound, api }) {
     
     
     ink("maroon").poly(
-      ...Object.keys(trail).map((t) => [buttons[t].box.x, buttons[t].box.y)
+      ...Object.keys(trail).map((t) => [buttons[t].box.x, buttons[t].box.y]
       )
     
     // Buttons
