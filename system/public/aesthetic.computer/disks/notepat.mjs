@@ -59,8 +59,9 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
-  - [] Rename to `notepat`.
-  - [] Add volume centroid control to bottoms with draggable changes.
+  - [] Add record button and repeat button with a masking mode and potentially a stepper and "sing" syllable mode for adding words, followed by a way to store tracks.
+  - [x] Rename to `notepat`.
+  - [] Add volume centroid control to buttons with draggable changes.
   - [] Add perc buttons to ui interface.
   - [-] Add scale selection with visual hiking paths. (Color themes).
     - [🤩] Ghost trails.
