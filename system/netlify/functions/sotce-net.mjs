@@ -4,11 +4,20 @@
 /* #region 🏁 TODO 
   --- 🏁 pre-launch
   - [-] add handle creation / handle support for sotce-net users
+
+  - [] test creating a new handle on sotce network
+
+  - [] test setting a new handle across networks!
+
+  - [] test to see if handles automatically get slurped in from sotce -> ac
+       (using test email) 
+
     - [*] there should be a 'create handle' button / (a dedicated handle space)
       - [-] this should prompt the user to make a handle
         - [] once a handle is made there should also be a way to change the handle
              and visit their profile ala ac; central button style
-    - [] make sure handles will also be deleted
+    - [] make sure handles will also be deleted when accounts are deleted, BUT
+         only if they are not shared across an aesthetic computer account
     - [] inherit any existing handle from ac (only if the email is verified and user is subscribed)
   - [] The handle system would be shared among ac users.
     - [] Perhaps the subs could be 'sotce' prefixed.
@@ -293,7 +302,7 @@ export const handler = async (event, context) => {
               user-select: none;
             }
             #gate nav button:hover {
-              background: rgb(255, 240, 185);
+              background: rgb(255, 245, 170);
             }
             #gate nav button:active {
               filter: drop-shadow(
@@ -327,6 +336,12 @@ export const handler = async (event, context) => {
               left: calc(-130% / 8);
               bottom: -65%;
               width: 130%;
+            }
+            #delete-account:hover {
+              color: rgb(200, 0, 0);
+            }
+            #delete-account:active {
+              color: red;
             }
             #logout-wrapper {
               position: relative;
@@ -364,6 +379,10 @@ export const handler = async (event, context) => {
             }
             .hidden {
               visibility: hidden;
+              pointer-events: none;
+            }
+            .obscured {
+              display: none !important;
               pointer-events: none;
             }
           </style>
@@ -447,7 +466,7 @@ export const handler = async (event, context) => {
             const wrapper = document.getElementById("wrapper");
             const gateElements = {};
 
-            function gate(status, user, subscription) {
+            async function gate(status, user, subscription) {
               let message,
                 buttons = [],
                 buttonsTop = [];
@@ -459,6 +478,7 @@ export const handler = async (event, context) => {
               const g = document.createElement("div");
               const curtain = document.createElement("div");
               curtain.id = "gate-curtain";
+              curtain.classList.add("obscured");
               g.id = "gate";
               const img = document.createElement("img");
               img.id = "cookie";
@@ -596,45 +616,68 @@ export const handler = async (event, context) => {
                 buttons.push(genSubscribeButton());
               } else if (status === "subscribed") {
                 message = genWelcomeMessage();
+                // 🗼 Check to see if a handle already exists...
 
-                // 🙆 Add 'create handle' button here.
-                const hb = cel("button");
-                hb.classList.add("positive");
-                hb.innerText = "create handle";
-                hb.onclick = async function handle() {
-                  console.log("Prompt user for handle...");
-                  const handle = prompt("Enter your username:");
-                  if (!handle) return;
+                let handle;
 
-                  // TODO: Make the api request to handles...
-                  try {
-                    const response = await fetch("/handle", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Authorization:
-                          "Bearer " +
-                          (window.sotceTOKEN ||
-                            (await auth0Client.getTokenSilently())),
-                      },
-                      body: JSON.stringify({ handle, tenant: "sotce" })
-                    });
-                    if (response.ok) {
-                      const result = await response.json();
-                      console.log("💁‍♀️ Handle created:", result);
-                    } else {
-                      const error = await response.json();
-                      console.error("❌ Handle error:", error.message);
-                      alert("Failed to set handle: " + error.message);
-                    }
-                  } catch (error) {
-                    console.error("🔴 Error:", error);
-                    alert("An error occurred while creating your handle.");
+                try {
+                  const response = await fetch("/handle?for=sotce-" + user.sub);
+                  if (response.status === 200) {
+                    const data = await response.json();
+                    const newHandle = "@" + data.handle;
+                    handle = newHandle;
+                    console.log("🫅 Handle found:", newHandle);
+                  } else {
+                    console.warn(
+                      "❌ 🫅 Handle not found:",
+                      await response.text(),
+                    );
                   }
+                } catch (error) {
+                  console.error("❌ 🫅 Handle error:", error);
+                }
 
-                };
-
-                buttonsTop.push(hb);
+                if (!handle) {
+                  // 🙆 Add 'create handle' button here.
+                  const hb = cel("button");
+                  hb.classList.add("positive");
+                  hb.innerText = "create handle";
+                  hb.onclick = async function handle() {
+                    console.log("Prompt user for handle...");
+                    const handle = prompt("Enter your username:");
+                    if (!handle) return;
+                    try {
+                      const response = await fetch("/handle", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization:
+                            "Bearer " +
+                            (window.sotceTOKEN ||
+                              (await auth0Client.getTokenSilently())),
+                        },
+                        body: JSON.stringify({ handle, tenant: "sotce" }),
+                      });
+                      if (response.ok) {
+                        const result = await response.json();
+                        console.log("💁‍♀️ Handle created:", result);
+                      } else {
+                        const error = await response.json();
+                        console.error("❌ Handle error:", error.message);
+                        alert("Failed to set handle: " + error.message);
+                      }
+                    } catch (error) {
+                      console.error("🔴 Error:", error);
+                      alert("An error occurred while creating your handle.");
+                    }
+                  };
+                  buttonsTop.push(hb);
+                } else {
+                  const hb = cel("button");
+                  hb.classList.add("positive");
+                  hb.innerText = handle;
+                  buttonsTop.push(hb);
+                }
 
                 if (subscription.until === "recurring") {
                   h2.innerText =
@@ -698,18 +741,22 @@ export const handler = async (event, context) => {
               img.src = asset(
                 status === "subscribed" ? "cookie-open.png" : "cookie.png",
               );
+
+              return curtain;
             }
 
             // Build a layout for the 🌻 'garden'.
-            function garden(subscription, user) {
-              gate("subscribed", user, subscription);
+            async function garden(subscription, user) {
+              const gateEl = await gate("subscribed", user, subscription);
+              gateEl.classList.remove("obscured");
 
-              // Change out the favicon url...
+              // Swap the favicon url.
               document.querySelector('link[rel="icon"]').href =
                 asset("cookie-open.png");
 
               const g = cel("div");
               g.id = "garden";
+              g.classList.add("obscured");
 
               // TODO: Add a blog post here to the garden layout.
               g.innerText = "Hello...";
@@ -732,6 +779,8 @@ export const handler = async (event, context) => {
               cookie.onload = function () {
                 wrapper.appendChild(g);
               };
+
+              return g;
             }
 
             // 🔐 Authorization
@@ -865,28 +914,33 @@ export const handler = async (event, context) => {
               spinner.classList.add("showing");
             }, 250);
 
-            function spinnerPass(callback) {
+            async function spinnerPass(callback) {
               clearTimeout(spinnerTO);
+              let page;
               if (spinner.classList.contains("showing")) {
-                setTimeout(() => {
+                setTimeout(async () => {
                   spinner.addEventListener(
                     "transitionend",
                     () => {
                       spinner.remove();
-                      callback();
+                      page.classList.remove("obscured"); // Show 'gate' / 'garden'
                     },
                     { once: true },
                   );
+                  page = await callback();
                   spinner.classList.remove("showing");
                 }, 250);
               } else {
+                page = await callback();
                 spinner.remove();
-                callback();
+                page.classList.remove("obscured");
               }
             }
 
             if (!isAuthenticated) {
-              spinnerPass(() => gate(!dev ? "coming-soon" : "logged-out"));
+              await spinnerPass(
+                async () => await gate(!dev ? "coming-soon" : "logged-out"),
+              );
             } else {
               user = pickedUpSession
                 ? window.sotceUSER
@@ -894,13 +948,13 @@ export const handler = async (event, context) => {
               // console.log("🪷 Got user:", user);
               if (!user.email_verified) await retrieveUncachedUser();
               if (!user.email_verified) {
-                spinnerPass(() => gate("unverified", user));
+                await spinnerPass(async () => await gate("unverified", user));
               } else {
                 const entered = await subscribed();
                 if (entered?.subscribed) {
-                  spinnerPass(() => garden(entered, user));
+                  await spinnerPass(async () => await garden(entered, user));
                 } else if (entered !== "error") {
-                  spinnerPass(() => gate("verified", user));
+                  await spinnerPass(async () => await gate("verified", user));
                 } else {
                   console.log("🔴 Server error.");
                   // gate("error");
@@ -933,8 +987,8 @@ export const handler = async (event, context) => {
             async function subscribe() {
               const stripe = Stripe(
                 "${dev
-              ? SOTCE_STRIPE_API_TEST_PUB_KEY
-              : SOTCE_STRIPE_API_PUB_KEY}",
+                  ? SOTCE_STRIPE_API_TEST_PUB_KEY
+                  : SOTCE_STRIPE_API_PUB_KEY}",
               );
               const response = await fetch("/sotce-net/subscribe", {
                 method: "POST",
