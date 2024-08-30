@@ -24,28 +24,24 @@ const dev = process.env.CONTEXT === "dev";
 
 export async function handler(event, context) {
   // A GET request to get a handle from a user `sub`.
-  const database = await connect(); // 📕 Database
-  const collection = database.db.collection("@handles");
-
-  // A GET request to get a handle from a user `sub`.
   if (event.httpMethod === "GET") {
     const count = event.queryStringParameters.count;
 
     if (count) {
       // Return total handle count.
       try {
+        const database = await connect(); // 📕 Database
+        const collection = database.db.collection("@handles");
         const handles = await collection.estimatedDocumentCount();
         await database.disconnect();
         return respond(200, { handles });
       } catch (error) {
-        await database.disconnect();
         return respond(500, { message: "Failed to retrieve handle count." });
       }
     } else {
       // Get handle `for`
       const id = event.queryStringParameters.for;
       const result = await handleFor(id);
-      await database.disconnect();
 
       if (typeof result === "string") {
         return respond(200, { handle: result });
@@ -105,6 +101,9 @@ export async function handler(event, context) {
 
       if (tenant === "aesthetic") await logger.link(database);
 
+      // Admin action to delete a user handle from the system, as opposed
+      // to setting it.
+      // TODO: This currently only works for the 'aesthetic' network.
       if (action === "strip") {
         if ((await hasAdmin(user)) === false) {
           return respond(500, { message: "unauthorized" });
@@ -149,7 +148,7 @@ export async function handler(event, context) {
         let sub = user.sub;
 
         // 🪷 TODO: Implement `sotce-net` handle creation.
-        // - [-] Check for existing handle by checking auth0 tenant / etc. 
+        // - [-] Check for existing handle by checking auth0 tenant / etc.
 
         if (tenant === "sotce") {
           sub = "sotce-" + user.sub; // Prefix the stored handle subs with 'sotce-'

@@ -38,13 +38,11 @@ export async function hasAdmin(user) {
   );
 }
 
-export async function userIDFromEmail(email, tenant = "aesthetic") {
+// Get the user ID via their email.
+export async function userIDFromEmail(email, tenant = "aesthetic", got, token) {
   try {
-    // Get an access token to the auth0 management API for the email lookup.
-
-    // Then check to get the user ID via their email.
-    const { got } = await import("got");
-    const token = await getAccessToken(got, tenant);
+    if (!got) got = (await import("got")).got;
+    if (!token) token = await getAccessToken(got, tenant);
     const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
 
     const userResponse = await got(`${baseURI}/api/v2/users-by-email`, {
@@ -58,6 +56,32 @@ export async function userIDFromEmail(email, tenant = "aesthetic") {
     return { userID, email_verified: user?.email_verified };
   } catch (error) {
     console.error(`Error retrieving user ID from Auth0: ${error}`);
+    return undefined;
+  }
+}
+
+// Get the user email via their user ID.
+export async function userEmailFromID(
+  userID,
+  tenant = "aesthetic",
+  got,
+  token,
+) {
+  try {
+    if (!got) got = (await import("got")).got;
+    if (!token) token = await getAccessToken(got, tenant);
+    const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
+
+    const userResponse = await got(`${baseURI}/api/v2/users/${userID}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      responseType: "json",
+    });
+
+    const user = userResponse.body;
+    const email = user?.email;
+    return { email, email_verified: user?.email_verified };
+  } catch (error) {
+    console.error(`Error retrieving user email from Auth0: ${error}`);
     return undefined;
   }
 }
@@ -84,16 +108,15 @@ export async function getHandleOrEmail(sub) {
   }
 }
 
-// Connects to the MongoDB database to obtain a user's handle from their ID.
-// (With redis cache)
+// Connects to the Redis cache or MongoDB database to obtain a user's handle
+// from their ID (across tenants).
 export async function handleFor(id) {
   // const time = performance.now();
 
-  const database = await connect();
-  const collection = database.db.collection("@handles");
-
   // 📖 Get an aggregate list of all handles.
   if (id === "all") {
+    const database = await connect();
+    const collection = database.db.collection("@handles");
     const randomHandles = await collection
       .aggregate([{ $sample: { size: 100 } }, { $project: { handle: 1 } }])
       .toArray();
@@ -102,35 +125,51 @@ export async function handleFor(id) {
   } else {
     // 🙆 Get a specific user handle.
 
-
-    // Getting handles across `aesthetic` and `sotce`.
-
-    // If the id is prefixed with `sotce` here then assume the `sotce`
-    // tenant.
-
-    // One '@handles' database record with unique 'handle' entries.
-
-    // When retrieving a handle across networks... 
-
-    // If `id` is not prefixed with 'sotce' then 
-
-    
     await KeyValue.connect();
-    let cachedID = await KeyValue.get("userIDs", id);
+    const cachedHandle = await KeyValue.get("userIDs", id);
 
-    if (cachedID) {
-      // console.log("ID: Found in redis...");
+    if (cachedHandle) {
       await KeyValue.disconnect();
-      return cachedID;
+      return cachedHandle;
     }
 
-    const existingUser = await collection.findOne({ _id: id });
+    const database = await connect();
+    const collection = database.db.collection("@handles");
 
-    // If no handle was found then try again on the sister network.
+    let existingUser = await collection.findOne({ _id: id });
+
+    // If no handle was found then try again on the sister tenant.
     if (!existingUser) {
-      const network = id.startsWith("sotce-") ? "sotce" : "aesthetic";
-      if (network === "aesthetic") {
-      } else if (network === "sotce") {
+      const tenant = id.startsWith("sotce-") ? "sotce" : "aesthetic";
+      // 🅰️ Look up the user's email from the sister tenant.
+      const emailRes = await userEmailFromID(
+        tenant === "sotce" ? id.replace("sotce-", "") : id,
+        tenant,
+      );
+
+      if (emailRes?.email && emailRes?.email_verified) {
+        // 🅱️ Look up the user's sub on the sister tenant via their email.
+        const idRes = await userIDFromEmail(
+          emailRes?.email,
+          tenant === "sotce" ? "aesthetic" : "sotce",
+        );
+
+        // If there is a user...
+        if (idRes?.userID && idRes?.email_verified) {
+          // See if they have a handle based on their userID.
+
+          // First in redis...
+          let foundHandle = await KeyValue.get("userIDs", idRes.userID);
+
+          if (foundHandle) {
+            await KeyValue.set("userIDs", id, foundHandle);
+            await KeyValue.disconnect();
+            return foundHandle;
+          } else {
+            // Then in the database.
+            existingUser = await collection.findOne({ _id: idRes.userID });
+          }
+        }
       }
     }
 

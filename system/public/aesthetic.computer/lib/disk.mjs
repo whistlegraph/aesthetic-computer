@@ -5938,8 +5938,6 @@ async function handle() {
       return; // Leave early if a stored handle was found.
     }
 
-    // console.log("Fetching handle for user:", USER);
-
     try {
       const response = await fetch(`/handle?for=${USER.sub}`);
       if (response.status === 200) {
