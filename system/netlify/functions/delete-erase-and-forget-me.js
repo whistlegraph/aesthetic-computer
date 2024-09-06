@@ -102,6 +102,9 @@ export async function handler(event, context) {
       await database.db.collection("moods").deleteMany({ user: sub });
       console.log("🧠 Deleted moods.");
 
+      await database.db.collection("verifications").deleteOne({ _id: sub });
+      console.log("🧏 Deleted verification count.");
+
       // Rewrite the "text" field to be null / empty and rewrite the user field to be empty
       // rather than simply deleting the records associated with the user sub.
       await database.db
@@ -142,7 +145,7 @@ export async function handler(event, context) {
         const bareHandle = handle.slice(1); // Remove the "@" from the handle.
         const idRes = await userIDFromEmail(user.email, "sotce");
 
-        console.log("Sotce user:", idRes);
+        // console.log("Sotce user:", idRes);
 
         if (idRes?.userID && idRes?.email_verified) {
           const handles = database.db.collection("@handles");
