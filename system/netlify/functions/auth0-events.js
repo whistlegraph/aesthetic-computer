@@ -35,8 +35,8 @@ export async function handler(event, context) {
       shell.log("🖋️ Signed up:", aestheticSub, "Email:", email);
 
       // Insert into "verifieds" collection, with verification count 0
-      const verifieds = database.db.collection("verifications");
-      await verifieds.insertOne({ _id: aestheticSub, verifications: 0 });
+      const verifications = database.db.collection("verifications");
+      await verifications.insertOne({ _id: aestheticSub, count: 0 });
     }
 
     // 💌 Email verified
@@ -44,14 +44,14 @@ export async function handler(event, context) {
       const aestheticSub = log.data.user_id;
       shell.log("💌 Email verified:", aestheticSub);
 
-      const verifieds = database.db.collection("verifications");
-      const verified = await verifieds.findOne({ _id: aestheticSub });
+      const verifications = database.db.collection("verifications");
+      const verified = await verifications.findOne({ _id: aestheticSub });
 
       if (verified) {
-        const verifications = verified.verifications + 1;
-        await verifieds.updateOne(
+        const count = verified.count + 1;
+        await verifications.updateOne(
           { _id: aestheticSub },
-          { $set: { verifications } },
+          { $set: { count } },
         );
 
         // Detect if this is the first verification.
