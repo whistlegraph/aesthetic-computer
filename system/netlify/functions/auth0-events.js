@@ -5,6 +5,7 @@
 
 import { respond } from "../../backend/http.mjs";
 import { shell } from "../../backend/shell.mjs";
+import { handleFor } from "../../backend/authorization.mjs";
 
 // import * as logger from "../../backend/logger.mjs";
 
@@ -22,14 +23,16 @@ export async function handler(event, context) {
   const body = JSON.parse(event.body);
   const tenant = "aesthetic"; // TODO: Eventually add `sotce-net` support.
 
-  body.logs.forEach((log) => {
+  body.logs.forEach(async (log) => {
     // 📧 Successful signup.
-    shell.log("🧏 Auth0:", "Type:", log.data.type, "User:", log.data.user_id);
+    shell.log("🧏 Auth0 Event Type:", log.data.type, "User:", log.data.user_id);
     if (log.data.type === "ss") {
       const aestheticSub = log.data.user_id;
-
-      shell.log(log.data);
-      // Check to see if this user has a handle
+      const email = log.data.details.body.email;
+      shell.log("🆕 Signed up:", aestheticSub, "Email:", email);
+      const handle = await handleFor(aestheticSub);
+      if (handle) shell.log("🌠 Inherited handle:", handle);
+      // 🔴 Run the logger if the handle already exists for this user.
     }
   });
 
