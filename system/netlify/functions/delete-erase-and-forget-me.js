@@ -93,7 +93,7 @@ export async function handler(event, context) {
 
       // Delete `paintings` and `moods` associated with the user's sub.
       await database.db.collection("paintings").deleteMany({ user: sub });
-      console.log("🖼️ Deleted paintings.");
+      console.log("️🎨 Deleted paintings.");
 
       // Delete `paintings` and `moods` associated with the user's sub.
       await database.db.collection("pieces").deleteMany({ user: sub });
