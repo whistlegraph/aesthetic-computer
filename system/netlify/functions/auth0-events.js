@@ -24,15 +24,28 @@ export async function handler(event, context) {
   const tenant = "aesthetic"; // TODO: Eventually add `sotce-net` support.
 
   body.logs.forEach(async (log) => {
-    // 📧 Successful signup.
+    // 🖋️ Signed up
     shell.log("🧏 Auth0 Event Type:", log.data.type, "User:", log.data.user_id);
     if (log.data.type === "ss") {
       const aestheticSub = log.data.user_id;
       const email = log.data.details.body.email;
-      shell.log("🆕 Signed up:", aestheticSub, "Email:", email);
-      const handle = await handleFor(aestheticSub);
-      if (handle) shell.log("🌠 Inherited handle:", handle);
-      // 🔴 Run the logger if the handle already exists for this user.
+      shell.log("🖋️ Signed up:", aestheticSub, "Email:", email);
+    }
+
+    // 💌 Email verified
+    if (log.data.type === "sv") {
+      const aestheticSub = log.data.user_id;
+      const email = log.data.details.body.email;
+      shell.log("💌 Email verified:", aestheticSub, "Email:", email);
+      shell.log(data, "EMAIL VERIFIED");
+
+      // ⚠️
+      // TODO: Track first verifications in the database, and use logger
+      //       if a handle was inherited! 
+
+
+      // const handle = await handleFor(aestheticSub);
+      // if (handle) shell.log("🌠 Inherited handle:", handle);
     }
   });
 
