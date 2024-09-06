@@ -25,9 +25,7 @@ export async function handler(event, context) {
 
   const database = await connect(); // 📕 Database
 
-  // Ensure that sub is unique in the "verifieds" collection
-
-  body.logs.forEach(async (log) => {
+  for (const log of body.logs) {
     shell.log("🧏 Auth0 Event Type:", log.data.type, "User:", log.data.user_id);
 
     // 🖋️ Signed up
@@ -69,7 +67,7 @@ export async function handler(event, context) {
         shell.log("🚫 No `verifications` record for:", aestheticSub);
       }
     }
-  });
+  }
 
   await database.disconnect();
 
