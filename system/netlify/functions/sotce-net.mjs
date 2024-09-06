@@ -587,7 +587,7 @@ export const handler = async (event, context) => {
                 urlParams.delete("success");
                 urlParams.delete("code");
                 cleanUrlParams(url, urlParams);
-                fullAlert = "email verified";
+                fullAlert = "Email verified!";
               }
             }
 
@@ -629,7 +629,7 @@ export const handler = async (event, context) => {
               navLow.id = "nav-low";
 
               function genSubscribeButton() {
-                h2.innerText = "email verified";
+                h2.innerText = "Email verified!";
                 h2.classList.remove("loading-dots");
                 const sb = cel("button");
                 sb.id = "subscribe";
@@ -726,7 +726,7 @@ export const handler = async (event, context) => {
 
               if (status === "unverified") {
                 message = genWelcomeMessage();
-                h2.innerText = "awaiting email verification";
+                h2.innerText = "Awaiting email verification";
                 h2.classList.add("loading-dots");
 
                 const rs = cel("button");
@@ -757,7 +757,7 @@ export const handler = async (event, context) => {
                           }
                         }
                       } else if (u) {
-                        h2.innerText = "awaiting email verification";
+                        h2.innerText = "Awaiting email verification";
                         h2.classList.add("loading-dots");
                         verificationTimeout = setTimeout(() => {
                           fetchUser(email);
