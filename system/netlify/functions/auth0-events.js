@@ -60,7 +60,7 @@ export async function handler(event, context) {
         // they were grandfathered in, in which case it could be synthesized
         // here if it never existed if it's ever necessary for future logic.
         // 24.09.06.03.04
-        if (verifications === 1) {
+        if (count === 1) {
           const handle = await handleFor(aestheticSub);
           if (handle) {
             shell.log("🌠 Inherited handle:", handle);
