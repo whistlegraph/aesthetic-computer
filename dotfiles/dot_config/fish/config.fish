@@ -26,6 +26,9 @@ alias mongodb-compass 'mongodb-compass --enable-features=UseOzonePlatform,Waylan
 # reload fish config
 alias reload 'source ~/.config/fish/config.fish'
 
+# learn about a command with 't' -> tldr
+alias t 'tldr'
+
 # open my agenda.txt
 alias agenda 'nvim ~/Desktop/agenda/agenda.txt'
 alias paper 'gnome-extensions prefs paperwm@paperwm.github.com'
@@ -267,3 +270,16 @@ set -x HOST_IP (hostname -I | awk '{print $1}')
 
 # use tab to autocomplete the first suggestion
 bind \t complete-select-first
+
+#function fish_command_not_found
+#    # Use string replace to strip special characters like '?' or '*' from the command
+#    set cleaned_cmd (string replace -r '\*|\?' '' $argv[1])
+#
+#    if test -n "$cleaned_cmd"
+#        echo "Wildcard match failed, showing tldr page for: $cleaned_cmd"
+#        tldr $cleaned_cmd
+#    else
+#        # Default behavior for commands that can't be found
+#        echo "Command not found: $argv[1]"
+#    end
+#end

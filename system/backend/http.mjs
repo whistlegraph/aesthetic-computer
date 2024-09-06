@@ -11,6 +11,7 @@ function respond(statusCode, body, headers = {}) {
 
   const res = { statusCode, headers };
   res.body = typeof body === "object" ? JSON.stringify(body) : body;
+
   return res;
 }
 

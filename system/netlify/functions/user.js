@@ -4,9 +4,11 @@
 import {
   userIDFromHandle,
   userIDFromEmail,
+  handleFor
 } from "../../backend/authorization.mjs";
 
 import { respond } from "../../backend/http.mjs";
+import { shell } from "../../backend/shell.mjs";
 
 // GET A user's `sub` id from either their handle or email address.
 export async function handler(event, context) {
@@ -24,24 +26,41 @@ export async function handler(event, context) {
     };
   }
 
-  // 1. Download / go to individual files.
   let user;
   if (handleOrEmail.startsWith("@")) {
     // Try and look up `sub` from `handle` in MongoDB.
-    user = await userIDFromHandle(handleOrEmail.slice(1));
+    user = await userIDFromHandle(
+      handleOrEmail.slice(1),
+      undefined,
+      undefined,
+      tenant,
+    ); // Returns a string.
   } else {
     // Assume email and try to look up sub from email via auth0.
-    user = await userIDFromEmail(handleOrEmail, tenant);
+    shell.log("Getting user id from email:", handleOrEmail);
+    user = await userIDFromEmail(handleOrEmail, tenant); // Returns an object.
   }
 
   if (user) {
     if (typeof user === "string") {
-      return respond(200, { sub: user });
+      const out = { sub: user };
+      // Also pull in the user's handle here if it's requested.
+      if (event.queryStringParameters.withHandle === "true") {
+        const handle = await handleFor(user);
+        if (handle) out.handle = handle;
+      }
+      return respond(200, out);
     } else {
-      return respond(200, {
+      const out = {
         sub: user.userID,
         email_verified: user.email_verified,
-      });
+      };
+      // Pull in handle as in the above.
+      if (event.queryStringParameters.withHandle === "true") {
+        const handle = await handleFor(user.userID);
+        if (handle) out.handle = handle;
+      }
+      return respond(200, out);
     }
   } else {
     return respond(400, { message: "User not found." });

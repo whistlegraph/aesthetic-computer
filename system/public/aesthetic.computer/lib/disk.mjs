@@ -835,6 +835,9 @@ const $commonApi = {
       pixels = `${data.slug}.${data.ext}`;
     } else if (data) {
       pixels = data.url;
+    } else {
+      $commonApi.notice("UPLOAD ERROR", ["red", "yellow"]);
+      return;
     }
 
     try {
@@ -1614,7 +1617,6 @@ const $commonApi = {
             const json = await response.json();
             return { status: response.status, ...json };
           } catch (e) {
-            const message = await response.text();
             return { status: response.status, message: response.statusText };
           }
         } else {
@@ -1677,7 +1679,7 @@ async function processMessage(msg) {
     HANDLE = "@" + newHandle;
     send({ type: "handle", content: HANDLE });
     store["handle:received"] = true;
-    // store["handle"] = newHandle;
+    store["handle"] = newHandle;
     // store.persist("handle");
     return;
   }
@@ -3717,13 +3719,14 @@ async function load(
       notice = "CANCELLED";
       noticeColor = ["yellow", "red"];
       noticeBell(cachedAPI, { tone: 300 });
+    } else if ($commonApi.query.notice === "email-verified") {
+      notice = "email verified";
+      noticeColor = ["white", "blue"];
+      noticeBell(cachedAPI, { tone: 300 });
     } else if ($commonApi.query.notice?.length > 0) {
       notice = $commonApi.query.notice;
       noticeColor = ["white", "green"];
       noticeBell(cachedAPI, { tone: 300 });
-    } else {
-      // Clear any existing notice on disk change.
-      // notice = noticeTimer = undefined;
     }
 
     if (!alias) currentHUDTxt = slug; // Update hud if this is not an alias.
@@ -5926,11 +5929,13 @@ let HANDLE;
 async function handle() {
   if (USER) {
     // TODO: Check to see if this is in localStorage or not...
-    const storedHandle = store["handle"] || (await store.retrieve("handle")); // Read dark mode.
+    const storedHandle = store["handle"]; // || (await store.retrieve("handle"));
 
     // console.log("Stored handle...", storedHandle);
 
     if (storedHandle) {
+      const newHandle = "@" + storedHandle;
+      if (HANDLE === newHandle) return;
       HANDLE = "@" + storedHandle;
       send({ type: "handle", content: HANDLE });
       store["handle:received"] = true;
@@ -5943,15 +5948,14 @@ async function handle() {
       if (response.status === 200) {
         const data = await response.json();
         const newHandle = "@" + data.handle;
-        if (newHandle !== $commonApi.handle()) {
-          HANDLE = "@" + data.handle;
-          send({ type: "handle", content: HANDLE });
-          store["handle:received"] = true;
-          store["handle"] = data.handle;
-          store.persist("handle");
-        }
+        if (newHandle === HANDLE) return;
+        HANDLE = newHandle;
+        send({ type: "handle", content: HANDLE });
+        store["handle:received"] = true;
+        store["handle"] = data.handle;
+        // store.persist("handle"); // Maybe this shouldn't persist.
       } else {
-        console.warn(await response.text());
+        // console.warn(await response.text());
         store["handle:failed"] = true;
       }
     } catch (error) {

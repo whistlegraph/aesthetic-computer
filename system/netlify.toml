@@ -24,6 +24,8 @@ included_files = ["public/aesthetic.computer/lib/text.mjs", "backend/**/*.mjs"]
 external_node_modules = ["got", "mongodb", "obscenity"]
 [functions.logo]
 external_node_modules = ["got"]
+[functions.email]
+external_node_modules = ["stripe"]
 [functions.print]
 external_node_modules = ["got", "stripe", "nodemailer"]
 [functions.pixel]
@@ -203,6 +205,10 @@ status = 200
 [[redirects]]
 from = "/api/print/*"
 to = "/.netlify/functions/print"
+status = 200
+[[redirects]]
+from = "/api/auth0-events"
+to = "/.netlify/functions/auth0-events"
 status = 200
 [[redirects]]
 from = "/api/ticket/*"

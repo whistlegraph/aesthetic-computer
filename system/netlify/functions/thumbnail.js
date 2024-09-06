@@ -8,6 +8,7 @@
 
 const { builder } = require("@netlify/functions");
 import { setTimeout } from "node:timers/promises";
+import { shell } from "../../backend/shell.mjs";
 const puppeteer = require("puppeteer-core");
 const dev = process.env.CONTEXT === "dev";
 
@@ -19,7 +20,7 @@ async function handler(event, context) {
     .replace("/thumbnail/", "")
     .split("/"); // yields nxn and the command, if it exists
 
-  console.log("🖼️ Getting thumbnail...", filepath.join("/"));
+  shell.log("️🐠 Getting thumbnail...", filepath.join("/"));
 
   // Ditch if we don't hit the accepted resolution whitelist.
   if (
@@ -54,7 +55,7 @@ async function handler(event, context) {
   let url;
 
   if (dev) {
-    console.log("🟡 Development");
+    shell.log("🟡 Development");
     url = "https://localhost:8888"; // This is used for testing pages locally.
   } else {
     url = "https://aesthetic.computer";
@@ -85,7 +86,7 @@ async function handler(event, context) {
       },
     );
   } catch {
-    console.log("🔴 Failed to stop networking.");
+    shell.log("🔴 Failed to stop networking.");
   }
 
   try {
@@ -93,7 +94,7 @@ async function handler(event, context) {
       timeout: 8000,
     });
   } catch {
-    console.log("🔴 Failed window.preloaded timer.");
+    shell.log("🔴 Failed window.preloaded timer.");
   }
 
   await setTimeout(500);

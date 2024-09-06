@@ -3,40 +3,67 @@
 
 /* #region 🏁 TODO 
   --- 🏁 pre-launch
-  - [-] add handle creation / handle support for sotce-net users
+  - [💠] add handle creation / handle support for sotce-net users 
 
-  - [] test creating a new handle on sotce network
+    🧪 Manual Tests
+    (Sotce Side)
+    1. - [x] create a new `sotce-net` account under `me+handleswap@jas.life`
+    2. - [x] validate email and subscribe
+    3. - [x] try to set a handle to 'handleswap1'
+    4. - [x] then create an aesthetic computer account under `me+handleswap@jas.life`
+    5. - [x] validate email and see if handle 'handleswap1' appears automatically / user joins chat
+      - [🔴] TODO: What to log here? and how?
+        - [-] Test auth0-events in production...
+          - [🟠] And log it that way.
+    6. - [x] change the handle of the user to `handleswap2' and see if it updates
+            on sotce-net automatically (after a refresh) 
+    7. - [x] update the user's email on aesthetic computer to `me+handleswap2@jas.life`
+       - [x] validate email again on both `sotce-net` and `aesthetic computer`
+    8. - [x] delete the ac user and make sure the sotce-net handle and user remains
+    9. - [x] delete the sotce-net user and run the same test for the aesthetic side
 
-  - [] test setting a new handle across networks!
+    (Aesthetic Side)
+    1  - [x] create an ac account under `me+handleswap@jas.life`
+    2. - [x] validate email and set handle to 'handleswap1'
+    3. - [x] then create a sotce-net account under `me+handleswap@jas.life`
+    4. - [x] validate email and see if `handleswap1` appears automatically
 
-  - [] test to see if handles automatically get slurped in from sotce -> ac
-       (using test email) 
+  - [-] make a privacy policy for sotce.net (inlined in this file)
+    - [] add current rules / account deletion etc. to privacy-policy for ac which links to sotce-net privacy policy
+    - [] update ac privacy policy also
+  - [] go through all the prompt boxes, including the username entry / too long / inappropriate etc.
+  - [] Commit to Production
 
-    - [*] there should be a 'create handle' button / (a dedicated handle space)
-      - [-] this should prompt the user to make a handle
-        - [] once a handle is made there should also be a way to change the handle
-             and visit their profile ala ac; central button style
-    - [] make sure handles will also be deleted when accounts are deleted, BUT
-         only if they are not shared across an aesthetic computer account
-    - [] inherit any existing handle from ac (only if the email is verified and user is subscribed)
-  - [] The handle system would be shared among ac users.
-    - [] Perhaps the subs could be 'sotce' prefixed.
   - [] Allow Amelia's user / @sotce to post a diary, but no other users
        for now.
     - [] read from the database
-  - [] Polish the sign up flow.
-    - [] Use actual 'Helvetica' for the font? Or choose a special sans-serif.
-    - [] Do better with the auth0 flow.
-      - [] Re-capitalize login screens effectively.
-      - [] Verification email should re-route to a nice page if in a new tab. 
-        - [] Also check this on aesthetic.
-  - [] Add email notifications for subscribed users.
-  - [] Do some local mobile testing.
-  - [] Run a production subscription.
-  - [] Show number of signed up users so far.
-  --- 🚩 post launch / next launch
-  - [] How can I do shared reader cursors / co-presence somehow?
+  - [] email new pages to each subscriber, and include the contents?
+  - [] Use actual 'Helvetica' for the font? Or choose a special sans-serif.
+  - [] Show number of signed up users so far / handles set.
+  - [] Add email checkbox notifications for pages for subscribed users.
+  - [] Add some kind of touch based reaction for pages?
+  - [] Test mobile designs locally.
+  - [] Test in production.
   + Done
+  - [x] Do better with the auth0 flow.
+    - [x] Re-capitalize login screens effectively.
+    - [x] Verification email should re-route to a nice page if in a new tab. 
+      - [x] Also check this on aesthetic.
+  - [x] change email after being subscribed...
+  - [x] Add support for: ?supportSignUp=true&supportForgotPassword=true&message=Your%20email%20was%20verified.%20You%20can%20continue%20using%20the%20application.&success=true&code=success
+  - [x] Test email changes post subscription...
+  - [x] once a handle is made there should also be a way to change the handle
+       and see the button update.
+  - [x] ⚠️ ensure that all cross-tenant email handle checks require email_verified
+          to be true
+  - [x] email changes need to persist on both networks and must be shared
+       and they need to update any customer emails on stripe that exist for the
+       sotce-net users...
+  - [x] there should be a 'create handle' button / (a dedicated handle space)
+    - [x] this should prompt the user to make a handle
+  - [x] make sure handles will also be deleted when accounts are deleted, BUT
+        only if they are not shared across an aesthetic computer account
+  - [x] Perhaps the subs could be 'sotce' prefixed.
   - [c] Combine texts so it says "Your subscription for `me@jas.life` renews on..."
   - [x] delete all existing subscriptions in stripe and resubscribe with a test
          user
@@ -118,31 +145,41 @@ Striking. Surveyed his cool objects and new money. Sat on the red couch across t
 const AUTH0_CLIENT_ID_SPA = "3SvAbUDFLIFZCc1lV7e4fAAGKWXwl2B0";
 const AUTH0_DOMAIN = "https://hi.sotce.net";
 
-// 💳 Payment
-const SOTCE_STRIPE_API_PRIV_KEY = process.env.SOTCE_STRIPE_API_PRIV_KEY;
-const SOTCE_STRIPE_API_PUB_KEY = process.env.SOTCE_STRIPE_API_PUB_KEY;
-const SOTCE_STRIPE_API_TEST_PRIV_KEY =
-  process.env.SOTCE_STRIPE_API_TEST_PRIV_KEY;
-const SOTCE_STRIPE_API_TEST_PUB_KEY = process.env.SOTCE_STRIPE_API_TEST_PUB_KEY;
-const SOTCE_STRIPE_ENDPOINT_DEV_SECRET =
-  process.env.SOTCE_STRIPE_ENDPOINT_DEV_SECRET;
-const SOTCE_STRIPE_ENDPOINT_SECRET = process.env.SOTCE_STRIPE_ENDPOINT_SECRET;
-
 const dev = process.env.NETLIFY_DEV;
 
-const priceId = dev
-  ? "price_1PcGkMA9SniwoPrCdlOCsFJi"
-  : "price_1PcH1BA9SniwoPrCCzLZdvES";
-const productId = dev ? "prod_QTDAZAdV2KftJI" : "prod_QTDSAhsHGMRp3z";
+// 💳 Payment
+import {
+  SOTCE_STRIPE_API_PRIV_KEY,
+  SOTCE_STRIPE_API_PUB_KEY,
+  SOTCE_STRIPE_API_TEST_PRIV_KEY,
+  SOTCE_STRIPE_API_TEST_PUB_KEY,
+  SOTCE_STRIPE_ENDPOINT_DEV_SECRET,
+  SOTCE_STRIPE_ENDPOINT_SECRET,
+  priceId,
+  productId,
+} from "../../backend/sotce-net-constants.mjs";
 
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { respond } from "../../backend/http.mjs";
+import { connect } from "../../backend/database.mjs";
+import { shell } from "../../backend/shell.mjs";
+
 import {
   authorize,
   deleteUser /* hasAdmin, */,
+  getHandleOrEmail,
+  userIDFromEmail,
 } from "../../backend/authorization.mjs";
+import * as KeyValue from "../../backend/kv.mjs";
 
 import Stripe from "stripe";
+
+const dateOptions = {
+  weekday: "long",
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+};
 
 export const handler = async (event, context) => {
   // console.log("Event:", event, "Context:", context, "Path:", event.path);
@@ -152,16 +189,7 @@ export const handler = async (event, context) => {
   if (path.startsWith("/sotce-net"))
     path = path.replace("/sotce-net", "/").replace("//", "/");
 
-  const key = dev
-    ? process.env.SOTCE_STRIPE_API_TEST_PRIV_KEY
-    : process.env.SOTCE_STRIPE_API_PRIV_KEY;
-
-  const dateOptions = {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  };
+  const key = dev ? SOTCE_STRIPE_API_TEST_PRIV_KEY : SOTCE_STRIPE_API_PRIV_KEY;
 
   // 🏠 Home
   if (path === "/" && method === "get") {
@@ -173,6 +201,7 @@ export const handler = async (event, context) => {
       <html>
         <head>
           <meta charset="utf-8" />
+          <title>sotce.net</title>
           <link rel="icon" type="image/png" href="${assetPath}/cookie.png" />
           <meta
             name="viewport"
@@ -181,18 +210,38 @@ export const handler = async (event, context) => {
           <style>
             body {
               font-family: sans-serif;
-              background: rgb(255, 230, 225);
               margin: 0;
               width: 100vw;
               height: 100vh;
               -webkit-text-size-adjust: none;
+              background: rgb(255, 230, 225);
             }
             #wrapper {
               display: flex;
               width: 100%;
               height: 100%;
+              background: rgb(255, 230, 225);
             }
-            #spinner {
+            #wrapper.reloading {
+              filter: blur(2px) saturate(1.25);
+              transition: 0.25s filter;
+            }
+            #wrapper.flash::after {
+              content: "";
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              pointer-events: none;
+              z-index: 2;
+            }
+            #wrapper.flash.red::after {
+              /* sprinkle matching red */
+              background-color: rgb(180, 11, 40, 0.8);
+            }
+            #spinner,
+            #veil div.spinner {
               width: 5vmin;
               height: 5vmin;
               background: rgb(255, 147, 191);
@@ -203,7 +252,11 @@ export const handler = async (event, context) => {
               opacity: 0;
               animation: spinner 1s infinite alternate ease-in-out;
             }
-            #spinner.showing {
+            #veil div.spinner {
+              background: white;
+            }
+            #spinner.showing,
+            #veil div.spinner.showing {
               opacity: 1;
               transition: 0.3s opacity ease-in;
             }
@@ -220,6 +273,9 @@ export const handler = async (event, context) => {
                 filter: blur(4px);
                 transform: scale(1);
               }
+            }
+            #full-alert {
+              margin: auto;
             }
             #gate-curtain {
               position: absolute;
@@ -308,7 +364,7 @@ export const handler = async (event, context) => {
               filter: drop-shadow(
                 -0.035em 0.035em 0.035em rgba(40, 40, 40, 0.8)
               );
-              background: rgb(255, 235, 183);
+              background: rgb(255, 248, 165);
               transform: translate(-1px, 1px);
             }
             #gate nav button.positive {
@@ -320,7 +376,7 @@ export const handler = async (event, context) => {
               background: rgb(199, 252, 136);
             }
             #gate nav button.positive:active {
-              background: rgb(203, 238, 161);
+              background: rgb(210, 252, 146);
             }
             #garden {
               padding-left: 1em;
@@ -328,6 +384,13 @@ export const handler = async (event, context) => {
             }
             #email {
               color: black;
+              /* user-select: all; */
+            }
+            #email:hover {
+              color: maroon;
+            }
+            #email:active {
+              color: darkgreen;
             }
             #delete-account {
               color: black;
@@ -336,6 +399,7 @@ export const handler = async (event, context) => {
               left: calc(-130% / 8);
               bottom: -65%;
               width: 130%;
+              user-select: none;
             }
             #delete-account:hover {
               color: rgb(200, 0, 0);
@@ -362,27 +426,69 @@ export const handler = async (event, context) => {
               transform: scale(0.93);
               transition: 0.13s ease-out transform;
             }
-            #prompt {
-              font-size: 22px;
-              font-family: monospace;
-              border: none;
-              background: none;
-              position: absolute;
-              top: 16px;
-              left: 16px;
-              color: black;
-              user-select: none;
-              cursor: pointer;
-            }
-            #prompt:hover {
-              color: rgb(180, 72, 135);
-            }
+            /*
+                        #prompt {
+                          font-size: 22px;
+                          font-family: monospace;
+                          border: none;
+                          background: none;
+                          position: absolute;
+                          top: 16px;
+                          left: 16px;
+                          color: black;
+                          user-select: none;
+                          cursor: pointer;
+                        }
+                        #prompt:hover {
+                          color: rgb(180, 72, 135);
+                        }
+                        */
             .hidden {
               visibility: hidden;
               pointer-events: none;
             }
             .obscured {
               display: none !important;
+              pointer-events: none;
+            }
+
+            .loading-dots::after {
+              content: "\\00a0\\00a0\\00a0"; /* Three non-breaking spaces */
+              animation: loading-dots 1s steps(3, end) infinite;
+            }
+            @keyframes loading-dots {
+              0% {
+                content: "\\00a0\\00a0\\00a0";
+              } /* Empty spaces */
+              33% {
+                content: ".\\00a0\\00a0";
+              } /* One dot, two spaces */
+              66% {
+                content: "..\\00a0";
+              } /* Two dots, one space */
+              100% {
+                content: "...";
+              } /* Three dots */
+            }
+            #veil {
+              position: fixed;
+              z-index: 1;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              display: flex;
+              background: black;
+              opacity: 0.75;
+              transition: 0.5s opacity;
+            }
+            #veil.unveiled {
+              opacity: 0;
+              pointer-events: none;
+            }
+            #veil.unveiled-instant {
+              transition: none;
+              opacity: 0;
               pointer-events: none;
             }
           </style>
@@ -397,15 +503,20 @@ export const handler = async (event, context) => {
           <div id="wrapper">
             <div id="spinner"></div>
           </div>
+          <div id="veil" class="unveiled"></div>
           <script type="module">
             // 🗺️ Environment
             const dev = ${dev};
-            const fromAesthetic =
-              (document.referrer.indexOf("aesthetic") > -1 ||
-                document.referrer.indexOf("localhost") > -1) &&
-              document.referrer.indexOf("sotce-net") === -1;
+            // const fromAesthetic =
+            //   (document.referrer.indexOf("aesthetic") > -1 ||
+            //     document.referrer.indexOf("localhost") > -1) &&
+            //   document.referrer.indexOf("sotce-net") === -1;
             const embedded = window.self !== window.top;
+            const url = new URL(window.location);
             const cel = (el) => document.createElement(el); // shorthand
+            let fullAlert;
+
+            // 🌠 Initialization
 
             function adjustFontSize() {
               // const vmin = Math.min(window.innerWidth, window.innerHeight) / 100;
@@ -421,7 +532,7 @@ export const handler = async (event, context) => {
             }
 
             function cleanUrlParams(url, params) {
-              const queryString = params.toString();
+              const queryString = params?.toString();
               history.pushState(
                 {},
                 "",
@@ -431,16 +542,14 @@ export const handler = async (event, context) => {
 
             // Reload the page with the gate open in development.
             let GATE_WAS_UP = false;
+
             if (dev) {
-              const url = new URL(window.location);
               const params = url.searchParams;
               const param = params.get("gate");
               GATE_WAS_UP = param === "up";
               params.delete("gate");
               cleanUrlParams(url, params);
             }
-
-            // 🌠 Initialization
 
             // Send some messages to the VS Code extension.
             window.parent?.postMessage(
@@ -449,31 +558,63 @@ export const handler = async (event, context) => {
             );
             window.parent?.postMessage({ type: "ready" }, "*");
 
+            // 🗺️🎏 URL Param Flags
             // Check for the '?notice=' parameter, memorize and clear it.
-            const urlParams = new URLSearchParams(window.location.search);
-            const notice = urlParams.get("notice");
+            {
+              const urlParams = new URLSearchParams(window.location.search);
+              const notice = urlParams.get("notice");
 
-            if (notice) {
-              console.log("🪧 Notice:", notice);
-              urlParams.delete("notice");
-              const paramsString = urlParams.toString();
-              const newUrl =
-                window.location.pathname +
-                (paramsString ? "?" + paramsString : "");
-              window.history.replaceState({}, document.title, newUrl);
+              if (notice) {
+                console.log("🪧 Notice:", notice, urlParams);
+                // TODO: 🟣 If it's a 'success' here I could toggle something to
+                //          wait until the subscription returns true?
+                urlParams.delete("notice");
+                cleanUrlParams(url, urlParams);
+              }
             }
 
-            const wrapper = document.getElementById("wrapper");
-            const gateElements = {};
+            // 📧 Check to see if the user clicked an 'email' verified link.
+            {
+              const urlParams = new URLSearchParams(window.location.search);
+              if (
+                urlParams.get("supportSignUp") === "true" &&
+                urlParams.get("success") === "true" &&
+                urlParams.get("code") === "success"
+              ) {
+                urlParams.delete("supportSignUp");
+                urlParams.delete("supportForgotPassword");
+                urlParams.delete("message");
+                urlParams.delete("success");
+                urlParams.delete("code");
+                cleanUrlParams(url, urlParams);
+                fullAlert = "email verified";
+              }
+            }
 
+            // Clean any url params if the first param is 'iss'.
+            if (window.location.search.startsWith("?iss")) cleanUrlParams(url);
+
+            const wrapper = document.getElementById("wrapper");
+
+            // Reload fading.
+            window.addEventListener("beforeunload", (e) => {
+              wrapper.classList.add("reloading");
+            });
+
+            document.addEventListener("visibilitychange", function () {
+              if (!document.hidden) wrapper.classList.remove("reloading");
+            });
+
+            const gateElements = {};
+            let gating = false;
+
+            // #region 🥀 gate&garden
             async function gate(status, user, subscription) {
+              if (gating) return;
+              gating = true;
               let message,
                 buttons = [],
                 buttonsTop = [];
-
-              // TODO: Remove any existing gate dom elements if they exist.
-              const existingGate = document.getElementById("gate-curtain");
-              existingGate?.remove();
 
               const g = document.createElement("div");
               const curtain = document.createElement("div");
@@ -489,7 +630,9 @@ export const handler = async (event, context) => {
 
               function genSubscribeButton() {
                 h2.innerText = "email verified";
+                h2.classList.remove("loading-dots");
                 const sb = cel("button");
+                sb.id = "subscribe";
                 sb.onclick = subscribe;
                 sb.innerText = "subscribe";
                 return sb;
@@ -502,7 +645,7 @@ export const handler = async (event, context) => {
               }
 
               if (status === "logged-out") {
-                message = "for your best thoughts";
+                message = "for my best thoughts";
 
                 const lb = cel("button");
                 lb.innerText = "log in";
@@ -531,28 +674,45 @@ export const handler = async (event, context) => {
 
                 del.onclick = function (e) {
                   e.preventDefault();
-                  // Show a confirmation dialog before proceeding
+                  veil();
                   if (
-                    confirm("Are you sure you want to delete your account?") &&
-                    confirm("This action cannot be undone!")
+                    confirm(
+                      "🚨 Are you sure you want to delete your account?",
+                    ) &&
+                    confirm("❌ This action cannot be undone.") &&
+                    confirm("🔴 Press OK once more to delete your account.")
                   ) {
                     // Run the delete endpoint if confirmed
                     userRequest("POST", "/sotce-net/delete-account")
                       .then(async (res) => {
                         if (res.status === 200) {
-                          alert("Your account has been deleted.");
+                          unveil({ instant: true });
+                          flash("red", { hold: true });
+                          setTimeout(
+                            () => alert("Your account has been deleted."),
+                            25,
+                          );
                           logout();
                         } else {
-                          alert(
-                            "Your account could not be deleted. Please email hello@sotce.net.",
+                          setTimeout(
+                            () =>
+                              alert(
+                                "😦 Your account could not be fully deleted. Email \`hello@sotce.net\` for help.",
+                              ),
+                            25,
                           );
+                          unveil({ instant: true });
                           logout();
                         }
                       })
                       .catch((err) => {
                         console.error("🔴 Account deletion error...", err);
+                        unveil();
                       });
+                  } else {
+                    unveil();
                   }
+                  // Show a confirmation dialog before proceeding
                 };
 
                 lowrap.appendChild(del);
@@ -566,49 +726,52 @@ export const handler = async (event, context) => {
 
               if (status === "unverified") {
                 message = genWelcomeMessage();
-                h2.innerText = "awaiting email verification...";
+                h2.innerText = "awaiting email verification";
+                h2.classList.add("loading-dots");
 
                 const rs = cel("button");
                 rs.onclick = resend;
-                rs.innerText = "resend?";
-                rs.classList.add("hidden");
+                rs.innerText = "resend email";
                 buttons.push(rs);
 
                 fetchUser = function (email) {
-                  // console.log("Fetching user...");
+                  // console.log("💚 Fetching user...");
                   fetch(
                     "/user?from=" + encodeURIComponent(email) + "&tenant=sotce",
                   )
                     .then((res) => res.json())
                     .then(async (u) => {
                       if (u.email_verified) {
-                        // ❤️‍🔥 TODO: Check to see if the user has a subscription here, before rendering a subscribe button.
+                        // Check to see if the user has a subscription here, before rendering a subscribe button.
                         user.email_verified = u.email_verified;
                         const entered = await subscribed();
                         if (entered) {
-                          garden(entered, user);
+                          await garden(entered, user, true); // Re-open garden but show the gate first.
                         } else {
                           if (!embedded) {
                             rs.remove();
                             navLow.appendChild(genSubscribeButton());
                           } else {
                             h2.innerText = "please subscribe in your browser";
+                            h2.classList.remove("loading-dots");
                           }
                         }
-                      } else {
-                        h2.innerText = "awaiting email verification...";
-                        rs.classList.remove("hidden");
+                      } else if (u) {
+                        h2.innerText = "awaiting email verification";
+                        h2.classList.add("loading-dots");
                         verificationTimeout = setTimeout(() => {
                           fetchUser(email);
                         }, 1000);
+                      } else {
+                        console.warn("No user retrieved:", u);
                       }
                     })
-                    .catch(
-                      (err) =>
-                        (verificationTimeout = setTimeout(() => {
-                          fetchUser(email);
-                        }, 1000)),
-                    );
+                    .catch((err) => {
+                      console.error("👨‍🦰 Error:", err);
+                      verificationTimeout = setTimeout(() => {
+                        fetchUser(email);
+                      }, 1000);
+                    });
                 };
                 fetchUser(user.email);
               } else if (status === "verified") {
@@ -626,58 +789,60 @@ export const handler = async (event, context) => {
                     const data = await response.json();
                     const newHandle = "@" + data.handle;
                     handle = newHandle;
-                    console.log("🫅 Handle found:", newHandle);
+                    // console.log("🫅 Handle found:", newHandle);
                   } else {
-                    console.warn(
-                      "❌ 🫅 Handle not found:",
-                      await response.text(),
-                    );
+                    //console.warn(
+                    //  "❌ 🫅 Handle not found:",
+                    //  await response.json(),
+                    //);
                   }
                 } catch (error) {
                   console.error("❌ 🫅 Handle error:", error);
                 }
 
-                if (!handle) {
-                  // 🙆 Add 'create handle' button here.
-                  const hb = cel("button");
-                  hb.classList.add("positive");
-                  hb.innerText = "create handle";
-                  hb.onclick = async function handle() {
-                    console.log("Prompt user for handle...");
-                    const handle = prompt("Enter your username:");
-                    if (!handle) return;
-                    try {
-                      const response = await fetch("/handle", {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                          Authorization:
-                            "Bearer " +
-                            (window.sotceTOKEN ||
-                              (await auth0Client.getTokenSilently())),
-                        },
-                        body: JSON.stringify({ handle, tenant: "sotce" }),
-                      });
-                      if (response.ok) {
-                        const result = await response.json();
-                        console.log("💁‍♀️ Handle created:", result);
-                      } else {
-                        const error = await response.json();
-                        console.error("❌ Handle error:", error.message);
-                        alert("Failed to set handle: " + error.message);
-                      }
-                    } catch (error) {
-                      console.error("🔴 Error:", error);
-                      alert("An error occurred while creating your handle.");
+                // 🙆 Add 'create handle' button here.
+                const hb = cel("button");
+                hb.classList.add("positive");
+                hb.innerText = handle || "create handle";
+                hb.onclick = async function () {
+                  const newHandle = prompt(
+                    handle ? "Change your handle to?" : "Set your handle to?",
+                  );
+                  if (!newHandle) return;
+                  veil();
+                  try {
+                    const response = await fetch("/handle", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization:
+                          "Bearer " +
+                          (window.sotceTOKEN ||
+                            (await auth0Client.getTokenSilently())),
+                      },
+                      body: JSON.stringify({
+                        handle: newHandle,
+                        tenant: "sotce",
+                      }),
+                    });
+                    if (response.ok) {
+                      const result = await response.json();
+                      // console.log("💁‍♀️ Handle set:", result);
+                      hb.innerText = "@" + result.handle;
+                      unveil();
+                    } else {
+                      const error = await response.json();
+                      console.error("❌ Handle error:", error.message);
+                      unveil();
+                      alert("Failed to set handle: " + error.message);
                     }
-                  };
-                  buttonsTop.push(hb);
-                } else {
-                  const hb = cel("button");
-                  hb.classList.add("positive");
-                  hb.innerText = handle;
-                  buttonsTop.push(hb);
-                }
+                  } catch (error) {
+                    console.error("🔴 Error:", error);
+                    unveil();
+                    alert("An error occurred while creating your handle.");
+                  }
+                };
+                buttonsTop.push(hb);
 
                 if (subscription.until === "recurring") {
                   h2.innerText =
@@ -688,9 +853,7 @@ export const handler = async (event, context) => {
                   buttons.push(cb);
                 } else {
                   h2.innerText =
-                    "Your subscription ends on " +
-                    subscription.until.toLowerCase() +
-                    ".";
+                    "Your subscription ends on " + subscription.until + ".";
                   const ab = cel("button");
                   ab.innerText = "resubscribe";
                   ab.onclick = subscribe;
@@ -698,10 +861,9 @@ export const handler = async (event, context) => {
                 }
               }
 
-              if (!GATE_WAS_UP && status === "subscribed") {
+              if (status === "subscribed") {
                 curtain.classList.add("hidden");
-              } else if (GATE_WAS_UP && status === "subscribed") {
-                img.classList.add("interactive");
+                if (GATE_WAS_UP) img.classList.add("interactive");
               }
 
               img.addEventListener(
@@ -729,26 +891,36 @@ export const handler = async (event, context) => {
               g.appendChild(h1);
               g.appendChild(h2);
               g.appendChild(navLow);
+
               curtain.appendChild(g);
-              img.onload = function () {
-                wrapper.appendChild(curtain);
-                const email = document.getElementById("email");
-                if (email)
-                  email.onclick = (e) =>
-                    resend(e, status === "unverified" ? undefined : "change");
-              };
+
+              const imageLoadPromise = new Promise((resolve) => {
+                img.onload = function () {
+                  document.getElementById("gate-curtain")?.remove(); // Rid old curtain.
+                  wrapper.appendChild(curtain);
+                  const email = document.getElementById("email");
+                  if (email) {
+                    email.onclick = (e) =>
+                      resend(e, status === "unverified" ? undefined : "change");
+                  }
+                  resolve(); // Resolve the promise once the image is loaded.
+                };
+              });
 
               img.src = asset(
                 status === "subscribed" ? "cookie-open.png" : "cookie.png",
               );
 
+              await imageLoadPromise; // Wait for the image to load.
+              gating = false;
               return curtain;
             }
 
             // Build a layout for the 🌻 'garden'.
-            async function garden(subscription, user) {
-              const gateEl = await gate("subscribed", user, subscription);
-              gateEl.classList.remove("obscured");
+            async function garden(subscription, user, showGate = false) {
+              const gateCurtain = await gate("subscribed", user, subscription);
+              gateCurtain.classList.remove("obscured");
+              if (showGate) gateCurtain.classList.remove("hidden");
 
               // Swap the favicon url.
               document.querySelector('link[rel="icon"]').href =
@@ -756,32 +928,38 @@ export const handler = async (event, context) => {
 
               const g = cel("div");
               g.id = "garden";
-              g.classList.add("obscured");
+
+              if (!showGate) g.classList.add("obscured");
+              if (showGate) g.classList.add("hidden");
 
               // TODO: Add a blog post here to the garden layout.
               g.innerText = "Hello...";
 
               const cookie = cel("img");
               cookie.id = "cookie-menu";
-              cookie.src = asset("cookie.png");
+              cookie.src = asset("cookie-open.png");
               g.appendChild(cookie);
 
               if (GATE_WAS_UP) g.classList.add("hidden");
 
+              const curtainCookie = gateCurtain.querySelector("#cookie");
+
               cookie.onclick = function () {
-                const curtain = document.getElementById("gate-curtain");
-                curtain.classList.remove("hidden");
+                gateCurtain.classList.remove("hidden");
                 g.classList.add("hidden");
-                const curtainCookie = curtain.querySelector("#cookie");
                 curtainCookie.classList.add("interactive");
               };
 
+              if (showGate) curtainCookie.classList.add("interactive");
+
               cookie.onload = function () {
+                document.getElementById("garden")?.remove(); // Remove old gardens.
                 wrapper.appendChild(g);
               };
 
               return g;
             }
+            // #endregion
 
             // 🔐 Authorization
             const clientId = "${AUTH0_CLIENT_ID_SPA}";
@@ -796,7 +974,7 @@ export const handler = async (event, context) => {
                 user = await auth0Client.getUser();
                 // console.log("🎇 New user is...", user);
               } catch (err) {
-                console.log("Error retrieving uncached user.");
+                console.warn("Error retrieving uncached user:", err);
               }
             }
 
@@ -808,13 +986,13 @@ export const handler = async (event, context) => {
               authorizationParams: { redirect_uri: window.location.href },
             });
 
-            if (embedded || fromAesthetic) {
-              const prompt = document.createElement("button");
-              prompt.id = "prompt";
-              prompt.onclick = aesthetic;
-              prompt.innerHTML = "sotce-net";
-              document.body.appendChild(prompt);
-            }
+            // if (embedded || fromAesthetic) {
+            //   const prompt = document.createElement("button");
+            //   prompt.id = "prompt";
+            //   prompt.onclick = aesthetic;
+            //   prompt.innerHTML = "sotce-net";
+            //   document.body.appendChild(prompt);
+            // }
 
             if (
               location.search.includes("state=") &&
@@ -822,7 +1000,7 @@ export const handler = async (event, context) => {
                 location.search.includes("error="))
             ) {
               try {
-                console.log("🔐 Handling auth0 redirect...");
+                // console.log("🔐 Handling auth0 redirect...");
                 await auth0Client.handleRedirectCallback();
               } catch (e) {
                 console.error("🔐", e);
@@ -890,8 +1068,8 @@ export const handler = async (event, context) => {
               // TODO: ❤️‍🔥 Is this necessary?
               if (isAuthenticated) {
                 try {
-                  await auth0Client.getTokenSilently(/*{ cacheMode: "off" }*/);
-                  // console.log("🗝️ Got fresh token.");
+                  // await auth0Client.getTokenSilently(/*{ cacheMode: "off" }*/);
+                  // console.log("🗝️ Got silent token.");
                 } catch (error) {
                   console.log("🔐️ ❌ Unauthorized", error);
                   console.error(
@@ -899,6 +1077,7 @@ export const handler = async (event, context) => {
                     error,
                   );
                   // Redirect the user to logout if the token has failed.
+
                   auth0Client.logout({
                     logoutParams: { returnTo: window.location.href },
                   });
@@ -923,7 +1102,11 @@ export const handler = async (event, context) => {
                     "transitionend",
                     () => {
                       spinner.remove();
-                      page.classList.remove("obscured"); // Show 'gate' / 'garden'
+                      page?.classList.remove("obscured"); // Show 'gate' / 'garden'
+                      if (GATE_WAS_UP)
+                        document
+                          .getElementById("gate-curtain")
+                          ?.classList.remove("hidden");
                     },
                     { once: true },
                   );
@@ -933,33 +1116,93 @@ export const handler = async (event, context) => {
               } else {
                 page = await callback();
                 spinner.remove();
-                page.classList.remove("obscured");
+                page?.classList.remove("obscured");
+                if (GATE_WAS_UP)
+                  document
+                    .getElementById("gate-curtain")
+                    ?.classList.remove("hidden");
               }
             }
 
-            if (!isAuthenticated) {
-              await spinnerPass(
-                async () => await gate(!dev ? "coming-soon" : "logged-out"),
-              );
-            } else {
-              user = pickedUpSession
-                ? window.sotceUSER
-                : await auth0Client.getUser();
-              // console.log("🪷 Got user:", user);
-              if (!user.email_verified) await retrieveUncachedUser();
-              if (!user.email_verified) {
-                await spinnerPass(async () => await gate("unverified", user));
+            if (!fullAlert) {
+              if (!isAuthenticated) {
+                await spinnerPass(
+                  async () => await gate(!dev ? "coming-soon" : "logged-out"),
+                );
               } else {
-                const entered = await subscribed();
-                if (entered?.subscribed) {
-                  await spinnerPass(async () => await garden(entered, user));
-                } else if (entered !== "error") {
-                  await spinnerPass(async () => await gate("verified", user));
+                user = pickedUpSession
+                  ? window.sotceUSER
+                  : await auth0Client.getUser();
+
+                const userExists = await fetch(
+                  "/user?from=" +
+                    encodeURIComponent(user.email) +
+                    "&tenant=sotce",
+                );
+
+                let u;
+                try {
+                  u = await userExists.json();
+                } catch (err) {
+                  console.warn(err);
+                }
+                if (!u?.sub || !user.email_verified)
+                  await retrieveUncachedUser();
+
+                if (!user.email_verified) {
+                  await spinnerPass(async () => await gate("unverified", user));
                 } else {
-                  console.log("🔴 Server error.");
-                  // gate("error");
+                  // console.log("Checking for subsription...");
+                  const entered = await subscribed();
+                  if (entered?.subscribed) {
+                    await spinnerPass(async () => await garden(entered, user));
+                  } else if (entered !== "error") {
+                    await spinnerPass(async () => await gate("verified", user));
+                  } else {
+                    console.log("🔴 Server error.");
+                    setTimeout(() => window.location.reload(), 2500);
+                    // gate("error");
+                  }
                 }
               }
+            } else {
+              // 🚨 Full Alert
+              await spinnerPass(() => {
+                wrapper.innerHTML =
+                  "<div id='full-alert'>" + fullAlert + "</div>";
+                setTimeout(() => location.reload(), 2500);
+              });
+            }
+
+            function veil() {
+              const el = document.getElementById("veil");
+              el.innerHTML = ""; // Clear any extra spinners in the veil.
+              const spinner = cel("div");
+              spinner.classList.add("spinner", "showing");
+              el.appendChild(spinner);
+              el.classList.remove("unveiled");
+              el.classList.remove("unveiled-instant");
+            }
+
+            function unveil(options) {
+              const el = document.getElementById("veil");
+              if (options?.instant) {
+                el.classList.add("unveiled-instant");
+                el.querySelector(".spinner")?.remove();
+              } else {
+                el.classList.add("unveiled");
+                el.addEventListener(
+                  "transitionend",
+                  () => {
+                    el.querySelector(".spinner")?.remove();
+                  },
+                  { once: true },
+                );
+              }
+            }
+
+            function flash(color, options) {
+              if (options?.hold) wrapper.classList.add("flash", color);
             }
 
             function login(hint = "login") {
@@ -1011,14 +1254,14 @@ export const handler = async (event, context) => {
             // Check the subscription status of the logged in user.
             async function subscribed() {
               if (!user) return false;
-              // console.log("🗞️ Checking subscription status for:", user.email);
+              console.log("🗞️ Checking subscription status for:", user.email);
               const response = await userRequest(
                 "POST",
                 "sotce-net/subscribed",
               );
 
               if (response.status === 200) {
-                // console.log("💳 Subscribed:", response);
+                console.log("💳 Subscribed:", response);
                 if (response.subscribed) {
                   return response;
                 } else {
@@ -1034,8 +1277,9 @@ export const handler = async (event, context) => {
             async function cancel() {
               if (!user) return;
 
-              const confirmation = confirm("Cancel your subscription?");
+              const confirmation = confirm("End your subscription?");
               if (!confirmation) return;
+              veil();
 
               try {
                 const response = await fetch("/sotce-net/cancel", {
@@ -1051,16 +1295,31 @@ export const handler = async (event, context) => {
                 if (response.ok) {
                   const result = await response.json();
                   console.log("Subscription cancelled:", result);
-                  alert(result.message);
-                  location.reload();
+                  const entered = await subscribed();
+                  if (entered?.subscribed) {
+                    await garden(entered, user, true); // Open garden and show the gate.
+                    unveil({ instant: true });
+                    setTimeout(() => alert(result.message), 100);
+                  } else {
+                    // unveil({ instant: true });
+                    flash("red", { hold: true });
+                    setTimeout(() => window.location.reload(), 150);
+                  }
                 } else {
                   const error = await response.json();
                   console.error("Cancellation error:", error.message);
-                  alert("Failed to cancel subscription: " + error.message);
+                  unveil({ instant: true });
+                  setTimeout(
+                    () =>
+                      alert("Failed to cancel subscription: " + error.message),
+                    100,
+                  );
                 }
               } catch (error) {
                 console.error("Error:", error);
-                alert("An error occurred while cancelling the subscription.");
+                alert(
+                  "A network error occurred while cancelling your subscription. Please try again.",
+                );
               }
             }
 
@@ -1081,17 +1340,20 @@ export const handler = async (event, context) => {
               } else console.log("🔐 Already logged out!");
             }
 
+            // resend verification email
             function resend(e, type) {
               e?.preventDefault();
               clearTimeout(verificationTimeout);
 
               const promptText =
                 type === "change"
-                  ? "Change email to?"
+                  ? "Update your email to?"
                   : "Resend verification email to?";
 
               const email = prompt(promptText, user.email);
               if (!email) return;
+
+              veil();
               console.log("📧 Resending...", email);
 
               userRequest("POST", "/api/email", {
@@ -1101,24 +1363,23 @@ export const handler = async (event, context) => {
               })
                 .then(async (res) => {
                   if (res.status === 200) {
+                    await retrieveUncachedUser();
                     console.log("📧 Email verification sent...", res);
-
-                    if (type !== "change") {
-                      alert("📧 Verification email sent!");
-                      const emailEl = document.getElementById("email");
-                      emailEl.innerHTML = email;
-                      await retrieveUncachedUser();
-                      fetchUser(email);
-                    } else {
-                      window.location.reload();
-                    }
+                    const gateEl = await gate("unverified", user);
+                    unveil({ instant: true });
+                    gateEl.classList.remove("obscured");
+                    setTimeout(
+                      () => alert("📧 Check your \`" + email + "\` inbox."),
+                      100,
+                    );
                   } else {
                     throw new Error(res.code);
                   }
                 })
                 .catch((err) => {
-                  alert("Email verification error.");
-                  console.error("🔴 📧 Email verification error...", err);
+                  alert("❌ Email verification send error.");
+                  unveil({ instant: true });
+                  console.error("🔴 📧 Email verification send error:", err);
                 });
             }
 
@@ -1169,7 +1430,8 @@ export const handler = async (event, context) => {
                       ...(await clonedResponse.json()),
                       status: response.status,
                     };
-                  } catch {
+                  } catch (error) {
+                    console.log("🚫 Error:", error);
                     return {
                       status: response.status,
                       body: await response.text(),
@@ -1260,8 +1522,8 @@ export const handler = async (event, context) => {
     // retrieval. 24.08.24.19.22
 
     const user = await authorize(event.headers, "sotce");
-
     if (!user) return respond(401, { message: "Unauthorized user." });
+    // shell.log("Subscribing user:", user);
 
     const email = user.email;
     const sub = user.sub;
@@ -1281,14 +1543,18 @@ export const handler = async (event, context) => {
       if (customers.data.length === 0) {
         return respond(200, { subscribed: false });
       }
+
       const customer = customers.data[0];
 
       // Fetch subscriptions for the customer
       const subscriptions = await stripe.subscriptions.list({
         customer: customer.id,
         status: "active", // Only find the first active subscription...
-        limit: 1,
+        limit: 10,
       });
+
+      console.log("All subscriptions:", subscriptions);
+
       subscription = subscriptions.data.find((sub) =>
         sub.items.data.some((item) => item.price.product === productId),
       );
@@ -1317,20 +1583,88 @@ export const handler = async (event, context) => {
   } else if (path === "/cancel" && method === "post") {
     const user = await authorize(event.headers, "sotce");
     if (!user) return respond(401, { message: "Unauthorized user." });
+    shell.log("User authorized. Cancelling subscription...");
     const cancelResult = await cancelSubscription(user, key);
     return respond(cancelResult.status, cancelResult.body);
   } else if (path === "/delete-account" && method === "post") {
     // See also the 'delete-erase-and-forget-me.js' function for aesthetic users.
     const user = await authorize(event.headers, "sotce");
     if (!user) return respond(401, { message: "Authorization failure..." });
+    shell.log("🔴 Deleting user:", user.sub);
+
+    const sub = user.sub;
+    const sotceSub = "sotce-" + sub;
+
     // 1. Unsubscribe the user if they have an active subscription.
-    const cancelResult = await cancelSubscription(user, key);
-    console.log("❌ Cancelled subscription?", cancelResult.status);
+    try {
+      const cancelResult = await cancelSubscription(user, key);
+      shell.log(
+        "❌ Cancelled subscription?",
+        cancelResult.status,
+        cancelResult.body,
+      );
+    } catch (err) {
+      shell.error("🔴 Subscription cancellation error:", err);
+    }
+
     // TODO: 2. Delete any user data, like posts.
-    // TODO: 3. Delete the user's handle if it exists.
+
+    const database = await connect();
+
+    // Remove the user's handle cache from redis.
+    const handle = await getHandleOrEmail(sotceSub);
+    if (handle?.startsWith("@")) {
+      await KeyValue.connect();
+      await KeyValue.del("@handles", handle);
+      await KeyValue.del("userIDs", sotceSub);
+      await KeyValue.disconnect();
+    }
+
+    // 3. Delete the user's handle if it exists and the user does not have
+    //    an aesthetic computer account, otherwise re-associate the key.
+    if (handle) {
+      shell.log(
+        "📚 Checking for any `aesthetic` user with the same email and handle:",
+        handle,
+      );
+      const bareHandle = handle.slice(1); // Remove the "@" from the handle.
+      const idRes = await userIDFromEmail(user.email, "aesthetic");
+      if (idRes?.userID && idRes?.email_verified) {
+        const handles = database.db.collection("@handles");
+
+        const aestheticSub = idRes.userID;
+        // Check if an entry with the same _id already exists
+        const existingHandle = await handles.findOne({ _id: aestheticSub });
+
+        if (!existingHandle) {
+          // If no existing entry, proceed with deletion and insertion
+          await handles.deleteOne({ _id: sotceSub });
+          await handles.insertOne({ _id: aestheticSub, handle: bareHandle });
+          shell.log(
+            "🧔 Changed primary handle key of 'sotce' user:",
+            sub,
+            "to 'aesthetic' user:",
+            aestheticSub,
+          );
+        } else {
+          // If an entry already exists, skip deletion and insertion
+          shell.log(
+            "🩹 Handle already native to `aesthetic`, skipping reassignment.",
+          );
+        }
+      } else {
+        await database.db.collection("@handles").deleteOne({ _id: sotceSub });
+        shell.log("🧔 Deleted user handle for:", sotceSub);
+      }
+    }
+
+    shell.log("❌ Deleted database data.");
+
+    await database.disconnect();
+
     // 3. Delete the user's auth0 account.
-    const deleted = await deleteUser(user.sub, "sotce");
-    console.log("❌ Deleted user registration:", deleted);
+    const deleted = await deleteUser(sub, "sotce");
+    shell.log("❌ Deleted user registration:", deleted);
     return respond(200, { result: "Deleted!" }); // Successful account deletion.
   }
 };
@@ -1381,9 +1715,12 @@ async function cancelSubscription(user, key) {
 
     result.status = 200;
     result.body = {
-      message: `Your subscription will not be renewed after ${new Date(
+      message: `Your subscription ends on ${new Date(
         cancelled.cancel_at * 1000,
-      ).toLocaleDateString("en-US", dateOptions)}.`,
+      ).toLocaleDateString(
+        "en-US",
+        dateOptions,
+      )}. You will not be billed again.`,
       subscription: cancelled,
     };
     return result;

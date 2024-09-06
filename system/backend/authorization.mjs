@@ -6,6 +6,7 @@
 
 import { connect } from "./database.mjs";
 import * as KeyValue from "./kv.mjs";
+import { shell } from "./shell.mjs";
 const dev = process.env.CONTEXT === "dev";
 
 const aestheticBaseURI = "https://aesthetic.us.auth0.com";
@@ -15,7 +16,7 @@ export async function authorize({ authorization }, tenant = "aesthetic") {
   try {
     const { got } = await import("got");
     const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
-    console.log("🔐 Authorizing...", tenant, authorization);
+    shell.log(`🔐 Authorizing \`${tenant}\` user.`);
     return (
       await got(`${baseURI}/userinfo`, {
         headers: { Authorization: authorization },
@@ -23,7 +24,7 @@ export async function authorize({ authorization }, tenant = "aesthetic") {
       })
     ).body;
   } catch (err) {
-    console.error("Authorization error:", err, err?.code);
+    shell.error("Authorization error:", err, err?.code);
     return undefined;
   }
 }
@@ -53,26 +54,58 @@ export async function userIDFromEmail(email, tenant = "aesthetic", got, token) {
 
     const user = userResponse.body[0];
     const userID = user?.user_id;
-    return { userID, email_verified: user?.email_verified };
+    return { userID, email_verified: user?.email_verified, tenant };
   } catch (error) {
-    console.error(`Error retrieving user ID from Auth0: ${error}`);
+    shell.error(`Error retrieving user ID from Auth0: ${error}`);
     return undefined;
   }
 }
 
+// Pick between the below functions based on sub prefix.
+export async function findSisterSub(sub, options) {
+  if (sub.startsWith("sotce-")) {
+    return await aestheticSubFromSotceSub(sub);
+  } else {
+    return await sotceSubFromAestheticSub(sub, options);
+  }
+}
+
+// Get `aesthetic` user id from a sotce user, if it exists.
+// TODO: Cache this in redis to be faster? 24.09.01.00.40
+export async function aestheticSubFromSotceSub(sotceSub) {
+  const emailRes = await userEmailFromID(sotceSub, "sotce");
+  if (emailRes?.email && emailRes?.email_verified) {
+    const idRes = await userIDFromEmail(emailRes.email, "aesthetic");
+    if (idRes?.userID && idRes?.email_verified) {
+      return idRes.userID;
+    }
+  }
+  return undefined;
+}
+
+// Get `sotce` user id from an aesthetic user, if it exists.
+// TODO: Cache this in redis to be faster? 24.09.01.00.40
+export async function sotceSubFromAestheticSub(aestheticSub, options) {
+  const emailRes = await userEmailFromID(aestheticSub, "aesthetic");
+  if (emailRes?.email && emailRes?.email_verified) {
+    const idRes = await userIDFromEmail(emailRes.email, "sotce");
+    if (idRes?.userID && idRes?.email_verified) {
+      return (options?.prefixed ? "sotce-" : "") + idRes.userID;
+    }
+  }
+  return undefined;
+}
+
 // Get the user email via their user ID.
-export async function userEmailFromID(
-  userID,
-  tenant = "aesthetic",
-  got,
-  token,
-) {
+export async function userEmailFromID(sub, tenant = "aesthetic", got, token) {
   try {
     if (!got) got = (await import("got")).got;
-    if (!token) token = await getAccessToken(got, tenant);
+    if (sub.startsWith("sotce-")) tenant = "sotce"; // Switch tenant based on prefix.
+    if (tenant === "sotce") sub = sub.replace("sotce-", "");
     const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
+    if (!token) token = await getAccessToken(got, tenant);
 
-    const userResponse = await got(`${baseURI}/api/v2/users/${userID}`, {
+    const userResponse = await got(`${baseURI}/api/v2/users/${sub}`, {
       headers: { Authorization: `Bearer ${token}` },
       responseType: "json",
     });
@@ -81,7 +114,7 @@ export async function userEmailFromID(
     const email = user?.email;
     return { email, email_verified: user?.email_verified };
   } catch (error) {
-    console.error(`Error retrieving user email from Auth0: ${error}`);
+    shell.error(`Error retrieving user email from Auth0 (${tenant}): ${error}`);
     return undefined;
   }
 }
@@ -98,12 +131,12 @@ export async function getHandleOrEmail(sub) {
     const token = await getAccessToken(got); // Get access token for auth0.
     const userResponse = await got(
       `https://aesthetic.us.auth0.com/api/v2/users/${encodeURIComponent(sub)}`,
-      { headers: { Authorization: `Bearer ${token}` }, responseType: "json" },
+      { headers: { Authorization: `Bearer ${token}` }, responseType: "json" }
     );
 
     return userResponse.body.email;
   } catch (error) {
-    console.error(`Error retrieving user handle or email: ${error}`);
+    shell.error(`Error retrieving user handle or email: ${error}`);
     return undefined;
   }
 }
@@ -124,9 +157,12 @@ export async function handleFor(id) {
     return randomHandles.map((doc) => "@" + doc.handle);
   } else {
     // 🙆 Get a specific user handle.
+    shell.log("Retrieving handle for...", id);
 
     await KeyValue.connect();
     const cachedHandle = await KeyValue.get("userIDs", id);
+
+    // shell.log("cachedHandle:", cachedHandle);
 
     if (cachedHandle) {
       await KeyValue.disconnect();
@@ -135,48 +171,33 @@ export async function handleFor(id) {
 
     const database = await connect();
     const collection = database.db.collection("@handles");
-
     let existingUser = await collection.findOne({ _id: id });
 
     // If no handle was found then try again on the sister tenant.
     if (!existingUser) {
-      const tenant = id.startsWith("sotce-") ? "sotce" : "aesthetic";
-      // 🅰️ Look up the user's email from the sister tenant.
-      const emailRes = await userEmailFromID(
-        tenant === "sotce" ? id.replace("sotce-", "") : id,
-        tenant,
-      );
+      const sisterSub = await findSisterSub(id, { prefixed: true });
+      // shell.log("Sister sub:", sisterSub);
 
-      if (emailRes?.email && emailRes?.email_verified) {
-        // 🅱️ Look up the user's sub on the sister tenant via their email.
-        const idRes = await userIDFromEmail(
-          emailRes?.email,
-          tenant === "sotce" ? "aesthetic" : "sotce",
-        );
-
-        // If there is a user...
-        if (idRes?.userID && idRes?.email_verified) {
-          // See if they have a handle based on their userID.
-
-          // First in redis...
-          let foundHandle = await KeyValue.get("userIDs", idRes.userID);
-
-          if (foundHandle) {
-            await KeyValue.set("userIDs", id, foundHandle);
-            await KeyValue.disconnect();
-            return foundHandle;
-          } else {
-            // Then in the database.
-            existingUser = await collection.findOne({ _id: idRes.userID });
-          }
+      if (sisterSub) {
+        let foundHandle = await KeyValue.get("userIDs", sisterSub);
+        if (foundHandle) {
+          // Make sure to cache the original id for this handle.
+          await KeyValue.set("userIDs", id, foundHandle);
+          await KeyValue.disconnect();
+          await database.disconnect();
+          return foundHandle;
+        } else {
+          // Then in the database.
+          existingUser = await collection.findOne({ _id: sisterSub });
+          id = sisterSub;
         }
       }
     }
 
     // Cache the handle in redis...
     if (existingUser?.handle) {
-      // console.log("Caching in redis...", id);
-      await KeyValue.set("userIDs", id, existingUser.handle);
+      shell.log("Caching in redis...", existingUser._id, existingUser.handle);
+      await KeyValue.set("userIDs", existingUser._id, existingUser.handle);
     }
 
     await database.disconnect();
@@ -189,16 +210,29 @@ export async function handleFor(id) {
 
 // Connects to the MongoDB database to obtain a user ID from a handle.
 // Handle should not be prefixed with "@".
-export async function userIDFromHandle(handle, database, keepKV) {
-  // TODO: Read from redis, otherwise check the database, and store in
-  //       redis afterwards...
+
+// ❤️‍🔥
+// TODO: This could return a "sotce-" prefixed id which
+//       would be incompatible with aesthetic computer if
+//       an account does not exist / this function may need a
+//       `tenant` parameter.
+export async function userIDFromHandle(
+  handle,
+  database,
+  keepKV,
+  tenant = "aesthetic"
+) {
+  // Read from redis, otherwise check the database, and store in redis after.
   let userID;
-
-  const time = performance.now();
+  // const time = performance.now();
   await KeyValue.connect();
-  const cachedHandle = await KeyValue.get("@handles", handle);
+  const cachedUserID = await KeyValue.get("@handles", handle);
 
-  if (!cachedHandle) {
+  if (tenant === "aesthetic" && cachedUserID?.startsWith("sotce-")) {
+    return await aestheticSubFromSotceSub(cachedUserID);
+  }
+
+  if (!cachedUserID) {
     // Look in database.
     // if (dev) console.log("Handle: Looking in database...");
     const keepOpen = database; // Keep the db connection if database is defined.
@@ -208,29 +242,38 @@ export async function userIDFromHandle(handle, database, keepKV) {
     const user = await collection.findOne({ handle });
     userID = user?._id;
     if (!keepOpen) database.disconnect();
+    if (tenant === "aesthetic" && userID.startsWith("sotce-")) {
+      return await aestheticSubFromSotceSub(userID);
+    }
   } else {
     // if (dev) console.log("Handle: Found in redis...");
-    userID = cachedHandle;
+    userID = cachedUserID;
   }
 
   // Cache userID in redis...
-  if (!cachedHandle && userID) {
-    if (dev) console.log("Caching in redis...", handle);
+  if (!cachedUserID && userID) {
+    if (dev) shell.log("Caching primary handle key in redis...", handle);
     await KeyValue.set("@handles", handle, userID);
     if (!keepKV) await KeyValue.disconnect();
   }
 
-  console.log("Time taken...", performance.now() - time);
+  // console.log("Time taken...", performance.now() - time);
   return userID;
 }
 
 // Assume prefixed handle.
-export async function userIDFromHandleOrEmail(handleOrEmail, database) {
+// ⚠️ TODO: Make sure we are knowing what id we want from what network... 24.08.31.01.21
+export async function userIDFromHandleOrEmail(handleOrEmail, database, tenant) {
   if (!handleOrEmail) return;
   if (handleOrEmail.startsWith("@")) {
-    return userIDFromHandle(handleOrEmail.slice(1), database);
+    return userIDFromHandle(
+      handleOrEmail.slice(1),
+      database,
+      undefined,
+      tenant
+    );
   } else {
-    return userIDFromEmail(handleOrEmail); // Assume email.
+    return userIDFromEmail(handleOrEmail, tenant); // Assume email.
   }
 }
 
@@ -239,7 +282,7 @@ export async function setEmailAndReverify(
   id,
   email,
   name,
-  tenant = "aesthetic",
+  tenant = "aesthetic"
 ) {
   try {
     const { got } = await import("got");
@@ -247,7 +290,14 @@ export async function setEmailAndReverify(
 
     const token = await getAccessToken(got, tenant);
 
-    console.log("Tenant:", tenant, "Token:", token, "ID:", id);
+    shell.log(
+      "👮 📧 Setting and re-verifying email for:",
+      email,
+      "on:",
+      tenant,
+      "via:",
+      id
+    );
 
     // 1. Update the user's email and ('name' which is equivalent to email
     //    in auth0 but generally unused by Aesthetic Computer.)
@@ -263,10 +313,10 @@ export async function setEmailAndReverify(
           },
           json: { name, email, email_verified: false },
           responseType: "json",
-        },
+        }
       );
     } catch (err) {
-      console.error("🔴 Error:", err);
+      shell.error("🔴 Error:", err);
     }
 
     if (!updateEmailResponse.body) {
@@ -284,7 +334,7 @@ export async function setEmailAndReverify(
         },
         json: { user_id: id },
         responseType: "json",
-      },
+      }
     );
 
     if (!verificationResponse.body) {
@@ -296,7 +346,7 @@ export async function setEmailAndReverify(
       message: "Email updated and verification email sent successfully!",
     };
   } catch (error) {
-    console.error(`Error setting email and sending verification: ${error}`);
+    shell.error(`Error setting email and sending verification: ${error}`);
     return {
       success: false,
       message: error.message,
@@ -316,12 +366,12 @@ export async function deleteUser(userId, tenant = "aesthetic") {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    console.log(
-      `❌ User with ID ${userId} deleted from Auth0. Tenant: ${tenant}`,
+    shell.log(
+      `❌ User with ID ${userId} deleted from Auth0. Tenant: ${tenant}`
     );
     return { success: true, message: "User deleted successfully from Auth0." };
   } catch (error) {
-    console.error(`⚠️  Error deleting user from Auth0: ${error}`);
+    shell.error(`⚠️  Error deleting user from Auth0: ${error}`);
     return { success: false, message: error.message };
   }
 }
