@@ -42,11 +42,10 @@ export async function handler(event, context) {
     // 💌 Email verified
     if (log.data.type === "sv") {
       const aestheticSub = log.data.user_id;
-      const email = log.data.email;
-      shell.log("💌 Email verified:", aestheticSub, "Email:", email);
+      shell.log("💌 Email verified:", aestheticSub);
 
       const verifieds = database.db.collection("verifieds");
-      const verified = await verifieds.findOne({ sub: aestheticSub });
+      const verified = await verifieds.findOne({ _id: aestheticSub });
 
       if (verified) {
         const verifications = verified.verifications + 1;
