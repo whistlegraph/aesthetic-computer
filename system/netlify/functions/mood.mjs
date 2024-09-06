@@ -38,6 +38,8 @@ import { respond, pathParams } from "../../backend/http.mjs";
 import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
 import { getMessaging } from "firebase-admin/messaging";
 
+import { shell } from "../../backend/shell.mjs";
+
 import { filter } from "../../backend/filter.mjs"; // Profanity filtering.
 // import { promises as fs } from "fs";
 // import path from "path";
@@ -60,6 +62,7 @@ export async function handler(event, context) {
         ? respond(200, { moods })
         : respond(500, { message: "No mood found." });
     } else {
+      shell.log("Getting user id from:", slug);
       const user = await userIDFromHandleOrEmail(slug, database);
       if (user && user.length > 0) {
         const mood = await moodFor(user, database);

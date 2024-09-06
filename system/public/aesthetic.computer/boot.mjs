@@ -10,13 +10,46 @@ const previewOrIcon =
 window.acPREVIEW_OR_ICON = previewOrIcon;
 
 const url = new URL(location);
-const params = url.searchParams;
-const vscode = params.get("vscode") === "true";
 
-if (vscode) {
-  params.delete("vscode");
-  history.pushState({}, "", url.pathname + "?" + params.toString());
-  window.acVSCODE = true;
+let fullAlert = "email verified";
+
+function cleanUrlParams(url, params) {
+  const queryString = params.toString();
+  history.pushState(
+    {},
+    "",
+    url.pathname + (queryString ? "?" + queryString : ""),
+  );
+}
+
+// 📧 Check to see if the user clicked an 'email' verified link.
+{
+  const params = new URLSearchParams(window.location.search);
+  if (
+    params.get("supportSignUp") === "true" &&
+    params.get("success") === "true" &&
+    params.get("code") === "success"
+  ) {
+    params.delete("supportSignUp");
+    params.delete("supportForgotPassword");
+    params.delete("message");
+    params.delete("success");
+    params.delete("code");
+    params.set("notice", "email-verified");
+    cleanUrlParams(url, params);
+    fullAlert = "email verified";
+  }
+}
+
+{
+  const params = new URLSearchParams(window.location.search);
+  const vscode = params.get("vscode") === "true";
+
+  if (vscode) {
+    params.delete("vscode");
+    cleanUrlParams(url, params);
+    window.acVSCODE = true;
+  }
 }
 
 // Included as a <script> tag to boot the system on a webpage. (Loads `bios`)
@@ -118,7 +151,7 @@ loadAuth0Script()
           location.search.includes("error="))
       ) {
         try {
-          console.log("🔐 Handling auth0 redirect...");
+          // console.log("🔐 Handling auth0 redirect...");
           await auth0Client.handleRedirectCallback();
         } catch (e) {
           console.error("🔐", e);
@@ -126,6 +159,7 @@ loadAuth0Script()
         window.history.replaceState({}, document.title, "/");
       }
 
+      const params = url.searchParams;
       let param = params.get("session-aesthetic");
 
       {
@@ -228,8 +262,13 @@ loadAuth0Script()
 
       if (isAuthenticated && !pickedUpSession) {
         try {
-          await window.auth0Client.getTokenSilently();
-          console.log("🗝️ Got fresh auth token.");
+          // const options = localStorage.getItem("aesthetic:refresh-user")
+          // ? { cacheMode: "off" }
+          // : undefined;
+          await auth0Client.getTokenSilently();
+          // if (options) localStorage.removeItem("aesthetic:refresh-user");
+
+          // console.log("🗝️ Got fresh auth token.");
         } catch (error) {
           console.log("🔐️ ❌ Unauthorized", error);
           console.error(
@@ -245,7 +284,11 @@ loadAuth0Script()
       if (isAuthenticated && !pickedUpSession) {
         // TODO: How long does this await actually take? 23.07.11.18.55
         let userProfile = await auth0Client.getUser();
-        if (userProfile.email_verified === false) {
+        const userExists = await fetch(
+          `/user?from=${encodeURIComponent(userProfile.email)}&tenant=aesthetic`,
+        );
+        const u = await userExists.json();
+        if (!u.sub || !userProfile.email_verified) {
           try {
             await window.auth0Client.getTokenSilently({ cacheMode: "off" });
             userProfile = await auth0Client.getUser();
@@ -253,8 +296,6 @@ loadAuth0Script()
             console.warn("🧔 Could not retrieve user from network.");
           }
         }
-        // Check if 'email_verified' is false and load from the network again
-        // if it is.
         window.acUSER = userProfile; // Will get passed to the first message by the piece runner.
         window.acDISK_SEND({
           type: "session:started",

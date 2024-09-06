@@ -107,10 +107,11 @@ let server;
 
 let darkModeOn;
 let pal;
-// let schemeAll;
 
 let autocompletions = {};
 const activeCompletions = [];
+let fetchingUser = false,
+  fetchUserAPI;
 
 // 🥾 Boot
 async function boot({
@@ -131,7 +132,7 @@ async function boot({
   store,
   // code,
   net: { socket },
-  vscode
+  vscode,
 }) {
   if (dark) glaze({ on: true });
   // if (vscode) console.log("🟣 Running `prompt` in the VSCode extension.");
@@ -189,23 +190,10 @@ async function boot({
       profileAction = "profile";
       profile = new ui.TextButton(hand, btnPos);
     } else if (!user.email_verified) {
-      profile = new ui.TextButton("Resend email", { center: "xy", screen });
+      profile = new ui.TextButton("Resend email", btnPos);
       profileAction = "resend-verification";
       ellipsisTicker = new gizmo.EllipsisTicker();
-      // Start fetching to continuously check for verification here...
-      function fetchUser() {
-        fetch(`/user?from=${encodeURIComponent(user.email)}`)
-          .then((res) => res.json())
-          .then((u) => {
-            if (u.email_verified) {
-              flashColor = "lime";
-              makeFlash(api, false, true);
-              profileAction = "set-handle";
-              profile = new ui.TextButton("Create handle", btnPos);
-            } else setTimeout(fetchUser, 1000);
-          })
-          .catch((err) => setTimeout(fetchUser, 1000));
-      }
+      fetchUserAPI = api;
       fetchUser();
     } else if (user.email_verified) {
       profileAction = "set-handle";
@@ -244,7 +232,10 @@ async function boot({
   }
 
   // Activate and reset input text if returning to the prompt from elsewhere.
-  if ((pieceCount > 0 && !store["prompt:splash"] && !net.devReload) || (vscode && pieceCount === 0)) {
+  if (
+    (pieceCount > 0 && !store["prompt:splash"] && !net.devReload) ||
+    (vscode && pieceCount === 0)
+  ) {
     if (vscode && pieceCount === 0) firstActivation = false;
     // system.prompt.input.enter.btn.disabled = true; // Disable button.
     // system.prompt.input.inputStarted = true;
@@ -282,6 +273,7 @@ async function halt($, text) {
     screen,
     painting,
     net,
+    ui,
     jump,
     beep,
     user,
@@ -831,6 +823,15 @@ async function halt($, text) {
         flashColor = [0, 255, 0];
         notice("Check " + res.email);
         send({ type: "keyboard:close" });
+        profile = new ui.TextButton("Resend email", { center: "xy", screen });
+        profileAction = "resend-verification";
+        ellipsisTicker = new gizmo.EllipsisTicker();
+        user.email = res.email; // Update the global `user` object for this session.
+        user.name = res.email;
+        // store["aesthetic:refresh-user"] = true;
+        // store.persist("aesthetic:refresh-user");
+        fetchUserAPI = api;
+        fetchUser();
       } else {
         flashColor = [255, 0, 0];
         console.warn(res.message);
@@ -856,13 +857,10 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text.startsWith("handle") && !text.startsWith("handles")) {
-    // Set username handle.
-    // TODO: This could eventually be abstracted for more API calls.
-    // Something like... await post({handle: "new"});
+    // Set user handle.
 
     // Make sure there is a parameter.
     let newHandle = text.split(" ")[1];
-
     if (!newHandle) {
       flashColor = [0, 0, 128];
       makeFlash($);
@@ -887,12 +885,12 @@ async function halt($, text) {
         makeFlash($, true);
         if (previousHandle) notice("@" + res.handle);
         profileAction = "profile";
+        store["handle"] = res.handle;
         if (!previousHandle) {
           jump("chat");
           beep();
         }
-        store["handle"] = res.handle;
-        store.persist("handle");
+        // store.persist("handle");
       } else {
         const note = res?.message || "error";
         console.log("Response:", res);
@@ -1361,6 +1359,8 @@ async function halt($, text) {
 
 // 🎨 Paint
 function paint($) {
+  if (fetchingUser) fetchUserAPI = $.api;
+
   // 🅰️ Paint below the prompt || scheme.
   if ($.store["painting"]) {
     $.wipe($.dark ? scheme.dark.background : scheme.light.background);
@@ -1582,7 +1582,6 @@ function act({
   notice,
   ui,
 }) {
-
   // Checks to clear prefilled 'email user@email.com' message
   // on signup.
   if (
@@ -2033,4 +2032,40 @@ async function publishPiece(
     flashColor = [255, 0, 0];
     makeFlash(api);
   }
+}
+
+function fetchUser() {
+  const { api, ui, user, handle, screen, store, jump, beep, broadcast } = fetchUserAPI;
+  fetchingUser = true;
+  fetch(`/user?from=${encodeURIComponent(user.email)}&withHandle=true`)
+    .then((res) => res.json())
+    .then((u) => {
+      if (u.email_verified) {
+        const previousHandle = handle();
+        // console.log("🟪 User:", u, "Previous Handle:", previousHandle);
+        if (previousHandle) {
+          profileAction = "profile";
+          profile = new ui.TextButton(previousHandle, { center: "xy", screen });
+        } else if (u.handle) {
+          broadcast("handle:updated:" + u.handle);
+          store["handle"] = u.handle;
+          // Announce the handle change...
+          jump("chat");
+          beep();
+        } else {
+          profileAction = "set-handle";
+          profile = new ui.TextButton("Create handle", {
+            center: "xy",
+            screen,
+          });
+          user.email_verified = true; // Set verified on global 'user' object.
+          // store["aesthetic:refresh-user"] = true;
+          // store.persist("aesthetic:refresh-user");
+        }
+        fetchingUser = false;
+        flashColor = "lime";
+        makeFlash(api, true, true);
+      } else setTimeout(() => fetchUser(), 1000);
+    })
+    .catch((err) => setTimeout(() => fetchUser(), 1000));
 }
