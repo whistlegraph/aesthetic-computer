@@ -194,9 +194,8 @@ export async function handleFor(id) {
       }
     }
 
-    // Cache the handle in redis...
+    // Cache the handle in redis for quick look up.
     if (existingUser?.handle) {
-      shell.log("Caching in redis...", existingUser._id, existingUser.handle);
       await KeyValue.set("userIDs", existingUser._id, existingUser.handle);
     }
 
