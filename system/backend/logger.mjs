@@ -26,7 +26,7 @@ async function link(db /*, kv*/) {
 // * This will be stored in the database so it can later
 // be queried.
 // * And read
-// Actions should essentially follow the  create / update / destroy / CRUD model
+// Actions should essentially follow the create / update / destroy / CRUD model
 // with a colon separating the object for proper parsing on the other end.
 
 async function log(text, data, from = "log") {

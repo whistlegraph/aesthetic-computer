@@ -7,7 +7,7 @@ import { respond } from "../../backend/http.mjs";
 import { shell } from "../../backend/shell.mjs";
 import { handleFor } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
-// import * as logger from "../../backend/logger.mjs";
+import * as logger from "../../backend/logger.mjs";
 
 const AUTH0_LOG_TOKEN = process.env.AUTH0_LOG_TOKEN;
 
@@ -35,7 +35,7 @@ export async function handler(event, context) {
       shell.log("🖋️ Signed up:", aestheticSub, "Email:", email);
 
       // Insert into "verifieds" collection, with verification count 0
-      const verifieds = database.db.collection("verifieds");
+      const verifieds = database.db.collection("verifications");
       await verifieds.insertOne({ _id: aestheticSub, verifications: 0 });
     }
 
@@ -44,7 +44,7 @@ export async function handler(event, context) {
       const aestheticSub = log.data.user_id;
       shell.log("💌 Email verified:", aestheticSub);
 
-      const verifieds = database.db.collection("verifieds");
+      const verifieds = database.db.collection("verifications");
       const verified = await verifieds.findOne({ _id: aestheticSub });
 
       if (verified) {
@@ -54,12 +54,23 @@ export async function handler(event, context) {
           { $set: { verifications } },
         );
 
-        // Detect if this is the first verification
+        // Detect if this is the first verification.
+
+        // ⚠️ Some users in the system will not have this record because
+        // they were grandfathered in, in which case it could be synthesized
+        // here if it never existed if it's ever necessary for future logic.
+        // 24.09.06.03.04
         if (verifications === 1) {
           const handle = await handleFor(aestheticSub);
           if (handle) {
             shell.log("🌠 Inherited handle:", handle);
             // 🪵 Add the logger stuff here eventually... 24.09.06.02.22
+            await logger.link(database);
+            await logger.log(`@${handle} is with us`, {
+              user: aestheticSub,
+              action: "handle:inherit",
+              value: handle,
+            }); // 🪵 Log first cross-over handle creation.
           }
         }
       } else {
