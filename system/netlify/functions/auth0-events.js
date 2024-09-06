@@ -19,6 +19,10 @@ export async function handler(event, context) {
 
   const body = JSON.parse(event.body);
 
+  body.logs.forEach((log) => {
+    console.log("LOG:", log);
+  });
+
   shell.log(event.headers); // TODO: 🟡 Make sure headers are proper.
   shell.log(body);
 
