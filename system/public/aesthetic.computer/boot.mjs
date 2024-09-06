@@ -11,8 +11,6 @@ window.acPREVIEW_OR_ICON = previewOrIcon;
 
 const url = new URL(location);
 
-let fullAlert = "email verified";
-
 function cleanUrlParams(url, params) {
   const queryString = params.toString();
   history.pushState(
@@ -37,7 +35,6 @@ function cleanUrlParams(url, params) {
     params.delete("code");
     params.set("notice", "email-verified");
     cleanUrlParams(url, params);
-    fullAlert = "email verified";
   }
 }
 

@@ -3720,7 +3720,7 @@ async function load(
       noticeColor = ["yellow", "red"];
       noticeBell(cachedAPI, { tone: 300 });
     } else if ($commonApi.query.notice === "email-verified") {
-      notice = "email verified";
+      notice = "Email verified!";
       noticeColor = ["white", "blue"];
       noticeBell(cachedAPI, { tone: 300 });
     } else if ($commonApi.query.notice?.length > 0) {
