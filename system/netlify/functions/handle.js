@@ -9,6 +9,7 @@
 import {
   authorize,
   userIDFromHandle,
+  findSisterSub,
   handleFor,
   hasAdmin,
 } from "../../backend/authorization.mjs";
@@ -19,6 +20,7 @@ import { connect } from "../../backend/database.mjs";
 import * as KeyValue from "../../backend/kv.mjs";
 import { respond } from "../../backend/http.mjs";
 import * as logger from "../../backend/logger.mjs";
+import { shell } from "../../backend/shell.mjs";
 
 const dev = process.env.CONTEXT === "dev";
 
@@ -29,11 +31,30 @@ export async function handler(event, context) {
 
     if (count) {
       // Return total handle count.
+
+      // TODO: 👻 Count only "sotce-" prefixed primary keys if tenant is "sotce"
+      //          and discount them if tenant is "aesthetic".
+      const tenant = event.queryStringParameters.tenant || "all";
+
       try {
         const database = await connect(); // 📕 Database
         const collection = database.db.collection("@handles");
-        const handles = await collection.estimatedDocumentCount();
+
+        let handles;
+        if (tenant === "sotce") {
+          handles = await collection.countDocuments({
+            _id: { $regex: "^sotce-" },
+          });
+        } else if (tenant === "aesthetic") {
+          handles = await collection.countDocuments({
+            _id: { $not: { $regex: "^sotce-" } },
+          });
+        } else {
+          handles = await collection.estimatedDocumentCount(); // Default to all documents
+        }
+
         await database.disconnect();
+
         return respond(200, { handles });
       } catch (error) {
         return respond(500, { message: "Failed to retrieve handle count." });
@@ -48,7 +69,7 @@ export async function handler(event, context) {
       } else if (Array.isArray(result) && result.length > 0) {
         return respond(200, { handles: result });
       } else {
-        return respond(400, { message: "No handle(s) found." });
+        return respond(404, { message: "No handle(s) found." });
       }
     }
   } else if (event.httpMethod !== "POST")
@@ -62,7 +83,9 @@ export async function handler(event, context) {
     // Make sure we have a username present to set.
     body = JSON.parse(event.body);
 
-    const handle = body.handle;
+    let handle = body.handle;
+    if (handle[0] === "@") handle = handle.slice(1); // Remove any user prefixed "@".
+
     const tenant = body.tenant || "aesthetic"; // Could be 'sotce'.
     const action = body.action;
 
@@ -84,13 +107,11 @@ export async function handler(event, context) {
     const user = await authorize(event.headers, tenant);
 
     if (user && user.email_verified) {
-      console.log("User authorized?", user);
-
       // 🔑 We are logged in!
 
-      console.log("🤖 Connecting to MongoDB...");
+      shell.log("🤖 Connecting to MongoDB...");
       const database = await connect(); // 📕 Database
-      console.log("🤖 Connected...");
+      shell.log("🤖 Connected...");
 
       const handles = database.db.collection("@handles");
 
@@ -99,31 +120,41 @@ export async function handler(event, context) {
       await handles.createIndex({ handle: 1 }, { unique: true });
       await KeyValue.connect();
 
-      if (tenant === "aesthetic") await logger.link(database);
+      /* if (tenant === "aesthetic") */ await logger.link(database);
 
       // Admin action to delete a user handle from the system, as opposed
-      // to setting it.
-      // TODO: This currently only works for the 'aesthetic' network.
+      // to setting it. Handles are stripped regardless of what
+      // network they were created on.
       if (action === "strip") {
         if ((await hasAdmin(user)) === false) {
           return respond(500, { message: "unauthorized" });
         }
-        console.log("🩹 Stripping handle from:", handle);
+        shell.log("🩹 Stripping handle from:", handle);
+
         let status, response;
         try {
           const sub = await userIDFromHandle(handle, database, true);
           const handledUser = await handles.findOne({ _id: sub });
+
           if (handledUser) {
             await handles.deleteOne({ _id: sub });
-            await KeyValue.del("@handles", handle);
-            await KeyValue.del("userIDs", sub);
+            await KeyValue.del("@handles", handle); // Delete original handle cache.
 
-            await logger.log(`@${handle}'s handle was stripped!`, {
-              user: sub,
-              action: "handle:strip",
-              value: "???",
-            });
+            // Delete sister network redis cache reference.
+            const sisterSub = await findSisterSub(sub);
+            if (sisterSub) await KeyValue.del("userIDs", sisterSub);
+            await KeyValue.del("userIDs", sub); // Delete original cache.
 
+            if (!sub.startsWith("sotce-")) {
+              await logger.log(`@${handle}'s handle was stripped!`, {
+                user: sub,
+                action: "handle:strip",
+                value: "???",
+              });
+            }
+            // ⚠️
+            // TODO: Stripping a handle from a 'sotce' user
+            //       will not refresh their client automatically. 24.08.31.01.18
             status = 200;
             response = { message: "stripped" };
           } else {
@@ -141,59 +172,65 @@ export async function handler(event, context) {
       }
 
       // 🌟 Otherwise assume we are creating or modifying a handle.
-      console.log(`💁 Setting a handle on ${tenant}:`, handle);
+      shell.log(`💁 Setting a handle on ${tenant}:`, handle);
 
       // Insert or update the handle using the `provider|id` key from auth0.
       try {
         let sub = user.sub;
+        if (tenant === "sotce") sub = "sotce-" + user.sub;
+        // Prefix the stored handle subs with 'sotce-'
+        // because they are not guaranteed to be unique by auth0: https://community.auth0.com/t/ensuring-unique-user-ids-in-auth0-across-multiple-tenants/120970
+        let primarySub = sub;
+        let otherSub;
 
-        // 🪷 TODO: Implement `sotce-net` handle creation.
-        // - [-] Check for existing handle by checking auth0 tenant / etc.
+        // Check if a document with this user's sub already exists on the
+        // current tenant.
+        let existingUser = await handles.findOne({ _id: sub });
 
-        if (tenant === "sotce") {
-          sub = "sotce-" + user.sub; // Prefix the stored handle subs with 'sotce-'
-          // because they are not guaranteed to be unique by auth0: https://community.auth0.com/t/ensuring-unique-user-ids-in-auth0-across-multiple-tenants/120970
-          return respond(400, { message: "handles are wip:" + sub });
+        // Or try to find an existingUser on the sister tenant, via the user's
+        // email address.
+        if (!existingUser) {
+          let sisterSub = await findSisterSub(sub, { prefixed: true });
+          existingUser = await handles.findOne({ _id: sisterSub });
+          if (existingUser) primarySub = sisterSub;
         }
 
-        // Check if a document with this user's sub already exists
-        const existingUser = await handles.findOne({ _id: sub });
-
         if (existingUser) {
-          if (dev) console.log("Current user handle:", existingUser.handle);
+          shell.log("Current user handle:", existingUser.handle);
           // Replace existing handle or fail if the new handle is already taken
           // by someone else.
-          const existingHandle = await handles.findOne({
-            handle: existingUser.handle,
-          });
+          const existingHandle = await handles.findOne({ handle });
 
-          if (existingHandle && existingHandle._id !== sub) {
-            throw new Error("Handle taken.");
+          if (
+            existingHandle &&
+            (existingHandle._id !== sub || existingHandle._id !== otherSub)
+          ) {
+            throw new Error("Handle taken by another user.");
           }
 
           if (existingHandle && existingHandle.handle === handle) {
             return respond(400, { message: "same" });
           }
 
-          await handles.updateOne({ _id: sub }, { $set: { handle } });
+          await handles.updateOne({ _id: primarySub }, { $set: { handle } });
 
-          if (tenant === "aesthetic") {
+          if (!primarySub.startsWith("sotce-")) {
             await logger.log(`@${existingUser.handle} is now @${handle}`, {
-              user: sub,
+              user: primarySub,
               action: "handle:update",
               value: handle,
             }); // 🪵
           }
         } else {
           const existingHandle = await handles.findOne({ handle });
-          if (existingHandle) throw new Error("Handle taken");
+          if (existingHandle) throw new Error("Handle taken by another user.");
 
           // Add a new `@handles` document for this user.
-          await handles.insertOne({ _id: sub, handle });
+          await handles.insertOne({ _id: primarySub, handle });
 
-          if (tenant === "aesthetic") {
+          if (!primarySub.startsWith("sotce-")) {
             await logger.log(`hi @${handle}`, {
-              user: sub,
+              user: primarySub,
               action: "handle:create",
               value: handle,
             }); // 🪵 Log initial handle creation.
@@ -204,8 +241,12 @@ export async function handler(event, context) {
         if (existingUser?.handle)
           await KeyValue.del("@handles", existingUser.handle);
 
-        await KeyValue.set("@handles", handle, user.sub);
-        await KeyValue.set("userIDs", user.sub, handle);
+        await KeyValue.set("@handles", handle, primarySub);
+        await KeyValue.set("userIDs", sub, handle);
+
+        if (otherSub) {
+          await KeyValue.set("userIDs", otherSub, handle);
+        }
 
         // 🔥 Publish the new handle association to redis.
         //  - [-] `world` needs to pick this up somehow.
@@ -215,14 +256,8 @@ export async function handler(event, context) {
         //    - [] handle changes from others
         //    - [] self-handle change from another window
         //  - [] `prompt` also needs to do this
-        // + Done
-        // - [x] `chat` needs to pick this up somehow.
-        //   - [x] self-handle change from another window
-        //   - [x] handle changes from others
-        // - [x] Test same handle change.
-        // - [x] Test naughty handle change.
       } catch (error) {
-        console.log("👱 Handle set error:", error);
+        shell.log("👱 Handle set error:", error);
         return respond(500, {
           message: error.code === 11000 ? "taken" : "error",
         });
@@ -240,7 +275,7 @@ export async function handler(event, context) {
       }
     }
   } catch (error) {
-    console.log("👱 Handle error:", error);
+    shell.log("👱 Handle error:", error);
     return respond(400, { message: "error" });
   }
 }

@@ -17,10 +17,10 @@ echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com
 # Update the package cache
 dnf check-update
 
-echo "🟣 Installing `foot`, `google-chrome-stable`, `code`, `docker`, `bpytop`, `emacs`, `rust`, `cargo`, `xxd` and `nss-tools`"
+echo "🟣 Installing `foot`, `fzf`, `google-chrome-stable`, `code`, `docker`, `bpytop`, `emacs`, `rust`, `cargo`, `xxd` and `nss-tools`"
 
 # Install dependencies
-sudo dnf install -y foot google-chrome-stable code docker bpytop emacs rust cargo xxd nss-tools
+sudo dnf install -y foot fzf google-chrome-stable code docker bpytop emacs rust cargo xxd nss-tools
 echo "🟣 Installing `dbus-devel`, `pkgconf-pkg-config`"
 sudo dnf install -y dbus-devel pkgconf-pkg-config
 
@@ -91,7 +91,7 @@ echo "🟣 Installing `theme.sh` utility"
 
 # Install theme.sh tools
 sudo curl -Lo /usr/bin/theme.sh 'https://git.io/JM70M'
-sudo chmod +x /usr/bin/theme.sh`
+sudo chmod +x /usr/bin/theme.sh
 
 echo "🟣 Installing Aesthetic Computer system daemon"
 # Install AC JavaScript system daemon for watching SSL and perhaps

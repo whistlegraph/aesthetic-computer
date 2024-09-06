@@ -692,7 +692,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       sampleRate: iOS || Aesthetic || Android ? 48000 : 192000,
     });
 
-    acDISK_SEND({ type: "audio:sample-rate", content: audioContext.sampleRate });
+    acDISK_SEND({
+      type: "audio:sample-rate",
+      content: audioContext.sampleRate,
+    });
 
     // Main audio feed
     // audioContext = new AudioContext({
@@ -4173,7 +4176,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     function error(err) {
       send({
         type: callbackMessage,
-        content: { result: "error", data: err },
+        content: {
+          result: "error",
+          data: null,
+        },
       });
     }
 

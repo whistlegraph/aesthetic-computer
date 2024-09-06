@@ -59,6 +59,10 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
+  - [🌟] Add -3, -2, -1, +1, +2, +3 etc. relative overlays based on press and
+       have it span the whole octave and maybe even make up phonemes for each?
+      - [] Then encode a few melodies.
+  - [] Color code the notes and semitones, each with a color that has a specific and known name.
   - [] Add record button and repeat button with a masking mode and potentially a stepper and "sing" syllable mode for adding words, followed by a way to store tracks.
   - [x] Rename to `notepat`.
   - [] Add volume centroid control to buttons with draggable changes.

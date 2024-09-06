@@ -10,6 +10,7 @@
 import {
   authorize,
   getHandleOrEmail,
+  userIDFromEmail,
   deleteUser,
 } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
@@ -20,6 +21,7 @@ import {
   ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import * as KeyValue from "../../backend/kv.mjs";
+import { shell } from "../../backend/shell.mjs";
 
 const s3User = new S3Client({
   endpoint: "https://" + process.env.USER_ENDPOINT,
@@ -60,10 +62,14 @@ export async function handler(event, context) {
             new ListObjectsV2Command(listParams),
           );
         } catch (err) {
-          console.log(err);
+          console.error("List error:", err);
         }
 
-        if (!listedObjects.Contents || listedObjects.Contents.length === 0)
+        if (
+          !listedObjects ||
+          !listedObjects.Contents ||
+          listedObjects.Contents.length === 0
+        )
           break;
 
         console.log(
@@ -115,24 +121,61 @@ export async function handler(event, context) {
       // );
       // console.log("📜 Removed log references.");
 
-      // Assuming @handles collection uses _id as the primary key.
-      await database.db.collection("@handles").deleteOne({ _id: sub });
-      console.log("🧔 Deleted any handle.");
-
-      // ❤️‍🔥 TODO: Delete moods and chat messages and pieces also...
-      // And what about logs related to the user?
-      console.log("❌ Deleted database data.");
-
-      await database.disconnect();
-
+      // Remove the user's handle cache from redis.
       const handle = await getHandleOrEmail(sub);
-      if (handle.startsWith("@")) {
-        await KeyValue.connect(); // Delete the user's handle from redis.
+      if (handle?.startsWith("@")) {
+        await KeyValue.connect();
         await KeyValue.del("@handles", handle);
+        await KeyValue.del("userIDs", sub);
         await KeyValue.disconnect();
       }
 
       console.log("❌ Deleted network cache.");
+
+      // If the user has a sotce-net account then don't delete
+      // here, but change the primary key of the handle instead.
+      if (handle) {
+        shell.log(
+          "📚 Checking for any `sotce` user with the same email and handle:",
+          handle,
+        );
+        const bareHandle = handle.slice(1); // Remove the "@" from the handle.
+        const idRes = await userIDFromEmail(user.email, "sotce");
+
+        console.log("Sotce user:", idRes);
+
+        if (idRes?.userID && idRes?.email_verified) {
+          const handles = database.db.collection("@handles");
+
+          const sotceSub = "sotce-" + idRes.userID;
+          // Check if an entry with the same _id already exists
+          const existingHandle = await handles.findOne({ _id: sotceSub });
+
+          if (!existingHandle) {
+            // If no existing entry, proceed with deletion and insertion
+            await handles.deleteOne({ _id: sub });
+            await handles.insertOne({ _id: sotceSub, handle: bareHandle });
+            shell.log(
+              "🧔 Changed primary handle key of 'aesthetic' user:",
+              sub,
+              "to 'sotce' user:",
+              sotceSub,
+            );
+          } else {
+            // If an entry already exists, skip deletion and insertion
+            shell.log(
+              "🩹 Handle already native to `sotce`, skipping reassignment.",
+            );
+          }
+        } else {
+          await database.db.collection("@handles").deleteOne({ _id: sub });
+          shell.log("🧔 Deleted user handle for:", sub);
+        }
+      }
+
+      console.log("❌ Deleted database data.");
+
+      await database.disconnect();
 
       // 3. Delete the user's auth0 account.
       const deleted = await deleteUser(sub);

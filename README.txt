@@ -35,12 +35,6 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `baktok` broken tap ***
-  - [] test on laptop and phone
-
-*** triple undo tap ***
-  - [] 
-
 *** sotce.net ***
   - [] auto add patreon subscribers on the highest tier by checking for their email
   - [🟢] Finish sotce-net rc1
@@ -69,6 +63,24 @@ but technically agnostic. (Choose your aesthetic!)
     - [x] In both development and production.
 
 ------------------------------------------
+*** 'art' bucket expiration ***
+ - [] the files are no longer expiring after 24 hours / an expiration policy
+      needs to be added again
+
+*** 'print' error ***
+ - [] https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ is not resolving in mexico
+ - [] bios.mjs:1212 Uncaught DataCloneError: Failed to execute 'postMessage' on 'Worker': ProgressEvent object could not be cloned.
+
+*** tweaked bresenham ***
+  - [] implement this tweaked version of bresenham for graph's circle routine:
+       https://funloop.org/post/2021-03-15-bresenham-circle-drawing-algorithm.html
+
+*** `baktok` broken tap ***
+  - [] test on laptop and phone
+
+*** triple undo tap ***
+  - [] Try to hide the undo overlay bar that appears when you three finger
+       tap on ios. 
 
 *** bleep ***
   - [🟠] fix bleep held key bug...
