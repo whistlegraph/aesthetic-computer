@@ -22,14 +22,17 @@ export async function handler(event, context) {
   const tenant = "aesthetic"; // TODO: Eventually add `sotce-net` support.
 
   body.logs.forEach((log) => {
-    shell.log("🧏 Auth0:", "Type:", log.data.type, "User:", log.data.user_id);
-    log.data.details.prompts?.forEach((prompt) => {
-      shell.log(" ➡️ Prompt:", prompt);
-    });
+    // 📧 Succesful email verification.
+    if (log.data.type === "sv") {
+      // 🔵 TODO: Check to see if we can send a logger event to the ac chat for when
+      //          sotce-net users first join aesthetic computer and also have a handle set.
+      shell.log("🧏 Auth0:", "Type:", log.data.type, "User:", log.data.user_id);
+      shell.log(log.data);
+      log.data.details.prompts?.forEach((prompt) => {
+        shell.log(" ➡️ Prompt:", prompt);
+      });
+    }
   });
-
-  // 🔵 TODO: Check to see if we can send a logger event to the ac chat for when
-  //          sotce-net users first join aesthetic computer and also have a handle set.
 
   return respond(200, { message: "Log received." });
 }
