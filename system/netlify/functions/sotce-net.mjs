@@ -1,21 +1,43 @@
 // Sotce Net, 24.06.13.06.38
 // A paid diary network, 'handled' by Aesthetic Computer.
 
-/* #region 🏁 TODO 
-  --- 🏁 pre-launch
-  - [🟠] go through all the prompt boxes, including the username entry / too long / inappropriate etc.
-  ---
-  - [] Allow Amelia's user / @sotce to post a diary, but no other users
-       for now.
-    - [] read from the database
+/* #region 🟢 TODO 
+
+  *** ⭐ Page Composition ***
+  - [🟠] Add 'isAdmin' support for sotce-net subs and add necessary subs via
+        auth0 email list. 
+  - [] build the page input
+    - [] add the 'new page' or 'write page' or 'compose' button somewhere
+         (only for isAdmin users rn)
+    - [] show the form, maybe in a modal?
+    - [] keep draft remotely / have a "published" flag on pages
+    - [] show rules under the form
+    - [] add endpoint for submitting a "page"
+
+  *** 📧 Email Notifications for Pages ***
   - [] email new pages to each subscriber, and include the contents?
-  - [] Use actual 'Helvetica' for the font? Or choose a special sans-serif.
-  - [] Show number of signed up users so far / handles set.
-  - [] Add email checkbox notifications for pages for subscribed users.
-  - [] Add some kind of touch based reaction for pages?
+    - [] make an 'eblast' endpoint for this
+    - [] add the checkbox under the main page
+
+  *** 📄 Page Reactions ***
+  - [] Add some kind of handle based reaction for pages? (touch?)
+
+  *** 📊 Statistics ***
+  - [] Show number of subscribed users so far - maybe in the closed donut or
+       privacy policy? and only for certain whitelisted users?
+  - [] Add some form of google analytics.
+
+  *** 🖨️ Typography & Design ***
+  - [] Use actual 'Helvetica' for the font? Or try to choose a special sans-serif.
   - [] Test mobile designs locally.
+
+  *** 🛩️ Pre-flight ***
   - [] Test in production.
+
+  --- 🏁 Launch 🏁 ---
+
   + Done
+  - [x] go through all the prompt boxes, including the username entry / too long / inappropriate etc.
   - [x] make a privacy policy for sotce.net (inlined in this file)
     - [x] update ac privacy policy with shared accounting rules
 #endregion */
@@ -413,6 +435,7 @@ export const handler = async (event, context) => {
             const url = new URL(window.location);
             const cel = (el) => document.createElement(el); // shorthand
             let fullAlert;
+            let waitForSubscriptionSuccessThreeTimes = false;
 
             // 🌠 Initialization
 
@@ -464,8 +487,13 @@ export const handler = async (event, context) => {
 
               if (notice) {
                 console.log("🪧 Notice:", notice, urlParams);
+
                 // TODO: 🟣 If it's a 'success' here I could toggle something to
                 //          wait until the subscription returns true?
+                if (notice === "success") {
+                  waitForSubscriptionSuccessThreeTimes = true;
+                }
+
                 urlParams.delete("notice");
                 cleanUrlParams(url, urlParams);
               }
@@ -600,7 +628,11 @@ export const handler = async (event, context) => {
                 }
               } else if (status !== "coming-soon") {
                 const lo = cel("button");
-                lo.onclick = logout;
+                lo.onclick = () => {
+                  if (confirm("See you later?")) {
+                    logout();
+                  }
+                };
                 lo.innerText = "log out";
 
                 const lowrap = cel("div");
@@ -773,13 +805,28 @@ export const handler = async (event, context) => {
                     } else {
                       const error = await response.json();
                       console.error("❌ Handle error:", error.message);
-                      unveil();
-                      alert("Failed to set handle: " + error.message);
+                      unveil({ instant: true });
+                      const message =
+                        error.message === "same" ? "the same" : error.message;
+                      setTimeout(
+                        () =>
+                          alert(
+                            "❌ Sorry, " +
+                              (message !== "error"
+                                ? "that handle is " + message + "."
+                                : "there was an error setting your handle."),
+                          ),
+                        100,
+                      );
                     }
                   } catch (error) {
                     console.error("🔴 Error:", error);
-                    unveil();
-                    alert("An error occurred while creating your handle.");
+                    unveil({ instant: true });
+                    setTimeout(
+                      () =>
+                        alert("An error occurred while creating your handle."),
+                      100,
+                    );
                   }
                 };
                 buttonsTop.push(hb);
@@ -1086,8 +1133,18 @@ export const handler = async (event, context) => {
                 if (!user.email_verified) {
                   await spinnerPass(async () => await gate("unverified", user));
                 } else {
-                  // console.log("Checking for subsription...");
-                  const entered = await subscribed();
+                  let entered = await subscribed();
+                  let times = 0;
+
+                  while (
+                    waitForSubscriptionSuccessThreeTimes &&
+                    !entered?.subscribed &&
+                    times < 3
+                  ) {
+                    entered = await subscribed();
+                    times += 1;
+                  }
+
                   if (entered?.subscribed) {
                     await spinnerPass(async () => await garden(entered, user));
                   } else if (entered !== "error") {
@@ -1311,9 +1368,12 @@ export const handler = async (event, context) => {
                   }
                 })
                 .catch((err) => {
-                  alert("❌ Email verification send error.");
+                  console.error("🔴 📧 Email change error:", err);
                   unveil({ instant: true });
-                  console.error("🔴 📧 Email verification send error:", err);
+                  setTimeout(
+                    () => alert("❌ Sorry, your email could not be changed."),
+                    100,
+                  );
                 });
             }
 
