@@ -3,10 +3,7 @@
 
 /* #region 🏁 TODO 
   --- 🏁 pre-launch
-  - [🟠] make a privacy policy for sotce.net (inlined in this file)
-    - [-] update ac privacy policy with accounting rules
-  - [] add current rules / account deletion etc. to privacy-policy for ac which links to sotce-net privacy policy
-  - [] go through all the prompt boxes, including the username entry / too long / inappropriate etc.
+  - [🟠] go through all the prompt boxes, including the username entry / too long / inappropriate etc.
   ---
   - [] Allow Amelia's user / @sotce to post a diary, but no other users
        for now.
@@ -19,6 +16,8 @@
   - [] Test mobile designs locally.
   - [] Test in production.
   + Done
+  - [x] make a privacy policy for sotce.net (inlined in this file)
+    - [x] update ac privacy policy with shared accounting rules
 #endregion */
 
 /* #region 🤖 Dummy Copy
@@ -76,13 +75,12 @@ export const handler = async (event, context) => {
     path = path.replace("/sotce-net", "/").replace("//", "/");
 
   const key = dev ? SOTCE_STRIPE_API_TEST_PRIV_KEY : SOTCE_STRIPE_API_PRIV_KEY;
+  const assetPath = dev
+    ? "/assets/sotce-net/"
+    : "https://assets.aesthetic.computer/sotce-net/";
 
   // 🏠 Home
   if (path === "/" && method === "get") {
-    const assetPath = dev
-      ? "/assets/sotce-net/"
-      : "https://assets.aesthetic.computer/sotce-net/";
-
     const body = html`
       <html>
         <head>
@@ -101,6 +99,7 @@ export const handler = async (event, context) => {
               height: 100vh;
               -webkit-text-size-adjust: none;
               background: rgb(255, 230, 225);
+              user-select: none;
             }
             #wrapper {
               display: flex;
@@ -278,14 +277,17 @@ export const handler = async (event, context) => {
             #email:active {
               color: darkgreen;
             }
-            #delete-account {
+            #delete-account,
+            #privacy-policy {
               color: black;
               position: absolute;
               font-size: 80%;
-              left: calc(-130% / 8);
               bottom: -65%;
-              width: 130%;
               user-select: none;
+            }
+            #delete-account {
+              left: calc(-130% / 8);
+              width: 130%;
             }
             #delete-account:hover {
               color: rgb(200, 0, 0);
@@ -293,7 +295,17 @@ export const handler = async (event, context) => {
             #delete-account:active {
               color: red;
             }
-            #logout-wrapper {
+            #privacy-policy {
+              /* 'width' and 'left' value calculated in js 'genSubscribeButton' */
+            }
+            #privacy-policy:hover {
+              color: rgb(0, 0, 200);
+            }
+            #privacy-policy:active {
+              color: blue;
+            }
+            #logout-wrapper,
+            #secondary-wrapper {
               position: relative;
             }
             #cookie-menu {
@@ -514,14 +526,56 @@ export const handler = async (event, context) => {
               const navLow = document.createElement("nav");
               navLow.id = "nav-low";
 
-              function genSubscribeButton() {
-                h2.innerText = "Email verified!";
-                h2.classList.remove("loading-dots");
+              function genSubscribeButton(type) {
+                if (!type) {
+                  h2.innerText = "Email verified!";
+                  h2.classList.remove("loading-dots");
+                }
+
+                // Build button.
                 const sb = cel("button");
-                sb.id = "subscribe";
-                sb.onclick = subscribe;
-                sb.innerText = "subscribe";
-                return sb;
+
+                if (!type) {
+                  sb.id = "subscribe";
+                  sb.onclick = subscribe;
+                  sb.innerText = "subscribe";
+                } else if (type === "unsubscribe") {
+                  sb.innerText = "unsubscribe";
+                  sb.onclick = cancel;
+                } else if (type === "resubscribe") {
+                  sb.innerText = "resubscribe";
+                  sb.onclick = subscribe;
+                }
+
+                let out = sb;
+
+                if (type) {
+                  // And privacy-policy link.
+                  const priv = cel("a");
+                  priv.id = "privacy-policy";
+                  priv.innerText = "privacy policy";
+                  priv.href = "${dev ? "/sotce-net/" : "/"}privacy-policy";
+
+                  if (!type) {
+                    // subscribe
+                    priv.style.left = "3%";
+                    priv.style.width = "91%";
+                  } else if (type === "resubscribe") {
+                    priv.style.left = "10%";
+                    priv.style.width = "78%";
+                  } else if (type === "unsubscribe") {
+                    priv.style.left = "11%";
+                    priv.style.width = "75%";
+                  }
+
+                  const secondrap = cel("div");
+                  secondrap.id = "secondary-wrapper";
+                  secondrap.appendChild(sb);
+                  secondrap.appendChild(priv);
+                  out = secondrap;
+                }
+
+                return out;
               }
 
               function genWelcomeMessage() {
@@ -733,17 +787,11 @@ export const handler = async (event, context) => {
                 if (subscription.until === "recurring") {
                   h2.innerText =
                     "Your subscription renews on " + subscription.renews; // + ".";
-                  const cb = cel("button");
-                  cb.innerText = "unsubscribe";
-                  cb.onclick = cancel;
-                  buttons.push(cb);
+                  buttons.push(genSubscribeButton("unsubscribe"));
                 } else {
                   h2.innerText =
                     "Your subscription ends on " + subscription.until + ".";
-                  const ab = cel("button");
-                  ab.innerText = "resubscribe";
-                  ab.onclick = subscribe;
-                  buttons.push(ab);
+                  buttons.push(genSubscribeButton("resubscribe"));
                 }
               }
 
@@ -1552,6 +1600,68 @@ export const handler = async (event, context) => {
     const deleted = await deleteUser(sub, "sotce");
     shell.log("❌ Deleted user registration:", deleted);
     return respond(200, { result: "Deleted!" }); // Successful account deletion.
+  } else if (path === "/privacy-policy" && method === "get") {
+    const body = html`
+      <html>
+        <head>
+          <title>Sotce Net's Privacy Policy</title>
+          <style>
+            body {
+              font-family: sans-serif;
+              background-color: rgb(255, 251, 234);
+              /* background: rgb(255, 230, 225); */
+            }
+            img {
+              filter: grayscale(0.75);
+            }
+            code {
+              font-weight: bold;
+            }
+            a,
+            a:visited {
+              color: black;
+              text-decoration: none;
+            }
+            sub {
+              line-height: 1.25em;
+            }
+          </style>
+          <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+          />
+        </head>
+
+        <body>
+          <h1>Sotce Net's Privacy Policy</h1>
+          <p>
+            Sotce Net keeps finished pages on a remote server so they can be shared
+            with and viewed by subscribers.
+          </p>
+          <p>
+            Sotce Net allows you to associate an email with a
+            <code>@handle</code> to represent your identity.
+          </p>
+          <p>
+            Sotce Net does not sell or exchange any user data with third
+            parties.
+          </p>
+          <p>
+            Sotce Net is served by
+            <code><a href="https://aesthetic.computer/privacy-policy">Aesthetic Computer</code>.</a>
+          </p>
+          <p>
+            For more information write to <code>mail@sotce.net</code> to
+            communicate with the author.
+          </p>
+          <a href="${dev ? "/sotce-net" : "/"}"><img width="128" src="${assetPath + "cookie.png"}" /></a>
+          <br />
+          <br />
+          <sub>Edited on September 7, 2024</sub>
+        </body>
+      </html>
+    `;
+    return respond(200, body, { "Content-Type": "text/html; charset=utf-8" });
   }
 };
 
