@@ -63,6 +63,11 @@ but technically agnostic. (Choose your aesthetic!)
     - [x] In both development and production.
 
 ------------------------------------------
+*** spectrogram ***
+ - [] add a long spectrographic buffer to `notepat`
+      so playable notes can be tracked / maybe it could
+      be circular / record like?
+
 *** 'art' bucket expiration ***
  - [] the files are no longer expiring after 24 hours / an expiration policy
       needs to be added again
