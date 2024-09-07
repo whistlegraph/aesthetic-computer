@@ -101,6 +101,8 @@ export async function handler(event, context) {
       if (filter(handle) !== handle) {
         return respond(400, { message: "naughty" });
       }
+
+      // ⚠️ "too long", "invalid", and "naughty" are invalid handle responses
     }
 
     // And that we are logged in...
@@ -205,7 +207,7 @@ export async function handler(event, context) {
             existingHandle &&
             (existingHandle._id !== sub || existingHandle._id !== otherSub)
           ) {
-            throw new Error("Handle taken by another user.");
+            throw new Error("taken");
           }
 
           if (existingHandle && existingHandle.handle === handle) {
@@ -223,7 +225,7 @@ export async function handler(event, context) {
           }
         } else {
           const existingHandle = await handles.findOne({ handle });
-          if (existingHandle) throw new Error("Handle taken by another user.");
+          if (existingHandle) throw new Error("taken");
 
           // Add a new `@handles` document for this user.
           await handles.insertOne({ _id: primarySub, handle });
@@ -257,9 +259,9 @@ export async function handler(event, context) {
         //    - [] self-handle change from another window
         //  - [] `prompt` also needs to do this
       } catch (error) {
-        shell.log("👱 Handle set error:", error);
+        shell.log("👱 Handle set error:", error.message);
         return respond(500, {
-          message: error.code === 11000 ? "taken" : "error",
+          message: error.message === "taken" ? "taken" : "error",
         });
       } finally {
         await database.disconnect();

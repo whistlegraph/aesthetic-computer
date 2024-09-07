@@ -43,11 +43,16 @@ export async function handler(event, context) {
   try {
     body = JSON.parse(event.body);
     const email = body.email;
+    // Simple email validation.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return respond(500, { message: "Invalid email format." });
+    }
+
     const name = body.name;
     const tenant = body.tenant;
     const user = await authorize(event.headers, tenant);
 
-    shell.log("Updating email.")
+    shell.log("Updating email.");
     shell.log("User after authorization:", user);
 
     if (user) {
@@ -59,8 +64,6 @@ export async function handler(event, context) {
 
       const sisterTenant = tenant === "sotce" ? "aesthetic" : "sotce";
 
-      const sister = await userIDFromEmail(user.email, sisterTenant);
-
       const emailChanged = await setEmailAndReverify(
         user.sub,
         email,
@@ -69,18 +72,27 @@ export async function handler(event, context) {
       );
 
       let sisterEmailChanged;
-      if (sister?.userID) {
-        sisterEmailChanged = await setEmailAndReverify(
-          sister.userID,
-          email,
-          name,
-          sisterTenant,
-        );
+      // Only try to update the sister email if the primary one was changed.
+      if (emailChanged?.success) {
+        const sister = await userIDFromEmail(user.email, sisterTenant);
+        if (sister?.userID) {
+          sisterEmailChanged = await setEmailAndReverify(
+            sister.userID,
+            email,
+            name,
+            sisterTenant,
+          );
+        }
       }
 
       // Update the Stripe customer's email address for `sotce-net` if needed.
       try {
-        if (tenant === "sotce" || (sisterTenant === "sotce" && sister?.userID)) {
+        if (
+          (emailChanged?.success && tenant === "sotce") ||
+          (sisterTenant === "sotce" &&
+            sister?.userID &&
+            sisterEmailChanged?.success)
+        ) {
           const sub = tenant === "sotce" ? user.sub : sister.userID;
 
           const key = dev
@@ -102,7 +114,10 @@ export async function handler(event, context) {
         shell.error("Could not update Stripe customer email for:", email);
       }
 
-      if (emailChanged.success && (!sister?.userID || sisterEmailChanged?.success)) {
+      if (
+        emailChanged.success &&
+        (!sister?.userID || sisterEmailChanged?.success)
+      ) {
         return respond(200, { email });
       } else {
         return respond(500, { message: "Could not change emails." });
