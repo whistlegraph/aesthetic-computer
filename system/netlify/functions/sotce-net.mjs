@@ -6,9 +6,13 @@
   *** ⭐ Page Composition ***
   - [🟠] Add 'isAdmin' support for sotce-net subs and add necessary subs via
         auth0 email list. 
+        me@jas.life - 
+        
   - [] build the page input
     - [] add the 'new page' or 'write page' or 'compose' button somewhere
+
          (only for isAdmin users rn)
+
     - [] show the form, maybe in a modal?
     - [] keep draft remotely / have a "published" flag on pages
     - [] show rules under the form
@@ -36,6 +40,8 @@
 
   --- 🏁 Launch 🏁 ---
 
+  --- ☁️ Post-Launch ☁️ ---
+  - [] Automatic Dark Theme
   + Done
   - [x] go through all the prompt boxes, including the username entry / too long / inappropriate etc.
   - [x] make a privacy policy for sotce.net (inlined in this file)
@@ -73,7 +79,8 @@ import { shell } from "../../backend/shell.mjs";
 
 import {
   authorize,
-  deleteUser /* hasAdmin, */,
+  deleteUser,
+  hasAdmin,
   getHandleOrEmail,
   userIDFromEmail,
 } from "../../backend/authorization.mjs";
@@ -279,6 +286,9 @@ export const handler = async (event, context) => {
               background: rgb(203, 238, 161);
               border-color: rgb(114, 203, 80);
             }
+            #gate nav #handle-wrapper {
+              position: relative;
+            }
             #gate nav button.positive:hover {
               background: rgb(199, 252, 136);
             }
@@ -290,8 +300,17 @@ export const handler = async (event, context) => {
               padding-top: 1em;
             }
             #email {
+              position: relative;
               color: black;
               /* user-select: all; */
+            }
+            #email.admin::after {
+              content: "🪷";
+              font-size: 85%;
+              position: absolute;
+              top: -0.3em;
+              right: -1.25em;
+              opacity: 0.75;
             }
             #email:hover {
               color: maroon;
@@ -606,9 +625,13 @@ export const handler = async (event, context) => {
                 return out;
               }
 
-              function genWelcomeMessage() {
+              function genWelcomeMessage(subscription) {
                 return (
-                  "Signed in as <a href='' id='email'>" + user.email + "</a>"
+                  "Signed in as <a href='' id='email'" +
+                  (subscription?.admin ? "class='admin'" : "") +
+                  ">" +
+                  user.email +
+                  "</a>"
                 );
               }
 
@@ -629,9 +652,7 @@ export const handler = async (event, context) => {
               } else if (status !== "coming-soon") {
                 const lo = cel("button");
                 lo.onclick = () => {
-                  if (confirm("See you later?")) {
-                    logout();
-                  }
+                  if (confirm("🐾 See you later?")) logout();
                 };
                 lo.innerText = "log out";
 
@@ -750,7 +771,7 @@ export const handler = async (event, context) => {
                 message = genWelcomeMessage();
                 buttons.push(genSubscribeButton());
               } else if (status === "subscribed") {
-                message = genWelcomeMessage();
+                message = genWelcomeMessage(subscription);
                 // 🗼 Check to see if a handle already exists...
 
                 let handle;
@@ -776,9 +797,16 @@ export const handler = async (event, context) => {
                 const hb = cel("button");
                 hb.classList.add("positive");
                 hb.innerText = handle || "create handle";
+                // const hbwrap = cel("div");
+                // hbwrap.id = "handle-wrapper";
+                // hbwrap.appendChild(hb);
+                // if (handle && subscription.admin) hbwrap.classList.add("admin");
+
                 hb.onclick = async function () {
                   const newHandle = prompt(
-                    handle ? "Change your handle to?" : "Set your handle to?",
+                    handle
+                      ? "👤 Change your handle to?"
+                      : "Set your handle to?",
                   );
                   if (!newHandle) return;
                   veil();
@@ -829,7 +857,7 @@ export const handler = async (event, context) => {
                     );
                   }
                 };
-                buttonsTop.push(hb);
+                buttonsTop.push(hb /*hbwrap*/);
 
                 if (subscription.until === "recurring") {
                   h2.innerText =
@@ -1249,6 +1277,7 @@ export const handler = async (event, context) => {
               const response = await userRequest(
                 "POST",
                 "sotce-net/subscribed",
+                { retrieve: "everything" },
               );
 
               if (response.status === 200) {
@@ -1268,7 +1297,7 @@ export const handler = async (event, context) => {
             async function cancel() {
               if (!user) return;
 
-              const confirmation = confirm("End your subscription?");
+              const confirmation = confirm("📆 End your subscription?");
               if (!confirmation) return;
               veil();
 
@@ -1338,8 +1367,8 @@ export const handler = async (event, context) => {
 
               const promptText =
                 type === "change"
-                  ? "Update your email to?"
-                  : "Resend verification email to?";
+                  ? "💌 Update your email to?"
+                  : "💌 Resend verification email to?";
 
               const email = prompt(promptText, user.email);
               if (!email) return;
@@ -1404,7 +1433,10 @@ export const handler = async (event, context) => {
                 };
 
                 const options = { method, headers };
-                if (body) options.body = JSON.stringify(body);
+
+                if (method.toLowerCase() !== "get" && body)
+                  options.body = JSON.stringify(body);
+
                 const response = await fetch(endpoint, options);
 
                 if (response.status === 500) {
@@ -1513,7 +1545,10 @@ export const handler = async (event, context) => {
     //       a more apt rate limit?
     // Also it's possible that finding the subscription information here
     // via Stripe should / could be cached in redis for faster
-    // retrieval. 24.08.24.19.22
+    // retrieval later? 24.08.24.19.22
+
+    const body = JSON.parse(event.body); // Make sure we can parse the body.
+    const retrieve = body.retrieve || "everything";
 
     const user = await authorize(event.headers, "sotce");
     if (!user) return respond(401, { message: "Unauthorized user." });
@@ -1526,28 +1561,20 @@ export const handler = async (event, context) => {
     // Then, make sure they are subscribed.
     try {
       const stripe = Stripe(key);
-      // Fetch customer by email [deprecated in favor of storing user id (sub)]
-      // const customers = await stripe.customers.list({ email, limit: 1 });
-
-      // Fetch customer by user ID (sub) from metadata
+      // Fetch customer by user ID (sub) from subscription metadata field.
       const customers = await stripe.customers.search({
         query: "metadata['sub']:'" + sub + "'",
       });
 
-      if (customers.data.length === 0) {
-        return respond(200, { subscribed: false });
-      }
-
+      if (!customers.data.length) return respond(200, { subscribed: false });
       const customer = customers.data[0];
 
       // Fetch subscriptions for the customer
       const subscriptions = await stripe.subscriptions.list({
         customer: customer.id,
-        status: "active", // Only find the first active subscription...
-        limit: 10,
+        status: "active", // Only find the first active subscription.
+        limit: 1,
       });
-
-      console.log("All subscriptions:", subscriptions);
 
       subscription = subscriptions.data.find((sub) =>
         sub.items.data.some((item) => item.price.product === productId),
@@ -1558,19 +1585,34 @@ export const handler = async (event, context) => {
     }
 
     if (subscription && subscription.status === "active") {
-      const until = subscription.cancel_at_period_end
-        ? new Date(subscription.cancel_at * 1000).toLocaleDateString(
-            "en-US",
-            dateOptions,
-          )
-        : "recurring";
+      // What did we need the subscription for?
 
-      let renews;
-      if (until === "recurring") {
-        renews = `${new Date(subscription.current_period_end * 1000).toLocaleDateString("en-US", dateOptions)}`;
+      const out = { subscribed: true };
+
+      if (retrieve === "everything") {
+        // 📆 Subscription status. (until, renews)
+        out.until = subscription.cancel_at_period_end
+          ? new Date(subscription.cancel_at * 1000).toLocaleDateString(
+              "en-US",
+              dateOptions,
+            )
+          : "recurring";
+        if (out.until === "recurring") {
+          out.renews = `${new Date(subscription.current_period_end * 1000).toLocaleDateString("en-US", dateOptions)}`;
+        }
+
+        // 👸 Administrator status.
+        const isAdmin = await hasAdmin(user, "sotce");
+        if (isAdmin) out.admin = isAdmin;
+        console.log(isAdmin, out);
+
+        // 📓 Recent Pages
+
+        // Get page content from the database.
+
+        // TODO: 👤 Handled Pages
       }
-
-      return respond(200, { subscribed: true, until, renews });
+      return respond(200, out);
     } else {
       return respond(200, { subscribed: false });
     }
