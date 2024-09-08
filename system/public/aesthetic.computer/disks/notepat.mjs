@@ -60,34 +60,33 @@ TODO: 💮 Daisy
 
 /* 📝 Notes 
   - [🌟] Add -3, -2, -1, +1, +2, +3 etc. relative overlays based on press and
-       have it span the whole octave and maybe even make up phonemes for each?
-      - [] Then encode a few melodies.
+       have it span the whole octave.
+  - [] Add an always active QR code.
   - [] Color code the notes and semitones, each with a color that has a specific and known name.
-  - [] Add record button and repeat button with a masking mode and potentially a stepper and "sing" syllable mode for adding words, followed by a way to store tracks.
-  - [x] Rename to `notepat`.
+  - [] Add a new playback mode for melodies that include words... with long
+       command line parameters.
+  - [] Encode a few melodies with lyrics on the command line.
+    - [] Make sure that transposition will work.
+  - [] Add corner button for changing wavetype.
+  - [] Add corner button for changing octave.
   - [] Add volume centroid control to buttons with draggable changes.
-  - [] Add perc buttons to ui interface.
-  - [-] Add scale selection with visual hiking paths. (Color themes).
-    - [🤩] Ghost trails.
-    - [] Scale selections.
-  - [-] Fix '+C' notes appearing in the key list during playback mode.
-    - [🟠] on keyboard
-    - [] on touch / mouse 
-  - [-] Fix subtle 1, 2, 3, 4, then release 1 and press 1 down and watch 4 get unticked touch bug on ios. 
-    - [x] This may require fixing localhost testing first.
-  - [] Lay out keys better on wider vs vertical screen.
+  - [] Add colon parameter ':lock' for hiding the ui to prevent accidental touches.
+  - [] Add perc buttons to `beatpat` along with a QR code similar to notepat.
+    - [] This could use the new button interface.
+  - [] Make oscilloscope into a button for going fullscreen with wireframe keys.
+    - [❓] I wonder if there's a way this can also be placed in a local secondary window
+         using inter-frame communication of some kind, perhaps through the 'oscilloscope'
+         piece which could pick up all local frame messages for the oscilloscope
+         and be customizable in ways.
+  + Later
   - [?] Dragging across the buttons in slide mode should slide from one key to another? 
-  - [] Add octave touch buttons.
-  - [] Compare my sine waves to a sine wave generator.
+  - [] Add record button and repeat button with a masking mode and potentially a stepper and "sing" syllable mode for adding words, followed by a way to store tracks.
+  - [] Add scale overlay selection with visual hiking paths. (Color themes).
+  - [?] Add longer / customizable slide duration.
+  - [] Lay out keys better on wider vs vertical screen.
   - [] Add multiple tracks so that I can create "systems" that loop
        with different lengths.
   - [] Add holdable rhythm button with patterns that "cycle".
-  - [] Make sure you can whack multiple keys / alternate keys in tap mode,
-       and make sure every key and mouse button does the same thing now...
-  + Later
-  // TODO: Rethink how to do a simpler button API... perhaps with "register"
-  //       and an act function?
-  - [?] Add longer / customizable slide duration.
   - [] Add live highlights back in type mode that include note tokenization.
   - [] Pressing a new button down should automatically lift the other one.
   - [] Add a 'repeat' or 'hold' key which should be 'shift' on the keyboard
@@ -132,6 +131,13 @@ TODO: 💮 Daisy
   - [] Leave out all options from synth / make sensible defaults first.
   - [] Add 'scale' and 'rotation' to `write`.
   + Done
+  - [x] Fix '+C' notes appearing in the key list during playback mode.
+    - [x] on keyboard
+    - [x] on touch / mouse 
+  - [x] Fix subtle 1, 2, 3, 4, then release 1 and press 1 down and watch 4 get unticked touch bug on ios. 
+    - [x] This may require fixing localhost testing first.
+  - [x] Ghost trails.
+  - [x] Rename to `notepat`.
   - [x] Fix slide mode.
   - [x] Fix 5 finger touch bug.
   - [x] Add basic percussion with kick, snare and hi-hat on space, shift and control.
@@ -317,7 +323,7 @@ function sim({ sound, simCount }) {
   });
 }
 
-function paint({ wipe, ink, write, screen, sound, api }) {
+function paint({ wipe, ink, write, screen, sound, typeface, api }) {
   const active = orderedByCount(sounds);
 
   let bg;
@@ -330,8 +336,6 @@ function paint({ wipe, ink, write, screen, sound, api }) {
 
   wipe(bg);
   // wipe(!projector ? bg : 64);
-
-  // TODO: Should this be a built-in function on sound?
 
   if (projector) {
     const sy = 33;
@@ -378,49 +382,18 @@ function paint({ wipe, ink, write, screen, sound, api }) {
     write("type", { right: 6, top: 6 });
   }
 
-  if (!tap) {
-    ink("cyan");
-
-    /*
-    // Write all keys...
-    write(keys, 6, 20 + 12, {
-      bounds: screen.width - 12,
-      wordWrap: false,
-    });
-
-    // Highlight all playing keys...
-    ink("yellow");
-
-    const notes = active.map((key) => sounds[key]?.note);
-    // TODO: Tokenize the keys and replace any instances of what got pressed,
-    //       including octave keys and accents.
-    write(
-      keys.replace(new RegExp(`[^${notes.join("")}]`, "g"), " "),
-      6,
-      20 + 12,
-      { bounds: screen.width - 12, wordWrap: false },
-    );
-    */
-  } else {
-    ink("gray");
-    write(keys, screen.width / 2 - tapIndex * 6, screen.height / 2);
-
-    ink("red");
-    //console.log("🔴 in red:", keys[tapIndex], tapped);
-    // Highlight next char by looking ahead...
-
+  if (tap) {
+    ink("gray").write(keys, screen.width / 2 - tapIndex * 6, screen.height / 2);
     let nextToken = keys[tapIndex];
     let tempTapIndex = tapIndex;
     if (octaves.includes(nextToken)) {
       tempTapIndex += 1;
       nextToken += keys[tempTapIndex];
     }
-
     if (accents.includes(keys[tempTapIndex + 1])) {
       nextToken += keys[tempTapIndex + 1];
     }
-
-    write(nextToken, screen.width / 2, screen.height / 2);
+    ink("red").write(nextToken, screen.width / 2, screen.height / 2);
   }
 
   if (tap)
@@ -443,29 +416,24 @@ function paint({ wipe, ink, write, screen, sound, api }) {
   if (!tap && !projector) {
     // Write current octave.
     ink("white").write(octave, screen.width - 12, 18);
-    
-    
-    
 
-    
-    // Buttons
-    buttonNotes.forEach((note) => {
+    const firstActiveNote = buttonNotes.indexOf(active[0]);
+
+    buttonNotes.forEach((note, index) => {
       if (buttons[note]) {
         buttons[note].paint((btn) => {
           let color;
 
-          if (
-            (!slide && btn.down) ||
-            (btn.down && slide) //&&
-            /*active[active.length - 1]?.toLowerCase() === note*/
-          ) {
+          if ((!slide && btn.down) || (btn.down && slide)) {
+            // If this button is pressed down.
             color = "maroon";
           } else {
             color = note.indexOf("#") === -1 ? octaveTheme[octave] : "gray";
           }
 
-          ink(color, 192).box(btn.box);
+          ink(color, 192).box(btn.box); // One solid colored box per note.
 
+          // Ghost trails 👻
           if (trail[note] > 0) {
             ink("maroon", max(1, trail[note] * 96)).box(
               btn.box.x + btn.box.w / 2,
@@ -475,8 +443,25 @@ function paint({ wipe, ink, write, screen, sound, api }) {
             );
           }
 
+          // 🎵 Note label
           ink("white").write(note.toUpperCase(), btn.box.x, btn.box.y);
+          const glyphWidth = typeface.glyphs["0"].resolution[0];
+          const glyphHeight = typeface.glyphs["0"].resolution[1];
 
+          // 🧮 Movement label
+          if (firstActiveNote >= 0) {
+            let dist = index - firstActiveNote;
+            if (dist !== 0) {
+              dist = dist > 0 ? "+" + dist : dist.toString();
+              ink("white", 128).write(
+                dist,
+                btn.box.x + btn.box.w / 2 - ((dist.length + 1) * glyphWidth) / 2,
+                btn.box.y + btn.box.h / 2 - (glyphHeight / 2),
+              );
+            }
+          }
+
+          // Paint keyboard shortcuts (if they differ from the note)
           let keyLabel;
           switch (note) {
             case "c#":
@@ -532,19 +517,21 @@ function paint({ wipe, ink, write, screen, sound, api }) {
               keyLabel = "p";
               break;
           }
-          if (keyLabel) ink("white").write(keyLabel, btn.box.x, btn.box.y + 10);
+          if (keyLabel)
+            ink("white", 96).write(
+              keyLabel,
+              btn.box.x + note.length * glyphWidth,
+              btn.box.y,
+            );
         });
-        
-        
       }
     });
-    
+
     /*
         ink("white", 128).poly(
       Object.keys(trail).map((t) => [buttons[t].box.x + buttons[t].box.w / 2, buttons[t].box.y + buttons[t].box.h / 2]
       ))
 */
-    
   }
 }
 
@@ -930,15 +917,16 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
             count: Object.keys(tonestack).length,
             tone,
           };
-          sounds[key] = sounds[active[0]]; // Switch the note label.
+          sounds[buttonNote] = sounds[active[0]]; // Switch the note label.
           delete sounds[active[0]]; // Swap the sound reference.
         } else {
-          tonestack[key] = {
+          tonestack[buttonNote] = {
             count: Object.keys(tonestack).length,
             tone,
           };
-          sounds[key] = {
-            note,
+          // console.log("Pressed:", buttonNote);
+          sounds[buttonNote] = {
+            note: buttonNote,
             count: active.length + 1,
             sound: synth({
               type: wave,
@@ -958,19 +946,6 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         tapIndex = (tapIndex + 1) % keys.length;
         tapped = undefined;
       }
-      const orderedTones = orderedByCount(tonestack);
-      if (slide && orderedTones.length > 1 && sounds[key]) {
-        sounds[key]?.sound?.update({
-          tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
-          duration: 0.1,
-        });
-        sounds[orderedTones[orderedTones.length - 2]] = sounds[key];
-      } else {
-        sounds[key]?.sound?.kill?.(0.25); // Kill a sound if it exists.
-      }
-
-      delete tonestack[key]; // Remove this key from the notestack.
-      delete sounds[key];
 
       if (downs[key]) {
         delete downs[key];
@@ -1044,10 +1019,23 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         }
 
         if (activeOctave !== octave) buttonNote = "+" + buttonNote;
-        if (buttons[buttonNote]) buttons[buttonNote].down = false;
+        // console.log("Released:", buttonNote);
 
-        // console.log("🪱 Trail:", buttonNote);
+        const orderedTones = orderedByCount(tonestack);
+        if (slide && orderedTones.length > 1 && sounds[key]) {
+          sounds[buttonNote]?.sound?.update({
+            tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
+            duration: 0.1,
+          });
+          sounds[orderedTones[orderedTones.length - 2]] = sounds[buttonNote];
+        } else {
+          sounds[buttonNote]?.sound?.kill?.(0.25); // Kill a sound if it exists.
+        }
+
+        delete tonestack[buttonNote]; // Remove this key from the notestack.
+        delete sounds[buttonNote];
         trail[buttonNote] = 1;
+        if (buttons[buttonNote]) buttons[buttonNote].down = false;
       }
     }
   });

@@ -4,19 +4,17 @@
 /* #region 🟢 TODO 
 
   *** ⭐ Page Composition ***
-  - [🟠] Add 'isAdmin' support for sotce-net subs and add necessary subs via
-        auth0 email list. 
-        me@jas.life - 
-        
   - [] build the page input
-    - [] add the 'new page' or 'write page' or 'compose' button somewhere
 
-         (only for isAdmin users rn)
+    - [] add the 'write a page' button
+         whitelisted for admin users
 
     - [] show the form, maybe in a modal?
     - [] keep draft remotely / have a "published" flag on pages
     - [] show rules under the form
     - [] add endpoint for submitting a "page"
+
+  -------
 
   *** 📧 Email Notifications for Pages ***
   - [] email new pages to each subscriber, and include the contents?
@@ -43,6 +41,7 @@
   --- ☁️ Post-Launch ☁️ ---
   - [] Automatic Dark Theme
   + Done
+  - [x] Add 'isAdmin' support for sotce-net subs and add necessary subs.
   - [x] go through all the prompt boxes, including the username entry / too long / inappropriate etc.
   - [x] make a privacy policy for sotce.net (inlined in this file)
     - [x] update ac privacy policy with shared accounting rules
@@ -260,7 +259,8 @@ export const handler = async (event, context) => {
               :is(#nav-low, #nav-high):has(> *:first-child:nth-last-child(2)) {
               justify-content: space-between;
             }
-            #gate nav button {
+            #gate nav button,
+            #write-a-page {
               color: black;
               background: rgb(255, 235, 183);
               padding: 0.35em;
@@ -271,23 +271,27 @@ export const handler = async (event, context) => {
               cursor: pointer;
               user-select: none;
             }
-            #gate nav button:hover {
+            #gate nav button:hover,
+            #write-a-page:hover {
               background: rgb(255, 245, 170);
             }
-            #gate nav button:active {
+            #gate nav button:active,
+            #write-a-page:active {
               filter: drop-shadow(
                 -0.035em 0.035em 0.035em rgba(40, 40, 40, 0.8)
               );
               background: rgb(255, 248, 165);
               transform: translate(-1px, 1px);
             }
+
+            #write-a-page {
+              /* background: rgb(240, 240, 240); */
+              /* border-color: rgb(40, 40, 200); */
+            }
+
             #gate nav button.positive {
-              /* background: rgb(180, 230, 120); */
               background: rgb(203, 238, 161);
               border-color: rgb(114, 203, 80);
-            }
-            #gate nav #handle-wrapper {
-              position: relative;
             }
             #gate nav button.positive:hover {
               background: rgb(199, 252, 136);
@@ -942,7 +946,27 @@ export const handler = async (event, context) => {
               if (showGate) g.classList.add("hidden");
 
               // TODO: Add a blog post here to the garden layout.
-              g.innerText = "Hello...";
+
+              // write-a-page
+
+              const writeButton = cel("button");
+              writeButton.id = "write-a-page";
+              writeButton.innerText = "write a page";
+
+              writeButton.onclick = function compose() {
+                const editor = cel("dialog");
+                // TODO: 🪷 Create compose form.
+                // <dialog open>
+                //   <p>Greetings, one and all!</p>
+                //   <form method="dialog">
+                //     <button>OK</button>
+                //   </form>
+                // </dialog>
+              };
+
+              g.appendChild(writeButton);
+
+              // g.innerText = "Hello...";
 
               const cookie = cel("img");
               cookie.id = "cookie-menu";
@@ -1607,10 +1631,11 @@ export const handler = async (event, context) => {
         console.log(isAdmin, out);
 
         // 📓 Recent Pages
+        // out
 
         // Get page content from the database.
 
-        // TODO: 👤 Handled Pages
+        // TODO: 👤 Handled Pages / for a specific user.
       }
       return respond(200, out);
     } else {
