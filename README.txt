@@ -68,6 +68,10 @@ but technically agnostic. (Choose your aesthetic!)
       so playable notes can be tracked / maybe it could
       be circular / record like?
 
+*** new button api ***
+  - [] Rethink how to do a simpler button API... perhaps with "register"
+        and an act function? This could be implemented in 'tone'.
+
 *** 'art' bucket expiration ***
  - [] the files are no longer expiring after 24 hours / an expiration policy
       needs to be added again
