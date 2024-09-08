@@ -51,9 +51,7 @@ export async function handler(event, context) {
     const name = body.name;
     const tenant = body.tenant;
     const user = await authorize(event.headers, tenant);
-
-    shell.log("Updating email.");
-    shell.log("User after authorization:", user);
+    shell.log("💌 Updating email:", user.email, "to:", email, `(${user.sub})`);
 
     if (user) {
       // 🔑 We are logged in!

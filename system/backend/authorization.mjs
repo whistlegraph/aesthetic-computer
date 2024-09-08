@@ -29,14 +29,25 @@ export async function authorize({ authorization }, tenant = "aesthetic") {
   }
 }
 
-export async function hasAdmin(user) {
-  const handle = await handleFor(user.sub);
-  return (
-    user &&
-    user.email_verified &&
-    handle === "jeffrey" &&
-    user.sub === process.env.ADMIN_SUB
-  );
+export async function hasAdmin(user, tenant = "aesthetic") {
+  if (tenant === "aesthetic") {
+    const handle = await handleFor(user.sub);
+    return (
+      user &&
+      user.email_verified &&
+      handle === "jeffrey" &&
+      user.sub === process.env.ADMIN_SUB
+    );
+  } else if (tenant === "sotce") {
+    const subs = process.env.SOTCE_ADMIN_SUBS?.split(",");
+    const handle = await handleFor(user.sub, "sotce");
+    return (
+      user &&
+      user.email_verified &&
+      ((user.sub === subs[0] && handle === "jeffrey") ||
+        (user.sub === subs[1] && (handle === "amelia" || handle === "sotce")))
+    );
+  }
 }
 
 // Get the user ID via their email.
@@ -131,7 +142,7 @@ export async function getHandleOrEmail(sub) {
     const token = await getAccessToken(got); // Get access token for auth0.
     const userResponse = await got(
       `https://aesthetic.us.auth0.com/api/v2/users/${encodeURIComponent(sub)}`,
-      { headers: { Authorization: `Bearer ${token}` }, responseType: "json" }
+      { headers: { Authorization: `Bearer ${token}` }, responseType: "json" },
     );
 
     return userResponse.body.email;
@@ -143,7 +154,7 @@ export async function getHandleOrEmail(sub) {
 
 // Connects to the Redis cache or MongoDB database to obtain a user's handle
 // from their ID (across tenants).
-export async function handleFor(id) {
+export async function handleFor(id, tenant = "aesthetic") {
   // const time = performance.now();
 
   // 📖 Get an aggregate list of all handles.
@@ -157,12 +168,11 @@ export async function handleFor(id) {
     return randomHandles.map((doc) => "@" + doc.handle);
   } else {
     // 🙆 Get a specific user handle.
+    if (tenant === "sotce" && !id.startsWith("sotce-")) id = "sotce-" + id;
     shell.log("Retrieving handle for...", id);
 
     await KeyValue.connect();
     const cachedHandle = await KeyValue.get("userIDs", id);
-
-    // shell.log("cachedHandle:", cachedHandle);
 
     if (cachedHandle) {
       await KeyValue.disconnect();
@@ -176,7 +186,6 @@ export async function handleFor(id) {
     // If no handle was found then try again on the sister tenant.
     if (!existingUser) {
       const sisterSub = await findSisterSub(id, { prefixed: true });
-      // shell.log("Sister sub:", sisterSub);
 
       if (sisterSub) {
         let foundHandle = await KeyValue.get("userIDs", sisterSub);
@@ -219,7 +228,7 @@ export async function userIDFromHandle(
   handle,
   database,
   keepKV,
-  tenant = "aesthetic"
+  tenant = "aesthetic",
 ) {
   // Read from redis, otherwise check the database, and store in redis after.
   let userID;
@@ -269,7 +278,7 @@ export async function userIDFromHandleOrEmail(handleOrEmail, database, tenant) {
       handleOrEmail.slice(1),
       database,
       undefined,
-      tenant
+      tenant,
     );
   } else {
     return userIDFromEmail(handleOrEmail, tenant); // Assume email.
@@ -281,7 +290,7 @@ export async function setEmailAndReverify(
   id,
   email,
   name,
-  tenant = "aesthetic"
+  tenant = "aesthetic",
 ) {
   try {
     const { got } = await import("got");
@@ -295,7 +304,7 @@ export async function setEmailAndReverify(
       "on:",
       tenant,
       "via:",
-      id
+      id,
     );
 
     // 1. Update the user's email and ('name' which is equivalent to email
@@ -312,7 +321,7 @@ export async function setEmailAndReverify(
           },
           json: { name, email, email_verified: false },
           responseType: "json",
-        }
+        },
       );
     } catch (err) {
       shell.error("🔴 Error:", err);
@@ -333,7 +342,7 @@ export async function setEmailAndReverify(
         },
         json: { user_id: id },
         responseType: "json",
-      }
+      },
     );
 
     if (!verificationResponse.body) {
@@ -366,7 +375,7 @@ export async function deleteUser(userId, tenant = "aesthetic") {
     });
 
     shell.log(
-      `❌ User with ID ${userId} deleted from Auth0. Tenant: ${tenant}`
+      `❌ User with ID ${userId} deleted from Auth0. Tenant: ${tenant}`,
     );
     return { success: true, message: "User deleted successfully from Auth0." };
   } catch (error) {
