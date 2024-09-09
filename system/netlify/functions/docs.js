@@ -1044,7 +1044,12 @@ export async function handler(event, context) {
         },
         "num.rgbToHsl": {
           sig: "rgbToHsl(r, g, b)",
-          desc: "Convert rgb to hsl.",
+          desc: "Convert rgb to hsl (360, 100, 100).",
+          done: false,
+        },
+        "num.hslToRgb": {
+          sig: "hslToRgb(h, s, l)",
+          desc: "Convert hsl (360, 100, 100) to rgb.",
           done: false,
         },
         "num.rainbow": {

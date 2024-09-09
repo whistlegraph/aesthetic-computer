@@ -1518,6 +1518,7 @@ const $commonApi = {
     hexToRgb: num.hexToRgb,
     blend: num.blend,
     rgbToHsl: num.rgbToHsl,
+    hslToRgb: num.hslToRgb,
     rainbow: num.rainbow,
   },
   geo: {

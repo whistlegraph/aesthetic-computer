@@ -689,7 +689,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //       the current disk.
       // sampleRate: 44100,
       // sampleRate: 48000,
-      sampleRate: iOS || Aesthetic || Android ? 48000 : 192000,
+      sampleRate: 48000, //iOS || Aesthetic || Android ? 48000 : 192000,
     });
 
     acDISK_SEND({
