@@ -227,6 +227,8 @@ function findColor() {
       args = [...rainbow(), computeAlpha(args[1])];
     } else if (typeof args[0] === "string") {
       args = [...cssColors[args[0]], computeAlpha(args[1])];
+    } else if (Array.isArray(args[0])) {
+      args = [...args[0], args[1]];
     } else {
       // rgb, a
       args = [args[0], args[0], args[0], args[1]];

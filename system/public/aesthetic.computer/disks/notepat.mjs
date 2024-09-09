@@ -59,16 +59,11 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
-  - [🌟] Add -3, -2, -1, +1, +2, +3 etc. relative overlays based on press and
-       have it span the whole octave.
-  - [] Add an always active QR code.
-  - [] Color code the notes and semitones, each with a color that has a specific and known name.
-  - [] Add a new playback mode for melodies that include words... with long
-       command line parameters.
-  - [] Encode a few melodies with lyrics on the command line.
+  - [-] Encode a few more melodies with lyrics on the command line.
     - [] Make sure that transposition will work.
-  - [] Add corner button for changing wavetype.
-  - [] Add corner button for changing octave.
+  - [-] Fix the single corner cross threshold.
+  - [] Fix the keyboard + mouse key conflict that keeps sounds sticking
+       in the upper octaves.
   - [] Add volume centroid control to buttons with draggable changes.
   - [] Add colon parameter ':lock' for hiding the ui to prevent accidental touches.
   - [] Add perc buttons to `beatpat` along with a QR code similar to notepat.
@@ -131,6 +126,14 @@ TODO: 💮 Daisy
   - [] Leave out all options from synth / make sensible defaults first.
   - [] Add 'scale' and 'rotation' to `write`.
   + Done
+  - [x] Add a new playback mode for melodies that include words... with long
+       command line parameters.
+  - [x] Add simple corner button for changing wavetype.
+  - [x] Add simple corner button for changing octave.
+  - [wip] Color code the notes and semitones, each with a color that has a specific and known name.
+  - [c] Add an always active QR code.
+  - [x] Add -3, -2, -1, +1, +2, +3 etc. relative overlays based on press and
+       have it span the whole octave.
   - [x] Fix '+C' notes appearing in the key list during playback mode.
     - [x] on keyboard
     - [x] on touch / mouse 
@@ -185,8 +188,12 @@ TODO: 💮 Daisy
   - [x] Make it so keys can be held, and add a decay after releasing?
 */
 
+// import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
+
 let STARTING_OCTAVE = "4";
-const STARTING_WAVE = "sine"; //"sine";
+const wavetypes = ["sine", "square", "sawtooth", "triangle"];
+let waveIndex = 0;
+const STARTING_WAVE = wavetypes[waveIndex]; //"sine";
 let wave = STARTING_WAVE;
 // let hold = false;
 let slide = false;
@@ -264,20 +271,97 @@ const buttonNotes = [
   "+b",
 ];
 
+// red, orange, yellow, green, blue, purple, brown
+//   C,      D,      E, F,     G,    A,      B
+
+// pink, white, black, gray, tan
+const notesToColors = {
+  c: [255, 0, 0], // red
+  "c#": [255, 192, 203], // pink
+  d: [255, 165, 0], // orange
+  "d#": [255, 255, 255], // white
+  e: [255, 255, 0], // yellow
+  f: [0, 128, 0], // green
+  "f#": [0, 0, 0], // black
+  g: [0, 0, 255], // blue
+  "g#": [128, 128, 128], // gray
+  a: [128, 0, 128], // purple
+  "a#": [210, 180, 140], // tan
+  b: [165, 42, 42], // brown
+};
+
+const noteOrder = [
+  "c",
+  "c#",
+  "d",
+  "d#",
+  "e",
+  "f",
+  "f#",
+  "g",
+  "g#",
+  "a",
+  "a#",
+  "b",
+];
+
+const notesToColorsFinal = {
+  "4c": [255, 0, 0], // red
+  "4c#": [255, 192, 203], // pink
+  "4d": [255, 165, 0], // orange
+  "4d#": [255, 255, 255], // white
+  "4e": [255, 255, 0], // yellow
+  "4f": [0, 128, 0], // green
+  "4f#": [0, 0, 0], // black
+  "4g": [0, 0, 255], // blue
+  "4g#": [128, 128, 128], // gray
+  "4a": [128, 0, 128], // purple
+  "4a#": [210, 180, 140], // tan
+  "4b": [165, 42, 42], // brown
+};
+
+function colorFromNote(note, num) {
+  let oct = parseInt(octave);
+  if (note.startsWith("+")) {
+    note = note.slice(1);
+    oct += 1;
+  }
+  // const noteIndex = noteOrder.indexOf(note);
+  // console.log("Note Index:", noteIndex, "Octave:", oct);
+  // const hue = (noteIndex / noteOrder.length * 360);
+  // const satOctMod = (oct - 4) * 10;
+  // const saturation = 80 + satOctMod;
+  // const lightOctMod = (oct - 4) * 15;
+  // const lightness = 50 + lightOctMod;
+  // const color = num.hslToRgb(hue, saturation, lightness);
+  let color = notesToColorsFinal[oct + note]?.slice();
+
+  if (!color) {
+    color = notesToColorsFinal[4 + note].slice();
+    const octMod = oct - 4;
+    color[0] = num.clamp(color[0] + 65 * octMod, 0, 255);
+    color[1] = num.clamp(color[1] + 65 * octMod, 0, 255);
+    color[2] = num.clamp(color[2] + 65 * octMod, 0, 255);
+  }
+
+  return color; //[0, 0, 0];
+}
+
 const buttonOctaves = ["3", "4", "5", "6", "7", "8"]; // ❤️‍🔥 Add octaves...
 
 const octaveTheme = [
-  "black",
-  "black",
-  "grey",
-  "red",
-  "orange", // [255, 128],
-  "yellowgreen",
-  "green",
-  "purple",
+  "black", // 0 (never available)
+  "black", // 1
+  "darkblue", // 2
+  "red", // 3
+  "orange", // 4
+  "yellowgreen", // 6
+  "yellow", // 5
+  "green", // 7
+  "purple", // 8
 ];
 
-const { floor, ceil, min, max } = Math;
+const { abs, round, floor, ceil, min, max } = Math;
 
 let scope = 32;
 // let scopeTrim = 0;
@@ -286,19 +370,60 @@ let projector = false;
 
 const trail = {};
 
+let lastActiveNote;
+let transposeOverlay = false;
+let transposeOverlayFade = 0;
+let paintTransposeOverlay = false;
+
+// let qrcells;
+
+let waveBtn, octBtn;
+
+let rawSong = `
+  C:Twin- C:-kle G:twin- G:-kle A:lit- A:-tle G:star,
+  F:how F:I E:won- E:-der D:what D:you C:are.
+  G:Up G:a- F:-bove F:the E:world E:so D:high, 
+  G:like G:a F:dia- F:-mond E:in E:the D:sky.
+  C:Twin- C:-kle G:twin- G:-kle A:lit- A:-tle G:star,
+  F:how F:I E:won- E:-der D:what D:you C:are.
+`;
+
+let song,
+  songNoteDown = false;
+
+function parseSong(raw) {
+  return raw
+    .trim()
+    .split(/\s+/)
+    .map((noteword) => noteword.split(":"));
+}
+
+// song = parseSong(rawSong);
+
+let songIndex = 0;
+
 function boot({ params, api, colon, ui, screen, fps }) {
   // fps(12);
-  keys = params.join(" ") || "";
-  keys = keys.replace(/\s/g, "");
-  if (keys.length > 0) {
-    tap = true;
-    editable = false;
+
+  // qrcells = qr("https://prompt.ac/notepat", { errorCorrectLevel: 2 }).modules;
+
+  if (params[0] === "twinkle") {
+    song = parseSong(rawSong);
   }
 
-  const wavetypes = ["square", "sine", "triangle", "sawtooth", "noise-white"];
+  // keys = params.join(" ") || "";
+  // keys = keys.replace(/\s/g, "");
+  // if (keys.length > 0) {
+  //   tap = true;
+  //   editable = false;
+  // }
 
+  const wavetypes = ["square", "sine", "triangle", "sawtooth", "noise-white"];
   wave = wavetypes.indexOf(colon[0]) > -1 ? colon[0] : wave;
   slide = colon[0] === "slide" || colon[1] === "slide";
+
+  buildWaveButton(api);
+  buildOctButton(api);
 
   const newOctave =
     parseInt(colon[0]) || parseInt(colon[1]) || parseInt(colon[2]);
@@ -311,19 +436,27 @@ function boot({ params, api, colon, ui, screen, fps }) {
   setupButtons(api);
 }
 
-// TODO: Get sim working again. 24.08.10.21.25
-// function sim({ sound }) {
-// }
-
 function sim({ sound, simCount }) {
   sound.speaker?.poll();
+
   Object.keys(trail).forEach((note) => {
     trail[note] -= 0.0065;
     if (trail[note] <= 0) delete trail[note];
   });
+
+  const active = orderedByCount(sounds);
+
+  if (active.length > 0 && transposeOverlayFade < 1) {
+    // transposeOverlayFade += 0.05;
+    transposeOverlayFade = 1;
+    transposeOverlayFade = min(1, transposeOverlayFade);
+  } else if (transposeOverlayFade > 0) {
+    transposeOverlayFade -= 0.0065;
+    transposeOverlayFade = max(0, transposeOverlayFade);
+  }
 }
 
-function paint({ wipe, ink, write, screen, sound, typeface, api }) {
+function paint({ wipe, ink, write, screen, sound, typeface, num, layer, api }) {
   const active = orderedByCount(sounds);
 
   let bg;
@@ -336,6 +469,62 @@ function paint({ wipe, ink, write, screen, sound, typeface, api }) {
 
   wipe(bg);
   // wipe(!projector ? bg : 64);
+
+  // QR Code
+  // if (qrcells) {
+  //   const ox = screen.width - qrcells.length - 34;
+  //   const oy = 0;
+  //   const scale = 1;
+  //   for (let y = 0; y < qrcells.length; y += 1) {
+  //     for (let x = 0; x < qrcells.length; x += 1) {
+  //       const black = qrcells[y][x];
+  //       ink(!black).box(ox + x * scale, oy + y * scale, scale);
+  //     }
+  //   }
+  // }
+
+  // Song
+
+  // TODO: If x > screen.width then quit the loop.
+
+  if (song) {
+    const glyphWidth = typeface.glyphs["0"].resolution[0];
+    let x = 6;
+    let i = songIndex;
+
+    // TODO: How can I scroll the entire song to the left by adjusting the
+    //       x start position
+
+    ink(140, 120).box(0, 91, screen.width, 40);
+
+    while (i < song.length) {
+      let spacer = false;
+      let word = song[i][1];
+      word.endsWith("-") ? (word = word.slice(0, -1)) : (spacer = true);
+      if (word.startsWith("-")) word = word.slice(1);
+
+      if (x > screen.width) {
+        break;
+      } // Break if off-screen.
+
+      const current = i === songIndex;
+
+      ink(current ? (songNoteDown ? "red" : "yellow") : "gray").write(
+        word,
+        x,
+        96,
+      );
+
+      ink(current ? (songNoteDown ? "red" : "lime") : "darkblue").write(song[i][0], x, 96 + 10);
+      if (current) ink("red").line(x + 2, 96 + 11 + 10, x + 2, 96 + 11 + 18);
+
+      let length = word.length * glyphWidth;
+      if (spacer) length += glyphWidth;
+
+      x += length;
+      i += 1;
+    }
+  }
 
   if (projector) {
     const sy = 33;
@@ -371,15 +560,24 @@ function paint({ wipe, ink, write, screen, sound, typeface, api }) {
 
     ink("yellow").write(scope, 6, sy + sh + 3);
     // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 3);
-    ink("cyan").write(sound.sampleRate, 6 + 18 + 20, sy + sh + 3);
+    // ink("cyan").write(sound.sampleRate, 6 + 18 + 20, sy + sh + 3);
   }
 
   if (tap) {
     ink("yellow");
     write("tap", { right: 6, top: 6 });
   } else {
-    ink("orange");
-    write("type", { right: 6, top: 6 });
+    waveBtn.paint((btn) => {
+      ink(btn.down ? [40, 40, 100] : "darkblue").box(btn.box);
+      ink(btn.down ? "yellow" : "orange");
+      write(wave, { right: 6, top: 6 });
+    });
+
+    octBtn.paint((btn) => {
+      ink(btn.down ? [40, 40, 100] : "darkred").box(btn.box);
+      ink(btn.down ? "yellow" : "pink");
+      write(octave, { right: 6, top: 18 });
+    });
   }
 
   if (tap) {
@@ -401,7 +599,11 @@ function paint({ wipe, ink, write, screen, sound, typeface, api }) {
 
   if (!tap) {
     ink("lime");
-    write(active.map((key) => sounds[key]?.note).join(" "), 6, 20);
+    write(
+      active.map((key) => sounds[key]?.note.toUpperCase()).join(" "),
+      6,
+      20,
+    );
   } else {
     ink("white");
     active.forEach((sound, index) => {
@@ -414,10 +616,12 @@ function paint({ wipe, ink, write, screen, sound, typeface, api }) {
   }
 
   if (!tap && !projector) {
-    // Write current octave.
-    ink("white").write(octave, screen.width - 12, 18);
+    const activeNote = buttonNotes.indexOf(active[0]);
 
-    const firstActiveNote = buttonNotes.indexOf(active[0]);
+    if (activeNote >= 0 && activeNote !== lastActiveNote) {
+      lastActiveNote = activeNote;
+      transposeOverlayFade = 0;
+    }
 
     buttonNotes.forEach((note, index) => {
       if (buttons[note]) {
@@ -429,9 +633,24 @@ function paint({ wipe, ink, write, screen, sound, typeface, api }) {
             color = "maroon";
           } else {
             color = note.indexOf("#") === -1 ? octaveTheme[octave] : "gray";
+            // color = note.indexOf("#") === -1 ? "black" : "gray";
           }
 
-          ink(color, 192).box(btn.box); // One solid colored box per note.
+          if (note.toUpperCase() === song?.[songIndex][0]) {
+            layer(1).ink("red").box(btn.box, "inline").layer(0);
+            if (!btn.down) color = "red";
+          }
+
+          ink(color, 196).box(btn.box); // One solid colored box per note.
+
+          // const accent = colorFromNote(note, num);
+          // ink(accent).box(btn.box.x + btn.box.w - 8, btn.box.y + 4, 4);
+          // ink("black", 64).box(
+          //   btn.box.x + btn.box.w - 8,
+          //   btn.box.y + 4,
+          //   4,
+          //   "outline",
+          // );
 
           // Ghost trails 👻
           if (trail[note] > 0) {
@@ -444,19 +663,23 @@ function paint({ wipe, ink, write, screen, sound, typeface, api }) {
           }
 
           // 🎵 Note label
-          ink("white").write(note.toUpperCase(), btn.box.x, btn.box.y);
+          ink("white").write(note.toUpperCase(), btn.box.x + 2, btn.box.y + 1);
           const glyphWidth = typeface.glyphs["0"].resolution[0];
           const glyphHeight = typeface.glyphs["0"].resolution[1];
 
-          // 🧮 Movement label
-          if (firstActiveNote >= 0) {
-            let dist = index - firstActiveNote;
+          // 🧮 Transpose label
+          if (paintTransposeOverlay && lastActiveNote >= 0) {
+            let dist = index - lastActiveNote;
             if (dist !== 0) {
-              dist = dist > 0 ? "+" + dist : dist.toString();
-              ink("white", 128).write(
-                dist,
-                btn.box.x + btn.box.w / 2 - ((dist.length + 1) * glyphWidth) / 2,
-                btn.box.y + btn.box.h / 2 - (glyphHeight / 2),
+              // dist = dist > 0 ? "+" + dist : dist.toString();
+              ink(dist > 0 ? "lime" : "red", transposeOverlayFade * 255).write(
+                abs(dist),
+                // btn.box.x +
+                //   btn.box.w / 2 -
+                //   ((dist.length + 1) * glyphWidth) / 2,
+                btn.box.x + 2 + note.length * glyphWidth,
+                btn.box.y + 1,
+                //btn.box.y + btn.box.h / 2 - glyphHeight / 2,
               );
             }
           }
@@ -520,29 +743,26 @@ function paint({ wipe, ink, write, screen, sound, typeface, api }) {
           if (keyLabel)
             ink("white", 96).write(
               keyLabel,
-              btn.box.x + note.length * glyphWidth,
-              btn.box.y,
+              btn.box.x + 2, // + note.length * glyphWidth,
+              btn.box.y + 10,
             );
         });
       }
     });
-
-    /*
-        ink("white", 128).poly(
-      Object.keys(trail).map((t) => [buttons[t].box.x + buttons[t].box.w / 2, buttons[t].box.y + buttons[t].box.h / 2]
-      ))
-*/
   }
 }
 
 let anyDown = true;
 
 function act({ event: e, sound: { synth, speaker }, pens, api }) {
-  if (e.is("reframed")) setupButtons(api);
-
-  if (e.is("keyboard:down:\\")) {
-    projector = !projector;
+  if (e.is("reframed")) {
+    setupButtons(api);
+    buildWaveButton(api);
+    buildOctButton(api);
   }
+
+  if (e.is("keyboard:down:-")) paintTransposeOverlay = !paintTransposeOverlay;
+  if (e.is("keyboard:down:\\")) projector = !projector;
 
   // if (e.is("keyboard:down:arrowleft")) {
   // scopeTrim -= 1;
@@ -636,6 +856,27 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
   if (!tap) {
     if (e.is("lift") && pens().length <= 1) anyDown = false;
 
+    octBtn.act(e, {
+      down: () => api.beep(400),
+      push: (btn) => {
+        api.beep();
+        waveIndex = (waveIndex + 1) % wavetypes.length;
+        const octNum = parseInt(octave);
+        octave = max(1, (octNum + 1) % 10).toString();
+        buildOctButton(api);
+      },
+    });
+
+    waveBtn.act(e, {
+      down: () => api.beep(400),
+      push: (btn) => {
+        api.beep();
+        waveIndex = (waveIndex + 1) % wavetypes.length;
+        wave = wavetypes[waveIndex];
+        buildWaveButton(api);
+      },
+    });
+
     buttonNotes.forEach((note) => {
       if (buttons[note]) {
         buttons[note].act(
@@ -674,7 +915,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
                   tone,
                 };
                 sounds[note] = {
-                  note: noteUpper,
+                  note: note,
                   count: active.length + 1,
                   sound: synth({
                     type: wave,
@@ -683,6 +924,11 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
                     duration: "🔁",
                   }),
                 };
+
+                if (note.toUpperCase() === song?.[songIndex][0]) {
+                  songNoteDown = true;
+                }
+
                 delete trail[note];
               }
             },
@@ -714,7 +960,13 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
               }
 
               // console.log("🪱 Trail:", note);
+
               trail[note] = 1;
+
+              if (note.toUpperCase() === song?.[songIndex][0]) {
+                songIndex = (songIndex + 1) % song.length;
+                songNoteDown = false;
+              }
 
               delete tonestack[note]; // Remove this key from the notestack.
               delete sounds[note];
@@ -935,6 +1187,11 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
               duration: "🔁",
             }),
           };
+
+          if (buttonNote.toUpperCase() === song?.[songIndex][0]) {
+            songNoteDown = true;
+          }
+
           delete trail[buttonNote];
         }
       }
@@ -1032,6 +1289,11 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
           sounds[buttonNote]?.sound?.kill?.(0.25); // Kill a sound if it exists.
         }
 
+        if (buttonNote.toUpperCase() === song?.[songIndex][0]) {
+          songIndex = (songIndex + 1) % song.length;
+          songNoteDown = false;
+        }
+
         delete tonestack[buttonNote]; // Remove this key from the notestack.
         delete sounds[buttonNote];
         trail[buttonNote] = 1;
@@ -1088,8 +1350,28 @@ function setupButtons({ ui, screen, geo }) {
   });
 }
 
+function buildWaveButton({ screen, ui, typeface }) {
+  const glyphWidth = typeface.glyphs["0"].resolution[0];
+  const waveWidth = wave.length * glyphWidth;
+  waveBtn = new ui.Button(screen.width - waveWidth - 6, 6, waveWidth, 10);
+}
+
+function buildOctButton({ screen, ui, typeface }) {
+  const glyphWidth = typeface.glyphs["0"].resolution[0];
+  const octWidth = octave.length * glyphWidth;
+  octBtn = new ui.Button(screen.width - octWidth - 6, 6 + 12, octWidth, 10);
+}
+
+let primaryColor = [0, 0, 0];
+let currentAverage = [0, 0, 0];
+
+let secondaryColor = [0, 0, 0];
+let lastAverage = [0, 0, 0];
+
+let lastActive = 0;
+
 function paintSound(
-  { ink, box, screen },
+  { ink, box, screen, num },
   amplitude,
   waveform,
   x,
@@ -1107,7 +1389,6 @@ function paintSound(
   let lw = options.noamp ? 0 : 4; // levelWidth;
 
   // Vertical bounds.
-
   ink("yellow")
     .line(x + lw, y, x + width, y)
     .line(x + lw, y + height, x + width, y + height);
@@ -1119,16 +1400,29 @@ function paintSound(
   }
 
   // Filled waveform
-  // TODO: This could be drawn faster...
   const waves = waveform.map((v, i) => [x + lw + i * xStep, yMid + v * yMax]);
 
-  // ink("blue");
-  // waves.forEach((point) => {
-  //   box(point[0], y + 1, xStep, point[1] - y);
-  // });
-  ink("blue").box(x + lw, y + 1, width - lw, height - 1);
+  secondaryColor = num.shiftRGB(secondaryColor, lastAverage, 0.1);
+  ink(secondaryColor || "black").box(x + lw, y + 1, width - lw, height - 1);
 
-  ink("red");
+  const active = orderedByCount(sounds);
+  const activeStr = active.join("");
+
+  let colors = ["red"];
+
+  if (activeStr.length > 0 && activeStr !== lastActive) {
+    lastActive = activeStr;
+    colors = active.map((note) => colorFromNote(note, num));
+    const average = averageRGB(colors);
+    lastAverage = currentAverage;
+    currentAverage = average;
+  }
+
+  // lerp the primary color to the current average.
+
+  primaryColor = num.shiftRGB(primaryColor, currentAverage, 0.1);
+  ink(primaryColor);
+
   waves.forEach((point, index) => {
     const bx = x + lw + index * xStep;
     if (bx > width) return;
@@ -1157,4 +1451,16 @@ function resampleArray(inputArray, newLength) {
     outputArray.push(inputArray[index]);
   }
   return outputArray;
+}
+
+// Average an array of [[r, g, b], [r, g, b]] values.
+function averageRGB(colors) {
+  return colors
+    .reduce(
+      (acc, color) => {
+        return [acc[0] + color[0], acc[1] + color[1], acc[2] + color[2]];
+      },
+      [0, 0, 0],
+    )
+    .map((sum) => round(sum / colors.length));
 }
