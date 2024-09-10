@@ -59,12 +59,16 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
-  - [x] Make a more mobile friendly layout.
-    - [-] Buttons should always fit on screen no matter what.
-    - [ ] Everything needs to fit for the jelly.
+  - [🟠] Only show keyboard shortcuts once any keyboard key is pressed (on Android or iOS).
 
-  - [] Only show keyboard shortcuts once a key is pressed (on Android or iOS).
-
+  *** Song ***
+  - [] Song should loop visually, n times to the right as needed.
+  - [] Holding space bar should always do the current / next note.
+       (This shouldn't conflict with keys or mouse.)
+  - [] Add a visual progress bar <------------------------------>
+  - [] Make it so you can swipe through next or previous notes if one was
+       skipped.
+  -----------------------
   - [-] Encode a few more melodies with lyrics on the command line.
     - [] Make sure that transposition will work.
   - [-] Fix the single corner cross threshold.
@@ -132,6 +136,9 @@ TODO: 💮 Daisy
   - [] Leave out all options from synth / make sensible defaults first.
   - [] Add 'scale' and 'rotation' to `write`.
   + Done
+  - [x] Make a more mobile friendly layout.
+    - [x] Everything needs to fit for the jelly.
+    - [x] Buttons should always fit on screen no matter what.
   - [x] Add a new playback mode for melodies that include words... with long
        command line parameters.
   - [x] Add simple corner button for changing wavetype.
@@ -396,7 +403,11 @@ let rawSong = `
 `;
 
 let song,
-  songNoteDown = false;
+  songNoteDown = false,
+  songStops = [],
+  songIndex = 0,
+  songShift = 0,
+  songShifting = false;
 
 function parseSong(raw) {
   return raw
@@ -407,17 +418,26 @@ function parseSong(raw) {
 
 // song = parseSong(rawSong);
 
-let songIndex = 0;
-
 let oscilloscopeBottom = 48;
 
-function boot({ params, api, colon, ui, screen, fps }) {
+function boot({ params, api, colon, ui, screen, fps, typeface }) {
   // fps(4);
 
   // qrcells = qr("https://prompt.ac/notepat", { errorCorrectLevel: 2 }).modules;
 
-  if (params[0] === "twinkle") {
-    song = parseSong(rawSong);
+  if (params[0] === "twinkle") song = parseSong(rawSong);
+
+  if (song) {
+    let x = 0;
+    const glyphWidth = typeface.glyphs["0"].resolution[0];
+    song.forEach((part, index) => {
+      let word = part[1],
+        space = 0;
+      word.endsWith("-") ? (word = word.slice(0, -1)) : (space = glyphWidth);
+      if (word.startsWith("-")) word = word.slice(1);
+      songStops.push([word, x]);
+      x += word.length * glyphWidth + space;
+    });
   }
 
   // keys = params.join(" ") || "";
@@ -447,6 +467,14 @@ function boot({ params, api, colon, ui, screen, fps }) {
 
 function sim({ sound, simCount, num }) {
   sound.speaker?.poll();
+
+  if (songShifting) {
+    songShift += !songNoteDown ? 0.5 : 1;
+    if (songShift >= songStops[songIndex][1]) {
+      songShift = songStops[songIndex][1];
+      songShifting = false;
+    }
+  }
 
   Object.keys(trail).forEach((note) => {
     trail[note] -= 0.0065;
@@ -482,7 +510,18 @@ function sim({ sound, simCount, num }) {
   primaryColor = num.shiftRGB(primaryColor, d2, val, "lerp");
 }
 
-function paint({ wipe, ink, write, screen, box, sound, typeface, num, layer, api }) {
+function paint({
+  wipe,
+  ink,
+  write,
+  screen,
+  box,
+  sound,
+  typeface,
+  num,
+  layer,
+  api,
+}) {
   const active = orderedByCount(sounds);
 
   let bg;
@@ -511,47 +550,40 @@ function paint({ wipe, ink, write, screen, box, sound, typeface, num, layer, api
 
   // Song
 
-  // TODO: If x > screen.width then quit the loop.
+  // TODO: Precompute the full song length with x stops next to indices.
 
   if (song) {
     const glyphWidth = typeface.glyphs["0"].resolution[0];
-    let x = 6;
-    let i = songIndex;
+    const startX = 6 - songShift;
+    let i = 0;
 
     // TODO: How can I scroll the entire song to the left by adjusting the
     //       x start position
 
-    ink(140, 120).box(0, 91, screen.width, 40);
+    // ink("cyan", 64).line(0, 21, screen.width, 21);
+    ink(140, 120).box(0, 22, screen.width, 25);
+    // ink("cyan", 64).line(0, 47, screen.width, 47);
 
     while (i < song.length) {
-      let spacer = false;
-      let word = song[i][1];
-      word.endsWith("-") ? (word = word.slice(0, -1)) : (spacer = true);
-      if (word.startsWith("-")) word = word.slice(1);
+      let word = songStops[i][0];
+      let x = startX + songStops[i][1];
 
-      if (x > screen.width) {
-        break;
-      } // Break if off-screen.
+      if (x > screen.width) break;
 
       const current = i === songIndex;
 
       ink(current ? (songNoteDown ? "red" : "yellow") : "gray").write(
         word,
         x,
-        96,
+        25,
       );
 
       ink(current ? (songNoteDown ? "red" : "lime") : "darkblue").write(
         song[i][0],
         x,
-        96 + 10,
+        25 + 10,
       );
-      if (current) ink("red").line(x + 2, 96 + 11 + 10, x + 2, 96 + 11 + 18);
 
-      let length = word.length * glyphWidth;
-      if (spacer) length += glyphWidth;
-
-      x += length;
       i += 1;
     }
   }
@@ -577,24 +609,27 @@ function paint({ wipe, ink, write, screen, box, sound, typeface, num, layer, api
     const sy = 3;
     const sh = 15; // screen.height - sy;
 
+    // const right = (54 + 120);
+    // const leftOfWav = wavBtn.box.x
+    const availableWidth = waveBtn.box.x - 54;
+
     paintSound(
       api,
       sound.speaker.amplitudes.left,
       resampleArray(sound.speaker.waveforms.left, scope),
       54, //0,
       sy, //sy,
-      120,
+      availableWidth,
       //screen.width, // width
       sh, // height
       [255, 0, 0, 255],
     );
 
-    ink("yellow").write(scope, 56 + 120 + 2, sy + 3);
+    // ink("yellow").write(scope, 56 + 120 + 2, sy + 3);
     // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 3);
     // ink("cyan").write(sound.sampleRate, 6 + 18 + 20, sy + sh + 3);
   }
 
-  ink("cyan", 64).line(0, 19, screen.width, 19);
 
   if (tap) {
     ink("yellow");
@@ -1018,6 +1053,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
               if (note.toUpperCase() === song?.[songIndex][0]) {
                 songIndex = (songIndex + 1) % song.length;
                 songNoteDown = false;
+                songShifting = true;
               }
 
               delete tonestack[note]; // Remove this key from the notestack.
@@ -1037,9 +1073,13 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
     });
   }
 
-  if (editable && e.is("keyboard:down:tab") && !e.repeat) {
-    tap = !tap;
-    resetModeState();
+  // if (editable && e.is("keyboard:down:tab") && !e.repeat) {
+  //   tap = !tap;
+  //   resetModeState();
+  // }
+
+  if (e.is("keyboard:down:tab")) {
+    waveBtn.actions.push?.();
   }
 
   // Clear Track
@@ -1344,6 +1384,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         if (buttonNote.toUpperCase() === song?.[songIndex][0]) {
           songIndex = (songIndex + 1) % song.length;
           songNoteDown = false;
+          songShifting = true;
         }
 
         delete tonestack[buttonNote]; // Remove this key from the notestack.
