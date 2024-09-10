@@ -63,7 +63,7 @@ const after = ``;
 const forgetful = true;
 
 const TYPO_REPLY = `
-Use Aesthetic Computer by entering a correct word.\n\nEnter "list" for available words.\n\nEnter "chat" for help.\n\n - @jeffrey`.trim();
+Use Aesthetic Computer by entering a correct word.\n\nEnter "list" for some available words.\n\nEnter "chat" for help.\n\n - @jeffrey`.trim();
 
 import { Android, MetaBrowser, iOS } from "../lib/platform.mjs";
 import { validateHandle } from "../lib/text.mjs";
