@@ -59,6 +59,12 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
+  - [x] Make a more mobile friendly layout.
+    - [-] Buttons should always fit on screen no matter what.
+    - [ ] Everything needs to fit for the jelly.
+
+  - [] Only show keyboard shortcuts once a key is pressed (on Android or iOS).
+
   - [-] Encode a few more melodies with lyrics on the command line.
     - [] Make sure that transposition will work.
   - [-] Fix the single corner cross threshold.
@@ -189,6 +195,7 @@ TODO: 💮 Daisy
 */
 
 // import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
+// import { Android, iOS } from "../lib/platform.mjs";
 
 let STARTING_OCTAVE = "4";
 const wavetypes = ["sine", "square", "sawtooth", "triangle"];
@@ -363,7 +370,7 @@ const octaveTheme = [
 
 const { abs, round, floor, ceil, min, max } = Math;
 
-let scope = 32;
+let scope = 6;
 // let scopeTrim = 0;
 
 let projector = false;
@@ -402,8 +409,10 @@ function parseSong(raw) {
 
 let songIndex = 0;
 
+let oscilloscopeBottom = 48;
+
 function boot({ params, api, colon, ui, screen, fps }) {
-  // fps(12);
+  // fps(4);
 
   // qrcells = qr("https://prompt.ac/notepat", { errorCorrectLevel: 2 }).modules;
 
@@ -436,7 +445,7 @@ function boot({ params, api, colon, ui, screen, fps }) {
   setupButtons(api);
 }
 
-function sim({ sound, simCount }) {
+function sim({ sound, simCount, num }) {
   sound.speaker?.poll();
 
   Object.keys(trail).forEach((note) => {
@@ -454,9 +463,26 @@ function sim({ sound, simCount }) {
     transposeOverlayFade -= 0.0065;
     transposeOverlayFade = max(0, transposeOverlayFade);
   }
+
+  // Color shifting for the oscilloscope.
+  const val = activeStr ? 0.075 : 0.02;
+  let d1 = lastAverage,
+    d2 = currentAverage;
+  if (!activeStr) d1 = d2 = [0, 0, 0];
+  if (
+    !activeStr &&
+    secondaryColor[0] < 50 &&
+    secondaryColor[1] < 50 &&
+    secondaryColor[2] < 50
+  ) {
+    lastAverage = [0, 0, 0];
+    d1 = lastAverage;
+  }
+  secondaryColor = num.shiftRGB(secondaryColor, d1, val, "lerp");
+  primaryColor = num.shiftRGB(primaryColor, d2, val, "lerp");
 }
 
-function paint({ wipe, ink, write, screen, sound, typeface, num, layer, api }) {
+function paint({ wipe, ink, write, screen, box, sound, typeface, num, layer, api }) {
   const active = orderedByCount(sounds);
 
   let bg;
@@ -515,7 +541,11 @@ function paint({ wipe, ink, write, screen, sound, typeface, num, layer, api }) {
         96,
       );
 
-      ink(current ? (songNoteDown ? "red" : "lime") : "darkblue").write(song[i][0], x, 96 + 10);
+      ink(current ? (songNoteDown ? "red" : "lime") : "darkblue").write(
+        song[i][0],
+        x,
+        96 + 10,
+      );
       if (current) ink("red").line(x + 2, 96 + 11 + 10, x + 2, 96 + 11 + 18);
 
       let length = word.length * glyphWidth;
@@ -544,39 +574,60 @@ function paint({ wipe, ink, write, screen, sound, typeface, num, layer, api }) {
     ink("yellow").write(scope, 6, sy + sh + 5);
     // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 5);
   } else {
-    const sy = 32;
-    const sh = 40; // screen.height - sy;
+    const sy = 3;
+    const sh = 15; // screen.height - sy;
 
     paintSound(
       api,
       sound.speaker.amplitudes.left,
       resampleArray(sound.speaker.waveforms.left, scope),
-      0,
-      sy,
-      screen.width, // width
+      54, //0,
+      sy, //sy,
+      120,
+      //screen.width, // width
       sh, // height
       [255, 0, 0, 255],
     );
 
-    ink("yellow").write(scope, 6, sy + sh + 3);
+    ink("yellow").write(scope, 56 + 120 + 2, sy + 3);
     // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 3);
     // ink("cyan").write(sound.sampleRate, 6 + 18 + 20, sy + sh + 3);
   }
+
+  ink("cyan", 64).line(0, 19, screen.width, 19);
 
   if (tap) {
     ink("yellow");
     write("tap", { right: 6, top: 6 });
   } else {
-    waveBtn.paint((btn) => {
-      ink(btn.down ? [40, 40, 100] : "darkblue").box(btn.box);
+    waveBtn?.paint((btn) => {
+      ink(btn.down ? [40, 40, 100] : "darkblue").box(
+        btn.box.x,
+        btn.box.y + 3,
+        btn.box.w,
+        btn.box.h - 3,
+      );
+      // ink("white", 64).box(btn.box);
+      ink("orange").line(
+        btn.box.x + btn.box.w,
+        btn.box.y + 3,
+        btn.box.x + btn.box.w,
+        btn.box.y + btn.box.h - 1,
+      );
       ink(btn.down ? "yellow" : "orange");
-      write(wave, { right: 6, top: 6 });
+      write(wave, { right: 27, top: 6 });
     });
 
-    octBtn.paint((btn) => {
-      ink(btn.down ? [40, 40, 100] : "darkred").box(btn.box);
+    octBtn?.paint((btn) => {
+      if (btn.down) {
+        ink(40, 40, 100);
+      } else {
+        ink(octaveTheme[octave], 196);
+      }
+      box(btn.box.x, btn.box.y + 3, btn.box.w - 4, btn.box.h - 3);
+      // ink("white", 64).box(btn.box);
       ink(btn.down ? "yellow" : "pink");
-      write(octave, { right: 6, top: 18 });
+      write(octave, { right: 8, top: 6 });
     });
   }
 
@@ -598,12 +649,13 @@ function paint({ wipe, ink, write, screen, sound, typeface, num, layer, api }) {
     ink("orange").line(screen.width / 2, 0, screen.width / 2, screen.height);
 
   if (!tap) {
-    ink("lime");
-    write(
-      active.map((key) => sounds[key]?.note.toUpperCase()).join(" "),
-      6,
-      20,
-    );
+    // Write all the active keys.
+    // ink("lime");
+    // write(
+    //   active.map((key) => sounds[key]?.note.toUpperCase()).join(" "),
+    //   6,
+    //   20,
+    // );
   } else {
     ink("white");
     active.forEach((sound, index) => {
@@ -856,7 +908,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
   if (!tap) {
     if (e.is("lift") && pens().length <= 1) anyDown = false;
 
-    octBtn.act(e, {
+    octBtn?.act(e, {
       down: () => api.beep(400),
       push: (btn) => {
         api.beep();
@@ -867,7 +919,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
       },
     });
 
-    waveBtn.act(e, {
+    waveBtn?.act(e, {
       down: () => api.beep(400),
       push: (btn) => {
         api.beep();
@@ -1320,7 +1372,8 @@ function resetModeState() {
 
 // Initialize and/or lay out the UI buttons on the bottom of the display.
 function setupButtons({ ui, screen, geo }) {
-  const margin = 6;
+  const margin = 2;
+  const ymargin = 2;
   const buttonsPerRow = 4;
   const totalButtons = buttonNotes.length;
   const totalRows = ceil(totalButtons / buttonsPerRow);
@@ -1328,18 +1381,16 @@ function setupButtons({ ui, screen, geo }) {
   let buttonWidth = min(48, ceil((screen.width - margin * 2) / 4));
   let buttonHeight = buttonWidth;
 
-  const oscilloscopeBottom = 96;
-
-  // if (totalRows * buttonHeight > screen.height - oscilloscopeBottom) {
-  // buttonWidth = buttonHeight = ceil(
-  //    (screen.height - oscilloscopeBottom) / totalRows,
-  //  );
-  // }
+  if (totalRows * buttonHeight > screen.height - oscilloscopeBottom) {
+    buttonWidth = buttonHeight = ceil(
+      (screen.height - oscilloscopeBottom) / totalRows,
+    );
+  }
 
   buttonNotes.forEach((label, i) => {
     const row = floor(i / buttonsPerRow);
     const col = i % buttonsPerRow;
-    const y = screen.height - margin - (totalRows - row) * buttonHeight;
+    const y = screen.height - ymargin - (totalRows - row) * buttonHeight;
     const x = ceil(margin + col * buttonWidth);
     const geometry = [x, y, buttonWidth, buttonHeight];
     if (!buttons[label]) {
@@ -1353,13 +1404,26 @@ function setupButtons({ ui, screen, geo }) {
 function buildWaveButton({ screen, ui, typeface }) {
   const glyphWidth = typeface.glyphs["0"].resolution[0];
   const waveWidth = wave.length * glyphWidth;
-  waveBtn = new ui.Button(screen.width - waveWidth - 6, 6, waveWidth, 10);
+  const margin = 4;
+  waveBtn = new ui.Button(
+    screen.width - waveWidth - 26 - margin * 2,
+    0,
+    waveWidth + margin * 2 + 5,
+    10 + margin * 2 - 1 + 2,
+  );
 }
 
 function buildOctButton({ screen, ui, typeface }) {
   const glyphWidth = typeface.glyphs["0"].resolution[0];
   const octWidth = octave.length * glyphWidth;
-  octBtn = new ui.Button(screen.width - octWidth - 6, 6 + 12, octWidth, 10);
+  const margin = 4;
+  octBtn = new ui.Button(
+    // screen.width - octWidth - 6, 6 + 12, octWidth, 10
+    screen.width - octWidth - 6 - margin * 2,
+    0,
+    octWidth + margin * 2 + 7,
+    10 + margin * 2 - 1 + 2,
+  );
 }
 
 let primaryColor = [0, 0, 0];
@@ -1367,8 +1431,8 @@ let currentAverage = [0, 0, 0];
 
 let secondaryColor = [0, 0, 0];
 let lastAverage = [0, 0, 0];
-
-let lastActive = 0;
+let lastActive = null;
+let activeStr;
 
 function paintSound(
   { ink, box, screen, num },
@@ -1381,32 +1445,33 @@ function paintSound(
   color,
   options = { noamp: false },
 ) {
-  const xStep = ceil(width / waveform.length);
-
-  const yMid = ceil(y + height / 2) + 1,
-    yMax = ceil(height / 2);
-
+  const yMid = round(y + (height - 2) / 2),
+    yMax = round((height - 2) / 2);
   let lw = options.noamp ? 0 : 4; // levelWidth;
+  const xStep = (width - lw) / waveform.length;
 
   // Vertical bounds.
   ink("yellow")
-    .line(x + lw, y, x + width, y)
-    .line(x + lw, y + height, x + width, y + height);
+    .line(x + lw, y, x + width - 1, y)
+    .line(x + lw, y + height, x + width - 1, y + height);
 
   // Level meter.
   if (!options.noamp) {
-    ink("black").box(x, y, lw, height);
+    ink("black").box(x, y, lw, height + 1);
     ink("green").box(x, y + height, lw, -amplitude * height);
   }
 
   // Filled waveform
-  const waves = waveform.map((v, i) => [x + lw + i * xStep, yMid + v * yMax]);
+  const waves = waveform.map((v, i) => {
+    if (v < -1) v = -1;
+    if (v > 1) v = 1;
+    return [x + lw + i * xStep, yMid + v * yMax];
+  });
 
-  secondaryColor = num.shiftRGB(secondaryColor, lastAverage, 0.1);
   ink(secondaryColor || "black").box(x + lw, y + 1, width - lw, height - 1);
 
   const active = orderedByCount(sounds);
-  const activeStr = active.join("");
+  activeStr = active.join("");
 
   let colors = ["red"];
 
@@ -1420,13 +1485,22 @@ function paintSound(
 
   // lerp the primary color to the current average.
 
-  primaryColor = num.shiftRGB(primaryColor, currentAverage, 0.1);
   ink(primaryColor);
 
+  let remainder = 0;
+  let totalWidthCovered = 0;
+
   waves.forEach((point, index) => {
-    const bx = x + lw + index * xStep;
-    if (bx > width) return;
-    box(bx, y + 1 + point[1] - y, xStep, y + height - point[1] - 1);
+    let bx = x + lw + totalWidthCovered;
+    if (bx >= x + width) return;
+    // Compute the pixel-aligned width for the current bar.
+    let barWidth = Math.floor(xStep + remainder);
+    remainder = (xStep + remainder) % 1; // Collect the fractional remainder.
+    // Ensure we don't exceed the full width for the last bar.
+    if (index === waves.length - 1 || bx + barWidth >= x + width)
+      barWidth = x + width - bx;
+    box(bx, y + point[1] + 1 - y, barWidth, y + (height - 1) - point[1]);
+    totalWidthCovered += barWidth;
   });
 
   // Waveform
