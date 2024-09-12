@@ -4575,8 +4575,11 @@ async function makeFrame({ data: { type, content } }) {
       console.warn(" 💗 Beat failure...", e);
     }
 
-    // send({ type: "beat", content: sound });
+    send({ type: "beat", content: sound });
     // soundClear?.();
+    sound.sounds.length = 0; // Empty the sound command buffer.
+    sound.bubbles.length = 0;
+    sound.kills.length = 0;
     return;
   }
 
@@ -4894,9 +4897,9 @@ async function makeFrame({ data: { type, content } }) {
 
     // Clear synchronized audio triggers.
     // soundClear = () => {
-    sound.sounds.length = 0;
-    sound.bubbles.length = 0;
-    sound.kills.length = 0;
+    // sound.sounds.length = 0;
+    // sound.bubbles.length = 0;
+    // sound.kills.length = 0;
     // };
 
     // Trigger a named audio sample to playback in the `bios`.
@@ -4923,6 +4926,10 @@ async function makeFrame({ data: { type, content } }) {
 
     soundTime = content.audioTime;
 
+    $sound.skip = function () {
+      send({ type: "beat:skip" });
+    };
+
     $sound.synth = function ({
       tone = 440, // hz, or musical note
       type = "square", // "sine", "triangle", "square", "sawtooth"
@@ -4936,7 +4943,8 @@ async function makeFrame({ data: { type, content } }) {
     } = {}) {
       const id = soundId;
       if (duration === "🔁") duration = Infinity; // First emoji in the API. 24.07.03.02.26
-      if (duration !== undefined) beats = (duration * sound.bpm) / 60;
+      if (beats === undefined && duration !== undefined)
+        beats = (duration * sound.bpm) / 60;
 
       // if (typeof tone === "string") tone = $sound.freq(tone); // Auto-match strings to notes.
 
@@ -4965,8 +4973,10 @@ async function makeFrame({ data: { type, content } }) {
       soundId += 1n;
 
       let seconds;
-      if (duration !== undefined) seconds = duration;
+
+      if (beats === undefined && duration !== undefined) seconds = duration;
       else seconds = (60 / sound.bpm) * beats;
+      // console.log("Beats:", beats, "Duration:", duration, "Seconds:", seconds, "BPM:", sound.bpm);
       const end = soundTime + seconds;
 
       return {
@@ -5850,8 +5860,6 @@ async function makeFrame({ data: { type, content } }) {
         sendData.pixels = content.pixels;
       }
 
-      // new hud
-
       if (sendData.pixels?.byteLength === 0) sendData.pixels = undefined;
 
       let transferredObjects = [sendData.pixels];
@@ -5861,6 +5869,10 @@ async function makeFrame({ data: { type, content } }) {
       sendData.sound = sound;
 
       send({ type: "render", content: sendData }, transferredObjects);
+
+      sound.sounds.length = 0; // Empty the sound command buffer.
+      sound.bubbles.length = 0;
+      sound.kills.length = 0;
 
       twoDCommands.length = 0; // Empty the 2D GPU command buffer.
 

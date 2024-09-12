@@ -5,10 +5,8 @@
 
   *** ⭐ Page Composition ***
   - [] build the page input
-
     - [] add the 'write a page' button
-         whitelisted for admin users
-
+          whitelisted for admin users
     - [] show the form, maybe in a modal?
     - [] keep draft remotely / have a "published" flag on pages
     - [] show rules under the form
