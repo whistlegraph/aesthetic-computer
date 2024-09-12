@@ -600,6 +600,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // be destroyed after pieces change.
 
   let updateMetronome,
+    beatSkip,
     activateSound,
     activatedSoundCallback,
     triggerSound,
@@ -906,6 +907,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             processorOptions: { bpm: sound.bpm, debug: true },
           },
         );
+
+        beatSkip = function () {
+          soundProcessor.port.postMessage({ type: "beat:skip" });
+        };
 
         updateMetronome = function (newBPM) {
           soundProcessor.port.postMessage({ type: "new-bpm", data: newBPM });
@@ -2908,10 +2913,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Deprecated in favor of frame-synced communication.
-    //if (type === "beat") {
-    // updateSynths(content);
-    //  return;
-    //}
+    if (type === "beat") {
+      updateSynths(content);
+      return;
+    }
+
+    if (type === "beat:skip") {
+      beatSkip();
+      return;
+    }
 
     if (type === "synth:update") {
       updateSound?.(content);
