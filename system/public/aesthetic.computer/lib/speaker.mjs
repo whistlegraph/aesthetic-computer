@@ -90,6 +90,14 @@ class SoundProcessor extends AudioWorkletProcessor {
         return;
       }
 
+      // Reset the metronome beat.
+      if (msg.type === "beat:skip") {
+        console.log("🎼 Beat skipped");
+        this.#ticks = 0;
+        this.#report("metronome", currentTime);
+        return;
+      }
+
       // New BPM
       if (msg.type === "new-bpm") {
         this.#bpm = msg.data;

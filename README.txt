@@ -63,6 +63,10 @@ but technically agnostic. (Choose your aesthetic!)
     - [x] In both development and production.
 
 ------------------------------------------
+*** vscode.dev ***
+ - [-] fix vscode.dev extension error related to importing path and
+      typeof window === "undefined
+
 *** spectrogram ***
  - [] add a long spectrographic buffer to `notepat`
       so playable notes can be tracked / maybe it could
