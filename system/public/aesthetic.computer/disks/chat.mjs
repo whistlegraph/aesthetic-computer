@@ -128,7 +128,7 @@ async function boot({
       return;
     }
 
-    console.log("🌠 Message received:", id, type, content);
+    // console.log("🌠 Message received:", id, type, content);
   };
 
   // chat.disconnect = () => {}; // This is also part of the API.
