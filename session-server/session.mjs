@@ -710,14 +710,14 @@ io.onConnection((channel) => {
 
     // emit the to all channels in the same room except the sender
     // log(`🩰 fairy:point - ${data}`);
-    if (channel.state === "open") {
+    if (channel.webrtcConnection.state === "open") {
       try {
       channel.broadcast.emit("fairy:point", data);
       } catch (err) {
         console.warn("Broadcast error:", err);
       }
     } else {
-      console.log(channel.state);
+      console.log(channel.webrtcConnection.state);
     }
   });
 });
