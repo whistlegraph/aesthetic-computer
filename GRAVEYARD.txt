@@ -18,13 +18,11 @@
        - [x] validate email again on both `sotce-net` and `aesthetic computer`
     8. - [x] delete the ac user and make sure the sotce-net handle and user remains
     9. - [x] delete the sotce-net user and run the same test for the aesthetic side
-
     (Aesthetic Side)
     1  - [x] create an ac account under `me+handleswap@jas.life`
     2. - [x] validate email and set handle to 'handleswap1'
     3. - [x] then create a sotce-net account under `me+handleswap@jas.life`
     4. - [x] validate email and see if `handleswap1` appears automatically
-
   - [x] Do better with the auth0 flow.
     - [x] Re-capitalize login screens effectively.
     - [x] Verification email should re-route to a nice page if in a new tab. 
@@ -113,6 +111,15 @@
   - [x] Developmnt mode.
   - [x] Live reload function.
   - [x] Set up path->method routing in `sotce-net.js`.
+  - [x] Test login in production in VS Code,
+    - [x] and via vscode.dev
+  - [x] Test login inside VS Code local.
+  - [x] Test login in production outside VS Code.
+  - [x] Test login outside VS Code local.
+  - [x] Test signup in development.
+  - [x] Check how the auth works / token passing works from VSCode.
+  - [x] Add support for developing `sotce-net` inside of the VS Code extension.
+    - [x] In both development and production.
 
 *** slide ***
   - [x] add two octaves of sliding with volume on the x axis for

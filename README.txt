@@ -36,33 +36,8 @@ but technically agnostic. (Choose your aesthetic!)
 🌟 Projects in Progress (PIP) 🌟
 
 *** sotce.net ***
-  - [] auto add patreon subscribers on the highest tier by checking for their email
   - [🟢] Finish sotce-net rc1
-  + ideas after rc1 is basically complete
-  - [] print 🖨️ css
-  - [] infinite scroll
-    - [] 1 month free - link / code
-    - [] what will sotce.com have now...
-    - [] keywords / titles / hashtags?
-  - [] just the cookie on the website
-  - [] sign up and subscribe
-    - [] read amelia's writing
-    - [] contribute your own
-  - [] privacy setting
-    - [] user feed or no user feed
-    - [] amelia's picks
-  + Done
-  - [x] Test login in production in VS Code,
-    - [x] and via vscode.dev
-  - [x] Test login inside VS Code local.
-  - [x] Test login in production outside VS Code.
-  - [x] Test login outside VS Code local.
-  - [x] Test signup in development.
-  - [x] Check how the auth works / token passing works from VSCode.
-  - [x] Add support for developing `sotce-net` inside of the VS Code extension.
-    - [x] In both development and production.
 
-------------------------------------------
 *** vscode.dev ***
  - [-] fix vscode.dev extension error related to importing path and
       typeof window === "undefined

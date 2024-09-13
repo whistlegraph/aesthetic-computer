@@ -4,15 +4,21 @@
 /* #region 🟢 TODO 
 
   *** ⭐ Page Composition ***
-  - [] build the page input
-    - [] add the 'write a page' button
-          whitelisted for admin users
-    - [] show the form, maybe in a modal?
-    - [] keep draft remotely / have a "published" flag on pages
-    - [] show rules under the form
-    - [] add endpoint for submitting a "page"
+  - [🟠] Test scaffolded end<->end page creation logic.
+  - [] keep draft remotely / have a "published" flag on pages
+  - [] show rules / timer under the form
+  + Done 
+  - [x] add endpoint for submitting a "page"
+  - [x] add the 'write a page' button
+        whitelisted for admin users
+  - [x] show the form, maybe in a modal?
 
-  -------
+  *** 📟 Page Feed ***
+   - [] upscrolling
+   - [] editing / modification on a page
+
+  *** 🛂 Page Controls ***
+  - [] redaction
 
   *** 📧 Email Notifications for Pages ***
   - [] email new pages to each subscriber, and include the contents?
@@ -38,6 +44,9 @@
 
   --- ☁️ Post-Launch ☁️ ---
   - [] Automatic Dark Theme
+  - [] Patreon linkage?
+  - [] print 🖨️ css
+  - [] Search / hashtags
   + Done
   - [x] Add 'isAdmin' support for sotce-net subs and add necessary subs.
   - [x] go through all the prompt boxes, including the username entry / too long / inappropriate etc.
@@ -281,12 +290,10 @@ export const handler = async (event, context) => {
               background: rgb(255, 248, 165);
               transform: translate(-1px, 1px);
             }
-
             #write-a-page {
               /* background: rgb(240, 240, 240); */
               /* border-color: rgb(40, 40, 200); */
             }
-
             #gate nav button.positive {
               background: rgb(203, 238, 161);
               border-color: rgb(114, 203, 80);
@@ -300,6 +307,11 @@ export const handler = async (event, context) => {
             #garden {
               padding-left: 1em;
               padding-top: 1em;
+            }
+            #garden article.page {
+              background-color: white;
+              border: 0.1em solid black;
+              padding: 0.5em;
             }
             #email {
               position: relative;
@@ -508,12 +520,8 @@ export const handler = async (event, context) => {
 
               if (notice) {
                 console.log("🪧 Notice:", notice, urlParams);
-
-                // TODO: 🟣 If it's a 'success' here I could toggle something to
-                //          wait until the subscription returns true?
-                if (notice === "success") {
+                if (notice === "success")
                   waitForSubscriptionSuccessThreeTimes = true;
-                }
 
                 urlParams.delete("notice");
                 cleanUrlParams(url, urlParams);
@@ -943,28 +951,56 @@ export const handler = async (event, context) => {
               if (!showGate) g.classList.add("obscured");
               if (showGate) g.classList.add("hidden");
 
-              // TODO: Add a blog post here to the garden layout.
-
-              // write-a-page
-
+              // 🪷 write-a-page - Create compose form.
               const writeButton = cel("button");
               writeButton.id = "write-a-page";
               writeButton.innerText = "write a page";
 
               writeButton.onclick = function compose() {
                 const editor = cel("dialog");
-                // TODO: 🪷 Create compose form.
-                // <dialog open>
-                //   <p>Greetings, one and all!</p>
-                //   <form method="dialog">
-                //     <button>OK</button>
-                //   </form>
-                // </dialog>
+                editor.setAttribute("open");
+                const form = cel("form");
+                // 🔴 TODO: Add a title field? (Autosuggest via LLM)
+                // 🔴 TODO: Word count notice.
+                // 🔴 TODO: Auto-drafting via the cloud, at certain
+                //          intervals after changes? 24.09.13.00.57
+
+                const text = cel("textarea");
+                const submit = cel("input");
+                submit.type = "submit";
+
+                form.appendChild(text);
+                form.appendChild(submit);
+                form.addEventListener("submit", async (e) => {
+                  const res = await userRequest(
+                    "POST",
+                    "sotce-net/write-a-page",
+                    { words: text.value },
+                  );
+                  if (res.status === 200) {
+                    console.log("🪧 Written:", res);
+                  } else {
+                    console.error("🪧 Unwritten:", res);
+                  }
+                  // 🔴 TODO: The dialogue should close appropriately here.
+                });
+
+                editor.appendChild(form);
+                g.appendChild(editor);
               };
 
-              g.appendChild(writeButton);
+              if (subscription?.admin) g.appendChild(writeButton);
 
-              // g.innerText = "Hello...";
+              if (subscription.pages) {
+                console.log("🗞️ Pages retrieved:", pages);
+                pages.forEach((page) => {
+                  const pageEl = cel("article");
+                  pageEl.classList.add("page");
+                  pageEl.innerText = page.words;
+                  // 🔴 TODO: Add date and perhaps page number / a special bar?
+                  g.appendChild(pageEl);
+                });
+              }
 
               const cookie = cel("img");
               cookie.id = "cookie-menu";
@@ -1573,7 +1609,7 @@ export const handler = async (event, context) => {
     const retrieve = body.retrieve || "everything";
 
     const user = await authorize(event.headers, "sotce");
-    if (!user) return respond(401, { message: "Unauthorized user." });
+    if (!user) return respond(401, { message: "Unauthorized." });
     // shell.log("Subscribing user:", user);
 
     const email = user.email;
@@ -1629,11 +1665,16 @@ export const handler = async (event, context) => {
         console.log(isAdmin, out);
 
         // 📓 Recent Pages
-        // out
-
+        const database = await connect();
+        const pages = database.db.collection("pages");
         // Get page content from the database.
+        const retrievedPages = await pages
+          .aggregate([{ $sort: { when: -1 } }, { $limit: 100 }])
+          .toArray();
+        out.pages = retrievedPages;
+        await database.disconnect();
 
-        // TODO: 👤 Handled Pages / for a specific user.
+        // TODO: 👤 'Handled' pages filtered by user..
       }
       return respond(200, out);
     } else {
@@ -1641,10 +1682,31 @@ export const handler = async (event, context) => {
     }
   } else if (path === "/cancel" && method === "post") {
     const user = await authorize(event.headers, "sotce");
-    if (!user) return respond(401, { message: "Unauthorized user." });
+    if (!user) return respond(401, { message: "Unauthorized." });
     shell.log("User authorized. Cancelling subscription...");
     const cancelResult = await cancelSubscription(user, key);
     return respond(cancelResult.status, cancelResult.body);
+  } else if (path === "/write-a-page" && method === "post") {
+    // 🪧 write-a-page - Submission endpoint.
+    const user = await authorize(event.headers, "sotce");
+    const isAdmin = await hasAdmin(user, "sotce");
+    if (!user || !isAdmin) return respond(401, { message: "Unauthorized." });
+    const body = JSON.parse(event.body);
+    console.log("🪧 Post so far:", body);
+    const words = body.words;
+    if (words) {
+      // Add page to database.
+      const database = await connect();
+      const pages = database.db.collection("pages");
+      // 💡 TODO: Eventually create a 'books' abstraction so users can have
+      // multiple books that capture groupings of pages. 24.09.13.01.41
+      await pages.insertOne({ user: user.sub, words, when: new Date() });
+      await database.disconnect();
+      const page = body;
+      return respond(200, { page });
+    } else {
+      return respond(500, { message: "No words written." });
+    }
   } else if (path === "/delete-account" && method === "post") {
     // See also the 'delete-erase-and-forget-me.js' function for aesthetic users.
     const user = await authorize(event.headers, "sotce");
