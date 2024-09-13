@@ -701,6 +701,7 @@ io.addServer(server); // Hook up to the HTTP Server.
 io.onConnection((channel) => {
   channel.onDisconnect(() => {
     log(`🩰 ${channel.id} got disconnected`);
+    channel.close();
   });
 
   // Just for testing via the aesthetic `udp` piece for now.
@@ -712,7 +713,7 @@ io.onConnection((channel) => {
     // log(`🩰 fairy:point - ${data}`);
     if (channel.webrtcConnection.state === "open") {
       try {
-      channel.broadcast.emit("fairy:point", data);
+        channel.broadcast.emit("fairy:point", data);
       } catch (err) {
         console.warn("Broadcast error:", err);
       }
