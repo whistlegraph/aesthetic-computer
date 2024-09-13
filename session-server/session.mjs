@@ -67,7 +67,7 @@ const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
 const dev = process.env.NODE_ENV === "development";
 
 const { keys } = Object;
-let fastify, termkit, term;
+let fastify; //, termkit, term;
 
 if (dev) {
   // Load local ssl certs in development mode.
@@ -81,11 +81,11 @@ if (dev) {
   });
 
   // Import the `terminal-kit` library if dev is true.
-  try {
-    termkit = (await import("terminal-kit")).default;
-  } catch (err) {
-    error("Failed to load terminal-kit", error);
-  }
+  // try {
+  //   termkit = (await import("terminal-kit")).default;
+  // } catch (err) {
+  //   error("Failed to load terminal-kit", error);
+  // }
 } else {
   fastify = Fastify({ logger: true }); // Still log in production. No reason not to?
 }
@@ -846,19 +846,9 @@ if (termkit) {
 */
 
 function log() {
-  if (!term) {
-    console.log(...arguments);
-    return;
-  }
-
-  // tkit
+  console.log(...arguments);
 }
 
 function error() {
-  if (!term) {
-    console.error(...arguments);
-    return;
-  }
-
-  // tkit
+  console.error(...arguments);
 }
