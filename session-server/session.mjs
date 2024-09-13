@@ -710,7 +710,15 @@ io.onConnection((channel) => {
 
     // emit the to all channels in the same room except the sender
     // log(`🩰 fairy:point - ${data}`);
-    channel.broadcast.emit("fairy:point", data);
+    if (channel.state === "open") {
+      try {
+      channel.broadcast.emit("fairy:point", data);
+      } catch (err) {
+        console.warn("Broadcast error:", err);
+      }
+    } else {
+      console.log(channel.state);
+    }
   });
 });
 
