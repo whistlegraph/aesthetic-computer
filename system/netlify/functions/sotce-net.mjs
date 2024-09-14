@@ -310,35 +310,6 @@ export const handler = async (event, context) => {
               padding-top: 1em;
             }
 
-            /* #garden article.page {
-                          background-color: white;
-                          border: 0.1em solid black;
-                          padding: 0.5em;
-                          margin-bottom: 1em;
-                          width: 800px;
-                          height: 1000px;
-                        } */
-
-            /* #garden article.page {
-                          background-color: white;
-                          border: 0.1em solid black;
-                          padding: 0.5em;
-                          margin-bottom: 1em;
-                          display: flex;
-                          flex-direction: column;
-                          justify-content: center;
-                          align-items: center;
-                          aspect-ratio: 4 / 5;
-                          width: 80%;
-                          max-width: 800px;
-                          height: auto;
-                        }
-
-                        #garden article.page p {
-                          font-size: 1em;
-                          line-height: 1.5;
-                        } */
-
             #garden article.page {
               background-color: white;
               border: 0.1em solid black;
@@ -352,6 +323,7 @@ export const handler = async (event, context) => {
               position: relative;
               overflow: hidden;
             }
+
 
             #garden article.page p {
               font-size: calc(
@@ -414,7 +386,7 @@ export const handler = async (event, context) => {
               position: relative;
             }
             #cookie-menu {
-              position: absolute;
+              position: fixed;
               top: 0;
               right: 0;
               width: 90px;
@@ -1007,11 +979,16 @@ export const handler = async (event, context) => {
               writeButton.innerText = "write a prayer"; // or "page" or "prayer";
 
               const purposes = ["page", "poem", "prayer"];
-              const currentPurpose = 0;
+              let currentPurpose = 0;
 
-              writeButtonInterval = setInterval(() => {
-                currentPurpose = currentPurpose + (1 % purposes.length);
-              }, 250);
+              const writeButtonInterval = setInterval(() => {
+                if (!document.body.contains(writeButton)) {
+                  clearInterval(writeButtonInterval);
+                  return;
+                }
+                currentPurpose = (currentPurpose + 1) % purposes.length;
+                writeButton.innerText = "write a " + purposes[currentPurpose];
+              }, 2000);
 
               writeButton.onclick = function compose() {
                 const editor = cel("dialog");
