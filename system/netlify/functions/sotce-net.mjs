@@ -277,6 +277,7 @@ export const handler = async (event, context) => {
               border-radius: 0.5em;
               cursor: pointer;
               user-select: none;
+              margin-bottom: 1em;
             }
             #gate nav button:hover,
             #write-a-page:hover {
@@ -308,11 +309,32 @@ export const handler = async (event, context) => {
               padding-left: 1em;
               padding-top: 1em;
             }
+
             #garden article.page {
               background-color: white;
               border: 0.1em solid black;
-              padding: 0.5em;
+              padding: 1em;
+              margin-bottom: 1em;
+              width: 80vw;
+              height: 100vw;
+              max-width: 800px;
+              max-height: 1000px;
+              transform-origin: top left;
+              position: relative;
+              overflow: hidden;
             }
+
+
+            #garden article.page p {
+              font-size: calc(
+                1vw + 0.5em
+              ); /* Adjust size based on viewport width */
+              line-height: calc(1.5vw + 0.5em);
+              text-align: left;
+              margin: 0;
+              padding: 0;
+            }
+
             #email {
               position: relative;
               color: black;
@@ -364,7 +386,7 @@ export const handler = async (event, context) => {
               position: relative;
             }
             #cookie-menu {
-              position: absolute;
+              position: fixed;
               top: 0;
               right: 0;
               width: 90px;
@@ -951,11 +973,24 @@ export const handler = async (event, context) => {
               // 🪷 write-a-page - Create compose form.
               const writeButton = cel("button");
               writeButton.id = "write-a-page";
-              writeButton.innerText = "write a page";
+              writeButton.innerText = "write a prayer"; // or "page" or "prayer";
+
+              const purposes = ["page", "poem", "prayer"];
+              let currentPurpose = 0;
+
+              const writeButtonInterval = setInterval(() => {
+                if (!document.body.contains(writeButton)) {
+                  clearInterval(writeButtonInterval);
+                  return;
+                }
+                currentPurpose = (currentPurpose + 1) % purposes.length;
+                writeButton.innerText = "write a " + purposes[currentPurpose];
+              }, 2000);
 
               writeButton.onclick = function compose() {
                 const editor = cel("dialog");
-                editor.setAttribute("open");
+                editor.setAttribute("open", "");
+
                 const form = cel("form");
                 // 🔴 TODO: Add a title field? (Autosuggest via LLM)
                 // 🔴 TODO: Word count notice.
@@ -989,11 +1024,14 @@ export const handler = async (event, context) => {
               if (subscription?.admin) g.appendChild(writeButton);
 
               if (subscription.pages) {
+                const pages = subscription.pages;
                 console.log("🗞️ Pages retrieved:", pages);
                 pages.forEach((page) => {
                   const pageEl = cel("article");
                   pageEl.classList.add("page");
-                  pageEl.innerText = page.words;
+                  const wordsEl = cel("p");
+                  wordsEl.innerText = page.words;
+                  pageEl.appendChild(wordsEl);
                   // 🔴 TODO: Add date and perhaps page number / a special bar?
                   g.appendChild(pageEl);
                 });
