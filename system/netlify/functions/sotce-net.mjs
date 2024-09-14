@@ -277,6 +277,7 @@ export const handler = async (event, context) => {
               border-radius: 0.5em;
               cursor: pointer;
               user-select: none;
+              margin-bottom: 1em;
             }
             #gate nav button:hover,
             #write-a-page:hover {
@@ -308,11 +309,60 @@ export const handler = async (event, context) => {
               padding-left: 1em;
               padding-top: 1em;
             }
+
+            /* #garden article.page {
+                          background-color: white;
+                          border: 0.1em solid black;
+                          padding: 0.5em;
+                          margin-bottom: 1em;
+                          width: 800px;
+                          height: 1000px;
+                        } */
+
+            /* #garden article.page {
+                          background-color: white;
+                          border: 0.1em solid black;
+                          padding: 0.5em;
+                          margin-bottom: 1em;
+                          display: flex;
+                          flex-direction: column;
+                          justify-content: center;
+                          align-items: center;
+                          aspect-ratio: 4 / 5;
+                          width: 80%;
+                          max-width: 800px;
+                          height: auto;
+                        }
+
+                        #garden article.page p {
+                          font-size: 1em;
+                          line-height: 1.5;
+                        } */
+
             #garden article.page {
               background-color: white;
               border: 0.1em solid black;
-              padding: 0.5em;
+              padding: 1em;
+              margin-bottom: 1em;
+              width: 80vw;
+              height: 100vw;
+              max-width: 800px;
+              max-height: 1000px;
+              transform-origin: top left;
+              position: relative;
+              overflow: hidden;
             }
+
+            #garden article.page p {
+              font-size: calc(
+                1vw + 0.5em
+              ); /* Adjust size based on viewport width */
+              line-height: calc(1.5vw + 0.5em);
+              text-align: left;
+              margin: 0;
+              padding: 0;
+            }
+
             #email {
               position: relative;
               color: black;
@@ -380,22 +430,22 @@ export const handler = async (event, context) => {
               transition: 0.13s ease-out transform;
             }
             /*
-                        #prompt {
-                          font-size: 22px;
-                          font-family: monospace;
-                          border: none;
-                          background: none;
-                          position: absolute;
-                          top: 16px;
-                          left: 16px;
-                          color: black;
-                          user-select: none;
-                          cursor: pointer;
-                        }
-                        #prompt:hover {
-                          color: rgb(180, 72, 135);
-                        }
-                        */
+                                    #prompt {
+                                      font-size: 22px;
+                                      font-family: monospace;
+                                      border: none;
+                                      background: none;
+                                      position: absolute;
+                                      top: 16px;
+                                      left: 16px;
+                                      color: black;
+                                      user-select: none;
+                                      cursor: pointer;
+                                    }
+                                    #prompt:hover {
+                                      color: rgb(180, 72, 135);
+                                    }
+                                    */
             .hidden {
               visibility: hidden;
               pointer-events: none;
@@ -954,11 +1004,19 @@ export const handler = async (event, context) => {
               // 🪷 write-a-page - Create compose form.
               const writeButton = cel("button");
               writeButton.id = "write-a-page";
-              writeButton.innerText = "write a page";
+              writeButton.innerText = "write a prayer"; // or "page" or "prayer";
+
+              const purposes = ["page", "poem", "prayer"];
+              const currentPurpose = 0;
+
+              writeButtonInterval = setInterval(() => {
+                currentPurpose = currentPurpose + (1 % purposes.length);
+              }, 250);
 
               writeButton.onclick = function compose() {
                 const editor = cel("dialog");
-                editor.setAttribute("open");
+                editor.setAttribute("open", "");
+
                 const form = cel("form");
                 // 🔴 TODO: Add a title field? (Autosuggest via LLM)
                 // 🔴 TODO: Word count notice.
@@ -992,11 +1050,14 @@ export const handler = async (event, context) => {
               if (subscription?.admin) g.appendChild(writeButton);
 
               if (subscription.pages) {
+                const pages = subscription.pages;
                 console.log("🗞️ Pages retrieved:", pages);
                 pages.forEach((page) => {
                   const pageEl = cel("article");
                   pageEl.classList.add("page");
-                  pageEl.innerText = page.words;
+                  const wordsEl = cel("p");
+                  wordsEl.innerText = page.words;
+                  pageEl.appendChild(wordsEl);
                   // 🔴 TODO: Add date and perhaps page number / a special bar?
                   g.appendChild(pageEl);
                 });
