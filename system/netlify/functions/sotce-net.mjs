@@ -379,23 +379,21 @@ export const handler = async (event, context) => {
               transform: scale(0.93);
               transition: 0.13s ease-out transform;
             }
-            /*
-                        #prompt {
-                          font-size: 22px;
-                          font-family: monospace;
-                          border: none;
-                          background: none;
-                          position: absolute;
-                          top: 16px;
-                          left: 16px;
-                          color: black;
-                          user-select: none;
-                          cursor: pointer;
-                        }
-                        #prompt:hover {
-                          color: rgb(180, 72, 135);
-                        }
-                        */
+            #prompt {
+              font-size: 22px;
+              font-family: monospace;
+              border: none;
+              background: none;
+              position: absolute;
+              top: 16px;
+              left: 16px;
+              color: black;
+              user-select: none;
+              cursor: pointer;
+            }
+            #prompt:hover {
+              color: rgb(180, 72, 135);
+            }
             .hidden {
               visibility: hidden;
               pointer-events: none;
@@ -404,7 +402,6 @@ export const handler = async (event, context) => {
               display: none !important;
               pointer-events: none;
             }
-
             .loading-dots::after {
               content: "\\00a0\\00a0\\00a0"; /* Three non-breaking spaces */
               animation: loading-dots 1s steps(3, end) infinite;
@@ -460,10 +457,10 @@ export const handler = async (event, context) => {
           <script type="module">
             // 🗺️ Environment
             const dev = ${dev};
-            // const fromAesthetic =
-            //   (document.referrer.indexOf("aesthetic") > -1 ||
-            //     document.referrer.indexOf("localhost") > -1) &&
-            //   document.referrer.indexOf("sotce-net") === -1;
+            const fromAesthetic =
+              (document.referrer.indexOf("aesthetic") > -1 ||
+                document.referrer.indexOf("localhost") > -1) &&
+              document.referrer.indexOf("sotce-net") === -1;
             const embedded = window.self !== window.top;
             const url = new URL(window.location);
             const cel = (el) => document.createElement(el); // shorthand
@@ -1053,13 +1050,13 @@ export const handler = async (event, context) => {
               authorizationParams: { redirect_uri: window.location.href },
             });
 
-            // if (embedded || fromAesthetic) {
-            //   const prompt = document.createElement("button");
-            //   prompt.id = "prompt";
-            //   prompt.onclick = aesthetic;
-            //   prompt.innerHTML = "sotce-net";
-            //   document.body.appendChild(prompt);
-            // }
+            if (embedded || fromAesthetic) {
+              const prompt = document.createElement("button");
+              prompt.id = "prompt";
+              prompt.onclick = aesthetic;
+              prompt.innerHTML = "sotce-net";
+              document.body.appendChild(prompt);
+            }
 
             if (
               location.search.includes("state=") &&
