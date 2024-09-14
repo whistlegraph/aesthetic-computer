@@ -84,6 +84,8 @@ export async function handler(event, context) {
     const user = await authorize(event.headers);
     const handle = await getHandleOrEmail(user.sub);
 
+    // console.log("🌙 Posting mood for:", handle, body);
+
     if (user && handle?.startsWith("@")) {
       const database = await connect();
       const collection = database.db.collection("moods"); // Make tweet-like collection.
@@ -117,38 +119,29 @@ export async function handler(event, context) {
 
           const app = initializeApp({ credential: cert(serviceAccount) }); // Send a notification.
 
-          console.log("💕 Setting a mood for:", user);
-          getMessaging()
-            .send({
-              notification: {
-                title: `${handle}'s mood is`,
-                body: `${mood}`, //,
+          console.log("🌙 Setting a mood for:", handle, body.mood);
+
+          const response = await getMessaging().send({
+            notification: {
+              title: `${handle}'s mood is`,
+              body: `${mood}`,
+            },
+            apns: {
+              payload: {
+                aps: { "mutable-content": 1 },
               },
-              // android: {
-              //   notification: {
-              //     imageUrl: "https://aesthetic.computer/api/logo.png",
-              //   },
-              apns: {
-                payload: {
-                  aps: { "mutable-content": 1 },
-                },
-                fcm_options: {
-                  image: "https://aesthetic.computer/api/logo.png",
-                },
+              fcm_options: {
+                image: "https://aesthetic.computer/api/logo.png",
               },
-              webpush: {
-                headers: {
-                  image: "https://aesthetic.computer/api/logo.png",
-                },
+            },
+            webpush: {
+              headers: {
+                image: "https://aesthetic.computer/api/logo.png",
               },
-              topic: "mood",
-            })
-            .then((response) => {
-              console.log("☎️  Successfully sent notification:", response);
-            })
-            .catch((error) => {
-              console.log("📵  Error sending notification:", error);
-            });
+            },
+            topic: "mood",
+          });
+          console.log("☎️  Successfully sent notification:", response);
         }
 
         await database.disconnect();
