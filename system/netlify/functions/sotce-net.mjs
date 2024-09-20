@@ -130,7 +130,7 @@ export const handler = async (event, context) => {
             body {
               font-family: sans-serif;
               margin: 0;
-              width: 100vw;
+              width: 100%;
               height: 100vh;
               -webkit-text-size-adjust: none;
               background: rgb(255, 230, 225);
@@ -140,7 +140,9 @@ export const handler = async (event, context) => {
               display: flex;
               width: 100%;
               height: 100%;
+              /* min-width: 220px; */
               background: rgb(255, 230, 225);
+              position: relative;
             }
             #wrapper.reloading {
               filter: blur(2px) saturate(1.25);
@@ -241,7 +243,6 @@ export const handler = async (event, context) => {
               font-weight: normal;
               font-size: 100%;
               margin: 0;
-              /* margin-top: 0.5em; */
               padding-bottom: 1em;
               text-align: center;
               user-select: none;
@@ -256,7 +257,6 @@ export const handler = async (event, context) => {
             }
             #gate #nav-high {
               margin-top: -0.5em;
-              margin-bottom: 1em;
             }
             #gate :is(#nav-low, #nav-high) {
               display: flex;
@@ -278,6 +278,12 @@ export const handler = async (event, context) => {
               cursor: pointer;
               user-select: none;
               margin-bottom: 1em;
+            }
+            #write-a-page {
+              margin-left: 1em;
+              margin-top: 1em;
+              z-index: 3;
+              position: fixed;
             }
             #gate nav button:hover,
             #write-a-page:hover {
@@ -306,30 +312,40 @@ export const handler = async (event, context) => {
               background: rgb(210, 252, 146);
             }
             #garden {
-              padding-left: 1em;
-              padding-top: 1em;
+              /* padding-left: 1em; */
+              /* padding-top: 1em; */
+              box-sizing: border-box;
+              width: 100%;
             }
-
             #garden article.page {
               background-color: white;
               border: 0.1em solid black;
               padding: 1em;
               margin-bottom: 1em;
-              width: 80vw;
-              height: 100vw;
-              max-width: 800px;
-              max-height: 1000px;
+              margin-left: auto;
+              margin-right: auto;
+              width: 100%;
+              aspect-ratio: 4 / 5;
+              /*max-width: calc(800px / 2);*/
+              /*max-height: calc(1000px / 2);*/
               transform-origin: top left;
               position: relative;
               overflow: hidden;
+              box-sizing: border-box;
             }
-
-
+            #binding {
+              background: yellow;
+              margin-top: calc(68px + 16px + 16px);
+              /* padding-left: 16px; */
+              /* padding-right: 16px; */
+              margin-left: auto;
+              margin-right: auto;
+              box-sizing: border-box;
+            }
             #garden article.page p {
-              font-size: calc(
-                1vw + 0.5em
-              ); /* Adjust size based on viewport width */
-              line-height: calc(1.5vw + 0.5em);
+              /* font-size will be set in javascript
+                 badsed on the parent container */
+              line-height: 1.5em; /* Maintains a consistent line height relative to font size */
               text-align: left;
               margin: 0;
               padding: 0;
@@ -359,7 +375,7 @@ export const handler = async (event, context) => {
               color: black;
               position: absolute;
               font-size: 80%;
-              bottom: -65%;
+              bottom: -15%;
               user-select: none;
             }
             #delete-account {
@@ -394,6 +410,17 @@ export const handler = async (event, context) => {
               cursor: pointer;
               transition: 0.2s ease-out transform;
             }
+            @media (max-width: 220px) {
+              #cookie-menu {
+                position: absolute;
+              }
+              #write-a-page {
+                position: absolute;
+              }
+              /* #binding {
+                margin-top: calc(68px + 16px);
+              } */
+            }
             #cookie-menu:hover {
               transform: scale(0.97);
             }
@@ -419,6 +446,7 @@ export const handler = async (event, context) => {
             .hidden {
               visibility: hidden;
               pointer-events: none;
+              overflow: hidden;
             }
             .obscured {
               display: none !important;
@@ -488,6 +516,7 @@ export const handler = async (event, context) => {
             const cel = (el) => document.createElement(el); // shorthand
             let fullAlert;
             let waitForSubscriptionSuccessThreeTimes = false;
+            const { min, max } = Math;
 
             // 🌠 Initialization
 
@@ -973,19 +1002,18 @@ export const handler = async (event, context) => {
               // 🪷 write-a-page - Create compose form.
               const writeButton = cel("button");
               writeButton.id = "write-a-page";
-              writeButton.innerText = "write a prayer"; // or "page" or "prayer";
+              writeButton.innerText = "write a page"; // or "page" or "prayer";
 
-              const purposes = ["page", "poem", "prayer"];
-              let currentPurpose = 0;
-
-              const writeButtonInterval = setInterval(() => {
-                if (!document.body.contains(writeButton)) {
-                  clearInterval(writeButtonInterval);
-                  return;
-                }
-                currentPurpose = (currentPurpose + 1) % purposes.length;
-                writeButton.innerText = "write a " + purposes[currentPurpose];
-              }, 2000);
+              // const purposes = ["page", "poem", "prayer"];
+              // let currentPurpose = 0;
+              // const writeButtonInterval = setInterval(() => {
+              //   if (!document.body.contains(writeButton)) {
+              //     clearInterval(writeButtonInterval);
+              //     return;
+              //   }
+              //   currentPurpose = (currentPurpose + 1) % purposes.length;
+              //   writeButton.innerText = "write a " + purposes[currentPurpose];
+              // }, 2000);
 
               writeButton.onclick = function compose() {
                 const editor = cel("dialog");
@@ -1026,15 +1054,39 @@ export const handler = async (event, context) => {
               if (subscription.pages) {
                 const pages = subscription.pages;
                 console.log("🗞️ Pages retrieved:", pages);
+
+                const binding = cel("div");
+                binding.id = "binding";
+
                 pages.forEach((page) => {
                   const pageEl = cel("article");
                   pageEl.classList.add("page");
                   const wordsEl = cel("p");
+
                   wordsEl.innerText = page.words;
                   pageEl.appendChild(wordsEl);
                   // 🔴 TODO: Add date and perhaps page number / a special bar?
-                  g.appendChild(pageEl);
+                  binding.appendChild(pageEl);
                 });
+
+                g.appendChild(binding);
+
+                function computeTypeSize() {
+                  const bindingWidth = max(220, min(800, window.innerWidth));
+
+
+                  binding.style.width = bindingWidth + "px";
+                  binding.style.fontSize = bindingWidth * 0.03 + "px";
+                }
+
+                window.addEventListener("resize", function resizeEvent() {
+                  computeTypeSize();
+                  if (!document.body.contains(binding)) {
+                    window.removeEventListener(resizeEvent);
+                  }
+                });
+
+                computeTypeSize();
               }
 
               const cookie = cel("img");
