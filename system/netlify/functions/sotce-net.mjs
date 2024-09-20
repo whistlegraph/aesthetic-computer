@@ -3,6 +3,10 @@
 
 /* #region 🟢 TODO 
 
+  - [🟠] Always make sure at least one page fits on screen.
+      (vertical bound)
+  - [] Fix tiny width sizing breakpoint.
+
   *** ⭐ Page Composition ***
   - [🟠] Test scaffolded end<->end page creation logic.
   - [] keep draft remotely / have a "published" flag on pages
@@ -140,7 +144,6 @@ export const handler = async (event, context) => {
               display: flex;
               width: 100%;
               height: 100%;
-              /* min-width: 220px; */
               background: rgb(255, 230, 225);
               position: relative;
             }
@@ -318,6 +321,7 @@ export const handler = async (event, context) => {
               width: 100%;
             }
             #garden article.page {
+              font-family: serif;
               background-color: white;
               border: 0.1em solid black;
               padding: 1em;
@@ -335,9 +339,10 @@ export const handler = async (event, context) => {
             }
             #binding {
               background: yellow;
-              margin-top: calc(68px + 16px + 16px);
-              /* padding-left: 16px; */
-              /* padding-right: 16px; */
+              padding-top: calc(68px + 16px + 16px);
+              padding-left: 16px;
+              padding-right: 16px;
+              padding-bottom: 16px;
               margin-left: auto;
               margin-right: auto;
               box-sizing: border-box;
@@ -521,8 +526,7 @@ export const handler = async (event, context) => {
             // 🌠 Initialization
 
             function adjustFontSize() {
-              // const vmin = Math.min(window.innerWidth, window.innerHeight) / 100;
-              const fontSizeInPx = 16; //Math.max((window.devicePixelRatio || 1) * 3 * vmin, 16);
+              const fontSizeInPx = 16;
               document.body.style.fontSize = fontSizeInPx + "px";
             }
 
@@ -1053,7 +1057,7 @@ export const handler = async (event, context) => {
 
               if (subscription.pages) {
                 const pages = subscription.pages;
-                console.log("🗞️ Pages retrieved:", pages);
+                // console.log("🗞️ Pages retrieved:", pages);
 
                 const binding = cel("div");
                 binding.id = "binding";
@@ -1062,7 +1066,6 @@ export const handler = async (event, context) => {
                   const pageEl = cel("article");
                   pageEl.classList.add("page");
                   const wordsEl = cel("p");
-
                   wordsEl.innerText = page.words;
                   pageEl.appendChild(wordsEl);
                   // 🔴 TODO: Add date and perhaps page number / a special bar?
@@ -1072,10 +1075,17 @@ export const handler = async (event, context) => {
                 g.appendChild(binding);
 
                 function computeTypeSize() {
-                  const bindingWidth = max(220, min(800, window.innerWidth));
+                  // console.log("Inner window width:", window.innerWidth);
+                  // console.log("📖 Binding width:", bindingWidth);
+                  const inw = window.innerWidth;
+                  const inh = window.innerHeight;
+                  const rat = inh / inw;
+                  console.log("📏 Ratio:", rat);
 
+                  const bindingWidth = max(220, min(750, window.innerWidth));
+                  binding.style.width = rat*100 + "%"; // "100%"; // "100%";
 
-                  binding.style.width = bindingWidth + "px";
+                  // TODO: How could I compute what that 100% pixel value would be?
                   binding.style.fontSize = bindingWidth * 0.03 + "px";
                 }
 
@@ -1126,7 +1136,7 @@ export const handler = async (event, context) => {
               try {
                 await auth0Client.getTokenSilently({ cacheMode: "off" });
                 user = await auth0Client.getUser();
-                // console.log("🎇 New user is...", user);
+                console.log("🎇 New user is...", user);
               } catch (err) {
                 console.warn("Error retrieving uncached user:", err);
               }
@@ -1418,7 +1428,6 @@ export const handler = async (event, context) => {
             // Check the subscription status of the logged in user.
             async function subscribed() {
               if (!user) return false;
-              console.log("🗞️ Checking subscription status for:", user.email);
               const response = await userRequest(
                 "POST",
                 "sotce-net/subscribed",
@@ -1426,14 +1435,15 @@ export const handler = async (event, context) => {
               );
 
               if (response.status === 200) {
-                console.log("💳 Subscribed:", response);
                 if (response.subscribed) {
+                  // console.log("️📰 Subscribed:", response);
                   return response;
                 } else {
+                  console.error("🗞️ Unsubscribed:", response);
                   return false;
                 }
               } else {
-                console.error("💳", response);
+                console.error("🗞️ Unsubscribed:", response);
                 return "error";
               }
             }
@@ -1567,9 +1577,17 @@ export const handler = async (event, context) => {
             }
 
             async function userRequest(method, endpoint, body) {
+              let token;
               try {
-                const token =
+                token =
                   window.sotceTOKEN || (await auth0Client.getTokenSilently());
+              } catch (error) {
+                console.error(error);
+                logout();
+              }
+
+              try {
+                // console.log("🚏 Making user request with token:", token);
                 if (!token) throw new Error("🧖 Not logged in.");
 
                 const headers = {
