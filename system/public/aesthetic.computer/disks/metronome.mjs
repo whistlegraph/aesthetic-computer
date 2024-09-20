@@ -16,7 +16,6 @@
   - [] Color readable spots in Camera that forces you to move.
 #endregion */
 
-
 let flash = false;
 const flashColor = [255, 255, 255];
 
