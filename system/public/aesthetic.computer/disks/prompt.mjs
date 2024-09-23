@@ -1446,7 +1446,7 @@ function paint($) {
 
     if (handles && screen.height > 200)
       ink(pal.handleColor).write(
-        `${handles} HANDLES SET`,
+        `${handles.toLocaleString()} HANDLES SET`,
         {
           center: "x",
           y: screen.height / 2 + screen.height / 3.25 - 11,
