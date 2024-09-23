@@ -338,7 +338,7 @@ export const handler = async (event, context) => {
               box-sizing: border-box;
             }
             #binding {
-              background: yellow;
+              /* background: yellow; */
               padding-top: calc(68px + 16px + 16px);
               padding-left: 16px;
               padding-right: 16px;
@@ -634,6 +634,14 @@ export const handler = async (event, context) => {
               const h2 = cel("h2");
               const navLow = document.createElement("nav");
               navLow.id = "nav-low";
+
+              if (embedded || fromAesthetic) {
+                const prompt = document.createElement("button");
+                prompt.id = "prompt";
+                prompt.onclick = aesthetic;
+                prompt.innerHTML = "sotce-net";
+                g.appendChild(prompt);
+              }
 
               function genSubscribeButton(type) {
                 if (!type) {
@@ -1004,56 +1012,60 @@ export const handler = async (event, context) => {
               if (showGate) g.classList.add("hidden");
 
               // 🪷 write-a-page - Create compose form.
-              const writeButton = cel("button");
-              writeButton.id = "write-a-page";
-              writeButton.innerText = "write a page"; // or "page" or "prayer";
+              if (subscription?.admin) {
+                const writeButton = cel("button");
+                writeButton.id = "write-a-page";
+                writeButton.innerText = "write a page"; // or "page" or "prayer";
 
-              // const purposes = ["page", "poem", "prayer"];
-              // let currentPurpose = 0;
-              // const writeButtonInterval = setInterval(() => {
-              //   if (!document.body.contains(writeButton)) {
-              //     clearInterval(writeButtonInterval);
-              //     return;
-              //   }
-              //   currentPurpose = (currentPurpose + 1) % purposes.length;
-              //   writeButton.innerText = "write a " + purposes[currentPurpose];
-              // }, 2000);
+                // const purposes = ["page", "poem", "prayer"];
+                // let currentPurpose = 0;
+                // const writeButtonInterval = setInterval(() => {
+                //   if (!document.body.contains(writeButton)) {
+                //     clearInterval(writeButtonInterval);
+                //     return;
+                //   }
+                //   currentPurpose = (currentPurpose + 1) % purposes.length;
+                //   writeButton.innerText = "write a " + purposes[currentPurpose];
+                // }, 2000);
 
-              writeButton.onclick = function compose() {
-                const editor = cel("dialog");
-                editor.setAttribute("open", "");
+                writeButton.onclick = function compose() {
+                  const editor = cel("dialog");
+                  editor.setAttribute("open", "");
 
-                const form = cel("form");
-                // 🔴 TODO: Add a title field? (Autosuggest via LLM)
-                // 🔴 TODO: Word count notice.
-                // 🔴 TODO: Auto-drafting via the cloud, at certain
-                //          intervals after changes? 24.09.13.00.57
+                  const form = cel("form");
+                  // 🔴 TODO: Add a title field? (Autosuggest via LLM)
+                  // 🔴 TODO: Word count notice.
+                  // 🔴 TODO: Auto-drafting via the cloud, at certain
+                  //          intervals after changes? 24.09.13.00.57
 
-                const text = cel("textarea");
-                const submit = cel("input");
-                submit.type = "submit";
+                  const text = cel("textarea");
+                  const submit = cel("input");
+                  submit.type = "submit";
 
-                form.appendChild(text);
-                form.appendChild(submit);
-                form.addEventListener("submit", async (e) => {
-                  const res = await userRequest(
-                    "POST",
-                    "sotce-net/write-a-page",
-                    { words: text.value },
-                  );
-                  if (res.status === 200) {
-                    console.log("🪧 Written:", res);
-                  } else {
-                    console.error("🪧 Unwritten:", res);
-                  }
-                  // 🔴 TODO: The dialogue should close appropriately here.
-                });
+                  form.appendChild(text);
+                  form.appendChild(submit);
+                  form.addEventListener("submit", async (e) => {
+                    const res = await userRequest(
+                      "POST",
+                      "sotce-net/write-a-page",
+                      { words: text.value },
+                    );
+                    if (res.status === 200) {
+                      console.log("🪧 Written:", res);
+                    } else {
+                      console.error("🪧 Unwritten:", res);
+                    }
+                    // 🔴 TODO: The dialogue should close appropriately here.
+                  });
 
-                editor.appendChild(form);
-                g.appendChild(editor);
-              };
+                  editor.appendChild(form);
+                  g.appendChild(editor);
+                };
 
-              if (subscription?.admin) g.appendChild(writeButton);
+                g.appendChild(writeButton);
+              }
+
+              let computeTypeSize;
 
               if (subscription.pages) {
                 const pages = subscription.pages;
@@ -1061,6 +1073,7 @@ export const handler = async (event, context) => {
 
                 const binding = cel("div");
                 binding.id = "binding";
+                binding.classList.add("hidden");
 
                 pages.forEach((page) => {
                   const pageEl = cel("article");
@@ -1074,20 +1087,21 @@ export const handler = async (event, context) => {
 
                 g.appendChild(binding);
 
-                function computeTypeSize() {
-                  // console.log("Inner window width:", window.innerWidth);
-                  // console.log("📖 Binding width:", bindingWidth);
-                  const inw = window.innerWidth;
-                  const inh = window.innerHeight;
-                  const rat = inh / inw;
+                computeTypeSize = function () {
+                  const rat = window.innerHeight / window.innerWidth;
                   console.log("📏 Ratio:", rat);
+                  const computedWrapper = parseInt(
+                    window.getComputedStyle(wrapper).width,
+                  );
+                  const width = max(
+                    220,
+                    min(750, min(1, rat) * computedWrapper),
+                  );
+                  binding.style.width = width + "px";
+                  binding.style.fontSize = width * 0.03 + "px";
+                };
 
-                  const bindingWidth = max(220, min(750, window.innerWidth));
-                  binding.style.width = rat*100 + "%"; // "100%"; // "100%";
-
-                  // TODO: How could I compute what that 100% pixel value would be?
-                  binding.style.fontSize = bindingWidth * 0.03 + "px";
-                }
+                binding.classList.remove("hidden");
 
                 window.addEventListener("resize", function resizeEvent() {
                   computeTypeSize();
@@ -1095,8 +1109,6 @@ export const handler = async (event, context) => {
                     window.removeEventListener(resizeEvent);
                   }
                 });
-
-                computeTypeSize();
               }
 
               const cookie = cel("img");
@@ -1119,6 +1131,21 @@ export const handler = async (event, context) => {
               cookie.onload = function () {
                 document.getElementById("garden")?.remove(); // Remove old gardens.
                 wrapper.appendChild(g);
+                const observer = new MutationObserver(
+                  (mutationsList, observer) => {
+                    for (let mutation of mutationsList) {
+                      if (
+                        mutation.type === "childList" &&
+                        mutation.addedNodes.length > 0
+                      ) {
+                        computeTypeSize?.();
+                        observer.disconnect();
+                        break;
+                      }
+                    }
+                  },
+                );
+                observer.observe(wrapper, { childList: true });
               };
 
               return g;
@@ -1149,14 +1176,6 @@ export const handler = async (event, context) => {
               useRefreshTokens: true,
               authorizationParams: { redirect_uri: window.location.href },
             });
-
-            if (embedded || fromAesthetic) {
-              const prompt = document.createElement("button");
-              prompt.id = "prompt";
-              prompt.onclick = aesthetic;
-              prompt.innerHTML = "sotce-net";
-              document.body.appendChild(prompt);
-            }
 
             if (
               location.search.includes("state=") &&
