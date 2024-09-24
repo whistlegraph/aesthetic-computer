@@ -3,9 +3,15 @@
 
 /* #region 🟢 TODO 
 
-  - [🟠] Always make sure at least one page fits on screen.
-      (vertical bound)
-  - [] Fix tiny width sizing breakpoint.
+  *** Page Layout ***
+  - [-] Position cookie inside of corner more nicely.
+  - [-] Fix tiny width sizing breakpoint.
+  - [] Check that layouts don't break with page zoom feature.
+  + Done
+  - [x] Always make sure at least one page fits on screen.
+         (vertical bound)
+  - [x] Clicking the donut should save scroll position in pages.
+  - [x] Standard resizing width logic.
 
   *** ⭐ Page Composition ***
   - [🟠] Test scaffolded end<->end page creation logic.
@@ -120,6 +126,8 @@ export const handler = async (event, context) => {
 
   // 🏠 Home
   if (path === "/" && method === "get") {
+    const pagesTop = 100;
+
     const body = html`
       <html>
         <head>
@@ -131,20 +139,27 @@ export const handler = async (event, context) => {
             content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
           />
           <style>
+            :root {
+              --background-color: rgb(255, 230, 225);
+              --pink-border: rgb(255, 190, 215);
+              --button-background: rgb(255, 235, 183);
+              --button-background-highlight: rgb(255, 245, 170);
+              --spinner-background: rgb(255, 147, 191);
+            }
             body {
               font-family: sans-serif;
               margin: 0;
               width: 100%;
               height: 100vh;
               -webkit-text-size-adjust: none;
-              background: rgb(255, 230, 225);
+              background: var(--background-color);
               user-select: none;
             }
             #wrapper {
               display: flex;
               width: 100%;
               height: 100%;
-              background: rgb(255, 230, 225);
+              background: var(--background-color);
               position: relative;
             }
             #wrapper.reloading {
@@ -169,7 +184,7 @@ export const handler = async (event, context) => {
             #veil div.spinner {
               width: 5vmin;
               height: 5vmin;
-              background: rgb(255, 147, 191);
+              background: var(--spinner-background);
               margin: auto;
               border-radius: 100%;
               filter: blur(4px);
@@ -230,6 +245,7 @@ export const handler = async (event, context) => {
               margin: auto;
               display: block;
               user-select: none;
+              filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.35));
             }
             #gate #cookie.interactive {
               cursor: pointer;
@@ -272,10 +288,10 @@ export const handler = async (event, context) => {
             #gate nav button,
             #write-a-page {
               color: black;
-              background: rgb(255, 235, 183);
+              background: var(--button-background);
               padding: 0.35em;
               font-size: 100%;
-              border: 0.205em solid rgb(255, 190, 215);
+              border: 0.205em solid var(--pink-border);
               filter: drop-shadow(-0.055em 0.055em 0.055em rgb(80, 80, 80));
               border-radius: 0.5em;
               cursor: pointer;
@@ -285,12 +301,23 @@ export const handler = async (event, context) => {
             #write-a-page {
               margin-left: 1em;
               margin-top: 1em;
-              z-index: 3;
+              /* z-index: 3; */
+              /* position: fixed; */
+            }
+            #garden #top-bar {
               position: fixed;
+              width: 100%;
+              background: linear-gradient(
+                to bottom,
+                rgba(255, 230, 225, 1) 25%,
+                transparent 100%
+              );
+              z-index: 3;
+              height: 72px;
             }
             #gate nav button:hover,
             #write-a-page:hover {
-              background: rgb(255, 245, 170);
+              background: var(--button-background-highlight);
             }
             #gate nav button:active,
             #write-a-page:active {
@@ -320,6 +347,16 @@ export const handler = async (event, context) => {
               box-sizing: border-box;
               width: 100%;
             }
+            #binding {
+              /* background: yellow; */
+              padding-top: ${pagesTop}px; /* calc(68px + 16px + 16px); */
+              padding-left: 16px;
+              padding-right: 16px;
+              padding-bottom: 16px;
+              margin-left: auto;
+              margin-right: auto;
+              box-sizing: border-box;
+            }
             #garden article.page {
               font-family: serif;
               background-color: white;
@@ -336,16 +373,7 @@ export const handler = async (event, context) => {
               position: relative;
               overflow: hidden;
               box-sizing: border-box;
-            }
-            #binding {
-              /* background: yellow; */
-              padding-top: calc(68px + 16px + 16px);
-              padding-left: 16px;
-              padding-right: 16px;
-              padding-bottom: 16px;
-              margin-left: auto;
-              margin-right: auto;
-              box-sizing: border-box;
+              user-select: text;
             }
             #garden article.page p {
               /* font-size will be set in javascript
@@ -355,7 +383,14 @@ export const handler = async (event, context) => {
               margin: 0;
               padding: 0;
             }
-
+            /* The default template for page styling. */
+            #garden article.page.page-style-a {
+              /* background: yellow; */
+            }
+            .page p::selection {
+              background-color: var(--button-background-highlight);
+              /* color: black; */
+            }
             #email {
               position: relative;
               color: black;
@@ -384,8 +419,8 @@ export const handler = async (event, context) => {
               user-select: none;
             }
             #delete-account {
-              left: calc(-130% / 8);
-              width: 130%;
+              left: calc(-132% / 8);
+              width: 132%;
             }
             #delete-account:hover {
               color: rgb(200, 0, 0);
@@ -407,25 +442,44 @@ export const handler = async (event, context) => {
               position: relative;
             }
             #cookie-menu {
-              position: fixed;
-              top: 0;
-              right: 0;
+              position: absolute;
               width: 90px;
+              height: 90px;
               user-select: none;
               cursor: pointer;
               transition: 0.2s ease-out transform;
+              /* background-color: var(--pink-border); */
+              background-color: var(--spinner-background);
+              mask-image: url("${assetPath}/cookie-open.png");
+              /* filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.35)); */
+              mask-size: cover;
             }
-            @media (max-width: 220px) {
-              #cookie-menu {
+            #cookie-menu-wrapper {
+              position: absolute;
+              top: 0.225em;
+              right: 0.25em;
+              width: 90px;
+              height: 90px;
+              filter: drop-shadow(0px -6px 6px var(--background-color))
+                drop-shadow(4px -14px 0px var(--background-color));
+            }
+            #cookie-menu-img {
+              /* Used in lieu of a mask for now. */
+              visibility: hidden;
+              width: 0;
+              height: 0;
+            }
+            /* @media (max-width: 220px) { */
+            /* #cookie-menu {
                 position: absolute;
               }
               #write-a-page {
                 position: absolute;
-              }
-              /* #binding {
+              } */
+            /* #binding {
                 margin-top: calc(68px + 16px);
               } */
-            }
+            /* } */
             #cookie-menu:hover {
               transform: scale(0.97);
             }
@@ -603,6 +657,8 @@ export const handler = async (event, context) => {
 
             const wrapper = document.getElementById("wrapper");
 
+            let scrollMemory = document.body.scrollTop; // Used to retrieve scroll across gate and garden.
+
             // Reload fading.
             window.addEventListener("beforeunload", (e) => {
               wrapper.classList.add("reloading");
@@ -676,13 +732,13 @@ export const handler = async (event, context) => {
                   if (!type) {
                     // subscribe
                     priv.style.left = "3%";
-                    priv.style.width = "91%";
+                    priv.style.width = "93%";
                   } else if (type === "resubscribe") {
-                    priv.style.left = "10%";
-                    priv.style.width = "78%";
-                  } else if (type === "unsubscribe") {
                     priv.style.left = "11%";
-                    priv.style.width = "75%";
+                    priv.style.width = "80%";
+                  } else if (type === "unsubscribe") {
+                    priv.style.left = "11.5%";
+                    priv.style.width = "77%";
                   }
 
                   const secondrap = cel("div");
@@ -951,8 +1007,8 @@ export const handler = async (event, context) => {
                   if (!img.classList.contains("interactive")) return;
                   curtain.classList.add("hidden");
                   img.classList.remove("interactive");
-
                   document.querySelector("#garden")?.classList.remove("hidden");
+                  document.body.scrollTop = scrollMemory;
                 },
                 // { once: true },
               );
@@ -1006,6 +1062,12 @@ export const handler = async (event, context) => {
                 asset("cookie-open.png");
 
               const g = cel("div");
+
+              const topBar = cel("div");
+              topBar.id = "top-bar";
+
+              g.appendChild(topBar);
+
               g.id = "garden";
 
               if (!showGate) g.classList.add("obscured");
@@ -1062,7 +1124,8 @@ export const handler = async (event, context) => {
                   g.appendChild(editor);
                 };
 
-                g.appendChild(writeButton);
+                topBar.appendChild(writeButton);
+                // g.appendChild(writeButton);
               }
 
               let computeTypeSize;
@@ -1078,6 +1141,11 @@ export const handler = async (event, context) => {
                 pages.forEach((page) => {
                   const pageEl = cel("article");
                   pageEl.classList.add("page");
+
+                  // 🖌️ Grab design template from the page record or use
+                  //    the default.
+                  pageEl.classList.add("page-style-a");
+
                   const wordsEl = cel("p");
                   wordsEl.innerText = page.words;
                   pageEl.appendChild(wordsEl);
@@ -1088,15 +1156,38 @@ export const handler = async (event, context) => {
                 g.appendChild(binding);
 
                 computeTypeSize = function () {
-                  const rat = window.innerHeight / window.innerWidth;
-                  console.log("📏 Ratio:", rat);
+                  const rat =
+                    (window.innerHeight - ${pagesTop / 1.5}) /
+                    window.visualViewport.width;
                   const computedWrapper = parseInt(
                     window.getComputedStyle(wrapper).width,
                   );
+
+                  // const maxPageWidth = 850; // 540;
+                  const maxPageWidth = Infinity;
+                  const minPageWidth = 220;
+
+                  const pageRatio = 4 / 5;
+
                   const width = max(
-                    220,
-                    min(750, min(1, rat) * computedWrapper),
+                    minPageWidth,
+                    min(
+                      maxPageWidth,
+                      min(1, rat) * (computedWrapper * pageRatio),
+                    ),
                   );
+
+                  // TODO: How can I take into account that the first page
+                  //       starts 100px down from the top, so that the width
+                  //       that gets calculated here ensures the page fits onscreen.
+                  // console.log("Ratio:", rat);
+                  // console.log(
+                  //   "Ratio:", rat,
+                  //   "Computed wrapper:",
+                  //   computedWrapper,
+                  //   "Page size computed:",
+                  //   width,
+                  // );
                   binding.style.width = width + "px";
                   binding.style.fontSize = width * 0.03 + "px";
                 };
@@ -1104,23 +1195,31 @@ export const handler = async (event, context) => {
                 binding.classList.remove("hidden");
 
                 window.addEventListener("resize", function resizeEvent() {
-                  computeTypeSize();
                   if (!document.body.contains(binding)) {
                     window.removeEventListener(resizeEvent);
+                  } else {
+                    computeTypeSize();
                   }
                 });
               }
 
-              const cookie = cel("img");
-              cookie.id = "cookie-menu";
-              cookie.src = asset("cookie-open.png");
-              g.appendChild(cookie);
+              const cookieMenu = cel("div");
+              const cookieMenuWrapper = cel("div");
+              cookieMenuWrapper.id = "cookie-menu-wrapper";
+              cookieMenu.id = "cookie-menu";
+              const cookieImg = cel("img");
+              cookieImg.id = "cookie-menu-img";
+              cookieImg.src = asset("cookie-open.png");
+              cookieMenuWrapper.appendChild(cookieMenu);
+              topBar.appendChild(cookieMenuWrapper);
+              topBar.appendChild(cookieImg);
 
               if (GATE_WAS_UP) g.classList.add("hidden");
 
               const curtainCookie = gateCurtain.querySelector("#cookie");
 
-              cookie.onclick = function () {
+              cookieMenu.onclick = function () {
+                scrollMemory = document.body.scrollTop;
                 gateCurtain.classList.remove("hidden");
                 g.classList.add("hidden");
                 curtainCookie.classList.add("interactive");
@@ -1128,9 +1227,8 @@ export const handler = async (event, context) => {
 
               if (showGate) curtainCookie.classList.add("interactive");
 
-              cookie.onload = function () {
+              cookieImg.onload = function () {
                 document.getElementById("garden")?.remove(); // Remove old gardens.
-                wrapper.appendChild(g);
                 const observer = new MutationObserver(
                   (mutationsList, observer) => {
                     for (let mutation of mutationsList) {
@@ -1138,7 +1236,35 @@ export const handler = async (event, context) => {
                         mutation.type === "childList" &&
                         mutation.addedNodes.length > 0
                       ) {
-                        computeTypeSize?.();
+                        const checkWidthSettled = (previousWidth) => {
+                          const currentWidth = parseInt(
+                            window.getComputedStyle(wrapper).width,
+                          );
+                          // console.log("Widths:", currentWidth, previousWidth);
+                          // console.log(
+                          //   "Heights:",
+                          //   g.scrollHeight,
+                          //   window.innerHeight,
+                          // );
+                          if (
+                            currentWidth !== previousWidth ||
+                            g.scrollHeight > 0
+                          ) {
+                            computeTypeSize?.();
+                          } else {
+                            requestAnimationFrame(() =>
+                              checkWidthSettled(currentWidth),
+                            );
+                          }
+                        };
+
+                        // Start the width-checking loop
+                        requestAnimationFrame(() =>
+                          checkWidthSettled(
+                            parseInt(window.getComputedStyle(wrapper).width),
+                          ),
+                        );
+
                         observer.disconnect();
                         break;
                       }
@@ -1146,6 +1272,7 @@ export const handler = async (event, context) => {
                   },
                 );
                 observer.observe(wrapper, { childList: true });
+                wrapper.appendChild(g);
               };
 
               return g;
