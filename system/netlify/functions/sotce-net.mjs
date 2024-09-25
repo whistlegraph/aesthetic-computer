@@ -3,21 +3,14 @@
 
 /* #region 🟢 TODO 
 
-  *** Page Layout ***
-  - [-] Position cookie inside of corner more nicely.
-  - [-] Fix tiny width sizing breakpoint.
-  - [] Check that layouts don't break with page zoom feature.
-  + Done
-  - [x] Always make sure at least one page fits on screen.
-         (vertical bound)
-  - [x] Clicking the donut should save scroll position in pages.
-  - [x] Standard resizing width logic.
 
   *** ⭐ Page Composition ***
-  - [🟠] Test scaffolded end<->end page creation logic.
+  - [🧗] Add page count and title header to design.
+  - [] Build out editor css to match page design exactly. 
   - [] keep draft remotely / have a "published" flag on pages
-  - [] show rules / timer under the form
+  - [] show rules / timer under the form?
   + Done 
+  - [x] Test scaffolded end<->end page creation logic.
   - [x] add endpoint for submitting a "page"
   - [x] add the 'write a page' button
         whitelisted for admin users
@@ -56,8 +49,19 @@
   - [] Automatic Dark Theme
   - [] Patreon linkage?
   - [] print 🖨️ css
+  - [] better ctrl+ page zoom logic / layout fixes
   - [] Search / hashtags
   + Done
+  *** Page Layout ***
+  - [x] Check that layouts don't break with page zoom feature, and that
+         text actually gets larger.
+  - [x] Fix tiny width sizing breakpoint (good enough for now!).
+  - [x] Position cookie inside of corner more nicely.
+  - [x] Always make sure at least one page fits on screen.
+         (vertical bound)
+  - [x] Clicking the donut should save scroll position in pages.
+  - [x] Standard resizing width logic.
+
   - [x] Add 'isAdmin' support for sotce-net subs and add necessary subs.
   - [x] go through all the prompt boxes, including the username entry / too long / inappropriate etc.
   - [x] make a privacy policy for sotce.net (inlined in this file)
@@ -126,7 +130,7 @@ export const handler = async (event, context) => {
 
   // 🏠 Home
   if (path === "/" && method === "get") {
-    const pagesTop = 100;
+    const miniBreakpoint = 245;
 
     const body = html`
       <html>
@@ -307,6 +311,7 @@ export const handler = async (event, context) => {
             #garden #top-bar {
               position: fixed;
               /* width: is calculated dynamically based on binding width */
+              width: 100%;
               background: linear-gradient(
                 to bottom,
                 rgba(255, 230, 225, 1) 25%,
@@ -349,7 +354,7 @@ export const handler = async (event, context) => {
             }
             #binding {
               /* background: yellow; */
-              padding-top: ${pagesTop}px; /* calc(68px + 16px + 16px); */
+              padding-top: 100px; /* calc(68px + 16px + 16px); */
               padding-left: 16px;
               padding-right: 16px;
               padding-bottom: 16px;
@@ -443,8 +448,8 @@ export const handler = async (event, context) => {
             }
             #cookie-menu {
               position: absolute;
-              width: 90px;
-              height: 90px;
+              width: 100%;
+              height: 100%;
               user-select: none;
               cursor: pointer;
               transition: 0.2s ease-out transform;
@@ -469,7 +474,25 @@ export const handler = async (event, context) => {
               width: 0;
               height: 0;
             }
-            /* @media (max-width: 220px) { */
+            @media (max-width: ${miniBreakpoint}px) {
+              #cookie-menu-wrapper {
+                width: 60px;
+                height: 60px;
+                top: 0.525em;
+                right: 0.5em;
+              }
+              #garden #top-bar {
+                height: 64px;
+              }
+              #binding {
+                padding-top: 72px; /* calc(68px + 16px + 16px); */
+              }
+              #gate {
+                /* width: 100%; */
+                max-width: none;
+                transform: scale(0.75);
+              }
+            }
             /* #cookie-menu {
                 position: absolute;
               }
@@ -575,7 +598,7 @@ export const handler = async (event, context) => {
             const cel = (el) => document.createElement(el); // shorthand
             let fullAlert;
             let waitForSubscriptionSuccessThreeTimes = false;
-            const { min, max } = Math;
+            const { floor, min, max } = Math;
 
             // 🌠 Initialization
 
@@ -1128,7 +1151,7 @@ export const handler = async (event, context) => {
                 // g.appendChild(writeButton);
               }
 
-              let computeTypeSize;
+              let computePageLayout;
 
               if (subscription.pages) {
                 const pages = subscription.pages;
@@ -1155,9 +1178,19 @@ export const handler = async (event, context) => {
 
                 g.appendChild(binding);
 
-                computeTypeSize = function () {
+                computePageLayout = function () {
+                  const pagesTop =
+                    window.visualViewport.width <= ${miniBreakpoint} ? 72 : 100;
+
+                  console.log(
+                    "Visual width:",
+                    window.visualViewport.width,
+                    "height:",
+                    window.visualViewport.height,
+                  );
+
                   const rat =
-                    (window.innerHeight - ${pagesTop}) /
+                    (window.innerHeight - pagesTop) /
                     window.visualViewport.width;
 
                   const computedWrapper = parseInt(
@@ -1165,32 +1198,28 @@ export const handler = async (event, context) => {
                   );
 
                   const maxPageWidth = Infinity;
-                  const minPageWidth = 220; // Set your minimum width here
-                  const minPageHeight = 500; // Set a minimum page height to avoid overly thin boxes
-                  const top = ${pagesTop};
+                  const minPageWidth = 0; // Set your minimum width here.
+                  const minPageHeight = 600; //550;
                   const pageRatio = 4 / 5;
-
-                  // First calculate the width as per your existing logic
                   let width = max(
                     minPageWidth,
-                    min(
-                      maxPageWidth,
-                      min(1, rat) * (computedWrapper),
-                    ),
+                    min(maxPageWidth, min(1, rat) * computedWrapper),
                   );
-
                   const pageHeight = width / pageRatio;
-
-                  // Check if the total height exceeds the window height and adjust the width accordingly
-                  if (top + pageHeight > window.innerHeight) {
-                    let availableHeight = window.innerHeight - top;
+                  if (
+                    pagesTop + pageHeight >
+                    window.innerHeight /* && width >= maxPageWidth*/
+                  ) {
+                    let availableHeight = window.innerHeight - pagesTop;
                     if (availableHeight <= minPageHeight)
                       availableHeight = minPageHeight;
-                    width = availableHeight * (4 / 5);
+                    width = min(
+                      window.visualViewport.width,
+                      availableHeight * pageRatio,
+                    );
                   }
-
+                  // width = floor(width);
                   binding.style.width = width + "px";
-                  topBar.style.width = max(width, computedWrapper) + "px";
                   binding.style.fontSize = width * 0.03 + "px";
                 };
 
@@ -1200,7 +1229,7 @@ export const handler = async (event, context) => {
                   if (!document.body.contains(binding)) {
                     window.removeEventListener(resizeEvent);
                   } else {
-                    computeTypeSize();
+                    computePageLayout();
                   }
                 });
               }
@@ -1252,7 +1281,7 @@ export const handler = async (event, context) => {
                             currentWidth !== previousWidth ||
                             g.scrollHeight > 0
                           ) {
-                            computeTypeSize?.();
+                            computePageLayout?.();
                           } else {
                             requestAnimationFrame(() =>
                               checkWidthSettled(currentWidth),
