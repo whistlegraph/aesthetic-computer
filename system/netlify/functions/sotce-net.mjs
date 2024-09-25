@@ -3,13 +3,14 @@
 
 /* #region 🟢 TODO 
 
-
   *** ⭐ Page Composition ***
   - [🧗] Add page count and title header to design.
+    - [-] Title header
   - [] Build out editor css to match page design exactly. 
   - [] keep draft remotely / have a "published" flag on pages
-  - [] show rules / timer under the form?
+  - [] show rules or timer under the form?
   + Done 
+  - [x] page count
   - [x] Test scaffolded end<->end page creation logic.
   - [x] add endpoint for submitting a "page"
   - [x] add the 'write a page' button
@@ -17,8 +18,9 @@
   - [x] show the form, maybe in a modal?
 
   *** 📟 Page Feed ***
-   - [] upscrolling
-   - [] editing / modification on a page
+  - [📄] `eared` corner menu that shows byline 
+  + Done
+  - [x] upscrolling
 
   *** 🛂 Page Controls ***
   - [] redaction
@@ -26,10 +28,8 @@
   *** 📧 Email Notifications for Pages ***
   - [] email new pages to each subscriber, and include the contents?
     - [] make an 'eblast' endpoint for this
-    - [] add the checkbox under the main page
-
-  *** 📄 Page Reactions ***
-  - [] Add some kind of handle based reaction for pages? (touch?)
+    - [] add the checkbox under the main page for whether to receive them
+         or not
 
   *** 📊 Statistics ***
   - [] Show number of subscribed users so far - maybe in the closed donut or
@@ -37,7 +37,6 @@
   - [] Add some form of google analytics.
 
   *** 🖨️ Typography & Design ***
-  - [] Use actual 'Helvetica' for the font? Or try to choose a special sans-serif.
   - [] Test mobile designs locally.
 
   *** 🛩️ Pre-flight ***
@@ -47,9 +46,12 @@
 
   --- ☁️ Post-Launch ☁️ ---
   - [] Automatic Dark Theme
-  - [] Patreon linkage?
-  - [] print 🖨️ css
-  - [] better ctrl+ page zoom logic / layout fixes
+  - [] Add some kind of handle based reaction for pages? (touch?)
+  - [] Print 🖨️ CSS
+  - [c] Patreon linkage.
+  *** Accessibility ***
+    - [] Cleaner Ctrl +/- zoom logic / layout fixes.
+    - [] Relational scrolling. 
   - [] Search / hashtags
   + Done
   *** Page Layout ***
@@ -101,6 +103,7 @@ import {
   authorize,
   deleteUser,
   hasAdmin,
+  handleFor,
   getHandleOrEmail,
   userIDFromEmail,
 } from "../../backend/authorization.mjs";
@@ -380,19 +383,61 @@ export const handler = async (event, context) => {
               box-sizing: border-box;
               user-select: text;
             }
-            #garden article.page p {
+            #garden article.page .words {
               /* font-size will be set in javascript
                  badsed on the parent container */
               line-height: 1.5em; /* Maintains a consistent line height relative to font size */
               text-align: left;
               margin: 0;
               padding: 0;
+              margin-top: 15%;
+              text-indent: 1em;
+            }
+            #garden article.page div.page-number {
+              position: absolute;
+              bottom: 5%;
+              left: 0;
+              width: 100%;
+              text-align: center;
+              color: black;
+            }
+            /* #garden article.page div.byline {
+              position: absolute;
+              bottom: 2%;
+              left: 0;
+              width: 100%;
+              text-align: center;
+              color: black;
+            } */
+
+            #garden article.page div.ear {
+              width: 15%;
+              padding-top: 15%;
+              background: yellow;
+              position: absolute;
+              bottom: 0;
+              right: 0;
+            }
+
+            #garden article.page div.ear:hover {
+              border-left: 2px solid black;
+              border-top: 2px solid black;
+            }
+
+            #garden article.page div.page-title {
+              position: absolute;
+              top: 6.5%;
+              left: 0;
+              width: 100%;
+              text-align: center;
+              color: black;
+              /* background: red; */
             }
             /* The default template for page styling. */
             #garden article.page.page-style-a {
               /* background: yellow; */
             }
-            .page p::selection {
+            .page *::selection {
               background-color: var(--button-background-highlight);
               /* color: black; */
             }
@@ -466,6 +511,7 @@ export const handler = async (event, context) => {
               width: 90px;
               height: 90px;
               filter: drop-shadow(0px -6px 6px var(--background-color))
+                /* drop-shadow(2px 6px 4px var(--background-color)) */
                 drop-shadow(4px -14px 0px var(--background-color));
             }
             #cookie-menu-img {
@@ -598,7 +644,7 @@ export const handler = async (event, context) => {
             const cel = (el) => document.createElement(el); // shorthand
             let fullAlert;
             let waitForSubscriptionSuccessThreeTimes = false;
-            const { floor, min, max } = Math;
+            const { round, abs, floor, ceil, min, max } = Math;
 
             // 🌠 Initialization
 
@@ -1161,7 +1207,7 @@ export const handler = async (event, context) => {
                 binding.id = "binding";
                 binding.classList.add("hidden");
 
-                pages.forEach((page) => {
+                pages.forEach((page, index) => {
                   const pageEl = cel("article");
                   pageEl.classList.add("page");
 
@@ -1169,37 +1215,60 @@ export const handler = async (event, context) => {
                   //    the default.
                   pageEl.classList.add("page-style-a");
 
+                  const pageTitle = cel("div");
+                  pageTitle.classList.add("page-title");
+                  pageTitle.innerText = "My First Book";
+
+
+                  const pageNumber = cel("div");
+                  pageNumber.classList.add("page-number");
+                  // pageNumber.innerText = "🙙 " + (index + 1) + " 🙛";
+                  pageNumber.innerText = "🙛 " + (index + 1) + " 🙙";
+
+                  const ear = cel("div");
+                  ear.classList.add("ear");
+
+                  // const byLine = cel("div");
+                  // byLine.classList.add("byline");
+                  // byLine.innerText = page.handle
+                  //   ? "@" + page.handle
+                  //   : "Unknown";
+
                   const wordsEl = cel("p");
+                  wordsEl.classList.add("words");
                   wordsEl.innerText = page.words;
+
+                  pageEl.appendChild(pageTitle);
                   pageEl.appendChild(wordsEl);
-                  // 🔴 TODO: Add date and perhaps page number / a special bar?
+                  pageEl.appendChild(pageNumber);
+                  pageEl.appendChild(ear);
+                  // pageEl.appendChild(byLine);
                   binding.appendChild(pageEl);
                 });
 
                 g.appendChild(binding);
 
-                computePageLayout = function () {
+                computePageLayout = function (e) {
+                  // Relational scroll wip - 24.09.25.17.43
+                  // const bindingRect = binding.getBoundingClientRect();
+                  // if (
+                  //   abs(round(bindingRect.top - document.body.clientHeight)) ===
+                  //   document.body.scrollHeight
+                  // ) {
+                  //   console.log("🌊 At bottom...");
+                  // }
+
                   const pagesTop =
                     window.visualViewport.width <= ${miniBreakpoint} ? 72 : 100;
-
-                  console.log(
-                    "Visual width:",
-                    window.visualViewport.width,
-                    "height:",
-                    window.visualViewport.height,
-                  );
-
                   const rat =
                     (window.innerHeight - pagesTop) /
                     window.visualViewport.width;
-
                   const computedWrapper = parseInt(
                     window.getComputedStyle(wrapper).width,
                   );
-
                   const maxPageWidth = Infinity;
                   const minPageWidth = 0; // Set your minimum width here.
-                  const minPageHeight = 600; //550;
+                  const minPageHeight = 500; // 600;
                   const pageRatio = 4 / 5;
                   let width = max(
                     minPageWidth,
@@ -1218,20 +1287,32 @@ export const handler = async (event, context) => {
                       availableHeight * pageRatio,
                     );
                   }
-                  // width = floor(width);
                   binding.style.width = width + "px";
                   binding.style.fontSize = width * 0.03 + "px";
+
+                  // Retain scroll level.
+                  // if (scrollRatio >= 1) {
+                  //   document.body.scrollTop =
+                  //     document.body.scrollHeight - document.body.clientHeight;
+                  //   console.log("🟠 Re-scroll to bottom!");
+                  // }
                 };
 
                 binding.classList.remove("hidden");
 
-                window.addEventListener("resize", function resizeEvent() {
+                let previousBodyHeight = document.body.clientHeight;
+
+                window.addEventListener("resize", function resizeEvent(e) {
                   if (!document.body.contains(binding)) {
                     window.removeEventListener(resizeEvent);
                   } else {
-                    computePageLayout();
+                    computePageLayout(e);
                   }
                 });
+
+                // window.addEventListener("scroll", function scrollEvent(e) {
+                //  console.log("scroll", e);
+                // });
               }
 
               const cookieMenu = cel("div");
@@ -1434,7 +1515,7 @@ export const handler = async (event, context) => {
               spinner.classList.add("showing");
             }, 250);
 
-            async function spinnerPass(callback) {
+            async function spinnerPass(callback, type) {
               clearTimeout(spinnerTO);
               let page;
               if (spinner.classList.contains("showing")) {
@@ -1444,6 +1525,10 @@ export const handler = async (event, context) => {
                     () => {
                       spinner.remove();
                       page?.classList.remove("obscured"); // Show 'gate' / 'garden'
+                      if (type === "garden")
+                        document.body.scrollTop =
+                          document.body.scrollHeight -
+                          document.body.clientHeight;
                       if (GATE_WAS_UP)
                         document
                           .getElementById("gate-curtain")
@@ -1506,7 +1591,10 @@ export const handler = async (event, context) => {
                   }
 
                   if (entered?.subscribed) {
-                    await spinnerPass(async () => await garden(entered, user));
+                    await spinnerPass(
+                      async () => await garden(entered, user),
+                      "garden",
+                    );
                   } else if (entered !== "error") {
                     await spinnerPass(async () => await gate("verified", user));
                   } else {
@@ -1944,15 +2032,27 @@ export const handler = async (event, context) => {
         // 👸 Administrator status.
         const isAdmin = await hasAdmin(user, "sotce");
         if (isAdmin) out.admin = isAdmin;
-        console.log(isAdmin, out);
+        console.log("🔴 Admin:", isAdmin);
 
         // 📓 Recent Pages
         const database = await connect();
         const pages = database.db.collection("pages");
         // Get page content from the database.
         const retrievedPages = await pages
-          .aggregate([{ $sort: { when: -1 } }, { $limit: 100 }])
+          .aggregate([{ $sort: { when: 1 } }, { $limit: 100 }])
           .toArray();
+
+        // Add a 'handle' field to each page record.
+        const subsToHandles = {}; // Cache handles on this go around.
+        for (const [index, page] of retrievedPages.entries()) {
+          let handle = subsToHandles[page.user];
+          if (!handle) {
+            handle = await handleFor(page.user, "sotce");
+            if (handle) subsToHandles[page.user] = handle;
+          }
+          page.handle = handle;
+        }
+
         out.pages = retrievedPages;
         await database.disconnect();
 
@@ -2116,7 +2216,7 @@ export const handler = async (event, context) => {
             parties.
           </p>
           <p>
-            Sotce Net is served by
+            Sotce Net is brought to you by the partnership of <code><a href="https://sotce.com">Sotce</a></code> and
             <code><a href="https://aesthetic.computer/privacy-policy">Aesthetic Computer</code>.</a>
           </p>
           <p>
@@ -2126,7 +2226,7 @@ export const handler = async (event, context) => {
           <a href="${dev ? "/sotce-net" : "/"}"><img width="128" src="${assetPath + "cookie.png"}" /></a>
           <br />
           <br />
-          <sub>Edited on September 7, 2024</sub>
+          <sub>Edited on September 25, 2024</sub>
         </body>
       </html>
     `;
@@ -2217,7 +2317,7 @@ const reloadScript = html`
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data);
         if (msg.type === "reload" && msg.content.piece === "*refresh*") {
-          console.log("🧦 ♻️ Reloading...");
+          console.log("🧦 Reloading...");
           clearTimeout(reloadTimeout);
           reloadTimeout = setTimeout(() => {
             const sessionItem = localStorage.getItem("session-sotce");
