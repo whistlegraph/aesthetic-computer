@@ -306,7 +306,7 @@ export const handler = async (event, context) => {
             }
             #garden #top-bar {
               position: fixed;
-              width: 100%;
+              /* width: is calculated dynamically based on binding width */
               background: linear-gradient(
                 to bottom,
                 rgba(255, 230, 225, 1) 25%,
@@ -1157,38 +1157,40 @@ export const handler = async (event, context) => {
 
                 computeTypeSize = function () {
                   const rat =
-                    (window.innerHeight - ${pagesTop / 1.5}) /
+                    (window.innerHeight - ${pagesTop}) /
                     window.visualViewport.width;
+
                   const computedWrapper = parseInt(
                     window.getComputedStyle(wrapper).width,
                   );
 
-                  // const maxPageWidth = 850; // 540;
                   const maxPageWidth = Infinity;
-                  const minPageWidth = 220;
-
+                  const minPageWidth = 220; // Set your minimum width here
+                  const minPageHeight = 500; // Set a minimum page height to avoid overly thin boxes
+                  const top = ${pagesTop};
                   const pageRatio = 4 / 5;
 
-                  const width = max(
+                  // First calculate the width as per your existing logic
+                  let width = max(
                     minPageWidth,
                     min(
                       maxPageWidth,
-                      min(1, rat) * (computedWrapper * pageRatio),
+                      min(1, rat) * (computedWrapper),
                     ),
                   );
 
-                  // TODO: How can I take into account that the first page
-                  //       starts 100px down from the top, so that the width
-                  //       that gets calculated here ensures the page fits onscreen.
-                  // console.log("Ratio:", rat);
-                  // console.log(
-                  //   "Ratio:", rat,
-                  //   "Computed wrapper:",
-                  //   computedWrapper,
-                  //   "Page size computed:",
-                  //   width,
-                  // );
+                  const pageHeight = width / pageRatio;
+
+                  // Check if the total height exceeds the window height and adjust the width accordingly
+                  if (top + pageHeight > window.innerHeight) {
+                    let availableHeight = window.innerHeight - top;
+                    if (availableHeight <= minPageHeight)
+                      availableHeight = minPageHeight;
+                    width = availableHeight * (4 / 5);
+                  }
+
                   binding.style.width = width + "px";
+                  topBar.style.width = max(width, computedWrapper) + "px";
                   binding.style.fontSize = width * 0.03 + "px";
                 };
 
