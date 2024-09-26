@@ -7,6 +7,7 @@
   - [🟠] Build out the editor form to match page design.
   - [] keep draft remotely / have a "published" flag on pages
   - [] show rules or timer under the form?
+  - [] enforce global uniqueness on page content
   + Done 
   - [x] Add page count and title header to design.
   - [x] Title header
@@ -166,9 +167,6 @@ export const handler = async (event, context) => {
               height: 100%;
               background: var(--background-color);
               position: relative;
-            }
-            #wrapper.scroll-freeze {
-              overflow: hidden;
             }
             #wrapper.reloading {
               filter: blur(2px) saturate(1.25);
@@ -372,6 +370,32 @@ export const handler = async (event, context) => {
               margin-right: auto;
               box-sizing: border-box;
             }
+
+            #editor-page {
+              font-family: serif;
+              background-color: white;
+              border: 0.1em solid black;
+              padding: 1em;
+              aspect-ratio: 4 / 5;
+              position: relative;
+              /* TODO: 🟠 Come up with editor page sizing in javascript... */
+            }
+
+            #editor nav {
+              padding-top: 1em;
+              justify-content: space-between;
+              width: 100%;
+              padding-left: 1em;
+              padding-right: 1em;
+              box-sizing: border-box;
+              display: flex;
+            }
+
+            .page *::selection {
+              background-color: var(--button-background-highlight);
+              /* color: black; */
+            }
+
             #garden article.page {
               font-family: serif;
               background-color: white;
@@ -382,23 +406,16 @@ export const handler = async (event, context) => {
               margin-right: auto;
               width: 100%;
               aspect-ratio: 4 / 5;
-              transform-origin: top left;
+              /* transform-origin: top left; */
               position: relative;
               /* overflow: hidden; */
               box-sizing: border-box;
               user-select: text;
             }
-            #garden article.page .words {
-              /* font-size will be set in javascript
-                 badsed on the parent container */
-              line-height: 1.5em; /* Maintains a consistent line height relative to font size */
-              text-align: left;
-              margin: 0;
-              padding: 0;
-              margin-top: 15%;
-              text-indent: 1em;
-            }
-            #garden article.page div.page-number {
+
+            #garden article.page div.page-number,
+            #editor-page div.page-number
+             {
               position: absolute;
               bottom: 5%;
               left: 0;
@@ -406,6 +423,38 @@ export const handler = async (event, context) => {
               text-align: center;
               color: black;
             }
+
+            #garden article.page div.page-title ,
+            #editor-page div.page-title {
+              position: absolute;
+              top: 6.5%;
+              left: 0;
+              width: 100%;
+              text-align: center;
+              color: black;
+              /* background: red; */
+            }
+
+            /* The default template for page styling. */
+            #garden article.page.page-style-a {
+              /* background: yellow; */
+            }
+
+            #garden article.page .words {
+              /* font-size will be set in javascript
+                 based on the parent container */
+              /* line-height: 1.5em; */
+              text-align: left;
+              margin: 0;
+              margin-top: 15%;
+              padding: 0 2em;
+              /* text-indent: 1em; */
+              text-align: justify;
+              line-height: 1.6;
+              height: 78%; // 100%;
+              overflow: hidden;
+            }
+
             /* ✏️️📄 Page Editor */
             #garden #editor {
               position: fixed;
@@ -420,14 +469,25 @@ export const handler = async (event, context) => {
               display: flex;
               /* background: gray; */
             }
+
             #garden #editor form {
               margin: auto;
             }
 
             #garden #editor textarea {
-              border: 1em solid black;
-              width: 300px;
+              border: none;
+              font-family: serif;
+              width: 100%;
+              resize: none;
               display: block;
+              background: yellow;
+              margin-top: 15%;
+              padding: 0 2em;
+              text-indent: 0em;
+              text-align: justify;
+              line-height: 1.6;
+              height: 78%; // 100%;
+              overflow: hidden;
             }
 
             /* 🐕 Doggy Ear Rendering */
@@ -482,24 +542,6 @@ export const handler = async (event, context) => {
               background: rgb(240, 240, 240);
               /* background: var(--button-background-highlight); */
               /* filter: drop-shadow(0px 0px 4px yellow); */
-            }
-
-            #garden article.page div.page-title {
-              position: absolute;
-              top: 6.5%;
-              left: 0;
-              width: 100%;
-              text-align: center;
-              color: black;
-              /* background: red; */
-            }
-            /* The default template for page styling. */
-            #garden article.page.page-style-a {
-              /* background: yellow; */
-            }
-            .page *::selection {
-              background-color: var(--button-background-highlight);
-              /* color: black; */
             }
             #email {
               position: relative;
@@ -1236,24 +1278,49 @@ export const handler = async (event, context) => {
                   // 🔴 TODO: Auto-drafting via the cloud, at certain
                   //          intervals after changes? 24.09.13.00.57
 
-                  const text = cel("textarea");
+                  const page = cel("div");
+                  page.id = "editor-page";
+
+                  const words = cel("textarea");
+
+                  const nav = cel("nav");
 
                   const submit = cel("button");
                   submit.type = "submit";
                   submit.innerText = "submit";
 
                   const nevermind = cel("button");
-                  nevermind.innerText = "nevermind";
+                  nevermind.innerText = "draft";
 
-                  form.appendChild(text);
-                  form.appendChild(submit);
-                  form.appendChild(nevermind);
+                  const pageTitle = cel("div");
+                  pageTitle.classList.add("page-title");
+                  pageTitle.innerText = "My First Book";
+
+                  const pageNumber = cel("div");
+                  pageNumber.classList.add("page-number");
+                  // pageNumber.innerText = "🙙 " + (index + 1) + " 🙛";
+                  pageNumber.innerText = "🙛 " + (subscription.pages.length + 1) + " 🙙";
+
+                  page.appendChild(pageTitle);
+                  page.appendChild(pageNumber);
+                  page.appendChild(words);
+
+                  form.appendChild(page);
+                  nav.appendChild(nevermind);
+                  nav.appendChild(submit);
+                  form.appendChild(nav);
+
+                  // function preventScroll(e) {
+                  //   console.log(e);
+                  //   e.preventDefault();
+                  //   return false;
+                  // }
 
                   nevermind.onclick = (e) => {
                     e.preventDefault();
                     editor.remove();
                     writeButton.classList.remove("deactivated");
-                    wrapper.classList.remove("scroll-freeze");
+                    // window.removeEventListener("scroll", preventScroll);
                   };
 
                   form.addEventListener("submit", async (e) => {
@@ -1267,16 +1334,15 @@ export const handler = async (event, context) => {
                     } else {
                       console.error("🪧 Unwritten:", res);
                     }
-                    // 🔴 TODO: The dialogue should close appropriately here.
                   });
 
                   editor.appendChild(form);
                   g.appendChild(editor);
                   writeButton.classList.add("deactivated");
-                  wrapper.classList.add("scroll-freeze");
+                  // window.addEventListener("scroll", preventScroll, {
+                  //   passive: false,
+                  // });
                 };
-
-                console.log("Writing:", WRITING_A_PAGE);
 
                 if (WRITING_A_PAGE) {
                   writeButton.click();
@@ -1453,10 +1519,6 @@ export const handler = async (event, context) => {
                     computePageLayout(e);
                   }
                 });
-
-                // window.addEventListener("scroll", function scrollEvent(e) {
-                //  console.log("scroll", e);
-                // });
               }
 
               const cookieMenu = cel("div");
