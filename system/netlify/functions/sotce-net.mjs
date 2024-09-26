@@ -4,23 +4,18 @@
 /* #region 🟢 TODO 
 
   *** ⭐ Page Composition ***
-  - [🧗] Add page count and title header to design.
-    - [-] Title header
-  - [] Build out editor css to match page design exactly. 
+  - [🟠] Build out the editor form to match page design.
   - [] keep draft remotely / have a "published" flag on pages
   - [] show rules or timer under the form?
   + Done 
+  - [x] Add page count and title header to design.
+  - [x] Title header
   - [x] page count
   - [x] Test scaffolded end<->end page creation logic.
   - [x] add endpoint for submitting a "page"
   - [x] add the 'write a page' button
         whitelisted for admin users
   - [x] show the form, maybe in a modal?
-
-  *** 📟 Page Feed ***
-  - [📄] `eared` corner menu that shows byline 
-  + Done
-  - [x] upscrolling
 
   *** 🛂 Page Controls ***
   - [] redaction
@@ -54,6 +49,9 @@
     - [] Relational scrolling. 
   - [] Search / hashtags
   + Done
+  *** 📟 Page Feed ***
+  - [📄] `eared` corner menu that shows byline 
+  - [x] upscrolling
   *** Page Layout ***
   - [x] Check that layouts don't break with page zoom feature, and that
          text actually gets larger.
@@ -168,6 +166,9 @@ export const handler = async (event, context) => {
               height: 100%;
               background: var(--background-color);
               position: relative;
+            }
+            #wrapper.scroll-freeze {
+              overflow: hidden;
             }
             #wrapper.reloading {
               filter: blur(2px) saturate(1.25);
@@ -293,6 +294,7 @@ export const handler = async (event, context) => {
               justify-content: space-between;
             }
             #gate nav button,
+            #editor button,
             #write-a-page {
               color: black;
               background: var(--button-background);
@@ -308,8 +310,11 @@ export const handler = async (event, context) => {
             #write-a-page {
               margin-left: 1em;
               margin-top: 1em;
-              /* z-index: 3; */
-              /* position: fixed; */
+              /* transition: 0.25s filter; */
+            }
+            #write-a-page.deactivated {
+              pointer-events: none;
+              /* filter: saturate(0.5); */
             }
             #garden #top-bar {
               position: fixed;
@@ -324,10 +329,12 @@ export const handler = async (event, context) => {
               height: 72px;
             }
             #gate nav button:hover,
+            #editor button:hover,
             #write-a-page:hover {
               background: var(--button-background-highlight);
             }
             #gate nav button:active,
+            #editor button:active,
             #write-a-page:active {
               filter: drop-shadow(
                 -0.035em 0.035em 0.035em rgba(40, 40, 40, 0.8)
@@ -375,11 +382,9 @@ export const handler = async (event, context) => {
               margin-right: auto;
               width: 100%;
               aspect-ratio: 4 / 5;
-              /*max-width: calc(800px / 2);*/
-              /*max-height: calc(1000px / 2);*/
               transform-origin: top left;
               position: relative;
-              overflow: hidden;
+              /* overflow: hidden; */
               box-sizing: border-box;
               user-select: text;
             }
@@ -401,27 +406,82 @@ export const handler = async (event, context) => {
               text-align: center;
               color: black;
             }
-            /* #garden article.page div.byline {
-              position: absolute;
-              bottom: 2%;
-              left: 0;
+            /* ✏️️📄 Page Editor */
+            #garden #editor {
+              position: fixed;
               width: 100%;
-              text-align: center;
-              color: black;
-            } */
+              height: 100%;
+              top: 0;
+              left: 0;
+              border: none;
+              z-index: 4;
+              background: rgba(255, 255, 255, 0.5);
+              padding: 0;
+              display: flex;
+              /* background: gray; */
+            }
+            #garden #editor form {
+              margin: auto;
+            }
 
+            #garden #editor textarea {
+              border: 1em solid black;
+              width: 300px;
+              display: block;
+            }
+
+            /* 🐕 Doggy Ear Rendering */
             #garden article.page div.ear {
-              width: 15%;
-              padding-top: 15%;
-              background: yellow;
+              width: 15%; /* rounded by js */
+              background: transparent;
               position: absolute;
-              bottom: 0;
-              right: 0;
+              box-sizing: border-box;
+              cursor: pointer;
             }
 
             #garden article.page div.ear:hover {
-              border-left: 2px solid black;
-              border-top: 2px solid black;
+              background: var(--background-color);
+              border-left: 0.1em solid black;
+              border-top: 0.1em solid black;
+            }
+
+            #garden article.page div.ear:hover::before {
+              content: "";
+              position: absolute;
+              bottom: 0;
+              right: 0;
+              width: 100%;
+              height: 100%;
+              background: black;
+              clip-path: polygon(0 0, calc(100%) 0, 0 calc(100%));
+              z-index: 1;
+              user-select: none;
+              pointer-events: none;
+            }
+
+            #garden article.page div.ear:hover::after {
+              /* #garden article.page div.ear:active::after { */
+              content: "";
+              position: absolute;
+              bottom: 0;
+              right: 0;
+              width: 100%;
+              height: 100%;
+              background: rgb(250, 250, 250);
+              clip-path: polygon(
+                0 0,
+                calc(100% - 0.1em) 0,
+                0 calc(100% - 0.1em)
+              );
+              z-index: 2;
+              user-select: none;
+              pointer-events: none;
+            }
+
+            #garden article.page div.ear:active::after {
+              background: rgb(240, 240, 240);
+              /* background: var(--button-background-highlight); */
+              /* filter: drop-shadow(0px 0px 4px yellow); */
             }
 
             #garden article.page div.page-title {
@@ -671,12 +731,18 @@ export const handler = async (event, context) => {
 
             // Reload the page with the gate open in development.
             let GATE_WAS_UP = false;
+            let WRITING_A_PAGE = false;
 
             if (dev) {
               const params = url.searchParams;
-              const param = params.get("gate");
-              GATE_WAS_UP = param === "up";
+              // Gate
+              const gateParam = params.get("gate");
+              GATE_WAS_UP = gateParam === "up";
               params.delete("gate");
+              // Editor
+              const writingParam = params.get("writing");
+              WRITING_A_PAGE = writingParam === "page";
+              params.delete("writing");
               cleanUrlParams(url, params);
             }
 
@@ -1161,6 +1227,7 @@ export const handler = async (event, context) => {
 
                 writeButton.onclick = function compose() {
                   const editor = cel("dialog");
+                  editor.id = "editor";
                   editor.setAttribute("open", "");
 
                   const form = cel("form");
@@ -1170,11 +1237,25 @@ export const handler = async (event, context) => {
                   //          intervals after changes? 24.09.13.00.57
 
                   const text = cel("textarea");
-                  const submit = cel("input");
+
+                  const submit = cel("button");
                   submit.type = "submit";
+                  submit.innerText = "submit";
+
+                  const nevermind = cel("button");
+                  nevermind.innerText = "nevermind";
 
                   form.appendChild(text);
                   form.appendChild(submit);
+                  form.appendChild(nevermind);
+
+                  nevermind.onclick = (e) => {
+                    e.preventDefault();
+                    editor.remove();
+                    writeButton.classList.remove("deactivated");
+                    wrapper.classList.remove("scroll-freeze");
+                  };
+
                   form.addEventListener("submit", async (e) => {
                     const res = await userRequest(
                       "POST",
@@ -1191,10 +1272,18 @@ export const handler = async (event, context) => {
 
                   editor.appendChild(form);
                   g.appendChild(editor);
+                  writeButton.classList.add("deactivated");
+                  wrapper.classList.add("scroll-freeze");
                 };
 
+                console.log("Writing:", WRITING_A_PAGE);
+
+                if (WRITING_A_PAGE) {
+                  writeButton.click();
+                  WRITING_A_PAGE = false;
+                }
+
                 topBar.appendChild(writeButton);
-                // g.appendChild(writeButton);
               }
 
               let computePageLayout;
@@ -1219,7 +1308,6 @@ export const handler = async (event, context) => {
                   pageTitle.classList.add("page-title");
                   pageTitle.innerText = "My First Book";
 
-
                   const pageNumber = cel("div");
                   pageNumber.classList.add("page-number");
                   // pageNumber.innerText = "🙙 " + (index + 1) + " 🙛";
@@ -1228,11 +1316,48 @@ export const handler = async (event, context) => {
                   const ear = cel("div");
                   ear.classList.add("ear");
 
+                  ear.onclick = () => {
+                    const author = page.handle ? "@" + page.handle : "Unknown";
+
+                    // Parse the timestamp from page.when
+                    const date = new Date(page.when);
+
+                    // Format the date
+                    const dateOptions = {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    };
+                    const formattedDate = date.toLocaleDateString(
+                      "en-US",
+                      dateOptions,
+                    );
+
+                    // Format the time
+                    const timeOptions = {
+                      hour: "numeric",
+                      minute: "numeric",
+                      hour12: true,
+                    };
+                    const formattedTime = date.toLocaleTimeString(
+                      "en-US",
+                      timeOptions,
+                    );
+
+                    window.alert(
+                      "📄 Written by " +
+                        author +
+                        " on " +
+                        formattedDate +
+                        " at " +
+                        formattedTime +
+                        ".",
+                    );
+                  };
+
                   // const byLine = cel("div");
                   // byLine.classList.add("byline");
-                  // byLine.innerText = page.handle
-                  //   ? "@" + page.handle
-                  //   : "Unknown";
 
                   const wordsEl = cel("p");
                   wordsEl.classList.add("words");
@@ -1268,7 +1393,7 @@ export const handler = async (event, context) => {
                   );
                   const maxPageWidth = Infinity;
                   const minPageWidth = 0; // Set your minimum width here.
-                  const minPageHeight = 500; // 600;
+                  const minPageHeight = 600;
                   const pageRatio = 4 / 5;
                   let width = max(
                     minPageWidth,
@@ -1287,8 +1412,27 @@ export const handler = async (event, context) => {
                       availableHeight * pageRatio,
                     );
                   }
+
+                  width = round(width);
                   binding.style.width = width + "px";
                   binding.style.fontSize = width * 0.03 + "px";
+
+                  const ears = document.querySelectorAll(
+                    "#garden article.page div.ear",
+                  );
+
+                  ears.forEach((ear) => {
+                    ear.style = "";
+                    const earStyle = window.getComputedStyle(ear);
+                    const computedWidth = parseFloat(earStyle.width);
+                    const computedBottom = parseFloat(earStyle.bottom);
+                    const computedRight = parseFloat(earStyle.right);
+                    const roundedW = round(computedWidth);
+                    ear.style.width = roundedW + "px";
+                    ear.style.height = roundedW + "px";
+                    ear.style.top = "calc(100% - " + (roundedW - 2) + "px)";
+                    ear.style.left = "calc(100% - " + (roundedW - 2) + "px)";
+                  });
 
                   // Retain scroll level.
                   // if (scrollRatio >= 1) {
@@ -1352,12 +1496,6 @@ export const handler = async (event, context) => {
                           const currentWidth = parseInt(
                             window.getComputedStyle(wrapper).width,
                           );
-                          // console.log("Widths:", currentWidth, previousWidth);
-                          // console.log(
-                          //   "Heights:",
-                          //   g.scrollHeight,
-                          //   window.innerHeight,
-                          // );
                           if (
                             currentWidth !== previousWidth ||
                             g.scrollHeight > 0
@@ -1369,14 +1507,11 @@ export const handler = async (event, context) => {
                             );
                           }
                         };
-
-                        // Start the width-checking loop
                         requestAnimationFrame(() =>
                           checkWidthSettled(
                             parseInt(window.getComputedStyle(wrapper).width),
                           ),
                         );
-
                         observer.disconnect();
                         break;
                       }
@@ -2322,14 +2457,23 @@ const reloadScript = html`
           reloadTimeout = setTimeout(() => {
             const sessionItem = localStorage.getItem("session-sotce");
             const gateUp = document.querySelector("#gate-curtain:not(.hidden)");
+            const writingAPage = document.querySelector("dialog#editor");
             if (sessionItem) {
               const url = new URL(window.location.href);
               url.searchParams.set("session-sotce", "retrieve");
-              if (gateUp) url.searchParams.set("gate", "up");
+              if (gateUp) {
+                url.searchParams.set("gate", "up");
+              } else if (writingAPage) {
+                url.searchParams.set("writing", "page");
+              }
               window.location.href = url.toString();
             } else {
               const url = new URL(window.location.href);
-              if (gateUp) url.searchParams.set("gate", "up");
+              if (gateUp) {
+                url.searchParams.set("gate", "up");
+              } else if (writingAPage) {
+                url.searchParams.set("writing", "page");
+              }
               window.location.href = url.toString();
             }
           }, 150); // 📓 Could take a sec for the function to reload... 24.08.08.00.53
