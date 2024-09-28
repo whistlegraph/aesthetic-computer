@@ -1,8 +1,7 @@
 // Sotce Net, 24.06.13.06.38
-// A paid diary network, 'handled' by Aesthetic Computer.
+// A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-
   *** ⭐ Page Composition ***
   - [🟠] Build out the editor form to match page design.
   - [] keep draft remotely / have a "published" flag on pages
@@ -18,14 +17,20 @@
         whitelisted for admin users
   - [x] show the form, maybe in a modal?
 
-  *** 🛂 Page Controls ***
-  - [] redaction
+  *** 🖐️ "Touches" *** 
+  - [] Add some kind of handle based reaction for pages? (touch?)
+       @blahblah and x others touched this pages.
+       'ear'
+   - [] add 'bio' text 
 
   *** 📧 Email Notifications for Pages ***
   - [] email new pages to each subscriber, and include the contents?
     - [] make an 'eblast' endpoint for this
     - [] add the checkbox under the main page for whether to receive them
          or not
+  
+  *** ask a question ***
+  - [] a button in the corner for chat
 
   *** 📊 Statistics ***
   - [] Show number of subscribed users so far - maybe in the closed donut or
@@ -33,6 +38,7 @@
   - [] Add some form of google analytics.
 
   *** 🖨️ Typography & Design ***
+  - [] More unique look for pages.
   - [] Test mobile designs locally.
 
   *** 🛩️ Pre-flight ***
@@ -41,8 +47,9 @@
   --- 🏁 Launch 🏁 ---
 
   --- ☁️ Post-Launch ☁️ ---
+  *** 🛂 Page Controls ***
+  - [] redaction
   - [] Automatic Dark Theme
-  - [] Add some kind of handle based reaction for pages? (touch?)
   - [] Print 🖨️ CSS
   - [c] Patreon linkage.
   *** Accessibility ***
@@ -398,7 +405,7 @@ export const handler = async (event, context) => {
 
             #garden article.page {
               font-family: serif;
-              background-color: white;
+              background-color: white; // rgb(200, 200, 240);
               border: 0.1em solid black;
               padding: 1em;
               margin-bottom: 1em;
