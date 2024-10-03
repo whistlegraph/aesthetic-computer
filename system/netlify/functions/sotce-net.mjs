@@ -5,12 +5,12 @@
 
 
   *** ⭐ Page Composition ***
-  - [] Fix justified text reflow.
-
+  - [🚗] Fix justified text reflow.
+    - [🩷] Write last line behavior into the editor. (if possible) 
+    - [x] Write last line behavior in page renderer. 
+    - [x] Switch to transform based page renderer and editor. 
+  - [💁] Prevent overwriting past the boundary.
   - [] Fix word-break.
-
-  - [] Prevent overwriting past the boundary.
-
   - [] Keep the most recent draft remotely / have a "published" flag on pages.
   - [] Show rules or timer under the form?
   - [] Enforce global uniqueness on page content
@@ -153,7 +153,7 @@ export const handler = async (event, context) => {
     const miniBreakpoint = 245;
 
     const body = html`
-      <html>
+      <html lang="en">
         <head>
           <meta charset="utf-8" />
           <title>sotce.net</title>
@@ -381,6 +381,17 @@ export const handler = async (event, context) => {
               box-sizing: border-box;
               width: 100%;
             }
+            #nopages {
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              text-align: center;
+            }
             #binding {
               padding-top: 100px;
               padding-left: 16px;
@@ -421,23 +432,7 @@ export const handler = async (event, context) => {
               transform-origin: top left;
             }
 
-            #editor-page.editor-justify-last textarea::after,
-            #editor-page.editor-justify-last #editor-measurement::after {
-              /* text-align-last: justify; */
-              /* content: "\\200B"; */
-              /* display: inline-block; */
-              /* width: 100%; */
-            }
-
-            /* #garden article.page .words::after, 
-            #garden #editor textarea::after {
-              content: "\\200B";
-              display: inline-block;
-              width: 100%;
-            } */
-
             #editor-lines-left {
-              /* background: pink; */
               position: fixed;
               top: 1.5em;
               left: 0;
@@ -499,7 +494,7 @@ export const handler = async (event, context) => {
               /* overflow: hidden; */
               box-sizing: border-box;
               user-select: text;
-              display: flex;
+              /* display: flex; */
               width: calc(100px * 8);
               font-size: calc(3.25px * 8);
             }
@@ -539,13 +534,19 @@ export const handler = async (event, context) => {
               /* text-align-last: justify; */
               line-height: 1.6em;
               margin-top: 15%;
-              height: calc(1.6em * 18);
+              max-height: calc(1.6em * 18);
               overflow: hidden;
               padding: 0 2em;
-
+              /* display: inline-block; */
               hyphens: auto;
               word-break: break-word;
               overflow-wrap: break-word;
+            }
+
+            #garden article.page .words.justify-last-line::after {
+              content: "";
+              display: inline-block;
+              width: 100%;
             }
 
             /* #garden article.page .words::after, 
@@ -557,9 +558,9 @@ export const handler = async (event, context) => {
 
             /* ✏️️📄 Page Editor */
             #garden #editor {
-              /* position: fixed; */
+              position: fixed;
               width: 100%;
-              /* height: 100%; */
+              height: 100%;
               top: 0;
               left: 0;
               border: none;
@@ -1357,6 +1358,45 @@ export const handler = async (event, context) => {
               if (!showGate) g.classList.add("obscured");
               if (showGate) g.classList.add("hidden");
 
+              function computeLastLineText(source) {
+                const cachedText = source.innerText;
+
+                let lastHeight = source.clientHeight;
+                let line = 0;
+                let lastLineText = "";
+                source.innerText = "";
+                for (let c = 0; c < cachedText.length; c += 1) {
+                  if (line === 18) lastLineText += cachedText[c];
+                  source.innerText += cachedText[c];
+                  if (source.clientHeight !== lastHeight) {
+                    lastHeight = source.clientHeight;
+                    line += 1;
+                    if (line === 18) lastLineText += cachedText[c];
+                  }
+                }
+
+                source.innerText = cachedText;
+
+                const cs = getComputedStyle(source);
+                const cachedWidth = cs.width;
+                // source.style.width = "100%";
+                source.style.display = "block";
+                const maxWidth = source.clientWidth;
+                source.style.display = "inline-block";
+                source.innerText = "";
+                source.style.width = "auto";
+                const paddingWidth = source.clientWidth;
+                source.innerText = lastLineText;
+                console.log("👱", source.clientWidth, paddingWidth, maxWidth);
+                const lastLineProgress =
+                  (source.clientWidth - paddingWidth) /
+                  (maxWidth - paddingWidth);
+                source.style.width = cachedWidth;
+                source.style.display = "";
+                source.innerText = cachedText;
+                return { lastLineProgress, lastLineText };
+              }
+
               // 🪷 write-a-page - Create compose form.
               if (subscription?.admin) {
                 const writeButton = cel("button");
@@ -1468,8 +1508,11 @@ export const handler = async (event, context) => {
                         trimmedValue = trimmedValue.slice(0, -1);
 
                         edMeasurement.textContent = trimmedValue;
-                        if (words.value.endsWith("\\n"))
-                          edMeasurement.textContent += " ";
+                        words.value = trimmedValue;
+
+                        // console.log("🟠 trimming");
+                        // if (words.value.endsWith("\\n"))
+                        //  edMeasurement.textContent += " ";
 
                         lineCount = round(
                           edMeasurement.clientHeight / lineHeight,
@@ -1482,47 +1525,16 @@ export const handler = async (event, context) => {
                     if (remainingLines === 0) {
                       console.warn("🟠 No remaining lines!");
                       // console.log("🏋️‍♂️ Last line:", words.substr(words.lastIndexOf("\\n") + 1));
+                      const { lastLineText, lastLineProgress } =
+                        computeLastLineText(edMeasurement);
 
-                      const cachedText = edMeasurement.textContent;
-
-                      let lastHeight = edMeasurement.clientHeight;
-                      let line = 0;
-                      let lastLineText = "";
-                      let paddingWidth;
-
-                      edMeasurement.textContent = "";
-                      for (let c = 0; c < cachedText.length; c += 1) {
-                        if (line === 18) lastLineText += cachedText[c];
-                        edMeasurement.textContent += cachedText[c];
-                        if (edMeasurement.clientHeight !== lastHeight) {
-                          lastHeight = edMeasurement.clientHeight;
-                          line += 1;
-                          if (line === 18) {
-                            lastLineText += cachedText[c];
-                          }
-                          console.log("🟠 Line:", line);
-                        }
-                      }
-
-                      const cachedWidth = edMeasurement.style.width;
-                      const maxWidth = edMeasurement.clientWidth;
-                      edMeasurement.textContent = "";
-                      edMeasurement.style.width = "auto";
-                      paddingWidth = edMeasurement.clientWidth;
-                      // console.log("Padding width:", paddingWidth);
-                      edMeasurement.textContent = lastLineText;
-                      const progress =
-                        (edMeasurement.clientWidth - paddingWidth) /
-                        (maxWidth - paddingWidth);
-                      edMeasurement.style.width = cachedWidth;
-                      console.log("🛑 Last line text:", lastLineText);
-                      console.log("⌛ Last line progress:", progress);
-                      edMeasurement.textContent = cachedText;
-
-                      if (progress > 0.8) {
+                      if (lastLineProgress > 0.8) {
+                        console.log(
+                          "🟡 Progress:",
+                          lastLineProgress,
+                          lastLineText,
+                        );
                         editorPage.classList.add("editor-justify-last");
-                        edMeasurement.textContent += "\\n xxx";
-                        // Add more to text content.
                       } else {
                         editorPage.classList.remove("editor-justify-last");
                       }
@@ -1560,7 +1572,8 @@ export const handler = async (event, context) => {
 
                   const submit = cel("button");
                   submit.type = "submit";
-                  submit.innerText = "submit";
+                  submit.setAttribute("form", form.id);
+                  submit.innerText = "publish";
 
                   const nevermind = cel("button");
                   nevermind.innerText = "draft";
@@ -1599,13 +1612,20 @@ export const handler = async (event, context) => {
                   };
 
                   form.addEventListener("submit", async (e) => {
+                    console.log("📤 Publishing page...");
+                    e.preventDefault();
+                    if (words.value.trim().length === 0) {
+                      alert("📃 A page cannot be empty.");
+                      return;
+                    }
                     const res = await userRequest(
                       "POST",
                       "sotce-net/write-a-page",
-                      { words: text.value },
+                      { words: words.value },
                     );
                     if (res.status === 200) {
                       console.log("🪧 Written:", res);
+                      window.location.reload();
                     } else {
                       console.error("🪧 Unwritten:", res);
                     }
@@ -1669,6 +1689,13 @@ export const handler = async (event, context) => {
                 binding.id = "binding";
                 binding.classList.add("hidden");
 
+                if (pages.length === 0) {
+                  const nopages = cel("div");
+                  nopages.id = "nopages";
+                  nopages.innerText = "No pages written";
+                  g.appendChild(nopages);
+                }
+
                 pages.forEach((page, index) => {
                   const pageWrapper = cel("div");
                   pageWrapper.classList.add("page-wrapper");
@@ -1686,7 +1713,6 @@ export const handler = async (event, context) => {
 
                   const pageNumber = cel("div");
                   pageNumber.classList.add("page-number");
-                  // pageNumber.innerText = "🙙 " + (index + 1) + " 🙛";
                   pageNumber.innerText = "🙛 " + (index + 1) + " 🙙";
 
                   const ear = cel("div");
@@ -1744,6 +1770,7 @@ export const handler = async (event, context) => {
                   pageEl.appendChild(pageNumber);
                   pageEl.appendChild(ear);
                   pageWrapper.appendChild(pageEl);
+
                   // pageEl.appendChild(byLine);
                   binding.appendChild(pageWrapper);
                 });
@@ -1833,6 +1860,46 @@ export const handler = async (event, context) => {
                       scale = goalWidth / baseWidth;
                     }
                     page.style.transform = "scale(" + scale + ")";
+
+                    // Check to see if the last line of the page needs
+                    // justification or not.
+                    const words = page.querySelector(".words");
+                    const wcs = window.getComputedStyle(words);
+                    const lineCount = round(
+                      words.clientHeight / parseFloat(wcs.lineHeight),
+                    );
+
+                    if (lineCount === 18) {
+                      // Compute or read line progress from the cache.
+                      if (page.lastLineProgress === undefined) {
+                        const { lastLineText, lastLineProgress } =
+                          computeLastLineText(words);
+                        // console.log(
+                        //   "🚗 Max line count... checking justification.",
+                        //   lineCount,
+                        //   "Last line:",
+                        //   lastLineText,
+                        //   "Last line progress:",
+                        //   lastLineProgress,
+                        // );
+                        // console.log("Progress:", lastLineProgress);
+                        console.log(
+                          "🟡 Progress:",
+                          lastLineProgress,
+                          lastLineText,
+                        );
+                        page.lastLineProgress = lastLineProgress;
+                      }
+
+                      const endsInPeriod = words.innerText.endsWith(".");
+                      // ✍️ Line ending space converstion.
+                      if (
+                        (!endsInPeriod && page.lastLineProgress > 0.8) ||
+                        (endsInPeriod && page.lastLineProgress > 0.95)
+                      ) {
+                        words.classList.add("justify-last-line");
+                      }
+                    }
                   });
 
                   const ears = document.querySelectorAll(
