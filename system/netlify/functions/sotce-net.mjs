@@ -9,12 +9,12 @@
     - [🩷] Write last line behavior into the editor. (if possible) 
     - [x] Write last line behavior in page renderer. 
     - [x] Switch to transform based page renderer and editor. 
-  - [💁] Prevent overwriting past the boundary.
-  - [] Fix word-break.
   - [] Keep the most recent draft remotely / have a "published" flag on pages.
   - [] Show rules or timer under the form?
   - [] Enforce global uniqueness on page content
   + Done 
+  - [x] Prevent overwriting past the boundary.
+  - [x] Fix word-break.
   - [x] Add color to the 'lines left' warning. green -> orange -> red
   - [x] Build out the editor form to match page design.
   - [x] 📟 Design the editor first.
@@ -538,8 +538,9 @@ export const handler = async (event, context) => {
               overflow: hidden;
               padding: 0 2em;
               /* display: inline-block; */
+
+              /* word-break: break-word; */
               hyphens: auto;
-              word-break: break-word;
               overflow-wrap: break-word;
             }
 
@@ -593,8 +594,8 @@ export const handler = async (event, context) => {
               width: 100%;
               overflow: hidden;
 
+              /* word-break: break-word; */
               hyphens: auto;
-              word-break: break-word;
               overflow-wrap: break-word;
             }
 
@@ -1360,11 +1361,20 @@ export const handler = async (event, context) => {
 
               function computeLastLineText(source) {
                 const cachedText = source.innerText;
-
                 let lastHeight = source.clientHeight;
                 let line = 0;
                 let lastLineText = "";
                 source.innerText = "";
+
+                const cs = getComputedStyle(source);
+
+                // TODO: 🟡 Speed this up!
+                // Add chunking to the below for loop so I don't have to
+                // go through each character at once.
+                const chunkSize = 10; // Adjust the chunk size as needed
+                let chunk = "";
+                const lineHeight = parseFloat(cs.lineHeight);
+
                 for (let c = 0; c < cachedText.length; c += 1) {
                   if (line === 18) lastLineText += cachedText[c];
                   source.innerText += cachedText[c];
@@ -1376,8 +1386,6 @@ export const handler = async (event, context) => {
                 }
 
                 source.innerText = cachedText;
-
-                const cs = getComputedStyle(source);
                 const cachedWidth = cs.width;
                 // source.style.width = "100%";
                 source.style.display = "block";
@@ -1387,7 +1395,7 @@ export const handler = async (event, context) => {
                 source.style.width = "auto";
                 const paddingWidth = source.clientWidth;
                 source.innerText = lastLineText;
-                console.log("👱", source.clientWidth, paddingWidth, maxWidth);
+                // console.log("👱", source.clientWidth, paddingWidth, maxWidth);
                 const lastLineProgress =
                   (source.clientWidth - paddingWidth) /
                   (maxWidth - paddingWidth);
@@ -1395,6 +1403,15 @@ export const handler = async (event, context) => {
                 source.style.display = "";
                 source.innerText = cachedText;
                 return { lastLineProgress, lastLineText };
+              }
+
+              // ✍️ Line ending space conversion.
+              function needsJustification(text, progress) {
+                const endsInPeriod = text.endsWith(".");
+                return (
+                  (!endsInPeriod && progress > 0.8) ||
+                  (endsInPeriod && progress > 0.95)
+                );
               }
 
               // 🪷 write-a-page - Create compose form.
@@ -1474,8 +1491,8 @@ export const handler = async (event, context) => {
                     edMeasurement.style.boxSizing = wordsStyle.boxSizing;
                     edMeasurement.style.textAlign = "justify";
 
+                    // edMeasurement.style.wordBreak = "break-word";
                     edMeasurement.style.hyphens = "auto";
-                    edMeasurement.style.wordBreak = "break-word";
                     edMeasurement.style.overflowWrap = "break-word";
 
                     // edMeasurement.style.textAlignLast = "justify";
@@ -1505,35 +1522,48 @@ export const handler = async (event, context) => {
 
                       // Keep trimming characters from the end until the content fits within maxLines
                       while (lineCount > maxLines) {
+                        // trimmedValue = trimmedValue.slice(0, -1);
+
                         trimmedValue = trimmedValue.slice(0, -1);
 
                         edMeasurement.textContent = trimmedValue;
                         words.value = trimmedValue;
 
                         // console.log("🟠 trimming");
-                        // if (words.value.endsWith("\\n"))
+                        //words.value = trimmedValue;
+                        // console.log("new line ending...")
+                        //}
                         //  edMeasurement.textContent += " ";
 
                         lineCount = round(
                           edMeasurement.clientHeight / lineHeight,
                         );
+
+                        if (trimmedValue.endsWith("\\n")) {
+                          lineCount += 1; // Exception for new line characters.
+                        }
+
+                        // console.log("Line count:", lineCount);
                       }
                     }
 
                     const remainingLines = maxLines - min(lineCount, maxLines);
 
                     if (remainingLines === 0) {
-                      console.warn("🟠 No remaining lines!");
-                      // console.log("🏋️‍♂️ Last line:", words.substr(words.lastIndexOf("\\n") + 1));
                       const { lastLineText, lastLineProgress } =
                         computeLastLineText(edMeasurement);
+                      console.log(
+                        "🏋️‍♂️ Last line:",
+                        lastLineText,
+                        "Progress:",
+                        lastLineProgress,
+                      );
+                      if (needsJustification(words.value, lastLineProgress)) {
+                        console.log("🟠 Line needs justification!");
 
-                      if (lastLineProgress > 0.8) {
-                        console.log(
-                          "🟡 Progress:",
-                          lastLineProgress,
-                          lastLineText,
-                        );
+                        // TODO: 🔴 Add justification preview to the editor.
+
+                        words.classList.add("justify-last-line");
                         editorPage.classList.add("editor-justify-last");
                       } else {
                         editorPage.classList.remove("editor-justify-last");
@@ -1883,20 +1913,21 @@ export const handler = async (event, context) => {
                         //   lastLineProgress,
                         // );
                         // console.log("Progress:", lastLineProgress);
-                        console.log(
-                          "🟡 Progress:",
-                          lastLineProgress,
-                          lastLineText,
-                        );
+                        // console.log(
+                        //   "🟡 Progress:",
+                        //   lastLineProgress,
+                        //   lastLineText,
+                        // );
                         page.lastLineProgress = lastLineProgress;
                       }
 
-                      const endsInPeriod = words.innerText.endsWith(".");
-                      // ✍️ Line ending space converstion.
                       if (
-                        (!endsInPeriod && page.lastLineProgress > 0.8) ||
-                        (endsInPeriod && page.lastLineProgress > 0.95)
+                        needsJustification(
+                          words.innerText,
+                          page.lastLineProgress,
+                        )
                       ) {
+                        console.log("🟠 Line needs justification!");
                         words.classList.add("justify-last-line");
                       }
                     }
