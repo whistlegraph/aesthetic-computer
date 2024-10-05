@@ -3,16 +3,23 @@
 
 /* #region 🟢 TODO 
 
-
   *** ⭐ Page Composition ***
-  - [🚗] Fix justified text reflow.
-    - [🩷] Write last line behavior into the editor. (if possible) 
-    - [x] Write last line behavior in page renderer. 
-    - [x] Switch to transform based page renderer and editor. 
-  - [] Keep the most recent draft remotely / have a "published" flag on pages.
+  - [🟠] Keep the most recent draft remotely / have a "published" flag on pages.
+    - [] Update the 'write-a-page' button with a network call. 
+      - [] Which should return the page model with the right server day.
+    - [] Add a draft flag to the 'write-a-page' api call.
+    - [] Remove draft flag on publish.
+    - [] Add ability to abandon or trash draft which could also be based on
+         tapping the date of the draft?
   - [] Show rules or timer under the form?
   - [] Enforce global uniqueness on page content
   + Done 
+  - [x] textarea should auto-focus when it is opened
+    - [c] even on refresh (not possible)
+  - [x] Fix justified text reflow.
+    - [x] Write last line behavior into the editor. (if possible) 
+    - [x] Write last line behavior in page renderer. 
+    - [x] Switch to transform based page renderer and editor. 
   - [x] Prevent overwriting past the boundary.
   - [x] Fix word-break.
   - [x] Add color to the 'lines left' warning. green -> orange -> red
@@ -406,7 +413,7 @@ export const handler = async (event, context) => {
               padding-left: 16px;
               padding-right: 16px;
               box-sizing: border-box;
-              opacity: 0.5;
+              /* opacity: 0.5; */
             }
             #editor-page-wrapper {
               width: 100%;
@@ -550,12 +557,16 @@ export const handler = async (event, context) => {
               width: 100%;
             }
 
-            /* #garden article.page .words::after, 
-            #garden #editor textarea::after {
-              content: "\\200B";
+            /* #garden #editor #words-wrapper textarea:hover:not(:focus) { */
+            /* background: red !important; */
+            /* opacity: 1 !important; */
+            /* } */
+
+            #editor-page.editor-justify-last-line #editor-measurement::after {
+              content: "";
               display: inline-block;
               width: 100%;
-            } */
+            }
 
             /* ✏️️📄 Page Editor */
             #garden #editor {
@@ -572,6 +583,30 @@ export const handler = async (event, context) => {
               /* background: gray; */
             }
 
+            #garden #editor #words-wrapper::before {
+              content: "";
+              background: rgb(255, 245, 245, 1);
+              width: 2em;
+              height: 100%;
+              display: block;
+              position: absolute;
+              top: 0;
+              left: 0;
+              z-index: 101;
+            }
+
+            #garden #editor #words-wrapper::after {
+              content: "";
+              background: rgb(255, 245, 245, 1);
+              width: 2em;
+              height: 100%;
+              display: block;
+              position: absolute;
+              top: 0;
+              right: 0;
+              z-index: 101;
+            }
+
             #garden #editor form {
               margin: auto;
             }
@@ -582,7 +617,7 @@ export const handler = async (event, context) => {
               font-size: 100%;
               resize: none;
               display: block;
-              background: yellow;
+              background: rgb(255, 250, 250);
               margin-top: 15%;
               padding: 0 2em;
               text-indent: 0em;
@@ -593,10 +628,40 @@ export const handler = async (event, context) => {
               height: calc(1.6em * 18);
               width: 100%;
               overflow: hidden;
+              position: relative;
 
               /* word-break: break-word; */
               hyphens: auto;
               overflow-wrap: break-word;
+              /* z-index: 1; */
+            }
+
+            #garden #editor #words-wrapper.invisible:hover {
+              opacity: 1;
+            }
+
+            #garden #editor #words-wrapper.invisible:hover textarea {
+              background: rgb(255, 245, 170, 0.5);
+            }
+
+            #garden #editor #words-wrapper.invisible:hover::before {
+              display: none;
+            }
+
+            #garden #editor #words-wrapper.invisible:hover::after {
+              display: none;
+              /* content: '';
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              background: rgb(255, 245, 170, 0.5);
+              pointer-events: none; */
+            }
+
+            #garden #editor #words-wrapper {
+              position: relative;
             }
 
             #garden #editor textarea:focus {
@@ -785,6 +850,10 @@ export const handler = async (event, context) => {
             }
             #prompt:hover {
               color: rgb(180, 72, 135);
+            }
+            .invisible {
+              opacity: 0;
+              /* visibility: hidden; */
             }
             .hidden {
               visibility: hidden;
@@ -1063,7 +1132,7 @@ export const handler = async (event, context) => {
                   const imnew = cel("button");
                   imnew.onclick = signup;
                   imnew.innerText = "i'm new";
-                  buttons.push(imnew);
+                  // buttons.push(imnew); // TODO: Re-enable in production after testing. 24.10.04.15.35
                 }
               } else if (status !== "coming-soon") {
                 const lo = cel("button");
@@ -1310,7 +1379,8 @@ export const handler = async (event, context) => {
                 g.appendChild(navHigh);
               }
               g.appendChild(h1);
-              g.appendChild(h2);
+              if (h2.innerText.length > 0) g.appendChild(h2);
+              // g.appendChild(h2);
               g.appendChild(navLow);
 
               curtain.appendChild(g);
@@ -1408,10 +1478,39 @@ export const handler = async (event, context) => {
               // ✍️ Line ending space conversion.
               function needsJustification(text, progress) {
                 const endsInPeriod = text.endsWith(".");
-                return (
+                const needsJustification =
                   (!endsInPeriod && progress > 0.8) ||
-                  (endsInPeriod && progress > 0.95)
-                );
+                  (endsInPeriod && progress > 0.95);
+                // if (needsJustification)
+                //  console.log("🟠 Line needs justification!");
+                return needsJustification;
+              }
+
+              // Observe and run a callback once a NodeElement is added
+              // to the DOM.
+              function observeAdd(nodeToWatch, callback) {
+                if (document.body.contains(nodeToWatch)) {
+                  callback();
+                  return;
+                }
+
+                const observer = new MutationObserver((mutationsList) => {
+                  mutationsList.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                      console.log(node);
+                      if (node === nodeToWatch) {
+                        callback();
+                        console.log("node added");
+                        observer.disconnect();
+                      }
+                    });
+                  });
+                });
+
+                observer.observe(document.body, {
+                  childList: true,
+                  subtree: true,
+                });
               }
 
               // 🪷 write-a-page - Create compose form.
@@ -1447,12 +1546,11 @@ export const handler = async (event, context) => {
 
                   // Match the binding style width, computed from
                   const binding = document.getElementById("binding");
-
-                  if (binding) {
-                    form.style.width = binding.style.width;
-                  }
+                  if (binding) form.style.width = binding.style.width;
 
                   const words = cel("textarea");
+                  const wordsWrapper = cel("div");
+                  wordsWrapper.id = "words-wrapper";
 
                   const linesLeft = cel("div");
                   linesLeft.id = "editor-lines-left";
@@ -1476,8 +1574,8 @@ export const handler = async (event, context) => {
 
                     edMeasurement.style.position = "absolute";
                     edMeasurement.style.zIndex = 100;
-                    edMeasurement.style.backgroundColor =
-                      "rgba(0, 255, 0, 0.25)";
+                    // edMeasurement.style.backgroundColor =
+                    //  "rgba(0, 255, 0, 0.25)";
                     edMeasurement.style.pointerEvents = "none";
                     edMeasurement.style.left = pageStyle.paddingLeft;
                     edMeasurement.style.top = pageStyle.paddingTop;
@@ -1559,17 +1657,12 @@ export const handler = async (event, context) => {
                         lastLineProgress,
                       );
                       if (needsJustification(words.value, lastLineProgress)) {
-                        console.log("🟠 Line needs justification!");
-
-                        // TODO: 🔴 Add justification preview to the editor.
-
-                        words.classList.add("justify-last-line");
-                        editorPage.classList.add("editor-justify-last");
+                        editorPage.classList.add("editor-justify-last-line");
                       } else {
-                        editorPage.classList.remove("editor-justify-last");
+                        editorPage.classList.remove("editor-justify-last-line");
                       }
                     } else {
-                      editorPage.classList.remove("editor-justify-last");
+                      editorPage.classList.remove("editor-justify-last-line");
                     }
 
                     linesLeft.classList = "";
@@ -1590,11 +1683,26 @@ export const handler = async (event, context) => {
                     } else {
                       linesLeft.innerText = remainingLines + " lines left";
                     }
+
+                    return edMeasurement;
                   };
 
                   words.addEventListener("input", updateLineCount);
-                  words.addEventListener("focus", updateLineCount);
-                  words.addEventListener("blur", updateLineCount);
+
+                  wordsWrapper.classList.add("invisible");
+
+                  words.addEventListener("focus", () => {
+                    const edMeasurement = updateLineCount();
+                    wordsWrapper.classList.remove("invisible");
+                    edMeasurement.classList.add("invisible");
+                  });
+
+                  words.addEventListener("blur", () => {
+                    const edMeasurement = updateLineCount();
+                    wordsWrapper.classList.add("invisible");
+                    edMeasurement.classList.remove("invisible");
+                  });
+
                   window.addEventListener("resize", updateLineCount);
                   updateLineCount();
 
@@ -1610,7 +1718,16 @@ export const handler = async (event, context) => {
 
                   const pageTitle = cel("div");
                   pageTitle.classList.add("page-title");
-                  pageTitle.innerText = "My First Book";
+
+                  pageTitle.innerText = new Date();
+                  const options = {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                  };
+                  const date = new Date().toLocaleDateString("en-US", options);
+
+                  pageTitle.innerText = date;// + ", " + time;
 
                   const pageNumber = cel("div");
                   pageNumber.classList.add("page-number");
@@ -1619,7 +1736,8 @@ export const handler = async (event, context) => {
 
                   editorPage.appendChild(pageTitle);
                   editorPage.appendChild(pageNumber);
-                  editorPage.appendChild(words);
+                  wordsWrapper.appendChild(words);
+                  editorPage.appendChild(wordsWrapper);
 
                   pageWrapper.appendChild(editorPage);
 
@@ -1677,6 +1795,10 @@ export const handler = async (event, context) => {
                   // window.addEventListener("scroll", preventScroll, {
                   //   passive: false,
                   // });
+
+                  observeAdd(words, () => {
+                    words.focus(); // Auto-focus on the words element
+                  });
                 };
 
                 if (WRITING_A_PAGE) {
@@ -1713,7 +1835,7 @@ export const handler = async (event, context) => {
 
               if (subscription.pages) {
                 const pages = subscription.pages;
-                console.log("🗞️ Pages retrieved:", pages);
+                // console.log("🗞️ Pages retrieved:", pages);
 
                 const binding = cel("div");
                 binding.id = "binding";
@@ -1927,7 +2049,6 @@ export const handler = async (event, context) => {
                           page.lastLineProgress,
                         )
                       ) {
-                        console.log("🟠 Line needs justification!");
                         words.classList.add("justify-last-line");
                       }
                     }
@@ -2717,6 +2838,10 @@ export const handler = async (event, context) => {
     return respond(cancelResult.status, cancelResult.body);
   } else if (path === "/write-a-page" && method === "post") {
     // 🪧 write-a-page - Submission endpoint.
+
+    // TODO: 🟠 Add support for creating a draft. 
+
+
     const user = await authorize(event.headers, "sotce");
     const isAdmin = await hasAdmin(user, "sotce");
     if (!user || !isAdmin) return respond(401, { message: "Unauthorized." });
