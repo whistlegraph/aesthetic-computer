@@ -4,6 +4,7 @@
 /* #region 🟢 TODO 
   - [🟠] Test signup flow in production.
     - [-] Make sure subscription receipt emails get sent.
+  - [] Fix line start warning changing when a UI button is pressed?
 
   *** 📜 Scroll Checking ***
   - [] Make the cookie menu fully scrollable.
@@ -23,6 +24,10 @@
   *** 🖨️ Typography & Design ***
   - [] More unique look for pages and choose new font.
   - [] Test mobile designs locally.
+
+  *** Mobile ***
+  - [] Cosmetics
+  - [] Fix focus textfield bugs on touch / iOS.
 
   - [] --- 🏁 Launch 🏁 ---
 
