@@ -1159,7 +1159,7 @@ export const handler = async (event, context) => {
                   const imnew = cel("button");
                   imnew.onclick = signup;
                   imnew.innerText = "i'm new";
-                  // buttons.push(imnew); // TODO: Re-enable in production after testing. 24.10.04.15.35
+                  buttons.push(imnew);
                 }
               } else if (status !== "coming-soon") {
                 const lo = cel("button");
@@ -1877,6 +1877,7 @@ export const handler = async (event, context) => {
                       alert("📃 A page cannot be empty.");
                       return;
                     }
+                    if (!confirm("📰 Put this page online?")) return;
                     veil();
                     const res = await userRequest(
                       "POST",
@@ -1961,7 +1962,7 @@ export const handler = async (event, context) => {
                 if (pages.length === 0) {
                   const nopages = cel("div");
                   nopages.id = "nopages";
-                  nopages.innerText = "No pages written";
+                  nopages.innerText = "Nothing written";
                   g.appendChild(nopages);
                 }
 
