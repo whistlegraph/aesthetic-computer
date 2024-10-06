@@ -2,18 +2,66 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
+  *** 🖐️ "Touches" *** 
+  - [] Add some kind of handle based reaction for pages? (touch?)
+       @blahblah and x others touched this pages.
+       'ear'
+   - [] add 'bio' text 
 
+  *** 📊 Statistics ***
+  - [] Show number of subscribed users so far - maybe in the closed donut or 
+       privacy policy? and only for certain whitelisted users?
+  - [] Add some form of google analytics.
+
+  *** 🖨️ Typography & Design ***
+  - [] More unique look for pages.
+  - [] Test mobile designs locally.
+
+  *** 🛩️ Pre-flight ***
+  - [] Test and then enable signups in production.
+
+  *** 📜 Scroll Checking ***
+  - [] Tap around to check scroll bugs / make the cookie menu fully scrollable.
+
+  - [] --- 🏁 Launch 🏁 ---
+
+  --- ☁️ Post-Launch ☁️ ---
+
+  *** 📧 Email Notifications for Pages ***
+  - [] email new pages to each subscriber, and include the contents?
+    - [] make an 'eblast' endpoint for this
+    - [] add the checkbox under the main page for whether to receive them
+         or not
+
+  *** 🛂 Page Controls ***
+  - [] redaction
+  - [] Print 🖨️ CSS
+  - [] Automatic Dark Theme
+  - [c] Patreon linkage.
+  *** Accessibility ***
+    - [] Cleaner Ctrl +/- zoom logic / layout fixes.
+    - [] Relational scrolling. 
+  - [] Search / hashtags
+  *** 🔊 Sounds ***
+  - [] Soft sine clicks and beeps.
+  *** 📟 Page Feed ***
+  - [📄] `eared` corner menu that shows byline 
+  - [x] upscrolling
+
+  + Done
+  - [x] *** 🛫 Put Editor Online ***
   *** ⭐ Page Composition ***
-  - [🟠] Keep the most recent draft remotely / have a "published" flag on pages.
-    - [] Update the 'write-a-page' button with a network call. 
-      - [] Which should return the page model with the right server day.
-    - [] Add a draft flag to the 'write-a-page' api call.
-    - [] Remove draft flag on publish.
-    - [] Add ability to abandon or trash draft which could also be based on
-         tapping the date of the draft?
-  - [] Show rules or timer under the form?
-  - [] Enforce global uniqueness on page content
-  + Done 
+  - [x] Add 'discard' ability to page editor.
+    - [x] Wire up the ui and api.
+    - [x] Make the discard button red and publish button green. (#discard)
+  - [x] Add loading spinner to `write-a-page` and `publish` and `draft` and `discard` buttons. 
+  - [x] Keep the most recent draft remotely / have a "published" flag on pages.
+  - [c] Show rules or timer under the form?
+  - [c] Enforce global uniqueness on page content
+  - [x] Update the 'write-a-page' button with a network call. 
+    - [x] Which should return the page model with the right server day.
+  - [x] Add a draft flag to the 'write-a-page' api call.
+  - [x] Remove draft flag on publish.
   - [x] textarea should auto-focus when it is opened
     - [c] even on refresh (not possible)
   - [x] Fix justified text reflow.
@@ -34,50 +82,6 @@
   - [x] add the 'write a page' button
         whitelisted for admin users
   - [x] show the form, maybe in a modal?
-
-  *** 🖐️ "Touches" *** 
-  - [] Add some kind of handle based reaction for pages? (touch?)
-       @blahblah and x others touched this pages.
-       'ear'
-   - [] add 'bio' text 
-
-  *** 📧 Email Notifications for Pages ***
-  - [] email new pages to each subscriber, and include the contents?
-    - [] make an 'eblast' endpoint for this
-    - [] add the checkbox under the main page for whether to receive them
-         or not
-  
-  *** ask a question ***
-  - [] a button in the corner for chat
-
-  *** 📊 Statistics ***
-  - [] Show number of subscribed users so far - maybe in the closed donut or 
-       privacy policy? and only for certain whitelisted users?
-  - [] Add some form of google analytics.
-
-  *** 🖨️ Typography & Design ***
-  - [] More unique look for pages.
-  - [] Test mobile designs locally.
-
-  *** 🛩️ Pre-flight ***
-  - [] Test in production.
-
-  --- 🏁 Launch 🏁 ---
-
-  --- ☁️ Post-Launch ☁️ ---
-  *** 🛂 Page Controls ***
-  - [] redaction
-  - [] Automatic Dark Theme
-  - [] Print 🖨️ CSS
-  - [c] Patreon linkage.
-  *** Accessibility ***
-    - [] Cleaner Ctrl +/- zoom logic / layout fixes.
-    - [] Relational scrolling. 
-  - [] Search / hashtags
-  + Done
-  *** 📟 Page Feed ***
-  - [📄] `eared` corner menu that shows byline 
-  - [x] upscrolling
   *** Page Layout ***
   - [x] Check that layouts don't break with page zoom feature, and that
          text actually gets larger.
@@ -189,6 +193,18 @@ export const handler = async (event, context) => {
               background: var(--background-color);
               user-select: none;
             }
+            /* body.noscroll { */
+              /* overflow: hidden; */
+            /* } */
+            body.pages-hidden {
+              /* overflow: hidden; */
+            }
+            body.pages-hidden #binding {
+              display: none;
+              /* visibility: hidden; */
+              /* height: 100vh; */
+              /* overflow: hidden; */
+            } 
             #wrapper {
               display: flex;
               width: 100%;
@@ -254,7 +270,9 @@ export const handler = async (event, context) => {
               margin: auto;
             }
             #gate-curtain {
-              position: absolute;
+              position: fixed;
+              top: 0;
+              left: 0;
               width: 100%;
               height: 100%;
               display: flex;
@@ -321,8 +339,7 @@ export const handler = async (event, context) => {
               :is(#nav-low, #nav-high):has(> *:first-child:nth-last-child(2)) {
               justify-content: space-between;
             }
-            #gate nav button,
-            #editor button,
+            nav button,
             #write-a-page {
               color: black;
               background: var(--button-background);
@@ -356,13 +373,20 @@ export const handler = async (event, context) => {
               z-index: 3;
               height: 72px;
             }
-            #gate nav button:hover,
-            #editor button:hover,
+
+            #nav-editor {
+              background: linear-gradient(
+                to top,
+                rgba(255, 230, 225, 0.5) 25%,
+                transparent 100%
+              );
+            }
+
+            nav button:hover,
             #write-a-page:hover {
               background: var(--button-background-highlight);
             }
-            #gate nav button:active,
-            #editor button:active,
+            nav button:active,
             #write-a-page:active {
               filter: drop-shadow(
                 -0.035em 0.035em 0.035em rgba(40, 40, 40, 0.8)
@@ -374,15 +398,25 @@ export const handler = async (event, context) => {
               /* background: rgb(240, 240, 240); */
               /* border-color: rgb(40, 40, 200); */
             }
-            #gate nav button.positive {
+            nav button.positive {
               background: rgb(203, 238, 161);
               border-color: rgb(114, 203, 80);
             }
-            #gate nav button.positive:hover {
+            nav button.positive:hover {
               background: rgb(199, 252, 136);
             }
-            #gate nav button.positive:active {
+            nav button.positive:active {
               background: rgb(210, 252, 146);
+            }
+            nav button.negative {
+              background: rgb(255 154 168);
+              border-color: rgb(255, 87, 87);
+            }
+            nav button.negative:hover {
+              background: rgb(255, 171, 171);
+            }
+            nav button.negative:active {
+              background: rgb(255, 161, 186);
             }
             #garden {
               box-sizing: border-box;
@@ -410,10 +444,12 @@ export const handler = async (event, context) => {
             }
             #editor-form {
               padding-top: 100px;
+              padding-bottom: 72px;
               padding-left: 16px;
               padding-right: 16px;
               box-sizing: border-box;
               /* opacity: 0.5; */
+              margin: 0 auto auto auto;
             }
             #editor-page-wrapper {
               width: 100%;
@@ -545,7 +581,6 @@ export const handler = async (event, context) => {
               overflow: hidden;
               padding: 0 2em;
               /* display: inline-block; */
-
               /* word-break: break-word; */
               hyphens: auto;
               overflow-wrap: break-word;
@@ -557,11 +592,6 @@ export const handler = async (event, context) => {
               width: 100%;
             }
 
-            /* #garden #editor #words-wrapper textarea:hover:not(:focus) { */
-            /* background: red !important; */
-            /* opacity: 1 !important; */
-            /* } */
-
             #editor-page.editor-justify-last-line #editor-measurement::after {
               content: "";
               display: inline-block;
@@ -570,9 +600,11 @@ export const handler = async (event, context) => {
 
             /* ✏️️📄 Page Editor */
             #garden #editor {
-              position: fixed;
+              /* position: fixed; */
+              position: relative;
               width: 100%;
-              height: 100%;
+              /* height: 100%; */
+              min-height: 100%;
               top: 0;
               left: 0;
               border: none;
@@ -580,7 +612,6 @@ export const handler = async (event, context) => {
               background: rgba(255, 255, 255, 0.5);
               padding: 0;
               display: flex;
-              /* background: gray; */
             }
 
             #garden #editor #words-wrapper::before {
@@ -605,10 +636,6 @@ export const handler = async (event, context) => {
               top: 0;
               right: 0;
               z-index: 101;
-            }
-
-            #garden #editor form {
-              margin: auto;
             }
 
             #garden #editor textarea {
@@ -884,7 +911,7 @@ export const handler = async (event, context) => {
             }
             #veil {
               position: fixed;
-              z-index: 1;
+              z-index: 1000;
               top: 0;
               left: 0;
               width: 100%;
@@ -1363,6 +1390,7 @@ export const handler = async (event, context) => {
                   curtain.classList.add("hidden");
                   img.classList.remove("interactive");
                   document.querySelector("#garden")?.classList.remove("hidden");
+                  document.body.classList.remove("pages-hidden");
                   document.body.scrollTop = scrollMemory;
                 },
                 // { once: true },
@@ -1411,7 +1439,10 @@ export const handler = async (event, context) => {
             async function garden(subscription, user, showGate = false) {
               const gateCurtain = await gate("subscribed", user, subscription);
               gateCurtain.classList.remove("obscured");
-              if (showGate) gateCurtain.classList.remove("hidden");
+              if (showGate) {
+                gateCurtain.classList.remove("hidden");
+                document.body.classList.remove("pages-hidden");
+              }
 
               // Swap the favicon url.
               document.querySelector('link[rel="icon"]').href =
@@ -1427,7 +1458,10 @@ export const handler = async (event, context) => {
               g.id = "garden";
 
               if (!showGate) g.classList.add("obscured");
-              if (showGate) g.classList.add("hidden");
+              if (showGate) {
+                g.classList.add("hidden");
+                document.body.classList.add("pages-hidden");
+              }
 
               function computeLastLineText(source) {
                 const cachedText = source.innerText;
@@ -1513,6 +1547,12 @@ export const handler = async (event, context) => {
                 });
               }
 
+              // Render a diary page date title in the page feed or the editor.
+              function dateTitle(dateString) {
+                const opts = { weekday: "long", month: "long", day: "numeric" };
+                return new Date(dateString).toLocaleDateString("en-US", opts);
+              }
+
               // 🪷 write-a-page - Create compose form.
               if (subscription?.admin) {
                 const writeButton = cel("button");
@@ -1530,10 +1570,37 @@ export const handler = async (event, context) => {
                 //   writeButton.innerText = "write a " + purposes[currentPurpose];
                 // }, 2000);
 
-                writeButton.onclick = function compose() {
-                  const editor = cel("dialog");
+                writeButton.onclick = async function compose() {
+                  let page;
+
+                  // Create or retrieve the user's current draft.
+
+                  // TODO: 🟠 Memoize draft in ram.
+
+                  veil();
+                  const res = await userRequest(
+                    "POST",
+                    "sotce-net/write-a-page",
+                    { draft: "retrieve-or-create" },
+                  );
+                  if (res.status === 200) {
+                    page = res.page;
+                    // console.log("🪧 Draft:", page);
+                    // window.location.reload();
+                  } else {
+                    console.error("🪧 Draft:", res);
+                    alert("📄 Could not start a page.");
+                    return;
+                  }
+
+                  if (!page) {
+                    alert("📄 Could not start a page.");
+                    return;
+                  }
+
+                  const editor = cel("div");
                   editor.id = "editor";
-                  editor.setAttribute("open", "");
+                  // editor.setAttribute("open", "");
 
                   const form = cel("form");
                   form.id = "editor-form";
@@ -1549,7 +1616,11 @@ export const handler = async (event, context) => {
                   if (binding) form.style.width = binding.style.width;
 
                   const words = cel("textarea");
+
                   const wordsWrapper = cel("div");
+
+                  words.value = page.words; // Add words from existing draft.
+
                   wordsWrapper.id = "words-wrapper";
 
                   const linesLeft = cel("div");
@@ -1573,7 +1644,7 @@ export const handler = async (event, context) => {
                     }
 
                     edMeasurement.style.position = "absolute";
-                    edMeasurement.style.zIndex = 100;
+                    edMeasurement.style.zIndex = 50;
                     // edMeasurement.style.backgroundColor =
                     //  "rgba(0, 255, 0, 0.25)";
                     edMeasurement.style.pointerEvents = "none";
@@ -1707,27 +1778,28 @@ export const handler = async (event, context) => {
                   updateLineCount();
 
                   const nav = cel("nav");
+                  nav.id = "nav-editor";
 
                   const submit = cel("button");
                   submit.type = "submit";
                   submit.setAttribute("form", form.id);
                   submit.innerText = "publish";
+                  submit.classList.add("positive");
 
-                  const nevermind = cel("button");
-                  nevermind.innerText = "draft";
+                  const keep = cel("button");
+                  keep.innerText = "keep"; // draft // remember // keep
+                  keep.id = "keep";
+                  // keep.classList.add("maybe");
+
+                  const crumple = cel("button");
+                  crumple.innerText = "crumple"; // discard // crumple
+                  crumple.classList.add("negative");
+                  crumple.id = "crumple";
 
                   const pageTitle = cel("div");
                   pageTitle.classList.add("page-title");
 
-                  pageTitle.innerText = new Date();
-                  const options = {
-                    weekday: "long",
-                    month: "long",
-                    day: "numeric",
-                  };
-                  const date = new Date().toLocaleDateString("en-US", options);
-
-                  pageTitle.innerText = date;// + ", " + time;
+                  pageTitle.innerText = dateTitle(page.when);
 
                   const pageNumber = cel("div");
                   pageNumber.classList.add("page-number");
@@ -1742,7 +1814,8 @@ export const handler = async (event, context) => {
                   pageWrapper.appendChild(editorPage);
 
                   form.appendChild(pageWrapper);
-                  nav.appendChild(nevermind);
+                  nav.appendChild(crumple);
+                  nav.appendChild(keep);
                   nav.appendChild(submit);
 
                   // function preventScroll(e) {
@@ -1751,11 +1824,49 @@ export const handler = async (event, context) => {
                   //   return false;
                   // }
 
-                  nevermind.onclick = (e) => {
-                    e.preventDefault();
+                  function close() {
+                    document.body.classList.remove("pages-hidden");
                     editor.remove();
                     writeButton.classList.remove("deactivated");
                     window.removeEventListener("resize", updateLineCount);
+                  }
+
+                  keep.onclick = async (e) => {
+                    e.preventDefault();
+                    if (words.value !== page.words) {
+                      veil();
+                      const res = await userRequest(
+                        "POST",
+                        "sotce-net/write-a-page",
+                        { draft: "keep", words: words.value },
+                      );
+                      if (res.status === 200) {
+                        // console.log("🪧 Draft kept:", res);
+                      } else {
+                        console.error("🪧 Draft keep:", res);
+                      }
+                      unveil({ instant: true });
+                    }
+                    close();
+                    // window.removeEventListener("scroll", preventScroll);
+                  };
+
+                  crumple.onclick = async (e) => {
+                    e.preventDefault();
+                    if (!confirm("💣 Abandon this page?")) return;
+                    veil();
+                    const res = await userRequest(
+                      "POST",
+                      "sotce-net/write-a-page",
+                      { draft: "crumple" },
+                    );
+                    if (res.status === 200) {
+                      // console.log("🪧 Draft crumpled:", res);
+                    } else {
+                      console.error("🪧 Draft crumple:", res);
+                    }
+                    unveil({ instant: true });
+                    close();
                     // window.removeEventListener("scroll", preventScroll);
                   };
 
@@ -1766,6 +1877,7 @@ export const handler = async (event, context) => {
                       alert("📃 A page cannot be empty.");
                       return;
                     }
+                    veil();
                     const res = await userRequest(
                       "POST",
                       "sotce-net/write-a-page",
@@ -1773,6 +1885,8 @@ export const handler = async (event, context) => {
                     );
                     if (res.status === 200) {
                       console.log("🪧 Written:", res);
+                      // close();
+                      // unveil({ instant: true });
                       window.location.reload();
                     } else {
                       console.error("🪧 Unwritten:", res);
@@ -1782,7 +1896,10 @@ export const handler = async (event, context) => {
                   editor.appendChild(form);
                   editor.appendChild(linesLeft);
                   editor.appendChild(nav);
+
+                  unveil({ instant: true });
                   g.appendChild(editor);
+                  document.body.classList.add("pages-hidden");
 
                   const baseWidth = 100 * 8;
                   const goalWidth = editorPage.parentElement.clientWidth;
@@ -1861,7 +1978,8 @@ export const handler = async (event, context) => {
 
                   const pageTitle = cel("div");
                   pageTitle.classList.add("page-title");
-                  pageTitle.innerText = "My First Book";
+
+                  pageTitle.innerText = dateTitle(page.when);
 
                   const pageNumber = cel("div");
                   pageNumber.classList.add("page-number");
@@ -1883,6 +2001,7 @@ export const handler = async (event, context) => {
                       month: "long",
                       day: "numeric",
                     };
+
                     const formattedDate = date.toLocaleDateString(
                       "en-US",
                       dateOptions,
@@ -1902,11 +2021,11 @@ export const handler = async (event, context) => {
                     window.alert(
                       "📄 Written by " +
                         author +
-                        " on " +
+                        "\\n" +
+                        "📅 Created on " +
                         formattedDate +
                         " at " +
-                        formattedTime +
-                        ".",
+                        formattedTime,
                     );
                   };
 
@@ -2103,7 +2222,10 @@ export const handler = async (event, context) => {
               topBar.appendChild(cookieMenuWrapper);
               topBar.appendChild(cookieImg);
 
-              if (GATE_WAS_UP) g.classList.add("hidden");
+              if (GATE_WAS_UP) {
+                g.classList.add("hidden");
+                document.body.classList.add("pages-hidden");
+              }
 
               const curtainCookie = gateCurtain.querySelector("#cookie");
 
@@ -2111,6 +2233,7 @@ export const handler = async (event, context) => {
                 scrollMemory = document.body.scrollTop;
                 gateCurtain.classList.remove("hidden");
                 g.classList.add("hidden");
+                document.body.classList.add("pages-hidden");
                 curtainCookie.classList.add("interactive");
               };
 
@@ -2297,10 +2420,12 @@ export const handler = async (event, context) => {
                         document.body.scrollTop =
                           document.body.scrollHeight -
                           document.body.clientHeight;
-                      if (GATE_WAS_UP)
+                      if (GATE_WAS_UP) {
                         document
                           .getElementById("gate-curtain")
                           ?.classList.remove("hidden");
+                        document.body.classList.add("pages-hidden");
+                      }
                     },
                     { once: true },
                   );
@@ -2311,17 +2436,19 @@ export const handler = async (event, context) => {
                 page = await callback();
                 spinner.remove();
                 page?.classList.remove("obscured");
-                if (GATE_WAS_UP)
+                if (GATE_WAS_UP) {
                   document
                     .getElementById("gate-curtain")
                     ?.classList.remove("hidden");
+                  document.body.classList.add("pages-hidden");
+                }
               }
             }
 
             if (!fullAlert) {
               if (!isAuthenticated) {
                 await spinnerPass(
-                  async () => await gate(!dev ? "coming-soon" : "logged-out"),
+                  async () => await gate(/* !dev ? "coming-soon" : */"logged-out"),
                 );
               } else {
                 user = pickedUpSession
@@ -2805,9 +2932,12 @@ export const handler = async (event, context) => {
         // 📓 Recent Pages
         const database = await connect();
         const pages = database.db.collection("pages");
-        // Get page content from the database.
         const retrievedPages = await pages
-          .aggregate([{ $sort: { when: 1 } }, { $limit: 100 }])
+          .aggregate([
+            { $match: { state: "published" } }, // Ensure pages are published
+            { $sort: { when: 1 } }, // Sort by the 'when' field
+            { $limit: 100 }, // Limit to 100 results
+          ])
           .toArray();
 
         // Add a 'handle' field to each page record.
@@ -2838,25 +2968,126 @@ export const handler = async (event, context) => {
     return respond(cancelResult.status, cancelResult.body);
   } else if (path === "/write-a-page" && method === "post") {
     // 🪧 write-a-page - Submission endpoint.
-
-    // TODO: 🟠 Add support for creating a draft. 
-
+    // TODO: Make this path RESTful with alternate methods to represent the resource. 24.10.05.23.33
 
     const user = await authorize(event.headers, "sotce");
     const isAdmin = await hasAdmin(user, "sotce");
     if (!user || !isAdmin) return respond(401, { message: "Unauthorized." });
+
+    // TODO: 🟠 Add support for creating a draft.
     const body = JSON.parse(event.body);
-    console.log("🪧 Post so far:", body);
-    const words = body.words;
-    if (words) {
-      // Add page to database.
+
+    console.log("🪧 Page to post:", body);
+
+    if (body.draft === "retrieve-or-create") {
       const database = await connect();
       const pages = database.db.collection("pages");
-      // 💡 TODO: Eventually create a 'books' abstraction so users can have
-      // multiple books that capture groupings of pages. 24.09.13.01.41
-      await pages.insertOne({ user: user.sub, words, when: new Date() });
+      await pages.createIndex({ user: 1, state: 1 }); // Ensure 'user' and 'state' index.
+
+      // Try to get the last page from this user.sub where 'state' is 'draft'.
+      let page = await pages.findOne(
+        { user: user.sub, state: "draft" },
+        { sort: { when: -1 } },
+      );
+
+      // If that page does not exist, then insert a new one with the 'draft' state.
+      if (!page) {
+        const insertion = await pages.insertOne({
+          user: user.sub,
+          words: "",
+          when: new Date(),
+          state: "draft",
+        });
+        page = await pages.findOne({ _id: insertion.insertedId });
+      }
       await database.disconnect();
-      const page = body;
+      return respond(200, { page });
+    } else if (body.draft === "keep") {
+      const database = await connect();
+      const pages = database.db.collection("pages");
+      // Try to get the last page from this user.sub where 'state' is 'draft'.
+      let page = await pages.findOne(
+        { user: user.sub, state: "draft" },
+        { sort: { when: -1 } },
+      );
+
+      // If the page exists, update the draft with the new content.
+      if (page) {
+        await pages.updateOne(
+          { _id: page._id },
+          { $set: { words: body.words } },
+        );
+        page = await pages.findOne({ _id: page._id });
+      }
+      // If no draft exists, create a new draft with the content.
+      else {
+        const insertion = await pages.insertOne({
+          user: user.sub,
+          words: body.words || "", // Use provided content or default to an empty string
+          when: new Date(),
+          state: "draft",
+        });
+        page = await pages.findOne({ _id: insertion.insertedId });
+      }
+      await database.disconnect();
+      return respond(200, { page });
+    } else if (body.draft === "crumple") {
+      //  🪓️ Delete (crumple) the current draft.
+      const database = await connect();
+      const pages = database.db.collection("pages");
+
+      // Try to get the last page from this user.sub where 'state' is 'draft'.
+      const page = await pages.findOne(
+        { user: user.sub, state: "draft" },
+        { sort: { when: -1 } },
+      );
+
+      // If the page exists, update its state to 'crumpled'.
+      if (page) {
+        await pages.updateOne(
+          { _id: page._id },
+          { $set: { state: "crumpled" } },
+        );
+      }
+
+      // Actually just set the state to 'crumpled' here.
+      await database.disconnect();
+      return respond(200, { message: "Draft crumpled successfully" });
+    } else if (body.draft) {
+      return respond(500, { message: "Invalid drafting option." });
+    }
+
+    // 💡 TODO: Eventually create a 'books' abstraction so users can have
+    // multiple books that capture groupings of pages. 24.09.13.01.41
+    const words = body.words;
+    if (words) {
+      const database = await connect();
+      const pages = database.db.collection("pages");
+
+      // Find the existing draft for the user.
+      let page = await pages.findOne(
+        { user: user.sub, state: "draft" },
+        { sort: { when: -1 } },
+      );
+
+      // If a draft exists, update it with the new words and set the state to 'published'.
+      if (page) {
+        await pages.updateOne(
+          { _id: page._id },
+          { $set: { words, state: "published" } },
+        );
+      } else {
+        // If no draft exists, insert a new page. (Edge case where the
+        // date would be updated in a new page on a double save / overwrite)
+        const insertion = await pages.insertOne({
+          user: user.sub,
+          words,
+          when: new Date(),
+          state: "published",
+        });
+        page = await pages.findOne({ _id: insertion.insertedId });
+      }
+      await database.disconnect();
       return respond(200, { page });
     } else {
       return respond(500, { message: "No words written." });
@@ -2954,6 +3185,7 @@ export const handler = async (event, context) => {
             }
             img {
               filter: grayscale(0.75);
+              drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.35));
             }
             code {
               font-weight: bold;
@@ -2976,7 +3208,7 @@ export const handler = async (event, context) => {
         <body>
           <h1>Sotce Net's Privacy Policy</h1>
           <p>
-            Sotce Net keeps finished pages on a remote server so they can be shared
+            Sotce Net keeps pages on a remote server so they can be shared
             with and viewed by subscribers.
           </p>
           <p>
@@ -3094,7 +3326,7 @@ const reloadScript = html`
           reloadTimeout = setTimeout(() => {
             const sessionItem = localStorage.getItem("session-sotce");
             const gateUp = document.querySelector("#gate-curtain:not(.hidden)");
-            const writingAPage = document.querySelector("dialog#editor");
+            const writingAPage = document.getElementById("#editor");
             if (sessionItem) {
               const url = new URL(window.location.href);
               url.searchParams.set("session-sotce", "retrieve");
