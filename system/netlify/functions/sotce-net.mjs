@@ -167,6 +167,7 @@ export const handler = async (event, context) => {
       <html lang="en">
         <head>
           <meta charset="utf-8" />
+          <meta name="description" content="for my best thoughts" />
           <title>sotce.net</title>
           <link rel="icon" type="image/png" href="${assetPath}/cookie.png" />
           <meta
