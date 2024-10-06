@@ -2,6 +2,12 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
+  - [🟠] Test signup flow in production.
+
+  *** 📜 Scroll Checking ***
+  - [] Make the cookie menu fully scrollable.
+  - [] Scrolling in the editor or cookie-menu should not affect page scroll.
+
   *** 🖐️ "Touches" *** 
   - [] Add some kind of handle based reaction for pages? (touch?)
        @blahblah and x others touched this pages.
@@ -14,14 +20,8 @@
   - [] Add some form of google analytics.
 
   *** 🖨️ Typography & Design ***
-  - [] More unique look for pages.
+  - [] More unique look for pages and choose new font.
   - [] Test mobile designs locally.
-
-  *** 🛩️ Pre-flight ***
-  - [] Test and then enable signups in production.
-
-  *** 📜 Scroll Checking ***
-  - [] Tap around to check scroll bugs / make the cookie menu fully scrollable.
 
   - [] --- 🏁 Launch 🏁 ---
 
@@ -46,9 +46,9 @@
   - [] Soft sine clicks and beeps.
   *** 📟 Page Feed ***
   - [📄] `eared` corner menu that shows byline 
-  - [x] upscrolling
 
   + Done
+  - [x] upscrolling
   - [x] *** 🛫 Put Editor Online ***
   *** ⭐ Page Composition ***
   - [x] Add 'discard' ability to page editor.
