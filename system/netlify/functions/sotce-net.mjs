@@ -807,7 +807,7 @@ export const handler = async (event, context) => {
               transition: 0.2s ease-out transform;
               /* background-color: var(--pink-border); */
               background-color: var(--spinner-background);
-              mask-image: url("${assetPath}/cookie-open.png");
+              mask-image: url("${assetPath}cookie-open.png");
               /* filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.35)); */
               mask-size: cover;
             }

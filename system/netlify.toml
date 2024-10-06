@@ -109,6 +109,11 @@ to = "/.netlify/functions/user"
 status = 200
 force = true
 [[redirects]]
+from = "https://sotce.net/handle"
+to = "/.netlify/functions/handle"
+status = 200
+force = true
+[[redirects]]
 from = "https://sotce.net/api/email"
 to = "/.netlify/functions/email"
 status = 200
