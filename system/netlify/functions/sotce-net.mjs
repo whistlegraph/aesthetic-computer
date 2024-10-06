@@ -3,6 +3,7 @@
 
 /* #region 🟢 TODO 
   - [🟠] Test signup flow in production.
+    - [-] Make sure subscription receipt emails get sent.
 
   *** 📜 Scroll Checking ***
   - [] Make the cookie menu fully scrollable.
