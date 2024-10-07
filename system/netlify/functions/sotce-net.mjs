@@ -2855,10 +2855,6 @@ export const handler = async (event, context) => {
         payment_method_types: ["card"],
         mode: "subscription",
         line_items: [{ price: priceId, quantity: 1 }],
-        payment_intent_data: {
-          receipt_email: email,
-        },
-        // customer_email: email,
         customer: customer.id, // Attach the existing or newly created customer
         success_url: `${event.headers.origin}/${redirectPath}?notice=success`,
         cancel_url: `${event.headers.origin}/${redirectPath}?notice=cancel`,
