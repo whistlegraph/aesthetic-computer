@@ -142,34 +142,37 @@ export async function handler(event, context) {
       return respond(400, msg);
     }
 
-    console.log("Hook:", hookEvent.type);
-
     if (hookEvent.type === "charge.succeeded") {
       console.log("😃 Charge succeeeded!");
-      const emailAddress = hookEvent.data.object.receipt_email;
+      const chargeObject = hookEvent.data.object;
+      const emailAddress = chargeObject.receipt_email;
 
-      // Create an expiring link via a "tickets" collection in the db.
-      const database = await connect(); // 📕 Database
-      const collection = database.db.collection("tickets");
-      const { nanoid } = await import("nanoid");
-      const ticketKey = nanoid();
-      await collection.insertOne({
-        key: ticketKey,
-        for: fromSotce ? "botce" : "aesthetic",
-        email: emailAddress,
-        uses: 2,
-        pid: hookEvent.data.object.payment_intent,
-      });
-      await database.disconnect();
+      console.log("Charge:", chargeObject); // TODO: Remove this logging after a sotce-net email is caught. 24.10.07.16.43
 
-      const link = `https://${
-        dev ? "localhost:8888/botce" : "botce.ac"
-      }?ticket=${ticketKey}`;
+      // Only send the email if the payement was for "Botce".
+      if (chargeObject.description === "Botce") {
+        // Create an expiring link via a "tickets" collection in the db.
+        const database = await connect(); // 📕 Database
+        const collection = database.db.collection("tickets");
+        const { nanoid } = await import("nanoid");
+        const ticketKey = nanoid();
+        await collection.insertOne({
+          key: ticketKey,
+          for: fromSotce ? "botce" : "aesthetic",
+          email: emailAddress,
+          uses: 2,
+          pid: hookEvent.data.object.payment_intent,
+        });
+        await database.disconnect();
 
-      const emailOptions = {
-        to: hookEvent.data.object.receipt_email,
-        subject: "🪷 visit me again?",
-        html: `<p>click the ticket to visit with me, <code>botce</code>.
+        const link = `https://${
+          dev ? "localhost:8888/botce" : "botce.ac"
+        }?ticket=${ticketKey}`;
+
+        const emailOptions = {
+          to: hookEvent.data.object.receipt_email,
+          subject: "🪷 visit me again?",
+          html: `<p>click the ticket to visit with me, <code>botce</code>.
           <br>
           <br>
           🎟️ <a href="${link}">ticket</a>
@@ -183,17 +186,18 @@ export async function handler(event, context) {
           <br>
           <b><a href="https://sotce.com">sotce</a></b>
         `,
-      };
-
-      if (fromSotce) {
-        emailOptions.auth = {
-          user: process.env.SOTCE_SMTP_USER,
-          pass: process.env.SOTCE_SMTP_PASS,
         };
-      }
 
-      const emailSent = await email(emailOptions);
-      console.log("📧 Email sent:", emailSent);
+        if (fromSotce) {
+          emailOptions.auth = {
+            user: process.env.SOTCE_SMTP_USER,
+            pass: process.env.SOTCE_SMTP_PASS,
+          };
+        }
+
+        const emailSent = await email(emailOptions);
+        console.log("📧 Email sent:", emailSent);
+      }
     }
 
     return respond(200, { message: `Webhook: ${hookEvent.type}` });
