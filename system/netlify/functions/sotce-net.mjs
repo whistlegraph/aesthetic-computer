@@ -2846,6 +2846,7 @@ export const handler = async (event, context) => {
         // Customer doesn't exist, create a new one
         customer = await stripe.customers.create({
           email: email,
+          receipt_email: email,
           metadata: { sub },
         });
       }
@@ -2855,6 +2856,7 @@ export const handler = async (event, context) => {
         mode: "subscription",
         line_items: [{ price: priceId, quantity: 1 }],
         // customer_email: email,
+        receipt_email: email, // Ensure receipt emails are sent to this email
         customer: customer.id, // Attach the existing or newly created customer
         success_url: `${event.headers.origin}/${redirectPath}?notice=success`,
         cancel_url: `${event.headers.origin}/${redirectPath}?notice=cancel`,
