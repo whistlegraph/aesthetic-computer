@@ -201,7 +201,7 @@ export const handler = async (event, context) => {
               user-select: none;
             }
             /* body.noscroll { */
-              /* overflow: hidden; */
+            /* overflow: hidden; */
             /* } */
             body.pages-hidden {
               /* overflow: hidden; */
@@ -211,7 +211,7 @@ export const handler = async (event, context) => {
               /* visibility: hidden; */
               /* height: 100vh; */
               /* overflow: hidden; */
-            } 
+            }
             #wrapper {
               display: flex;
               width: 100%;
@@ -2456,7 +2456,8 @@ export const handler = async (event, context) => {
             if (!fullAlert) {
               if (!isAuthenticated) {
                 await spinnerPass(
-                  async () => await gate(/* !dev ? "coming-soon" : */"logged-out"),
+                  async () =>
+                    await gate(/* !dev ? "coming-soon" : */ "logged-out"),
                 );
               } else {
                 user = pickedUpSession
@@ -2846,7 +2847,6 @@ export const handler = async (event, context) => {
         // Customer doesn't exist, create a new one
         customer = await stripe.customers.create({
           email: email,
-          receipt_email: email,
           metadata: { sub },
         });
       }
@@ -2855,6 +2855,9 @@ export const handler = async (event, context) => {
         payment_method_types: ["card"],
         mode: "subscription",
         line_items: [{ price: priceId, quantity: 1 }],
+        payment_intent_data: {
+          receipt_email: email,
+        },
         // customer_email: email,
         customer: customer.id, // Attach the existing or newly created customer
         success_url: `${event.headers.origin}/${redirectPath}?notice=success`,
