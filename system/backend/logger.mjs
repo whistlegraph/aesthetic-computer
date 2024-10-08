@@ -69,6 +69,7 @@ async function log(text, data, from = "log") {
         Authorization: `Bearer ${process.env.LOGGER_KEY}`,
       },
       https: { rejectUnauthorized: !dev },
+      timeout: { request: 10000 }, // 10 seconds
     });
     console.log("Log to `chat-system` successful:", response.body);
   } catch (error) {
