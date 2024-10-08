@@ -2,6 +2,9 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
+  - [] Set the "sotce" handle to "amelia".
+  - [] Restrict 'sotce' handle (reserved). 
+
   - [🟠] Test signup flow in production.
     - [-] Make sure subscription receipt emails get sent.
   - [] Fix line start warning changing when a UI button is pressed?
