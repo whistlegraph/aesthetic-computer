@@ -16,7 +16,9 @@ export async function email(options) {
     delete options.auth;
   }
 
-  if (!options.from) options.from = config.auth.user?.split("@")[1];
+  if (!options.from)
+    options.from =
+      config.auth.user?.split("@")[1] + " <" + config.auth.user + ">";
 
   try {
     const transporter = nodemailer.createTransport(config);

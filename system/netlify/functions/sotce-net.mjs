@@ -5,6 +5,8 @@
   - [🟠] Test signup flow in production.
     - [🔵] Make sure subscription receipt emails get sent.
   - [] Fix line start warning changing when a UI button is pressed?
+  - [] Add coloring for "Awaiting verification..." and "Email verified!". 
+  - [x] Add a "thank you for subscribing" alert popup.
 
   *** 📜 Scroll Checking ***
   - [] Make the cookie menu fully scrollable.
@@ -276,6 +278,9 @@ export const handler = async (event, context) => {
                 filter: blur(4px);
                 transform: scale(1);
               }
+            }
+            #email-verified {
+              color: #33930b;
             }
             #full-alert {
               margin: auto;
@@ -1023,8 +1028,11 @@ export const handler = async (event, context) => {
 
               if (notice) {
                 console.log("🪧 Notice:", notice, urlParams);
-                if (notice === "success")
+
+                if (notice === "success") {
+                  alert("🗞️ You're subscribed!");
                   waitForSubscriptionSuccessThreeTimes = true;
+                }
 
                 urlParams.delete("notice");
                 cleanUrlParams(url, urlParams);
@@ -1045,7 +1053,7 @@ export const handler = async (event, context) => {
                 urlParams.delete("success");
                 urlParams.delete("code");
                 cleanUrlParams(url, urlParams);
-                fullAlert = "Email verified!";
+                fullAlert = "<span id='email-verified'>Email verified!</span>";
               }
             }
 
@@ -1098,7 +1106,7 @@ export const handler = async (event, context) => {
 
               function genSubscribeButton(type) {
                 if (!type) {
-                  h2.innerText = "Email verified!";
+                  h2.innerHtml = "<span id='email-verified'>Email verified!</span>";
                   h2.classList.remove("loading-dots");
                 }
 
