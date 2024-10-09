@@ -15,7 +15,7 @@ const dev = process.env.CONTEXT === "dev";
 
 // 💲 A utility function to calculate the order amount
 const calculateOrderAmount = (items) => {
-  console.log("💲 Items:", items);
+  // console.log("💲 Items:", items);
   if (items[0].id === "botce") return 600; // Assume just one item for now...
   return 0; // Free!
 };
