@@ -150,7 +150,8 @@ export async function handler(event, context) {
 
     if (hookEvent.type === "charge.succeeded") {
       const chargeObject = hookEvent.data.object;
-      const emailAddress = chargeObject.receipt_email;
+      const emailAddress =
+        chargeObject.receipt_email || chargeObject.billing_details.email;
 
       console.log("💳 Charge succeeded:", chargeObject); // TODO: Remove this logging after a sotce-net email is caught. 24.10.07.16.43
 
@@ -163,7 +164,7 @@ export async function handler(event, context) {
       const productId = invoice.lines.data[0].price.product;
 
       if (productId === sotceNetProductId) {
-        console.log("Product ID is Sotce Net!");
+        console.log("🟢 Product is `sotce-net`.");
         if (invoice.subscription) {
           let newSubscriber;
           const billingReason = invoice.billing_reason;
@@ -177,7 +178,7 @@ export async function handler(event, context) {
 
           if (newSubscriber !== undefined) {
             const emailOptions = {
-              to: hookEvent.data.object.receipt_email,
+              to: emailAddress,
               subject: newSubscriber
                 ? "thank you for subscribing 🧾"
                 : "subscription renewed 🧾",
