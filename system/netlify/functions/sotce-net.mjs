@@ -179,7 +179,7 @@ export const handler = async (event, context) => {
           <meta charset="utf-8" />
           <meta name="description" content="for my best thoughts" />
           <title>sotce.net</title>
-          <link rel="icon" type="image/png" href="${assetPath}/cookie.png" />
+          <link rel="icon" type="image/png" href="${assetPath}cookie.png" />
           <meta
             name="viewport"
             content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
