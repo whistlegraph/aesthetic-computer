@@ -172,17 +172,17 @@ fastify.post("/update", (request, reply) => {
   // log("Path:", process.env.PATH);
 
   // Restart service in production.
-  exec(
-    "cd /home/aesthetic-computer/session-server; pm2 stop all; git pull; npm install; pm2 start all",
-    (err, stdout, stderr) => {
-      if (err) {
-        error(`exec error: ${error}`);
-        return;
-      }
-      log(`stdout: ${stdout}`);
-      error(`stderr: ${stderr}`);
-    },
-  );
+  // exec(
+  //   "cd /home/aesthetic-computer/session-server; pm2 stop all; git pull; npm install; pm2 start all",
+  //   (err, stdout, stderr) => {
+  //     if (err) {
+  //       error(`exec error: ${error}`);
+  //       return;
+  //     }
+  //     log(`stdout: ${stdout}`);
+  //     error(`stderr: ${stderr}`);
+  //   },
+  // );
 
   reply.send({ status: "ok" });
 });
