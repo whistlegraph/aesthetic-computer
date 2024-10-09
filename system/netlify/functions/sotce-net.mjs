@@ -1106,7 +1106,7 @@ export const handler = async (event, context) => {
 
               function genSubscribeButton(type) {
                 if (!type) {
-                  h2.innerHtml = "<span id='email-verified'>Email verified!</span>";
+                  h2.innerHTML = "<span id='email-verified'>Email verified!</span>";
                   h2.classList.remove("loading-dots");
                 }
 
