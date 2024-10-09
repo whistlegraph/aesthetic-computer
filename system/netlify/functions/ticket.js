@@ -1,10 +1,16 @@
 // Ticket, 23.10.26.19.26
-// This file is for supporting stripe pop-up checkout functionality across AC.
+// 🟢 This file is for supporting stripe pop-up checkout functionality across AC.
+// 🟠 And also handles webhook email replies from Stripe.
 
 import Stripe from "stripe";
 import { respond } from "../../backend/http.mjs";
 import { email } from "../../backend/email.mjs";
 import { connect } from "../../backend/database.mjs";
+import {
+  productId as sotceNetProductId,
+  SOTCE_NET_SMTP_PASS,
+  SOTCE_NET_SMTP_USER,
+} from "../../backend/sotce-net-constants.mjs";
 const dev = process.env.CONTEXT === "dev";
 
 // 💲 A utility function to calculate the order amount
@@ -114,9 +120,9 @@ export async function handler(event, context) {
       return respond(400, { error: error.message });
     }
   } else {
-    // ↪️ Receive webhook events...
-    // ✅ charge.succeeded
-    // ✅ payment_intent.succeeded
+    // ↪️ Stripe Webhook Events
+    //   ✅ charge.succeeded
+    //   ✅ payment_intent.succeeded
 
     let prodSecret, devSecret, key;
     // TODO: How to know here if sotce or not?
@@ -143,14 +149,58 @@ export async function handler(event, context) {
     }
 
     if (hookEvent.type === "charge.succeeded") {
-      console.log("😃 Charge succeeeded!");
       const chargeObject = hookEvent.data.object;
       const emailAddress = chargeObject.receipt_email;
 
-      console.log("Charge:", chargeObject); // TODO: Remove this logging after a sotce-net email is caught. 24.10.07.16.43
+      console.log("💳 Charge succeeded:", chargeObject); // TODO: Remove this logging after a sotce-net email is caught. 24.10.07.16.43
 
-      // Only send the email if the payement was for "Botce".
-      if (chargeObject.description === "Botce") {
+      // 🪷 Sotce-Net subscription email receipts.
+      const paymentIntent = await stripe.paymentIntents.retrieve(
+        chargeObject.payment_intent,
+      );
+
+      const invoice = await stripe.invoices.retrieve(paymentIntent.invoice);
+      const productId = invoice.lines.data[0].price.product;
+
+      if (productId === sotceNetProductId) {
+        console.log("Product ID is Sotce Net!");
+        if (invoice.subscription) {
+          let newSubscriber;
+          const billingReason = invoice.billing_reason;
+          if (billingReason === "subscription_create") {
+            console.log("🟢 New `sotce-net` subscription.");
+            newSubscriber = true;
+          } else if (billingReason === "subscription_cycle") {
+            console.log("🟢 Recurring `sotce-net` subscription.");
+            newSubscriber = false;
+          }
+
+          if (newSubcriber !== undefined) {
+            const emailOptions = {
+              to: hookEvent.data.object.receipt_email,
+              subject: newSubscriber
+                ? "thank you for subscribing 🧾"
+                : "subscription renewed 🧾",
+              html: `<p>${newSubscriber ? "now you can set a handle and read pages" : "see you in the pages"}
+              <br>
+              <br>
+              <a href="https://sotce.net">sotce.net</a>
+              <br>
+              (<a href="${chargeObject.receipt_url}">view full receipt</a>)</p>
+              `,
+            };
+
+            emailOptions.auth = {
+              user: SOTCE_NET_SMTP_USER,
+              pass: SOTCE_NET_SMTP_PASS,
+            };
+
+            const emailSent = await email(emailOptions);
+            console.log("📧 Email sent:", emailSent);
+          }
+        }
+      } else if (chargeObject.description === "Botce") {
+        // Only send the email if the payement was for "Botce".
         // Create an expiring link via a "tickets" collection in the db.
         const database = await connect(); // 📕 Database
         const collection = database.db.collection("tickets");
@@ -184,7 +234,7 @@ export async function handler(event, context) {
           each visit lasts 24 hours.
           <br>
           <br>
-          <b><a href="https://sotce.com">sotce</a></b>
+          <b><a href="https://sotce.com">sotce</a></b></p>
         `,
         };
 
